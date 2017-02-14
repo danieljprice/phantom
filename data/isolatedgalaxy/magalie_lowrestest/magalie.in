@@ -1,0 +1,55 @@
+1436155436             !! Random generator seed (ran1)
+n               ! Output particles smooth length?
+10000             !! Number of disc particles (M_d=1)
+1.              ! Mass of disk (reset = 1 for default)
+1.              ! Disc scalelength
+0.2             !! Disc scale height ( = 1/5 length )
+2.43             !! Solar radius
+1.5             !! Toomre Q parameter @ Sun ( was 3/2 -> close to 1)
+.1              ! disc particle smoothing length (set to numerical resolution)
+2             !! z-max (= 10.*scale height)
+10             !! Max disc part radius
+n               ! Gas in disc?
+0               ! Number of disc gas particles
+0.              ! mass of disc gas particles
+0.              ! temperature of gas in disc
+0.              ! scale height of gas in disc z0gas
+0.              ! max z value of gas in disc (= 10 z0gas)
+0.              ! max cylindrical radius of gas in disc
+0.              ! min           
+n               ! include gas self-gravity (in disc)? [y/n]
+y               ! Add bulge?
+0.5             !! Mass of bulge
+0.3             !! Bulge scale length (hernquist 'a')
+y               ! bulge self-gravity?
+1000             !! N part in  bulge
+10             ! max radius for bulge particles
+.01             ! softening length for particles
+n             *! Non-spherical bulge?
+1             *! Value of minor axis ratio ( c/a < 1 )
+1             !! Z-max value for bulge particles
+5               ! Number of Simpson integration steps
+n             *! Include rotation ? (flip z-momentum component)
+0             *! Fraction of stars with aligned momentum (0<f<1)
+y               ! Include a halo?
+y               ! halo self-gravity ?
+20             !! max radius of halo
+10000             !! Halo particle number
+0.01            ! halo particle softening length
+LH             !! Halo type (LH or IS)
+20             !! Halo mass
+10             !! Halo core radius  (need two lengths if IS halo)
+10.              ! Second length : dummy (LH) or truncation radius (IS)
+n             *! Non-spherical halo?
+1             *! aspect ratio (spheroid only)
+n               ! Galactic satellite
+.1              ! Satellite mass
+1.              ! Satellite scale length (LH model only)
+5.,0.,0.        ! xyz position of the satellite in Galaxy frame of reference
+5.              ! maximum satellite size (compare with sat length scale)
+y               ! Include satellite self-gravity ? (yes = live model only)
+0               ! number of satellite particles
+0.1             ! smoothing length for satelllite particles
+a               ! data format for output (a)scii or (b)inary
+nbody           ! formatted as LH, nbody
+m.dat           ! name of dataset (note - truncated at cr character)

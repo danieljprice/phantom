@@ -1,0 +1,22 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://users.monash.edu.au/~dprice/phantom                               !
+!--------------------------------------------------------------------------!
+!+
+!  PROGRAM: [generated automatically]
+!
+!  DESCRIPTION: [Say what this program is for]
+!
+!  REFERENCES: [Add refs here, and add to phantom.bib file]
+!
+!  OWNER: [generated automatically from git blame]
+!
+!  $Id$
+!
+!  USAGE: [generated automatically from print statement with Usage:]
+!
+!  DEPENDENCIES: [generated automatically from use statements]
+!+
+!--------------------------------------------------------------------------

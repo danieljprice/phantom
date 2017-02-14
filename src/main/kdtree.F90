@@ -1,0 +1,1297 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://users.monash.edu.au/~dprice/phantom                               !
+!--------------------------------------------------------------------------!
+!+
+!  MODULE: kdtree
+!
+!  DESCRIPTION: This module implements the k-d tree build
+!    and associated tree walking routines
+!
+!  REFERENCES:
+!    Gafton & Rosswog (2011), MNRAS 418, 770-781
+!    Benz, Bowers, Cameron & Press (1990), ApJ 348, 647-667
+!
+!  OWNER: Daniel Price
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS: None
+!
+!  DEPENDENCIES: boundary, dim, domain, fastmath, io, kernel, part
+!+
+!--------------------------------------------------------------------------
+module kdtree
+ use dim,  only:maxp,ncellsmax
+ use part, only:ll
+ implicit none
+#ifdef TREEVIZ
+ integer, parameter :: ndimtree = 2  ! 2D for visualisation/debugging only
+#else
+ integer, parameter :: ndimtree = 3
+#endif
+ public :: ndimtree
+
+ type kdnode
+  real :: xcen(ndimtree)
+  real :: size
+  real :: hmax
+  integer :: leftchild
+  integer :: rightchild
+  integer :: parent
+#ifdef GRAVITY
+  real :: mass
+  real :: quads(6)
+#endif
+#ifdef TREEVIZ
+  real :: xmin(ndimtree)
+  real :: xmax(ndimtree)
+#endif
+ end type
+
+ type kdbuildstack
+  integer :: node
+  integer :: parent
+  integer :: level
+  integer :: npnode
+  real    :: xmin(ndimtree)
+  real    :: xmax(ndimtree)
+ end type
+!
+!--tree structure
+!
+ type(kdnode) :: node(ncellsmax+1)
+
+ integer, parameter, public :: minpart = 10
+ integer, public :: irootnode
+ character(len=1), parameter, public :: labelax(3) = (/'x','y','z'/)
+ integer, parameter :: maxlevelcrazy = 31
+!
+!--runtime options for this module
+!
+ real, public :: tree_accuracy = 0.5
+ logical, private :: done_init_kdtree = .false.
+ integer, private :: numthreads
+
+ public :: maketree, revtree, getneigh, node, kdnode
+ public :: empty_tree
+ public :: get_distance_from_centre_of_mass
+ public :: compute_fnode, expand_fgrav_in_taylor_series
+
+ integer, parameter, public :: lenfgrav = 20
+
+ integer, public :: maxlevel_indexed, maxlevel
+
+ private
+
+contains
+
+!--------------------------------------------------------------------------------
+!+
+!  Routine to build the tree from scratch
+!
+!  Notes/To do:
+!  -openMP parallelisation of maketree_stack (done - April 2013)
+!  -test centre of mass vs. geometric centre based cell sizes (done - 2013)
+!  -need analysis module that times (and checks) set_linklist and tree walk
+!   for a given dump
+!  -test bottom-up vs. top-down neighbour search
+!  -should we try to store tree structure with particle arrays?
+!  -need to compute centre of mass and moments for each cell on the fly (c.f. revtree?)
+!  -need to implement long-range gravitational interaction (done - May 2013)
+!  -implement revtree routine to update tree w/out rebuilding (done - Sep 2015)
+!+
+!-------------------------------------------------------------------------------
+subroutine maketree(xyzh, vxyzu, np, ndim, ifirstincell, ncells)
+ use io,   only:fatal,iprint,iverbose
+!$ use omp_lib
+ integer,         intent(in)    :: np,ndim
+ real,            intent(inout) :: xyzh(4,maxp)  ! inout because of boundary crossing
+ real,            intent(in)    :: vxyzu(:,:)
+ integer,         intent(out)   :: ifirstincell(ncellsmax+1)
+ integer(kind=8), intent(out)   :: ncells
+ integer :: i,npnode,il,ir,istack,nl,nr,mymum
+ integer :: nnode,minlevel,level
+ real :: xmini(ndim),xmaxi(ndim),xminl(ndim),xmaxl(ndim),xminr(ndim),xmaxr(ndim)
+ integer, parameter :: istacksize = 200
+ type(kdbuildstack), save :: stack(istacksize)
+ integer, save :: list(maxp)
+!$omp threadprivate(stack,list)
+ type(kdbuildstack) :: queue(istacksize)
+!$ integer :: threadid
+ integer :: npcounter
+ logical :: wassplit,finished
+#ifdef MPI
+ character(len=10) :: string
+#endif
+
+ irootnode = 1
+ ifirstincell = 0
+! call empty_tree()
+
+ ll = 0
+ ir = 0
+ il = 0
+ nl = 0
+ nr = 0
+ wassplit = .false.
+ finished = .false.
+
+ ! construct root node, i.e. find bounds of all particles
+ call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
+
+ if (ifirstincell(irootnode)==0) then
+    call fatal('maketree','no particles or all particles dead/accreted')
+ endif
+
+! Put root node on top of stack
+ ncells = 1
+ maxlevel = 0
+ minlevel = 31
+ istack = 1
+
+ ! maximum level where 2^k indexing can be used (thus avoiding critical sections)
+ ! deeper than this we access cells via a stack as usual
+ maxlevel_indexed = int(log(real(ncellsmax+1))/log(2.)) - 1
+
+ ! default number of cells is the size of the `indexed' part of the tree
+ ! this can be *increased* by building tree beyond indexed levels
+ ! and is decreased afterwards according to the maximum depth actually reached
+ ncells = 2**(maxlevel_indexed+1) - 1
+
+ ! need to number of particles in node during build to allocate space for local link list
+ ! this is counted above to remove dead/accreted particles
+ call push_onto_stack(queue(istack),irootnode,0,0,npcounter,xmini,xmaxi,ndim)
+
+ if (.not.done_init_kdtree) then
+    ! 1 thread for serial, overwritten when using OpenMP
+    numthreads = 1
+
+    ! get number of OpenMPthreads
+   !$omp parallel default(none) shared(numthreads)
+   !$ numthreads = omp_get_num_threads()
+   !$omp end parallel
+   done_init_kdtree = .true.
+ endif
+
+ ! build using a queue to build level by level until number of nodes = number of threads
+ over_queue: do while (istack  <  numthreads)
+   ! if the tree finished while building the queue, then we should just return
+   ! only happens for small particle numbers
+   if (istack <= 0) then
+      finished = .true.
+      exit over_queue
+   endif
+   ! pop off front of queue
+   call pop_off_stack(queue(1), istack, nnode, mymum, level, npnode, xmini, xmaxi, ndim)
+
+   ! shuffle queue forward
+   do i=1,istack
+      queue(i) = queue(i+1)
+   enddo
+
+   ! construct node
+   call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
+            il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
+            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, vxyzu, wassplit, list)
+
+   if (wassplit) then ! add children to back of queue
+      if (istack+2 > istacksize) call fatal('maketree',&
+                                       'queue size exceeded in tree build, increase istacksize and recompile')
+
+      istack = istack + 1
+      call push_onto_stack(queue(istack),il,nnode,level+1,nl,xminl,xmaxl,ndim)
+      istack = istack + 1
+      call push_onto_stack(queue(istack),ir,nnode,level+1,nr,xminr,xmaxr,ndim)
+   endif
+ enddo over_queue
+
+ done: if (.not.finished) then
+
+ ! build using a stack which builds depth first
+ ! each thread grabs a node from the queue and builds its own subtree
+
+!$omp parallel default(none) &
+!$omp shared(queue) &
+!$omp shared(ll, ifirstincell) &
+!$omp shared(xyzh, vxyzu) &
+!$omp shared(np, ndim) &
+!$omp shared(node, ncells) &
+!$omp shared(numthreads) &
+!$omp private(istack) &
+!$omp private(nnode, mymum, level, npnode, xmini, xmaxi) &
+!$omp private(ir, il, nl, nr) &
+!$omp private(xminr, xmaxr, xminl, xmaxl) &
+!$omp private(threadid) &
+!$omp private(wassplit) &
+!$omp reduction(min:minlevel) &
+!$omp reduction(max:maxlevel)
+!$omp do schedule(static)
+ do i = 1, numthreads
+
+   stack(1) = queue(i)
+   istack = 1
+
+   over_stack: do while(istack > 0)
+
+    ! pop node off top of stack
+    call pop_off_stack(stack(istack), istack, nnode, mymum, level, npnode, xmini, xmaxi, ndim)
+
+    ! construct node
+    call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .false., & ! do not construct in parallel (we're already parallel)
+            il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
+            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, vxyzu, wassplit, list)
+
+    if (wassplit) then ! add children to top of stack
+      if (istack+2 > istacksize) call fatal('maketree',&
+                                       'stack size exceeded in tree build, increase istacksize and recompile')
+
+      istack = istack + 1
+      call push_onto_stack(stack(istack),il,nnode,level+1,nl,xminl,xmaxl,ndim)
+      istack = istack + 1
+      call push_onto_stack(stack(istack),ir,nnode,level+1,nr,xminr,xmaxr,ndim)
+
+    endif
+
+  enddo over_stack
+ enddo
+!$omp enddo
+!$omp end parallel
+
+ endif done
+
+ ! decrease number of cells if tree is entirely within 2^k indexing limit
+ if (maxlevel < maxlevel_indexed) then
+    ncells = 2**(maxlevel+1) - 1
+ endif
+#ifdef MPI
+ if (maxlevel > maxlevel_indexed) then
+    write(string,"(i10)") 2**(maxlevel-maxlevel_indexed)
+    call fatal('maketree','maxlevel > maxlevel_indexed with mpi: recompile with '// &
+               'NCELLSMAX='//trim(adjustl(string))//'*maxp,',ival=maxlevel_indexed)
+ endif
+#endif
+
+ if (iverbose >= 2) then
+    write(iprint,"(a,i10,3(a,i2))") ' maketree: nodes = ',ncells,', max level = ',maxlevel,&
+       ', min leaf level = ',minlevel,' max level indexed = ',maxlevel_indexed
+ endif
+
+end subroutine maketree
+
+!----------------------------
+!+
+! routine to empty the tree
+!+
+!----------------------------
+subroutine empty_tree()
+! type(kdnode), intent(out) :: tnode(:)
+ integer :: i
+
+!$omp parallel do private(i)
+ do i=1,size(node)
+    node(i)%xcen = 0.
+    node(i)%size = 0.
+    node(i)%hmax = 0.
+    node(i)%leftchild = 0
+    node(i)%rightchild = 0
+    node(i)%parent = 0
+#ifdef GRAVITY
+    node(i)%mass  = 0.
+    node(i)%quads = 0.
+#endif
+ enddo
+!$omp end parallel do
+
+end subroutine empty_tree
+
+!---------------------------------
+!+
+! routine to construct root node
+!+
+!---------------------------------
+subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
+#ifdef PERIODIC
+ use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax,cross_boundary
+ use domain,   only:isperiodic
+#endif
+#ifdef IND_TIMESTEPS
+ use part, only:iphase,iactive
+#endif
+ use part, only:isdead_or_accreted
+ integer,         intent(in)  :: np,irootnode,ndim
+ integer,         intent(out) :: nproot
+ real,            intent(out) :: xmini(ndim), xmaxi(ndim)
+ integer,         intent(inout) :: ifirstincell(ncellsmax+1)
+ real,            intent(inout) :: xyzh(4,maxp)
+ integer :: i,ncross
+#ifndef PERIODIC
+ real    :: xminpart,yminpart,zminpart,xmaxpart,ymaxpart,zmaxpart
+ real    :: xi, yi, zi
+
+ xminpart = xyzh(1,1)
+ yminpart = xyzh(2,1)
+ zminpart = xyzh(3,1)
+ xmaxpart = xminpart
+ ymaxpart = yminpart
+ zmaxpart = zminpart
+#endif
+
+ ncross = 0
+ nproot = 0
+ do i=1,np
+    isnotdead: if (.not.isdead_or_accreted(xyzh(4,i))) then
+       nproot = nproot + 1
+       ll(i)  = ifirstincell(irootnode)
+#ifdef IND_TIMESTEPS
+       if (iactive(iphase(i))) then
+          ifirstincell(irootnode) = i  ! +ve if active
+       else
+          ifirstincell(irootnode) = -i ! -ve if inactive
+       endif
+#else
+       ifirstincell(irootnode) = i
+#endif
+#ifdef PERIODIC
+       call cross_boundary(isperiodic,xyzh(:,i),ncross)
+#else
+       xi = xyzh(1,i)
+       yi = xyzh(2,i)
+       zi = xyzh(3,i)
+       xminpart = min(xminpart,xi)
+       yminpart = min(yminpart,yi)
+       zminpart = min(zminpart,zi)
+       xmaxpart = max(xmaxpart,xi)
+       ymaxpart = max(ymaxpart,yi)
+       zmaxpart = max(zmaxpart,zi)
+#endif
+    endif isnotdead
+ enddo
+
+#ifdef PERIODIC
+ if (ndim==2) then
+    xmini(:) = (/xmin,ymin/)
+    xmaxi(:) = (/xmax,ymax/)
+ else
+    xmini(:) = (/xmin,ymin,zmin/)
+    xmaxi(:) = (/xmax,ymax,zmax/)
+ endif
+#else
+ if (ndim==2) then
+    xmini(:) = (/xminpart,yminpart/)
+    xmaxi(:) = (/xmaxpart,ymaxpart/)
+ else
+    xmini(:) = (/xminpart,yminpart,zminpart/)
+    xmaxi(:) = (/xmaxpart,ymaxpart,zmaxpart/)
+ endif
+#endif
+
+end subroutine construct_root_node
+
+! also used for queue push
+pure subroutine push_onto_stack(stackentry,node,parent,level,npnode,xmin,xmax,ndim)
+ type(kdbuildstack), intent(out) :: stackentry
+ integer,            intent(in)  :: node,parent,level,ndim
+ integer,            intent(in)  :: npnode
+ real,               intent(in)  :: xmin(ndim),xmax(ndim)
+
+ stackentry%node   = node
+ stackentry%parent = parent
+ stackentry%level  = level
+ stackentry%npnode = npnode
+ stackentry%xmin   = xmin
+ stackentry%xmax   = xmax
+
+end subroutine push_onto_stack
+
+! also used for queue pop
+pure subroutine pop_off_stack(stackentry, istack, nnode, mymum, level, npnode, xmini, xmaxi, ndim)
+ type(kdbuildstack), intent(in)    :: stackentry
+ integer,            intent(inout) :: istack
+ integer,            intent(out)   :: nnode, mymum, level, npnode
+ integer,            intent(in)    :: ndim
+ real,               intent(out)   :: xmini(ndim), xmaxi(ndim)
+
+ nnode  = stackentry%node
+ mymum  = stackentry%parent
+ level  = stackentry%level
+ npnode = stackentry%npnode
+ xmini  = stackentry%xmin
+ xmaxi  = stackentry%xmax
+ istack = istack - 1
+
+end subroutine pop_off_stack
+
+!--------------------------------------------------------------------
+!+
+!  create all the properties for a given node such as centre of mass,
+!  size, max smoothing length, etc
+!  will also split the node if necessary, setting wassplit=true
+!  returns the left and right child information if split
+!+
+!--------------------------------------------------------------------
+subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, doparallel,&
+            il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
+            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, vxyzu, wassplit, list)
+ use part, only:massoftype,igas,iphase,iamtype,maxphase,maxp
+ use io,   only:fatal,error
+!!!$ use omputils, only:ipart_omp_lock,nlockgrp
+ type(kdnode),    intent(out)   :: nodeentry
+ integer,         intent(in)    :: nnode, mymum, level
+ integer,         intent(in)    :: ndim
+ real,            intent(in)    :: xmini(ndim), xmaxi(ndim)
+ integer,         intent(in)    :: npnode
+ logical,         intent(in)    :: doparallel
+ integer,         intent(out)   :: il, ir, nl, nr
+ real,            intent(out)   :: xminl(ndim), xmaxl(ndim), xminr(ndim), xmaxr(ndim)
+ integer(kind=8), intent(inout) :: ncells
+ integer,         intent(inout) :: ifirstincell(ncellsmax+1)
+ integer,         intent(inout) :: maxlevel, minlevel
+ real,            intent(in)    :: xyzh(4,maxp)
+ real,            intent(in)    :: vxyzu(:,:)
+ logical,         intent(out)   :: wassplit
+ integer,         intent(out)   :: list(:) ! not actually sent out, but to avoid repeated memory allocation/deallocation
+ real    :: xyzcofm(ndimtree)
+ logical :: nodeisactive
+ integer :: i,ipart, npcounter
+ real    :: xi,yi,zi,hi,dx,dy,dz,dr2,dnpnode
+ real    :: r2max, hmax
+ real    :: xcofm,ycofm,zcofm,fac,dfac
+ real    :: x0(ndimtree)
+ integer :: iaxis
+ real    :: xpivot
+ logical :: iactivei
+#ifdef GRAVITY
+ real    :: quads(6)
+#endif
+ real    :: totmass_node, pmassi
+
+ npcounter = 0
+ ipart = ifirstincell(nnode)
+ nodeisactive = .false.
+ do while(ipart /= 0)
+    npcounter = npcounter + 1
+    list(npcounter) = ipart
+    if (ipart > 0) nodeisactive = .true.
+    ipart = ll(abs(ipart))
+ enddo
+ if (npcounter /= npnode) then
+    print*,'constructing node ',nnode,': found ',npcounter,' particles, expected:',npnode,' particles for this node'
+    call fatal('maketree', 'expected number of particles in node differed from actual number')
+ endif
+
+ ! following lines to avoid compiler warnings on intent(out) variables
+ wassplit = .false.
+ ir = 0
+ il = 0
+ nl = 0
+ nr = 0
+ if (npnode  <  1) return ! node has no particles, just quit
+
+ x0(:) = 0.5*(xmini(:) + xmaxi(:))  ! geometric centre of the node
+
+ r2max = 0.
+ hmax  = 0.
+ xyzcofm(:) = 0.
+ xcofm = 0.
+ ycofm = 0.
+ zcofm = 0.
+!
+! to avoid round off error from repeated multiplication by pmassi (which is small)
+! we compute the centre of mass with a factor relative to gas particles
+! but only if gas particles are present
+!
+ pmassi = massoftype(igas)
+ fac    = 1.
+ totmass_node = 0.
+ if (pmassi > 0.) then
+    dfac = 1./pmassi
+ else
+    dfac = 1.
+ endif
+
+ ! during initial queue build which is serial, we can parallelise this loop
+ if (npnode > 1000 .and. doparallel) then
+ !$omp parallel do schedule(static) default(none) &
+ !$omp shared(npnode,list,xyzh,x0,vxyzu,iphase,massoftype,dfac) &
+ !$omp private(i,ipart,xi,yi,zi,hi,dx,dy,dz,dr2) &
+ !$omp firstprivate(pmassi,fac) &
+ !$omp reduction(+:xcofm,ycofm,zcofm,totmass_node) &
+ !$omp reduction(max:r2max) &
+ !$omp reduction(max:hmax)
+ do i=1,npnode
+    ipart = abs(list(i))
+    !--lines below expanded for optimisation
+    xi    = xyzh(1,ipart)
+    yi    = xyzh(2,ipart)
+    zi    = xyzh(3,ipart)
+    hi    = xyzh(4,ipart)
+    dx    = xi - x0(1)
+    dy    = yi - x0(2)
+#ifdef TREEVIZ
+    dz    = 0.
+#else
+    dz    = zi - x0(3)
+#endif
+    dr2   = dx*dx + dy*dy + dz*dz
+    r2max = max(r2max,dr2)
+    hmax  = max(hmax,hi)
+    if (maxphase==maxp) then
+       pmassi = massoftype(iamtype(iphase(ipart)))
+       fac    = pmassi*dfac ! to avoid round-off error
+    endif
+    totmass_node = totmass_node + pmassi
+    xcofm = xcofm + fac*xi
+    ycofm = ycofm + fac*yi
+    zcofm = zcofm + fac*zi
+ enddo
+ !$omp end parallel do
+ else
+ do i=1,npnode
+    ipart = abs(list(i))
+    !--lines below expanded for optimisation
+    xi    = xyzh(1,ipart)
+    yi    = xyzh(2,ipart)
+    zi    = xyzh(3,ipart)
+    hi    = xyzh(4,ipart)
+    dx    = xi - x0(1)
+    dy    = yi - x0(2)
+#ifdef TREEVIZ
+    dz    = 0.
+#else
+    dz    = zi - x0(3)
+#endif
+    dr2   = dx*dx + dy*dy + dz*dz
+    r2max = max(r2max,dr2)
+    hmax  = max(hmax,hi)
+    if (maxphase==maxp) then
+       pmassi = massoftype(iamtype(iphase(ipart)))
+       fac    = pmassi*dfac ! to avoid round-off error
+    endif
+    totmass_node = totmass_node + pmassi
+    xcofm = xcofm + fac*xi
+    ycofm = ycofm + fac*yi
+    zcofm = zcofm + fac*zi
+ enddo
+ endif
+ dnpnode = 1./real(npnode)
+ if (ndim==2) then
+    xyzcofm(1:2) = (/xcofm,ycofm/)
+ else
+    xyzcofm = (/xcofm,ycofm,zcofm/)
+ endif
+ if (totmass_node<=0.) call fatal('mtree','totmass_node==0',val=totmass_node)
+ xyzcofm(:)   = xyzcofm(:)/(totmass_node*dfac)
+
+#ifdef GRAVITY
+ !--for gravity, we need the centre of the node to be the centre of mass
+! print*,npnode,' shifting from ',x0(:), ' to ',xyzcofm(:)
+! print*,' size was ',sqrt(r2max)
+ x0(:) = xyzcofm(:)
+ r2max = 0.
+ quads(:) = 0.
+ !--recompute size of node
+ do i=1,npnode
+    ipart = abs(list(i))
+    !--lines below expanded for optimisation
+    xi    = xyzh(1,ipart)
+    yi    = xyzh(2,ipart)
+    zi    = xyzh(3,ipart)
+    hi    = xyzh(4,ipart)
+    dx    = xi - x0(1)
+    dy    = yi - x0(2)
+#ifdef TREEVIZ
+    dz    = 0.
+#else
+    dz    = zi - x0(3)
+#endif
+    dr2   = dx*dx + dy*dy + dz*dz
+    r2max = max(r2max,dr2)
+    if (maxphase==maxp) then
+       pmassi = massoftype(iamtype(iphase(ipart)))
+    endif
+    quads(1) = quads(1) + pmassi*(3.*dx*dx - dr2)
+    quads(2) = quads(2) + pmassi*(3.*dx*dy)
+    quads(3) = quads(3) + pmassi*(3.*dx*dz)
+    quads(4) = quads(4) + pmassi*(3.*dy*dy - dr2)
+    quads(5) = quads(5) + pmassi*(3.*dy*dz)
+    quads(6) = quads(6) + pmassi*(3.*dz*dz - dr2)
+ enddo
+! print*,' size is ',sqrt(r2max)
+#endif
+
+ ! assign properties to node
+ nodeentry%xcen    = x0
+ nodeentry%size    = sqrt(r2max) + epsilon(r2max)
+ nodeentry%hmax    = hmax
+ nodeentry%parent  = mymum
+#ifdef GRAVITY
+ nodeentry%mass    = totmass_node
+ nodeentry%quads   = quads
+#endif
+#ifdef TREEVIZ
+ nodeentry%xmin(:) = xmini(:)
+ nodeentry%xmax(:) = xmaxi(:)
+#endif
+
+ wassplit = .false.
+ if (npnode <= minpart) then  ! fill link list of particles and return
+    node(nnode)%leftchild  = 0
+    node(nnode)%rightchild = 0
+    maxlevel = max(level,maxlevel)
+    minlevel = min(level,minlevel)
+    !--filling link list here is unnecessary (already filled)
+    !  except with individual timesteps where we mark leaf node as active/inactive
+#ifdef IND_TIMESTEPS
+    !
+    !--mark leaf node as active (contains some active particles)
+    !  or inactive by setting the firstincell to +ve (active) or -ve (inactive)
+    !
+    if (nodeisactive) then
+       ifirstincell(nnode) = abs(list(1))
+    else
+       ifirstincell(nnode) = -abs(list(1))
+    endif
+    !--fill link list for this node
+    do i=1,npnode-1
+       ll(abs(list(i))) = list(i+1)
+    enddo
+    ll(abs(list(npnode))) = 0 ! not strictly necessary
+#endif
+ else ! split this node and add children to stack
+    wassplit = .true.
+    iaxis  = maxloc(xmaxi - xmini,1) ! split along longest axis
+    xpivot = xyzcofm(iaxis)          ! split on centre of mass
+    xminl  = xmini
+    xminr  = xmini
+    xmaxl  = xmaxi
+    xmaxr  = xmaxi
+    xmaxl(iaxis) = xpivot
+    xminr(iaxis) = xpivot
+
+    ! create two children nodes and point to them from current node
+    if (level < maxlevel_indexed) then
+       il = 2*nnode   ! indexing as per Gafton & Rosswog (2011)
+       ir = il + 1
+    else
+       ! need locks when changing ncells to get node labels correct
+       !$omp critical(addncells)
+       if (ncells+2 > ncellsmax) call fatal('maketree',&
+          'number of nodes exceeds array dimensions, increase ncellsmax and recompile',ival=int(ncellsmax))
+
+       ncells = ncells + 1
+       il = int(ncells)
+       ncells = ncells + 1
+       ir = int(ncells)
+       !$omp end critical(addncells)
+       !$omp flush(ncells)
+    endif
+    nodeentry%leftchild  = il
+    nodeentry%rightchild = ir
+
+    ! delete the link list of the parent node
+    ifirstincell(nnode) = 0
+
+    ! fill the link list structures of children nodes
+    ifirstincell(il) = 0
+    ifirstincell(ir) = 0
+    nl = 0
+    nr = 0
+    do i=1,npnode
+       ipart = list(i)
+       iactivei = (ipart > 0)
+       xi = xyzh(iaxis,abs(ipart))
+       if (xi  <=  xpivot) then
+          ll(abs(ipart)) = ifirstincell(il)
+          ifirstincell(il) = ipart
+          nl = nl + 1
+       else
+          ll(abs(ipart)) = ifirstincell(ir)
+          ifirstincell(ir) = ipart
+          nr = nr + 1
+       endif
+    enddo
+    if (nr + nl  /=  npnode) then
+       call error('maketree','number of left + right != parent number of particles while splitting node')
+    endif
+
+    ! if one child contains all the particles, then abort split to avoid empty leaf node
+    if (nl==npnode .or. nr==npnode) then
+       wassplit = .false.
+
+       ! this wastes 2 cells, but annoying and slow to decrement ncells with openMP
+       ifirstincell(il) = 0
+       ifirstincell(ir) = 0
+
+       nodeentry%leftchild  = 0
+       nodeentry%rightchild = 0
+       maxlevel = max(level,maxlevel)
+       minlevel = min(level,minlevel)
+       ! node is leaf node
+       ! -> restore the link list of the original node
+       if (nodeisactive) then
+          ifirstincell(nnode) = abs(list(1))
+       else
+          ifirstincell(nnode) = -abs(list(1))
+       endif
+       ! refill link list for this node
+       do i=1,npnode-1
+          ll(abs(list(i))) = list(i+1)
+       enddo
+       ll(abs(list(npnode))) = 0 ! not strictly necessary
+    endif
+  endif
+
+end subroutine construct_node
+
+!----------------------------------------------------------------
+!+
+!  Routine to walk tree for neighbour search
+!  (all particles within a given h_i and optionally within h_j)
+!+
+!----------------------------------------------------------------
+subroutine getneigh(xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,ifirstincell,ll,get_hj,fnode)
+ use dim,      only:maxneigh
+#ifdef PERIODIC
+ use boundary, only:dxbound,dybound,dzbound
+#endif
+ use io,       only:iprint,fatal
+ use part,     only:maxgrav,gravity
+#ifdef FINVSQRT
+ use fastmath, only:finvsqrt
+#endif
+ use kernel,   only:radkern
+ integer, intent(in)  :: ndim,ixyzcachesize
+ real,    intent(in)  :: xpos(ndim)
+ real,    intent(in)  :: xsizei,rcuti
+ integer, intent(out) :: listneigh(maxneigh)
+ integer, intent(out) :: nneigh
+ real,    intent(in)  :: xyzh(4,maxp)
+ real,    intent(out) :: xyzcache(:,:)
+ integer, intent(in)  :: ifirstincell(ncellsmax+1)
+ integer, intent(in)  :: ll(maxp)
+ logical, intent(in)  :: get_hj
+ real,    intent(out), optional :: fnode(lenfgrav)
+ integer, parameter :: istacksize = 300
+ integer :: maxcache
+ integer :: nstack(istacksize)
+ integer :: ipart,n,istack,il,ir
+ real :: dx,dy,dz,xsizej,rcutj
+ real :: rcut,rcut2,r2
+ real :: xoffset,yoffset,zoffset,tree_acc2
+ logical :: open_tree_node
+#ifdef GRAVITY
+ real :: quads(6)
+ real :: dr,totmass_node
+#endif
+#ifdef PERIODIC
+ real :: hdlx,hdly,hdlz
+
+ hdlx = 0.5*dxbound
+ hdly = 0.5*dybound
+ hdlz = 0.5*dzbound
+#endif
+ tree_acc2 = tree_accuracy*tree_accuracy
+ if (present(fnode)) fnode(:) = 0.
+ rcut     = rcuti
+
+ if (ixyzcachesize > 0) then
+    maxcache = size(xyzcache(:,1))
+ else
+    maxcache = 0
+ endif
+
+ nneigh = 0
+ istack = 1
+ nstack(istack) = irootnode
+ open_tree_node = .false.
+
+ over_stack: do while(istack /= 0)
+    n = nstack(istack)
+    istack = istack - 1
+    dx = xpos(1) - node(n)%xcen(1)      ! distance between node centres
+    dy = xpos(2) - node(n)%xcen(2)
+#ifndef TREEVIZ
+    dz = xpos(3) - node(n)%xcen(3)
+#endif
+    xsizej       = node(n)%size
+#ifdef GRAVITY
+    totmass_node = node(n)%mass
+    quads        = node(n)%quads
+#endif
+    il      = node(n)%leftchild
+    ir      = node(n)%rightchild
+    xoffset = 0.
+    yoffset = 0.
+    zoffset = 0.
+#ifdef PERIODIC
+    if (abs(dx) > hdlx) then            ! mod distances across boundary if periodic BCs
+       xoffset = dxbound*SIGN(1.0,dx)
+       dx = dx - xoffset
+    endif
+    if (abs(dy) > hdly) then
+       yoffset = dybound*SIGN(1.0,dy)
+       dy = dy - yoffset
+    endif
+    if (abs(dz) > hdlz) then
+       zoffset = dzbound*SIGN(1.0,dz)
+       dz = dz - zoffset
+    endif
+#endif
+    r2    = dx*dx + dy*dy + dz*dz
+    if (get_hj) then  ! find neighbours within both hi and hj
+       rcutj = radkern*node(n)%hmax
+       rcut  = max(rcuti,rcutj)
+    endif
+    rcut2 = (xsizei + xsizej + rcut)**2   ! node size + search radius
+#ifdef GRAVITY
+    !open_tree_node = .true.
+    open_tree_node = tree_acc2*r2 < xsizej*xsizej    ! tree opening criterion for self-gravity
+#endif
+    if ((r2 < rcut2) .or. open_tree_node) then
+       ipart = ifirstincell(n)
+       if (ipart /= 0) then    ! once we hit a leaf node, retrieve contents into trial neighbour cache
+          over_parts: do while(ipart /= 0)
+             nneigh = nneigh + 1
+             if (nneigh > maxneigh) then
+                write(iprint,*) 'getneigh: neighbour list overflow ',nneigh,size(listneigh)
+                call fatal('getneigh','list overflow: rerun with maxneigh set larger',nneigh)
+             else
+                ipart = abs(ipart)
+                if (nneigh <= ixyzcachesize) then
+                   xyzcache(1,nneigh) = xyzh(1,ipart) + xoffset
+                   xyzcache(2,nneigh) = xyzh(2,ipart) + yoffset
+                   xyzcache(3,nneigh) = xyzh(3,ipart) + zoffset
+                   if (maxcache >= 4) then
+                      xyzcache(4,nneigh) = 1./xyzh(4,ipart)
+                   endif
+                endif
+                listneigh(nneigh) = ipart
+                ipart = ll(ipart)
+             endif
+          enddo over_parts
+       else
+          if (istack+2 > istacksize) call fatal('getneigh','stack overflow in getneigh')
+          if (il /= 0) then
+             istack = istack + 1
+             nstack(istack) = il
+          endif
+          if (ir /= 0) then
+             istack = istack + 1
+             nstack(istack) = ir
+          endif
+       endif
+#ifdef GRAVITY
+    elseif (present(fnode)) then
+
+!
+!--long range force on node due to distant node, along node centres
+!  along with derivatives in order to perform series expansion
+!
+#ifdef FINVSQRT
+       dr = finvsqrt(r2)
+#else
+       dr = 1./sqrt(r2)
+#endif
+       call compute_fnode(dx,dy,dz,dr,totmass_node,quads,fnode)
+       !print*,' node ',n,': compute long-distance force, distance =  ',sqrt(r2),' size = ',xsizej,' angle = ',xsizej*xsizej/r2
+#endif
+    endif
+ enddo over_stack
+
+end subroutine getneigh
+
+!-----------------------------------------------------------
+!+
+!  Compute the gravitational force between the node centres
+!  along with the derivatives and second derivatives
+!  required for the Taylor series expansions.
+!+
+!-----------------------------------------------------------
+pure subroutine compute_fnode(dx,dy,dz,dr,totmass,quads,fnode)
+ real, intent(in)    :: dx,dy,dz,dr,totmass
+ real, intent(in)    :: quads(6)
+ real, intent(inout) :: fnode(lenfgrav)
+ real :: dr3,dr4,dr5,dr6,dr3m,rx,ry,rz,qxx,qxy,qxz,qyy,qyz,qzz
+ real :: dr4m3,rijQij,riQix,riQiy,riQiz,fqx,fqy,fqz
+ real :: dfxdxq,dfxdyq,dfxdzq,dfydyq,dfydzq,dfzdzq
+ real :: d2fxxxq,d2fxxyq,d2fxxzq,d2fxyyq,d2fxyzq
+ real :: d2fxzzq,d2fyyyq,d2fyyzq,d2fyzzq,d2fzzzq
+
+ dr3  = dr*dr*dr
+ dr4  = dr*dr3
+ dr5  = dr*dr4
+ dr6  = dr*dr5
+ dr3m  = totmass*dr3
+ dr4m3 = 3.*totmass*dr4
+ rx  = dx*dr
+ ry  = dy*dr
+ rz  = dz*dr
+ qxx = quads(1)
+ qxy = quads(2)
+ qxz = quads(3)
+ qyy = quads(4)
+ qyz = quads(5)
+ qzz = quads(6)
+ rijQij = (rx*rx*qxx + ry*ry*qyy + rz*rz*qzz + &
+        2.*(rx*ry*qxy + rx*rz*qxz + ry*rz*qyz))
+ riQix = (rx*qxx + ry*qxy + rz*qxz)
+ riQiy = (rx*qxy + ry*qyy + rz*qyz)
+ riQiz = (rx*qxz + ry*qyz + rz*qzz)
+ fqx = dr4*(riQix - 2.5*rx*rijQij)
+ fqy = dr4*(riQiy - 2.5*ry*rijQij)
+ fqz = dr4*(riQiz - 2.5*rz*rijQij)
+ dfxdxq = dr5*(qxx - 10.*rx*riQix - 2.5*rijQij   + 17.5*rx*rx*rijQij)
+ dfxdyq = dr5*(qxy -  5.*ry*riQix - 5.0*rx*riQiy + 17.5*rx*ry*rijQij)
+ dfxdzq = dr5*(qxz -  5.*rx*riQiz - 5.0*rz*riQix + 17.5*rx*rz*rijQij)
+ dfydyq = dr5*(qyy - 10.*ry*riQiy - 2.5*rijQij   + 17.5*ry*ry*rijQij)
+ dfydzq = dr5*(qyz -  5.*ry*riQiz - 5.0*rz*riQiy + 17.5*ry*rz*rijQij)
+ dfzdzq = dr5*(qzz - 10.*rz*riQiz - 2.5*rijQij   + 17.5*rz*rz*rijQij)
+ d2fxxxq = dr6*(-15.*qxx*rx + 105.*rx*rx*riQix - 15.*riQix - 157.5*rx*rx*rx*rijQij + 52.5*rx*rijQij)
+ d2fxxyq = dr6*(35.*rx*rx*riQiy - 10.*qxy*rx - 5.*qxx*ry - 5.*riQiy &
+              + 70.*rx*ry*riQix - 157.5*rx*rx*ry*rijQij + 17.5*ry*rijQij)
+ d2fxxzq = dr6*(35.*rx*rx*riQiz - 10.*qxz*rx - 5.*qxx*rz - 5.*riQiz &
+              + 70.*rx*rz*riQix - 157.5*rx*rx*rz*rijQij + 17.5*rz*rijQij)
+ d2fxyyq = dr6*(35.*ry*ry*riQix - 10.*qxy*ry - 5.*qyy*rx - 5.*riQix &
+              + 70.*rx*ry*riQiy - 157.5*rx*ry*ry*rijQij + 17.5*rx*rijQij)
+ d2fxyzq = dr6*(35.*rx*ry*riQiz - 5.*qyz*rx - 5.*qxz*ry - 5.*qxy*rz &
+              + 35.*ry*rz*riQix + 35.*rx*rz*riQiy - 157.5*rx*ry*rz*rijQij)
+ d2fxzzq = dr6*(35.*rz*rz*riQix - 10.*qxz*rz - 5.*qzz*rx - 5.*riQix &
+              + 70.*rx*rz*riQiz - 157.5*rx*rz*rz*rijQij + 17.5*rx*rijQij)
+ d2fyyyq = dr6*(-15.*qyy*ry + 105.*ry*ry*riQiy - 15.*riQiy - 157.5*ry*ry*ry*rijQij + 52.5*ry*rijQij)
+ d2fyyzq = dr6*(35.*ry*ry*riQiz - 10.*qyz*ry - 5.*qyy*rz - 5.*riQiz &
+              + 70.*ry*rz*riQiy - 157.5*ry*ry*rz*rijQij + 17.5*rz*rijQij)
+ d2fyzzq = dr6*(35.*rz*rz*riQiy - 10.*qyz*rz - 5.*qzz*ry - 5.*riQiy &
+              + 70.*ry*rz*riQiz - 157.5*ry*rz*rz*rijQij + 17.5*ry*rijQij)
+ d2fzzzq = dr6*(-15.*qzz*rz + 105.*rz*rz*riQiz - 15.*riQiz - 157.5*rz*rz*rz*rijQij + 52.5*rz*rijQij)
+
+ fnode(1) = fnode(1) - dx*dr3m + fqx ! fx
+ fnode(2) = fnode(2) - dy*dr3m + fqy ! fy
+ fnode(3) = fnode(3) - dz*dr3m + fqz ! fz
+ fnode(4) = fnode(4) + dr3m*(3.*rx*rx - 1.) + dfxdxq ! dfx/dx
+ fnode(5) = fnode(5) + dr3m*(3.*rx*ry)      + dfxdyq ! dfx/dy, same as dfy/dx
+ fnode(6) = fnode(6) + dr3m*(3.*rx*rz)      + dfxdzq ! dfx/dz, same as dfz/dx
+ fnode(7) = fnode(7) + dr3m*(3.*ry*ry - 1.) + dfydyq ! dfy/dy
+ fnode(8) = fnode(8) + dr3m*(3.*ry*rz)      + dfydzq ! dfy/dz, same as dfz/dy
+ fnode(9) = fnode(9) + dr3m*(3.*rz*rz - 1.) + dfzdzq ! dfz/dz
+ fnode(10) = fnode(10) - dr4m3*(5.*rx*rx*rx - 3.*rx) + d2fxxxq ! d2fxdxdx
+ fnode(11) = fnode(11) - dr4m3*(5.*rx*rx*ry - ry)    + d2fxxyq ! d2fxdxdy
+ fnode(12) = fnode(12) - dr4m3*(5.*rx*rx*rz - rz)    + d2fxxzq ! d2fxdxdz
+ fnode(13) = fnode(13) - dr4m3*(5.*rx*ry*ry - rx)    + d2fxyyq ! d2fxdydy
+ fnode(14) = fnode(14) - dr4m3*(5.*rx*ry*rz)         + d2fxyzq ! d2fxdydz
+ fnode(15) = fnode(15) - dr4m3*(5.*rx*rz*rz - rx)    + d2fxzzq ! d2fxdzdz
+ fnode(16) = fnode(16) - dr4m3*(5.*ry*ry*ry - 3.*ry) + d2fyyyq ! d2fydydy
+ fnode(17) = fnode(17) - dr4m3*(5.*ry*ry*rz - rz)    + d2fyyzq ! d2fydydz
+ fnode(18) = fnode(18) - dr4m3*(5.*ry*rz*rz - ry)    + d2fyzzq ! d2fydzdz
+ fnode(19) = fnode(19) - dr4m3*(5.*rz*rz*rz - 3.*rz) + d2fzzzq ! d2fzdzdz
+ fnode(20) = fnode(20) - totmass*dr - 0.5*rijQij*dr3 ! potential
+
+end subroutine compute_fnode
+
+!----------------------------------------------------------------
+!+
+!  Internal subroutine to compute the Taylor-series expansion
+!  of the gravitational force, given the force acting on the
+!  centre of the node and its derivatives
+!
+! INPUT:
+!   fnode: array containing force on node due to distant nodes
+!          and first derivatives of f (i.e. Jacobian matrix)
+!          and second derivatives of f (i.e. Hessian matrix)
+!   dx,dy,dz: offset of the particle from the node centre of mass
+!
+! OUTPUT:
+!   fxi,fyi,fzi : gravitational force at the new position
+!+
+!----------------------------------------------------------------
+pure subroutine expand_fgrav_in_taylor_series(fnode,dx,dy,dz,fxi,fyi,fzi,poti)
+ real, intent(in)  :: fnode(lenfgrav)
+ real, intent(in)  :: dx,dy,dz
+ real, intent(out) :: fxi,fyi,fzi,poti
+ real :: dfxx,dfxy,dfxz,dfyy,dfyz,dfzz
+ real :: d2fxxx,d2fxxy,d2fxxz,d2fxyy,d2fxyz,d2fxzz,d2fyyy,d2fyyz,d2fyzz,d2fzzz
+
+ fxi = fnode(1)
+ fyi = fnode(2)
+ fzi = fnode(3)
+ dfxx = fnode(4)
+ dfxy = fnode(5)
+ dfxz = fnode(6)
+ dfyy = fnode(7)
+ dfyz = fnode(8)
+ dfzz = fnode(9)
+ d2fxxx = fnode(10)
+ d2fxxy = fnode(11)
+ d2fxxz = fnode(12)
+ d2fxyy = fnode(13)
+ d2fxyz = fnode(14)
+ d2fxzz = fnode(15)
+ d2fyyy = fnode(16)
+ d2fyyz = fnode(17)
+ d2fyzz = fnode(18)
+ d2fzzz = fnode(19)
+ poti = fnode(20)
+
+ fxi = fxi + dx*(dfxx + 0.5*(dx*d2fxxx + dy*d2fxxy + dz*d2fxxz)) &
+           + dy*(dfxy + 0.5*(dx*d2fxxy + dy*d2fxyy + dz*d2fxyz)) &
+           + dz*(dfxz + 0.5*(dx*d2fxxz + dy*d2fxyz + dz*d2fxzz))
+ fyi = fyi + dx*(dfxy + 0.5*(dx*d2fxxy + dy*d2fxyy + dz*d2fxyz)) &
+           + dy*(dfyy + 0.5*(dx*d2fxyy + dy*d2fyyy + dz*d2fyyz)) &
+           + dz*(dfyz + 0.5*(dx*d2fxyz + dy*d2fyyz + dz*d2fyzz))
+ fzi = fzi + dx*(dfxz + 0.5*(dx*d2fxxz + dy*d2fxyz + dz*d2fxzz)) &
+           + dy*(dfyz + 0.5*(dx*d2fxyz + dy*d2fyyz + dz*d2fyzz)) &
+           + dz*(dfzz + 0.5*(dx*d2fxzz + dy*d2fyzz + dz*d2fzzz))
+ poti = poti - (dx*fxi + dy*fyi + dz*fzi)
+
+ return
+end subroutine expand_fgrav_in_taylor_series
+
+subroutine get_distance_from_centre_of_mass(inode,xi,yi,zi,dx,dy,dz)
+ integer, intent(in)  :: inode
+ real,    intent(in)  :: xi,yi,zi
+ real,    intent(out) :: dx,dy,dz
+ real :: xnode,ynode,znode
+
+ xnode = node(inode)%xcen(1)
+ ynode = node(inode)%xcen(2)
+ znode = node(inode)%xcen(3)
+
+ dx = xi - xnode
+ dy = yi - ynode
+ dz = zi - znode
+
+end subroutine get_distance_from_centre_of_mass
+
+!-----------------------------------------------
+!+
+!  Routine to update a constructed tree
+!  Note: current version ONLY works if
+!  tree is built to < maxlevel_indexed
+!  That is, it relies on the 2^n style tree
+!  indexing to sweep out each level
+!+
+!-----------------------------------------------
+subroutine revtree(xyzh, ifirstincell, ncells)
+  use dim,  only:maxp
+  use part, only:maxphase,iphase,igas,massoftype,iamtype
+  use io,   only:fatal
+  real,    intent(in)  :: xyzh(4,maxp)
+  integer, intent(in)  :: ifirstincell(ncellsmax+1)
+  integer(kind=8), intent(in) :: ncells
+  real :: hmax, r2max
+  real :: xi, yi, zi, hi
+  real :: dx, dy, dz, dr2
+#ifdef GRAVITY
+  real :: quads(6)
+#endif
+  integer :: icell, i, level, il, ir
+  real :: pmassi, totmass
+  real :: x0(3)
+  type(kdnode) :: nodel,noder
+
+  pmassi = massoftype(igas)
+  do i=1,int(ncells)
+#ifdef GRAVITY
+     ! cannot update centre of node without gravity
+     ! as it is not at the centre of mass
+     node(i)%xcen(:) = 0.
+#endif
+     node(i)%size    = 0.
+     node(i)%hmax    = 0.
+#ifdef GRAVITY
+     node(i)%mass    = 0.
+     node(i)%quads(:)= 0.
+#endif
+  enddo
+
+!$omp parallel default(none) &
+!$omp shared(xyzh, ifirstincell, ncells) &
+!$omp shared(node, ll, iphase, massoftype, maxlevel) &
+!$omp private(hmax, r2max, xi, yi, zi, hi, il, ir, nodel, noder) &
+!$omp private(dx, dy, dz, dr2, icell, i, x0) &
+#ifdef GRAVITY
+!$omp private(quads) &
+#endif
+!$omp firstprivate(pmassi) &
+!$omp private(totmass)
+!$omp do schedule(guided, 2)
+  over_cells: do icell=1,int(ncells)
+
+     i = abs(ifirstincell(icell))
+     if (i==0) cycle over_cells
+
+     ! find centre of mass
+     ! this becomes the new node center
+     x0 = 0.
+     totmass = 0.0
+     calc_cofm: do while (i /= 0)
+        xi = xyzh(1,i)
+        yi = xyzh(2,i)
+        zi = xyzh(3,i)
+        if (maxphase==maxp) then
+           pmassi = massoftype(iamtype(iphase(i)))
+        endif
+        x0(1) = x0(1) + pmassi*xi
+        x0(2) = x0(2) + pmassi*yi
+        x0(3) = x0(3) + pmassi*zi
+        totmass = totmass + pmassi
+
+        i = abs(ll(i))
+     enddo calc_cofm
+
+     x0 = x0/totmass
+#ifdef GRAVITY
+     node(icell)%xcen(1) = x0(1)
+     node(icell)%xcen(2) = x0(2)
+     node(icell)%xcen(3) = x0(3)
+#endif
+
+     i = abs(ifirstincell(icell))
+
+     ! update cell size, hmax
+     r2max = 0.
+     hmax = 0.
+#ifdef GRAVITY
+     quads = 0.
+#endif
+     over_parts: do while (i /= 0)
+        xi = xyzh(1,i)
+        yi = xyzh(2,i)
+        zi = xyzh(3,i)
+        hi = xyzh(4,i)
+        dx = xi - node(icell)%xcen(1)
+        dy = yi - node(icell)%xcen(2)
+        dz = zi - node(icell)%xcen(3)
+        dr2 = dx*dx + dy*dy + dz*dz
+        r2max = max(dr2, r2max)
+        hmax  = max(hi, hmax)
+#ifdef GRAVITY
+        if (maxphase==maxp) then
+           pmassi = massoftype(iamtype(iphase(i)))
+        endif
+        quads(1) = quads(1) + pmassi*(3.*dx*dx - dr2)
+        quads(2) = quads(2) + pmassi*(3.*dx*dy)
+        quads(3) = quads(3) + pmassi*(3.*dx*dz)
+        quads(4) = quads(4) + pmassi*(3.*dy*dy - dr2)
+        quads(5) = quads(5) + pmassi*(3.*dy*dz)
+        quads(6) = quads(6) + pmassi*(3.*dz*dz - dr2)
+#endif
+        ! move to next particle in list
+        i = abs(ll(i))
+     enddo over_parts
+
+     node(icell)%size = sqrt(r2max) + epsilon(r2max)
+     node(icell)%hmax = hmax
+#ifdef GRAVITY
+     node(icell)%mass = totmass
+     node(icell)%quads = quads
+#endif
+  enddo over_cells
+!$omp enddo
+!
+! propagate information to parent nodes
+! here we sweep across each level at a time
+! and update each node from its two children
+!
+ do level=maxlevel-1,0,-1
+!$omp do
+    do i=2**level,2**(level+1)-1
+       ! get child nodes
+       il = node(i)%leftchild
+       ir = node(i)%rightchild
+       if (il > 0 .and. ir > 0) then
+          nodel = node(il)
+          noder = node(ir)
+          call add_child_nodes(nodel,noder,node(i))
+       else
+          if (il > 0 .or. ir > 0) then
+             ! should never happen, should have two children or none
+             call fatal('revtree','node with only one child during tree revision',var='ir',ival=ir)
+          endif
+       endif
+    enddo
+!$omp enddo
+ enddo
+!$omp end parallel
+
+end subroutine revtree
+
+!-----------------------------------------------------------------
+!+
+!  Update parent node from the properties of the two child nodes
+!  IN:
+!    l, r - two child nodes
+!  OUT:
+!    nodei - updated parent node
+!+
+!-----------------------------------------------------------------
+subroutine add_child_nodes(l,r,nodei)
+ type(kdnode), intent(in)  :: l,r
+ type(kdnode), intent(out) :: nodei
+ real :: xl(3),sl,hl
+ real :: xr(3),sr,hr
+#ifdef GRAVITY
+ real :: ql(6),qr(6),mr,ml,mnode,dm
+#endif
+ real :: dx,dy,dz,dr2,dr
+
+ xl = l%xcen
+ hl = l%hmax
+ sl = l%size
+#ifdef GRAVITY
+ ml = l%mass
+ ql = l%quads
+#endif
+
+ xr = r%xcen
+ hr = r%hmax
+ sr = r%size
+#ifdef GRAVITY
+ mr = r%mass
+ qr = r%quads
+ mnode = ml + mr
+ dm    = 1./mnode
+#endif
+ dx = xl(1) - xr(1)
+ dy = xl(2) - xr(2)
+ dz = xl(3) - xr(3)
+ dr2 = dx*dx + dy*dy + dz*dz
+ dr  = sqrt(dr2)
+#ifdef GRAVITY
+ ! centre of mass
+ nodei%xcen = (xl*ml + xr*mr)*dm
+ ! size, formula as in Benz et al. 1990
+ ! and from thinking about it...
+ nodei%size = max(ml*dm*dr+sr,mr*dm*dr+sl)
+#else
+ ! distance between left child and node centre
+ dx = xl(1) - nodei%xcen(1)
+ dy = xl(2) - nodei%xcen(2)
+ dz = xl(3) - nodei%xcen(3)
+ dr = sqrt(dx*dx + dy*dy + dz*dz)
+ nodei%size = dr+sl
+ ! distance between right child and node centre
+ dx = xr(1) - nodei%xcen(1)
+ dy = xr(2) - nodei%xcen(2)
+ dz = xr(3) - nodei%xcen(3)
+ dr = sqrt(dx*dx + dy*dy + dz*dz)
+ nodei%size = max(nodei%size,dr+sr)
+#endif
+ nodei%hmax = max(hl,hr)
+#ifdef GRAVITY
+ nodei%mass = mnode
+ ! quadrupole moments, see Benz et al. (1990), this is also
+ ! the parallel axis theorem
+ nodei%quads(1) = ql(1) + qr(1) + ml*mr*(3.*dx*dx - dr2)*dm
+ nodei%quads(2) = ql(2) + qr(2) + ml*mr*(3.*dx*dy)*dm
+ nodei%quads(3) = ql(3) + qr(3) + ml*mr*(3.*dx*dz)*dm
+ nodei%quads(4) = ql(4) + qr(4) + ml*mr*(3.*dy*dy - dr2)*dm
+ nodei%quads(5) = ql(5) + qr(5) + ml*mr*(3.*dy*dz)*dm
+ nodei%quads(6) = ql(6) + qr(6) + ml*mr*(3.*dz*dz - dr2)*dm
+#endif
+
+end subroutine add_child_nodes
+
+end module kdtree

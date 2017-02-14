@@ -1,0 +1,817 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://users.monash.edu.au/~dprice/phantom                               !
+!--------------------------------------------------------------------------!
+!+
+!  MODULE: testutils
+!
+!  DESCRIPTION:
+!  This routine contains utility functions for use in
+!  the testsuite modules
+!
+!  Requires mpi utility routines to print per-thread results
+!
+!  Also uses isdead routine from part module to identify
+!  dead particles
+!
+!  REFERENCES: None
+!
+!  OWNER: Daniel Price
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS: None
+!
+!  DEPENDENCIES: io, mpiutils, part
+!+
+!--------------------------------------------------------------------------
+module testutils
+ implicit none
+ public :: checkval,checkvalf,checkvalbuf,checkvalbuf_start,checkvalbuf_end
+
+ private
+
+ interface checkval
+  module procedure checkvalconst,checkvalconstr4,checkvalconsti1
+  module procedure checkval1_r4,checkval1_r8,checkval1_int,checkval1_int8,checkval1_logical
+  module procedure checkval_r8arr,checkval_r4arr
+ end interface checkval
+
+ interface checkvalf
+  module procedure checkvalfuncr8,checkvalfuncr4
+ end interface
+
+ interface checkvalbuf
+  module procedure checkvalbuf_int,checkvalbuf_logical,checkvalbuf_real
+ end interface checkvalbuf
+
+ interface checkvalbuf_end
+  module procedure checkvalbuf_end_int,checkvalbuf_end_real
+ end interface checkvalbuf_end
+
+ interface printerr
+  module procedure printerr_real,printerr_int,printerr_logical
+ end interface
+
+ interface printresult
+  module procedure printresult_real,printresult_int
+ end interface
+
+ real, parameter :: smallval = 1.e-6
+
+contains
+
+!----------------------------------------------------------------
+!+
+!  checks a constant
+!+
+!----------------------------------------------------------------
+subroutine checkvalconst(n,x,val,tol,ndiff,label)
+ use mpiutils, only:waitmyturn,endmyturn
+ use io,       only:id,nprocs
+ use part,     only:isdead
+ integer,          intent(in)  :: n
+ real(kind=8),     intent(in)  :: x(:)
+ real,             intent(in)  :: val,tol
+ integer,          intent(out) :: ndiff
+ character(len=*), intent(in)  :: label
+ integer      :: i
+ real         :: erri,errmax
+
+ call waitmyturn(id) ! do each thread consecutively
+ call print_testinfo(trim(label),id,nprocs)
+
+ ndiff = 0
+ errmax = 0.
+ do i=1,n
+    if (.not.isdead(i)) then
+       erri = abs(x(i)-val)
+       if (abs(val) > epsilon(val)) erri = erri/abs(val)
+       errmax = max(errmax,erri)
+
+       if (erri > tol .or. erri /= erri) then
+          ndiff = ndiff + 1
+          if (ndiff==1) write(*,*)
+          if (ndiff < 10) call printerr(label,real(x(i)),val,erri,tol,i)
+       endif
+    endif
+ enddo
+
+ call printresult(n,ndiff,errmax,tol)
+ call endmyturn(id)
+
+ return
+end subroutine checkvalconst
+
+!----------------------------------------------------------------
+!+
+!  checks a constant (real4)
+!+
+!----------------------------------------------------------------
+subroutine checkvalconstr4(n,x,val,tol,ndiff,label)
+ use mpiutils, only:waitmyturn,endmyturn
+ use io,       only:id,nprocs
+ use part,     only:isdead
+ integer,          intent(in)  :: n
+ real(kind=4),     intent(in)  :: x(:)
+ real,             intent(in)  :: val,tol
+ integer,          intent(out) :: ndiff
+ character(len=*), intent(in)  :: label
+ integer :: i
+ real    :: erri,errmax
+
+ call waitmyturn(id) ! do each thread consecutively
+ call print_testinfo(trim(label),id,nprocs)
+
+ ndiff = 0
+ errmax = 0.
+ do i=1,n
+    if (.not.isdead(i)) then
+       erri = abs(x(i)-val)
+       if (abs(val) > epsilon(val)) erri = erri/abs(val)
+       errmax = max(errmax,erri)
+
+       if (erri > tol .or. erri /= erri) then
+          ndiff = ndiff + 1
+          if (ndiff==1) write(*,*)
+          if (ndiff < 10) call printerr(label,real(x(i)),val,erri,tol,i)
+       endif
+    endif
+ enddo
+
+ call printresult(n,ndiff,errmax,tol)
+ call endmyturn(id)
+
+ return
+end subroutine checkvalconstr4
+
+!----------------------------------------------------------------
+!+
+!  checks an integer*1 array against a constant
+!+
+!----------------------------------------------------------------
+subroutine checkvalconsti1(n,ix,ival,itol,ndiff,label)
+ use mpiutils, only:waitmyturn,endmyturn
+ use io,       only:id,nprocs
+ use part,     only:isdead
+ integer,          intent(in)  :: n
+ integer(kind=1),  intent(in)  :: ix(:)
+ integer,          intent(in)  :: ival,itol
+ integer,          intent(out) :: ndiff
+ character(len=*), intent(in)  :: label
+ integer :: i
+ integer :: erri,errmax
+
+ call waitmyturn(id) ! do each thread consecutively
+ call print_testinfo(trim(label),id,nprocs)
+
+ ndiff = 0
+ errmax = 0
+ do i=1,n
+    if (.not.isdead(i)) then
+       erri = abs(ix(i)-ival)
+       errmax = max(errmax,erri)
+
+       if (erri > itol .or. erri /= erri) then
+          ndiff = ndiff + 1
+          if (ndiff==1) write(*,*)
+          if (ndiff < 10) call printerr(label,int(ix(i)),ival,erri,itol)
+       endif
+    endif
+ enddo
+
+ call printresult(n,ndiff,errmax,itol)
+ call endmyturn(id)
+
+ return
+end subroutine checkvalconsti1
+
+!----------------------------------------------------------------
+!+
+!  checks an array of values against a functional form
+!+
+!----------------------------------------------------------------
+subroutine checkvalfuncr8(n,xyzhi,x,func,tol,ndiff,label)
+ use mpiutils, only:waitmyturn,endmyturn
+ use io,       only:id,nprocs
+ use part,     only:isdead
+ integer,          intent(in)  :: n
+ real,             intent(in)  :: xyzhi(:,:)
+ real(kind=8),     intent(in)  :: x(:)
+ real, external                          :: func
+ real,             intent(in)  :: tol
+ integer,          intent(out) :: ndiff
+ character(len=*), intent(in)  :: label
+ integer :: i
+ real(kind=8) :: erri,val,errmax
+
+ call waitmyturn(id) ! do each thread consecutively
+ call print_testinfo(trim(label),id,nprocs)
+
+ ndiff = 0
+ errmax = 0.
+ do i=1,n
+    if (.not.isdead(i)) then
+       val = func(xyzhi(:,i))
+       erri = abs(x(i)-val)
+       if (abs(val) > smallval .and. erri > tol) erri = erri/abs(val)
+!       if (abs(val) > tol) erri = erri/val
+
+       if (erri > tol .or. erri /= erri) then
+          ndiff = ndiff + 1
+          if (ndiff==1) write(*,*)
+          if (ndiff < 10 .or. erri > 2.*errmax) then
+             call printerr(label,real(x(i)),real(val),real(erri),tol,i)
+          endif
+       endif
+       errmax = max(errmax,erri)
+    endif
+ enddo
+
+ call printresult(n,ndiff,real(errmax),real(tol))
+ call endmyturn(id)
+
+ return
+end subroutine checkvalfuncr8
+
+!----------------------------------------------------------------
+!+
+!  as above but for a real*4 array
+!+
+!----------------------------------------------------------------
+subroutine checkvalfuncr4(n,xyzhi,x,func,tol,ndiff,label)
+ use mpiutils, only:waitmyturn,endmyturn
+ use io,       only:id,nprocs
+ use part,     only:isdead
+ integer,          intent(in)  :: n
+ real,             intent(in)  :: xyzhi(:,:)
+ real(kind=4),     intent(in)  :: x(:)
+ real, external                         :: func
+ real,             intent(in)  :: tol
+ integer,          intent(out) :: ndiff
+ character(len=*), intent(in)  :: label
+ integer :: i
+ real    :: erri,val,errmax
+
+ call waitmyturn(id) ! do each thread consecutively
+ call print_testinfo(trim(label),id,nprocs)
+
+ ndiff = 0
+ errmax = 0.
+ do i=1,n
+    if (.not.isdead(i)) then
+       val = func(xyzhi(:,i))
+       erri = abs(x(i)-val)
+       if (abs(val) > smallval .and. erri > tol) erri = erri/abs(val)
+!       if (abs(val) > tol) erri = erri/val
+
+       if (erri > tol .or. erri /= erri) then
+          ndiff = ndiff + 1
+          if (ndiff==1) write(*,*)
+          if (ndiff < 10 .or. erri > 2.*errmax) then
+             call printerr(label,real(x(i)),val,erri,tol,i)
+          endif
+       endif
+       errmax = max(errmax,erri)
+    endif
+ enddo
+
+ call printresult(n,ndiff,real(errmax),real(tol))
+ call endmyturn(id)
+
+ return
+end subroutine checkvalfuncr4
+
+!----------------------------------------------------------------
+!+
+!  checks a single, scalar value
+!+
+!----------------------------------------------------------------
+subroutine checkval1_r4(xi,val,tol,ndiff,label)
+ use io, only:id,nprocs
+ real(kind=4),     intent(in)  :: xi
+ real(kind=4),     intent(in)  :: val,tol
+ character(len=*), intent(in)  :: label
+ integer,          intent(out) :: ndiff
+ real(kind=4) :: erri
+
+ ndiff = 0
+ call print_testinfo(trim(label),id,nprocs)
+
+ erri = abs(xi-val)
+ if (abs(val) > smallval) erri = erri/abs(val)
+
+ if (erri > tol .or. erri /= erri) then
+    write(*,"(4(a,es10.3),a)") 'FAILED [got ',xi,' should be  ',val,', err =',erri,', tol =',tol,']'
+    ndiff = 1
+ else
+    call printresult(0,0,real(erri),real(tol))
+ endif
+
+ return
+end subroutine checkval1_r4
+
+!----------------------------------------------------------------
+!+
+!  checks a single, scalar value
+!+
+!----------------------------------------------------------------
+subroutine checkval1_r8(xi,val,tol,ndiff,label)
+ use io, only:id,nprocs
+ real(kind=8),     intent(in)  :: xi
+ real(kind=8),     intent(in)  :: val,tol
+ character(len=*), intent(in)  :: label
+ integer,          intent(out) :: ndiff
+ real(kind=8) :: erri
+
+ ndiff = 0
+ call print_testinfo(trim(label),id,nprocs)
+
+ erri = abs(xi-val)
+ if (abs(val) > smallval) erri = erri/abs(val)
+
+ if (erri > tol .or. erri /= erri) then
+    write(*,"(4(a,es10.3),a)") 'FAILED [got ',xi,' should be  ',val,', err =',erri,', tol =',tol,']'
+    ndiff = 1
+ else
+    call printresult(0,0,real(erri),real(tol))
+ endif
+
+ return
+end subroutine checkval1_r8
+
+!----------------------------------------------------------------
+!+
+!  checks a single, integer value
+!+
+!----------------------------------------------------------------
+subroutine checkval1_logical(ix,ival,ndiff,label)
+ use io, only:id,nprocs
+ logical,          intent(in)  :: ix
+ logical,          intent(in)  :: ival
+ integer,          intent(out) :: ndiff
+ character(len=*), intent(in)  :: label
+
+ ndiff = 0
+ call print_testinfo(trim(label),id,nprocs)
+
+ if (ix.eqv.ival) then
+    write(*,"(a,l1,a,l1,a)") 'OK     [got ',ix,' should be ',ival,']'
+ else
+    write(*,"(a,l1,a,l1,a)") 'FAILED [got ',ix,' should be ',ival,']'
+    ndiff = 1
+ endif
+
+ return
+end subroutine checkval1_logical
+
+!----------------------------------------------------------------
+!+
+!  checks a single, integer value
+!+
+!----------------------------------------------------------------
+subroutine checkval1_int(ix,ival,itol,ndiff,label)
+ use io, only:id,nprocs
+ integer,          intent(in)  :: ix
+ integer,          intent(in)  :: ival,itol
+ integer,          intent(out) :: ndiff
+ character(len=*), intent(in)  :: label
+ integer :: erri
+
+ ndiff = 0
+ call print_testinfo(trim(label),id,nprocs)
+
+ erri = abs(ix-ival)
+ if (erri > itol) then
+    write(*,"(a,i11,a,i12,a)") 'FAILED [got',ix,' should be',ival,']'
+    ndiff = 1
+ else
+    if (itol==0) then
+       write(*,"(a,i11,a,i12,a)") 'OK     [got',ix,' should be',ival,']'
+    else
+       write(*,"(a,i11,a,i12,a,i5,a)") 'OK     [got',ix,' should be',ival,', tol = ',itol,']'
+    endif
+ endif
+
+ return
+end subroutine checkval1_int
+
+!----------------------------------------------------------------
+!+
+!  checks a single, integer*8 value
+!+
+!----------------------------------------------------------------
+subroutine checkval1_int8(ix,ival,itol,ndiff,label)
+ use io, only:id,nprocs
+ integer(kind=8),  intent(in)  :: ix
+ integer(kind=8),  intent(in)  :: ival
+ integer,          intent(in)  :: itol
+ integer,          intent(out) :: ndiff
+ character(len=*), intent(in)  :: label
+ integer(kind=8) :: erri
+
+ ndiff = 0
+ call print_testinfo(trim(label),id,nprocs)
+
+ erri = abs(ix-ival)
+ if (erri > itol) then
+    write(*,"(a,i11,a,i12,a)") 'FAILED [got',ix,' should be',ival,']'
+    ndiff = 1
+ else
+    if (itol==0) then
+       write(*,"(a,i11,a,i12,a)") 'OK     [is ',ix,' should be',ival,']'
+    else
+       write(*,"(a,i11,a,i12,a,i5,a)") 'OK     [is ',ix,' should be',ival,', tol = ',itol,']'
+    endif
+ endif
+
+ return
+end subroutine checkval1_int8
+
+!----------------------------------------------------------------
+!+
+!  checks an array of values against an array of expected answers
+!+
+!----------------------------------------------------------------
+subroutine checkval_r8arr(n,x,xexact,tol,ndiff,label)
+ use mpiutils, only:waitmyturn,endmyturn
+ use io,       only:id,nprocs
+ use part,     only:isdead
+ integer,          intent(in)  :: n
+ real(kind=8),     intent(in)  :: x(:),xexact(:)
+ real,             intent(in)  :: tol
+ integer,          intent(out) :: ndiff
+ character(len=*), intent(in)  :: label
+ integer :: i,nval
+ real(kind=8) :: erri,val,errmax,valmax,errl2
+
+ call waitmyturn(id) ! do each thread consecutively
+ call print_testinfo(trim(label),id,nprocs)
+
+ ndiff = 0
+ errmax = 0.
+ errl2  = 0.
+ valmax = 0.
+ nval = 0
+ do i=1,n
+    if (.not.isdead(i)) then
+       val = xexact(i)
+       erri = abs(x(i)-val)
+       errl2 = errl2 + erri*erri
+       valmax = max(val,valmax)
+       if (abs(val) > smallval .and. erri > tol) erri = erri/abs(val)
+!       if (abs(val) > tol) erri = erri/val
+
+       if (erri > tol .or. erri /= erri) then
+          ndiff = ndiff + 1
+          if (ndiff==1) write(*,*)
+          if (ndiff < 10 .or. erri > 2.*errmax) then
+             call printerr(label,real(x(i)),real(val),real(erri),tol,i)
+          endif
+       endif
+       nval = nval + 1
+       errmax = max(errmax,erri)
+    endif
+ enddo
+ if (nval > 0 .and. valmax > 0.) errl2 = sqrt(errl2/(real(nval)*valmax*valmax))
+
+ call printresult(n,ndiff,real(errmax),real(tol),real(errl2))
+ call endmyturn(id)
+
+ return
+end subroutine checkval_r8arr
+
+!----------------------------------------------------------------
+!+
+!  checks an array of real*4 values against an array of expected answers
+!+
+!----------------------------------------------------------------
+subroutine checkval_r4arr(n,x,xexact,tol,ndiff,label)
+ use mpiutils, only:waitmyturn,endmyturn
+ use io,       only:id,nprocs
+ use part,     only:isdead
+ integer,          intent(in)  :: n
+ real(kind=4),     intent(in)  :: x(:),xexact(:)
+ real,             intent(in)  :: tol
+ integer,          intent(out) :: ndiff
+ character(len=*), intent(in)  :: label
+ integer :: i
+ real(kind=4) :: erri,val,errmax
+
+ call waitmyturn(id) ! do each thread consecutively
+ call print_testinfo(trim(label),id,nprocs)
+
+ ndiff = 0
+ errmax = 0.
+ do i=1,n
+    if (.not.isdead(i)) then
+       val = xexact(i)
+       erri = abs(x(i)-val)
+       if (abs(val) > smallval .and. erri > tol) erri = erri/abs(val)
+!       if (abs(val) > tol) erri = erri/val
+
+       if (erri > tol .or. erri /= erri) then
+          ndiff = ndiff + 1
+          if (ndiff==1) write(*,*)
+          if (ndiff < 10 .or. erri > 2.*errmax) then
+             call printerr(label,real(x(i)),real(val),real(erri),tol,i)
+          endif
+       endif
+       errmax = max(errmax,erri)
+    endif
+ enddo
+
+ call printresult(n,ndiff,real(errmax),real(tol))
+ call endmyturn(id)
+
+ return
+end subroutine checkval_r4arr
+
+!----------------------------------------------------------------
+!+
+!  start a buffered error check
+!+
+!----------------------------------------------------------------
+subroutine checkvalbuf_start(label)
+ use io, only:id,nprocs
+ character(len=*), intent(in) :: label
+
+ call print_testinfo(trim(label),id,nprocs)
+ write(*,"(a)")
+
+ return
+end subroutine checkvalbuf_start
+
+!----------------------------------------------------------------
+!+
+!  checks a single, integer value
+!  (buffered: reports on errors only and ndiff is a running total)
+!+
+!----------------------------------------------------------------
+subroutine checkvalbuf_int(ix,ival,itol,label,ndiff,ncheck,ierrmax)
+ integer,          intent(in)    :: ix
+ integer,          intent(in)    :: ival,itol
+ character(len=*), intent(in)    :: label
+ integer,          intent(inout) :: ndiff,ncheck
+ integer,          intent(inout), optional :: ierrmax
+ integer :: erri
+
+ erri = abs(ix-ival)
+ ncheck = ncheck + 1
+ if (erri > itol) then
+    ndiff = ndiff + 1
+    if (ndiff < 10 .or. erri > 2*ierrmax) call printerr(label,ix,ival,erri,itol)
+ endif
+ if (present(ierrmax)) ierrmax = max(ierrmax,erri)
+
+ return
+end subroutine checkvalbuf_int
+
+!----------------------------------------------------------------
+!+
+!  checks a single, real value
+!  (buffered: reports on errors only and ndiff is a running total)
+!+
+!----------------------------------------------------------------
+subroutine checkvalbuf_real(xi,val,tol,label,ndiff,ncheck,errmax)
+ real,             intent(in)    :: xi
+ real,             intent(in)    :: val,tol
+ character(len=*), intent(in)    :: label
+ integer,          intent(inout) :: ndiff,ncheck
+ real,             intent(inout) :: errmax
+ real :: erri
+
+ erri = abs(xi-val)
+ if (abs(val) > smallval .and. erri > tol) erri = erri/abs(val)
+
+ ncheck = ncheck + 1
+ if (erri > tol .or. erri /= erri) then
+    ndiff = ndiff + 1
+    if (ndiff < 10 .or. erri > 2.*errmax) call printerr(label,xi,val,erri,tol)
+ endif
+ errmax = max(errmax,erri)
+
+ return
+end subroutine checkvalbuf_real
+
+!----------------------------------------------------------------
+!+
+!  checks a logical value
+!  (buffered: reports on errors only and ndiff is a running total)
+!+
+!----------------------------------------------------------------
+subroutine checkvalbuf_logical(lx,lval,label,ndiff,ncheck)
+ logical,          intent(in)    :: lx,lval
+ character(len=*), intent(in)    :: label
+ integer,          intent(inout) :: ndiff,ncheck
+
+ ncheck = ncheck + 1
+ if (lval.neqv.lx) then
+    ndiff = ndiff + 1
+    if (ndiff < 10) call printerr(label,lx,lval)
+ endif
+
+ return
+end subroutine checkvalbuf_logical
+
+!----------------------------------------------------------------
+!+
+!  end a buffered error check (int)
+!+
+!----------------------------------------------------------------
+subroutine checkvalbuf_end_int(label,n,ndiff,ierrmax,itol,ntot)
+ use mpiutils, only:waitmyturn,endmyturn
+ use io,       only:id,nprocs
+ character(len=*), intent(in) :: label
+ integer,          intent(in) :: n,ndiff,ierrmax,itol
+ integer,          intent(in), optional :: ntot
+
+ call waitmyturn(id) ! do each thread consecutively
+ call print_testinfo(trim(label),id,nprocs)
+ if (present(ntot)) then
+    call printresult(n,ndiff,ierrmax,itol,ntot)
+ else
+    call printresult(n,ndiff,ierrmax,itol)
+ endif
+ call endmyturn(id)
+
+ return
+end subroutine checkvalbuf_end_int
+
+!----------------------------------------------------------------
+!+
+!  end a buffered error check (real)
+!+
+!----------------------------------------------------------------
+subroutine checkvalbuf_end_real(label,n,ndiff,errmax,tol)
+ use mpiutils, only:waitmyturn,endmyturn
+ use io,       only:id,nprocs
+ character(len=*), intent(in) :: label
+ integer,          intent(in) :: n,ndiff
+ real,             intent(in) :: errmax,tol
+
+ call waitmyturn(id) ! do each thread consecutively
+ call print_testinfo(trim(label),id,nprocs)
+ call printresult(n,ndiff,errmax,tol)
+ call endmyturn(id)
+
+ return
+end subroutine checkvalbuf_end_real
+
+!----------------------------------------------------------------
+!+
+!  formatting for printing errors in test results
+!+
+!----------------------------------------------------------------
+subroutine printerr_real(label,x,val,erri,tol,i)
+ character(len=*), intent(in) :: label
+ real,             intent(in) :: x, val, erri, tol
+ integer,          intent(in), optional :: i
+
+ if (present(i)) then
+    write(*,"(1x,4(a,es10.3),a,i10,a)") &
+         trim(label)//' = ',x,' should be ',val,' ratio =',x/val,' err =',erri,' (',i,')'
+ else
+    write(*,"(1x,5(a,es10.3),a)") &
+         trim(label)//' = ',x,' should be ',val,' ratio =',x/val,' err =',erri,' (tol =',tol,')'
+ endif
+
+ return
+end subroutine printerr_real
+
+!----------------------------------------------------------------
+!+
+!  formatting for printing errors in test results
+!+
+!----------------------------------------------------------------
+subroutine printerr_int(label,ix,ival,erri,itol)
+ character(len=*), intent(in) :: label
+ integer,          intent(in) :: ix, ival, erri, itol
+
+ if (itol > 0) then
+    write(*,"(1x,4(a,i10),a)") &
+      trim(label)//' = ',ix,' should be ',ival,' err =',erri,' (tol =',itol,')'
+ else
+    write(*,"(1x,3(a,i10),a)") &
+      trim(label)//' = ',ix,' should be ',ival,' err =',erri
+ endif
+
+ return
+end subroutine printerr_int
+
+!----------------------------------------------------------------
+!+
+!  formatting for printing errors in test results
+!+
+!----------------------------------------------------------------
+subroutine printerr_logical(label,lx,lval)
+ character(len=*), intent(in) :: label
+ logical,          intent(in) :: lx, lval
+
+ write(*,"(1x,2(a,l1))") 'ERROR! '//trim(label)//' is ',lx,' should be ',lval
+
+ return
+end subroutine printerr_logical
+
+!----------------------------------------------------------------
+!+
+!  formatting for initial test information
+!+
+!----------------------------------------------------------------
+subroutine print_testinfo(string,id,nprocs)
+ character(len=*), intent(in) :: string
+ integer,          intent(in) :: id,nprocs
+ character(len=20) :: fmtstring
+ integer           :: ndots,istart
+
+ istart = 20
+ ndots  = -1
+ do while(ndots < 2 .and. istart < 60)
+    istart = istart + 10
+    ndots = istart - len_trim(string)
+ enddo
+ if (ndots < 2) ndots = 3
+
+ if (nprocs > 1) then
+    write(fmtstring,"('(1x,a,i',i1,',a,',i2,'(''.''))')") int(log10(real(nprocs))) + 1,ndots
+    write(*,fmtstring,ADVANCE='NO') 'thread ',id,': checking '//trim(string)
+ else
+    write(fmtstring,"('(1x,a,',i2,'(''.''))')") ndots
+    write(*,fmtstring,ADVANCE='NO') 'checking '//trim(string)
+ endif
+
+
+end subroutine print_testinfo
+
+!----------------------------------------------------------------
+!+
+!  formatting for printing test results
+!+
+!----------------------------------------------------------------
+subroutine printresult_real(np,ndiff,errmax,tol,errl2)
+ integer, intent(in) :: np,ndiff
+ real,    intent(in) :: errmax,tol
+ real,    intent(in), optional :: errl2
+
+ if (ndiff==0) then
+    if (present(errl2)) then
+       write(*,"(a,3(es10.3,a))") 'OK     [max err =',errmax,', L2 err = ',errl2,' tol =',tol,']'
+    else
+       write(*,"(a,2(es10.3,a))") 'OK     [max err =',errmax,', tol =',tol,']'
+    endif
+ elseif (ndiff > 0) then
+    if (present(errl2)) then
+       write(*,"(1x,2(a,i10),3(a,es10.3),a)") &
+          'FAILED [on ',ndiff,' of ',np,' values, max err =',errmax,', L2 err = ',errl2,' tol =',tol,']'
+    else
+       write(*,"(1x,2(a,i10),2(a,es10.3),a)") 'FAILED [on ',ndiff,' of ',np,' values, max err =',errmax,', tol =',tol,']'
+    endif
+ else ! used for single values
+    write(*,"(1x,a,es10.3,a,es10.3,a)") 'FAILED [max err =',errmax,', tol =',tol,']'
+ endif
+
+ return
+end subroutine printresult_real
+
+!----------------------------------------------------------------
+!+
+!  formatting for printing test results
+!+
+!----------------------------------------------------------------
+subroutine printresult_int(ncheck,ndiff,ierrmax,itol,ntot)
+ integer, intent(in) :: ncheck,ndiff
+ integer, intent(in) :: ierrmax,itol
+ integer, intent(in), optional :: ntot
+
+ if (ndiff==0) then
+    if (ierrmax > 0) then
+       write(*,"(a,i5,a,i2,a)") 'OK     [max err =',ierrmax,', tol =',itol,']'
+    elseif (ncheck > 0) then
+       if (present(ntot)) then
+          if (ntot < 1e6 .and. ncheck < 1e6) then
+             write(*,"(2(a,i5),a)")  'OK     [checked ',ncheck,' of ',ntot,' values]'
+          else
+             write(*,"(2(a,i10),a)") 'OK     [checked ',ncheck,' of ',ntot,' values]'
+          endif
+       else
+          if (ncheck < 1e6) then
+             write(*,"(a,i5,a)") 'OK     [checked ',ncheck,' values]'
+          else
+             write(*,"(a,i10,a)") 'OK     [checked ',ncheck,' values]'
+          endif
+       endif
+    else
+       write(*,"(a)") 'OK'
+    endif
+ elseif (ndiff > 0) then
+    write(*,"(2(a,i10),a,i10,a)") 'FAILED [on ',ndiff,' of ',ncheck,' values, max err =',ierrmax,']'
+ else ! this is used for single values
+    write(*,"(1x,a,i5,a,i2,a)") 'FAILED [max err =',ierrmax,', tol =',itol,']'
+ endif
+
+ return
+end subroutine printresult_int
+
+end module testutils

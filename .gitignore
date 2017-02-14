@@ -1,0 +1,12 @@
+*.mod
+*.o
+*.make*
+build/*.out
+logs
+bin/getmathflags
+build/.depends
+*~
+*/*~
+*/*/*~
+*.bindata
+galaxiesP.dat

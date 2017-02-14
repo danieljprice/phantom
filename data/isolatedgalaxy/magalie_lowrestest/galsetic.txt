@@ -1,0 +1,4 @@
+Ngas 10000
+Nstar 10000
+Nbulge 1000
+Ndark 10000

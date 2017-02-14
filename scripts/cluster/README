@@ -1,0 +1,25 @@
+This folder contains codes used to do analysis on cluster simulations.
+Written by:
+David Liptai, Monash University.
+2015-2016.
+
+Read the header of each file for instructions on how to use each one.
+Note: to get the density PDF, you should use phantomanalysis using analysis_MWpdf.f90
+      This will give you 'cluster_?????_rho.pdf' files that some of these codes here will use.
+
+General workflow:
+      - Make sure you have 'cluster_?????_rho.pdf' files.
+      - Use 'rmsmach_vs_time.sh' (providing 'cluster*.log' as input) to get 'rmsmach_vs_time.data' files.
+      - Use 'gaussian_fit_pdf.py' to create 'sigma_vs_time.data' files.
+
+      Once you have done this for each run in their folders, you can use the
+      iPython Notebooks:
+
+      - 'imfstats.ipynb'    -> calculates/plots the total IMF, given a collection of simulations.
+      - 'densityPDFs.ipynb' -> calculates/plots the averaged (with errors) PDF of a collection
+                               of simulations, at a specified RMS Mach number.
+      - 'pdfstats.ipynb'    -> calculates/plots the averaged: density standard deviation (SD) and
+                               RMS Mach number, as functions of time. As well as the
+                               density SD as a function of RMS Mach number.
+      - 'totmassinsinkstats.ipynb' -> calculates/plots the averaged total mass in sink particles
+                                      as a function of time.

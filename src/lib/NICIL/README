@@ -1,0 +1,46 @@
+NICIL can be tested as a stand-alone code.  The following will lead the user through a test, and how to make Fig 1 in Wurster (2016); copies of this figure are included in Graphs_Default/, but in a different layout.
+
+1) The default complier is gfortran.  If this is not installed on the user's computer, change the compiler and associated flags in src/Makefile.
+2) To compile the two test codes, in the NICIL directory at the command prompt, type
+$ make
+Two executables should appear: nicil_ex_eta and nicil_ex_sph.
+3) The programme nicil_ex_eta will calculate the non-ideal MHD coefficients and their constituent components over a range of densities and temperatures.  To run this, in the command prompt, type
+$ ./nicil_ex_eta
+The processes and parameters that are used will be printed to the screen.  Three data files will be written to the data/ folder: eta_barotropic.dat, data/eta_density.dat and data/eta_temperature.dat.  The first data file calculates the properties over a range of densities using a barotropic equation of state, the second over a range of densities at a constant temperature, and the third over a range of temperatures at a constant density.  The header in each data file labels the property in each column.  A log file, eta_warning.log, is also created, but will only contain useful data if warn_verbose=.true. and warnings are triggered.
+
+4a) A plotting script, plot_results.py, is included in the NICIL directory.  This is written in Python 2.7.10, and calls GNUplot (developed in GNUplot 5.0 patchlevel 1).  
+4b) If the user does not have GNUplot, the important values can be plotted using the information (i.e. column number and property) in the headers.  
+4c) If the user has Python and GNUplot, run the Python script, viz.
+$ python plot_results.py
+The user will be prompted to state which results to plot.  Press 1 then enter to plot data from nicil_ex_eta.  Next, the user will be prompted to choose the horizontal axis.  Press 1 - 4 then enter to plot the properties against density with constant temperature, against density using a barotropic EOS, against temperature with constant density, or against temperature using a barotropic EOS, respectively (Fig 1, left to right).  A GNUplot script, Graphs/plot.gnuplot, will be generated and run.  This will create an eps graph, which will be placed in Graphs/; its file name will be printed to the screen.
+4d) The graph can be opened using the user's preferred viewer; the viewer can also be automatically run by plot_results.py by modifying the variable "open_eps," as prompted if no viewer is set.
+4e) If the default values are used, then the user's graphs should be identical to the Author's graphs, which are in Graphs_Default/ under the same file name, except with the _Default.eps suffix.
+
+5) The programme nicil_ex_sph can be similarly tested and results plotted, however, its primary use is as an example when implementing NICIL into an existing code.
+
+6) To remove the compiled objects and executables from src/, use
+$ make clean
+7) To remove the compiled objects from src/, all the executables, the data files data/*dat, and the graph files Graphs/*eps, use
+$ make allclean
+8) To compile the test programmes individually, use
+$ make eta
+or 
+$ make sph
+to compile nicil_ex_eta and nicil_ex_sph, respectively.
+
+9) It is suggested that the user experiment with various parameters, as defined at the top of src/nicil.F90 between the lines marked 'Input Parameters' and 'End of Input Parameters', to determine their impact on the non-ideal MHD coefficients and their constituent components.  These can be plotted as in step 4.
+
+10) Once the user has determined which parameters to use, the if-statements can (optionally) be stripped out by calling hardcode_ifs.py; this will prevent useless checks on the logical statements.  This script will determine the true/false status of selected logicals, and removed the if-statement around the commands if true, and removed the if-statement and commands if false.  This script will overwrite nicil.F90 with a new version created from nicil_source.F90.
+
+Note: NICIL has been tested using GNU Fortran (GCC) 4.4.7, GNU Fortran (GCC) 5.1.0, and ifort (IFORT) 12.1.0.
+
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+To implement NICIL into an existing code, please refer to Section 5 of Wurster (2016) and use src/nicil_ex_sph_main.F90 as a template.
+For changes made since Wurster (2016) was published, please consult modifications.pdf, enclosed in the parent folder.
+
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+For any research in which NICIL (an original or modified version) was used, the following paper must be cited: Wurster (2016) PASA, 33:e041.
+
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=

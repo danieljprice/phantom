@@ -1,0 +1,4 @@
+Ngas 50000
+Nstar 50000
+Nbulge 5000
+Ndark 0

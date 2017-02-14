@@ -1,0 +1,15 @@
+t        Bulge type: Plummer/Hernquist/truncated Hern [p/h/t]
+n        Plot or not plot the outputs[p/n]?
+5000     Number of BLGE particles to set in positions phase
+5000     Number of BLGE particles to set in velocity phase
+100000   Number of DISC particles to set in positions phase
+100000   Number of DISC particles to set in velocity phase
+0.5      Ratio of stars to gas for the disc (i.e. Nstar/Ngas)
+0.1      Smoothing length in pc for mass binning
+4.       Extent of bulge in kph (<=13kpc)
+m        Integrate Jeans eq. in mass or dpotential/dr [m/p]
+0.50     Streaming fraction (0.5=circular, 0.75=slight rotation)
+4.       Bulge truncation (exp decay) in kpc
+0.01	    Scatter particles slightly with gaussian of this width (kpc)
+l        Disc to halo mass flag [l,n,h,v]
+4.00     Gas mass in 1e9 Mo
