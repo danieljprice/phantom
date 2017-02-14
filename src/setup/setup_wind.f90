@@ -38,7 +38,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only: xyzmh_ptmass, vxyz_ptmass, nptmass
  use physcon,   only: au, solarm
  use units,     only: udist, umass, utime, set_units
- use inject,    only: wind_gamma, mass_of_particles, central_star_mass, companion_star_mass, semi_major_axis
+ use inject,    only: wind_init, wind_gamma, mass_of_particles, central_star_mass, companion_star_mass, semi_major_axis
  use inject,    only: icompanion_star, eccentricity, central_star_radius, companion_star_radius
  use setbinary, only: set_binary
  integer,           intent(in)    :: id
@@ -52,13 +52,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
 
  call set_units(dist=100.*au,mass=solarm,G=1.)
-
+ 
 !
 !--general parameters
 !
  time = 0.
  polyk = 0.
  gamma = wind_gamma
+
+ call wind_init(.true.)
 
 !
 !--space available for injected gas particles

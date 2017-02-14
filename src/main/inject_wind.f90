@@ -21,7 +21,6 @@
 !    iwind_resolution -- resolution of the wind -- DO NOT CHANGE DURING SIMULATION --
 !    shift_spheres    -- shift the spheres of the wind
 !    wind_gamma       -- polytropic indice of the wind
-!    wind_mu          -- mean molecular weight (g/mol)
 !    wind_sphdist     -- distance between spheres / neighbours -- DO NOT CHANGE DURING SIMULATION --
 !    wind_temperature -- initial temperature of the wind (Kelvin)
 !
@@ -30,29 +29,28 @@
 !+
 !--------------------------------------------------------------------------
 module inject
-  use physcon, only: au, solarm
+  use physcon, only: au, solarm, years
   implicit none
   character(len=*), parameter, public :: inject_type = 'wind'
 
-  public :: inject_particles, write_options_inject, read_options_inject
+  public :: inject_particles, write_options_inject, read_options_inject, wind_init
 !
 !--runtime settings for this module
 !
 
 ! Read from input file
   real, public ::    wind_velocity = 35.d5
-  real, public ::    wind_mass_rate = 7.65d-7
+  real, public ::    wind_mass_rate = 7.65d-7 * solarm/years
   real, public ::    wind_temperature = 3000.
   real, public ::    wind_gamma = 5./3.
-  real, public ::    wind_mu = 1.26
   integer, public :: iwind_resolution = 4
-  real, public ::    wind_sphdist = 1.
-  real, public ::    shift_spheres = 2.
-  integer, public :: ihandled_spheres = 2
-  real, public ::    wind_injection_radius = 1.7*au
+  real, public ::    wind_sphdist = 10.
+  real, public ::    shift_spheres = 3.
+  integer, public :: ihandled_spheres = 3
+  real, public ::    wind_injection_radius = 1.7 * au
   real, public ::    wind_extrapolation = 0.
-  real, public ::    central_star_mass = 1.*solarm
-  real, public ::    central_star_radius = 1.*au
+  real, public ::    central_star_mass = 1. * solarm
+  real, public ::    central_star_radius = 1. * au
   integer, public ::    icompanion_star = 0
   real, public ::    companion_star_mass
   real, public ::    companion_star_radius
@@ -76,14 +74,18 @@ contains
 !  Initialize reusable variables
 !+
 !-----------------------------------------------------------------------
-subroutine wind_init()
-  use physcon,     only: Rg
-  use physcon,     only: solarm, years
+subroutine wind_init(setup)
+  use physcon,     only: Rg, solarm, years, pi
   use icosahedron, only: compute_matrices, compute_corners
+  use timestep,    only: dtmax
+  use eos,         only: gmw
+  use units,       only: utime
+  logical, intent(in) :: setup
 
   real, parameter :: phi = (sqrt(5.)+1.)/2. ! Golden ratio
+  real :: irrational_numbre_close_to_one
 
-  u_to_temperature_ratio = Rg/(wind_mu*(wind_gamma-1.))
+  u_to_temperature_ratio = Rg/(gmw*(wind_gamma-1.))
   particles_per_sphere = 20 * (2*iwind_resolution*(iwind_resolution-1)) + 12
   neighbour_distance = 2./((2.*iwind_resolution-1.)*sqrt(sqrt(5.)*phi))
   mass_of_particles = wind_sphdist * neighbour_distance * wind_injection_radius * wind_mass_rate &
@@ -92,6 +94,12 @@ subroutine wind_init()
   time_between_spheres = mass_of_spheres / wind_mass_rate
   call compute_matrices(geodesic_R)
   call compute_corners(geodesic_v)
+  
+  ! adjusting dtmax to avoid uterm < 0 errors
+  if (setup) then
+    irrational_numbre_close_to_one = pi / 3.
+    dtmax = (.5 * irrational_numbre_close_to_one * time_between_spheres)/utime
+  end if
 end subroutine
 
 !-----------------------------------------------------------------------
@@ -110,6 +118,12 @@ subroutine inject_particles(time_u,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
 
   integer :: outer_sphere, inner_sphere, inner_handled_sphere, i
   real :: time, dtlast, local_time, r, v, u, rho, e, mass_lost
+  logical, save :: first_run = .true.
+  
+  if (first_run) then
+    call wind_init(.false.)
+    first_run = .false.
+  end if
 
   time = time_u * utime
   dtlast = dtlast_u * utime
@@ -149,6 +163,7 @@ end subroutine inject_particles
 !-----------------------------------------------------------------------
 subroutine drv_dt(rv, drv, GM)
   use physcon, only: Rg
+  use eos, only: gmw
   real, intent(in) :: rv(2), GM
   real, intent(out) :: drv(2)
 
@@ -159,7 +174,7 @@ subroutine drv_dt(rv, drv, GM)
   dr_dt = v
   r2 = r*r
   T = wind_temperature * (wind_injection_radius**2 * wind_velocity / (r2 * v))**(wind_gamma-1.)
-  vs2 = wind_gamma * Rg * T / wind_mu
+  vs2 = wind_gamma * Rg * T / gmw
   dv_dr = (-GM/r2+2.*vs2/r)/(v-vs2/v)
   dv_dt = dv_dr * v
 
@@ -330,7 +345,6 @@ subroutine write_options_inject(iunit)
   call write_inopt(wind_mass_rate/(solarm/years),'wind_mass_rate', &
       'wind mass per unit time (Msun/yr) -- DO NOT CHANGE DURING SIMULATION --',iunit)
   call write_inopt(wind_temperature,'wind_temperature','initial temperature of the wind (Kelvin)',iunit)
-  call write_inopt(wind_mu,'wind_mu','mean molecular weight (g/mol)',iunit)
   call write_inopt(wind_gamma,'wind_gamma','polytropic indice of the wind',iunit)
   call write_inopt(iwind_resolution,'iwind_resolution','resolution of the wind -- DO NOT CHANGE DURING SIMULATION --',iunit)
   call write_inopt(wind_sphdist,'wind_sphdist','distance between spheres / neighbours -- DO NOT CHANGE DURING SIMULATION --',iunit)
@@ -389,10 +403,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) wind_temperature
     ngot = ngot + 1
     if (wind_temperature < 0.)    call fatal(label,'invalid setting for wind_temperature (<0)')
-  case('wind_mu')
-    read(valstring,*,iostat=ierr) wind_mu
-    ngot = ngot + 1
-    if (wind_mu < 0.)    call fatal(label,'invalid setting for wind_mu (<0)')
   case('wind_gamma')
     read(valstring,*,iostat=ierr) wind_gamma
     ngot = ngot + 1
@@ -453,13 +463,12 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     imatch = .false.
   end select
 
-  noptions = 13
+  noptions = 12
   if (icompanion_star > 0) then
     noptions = noptions + 4
   endif
   igotall = (ngot >= noptions)
 
-  call wind_init()
 end subroutine
 
 end module inject
