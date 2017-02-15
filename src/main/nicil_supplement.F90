@@ -12,7 +12,7 @@
 !
 !  REFERENCES: Wurster (2016)
 !
-!  OWNER: James Wurster
+!  OWNER: Daniel Price
 !
 !  $Id$
 !

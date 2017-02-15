@@ -18,7 +18,7 @@
 !    Balsara, 2004, APJS, 151, 149-184
 !    Dumbser, Balsara, Toro, Munz, 2008, J. Comp. Phys., 227, 8209-8253.
 !
-!  OWNER: Terrence Tricco
+!  OWNER: Daniel Price
 !
 !  $Id$
 !

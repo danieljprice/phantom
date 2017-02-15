@@ -14,7 +14,7 @@
 !
 !  REFERENCES: e.g. Tong (2015) classical dynamics lecture notes
 !
-!  OWNER: James Wurster
+!  OWNER: Daniel Price
 !
 !  $Id$
 !

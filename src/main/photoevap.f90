@@ -12,7 +12,7 @@
 !
 !  REFERENCES: Alexander, Clarke & Pringle (2006), MNRAS 369, 216-228
 !
-!  OWNER: Mark Hutchison
+!  OWNER: Daniel Price
 !
 !  $Id$
 !

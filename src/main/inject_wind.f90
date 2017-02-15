@@ -12,7 +12,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Stéven Toupin
+!  OWNER: Daniel Price
 !
 !  $Id$
 !
@@ -24,8 +24,8 @@
 !    wind_sphdist     -- distance between spheres / neighbours -- DO NOT CHANGE DURING SIMULATION --
 !    wind_temperature -- initial temperature of the wind (Kelvin)
 !
-!  DEPENDENCIES: icosahedron, infile_utils, io, part, partinject, physcon,
-!    units
+!  DEPENDENCIES: eos, icosahedron, infile_utils, io, part, partinject,
+!    physcon, timestep, units
 !+
 !--------------------------------------------------------------------------
 module inject
