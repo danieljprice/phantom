@@ -52,7 +52,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
 
  call set_units(dist=100.*au,mass=solarm,G=1.)
- 
+
 !
 !--general parameters
 !

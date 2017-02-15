@@ -94,7 +94,7 @@ subroutine wind_init(setup)
   time_between_spheres = mass_of_spheres / wind_mass_rate
   call compute_matrices(geodesic_R)
   call compute_corners(geodesic_v)
-  
+
   ! adjusting dtmax to avoid uterm < 0 errors
   if (setup) then
     irrational_numbre_close_to_one = pi / 3.
@@ -119,7 +119,7 @@ subroutine inject_particles(time_u,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
   integer :: outer_sphere, inner_sphere, inner_handled_sphere, i
   real :: time, dtlast, local_time, r, v, u, rho, e, mass_lost
   logical, save :: first_run = .true.
-  
+
   if (first_run) then
     call wind_init(.false.)
     first_run = .false.
