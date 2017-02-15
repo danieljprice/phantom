@@ -99,7 +99,7 @@ subroutine wind_init(setup)
   if (setup) then
     irrational_numbre_close_to_one = pi / 3.
     dtmax = (.5 * irrational_numbre_close_to_one * time_between_spheres)/utime
-  end if
+  endif
 end subroutine
 
 !-----------------------------------------------------------------------
@@ -123,7 +123,7 @@ subroutine inject_particles(time_u,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
   if (first_run) then
     call wind_init(.false.)
     first_run = .false.
-  end if
+  endif
 
   time = time_u * utime
   dtlast = dtlast_u * utime
