@@ -146,8 +146,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! adjust boundaries to allow space for boundary particles and inflow
  !
- call adjust_shock_boundaries(xleft,xright,yleft,yright,zleft,zright,dxleft,dxright,&
-      radkern,leftstate(ivx),rightstate(ivx),leftstate(idens),rightstate(idens),tmax,ndim)
+ call adjust_shock_boundaries(dxleft,dxright,radkern, &
+      leftstate(ivx),rightstate(ivx),leftstate(idens),rightstate(idens),tmax,ndim)
  !
  ! print setup parameters
  !
@@ -277,9 +277,8 @@ end subroutine setpart
 !  Adjust the shock boundaries to allow for inflow/outflow
 !+
 !-----------------------------------------------------------------------
-subroutine adjust_shock_boundaries(xleft,xright,yleft,yright,zleft,zright,dxleft,dxright,&
-                                   radkern,vxleft,vxright,densleft,densright,tmax,ndim)
- real,    intent(inout) :: xleft,xright,yleft,yright,zleft,zright
+subroutine adjust_shock_boundaries(dxleft,dxright,radkern,vxleft,vxright, &
+                                   densleft,densright,tmax,ndim)
  real,    intent(in)    :: dxleft,radkern,vxleft,vxright,densleft,densright,tmax
  real,    intent(out)   :: dxright
  integer, intent(in)    :: ndim
@@ -299,6 +298,7 @@ subroutine adjust_shock_boundaries(xleft,xright,yleft,yright,zleft,zright,dxleft
     zleft   = fac*sqrt(6.)/3.
  else
     yleft   = fac
+    zleft   = fac
  endif
  yright  = -yleft
  zright  = -zleft
