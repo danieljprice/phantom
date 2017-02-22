@@ -201,7 +201,7 @@ nptmassinit = 1          !if the central star is represented by a sink (change t
  pmassi    = massoftype(igas)
  dustfraci = 0.
  do i = 1,npart
- 	if (maxphase==maxp) then
+         if (maxphase==maxp) then
        itype = iamtype(iphase(i))
        pmassi = massoftype(itype)
     endif
@@ -299,7 +299,7 @@ nptmassinit = 1          !if the central star is represented by a sink (change t
 ! rho_grain=1.0*((1.496E+13)**3/1.989E+33) ! 1.0 g/cm^3
  r_grain=0.1/1.496E+13 ! 0.1 cm
  do i=1,nr
- 	St(i) = 0.626 * (rho_grain * r_grain)/sigma(i)
+         St(i) = 0.626 * (rho_grain * r_grain)/sigma(i)
  enddo
 
 ! Print angular momentum of accreted particles
