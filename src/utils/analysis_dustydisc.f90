@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2015 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -12,13 +12,13 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Giulia Ballabio
+!  OWNER: Daniel Price
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, infile_utils, io, part, physcon
+!  DEPENDENCIES: dim, infile_utils, io, options, part, physcon, units
 !+
 !--------------------------------------------------------------------------
 module analysis
