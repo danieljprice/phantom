@@ -213,7 +213,7 @@ nptmassinit = 1          !if the central star is represented by a sink (change t
     else
        Macc  = Macc + pmassi
     endif
-    
+
     if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
        ri = sqrt(dot_product(xyzh(1:iwarp,i),xyzh(1:iwarp,i)))
        ii = int((ri-rad(1))/dr + 1)
@@ -259,7 +259,7 @@ nptmassinit = 1          !if the central star is represented by a sink (change t
  enddo
  write(*,*)"Massa della polvere: ",Mdust
  write(*,*)"Massa del gas: ",Mgas
- 
+
  if (.not.init) then
     open(newunit=lu,file='dustmass.ev',status='replace')
     write(lu,"('# ',5('[',i2.2,1x,a12,']',1x))") 1,'time',2,'Mtot',3,'Mgas',4,'Mdust',5,'Macc'
