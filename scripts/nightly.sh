@@ -17,9 +17,10 @@ datetag=`date "+%Y%m%d"`;
 webdir=$dir/web
 codedir=$dir/phantom
 #url="https://phantomsph.bitbucket.io/"
-url="http://users.monash.edu.au/~dprice/phantom/"
-webserver="users.monash.edu.au:WWW/phantom/"
-#logsurl="https://users.monash.edu.au/~dprice/phantom/logs/"
+urlgitrepo="https://bitbucket.org/danielprice/phantom/";
+url="http://users.monash.edu.au/~dprice/phantom/";
+webserver="users.monash.edu.au:WWW/phantom/";
+#urllogs="https://users.monash.edu.au/~dprice/phantom/nightly/logs/"
 admin="daniel.price@monash.edu";
 systems="msg gfortran";
 mailfile="$dir/mail.tmp";
@@ -106,7 +107,7 @@ write_htmlfile_gittag_and_mailfile ()
    i=0;
    for changeset in $changesets; do
        ref=$((i++));
-       echo "<tr><td><a href=\"$url/changeset/$changeset\">$changeset</a></td><td>${summary[$ref]}</td></tr>" >> $htmlfile;
+       echo "<tr><td><a href=\"$urlgitrepo/changeset/$changeset\">$changeset</a></td><td>${summary[$ref]}</td></tr>" >> $htmlfile;
    done
    echo "</table>" >> $htmlfile;  # start blank mail file
 #
@@ -220,7 +221,7 @@ Content-Type: text/html
 
 <p>Dear $names</p>
 
-<p>$preamble Details below, or on the <a href="$url/nightly/build">web page</a>.</p>
+<p>$preamble Details below, or on the <a href="$url/nightly/">web page</a>.</p>
 
 <p>$text.</p>
 
