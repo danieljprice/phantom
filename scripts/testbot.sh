@@ -13,7 +13,7 @@
 #
 # Outputs are put in the phantom/logs directory
 #
-# Written by Daniel Price, May 2013, daniel.price@monash.edu
+# Written by Daniel Price, 2013-2017, daniel.price@monash.edu
 #
 if [ X$SYSTEM == X ]; then
    echo "Error: Need SYSTEM environment variable set to run PHANTOM tests";
@@ -31,6 +31,14 @@ fi
 if [ ! -e $phantomdir/scripts/$0 ]; then
    echo "Error: This script needs to be run from the phantom/scripts directory";
    exit;
+fi
+#
+# make the subdirectory "logs" if it does not exist
+#
+if [ ! -d $phantomdir/logs ]; then
+   cd $phantomdir;
+   mkdir logs;
+   cd $pwd;
 fi
 htmlfile="$phantomdir/logs/test-status-$SYSTEM.html";
 faillog="$phantomdir/logs/test-failures-$SYSTEM.txt";

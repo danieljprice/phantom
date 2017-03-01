@@ -11,7 +11,7 @@
 #
 # Outputs are put in the phantom/logs directory
 #
-# Written by Daniel Price, 2012-2015, daniel.price@monash.edu
+# Written by Daniel Price, 2012-2017, daniel.price@monash.edu
 #
 if [ X$SYSTEM == X ]; then
    echo "Error: Need SYSTEM environment variable set to check PHANTOM build";
@@ -37,6 +37,7 @@ phantomdir="$pwd/../";
 nolibs='MESAEOS=no'
 if [ $# -gt 1 ]; then
    url=$2;
+   echo "url = $url";
 else
    url='';
 fi
@@ -44,7 +45,14 @@ if [ ! -e $phantomdir/scripts/$0 ]; then
    echo "Error: This script needs to be run from the phantom/scripts directory";
    exit;
 fi
-echo "url = $url";
+#
+# make the subdirectory "logs" if it does not exist
+#
+if [ ! -d $phantomdir/logs ]; then
+   cd $phantomdir;
+   mkdir logs;
+   cd $pwd;
+fi
 htmlfile="$phantomdir/logs/build-status-$SYSTEM.html";
 faillog="$phantomdir/logs/build-failures-$SYSTEM.txt";
 if [ -e $htmlfile ]; then
