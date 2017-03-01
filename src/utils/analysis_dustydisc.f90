@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2015 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -12,13 +12,13 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Giulia Ballabio
+!  OWNER: Daniel Price
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, infile_utils, io, part, physcon
+!  DEPENDENCIES: dim, infile_utils, io, options, part, physcon, units
 !+
 !--------------------------------------------------------------------------
 module analysis
@@ -201,7 +201,7 @@ nptmassinit = 1          !if the central star is represented by a sink (change t
  pmassi    = massoftype(igas)
  dustfraci = 0.
  do i = 1,npart
- 	if (maxphase==maxp) then
+         if (maxphase==maxp) then
        itype = iamtype(iphase(i))
        pmassi = massoftype(itype)
     endif
@@ -213,7 +213,7 @@ nptmassinit = 1          !if the central star is represented by a sink (change t
     else
        Macc  = Macc + pmassi
     endif
-    
+
     if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
        ri = sqrt(dot_product(xyzh(1:iwarp,i),xyzh(1:iwarp,i)))
        ii = int((ri-rad(1))/dr + 1)
@@ -259,7 +259,7 @@ nptmassinit = 1          !if the central star is represented by a sink (change t
  enddo
  write(*,*)"Massa della polvere: ",Mdust
  write(*,*)"Massa del gas: ",Mgas
- 
+
  if (.not.init) then
     open(newunit=lu,file='dustmass.ev',status='replace')
     write(lu,"('# ',5('[',i2.2,1x,a12,']',1x))") 1,'time',2,'Mtot',3,'Mgas',4,'Mdust',5,'Macc'
@@ -299,7 +299,7 @@ nptmassinit = 1          !if the central star is represented by a sink (change t
 ! rho_grain=1.0*((1.496E+13)**3/1.989E+33) ! 1.0 g/cm^3
  r_grain=0.1/1.496E+13 ! 0.1 cm
  do i=1,nr
- 	St(i) = 0.626 * (rho_grain * r_grain)/sigma(i)
+         St(i) = 0.626 * (rho_grain * r_grain)/sigma(i)
  enddo
 
 ! Print angular momentum of accreted particles
