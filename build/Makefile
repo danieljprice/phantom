@@ -1256,7 +1256,7 @@ ifeq ($(SYSTEM), hydra)
     KNOWN_SYSTEM=yes
     ENDIANFLAGBIG= -convert big_endian
     ENDIANFLAGLITTLE= -convert little_endian
-# or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only) 
+# or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
     OMPFLAGS = -openmp
     CC = icc
     CCFLAGS = -O3 -ipo -mcmodel=medium
@@ -1462,6 +1462,7 @@ endif
 #
 ifeq ($(MCFOST), yes)
     LDFLAGS+= -L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)
+#    LDFLAGS+=  ~/mcfost/src/libtmp/*.o  ~/mcfost/src/*.o  $(LIBCXX)
 endif
 
 #
