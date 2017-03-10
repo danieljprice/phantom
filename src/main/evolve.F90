@@ -40,7 +40,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce
  use evwrite,          only:write_evfile,write_evlog
  use energies,         only:etot,totmom,angtot,mdust,get_erot_com
- use dim,              only:calc_erot,maxvxyzu,mhd,use_dustfrac
+ use dim,              only:calc_erot,maxvxyzu,mhd,use_dustfrac,ndusttypes
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,dtwallmax,nmaxdumps,iexternalforce,&
                             icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
@@ -110,7 +110,7 @@ use mf_write,          only:binpos_write
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: noutput,noutput_dtmax,nsteplast,ncount_fulldumps
- real            :: dtnew,dtlast,timecheck,etot_in,angtot_in,totmom_in,mdust_in
+ real            :: dtnew,dtlast,timecheck,etot_in,angtot_in,totmom_in,mdust_in(ndusttypes)
  real            :: tprint,tzero,dtmaxold
  real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
  real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
@@ -133,7 +133,7 @@ use mf_write,          only:binpos_write
  logical         :: fulldump,abortrun,at_dump_time,update_tzero
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
  logical         :: should_conserve_dustmass
- integer         :: nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
+ integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  type(timer)     :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io
 
  tprint    = 0.
@@ -402,7 +402,11 @@ use mf_write,          only:binpos_write
        if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
        if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
        if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
-       if (should_conserve_dustmass) call check_conservation_error(mdust,mdust_in,1.e-1,'dust mass')
+       if (should_conserve_dustmass) then
+          do j = 1,ndusttypes
+             call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass')
+          enddo
+       endif
        !--write with the same ev file frequency also mass flux and binary position
 #ifdef MFLOW
        call mflow_write(time,dt)

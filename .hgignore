@@ -1,0 +1,9 @@
+.mod
+.o
+.make*
+build/*.out
+tests
+logs
+syntax: glob
+bin/getmathflags
+build/.depends

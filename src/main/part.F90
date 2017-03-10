@@ -35,7 +35,7 @@ module part
           mhd,maxmhd,maxBevol,maxvecp,maxp_h2,periodic, &
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
           switches_done_in_derivs,maxp_dustfrac,use_dustfrac, &
-          lightcurve,maxlum,nalpha,maxmhdni
+          lightcurve,maxlum,nalpha,maxmhdni,ndusttypes
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -90,11 +90,13 @@ module part
 !
 !--one-fluid dust (small grains)
 !
- real :: dustfrac(maxp_dustfrac)
- real :: dustevol(maxp_dustfrac)
- real :: deltav(3,maxp_dustfrac)
+ real :: dustfrac(ndusttypes,maxp_dustfrac)
+ character(len=*), parameter :: dustfrac_label(ndusttypes) = 'dustfrac'
+ real :: dustevol(ndusttypes,maxp_dustfrac)
+ real :: deltav(3,ndusttypes,maxp_dustfrac)
  character(len=*), parameter :: deltav_label(3) = &
    (/'deltavx','deltavy','deltavz'/)
+!
 !
 !--sink particles
 !
@@ -151,7 +153,7 @@ module part
  real(kind=4) :: dBevol(maxBevol,maxmhdan)
  real(kind=4) :: divBsymm(maxmhdan)
  real         :: fext(3,maxan)
- real         :: ddustfrac(maxdustan)
+ real         :: ddustfrac(ndusttypes,maxdustan)
 !
 !--storage associated with/dependent on timestepping
 !

@@ -33,10 +33,11 @@ contains
 subroutine test_rwdump(ntests,npass)
  use part,      only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu, &
                     Bevol,Bextx,Bexty,Bextz,alphaind,maxalpha,periodic, &
-                    maxphase,mhd,maxvxyzu,maxBevol,igas,idust,maxp,&
-                    poten,gravity,use_dustfrac,dustfrac,xyzmh_ptmass,nptmass,&
-                    nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
+                    maxphase,mhd,maxvxyzu,maxBevol,igas,idust,maxp, &
+                    poten,gravity,use_dustfrac,dustfrac,xyzmh_ptmass,nptmass, &
+                    nsinkproperties,xyzh_label,xyzmh_ptmass_label,dustfrac_label, &
                     vxyz_ptmass,vxyz_ptmass_label,vxyzu_label,set_particle_type,iphase
+ use dim,             only:ndusttypes
  use testutils,       only:checkval
  use io,              only:idisk1,id,master,iprint,nprocs
  use readwrite_dumps, only:read_dump,write_fulldump,write_smalldump,read_smalldump,is_small_dump
@@ -47,6 +48,11 @@ subroutine test_rwdump(ntests,npass)
  use mpiutils,        only:barrier_mpi
  use dump_utils,      only:read_array_from_file
  use timing,          only:getused,printused
+ use dust,            only:get_grainsize
+ real :: grainsizecgs(ndusttypes) = 0.1
+ real :: smincgs                  = 1.e-5
+ real :: smaxcgs                  = 0.1
+ real :: sindex                   = 3.5
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(64)
  integer :: i,j,ierr,itest,ngas,ndust,ntot
@@ -107,7 +113,8 @@ subroutine test_rwdump(ntests,npass)
           poten(i) = 15._4
        endif
        if (use_dustfrac) then
-          dustfrac(i) = 16._4
+          dustfrac(:,i) = 16._4
+          if (ndusttypes>1) call get_grainsize(grainsizecgs,smincgs,smaxcgs,sindex)
        endif
     enddo
     nptmass = 10
@@ -167,7 +174,7 @@ subroutine test_rwdump(ntests,npass)
        poten = 0.
     endif
     if (use_dustfrac) then
-       dustfrac = 0.
+       dustfrac(:,:) = 0.
     endif
     gamma = 0.
     Bextx = 0.
@@ -252,7 +259,9 @@ subroutine test_rwdump(ntests,npass)
           call checkval(npart,poten,15.,tol,nfailed(15),'poten')
        endif
        if (use_dustfrac) then
-          call checkval(npart,dustfrac,16.,tol,nfailed(16),'dustfrac')
+          do i = 1,ndusttypes
+             call checkval(npart,dustfrac(i,:),16.,tol,nfailed(16),'dustfrac')
+          enddo
        endif
     endif
     if (maxphase==maxp) then
@@ -278,7 +287,7 @@ subroutine test_rwdump(ntests,npass)
 
     ! clean up doggie-doos
     if (use_dustfrac) then
-       dustfrac(:) = 0.
+       dustfrac(:,:) = 0.
     endif
     nptmass = 0
     xyzmh_ptmass = 0.

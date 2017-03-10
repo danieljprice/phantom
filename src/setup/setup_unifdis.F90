@@ -44,7 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
- use part,         only:dustfrac
+ use part,         only:dustfrac,ndusttypes
  use prompting,    only:prompt
  use physcon,      only:pi
  use dust,         only:set_dustfrac
@@ -57,8 +57,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- real :: totmass,deltax,dust_to_gas
- integer :: i,maxp,maxvxyzu
+ real :: totmass,deltax,dust_to_gas(ndusttypes)
+ integer :: i,j,maxp,maxvxyzu
 !
 !--general parameters
 !
@@ -98,9 +98,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  if (use_dustfrac) then
-    dust_to_gas = 1.e-2
-    if (id==master) call prompt(' enter dust-to-gas ratio ',dust_to_gas,0.)
-    call bcast_mpi(dust_to_gas)
+    dust_to_gas(:) = 1.e-2
+    do i = 1,ndusttypes
+       if (id==master) call prompt(' enter dust-to-gas ratio ',dust_to_gas(i),0.)
+       call bcast_mpi(dust_to_gas(i))
+    enddo
  endif
 
  if (id==master) then
@@ -136,7 +138,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (use_dustfrac) then
     do i=1,npart
-       call set_dustfrac(dust_to_gas,dustfrac(i))
+       do j = 1,ndusttypes
+          call set_dustfrac(dust_to_gas(j),dustfrac(j,i))
+       enddo
     enddo
  endif
 

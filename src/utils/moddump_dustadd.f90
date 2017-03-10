@@ -27,21 +27,23 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use dim, only:use_dust,use_dustfrac
- use part,only:dustfrac,igas,idust,set_particle_type
+ use dim,   only:use_dust,use_dustfrac,ndusttypes
+ use part,  only:dustfrac,igas,idust,set_particle_type
+ use dust,  only:set_dustfrac,smincgs,smaxcgs,sindex
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer :: i
- real    :: dust_to_gas
+ real    :: dust_to_gas,dustfrac_temp(ndusttypes)
 
  if (use_dust) then
     dust_to_gas = 0.01
     print*,' SETTING DUST-TO-GAS RATIO = ',dust_to_gas
     if (use_dustfrac) then
-       do i=1,npart
-          dustfrac(i) = dust_to_gas/(1. + dust_to_gas)
+       call set_dustfrac(dust_to_gas,dustfrac_temp,smincgs,smaxcgs,sindex)
+       do i=1,ndusttypes
+          dustfrac(i,:) = dustfrac_temp(i)
        enddo
        massoftype(igas) = massoftype(igas)*(1. + dust_to_gas)
     else

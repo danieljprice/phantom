@@ -167,18 +167,20 @@ module dim
 !------
 #ifdef DUST
  logical, parameter :: use_dust = .true.
- integer, parameter :: ndusttypes = 1
+ integer, parameter :: ndustfluids = 1
 #else
  logical, parameter :: use_dust = .false.
- integer, parameter :: ndusttypes = 0
+ integer, parameter :: ndustfluids = 0
 #endif
 
 #ifdef DUSTFRAC
  logical, parameter :: use_dustfrac = .true.
  integer, parameter :: maxp_dustfrac = maxp
+ integer, parameter :: ndusttypes = 10
 #else
  logical, parameter :: use_dustfrac = .false.
  integer, parameter :: maxp_dustfrac = maxp
+ integer, parameter :: ndusttypes = 1
 #endif
 
 !--------------------

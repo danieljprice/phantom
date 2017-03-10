@@ -42,7 +42,7 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,use_dustfrac,ndim
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,use_dustfrac,ndim,ndusttypes
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary
@@ -57,7 +57,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
- integer      :: i,nbad,itype
+ integer      :: i,j,nbad,itype
  real         :: xcom(ndim),vcom(ndim)
  real(kind=8) :: gcode
  real         :: hi,hmin,hmax,dust_to_gas
@@ -297,18 +297,20 @@ subroutine check_setup(nerror,nwarn,restart)
     nbad = 0
     dust_to_gas = 0.
     do i=1,npart
-       if (dustfrac(i) < 0. .or. dustfrac(i) > 1.) then
-          nbad = nbad + 1
-          if (nbad <= 10) print*,' particle ',i,' dustfrac = ',dustfrac(i)
-       endif
-       dust_to_gas = dust_to_gas + dustfrac(i)/(1. - dustfrac(i))
+       do j=1,ndusttypes
+          if (dustfrac(j,i) < 0. .or. dustfrac(j,i) > 1.) then
+             nbad = nbad + 1
+             if (nbad <= 10) print*,'ndusttype ',j,' particle ',i,' dustfrac = ',dustfrac(j,i)
+          endif
+          dust_to_gas = dust_to_gas + dustfrac(j,i)/(1. - dustfrac(j,i))
+       enddo
     enddo
     if (nbad > 0) then
        print*,'ERROR: ',nbad,' of ',npart,' particles with dustfrac outside [0,1]'
        nerror = nerror + 1
     endif
     ! warn if compiled for one fluid dust but not used
-    if (all(dustfrac(1:npart) < tiny(dustfrac))) then
+    if (all(dustfrac(:,1:npart) < tiny(dustfrac))) then
        print*,'WARNING: one fluid dust is used but dust fraction is zero everywhere'
        nwarn = nwarn + 1
     endif

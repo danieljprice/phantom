@@ -25,7 +25,7 @@
 !+
 !--------------------------------------------------------------------------
 module densityforce
- use dim,      only:maxstrain,maxvxyzu,maxp
+ use dim,      only:maxstrain,maxvxyzu,maxp,ndusttypes
  use part,     only:maxBevol,mhd
  use part,     only:straintensor
  use kernel,   only:cnormk,wab0,gradh0,dphidh0,radkern2
@@ -169,7 +169,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real(kind=8) :: hi1,hi21,hi31,hi41
  real :: hnew
  real :: omegai,dhdrhoi,rhohi,func,dfdh1
- real :: rho1i,pmassi,rhodusti
+ real :: rho1i,pmassi,rhodusti(ndusttypes)
  real :: hmaxcelli,hcut
  real :: spsoundi
  real :: divcurlvi(5)
@@ -520,8 +520,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        ! and store it in dustfrac as dust-to-gas ratio
        ! so that rho times dustfrac gives dust density
        !
-       rhodusti = cnormk*massoftype(idust)*(rhosum(irhodusti))*hi31
-       dustfrac(i) = rhodusti*rho1i ! dust-to-gas ratio
+       rhodusti(:) = cnormk*massoftype(idust)*(rhosum(irhodusti))*hi31
+       dustfrac(:,i) = rhodusti(:)*rho1i ! dust-to-gas ratio
+       if ( ndusttypes>1 ) call fatal('dens','2-fluid not compatible with ndusttypes > 1')
     endif
 !
 ! store divv and curl v and related quantities

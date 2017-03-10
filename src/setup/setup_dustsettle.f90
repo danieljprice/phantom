@@ -115,7 +115,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  grainsizecgs = 0.1
  print*,' grain size in cgs = ',0.1
  call init_drag(ierr)
- call get_ts(1,grainsize,graindens,rhozero,0.0*rhozero,cs,0.,ts,iregime)
+ call get_ts(1,grainsize(1),graindens,rhozero,0.0*rhozero,cs,0.,ts,iregime)
  print*,' ts * Omega for 1mm grains = ',ts*omega
 !
 ! boundaries
@@ -167,9 +167,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
        if (use_dustfrac) then
           if (itype==igas) then
-             dustfrac(i) = dtg/(1. + dtg)
+             dustfrac(:,i) = dtg/(1. + dtg)
           else
-             dustfrac(i) = 0.
+             dustfrac(:,i) = 0.
           endif
        endif
     enddo

@@ -30,16 +30,20 @@
 !--------------------------------------------------------------------------
 
 module dust
+use dim, only:ndusttypes
  implicit none
  !--Default values for the dust in the infile
- real, public     :: K_code          = 1.
- real, public     :: grainsizecgs    = 0.1
- real, public     :: graindenscgs    = 3.
+ real, public     :: K_code                   = 1.
+ real, public     :: grainsizecgs(ndusttypes) = 0.1
+ real, public     :: smincgs                  = 1.e-5
+ real, public     :: smaxcgs                  = 0.1
+ real, public     :: sindex                   = 3.5
+ real, public     :: graindenscgs             = 3.
 
  integer, public  :: idrag             = 1
  integer, public  :: icut_backreaction = 0
- real, public     :: grainsize,graindens
- real, private    :: grainmass
+ real, public     :: grainsize(ndusttypes),graindens
+ real, private    :: grainmass(ndusttypes)
  public           :: write_options_dust,read_options_dust
  public           :: get_ts, init_drag
  public           :: print_dustinfo
@@ -49,6 +53,7 @@ module dust
   module procedure set_dustfrac_single, set_dustfrac_power_law
  end interface set_dustfrac
  public           :: set_dustfrac
+ public           :: get_grainsize
 
  real, private    :: cste_mu,coeff_gei_1,seff
  private
@@ -67,6 +72,7 @@ subroutine init_drag(ierr)
  use physcon,  only:mass_proton_cgs,cross_section_H2_cgs
  use eos,      only:gamma
  integer, intent(out) :: ierr
+ integer :: i
  real :: cste_seff
  real :: mass_mol_gas, cross_section_gas
 
@@ -81,13 +87,16 @@ subroutine init_drag(ierr)
 
  !--compute the grain mass (spherical compact grains of radius s)
  !--change this line for fractal grains or grains of different sizes
- grainsize         = grainsizecgs/udist
+ if (ndusttypes>1) call get_grainsize(grainsizecgs,smincgs,smaxcgs,sindex)
+ grainsize(:)      = grainsizecgs(:)/udist
  graindens         = graindenscgs/unit_density
- grainmass         = 4./3.*pi*graindens*grainsize**3
- if (grainmass <= 0.) then
-    call error('init_drag','grain size/density <= 0',var='grainmass',val=grainmass)
-    ierr = 2
- endif
+ grainmass(:)      = 4./3.*pi*graindens*grainsize(:)**3
+ do i = 1,ndusttypes
+    if (grainmass(i) <= 0.) then
+       call error('init_drag','grain size/density <= 0',var='grainmass',val=grainmass(i))
+       ierr = 2
+    endif
+ enddo
  !--compute the effective surface density used to calculate the mean free path
  cste_seff         = pi/sqrt(2.)*5./64.
  mass_mol_gas      = (2.*mass_proton_cgs)/umass
@@ -113,16 +122,19 @@ end subroutine init_drag
 subroutine print_dustinfo(iprint)
  use units, only:unit_density,umass,udist
  integer, intent(in) :: iprint
+ integer :: i
  real :: rhocrit
 
  select case(idrag)
  case(1)
     write(iprint,"(a)")              ' Using Epstein/Stokes drag: '
-    write(iprint,"(2(a,1pg10.3),a)") '        Grain size = ',grainsize*udist,        ' cm     = ',grainsize,' (code units)'
-    write(iprint,"(2(a,1pg10.3),a)") '        Grain mass = ',grainmass*umass,        ' g      = ',grainmass,' (code units)'
-    write(iprint,"(2(a,1pg10.3),a)") '     Grain density = ',graindens*unit_density, ' g/cm^3 = ',graindens,' (code units)'
-    write(iprint,"(2(a,1pg10.3),a)") '  Gas mfp at rho=1 = ',seff*udist/unit_density,' cm     = ',seff,' (code units)'
-    rhocrit = 9.*seff/(4.*grainsize)
+    do i = 1,ndusttypes
+       write(iprint,"(2(a,1pg10.3),a)") '        Grain size = ',grainsize(i)*udist,     ' cm     = ',grainsize(i),' (code units)'
+       write(iprint,"(2(a,1pg10.3),a)") '        Grain mass = ',grainmass(i)*umass,     ' g      = ',grainmass(i),' (code units)'
+       write(iprint,"(2(a,1pg10.3),a)") '     Grain density = ',graindens*unit_density, ' g/cm^3 = ',graindens,   ' (code units)'
+       write(iprint,"(2(a,1pg10.3),a)") '  Gas mfp at rho=1 = ',seff*udist/unit_density,' cm     = ',seff,        ' (code units)'
+       rhocrit = 9.*seff/(4.*grainsize(i))
+    enddo
     write(iprint,"(/,a)")              ' Density above which Stokes drag is used:'
     write(iprint,"(2(a,1pg10.3),a)") '           rhocrit = ',rhocrit*unit_density,   ' g/cm^3 = ',rhocrit,' (code units)'
  case(2)
@@ -144,7 +156,7 @@ end subroutine print_dustinfo
 subroutine set_dustfrac_single(dust_to_gas,dustfrac)
  real, intent(in)  :: dust_to_gas
  real, intent(out) :: dustfrac
-
+ 
  dustfrac = dust_to_gas/(1. + dust_to_gas)
 
 end subroutine set_dustfrac_single
@@ -152,26 +164,114 @@ end subroutine set_dustfrac_single
 !----------------------------------------------------------------
 !+
 !  utility function to set the dust fraction given the
-!  dust-to-gas ratio. Equation (57) in Price & Laibe (2015)
+!  dust-to-gas ratio.
 !+
 !----------------------------------------------------------------
-subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,s,smin,smax,sindex)
- use io, only: fatal
- real, intent(in)  :: dust_to_gas_tot, s, smin, smax, sindex
- real, intent(out) :: dustfrac
- real :: dust_to_gas_ind
-
- !dn/ds=const*(s/smax)^-sindex  where dn is the number of particles per cm^3 per interval ds in size (Draine et al. 2006)
- if (sindex /= 4.) then
-    dust_to_gas_ind = (dust_to_gas_tot*(4.-sindex)*s**(3.-sindex))/(smax**(4.-sindex)-smin**(4.-sindex))
- elseif (sindex == 4.) then
-    dust_to_gas_ind = (dust_to_gas_tot*s**(3.-sindex))/(log(smax/smin))
+subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,smin,smax,sindex)
+ use io,  only: fatal
+ use dim, only: ndusttypes
+ real, intent(in)  :: dust_to_gas_tot,smin,smax,sindex
+ real, intent(out) :: dustfrac(:)
+ !real :: dust_to_gas_ind
+ integer :: i
+ real :: dustfrac_tot
+ real :: norm
+ real :: log_ds
+ real :: Ndust
+ real :: bins(ndusttypes+2),log_bins(ndusttypes+2)
+ real :: ndusti(ndusttypes)
+ real :: exact
+ real, parameter :: tol = 1.e-10
+ 
+ if (smax==smin) then
+    !--If all the same grain size, then just scale the dust fraction
+    dustfrac = dust_to_gas_tot/(1.+dust_to_gas_tot)*1./real(ndusttypes)
  else
-    call fatal('dust','congratulations on discovering a new number (please check your value for sindex)')
+    !--Uniformly distribute grain sizes in log space between smax and smin
+    log_ds = log10(smax/smin)/(real(ndusttypes)-1.)
+
+    !--Define cell centered bins with ghost points in log space
+    do i = 1,ndusttypes+1
+       log_bins(i) = log10(smin) - log_ds/2. + log_ds*real(i-1)
+    enddo
+    
+    !--Convert bin corrdinates back to real space
+    bins = 10.**log_bins
+    
+    !--Set the grain size and sum the relative dust contribution in each bin
+    do i = 1,ndusttypes
+       if (sindex == 1) then
+          ndusti(i) = log(bins(i+1)/bins(i))
+       else
+          ndusti(i) = 1./(1.-sindex)*(bins(i+1)**(1.-sindex) - bins(i)**(1.-sindex))
+       endif
+    enddo
+    
+    !--Sum the contributions from each bin to get total relative dust content
+    Ndust = sum(ndusti)
+    
+    !--Calculate the total dust fraction from the dust-to-gas ratio
+    dustfrac_tot = dust_to_gas_tot/(1.+dust_to_gas_tot)
+
+    !--Calculate the normalisation factor and multiply it into each
+    !  bin to get the true dust fraction for each dust species
+    norm         = dustfrac_tot/Ndust
+    dustfrac(:)  = norm*ndusti(:)
+    
+    !--Check to make sure the integral determining the contributions is correct
+    if (sindex == 1) then
+       exact = log(bins(ndusttypes+1)/bins(1))
+    else
+       exact = 1./(1.-sindex)*(bins(ndusttypes+1)**(1.-sindex) - bins(1)**(1.-sindex))
+    endif
+    if (abs(Ndust-exact)/exact>tol) call fatal('dust','Piecewise integration of MRN distribution not matching the exact solution!')
  endif
- dustfrac = dust_to_gas_ind/(1. + dust_to_gas_ind)
+
+! 
+!-- PREVIOUS VERSION
+!
+ !!dn/ds=const*(s/smax)^-sindex  where dn is the number of particles per cm^3 per interval ds in size (Draine et al. 2006)
+ !if (sindex /= 4.) then
+ !   dust_to_gas_ind = (dust_to_gas_tot*(4.-sindex)*s**(3.-sindex))/(smax**(4.-sindex)-smin**(4.-sindex))
+ !elseif (sindex == 4.) then
+ !   dust_to_gas_ind = (dust_to_gas_tot*s**(3.-sindex))/(log(smax/smin))
+ !else
+ !   call fatal('dust','congratulations on discovering a new number (please check your value for sindex)')
+ !endif
+ !dustfrac = dust_to_gas_ind/(1. + dust_to_gas_ind)
 
 end subroutine set_dustfrac_power_law
+
+!----------------------------------------------------------------
+!+
+!  utility function to get a log-normal grain size distribution
+!+
+!----------------------------------------------------------------
+subroutine get_grainsize(s,smin,smax,sindex)
+ use io,   only: fatal
+ use dim,  only: ndusttypes
+ real, intent(in)  :: smin,smax,sindex
+ real, intent(out) :: s(:)
+ integer :: i
+ real :: log_ds,log_s(ndusttypes)
+ 
+ if (smax==smin) then
+    !--If all the same grain size, then just scale the dust fraction
+    s(:) = smax
+ else
+    !--Uniformly distribute grain sizes in log space between smax and smin
+    log_ds = log10(smax/smin)/(real(ndusttypes)-1.)
+
+    !--Set the grain size and sum the relative dust contribution in each bin
+    do i = 1,ndusttypes
+       log_s(i)  = log10(smin) + log_ds*real(i-1)
+    enddo
+    
+    !--Convert grain size back to real space
+    s = 10.**log_s
+ endif
+ 
+end subroutine get_grainsize
 
 !----------------------------------------------------------------------------
 !+
@@ -188,7 +288,7 @@ subroutine get_ts(idrag,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
  integer, intent(out) :: iregime
  real,    intent(in)  :: sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2
  real,    intent(out) :: ts
-
+ 
  real :: tol_super
  real :: rhosum,abs_dv,kwok
  real :: lambda,kn_eff,viscmol_nu,Re_dust
@@ -274,6 +374,8 @@ subroutine get_ts(idrag,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
  ! constant drag coefficient
  !
    if (K_code > 0.) then
+      ! WARNING! When ndusttypes > 1, K_code ONLY makes sense
+      ! if all of the grains are identical to one another.
       ts = rhogas*rhodust/(K_code*rhosum)
    else
       ts = huge(ts)
@@ -301,11 +403,21 @@ end subroutine get_ts
 !-----------------------------------------------------------------------
 subroutine write_options_dust(iunit)
  use infile_utils, only:write_inopt
+ use dim,          only:ndusttypes
  integer, intent(in) :: iunit
+ character(len=10)   :: numdust
 
- write(iunit,"(/,a)") '# options controlling dust'
+ write(numdust,'(I10)') ndusttypes
+ write(iunit,"(/,a)") '# options controlling dust ('//trim(adjustl(numdust))//' dust species)'
  call write_inopt(idrag,'idrag','gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)',iunit)
- call write_inopt(grainsizecgs,'grainsize','Grain size in cm',iunit)
+ if (ndusttypes>1) then
+    !These options are now set in the setup file and shouldn't be changed at runtime
+    !call write_inopt(smincgs,'smin','Minimum grain size in cm',iunit)
+    !call write_inopt(smaxcgs,'smax','Maximum grain size in cm',iunit)
+    !call write_inopt(sindex,'p','MRN power-law index [f(s) = A*s**(-p)]',iunit)
+ else
+    call write_inopt(grainsizecgs(ndusttypes),'grainsize','Grain size in cm',iunit)
+ endif
  call write_inopt(graindenscgs,'graindens','Intrinsic grain density in g/cm^3',iunit)
  call write_inopt(K_code,'K_code','drag constant when constant drag is used',iunit)
  call write_inopt(icut_backreaction,'icut_backreaction','cut the drag on the gas phase (0=no, 1=yes)',iunit)
@@ -319,10 +431,12 @@ end subroutine write_options_dust
 !-----------------------------------------------------------------------
 subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
  use units, only:udist,umass
+ use dim,   only:ndusttypes
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
- integer, save :: ngot = 0
+ integer, save :: ngot  = 0
+ integer, save :: idust = 0
  real(kind=8)  :: udens
 
  imatch  = .true.
@@ -332,8 +446,18 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) idrag
     ngot = ngot + 1
  case('grainsize')
-    read(valstring,*,iostat=ierr) grainsizecgs
-    grainsize = grainsizecgs/udist
+    idust = idust + 1
+    read(valstring,*,iostat=ierr) grainsizecgs(idust)
+    grainsize(idust) = grainsizecgs(idust)/udist
+    ngot = ngot + 1
+ case('smin')
+    read(valstring,*,iostat=ierr) smincgs
+    ngot = ngot + 1
+ case('smax')
+    read(valstring,*,iostat=ierr) smaxcgs
+    ngot = ngot + 1
+ case('p')
+    read(valstring,*,iostat=ierr) sindex
     ngot = ngot + 1
  case('graindens')
     read(valstring,*,iostat=ierr) graindenscgs
@@ -349,7 +473,11 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
  end select
 
  if (idrag == 2 .or. idrag==3) then
-    if (ngot >= 3) igotall = .true.
+    if (ndusttypes>1) then
+       if (ngot >= 5) igotall = .true.
+    else
+       if (ngot >= 3) igotall = .true.
+    endif
  else
     if (ngot >= 2) igotall = .true.
  endif

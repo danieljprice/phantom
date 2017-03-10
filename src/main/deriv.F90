@@ -70,8 +70,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real(kind=4), intent(out)   :: divcurlB(:,:)
  real(kind=4), intent(in)    :: Bevol(:,:)
  real(kind=4), intent(out)   :: dBevol(:,:)
- real,         intent(in)    :: dustfrac(:)
- real,         intent(out)   :: ddustfrac(:)
+ real,         intent(in)    :: dustfrac(:,:)
+ real,         intent(out)   :: ddustfrac(:,:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
  logical, parameter :: itiming = .true.

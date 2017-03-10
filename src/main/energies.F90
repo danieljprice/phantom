@@ -25,7 +25,7 @@
 #define reduce_fn(a,b) b
 !#define reduce_fn(a,b) reduceall_mpi(a,b)
 module energies
- use dim, only: calc_erot, calc_erot_com
+ use dim, only: calc_erot, calc_erot_com,ndusttypes
  implicit none
 
  public :: compute_energies,get_erot_com
@@ -48,7 +48,7 @@ module energies
  logical, public :: gas_only,track_mass,track_lum
 
  real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot
- real,            public    :: vrms,rmsmach,accretedmass,mdust,mgas
+ real,            public    :: vrms,rmsmach,accretedmass,mdust(ndusttypes),mgas
  real,            public    :: xmom,ymom,zmom
  real,            public    :: totlum
  integer,         public    :: ielements
@@ -91,7 +91,7 @@ subroutine compute_energies(t)
 #ifdef DUST
  use dust,           only:get_ts,graindens,grainsize,idrag
  integer :: iregime
- real    :: tsi
+ real    :: tsi(ndusttypes)
 #endif
 #ifdef LIGHTCURVE
  use part,         only:luminosity
@@ -104,7 +104,7 @@ subroutine compute_energies(t)
  real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
  real    :: ponrhoi,spsoundi,B2i,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
  real    :: shearparam_art,shearparam_phys,ratio_phys_to_av
- real    :: gasfrac,dustfraci,dust_to_gas
+ real    :: gasfrac,dustfracisum,rhogasi,dustfraci(ndusttypes),dust_to_gas(ndusttypes)
  real    :: temperature,etaart,etaart1,etaohm,etahall,etaambi,vion,vdrift
  real    :: vioni(3),data_out(17+nelements_max*nlevels-3)
  real    :: erotx,eroty,erotz,erotxi,erotyi,erotzi,fdum(3)
@@ -175,7 +175,7 @@ subroutine compute_energies(t)
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,acci,valfven2i,divBi,hdivBonBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
-!$omp private(gasfrac,dustfraci,dust_to_gas) &
+!$omp private(gasfrac,rhogasi,dustfraci,dustfracisum,dust_to_gas) &
 !$omp private(ierr,temperature,etaart,etaart1,etaohm,etahall,etaambi,vioni,vion,vdrift,data_out) &
 !$omp private(erotxi,erotyi,erotzi,fdum) &
 !$omp private(ev_data_thread,np_rho_thread) &
@@ -280,14 +280,18 @@ subroutine compute_energies(t)
        isgas: if (itype==igas) then
 
           if (use_dustfrac) then
-             dustfraci   = dustfrac(i)
-             gasfrac     = 1. - dustfraci
-             dust_to_gas = dustfraci/gasfrac
-             call ev_update(ev_data_thread,dust_to_gas,idtgX,idtgA,idtgN)
+             dustfraci(:)   = dustfrac(:,i)
+             dustfracisum   = sum(dustfraci)
+             gasfrac        = 1. - dustfracisum
+             dust_to_gas(:) = dustfraci(:)/gasfrac
+             do j = 1,ndusttypes
+                call ev_update(ev_data_thread,dust_to_gas(j),idtgX,idtgA,idtgN)
+             enddo
              mgas        = mgas + pmassi*gasfrac
-             mdust       = mdust + pmassi*dustfraci
+             mdust(:)    = mdust(:) + pmassi*dustfraci(:)
           else
-             dustfraci = 0.
+             dustfraci(:) = 0.
+             dustfracisum = 0.
              gasfrac   = 1.
           endif
 
@@ -312,8 +316,11 @@ subroutine compute_energies(t)
 #ifdef DUST
           ! min and mean stopping time
           if (use_dustfrac) then
-             call get_ts(idrag,grainsize,graindens,rhoi*gasfrac,rhoi*dustfraci,spsoundi,0.,tsi,iregime)
-             call ev_update(ev_data_thread,tsi,iA=itsA,iN=itsN)
+             rhogasi = rhoi*gasfrac
+             do j = 1,ndusttypes
+                call get_ts(idrag,grainsize(j),graindens,rhogasi,rhoi*dustfracisum,spsoundi,0.,tsi(j),iregime)
+                call ev_update(ev_data_thread,tsi(j),iA=itsA,iN=itsN)
+             enddo
           endif
 #endif
 

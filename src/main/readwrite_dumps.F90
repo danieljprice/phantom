@@ -292,14 +292,14 @@ end subroutine get_dump_size
 !-------------------------------------------------------------------
 subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,use_dustfrac,&
-                 lightcurve,maxlum
+                 lightcurve,maxlum,ndusttypes
  use eos,   only:utherm,ieos,equationofstate,done_init_eos,init_eos
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,npart,npartoftype,maxtypes, &
                  alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
                  nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,&
                  maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,maxvecp,maxBevol,&
-                 divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label
+                 divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,dustfrac_label
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
@@ -326,7 +326,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  integer, parameter :: isteps_sphNG = 0, iphase0 = 0
  integer(kind=8)    :: ilen(4)
  integer            :: nums(ndatatypes,4)
- integer            :: i,j,ipass,k
+ integer            :: i,j,ipass,k,l
  integer            :: ierr,ierrs(20)
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
@@ -335,6 +335,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  type(dump_h)          :: hdr
  real, allocatable :: temparr(:)
  real :: ponrhoi,rhoi,spsoundi
+ real :: dustfracisum1(npart),deltavsum(3,npart)
 
 !
 !--collect global information from MPI threads
@@ -434,8 +435,18 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierrs(2))
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(3))
        if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(4))
-       if (use_dust)     call write_array(1,dustfrac,'dustfrac',npart,k,ipass,idump,nums,ierrs(5))
-       if (use_dustfrac) call write_array(1,deltav,deltav_label,3,npart,k,ipass,idump,nums,ierrs(6))
+       if (use_dust .and. ndusttypes>1) call write_array(1,sum(dustfrac,1),'dustfracsum',npart,k,ipass,idump,nums,ierrs(5))
+       if (use_dust) call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(6))
+       if (use_dustfrac .and. ndusttypes>1) then
+          dustfracisum1(:) = 1./sum(dustfrac,1)
+          deltavsum(1,:)   = dustfracisum1*sum(dustfrac(:,:)*deltav(1,:,:),1)
+          deltavsum(2,:)   = dustfracisum1*sum(dustfrac(:,:)*deltav(2,:,:),1)
+          deltavsum(3,:)   = dustfracisum1*sum(dustfrac(:,:)*deltav(3,:,:),1)
+          call write_array(1,deltavsum,(/'deltavsumx','deltavsumy','deltavsumz'/),3,npart,k,ipass,idump,nums,ierrs(7))
+       endif
+       do l = 1,ndusttypes
+          if (use_dustfrac) call write_array(1,deltav(:,l,:),deltav_label,3,npart,k,ipass,idump,nums,ierrs(8))
+       enddo
 
        ! write pressure to file
        if (ieos==10 .and. k==i_real) then
@@ -446,21 +457,21 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
              temparr(i) = ponrhoi*rhoi
           enddo
-          call write_array(1,temparr,'pressure',npart,k,ipass,idump,nums,ierrs(7))
+          call write_array(1,temparr,'pressure',npart,k,ipass,idump,nums,ierrs(9))
        endif
 
        ! smoothing length written as real*4 to save disk space
-       call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,ierrs(8),use_kind=4,index=4)
-       if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,ierrs(9))
+       call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,ierrs(9),use_kind=4,index=4)
+       if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,ierrs(11))
        !if (maxalpha==maxp) then ! (uncomment this to write alphaloc to the full dumps)
        !   call write_array(1,alphaind,(/'alpha   ','alphaloc'/),2,npart,k,ipass,idump,nums,ierrs(9))
        !endif
-       if (ndivcurlv >= 1) call write_array(1,divcurlv,divcurlv_label,ndivcurlv,npart,k,ipass,idump,nums,ierrs(10))
+       if (ndivcurlv >= 1) call write_array(1,divcurlv,divcurlv_label,ndivcurlv,npart,k,ipass,idump,nums,ierrs(12))
        if (gravity .and. maxgrav==maxp) then
-          call write_array(1,poten,'poten',npart,k,ipass,idump,nums,ierrs(11))
+          call write_array(1,poten,'poten',npart,k,ipass,idump,nums,ierrs(13))
        endif
 #ifdef IND_TIMESTEPS
-       call write_array(1,dtmax/2**ibin(1:npart),'dt',npart,k,ipass,idump,nums,ierrs(12),use_kind=4)
+       call write_array(1,dtmax/2**ibin(1:npart),'dt',npart,k,ipass,idump,nums,ierrs(14),use_kind=4)
 #endif
 #ifdef PRDRAG
        if (k==i_real) then
@@ -468,12 +479,12 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           do i=1,npart
              temparr(i) = real4(beta(xyzh(1,i), xyzh(2,i), xyzh(3,i)))
           enddo
-          call write_array(1,temparr,'beta_pr',npart,k,ipass,idump,nums,ierrs(13))
+          call write_array(1,temparr,'beta_pr',npart,k,ipass,idump,nums,ierrs(15))
        endif
 #endif
 #ifdef LIGHTCURVE
        if (lightcurve) then
-          call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierrs(14))
+          call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierrs(16))
        endif
 #endif
        if (any(ierrs(1:14) /= 0)) call error('write_dump','error writing hydro arrays')
@@ -535,12 +546,12 @@ end subroutine write_fulldump
 !-------------------------------------------------------------------
 
 subroutine write_smalldump(t,dumpfile)
- use dim,        only:maxp,maxtypes,use_dust,lightcurve
+ use dim,        only:maxp,maxtypes,use_dust,lightcurve,ndusttypes
  use io,         only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,       only:xyzh,xyzh_label,npart,npartoftype,Bevol,Bevol_label,&
                       maxphase,iphase,h2chemistry,nabundances,&
                       nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,abundance, &
-                      abundance_label,mhd,dustfrac,iamtype_int11
+                      abundance_label,mhd,dustfrac,iamtype_int11,dustfrac_label
  use dump_utils, only:open_dumpfile_w,dump_h,allocate_header,free_header,&
                       write_header,write_array,write_block_header
  use mpiutils,   only:reduceall_mpi
@@ -616,7 +627,8 @@ subroutine write_smalldump(t,dumpfile)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (h2chemistry .and. nabundances >= 1) &
                      call write_array(1,abundance,abundance_label,1,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-       if (use_dust) call write_array(1,dustfrac,'dustfrac',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+       if (use_dust .and. ndusttypes>1) call write_array(1,sum(dustfrac,1),'dustfracsum',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+       if (use_dust) call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
 #ifdef LIGHTCURVE
        if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr)
@@ -1075,10 +1087,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                                massoftype,nptmass,nsinkproperties,phantomdump,tagged,singleprec,&
                                tfile,alphafile,idisk1,iprint,ierr)
  use dump_utils, only:read_array
- use dim,        only:use_dustfrac,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,maxBevol
+ use dim,        only:use_dustfrac,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,maxBevol,ndusttypes
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,abundance,abundance_label,alphaind,poten, &
                       xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,Bevol,Bevol_label,nabundances,&
-                      iphase
+                      iphase,dustfrac_label
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
 #endif
@@ -1088,24 +1100,26 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical, intent(in)   :: phantomdump,singleprec,tagged
  real,    intent(in)   :: tfile,alphafile
  integer, intent(out)  :: ierr
- logical               :: got_dustfrac,match
+ logical               :: got_dustfrac(ndusttypes),match
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bevol(maxBevol)
  character(len=lentag) :: tag,tagarr(64)
- integer :: k,i,iarr,ik
+ integer :: k,i,iarr,ik,idust
 !
 !--read array type 1 arrays
 !
- got_iphase   = .false.
- got_xyzh     = .false.
- got_vxyzu    = .false.
- got_dustfrac = .false.
- got_abund    = .false.
- got_alpha    = .false.
- got_poten    = .false.
+ got_iphase    = .false.
+ got_xyzh      = .false.
+ got_vxyzu     = .false.
+ got_dustfrac  = .false.
+ got_abund     = .false.
+ got_alpha     = .false.
+ got_poten     = .false.
  got_sink_data = .false.
  got_sink_vels = .false.
  got_Bevol     = .false.
+
+ idust = 0
 
  over_arraylengths: do iarr=1,narraylengths
 
@@ -1127,7 +1141,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
           call read_array(xyzh, xyzh_label, got_xyzh, ik,i1,i2,noffset,idisk1,tag,match,ierr)
           call read_array(vxyzu,vxyzu_label,got_vxyzu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
           if (use_dustfrac) then
-             call read_array(dustfrac,'dustfrac',got_dustfrac,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             if (tag == 'dustfrac') idust = idust + 1
+             call read_array(dustfrac(idust,:),dustfrac_label(idust),got_dustfrac(idust),ik,i1,i2,noffset,idisk1,tag,match,ierr)
           endif
           if (h2chemistry) then
              call read_array(abundance,abundance_label,got_abund,ik,i1,i2,noffset,idisk1,tag,match,ierr)
@@ -1267,7 +1282,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  integer,         intent(in)    :: i1,i2,npartoftype(:),npartread,nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha
- logical,         intent(in)    :: got_abund(:),got_dustfrac,got_sink_data(:),got_sink_vels(:),got_Bevol(:)
+ logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_Bevol(:)
  integer(kind=1), intent(inout) :: iphase(:)
  real,            intent(inout) :: vxyzu(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:), Bevol(:,:)
@@ -1363,9 +1378,9 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     ierr = 12
     return
  endif
- if (use_dustfrac .and. .not.got_dustfrac) then
+ if (use_dustfrac .and. .not. all(got_dustfrac)) then
     write(*,*) 'ERROR! using one-fluid dust, but no dust fraction found in dump file'
-    write(*,*) ' Setting dustfrac = 0'
+    write(*,*) ' >>>> Setting dustfrac = 0'
     dustfrac = 0.
     !ierr = 13
     return
@@ -1541,7 +1556,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header
  use dust,           only:graindens,grainsize
- use dim,            only:use_dust,maxtypes,ndusttypes
+ use dim,            only:use_dust,maxtypes,ndustfluids
  use units,          only:udist,umass,utime,unit_Bfield
  logical,         intent(in)    :: sphNGdump
  real,            intent(in)    :: t
@@ -1559,7 +1574,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  call add_to_iheader(nblocks,'nblocks',hdr,ierr)
  call add_to_iheader(isink,'isink',hdr,ierr)
  call add_to_iheader(nptmass,'nptmass',hdr,ierr)
- call add_to_iheader(ndusttypes,'ndusttypes',hdr,ierr)
+ call add_to_iheader(ndustfluids,'ndustfluids',hdr,ierr)
 
  ! int*8
  call add_to_header(nparttot,'nparttot',hdr,ierr)
