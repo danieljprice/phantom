@@ -9,18 +9,24 @@
 #
 #  Written by Daniel Price, daniel.price@monash.edu
 #
-# script settings
 dir=$PWD
-wikidir=$dir/wiki
+datetag=`date "+%Y%m%d"`;
+#---------------------
+#  script settings
+#---------------------
+webdir=$dir/web
 codedir=$dir/phantom
-wiki=$wikidir/nightly/Build.wiki
-url="https://bitbucket.org/danielprice/phantom"
+#url="https://phantomsph.bitbucket.io/"
+url="http://users.monash.edu.au/~dprice/phantom/"
+webserver="users.monash.edu.au:WWW/phantom/"
+#logsurl="https://users.monash.edu.au/~dprice/phantom/logs/"
 admin="daniel.price@monash.edu";
 systems="msg gfortran";
 mailfile="$dir/mail.tmp";
-mailtmp="$dir/mailcontent.html";
+htmlfile="$dir/$datetag.html";
 incoming="$dir/incoming.txt";
 tagfile="$dir/gittag.tmp";
+#---------------------
 gittag='';
 summary=[];
 changesets='';
@@ -77,40 +83,32 @@ run_buildbot ()
    for sys in $systems; do
       export SYSTEM=$sys;
       echo "SYSTEM=$SYSTEM";
-      ./testbot.sh "$url/wiki/nightly/";
-      ./buildbot.sh 17000000 "$url/wiki/nightly/";
+      ./testbot.sh "$url/nightly/logs/";
+      ./buildbot.sh 17000000 "$url/nightly/logs/";
    done
 }
 pull_wiki ()
 {
-   # pull existing wiki files from server
-   echo "--- pulling wiki changes ---";
-   cd $wikidir
+   # pull existing web files from server
+   echo "--- pulling website changes ---";
+   cd $webdir
    git pull
 }
-write_wiki_tag_and_mail_files ()
+write_htmlfile_gittag_and_mailfile ()
 {
-   echo "--- writing wiki and mail files ---"
+   echo "--- writing html and mail files ---"
    # write header for nightly build results
    cd $dir;
    # initialise html file
-   echo "<h2>Changesets tested since last build</h2>" > $mailtmp
-   echo "<table>" >> $mailtmp
-   # initialise wiki file
-   cat << EOF > $wiki
-=Phantom nightly build results=
-Performed `date`
-
-==Changesets tested since last build==
-EOF
+   echo "<h2>Changesets tested since last build</h2>" > $htmlfile
+   echo "<table>" >> $htmlfile
+   # initialise html file
    i=0;
    for changeset in $changesets; do
        ref=$((i++));
-       echo "<tr><td><a href=\"$url/changeset/$changeset\">$changeset</a></td><td>${summary[$ref]}</td></tr>" >> $mailtmp;
-       echo "| [[$url/changeset/$changeset|$changeset]] | ${summary[$ref]}" >> $wiki;
+       echo "<tr><td><a href=\"$url/changeset/$changeset\">$changeset</a></td><td>${summary[$ref]}</td></tr>" >> $htmlfile;
    done
-   echo >> $wiki;
-   echo "</table>" >> $mailtmp;  # start blank mail file
+   echo "</table>" >> $htmlfile;  # start blank mail file
 #
 #--write content of wiki files and determine if there were errors/failures
 #
@@ -121,16 +119,12 @@ EOF
    prev='';
    for sys in $systems; do
        export SYSTEM=$sys;
-       cat test-status-$SYSTEM.wiki >> $wiki
-       cat test-status-$SYSTEM.html >> $mailtmp
-       cat build-status-$SYSTEM.wiki >> $wiki
-       cat build-status-$SYSTEM.html >> $mailtmp
+       cat test-status-$SYSTEM.html >> $htmlfile
+       cat build-status-$SYSTEM.html >> $htmlfile
        files=`ls make-*errors*-$SYSTEM.txt make-*errors*-$SYSTEM-debug.txt test-results*-$SYSTEM.txt test-results*-$SYSTEM-debug.txt`
        for x in $files; do
-           wikifile="$wikidir/nightly/${x/.txt/.wiki}";
-           echo '{{{' > $wikifile;
-           cat $x >> $wikifile;
-           echo '}}}' >> $wikifile;
+           webfile="$webdir/nightly/logs/$x";
+           cp $x $webfile;
        done
        faillog=$codedir/logs/build-failures-$SYSTEM.txt;
        faillogtest=$codedir/logs/test-failures-$SYSTEM.txt;
@@ -160,7 +154,7 @@ EOF
           errors+=" testsuite failures";
           prev="True";
        fi
-       grep -q 'NEW WARNINGS' $codedir/logs/build-status-$SYSTEM.wiki; gotwarn=$?;
+       grep -q 'NEW WARNINGS' $codedir/logs/build-status-$SYSTEM.html; gotwarn=$?;
        if [ $gotwarn -eq 0 ]; then
           if [ "X$prev" != "X" ]; then
              warnings+=" and";
@@ -177,7 +171,6 @@ EOF
    text='Please ';
    gotissues=0;
    sendmail=1;
-   datetag=`date "+%Y%m%d"`;
    if [ "X$errors" != "X" ]; then
       gotissues=1;
       msg+="$errors";
@@ -227,7 +220,7 @@ Content-Type: text/html
 
 <p>Dear $names</p>
 
-<p>$preamble Details below, or on the <a href="$url/wiki/nightly/Build">wiki page</a>.</p>
+<p>$preamble Details below, or on the <a href="$url/nightly/build">web page</a>.</p>
 
 <p>$text.</p>
 
@@ -239,7 +232,7 @@ Content-Type: text/html
 <br/>
 <hr/>
 EOM
-      cat $mailtmp >> $mailfile;
+      cat $htmlfile >> $mailfile;
    fi
 }
 tag_code_and_push_tags()
@@ -255,25 +248,29 @@ send_email ()
      cat $mailfile | /usr/sbin/sendmail -t;
   fi
 }
-commit_and_push_wiki ()
+commit_and_push_to_website ()
 {
-   echo "--- commit and push to wiki ---";
-   # commit and push changes to wiki
-   cd $wikidir
-   git add nightly/*.wiki
-   git status
-   git commit -m "[buildbot]: results `date`"
-   git push
+   echo "--- commit and push to web server / git repo ---";
+   # commit and push changes to web server
+   cp $htmlfile $webdir/nightly/;
+   cd $webdir/nightly;
+   cp $htmlfile index.html;
+   cd $webdir;
+   rsync -avz nightly/ $webserver/nightly/;
+   #git add nightly/*.html
+   #git status
+   #git commit -m "[buildbot]: results `date`"
+   #git push
 }
 # enter code directory
 cd $codedir
 get_incoming_changes
 pull_changes
 run_buildbot
-pull_wiki
-write_wiki_tag_and_mail_files
+#pull_wiki
+write_htmlfile_gittag_and_mailfile
 tag_code_and_push_tags
 send_email
-commit_and_push_wiki
+commit_and_push_to_website
 cd $dir
 echo "--- finished buildbot `date` ---";

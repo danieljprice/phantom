@@ -12,7 +12,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: James Wurster
+!  OWNER: Daniel Price
 !
 !  $Id$
 !
@@ -24,7 +24,7 @@
 module io_summary
  implicit none
  integer, parameter :: maxiosum = 38         ! Number of values to summarise
- integer, parameter :: maxrhomx = 10         ! Number of maximum possible rhomax' per set
+ integer, parameter :: maxrhomx = 16         ! Number of maximum possible rhomax' per set
  integer, parameter :: maxisink =  5         ! Maximum number of sink particles's accretion details to track
  !--Array indicies for various parameters
  !  Timesteps
@@ -249,7 +249,7 @@ subroutine summary_variable_rhomax(ipart,inrho,iprint,nptmass)
  iosum_rxi(j) = ipart
  iosum_rxp(j) = iosum_rxp(j) + 1
  iosum_rxa(j) = iosum_rxa(j) + inrho
- iosum_rxx(j) = max(iosum_rxa(j),inrho)
+ iosum_rxx(j) = max(iosum_rxx(j),inrho)
  !
 end subroutine summary_variable_rhomax
 !----------------------------------------------------------------

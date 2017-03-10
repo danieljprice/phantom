@@ -17,7 +17,7 @@
 !
 !  REFERENCES: Alexiades V., Amiez G., Gremaud P.A., 1996, Commun. Numer. Meth. Eng., 12, 31
 !
-!  OWNER: James Wurster
+!  OWNER: Daniel Price
 !
 !  $Id$
 !

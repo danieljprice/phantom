@@ -146,8 +146,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! adjust boundaries to allow space for boundary particles and inflow
  !
- call adjust_shock_boundaries(xleft,xright,yleft,yright,zleft,zright,dxleft,dxright,&
-      radkern,leftstate(ivx),rightstate(ivx),leftstate(idens),rightstate(idens),tmax,ndim)
+ call adjust_shock_boundaries(dxleft,dxright,radkern, &
+      leftstate(ivx),rightstate(ivx),leftstate(idens),rightstate(idens),tmax,ndim)
  !
  ! print setup parameters
  !
@@ -277,9 +277,8 @@ end subroutine setpart
 !  Adjust the shock boundaries to allow for inflow/outflow
 !+
 !-----------------------------------------------------------------------
-subroutine adjust_shock_boundaries(xleft,xright,yleft,yright,zleft,zright,dxleft,dxright,&
-                                   radkern,vxleft,vxright,densleft,densright,tmax,ndim)
- real,    intent(inout) :: xleft,xright,yleft,yright,zleft,zright
+subroutine adjust_shock_boundaries(dxleft,dxright,radkern,vxleft,vxright, &
+                                   densleft,densright,tmax,ndim)
  real,    intent(in)    :: dxleft,radkern,vxleft,vxright,densleft,densright,tmax
  real,    intent(out)   :: dxright
  integer, intent(in)    :: ndim
@@ -299,6 +298,7 @@ subroutine adjust_shock_boundaries(xleft,xright,yleft,yright,zleft,zright,dxleft
     zleft   = fac*sqrt(6.)/3.
  else
     yleft   = fac
+    zleft   = fac
  endif
  yright  = -yleft
  zright  = -zleft
@@ -319,7 +319,7 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
  use prompting,   only:prompt
 #ifdef NONIDEALMHD
  use nicil,       only:use_ohm,use_hall,use_ambi,eta_constant,eta_const_type, &
-                       C_OR,C_HE,C_AD,icnstphys,icnstsemi,icnst
+                       C_OR,C_HE,C_AD,C_nimhd,icnstphys,icnstsemi,icnst
 #endif
  integer, intent(in)    :: ndim
  real,    intent(inout) :: gamma,polyk
@@ -430,7 +430,7 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
     if (.not. iexist) then
        tmax    = 0.1
     endif
-    gamma      = 5./3.
+    gamma      = 2.0
     leftstate  = (/1.000,1.0,0.,0.,0.,0.75, 1.,0./)
     rightstate = (/0.125,0.1,0.,0.,0.,0.75,-1.,0./)
  case(7)
@@ -445,6 +445,7 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
        gamma_AD   = 1.0
        rho_i_cnst = 1.0d-5
        C_AD       = 1.0/(gamma_AD*rho_i_cnst)
+       C_nimhd    = 0.25/pi
 #endif
     endif
     gamma      =  1.0
@@ -522,6 +523,9 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk)
  write(lu,"(a)") '# '//trim(tagline)
  write(lu,"(a)") '# input file for Phantom shock tube setup'
 
+ write(lu,"(/,a)") '# shock tube name'
+ call write_inopt(trim(shocktype),'name','',lu,ierr1)
+
  write(lu,"(/,a)") '# shock tube'
  do i=1,numstates
     call write_inopt(leftstate(i), trim(var_label(i))//'left', trim(var_label(i))//' (left)', lu,ierr1)
@@ -570,6 +574,7 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,ierr)
  write(iprint, '(1x,2a)') 'Setup_shock: Reading setup options from ',trim(filename)
 
  nerr = 0
+ call read_inopt(shocktype,'name',db,errcount=nerr)
  do i=1,numstates
     call read_inopt(leftstate(i), trim(var_label(i))//'left',db,errcount=nerr)
     call read_inopt(rightstate(i),trim(var_label(i))//'right',db,errcount=nerr)

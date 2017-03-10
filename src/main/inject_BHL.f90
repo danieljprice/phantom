@@ -13,7 +13,7 @@
 !  REFERENCES: Ruffert & Arnett (1994): Three-dimensional hydrodynamic Bondi-Hoyle accretion.
 !              2: Homogeneous medium at Mach 3 with gamma = 5/3
 !
-!  OWNER: Stéven Toupin
+!  OWNER: Daniel Price
 !
 !  $Id$
 !

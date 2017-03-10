@@ -24,7 +24,7 @@
 !    Voigt and Letelier (2011), MNRAS 411, 2371-2382
 !    and other basic forms (see Binney and Tremaine 1987)
 !
-!  OWNER: Alex Pettitt
+!  OWNER: Daniel Price
 !
 !  $Id$
 !

@@ -12,13 +12,13 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Giovanni Dipierro
+!  OWNER: Daniel Price
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, infile_utils, io, part, physcon
+!  DEPENDENCIES: dim, infile_utils, io, options, part, physcon, units
 !+
 !--------------------------------------------------------------------------
 module analysis
@@ -26,7 +26,7 @@ module analysis
  character(len=20), parameter, public :: analysistype = 'dustydisc'
  public :: do_analysis
 
- integer, parameter :: nr = 300
+ integer, parameter :: nr = 500
  real,dimension(nr) :: twist,twistprev
 
  private
@@ -34,10 +34,12 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
- use dim,     only:use_dustfrac
+ use dim,     only:use_dustfrac,maxp
  use io,      only:fatal
- use physcon, only:pi
- use part,    only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac
+ use physcon, only:pi,jupiterm,years,au
+ use part,    only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac,maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass
+ use options, only:iexternalforce
+ use units,   only:umass,udist,utime
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyz(:,:)
  real,             intent(in) :: pgasmass,time
@@ -45,18 +47,20 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
  character(len=9) :: output
  character(len=20) :: filename
  character(len=20) :: discprefix
- integer :: i,ii,ierr,iline,ninbin(nr),ninbindust(nr),iwarp
+ integer :: i,ii,ierr,iline,ninbin(nr),ninbindust(nr),iwarp,nptmassinit
  real :: R_in,R_out,R_warp,H_R,p_index,q_index,M_star,M_disc,R_c,R_cdust
  real :: R_in_dust,R_out_dust,R_warp_dust,H_R_dust,p_index_dust,M_star_dust,M_disc_dust
  real :: G,rmin,rmax,dr,cs0,angx,angy,angz,ri,area
  real :: angtot,Ltot,tilt,dtwist
  real :: Li(3)
- real :: rad(nr),Lx(nr),Ly(nr),Lz(nr),h_smooth(nr),sigma(nr),cs(nr),H(nr),omega(nr)
+ real :: rad(nr),Lx(nr),Ly(nr),Lz(nr),h_smooth(nr),sigma(nr),cs(nr),H(nr),omega(nr),St(nr)
  real :: zsettlgas(npartoftype(igas),nr),hgas(nr),meanzgas(nr),dustfracsum(nr),dust_fraction(nr)
  real :: unitlx(nr),unitly(nr),unitlz(nr),tp(nr)
  real :: sigmadust(nr),zsettldust(npartoftype(idust),nr),hdust(nr),meanzdust(nr)
- real :: psi_x,psi_y,psi_z,psi
-
+ real :: psi_x,psi_y,psi_z,psi,Mdust,Mgas,Mtot,Macc,pmassi,dustfraci,rho_grain,r_grain
+ real, save :: Mtot_in,Mgas_in,Mdust_in
+ integer :: itype,lu
+ logical, save :: init = .false.
  integer, parameter :: iparams = 10
  integer, parameter :: iprec   = 24
  logical :: do_precession,ifile
@@ -178,8 +182,38 @@ endif
     iwarp=2
  endif
 
+nptmassinit = 1          !if the central star is represented by a sink (change to 2 if you set a binary)
+ if(iexternalforce/=0) nptmassinit = 0      !if the central star is represented by by external force
+
+ if(nptmass>nptmassinit)then
+   do i=nptmassinit+1,nptmass
+     write(*,*)"Planet",i-nptmassinit,"mass",xyzmh_ptmass(4,i)*umass/jupiterm,"Jupiter mass, radius",&
+     sqrt(dot_product(xyzmh_ptmass(1:iwarp,i),xyzmh_ptmass(1:iwarp,i)))*udist/au,"au"," coords xy ",&
+     xyzmh_ptmass(1,i),xyzmh_ptmass(2,i)
+   enddo
+ endif
+
 ! Loop over gas particles putting properties into the correct bin
+ Mtot  = 0.
+ Mgas  = 0.
+ Mdust = 0.
+ Macc  = 0.
+ pmassi    = massoftype(igas)
+ dustfraci = 0.
  do i = 1,npart
+         if (maxphase==maxp) then
+       itype = iamtype(iphase(i))
+       pmassi = massoftype(itype)
+    endif
+    Mtot = Mtot + pmassi
+    if (xyzh(4,i)  >  tiny(xyzh)) then
+       if (use_dustfrac) dustfraci = dustfrac(i)
+       Mgas  = Mgas  + pmassi*(1. - dustfraci)
+       Mdust = Mdust + pmassi*dustfraci
+    else
+       Macc  = Macc + pmassi
+    endif
+
     if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
        ri = sqrt(dot_product(xyzh(1:iwarp,i),xyzh(1:iwarp,i)))
        ii = int((ri-rad(1))/dr + 1)
@@ -205,7 +239,9 @@ endif
 
           ninbin(ii) = ninbin(ii) + 1
           zsettlgas(ninbin(ii),ii)=xyzh(3,i)
-          if (use_dustfrac) dustfracsum(ii) = dustfracsum(ii) + dustfrac(i)
+          if (use_dustfrac) then
+             dustfracsum(ii) = dustfracsum(ii) + dustfrac(i)
+          endif
 
        elseif(iphase(i)==idust) then
           sigmadust(ii) = sigmadust(ii) + massoftype(iphase(i))/area
@@ -221,6 +257,27 @@ endif
 
     endif
  enddo
+ write(*,*)"Massa della polvere: ",Mdust
+ write(*,*)"Massa del gas: ",Mgas
+
+ if (.not.init) then
+    open(newunit=lu,file='dustmass.ev',status='replace')
+    write(lu,"('# ',5('[',i2.2,1x,a12,']',1x))") 1,'time',2,'Mtot',3,'Mgas',4,'Mdust',5,'Macc'
+    init = .true.
+    Mgas_in  = Mgas
+    Mdust_in = Mdust
+    Mtot_in  = Mtot
+ else
+    open(newunit=lu,file='dustmass.ev',status='old',position='append')
+ endif
+
+ print*,' Mtot = ',Mtot,' Mgas = ',Mgas,' Mdust = ',Mdust,' Macc = ',Macc
+ print "(4(/,a,2pf6.2,'%'))",' dMtot  = ',(Mtot-Mtot_in)/Mtot_in,&
+       ' dMgas  = ',(Mgas-Mgas_in)/Mtot_in,&
+       ' dMdust = ',(Mdust-Mdust_in)/Mtot_in,&
+       ' dMacc  = ',Macc/Mtot_in
+ write(lu,*) time,Mtot,Mgas,Mdust,Macc
+ close(lu)
 
  ! Computing Hgas and Hdust
  do i=1,nr
@@ -234,7 +291,16 @@ endif
     hdust(i)=sqrt(sum(((zsettldust(1:ninbindust(i),i)-meanzdust(i))**2)/(real(ninbindust(i)-1))))
  endif
  enddo
+! Plotting Hdust/Hgas
+! print*,' Hdust = ',hdust,'Hgas = ',hgas, 'Hdust/Hgas = ',hdust/hgas
 
+! and thus the Stokes Number
+ rho_grain=3.0*((1.496E+13)**3/1.989E+33) ! 3.0 g/cm^3
+! rho_grain=1.0*((1.496E+13)**3/1.989E+33) ! 1.0 g/cm^3
+ r_grain=0.1/1.496E+13 ! 0.1 cm
+ do i=1,nr
+         St(i) = 0.626 * (rho_grain * r_grain)/sigma(i)
+ enddo
 
 ! Print angular momentum of accreted particles
  angtot = sqrt(angx*angx + angy*angy + angz*angz)
@@ -269,7 +335,7 @@ endif
  write(iunit,'("# Analysis data at t = ",es20.12)') time
  if (npartoftype(idust)==0)then
     if (use_dustfrac) then
-       write(iunit,"('#',12(1x,'[',i2.2,1x,a11,']',2x))") &
+       write(iunit,"('#',13(1x,'[',i2.2,1x,a11,']',2x))") &
           1,'radius', &
           2,'sigma', &
           3,'sigmadust', &
@@ -281,9 +347,10 @@ endif
           9,'twist', &
           10,'psi', &
           11,'H/R init', &
-          12,'H/R'
+          12,'H/R', &
+          13,'St'
     else
-       write(iunit,"('#',11(1x,'[',i2.2,1x,a11,']',2x))") &
+       write(iunit,"('#',12(1x,'[',i2.2,1x,a11,']',2x))") &
           1,'radius', &
           2,'sigma', &
           3,'<h>/H', &
@@ -294,10 +361,11 @@ endif
           8,'twist', &
           9,'psi', &
           10,'H/R init', &
-          11,'H/R'
+          11,'H/R', &
+          12,'St'
     endif
   else
-  write(iunit,"('#',13(1x,'[',i2.2,1x,a11,']',2x))") &
+  write(iunit,"('#',14(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'radius', &
        2,'sigma', &
        3,'sigmadust', &
@@ -310,7 +378,8 @@ endif
        10,'psi', &
        11,'H/R init', &
        12,'H/R', &
-       13,'Hdust/R'
+       13,'Hdust/R', &
+       14,'St'
   endif
 
  do_precession = .false.
@@ -354,17 +423,17 @@ endif
 if (npartoftype(idust)==0)then
    if (ninbin(i) > 0) then
       if (use_dustfrac) then
-         write(iunit,'(12(es18.10,1X))') rad(i),sigma(i)*(1.-dust_fraction(i)),sigma(i)*dust_fraction(i),h_smooth(i),&
-                                       unitlx(i),unitly(i),unitlz(i),tilt,twist(i),psi,H(i)/rad(i),hgas(i)/rad(i)
+         write(iunit,'(13(es18.10,1X))') rad(i),sigma(i)*(1.-dust_fraction(i)),sigma(i)*dust_fraction(i),h_smooth(i),&
+                                       unitlx(i),unitly(i),unitlz(i),tilt,twist(i),psi,H(i)/rad(i),hgas(i)/rad(i),St(i)
       else
-         write(iunit,'(11(es18.10,1X))') rad(i),sigma(i),h_smooth(i),unitlx(i),unitly(i),unitlz(i),&
-                                       tilt,twist(i),psi,H(i)/rad(i),hgas(i)/rad(i)
+         write(iunit,'(12(es18.10,1X))') rad(i),sigma(i),h_smooth(i),unitlx(i),unitly(i),unitlz(i),&
+                                       tilt,twist(i),psi,H(i)/rad(i),hgas(i)/rad(i),St(i)
       endif
    endif
 else
    if (ninbin(i) > 0 .OR. ninbindust(i) > 0) then
-       write(iunit,'(13(es18.10,1X))') rad(i),sigma(i),sigmadust(i),h_smooth(i),unitlx(i),unitly(i),unitlz(i),&
-                                       tilt,twist(i),psi,H(i)/rad(i),hgas(i)/rad(i),hdust(i)/rad(i)
+       write(iunit,'(14(es18.10,1X))') rad(i),sigma(i),sigmadust(i),h_smooth(i),unitlx(i),unitly(i),unitlz(i),&
+                                       tilt,twist(i),psi,H(i)/rad(i),hgas(i)/rad(i),hdust(i)/rad(i),St(i)
     endif
 endif
 

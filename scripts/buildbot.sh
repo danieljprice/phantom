@@ -4,14 +4,14 @@
 #
 # Cycles through all defined setups in build/Makefile
 # and checks that these compile. Results are collated into
-# tables for the html and wiki pages.
+# tables for the html pages.
 #
 # You can run this script yourself from the scripts directory as follows:
 # cd phantom/scripts; ./buildbot.sh
 #
 # Outputs are put in the phantom/logs directory
 #
-# Written by Daniel Price, 2012-2015, daniel.price@monash.edu
+# Written by Daniel Price, 2012-2017, daniel.price@monash.edu
 #
 if [ X$SYSTEM == X ]; then
    echo "Error: Need SYSTEM environment variable set to check PHANTOM build";
@@ -37,6 +37,7 @@ phantomdir="$pwd/../";
 nolibs='MESAEOS=no'
 if [ $# -gt 1 ]; then
    url=$2;
+   echo "url = $url";
 else
    url='';
 fi
@@ -44,15 +45,18 @@ if [ ! -e $phantomdir/scripts/$0 ]; then
    echo "Error: This script needs to be run from the phantom/scripts directory";
    exit;
 fi
-echo "url = $url";
+#
+# make the subdirectory "logs" if it does not exist
+#
+if [ ! -d $phantomdir/logs ]; then
+   cd $phantomdir;
+   mkdir logs;
+   cd $pwd;
+fi
 htmlfile="$phantomdir/logs/build-status-$SYSTEM.html";
-wikifile="$phantomdir/logs/build-status-$SYSTEM.wiki";
 faillog="$phantomdir/logs/build-failures-$SYSTEM.txt";
 if [ -e $htmlfile ]; then
    rm $htmlfile;
-fi
-if [ -e $wikifile ]; then
-   rm $wikifile;
 fi
 if [ -e $faillog ]; then
    rm $faillog;
@@ -70,10 +74,7 @@ case $component in
    listoftargets='phantom setup analysis moddump';;
 esac
 echo "<h2>Checking Phantom $text build, SYSTEM=$SYSTEM</h2>" >> $htmlfile;
-echo "==Checking Phantom $text build, SYSTEM=$SYSTEM==" >> $wikifile;
 echo "Build checked: "`date` >> $htmlfile;
-echo "Build checked: "`date` >> $wikifile;
-echo >> $wikifile;
 ncheck=0;
 ntotal=0;
 nfail=0;
@@ -99,7 +100,6 @@ for setup in $listofsetups; do
       echo "compiling $setup with $maxp";
    fi
    echo "<tr>" >> $htmlfile;
-   wl='';
    for target in $listoftargets; do
       ntotal=$((ntotal + 1));
       err=0;
@@ -148,13 +148,10 @@ for setup in $listofsetups; do
       fi
       htext='';
       echo "<td bgcolor=\"$colour\">$setup ($target)</td>" >> $htmlfile;
-      wl+="| $setup ($target) | $text ";
-      werr='';
       errors='';
       if [ -e $errorlog ]; then
          grep Error $errorlog > errors.tmp;
          while read line; do
-            werr+="{{{ $line }}} \\\\";
             errors+="$line<br/>";
          done < errors.tmp;
       fi
@@ -162,46 +159,36 @@ for setup in $listofsetups; do
          rm errors.tmp;
       fi
       ref="`basename $errorlog`";
-      wref="nightly/${ref/.txt/}";
       if [ "X$url" == "X" ]; then
          href=$ref;  # link to local file
       else
-         href="$url${ref/.txt/}"; # link to wiki reference
+         href="$url/$ref"; # link to online file
       fi
       if [ $err -gt 0 ]; then
          echo "<td><a href=\"$href\">error log</a></td><td>$errors</td>" >> $htmlfile;
-         wl+="| [[$wref|error log]] | $werr";
       else 
          if [ $err -lt 0 ]; then
             echo "<td></td><td></td>" >> $htmlfile;   
-            wl+="| | ";
          else
-            echo "<td><a href="$href">warnings</a></td><td></td>" >> $htmlfile;
-            wl+="| [[$wref|warnings]] | ";
+            echo "<td><a href=\"$href\">warnings</a></td><td></td>" >> $htmlfile;
          fi
       fi
       if [ $newwarn -eq 1 ]; then
          hwarn='';
-         wwarn='';
          nwarn=$((nwarn + 1));
          if [ -e warnings.tmp ]; then
             while read line; do
-                wwarn+="{{{ $line }}} \\\\";
                 hwarn+="$line<br/>";
             done < warnings.tmp
          fi
          echo "<td>NEW WARNINGS:<br/>$hwarn</td>" >> $htmlfile;
-         wl+="| NEW WARNINGS: $wwarn ";
       else
          echo "<td>$htext</td>" >> $htmlfile;
-         wl+="| ";
       fi
    done
-   echo "$wl" >> $wikifile;
    echo "</tr>" >> $htmlfile;
    cd $pwd;
 done
 echo "</table>" >> $htmlfile;
 echo "<p>Checked $ncheck of $ntotal; <strong>$nfail failures</strong>, $nwarn new warnings</p>" >> $htmlfile;
-echo "Checked $ncheck of $ntotal; **$nfail failures**, $nwarn new warnings" >> $wikifile;
 done

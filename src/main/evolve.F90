@@ -404,7 +404,7 @@ use mf_write,          only:binpos_write
        if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
        if (should_conserve_dustmass) then
           do j = 1,ndusttypes
-             call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass')
+             call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)
           enddo
        endif
        !--write with the same ev file frequency also mass flux and binary position
@@ -690,17 +690,23 @@ end subroutine check_dtmax_for_decrease
 !  and stop if it is too large
 !+
 !----------------------------------------------------------------
-subroutine check_conservation_error(val,ref,tol,label)
+subroutine check_conservation_error(val,ref,tol,label,decrease)
  use io, only:error,fatal,iverbose
  real, intent(in) :: val,ref,tol
  character(len=*), intent(in) :: label
+ logical, intent(in), optional :: decrease
  real :: err
  character(len=20) :: string
 
  if (abs(ref) > 1.e-6) then
-    err = abs(val - ref)/abs(ref)
+    err = (val - ref)/abs(ref)
  else
-    err = abs(val - ref)
+    err = (val - ref)
+ endif
+ if (present(decrease)) then
+    err = max(err,0.) ! allow decrease but not increase
+ else
+    err = abs(err)
  endif
  if (err > tol) then
     call error('evolve','Large error in '//trim(label)//' conservation ',var='err',val=err)

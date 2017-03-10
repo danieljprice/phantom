@@ -13,7 +13,7 @@
 #
 # Outputs are put in the phantom/logs directory
 #
-# Written by Daniel Price, May 2013, daniel.price@monash.edu
+# Written by Daniel Price, 2013-2017, daniel.price@monash.edu
 #
 if [ X$SYSTEM == X ]; then
    echo "Error: Need SYSTEM environment variable set to run PHANTOM tests";
@@ -32,14 +32,18 @@ if [ ! -e $phantomdir/scripts/$0 ]; then
    echo "Error: This script needs to be run from the phantom/scripts directory";
    exit;
 fi
+#
+# make the subdirectory "logs" if it does not exist
+#
+if [ ! -d $phantomdir/logs ]; then
+   cd $phantomdir;
+   mkdir logs;
+   cd $pwd;
+fi
 htmlfile="$phantomdir/logs/test-status-$SYSTEM.html";
-wikifile="$phantomdir/logs/test-status-$SYSTEM.wiki";
 faillog="$phantomdir/logs/test-failures-$SYSTEM.txt";
 if [ -e $htmlfile ]; then
    rm $htmlfile;
-fi
-if [ -e $wikifile ]; then
-   rm $wikifile;
 fi
 if [ -e $faillog ]; then
    rm $faillog;
@@ -58,10 +62,7 @@ else
    debugflag='';
 fi
 echo "<h2>Checking Phantom testsuite, SYSTEM=$SYSTEM$debugflag</h2>" >> $htmlfile;
-echo "==Checking Phantom testsuite, SYSTEM=$SYSTEM$debugflag==" >> $wikifile;
 echo "Test suite checked: "`date` >> $htmlfile;
-echo "Test suite checked: "`date` >> $wikifile;
-echo >> $wikifile;
 echo "<table>" >> $htmlfile;
 ncheck=0;
 nfail=0;
@@ -80,8 +81,6 @@ for setup in $listofsetups; do
     ncheck=$(( ncheck + 1 ));
     err=0;
     herr='';
-    werr='';
-    wl='';
     if [ -e errors.tmp ]; then
        rm errors.tmp;
     fi
@@ -116,7 +115,6 @@ for setup in $listofsetups; do
              grep -B 5 ^' FAILED' $errorlog > errors.tmp;
              if [ -e errors.tmp ]; then
                 while read line; do
-                  werr+="{{{ $line }}}";
                   herr+="$line<br/>";
                 done < errors.tmp
              fi
@@ -151,23 +149,18 @@ for setup in $listofsetups; do
     fi
     echo "<tr><td bgcolor=$colour>$setup</td>" >> $htmlfile;
     ref="`basename $errorlog`";
-    wref="nightly/${ref/.txt/}";
     if [ "X$url" == "X" ]; then
        href=$ref;  # link to local file
     else
-       href="$url${ref/.txt/}"; # link to wiki reference
+       href="$url$ref"; # link to file on web server
     fi
     if [ -e errors.tmp ]; then
-       echo "<td>$fails<br/>$passes</td><td>$herr</td><td></td><td><a href="$href">show details</a></td></tr>" >> $htmlfile;
-       wl+="| $setup | $text | $werr | | [[$wref|show details]] |";    
+       echo "<td>$fails<br/>$passes</td><td>$herr</td><td></td><td><a href=\"$href\">show details</a></td></tr>" >> $htmlfile;
     else
-       echo "<td>$result</td><td>$timing</td><td>$herr</td><td><a href="$href">show details</a></td></tr>" >> $htmlfile;
-       wl+="| $setup | $text | $timing | $werr | [[$wref|show details]] |";
+       echo "<td>$result</td><td>$timing</td><td>$herr</td><td><a href=\"$href\">show details</a></td></tr>" >> $htmlfile;
     fi
-    echo "$wl" >> $wikifile;
     cd $pwd;
 done
 echo "</table>" >> $htmlfile;
 echo "<p>Performed $ncheck test runs; <strong>$nfail failures</strong></p>" >> $htmlfile;
-echo "Performed $ncheck test runs; **$nfail failures**" >> $wikifile;
 done

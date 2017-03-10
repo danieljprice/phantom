@@ -15,7 +15,7 @@
 !
 !  REFERENCES: Tejeda E., Rosswog S., 2013, MNRAS, 433, 1930
 !
-!  OWNER: Clément Bonnerot
+!  OWNER: Daniel Price
 !
 !  $Id$
 !

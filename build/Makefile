@@ -1246,6 +1246,24 @@ ifeq ($(SYSTEM), pgf90) # tested for version 7.2-5
     CCFLAGS = -O3
 endif
 
+ifeq ($(SYSTEM), hydra)
+# this configuration works for the hydra cluster http://www.mpcdf.mpg.de/services/computing/hydra
+    FC= ifort
+    FFLAGS= -O3 -xavx -ip -mcmodel=medium -shared-intel -warn uninitialized \
+            -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+# or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
+    OMPFLAGS = -openmp
+    CC = icc
+    CCFLAGS = -O3 -ipo -mcmodel=medium
+    LIBCXX = -cxxlib
+endif
+
+
 # Set some default files if not defined above
 ifdef MAXP
    FPPFLAGS += -DMAXP=${MAXP}
@@ -1444,6 +1462,7 @@ endif
 #
 ifeq ($(MCFOST), yes)
     LDFLAGS+= -L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)
+#    LDFLAGS+=  ~/mcfost/src/libtmp/*.o  ~/mcfost/src/*.o  $(LIBCXX)
 endif
 
 #
