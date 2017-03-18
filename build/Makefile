@@ -1205,6 +1205,22 @@ ifeq ($(SYSTEM), ifort)
     LIBCXX = -cxxlib
 endif
 
+ifeq ($(SYSTEM), ifort17)
+    # SYSTEM= ifort fails "make test" for ifort 17.0
+    FC= ifort
+    FFLAGS= -O3 -mcmodel=medium -shared-intel \
+            -warn uninitialized -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+    OMPFLAGS = -qopenmp
+    CC = icc
+    CCFLAGS = -O3 -mcmodel=medium
+    LIBCXX = -cxxlib
+endif
+
 ifeq ($(SYSTEM), ifortgcc)
     FC= ifort
 #    FFLAGS= -fast -warn all
