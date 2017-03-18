@@ -52,7 +52,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real(kind=4) :: Tdust(npart)
  real    :: grain_size(1)
  integer :: ierr,ntypes,ndusttypes,dustfluidtype,ilen,nlum, i
- integer(kind=1) :: itype(npart)
+ integer(kind=1) :: itype(maxp)
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
  logical :: compute_Frad
  real,dimension(6) :: SPH_limits
