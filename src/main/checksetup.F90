@@ -302,7 +302,7 @@ subroutine check_setup(nerror,nwarn,restart)
           if (dustfrac(j,i) < 0. .or. dustfrac(j,i) > 1.) then
              nbad = nbad + 1
              if (nbad <= 10) print*,'ndusttype ',j,' particle ',i,' dustfrac = ',dustfrac(j,i)
-          elseif (abs(dustfrac(i)-1.) < tiny(1.)) then
+          elseif (abs(dustfrac(j,i)-1.) < tiny(1.)) then
              nunity = nunity + 1
           else
              dust_to_gas = dust_to_gas + dustfrac(j,i)/(1. - dustfrac(j,i))
