@@ -41,7 +41,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     dust_to_gas = 0.01
     print*,' SETTING DUST-TO-GAS RATIO = ',dust_to_gas
     if (use_dustfrac) then
-       call set_dustfrac(dust_to_gas,dustfrac_temp,smincgs,smaxcgs,sindex)
+       if (ndusttypes>1) then
+          call set_dustfrac(dust_to_gas,dustfrac_temp,smincgs,smaxcgs,sindex)
+       else
+          call set_dustfrac(dust_to_gas,dustfrac_temp)
+       endif
        do i=1,ndusttypes
           dustfrac(i,:) = dustfrac_temp(i)
        enddo

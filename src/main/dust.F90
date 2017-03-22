@@ -155,7 +155,7 @@ end subroutine print_dustinfo
 !----------------------------------------------------------------
 subroutine set_dustfrac_single(dust_to_gas,dustfrac)
  real, intent(in)  :: dust_to_gas
- real, intent(out) :: dustfrac
+ real, intent(out) :: dustfrac(:)
  
  dustfrac = dust_to_gas/(1. + dust_to_gas)
 
@@ -182,7 +182,7 @@ subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,smin,smax,sindex)
  real :: ndusti(ndusttypes)
  real :: exact
  real, parameter :: tol = 1.e-10
- 
+
  if (smax==smin) then
     !--If all the same grain size, then just scale the dust fraction
     dustfrac = dust_to_gas_tot/(1.+dust_to_gas_tot)*1./real(ndusttypes)
