@@ -1765,6 +1765,11 @@ ifgas: if (iamgasi .and. iamgasj) then
            epstsj   = sum(dustfracj*tsj)
            rhogas1i = rho1i/(1.-dustfracisum)
            rhogas1j = 1./rhogasj
+           
+           ! Check that weighted sums of Tsj and tilde(Tsj) are equal (see Hutchison et al. 2017)
+           if (ndusttypes>1) then
+              if (abs(sum(dustfracj*tsj) - sum(dustfracj*(tsj-epstsj))/(1. - dustfracjsum)) > 1e-14) print*,'Stop! tsj or epstsj in force is incorrect!'
+           endif
 
            do l = 1,ndusttypes
               if (dustfraci(l) > 0. .or. dustfracj(l) > 0.) then
