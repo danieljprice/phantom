@@ -19,7 +19,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: checksetup, deriv, dim, eos, io, options, part, setdisc,
-!    testutils, timing
+!    testutils, timing, units
 !+
 !--------------------------------------------------------------------------
 module testsetdisc
