@@ -196,6 +196,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  iexternalforce = icentralforce
  icooling = 1 ! Switches on beta cooling
+#ifdef MCFOST
+ icooling = 0
+#endif
 
  !
  !--Define a typical density so that B-fields can be correctly initialised

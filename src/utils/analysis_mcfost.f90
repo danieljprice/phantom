@@ -52,7 +52,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real(kind=4) :: Tdust(npart)
  real    :: grain_size(1)
  integer :: ierr,ntypes,ndusttypes,dustfluidtype,ilen,nlum, i
- integer(kind=1) :: itype(npart)
+ integer(kind=1) :: itype(maxp)
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
  logical :: compute_Frad
  real,dimension(6) :: SPH_limits
@@ -60,6 +60,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,dimension(:),allocatable :: dudt
 
  real, parameter :: Tdefault = 10.
+ logical, parameter :: write_T_files = .true. ! ask mcfost to write fits files with temperature structure
+
 
  if (.not.init_mcfost) then
     ilen = index(dumpfile,'_')
@@ -96,7 +98,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
     npartoftype,xyzh,itype,grain_size,graindens,dustfrac,massoftype,&
     xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
-    Frad,mu_gas,ierr)
+    Frad,mu_gas,ierr,&
+    write_T_files)
  !print*,' mu_gas = ',mu_gas
 
  write(*,*) ''

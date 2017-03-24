@@ -1205,6 +1205,22 @@ ifeq ($(SYSTEM), ifort)
     LIBCXX = -cxxlib
 endif
 
+ifeq ($(SYSTEM), ifort17)
+    # SYSTEM= ifort fails "make test" for ifort 17.0
+    FC= ifort
+    FFLAGS= -O3 -mcmodel=medium -shared-intel \
+            -warn uninitialized -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+    OMPFLAGS = -qopenmp
+    CC = icc
+    CCFLAGS = -O3 -mcmodel=medium
+    LIBCXX = -cxxlib
+endif
+
 ifeq ($(SYSTEM), ifortgcc)
     FC= ifort
 #    FFLAGS= -fast -warn all
@@ -1256,7 +1272,7 @@ ifeq ($(SYSTEM), hydra)
     KNOWN_SYSTEM=yes
     ENDIANFLAGBIG= -convert big_endian
     ENDIANFLAGLITTLE= -convert little_endian
-# or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only) 
+# or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
     OMPFLAGS = -openmp
     CC = icc
     CCFLAGS = -O3 -ipo -mcmodel=medium
@@ -1462,6 +1478,7 @@ endif
 #
 ifeq ($(MCFOST), yes)
     LDFLAGS+= -L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)
+#    LDFLAGS+=  ~/mcfost/src/libtmp/*.o  ~/mcfost/src/*.o  $(LIBCXX)
 endif
 
 #

@@ -162,7 +162,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     endif
  endif
 
- write(iwritein,"(/,a)") '# options controlling accuracy '
+ write(iwritein,"(/,a)") '# options controlling accuracy'
  call write_inopt(C_cour,'C_cour','Courant number',iwritein)
  call write_inopt(C_force,'C_force','dt_force number',iwritein)
  call write_inopt(tolv,'tolv','tolerance on v iterations in timestepping',iwritein,exp=.true.)
