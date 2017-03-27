@@ -40,7 +40,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce
  use evwrite,          only:write_evfile,write_evlog
  use energies,         only:etot,totmom,angtot,mdust,get_erot_com
- use dim,              only:calc_erot,maxvxyzu,mhd,use_dustfrac
+ use dim,              only:calc_erot,maxvxyzu,mhd,use_dustfrac,periodic
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,dtwallmax,nmaxdumps,iexternalforce,&
                             icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
@@ -149,7 +149,7 @@ use mf_write,          only:binpos_write
                            ipdv_heating==1 .and. ishock_heating==1 &
                            .and. (.not.mhd .or. iresistive_heating==1))
  should_conserve_momentum = (npartoftype(iboundary)==0)
- should_conserve_angmom   = (npartoftype(iboundary)==0)
+ should_conserve_angmom   = (npartoftype(iboundary)==0 .and. .not.periodic)
  should_conserve_dustmass = use_dustfrac
 
  noutput          = 1
@@ -695,7 +695,7 @@ subroutine check_conservation_error(val,ref,tol,label,decrease)
  real :: err
  character(len=20) :: string
 
- if (abs(ref) > 1.e-6) then
+ if (abs(ref) > 1.e-3) then
     err = (val - ref)/abs(ref)
  else
     err = (val - ref)
