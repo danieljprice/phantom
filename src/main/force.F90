@@ -1769,6 +1769,10 @@ ifgas: if (iamgasi .and. iamgasj) then
            ! Check that weighted sums of Tsj and tilde(Tsj) are equal (see Hutchison et al. 2017)
            if (ndusttypes>1) then
               if (abs(sum(dustfracj*tsj) - sum(dustfracj*(tsj-epstsj))/(1. - dustfracjsum)) > 1e-14) print*,'Stop! tsj or epstsj in force is incorrect!'
+           else
+              if (abs(tsj(1) - (tsj(1)-epstsj)/(1.-dustfracj(1)))>1e-14) then
+                 print*,'Warning! error in tsj is = ',tsj(1)-(tsj(1)-epstsj)/(1.-dustfracjsum)
+              endif
            endif
 
            do l = 1,ndusttypes
