@@ -19,22 +19,22 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    accr1             -- primary accretion radius
-!    accr2             -- secondary accretion radius
-!    alphaSS           -- desired Shakura-Sunyaev alpha viscosity parameter
-!    binary_argperi    -- binary angle for argument of periapsis (deg)
-!    binary_inc        -- binary inclination in degrees
-!    binary_posang     -- binary position angle of ascending node (deg)
-!    binary_separation -- binary separation
-!    deltat            -- output interval as fraction of binary orbital period
-!    dist_unit         -- distance unit (e.g. au)
-!    dust_to_gas       -- initial dust-to-gas ratio
-!    ecc               -- binary eccentricity
-!    m1                -- primary mass
-!    m2                -- secondary mass
-!    mass_unit         -- mass unit (e.g. solarm)
-!    norbits           -- maximum number of binary orbits
-!    np                -- number of particles
+!    accr1          -- primary accretion radius
+!    accr2          -- secondary accretion radius
+!    alphaSS        -- desired Shakura-Sunyaev alpha viscosity parameter
+!    binary_a       -- binary semi-major axis
+!    binary_argperi -- w, argument of periapsis (deg)
+!    binary_inc     -- i, inclination (deg)
+!    binary_posang  -- Omega, PA of ascending node (deg)
+!    deltat         -- output interval as fraction of binary orbital period
+!    dist_unit      -- distance unit (e.g. au)
+!    dust_to_gas    -- initial dust-to-gas ratio
+!    ecc            -- binary eccentricity
+!    m1             -- primary mass
+!    m2             -- secondary mass
+!    mass_unit      -- mass unit (e.g. solarm)
+!    norbits        -- maximum number of binary orbits
+!    np             -- number of particles
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, infile_utils, io, options,
 !    part, physcon, prompting, setbinary, setdisc, timestep, units
