@@ -55,7 +55,7 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
  real    :: m1,m2,mtot,dx(3),dv(3),Rochelobe,Rochelobe2,period
  real    :: x1(3),x2(3),v1(3),v2(3),omega0,cosi,sini,xangle,reducedmass,angmbin
  real    :: a,E,E_dot,P(3),Q(3),omega,big_omega,inc,ecc,tperi,term1,term2
- logical :: do_verbose,flip_x
+ logical :: do_verbose
 
  do_verbose = .true.
  if (present(verbose)) do_verbose = verbose
@@ -110,10 +110,9 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
     ! Campbell elements
     a = semimajoraxis
     ecc = eccentricity
-    omega     = arg_peri*pi/180. !(arg_peri + 180.)*pi/180.
-    flip_x    = .true.
-    if (flip_x) omega = omega + pi/2.
-    big_omega = posang_ascnode*pi/180.
+    omega     = arg_peri*pi/180.
+    ! our conventions here are Omega is measured East of North
+    big_omega = posang_ascnode*pi/180. + 0.5*pi !(arg_peri + 180.)*pi/180.
     inc       = incl*pi/180.
     tperi     = 0.5*period ! time since periastron: use half period to set binary initially at apastron
 
@@ -136,9 +135,9 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
        print "(4(2x,a,g12.4,/),2x,a,g12.4)", &
              'Eccentric anomaly:',E, &
              'E_dot            :',E_dot, &
-             'inclination (deg):',incl, &
-             'arg. pericentre  :',arg_peri, &
-             'angle asc. node  :',posang_ascnode
+             'inclination     (i, deg):',incl, &
+             'angle asc. node (O, deg):',posang_ascnode, &
+             'arg. pericentre (w, deg):',arg_peri
     endif
 
     ! Rotating everything
@@ -148,13 +147,6 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
     ! Set the velocities
     dv(:) = -a*sin(E)*E_dot*P(:) + a*sqrt(1.-(ecc*ecc))*cos(E)*E_dot*Q(:)
 
-    if (flip_x) then
-       ! flip x axis (because observers convention is for x axis increasing to the left)
-       dx(1) = -dx(1)
-       dv(1) = -dv(1)
-       ! orbit in the other direction
-       dv = -dv
-    endif
  else
     ! set binary at apastron
     dx = (/semimajoraxis*(1. + eccentricity),0.,0./)
