@@ -1278,9 +1278,9 @@ end subroutine init_ptmass
 !-----------------------------------------------------------------------
 subroutine finish_ptmass(nptmass)
  integer, intent(in) :: nptmass
- 
+
  call pt_close_sinkev(nptmass)
- 
+
 end subroutine finish_ptmass
 
 !-----------------------------------------------------------------------
@@ -1322,7 +1322,7 @@ subroutine pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass)
  integer, intent(in) :: nptmass
  real,    intent(in) :: time, xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer             :: i,iunit
- 
+
  do i = 1,nptmass
     iunit = iskfile+i
     write(iunit,"(12(1pe18.9,1x))") &
