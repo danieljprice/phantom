@@ -108,6 +108,7 @@ subroutine test_ptmass(ntests,npass)
     ibin(:) = 0_1
 #endif
     iverbose = 0
+    tree_accuracy = 0.
 
     binary_tests: do itest = 1,nbinary_tests
        if (id==master) then

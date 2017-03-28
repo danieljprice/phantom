@@ -85,7 +85,7 @@ for setup in $listofsetups; do
        rm errors.tmp;
     fi
     if [ $setup == "testgrav" ]; then
-       arg="gravity";
+       arg="gravity ptmass";
     elif [ $setup == "testdust" ]; then
        arg="dust";
     else
