@@ -70,7 +70,7 @@ subroutine test_ptmass(ntests,npass)
  logical                :: accreted
  real                   :: massr,m1,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,dr
  real                   :: etotin,totmomin,dtsinksink,omega,mred,errmax,angmomin
- real                   :: r2,r2min,dtext_dum,xcofm(3),totmass,dum,dum2,psep
+ real                   :: r2,r2min,dtext_dum,xcofm(3),totmass,dum,dum2,psep,tolen
  real                   :: xyzm_ptmass_old(4,1), vxyz_ptmass_old(3,1)
  real                   :: q,phisoft,fsoft,m2,mu,v_c1,v_c2,r1,omega1,omega2
  integer                :: norbits
@@ -259,11 +259,13 @@ subroutine test_ptmass(ntests,npass)
        case(2)
           call checkval(angtot,angmomin,2.e-7,nfailed(3),'angular momentum')
           call checkval(totmom,totmomin,3.e-14,nfailed(2),'linear momentum')
-          call checkval(etotin+errmax,etotin,2.e-3,nfailed(1),'total energy')
+          tolen = 2.e-3
+          if (gravity) tolen = 3.e-3
+          call checkval(etotin+errmax,etotin,tolen,nfailed(1),'total energy')
        case default
-          call checkval(angtot,angmomin,1.e-10,nfailed(3),'angular momentum')
+          call checkval(angtot,angmomin,1.e-14,nfailed(3),'angular momentum')
           call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
-          call checkval(etotin+errmax,etotin,1.e-6,nfailed(1),'total energy')
+          call checkval(etotin+errmax,etotin,3.e-8,nfailed(1),'total energy')
        end select
        !
        !--check energy conservation
