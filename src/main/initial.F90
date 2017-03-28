@@ -156,7 +156,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use nicil,            only:nicil_initialise
  use nicil_sup,        only:use_consistent_gmw
 #endif
- use ptmass,           only:ptmass_init,get_accel_sink_gas,get_accel_sink_sink, &
+ use ptmass,           only:init_ptmass,get_accel_sink_gas,get_accel_sink_sink, &
                             r_crit,r_crit2,rho_crit,rho_crit_cgs
  use timestep,         only:time,dt,dtextforce,C_force,dtmax, &
                             rho_dtthresh,rho_dtthresh_cgs,dtmax_rat0,mod_dtmax,mod_dtmax_now
@@ -452,7 +452,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     write(iprint,*) 'dt(sink-gas)  = ',dtsinkgas
     dtextforce = min(dtextforce,dtsinkgas)
  endif
- call ptmass_init(nptmass,logfile,dumpfile)
+ call init_ptmass(nptmass,logfile,dumpfile)
 !
 !--calculate (all) derivatives the first time around
 !
@@ -576,11 +576,12 @@ end subroutine startrun
 !----------------------------------------------------------------
 
 subroutine endrun
- use io,       only:iprint,ievfile,iscfile,ipafile,iskfile,imflow,ivmflow,ibinpos,igpos
+ use io,       only:iprint,ievfile,iscfile,ipafile,imflow,ivmflow,ibinpos,igpos
  use timing,   only:printused
  use part,     only:nptmass
  use eos,      only:ieos,finish_eos
- integer           :: i, ierr
+ use ptmass,   only:finish_ptmass
+ integer           :: ierr
  character(len=10) :: finishdate, finishtime
 
 
@@ -619,9 +620,8 @@ subroutine endrun
 
  if (iscfile > 0) close(unit=iscfile)
  if (ipafile > 0) close(unit=ipafile)
- do i = 1,nptmass
-   close(unit=iskfile+i)
- enddo
+
+ call finish_ptmass(nptmass)
 
 end subroutine endrun
 

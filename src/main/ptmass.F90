@@ -46,7 +46,8 @@ module ptmass
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
- public :: ptmass_init,pt_write_sinkev
+ public :: init_ptmass, finish_ptmass
+ public :: pt_write_sinkev, pt_close_sinkev
  public :: get_accel_sink_gas, get_accel_sink_sink
  public :: ptmass_predictor, ptmass_corrector
  public :: ptmass_not_obscured
@@ -1126,10 +1127,14 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
     vxyz_ptmass(:,n) = 0.     ! zero velocity, get this by accreting
     itypej = igas             ! default particle type to be accreted
     pmassj = massoftype(igas) ! default particle mass to be accreted
+    !
     ! Save sink particle properties for use in checks to see if particles should be accreted
+    !
     xyzm_ptmass_old = xyzmh_ptmass(1:4,1:nptmass)
     vxyz_ptmass_old = vxyz_ptmass (1:3,1:nptmass)
+    !
     ! accrete neighbours (including self)
+    !
     nacc = 0
     do n=1,nneigh
        j = listneigh(n)
@@ -1149,21 +1154,25 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
     write(iprint,"(a,i3,a,4(es10.3,1x),a,i6,a,es10.3)") ' created ptmass #',nptmass,&
      ' at (x,y,z,t)=(',xyzmh_ptmass(1:3,nptmass),time,') by accreting ',nacc,' particles: M=',xyzmh_ptmass(4,nptmass)
     if (nacc <= 0) call fatal('ptmass_create',' created ptmass but failed to accrete anything')
+    !
     ! open new file to track new sink particle details & and update all sink-tracking files
+    !
     call pt_open_sinkev(nptmass)
     call pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass)
 #ifdef IND_TIMESTEPS
     ibinsink = 0
 #endif
  else
+    !
     ! record failure reason for summary
+    !
     call summary_ptmass_fail(ifail)
  endif
  ! print details to file, if requested
  if (record_created) then
-   write(iscfile,'(es18.10,1x,3(i18,1x),5(es18.9,1x),7(i18,1x))') &
-   time,nptmass+1,itest,nneigh,rhoh(hi,pmassi),divvi,alpha_grav,alphabeta_grav,etot,ifail7
-   call flush(iscfile)
+    write(iscfile,'(es18.10,1x,3(i18,1x),5(es18.9,1x),7(i18,1x))') &
+       time,nptmass+1,itest,nneigh,rhoh(hi,pmassi),divvi,alpha_grav,alphabeta_grav,etot,ifail7
+    call flush(iscfile)
  endif
 
 end subroutine ptmass_create
@@ -1173,94 +1182,117 @@ end subroutine ptmass_create
 !  Open files to track sink particle data
 !+
 !-----------------------------------------------------------------------
-subroutine ptmass_init(nptmass,logfile,dumpfile)
+subroutine init_ptmass(nptmass,logfile,dumpfile)
  integer,          intent(in) :: nptmass
  character(len=*), intent(in) :: logfile,dumpfile
  integer                      :: i,idot,idash
  character(len=150)           :: filename
  !
  !--Extract prefix
+ !
  idash = index(dumpfile,'_')
  write(pt_prefix,"(a)") dumpfile(1:idash-1)
+ !
  !--Extract suffix
+ !
  idot = index(logfile,'.')
  if (idot==0) idot = len_trim(logfile) + 1
  write(pt_suffix,'(2a)') logfile(len(trim(pt_prefix))+1:idot-1),".ev"
  !
  !--Open file for each sink particle
+ !
  do i = 1,nptmass
-   call pt_open_sinkev(i)
+    call pt_open_sinkev(i)
  enddo
  !
  !--Open file for tracking sink creation (if required)
+ !
  if (record_created) then
-   filename = trim(pt_prefix)//"SinkCreated"//trim(pt_suffix)
-   open(unit=iscfile,file=trim(filename),form='formatted',status='replace')
-   write(iscfile,'("# Data of particles attempting to be converted into sinks.  Columns 10-17: 0 = T, 1 = F")')
-   write(iscfile,"('#',16(1x,'[',i2.2,1x,a11,']',2x))") &
-          1,'time', &
-          2,'nptmass+1', &
-          3,'itest',     &
-          4,'neigh',     &
-          5,'rho',       &
-          6,'div v',     &
-          7,'alpha',     &
-          8,'alphabeta', &
-          9,'etot',      &
-         10,'all active',&
-         11,'alpha < 0', &
-         12,'a+b <= 1',  &
-         13,'etot < 0',  &
-         14,'is gas',    &
-         15,'div v < 0', &
-         16,'2h < h_acc'
+    filename = trim(pt_prefix)//"SinkCreated"//trim(pt_suffix)
+    open(unit=iscfile,file=trim(filename),form='formatted',status='replace')
+    write(iscfile,'("# Data of particles attempting to be converted into sinks.  Columns 10-17: 0 = T, 1 = F")')
+    write(iscfile,"('#',16(1x,'[',i2.2,1x,a11,']',2x))") &
+           1,'time', &
+           2,'nptmass+1', &
+           3,'itest',     &
+           4,'neigh',     &
+           5,'rho',       &
+           6,'div v',     &
+           7,'alpha',     &
+           8,'alphabeta', &
+           9,'etot',      &
+          10,'all active',&
+          11,'alpha < 0', &
+          12,'a+b <= 1',  &
+          13,'etot < 0',  &
+          14,'is gas',    &
+          15,'div v < 0', &
+          16,'2h < h_acc'
  else
-   iscfile = -abs(iscfile)
+    iscfile = -abs(iscfile)
  endif
  !
  !--Open file for tracking particle accretion (if required)
- if (record_accreted) then
-   filename = trim(pt_prefix)//"ParticleAccretion"//trim(pt_suffix)
-   open(unit=ipafile,file=trim(filename),form='formatted',status='replace')
-   write(ipafile,'("# Data of accreted particles")')
-   write(ipafile,"('#',26(1x,'[',i2.2,1x,a11,']',2x))") &
-         1,'time',  &
-         2,'sinki', &
-         3,'angx',  &
-         4,'angy',  &
-         5,'angz',  &
-         6,'mpart', &
-         7,'msink', &
-         8,'mu',    &
-         9,'dx',    &
-         10,'dy',   &
-         11,'dz',   &
-         12,'dvx',  &
-         13,'dvy',  &
-         14,'dvz',  &
-         15,'xsink_new', &
-         16,'ysink_new', &
-         17,'zsink_new', &
-         18,'xsink_old', &
-         19,'ysink_old', &
-         20,'zsink_old', &
-         21,'vxsink_new',&
-         22,'vysink_new',&
-         23,'vzsink_new',&
-         24,'vxsink_old',&
-         25,'vysink_old',&
-         26,'vzsink_old'
- else
-   ipafile = -abs(ipafile)
- endif
  !
-end subroutine ptmass_init
-!
+ if (record_accreted) then
+    filename = trim(pt_prefix)//"ParticleAccretion"//trim(pt_suffix)
+    open(unit=ipafile,file=trim(filename),form='formatted',status='replace')
+    write(ipafile,'("# Data of accreted particles")')
+    write(ipafile,"('#',26(1x,'[',i2.2,1x,a11,']',2x))") &
+          1,'time',  &
+          2,'sinki', &
+          3,'angx',  &
+          4,'angy',  &
+          5,'angz',  &
+          6,'mpart', &
+          7,'msink', &
+          8,'mu',    &
+          9,'dx',    &
+          10,'dy',   &
+          11,'dz',   &
+          12,'dvx',  &
+          13,'dvy',  &
+          14,'dvz',  &
+          15,'xsink_new', &
+          16,'ysink_new', &
+          17,'zsink_new', &
+          18,'xsink_old', &
+          19,'ysink_old', &
+          20,'zsink_old', &
+          21,'vxsink_new',&
+          22,'vysink_new',&
+          23,'vzsink_new',&
+          24,'vxsink_old',&
+          25,'vysink_old',&
+          26,'vzsink_old'
+ else
+    ipafile = -abs(ipafile)
+ endif
+
+end subroutine init_ptmass
+
+!-----------------------------------------------------------------------
+!+
+!  finalise ptmass stuff, free memory, close files
+!+
+!-----------------------------------------------------------------------
+subroutine finish_ptmass(nptmass)
+ integer, intent(in) :: nptmass
+ 
+ call pt_close_sinkev(nptmass)
+ 
+end subroutine finish_ptmass
+
+!-----------------------------------------------------------------------
+!+
+!  write open sink data files
+!+
+!-----------------------------------------------------------------------
 subroutine pt_open_sinkev(num)
  integer, intent(in) :: num
  integer             :: iunit
  character(len=200)  :: filename
- !
+
  write(filename,'(2a,I4.4,2a)') trim(pt_prefix),"Sink",num,"N",trim(pt_suffix)
  iunit = iskfile+num
  open(unit=iunit,file=trim(filename),form='formatted',status='replace')
@@ -1277,7 +1309,7 @@ subroutine pt_open_sinkev(num)
          10,'spiny', &
          11,'spinz', &
          12,'macc'
- !
+
 end subroutine pt_open_sinkev
 
 !-----------------------------------------------------------------------
@@ -1290,20 +1322,40 @@ subroutine pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass)
  integer, intent(in) :: nptmass
  real,    intent(in) :: time, xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer             :: i,iunit
- !
+ 
  do i = 1,nptmass
-   iunit = iskfile+i
-   write(iunit,"(12(1pe18.9,1x))") &
-   time, xyzmh_ptmass(1:4,i),vxyz_ptmass(1:3,i), &
-   xyzmh_ptmass(ispinx,i),xyzmh_ptmass(ispiny,i),xyzmh_ptmass(ispinz,i), &
-   xyzmh_ptmass(imacc,i)
-   call flush(iunit)
+    iunit = iskfile+i
+    write(iunit,"(12(1pe18.9,1x))") &
+    time, xyzmh_ptmass(1:4,i),vxyz_ptmass(1:3,i), &
+    xyzmh_ptmass(ispinx,i),xyzmh_ptmass(ispiny,i),xyzmh_ptmass(ispinz,i), &
+    xyzmh_ptmass(imacc,i)
+    call flush(iunit)
  enddo
-!
+
 end subroutine pt_write_sinkev
-!
+
+!-----------------------------------------------------------------------
+!+
+!  close sink data files
+!+
+!-----------------------------------------------------------------------
+subroutine pt_close_sinkev(nptmass)
+ integer, intent(in) :: nptmass
+ integer             :: i,iunit
+
+ do i = 1,nptmass
+    iunit = iskfile+i
+    close(iunit)
+ enddo
+
+end subroutine pt_close_sinkev
+
+!-----------------------------------------------------------------------
+!+
 ! Author: CJN
 ! Modified: JHW (July 2015): Added columns 18-26
+!+
+!-----------------------------------------------------------------------
 subroutine track_accreted(time,sinki,dx,dy,dz,dvx,dvy,dvz,xsink,ysink,zsink,msink,mu,mpart,v_new,xs,ys,zs, vxs,vys,vzs)
  integer, intent(in) :: sinki
  real,    intent(in) :: time,dx,dy,dz,dvx,dvy,dvz,xsink,ysink,zsink,msink,mu,mpart
