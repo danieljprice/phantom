@@ -263,7 +263,7 @@ subroutine test_ptmass(ntests,npass)
           if (gravity) tolen = 3.e-3
           call checkval(etotin+errmax,etotin,tolen,nfailed(1),'total energy')
        case default
-          call checkval(angtot,angmomin,1.e-14,nfailed(3),'angular momentum')
+          call checkval(angtot,angmomin,3.e-14,nfailed(3),'angular momentum')
           call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
           call checkval(etotin+errmax,etotin,3.e-8,nfailed(1),'total energy')
        end select
