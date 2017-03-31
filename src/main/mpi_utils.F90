@@ -109,13 +109,19 @@ module mpiutils
  interface fill_buffer
     module procedure fill_buffer_r8,fill_buffer_r4,fill_buffer_r8val,fill_buffer_r4val,fill_buffer_ival
  end interface
+!
+!--generic interface unfill_buf
+!
+ interface unfill_buf
+    module procedure unfill_bufarr,unfill_buf1
+ end interface
 
  public :: init_mpi, finalise_mpi
  public :: waitmyturn,endmyturn
  public :: reduce_mpi, reduceall_mpi, reduce_in_place_mpi
  public :: bcast_mpi
  public :: barrier_mpi
- public :: fill_buffer
+ public :: fill_buffer, unfill_buf
 
  private
 
@@ -1277,5 +1283,36 @@ subroutine fill_buffer_ival(xbuffer,ival,nbuf)
  xbuffer(nbuf) = real(ival)
 
 end subroutine fill_buffer_ival
+
+!--------------------------------------------------------------------------
+!+
+!  functions to unfill a buffer received from different processors
+!+
+!--------------------------------------------------------------------------
+function unfill_bufarr(xbuf,ioffset,len) result(xnew)
+ integer, intent(inout) :: ioffset
+ real,    intent(in)    :: xbuf(:)
+ integer, intent(in)    :: len
+ real :: xnew(len)
+ integer :: i1,i2
+
+ i1 = ioffset + 1
+ i2 = ioffset + len
+ xnew = xbuf(i1:i2)
+ ioffset = i2
+
+end function unfill_bufarr
+
+function unfill_buf1(xbuf,ioffset) result(xnew)
+ integer, intent(inout) :: ioffset
+ real,    intent(in)    :: xbuf(:)
+ real    :: xnew
+ integer :: i1
+
+ i1 = ioffset + 1
+ xnew = xbuf(i1)
+ ioffset = i1
+
+end function unfill_buf1
 
 end module mpiutils
