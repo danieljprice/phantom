@@ -101,7 +101,7 @@ subroutine test_link(ntests,npass)
  rhozero = 7.5
  hfact = 1.2
  totmass = rhozero/(dxboundp*dyboundp*dzboundp)
- massoftype(igas) = totmass/real(npart) !OK: reduceall_mpi('+',npart)
+ massoftype(igas) = totmass/reduceall_mpi('+',npart)
  hzero = hfact*(massoftype(1)/rhozero)**(1./3.)
 
  hmin = 0.01*hzero
@@ -436,7 +436,7 @@ subroutine test_link(ntests,npass)
  do maxpen=1,3
     write(*,"(a)") ' particles in a line in '//xlabel(maxpen)//' direction '
     !--particles in a line
-    npart = 10
+    npart = 100 ! need a minimum number of particles for MPI tree building
     psep  = dxbound/npart
     npartoftype(:) = 0
     npartoftype(igas) = npart

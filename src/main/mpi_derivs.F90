@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2015 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -25,15 +25,53 @@
 #ifdef MPI
 module mpiderivs
  use mpi
- use mpiutils, only:mpierr,status,MPI_DEFAULT_REAL
+ use mpiutils,       only:mpierr,status,MPI_DEFAULT_REAL
+ use dtypekdtree,    only:kdnode,ndimtree
+
  implicit none
+
+ interface init_cell_exchange
+  module procedure init_celldens_exchange,init_cellforce_exchange
+ end interface
+
+ interface send_cell
+  module procedure send_celldens,send_cellforce
+ end interface
+
+ interface check_send_finished
+  module procedure check_send_finished_dens,check_send_finished_force
+ end interface
+
+ interface recv_cells
+  module procedure recv_celldens,recv_cellforce
+ end interface
+
+ interface finish_cell_exchange
+  module procedure finish_celldens_exchange,finish_cellforce_exchange
+ end interface
+
+ interface recv_while_wait
+  module procedure recv_while_wait_force,recv_while_wait_dens
+ end interface
+
  private
- public :: init_results_exchange
- public :: send_results
- public :: recv_density_results
- public :: recv_force_results
+
+ integer :: dtype_celldens
+ integer :: dtype_cellforce
+ integer :: comm_cellexchange
+ integer :: comm_done
+
+ public :: init_cell_exchange
+ public :: send_cell
+ public :: recv_cells
  public :: check_send_finished
- public :: finish_results_exchange
+ public :: finish_cell_exchange
+ public :: recv_while_wait
+ public :: get_group_cofm
+ public :: reduce_group
+ public :: cellatid_sync
+ public :: tree_sync
+ public :: tree_bcast
 
 contains
 
@@ -42,11 +80,14 @@ contains
 !  initialise the receive type for each thread
 !+
 !----------------------------------------------------------------
-subroutine init_results_exchange(nprocs,xbufrecv,ireq)
- integer, intent(in)    :: nprocs
- real,    intent(inout) :: xbufrecv(:,:)
- integer, intent(out)   :: ireq(nprocs) !,nrecv
- integer :: iproc
+subroutine init_celldens_exchange(xbufrecv,ireq)
+ use io,       only:fatal,nprocs
+ use mpidens,  only:get_mpitype_of_celldens,celldens
+
+ type(celldens),     intent(inout) :: xbufrecv(nprocs)
+ integer,            intent(out)   :: ireq(nprocs) !,nrecv
+ integer                           :: iproc
+
 !
 !--use persistent communication type for receives
 !  cannot do same for sends as there are different destinations,
@@ -54,49 +95,140 @@ subroutine init_results_exchange(nprocs,xbufrecv,ireq)
 !
 !  We post a receive for EACH processor, to match the number of sends
 !
+
+ call MPI_COMM_DUP(MPI_COMM_WORLD,comm_cellexchange,mpierr)
+ call MPI_COMM_DUP(MPI_COMM_WORLD,comm_done,mpierr)
+ call get_mpitype_of_celldens(dtype_celldens)
+
  do iproc=1,nprocs
-    call MPI_RECV_INIT(xbufrecv(:,iproc),size(xbufrecv(:,iproc)),MPI_DEFAULT_REAL,MPI_ANY_SOURCE, &
-                       MPI_ANY_TAG,MPI_COMM_WORLD,ireq(iproc),mpierr)
+    call MPI_RECV_INIT(xbufrecv(iproc),1,dtype_celldens,MPI_ANY_SOURCE, &
+                       MPI_ANY_TAG,comm_cellexchange,ireq(iproc),mpierr)
+    if (mpierr /= 0) call fatal('init_cell_exchange','error in MPI_RECV_INIT')
 !
 !--start the persistent communication channel
 !
     call MPI_START(ireq(iproc),mpierr)
+    if (mpierr /= 0) call fatal('init_cell_exchange','error in MPI_START')
  enddo
 
-end subroutine init_results_exchange
+end subroutine init_celldens_exchange
+
+subroutine init_cellforce_exchange(xbufrecv,ireq)
+ use io,       only:fatal,nprocs
+ use mpiforce, only:get_mpitype_of_cellforce,cellforce
+
+ type(cellforce),    intent(inout) :: xbufrecv(nprocs)
+ integer,            intent(out)   :: ireq(nprocs) !,nrecv
+ integer                           :: iproc
+
+!
+!--use persistent communication type for receives
+!  cannot do same for sends as there are different destinations,
+!  unless we make a request for each processor
+!
+!  We post a receive for EACH processor, to match the number of sends
+!
+
+ call MPI_COMM_DUP(MPI_COMM_WORLD,comm_cellexchange,mpierr)
+ call MPI_COMM_DUP(MPI_COMM_WORLD,comm_done,mpierr)
+ call get_mpitype_of_cellforce(dtype_cellforce)
+
+ do iproc=1,nprocs
+    call MPI_RECV_INIT(xbufrecv(iproc),1,dtype_cellforce,MPI_ANY_SOURCE, &
+                       MPI_ANY_TAG,comm_cellexchange,ireq(iproc),mpierr)
+    if (mpierr /= 0) call fatal('init_cell_exchange','error in MPI_RECV_INIT')
+!
+!--start the persistent communication channel
+!
+    call MPI_START(ireq(iproc),mpierr)
+    if (mpierr /= 0) call fatal('init_cell_exchange','error in MPI_START')
+ enddo
+
+end subroutine init_cellforce_exchange
 
 !-----------------------------------------------------------------------
 !+
-!  Subroutine to broadcast particle buffer to all remote processors
+!  Subroutine to broadcast particle buffer to a bunch of processors
 !+
 !-----------------------------------------------------------------------
-subroutine send_results(nprocs,xsendbuf,nsend,i,irequestsend)
- use io, only:id
- real,    intent(in) :: xsendbuf(:)
- integer, intent(in) :: nprocs,nsend,i
- integer, intent(inout) :: irequestsend(nprocs)
- integer :: newproc
+subroutine send_celldens(cell,direction,irequestsend,xsendbuf)
+ use io,       only:id,nprocs
+ use mpidens,  only:celldens
+
+ type(celldens),     intent(in)     :: cell
+ integer,            intent(in)     :: direction
+ integer,            intent(inout)  :: irequestsend(nprocs)
+ type(celldens),     intent(out)    :: xsendbuf
+
+ logical                            :: targets(nprocs)
+ integer                            :: newproc
+
+ xsendbuf = cell
+
+ ! export
+ if (direction == 0) then
+    targets = cell%remote_export(1:nprocs)
+ ! return
+ elseif (direction == 1) then
+    targets = .false.
+    targets(cell%owner+1) = .true.
+ endif
+
+ irequestsend = MPI_REQUEST_NULL
 
  do newproc=0,nprocs-1
-    ! send particle info to remote processor, using particle id as the tag
-    if (newproc /= id) then ! do not send to self
-       call MPI_ISEND(xsendbuf,nsend,MPI_DEFAULT_REAL,newproc,i,MPI_COMM_WORLD,irequestsend(newproc+1),mpierr)
+    if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
+       call MPI_ISEND(xsendbuf,1,dtype_celldens,newproc,direction,comm_cellexchange,irequestsend(newproc+1),mpierr)
     endif
  enddo
 
-end subroutine send_results
+end subroutine send_celldens
+
+subroutine send_cellforce(cell,direction,irequestsend,xsendbuf)
+ use io,       only:id,nprocs
+ use mpiforce, only:cellforce
+
+ type(cellforce),    intent(in)     :: cell
+ integer,            intent(in)     :: direction
+ integer,            intent(inout)  :: irequestsend(nprocs)
+ type(cellforce),    intent(out)    :: xsendbuf
+
+ logical                            :: targets(nprocs)
+ integer                            :: newproc
+
+ xsendbuf = cell
+
+ ! export
+ if (direction == 0) then
+    targets = cell%remote_export(1:nprocs)
+ ! return
+ elseif (direction == 1) then
+    targets = .false.
+    targets(cell%owner+1) = .true.
+ endif
+
+ irequestsend = MPI_REQUEST_NULL
+
+ do newproc=0,nprocs-1
+    if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
+       call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,direction,comm_cellexchange,irequestsend(newproc+1),mpierr)
+    endif
+ enddo
+
+end subroutine send_cellforce
 
 !-----------------------------------------------------------------------
 !+
 !  Subroutine to check that non-blocking send has completed
 !+
 !-----------------------------------------------------------------------
-subroutine check_send_finished(nprocs,irequestsend,irequestrecv,xrecvbuf,nrecv,getdv,getdB,realviscosity)
- use io, only:id
- integer, intent(in) :: nprocs
- integer, intent(inout) :: irequestsend(nprocs),irequestrecv(nprocs),nrecv
- real,    intent(inout) :: xrecvbuf(:,:)
- logical, intent(in), optional    :: getdv,getdB,realviscosity
+subroutine check_send_finished_dens(stack,irequestsend,irequestrecv,xrecvbuf)
+ use io,       only:id,nprocs
+ use mpidens,  only:stackdens,celldens
+ type(stackdens),    intent(inout)  :: stack
+ integer,            intent(inout)  :: irequestsend(nprocs),irequestrecv(nprocs)
+ type(celldens),     intent(inout)  :: xrecvbuf(nprocs)
+
  logical :: idone(nprocs)
  integer :: newproc
  !
@@ -109,180 +241,495 @@ subroutine check_send_finished(nprocs,irequestsend,irequestrecv,xrecvbuf,nrecv,g
        if (newproc /= id) call MPI_TEST(irequestsend(newproc+1),idone(newproc+1),status,mpierr)
     enddo
     !--post receives
-    if (present(getdv) .and. present(getdB)) then
-       call recv_density_results(nprocs,xrecvbuf,irequestrecv,nrecv,getdv,getdB,realviscosity)
-    else
-       call recv_force_results(nprocs,xrecvbuf,irequestrecv,nrecv)
-    endif
+    call recv_cells(stack,xrecvbuf,irequestrecv)
  enddo
 
-end subroutine check_send_finished
+end subroutine check_send_finished_dens
 
-!-----------------------------------------------------------------------------
-!+
-!  Subroutine to receive broadcast of density results from remote processors
-!+
-!-----------------------------------------------------------------------------
-subroutine recv_density_results(nprocs,xbuf,irequestrecv,nrecv,getdv,getdB,realviscosity)
- use part, only:xyzh,gradh,divcurlv,divcurlB,straintensor,maxgradh,npart,ngradh
- use dim,  only:ndivcurlv,ndivcurlB,maxp,maxstrain
- use io,   only:fatal
- real,    intent(inout) :: xbuf(:,:)  ! just need memory address
- integer, intent(in)    :: nprocs
- integer, intent(inout) :: irequestrecv(nprocs),nrecv
- logical, intent(in)    :: getdv,getdB,realviscosity
- integer :: n,j,iproc
- logical :: igotpart
+subroutine check_send_finished_force(stack,irequestsend,irequestrecv,xrecvbuf)
+ use io,       only:id,nprocs
+ use mpiforce, only:stackforce,cellforce
+ type(stackforce),   intent(inout)  :: stack
+ integer,            intent(inout)  :: irequestsend(nprocs),irequestrecv(nprocs)
+ type(cellforce),    intent(inout)  :: xrecvbuf(nprocs)
 
- ! receive MPI broadcast
- do iproc=1,nprocs
-    call MPI_TEST(irequestrecv(iproc),igotpart,status,mpierr)
-    if (mpierr /= 0) call fatal('recv_density_results','error in MPI_TEST call')
-
-    !
-    ! unpack results
-    ! there is no need for critical sections here as the density routine does not
-    ! write to particles that are active on other processors, and particles are
-    ! unique to each remote proc, so no danger of multiple threads writing
-    ! to same particle
-    !
-    if (igotpart) then
-       j = status(MPI_TAG)
-       if (j <= 0 .or. j > npart) call fatal('recv_density_results','receive out of range',j)
-       n = 1
-       xyzh(4,j) = xbuf(1,iproc)
-       if (maxgradh==maxp) then
-          gradh(1,j) = real(xbuf(2,iproc),kind=kind(gradh))
-#ifdef GRAVITY
-          gradh(2,j) = real(xbuf(3,iproc),kind=kind(gradh))
-#endif
-          n = n + 2
-       endif
-       if (getdv) then
-          divcurlv(:,j) = real(xbuf(n+1:n+ndivcurlv,iproc),kind=kind(divcurlv))
-          n = n + ndivcurlv
-       endif
-       if (getdB) then
-          divcurlB(:,j) = real(xbuf(n+1:n+ndivcurlB,iproc),kind=kind(divcurlB))
-          n = n + ndivcurlB
-       endif
-       if (realviscosity .and. maxstrain==maxp) then
-          straintensor(:,j) = real(xbuf(n+1:n+6,iproc),kind=kind(straintensor))
-          n = n + 6
-       endif
-       nrecv = nrecv + 1
-       !
-       !--post another receive ready for next particle
-       !
-       call MPI_START(irequestrecv(iproc),mpierr)
-    endif
+ logical :: idone(nprocs)
+ integer :: newproc
+ !
+ !--wait for broadcast to complete, continue to receive whilst doing so
+ !
+ idone(:) = .false.
+ idone(id+1) = .true.
+ do while(.not.all(idone))
+    do newproc=0,nprocs-1
+       if (newproc /= id) call MPI_TEST(irequestsend(newproc+1),idone(newproc+1),status,mpierr)
+    enddo
+    !--post receives
+    call recv_cells(stack,xrecvbuf,irequestrecv)
  enddo
 
-end subroutine recv_density_results
+end subroutine check_send_finished_force
+
+subroutine recv_while_wait_dens(stack,xrecvbuf,irequestrecv)
+ use io,       only:nprocs
+ use mpidens,  only:stackdens,celldens
+
+ type(stackdens),  intent(inout) :: stack
+ type(celldens),   intent(inout) :: xrecvbuf(nprocs)
+ integer,          intent(inout) :: irequestrecv(nprocs)
+
+ integer             :: newproc
+ integer             :: ncomplete
+ logical             :: jiscomplete
+ logical, parameter  :: iamcomplete = .true.
+
+ integer             :: irequestend(1),irequestcomplete(1)
+
+ do newproc=0,nprocs-1
+    call MPI_ISEND(iamcomplete,1,MPI_LOGICAL,newproc,0,comm_done,irequestend(1),mpierr)
+ enddo
+
+ jiscomplete = .false.
+
+ call MPI_IRECV(jiscomplete,1,MPI_LOGICAL,MPI_ANY_SOURCE,0,comm_done,irequestcomplete(1),mpierr)
+
+ ncomplete = 0
+
+ do while (.not. allcomplete())
+    call recv_celldens(stack,xrecvbuf,irequestrecv)
+ enddo
+
+ call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
+
+ return
+
+ contains
+
+    logical function allcomplete()
+       implicit none
+       logical :: isdone
+
+       allcomplete = .false.
+
+       call MPI_TEST(irequestcomplete(1),isdone,status,mpierr)
+
+       if (isdone) then
+          ncomplete = ncomplete + 1
+
+          if (ncomplete < nprocs) then
+             call MPI_IRECV(jiscomplete,1,MPI_LOGICAL,MPI_ANY_SOURCE,0,comm_done,irequestcomplete(1),mpierr)
+          else
+             allcomplete = .true.
+          endif
+       endif
+    end function allcomplete
+
+end subroutine recv_while_wait_dens
+
+subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv)
+ use io,       only:nprocs
+ use mpiforce, only:stackforce,cellforce
+
+ type(stackforce), intent(inout) :: stack
+ type(cellforce),  intent(inout) :: xrecvbuf(nprocs)
+ integer,          intent(inout) :: irequestrecv(nprocs)
+
+ integer             :: newproc
+ integer             :: ncomplete
+ logical             :: jiscomplete
+ logical, parameter  :: iamcomplete = .true.
+
+ integer             :: irequestend(1),irequestcomplete(1)
+
+ do newproc=0,nprocs-1
+    call MPI_ISEND(iamcomplete,1,MPI_LOGICAL,newproc,0,comm_done,irequestend(1),mpierr)
+ enddo
+
+ jiscomplete = .false.
+
+ call MPI_IRECV(jiscomplete,1,MPI_LOGICAL,MPI_ANY_SOURCE,0,comm_done,irequestcomplete(1),mpierr)
+
+ ncomplete = 0
+
+ do while (.not. allcomplete())
+    call recv_cellforce(stack,xrecvbuf,irequestrecv)
+ enddo
+
+ call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
+
+ return
+
+ contains
+
+    logical function allcomplete()
+       implicit none
+       logical :: isdone
+
+       allcomplete = .false.
+
+       call MPI_TEST(irequestcomplete(1),isdone,status,mpierr)
+
+       if (isdone) then
+          ncomplete = ncomplete + 1
+
+          if (ncomplete < nprocs) then
+             call MPI_IRECV(jiscomplete,1,MPI_LOGICAL,MPI_ANY_SOURCE,0,comm_done,irequestcomplete(1),mpierr)
+          else
+             allcomplete = .true.
+          endif
+       endif
+    end function allcomplete
+
+end subroutine recv_while_wait_force
 
 !------------------------------------------------
 !+
-!  As above but for results from force routine
+!  Receive cells
 !+
 !------------------------------------------------
-subroutine recv_force_results(nprocs,xbuf,irequestrecv,nrecv)
- use dim,  only:mhd,maxBevol,maxvxyzu,ndivcurlv,gravity
- use part, only:fxyzu,divcurlv,divBsymm,dBevol,poten,npart
- use io,   only:fatal
-#ifdef IND_TIMESTEPS
- use part, only:ibin
-#endif
- real,    intent(inout) :: xbuf(:,:)  ! just need memory address
- integer, intent(in)    :: nprocs
- integer, intent(inout) :: irequestrecv(nprocs),nrecv
- integer :: n,j,iproc
- logical :: igotpart
+subroutine recv_celldens(target_stack,xbuf,irequestrecv)
+ use io,       only:fatal,nprocs
+ use stack,    only:push_onto_stack
+ use mpidens,  only:stackdens,celldens
+
+ type(celldens),  intent(inout)  :: xbuf(:)  ! just need memory address
+ type(stackdens), intent(inout)  :: target_stack
+ integer,         intent(inout)  :: irequestrecv(nprocs)
+ integer                         :: iproc
+ logical                         :: igot
 
  ! receive MPI broadcast
  do iproc=1,nprocs
-    call MPI_TEST(irequestrecv(iproc),igotpart,status,mpierr)
-    if (mpierr /= 0) call fatal('recv_density_results','error in MPI_TEST call')
+    call MPI_TEST(irequestrecv(iproc),igot,status,mpierr)
+    if (mpierr /= 0) call fatal('recv_cell','error in MPI_TEST call')
 
     ! unpack results
-    if (igotpart) then
-       j = status(MPI_TAG)
-       if (j <= 0 .or. j > npart) call fatal('recv_force_results','receive out of range',j)
-       fxyzu(1:maxvxyzu,j) = xbuf(1:maxvxyzu,iproc)
-       n=maxvxyzu
-#ifdef IND_TIMESTEPS
-       ibin(j) = nint(xbuf(n+1,iproc),kind=kind(ibin))
-       n = n + 1
-#endif
-       if (ndivcurlv >= 1) then
-          divcurlv(1,j) = real(xbuf(n+1,iproc),kind=kind(divcurlv))
-          n = n + 1
-       endif
-       if (mhd) then
-          divBsymm(j) = real(xbuf(n+1,iproc),kind=kind(divBsymm))
-          n = n + 1
-          dBevol(:,j) = real(xbuf(n+1:n+maxBevol,iproc),kind=kind(dBevol))
-          n = n + maxBevol
-       endif
-       if (gravity) then
-          poten(j) = real(xbuf(n+1,iproc),kind=kind(poten))
-          n = n + 1
-       endif
-       nrecv = nrecv + 1
-       !
-       !--post another receive ready for next particle
-       !
+    if (igot) then
+       call push_onto_stack(target_stack, xbuf(iproc))
        call MPI_START(irequestrecv(iproc),mpierr)
     endif
  enddo
-end subroutine recv_force_results
+end subroutine recv_celldens
+
+subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
+ use io,       only:fatal,nprocs
+ use stack,    only:push_onto_stack
+ use mpiforce, only:stackforce,cellforce
+
+ type(cellforce),    intent(inout)  :: xbuf(:)  ! just need memory address
+ type(stackforce),   intent(inout)  :: target_stack
+ integer,            intent(inout)  :: irequestrecv(nprocs)
+ integer                            :: iproc
+ logical                            :: igot
+
+ ! receive MPI broadcast
+ do iproc=1,nprocs
+    call MPI_TEST(irequestrecv(iproc),igot,status,mpierr)
+    if (mpierr /= 0) call fatal('recv_cell','error in MPI_TEST call')
+
+    ! unpack results
+    if (igot) then
+       call push_onto_stack(target_stack, xbuf(iproc))
+       call MPI_START(irequestrecv(iproc),mpierr)
+    endif
+ enddo
+end subroutine recv_cellforce
 
 !----------------------------------------------------------------
 !+
 !  finish/clean up of load balancing process.
 !+
 !----------------------------------------------------------------
-subroutine finish_results_exchange(nprocs,xrecvbuf,irequestrecv,nrecv,nactive,getdv,getdB,realviscosity)
- use dim, only:maxp
- use io,  only:fatal
- integer, intent(in)    :: nprocs
- real,    intent(inout) :: xrecvbuf(:,:)
- integer, intent(inout) :: irequestrecv(nprocs),nrecv
- integer, intent(in)    :: nactive
- logical, intent(in), optional :: getdv,getdB,realviscosity
- integer :: newproc,iproc
- logical :: idone
- real    :: xsendbuf(1)
+subroutine finish_celldens_exchange(irequestrecv,xsendbuf)
+ use io,       only:fatal,nprocs
+ use mpidens,  only:celldens
+ integer,            intent(inout)  :: irequestrecv(nprocs)
+ integer                            :: newproc,iproc
+ logical                            :: idone
+ type(celldens), intent(in)         :: xsendbuf
 
- do while (nrecv < nactive)
-    !print*,id,' finishing ',nrecv
-    if (present(getdv) .and. present(getdB)) then
-       call recv_density_results(nprocs,xrecvbuf,irequestrecv,nrecv,getdv,getdB,realviscosity)
-    else
-       call recv_force_results(nprocs,xrecvbuf,irequestrecv,nrecv)
-    endif
- enddo
- call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
 !
 !--each processor do a dummy send to next processor to clear the last remaining receive
 !  (we know the receive has been posted for this, so use RSEND)
 !
  do newproc=0,nprocs-1
-    call MPI_RSEND(xsendbuf,0,MPI_DEFAULT_REAL,newproc,0,MPI_COMM_WORLD,mpierr)
+    call MPI_RSEND(xsendbuf,1,dtype_celldens,newproc,0,comm_cellexchange,mpierr)
  enddo
+
 !
 !--sync all threads here
 !
- call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
+ call MPI_BARRIER(comm_cellexchange,mpierr)
 
 !--free request handle
  do iproc=1,nprocs
     call MPI_TEST(irequestrecv(iproc),idone,status,mpierr)
     call MPI_REQUEST_FREE(irequestrecv(iproc),mpierr)
-    if (.not.idone) call fatal('finish_density_exchange_mpi','receive has not completed')
+    if (.not.idone) call fatal('finish_cell_exchange_mpi','receive has not completed for density')
+ enddo
+ call MPI_COMM_FREE(comm_cellexchange,mpierr)
+ call MPI_COMM_FREE(comm_done,mpierr)
+
+end subroutine finish_celldens_exchange
+
+subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
+ use io,       only:fatal,nprocs
+ use mpiforce, only:cellforce
+ integer,            intent(inout)  :: irequestrecv(nprocs)
+ integer                            :: newproc,iproc
+ logical                            :: idone
+ type(cellforce), intent(in)        :: xsendbuf
+
+!
+!--each processor do a dummy send to next processor to clear the last remaining receive
+!  (we know the receive has been posted for this, so use RSEND)
+!
+ do newproc=0,nprocs-1
+    call MPI_RSEND(xsendbuf,1,dtype_cellforce,newproc,0,comm_cellexchange,mpierr)
  enddo
 
- return
-end subroutine finish_results_exchange
+!
+!--sync all threads here
+!
+ call MPI_BARRIER(comm_cellexchange,mpierr)
+
+!--free request handle
+ do iproc=1,nprocs
+    call MPI_TEST(irequestrecv(iproc),idone,status,mpierr)
+    call MPI_REQUEST_FREE(irequestrecv(iproc),mpierr)
+    if (.not.idone) call fatal('finish_cell_exchange_mpi','receive has not completed for force')
+ enddo
+ call MPI_COMM_FREE(comm_cellexchange,mpierr)
+ call MPI_COMM_FREE(comm_done,mpierr)
+
+end subroutine finish_cellforce_exchange
+
+!----------------------------------------------------------------
+!+
+!  get the COFM of the group
+!+
+!----------------------------------------------------------------
+subroutine get_group_cofm(xyzcofm,totmass_node,ifirstingroup,groupsize,cofmsum,totmassg)
+ real,      intent(in)        :: xyzcofm(3)
+ real,      intent(in)        :: totmass_node
+ integer,   intent(in)        :: ifirstingroup, groupsize
+
+ real,      intent(out)       :: cofmsum(3)
+ real,      intent(out)       :: totmassg
+
+ integer               :: comm
+
+ real                  :: recvbuffer(3*groupsize)
+ real                  :: groupxyzcofm(3,groupsize), totmass(groupsize)
+
+ integer               :: i
+
+ call get_comm_for_cofm(ifirstingroup, groupsize, comm)
+
+ ! perform COFM exchange
+ call MPI_ALLGATHER(xyzcofm,3,MPI_REAL8,recvbuffer,3,MPI_REAL8,comm,mpierr)
+ groupxyzcofm = reshape(recvbuffer,(/3,groupsize/))
+
+ call MPI_ALLGATHER(totmass_node,1,MPI_REAL8,totmass,1,MPI_REAL8,comm,mpierr)
+
+ cofmsum = 0
+ do i=1,groupsize
+    cofmsum = cofmsum + groupxyzcofm(:,i) * totmass(i)
+ enddo
+
+ totmassg = sum(totmass)
+ cofmsum = cofmsum / totmassg
+
+ call MPI_COMM_FREE(comm,mpierr)
+
+end subroutine get_group_cofm
+
+!----------------------------------------------------------------
+!+
+!  get the r2max of the group
+!+
+!----------------------------------------------------------------
+function reduce_group(x,string,ifirstingroup, groupsize) result(xg)
+ use io, only:fatal
+ real,               intent(in)        :: x
+ character(len=*),   intent(in)        :: string
+ integer,            intent(in)        :: ifirstingroup, groupsize
+
+ real                                  :: isend, ired
+
+ real                                  :: xg
+
+ integer                               :: comm
+
+ isend = x
+
+ call get_comm_for_cofm(ifirstingroup, groupsize, comm)
+
+ select case(trim(string))
+ case('+')
+    call MPI_ALLREDUCE(isend,ired,1,MPI_REAL8,MPI_SUM,comm,mpierr)
+ case('max')
+    call MPI_ALLREDUCE(isend,ired,1,MPI_REAL8,MPI_MAX,comm,mpierr)
+ case('min')
+    call MPI_ALLREDUCE(isend,ired,1,MPI_REAL8,MPI_MIN,comm,mpierr)
+ case default
+    call fatal('reduceall (mpi)','unknown reduction operation')
+ end select
+ call MPI_COMM_FREE(comm,mpierr)
+
+ xg = ired
+
+end function reduce_group
+
+
+!----------------------------------------------------------------
+!+
+!  synchronize the cellatid (ifirstincell)
+!+
+!----------------------------------------------------------------
+subroutine cellatid_sync(cellatidloc, nnodes, cellatid, ifirstingroup, groupsize, nprocs)
+ use io, only:id
+ use dtypekdtree, only:get_mpitype_of_kdnode
+
+ integer, intent(in)         :: ifirstingroup, groupsize, nprocs
+ integer, intent(in)         :: nnodes ! nodes sent per proc
+ integer, intent(in)         :: cellatidloc(nnodes)
+ integer, intent(inout)      :: cellatid(nprocs/groupsize)
+
+ integer                     :: comm
+
+ integer                     :: nowners
+
+ nowners = nprocs / groupsize
+
+ ! only exchange if there is more than 1 owner (every level except top)
+ if (nowners > 1) then
+    call get_comm_for_owners(groupsize, nowners, comm)
+
+    ! skip if we are not an owner
+    if (id == ifirstingroup) then
+       ! perform node exchange
+       call MPI_ALLGATHER(cellatidloc,nnodes,MPI_INTEGER,cellatid,nnodes,MPI_INTEGER,comm,mpierr)
+    endif
+
+    call MPI_COMM_FREE(comm,mpierr)
+ else
+    cellatid = cellatidloc(1)
+ endif
+
+end subroutine cellatid_sync
+
+
+!----------------------------------------------------------------
+!+
+!  synchronize the global tree, placing nodes in the correct position
+!+
+!----------------------------------------------------------------
+subroutine tree_sync(nodeentry, nnodes, node, ifirstingroup, groupsize, nprocs)
+ use io, only:id
+ use dtypekdtree, only:get_mpitype_of_kdnode
+
+ integer, intent(in)         :: ifirstingroup, groupsize, nprocs
+ integer, intent(in)         :: nnodes ! nodes sent per proc
+ type(kdnode), intent(in)    :: nodeentry(nnodes)
+ type(kdnode), intent(inout) :: node(nprocs/groupsize)
+
+ integer                     :: comm
+ integer                     :: dtype_kdnode
+
+ integer                     :: nowners
+
+ nowners = nprocs / groupsize
+
+ ! only exchange if there is more than 1 owner (every level except top)
+ if (nowners > 1) then
+    call get_comm_for_owners(groupsize, nowners, comm)
+    call get_mpitype_of_kdnode(dtype_kdnode)
+
+    ! skip if we are not an owner
+    if (id == ifirstingroup) then
+       ! perform node exchange
+       call MPI_ALLGATHER(nodeentry,nnodes,dtype_kdnode,node,nnodes,dtype_kdnode,comm,mpierr)
+    endif
+
+    call MPI_COMM_FREE(comm,mpierr)
+ else
+    node = nodeentry(1)
+ endif
+
+end subroutine tree_sync
+
+!----------------------------------------------------------------
+!+
+!  broadcast the tree from owners to non-owners
+!+
+!----------------------------------------------------------------
+subroutine tree_bcast(node, nnode, ifirstingroup, groupsize)
+ use dtypekdtree, only:get_mpitype_of_kdnode
+
+ integer,      intent(in)        :: nnode
+ type(kdnode), intent(inout)     :: node(nnode)
+ integer,      intent(in)        :: ifirstingroup, groupsize
+
+ integer                         :: comm
+ integer                         :: dtype_kdnode
+
+ call get_comm_for_cofm(ifirstingroup, groupsize, comm)
+ call get_mpitype_of_kdnode(dtype_kdnode)
+ ! the bcast root is relative to the communicator (i.e. it needs to be 0, not ifirstingroup)
+ call MPI_BCAST(node, nnode, dtype_kdnode, 0, comm, mpierr)
+
+ call MPI_COMM_FREE(comm,mpierr)
+
+end subroutine tree_bcast
+
+!----------------------------------------------------------------
+!+
+!  get the communicator for the COFM groups
+!+
+!----------------------------------------------------------------
+subroutine get_comm_for_cofm(ifirstingroup, groupsize, comm)
+ use io,    only:id,nprocs
+ integer, intent(in)         :: ifirstingroup, groupsize
+ integer, intent(out)        :: comm
+
+ integer                     :: color
+
+ if (groupsize == nprocs) then
+    call MPI_COMM_DUP(MPI_COMM_WORLD, comm, mpierr)
+ else
+    color = ifirstingroup / groupsize
+    call MPI_COMM_SPLIT(MPI_COMM_WORLD, color, id, comm, mpierr)
+ endif
+
+end subroutine get_comm_for_cofm
+
+!----------------------------------------------------------------
+!+
+!  get the communicator for node owners
+!+
+!----------------------------------------------------------------
+subroutine get_comm_for_owners(groupsize, nowners, comm)
+ use io,    only:id
+ integer, intent(in)         :: groupsize, nowners
+ integer, intent(out)        :: comm
+
+ integer                     :: color
+
+ if (groupsize == 1) then
+    call MPI_COMM_DUP(MPI_COMM_WORLD, comm, mpierr)
+ else
+    ! color based on whether this is an owner
+    if (mod(id,groupsize) == 0) then
+       color = 0
+    else
+       color = 1
+    endif
+    call MPI_COMM_SPLIT(MPI_COMM_WORLD, color, id, comm, mpierr)
+ endif
+
+end subroutine get_comm_for_owners
+
 
 end module mpiderivs
 #endif

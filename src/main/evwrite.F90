@@ -348,6 +348,9 @@ subroutine write_evlog(iprint)
  integer, intent(in) :: iprint
  character(len=120)  :: string
 
+ ! this is currently broken - disabled temporarily
+ return
+
  write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") &
       'tot',etot,'kin',ekin,'therm',etherm,'pot',epot
  if (mhd)        write(iprint,"(1x,('E',a,'=',es10.3))") 'mag',emag

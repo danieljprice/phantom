@@ -183,14 +183,14 @@ module part
  integer, parameter, private :: maxpd =  max(maxp,1) ! avoid divide by zero
  integer, parameter :: ipartbufsize = 4 &  ! xyzh
    +2*maxvxyzu                          &  ! vxyzu, fxyzu_prev
-   +maxalpha/maxpd                      &  ! alphaind
+   +nalpha*maxalpha/maxpd               &  ! alphaind
    +ngradh*maxgradh/maxpd               &  ! gradh
    +maxphase/maxpd                      &  ! iphase
 #ifdef IND_TIMESTEPS
-   +2 +maxvxyzu                         &  ! ibin, divv, fxyzu
-   +(maxmhd/maxpd)*maxBevol +3*(maxvecp/maxpd)  &  ! dB/dt, Bxyz
+   +2 + maxvxyzu + 3                    &  ! ibin, divv, fxyzu, fext
+   +(maxmhd/maxpd)*maxBevol + 3*(maxvecp/maxpd)  &  ! dB/dt, Bxyz
 #endif
-   +(maxmhd/maxpd)*                      &  ! (mhd quantities)
+   +(maxmhd/maxpd)*                     &  ! (mhd quantities)
     (2*maxBevol                         &  ! Bevol, dBevol_prev
    +3*(maxvecp/maxpd))                     ! Bxyz
 
@@ -272,7 +272,7 @@ end function rhoh
 !  this function gives dh/drho as a function of h
 !+
 !----------------------------------------------------------------
-real function dhdrho(hi,pmassi)
+pure real function dhdrho(hi,pmassi)
  real, intent(in) :: hi,pmassi
  real :: rhoi
 
@@ -645,7 +645,7 @@ subroutine shuffle_part(np)
 
  do while (ideadhead /= 0)
     newpart = ideadhead
-    if (newpart < np) then
+    if (newpart <= np) then
        if (.not.isdead(np)) then
           !if (.not.isdead(newpart)) call fatal('shuffle','corrupted dead list',newpart)
           call copy_particle_all(np,newpart)
@@ -655,11 +655,23 @@ subroutine shuffle_part(np)
     else
        ideadhead = ll(newpart)
     endif
-    if (np <= 0) call fatal('shuffle','npart < 0')
+    if (np < 0) call fatal('shuffle','npart < 0')
  enddo
 
  return
 end subroutine shuffle_part
+
+integer function count_dead_particles()
+ integer :: i
+
+ i = ideadhead
+ count_dead_particles = 0
+ do while (i > 0)
+    count_dead_particles = count_dead_particles + 1
+    i = ll(i)
+ enddo
+
+end function count_dead_particles
 
 !-----------------------------------------------------------------------
 !+
@@ -743,40 +755,25 @@ subroutine fill_sendbuf(i,xtemp)
  if (i > 0) then
     call fill_buffer(xtemp,xyzh(:,i),nbuf)
     call fill_buffer(xtemp,vxyzu(:,i),nbuf)
-    !call fill_buffer(xtemp,fxyzu_prev(:,i),nbuf)
-    if (maxalpha==maxp) then
-       call fill_buffer(xtemp,alphaind(:,i),nbuf)
-    endif
-    if (maxgradh==maxp) then
-       call fill_buffer(xtemp,gradh(:,i),nbuf)
-    endif
+    if (maxalpha==maxp) call fill_buffer(xtemp,alphaind(:,i),nbuf)
+    if (maxgradh==maxp) call fill_buffer(xtemp,gradh(:,i),nbuf)
     if (mhd) then
        call fill_buffer(xtemp,Bevol(:,i),nbuf)
-       !call fill_buffer(xtemp,dBevol_prev(:,i),nbuf)
-       if (maxvecp==maxp) then
-          call fill_buffer(xtemp,Bxyz(:,i),nbuf)
-       endif
+       if (maxvecp==maxp)   call fill_buffer(xtemp,Bxyz(:,i),nbuf)
     endif
-    if (maxphase==maxp) then
-       call fill_buffer(xtemp,iphase(i),nbuf)
-    endif
+    if (maxphase==maxp) call fill_buffer(xtemp,iphase(i),nbuf)
 #ifdef IND_TIMESTEPS
     call fill_buffer(xtemp,ibin(i),nbuf)
     !--inactive particles require derivs sent
     call fill_buffer(xtemp,fxyzu(:,i),nbuf)
     call fill_buffer(xtemp,fext(:,i),nbuf)
-    if (ndivcurlv >= 1) then
-       call fill_buffer(xtemp,divcurlv(1,i),nbuf)
-    endif
+    if (ndivcurlv >= 1) call fill_buffer(xtemp,divcurlv(1,i),nbuf)
     if (mhd) then
        call fill_buffer(xtemp,dBevol(:,i),nbuf)
-       if (maxvecp==maxp) then
-          call fill_buffer(xtemp,Bxyz(:,i),nbuf)
-       endif
     endif
 #endif
  endif
- if (nbuf /= ipartbufsize) call fatal('fill_sendbuf','error in send buffer size')
+ if (nbuf /= ipartbufsize) call fatal('fill_sendbuf','error in send buffer size',ival=nbuf,var='should be')
 
  return
 end subroutine fill_sendbuf
@@ -787,76 +784,33 @@ end subroutine fill_sendbuf
 !  after receiving from another processor
 !+
 !----------------------------------------------------------------
-subroutine unfill_buffer(ipart,xbuffer)
+subroutine unfill_buffer(ipart,xbuf)
+ use mpiutils, only:unfill_buf
  integer, intent(in) :: ipart
- real,    intent(in) :: xbuffer(ipartbufsize)
- integer :: i1,i2
+ real,    intent(in) :: xbuf(ipartbufsize)
+ integer :: j
 
- i1 = 1
- i2 = 4
- xyzh(:,ipart) = xbuffer(i1:i2)
- i1 = i2+1
- i2 = i2+maxvxyzu
- vxyzu(:,ipart) = xbuffer(i1:i2)
- !i1 = i2 + 1
- !i2 = i2 + maxvxyzu
- !fxyzu_prev(:,ipart) = xbuffer(i1:i2)
- if (maxalpha==maxp) then
-    i1 = i2 + 1
-    i2 = i2 + nalpha
-    alphaind(:,ipart) = real(xbuffer(i1:i2),kind=kind(alphaind))
- endif
- if (maxgradh==maxp) then
-    i1 = i2 + 1
-    i2 = i2 + ngradh
-    gradh(:,ipart) = real(xbuffer(i1:i2),kind=kind(gradh))
- endif
+ j = 0
+ xyzh(:,ipart)       = unfill_buf(xbuf,j,4)
+ vxyzu(:,ipart)      = unfill_buf(xbuf,j,maxvxyzu)
+ if (maxalpha==maxp) alphaind(:,ipart) = real(unfill_buf(xbuf,j,nalpha),kind(alphaind))
+ if (maxgradh==maxp) gradh(:,ipart)    = real(unfill_buf(xbuf,j,ngradh),kind(gradh))
  if (mhd) then
-    i1 = i2 + 1
-    i2 = i2 + maxBevol
-    Bevol(:,ipart) = real(xbuffer(i1:i2),kind=kind(Bevol))
-    !i1 = i2 + 1
-    !i2 = i2 + maxBevol
-    !dBevol_prev(:,ipart) = real(xbuffer(i1:i2),kind=kind(dBevol_prev))
-    if (maxvecp==maxp) then
-       i1 = i2 + 1
-       i2 = i2 + 3
-       Bxyz(:,ipart) = real(xbuffer(i1:i2),kind=kind(Bxyz))
-    endif
+    Bevol(:,ipart)       = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
+    if (maxvecp  ==maxp) Bxyz(:,ipart)    = real(unfill_buf(xbuf,j,3),kind=kind(Bxyz))
  endif
- if (maxphase==maxp) then
-    i1 = i2 + 1
-    i2 = i2 + 1
-    iphase(ipart) = nint(xbuffer(i1),kind=1)
- endif
+ if (maxphase==maxp) iphase(ipart) = nint(unfill_buf(xbuf,j),kind=1)
 #ifdef IND_TIMESTEPS
- i1 = i2 + 1
- i2 = i2 + 1
- ibin(ipart) = nint(xbuffer(i1),kind=1)
-
- !--receive derivs (strictly only necessary for inactive parts)
- i1 = i2 + 1
- i2 = i2 + maxvxyzu
- fxyzu(:,ipart) = xbuffer(i1:i2)
- i1 = i2 + 1
- i2 = i2 + 3
- fext(:,ipart) = xbuffer(i1:i2)
- if (ndivcurlv > 0) then
-    i1 = i2 + 1
-    i2 = i2 + 1
-    divcurlv(1,ipart) = real(xbuffer(i1),kind=kind(divcurlv))
- endif
+ ibin(ipart)    = nint(unfill_buf(xbuf,j),kind=1)
+ fxyzu(:,ipart) = unfill_buf(xbuf,j,maxvxyzu)
+ fext(:,ipart)  = unfill_buf(xbuf,j,3)
+ if (ndivcurlv > 0) divcurlv(1,ipart) = unfill_buf(xbuf,j)
  if (mhd) then
-    i1 = i2 + 1
-    i2 = i2 + maxBevol
-    dBevol(:,ipart) = real(xbuffer(i1:i2),kind=kind(dBevol))
-    if (maxvecp==maxp) then
-       i1 = i2 + 1
-       i2 = i2 + 3
-       Bxyz(:,ipart) = real(xbuffer(i1:i2),kind=kind(Bxyz))
-    endif
+    dBevol(:,ipart) = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
+    if (maxvecp==maxp) Bxyz(:,ipart) = unfill_buf(xbuf,j,3)
  endif
 #endif
+
 !--just to be on the safe side, set other things to zero
  if (mhd) then
     divBsymm(ipart) = 0.

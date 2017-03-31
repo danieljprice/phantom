@@ -22,8 +22,8 @@
 !    mpiutils, nicil, options, part, ptmass, viscosity
 !+
 !--------------------------------------------------------------------------
-#define reduce_fn(a,b) b
-!#define reduce_fn(a,b) reduceall_mpi(a,b)
+!#define reduce_fn(a,b) b
+#define reduce_fn(a,b) reduceall_mpi(a,b)
 module energies
  use dim, only: calc_erot, calc_erot_com
  implicit none
@@ -80,7 +80,7 @@ subroutine compute_energies(t)
            imacc,ispinx,ispiny,ispinz,mhd,maxvecp,divBsymm,gravity,poten,dustfrac,&
            n_R,n_electronT,ionfrac_eta
  use eos,            only:polyk,utherm,gamma,equationofstate,get_temperature_from_ponrho,gamma_pwp
- use io,             only:id,fatal
+ use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
  use options,        only:iexternalforce,alpha,alphaB,ieos
  use mpiutils,       only:reduceall_mpi
@@ -478,6 +478,7 @@ subroutine compute_energies(t)
 !
 !--add contribution from sink particles
 !
+
 !$omp do
  do i=1,nptmass
     xi     = xyzmh_ptmass(1,i)
@@ -764,6 +765,7 @@ end subroutine ev_rhoupdate
 !+
 !----------------------------------------------------------------
 subroutine finalise_ev_data(ielements,evdata,evaction,dnptot)
+ use mpiutils, only:reduceall_mpi
  implicit none
  integer,         intent(in)    :: ielements
  integer(kind=1), intent(in)    :: evaction(:)

@@ -809,7 +809,8 @@ subroutine check_velocity_error(errmax,v2mean,np,its,tolv,dt,timei,dterr,errmaxm
 !  Also, if this occurs, we take the timestep down to try to avoid the need
 !  for iterations.
 !
- nptot = np
+ nptot = reduceall_mpi('+',np)
+ v2mean = reduceall_mpi('+',v2mean)
  errmax = reduceall_mpi('max',errmax)
 
  if (nptot > 0) then

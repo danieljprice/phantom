@@ -73,7 +73,7 @@ subroutine test_step(ntests,npass)
 
  rhozero = 7.5
  totmass = rhozero/(dxbound*dybound*dzbound)
- massoftype(igas) = totmass/real(npart) !OK: reduceall_mpi('+',npart)
+ massoftype(igas) = totmass/real(reduceall_mpi('+',npart))
  hzero = hfact*(massoftype(igas)/rhozero)**(1./3.)
 !
 !--set constant velocity (in all components)

@@ -44,7 +44,7 @@ subroutine test_ptmass(ntests,npass)
  use testutils,       only:checkval,checkvalf
  use setbinary,       only:set_binary
  use step_lf_global,  only:step,init_step
- use io,              only:iverbose
+ use io,              only:iverbose,nprocs
  use energies,        only:compute_energies,etot,totmom,epot,angtot !,accretedmass
  use ptmass,          only:get_accel_sink_sink,ptmass_accrete,h_soft_sinksink, &
                            ptmass_create,h_acc,get_accel_sink_gas,f_acc,finish_ptmass, &
@@ -76,6 +76,11 @@ subroutine test_ptmass(ntests,npass)
  integer                :: norbits
  integer                :: nfailed(11),imin(1)
  character(len=20)      :: dumpfile
+
+ if (nprocs > 1) then
+    write(*,"(/,a,/)") '--> PTMASS TESTS DO NOT WORK WITH MPI YET'
+    return
+ endif
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
 

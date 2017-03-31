@@ -8,8 +8,9 @@
 !  MODULE: domain
 !
 !  DESCRIPTION:
-!  This module performs the MPI domain decomposition
-!  this one based on the cell ID.
+!   This module performs the MPI domain decomposition
+!   Since we now do the decomposition using the tree all this
+!   module does is store the ibelong array for the particles
 !
 !  REFERENCES: None
 !
@@ -23,27 +24,28 @@
 !+
 !--------------------------------------------------------------------------
 module domain
+ use dim, only:maxp
+ use io,  only:nprocs
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
 
- integer, public :: cellspp = 0
+ integer, public :: ibelong(maxp)
  integer, parameter :: ndim = 3
 
-!--default initialisation of domainisperiodic so that
-!  in principle init_domains does not need to be called
-!  for non-MPI runs (safest to do so however)
-!
+ !--default initialisation of domainisperiodic so that
+ !  in principle init_domains does not need to be called
+ !  for non-MPI runs (safest to do so however)
+ !
 #ifdef PERIODIC
  logical, dimension(ndim), public :: isperiodic = .true.
 #else
  logical, dimension(ndim), public :: isperiodic = .false.
 #endif
 
- public :: init_domains,cellbelong
+ public :: init_domains, assign_to_domain
 
  private
-
 
 contains
 !-----------------------------------------------------------------------
@@ -56,24 +58,23 @@ subroutine init_domains(nprocs)
 
 end subroutine init_domains
 
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
-!  Determines if a given cell belongs on a given processor
-!  to given its index and proc id
+!  routine to initially distribute particles evenly between domains
+!  i.e. during setup. The actual domain decomposition is then done
+!  during the tree build
 !+
-!----------------------------------------------------------------
-pure logical function cellbelong(icell,id,nprocs,ncells)
- integer,         intent(in) :: id,nprocs
- integer,         intent(in) :: icell
- integer(kind=8), intent(in) :: ncells
+!-----------------------------------------------------------------------
+integer function assign_to_domain(i,id)
+ integer(kind=8), intent(in) :: i
+ integer,         intent(in) :: id
 
- !Strided cells: distribute over procs alternately
- if (id == MOD(icell, nprocs)) then
-   cellbelong = .true.
- else
-   cellbelong = .false.
- endif
+#ifdef MPI
+ assign_to_domain = int(mod(i,int(nprocs,kind=8)),kind=kind(assign_to_domain))
+#else
+ assign_to_domain = id
+#endif
 
-end function cellbelong
+end function assign_to_domain
 
 end module domain

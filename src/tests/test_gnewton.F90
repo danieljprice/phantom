@@ -79,6 +79,7 @@ subroutine test_gnewton(ntests,npass)
     xyzh(1,1) = ra
     xyzh(2,1) = 0.
     xyzh(3,1) = 0.
+    xyzh(4,1) = 1.e-2
 
     vxyzu(1,1) = 0.
     vxyzu(2,1) = va

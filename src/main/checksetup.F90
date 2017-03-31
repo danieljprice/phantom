@@ -281,12 +281,14 @@ subroutine check_setup(nerror,nwarn,restart)
 !
  if (npartoftype(idust) > 0) then
     if (.not. use_dust) then
-       print*,'Error in setup: dust particles present but -DDUST is not set'
+       if (id==master) print*,'Error in setup: dust particles present but -DDUST is not set'
        nerror = nerror + 1
     endif
     if (use_dustfrac) then
-       print*,'ERROR in setup: use of dust particles AND a dust fraction not implemented'
-       print*,'                i.e. cannot yet mix two-fluid and one-fluid methods'
+       if (id==master) then
+          print*,'ERROR in setup: use of dust particles AND a dust fraction not implemented'
+          print*,'                i.e. cannot yet mix two-fluid and one-fluid methods'
+       endif
        nerror = nerror + 1
     endif
  endif
@@ -342,7 +344,7 @@ subroutine check_setup(nerror,nwarn,restart)
  endif
 
  if (nerror==0 .and. nwarn==0) then
-    write(*,"(1x,a)") 'Particle setup OK'
+    if (id==master) write(*,"(1x,a)") 'Particle setup OK'
  endif
 
  return

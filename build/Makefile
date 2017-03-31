@@ -1298,6 +1298,7 @@ endif
 ifeq ($(DEBUG), yes)
     FFLAGS += ${DEBUGFLAG}
     FFLAGS := $(FFLAGS:-O3=-O0)
+    FFLAGS := $(FFLAGS:-ipo= )
 endif
 
 ifeq ($(ENDIAN), BIG)
@@ -1533,18 +1534,19 @@ SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cool
 SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
 SRCEOS = ${SRCMESA} eos.F90
 
-SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 utils_omp.F90 utils_cpuinfo.f90 \
-         utils_mathfunc.f90 part.F90 commons.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
-         utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_sphNG.f90 utils_timing.f90 utils_vectors.f90 \
+SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
+         utils_mathfunc.f90 part.F90 utils_timing.f90 ${DOMAIN} mpi_balance.F90 commons.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
+         utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_sphNG.f90 utils_vectors.f90 \
          utils_datafiles.f90 datafiles.f90 ${SRCFASTMATH} random.f90 \
          checkoptions.F90 ${SRCEOS} set_binary.f90 \
          viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} \
          set_disc.F90 partinject.F90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} directsum.f90 ${SRCDUST} readwrite_dumps.F90 quitdump.f90 \
-         ${DOMAIN} mpi_derivs.F90 ${LINKLIST} \
+         mpi_dens.F90 mpi_force.F90 stack.F90 \
+         mpi_derivs.F90 ${LINKLIST} \
          ${SRCTURB} ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} \
          ptmass.F90 readwrite_infile.F90 \
-	 dens.F90 force.F90 deriv.F90 energies.F90 \
+         dens.F90 force.F90 deriv.F90 energies.F90 \
          sort_particles.F90 evwrite.F90 \
          step_leapfrog.F90 writeheader.F90 writegitinfo.f90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90\
          geometry.f90 stretchmap.f90 prompting.f90 density_profiles.f90 set_unifdis.f90 set_sphere.f90 set_vfield.f90 \
@@ -1616,10 +1618,10 @@ physcon.o: .make_mathflags
 # these are the sources for phantom setup utility
 #
 SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_filenames.f90 utils_summary.F90 \
-          utils_tables.f90 random.f90 ${DOMAIN} set_binary.f90 \
-          utils_indtimesteps.F90 partinject.F90 ${LINKLIST} \
+          utils_tables.f90 random.f90 mpi_balance.F90 ${DOMAIN} set_binary.f90 \
+          utils_indtimesteps.F90 partinject.F90 dtype_kdtree.F90 mpi_dens.F90 mpi_derivs.F90 ${LINKLIST} \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} \
-          ptmass.F90 energies.F90 \
+          ptmass.F90 centreofmass.f90 energies.F90 \
           geometry.f90 stretchmap.f90 prompting.f90 density_profiles.f90 \
           set_unifdis.f90 set_sphere.f90 set_disc.F90 \
           set_vfield.f90 sort_particles.F90 ${SRCINJECT} \

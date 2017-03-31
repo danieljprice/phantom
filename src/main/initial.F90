@@ -197,6 +197,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use mf_write,         only:binpos_write,binpos_init
  use io,               only:ibinpos,igpos
 #endif
+#ifdef MPI
+ use balance,          only:balancedomains
+ use domain,           only:ibelong
+#endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:gamma,polyk,ieos,init_eos
  use part,             only:hfact,h2chemistry
@@ -211,7 +215,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  integer         :: ierr,i,j,idot,nerr,nwarn
- !integer(kind=8) :: npartoftypetot(maxtypes)
+ integer(kind=8) :: npartoftypetot(maxtypes)
  real            :: poti,dtf,hfactfile,fextv(3)
  real            :: pmassi,dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first
 #ifdef NONIDEALMHD
@@ -306,8 +310,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--get total number of particles (on all processors)
 !
- ntot           = npart !OK: reduceall_mpi('+',npart)
-! npartoftypetot = reduce_mpi('+',npartoftype)
+ ntot           = reduceall_mpi('+',npart)
+ npartoftypetot = reduce_mpi('+',npartoftype)
  if (id==master) write(iprint,"(a,i12)") ' npart total   = ',ntot
  if (npart > 0) then
     if (id==master .and. maxalpha==maxp)  write(iprint,*) 'mean alpha  initial: ',sum(alphaind(1,1:npart))/real(npart)
@@ -376,6 +380,17 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #else
  dtcourant = huge(dtcourant)
  dtforce   = huge(dtforce)
+#endif
+
+!
+!--balance domains prior to starting calculation
+!  (make sure this is called AFTER iphase has been set)
+!
+#ifdef MPI
+ do i=1,npart
+    ibelong(i) = id
+ enddo
+ call balancedomains(npart)
 #endif
 
 !
@@ -510,7 +525,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  if (id==master) call write_header(2,infile,evfile,logfile,dumpfile,ntot)
 
  if (calc_erot) call get_erot_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
- call init_evfile(ievfile,evfile)
+ if (id==master) call init_evfile(ievfile,evfile)
  call write_evfile(time,dt)
  if (id==master) call write_evlog(iprint)
 #ifdef MFLOW
