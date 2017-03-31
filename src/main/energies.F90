@@ -22,7 +22,6 @@
 !    mpiutils, nicil, options, part, ptmass, viscosity
 !+
 !--------------------------------------------------------------------------
-!#define reduce_fn(a,b) b
 #define reduce_fn(a,b) reduceall_mpi(a,b)
 module energies
  use dim, only: calc_erot, calc_erot_com
