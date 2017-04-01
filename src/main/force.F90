@@ -632,10 +632,6 @@ use kernel,        only:wkern_drag,cnormk_drag
 #endif
 !$omp end parallel
 
-#ifdef LIGHTCURVE
- totlum = reduce_mpi('+',totlum)
-#endif
- !
 #ifdef GRAVITY
  if (icreate_sinks > 0 .and. ipart_rhomax > 0 .and. iverbose>=1) then
       print*,' got rhomax = ',rhomax*unit_density,' on particle ',ipart_rhomax !,rhoh(xyzh(4,ipart_rhomax))
@@ -2063,6 +2059,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
  use chem,           only:energ_h2cooling
  use timestep,       only:C_cour,C_cool,C_force,bignumber,dtmax
  use timestep_sts,   only:use_sts,sts_it_n,ibinsts
+#ifdef LIGHTCURVE
+ use part,           only:luminosity
+#endif
 
  integer,            intent(in)    :: icall
  type(cellforce),    intent(inout) :: cell
