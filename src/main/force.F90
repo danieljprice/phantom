@@ -352,6 +352,7 @@ use kernel,        only:wkern_drag,cnormk_drag
 !$omp shared(dBevol) &
 !$omp shared(dt) &
 !$omp shared(nprocs,icall,check_ibinsink) &
+!$omp shared(poten) &
 !$omp private(icell,i) &
 !$omp private(cell) &
 !$omp private(remote_export) &
@@ -361,7 +362,7 @@ use kernel,        only:wkern_drag,cnormk_drag
 !$omp private(hi,pmassi,rhoi) &
 !$omp private(iactivei,iamdusti,iamtypei) &
 !$omp private(fgrav,dx,dy,dz,poti,fxi,fyi,fzi,potensoft0,dum,epoti) &
-!$omp shared(xyzmh_ptmass,nptmass,poten) &
+!$omp shared(xyzmh_ptmass,nptmass) &
 !$omp shared(rhomax,ipart_rhomax,icreate_sinks,rho_crit,r_crit2) &
 !$omp private(rhomax_thread,ipart_rhomax_thread,use_part,j) &
 #endif
@@ -1693,18 +1694,19 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
  real(kind=4),       intent(in)    :: alphaind(:,:)
  real,               intent(in)    :: stressmax
 
- real    :: divcurlvi(ndivcurlv)
- real    :: straini(6),curlBi(3),jcbcbi(3),jcbi(3)
- real    :: hi,hi1,rhoi,rho1i,dhdrhoi,pmassi
- real    :: dustfraci,rhogasi,ponrhoi,pro2i,pri,spsoundi,temperaturei
- real    :: sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso
+ real         :: divcurlvi(ndivcurlv)
+ real         :: straini(6),curlBi(3),jcbcbi(3),jcbi(3)
+ real         :: hi,rhoi,rho1i,dhdrhoi,pmassi
+ real(kind=8) :: hi1
+ real         :: dustfraci,rhogasi,ponrhoi,pro2i,pri,spsoundi,temperaturei
+ real         :: sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso
 #ifdef DUST
- real    :: tstopi
+ real         :: tstopi
 #endif
- real    :: etaohmi,etahalli,etaambii,Bxi,Byi,Bzi,Bi,B2i,Bi1
- real    :: vwavei,alphai
+ real         :: etaohmi,etahalli,etaambii,Bxi,Byi,Bzi,Bi,B2i,Bi1
+ real         :: vwavei,alphai
 
- integer :: i,iamtypei,ierr
+ integer      :: i,iamtypei,ierr
 
 #ifdef DUST
  integer :: iregime
@@ -1940,15 +1942,11 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  real,            intent(in)     :: xyzcache(:,:)
 
  real                            :: hi
- real                            :: hi1
- real                            :: hi21
- real                            :: hi31
- real                            :: hi41
- real                            :: gradhi
+ real(kind=8)                    :: hi1,hi21,hi31,hi41
+ real(kind=8)                    :: gradhi,gradsofti
  real                            :: pmassi
  real                            :: vsigmax
  real                            :: dtdrag
- real                            :: gradsofti
 
  integer                         :: iamtypei
 

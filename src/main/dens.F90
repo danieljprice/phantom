@@ -1347,8 +1347,8 @@ pure subroutine compute_cell(cell,listneigh,nneigh,nneighi,getdv,getdB,Bevol,xyz
 
  real                            :: dxcache(7,isizeneighcache)
 
- real                            :: hi
- real                            :: hi1,hi21,hi31,hi41
+ real(kind=8)                    :: hi
+ real(kind=8)                    :: hi1,hi21,hi31,hi41
 
  integer                         :: iamtypei
  logical                         :: iactivei,iamgasi,iamdusti
@@ -1431,7 +1431,8 @@ subroutine finish_cell(cell,cell_converged)
  logical,         intent(out)   :: cell_converged
  real                           :: rhosum(maxrhosum)
  real                           :: dhdrhoi,rhohi,omegai
- real(kind=8)                   :: rhoi,gradhi
+ real                           :: rhoi
+ real(kind=8)                   :: gradhi
  real                           :: func,dfdh1,hi,hi_old,hnew,hmaxcelli
  real                           :: pmassi, xyzh(4)
  integer                        :: i,iamtypei !,nwarnup,nwarndown
@@ -1512,18 +1513,19 @@ end subroutine finish_cell
 
 pure subroutine finish_rhosum(rhosum,pmassi,hi,iterating,rhoi,rhohi,gradhi,gradsofti,dhdrhoi_out,omegai_out)
  use part,  only:rhoh,dhdrho
- real, intent(in)             :: rhosum(maxrhosum)
- real, intent(in)             :: pmassi
- real, intent(in)             :: hi
- logical, intent(in)          :: iterating !false for the last bit where we are computing the final result
- real, intent(out)            :: rhoi
- real, intent(out)            :: gradhi
- real, intent(out),  optional :: rhohi
- real, intent(out),  optional :: gradsofti
- real, intent(out),  optional :: dhdrhoi_out
- real, intent(out),  optional :: omegai_out
- real                         :: omegai,dhdrhoi
- real                         :: hi1,hi21,hi31,hi41
+ real,          intent(in)              :: rhosum(maxrhosum)
+ real,          intent(in)              :: pmassi
+ real,          intent(in)              :: hi
+ logical,       intent(in)              :: iterating !false for the last bit where we are computing the final result
+ real,          intent(out)             :: rhoi
+ real(kind=8),  intent(out)             :: gradhi
+ real,          intent(out),  optional  :: rhohi
+ real(kind=8),  intent(out),  optional  :: gradsofti
+ real,          intent(out),  optional  :: dhdrhoi_out
+ real,          intent(out),  optional  :: omegai_out
+
+ real           :: omegai,dhdrhoi
+ real(kind=8)   :: hi1,hi21,hi31,hi41
 
  hi1   = 1./hi
  hi21  = hi1*hi1
@@ -1583,19 +1585,20 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
 
  real    :: rhosum(maxrhosum)
 
- integer :: iamtypei,i,lli,ierr
- logical :: iactivei,iamgasi,iamdusti
- logical :: igotrmatrix,igotspsound
- real    :: hi,hi1,hi21,hi41
- real    :: pmassi,rhoi,gradhi,gradsofti
- real    :: psii
- real    :: Bxi,Byi,Bzi,gradBi
- real    :: vxyzui(4)
- real    :: spsoundi,xi_limiter
- real    :: divcurlvi(5),rmatrix(6),straini(6)
- real    :: divcurlBi(ndivcurlB)
- real    :: temperaturei
- real    :: rho1i,term,denom
+ integer      :: iamtypei,i,lli,ierr
+ logical      :: iactivei,iamgasi,iamdusti
+ logical      :: igotrmatrix,igotspsound
+ real         :: hi,hi1,hi21,hi41
+ real         :: pmassi,rhoi
+ real(kind=8) :: gradhi,gradsofti
+ real         :: psii
+ real         :: Bxi,Byi,Bzi,gradBi
+ real         :: vxyzui(4)
+ real         :: spsoundi,xi_limiter
+ real         :: divcurlvi(5),rmatrix(6),straini(6)
+ real         :: divcurlBi(ndivcurlB)
+ real         :: temperaturei
+ real         :: rho1i,term,denom
 
  do i = 1,cell%npcell
     lli = cell%ll_position(i)
