@@ -1199,7 +1199,7 @@ ifeq ($(SYSTEM), ifort)
     ENDIANFLAGBIG= -convert big_endian
     ENDIANFLAGLITTLE= -convert little_endian
 # or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
-    OMPFLAGS = -openmp
+    OMPFLAGS = -qopenmp
     CC = icc
     CCFLAGS = -O3 -ipo -mcmodel=medium
     LIBCXX = -cxxlib
