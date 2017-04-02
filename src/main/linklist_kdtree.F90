@@ -130,7 +130,11 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
 #endif
 
 ! use timing, only:print_time
+#ifdef MPI
  integer, intent(inout) :: npart
+#else
+ integer, intent(in)    :: npart
+#endif
  integer, intent(in)    :: nactive
  real,    intent(inout) :: xyzh(4,maxp)
  real,    intent(in)    :: vxyzu(:,:)

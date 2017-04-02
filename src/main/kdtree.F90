@@ -28,7 +28,6 @@ module kdtree
  use io,          only:nprocs
  use part,        only:ll
  use dtypekdtree, only:kdnode,ndimtree
- use timing,      only:getused,printused
 
  implicit none
 

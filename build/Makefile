@@ -35,7 +35,7 @@ MODFILE       = moddump_default.f90
 ANALYSIS      = analysis_dtheader.f90
 MULTIRUNFILE  = multirun.f90
 LIVE_ANALYSIS = no
-LINKLIST      = kdtree.F90 linklist_kdtree.F90
+LINKLIST      = dtype_kdtree.F90 kdtree.F90 linklist_kdtree.F90
 #
 # can comment out the following lines and instead set
 # the parameters as environment variables
