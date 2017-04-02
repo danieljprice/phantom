@@ -20,6 +20,7 @@ module mpiforce
     integer          :: ll_position(minpart)
     real             :: xpartvec(maxxpartveciforce,minpart)
     real             :: fsums(maxfsum,minpart)
+    real             :: fgrav(20)
     integer(kind=1)  :: iphase(minpart)
     integer          :: ndrag
     integer          :: nstokes
@@ -87,6 +88,12 @@ subroutine get_mpitype_of_cellforce(dtype)
  blens(nblock) = size(cell%fsums)
  mpitypes(nblock) = MPI_REAL8
  call MPI_GET_ADDRESS(cell%fsums,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = size(cell%fgrav)
+ mpitypes(nblock) = MPI_REAL8
+ call MPI_GET_ADDRESS(cell%fgrav,addr,mpierr)
  disp(nblock) = addr - start
 
  nblock = nblock + 1

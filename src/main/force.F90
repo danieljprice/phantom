@@ -200,7 +200,7 @@ use kernel,        only:wkern_drag,cnormk_drag
  real    :: dustresfacmean,dustresfacmax
 #ifdef GRAVITY
  real    :: potensoft0,dum,dx,dy,dz,fxi,fyi,fzi,poti,epoti
- real    :: fgrav(20),rhomax,rhomax_thread
+ real    :: rhomax,rhomax_thread
  logical :: use_part
  integer :: ipart_rhomax_thread,j
  real    :: hi,pmassi,rhoi
@@ -361,7 +361,7 @@ use kernel,        only:wkern_drag,cnormk_drag
 !$omp shared(massoftype,npart) &
 !$omp private(hi,pmassi,rhoi) &
 !$omp private(iactivei,iamdusti,iamtypei) &
-!$omp private(fgrav,dx,dy,dz,poti,fxi,fyi,fzi,potensoft0,dum,epoti) &
+!$omp private(dx,dy,dz,poti,fxi,fyi,fzi,potensoft0,dum,epoti) &
 !$omp shared(xyzmh_ptmass,nptmass) &
 !$omp shared(rhomax,ipart_rhomax,icreate_sinks,rho_crit,r_crit2) &
 !$omp private(rhomax_thread,ipart_rhomax_thread,use_part,j) &
@@ -411,7 +411,7 @@ use kernel,        only:wkern_drag,cnormk_drag
     !
 #ifdef GRAVITY
     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true., &
-                           f=fgrav,remote_export=remote_export)
+                           f=cell%fgrav,remote_export=remote_export)
 #else
     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true., &
                            remote_export=remote_export)
@@ -481,7 +481,7 @@ use kernel,        only:wkern_drag,cnormk_drag
 
 #ifdef GRAVITY
        call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true., &
-                         f=fgrav, &
+                         f=cell%fgrav, &
                          cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 #else
        call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true., &
@@ -526,6 +526,12 @@ use kernel,        only:wkern_drag,cnormk_drag
          stack_waiting%cells(i)%xpartvec(ivsigmaxi,k) = max(stack_waiting%cells(i)%xpartvec(ivsigmaxi,k), &
                                                          stack_ready%cells(j)%xpartvec(ivsigmaxi,k))
       enddo
+#ifdef GRAVITY
+      do k = 1,20
+!$omp atomic update
+         stack_waiting%cells(i)%fgrav(k) = stack_waiting%cells(i)%fgrav(k) + stack_ready%cells(j)%fgrav(k)
+      enddo
+#endif
       do k = 1,nprocs
 !$omp atomic update
          stack_waiting%cells(i)%remote_export(k)      = stack_waiting%cells(i)%remote_export(k) &
@@ -2111,7 +2117,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
  real    :: vsigmax,vwavei,fxyz4
 #ifdef GRAVITY
  real    :: potensoft0,dum,dx,dy,dz,fxi,fyi,fzi,poti,epoti
- real    :: fgrav(20)
 #endif
  real    :: vsigdtc,dtc,dtf,dti,dtcool,dtdiffi,dtdiff
  real    :: dtohmi,dtambii,dthalli,dtvisci,dtdrag,dtdusti,dtclean
@@ -2213,7 +2218,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
     !  use xcen directly, -1 is placeholder
     !
     call get_distance_from_centre_of_mass(cell%icell,xi,yi,zi,dx,dy,dz)
-    call expand_fgrav_in_taylor_series(fgrav,dx,dy,dz,fxi,fyi,fzi,poti)
+    call expand_fgrav_in_taylor_series(cell%fgrav,dx,dy,dz,fxi,fyi,fzi,poti)
     fsum(ifxi) = fsum(ifxi) + fxi
     fsum(ifyi) = fsum(ifyi) + fyi
     fsum(ifzi) = fsum(ifzi) + fzi
