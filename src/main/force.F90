@@ -203,6 +203,9 @@ use kernel,        only:wkern_drag,cnormk_drag
  real    :: fgrav(20),rhomax,rhomax_thread
  logical :: use_part
  integer :: ipart_rhomax_thread,j
+ real    :: hi,pmassi,rhoi
+ logical :: iactivei,iamdusti
+ integer :: iamtypei
 #endif
 #ifdef DUST
  real    :: frac_stokes, frac_super
@@ -345,7 +348,6 @@ use kernel,        only:wkern_drag,cnormk_drag
 !$omp shared(n_electronT) &
 !$omp shared(alphaind) &
 !$omp shared(stressmax) &
-!$omp shared(poten) &
 !$omp shared(divBsymm) &
 !$omp shared(dBevol) &
 !$omp shared(dt) &
@@ -355,7 +357,13 @@ use kernel,        only:wkern_drag,cnormk_drag
 !$omp private(remote_export) &
 !$omp private(nneigh) &
 #ifdef GRAVITY
-!$omp private(fgrav) &
+!$omp shared(massoftype,npart) &
+!$omp private(hi,pmassi,rhoi) &
+!$omp private(iactivei,iamdusti,iamtypei) &
+!$omp private(fgrav,dx,dy,dz,poti,fxi,fyi,fzi,potensoft0,dum,epoti) &
+!$omp shared(xyzmh_ptmass,nptmass,poten) &
+!$omp shared(rhomax,ipart_rhomax,icreate_sinks,rho_crit,r_crit2) &
+!$omp private(rhomax_thread,ipart_rhomax_thread,use_part,j) &
 #endif
 #ifdef MPI
 !$omp shared(id) &
@@ -807,6 +815,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use nicil,       only:nicil_get_eta,nimhd_get_jcbcb,nimhd_get_dBdt
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
+ use part,        only:xyzmh_ptmass,nptmass,ihacc
+ use ptmass,      only:ptmass_not_obscured
 #endif
 #ifdef PERIODIC
  use boundary,    only:dxbound,dybound,dzbound
@@ -2079,7 +2089,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 
  real,               intent(inout) :: dtcourant,dtforce,dtvisc,dtohm
  real,               intent(inout) :: dthall,dtambi,dtmini,dtmaxi
-
 #ifdef IND_TIMESTEPS
  integer,            intent(inout) :: nbinmaxnew,nbinmaxstsnew,ncheckbin
  integer,            intent(inout) :: ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd
@@ -2102,7 +2111,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
  real    :: tstop,dustfraci,dtdustdenom
  real    :: etaambii,etahalli,etaohmi
  real    :: vsigmax,vwavei,fxyz4
-
+#ifdef GRAVITY
+ real    :: potensoft0,dum,dx,dy,dz,fxi,fyi,fzi,poti,epoti
+ real    :: fgrav(20)
+#endif
  real    :: vsigdtc,dtc,dtf,dti,dtcool,dtdiffi,dtdiff
  real    :: dtohmi,dtambii,dthalli,dtvisci,dtdrag,dtdusti,dtclean
  character(len=16) :: dtchar
