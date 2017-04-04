@@ -31,6 +31,9 @@ module setup
  public :: setpart
 
  private
+ !--private module variables
+ integer :: nx
+ real    :: xymin,machzero,betazero,vzero,bzero
 
 contains
 
@@ -47,7 +50,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:master,real4
  use prompting,    only:prompt
  use mpiutils,     only:bcast_mpi
- use physcon,      only:pi
+ use physcon,      only:pi,fourpi
+ use timestep,     only:dtmax,tmax
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -57,58 +61,92 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real :: deltax,totmass,dz
- integer :: i,maxvxyzu,nx,maxp
- real :: machzero,betazero,const,vzero,bzero,przero,uuzero,gam1
- logical :: use_closepacked
+ integer                          :: i,ierr,maxvxyzu,maxp
+ real                             :: deltax,totmass,dz
+ real                             :: xymax,przero,uuzero,gam1
+ character(len=26)                :: filename
+ logical                          :: use_closepacked,iexist
 !
 !--general parameters
 !
- time = 0.
- gamma = 5./3.
+ time    = 0.
+ gamma   = 5./3.
+ filename= trim(fileprefix)//'.in'
+ inquire(file=filename,exist=iexist)
+ if (.not. iexist) then
+    tmax  = 1.00
+    dtmax = 0.05
+ endif
 !
-!--setup particles
+!--set particles
 !
- maxp = size(xyzh(1,:))
+ maxp     = size(xyzh(1,:))
  maxvxyzu = size(vxyzu(:,1))
+ if (maxvxyzu < 4) stop 'need maxvxyzu=4 for orszag-tang setup'
 !
-!--setup parameters
+!--set default parameters
 !
- const = 4.*pi
+ nx       = 128
+ xymin    = -0.5
  betazero = 10./3.
  machzero = 1.0
- vzero = 1.0
- bzero = 1.0/sqrt(const)
- przero = 0.5*bzero**2*betazero
- rhozero = gamma*przero*machzero
-
- gam1 = gamma - 1.
- uuzero = przero/(gam1*rhozero)
-
+ vzero    = 1.0
+ bzero    = 1.0/sqrt(fourpi)
+ polyk    = 0.0
+ use_closepacked = .true.
+!
+!--read parameters from .setup or prompt from user
+!
  print "(/,a)",' Setup for 3D Orszag-Tang vortex problem...'
+ filename=trim(fileprefix)//'.setup'
+ inquire(file=filename,exist=iexist)
+ if (iexist) then
+    call read_setupfile(filename,ierr)
+    if (ierr /= 0) then
+       if (id==master) call write_setupfile(filename)
+       stop
+    endif
+ elseif (id==master) then
+    print "(a,/)",trim(filename)//' not found: using interactive setup'
+    call prompt('Enter resolution (number of particles in x)',nx,8)
+    call prompt('Enter xmin ~ ymin',xymin)
+    call prompt('Enter initial plasma beta',betazero,0.)
+    call prompt('Enter initial Mach number',machzero,0.)
+    call prompt('Enter initial velocity amplitude',vzero,0.)
+    call prompt('Enter initial magnetic field amplitude [default=1/sqrt(4pi)]',bzero,0.)
+    !
+    !--write default input file
+    !
+    call write_setupfile(filename)
+ else
+    stop
+ endif
+!
+!--set calculated parameters
+!
+ przero   = 0.5*bzero**2*betazero
+ rhozero  = gamma*przero*machzero
+ gam1     = gamma - 1.
+ uuzero   = przero/(gam1*rhozero)
+ xymax    = -xymin
+ deltax   = (xymax - xymin)/nx
+ call bcast_mpi(nx)
+ !
  print 10,betazero,machzero,bzero,rhozero,przero
 10 format(/,' beta        = ',f6.3,', mach number = ',f6.3,/, &
             ' initial B   = ',f6.3,', density = ',f6.3,', pressure = ',f6.3,/)
-
- polyk = 0.
- if (maxvxyzu < 4) stop 'need maxvxyzu=4 for orszag-tang setup'
-
- use_closepacked = .true.
-
- nx = 128
- if (id==master) call prompt('Enter resolution (number of particles in x)',nx,8)
- call bcast_mpi(nx)
- deltax = dxbound/nx
 !
-!--boundaries
+!--set boundaries
 !
  if (use_closepacked) then
     dz = 2.*sqrt(6.)/nx
  else
     dz = 6.*deltax
  endif
- call set_boundary(-0.5,0.5,-0.5,0.5,-dz,dz)
-
+ call set_boundary(xymin,xymax,xymin,xymax,-dz,dz)
+!
+!--set particle lattice
+!
  if (use_closepacked) then
     call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
  else
@@ -116,8 +154,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  npartoftype(:) = 0
  npartoftype(1) = npart
-
- totmass = rhozero*dxbound*dybound*dzbound
+!
+!--set particle properties
+!
+ totmass    = rhozero*dxbound*dybound*dzbound
  massoftype = totmass/npart
  print*,'npart = ',npart,' particle mass = ',massoftype(1)
 
@@ -145,6 +185,61 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (mhd) ihavesetupB = .true.
 
 end subroutine setpart
+!----------------------------------------------------------------
+!+
+!  write parameters to setup file
+!+
+!----------------------------------------------------------------
+subroutine write_setupfile(filename)
+ use infile_utils, only: write_inopt
+ character(len=*), intent(in) :: filename
+ integer, parameter           :: iunit = 20
 
+ print "(a)",' writing setup options file '//trim(filename)
+ open(unit=iunit,file=filename,status='replace',form='formatted')
+ write(iunit,"(a)") '# input file for the 3D Orszag-Tang vortex problem'
+ write(iunit,"(/,a)") '# resolution'
+ call write_inopt(nx,'nx','number of particles in the x-direction',iunit)
+ write(iunit,"(/,a)") '# Box size'
+ call write_inopt(xymin,'xymin','xmin ~ ymin',iunit)
+ write(iunit,"(/,a)") '# initial parameters'
+ call write_inopt(betazero,'betazero','plasma beta',iunit)
+ call write_inopt(machzero,'machzero','Mach number',iunit)
+ call write_inopt(vzero,'vzero','velocity amplitude',iunit)
+ call write_inopt(bzero,'bzero','magnetic field amplitude',iunit)
+ close(iunit)
+
+end subroutine write_setupfile
+
+!----------------------------------------------------------------
+!+
+!  Read parameters from setup file
+!+
+!----------------------------------------------------------------
+subroutine read_setupfile(filename,ierr)
+ use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
+ use io,           only: error
+ use units,        only: select_unit
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
+ integer, parameter            :: iunit = 21
+ integer                       :: nerr
+ type(inopts), allocatable     :: db(:)
+
+ print "(a)",' reading setup options from '//trim(filename)
+ call open_db_from_file(db,filename,iunit,ierr)
+ call read_inopt(nx,      'nx',      db,ierr)
+ call read_inopt(xymin,   'xymin',   db,ierr)
+ call read_inopt(betazero,'betazero',db,ierr)
+ call read_inopt(machzero,'machzero',db,ierr)
+ call read_inopt(vzero,   'vzero',   db,ierr)
+ call read_inopt(bzero,   'bzero',   db,ierr)
+ !
+ if (ierr > 0) then
+    print "(1x,a,i2,a)",'Setup_sphereinbox: ',nerr,' error(s) during read of setup file.  Re-writing.'
+ endif
+
+end subroutine read_setupfile
+!----------------------------------------------------------------
 end module setup
 
