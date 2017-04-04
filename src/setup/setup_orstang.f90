@@ -16,14 +16,20 @@
 !    Picone J. M., Dahlburg R. B., 1991, Physics of Fluids B, 3, 29
 !    Price D. J., Monaghan J. J., 2005, MNRAS, 364, 384
 !
-!  OWNER: Daniel Price
+!  OWNER: James Wurster
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS: None
+!  RUNTIME PARAMETERS:
+!    betazero -- plasma beta
+!    bzero    -- magnetic field amplitude
+!    machzero -- Mach number
+!    nx       -- number of particles in the x-direction
+!    vzero    -- velocity amplitude
+!    xymin    -- xmin ~ ymin
 !
-!  DEPENDENCIES: boundary, io, mpiutils, part, physcon, prompting,
-!    setup_params, unifdis
+!  DEPENDENCIES: boundary, infile_utils, io, mpiutils, part, physcon,
+!    prompting, setup_params, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
