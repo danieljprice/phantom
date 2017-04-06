@@ -17,8 +17,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, io, kernel, options, part, physcon, prompting,
-!    setup_params, timestep, unifdis
+!  DEPENDENCIES: boundary, io, kernel, mpiutils, options, part, physcon,
+!    prompting, setup_params, timestep, unifdis
 !+
 !--------------------------------------------------------------------------
 module setup
