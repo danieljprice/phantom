@@ -2013,11 +2013,15 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
     !
     !--loop over current particle's neighbours (includes self)
     !
+#ifdef MPI
     if (cell%owner == id) then
        ignoreself = .true.
     else
        ignoreself = .false.
     endif
+#else
+    ignoreself = .true.
+#endif
 
     call compute_forces(i,iamgasi,iamdusti,cell%xpartvec(:,ip),hi,hi1,hi21,hi41,gradhi,gradsofti, &
                          beta, &

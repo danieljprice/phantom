@@ -389,7 +389,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
     cell%icell                   = icell
     cell%npcell                  = npcell
+#ifdef MPI
     cell%owner                   = id
+#endif
     cell%nits                    = 0
     cell%nneigh                  = 0
     cell%remote_export(1:nprocs) = remote_export
@@ -1389,11 +1391,15 @@ pure subroutine compute_cell(cell,listneigh,nneigh,nneighi,getdv,getdB,Bevol,xyz
     hi31  = hi1*hi21
     hi41  = hi21*hi21
 
+#ifdef MPI
     if (cell%owner == id) then
        ignoreself = .true.
     else
        ignoreself = .false.
     endif
+#else
+    ignoreself = .true.
+#endif
 
     call get_density_sums(lli,cell%xpartvec(:,i),hi1,hi21,iamtypei,iamgasi,listneigh,nneigh, &
                           nneighi,dxcache,xyzcache,cell%rhosums(:,i), &
