@@ -576,7 +576,9 @@ subroutine test_derivs(ntests,npass,string)
        call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
        call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
        do j = 1,1 !ndusttypes !--Only need one because all dust species are identical
+#ifdef DUST
           grainsizek = grainsize(j)
+#endif
           call checkvalf(np,xyzh,ddustfrac(j,:),ddustfrac_func,4.e-4,nfailed(3),'deps/dt')
           if (maxvxyzu>=4) call checkvalf(np,xyzh,fxyzu(4,:),dudtdust_func,5.e-4,nfailed(4),'du/dt')
           call checkvalf(np,xyzh,deltav(1,j,:),deltavx_func,2.3e-5,nfailed(5),'deltavx')

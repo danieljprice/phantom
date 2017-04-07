@@ -1253,7 +1253,7 @@ end subroutine force
   real :: rhoj,ponrhoj,prj,rhoav1
   real :: hj1,hj21,q2j,qj,vwavej,divvj
   real :: strainj(6)
-  real :: dustfracisum,rhogasj
+  real :: dustfracisum,rhogasj,rhogas1j
 #ifdef GRAVITY
   integer :: k
   real    :: fmi,fmj,dsofti,dsoftj
@@ -1267,7 +1267,7 @@ end subroutine force
   integer :: iregime
   real    :: dragterm,dragheating,wdrag,tsij(ndusttypes),dv2
   real    :: Dav(ndusttypes),grkernav,tsj(ndusttypes),dustfracterms(ndusttypes)
-  real    :: rhogas1i,rhogas1j
+  real    :: rhogas1i
 #endif
   real :: dBevolx,dBevoly,dBevolz,divBsymmterm,divBdiffterm
   real :: rho21i,rho21j,Bxi,Byi,Bzi,psii,pmjrho21grkerni,pmjrho21grkernj
