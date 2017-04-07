@@ -46,15 +46,16 @@ subroutine check_setup(nerror,nwarn,restart)
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary
- use eos,            only:gamma,polyk
- use centreofmass,   only:get_centreofmass
- use options,        only:ieos,icooling,iexternalforce
- use io,             only:id,master
- use externalforces, only:accrete_particles,accradius1,iext_star,iext_corotate
- use timestep,       only:time
- use units,          only:umass,udist,utime
- use physcon,        only:gg
- use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
+ use eos,             only:gamma,polyk
+ use centreofmass,    only:get_centreofmass
+ use options,         only:ieos,icooling,iexternalforce
+ use io,              only:id,master
+ use externalforces,  only:accrete_particles,accradius1,iext_star,iext_corotate
+ use timestep,        only:time
+ use units,           only:umass,udist,utime
+ use physcon,         only:gg
+ use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
+ use readwrite_dumps, only:multidustdump
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,j,nbad,itype,nunity
@@ -320,6 +321,7 @@ subroutine check_setup(nerror,nwarn,restart)
     ! warn if compiled for one fluid dust but not used
     if (all(dustfrac(:,1:npart) < tiny(dustfrac))) then
        print*,'WARNING: one fluid dust is used but dust fraction is zero everywhere'
+       multidustdump = .false.
        nwarn = nwarn + 1
     endif
     if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas/real(npart-nbad-nunity)

@@ -36,8 +36,9 @@ module readwrite_dumps
 
  public :: write_smalldump,write_fulldump,read_smalldump,read_dump,write_gadgetdump
  public :: get_blocklimits
- logical, public    :: opened_full_dump     ! for use in analysis files if user wishes to skip small dumps
- logical, public    :: dt_read_in           ! to determine if dt has been read in so that ibin & ibinold can be set on restarts
+ logical, public    :: opened_full_dump       ! for use in analysis files if user wishes to skip small dumps
+ logical, public    :: dt_read_in             ! to determine if dt has been read in so that ibin & ibinold can be set on restarts
+ logical, public    :: multidustdump = .true. ! determine whether to dump dust arrays
 
  integer, parameter :: maxphead = 256       ! max items in header
  integer, parameter, public :: is_small_dump = 1978
@@ -435,9 +436,9 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierrs(2))
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(3))
        if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(4))
-       if (use_dust .and. ndusttypes>1) call write_array(1,sum(dustfrac,1),'dustfracsum',npart,k,ipass,idump,nums,ierrs(5))
-       if (use_dust) call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(6))
-       if (use_dustfrac .and. ndusttypes>1) then
+       if (use_dust .and. ndusttypes>1 .and. multidustdump) call write_array(1,sum(dustfrac,1),'dustfracsum',npart,k,ipass,idump,nums,ierrs(5))
+       if (use_dust .and. multidustdump) call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(6))
+       if (use_dustfrac .and. ndusttypes>1 .and. multidustdump) then
           dustfracisum1(:) = 1./sum(dustfrac,1)
           deltavsum(1,:)   = dustfracisum1*sum(dustfrac(:,:)*deltav(1,:,:),1)
           deltavsum(2,:)   = dustfracisum1*sum(dustfrac(:,:)*deltav(2,:,:),1)
@@ -445,7 +446,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,deltavsum,(/'deltavsumx','deltavsumy','deltavsumz'/),3,npart,k,ipass,idump,nums,ierrs(7))
        endif
        do l = 1,ndusttypes
-          if (use_dustfrac) call write_array(1,deltav(:,l,:),deltav_label,3,npart,k,ipass,idump,nums,ierrs(8))
+          if (use_dustfrac .and. multidustdump) call write_array(1,deltav(:,l,:),deltav_label,3,npart,k,ipass,idump,nums,ierrs(8))
        enddo
 
        ! write pressure to file
@@ -627,8 +628,8 @@ subroutine write_smalldump(t,dumpfile)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (h2chemistry .and. nabundances >= 1) &
                      call write_array(1,abundance,abundance_label,1,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-       if (use_dust .and. ndusttypes>1) call write_array(1,sum(dustfrac,1),'dustfracsum',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-       if (use_dust) call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+       if (use_dust .and. ndusttypes>1 .and. multidustdump) call write_array(1,sum(dustfrac,1),'dustfracsum',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+       if (use_dust .and. multidustdump) call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
 #ifdef LIGHTCURVE
        if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr)
@@ -1556,7 +1557,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header
  use dust,           only:graindens,grainsize
- use dim,            only:use_dust,maxtypes,ndustfluids
+ use dim,            only:use_dust,maxtypes,ndustfluids,ndusttypes
  use units,          only:udist,umass,utime,unit_Bfield
  logical,         intent(in)    :: sphNGdump
  real,            intent(in)    :: t
@@ -1575,6 +1576,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  call add_to_iheader(isink,'isink',hdr,ierr)
  call add_to_iheader(nptmass,'nptmass',hdr,ierr)
  call add_to_iheader(ndustfluids,'ndustfluids',hdr,ierr)
+ if (multidustdump) call add_to_iheader(ndusttypes,'ndusttypes',hdr,ierr)
 
  ! int*8
  call add_to_header(nparttot,'nparttot',hdr,ierr)
@@ -1636,7 +1638,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
        ! write dust information
        write(*,*) 'writing graindens and grainsize to header'
        call add_to_rheader(graindens,'graindens',hdr,ierr)
-       call add_to_rheader(grainsize,'grainsize',hdr,ierr)
+       if (multidustdump) call add_to_rheader(grainsize,'grainsize',hdr,ierr)
     endif
  endif
 
