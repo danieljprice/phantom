@@ -96,10 +96,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  allocate(Frad(3,ndusttypes,npart))
 
  call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
-    npartoftype,xyzh,itype,grain_size,graindens,dustfrac,massoftype,&
-    xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
-    Frad,mu_gas,ierr,&
-    write_T_files)
+   npartoftype,xyzh,vxyzu,itype,grain_size,graindens,dustfrac,massoftype,&
+   xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
+   Frad,mu_gas,ierr,write_T_files)
  !print*,' mu_gas = ',mu_gas
 
  write(*,*) ''
