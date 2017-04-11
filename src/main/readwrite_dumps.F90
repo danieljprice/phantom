@@ -662,6 +662,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
                     xyzmh_ptmass,vxyz_ptmass
  use dump_utils, only:skipblock,skip_arrays,check_tag,lenid,ndatatypes,read_header,read_array, &
                       open_dumpfile_r,get_error_text,ierr_realsize,free_header,read_block_header
+ use mpiutils,   only:reduce_mpi,reduceall_mpi
  use sphNGutils, only:convert_sinks_sphNG
  character(len=*), intent(in)  :: dumpfile
  real,             intent(out) :: tfile,hfactfile
@@ -673,7 +674,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  integer               :: iblock,nblocks,i1,i2,noffset,npartread,narraylengths
  integer(kind=8)       :: ilen(4)
  integer               :: nums(ndatatypes,4)
- integer(kind=8)       :: nparttot,nhydrothisblock
+ integer(kind=8)       :: nparttot,nhydrothisblock,npartoftypetot(maxtypes)
  logical               :: tagged,phantomdump,smalldump
  real                  :: dumr,alphafile
  character(len=lenid)  :: fileidentr
@@ -806,6 +807,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     return
  endif
  npartoftype(1) = npart
+ npartoftypetot = reduceall_mpi('+',npartoftype)
  if (any(npartoftypetot(2:) > 0)) then
     print*,'npartoftypetot = ',npartoftypetot(2:)
     write(*,*) 'WARNING: MPI + multiple types not yet implemented in dump format'
@@ -879,6 +881,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
                     massoftype
  use dump_utils, only:skipblock,skip_arrays,check_tag,open_dumpfile_r,get_error_text,&
                       ierr_realsize,read_header,extract,free_header,read_block_header
+ use mpiutils,   only:reduce_mpi,reduceall_mpi
  character(len=*), intent(in)  :: dumpfile
  real,             intent(out) :: tfile,hfactfile
  integer,          intent(in)  :: idisk1,iprint,id,nprocs
@@ -889,7 +892,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  integer               :: iblock,nblocks,i1,i2,noffset,npartread,narraylengths
  integer(kind=8)       :: ilen(4)
  integer               :: nums(ndatatypes,4)
- integer(kind=8)       :: nparttot,nhydrothisblock
+ integer(kind=8)       :: nparttot,nhydrothisblock,npartoftypetot(maxtypes)
  logical               :: tagged,phantomdump,smalldump
  real                  :: alphafile
  character(len=lenid)  :: fileidentr
@@ -1014,6 +1017,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
     return
  endif
  npartoftype(1) = npart
+ npartoftypetot = reduceall_mpi('+',npartoftype)
  if (any(npartoftypetot(2:) > 0)) then
     print*,'npartoftypetot = ',npartoftypetot(2:)
     write(*,*) 'MPI + multiple types not yet implemented in dump format'
