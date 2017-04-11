@@ -555,7 +555,8 @@ use kernel,        only:wkern_drag,cnormk_drag
           call fatal('force', 'not all results returned from remote processor')
        endif
 
-       call finish_cell_and_store_results(icall,cell,fxyzu,poten,dt,straintensor,divBsymm,divcurlv,dBevol,ddustfrac, &
+       call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,straintensor, &
+                                          divBsymm,divcurlv,dBevol,ddustfrac, deltav, &
                                           dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                                           nbinmaxnew,nbinmaxstsnew,ncheckbin, &
