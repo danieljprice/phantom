@@ -182,16 +182,16 @@ module part
 !
  integer, parameter, private :: maxpd =  max(maxp,1) ! avoid divide by zero
  integer, parameter :: ipartbufsize = 4 &  ! xyzh
-   +2*maxvxyzu                          &  ! vxyzu, fxyzu_prev
+   +maxvxyzu                            &  ! vxyzu
    +nalpha*maxalpha/maxpd               &  ! alphaind
    +ngradh*maxgradh/maxpd               &  ! gradh
    +maxphase/maxpd                      &  ! iphase
 #ifdef IND_TIMESTEPS
-   +2 + maxvxyzu + 3                    &  ! ibin, divv, fxyzu, fext
-   +(maxmhd/maxpd)*maxBevol + 3*(maxvecp/maxpd)  &  ! dB/dt, Bxyz
+   +2 +maxvxyzu                         &  ! ibin, divv, fxyzu
+   +(maxmhd/maxpd)*maxBevol +3*(maxvecp/maxpd)  &  ! dB/dt, Bxyz
 #endif
    +(maxmhd/maxpd)*                     &  ! (mhd quantities)
-    (2*maxBevol                         &  ! Bevol, dBevol_prev
+    (maxBevol                           &  ! Bevol
    +3*(maxvecp/maxpd))                     ! Bxyz
 
  real            :: hfact,Bextx,Bexty,Bextz
@@ -755,25 +755,40 @@ subroutine fill_sendbuf(i,xtemp)
  if (i > 0) then
     call fill_buffer(xtemp,xyzh(:,i),nbuf)
     call fill_buffer(xtemp,vxyzu(:,i),nbuf)
-    if (maxalpha==maxp) call fill_buffer(xtemp,alphaind(:,i),nbuf)
-    if (maxgradh==maxp) call fill_buffer(xtemp,gradh(:,i),nbuf)
+    !call fill_buffer(xtemp,fxyzu_prev(:,i),nbuf)
+    if (maxalpha==maxp) then
+       call fill_buffer(xtemp,alphaind(:,i),nbuf)
+    endif
+    if (maxgradh==maxp) then
+       call fill_buffer(xtemp,gradh(:,i),nbuf)
+    endif
     if (mhd) then
        call fill_buffer(xtemp,Bevol(:,i),nbuf)
-       if (maxvecp==maxp)   call fill_buffer(xtemp,Bxyz(:,i),nbuf)
+       !call fill_buffer(xtemp,dBevol_prev(:,i),nbuf)
+       if (maxvecp==maxp) then
+          call fill_buffer(xtemp,Bxyz(:,i),nbuf)
+       endif
     endif
-    if (maxphase==maxp) call fill_buffer(xtemp,iphase(i),nbuf)
+    if (maxphase==maxp) then
+       call fill_buffer(xtemp,iphase(i),nbuf)
+    endif
 #ifdef IND_TIMESTEPS
     call fill_buffer(xtemp,ibin(i),nbuf)
     !--inactive particles require derivs sent
     call fill_buffer(xtemp,fxyzu(:,i),nbuf)
     call fill_buffer(xtemp,fext(:,i),nbuf)
-    if (ndivcurlv >= 1) call fill_buffer(xtemp,divcurlv(1,i),nbuf)
+    if (ndivcurlv >= 1) then
+       call fill_buffer(xtemp,divcurlv(1,i),nbuf)
+    endif
     if (mhd) then
        call fill_buffer(xtemp,dBevol(:,i),nbuf)
+       if (maxvecp==maxp) then
+          call fill_buffer(xtemp,Bxyz(:,i),nbuf)
+       endif
     endif
 #endif
  endif
- if (nbuf /= ipartbufsize) call fatal('fill_sendbuf','error in send buffer size',ival=nbuf,var='should be')
+ if (nbuf /= ipartbufsize) call fatal('fill_sendbuf','error in send buffer size')
 
  return
 end subroutine fill_sendbuf
