@@ -34,7 +34,7 @@ module part
           maxalpha,maxptmass,maxstrain, &
           mhd,maxmhd,maxBevol,maxvecp,maxp_h2,periodic, &
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
-          switches_done_in_derivs,maxp_dustfrac,use_dustfrac, &
+          switches_done_in_derivs,maxp_dustfrac,use_dust,use_dustfrac, &
           lightcurve,maxlum,nalpha,maxmhdni
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -596,6 +596,9 @@ subroutine copy_particle_all(src,dst)
 #ifdef IND_TIMESTEPS
  ibin(dst) = ibin(src)
 #endif
+ if (use_dust) then
+    dustfrac(dst) = dustfrac(src)
+ endif
 
  return
 end subroutine copy_particle_all
@@ -1006,6 +1009,39 @@ subroutine delete_particles_outside_cylinder(center, radius, zmax)
        call kill_particle(i)
     endif
   enddo
+end subroutine
+
+!----------------------------------------------------------------
+!+
+!  Delete particles within radius
+!+
+!----------------------------------------------------------------
+subroutine delete_particles_inside_radius(center,radius,npart,npartoftype)
+  real, intent(in) :: center(3), radius
+  integer, intent(inout) :: npart,npartoftype(:)
+
+  integer :: i,itype
+  real :: x,y,z,rcil
+
+  do i=1,npart
+    x = xyzh(1,i)
+    y = xyzh(2,i)
+    z = xyzh(3,i)
+    rcil=sqrt((x-center(1))**2+(y-center(2))**2)
+
+    if (rcil<radius) then
+       if (maxphase==maxp) then
+          itype = iamtype(iphase(i))
+       else
+          itype = igas
+       endif
+       npartoftype(itype) = npartoftype(itype) - 1
+       call kill_particle(i)
+    endif
+  enddo
+  call shuffle_part(npart)
+
+  return
 end subroutine
 
 end module part
