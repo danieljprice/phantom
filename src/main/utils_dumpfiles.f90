@@ -27,7 +27,7 @@
 module dump_utils
  implicit none
  public :: open_dumpfile_w, open_dumpfile_r, get_error_text
- public :: tag,check_tag
+ public :: tag,check_tag,match_tag
  public :: skipblock,skip_arrays,skip_headerblock
  public :: get_dumpname
  public :: add_to_header,add_to_rheader,add_to_iheader
