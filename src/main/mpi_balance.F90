@@ -14,7 +14,7 @@ module balance
  use mpiutils, only:mpierr,status,MPI_DEFAULT_REAL,reduceall_mpi
  use part,     only:ipartbufsize
  implicit none
- integer :: comm_done,nsent,nrecv,npartnew
+ integer :: nsent,nrecv,npartnew,ncomplete
  integer, dimension(1), private :: irequestrecv, irequestcomplete,&
                                    irequestsend, irequestend
  real, dimension(ipartbufsize) :: xsendbuf,xbuffer
@@ -35,15 +35,6 @@ contains
 subroutine balance_init(npart)
  implicit none
  integer, intent(in) :: npart
-!
-!--create a new communicator for the `completed' signal.
-!  Could just use a different tag on those signals (in fact we do anyway),
-!  but the particle exchange is done by sending the old label of the particle
-!  on the previous processor as the tag, thus requiring MPI_ANY_TAG
-!  for the receiving end. This way it is possible in future
-!  to be able to use these tags to track particle identities.
-!
- call MPI_COMM_DUP(MPI_COMM_WORLD,comm_done,mpierr)
 
 !--use persistent communication type for receives
 !  cannot do same for sends as there are different destination,
@@ -60,6 +51,11 @@ subroutine balance_init(npart)
  nrecv = 0
  npartnew = npart
  ntot_start = reduceall_mpi('+',npart)
+
+ !
+ !--count number of proceses that have completed sending particles
+ !
+ ncomplete = 0
 
  return
 end subroutine balance_init
@@ -142,50 +138,50 @@ subroutine recv_part(replace)
  call MPI_TEST(irequestrecv(1),igotpart,status,mpierr)
 
  if (igotpart) then
-    !print*,id,' got particle ',status(MPI_TAG),' from ',status(MPI_SOURCE)
     jpart = status(MPI_TAG)
-    if (jpart.gt.maxp .or. jpart.le.0) call fatal('balance','error in receive tag',jpart)
+    if (jpart == 0) then ! signal the end
+       ncomplete = ncomplete + 1
+    else
+       if (jpart.gt.maxp .or. jpart.le.0) call fatal('balance','error in receive tag',jpart)
 !$omp critical
-    nrecv = nrecv + 1
+       nrecv = nrecv + 1
 !$omp end critical
-    if (present(replace)) then
-       if (replace) then
-          inew = ideadhead
+       if (present(replace)) then
+          if (replace) then
+             inew = ideadhead
+          else
+             inew = 0
+          endif
        else
-          inew = 0
+          inew = ideadhead
        endif
-    else
-       inew = ideadhead
-    endif
 
-    if (inew.gt.0 .and. inew.le.maxp) then
-       if (.not.isdead(inew)) &
-          call fatal('balance','replacing non-dead particle')
-    !
-    !--replace a particle which has already been sent
-    !
-       call unfill_buffer(inew,xbuffer)
+       if (inew.gt.0 .and. inew.le.maxp) then
+          if (.not.isdead(inew)) &
+             call fatal('balance','replacing non-dead particle')
        !
-       !--assume that this particle landed in the right place
+       !--replace a particle which has already been sent
        !
-       ibelong(inew) = id
-       !if (ibelong(inew).ne.id) &
-       !   call fatal('balance','received particle does not belong')
+          call unfill_buffer(inew,xbuffer)
+          !
+          !--assume that this particle landed in the right place
+          !
+          ibelong(inew) = id
 !$omp critical
-       ideadhead = ll(inew)
+          ideadhead = ll(inew)
 !$omp end critical
-    else
-       if (inew.ne.0) call fatal('balance','error in dead particle list',inew)
-    !
-    !--make a new particle
-    !
+       else
+          if (inew.ne.0) call fatal('balance','error in dead particle list',inew)
+          !
+          !--make a new particle
+          !
 !$omp critical
-       npartnew = npartnew + 1
+          npartnew = npartnew + 1
 !$omp end critical
-       if (npartnew.gt.maxp) call fatal('recv_part','npartnew > maxp',npartnew)
-       call unfill_buffer(npartnew,xbuffer)
-       ibelong(npartnew) = id
-
+          if (npartnew.gt.maxp) call fatal('recv_part','npartnew > maxp',npartnew)
+          call unfill_buffer(npartnew,xbuffer)
+          ibelong(npartnew) = id
+       endif
     endif
     !
     !--post another receive ready for next particle
@@ -214,7 +210,7 @@ subroutine send_part(i,newproc,replace)
  else
     doreplace = .true.
  endif
- ! print*,id,' sending ',i,' to ',newproc
+
  !--copy the particle to the new processor
  if (newproc.lt.0 .or. newproc.gt.nprocs-1) then
     call fatal('balance','error in ibelong',ival=newproc,var='ibelong')
@@ -247,19 +243,20 @@ subroutine balance_finish(npart,replace)
  implicit none
  integer, intent(out) :: npart
  logical, intent(in), optional :: replace
- integer :: ncomplete,newproc
+ integer :: newproc
  logical, parameter :: iamcomplete = .true.
- logical :: jiscomplete,idone,doreplace
+ logical :: idone,doreplace
+
 !
 !--send the complete signal to all other threads;
 !  start receiving the complete signal from other threads
 !
- !print*,' thread ',id,' sending complete signal'
  do newproc=0,nprocs-1
-    call MPI_ISEND(iamcomplete,1,MPI_LOGICAL,newproc,maxp+1,comm_done,irequestend(1),mpierr)
+    !
+    !-- tag=0, rest is junk
+    !
+    call MPI_ISEND(xsendbuf,0,MPI_DEFAULT_REAL,newproc,0,MPI_COMM_WORLD,irequestsend(1),mpierr)
  enddo
- jiscomplete = .false.
- call MPI_IRECV(jiscomplete,1,MPI_LOGICAL,MPI_ANY_SOURCE,maxp+1,comm_done,irequestcomplete(1),mpierr)
 
  if (present(replace)) then
     doreplace = replace
@@ -269,8 +266,7 @@ subroutine balance_finish(npart,replace)
 !
 !--continue to check for receive signals until all sends are complete
 !
- ncomplete = 0
- do while (.not.allcomplete())
+ do while (ncomplete < nprocs)
     call recv_part(replace=doreplace)
  enddo
  npart = npartnew
@@ -282,7 +278,6 @@ subroutine balance_finish(npart,replace)
 !
  newproc = mod(id+1,nprocs)
  call MPI_RSEND(xsendbuf,0,MPI_DEFAULT_REAL,newproc,0,MPI_COMM_WORLD,mpierr)
-! call send_particle(0,newproc)
 
  if (iverbose.ge.3 .or. (iverbose.ge.1 .and. (nsent.gt.0 .or. nrecv.gt.0))) then
     print*,'>> balance: thread ',id,' sent:',nsent,' received:',nrecv,' npart =',npartnew
@@ -293,42 +288,6 @@ subroutine balance_finish(npart,replace)
  call MPI_TEST(irequestrecv(1),idone,status,mpierr)
  call MPI_REQUEST_FREE(irequestrecv(1),mpierr)
  if (.not.idone) call fatal('balance','receive has not completed')
-
-!--deallocate communicator
- call MPI_COMM_FREE(comm_done,mpierr)
-
- return
-
-contains
- !-----------------------------------------------------------------------
- !+
- !  query function to determine whether all threads have finished send
- !+
- !-----------------------------------------------------------------------
- logical function allcomplete()
-  implicit none
-  logical :: isdone
-
-  allcomplete = .false.
- !
- !--test if the receive we have already posted has been completed
- !
-  CALL MPI_TEST(irequestcomplete(1),isdone,status,mpierr)
- !
- !--if so, update the counter for the number of threads which have completed
- !  and, if there are threads remaining, post a non-blocking receive
- !  to get the signal from the next processor to complete
- !
-  if (isdone) then
-     ncomplete = ncomplete + 1
-     !print*,id,' ncomplete = ',ncomplete,' got complete signal from ',status(MPI_SOURCE)
-     if (ncomplete.lt.nprocs) then
-        CALL MPI_IRECV(jiscomplete,1,MPI_LOGICAL,MPI_ANY_SOURCE,maxp+1,comm_done,irequestcomplete(1),mpierr)
-     else
-        allcomplete = .true.
-     endif
-  endif
- end function allcomplete
 
 end subroutine balance_finish
 
