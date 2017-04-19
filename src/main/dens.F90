@@ -137,7 +137,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use mpiutils,  only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
 #ifdef MPI
  use linklist,  only:update_hmax_remote
- use stack,     only:push_onto_stack,reserve_stack
+ use stack,     only:reserve_stack
  use mpiderivs, only:send_cell,recv_cells,check_send_finished,init_cell_exchange,finish_cell_exchange,recv_while_wait
 #endif
  use timestep,  only:rho_dtthresh,mod_dtmax,mod_dtmax_now

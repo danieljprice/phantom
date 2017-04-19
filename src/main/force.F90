@@ -178,7 +178,7 @@ use kernel,        only:wkern_drag,cnormk_drag
  use mpiderivs,   only:send_cell,recv_cells,check_send_finished,init_cell_exchange,finish_cell_exchange, &
                        recv_while_wait
 #endif
- use stack,       only:push_onto_stack,reserve_stack
+ use stack,       only:reserve_stack
 
  integer,      intent(in)    :: icall,npart
  real,         intent(in)    :: xyzh(:,:)

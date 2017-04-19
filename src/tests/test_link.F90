@@ -346,6 +346,13 @@ subroutine test_link(ntests,npass)
                       dx = xi - xyzcache(1,j)
                       dy = yi - xyzcache(2,j)
                       dz = zi - xyzcache(3,j)
+#ifdef MPI
+#ifdef PERIODIC
+                     if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+                     if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+                     if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+#endif
+#endif
                    else
                       dx = xi - xyzh(1,listneigh(j))
                       dy = yi - xyzh(2,listneigh(j))

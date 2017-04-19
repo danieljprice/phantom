@@ -56,6 +56,10 @@ subroutine test_derivs(ntests,npass,string)
  use viscosity,       only:bulkvisc,shearparam,irealvisc
  use part,            only:iphase,isetphase,igas
  use nicil,           only:use_ambi
+#ifdef MPI
+ use balance,          only:balancedomains
+ use domain,           only:ibelong
+#endif
 #ifdef IND_TIMESTEPS
  use timestep_ind,    only:nactive
  use part,            only:ibin
@@ -145,18 +149,31 @@ subroutine test_derivs(ntests,npass,string)
  npart = 0
  totmass = rhozero*dxbound*dybound*dzbound
 
+ if (id == master) then
 #ifdef PERIODIC
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
- np = npart
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
+    np = npart
 #else
- rcut = min(xmax,ymax,zmax) - 2.*radkern*hfact*psep
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+    rcut = min(xmax,ymax,zmax) - 2.*radkern*hfact*psep
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                   psep,hfact,npart,xyzh,rmax=rcut)
- np = npart
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+    np = npart
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                   psep,hfact,npart,xyzh,rmin=rcut)
- print*,' using ',np,' of ',npart,' particles in test with free boundary'
+    print*,' using ',np,' of ',npart,' particles in test with free boundary'
 #endif
+ else
+    np = npart
+ endif
+
+#ifdef MPI
+ do i=1,npart
+    ibelong(i) = mod(i, nprocs)
+ enddo
+ call balancedomains(npart)
+ np = npart
+#endif
+
  npartoftype(1) = npart
 
  if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
