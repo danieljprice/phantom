@@ -50,7 +50,7 @@ subroutine get_mpitype_of_kdnode(dtype)
  integer, intent(out)            :: dtype
  integer                         :: dtype_old
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
- integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)
+ integer(kind=4)                 :: disp(ndata)
 
  type(kdnode)                    :: node
  integer(kind=MPI_ADDRESS_KIND)  :: addr,start,lb,extent
@@ -122,7 +122,7 @@ subroutine get_mpitype_of_kdnode(dtype)
  disp(nblock) = addr - start
 #endif
 
- call MPI_TYPE_STRUCT(nblock,blens(1:nblock),int(disp(1:nblock),kind=4),mpitypes(1:nblock),dtype,mpierr)
+ call MPI_TYPE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
  call MPI_TYPE_COMMIT(dtype,mpierr)
 
  ! check extent okay
