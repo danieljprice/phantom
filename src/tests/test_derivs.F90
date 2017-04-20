@@ -244,7 +244,7 @@ subroutine test_derivs(ntests,npass,string)
        if (use_entropy .or. ieos /= 2) then
           call checkval(np,fxyzu(4,:),0.,epsilon(fxyzu),nfailed(10),'den/dt')
        else
-          call checkvalf(np,xyzh,fxyzu(4,:)/((gamma-1.)*vxyzu(4,:)),dudtfunc,1.e-3,nfailed(10),'du/dt')
+          call checkvalf(np,xyzh,fxyzu(4,1:np)/((gamma-1.)*vxyzu(4,1:np)),dudtfunc,1.e-3,nfailed(10),'du/dt')
        endif
     endif
     !
