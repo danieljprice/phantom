@@ -253,6 +253,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(divcurlv) &
 !$omp shared(divcurlB) &
 !$omp shared(alphaind) &
+!$omp shared(dustfrac) &
 !$omp shared(straintensor) &
 !$omp shared(id) &
 !$omp shared(nprocs) &
