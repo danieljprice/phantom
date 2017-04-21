@@ -9,10 +9,15 @@
 !
 !  DESCRIPTION:
 !   This module is contains utilities for setting up binaries
+!   Our conventions for binary orbital parameters are consistent with
+!   those produced by the imorbel code (Pearce, Wyatt & Kennedy 2015)
+!   which can be used to produce orbits matching observed orbital
+!   arcs of binary companions on the sky
 !
 !  REFERENCES:
 !   Eggleton (1983) ApJ 268, 368-369 (ref:eggleton83)
 !   Lucy (2014), A&A 563, A126
+!   Pearce, Wyatt & Kennedy (2015), MNRAS 448, 3679
 !   https://en.wikipedia.org/wiki/Orbital_elements
 !
 !  OWNER: Daniel Price
@@ -41,20 +46,20 @@ contains
 subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
                       accretion_radius1,accretion_radius2, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,omega_corotate,&
-                      posang_ascnode,arg_peri,incl,verbose)
+                      posang_ascnode,arg_peri,incl,f,verbose)
  use part,    only:ihacc,ihsoft
  real,    intent(in)    :: mprimary,massratio
  real,    intent(in)    :: semimajoraxis,eccentricity
  real,    intent(in)    :: accretion_radius1,accretion_radius2
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: nptmass
- real,    intent(in),  optional :: posang_ascnode,arg_peri,incl
+ real,    intent(in),  optional :: posang_ascnode,arg_peri,incl,f
  real,    intent(out), optional :: omega_corotate
  logical, intent(in),  optional :: verbose
  integer :: i1,i2,i
  real    :: m1,m2,mtot,dx(3),dv(3),Rochelobe,Rochelobe2,period
  real    :: x1(3),x2(3),v1(3),v2(3),omega0,cosi,sini,xangle,reducedmass,angmbin
- real    :: a,E,E_dot,P(3),Q(3),omega,big_omega,inc,ecc,tperi,term1,term2
+ real    :: a,E,E_dot,P(3),Q(3),omega,big_omega,inc,ecc,tperi,term1,term2,theta
  logical :: do_verbose
 
  do_verbose = .true.
@@ -112,12 +117,21 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
     ecc = eccentricity
     omega     = arg_peri*pi/180.
     ! our conventions here are Omega is measured East of North
-    big_omega = posang_ascnode*pi/180. + 0.5*pi !(arg_peri + 180.)*pi/180.
+    big_omega = posang_ascnode*pi/180. + 0.5*pi
     inc       = incl*pi/180.
-    tperi     = 0.5*period ! time since periastron: use half period to set binary initially at apastron
 
-    ! Solve Kepler equation for eccentric anomaly
-    E = get_E(period,eccentricity,tperi)
+    if (present(f)) then
+       ! get eccentric anomaly from true anomaly
+       ! (https://en.wikipedia.org/wiki/Eccentric_anomaly#From_the_true_anomaly)
+       theta = f*pi/180.
+       E = atan2(sqrt(1. - ecc**2)*sin(theta),(e + cos(theta)))
+    else
+       ! set binary at apastron
+       tperi = 0.5*period ! time since periastron: half period = apastron
+
+       ! Solve Kepler equation for eccentric anomaly
+       E = get_E(period,eccentricity,tperi)
+    endif
 
     ! Positions in plane (Thiele-Innes elements)
     P(1) = cos(omega)*cos(big_omega) - sin(omega)*cos(inc)*sin(big_omega)

@@ -45,7 +45,7 @@ module setup
  implicit none
  public :: setpart
  !--private module variables
- real :: m1,m2,ecc,binary_a,binary_inc,binary_posang,binary_argperi,accr1,accr2,alphaSS,deltat
+ real :: m1,m2,ecc,binary_a,binary_inc,binary_posang,binary_argperi,binary_f,accr1,accr2,alphaSS,deltat
  logical :: iuse_disc(3),ismooth_edge(3)
  real :: R_in(3),R_out(3),HoverR(3),disc_mass(3),p_index(3),q_index(3),xinc(3)
  real :: dust_to_gas
@@ -151,6 +151,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call prompt('Enter position angle of the ascending node in degrees',binary_posang,-180.,180.)
     binary_argperi = 0.
     call prompt('Enter the angle of the argument of periapsis in degrees',binary_argperi,-180.,180.)
+    binary_f = 180.
+    call prompt('Enter true anomaly in degrees (180=apastron)',binary_f,0.,360.)
 
     accr1 = 0.25*binary_a
     call prompt('Enter accretion radius for primary (can be adjusted later)',accr1,0.,binary_a)
@@ -243,7 +245,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  call set_binary(m1,massratio=m2/m1,semimajoraxis=binary_a,eccentricity=ecc, &
                  posang_ascnode=binary_posang,arg_peri=binary_argperi,incl=binary_inc,&
-                 accretion_radius1=accr1,accretion_radius2=accr2,&
+                 f=binary_f,accretion_radius1=accr1,accretion_radius2=accr2,&
                  xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass)
 
  gamma = 1.0
@@ -420,6 +422,7 @@ subroutine write_binaryinputfile(filename)
  call write_inopt(binary_inc,'binary_inc','i, inclination (deg)',iunit)
  call write_inopt(binary_posang,'binary_posang','Omega, PA of ascending node (deg)',iunit)
  call write_inopt(binary_argperi,'binary_argperi','w, argument of periapsis (deg)',iunit)
+ call write_inopt(binary_f,'binary_f','f, initial true anomaly (deg,180=apastron)',iunit)
 
  call write_inopt(accr1,'accr1','primary accretion radius',iunit)
  call write_inopt(accr2,'accr2','secondary accretion radius',iunit)
@@ -495,6 +498,7 @@ subroutine read_binaryinputfile(filename,ierr)
  call read_inopt(binary_inc,'binary_inc',db,errcount=nerr)
  call read_inopt(binary_argperi,'binary_argperi',db,errcount=nerr)
  call read_inopt(binary_posang,'binary_posang',db,errcount=nerr)
+ call read_inopt(binary_f,'binary_f',db,errcount=nerr)
  call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
  call read_inopt(accr2,'accr2',db,min=0.,errcount=nerr)
  do i=1,3
