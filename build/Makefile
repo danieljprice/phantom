@@ -1066,6 +1066,21 @@ ifeq ($(SYSTEM), g2)
     MPIEXEC='mpiexec -npernode 1'
 endif
 
+ifeq ($(SYSTEM), monarch)
+    FC= ifort
+    FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -debug all # -fpe0 -fp-stack-check -debug all
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+    OMPFLAGS = -openmp
+    CC = icc
+    CCFLAGS = -O3 -mcmodel=medium
+    QSYS = slurm
+    QPROJECT='p01'
+endif
+
 ifeq ($(SYSTEM), raijin)
 #   raijin (NCI machine)
     FC= ifort
@@ -2254,7 +2269,7 @@ qscript:
 	@echo 'echo "SGE: NHOSTS  = $$NHOSTS"'
 	@echo 'echo "SGE: NSLOTS  = $$NSLOTS"'
 	@echo 'echo "SGE: NQUEUES = $$NQUEUES"'
-    else
+    else ifeq ($(QSYS),pbs)
 	@echo '## PBS Job Submission Script, created by "make qscript" '`date`
         ifdef QNODES
 	   @echo '#PBS -l '$(QNODES)
@@ -2348,6 +2363,32 @@ qscript:
 	@echo 'echo "PBS_JOBNAME is $$PBS_JOBNAME"'
 	@echo 'env | grep PBS'
 	@echo 'cat $$PBS_NODEFILE > nodefile'
+    else
+        ifdef QNODES
+	   @echo '#SBATCH --nodes='$(QNODES)
+        else
+	   @echo '#SBATCH --nodes='$(NMPI)' --ntasks='$(NOMP)
+        endif
+	@echo '#SBATCH --cpus-per-task=1'
+	@echo '#SBATCH --job-name='`../scripts/randomword.pl`
+        ifdef QNAME
+	   @echo '#SBATCH --queue='$(QNAME)
+        endif
+        ifdef QPROJECT
+	   @echo '#SBATCH --account='$(QPROJECT)
+        endif
+	@echo '#SBATCH --output='$(OUTFILE)
+        ifdef MAILTO
+	   @echo '#SBATCH --mail-type=BEGIN'
+	   @echo '#SBATCH --mail-type=FAIL'
+	   @echo '#SBATCH --mail-type=END'
+	   @echo '#SBATCH --mail-user='$(MAILTO)
+        endif
+	@echo '#SBATCH --time=0-'$(WALLTIME)
+	@echo '#SBATCH --mem='$(MAXMEM)
+        ifdef QEXTRA
+	   @echo '#SBATCH '$(QEXTRA)
+        endif
     endif
 	@echo 'echo "HOSTNAME = $$HOSTNAME"'
 	@echo 'echo "HOSTTYPE = $$HOSTTYPE"'
@@ -2364,9 +2405,11 @@ qscript:
         ifeq ($(QSHELL),tcsh)
 	   @echo 'setenv OMP_SCHEDULE "'$(OMP_SCHEDULE)'"'
 	   @echo 'setenv OMP_NUM_THREADS '$(NOMP)
+	   @echo 'setenv OMP_STACKSIZE 1024m'
         else
 	   @echo 'export OMP_SCHEDULE="'$(OMP_SCHEDULE)'"'
 	   @echo 'export OMP_NUM_THREADS='$(NOMP)
+	   @echo 'export OMP_STACKSIZE=1024m'
         endif
     endif
 	@echo
@@ -2374,10 +2417,8 @@ qscript:
     ifeq ($(SYSTEM),msg)
         ifeq ($(QSHELL),bash)
 	   @echo 'source /etc/profile'
-	   @echo 'export KMP_STACKSIZE=1024m'
 	   @echo 'export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}'
         else
-	   @echo 'setenv KMP_STACKSIZE 1024m'
 	   @echo 'setenv LD_LIBRARY_PATH '${LD_LIBRARY_PATH}
         endif
 	@cat ~/.modules
