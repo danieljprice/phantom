@@ -90,7 +90,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=100) :: filename
  real :: Rochelobe,totmass,starmass,Rochesizei,minq,period
  integer :: i,ntot,npindisc,j,itest,ierr
- logical :: iexist
+ logical :: iexist,seq_exists
  real :: xorigini(3),vorigini(3),alpha_returned(3)
  integer :: number_of_discs
 !
@@ -115,6 +115,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call read_binaryinputfile(filename,ierr)
     if (ierr /= 0) then
        if (id==master) call write_binaryinputfile(filename)
+       stop
+    endif
+    inquire(file='orbits.dat',exist=iexist)
+    inquire(file=trim(fileprefix)//'A.setup',exist=seq_exists)
+    if (iexist .and. .not.seq_exists) then
+       open(unit=23,file='orbits.dat',status='old',iostat=ierr)
+       j = 0
+       do while(ierr==0)
+          read(23,*,iostat=ierr) binary_a,binary_e,binary_i,binary_O,binary_w,binary_f
+          if (ierr==0) then
+             j = j + 1
+             write(filename,"(a)") trim(fileprefix)//achar(j+64)//'.setup'
+             if (id==master) call write_binaryinputfile(filename)
+          endif
+       enddo
+       close(unit=23)
        stop
     endif
  elseif (id==master) then
