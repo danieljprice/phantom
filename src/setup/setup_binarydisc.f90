@@ -45,7 +45,7 @@ module setup
  implicit none
  public :: setpart
  !--private module variables
- real :: m1,m2,ecc,binary_a,binary_inc,binary_posang,binary_argperi,binary_f,accr1,accr2,alphaSS,deltat
+ real :: m1,m2,binary_a,binary_e,binary_i,binary_O,binary_w,binary_f,accr1,accr2,alphaSS,deltat
  logical :: iuse_disc(3),ismooth_edge(3)
  real :: R_in(3),R_out(3),HoverR(3),disc_mass(3),p_index(3),q_index(3),xinc(3)
  real :: dust_to_gas
@@ -105,6 +105,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  norbits = 10
  deltat  = 0.1
  dust_to_gas = 0.01
+ binary_f = 180.
 
  print "(/,65('-'),2(/,a),/,65('-'),/)",&
    ' Welcome to the Ultimate Binary Disc Setup Routine^TM', &
@@ -143,14 +144,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call prompt('Enter secondary mass (code units)',m2,0.,m1)
     binary_a = 1.
     call prompt('Enter the binary semi-major axis',binary_a,0.)
-    ecc = 0.
-    call prompt('Enter the eccentricity of the binary',ecc,0.,1.)
-    binary_inc = 0.
-    call prompt('Enter the inclination of the binary in degrees',binary_inc,-180.,180.)
-    binary_posang = 0.
-    call prompt('Enter position angle of the ascending node in degrees',binary_posang,-180.,180.)
-    binary_argperi = 0.
-    call prompt('Enter the angle of the argument of periapsis in degrees',binary_argperi,-180.,180.)
+    binary_e = 0.
+    call prompt('Enter the eccentricity of the binary',binary_e,0.,1.)
+    binary_i = 0.
+    call prompt('Enter the inclination of the binary in degrees',binary_i,-180.,180.)
+    binary_O = 0.
+    call prompt('Enter position angle of the ascending node in degrees',binary_O,-180.,180.)
+    binary_w = 0.
+    call prompt('Enter the angle of the argument of periapsis in degrees',binary_w,-180.,180.)
     binary_f = 180.
     call prompt('Enter true anomaly in degrees (180=apastron)',binary_f,0.,360.)
 
@@ -243,8 +244,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  nptmass = 0
 
- call set_binary(m1,massratio=m2/m1,semimajoraxis=binary_a,eccentricity=ecc, &
-                 posang_ascnode=binary_posang,arg_peri=binary_argperi,incl=binary_inc,&
+ call set_binary(m1,massratio=m2/m1,semimajoraxis=binary_a,eccentricity=binary_e, &
+                 posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i,&
                  f=binary_f,accretion_radius1=accr1,accretion_radius2=accr2,&
                  xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass)
 
@@ -417,11 +418,11 @@ subroutine write_binaryinputfile(filename)
  write(iunit,"(/,a)") '# options for binary'
  call write_inopt(m1,'m1','primary mass',iunit)
  call write_inopt(m2,'m2','secondary mass',iunit)
- call write_inopt(ecc,'ecc','binary eccentricity',iunit)
  call write_inopt(binary_a,'binary_a','binary semi-major axis',iunit)
- call write_inopt(binary_inc,'binary_inc','i, inclination (deg)',iunit)
- call write_inopt(binary_posang,'binary_posang','Omega, PA of ascending node (deg)',iunit)
- call write_inopt(binary_argperi,'binary_argperi','w, argument of periapsis (deg)',iunit)
+ call write_inopt(binary_e,'binary_e','binary eccentricity',iunit)
+ call write_inopt(binary_i,'binary_i','i, inclination (deg)',iunit)
+ call write_inopt(binary_O,'binary_O','Omega, PA of ascending node (deg)',iunit)
+ call write_inopt(binary_w,'binary_w','w, argument of periapsis (deg)',iunit)
  call write_inopt(binary_f,'binary_f','f, initial true anomaly (deg,180=apastron)',iunit)
 
  call write_inopt(accr1,'accr1','primary accretion radius',iunit)
@@ -493,11 +494,11 @@ subroutine read_binaryinputfile(filename,ierr)
 
  call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
  call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
- call read_inopt(ecc,'ecc',db,min=0.,errcount=nerr)
  call read_inopt(binary_a,'binary_a',db,errcount=nerr)
- call read_inopt(binary_inc,'binary_inc',db,errcount=nerr)
- call read_inopt(binary_argperi,'binary_argperi',db,errcount=nerr)
- call read_inopt(binary_posang,'binary_posang',db,errcount=nerr)
+ call read_inopt(binary_e,'binary_e',db,min=0.,errcount=nerr)
+ call read_inopt(binary_i,'binary_i',db,errcount=nerr)
+ call read_inopt(binary_O,'binary_O',db,errcount=nerr)
+ call read_inopt(binary_w,'binary_w',db,errcount=nerr)
  call read_inopt(binary_f,'binary_f',db,errcount=nerr)
  call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
  call read_inopt(accr2,'accr2',db,min=0.,errcount=nerr)
