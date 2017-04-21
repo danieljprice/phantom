@@ -35,7 +35,7 @@ module testderivs
 contains
 
 subroutine test_derivs(ntests,npass,string)
- use dim,      only:maxp,maxvxyzu,maxalpha,maxstrain,ndivcurlv,use_dustfrac,nalpha
+ use dim,      only:maxp,maxvxyzu,maxalpha,maxstrain,ndivcurlv,use_dustfrac,nalpha,use_dust
  use boundary, only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
  use eos,      only:polyk,gamma,use_entropy
  use io,       only:iprint,id,master,fatal,iverbose,nprocs
@@ -94,8 +94,9 @@ subroutine test_derivs(ntests,npass,string)
  real                   :: vwavei,stressmax,rhoi,sonrhoi,drhodti,ddustfraci
  integer(kind=8)        :: nptot
  real,allocatable       :: dummy(:)
-
+#ifdef IND_TIMESTEPS
  real                   :: tolh_old
+#endif
 
  if (id==master) write(*,"(a,/)") '--> TESTING DERIVS MODULE'
 
@@ -553,6 +554,8 @@ subroutine test_derivs(ntests,npass,string)
        call init_drag(nfailed(1))
 #endif
        polyk = 0.
+       call reset_mhd_to_zero
+       call reset_dissipation_to_zero
        do i=1,npart
           vxyzu(1,i) = vx(xyzh(:,i))
           vxyzu(2,i) = vy(xyzh(:,i))
@@ -560,8 +563,6 @@ subroutine test_derivs(ntests,npass,string)
           if (maxvxyzu>=4) vxyzu(4,i) = utherm(xyzh(:,i))
           dustfrac(i) = real(dustfrac_func(xyzh(:,i)),kind=kind(dustfrac))
        enddo
-       call reset_mhd_to_zero
-       call reset_dissipation_to_zero
 
        call getused(t1)
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
@@ -1172,6 +1173,9 @@ subroutine reset_mhd_to_zero
  if (mhd) then
     Bevol(:,:) = 0.
     if (maxvecp==maxp) Bxyz(:,:) = 0.
+ endif
+ if (use_dust) then
+    dustfrac(:) = 0.
  endif
 
 end subroutine reset_mhd_to_zero
