@@ -124,7 +124,7 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
        ! get eccentric anomaly from true anomaly
        ! (https://en.wikipedia.org/wiki/Eccentric_anomaly#From_the_true_anomaly)
        theta = f*pi/180.
-       E = atan2(sqrt(1. - ecc**2)*sin(theta),(e + cos(theta)))
+       E = atan2(sqrt(1. - ecc**2)*sin(theta),(ecc + cos(theta)))
     else
        ! set binary at apastron
        tperi = 0.5*period ! time since periastron: half period = apastron
