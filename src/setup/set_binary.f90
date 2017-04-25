@@ -152,6 +152,8 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
              'inclination     (i, deg):',incl, &
              'angle asc. node (O, deg):',posang_ascnode, &
              'arg. pericentre (w, deg):',arg_peri
+       if (present(f)) print "(2x,a,g12.4)", &
+             'true anomaly    (f, deg):',f
     endif
 
     ! Rotating everything
