@@ -325,7 +325,7 @@ subroutine cool_func(temp, yn, dl, abundances, ylam, rates)
    dtemp = 0d0
  elseif (temp  >  tmax) then
    itemp = nmd
-   dtemp = temp - temptab(itemp)
+   dtemp = 0d0
  else
    itemp = int(log10(temp) / dtlog) + 1
    if (itemp  <=  0 .or. itemp  >  nmd) then
