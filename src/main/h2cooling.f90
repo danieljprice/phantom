@@ -56,7 +56,7 @@ module h2cooling
  integer, parameter :: nmd = 10000
 
 ! Number of cooling / heating rates computed in cooling fn.
- integer, parameter, public :: nrates = 11
+ integer, parameter, public :: nrates = 12
 
 ! Size of abundance array that is passed to cool_func as input
  integer, parameter, public :: nabn = 10
@@ -658,13 +658,19 @@ subroutine cool_func(temp, yn, dl, abundances, ylam, rates)
     rates(11) = siIIa10 * siIIe10 * siIIn1 * absiII * yn
  endif
 !
+!
+! (R12) -- CO rotational cooling
+
+ rates(12) = 0d0
+
+!
 ! Benchmarking suggests that writing this out explicitly is more efficient
 ! than using a loop (although this is probably only true if the compiler
 ! optimization is poor).
 !
- ylam = rates(1) + rates(2) + rates(3) + rates(4) + rates(5) + &
-        rates(6) + rates(7) + rates(8) + rates(9) + rates(10) + &
-        rates(11)
+ ylam = rates(1)  + rates(2) + rates(3) + rates(4) + rates(5) + &
+        rates(6)  + rates(7) + rates(8) + rates(9) + rates(10) + &
+        rates(11) + rates(12)
 !
  return
 end subroutine cool_func
