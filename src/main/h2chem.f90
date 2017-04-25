@@ -365,8 +365,8 @@ subroutine update_abundances(ui,rhoi,chemarrays,nchem,abund,tempiso,np1,dt,xi,yi
 !--and of electrons
  abeq  = abhpq + abunde
 !------------------------------------------------------------------------------------
-! Set abunances of H2, HI, electrons and protons for cooling routine only
-! (gaps for moelcules we don't need, CI and SiI, while OI, CII and SiII don't change)
+! Set abundances of H2, HI, electrons and protons for cooling routine only
+! (gaps for molecules we don't need, CI and SiI, while OI, CII and SiII don't change)
 !------------------------------------------------------------------------------------
  abund(1) = h2ratio                             ! H2
  abund(2) = (1.d0-2.d0*h2ratio)*abHIq           ! HI
