@@ -59,7 +59,7 @@ module h2cooling
  integer, parameter, public :: nrates = 11
 
 ! Size of abundance array that is passed to cool_func as input
- integer, parameter, public :: nabn = 9
+ integer, parameter, public :: nabn = 10
 
 ! Number of different quantities stored in cooling look-up table
  integer, parameter :: ncltab = 54
@@ -270,7 +270,7 @@ subroutine cool_func(temp, yn, dl, abundances, ylam, rates)
 
  real    :: abh2      , abo       , &
             abcI      , abcII     , absiI   , absiII   , abe  , &
-            abhp      , abhI
+            abhp      , abhI      , abco
 
  real    :: h2var0    , h2var1
 
@@ -442,6 +442,7 @@ subroutine cool_func(temp, yn, dl, abundances, ylam, rates)
  abcII  = abundances(7)
  absiI  = abundances(8)
  absiII = abundances(9)
+ abco   = abundances(10)
 !
 ! Compute useful auxiliary variables
 

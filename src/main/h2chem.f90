@@ -365,18 +365,20 @@ subroutine update_abundances(ui,rhoi,chemarrays,nchem,abund,tempiso,np1,dt,xi,yi
 !--and of electrons
  abeq  = abhpq + abunde
 !------------------------------------------------------------------------------------
-! Set abundances of H2, HI, electrons and protons for cooling routine only
-! (gaps for molecules we don't need, CI and SiI, while OI, CII and SiII don't change)
+! Set abundances of H2, HI, electrons and protons for cooling routine only.
+! We assume that CI and SiI are not present, and that SiII does not vary from its
+! initial value.
 !------------------------------------------------------------------------------------
- abund(1) = h2ratio                             ! H2
- abund(2) = (1.d0-2.d0*h2ratio)*abHIq           ! HI
- abund(3) = (1.d0-2.d0*h2ratio)*abhpq + abunde  ! e-
- abund(4) = (1.d0-2.d0*h2ratio)*abhpq           ! p+ (HII)
- abund(5) = abundo                              ! OI
- abund(6) = 0.0d0                               ! CI
- abund(7) = abundc                              ! CII
- abund(8) = 0.0d0                               ! SiI
- abund(9) = abundsi                             ! SiII
+ abund(1)  = h2ratio                             ! H2
+ abund(2)  = (1.d0-2.d0*h2ratio)*abHIq           ! HI
+ abund(3)  = (1.d0-2.d0*h2ratio)*abhpq + abunde  ! e-
+ abund(4)  = (1.d0-2.d0*h2ratio)*abhpq           ! p+ (HII)
+ abund(5)  = max(0.0d0, abundo - abco)           ! OI
+ abund(6)  = 0.0d0                               ! CI
+ abund(7)  = max(0.0d0, abundc - abco)           ! CII
+ abund(8)  = 0.0d0                               ! SiI
+ abund(9)  = abundsi                             ! SiII
+ abund(10) = abco                                ! CO
 !------------------------------------------------------------------------------------
 ! Copy updated abundances back to global array, what is needed for main output.
 ! (inc. H2, HI, HII, e-, CO)
@@ -400,15 +402,16 @@ subroutine update_abundances(ui,rhoi,chemarrays,nchem,abund,tempiso,np1,dt,xi,yi
    abco    = chemarrays(iCO)
 
    !--assign to cool_func format array
-   abund(1) = h2ratio                             ! H2
-   abund(2) = (1.d0-2.d0*h2ratio)*abHIq           ! HI
-   abund(3) = (1.d0-2.d0*h2ratio)*abhpq + abunde  ! e-
-   abund(4) = (1.d0-2.d0*h2ratio)*abhpq           ! p+ (HII)
-   abund(5) = abundo                              ! OI
-   abund(6) = 0.0d0                               ! CI
-   abund(7) = abundc                              ! CII
-   abund(8) = 0.0d0                               ! SiI
-   abund(9) = abundsi                             ! SiII
+   abund(1)  = h2ratio                             ! H2
+   abund(2)  = (1.d0-2.d0*h2ratio)*abHIq           ! HI
+   abund(3)  = (1.d0-2.d0*h2ratio)*abhpq + abunde  ! e-
+   abund(4)  = (1.d0-2.d0*h2ratio)*abhpq           ! p+ (HII)
+   abund(5)  = max(0.0d0, abundo - abco)           ! OI
+   abund(6)  = 0.0d0                               ! CI
+   abund(7)  = max(0.0d0, abundc - abco)           ! CII
+   abund(8)  = 0.0d0                               ! SiI
+   abund(9)  = abundsi                             ! SiII
+   abund(10) = abco                                ! CO
 
    !--Calc cgs estimates of density and temperature needed by cool_func
    gmwvar= (2.0d0*h2ratio+(1.d0-2.d0*h2ratio)+0.4d0)/ &
