@@ -255,6 +255,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 !
 !-----------------------------------------------------------------------
  use fs_data
+ use mol_data
  use io, only:fatal
  real,         intent(in)  :: temp
  real,         intent(in)  :: yn
@@ -296,6 +297,10 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 
  real    :: eps       , PEvar0   , PEvar1   , PEvar2, &
             G_dust    , AV       , fdust    , NH_tot
+
+ real    :: maximum_CO_column, N_co_eff, dv, temp_co, co_rot_L0, &
+            co_rot_lte, co_rot_alpha, co_rot_n05, neff, co_rot_inv, &
+            low_T_adjust
 
  real    :: cl1       , cl2     , cl3     , cl6     , cl14  &
            , cl16      , cl17    , cl18    , cl19    , cl20  &
@@ -451,6 +456,40 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
  ynh  = abHI * yn
  yne  = abe  * yn
  ynhp = abhp * yn
+!
+! Compute effective column density for CO rotational cooling rate
+! (See eq. 4 of Neufeld & Kaufman, 1993, ApJ, 418, 263). Tabulated values
+! for the effective column density are in terms of cm^-2 / (km s^-1), but
+! divv is in units of cm s^-1, so we need to do a unit conversion here.
+!
+! If divv is very small (or zero), then we set the effective column
+! density to the largest tabulated value
+
+ if (abco .gt. 1d-4 * abundo) then
+! Don't bother to compute CO cooling rate when CO abundance very small
+   maximum_CO_column = co_colntab(ncdco)
+   if (divv .eq. 0d0) then
+     N_co_eff   = maximum_CO_column
+   else
+     dv = 1d-5 * dabs(divv)
+     N_co_eff   = dlog10(abco * yn / dv)
+     if (N_co_eff .gt. maximum_CO_column) then
+       N_co_eff = maximum_CO_column
+     endif
+   endif
+!
+! If current temperature is less than the smallest tabulated value, we
+! look up rates for smallest tabulated value and then reduce final
+! cooling rate by an appropriate exponential factor
+!
+   if (temp .le. co_temptab(1)) then
+     temp_co = co_temptab(1)
+   else
+     temp_co = temp
+   endif
+!
+   call co_cool(temp_co, N_co_eff, co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n05)
+ endif
 !
 ! (R1) -- gas-grain cooling-heating -- dust:gas ratio already incorporated
 !         into rate coefficient in coolinmo
@@ -659,11 +698,26 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
     rates(11) = siIIa10 * siIIe10 * siIIn1 * absiII * yn
  endif
 !
-!
 ! (R12) -- CO rotational cooling
+!
+ neff = ynh2 + dsqrt(2d0) * ynh + 0.5d0 * yn * abhe
+ if (abco .le. 1d-4 * abundo .or. neff .eq. 0d0) then
+   rates(12) = 0d0
+ else
+   co_rot_inv = (1d0 / co_rot_L0) + (neff / co_rot_lte) + (1d0 / co_rot_L0) &
+              * (1d0 - co_rot_n05 * co_rot_L0  / co_rot_lte) &
+              * (neff / co_rot_n05)**co_rot_alpha
+!
+   rates(12) = abco * neff * yn / co_rot_inv
 
- rates(12) = 0d0
-
+   if (temp .le. co_temptab(1)) then
+! We don't have accurate data below 5K, but we don't necessarily want to impose a sharp floor there either.
+! As a compromise, we reduce the cooling rate exponentially below 5 K.
+!
+     low_T_adjust = dexp(-1d1 / temp) / dexp(-1d1 / 5d0)
+     rates(12) = rates(12) * low_T_adjust
+   endif
+ endif
 !
 ! Benchmarking suggests that writing this out explicitly is more efficient
 ! than using a loop (although this is probably only true if the compiler
@@ -1516,6 +1570,109 @@ end subroutine coolinmo
 !    //////////             C O O L I N M O               \\\\\\\\\\
 !
 !=======================================================================
+
+!=======================================================================
+!
+!
+!    \\\\\\\\\\      B E G I N   S U B R O U T I N E      //////////
+!    //////////                C O _ C O O L              \\\\\\\\\\
+!
+!=======================================================================
+!
+subroutine co_cool(temp, N_co_eff, co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n05)
+!
+!     written by: Simon Glover, AMNH, 2004-2005, AIP, 2006
+!
+!  PURPOSE: Compute CO cooling rates based on tabulated Neufeld &
+!           Kaufman (1993) and Neufeld, Lepp & Melnick (1995)
+!           cooling functions [see cool_func.F]
+!
+!  INPUT VARIABLES: temp, N_co_eff
+!
+!  OUTPUT VARIABLES: co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n05,
+!
+!--------------------------------------------------------------------
+!
+ use mol_data
+ use splineutils, only:spline_eval
+ real, intent(in)  :: temp, N_co_eff
+ real, intent(out) :: co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n05
+!
+ real :: dtemp_co, dN_co, co_rot_lte_1, co_rot_lte_2, co_rot_alp_1, co_rot_alp_2,&
+         co_rot_n05_1, co_rot_n05_2
+ integer :: itemp_co, iN_co
+!
+! CO rotational cooling
+!
+! No CO cooling below 5K, as no good data
+!
+ if (temp .lt. co_temptab(1)) then
+   co_rot_L0    = 0.0
+   co_rot_lte   = 0.0
+   co_rot_n05   = 1.0
+   co_rot_alpha = 1.0
+   return
+ elseif (temp .eq. co_temptab(1)) then
+   itemp_co = 1
+   dtemp_co = 0d0
+ elseif (temp .ge. co_temptab(nTco)) then
+   itemp_co = nTco
+   dtemp_co = 0d0
+ else
+   itemp_co = int(temp) - 4    ! Table currently starts at 5K
+   dtemp_co = temp - int(temp)
+ endif
+!
+! For column densities that do not lie within the region covered by the
+! NK93 or NLM95 data, we use the smallest or largest of the tabulated
+! values, as appropriate.
+!
+ if (N_co_eff .le. co_colntab(1)) then
+   iN_co = 1
+   dN_co = 0d0
+ elseif (N_co_eff .ge. co_colntab(ncdco)) then
+   iN_co = ncdco
+   dN_co = 0d0
+ else
+   iN_co = int((10 * N_co_eff) - 144)
+   dN_co = (N_co_eff - co_colntab(iN_co)) / 0.1d0
+ endif
+!
+ co_rot_L0 = co_L0(itemp_co) + dtemp_co * dTco_L0(itemp_co)
+!
+ co_rot_lte_1 = co_lte(iN_co,itemp_co) + dtemp_co * dTco_lte(iN_co,itemp_co)
+ co_rot_alp_1 = co_alp(iN_co,itemp_co) + dtemp_co * dTco_alp(iN_co,itemp_co)
+ co_rot_n05_1 = co_n05(iN_co,itemp_co) + dtemp_co * dTco_n05(iN_co,itemp_co)
+ if (iN_co .eq. ncdco) then
+   co_rot_lte   = co_rot_lte_1
+   co_rot_alpha = co_rot_alp_1
+   co_rot_n05   = co_rot_n05_1
+ else
+   co_rot_lte_2 = co_lte(iN_co+1,itemp_co) + dtemp_co * dTco_lte(iN_co+1,itemp_co)
+   co_rot_alp_2 = co_alp(iN_co+1,itemp_co) + dtemp_co * dTco_alp(iN_co+1,itemp_co)
+   co_rot_n05_2 = co_n05(iN_co+1,itemp_co) + dtemp_co * dTco_n05(iN_co+1,itemp_co)
+!
+   co_rot_lte   = co_rot_lte_1 + (co_rot_lte_2 - co_rot_lte_1) * dN_co
+   co_rot_alpha = co_rot_alp_1 + (co_rot_alp_2 - co_rot_alp_1) * dN_co
+   co_rot_n05   = co_rot_n05_1 + (co_rot_n05_2 - co_rot_n05_1) * dN_co
+ endif
+!
+! Do final conversion to correct units:
+!
+ co_rot_L0  = 10d0**(-co_rot_L0)
+ co_rot_lte = 10d0**(-co_rot_lte)
+ co_rot_n05 = 10d0**(co_rot_n05)
+!
+ return
+ end subroutine co_cool
+!
+!=======================================================================
+!
+!    \\\\\\\\\\        E N D   S U B R O U T I N E        //////////
+!    //////////               C O _ C O O L               \\\\\\\\\\
+!
+!=======================================================================
+
 
 !------------------------------------------------------
 !+
