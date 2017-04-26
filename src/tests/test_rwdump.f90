@@ -34,7 +34,7 @@ subroutine test_rwdump(ntests,npass)
  use part,      only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu, &
                     Bevol,Bextx,Bexty,Bextz,alphaind,maxalpha,periodic, &
                     maxphase,mhd,maxvxyzu,maxBevol,igas,idust,maxp,&
-                    poten,gravity,use_dustfrac,dustfrac,xyzmh_ptmass,nptmass,&
+                    poten,gravity,use_dust,dustfrac,xyzmh_ptmass,nptmass,&
                     nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
                     vxyz_ptmass,vxyz_ptmass_label,vxyzu_label,set_particle_type,iphase
  use testutils,       only:checkval
@@ -106,7 +106,7 @@ subroutine test_rwdump(ntests,npass)
        if (gravity) then
           poten(i) = 15._4
        endif
-       if (use_dustfrac) then
+       if (use_dust) then
           dustfrac(i) = 16._4
        endif
     enddo
@@ -166,7 +166,7 @@ subroutine test_rwdump(ntests,npass)
     if (gravity) then
        poten = 0.
     endif
-    if (use_dustfrac) then
+    if (use_dust) then
        dustfrac = 0.
     endif
     gamma = 0.
@@ -251,7 +251,7 @@ subroutine test_rwdump(ntests,npass)
        if (gravity) then
           call checkval(npart,poten,15.,tol,nfailed(15),'poten')
        endif
-       if (use_dustfrac) then
+       if (use_dust) then
           call checkval(npart,dustfrac,16.,tol,nfailed(16),'dustfrac')
        endif
     endif
@@ -277,7 +277,7 @@ subroutine test_rwdump(ntests,npass)
     if (all(nfailed==0)) npass = npass + 1
 
     ! clean up doggie-doos
-    if (use_dustfrac) then
+    if (use_dust) then
        dustfrac(:) = 0.
     endif
     nptmass = 0
