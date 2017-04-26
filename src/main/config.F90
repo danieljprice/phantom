@@ -81,8 +81,11 @@ module dim
 
  ! cell storage
  integer, parameter :: maxprocs = 32
+#ifdef STACKSIZE
+ integer, parameter :: stacksize = STACKSIZE
+#else
  integer, parameter :: stacksize = 50000
- ! integer, parameter :: stacksize = 500000
+#endif
 
  ! storage for artificial viscosity switch
 #ifdef DISC_VISCOSITY

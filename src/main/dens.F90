@@ -317,85 +317,14 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        do_export = .false.
     endif
 #endif
-
-    ! export this cell for remote contributions if any are needed
-    npcell = 0
-    fill_cell: do while(i /= 0)
-       if (i < 0) then
-          i = ll(abs(i))
-          cycle fill_cell
-       endif
-
-       if (maxphase==maxp) then
-          call get_partinfo(iphase(i),iactivei,iamdusti,iamtypei)
-          iamgasi = (iamtypei==igas)
-       else
-          iactivei = .true.
-          iamtypei = igas
-          iamdusti = .false.
-          iamgasi  = .true.
-       endif
-
-       if (.not.iactivei) then ! handles case where first particle in cell is inactive
-          i = ll(abs(i))
-          cycle fill_cell
-       endif
-       if (iamtypei==iboundary) then ! do not compute forces on boundary parts
-          i = ll(i)
-          cycle fill_cell
-       endif
-
-       npcell = npcell + 1
-
-       cell%ll_position(npcell)  = i
-       cell%iphase(npcell)       = iphase(i)
-
-       cell%xpartvec(ixi,npcell)            = xyzh(1,i)
-       cell%xpartvec(iyi,npcell)            = xyzh(2,i)
-       cell%xpartvec(izi,npcell)            = xyzh(3,i)
-
-       cell%h(npcell)     = xyzh(4,i)
-       cell%h_old(npcell) = xyzh(4,i)
-
-       cell%xpartvec(ivxi,npcell)           = vxyzu(1,i)
-       cell%xpartvec(ivyi,npcell)           = vxyzu(2,i)
-       cell%xpartvec(ivzi,npcell)           = vxyzu(3,i)
-
-       if (maxvxyzu >= 4) then
-          cell%xpartvec(ieni,npcell)        = vxyzu(4,i)
-       endif
-
-       cell%xpartvec(ifxi,npcell)           = fxyzu(1,i) + fext(1,i)
-       cell%xpartvec(ifyi,npcell)           = fxyzu(2,i) + fext(2,i)
-       cell%xpartvec(ifzi,npcell)           = fxyzu(3,i) + fext(3,i)
-
-       if (mhd) then
-          iamgasi = iamgas(iphase(i))
-          if (iamgasi) then
-             cell%xpartvec(iBevolxi,npcell) = Bevol(1,i)
-             cell%xpartvec(iBevolyi,npcell) = Bevol(2,i)
-             cell%xpartvec(iBevolzi,npcell) = Bevol(3,i)
-
-             if (maxBevol >= 4) then
-                cell%xpartvec(ipsi,npcell)  = Bevol(4,i)
-             endif
-             if (maxBevol < 3 .or. maxBevol > 4) call fatal('densityiterate','error in maxBevol setting')
-          else
-             cell%xpartvec(iBevolxi:ipsi,npcell)   = 0. ! to avoid compiler warning
-          endif
-       endif
-
-       i = ll(i)
-    end do fill_cell
-
     cell%icell                   = icell
-    cell%npcell                  = npcell
 #ifdef MPI
     cell%owner                   = id
 #endif
     cell%nits                    = 0
     cell%nneigh                  = 0
     cell%remote_export(1:nprocs) = remote_export
+    call start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
 
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
     call get_hmaxcell(icell,cell%hmax)
@@ -1431,6 +1360,98 @@ pure subroutine compute_hmax(cell,redo_neighbours)
  cell%rcuti = radkern*hmax
 
 end subroutine compute_hmax
+
+subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
+ use io,          only:fatal
+ use dim,         only:maxp,maxvxyzu
+ use part,        only:maxphase,get_partinfo,iboundary,maxBevol,mhd,igas,iamgas
+
+ type(celldens),     intent(inout) :: cell
+ integer,            intent(in)    :: ifirstincell(:)
+ integer,            intent(in)    :: ll(:)
+ integer(kind=1),    intent(in)    :: iphase(:)
+ real,               intent(in)    :: xyzh(:,:)
+ real,               intent(in)    :: vxyzu(:,:)
+ real,               intent(in)    :: fxyzu(:,:)
+ real,               intent(in)    :: fext(:,:)
+ real(kind=4),       intent(in)    :: Bevol(:,:)
+
+ integer :: i
+ integer :: iamtypei
+ logical :: iactivei,iamgasi,iamdusti
+
+ i = ifirstincell(cell%icell)
+ cell%npcell = 0
+ over_parts: do while(i /= 0)
+    if (i < 0) then
+       i = ll(abs(i))
+       cycle over_parts
+    endif
+
+    if (maxphase==maxp) then
+       call get_partinfo(iphase(i),iactivei,iamdusti,iamtypei)
+       iamgasi = (iamtypei==igas)
+    else
+       iactivei = .true.
+       iamtypei = igas
+       iamdusti = .false.
+       iamgasi  = .true.
+    endif
+    if (.not.iactivei) then ! handles case where first particle in cell is inactive
+       i = ll(i)
+       cycle over_parts
+    endif
+    if (iamtypei==iboundary) then ! do not compute forces on boundary parts
+       i = ll(i)
+       cycle over_parts
+    endif
+
+    cell%npcell = cell%npcell + 1
+
+    cell%ll_position(cell%npcell)             = i
+    cell%iphase(cell%npcell)                  = iphase(i)
+
+    cell%xpartvec(ixi,cell%npcell)            = xyzh(1,i)
+    cell%xpartvec(iyi,cell%npcell)            = xyzh(2,i)
+    cell%xpartvec(izi,cell%npcell)            = xyzh(3,i)
+
+    cell%h(cell%npcell)                       = xyzh(4,i)
+    cell%h_old(cell%npcell)                   = xyzh(4,i)
+
+    cell%xpartvec(ivxi,cell%npcell)           = vxyzu(1,i)
+    cell%xpartvec(ivyi,cell%npcell)           = vxyzu(2,i)
+    cell%xpartvec(ivzi,cell%npcell)           = vxyzu(3,i)
+
+    if (maxvxyzu >= 4) then
+      cell%xpartvec(ieni,cell%npcell)         = vxyzu(4,i)
+    endif
+
+    cell%xpartvec(ifxi,cell%npcell)           = fxyzu(1,i) + fext(1,i)
+    cell%xpartvec(ifyi,cell%npcell)           = fxyzu(2,i) + fext(2,i)
+    cell%xpartvec(ifzi,cell%npcell)           = fxyzu(3,i) + fext(3,i)
+
+    if (mhd) then
+      iamgasi = iamgas(iphase(i))
+      if (iamgasi) then
+          cell%xpartvec(iBevolxi,cell%npcell) = Bevol(1,i)
+          cell%xpartvec(iBevolyi,cell%npcell) = Bevol(2,i)
+          cell%xpartvec(iBevolzi,cell%npcell) = Bevol(3,i)
+
+          if (maxBevol >= 4) then
+             cell%xpartvec(ipsi,cell%npcell)  = Bevol(4,i)
+          endif
+          if (maxBevol < 3 .or. maxBevol > 4) call fatal('densityiterate','error in maxBevol setting')
+      else
+          cell%xpartvec(iBevolxi:ipsi,cell%npcell)   = 0. ! to avoid compiler warning
+      endif
+    endif
+
+    i = ll(i)
+
+ enddo over_parts
+
+end subroutine start_cell
+
 
 subroutine finish_cell(cell,cell_converged)
  use io,       only:iprint,fatal
