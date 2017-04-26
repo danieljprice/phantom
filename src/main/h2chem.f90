@@ -76,16 +76,16 @@ end subroutine init_chem
 !+
 !----------------------------------------------------------------
 !----------------------------------------------------------------
-subroutine energ_h2cooling(ui,dudti,rhoi,chemarrays,nchem,dt,xi,yi,zi,idudtcool,ichem)
+subroutine energ_h2cooling(ui,dudti,rhoi,chemarrays,nchem,dt,xi,yi,zi,divv,idudtcool,ichem)
  use h2cooling, only:nabn,nrates,cool_func,dlq
  use units,     only:utime,udist
- real,    intent(in)    :: ui,rhoi,dt,xi,yi,zi
+ real,    intent(in)    :: ui,rhoi,dt,xi,yi,zi,divv
  real,    intent(inout) :: dudti
  integer, intent(in)    :: nchem,idudtcool,ichem
  real,    intent(inout) :: chemarrays(nchem)
  real :: abund(nabn)
  real :: ratesq(nrates)
- real                    :: tempiso,ylamq,np1
+ real                    :: tempiso,ylamq,np1,divv_cgs
 
 !--ARP: changed below to add flags
 !--Takes idudtcool flag, determining whether cooling is required
@@ -103,9 +103,10 @@ subroutine energ_h2cooling(ui,dudti,rhoi,chemarrays,nchem,dt,xi,yi,zi,idudtcool,
 ! abundances in the 'abund' format
 !
  if (idudtcool==1) then
-!   Dont call cooling if only updating ubundances
+!   Dont call cooling if only updating abundances
 !
-    call cool_func(tempiso,np1,dlq,abund,ylamq,ratesq)
+    divv_cgs = divv / utime
+    call cool_func(tempiso,np1,dlq,divv_cgs,abund,ylamq,ratesq)
 !
 !   compute change in u from 'ylamq' above.
 !

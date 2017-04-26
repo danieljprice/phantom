@@ -207,7 +207,7 @@ end subroutine read_options_h2cooling
 !
 !=======================================================================
 !
-subroutine cool_func(temp, yn, dl, abundances, ylam, rates)
+subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 !
 !    Based on cool_h, written for ZEUS-3D by Michael D. Smith and
 !    Georgi Pavlovski (Armagh Observatory, 2003) and substantially
@@ -259,6 +259,7 @@ subroutine cool_func(temp, yn, dl, abundances, ylam, rates)
  real,         intent(in)  :: temp
  real,         intent(in)  :: yn
  real(kind=8), intent(in)  :: dl
+ real,         intent(in)  :: divv
  real,         intent(in)  :: abundances(nabn)
  real,         intent(out) :: ylam
  real,         intent(out) :: rates(nrates)

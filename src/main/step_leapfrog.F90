@@ -636,7 +636,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
              dudtcool  = 0.
              !--Provide a blank dudt_cool element, not needed here
              call energ_h2cooling(vxyzu(4,i),dudtcool,rhoh(xyzh(4,i),pmassi),abundance(:,i), &
-                                  nabundances,dt,xyzh(1,i),xyzh(2,i),xyzh(3,i),idudtcool,ichem)
+                                  nabundances,dt,xyzh(1,i),xyzh(2,i),xyzh(3,i), &
+                                  divcurlv(1,i),idudtcool,ichem)
           endif
        endif
     enddo predictor
