@@ -1,4 +1,5 @@
 module stack
+#ifdef MPI
  use io,          only:fatal
  use mpidens,     only:celldens,stackdens
  use mpiforce,    only:cellforce,stackforce
@@ -77,5 +78,5 @@ subroutine reserve_stack_force(stack,i)
   i = stack%n
   if (stack%n > stack%maxlength) call fatal('force','stack overflow')
 end subroutine reserve_stack_force
-
+#endif
 end module stack
