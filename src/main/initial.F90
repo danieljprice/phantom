@@ -522,10 +522,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  endif
 !--write second header to logfile/screen
 !
+
  if (id==master) call write_header(2,infile,evfile,logfile,dumpfile,ntot)
 
  if (calc_erot) call get_erot_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
- if (id==master) call init_evfile(ievfile,evfile)
+
+ call init_evfile(ievfile,evfile)
  call write_evfile(time,dt)
  if (id==master) call write_evlog(iprint)
 #ifdef MFLOW

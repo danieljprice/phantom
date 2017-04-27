@@ -80,133 +80,136 @@ subroutine init_evfile(iunit,evfile)
  ev_action = ievI
  ievfile   = iunit
 
- if (id==master) then
-    write(ev_fmt,'(a)') "(1x,'[',i2.2,1x,a11,']',2x)"
-    !
-    !--Define all the variables to be included in the .ev file.
-    !
-    i = 1
-    call fill_one_label(ev_fmt,'time',     i,itime,  iev0)
-    call fill_one_label(ev_fmt,'ekin',     i,iekin,  iev0)
-    call fill_one_label(ev_fmt,'etherm',   i,ietherm,iev0)
-    call fill_one_label(ev_fmt,'emag',     i,iemag,  iev0)
-    call fill_one_label(ev_fmt,'epot',     i,iepot,  iev0)
-    call fill_one_label(ev_fmt,'etot',     i,ietot,  iev0)
-    call fill_one_label(ev_fmt,'totmom',   i,itotmom,iev0)
-    call fill_one_label(ev_fmt,'angtot',   i,iangtot,iev0)
-    call fill_one_label(ev_fmt,'rhomax',   i,irhoX,  ievX)
-    call fill_one_label(ev_fmt,'rhomean',  i,irhoA,  ievA)
-    call fill_one_label(ev_fmt,'dt',       i,idt,    iev0)
-    call fill_one_label(ev_fmt,'totentrop',i,ientrop,ievS)
-    call fill_one_label(ev_fmt,'rmsmach',  i,irms,   iev0)
-    gas_only = .true.
-    call fill_rho_label(ev_fmt,'rho dust',i,idustX,idustA,npartoftype(idust),      gas_only)
-    call fill_rho_label(ev_fmt,'rho bdy', i,ibdyX, ibdyA, npartoftype(iboundary),  gas_only)
-    call fill_rho_label(ev_fmt,'rho star',i,istarX,istarA,npartoftype(istar),      gas_only)
-    call fill_rho_label(ev_fmt,'rho dm',  i,idmX,  idmA,  npartoftype(idarkmatter),gas_only)
-    call fill_rho_label(ev_fmt,'rho blg', i,iblgX, iblgA, npartoftype(ibulge),     gas_only)
-    if (.not.gas_only) then
-       call fill_rho_label(ev_fmt,'rho gas',i,igasX,igasA,npartoftype(igas),       gas_only)
-    endif
-    if (maxalpha==maxp) then
-       call fill_one_label(ev_fmt,'alpha max',i,ialphaX,ievX)
-    endif
-    if ( mhd ) then
-       call fill_xan_label(ev_fmt,'divB',   i,idivBX, idivBA       )
-       call fill_xan_label(ev_fmt,'hdivB/B',i,ihdivBX,ihdivBA      )
-       call fill_xan_label(ev_fmt,'beta',   i,ibetaX, ibetaA,ibetaN)
-       if (mhd_nonideal) then
-          call fill_xan_label(ev_fmt,'temp',        i,itX,     itA   ,  itN     )
-          call fill_xan_label(ev_fmt,'eta_ar',      i,ietaFX,  ietaFA,  ietaFN  )
-          if (use_ohm) then
-             call fill_xan_label(ev_fmt,'eta_o',    i,iohmX,   iohmA,   iohmN   )
-             call fill_xan_label(ev_fmt,'eta_o/art',i,iohmfX,  iohmfA,  iohmfN  )
+ write(ev_fmt,'(a)') "(1x,'[',i2.2,1x,a11,']',2x)"
+ !
+ !--Define all the variables to be included in the .ev file.
+ !
+ i = 1
+ call fill_one_label(ev_fmt,'time',     i,itime,  iev0)
+ call fill_one_label(ev_fmt,'ekin',     i,iekin,  iev0)
+ call fill_one_label(ev_fmt,'etherm',   i,ietherm,iev0)
+ call fill_one_label(ev_fmt,'emag',     i,iemag,  iev0)
+ call fill_one_label(ev_fmt,'epot',     i,iepot,  iev0)
+ call fill_one_label(ev_fmt,'etot',     i,ietot,  iev0)
+ call fill_one_label(ev_fmt,'totmom',   i,itotmom,iev0)
+ call fill_one_label(ev_fmt,'angtot',   i,iangtot,iev0)
+ call fill_one_label(ev_fmt,'rhomax',   i,irhoX,  ievX)
+ call fill_one_label(ev_fmt,'rhomean',  i,irhoA,  ievA)
+ call fill_one_label(ev_fmt,'dt',       i,idt,    iev0)
+ call fill_one_label(ev_fmt,'totentrop',i,ientrop,ievS)
+ call fill_one_label(ev_fmt,'rmsmach',  i,irms,   iev0)
+ gas_only = .true.
+ call fill_rho_label(ev_fmt,'rho dust',i,idustX,idustA,npartoftype(idust),      gas_only)
+ call fill_rho_label(ev_fmt,'rho bdy', i,ibdyX, ibdyA, npartoftype(iboundary),  gas_only)
+ call fill_rho_label(ev_fmt,'rho star',i,istarX,istarA,npartoftype(istar),      gas_only)
+ call fill_rho_label(ev_fmt,'rho dm',  i,idmX,  idmA,  npartoftype(idarkmatter),gas_only)
+ call fill_rho_label(ev_fmt,'rho blg', i,iblgX, iblgA, npartoftype(ibulge),     gas_only)
+ if (.not.gas_only) then
+    call fill_rho_label(ev_fmt,'rho gas',i,igasX,igasA,npartoftype(igas),       gas_only)
+ endif
+ if (maxalpha==maxp) then
+    call fill_one_label(ev_fmt,'alpha max',i,ialphaX,ievX)
+ endif
+ if ( mhd ) then
+    call fill_xan_label(ev_fmt,'divB',   i,idivBX, idivBA       )
+    call fill_xan_label(ev_fmt,'hdivB/B',i,ihdivBX,ihdivBA      )
+    call fill_xan_label(ev_fmt,'beta',   i,ibetaX, ibetaA,ibetaN)
+    if (mhd_nonideal) then
+       call fill_xan_label(ev_fmt,'temp',        i,itX,     itA   ,  itN     )
+       call fill_xan_label(ev_fmt,'eta_ar',      i,ietaFX,  ietaFA,  ietaFN  )
+       if (use_ohm) then
+          call fill_xan_label(ev_fmt,'eta_o',    i,iohmX,   iohmA,   iohmN   )
+          call fill_xan_label(ev_fmt,'eta_o/art',i,iohmfX,  iohmfA,  iohmfN  )
+       endif
+       if (use_hall) then
+          call fill_xan_label(ev_fmt,'eta_h',    i,ihallX,  ihallA,  ihallN  )
+          call fill_xan_label(ev_fmt,'|eta_h|',  i,iahallX, iahallA, iahallN )
+          call fill_xan_label(ev_fmt,'eta_h/art',i,ihallfX, ihallfA, ihallfN )
+          call fill_xan_label(ev_fmt,'|e_h|/art',i,iahallfX,iahallfA,iahallfN)
+       endif
+       if (use_ambi) then
+          call fill_xan_label(ev_fmt,'eta_a',    i,iambiX,  iambiA,  iambiN  )
+          call fill_xan_label(ev_fmt,'eta_a/art',i,iambifX, iambifA, iambifN )
+          call fill_xan_label(ev_fmt,'velocity', i,ivelX,   ivelA,   ivelN   )
+          call fill_xan_label(ev_fmt,'v_ion',    i,ivionX,  ivionA,  ivionN  )
+          call fill_xan_label(ev_fmt,'v_drift',  i,ivdftX,  ivdftA,  ivdftN  )
+       endif
+       call fill_xan_label(ev_fmt,'n_e/n',       i,inenX,   inenA,   inenN   )
+       call fill_xan_label(ev_fmt,'n_e',         i,ineX,    ineA             )
+       call fill_xan_label(ev_fmt,'n_n',         i,innX,    innA             )
+       if (ion_rays) then
+          call fill_xan_label(ev_fmt,'n_ihR',    i,inihrX,  inihrA           )
+          call fill_xan_label(ev_fmt,'n_imR',    i,inimrX,  inimrA           )
+          call fill_xan_label(ev_fmt,'n_g(Z=-1)',i,ingnX,   ingnA            )
+          call fill_xan_label(ev_fmt,'n_g(Z= 0)',i,ingX,    ingA             )
+          call fill_xan_label(ev_fmt,'n_g(Z=+1)',i,ingpX,   ingpA            )
+       endif
+       if (ion_thermal) then
+          call fill_xan_label(ev_fmt,   'n_isT', i,inistX,  inistA           )
+          if (nlevels>=2) then
+             call fill_xan_label(ev_fmt,'n_idT', i,inidtX,  inidtA           )
           endif
-          if (use_hall) then
-             call fill_xan_label(ev_fmt,'eta_h',    i,ihallX,  ihallA,  ihallN  )
-             call fill_xan_label(ev_fmt,'|eta_h|',  i,iahallX, iahallA, iahallN )
-             call fill_xan_label(ev_fmt,'eta_h/art',i,ihallfX, ihallfA, ihallfN )
-             call fill_xan_label(ev_fmt,'|e_h|/art',i,iahallfX,iahallfA,iahallfN)
+          if (nelements>=2) then
+             call fill_xan_label(ev_fmt,'n_H+',  i,inhX,    inhA             )
+             call fill_xan_label(ev_fmt,'n_He+', i,inheX,   inheA            )
           endif
-          if (use_ambi) then
-             call fill_xan_label(ev_fmt,'eta_a',    i,iambiX,  iambiA,  iambiN  )
-             call fill_xan_label(ev_fmt,'eta_a/art',i,iambifX, iambifA, iambifN )
-             call fill_xan_label(ev_fmt,'velocity', i,ivelX,   ivelA,   ivelN   )
-             call fill_xan_label(ev_fmt,'v_ion',    i,ivionX,  ivionA,  ivionN  )
-             call fill_xan_label(ev_fmt,'v_drift',  i,ivdftX,  ivdftA,  ivdftN  )
+          if (nelements>=5) then
+             call fill_xan_label(ev_fmt,'n_Na+', i,innaX,   innaA            )
+             call fill_xan_label(ev_fmt,'n_Mg+', i,inmgX,   inmgA            )
+             call fill_xan_label(ev_fmt,'n_K+',  i,inkX,    inkA             )
           endif
-          call fill_xan_label(ev_fmt,'n_e/n',       i,inenX,   inenA,   inenN   )
-          call fill_xan_label(ev_fmt,'n_e',         i,ineX,    ineA             )
-          call fill_xan_label(ev_fmt,'n_n',         i,innX,    innA             )
-          if (ion_rays) then
-             call fill_xan_label(ev_fmt,'n_ihR',    i,inihrX,  inihrA           )
-             call fill_xan_label(ev_fmt,'n_imR',    i,inimrX,  inimrA           )
-             call fill_xan_label(ev_fmt,'n_g(Z=-1)',i,ingnX,   ingnA            )
-             call fill_xan_label(ev_fmt,'n_g(Z= 0)',i,ingX,    ingA             )
-             call fill_xan_label(ev_fmt,'n_g(Z=+1)',i,ingpX,   ingpA            )
-          endif
-          if (ion_thermal) then
-             call fill_xan_label(ev_fmt,   'n_isT', i,inistX,  inistA           )
-             if (nlevels>=2) then
-                call fill_xan_label(ev_fmt,'n_idT', i,inidtX,  inidtA           )
-             endif
+          if (nlevels>=2) then
              if (nelements>=2) then
-                call fill_xan_label(ev_fmt,'n_H+',  i,inhX,    inhA             )
-                call fill_xan_label(ev_fmt,'n_He+', i,inheX,   inheA            )
+                call fill_xan_label(ev_fmt,'n_He++',i,inhedX,   inhedA       )
              endif
              if (nelements>=5) then
-                call fill_xan_label(ev_fmt,'n_Na+', i,innaX,   innaA            )
-                call fill_xan_label(ev_fmt,'n_Mg+', i,inmgX,   inmgA            )
-                call fill_xan_label(ev_fmt,'n_K+',  i,inkX,    inkA             )
-             endif
-             if (nlevels>=2) then
-                if (nelements>=2) then
-                   call fill_xan_label(ev_fmt,'n_He++',i,inhedX,   inhedA       )
-                endif
-                if (nelements>=5) then
-                   call fill_xan_label(ev_fmt,'n_Na++',i,innadX,   innadA       )
-                   call fill_xan_label(ev_fmt,'n_Mg++',i,inmgdX,   inmgdA       )
-                   call fill_xan_label(ev_fmt,'n_K++', i,inkdX,    inkdA        )
-                endif
+                call fill_xan_label(ev_fmt,'n_Na++',i,innadX,   innadA       )
+                call fill_xan_label(ev_fmt,'n_Mg++',i,inmgdX,   inmgdA       )
+                call fill_xan_label(ev_fmt,'n_K++', i,inkdX,    inkdA        )
              endif
           endif
        endif
     endif
-    if (use_dustfrac) then
-       call fill_xan_label(ev_fmt,'dust/gas',i,idtgX,idtgA,idtgN)
-       call fill_xan_label(ev_fmt,'t_s',     i,iA=itsA,iN=itsN)
+ endif
+ if (use_dustfrac) then
+    call fill_xan_label(ev_fmt,'dust/gas',i,idtgX,idtgA,idtgN)
+    call fill_xan_label(ev_fmt,'t_s',     i,iA=itsA,iN=itsN)
+ endif
+ if (iexternalforce > 0) then
+    call fill_one_label(ev_fmt,'totmomall',i,imomall,iev0)
+    call fill_one_label(ev_fmt,'angall',   i,iangall,iev0)
+    if (iexternalforce==iext_binary) then
+       call fill_one_label(ev_fmt,'Macc sink 1',i,imacc1,iev0)
+       call fill_one_label(ev_fmt,'Macc sink 2',i,imacc2,iev0)
     endif
-    if (iexternalforce > 0) then
-       call fill_one_label(ev_fmt,'totmomall',i,imomall,iev0)
-       call fill_one_label(ev_fmt,'angall',   i,iangall,iev0)
-       if (iexternalforce==iext_binary) then
-          call fill_one_label(ev_fmt,'Macc sink 1',i,imacc1,iev0)
-          call fill_one_label(ev_fmt,'Macc sink 2',i,imacc2,iev0)
-       endif
-    endif
-    if (iexternalforce>0 .or. nptmass > 0 .or. icreate_sinks > 0) then
-       call fill_one_label(ev_fmt,'accretedmas',i,iamass,iev0)
-       call fill_one_label(ev_fmt,'eacc',       i,ieacc, iev0)
-       track_mass     = .true.
-    else
-       track_mass     = .false.
-    endif
-    if (ishock_heating==0 .or. ipdv_heating==0 .or. lightcurve) then
-       call fill_one_label(ev_fmt,'tot lum',i,ilum,iev0)
-       track_lum      = .true.
-    else
-       track_lum      = .false.
-    endif
-    if (calc_erot) then
-       call fill_one_label(ev_fmt,'erot',  i,ierot, iev0)
-       call fill_one_label(ev_fmt,'erot_x',i,ierotx,iev0)
-       call fill_one_label(ev_fmt,'erot_y',i,ieroty,iev0)
-       call fill_one_label(ev_fmt,'erot_z',i,ierotz,iev0)
-    endif
-    if (irealvisc /= 0) then
-       call fill_xan_label(ev_fmt,'visc_rat',i,iviscX, iviscA, iviscN )
-    endif
-    ielements = i - 1 ! The number of columns to be calculates
+ endif
+ if (iexternalforce>0 .or. nptmass > 0 .or. icreate_sinks > 0) then
+    call fill_one_label(ev_fmt,'accretedmas',i,iamass,iev0)
+    call fill_one_label(ev_fmt,'eacc',       i,ieacc, iev0)
+    track_mass     = .true.
+ else
+    track_mass     = .false.
+ endif
+ if (ishock_heating==0 .or. ipdv_heating==0 .or. lightcurve) then
+    call fill_one_label(ev_fmt,'tot lum',i,ilum,iev0)
+    track_lum      = .true.
+ else
+    track_lum      = .false.
+ endif
+ if (calc_erot) then
+    call fill_one_label(ev_fmt,'erot',  i,ierot, iev0)
+    call fill_one_label(ev_fmt,'erot_x',i,ierotx,iev0)
+    call fill_one_label(ev_fmt,'erot_y',i,ieroty,iev0)
+    call fill_one_label(ev_fmt,'erot_z',i,ierotz,iev0)
+ endif
+ if (irealvisc /= 0) then
+    call fill_xan_label(ev_fmt,'visc_rat',i,iviscX, iviscA, iviscN )
+ endif
+ ielements = i - 1 ! The number of columns to be calculates
+ !
+ !--all threads do above, but only master writes file
+ !
+ if (id == master) then
     !
     !--open the file for output
     !
