@@ -412,6 +412,19 @@ ifeq ($(SETUP), shock)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), dustyshock)
+#   sod shock tube test
+    FPPFLAGS= -DPERIODIC
+    SETUPFILE= setup_shock.F90
+    DUST=yes
+    DUSTFRAC=yes
+    DOUBLEPRECISION=yes
+    KERNEL=quintic
+    ISOTHERMAL=no
+    MAXP=6000000
+    KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), mhdshock)
 #   Ryu & Brio-Wu shock tube tests
     FPPFLAGS= -DPERIODIC
@@ -479,6 +492,7 @@ ifeq ($(SETUP), dustywave)
     SETUPFILE= setup_wave.f90
     MODFILE= moddump_dustadd.f90
     DUST=yes
+    DUSTFRAC=no
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     ANALYSIS= analysis_trackbox.f90

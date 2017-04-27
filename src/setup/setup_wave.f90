@@ -45,7 +45,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use centreofmass, only:reset_centreofmass
  use physcon,      only:pi
  use kernel,       only:radkern
- use dim,          only:maxvxyzu,use_dust,use_dustfrac,maxp
+ use dim,          only:maxvxyzu,use_dust,use_dustfrac,maxp,ndusttypes
  use prompting,    only:prompt
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -177,9 +177,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
        if (use_dustfrac) then
           if (itype==igas) then
-             dustfrac(i) = dtg/(1. + dtg)
+             dustfrac(:,i) = dtg/(1. + dtg)
+             if (ndusttypes>1) dustfrac(:,i) = dustfrac(:,i)/real(ndusttypes)
           else
-             dustfrac(i) = 0.
+             dustfrac(:,i) = 0.
           endif
        endif
     enddo
