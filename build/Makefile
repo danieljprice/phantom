@@ -1081,6 +1081,21 @@ ifeq ($(SYSTEM), monarch)
     QPROJECT='p01'
 endif
 
+ifeq ($(SYSTEM), monarchpsxe)
+    FC= ifort
+    FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -debug all # -fpe0 -fp-stack-check -debug all
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+    OMPFLAGS = -qopenmp
+    CC = icc
+    CCFLAGS = -O3 -mcmodel=medium
+    QSYS = slurm
+    QPROJECT='p01'
+endif
+
 ifeq ($(SYSTEM), raijin)
 #   raijin (NCI machine)
     FC= ifort
@@ -1217,6 +1232,22 @@ ifeq ($(SYSTEM), ifort)
     OMPFLAGS = -qopenmp
     CC = icc
     CCFLAGS = -O3 -ipo -mcmodel=medium
+    LIBCXX = -cxxlib
+endif
+
+ifeq ($(SYSTEM), ifortmac)
+    FC= ifort
+    FFLAGS= -O3 -xhost -shared-intel -warn uninitialized \
+            -warn unused -warn truncated_source -Wl,-rpath,/opt/intel/lib
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+# or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
+    OMPFLAGS = -qopenmp
+    CC = icc
+    CCFLAGS = -O3
     LIBCXX = -cxxlib
 endif
 
@@ -1476,11 +1507,19 @@ ifeq ($(MPI), zen)
     USEMPI=yes
 endif
 
+ifeq ($(MPI), psxe)
+    FC= mpiifort
+    LDFLAGS+= `mpiifort--showme:link`
+    FPPFLAGS += -DMPI
+    USEMPI=yes
+endif
+
 ifeq ($(MPI), apac)
     LDFLAGS= -lmpi
     FPPFLAGS += -DMPI
     USEMPI=yes
 endif
+
 #
 # HDF5 libraries (if required)
 #
@@ -1558,7 +1597,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          set_disc.F90 partinject.F90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} directsum.f90 ${SRCDUST} readwrite_dumps.F90 quitdump.f90 \
          mpi_dens.F90 mpi_force.F90 stack.F90 \
-         mpi_derivs.F90 ${LINKLIST} \
+         mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
          ${SRCTURB} ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} \
          ptmass.F90 readwrite_infile.F90 \
          dens.F90 force.F90 deriv.F90 energies.F90 \
@@ -1634,9 +1673,9 @@ physcon.o: .make_mathflags
 #
 SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_filenames.f90 utils_summary.F90 \
           utils_tables.f90 random.f90 mpi_balance.F90 ${DOMAIN} set_binary.f90 \
-          utils_indtimesteps.F90 partinject.F90 dtype_kdtree.F90 mpi_dens.F90 mpi_derivs.F90 ${LINKLIST} \
+          utils_indtimesteps.F90 partinject.F90 dtype_kdtree.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} \
-          ptmass.F90 centreofmass.f90 energies.F90 \
+          ptmass.F90 energies.F90 \
           geometry.f90 stretchmap.f90 prompting.f90 density_profiles.f90 \
           set_unifdis.f90 set_sphere.f90 set_disc.F90 \
           set_vfield.f90 sort_particles.F90 ${SRCINJECT} \
