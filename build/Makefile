@@ -374,6 +374,7 @@ ifeq ($(SETUP), quebec)
     SETUPFILE = setup_quebec.f90
     GRAVITY = yes
     KNOWN_SETUP = yes
+    MODFILE = moddump_binarystar.f90
 endif
 
 ifeq ($(SETUP), polytrope)
