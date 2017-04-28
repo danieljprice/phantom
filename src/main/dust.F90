@@ -474,7 +474,7 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
 
  if (idrag == 2 .or. idrag==3) then
     if (ndusttypes>1) then
-       if (ngot >= 5) igotall = .true.
+       if (ngot >= 2) igotall = .true.
     else
        if (ngot >= 3) igotall = .true.
     endif
