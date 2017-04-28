@@ -285,9 +285,8 @@ subroutine balance_finish(npart,replace)
  call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
 
 !--double check that all receives are complete and free request handle
- call MPI_TEST(irequestrecv(1),idone,status,mpierr)
+ call MPI_WAIT(irequestrecv(1),status,mpierr)
  call MPI_REQUEST_FREE(irequestrecv(1),mpierr)
- if (.not.idone) call fatal('balance','receive has not completed')
 
 end subroutine balance_finish
 

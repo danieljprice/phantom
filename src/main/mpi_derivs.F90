@@ -414,10 +414,8 @@ subroutine finish_celldens_exchange(irequestrecv,xsendbuf)
 
 !--free request handle
  do iproc=1,nprocs
-   !  call MPI_TEST(irequestrecv(iproc),idone,status,mpierr)
     call MPI_WAIT(irequestrecv(iproc),status,mpierr)
     call MPI_REQUEST_FREE(irequestrecv(iproc),mpierr)
-   !  if (.not.idone) call fatal('finish_cell_exchange_mpi','receive has not completed for density')
  enddo
  call MPI_COMM_FREE(comm_cellexchange,mpierr)
 
