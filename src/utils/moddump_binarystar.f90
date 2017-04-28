@@ -12,13 +12,13 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Terrence Tricco
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, part
+!  DEPENDENCIES: centreofmass, part, prompting, units
 !+
 !--------------------------------------------------------------------------
 module moddump
