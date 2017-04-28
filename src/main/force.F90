@@ -473,7 +473,7 @@ use kernel,        only:wkern_drag,cnormk_drag
 
 !$omp single
  if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
- call recv_while_wait(stack_remote,xrecvbuf,irequestrecv)
+ call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
 !$omp end single
 
  igot_remote: if (stack_remote%n > 0) then
@@ -509,7 +509,7 @@ use kernel,        only:wkern_drag,cnormk_drag
 
 !$omp single
  call check_send_finished(stack_ready,irequestsend,irequestrecv,xrecvbuf)
- call recv_while_wait(stack_ready,xrecvbuf,irequestrecv)
+ call recv_while_wait(stack_ready,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
 !$omp end single
 
  iam_waiting: if (stack_waiting%n > 0) then

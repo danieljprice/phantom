@@ -371,6 +371,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp critical
                    if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
                    call reserve_stack(stack_waiting,cell%waiting_index)
+                   ! direction export (0)
                    call send_cell(cell,0,irequestsend,xsendbuf)
 !$omp end critical
                 endif
@@ -403,7 +404,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
 !$omp single
  if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
- call recv_while_wait(stack_remote,xrecvbuf,irequestrecv)
+ call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
 !$omp end single
 
 !$omp single
@@ -429,10 +430,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
           cell%remote_export(id+1) = .false.
 
-          ! return the cell: direction 1 for returning
           ! communication happened while computing contributions to remote cells
 !$omp critical
           call check_send_finished(stack_ready,irequestsend,irequestrecv,xrecvbuf)
+          ! direction return (1)
           call send_cell(cell,1,irequestsend,xsendbuf)
 !$omp end critical
        enddo over_remote
@@ -448,7 +449,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
 !$omp single
     call check_send_finished(stack_ready,irequestsend,irequestrecv,xrecvbuf)
-    call recv_while_wait(stack_ready,xrecvbuf,irequestrecv)
+    call recv_while_wait(stack_ready,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
 !$omp end single
 
     iam_waiting: if (stack_waiting%n > 0) then
@@ -499,7 +500,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp critical
              call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
              call reserve_stack(stack_redo,cell%waiting_index)
-
+             ! direction export (0)
              call send_cell(cell,0,irequestsend,xsendbuf)
 !$omp end critical
              call compute_cell(cell,listneigh,nneigh,nneighi,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache)
@@ -524,7 +525,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
 !$omp single
     call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
-    call recv_while_wait(stack_remote,xrecvbuf,irequestrecv)
+    call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
 !$omp end single
 
 !$omp single

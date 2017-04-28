@@ -56,6 +56,8 @@ module mpiderivs
 
  private
 
+ integer :: ncomplete
+
  integer :: dtype_celldens
  integer :: dtype_cellforce
  integer :: comm_cellexchange
@@ -97,7 +99,6 @@ subroutine init_celldens_exchange(xbufrecv,ireq)
 !
 
  call MPI_COMM_DUP(MPI_COMM_WORLD,comm_cellexchange,mpierr)
- call MPI_COMM_DUP(MPI_COMM_WORLD,comm_done,mpierr)
  call get_mpitype_of_celldens(dtype_celldens)
 
  do iproc=1,nprocs
@@ -110,6 +111,8 @@ subroutine init_celldens_exchange(xbufrecv,ireq)
     call MPI_START(ireq(iproc),mpierr)
     if (mpierr /= 0) call fatal('init_cell_exchange','error in MPI_START')
  enddo
+
+ ncomplete = 0
 
 end subroutine init_celldens_exchange
 
@@ -130,7 +133,6 @@ subroutine init_cellforce_exchange(xbufrecv,ireq)
 !
 
  call MPI_COMM_DUP(MPI_COMM_WORLD,comm_cellexchange,mpierr)
- call MPI_COMM_DUP(MPI_COMM_WORLD,comm_done,mpierr)
  call get_mpitype_of_cellforce(dtype_cellforce)
 
  do iproc=1,nprocs
@@ -143,6 +145,8 @@ subroutine init_cellforce_exchange(xbufrecv,ireq)
     call MPI_START(ireq(iproc),mpierr)
     if (mpierr /= 0) call fatal('init_cell_exchange','error in MPI_START')
  enddo
+
+ ncomplete = 0
 
 end subroutine init_cellforce_exchange
 
@@ -178,7 +182,7 @@ subroutine send_celldens(cell,direction,irequestsend,xsendbuf)
 
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
-       call MPI_ISEND(xsendbuf,1,dtype_celldens,newproc,direction,comm_cellexchange,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(xsendbuf,1,dtype_celldens,newproc,1,comm_cellexchange,irequestsend(newproc+1),mpierr)
     endif
  enddo
 
@@ -211,7 +215,7 @@ subroutine send_cellforce(cell,direction,irequestsend,xsendbuf)
 
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
-       call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,direction,comm_cellexchange,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,1,comm_cellexchange,irequestsend(newproc+1),mpierr)
     endif
  enddo
 
@@ -270,115 +274,53 @@ subroutine check_send_finished_force(stack,irequestsend,irequestrecv,xrecvbuf)
 
 end subroutine check_send_finished_force
 
-subroutine recv_while_wait_dens(stack,xrecvbuf,irequestrecv)
+subroutine recv_while_wait_dens(stack,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
  use io,       only:nprocs
  use mpidens,  only:stackdens,celldens
 
  type(stackdens),  intent(inout) :: stack
- type(celldens),   intent(inout) :: xrecvbuf(nprocs)
- integer,          intent(inout) :: irequestrecv(nprocs)
+ type(celldens),   intent(inout) :: xrecvbuf(nprocs),xsendbuf
+ integer,          intent(inout) :: irequestrecv(nprocs),irequestsend(nprocs)
 
  integer             :: newproc
- integer             :: ncomplete
- logical             :: jiscomplete
- logical, parameter  :: iamcomplete = .true.
 
- integer             :: irequestend(1),irequestcomplete(1)
-
+ ! tag=0 to signal done
  do newproc=0,nprocs-1
-    call MPI_ISEND(iamcomplete,1,MPI_LOGICAL,newproc,0,comm_done,irequestend(1),mpierr)
+    call MPI_ISEND(xsendbuf,1,dtype_celldens,newproc,0,comm_cellexchange,irequestsend(newproc+1),mpierr)
  enddo
 
- jiscomplete = .false.
-
- call MPI_IRECV(jiscomplete,1,MPI_LOGICAL,MPI_ANY_SOURCE,0,comm_done,irequestcomplete(1),mpierr)
-
- ncomplete = 0
-
- do while (.not. allcomplete())
+ do while (ncomplete < nprocs)
     call recv_celldens(stack,xrecvbuf,irequestrecv)
  enddo
 
  call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
-
- return
-
- contains
-
-    logical function allcomplete()
-       implicit none
-       logical :: isdone
-
-       allcomplete = .false.
-
-       call MPI_TEST(irequestcomplete(1),isdone,status,mpierr)
-
-       if (isdone) then
-          ncomplete = ncomplete + 1
-
-          if (ncomplete < nprocs) then
-             call MPI_IRECV(jiscomplete,1,MPI_LOGICAL,MPI_ANY_SOURCE,0,comm_done,irequestcomplete(1),mpierr)
-          else
-             allcomplete = .true.
-          endif
-       endif
-    end function allcomplete
+ ! reset counter for next round
+ ncomplete = 0
 
 end subroutine recv_while_wait_dens
 
-subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv)
+subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
  use io,       only:nprocs
  use mpiforce, only:stackforce,cellforce
 
  type(stackforce), intent(inout) :: stack
- type(cellforce),  intent(inout) :: xrecvbuf(nprocs)
- integer,          intent(inout) :: irequestrecv(nprocs)
+ type(cellforce),  intent(inout) :: xrecvbuf(nprocs),xsendbuf
+ integer,          intent(inout) :: irequestrecv(nprocs),irequestsend(nprocs)
 
  integer             :: newproc
- integer             :: ncomplete
- logical             :: jiscomplete
- logical, parameter  :: iamcomplete = .true.
 
- integer             :: irequestend(1),irequestcomplete(1)
-
+ ! tag=0 to signal done
  do newproc=0,nprocs-1
-    call MPI_ISEND(iamcomplete,1,MPI_LOGICAL,newproc,0,comm_done,irequestend(1),mpierr)
+    call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,0,comm_cellexchange,irequestsend(newproc+1),mpierr)
  enddo
 
- jiscomplete = .false.
-
- call MPI_IRECV(jiscomplete,1,MPI_LOGICAL,MPI_ANY_SOURCE,0,comm_done,irequestcomplete(1),mpierr)
-
- ncomplete = 0
-
- do while (.not. allcomplete())
+ do while (ncomplete < nprocs)
     call recv_cellforce(stack,xrecvbuf,irequestrecv)
  enddo
 
  call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
-
- return
-
- contains
-
-    logical function allcomplete()
-       implicit none
-       logical :: isdone
-
-       allcomplete = .false.
-
-       call MPI_TEST(irequestcomplete(1),isdone,status,mpierr)
-
-       if (isdone) then
-          ncomplete = ncomplete + 1
-
-          if (ncomplete < nprocs) then
-             call MPI_IRECV(jiscomplete,1,MPI_LOGICAL,MPI_ANY_SOURCE,0,comm_done,irequestcomplete(1),mpierr)
-          else
-             allcomplete = .true.
-          endif
-       endif
-    end function allcomplete
+ ! reset counter for next round
+ ncomplete = 0
 
 end subroutine recv_while_wait_force
 
@@ -392,11 +334,11 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv)
  use stack,    only:push_onto_stack
  use mpidens,  only:stackdens,celldens
 
- type(celldens),  intent(inout)  :: xbuf(:)  ! just need memory address
- type(stackdens), intent(inout)  :: target_stack
- integer,         intent(inout)  :: irequestrecv(nprocs)
- integer                         :: iproc
- logical                         :: igot
+ type(celldens),     intent(inout)  :: xbuf(:)  ! just need memory address
+ type(stackdens),    intent(inout)  :: target_stack
+ integer,            intent(inout)  :: irequestrecv(nprocs)
+ integer                            :: iproc
+ logical                            :: igot
 
  ! receive MPI broadcast
  do iproc=1,nprocs
@@ -405,7 +347,12 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv)
 
     ! unpack results
     if (igot) then
-       call push_onto_stack(target_stack, xbuf(iproc))
+       ! end signalling, don't put on stack
+       if (status(MPI_TAG) == 0) then
+          ncomplete = ncomplete + 1
+       else
+          call push_onto_stack(target_stack, xbuf(iproc))
+       endif
        call MPI_START(irequestrecv(iproc),mpierr)
     endif
  enddo
@@ -429,7 +376,12 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
 
     ! unpack results
     if (igot) then
-       call push_onto_stack(target_stack, xbuf(iproc))
+       ! end signalling, don't put on stack
+       if (status(MPI_TAG) == 0) then
+          ncomplete = ncomplete + 1
+       else
+          call push_onto_stack(target_stack, xbuf(iproc))
+       endif
        call MPI_START(irequestrecv(iproc),mpierr)
     endif
  enddo
@@ -445,7 +397,6 @@ subroutine finish_celldens_exchange(irequestrecv,xsendbuf)
  use mpidens,  only:celldens
  integer,            intent(inout)  :: irequestrecv(nprocs)
  integer                            :: newproc,iproc
- logical                            :: idone
  type(celldens), intent(in)         :: xsendbuf
 
 !
@@ -453,7 +404,7 @@ subroutine finish_celldens_exchange(irequestrecv,xsendbuf)
 !  (we know the receive has been posted for this, so use RSEND)
 !
  do newproc=0,nprocs-1
-    call MPI_RSEND(xsendbuf,1,dtype_celldens,newproc,0,comm_cellexchange,mpierr)
+    call MPI_RSEND(xsendbuf,1,dtype_celldens,newproc,1,comm_cellexchange,mpierr)
  enddo
 
 !
@@ -463,12 +414,12 @@ subroutine finish_celldens_exchange(irequestrecv,xsendbuf)
 
 !--free request handle
  do iproc=1,nprocs
-    call MPI_TEST(irequestrecv(iproc),idone,status,mpierr)
+   !  call MPI_TEST(irequestrecv(iproc),idone,status,mpierr)
+    call MPI_WAIT(irequestrecv(iproc),status,mpierr)
     call MPI_REQUEST_FREE(irequestrecv(iproc),mpierr)
-    if (.not.idone) call fatal('finish_cell_exchange_mpi','receive has not completed for density')
+   !  if (.not.idone) call fatal('finish_cell_exchange_mpi','receive has not completed for density')
  enddo
  call MPI_COMM_FREE(comm_cellexchange,mpierr)
- call MPI_COMM_FREE(comm_done,mpierr)
 
 end subroutine finish_celldens_exchange
 
@@ -477,7 +428,6 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
  use mpiforce, only:cellforce
  integer,            intent(inout)  :: irequestrecv(nprocs)
  integer                            :: newproc,iproc
- logical                            :: idone
  type(cellforce), intent(in)        :: xsendbuf
 
 !
@@ -485,7 +435,7 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
 !  (we know the receive has been posted for this, so use RSEND)
 !
  do newproc=0,nprocs-1
-    call MPI_RSEND(xsendbuf,1,dtype_cellforce,newproc,0,comm_cellexchange,mpierr)
+    call MPI_RSEND(xsendbuf,1,dtype_cellforce,newproc,1,comm_cellexchange,mpierr)
  enddo
 
 !
@@ -495,12 +445,12 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
 
 !--free request handle
  do iproc=1,nprocs
-    call MPI_TEST(irequestrecv(iproc),idone,status,mpierr)
+   !  call MPI_TEST(irequestrecv(iproc),idone,status,mpierr)
+    call MPI_WAIT(irequestrecv(iproc),status,mpierr)
     call MPI_REQUEST_FREE(irequestrecv(iproc),mpierr)
-    if (.not.idone) call fatal('finish_cell_exchange_mpi','receive has not completed for force')
+   !  if (.not.idone) call fatal('finish_cell_exchange_mpi','receive has not completed for force')
  enddo
  call MPI_COMM_FREE(comm_cellexchange,mpierr)
- call MPI_COMM_FREE(comm_done,mpierr)
 
 end subroutine finish_cellforce_exchange
 
