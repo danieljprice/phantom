@@ -45,15 +45,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  npart = npartoftype(igas)
 
- ! make any adjustments to first star here 
+ ! make any adjustments to first star here
  do i = 1, npart
-  
+
  enddo
 
 
  ! duplicate relaxed star
  do i = npart+1, 2*npart
-     ! place star a distance rad away 
+     ! place star a distance rad away
      xyzh(1,i) = xyzh(1,i-npart) + rad
      xyzh(2,i) = xyzh(2,i-npart) + rad
      xyzh(3,i) = xyzh(3,i-npart)
@@ -72,7 +72,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  ! reset centre of mass of the binary system
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
- 
+
 end subroutine modify_dump
 
 end module moddump
