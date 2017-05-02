@@ -78,8 +78,8 @@ subroutine balancedomains(npart)
  integer(kind=8) :: ntot
  real(kind=4) :: tstart
 
- if (id.eq.master .and. iverbose.ge.3) call getused(tstart)
- if (id.eq.master .and. iverbose.ge.5) print*,'starting balance',npart
+ if (id==master .and. iverbose >= 3) call getused(tstart)
+ if (id==master .and. iverbose >= 5) print*,'starting balance',npart
 
  call balance_init(npart)
 
@@ -96,7 +96,7 @@ subroutine balancedomains(npart)
 
  enddo
 
- if (iverbose.ge.5) then
+ if (iverbose >= 5) then
     print*,id,' finished send, nsent = ',nsent,' npart = ',npartnew
     print*,id,' received so far ',nrecv
  endif
@@ -112,7 +112,7 @@ subroutine balancedomains(npart)
  if (iverbose >= 3) print*,'>> shuffle: thread ',id,' got ',npart,' of ',ntot
 
  if (ntot /= ntot_start) call fatal('balance','number of particles before and after balance not equal')
- if (id.eq.master .and. iverbose.ge.3) call printused(tstart)
+ if (id==master .and. iverbose >= 3) call printused(tstart)
 
  return
 end subroutine balancedomains
@@ -142,7 +142,7 @@ subroutine recv_part(replace)
     if (jpart == 0) then ! signal the end
        ncomplete = ncomplete + 1
     else
-       if (jpart.gt.maxp .or. jpart.le.0) call fatal('balance','error in receive tag',jpart)
+       if (jpart > maxp .or. jpart <= 0) call fatal('balance','error in receive tag',jpart)
 !$omp critical
        nrecv = nrecv + 1
 !$omp end critical
@@ -156,7 +156,7 @@ subroutine recv_part(replace)
           inew = ideadhead
        endif
 
-       if (inew.gt.0 .and. inew.le.maxp) then
+       if (inew > 0 .and. inew <= maxp) then
           if (.not.isdead(inew)) &
              call fatal('balance','replacing non-dead particle')
        !
@@ -171,14 +171,14 @@ subroutine recv_part(replace)
           ideadhead = ll(inew)
 !$omp end critical
        else
-          if (inew.ne.0) call fatal('balance','error in dead particle list',inew)
+          if (inew /= 0) call fatal('balance','error in dead particle list',inew)
           !
           !--make a new particle
           !
 !$omp critical
           npartnew = npartnew + 1
 !$omp end critical
-          if (npartnew.gt.maxp) call fatal('recv_part','npartnew > maxp',npartnew)
+          if (npartnew > maxp) call fatal('recv_part','npartnew > maxp',npartnew)
           call unfill_buffer(npartnew,xbuffer)
           ibelong(npartnew) = id
        endif
@@ -212,7 +212,7 @@ subroutine send_part(i,newproc,replace)
  endif
 
  !--copy the particle to the new processor
- if (newproc.lt.0 .or. newproc.gt.nprocs-1) then
+ if (newproc < 0 .or. newproc > nprocs-1) then
     call fatal('balance','error in ibelong',ival=newproc,var='ibelong')
  else
     call fill_sendbuf(i,xsendbuf)
@@ -279,7 +279,7 @@ subroutine balance_finish(npart,replace)
  newproc = mod(id+1,nprocs)
  call MPI_RSEND(xsendbuf,0,MPI_DEFAULT_REAL,newproc,0,MPI_COMM_WORLD,mpierr)
 
- if (iverbose.ge.3 .or. (iverbose.ge.1 .and. (nsent.gt.0 .or. nrecv.gt.0))) then
+ if (iverbose >= 3 .or. (iverbose >= 1 .and. (nsent > 0 .or. nrecv > 0))) then
     print*,'>> balance: thread ',id,' sent:',nsent,' received:',nrecv,' npart =',npartnew
  endif
  call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
