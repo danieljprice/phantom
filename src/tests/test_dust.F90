@@ -99,7 +99,7 @@ subroutine test_dust(ntests,npass)
 
 end subroutine test_dust
 
-#ifdef MPI
+#ifndef MPI
 #ifdef DUST
 !----------------------------------------------------
 !+
