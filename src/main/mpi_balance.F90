@@ -1,13 +1,26 @@
-! $Id$
-!----------------------------------------------------------------
-! This module is part of the Phantom SPH code
-! Use is by specific, written permission of the author
-! (c) 2007 Daniel Price
-!----------------------------------------------------------------
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://users.monash.edu.au/~dprice/phantom                               !
+!--------------------------------------------------------------------------!
 !+
+!  MODULE: balance
+!
+!  DESCRIPTION:
 !  This module moves the particles onto their correct processor
+!
+!  REFERENCES: None
+!
+!  OWNER: Conrad Chan
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS: None
+!
+!  DEPENDENCIES: dim, domain, io, mpi, mpiutils, part, timing
 !+
-!----------------------------------------------------------------
+!--------------------------------------------------------------------------
 #ifdef MPI
 module balance
  use mpi

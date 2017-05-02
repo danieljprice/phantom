@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, centreofmass, checkoptions, checksetup, chem,
-!    cpuinfo, densityforce, deriv, dim, domain, dust, energies, eos,
+!  DEPENDENCIES: balance, boundary, centreofmass, checkoptions, checksetup,
+!    chem, cpuinfo, densityforce, deriv, dim, domain, dust, energies, eos,
 !    evwrite, externalforces, fastmath, forcing, h2cooling, io, io_summary,
 !    linklist, mf_write, mpi, mpiutils, nicil, nicil_sup, omputils,
 !    options, part, photoevap, ptmass, readwrite_dumps, readwrite_infile,

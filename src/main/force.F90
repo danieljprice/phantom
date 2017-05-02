@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2015 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -17,16 +17,16 @@
 !    Price & Federrath (2010), MNRAS
 !    Tricco & Price (2012), J. Comp. Phys.
 !
-!  OWNER: Daniel Price
+!  OWNER: Conrad Chan
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, chem, cooling, dim, domain, dust, eos, fastmath,
-!    io, io_summary, kdtree, kernel, linklist, mpiderivs, mpiutils, nicil,
-!    nicil_sup, options, part, physcon, ptmass, timestep, timestep_ind,
-!    timestep_sts, timing, units, viscosity
+!  DEPENDENCIES: boundary, chem, cooling, dim, dust, eos, fastmath, io,
+!    io_summary, kdtree, kernel, linklist, mpiderivs, mpiforce, mpiutils,
+!    nicil, options, part, physcon, ptmass, stack, timestep, timestep_ind,
+!    timestep_sts, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module forces
