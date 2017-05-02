@@ -466,7 +466,7 @@ use kernel,        only:wkern_drag,cnormk_drag
     endif
 #endif
  enddo over_cells
-!$omp end do
+!$omp enddo
 
 #ifdef MPI
 !$omp barrier
@@ -500,7 +500,7 @@ use kernel,        only:wkern_drag,cnormk_drag
        call send_cell(cell,1,irequestsend,xsendbuf)
 !$omp end critical
     enddo over_remote
-!$omp end do
+!$omp enddo
 !$omp barrier
 !$omp single
     stack_remote%n = 0
@@ -546,7 +546,7 @@ use kernel,        only:wkern_drag,cnormk_drag
 !$omp atomic update
       stack_waiting%cells(i)%nsuper          = stack_waiting%cells(i)%nsuper     + stack_ready%cells(j)%nsuper
     enddo recombine
-!$omp end do
+!$omp enddo
 !$omp barrier
 !$omp do schedule(runtime)
     over_waiting: do i = 1, stack_waiting%n
@@ -573,7 +573,7 @@ use kernel,        only:wkern_drag,cnormk_drag
                                           check_ibinsink)
 
     enddo over_waiting
-!$omp end do
+!$omp enddo
 !$omp barrier
 !$omp single
     stack_ready%n = 0
@@ -628,7 +628,7 @@ use kernel,        only:wkern_drag,cnormk_drag
           endif
        endif
     enddo
-!$omp end do
+!$omp enddo
     if (rhomax_thread > rho_crit) then
 !$omp critical(rhomaxadd)
        if (rhomax_thread > rhomax) then
@@ -703,7 +703,7 @@ use kernel,        only:wkern_drag,cnormk_drag
          endif
       endif
    enddo
-!$omp end do
+!$omp enddo
 !$omp end parallel
 
  !  Print warning statements, if required
@@ -732,7 +732,7 @@ use kernel,        only:wkern_drag,cnormk_drag
                                                    ', ambipolar diffusion constraining timestep on ',ndtambi, &
                                                    ' particles by (ave, max) factor of',dtambifacmean/real(ndtambi),dtambifacmax
     endif
- end if
+ endif
  !  Save values for summary
  if (ndtforce   > 0)  call summary_variable('dt',iosumdtf  ,ndtforce  ,dtfrcfacmean  /real(ndtforce)  ,dtfrcfacmax  )
  if (ndtforceng > 0)  call summary_variable('dt',iosumdtfng,ndtforceng,dtfrcngfacmean/real(ndtforceng),dtfrcngfacmax)
@@ -745,7 +745,7 @@ use kernel,        only:wkern_drag,cnormk_drag
     if (ndtohm  > 0)  call summary_variable('dt',iosumdto  ,ndtohm    ,dtohmfacmean  /real(ndtohm)    ,dtohmfacmax  )
     if (ndthall > 0)  call summary_variable('dt',iosumdth  ,ndthall   ,dthallfacmean /real(ndthall)   ,dthallfacmax )
     if (ndtambi > 0)  call summary_variable('dt',iosumdta  ,ndtambi   ,dtambifacmean /real(ndtambi)   ,dtambifacmax )
- end if
+ endif
 
 #else
 
@@ -782,7 +782,7 @@ use kernel,        only:wkern_drag,cnormk_drag
       else if (abs(dtcourant-dtambi) < tiny(dtcourant) ) then
         if (iverbose >= 1 .and. id==master) call warning('force','ambipolar diffusion constraining Courant timestep')
         call summary_variable('dt',iosumdta,0,0.0,0.0, .true. )
-      end if
+      endif
     endif
  else
     if (dtvisc < dtcourant) then
@@ -1338,7 +1338,7 @@ ifgas: if (iamgasi .and. iamgasj) then
                  call nimhd_get_jcbcb(jcbcbj,jcbj,real(divcurlB(2:4,j)),Bxj,Byj,Bzj,Bj1)
                  call nimhd_get_dBdt(dBnonidealj,etaohmj,etahallj,etaambij,real(divcurlB(2:4,j)),jcbj,jcbcbj,runix,runiy,runiz)
                  dBnonideal = dBnonideal + dBnonidealj*pmjrho21grkernj
-              end if
+              endif
            endif
            !
            ! dB/dt evolution equation

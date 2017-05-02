@@ -397,7 +397,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     endif
 #endif
  enddo over_cells
-!$omp end do
+!$omp enddo
 
 #ifdef MPI
 !$omp barrier
@@ -437,7 +437,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           call send_cell(cell,1,irequestsend,xsendbuf)
 !$omp end critical
        enddo over_remote
-!$omp end do
+!$omp enddo
 
 !$omp barrier
 
@@ -472,7 +472,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp atomic update
           stack_waiting%cells(i)%nneightry = stack_waiting%cells(i)%nneightry + stack_ready%cells(j)%nneightry
        enddo recombine
-!$omp end do
+!$omp enddo
 
 !$omp barrier
 
@@ -512,7 +512,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           endif
 
        enddo over_waiting
-!$omp end do
+!$omp enddo
 
 !$omp barrier
 
@@ -568,7 +568,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
    if (nwarnup   > 0) call summary_variable('hupdn',iosumhup,0,real(nwarnup  ))
    if (nwarndown > 0) call summary_variable('hupdn',iosumhdn,0,real(nwarndown))
    if (iverbose  >=1) call reduce_and_print_warnings(nwarnup,nwarndown,nwarnroundoff)
- end if
+ endif
 !
 !--diagnostics
 !
