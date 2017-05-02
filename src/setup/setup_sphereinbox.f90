@@ -73,7 +73,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield
  use eos,          only:polyk2,ieos
  use part,         only:Bevol,Bextx,Bexty,Bextz,igas,idust,set_particle_type
- use timestep,     only:dtmax,tmax,rho_dtthresh_cgs,dtmax_rat0
+ use timestep,     only:dtmax,tmax
+ !use timestep,    only:rho_dtthresh_cgs,dtmax_rat0 ! specific to the isolated protostar formation studies
  use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
  use options,      only:twallmax, dtwallmax,nfulldump,alphaB
  use kernel,       only:hfact_default
@@ -373,6 +374,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     else
        tmax       = 10.75
     endif
+    dtmax         = t_ff/100.
     ieos          = 8
     icreate_sinks = 1
     if (binary) then
@@ -389,10 +391,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     nfulldump     = 1
     calc_erot     = .true.
     calc_erot_com = .false.
-    dtmax_rat0       = 4
-    rho_dtthresh_cgs = 5.0d-11
+    !dtmax_rat0       = 4           ! specific to the isolated protostar formation studies
+    !rho_dtthresh_cgs = 5.0d-13     ! specific to the isolated protostar formation studies
  endif
- dtmax = t_ff/100.  ! if overwriting data, do not want to start with decreased dtmax
+ !dtmax = t_ff/100.                 ! specific to the isolated protostar formation studies
 
 end subroutine setpart
 
