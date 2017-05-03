@@ -64,15 +64,15 @@ subroutine build_mesh(xyzh,np,nmesh,xmin,dxmax)
 
  if (present(xmin)) then
     if (.not.present(dxmax)) stop 'error in call to build_mesh: dxmax not present'
- !
- !--if boundaries are sent in, use these as the root node size
- !
+    !
+    !--if boundaries are sent in, use these as the root node size
+    !
     xminp(:)  = xmin(:)
     dxmaxp(:) = dxmax(:)
  else
- !
- !--otherwise, set the root node size to fit all the particles
- !
+    !
+    !--otherwise, set the root node size to fit all the particles
+    !
     xminp(:)  = huge(0.)
     dxmaxp(:) = -huge(0.)
     do i=1,np
@@ -148,7 +148,7 @@ recursive subroutine refine_mesh(xyzhi,imesh,level,xminl,dxmax,nmesh)
  if (kpixmax > nsub) kpixmax = nsub
 
  if (periodic) then
- !--these errors should never happen with periodic bc's
+    !--these errors should never happen with periodic bc's
     if (ipixmax < 1) stop 'INTERNAL ERROR: ipixmax < 1'
     if (jpixmax < 1) stop 'INTERNAL ERROR: jpixmax < 1'
     if (kpixmax < 1) stop 'INTERNAL ERROR: kpixmax < 1'
@@ -171,10 +171,10 @@ recursive subroutine refine_mesh(xyzhi,imesh,level,xminl,dxmax,nmesh)
 
           isubmesh = gridnodes(icell,imesh) !grid(imesh)%daughter(icell)
           if (isubmesh > 0) then
-          !
-          !--if cell is already refined, descend one level
-          !  and repeat the process
-          !
+             !
+             !--if cell is already refined, descend one level
+             !  and repeat the process
+             !
              xminnew(1)  = xminl(1) + (ipix-1)*dxcell(1)
              xminnew(2)  = xminl(2) + (jpix-1)*dxcell(2)
              xminnew(3)  = xminl(3) + (kpix-1)*dxcell(3)
@@ -188,18 +188,18 @@ recursive subroutine refine_mesh(xyzhi,imesh,level,xminl,dxmax,nmesh)
              endif
              call refine_mesh(xyzhi,isubmesh,isublevel,xminnew,dxmax,nmesh)
 
-          !
-          !--this line specifies the refinement criterion
-          !
+             !
+             !--this line specifies the refinement criterion
+             !
           elseif (((xyzhi(4) < hmincell .and. xyzhi(4) > tiny(0.)) &
                    .or.(level < minlevels)) &
                   .and. level < maxlevels) then
-          !
-          !--if node is not already refined and the refinement
-          !  criterion is satisfied (here if h < 0.5*dx)
-          !
+             !
+             !--if node is not already refined and the refinement
+             !  criterion is satisfied (here if h < 0.5*dx)
+             !
 
-          !$omp critical
+             !$omp critical
              nmesh = nmesh + 1
              if (nmesh > maxmeshes) then
                 print*,'ERROR: nmesh > maxmeshes (',maxmeshes,'): change parameter and recompile'
@@ -212,27 +212,27 @@ recursive subroutine refine_mesh(xyzhi,imesh,level,xminl,dxmax,nmesh)
              !grid(imesh)%daughter(icell) = nmesh
              !grid(nmesh)%daughter(:)    = -1  ! null referenced
              !grid(nmesh)%parent         = imesh
-          !
-          !--could stop here if the refinement criterion was
-          !  based on the number of particles in the cell
-          !  However, with hmin we should proceed to the next
-          !  level to see if this is refined or not
-          !
+             !
+             !--could stop here if the refinement criterion was
+             !  based on the number of particles in the cell
+             !  However, with hmin we should proceed to the next
+             !  level to see if this is refined or not
+             !
              xminnew(1)  = xminl(1) + (ipix-1)*dxcell(1)
              xminnew(2)  = xminl(2) + (jpix-1)*dxcell(2)
              xminnew(3)  = xminl(3) + (kpix-1)*dxcell(3)
 
              isublevel = level + 1
              isubmesh  = nmesh      ! be careful to pass by value here, not by reference...
-          !$omp end critical
+             !$omp end critical
              call refine_mesh(xyzhi,isubmesh,isublevel,xminnew,dxmax,nmesh)
              maxlevel = max(level+1,maxlevel)
-          !else
-          !
-          !--do not refine the cell any further
-          !  (would need to add particle to cell list here
-          !   if using for neighbour finding)
-          !
+             !else
+             !
+             !--do not refine the cell any further
+             !  (would need to add particle to cell list here
+             !   if using for neighbour finding)
+             !
              !print*,string(1:level)//'%no further refinement'
           endif
 

@@ -65,10 +65,10 @@ module io
  integer, parameter, private :: lenwhere = 20
 
  type warningdb_entry
-   character(len=lenwhere) :: wherefrom
-   character(len=lenmsg)   :: message
-   integer(kind=8)         :: ncount
-   integer :: level
+    character(len=lenwhere) :: wherefrom
+    character(len=lenmsg)   :: message
+    integer(kind=8)         :: ncount
+    integer :: level
  end type
 
  integer, parameter :: maxwarningdb = 20
@@ -83,41 +83,41 @@ contains
 !  Sets the logical unit numbers to use for output
 !+
 !--------------------------------------------------------------------
- subroutine set_io_unit_numbers
+subroutine set_io_unit_numbers
 
 #ifdef MPI
-  iprint = 6     ! only iprint=6 makes sense for MPI runs
+ iprint = 6     ! only iprint=6 makes sense for MPI runs
 #else
-  iprint = 6 !8     ! for writing log output
-  nprocs = 1
-  id     = 0
+ iprint = 6 !8     ! for writing log output
+ nprocs = 1
+ id     = 0
 #endif
-  imflow  = 47
-  ivmflow = 48
-  ibinpos = 49
-  igpos   = 46
+ imflow  = 47
+ ivmflow = 48
+ ibinpos = 49
+ igpos   = 46
 
-  ievfile    = 13 ! for writing energies etc
-  idump      = 12 ! for writing dump files
-  ireadin    = 21 ! for reading input file
-  iwritein   = 22 ! for writing input file
-  idisk1     =  9 ! for reading dump files
-  ifdump     = 51 ! for writing forcing restart file
-  ifdumpread = 18 ! for reading forcing restart file
-  ireadgrid  = 53 ! for reading gridded density derivative file
-  ireaddrv   = 24 ! for reading input file for turbulent driving
-  ianalysis  = 25 ! for writing analysis output
-  icolA      = 26 ! for opening/comparing .columns files
-  icolB      = 27 ! for opening/comparing .columns files
-  iuniteos   = 28 ! for printing the eos to file
-  igit       = 29 ! for reading phantom_version
-  iscfile    = 32 ! for writing details of sink creation
-  ipafile    = 31 ! for writing details of particle accretion
-  iskfile    =407 ! for writing details of the sink particles;
-                  ! note this actually opens files iskfile+1 to iskfile+nptmass
-  iverbose   = 0
+ ievfile    = 13 ! for writing energies etc
+ idump      = 12 ! for writing dump files
+ ireadin    = 21 ! for reading input file
+ iwritein   = 22 ! for writing input file
+ idisk1     =  9 ! for reading dump files
+ ifdump     = 51 ! for writing forcing restart file
+ ifdumpread = 18 ! for reading forcing restart file
+ ireadgrid  = 53 ! for reading gridded density derivative file
+ ireaddrv   = 24 ! for reading input file for turbulent driving
+ ianalysis  = 25 ! for writing analysis output
+ icolA      = 26 ! for opening/comparing .columns files
+ icolB      = 27 ! for opening/comparing .columns files
+ iuniteos   = 28 ! for printing the eos to file
+ igit       = 29 ! for reading phantom_version
+ iscfile    = 32 ! for writing details of sink creation
+ ipafile    = 31 ! for writing details of particle accretion
+ iskfile    =407 ! for writing details of the sink particles;
+ ! note this actually opens files iskfile+1 to iskfile+nptmass
+ iverbose   = 0
 
- end subroutine set_io_unit_numbers
+end subroutine set_io_unit_numbers
 
 
 !--------------------------------------------------------------------
@@ -193,8 +193,8 @@ subroutine formatreal(val,string,ierror,precision)
     write(string,"(f8.0)",iostat=ierr) val
  else !if (abs(val) >= 100.) then
     write(string,"(f8.0)",iostat=ierr) val
- !else
- !   write(string,"(f8.2)",iostat=ierr) val
+    !else
+    !   write(string,"(f8.2)",iostat=ierr) val
  endif
  string = adjustl(trim(string))
 
@@ -556,14 +556,14 @@ end subroutine fatal
 !--------------------------------------------------------------------
 subroutine die
 #ifdef MPI
-  use mpi
-  integer :: ierr
+ use mpi
+ integer :: ierr
 
-  call mpi_abort(mpi_comm_world,666,ierr)
-  call mpi_finalize(ierr)
+ call mpi_abort(mpi_comm_world,666,ierr)
+ call mpi_finalize(ierr)
 #endif
 
-  stop
+ stop
 end subroutine die
 
 end module io

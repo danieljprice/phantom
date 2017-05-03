@@ -127,18 +127,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
                             hfact,npart,xyzh,nptot=npart_total)
        else
-         if (itype == igas) then
-            call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
+          if (itype == igas) then
+             call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
                                hfact,npart,xyzh,nptot=npart_total)
-         else
-            call set_unifdis('cubic',id,master,xmin+0.01*deltax,xmax+0.01*deltax,ymin+0.05*deltax, &
+          else
+             call set_unifdis('cubic',id,master,xmin+0.01*deltax,xmax+0.01*deltax,ymin+0.05*deltax, &
                               ymax+0.05*deltax,zmin+0.05*deltax,zmax+0.05*deltax,deltax, &
                               hfact,npart,xyzh,nptot=npart_total)
-            !call set_unifdis('cubic',id,master,xmin+0.5*deltax,xmax+0.5*deltax,ymin+0.5*deltax, &
-            !                  ymax+0.5*deltax,zmin+0.5*deltax,zmax+0.5*deltax,deltax, &
-            !                   hfact,npart,xyzh,nptot=npart_total)
-            !--Use this previous setup to how bad the spline is
-         endif
+             !call set_unifdis('cubic',id,master,xmin+0.5*deltax,xmax+0.5*deltax,ymin+0.5*deltax, &
+             !                  ymax+0.5*deltax,zmin+0.5*deltax,zmax+0.5*deltax,deltax, &
+             !                   hfact,npart,xyzh,nptot=npart_total)
+             !--Use this previous setup to how bad the spline is
+          endif
        endif
     case(2)
        call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
@@ -155,13 +155,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     enddo
 
     do i=npart_previous+1,npart
-      if (itype==igas) then
-         vxyzu(1,i)   = 0.
-         vxyzu(2:3,i) = 0.
-      else
-         vxyzu(1,i)   = 1.
-         vxyzu(2:3,i) = 0.
-      endif
+       if (itype==igas) then
+          vxyzu(1,i)   = 0.
+          vxyzu(2:3,i) = 0.
+       else
+          vxyzu(1,i)   = 1.
+          vxyzu(2:3,i) = 0.
+       endif
     enddo
 
     npartoftype(itype) = npart - npart_previous

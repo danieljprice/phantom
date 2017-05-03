@@ -84,99 +84,99 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ntypes = 2
  overtypes: do itype=1,ntypes
     if (itype /= 2) then
-        print*,'TEST',itype,ntypes
-        if (id==master) then
-           if (ntypes > 1) then
-              print "(/,a,/)",'  >>> Setting up '//trim(labeltype(itype))//' particles <<<'
-           endif
-           print*,' uniform cubic setup...'
-           print*,' enter number of particles in x (max = ',nint((maxp)**(1/3.))/real(ntypes),')'
-           read*,npartx
-        endif
-        call bcast_mpi(npartx)
-        deltax = dxbound/npartx
+       print*,'TEST',itype,ntypes
+       if (id==master) then
+          if (ntypes > 1) then
+             print "(/,a,/)",'  >>> Setting up '//trim(labeltype(itype))//' particles <<<'
+          endif
+          print*,' uniform cubic setup...'
+          print*,' enter number of particles in x (max = ',nint((maxp)**(1/3.))/real(ntypes),')'
+          read*,npartx
+       endif
+       call bcast_mpi(npartx)
+       deltax = dxbound/npartx
 
-        if (id==master) then
-           print*,' enter density (gives particle mass)'
-           read*,rhozero
-        endif
-        call bcast_mpi(rhozero)
+       if (id==master) then
+          print*,' enter density (gives particle mass)'
+          read*,rhozero
+       endif
+       call bcast_mpi(rhozero)
 
-        if (itype==1) then
-           if (maxvxyzu < 4) then
-              if (id==master) then
-                 print*,' enter sound speed in code units (sets polyk)'
-                 read*,polykset
-              endif
-              call bcast_mpi(polykset)
-              polyk = polykset**2
-              print*,' polyk = ',polyk
-           else
-              polyk = 0.
-              polykset = 0.
-           endif
-        endif
+       if (itype==1) then
+          if (maxvxyzu < 4) then
+             if (id==master) then
+                print*,' enter sound speed in code units (sets polyk)'
+                read*,polykset
+             endif
+             call bcast_mpi(polykset)
+             polyk = polykset**2
+             print*,' polyk = ',polyk
+          else
+             polyk = 0.
+             polykset = 0.
+          endif
+       endif
 
-        if (id==master) then
-           print*,' select lattice type (1=cubic, 2=closepacked)'
-           read*,ilattice
-        endif
-        call bcast_mpi(ilattice)
+       if (id==master) then
+          print*,' select lattice type (1=cubic, 2=closepacked)'
+          read*,ilattice
+       endif
+       call bcast_mpi(ilattice)
 
-        npart_previous = npart
+       npart_previous = npart
 
-        select case(ilattice)
-        case(1)
-           call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
+       select case(ilattice)
+       case(1)
+          call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
                              hfact,npart,xyzh,nptot=npart_total)
-        case(2)
-           call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
+       case(2)
+          call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
                              hfact,npart,xyzh,nptot=npart_total)
-        case default
-           print*,' error: chosen lattice not available, using cubic'
-           call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
+       case default
+          print*,' error: chosen lattice not available, using cubic'
+          call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
                              hfact,npart,xyzh,nptot=npart_total)
-        end select
+       end select
 
-        !--set which type of particle it is
-        do i=npart_previous+1,npart
-           call set_particle_type(i,itype)
-        enddo
+       !--set which type of particle it is
+       do i=npart_previous+1,npart
+          call set_particle_type(i,itype)
+       enddo
 
-        do i=npart_previous+1,npart
-           vxyzu(1:3,i) = 0.
-        enddo
+       do i=npart_previous+1,npart
+          vxyzu(1:3,i) = 0.
+       enddo
 
-        npartoftype(itype) = npart - npart_previous
-        print*,' npart = ',ipart,npart,npart_total
+       npartoftype(itype) = npart - npart_previous
+       print*,' npart = ',ipart,npart,npart_total
 
-        totmass = rhozero*dxbound*dybound*dzbound
-        massoftype(itype) = totmass/npartoftype(itype)
-        print*,' particle mass = ',massoftype(itype)
-   endif
+       totmass = rhozero*dxbound*dybound*dzbound
+       massoftype(itype) = totmass/npartoftype(itype)
+       print*,' particle mass = ',massoftype(itype)
+    endif
  enddo overtypes
 
-npart = npart + 1
-i     = npart
+ npart = npart + 1
+ i     = npart
 !--setup the quantities for one spherical dust particle
 
  if (id==master) then
-     itype = idust
-     call set_particle_type(i,itype)
-     print*,'WARNING: be sure that the values of graindenscgs and grainsizecgs are consistent with dust.F90'
-     grainsize_ini = grainsizecgs/udist
-     graindens_ini = graindenscgs/unit_densisty
+    itype = idust
+    call set_particle_type(i,itype)
+    print*,'WARNING: be sure that the values of graindenscgs and grainsizecgs are consistent with dust.F90'
+    grainsize_ini = grainsizecgs/udist
+    graindens_ini = graindenscgs/unit_densisty
 !     massoftype(itype) = 4./3.*pi*graindens_ini*grainsize_ini**3
-     massoftype(itype) = tiny(0.)
-     print*,' grain mass = ',massoftype(itype)
-     xyzh(1:3,i) = 0.
-     xyzh(4,i) = hfact*deltax
-     print*,' enter grains velocity in code units'
-     read*, vxyzu(1,i)
-     vxyzu(2:3,i) = 0.
-     npartoftype(itype) = 1
-  endif
-print*,'npart',npart
+    massoftype(itype) = tiny(0.)
+    print*,' grain mass = ',massoftype(itype)
+    xyzh(1:3,i) = 0.
+    xyzh(4,i) = hfact*deltax
+    print*,' enter grains velocity in code units'
+    read*, vxyzu(1,i)
+    vxyzu(2:3,i) = 0.
+    npartoftype(itype) = 1
+ endif
+ print*,'npart',npart
 
  return
 end subroutine setpart

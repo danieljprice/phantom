@@ -28,22 +28,22 @@ module stack
 
  implicit none
 
-interface push_onto_stack
- module procedure push_onto_stack_dens,push_onto_stack_force
-end interface
+ interface push_onto_stack
+  module procedure push_onto_stack_dens,push_onto_stack_force
+ end interface
 
-interface pop_off_stack
- module procedure pop_off_stack_dens,pop_off_stack_force
-end interface
+ interface pop_off_stack
+  module procedure pop_off_stack_dens,pop_off_stack_force
+ end interface
 
-interface reserve_stack
- module procedure reserve_stack_dens,reserve_stack_force
-end interface
+ interface reserve_stack
+  module procedure reserve_stack_dens,reserve_stack_force
+ end interface
 
 
-public :: push_onto_stack
-public :: pop_off_stack
-public :: reserve_stack
+ public :: push_onto_stack
+ public :: pop_off_stack
+ public :: reserve_stack
 
 contains
 
@@ -84,21 +84,21 @@ subroutine pop_off_stack_force(stack,cell)
 end subroutine pop_off_stack_force
 
 subroutine reserve_stack_dens(stack,i)
-  type(stackdens),    intent(inout) :: stack
-  integer,            intent(out)   :: i
+ type(stackdens),    intent(inout) :: stack
+ integer,            intent(out)   :: i
 
-  stack%n = stack%n + 1
-  i = stack%n
-  if (stack%n > stack%maxlength) call fatal('density','stack overflow')
+ stack%n = stack%n + 1
+ i = stack%n
+ if (stack%n > stack%maxlength) call fatal('density','stack overflow')
 end subroutine reserve_stack_dens
 
 subroutine reserve_stack_force(stack,i)
-  type(stackforce),   intent(inout) :: stack
-  integer,            intent(out)   :: i
+ type(stackforce),   intent(inout) :: stack
+ integer,            intent(out)   :: i
 
-  stack%n = stack%n + 1
-  i = stack%n
-  if (stack%n > stack%maxlength) call fatal('force','stack overflow')
+ stack%n = stack%n + 1
+ i = stack%n
+ if (stack%n > stack%maxlength) call fatal('force','stack overflow')
 end subroutine reserve_stack_force
 #endif
 end module stack

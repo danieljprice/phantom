@@ -56,13 +56,13 @@ module mpiforce
  endtype
 
  type stackforce
-  sequence
-  integer          :: maxlength = stacksize
-  type(cellforce)  :: cells(stacksize)
-  integer          :: n = 0
+    sequence
+    integer          :: maxlength = stacksize
+    type(cellforce)  :: cells(stacksize)
+    integer          :: n = 0
  endtype
 
- contains
+contains
 
 #ifdef MPI
 subroutine get_mpitype_of_cellforce(dtype)

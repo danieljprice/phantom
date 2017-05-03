@@ -172,7 +172,7 @@ subroutine send_celldens(cell,direction,irequestsend,xsendbuf)
  ! export
  if (direction == 0) then
     targets = cell%remote_export(1:nprocs)
- ! return
+    ! return
  elseif (direction == 1) then
     targets = .false.
     targets(cell%owner+1) = .true.
@@ -205,7 +205,7 @@ subroutine send_cellforce(cell,direction,irequestsend,xsendbuf)
  ! export
  if (direction == 0) then
     targets = cell%remote_export(1:nprocs)
- ! return
+    ! return
  elseif (direction == 1) then
     targets = .false.
     targets(cell%owner+1) = .true.
@@ -443,10 +443,10 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
 
 !--free request handle
  do iproc=1,nprocs
-   !  call MPI_TEST(irequestrecv(iproc),idone,status,mpierr)
+    !  call MPI_TEST(irequestrecv(iproc),idone,status,mpierr)
     call MPI_WAIT(irequestrecv(iproc),status,mpierr)
     call MPI_REQUEST_FREE(irequestrecv(iproc),mpierr)
-   !  if (.not.idone) call fatal('finish_cell_exchange_mpi','receive has not completed for force')
+    !  if (.not.idone) call fatal('finish_cell_exchange_mpi','receive has not completed for force')
  enddo
  call MPI_COMM_FREE(comm_cellexchange,mpierr)
 

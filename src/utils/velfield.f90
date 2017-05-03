@@ -63,19 +63,19 @@ subroutine set_velfield(xyzh,vxyzu,npart)
 !
  powsum=0.d0
  do k=1,ngrid
-   do j=1,2*ngrid
-     do i=1,2*ngrid
-       amp_phi(4,i,j,k)=(-pi + 2.d0*pi*ran3(iseed))
-       amp_phi(5,i,j,k)=(-pi + 2.d0*pi*ran3(iseed))
-       amp_phi(6,i,j,k)=(-pi + 2.d0*pi*ran3(iseed))
-       kmod=sqrt(real((i-ngrid)**2+(j-ngrid)**2+k*k))
-       pow(i,j,k)=aa*(kmod)**(nindex)
-       powsum=powsum+pow(i,j,k)
-       amp_phi(1,i,j,k)=rayldev(iseed2)*sqrt(pow(i,j,k))
-       amp_phi(2,i,j,k)=rayldev(iseed2)*sqrt(pow(i,j,k))
-       amp_phi(3,i,j,k)=rayldev(iseed2)*sqrt(pow(i,j,k))
-     enddo
-   enddo
+    do j=1,2*ngrid
+       do i=1,2*ngrid
+          amp_phi(4,i,j,k)=(-pi + 2.d0*pi*ran3(iseed))
+          amp_phi(5,i,j,k)=(-pi + 2.d0*pi*ran3(iseed))
+          amp_phi(6,i,j,k)=(-pi + 2.d0*pi*ran3(iseed))
+          kmod=sqrt(real((i-ngrid)**2+(j-ngrid)**2+k*k))
+          pow(i,j,k)=aa*(kmod)**(nindex)
+          powsum=powsum+pow(i,j,k)
+          amp_phi(1,i,j,k)=rayldev(iseed2)*sqrt(pow(i,j,k))
+          amp_phi(2,i,j,k)=rayldev(iseed2)*sqrt(pow(i,j,k))
+          amp_phi(3,i,j,k)=rayldev(iseed2)*sqrt(pow(i,j,k))
+       enddo
+    enddo
  enddo
 
  sigma2=0.d0
@@ -86,72 +86,72 @@ subroutine set_velfield(xyzh,vxyzu,npart)
 !$omp shared(xyzh,vxyzu) &
 !$omp private(ipart,kk,jj,ii,i,j,k,kx,ky,kz,kdotq,contrib,velx,vely,velz) &
  overz: do kk = 1, 2*ngrid
-   !print*,'kk ',kk
-   call cpu_time(t2)
-   if (kk > 1) print*,kk,' time = ',t2-tprev,' to finish = ',(2*ngrid-kk)*(t2-tprev)
-   tprev = t2
+    !print*,'kk ',kk
+    call cpu_time(t2)
+    if (kk > 1) print*,kk,' time = ',t2-tprev,' to finish = ',(2*ngrid-kk)*(t2-tprev)
+    tprev = t2
 
-   zi = (kk-ngrid-0.5)/real(ngrid)
-   overy: do jj = 1, 2*ngrid
-    !print*,'jj ',jj
-    yi = (jj-ngrid-0.5)/real(ngrid)
-    overx: do ii = 1, 2*ngrid
-       xi = (ii-ngrid-0.5)/real(ngrid)
+    zi = (kk-ngrid-0.5)/real(ngrid)
+    overy: do jj = 1, 2*ngrid
+       !print*,'jj ',jj
+       yi = (jj-ngrid-0.5)/real(ngrid)
+       overx: do ii = 1, 2*ngrid
+          xi = (ii-ngrid-0.5)/real(ngrid)
 
-   !do ipart=1,npart
-   !   xi = xyzh(1,ipart)
-   !   yi = xyzh(2,ipart)
-   !   zi = xyzh(3,ipart)
-      !if (mod(ipart,1000)==0) then
-      !   call cpu_time(t2)
-      !   print*,ipart,' time = ',t2-tprev,' per part = ',(t2-tprev)/1000.,' to finish = ',(npart-ipart)/1000.*(t2-tprev)
-      !   tprev = t2
-      !endif
+          !do ipart=1,npart
+          !   xi = xyzh(1,ipart)
+          !   yi = xyzh(2,ipart)
+          !   zi = xyzh(3,ipart)
+          !if (mod(ipart,1000)==0) then
+          !   call cpu_time(t2)
+          !   print*,ipart,' time = ',t2-tprev,' per part = ',(t2-tprev)/1000.,' to finish = ',(npart-ipart)/1000.*(t2-tprev)
+          !   tprev = t2
+          !endif
 
-      velx = 0.
-      vely = 0.
-      velz = 0.
+          velx = 0.
+          vely = 0.
+          velz = 0.
 
-      do k=1,ngrid
-         do j=1,2*ngrid
-            do i=1,2*ngrid
-               xk = real(i-ngrid)
-               yk = real(j-ngrid)
-               zk = real(k)
+          do k=1,ngrid
+             do j=1,2*ngrid
+                do i=1,2*ngrid
+                   xk = real(i-ngrid)
+                   yk = real(j-ngrid)
+                   zk = real(k)
 !!                        kmod=(2.d0*pi/lf)*
 !!     &                       sqrt(real(kx**2+ky**2+kz**2))
-               kdotq=(2.d0*pi/lf)*(xk*xi + yk*yi + zk*zi)
-               ampxi = amp_phi(1,i,j,k)
-               ampyi = amp_phi(2,i,j,k)
-               ampzi = amp_phi(3,i,j,k)
-               phix = amp_phi(4,i,j,k)
-               phiy = amp_phi(5,i,j,k)
-               phiz = amp_phi(6,i,j,k)
-               sinphix = sin(kdotq+phix)
-               sinphiy = sin(kdotq+phiy)
-               sinphiz = sin(kdotq+phiz)
-               contrib = ampzi*(2.d0*pi/lf)*yk*2.d0*sinphiz &
+                   kdotq=(2.d0*pi/lf)*(xk*xi + yk*yi + zk*zi)
+                   ampxi = amp_phi(1,i,j,k)
+                   ampyi = amp_phi(2,i,j,k)
+                   ampzi = amp_phi(3,i,j,k)
+                   phix = amp_phi(4,i,j,k)
+                   phiy = amp_phi(5,i,j,k)
+                   phiz = amp_phi(6,i,j,k)
+                   sinphix = sin(kdotq+phix)
+                   sinphiy = sin(kdotq+phiy)
+                   sinphiz = sin(kdotq+phiz)
+                   contrib = ampzi*(2.d0*pi/lf)*yk*2.d0*sinphiz &
                        - ampyi*(2.d0*pi/lf)*zk*2.d0*sinphiy
-               velx = velx + contrib
-               contrib = ampxi*(2.d0*pi/lf)*zk*2.d0*sinphix &
-&                      - ampzi*(2.d0*pi/lf)*xk*2.d0*sinphiz
-               vely = vely + contrib
-               contrib = ampyi*(2.d0*pi/lf)*xk*2.d0*sinphiy &
+                   velx = velx + contrib
+                   contrib = ampxi*(2.d0*pi/lf)*zk*2.d0*sinphix &
+                   &                      - ampzi*(2.d0*pi/lf)*xk*2.d0*sinphiz
+                   vely = vely + contrib
+                   contrib = ampyi*(2.d0*pi/lf)*xk*2.d0*sinphiy &
                        - ampxi*(2.d0*pi/lf)*yk*2.d0*sinphix
-               velz = velz + contrib
-            enddo
-         enddo
-      enddo
-      vgridxyz(1,ii,jj,kk) = velx
-      vgridxyz(2,ii,jj,kk) = vely
-      vgridxyz(3,ii,jj,kk) = velz
+                   velz = velz + contrib
+                enddo
+             enddo
+          enddo
+          vgridxyz(1,ii,jj,kk) = velx
+          vgridxyz(2,ii,jj,kk) = vely
+          vgridxyz(3,ii,jj,kk) = velz
 
 !      vxyzu(1,ipart) = velx
 !      vxyzu(2,ipart) = vely
 !      vxyzu(3,ipart) = velz
-     enddo overx
+       enddo overx
     enddo overy
-   enddo overz
+ enddo overz
 !$omp end parallel do
 
 end subroutine set_velfield
@@ -165,47 +165,47 @@ end subroutine set_velfield
 !
 !      this suroutine generates a uniform random deviate on (0,1).
 !
-   double precision function ran3(idum)
+double precision function ran3(idum)
 !
-   implicit double precision (m)
-     double precision fac
-    parameter (mbig=4000000., mseed=1618033., mz=0., fac=1./mbig)
-     dimension ma(55)
-         save
-       data iff/0/
-     if(idum < 0.or.iff==0)then
-        iff=1
-        mj=mseed-iabs(idum)
-        mj=mod(mj,mbig)
-        ma(55)=mj
-        mk=1
-       do 100 i=1,54
-         ii=mod(21*i,55)
-         ma(ii)=mk
-         mk=mj-mk
-         if(mk < mz)mk=mk+mbig
-         mj=ma(ii)
-100         continue
-       do 200 k=1,4
-         do 300 i=1,55
-           ma(i)=ma(i)-ma(1+mod(i+30,55))
-           if(ma(i) < mz)ma(i)=ma(i)+mbig
-300           continue
-200         continue
-        inext=0
-        inextp=31
-        idum=1
-    endif
-       inext=inext+1
-       if(inext==56)inext=1
-       inextp=inextp+1
-       if(inextp==56)inextp=1
-       mj=ma(inext)-ma(inextp)
-       if(mj < mz)mj=mj+mbig
-       ma(inext)=mj
-       ran3=mj*fac
-        return
-        end function ran3
+ implicit double precision (m)
+ double precision fac
+ parameter (mbig=4000000., mseed=1618033., mz=0., fac=1./mbig)
+ dimension ma(55)
+ save
+ data iff/0/
+ if(idum < 0.or.iff==0)then
+    iff=1
+    mj=mseed-iabs(idum)
+    mj=mod(mj,mbig)
+    ma(55)=mj
+    mk=1
+    do 100 i=1,54
+       ii=mod(21*i,55)
+       ma(ii)=mk
+       mk=mj-mk
+       if(mk < mz)mk=mk+mbig
+       mj=ma(ii)
+100 continue
+    do 200 k=1,4
+       do 300 i=1,55
+          ma(i)=ma(i)-ma(1+mod(i+30,55))
+          if(ma(i) < mz)ma(i)=ma(i)+mbig
+300    continue
+200 continue
+    inext=0
+    inextp=31
+    idum=1
+ endif
+ inext=inext+1
+ if(inext==56)inext=1
+ inextp=inextp+1
+ if(inextp==56)inextp=1
+ mj=ma(inext)-ma(inextp)
+ if(mj < mz)mj=mj+mbig
+ ma(inext)=mj
+ ran3=mj*fac
+ return
+end function ran3
 
 real*8 function rayldev(idum)
  integer, intent(in) :: idum

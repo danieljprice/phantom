@@ -321,18 +321,18 @@ subroutine cool_func(temp, yn, dl, abundances, ylam, rates)
 ! Read out tables.
 !
  if (temp  <=  tmin) then
-   itemp = 1
-   dtemp = 0d0
+    itemp = 1
+    dtemp = 0d0
  elseif (temp  >  tmax) then
-   itemp = nmd
-   dtemp = temp - temptab(itemp)
+    itemp = nmd
+    dtemp = temp - temptab(itemp)
  else
-   itemp = int(log10(temp) / dtlog) + 1
-   if (itemp  <=  0 .or. itemp  >  nmd) then
-     !print*, 'Fatal error in cool_func.F', itemp, temp
-     call fatal('cool_func','bad temperature in cooling function',var='temp',val=temp,ival=itemp)
-   endif
-   dtemp = temp - temptab(itemp)
+    itemp = int(log10(temp) / dtlog) + 1
+    if (itemp  <=  0 .or. itemp  >  nmd) then
+       !print*, 'Fatal error in cool_func.F', itemp, temp
+       call fatal('cool_func','bad temperature in cooling function',var='temp',val=temp,ival=itemp)
+    endif
+    dtemp = temp - temptab(itemp)
  endif
 !
  dtcl1  = dtcltab(1,itemp)
@@ -459,11 +459,11 @@ subroutine cool_func(temp, yn, dl, abundances, ylam, rates)
 ! (R2) -- H2 (vr) cooling
 !
  if (ynh2 == 0d0) then
-   rates(2) = 0d0
+    rates(2) = 0d0
  else
-   h2var0   = ynh * cl2 + ynh2 * cl3
-   h2var1   = cl1 + h2var0
-   rates(2) = ynh2 * cl1 * h2var0 / h2var1
+    h2var0   = ynh * cl2 + ynh2 * cl3
+    h2var1   = cl1 + h2var0
+    rates(2) = ynh2 * cl1 * h2var0 / h2var1
  endif
 !
 ! (R3) -- atomic cooling
@@ -1302,11 +1302,11 @@ subroutine coolinmo
 !
 ! HI:
 ! 1 -> 0
-     cltab(42,itemp) = 3.5d-10 * temp2**(-0.03)
+    cltab(42,itemp) = 3.5d-10 * temp2**(-0.03)
 ! 2 -> 0
-     cltab(43,itemp) = 1.7d-11 * temp2**0.17
+    cltab(43,itemp) = 1.7d-11 * temp2**0.17
 ! 2 -> 1
-     cltab(44,itemp) = 5.0d-10 * temp2**0.17
+    cltab(44,itemp) = 5.0d-10 * temp2**0.17
 !
 ! Proton rates are independent of T, so we don't bother to tabulate
 ! them here -- instead, they're listed in cool_func.F
@@ -1342,11 +1342,11 @@ subroutine coolinmo
     else
        cltab(45,itemp) = 3.113619d-10 * temp2**0.385d0
     endif
- !
- ! (cl46) CII - H2 (Below 250K, we use the fit from WBV96 to the data from
- !                  FL77. Above 250K, we assume that the rate scales the
- !                  same as the low-temp. HI rate)
- !
+    !
+    ! (cl46) CII - H2 (Below 250K, we use the fit from WBV96 to the data from
+    !                  FL77. Above 250K, we assume that the rate scales the
+    !                  same as the low-temp. HI rate)
+    !
     if (temp  <  250d0) then
        f  = (4.7d-10 + 4.6d-13 * temp) * fortho
        hh = (2.5d-10 * temp**0.12) * fpara
@@ -1444,9 +1444,9 @@ subroutine coolinmo
 ! For temp > 10^4 K, include thermal bremsstrahlung component
 !
        if (temp  >  1d4)  then
-         brem = 1.42d-27 * sqrt(temp)
+          brem = 1.42d-27 * sqrt(temp)
        else
-         brem = 0d0
+          brem = 0d0
        endif
 
        cltab(6,itemp)  = atomic + brem
@@ -1467,9 +1467,9 @@ subroutine coolinmo
     do itemp = 1, nmd
        temp   = temptab(itemp)
        if (temp  <  10**4.3d0) then
-         cltab(6,itemp) = 0d0
+          cltab(6,itemp) = 0d0
        else
-         cltab(6,itemp) = 1d1**(rate0(itemp))
+          cltab(6,itemp) = 1d1**(rate0(itemp))
        endif
 !
 ! Tabulate HI excitation cooling rate separately.
@@ -1594,11 +1594,11 @@ pure subroutine hchem(temp, yn, NH, abe, abhp, C, D, sqrttemp)
  var2 = - 0.4723d0 - 1.102d-5 * log(temp)
 
  if (phi == 0d0) then
-   k_gr = 1.225d-13 * dust_to_gas_ratio
+    k_gr = 1.225d-13 * dust_to_gas_ratio
  else
-   var3  = 8.074d-6 * phi**1.378d0
-   var4  = (1d0 + var1 * phi**var2)
-   k_gr  = 1.225d-13 * dust_to_gas_ratio / (1d0 + var3 * var4)
+    var3  = 8.074d-6 * phi**1.378d0
+    var4  = (1d0 + var1 * phi**var2)
+    k_gr  = 1.225d-13 * dust_to_gas_ratio / (1d0 + var3 * var4)
  endif
 !
 ! Compute creation and destruction rates for hydrogen

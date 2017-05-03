@@ -58,13 +58,13 @@ module mpidens
  endtype
 
  type stackdens
-  sequence
-  integer          :: maxlength = stacksize
-  type(celldens)   :: cells(stacksize)
-  integer          :: n = 0
+    sequence
+    integer          :: maxlength = stacksize
+    type(celldens)   :: cells(stacksize)
+    integer          :: n = 0
  endtype
 
- contains
+contains
 
 #ifdef MPI
 subroutine get_mpitype_of_celldens(dtype)

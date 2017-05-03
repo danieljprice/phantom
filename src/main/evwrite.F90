@@ -362,7 +362,7 @@ subroutine write_evlog(iprint)
       'Linm',ev_data(itotmom),'Angm',ev_data(iangtot)
  if (iexternalforce > 0) then
     if (abs(ev_data(iangall)-ev_data(iangtot)) > tiny(0.)) then
-        write(iprint,"(1x,1(a,'=',es10.3,', '),(a,'=',es10.3),a)") &
+       write(iprint,"(1x,1(a,'=',es10.3,', '),(a,'=',es10.3),a)") &
        'Linm',ev_data(imomall),'Angm',ev_data(iangall),' [including accreted particles]'
     endif
  endif

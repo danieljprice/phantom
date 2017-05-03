@@ -57,15 +57,15 @@ module inject
 
  public :: inject_particles, write_options_inject, read_options_inject, set_injection_parameters
 
-type injectparams
-real, public :: R_in, R_out, Rsect_in, Rsect_out, width, R_mid, dr_bound, phi_inject
-real, public :: phimax, p_index,q_index, HoverR, object_mass, disc_mass
-end type
+ type injectparams
+    real, public :: R_in, R_out, Rsect_in, Rsect_out, width, R_mid, dr_bound, phi_inject
+    real, public :: phimax, p_index,q_index, HoverR, object_mass, disc_mass
+ end type
 
-type(injectparams), public :: injp
+ type(injectparams), public :: injp
 
-integer :: nqueuecrit, ngas_initial, ninjectmax
-logical :: firstrun
+ integer :: nqueuecrit, ngas_initial, ninjectmax
+ logical :: firstrun
 
  private
 
@@ -77,23 +77,23 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype)
-  use part,      only:igas,iboundary, massoftype
-  use physcon,   only:Rg,gg,pi
-  use eos,       only:gamma
-use io,        only:master
-  real,    intent(in)    :: time, dtlast
-  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
-  integer, intent(inout) :: npart
-  integer, intent(inout) :: npartoftype(:)
+ use part,      only:igas,iboundary, massoftype
+ use physcon,   only:Rg,gg,pi
+ use eos,       only:gamma
+ use io,        only:master
+ real,    intent(in)    :: time, dtlast
+ real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npartoftype(:)
 
-  real, parameter :: mu = 1.26 ! Used in Bowen (1988)
+ real, parameter :: mu = 1.26 ! Used in Bowen (1988)
 
-  integer :: ninject,nqueue, nkill, nboundary, ndomain, injected, nexit
-  logical :: replenish
+ integer :: ninject,nqueue, nkill, nboundary, ndomain, injected, nexit
+ logical :: replenish
 
 
  ! Subroutine begins:
-  massoftype(iboundary) = massoftype(igas)
+ massoftype(iboundary) = massoftype(igas)
 
  !--------------
  ! 1. Determine the state of all particles in the simulation: live, boundary, or dead
@@ -120,56 +120,56 @@ use io,        only:master
 
     nqueuecrit = -1
     print*, 'First timestep: initialising queue'
-endif
+ endif
 
-if(nqueue< nqueuecrit) then
+ if(nqueue< nqueuecrit) then
     print*, 'Queue nearly empty: replenishing'
     replenish=.true. ! If a small number of particles in queue, replenishment required
-endif
+ endif
 
-if(npartoftype(igas) < int(0.9*ngas_initial) .and. nqueue < ninjectmax) then
+ if(npartoftype(igas) < int(0.9*ngas_initial) .and. nqueue < ninjectmax) then
     print*, 'Simulation domain depleted: replenishing'
     replenish = .true.
-endif
+ endif
 
-if(injp%phimax>0.9*pi) replenish=.false.
+ if(injp%phimax>0.9*pi) replenish=.false.
 
 ! Number of particles to inject must be proportional to number in simulation
 
 
 
-if(firstrun) then
+ if(firstrun) then
     ninject = ninjectmax
-else
+ else
     ninject = ngas_initial - npartoftype(igas)
-endif
-gamma = 5.0/3.0
+ endif
+ gamma = 5.0/3.0
 
-print*, 'Number of particles killed during injection: ', nkill
-print*, 'Number of particles that have left the domain: ',nexit
-print*, 'Number of boundary particles in the simulation: ', nboundary
-print*, 'Number of particles queued up for injection: ', nqueue, nqueuecrit, ninject, ninjectmax
-print*, 'Number of particles in the simulation domain: ', ndomain, npartoftype(igas), ngas_initial
+ print*, 'Number of particles killed during injection: ', nkill
+ print*, 'Number of particles that have left the domain: ',nexit
+ print*, 'Number of boundary particles in the simulation: ', nboundary
+ print*, 'Number of particles queued up for injection: ', nqueue, nqueuecrit, ninject, ninjectmax
+ print*, 'Number of particles in the simulation domain: ', ndomain, npartoftype(igas), ngas_initial
 
 
 
-injected = 0
+ injected = 0
 
  if(replenish) then
     call replenish_injection_zone(ninject, time,dtlast, injected)
     print*, injected, ' particles injected '
     if(firstrun) then
-    nqueuecrit = int(ninject/2)
-    firstrun = .false.
+       nqueuecrit = int(ninject/2)
+       firstrun = .false.
     endif
  else
     print*, 'No injection on this timestep'
-endif
+ endif
 
-write(87,*) time, dtlast, ninject, ndomain, nboundary, nkill, nqueue, nqueuecrit, injected
+ write(87,*) time, dtlast, ninject, ndomain, nboundary, nkill, nqueue, nqueuecrit, injected
 
 
-print*, npart, ' particles in total'
+ print*, npart, ' particles in total'
 
 end subroutine
 
@@ -188,13 +188,13 @@ subroutine write_options_inject(iunit)
  call write_inopt(injp%Rsect_out,'Rsect_out','outer sector radius (outer injection radius)',iunit)
  call write_inopt(injp%dr_bound,'dr_bound','Radial boundary thickness',iunit)
  call write_inopt(injp%phimax, 'phimax', 'maximum azimuthal extent (-phimax,phimax)',iunit)
-call write_inopt(injp%phi_inject, 'phi_inject', 'azimuthal range of injection zone',iunit)
+ call write_inopt(injp%phi_inject, 'phi_inject', 'azimuthal range of injection zone',iunit)
  call write_inopt(injp%p_index, 'p_index', 'radial surface density profile powerlaw',iunit)
  call write_inopt(injp%q_index, 'q_index', 'radial sound speed profile powerlaw',iunit)
  call write_inopt(injp%HoverR, 'HoverR', 'disc aspect ratio at inner sector radius', iunit)
  call write_inopt(injp%disc_mass,'disc_mass', 'total disc mass', iunit)
  call write_inopt(injp%object_mass,'object_mass', 'mass of the central object', iunit)
- end subroutine write_options_inject
+end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
 !+
@@ -226,38 +226,38 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  case('Rsect_out')
     read(valstring,*,iostat=ierr) injp%Rsect_out
     ngot = ngot + 1
-  case('dr_bound')
+ case('dr_bound')
     read(valstring,*,iostat=ierr) injp%dr_bound
     ngot = ngot+1
-  case('phimax')
+ case('phimax')
     read(valstring,*,iostat=ierr) injp%phimax
     injp%phimax = injp%phimax*3.14159264/180.0
     ngot = ngot + 1
-  case('phi_inject')
+ case('phi_inject')
     read(valstring,*,iostat=ierr) injp%phi_inject
     injp%phi_inject = injp%phi_inject*3.141592654/180.0
     ngot = ngot+1
-  case('p_index')
+ case('p_index')
     read(valstring,*,iostat=ierr) injp%p_index
     ngot = ngot +1
-  case('q_index')
+ case('q_index')
     read(valstring,*,iostat=ierr) injp%q_index
     ngot = ngot +1
-  case('HoverR')
+ case('HoverR')
     read(valstring,*,iostat=ierr) injp%HoverR
     ngot = ngot +1
-  case('disc_mass')
+ case('disc_mass')
     read(valstring,*,iostat=ierr) injp%disc_mass
     ngot = ngot+1
-  case('object_mass')
+ case('object_mass')
     read(valstring,*,iostat=ierr) injp%object_mass
     ngot = ngot+1
  end select
 
 
  igotall = (ngot >= 11)
-injp%width = injp%Rsect_out - injp%Rsect_in
-injp%R_mid = injp%width/2.0 + injp%Rsect_in
+ injp%width = injp%Rsect_out - injp%Rsect_in
+ injp%R_mid = injp%width/2.0 + injp%Rsect_in
 
 
 end subroutine
@@ -266,105 +266,105 @@ end subroutine
 subroutine set_injection_parameters(R_in, R_out, Rsect_in,Rsect_out,dr_bound,&
 phimax,phi_inject,p_index,q_index,HoverR,disc_mass,object_mass)
 
-real, intent(in) :: R_in, R_out, Rsect_in,Rsect_out, dr_bound
-real, intent(in) :: phimax,p_index,q_index,HoverR, phi_inject
-real, intent(in) :: disc_mass,object_mass
+ real, intent(in) :: R_in, R_out, Rsect_in,Rsect_out, dr_bound
+ real, intent(in) :: phimax,p_index,q_index,HoverR, phi_inject
+ real, intent(in) :: disc_mass,object_mass
 
-injp%R_in = R_in
-injp%R_out = R_out
-injp%Rsect_in = Rsect_in
-injp%Rsect_out = Rsect_out
-injp%width = injp%Rsect_out - injp%Rsect_in
-injp%R_mid = injp%width/2.0 + injp%Rsect_in
+ injp%R_in = R_in
+ injp%R_out = R_out
+ injp%Rsect_in = Rsect_in
+ injp%Rsect_out = Rsect_out
+ injp%width = injp%Rsect_out - injp%Rsect_in
+ injp%R_mid = injp%width/2.0 + injp%Rsect_in
 
-injp%phimax = phimax
-injp%p_index = p_index
-injp%q_index = q_index
-injp%HoverR = HoverR
-injp%disc_mass = disc_mass
-injp%object_mass = object_mass
+ injp%phimax = phimax
+ injp%p_index = p_index
+ injp%q_index = q_index
+ injp%HoverR = HoverR
+ injp%disc_mass = disc_mass
+ injp%object_mass = object_mass
 
-injp%dr_bound = dr_bound
-injp%phi_inject = phi_inject
+ injp%dr_bound = dr_bound
+ injp%phi_inject = phi_inject
 
-return
+ return
 end subroutine set_injection_parameters
 
 
 subroutine determine_particle_status(nqueue, nkill, nboundary, ndomain, nexit)
-use part, only : igas, iboundary, npart, xyzh, kill_particle, set_particle_type
+ use part, only : igas, iboundary, npart, xyzh, kill_particle, set_particle_type
 
-integer, intent(inout) :: nqueue, nkill,nboundary,ndomain, nexit
+ integer, intent(inout) :: nqueue, nkill,nboundary,ndomain, nexit
 
-integer :: i
-real :: rpart,phipart, midsep
-real :: rsign, phisign, annulus_halfwidth
+ integer :: i
+ real :: rpart,phipart, midsep
+ real :: rsign, phisign, annulus_halfwidth
 
-logical :: radial_boundary, buffer_zone,injection_zone
-logical :: exit_zone, dead_zone, simulation_domain
+ logical :: radial_boundary, buffer_zone,injection_zone
+ logical :: exit_zone, dead_zone, simulation_domain
 
-annulus_halfwidth = 0.5*(injp%Rsect_out-injp%Rsect_in)
-nkill = 0
-nqueue = 0
-nboundary = 0
-ndomain = 0
-nexit = 0
+ annulus_halfwidth = 0.5*(injp%Rsect_out-injp%Rsect_in)
+ nkill = 0
+ nqueue = 0
+ nboundary = 0
+ ndomain = 0
+ nexit = 0
 
-do i =1,npart
+ do i =1,npart
 
-call calc_polar_coordinates(rpart,phipart,xyzh(1,i), xyzh(2,i))
+    call calc_polar_coordinates(rpart,phipart,xyzh(1,i), xyzh(2,i))
 
-rsign = rpart-injp%R_mid
-midsep = abs(rsign)
+    rsign = rpart-injp%R_mid
+    midsep = abs(rsign)
 
-rsign = rsign/midsep
-phisign = phipart/abs(phipart)
+    rsign = rsign/midsep
+    phisign = phipart/abs(phipart)
 
 ! Particles outside the simulation and boundary/buffer zones should be killed
-dead_zone = (abs(phipart) > injp%phimax+injp%phi_inject) .or. &
+    dead_zone = (abs(phipart) > injp%phimax+injp%phi_inject) .or. &
         (midsep > annulus_halfwidth + injp%dr_bound)
 
 
 ! Maintain boundary particles in the radial limits to keep pressure correct
-radial_boundary = (midsep > annulus_halfwidth) .and.  &
+    radial_boundary = (midsep > annulus_halfwidth) .and.  &
         (midsep <= annulus_halfwidth + injp%dr_bound) .and. .not.(dead_zone)
 
 ! Two buffer zones, either side of simulation domain in phi
 ! They contain regions where particles are injected, but injection only occurs in half of both zones
-buffer_zone = (abs(phipart)>injp%phimax) .and. (abs(phipart)<=injp%phimax+injp%phi_inject) &
+    buffer_zone = (abs(phipart)>injp%phimax) .and. (abs(phipart)<=injp%phimax+injp%phi_inject) &
             .and..not.(dead_zone).and..not.(radial_boundary)
 
 ! Can be in a buffer zone without being in an injection zone!
-injection_zone = buffer_zone .and. (rsign*phisign>0.0)
-exit_zone = buffer_zone .and.(rsign*phisign<0.0)
+    injection_zone = buffer_zone .and. (rsign*phisign>0.0)
+    exit_zone = buffer_zone .and.(rsign*phisign<0.0)
 
 ! Or particles can be in the simulation domain!
-simulation_domain = (midsep <=annulus_halfwidth) .and. (abs(phipart) <=injp%phimax)
+    simulation_domain = (midsep <=annulus_halfwidth) .and. (abs(phipart) <=injp%phimax)
 
 
 ! Set dead particles
-if(dead_zone) then
-    call kill_particle(i)
-    nkill = nkill+1
-endif
+    if(dead_zone) then
+       call kill_particle(i)
+       nkill = nkill+1
+    endif
 
 ! Set boundary particles
-if(buffer_zone.or.radial_boundary) then
-    call set_particle_type(i,iboundary)
-    nboundary = nboundary+1
-    if(injection_zone) nqueue = nqueue+1
-    if(exit_zone) nexit = nexit+1
-endif
+    if(buffer_zone.or.radial_boundary) then
+       call set_particle_type(i,iboundary)
+       nboundary = nboundary+1
+       if(injection_zone) nqueue = nqueue+1
+       if(exit_zone) nexit = nexit+1
+    endif
 
 ! Set living particles
-if(simulation_domain) then
-    call set_particle_type(i,igas)
-    ndomain = ndomain+1
-endif
+    if(simulation_domain) then
+       call set_particle_type(i,igas)
+       ndomain = ndomain+1
+    endif
 
-enddo
+ enddo
 
-return
+ return
 end subroutine determine_particle_status
 
 
@@ -373,42 +373,42 @@ end subroutine determine_particle_status
 !---
 
 subroutine replenish_injection_zone(ninject, time,dtlast, injected)
-use io, only : id,master
-use part, only : igas, iboundary, npart, npartoftype, xyzh,vxyzu,massoftype
-use physcon, only: pi
+ use io, only : id,master
+ use part, only : igas, iboundary, npart, npartoftype, xyzh,vxyzu,massoftype
+ use physcon, only: pi
 
-use partinject, only: add_or_update_particle
-use setdisc, only : set_disc
-use eos, only : polyk,gamma
-
-
-integer, intent(inout) :: ninject, injected
-integer :: i, npart_initial, i_part, part_type
-
-real :: hfact = 1.2
-real :: v0(3), v_subtract(3)
-real :: sig0, cs0,vmag,omega0,vmax, time,dtlast
-real :: phi1,phi2, rpart,phipart, phi_rot, omega,tcross
-real :: xyzh_inject(4,ninject)
-real :: vxyzu_inject(4,ninject)
+ use partinject, only: add_or_update_particle
+ use setdisc, only : set_disc
+ use eos, only : polyk,gamma
 
 
-npart_initial = npart
-vmag = sqrt(injp%object_mass/injp%R_mid)
-omega0 = sqrt(injp%object_mass/(injp%R_mid*injp%R_mid*injp%R_mid))
-vmax = sqrt(injp%object_mass/injp%Rsect_in) - vmag
+ integer, intent(inout) :: ninject, injected
+ integer :: i, npart_initial, i_part, part_type
 
-cs0 = injp%HoverR*sqrt(injp%object_mass)*injp%R_in**(injp%q_index-0.5)
-sig0 = sigma0(injp%disc_mass, injp%R_in, injp%R_out,injp%p_index)
+ real :: hfact = 1.2
+ real :: v0(3), v_subtract(3)
+ real :: sig0, cs0,vmag,omega0,vmax, time,dtlast
+ real :: phi1,phi2, rpart,phipart, phi_rot, omega,tcross
+ real :: xyzh_inject(4,ninject)
+ real :: vxyzu_inject(4,ninject)
+
+
+ npart_initial = npart
+ vmag = sqrt(injp%object_mass/injp%R_mid)
+ omega0 = sqrt(injp%object_mass/(injp%R_mid*injp%R_mid*injp%R_mid))
+ vmax = sqrt(injp%object_mass/injp%Rsect_in) - vmag
+
+ cs0 = injp%HoverR*sqrt(injp%object_mass)*injp%R_in**(injp%q_index-0.5)
+ sig0 = sigma0(injp%disc_mass, injp%R_in, injp%R_out,injp%p_index)
 
 
 ! Set up both injection zones in the upper phi domain initially
-phi1 = injp%phimax
-phi2 = injp%phimax + injp%phi_inject
+ phi1 = injp%phimax
+ phi2 = injp%phimax + injp%phi_inject
 
 ! call set_disc to establish new particle set
 
-call set_disc(id,master=master,&
+ call set_disc(id,master=master,&
 npart   = ninject,&
 rmin    = injp%Rsect_in-injp%dr_bound, &
 rmax    = injp%Rsect_out+injp%dr_bound,&
@@ -430,30 +430,30 @@ writefile=.false.)
 
 ! Rotate components with r < Rmid so that they are in the other injection zone
 
-do i=1,ninject
+ do i=1,ninject
 
-call calc_polar_coordinates(rpart,phipart,xyzh_inject(1,i), xyzh_inject(2,i))
+    call calc_polar_coordinates(rpart,phipart,xyzh_inject(1,i), xyzh_inject(2,i))
 
-if(rpart <=injp%R_mid) then
-    phi_rot = -2.0*phipart
-    call rotate_particle_z(xyzh_inject(:,i), vxyzu_inject(:,i), phi_rot)
-endif
+    if(rpart <=injp%R_mid) then
+       phi_rot = -2.0*phipart
+       call rotate_particle_z(xyzh_inject(:,i), vxyzu_inject(:,i), phi_rot)
+    endif
 
-enddo
+ enddo
 
 
 ! Transform to the corotating frame
-v0 = (/0.0, vmag,0.0/)
+ v0 = (/0.0, vmag,0.0/)
 
-print *, 'Transforming to corotating frame: angular velocity ', omega0
+ print *, 'Transforming to corotating frame: angular velocity ', omega0
 
-do i=1,ninject
+ do i=1,ninject
 
     call calc_polar_coordinates(rpart,phipart,xyzh_inject(1,i), xyzh_inject(2,i))
     call rotate_vector_z(v0, v_subtract,phipart)
     vxyzu_inject(1:3,i) = vxyzu_inject(1:3,i)-v_subtract(:)
 
-enddo
+ enddo
 
 
 ! Now add injected particles to the simulation
@@ -464,34 +464,34 @@ enddo
 
 ! This implies (phimax-phi) > omega(rpart)*tcross(Rsect_in) to be true for injection
 
-i_part = npart_initial
-part_type = iboundary
+ i_part = npart_initial
+ part_type = iboundary
 
-tcross = time-dtlast
+ tcross = time-dtlast
 
-injected= 0
-do i=1,ninject
+ injected= 0
+ do i=1,ninject
 
-tcross = time-dtlast
+    tcross = time-dtlast
 
-call calc_polar_coordinates(rpart,phipart,xyzh_inject(1,i), xyzh_inject(2,i))
+    call calc_polar_coordinates(rpart,phipart,xyzh_inject(1,i), xyzh_inject(2,i))
 
-omega = sqrt(injp%object_mass/(rpart*rpart*rpart)) -omega0
+    omega = sqrt(injp%object_mass/(rpart*rpart*rpart)) -omega0
 
 !print*, abs(injp%phimax-phipart), omega, tcross, omega*tcross
 
-if(abs(injp%phimax-phipart) > omega*tcross) then
+    if(abs(injp%phimax-phipart) > omega*tcross) then
 
-    i_part = i_part+1
-    call add_or_update_particle(part_type, xyzh_inject(1:3,i), vxyzu_inject(1:3,i), xyzh_inject(4,i), &
+       i_part = i_part+1
+       call add_or_update_particle(part_type, xyzh_inject(1:3,i), vxyzu_inject(1:3,i), xyzh_inject(4,i), &
     vxyzu_inject(4,i), i_part, npart, npartoftype, xyzh, vxyzu) ! Another Brick in the Wall
 
-injected = injected+1
-endif
+       injected = injected+1
+    endif
 
-enddo
+ enddo
 
-return
+ return
 end subroutine replenish_injection_zone
 
 !----------------------------------
@@ -500,22 +500,22 @@ end subroutine replenish_injection_zone
 
 subroutine rotate_particle_z(xyz,vxyz,phi)
 
-real, intent(inout) :: phi, xyz(3), vxyz(3)
-real :: x,y,vx,vy
+ real, intent(inout) :: phi, xyz(3), vxyz(3)
+ real :: x,y,vx,vy
 
-x = xyz(1)
-y = xyz(2)
+ x = xyz(1)
+ y = xyz(2)
 
-vx = vxyz(1)
-vy = vxyz(2)
+ vx = vxyz(1)
+ vy = vxyz(2)
 
-xyz(1) = x*cos(phi) - y*sin(phi)
-xyz(2) = x*sin(phi) + y*cos(phi)
+ xyz(1) = x*cos(phi) - y*sin(phi)
+ xyz(2) = x*sin(phi) + y*cos(phi)
 
-vxyz(1) = vx*cos(phi) - vy*sin(phi)
-vxyz(2) = vx*sin(phi) + vy*cos(phi)
+ vxyz(1) = vx*cos(phi) - vy*sin(phi)
+ vxyz(2) = vx*sin(phi) + vy*cos(phi)
 
-return
+ return
 end subroutine rotate_particle_z
 
 !----------------------------------
@@ -525,13 +525,13 @@ end subroutine rotate_particle_z
 !-----------------------------------
 
 subroutine rotate_vector_z(oldvec,newvec,phi)
-real, intent(inout) :: oldvec(3), newvec(3)
-real, intent(in) :: phi
+ real, intent(inout) :: oldvec(3), newvec(3)
+ real, intent(in) :: phi
 
-newvec(1) = oldvec(1)*cos(phi) - oldvec(2)*sin(phi)
-newvec(2) = oldvec(1)*sin(phi) + oldvec(2)*cos(phi)
+ newvec(1) = oldvec(1)*cos(phi) - oldvec(2)*sin(phi)
+ newvec(2) = oldvec(1)*sin(phi) + oldvec(2)*cos(phi)
 
-return
+ return
 end subroutine rotate_vector_z
 
 !
@@ -542,13 +542,13 @@ end subroutine rotate_vector_z
 
 subroutine calc_polar_coordinates(r,phi,x,y)
 
-real, intent(in) :: x,y
-real,intent(inout) :: r,phi
+ real, intent(in) :: x,y
+ real,intent(inout) :: r,phi
 
-r = sqrt(x*x + y*y)
-phi = atan2(y,x)
+ r = sqrt(x*x + y*y)
+ phi = atan2(y,x)
 
-return
+ return
 end subroutine calc_polar_coordinates
 
 
@@ -560,17 +560,17 @@ end subroutine calc_polar_coordinates
 !-----------------------------------------------------------------------
 
 real function sigma0(Mdisc, Rinner, Router, p_index)
-real, intent(in) :: Mdisc,Rinner, Router, p_index
+ real, intent(in) :: Mdisc,Rinner, Router, p_index
 
-real :: exponent
+ real :: exponent
 
-sigma0 = Mdisc/(2.0*3.141592654)
-exponent = 2.0-p_index
-    if(p_index==2.0) then
-        sigma0 = sigma0*log(Rinner/Router)
-    else
-        sigma0 = sigma0*exponent/(Router**exponent - Rinner**exponent)
-    endif
+ sigma0 = Mdisc/(2.0*3.141592654)
+ exponent = 2.0-p_index
+ if(p_index==2.0) then
+    sigma0 = sigma0*log(Rinner/Router)
+ else
+    sigma0 = sigma0*exponent/(Router**exponent - Rinner**exponent)
+ endif
 
 end function sigma0
 

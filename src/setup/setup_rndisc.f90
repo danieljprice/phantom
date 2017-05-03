@@ -37,7 +37,7 @@ contains
 !
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
-  use setdisc,   only:set_disc
+ use setdisc,   only:set_disc
 ! use setbinary, only:set_binary
  use dim,          only:maxp,maxvxyzu
  use part,         only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,ihacc
@@ -134,7 +134,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     rhosum = 0.0
     do ii=1,npart
        if (maxphase==maxp) pmassii = massoftype(iamtype(iphase(ii)))
-           rhosum = rhosum + rhoh(xyzh(4,ii),pmassii)
+       rhosum = rhosum + rhoh(xyzh(4,ii),pmassii)
     enddo
     rhosum = rhosum/npart
     rhoc = 1.0 !central density
@@ -146,14 +146,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        r2 = xyzh(1,ii)**2 + xyzh(2,ii)**2 + xyzh(3,ii)**2
        phi = atan2(xyzh(2,ii),xyzh(1,ii))
        if ((r2 > 4.) .and. (r2 < 9)) then
-       r2cyl = xyzh(1,ii)**2 + xyzh(2,ii)**2
-       r = sqrt(r2cyl)
-       omega = r**(-1.5)
-       cs = HonR*r*omega
-       vzero = 0.1*cs
-       pressure = cs**2*rhoc
-       Bzero = sqrt(2.*pressure/beta)
-       Bevol(3,ii) = Bzero*sin(6.2832*(sqrt(r2)-2.))
+          r2cyl = xyzh(1,ii)**2 + xyzh(2,ii)**2
+          r = sqrt(r2cyl)
+          omega = r**(-1.5)
+          cs = HonR*r*omega
+          vzero = 0.1*cs
+          pressure = cs**2*rhoc
+          Bzero = sqrt(2.*pressure/beta)
+          Bevol(3,ii) = Bzero*sin(6.2832*(sqrt(r2)-2.))
           !Bevol(1,ii) = Bzero*(-sin(phi)) !sin(6.2832*(sqrt(r2)-2.))
           !Bevol(2,ii) = Bzero*cos(phi) !sin(6.2832*(sqrt(r2)-2.))
        else

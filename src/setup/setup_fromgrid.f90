@@ -197,11 +197,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     stop
  endif
 
-if(nprequired > np) then
-   print*, 'Input particle number insufficient to resolve grid'
-   np = nprequired
-   print*, 'New input particle number: ',np
-endif
+ if(nprequired > np) then
+    print*, 'Input particle number insufficient to resolve grid'
+    np = nprequired
+    print*, 'New input particle number: ',np
+ endif
 
  !
  !--general parameters
@@ -321,24 +321,24 @@ endif
  !--Now add velocities
  !
 
-   do i=1,npart
+ do i=1,npart
 
-      !
-      !--Simple translational velocity in the x-direction
-      !
+    !
+    !--Simple translational velocity in the x-direction
+    !
 
-      vxyzu(1,i) = inputtransvel
+    vxyzu(1,i) = inputtransvel
 
-      !
-      !-- Solid body rotation about the z-axis
-      !
+    !
+    !-- Solid body rotation about the z-axis
+    !
 
-      rpart = sqrt(xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i) + xyzh(3,i)*xyzh(3,i))
+    rpart = sqrt(xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i) + xyzh(3,i)*xyzh(3,i))
 
-      thetapart = atan2(xyzh(2,i),xyzh(1,i))
+    thetapart = atan2(xyzh(2,i),xyzh(1,i))
 
-      vxyzu(1,i) = vxyzu(1,i) - inputrotvel*xyzh(2,i)
-      vxyzu(2,i) = inputrotvel*xyzh(1,i)
+    vxyzu(1,i) = vxyzu(1,i) - inputrotvel*xyzh(2,i)
+    vxyzu(2,i) = inputrotvel*xyzh(1,i)
 
 !
 !-- Set up magnetic fields
@@ -346,9 +346,9 @@ endif
     if (mhd) then
        Bevol(:,i) = 0.
        if (positiveBz) then
-         Bevol(3,i) = real(Bzero,kind=kind(Bevol))
+          Bevol(3,i) = real(Bzero,kind=kind(Bevol))
        else
-         Bevol(3,i) = real(-Bzero,kind=kind(Bevol))
+          Bevol(3,i) = real(-Bzero,kind=kind(Bevol))
        endif
     endif
  enddo
@@ -375,71 +375,71 @@ end subroutine setpart
 !
 !--------------------------------------------
 subroutine read_gridfile_header(igridunit, gridfile)
-implicit none
+ implicit none
 
-integer, intent(in) :: igridunit
-character(len=100), intent(inout) :: gridfile
-character(len=5) :: masslabel,distlabel
+ integer, intent(in) :: igridunit
+ character(len=100), intent(inout) :: gridfile
+ character(len=5) :: masslabel,distlabel
 
-print "(a,a)", "Reading header of file ", trim(gridfile)
+ print "(a,a)", "Reading header of file ", trim(gridfile)
 
-open(igridunit,file=gridfile,form='formatted',status='old')
-read(igridunit,*) nx,ny,nz,umass,udist, masslabel,distlabel
-close(igridunit)
+ open(igridunit,file=gridfile,form='formatted',status='old')
+ read(igridunit,*) nx,ny,nz,umass,udist, masslabel,distlabel
+ close(igridunit)
 
-print "(a,'(',I4,',',I4,',',I4,')')", 'Grid Cell Number (x,y,z): ', nx,ny,nz
+ print "(a,'(',I4,',',I4,',',I4,')')", 'Grid Cell Number (x,y,z): ', nx,ny,nz
 
-print "(a,a,a,1pg10.3,a)", 'Grid Distance Units: ', trim(distlabel), ' - ', udist, ' cm'
-print "(a,a,a,1pg10.3,a)", 'Grid Mass Units: ', trim(masslabel), ' - ', umass, ' g'
+ print "(a,a,a,1pg10.3,a)", 'Grid Distance Units: ', trim(distlabel), ' - ', udist, ' cm'
+ print "(a,a,a,1pg10.3,a)", 'Grid Mass Units: ', trim(masslabel), ' - ', umass, ' g'
 
 end subroutine read_gridfile_header
 
 subroutine read_gridfile(igridunit,gridfile, mpartmin,totmass)
 
-implicit none
-integer, intent(in) :: igridunit
-character(len=100), intent(in) :: gridfile
-real, intent(out) :: mpartmin,totmass
+ implicit none
+ integer, intent(in) :: igridunit
+ character(len=100), intent(in) :: gridfile
+ real, intent(out) :: mpartmin,totmass
 
-real :: mcell
-integer :: ix,iy,iz
+ real :: mcell
+ integer :: ix,iy,iz
 
-print "(a,a)", "Reading contents of file ", trim(gridfile)
+ print "(a,a)", "Reading contents of file ", trim(gridfile)
 
-open(igridunit,file=gridfile,form='formatted',status='old')
-read(igridunit,*)
+ open(igridunit,file=gridfile,form='formatted',status='old')
+ read(igridunit,*)
 
-allocate(xface(nx))
-allocate(yface(ny))
-allocate(zface(nz))
+ allocate(xface(nx))
+ allocate(yface(ny))
+ allocate(zface(nz))
 
-allocate(dx(nx))
-allocate(dy(ny))
-allocate(dz(nz))
+ allocate(dx(nx))
+ allocate(dy(ny))
+ allocate(dz(nz))
 
-allocate(rhogrid(nx,ny,nz))
+ allocate(rhogrid(nx,ny,nz))
 
-totmass = 0.0
-mpartmin = 1.0e30
+ totmass = 0.0
+ mpartmin = 1.0e30
 
 ! Read the rest of the file
-do ix=1,nx
-   do iy=1,ny
-      do iz=1,nz
-         read(igridunit,*) xface(ix), yface(iy), zface(iz), &
+ do ix=1,nx
+    do iy=1,ny
+       do iz=1,nz
+          read(igridunit,*) xface(ix), yface(iy), zface(iz), &
               dx(ix), dy(iy), dz(iz), rhogrid(ix,iy,iz)
 
-         mcell = rhogrid(ix,iy,iz)*dx(ix)*dy(iy)*dz(iz)
-         if(mcell < mpartmin .and. mcell >0.0) mpartmin = mcell
-         totmass = totmass + mcell
+          mcell = rhogrid(ix,iy,iz)*dx(ix)*dy(iy)*dz(iz)
+          if(mcell < mpartmin .and. mcell >0.0) mpartmin = mcell
+          totmass = totmass + mcell
 
-      enddo
-   enddo
-enddo
+       enddo
+    enddo
+ enddo
 
-print "(a)", "Grid file read"
-print "(a, 1pg10.3)", 'Minimum particle mass to resolve the grid: ', mpartmin
-print "(a, 1pg10.3)", 'Total mass of the system: ', totmass
+ print "(a)", "Grid file read"
+ print "(a, 1pg10.3)", 'Minimum particle mass to resolve the grid: ', mpartmin
+ print "(a, 1pg10.3)", 'Total mass of the system: ', totmass
 
 end subroutine read_gridfile
 
@@ -456,13 +456,13 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# resolution'
  call write_inopt(np,'np','total number of particles in Box',iunit)
 
-call write_inopt(Tinit,'Tinit', 'Initial temperature of system', iunit)
-call write_inopt(rcut, 'rcut', 'Radius of sphere to cut from grid (set <0 to avoid cutting)',iunit)
+ call write_inopt(Tinit,'Tinit', 'Initial temperature of system', iunit)
+ call write_inopt(rcut, 'rcut', 'Radius of sphere to cut from grid (set <0 to avoid cutting)',iunit)
 
 
  call write_inopt(inputtransvel, 'inputtransvel', 'translational velocity of system (units of sound speed)',iunit)
 
-  call write_inopt(inputrotvel, 'inputrotvel', 'Angular velocity of system (units of sound speed)',iunit)
+ call write_inopt(inputrotvel, 'inputrotvel', 'Angular velocity of system (units of sound speed)',iunit)
 
  if (mhd) then
     call write_inopt(masstoflux,'masstoflux','mass-to-magnetic flux ratio in units of critical value',iunit)

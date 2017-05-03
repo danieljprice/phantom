@@ -125,12 +125,12 @@ subroutine write_options_spiral(iunit)
 
  !Convert to Galactic units:
  if (initialSP==0) then
-   phir  = phir    /(km/kpc * utime)
-   phibar= phibar  /(km/kpc * utime)
-   alpha = alpha   /(pi/180.0)
-   LMabar= LMabar  /(kpc/udist)
-   LMbbar= LMbbar  /(kpc/udist)
-   LMcbar= LMcbar  /(kpc/udist)
+    phir  = phir    /(km/kpc * utime)
+    phibar= phibar  /(km/kpc * utime)
+    alpha = alpha   /(pi/180.0)
+    LMabar= LMabar  /(kpc/udist)
+    LMbbar= LMbbar  /(kpc/udist)
+    LMcbar= LMcbar  /(kpc/udist)
  endif
 
  write(iunit,"(/,a)") '# options relating to spiral potentials'
@@ -151,12 +151,12 @@ subroutine write_options_spiral(iunit)
 
  !Convert back to code units:
  if (initialSP==0) then
-   phir  = phir    *(km/kpc * utime)
-   phibar= phibar  *(km/kpc * utime)
-   alpha = alpha   *(pi/180.0)
-   LMabar= LMabar  *(kpc/udist)
-   LMbbar= LMbbar  *(kpc/udist)
-   LMcbar= LMcbar  *(kpc/udist)
+    phir  = phir    *(km/kpc * utime)
+    phibar= phibar  *(km/kpc * utime)
+    alpha = alpha   *(pi/180.0)
+    LMabar= LMabar  *(kpc/udist)
+    LMbbar= LMbbar  *(kpc/udist)
+    LMcbar= LMcbar  *(kpc/udist)
  endif
 
 end subroutine write_options_spiral
@@ -225,13 +225,13 @@ subroutine read_options_spiral(name,valstring,imatch,igotall,ierr)
 
  !Convert to code units:
  if (initialSP==0.) then
-   phir  = phir    *(km/kpc * utime)
-   phibar= phibar  *(km/kpc * utime)
-   alpha = alpha   *(pi/180.0)
-   LMabar= LMabar  *(kpc/udist)
-   LMbbar= LMbbar  *(kpc/udist)
-   LMcbar= LMcbar  *(kpc/udist)
-   initialSP = 0
+    phir  = phir    *(km/kpc * utime)
+    phibar= phibar  *(km/kpc * utime)
+    alpha = alpha   *(pi/180.0)
+    LMabar= LMabar  *(kpc/udist)
+    LMbbar= LMbbar  *(kpc/udist)
+    LMcbar= LMcbar  *(kpc/udist)
+    initialSP = 0
  endif
 
  igotall = (ngot >= 1)  !+1 for each required potential
@@ -266,157 +266,157 @@ subroutine initialise_spiral(ierr)
 
  !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=DISKS=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
  !--Dobbs&B&P log-disk potential.
-  Rc  = 1.0 *kpc/udist        !1kpc was 0.1kpc, C.Dobbs changed for ring
-  Co  = (2.31d14*(utime)**2/udist**2) !Co=(Vc^2)/2 at Ro(=8kpc) Vc=215km/s
-  dzq = 1./0.7                        !z potential constant
+ Rc  = 1.0 *kpc/udist        !1kpc was 0.1kpc, C.Dobbs changed for ring
+ Co  = (2.31d14*(utime)**2/udist**2) !Co=(Vc^2)/2 at Ro(=8kpc) Vc=215km/s
+ dzq = 1./0.7                        !z potential constant
  !--Miyamoto&Naigi disk
-  MNmdisk = 8.56 * 1.0d10*solarm/umass
-  MNadisk = 5.3178*kpc/udist
-  MNbdisk = 0.2500*kpc/udist
+ MNmdisk = 8.56 * 1.0d10*solarm/umass
+ MNadisk = 5.3178*kpc/udist
+ MNbdisk = 0.2500*kpc/udist
  !--Modified Freeman (Type II) disk
-  Mdisk   = 4.0 * 1.0d10*solarm/umass
-  zdisk   = 0.1*kpc/udist
-  adisk   = 3.0*kpc/udist      !3.5*(3.086d21/udist)
+ Mdisk   = 4.0 * 1.0d10*solarm/umass
+ zdisk   = 0.1*kpc/udist
+ adisk   = 3.0*kpc/udist      !3.5*(3.086d21/udist)
 
  !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=HALOS=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
  !--Cladwell&Ostriker log-atanh halo
-  p1   =(6.19d-31*(udist)**3/(umass)) ! rho*4pi*G, in cgs, 1000Mo/kpc3
-  rc2  =(2.019d21/udist)   !0.65kpc sacle term for halo, a second rc NOT SQUARED.
-  rc21 =1./rc2
-  Rtot = 225.*kpc/udist                !Needed in potential, not force, unimportant
-  Rtotterm = (1.+(Rtot*rc21)**2)
+ p1   =(6.19d-31*(udist)**3/(umass)) ! rho*4pi*G, in cgs, 1000Mo/kpc3
+ rc2  =(2.019d21/udist)   !0.65kpc sacle term for halo, a second rc NOT SQUARED.
+ rc21 =1./rc2
+ Rtot = 225.*kpc/udist                !Needed in potential, not force, unimportant
+ Rtotterm = (1.+(Rtot*rc21)**2)
  !--A simple log halo
-  vhalo  = (2.00d07*utime/udist)  !186, 200, 230km/s etc
-  rLhalo = 12.0*kpc/udist
+ vhalo  = (2.00d07*utime/udist)  !186, 200, 230km/s etc
+ rLhalo = 12.0*kpc/udist
  !--Allen&Martos halo
-  AMmhalo= 10.7068 * 1.0d10*solarm/umass
-  AMrhalo= 12.00*kpc/udist        ! r=7 for Allen halo
-  rlim   = 100.0*kpc/udist
+ AMmhalo= 10.7068 * 1.0d10*solarm/umass
+ AMrhalo= 12.00*kpc/udist        ! r=7 for Allen halo
+ rlim   = 100.0*kpc/udist
  !--Begemen quasi-isothermal halo (from Khoperskov 2012)
-  Mhalo   = 6.4 * 1.0d10*solarm/umass
-  rhalo   = 6.00*kpc/udist
-  rhalomax= 12.0*kpc/udist
-  HaloCi  = 1./(rhalomax/rhalo - atan(rhalomax/rhalo ))
+ Mhalo   = 6.4 * 1.0d10*solarm/umass
+ rhalo   = 6.00*kpc/udist
+ rhalomax= 12.0*kpc/udist
+ HaloCi  = 1./(rhalomax/rhalo - atan(rhalomax/rhalo ))
  !--NFW halo
-  Mnfw= 63.0 * 1.0d10*solarm/umass
-  Cnfw= 5.0d0
-  rnfw= (122.0d0*3.086d21/Cnfw)/udist
+ Mnfw= 63.0 * 1.0d10*solarm/umass
+ Cnfw= 5.0d0
+ rnfw= (122.0d0*3.086d21/Cnfw)/udist
 
  !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=BULGES-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
  !--Plummer bulge        or
  !--Hernequist bulge
-  Mbulge  = 1.4 * 1.0d10*solarm/umass
-  Rbulge  = 0.39*kpc/udist
+ Mbulge  = 1.4 * 1.0d10*solarm/umass
+ Rbulge  = 0.39*kpc/udist
  !--Hubble bulge (only the inverse of the constant is used):
-  MHubbbulge  = 3.0* 1.0d10*solarm/umass  !Khop says: 0.92*(1.99d43/umass)
-  RHubbbulge  = 0.2 *kpc/udist
-  rHubbMax    = 12.0*kpc/udist
-  HubbCi  = 1./( log(rHubbMax/RHubbbulge + sqrt(1.+(rHubbMax/RHubbbulge)**2)) &
+ MHubbbulge  = 3.0* 1.0d10*solarm/umass  !Khop says: 0.92*(1.99d43/umass)
+ RHubbbulge  = 0.2 *kpc/udist
+ rHubbMax    = 12.0*kpc/udist
+ HubbCi  = 1./( log(rHubbMax/RHubbbulge + sqrt(1.+(rHubbMax/RHubbbulge)**2)) &
    - rHubbMax/(RHubbbulge*sqrt(1.+(rHubbMax/RHubbbulge)**2))  )
 
  !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=BARS-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-  VoB         = 2.2d7 * (utime/udist)         !220km/s
-  RoB         = 8.0  *  kpc/udist
+ VoB         = 2.2d7 * (utime/udist)         !220km/s
+ RoB         = 8.0  *  kpc/udist
  !--Long&Murali bars
-  barmass = 0.625* 1.0d10*solarm/umass  ! From Lee et al. 1999
-  ebar    =  0.10     !Only for non-straight bars
+ barmass = 0.625* 1.0d10*solarm/umass  ! From Lee et al. 1999
+ ebar    =  0.10     !Only for non-straight bars
  !--Dwek/Ferres bars:
-  rbars = kpc/udist
-  rho0b = 10.0 * (1.99E33/kpc**3)  *  udist**3/umass
+ rbars = kpc/udist
+ rho0b = 10.0 * (1.99E33/kpc**3)  *  udist**3/umass
  !--Dehnen bar:
-  alphaBar    = 0.01  !Strength paramater for the bar
-  radiusofbar = 0.8*VoB/phibar  !was set to 3kpc
-  betabar     = 1.0
-  rdcore      = radiusofbar/(exp(1.0)-1.0)**(1./betabar)
-  StrBarD     = alphaBar*VoB*VoB*(RoB/radiusofbar)**3 / 3.
+ alphaBar    = 0.01  !Strength paramater for the bar
+ radiusofbar = 0.8*VoB/phibar  !was set to 3kpc
+ betabar     = 1.0
+ rdcore      = radiusofbar/(exp(1.0)-1.0)**(1./betabar)
+ StrBarD     = alphaBar*VoB*VoB*(RoB/radiusofbar)**3 / 3.
  !--Wada Bar:
-  epsBar      = 0.05
-  rcore       = 2.d0*kpc/udist
-  StrBarW     = epsBar*VoB*VoB*2.59807621   !sqrt(27/4)
+ epsBar      = 0.05
+ rcore       = 2.d0*kpc/udist
+ StrBarW     = epsBar*VoB*VoB*2.59807621   !sqrt(27/4)
 
  !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=SPIRALS=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
  !--Global spiral parameters, pitch and velocity:
-  sinalpha = sin(alpha)
-  cotalpha = 1./tan(alpha)
+ sinalpha = sin(alpha)
+ cotalpha = 1./tan(alpha)
  !--Khoperskov TWA spiral potential:
-  rSK  = 3.0*kpc/udist
-  ra1  = 3.0*kpc/udist
-  ra2  = 7.0*kpc/udist
-  ra3  = 7.0*kpc/udist
-  phi0 = 0.
-  eta_Khop = 0.1
-  Tau_arm  = 220.0*1d6*365.0*24.0*3600.0/utime  !220Myrs
+ rSK  = 3.0*kpc/udist
+ ra1  = 3.0*kpc/udist
+ ra2  = 7.0*kpc/udist
+ ra3  = 7.0*kpc/udist
+ phi0 = 0.
+ eta_Khop = 0.1
+ Tau_arm  = 220.0*1d6*365.0*24.0*3600.0/utime  !220Myrs
  !--Cox&Gomez TWA spiral potential
-  r0=(2.47518d22/udist)    !   8kpc, reference radii
-  rS=(2.16578d22/udist)    !   7kpc, potential scale length
-  Hz=(5.56916d20/udist)    !   0.18kpc, z-scale height
-  p0=(2.12889d-24*(udist)**3/(umass))         !ref. density
-  Cz=(/ 8.d0/(3.d0*pi), 0.5d0, 8.d0/(15.d0*pi) /) !co-efs of expansion
+ r0=(2.47518d22/udist)    !   8kpc, reference radii
+ rS=(2.16578d22/udist)    !   7kpc, potential scale length
+ Hz=(5.56916d20/udist)    !   0.18kpc, z-scale height
+ p0=(2.12889d-24*(udist)**3/(umass))         !ref. density
+ Cz=(/ 8.d0/(3.d0*pi), 0.5d0, 8.d0/(15.d0*pi) /) !co-efs of expansion
  !--Pichardo spheroidal potential
-  Mspiral=0.0175* 8.56 * 1.0d10*solarm/umass  !0.05,0.03,0.0175  of 8.56E10 Mo
-  c_0=0.500*kpc/udist
-  d_0=0.135*kpc/udist  !This not mathematical, just a good value (0.1 before)
-  a_0=1.000*kpc/udist
-  e_0=sqrt( 1 - (c_0/a_0)**2 )
-  a_02=a_0*a_0
-  c_02=c_0*c_0
-  e_02=e_0*e_0
-  Ri    =3.30*kpc/udist
-  Rsarms=3.00*kpc/udist
-  Rf    =12.0*kpc/udist
-  Rl    =2.50*kpc/udist
-  Nshape=100.0d0
-  strength= -12.5663706*gcode*(sqrt(1.0-e_02)/(e_02*e_02))
+ Mspiral=0.0175* 8.56 * 1.0d10*solarm/umass  !0.05,0.03,0.0175  of 8.56E10 Mo
+ c_0=0.500*kpc/udist
+ d_0=0.135*kpc/udist  !This not mathematical, just a good value (0.1 before)
+ a_0=1.000*kpc/udist
+ e_0=sqrt( 1 - (c_0/a_0)**2 )
+ a_02=a_0*a_0
+ c_02=c_0*c_0
+ e_02=e_0*e_0
+ Ri    =3.30*kpc/udist
+ Rsarms=3.00*kpc/udist
+ Rf    =12.0*kpc/udist
+ Rl    =2.50*kpc/udist
+ Nshape=100.0d0
+ strength= -12.5663706*gcode*(sqrt(1.0-e_02)/(e_02*e_02))
 
  select case(iarms)
  case(2,3,4)
-  print*,'Setting up spiral arm spheroids...'
-  Nt=INT((Rf-Ri)/d_0)
-  NNi=int(NN)
-  print*,'There are ',Nt,' spheroids in each arm'
-  !-Build the arrays for the radii and angle of the S.Shperoids.
-  allocate(Rspheroids(NNi,Nt),shapefn(NNi,Nt),den0(NNi,Nt),&
+    print*,'Setting up spiral arm spheroids...'
+    Nt=INT((Rf-Ri)/d_0)
+    NNi=int(NN)
+    print*,'There are ',Nt,' spheroids in each arm'
+    !-Build the arrays for the radii and angle of the S.Shperoids.
+    allocate(Rspheroids(NNi,Nt),shapefn(NNi,Nt),den0(NNi,Nt),&
   spiralsum(NNi))
-  !-Loop over arms:
-  do jj=1,NNi
-   spiralsum(jj)=0.0d0
-   !-Loop over spheroids
-   do j=1,Nt
-    Rspheroids(jj,j) = Ri+(DBLE(j)-1.d0)*d_0
-    shapefn(jj,j)    = (cotalpha/Nshape) * &
+    !-Loop over arms:
+    do jj=1,NNi
+       spiralsum(jj)=0.0d0
+       !-Loop over spheroids
+       do j=1,Nt
+          Rspheroids(jj,j) = Ri+(DBLE(j)-1.d0)*d_0
+          shapefn(jj,j)    = (cotalpha/Nshape) * &
     log(1.d0+(Rspheroids(jj,j)/Rsarms)**Nshape) + jj*2.0d0*pi/DBLE(NNi)
-    !print*,jj,j,Rspheroids(jj,j),shapefn(jj,j)
-    select case(iarms)
-    case(2,4)
-      !--For a linear density drop off from galactic centre:
-      den0(jj,j)       = (Rf-Rspheroids(jj,j))*3.d0*Mspiral &
+          !print*,jj,j,Rspheroids(jj,j),shapefn(jj,j)
+          select case(iarms)
+          case(2,4)
+             !--For a linear density drop off from galactic centre:
+             den0(jj,j)       = (Rf-Rspheroids(jj,j))*3.d0*Mspiral &
       / (DBLE(NNi)*pi*a_0*a_0*c_0)
-      spiralsum(jj) = spiralsum(jj) + (Rf-Rspheroids(jj,j))
-    case(3)
-      !--For a log density drop off from galactic centre:
-      den0(jj,j)       = exp((Ri-Rspheroids(jj,j))/Rl)*3.d0*Mspiral &
+             spiralsum(jj) = spiralsum(jj) + (Rf-Rspheroids(jj,j))
+          case(3)
+             !--For a log density drop off from galactic centre:
+             den0(jj,j)       = exp((Ri-Rspheroids(jj,j))/Rl)*3.d0*Mspiral &
       / (DBLE(NNi)*pi*a_0*a_0*c_0)
-      spiralsum(jj) = spiralsum(jj) + exp((Ri-Rspheroids(jj,j))/Rl)
-    end select
-   enddo
-  enddo
- !-Properly re-scale the density array using the radius sum.
-  do jj=1,NNi
-   do j=1,Nt
-     den0(jj,j)=den0(jj,j)/spiralsum(jj)
-   enddo
-  enddo
+             spiralsum(jj) = spiralsum(jj) + exp((Ri-Rspheroids(jj,j))/Rl)
+          end select
+       enddo
+    enddo
+    !-Properly re-scale the density array using the radius sum.
+    do jj=1,NNi
+       do j=1,Nt
+          den0(jj,j)=den0(jj,j)/spiralsum(jj)
+       enddo
+    enddo
  end select
 
  select case(iarms)
  case(2)
-   print*,'linear density inside spheroids(a)  linear density from galactic centre(r)'
+    print*,'linear density inside spheroids(a)  linear density from galactic centre(r)'
  case(3)
-   print*,'linear density inside spheroids(a)  log density from galactic centre(r)'
+    print*,'linear density inside spheroids(a)  log density from galactic centre(r)'
  case(4)
-   print*,'inverse density inside spheroids(a)  linear density from galactic centre(r)'
+    print*,'inverse density inside spheroids(a)  linear density from galactic centre(r)'
  case default
-   print*,"No spiral arm spheroids set."
+    print*,"No spiral arm spheroids set."
  end select
 
  select case(iread)
@@ -448,10 +448,10 @@ subroutine initialise_spiral(ierr)
     print*, potzmax*udist/kpc,potxmax*udist/kpc,potymax*udist/kpc
 
  case default
-     print*,'No potential to be read in.'
+    print*,'No potential to be read in.'
  end select
 
- end subroutine initialise_spiral
+end subroutine initialise_spiral
 
 
 !<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -471,18 +471,18 @@ subroutine LogDisc(xi,yi,zi,d2,phi,fextxi,fextyi,fextzi)
  real(kind=8)  :: r2term,dr2term,pot,fxi,fyi,fzi
  !--Not a true disc potential as it has a flat rotation curve, is in
  !--fact a disc+halo.
-    r2term   = (Rc)**2 + d2 + (zi*dzq)**2
-    dr2term  = 1./r2term
-    pot      = +Co*log(r2term)  !Co=0.5*vo^2
-    fxi      = -2.*Co*xi*dr2term
-    fyi      = -2.*Co*yi*dr2term
-    fzi      = -2.*Co*zi*dr2term*dzq**2
+ r2term   = (Rc)**2 + d2 + (zi*dzq)**2
+ dr2term  = 1./r2term
+ pot      = +Co*log(r2term)  !Co=0.5*vo^2
+ fxi      = -2.*Co*xi*dr2term
+ fyi      = -2.*Co*yi*dr2term
+ fzi      = -2.*Co*zi*dr2term*dzq**2
  !--Update the input forces/potential
-    phi    = phi + pot
-    fextxi = fextxi + fxi
-    fextyi = fextyi + fyi
-    fextzi = fextzi + fzi
-    return
+ phi    = phi + pot
+ fextxi = fextxi + fxi
+ fextyi = fextyi + fyi
+ fextzi = fextzi + fzi
+ return
 end subroutine LogDisc
 
 !--Miyamoto&Naigi--:Two parameter disc potential
@@ -493,19 +493,19 @@ subroutine MNDisc(xi,yi,zi,d2,phi,fextxi,fextyi,fextzi)
  real(kind=8)  :: diskterm,diskterm2,pot,fxi,fyi,fzi
  !--If adisk=0 gives a Plummer spherical potential.
  !--If bdisk=0 gives a Plummer-Kuzmin infinitely thin disk.
-    diskterm = sqrt(zi*zi+MNbdisk*MNbdisk)
-    diskterm2= sqrt( (MNadisk+diskterm)*(MNadisk+diskterm)+d2 )
-    pot   = - gcode*MNmdisk/diskterm2
-    fxi   = - xi*gcode*MNmdisk/(diskterm2*diskterm2*diskterm2)
-    fyi   = - yi*gcode*MNmdisk/(diskterm2*diskterm2*diskterm2)
-    fzi   = - zi*gcode*MNmdisk*(MNadisk+diskterm) &
+ diskterm = sqrt(zi*zi+MNbdisk*MNbdisk)
+ diskterm2= sqrt( (MNadisk+diskterm)*(MNadisk+diskterm)+d2 )
+ pot   = - gcode*MNmdisk/diskterm2
+ fxi   = - xi*gcode*MNmdisk/(diskterm2*diskterm2*diskterm2)
+ fyi   = - yi*gcode*MNmdisk/(diskterm2*diskterm2*diskterm2)
+ fzi   = - zi*gcode*MNmdisk*(MNadisk+diskterm) &
     /(diskterm2*diskterm2*diskterm2*diskterm)
  !--Update the input forces/potential
-    phi    = phi + pot
-    fextxi = fextxi + fxi
-    fextyi = fextyi + fyi
-    fextzi = fextzi + fzi
-    return
+ phi    = phi + pot
+ fextxi = fextxi + fxi
+ fextyi = fextyi + fyi
+ fextzi = fextzi + fzi
+ return
 end subroutine MNDisc
 
 !--Khoperskov&Freeeman--:A double exp disc + optional TWA spirals
@@ -521,58 +521,58 @@ subroutine KFDiscSp(xi,yi,zi,d2,r,phii,ti,phi,fextxi,fextyi,fextzi)
    BI0,DI0,BI1,DI1,BK0,DK0,BK1,DK1,fphii,fri,d1,kap1,kap2,kap3
  !--Must be added as a perturbation to the disk potential.
  !--Returns to Freeman disc if eta_Khop=0
-    d1     = sqrt(d2)
-    rratio = d1/(2.d0*adisk)
-    phioff = phi0+phir*(t0+ti)
-    eta1=d1/ra1
-    eta2=d1/ra2
-    eta3=d1/ra3
-    kap1=eta1*eta1
-    kap2=eta2*eta3
-    kap3=eta3*eta3
-    eta_arm = MIN(eta_Khop,0.1*ti/Tau_arm)
-    sdens_g = gcode* Mdisk/(2.*pi*adisk*adisk)
+ d1     = sqrt(d2)
+ rratio = d1/(2.d0*adisk)
+ phioff = phi0+phir*(t0+ti)
+ eta1=d1/ra1
+ eta2=d1/ra2
+ eta3=d1/ra3
+ kap1=eta1*eta1
+ kap2=eta2*eta3
+ kap3=eta3*eta3
+ eta_arm = MIN(eta_Khop,0.1*ti/Tau_arm)
+ sdens_g = gcode* Mdisk/(2.*pi*adisk*adisk)
 
-    !--Originally used these bessesl fns but are deemed too inaccurate for double precision,
-    !--do not satisfy: force=-GRAD(potential)
-    !potdis = (pi*zdisk*log(COSH(zi/zdisk)) - &
-    !    (bessi0_s(rratio)*bessk1_s(rratio) - bessi1_s(rratio)*bessk0_s(rratio)) &
-    !    *pi*adisk*rratio) * sdens_g
-    !potdisdr  =  -(bessi0_s(rratio)*bessk0_s(rratio) - bessi1_s(rratio)*bessk1_s(rratio))* &
-    !    pi*rratio  * sdens_g
+ !--Originally used these bessesl fns but are deemed too inaccurate for double precision,
+ !--do not satisfy: force=-GRAD(potential)
+ !potdis = (pi*zdisk*log(COSH(zi/zdisk)) - &
+ !    (bessi0_s(rratio)*bessk1_s(rratio) - bessi1_s(rratio)*bessk0_s(rratio)) &
+ !    *pi*adisk*rratio) * sdens_g
+ !potdisdr  =  -(bessi0_s(rratio)*bessk0_s(rratio) - bessi1_s(rratio)*bessk1_s(rratio))* &
+ !    pi*rratio  * sdens_g
 
-    !--Disc only component in dr (dz simple and evluated at force update below)
-    call   IK01A(rratio,BI0,DI0,BI1,DI1,BK0,DK0,BK1,DK1)
-    potdis  =  (pi*zdisk*log(COSH(zi/zdisk)) - (BI0*BK1 - BI1*BK0)*pi*adisk*rratio)*sdens_g
-    potdisdr= (BI0*BK0 - BI1*BK1)*pi*rratio*sdens_g
-    !--Spiral arm purtubtaion.
-    potarm=  kap1*cos(2.d0*(phii+phioff                     ))/(1.d0+kap1)**(3./2.)+ &
+ !--Disc only component in dr (dz simple and evluated at force update below)
+ call   IK01A(rratio,BI0,DI0,BI1,DI1,BK0,DK0,BK1,DK1)
+ potdis  =  (pi*zdisk*log(COSH(zi/zdisk)) - (BI0*BK1 - BI1*BK0)*pi*adisk*rratio)*sdens_g
+ potdisdr= (BI0*BK0 - BI1*BK1)*pi*rratio*sdens_g
+ !--Spiral arm purtubtaion.
+ potarm=  kap1*cos(2.d0*(phii+phioff                     ))/(1.d0+kap1)**(3./2.)+ &
              kap2*cos(2.d0*(phii+phioff-cotalpha*log(d1/rSK)))/(1.d0+kap2)**(3./2.)+ &
              kap3*cos(4.d0*(phii+phioff-cotalpha*log(d1/rSK)))/(1.d0+kap3)**(3./2.)
-    !--Radial derivative.
-    potarmdr= -eta1*(kap1-2.d0)*cos(2.d0*(phii+phioff                      ))/(1.d0+kap1)**(5./2.)/ra1 &
+ !--Radial derivative.
+ potarmdr= -eta1*(kap1-2.d0)*cos(2.d0*(phii+phioff                      ))/(1.d0+kap1)**(5./2.)/ra1 &
               +(2.*cotalpha*eta2*(kap2+1.d0)*sin(2.d0*(phii+phioff-cotalpha*log(d1/rSK)))              &
               -eta2*(kap2-2.d0)*cos(2.d0*(phii+phioff-cotalpha*log(d1/rSK))))/(1.d0+kap2)**(5./2.)/ra2 &
               +(4.*cotalpha*eta3*(kap3+1.d0)*sin(4.d0*(phii+phioff-cotalpha*log(d1/rSK)))              &
               -eta3*(kap3-2.d0)*cos(4.d0*(phii+phioff-cotalpha*log(d1/rSK))))/(1.d0+kap3)**(5./2.)/ra3
-    !--Azimuthal derivative.
-    potarmdphi= -kap1*2.d0*sin(2.d0*(phii+phioff                     ))/(1.d0+kap1)**(3./2.) &
+ !--Azimuthal derivative.
+ potarmdphi= -kap1*2.d0*sin(2.d0*(phii+phioff                     ))/(1.d0+kap1)**(3./2.) &
                 -kap2*2.d0*sin(2.d0*(phii+phioff-cotalpha*log(d1/rSK)))/(1.d0+kap2)**(3./2.) &
                 -kap3*4.d0*sin(4.d0*(phii+phioff-cotalpha*log(d1/rSK)))/(1.d0+kap3)**(3./2.)
-    !--Combine disc and arm terms.
-    pot    = + potdis*(1.d0+eta_arm*potarm)
-    fri    = -( (1.d0+eta_arm*potarm)*potdisdr + potdis*eta_arm*potarmdr )
-    fphii  = - potdis*eta_arm*potarmdphi/d1
-    !--Convert forces in cylindrical to Cartesian co-ordinates.
-    fxi    = (fri*cos(phii) - fphii*sin(phii))
-    fyi    = (fri*sin(phii) + fphii*cos(phii))
-    fzi    = -(1.+eta_arm*potarm)*TANH(zi/zdisk)*pi* sdens_g
-    !--Update the input forces/potential
-    phi    = phi    + pot
-    fextxi = fextxi + fxi
-    fextyi = fextyi + fyi
-    fextzi = fextzi + fzi
-    return
+ !--Combine disc and arm terms.
+ pot    = + potdis*(1.d0+eta_arm*potarm)
+ fri    = -( (1.d0+eta_arm*potarm)*potdisdr + potdis*eta_arm*potarmdr )
+ fphii  = - potdis*eta_arm*potarmdphi/d1
+ !--Convert forces in cylindrical to Cartesian co-ordinates.
+ fxi    = (fri*cos(phii) - fphii*sin(phii))
+ fyi    = (fri*sin(phii) + fphii*cos(phii))
+ fzi    = -(1.+eta_arm*potarm)*TANH(zi/zdisk)*pi* sdens_g
+ !--Update the input forces/potential
+ phi    = phi    + pot
+ fextxi = fextxi + fxi
+ fextyi = fextyi + fyi
+ fextzi = fextzi + fzi
+ return
 end subroutine KFDiscSp
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -586,17 +586,17 @@ subroutine PlumBul(xi,yi,zi,r,phi,fextxi,fextyi,fextzi)
  real, intent(inout) :: phi,fextxi,fextyi,fextzi
  real(kind=8)  :: r2term,pot,fxi,fyi,fzi
  !--Add a Plummer sphere
-    r2term = sqrt(r*r + Rbulge*Rbulge)
-    pot = - gcode*Mbulge/r2term
-    fxi = - xi*gcode*Mbulge/(r2term*r2term*r2term)
-    fyi = - yi*gcode*Mbulge/(r2term*r2term*r2term)
-    fzi = - zi*gcode*Mbulge/(r2term*r2term*r2term)
+ r2term = sqrt(r*r + Rbulge*Rbulge)
+ pot = - gcode*Mbulge/r2term
+ fxi = - xi*gcode*Mbulge/(r2term*r2term*r2term)
+ fyi = - yi*gcode*Mbulge/(r2term*r2term*r2term)
+ fzi = - zi*gcode*Mbulge/(r2term*r2term*r2term)
  !--Update the input forces/potential
-    phi    = phi + pot
-    fextxi = fextxi + fxi
-    fextyi = fextyi + fyi
-    fextzi = fextzi + fzi
-    return
+ phi    = phi + pot
+ fextxi = fextxi + fxi
+ fextyi = fextyi + fyi
+ fextzi = fextzi + fzi
+ return
 end subroutine PlumBul
 
 !--Hernaquist--:A Hernaquist, one parameter, bulge.
@@ -606,17 +606,17 @@ subroutine HernBul(xi,yi,zi,r,phi,fextxi,fextyi,fextzi)
  real, intent(inout) :: phi,fextxi,fextyi,fextzi
  real(kind=8)  :: r2term,pot,fxi,fyi,fzi
  !--Add Hernequist bulge
-    r2term = ( r + Rbulge )
-    pot = - gcode*Mbulge/r2term
-    fxi = - xi*gcode*Mbulge/(r2term*r2term*r)
-    fyi = - yi*gcode*Mbulge/(r2term*r2term*r)
-    fzi = - zi*gcode*Mbulge/(r2term*r2term*r)
+ r2term = ( r + Rbulge )
+ pot = - gcode*Mbulge/r2term
+ fxi = - xi*gcode*Mbulge/(r2term*r2term*r)
+ fyi = - yi*gcode*Mbulge/(r2term*r2term*r)
+ fzi = - zi*gcode*Mbulge/(r2term*r2term*r)
  !--Update the input forces/potential
-    phi    = phi + pot
-    fextxi = fextxi + fxi
-    fextyi = fextyi + fyi
-    fextzi = fextzi + fzi
-    return
+ phi    = phi + pot
+ fextxi = fextxi + fxi
+ fextyi = fextyi + fyi
+ fextzi = fextzi + fzi
+ return
 end subroutine HernBul
 
 !--HubbleBul--:A Hubble luminosity profile bulge.
@@ -626,20 +626,20 @@ subroutine HubbBul(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
  real, intent(inout) :: phi,fextxi,fextyi,fextzi
  real(kind=8)  :: rratio,r2term,Hubbforce,pot,fxi,fyi,fzi
  !--Add a Hubble luminosity profile bulge
-    rratio    = r/RHubbbulge
-    r2term    = sqrt(1.0 + rratio*rratio)
-    Hubbforce = MHubbbulge*gcode*HubbCi*(dr*dr*log(rratio+r2term) &
+ rratio    = r/RHubbbulge
+ r2term    = sqrt(1.0 + rratio*rratio)
+ Hubbforce = MHubbbulge*gcode*HubbCi*(dr*dr*log(rratio+r2term) &
      - dr/(RHubbbulge*r2term))
-    pot = - dr*HubbCi*gcode*MHubbbulge*log(r/rHubbbulge + r2term)
-    fxi = - xi*dr*Hubbforce
-    fyi = - yi*dr*Hubbforce
-    fzi = - zi*dr*Hubbforce
+ pot = - dr*HubbCi*gcode*MHubbbulge*log(r/rHubbbulge + r2term)
+ fxi = - xi*dr*Hubbforce
+ fyi = - yi*dr*Hubbforce
+ fzi = - zi*dr*Hubbforce
  !--Update the input forces/potential
-    phi    = phi + pot
-    fextxi = fextxi + fxi
-    fextyi = fextyi + fyi
-    fextzi = fextzi + fzi
-    return
+ phi    = phi + pot
+ fextxi = fextxi + fxi
+ fextyi = fextyi + fyi
+ fextzi = fextzi + fzi
+ return
 end subroutine HubbBul
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -653,17 +653,17 @@ subroutine COhalo(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
  real, intent(inout) :: phi,fextxi,fextyi,fextzi
  real(kind=8)  :: atanterm,pot,fxi,fyi,fzi
  !--NOTE: in phi we write log(sqrt(x)) = 0.5*log(x)
-    atanterm = atan(r*rc21)
-    pot = + p1*rc2*(1.+0.5*log(Rtotterm/(1.+(r*rc21)**2))-atanterm*(rc2*dr))
-    fxi = - p1*(rc2*dr)**2*(r-rc2*atanterm)*xi*dr
-    fyi = - p1*(rc2*dr)**2*(r-rc2*atanterm)*yi*dr
-    fzi = - p1*(rc2*dr)**2*(r-rc2*atanterm)*zi*dr
+ atanterm = atan(r*rc21)
+ pot = + p1*rc2*(1.+0.5*log(Rtotterm/(1.+(r*rc21)**2))-atanterm*(rc2*dr))
+ fxi = - p1*(rc2*dr)**2*(r-rc2*atanterm)*xi*dr
+ fyi = - p1*(rc2*dr)**2*(r-rc2*atanterm)*yi*dr
+ fzi = - p1*(rc2*dr)**2*(r-rc2*atanterm)*zi*dr
  !--Update the input forces/potential
-    phi    = phi + pot
-    fextxi = fextxi + fxi
-    fextyi = fextyi + fyi
-    fextzi = fextzi + fzi
-    return
+ phi    = phi + pot
+ fextxi = fextxi + fxi
+ fextyi = fextyi + fyi
+ fextzi = fextzi + fzi
+ return
 end subroutine COhalo
 
 !--A flat logarithmic DM halo.
@@ -672,16 +672,16 @@ subroutine Flathalo(xi,yi,zi,r,phi,fextxi,fextyi,fextzi)
  real, intent(in)    :: r,xi,yi,zi
  real, intent(inout) :: phi,fextxi,fextyi,fextzi
  real(kind=8)  :: pot,fxi,fyi,fzi
-    pot = + 0.5*vhalo*vhalo*log(r*r + rLhalo*rLhalo)
-    fxi = - vhalo*vhalo*xi/(rLhalo*rLhalo + r*r)
-    fyi = - vhalo*vhalo*yi/(rLhalo*rLhalo + r*r)
-    fzi = - vhalo*vhalo*zi/(rLhalo*rLhalo + r*r)
+ pot = + 0.5*vhalo*vhalo*log(r*r + rLhalo*rLhalo)
+ fxi = - vhalo*vhalo*xi/(rLhalo*rLhalo + r*r)
+ fyi = - vhalo*vhalo*yi/(rLhalo*rLhalo + r*r)
+ fzi = - vhalo*vhalo*zi/(rLhalo*rLhalo + r*r)
  !--Update the input forces/potential
-    phi    = phi + pot
-    fextxi = fextxi + fxi
-    fextyi = fextyi + fyi
-    fextzi = fextzi + fzi
-    return
+ phi    = phi + pot
+ fextxi = fextxi + fxi
+ fextyi = fextyi + fyi
+ fextzi = fextzi + fzi
+ return
 end subroutine Flathalo
 
 !--Allen&Martos--: A logarithmic/arctan DM halo
@@ -690,21 +690,21 @@ subroutine AMhalo(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
  real, intent(in)    :: r,dr,xi,yi,zi
  real, intent(inout) :: phi,fextxi,fextyi,fextzi
  real(kind=8)  :: pot,fxi,fyi,fzi,haloterm,Massinhalo,haloforce
-    haloterm = ((r/AMrhalo)**1.02)
-    Massinhalo= AMmhalo*haloterm*(r/AMrhalo)/(1.0+haloterm)
-    pot       =  (- gcode*Massinhalo/r - gcode*AMmhalo/(1.02*AMrhalo)  &
+ haloterm = ((r/AMrhalo)**1.02)
+ Massinhalo= AMmhalo*haloterm*(r/AMrhalo)/(1.0+haloterm)
+ pot       =  (- gcode*Massinhalo/r - gcode*AMmhalo/(1.02*AMrhalo)  &
     * ( -1.02/(1.0+(rlim/AMrhalo)**1.02) + log(1.0+(rlim/AMrhalo)**1.02) &
        +1.02/(1.0+haloterm)           - log(1.0+haloterm)          ) )
-    haloforce  = -gcode*Massinhalo*dr*dr
-    fxi = + xi*dr*haloforce
-    fyi = + yi*dr*haloforce
-    fzi = + zi*dr*haloforce
+ haloforce  = -gcode*Massinhalo*dr*dr
+ fxi = + xi*dr*haloforce
+ fyi = + yi*dr*haloforce
+ fzi = + zi*dr*haloforce
  !--Update the input forces/potential
-    phi    = phi + pot
-    fextxi = fextxi + fxi
-    fextyi = fextyi + fyi
-    fextzi = fextzi + fzi
-    return
+ phi    = phi + pot
+ fextxi = fextxi + fxi
+ fextyi = fextyi + fyi
+ fextzi = fextzi + fzi
+ return
 end subroutine AMhalo
 
 !--Khoperskov/Begeman--: A normalised logarithmic/arctan DM halo
@@ -713,46 +713,46 @@ subroutine KBhalo(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
  real, intent(in)    :: r,dr,xi,yi,zi
  real, intent(inout) :: phi,fextxi,fextyi,fextzi
  real(kind=8)  :: pot,fxi,fyi,fzi,fri,rratio,atanterm
-    rratio=r/rhalo
-    atanterm = atan(rratio)
+ rratio=r/rhalo
+ atanterm = atan(rratio)
 
-    pot = + Mhalo*gcode*HaloCi*( log(rratio) + atanterm/rratio + &
+ pot = + Mhalo*gcode*HaloCi*( log(rratio) + atanterm/rratio + &
      0.5*log((1.+rratio**2)/(rratio**2)) )/rhalo
-    fri = + dr*dr * Mhalo*gcode*HaloCi *(atanterm -rratio)
-    fxi = + xi*dr*fri
-    fyi = + yi*dr*fri
-    fzi = + zi*dr*fri
+ fri = + dr*dr * Mhalo*gcode*HaloCi *(atanterm -rratio)
+ fxi = + xi*dr*fri
+ fyi = + yi*dr*fri
+ fzi = + zi*dr*fri
 
  !--Update the input forces/potential
-    phi    = phi + pot
-    fextxi = fextxi + fxi
-    fextyi = fextyi + fyi
-    fextzi = fextzi + fzi
-    return
+ phi    = phi + pot
+ fextxi = fextxi + fxi
+ fextyi = fextyi + fyi
+ fextzi = fextzi + fzi
+ return
 end subroutine KBhalo
 
 !--Navarro/Frenk/White--: DM halo fitted to observations
 !----------------------------------------------------------------
 subroutine NFWhalo(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
-  real, intent(in)    :: r,dr,xi,yi,zi
-  real, intent(inout) :: phi,fextxi,fextyi,fextzi
-  real(kind=8)  :: potent1,fxi,fyi,fzi,fri
-    !--Evaluate potential
-    potent1= -log(1.d0+r/rnfw)*dr*gcode*Mnfw/(log(1.d0+Cnfw)-Cnfw/(1.d0+Cnfw))
+ real, intent(in)    :: r,dr,xi,yi,zi
+ real, intent(inout) :: phi,fextxi,fextyi,fextzi
+ real(kind=8)  :: potent1,fxi,fyi,fzi,fri
+ !--Evaluate potential
+ potent1= -log(1.d0+r/rnfw)*dr*gcode*Mnfw/(log(1.d0+Cnfw)-Cnfw/(1.d0+Cnfw))
 
-    !--Calculate the force in r, and use to calc Cartesian forces.
-    fri    =(log(1.d0+r/rnfw)*dr*dr-1.d0/((rnfw*r)*(1.d0+r/rnfw)))*gcode*Mnfw/(log(1.d0+Cnfw)&
+ !--Calculate the force in r, and use to calc Cartesian forces.
+ fri    =(log(1.d0+r/rnfw)*dr*dr-1.d0/((rnfw*r)*(1.d0+r/rnfw)))*gcode*Mnfw/(log(1.d0+Cnfw)&
      -Cnfw/(1.d0+Cnfw))
-    fxi = -fri*xi*dr
-    fyi = -fri*yi*dr
-    fzi = -fri*zi*dr
+ fxi = -fri*xi*dr
+ fyi = -fri*yi*dr
+ fzi = -fri*zi*dr
 
-    !--Update potential and forces
-    phi    = phi + potent1
-    fextxi = fextxi + fxi
-    fextyi = fextyi + fyi
-    fextzi = fextzi + fzi
-    return
+ !--Update potential and forces
+ phi    = phi + potent1
+ fextxi = fextxi + fxi
+ fextyi = fextyi + fyi
+ fextzi = fextzi + fzi
+ return
 end subroutine NFWhalo
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -859,11 +859,11 @@ subroutine s_potential(xi,yi,zi,ti,potout,fextxi,fextyi,fextzi)
  !    logpart=Co*log(Rc**2.+r**2.+(z/0.7)**2.)
 
  !--Update the input forces/potential
-   potout    = potout + pot
-   fextxi = fextxi + fxi
-   fextyi = fextyi + fyi
-   fextzi = fextzi + fzi
-   return
+ potout    = potout + pot
+ fextxi = fextxi + fxi
+ fextyi = fextyi + fyi
+ fextzi = fextzi + fzi
+ return
 end subroutine s_potential
 
 !--Pichardo&Martos--:Schmidt spheroids of rho=p0+p1*a
@@ -891,44 +891,44 @@ subroutine pichardo_potential(xi,yi,zi,rcyl2,ti,phii,phi,fextxi,fextyi,fextzi)
  fyi =0.d0
 !--Loop over an arm:
  do ii=1,NNi
-  !--Loop over all the schmidt spheroids in a single arm:
-  n=1
-  fomi =0.d0
-  fznew=0.d0
-  do n=1,Nt
-     gArm = shapefn(ii,n) - phir*(t0+ti)
-     om2=Rspheroids(ii,n)*Rspheroids(ii,n) + rcyl2 - 2.0d0*Rspheroids(ii,n)*rcyl*&
+    !--Loop over all the schmidt spheroids in a single arm:
+    n=1
+    fomi =0.d0
+    fznew=0.d0
+    do n=1,Nt
+       gArm = shapefn(ii,n) - phir*(t0+ti)
+       om2=Rspheroids(ii,n)*Rspheroids(ii,n) + rcyl2 - 2.0d0*Rspheroids(ii,n)*rcyl*&
      cos(gArm-phii)
-     om=sqrt(om2)
+       om=sqrt(om2)
 
-     !--Are we in or outside the spheroid?
-     if ((om2/a_02 + z2/c_02)<=1.0d0) then
-       !Inside
-       beta = asin(e_0)
-       sbeta= e_0
-     else
-       !Outside
-       betain= betafn(om2,z2)
-       beta  = betain(2)
-       sbeta = betain(1)
-     endif
+       !--Are we in or outside the spheroid?
+       if ((om2/a_02 + z2/c_02)<=1.0d0) then
+          !Inside
+          beta = asin(e_0)
+          sbeta= e_0
+       else
+          !Outside
+          betain= betafn(om2,z2)
+          beta  = betain(2)
+          sbeta = betain(1)
+       endif
 
-     ys  = Rspheroids(ii,n)*sin(gArm)
-     xs  = Rspheroids(ii,n)*cos(gArm)
-     psi = atan2((yi-ys),(xi-xs))
+       ys  = Rspheroids(ii,n)*sin(gArm)
+       xs  = Rspheroids(ii,n)*cos(gArm)
+       psi = atan2((yi-ys),(xi-xs))
 
-     !FOR A PICHARDO SPHEROID ARM STRUCTURE
-     !Form: rho = p0 + p1*a
-     p0i= den0(ii,n)
-     p1i= -p0i/a_0
-     cbeta=cos(beta)
-     tbeta=TAN(beta)
-     t1=sqrt(om2*cbeta*cbeta+z2)
-     t2=sqrt(om2+z2)
-     t3=(t1+zi)*(t2-zi) /(om2*cbeta)
-     t4=log( ((t1+zi)*(t2-zi))/((t1-zi)*(t2+zi)) )
+       !FOR A PICHARDO SPHEROID ARM STRUCTURE
+       !Form: rho = p0 + p1*a
+       p0i= den0(ii,n)
+       p1i= -p0i/a_0
+       cbeta=cos(beta)
+       tbeta=TAN(beta)
+       t1=sqrt(om2*cbeta*cbeta+z2)
+       t2=sqrt(om2+z2)
+       t3=(t1+zi)*(t2-zi) /(om2*cbeta)
+       t4=log( ((t1+zi)*(t2-zi))/((t1-zi)*(t2+zi)) )
 
-     potnew=  strength *(&
+       potnew=  strength *(&
      +a_0*beta*e_0*e_02*((1.d0/3.d0)*p1i*a_02+0.5d0*p0i*a_0)&
      -0.5d0*p0i*e_0*(0.5d0*om2*(beta-sbeta*cbeta) +z2*(tbeta-beta))&
      +(1.d0/9.d0)*p1i*(t2*t2*t2-t1*t1*t1)&
@@ -936,29 +936,29 @@ subroutine pichardo_potential(xi,yi,zi,rcyl2,ti,phii,phi,fextxi,fextyi,fextzi)
      +t1*((1.d0/3.d0)*p1i*(om2-z2)-(1.d0/6.d0)*p1i*z2/(cbeta*cbeta))&
      -p1i*zi*(0.5d0*om2-(1.d0/3.d0)*z2)*log(t3)         )
 
-     fomi = strength*om*( 0.5d0*e_0*p0i*(beta-sbeta*cbeta) &
+       fomi = strength*om*( 0.5d0*e_0*p0i*(beta-sbeta*cbeta) &
       + p1i*(  +(1.0d0/(3.0d0*om2))*(t1*t1*t1-t2*t2*t2)&
                +t2 -t1 +0.5d0*zi*t4     ))
 
-     fznew = strength*zi*(e_0*p0i*(tbeta-beta) &
+       fznew = strength*zi*(e_0*p0i*(tbeta-beta) &
       + p1i*(  (1.0d0/(2.0d0*cbeta*cbeta) + 1.0d0)*t1 - 1.5d0*t2 &
        + 0.25d0*((om2-2.0d0*z2)/zi)*t4  ))
 
-     !--Sum forces in x and y (NOT omega), and z.
-     pot = pot+potnew
-     fxi = fxi+fomi*cos(psi)
-     fyi = fyi+fomi*sin(psi)
-     fzi = fzi+fznew
-  !--Next spheroid...
-  enddo
+       !--Sum forces in x and y (NOT omega), and z.
+       pot = pot+potnew
+       fxi = fxi+fomi*cos(psi)
+       fyi = fyi+fomi*sin(psi)
+       fzi = fzi+fznew
+       !--Next spheroid...
+    enddo
 !--Next arm...
-enddo
+ enddo
 !--Update the input forces/potential
-  phi    = phi + pot
-  fextxi = fextxi + fxi
-  fextyi = fextyi + fyi
-  fextzi = fextzi + fzi
-  return
+ phi    = phi + pot
+ fextxi = fextxi + fxi
+ fextyi = fextyi + fyi
+ fextzi = fextzi + fzi
+ return
 end subroutine pichardo_potential
 
 !--Pichardo&Martos--:Schmidt spheroids of rho=p0+p1/a
@@ -997,14 +997,14 @@ subroutine schmidt_potential(xi,yi,zi,rcyl2,ti,phii,phi,fextxi,fextyi,fextzi)
 
        !--Are we in or outside the spheroid?
        if ((om2/a_02 + z2/c_02)<=1.0d0) then
-         !Inside
-         beta = asin(e_0)
-         sbeta= e_0
-         else
-         !Outside
-         betain= betafn(om2,z2)
-         beta = betain(2)
-         sbeta= betain(1)
+          !Inside
+          beta = asin(e_0)
+          sbeta= e_0
+       else
+          !Outside
+          betain= betafn(om2,z2)
+          beta = betain(2)
+          sbeta= betain(1)
        endif
 
        ys  = Rspheroids(ii,n)*sin(gArm)
@@ -1039,7 +1039,7 @@ subroutine schmidt_potential(xi,yi,zi,rcyl2,ti,phii,phi,fextxi,fextyi,fextzi)
        fxi = fxi+fomi*cos(psi)
        fyi = fyi+fomi*sin(psi)
        fzi = fzi+fznew
-    !--Next spheroid...
+       !--Next spheroid...
     enddo
 !--Next arm...
  enddo
@@ -1162,33 +1162,33 @@ subroutine DehnenBar(xi,yi,d2,phii,ti,phi,fextxi,fextyi)
  real, intent(in)    :: ti,xi,yi,d2,phii
  real, intent(inout) :: phi,fextxi,fextyi
  real(kind=8)  :: bartrig,Cbartrig,Sbartrig,rcubed,pot,fxi,fyi,Ab,t1,eta,d1
-  !--Basic quadrupole from Duhnen00
+ !--Basic quadrupole from Duhnen00
 
-  !--The full bar potential has a smooth switch:
-  t1       = 4.*pi/phibar
-  eta      = 2.*ti/t1 - 1.
-  Ab       = StrBarD*min((0.1875d0*eta**5-0.625d0*eta**3+0.9375d0*eta+0.5d0),1.d0)
-  bartrig  = 2.d0*(phii   +  phibar*ti )
-  Cbartrig = cos(bartrig)
-  Sbartrig = sin(bartrig)
-  rcubed=radiusofbar*radiusofbar*radiusofbar
+ !--The full bar potential has a smooth switch:
+ t1       = 4.*pi/phibar
+ eta      = 2.*ti/t1 - 1.
+ Ab       = StrBarD*min((0.1875d0*eta**5-0.625d0*eta**3+0.9375d0*eta+0.5d0),1.d0)
+ bartrig  = 2.d0*(phii   +  phibar*ti )
+ Cbartrig = cos(bartrig)
+ Sbartrig = sin(bartrig)
+ rcubed=radiusofbar*radiusofbar*radiusofbar
 
-  !--Should all be in terms of x,y [d2], not x,y,z [r**2]
-  d1    =sqrt(d2)
-  if (d1>radiusofbar) then
+ !--Should all be in terms of x,y [d2], not x,y,z [r**2]
+ d1    =sqrt(d2)
+ if (d1>radiusofbar) then
     pot = + Ab*Cbartrig * (-rcubed/(d2*d1))
     fxi = - Ab*rcubed *(3.*xi*Cbartrig - yi*2.*Sbartrig)/(d2*d2*d1)
     fyi = - Ab*rcubed *(3.*yi*Cbartrig + xi*2.*Sbartrig)/(d2*d2*d1)
-  elseif (d1<radiusofbar .and. d1 > 0.05*kpc/udist) then
+ elseif (d1<radiusofbar .and. d1 > 0.05*kpc/udist) then
     pot = + Ab*Cbartrig*(d2*d1/rcubed - 2.)
     fxi = - Ab*(  2.*yi*Sbartrig*(d2*d1/rcubed-2.)/d2 + 3.*xi*d1*Cbartrig/rcubed )
     fyi = - Ab*( -2.*xi*Sbartrig*(d2*d1/rcubed-2.)/d2 + 3.*yi*d1*Cbartrig/rcubed )
-   else
+ else
     !Avoid div0 errors if very close to centre
     pot = + Ab*Cbartrig*(d2*d1/rcubed - 2.)
     fxi = 0.
     fyi = 0.
-  endif
+ endif
  !--Update the input forces/potential
  phi    = phi + pot
  fextxi = fextxi + fxi
@@ -1277,20 +1277,20 @@ subroutine Wang_bar(ri,phii,thetai,pot)
  s = ri/rbars
 
  do i=1,20
-   n = n_wbar(i)
-   l = l_wbar(i)
-   m = m_wbar(i)
-   allocate(GnlA(n+1))
-   call gegenbauer_poly(n,(2.*real(l,kind=8)+1.5),(s-1.)/(s+1.),GnlA)
-   Gnl=GnlA(n+1)
+    n = n_wbar(i)
+    l = l_wbar(i)
+    m = m_wbar(i)
+    allocate(GnlA(n+1))
+    call gegenbauer_poly(n,(2.*real(l,kind=8)+1.5),(s-1.)/(s+1.),GnlA)
+    Gnl=GnlA(n+1)
 
-   allocate(PlmA(l+1))
-   call legendre_associated(l,m,cos(thetai),PlmA)
-   Plm=PlmA(l+1)
-   thisphi = Anlm(i) * (s**REAL(l))/((1.+s)**(2.*REAL(l)+1.)) * Gnl * Plm * cos(REAL(m)*(phii))
-   AlmnSum = AlmnSum + thisphi
+    allocate(PlmA(l+1))
+    call legendre_associated(l,m,cos(thetai),PlmA)
+    Plm=PlmA(l+1)
+    thisphi = Anlm(i) * (s**REAL(l))/((1.+s)**(2.*REAL(l)+1.)) * Gnl * Plm * cos(REAL(m)*(phii))
+    AlmnSum = AlmnSum + thisphi
 
-   deallocate(GnlA,PlmA)
+    deallocate(GnlA,PlmA)
  enddo
 
  pot = +gcode*barmass*AlmnSum/rbars
@@ -1366,29 +1366,29 @@ subroutine VogtSbar(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
  real(kind=8) :: lamb,Rbent1,Rbent2,Rbent13,Rbent23,barterm1,barterm2,&
    barterm3,pot,fxi,fyi,fzi,fextxr,fextyr,&
    xir,yir,zir
-  lamb= barmass/(2.*LMabar)
+ lamb= barmass/(2.*LMabar)
  !--Rotate our reference frame so the bar is still x-allinged.
-  xir = xi*cos(ti*phibar)-yi*sin(ti*phibar)
-  yir = xi*sin(ti*phibar)+yi*cos(ti*phibar)
-  zir = zi
+ xir = xi*cos(ti*phibar)-yi*sin(ti*phibar)
+ yir = xi*sin(ti*phibar)+yi*cos(ti*phibar)
+ zir = zi
 
-  Rbent1=sqrt(zir*zir+yir*yir+LMbbar*LMbbar+(xir+LMabar)**2)
-  Rbent2=sqrt(zir*zir+yir*yir+LMbbar*LMbbar+(xir-LMabar)**2)
-  Rbent13=Rbent1*Rbent1*Rbent1
-  Rbent23=Rbent2*Rbent2*Rbent2
+ Rbent1=sqrt(zir*zir+yir*yir+LMbbar*LMbbar+(xir+LMabar)**2)
+ Rbent2=sqrt(zir*zir+yir*yir+LMbbar*LMbbar+(xir-LMabar)**2)
+ Rbent13=Rbent1*Rbent1*Rbent1
+ Rbent23=Rbent2*Rbent2*Rbent2
 
-  barterm1=zir*zir+yir*yir+xir*xir+LMbbar*LMbbar !z^2+y^2+x^2+b^2
-  barterm2=zir*zir+yir*yir+LMbbar*LMbbar         !z^2+y^2+b^2
-  barterm3=yir*yir-zir*zir-LMbbar*LMbbar         !y^2-z^2-b^2
+ barterm1=zir*zir+yir*yir+xir*xir+LMbbar*LMbbar !z^2+y^2+x^2+b^2
+ barterm2=zir*zir+yir*yir+LMbbar*LMbbar         !z^2+y^2+b^2
+ barterm3=yir*yir-zir*zir-LMbbar*LMbbar         !y^2-z^2-b^2
 
-  pot = -(gcode*lamb*log( (xir-LMabar+Rbent2)/(xir+LMabar+Rbent1) ) &
+ pot = -(gcode*lamb*log( (xir-LMabar+Rbent2)/(xir+LMabar+Rbent1) ) &
   + (ebar*gcode*lamb*yir/(LMabar*LMabar*barterm2*Rbent1*Rbent2)) &
   *(3.*xir*barterm2*Rbent1*Rbent2*log((xir-LMabar+Rbent2)/(xir+LMabar+Rbent1)) &
   +LMabar*xir*(5.*zir*zir+5.*yir*yir+5.*LMbbar*LMbbar-xir*xir)*(Rbent1+Rbent2) &
   - (Rbent1-Rbent2)*(LMabar*LMabar*barterm2 &
   +barterm1*(2.*zir*zir+2.*yir*yir+2.*LMbbar*LMbbar-xir*xir))    ))
 
-  fextxr = +gcode*lamb*(Rbent2-Rbent1)/(Rbent1*Rbent2) -&
+ fextxr = +gcode*lamb*(Rbent2-Rbent1)/(Rbent1*Rbent2) -&
   3.*ebar*gcode*lamb*yir*log((xir-LMabar+Rbent2)/(xir+LMabar+Rbent1))/(LMabar*LMabar) -&
   (ebar*gcode*lamb*yir/(LMabar*LMabar*(zir*zir+yir*yir+LMbbar*LMbbar)*Rbent13*Rbent23))*&
    ( Rbent13*(3.*xir*barterm1**2 - &
@@ -1400,7 +1400,7 @@ subroutine VogtSbar(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
      3.*LMabar*barterm2**2 +&
       3.*LMabar*xir*xir*(3.*xir*xir+3.*LMabar*xir+LMabar*LMabar))  )
 
-  fextyr = +gcode*lamb*((xir-LMabar)*Rbent1-(xir+LMabar)*Rbent2)*yir/((zir*zir+yir*yir+LMbbar*LMbbar)*Rbent1*Rbent2) &
+ fextyr = +gcode*lamb*((xir-LMabar)*Rbent1-(xir+LMabar)*Rbent2)*yir/((zir*zir+yir*yir+LMbbar*LMbbar)*Rbent1*Rbent2) &
   -3.*ebar*gcode*lamb*xir*log((xir-LMabar+Rbent2)/(xir+LMabar+Rbent1))/(LMabar*LMabar) &
   + (ebar*gcode*lamb/(LMabar*LMabar*Rbent13*Rbent23*(zir*zir+yir*yir+LMbbar*LMbbar)**2))&
    *(+Rbent13*( (barterm1**2)*( 2.*barterm2*(zir*zir+2.*yir*yir+LMbbar*LMbbar)+xir*xir*barterm3 ) &
@@ -1416,7 +1416,7 @@ subroutine VogtSbar(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
          +LMabar*xir*barterm2*(+3.*LMabar*xir*(4.*zir*zir+7.*yir*yir+4.*LMbbar*LMbbar) &
            +6.*xir*xir*(zir*zir+3.*yir*yir+LMbbar*LMbbar)+LMabar*LMabar*(7.*zir*zir+10.*yir*yir+7.*LMbbar*LMbbar))  ) )
 
-  fzi=+gcode*lamb*((xir-LMabar)*Rbent1-(xir+LMabar)*Rbent2)*zir/((zir*zir+yir*yir+LMbbar*LMbbar)*Rbent1*Rbent2)
+ fzi=+gcode*lamb*((xir-LMabar)*Rbent1-(xir+LMabar)*Rbent2)*zir/((zir*zir+yir*yir+LMbbar*LMbbar)*Rbent1*Rbent2)
 
  !!--Rotate the reference frame of the forces back to those of the observer, rather than the bar.
  fxi= +(fextxr*cos(-ti*phibar)-fextyr*sin(-ti*phibar))

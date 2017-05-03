@@ -44,70 +44,70 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype)
-  use part,      only:hfact,igas,iboundary,massoftype
-  use partinject,only:add_or_update_particle
-  use io,        only:iprint
-  use units,     only:umass,udist,utime
-  use physcon,   only:Rg
-  use eos,       only:gamma
-  use boundary,  only:xmin,xmax,ymin,ymax,zmin,zmax
-  real,    intent(in)    :: time, dtlast
-  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
-  integer, intent(inout) :: npart
-  integer, intent(inout) :: npartoftype(:)
+ use part,      only:hfact,igas,iboundary,massoftype
+ use partinject,only:add_or_update_particle
+ use io,        only:iprint
+ use units,     only:umass,udist,utime
+ use physcon,   only:Rg
+ use eos,       only:gamma
+ use boundary,  only:xmin,xmax,ymin,ymax,zmin,zmax
+ real,    intent(in)    :: time, dtlast
+ real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npartoftype(:)
 
-  integer, parameter :: handled_walls = 3
-  real, parameter :: mu = 1.26 ! Used in Bowen (1988)
-  real :: rho, v, energy_to_temperature_ratio, u, h, delta, time_between_walls
-  integer :: N, outer_wall, inner_wall, inner_handled_wall, particles_per_wall
-  integer :: i, iy, iz, i_part, injected_particle, part_type
-  real :: local_time, vxyz(3), pxyz(3)
+ integer, parameter :: handled_walls = 3
+ real, parameter :: mu = 1.26 ! Used in Bowen (1988)
+ real :: rho, v, energy_to_temperature_ratio, u, h, delta, time_between_walls
+ integer :: N, outer_wall, inner_wall, inner_handled_wall, particles_per_wall
+ integer :: i, iy, iz, i_part, injected_particle, part_type
+ real :: local_time, vxyz(3), pxyz(3)
 
-  rho = wind_density / (umass/udist**3)
-  v = wind_velocity * 1.d5 / (udist/utime)
-  N = int(wind_resolution)
-  energy_to_temperature_ratio = Rg/(mu*(gamma-1.))/(udist/utime)**2
-  u = wind_temperature * energy_to_temperature_ratio
-  delta = (ymax-ymin)/N
-  time_between_walls = delta/v
-  h = hfact * delta / 2.
+ rho = wind_density / (umass/udist**3)
+ v = wind_velocity * 1.d5 / (udist/utime)
+ N = int(wind_resolution)
+ energy_to_temperature_ratio = Rg/(mu*(gamma-1.))/(udist/utime)**2
+ u = wind_temperature * energy_to_temperature_ratio
+ delta = (ymax-ymin)/N
+ time_between_walls = delta/v
+ h = hfact * delta / 2.
 
-  outer_wall = ceiling((time-dtlast)/time_between_walls)
-  inner_wall = ceiling(time/time_between_walls)-1
-  inner_handled_wall = inner_wall+handled_walls
-  particles_per_wall = N**2
+ outer_wall = ceiling((time-dtlast)/time_between_walls)
+ inner_wall = ceiling(time/time_between_walls)-1
+ inner_handled_wall = inner_wall+handled_walls
+ particles_per_wall = N**2
 
-  !print *, "t = ", time
-  !print *, "dt last = ", dtlast
-  !print *, "delta t = ", time_between_walls
-  !print *, "Injecting wall ", inner_wall, " to ", outer_wall
-  !print *, "Handling wall ", inner_handled_wall, " to ", inner_wall-1
-  print *, ' v = ', v
-  print *, '*** ', time, dtlast, time_between_walls, inner_wall, outer_wall
+ !print *, "t = ", time
+ !print *, "dt last = ", dtlast
+ !print *, "delta t = ", time_between_walls
+ !print *, "Injecting wall ", inner_wall, " to ", outer_wall
+ !print *, "Handling wall ", inner_handled_wall, " to ", inner_wall-1
+ print *, ' v = ', v
+ print *, '*** ', time, dtlast, time_between_walls, inner_wall, outer_wall
 
-  vxyz = (/ v, 0., 0. /)
-  do i=inner_handled_wall,outer_wall,-1
-      local_time = time - i*time_between_walls
-      if (i  >  inner_wall) then
-        ! Handled wall
-        i_part = (inner_handled_wall-i)*particles_per_wall
-        part_type = igas
-      else
-        ! Outer wall
-        i_part = npart
-        part_type = igas
-      endif
-      pxyz(1) = local_time * v
-      print *, '==== ', i, pxyz(1)
-      do iy = 1,N
-        do iz = 1,N
+ vxyz = (/ v, 0., 0. /)
+ do i=inner_handled_wall,outer_wall,-1
+    local_time = time - i*time_between_walls
+    if (i  >  inner_wall) then
+       ! Handled wall
+       i_part = (inner_handled_wall-i)*particles_per_wall
+       part_type = igas
+    else
+       ! Outer wall
+       i_part = npart
+       part_type = igas
+    endif
+    pxyz(1) = local_time * v
+    print *, '==== ', i, pxyz(1)
+    do iy = 1,N
+       do iz = 1,N
           pxyz(2) = ymin + (iy-.5)*delta
           pxyz(3) = zmin + (iz-.5)*delta
           i_part = i_part + 1
           call add_or_update_particle(part_type, pxyz, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu) ! Another brick in the wall
-        enddo
-      enddo
-  enddo
+       enddo
+    enddo
+ enddo
 end subroutine
 
 !-----------------------------------------------------------------------

@@ -130,7 +130,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = 0
  npart_total = 0
 
-call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,xyzh,rhofunc=rhofunc,nptot=npart_total)
+ call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,xyzh,rhofunc=rhofunc,nptot=npart_total)
 
 !
 !--set particle properties
@@ -150,13 +150,13 @@ call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,xyzh,rhofunc=
 
  do i=1,npart
     vxyzu(1:3,i) = 0.
-       !
-       !--Note: Running the polytrope with u stored is not quite
-       !  the same as using P = K rho^gamma because we really
-       !  should use the actual rho, not rhozero.
-       !
-          r = sqrt(xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i) + xyzh(3,i)*xyzh(3,i))
-          vxyzu(4,i) = 4.3d6/(2*(gamma-1)*r) !polyk*rhozero**(gamma-1)/(gamma-1)
+    !
+    !--Note: Running the polytrope with u stored is not quite
+    !  the same as using P = K rho^gamma because we really
+    !  should use the actual rho, not rhozero.
+    !
+    r = sqrt(xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i) + xyzh(3,i)*xyzh(3,i))
+    vxyzu(4,i) = 4.3d6/(2*(gamma-1)*r) !polyk*rhozero**(gamma-1)/(gamma-1)
  enddo
 
 end subroutine setpart

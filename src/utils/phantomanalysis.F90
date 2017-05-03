@@ -61,7 +61,7 @@ program phantomanalysis
 !
     if (iarg==1) then
        iloc = index(dumpfile,'_0')
-          if (iloc > 1) then
+       if (iloc > 1) then
           fileprefix = trim(dumpfile(1:iloc-1))
        else
           fileprefix = trim(dumpfile)
@@ -88,8 +88,8 @@ program phantomanalysis
 
     if (ierr==is_small_dump) then
        close(idisk1)
-    !--if it is a small dump, look for a file called dumpfile.binary
-    !  (this is a workaround to at least obtain what information there is in small dump files)
+       !--if it is a small dump, look for a file called dumpfile.binary
+       !  (this is a workaround to at least obtain what information there is in small dump files)
        open(idisk1,file=trim(dumpfile)//'.binary',form='unformatted',status='old',iostat=ierr)
        if (ierr==0) then
           print "(a)",' reading from '//trim(dumpfile)//'.binary for small dump'

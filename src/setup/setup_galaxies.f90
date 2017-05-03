@@ -76,17 +76,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ctrs = 0
  ctrg = 0
  do i = 1,npart
-   read(lu,*) itype,xyzh(1:3,i),vxyzu(1:3,i),utmp(i),xyzh(4,i)
-   if (itype== 0) then
-     call set_particle_type(i,idarkmatter)
-     ctrd = ctrd + 1
-   else if (itype==-1) then
-     call set_particle_type(i,istar)
-     ctrs = ctrs + 1
-   else if (itype== 1) then
-     call set_particle_type(i,igas)
-     ctrg = ctrg + 1
-   endif
+    read(lu,*) itype,xyzh(1:3,i),vxyzu(1:3,i),utmp(i),xyzh(4,i)
+    if (itype== 0) then
+       call set_particle_type(i,idarkmatter)
+       ctrd = ctrd + 1
+    else if (itype==-1) then
+       call set_particle_type(i,istar)
+       ctrs = ctrs + 1
+    else if (itype== 1) then
+       call set_particle_type(i,igas)
+       ctrg = ctrg + 1
+    endif
  enddo
  close(lu)
  if (ctrd/=ndark) call fatal('setup','read in incorrect number of dark matter particles')
@@ -115,17 +115,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  polyk = polykset**2
  gamma = 5./3.
  if (maxvxyzu >= 4) then
-   do i = 1,npart
-     if (iamtype(iphase(i))==igas) then
-       if (utmp(i)==0) then
-         vxyzu(4,i) = polyk/(gamma * (gamma-1.0))
+    do i = 1,npart
+       if (iamtype(iphase(i))==igas) then
+          if (utmp(i)==0) then
+             vxyzu(4,i) = polyk/(gamma * (gamma-1.0))
+          else
+             vxyzu(4,i) = utmp(i)*(utime/(1.0d5*years))**2
+          endif
        else
-         vxyzu(4,i) = utmp(i)*(utime/(1.0d5*years))**2
+          vxyzu(4,i) = 0.0
        endif
-     else
-       vxyzu(4,i) = 0.0
-     endif
-   enddo
+    enddo
  endif
  print*,' polyk = ',polyk
  call bcast_mpi(polykset)
@@ -136,8 +136,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  inquire(file=filename,exist=iexist)
  time        = time*(1.0d5*years)/utime
  if (.not. iexist) then
-   tmax      = (0.1500d10*years)/utime
-   dtmax     = (0.0005d10*years)/utime
+    tmax      = (0.1500d10*years)/utime
+    dtmax     = (0.0005d10*years)/utime
  endif
 
  print*, 'n_total,n_dark,n_star,n_gas: ',npart,ndark,nstar,ngas

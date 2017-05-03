@@ -63,15 +63,15 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     if (xi >= xminbox .and. xi <= xmaxbox .and. &
         yi >= yminbox .and. yi <= ymaxbox .and. &
         zi >= zminbox .and. zi <= zmaxbox) then
-        ninbox = ninbox + 1
-        vxi = vxyzu(1,i)
-        vyi = vxyzu(2,i)
-        vzi = vxyzu(3,i)
-        v2i = vxi*vxi + vyi*vyi + vzi*vzi
-        ekin = ekin + v2i
-        xmom = xmom + vxi
-        ymom = ymom + vyi
-        zmom = zmom + vzi
+       ninbox = ninbox + 1
+       vxi = vxyzu(1,i)
+       vyi = vxyzu(2,i)
+       vzi = vxyzu(3,i)
+       v2i = vxi*vxi + vyi*vyi + vzi*vzi
+       ekin = ekin + v2i
+       xmom = xmom + vxi
+       ymom = ymom + vyi
+       zmom = zmom + vzi
     endif
  enddo
 

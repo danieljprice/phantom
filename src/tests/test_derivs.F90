@@ -358,55 +358,55 @@ subroutine test_derivs(ntests,npass,string)
 !
 !--check artificial viscosity terms (pressure + av)
 !
-    if (id==master) then
+       if (id==master) then
 #ifdef DISC_VISCOSITY
-       write(*,"(/,a)") '--> testing artificial viscosity terms (disc viscosity)'
+          write(*,"(/,a)") '--> testing artificial viscosity terms (disc viscosity)'
 #else
-       if (maxalpha==maxp) then
-          write(*,"(/,a)") '--> testing artificial viscosity terms (individual alpha''s)'
-       else
-          write(*,"(/,a)") '--> testing artificial viscosity terms (constant alpha)'
+          if (maxalpha==maxp) then
+             write(*,"(/,a)") '--> testing artificial viscosity terms (individual alpha''s)'
+          else
+             write(*,"(/,a)") '--> testing artificial viscosity terms (constant alpha)'
+          endif
+#endif
+#ifdef IND_TIMESTEPS
+          if (nactive /= npart) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
+#endif
        endif
-#endif
-#ifdef IND_TIMESTEPS
-       if (nactive /= npart) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
-#endif
-    endif
-    if (maxvxyzu < 4) polyk = 3.
-    do i=1,npart
-       vxyzu(1,i) = vx(xyzh(:,i))
-       vxyzu(2,i) = vy(xyzh(:,i))
-       vxyzu(3,i) = vz(xyzh(:,i))
-       if (maxvxyzu==4) vxyzu(4,i) = uthermconst(xyzh(:,i))
-    enddo
-    call set_active(npart,nactive,igas)
-    call reset_mhd_to_zero
-    call reset_dissipation_to_zero    ! turn off any other dissipation
-    alpha  = 0.753 ! an arbitrary number that is not 1 or 0.
-    if (maxalpha==maxp) alphaind(1,:) = real(alpha,kind=kind(alphaind))
+       if (maxvxyzu < 4) polyk = 3.
+       do i=1,npart
+          vxyzu(1,i) = vx(xyzh(:,i))
+          vxyzu(2,i) = vy(xyzh(:,i))
+          vxyzu(3,i) = vz(xyzh(:,i))
+          if (maxvxyzu==4) vxyzu(4,i) = uthermconst(xyzh(:,i))
+       enddo
+       call set_active(npart,nactive,igas)
+       call reset_mhd_to_zero
+       call reset_dissipation_to_zero    ! turn off any other dissipation
+       alpha  = 0.753 ! an arbitrary number that is not 1 or 0.
+       if (maxalpha==maxp) alphaind(1,:) = real(alpha,kind=kind(alphaind))
 
-    call getused(t1)
-    call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+       call getused(t1)
+       call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
-    if (id==master) call printused(t1)
+       if (id==master) call printused(t1)
 
-    nfailed(:) = 0
-    call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
-    call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
-    if (ndivcurlv >= 4) then
-       call checkvalf(np,xyzh,divcurlv(icurlvx,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
-       call checkvalf(np,xyzh,divcurlv(icurlvy,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
-       call checkvalf(np,xyzh,divcurlv(icurlvz,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
-    endif
-    call checkvalf(np,xyzh,fxyzu(1,:),forceavx,3.2e-2,nfailed(3),'art. visc force(x)')
-    call checkvalf(np,xyzh,fxyzu(2,:),forceavy,2.4e-2,nfailed(4),'art. visc force(y)')
-    call checkvalf(np,xyzh,fxyzu(3,:),forceavz,2.4e-2,nfailed(5),'art. visc force(z)')
+       nfailed(:) = 0
+       call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
+       call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
+       if (ndivcurlv >= 4) then
+          call checkvalf(np,xyzh,divcurlv(icurlvx,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
+          call checkvalf(np,xyzh,divcurlv(icurlvy,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
+          call checkvalf(np,xyzh,divcurlv(icurlvz,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
+       endif
+       call checkvalf(np,xyzh,fxyzu(1,:),forceavx,3.2e-2,nfailed(3),'art. visc force(x)')
+       call checkvalf(np,xyzh,fxyzu(2,:),forceavy,2.4e-2,nfailed(4),'art. visc force(y)')
+       call checkvalf(np,xyzh,fxyzu(3,:),forceavz,2.4e-2,nfailed(5),'art. visc force(z)')
 
-    ntests = ntests + 1
-    if (all(nfailed==0)) npass = npass + 1
+       ntests = ntests + 1
+       if (all(nfailed==0)) npass = npass + 1
 #ifdef IND_TIMESTEPS
-    call reset_allactive()
- enddo
+       call reset_allactive()
+    enddo
 #endif
 
  endif testavderivs
@@ -649,250 +649,250 @@ subroutine test_derivs(ntests,npass,string)
     do itest=nint(log10(real(np))),0,-2
        nactive = 10**itest
 #endif
-    polyk = 0.
-    call reset_mhd_to_zero
-    call reset_dissipation_to_zero
-    if (mhd) then
-       if (id==master) then
-          if (maxvecp==maxp) then
-             write(*,"(/,a)") '--> testing MHD derivatives (with vector potential)'
-          else
-             write(*,"(/,a)") '--> testing MHD derivatives (using B directly)'
+       polyk = 0.
+       call reset_mhd_to_zero
+       call reset_dissipation_to_zero
+       if (mhd) then
+          if (id==master) then
+             if (maxvecp==maxp) then
+                write(*,"(/,a)") '--> testing MHD derivatives (with vector potential)'
+             else
+                write(*,"(/,a)") '--> testing MHD derivatives (using B directly)'
+             endif
+             if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
           endif
-          if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
-       endif
-       Bextx = 2.0e-1
-       Bexty = 3.0e-1
-       Bextz = 0.5
-       do i=1,npart
-          vxyzu(1,i) = vx(xyzh(:,i))
-          vxyzu(2,i) = vy(xyzh(:,i))
-          vxyzu(3,i) = vz(xyzh(:,i))
+          Bextx = 2.0e-1
+          Bexty = 3.0e-1
+          Bextz = 0.5
+          do i=1,npart
+             vxyzu(1,i) = vx(xyzh(:,i))
+             vxyzu(2,i) = vy(xyzh(:,i))
+             vxyzu(3,i) = vz(xyzh(:,i))
+             if (maxvecp==maxp) then
+                Bevol(1,i) = real(Ax(xyzh(:,i)),kind=kind(Bevol))
+                Bevol(2,i) = real(Ay(xyzh(:,i)),kind=kind(Bevol))
+                Bevol(3,i) = real(Az(xyzh(:,i)),kind=kind(Bevol))
+             else
+                Bevol(1,i) = real(Bx(xyzh(:,i)),kind=kind(Bevol))
+                Bevol(2,i) = real(By(xyzh(:,i)),kind=kind(Bevol))
+                Bevol(3,i) = real(Bz(xyzh(:,i)),kind=kind(Bevol))
+             endif
+             if (maxvxyzu==4) vxyzu(4,i) = 0.
+          enddo
+          call set_active(npart,nactive,igas)
+          call getused(t1)
+          call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                   Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+          if (id==master) call printused(t1)
+          !
+          !--check that various quantities come out as they should do
+          !
+          nfailed(:) = 0
+          call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
+
           if (maxvecp==maxp) then
-             Bevol(1,i) = real(Ax(xyzh(:,i)),kind=kind(Bevol))
-             Bevol(2,i) = real(Ay(xyzh(:,i)),kind=kind(Bevol))
-             Bevol(3,i) = real(Az(xyzh(:,i)),kind=kind(Bevol))
+             call checkvalf(np,xyzh,divBsymm(:),divBfunc,2.e-4,nfailed(2),'divB (symm)')
+             call checkvalf(np,xyzh,Bxyz(1,:),Bx,2.e-3,nfailed(3),'Bx')
+             call checkvalf(np,xyzh,Bxyz(2,:),By,2.e-3,nfailed(4),'By')
+             call checkvalf(np,xyzh,Bxyz(3,:),Bz,4.e-3,nfailed(5),'Bz')
+             call checkvalf(np,xyzh,dBevol(1,:),dAxdt,1.e-3,nfailed(6),'dAx/dt')
+             call checkvalf(np,xyzh,dBevol(2,:),dAydt,1.e-3,nfailed(7),'dAy/dt')
+             call checkvalf(np,xyzh,dBevol(3,:),dAzdt,1.e-3,nfailed(8),'dAz/dt')
           else
+             call checkvalf(np,xyzh,divBsymm(:),divBfunc,2.e-3,nfailed(2),'divB (symm)')
+             call checkvalf(np,xyzh,dBevol(1,:),dBxdt,2.e-3,nfailed(3),'dBx/dt')
+             call checkvalf(np,xyzh,dBevol(2,:),dBydt,2.e-3,nfailed(4),'dBy/dt')
+             call checkvalf(np,xyzh,dBevol(3,:),dBzdt,2.e-2,nfailed(5),'dBz/dt')
+          endif
+
+          call checkvalf(np,xyzh,fxyzu(1,:),forcemhdx,2.5e-2,nfailed(9),'mhd force(x)')
+          call checkvalf(np,xyzh,fxyzu(2,:),forcemhdy,2.5e-2,nfailed(10),'mhd force(y)')
+          call checkvalf(np,xyzh,fxyzu(3,:),forcemhdz,2.5e-2,nfailed(11),'mhd force(z)')
+          if (ndivcurlB >= 1) then
+             call checkvalf(np,xyzh,divcurlB(idivB,:),divBfunc,1.e-3,nfailed(12),'div B (diff)')
+          endif
+          if (ndivcurlB >= 4) then
+             call checkvalf(np,xyzh,divcurlB(icurlBx,:),curlBfuncx,1.e-3,nfailed(13),'curlB(x)')
+             call checkvalf(np,xyzh,divcurlB(icurlBy,:),curlBfuncy,1.e-3,nfailed(14),'curlB(y)')
+             call checkvalf(np,xyzh,divcurlB(icurlBz,:),curlBfuncz,1.e-3,nfailed(15),'curlB(z)')
+          endif
+          ntests = ntests + 1
+          if (all(nfailed==0)) npass = npass + 1
+
+       endif
+#ifdef IND_TIMESTEPS
+       call reset_allactive()
+    enddo
+    do itest=nint(log10(real(np))),0,-2
+       nactive = 10**itest
+#endif
+       if (mhd .and. maxvecp /= maxp) then
+          if (id==master) then
+             write(*,"(/,a)") '--> testing artificial resistivity terms'
+             if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
+          endif
+          call reset_mhd_to_zero
+          call reset_dissipation_to_zero
+          alphaB = 0.214
+          polyk = 0.
+          ieosprev = ieos
+          ieos  = 1  ! isothermal eos, so that the PdV term is zero
+          do i=1,npart
+             vxyzu(:,i) = 0.
+             Bevol(:,i) = 0.
              Bevol(1,i) = real(Bx(xyzh(:,i)),kind=kind(Bevol))
              Bevol(2,i) = real(By(xyzh(:,i)),kind=kind(Bevol))
              Bevol(3,i) = real(Bz(xyzh(:,i)),kind=kind(Bevol))
-          endif
-          if (maxvxyzu==4) vxyzu(4,i) = 0.
-       enddo
-       call set_active(npart,nactive,igas)
-       call getused(t1)
-       call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
-       if (id==master) call printused(t1)
-       !
-       !--check that various quantities come out as they should do
-       !
-       nfailed(:) = 0
-       call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
-
-       if (maxvecp==maxp) then
-          call checkvalf(np,xyzh,divBsymm(:),divBfunc,2.e-4,nfailed(2),'divB (symm)')
-          call checkvalf(np,xyzh,Bxyz(1,:),Bx,2.e-3,nfailed(3),'Bx')
-          call checkvalf(np,xyzh,Bxyz(2,:),By,2.e-3,nfailed(4),'By')
-          call checkvalf(np,xyzh,Bxyz(3,:),Bz,4.e-3,nfailed(5),'Bz')
-          call checkvalf(np,xyzh,dBevol(1,:),dAxdt,1.e-3,nfailed(6),'dAx/dt')
-          call checkvalf(np,xyzh,dBevol(2,:),dAydt,1.e-3,nfailed(7),'dAy/dt')
-          call checkvalf(np,xyzh,dBevol(3,:),dAzdt,1.e-3,nfailed(8),'dAz/dt')
-       else
-          call checkvalf(np,xyzh,divBsymm(:),divBfunc,2.e-3,nfailed(2),'divB (symm)')
-          call checkvalf(np,xyzh,dBevol(1,:),dBxdt,2.e-3,nfailed(3),'dBx/dt')
-          call checkvalf(np,xyzh,dBevol(2,:),dBydt,2.e-3,nfailed(4),'dBy/dt')
-          call checkvalf(np,xyzh,dBevol(3,:),dBzdt,2.e-2,nfailed(5),'dBz/dt')
-       endif
-
-       call checkvalf(np,xyzh,fxyzu(1,:),forcemhdx,2.5e-2,nfailed(9),'mhd force(x)')
-       call checkvalf(np,xyzh,fxyzu(2,:),forcemhdy,2.5e-2,nfailed(10),'mhd force(y)')
-       call checkvalf(np,xyzh,fxyzu(3,:),forcemhdz,2.5e-2,nfailed(11),'mhd force(z)')
-       if (ndivcurlB >= 1) then
-          call checkvalf(np,xyzh,divcurlB(idivB,:),divBfunc,1.e-3,nfailed(12),'div B (diff)')
-       endif
-       if (ndivcurlB >= 4) then
-          call checkvalf(np,xyzh,divcurlB(icurlBx,:),curlBfuncx,1.e-3,nfailed(13),'curlB(x)')
-          call checkvalf(np,xyzh,divcurlB(icurlBy,:),curlBfuncy,1.e-3,nfailed(14),'curlB(y)')
-          call checkvalf(np,xyzh,divcurlB(icurlBz,:),curlBfuncz,1.e-3,nfailed(15),'curlB(z)')
-       endif
-       ntests = ntests + 1
-       if (all(nfailed==0)) npass = npass + 1
-
-    endif
-#ifdef IND_TIMESTEPS
-    call reset_allactive()
- enddo
- do itest=nint(log10(real(np))),0,-2
-    nactive = 10**itest
-#endif
-    if (mhd .and. maxvecp /= maxp) then
-       if (id==master) then
-          write(*,"(/,a)") '--> testing artificial resistivity terms'
-          if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
-       endif
-       call reset_mhd_to_zero
-       call reset_dissipation_to_zero
-       alphaB = 0.214
-       polyk = 0.
-       ieosprev = ieos
-       ieos  = 1  ! isothermal eos, so that the PdV term is zero
-       do i=1,npart
-          vxyzu(:,i) = 0.
-          Bevol(:,i) = 0.
-          Bevol(1,i) = real(Bx(xyzh(:,i)),kind=kind(Bevol))
-          Bevol(2,i) = real(By(xyzh(:,i)),kind=kind(Bevol))
-          Bevol(3,i) = real(Bz(xyzh(:,i)),kind=kind(Bevol))
-       enddo
-       call set_active(npart,nactive,igas)
-       call getused(t1)
-       call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
-       if (id==master) call printused(t1)
-       !
-       !--check that various quantities come out as they should do
-       !
-       nfailed(:) = 0
-       !
-       !--resistivity test is very approximate
-       !  To do a proper test, multiply by h/rij in densityforce
-       !
-       call checkvalf(np,xyzh,dBevol(1,:),dBxdtresist,3.7e-2,nfailed(1),'dBx/dt (resist)')
-       call checkvalf(np,xyzh,dBevol(2,:),dBydtresist,3.4e-2,nfailed(2),'dBy/dt (resist)')
-       call checkvalf(np,xyzh,dBevol(3,:),dBzdtresist,2.2e-1,nfailed(3),'dBz/dt (resist)')
-
-       ntests = ntests + 1
-       if (all(nfailed==0)) npass = npass + 1
-       !
-       !--check that \sum m (du/dt + B/rho.dB/dt) = 0.
-       !  only applies if all particles active - with individual timesteps
-       !  we just hope that du/dt has not changed all that much on non-active particles
-       !
-       if (maxvxyzu==4 .and. nactive==npart) then
-          deint = 0.
-          demag = 0.
-          do i=1,npart
-             rho1i = 1./rhoh(xyzh(4,i),massoftype(1))
-             deint = deint + fxyzu(4,i)
-             demag = demag + dot_product(Bevol(1:3,i),dBevol(1:3,i))*rho1i
           enddo
+          call set_active(npart,nactive,igas)
+          call getused(t1)
+          call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                   Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+          if (id==master) call printused(t1)
+          !
+          !--check that various quantities come out as they should do
+          !
           nfailed(:) = 0
-          call checkval(deint + demag,0.,2.7e-3,nfailed(1),'\sum du/dt + B.dB/dt = 0')
+          !
+          !--resistivity test is very approximate
+          !  To do a proper test, multiply by h/rij in densityforce
+          !
+          call checkvalf(np,xyzh,dBevol(1,:),dBxdtresist,3.7e-2,nfailed(1),'dBx/dt (resist)')
+          call checkvalf(np,xyzh,dBevol(2,:),dBydtresist,3.4e-2,nfailed(2),'dBy/dt (resist)')
+          call checkvalf(np,xyzh,dBevol(3,:),dBzdtresist,2.2e-1,nfailed(3),'dBz/dt (resist)')
+
           ntests = ntests + 1
-          if (nfailed(1)==0) npass = npass + 1
+          if (all(nfailed==0)) npass = npass + 1
+          !
+          !--check that \sum m (du/dt + B/rho.dB/dt) = 0.
+          !  only applies if all particles active - with individual timesteps
+          !  we just hope that du/dt has not changed all that much on non-active particles
+          !
+          if (maxvxyzu==4 .and. nactive==npart) then
+             deint = 0.
+             demag = 0.
+             do i=1,npart
+                rho1i = 1./rhoh(xyzh(4,i),massoftype(1))
+                deint = deint + fxyzu(4,i)
+                demag = demag + dot_product(Bevol(1:3,i),dBevol(1:3,i))*rho1i
+             enddo
+             nfailed(:) = 0
+             call checkval(deint + demag,0.,2.7e-3,nfailed(1),'\sum du/dt + B.dB/dt = 0')
+             ntests = ntests + 1
+             if (nfailed(1)==0) npass = npass + 1
+          endif
+
+          !--restore ieos
+          ieos = ieosprev
+
        endif
-
-       !--restore ieos
-       ieos = ieosprev
-
-    endif
 #ifdef IND_TIMESTEPS
-    call reset_allactive()
- enddo
- tolh_old = tolh
- tolh = 1.e-7
- do itest=nint(log10(real(np))),0,-2
-    nactive = 10**itest
+       call reset_allactive()
+    enddo
+    tolh_old = tolh
+    tolh = 1.e-7
+    do itest=nint(log10(real(np))),0,-2
+       nactive = 10**itest
 #endif
-    if (mhd .and. maxvecp /= maxp .and. maxBevol==4) then
-       if (id==master) then
-          write(*,"(/,a)") '--> testing div B cleaning terms'
-          if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
-       endif
-       call reset_mhd_to_zero
-       call reset_dissipation_to_zero
-       psidecayfac = 0.8
-       polyk = 2.
-       ieosprev = ieos
-       ieos  = 1  ! isothermal eos
-       do i=1,npart
-          vxyzu(1,i) = vx(xyzh(:,i))
-          vxyzu(2,i) = vy(xyzh(:,i))
-          vxyzu(3,i) = vz(xyzh(:,i))
-          Bevol(1,i) = real(Bx(xyzh(:,i)),kind=kind(Bevol))
-          Bevol(2,i) = real(By(xyzh(:,i)),kind=kind(Bevol))
-          Bevol(3,i) = real(Bz(xyzh(:,i)),kind=kind(Bevol))
+       if (mhd .and. maxvecp /= maxp .and. maxBevol==4) then
+          if (id==master) then
+             write(*,"(/,a)") '--> testing div B cleaning terms'
+             if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
+          endif
+          call reset_mhd_to_zero
+          call reset_dissipation_to_zero
+          psidecayfac = 0.8
+          polyk = 2.
+          ieosprev = ieos
+          ieos  = 1  ! isothermal eos
+          do i=1,npart
+             vxyzu(1,i) = vx(xyzh(:,i))
+             vxyzu(2,i) = vy(xyzh(:,i))
+             vxyzu(3,i) = vz(xyzh(:,i))
+             Bevol(1,i) = real(Bx(xyzh(:,i)),kind=kind(Bevol))
+             Bevol(2,i) = real(By(xyzh(:,i)),kind=kind(Bevol))
+             Bevol(3,i) = real(Bz(xyzh(:,i)),kind=kind(Bevol))
 
-          vwavei = sqrt(polyk + (Bevol(1,i) * Bevol(1,i) + Bevol(2,i) * Bevol(2,i) + Bevol(3,i) * Bevol(3,i)) &
+             vwavei = sqrt(polyk + (Bevol(1,i) * Bevol(1,i) + Bevol(2,i) * Bevol(2,i) + Bevol(3,i) * Bevol(3,i)) &
                                    / rhoh(xyzh(4,i),massoftype(1)))
-          Bevol(4,i) = real(psi(xyzh(:,i))/vwavei,kind=kind(Bevol))
-          if (maxvxyzu==4) vxyzu(4,i) = 0.
-       enddo
-       call set_active(npart,nactive,igas)
-       call getused(t1)
-       call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+             Bevol(4,i) = real(psi(xyzh(:,i))/vwavei,kind=kind(Bevol))
+             if (maxvxyzu==4) vxyzu(4,i) = 0.
+          enddo
+          call set_active(npart,nactive,igas)
+          call getused(t1)
+          call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                    Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
-       if (id==master) call printused(t1)
-       !
-       !--check that various quantities come out as they should do
-       !
-       nfailed(:) = 0
-       call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
-       call checkvalf(np,xyzh,divBsymm(:),divBfunc,1.e-3,nfailed(2),'divB')
-       call checkvalf(np,xyzh,dBevol(1,:),dpsidx,8.5e-4,nfailed(3),'gradpsi_x')
-       call checkvalf(np,xyzh,dBevol(2,:),dpsidy,8.5e-4,nfailed(4),'gradpsi_y')
-       call checkvalf(np,xyzh,dBevol(3,:),dpsidz,2.e-3,nfailed(5),'gradpsi_z')
-       !--can't do dpsi/dt check because we use vsigdtc = max over neighbours
-       !call checkvalf(np,xyzh,dBevol(4,:),dpsidt,6.e-3,nfailed(6),'dpsi/dt')
+          if (id==master) call printused(t1)
+          !
+          !--check that various quantities come out as they should do
+          !
+          nfailed(:) = 0
+          call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
+          call checkvalf(np,xyzh,divBsymm(:),divBfunc,1.e-3,nfailed(2),'divB')
+          call checkvalf(np,xyzh,dBevol(1,:),dpsidx,8.5e-4,nfailed(3),'gradpsi_x')
+          call checkvalf(np,xyzh,dBevol(2,:),dpsidy,8.5e-4,nfailed(4),'gradpsi_y')
+          call checkvalf(np,xyzh,dBevol(3,:),dpsidz,2.e-3,nfailed(5),'gradpsi_z')
+          !--can't do dpsi/dt check because we use vsigdtc = max over neighbours
+          !call checkvalf(np,xyzh,dBevol(4,:),dpsidt,6.e-3,nfailed(6),'dpsi/dt')
 
-       ntests = ntests + 1
-       if (all(nfailed==0)) npass = npass + 1
+          ntests = ntests + 1
+          if (all(nfailed==0)) npass = npass + 1
 
-       !--restore ieos
-       ieos = ieosprev
-    endif
-#ifdef IND_TIMESTEPS
-    call reset_allactive()
- enddo
- tolh = tolh_old
- do itest=nint(log10(real(np))),0,-2
-    nactive = 10**itest
-#endif
-    if (mhd .and. use_ambi .and. testambipolar) then
-       if (id==master) then
-          write(*,"(/,a)") '--> testing Ambipolar diffusion terms'
-          if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
+          !--restore ieos
+          ieos = ieosprev
        endif
-       call reset_mhd_to_zero
-       call reset_dissipation_to_zero
-       psidecayfac = 0.0
-       polyk = 0.
-       ieosprev = ieos
-       ieos  = 1  ! isothermal eos
-       do i=1,npart
-          vxyzu(1,i) = vx(xyzh(:,i))
-          vxyzu(2,i) = vy(xyzh(:,i))
-          vxyzu(3,i) = vz(xyzh(:,i))
-          Bevol(1,i) = real(Bx(xyzh(:,i)),kind=kind(Bevol))
-          Bevol(2,i) = real(By(xyzh(:,i)),kind=kind(Bevol))
-          Bevol(3,i) = real(Bz(xyzh(:,i)),kind=kind(Bevol))
-          if (maxBevol>=4) Bevol(4,i) = 0._4
-          if (maxvxyzu==4) vxyzu(4,i) = 0.
-       enddo
-       call set_active(npart,nactive,igas)
-       call getused(t1)
-       call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+#ifdef IND_TIMESTEPS
+       call reset_allactive()
+    enddo
+    tolh = tolh_old
+    do itest=nint(log10(real(np))),0,-2
+       nactive = 10**itest
+#endif
+       if (mhd .and. use_ambi .and. testambipolar) then
+          if (id==master) then
+             write(*,"(/,a)") '--> testing Ambipolar diffusion terms'
+             if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
+          endif
+          call reset_mhd_to_zero
+          call reset_dissipation_to_zero
+          psidecayfac = 0.0
+          polyk = 0.
+          ieosprev = ieos
+          ieos  = 1  ! isothermal eos
+          do i=1,npart
+             vxyzu(1,i) = vx(xyzh(:,i))
+             vxyzu(2,i) = vy(xyzh(:,i))
+             vxyzu(3,i) = vz(xyzh(:,i))
+             Bevol(1,i) = real(Bx(xyzh(:,i)),kind=kind(Bevol))
+             Bevol(2,i) = real(By(xyzh(:,i)),kind=kind(Bevol))
+             Bevol(3,i) = real(Bz(xyzh(:,i)),kind=kind(Bevol))
+             if (maxBevol>=4) Bevol(4,i) = 0._4
+             if (maxvxyzu==4) vxyzu(4,i) = 0.
+          enddo
+          call set_active(npart,nactive,igas)
+          call getused(t1)
+          call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                    Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
-       if (id==master) call printused(t1)
-       !
-       !--check that various quantities come out as they should do
-       !
-       nfailed(:) = 0
-       call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
-       call checkvalf(np,xyzh,dBevol(1,:),dBambix,8.5e-4,nfailed(2),'dBambi_x')
-       call checkvalf(np,xyzh,dBevol(2,:),dBambiy,8.5e-4,nfailed(3),'dBambi_y')
-       call checkvalf(np,xyzh,dBevol(3,:),dBambiz,2.e-3,nfailed(4),'dBambi_z')
+          if (id==master) call printused(t1)
+          !
+          !--check that various quantities come out as they should do
+          !
+          nfailed(:) = 0
+          call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
+          call checkvalf(np,xyzh,dBevol(1,:),dBambix,8.5e-4,nfailed(2),'dBambi_x')
+          call checkvalf(np,xyzh,dBevol(2,:),dBambiy,8.5e-4,nfailed(3),'dBambi_y')
+          call checkvalf(np,xyzh,dBevol(3,:),dBambiz,2.e-3,nfailed(4),'dBambi_z')
 
-       ntests = ntests + 1
-       if (all(nfailed==0)) npass = npass + 1
+          ntests = ntests + 1
+          if (all(nfailed==0)) npass = npass + 1
 
-       !--restore ieos
-       ieos = ieosprev
-    endif
+          !--restore ieos
+          ieos = ieosprev
+       endif
 
 #ifdef IND_TIMESTEPS
-    call reset_allactive()
- enddo
+       call reset_allactive()
+    enddo
 #endif
 
  endif testmhd
@@ -986,11 +986,11 @@ subroutine test_derivs(ntests,npass,string)
        realneigh = 57.466651861721814
        call checkval(actualmean,realneigh,1.e-17,nfailed(10),'mean nneigh')
        call checkval(maxactual,988,0,nfailed(11),'max nneigh')
-      !
-      !-- this test does not always give the same results: depends on how the tree is built
-      !
-      !  nexact = 1382952  ! got this from a reference calculation
-      !  call checkval(nrhocalc,nexact,0,nfailed(12),'n density calcs')
+       !
+       !-- this test does not always give the same results: depends on how the tree is built
+       !
+       !  nexact = 1382952  ! got this from a reference calculation
+       !  call checkval(nrhocalc,nexact,0,nfailed(12),'n density calcs')
        nexact = 37263216
        call checkval(nactual,nexact,0,nfailed(13),'total nneigh')
     endif

@@ -108,7 +108,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           nphi     = int(2.*pi/deltaphi)
           deltaphi = 2.*pi/nphi
           randphi  = ran1(iseed)*deltaphi
-       !--make ring of particles at r=rcyl
+          !--make ring of particles at r=rcyl
           do i=1,nphi
              ipart = ipart + 1
              if (ipart > maxp) stop 'setup_tokamak: ipart>maxp; recompile with MAXP=big number'
@@ -147,17 +147,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 contains
 
- real function densfunc(r)
-   real, intent(in) :: r
-   real :: ra2, pri
+real function densfunc(r)
+ real, intent(in) :: r
+ real :: ra2, pri
 
-   !densfunc = 1. - (r/atorus)**2
-   ra2 = (r/atorus)**2
-   pri = (currJ0*atorus)**2*(47.-12.*ra2**5+ &
+ !densfunc = 1. - (r/atorus)**2
+ ra2 = (r/atorus)**2
+ pri = (currJ0*atorus)**2*(47.-12.*ra2**5+ &
                   75.*ra2**4-200.*ra2**3+270.*ra2**2-180.*ra2)/720.
-   densfunc = (pri/polyk)**(1./gamma)
+ densfunc = (pri/polyk)**(1./gamma)
 
- end function densfunc
+end function densfunc
 
 end subroutine setpart
 

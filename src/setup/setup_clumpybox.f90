@@ -197,7 +197,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dens_medium = dens_clump/density_contrast
  cs_medium   = cs_clump*sqrt(density_contrast)
 
-  ! Total mass of the system
+ ! Total mass of the system
 
  totmass = dens_medium*vol_box/(1.0-clumpfrac*(1.0-1.0/density_contrast))
  !totmass = 1.0
@@ -367,7 +367,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(igas) = npart
  massoftype(igas)  = totmass/npart_total
  do i = 1,npartoftype(igas)
-   call set_particle_type(i,igas)
+    call set_particle_type(i,igas)
  enddo
 
  print*, massoftype(igas)
@@ -393,13 +393,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     enddo
  enddo
 
-np = npart
+ np = npart
 
-print "(a, I6)", 'Medium particles found inside clumps: ', ninside
-print "(a)", 'These particles have had their sound speeds updated to match that of the clumps'
+ print "(a, I6)", 'Medium particles found inside clumps: ', ninside
+ print "(a)", 'These particles have had their sound speeds updated to match that of the clumps'
 
 
-npart_total = np
+ npart_total = np
 
  !
  !--Set dust (TODO)
@@ -422,7 +422,7 @@ npart_total = np
 !!$ else
 !   print "(a,3(i10,1x))", ' particle numbers: (sphere, low-density medium, total): ' &
 !                        , npartsphere, npart-npartsphere,npart
-   print "(a,es10.3)",' particle mass = ',massoftype(igas)
+ print "(a,es10.3)",' particle mass = ',massoftype(igas)
 !!$ endif
 
 
@@ -431,12 +431,12 @@ npart_total = np
  !--Simple translational velocity in the x-direction
  !
 
-   do i=1,npart
-      vxyzu(1,i) = box_velocity*cs_clump
-   enddo
+ do i=1,npart
+    vxyzu(1,i) = box_velocity*cs_clump
+ enddo
 
 ! Set B fields using standard set_Bfield routine outside of setpart
-   if(mhd) ihavesetupB = .false.
+ if(mhd) ihavesetupB = .false.
  !
  !--set default runtime parameters
  !

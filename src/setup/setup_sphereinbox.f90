@@ -265,8 +265,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
  endif
  if (use_dust) then
-   print fmt,' dust-to-gas ratio: ',dusttogas,' '
-   print fmt,' dust-to-gas particle mass ratio: ',pmass_dusttogas,' '
+    print fmt,' dust-to-gas ratio: ',dusttogas,' '
+    print fmt,' dust-to-gas particle mass ratio: ',pmass_dusttogas,' '
  endif
  print "(1x,50('-'))"
  !
@@ -296,30 +296,30 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(igas) = npart
  massoftype(igas)  = totmass/npart_total
  do i = 1,npartoftype(igas)
-   call set_particle_type(i,igas)
+    call set_particle_type(i,igas)
  enddo
  !
  ! Set dust
  if (use_dust) then
-   ! particle separation in dust sphere & sdjust for close-packed lattice
-   psep = (vol_sphere/pmass_dusttogas)**(1./3.)/real(nx)
-   psep = psep*sqrt(2.)**(1./3.)
-   call set_unifdis_sphereN('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
+    ! particle separation in dust sphere & sdjust for close-packed lattice
+    psep = (vol_sphere/pmass_dusttogas)**(1./3.)/real(nx)
+    psep = psep*sqrt(2.)**(1./3.)
+    call set_unifdis_sphereN('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
                     hfact,npart,np,xyzh,r_sphere,vol_sphere,npart_total)
-   npartoftype(idust) = npart_total - npartoftype(igas)
-   massoftype(idust)  = totmass_sphere*dusttogas/npartoftype(idust)
-   !
-   do i = npartoftype(igas)+1,npart
-     call set_particle_type(i,idust)
-   enddo
-   !
-   print "(a,4(i10,1x))", ' particle numbers: (gas_total, gas_sphere, dust, total): ' &
+    npartoftype(idust) = npart_total - npartoftype(igas)
+    massoftype(idust)  = totmass_sphere*dusttogas/npartoftype(idust)
+    !
+    do i = npartoftype(igas)+1,npart
+       call set_particle_type(i,idust)
+    enddo
+    !
+    print "(a,4(i10,1x))", ' particle numbers: (gas_total, gas_sphere, dust, total): ' &
                         , npartoftype(igas),npartsphere,npartoftype(idust),npart
-   print "(a,2es10.3)"  , ' particle masses: (gas,dust): ',massoftype(igas),massoftype(idust)
+    print "(a,2es10.3)"  , ' particle masses: (gas,dust): ',massoftype(igas),massoftype(idust)
  else
-   print "(a,3(i10,1x))", ' particle numbers: (sphere, low-density medium, total): ' &
+    print "(a,3(i10,1x))", ' particle numbers: (sphere, low-density medium, total): ' &
                         , npartsphere, npart-npartsphere,npart
-   print "(a,es10.3)",' particle mass = ',massoftype(igas)
+    print "(a,es10.3)",' particle mass = ',massoftype(igas)
  endif
  !
  ! temperature set to give a pressure equilibrium
@@ -334,12 +334,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        rxy2  = xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i)
        rxyz2 = rxy2 + xyzh(3,i)*xyzh(3,i)
        if (rxyz2 <= r_sphere**2) then
-         phi  = atan(xyzh(2,i)/xyzh(1,i))
-         if (xyzh(1,i) < 0.0) phi = phi + pi
-         dphi = 0.5*rho_pert_amp*sin(2.0*phi)
-         phi  = phi - dphi
-         xyzh(1,i) = sqrt(rxy2)*cos(phi)
-         xyzh(2,i) = sqrt(rxy2)*sin(phi)
+          phi  = atan(xyzh(2,i)/xyzh(1,i))
+          if (xyzh(1,i) < 0.0) phi = phi + pi
+          dphi = 0.5*rho_pert_amp*sin(2.0*phi)
+          phi  = phi - dphi
+          xyzh(1,i) = sqrt(rxy2)*cos(phi)
+          xyzh(2,i) = sqrt(rxy2)*sin(phi)
        endif
     enddo
  endif
@@ -480,11 +480,11 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(ang_Bomega,'ang_Bomega',db,ierr)
  endif
  if (use_dust) then
-   call read_inopt(dusttogas,'dusttogas',db,ierr)
-   call read_inopt(pmass_dusttogas,'pmass_dusttogas',db,ierr)
+    call read_inopt(dusttogas,'dusttogas',db,ierr)
+    call read_inopt(pmass_dusttogas,'pmass_dusttogas',db,ierr)
  endif
  if (binary) then
-   call read_inopt(rho_pert_amp,'rho_pert_amp',db,ierr)
+    call read_inopt(rho_pert_amp,'rho_pert_amp',db,ierr)
  endif
  call close_db(db)
  !

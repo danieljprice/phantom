@@ -111,28 +111,28 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
     R_in_dust,R_out_dust,R_warp_dust,H_R_dust,p_index_dust,R_cdust,q_index,M_star_dust,M_disc_dust,iparams,ierr)
     if (ierr /= 0) call fatal('analysis','could not open/read -'//trim(labeltype(idust))//' .discparams file')
 
- ! Print out the parameters of dust disc
- write(*,*)
- write(*,'("Dust disc parameters are:")')
- write(*,*) 'R_in    = ',R_in_dust
- write(*,*) 'R_out   = ',R_out_dust
- write(*,*) 'H_R     = ',H_R_dust
- if(R_warp_dust/=0.) write(*,*) 'Rwarp     = ',R_warp_dust
- write(*,*) 'p_index = ',p_index_dust
- if(R_cdust/=0.) write(*,*) 'R_c     = ',R_cdust
- write(*,*) 'M_disc  = ',M_disc_dust
- write(*,*)
- write(*,*)
+    ! Print out the parameters of dust disc
+    write(*,*)
+    write(*,'("Dust disc parameters are:")')
+    write(*,*) 'R_in    = ',R_in_dust
+    write(*,*) 'R_out   = ',R_out_dust
+    write(*,*) 'H_R     = ',H_R_dust
+    if(R_warp_dust/=0.) write(*,*) 'Rwarp     = ',R_warp_dust
+    write(*,*) 'p_index = ',p_index_dust
+    if(R_cdust/=0.) write(*,*) 'R_c     = ',R_cdust
+    write(*,*) 'M_disc  = ',M_disc_dust
+    write(*,*)
+    write(*,*)
  endif
 
 ! Setup rmin and rmax for the analysis
-if (npartoftype(idust) > 0) then
-   rmin = min(R_in,R_in_dust)
-   rmax = max(R_out,R_out_dust)
-else
-   rmin = R_in
-   rmax = R_out
-endif
+ if (npartoftype(idust) > 0) then
+    rmin = min(R_in,R_in_dust)
+    rmax = max(R_out,R_out_dust)
+ else
+    rmin = R_in
+    rmax = R_out
+ endif
 
 
 ! Set up the radius array
@@ -182,15 +182,15 @@ endif
     iwarp=2
  endif
 
-nptmassinit = 1          !if the central star is represented by a sink (change to 2 if you set a binary)
+ nptmassinit = 1          !if the central star is represented by a sink (change to 2 if you set a binary)
  if(iexternalforce/=0) nptmassinit = 0      !if the central star is represented by by external force
 
  if(nptmass>nptmassinit)then
-   do i=nptmassinit+1,nptmass
-     write(*,*)"Planet",i-nptmassinit,"mass",xyzmh_ptmass(4,i)*umass/jupiterm,"Jupiter mass, radius",&
+    do i=nptmassinit+1,nptmass
+       write(*,*)"Planet",i-nptmassinit,"mass",xyzmh_ptmass(4,i)*umass/jupiterm,"Jupiter mass, radius",&
      sqrt(dot_product(xyzmh_ptmass(1:iwarp,i),xyzmh_ptmass(1:iwarp,i)))*udist/au,"au"," coords xy ",&
      xyzmh_ptmass(1,i),xyzmh_ptmass(2,i)
-   enddo
+    enddo
  endif
 
 ! Loop over gas particles putting properties into the correct bin
@@ -201,7 +201,7 @@ nptmassinit = 1          !if the central star is represented by a sink (change t
  pmassi    = massoftype(igas)
  dustfraci = 0.
  do i = 1,npart
-         if (maxphase==maxp) then
+    if (maxphase==maxp) then
        itype = iamtype(iphase(i))
        pmassi = massoftype(itype)
     endif
@@ -281,15 +281,15 @@ nptmassinit = 1          !if the central star is represented by a sink (change t
 
  ! Computing Hgas and Hdust
  do i=1,nr
- if(ninbin(i)>1)then
-    meanzgas(i)=sum(zsettlgas(1:ninbin(i),i))/real(ninbin(i))
-    hgas(i)=sqrt(sum(((zsettlgas(1:ninbin(i),i)-meanzgas(i))**2)/(real(ninbin(i)-1))))
-    if (use_dustfrac) dust_fraction(i)=dustfracsum(i)/real(ninbin(i))
- endif
- if(ninbindust(i)>1)then
-    meanzdust(i)=sum(zsettldust(1:ninbindust(i),i))/real(ninbindust(i))
-    hdust(i)=sqrt(sum(((zsettldust(1:ninbindust(i),i)-meanzdust(i))**2)/(real(ninbindust(i)-1))))
- endif
+    if(ninbin(i)>1)then
+       meanzgas(i)=sum(zsettlgas(1:ninbin(i),i))/real(ninbin(i))
+       hgas(i)=sqrt(sum(((zsettlgas(1:ninbin(i),i)-meanzgas(i))**2)/(real(ninbin(i)-1))))
+       if (use_dustfrac) dust_fraction(i)=dustfracsum(i)/real(ninbin(i))
+    endif
+    if(ninbindust(i)>1)then
+       meanzdust(i)=sum(zsettldust(1:ninbindust(i),i))/real(ninbindust(i))
+       hdust(i)=sqrt(sum(((zsettldust(1:ninbindust(i),i)-meanzdust(i))**2)/(real(ninbindust(i)-1))))
+    endif
  enddo
 ! Plotting Hdust/Hgas
 ! print*,' Hdust = ',hdust,'Hgas = ',hgas, 'Hdust/Hgas = ',hdust/hgas
@@ -299,7 +299,7 @@ nptmassinit = 1          !if the central star is represented by a sink (change t
 ! rho_grain=1.0*((1.496E+13)**3/1.989E+33) ! 1.0 g/cm^3
  r_grain=0.1/1.496E+13 ! 0.1 cm
  do i=1,nr
-         St(i) = 0.626 * (rho_grain * r_grain)/sigma(i)
+    St(i) = 0.626 * (rho_grain * r_grain)/sigma(i)
  enddo
 
 ! Print angular momentum of accreted particles
@@ -364,8 +364,8 @@ nptmassinit = 1          !if the central star is represented by a sink (change t
           11,'H/R', &
           12,'St'
     endif
-  else
-  write(iunit,"('#',14(1x,'[',i2.2,1x,a11,']',2x))") &
+ else
+    write(iunit,"('#',14(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'radius', &
        2,'sigma', &
        3,'sigmadust', &
@@ -380,7 +380,7 @@ nptmassinit = 1          !if the central star is represented by a sink (change t
        12,'H/R', &
        13,'Hdust/R', &
        14,'St'
-  endif
+ endif
 
  do_precession = .false.
 
@@ -397,15 +397,15 @@ nptmassinit = 1          !if the central star is represented by a sink (change t
     if (ninbin(i) > 0) then
        tilt  = acos(unitlz(i))
        twist(i) = atan2(unitly(i),unitlx(i))
-        if (i==1 .or. time==0.0) then
+       if (i==1 .or. time==0.0) then
           twistprev(i) = 0.0
-        endif
-        ! Taking into account negative twist
-        if (twist(i) < 0) then
+       endif
+       ! Taking into account negative twist
+       if (twist(i) < 0) then
           twistprev(i) = 2.*pi + twist(i)
-        else
+       else
           twistprev(i) = twist(i) !cumulative twist
-        endif
+       endif
     else
        tilt = 0.0
        twist = 0.0
@@ -414,28 +414,28 @@ nptmassinit = 1          !if the central star is represented by a sink (change t
 
 ! Calculate the precession time
     if (twist(i) > tiny(twist(i))) then
-      tp(i) = time*2.*pi/twist(i)
+       tp(i) = time*2.*pi/twist(i)
     else
-      tp(i) = 0.0
+       tp(i) = 0.0
     endif
 
 
-if (npartoftype(idust)==0)then
-   if (ninbin(i) > 0) then
-      if (use_dustfrac) then
-         write(iunit,'(13(es18.10,1X))') rad(i),sigma(i)*(1.-dust_fraction(i)),sigma(i)*dust_fraction(i),h_smooth(i),&
+    if (npartoftype(idust)==0)then
+       if (ninbin(i) > 0) then
+          if (use_dustfrac) then
+             write(iunit,'(13(es18.10,1X))') rad(i),sigma(i)*(1.-dust_fraction(i)),sigma(i)*dust_fraction(i),h_smooth(i),&
                                        unitlx(i),unitly(i),unitlz(i),tilt,twist(i),psi,H(i)/rad(i),hgas(i)/rad(i),St(i)
-      else
-         write(iunit,'(12(es18.10,1X))') rad(i),sigma(i),h_smooth(i),unitlx(i),unitly(i),unitlz(i),&
+          else
+             write(iunit,'(12(es18.10,1X))') rad(i),sigma(i),h_smooth(i),unitlx(i),unitly(i),unitlz(i),&
                                        tilt,twist(i),psi,H(i)/rad(i),hgas(i)/rad(i),St(i)
-      endif
-   endif
-else
-   if (ninbin(i) > 0 .OR. ninbindust(i) > 0) then
-       write(iunit,'(14(es18.10,1X))') rad(i),sigma(i),sigmadust(i),h_smooth(i),unitlx(i),unitly(i),unitlz(i),&
+          endif
+       endif
+    else
+       if (ninbin(i) > 0 .OR. ninbindust(i) > 0) then
+          write(iunit,'(14(es18.10,1X))') rad(i),sigma(i),sigmadust(i),h_smooth(i),unitlx(i),unitly(i),unitlz(i),&
                                        tilt,twist(i),psi,H(i)/rad(i),hgas(i)/rad(i),hdust(i)/rad(i),St(i)
+       endif
     endif
-endif
 
 ! Printing time and twist for each radius bin
     if (do_precession) then

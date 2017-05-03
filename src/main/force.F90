@@ -166,8 +166,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use units,        only:unit_density
 #endif
 #ifdef DUST
-use dust,          only:get_ts,grainsize,graindens,idrag,icut_backreaction
-use kernel,        only:wkern_drag,cnormk_drag
+ use dust,          only:get_ts,grainsize,graindens,idrag,icut_backreaction
+ use kernel,        only:wkern_drag,cnormk_drag
 #endif
  use nicil,        only:nicil_get_eta,nimhd_get_jcbcb,nimhd_get_dt,nimhd_get_dBdt, &
                         nimhd_get_dudt,nicil_translate_error
@@ -515,36 +515,36 @@ use kernel,        only:wkern_drag,cnormk_drag
  iam_waiting: if (stack_waiting%n > 0) then
 !$omp do schedule(runtime)
     recombine: do j = 1,stack_ready%n
-      i = stack_ready%cells(j)%waiting_index
-      do k = 1,stack_waiting%cells(i)%npcell
-         do l = 1,maxfsum
+       i = stack_ready%cells(j)%waiting_index
+       do k = 1,stack_waiting%cells(i)%npcell
+          do l = 1,maxfsum
 !$omp atomic update
-            stack_waiting%cells(i)%fsums(l,k)      = stack_waiting%cells(i)%fsums(l,k) + stack_ready%cells(j)%fsums(l,k)
-         enddo
+             stack_waiting%cells(i)%fsums(l,k)      = stack_waiting%cells(i)%fsums(l,k) + stack_ready%cells(j)%fsums(l,k)
+          enddo
 !$omp atomic update
-         stack_waiting%cells(i)%xpartvec(idtdragi,k) = min(stack_waiting%cells(i)%xpartvec(idtdragi,k), &
+          stack_waiting%cells(i)%xpartvec(idtdragi,k) = min(stack_waiting%cells(i)%xpartvec(idtdragi,k), &
                                                          stack_ready%cells(j)%xpartvec(idtdragi,k))
 !$omp atomic update
-         stack_waiting%cells(i)%xpartvec(ivsigmaxi,k) = max(stack_waiting%cells(i)%xpartvec(ivsigmaxi,k), &
+          stack_waiting%cells(i)%xpartvec(ivsigmaxi,k) = max(stack_waiting%cells(i)%xpartvec(ivsigmaxi,k), &
                                                          stack_ready%cells(j)%xpartvec(ivsigmaxi,k))
-      enddo
+       enddo
 #ifdef GRAVITY
-      do k = 1,20
+       do k = 1,20
 !$omp atomic update
-         stack_waiting%cells(i)%fgrav(k) = stack_waiting%cells(i)%fgrav(k) + stack_ready%cells(j)%fgrav(k)
-      enddo
+          stack_waiting%cells(i)%fgrav(k) = stack_waiting%cells(i)%fgrav(k) + stack_ready%cells(j)%fgrav(k)
+       enddo
 #endif
-      do k = 1,nprocs
+       do k = 1,nprocs
 !$omp atomic update
-         stack_waiting%cells(i)%remote_export(k)      = stack_waiting%cells(i)%remote_export(k) &
+          stack_waiting%cells(i)%remote_export(k)      = stack_waiting%cells(i)%remote_export(k) &
                                                     .and. stack_ready%cells(j)%remote_export(k)
-      enddo
+       enddo
 !$omp atomic update
-      stack_waiting%cells(i)%ndrag           = stack_waiting%cells(i)%ndrag      + stack_ready%cells(j)%ndrag
+       stack_waiting%cells(i)%ndrag           = stack_waiting%cells(i)%ndrag      + stack_ready%cells(j)%ndrag
 !$omp atomic update
-      stack_waiting%cells(i)%nstokes         = stack_waiting%cells(i)%nstokes    + stack_ready%cells(j)%nstokes
+       stack_waiting%cells(i)%nstokes         = stack_waiting%cells(i)%nstokes    + stack_ready%cells(j)%nstokes
 !$omp atomic update
-      stack_waiting%cells(i)%nsuper          = stack_waiting%cells(i)%nsuper     + stack_ready%cells(j)%nsuper
+       stack_waiting%cells(i)%nsuper          = stack_waiting%cells(i)%nsuper     + stack_ready%cells(j)%nsuper
     enddo recombine
 !$omp enddo
 !$omp barrier
@@ -622,7 +622,7 @@ use kernel,        only:wkern_drag,cnormk_drag
                 enddo over_ptmass
                 if (use_part) then
                    rhomax_thread = rhoi
-                  ipart_rhomax_thread = i
+                   ipart_rhomax_thread = i
                 endif
              endif
           endif
@@ -652,7 +652,7 @@ use kernel,        only:wkern_drag,cnormk_drag
 
 #ifdef GRAVITY
  if (icreate_sinks > 0 .and. ipart_rhomax > 0 .and. iverbose>=1) then
-      print*,' got rhomax = ',rhomax*unit_density,' on particle ',ipart_rhomax !,rhoh(xyzh(4,ipart_rhomax))
+    print*,' got rhomax = ',rhomax*unit_density,' on particle ',ipart_rhomax !,rhoh(xyzh(4,ipart_rhomax))
  endif
 #endif
 
@@ -696,13 +696,13 @@ use kernel,        only:wkern_drag,cnormk_drag
 !$omp shared(npart,ibin,ibin_wake,ibinnow_m1) &
 !$omp private(i)
 !$omp do schedule(runtime)
-   do i=1,npart
-      if (ibin_wake(i)==1) then
-         if (ibin(i) < ibinnow_m1) then
-            ibin(i) = ibinnow_m1
-         endif
-      endif
-   enddo
+ do i=1,npart
+    if (ibin_wake(i)==1) then
+       if (ibin(i) < ibinnow_m1) then
+          ibin(i) = ibinnow_m1
+       endif
+    endif
+ enddo
 !$omp enddo
 !$omp end parallel
 
@@ -719,15 +719,15 @@ use kernel,        only:wkern_drag,cnormk_drag
                        dtviscfacmean/real(ndtvisc)
     endif
     if (mhd_nonideal) then
-      if (ndtohm  > 0) &
+       if (ndtohm  > 0) &
         write(iprint,'(a,Es16.9,I8,a,I8,a,2F9.2)') 'WARNING: at (time, step) = ',time,nsteps, &
                                                    ', ohmic resistivity   constraining timestep on ',ndtohm, &
                                                    ' particles by (ave, max) factor of',dtohmfacmean/real(ndtohm),dtohmfacmax
-      if (ndthall > 0) &
+       if (ndthall > 0) &
         write(iprint,'(a,Es16.9,I8,a,I8,a,2F9.2)') 'WARNING: at (time, step) = ',time,nsteps, &
                                                    ', Hall Effect         constraining timestep on ',ndthall, &
                                                    ' particles by (ave, max) factor of',dthallfacmean/real(ndthall),dthallfacmax
-      if (ndtambi > 0) &
+       if (ndtambi > 0) &
         write(iprint,'(a,Es16.9,I8,a,I8,a,2F9.2)') 'WARNING: at (time, step) = ',time,nsteps, &
                                                    ', ambipolar diffusion constraining timestep on ',ndtambi, &
                                                    ' particles by (ave, max) factor of',dtambifacmean/real(ndtambi),dtambifacmax
@@ -769,26 +769,26 @@ use kernel,        only:wkern_drag,cnormk_drag
     if ( dtohm  < dtcourant ) call summary_variable('dt',iosumdto,0,0.0)
     if ( dtambi < dtcourant ) call summary_variable('dt',iosumdta,0,0.0)
     if (min(dtvisc,dtohm,dthall,dtambi) < dtcourant) then
-      dtcourant = min(dtvisc,dtohm,dthall,dtambi)
-      if      (abs(dtcourant-dtvisc) < tiny(dtcourant) ) then
-        if (iverbose >= 1 .and. id==master) call warning('force','viscosity constraining Courant timestep')
-        call summary_variable('dt',iosumdtv,0,0.0,0.0, .true. )
-      else if (abs(dtcourant-dthall) < tiny(dtcourant) ) then
-        if (iverbose >= 1 .and. id==master) call warning('force','Hall Effect constraining Courant timestep')
-        call summary_variable('dt',iosumdth,0,0.0,0.0, .true. )
-      else if (abs(dtcourant-dtohm ) < tiny(dtcourant) ) then
-        if (iverbose >= 1 .and. id==master) call warning('force','ohmic resistivity constraining Courant timestep')
-        call summary_variable('dt',iosumdto,0,0.0,0.0, .true. )
-      else if (abs(dtcourant-dtambi) < tiny(dtcourant) ) then
-        if (iverbose >= 1 .and. id==master) call warning('force','ambipolar diffusion constraining Courant timestep')
-        call summary_variable('dt',iosumdta,0,0.0,0.0, .true. )
-      endif
+       dtcourant = min(dtvisc,dtohm,dthall,dtambi)
+       if      (abs(dtcourant-dtvisc) < tiny(dtcourant) ) then
+          if (iverbose >= 1 .and. id==master) call warning('force','viscosity constraining Courant timestep')
+          call summary_variable('dt',iosumdtv,0,0.0,0.0, .true. )
+       else if (abs(dtcourant-dthall) < tiny(dtcourant) ) then
+          if (iverbose >= 1 .and. id==master) call warning('force','Hall Effect constraining Courant timestep')
+          call summary_variable('dt',iosumdth,0,0.0,0.0, .true. )
+       else if (abs(dtcourant-dtohm ) < tiny(dtcourant) ) then
+          if (iverbose >= 1 .and. id==master) call warning('force','ohmic resistivity constraining Courant timestep')
+          call summary_variable('dt',iosumdto,0,0.0,0.0, .true. )
+       else if (abs(dtcourant-dtambi) < tiny(dtcourant) ) then
+          if (iverbose >= 1 .and. id==master) call warning('force','ambipolar diffusion constraining Courant timestep')
+          call summary_variable('dt',iosumdta,0,0.0,0.0, .true. )
+       endif
     endif
  else
     if (dtvisc < dtcourant) then
-      dtcourant = dtvisc
-      if (iverbose >= 1 .and. id==master) call warning('force','viscosity constraining Courant timestep')
-      call summary_variable('dt',iosumdtv,0,0.0,0.0, .true. )
+       dtcourant = dtvisc
+       if (iverbose >= 1 .and. id==master) call warning('force','viscosity constraining Courant timestep')
+       call summary_variable('dt',iosumdtv,0,0.0,0.0, .true. )
     endif
  endif
  if ( dtforce < dtcourant ) call summary_variable('dt',iosumdtf,0,0.0,0.0, .true. )
@@ -1046,24 +1046,24 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
     is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
 #ifdef GRAVITY
-        !  Determine if neighbouring particle is hidden by a sink particle;
-        !  if so, do not add contribution.
-        add_contribution = .true.
-        k = 1
-        do while (k <= nptmass .and. add_contribution)
-           xkpt = xyzmh_ptmass(1,k)
-           ykpt = xyzmh_ptmass(2,k)
-           zkpt = xyzmh_ptmass(3,k)
-           vpos = (xkpt-xpartveci(ixi))*(xkpt-xj) &
+       !  Determine if neighbouring particle is hidden by a sink particle;
+       !  if so, do not add contribution.
+       add_contribution = .true.
+       k = 1
+       do while (k <= nptmass .and. add_contribution)
+          xkpt = xyzmh_ptmass(1,k)
+          ykpt = xyzmh_ptmass(2,k)
+          zkpt = xyzmh_ptmass(3,k)
+          vpos = (xkpt-xpartveci(ixi))*(xkpt-xj) &
                 + (ykpt-xpartveci(iyi))*(ykpt-yj) &
                 + (zkpt-xpartveci(izi))*(zkpt-zj)
-           if (vpos < 0.0) then
-              add_contribution = ptmass_not_obscured(-dx,-dy,-dz,  &
+          if (vpos < 0.0) then
+             add_contribution = ptmass_not_obscured(-dx,-dy,-dz,  &
                                  xkpt-xpartveci(ixi),ykpt-xpartveci(iyi),zkpt-xpartveci(izi), &
                                  xyzmh_ptmass(ihacc,k))
-           endif
-           k = k + 1
-        enddo
+          endif
+          k = k + 1
+       enddo
 #endif
 
        if (rij2 > epsilon(rij2)) then
@@ -1177,7 +1177,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              dBx = Bxi - Bxj
              dBy = Byi - Byj
              dBz = Bzi - Bzj
-                       projBi = Bxi*runix + Byi*runiy + Bzi*runiz
+             projBi = Bxi*runix + Byi*runiy + Bzi*runiz
              if (usej) projBj = Bxj*runix + Byj*runiy + Bzj*runiz
              projdB = dBx*runix + dBy*runiy + dBz*runiz
              dB2 = dBx*dBx + dBy*dBy + dBz*dBz
@@ -1253,277 +1253,277 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           sqrtrhodustfracj = 0.
        endif
 
-ifgas: if (iamgasi .and. iamgasj) then
+       ifgas: if (iamgasi .and. iamgasj) then
 
-      !
-      !--artificial viscosity term
-      !
+          !
+          !--artificial viscosity term
+          !
 #ifdef DISC_VISCOSITY
-        !
-        !--This is for "physical" disc viscosity
-        !  (We multiply by h/rij, use cs for the signal speed, apply to both approaching/receding,
-        !   with beta viscosity only applied to approaching pairs)
-        !
-        if (projv < 0.) then
-                     gradpi = pmassj*(pro2i - 0.5*rho1i*(alphai*spsoundi - beta*projv)*hi*rij1*projv)*grkerni
-           if (usej) gradpj = pmassj*(pro2j - 0.5*rho1j*(alphaj*spsoundj - beta*projv)*hj*rij1*projv)*grkernj
-        else
-                     gradpi = pmassj*(pro2i - 0.5*rho1i*alphai*spsoundi*hi*rij1*projv)*grkerni
-           if (usej) gradpj = pmassj*(pro2j - 0.5*rho1j*alphaj*spsoundj*hj*rij1*projv)*grkernj
-        endif
-        dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*hi*rij1*projv**2*grkerni
+          !
+          !--This is for "physical" disc viscosity
+          !  (We multiply by h/rij, use cs for the signal speed, apply to both approaching/receding,
+          !   with beta viscosity only applied to approaching pairs)
+          !
+          if (projv < 0.) then
+             gradpi = pmassj*(pro2i - 0.5*rho1i*(alphai*spsoundi - beta*projv)*hi*rij1*projv)*grkerni
+             if (usej) gradpj = pmassj*(pro2j - 0.5*rho1j*(alphaj*spsoundj - beta*projv)*hj*rij1*projv)*grkernj
+          else
+             gradpi = pmassj*(pro2i - 0.5*rho1i*alphai*spsoundi*hi*rij1*projv)*grkerni
+             if (usej) gradpj = pmassj*(pro2j - 0.5*rho1j*alphaj*spsoundj*hj*rij1*projv)*grkernj
+          endif
+          dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*hi*rij1*projv**2*grkerni
 #else
-        if (projv < 0.) then
-           !--add av term to pressure
-                     gradpi = pmassj*(pro2i - 0.5*rho1i*vsigavi*projv)*grkerni
-           if (usej) gradpj = pmassj*(pro2j - 0.5*rho1j*vsigavj*projv)*grkernj
+          if (projv < 0.) then
+             !--add av term to pressure
+             gradpi = pmassj*(pro2i - 0.5*rho1i*vsigavi*projv)*grkerni
+             if (usej) gradpj = pmassj*(pro2j - 0.5*rho1j*vsigavj*projv)*grkernj
 
-           !--energy conservation from artificial viscosity (don't need j term)
-           dudtdissi = -0.5*pmassj*rho1i*vsigavi*projv**2*grkerni
-        else
-                     gradpi = pmassj*pro2i*grkerni
-           if (usej) gradpj = pmassj*pro2j*grkernj
-           dudtdissi = 0.
-        endif
+             !--energy conservation from artificial viscosity (don't need j term)
+             dudtdissi = -0.5*pmassj*rho1i*vsigavi*projv**2*grkerni
+          else
+             gradpi = pmassj*pro2i*grkerni
+             if (usej) gradpj = pmassj*pro2j*grkernj
+             dudtdissi = 0.
+          endif
 #endif
-        !--artificial thermal conductivity (need j term)
-        if (maxvxyzu >= 4) then
-           if (gravity) then
-              vsigu = abs(projv)
-           else
-              rhoav1 = 2./(rhoi + rhoj)
-              vsigu = sqrt(abs(pri - prj)*rhoav1)  !abs(projv) !sqrt(abs(denij))
-           endif
-           dendissterm = vsigu*denij*(auterm*grkerni + autermj*grkernj)
-        endif
+          !--artificial thermal conductivity (need j term)
+          if (maxvxyzu >= 4) then
+             if (gravity) then
+                vsigu = abs(projv)
+             else
+                rhoav1 = 2./(rhoi + rhoj)
+                vsigu = sqrt(abs(pri - prj)*rhoav1)  !abs(projv) !sqrt(abs(denij))
+             endif
+             dendissterm = vsigu*denij*(auterm*grkerni + autermj*grkernj)
+          endif
 
-        if (mhd) then
-           !
-           !--artificial resistivity
-           !
-           vsigB = sqrt((dvx - projv*runix)**2 + (dvy - projv*runiy)**2 + (dvz - projv*runiz)**2)
-           dBdissterm = (avBterm*grkerni + avBtermj*grkernj)*vsigB
+          if (mhd) then
+             !
+             !--artificial resistivity
+             !
+             vsigB = sqrt((dvx - projv*runix)**2 + (dvy - projv*runiy)**2 + (dvz - projv*runiz)**2)
+             dBdissterm = (avBterm*grkerni + avBtermj*grkernj)*vsigB
 
-           !--energy dissipation due to artificial resistivity
-           if (useresistiveheat) dudtresist = -0.5*dB2*dBdissterm
+             !--energy dissipation due to artificial resistivity
+             if (useresistiveheat) dudtresist = -0.5*dB2*dBdissterm
 
-           pmjrho21grkerni = pmassj*rho21i*grkerni
-           pmjrho21grkernj = pmassj*rho21j*grkernj
+             pmjrho21grkerni = pmassj*rho21i*grkerni
+             pmjrho21grkernj = pmassj*rho21j*grkernj
 
-           termi        = pmjrho21grkerni*projBi
-           divBsymmterm =  termi + pmjrho21grkernj*projBj
-           dBrhoterm    = -termi
-           !--grad psi term for divergence cleaning
-           ! original cleaning as in Tricco & Price (2012)
-           !if (maxBevol >= 4) dpsiterm = pmjrho21grkerni*psii + pmjrho21grkernj*psij
+             termi        = pmjrho21grkerni*projBi
+             divBsymmterm =  termi + pmjrho21grkernj*projBj
+             dBrhoterm    = -termi
+             !--grad psi term for divergence cleaning
+             ! original cleaning as in Tricco & Price (2012)
+             !if (maxBevol >= 4) dpsiterm = pmjrho21grkerni*psii + pmjrho21grkernj*psij
 
-           ! new cleaning evolving d/dt (psi/c_h) as in Tricco, Price & Bate (2016)
-           if (maxBevol >= 4) dpsiterm = overcleanfac*(pmjrho21grkerni*psii*vwavei + pmjrho21grkernj*psij*vwavej)
-           !
-           ! non-ideal MHD terms
-           if (mhd_nonideal) then
-              call nimhd_get_dBdt(dBnonideal,etaohmi,etahalli,etaambii,curlBi, &
+             ! new cleaning evolving d/dt (psi/c_h) as in Tricco, Price & Bate (2016)
+             if (maxBevol >= 4) dpsiterm = overcleanfac*(pmjrho21grkerni*psii*vwavei + pmjrho21grkernj*psij*vwavej)
+             !
+             ! non-ideal MHD terms
+             if (mhd_nonideal) then
+                call nimhd_get_dBdt(dBnonideal,etaohmi,etahalli,etaambii,curlBi, &
                                   jcbi,jcbcbi,runix,runiy,runiz)
-              dBnonideal = dBnonideal*pmjrho21grkerni
-              if (usej) then
-                 Bj  = sqrt(Bxj**2 + Byj**2 + Bzj**2)
-                 if (Bj > 0.0) then
-                    Bj1 = 1.0/Bj
-                 else
-                    Bj1 = 0.0
-                 endif
-                 temperaturej = get_temperature_from_ponrho(ponrhoj)
-                 call nicil_get_eta(etaohmj,etahallj,etaambij,Bj,rhoj,temperaturej, &
+                dBnonideal = dBnonideal*pmjrho21grkerni
+                if (usej) then
+                   Bj  = sqrt(Bxj**2 + Byj**2 + Bzj**2)
+                   if (Bj > 0.0) then
+                      Bj1 = 1.0/Bj
+                   else
+                      Bj1 = 0.0
+                   endif
+                   temperaturej = get_temperature_from_ponrho(ponrhoj)
+                   call nicil_get_eta(etaohmj,etahallj,etaambij,Bj,rhoj,temperaturej, &
                                     n_R(:,j),n_electronT(j),ierr)
-                 call nimhd_get_jcbcb(jcbcbj,jcbj,real(divcurlB(2:4,j)),Bxj,Byj,Bzj,Bj1)
-                 call nimhd_get_dBdt(dBnonidealj,etaohmj,etahallj,etaambij,real(divcurlB(2:4,j)),jcbj,jcbcbj,runix,runiy,runiz)
-                 dBnonideal = dBnonideal + dBnonidealj*pmjrho21grkernj
-              endif
-           endif
-           !
-           ! dB/dt evolution equation
-           dBevolx = dBrhoterm*dvx + dBdissterm*dBx - dpsiterm*runix - dBnonideal(1)
-           dBevoly = dBrhoterm*dvy + dBdissterm*dBy - dpsiterm*runiy - dBnonideal(2)
-           dBevolz = dBrhoterm*dvz + dBdissterm*dBz - dpsiterm*runiz - dBnonideal(3)
-        endif
-      !
-      !--get projection of anisotropic part of stress tensor
-      !  in direction of particle pair
-      !
-      projsxi = (sxxi*runix + sxyi*runiy + sxzi*runiz)*grkerni
-      projsyi = (sxyi*runix + syyi*runiy + syzi*runiz)*grkerni
-      projszi = (sxzi*runix + syzi*runiy + szzi*runiz)*grkerni
-      if (usej) then
-         projsxj = (sxxj*runix + sxyj*runiy + sxzj*runiz)*grkernj
-         projsyj = (sxyj*runix + syyj*runiy + syzj*runiz)*grkernj
-         projszj = (sxzj*runix + syzj*runiy + szzj*runiz)*grkernj
-      endif
-      !
-      !--physical viscosity term (direct second derivatives)
-      !
-        if (realviscosity .and. maxstrain /= maxp) then
-           grgrkerni = -2.*grkerni*rij1
-           gradpi = gradpi + visctermiso*projv*grgrkerni
-           projsxi = projsxi + visctermaniso*dvx*grgrkerni
-           projsyi = projsyi + visctermaniso*dvy*grgrkerni
-           projszi = projszi + visctermaniso*dvz*grgrkerni
-           dudtdissi = dudtdissi + grgrkerni*(visctermiso*projv**2 &
+                   call nimhd_get_jcbcb(jcbcbj,jcbj,real(divcurlB(2:4,j)),Bxj,Byj,Bzj,Bj1)
+                   call nimhd_get_dBdt(dBnonidealj,etaohmj,etahallj,etaambij,real(divcurlB(2:4,j)),jcbj,jcbcbj,runix,runiy,runiz)
+                   dBnonideal = dBnonideal + dBnonidealj*pmjrho21grkernj
+                endif
+             endif
+             !
+             ! dB/dt evolution equation
+             dBevolx = dBrhoterm*dvx + dBdissterm*dBx - dpsiterm*runix - dBnonideal(1)
+             dBevoly = dBrhoterm*dvy + dBdissterm*dBy - dpsiterm*runiy - dBnonideal(2)
+             dBevolz = dBrhoterm*dvz + dBdissterm*dBz - dpsiterm*runiz - dBnonideal(3)
+          endif
+          !
+          !--get projection of anisotropic part of stress tensor
+          !  in direction of particle pair
+          !
+          projsxi = (sxxi*runix + sxyi*runiy + sxzi*runiz)*grkerni
+          projsyi = (sxyi*runix + syyi*runiy + syzi*runiz)*grkerni
+          projszi = (sxzi*runix + syzi*runiy + szzi*runiz)*grkerni
+          if (usej) then
+             projsxj = (sxxj*runix + sxyj*runiy + sxzj*runiz)*grkernj
+             projsyj = (sxyj*runix + syyj*runiy + syzj*runiz)*grkernj
+             projszj = (sxzj*runix + syzj*runiy + szzj*runiz)*grkernj
+          endif
+          !
+          !--physical viscosity term (direct second derivatives)
+          !
+          if (realviscosity .and. maxstrain /= maxp) then
+             grgrkerni = -2.*grkerni*rij1
+             gradpi = gradpi + visctermiso*projv*grgrkerni
+             projsxi = projsxi + visctermaniso*dvx*grgrkerni
+             projsyi = projsyi + visctermaniso*dvy*grgrkerni
+             projszi = projszi + visctermaniso*dvz*grgrkerni
+             dudtdissi = dudtdissi + grgrkerni*(visctermiso*projv**2 &
                                  + visctermaniso*(dvx*dvx + dvy*dvy + dvz*dvz))
-           if (usej) then
-              grgrkernj = -2.*grkernj*rij1
-              gradpj = gradpj + visctermisoj*projv*grgrkernj
-              projsxj = projsxj + visctermanisoj*dvx*grgrkernj
-              projsyj = projsyj + visctermanisoj*dvy*grgrkernj
-              projszj = projszj + visctermanisoj*dvz*grgrkernj
-           endif
-        endif
+             if (usej) then
+                grgrkernj = -2.*grkernj*rij1
+                gradpj = gradpj + visctermisoj*projv*grgrkernj
+                projsxj = projsxj + visctermanisoj*dvx*grgrkernj
+                projsyj = projsyj + visctermanisoj*dvy*grgrkernj
+                projszj = projszj + visctermanisoj*dvz*grgrkernj
+             endif
+          endif
 
-        !--terms used in force
-        gradp = gradpi + gradpj
-        projsx = projsxi + projsxj
-        projsy = projsyi + projsyj
-        projsz = projszi + projszj
+          !--terms used in force
+          gradp = gradpi + gradpj
+          projsx = projsxi + projsxj
+          projsy = projsyi + projsyj
+          projsz = projszi + projszj
 
-        fsum(ifxi) = fsum(ifxi) - runix*(gradp + fgrav) - projsx
-        fsum(ifyi) = fsum(ifyi) - runiy*(gradp + fgrav) - projsy
-        fsum(ifzi) = fsum(ifzi) - runiz*(gradp + fgrav) - projsz
-        fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
+          fsum(ifxi) = fsum(ifxi) - runix*(gradp + fgrav) - projsx
+          fsum(ifyi) = fsum(ifyi) - runiy*(gradp + fgrav) - projsy
+          fsum(ifzi) = fsum(ifzi) - runiz*(gradp + fgrav) - projsz
+          fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
 
-        !--calculate divv for use in du, h prediction, av switch etc.
-        fsum(idrhodti) = fsum(idrhodti) + projv*grkerni
+          !--calculate divv for use in du, h prediction, av switch etc.
+          fsum(idrhodti) = fsum(idrhodti) + projv*grkerni
 
-        if (maxvxyzu >= 4) then
-           !--viscous heating
-           fsum(idudtdissi) = fsum(idudtdissi) + dudtdissi + dudtresist
-           !--energy dissipation due to conductivity
-           fsum(idendtdissi) = fsum(idendtdissi) + dendissterm
-        endif
+          if (maxvxyzu >= 4) then
+             !--viscous heating
+             fsum(idudtdissi) = fsum(idudtdissi) + dudtdissi + dudtresist
+             !--energy dissipation due to conductivity
+             fsum(idendtdissi) = fsum(idendtdissi) + dendissterm
+          endif
 
-        !--add contribution to particle i's force
-        if (mhd) then
-           !--div B in symmetric form (for source term subtraction)
-           fsum(idivBsymi) = fsum(idivBsymi) + divBsymmterm
-           fsum(idBevolxi) = fsum(idBevolxi) + dBevolx
-           fsum(idBevolyi) = fsum(idBevolyi) + dBevoly
-           fsum(idBevolzi) = fsum(idBevolzi) + dBevolz
-           !--div B in difference form for dpsi/dt evolution
-           fsum(idivBdiffi) = fsum(idivBdiffi) + divBdiffterm
-        endif
+          !--add contribution to particle i's force
+          if (mhd) then
+             !--div B in symmetric form (for source term subtraction)
+             fsum(idivBsymi) = fsum(idivBsymi) + divBsymmterm
+             fsum(idBevolxi) = fsum(idBevolxi) + dBevolx
+             fsum(idBevolyi) = fsum(idBevolyi) + dBevoly
+             fsum(idBevolzi) = fsum(idBevolzi) + dBevolz
+             !--div B in difference form for dpsi/dt evolution
+             fsum(idivBdiffi) = fsum(idivBdiffi) + divBdiffterm
+          endif
 #ifdef DUST
-        if (use_dustfrac) then
-           if (dustfraci > 0. .or. dustfracj > 0.) then
-              ! get stopping time - for one fluid dust we do not know deltav, but it is small by definition
-              call get_ts(idrag,grainsize,graindens,rhoj*(1. - dustfracj),rhoj*dustfracj,spsoundj,0.,tsj,iregime)
+          if (use_dustfrac) then
+             if (dustfraci > 0. .or. dustfracj > 0.) then
+                ! get stopping time - for one fluid dust we do not know deltav, but it is small by definition
+                call get_ts(idrag,grainsize,graindens,rhoj*(1. - dustfracj),rhoj*dustfracj,spsoundj,0.,tsj,iregime)
 
-              ! define averages of diffusion coefficient and kernels
-              Dav      = dustfraci*tsi + dustfracj*tsj
-              grkernav = 0.5*(grkerni + grkernj)
+                ! define averages of diffusion coefficient and kernels
+                Dav      = dustfraci*tsi + dustfracj*tsj
+                grkernav = 0.5*(grkerni + grkernj)
 
-              ! these are equations (43) and (45) from Price & Laibe (2015)
-              ! but note there is a sign error in the term in eqn (45) in the paper
-              !dustfracterm  = pmassj*rho1j*Dav*(pri - prj)*grkernav*rij1
-              dustfracterms = pmassj*sqrtrhodustfracj*rho1j*(tsi*rho1i+tsj*rho1j)*(pri - prj)*grkernav*rij1
+                ! these are equations (43) and (45) from Price & Laibe (2015)
+                ! but note there is a sign error in the term in eqn (45) in the paper
+                !dustfracterm  = pmassj*rho1j*Dav*(pri - prj)*grkernav*rij1
+                dustfracterms = pmassj*sqrtrhodustfracj*rho1j*(tsi*rho1i+tsj*rho1j)*(pri - prj)*grkernav*rij1
 
-              !vsigeps = 0.5*(spsoundi + spsoundj) !abs(projv)
-              !depsdissterm = pmassj*sqrtrhodustfracj*rho1j*grkernav*vsigeps !(auterm*grkerni + autermj*grkernj)*vsigeps
-              !dustfracterms = dustfracterms - depsdissterm*(dustfraci - dustfracj)
-              fsum(iddustfraci) = fsum(iddustfraci) - dustfracterms
-              !fsum(iddustfraci) = fsum(iddustfraci) - dustfracterm
-              if (maxvxyzu >= 4) fsum(idudtdusti) = fsum(idudtdusti) - sqrtrhodustfraci*dustfracterms*denij
-           endif
-           ! Equation 270 in Phantom paper
-           if (dustfraci < 1.) then
-              term = tsi/(1. - dustfraci)*pmassj*(pro2i*grkerni + pro2j*grkernj)
-              fsum(ideltavxi) = fsum(ideltavxi) + term*runix
-              fsum(ideltavyi) = fsum(ideltavyi) + term*runiy
-              fsum(ideltavzi) = fsum(ideltavzi) + term*runiz
-           endif
-        endif
+                !vsigeps = 0.5*(spsoundi + spsoundj) !abs(projv)
+                !depsdissterm = pmassj*sqrtrhodustfracj*rho1j*grkernav*vsigeps !(auterm*grkerni + autermj*grkernj)*vsigeps
+                !dustfracterms = dustfracterms - depsdissterm*(dustfraci - dustfracj)
+                fsum(iddustfraci) = fsum(iddustfraci) - dustfracterms
+                !fsum(iddustfraci) = fsum(iddustfraci) - dustfracterm
+                if (maxvxyzu >= 4) fsum(idudtdusti) = fsum(idudtdusti) - sqrtrhodustfraci*dustfracterms*denij
+             endif
+             ! Equation 270 in Phantom paper
+             if (dustfraci < 1.) then
+                term = tsi/(1. - dustfraci)*pmassj*(pro2i*grkerni + pro2j*grkernj)
+                fsum(ideltavxi) = fsum(ideltavxi) + term*runix
+                fsum(ideltavyi) = fsum(ideltavyi) + term*runiy
+                fsum(ideltavzi) = fsum(ideltavzi) + term*runiz
+             endif
+          endif
 #endif
 
-        else !ifgas
-        !
-        !  gravity between particles of different types
-        !
-           fsum(ifxi) = fsum(ifxi) - fgrav*runix
-           fsum(ifyi) = fsum(ifyi) - fgrav*runiy
-           fsum(ifzi) = fsum(ifzi) - fgrav*runiz
-           fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
+       else !ifgas
+          !
+          !  gravity between particles of different types
+          !
+          fsum(ifxi) = fsum(ifxi) - fgrav*runix
+          fsum(ifyi) = fsum(ifyi) - fgrav*runiy
+          fsum(ifzi) = fsum(ifzi) - fgrav*runiz
+          fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
 #ifdef DUST
-        !
-        ! gas-dust: compute drag terms
-        !
-        if (idrag>0) then
-           if (iamgasi .and. iamdustj .and. icut_backreaction==0) then
-              dv2 = dvx*dvx + dvy*dvy + dvz*dvz
-              if (q2i < q2j) then
-                 wdrag = wkern_drag(q2i,qi)*hi21*hi1*cnormk_drag
-              else
-                 wdrag = wkern_drag(q2j,qj)*hj21*hj1*cnormk_drag
-              endif
-              call get_ts(idrag,grainsize,graindens,rhoi,rhoj,spsoundi,dv2,tsij,iregime)
-              ndrag = ndrag + 1
-              if (iregime > 2)  nstokes = nstokes + 1
-              if (iregime == 2) nsuper = nsuper + 1
-              dragterm = 3.*pmassj/((rhoi + rhoj)*tsij)*projv*wdrag
-              ts_min = min(ts_min,tsij)
-              fsum(ifxi) = fsum(ifxi) - dragterm*runix
-              fsum(ifyi) = fsum(ifyi) - dragterm*runiy
-              fsum(ifzi) = fsum(ifzi) - dragterm*runiz
-              if (maxvxyzu >= 4) then
-                 !--energy dissipation due to drag
-                 dragheating = dragterm*projv
-                 fsum(idudtdissi) = fsum(idudtdissi) + dragheating
-              endif
-           elseif (iamdusti .and. iamgasj) then
-              dv2 = dvx*dvx + dvy*dvy + dvz*dvz
-              if (q2i < q2j) then
-                 wdrag = wkern_drag(q2i,qi)*hi21*hi1*cnormk_drag
-              else
-                 wdrag = wkern_drag(q2j,qj)*hj21*hj1*cnormk_drag
-              endif
-              call get_ts(idrag,grainsize,graindens,rhoj,rhoi,spsoundj,dv2,tsij,iregime)
-              dragterm = 3.*pmassj/((rhoi + rhoj)*tsij)*projv*wdrag
-              ts_min = min(ts_min,tsij)
-              ndrag = ndrag + 1
-              if (iregime > 2)  nstokes = nstokes + 1
-              if (iregime == 2) nsuper = nsuper + 1
-              fsum(ifxi) = fsum(ifxi) - dragterm*runix ! + because projv is opposite
-              fsum(ifyi) = fsum(ifyi) - dragterm*runiy
-              fsum(ifzi) = fsum(ifzi) - dragterm*runiz
-           endif
-        endif
+          !
+          ! gas-dust: compute drag terms
+          !
+          if (idrag>0) then
+             if (iamgasi .and. iamdustj .and. icut_backreaction==0) then
+                dv2 = dvx*dvx + dvy*dvy + dvz*dvz
+                if (q2i < q2j) then
+                   wdrag = wkern_drag(q2i,qi)*hi21*hi1*cnormk_drag
+                else
+                   wdrag = wkern_drag(q2j,qj)*hj21*hj1*cnormk_drag
+                endif
+                call get_ts(idrag,grainsize,graindens,rhoi,rhoj,spsoundi,dv2,tsij,iregime)
+                ndrag = ndrag + 1
+                if (iregime > 2)  nstokes = nstokes + 1
+                if (iregime == 2) nsuper = nsuper + 1
+                dragterm = 3.*pmassj/((rhoi + rhoj)*tsij)*projv*wdrag
+                ts_min = min(ts_min,tsij)
+                fsum(ifxi) = fsum(ifxi) - dragterm*runix
+                fsum(ifyi) = fsum(ifyi) - dragterm*runiy
+                fsum(ifzi) = fsum(ifzi) - dragterm*runiz
+                if (maxvxyzu >= 4) then
+                   !--energy dissipation due to drag
+                   dragheating = dragterm*projv
+                   fsum(idudtdissi) = fsum(idudtdissi) + dragheating
+                endif
+             elseif (iamdusti .and. iamgasj) then
+                dv2 = dvx*dvx + dvy*dvy + dvz*dvz
+                if (q2i < q2j) then
+                   wdrag = wkern_drag(q2i,qi)*hi21*hi1*cnormk_drag
+                else
+                   wdrag = wkern_drag(q2j,qj)*hj21*hj1*cnormk_drag
+                endif
+                call get_ts(idrag,grainsize,graindens,rhoj,rhoi,spsoundj,dv2,tsij,iregime)
+                dragterm = 3.*pmassj/((rhoi + rhoj)*tsij)*projv*wdrag
+                ts_min = min(ts_min,tsij)
+                ndrag = ndrag + 1
+                if (iregime > 2)  nstokes = nstokes + 1
+                if (iregime == 2) nsuper = nsuper + 1
+                fsum(ifxi) = fsum(ifxi) - dragterm*runix ! + because projv is opposite
+                fsum(ifyi) = fsum(ifyi) - dragterm*runiy
+                fsum(ifzi) = fsum(ifzi) - dragterm*runiz
+             endif
+          endif
 #endif
-        endif ifgas
+       endif ifgas
 #ifdef GRAVITY
-     else !is_sph_neighbour
-     !
-     !--if particle is a trial neighbour, but not an SPH neighbour
-     !  then compute the 1/r^2 force contribution
-     !  (no softening here, as by definition we
-     !   are outside the kernel radius)
-     !
+    else !is_sph_neighbour
+       !
+       !--if particle is a trial neighbour, but not an SPH neighbour
+       !  then compute the 1/r^2 force contribution
+       !  (no softening here, as by definition we
+       !   are outside the kernel radius)
+       !
 #ifdef FINVSQRT
-        rij1 = finvsqrt(rij2)
+       rij1 = finvsqrt(rij2)
 #else
-        rij1 = 1./sqrt(rij2)
+       rij1 = 1./sqrt(rij2)
 #endif
-        fgrav  = rij1*rij1*rij1
-        if (maxphase==maxp) then
-           iamtypej = iamtype(iphase(j))
-        endif
-        pmassj = massoftype(iamtypej)
-        phii   = -rij1
-        fgravj = fgrav*pmassj
-        fsum(ifxi) = fsum(ifxi) - dx*fgravj
-        fsum(ifyi) = fsum(ifyi) - dy*fgravj
-        fsum(ifzi) = fsum(ifzi) - dz*fgravj
-        fsum(ipot) = fsum(ipot) + pmassj*phii
+       fgrav  = rij1*rij1*rij1
+       if (maxphase==maxp) then
+          iamtypej = iamtype(iphase(j))
+       endif
+       pmassj = massoftype(iamtypej)
+       phii   = -rij1
+       fgravj = fgrav*pmassj
+       fsum(ifxi) = fsum(ifxi) - dx*fgravj
+       fsum(ifyi) = fsum(ifyi) - dy*fgravj
+       fsum(ifzi) = fsum(ifzi) - dz*fgravj
+       fsum(ipot) = fsum(ipot) + pmassj*phii
 #endif
-     endif is_sph_neighbour
-  enddo loop_over_neighbours2
+    endif is_sph_neighbour
+ enddo loop_over_neighbours2
 
-  return
+ return
 end subroutine compute_forces
 
 !----------------------------------------------------------------
@@ -1537,108 +1537,108 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi,pmassi,eni,Bxi,Byi,Bzi,dustfraci, &
                  sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso, &
                  realviscosity,divvi,bulkvisc,strain,stressmax)
 
-  use dim,       only:maxvxyzu,maxstrain,maxp
-  use part,      only:mhd
-  use eos,       only:equationofstate
-  use options,   only:ieos
-  use viscosity, only:shearfunc
-  real,    intent(in)  :: rhoi,rho1i,xi,yi,zi,pmassi,eni
-  real,    intent(in)  :: Bxi,Byi,Bzi,dustfraci
-  real,    intent(out) :: ponrhoi,pro2i,pri,spsoundi,vwavei
-  real,    intent(out) :: sxxi,sxyi,sxzi,syyi,syzi,szzi
-  real,    intent(out) :: visctermiso,visctermaniso
-  logical, intent(in)  :: realviscosity
-  real,    intent(in)  :: divvi,bulkvisc,stressmax
-  real,    intent(in)  :: strain(6)
+ use dim,       only:maxvxyzu,maxstrain,maxp
+ use part,      only:mhd
+ use eos,       only:equationofstate
+ use options,   only:ieos
+ use viscosity, only:shearfunc
+ real,    intent(in)  :: rhoi,rho1i,xi,yi,zi,pmassi,eni
+ real,    intent(in)  :: Bxi,Byi,Bzi,dustfraci
+ real,    intent(out) :: ponrhoi,pro2i,pri,spsoundi,vwavei
+ real,    intent(out) :: sxxi,sxyi,sxzi,syyi,syzi,szzi
+ real,    intent(out) :: visctermiso,visctermaniso
+ logical, intent(in)  :: realviscosity
+ real,    intent(in)  :: divvi,bulkvisc,stressmax
+ real,    intent(in)  :: strain(6)
 
-  real :: Bro2i,Brhoxi,Brhoyi,Brhozi,rhogasi,gasfrac
-  real :: stressiso,term,graddivvcoeff,del2vcoeff
-  real :: shearvisc,etavisc,valfven2i,p_on_rhogas
+ real :: Bro2i,Brhoxi,Brhoyi,Brhozi,rhogasi,gasfrac
+ real :: stressiso,term,graddivvcoeff,del2vcoeff
+ real :: shearvisc,etavisc,valfven2i,p_on_rhogas
 !
 !--get pressure (actually pr/dens) and sound speed from equation of state
 !
-  gasfrac = (1. - dustfraci)  ! rhogas/rho
-  rhogasi = rhoi*gasfrac       ! rhogas = (1-eps)*rho
-  if (maxvxyzu >= 4) then
-     call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi,eni)
-  else
-     call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi)
-  endif
+ gasfrac = (1. - dustfraci)  ! rhogas/rho
+ rhogasi = rhoi*gasfrac       ! rhogas = (1-eps)*rho
+ if (maxvxyzu >= 4) then
+    call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi,eni)
+ else
+    call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi)
+ endif
 
-  pri     = p_on_rhogas*rhogasi
-  ponrhoi = p_on_rhogas*gasfrac
+ pri     = p_on_rhogas*rhogasi
+ ponrhoi = p_on_rhogas*gasfrac
 
-  sxxi = 0.
-  sxyi = 0.
-  sxzi = 0.
-  syyi = 0.
-  syzi = 0.
-  szzi = 0.
-  visctermiso   = 0.
-  visctermaniso = 0.
-  stressiso     = 0.
+ sxxi = 0.
+ sxyi = 0.
+ sxzi = 0.
+ syyi = 0.
+ syzi = 0.
+ szzi = 0.
+ visctermiso   = 0.
+ visctermaniso = 0.
+ stressiso     = 0.
 
-  if (realviscosity) then
-  !--get shear viscosity coefficient from function
-     shearvisc = shearfunc(xi,yi,zi,spsoundi)
-     etavisc   = rhoi*shearvisc
+ if (realviscosity) then
+    !--get shear viscosity coefficient from function
+    shearvisc = shearfunc(xi,yi,zi,spsoundi)
+    etavisc   = rhoi*shearvisc
 !
 !--add physical viscosity terms to stress tensor
 !  (construct S^ij/ rho^2 for use in the force equation)
 !
-     if (maxstrain==maxp) then
-        !--get stress (multiply by coefficient for use in second derivative)
-        term = -shearvisc*pmassi*rho1i ! shearvisc = eta/rho, so this is eta/rho**2
-        sxxi = term*strain(1)
-        sxyi = term*strain(2)
-        sxzi = term*strain(3)
-        syyi = term*strain(4)
-        syzi = term*strain(5)
-        szzi = term*strain(6)
-        stressiso = (2./3.*shearvisc - bulkvisc)*divvi*rho1i + stressmax
-     else
-        graddivvcoeff = 0.5*(bulkvisc*rhoi + etavisc/3.)   ! 0.5 here is because we
-        del2vcoeff    = 0.5*etavisc                   ! average between particle pairs
+    if (maxstrain==maxp) then
+       !--get stress (multiply by coefficient for use in second derivative)
+       term = -shearvisc*pmassi*rho1i ! shearvisc = eta/rho, so this is eta/rho**2
+       sxxi = term*strain(1)
+       sxyi = term*strain(2)
+       sxzi = term*strain(3)
+       syyi = term*strain(4)
+       syzi = term*strain(5)
+       szzi = term*strain(6)
+       stressiso = (2./3.*shearvisc - bulkvisc)*divvi*rho1i + stressmax
+    else
+       graddivvcoeff = 0.5*(bulkvisc*rhoi + etavisc/3.)   ! 0.5 here is because we
+       del2vcoeff    = 0.5*etavisc                   ! average between particle pairs
 
-        !--construct isotropic and anisotropic terms from above
-        visctermiso   = 2.5*graddivvcoeff*pmassi*rho1i*rho1i
-        visctermaniso = (del2vcoeff - 0.5*graddivvcoeff)*pmassi*rho1i*rho1i
-     endif
-  endif
+       !--construct isotropic and anisotropic terms from above
+       visctermiso   = 2.5*graddivvcoeff*pmassi*rho1i*rho1i
+       visctermaniso = (del2vcoeff - 0.5*graddivvcoeff)*pmassi*rho1i*rho1i
+    endif
+ endif
 
-  if (mhd) then
+ if (mhd) then
 !
 !--construct useful terms based on the B-field
 !
-     Brhoxi = Bxi*rho1i
-     Brhoyi = Byi*rho1i
-     Brhozi = Bzi*rho1i
+    Brhoxi = Bxi*rho1i
+    Brhoyi = Byi*rho1i
+    Brhozi = Bzi*rho1i
 
-     Bro2i     = Brhoxi*Brhoxi + Brhoyi*Brhoyi + Brhozi*Brhozi
-     valfven2i = Bro2i*rhoi
-     vwavei    = sqrt(spsoundi*spsoundi + valfven2i)
+    Bro2i     = Brhoxi*Brhoxi + Brhoyi*Brhoyi + Brhozi*Brhozi
+    valfven2i = Bro2i*rhoi
+    vwavei    = sqrt(spsoundi*spsoundi + valfven2i)
 
-     !--MHD terms in stress tensor
-     sxxi  = sxxi - pmassi*Brhoxi*Brhoxi
-     sxyi  = sxyi - pmassi*Brhoxi*Brhoyi
-     sxzi  = sxzi - pmassi*Brhoxi*Brhozi
-     syyi  = syyi - pmassi*Brhoyi*Brhoyi
-     syzi  = syzi - pmassi*Brhoyi*Brhozi
-     szzi  = szzi - pmassi*Brhozi*Brhozi
+    !--MHD terms in stress tensor
+    sxxi  = sxxi - pmassi*Brhoxi*Brhoxi
+    sxyi  = sxyi - pmassi*Brhoxi*Brhoyi
+    sxzi  = sxzi - pmassi*Brhoxi*Brhozi
+    syyi  = syyi - pmassi*Brhoyi*Brhoyi
+    syzi  = syzi - pmassi*Brhoyi*Brhozi
+    szzi  = szzi - pmassi*Brhozi*Brhozi
 !
 !--construct total isotropic pressure term (gas + magnetic + stress)
 !
-     pro2i = ponrhoi*rho1i + stressiso + 0.5*Bro2i
+    pro2i = ponrhoi*rho1i + stressiso + 0.5*Bro2i
 
-  else
+ else
 !
 !--construct m*p/(rho^2 \Omega) in force equation using pressure
 !
-     pro2i  = ponrhoi*rho1i + stressiso
-     vwavei = spsoundi
-  endif
+    pro2i  = ponrhoi*rho1i + stressiso
+    vwavei = spsoundi
+ endif
 
-  return
+ return
 end subroutine get_P
 
 #ifdef IND_TIMESTEPS
@@ -1648,24 +1648,24 @@ end subroutine get_P
 !+
 !----------------------------------------------------------------
 subroutine check_dtmin(dtcheck,dti,dtopt,dtrat,ndtopt,dtoptfacmean,dtoptfacmax,dtchar_out,dtchar_in)
-  integer, intent(inout) :: ndtopt
-  real,    intent(in)    :: dti,dtopt,dtrat
-  real,    intent(inout) :: dtoptfacmean,dtoptfacmax
-  logical, intent(inout) :: dtcheck
-  character(len=*), intent(out)   :: dtchar_out
-  character(len=*), intent(in)    :: dtchar_in
-  !
-  if (.not. dtcheck) return
-  !
-  if ( abs(dti-dtopt) < tiny(dti)) then
+ integer, intent(inout) :: ndtopt
+ real,    intent(in)    :: dti,dtopt,dtrat
+ real,    intent(inout) :: dtoptfacmean,dtoptfacmax
+ logical, intent(inout) :: dtcheck
+ character(len=*), intent(out)   :: dtchar_out
+ character(len=*), intent(in)    :: dtchar_in
+ !
+ if (.not. dtcheck) return
+ !
+ if ( abs(dti-dtopt) < tiny(dti)) then
     dtcheck      = .false.
     ndtopt       = ndtopt + 1
     dtoptfacmean = dtoptfacmean + dtrat
     dtoptfacmax  = max(dtoptfacmax, dtrat)
     dtchar_out   = dtchar_in
-  endif
-  !
-  return
+ endif
+ !
+ return
 end subroutine check_dtmin
 #endif
 
@@ -2385,13 +2385,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 
        ! timestep based on non-ideal MHD
        if (mhd_nonideal) then
-         call nimhd_get_dt(dtohmi,dthalli,dtambii,hi,etaohmi,etahalli,etaambii)
-         if ( use_STS ) then
-            dtdiffi = min(dtohmi,dtambii)
-            dtdiff  = min(dtdiff,dtdiffi)
-            dtohmi  = bignumber
-            dtambii = bignumber
-         endif
+          call nimhd_get_dt(dtohmi,dthalli,dtambii,hi,etaohmi,etahalli,etaambii)
+          if ( use_STS ) then
+             dtdiffi = min(dtohmi,dtambii)
+             dtdiff  = min(dtdiff,dtdiffi)
+             dtohmi  = bignumber
+             dtambii = bignumber
+          endif
        else
           dtohmi  = bignumber
           dthalli = bignumber
@@ -2450,9 +2450,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
     if (use_dustfrac .and. iamgasi .and. dustfraci > 0. .and. spsoundi > 0.) then
        dtdustdenom = dustfraci*tstop*spsoundi**2
        if (dtdustdenom > tiny(dtdustdenom)) then
-         dtdusti = C_force*hi*hi/dtdustdenom
+          dtdusti = C_force*hi*hi/dtdustdenom
        else
-         dtdusti = bignumber
+          dtdusti = bignumber
        endif
     else
        dtdusti = bignumber

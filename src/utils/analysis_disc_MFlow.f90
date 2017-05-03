@@ -31,7 +31,7 @@ module analysis
 
 
  interface read_discparams
- module procedure read_discparams, read_discparams2
+  module procedure read_discparams, read_discparams2
  end interface
 
  private
@@ -195,9 +195,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
  do i=1,nr
     if(sigmavphi(i)==0)then
-    e1(i)=0
+       e1(i)=0
     else
-    e1(i)=sqrt(sigmavrcosi(i)**2+sigmavrsini(i)**2)/abs(sigmavphi(i))
+       e1(i)=sqrt(sigmavrcosi(i)**2+sigmavrsini(i)**2)/abs(sigmavphi(i))
     endif
  enddo
  !e1(:)=0
@@ -216,16 +216,16 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
  do i=1,nr
 
-      do k=1,ninbin(i)
-          indexz(i,k)=k
-      enddo
+    do k=1,ninbin(i)
+       indexz(i,k)=k
+    enddo
 
  enddo
 
  j(:)=1
 
  do i=1,npart
-       if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
+    if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
        ri = sqrt(dot_product(xyzh(1:2,i),xyzh(1:2,i)))
        ii = int((ri-rad(1))/dr + 1)
 
@@ -239,32 +239,32 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        endif
 
 
-       endif
+    endif
 
-  enddo
+ enddo
 
 
-  do i=1,nr
-   call  indexx(ninbin(i),z(i,:),indexz(i,:))
-  enddo
+ do i=1,nr
+    call  indexx(ninbin(i),z(i,:),indexz(i,:))
+ enddo
 
-  gausslimit=int(0.68*ninbin)
+ gausslimit=int(0.68*ninbin)
 
 
 !----index at which i found sorted z below which 68% of particles, 1 gaussian sigma
 
-  do i=1,nr
-       if (gausslimit(i) < 1)  cycle
-       Hperc(i)=z(i,indexz(i,gausslimit(i)))
-  enddo
+ do i=1,nr
+    if (gausslimit(i) < 1)  cycle
+    Hperc(i)=z(i,indexz(i,gausslimit(i)))
+ enddo
 
 !-----How much mass contained inside a certain radius?
 
-   buf=0.
-   do i=1,nr
-       buf=buf+mass(i)
-       matradi(i)=buf
-   enddo
+ buf=0.
+ do i=1,nr
+    buf=buf+mass(i)
+    matradi(i)=buf
+ enddo
 
 
 
@@ -311,7 +311,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
  do i=1,nr
 
-       write(iunit,'(9(es18.10,1X))') rad(i),sigma(i),h_smooth(i),unitlx(i),unitly(i),unitlz(i),Hperc(i),flow(i),e1(i)
+    write(iunit,'(9(es18.10,1X))') rad(i),sigma(i),h_smooth(i),unitlx(i),unitly(i),unitlz(i),Hperc(i),flow(i),e1(i)
 
  enddo
 
@@ -319,11 +319,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
  print*,"Number of particles in each bin:"
 
-if(comment)then
- do i=1, nr
-    print*,"i, ninbin(i),Hperc(i):",i,ninbin(i),Hperc(i)
- enddo
-endif
+ if(comment)then
+    do i=1, nr
+       print*,"i, ninbin(i),Hperc(i):",i,ninbin(i),Hperc(i)
+    enddo
+ endif
 end subroutine do_analysis
 
 
@@ -423,10 +423,10 @@ subroutine flow_analysis(xyzh,vxyz,pmass,flow,npart,rad,nr,dr)
  real                :: rcili,vri
  integer             :: i,ii
 
-  flow(:)=0
+ flow(:)=0
 
-  do i=1,npart
-   if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
+ do i=1,npart
+    if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
        rcili = sqrt(dot_product(xyzh(1:2,i),xyzh(1:2,i)))
        ii = int((rcili-rad(1))/dr + 1)!ii=1 if rcili>rad(1)
 
@@ -441,7 +441,7 @@ subroutine flow_analysis(xyzh,vxyz,pmass,flow,npart,rad,nr,dr)
        flow(ii)=flow(ii)-vri*pmass/dr !normalized on dr
     endif
 
-  enddo
+ enddo
 
 end subroutine flow_analysis
 

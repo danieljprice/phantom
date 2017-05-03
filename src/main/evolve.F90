@@ -101,10 +101,10 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use mf_write,         only:mflow_write
 #endif
 #ifdef VMFLOW
-use mf_write,          only:vmflow_write
+ use mf_write,          only:vmflow_write
 #endif
 #ifdef BINPOS
-use mf_write,          only:binpos_write
+ use mf_write,          only:binpos_write
 #endif
 
  character(len=*), intent(in)    :: infile
@@ -493,9 +493,9 @@ use mf_write,          only:binpos_write
        if (dtwallmax > 1.0 .and. .not.fulldump) then
           twallperdump = timer_lastdump%wall
           if (twallperdump > dtwallmax) then
-            fulldump = .true.
-            write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON DT WALL TIME CONSTRAINTS... '
-            nfulldump = 1  !  also set all future dumps to be full dumps (otherwise gets confusing)
+             fulldump = .true.
+             write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON DT WALL TIME CONSTRAINTS... '
+             nfulldump = 1  !  also set all future dumps to be full dumps (otherwise gets confusing)
           endif
        endif
 !

@@ -348,9 +348,9 @@ subroutine test_link(ntests,npass)
                       dz = zi - xyzcache(3,j)
 #ifdef MPI
 #ifdef PERIODIC
-                     if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
-                     if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
-                     if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+                      if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+                      if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+                      if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
 #endif
 #endif
                    else
@@ -378,44 +378,44 @@ subroutine test_link(ntests,npass)
 #ifdef PERIODIC
              if (radkern*hi < min(0.5*dxbound-2.*dcellx,0.5*dybound-2.*dcelly,0.5*dzbound-2.*dcellz)) then
 #endif
-             do j=1,nneightry
-#ifdef IND_TIMESTEPS
-                iactivej = iactive(iphase(listneigh(j)))
-#endif
-                if (activecell .or. iactivej) then
-                   dx = xi - xyzh(1,listneigh(j))
-                   dy = yi - xyzh(2,listneigh(j))
-                   dz = zi - xyzh(3,listneigh(j))
-#ifdef PERIODIC
-                   if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
-                   if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
-                   if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
-#endif
-                   q2 = (dx*dx + dy*dy + dz*dz)*hi21
-                   if (q2 < radkern2) then
-                      nneigh = nneigh + 1
-                   endif
-                endif
-             enddo
-             nfailedprev = nfailed(2)
-             call checkvalbuf(nneigh,nneighexact,0,'nneigh (no cache)',nfailed(2),ncheck2,max2)
-             !if (nneigh > 0) print*,'cell ',icell,' part ',i,' nneigh = ',nneigh,' should be ',nneighexact
-
-             if (nfailed(2) > nfailedprev) then
-                !
-                !--check for double counting in neighbour list
-                !
                 do j=1,nneightry
-                   if (nwarn < 20) then
-                      if (any(listneigh(1:j-1)==listneigh(j))) then
-                         nwarn = nwarn + 1
-                         print*,' ERROR: double counting in neighbour list ',listneigh(j) !,listneigh(1:j-1)
+#ifdef IND_TIMESTEPS
+                   iactivej = iactive(iphase(listneigh(j)))
+#endif
+                   if (activecell .or. iactivej) then
+                      dx = xi - xyzh(1,listneigh(j))
+                      dy = yi - xyzh(2,listneigh(j))
+                      dz = zi - xyzh(3,listneigh(j))
+#ifdef PERIODIC
+                      if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+                      if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+                      if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+#endif
+                      q2 = (dx*dx + dy*dy + dz*dz)*hi21
+                      if (q2 < radkern2) then
+                         nneigh = nneigh + 1
                       endif
                    endif
                 enddo
-             endif
+                nfailedprev = nfailed(2)
+                call checkvalbuf(nneigh,nneighexact,0,'nneigh (no cache)',nfailed(2),ncheck2,max2)
+                !if (nneigh > 0) print*,'cell ',icell,' part ',i,' nneigh = ',nneigh,' should be ',nneighexact
+
+                if (nfailed(2) > nfailedprev) then
+                   !
+                   !--check for double counting in neighbour list
+                   !
+                   do j=1,nneightry
+                      if (nwarn < 20) then
+                         if (any(listneigh(1:j-1)==listneigh(j))) then
+                            nwarn = nwarn + 1
+                            print*,' ERROR: double counting in neighbour list ',listneigh(j) !,listneigh(1:j-1)
+                         endif
+                      endif
+                   enddo
+                endif
 #ifdef PERIODIC
-          endif
+             endif
 #endif
              if (i < 0) stop 'i<0 when about to access ll'
              i = ll(i)

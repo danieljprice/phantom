@@ -51,7 +51,7 @@ module setup
  real    :: object_mass, accradius, v_0(3)
 
  private
-real(kind=8) :: udist,umass
+ real(kind=8) :: udist,umass
 
 contains
 
@@ -65,7 +65,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,             only:master
  use infile_utils, only: read_next_inopt
  use externalforces, only:accradius1, iext_star, iext_corotate
-use extern_corotate, only: omega_corotate
+ use extern_corotate, only: omega_corotate
 #ifdef INJECT_PARTICLES
  use inject,         only: set_injection_parameters
 #endif
@@ -86,35 +86,35 @@ use extern_corotate, only: omega_corotate
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
 
-integer :: ierr, i, nboundary
-character(len=100) :: filename
-logical :: iexist
-real ::  phipart, sig0, rpart,omega0,vmag, phimaxrad
-real :: v_0(3), v_subtract(3)
-real :: annulus_halfwidth, midsep
+ integer :: ierr, i, nboundary
+ character(len=100) :: filename
+ logical :: iexist
+ real ::  phipart, sig0, rpart,omega0,vmag, phimaxrad
+ real :: v_0(3), v_subtract(3)
+ real :: annulus_halfwidth, midsep
 
  filename=trim(fileprefix)//".setup"
 
  umass = solarm
  udist = au
 
-  print "(/,65('-'),2(/,a),/,65('-'),/)",&
+ print "(/,65('-'),2(/,a),/,65('-'),/)",&
   ' Welcome to the Disc Sector Setup Routine^TM', &
   ' Brought to you by Duncan Forgan and Daniel Price'
 
-  inquire(file=filename,exist=iexist)
-  if (iexist) then
+ inquire(file=filename,exist=iexist)
+ if (iexist) then
 
     ! Read disc parameters from file
     call read_discinputfile(filename,ierr)
     call set_units(dist=udist,mass=umass,G=1.)
 
     if(ierr/=0) then
-        if(id==master) call write_discinputfile(filename)
-        stop
+       if(id==master) call write_discinputfile(filename)
+       stop
     endif
 
-  elseif (id==master) then
+ elseif (id==master) then
 
     print "(a,/)",trim(filename)//' not found: using interactive setup'
 
@@ -177,9 +177,9 @@ real :: annulus_halfwidth, midsep
 
     print "(a)", '>>> rerun phantomsetup using the options set in '//trim(filename)//' <<<'
     stop
-  else
+ else
     stop
-  endif
+ endif
 
  phimaxrad = phimax*(pi/180.0)
 
@@ -194,7 +194,7 @@ real :: annulus_halfwidth, midsep
  time    = 0.
 
 ! Calculate sigma0 of entire disc
-sig0 = sigma0(disc_mass,R_in,R_out,p_index)
+ sig0 = sigma0(disc_mass,R_in,R_out,p_index)
 
  call set_disc(id,master=master,&
                 npart   = npartoftype(1),&
@@ -250,29 +250,29 @@ sig0 = sigma0(disc_mass,R_in,R_out,p_index)
 
  ! Initialise external forces at the origin
 
-  print "(a)", ' Central object represented by external force at the system origin'
-  print*, ' Accretion Radius: ', accradius
+ print "(a)", ' Central object represented by external force at the system origin'
+ print*, ' Accretion Radius: ', accradius
 
-  iexternalforce=iext_corotate
-  omega_corotate = omega0
-  accradius1=accradius
+ iexternalforce=iext_corotate
+ omega_corotate = omega0
+ accradius1=accradius
 
  ! Label boundary particles
-nboundary = 0
+ nboundary = 0
  do i=1,npart
     rpart = sqrt(xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i))
     midsep = abs(rpart - R_mid)
-     if(midsep > annulus_halfwidth) then
-    call set_particle_type(i,iboundary)
-    nboundary = nboundary+1
+    if(midsep > annulus_halfwidth) then
+       call set_particle_type(i,iboundary)
+       nboundary = nboundary+1
     endif
-enddo
+ enddo
 
-print "(a,i10,a,i2)",' Boundary particles initialised: total ', nboundary,' of type ', iboundary
+ print "(a,i10,a,i2)",' Boundary particles initialised: total ', nboundary,' of type ', iboundary
 
 #ifdef INJECT_PARTICLES
 ! call function to set injection parameters
-call set_injection_parameters(R_in, R_out, Rsect_in,Rsect_out,dr_bound,&
+ call set_injection_parameters(R_in, R_out, Rsect_in,Rsect_out,dr_bound,&
 phimax,phi_inject, p_index,q_index,HoverR,disc_mass,object_mass)
 #endif
 
@@ -280,125 +280,125 @@ phimax,phi_inject, p_index,q_index,HoverR,disc_mass,object_mass)
 end subroutine setpart
 
 subroutine read_discinputfile(filename, ierr)
-use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
-use dim, only: maxp
-character(len=*), intent(in) :: filename
-integer, intent(out) :: ierr
-integer, parameter :: iunit = 21
-integer :: nerr
-type(inopts), allocatable :: db(:)
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use dim, only: maxp
+ character(len=*), intent(in) :: filename
+ integer, intent(out) :: ierr
+ integer, parameter :: iunit = 21
+ integer :: nerr
+ type(inopts), allocatable :: db(:)
 
 !character (len=20) :: name
 !character (len=120) :: valstring
 !character (len=100) :: filename
 
-print "(a)", 'reading setup options from '//trim(filename)
+ print "(a)", 'reading setup options from '//trim(filename)
 
-nerr = 0
+ nerr = 0
 
-call open_db_from_file(db,filename, iunit,ierr)
-call read_inopt(np,'npart',db,min = 0, max=maxp, errcount=nerr)
-call read_inopt(umass,'umass',db,min = 0., errcount =nerr)
-call read_inopt(udist,'udist',db,min = 0., errcount =nerr)
-call read_inopt(R_in,'R_in',db,min = 0., errcount =nerr)
-call read_inopt(R_out,'R_out',db,min = 0., errcount =nerr)
-call read_inopt(Rsect_in,'Rsect_in',db,min = 0., errcount =nerr)
-call read_inopt(Rsect_out,'Rsect_out',db,min = 0., errcount =nerr)
-call read_inopt(dr_bound, 'dr_bound', db,min=0., errcount=nerr)
-call read_inopt(phimax, 'phimax',db,min=0., errcount=nerr)
-call read_inopt(phi_inject, 'phi_inject', db,min=0., errcount=nerr)
-call read_inopt(p_index,'p_index',db, errcount =nerr)
-call read_inopt(q_index,'q_index',db, errcount =nerr)
-call read_inopt(HoverR,'HoverR',db,min = 0., errcount =nerr)
-call read_inopt(disc_mass,'disc_mass',db,min = 0., errcount = nerr)
-call read_inopt(object_mass,'object_mass',db,min = 0., errcount = nerr)
-call read_inopt(accradius,'accradius',db,min = 0., errcount=nerr)
+ call open_db_from_file(db,filename, iunit,ierr)
+ call read_inopt(np,'npart',db,min = 0, max=maxp, errcount=nerr)
+ call read_inopt(umass,'umass',db,min = 0., errcount =nerr)
+ call read_inopt(udist,'udist',db,min = 0., errcount =nerr)
+ call read_inopt(R_in,'R_in',db,min = 0., errcount =nerr)
+ call read_inopt(R_out,'R_out',db,min = 0., errcount =nerr)
+ call read_inopt(Rsect_in,'Rsect_in',db,min = 0., errcount =nerr)
+ call read_inopt(Rsect_out,'Rsect_out',db,min = 0., errcount =nerr)
+ call read_inopt(dr_bound, 'dr_bound', db,min=0., errcount=nerr)
+ call read_inopt(phimax, 'phimax',db,min=0., errcount=nerr)
+ call read_inopt(phi_inject, 'phi_inject', db,min=0., errcount=nerr)
+ call read_inopt(p_index,'p_index',db, errcount =nerr)
+ call read_inopt(q_index,'q_index',db, errcount =nerr)
+ call read_inopt(HoverR,'HoverR',db,min = 0., errcount =nerr)
+ call read_inopt(disc_mass,'disc_mass',db,min = 0., errcount = nerr)
+ call read_inopt(object_mass,'object_mass',db,min = 0., errcount = nerr)
+ call read_inopt(accradius,'accradius',db,min = 0., errcount=nerr)
 
-call close_db(db)
+ call close_db(db)
 
-if (nerr > 0) then
-print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
-ierr = nerr
-endif
+ if (nerr > 0) then
+    print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
+    ierr = nerr
+ endif
 
 
-return
+ return
 
 end subroutine read_discinputfile
 
 subroutine write_discinputfile(filename)
-use infile_utils, only:write_inopt
-character(len=*), intent(in) :: filename
-integer, parameter :: iunit = 20
+ use infile_utils, only:write_inopt
+ character(len=*), intent(in) :: filename
+ integer, parameter :: iunit = 20
 
-print "(a)",' writing setup options file '//trim(filename)
+ print "(a)",' writing setup options file '//trim(filename)
 
-open(unit=iunit,file=filename,status='replace',form='formatted')
+ open(unit=iunit,file=filename,status='replace',form='formatted')
 
-write(iunit,"(a)") '# input file for disc setup routines'
-write(iunit,"(a)") '# Generated by setup_discsector.F90'
+ write(iunit,"(a)") '# input file for disc setup routines'
+ write(iunit,"(a)") '# Generated by setup_discsector.F90'
 
-write(iunit,"(/,a)") '# resolution'
-call write_inopt(np,'npart','number of particles',iunit)
+ write(iunit,"(/,a)") '# resolution'
+ call write_inopt(np,'npart','number of particles',iunit)
 
-write(iunit,"(/,a)") '# units'
-call write_inopt(udist,'udist','distance unit in cm',iunit)
-call write_inopt(umass,'umass','mass unit in g',iunit)
+ write(iunit,"(/,a)") '# units'
+ call write_inopt(udist,'udist','distance unit in cm',iunit)
+ call write_inopt(umass,'umass','mass unit in g',iunit)
 
-write(iunit,"(/,a)") '# disc extent'
-call write_inopt(R_in,'R_in','inner total disc radius',iunit)
-call write_inopt(R_out,'R_out','outer total disc radius',iunit)
-call write_inopt(Rsect_in,'Rsect_in','sector inner radius',iunit)
-call write_inopt(Rsect_out,'Rsect_out','sector outer radius',iunit)
-call write_inopt(dr_bound,'dr_bound','Radial boundary thickness',iunit)
+ write(iunit,"(/,a)") '# disc extent'
+ call write_inopt(R_in,'R_in','inner total disc radius',iunit)
+ call write_inopt(R_out,'R_out','outer total disc radius',iunit)
+ call write_inopt(Rsect_in,'Rsect_in','sector inner radius',iunit)
+ call write_inopt(Rsect_out,'Rsect_out','sector outer radius',iunit)
+ call write_inopt(dr_bound,'dr_bound','Radial boundary thickness',iunit)
 
-call write_inopt(phimax, 'phimax', 'azimuthal extent (-phimax,phimax)',iunit)
-call write_inopt(phi_inject, 'phi_inject', 'azimuthal range of injection zone',iunit)
+ call write_inopt(phimax, 'phimax', 'azimuthal extent (-phimax,phimax)',iunit)
+ call write_inopt(phi_inject, 'phi_inject', 'azimuthal range of injection zone',iunit)
 
-write(iunit,"(/,a)") '# disc powerlaw indices'
-call write_inopt(p_index,'p_index','surface density powerlaw index',iunit)
-call write_inopt(q_index,'q_index','sound speed powerlaw index',iunit)
+ write(iunit,"(/,a)") '# disc powerlaw indices'
+ call write_inopt(p_index,'p_index','surface density powerlaw index',iunit)
+ call write_inopt(q_index,'q_index','sound speed powerlaw index',iunit)
 
-write(iunit,"(/,a)") '# disc axial properties'
-call write_inopt(HoverR,'HoverR','disc aspect ratio at R=Rsect_in',iunit)
+ write(iunit,"(/,a)") '# disc axial properties'
+ call write_inopt(HoverR,'HoverR','disc aspect ratio at R=Rsect_in',iunit)
 
-write(iunit,"(/,a)") '# disc and object masses (plus object mass options)'
+ write(iunit,"(/,a)") '# disc and object masses (plus object mass options)'
 
-call write_inopt(disc_mass,'disc_mass','Total Disc mass',iunit)
-call write_inopt(object_mass,'object_mass','object mass in code units',iunit)
+ call write_inopt(disc_mass,'disc_mass','Total Disc mass',iunit)
+ call write_inopt(object_mass,'object_mass','object mass in code units',iunit)
 
-call write_inopt(accradius, 'accradius',' accretion radius',iunit)
+ call write_inopt(accradius, 'accradius',' accretion radius',iunit)
 
 
-close(iunit)
+ close(iunit)
 
 end subroutine write_discinputfile
 
 ! Rotates a vector in the z axis
 subroutine rotate_z(oldvec,newvec,phi)
-real, intent(inout) :: oldvec(3), newvec(3)
-real, intent(in) :: phi
+ real, intent(inout) :: oldvec(3), newvec(3)
+ real, intent(in) :: phi
 
-newvec(1) = oldvec(1)*cos(phi) - oldvec(2)*sin(phi)
-newvec(2) = oldvec(1)*sin(phi) + oldvec(2)*cos(phi)
+ newvec(1) = oldvec(1)*cos(phi) - oldvec(2)*sin(phi)
+ newvec(2) = oldvec(1)*sin(phi) + oldvec(2)*cos(phi)
 
-return
+ return
 end subroutine rotate_z
 
 ! Calculates sigma0 for a given set of disc parameters
 real function sigma0(Mdisc, Rinner, Router, p_index)
-real, intent(in) :: Mdisc,Rinner, Router, p_index
+ real, intent(in) :: Mdisc,Rinner, Router, p_index
 
-real :: exponent
+ real :: exponent
 
-sigma0 = Mdisc/(2.0*3.141592654)
-exponent = 2.0-p_index
+ sigma0 = Mdisc/(2.0*3.141592654)
+ exponent = 2.0-p_index
 
-if(p_index==2.0) then
-sigma0 = sigma0*log(Rinner/Router)
-else
-sigma0 = sigma0*exponent/(Router**exponent - Rinner**exponent)
-endif
+ if(p_index==2.0) then
+    sigma0 = sigma0*log(Rinner/Router)
+ else
+    sigma0 = sigma0*exponent/(Router**exponent - Rinner**exponent)
+ endif
 
 end function sigma0
 

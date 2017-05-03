@@ -53,20 +53,20 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  do i=1,nptmass
 !  print *,' sink mass: ',i,', xyzmh = ',xyzmh_ptmass(:,i)
-  rsinkmass(i) = sqrt( xyzmh_ptmass(1,i)**2 + xyzmh_ptmass(2,i)**2 + xyzmh_ptmass(3,i)**2)
-  if(i==1) then
-   print *,' -Sink mass ',i,' (central star):'
+    rsinkmass(i) = sqrt( xyzmh_ptmass(1,i)**2 + xyzmh_ptmass(2,i)**2 + xyzmh_ptmass(3,i)**2)
+    if(i==1) then
+       print *,' -Sink mass ',i,' (central star):'
 !   print *,'    distance from the origin: ',rsinkmass(i)
-   print *,'    mass: ', xyzmh_ptmass(4,i)
-   print *,'    accretion radius: ',xyzmh_ptmass(5,i)
-   print *,' '
-  else
-   print *,' -Planet ',i-1,' :'
-   print *,'    distance from the origin: ',rsinkmass(i)
-   print *,'    mass: ', xyzmh_ptmass(4,i)
-   print *,'    accretion radius: ',xyzmh_ptmass(5,i)
-   print *,' '
-  endif
+       print *,'    mass: ', xyzmh_ptmass(4,i)
+       print *,'    accretion radius: ',xyzmh_ptmass(5,i)
+       print *,' '
+    else
+       print *,' -Planet ',i-1,' :'
+       print *,'    distance from the origin: ',rsinkmass(i)
+       print *,'    mass: ', xyzmh_ptmass(4,i)
+       print *,'    accretion radius: ',xyzmh_ptmass(5,i)
+       print *,' '
+    endif
 
  enddo
 
@@ -77,10 +77,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  accrplanet(:) = 0.25*au/udist
  call prompt('Enter the number of planet you want to add: ', nplanets, 0, maxplanets-nptmass+1)
  do i=1,nplanets
-        rplanet(i) = 10.*i*au/udist
-        call prompt('Enter mass (code units) of planet '//trim(planets(i))//' :',mplanet(i),0.)
-        call prompt('Enter distance from the central star (code units) of planet '//trim(planets(i))//' :',rplanet(i),0.)
-        call prompt('Enter accretion radius (code units) of planet '//trim(planets(i))//' :',accrplanet(i),0.)
+    rplanet(i) = 10.*i*au/udist
+    call prompt('Enter mass (code units) of planet '//trim(planets(i))//' :',mplanet(i),0.)
+    call prompt('Enter distance from the central star (code units) of planet '//trim(planets(i))//' :',rplanet(i),0.)
+    call prompt('Enter accretion radius (code units) of planet '//trim(planets(i))//' :',accrplanet(i),0.)
  enddo
 
  print "(a,i2,a)",' --------- added ',nplanets,' planets ------------'

@@ -172,9 +172,9 @@ subroutine recv_part(replace)
        if (inew > 0 .and. inew <= maxp) then
           if (.not.isdead(inew)) &
              call fatal('balance','replacing non-dead particle')
-       !
-       !--replace a particle which has already been sent
-       !
+          !
+          !--replace a particle which has already been sent
+          !
           call unfill_buffer(inew,xbuffer)
           !
           !--assume that this particle landed in the right place

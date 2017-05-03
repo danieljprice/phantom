@@ -70,10 +70,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !
  !--Add new velocity profile
  select case(choice)
- !
+    !
  case (ivr)
- ! Author: James Wurster
- !
+    ! Author: James Wurster
+    !
     !--Determine v_r as a function of radius
     fac = 0.2
     call prompt('Enter fac, where v_r = fac*r:',fac,0.)
@@ -100,10 +100,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     alphamax = 0.0
     beta     = 0.0
     write(*,'(a)') "moddump: Radial velocity added"
- !
+    !
  case (ivphi)
- ! Author: Bernard Field under supervision of James Wurster
- !
+    ! Author: Bernard Field under supervision of James Wurster
+    !
     !--determine rotational profile
     omega_inner = 0.025
     omega_outer = 0.014
@@ -118,8 +118,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 !$omp reduction(max:rad2)
 !$omp do
     do i = 1,npart
-      rad2i = xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i)
-      rad2  = max(rad2,rad2i)
+       rad2i = xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i)
+       rad2  = max(rad2,rad2i)
     enddo
 !$omp enddo
 !$omp end parallel

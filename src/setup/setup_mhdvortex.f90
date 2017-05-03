@@ -114,9 +114,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  const = 1.0 / (2.0 * pi)
  halfsqrt2 = 0.5 * sqrt(2.0)
  do i=1,npart
-     !!
-     !! I believe this is the 3D version from Dumbser et al (2008), which includes lots of rotation factors
-     !!
+    !!
+    !! I believe this is the 3D version from Dumbser et al (2008), which includes lots of rotation factors
+    !!
 
 !    rfact = 1.0 - halfsqrt2*xyzh(1,i) - halfsqrt2*xyzh(3,i)
 !    rsq1 = 1.0 - rfact*rfact * (xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i) + xyzh(3,i)*xyzh(3,i))
@@ -134,22 +134,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !    vxyzu(4,i) = 1.5 * PplusdeltaP
 
 
-     !!
-     !! This is the original Balsara (2004) version with an added v_z = 1 component, otherwise identical.
-     !!
+    !!
+    !! This is the original Balsara (2004) version with an added v_z = 1 component, otherwise identical.
+    !!
 
-     rsq1 = 1.0 - xyzh(1,i)*xyzh(1,i) - xyzh(2,i)*xyzh(2,i)
+    rsq1 = 1.0 - xyzh(1,i)*xyzh(1,i) - xyzh(2,i)*xyzh(2,i)
 
-     vxyzu(1,i) = 1.0 - xyzh(2,i) * k * const * exp(0.5*rsq1)
-     vxyzu(2,i) = 1.0 + xyzh(1,i) * k * const * exp(0.5*rsq1)
-     vxyzu(3,i) = 1.0
+    vxyzu(1,i) = 1.0 - xyzh(2,i) * k * const * exp(0.5*rsq1)
+    vxyzu(2,i) = 1.0 + xyzh(1,i) * k * const * exp(0.5*rsq1)
+    vxyzu(3,i) = 1.0
 
-     Bevol(1,i) = -xyzh(2,i) * u * const * exp(0.5*rsq1)
-     Bevol(2,i) =  xyzh(1,i) * u * const * exp(0.5*rsq1)
-     Bevol(3,i) = 0.0
+    Bevol(1,i) = -xyzh(2,i) * u * const * exp(0.5*rsq1)
+    Bevol(2,i) =  xyzh(1,i) * u * const * exp(0.5*rsq1)
+    Bevol(3,i) = 0.0
 
-     PplusdeltaP = 1.0 + exp(rsq1) / (32.0 * pi**3) * (u*u*rsq1 - 0.5*k*k)
-     vxyzu(4,i) = 1.5 * PplusdeltaP
+    PplusdeltaP = 1.0 + exp(rsq1) / (32.0 * pi**3) * (u*u*rsq1 - 0.5*k*k)
+    vxyzu(4,i) = 1.5 * PplusdeltaP
 
  enddo
 

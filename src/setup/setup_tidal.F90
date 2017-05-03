@@ -69,7 +69,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     read (12,*, END=10)
     num = num + 1 ! count the number of particles
  enddo
- 10 continue
+10 continue
  rewind(12)
 
  npart = num
@@ -80,7 +80,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  print*,' Setting up ',npart,' particles...'
 
  do i=1,npart
-     read (12,*) xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),mass,xyzh(4,i),vxyzu(4,i)
+    read (12,*) xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),mass,xyzh(4,i),vxyzu(4,i)
  enddo
 
  massoftype(:) = 0

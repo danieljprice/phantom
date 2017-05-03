@@ -49,7 +49,7 @@ module linklist
  public :: set_hmaxcell,get_hmaxcell,update_hmax_remote
  public :: get_cell_location
 
-private
+ private
 
 contains
 
@@ -72,9 +72,9 @@ subroutine set_hmaxcell(inode,hmaxcell)
 
  ! walk tree up
  do while (node(n)%parent  /=  0)
-   n = node(n)%parent
+    n = node(n)%parent
 !$omp critical (hmax)
-   node(n)%hmax = max(node(n)%hmax, hmaxcell)
+    node(n)%hmax = max(node(n)%hmax, hmaxcell)
 !$omp end critical (hmax)
  enddo
 
@@ -214,10 +214,10 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
  endif
 
 #ifdef PERIODIC
-  if (rcuti > 0.5*min(dxbound,dybound,dzbound)) then
-     call warning('get_neighbour_list', '2h > 0.5*L in periodic neighb. '//&
+ if (rcuti > 0.5*min(dxbound,dybound,dzbound)) then
+    call warning('get_neighbour_list', '2h > 0.5*L in periodic neighb. '//&
                 'search: USE HIGHER RES, BIGGER BOX or LOWER MINPART IN TREE')
-  endif
+ endif
 #endif
  !
  !--perform top-down tree walk to find all particles within radkern*h
@@ -237,7 +237,7 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
 #endif
     call getneigh(node,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
               ifirstincell,ll,get_j,fgrav)
-     f = fgrav
+    f = fgrav
  else
 #ifdef MPI
     if (present(remote_export)) then
@@ -253,19 +253,19 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
 end subroutine get_neighbour_list
 
 subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,ifirstincell,ll)
-  use dim,    only:maxneigh
-  use kdtree, only:getneigh
-  integer, intent(in)  :: ndim,ixyzcachesize
-  real,    intent(in)  :: xpos(ndim)
-  real,    intent(in)  :: xsizei,rcuti
-  integer, intent(out) :: listneigh(maxneigh)
-  integer, intent(out) :: nneigh
-  real,    intent(in)  :: xyzh(4,maxp)
-  real,    intent(out) :: xyzcache(:,:)
-  integer, intent(in)  :: ifirstincell(ncellsmax+1)
-  integer, intent(in)  :: ll(maxp)
+ use dim,    only:maxneigh
+ use kdtree, only:getneigh
+ integer, intent(in)  :: ndim,ixyzcachesize
+ real,    intent(in)  :: xpos(ndim)
+ real,    intent(in)  :: xsizei,rcuti
+ integer, intent(out) :: listneigh(maxneigh)
+ integer, intent(out) :: nneigh
+ real,    intent(in)  :: xyzh(4,maxp)
+ real,    intent(out) :: xyzcache(:,:)
+ integer, intent(in)  :: ifirstincell(ncellsmax+1)
+ integer, intent(in)  :: ll(maxp)
 
-  call getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
+ call getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
                ifirstincell,ll,.false.)
 
 end subroutine getneigh_pos

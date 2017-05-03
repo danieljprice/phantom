@@ -46,11 +46,11 @@ elemental function iphase_sphNG(iphasein)
  itype = iamtype(iphasein)
  select case(itype)
  case(idust)
-   iphase_sphNG = 20
+    iphase_sphNG = 20
  case(iunknown)
-   iphase_sphNG = -1
+    iphase_sphNG = -1
  case default
-   iphase_sphNG = 0
+    iphase_sphNG = 0
  end select
 
 end function iphase_sphNG
@@ -62,15 +62,15 @@ function itype_from_sphNG_iphase(iphasein)
 
  select case(iphasein)
  case(20)
-   itype_from_sphNG_iphase = idust
+    itype_from_sphNG_iphase = idust
  case(1:10)
-   itype_from_sphNG_iphase = isphNG_sink_temp
+    itype_from_sphNG_iphase = isphNG_sink_temp
  case(0)
-   itype_from_sphNG_iphase = igas
+    itype_from_sphNG_iphase = igas
  case(:-1)
-   itype_from_sphNG_iphase = isphNG_accreted
+    itype_from_sphNG_iphase = isphNG_accreted
  case default
-   itype_from_sphNG_iphase = iunknown
+    itype_from_sphNG_iphase = iunknown
  end select
 
 end function itype_from_sphNG_iphase
@@ -122,9 +122,9 @@ subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz
                    xyzmh_ptmass(4,nsink),' h= ',xyzmh_ptmass(ihacc,nsink),']'
           endif
        endif
-    !
-    !--remove the particle from the SPH data arrays
-    !
+       !
+       !--remove the particle from the SPH data arrays
+       !
        call set_particle_type(i,igas) ! Phantom will not run if any particles have iphase=iunknown
        call kill_particle(i)          ! particle is killed, so iphase is irrelevant
     endif

@@ -43,10 +43,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  dumpprefix = dumpfile(1:iline)
  unitnum = 1001
  do i=1,nptmass
-   write(fileout,"(2a,i3.3,a)") 'sink_',trim(dumpprefix),i,'.ev'
-   if (num==0) then
-     open(unit=unitnum, file=fileout, status='replace')
-     write(unitnum,"('#',1x,9('[',i1.1,a17,']',2x))") &
+    write(fileout,"(2a,i3.3,a)") 'sink_',trim(dumpprefix),i,'.ev'
+    if (num==0) then
+       open(unit=unitnum, file=fileout, status='replace')
+       write(unitnum,"('#',1x,9('[',i1.1,a17,']',2x))") &
            1,'time',           &
            2,'x co-ordinate',  &
            3,'y co-ordinate',  &
@@ -56,21 +56,21 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
            7,'spin ang mom x', &
            8,'spin ang mom y', &
            9,'spin ang mom z'
-     write(unitnum,"(9(3x,es18.11e2,1x))") &
+       write(unitnum,"(9(3x,es18.11e2,1x))") &
            time,                &
            xyzmh_ptmass(1:4,i), &
            xyzmh_ptmass(7:10,i)
-     close(unit=unitnum)
-     unitnum = unitnum + 1
-   else
-     open(unit=unitnum, file=fileout, position='append')
-     write(unitnum,"(9(3x,es18.11e2,1x))") &
+       close(unit=unitnum)
+       unitnum = unitnum + 1
+    else
+       open(unit=unitnum, file=fileout, position='append')
+       write(unitnum,"(9(3x,es18.11e2,1x))") &
            time,                &
            xyzmh_ptmass(1:4,i), &
            xyzmh_ptmass(7:10,i)
-     close(unit=unitnum)
-     unitnum = unitnum + 1
-   endif
+       close(unit=unitnum)
+       unitnum = unitnum + 1
+    endif
  enddo
 
 end subroutine do_analysis

@@ -98,103 +98,103 @@ contains
 !-----------------------------------------------------------------------
 subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,dtf,ii)
 #ifdef FINVSQRT
-  use fastmath,         only:finvsqrt
+ use fastmath,         only:finvsqrt
 #endif
-  use extern_corotate,  only:get_centrifugal_force
-  use extern_binary,    only:binary_force
-  use extern_prdrag,    only:get_prdrag_spatial_force
-  use extern_gnewton,   only:get_gnewton_spatial_force
-  use extern_spiral,    only:s_potential,schmidt_potential,&
+ use extern_corotate,  only:get_centrifugal_force
+ use extern_binary,    only:binary_force
+ use extern_prdrag,    only:get_prdrag_spatial_force
+ use extern_gnewton,   only:get_gnewton_spatial_force
+ use extern_spiral,    only:s_potential,schmidt_potential,&
   pichardo_potential,Wang_bar,LogDisc,&
   MNDisc,KFDiscSp,PlumBul,HernBul,HubbBul,COhalo,Flathalo,AMhalo,KBhalo,LMXbar,&
   LMTbar,Orthog_basisbar,DehnenBar,VogtSbar,BINReadPot3D,NFWhalo,&
   ibar,idisk,ihalo,ibulg,iarms,iread,Wadabar
-  use extern_neutronstar, only:neutronstar_force
-  use extern_Bfield,      only:get_externalB_force
-  use extern_staticsine,  only:staticsine_force
-  use extern_gwinspiral,  only:get_gw_force_i
-  use units,              only:udist,umass,utime
-  use physcon,            only:pc,pi,gg
-  use io,                 only:fatal
-  use part,               only:rhoh,massoftype,igas
-  integer, intent(in)  :: iexternalforce
-  real,    intent(in)  :: xi,yi,zi,hi,ti
-  real,    intent(out) :: fextxi,fextyi,fextzi,phi
-  real,    intent(out), optional :: dtf
-  integer, intent(in),  optional :: ii ! NOTE: index-base physics can be dangerous;
-                                       !       treat with caution
-  real            :: r2,dr,dr3,r,d2,f2i
-  real            :: rcyl2,rcyl,rsph,rsph3,v2onr,dtf1,dtf2
-  real            :: phii,gcode,R_g,factor,rhoi
-  real, parameter :: Rtorus = 1.0
-  real,dimension(3) :: pos
+ use extern_neutronstar, only:neutronstar_force
+ use extern_Bfield,      only:get_externalB_force
+ use extern_staticsine,  only:staticsine_force
+ use extern_gwinspiral,  only:get_gw_force_i
+ use units,              only:udist,umass,utime
+ use physcon,            only:pc,pi,gg
+ use io,                 only:fatal
+ use part,               only:rhoh,massoftype,igas
+ integer, intent(in)  :: iexternalforce
+ real,    intent(in)  :: xi,yi,zi,hi,ti
+ real,    intent(out) :: fextxi,fextyi,fextzi,phi
+ real,    intent(out), optional :: dtf
+ integer, intent(in),  optional :: ii ! NOTE: index-base physics can be dangerous;
+ !       treat with caution
+ real            :: r2,dr,dr3,r,d2,f2i
+ real            :: rcyl2,rcyl,rsph,rsph3,v2onr,dtf1,dtf2
+ real            :: phii,gcode,R_g,factor,rhoi
+ real, parameter :: Rtorus = 1.0
+ real,dimension(3) :: pos
 !-----------------------------------------------------------------------
 !
 !--set external force to zero
 !
-  fextxi = 0.
-  fextyi = 0.
-  fextzi = 0.
-  phi    = 0.
+ fextxi = 0.
+ fextyi = 0.
+ fextzi = 0.
+ phi    = 0.
 
-  select case(iexternalforce)
+ select case(iexternalforce)
 
-  case(iext_star, iext_lensethirring)
+ case(iext_star, iext_lensethirring)
 !
 !--1/r^2 force from central point mass
 !
-   r2 = xi*xi + yi*yi + zi*zi + eps2_soft
+    r2 = xi*xi + yi*yi + zi*zi + eps2_soft
 
-   if (r2 > epsilon(r2)) then
+    if (r2 > epsilon(r2)) then
 #ifdef FINVSQRT
-      dr  = finvsqrt(r2)
+       dr  = finvsqrt(r2)
 #else
-      dr = 1./sqrt(r2)
+       dr = 1./sqrt(r2)
 #endif
-      dr3 = mass1*dr**3
-      fextxi = fextxi - xi*dr3
-      fextyi = fextyi - yi*dr3
-      fextzi = fextzi - zi*dr3
-      phi    = -mass1*dr
-   endif
+       dr3 = mass1*dr**3
+       fextxi = fextxi - xi*dr3
+       fextyi = fextyi - yi*dr3
+       fextzi = fextzi - zi*dr3
+       phi    = -mass1*dr
+    endif
 
-  case(iext_corotate)
+ case(iext_corotate)
 !
 !--spatial part of forces in corotating frame, i.e. centrifugal force
 !
-   pos = (/xi,yi,zi/)
-   call get_centrifugal_force(pos,fextxi,fextyi,fextzi,phi)
+    pos = (/xi,yi,zi/)
+    call get_centrifugal_force(pos,fextxi,fextyi,fextzi,phi)
 
-  case(iext_binary)
+ case(iext_binary)
 !
 !--gravitational force from central binary
 !
-   call binary_force(xi,yi,zi,ti,fextxi,fextyi,fextzi,phi)
+    call binary_force(xi,yi,zi,ti,fextxi,fextyi,fextzi,phi)
 
-  case(iext_prdrag)
+ case(iext_prdrag)
 !
 !--Spatial component of force due to luminous central object
 !
-   call get_prdrag_spatial_force(xi,yi,zi,mass1,fextxi,fextyi,fextzi,phi)
+    call get_prdrag_spatial_force(xi,yi,zi,mass1,fextxi,fextyi,fextzi,phi)
 
-  case(iext_torus)
+ case(iext_torus)
 !
 !--effective potential for equilibrium torus (Stone, Pringle, Begelman)
 !  centripedal force balances pressure gradient and gravity of central point mass
 !
-     rcyl2 = xi*xi + yi*yi
-     rcyl  = sqrt(rcyl2)
-     rsph  = sqrt(rcyl2 + zi*zi)
-     rsph3 = rsph**3
-     v2onr = (Rtorus/(rcyl*rcyl2) - rcyl/rsph3)
+    rcyl2 = xi*xi + yi*yi
+    rcyl  = sqrt(rcyl2)
+    rsph  = sqrt(rcyl2 + zi*zi)
+    rsph3 = rsph**3
+    v2onr = (Rtorus/(rcyl*rcyl2) - rcyl/rsph3)
 
-     fextxi = v2onr*xi/rcyl
-     fextyi = v2onr*yi/rcyl
-     fextzi = -zi/rsph3   ! vertical component of gravity
+    fextxi = v2onr*xi/rcyl
+    fextyi = v2onr*yi/rcyl
+    fextzi = -zi/rsph3   ! vertical component of gravity
 
-     phi = - 1./rsph + 0.5*Rtorus/rcyl2
+    phi = - 1./rsph + 0.5*Rtorus/rcyl2
 
-  case(iext_toystar)
+ case(iext_toystar)
 !
 !--Toy star force, centred on the origin
 !
@@ -206,15 +206,15 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
        phi    = 0.5*r2
     endif
 
-  case(iext_externB)
+ case(iext_externB)
 !
 !--External force due to an assumed external B field (with non-zero curl)
 !
-     rhoi = rhoh(hi,massoftype(igas))
-     call get_externalB_force(xi,yi,zi,hi,rhoi,fextxi,fextyi,fextzi)
-     phi = 0.
+    rhoi = rhoh(hi,massoftype(igas))
+    call get_externalB_force(xi,yi,zi,hi,rhoi,fextxi,fextyi,fextzi)
+    phi = 0.
 
-  case(iext_spiral)
+ case(iext_spiral)
 
 !--Spiral/galactic potential references in extern_spiral.
 !--Calc r^2 (3D) and d^2 (2D), phi (x-y), theta (xy-z)
@@ -330,109 +330,109 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
     !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
     !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-  case(iext_neutronstar)
+ case(iext_neutronstar)
     ! neutron star gravitational potential
     call neutronstar_force(xi,yi,zi,fextxi,fextyi,fextzi,phi)
 
-  case(iext_einsteinprec)
+ case(iext_einsteinprec)
 !
 !--Potential given by (8) of NP2000, "Einstein precession"
 !
-   r2 = xi*xi + yi*yi + zi*zi + eps2_soft
+    r2 = xi*xi + yi*yi + zi*zi + eps2_soft
 
-   if (r2 > epsilon(r2)) then
+    if (r2 > epsilon(r2)) then
 #ifdef FINVSQRT
-      dr  = finvsqrt(r2)
+       dr  = finvsqrt(r2)
 #else
-      dr = 1./sqrt(r2)
+       dr = 1./sqrt(r2)
 #endif
-      R_g = 1.0
-      factor = 1. + 6.*R_g*dr
-      dr3 = mass1*dr**3
-      fextxi = fextxi - xi*dr3*factor
-      fextyi = fextyi - yi*dr3*factor
-      fextzi = fextzi - zi*dr3*factor
-      phi    = -mass1*dr*(1. + 3.*R_g*dr)
-   endif
+       R_g = 1.0
+       factor = 1. + 6.*R_g*dr
+       dr3 = mass1*dr**3
+       fextxi = fextxi - xi*dr3*factor
+       fextyi = fextyi - yi*dr3*factor
+       fextzi = fextzi - zi*dr3*factor
+       phi    = -mass1*dr*(1. + 3.*R_g*dr)
+    endif
 
 
-  case(iext_gnewton)
+ case(iext_gnewton)
 !
 !--Spatial component of the generalized Newtonian force
 !
-   call get_gnewton_spatial_force(xi,yi,zi,mass1,fextxi,fextyi,fextzi,phi)
+    call get_gnewton_spatial_force(xi,yi,zi,mass1,fextxi,fextyi,fextzi,phi)
 
-  case(iext_staticsine)
+ case(iext_staticsine)
 
 !
 !--Sinusoidal force, phi = A cos(k(x+B))
 !
 
-   call staticsine_force(xi,yi,fextxi,fextyi,fextzi,phi)
+    call staticsine_force(xi,yi,fextxi,fextyi,fextzi,phi)
 
 
-  case(iext_gwinspiral)
+ case(iext_gwinspiral)
 !
 !--Gravitational wave inspiral
 !
-   if (present(ii)) then
-      call get_gw_force_i(ii,fextxi,fextyi,fextzi,phi)
-   else
-      ! This will return 0 force, but this should not happen
-      ! if initialised properly
-      call get_gw_force_i(0, fextxi,fextyi,fextzi,phi)
-   endif
+    if (present(ii)) then
+       call get_gw_force_i(ii,fextxi,fextyi,fextzi,phi)
+    else
+       ! This will return 0 force, but this should not happen
+       ! if initialised properly
+       call get_gw_force_i(0, fextxi,fextyi,fextzi,phi)
+    endif
 
-  case(iext_discgravity)
+ case(iext_discgravity)
 !
 !--vertical gravity in disc section
 !
-     phi = -mass1/sqrt(Rdisc**2 + yi**2)
-     fextyi = -yi*mass1/sqrt(Rdisc**2 + yi**2)**3
+    phi = -mass1/sqrt(Rdisc**2 + yi**2)
+    fextyi = -yi*mass1/sqrt(Rdisc**2 + yi**2)**3
 
-  case default
+ case default
 !
 !--external forces should not be called if iexternalforce = 0
 !
     call fatal('externalforces','external force not implemented',&
                var='iexternalforce',ival=iexternalforce)
-  end select
+ end select
 
 !
 !--return a timestep based only on the external force
 !  so that we can do substeps with only the external force call
 !
-  if (present(dtf)) then
-     f2i = fextxi*fextxi + fextyi*fextyi + fextzi*fextzi
-     if (abs(f2i) > epsilon(f2i)) then
-        !
-        !--external force timestep based on sqrt(h/accel)
-        !
-        if (hi > epsilon(hi)) then
+ if (present(dtf)) then
+    f2i = fextxi*fextxi + fextyi*fextyi + fextzi*fextzi
+    if (abs(f2i) > epsilon(f2i)) then
+       !
+       !--external force timestep based on sqrt(h/accel)
+       !
+       if (hi > epsilon(hi)) then
 #ifdef FINVSQSRT
-           dtf1 = sqrt(hi*finvsqrt(f2i))
+          dtf1 = sqrt(hi*finvsqrt(f2i))
 #else
-           dtf1 = sqrt(hi/sqrt(f2i))
+          dtf1 = sqrt(hi/sqrt(f2i))
 #endif
-        else
-           dtf1 = huge(dtf1)
-        endif
-        !
-        !--external force timestep based on sqrt(phi)/accel
-        !
-        if (abs(phi) > epsilon(phi)) then
-           dtf2 = sqrt(abs(phi)/f2i)
-        else
-           dtf2 = huge(dtf2)
-        endif
-        dtf  = min(dtf1,dtf2)
-        !if (dtf2 < dtf1) print*,' phi timestep = ',dtf2,' h/a = ',dtf1, ' ratio = ',dtf2/dtf1
-     else
-        dtf = huge(dtf)
-     endif
-  endif
+       else
+          dtf1 = huge(dtf1)
+       endif
+       !
+       !--external force timestep based on sqrt(phi)/accel
+       !
+       if (abs(phi) > epsilon(phi)) then
+          dtf2 = sqrt(abs(phi)/f2i)
+       else
+          dtf2 = huge(dtf2)
+       endif
+       dtf  = min(dtf1,dtf2)
+       !if (dtf2 < dtf1) print*,' phi timestep = ',dtf2,' h/a = ',dtf1, ' ratio = ',dtf2/dtf1
+    else
+       dtf = huge(dtf)
+    endif
+ endif
 
-  return
+ return
 end subroutine externalforce
 
 !-----------------------------------------------------------------------
@@ -569,12 +569,12 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
  select case(iexternalforce)
  case(iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton)
 
-   r2 = xi*xi + yi*yi + zi*zi
-   if (r2 < accradius1**2) accreted = .true.
+    r2 = xi*xi + yi*yi + zi*zi
+    if (r2 < accradius1**2) accreted = .true.
 
  case(iext_binary)
 
-   accreted = binary_accreted(xi,yi,zi,mi,ti)
+    accreted = binary_accreted(xi,yi,zi,mi,ti)
 
  end select
 
@@ -596,9 +596,9 @@ pure logical function was_accreted(iexternalforce,hi)
  select case(iexternalforce)
  case(iext_star,iext_binary,iext_prdrag,&
       iext_lensethirring,iext_einsteinprec,iext_gnewton)
-   ! An accreted particle is indicated by h < 0.
-   ! Note less than, but not equal.
-   ! (h=0 indicates dead MPI particle)
+    ! An accreted particle is indicated by h < 0.
+    ! Note less than, but not equal.
+    ! (h=0 indicates dead MPI particle)
     was_accreted = (hi < 0.)
  case default
     was_accreted = .false.
@@ -783,7 +783,7 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
     case(iext_staticsine)
        call read_options_staticsine(name,valstring,imatch,igotallstaticsine,ierr)
     case(iext_gwinspiral)
-        call read_options_gwinspiral(name,valstring,imatch,igotallgwinspiral,ierr)
+       call read_options_gwinspiral(name,valstring,imatch,igotallgwinspiral,ierr)
     end select
  end select
  igotall = (ngot >= 1      .and. igotallcorotate   .and. &

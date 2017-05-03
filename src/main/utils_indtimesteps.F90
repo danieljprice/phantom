@@ -151,9 +151,9 @@ subroutine set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
  !
  !--Determine activity to determine if stressmax needs to be reset
  if (nactive==nalive) then
-   all_active = .true.
+    all_active = .true.
  else
-   all_active = .false.
+    all_active = .false.
  endif
  !
  return
@@ -190,7 +190,7 @@ subroutine change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
     !print*,' adjust factor = ',2**(nbinmax-nbinmaxprev)
  else
     istepfrac = istepfrac/2**(nbinmaxprev - nbinmax)
-   ! print*,' adjust factor = ',2**(nbinmaxprev-nbinmax)
+    ! print*,' adjust factor = ',2**(nbinmaxprev-nbinmax)
  endif
  if (nbinmax > maxbins) call fatal('change_nbinmax','step too small: maximum number of timestep bins (30) exceeded')
  dt = dtmax/2**nbinmax
@@ -252,11 +252,11 @@ subroutine get_newbin(dti,dtmax,ibini,allow_decrease,limit_maxbin,dtchar)
  endif
 
  if (ibinnew > ibinold) then
- !--timestep can go down at any time
+    !--timestep can go down at any time
     ibini = int(ibinnew,kind=1)
  elseif (ibinnew < ibinold .and. ibinold <= nbinmax .and. iallow_decrease) then
- !--timestep can only go up if bins are synchronised (ie. new bin is active)
- !  move up only one bin at a time
+    !--timestep can only go up if bins are synchronised (ie. new bin is active)
+    !  move up only one bin at a time
     if (mod(istepfrac,2**(nbinmax-(ibinold-1)))==0) then
        ibini = ibini - 1_1
     endif

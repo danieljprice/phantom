@@ -565,9 +565,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !--warnings
 !
  if (icall==1) then
-   if (nwarnup   > 0) call summary_variable('hupdn',iosumhup,0,real(nwarnup  ))
-   if (nwarndown > 0) call summary_variable('hupdn',iosumhdn,0,real(nwarndown))
-   if (iverbose  >=1) call reduce_and_print_warnings(nwarnup,nwarndown,nwarnroundoff)
+    if (nwarnup   > 0) call summary_variable('hupdn',iosumhup,0,real(nwarnup  ))
+    if (nwarndown > 0) call summary_variable('hupdn',iosumhdn,0,real(nwarndown))
+    if (iverbose  >=1) call reduce_and_print_warnings(nwarnup,nwarndown,nwarnroundoff)
  endif
 !
 !--diagnostics
@@ -589,250 +589,250 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,listneigh
                              ifilledcellcache,ifilledneighcache,getdv,getdB, &
                              realviscosity,xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself)
 #ifdef PERIODIC
-  use boundary, only:dxbound,dybound,dzbound
+ use boundary, only:dxbound,dybound,dzbound
 #endif
 #ifdef FINVSQRT
-  use fastmath, only:finvsqrt
+ use fastmath, only:finvsqrt
 #endif
-  use kernel,   only:get_kernel,get_kernel_grav1
-  use part,     only:iphase,iamgas,iamtype,maxphase,iboundary,idust
-  use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust
-  integer,      intent(in)    :: i
-  real,         intent(in)    :: xpartveci(:)
-  real(kind=8), intent(in)    :: hi1,hi21
-  integer,      intent(in)    :: iamtypei
-  logical,      intent(in)    :: iamgasi
-  integer,      intent(in)    :: listneigh(:)
-  integer,      intent(in)    :: nneigh
-  integer,      intent(out)   :: nneighi
-  real,         intent(inout) :: dxcache(:,:)
-  real,         intent(in)    :: xyzcache(:,:)
-  real,         intent(out)   :: rhosum(:)
-  logical,      intent(in)    :: ifilledcellcache,ifilledneighcache
-  logical,      intent(in)    :: getdv,realviscosity
-  logical,      intent(in)    :: getdB
-  real,         intent(in)    :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
-  real(kind=4), intent(in)    :: Bevol(:,:)
-  logical,      intent(in)    :: ignoreself
-  integer(kind=1)             :: iphasej
-  integer                     :: iamtypej
-  integer                     :: j,n
-  real                        :: dx,dy,dz,runix,runiy,runiz
-  real                        :: rij2,rij,rij1,q2i,qi,q2prev,rij1grkern
-  real                        :: wabi,grkerni,dwdhi,dphidhi
-  real                        :: projv,dvx,dvy,dvz,dax,day,daz
-  real                        :: projdB,dBx,dBy,dBz,fxi,fyi,fzi,fxj,fyj,fzj
-  logical                     :: same_type,gas_gas
+ use kernel,   only:get_kernel,get_kernel_grav1
+ use part,     only:iphase,iamgas,iamtype,maxphase,iboundary,idust
+ use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust
+ integer,      intent(in)    :: i
+ real,         intent(in)    :: xpartveci(:)
+ real(kind=8), intent(in)    :: hi1,hi21
+ integer,      intent(in)    :: iamtypei
+ logical,      intent(in)    :: iamgasi
+ integer,      intent(in)    :: listneigh(:)
+ integer,      intent(in)    :: nneigh
+ integer,      intent(out)   :: nneighi
+ real,         intent(inout) :: dxcache(:,:)
+ real,         intent(in)    :: xyzcache(:,:)
+ real,         intent(out)   :: rhosum(:)
+ logical,      intent(in)    :: ifilledcellcache,ifilledneighcache
+ logical,      intent(in)    :: getdv,realviscosity
+ logical,      intent(in)    :: getdB
+ real,         intent(in)    :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
+ real(kind=4), intent(in)    :: Bevol(:,:)
+ logical,      intent(in)    :: ignoreself
+ integer(kind=1)             :: iphasej
+ integer                     :: iamtypej
+ integer                     :: j,n
+ real                        :: dx,dy,dz,runix,runiy,runiz
+ real                        :: rij2,rij,rij1,q2i,qi,q2prev,rij1grkern
+ real                        :: wabi,grkerni,dwdhi,dphidhi
+ real                        :: projv,dvx,dvy,dvz,dax,day,daz
+ real                        :: projdB,dBx,dBy,dBz,fxi,fyi,fzi,fxj,fyj,fzj
+ logical                     :: same_type,gas_gas
 
-  rhosum(:) = 0.
-  if (ignoreself) then
-     nneighi = 1   ! self
-  else
-     nneighi = 0
-  endif
+ rhosum(:) = 0.
+ if (ignoreself) then
+    nneighi = 1   ! self
+ else
+    nneighi = 0
+ endif
 
-  ! defaults for type determination
-  ! these are determined from iphase if multiple phases are used
-  same_type = .true.
-  gas_gas   = .true.
+ ! defaults for type determination
+ ! these are determined from iphase if multiple phases are used
+ same_type = .true.
+ gas_gas   = .true.
 
-  dphidhi   = 0.
-  dx = 0. ! to avoid compiler warnings
-  dy = 0.
-  dz = 0.
-  dvx = 0.
-  dvy = 0.
-  dvz = 0.
-  if (nalpha > 1) then
-     fxi = xpartveci(ifxi)
-     fyi = xpartveci(ifyi)
-     fzi = xpartveci(ifzi)
-  endif
+ dphidhi   = 0.
+ dx = 0. ! to avoid compiler warnings
+ dy = 0.
+ dz = 0.
+ dvx = 0.
+ dvy = 0.
+ dvz = 0.
+ if (nalpha > 1) then
+    fxi = xpartveci(ifxi)
+    fyi = xpartveci(ifyi)
+    fzi = xpartveci(ifzi)
+ endif
 
-  loop_over_neigh: do n = 1,nneigh
+ loop_over_neigh: do n = 1,nneigh
 
-     j = listneigh(n)
-     !--do self contribution separately to avoid problems with 1/sqrt(0.)
-     if ((ignoreself) .and. (j==i)) cycle loop_over_neigh
+    j = listneigh(n)
+    !--do self contribution separately to avoid problems with 1/sqrt(0.)
+    if ((ignoreself) .and. (j==i)) cycle loop_over_neigh
 
-     if (ifilledneighcache .and. n <= isizeneighcache) then
-        rij2 = dxcache(1,n)
-     else
-        if (ifilledcellcache .and. n <= isizecellcache) then
-           ! positions from cache are already mod boundary
-           dx = xpartveci(ixi) - xyzcache(1,n)
-           dy = xpartveci(iyi) - xyzcache(2,n)
-           dz = xpartveci(izi) - xyzcache(3,n)
-        else
-           dx = xpartveci(ixi) - xyzh(1,j)
-           dy = xpartveci(iyi) - xyzh(2,j)
-           dz = xpartveci(izi) - xyzh(3,j)
-        endif
+    if (ifilledneighcache .and. n <= isizeneighcache) then
+       rij2 = dxcache(1,n)
+    else
+       if (ifilledcellcache .and. n <= isizecellcache) then
+          ! positions from cache are already mod boundary
+          dx = xpartveci(ixi) - xyzcache(1,n)
+          dy = xpartveci(iyi) - xyzcache(2,n)
+          dz = xpartveci(izi) - xyzcache(3,n)
+       else
+          dx = xpartveci(ixi) - xyzh(1,j)
+          dy = xpartveci(iyi) - xyzh(2,j)
+          dz = xpartveci(izi) - xyzh(3,j)
+       endif
 #ifdef PERIODIC
-        if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
-        if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
-        if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+       if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+       if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+       if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
 #endif
-        rij2 = dx*dx + dy*dy + dz*dz
-        if (n <= isizeneighcache) dxcache(1,n) = rij2
-     endif
+       rij2 = dx*dx + dy*dy + dz*dz
+       if (n <= isizeneighcache) dxcache(1,n) = rij2
+    endif
 
-     q2i = rij2*hi21
+    q2i = rij2*hi21
 !
 !--do interaction if r/h < compact support size
 !
-     if (q2i < radkern2) then
-        if (ifilledneighcache .and. n <= isizeneighcache) then
-           q2prev = dxcache(2,n)
-           if (q2prev < radkern2) then
-              rij = dxcache(3,n)
-           else
-              rij = sqrt(rij2)
-           endif
-        else
-           rij = sqrt(rij2)
-        endif
+    if (q2i < radkern2) then
+       if (ifilledneighcache .and. n <= isizeneighcache) then
+          q2prev = dxcache(2,n)
+          if (q2prev < radkern2) then
+             rij = dxcache(3,n)
+          else
+             rij = sqrt(rij2)
+          endif
+       else
+          rij = sqrt(rij2)
+       endif
 
-        qi = rij*hi1
-        !--kernel and gradient
-        if (gravity) then
-           call get_kernel_grav1(q2i,qi,wabi,grkerni,dphidhi)
-        else
-           call get_kernel(q2i,qi,wabi,grkerni)
-        endif
+       qi = rij*hi1
+       !--kernel and gradient
+       if (gravity) then
+          call get_kernel_grav1(q2i,qi,wabi,grkerni,dphidhi)
+       else
+          call get_kernel(q2i,qi,wabi,grkerni)
+       endif
 
-        if (n <= isizeneighcache) then
-        !   could possibly ONLY store q2i if q2i>q2prev so that
-        !   the maximum number of sqrts are stored
-           dxcache(2,n) = q2i ! if h decreasing we don
-           dxcache(3,n) = rij
-           dxcache(4,n) = grkerni
-           !--can ONLY fill this on first pass
-           if (.not.ifilledneighcache) then
-              dxcache(5,n) = dx
-              dxcache(6,n) = dy
-              dxcache(7,n) = dz
-           endif
-        endif
+       if (n <= isizeneighcache) then
+          !   could possibly ONLY store q2i if q2i>q2prev so that
+          !   the maximum number of sqrts are stored
+          dxcache(2,n) = q2i ! if h decreasing we don
+          dxcache(3,n) = rij
+          dxcache(4,n) = grkerni
+          !--can ONLY fill this on first pass
+          if (.not.ifilledneighcache) then
+             dxcache(5,n) = dx
+             dxcache(6,n) = dy
+             dxcache(7,n) = dz
+          endif
+       endif
 
-        !
-        ! Density, gradh and div v are only computed using
-        ! neighbours of the same type
-        !
-        if (maxphase==maxp) then
-           iphasej   = iphase(j)
-           iamtypej  = iamtype(iphasej)
-           same_type = ((iamtypei == iamtypej) .or. (iamtypej==iboundary))
-           gas_gas   = (iamgasi .and. same_type)  ! this ensure that boundary particles are included in gas_gas calculations
-        endif
+       !
+       ! Density, gradh and div v are only computed using
+       ! neighbours of the same type
+       !
+       if (maxphase==maxp) then
+          iphasej   = iphase(j)
+          iamtypej  = iamtype(iphasej)
+          same_type = ((iamtypei == iamtypej) .or. (iamtypej==iboundary))
+          gas_gas   = (iamgasi .and. same_type)  ! this ensure that boundary particles are included in gas_gas calculations
+       endif
 
-        sametype: if (same_type) then
-           dwdhi = (-qi*grkerni - 3.*wabi)
-           rhosum(irhoi)      = rhosum(irhoi) + wabi
-           rhosum(igradhi)    = rhosum(igradhi) + dwdhi
-           rhosum(igradsofti) = rhosum(igradsofti) + dphidhi
-           nneighi            = nneighi + 1
-           !
-           ! calculate things needed for viscosity switches
-           ! and real viscosity
-           !
-           if (getdv .or. getdB) then
+       sametype: if (same_type) then
+          dwdhi = (-qi*grkerni - 3.*wabi)
+          rhosum(irhoi)      = rhosum(irhoi) + wabi
+          rhosum(igradhi)    = rhosum(igradhi) + dwdhi
+          rhosum(igradsofti) = rhosum(igradsofti) + dphidhi
+          nneighi            = nneighi + 1
+          !
+          ! calculate things needed for viscosity switches
+          ! and real viscosity
+          !
+          if (getdv .or. getdB) then
 
-              rij1 = 1./(rij + epsilon(rij))
-              if (ifilledneighcache .and. n <= isizeneighcache) then
-              !--dx,dy,dz are either in neighbour cache or have been calculated
-                 dx = dxcache(5,n)
-                 dy = dxcache(6,n)
-                 dz = dxcache(7,n)
-              endif
-              rij1grkern = rij1*grkerni
-              runix = dx*rij1grkern
-              runiy = dy*rij1grkern
-              runiz = dz*rij1grkern
+             rij1 = 1./(rij + epsilon(rij))
+             if (ifilledneighcache .and. n <= isizeneighcache) then
+                !--dx,dy,dz are either in neighbour cache or have been calculated
+                dx = dxcache(5,n)
+                dy = dxcache(6,n)
+                dz = dxcache(7,n)
+             endif
+             rij1grkern = rij1*grkerni
+             runix = dx*rij1grkern
+             runiy = dy*rij1grkern
+             runiz = dz*rij1grkern
 
-              if (getdv) then
-                 !--get dv and den
-                 dvx = xpartveci(ivxi) - vxyzu(1,j)
-                 dvy = xpartveci(ivyi) - vxyzu(2,j)
-                 dvz = xpartveci(ivzi) - vxyzu(3,j)
-                 projv = dvx*runix + dvy*runiy + dvz*runiz
-                 rhosum(idivvi) = rhosum(idivvi) + projv
+             if (getdv) then
+                !--get dv and den
+                dvx = xpartveci(ivxi) - vxyzu(1,j)
+                dvy = xpartveci(ivyi) - vxyzu(2,j)
+                dvz = xpartveci(ivzi) - vxyzu(3,j)
+                projv = dvx*runix + dvy*runiy + dvz*runiz
+                rhosum(idivvi) = rhosum(idivvi) + projv
 
-                 if (realviscosity .or. ndivcurlv > 1 .or. nalpha > 1) then
-                    rhosum(idvxdxi) = rhosum(idvxdxi) + dvx*runix
-                    rhosum(idvxdyi) = rhosum(idvxdyi) + dvx*runiy
-                    rhosum(idvxdzi) = rhosum(idvxdzi) + dvx*runiz
-                    rhosum(idvydxi) = rhosum(idvydxi) + dvy*runix
-                    rhosum(idvydyi) = rhosum(idvydyi) + dvy*runiy
-                    rhosum(idvydzi) = rhosum(idvydzi) + dvy*runiz
-                    rhosum(idvzdxi) = rhosum(idvzdxi) + dvz*runix
-                    rhosum(idvzdyi) = rhosum(idvzdyi) + dvz*runiy
-                    rhosum(idvzdzi) = rhosum(idvzdzi) + dvz*runiz
+                if (realviscosity .or. ndivcurlv > 1 .or. nalpha > 1) then
+                   rhosum(idvxdxi) = rhosum(idvxdxi) + dvx*runix
+                   rhosum(idvxdyi) = rhosum(idvxdyi) + dvx*runiy
+                   rhosum(idvxdzi) = rhosum(idvxdzi) + dvx*runiz
+                   rhosum(idvydxi) = rhosum(idvydxi) + dvy*runix
+                   rhosum(idvydyi) = rhosum(idvydyi) + dvy*runiy
+                   rhosum(idvydzi) = rhosum(idvydzi) + dvy*runiz
+                   rhosum(idvzdxi) = rhosum(idvzdxi) + dvz*runix
+                   rhosum(idvzdyi) = rhosum(idvzdyi) + dvz*runiy
+                   rhosum(idvzdzi) = rhosum(idvzdzi) + dvz*runiz
 
-                    if (nalpha > 1 .and. gas_gas) then
-                       !--divergence of acceleration for Cullen & Dehnen switch
-                       fxj = fxyzu(1,j) + fext(1,j)
-                       fyj = fxyzu(2,j) + fext(2,j)
-                       fzj = fxyzu(3,j) + fext(3,j)
-                       dax = fxi - fxj
-                       day = fyi - fyj
-                       daz = fzi - fzj
+                   if (nalpha > 1 .and. gas_gas) then
+                      !--divergence of acceleration for Cullen & Dehnen switch
+                      fxj = fxyzu(1,j) + fext(1,j)
+                      fyj = fxyzu(2,j) + fext(2,j)
+                      fzj = fxyzu(3,j) + fext(3,j)
+                      dax = fxi - fxj
+                      day = fyi - fyj
+                      daz = fzi - fzj
 
-                       rhosum(idaxdxi) = rhosum(idaxdxi) + dax*runix
-                       rhosum(idaxdyi) = rhosum(idaxdyi) + dax*runiy
-                       rhosum(idaxdzi) = rhosum(idaxdzi) + dax*runiz
-                       rhosum(idaydxi) = rhosum(idaydxi) + day*runix
-                       rhosum(idaydyi) = rhosum(idaydyi) + day*runiy
-                       rhosum(idaydzi) = rhosum(idaydzi) + day*runiz
-                       rhosum(idazdxi) = rhosum(idazdxi) + daz*runix
-                       rhosum(idazdyi) = rhosum(idazdyi) + daz*runiy
-                       rhosum(idazdzi) = rhosum(idazdzi) + daz*runiz
-                    endif
-                    rhosum(irxxi) = rhosum(irxxi) - dx*runix
-                    rhosum(irxyi) = rhosum(irxyi) - dx*runiy
-                    rhosum(irxzi) = rhosum(irxzi) - dx*runiz
-                    rhosum(iryyi) = rhosum(iryyi) - dy*runiy
-                    rhosum(iryzi) = rhosum(iryzi) - dy*runiz
-                    rhosum(irzzi) = rhosum(irzzi) - dz*runiz
+                      rhosum(idaxdxi) = rhosum(idaxdxi) + dax*runix
+                      rhosum(idaxdyi) = rhosum(idaxdyi) + dax*runiy
+                      rhosum(idaxdzi) = rhosum(idaxdzi) + dax*runiz
+                      rhosum(idaydxi) = rhosum(idaydxi) + day*runix
+                      rhosum(idaydyi) = rhosum(idaydyi) + day*runiy
+                      rhosum(idaydzi) = rhosum(idaydzi) + day*runiz
+                      rhosum(idazdxi) = rhosum(idazdxi) + daz*runix
+                      rhosum(idazdyi) = rhosum(idazdyi) + daz*runiy
+                      rhosum(idazdzi) = rhosum(idazdzi) + daz*runiz
+                   endif
+                   rhosum(irxxi) = rhosum(irxxi) - dx*runix
+                   rhosum(irxyi) = rhosum(irxyi) - dx*runiy
+                   rhosum(irxzi) = rhosum(irxzi) - dx*runiz
+                   rhosum(iryyi) = rhosum(iryyi) - dy*runiy
+                   rhosum(iryzi) = rhosum(iryzi) - dy*runiz
+                   rhosum(irzzi) = rhosum(irzzi) - dz*runiz
 
-                 endif
-              endif
+                endif
+             endif
 
-              if (getdB .and. gas_gas) then
-                 dBx = xpartveci(iBevolxi) - real(Bevol(1,j))
-                 dBy = xpartveci(iBevolyi) - real(Bevol(2,j))
-                 dBz = xpartveci(iBevolzi) - real(Bevol(3,j))
-                 projdB = dBx*runix + dBy*runiy + dBz*runiz
+             if (getdB .and. gas_gas) then
+                dBx = xpartveci(iBevolxi) - real(Bevol(1,j))
+                dBy = xpartveci(iBevolyi) - real(Bevol(2,j))
+                dBz = xpartveci(iBevolzi) - real(Bevol(3,j))
+                projdB = dBx*runix + dBy*runiy + dBz*runiz
 
-                 ! difference operator of divB
-                 rhosum(idivBi) = rhosum(idivBi) + projdB
+                ! difference operator of divB
+                rhosum(idivBi) = rhosum(idivBi) + projdB
 
-                 rhosum(idBxdxi) = rhosum(idBxdxi) + dBx*runix
-                 rhosum(idBxdyi) = rhosum(idBxdyi) + dBx*runiy
-                 rhosum(idBxdzi) = rhosum(idBxdzi) + dBx*runiz
-                 rhosum(idBydxi) = rhosum(idBydxi) + dBy*runix
-                 rhosum(idBydyi) = rhosum(idBydyi) + dBy*runiy
-                 rhosum(idBydzi) = rhosum(idBydzi) + dBy*runiz
-                 rhosum(idBzdxi) = rhosum(idBzdxi) + dBz*runix
-                 rhosum(idBzdyi) = rhosum(idBzdyi) + dBz*runiy
-                 rhosum(idBzdzi) = rhosum(idBzdzi) + dBz*runiz
-              endif
+                rhosum(idBxdxi) = rhosum(idBxdxi) + dBx*runix
+                rhosum(idBxdyi) = rhosum(idBxdyi) + dBx*runiy
+                rhosum(idBxdzi) = rhosum(idBxdzi) + dBx*runiz
+                rhosum(idBydxi) = rhosum(idBydxi) + dBy*runix
+                rhosum(idBydyi) = rhosum(idBydyi) + dBy*runiy
+                rhosum(idBydzi) = rhosum(idBydzi) + dBy*runiz
+                rhosum(idBzdxi) = rhosum(idBzdxi) + dBz*runix
+                rhosum(idBzdyi) = rhosum(idBzdyi) + dBz*runiy
+                rhosum(idBzdzi) = rhosum(idBzdzi) + dBz*runiz
+             endif
 
-           endif
-        elseif (use_dust .and. iamgasi .and. iamtypej==idust) then
-           rhosum(irhodusti) = rhosum(irhodusti) + wabi
-        endif sametype
+          endif
+       elseif (use_dust .and. iamgasi .and. iamtypej==idust) then
+          rhosum(irhodusti) = rhosum(irhodusti) + wabi
+       endif sametype
 
-     elseif (n <= isizeneighcache) then
-        ! q2prev > radkern2 from cache indicates rij has NOT been calculated for this pair
-        dxcache(2,n) = q2i
-        if (.not.ifilledneighcache) then
-           dxcache(5,n) = dx
-           dxcache(6,n) = dy
-           dxcache(7,n) = dz
-        endif
-     endif
-  enddo loop_over_neigh
+    elseif (n <= isizeneighcache) then
+       ! q2prev > radkern2 from cache indicates rij has NOT been calculated for this pair
+       dxcache(2,n) = q2i
+       if (.not.ifilledneighcache) then
+          dxcache(5,n) = dx
+          dxcache(6,n) = dy
+          dxcache(7,n) = dz
+       endif
+    endif
+ enddo loop_over_neigh
 
 end subroutine get_density_sums
 
@@ -844,31 +844,31 @@ end subroutine get_density_sums
 !+
 !----------------------------------------------------------------
 pure subroutine calculate_rmatrix_from_sums(rhosum,denom,rmatrix,idone)
-  real,    intent(in)  :: rhosum(:)
-  real,    intent(out) :: denom
-  real,    intent(out) :: rmatrix(6)
-  logical, intent(out) :: idone
-  real :: rxxi,rxyi,rxzi,ryyi,ryzi,rzzi
+ real,    intent(in)  :: rhosum(:)
+ real,    intent(out) :: denom
+ real,    intent(out) :: rmatrix(6)
+ logical, intent(out) :: idone
+ real :: rxxi,rxyi,rxzi,ryyi,ryzi,rzzi
 
-  rxxi = rhosum(irxxi)
-  rxyi = rhosum(irxyi)
-  rxzi = rhosum(irxzi)
-  ryyi = rhosum(iryyi)
-  ryzi = rhosum(iryzi)
-  rzzi = rhosum(irzzi)
+ rxxi = rhosum(irxxi)
+ rxyi = rhosum(irxyi)
+ rxzi = rhosum(irxzi)
+ ryyi = rhosum(iryyi)
+ ryzi = rhosum(iryzi)
+ rzzi = rhosum(irzzi)
 
-  denom = rxxi*ryyi*rzzi + 2.*rxyi*rxzi*ryzi &
+ denom = rxxi*ryyi*rzzi + 2.*rxyi*rxzi*ryzi &
         - rxxi*ryzi*ryzi - ryyi*rxzi*rxzi - rzzi*rxyi*rxyi
 
-  rmatrix(1) = ryyi*rzzi - ryzi*ryzi    ! xx
-  rmatrix(2) = rxzi*ryzi - rzzi*rxyi    ! xy
-  rmatrix(3) = rxyi*ryzi - rxzi*ryyi    ! xz
-  rmatrix(4) = rzzi*rxxi - rxzi*rxzi    ! yy
-  rmatrix(5) = rxyi*rxzi - rxxi*ryzi    ! yz
-  rmatrix(6) = rxxi*ryyi - rxyi*rxyi    ! zz
-  idone = .true.
+ rmatrix(1) = ryyi*rzzi - ryzi*ryzi    ! xx
+ rmatrix(2) = rxzi*ryzi - rzzi*rxyi    ! xy
+ rmatrix(3) = rxyi*ryzi - rxzi*ryyi    ! xz
+ rmatrix(4) = rzzi*rxxi - rxzi*rxzi    ! yy
+ rmatrix(5) = rxyi*rxzi - rxxi*ryzi    ! yz
+ rmatrix(6) = rxxi*ryyi - rxyi*rxyi    ! zz
+ idone = .true.
 
-  return
+ return
 end subroutine calculate_rmatrix_from_sums
 
 !----------------------------------------------------------------
@@ -878,92 +878,92 @@ end subroutine calculate_rmatrix_from_sums
 !+
 !----------------------------------------------------------------
 pure subroutine calculate_divcurlv_from_sums(rhosum,termnorm,divcurlvi,xi_limiter,ndivcurlv,denom,rmatrix)
-  use part, only:nalpha
-  integer, intent(in)  :: ndivcurlv
-  real,    intent(in)  :: rhosum(:),denom,rmatrix(6)
-  real,    intent(in)  :: termnorm
-  real,    intent(out) :: divcurlvi(5),xi_limiter
-  real :: div_a
-  real :: gradaxdx,gradaxdy,gradaxdz,gradaydx,gradaydy,gradaydz,gradazdx,gradazdy,gradazdz
-  real :: ddenom,gradvxdxi,gradvxdyi,gradvxdzi
-  real :: gradvydxi,gradvydyi,gradvydzi,gradvzdxi,gradvzdyi,gradvzdzi
-  real :: dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi
-  real :: fac,traceS,txy,txz,tyz,txx,tyy,tzz!,Ri
-  logical, parameter :: use_exact_linear = .true.
+ use part, only:nalpha
+ integer, intent(in)  :: ndivcurlv
+ real,    intent(in)  :: rhosum(:),denom,rmatrix(6)
+ real,    intent(in)  :: termnorm
+ real,    intent(out) :: divcurlvi(5),xi_limiter
+ real :: div_a
+ real :: gradaxdx,gradaxdy,gradaxdz,gradaydx,gradaydy,gradaydz,gradazdx,gradazdy,gradazdz
+ real :: ddenom,gradvxdxi,gradvxdyi,gradvxdzi
+ real :: gradvydxi,gradvydyi,gradvydzi,gradvzdxi,gradvzdyi,gradvzdzi
+ real :: dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi
+ real :: fac,traceS,txy,txz,tyz,txx,tyy,tzz!,Ri
+ logical, parameter :: use_exact_linear = .true.
 
-  !--divergence of the velocity field
-  if (ndivcurlv >= 1) divcurlvi(1) = -rhosum(idivvi)*termnorm
+ !--divergence of the velocity field
+ if (ndivcurlv >= 1) divcurlvi(1) = -rhosum(idivvi)*termnorm
 
-  !--curl of the velocity field
-  if (ndivcurlv >= 4) then
-     divcurlvi(2) = -(rhosum(idvzdyi) - rhosum(idvydzi))*termnorm
-     divcurlvi(3) = -(rhosum(idvxdzi) - rhosum(idvzdxi))*termnorm
-     divcurlvi(4) = -(rhosum(idvydxi) - rhosum(idvxdyi))*termnorm
-  endif
+ !--curl of the velocity field
+ if (ndivcurlv >= 4) then
+    divcurlvi(2) = -(rhosum(idvzdyi) - rhosum(idvydzi))*termnorm
+    divcurlvi(3) = -(rhosum(idvxdzi) - rhosum(idvzdxi))*termnorm
+    divcurlvi(4) = -(rhosum(idvydxi) - rhosum(idvxdyi))*termnorm
+ endif
 
-  !--time derivative of div v, needed for Cullen-Dehnen switch
-  if (nalpha >= 2) then
-     !--Divvdt For switch
-     if (use_exact_linear) then
-        ddenom = 1./denom
-        call exactlinear(gradaxdx,gradaxdy,gradaxdz,rhosum(idaxdxi),rhosum(idaxdyi),rhosum(idaxdzi),rmatrix,ddenom)
-        call exactlinear(gradaydx,gradaydy,gradaydz,rhosum(idaydxi),rhosum(idaydyi),rhosum(idaydzi),rmatrix,ddenom)
-        call exactlinear(gradazdx,gradazdy,gradazdz,rhosum(idazdxi),rhosum(idazdyi),rhosum(idazdzi),rmatrix,ddenom)
-        div_a = -(gradaxdx + gradaydy + gradazdz)
+ !--time derivative of div v, needed for Cullen-Dehnen switch
+ if (nalpha >= 2) then
+    !--Divvdt For switch
+    if (use_exact_linear) then
+       ddenom = 1./denom
+       call exactlinear(gradaxdx,gradaxdy,gradaxdz,rhosum(idaxdxi),rhosum(idaxdyi),rhosum(idaxdzi),rmatrix,ddenom)
+       call exactlinear(gradaydx,gradaydy,gradaydz,rhosum(idaydxi),rhosum(idaydyi),rhosum(idaydzi),rmatrix,ddenom)
+       call exactlinear(gradazdx,gradazdy,gradazdz,rhosum(idazdxi),rhosum(idazdyi),rhosum(idazdzi),rmatrix,ddenom)
+       div_a = -(gradaxdx + gradaydy + gradazdz)
 
-        call exactlinear(gradvxdxi,gradvxdyi,gradvxdzi, &
+       call exactlinear(gradvxdxi,gradvxdyi,gradvxdzi, &
                          rhosum(idvxdxi),rhosum(idvxdyi),rhosum(idvxdzi),rmatrix,ddenom)
-        call exactlinear(gradvydxi,gradvydyi,gradvydzi, &
+       call exactlinear(gradvydxi,gradvydyi,gradvydzi, &
                          rhosum(idvydxi),rhosum(idvydyi),rhosum(idvydzi),rmatrix,ddenom)
-        call exactlinear(gradvzdxi,gradvzdyi,gradvzdzi, &
+       call exactlinear(gradvzdxi,gradvzdyi,gradvzdzi, &
                          rhosum(idvzdxi),rhosum(idvzdyi),rhosum(idvzdzi),rmatrix,ddenom)
 
-        dvxdxi = -gradvxdxi
-        dvxdyi = -gradvxdyi
-        dvxdzi = -gradvxdzi
-        dvydxi = -gradvydxi
-        dvydyi = -gradvydyi
-        dvydzi = -gradvydzi
-        dvzdxi = -gradvzdxi
-        dvzdyi = -gradvzdyi
-        dvzdzi = -gradvzdzi
-     else
-        div_a = -termnorm*(rhosum(idaxdxi) + rhosum(idaydyi) + rhosum(idazdzi))
-        dvxdxi = -termnorm*rhosum(idvxdxi)
-        dvxdyi = -termnorm*rhosum(idvxdyi)
-        dvxdzi = -termnorm*rhosum(idvxdzi)
-        dvydxi = -termnorm*rhosum(idvydxi)
-        dvydyi = -termnorm*rhosum(idvydyi)
-        dvydzi = -termnorm*rhosum(idvydzi)
-        dvzdxi = -termnorm*rhosum(idvzdxi)
-        dvzdyi = -termnorm*rhosum(idvzdyi)
-        dvzdzi = -termnorm*rhosum(idvzdzi)
-     endif
-     divcurlvi(5) = div_a - (dvxdxi**2 + dvydyi**2 + dvzdzi**2 + &
+       dvxdxi = -gradvxdxi
+       dvxdyi = -gradvxdyi
+       dvxdzi = -gradvxdzi
+       dvydxi = -gradvydxi
+       dvydyi = -gradvydyi
+       dvydzi = -gradvydzi
+       dvzdxi = -gradvzdxi
+       dvzdyi = -gradvzdyi
+       dvzdzi = -gradvzdzi
+    else
+       div_a = -termnorm*(rhosum(idaxdxi) + rhosum(idaydyi) + rhosum(idazdzi))
+       dvxdxi = -termnorm*rhosum(idvxdxi)
+       dvxdyi = -termnorm*rhosum(idvxdyi)
+       dvxdzi = -termnorm*rhosum(idvxdzi)
+       dvydxi = -termnorm*rhosum(idvydxi)
+       dvydyi = -termnorm*rhosum(idvydyi)
+       dvydzi = -termnorm*rhosum(idvydzi)
+       dvzdxi = -termnorm*rhosum(idvzdxi)
+       dvzdyi = -termnorm*rhosum(idvzdyi)
+       dvzdzi = -termnorm*rhosum(idvzdzi)
+    endif
+    divcurlvi(5) = div_a - (dvxdxi**2 + dvydyi**2 + dvzdzi**2 + &
                              2.*(dvxdyi*dvydxi + dvxdzi*dvzdxi + dvydzi*dvzdyi))
-     !if (divcurlvi(1) < 0.) then
-     !   Ri = -1.
-     !else
-     !   Ri = 1.
-     !endif
-     txx = dvxdxi - divcurlvi(1)/3.
-     tyy = dvydyi - divcurlvi(1)/3.
-     tzz = dvzdzi - divcurlvi(1)/3.
-     txy = 0.5*(dvxdyi + dvydxi)
-     txz = 0.5*(dvxdzi + dvzdxi)
-     tyz = 0.5*(dvydzi + dvzdyi)
-     fac    = max(-divcurlvi(1),0.)**2 !(2.*(1. - Ri)**4*divcurlvi(1))**2
-     !traceS = txx**2 + tyy**2 + tzz**2 + 2.*(txy**2 + txz**2 + tyz**2)
-     !traceS = txy**2 + txz**2 + tyz**2
-     traceS = (dvzdyi - dvydzi)**2 + (dvxdzi - dvzdxi)**2 + (dvydxi - dvxdyi)**2
-     if (fac + traceS > 0.) then
-        xi_limiter = fac/(fac + traceS)
-     else
-        xi_limiter = 1.
-     endif
-  else
-     xi_limiter = 1.
-  endif
+    !if (divcurlvi(1) < 0.) then
+    !   Ri = -1.
+    !else
+    !   Ri = 1.
+    !endif
+    txx = dvxdxi - divcurlvi(1)/3.
+    tyy = dvydyi - divcurlvi(1)/3.
+    tzz = dvzdzi - divcurlvi(1)/3.
+    txy = 0.5*(dvxdyi + dvydxi)
+    txz = 0.5*(dvxdzi + dvzdxi)
+    tyz = 0.5*(dvydzi + dvzdyi)
+    fac    = max(-divcurlvi(1),0.)**2 !(2.*(1. - Ri)**4*divcurlvi(1))**2
+    !traceS = txx**2 + tyy**2 + tzz**2 + 2.*(txy**2 + txz**2 + tyz**2)
+    !traceS = txy**2 + txz**2 + tyz**2
+    traceS = (dvzdyi - dvydzi)**2 + (dvxdzi - dvzdxi)**2 + (dvydxi - dvxdyi)**2
+    if (fac + traceS > 0.) then
+       xi_limiter = fac/(fac + traceS)
+    else
+       xi_limiter = 1.
+    endif
+ else
+    xi_limiter = 1.
+ endif
 
 end subroutine calculate_divcurlv_from_sums
 
@@ -1310,11 +1310,11 @@ pure subroutine compute_cell(cell,listneigh,nneigh,nneighi,getdv,getdB,Bevol,xyz
 
     if (iamtypei==iboundary) then
        if (set_boundaries_to_active) then
-         iactivei = .true.
-         iamtypei = igas
-         iamgasi  = .true.
+          iactivei = .true.
+          iamtypei = igas
+          iamgasi  = .true.
        else
-         cycle over_parts
+          cycle over_parts
        endif
     endif
 
@@ -1424,7 +1424,7 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
     cell%xpartvec(ivzi,cell%npcell)           = vxyzu(3,i)
 
     if (maxvxyzu >= 4) then
-      cell%xpartvec(ieni,cell%npcell)         = vxyzu(4,i)
+       cell%xpartvec(ieni,cell%npcell)         = vxyzu(4,i)
     endif
 
     cell%xpartvec(ifxi,cell%npcell)           = fxyzu(1,i) + fext(1,i)
@@ -1432,8 +1432,8 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
     cell%xpartvec(ifzi,cell%npcell)           = fxyzu(3,i) + fext(3,i)
 
     if (mhd) then
-      iamgasi = iamgas(iphase(i))
-      if (iamgasi) then
+       iamgasi = iamgas(iphase(i))
+       if (iamgasi) then
           cell%xpartvec(iBevolxi,cell%npcell) = Bevol(1,i)
           cell%xpartvec(iBevolyi,cell%npcell) = Bevol(2,i)
           cell%xpartvec(iBevolzi,cell%npcell) = Bevol(3,i)
@@ -1442,9 +1442,9 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
              cell%xpartvec(ipsi,cell%npcell)  = Bevol(4,i)
           endif
           if (maxBevol < 3 .or. maxBevol > 4) call fatal('densityiterate','error in maxBevol setting')
-      else
+       else
           cell%xpartvec(iBevolxi:ipsi,cell%npcell)   = 0. ! to avoid compiler warning
-      endif
+       endif
     endif
 
     i = ll(i)
@@ -1578,7 +1578,7 @@ pure subroutine finish_rhosum(rhosum,pmassi,hi,iterating,rhoi,rhohi,gradhi,grads
  else
     gradsofti = pmassi*(rhosum(igradsofti) + dphidh0)*hi21 ! NB: no cnormk in gradsoft
     gradsofti = gradsofti*dhdrhoi
-endif
+ endif
 
 end subroutine finish_rhosum
 
@@ -1656,9 +1656,9 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
 
     if (iamtypei==iboundary) then
        if (set_boundaries_to_active) then
-         iactivei = .true.
-         iamtypei = igas
-         iamgasi  = .true.
+          iactivei = .true.
+          iamtypei = igas
+          iamgasi  = .true.
        endif
     endif
 

@@ -184,8 +184,8 @@ subroutine calculate_TW(dumpfile,xyzh,vxyzu,time,npart,iunit,particlemass)
  fileout = trim(dumpfile(1:index(dumpfile,'_')-1))//'_TW.dat'
  inquire(file=fileout,exist=iexist)
  if ( firstcall .or. .not.iexist ) then
-   open(iunit,file=fileout,status='replace')
-   write(iunit,"('#',6(1x,'[',i2.2,1x,a11,']',2x))") &
+    open(iunit,file=fileout,status='replace')
+    write(iunit,"('#',6(1x,'[',i2.2,1x,a11,']',2x))") &
           1,'time',       &
           2,'T/W',     &
           3,'T',     &
@@ -193,7 +193,7 @@ subroutine calculate_TW(dumpfile,xyzh,vxyzu,time,npart,iunit,particlemass)
           5,'Star mass', &
           6,'Star radius'
  else
-   open(iunit,file=fileout,position='append')
+    open(iunit,file=fileout,position='append')
  endif
  !
  !--Calculate rotational kinetic energy
@@ -211,26 +211,26 @@ subroutine calculate_TW(dumpfile,xyzh,vxyzu,time,npart,iunit,particlemass)
 !$omp do
  do i=1,npart
     if (rhoh(xyzh(4,i),particlemass) > density_cutoff) then
-        r = xyzh(1:3,i)  - com
-        v = vxyzu(1:3,i) - vcom
-        ! r cross v
-        rcrossvx = (r(2)*v(3) - r(3)*v(2))
-        rcrossvy = (r(3)*v(1) - r(1)*v(3))
-        rcrossvz = (r(1)*v(2) - r(2)*v(1))
-        ! rotational energy around each axis through the origin
-        radxy2 = r(1)*r(1) + r(2)*r(2)
-        radyz2 = r(3)*r(3) + r(2)*r(2)
-        radxz2 = r(1)*r(1) + r(3)*r(3)
-        if (radyz2 > 0.) erotx = erotx + particlemass*rcrossvx*rcrossvx/radyz2
-        if (radxz2 > 0.) eroty = eroty + particlemass*rcrossvy*rcrossvy/radxz2
-        if (radxy2 > 0.) erotz = erotz + particlemass*rcrossvz*rcrossvz/radxy2
-        !
-        ! size of the star
-        rad2 = dot_product(r,r)
-        rmax2 = max(rmax2,rad2)
-        !
-        ! additional bookkeeping
-        npartmeasured = npartmeasured + 1
+       r = xyzh(1:3,i)  - com
+       v = vxyzu(1:3,i) - vcom
+       ! r cross v
+       rcrossvx = (r(2)*v(3) - r(3)*v(2))
+       rcrossvy = (r(3)*v(1) - r(1)*v(3))
+       rcrossvz = (r(1)*v(2) - r(2)*v(1))
+       ! rotational energy around each axis through the origin
+       radxy2 = r(1)*r(1) + r(2)*r(2)
+       radyz2 = r(3)*r(3) + r(2)*r(2)
+       radxz2 = r(1)*r(1) + r(3)*r(3)
+       if (radyz2 > 0.) erotx = erotx + particlemass*rcrossvx*rcrossvx/radyz2
+       if (radxz2 > 0.) eroty = eroty + particlemass*rcrossvy*rcrossvy/radxz2
+       if (radxy2 > 0.) erotz = erotz + particlemass*rcrossvz*rcrossvz/radxy2
+       !
+       ! size of the star
+       rad2 = dot_product(r,r)
+       rmax2 = max(rmax2,rad2)
+       !
+       ! additional bookkeeping
+       npartmeasured = npartmeasured + 1
     endif
  enddo
 !$omp enddo
@@ -406,10 +406,10 @@ subroutine calculate_midplane_profile(dumpfile,xyzh,vxyzu,npart,iunit,particlema
 !$omp private(i)
 !$omp do
  do i=1,npart
-   rtocm (i) = sqrt((xyzh(1,i)-com(1))**2 + (xyzh(2,i)-com(2))**2)
-   theta (i) = atan2((xyzh(2,i)-com(2)),(xyzh(1,i)-com(1)))
-   vtheta(i) = -(vxyzu(1,i)-vcom(1))*sin(theta(i)) + (vxyzu(2,i)-vcom(2))*cos(theta(i))
-   angv  (i) = abs(vtheta(i))/rtocm(i)
+    rtocm (i) = sqrt((xyzh(1,i)-com(1))**2 + (xyzh(2,i)-com(2))**2)
+    theta (i) = atan2((xyzh(2,i)-com(2)),(xyzh(1,i)-com(1)))
+    vtheta(i) = -(vxyzu(1,i)-vcom(1))*sin(theta(i)) + (vxyzu(2,i)-vcom(2))*cos(theta(i))
+    angv  (i) = abs(vtheta(i))/rtocm(i)
  enddo
 !$omp enddo
 !$omp end parallel
@@ -524,19 +524,19 @@ subroutine get_momentofinertia(xyzh,npart,npartused,principle,evectors,particlem
  rmax2     = 0.0
  do i = 1,npart
     if (rhoh(xyzh(4,i),particlemass) > density_cutoff) then
-        x = xyzh(1,i) - com(1)
-        y = xyzh(2,i) - com(2)
-        z = xyzh(3,i) - com(3)
-        inertia(1,1) = inertia(1,1) + y**2 + z**2
-        inertia(2,2) = inertia(2,2) + x**2 + z**2
-        inertia(3,3) = inertia(3,3) + x**2 + y**2
-        inertia(1,2) = inertia(1,2) - x*y
-        inertia(1,3) = inertia(1,3) - x*z
-        inertia(2,3) = inertia(2,3) - y*z
-        ! Additional useful values
-        npartused    = npartused + 1
-        r2           = x*x + y*y + z*z
-        rmax2        = max(rmax2,r2)
+       x = xyzh(1,i) - com(1)
+       y = xyzh(2,i) - com(2)
+       z = xyzh(3,i) - com(3)
+       inertia(1,1) = inertia(1,1) + y**2 + z**2
+       inertia(2,2) = inertia(2,2) + x**2 + z**2
+       inertia(3,3) = inertia(3,3) + x**2 + y**2
+       inertia(1,2) = inertia(1,2) - x*y
+       inertia(1,3) = inertia(1,3) - x*z
+       inertia(2,3) = inertia(2,3) - y*z
+       ! Additional useful values
+       npartused    = npartused + 1
+       r2           = x*x + y*y + z*z
+       rmax2        = max(rmax2,r2)
     endif
  enddo
  rmax = sqrt(rmax2)
@@ -575,104 +575,104 @@ subroutine jacobi(a,n,np,d,v,nrot)
 !
  integer :: i,ip,iq,j
  real ::  c,g,h,s,sm,t,tau,theta,tresh,b(NMAX),z(NMAX)
-do 12, ip=1,n  !Initialize  to  the  identity  matrix.
-do 11, iq=1,n
-v(ip,iq)=0.
-11 enddo
-v(ip,ip)=1.
+ do 12, ip=1,n  !Initialize  to  the  identity  matrix.
+    do 11, iq=1,n
+       v(ip,iq)=0.
+11  enddo
+    v(ip,ip)=1.
 12 enddo
-do 13, ip=1,n
-b(ip)=a(ip,ip)
+ do 13, ip=1,n
+    b(ip)=a(ip,ip)
 !Initialize b and d to the diagonal of a.
-d(ip)=b(ip)
-z(ip)=0.
+    d(ip)=b(ip)
+    z(ip)=0.
 !This  vector  will  accumulate  terms  of  the  form tapq as  in equation  (11.1.14).
 13 enddo
 
-nrot=0
-do 24,i=1,50
-sm=0.
-do 15,ip=1,n-1
+ nrot=0
+ do 24,i=1,50
+    sm=0.
+    do 15,ip=1,n-1
 !Sum  off-diagonal elements.
-do 14,iq=ip+1,n
-sm=sm+abs(a(ip,iq))
-14 enddo
-15 enddo
-if(sm==0.)return
+       do 14,iq=ip+1,n
+          sm=sm+abs(a(ip,iq))
+14     enddo
+15  enddo
+    if(sm==0.)return
 !The normal return, which relies on quadratic convergence to machine  underflow.
-if(i < 4)then
-tresh=0.2*sm/n**2
+    if(i < 4)then
+       tresh=0.2*sm/n**2
 !...on the first  three sweeps.
-else
-tresh=0.
+    else
+       tresh=0.
 !...thereafter.
-endif
-do 22,ip=1,n-1
-do 21,iq=ip+1,n
-g=100.*abs(a(ip,iq))
+    endif
+    do 22,ip=1,n-1
+       do 21,iq=ip+1,n
+          g=100.*abs(a(ip,iq))
 !After four sweeps, skip the rotation if the off-diagonal element is small.
-if((i > 4).and.(abs(d(ip))+g==abs(d(ip))).and.(abs(d(iq))+g==abs(d(iq))))then
-a(ip,iq)=0.
-else if(abs(a(ip,iq)) > tresh)then
-h=d(iq)-d(ip)
-if(abs(h)+g==abs(h))then
-t=a(ip,iq)/h
+          if((i > 4).and.(abs(d(ip))+g==abs(d(ip))).and.(abs(d(iq))+g==abs(d(iq))))then
+             a(ip,iq)=0.
+          else if(abs(a(ip,iq)) > tresh)then
+             h=d(iq)-d(ip)
+             if(abs(h)+g==abs(h))then
+                t=a(ip,iq)/h
 !t=1/(2(theta))
-else
-theta=0.5*h/a(ip,iq)
+             else
+                theta=0.5*h/a(ip,iq)
 !Equation  (11.1.10).
-t=1./(abs(theta)+sqrt(1.+theta**2))
-if(theta < 0.)t=-t
-endif
- c=1./sqrt(1+t**2)
-s=t*c
-tau=s/(1.+c)
-h=t*a(ip,iq)
-z(ip)=z(ip)-h
-z(iq)=z(iq)+h
-d(ip)=d(ip)-h
-d(iq)=d(iq)+h
-a(ip,iq)=0.
-do 16,j=1,ip-1
+                t=1./(abs(theta)+sqrt(1.+theta**2))
+                if(theta < 0.)t=-t
+             endif
+             c=1./sqrt(1+t**2)
+             s=t*c
+             tau=s/(1.+c)
+             h=t*a(ip,iq)
+             z(ip)=z(ip)-h
+             z(iq)=z(iq)+h
+             d(ip)=d(ip)-h
+             d(iq)=d(iq)+h
+             a(ip,iq)=0.
+             do 16,j=1,ip-1
 !Case of rotations 1<=j<p.
-g=a(j,ip)
-h=a(j,iq)
-a(j,ip)=g-s*(h+g*tau)
-a(j,iq)=h+s*(g-h*tau)
-16 enddo
-do 17,j=ip+1,iq-1
+                g=a(j,ip)
+                h=a(j,iq)
+                a(j,ip)=g-s*(h+g*tau)
+                a(j,iq)=h+s*(g-h*tau)
+16           enddo
+             do 17,j=ip+1,iq-1
 !Case of rotations p<j<q.
-g=a(ip,j)
-h=a(j,iq)
-a(ip,j)=g-s*(h+g*tau)
-a(j,iq)=h+s*(g-h*tau)
-17 enddo
-do 18,j=iq+1,n
+                g=a(ip,j)
+                h=a(j,iq)
+                a(ip,j)=g-s*(h+g*tau)
+                a(j,iq)=h+s*(g-h*tau)
+17           enddo
+             do 18,j=iq+1,n
 !Case of rotations q<j<=n.
-g=a(ip,j)
-h=a(iq,j)
-a(ip,j)=g-s*(h+g*tau)
-a(iq,j)=h+s*(g-h*tau)
-18 enddo
-do 19,j=1,n
-g=v(j,ip)
-h=v(j,iq)
-v(j,ip)=g-s*(h+g*tau)
-v(j,iq)=h+s*(g-h*tau)
-19 enddo
-nrot=nrot+1
-endif
-21 enddo
-22 enddo
-do 23,ip=1,n
-b(ip)=b(ip)+z(ip)
-d(ip)=b(ip)
+                g=a(ip,j)
+                h=a(iq,j)
+                a(ip,j)=g-s*(h+g*tau)
+                a(iq,j)=h+s*(g-h*tau)
+18           enddo
+             do 19,j=1,n
+                g=v(j,ip)
+                h=v(j,iq)
+                v(j,ip)=g-s*(h+g*tau)
+                v(j,iq)=h+s*(g-h*tau)
+19           enddo
+             nrot=nrot+1
+          endif
+21     enddo
+22  enddo
+    do 23,ip=1,n
+       b(ip)=b(ip)+z(ip)
+       d(ip)=b(ip)
 !Update d with the  sum of tapq,
-z(ip)=0.
+       z(ip)=0.
 !and  reinitialize z.
-23 enddo
+23  enddo
 24 enddo
-return
+ return
 end subroutine jacobi
 
 end module

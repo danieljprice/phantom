@@ -120,7 +120,7 @@ subroutine get_cpuinfo(ncpu,ncpureal,cpuspeed,cpumodel,cachesize,ierr)
           !if (matchname(line,'hw.l1dcachesize' )) call readvalr(line,cachesizel1)
           if (matchname(line,'hw.l2cachesize' ))  call readvalr(line,cachesizel2)
           if (matchname(line,'hw.l3cachesize' ))  call readvalr(line,cachesizel3)
-         ! print*,trim(line)
+          ! print*,trim(line)
        enddo
        !--clean up by deleting the cpuinfo file
        close(unit=iunit,status='delete',iostat=ierr)

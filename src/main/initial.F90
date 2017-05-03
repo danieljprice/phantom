@@ -86,7 +86,7 @@ subroutine initialise()
 !
 !--write info on latest git commit
 !
-if (id==master) call write_gitinfo(6)
+ if (id==master) call write_gitinfo(6)
 !
 !--check that it is OK to use fast sqrt functions
 !  on this architecture
@@ -508,7 +508,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     write(iprint,*) 'dt(forces)    = ',dtforce
     write(iprint,*) 'dt(courant)   = ',dtcourant
     write(iprint,*) 'dt initial    = ',dt
-  endif
+ endif
 #endif
 !
 !--Set parameters to allow for reduction of dtmax

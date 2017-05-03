@@ -53,17 +53,17 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  ! duplicate relaxed star
  do i = npart+1, 2*npart
-     ! place star a distance rad away
-     xyzh(1,i) = xyzh(1,i-npart) + rad
-     xyzh(2,i) = xyzh(2,i-npart) + rad
-     xyzh(3,i) = xyzh(3,i-npart)
-     xyzh(4,i) = xyzh(4,i-npart)
+    ! place star a distance rad away
+    xyzh(1,i) = xyzh(1,i-npart) + rad
+    xyzh(2,i) = xyzh(2,i-npart) + rad
+    xyzh(3,i) = xyzh(3,i-npart)
+    xyzh(4,i) = xyzh(4,i-npart)
 
-     vxyzu(1,i) = vxyzu(1,i-npart)
-     vxyzu(2,i) = vxyzu(2,i-npart)
-     vxyzu(3,i) = vxyzu(3,i-npart)
+    vxyzu(1,i) = vxyzu(1,i-npart)
+    vxyzu(2,i) = vxyzu(2,i-npart)
+    vxyzu(3,i) = vxyzu(3,i-npart)
 
-     call set_particle_type(i,igas)
+    call set_particle_type(i,igas)
  enddo
 
  npart = 2 * npart

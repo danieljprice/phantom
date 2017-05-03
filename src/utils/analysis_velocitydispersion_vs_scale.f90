@@ -122,54 +122,54 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  endif
 
-print*, 'Neighbour lists acquired'
+ print*, 'Neighbour lists acquired'
 
  ! Sort particles into descending density order
 
-allocate(rhopart(npart))
-rhopart(:) = 0.0
+ allocate(rhopart(npart))
+ rhopart(:) = 0.0
 
-do ipart=1,npart
+ do ipart=1,npart
     if(maxphase==maxp) then
-      call get_partinfo(iphase(ipart), iactivei,iamdusti,iamtypei)
-      iamgasi = (iamtypei ==igas)
-   else
-      iactivei = .true.
-      iamtypei = igas
-      iamdusti = .false.
-      iamgasi = .true.
-   endif
+       call get_partinfo(iphase(ipart), iactivei,iamdusti,iamtypei)
+       iamgasi = (iamtypei ==igas)
+    else
+       iactivei = .true.
+       iamtypei = igas
+       iamdusti = .false.
+       iamgasi = .true.
+    endif
 
-   if(.not.iamgasi) cycle
-   rhopart(ipart) = rhoh(xyzh(4,ipart), massoftype(igas))
-enddo
+    if(.not.iamgasi) cycle
+    rhopart(ipart) = rhoh(xyzh(4,ipart), massoftype(igas))
+ enddo
 
-allocate(rhosort(npart))
-call indexx(npart,rhopart, rhosort)
+ allocate(rhosort(npart))
+ call indexx(npart,rhopart, rhosort)
 
-print*, 'Particles sorted into descending density order'
+ print*, 'Particles sorted into descending density order'
 
 ! Allocate array to track particles that have already participated in the calculation
-allocate(checked(npart))
-allocate(particlelist(npart))
+ allocate(checked(npart))
+ allocate(particlelist(npart))
 
-allocate(vmean(3,npart))
-allocate(vdisp(3,npart))
+ allocate(vmean(3,npart))
+ allocate(vdisp(3,npart))
 
-allocate(ekin(npart))
-allocate(etherm(npart))
-allocate(egrav(npart))
-allocate(emag(npart))
+ allocate(ekin(npart))
+ allocate(etherm(npart))
+ allocate(egrav(npart))
+ allocate(emag(npart))
 
-vmean(:,:) = 0.0
-vdisp(:,:) = 0.0
+ vmean(:,:) = 0.0
+ vdisp(:,:) = 0.0
 
-ekin(:) = 0.0
-etherm(:) = 0.0
-egrav(:) = 0.0
-emag(:) = 0.0
+ ekin(:) = 0.0
+ etherm(:) = 0.0
+ egrav(:) = 0.0
+ emag(:) = 0.0
 
-pmassi = massoftype(igas)
+ pmassi = massoftype(igas)
 
  ! Loop over size scales
  do iscale=1,nscale
@@ -181,7 +181,7 @@ pmassi = massoftype(igas)
     checked(:) = 0
 
     write(*,'(a,f5.2)') 'Calculating velocity dispersion at size scale ',rscale
-   ! Loop over particles (in density order)
+    ! Loop over particles (in density order)
 
     percentcount = 10.0
     do j=1,npart
@@ -339,11 +339,11 @@ pmassi = massoftype(igas)
  enddo
 
 
-close(iunit)
+ close(iunit)
 ! End of analysis
-call deallocate_arrays
+ call deallocate_arrays
 
-print '(a,a)', 'Analysis complete for dump ',dumpfile
+ print '(a,a)', 'Analysis complete for dump ',dumpfile
 
 end subroutine do_analysis
 
@@ -354,50 +354,50 @@ end subroutine do_analysis
 !-------------------------------------------
 subroutine read_analysis_options
 
-use prompting, only:prompt
+ use prompting, only:prompt
 
-implicit none
+ implicit none
 
-logical :: inputexist
-character(len=35) :: inputfile
+ logical :: inputexist
+ character(len=35) :: inputfile
 
 ! Check for existence of input file
-inputfile = 'velocitydispersion_vs_scale.options'
-inquire(file=inputfile, exist=inputexist)
+ inputfile = 'velocitydispersion_vs_scale.options'
+ inquire(file=inputfile, exist=inputexist)
 
-if(inputexist) then
+ if(inputexist) then
 
-print '(a,a,a)', "Parameter file ",inputfile, " found: reading analysis options"
+    print '(a,a,a)', "Parameter file ",inputfile, " found: reading analysis options"
 
-open(10,file=inputfile, form='formatted')
-read(10,*) nscale
-read(10,*) rscalemin
-read(10,*) rscalemax
-close(10)
+    open(10,file=inputfile, form='formatted')
+    read(10,*) nscale
+    read(10,*) rscalemin
+    read(10,*) rscalemax
+    close(10)
 
-drscale = (rscalemax-rscalemin)/real(nscale)
+    drscale = (rscalemax-rscalemin)/real(nscale)
 
-else
+ else
 
-print '(a,a,a)', "Parameter file ",inputfile, " NOT found"
+    print '(a,a,a)', "Parameter file ",inputfile, " NOT found"
 
-call prompt('Enter the number of scale evaluations: ', nscale)
-call prompt('Enter the minimum scale (code units): ', rscalemin)
-call prompt('Enter the maximum scale (code units): ', rscalemax)
+    call prompt('Enter the number of scale evaluations: ', nscale)
+    call prompt('Enter the minimum scale (code units): ', rscalemin)
+    call prompt('Enter the maximum scale (code units): ', rscalemax)
 
 ! Write choices to new inputfile
 
-open(10,file=inputfile, status='new', form='formatted')
-write(10,*) nscale, "      Number of scale evaluations"
-write(10,*) rscalemin,  "      Minimum scale (code units)"
-write(10,*) rscalemax, "      Maximum scale (code units)"
-close(10)
-endif
+    open(10,file=inputfile, status='new', form='formatted')
+    write(10,*) nscale, "      Number of scale evaluations"
+    write(10,*) rscalemin,  "      Minimum scale (code units)"
+    write(10,*) rscalemax, "      Maximum scale (code units)"
+    close(10)
+ endif
 
 
-print*, 'Minimum scale (code units): ', rscalemin
-print*, 'Maximum scale (code units): ', rscalemax
-print*, 'Number of Evaluations ', nscale
+ print*, 'Minimum scale (code units): ', rscalemin
+ print*, 'Maximum scale (code units): ', rscalemax
+ print*, 'Number of Evaluations ', nscale
 
 end subroutine read_analysis_options
 
@@ -409,75 +409,75 @@ end subroutine read_analysis_options
 !-------------------------------------------------------------
 
 subroutine find_particles_in_range(ipart,npart,xyzh,particlelist,d)
-implicit none
+ implicit none
 
-integer, intent(in) :: ipart,npart
-real, intent(in) :: d
-real, intent(in) :: xyzh(:,:)
-integer,intent(inout) :: particlelist(:)
+ integer, intent(in) :: ipart,npart
+ real, intent(in) :: d
+ real, intent(in) :: xyzh(:,:)
+ integer,intent(inout) :: particlelist(:)
 
-real,parameter :: tolerance = 2.0
+ real,parameter :: tolerance = 2.0
 
-integer, allocatable, dimension(:) :: teststack
+ integer, allocatable, dimension(:) :: teststack
 
-integer :: jpart,l,nstack
-real :: sep
+ integer :: jpart,l,nstack
+ real :: sep
 
 ! Create a stack of particle IDs to test
-allocate(teststack(npart))
+ allocate(teststack(npart))
 
-teststack(:) = 0
-nstack = 0
+ teststack(:) = 0
+ nstack = 0
 
 ! List of particles within range rscale
-particlelist(:) = 0
-ninside = 0
+ particlelist(:) = 0
+ ninside = 0
 
 ! Add neighbours to test stack
 
-do l=1,neighcount(ipart)
-   nstack = nstack+1
-   teststack(nstack) = neighb(ipart,l)
-enddo
+ do l=1,neighcount(ipart)
+    nstack = nstack+1
+    teststack(nstack) = neighb(ipart,l)
+ enddo
 
-particlelist(:) = 0
-ninside = 0
+ particlelist(:) = 0
+ ninside = 0
 
 ! Continue testing particles in the stack until the end is reached
-jpart = 1
-do while(jpart < nstack .and. nstack < npart)
+ jpart = 1
+ do while(jpart < nstack .and. nstack < npart)
 
 
-   if(checked(jpart)==1) cycle ! Skip particles that have already been calculated
-   if(rhopart(jpart) < 1.0e-20) cycle ! Skip particles that have zero density
+    if(checked(jpart)==1) cycle ! Skip particles that have already been calculated
+    if(rhopart(jpart) < 1.0e-20) cycle ! Skip particles that have zero density
 
-   ! Calculate separation
-   sep = (xyzh(1,ipart)-xyzh(1,jpart))*(xyzh(1,ipart)-xyzh(1,jpart)) + &
+    ! Calculate separation
+    sep = (xyzh(1,ipart)-xyzh(1,jpart))*(xyzh(1,ipart)-xyzh(1,jpart)) + &
         (xyzh(2,ipart)-xyzh(2,jpart))*(xyzh(2,ipart)-xyzh(2,jpart)) + &
         (xyzh(3,ipart)-xyzh(3,jpart))*(xyzh(3,ipart)-xyzh(3,jpart))
-   sep = sqrt(sep)
+    sep = sqrt(sep)
 
-   ! If particle closer than rscale, add it to the particle list
-   if(sep < d) then
-      ninside = ninside +1
-      particlelist(ninside) = jpart
-   endif
+    ! If particle closer than rscale, add it to the particle list
+    if(sep < d) then
+       ninside = ninside +1
+       particlelist(ninside) = jpart
+    endif
 
-   ! If particle within the tolerance distance, then add its neighbours to the stack for testing
-   if(sep < tolerance*d) then
+    ! If particle within the tolerance distance, then add its neighbours to the stack for testing
+    if(sep < tolerance*d) then
 
-      do l=1,neighcount(jpart)
-         if(nstack==npart) exit
-         nstack = nstack+1
-         teststack(nstack) = neighb(jpart,l)
-      enddo
-   endif
+       do l=1,neighcount(jpart)
+          if(nstack==npart) exit
+          nstack = nstack+1
+          teststack(nstack) = neighb(jpart,l)
+       enddo
+    endif
 
-jpart = jpart+1
+    jpart = jpart+1
 
-enddo
+ enddo
 
-deallocate(teststack)
+ deallocate(teststack)
 
 end subroutine
 
@@ -488,10 +488,10 @@ end subroutine
 !+
 !--------------------------------------------------------------
 subroutine write_output_header(iunit,output,time)
-implicit none
-integer, intent(in) :: iunit
-real, intent(in) :: time
-character(len=*) :: output
+ implicit none
+ integer, intent(in) :: iunit
+ real, intent(in) :: time
+ character(len=*) :: output
 
 
  print '(a,a)', 'Writing to file ',output
@@ -515,8 +515,8 @@ character(len=*) :: output
        15,'V(magnetic E)'
 
 
-print '(a)', 'File Header Written'
-call flush(iunit)
+ print '(a)', 'File Header Written'
+ call flush(iunit)
 
 end subroutine write_output_header
 
@@ -526,18 +526,18 @@ end subroutine write_output_header
 !+
 !-----------------------------------------------------------------
 subroutine write_output_data(iunit,output)
-implicit none
-integer, intent(in) :: iunit
-character(len=*) :: output
+ implicit none
+ integer, intent(in) :: iunit
+ character(len=*) :: output
 
 
-write(iunit,'(15(es18.10,1X))') rscale, &
+ write(iunit,'(15(es18.10,1X))') rscale, &
      vdisp_exp(1), vdisp_var(1), &
      vdisp_exp(2), vdisp_var(2), &
      vdisp_exp(3), vdisp_var(3), &
      ekin_exp, ekin_var, etherm_exp, etherm_var, &
      egrav_exp, egrav_var, emag_exp, emag_var
-call flush(iunit)
+ call flush(iunit)
 
 end subroutine write_output_data
 
@@ -549,12 +549,12 @@ end subroutine write_output_data
 !-------------------------------------------------------
 subroutine deallocate_arrays
 
-implicit none
+ implicit none
 
-deallocate(neighcount,neighb)
-deallocate(particlelist,checked,rhosort,rhopart)
-deallocate(vmean,vdisp)
-deallocate(ekin,egrav,etherm,emag)
+ deallocate(neighcount,neighb)
+ deallocate(particlelist,checked,rhosort,rhopart)
+ deallocate(vmean,vdisp)
+ deallocate(ekin,egrav,etherm,emag)
 
 end subroutine deallocate_arrays
 
@@ -565,182 +565,182 @@ end subroutine deallocate_arrays
 !--------------------------------------------------------
 subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
 
-  use dim, only: maxneigh,maxp
-  use kernel, only: radkern2
-  use linklist, only: ncells, ifirstincell, set_linklist, get_neighbour_list
-  use part, only: get_partinfo, igas, iboundary,maxphase, ll, iphase, gravity
+ use dim, only: maxneigh,maxp
+ use kernel, only: radkern2
+ use linklist, only: ncells, ifirstincell, set_linklist, get_neighbour_list
+ use part, only: get_partinfo, igas, iboundary,maxphase, ll, iphase, gravity
 
-  implicit none
+ implicit none
 
-  real, intent(in) :: xyzh(:,:),vxyzu(:,:)
-  integer, intent(in) :: npart
-  character(len=*), intent(in) :: dumpfile
+ real, intent(in) :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in) :: npart
+ character(len=*), intent(in) :: dumpfile
 
-  real,allocatable,dimension(:,:) :: dumxyzh
+ real,allocatable,dimension(:,:) :: dumxyzh
 
-  integer :: i, j, iamtypei, icell, ineigh, nneigh
-  real :: dx,dy,dz, rij2
-  real :: hi1,hj1,hi21,hj21, q2i, q2j
+ integer :: i, j, iamtypei, icell, ineigh, nneigh
+ real :: dx,dy,dz, rij2
+ real :: hi1,hj1,hi21,hj21, q2i, q2j
 
-  integer,save :: listneigh(maxneigh)
-  real, save:: xyzcache(4,maxcellcache)
-  !$omp threadprivate(xyzcache,listneigh)
-  real :: fgrav(20)
+ integer,save :: listneigh(maxneigh)
+ real, save:: xyzcache(4,maxcellcache)
+ !$omp threadprivate(xyzcache,listneigh)
+ real :: fgrav(20)
 
-  logical :: iactivei, iamdusti,iamgasi, ifilledcellcache
+ logical :: iactivei, iamdusti,iamgasi, ifilledcellcache
 
-  character(100) :: neighbourfile
+ character(100) :: neighbourfile
 
-  !****************************************
-  ! 1. Build kdtree and linklist
-  ! --> global (shared) neighbour lists for all particles in tree cell
-  !****************************************
+ !****************************************
+ ! 1. Build kdtree and linklist
+ ! --> global (shared) neighbour lists for all particles in tree cell
+ !****************************************
 
-  print*, 'Building kdtree and linklist: '
+ print*, 'Building kdtree and linklist: '
 
-  allocate(dumxyzh(4,npart))
-  dumxyzh = xyzh
-  call set_linklist(npart,npart,dumxyzh,vxyzu)
+ allocate(dumxyzh(4,npart))
+ dumxyzh = xyzh
+ call set_linklist(npart,npart,dumxyzh,vxyzu)
 
-  print*, '- Done'
+ print*, '- Done'
 
-  print*, 'Allocating arrays for neighbour storage : '
+ print*, 'Allocating arrays for neighbour storage : '
 
-  allocate(neighcount(npart))
-  allocate(neighb(npart,neighmax))
+ allocate(neighcount(npart))
+ allocate(neighb(npart,neighmax))
 
-  neighcount(:) = 0
-  neighb(:,:) = 0
+ neighcount(:) = 0
+ neighb(:,:) = 0
 
-  print*, '- Done'
-  print "(A,I6)", 'Maximum neighbour number allocated:  ', neighmax
+ print*, '- Done'
+ print "(A,I6)", 'Maximum neighbour number allocated:  ', neighmax
 
-  !***************************************
-  ! 2. Assign neighbour lists to particles by searching shared list of host cell
-  !***************************************
+ !***************************************
+ ! 2. Assign neighbour lists to particles by searching shared list of host cell
+ !***************************************
 
-  print*, 'Creating neighbour lists for particles'
+ print*, 'Creating neighbour lists for particles'
 
-  ! Loop over cells
+ ! Loop over cells
 
-  !$omp parallel default(none) &
-  !$omp shared(ncells,ll,ifirstincell,npart) &
-  !$omp shared(xyzh,vxyzu,iphase) &
-  !$omp shared(neighcount,neighb) &
-  !$omp private(icell,i, j)&
-  !$omp private(iamtypei,iamgasi,iamdusti,iactivei) &
-  !$omp private(ifilledcellcache,nneigh) &
-  !$omp private(hi1,hi21,hj1,hj21,rij2,q2i,q2j) &
-  !$omp private(fgrav, dx,dy,dz)
-  !$omp do schedule(runtime)
-  over_cells: do icell=1,int(ncells)
+ !$omp parallel default(none) &
+ !$omp shared(ncells,ll,ifirstincell,npart) &
+ !$omp shared(xyzh,vxyzu,iphase) &
+ !$omp shared(neighcount,neighb) &
+ !$omp private(icell,i, j)&
+ !$omp private(iamtypei,iamgasi,iamdusti,iactivei) &
+ !$omp private(ifilledcellcache,nneigh) &
+ !$omp private(hi1,hi21,hj1,hj21,rij2,q2i,q2j) &
+ !$omp private(fgrav, dx,dy,dz)
+ !$omp do schedule(runtime)
+ over_cells: do icell=1,int(ncells)
 
-     i = ifirstincell(icell)
+    i = ifirstincell(icell)
 
-     ! Skip empty/inactive cells
-     if(i<=0) cycle over_cells
+    ! Skip empty/inactive cells
+    if(i<=0) cycle over_cells
 
-     ! Get neighbour list for the cell
+    ! Get neighbour list for the cell
 
-     if(gravity) then
-        call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true.,f=fgrav)
-     else
-        call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true.)
-     endif
-     ifilledcellcache = .true.
+    if(gravity) then
+       call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true.,f=fgrav)
+    else
+       call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true.)
+    endif
+    ifilledcellcache = .true.
 
-     ! Loop over particles in the cell
+    ! Loop over particles in the cell
 
-     over_parts: do while(i /=0)
-        !print*, i, icell, ncells
-        if(i<0) then ! i<0 indicates inactive particles
-           i = ll(abs(i))
-           cycle over_parts
-        endif
+    over_parts: do while(i /=0)
+       !print*, i, icell, ncells
+       if(i<0) then ! i<0 indicates inactive particles
+          i = ll(abs(i))
+          cycle over_parts
+       endif
 
-        if(maxphase==maxp) then
-           call get_partinfo(iphase(i), iactivei,iamdusti,iamtypei)
-           iamgasi = (iamtypei ==igas)
-        else
-           iactivei = .true.
-           iamtypei = igas
-           iamdusti = .false.
-           iamgasi = .true.
-        endif
+       if(maxphase==maxp) then
+          call get_partinfo(iphase(i), iactivei,iamdusti,iamtypei)
+          iamgasi = (iamtypei ==igas)
+       else
+          iactivei = .true.
+          iamtypei = igas
+          iamdusti = .false.
+          iamgasi = .true.
+       endif
 
-        ! Catches case where first particle is inactive
-        if (.not.iactivei) then
-           i = ll(i)
-           cycle over_parts
-        endif
+       ! Catches case where first particle is inactive
+       if (.not.iactivei) then
+          i = ll(i)
+          cycle over_parts
+       endif
 
-        ! do not compute neighbours for boundary particles
-        if(iamtypei ==iboundary) cycle over_parts
+       ! do not compute neighbours for boundary particles
+       if(iamtypei ==iboundary) cycle over_parts
 
 
-        ! Fill neighbour list for this particle
+       ! Fill neighbour list for this particle
 
-        neighcount(i) = 0
+       neighcount(i) = 0
 
-        over_neighbours: do ineigh = 1,nneigh
-           !print*, i,ineigh, listneigh(ineigh)
-           j = abs(listneigh(ineigh))
+       over_neighbours: do ineigh = 1,nneigh
+          !print*, i,ineigh, listneigh(ineigh)
+          j = abs(listneigh(ineigh))
 
-           ! Skip self-references
-           if(i==j) cycle over_neighbours
+          ! Skip self-references
+          if(i==j) cycle over_neighbours
 
-           dx = xyzh(1,i) - xyzh(1,j)
-           dy = xyzh(2,i) - xyzh(2,j)
-           dz = xyzh(3,i) - xyzh(3,j)
+          dx = xyzh(1,i) - xyzh(1,j)
+          dy = xyzh(2,i) - xyzh(2,j)
+          dz = xyzh(3,i) - xyzh(3,j)
 
-           rij2 = dx*dx + dy*dy +dz*dz
+          rij2 = dx*dx + dy*dy +dz*dz
 
-           hi1 = 1.0/xyzh(4,i)
-           hi21 = hi1*hi1
+          hi1 = 1.0/xyzh(4,i)
+          hi21 = hi1*hi1
 
-           q2i = rij2*hi21
+          q2i = rij2*hi21
 
-           hj1 = 1.0/xyzh(4,j)
-           hj21 = hj1*hj1
-           q2j = rij2*hj21
+          hj1 = 1.0/xyzh(4,j)
+          hj21 = hj1*hj1
+          q2j = rij2*hj21
 
-           is_sph_neighbour: if(q2i < radkern2 .or. q2j < radkern2) then
-              !$omp critical
-              neighcount(i) = neighcount(i) + 1
-              if(neighcount(i) <=neighmax) neighb(i,neighcount(i)) = j
-              !$omp end critical
-           endif is_sph_neighbour
+          is_sph_neighbour: if(q2i < radkern2 .or. q2j < radkern2) then
+             !$omp critical
+             neighcount(i) = neighcount(i) + 1
+             if(neighcount(i) <=neighmax) neighb(i,neighcount(i)) = j
+             !$omp end critical
+          endif is_sph_neighbour
 
-        enddo over_neighbours
-        ! End loop over neighbours
+       enddo over_neighbours
+       ! End loop over neighbours
 
-        i = ll(i)
-     enddo over_parts
-     ! End loop over particles in the cell
+       i = ll(i)
+    enddo over_parts
+    ! End loop over particles in the cell
 
-  enddo over_cells
-  !$omp enddo
-  !$omp end parallel
+ enddo over_cells
+ !$omp enddo
+ !$omp end parallel
 
-  ! End loop over cells in the kd-tree
+ ! End loop over cells in the kd-tree
 
-  ! Do some simple stats on neighbour numbers
+ ! Do some simple stats on neighbour numbers
 
-  meanneigh = 0.0
-  sdneigh = 0.0
-  neighcrit = 0.0
+ meanneigh = 0.0
+ sdneigh = 0.0
+ neighcrit = 0.0
 
-  call neighbours_stats(npart)
+ call neighbours_stats(npart)
 
-  !**************************************
-  ! 3. Output neighbour lists to file
-  !**************************************
+ !**************************************
+ ! 3. Output neighbour lists to file
+ !**************************************
 
-  neighbourfile = 'neigh_'//TRIM(dumpfile)
-  call write_neighbours(neighbourfile, npart)
+ neighbourfile = 'neigh_'//TRIM(dumpfile)
+ call write_neighbours(neighbourfile, npart)
 
-  print*, 'Neighbour finding complete for file ', TRIM(dumpfile)
-  deallocate(dumxyzh)
+ print*, 'Neighbour finding complete for file ', TRIM(dumpfile)
+ deallocate(dumxyzh)
 end subroutine generate_neighbour_lists
 
 
@@ -755,22 +755,22 @@ end subroutine generate_neighbour_lists
 !--------------------------------------------------------------------
 subroutine neighbours_stats(npart)
 
-  implicit none
-  integer, intent(in) :: npart
-  integer :: ipart
+ implicit none
+ integer, intent(in) :: npart
+ integer :: ipart
 
-  real :: minimum, maximum
+ real :: minimum, maximum
 
  ! Calculate mean and standard deviation of neighbour counts
 
-  maximum = maxval(neighcount)
-  minimum = minval(neighcount)
-  print*, 'The maximum neighbour count is ', maximum
-  print*, 'The minimum neighbour count is ', minimum
+ maximum = maxval(neighcount)
+ minimum = minval(neighcount)
+ print*, 'The maximum neighbour count is ', maximum
+ print*, 'The minimum neighbour count is ', minimum
 
-  if(maximum > neighmax) then
-     print*, 'WARNING! Neighbour count too large for allocated arrays'
-  endif
+ if(maximum > neighmax) then
+    print*, 'WARNING! Neighbour count too large for allocated arrays'
+ endif
 
  meanneigh = sum(neighcount)/REAL(npart)
  sdneigh = 0.0
@@ -781,7 +781,7 @@ subroutine neighbours_stats(npart)
 !$omp reduction(+:sdneigh)
 !$omp do schedule(runtime)
  do ipart=1,npart
-     sdneigh = sdneigh+(neighcount(ipart)-meanneigh)**2
+    sdneigh = sdneigh+(neighcount(ipart)-meanneigh)**2
  enddo
  !$omp enddo
  !$omp end parallel
@@ -804,44 +804,44 @@ end subroutine neighbours_stats
 !---------------------------------------
 subroutine read_neighbours(neighbourfile,npart)
 
-  implicit none
+ implicit none
 
-  integer, intent(in) :: npart
-  character(100), intent(in) ::neighbourfile
+ integer, intent(in) :: npart
+ character(100), intent(in) ::neighbourfile
 
-  integer :: i,j,neighcheck, tolcheck
+ integer :: i,j,neighcheck, tolcheck
 
-  neigh_overload = .false.
+ neigh_overload = .false.
 
-  allocate(neighcount(npart))
-  allocate(neighb(npart,neighmax))
-  neighcount(:) = 0
-  neighb(:,:) = 0
+ allocate(neighcount(npart))
+ allocate(neighb(npart,neighmax))
+ neighcount(:) = 0
+ neighb(:,:) = 0
 
-  print*, 'Reading neighbour file ', TRIM(neighbourfile)
+ print*, 'Reading neighbour file ', TRIM(neighbourfile)
 
-  open(2, file= neighbourfile,  form = 'UNFORMATTED')
+ open(2, file= neighbourfile,  form = 'UNFORMATTED')
 
-  read(2)  neighcheck, tolcheck, meanneigh,sdneigh,neighcrit
+ read(2)  neighcheck, tolcheck, meanneigh,sdneigh,neighcrit
 
-  if(neighcheck/=neighmax) print*, 'WARNING: mismatch in neighmax: ', neighmax, neighcheck
+ if(neighcheck/=neighmax) print*, 'WARNING: mismatch in neighmax: ', neighmax, neighcheck
 
-  read(2) (neighcount(i), i=1,npart)
-  do i=1,npart
+ read(2) (neighcount(i), i=1,npart)
+ do i=1,npart
 
-       if(neighcount(i) > neighmax) then
-          neigh_overload = .true.
-        read(2) (neighb(i,j), j=1,neighmax)
-     else
-        read(2) (neighb(i,j), j=1,neighcount(i))
-     endif
+    if(neighcount(i) > neighmax) then
+       neigh_overload = .true.
+       read(2) (neighb(i,j), j=1,neighmax)
+    else
+       read(2) (neighb(i,j), j=1,neighcount(i))
+    endif
 
-  enddo
-  close(2)
+ enddo
+ close(2)
 
-  call neighbours_stats(npart)
+ call neighbours_stats(npart)
 
-   if(neigh_overload) then
+ if(neigh_overload) then
     print*, 'WARNING! File Read incomplete: neighbour count exceeds array size'
  else
     print*, 'File Read Complete'
@@ -858,35 +858,35 @@ end subroutine read_neighbours
 !--------------------------------------------------------------------
 subroutine write_neighbours(neighbourfile,npart)
 
-  implicit none
+ implicit none
 
-  integer, intent(in) :: npart
+ integer, intent(in) :: npart
 
-  integer :: i,j
-  character(100)::neighbourfile
-  ! This is a dummy parameter, used to keep file format similar to other codes
-  ! (Will probably delete this later)
+ integer :: i,j
+ character(100)::neighbourfile
+ ! This is a dummy parameter, used to keep file format similar to other codes
+ ! (Will probably delete this later)
 
-  real, parameter :: tolerance = 2.0e0
+ real, parameter :: tolerance = 2.0e0
 
-  neigh_overload = .false.
+ neigh_overload = .false.
 
-  neighbourfile = TRIM(neighbourfile)
+ neighbourfile = TRIM(neighbourfile)
 
-  print*, 'Writing neighbours to file ', neighbourfile
+ print*, 'Writing neighbours to file ', neighbourfile
 
-  OPEN (2, file=neighbourfile, form='unformatted')
+ OPEN (2, file=neighbourfile, form='unformatted')
 
-  write(2)  neighmax, tolerance, meanneigh,sdneigh,neighcrit
-  write(2) (neighcount(i), i=1,npart)
-  do i=1,npart
-     if(neighcount(i) > neighmax) then
-        neigh_overload = .true.
-        write(2) (neighb(i,j), j=1,neighmax)
-     else
-        write(2) (neighb(i,j), j=1,neighcount(i))
-     endif
-  enddo
+ write(2)  neighmax, tolerance, meanneigh,sdneigh,neighcrit
+ write(2) (neighcount(i), i=1,npart)
+ do i=1,npart
+    if(neighcount(i) > neighmax) then
+       neigh_overload = .true.
+       write(2) (neighb(i,j), j=1,neighmax)
+    else
+       write(2) (neighb(i,j), j=1,neighcount(i))
+    endif
+ enddo
 
  close(2)
 

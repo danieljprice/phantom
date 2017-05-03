@@ -36,24 +36,24 @@ module dtypekdtree
  public :: get_mpitype_of_kdnode
 #endif
  type kdnode
-  sequence
-  real :: xcen(ndimtree)
-  real :: size
-  real :: hmax
-  integer :: leftchild
-  integer :: rightchild
-  integer :: parent
+    sequence
+    real :: xcen(ndimtree)
+    real :: size
+    real :: hmax
+    integer :: leftchild
+    integer :: rightchild
+    integer :: parent
 #ifdef GRAVITY
-  real :: mass
-  real :: quads(6)
+    real :: mass
+    real :: quads(6)
 #endif
 #ifdef TREEVIZ
-  real :: xmin(ndimtree)
-  real :: xmax(ndimtree)
+    real :: xmin(ndimtree)
+    real :: xmax(ndimtree)
 #endif
  end type
 
- contains
+contains
 
 !----------------------------------------------------------------
 !+

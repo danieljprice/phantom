@@ -66,7 +66,7 @@ module mpiutils
 !--generic interface send_recv
 !
  interface send_recv
-   module procedure send_recv_arr2, send_recv_arr2_r4, send_recv_arr1_r4, &
+  module procedure send_recv_arr2, send_recv_arr2_r4, send_recv_arr1_r4, &
                     send_recv_int, send_recv_arr1_int1, send_recv_arr2_buf, &
                     send_recv_arr1_buf_r4
  end interface
@@ -81,39 +81,39 @@ module mpiutils
 !--generic interface reduce_mpi
 !
  interface reduce_mpi
-    module procedure reduce_mpi_real, reduce_mpi_real4, reduce_mpi_int, reduce_mpi_int8, &
+  module procedure reduce_mpi_real, reduce_mpi_real4, reduce_mpi_int, reduce_mpi_int8, &
                      reduce_mpi_int_arr, reduce_mpi_int8_arr, reduce_mpi_real4arr, reduce_mpi_real8arr
  end interface
 !
 !--generic interface reduceall_mpi
 !
  interface reduceall_mpi
-    module procedure reduceall_mpi_real, reduceall_mpi_real4, reduceall_mpi_int, reduceall_mpi_int8, reduceall_mpi_int1, &
+  module procedure reduceall_mpi_real, reduceall_mpi_real4, reduceall_mpi_int, reduceall_mpi_int8, reduceall_mpi_int1, &
                      reduceall_mpi_realarr, reduceall_mpi_real4arr, reduceall_mpi_int4arr
  end interface
 !
 !  generic interface reduce_in_place
 !
  interface reduce_in_place_mpi
-    module procedure reduce_in_place_mpi_real8arr2, reduce_in_place_mpi_real4arr2
+  module procedure reduce_in_place_mpi_real8arr2, reduce_in_place_mpi_real4arr2
  end interface
 !
 !--generic interface bcast_mpi
 !
  interface bcast_mpi
-    module procedure bcast_mpi_int, bcast_mpi_int8, bcast_mpi_real4, bcast_mpi_real8
+  module procedure bcast_mpi_int, bcast_mpi_int8, bcast_mpi_real4, bcast_mpi_real8
  end interface
 !
 !--generic interface fill_buffer
 !
  interface fill_buffer
-    module procedure fill_buffer_r8,fill_buffer_r4,fill_buffer_r8val,fill_buffer_r4val,fill_buffer_ival
+  module procedure fill_buffer_r8,fill_buffer_r4,fill_buffer_r8val,fill_buffer_r4val,fill_buffer_ival
  end interface
 !
 !--generic interface unfill_buf
 !
  interface unfill_buf
-    module procedure unfill_bufarr,unfill_buf1
+  module procedure unfill_bufarr,unfill_buf1
  end interface
 
  public :: init_mpi, finalise_mpi
@@ -959,7 +959,7 @@ subroutine send_recv_arr2_r4(xarr,listpart,isendto,irecvfrom,itag,ioffset,nrecv)
     CALL MPI_TYPE_INDEXED(size(listpart),lblocklengths,listpart,itypearr,isendtype,mpierr)
     CALL MPI_TYPE_COMMIT(isendtype,mpierr)
 
-   ! print*,id,' sending  x= ',xarr(:,listpart(1)+1),listpart(1)+1,' to   ',isendto
+    ! print*,id,' sending  x= ',xarr(:,listpart(1)+1),listpart(1)+1,' to   ',isendto
 
     CALL MPI_SENDRECV(xarr,1,isendtype,isendto,itag,xarr(1,ioffset),nrecv,itypearr,irecvfrom,&
                       itag,MPI_COMM_WORLD,status,mpierr)
@@ -999,7 +999,7 @@ subroutine send_recv_arr1_r4(xarr,listpart,isendto,irecvfrom,itag,ioffset,nrecv)
     CALL MPI_TYPE_INDEXED(size(listpart),lblocklengths,listpart,MPI_REAL4,isendtype,mpierr)
     CALL MPI_TYPE_COMMIT(isendtype,mpierr)
 
-   ! print*,id,' sending  x= ',xarr(listpart(1)+1),listpart(1)+1,' to   ',isendto
+    ! print*,id,' sending  x= ',xarr(listpart(1)+1),listpart(1)+1,' to   ',isendto
 
     CALL MPI_SENDRECV(xarr,1,isendtype,isendto,itag,xarr(ioffset),nrecv,MPI_REAL4,irecvfrom,&
                       itag,MPI_COMM_WORLD,status,mpierr)
@@ -1037,7 +1037,7 @@ subroutine send_recv_arr1_int1(iarr,listpart,isendto,irecvfrom,itag,ioffset,nrec
     CALL MPI_TYPE_INDEXED(size(listpart),lblocklengths,listpart,MPI_INTEGER1,isendtype,mpierr)
     CALL MPI_TYPE_COMMIT(isendtype,mpierr)
 
-   ! print*,id,' sending  x= ',xarr(listpart(1)+1),listpart(1)+1,' to   ',isendto
+    ! print*,id,' sending  x= ',xarr(listpart(1)+1),listpart(1)+1,' to   ',isendto
 
     CALL MPI_SENDRECV(iarr,1,isendtype,isendto,itag,iarr(ioffset),nrecv,MPI_INTEGER1,irecvfrom,&
                       itag,MPI_COMM_WORLD,status,mpierr)

@@ -63,41 +63,41 @@ program ekin
  overk: do k=1,nk
     Kdragin= 10**(-3. + (k-1)*dk)
 
-   write(filename,"(f10.3)") Kdragin
-   filename = 'dustywave-dgr'//trim(adjustl(string))//'-K'//trim(adjustl(filename))//'.out'
+    write(filename,"(f10.3)") Kdragin
+    filename = 'dustywave-dgr'//trim(adjustl(string))//'-K'//trim(adjustl(filename))//'.out'
 
- open(unit=1,file=trim(filename),status='replace',form='formatted')
- do i=1,npts
-    time = tmin + (i-1)*dt
-    call exact_dustywave(time,ampl,cs,Kdragin,lambda,x0,ymean_gas,ymean_dust,xplot,vgas,vdust,rhogas,rhodust,ierr)
-    ekingas = 0.
-    ekingasm = 0.
-    ekindustm = 0.
-    ekindust = 0.
-    eint = 0.
-    rhomax = -1.
-    do j=1,nx
-       vxi = vgas(j)
-       vdxi = vdust(j)
-       rhoi = rhogas(j)
-       rhodi = rhodust(j)
-       ekingas = ekingas + rhoi*vxi*vxi*dx
-       ekindust = ekindust + rhodi*vdxi*vdxi*dx
-       !pri = cs**2*rhoi/gam
-       !ui  = pri/((gam-1.)*rhoi)
-       !eint = eint + rhoi*ui
-       rhomax = max(rhoi,rhomax)
-    enddo
-    ekintot = 0.5*(ekingas + ekindust)
+    open(unit=1,file=trim(filename),status='replace',form='formatted')
+    do i=1,npts
+       time = tmin + (i-1)*dt
+       call exact_dustywave(time,ampl,cs,Kdragin,lambda,x0,ymean_gas,ymean_dust,xplot,vgas,vdust,rhogas,rhodust,ierr)
+       ekingas = 0.
+       ekingasm = 0.
+       ekindustm = 0.
+       ekindust = 0.
+       eint = 0.
+       rhomax = -1.
+       do j=1,nx
+          vxi = vgas(j)
+          vdxi = vdust(j)
+          rhoi = rhogas(j)
+          rhodi = rhodust(j)
+          ekingas = ekingas + rhoi*vxi*vxi*dx
+          ekindust = ekindust + rhodi*vdxi*vdxi*dx
+          !pri = cs**2*rhoi/gam
+          !ui  = pri/((gam-1.)*rhoi)
+          !eint = eint + rhoi*ui
+          rhomax = max(rhoi,rhomax)
+       enddo
+       ekintot = 0.5*(ekingas + ekindust)
 !    eint = eint/real(npts)
-    eint = 1.5
-    etot = ekintot + eint
+       eint = 1.5
+       etot = ekintot + eint
 
-    if (abs(ekintot) < 1.e-3 .and. ekintot /= 0.) then
-    write(1,*) time,ekintot,eint,0.,0.,etot,0.,0.,rhomax
-    endif
- enddo
- close(1)
+       if (abs(ekintot) < 1.e-3 .and. ekintot /= 0.) then
+          write(1,*) time,ekintot,eint,0.,0.,etot,0.,0.,rhomax
+       endif
+    enddo
+    close(1)
 
  enddo overk
 

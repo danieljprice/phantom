@@ -224,7 +224,7 @@ module part
 !--generic interfaces for routines
 !
  interface hrho
-    module procedure hrho4,hrho8,hrho4_pmass,hrho8_pmass,hrhomixed_pmass
+  module procedure hrho4,hrho8,hrho4_pmass,hrho8_pmass,hrhomixed_pmass
  end interface hrho
 
  private :: hrho4,hrho8,hrho4_pmass,hrho8_pmass,hrhomixed_pmass
@@ -238,18 +238,18 @@ contains
 !+
 !----------------------------------------------------------------
 real function get_pmass(i,use_gas)
-  integer, intent(in) :: i
-  logical, intent(in) :: use_gas
+ integer, intent(in) :: i
+ logical, intent(in) :: use_gas
 
-  if (use_gas) then
+ if (use_gas) then
     get_pmass = massoftype(igas)
-  else
+ else
     if (iphase(i) /= 0) then
        get_pmass = massoftype(iamtype(iphase(i)))
     else
        get_pmass = massoftype(igas)
     endif
-  endif
+ endif
 
 end function get_pmass
 !
@@ -515,9 +515,9 @@ pure logical function is_accretable(itype)
  integer, intent(in)  :: itype
 
  if (itype==igas .or. itype==idust) then
-   is_accretable = .true.
+    is_accretable = .true.
  else
-   is_accretable = .false.
+    is_accretable = .false.
  endif
 
 end function is_accretable
@@ -921,20 +921,20 @@ end subroutine copy_arrayint1
 !+
 !----------------------------------------------------------------
 subroutine delete_particles_outside_box(xmin, xmax, ymin, ymax, zmin, zmax)
-  real, intent(in) :: xmin, xmax, ymin, ymax, zmin, zmax
+ real, intent(in) :: xmin, xmax, ymin, ymax, zmin, zmax
 
-  integer :: i
-  real :: x, y, z, h
+ integer :: i
+ real :: x, y, z, h
 
-  do i=1,npart
+ do i=1,npart
     x = xyzh(1,i)
     y = xyzh(2,i)
     z = xyzh(3,i)
     h = xyzh(4,i)
     if (x  <  xmin .or. x  >  xmax .or. y  <  ymin .or. y  >  ymax .or. z  <  zmin .or. z  >  zmax) then
-      xyzh(4,i) = -abs(h)
+       xyzh(4,i) = -abs(h)
     endif
-  enddo
+ enddo
 end subroutine
 
 !----------------------------------------------------------------
@@ -943,18 +943,18 @@ end subroutine
 !+
 !----------------------------------------------------------------
 subroutine delete_particles_outside_sphere(center, radius)
-  real, intent(in) :: center(3), radius
+ real, intent(in) :: center(3), radius
 
-  integer :: i
-  real :: r(3), radius_squared
+ integer :: i
+ real :: r(3), radius_squared
 
-  radius_squared = radius**2
-  do i=1,npart
+ radius_squared = radius**2
+ do i=1,npart
     r = xyzh(1:3,i) - center
     if (dot_product(r,r)  >  radius_squared) then
-     xyzh(4,i) = -abs(xyzh(4,i))
+       xyzh(4,i) = -abs(xyzh(4,i))
     endif
-  enddo
+ enddo
 end subroutine
 
 !----------------------------------------------------------------
@@ -963,12 +963,12 @@ end subroutine
 !+
 !----------------------------------------------------------------
 subroutine delete_particles_outside_cylinder(center, radius, zmax)
-  real, intent(in) :: center(3), radius, zmax
+ real, intent(in) :: center(3), radius, zmax
 
-  integer :: i
-  real :: x, y, z, rcil
+ integer :: i
+ real :: x, y, z, rcil
 
-  do i=1,npart
+ do i=1,npart
     x = xyzh(1,i)
     y = xyzh(2,i)
     z = xyzh(3,i)
@@ -977,7 +977,7 @@ subroutine delete_particles_outside_cylinder(center, radius, zmax)
     if (rcil>radius .or. abs(z)>zmax) then
        call kill_particle(i)
     endif
-  enddo
+ enddo
 end subroutine
 
 !----------------------------------------------------------------
@@ -986,13 +986,13 @@ end subroutine
 !+
 !----------------------------------------------------------------
 subroutine delete_particles_inside_radius(center,radius,npart,npartoftype)
-  real, intent(in) :: center(3), radius
-  integer, intent(inout) :: npart,npartoftype(:)
+ real, intent(in) :: center(3), radius
+ integer, intent(inout) :: npart,npartoftype(:)
 
-  integer :: i,itype
-  real :: x,y,z,rcil
+ integer :: i,itype
+ real :: x,y,z,rcil
 
-  do i=1,npart
+ do i=1,npart
     x = xyzh(1,i)
     y = xyzh(2,i)
     z = xyzh(3,i)
@@ -1007,10 +1007,10 @@ subroutine delete_particles_inside_radius(center,radius,npart,npartoftype)
        npartoftype(itype) = npartoftype(itype) - 1
        call kill_particle(i)
     endif
-  enddo
-  call shuffle_part(npart)
+ enddo
+ call shuffle_part(npart)
 
-  return
+ return
 end subroutine
 
 end module part

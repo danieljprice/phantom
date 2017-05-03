@@ -41,11 +41,11 @@ contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
-use dim, only: maxp, maxneigh
-use kernel, only: radkern2
-use linklist, only: ncells, ifirstincell, set_linklist, get_neighbour_list
-use part, only: get_partinfo, igas, iboundary,maxphase, ll, iphase
-implicit none
+ use dim, only: maxp, maxneigh
+ use kernel, only: radkern2
+ use linklist, only: ncells, ifirstincell, set_linklist, get_neighbour_list
+ use part, only: get_partinfo, igas, iboundary,maxphase, ll, iphase
+ implicit none
 
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
@@ -232,22 +232,22 @@ end subroutine do_analysis
 !--------------------------------------------------------------------
 subroutine neighbours_stats(npart)
 
-  implicit none
-  integer, intent(in) :: npart
-  integer :: ipart
+ implicit none
+ integer, intent(in) :: npart
+ integer :: ipart
 
-  real :: minimum, maximum
+ real :: minimum, maximum
 
  ! Calculate mean and standard deviation of neighbour counts
 
-  maximum = maxval(neighcount)
-  minimum = minval(neighcount)
-  print*, 'The maximum neighbour count is ', maximum
-  print*, 'The minimum neighbour count is ', minimum
+ maximum = maxval(neighcount)
+ minimum = minval(neighcount)
+ print*, 'The maximum neighbour count is ', maximum
+ print*, 'The minimum neighbour count is ', minimum
 
-  if(maximum > neighmax) then
-     print*, 'WARNING! Neighbour count too large for allocated arrays'
-  endif
+ if(maximum > neighmax) then
+    print*, 'WARNING! Neighbour count too large for allocated arrays'
+ endif
 
  meanneigh = sum(neighcount)/REAL(npart)
  sdneigh = 0.0
@@ -258,7 +258,7 @@ subroutine neighbours_stats(npart)
 !$omp reduction(+:sdneigh)
 !$omp do schedule(runtime)
  do ipart=1,npart
-     sdneigh = sdneigh+(neighcount(ipart)-meanneigh)**2
+    sdneigh = sdneigh+(neighcount(ipart)-meanneigh)**2
  enddo
  !$omp enddo
  !$omp end parallel
@@ -282,36 +282,36 @@ end subroutine neighbours_stats
 !--------------------------------------------------------------------
 subroutine write_neighbours(neighbourfile,npart)
 
-  implicit none
+ implicit none
 
-  integer, intent(in) :: npart
+ integer, intent(in) :: npart
 
-  integer :: i,j
-  character(100)::neighbourfile
-  ! This is a dummy parameter, used to keep file format similar to other codes
-  ! (Will probably delete this later)
+ integer :: i,j
+ character(100)::neighbourfile
+ ! This is a dummy parameter, used to keep file format similar to other codes
+ ! (Will probably delete this later)
 
-  real, parameter :: tolerance = 2.0e0
-  logical :: neigh_overload
+ real, parameter :: tolerance = 2.0e0
+ logical :: neigh_overload
 
-  neigh_overload = .false.
+ neigh_overload = .false.
 
-  neighbourfile = TRIM(neighbourfile)
+ neighbourfile = TRIM(neighbourfile)
 
-  print*, 'Writing neighbours to file ', neighbourfile
+ print*, 'Writing neighbours to file ', neighbourfile
 
-  OPEN (2, file=neighbourfile, form='unformatted')
+ OPEN (2, file=neighbourfile, form='unformatted')
 
-  write(2)  neighmax, tolerance, meanneigh,sdneigh,neighcrit
-  write(2) (neighcount(i), i=1,npart)
-  do i=1,npart
-     if(neighcount(i) > neighmax) then
-        neigh_overload = .true.
-        write(2) (neighb(i,j), j=1,neighmax)
-     else
-        write(2) (neighb(i,j), j=1,neighcount(i))
-     endif
-  enddo
+ write(2)  neighmax, tolerance, meanneigh,sdneigh,neighcrit
+ write(2) (neighcount(i), i=1,npart)
+ do i=1,npart
+    if(neighcount(i) > neighmax) then
+       neigh_overload = .true.
+       write(2) (neighb(i,j), j=1,neighmax)
+    else
+       write(2) (neighb(i,j), j=1,neighcount(i))
+    endif
+ enddo
 
  close(2)
 

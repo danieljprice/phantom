@@ -21,8 +21,8 @@
 !+
 !--------------------------------------------------------------------------
 program mflow
-use mf_write, only: nradi,ncolsi
-implicit none
+ use mf_write, only: nradi,ncolsi
+ implicit none
 
  integer ::lu=11,iout=15,nthoutput=313
  integer ::ncols, ndump=0, nrad,inttime,nthcount
@@ -85,70 +85,70 @@ implicit none
     if (ierr /= 0) then
        print "(a)",' ERROR opening '//trim(filename)//' ...skipping'
     else
-      !
-      !--- open output file
-      !
-      imf = index(filename,'.mf') - 1
+       !
+       !--- open output file
+       !
+       imf = index(filename,'.mf') - 1
 
-      if (imf <= 0) imf = len_trim(filename)
-      outfile = trim(filename(1:imf))//'.mflow'
-      print*,trim(filename)//' --> '//trim(outfile)
-      nthfile=trim(filename(1:imf))//'-'//trim(nth)//'.mflow'
+       if (imf <= 0) imf = len_trim(filename)
+       outfile = trim(filename(1:imf))//'.mflow'
+       print*,trim(filename)//' --> '//trim(outfile)
+       nthfile=trim(filename(1:imf))//'-'//trim(nth)//'.mflow'
 
-      if(nthtime) print*,trim(outfile)//'--->'//trim(nthfile)
-      open(unit=iout,file=trim(outfile),status='replace',form='formatted')
+       if(nthtime) print*,trim(outfile)//'--->'//trim(nthfile)
+       open(unit=iout,file=trim(outfile),status='replace',form='formatted')
 
-      ierr=1
-      nlines = 0
-      rad(:)=0
-      dat(:)=0
+       ierr=1
+       nlines = 0
+       rad(:)=0
+       dat(:)=0
 
-      do while(nlines < 4 )
-           nlines = nlines + 1
+       do while(nlines < 4 )
+          nlines = nlines + 1
           read(lu,*)
-      enddo
+       enddo
 
-      read(lu,*,iostat=ierr) rad(1:nrad)
-      write(iout,formatint) intcol(1:(ncols-2))
-      write(iout,formathead)'t','ndump',rad(:)
+       read(lu,*,iostat=ierr) rad(1:nrad)
+       write(iout,formatint) intcol(1:(ncols-2))
+       write(iout,formathead)'t','ndump',rad(:)
 
-      !
-      !---skip header lines
-      !
-      read(lu,*)
-      nlines = nlines + 1
-      read(lu,*,iostat=ierr) dat(1:ncols)
+       !
+       !---skip header lines
+       !
+       read(lu,*)
+       nlines = nlines + 1
+       read(lu,*,iostat=ierr) dat(1:ncols)
 
-      tprev=dat(1)
-      datprev(:)=dat(5:ncols)
+       tprev=dat(1)
+       datprev(:)=dat(5:ncols)
 
-      do while(ierr==0)
+       do while(ierr==0)
 
-         read(lu,*,iostat=ierr) dat(1:ncols)
+          read(lu,*,iostat=ierr) dat(1:ncols)
 
-         datflow(:)=(dat(5:ncols)-datprev(1:nrad))/(dat(1)-tprev)!pmass
+          datflow(:)=(dat(5:ncols)-datprev(1:nrad))/(dat(1)-tprev)!pmass
 
-         datprev(:)=dat(5:ncols)
-         tprev=dat(1)
-         if(ierr==0) write(iout,formatout) dat(1),ndump,datflow
+          datprev(:)=dat(5:ncols)
+          tprev=dat(1)
+          if(ierr==0) write(iout,formatout) dat(1),ndump,datflow
 
-            if(nthtime) then
-               if(ndump==inttime)then
-                  open(unit=nthoutput,file=trim(nthfile),status='replace',form='formatted')
-                  write(nthoutput,"('#',(1x,a17),es18.10)")"time:",dat(1)
-                  do nthcount=1,nrad
-                     write(nthoutput,"(2(1x,es18.10,1x))") rad(nthcount), datflow(nthcount)
-                  enddo
-                  close(nthoutput)
-               endif
-            endif
+          if(nthtime) then
+             if(ndump==inttime)then
+                open(unit=nthoutput,file=trim(nthfile),status='replace',form='formatted')
+                write(nthoutput,"('#',(1x,a17),es18.10)")"time:",dat(1)
+                do nthcount=1,nrad
+                   write(nthoutput,"(2(1x,es18.10,1x))") rad(nthcount), datflow(nthcount)
+                enddo
+                close(nthoutput)
+             endif
+          endif
 
           ndump=ndump+1
-        enddo
-      close(unit=iout)
-      endif
-   close(unit=lu)
+       enddo
+       close(unit=iout)
+    endif
+    close(unit=lu)
 
-enddo over_args
+ enddo over_args
 
 end program mflow

@@ -428,7 +428,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     if (isink > 0) then
        call get_mass_and_radius(npart,ndens,rad2,xyzh(3,:),xyzh(4,:),indx,particlemass,mdisc,rdisc)
     else
-        call get_radius(npart,rdisc,msink,(msink+mdisc)*massfrac,rad2,massoftype(igas),indx)
+       call get_radius(npart,rdisc,msink,(msink+mdisc)*massfrac,rad2,massoftype(igas),indx)
     endif
     !
     ! Call analysis to get the (r,phi,z) components of the B & V fields;  this is for gas only!

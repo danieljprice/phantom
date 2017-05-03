@@ -139,43 +139,43 @@ end function get_sfn_format
 !+
 !----------------------------------------------------------------
 subroutine read_structurefn(infile,xlag,func,maxlag,maxorder,n_lag,n_order,rho_power,iunitr,ierr)
-  character(len=*), intent(in)  :: infile
-  real,             intent(out) :: xlag(:)
-  real(kind=8),     intent(out) :: func(:,:,:)
-  real,             intent(out) :: rho_power
-  integer,          intent(out) :: n_lag,n_order,ierr
-  integer,          intent(in)  :: maxlag,maxorder,iunitr
+ character(len=*), intent(in)  :: infile
+ real,             intent(out) :: xlag(:)
+ real(kind=8),     intent(out) :: func(:,:,:)
+ real,             intent(out) :: rho_power
+ integer,          intent(out) :: n_lag,n_order,ierr
+ integer,          intent(in)  :: maxlag,maxorder,iunitr
 
-  character(len=len(infile)+10)  :: outfile
-  integer :: informat
-  real    :: xlagmax
+ character(len=len(infile)+10)  :: outfile
+ integer :: informat
+ real    :: xlagmax
 
-  ierr = 0
-  informat = get_sfn_format(infile,outfile)
-  select case(informat)
-  case(1)
-     print*,' read from '//trim(labelformat(informat))//' not implemented'
-     ierr = 1
-     return
-  case(2)
-     print*,' read from '//trim(labelformat(informat))//' not implemented'
-     ierr = 2
-     return
-  case(3)
-     call read_sf(trim(infile),xlag,func,maxlag,maxorder,n_lag,n_order,rho_power,iunitr,ierr)
-  case(4)
-     call read_cfstruct(trim(infile),xlag,func,maxlag,maxorder,n_lag,n_order,rho_power,iunitr,ierr)
-     !print*,' lag = ',xlag(1:10)
-     xlagmax = real(int(maxval(xlag(1:n_lag)-0.5)*2.0/sqrt(3.)))
-     if (xlagmax > 2.0) then
-        print*,' converting lag values to actual distances (divide by ',xlagmax,')'
-        xlag(1:n_lag) = xlag(1:n_lag)/xlagmax
-     endif
-  case default
-     print*,' input file format for '//trim(infile)//' not recognised, skipping...'
-     ierr = 3
-     return
-  end select
+ ierr = 0
+ informat = get_sfn_format(infile,outfile)
+ select case(informat)
+ case(1)
+    print*,' read from '//trim(labelformat(informat))//' not implemented'
+    ierr = 1
+    return
+ case(2)
+    print*,' read from '//trim(labelformat(informat))//' not implemented'
+    ierr = 2
+    return
+ case(3)
+    call read_sf(trim(infile),xlag,func,maxlag,maxorder,n_lag,n_order,rho_power,iunitr,ierr)
+ case(4)
+    call read_cfstruct(trim(infile),xlag,func,maxlag,maxorder,n_lag,n_order,rho_power,iunitr,ierr)
+    !print*,' lag = ',xlag(1:10)
+    xlagmax = real(int(maxval(xlag(1:n_lag)-0.5)*2.0/sqrt(3.)))
+    if (xlagmax > 2.0) then
+       print*,' converting lag values to actual distances (divide by ',xlagmax,')'
+       xlag(1:n_lag) = xlag(1:n_lag)/xlagmax
+    endif
+ case default
+    print*,' input file format for '//trim(infile)//' not recognised, skipping...'
+    ierr = 3
+    return
+ end select
 
 end subroutine read_structurefn
 
@@ -205,31 +205,31 @@ subroutine write_structurefn(ioutformat,outfile,n_lag,xlag,n_order,&
 
  select case(ioutformat)
  case(4)
- !
- !--write to Christoph Federrath format ascii files
- !
+    !
+    !--write to Christoph Federrath format ascii files
+    !
     call write_cfstruct(trim(outfile),n_lag,xlag(1:n_lag),n_order,&
                         ncount(1:n_lag),func,rho_power,time,iunit)
  case(3)
- !
- !--write to Aake format .sfn file
- !
+    !
+    !--write to Aake format .sfn file
+    !
     origin = trim(outfile)
     print "(a)",' writing to '//trim(outfile)//'.sfn'
     call openw_sf(trim(outfile)//'.sfn',origin,n_lag,xlag(1:n_lag),n_order,1)
     call write_sf(n_lag,n_order,func,orders(1:n_order),rho_power)
     close(power_unit)
  case(2)
- !
- !--split ascii format (one file per order)
- !
+    !
+    !--split ascii format (one file per order)
+    !
     call write_structfiles_split(trim(outfile),n_lag,xlag(1:n_lag),n_order,func,&
          rho_power,time,iunit)
 
  case default
- !
- !--default _longd.struct and _trans.struct format
- !
+    !
+    !--default _longd.struct and _trans.struct format
+    !
     call write_structfiles(trim(outfile),n_lag,xlag(1:n_lag),n_order,func,&
          rho_power,time,iunit)
  end select
@@ -242,32 +242,32 @@ end subroutine write_structurefn
 !+
 !----------------------------------------------------------------
 subroutine openw_sf (file,origin,n_lag,lag,n_order,n_rho_power)
-  character(len=*),     intent(in) :: file
-  character(len=mfile), intent(in) :: origin
-  integer,              intent(in) :: n_lag,n_order,n_rho_power
-  real,                 intent(in) :: lag(n_lag)
-  namelist /structurefn/n_lag,n_order,n_rho_power,origin
+ character(len=*),     intent(in) :: file
+ character(len=mfile), intent(in) :: origin
+ integer,              intent(in) :: n_lag,n_order,n_rho_power
+ real,                 intent(in) :: lag(n_lag)
+ namelist /structurefn/n_lag,n_order,n_rho_power,origin
 !
-  open (power_unit,file=trim(file),status='unknown',form='formatted')                 ! open unit
-  write (power_unit,structurefn)                                                ! dimensions info
-  write (power_unit,'(1x,8g15.7)') lag                                          ! lag vector
+ open (power_unit,file=trim(file),status='unknown',form='formatted')                 ! open unit
+ write (power_unit,structurefn)                                                ! dimensions info
+ write (power_unit,'(1x,8g15.7)') lag                                          ! lag vector
 end subroutine
 
 subroutine write_sf (n_lag, n_order, f, orders, rho_power)
-  integer,      intent(in) :: n_lag, n_order
-  real,         intent(in) :: rho_power, orders(n_order)
-  real(kind=8), intent(in) :: f(2,n_order,n_lag)
-  integer :: i_order, i_sf
-  real order
-  namelist /sf/ i_order, order, i_sf, rho_power
+ integer,      intent(in) :: n_lag, n_order
+ real,         intent(in) :: rho_power, orders(n_order)
+ real(kind=8), intent(in) :: f(2,n_order,n_lag)
+ integer :: i_order, i_sf
+ real order
+ namelist /sf/ i_order, order, i_sf, rho_power
 !
-  do i_sf = 1,2                                                                 ! make human-readable
-  do i_order = 1,n_order                                                        ! make human-readable
-    order = orders(i_order)
-    write (power_unit,sf)                                                       ! namelist before each fn
-    write (power_unit,'(8g15.7)') f(i_sf,i_order,:)  !f(:,i_order,i_sf)         ! f(lag;order;direction)
-  enddo
-  enddo
+ do i_sf = 1,2                                                                 ! make human-readable
+    do i_order = 1,n_order                                                        ! make human-readable
+       order = orders(i_order)
+       write (power_unit,sf)                                                       ! namelist before each fn
+       write (power_unit,'(8g15.7)') f(i_sf,i_order,:)  !f(:,i_order,i_sf)         ! f(lag;order;direction)
+    enddo
+ enddo
 end subroutine
 !----------------------------------------------------------------
 !+

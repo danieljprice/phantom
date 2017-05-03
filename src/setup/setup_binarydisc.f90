@@ -304,7 +304,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  totmass = 0.
  do i=1,3
-   if (iuse_disc(i)) totmass = totmass + disc_mass(i)
+    if (iuse_disc(i)) totmass = totmass + disc_mass(i)
  enddo
  print*,' total mass of system = ',totmass
 
