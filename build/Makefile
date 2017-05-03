@@ -1080,6 +1080,7 @@ ifeq ($(SYSTEM), monarch)
     CCFLAGS = -O3 -mcmodel=medium
     QSYS = slurm
     QPROJECT='p01'
+    WALLTIME='100:59:59'
 endif
 
 ifeq ($(SYSTEM), monarchpsxe)
