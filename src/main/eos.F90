@@ -478,7 +478,7 @@ subroutine finish_eos(eos_type,ierr)
     call finish_eos_mesa
 
  end select
-
+ done_init_eos=.false.
 end subroutine finish_eos
 
 !-----------------------------------------------------------------------

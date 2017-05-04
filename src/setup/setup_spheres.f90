@@ -349,10 +349,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              ri         = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
              densi      = yinterp(den(1:npts),r(1:npts),ri)
              vxyzu(4,i) = polyk*densi**(gamma-1.)/(gamma-1.)
-             if (isphere==ired) then
-                vxyzu(4,i) = yinterp(enitab,r(1:npts),ri)
+             if ((isphere==ired) .and. (ieos==10)) then
+                vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)
                 presi = yinterp(pres(1:npts),r(1:npts),ri)
-                !vxyzu(4,i) = presi / ((gamma - 1.) * densi)
+             else if ((isphere==ired) .and. (ieos/=10)) then
+                presi = yinterp(pres(1:npts),r(1:npts),ri)
+                vxyzu(4,i) = presi / ((gamma - 1.) * densi)
              endif
           endif
        endif

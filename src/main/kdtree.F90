@@ -85,7 +85,7 @@ contains
 !  -implement revtree routine to update tree w/out rebuilding (done - Sep 2015)
 !+
 !-------------------------------------------------------------------------------
-subroutine maketree(node, xyzh, vxyzu, np, ndim, ifirstincell, ncells, globallevel, cellatid, maxlevel_out)
+subroutine maketree(node, xyzh, vxyzu, np, ndim, ifirstincell, ncells, refinelevels)
  use io,   only:fatal,warning,iprint,iverbose,id
 !$ use omp_lib
  type(kdnode),    intent(out)   :: node(ncellsmax+1)
@@ -94,9 +94,7 @@ subroutine maketree(node, xyzh, vxyzu, np, ndim, ifirstincell, ncells, globallev
  real,            intent(in)    :: vxyzu(:,:)
  integer,         intent(out)   :: ifirstincell(ncellsmax+1)
  integer(kind=8), intent(out)   :: ncells
- integer, optional, intent(in)  :: globallevel
- integer, optional, intent(out) :: cellatid(ncellsmax+1)
- integer, optional, intent(out) :: maxlevel_out
+ integer, optional, intent(out)  :: refinelevels
 
  integer :: i,npnode,il,ir,istack,nl,nr,mymum
  integer :: nnode,minlevel,level
@@ -110,10 +108,6 @@ subroutine maketree(node, xyzh, vxyzu, np, ndim, ifirstincell, ncells, globallev
  integer :: npcounter
  logical :: wassplit,finished
  character(len=10) :: string
-
- if (present(globallevel)) then
-    cellatid = 0
- endif
 
  irootnode = 1
  ifirstincell = 0
@@ -194,9 +188,8 @@ subroutine maketree(node, xyzh, vxyzu, np, ndim, ifirstincell, ncells, globallev
        call push_onto_stack(queue(istack),il,nnode,level+1,nl,xminl,xmaxl,ndim)
        istack = istack + 1
        call push_onto_stack(queue(istack),ir,nnode,level+1,nr,xminr,xmaxr,ndim)
-    elseif (present(globallevel)) then
-       cellatid(nnode) = id + 1
     endif
+
  enddo over_queue
 
  ! fix the indices
@@ -213,8 +206,6 @@ subroutine maketree(node, xyzh, vxyzu, np, ndim, ifirstincell, ncells, globallev
 !$omp shared(np, ndim) &
 !$omp shared(node, ncells) &
 !$omp shared(numthreads) &
-!$omp shared(globallevel) &
-!$omp shared(cellatid) &
 !$omp shared(id) &
 !$omp private(istack) &
 !$omp private(nnode, mymum, level, npnode, xmini, xmaxi) &
@@ -248,8 +239,6 @@ subroutine maketree(node, xyzh, vxyzu, np, ndim, ifirstincell, ncells, globallev
              call push_onto_stack(stack(istack),il,nnode,level+1,nl,xminl,xmaxl,ndim)
              istack = istack + 1
              call push_onto_stack(stack(istack),ir,nnode,level+1,nr,xminr,xmaxr,ndim)
-          elseif (present(globallevel)) then
-             cellatid(nnode) = id + 1
           endif
 
        enddo over_stack
@@ -269,12 +258,12 @@ subroutine maketree(node, xyzh, vxyzu, np, ndim, ifirstincell, ncells, globallev
                'NCELLSMAX='//trim(adjustl(string))//'*maxp,',ival=maxlevel_indexed)
  endif
 
+ if (present(refinelevels)) refinelevels = minlevel
+
  if (iverbose >= 2) then
     write(iprint,"(a,i10,3(a,i2))") ' maketree: nodes = ',ncells,', max level = ',maxlevel,&
        ', min leaf level = ',minlevel,' max level indexed = ',maxlevel_indexed
  endif
-
- if (present(maxlevel_out)) maxlevel_out = maxlevel
 
 end subroutine maketree
 
@@ -1373,7 +1362,7 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
  use balance,      only:balancedomains
  use mpiderivs,    only:tree_sync,tree_bcast,cellatid_sync
 
- logical, parameter :: refine_tree = .false.
+ logical, parameter :: refine_tree = .true.
 
  type(kdnode), intent(out)     :: nodeglobal(ncellsmax+1)
  integer,      intent(inout)   :: np
@@ -1381,7 +1370,6 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
  real,         intent(inout)   :: xyzh(4,maxp)
  real,         intent(in)      :: vxyzu(:,:)
  integer,      intent(out)     :: cellatid(ncellsmax+1)
- integer                       :: cellatidloc(ncellsmax+1)
  integer                       :: ifirstincell(ncellsmax+1)
  real                          :: xmini(ndim),xmaxi(ndim)
  real                          :: xminl(ndim),xmaxl(ndim)
@@ -1400,7 +1388,7 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
  integer                       :: nl, nr
  integer                       :: il, ir, iself, parent
  integer                       :: level, ipart
- integer                       :: nnodestart, nnodeend
+ integer                       :: nnodestart, nnodeend,locstart,locend
  integer                       :: npcounter
 
  integer                       :: i, k, offset, roffset, roffset_prev, coffset, refinelevels
@@ -1499,49 +1487,53 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
 
  enddo levels
 
- ! cellatid is zero by default
- cellatid = 0
-
  if (refine_tree) then
     ! tree refinement
-    call maketree(refinementnode,xyzh,vxyzu,np,ndim,ifirstincell,ncells,globallevel,cellatidloc,refinelevels)
-    refinelevels = int(reduceall_mpi('max',refinelevels),kind=kind(refinelevels))
-
+    call maketree(refinementnode,xyzh,vxyzu,np,ndim,ifirstincell,ncells,refinelevels)
+    refinelevels = int(reduceall_mpi('min',refinelevels),kind=kind(refinelevels))
     roffset_prev = 1
 
     do i = 1,refinelevels
-       !  if (id == 0) print*,'fixing refinement level', i
        offset = 2**(globallevel + i)
        roffset = 2**i
 
        nnodestart = offset
-       nnodeend = 2*nnodestart - 1
+       nnodeend   = 2*nnodestart-1
+
+       locstart   = roffset
+       locend     = 2*locstart-1
 
        ! index shift the node to the global level
        do k = roffset,2*roffset-1
           coffset = refinementnode(k)%parent - roffset_prev
+
           refinementnode(k)%parent = 2**(globallevel + i - 1) + id * roffset_prev + coffset
 
-          if (refinementnode(k)%leftchild /= 0) then ! both children would be zero though
+          if (i /= refinelevels) then
              refinementnode(k)%leftchild  = 2**(globallevel + i + 1) + 2*id*roffset + 2*(k - roffset)
              refinementnode(k)%rightchild = refinementnode(k)%leftchild + 1
+          else
+             refinementnode(k)%leftchild = 0
+             refinementnode(k)%rightchild = 0
           endif
        enddo
 
        roffset_prev = roffset
 
-       call cellatid_sync(cellatidloc(roffset:2*roffset-1),roffset,cellatid(nnodestart:nnodeend),id,1,nprocs)
-       call tree_sync(refinementnode(roffset:2*roffset-1),roffset,nodeglobal(nnodestart:nnodeend),id,1,nprocs)
+       call tree_sync(refinementnode(locstart:locend),roffset,nodeglobal(nnodestart:nnodeend),id,1,nprocs)
     enddo
- else
-    do i = 1,nprocs
-       offset = 2**globallevel - 1
-       cellatid(offset + i) = i
-    enddo
-    refinelevels = 0
  endif
+ ! cellatid is zero by default
+ cellatid = 0
+ do i = 1,nprocs
+    offset = 2**(globallevel + refinelevels)
+    roffset = 2**(refinelevels)
+    do k = 1,roffset
+       cellatid(offset + (i - 1) * roffset + (k - 1)) = i
+    enddo
+ enddo
 
- ncells = 2 ** (globallevel + refinelevels + 1) - 1
+ ncells = 2**(globallevel + refinelevels + 1) - 1
 
 end subroutine maketreeglobal
 

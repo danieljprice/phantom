@@ -647,7 +647,7 @@ ifeq ($(SETUP),star)
     MODFILE= moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} kdtree.o linklist_kdtree.o utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
     KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
+    IND_TIMESTEPS=no
     MAXP=10000000
     MHD=no
 endif
@@ -1340,6 +1340,9 @@ ifdef MAXNEIGH
 endif
 ifdef NCELLSMAX
    FPPFLAGS += -DNCELLSMAX=${NCELLSMAX}
+endif
+ifdef STACKSIZE
+   FPPFLAGS += -DSTACKSIZE=${STACKSIZE}
 endif
 # Set other optional flags depending on settings
 
