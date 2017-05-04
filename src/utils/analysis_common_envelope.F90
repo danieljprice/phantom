@@ -924,60 +924,60 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
 
 
  case(8)
-   totvol = 0
-   densvol = 0
-   if (dump_number == 0) then
-      surfacedensity = rhoh(xyzh(4,1), particlemass)
-      do i=1,npart
-         rhopart = rhoh(xyzh(4,i), particlemass)
-         if (rhopart < surfacedensity) then
-            surfacedensity = rhopart
-         endif
-      enddo
-   endif
+    totvol = 0
+    densvol = 0
+    if (dump_number == 0) then
+       surfacedensity = rhoh(xyzh(4,1), particlemass)
+       do i=1,npart
+          rhopart = rhoh(xyzh(4,i), particlemass)
+          if (rhopart < surfacedensity) then
+             surfacedensity = rhopart
+          endif
+       enddo
+    endif
 
-   do i=1,npart
-      rhopart = rhoh(xyzh(4,i), particlemass)
-      totvol = totvol + particlemass / rhopart
-      if (rhopart > surfacedensity) then
-         densvol = densvol + particlemass / rhopart
-      endif
-   enddo
+    do i=1,npart
+       rhopart = rhoh(xyzh(4,i), particlemass)
+       totvol = totvol + particlemass / rhopart
+       if (rhopart > surfacedensity) then
+          densvol = densvol + particlemass / rhopart
+       endif
+    enddo
 
-   star_stabilisation_params(ivoleqrad) = (3. * totvol/(4. * pi))**(1./3.)
-   star_stabilisation_params(idensrad)  = (3. * densvol/(4. * pi))**(1./3.)
+    star_stabilisation_params(ivoleqrad) = (3. * totvol/(4. * pi))**(1./3.)
+    star_stabilisation_params(idensrad)  = (3. * densvol/(4. * pi))**(1./3.)
 
-   if (dump_number == 0) then
-      init_radius = star_stabilisation_params(ivoleqrad)
-   endif
+    if (dump_number == 0) then
+       init_radius = star_stabilisation_params(ivoleqrad)
+    endif
 
-   star_stabilisation_params(imassout) = 0.
-   total_mass = xyzmh_ptmass(4,1)
-   do i=1,npart
-      r_sink_part = sqrt((xyzmh_ptmass(1,1) - xyzh(1,i))**2.0 + &
+    star_stabilisation_params(imassout) = 0.
+    total_mass = xyzmh_ptmass(4,1)
+    do i=1,npart
+       r_sink_part = sqrt((xyzmh_ptmass(1,1) - xyzh(1,i))**2.0 + &
                          (xyzmh_ptmass(2,1) - xyzh(2,i))**2.0 + &
                          (xyzmh_ptmass(3,1) - xyzh(3,i))**2.0)
-      if (r_sink_part > init_radius) then
-         star_stabilisation_params(imassout) = star_stabilisation_params(imassout) + particlemass
-      endif
-      total_mass = total_mass + particlemass
-   enddo
+       if (r_sink_part > init_radius) then
+          star_stabilisation_params(imassout) = star_stabilisation_params(imassout) + particlemass
+       endif
+       total_mass = total_mass + particlemass
+    enddo
 
-   star_stabilisation_params(imassfracout) = star_stabilisation_params(imassout) / total_mass
+    star_stabilisation_params(imassfracout) = star_stabilisation_params(imassout) / total_mass
 
-   columns = (/'vol. eq. rad',&
+    columns = (/'vol. eq. rad',&
                ' density rad',&
                'mass outside',&
                'frac outside'/)
 
-   call write_time_file('star_stabilisation', columns, time, star_stabilisation_params, 4, dump_number)
+    call write_time_file('star_stabilisation', columns, time, star_stabilisation_params, 4, dump_number)
 
-   if (dump_number == 0) then
-      call prompt('Make profiles too (this will make the analysis take much longer)?',switch(1),.false.)
-   endif
-   if (switch(1)) then
-      call stellar_profile(time,particlemass,npart,xyzh,vxyzu,profile)
-      columns = (/'      radius',&
+    if (dump_number == 0) then
+       call prompt('Make profiles too (this will make the analysis take much longer)?',switch(1),.false.)
+    endif
+    if (switch(1)) then
+       call stellar_profile(time,particlemass,npart,xyzh,vxyzu,profile)
+       columns = (/'      radius',&
                   '  mass coord',&
                   '     azimuth',&
                   ' int. energy',&
@@ -987,9 +987,9 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
                   '   rad. vel.',&
                   ' sound speed'/)
 
-      call write_file('profile', 'profile', columns, profile, npart, 9, num)
-   endif
-   unitnum = unitnum + 1
+       call write_file('profile', 'profile', columns, profile, npart, 9, num)
+    endif
+    unitnum = unitnum + 1
 
  case(9) !Units
     write(*,"(/,3(a,es10.3,1x),a)") '     Mass: ',umass,    'g       Length: ',udist,  'cm     Time: ',utime,'s'
@@ -1064,7 +1064,7 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
 
 end subroutine do_analysis
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine stellar_profile(time,particlemass,npart,xyzh,vxyzu,profile)
  use eos,          only:ieos,equationofstate
@@ -1127,7 +1127,7 @@ subroutine stellar_profile(time,particlemass,npart,xyzh,vxyzu,profile)
        profile(2,i) = 0
        do j=1,npart
           if (profile(1,i) > profile(1,j)) then
-              profile(2,i) = profile(2,i) + particlemass
+             profile(2,i) = profile(2,i) + particlemass
           endif
        enddo
     endif
