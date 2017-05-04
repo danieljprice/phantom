@@ -359,8 +359,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           call compute_hmax(cell,redo_neighbours)
           if (icall == 0) converged = .true.
           if (.not. converged) then
+
              if (redo_neighbours) then
-                call set_hmaxcell(cell%icell,1.01*cell%hmax)
+                call set_hmaxcell(cell%icell,cell%hmax)
                 call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,.false.,getj=.false., &
                                       cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti, &
                                       remote_export=remote_export)
@@ -1465,13 +1466,12 @@ subroutine finish_cell(cell,cell_converged)
  real                           :: dhdrhoi,rhohi,omegai
  real                           :: rhoi
  real(kind=8)                   :: gradhi
- real                           :: func,dfdh1,hi,hi_old,hnew,hmaxcelli
+ real                           :: func,dfdh1,hi,hi_old,hnew
  real                           :: pmassi, xyzh(4)
  integer                        :: i,iamtypei !,nwarnup,nwarndown
  logical                        :: iactivei,iamgasi,iamdusti,converged
 
  cell%nits = cell%nits + 1
- hmaxcelli = cell%hmax
  cell_converged = .true.
  over_parts: do i = 1,cell%npcell
     hi = cell%h(i)
@@ -1537,7 +1537,6 @@ subroutine finish_cell(cell,cell_converged)
     else
        cell%h(i) = hnew
     endif
-    hmaxcelli = max(hmaxcelli,hnew)
 
  enddo over_parts
 
