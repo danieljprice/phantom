@@ -950,7 +950,7 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
    if (dump_number == 0) then
       init_radius = star_stabilisation_params(ivoleqrad)
    endif
-      
+
    star_stabilisation_params(imassout) = 0.
    total_mass = xyzmh_ptmass(4,1)
    do i=1,npart
