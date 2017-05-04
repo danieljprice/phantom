@@ -1341,6 +1341,9 @@ endif
 ifdef NCELLSMAX
    FPPFLAGS += -DNCELLSMAX=${NCELLSMAX}
 endif
+ifdef STACKSIZE
+   FPPFLAGS += -DSTACKSIZE=${STACKSIZE}
+endif
 # Set other optional flags depending on settings
 
 ifeq ($(DEBUG), yes)
