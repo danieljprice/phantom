@@ -160,7 +160,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp threadprivate(xyzcache,listneigh)
 
  integer :: i,icell
- integer :: nneigh,nneighi,np
+ integer :: nneigh,np
  integer :: nwarnup,nwarndown,nwarnroundoff
 
  logical :: getdv,realviscosity,getdB,converged
@@ -286,7 +286,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp private(iamtypei) &
 !$omp private(iactivei) &
 !$omp private(iamdusti) &
-!$omp private(nneighi) &
 !$omp private(converged) &
 !$omp private(redo_neighbours) &
 !$omp reduction(+:ncalc) &
@@ -295,6 +294,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp reduction(max:maxneightry) &
 !$omp reduction(+:nneighact) &
 !$omp reduction(+:nneightry) &
+!$omp reduction(+:nrelink) &
 !$omp reduction(+:stressmax,rhomax) &
 !$omp private(i)
 
@@ -345,7 +345,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     endif
 #endif
 
-    call compute_cell(cell,listneigh,nneigh,nneighi,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache)
+    call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache)
 
 #ifdef MPI
     if (do_export) then
@@ -359,7 +359,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           call compute_hmax(cell,redo_neighbours)
           if (icall == 0) converged = .true.
           if (.not. converged) then
-
              if (redo_neighbours) then
                 call set_hmaxcell(cell%icell,cell%hmax)
                 call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,.false.,getj=.false., &
@@ -377,8 +376,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp end critical
                 endif
 #endif
+                nrelink = nrelink + 1
              endif
-             call compute_cell(cell,listneigh,nneigh,nneighi,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache)
+             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache)
 #ifdef MPI
              if (do_export) then
                 stack_waiting%cells(cell%waiting_index) = cell
@@ -427,7 +427,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,.false.,getj=.false., &
                                   cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 
-          call compute_cell(cell,listneigh,nneigh,nneighi,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache)
+          call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache)
 
           cell%remote_export(id+1) = .false.
 
@@ -504,7 +504,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              ! direction export (0)
              call send_cell(cell,0,irequestsend,xsendbuf)
 !$omp end critical
-             call compute_cell(cell,listneigh,nneigh,nneighi,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache)
+             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache)
 
              stack_redo%cells(cell%waiting_index) = cell
           else
@@ -1264,7 +1264,7 @@ subroutine reduce_and_print_neighbour_stats(np)
 
 end subroutine reduce_and_print_neighbour_stats
 
-pure subroutine compute_cell(cell,listneigh,nneigh,nneighi,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
+pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
                            xyzcache)
  use io,          only:id
  use dim,         only:maxvxyzu
@@ -1275,7 +1275,6 @@ pure subroutine compute_cell(cell,listneigh,nneigh,nneighi,getdv,getdB,Bevol,xyz
 
  integer,         intent(in)     :: listneigh(:)
  integer,         intent(in)     :: nneigh
- integer,         intent(out)    :: nneighi
  logical,         intent(in)     :: getdv
  logical,         intent(in)     :: getdB
  real(kind=4),    intent(in)     :: Bevol(:,:)
@@ -1292,7 +1291,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,nneighi,getdv,getdB,Bevol,xyz
 
  logical                         :: realviscosity
  logical                         :: ignoreself
-
+ integer                         :: nneighi
  integer                         :: i,lli
 
  realviscosity = (irealvisc > 0)
@@ -1338,7 +1337,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,nneighi,getdv,getdB,Bevol,xyz
 
     call get_density_sums(lli,cell%xpartvec(:,i),hi1,hi21,iamtypei,iamgasi,listneigh,nneigh, &
                           nneighi,dxcache,xyzcache,cell%rhosums(:,i), &
-                          .false.,.false.,getdv,getdB,realviscosity, &
+                          .true.,.false.,getdv,getdB,realviscosity, &
                           xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself)
 
     cell%nneightry = nneigh

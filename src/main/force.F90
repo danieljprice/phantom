@@ -411,13 +411,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     !
     !--get the neighbour list and fill the cell cache
     !
+
+    call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true., &
 #ifdef GRAVITY
-    call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true., &
-                           f=cell%fgrav,remote_export=remote_export)
-#else
-    call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true., &
-                           remote_export=remote_export)
+                           f=cell%fgrav, &
 #endif
+                           remote_export=remote_export)
 
 #ifdef MPI
     cell%owner                   = id
@@ -481,14 +480,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     over_remote: do i = 1,stack_remote%n
        cell = stack_remote%cells(i)
 
+       call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true., &
 #ifdef GRAVITY
-       call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true., &
                          f=cell%fgrav, &
-                         cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
-#else
-       call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true., &
-                         cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 #endif
+                         cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
+
        call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          iphase,divcurlv,divcurlB,alphaind,n_R,n_electronT, &
                          dustfrac,gradh,ibin_wake,stressmax,xyzcache)
@@ -2029,7 +2026,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
     call compute_forces(i,iamgasi,iamdusti,cell%xpartvec(:,ip),hi,hi1,hi21,hi41,gradhi,gradsofti, &
                          beta, &
                          pmassi,listneigh,nneigh,xyzcache,cell%fsums(:,ip),vsigmax, &
-                         .false.,realviscosity,useresistiveheat, &
+                         .true.,realviscosity,useresistiveheat, &
                          xyzh,vxyzu,Bevol,iphase,massoftype, &
                          divcurlB,n_R,n_electronT, &
                          dustfrac,gradh,divcurlv,alphaind, &
