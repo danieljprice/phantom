@@ -70,7 +70,7 @@ subroutine test_ptmass(ntests,npass)
  logical                :: accreted
  real                   :: massr,m1,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,dr
  real                   :: etotin,totmomin,dtsinksink,omega,mred,errmax,angmomin
- real                   :: r2,r2min,dtext_dum,xcofm(3),totmass,dum,dum2,psep,tolen,tolang
+ real                   :: r2,r2min,dtext_dum,xcofm(3),totmass,dum,dum2,psep,tolen
  real                   :: xyzm_ptmass_old(4,1), vxyz_ptmass_old(3,1)
  real                   :: q,phisoft,fsoft,m2,mu,v_c1,v_c2,r1,omega1,omega2
  integer                :: norbits
@@ -262,9 +262,7 @@ subroutine test_ptmass(ntests,npass)
 #endif
           call checkval(etotin+errmax,etotin,1.2e-2,nfailed(1),'total energy')
        case(2)
-          tolang = 2.e-7
-          if (gravity) tolang = 2.2e-7
-          call checkval(angtot,angmomin,tolang,nfailed(3),'angular momentum')
+          call checkval(angtot,angmomin,2.2e-7,nfailed(3),'angular momentum')
           call checkval(totmom,totmomin,3.e-14,nfailed(2),'linear momentum')
           tolen = 2.e-3
           if (gravity) tolen = 3.1e-3
