@@ -84,7 +84,7 @@ module dim
 #ifdef STACKSIZE
  integer, parameter :: stacksize = STACKSIZE
 #else
- integer, parameter :: stacksize = int(0.4 * maxp)
+ integer, parameter :: stacksize = int(0.2 * maxp)
 #endif
 
  ! storage for artificial viscosity switch

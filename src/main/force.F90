@@ -412,7 +412,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     !--get the neighbour list and fill the cell cache
     !
 
-    call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true., &
+    call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true., &
 #ifdef GRAVITY
                            f=cell%fgrav, &
 #endif
@@ -480,7 +480,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     over_remote: do i = 1,stack_remote%n
        cell = stack_remote%cells(i)
 
-       call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true., &
+       call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true., &
 #ifdef GRAVITY
                          f=cell%fgrav, &
 #endif

@@ -643,9 +643,9 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
     ! Get neighbour list for the cell
 
     if(gravity) then
-       call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true.,f=fgrav)
+       call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true.,f=fgrav)
     else
-       call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,.false.,getj=.true.)
+       call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true.)
     endif
     ifilledcellcache = .true.
 
@@ -903,4 +903,3 @@ end subroutine write_neighbours
 
 
 end module analysis
-

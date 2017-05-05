@@ -266,8 +266,7 @@ subroutine test_link(ntests,npass)
              activecell = .true.
           endif
 
-          call get_neighbour_list(icell,listneigh,nneightry,xyzh,xyzcache,ixyzcachesize, &
-                            activeonly=.not.activecell)
+          call get_neighbour_list(icell,listneigh,nneightry,xyzh,xyzcache,ixyzcachesize)
 
 !
 !--the following is a check to ensure that the active list contains
