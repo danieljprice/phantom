@@ -49,7 +49,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use step_lf_global,   only:step
  use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
                             timer_dens,timer_force,timer_link
- use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi
+ use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
 #ifdef SORT
  use sort_particles,   only:sort_part
 #endif
@@ -342,9 +342,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
     ! advance time on master thread only
     if (id == master) time = time + dt
-    call barrier_mpi()
-    ! should be a broadcast (this is lazy)
-    time = reduceall_mpi('max',time)
+    call bcast_mpi(time)
+
 !
 !--set new timestep from Courant/forces condition
 !
