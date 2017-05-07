@@ -178,7 +178,7 @@ subroutine check_neighbours(xyzh,tree)
 
  over_cells: do inode=1,ncells
     if ((norm2(tree(inode)%xcen(1:3) - (/-0.25,0.,0./)) < 5.e-2) .and. ifirstincell(inode) > 0) then
-       call get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,0,.false.)
+       call get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,0)
 
        ! plot all trial neighbours
        call giza_set_character_height(1.0)

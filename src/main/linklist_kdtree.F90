@@ -179,7 +179,7 @@ end subroutine set_linklist
 !+
 !-----------------------------------------------------------------------
 subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
-                              activeonly,hmaxold,inactiveonly,getj,f,remote_export, &
+                              getj,f,remote_export, &
                               cell_xpos,cell_xsizei,cell_rcuti)
  use kdtree, only:getneigh,lenfgrav
  use kernel, only:radkern
@@ -192,9 +192,7 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
  integer, intent(out) :: nneigh
  real,    intent(in)  :: xyzh(4,maxp)
  real,    intent(out) :: xyzcache(:,:)
- logical, intent(in)  :: activeonly
- logical, intent(in),  optional :: inactiveonly,getj
- real,    intent(in),  optional :: hmaxold
+ logical, intent(in),  optional :: getj
  real,    intent(out), optional :: f(lenfgrav)
  logical, intent(out), optional :: remote_export(:)
  real,    intent(in),  optional :: cell_xpos(3),cell_xsizei,cell_rcuti

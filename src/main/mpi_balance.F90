@@ -258,7 +258,7 @@ subroutine balance_finish(npart,replace)
  logical, intent(in), optional :: replace
  integer :: newproc
  logical, parameter :: iamcomplete = .true.
- logical :: idone,doreplace
+ logical :: doreplace
 
 !
 !--send the complete signal to all other threads;

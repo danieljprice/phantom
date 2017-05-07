@@ -37,28 +37,29 @@ module mpiforce
 
  type cellforce
     sequence
-    integer          :: icell
-    integer          :: npcell                                 ! number of particles in here
-    integer          :: ll_position(minpart)
     real             :: xpartvec(maxxpartveciforce,minpart)
     real             :: fsums(maxfsum,minpart)
     real             :: fgrav(20)
-    integer(kind=1)  :: iphase(minpart)
+    real             :: xpos(3)
+    real             :: xsizei
+    real             :: rcuti
+    integer          :: icell
+    integer          :: npcell                                 ! number of particles in here
+    integer          :: ll_position(minpart)
     integer          :: ndrag
     integer          :: nstokes
     integer          :: nsuper
     integer          :: owner                                  ! id of the process that owns this
-    logical          :: remote_export(maxprocs)                ! remotes we are waiting for
-    real             :: xpos(3)
-    real             :: xsizei
-    real             :: rcuti
     integer          :: waiting_index
+    logical          :: remote_export(maxprocs)                ! remotes we are waiting for
+    integer(kind=1)  :: iphase(minpart)
+    integer(kind=1)  :: pad(8 - mod(4 * (7 + minpart + maxprocs) + minpart, 8))
  endtype
 
  type stackforce
     sequence
-    integer          :: maxlength = stacksize
     type(cellforce)  :: cells(stacksize)
+    integer          :: maxlength = stacksize
     integer          :: n = 0
  endtype
 
@@ -175,6 +176,12 @@ subroutine get_mpitype_of_cellforce(dtype)
  nblock = nblock + 1
  blens(nblock) = 1
  mpitypes(nblock) = MPI_INTEGER4
+ call MPI_GET_ADDRESS(cell%waiting_index,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 8 - mod(4 * (7 + minpart + maxprocs) + minpart, 8)
+ mpitypes(nblock) = MPI_INTEGER1
  call MPI_GET_ADDRESS(cell%waiting_index,addr,mpierr)
  disp(nblock) = addr - start
 

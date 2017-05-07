@@ -37,30 +37,31 @@ module mpidens
 
  type celldens
     sequence
-    integer          :: icell
-    integer          :: npcell                                 ! number of particles in here
-    integer          :: ll_position(minpart)
     real             :: h(minpart)                             ! don't put this in xpartvec because it is modified inplace
     real             :: h_old(minpart)                         ! original h
     real             :: xpartvec(maxxpartvecidens,minpart)
     real             :: rhosums(maxrhosum,minpart)
-    integer(kind=1)  :: iphase(minpart)
-    integer          :: owner                                  ! id of the process that owns this
-    integer          :: nits                                   ! number of density iterations done so far
-    integer          :: nneightry
-    integer          :: nneigh(minpart)                        ! number of actual neighbours (diagnostic)
-    logical          :: remote_export(maxprocs)                ! remotes we are waiting for
     real             :: xpos(3)
     real             :: xsizei
     real             :: rcuti
     real             :: hmax
+    integer          :: icell
+    integer          :: npcell                                 ! number of particles in here
+    integer          :: ll_position(minpart)
+    integer          :: owner                                  ! id of the process that owns this
+    integer          :: nits                                   ! number of density iterations done so far
+    integer          :: nneightry
+    integer          :: nneigh(minpart)                        ! number of actual neighbours (diagnostic)
     integer          :: waiting_index
+    logical          :: remote_export(maxprocs)                ! remotes we are waiting for
+    integer(kind=1)  :: iphase(minpart)
+    integer(kind=1)  :: pad(8 - mod(4 * (6 + 2 * minpart + maxprocs) + minpart, 8))
  endtype
 
  type stackdens
     sequence
-    integer          :: maxlength = stacksize
     type(celldens)   :: cells(stacksize)
+    integer          :: maxlength = stacksize
     integer          :: n = 0
  endtype
 
@@ -190,6 +191,12 @@ subroutine get_mpitype_of_celldens(dtype)
  blens(nblock) = 1
  mpitypes(nblock) = MPI_INTEGER4
  call MPI_GET_ADDRESS(cell%waiting_index,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 8 - mod(4 * (6 + 2 * minpart + maxprocs) + minpart, 8)
+ mpitypes(nblock) = MPI_INTEGER1
+ call MPI_GET_ADDRESS(cell%iphase,addr,mpierr)
  disp(nblock) = addr - start
 
  call MPI_TYPE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)

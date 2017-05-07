@@ -308,7 +308,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     !
     !--get the neighbour list and fill the cell cache
     !
-    call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,isizecellcache,.false.,getj=.false., &
+    call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                            remote_export=remote_export)
 #ifdef MPI
     if (any(remote_export)) then
@@ -361,7 +361,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           if (.not. converged) then
              if (redo_neighbours) then
                 call set_hmaxcell(cell%icell,cell%hmax)
-                call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,.false.,getj=.false., &
+                call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                       cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti, &
                                       remote_export=remote_export)
 #ifdef MPI
@@ -424,7 +424,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           cell = stack_remote%cells(i)
 
           ! icell is unused (-1 here)
-          call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,.false.,getj=.false., &
+          call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                   cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 
           call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache)
@@ -494,7 +494,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           call recv_cells(stack_remote,xrecvbuf,irequestrecv)
 !$omp end critical
           if (.not. converged) then
-             call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,.false.,getj=.false., &
+             call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                     cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti, &
                                     remote_export=remote_export)
              cell%remote_export(1:nprocs) = remote_export
