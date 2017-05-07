@@ -48,12 +48,14 @@ subroutine test_link(ntests,npass)
 #endif
  use boundary, only:dxbound
  use part,            only:isdead_or_accreted
+ use kdtree,   only:inodeparts,inoderange
  integer, intent(inout) :: ntests,npass
  real                   :: psep,hzero,totmass,dxboundp,dyboundp,dzboundp
  real                   :: xminp,xmaxp,yminp,ymaxp,zminp,zmaxp
  real                   :: rhozero,hi21,dx,dy,dz,xi,yi,zi,q2,hmin,hmax,hi
  integer                :: i,j,icell,ixyzcachesize,ncellstest,nfailedprev,maxpen
  integer                :: nneigh,nneighexact,nneightry,max1,max2,ncheck1,ncheck2,nwarn
+ integer                :: ip
 #ifdef IND_TIMESTEPS
  integer                :: npartincell,nfail1,nfail2
  logical                :: hasactive
@@ -164,24 +166,7 @@ subroutine test_link(ntests,npass)
     ntests = ntests + 1
     call checkval((ncells>0),.true.,nfailed(1),'ncells > 0')
     if (nfailed(1)==0) npass = npass + 1
-!
-!--check that all of the particles can be accessed through the link list structure
-!
-    ntests = ntests + 1
-    nll = 0
-    do icell=1,int(ncells)
-       i = ifirstincell(icell)
-       do while(i /= 0)
-          nll = nll + 1
-          i = ll(abs(i))
-       enddo
-    enddo
-    if (itest==2) then
-       call checkval(nll,npart-ndead,0,nfailed(1),'no dead/accreted particles in link list')
-    else
-       call checkval(nll,npart,0,nfailed(1),'all parts in link list')
-    endif
-    if (nfailed(1)==0) npass = npass + 1
+
 !
 !--check the assignment of positive or negative
 !  to the head of the cell that specifies whether
@@ -237,7 +222,7 @@ subroutine test_link(ntests,npass)
     dochecks: if (itest /= 2) then
 
        ixyzcachesize = 60000*int((radkern/2.0)**3)
-       if (.not.allocated(xyzcache)) allocate(xyzcache(3,ixyzcachesize))
+       if (.not.allocated(xyzcache)) allocate(xyzcache(ixyzcachesize,3))
 !
 !--now pick a sample of particles, find their neighbours via "get_neighbour_list" and
 !  check it via a direct evaluation
@@ -268,22 +253,8 @@ subroutine test_link(ntests,npass)
 
           call get_neighbour_list(icell,listneigh,nneightry,xyzh,xyzcache,ixyzcachesize)
 
-!
-!--the following is a check to ensure that the active list contains
-!  ONLY active particles: however this is not true -- we simply exclude
-!  inactive cells.
-!
-!#ifdef IND_TIMESTEPS
-!    if (.not.activecell) then
-!       !--check that the neigbour list contains active particles ONLY
-!       do j=1,nneightry
-!          call checkvalbuf(iactive(iphase(listneigh(j))),.true.,&
-!              'activeonly list has only active particles',nfailed(3),ncheck3)
-!      enddo
-!    endif
-!#endif
-
-          over_parts: do while(i /= 0)
+          over_parts: do ip = inoderange(1,icell),inoderange(2,icell)
+             i = inodeparts(ip)
              iactivei = .true.
 #ifdef IND_TIMESTEPS
              i = abs(i)
@@ -342,26 +313,19 @@ subroutine test_link(ntests,npass)
 #endif
                 if (activecell .or. iactivej) then
                    if (j <= ixyzcachesize) then
-                      dx = xi - xyzcache(1,j)
-                      dy = yi - xyzcache(2,j)
-                      dz = zi - xyzcache(3,j)
-#ifdef MPI
-#ifdef PERIODIC
-                      if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
-                      if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
-                      if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
-#endif
-#endif
+                      dx = xi - xyzcache(j,1)
+                      dy = yi - xyzcache(j,2)
+                      dz = zi - xyzcache(j,3)
                    else
                       dx = xi - xyzh(1,listneigh(j))
                       dy = yi - xyzh(2,listneigh(j))
                       dz = zi - xyzh(3,listneigh(j))
-#ifdef PERIODIC
-                      if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
-                      if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
-                      if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
-#endif
                    endif
+#ifdef PERIODIC
+                   if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+                   if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+                   if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+#endif
                    q2 = (dx*dx + dy*dy + dz*dz)*hi21
                    if (q2 < radkern2) then
                       nneigh = nneigh + 1
@@ -398,7 +362,6 @@ subroutine test_link(ntests,npass)
                 enddo
                 nfailedprev = nfailed(2)
                 call checkvalbuf(nneigh,nneighexact,0,'nneigh (no cache)',nfailed(2),ncheck2,max2)
-                !if (nneigh > 0) print*,'cell ',icell,' part ',i,' nneigh = ',nneigh,' should be ',nneighexact
 
                 if (nfailed(2) > nfailedprev) then
                    !
@@ -416,8 +379,6 @@ subroutine test_link(ntests,npass)
 #ifdef PERIODIC
              endif
 #endif
-             if (i < 0) stop 'i<0 when about to access ll'
-             i = ll(i)
           enddo over_parts
        enddo over_cells
 
@@ -460,30 +421,6 @@ subroutine test_link(ntests,npass)
     !
     call checkval((ncells>0),.true.,nfailed(1),'ncells > 0')
     if (nfailed(1)==0) npass = npass + 1
-    !
-    !--check that all of the particles can be accessed through the link list structure
-    !
-    ntests = ntests + 1
-    nll = 0
-    do icell=1,int(ncells)
-       i = ifirstincell(icell)
-       do while(i /= 0)
-          nll = nll + 1
-          i = ll(abs(i))
-       enddo
-    enddo
-    call checkval(nll,npart,0,nfailed(1),'all parts in link list')
-    if (nfailed(1)==0) npass = npass + 1
-    !
-    !--check neighbour finding
-    !
-    !over_cells2: do icell=1,ncells
-    !   i = ifirstincell(icell)
-    !   if (i==0) cycle over_cells2
-
-    !   call get_neighbour_list(icell,listneigh,nneightry,xyzh,xyzcache,ixyzcachesize,activeonly=.false.)
-
-    !enddo over_cells2
 
  enddo
 

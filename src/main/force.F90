@@ -193,7 +193,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  real,         intent(in)    :: dt,stressmax
  integer,      intent(out)   :: ipart_rhomax ! test this particle for point mass creation
 
- real, save :: xyzcache(4,maxcellcache)
+ real, save :: xyzcache(maxcellcache,4)
  integer, save :: listneigh(maxneigh)
 !$omp threadprivate(xyzcache,listneigh)
  integer :: i,icell,nneigh
@@ -417,7 +417,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
                            f=cell%fgrav, &
 #endif
                            remote_export=remote_export)
-
 #ifdef MPI
     cell%owner                   = id
     cell%remote_export(1:nprocs) = remote_export
@@ -1001,7 +1000,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  Bzj = 0.
  visctermisoj = 0.
  visctermanisoj = 0.
-
  loop_over_neighbours2: do n = 1,nneigh
 
     j = abs(listneigh(n))
@@ -1009,9 +1007,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
     if (ifilledcellcache .and. n <= maxcellcache) then
        ! positions from cache are already mod boundary
-       xj = xyzcache(1,n)
-       yj = xyzcache(2,n)
-       zj = xyzcache(3,n)
+       xj = xyzcache(n,1)
+       yj = xyzcache(n,2)
+       zj = xyzcache(n,3)
        dx = xpartveci(ixi) - xj
        dy = xpartveci(iyi) - yj
        dz = xpartveci(izi) - zj
@@ -1022,19 +1020,19 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        dx = xpartveci(ixi) - xj
        dy = xpartveci(iyi) - yj
        dz = xpartveci(izi) - zj
+    endif
 #ifdef PERIODIC
        if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
        if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
        if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
 #endif
-    endif
     rij2 = dx*dx + dy*dy + dz*dz
     q2i = rij2*hi21
 
     !--hj is in the cell cache but not in the neighbour cache
     !  as not accessed during the density summation
     if (ifilledcellcache .and. n <= maxcellcache) then
-       hj1 = xyzcache(4,n)
+       hj1 = xyzcache(n,4)
     else
        hj1 = 1./xyzh(4,j)
     endif
@@ -1682,7 +1680,7 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
  use dust,      only:get_ts,grainsize,graindens,idrag
 #endif
  use nicil,     only:nicil_get_eta,nicil_translate_error,nimhd_get_dt,nimhd_get_jcbcb
-
+ use kdtree,    only:inodeparts,inoderange
  type(cellforce),    intent(inout) :: cell
  integer,            intent(in)    :: ifirstincell(:)
  integer,            intent(in)    :: ll(:)
@@ -1712,7 +1710,8 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
  real         :: etaohmi,etahalli,etaambii,Bxi,Byi,Bzi,Bi,B2i,Bi1
  real         :: vwavei,alphai
 
- integer      :: i,iamtypei,ierr
+ integer      :: i,iamtypei,ierr,ip
+ integer      :: nneighcounter
 
 #ifdef DUST
  integer :: iregime
@@ -1722,13 +1721,14 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
 
  realviscosity = (irealvisc > 0)
 
- i = ifirstincell(cell%icell)
  cell%npcell = 0
- over_parts: do while (i /= 0)
+ over_parts: do ip = inoderange(1,cell%icell),inoderange(2,cell%icell)
+    i = inodeparts(ip)
+
     if (i < 0) then
-       i = ll(abs(i))
        cycle over_parts
     endif
+
     if (maxphase==maxp) then
        call get_partinfo(iphase(i),iactivei,iamdusti,iamtypei)
        iamgasi = (iamtypei==igas)
@@ -1739,11 +1739,9 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
        iamgasi  = .true.
     endif
     if (.not.iactivei) then ! handles case where first particle in cell is inactive
-       i = ll(i)
        cycle over_parts
     endif
     if (iamtypei==iboundary) then ! do not compute forces on boundary parts
-       i = ll(i)
        cycle over_parts
     endif
 
@@ -1819,18 +1817,19 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
        endif
 
     else ! not a gas particle
-       !  vwavei = 0.
-       !  rhogasi = 0.
-       !  pri = 0.
-       !  pro2i = 0.
-       !  sxxi = 0.
-       !  sxyi = 0.
-       !  sxzi = 0.
-       !  syyi = 0.
-       !  syzi = 0.
-       !  szzi = 0.
-       !  visctermiso = 0.
-       !  visctermaniso = 0.
+       vwavei = 0.
+       rhogasi = 0.
+       pri = 0.
+       pro2i = 0.
+       sxxi = 0.
+       sxyi = 0.
+       sxzi = 0.
+       syyi = 0.
+       syzi = 0.
+       szzi = 0.
+       visctermiso = 0.
+       visctermaniso = 0.
+
        dustfraci = 0.
     endif
 
@@ -1912,8 +1911,6 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
        cell%xpartvec(ijcbyi,cell%npcell)          = jcbi(2)
        cell%xpartvec(ijcbzi,cell%npcell)          = jcbi(3)
     endif
-
-    i = ll(i)
  enddo over_parts
 
 end subroutine start_cell

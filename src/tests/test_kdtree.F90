@@ -50,7 +50,7 @@ subroutine test_kdtree(ntests,npass)
  type(kdnode), allocatable :: old_tree(:)
 
  test_all = .false.
- test_revtree = .true.
+ test_revtree = .false.
  iverbose = 2
 
  if (id==master) write(*,"(a,/)") '--> TESTING KDTREE'
