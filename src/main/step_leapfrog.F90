@@ -31,13 +31,11 @@
 !+
 !--------------------------------------------------------------------------
 module step_lf_global
- use dim, only:maxp,maxvxyzu,maxBevol
+ use dim,  only:maxp,maxvxyzu,maxBevol
+ use part, only:vpred,Bpred,dustpred
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
-
- real,            private :: vpred(maxvxyzu,maxp),dustpred(maxp)
- real(kind=4),    private :: Bpred(maxBevol,maxp)
 
 contains
 

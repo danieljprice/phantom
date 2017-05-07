@@ -155,6 +155,9 @@ module part
 !
 !--storage associated with/dependent on timestepping
 !
+ real         :: vpred(maxvxyzu,maxan)
+ real         :: dustpred(maxdustan)
+ real(kind=4) :: Bpred(maxBevol,maxmhdan)
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin(maxan)
  integer(kind=1)    :: ibin_wake(maxan)
@@ -551,6 +554,7 @@ subroutine copy_particle(src, dst)
 
  xyzh(:,dst)  = xyzh(:,src)
  vxyzu(:,dst) = vxyzu(:,src)
+ fext(:,dst)  = fext(:,src)
  if (mhd) then
     Bevol(:,dst) = Bevol(:,src)
  endif
@@ -560,8 +564,18 @@ subroutine copy_particle(src, dst)
  if (maxphase ==maxp) iphase(dst)   = iphase(src)
  if (maxgrav  ==maxp) poten(dst) = poten(src)
 #ifdef IND_TIMESTEPS
- ibin(dst) = ibin(src)
+ ibin(dst)      = ibin(src)
+ ibin_wake(dst) = ibin_wake(src)
+ ibinold(dst)   = ibinold(src)
+ ibinsink(dst)  = ibinsink(src)
+ dt_in(dst)     = dt_in(src)
+ twas(dst)      = twas(src)
 #endif
+ if (use_dust) then
+    dustfrac(dst) = dustfrac(src)
+    dustevol(dst) = dustevol(src)
+ endif
+ if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
 
  return
 end subroutine copy_particle
@@ -580,25 +594,44 @@ subroutine copy_particle_all(src,dst)
 
  xyzh(:,dst)  = xyzh(:,src)
  vxyzu(:,dst) = vxyzu(:,src)
+ vpred(:,dst) = vpred(:,src)
  fxyzu(:,dst) = fxyzu(:,src)
- fext(:,dst) = fext(:,src)
+ fext(:,dst)  = fext(:,src)
  if (mhd) then
     Bevol(:,dst)  = Bevol(:,src)
+    Bpred(:,dst)  = Bpred(:,src)
     dBevol(:,dst) = dBevol(:,src)
     if (maxvecp==maxp) Bxyz(:,dst)   = Bxyz(:,src)
     divBsymm(dst) = divBsymm(src)
+    if (maxmhdni==maxp) then
+       n_R(:,dst)         = n_R(:,src)
+       n_electronT(dst)   = n_electronT(src)
+       ionfrac_eta(:,dst) = ionfrac_eta(:,src)
+    endif
  endif
  if (ndivcurlv > 0) divcurlv(:,dst) = divcurlv(:,src)
  if (ndivcurlB > 0) divcurlB(:,dst) = divcurlB(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst) = gradh(:,src)
  if (maxphase ==maxp) iphase(dst) = iphase(src)
+ if (maxgrav  ==maxp) poten(dst) = poten(src)
+ if (maxlum   ==maxp) luminosity(dst) = luminosity(src)
 #ifdef IND_TIMESTEPS
- ibin(dst) = ibin(src)
+ ibin(dst)      = ibin(src)
+ ibin_wake(dst) = ibin_wake(src)
+ ibinold(dst)   = ibinold(src)
+ ibinsink(dst)  = ibinsink(src)
+ dt_in(dst)     = dt_in(src)
+ twas(dst)      = twas(src)
 #endif
  if (use_dust) then
-    dustfrac(dst) = dustfrac(src)
+    dustfrac(dst)  = dustfrac(src)
+    dustevol(dst)  = dustevol(src)
+    dustpred(dst)  = dustpred(src)
+    ddustfrac(dst) = ddustfrac(src)
+    deltav(:,dst)  = deltav(:,src)
  endif
+ if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
 
  return
 end subroutine copy_particle_all
