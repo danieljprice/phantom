@@ -31,6 +31,8 @@ else
 fi
 pwd=$PWD;
 phantomdir="$pwd/../";
+listofcomponents='main utils';
+#listofcomponents='setup';
 #
 # change the line below to exclude things that depend on external libraries from the build
 #
@@ -55,33 +57,120 @@ if [ ! -d $phantomdir/logs ]; then
 fi
 htmlfile="$phantomdir/logs/build-status-$SYSTEM.html";
 faillog="$phantomdir/logs/build-failures-$SYSTEM.txt";
+faillogsetup="$phantomdir/logs/setup-failures-$SYSTEM.txt";
 if [ -e $htmlfile ]; then
    rm $htmlfile;
 fi
 if [ -e $faillog ]; then
    rm $faillog;
 fi
-listofcomponents='main utils';
-for component in $listofcomponents; do
-case $component in
- 'utils')
-   text=$component;
-   listofsetups='test';
-   listoftargets='utils';;
- *)
-   text='';
-   listofsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile | cut -d, -f 2 | cut -d')' -f 1 | sed '/tracers/d' | sed '/mcfost/d'`
-   listoftargets='phantom setup analysis moddump';;
-esac
-echo "<h2>Checking Phantom $text build, SYSTEM=$SYSTEM</h2>" >> $htmlfile;
-echo "Build checked: "`date` >> $htmlfile;
+if [ -e $faillogsetup ]; then
+   rm $faillogsetup;
+fi
+#
+# utility routine for printing results to html file
+#
+red="#FF0000";
+amber="#FF6600";
+green="#009900";
+white="#FFFFFF";
+pass='pass';
+fail='fail';
+warn='warn';
 ncheck=0;
 ntotal=0;
 nfail=0;
 nwarn=0;
+print_result()
+{
+  text=$1;
+  result=$2;
+  ncheck=$(( ncheck + 1 ));
+  ntotal=$(( ntotal + 1 ));
+  case $result in
+  $pass )
+     colour=$green;;
+  $warn )
+     nwarn=$(( nwarn + 1 ));
+     colour=$amber;;
+  $fail )
+     nfail=$(( nfail + 1 ));
+     colour=$red;;
+  * )
+     colour=$white;;
+  esac
+  echo "<td bgcolor=\"$colour\">$text</td>" >> $htmlfile;
+}
+#
+# procedure for checking phantomsetup utility works properly
+#
+check_phantomsetup ()
+{
+   myfail=0;
+   setup=$1;
+   if [ -e ./bin/phantomsetup ]; then
+      print_result "exists" $pass;
+   else
+      print_result "FAIL: phantomsetup does not exist" $fail;
+      myfail=$(( myfail + 1 ));
+   fi
+   dirname="test-phantomsetup";
+   cd /tmp/;
+   rm -rf $dirname;
+   mkdir $dirname;
+   cd /tmp/$dirname;
+   cp $phantomdir/bin/phantomsetup .;
+   myinput="\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
+   prefix="myrun";
+   echo -e "$myinput" > myinput.txt;
+   ./phantomsetup $prefix < myinput.txt > /dev/null; err=$?;
+   if [ $err -eq 0 ]; then
+      print_result "runs" $pass;
+   else
+      print_result "FAIL: requires input other than 'Enter'" $fail;
+      myfail=$(( myfail + 1 ));
+   fi
+   ./phantomsetup $prefix < myinput.txt > /dev/null;
+   ./phantomsetup $prefix < myinput.txt > /dev/null;
+   if [ -e "$prefix.setup" ]; then
+      print_result "creates .setup file" $pass;
+   else
+      print_result "no .setup file" $warn;
+   fi
+   if [ -e "$prefix.in" ]; then
+      print_result "creates .in file" $pass;
+   else
+      print_result "FAILED to create .in file after 3 attempts" $fail;
+      myfail=$(( myfail + 1 ));
+   fi
+   if [ $myfail -gt 0 ]; then
+      echo $setup >> $faillogsetup;
+   fi
+}
+#
+# get list of targets, components and setups to check
+#
+allsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile | cut -d, -f 2 | cut -d')' -f 1 | sed '/tracers/d' | sed '/mcfost/d'`
+for component in $listofcomponents; do
+case $component in
+ 'setup')
+   text="$component runs, creates .setup and .in files with no unspecified user input";
+   listofsetups=$allsetups;
+   listoftargets='setup';;
+ 'utils')
+   text="$component build";
+   listofsetups='test';
+   listoftargets='utils';;
+ *)
+   text='build';
+   listofsetups=$allsetups;
+   listoftargets='phantom setup analysis moddump';;
+esac
 #
 # write html header
 #
+echo "<h2>Checking Phantom $text, SYSTEM=$SYSTEM</h2>" >> $htmlfile;
+echo "Build checked: "`date` >> $htmlfile;
 echo "<table>" >> $htmlfile;
 #
 #--loop over each setup
@@ -111,9 +200,13 @@ for setup in $listofsetups; do
       if [ -e $errorlog ]; then
          mv $errorlog $errorlogold;
       fi
-      colour="#FFFFFF"; # white (default)
+      colour=$white; # white (default)
       ncheck=$((ncheck + 1));
       printf "Checking $setup ($target)... ";
+      if [ "$component"=="setup" ]; then
+         rm -f $phantomdir/bin/phantomsetup;
+         #make clean >& /dev/null;
+      fi
       #case $component in
       #'utils')
       #  make cleanutils >& /dev/null;;
@@ -125,11 +218,11 @@ for setup in $listofsetups; do
       sed -e 's/90(.*)/90/g' -e 's/90:.*:/90/g' $errorlog | grep -v '/tmp' > $errorlog.tmp && mv $errorlog.tmp $errorlog;
       if [ $err -eq 0 ]; then
          echo "OK";
-         colour="#009900";  # green
+         colour=$green;
          text='OK';
       else
          echo "FAILED"; grep Error $errorlog;
-         colour="#FF0000";  # red
+         colour=$red;
          text='**FAILED**';
          nfail=$((nfail + 1));
          echo $setup >> $faillog;
@@ -143,13 +236,13 @@ for setup in $listofsetups; do
          fi
       fi
       if [ $newwarn -eq 1 ] && [ $err -eq 0 ]; then
-         colour="#FF6600"; # amber
+         colour=$amber;
          text='**NEW WARNINGS**';
       fi
       htext='';
       echo "<td bgcolor=\"$colour\">$setup ($target)</td>" >> $htmlfile;
       errors='';
-      if [ -e $errorlog ]; then
+      if [ -e $errorlog ] && [ "X$component" != "Xsetup" ]; then
          grep Error $errorlog > errors.tmp;
          while read line; do
             errors+="$line<br/>";
@@ -173,7 +266,7 @@ for setup in $listofsetups; do
             echo "<td><a href=\"$href\">warnings</a></td><td></td>" >> $htmlfile;
          fi
       fi
-      if [ $newwarn -eq 1 ]; then
+      if [ $newwarn -eq 1 ] && [ "X$component" != "Xsetup" ]; then
          hwarn='';
          nwarn=$((nwarn + 1));
          if [ -e warnings.tmp ]; then
@@ -184,6 +277,9 @@ for setup in $listofsetups; do
          echo "<td>NEW WARNINGS:<br/>$hwarn</td>" >> $htmlfile;
       else
          echo "<td>$htext</td>" >> $htmlfile;
+      fi
+      if [ "$target"=="setup" ] && [ "$component"=="setup" ]; then
+         check_phantomsetup $setup;
       fi
    done
    echo "</tr>" >> $htmlfile;
