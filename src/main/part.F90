@@ -391,10 +391,21 @@ end function isdead_or_accreted
 ! routine which kills a particle and adds it to the dead list
 !+
 !----------------------------------------------------------------
-subroutine kill_particle(i)
+subroutine kill_particle(i,npoftype)
  integer, intent(in) :: i
+ integer, intent(inout), optional :: npoftype(:)
+ integer :: itype
 
  xyzh(4,i) = 0.
+ if (present(npoftype)) then
+    ! get the type so we know how to decrement npartoftype
+    if (maxphase==maxp) then
+       itype = iamtype(iphase(i))
+    else
+       itype = igas
+    endif
+    npoftype(itype) = npoftype(itype) - 1
+ endif
 !$omp critical
  ll(i) = ideadhead
  ideadhead = i
