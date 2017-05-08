@@ -194,10 +194,6 @@ subroutine compute_energies(t)
  np_rho_thread = 0
 !$omp do
  do i=1,npart
-    !OK: skip calculating for particles on other procs
-    !Necessary if xyzh not AllReduced, requires sums to be AllReduced
-    !if (id  /=  ibelong(xyzh(:,i),id)) cycle
-
     xi = xyzh(1,i)
     yi = xyzh(2,i)
     zi = xyzh(3,i)
@@ -359,7 +355,7 @@ subroutine compute_energies(t)
              vsigi     = sqrt(valfven2i + spsoundi*spsoundi)
              emag      = emag + pmassi*B2i*rho1i
 
-             divBi     = abs(divBsymm(i))
+             divBi     = abs(divcurlB(1,i))
              if (B2i > 0.) then
                 hdivBonBi = hi*divBi/sqrt(B2i)
                 betai     = 2.0*ponrhoi*rhoi/B2i ! plasma beta
