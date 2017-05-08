@@ -278,7 +278,7 @@ for setup in $listofsetups; do
       else
          echo "<td>$htext</td>" >> $htmlfile;
       fi
-      if [ "$target"=="setup" ] && [ "$component"=="setup" ]; then
+      if [ "X$target" == "Xsetup" ] && [ "X$component" == "Xsetup" ]; then
          check_phantomsetup $setup;
       fi
    done
