@@ -71,7 +71,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Molecular cloud conditions:
  !  L = 3 pc, rho = 1e-20 g/cm^3, c_s = 0.2 km/s
  call set_units(dist=3.0*pc, mass=1e-20*(3.0*pc)**3, time=3.0*pc/(0.2*km))
-
 !
 !--general parameters
 !
@@ -84,23 +83,23 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  maxp = size(xyzh(1,:))
  maxvxyzu = size(vxyzu(:,1))
  if (id==master) then
+    npartx = 64
     print*,' uniform cubic setup...'
-    print*,' enter number of particles in x (max = ',nint((maxp)**(1/3.)),')'
-    read*,npartx
+    call prompt('enter number of particles in x ',npartx,16,nint((maxp)**(1/3.)))
  endif
  call bcast_mpi(npartx)
  deltax = dxbound/npartx
 
  if (id==master) then
-    print*,' enter density (gives particle mass)'
-    read*,rhozero
+    rhozero = 1.
+    call prompt('enter density (gives particle mass)',rhozero,0.)
  endif
  call bcast_mpi(rhozero)
 
  if (maxvxyzu < 4) then
     if (id==master) then
-       print*,' enter sound speed in code units (sets polyk)'
-       read*,polykset
+       polykset = 1.
+       call prompt(' enter sound speed in code units (sets polyk)',polykset,0.)
     endif
     call bcast_mpi(polykset)
     polyk = polykset**2
@@ -117,8 +116,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  if (id==master) then
-    print*,' select lattice type (1=cubic, 2=closepacked)'
-    read*,ilattice
+    ilattice = 1
+    call prompt(' select lattice type (1=cubic, 2=closepacked)',ilattice,1,2)
  endif
  call bcast_mpi(ilattice)
 
