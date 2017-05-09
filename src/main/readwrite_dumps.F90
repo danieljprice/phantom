@@ -326,7 +326,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  integer, parameter :: isteps_sphNG = 0, iphase0 = 0
  integer(kind=8)    :: ilen(4)
  integer            :: nums(ndatatypes,4)
- integer            :: i,j,ipass,k
+ integer            :: i,ipass,k
  integer            :: ierr,ierrs(20)
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
@@ -438,11 +438,11 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (use_dustfrac) call write_array(1,deltav,deltav_label,3,npart,k,ipass,idump,nums,ierrs(6))
 
        ! write pressure to file
-       if (ieos==10 .and. k==i_real) then
+       if ((ieos==8 .or. ieos==9 .or. ieos==10) .and. k==i_real) then
           if (.not. allocated(temparr)) allocate(temparr(npart))
           if (.not.done_init_eos) call init_eos(ieos,ierr)
           do i=1,npart
-             rhoi = rhoh(xyzh(4,i),get_pmass(j,use_gas))
+             rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
              temparr(i) = ponrhoi*rhoi
           enddo
