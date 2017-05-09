@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: externalforces, io, mpiutils, options, physcon, setdisc,
-!    timestep, units
+!  DEPENDENCIES: externalforces, io, mpiutils, options, physcon, prompting,
+!    setdisc, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup

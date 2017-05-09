@@ -18,7 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, io, part, physcon, setup_params, unifdis
+!  DEPENDENCIES: boundary, io, part, physcon, prompting, setup_params,
+!    unifdis
 !+
 !--------------------------------------------------------------------------
 module setup

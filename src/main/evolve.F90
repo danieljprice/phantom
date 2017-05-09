@@ -21,10 +21,10 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: analysis, centreofmass, dim, energies, evwrite,
-!    externalforces, fileutils, forcing, inject, io, io_summary, mf_write,
-!    mpiutils, options, part, ptmass, quitdump, readwrite_dumps,
-!    readwrite_infile, sort_particles, step_lf_global, supertimestep,
-!    timestep, timestep_ind, timestep_sts, timing
+!    externalforces, fileutils, forcing, initial_params, inject, io,
+!    io_summary, mf_write, mpiutils, options, part, ptmass, quitdump,
+!    readwrite_dumps, readwrite_infile, sort_particles, step_lf_global,
+!    supertimestep, timestep, timestep_ind, timestep_sts, timing
 !+
 !--------------------------------------------------------------------------
 module evolve

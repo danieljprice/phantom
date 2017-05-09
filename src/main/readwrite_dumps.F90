@@ -22,9 +22,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, dump_utils, dust, eos, externalforces, io,
-!    lumin_nsdisc, mpi, mpiutils, options, part, setup_params, sphNGutils,
-!    timestep, units
+!  DEPENDENCIES: boundary, dim, dump_utils, dust, eos, externalforces,
+!    initial_params, io, lumin_nsdisc, mpi, mpiutils, options, part,
+!    setup_params, sphNGutils, timestep, units
 !+
 !--------------------------------------------------------------------------
 module readwrite_dumps
