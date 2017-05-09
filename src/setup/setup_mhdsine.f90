@@ -8,7 +8,7 @@
 !  MODULE: setup
 !
 !  DESCRIPTION:
-! this module does setup
+!   Setup for simple MHD sine wave decay test
 !
 !  REFERENCES: None
 !
@@ -44,6 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:Bevol,maxvecp,mhd,maxBevol
  use io,           only:master
  use physcon,      only:pi
+ use prompting,    only:prompt
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -53,9 +54,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real :: deltax,totmass
  integer :: i,maxvxyzu,npartx,maxp
- real :: machzero,betazero,const,vzero,bzero,przero,uuzero,gam1
+ real    :: bzero,przero,uuzero,gam1
+ real    :: deltax,totmass
 !
 !--boundaries
 !
@@ -65,7 +66,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  time = 0.
  hfact = 1.2
- gamma = 5./3.
 !
 !--setup particles
 !
@@ -77,18 +77,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  bzero = 1.0
  rhozero = 2.0
  przero = 10.0
-
- gam1 = gamma - 1.
- uuzero = przero/(gam1*rhozero)
+ if (maxvxyzu >= 4) then
+    gamma = 5./3.
+    gam1 = gamma - 1.
+    uuzero = przero/(gam1*rhozero) 
+ else
+    gamma = 1.
+    polyk = przero/rhozero
+    uuzero = 1.5*polyk
+ endif
 
  print "(/,a)",' Setup for MHD sine problem...'
 
- polyk = 0.
- if (maxvxyzu < 4) stop 'need maxvxyzu=4 for orszag-tang setup'
-
- print*,'Enter number of particles in x (max = ',nint((maxp)**(1/3.)),')'
+ npartx = 64
  print "(a,f6.2,a)",' (NB: should be multiple of ',(xmax-xmin)/(zmax-zmin),' given box dimensions)'
- read*,npartx
+ call prompt('Enter number of particles in x ',npartx,0)
  deltax = dxbound/npartx
 
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
@@ -104,14 +107,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vxyzu(1,i) = 0.
     vxyzu(2,i) = 0.
     vxyzu(3,i) = 0.
-    vxyzu(4,i) = uuzero
+    if (maxvxyzu >= 4) vxyzu(4,i) = uuzero
     if (mhd) then
        Bevol(:,i) = 0.
-       if (maxvecp==maxp) then
-          stop 'euler potentials + mhd sine not implemented'
-       else
-          Bevol(2,i) = Bzero*sin(2.*pi*(xyzh(1,i)-xmin))
-       endif
+       Bevol(2,i) = Bzero*sin(2.*pi*(xyzh(1,i)-xmin))
     endif
  enddo
 
