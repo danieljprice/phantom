@@ -8,8 +8,8 @@
 !  MODULE: setup
 !
 !  DESCRIPTION:
-!  this module initialises the wave dampening test, as per
-!  Choi et al. 2009 (has been generalised for additional studies)
+!   This module initialises the wave damping test, as per
+!   Choi et al. 2009 (has been generalised for additional studies)
 !
 !  REFERENCES: None
 !
@@ -75,7 +75,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,        only:set_units,unit_density,unit_Bfield,umass,udist
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use prompting,    only:prompt
- !
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -94,7 +93,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical                          :: oned,iexist,jexist
  type(inopts),        allocatable :: db(:)
  !
- !
  !--in-file parameters (only if not already done so)
  !
  inname=trim(fileprefix)//'.in'
@@ -108,15 +106,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     eta_constant   = .true.
     eta_const_type = icnstsemi
  endif
+ !
  !--Turn off non-ideal MHD by default; each will have the option to be
  !  modified either by the interactive script or the .setup file
+ !
  use_ohm  = .false.
  use_hall = .false.
  use_ambi = .false.
  !
  !--Prompt the user for relevant input to create .setup if file does not already exist
+ !
  setupname=trim(fileprefix)//'.setup'
- print "(/,1x,63('-'),1(/,a),/,1x,63('-'),/)", '  Wave-dampening test.'
+ print "(/,1x,63('-'),1(/,a),/,1x,63('-'),/)", '  Wave-damping test.'
  inquire(file=setupname,exist=jexist)
  if (jexist) call read_setupfile(setupname,ierr)
  if ( (ierr /= 0 .or. .not.iexist .or. .not.jexist) .and. id==master) then
@@ -129,14 +130,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     viscoff   = .true.
     geo_cp    = .true.
     rect      = .false.
-    nx        = 126
+    nx        = 64
     amplitude = 0.01
     kwave     = 2.0
     ambitest  = .true.
     halltest  = .false.
     ohmtest   = .false.
     if (.not. mhd) isowave = .true.
-    !
+
     print "(a,/)",trim(setupname)//' not found: using interactive setup'
     call prompt('Initialise units to physical values [no: arbitrary values].',realvals)
     call prompt('Initialise values to One [no: prime numbers].',oned)
@@ -192,6 +193,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     !
     !--write default input file
+    !
     call write_setupfile(setupname)
     !print "(a)",'>>> rerun phantomsetup using the options set in '//trim(setupname)//' <<<'
     !stop
@@ -215,12 +217,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (kwave <=0) call fatal('setup','k > 0 is required')
  !
  !--Modify values as requested
+ !
  if ( viscoff ) then
     alphaB  = 0.0
     alpha   = 0.0
     alphamax= 0.0
  endif
+ !
  !--Convert to real values
+ !
  if (realvals) then
     !--matches dimensions of spereinbox
     udist = 1.d16
@@ -251,6 +256,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  deltax = dxbound/nx
  !
  !--Change box ratio if closepacked geometry
+ !
  if ( geo_cP ) then
     deltay = deltax*sqrt(3.0)/2.0
     deltaz = deltax*sqrt(6.0)/3.0
@@ -273,6 +279,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  !
  !--Set remaining values
+ !
  rhozero  = rhoin
  call bcast_mpi(rhozero)
  if (maxvxyzu < 4) then
@@ -298,19 +305,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(igas) = npart
  totmass           = rhozero*dxbound*dybound*dzbound
  massoftype(igas)  = totmass/npartoftype(igas)
- !
- !
+
  length = xmax-xmin
  kx     = kwave*pi/(xmax-xmin)
  ky     = kwave*pi/(ymax-ymin)
  !
  !--Choi et al. 2009 damping test, Bx<>0, By=Bz=0.
+ !
  Bxini = Bxin
  Byini = 0.0
  Bzini = 0.0
  vA    = sqrt( (Bxini**2 + Byini**2 + Bzini**2)/rhozero)
  !
  !--Determine velocity coefficient
+ !
  if ( isowave ) then
     vcoef = amplitude*polykin
  else
@@ -344,6 +352,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (mhd) ihavesetupB = .true.
  !
  !--Print statements
+ !
  write(*,*) "setup: rho_0         = ",rhozero
  write(*,*) "setup: B_(x,0)       = ",Bxin
  write(*,*) "setup: polyk         = ",polyk
@@ -359,7 +368,7 @@ subroutine write_setupfile(filename)
  use infile_utils,        only:  write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
- !
+
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for wave-dampening setup routines'
@@ -385,7 +394,7 @@ subroutine write_setupfile(filename)
     call write_inopt(ohmtest, 'ohmtest', 'Testing Ohmic resistivity',iunit)
  endif
  close(iunit)
- !
+
 end subroutine write_setupfile
 !-----------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
@@ -394,7 +403,7 @@ subroutine read_setupfile(filename,ierr)
  integer,          intent(out) :: ierr
  integer,          parameter   :: iunit = 21
  type(inopts),     allocatable :: db(:)
- !
+
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
  call read_inopt(realvals,'realvals',db,ierr)
@@ -418,9 +427,9 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(ohmtest, 'ohmtest', db,ierr)
     if (ohmtest)  use_ohm  = .true.
  endif
- !
+
  call close_db(db)
- !
+
 end subroutine read_setupfile
 
 end module setup
