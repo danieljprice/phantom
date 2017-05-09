@@ -1800,8 +1800,6 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  call extract('mdust_in', mdust_in, hdr,ierrs(5))
  if (any(ierrs(1:5) /= 0)) then
     write(*,*) 'ERROR reading values to verify conservation laws.  Resetting initial values.'
-    print*, ierrs(1:5)
-    print*, get_conserv,etot_in,angtot_in,totmom_in,mdust_in
     get_conserv = 1.0
  endif
 
