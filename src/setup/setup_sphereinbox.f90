@@ -87,15 +87,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
+ real(kind=8)       :: h_acc_in
  real               :: totmass,vol_box,psep,psep_box
  real               :: vol_sphere,dens_sphere,dens_medium,cs_medium,angvel_code,przero
  real               :: totmass_box,t_ff,r2,area,Bzero,rmasstoflux_crit
- real               :: rxy2,rxyz2,phi,dphi
+ real               :: rxy2,rxyz2,phi,dphi,lbox
  integer            :: i,nx,np_in,npartsphere,npmax,ierr
- logical            :: iexist
+ logical            :: iexist,is_box,make_sinks
  character(len=100) :: filename
- character(len=10)  :: string
  character(len=40)  :: fmt
+ character(len=10)  :: string,h_acc_char
 
  npmax = size(xyzh(1,:))
  filename=trim(fileprefix)//'.setup'
@@ -135,15 +136,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     np    = int(2.0/3.0*size(xyzh(1,:))) ! approx max number allowed in sphere given size(xyzh(1,:))
     npmax = np
     call prompt('Enter the approximate number of particles in the sphere',np,0,npmax)
-    np_in = np
-    xmini = -8.
-    xmaxi = 8.
-    do i=1,3
-       call prompt('Enter '//labelx(i)//'min of box in units of '//dist_unit,xmini(i))
-       call prompt('Enter '//labelx(i)//'max of box in units of '//dist_unit,xmaxi(i),xmini(i))
-    enddo
+    np_in    = np
     r_sphere = 4.
     call prompt('Enter radius of sphere in units of '//dist_unit,r_sphere,0.)
+    lbox     = 4.
+    is_box   = .true.
+    call prompt('Enter the box size in units of spherical radii: ',lbox,1.)
+    do i=1,3
+       ! note that these values will be saved to the .setup file rather than lbox so user can convert
+       ! box to a rectangle if desired
+       xmini(i) = -0.5*(lbox*r_sphere)
+       xmaxi(i) = -xmini(i)
+    enddo
 
     density_contrast = 30.0
     call prompt('Enter density contrast between sphere and box ',density_contrast,1.)
@@ -188,11 +192,31 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call prompt('Enter the amplitute of the density perturbation ',rho_pert_amp,0.0,0.4)
     endif
     !
+    ! ask about sink particle details; these will not be saved to the .setup file since they exist in the .in file
+    make_sinks = .true.
+    call prompt('Do you wish to dynamically create sink particles? ',make_sinks)
+    if (make_sinks) then
+       if (binary) then
+          h_acc_char  = '3.35au'
+       else
+          h_acc_char  = '1.0d-2'
+       endif
+       call prompt('Enter the accretion radius of the sink (with units; e.g. au,pc,kpc,0.1pc) ',h_acc_char)
+       call select_unit(h_acc_char,h_acc_in,ierr)
+       h_acc = h_acc_in
+       print*, h_acc_in,h_acc, h_acc_char
+       if (ierr==0 ) h_acc = h_acc/udist
+       r_crit        = 5.0*h_acc
+       icreate_sinks = 1
+       if (binary) h_soft_sinksink = 0.4*h_acc
+    else
+       icreate_sinks = 0
+    endif
+    !
     ! write default input file
     !
     call write_setupfile(filename)
     print "(a)",'>>> rerun phantomsetup using the options set in '//trim(filename)//' <<<'
-    stop
  else
     stop
  endif
@@ -376,15 +400,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     dtmax         = t_ff/100.
     ieos          = 8
-    icreate_sinks = 1
-    if (binary) then
-       h_acc           = 3.35*au/udist
-       r_crit          = 5.0*h_acc
-       h_soft_sinksink = 0.4*h_acc
-    else
-       r_crit     = 5.0d-2
-       h_acc      = 1.0d-2
-    endif
     alphaB        = 1.0
     twallmax      = 604800
     dtwallmax     =  21600
