@@ -375,6 +375,9 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
  enddo
 
  choice = 1
+#ifdef NONIDEALMHD
+ choice = 7
+#endif
  call prompt('Enter shock choice',choice,1,nshocks)
  icase = choice
 
