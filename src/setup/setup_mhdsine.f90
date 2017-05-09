@@ -81,7 +81,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (maxvxyzu >= 4) then
     gamma = 5./3.
     gam1 = gamma - 1.
-    uuzero = przero/(gam1*rhozero) 
+    uuzero = przero/(gam1*rhozero)
  else
     gamma = 1.
     polyk = przero/rhozero
