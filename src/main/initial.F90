@@ -211,7 +211,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use cpuinfo,          only:print_cpuinfo
  use io_summary,       only:summary_initialise
  use units,            only:unit_density
- use energies,         only:get_erot_com
+ use energies,         only:get_erot_com,etot,angtot,totmom,mdust
+ use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  integer         :: ierr,i,j,idot,nerr,nwarn
@@ -544,8 +545,23 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  call binpos_init(ibinpos,evfile) !take evfile in input to create string.binpos
  call binpos_write(time, dt)
 #endif
-
-
+!
+!--Set initial values for continual verification of conservation laws
+!
+ if (get_conserv > 0.0) then
+    get_conserv = -1.
+    etot_in   = etot
+    angtot_in = angtot
+    totmom_in = totmom
+    mdust_in  = mdust
+    write(iprint,'(1x,a)') "Setting initial values to verify conservation laws:"
+ else
+    write(iprint,'(1x,a)') "Reading initial values to verify conservation laws from previous run:"
+ endif
+ write(iprint,'(2x,a,Es18.6)') "Initial total energy:     ", etot_in
+ write(iprint,'(2x,a,Es18.6)') "Initial angular momentum: ", angtot_in
+ write(iprint,'(2x,a,Es18.6)') "Initial linear momentum:  ", totmom_in
+ write(iprint,'(2x,a,Es18.6)') "Initial dust mass:        ", mdust_in
 !
 !--write initial conditions to output file
 !  if the input file ends in .tmp or .init

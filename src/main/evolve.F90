@@ -97,7 +97,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
- use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in
 #ifdef MFLOW
  use mf_write,         only:mflow_write
 #endif
@@ -142,13 +142,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  nsteplast = 0
  tzero     = time
  dtlast    = 0.
- if (get_conserv > 0.0) then
-    get_conserv = -1.
-    etot_in   = etot
-    angtot_in = angtot
-    totmom_in = totmom
-    mdust_in  = mdust
- endif
+
  should_conserve_energy = (maxvxyzu==4 .and. ieos==2 .and. icooling==0 .and. &
                            ipdv_heating==1 .and. ishock_heating==1 &
                            .and. (.not.mhd .or. iresistive_heating==1))
