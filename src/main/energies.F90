@@ -41,8 +41,6 @@ module energies
                     ivelX,ivelA,ivelN,ivionX,ivionA,ivionN,ivdftX,ivdftA,ivdftN, &
                     inenX,inenA,inenN,ineX,ineA,innX,innA,inihrX,inihrA,inimrX,inimrA, &
                     ingnX,ingnA,ingX,ingA,ingpX,ingpA,inistX,inistA,inidtX,inidtA, &
-                    inhX,inhA,inheX,inheA,innaX,innaA,inmgX,inmgA,inkX,inkA, &
-                    inhedX,inhedA,innadX,innadA,inmgdX,inmgdA,inkdX,inkdA, &
                     idtgX,idtgA,idtgN,itsN,itsA,iviscX,iviscA,iviscN, &
                     imomall,iangall,imacc1,imacc2,iamass,ieacc,ilum,ierot,ierotx,ieroty,ierotz
  logical, public :: gas_only,track_mass,track_lum
@@ -170,8 +168,6 @@ subroutine compute_energies(t)
 !$omp shared(ivelX,ivelA,ivelN,ivionX,ivionA,ivionN,ivdftX,ivdftA,ivdftN) &
 !$omp shared(inenX,inenA,inenN,ineX,ineA,innX,innA,inihrX,inihrA,inimrX,inimrA) &
 !$omp shared(ingnX,ingnA,ingX,ingA,ingpX,ingpA,inistX,inistA,inidtX,inidtA) &
-!$omp shared(inhX,inhA,inheX,inheA,innaX,innaA,inmgX,inmgA,inkX,inkA) &
-!$omp shared(inhedX,inhedA,innadX,innadA,inmgdX,inmgdA,inkdX,inkdA) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,acci,valfven2i,divBi,hdivBonBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
@@ -421,26 +417,6 @@ subroutine compute_energies(t)
                 if (ion_thermal) then
                    call ev_update(ev_data_thread,   data_out(10),inistX,   inistA          )
                    call ev_update(ev_data_thread,   data_out(11),inidtX,   inidtA          )
-                   j = 17
-                   if (nelements>=2) then
-                      call ev_update(ev_data_thread,data_out( j),inhX,    inhA             ); j=j+1
-                      call ev_update(ev_data_thread,data_out( j),inheX,   inheA            ); j=j+1
-                   endif
-                   if (nelements>=5) then
-                      call ev_update(ev_data_thread,data_out( j),innaX,   innaA            ); j=j+1
-                      call ev_update(ev_data_thread,data_out( j),inmgX,   inmgA            ); j=j+1
-                      call ev_update(ev_data_thread,data_out( j),inkX,    inkA             ); j=j+1
-                   endif
-                   if (nlevels>=2) then
-                      if (nelements>=2) then
-                         call ev_update(ev_data_thread,data_out( j),inhedX,   inhedA       ); j=j+1
-                      endif
-                      if (nelements>=5) then
-                         call ev_update(ev_data_thread,data_out( j),innadX,   innadA       ); j=j+1
-                         call ev_update(ev_data_thread,data_out( j),inmgdX,   inmgdA       ); j=j+1
-                         call ev_update(ev_data_thread,data_out( j),inkdX,    inkdA        ); j=j+1
-                      endif
-                   endif
                 endif
              endif
           endif
