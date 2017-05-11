@@ -53,7 +53,6 @@ subroutine test_sedov(ntests,npass)
  use viscosity, only:irealvisc
  use io_summary,only:summary_reset
  use initial_params, only:etot_in,angtot_in,totmom_in,mdust_in
-
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2)
  integer :: i
