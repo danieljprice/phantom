@@ -182,7 +182,7 @@ subroutine send_celldens(cell,direction,irequestsend,xsendbuf)
 
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
-       call MPI_ISEND(xsendbuf,1,dtype_celldens,newproc,1,comm_cellexchange,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(xsendbuf,1,dtype_celldens,newproc,1+direction,comm_cellexchange,irequestsend(newproc+1),mpierr)
     endif
  enddo
 
@@ -215,7 +215,7 @@ subroutine send_cellforce(cell,direction,irequestsend,xsendbuf)
 
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
-       call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,1,comm_cellexchange,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,1+direction,comm_cellexchange,irequestsend(newproc+1),mpierr)
     endif
  enddo
 
@@ -245,7 +245,7 @@ subroutine check_send_finished_dens(stack,irequestsend,irequestrecv,xrecvbuf)
        if (newproc /= id) call MPI_TEST(irequestsend(newproc+1),idone(newproc+1),status,mpierr)
     enddo
     !--post receives
-    call recv_cells(stack,xrecvbuf,irequestrecv)
+    call recv_celldens(stack,xrecvbuf,irequestrecv)
  enddo
 
 end subroutine check_send_finished_dens
@@ -269,7 +269,7 @@ subroutine check_send_finished_force(stack,irequestsend,irequestrecv,xrecvbuf)
        if (newproc /= id) call MPI_TEST(irequestsend(newproc+1),idone(newproc+1),status,mpierr)
     enddo
     !--post receives
-    call recv_cells(stack,xrecvbuf,irequestrecv)
+    call recv_cellforce(stack,xrecvbuf,irequestrecv)
  enddo
 
 end subroutine check_send_finished_force
@@ -337,7 +337,7 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv)
  type(celldens),     intent(inout)  :: xbuf(:)  ! just need memory address
  type(stackdens),    intent(inout)  :: target_stack
  integer,            intent(inout)  :: irequestrecv(nprocs)
- integer                            :: iproc
+ integer                            :: iproc,k,iwait
  logical                            :: igot
 
  ! receive MPI broadcast
@@ -350,6 +350,16 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv)
        ! end signalling, don't put on stack
        if (status(MPI_TAG) == 0) then
           ncomplete = ncomplete + 1
+       elseif (status(MPI_TAG) == 2) then
+          iwait = xbuf(iproc)%waiting_index
+          do k = 1,xbuf(iproc)%npcell
+             target_stack%cells(iwait)%rhosums(:,k) = target_stack%cells(iwait)%rhosums(:,k) + xbuf(iproc)%rhosums(:,k)
+             target_stack%cells(iwait)%nneigh(k) = target_stack%cells(iwait)%nneigh(k) + xbuf(iproc)%nneigh(k)
+          enddo
+          do k = 1,nprocs
+             target_stack%cells(iwait)%remote_export(k) = target_stack%cells(iwait)%remote_export(k) .and. xbuf(iproc)%remote_export(k)
+          enddo
+          target_stack%cells(iwait)%nneightry = target_stack%cells(iwait)%nneightry + xbuf(iproc)%nneightry
        else
           call push_onto_stack(target_stack, xbuf(iproc))
        endif
@@ -366,7 +376,7 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
  type(cellforce),    intent(inout)  :: xbuf(:)  ! just need memory address
  type(stackforce),   intent(inout)  :: target_stack
  integer,            intent(inout)  :: irequestrecv(nprocs)
- integer                            :: iproc
+ integer                            :: iproc,k,iwait
  logical                            :: igot
 
  ! receive MPI broadcast
@@ -379,6 +389,24 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
        ! end signalling, don't put on stack
        if (status(MPI_TAG) == 0) then
           ncomplete = ncomplete + 1
+       elseif (status(MPI_TAG) == 2) then
+             iwait = xbuf(iproc)%waiting_index
+             do k = 1,xbuf(iproc)%npcell
+                target_stack%cells(iwait)%fsums(:,k) = target_stack%cells(iwait)%fsums(:,k) + xbuf(iproc)%fsums(:,k)
+                target_stack%cells(iwait)%dtdrag(k) = min(target_stack%cells(iwait)%dtdrag(k), xbuf(iproc)%dtdrag(k))
+                target_stack%cells(iwait)%vsigmax(k) = max(target_stack%cells(iwait)%vsigmax(k), xbuf(iproc)%vsigmax(k))
+             enddo
+#ifdef GRAVITY
+             do k = 1,20
+                target_stack%cells(iwait)%fgrav(k) = target_stack%cells(iwait)%fgrav(k) + xbuf(iproc)%fgrav(k)
+             enddo
+#endif
+             do k =1,nprocs
+                target_stack%cells(iwait)%remote_export(k) = target_stack%cells(iwait)%remote_export(k) .and. xbuf(iproc)%remote_export(k)
+             enddo
+             target_stack%cells(iwait)%ndrag = target_stack%cells(iwait)%ndrag + xbuf(iproc)%ndrag
+             target_stack%cells(iwait)%nstokes = target_stack%cells(iwait)%nstokes + xbuf(iproc)%nstokes
+             target_stack%cells(iwait)%nsuper = target_stack%cells(iwait)%nsuper + xbuf(iproc)%nsuper
        else
           call push_onto_stack(target_stack, xbuf(iproc))
        endif
@@ -443,10 +471,8 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
 
 !--free request handle
  do iproc=1,nprocs
-    !  call MPI_TEST(irequestrecv(iproc),idone,status,mpierr)
     call MPI_WAIT(irequestrecv(iproc),status,mpierr)
     call MPI_REQUEST_FREE(irequestrecv(iproc),mpierr)
-    !  if (.not.idone) call fatal('finish_cell_exchange_mpi','receive has not completed for force')
  enddo
  call MPI_COMM_FREE(comm_cellexchange,mpierr)
 
