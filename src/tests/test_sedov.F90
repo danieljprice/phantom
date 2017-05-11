@@ -48,10 +48,11 @@ subroutine test_sedov(ntests,npass)
 #endif
  use testutils, only:checkval
  use evwrite,   only:init_evfile,write_evfile
- use energies,  only:etot,totmom
+ use energies,  only:etot,totmom,angtot,mdust
  use evolve,    only:evol
  use viscosity, only:irealvisc
  use io_summary,only:summary_reset
+ use initial_params, only:etot_in,angtot_in,totmom_in,mdust_in
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2)
  integer :: i
@@ -150,6 +151,10 @@ subroutine test_sedov(ntests,npass)
     call write_evfile(time,dt)
     etotin    = etot
     momtotin  = totmom
+    etot_in   = etot
+    angtot_in = angtot
+    totmom_in = totmom
+    mdust_in  = mdust
     call evol('test.in',logfile,evfile,dumpfile)
     call write_evfile(time,dt)
     etotend   = etot
