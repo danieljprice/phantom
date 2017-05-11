@@ -390,23 +390,23 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
        if (status(MPI_TAG) == 0) then
           ncomplete = ncomplete + 1
        elseif (status(MPI_TAG) == 2) then
-             iwait = xbuf(iproc)%waiting_index
-             do k = 1,xbuf(iproc)%npcell
-                target_stack%cells(iwait)%fsums(:,k) = target_stack%cells(iwait)%fsums(:,k) + xbuf(iproc)%fsums(:,k)
-                target_stack%cells(iwait)%dtdrag(k) = min(target_stack%cells(iwait)%dtdrag(k), xbuf(iproc)%dtdrag(k))
-                target_stack%cells(iwait)%vsigmax(k) = max(target_stack%cells(iwait)%vsigmax(k), xbuf(iproc)%vsigmax(k))
-             enddo
+          iwait = xbuf(iproc)%waiting_index
+          do k = 1,xbuf(iproc)%npcell
+             target_stack%cells(iwait)%fsums(:,k) = target_stack%cells(iwait)%fsums(:,k) + xbuf(iproc)%fsums(:,k)
+             target_stack%cells(iwait)%dtdrag(k) = min(target_stack%cells(iwait)%dtdrag(k), xbuf(iproc)%dtdrag(k))
+             target_stack%cells(iwait)%vsigmax(k) = max(target_stack%cells(iwait)%vsigmax(k), xbuf(iproc)%vsigmax(k))
+          enddo
 #ifdef GRAVITY
-             do k = 1,20
-                target_stack%cells(iwait)%fgrav(k) = target_stack%cells(iwait)%fgrav(k) + xbuf(iproc)%fgrav(k)
-             enddo
+          do k = 1,20
+             target_stack%cells(iwait)%fgrav(k) = target_stack%cells(iwait)%fgrav(k) + xbuf(iproc)%fgrav(k)
+          enddo
 #endif
-             do k =1,nprocs
-                target_stack%cells(iwait)%remote_export(k) = target_stack%cells(iwait)%remote_export(k) .and. xbuf(iproc)%remote_export(k)
-             enddo
-             target_stack%cells(iwait)%ndrag = target_stack%cells(iwait)%ndrag + xbuf(iproc)%ndrag
-             target_stack%cells(iwait)%nstokes = target_stack%cells(iwait)%nstokes + xbuf(iproc)%nstokes
-             target_stack%cells(iwait)%nsuper = target_stack%cells(iwait)%nsuper + xbuf(iproc)%nsuper
+          do k =1,nprocs
+             target_stack%cells(iwait)%remote_export(k) = target_stack%cells(iwait)%remote_export(k) .and. xbuf(iproc)%remote_export(k)
+          enddo
+          target_stack%cells(iwait)%ndrag = target_stack%cells(iwait)%ndrag + xbuf(iproc)%ndrag
+          target_stack%cells(iwait)%nstokes = target_stack%cells(iwait)%nstokes + xbuf(iproc)%nstokes
+          target_stack%cells(iwait)%nsuper = target_stack%cells(iwait)%nsuper + xbuf(iproc)%nsuper
        else
           call push_onto_stack(target_stack, xbuf(iproc))
        endif
