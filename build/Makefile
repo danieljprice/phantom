@@ -1221,6 +1221,22 @@ ifeq ($(SYSTEM), gfortran47)
     CCFLAGS = -O3
 endif
 
+ifeq ($(SYSTEM), complexity)
+#   complexity.leicester.dirac.ac.uk
+    FC= ifort
+    FFLAGS= -O3 -xhost -ipo -mcmodel=medium -shared-intel -warn uninitialized \
+            -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+    OMPFLAGS = -qopenmp
+    CC = icc
+    CCFLAGS = -O3 -ipo -mcmodel=medium
+    LIBCXX = -cxxlib
+endif
+
 ifeq ($(SYSTEM), ifort)
     FC= ifort
     FFLAGS= -O3 -xhost -ipo -mcmodel=medium -shared-intel -warn uninitialized \
