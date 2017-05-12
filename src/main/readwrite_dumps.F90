@@ -1338,11 +1338,19 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     write(*,*) 'ERROR: missing velocity information from file'
  endif
  if (maxvxyzu==4 .and. .not.got_vxyzu(4)) then
-    do i=i1,i2
-       vxyzu(4,i) = (1.0/(gamma-1.0))*polyk*rhoh(xyzh(4,i),get_pmass(i,use_gas))**(gamma - 1.)
-       !print*,'u = ',vxyzu(4,i)
-    enddo
-    write(*,*) 'WARNING: u not in file but setting u = (K*rho**(gamma-1))/(gamma-1)'
+    if (gamma < 1.01) then
+       do i=i1,i2
+          vxyzu(4,i) = 1.5*polyk
+          !print*,'u = ',vxyzu(4,i)
+       enddo
+       write(*,*) 'WARNING: u not in file but setting u = 3/2 * cs^2'
+    else
+       do i=i1,i2
+          vxyzu(4,i) = (1.0/(gamma-1.0))*polyk*rhoh(xyzh(4,i),get_pmass(i,use_gas))**(gamma - 1.)
+          !print*,'u = ',vxyzu(4,i)
+       enddo
+       write(*,*) 'WARNING: u not in file but setting u = (K*rho**(gamma-1))/(gamma-1)'
+    endif
  endif
  if (h2chemistry .and. .not.all(got_abund)) then
     write(*,*) 'error in rdump: using H2 chemistry, but abundances not found in dump file'
