@@ -1235,6 +1235,9 @@ ifeq ($(SYSTEM), complexity)
     CC = icc
     CCFLAGS = -O3 -ipo -mcmodel=medium
     LIBCXX = -cxxlib
+    QSYS=pbs
+    QNAME=q64
+    WALLTIME='48:00:00'
 endif
 
 ifeq ($(SYSTEM), ifort)
