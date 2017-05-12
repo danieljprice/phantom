@@ -877,6 +877,20 @@ ifeq ($(SETUP), mcfost)
     MCFOST=yes
 endif
 
+ifeq ($(SETUP), sfmcfost)
+#   live feedback from mcfost in star formation calculation
+    PERIODIC=yes
+    SETUPFILE= setup_sphereinbox.f90
+    ANALYSIS= analysis_mcfost.f90
+    LIVE_ANALYSIS=yes
+    ISOTHERMAL=no
+    KNOWN_SETUP=yes
+    MULTIRUNFILE= multirun.f90
+    IND_TIMESTEPS=yes
+    GRAVITY=yes
+    MCFOST=yes
+endif
+
 ifeq ($(SETUP), HLTau_mcfost)
     # Question : why no -DDISC_VISCOSITY ???
     FPPFLAGS= -DSORT_RADIUS_INIT -DDISC_VISCOSITY
