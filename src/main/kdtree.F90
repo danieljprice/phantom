@@ -43,6 +43,7 @@ module kdtree
 !
  real, public :: tree_accuracy = 0.5
  logical, private :: done_init_kdtree = .false.
+ logical, private :: already_warned = .false.
  integer, private :: numthreads
 
  public :: maketree, revtree, getneigh, kdnode
@@ -252,7 +253,7 @@ subroutine maketree(node, xyzh, vxyzu, np, ndim, ifirstincell, ncells, refinelev
  if (maxlevel < maxlevel_indexed) then
     ncells = 2**(maxlevel+1) - 1
  endif
- if (maxlevel > maxlevel_indexed) then
+ if (maxlevel > maxlevel_indexed .and. .not.already_warned) then
     write(string,"(i10)") 2**(maxlevel-maxlevel_indexed)
     call warning('maketree','maxlevel > maxlevel_indexed: will run faster if recompiled with '// &
                'NCELLSMAX='//trim(adjustl(string))//'*maxp,',ival=maxlevel_indexed)
