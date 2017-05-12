@@ -1910,8 +1910,6 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  real(kind=8)                    :: hi1,hi21,hi31,hi41
  real(kind=8)                    :: gradhi,gradsofti
  real                            :: pmassi
- real                            :: vsigmax
- real                            :: dtdrag
 
  integer                         :: iamtypei
 
