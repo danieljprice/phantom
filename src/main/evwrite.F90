@@ -37,8 +37,6 @@ module evwrite
                      ivelX,ivelA,ivelN,ivionX,ivionA,ivionN,ivdftX,ivdftA,ivdftN, &
                      inenX,inenA,inenN,ineX,ineA,innX,innA,inihrX,inihrA,inimrX,inimrA, &
                      ingnX,ingnA,ingX,ingA,ingpX,ingpA,inistX,inistA,inidtX,inidtA, &
-                     inhX,inhA,inheX,inheA,innaX,innaA,inmgX,inmgA,inkX,inkA, &
-                     inhedX,inhedA,innadX,innadA,inmgdX,inmgdA,inkdX,inkdA, &
                      idtgX,idtgA,idtgN,itsN,itsA,iviscX,iviscA,iviscN,&
                      imomall,iangall,imacc1,imacc2,iamass,ieacc,ilum,ierot,ierotx,ieroty,ierotz
  use energies, only: erot_com
@@ -67,7 +65,7 @@ subroutine init_evfile(iunit,evfile)
  use options,   only: ishock_heating,ipdv_heating
  use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,nptmass,npartoftype
  use ptmass,    only: icreate_sinks
- use nicil,     only: use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,nelements,nlevels
+ use nicil,     only: use_ohm,use_hall,use_ambi,ion_rays,ion_thermal
  use viscosity, only: irealvisc
  integer,            intent(in) :: iunit
  character(len=  *), intent(in) :: evfile
@@ -145,29 +143,8 @@ subroutine init_evfile(iunit,evfile)
           call fill_xan_label(ev_fmt,'n_g(Z=+1)',i,ingpX,   ingpA            )
        endif
        if (ion_thermal) then
-          call fill_xan_label(ev_fmt,   'n_isT', i,inistX,  inistA           )
-          if (nlevels>=2) then
-             call fill_xan_label(ev_fmt,'n_idT', i,inidtX,  inidtA           )
-          endif
-          if (nelements>=2) then
-             call fill_xan_label(ev_fmt,'n_H+',  i,inhX,    inhA             )
-             call fill_xan_label(ev_fmt,'n_He+', i,inheX,   inheA            )
-          endif
-          if (nelements>=5) then
-             call fill_xan_label(ev_fmt,'n_Na+', i,innaX,   innaA            )
-             call fill_xan_label(ev_fmt,'n_Mg+', i,inmgX,   inmgA            )
-             call fill_xan_label(ev_fmt,'n_K+',  i,inkX,    inkA             )
-          endif
-          if (nlevels>=2) then
-             if (nelements>=2) then
-                call fill_xan_label(ev_fmt,'n_He++',i,inhedX,   inhedA       )
-             endif
-             if (nelements>=5) then
-                call fill_xan_label(ev_fmt,'n_Na++',i,innadX,   innadA       )
-                call fill_xan_label(ev_fmt,'n_Mg++',i,inmgdX,   inmgdA       )
-                call fill_xan_label(ev_fmt,'n_K++', i,inkdX,    inkdA        )
-             endif
-          endif
+          call fill_xan_label(ev_fmt,'n_isT',    i,inistX,  inistA           )
+          call fill_xan_label(ev_fmt,'n_idT',    i,inidtX,  inidtA           )
        endif
     endif
  endif

@@ -20,11 +20,11 @@
 !
 !  DEPENDENCIES: balance, boundary, centreofmass, checkoptions, checksetup,
 !    chem, cpuinfo, densityforce, deriv, dim, domain, dust, energies, eos,
-!    evwrite, externalforces, fastmath, forcing, h2cooling, io, io_summary,
-!    linklist, mf_write, mpi, mpiutils, nicil, nicil_sup, omputils,
-!    options, part, photoevap, ptmass, readwrite_dumps, readwrite_infile,
-!    setup, sort_particles, step_lf_global, timestep, timestep_ind,
-!    timestep_sts, timing, units, writegitinfo, writeheader
+!    evwrite, externalforces, fastmath, forcing, h2cooling, initial_params,
+!    io, io_summary, linklist, mf_write, mpi, mpiutils, nicil, nicil_sup,
+!    omputils, options, part, photoevap, ptmass, readwrite_dumps,
+!    readwrite_infile, setup, sort_particles, step_lf_global, timestep,
+!    timestep_ind, timestep_sts, timing, units, writegitinfo, writeheader
 !+
 !--------------------------------------------------------------------------
 module initial

@@ -86,24 +86,6 @@ subroutine get_mpitype_of_celldens(dtype)
  call MPI_GET_ADDRESS(cell,start,mpierr)
 
  nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_INTEGER4
- call MPI_GET_ADDRESS(cell%icell,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_INTEGER4
- call MPI_GET_ADDRESS(cell%npcell,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_INTEGER4
- call MPI_GET_ADDRESS(cell%ll_position,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
  blens(nblock) = size(cell%h)
  mpitypes(nblock) = MPI_REAL8
  call MPI_GET_ADDRESS(cell%h,addr,mpierr)
@@ -125,42 +107,6 @@ subroutine get_mpitype_of_celldens(dtype)
  blens(nblock) = size(cell%rhosums)
  mpitypes(nblock) = MPI_REAL8
  call MPI_GET_ADDRESS(cell%rhosums,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = size(cell%iphase)
- mpitypes(nblock) = MPI_INTEGER1
- call MPI_GET_ADDRESS(cell%iphase,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_INTEGER4
- call MPI_GET_ADDRESS(cell%owner,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_INTEGER4
- call MPI_GET_ADDRESS(cell%nits,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_INTEGER4
- call MPI_GET_ADDRESS(cell%nneightry,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = size(cell%nneigh)
- mpitypes(nblock) = MPI_INTEGER4
- call MPI_GET_ADDRESS(cell%nneigh,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = size(cell%remote_export)
- mpitypes(nblock) = MPI_LOGICAL
- call MPI_GET_ADDRESS(cell%remote_export,addr,mpierr)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
@@ -190,7 +136,61 @@ subroutine get_mpitype_of_celldens(dtype)
  nblock = nblock + 1
  blens(nblock) = 1
  mpitypes(nblock) = MPI_INTEGER4
+ call MPI_GET_ADDRESS(cell%icell,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_INTEGER4
+ call MPI_GET_ADDRESS(cell%npcell,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_INTEGER4
+ call MPI_GET_ADDRESS(cell%ll_position,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_INTEGER4
+ call MPI_GET_ADDRESS(cell%owner,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_INTEGER4
+ call MPI_GET_ADDRESS(cell%nits,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_INTEGER4
+ call MPI_GET_ADDRESS(cell%nneightry,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = size(cell%nneigh)
+ mpitypes(nblock) = MPI_INTEGER4
+ call MPI_GET_ADDRESS(cell%nneigh,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_INTEGER4
  call MPI_GET_ADDRESS(cell%waiting_index,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = size(cell%remote_export)
+ mpitypes(nblock) = MPI_LOGICAL
+ call MPI_GET_ADDRESS(cell%remote_export,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = size(cell%iphase)
+ mpitypes(nblock) = MPI_INTEGER1
+ call MPI_GET_ADDRESS(cell%iphase,addr,mpierr)
  disp(nblock) = addr - start
 
  nblock = nblock + 1

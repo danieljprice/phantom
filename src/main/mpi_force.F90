@@ -43,6 +43,8 @@ module mpiforce
     real             :: xpos(3)
     real             :: xsizei
     real             :: rcuti
+    real             :: dtdrag(minpart)
+    real             :: vsigmax(minpart)
     integer          :: icell
     integer          :: npcell                                 ! number of particles in here
     integer          :: ll_position(minpart)
@@ -84,24 +86,6 @@ subroutine get_mpitype_of_cellforce(dtype)
  call MPI_GET_ADDRESS(cell,start,mpierr)
 
  nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_INTEGER4
- call MPI_GET_ADDRESS(cell%icell,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_INTEGER4
- call MPI_GET_ADDRESS(cell%npcell,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_INTEGER4
- call MPI_GET_ADDRESS(cell%ll_position,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
  blens(nblock) = size(cell%xpartvec)
  mpitypes(nblock) = MPI_REAL8
  call MPI_GET_ADDRESS(cell%xpartvec,addr,mpierr)
@@ -120,9 +104,51 @@ subroutine get_mpitype_of_cellforce(dtype)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = size(cell%iphase)
- mpitypes(nblock) = MPI_INTEGER1
- call MPI_GET_ADDRESS(cell%iphase,addr,mpierr)
+ blens(nblock) = size(cell%xpos)
+ mpitypes(nblock) = MPI_REAL8
+ call MPI_GET_ADDRESS(cell%xpos,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_REAL8
+ call MPI_GET_ADDRESS(cell%xsizei,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_REAL8
+ call MPI_GET_ADDRESS(cell%rcuti,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = size(cell%dtdrag)
+ mpitypes(nblock) = MPI_REAL8
+ call MPI_GET_ADDRESS(cell%dtdrag,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = size(cell%vsigmax)
+ mpitypes(nblock) = MPI_REAL8
+ call MPI_GET_ADDRESS(cell%vsigmax,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_INTEGER4
+ call MPI_GET_ADDRESS(cell%icell,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_INTEGER4
+ call MPI_GET_ADDRESS(cell%npcell,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_INTEGER4
+ call MPI_GET_ADDRESS(cell%ll_position,addr,mpierr)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
@@ -150,33 +176,21 @@ subroutine get_mpitype_of_cellforce(dtype)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_INTEGER4
+ call MPI_GET_ADDRESS(cell%waiting_index,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
  blens(nblock) = size(cell%remote_export)
  mpitypes(nblock) = MPI_LOGICAL
  call MPI_GET_ADDRESS(cell%remote_export,addr,mpierr)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = size(cell%xpos)
- mpitypes(nblock) = MPI_REAL8
- call MPI_GET_ADDRESS(cell%xpos,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_REAL8
- call MPI_GET_ADDRESS(cell%xsizei,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_REAL8
- call MPI_GET_ADDRESS(cell%rcuti,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_INTEGER4
- call MPI_GET_ADDRESS(cell%waiting_index,addr,mpierr)
+ blens(nblock) = size(cell%iphase)
+ mpitypes(nblock) = MPI_INTEGER1
+ call MPI_GET_ADDRESS(cell%iphase,addr,mpierr)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
