@@ -79,9 +79,9 @@ program phantom
     if (id==master) call endrun()
  endif
 
- #ifdef MPI
-  call finish_tree_comms()
- #endif
+#ifdef MPI
+ call finish_tree_comms()
+#endif
  call finalise_mpi()
 
 end program phantom

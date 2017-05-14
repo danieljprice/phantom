@@ -519,14 +519,14 @@ subroutine init_tree_comms()
 end subroutine init_tree_comms
 
 subroutine finish_tree_comms()
-   integer :: level
+ integer :: level
 
-   do level = 0, globallevel
-      call MPI_COMM_FREE(comm_cofm(level+1), mpierr)
-   enddo
-   do level = 1, globallevel
-      call MPI_COMM_FREE(comm_owner(level+1), mpierr)
-   enddo
+ do level = 0, globallevel
+    call MPI_COMM_FREE(comm_cofm(level+1), mpierr)
+ enddo
+ do level = 1, globallevel
+    call MPI_COMM_FREE(comm_owner(level+1), mpierr)
+ enddo
 end subroutine finish_tree_comms
 
 !----------------------------------------------------------------
