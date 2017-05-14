@@ -19,7 +19,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dtypekdtree, io, mpi, mpidens, mpiforce, mpiutils, stack
+!  DEPENDENCIES: dim, dtypekdtree, io, mpi, mpidens, mpiforce, mpiutils,
+!    stack
 !+
 !--------------------------------------------------------------------------
 #ifdef MPI
