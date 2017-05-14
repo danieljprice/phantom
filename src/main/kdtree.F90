@@ -422,7 +422,7 @@ end subroutine pop_off_stack
 subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, doparallel,&
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
             ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, vxyzu, wassplit, list, &
-            ifirstingroup, groupsize)
+            groupsize)
  use part,      only:massoftype,igas,iphase,iamtype,maxphase,maxp
  use io,        only:fatal,error
 #ifdef MPI
@@ -435,7 +435,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  real,              intent(inout) :: xmini(ndim), xmaxi(ndim)
  integer,           intent(in)    :: npnode
  logical,           intent(in)    :: doparallel
- integer, optional, intent(in)    :: ifirstingroup, groupsize ! used for global node construction
+ integer, optional, intent(in)    :: groupsize ! used for global node construction
  integer,           intent(out)   :: il, ir, nl, nr
  real,              intent(out)   :: xminl(ndim), xmaxl(ndim), xminr(ndim), xmaxr(ndim)
  integer(kind=8),   intent(inout) :: ncells
@@ -590,8 +590,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 
 #ifdef MPI
  ! if this is global node construction
- if (present(ifirstingroup)) then
-    call get_group_cofm(xyzcofm,totmass_node,ifirstingroup,groupsize,xyzcofmg,totmassg)
+ if (present(groupsize)) then
+    call get_group_cofm(xyzcofm,totmass_node,level,groupsize,xyzcofmg,totmassg)
     xyzcofm = xyzcofmg
     totmass_node = totmassg
  endif
@@ -638,22 +638,22 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 ! print*,' size is ',sqrt(r2max)
 
 #ifdef MPI
- if (present(ifirstingroup)) then
-    r2max = reduce_group(r2max,'max',ifirstingroup,groupsize)
-    hmax = reduce_group(hmax,'max',ifirstingroup,groupsize)
-    xmini(1) = reduce_group(xmini(1),'min',ifirstingroup,groupsize)
-    xmini(2) = reduce_group(xmini(2),'min',ifirstingroup,groupsize)
-    xmini(3) = reduce_group(xmini(3),'min',ifirstingroup,groupsize)
-    xmaxi(1) = reduce_group(xmaxi(1),'max',ifirstingroup,groupsize)
-    xmaxi(2) = reduce_group(xmaxi(2),'max',ifirstingroup,groupsize)
-    xmaxi(3) = reduce_group(xmaxi(3),'max',ifirstingroup,groupsize)
+ if (present(groupsize)) then
+    r2max = reduce_group(r2max,'max',level)
+    hmax = reduce_group(hmax,'max',level)
+    xmini(1) = reduce_group(xmini(1),'min',level)
+    xmini(2) = reduce_group(xmini(2),'min',level)
+    xmini(3) = reduce_group(xmini(3),'min',level)
+    xmaxi(1) = reduce_group(xmaxi(1),'max',level)
+    xmaxi(2) = reduce_group(xmaxi(2),'max',level)
+    xmaxi(3) = reduce_group(xmaxi(3),'max',level)
 #ifdef GRAVITY
-    quads(1) = reduce_group(quads(1),'+',ifirstingroup,groupsize)
-    quads(2) = reduce_group(quads(2),'+',ifirstingroup,groupsize)
-    quads(3) = reduce_group(quads(3),'+',ifirstingroup,groupsize)
-    quads(4) = reduce_group(quads(4),'+',ifirstingroup,groupsize)
-    quads(5) = reduce_group(quads(5),'+',ifirstingroup,groupsize)
-    quads(6) = reduce_group(quads(6),'+',ifirstingroup,groupsize)
+    quads(1) = reduce_group(quads(1),'+',level)
+    quads(2) = reduce_group(quads(2),'+',level)
+    quads(3) = reduce_group(quads(3),'+',level)
+    quads(4) = reduce_group(quads(4),'+',level)
+    quads(5) = reduce_group(quads(5),'+',level)
+    quads(6) = reduce_group(quads(6),'+',level)
 #endif
  endif
 #endif
@@ -706,7 +706,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 
     ! create two children nodes and point to them from current node
     ! always use G&R indexing for global tree
-    if ((level < maxlevel_indexed) .or. (present(ifirstingroup))) then
+    if ((level < maxlevel_indexed) .or. (present(groupsize))) then
        il = 2*nnode   ! indexing as per Gafton & Rosswog (2011)
        ir = il + 1
     else
@@ -812,7 +812,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        enddo
     endif
     ! check if the issue has been resolved, if not, arbitrarily build 2 cells (global tree build is excepted)
-    if (((nl==npnode) .or. (nr==npnode)) .and. (.not. present(ifirstingroup))) then
+    if (((nl==npnode) .or. (nr==npnode)) .and. (.not. present(groupsize))) then
        xminl  = xmaxi
        xminr  = xmaxi
        xmaxl  = xmini
@@ -1404,7 +1404,7 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
  use mpiutils,     only:reduceall_mpi
  use domain,       only:ibelong
  use balance,      only:balancedomains
- use mpiderivs,    only:tree_sync,tree_bcast,cellatid_sync
+ use mpiderivs,    only:tree_sync,tree_bcast
 
  logical, parameter :: refine_tree = .true.
 
@@ -1468,7 +1468,7 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
     call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, np, .false., &
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
             ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, vxyzu, wassplit, list, &
-            ifirstingroup, groupsize)
+            groupsize)
 
     if (.not.wassplit) then
        call fatal('maketreeglobal','insufficient particles for splitting at the global level: '// &
@@ -1521,12 +1521,12 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
     nnodeend = 2**(level + 1) - 1
 
     ! synchronize tree with other owners if this proc is the first in group
-    call tree_sync(mynode, 1,nodeglobal(nnodestart:nnodeend), ifirstingroup, groupsize, nprocs)
+    call tree_sync(mynode, 1,nodeglobal(nnodestart:nnodeend), ifirstingroup, groupsize, level)
 
     ! at level 0, tree_sync already 'broadcasts'
     if (level > 0) then
        ! tree broadcast to non-owners
-       call tree_bcast(nodeglobal(nnodestart:nnodeend), nnodeend - nnodestart + 1, ifirstingroup, groupsize)
+       call tree_bcast(nodeglobal(nnodestart:nnodeend), nnodeend - nnodestart + 1, level)
     endif
 
  enddo levels
@@ -1564,7 +1564,7 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
 
        roffset_prev = roffset
 
-       call tree_sync(refinementnode(locstart:locend),roffset,nodeglobal(nnodestart:nnodeend),id,1,nprocs)
+       call tree_sync(refinementnode(locstart:locend),roffset,nodeglobal(nnodestart:nnodeend),id,1,level)
     enddo
  endif
  ! cellatid is zero by default
