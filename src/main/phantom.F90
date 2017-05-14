@@ -30,7 +30,9 @@
 program phantom
  use dim,             only:tagline
  use mpiutils,        only:init_mpi, finalise_mpi
+#ifdef MPI
  use mpiderivs,       only:init_tree_comms,finish_tree_comms
+#endif
  use initial,         only:initialise,startrun,endrun
  use io,              only:id,master,nprocs,set_io_unit_numbers,die
  use evolve,          only:evol
@@ -79,9 +81,9 @@ program phantom
     if (id==master) call endrun()
  endif
 
- #ifdef MPI
-  call finish_tree_comms()
- #endif
+#ifdef MPI
+ call finish_tree_comms()
+#endif
  call finalise_mpi()
 
 end program phantom
