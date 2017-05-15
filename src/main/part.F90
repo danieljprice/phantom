@@ -35,7 +35,7 @@ module part
           mhd,maxmhd,maxBevol,maxvecp,maxp_h2,periodic, &
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
           switches_done_in_derivs,maxp_dustfrac,use_dust,use_dustfrac, &
-          lightcurve,maxlum,nalpha,maxmhdni
+          lightcurve,maxlum,nalpha,maxmhdni,gr,maxgr
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -95,6 +95,13 @@ module part
  real :: deltav(3,maxp_dustfrac)
  character(len=*), parameter :: deltav_label(3) = &
    (/'deltavx','deltavy','deltavz'/)
+!
+!--General relativity
+!
+ real :: pxyzu(maxvxyzu,maxgr)
+ character(len=*), parameter :: pxyzu_label(4) = &
+  (/'px     ','py     ','pz     ','entropy'/)
+
 !
 !--sink particles
 !
@@ -569,6 +576,7 @@ subroutine copy_particle(src, dst)
  if (mhd) then
     Bevol(:,dst) = Bevol(:,src)
  endif
+ if (gr) pxyzu(:,dst) = pxyzu(:,src)
  if (ndivcurlv  > 0) divcurlv(:,dst)  = divcurlv(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst)    = gradh(:,src)
@@ -620,6 +628,7 @@ subroutine copy_particle_all(src,dst)
        ionfrac_eta(:,dst) = ionfrac_eta(:,src)
     endif
  endif
+ if (gr) pxyzu(:,dst) = pxyzu(:,src)
  if (ndivcurlv > 0) divcurlv(:,dst) = divcurlv(:,src)
  if (ndivcurlB > 0) divcurlB(:,dst) = divcurlB(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
