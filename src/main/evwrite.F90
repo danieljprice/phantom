@@ -137,7 +137,7 @@ subroutine init_evfile(iunit,evfile)
           call fill_ev_tag(ev_fmt,'v_drift',  'xan',i,j)
        endif
           call fill_ev_tag(ev_fmt,'ni/n(i+n)','xan',i,j)
-!         call fill_ev_tag(ev_fmt,'ne/n(i+n)','xan',i,j)
+          call fill_ev_tag(ev_fmt,'ne/n(i+n)','xan',i,j)
           call fill_ev_tag(ev_fmt,'n_e',      'xa', i,j)
           call fill_ev_tag(ev_fmt,'n_n',      'xa', i,j)
        if (ion_rays) then
