@@ -39,7 +39,7 @@
 !--------------------------------------------------------------------------
 module setup
  use part, only:mhd
- use dim,  only:use_dust,calc_erot,calc_erot_com
+ use dim,  only:use_dust,calc_erot,calc_erot_com,maxvxyzu
  implicit none
  public :: setpart
 
@@ -233,7 +233,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  time        = 0.
  hfact       = hfact_default
- gamma       = 1.
+ if (maxvxyzu >=4 ) then
+    gamma    = 5./3.
+ else
+    gamma    = 1.
+ endif
  rmax        = r_sphere
  angvel_code = angvel*utime
  vol_box     = dxbound*dybound*dzbound
