@@ -19,12 +19,15 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dtypekdtree, io, mpi, mpidens, mpiforce, mpiutils, stack
+!  DEPENDENCIES: dim, dtypekdtree, io, mpi, mpidens, mpiforce, mpiutils,
+!    stack
 !+
 !--------------------------------------------------------------------------
 #ifdef MPI
 module mpiderivs
  use mpi
+ use io,             only:id,nprocs
+ use dim,            only:maxprocs
  use mpiutils,       only:mpierr,status,MPI_DEFAULT_REAL
  use dtypekdtree,    only:kdnode,ndimtree
 
@@ -63,6 +66,10 @@ module mpiderivs
  integer :: comm_cellexchange
  integer :: comm_done
 
+ integer :: globallevel
+ integer :: comm_cofm(maxprocs)  ! only comms up to globallevel are used
+ integer :: comm_owner(maxprocs) ! only comms up to globallevel are used
+
  public :: init_cell_exchange
  public :: send_cell
  public :: recv_cells
@@ -71,9 +78,10 @@ module mpiderivs
  public :: recv_while_wait
  public :: get_group_cofm
  public :: reduce_group
- public :: cellatid_sync
  public :: tree_sync
  public :: tree_bcast
+ public :: init_tree_comms
+ public :: finish_tree_comms
 
 contains
 
@@ -83,7 +91,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine init_celldens_exchange(xbufrecv,ireq)
- use io,       only:fatal,nprocs
+ use io,       only:fatal
  use mpidens,  only:get_mpitype_of_celldens,celldens
 
  type(celldens),     intent(inout) :: xbufrecv(nprocs)
@@ -117,7 +125,7 @@ subroutine init_celldens_exchange(xbufrecv,ireq)
 end subroutine init_celldens_exchange
 
 subroutine init_cellforce_exchange(xbufrecv,ireq)
- use io,       only:fatal,nprocs
+ use io,       only:fatal
  use mpiforce, only:get_mpitype_of_cellforce,cellforce
 
  type(cellforce),    intent(inout) :: xbufrecv(nprocs)
@@ -156,7 +164,7 @@ end subroutine init_cellforce_exchange
 !+
 !-----------------------------------------------------------------------
 subroutine send_celldens(cell,direction,irequestsend,xsendbuf)
- use io,       only:id,nprocs
+ use io,       only:id
  use mpidens,  only:celldens
 
  type(celldens),     intent(in)     :: cell
@@ -189,7 +197,7 @@ subroutine send_celldens(cell,direction,irequestsend,xsendbuf)
 end subroutine send_celldens
 
 subroutine send_cellforce(cell,direction,irequestsend,xsendbuf)
- use io,       only:id,nprocs
+ use io,       only:id
  use mpiforce, only:cellforce
 
  type(cellforce),    intent(in)     :: cell
@@ -227,7 +235,6 @@ end subroutine send_cellforce
 !+
 !-----------------------------------------------------------------------
 subroutine check_send_finished_dens(stack,irequestsend,irequestrecv,xrecvbuf)
- use io,       only:id,nprocs
  use mpidens,  only:stackdens,celldens
  type(stackdens),    intent(inout)  :: stack
  integer,            intent(inout)  :: irequestsend(nprocs),irequestrecv(nprocs)
@@ -251,7 +258,6 @@ subroutine check_send_finished_dens(stack,irequestsend,irequestrecv,xrecvbuf)
 end subroutine check_send_finished_dens
 
 subroutine check_send_finished_force(stack,irequestsend,irequestrecv,xrecvbuf)
- use io,       only:id,nprocs
  use mpiforce, only:stackforce,cellforce
  type(stackforce),   intent(inout)  :: stack
  integer,            intent(inout)  :: irequestsend(nprocs),irequestrecv(nprocs)
@@ -275,7 +281,6 @@ subroutine check_send_finished_force(stack,irequestsend,irequestrecv,xrecvbuf)
 end subroutine check_send_finished_force
 
 subroutine recv_while_wait_dens(stack,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
- use io,       only:nprocs
  use mpidens,  only:stackdens,celldens
 
  type(stackdens),  intent(inout) :: stack
@@ -300,7 +305,6 @@ subroutine recv_while_wait_dens(stack,xrecvbuf,irequestrecv,xsendbuf,irequestsen
 end subroutine recv_while_wait_dens
 
 subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
- use io,       only:nprocs
  use mpiforce, only:stackforce,cellforce
 
  type(stackforce), intent(inout) :: stack
@@ -330,7 +334,7 @@ end subroutine recv_while_wait_force
 !+
 !------------------------------------------------
 subroutine recv_celldens(target_stack,xbuf,irequestrecv)
- use io,       only:fatal,nprocs
+ use io,       only:fatal
  use stack,    only:push_onto_stack
  use mpidens,  only:stackdens,celldens
 
@@ -369,7 +373,7 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv)
 end subroutine recv_celldens
 
 subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
- use io,       only:fatal,nprocs
+ use io,       only:fatal
  use stack,    only:push_onto_stack
  use mpiforce, only:stackforce,cellforce
 
@@ -421,7 +425,7 @@ end subroutine recv_cellforce
 !+
 !----------------------------------------------------------------
 subroutine finish_celldens_exchange(irequestrecv,xsendbuf)
- use io,       only:fatal,nprocs
+ use io,       only:fatal
  use mpidens,  only:celldens
  integer,            intent(inout)  :: irequestrecv(nprocs)
  integer                            :: newproc,iproc
@@ -450,7 +454,7 @@ subroutine finish_celldens_exchange(irequestrecv,xsendbuf)
 end subroutine finish_celldens_exchange
 
 subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
- use io,       only:fatal,nprocs
+ use io,       only:fatal
  use mpiforce, only:cellforce
  integer,            intent(inout)  :: irequestrecv(nprocs)
  integer                            :: newproc,iproc
@@ -480,31 +484,74 @@ end subroutine finish_cellforce_exchange
 
 !----------------------------------------------------------------
 !+
+!  initialise communicators for tree construction
+!+
+!----------------------------------------------------------------
+subroutine init_tree_comms()
+ integer :: i,level,groupsize,color
+
+ globallevel = int(ceiling(log(real(nprocs)) / log(2.0)))
+
+ ! cofm group is all procs at level 0
+ call MPI_COMM_DUP(MPI_COMM_WORLD, comm_cofm(1), mpierr)
+ ! owner comm is never needed at level 0, left uninitialised
+
+ do level = 1, globallevel
+    groupsize = 2**(globallevel - level)
+
+    ! cofm group
+    color = id / groupsize
+    call MPI_COMM_SPLIT(MPI_COMM_WORLD, color, id, comm_cofm(level+1), mpierr)
+
+    ! owner group
+    if (groupsize == 1) then
+       call MPI_COMM_DUP(MPI_COMM_WORLD, comm_owner(level+1), mpierr)
+    else
+       if (mod(id, groupsize) == 0) then
+          color = 0
+       else
+          color = 1
+       endif
+       call MPI_COMM_SPLIT(MPI_COMM_WORLD, color, id, comm_owner(level+1), mpierr)
+    endif
+ enddo
+
+end subroutine init_tree_comms
+
+subroutine finish_tree_comms()
+ integer :: level
+
+ do level = 0, globallevel
+    call MPI_COMM_FREE(comm_cofm(level+1), mpierr)
+ enddo
+ do level = 1, globallevel
+    call MPI_COMM_FREE(comm_owner(level+1), mpierr)
+ enddo
+end subroutine finish_tree_comms
+
+!----------------------------------------------------------------
+!+
 !  get the COFM of the group
 !+
 !----------------------------------------------------------------
-subroutine get_group_cofm(xyzcofm,totmass_node,ifirstingroup,groupsize,cofmsum,totmassg)
+subroutine get_group_cofm(xyzcofm,totmass_node,level,groupsize,cofmsum,totmassg)
  real,      intent(in)        :: xyzcofm(3)
  real,      intent(in)        :: totmass_node
- integer,   intent(in)        :: ifirstingroup, groupsize
+ integer,   intent(in)        :: level, groupsize
 
  real,      intent(out)       :: cofmsum(3)
  real,      intent(out)       :: totmassg
-
- integer               :: comm
 
  real                  :: recvbuffer(3*groupsize)
  real                  :: groupxyzcofm(3,groupsize), totmass(groupsize)
 
  integer               :: i
 
- call get_comm_for_cofm(ifirstingroup, groupsize, comm)
-
  ! perform COFM exchange
- call MPI_ALLGATHER(xyzcofm,3,MPI_REAL8,recvbuffer,3,MPI_REAL8,comm,mpierr)
+ call MPI_ALLGATHER(xyzcofm,3,MPI_REAL8,recvbuffer,3,MPI_REAL8,comm_cofm(level+1),mpierr)
  groupxyzcofm = reshape(recvbuffer,(/3,groupsize/))
 
- call MPI_ALLGATHER(totmass_node,1,MPI_REAL8,totmass,1,MPI_REAL8,comm,mpierr)
+ call MPI_ALLGATHER(totmass_node,1,MPI_REAL8,totmass,1,MPI_REAL8,comm_cofm(level+1),mpierr)
 
  cofmsum = 0
  do i=1,groupsize
@@ -514,8 +561,6 @@ subroutine get_group_cofm(xyzcofm,totmass_node,ifirstingroup,groupsize,cofmsum,t
  totmassg = sum(totmass)
  cofmsum = cofmsum / totmassg
 
- call MPI_COMM_FREE(comm,mpierr)
-
 end subroutine get_group_cofm
 
 !----------------------------------------------------------------
@@ -523,92 +568,44 @@ end subroutine get_group_cofm
 !  get the r2max of the group
 !+
 !----------------------------------------------------------------
-function reduce_group(x,string,ifirstingroup, groupsize) result(xg)
+function reduce_group(x,string,level) result(xg)
  use io, only:fatal
  real,               intent(in)        :: x
  character(len=*),   intent(in)        :: string
- integer,            intent(in)        :: ifirstingroup, groupsize
-
+ integer,            intent(in)        :: level
  real                                  :: isend, ired
-
  real                                  :: xg
-
- integer                               :: comm
 
  isend = x
 
- call get_comm_for_cofm(ifirstingroup, groupsize, comm)
-
  select case(trim(string))
  case('+')
-    call MPI_ALLREDUCE(isend,ired,1,MPI_REAL8,MPI_SUM,comm,mpierr)
+    call MPI_ALLREDUCE(isend,ired,1,MPI_REAL8,MPI_SUM,comm_cofm(level+1),mpierr)
  case('max')
-    call MPI_ALLREDUCE(isend,ired,1,MPI_REAL8,MPI_MAX,comm,mpierr)
+    call MPI_ALLREDUCE(isend,ired,1,MPI_REAL8,MPI_MAX,comm_cofm(level+1),mpierr)
  case('min')
-    call MPI_ALLREDUCE(isend,ired,1,MPI_REAL8,MPI_MIN,comm,mpierr)
+    call MPI_ALLREDUCE(isend,ired,1,MPI_REAL8,MPI_MIN,comm_cofm(level+1),mpierr)
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
- call MPI_COMM_FREE(comm,mpierr)
 
  xg = ired
 
 end function reduce_group
-
-
-!----------------------------------------------------------------
-!+
-!  synchronize the cellatid (ifirstincell)
-!+
-!----------------------------------------------------------------
-subroutine cellatid_sync(cellatidloc, nnodes, cellatid, ifirstingroup, groupsize, nprocs)
- use io, only:id
- use dtypekdtree, only:get_mpitype_of_kdnode
-
- integer, intent(in)         :: ifirstingroup, groupsize, nprocs
- integer, intent(in)         :: nnodes ! nodes sent per proc
- integer, intent(in)         :: cellatidloc(nnodes)
- integer, intent(inout)      :: cellatid(nprocs/groupsize)
-
- integer                     :: comm
-
- integer                     :: nowners
-
- nowners = nprocs / groupsize
-
- ! only exchange if there is more than 1 owner (every level except top)
- if (nowners > 1) then
-    call get_comm_for_owners(groupsize, nowners, comm)
-
-    ! skip if we are not an owner
-    if (id == ifirstingroup) then
-       ! perform node exchange
-       call MPI_ALLGATHER(cellatidloc,nnodes,MPI_INTEGER,cellatid,nnodes,MPI_INTEGER,comm,mpierr)
-    endif
-
-    call MPI_COMM_FREE(comm,mpierr)
- else
-    cellatid = cellatidloc(1)
- endif
-
-end subroutine cellatid_sync
-
 
 !----------------------------------------------------------------
 !+
 !  synchronize the global tree, placing nodes in the correct position
 !+
 !----------------------------------------------------------------
-subroutine tree_sync(nodeentry, nnodes, node, ifirstingroup, groupsize, nprocs)
- use io, only:id
+subroutine tree_sync(nodeentry, nnodes, node, ifirstingroup, groupsize, level)
  use dtypekdtree, only:get_mpitype_of_kdnode
 
- integer, intent(in)         :: ifirstingroup, groupsize, nprocs
+ integer, intent(in)         :: ifirstingroup, groupsize, level
  integer, intent(in)         :: nnodes ! nodes sent per proc
  type(kdnode), intent(in)    :: nodeentry(nnodes)
  type(kdnode), intent(inout) :: node(nprocs/groupsize)
 
- integer                     :: comm
  integer                     :: dtype_kdnode
 
  integer                     :: nowners
@@ -617,16 +614,12 @@ subroutine tree_sync(nodeentry, nnodes, node, ifirstingroup, groupsize, nprocs)
 
  ! only exchange if there is more than 1 owner (every level except top)
  if (nowners > 1) then
-    call get_comm_for_owners(groupsize, nowners, comm)
     call get_mpitype_of_kdnode(dtype_kdnode)
-
     ! skip if we are not an owner
     if (id == ifirstingroup) then
        ! perform node exchange
-       call MPI_ALLGATHER(nodeentry,nnodes,dtype_kdnode,node,nnodes,dtype_kdnode,comm,mpierr)
+       call MPI_ALLGATHER(nodeentry,nnodes,dtype_kdnode,node,nnodes,dtype_kdnode,comm_owner(level+1),mpierr)
     endif
-
-    call MPI_COMM_FREE(comm,mpierr)
  else
     node = nodeentry(1)
  endif
@@ -638,72 +631,20 @@ end subroutine tree_sync
 !  broadcast the tree from owners to non-owners
 !+
 !----------------------------------------------------------------
-subroutine tree_bcast(node, nnode, ifirstingroup, groupsize)
+subroutine tree_bcast(node, nnode, level)
  use dtypekdtree, only:get_mpitype_of_kdnode
 
  integer,      intent(in)        :: nnode
  type(kdnode), intent(inout)     :: node(nnode)
- integer,      intent(in)        :: ifirstingroup, groupsize
+ integer,      intent(in)        :: level
 
- integer                         :: comm
  integer                         :: dtype_kdnode
 
- call get_comm_for_cofm(ifirstingroup, groupsize, comm)
  call get_mpitype_of_kdnode(dtype_kdnode)
  ! the bcast root is relative to the communicator (i.e. it needs to be 0, not ifirstingroup)
- call MPI_BCAST(node, nnode, dtype_kdnode, 0, comm, mpierr)
-
- call MPI_COMM_FREE(comm,mpierr)
+ call MPI_BCAST(node, nnode, dtype_kdnode, 0, comm_cofm(level+1), mpierr)
 
 end subroutine tree_bcast
-
-!----------------------------------------------------------------
-!+
-!  get the communicator for the COFM groups
-!+
-!----------------------------------------------------------------
-subroutine get_comm_for_cofm(ifirstingroup, groupsize, comm)
- use io,    only:id,nprocs
- integer, intent(in)         :: ifirstingroup, groupsize
- integer, intent(out)        :: comm
-
- integer                     :: color
-
- if (groupsize == nprocs) then
-    call MPI_COMM_DUP(MPI_COMM_WORLD, comm, mpierr)
- else
-    color = ifirstingroup / groupsize
-    call MPI_COMM_SPLIT(MPI_COMM_WORLD, color, id, comm, mpierr)
- endif
-
-end subroutine get_comm_for_cofm
-
-!----------------------------------------------------------------
-!+
-!  get the communicator for node owners
-!+
-!----------------------------------------------------------------
-subroutine get_comm_for_owners(groupsize, nowners, comm)
- use io,    only:id
- integer, intent(in)         :: groupsize, nowners
- integer, intent(out)        :: comm
-
- integer                     :: color
-
- if (groupsize == 1) then
-    call MPI_COMM_DUP(MPI_COMM_WORLD, comm, mpierr)
- else
-    ! color based on whether this is an owner
-    if (mod(id,groupsize) == 0) then
-       color = 0
-    else
-       color = 1
-    endif
-    call MPI_COMM_SPLIT(MPI_COMM_WORLD, color, id, comm, mpierr)
- endif
-
-end subroutine get_comm_for_owners
-
 
 end module mpiderivs
 #endif
