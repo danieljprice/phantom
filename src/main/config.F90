@@ -257,4 +257,15 @@ module dim
  logical, public :: calc_erot_com = .false.
  logical, public :: incl_erot     = .false.
 
+ !--------------------
+ ! General relativity
+ !--------------------
+#ifdef GR
+ integer, parameter :: maxgr = maxp
+ logical, parameter :: gr = .true.
+#else
+ integer, parameter :: maxgr = 0
+ logical, parameter :: gr = .false.
+#endif
+
 end module dim

@@ -1384,6 +1384,10 @@ ifeq ($(MHD), yes)
     FPPFLAGS += -DMHD
 endif
 
+ifeq ($(GR), yes)
+    FPPFLAGS += -DGR
+endif
+
 ifeq ($(DUSTFRAC), yes)
     FPPFLAGS += -DDUSTFRAC
     DUST= yes
@@ -1588,6 +1592,18 @@ ifeq (X$(SRCPOT), X)
 SRCPOT=${SRCPOTS}
 endif
 
+ifeq ($(GR),yes)
+ifndef SRCMETRIC
+ifdef METRIC
+   SRCMETRIC= metric_${METRIC}.f90
+else
+   SRCMETRIC= metric_schwarzschild.f90
+endif
+endif
+   SRCGR=$(SRCMETRIC)
+   SRCPOT=externalforces_gr.F90
+endif
+
 SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.f90
 
 SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
@@ -1596,7 +1612,7 @@ SRCEOS = ${SRCMESA} eos.F90
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
          utils_mathfunc.f90 part.F90 utils_timing.f90 ${DOMAIN} mpi_balance.F90 commons.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_sphNG.f90 utils_vectors.f90 \
-         utils_datafiles.f90 datafiles.f90 ${SRCFASTMATH} random.f90 \
+         utils_datafiles.f90 datafiles.f90 ${SRCFASTMATH} ${SRCGR} random.f90 \
          checkoptions.F90 ${SRCEOS} set_binary.f90 \
          viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} \
          set_disc.F90 partinject.F90 \
