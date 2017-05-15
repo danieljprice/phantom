@@ -137,10 +137,10 @@ subroutine init_evfile(iunit,evfile)
           call fill_ev_tag(ev_fmt,'v_ion',    'xan',i,j)
           call fill_ev_tag(ev_fmt,'v_drift',  'xan',i,j)
        endif
-          call fill_ev_tag(ev_fmt,'ni/n(i+n)','xan',i,j)
-          call fill_ev_tag(ev_fmt,'ne/n(i+n)','xan',i,j)
-          call fill_ev_tag(ev_fmt,'n_e',      'xa', i,j)
-          call fill_ev_tag(ev_fmt,'n_n',      'xa', i,j)
+       call fill_ev_tag(ev_fmt,'ni/n(i+n)','xan',i,j)
+       call fill_ev_tag(ev_fmt,'ne/n(i+n)','xan',i,j)
+       call fill_ev_tag(ev_fmt,'n_e',      'xa', i,j)
+       call fill_ev_tag(ev_fmt,'n_n',      'xa', i,j)
        if (ion_rays) then
           call fill_ev_tag(ev_fmt,'n_ihR',    'xa', i,j)
           call fill_ev_tag(ev_fmt,'n_imR',    'xa', i,j)
@@ -238,9 +238,9 @@ subroutine fill_ev_tag(ev_fmt,label,cmd,i,j)
  !
  ! verify action command is legal
  if ( (index(cmd,'x') > 0) .or. (index(cmd,'a') > 0) .or. (index(cmd,'n') > 0) ) then
-   iindex = 1
+    iindex = 1
  else
-   iindex = 0
+    iindex = 0
  endif
  if ( index(cmd,'0') + index(cmd,'s') + iindex > 1) &
     call fatal('fill_ev_tag','using an invalid sequence of actions for element', var=cmd)

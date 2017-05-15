@@ -280,7 +280,7 @@ subroutine compute_energies(t)
 #endif
 
 #ifdef LIGHTCURVE
-           if (track_lum) call ev_data_update(ev_data_thread,'tot lum',luminosity(i))
+          if (track_lum) call ev_data_update(ev_data_thread,'tot lum',luminosity(i))
 #endif
 
           ! rms mach number (rmsmach = rmsmach + v2i/spsoundi**2)
