@@ -241,6 +241,8 @@ subroutine fill_ev_tag(ev_fmt,label,cmd,i,j)
  endif
  if ( index(cmd,'0') + index(cmd,'s') + iindex > 1) &
     call fatal('fill_ev_tag','using an invalid sequence of actions for element', var=cmd)
+ if (cmd(1:1)==cmd(2:2) .or. cmd(1:1)==cmd(3:3) .or. cmd(2:2)==cmd(3:3)) &
+    call fatal('fill_ev_tag','using duplicate actions for the same quantity', var=cmd)
  !
 end subroutine fill_ev_tag
 !----------------------------------------------------------------
