@@ -30,8 +30,7 @@ module energies
  use dim, only: calc_erot, calc_erot_com
  implicit none
 
- logical, public :: gas_only,track_mass,track_lum
-
+ logical,         public    :: gas_only,track_mass,track_lum
  real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot
  real,            public    :: vrms,rmsmach,accretedmass,mdust,mgas
  real,            public    :: xmom,ymom,zmom
@@ -91,39 +90,27 @@ subroutine compute_energies(t)
  real    :: gasfrac,dustfraci,dust_to_gas
  real    :: temperature,etaart,etaart1,etaohm,etahall,etaambi,vion,vdrift
  real    :: vioni(3),data_out(17+nelements_max*nlevels-3)
- real    :: erotx,eroty,erotz,erotxi,erotyi,erotzi,fdum(3)
- integer :: i,j,itype,ierr,naccreted
+ real    :: erotxi,erotyi,erotzi,fdum(3)
+ integer :: i,j,itype,ierr
  integer(kind=8) :: np,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
 
  ! initialise values
  itype  = igas
  pmassi = massoftype(igas)
- ekin   = 0.
- etherm = 0.
  if (maxvxyzu < 4 .and. gamma < 1.0001 .and. ieos/=9) etherm = 1.5*polyk
- epot = 0.
- emag = 0.
- etot = 0.
  xmom = 0.
  ymom = 0.
  zmom = 0.
  angx = 0.
  angy = 0.
  angz = 0.
- vrms = 0.
- rmsmach = 0.
  np = 0
- naccreted = 0
- accretedmass = 0.
  xmomacc = 0.
  ymomacc = 0.
  zmomacc = 0.
  angaccx = 0.
  angaccy = 0.
  angaccz = 0.
- erotx   = 0.
- eroty   = 0.
- erotz   = 0.
  mgas    = 0.
  mdust   = 0.
  if (maxalpha==maxp) then
@@ -131,7 +118,6 @@ subroutine compute_energies(t)
  else
     alphai = alpha
  endif
- totlum      = 0.
  ionfrac_eta = 0.
  np_rho      = 0
  call initialise_ev_data(ev_data)
@@ -142,7 +128,7 @@ subroutine compute_energies(t)
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass) &
 !$omp shared(Bxyz,Bevol,divBsymm,divcurlB,alphaB,iphase,poten,dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,nelements,n_R,n_electronT,ionfrac_eta) &
-!$omp shared(ielements,ev_data,np_rho,erot_com,calc_erot,gas_only) &
+!$omp shared(ielements,ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,acci,valfven2i,divBi,hdivBonBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
@@ -158,9 +144,8 @@ subroutine compute_energies(t)
 #ifdef LIGHTCURVE
 !$omp shared(luminosity) &
 #endif
-!$omp reduction(+:np,xmom,ymom,zmom,angx,angy,angz,erotx,eroty,erotz,mgas,mdust) &
-!$omp reduction(+:naccreted,xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
-!$omp reduction(+:ekin,etherm,emag,epot,vrms,rmsmach,accretedmass,totlum)
+!$omp reduction(+:np,xmom,ymom,zmom,angx,angy,angz,etherm) &
+!$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz)
  call initialise_ev_data(ev_data_thread)
  np_rho_thread = 0
 !$omp do
@@ -223,16 +208,16 @@ subroutine compute_energies(t)
 
        ! kinetic energy & rms velocity
        v2i  = vxi*vxi + vyi*vyi + vzi*vzi
-       ekin = ekin + pmassi*v2i
-       vrms = vrms + v2i
+       call ev_data_update(ev_data_thread,'ekin',pmassi*v2i) ! ekin = ekin + pmassi*v2i
+       call ev_data_update(ev_data_thread,'vrms',v2i)        ! vrms = vrms + v2i
 
        ! rotational energy around each axis through the Centre of mass
        ! note: centre of mass is updated only when dumpfiles are created
        if (calc_erot) then
           call get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
-          erotx = erotx + erotxi
-          eroty = eroty + erotyi
-          erotz = erotz + erotzi
+          call ev_data_update(ev_data_thread,'erot_x',erotxi)
+          call ev_data_update(ev_data_thread,'erot_y',erotyi)
+          call ev_data_update(ev_data_thread,'erot_z',erotzi)
        endif
 
        if (iexternalforce > 0) then
@@ -241,16 +226,16 @@ subroutine compute_energies(t)
           dumz = 0.
           call externalforce(iexternalforce,xi,yi,zi,hi,t,dumx,dumy,dumz,epoti,ii=i)
           call externalforce_vdependent(iexternalforce,xyzh(1:3,i),vxyzu(1:3,i),fdum,epoti)
-          epot = epot + pmassi*epoti
+          call ev_data_update(ev_data_thread,'epot',pmassi*epoti)
        endif
        if (nptmass > 0) then
           dumx = 0.
           dumy = 0.
           dumz = 0.
           call get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,dumx,dumy,dumz,epoti)
-          epot = epot + pmassi*epoti
+          call ev_data_update(ev_data_thread,'epot',pmassi*epoti)
        endif
-       if (gravity) epot = epot + poten(i)
+       if (gravity) call ev_data_update(ev_data_thread,'epot',real(poten(i)))
        !
        ! the following apply ONLY to gas particles
        !
@@ -260,9 +245,9 @@ subroutine compute_energies(t)
              dustfraci   = dustfrac(i)
              gasfrac     = 1. - dustfraci
              dust_to_gas = dustfraci/gasfrac
-             call ev_data_update(ev_data_thread,'dust/gas',dust_to_gas)
-             mgas        = mgas + pmassi*gasfrac
-             mdust       = mdust + pmassi*dustfraci
+             call ev_data_update(ev_data_thread,'dust/gas',dust_to_gas     )
+             call ev_data_update(ev_data_thread,'mgas',    pmassi*gasfrac  ) ! mgas  = mgas  + pmassi*gasfrac
+             call ev_data_update(ev_data_thread,'mdust',   pmassi*dustfraci) ! mdust = mdust + pmassi*dustfraci
           else
              dustfraci = 0.
              gasfrac   = 1.
@@ -295,11 +280,11 @@ subroutine compute_energies(t)
 #endif
 
 #ifdef LIGHTCURVE
-          totlum = totlum + luminosity(i)
+           if (track_lum) call ev_data_update(ev_data_thread,'tot lum',luminosity(i))
 #endif
 
-          ! rms mach number
-          if (spsoundi > 0.) rmsmach = rmsmach + v2i/spsoundi**2
+          ! rms mach number (rmsmach = rmsmach + v2i/spsoundi**2)
+          if (spsoundi > 0.) call ev_data_update(ev_data_thread,'rmsmach',v2i/spsoundi**2)
 
           ! max of dissipation parameters
           if (maxalpha==maxp) then
@@ -334,7 +319,7 @@ subroutine compute_energies(t)
              rho1i     = 1./rhoi
              valfven2i = B2i*rho1i
              vsigi     = sqrt(valfven2i + spsoundi*spsoundi)
-             emag      = emag + pmassi*B2i*rho1i
+             call ev_data_update(ev_data_thread,'emag',pmassi*B2i*rho1i) ! emag = emag + pmassi*B2i*rho1i
 
              divBi     = abs(divcurlB(1,i))
              if (B2i > 0.) then
@@ -409,7 +394,6 @@ subroutine compute_energies(t)
 !
 !--count accretion onto fixed potentials (external forces) separately
 !
-       naccreted = naccreted + 1
        vxi = vxyzu(1,i)
        vyi = vxyzu(2,i)
        vzi = vxyzu(3,i)
@@ -426,7 +410,8 @@ subroutine compute_energies(t)
        angaccy = angaccy + pmassi*(zi*vxi - xi*vzi)
        angaccz = angaccz + pmassi*(xi*vyi - yi*vxi)
 
-       accretedmass = accretedmass + pmassi
+       if (track_mass) call ev_data_update(ev_data_thread,'accretedmas',pmassi)
+
     endif
  enddo
 !$omp enddo
@@ -442,7 +427,7 @@ subroutine compute_energies(t)
     pmassi = xyzmh_ptmass(4,i)
     !--acci is the accreted mass on the sink
     acci   = xyzmh_ptmass(imacc,i)
-    accretedmass = accretedmass + acci
+    if (track_mass) call ev_data_update(ev_data_thread,'accretedmas',acci)
 
     vxi    = vxyz_ptmass(1,i)
     vyi    = vxyz_ptmass(2,i)
@@ -463,14 +448,14 @@ subroutine compute_energies(t)
     angz   = angz + xyzmh_ptmass(ispinz,i)
 
     v2i    = vxi*vxi + vyi*vyi + vzi*vzi
-    ekin   = ekin + pmassi*v2i
+    call ev_data_update(ev_data_thread,'ekin',pmassi*v2i)  ! ekin   = ekin + pmassi*v2i
 
     ! rotational energy around each axis through the origin
     if (calc_erot) then
        call get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
-       erotx = erotx + erotxi
-       eroty = eroty + erotyi
-       erotz = erotz + erotzi
+       call ev_data_update(ev_data_thread,'erot_x',erotxi)
+       call ev_data_update(ev_data_thread,'erot_y',erotyi)
+       call ev_data_update(ev_data_thread,'erot_z',erotzi)
     endif
  enddo
 !$omp enddo
@@ -491,16 +476,14 @@ subroutine compute_energies(t)
  else
     dnptot = 0.
  endif
- !--Finalise the arrays
+ !--Finalise the arrays & correct as necessary
  call finalise_ev_data(ev_data,dnptot)
+ call ev_data_correction(ev_data,'ekin',0.5)  ! ekin = 0.5*ekin
+ call ev_data_correction(ev_data,'emag',0.5)  ! emag = 0.5*emag
+ ekin = ev_get_value('ekin')
+ emag = ev_get_value('emag')
+ epot = ev_get_value('epot')
 
- ekin = 0.5*ekin
- emag = 0.5*emag
-
- ekin = reduce_fn('+',ekin)
- if (maxvxyzu >= 4 .or. gamma >= 1.0001) etherm = reduce_fn('+',etherm)
- emag = reduce_fn('+',emag)
- epot = reduce_fn('+',epot)
  if (nptmass > 1) epot = epot + epot_sinksink
 
  etot = ekin + etherm + emag + epot
@@ -517,34 +500,28 @@ subroutine compute_energies(t)
 
  !--fill in the relevant array elements for energy & momentum
  call ev_data_update(ev_data,'time',  t     )
- call ev_data_update(ev_data,'ekin',  ekin  )
  call ev_data_update(ev_data,'etherm',etherm)
- call ev_data_update(ev_data,'emag',  emag  )
- call ev_data_update(ev_data,'epot',  epot  )
  call ev_data_update(ev_data,'etot',  etot  )
  call ev_data_update(ev_data,'totmom',totmom)
  call ev_data_update(ev_data,'angtot',angtot)
 
  if (calc_erot) then
-    erotx = 0.5*erotx
-    eroty = 0.5*eroty
-    erotz = 0.5*erotz
-    call ev_data_update(ev_data,'erot',  sqrt(erotx*erotx + eroty*eroty + erotz*erotz))
-    call ev_data_update(ev_data,'erot_x',erotx)
-    call ev_data_update(ev_data,'erot_y',eroty)
-    call ev_data_update(ev_data,'erot_z',erotz)
+    call ev_data_correction(ev_data,'erot_x',0.5)  ! erot = 0.5*erot
+    call ev_data_correction(ev_data,'erot_y',0.5)  ! erot = 0.5*erot
+    call ev_data_correction(ev_data,'erot_z',0.5)  ! erot = 0.5*erot
+    call ev_data_update(ev_data,'erot', sqrt(ev_get_value('erot_x')**2+ev_get_value('erot_y')**2+ev_get_value('erot_z')**2))
  endif
 
  if (use_dustfrac) then
-    mgas  = reduce_fn('+',mgas)
-    mdust = reduce_fn('+',mdust)
+    mgas  = ev_get_value('mgas')
+    mdust = ev_get_value('mdust')
  endif
 
  if (.not. gas_only) then
     do i = 1,maxtypes
        np_rho(i) = reduce_fn('+',np_rho(i))
     enddo
-    ! correct the average densities
+    ! correct the average densities so that division is by n_p and not n_total
     if (np_rho(igas)        > 0) call ev_data_correction(ev_data,'rho gas', nptot/real(np_rho(igas)),       'a')
     if (np_rho(idust)       > 0) call ev_data_correction(ev_data,'rho dust',nptot/real(np_rho(idust)),      'a')
     if (np_rho(iboundary)   > 0) call ev_data_correction(ev_data,'rho bdy', nptot/real(np_rho(iboundary)),  'a')
@@ -552,10 +529,10 @@ subroutine compute_energies(t)
     if (np_rho(idarkmatter) > 0) call ev_data_correction(ev_data,'rho dm',  nptot/real(np_rho(idarkmatter)),'a')
     if (np_rho(ibulge)      > 0) call ev_data_correction(ev_data,'rho blg', nptot/real(np_rho(ibulge)),     'a')
  endif
- vrms      = sqrt(reduce_fn('+',vrms)*dnptot)
- rmsmach   = sqrt(reduce_fn('+',rmsmach)*dnptot)
- call ev_data_update(ev_data,'rmsmach',rmsmach)
-
+ call ev_data_correction(ev_data,'vrms',   dnptot)
+ call ev_data_correction(ev_data,'rmsmach',dnptot)
+ vrms    = ev_get_value('vrms')
+ rmsmach = ev_get_value('rmsmach')
 
  if (iexternalforce > 0) then
     xmomacc   = reduce_fn('+',xmomacc)
@@ -579,11 +556,10 @@ subroutine compute_energies(t)
  endif
 
  if (track_mass) then
-    call ev_data_update(ev_data,'accretedmas',reduce_fn('+',accretedmass))
-    call ev_data_update(ev_data,'eacc',       accretedmass/accradius1    ) ! total accretion energy
+    accretedmass = ev_get_value('accretedmas')
+    call ev_data_update(ev_data,'eacc',accretedmass/accradius1) ! total accretion energy
  endif
- totlum = reduce_fn('+',totlum)
- if (track_lum) call ev_data_update(ev_data,'tot lum',totlum)
+ if (track_lum) totlum = ev_get_value('tot lum')
 
  return
 end subroutine compute_energies

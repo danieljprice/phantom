@@ -92,17 +92,18 @@ subroutine init_evfile(iunit,evfile)
  i = 1
  j = 1
  call fill_ev_tag(ev_fmt,'time',     '0',  i,j)
- call fill_ev_tag(ev_fmt,'ekin',     '0',  i,j)
- call fill_ev_tag(ev_fmt,'etherm',   '0',  i,j)
- call fill_ev_tag(ev_fmt,'emag',     '0',  i,j)
- call fill_ev_tag(ev_fmt,'epot',     '0',  i,j)
+ call fill_ev_tag(ev_fmt,'ekin',     's',  i,j)
+ call fill_ev_tag(ev_fmt,'etherm',   's',  i,j)
+ call fill_ev_tag(ev_fmt,'emag',     's',  i,j)
+ call fill_ev_tag(ev_fmt,'epot',     's',  i,j)
  call fill_ev_tag(ev_fmt,'etot',     '0',  i,j)
  call fill_ev_tag(ev_fmt,'totmom',   '0',  i,j)
  call fill_ev_tag(ev_fmt,'angtot',   '0',  i,j)
  call fill_ev_tag(ev_fmt,'rho',      'xa', i,j)
  call fill_ev_tag(ev_fmt,'dt',       '0',  i,j)
  call fill_ev_tag(ev_fmt,'totentrop','s',  i,j)
- call fill_ev_tag(ev_fmt,'rmsmach',  '0',  i,j)
+ call fill_ev_tag(ev_fmt,'rmsmach',  's',  i,j)
+ call fill_ev_tag(ev_fmt,'vrms',     's',  i,j)
  if (.not. gas_only) then
     if (npartoftype(igas)        > 0) call fill_ev_tag(ev_fmt,'rho gas', 'xa', i,j)
     if (npartoftype(idust)       > 0) call fill_ev_tag(ev_fmt,'rho dust','xa', i,j)
@@ -156,6 +157,8 @@ subroutine init_evfile(iunit,evfile)
  if (use_dustfrac) then
     call fill_ev_tag(ev_fmt,   'dust/gas',   'xan',i,j)
     call fill_ev_tag(ev_fmt,   't_s',        'mn', i,j)
+    call fill_ev_tag(ev_fmt,   'mgas',       's',  i,j)
+    call fill_ev_tag(ev_fmt,   'mdust',      's',  i,j)
  endif
  if (iexternalforce > 0) then
     call fill_ev_tag(ev_fmt,   'totmomall',  '0',  i,j)
@@ -166,23 +169,23 @@ subroutine init_evfile(iunit,evfile)
     endif
  endif
  if (iexternalforce>0 .or. nptmass > 0 .or. icreate_sinks > 0) then
-    call fill_ev_tag(ev_fmt,'accretedmas','0',  i,j)
+    call fill_ev_tag(ev_fmt,'accretedmas','s',  i,j)
     call fill_ev_tag(ev_fmt,'eacc',       '0',  i,j)
     track_mass     = .true.
  else
     track_mass     = .false.
  endif
  if (ishock_heating==0 .or. ipdv_heating==0 .or. lightcurve) then
-    call fill_ev_tag(ev_fmt,'tot lum', '0',  i,j)
+    call fill_ev_tag(ev_fmt,'tot lum', 's',  i,j)
     track_lum      = .true.
  else
     track_lum      = .false.
  endif
  if (calc_erot) then
     call fill_ev_tag(ev_fmt,'erot',    '0',  i,j)
-    call fill_ev_tag(ev_fmt,'erot_x',  '0',  i,j)
-    call fill_ev_tag(ev_fmt,'erot_y',  '0',  i,j)
-    call fill_ev_tag(ev_fmt,'erot_z',  '0',  i,j)
+    call fill_ev_tag(ev_fmt,'erot_x',  's',  i,j)
+    call fill_ev_tag(ev_fmt,'erot_y',  's',  i,j)
+    call fill_ev_tag(ev_fmt,'erot_z',  's',  i,j)
  endif
  if (irealvisc /= 0) then
     call fill_ev_tag(ev_fmt,'visc_rat','xan',i,j)
