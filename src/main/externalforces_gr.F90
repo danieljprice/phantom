@@ -28,8 +28,6 @@
 !+
 !--------------------------------------------------------------------------
 module externalforces
- use extern_binary,   only:accradius1
- use extern_corotate, only:omega_corotate  ! so public from this module
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -37,7 +35,6 @@ module externalforces
  private
  public :: externalforce,externalforce_vdependent
  public :: accrete_particles,was_accreted
- public :: accradius1,omega_corotate
  public :: write_options_externalforces,read_options_externalforces
  public :: initialise_externalforces,is_velocity_dependent
  public :: update_vdependent_extforce_leapfrog
@@ -46,13 +43,22 @@ module externalforces
 
  real, public :: mass1 = 1.0
  real, public :: eps_soft = 0.d0
- real, private :: eps2_soft = 0.d0
- real, public :: Rdisc = 5.
+ real, public :: omega_corotate = 0.d0
+ real, public :: accradius1 = 0.d0
 
  !
  ! enumerated list of external forces
  !
  integer, parameter, public :: iext_gr = 1
+ !
+ ! the following for compatibility with non-relativistic code
+ !
+ integer, parameter, public :: iext_lensethirring = -1
+ integer, parameter, public :: iext_einsteinprec = -1
+ integer, parameter, public :: iext_binary = -1
+ integer, parameter, public :: iext_spiral = -1
+ integer, parameter, public :: iext_star = -1
+ integer, parameter, public :: iext_corotate = -1
 
  !
  ! Human-readable labels for these
@@ -70,34 +76,16 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
 #ifdef FINVSQRT
  use fastmath,         only:finvsqrt
 #endif
- use extern_corotate,  only:get_centrifugal_force
- use extern_binary,    only:binary_force
- use extern_prdrag,    only:get_prdrag_spatial_force
- use extern_gnewton,   only:get_gnewton_spatial_force
- use extern_spiral,    only:s_potential,schmidt_potential,&
-  pichardo_potential,Wang_bar,LogDisc,&
-  MNDisc,KFDiscSp,PlumBul,HernBul,HubbBul,COhalo,Flathalo,AMhalo,KBhalo,LMXbar,&
-  LMTbar,Orthog_basisbar,DehnenBar,VogtSbar,BINReadPot3D,NFWhalo,&
-  ibar,idisk,ihalo,ibulg,iarms,iread,Wadabar
- use extern_neutronstar, only:neutronstar_force
- use extern_Bfield,      only:get_externalB_force
- use extern_staticsine,  only:staticsine_force
- use extern_gwinspiral,  only:get_gw_force_i
- use units,              only:udist,umass,utime
- use physcon,            only:pc,pi,gg
  use io,                 only:fatal
- use part,               only:rhoh,massoftype,igas
+ !use part,               only:rhoh,massoftype,igas
+ ! use force_gr,           only:get_forcegr
  integer, intent(in)  :: iexternalforce
  real,    intent(in)  :: xi,yi,zi,hi,ti
  real,    intent(out) :: fextxi,fextyi,fextzi,phi
  real,    intent(out), optional :: dtf
  integer, intent(in),  optional :: ii ! NOTE: index-base physics can be dangerous;
- !       treat with caution
- real            :: r2,dr,dr3,r,d2,f2i
- real            :: rcyl2,rcyl,rsph,rsph3,v2onr,dtf1,dtf2
- real            :: phii,gcode,R_g,factor,rhoi
- real, parameter :: Rtorus = 1.0
- real,dimension(3) :: pos
+ real :: f2i, dtf1, dtf2
+
 !-----------------------------------------------------------------------
 !
 !--set external force to zero
@@ -107,270 +95,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
  fextzi = 0.
  phi    = 0.
 
- select case(iexternalforce)
-
- case(iext_gr)
-
-
-!
-!  case(iext_star, iext_lensethirring)
-! !
-! !--1/r^2 force from central point mass
-! !
-!     r2 = xi*xi + yi*yi + zi*zi + eps2_soft
-!
-!     if (r2 > epsilon(r2)) then
-! #ifdef FINVSQRT
-!        dr  = finvsqrt(r2)
-! #else
-!        dr = 1./sqrt(r2)
-! #endif
-!        dr3 = mass1*dr**3
-!        fextxi = fextxi - xi*dr3
-!        fextyi = fextyi - yi*dr3
-!        fextzi = fextzi - zi*dr3
-!        phi    = -mass1*dr
-!     endif
-!
-!  case(iext_corotate)
-! !
-! !--spatial part of forces in corotating frame, i.e. centrifugal force
-! !
-!     pos = (/xi,yi,zi/)
-!     call get_centrifugal_force(pos,fextxi,fextyi,fextzi,phi)
-!
-!  case(iext_binary)
-! !
-! !--gravitational force from central binary
-! !
-!     call binary_force(xi,yi,zi,ti,fextxi,fextyi,fextzi,phi)
-!
-!  case(iext_prdrag)
-! !
-! !--Spatial component of force due to luminous central object
-! !
-!     call get_prdrag_spatial_force(xi,yi,zi,mass1,fextxi,fextyi,fextzi,phi)
-!
-!  case(iext_torus)
-! !
-! !--effective potential for equilibrium torus (Stone, Pringle, Begelman)
-! !  centripedal force balances pressure gradient and gravity of central point mass
-! !
-!     rcyl2 = xi*xi + yi*yi
-!     rcyl  = sqrt(rcyl2)
-!     rsph  = sqrt(rcyl2 + zi*zi)
-!     rsph3 = rsph**3
-!     v2onr = (Rtorus/(rcyl*rcyl2) - rcyl/rsph3)
-!
-!     fextxi = v2onr*xi/rcyl
-!     fextyi = v2onr*yi/rcyl
-!     fextzi = -zi/rsph3   ! vertical component of gravity
-!
-!     phi = - 1./rsph + 0.5*Rtorus/rcyl2
-!
-!  case(iext_toystar)
-! !
-! !--Toy star force, centred on the origin
-! !
-!     r2 = xi**2 + yi**2 + zi**2
-!     if (r2 <= 0.25) then
-!        fextxi = -xi
-!        fextyi = -yi
-!        fextzi = -zi
-!        phi    = 0.5*r2
-!     endif
-!
-!  case(iext_externB)
-! !
-! !--External force due to an assumed external B field (with non-zero curl)
-! !
-!     rhoi = rhoh(hi,massoftype(igas))
-!     call get_externalB_force(xi,yi,zi,hi,rhoi,fextxi,fextyi,fextzi)
-!     phi = 0.
-!
-!  case(iext_spiral)
-!
-! !--Spiral/galactic potential references in extern_spiral.
-! !--Calc r^2 (3D) and d^2 (2D), phi (x-y), theta (xy-z)
-!     gcode = gg*umass*utime**2/udist**3 !Needed to convert gg in codes natural units
-!     d2   = (xi*xi + yi*yi)       !or  r    = sqrt(d2+zi*zi)
-! #ifdef FINVSQRT
-!     dr   = finvsqrt(d2+zi*zi)    !1/r
-! #else
-!     dr   = 1./sqrt(d2+zi*zi)    !1/r
-! #endif
-!     r    = 1./dr
-!     phii = atan2(yi,xi)
-!
-!     !-=-=-=-=-=-=-=-=-=-=-=-=-=-=DISCS=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-!     select case(idisk)
-!     case(0)
-!        !--No potential
-!     case(1)
-!        !--Binney&Tremmaine~Logdisc:
-!        call LogDisc(xi,yi,zi,d2,phi,fextxi,fextyi,fextzi)
-!     case(2)
-!        !--Miyamoto&Niagi~inc.Plummer/Kuzmin:
-!        call MNDisc(xi,yi,zi,d2,phi,fextxi,fextyi,fextzi)
-!     case(3)
-!        !--Khoperskov:Freeman disc+TWA spirals+bar:
-!        call KFDiscSp(xi,yi,zi,d2,r,phii,ti,phi,fextxi,fextyi,fextzi)
-!     end select
-!     !-=-=-=-=-=-=-=-=-=-=-=-=-=-=BULGES=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-!     select case(ibulg)
-!     case(0)
-!        !--No potential
-!     case(1)
-!        !--Plummer bulge:
-!        call PlumBul(xi,yi,zi,r,phi,fextxi,fextyi,fextzi)
-!     case(2)
-!        !--Hernequist bulge:
-!        call HernBul(xi,yi,zi,r,phi,fextxi,fextyi,fextzi)
-!     case(3)
-!        !--Hubble luminosity profile bulge:
-!        call HubbBul(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
-!     end select
-!     !-=-=-=-=-=-=-=-=-=-=-=-=-=-=HALO/CORONA-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-!     select case(ihalo)
-!     case(0)
-!        !--No potential
-!     case(1)
-!        !--Caldwell&Ostriker~ln/atan:
-!        call COhalo(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
-!     case(2)
-!        !--Flat~ln:
-!        call flathalo(xi,yi,zi,r,phi,fextxi,fextyi,fextzi)
-!     case(3)
-!        !--Allen&Martos~gamma~power~law:
-!        call AMhalo(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
-!     case(4)
-!        !--Khoperskov/Begeman~Isothermal:
-!        call KBhalo(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
-!     case(5)
-!        !--Navarro/Frenk/White~CDMhalo:
-!        call NFWhalo(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
-!     end select
-!     !-=-=-=-=-=-=-=-=-=-=-=-=-=-=SPIRALS-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-!     select case(iarms)
-!     case(0)
-!        !--No potential
-!     case(1)
-!        !--Cox&Gomez~~Altered TWA spiral pattern
-!        call s_potential(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
-!     case(2,3)
-!        !--Pichardo&Martros~superposition of Schmidt Spheroids
-!        !--rho(a)=p0+p1*a, linear drop in density inside spheroids
-!        call pichardo_potential(xi,yi,zi,d2,ti,phii,phi,fextxi,fextyi,fextzi)
-!     case(4)
-!        !--Pichardo&Martros~superposition of Schmidt Spheroids
-!        !--rho(a)=p0+p1/a, inverse drop in density inside spheroids
-!        call schmidt_potential(xi,yi,zi,d2,ti,phii,phi,fextxi,fextyi,fextzi)
-!     end select
-!
-!     !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=BARS-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-!     select case(ibar)
-!     case(0)
-!        !--No potential
-!     case(1)
-!        !--Long&Murali~smoothed biaxial bar
-!        call LMXbar(0.,1.,1.,xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
-!        !call LMXbar(90.*3.14159/180.,1.0,1.0,xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
-!     case(2)
-!        !--Long&Murali~smoothed triaxial bar
-!        call LMTbar(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
-!     case(3)
-!        !--Wang~DwekG2+G3 bar+bulge, but able to do any distribution.
-!        call Orthog_basisbar(xi,yi,zi,r,dr,ti,hi,phi,fextxi,fextyi,fextzi)
-!     case(4)
-!        !--Dehnen~cosine_R^1/3 in/out
-!        call DehnenBar(xi,yi,d2,phii,ti,phi,fextxi,fextyi)
-!     case(5)
-!        !--Vogt&Letelier~smoothed S-shape
-!        call VogtSbar(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
-!     case(6)
-!        !--Wada bar~Sinusoidal bar similar to Dehnen bar:
-!        call WadaBar(xi,yi,d2,phii,ti,hi,phi,fextxi,fextyi)
-!     end select
-!
-!     !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=READIN-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-!     select case(iread)
-!     case(0)
-!        !--No potential
-!     case(1)
-!        !--Read in the potential from some gridded file.
-!        call BINReadPot3D(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
-!     end select
-!
-!     !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-!     !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-!
-!  case(iext_neutronstar)
-!     ! neutron star gravitational potential
-!     call neutronstar_force(xi,yi,zi,fextxi,fextyi,fextzi,phi)
-!
-!  case(iext_einsteinprec)
-! !
-! !--Potential given by (8) of NP2000, "Einstein precession"
-! !
-!     r2 = xi*xi + yi*yi + zi*zi + eps2_soft
-!
-!     if (r2 > epsilon(r2)) then
-! #ifdef FINVSQRT
-!        dr  = finvsqrt(r2)
-! #else
-!        dr = 1./sqrt(r2)
-! #endif
-!        R_g = 1.0
-!        factor = 1. + 6.*R_g*dr
-!        dr3 = mass1*dr**3
-!        fextxi = fextxi - xi*dr3*factor
-!        fextyi = fextyi - yi*dr3*factor
-!        fextzi = fextzi - zi*dr3*factor
-!        phi    = -mass1*dr*(1. + 3.*R_g*dr)
-!     endif
-!
-!
-!  case(iext_gnewton)
-! !
-! !--Spatial component of the generalized Newtonian force
-! !
-!     call get_gnewton_spatial_force(xi,yi,zi,mass1,fextxi,fextyi,fextzi,phi)
-!
-!  case(iext_staticsine)
-!
-! !
-! !--Sinusoidal force, phi = A cos(k(x+B))
-! !
-!
-!     call staticsine_force(xi,yi,fextxi,fextyi,fextzi,phi)
-!
-!
-!  case(iext_gwinspiral)
-! !
-! !--Gravitational wave inspiral
-! !
-!     if (present(ii)) then
-!        call get_gw_force_i(ii,fextxi,fextyi,fextzi,phi)
-!     else
-!        ! This will return 0 force, but this should not happen
-!        ! if initialised properly
-!        call get_gw_force_i(0, fextxi,fextyi,fextzi,phi)
-!     endif
-!
-!  case(iext_discgravity)
-! !
-! !--vertical gravity in disc section
-! !
-!     phi = -mass1/sqrt(Rdisc**2 + yi**2)
-!     fextyi = -yi*mass1/sqrt(Rdisc**2 + yi**2)**3
-
- case default
-!
-!--external forces should not be called if iexternalforce = 0
-!
-    call fatal('externalforces','external force not implemented',&
-               var='iexternalforce',ival=iexternalforce)
- end select
+ ! call get_forcegr(x,v,dens,u,p,fterm)
 
 !
 !--return a timestep based only on the external force
@@ -433,27 +158,12 @@ end function is_velocity_dependent
 !+
 !-----------------------------------------------------------------------
 subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti)
- use extern_corotate,      only:get_coriolis_force
- use extern_prdrag,        only:get_prdrag_vdependent_force
- use extern_lensethirring, only:get_lense_thirring_force
- use extern_gnewton,       only:get_gnewton_vdependent_force
- integer, intent(in)  :: iexternalforce
+  integer, intent(in)  :: iexternalforce
  real,    intent(in)  :: xyzi(3),veli(3)
  real,    intent(out) :: fexti(3)
  real,    intent(inout) :: poti
 
- select case(iexternalforce)
- case(iext_corotate)
-    call get_coriolis_force(xyzi,veli,fexti,poti)
- case(iext_prdrag)
-    call get_prdrag_vdependent_force(xyzi,veli,mass1,fexti)
- case(iext_lensethirring,iext_einsteinprec)
-    call get_lense_thirring_force(xyzi,veli,mass1,fexti)
- case(iext_gnewton)
-    call get_gnewton_vdependent_force(xyzi,veli,mass1,fexti)
- case default
-    fexti(:) = 0.
- end select
+ fexti(:) = 0.
 
 end subroutine externalforce_vdependent
 
@@ -466,26 +176,13 @@ end subroutine externalforce_vdependent
 !-----------------------------------------------------------------------
 subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
            vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi)
- use extern_corotate,      only:update_coriolis_leapfrog
- use extern_prdrag,        only:update_prdrag_leapfrog
- use extern_lensethirring, only:update_ltforce_leapfrog
- use extern_gnewton,       only:update_gnewton_leapfrog
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: dt,xi,yi,zi
  real,    intent(in)    :: vhalfx,vhalfy,vhalfz
  real,    intent(inout) :: fxi,fyi,fzi
  real,    intent(out)   :: fexti(3)
 
- select case(iexternalforce)
- case(iext_corotate)
-    call update_coriolis_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt)
- case(iext_prdrag)
-    call update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,mass1)
- case(iext_lensethirring,iext_einsteinprec)
-    call update_ltforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,mass1)
- case(iext_gnewton)
-    call update_gnewton_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,mass1)
- end select
+!    call update_coriolis_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt)
 
 end subroutine update_vdependent_extforce_leapfrog
 
@@ -495,29 +192,8 @@ end subroutine update_vdependent_extforce_leapfrog
 !+
 !-----------------------------------------------------------------------
 subroutine update_externalforce(iexternalforce,ti,dmdt)
- use io,                only:iprint,iverbose,warn
- use lumin_nsdisc,      only:set_Lstar, BurstProfile, LumAcc, make_beta_grids
- use part,              only:xyzh, vxyzu, massoftype, npartoftype, igas, npart
- use extern_gwinspiral, only:gw_still_inspiralling,get_gw_force
- use extern_binary,     only:update_binary
  integer, intent(in) :: iexternalforce
  real,    intent(in) :: ti,dmdt
- logical             :: stopped_now
-
- select case(iexternalforce)
- case(iext_binary)
-    call update_binary(ti)
- case(iext_prdrag)
-    call make_beta_grids( xyzh, massoftype(igas), npartoftype(igas) )
-    call set_Lstar( BurstProfile, ti, dmdt, mass1 )
-    if (iverbose >= 1) then
-       write(iprint,*) 'updating prdrag at t = ',ti,' Mdot = ',dmdt,' LAcc = ',LumAcc
-    endif
- case(iext_gwinspiral)
-    call gw_still_inspiralling(npart,xyzh,vxyzu,stopped_now)
-    call get_gw_force()
-    if (stopped_now) call warn('externalforces','Stars have merged. Disabling GW inspiral',2)
- end select
 
 end subroutine update_externalforce
 
@@ -530,7 +206,6 @@ end subroutine update_externalforce
 !+
 !-----------------------------------------------------------------------
 subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
- use extern_binary, only:binary_accreted,accradius1
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: xi,yi,zi,mi,ti
  real,    intent(inout) :: hi
@@ -539,14 +214,10 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
 
  accreted = .false.
  select case(iexternalforce)
- case(iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton)
+ case(iext_gr)
 
     r2 = xi*xi + yi*yi + zi*zi
     if (r2 < accradius1**2) accreted = .true.
-
- case(iext_binary)
-
-    accreted = binary_accreted(xi,yi,zi,mi,ti)
 
  end select
 
@@ -565,16 +236,10 @@ pure logical function was_accreted(iexternalforce,hi)
  integer, intent(in) :: iexternalforce
  real,    intent(in) :: hi
 
- select case(iexternalforce)
- case(iext_star,iext_binary,iext_prdrag,&
-      iext_lensethirring,iext_einsteinprec,iext_gnewton)
     ! An accreted particle is indicated by h < 0.
     ! Note less than, but not equal.
     ! (h=0 indicates dead MPI particle)
     was_accreted = (hi < 0.)
- case default
-    was_accreted = .false.
- end select
 
 end function was_accreted
 
@@ -585,51 +250,21 @@ end function was_accreted
 !-----------------------------------------------------------------------
 subroutine write_options_externalforces(iunit,iexternalforce)
  use infile_utils,         only:write_inopt,get_optstring
- use extern_corotate,      only:write_options_corotate
- use extern_binary,        only:write_options_externbinary
- use extern_prdrag,        only:write_options_prdrag
- use extern_lensethirring, only:write_options_ltforce
- use extern_spiral,        only:write_options_spiral
- use extern_Bfield,        only:write_options_externB
- use extern_staticsine,    only:write_options_staticsine
- use extern_gwinspiral,    only:write_options_gwinspiral
  integer, intent(in) :: iunit,iexternalforce
  character(len=80) :: string
 
- write(iunit,"(/,a)") '# options relating to external forces'
+ write(iunit,"(/,a)") '# options relating to gr forces'
 
  call get_optstring(iexternalforce_max,externalforcetype,string,4)
  call write_inopt(iexternalforce,'iexternalforce',trim(string),iunit)
 
  select case(iexternalforce)
- case(iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton)
+ case(iext_gr)
     call write_inopt(mass1,'mass1','mass of central object in code units',iunit)
     call write_inopt(accradius1,'accradius1','accretion radius of central object',iunit)
  end select
 
- select case(iexternalforce)
- case(iext_star,iext_lensethirring,iext_einsteinprec,iext_gnewton)
-    call write_inopt(eps_soft,'eps_soft','softening length (Plummer) for central potential in code units',iunit)
- end select
-
- select case(iexternalforce)
- case(iext_corotate)
-    call write_options_corotate(iunit)
- case(iext_binary)
-    call write_options_externbinary(iunit)
- case(iext_prdrag)
-    call write_options_prdrag(iunit)
- case(iext_externB)
-    call write_options_externB(iunit)
- case(iext_spiral)
-    call write_options_spiral(iunit)
- case(iext_lensethirring,iext_einsteinprec)
-    call write_options_ltforce(iunit)
- case(iext_staticsine)
-    call write_options_staticsine(iunit)
- case(iext_gwinspiral)
-    call write_options_gwinspiral(iunit)
- end select
+    !call write_options_corotate(iunit)
 
 end subroutine write_options_externalforces
 
@@ -640,19 +275,12 @@ end subroutine write_options_externalforces
 !-----------------------------------------------------------------------
 subroutine write_headeropts_extern(iexternalforce,hdr,time,ierr)
  use dump_utils,        only:dump_h,add_to_rheader
- use extern_binary,     only:write_headeropts_externbinary
- use extern_gwinspiral, only:write_headeropts_gwinspiral
  integer,      intent(in)    :: iexternalforce
  type(dump_h), intent(inout) :: hdr
  real,         intent(in)    :: time
  integer,      intent(out)   :: ierr
 
- select case(iexternalforce)
- case(iext_gwinspiral)
-    call write_headeropts_gwinspiral(hdr,ierr)
- case(iext_binary)
-    call write_headeropts_externbinary(hdr,time,ierr)
- end select
+    ! call write_headeropts_gwinspiral(hdr,ierr)
 
 end subroutine write_headeropts_extern
 
@@ -663,19 +291,12 @@ end subroutine write_headeropts_extern
 !-----------------------------------------------------------------------
 subroutine read_headeropts_extern(iexternalforce,hdr,ierr)
  use dump_utils,        only:dump_h,extract
- use extern_binary,     only:read_headeropts_externbinary
- use extern_gwinspiral, only:read_headeropts_gwinspiral
  integer,      intent(in)  :: iexternalforce
  type(dump_h), intent(in)  :: hdr
  integer,      intent(out) :: ierr
 
  ierr = 0
- select case(iexternalforce)
- case(iext_gwinspiral)
-    call read_headeropts_gwinspiral(hdr,ierr)
- case(iext_binary)
-    call read_headeropts_externbinary(hdr,ierr)
- end select
+ !call read_headeropts_gwinspiral(hdr,ierr)
 
 end subroutine read_headeropts_extern
 
@@ -686,33 +307,16 @@ end subroutine read_headeropts_extern
 !-----------------------------------------------------------------------
 subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexternalforce)
  use io,                   only:fatal,warn
- use extern_corotate,      only:read_options_corotate
- use extern_binary,        only:read_options_externbinary
- use extern_prdrag,        only:read_options_prdrag
- use extern_spiral,        only:read_options_spiral
- use extern_lensethirring, only:read_options_ltforce
- use extern_Bfield,        only:read_options_externB
- use extern_staticsine,    only:read_options_staticsine
- use extern_gwinspiral,    only:read_options_gwinspiral
  character(len=*), intent(in)    :: name,valstring
  logical,          intent(out)   :: imatch,igotall
  integer,          intent(out)   :: ierr
  integer,          intent(inout) :: iexternalforce
  integer, save :: ngot = 0
- logical :: igotallcorotate,igotallbinary,igotallprdrag
- logical :: igotallltforce,igotallspiral,igotallexternB
- logical :: igotallstaticsine,igotallgwinspiral
+ logical :: igotallgwinspiral
  character(len=30), parameter :: tag = 'externalforces'
 
  imatch            = .true.
  igotall           = .false.
- igotallcorotate   = .true.
- igotallbinary     = .true.
- igotallprdrag     = .true.
- igotallexternB    = .true.
- igotallspiral     = .true.
- igotallltforce    = .true.
- igotallstaticsine = .true.
  igotallgwinspiral = .true.
 
  !call read_inopt(db,'iexternalforce',iexternalforce,min=0,max=9,required=true)
@@ -732,43 +336,11 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
     read(valstring,*,iostat=ierr) accradius1
     if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')
     if (accradius1 < 0.)    call fatal(tag,'negative accretion radius')
- case('eps_soft')
-    read(valstring,*,iostat=ierr) eps_soft
-    if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')
-    if (eps_soft < 0.)       call fatal(tag,'negative softening parameter',var='eps_soft',val=eps_soft)
-    eps2_soft = eps_soft*eps_soft
  case default
     imatch = .false.
-    select case(iexternalforce)
-    case(iext_corotate)
-       call read_options_corotate(name,valstring,imatch,igotallcorotate,ierr)
-    case(iext_binary)
-       call read_options_externbinary(name,valstring,imatch,igotallbinary,ierr)
-    case(iext_prdrag)
-       call read_options_prdrag(name,valstring,imatch,igotallprdrag,ierr)
-    case(iext_externB)
-       call read_options_externB(name,valstring,imatch,igotallexternB,ierr)
-    case(iext_spiral)
-       call read_options_spiral(name,valstring,imatch,igotallspiral,ierr)
-    case(iext_lensethirring,iext_einsteinprec)
-       call read_options_ltforce(name,valstring,imatch,igotallltforce,ierr)
-    case(iext_staticsine)
-       call read_options_staticsine(name,valstring,imatch,igotallstaticsine,ierr)
-    case(iext_gwinspiral)
-       call read_options_gwinspiral(name,valstring,imatch,igotallgwinspiral,ierr)
-    end select
+      ! call read_options_gwinspiral(name,valstring,imatch,igotallgwinspiral,ierr)
  end select
- igotall = (ngot >= 1      .and. igotallcorotate   .and. &
-            igotallbinary  .and. igotallprdrag     .and. &
-            igotallspiral  .and. igotallltforce    .and. &
-            igotallexternB .and. igotallstaticsine .and. &
-            igotallgwinspiral)
-
- !--make sure mass is read where relevant
- select case(iexternalforce)
- case(iext_star,iext_lensethirring,iext_einsteinprec,iext_gnewton)
-    igotall = igotall .and. (ngot >= 2)
- end select
+ igotall = (ngot >= 1      .and. igotallgwinspiral)
 
 end subroutine read_options_externalforces
 
@@ -779,43 +351,17 @@ end subroutine read_options_externalforces
 !-----------------------------------------------------------------------
 subroutine initialise_externalforces(iexternalforce,ierr)
  use io,                   only:error
- use extern_lensethirring, only:check_lense_thirring_settings
- use extern_spiral,        only:initialise_spiral
- use extern_neutronstar,   only:load_extern_neutronstar
- use extern_Bfield,        only:check_externB_settings
- use extern_gwinspiral,    only:initialise_gwinspiral
  use units,                only:umass,utime,udist
  use physcon,              only:gg,c
- use part,                 only:npart
  integer, intent(in)  :: iexternalforce
  integer, intent(out) :: ierr
  real(kind=8) :: gcode, ccode
 
  ierr = 0
- select case(iexternalforce)
- case(iext_lensethirring,iext_einsteinprec)
-    call check_lense_thirring_settings(ierr,accradius1)
- case(iext_externB)
-    call check_externB_settings(ierr)
- case(iext_spiral)
-    call initialise_spiral(ierr)
- case(iext_neutronstar)
-    call load_extern_neutronstar(ierr)
- case (iext_gwinspiral)
-    call initialise_gwinspiral(npart,ierr)
-    if (ierr > 0) then
-       call error('externalforces','Require number of particles per star',var='iexternalforce',ival=iexternalforce)
-       ierr = ierr + 1
-    endif
- case default
-    if (iexternalforce <= 0 .or. iexternalforce > iexternalforce_max) then
-       call error('externalforces','externalforce not implemented',var='iexternalforce',ival=iexternalforce)
-       ierr = ierr + 1
-    endif
- end select
+ !call initialise_gwinspiral(npart,ierr)
 
  select case(iexternalforce)
- case(iext_star,iext_binary,iext_prdrag,iext_spiral,iext_lensethirring,iext_einsteinprec,iext_gnewton)
+ case(iext_gr)
     !
     !--check that G=1 in code units
     !
@@ -827,10 +373,8 @@ subroutine initialise_externalforces(iexternalforce,ierr)
     endif
  end select
 
- select case(iexternalforce)
- case(iext_prdrag)
     !
-    !--check that c=1 in code units for prdrag only
+    !--check that c=1 in code units
     !
     ccode = c*utime/udist
     if (abs(ccode-1.) > 1.e-10) then
@@ -838,7 +382,6 @@ subroutine initialise_externalforces(iexternalforce,ierr)
                   ' external force assumes c=1 in code units but we have',var='c',val=real(ccode))
        ierr = ierr + 1
     endif
- end select
 
 end subroutine initialise_externalforces
 
