@@ -1095,7 +1095,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  integer, intent(out)  :: ierr
  logical               :: got_dustfrac,match
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
- logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bevol(maxBevol)
+ logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bevol(maxBevol), got_pxyzu(4)
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik
 !
@@ -1111,6 +1111,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_sink_data = .false.
  got_sink_vels = .false.
  got_Bevol     = .false.
+ got_pxyzu     = .false.
 
  over_arraylengths: do iarr=1,narraylengths
 
@@ -1131,6 +1132,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              call read_array(iphase,'itype',got_iphase,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(xyzh, xyzh_label, got_xyzh, ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(vxyzu,vxyzu_label,got_vxyzu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             if (gr) call read_array(pxyzu,pxyzu_label,got_pxyzu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              if (use_dustfrac .or. (use_dust .and. match_tag(tag,'dustfrac'))) then
                 call read_array(dustfrac,'dustfrac',got_dustfrac,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
@@ -1168,7 +1170,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  !
  call check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                    alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
-                   got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bevol, &
+                   got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bevol,got_pxyzu, &
                    iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 
  return
@@ -1260,9 +1262,9 @@ end subroutine check_block_header
 !---------------------------------------------------------------
 subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
-                        got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bevol, &
+                        got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bevol,got_pxyzu &
                         iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
- use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,use_dustfrac,h2chemistry
+ use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,use_dustfrac,h2chemistry,gr
  use eos,  only:polyk,gamma
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,&
                 xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac
@@ -1272,7 +1274,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  integer,         intent(in)    :: i1,i2,npartoftype(:),npartread,nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha
- logical,         intent(in)    :: got_abund(:),got_dustfrac,got_sink_data(:),got_sink_vels(:),got_Bevol(:)
+ logical,         intent(in)    :: got_abund(:),got_dustfrac,got_sink_data(:),got_sink_vels(:),got_Bevol(:),got_pxyzu(:)
  integer(kind=1), intent(inout) :: iphase(:)
  real,            intent(inout) :: vxyzu(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:), Bevol(:,:)
@@ -1422,6 +1424,12 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     if (maxBevol==4 .and. .not.got_Bevol(4)) then
        write(*,*) 'WARNING! div B cleaning field (Psi) not found in Phantom dump file: assuming psi=0'
        Bevol(maxBevol,i1:i2) = 0.
+    endif
+ endif
+ if (gr) then
+    if (.not.all(got_pxyzu(1:3))) then
+       write(*,*) 'WARNING: GR but momentum arrays not found in Phantom dump file'
+       pxyzu(:,i1:i2) = 0.
     endif
  endif
 
