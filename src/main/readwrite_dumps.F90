@@ -1080,10 +1080,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                                massoftype,nptmass,nsinkproperties,phantomdump,tagged,singleprec,&
                                tfile,alphafile,idisk1,iprint,ierr)
  use dump_utils, only:read_array,match_tag
- use dim,        only:use_dust,use_dustfrac,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,maxBevol
+ use dim,        only:use_dust,use_dustfrac,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,maxBevol,gr
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,abundance,abundance_label,alphaind,poten, &
                       xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,Bevol,Bevol_label,nabundances,&
-                      iphase
+                      iphase,pxyzu,pxyzu_label
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
 #endif
@@ -1171,7 +1171,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  call check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                    alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                    got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bevol,got_pxyzu, &
-                   iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+                   iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 
  return
 100 continue
@@ -1262,8 +1262,8 @@ end subroutine check_block_header
 !---------------------------------------------------------------
 subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
-                        got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bevol,got_pxyzu &
-                        iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+                        got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bevol,got_pxyzu, &
+                        iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
  use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,use_dustfrac,h2chemistry,gr
  use eos,  only:polyk,gamma
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,&
@@ -1276,7 +1276,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha
  logical,         intent(in)    :: got_abund(:),got_dustfrac,got_sink_data(:),got_sink_vels(:),got_Bevol(:),got_pxyzu(:)
  integer(kind=1), intent(inout) :: iphase(:)
- real,            intent(inout) :: vxyzu(:,:)
+ real,            intent(inout) :: vxyzu(:,:),pxyzu(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:), Bevol(:,:)
  real,            intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
  integer,         intent(in)    :: iprint
@@ -1426,6 +1426,10 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
        Bevol(maxBevol,i1:i2) = 0.
     endif
  endif
+
+ !
+ ! GR arrays
+ !
  if (gr) then
     if (.not.all(got_pxyzu(1:3))) then
        write(*,*) 'WARNING: GR but momentum arrays not found in Phantom dump file'
