@@ -35,10 +35,10 @@ contains
 subroutine test_kdtree(ntests,npass)
  use dim,       only:ncellsmax,maxp
  use io,        only:id,master,iverbose
- use linklist,  only:ifirstincell,ncells
+ use linklist,  only:ifirstincell,ncells,node
  use part,      only:npart,xyzh,hfact,vxyzu,massoftype,igas,maxphase,iphase,isetphase
  use kernel,    only:hfact_default
- use kdtree,    only:maketree,revtree,node,kdnode,empty_tree
+ use kdtree,    only:maketree,revtree,kdnode,empty_tree
  use unifdis,   only:set_unifdis
  use testutils, only:checkvalbuf,checkvalbuf_end
  use timing,    only:print_time,getused
@@ -70,9 +70,9 @@ subroutine test_kdtree(ntests,npass)
     !
     ! call maketree to build the tree
     !
-    call empty_tree()
+    call empty_tree(node)
     call cpu_time(t1)
-    call maketree(xyzh,vxyzu,npart,3,ifirstincell,ncells)
+    call maketree(node,xyzh,vxyzu,npart,3,ifirstincell,ncells)
     call cpu_time(t2)
     call print_time(t2-t1,'maketree completed in')
     !
@@ -100,7 +100,7 @@ subroutine test_kdtree(ntests,npass)
     ! call revtree to rebuild
     !
     call cpu_time(t1)
-    call revtree(xyzh,ifirstincell,ncells)
+    call revtree(node,xyzh,ifirstincell,ncells)
     call cpu_time(t2)
     call print_time(t2-t1,'revtree completed in')
 

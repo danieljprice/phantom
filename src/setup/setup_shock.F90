@@ -375,6 +375,9 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
  enddo
 
  choice = 1
+#ifdef NONIDEALMHD
+ choice = 7
+#endif
  call prompt('Enter shock choice',choice,1,nshocks)
  icase = choice
 
@@ -392,8 +395,8 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
     shocktype = "Ryu et al. shock 1a"
     nx          = 128
     if (.not. iexist) then
-      tmax      =   0.08
-      dtmax     =   0.004
+       tmax      =   0.08
+       dtmax     =   0.004
     endif
     gamma      =   5./3.
     leftstate  = (/1.,20.,10.,0.,0.,5./const,5./const,0./)
@@ -402,8 +405,8 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
     !--Ryu et al. shock 1b
     shocktype = "Ryu et al. shock 1b"
     if (.not. iexist) then
-      tmax      =   0.03
-      dtmax     =   0.0015
+       tmax      =   0.03
+       dtmax     =   0.0015
     endif
     gamma      =  5./3.
     leftstate  = (/1.0,1. ,0.,0.,0.,5./const,5./const,0./)
@@ -418,8 +421,8 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
     !--Ryu et al. shock 2b
     shocktype = "Ryu et al. shock 2b"
     if (.not. iexist) then
-      tmax     =   0.035
-      dtmax    =   0.00175
+       tmax     =   0.035
+       dtmax    =   0.00175
     endif
     gamma      = 5./3.
     leftstate  = (/1.0,1. ,0.,0.,0.,3./const,6./const,0./)

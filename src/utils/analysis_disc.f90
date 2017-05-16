@@ -73,11 +73,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  discprefix = dumpfile(1:iline-1)
  inquire(file=trim(discprefix)//'.discparams', exist=ifile)
  if (ifile) then
-   call read_discparams(trim(discprefix)//'.discparams',R_in,R_out,H_R,p_index,q_index,M_star,iparams,ierr)
-   if (ierr /= 0) call fatal('analysis','could not open/read .discparams file')
+    call read_discparams(trim(discprefix)//'.discparams',R_in,R_out,H_R,p_index,q_index,M_star,iparams,ierr)
+    if (ierr /= 0) call fatal('analysis','could not open/read .discparams file')
  else
-   call read_discparams('discparams.list',R_in,R_out,H_R,p_index,q_index,M_star,iparams,ierr)
-   if (ierr /= 0) call fatal('analysis','could not open/read discparams.list')
+    call read_discparams('discparams.list',R_in,R_out,H_R,p_index,q_index,M_star,iparams,ierr)
+    if (ierr /= 0) call fatal('analysis','could not open/read discparams.list')
  endif
 
 ! Print out the parameters
@@ -140,8 +140,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
           open(unit=iprec,file=filename,status="old",position="append")
        endif
        write(iprec,'(7(es18.10,1X))') rad(i),time,tilt(i),twist(i),twistprev(i),tp(i),ecc(i)
- !      write(iprec,'(7(es18.10,1X))') rad(i),time,tilt,tilt_acc,twistprev(i),tp(i),ecc(i)
- !      print*,tilt,twist(i),twistprev(i)
+       !      write(iprec,'(7(es18.10,1X))') rad(i),time,tilt,tilt_acc,twistprev(i),tp(i),ecc(i)
+       !      print*,tilt,twist(i),twistprev(i)
        close(unit=iprec)
     endif
 
@@ -331,15 +331,15 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_
        tilt(i)  = acos(unitlz(i))
        tilt_acc(i) = acos(unitangz)
        twist(i) = atan2(unitly(i),unitlx(i))
-        if (i==1 .or. time==0.0) then
+       if (i==1 .or. time==0.0) then
           twistprev(i) = 0.0
-        endif
-        ! Taking into account negative twist
-        if (twist(i) < 0) then
+       endif
+       ! Taking into account negative twist
+       if (twist(i) < 0) then
           twistprev(i) = 2.*pi + twist(i)
-        else
+       else
           twistprev(i) = twist(i) !cumulative twist
-        endif
+       endif
     else
        tilt(i) = 0.0
        twist(i) = 0.0
@@ -348,9 +348,9 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_
 
 ! Calculate the precession time
     if (twistprev(i) > tiny(twistprev(i))) then
-      tp(i) = time*2.*pi/twistprev(i)
+       tp(i) = time*2.*pi/twistprev(i)
     else
-      tp(i) = 0.0
+       tp(i) = 0.0
     endif
 
  enddo

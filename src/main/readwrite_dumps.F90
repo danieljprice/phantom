@@ -22,9 +22,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, dump_utils, dust, eos, externalforces, io,
-!    lumin_nsdisc, mpi, mpiutils, options, part, setup_params, sphNGutils,
-!    timestep, units
+!  DEPENDENCIES: boundary, dim, dump_utils, dust, eos, externalforces,
+!    initial_params, io, lumin_nsdisc, mpi, mpiutils, options, part,
+!    setup_params, sphNGutils, timestep, units
 !+
 !--------------------------------------------------------------------------
 module readwrite_dumps
@@ -85,14 +85,14 @@ subroutine get_blocklimits(npartblock,nblocks,nthreads,id,iblock,noffset,npartre
 !--if more blocks than processes and nblocks exactly divisible by nthreads,
 !  then just read more than one block per thread
 !
-   nblocksperthread = nblocks/nthreads
-   if (id==(iblock-1)/nblocksperthread) then
-      npartread = int(npartblock)
-      noffset   = 0
-   else
-      npartread = 0
-      noffset   = 0
-   endif
+    nblocksperthread = nblocks/nthreads
+    if (id==(iblock-1)/nblocksperthread) then
+       npartread = int(npartblock)
+       noffset   = 0
+    else
+       npartread = 0
+       noffset   = 0
+    endif
 
  elseif (nthreads > nblocks .and. mod(nthreads,nblocks)==0) then
 !
@@ -104,7 +104,7 @@ subroutine get_blocklimits(npartblock,nblocks,nthreads,id,iblock,noffset,npartre
        noffset   = mod(id,nthreadsperblock)*npartread
 
        if (mod(id,nthreadsperblock)==nthreadsperblock-1) then
-       !--last thread has remainder for non-exactly divisible numbers of particles
+          !--last thread has remainder for non-exactly divisible numbers of particles
           npartread = int(npartblock) - (nthreadsperblock-1)*npartread
           !--die if we would need to load balance between more than the last processor.
           if (npartread < 0) then
@@ -277,9 +277,9 @@ subroutine get_dump_size(fileid,smalldump)
  logical,              intent(out) :: smalldump
  !
  if (fileid(1:1)=='S') then
-   smalldump = .true.
+    smalldump = .true.
  else
-   smalldump = .false.
+    smalldump = .false.
  endif
 
 end subroutine get_dump_size
@@ -326,7 +326,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  integer, parameter :: isteps_sphNG = 0, iphase0 = 0
  integer(kind=8)    :: ilen(4)
  integer            :: nums(ndatatypes,4)
- integer            :: i,j,ipass,k
+ integer            :: i,ipass,k
  integer            :: ierr,ierrs(20)
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
@@ -381,27 +381,27 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 !
  masterthread: if (id==master) then
 
- write(iprint,"(/,/,'-------->   TIME = ',g12.4,"// &
+    write(iprint,"(/,/,'-------->   TIME = ',g12.4,"// &
               "': full dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
 
- call open_dumpfile_w(idump,dumpfile,fileid,ierr)
- if (ierr /= 0) then
-    call error('write_fulldump','error creating new dumpfile '//trim(dumpfile))
-    return
- endif
+    call open_dumpfile_w(idump,dumpfile,fileid,ierr)
+    if (ierr /= 0) then
+       call error('write_fulldump','error creating new dumpfile '//trim(dumpfile))
+       return
+    endif
 !
 !--single values
 !
- hdr = allocate_header(nint=maxphead,nreal=maxphead,err=ierr)
+    hdr = allocate_header(nint=maxphead,nreal=maxphead,err=ierr)
 
- call fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,ierr)
- if (ierr /= 0) call warning('write_fulldump','error filling header arrays')
+    call fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,ierr)
+    if (ierr /= 0) call warning('write_fulldump','error filling header arrays')
 
- call write_header(idump,hdr,ierr)
- if (ierr /= 0) call error('write_fulldump','error writing header to dumpfile')
+    call write_header(idump,hdr,ierr)
+    if (ierr /= 0) call error('write_fulldump','error writing header to dumpfile')
 
- call free_header(hdr,ierr)
- if (ierr /= 0) call error('write_fulldump','error deallocating header')
+    call free_header(hdr,ierr)
+    if (ierr /= 0) call error('write_fulldump','error deallocating header')
 !
 !--arrays
 !
@@ -409,8 +409,8 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 !  each thread has up to 4 blocks (hydro variables, sink particles, radiative transfer and MHD)
 !  repeated nblocks times (once for each MPI process)
 !
- nblockarrays = narraylengths*nblocks
- write (idump, iostat=ierr) nblockarrays
+    nblockarrays = narraylengths*nblocks
+    write (idump, iostat=ierr) nblockarrays
 
  endif masterthread
 
@@ -438,11 +438,11 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (use_dustfrac) call write_array(1,deltav,deltav_label,3,npart,k,ipass,idump,nums,ierrs(6))
 
        ! write pressure to file
-       if (ieos==10 .and. k==i_real) then
+       if ((ieos==8 .or. ieos==9 .or. ieos==10) .and. k==i_real) then
           if (.not. allocated(temparr)) allocate(temparr(npart))
           if (.not.done_init_eos) call init_eos(ieos,ierr)
           do i=1,npart
-             rhoi = rhoh(xyzh(4,i),get_pmass(j,use_gas))
+             rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
              temparr(i) = ponrhoi*rhoi
           enddo
@@ -571,33 +571,33 @@ subroutine write_smalldump(t,dumpfile)
 !
 !--open dumpfile
 !
- write(iprint,"(/,/,'-------->   TIME = ',g12.4,"// &
+    write(iprint,"(/,/,'-------->   TIME = ',g12.4,"// &
               "': small dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
 
- call open_dumpfile_w(idump,dumpfile,fileident('ST'),ierr,singleprec=.true.)
- if (ierr /= 0) then
-    call error('write_smalldump','can''t create new dumpfile '//trim(dumpfile))
-    return
- endif
+    call open_dumpfile_w(idump,dumpfile,fileident('ST'),ierr,singleprec=.true.)
+    if (ierr /= 0) then
+       call error('write_smalldump','can''t create new dumpfile '//trim(dumpfile))
+       return
+    endif
 !
 !--single values
 !
- hdr = allocate_header(nint=maxphead,nreal=maxphead,err=ierr)
+    hdr = allocate_header(nint=maxphead,nreal=maxphead,err=ierr)
 
- call fill_header(.false.,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,ierr)
- if (ierr /= 0) call warning('write_smalldump','error filling header arrays')
+    call fill_header(.false.,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,ierr)
+    if (ierr /= 0) call warning('write_smalldump','error filling header arrays')
 
- call write_header(idump,hdr,ierr,singleprec=.true.)
- if (ierr /= 0) call error('write_smalldump','error writing header to dumpfile')
+    call write_header(idump,hdr,ierr,singleprec=.true.)
+    if (ierr /= 0) call error('write_smalldump','error writing header to dumpfile')
 
- call free_header(hdr,ierr)
- if (ierr /= 0) call error('write_smalldump','error deallocating header')
+    call free_header(hdr,ierr)
+    if (ierr /= 0) call error('write_smalldump','error deallocating header')
 !
 !--arrays: number of array lengths
 !
- nblockarrays = narraylengths*nblocks
- write (idump, iostat=ierr) nblockarrays
- if (ierr /= 0) call error('write_smalldump','error writing nblockarrays')
+    nblockarrays = narraylengths*nblocks
+    write (idump, iostat=ierr) nblockarrays
+    if (ierr /= 0) call error('write_smalldump','error writing nblockarrays')
 
  endif masterthread
 
@@ -608,9 +608,9 @@ subroutine write_smalldump(t,dumpfile)
  write_itype = (maxphase==maxp .and. any(npartoftypetot(2:) > 0))
  do ipass=1,2
     do k=1,ndatatypes
-    !
-    !--Block 1 (hydrodynamics)
-    !
+       !
+       !--Block 1 (hydrodynamics)
+       !
        ilen(1) = npart
        if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierr,func=iamtype_int11)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
@@ -662,6 +662,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
                     xyzmh_ptmass,vxyz_ptmass
  use dump_utils, only:skipblock,skip_arrays,check_tag,lenid,ndatatypes,read_header,read_array, &
                       open_dumpfile_r,get_error_text,ierr_realsize,free_header,read_block_header
+ use mpiutils,   only:reduce_mpi,reduceall_mpi
  use sphNGutils, only:convert_sinks_sphNG
  character(len=*), intent(in)  :: dumpfile
  real,             intent(out) :: tfile,hfactfile
@@ -673,7 +674,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  integer               :: iblock,nblocks,i1,i2,noffset,npartread,narraylengths
  integer(kind=8)       :: ilen(4)
  integer               :: nums(ndatatypes,4)
- integer(kind=8)       :: nparttot,nhydrothisblock
+ integer(kind=8)       :: nparttot,nhydrothisblock,npartoftypetot(maxtypes)
  logical               :: tagged,phantomdump,smalldump
  real                  :: dumr,alphafile
  character(len=lenid)  :: fileidentr
@@ -773,71 +774,72 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  overblocks: do iblock=1,nblocks
 ! print*,' thread ',id,' block ',iblock
 
- call read_block_header(narraylengths,ilen,nums,idisk1,ierr)
+    call read_block_header(narraylengths,ilen,nums,idisk1,ierr)
 !
 !--check block header for errors
 !
- call check_block_header(narraylengths,nblocks,ilen,nums,nparttot,nhydrothisblock,nptmass,ierr)
- if (ierr /= 0) then
-    call error('read_dump','error in array headers')
-    return
- endif
+    call check_block_header(narraylengths,nblocks,ilen,nums,nparttot,nhydrothisblock,nptmass,ierr)
+    if (ierr /= 0) then
+       call error('read_dump','error in array headers')
+       return
+    endif
 !
 !--exit after reading the file header if the optional argument
 !  "headeronly" is present and set to true
 !
- if (present(headeronly)) then
-    if (headeronly) return
- endif
+    if (present(headeronly)) then
+       if (headeronly) return
+    endif
 !
 !--determine whether or not to read this particular block
 !  onto this particular thread, either in whole or in part
 !  Also handles MPI -> non-MPI dump conversion and vice-versa.
 !  Can be used by non-MPI codes to read isolated blocks only.
 !
- call get_blocklimits(nhydrothisblock,nblocks,nprocs,id,iblock,noffset,npartread)
- i1 = i2 + 1
- i2 = i1 + (npartread - 1)
- npart = npart + npartread
+    call get_blocklimits(nhydrothisblock,nblocks,nprocs,id,iblock,noffset,npartread)
+    i1 = i2 + 1
+    i2 = i1 + (npartread - 1)
+    npart = npart + npartread
 #ifdef MPI
- if (npart > maxp) then
-    write(*,*) 'npart > maxp in readwrite_dumps'
-    ierr = 1
-    return
- endif
- npartoftype(1) = npart
- if (any(npartoftypetot(2:) > 0)) then
-    print*,'npartoftypetot = ',npartoftypetot(2:)
-    write(*,*) 'WARNING: MPI + multiple types not yet implemented in dump format'
-    !ierr = 10
-    !return
- endif
-#endif
- if (npartread <= 0 .and. nptmass <= 0) then
-    print*,' SKIPPING BLOCK npartread = ',npartread
-    call skipblock(idisk1,nums(:,1),nums(:,2),nums(:,3),nums(:,4),tagged,ierr)
-    if (ierr /= 0) then
-       print*,' error skipping block'
+    if (npart > maxp) then
+       write(*,*) 'npart > maxp in readwrite_dumps'
+       ierr = 1
        return
     endif
-    cycle overblocks
- elseif (npartread > 0) then
+    npartoftype(1) = npart
+    npartoftypetot = reduceall_mpi('+',npartoftype)
+    if (any(npartoftypetot(2:) > 0)) then
+       print*,'npartoftypetot = ',npartoftypetot(2:)
+       write(*,*) 'WARNING: MPI + multiple types not yet implemented in dump format'
+       !ierr = 10
+       !return
+    endif
+#endif
+    if (npartread <= 0 .and. nptmass <= 0) then
+       print*,' SKIPPING BLOCK npartread = ',npartread
+       call skipblock(idisk1,nums(:,1),nums(:,2),nums(:,3),nums(:,4),tagged,ierr)
+       if (ierr /= 0) then
+          print*,' error skipping block'
+          return
+       endif
+       cycle overblocks
+    elseif (npartread > 0) then
 #ifdef MPI
-    write(*,"(a,i5,2(a,i10),a,i5,a,i10,'-',i10)") &
+       write(*,"(a,i5,2(a,i10),a,i5,a,i10,'-',i10)") &
      'thread ',id,' reading particles ',noffset+1,':',noffset+npartread,', from block ',iblock,' lims=',i1,i2
 #else
-    write(*,"(2(a,i10),a,i5,a,i10,'-',i10)") &
+       write(*,"(2(a,i10),a,i5,a,i10,'-',i10)") &
      ' reading particles ',noffset+1,':',noffset+npartread,', from block ',iblock,' lims=',i1,i2
 #endif
- else
-    write(*,"(a,i10,a)") ' WARNING! block contains no SPH particles, reading ',nptmass,' point mass particles only'
- endif
+    else
+       write(*,"(a,i10,a)") ' WARNING! block contains no SPH particles, reading ',nptmass,' point mass particles only'
+    endif
 
- call read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,npartoftype,&
+    call read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,npartoftype,&
                           massoftype,nptmass,nsinkproperties,phantomdump,tagged,.false.,&
                           tfile,alphafile,idisk1,iprint,ierr)
 
- if (ierr /= 0) call warning('read_dump','error reading arrays from file')
+    if (ierr /= 0) call warning('read_dump','error reading arrays from file')
 
  enddo overblocks
 
@@ -857,7 +859,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  close(idisk1)
  return
 
-100  close (idisk1)
+100 close (idisk1)
  if (sum(npartoftype)==0) npartoftype(1) = npart
  write(iprint,"(a,/)") ' <<< ERROR! end of file reached in data read'
  ierr = 666
@@ -879,6 +881,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
                     massoftype
  use dump_utils, only:skipblock,skip_arrays,check_tag,open_dumpfile_r,get_error_text,&
                       ierr_realsize,read_header,extract,free_header,read_block_header
+ use mpiutils,   only:reduce_mpi,reduceall_mpi
  character(len=*), intent(in)  :: dumpfile
  real,             intent(out) :: tfile,hfactfile
  integer,          intent(in)  :: idisk1,iprint,id,nprocs
@@ -889,7 +892,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  integer               :: iblock,nblocks,i1,i2,noffset,npartread,narraylengths
  integer(kind=8)       :: ilen(4)
  integer               :: nums(ndatatypes,4)
- integer(kind=8)       :: nparttot,nhydrothisblock
+ integer(kind=8)       :: nparttot,nhydrothisblock,npartoftypetot(maxtypes)
  logical               :: tagged,phantomdump,smalldump
  real                  :: alphafile
  character(len=lenid)  :: fileidentr
@@ -981,70 +984,71 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 
  overblocks: do iblock=1,nblocks
 
- call read_block_header(narraylengths,ilen,nums,idisk1,ierr)
+    call read_block_header(narraylengths,ilen,nums,idisk1,ierr)
 !
 !--check block header for errors
 !
- call check_block_header(narraylengths,nblocks,ilen,nums,nparttot,nhydrothisblock,nptmass,ierr)
- if (ierr /= 0) then
-    call error('read_dump','error in array headers')
-    return
- endif
+    call check_block_header(narraylengths,nblocks,ilen,nums,nparttot,nhydrothisblock,nptmass,ierr)
+    if (ierr /= 0) then
+       call error('read_dump','error in array headers')
+       return
+    endif
 !
 !--exit after reading the file header if the optional argument
 !  "headeronly" is present and set to true
 !
- if (present(headeronly)) then
-    if (headeronly) return
- endif
+    if (present(headeronly)) then
+       if (headeronly) return
+    endif
 !
 !--determine whether or not to read this particular block
 !  onto this particular thread, either in whole or in part
 !  Also handles MPI -> non-MPI dump conversion and vice-versa.
 !  Can be used by non-MPI codes to read isolated blocks only.
 !
- call get_blocklimits(nhydrothisblock,nblocks,nprocs,id,iblock,noffset,npartread)
- i1 = i2 + 1
- i2 = i1 + (npartread - 1)
- npart = npart + npartread
+    call get_blocklimits(nhydrothisblock,nblocks,nprocs,id,iblock,noffset,npartread)
+    i1 = i2 + 1
+    i2 = i1 + (npartread - 1)
+    npart = npart + npartread
 #ifdef MPI
- if (npart > maxp) then
-    write(*,*) 'npart > maxp in readwrite_dumps'
-    ierr = 1
-    return
- endif
- npartoftype(1) = npart
- if (any(npartoftypetot(2:) > 0)) then
-    print*,'npartoftypetot = ',npartoftypetot(2:)
-    write(*,*) 'MPI + multiple types not yet implemented in dump format'
-    ierr = 10
-    return
- endif
-#endif
- if (npartread <= 0 .and. nptmass <= 0) then
-    call skipblock(idisk1,nums(:,1),nums(:,2),nums(:,3),nums(:,4),tagged,ierr)
-    if (ierr /= 0) then
-       print*,' error skipping block'
+    if (npart > maxp) then
+       write(*,*) 'npart > maxp in readwrite_dumps'
+       ierr = 1
        return
     endif
-    cycle overblocks
- elseif (npartread > 0) then
+    npartoftype(1) = npart
+    npartoftypetot = reduceall_mpi('+',npartoftype)
+    if (any(npartoftypetot(2:) > 0)) then
+       print*,'npartoftypetot = ',npartoftypetot(2:)
+       write(*,*) 'MPI + multiple types not yet implemented in dump format'
+       ierr = 10
+       return
+    endif
+#endif
+    if (npartread <= 0 .and. nptmass <= 0) then
+       call skipblock(idisk1,nums(:,1),nums(:,2),nums(:,3),nums(:,4),tagged,ierr)
+       if (ierr /= 0) then
+          print*,' error skipping block'
+          return
+       endif
+       cycle overblocks
+    elseif (npartread > 0) then
 #ifdef MPI
-    write(*,"(a,i5,2(a,i10),a,i5,a,i10,'-',i10)") &
+       write(*,"(a,i5,2(a,i10),a,i5,a,i10,'-',i10)") &
      'thread ',id,' reading particles ',noffset+1,':',noffset+npartread,', from block ',iblock,' lims=',i1,i2
 #else
-    write(*,"(2(a,i10),a,i5,a,i10,'-',i10)") &
+       write(*,"(2(a,i10),a,i5,a,i10,'-',i10)") &
      ' reading particles ',noffset+1,':',noffset+npartread,', from block ',iblock,' lims=',i1,i2
 #endif
- else
-    write(*,"(a,i10,a)") ' WARNING! block contains no SPH particles, reading ',nptmass,' point mass particles only'
- endif
+    else
+       write(*,"(a,i10,a)") ' WARNING! block contains no SPH particles, reading ',nptmass,' point mass particles only'
+    endif
 
- call read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,npartoftype,&
+    call read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,npartoftype,&
                           massoftype,nptmass,nsinkproperties,phantomdump,tagged,smalldump,&
                           tfile,alphafile,idisk1,iprint,ierr)
 
- if (ierr /= 0) call warning('read_dump','error reading arrays from file')
+    if (ierr /= 0) call warning('read_dump','error reading arrays from file')
 
  enddo overblocks
 
@@ -1057,7 +1061,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  close(idisk1)
  return
 
-100  close (idisk1)
+100 close (idisk1)
  if (sum(npartoftype)==0) npartoftype(1) = npart
  write(iprint,"(a,/)") ' <<< ERROR! end of file reached in data read'
  ierr = 666
@@ -1109,53 +1113,53 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 
  over_arraylengths: do iarr=1,narraylengths
 
- do k=1,ndatatypes
-    ik = k
-    if (singleprec .and. k==i_real) ik = i_real4
-    if (.not.tagged) call fake_array_tags(iarr,k,tagarr,phantomdump)
-    do i=1,nums(k,iarr)
-       match = .false.
-       if (tagged) then
-          read(idisk1,end=100) tag
-       else
-          tag = tagarr(i)
-       endif
-       !write(*,*) 'CHECKING '//trim(tag)
-       select case(iarr)
-       case(1)
-          call read_array(iphase,'itype',got_iphase,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-          call read_array(xyzh, xyzh_label, got_xyzh, ik,i1,i2,noffset,idisk1,tag,match,ierr)
-          call read_array(vxyzu,vxyzu_label,got_vxyzu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-          if (use_dustfrac .or. (use_dust .and. match_tag(tag,'dustfrac'))) then
-             call read_array(dustfrac,'dustfrac',got_dustfrac,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+    do k=1,ndatatypes
+       ik = k
+       if (singleprec .and. k==i_real) ik = i_real4
+       if (.not.tagged) call fake_array_tags(iarr,k,tagarr,phantomdump)
+       do i=1,nums(k,iarr)
+          match = .false.
+          if (tagged) then
+             read(idisk1,end=100) tag
+          else
+             tag = tagarr(i)
           endif
-          if (h2chemistry) then
-             call read_array(abundance,abundance_label,got_abund,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-          endif
-          if (maxalpha==maxp) call read_array(alphaind(1,:),'alpha',got_alpha,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+          !write(*,*) 'CHECKING '//trim(tag)
+          select case(iarr)
+          case(1)
+             call read_array(iphase,'itype',got_iphase,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(xyzh, xyzh_label, got_xyzh, ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(vxyzu,vxyzu_label,got_vxyzu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             if (use_dustfrac .or. (use_dust .and. match_tag(tag,'dustfrac'))) then
+                call read_array(dustfrac,'dustfrac',got_dustfrac,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             endif
+             if (h2chemistry) then
+                call read_array(abundance,abundance_label,got_abund,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             endif
+             if (maxalpha==maxp) call read_array(alphaind(1,:),'alpha',got_alpha,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 
-          !
-          ! read gravitational potential if it is in the file
-          !
-          if (gravity .and. maxgrav==maxp) call read_array(poten,'poten',got_poten,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             !
+             ! read gravitational potential if it is in the file
+             !
+             if (gravity .and. maxgrav==maxp) call read_array(poten,'poten',got_poten,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #ifdef IND_TIMESTEPS
-          !
-          ! read dt if it is in the file
-          !
-          call read_array(dt_in,'dt',dt_read_in,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             !
+             ! read dt if it is in the file
+             !
+             call read_array(dt_in,'dt',dt_read_in,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
-       case(2)
-          call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
-          call read_array(vxyz_ptmass, vxyz_ptmass_label, got_sink_vels,ik,1,nptmass,0,idisk1,tag,match,ierr)
-       case(4)
-          call read_array(Bevol,Bevol_label,got_Bevol,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-       end select
-       if (.not.match) then
-          !write(*,*) 'skipping '//trim(tag)
-          read(idisk1,end=100) ! skip unknown array
-       endif
+          case(2)
+             call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
+             call read_array(vxyz_ptmass, vxyz_ptmass_label, got_sink_vels,ik,1,nptmass,0,idisk1,tag,match,ierr)
+          case(4)
+             call read_array(Bevol,Bevol_label,got_Bevol,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+          end select
+          if (.not.match) then
+             !write(*,*) 'skipping '//trim(tag)
+             read(idisk1,end=100) ! skip unknown array
+          endif
+       enddo
     enddo
- enddo
 
  enddo over_arraylengths
  !
@@ -1334,11 +1338,19 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     write(*,*) 'ERROR: missing velocity information from file'
  endif
  if (maxvxyzu==4 .and. .not.got_vxyzu(4)) then
-    do i=i1,i2
-       vxyzu(4,i) = (1.0/(gamma-1.0))*polyk*rhoh(xyzh(4,i),get_pmass(i,use_gas))**(gamma - 1.)
-       !print*,'u = ',vxyzu(4,i)
-    enddo
-    write(*,*) 'WARNING: u not in file but setting u = (K*rho**(gamma-1))/(gamma-1)'
+    if (gamma < 1.01) then
+       do i=i1,i2
+          vxyzu(4,i) = 1.5*polyk
+          !print*,'u = ',vxyzu(4,i)
+       enddo
+       write(*,*) 'WARNING: u not in file but setting u = 3/2 * cs^2'
+    else
+       do i=i1,i2
+          vxyzu(4,i) = (1.0/(gamma-1.0))*polyk*rhoh(xyzh(4,i),get_pmass(i,use_gas))**(gamma - 1.)
+          !print*,'u = ',vxyzu(4,i)
+       enddo
+       write(*,*) 'WARNING: u not in file but setting u = (K*rho**(gamma-1))/(gamma-1)'
+    endif
  endif
  if (h2chemistry .and. .not.all(got_abund)) then
     write(*,*) 'error in rdump: using H2 chemistry, but abundances not found in dump file'
@@ -1535,6 +1547,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use eos,            only:polyk,gamma,polyk2,qfacdisc,isink
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,ieos
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz
+ use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use externalforces, only:write_headeropts_extern
@@ -1617,6 +1630,11 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(ymax,'ymax',hdr,ierr)
     call add_to_rheader(zmin,'zmin',hdr,ierr)
     call add_to_rheader(zmax,'zmax',hdr,ierr)
+    call add_to_rheader(get_conserv,'get_conserv',hdr,ierr)
+    call add_to_rheader(etot_in,'etot_in',hdr,ierr)
+    call add_to_rheader(angtot_in,'angtot_in',hdr,ierr)
+    call add_to_rheader(totmom_in,'totmom_in',hdr,ierr)
+    call add_to_rheader(mdust_in,'mdust_in',hdr,ierr)
     if (use_dust) then
        ! write dust information
        write(*,*) 'writing graindens and grainsize to header'
@@ -1652,6 +1670,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  use eos,           only:polyk,gamma,polyk2,qfacdisc
  use options,       only:ieos,tolh,alpha,alphau,alphaB,iexternalforce
  use part,          only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,maxtypes
+ use initial_params,only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,  only:rhozero
  use timestep,      only:dtmax,C_cour,C_force
  use externalforces,only:read_headeropts_extern
@@ -1779,6 +1798,17 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
     else
        write(*,*) 'External field found, Bext = ',Bextx,Bexty,Bextz
     endif
+ endif
+
+ ! values to track that conserved values remain conserved
+ call extract('get_conserv',get_conserv,hdr,ierrs(1))
+ call extract('etot_in',  etot_in,  hdr,ierrs(2))
+ call extract('angtot_in',angtot_in,hdr,ierrs(3))
+ call extract('totmom_in',totmom_in,hdr,ierrs(4))
+ call extract('mdust_in', mdust_in, hdr,ierrs(5))
+ if (any(ierrs(1:5) /= 0)) then
+    write(*,*) 'ERROR reading values to verify conservation laws.  Resetting initial values.'
+    get_conserv = 1.0
  endif
 
  if (abs(gamma-1.) > tiny(gamma) .and. maxvxyzu < 4) then

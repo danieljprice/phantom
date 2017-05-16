@@ -34,22 +34,22 @@ contains
 ! simple routine to take min, max and average of a quantity
 !-------------------------------------------------------------------
 subroutine minmaxave(x,xmin,xmax,xav,npts)
-  integer :: i
-  integer, intent(in)  :: npts
-  real,    intent(in)  :: x(npts)
-  real,    intent(out) :: xmin,xmax,xav
+ integer :: i
+ integer, intent(in)  :: npts
+ real,    intent(in)  :: x(npts)
+ real,    intent(out) :: xmin,xmax,xav
 
-  xav = 0.
-  xmin = huge(xmin)
-  xmax = -xmin
-  do i=1,npts
-     xav = xav + x(i)
-     xmin = min(xmin,x(i))
-     xmax = max(xmax,x(i))
-  enddo
-  xav = xav/real(npts)
+ xav = 0.
+ xmin = huge(xmin)
+ xmax = -xmin
+ do i=1,npts
+    xav = xav + x(i)
+    xmin = min(xmin,x(i))
+    xmax = max(xmax,x(i))
+ enddo
+ xav = xav/real(npts)
 
-  return
+ return
 end subroutine minmaxave
 
 pure subroutine cross_product3D(veca,vecb,vecc)

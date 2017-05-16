@@ -63,9 +63,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !!$omp parallel do private(i)
  do i=1,npart  ! normalize to unit interval
-   xyzh(1,i) = xyzh(1,i)*(1./mx)
-   xyzh(2,i) = xyzh(2,i)*(1./my)
-   xyzh(3,i) = xyzh(3,i)*(1./mz)
+    xyzh(1,i) = xyzh(1,i)*(1./mx)
+    xyzh(2,i) = xyzh(2,i)*(1./my)
+    xyzh(3,i) = xyzh(3,i)*(1./mz)
  enddo
  print*,' setting particle mass = ',massoftype(1)
  npartoftype(:) = 0

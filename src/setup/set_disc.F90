@@ -268,9 +268,9 @@ subroutine set_disc(id,master,mixture,npart,npart_start,rmin,rmax,rmindust,rmaxd
        !surface density profile: power-law tapered by an exponential function (Lynden-Bell & Pringle 1974)
        do_sigmapringle = .true.
        if (present(rc))then
-           rc0 = rc
+          rc0 = rc
        else
-           rc0 = R_out
+          rc0 = R_out
        endif
     endif
  endif
@@ -468,7 +468,7 @@ subroutine set_disc(id,master,mixture,npart,npart_start,rmin,rmax,rmindust,rmaxd
           open(1,file=trim(prefix)//'-'//trim(labeltype(idust))//'.discparams',status='replace',form='formatted')
           call write_discinfo(1,R_indust,R_outdust,Rref,H_R,Q,npart,do_sigmapringledust,rc0dust,p_inddust,q_index,&
                star_m,disc_massdust,real(xinclination*180.0/pi),honH,sig0dust,cs0,alphaSS_min,alphaSS_max,rwarpi,psimax,idust)
-       close(1)
+          close(1)
        endif
     endif
     ! write disc parameters to screen
@@ -766,67 +766,67 @@ subroutine set_disc_velocities_u(npart_tot,npart_start_count,itype,G,Star_M,aspi
 !  Add contribution from pressure gradients
 !  Pressure contribution from a powerlaw disc
 !
-   select case(itype)
-   case(igas)
-      cs = cs_func(cs0,r,q_index)
-      if (do_sigmapringle) then
-         term_pr = 0.
-      else
-         if (smooth_sigma .and. r > R_in) then  ! r > R_in can happen because of disc shifting
-            term_pr = -cs**2*(1.5+p_index+q_index - 0.5/(sqrt(r/R_in) - 1.))
-         else
-            term_pr = -cs**2*(1.5+p_index+q_index)
-         endif
-      endif
-      if (term + term_pr < 0.) then
-         ierr = 1
-      endif
-   case default
-      cs = 0.
-      term_pr = 0.
-   end select
+    select case(itype)
+    case(igas)
+       cs = cs_func(cs0,r,q_index)
+       if (do_sigmapringle) then
+          term_pr = 0.
+       else
+          if (smooth_sigma .and. r > R_in) then  ! r > R_in can happen because of disc shifting
+             term_pr = -cs**2*(1.5+p_index+q_index - 0.5/(sqrt(r/R_in) - 1.))
+          else
+             term_pr = -cs**2*(1.5+p_index+q_index)
+          endif
+       endif
+       if (term + term_pr < 0.) then
+          ierr = 1
+       endif
+    case default
+       cs = 0.
+       term_pr = 0.
+    end select
 !
 !  Correction due to Lense-Thirring precession:
 !  Nealon, Nixon & Price correction for Nelson & Papaloizou v x h term
 !
-   term_bh = 0.
-   if (aspin > tiny(aspin) .and. (iexternalforce==iext_lensethirring &
+    term_bh = 0.
+    if (aspin > tiny(aspin) .and. (iexternalforce==iext_lensethirring &
                              .or. iexternalforce==iext_einsteinprec)) then
-      ! this is Eq. 5.21 in Nealon (2013) multiplied by -r
-      term_bh = -2.*aspin*(G*Star_M/r)**2/clight**3
-   endif
+       ! this is Eq. 5.21 in Nealon (2013) multiplied by -r
+       term_bh = -2.*aspin*(G*Star_M/r)**2/clight**3
+    endif
 !
 !  now solve quadratic equation for vphi
 !
-   det = term_bh**2 + 4.*(term + term_pr)
-   vphi = 0.5*(term_bh + sqrt(det))
+    det = term_bh**2 + 4.*(term + term_pr)
+    vphi = 0.5*(term_bh + sqrt(det))
 !
 ! radial velocities (zero in general)
 !
-   vr = 0.d0
+    vr = 0.d0
 
 !  --------------------------------------
 !  Set velocities -- move to origin below
-   vxyzu(1,i)  = -vphi*sin(phi)+ vr*cos(phi)
-   vxyzu(2,i)  = vphi*cos(phi) + vr*sin(phi)
-   vxyzu(3,i)  = 0.0d0
+    vxyzu(1,i)  = -vphi*sin(phi)+ vr*cos(phi)
+    vxyzu(2,i)  = vphi*cos(phi) + vr*sin(phi)
+    vxyzu(3,i)  = 0.0d0
 
 !-----------------------------------------
 !  Set thermal energy
 
-   !  utherm generally should not be stored
-   !  for an isothermal equation of state
-   if (maxvxyzu >= 4) then
-      if (itype==igas) then
-         if (gamma > 1.) then
-            vxyzu(4,i) = cs**2/(gamma - 1.)/gamma
-         else
-            vxyzu(4,i) = 1.5*cs**2
-         endif
-      else
-         vxyzu(4,i) = 0.
-      endif
-   endif
+    !  utherm generally should not be stored
+    !  for an isothermal equation of state
+    if (maxvxyzu >= 4) then
+       if (itype==igas) then
+          if (gamma > 1.) then
+             vxyzu(4,i) = cs**2/(gamma - 1.)/gamma
+          else
+             vxyzu(4,i) = 1.5*cs**2
+          endif
+       else
+          vxyzu(4,i) = 0.
+       endif
+    endif
  enddo
 
 end subroutine set_disc_velocities_u
@@ -917,7 +917,7 @@ pure subroutine set_warp(npart_tot,npart_start_count,&
              if (r < rsi) then
                 sini = 0.
              elseif (r < rso) then
-              !  sini = sininclination*exp(-abs(r-rwarpi)**2)
+                !  sini = sininclination*exp(-abs(r-rwarpi)**2)
                 sini = 0.5*(1.+sin(pi/(rso - rsi)*(r-rwarpi)))*sininclination
                 psi  = pi*rwarpi/(2.*(rso - rsi))*sininclination/sqrt(1. - (0.5*sininclination)**2)
                 psimax = max(psimax,psi)
@@ -927,7 +927,7 @@ pure subroutine set_warp(npart_tot,npart_start_count,&
           else
              sini = sininclination
           endif
-        !--uncomment the following for Nelson-Papaloizou bending waves
+          !--uncomment the following for Nelson-Papaloizou bending waves
           !if(r < rsi.or.r > rso) then
           !  sini=0.
           !else
@@ -1158,7 +1158,7 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart,H_R,q_index,M_
     if (present(rwarp) .and. iwarp > 0) then
        write(*,'(1x,"Actual <h>/H at R_warp is    : ",f9.4)') h_smooth(iwarp)
     endif
-   ! write(*,'(1x,"alpha_SS/alpha_AV is approx: ",f9.4)') honH/10.0
+    ! write(*,'(1x,"alpha_SS/alpha_AV is approx: ",f9.4)') honH/10.0
     write(*,'(1x,"e.g. for alpha_SS = 0.1,  use alpha_AV = ",f10.5)') 0.1/(honH/10.0)
     write(*,'(1x,"   using alpha_AV = 1.0 gives alpha_SS ~ ",f8.4,"->",f8.4)') honHmin/10.0,honHmax/10.0
  endif

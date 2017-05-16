@@ -92,12 +92,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  filename=trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) then
-   call read_setupfile(filename,mhd)
+    call read_setupfile(filename,mhd)
  elseif (id==master) then
-   rhoin0     = 1.0
-   Bxin0      = 1.0
-   amplitude  = 0.01
-   kwave      = 2.0
+    rhoin0     = 1.0
+    Bxin0      = 1.0
+    amplitude  = 0.01
+    kwave      = 2.0
  endif
  !
  !--Get coefficient values from the .in file

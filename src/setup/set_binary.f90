@@ -152,6 +152,8 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
              'inclination     (i, deg):',incl, &
              'angle asc. node (O, deg):',posang_ascnode, &
              'arg. pericentre (w, deg):',arg_peri
+       if (present(f)) print "(2x,a,g12.4)", &
+             'true anomaly    (f, deg):',f
     endif
 
     ! Rotating everything
@@ -310,10 +312,10 @@ real function L1_point(qinv)
 
  dL = 1.e7
  do while (abs(dL)>1.e-6)
-   fL = qinv/L**2- 1./(1.-L)**2 - (1.+qinv)*L + 1.
-   dfL=-2*qinv/L**3 - 2./(1.-L)**3 - (1.+qinv)
-   dL = -fL/(dfL*L)
-   L = L*(1.+dL)
+    fL = qinv/L**2- 1./(1.-L)**2 - (1.+qinv)*L + 1.
+    dfL=-2*qinv/L**3 - 2./(1.-L)**3 - (1.+qinv)
+    dL = -fL/(dfL*L)
+    L = L*(1.+dL)
  enddo
 
  L1_point = L

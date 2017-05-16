@@ -35,7 +35,7 @@ MODFILE       = moddump_default.f90
 ANALYSIS      = analysis_dtheader.f90
 MULTIRUNFILE  = multirun.f90
 LIVE_ANALYSIS = no
-LINKLIST      = kdtree.F90 linklist_kdtree.F90
+LINKLIST      = dtype_kdtree.F90 kdtree.F90 linklist_kdtree.F90
 #
 # can comment out the following lines and instead set
 # the parameters as environment variables
@@ -374,6 +374,7 @@ ifeq ($(SETUP), quebec)
     SETUPFILE = setup_quebec.f90
     GRAVITY = yes
     KNOWN_SETUP = yes
+    MODFILE = moddump_binarystar.f90
 endif
 
 ifeq ($(SETUP), polytrope)
@@ -646,7 +647,7 @@ ifeq ($(SETUP),star)
     MODFILE= moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} kdtree.o linklist_kdtree.o utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
     KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
+    IND_TIMESTEPS=no
     MAXP=10000000
     MHD=no
 endif
@@ -876,6 +877,21 @@ ifeq ($(SETUP), mcfost)
     MCFOST=yes
 endif
 
+ifeq ($(SETUP), sfmcfost)
+#   live feedback from mcfost in star formation calculation
+    PERIODIC=yes
+    SETUPFILE= setup_sphereinbox.f90
+    ANALYSIS= analysis_mcfost.f90
+    LIVE_ANALYSIS=yes
+    ISOTHERMAL=no
+    KNOWN_SETUP=yes
+    MULTIRUNFILE= multirun.f90
+    IND_TIMESTEPS=yes
+    GRAVITY=yes
+    LIGHTCURVE=yes
+    MCFOST=yes
+endif
+
 ifeq ($(SETUP), HLTau_mcfost)
     # Question : why no -DDISC_VISCOSITY ???
     FPPFLAGS= -DSORT_RADIUS_INIT -DDISC_VISCOSITY
@@ -1079,6 +1095,22 @@ ifeq ($(SYSTEM), monarch)
     CCFLAGS = -O3 -mcmodel=medium
     QSYS = slurm
     QPROJECT='p01'
+    WALLTIME='100:59:59'
+endif
+
+ifeq ($(SYSTEM), monarchpsxe)
+    FC= ifort
+    FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -debug all # -fpe0 -fp-stack-check -debug all
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+    OMPFLAGS = -qopenmp
+    CC = icc
+    CCFLAGS = -O3 -mcmodel=medium
+    QSYS = slurm
+    QPROJECT='p01'
 endif
 
 ifeq ($(SYSTEM), raijin)
@@ -1204,6 +1236,25 @@ ifeq ($(SYSTEM), gfortran47)
     CCFLAGS = -O3
 endif
 
+ifeq ($(SYSTEM), complexity)
+#   complexity.leicester.dirac.ac.uk
+    FC= ifort
+    FFLAGS= -O3 -xhost -ipo -mcmodel=medium -shared-intel -warn uninitialized \
+            -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+    OMPFLAGS = -qopenmp
+    CC = icc
+    CCFLAGS = -O3 -ipo -mcmodel=medium
+    LIBCXX = -cxxlib
+    QSYS=pbs
+    QNAME=q64
+    WALLTIME='48:00:00'
+endif
+
 ifeq ($(SYSTEM), ifort)
     FC= ifort
     FFLAGS= -O3 -xhost -ipo -mcmodel=medium -shared-intel -warn uninitialized \
@@ -1214,9 +1265,25 @@ ifeq ($(SYSTEM), ifort)
     ENDIANFLAGBIG= -convert big_endian
     ENDIANFLAGLITTLE= -convert little_endian
 # or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
-    OMPFLAGS = -openmp
+    OMPFLAGS = -qopenmp
     CC = icc
     CCFLAGS = -O3 -ipo -mcmodel=medium
+    LIBCXX = -cxxlib
+endif
+
+ifeq ($(SYSTEM), ifortmac)
+    FC= ifort
+    FFLAGS= -O3 -xhost -shared-intel -warn uninitialized \
+            -warn unused -warn truncated_source -Wl,-rpath,/opt/intel/lib
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+# or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
+    OMPFLAGS = -qopenmp
+    CC = icc
+    CCFLAGS = -O3
     LIBCXX = -cxxlib
 endif
 
@@ -1308,11 +1375,15 @@ endif
 ifdef NCELLSMAX
    FPPFLAGS += -DNCELLSMAX=${NCELLSMAX}
 endif
+ifdef STACKSIZE
+   FPPFLAGS += -DSTACKSIZE=${STACKSIZE}
+endif
 # Set other optional flags depending on settings
 
 ifeq ($(DEBUG), yes)
     FFLAGS += ${DEBUGFLAG}
     FFLAGS := $(FFLAGS:-O3=-O0)
+    FFLAGS := $(FFLAGS:-ipo= )
 endif
 
 ifeq ($(ENDIAN), BIG)
@@ -1475,11 +1546,19 @@ ifeq ($(MPI), zen)
     USEMPI=yes
 endif
 
+ifeq ($(MPI), psxe)
+    FC= mpiifort
+    LDFLAGS+= `mpiifort--showme:link`
+    FPPFLAGS += -DMPI
+    USEMPI=yes
+endif
+
 ifeq ($(MPI), apac)
     LDFLAGS= -lmpi
     FPPFLAGS += -DMPI
     USEMPI=yes
 endif
+
 #
 # HDF5 libraries (if required)
 #
@@ -1548,18 +1627,19 @@ SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cool
 SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
 SRCEOS = ${SRCMESA} eos.F90
 
-SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 utils_omp.F90 utils_cpuinfo.f90 \
-         utils_mathfunc.f90 part.F90 commons.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
-         utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_sphNG.f90 utils_timing.f90 utils_vectors.f90 \
+SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
+         utils_mathfunc.f90 part.F90 utils_timing.f90 ${DOMAIN} mpi_balance.F90 commons.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
+         utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_sphNG.f90 utils_vectors.f90 \
          utils_datafiles.f90 datafiles.f90 ${SRCFASTMATH} random.f90 \
          checkoptions.F90 ${SRCEOS} set_binary.f90 \
          viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} \
          set_disc.F90 partinject.F90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} directsum.f90 ${SRCDUST} readwrite_dumps.F90 quitdump.f90 \
-         ${DOMAIN} mpi_derivs.F90 ${LINKLIST} \
+         mpi_dens.F90 mpi_force.F90 stack.F90 \
+         mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
          ${SRCTURB} ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} \
          ptmass.F90 readwrite_infile.F90 \
-	 dens.F90 force.F90 deriv.F90 energies.F90 \
+         dens.F90 force.F90 deriv.F90 energies.F90 \
          sort_particles.F90 evwrite.F90 \
          step_leapfrog.F90 writeheader.F90 writegitinfo.f90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90\
          geometry.f90 stretchmap.f90 prompting.f90 density_profiles.f90 set_unifdis.f90 set_sphere.f90 set_vfield.f90 \
@@ -1631,8 +1711,8 @@ physcon.o: .make_mathflags
 # these are the sources for phantom setup utility
 #
 SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_filenames.f90 utils_summary.F90 \
-          utils_tables.f90 random.f90 ${DOMAIN} set_binary.f90 \
-          utils_indtimesteps.F90 partinject.F90 ${LINKLIST} \
+          utils_tables.f90 random.f90 mpi_balance.F90 ${DOMAIN} set_binary.f90 \
+          utils_indtimesteps.F90 partinject.F90 dtype_kdtree.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} \
           ptmass.F90 energies.F90 \
           geometry.f90 stretchmap.f90 prompting.f90 density_profiles.f90 \

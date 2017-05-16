@@ -92,21 +92,21 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 
  if (icall==1) then
 
-   call date_and_time(startdate,starttime)
-   startdate = startdate(7:8)//'/'//startdate(5:6)//'/'//startdate(1:4)
-   starttime = starttime(1:2)//':'//starttime(3:4)//':'//starttime(5:)
-   write(iprint,"(' Run started on ',a,' at ',a)") startdate,starttime
+    call date_and_time(startdate,starttime)
+    startdate = startdate(7:8)//'/'//startdate(5:6)//'/'//startdate(1:4)
+    starttime = starttime(1:2)//':'//starttime(3:4)//':'//starttime(5:)
+    write(iprint,"(' Run started on ',a,' at ',a)") startdate,starttime
 
-   write(iprint, 20) trim(infile),trim(evfile),trim(logfile)
-   if (iprint /= 6) write(*, 20) trim(infile),trim(evfile),trim(logfile)
-20 format(/,                                &
+    write(iprint, 20) trim(infile),trim(evfile),trim(logfile)
+    if (iprint /= 6) write(*, 20) trim(infile),trim(evfile),trim(logfile)
+20  format(/,                                &
       ' Read input from   : ',a,/,        &
       ' Writing energy to : ',a,/,        &
       ' Writing log to    : ',a,/)
 !
 !--write the input file into the run log
 !
-   call write_infile(infile,logfile,evfile,dumpfile,iprint,iprint)
+    call write_infile(infile,logfile,evfile,dumpfile,iprint,iprint)
 
 !----------------------------------------------
 ! 2nd header after particles have been setup
@@ -160,7 +160,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 
     Nneigh = nint(4./3.*pi*(radkern*hfact)**3)
     write(iprint,50) hfact, massoftype(1), tolh, Nneigh
-50 format(/,' Variable smoothing length: ',/, &
+50  format(/,' Variable smoothing length: ',/, &
       6x,' h = ',f5.2,'*[',es9.2,'/rho]^(1/3); htol = ',es9.2,/ &
       6x,' Number of neighbours = ',i4)
 
@@ -223,7 +223,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 
  endif
 
-return
+ return
 end subroutine write_header
 
 end module writeheader

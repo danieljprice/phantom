@@ -49,7 +49,7 @@ subroutine check_compile_time_settings(ierr)
  if (.not.mhd) then
     call error(string,'-DMHD but mhd=.false.')
     ierr = 1
-  endif
+ endif
 #endif
  if (mhd) then
     if (maxBevol < 3 .or. maxBevol > 4) then

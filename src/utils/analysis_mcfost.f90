@@ -59,8 +59,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real(kind=4),dimension(:,:,:),allocatable :: Frad
  real,dimension(:),allocatable :: dudt
 
- real, parameter :: Tdefault = 10.
+ real, parameter :: Tdefault = 1.
  logical, parameter :: write_T_files = .true. ! ask mcfost to write fits files with temperature structure
+ logical, parameter :: ISM = .true. ! turn on ISM heating
 
 
  if (.not.init_mcfost) then
@@ -98,7 +99,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
    npartoftype,xyzh,vxyzu,itype,grain_size,graindens,dustfrac,massoftype,&
    xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
-   Frad,mu_gas,ierr,write_T_files)
+   Frad,mu_gas,ierr,write_T_files,ISM)
  !print*,' mu_gas = ',mu_gas
 
  write(*,*) ''

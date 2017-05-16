@@ -369,9 +369,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        xyzmh_ptmass(ihsoft,nptmass) = accradius
        vxyz_ptmass                  = 0.
     else
-      print "(a)", 'Central object represented by external force with accretion boundary'
-      print*, ' Accretion Radius: ', accradius
-      accradius1 = accradius
+       print "(a)", 'Central object represented by external force with accretion boundary'
+       print*, ' Accretion Radius: ', accradius
+       accradius1 = accradius
     endif
  endif
 
@@ -628,7 +628,7 @@ subroutine write_dustydiscinputfile(filename)
     call write_inopt(icentralforce,'icentralforce', 'central mass force choice (0=sink,1=external force)',iunit)
  endif
  if (use_dust) then
- write(iunit,"(/,a)") '# options for dust accretion disc'
+    write(iunit,"(/,a)") '# options for dust accretion disc'
     call write_inopt(dust_to_gas_ratio,'dust_to_gas_ratio','dust to gas ratio',iunit)
     call write_inopt(profile_set_dust,'profile_set_dust','how to set dust density profile (0=equal to gas, 1=custom)',iunit)
     select case(profile_set_dust)
@@ -643,7 +643,7 @@ subroutine write_dustydiscinputfile(filename)
     call write_inopt(graindensinp,'graindensinp','intrinsic grain density (in g/cm^3)',iunit)
  endif
  if(setplanets==1)then
- !--planets
+    !--planets
     write(iunit,"(/,a)") '# set planets'
     call write_inopt(nplanets,'nplanets','number of planets',iunit)
     do i=1,nplanets
@@ -798,9 +798,9 @@ subroutine get_d2gratio(id2g,ri,iprofilegas,iprofiledust,sigma_naught,sigma_naug
     endif
  endif
 
- end subroutine get_d2gratio
+end subroutine get_d2gratio
 
- pure subroutine rotate(xyz,cosi,sini)
+pure subroutine rotate(xyz,cosi,sini)
  real, intent(inout) :: xyz(3)
  real, intent(in)    :: cosi,sini
  real :: xi,yi,zi
@@ -812,6 +812,6 @@ subroutine get_d2gratio(id2g,ri,iprofilegas,iprofiledust,sigma_naught,sigma_naug
  xyz(2) =  yi
  xyz(3) = -xi*sini + zi*cosi
 
- end subroutine rotate
+end subroutine rotate
 
 end module setup

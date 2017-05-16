@@ -205,91 +205,91 @@ subroutine get_ts(idrag,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
  ! compute quantities specific to the drag regime
  select case(idrag)
  case(1)
-   !
-   ! physical drag (Epstein or Stokes regime)
-   ! check if the regime is Epstein or Stokes
-   !
-   lambda = seff/rhogas
-   if (sgrain > 0.) then
-      kn_eff = 9.*lambda/(4.*sgrain)
-   else
-      kn_eff = huge(kn_eff)
-   endif
+    !
+    ! physical drag (Epstein or Stokes regime)
+    ! check if the regime is Epstein or Stokes
+    !
+    lambda = seff/rhogas
+    if (sgrain > 0.) then
+       kn_eff = 9.*lambda/(4.*sgrain)
+    else
+       kn_eff = huge(kn_eff)
+    endif
 
-   if (kn_eff >= 1.) then
-   !
-   ! Epstein regime
-   !
-      if (densgrain > tiny(densgrain)) then
-         dragcoeff = coeff_gei_1*spsoundgas/(densgrain*sgrain)
-         !if (dragcoeff > 1.e10) print*,dragcoeff
-      else
-         dragcoeff = huge(dragcoeff) ! so get ts=0 in this case
-      endif
-      if (spsoundgas > 0. .and. dv2 > 0.) then
-         kwok = 9.*pi/128.*dv2/(spsoundgas*spsoundgas)
-         f = sqrt(1.+kwok)
-      else
-         kwok = 0.
-         f = 1. ! not important
-      endif
-      iregime   = 1
-      ! count where Kwok (1975) correction for supersonic drag is important
-      if (kwok > tol_super) iregime = 2
-   else
-   !
-   ! Stokes regime
-   !
-      viscmol_nu = cste_mu*lambda*spsoundgas  ! kinematic viscosity
-      !--compute the local Stokes number
-      abs_dv  = sqrt(dv2)
-      Re_dust = 2.*sgrain*abs_dv/viscmol_nu
-      if (Re_dust  <=  1.) then
-         dragcoeff = 4.5*viscmol_nu/(densgrain*sgrain*sgrain)
-         f         = 1.
-         iregime   = 3
-      elseif (Re_dust  <=  800.) then
-         dragcoeff = 9./(densgrain*sgrain*Re_dust**0.6)
-         f         = abs_dv
-         iregime   = 4
-      else
-         dragcoeff = 0.163075/(densgrain*sgrain)  ! coeff is (3/8)*24/800**0.6
-         f         = abs_dv
-         iregime   = 5
-      endif
-   endif
-   if (dragcoeff == huge(dragcoeff)) then
-      ts1 = huge(ts1)
-   else
-      ts1 = dragcoeff*f*rhosum
-   endif
-   if (ts1 >= 0.) then
-      ts  = 1./ts1
-   else
-      ts = huge(ts)
-   endif
+    if (kn_eff >= 1.) then
+       !
+       ! Epstein regime
+       !
+       if (densgrain > tiny(densgrain)) then
+          dragcoeff = coeff_gei_1*spsoundgas/(densgrain*sgrain)
+          !if (dragcoeff > 1.e10) print*,dragcoeff
+       else
+          dragcoeff = huge(dragcoeff) ! so get ts=0 in this case
+       endif
+       if (spsoundgas > 0. .and. dv2 > 0.) then
+          kwok = 9.*pi/128.*dv2/(spsoundgas*spsoundgas)
+          f = sqrt(1.+kwok)
+       else
+          kwok = 0.
+          f = 1. ! not important
+       endif
+       iregime   = 1
+       ! count where Kwok (1975) correction for supersonic drag is important
+       if (kwok > tol_super) iregime = 2
+    else
+       !
+       ! Stokes regime
+       !
+       viscmol_nu = cste_mu*lambda*spsoundgas  ! kinematic viscosity
+       !--compute the local Stokes number
+       abs_dv  = sqrt(dv2)
+       Re_dust = 2.*sgrain*abs_dv/viscmol_nu
+       if (Re_dust  <=  1.) then
+          dragcoeff = 4.5*viscmol_nu/(densgrain*sgrain*sgrain)
+          f         = 1.
+          iregime   = 3
+       elseif (Re_dust  <=  800.) then
+          dragcoeff = 9./(densgrain*sgrain*Re_dust**0.6)
+          f         = abs_dv
+          iregime   = 4
+       else
+          dragcoeff = 0.163075/(densgrain*sgrain)  ! coeff is (3/8)*24/800**0.6
+          f         = abs_dv
+          iregime   = 5
+       endif
+    endif
+    if (dragcoeff == huge(dragcoeff)) then
+       ts1 = huge(ts1)
+    else
+       ts1 = dragcoeff*f*rhosum
+    endif
+    if (ts1 >= 0.) then
+       ts  = 1./ts1
+    else
+       ts = huge(ts)
+    endif
 
  case(2)
- !
- ! constant drag coefficient
- !
-   if (K_code > 0.) then
-      ts = rhogas*rhodust/(K_code*rhosum)
-   else
-      ts = huge(ts)
-   endif
-   iregime = 0
+    !
+    ! constant drag coefficient
+    !
+    if (K_code > 0.) then
+       ts = rhogas*rhodust/(K_code*rhosum)
+    else
+       ts = huge(ts)
+    endif
+    iregime = 0
 
  case(3)
- !
- ! constant ts
- !
-   ts = K_code
-   iregime = 0
+    !
+    ! constant ts
+    !
+    ts = K_code
+    iregime = 0
 
  case default
-   ts = 0.
-   iregime = 0 ! unknown
+    ts = 0.
+    iregime = 0 ! unknown
  end select
 
 end subroutine get_ts

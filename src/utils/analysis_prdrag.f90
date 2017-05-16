@@ -64,12 +64,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  call get_bracket_grid_points( ringrid, 50, nr, rmax, r1, r2 )
 
  do rbin=0, nr-1
-  call get_grid_points( ringrid, rbin, nr, rmax, cell_rin, cell_rout, r )
-  do tbin=0, nth-1
-    call get_grid_points( thmingrid, tbin, nth, thetamax, cell_thin, cell_thout, theta )
-    write( 106,* ), r, rbin, theta, tbin, r*sin(theta), r*cos(theta), ldensitygrid( rbin, tbin ), &
+    call get_grid_points( ringrid, rbin, nr, rmax, cell_rin, cell_rout, r )
+    do tbin=0, nth-1
+       call get_grid_points( thmingrid, tbin, nth, thetamax, cell_thin, cell_thout, theta )
+       write( 106,* ), r, rbin, theta, tbin, r*sin(theta), r*cos(theta), ldensitygrid( rbin, tbin ), &
                     ltauradgrid( rbin, tbin), lbetagrid( rbin, tbin )
-  enddo
+    enddo
  enddo
 
  close( 106 )
@@ -79,21 +79,21 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  write(106,*), "#r_rad rbin theta thetabin r_cyl z rho tau beta"
  Lstar=1
  do ri=0, 600
-   rcyl = rmin + ri/1.
-   do zi=0, 250
+    rcyl = rmin + ri/1.
+    do zi=0, 250
 
-      z = zi/1.
-      r = sqrt( rcyl**2 + z**2 )
-      theta = atan(rcyl/z)
-      call get_grid_bins( r, theta, rbin, tbin )
-      call get_grid_points( ringrid, rbin, nr, rmax, cell_rin, cell_rout, cell_rmid )
-      call get_grid_points( thmingrid, tbin, nth, thetamax, cell_thin, cell_thout, cell_thmid )
-      rho  = exp(bilin_interp( ldensitygrid, r, theta ))
-      tau  = exp(bilin_interp( ltauradgrid, r, theta ))
-      betac = exp(bilin_interp( lbetagrid, r, theta ))
-      write( 106, * ), r, rbin, theta, tbin, rcyl, z, rho, tau, betac
+       z = zi/1.
+       r = sqrt( rcyl**2 + z**2 )
+       theta = atan(rcyl/z)
+       call get_grid_bins( r, theta, rbin, tbin )
+       call get_grid_points( ringrid, rbin, nr, rmax, cell_rin, cell_rout, cell_rmid )
+       call get_grid_points( thmingrid, tbin, nth, thetamax, cell_thin, cell_thout, cell_thmid )
+       rho  = exp(bilin_interp( ldensitygrid, r, theta ))
+       tau  = exp(bilin_interp( ltauradgrid, r, theta ))
+       betac = exp(bilin_interp( lbetagrid, r, theta ))
+       write( 106, * ), r, rbin, theta, tbin, rcyl, z, rho, tau, betac
 
-   enddo
+    enddo
 
  enddo
 
@@ -107,13 +107,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  do ipart=1, npart
 
 
-   r = sqrt(xyzh(1,ipart)**2 + xyzh(2,ipart)**2 + xyzh(3,ipart)**2)
-   if( r>1 ) then
+    r = sqrt(xyzh(1,ipart)**2 + xyzh(2,ipart)**2 + xyzh(3,ipart)**2)
+    if( r>1 ) then
 
-      call get_grid_bins( r, acos(abs(xyzh(3,ipart))/r), rbin, tbin )
-      write(106,*), xyzh(1,ipart), xyzh(2,ipart), xyzh(3,ipart), r, &
+       call get_grid_bins( r, acos(abs(xyzh(3,ipart))/r), rbin, tbin )
+       write(106,*), xyzh(1,ipart), xyzh(2,ipart), xyzh(3,ipart), r, &
         beta(xyzh(1,ipart), xyzh(2,ipart), xyzh(3,ipart),0.0), rbin, tbin
-   endif
+    endif
  enddo
 
  close(106)

@@ -48,8 +48,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !
  !--removing particles
  !
-    print*,'Removing particles outside the cylinder centered in ( ', center,' ), with radius ',radius,' and zmax ',zmax,' : '
-    call delete_particles_outside_cylinder(center, radius, zmax)
+ print*,'Removing particles outside the cylinder centered in ( ', center,' ), with radius ',radius,' and zmax ',zmax,' : '
+ call delete_particles_outside_cylinder(center, radius, zmax)
 
  return
 end subroutine modify_dump

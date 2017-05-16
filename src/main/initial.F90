@@ -18,13 +18,13 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, centreofmass, checkoptions, checksetup, chem,
-!    cpuinfo, densityforce, deriv, dim, domain, dust, energies, eos,
-!    evwrite, externalforces, fastmath, forcing, h2cooling, io, io_summary,
-!    linklist, mf_write, mpi, mpiutils, nicil, nicil_sup, omputils,
-!    options, part, photoevap, ptmass, readwrite_dumps, readwrite_infile,
-!    setup, sort_particles, step_lf_global, timestep, timestep_ind,
-!    timestep_sts, timing, units, writegitinfo, writeheader
+!  DEPENDENCIES: balance, boundary, centreofmass, checkoptions, checksetup,
+!    chem, cpuinfo, densityforce, deriv, dim, domain, dust, energies, eos,
+!    evwrite, externalforces, fastmath, forcing, h2cooling, initial_params,
+!    io, io_summary, linklist, mf_write, mpi, mpiutils, nicil, nicil_sup,
+!    omputils, options, part, photoevap, ptmass, readwrite_dumps,
+!    readwrite_infile, setup, sort_particles, step_lf_global, timestep,
+!    timestep_ind, timestep_sts, timing, units, writegitinfo, writeheader
 !+
 !--------------------------------------------------------------------------
 module initial
@@ -86,7 +86,7 @@ subroutine initialise()
 !
 !--write info on latest git commit
 !
-if (id==master) call write_gitinfo(6)
+ if (id==master) call write_gitinfo(6)
 !
 !--check that it is OK to use fast sqrt functions
 !  on this architecture
@@ -197,6 +197,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use mf_write,         only:binpos_write,binpos_init
  use io,               only:ibinpos,igpos
 #endif
+#ifdef MPI
+ use balance,          only:balancedomains
+ use domain,           only:ibelong
+#endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:gamma,polyk,ieos,init_eos
  use part,             only:hfact,h2chemistry
@@ -207,11 +211,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use cpuinfo,          only:print_cpuinfo
  use io_summary,       only:summary_initialise
  use units,            only:unit_density
- use energies,         only:get_erot_com
+ use energies,         only:get_erot_com,etot,angtot,totmom,mdust
+ use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  integer         :: ierr,i,j,idot,nerr,nwarn
- !integer(kind=8) :: npartoftypetot(maxtypes)
+ integer(kind=8) :: npartoftypetot(maxtypes)
  real            :: poti,dtf,hfactfile,fextv(3)
  real            :: pmassi,dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first
 #ifdef NONIDEALMHD
@@ -306,8 +311,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--get total number of particles (on all processors)
 !
- ntot           = npart !OK: reduceall_mpi('+',npart)
-! npartoftypetot = reduce_mpi('+',npartoftype)
+ ntot           = reduceall_mpi('+',npart)
+ npartoftypetot = reduce_mpi('+',npartoftype)
  if (id==master) write(iprint,"(a,i12)") ' npart total   = ',ntot
  if (npart > 0) then
     if (id==master .and. maxalpha==maxp)  write(iprint,*) 'mean alpha  initial: ',sum(alphaind(1,1:npart))/real(npart)
@@ -376,6 +381,17 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #else
  dtcourant = huge(dtcourant)
  dtforce   = huge(dtforce)
+#endif
+
+!
+!--balance domains prior to starting calculation
+!  (make sure this is called AFTER iphase has been set)
+!
+#ifdef MPI
+ do i=1,npart
+    ibelong(i) = id
+ enddo
+ call balancedomains(npart)
 #endif
 
 !
@@ -493,7 +509,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     write(iprint,*) 'dt(forces)    = ',dtforce
     write(iprint,*) 'dt(courant)   = ',dtcourant
     write(iprint,*) 'dt initial    = ',dt
-  endif
+ endif
 #endif
 !
 !--Set parameters to allow for reduction of dtmax
@@ -507,9 +523,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  endif
 !--write second header to logfile/screen
 !
+
  if (id==master) call write_header(2,infile,evfile,logfile,dumpfile,ntot)
 
  if (calc_erot) call get_erot_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+
  call init_evfile(ievfile,evfile)
  call write_evfile(time,dt)
  if (id==master) call write_evlog(iprint)
@@ -527,8 +545,23 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  call binpos_init(ibinpos,evfile) !take evfile in input to create string.binpos
  call binpos_write(time, dt)
 #endif
-
-
+!
+!--Set initial values for continual verification of conservation laws
+!
+ if (get_conserv > 0.0) then
+    get_conserv = -1.
+    etot_in   = etot
+    angtot_in = angtot
+    totmom_in = totmom
+    mdust_in  = mdust
+    write(iprint,'(1x,a)') "Setting initial values to verify conservation laws:"
+ else
+    write(iprint,'(1x,a)') "Reading initial values to verify conservation laws from previous run:"
+ endif
+ write(iprint,'(2x,a,Es18.6)') "Initial total energy:     ", etot_in
+ write(iprint,'(2x,a,Es18.6)') "Initial angular momentum: ", angtot_in
+ write(iprint,'(2x,a,Es18.6)') "Initial linear momentum:  ", totmom_in
+ write(iprint,'(2x,a,Es18.6)') "Initial dust mass:        ", mdust_in
 !
 !--write initial conditions to output file
 !  if the input file ends in .tmp or .init

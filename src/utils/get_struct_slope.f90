@@ -138,7 +138,7 @@ program get_struct_slope
           !xminfiti = xminfit
           print "(1x,a,i2)",trim(sftype(i_sf))//' order ',iorder
           !do while(xminfiti > 0.005)
-             call fit_slope(n_lag,xlag(1:n_lag),sf(i_sf,iorder,1:n_lag),&
+          call fit_slope(n_lag,xlag(1:n_lag),sf(i_sf,iorder,1:n_lag),&
                          slope,yint,err,errslope,erryint,xmin=xminfiti,xmax=xmaxfiti,logplot=.true.)
           !   xminfiti = xminfiti - dxminfit
           !   write(i_sf*100+iorder,*) xmaxfiti-xminfiti,slope,1.-err,xminfiti

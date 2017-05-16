@@ -45,6 +45,7 @@ subroutine test_dust(ntests,npass)
  use eos,       only:gamma
 #endif
  integer, intent(inout) :: ntests,npass
+#ifndef MPI
 #ifdef DUST
  integer :: nfailed(10),ierr,iregime
  real :: dustfraci,rhoi,spsoundi,tsi
@@ -92,9 +93,13 @@ subroutine test_dust(ntests,npass)
 #else
  if (id==master) write(*,"(/,a)") '--> SKIPPING DUST TEST (REQUIRES -DDUST)'
 #endif
+#else
+ if (id==master) write(*,"(/,a)") '--> SKIPPING DUST TEST (MPI NOT SUPPORTED)'
+#endif
 
 end subroutine test_dust
 
+#ifndef MPI
 #ifdef DUST
 !----------------------------------------------------
 !+
@@ -106,7 +111,8 @@ subroutine test_dustybox(ntests,npass)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
-                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,iphase,iamdust
+                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
+                          dustfrac,dustevol,ddustfrac,iphase,iamdust
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use energies,       only:compute_energies,ekin
@@ -115,7 +121,7 @@ subroutine test_dustybox(ntests,npass)
  use dust,           only:K_code,idrag
  use options,        only:alpha,alphamax
  use unifdis,        only:set_unifdis
- use dim,            only:periodic,mhd
+ use dim,            only:periodic,mhd,use_dust
  use timestep,       only:dtmax
  use io,             only:iverbose
  integer, intent(inout) :: ntests,npass
@@ -155,6 +161,10 @@ subroutine test_dustybox(ntests,npass)
        endif
        fext(:,i) = 0.
        if (mhd) Bevol(:,i) = 0.
+       if (use_dust) then
+          dustevol(i) = 0.
+          dustfrac(i) = 0.
+       endif
     enddo
     npartoftype(itype) = npart - npart_previous
     massoftype(itype) = totmass/npartoftype(itype)
@@ -496,6 +506,7 @@ subroutine write_file(time,xyzh,dustfrac,npart)
 
 end subroutine write_file
 
+#endif
 #endif
 
 end module testdust

@@ -116,7 +116,7 @@ program phantom2power
 
  n_out = 1
  compensate = 0. ! this does compensation *inside* power3d - makes very little difference
-                 ! to the final power spectrum so we don't use this.
+ ! to the final power spectrum so we don't use this.
 !
 ! compensation factors -
 ! these are just used to write extra columns in the ascii powerspectrum file
@@ -440,64 +440,64 @@ program phantom2power
  print "(/,a,/)",' Phantom2power: we thank you for your kind custom'
 
 contains
- subroutine write_analysis_options(xmin,xmax,filename,iunit)
-  use infile_utils, only:write_inopt
-  real,             intent(in) :: xmin(:),xmax(:)
-  character(len=*), intent(in) :: filename
-  integer,          intent(in) :: iunit
-  integer :: ierr,i
+subroutine write_analysis_options(xmin,xmax,filename,iunit)
+ use infile_utils, only:write_inopt
+ real,             intent(in) :: xmin(:),xmax(:)
+ character(len=*), intent(in) :: filename
+ integer,          intent(in) :: iunit
+ integer :: ierr,i
 
-  open(unit=iunit,file=filename,status='replace',iostat=ierr)
-  if (ierr /= 0) then
-     print*,' ERROR writing to '//trim(filename)
-     return
-  endif
-  print "(a)",' WRITING PHANTOM2POWER OPTIONS TO '//trim(filename)
-  print "(a)",' RERUN PHANTOM2POWER AFTER EDITING THIS FILE'
-  write(iunit,"(a)") '# box dimensions'
-  do i=1,size(xmin)
-     call write_inopt(xmin(i),labelx(i)//'min',' min boundary',iunit)
-     call write_inopt(xmax(i),labelx(i)//'max',' max boundary',iunit)
-  enddo
-  close(iunit)
+ open(unit=iunit,file=filename,status='replace',iostat=ierr)
+ if (ierr /= 0) then
+    print*,' ERROR writing to '//trim(filename)
+    return
+ endif
+ print "(a)",' WRITING PHANTOM2POWER OPTIONS TO '//trim(filename)
+ print "(a)",' RERUN PHANTOM2POWER AFTER EDITING THIS FILE'
+ write(iunit,"(a)") '# box dimensions'
+ do i=1,size(xmin)
+    call write_inopt(xmin(i),labelx(i)//'min',' min boundary',iunit)
+    call write_inopt(xmax(i),labelx(i)//'max',' max boundary',iunit)
+ enddo
+ close(iunit)
 
- end subroutine write_analysis_options
+end subroutine write_analysis_options
 
- subroutine read_analysis_options(xmin,dxmax,filename,iunit,ierr)
-  use infile_utils, only:read_inopt,inopts,close_db,open_db_from_file
-  real,             intent(out) :: xmin(:),dxmax(:)
-  character(len=*), intent(in)  :: filename
-  integer,          intent(in)  :: iunit
-  integer,          intent(out) :: ierr
-  type(inopts), allocatable :: db(:)
-  real, dimension(size(xmin)) :: xmax
-  integer :: i,nerr
+subroutine read_analysis_options(xmin,dxmax,filename,iunit,ierr)
+ use infile_utils, only:read_inopt,inopts,close_db,open_db_from_file
+ real,             intent(out) :: xmin(:),dxmax(:)
+ character(len=*), intent(in)  :: filename
+ integer,          intent(in)  :: iunit
+ integer,          intent(out) :: ierr
+ type(inopts), allocatable :: db(:)
+ real, dimension(size(xmin)) :: xmax
+ integer :: i,nerr
 
-  nerr = 0
-  xmin = 0.
-  xmax = 0.
-  call open_db_from_file(db,filename,iunit,ierr)
-  if (ierr == 0) then
-     do i=1,3
-        call read_inopt(xmin(i),labelx(i)//'min',db,errcount=nerr)
-        call read_inopt(xmax(i),labelx(i)//'max',db,errcount=nerr)
-     enddo
-  endif
-  if (nerr > 0) ierr = 1
-  dxmax = xmax - xmin
-  call close_db(db)
+ nerr = 0
+ xmin = 0.
+ xmax = 0.
+ call open_db_from_file(db,filename,iunit,ierr)
+ if (ierr == 0) then
+    do i=1,3
+       call read_inopt(xmin(i),labelx(i)//'min',db,errcount=nerr)
+       call read_inopt(xmax(i),labelx(i)//'max',db,errcount=nerr)
+    enddo
+ endif
+ if (nerr > 0) ierr = 1
+ dxmax = xmax - xmin
+ call close_db(db)
 
- end subroutine read_analysis_options
+end subroutine read_analysis_options
 
- subroutine print_bounds(xmin,xmax)
-  real, intent(in) :: xmin(:),xmax(:)
-  character(len=1), parameter :: labelx(3) = (/'x','y','z'/)
-  integer :: i
+subroutine print_bounds(xmin,xmax)
+ real, intent(in) :: xmin(:),xmax(:)
+ character(len=1), parameter :: labelx(3) = (/'x','y','z'/)
+ integer :: i
 
-  do i=1,size(xmin)
-     print "(2(1x,a,1pg10.3))",labelx(i)//'min = ',xmin(i),&
+ do i=1,size(xmin)
+    print "(2(1x,a,1pg10.3))",labelx(i)//'min = ',xmin(i),&
                                labelx(i)//'max = ',xmax(i)
-  enddo
+ enddo
 
- end subroutine print_bounds
+end subroutine print_bounds
 end program phantom2power

@@ -80,16 +80,16 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
  call prompt('Choose initial magnetic field geometry ',igeom,1,2)
 
 ! set initial mean pressure for use in beta calculations
-  przero = polyk*rhozero
+ przero = polyk*rhozero
 !
 !  set critical mass-to-flux ratio in code units
 !  (code units are G=1, mu_0=1 -- see Price & Monaghan 2004a for details)
 !  c1 is a normalisation factor taken from Mouschovias & Spitzer 1976
 !
-  c1 = 0.53
-  rmasstoflux_crit = 2./3.*c1*sqrt(5./pi)
-  totmass = npart*massoftype(1)
-  area = pi*rmax**2
+ c1 = 0.53
+ rmasstoflux_crit = 2./3.*c1*sqrt(5./pi)
+ totmass = npart*massoftype(1)
+ area = pi*rmax**2
 !
 ! choose field strength
 !

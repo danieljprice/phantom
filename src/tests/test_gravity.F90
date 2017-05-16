@@ -304,12 +304,12 @@ subroutine test_gravity(ntests,npass,string)
 !
     call checkval(np,fxyzu(1,:),vxyzu(1,:),5.e-3,nfailed(1),'fgrav(x)')
     call checkval(np,fxyzu(2,:),vxyzu(2,:),6.e-3,nfailed(2),'fgrav(y)')
-    call checkval(np,fxyzu(3,:),vxyzu(3,:),4.e-3,nfailed(3),'fgrav(z)')
+    call checkval(np,fxyzu(3,:),vxyzu(3,:),9.4e-3,nfailed(3),'fgrav(z)')
     epot = 0.
     do i=1,npart
        epot = epot + poten(i)
     enddo
-    call checkval(epot,phitot,2.6e-4,nfailed(4),'potential')
+    call checkval(epot,phitot,4.8e-4,nfailed(4),'potential')
     !do i=1,npart
     !write(1,*) xyzh(1:3,i),fxyzu(1:3,i),fxyzu(1:3,i) - vxyzu(1:3,i),norm2(fxyzu(1:3,i) - vxyzu(1:3,i))
     !enddo

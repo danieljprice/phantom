@@ -106,7 +106,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = 0
  npart_total = 0
 
-call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,xyzh,rhofunc=rhofunc,nptot=npart_total)
+ call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,xyzh,rhofunc=rhofunc,nptot=npart_total)
 
 !
 !--set particle properties
@@ -131,7 +131,7 @@ call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,xyzh,rhofunc=
     vxyzu(1:3,i) = 0.
     r = sqrt(xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i) + xyzh(3,i)*xyzh(3,i))
     if (maxvxyzu >= 4) then
-      vxyzu(4,i) = 1.5 * Rg_codeunits * temp_crit * a * sin(r/a) / r
+       vxyzu(4,i) = 1.5 * Rg_codeunits * temp_crit * a * sin(r/a) / r
     endif
  enddo
 

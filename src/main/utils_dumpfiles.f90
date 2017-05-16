@@ -69,23 +69,23 @@ module dump_utils
                                ierr_unknown  = 7
 
  type dump_h
-  integer :: nums(ndatatypes)
-  character(len=lentag), allocatable :: inttags(:)
-  character(len=lentag), allocatable :: int1tags(:)
-  character(len=lentag), allocatable :: int2tags(:)
-  character(len=lentag), allocatable :: int4tags(:)
-  character(len=lentag), allocatable :: int8tags(:)
-  character(len=lentag), allocatable :: realtags(:)
-  character(len=lentag), allocatable :: real4tags(:)
-  character(len=lentag), allocatable :: real8tags(:)
-  integer,         allocatable :: intvals(:)
-  integer(kind=1), allocatable :: int1vals(:)
-  integer(kind=2), allocatable :: int2vals(:)
-  integer(kind=4), allocatable :: int4vals(:)
-  integer(kind=8), allocatable :: int8vals(:)
-  real,            allocatable :: realvals(:)
-  real(kind=4),    allocatable :: real4vals(:)
-  real(kind=8),    allocatable :: real8vals(:)
+    integer :: nums(ndatatypes)
+    character(len=lentag), allocatable :: inttags(:)
+    character(len=lentag), allocatable :: int1tags(:)
+    character(len=lentag), allocatable :: int2tags(:)
+    character(len=lentag), allocatable :: int4tags(:)
+    character(len=lentag), allocatable :: int8tags(:)
+    character(len=lentag), allocatable :: realtags(:)
+    character(len=lentag), allocatable :: real4tags(:)
+    character(len=lentag), allocatable :: real8tags(:)
+    integer,         allocatable :: intvals(:)
+    integer(kind=1), allocatable :: int1vals(:)
+    integer(kind=2), allocatable :: int2vals(:)
+    integer(kind=4), allocatable :: int4vals(:)
+    integer(kind=8), allocatable :: int8vals(:)
+    real,            allocatable :: realvals(:)
+    real(kind=4),    allocatable :: real4vals(:)
+    real(kind=8),    allocatable :: real8vals(:)
  end type dump_h
 
  public :: dump_h
@@ -1172,19 +1172,19 @@ character(len=60) function get_error_text(ierr)
 
  select case(ierr)
  case(ierr_fileopen)
-   get_error_text = 'error opening file'
+    get_error_text = 'error opening file'
  case(ierr_endian)
-   get_error_text = 'wrong endian?'
+    get_error_text = 'wrong endian?'
  case(ierr_version)
-   get_error_text = 'file format version newer than current code can read'
+    get_error_text = 'file format version newer than current code can read'
  case(ierr_realsize)
-   get_error_text = 'default real size wrong'
+    get_error_text = 'default real size wrong'
  case(ierr_intsize)
-   get_error_text = 'default int size wrong'
+    get_error_text = 'default int size wrong'
  case(ierr_notags)
-   get_error_text = 'routine requires tagged format but not detected'
+    get_error_text = 'routine requires tagged format but not detected'
  case default
-   get_error_text = 'unknown error'
+    get_error_text = 'unknown error'
  end select
 
 end function get_error_text
@@ -1504,9 +1504,9 @@ subroutine write_array_int1(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,ierr,func)
  integer, intent(out)   :: ierr
  !procedure(integer(kind=1)), pointer, optional :: func
  interface
-   integer(kind=1) pure function func(x)
-     integer(kind=1), intent(in) :: x
-   end function
+  integer(kind=1) pure function func(x)
+   integer(kind=1), intent(in) :: x
+  end function
  end interface
  optional :: func
  !integer(kind=1), optional :: func

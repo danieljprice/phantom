@@ -102,14 +102,14 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  call do_timing('link',tlast,tcpulast,start=.true.)
 
 #ifdef PHOTO
-    !
-    ! update location of particles on grid and calculate the location of the ionization front
-    !
-    call find_ionfront(time,npart,xyzh,massoftype(igas))
-    !
-    ! update the temperatures of the particles depending on whether ionized or not
-    !
-    call photo_ionize(vxyzu,npart)
+ !
+ ! update location of particles on grid and calculate the location of the ionization front
+ !
+ call find_ionfront(time,npart,xyzh,massoftype(igas))
+ !
+ ! update the temperatures of the particles depending on whether ionized or not
+ !
+ call photo_ionize(vxyzu,npart)
 #endif
 !
 ! calculate density by direct summation
@@ -139,7 +139,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 
  call do_timing('total',t1,tcpu1,lunit=iprint)
 
-return
+ return
 
 contains
 
@@ -163,11 +163,11 @@ subroutine do_timing(label,tlast,tcpulast,start,lunit)
  tcpu  = reduce_mpi('+',tcpu2-tcpulast)
 
  if (label=='dens') then
-   call increment_timer(timer_dens,t2-tlast,tcpu2-tcpulast)
+    call increment_timer(timer_dens,t2-tlast,tcpu2-tcpulast)
  else if (label=='force') then
-   call increment_timer(timer_force,t2-tlast,tcpu2-tcpulast)
+    call increment_timer(timer_force,t2-tlast,tcpu2-tcpulast)
  else if (label=='link') then
-   call increment_timer(timer_link,t2-tlast,tcpu2-tcpulast)
+    call increment_timer(timer_link,t2-tlast,tcpu2-tcpulast)
  endif
 
  if (itiming .and. iverbose >= 2) then

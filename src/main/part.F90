@@ -155,6 +155,9 @@ module part
 !
 !--storage associated with/dependent on timestepping
 !
+ real         :: vpred(maxvxyzu,maxan)
+ real         :: dustpred(maxdustan)
+ real(kind=4) :: Bpred(maxBevol,maxmhdan)
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin(maxan)
  integer(kind=1)    :: ibin_wake(maxan)
@@ -182,16 +185,16 @@ module part
 !
  integer, parameter, private :: maxpd =  max(maxp,1) ! avoid divide by zero
  integer, parameter :: ipartbufsize = 4 &  ! xyzh
-   +2*maxvxyzu                          &  ! vxyzu, fxyzu_prev
-   +maxalpha/maxpd                      &  ! alphaind
+   +maxvxyzu                            &  ! vxyzu
+   +nalpha*maxalpha/maxpd               &  ! alphaind
    +ngradh*maxgradh/maxpd               &  ! gradh
    +maxphase/maxpd                      &  ! iphase
 #ifdef IND_TIMESTEPS
    +2 +maxvxyzu                         &  ! ibin, divv, fxyzu
    +(maxmhd/maxpd)*maxBevol +3*(maxvecp/maxpd)  &  ! dB/dt, Bxyz
 #endif
-   +(maxmhd/maxpd)*                      &  ! (mhd quantities)
-    (2*maxBevol                         &  ! Bevol, dBevol_prev
+   +(maxmhd/maxpd)*                     &  ! (mhd quantities)
+    (maxBevol                           &  ! Bevol
    +3*(maxvecp/maxpd))                     ! Bxyz
 
  real            :: hfact,Bextx,Bexty,Bextz
@@ -224,7 +227,7 @@ module part
 !--generic interfaces for routines
 !
  interface hrho
-    module procedure hrho4,hrho8,hrho4_pmass,hrho8_pmass,hrhomixed_pmass
+  module procedure hrho4,hrho8,hrho4_pmass,hrho8_pmass,hrhomixed_pmass
  end interface hrho
 
  private :: hrho4,hrho8,hrho4_pmass,hrho8_pmass,hrhomixed_pmass
@@ -238,18 +241,18 @@ contains
 !+
 !----------------------------------------------------------------
 real function get_pmass(i,use_gas)
-  integer, intent(in) :: i
-  logical, intent(in) :: use_gas
+ integer, intent(in) :: i
+ logical, intent(in) :: use_gas
 
-  if (use_gas) then
+ if (use_gas) then
     get_pmass = massoftype(igas)
-  else
+ else
     if (iphase(i) /= 0) then
        get_pmass = massoftype(iamtype(iphase(i)))
     else
        get_pmass = massoftype(igas)
     endif
-  endif
+ endif
 
 end function get_pmass
 !
@@ -272,7 +275,7 @@ end function rhoh
 !  this function gives dh/drho as a function of h
 !+
 !----------------------------------------------------------------
-real function dhdrho(hi,pmassi)
+pure real function dhdrho(hi,pmassi)
  real, intent(in) :: hi,pmassi
  real :: rhoi
 
@@ -388,10 +391,21 @@ end function isdead_or_accreted
 ! routine which kills a particle and adds it to the dead list
 !+
 !----------------------------------------------------------------
-subroutine kill_particle(i)
+subroutine kill_particle(i,npoftype)
  integer, intent(in) :: i
+ integer, intent(inout), optional :: npoftype(:)
+ integer :: itype
 
  xyzh(4,i) = 0.
+ if (present(npoftype)) then
+    ! get the type so we know how to decrement npartoftype
+    if (maxphase==maxp) then
+       itype = iamtype(iphase(i))
+    else
+       itype = igas
+    endif
+    npoftype(itype) = npoftype(itype) - 1
+ endif
 !$omp critical
  ll(i) = ideadhead
  ideadhead = i
@@ -515,9 +529,9 @@ pure logical function is_accretable(itype)
  integer, intent(in)  :: itype
 
  if (itype==igas .or. itype==idust) then
-   is_accretable = .true.
+    is_accretable = .true.
  else
-   is_accretable = .false.
+    is_accretable = .false.
  endif
 
 end function is_accretable
@@ -551,6 +565,7 @@ subroutine copy_particle(src, dst)
 
  xyzh(:,dst)  = xyzh(:,src)
  vxyzu(:,dst) = vxyzu(:,src)
+ fext(:,dst)  = fext(:,src)
  if (mhd) then
     Bevol(:,dst) = Bevol(:,src)
  endif
@@ -560,8 +575,18 @@ subroutine copy_particle(src, dst)
  if (maxphase ==maxp) iphase(dst)   = iphase(src)
  if (maxgrav  ==maxp) poten(dst) = poten(src)
 #ifdef IND_TIMESTEPS
- ibin(dst) = ibin(src)
+ ibin(dst)      = ibin(src)
+ ibin_wake(dst) = ibin_wake(src)
+ ibinold(dst)   = ibinold(src)
+ ibinsink(dst)  = ibinsink(src)
+ dt_in(dst)     = dt_in(src)
+ twas(dst)      = twas(src)
 #endif
+ if (use_dust) then
+    dustfrac(dst) = dustfrac(src)
+    dustevol(dst) = dustevol(src)
+ endif
+ if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
 
  return
 end subroutine copy_particle
@@ -580,25 +605,44 @@ subroutine copy_particle_all(src,dst)
 
  xyzh(:,dst)  = xyzh(:,src)
  vxyzu(:,dst) = vxyzu(:,src)
+ vpred(:,dst) = vpred(:,src)
  fxyzu(:,dst) = fxyzu(:,src)
- fext(:,dst) = fext(:,src)
+ fext(:,dst)  = fext(:,src)
  if (mhd) then
     Bevol(:,dst)  = Bevol(:,src)
+    Bpred(:,dst)  = Bpred(:,src)
     dBevol(:,dst) = dBevol(:,src)
     if (maxvecp==maxp) Bxyz(:,dst)   = Bxyz(:,src)
     divBsymm(dst) = divBsymm(src)
+    if (maxmhdni==maxp) then
+       n_R(:,dst)         = n_R(:,src)
+       n_electronT(dst)   = n_electronT(src)
+       ionfrac_eta(:,dst) = ionfrac_eta(:,src)
+    endif
  endif
  if (ndivcurlv > 0) divcurlv(:,dst) = divcurlv(:,src)
  if (ndivcurlB > 0) divcurlB(:,dst) = divcurlB(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst) = gradh(:,src)
  if (maxphase ==maxp) iphase(dst) = iphase(src)
+ if (maxgrav  ==maxp) poten(dst) = poten(src)
+ if (maxlum   ==maxp) luminosity(dst) = luminosity(src)
 #ifdef IND_TIMESTEPS
- ibin(dst) = ibin(src)
+ ibin(dst)      = ibin(src)
+ ibin_wake(dst) = ibin_wake(src)
+ ibinold(dst)   = ibinold(src)
+ ibinsink(dst)  = ibinsink(src)
+ dt_in(dst)     = dt_in(src)
+ twas(dst)      = twas(src)
 #endif
  if (use_dust) then
-    dustfrac(dst) = dustfrac(src)
+    dustfrac(dst)  = dustfrac(src)
+    dustevol(dst)  = dustevol(src)
+    dustpred(dst)  = dustpred(src)
+    ddustfrac(dst) = ddustfrac(src)
+    deltav(:,dst)  = deltav(:,src)
  endif
+ if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
 
  return
 end subroutine copy_particle_all
@@ -648,7 +692,7 @@ subroutine shuffle_part(np)
 
  do while (ideadhead /= 0)
     newpart = ideadhead
-    if (newpart < np) then
+    if (newpart <= np) then
        if (.not.isdead(np)) then
           !if (.not.isdead(newpart)) call fatal('shuffle','corrupted dead list',newpart)
           call copy_particle_all(np,newpart)
@@ -658,11 +702,23 @@ subroutine shuffle_part(np)
     else
        ideadhead = ll(newpart)
     endif
-    if (np <= 0) call fatal('shuffle','npart < 0')
+    if (np < 0) call fatal('shuffle','npart < 0')
  enddo
 
  return
 end subroutine shuffle_part
+
+integer function count_dead_particles()
+ integer :: i
+
+ i = ideadhead
+ count_dead_particles = 0
+ do while (i > 0)
+    count_dead_particles = count_dead_particles + 1
+    i = ll(i)
+ enddo
+
+end function count_dead_particles
 
 !-----------------------------------------------------------------------
 !+
@@ -790,76 +846,33 @@ end subroutine fill_sendbuf
 !  after receiving from another processor
 !+
 !----------------------------------------------------------------
-subroutine unfill_buffer(ipart,xbuffer)
+subroutine unfill_buffer(ipart,xbuf)
+ use mpiutils, only:unfill_buf
  integer, intent(in) :: ipart
- real,    intent(in) :: xbuffer(ipartbufsize)
- integer :: i1,i2
+ real,    intent(in) :: xbuf(ipartbufsize)
+ integer :: j
 
- i1 = 1
- i2 = 4
- xyzh(:,ipart) = xbuffer(i1:i2)
- i1 = i2+1
- i2 = i2+maxvxyzu
- vxyzu(:,ipart) = xbuffer(i1:i2)
- !i1 = i2 + 1
- !i2 = i2 + maxvxyzu
- !fxyzu_prev(:,ipart) = xbuffer(i1:i2)
- if (maxalpha==maxp) then
-    i1 = i2 + 1
-    i2 = i2 + nalpha
-    alphaind(:,ipart) = real(xbuffer(i1:i2),kind=kind(alphaind))
- endif
- if (maxgradh==maxp) then
-    i1 = i2 + 1
-    i2 = i2 + ngradh
-    gradh(:,ipart) = real(xbuffer(i1:i2),kind=kind(gradh))
- endif
+ j = 0
+ xyzh(:,ipart)       = unfill_buf(xbuf,j,4)
+ vxyzu(:,ipart)      = unfill_buf(xbuf,j,maxvxyzu)
+ if (maxalpha==maxp) alphaind(:,ipart) = real(unfill_buf(xbuf,j,nalpha),kind(alphaind))
+ if (maxgradh==maxp) gradh(:,ipart)    = real(unfill_buf(xbuf,j,ngradh),kind(gradh))
  if (mhd) then
-    i1 = i2 + 1
-    i2 = i2 + maxBevol
-    Bevol(:,ipart) = real(xbuffer(i1:i2),kind=kind(Bevol))
-    !i1 = i2 + 1
-    !i2 = i2 + maxBevol
-    !dBevol_prev(:,ipart) = real(xbuffer(i1:i2),kind=kind(dBevol_prev))
-    if (maxvecp==maxp) then
-       i1 = i2 + 1
-       i2 = i2 + 3
-       Bxyz(:,ipart) = real(xbuffer(i1:i2),kind=kind(Bxyz))
-    endif
+    Bevol(:,ipart)       = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
+    if (maxvecp  ==maxp) Bxyz(:,ipart)    = real(unfill_buf(xbuf,j,3),kind=kind(Bxyz))
  endif
- if (maxphase==maxp) then
-    i1 = i2 + 1
-    i2 = i2 + 1
-    iphase(ipart) = nint(xbuffer(i1),kind=1)
- endif
+ if (maxphase==maxp) iphase(ipart) = nint(unfill_buf(xbuf,j),kind=1)
 #ifdef IND_TIMESTEPS
- i1 = i2 + 1
- i2 = i2 + 1
- ibin(ipart) = nint(xbuffer(i1),kind=1)
-
- !--receive derivs (strictly only necessary for inactive parts)
- i1 = i2 + 1
- i2 = i2 + maxvxyzu
- fxyzu(:,ipart) = xbuffer(i1:i2)
- i1 = i2 + 1
- i2 = i2 + 3
- fext(:,ipart) = xbuffer(i1:i2)
- if (ndivcurlv > 0) then
-    i1 = i2 + 1
-    i2 = i2 + 1
-    divcurlv(1,ipart) = real(xbuffer(i1),kind=kind(divcurlv))
- endif
+ ibin(ipart)    = nint(unfill_buf(xbuf,j),kind=1)
+ fxyzu(:,ipart) = unfill_buf(xbuf,j,maxvxyzu)
+ fext(:,ipart)  = unfill_buf(xbuf,j,3)
+ if (ndivcurlv > 0) divcurlv(1,ipart) = unfill_buf(xbuf,j)
  if (mhd) then
-    i1 = i2 + 1
-    i2 = i2 + maxBevol
-    dBevol(:,ipart) = real(xbuffer(i1:i2),kind=kind(dBevol))
-    if (maxvecp==maxp) then
-       i1 = i2 + 1
-       i2 = i2 + 3
-       Bxyz(:,ipart) = real(xbuffer(i1:i2),kind=kind(Bxyz))
-    endif
+    dBevol(:,ipart) = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
+    if (maxvecp==maxp) Bxyz(:,ipart) = unfill_buf(xbuf,j,3)
  endif
 #endif
+
 !--just to be on the safe side, set other things to zero
  if (mhd) then
     divBsymm(ipart) = 0.
@@ -952,20 +965,20 @@ end subroutine copy_arrayint1
 !+
 !----------------------------------------------------------------
 subroutine delete_particles_outside_box(xmin, xmax, ymin, ymax, zmin, zmax)
-  real, intent(in) :: xmin, xmax, ymin, ymax, zmin, zmax
+ real, intent(in) :: xmin, xmax, ymin, ymax, zmin, zmax
 
-  integer :: i
-  real :: x, y, z, h
+ integer :: i
+ real :: x, y, z, h
 
-  do i=1,npart
+ do i=1,npart
     x = xyzh(1,i)
     y = xyzh(2,i)
     z = xyzh(3,i)
     h = xyzh(4,i)
     if (x  <  xmin .or. x  >  xmax .or. y  <  ymin .or. y  >  ymax .or. z  <  zmin .or. z  >  zmax) then
-      xyzh(4,i) = -abs(h)
+       xyzh(4,i) = -abs(h)
     endif
-  enddo
+ enddo
 end subroutine
 
 !----------------------------------------------------------------
@@ -974,18 +987,18 @@ end subroutine
 !+
 !----------------------------------------------------------------
 subroutine delete_particles_outside_sphere(center, radius)
-  real, intent(in) :: center(3), radius
+ real, intent(in) :: center(3), radius
 
-  integer :: i
-  real :: r(3), radius_squared
+ integer :: i
+ real :: r(3), radius_squared
 
-  radius_squared = radius**2
-  do i=1,npart
+ radius_squared = radius**2
+ do i=1,npart
     r = xyzh(1:3,i) - center
     if (dot_product(r,r)  >  radius_squared) then
-     xyzh(4,i) = -abs(xyzh(4,i))
+       xyzh(4,i) = -abs(xyzh(4,i))
     endif
-  enddo
+ enddo
 end subroutine
 
 !----------------------------------------------------------------
@@ -994,12 +1007,12 @@ end subroutine
 !+
 !----------------------------------------------------------------
 subroutine delete_particles_outside_cylinder(center, radius, zmax)
-  real, intent(in) :: center(3), radius, zmax
+ real, intent(in) :: center(3), radius, zmax
 
-  integer :: i
-  real :: x, y, z, rcil
+ integer :: i
+ real :: x, y, z, rcil
 
-  do i=1,npart
+ do i=1,npart
     x = xyzh(1,i)
     y = xyzh(2,i)
     z = xyzh(3,i)
@@ -1008,7 +1021,7 @@ subroutine delete_particles_outside_cylinder(center, radius, zmax)
     if (rcil>radius .or. abs(z)>zmax) then
        call kill_particle(i)
     endif
-  enddo
+ enddo
 end subroutine
 
 !----------------------------------------------------------------
@@ -1017,13 +1030,13 @@ end subroutine
 !+
 !----------------------------------------------------------------
 subroutine delete_particles_inside_radius(center,radius,npart,npartoftype)
-  real, intent(in) :: center(3), radius
-  integer, intent(inout) :: npart,npartoftype(:)
+ real, intent(in) :: center(3), radius
+ integer, intent(inout) :: npart,npartoftype(:)
 
-  integer :: i,itype
-  real :: x,y,z,rcil
+ integer :: i,itype
+ real :: x,y,z,rcil
 
-  do i=1,npart
+ do i=1,npart
     x = xyzh(1,i)
     y = xyzh(2,i)
     z = xyzh(3,i)
@@ -1038,10 +1051,10 @@ subroutine delete_particles_inside_radius(center,radius,npart,npartoftype)
        npartoftype(itype) = npartoftype(itype) - 1
        call kill_particle(i)
     endif
-  enddo
-  call shuffle_part(npart)
+ enddo
+ call shuffle_part(npart)
 
-  return
+ return
 end subroutine
 
 end module part

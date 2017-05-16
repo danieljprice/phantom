@@ -29,17 +29,17 @@ module quitdump
 
 contains
 
- subroutine quit
-  use io,              only:iprint,ievfile,iscfile,ipafile,iskfile,die
-  use readwrite_dumps, only:write_fulldump
-  use timestep,        only:time
-  use io_summary,      only:summary_printout
-  use part,            only:nptmass
-  integer  :: i
+subroutine quit
+ use io,              only:iprint,ievfile,iscfile,ipafile,iskfile,die
+ use readwrite_dumps, only:write_fulldump
+ use timestep,        only:time
+ use io_summary,      only:summary_printout
+ use part,            only:nptmass
+ integer  :: i
 
 !$omp critical
-  call summary_printout(iprint,nptmass)
-  write(iprint,10)
+ call summary_printout(iprint,nptmass)
+ write(iprint,10)
 10 format(/, &
    '  _____ _____ _  __  _ ',/, &
    ' | ____| ____| |/ / | |',/, &
@@ -47,20 +47,20 @@ contains
    ' | |___| |___| . \  |_|',/, &
    ' |_____|_____|_|\_\ (_)',/)
 
-  write(iprint,*) 'run terminated abnormally'
-  call write_fulldump(time,'phantom.debugdump')
+ write(iprint,*) 'run terminated abnormally'
+ call write_fulldump(time,'phantom.debugdump')
 !$omp end critical
 !
 ! close ev, log& ptmass-related files
-  close(unit=ievfile)
-  close(unit=iprint)
-  if (iscfile > 0) close(unit=iscfile)
-  if (ipafile > 0) close(unit=ipafile)
-  do i = 1,nptmass
+ close(unit=ievfile)
+ close(unit=iprint)
+ if (iscfile > 0) close(unit=iscfile)
+ if (ipafile > 0) close(unit=ipafile)
+ do i = 1,nptmass
     close(unit=iskfile+i)
-  enddo
-  call die
+ enddo
+ call die
 
- end subroutine quit
+end subroutine quit
 
 end module quitdump

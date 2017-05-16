@@ -76,7 +76,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyz_ptmass(:,:) = 0.
 
  if (icompanion_star > 0) then
-   call set_binary(central_star_mass / umass, &
+    call set_binary(central_star_mass / umass, &
                     companion_star_mass/central_star_mass, &
                     semi_major_axis / udist, &
                     eccentricity, &
@@ -84,9 +84,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                     companion_star_radius / udist, &
                     xyzmh_ptmass, vxyz_ptmass, nptmass)
  else
-   nptmass = 1
-   xyzmh_ptmass(4,1) = central_star_mass / umass
-   xyzmh_ptmass(5,1) = central_star_radius / udist
+    nptmass = 1
+    xyzmh_ptmass(4,1) = central_star_mass / umass
+    xyzmh_ptmass(5,1) = central_star_radius / udist
  endif
 
  print *, "udist = ", udist, "; umass = ", umass, "; utime = ", utime

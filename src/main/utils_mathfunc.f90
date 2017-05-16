@@ -110,39 +110,39 @@ subroutine gegenbauer_poly( n, alpha, x, cx )
 !    polynomials at the point X.
 !
 
-  integer, intent(in) :: n
-  real(kind=8), intent(in)  :: alpha
-  real(kind=8), intent(out) :: cx(0:n)
-  real(kind=8), intent(in)  :: x
-  integer (kind=4) :: i
+ integer, intent(in) :: n
+ real(kind=8), intent(in)  :: alpha
+ real(kind=8), intent(out) :: cx(0:n)
+ real(kind=8), intent(in)  :: x
+ integer (kind=4) :: i
 
-  if ( alpha <= -0.5D+00 ) then
+ if ( alpha <= -0.5D+00 ) then
     write ( *, '(a)' ) ' '
     write ( *, '(a)' ) 'GEGENBAUER_POLY - Fatal error!'
     write ( *, '(a,g14.6)' ) '  Illegal value of ALPHA = ', alpha
     write ( *, '(a)' ) '  but ALPHA must be greater than -0.5.'
     return
-  endif
+ endif
 
-  if ( n < 0 ) then
+ if ( n < 0 ) then
     return
-  endif
+ endif
 
-  cx(0) = 1.0D+00
+ cx(0) = 1.0D+00
 
-  if ( n == 0 ) then
+ if ( n == 0 ) then
     return
-  endif
+ endif
 
-  cx(1) = 2.0D+00 * alpha * x
+ cx(1) = 2.0D+00 * alpha * x
 
-  do i = 2, n
+ do i = 2, n
     cx(i) = &
       ( ( real ( 2 * i - 2, kind = 8 ) + 2.0D+00 * alpha ) * x * cx(i-1)   &
       + ( real (   - i + 2, kind = 8 ) - 2.0D+00 * alpha )     * cx(i-2) ) &
       /   real (     i,     kind = 8 )
-  enddo
-  return
+ enddo
+ return
 end subroutine
 
 !--------------------------------------------------------------------
@@ -256,68 +256,68 @@ subroutine legendre_associated( n, m, x, cx )
 !
 
 
-  integer, intent(in) :: n, m
-  real(kind=8), intent(in)  :: x
-  real(kind=8), intent(out) :: cx(0:n)
-  real(kind=8) :: fact
-  integer :: i
-  real(kind=8) :: somx2
+ integer, intent(in) :: n, m
+ real(kind=8), intent(in)  :: x
+ real(kind=8), intent(out) :: cx(0:n)
+ real(kind=8) :: fact
+ integer :: i
+ real(kind=8) :: somx2
 
-  if ( m < 0 ) then
+ if ( m < 0 ) then
     write ( *, '(a)' ) ' '
     write ( *, '(a)' ) 'LEGENDRE_ASSOCIATED - Fatal error!'
     write ( *, '(a,i8)' ) '  Input value of M is ', m
     write ( *, '(a)' ) '  but M must be nonnegative.'
     return
-  endif
+ endif
 
-  if ( n < m ) then
+ if ( n < m ) then
     write ( *, '(a)' ) ' '
     write ( *, '(a)' ) 'LEGENDRE_ASSOCIATED - Fatal error!'
     write ( *, '(a,i8)' ) '  Input value of M = ', m
     write ( *, '(a,i8)' ) '  Input value of N = ', n
     write ( *, '(a)' ) '  but M must be less than or equal to N.'
     return
-  endif
+ endif
 
-  if ( x < -1.0D+00 ) then
+ if ( x < -1.0D+00 ) then
     write ( *, '(a)' ) ' '
     write ( *, '(a)' ) 'LEGENDRE_ASSOCIATED - Fatal error!'
     write ( *, '(a,g14.6)' ) '  Input value of X = ', x
     write ( *, '(a)' ) '  but X must be no less than -1.'
     return
-  endif
+ endif
 
-  if ( 1.0D+00 < x ) then
+ if ( 1.0D+00 < x ) then
     write ( *, '(a)' ) ' '
     write ( *, '(a)' ) 'LEGENDRE_ASSOCIATED - Fatal error!'
     write ( *, '(a,g14.6)' ) '  Input value of X = ', x
     write ( *, '(a)' ) '  but X must be no more than 1.'
     return
-  endif
+ endif
 
-  cx(0:m-1) = 0.0D+00
+ cx(0:m-1) = 0.0D+00
 
-  cx(m) = 1.0D+00
-  somx2 = sqrt ( 1.0D+00 - x * x )
+ cx(m) = 1.0D+00
+ somx2 = sqrt ( 1.0D+00 - x * x )
 
-  fact = 1.0D+00
-  do i = 1, m
+ fact = 1.0D+00
+ do i = 1, m
     cx(m) = -cx(m) * fact * somx2
     fact = fact + 2.0D+00
-  enddo
+ enddo
 
-  if ( m + 1 <= n ) then
+ if ( m + 1 <= n ) then
     cx(m+1) = x * real ( 2 * m + 1, kind = 8 ) * cx(m)
-  endif
+ endif
 
-  do i = m + 2, n
+ do i = m + 2, n
     cx(i) = ( real ( 2 * i     - 1, kind = 8 ) * x * cx(i-1) &
             + real (   - i - m + 1, kind = 8 ) *     cx(i-2) ) &
             / real (     i - m,     kind = 8 )
-  enddo
+ enddo
 
-  return
+ return
 end subroutine
 
 !--------------------------------------------------------------------
@@ -340,9 +340,9 @@ real(kind=8) function bessi0_s(x)
      0.392377d-2/)
  ax=abs(x)
  if (ax < 3.75) then
-     bessi0_s=poly(real((x/3.75d0)**2,8),p)
+    bessi0_s=poly(real((x/3.75d0)**2,8),p)
  else
-     bessi0_s=(exp(ax)/sqrt(ax))*poly(real(3.75d0/ax,8),q)
+    bessi0_s=(exp(ax)/sqrt(ax))*poly(real(3.75d0/ax,8),q)
  endif
 
 end function bessi0_s
@@ -364,9 +364,9 @@ real(kind=8) function bessi1_s(x)
 
  ax=abs(x)
  if (ax < 3.75) then
-     bessi1_s=ax*poly(real((x/3.75d0)**2,8),p)
+    bessi1_s=ax*poly(real((x/3.75d0)**2,8),p)
  else
-     bessi1_s=(exp(ax)/sqrt(ax))*poly(real(3.75d0/ax,8),q)
+    bessi1_s=(exp(ax)/sqrt(ax))*poly(real(3.75d0/ax,8),q)
  endif
 
  if (x < 0.0) bessi1_s=-bessi1_s
@@ -387,11 +387,11 @@ real(kind=8) function bessk0_s(x)
      -0.251540d-2,0.53208d-3/)
  !call assert(x > 0.0, 'bessk0_s arg')
  if (x <= 2.0) then
-     y=x*x/4.0d0
-     bessk0_s=(-log(x/2.0d0)*bessi0_s(x))+poly(y,p)
+    y=x*x/4.0d0
+    bessk0_s=(-log(x/2.0d0)*bessi0_s(x))+poly(y,p)
  else
-     y=(2.0d0/x)
-     bessk0_s=(exp(-x)/sqrt(x))*poly(y,q)
+    y=(2.0d0/x)
+    bessk0_s=(exp(-x)/sqrt(x))*poly(y,q)
  endif
 
 end function bessk0_s
@@ -411,11 +411,11 @@ real(kind=8) function bessk1_s(x)
      0.325614d-2,-0.68245d-3/)
  !call assert(x > 0.0, 'bessk1_s arg')
  if (x <= 2.0) then
-     y=x*x/4.0d0
-     bessk1_s=(log(x/2.0d0)*bessi1_s(x))+(1.0d0/x)*poly(y,p)
+    y=x*x/4.0d0
+    bessk1_s=(log(x/2.0d0)*bessi1_s(x))+(1.0d0/x)*poly(y,p)
  else
-     y=2.0d0/x
-     bessk1_s=(exp(-x)/sqrt(x))*poly(y,q)
+    y=2.0d0/x
+    bessk1_s=(exp(-x)/sqrt(x))*poly(y,q)
  endif
 
 end function bessk1_s

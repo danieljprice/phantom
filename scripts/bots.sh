@@ -57,7 +57,7 @@ if [[ $docommit == 1 ]]; then
    git pull;
 fi
 allfiles='';
-bots_to_run='tabs gt shout header whitespace authors endif';
+bots_to_run='tabs gt shout header whitespace authors endif indent';
 #bots_to_run='shout';
 for edittype in $bots_to_run; do
     filelist='';
@@ -147,8 +147,8 @@ for edittype in $bots_to_run; do
                      cat $file > $out;
                   fi;;
                'indent' )
-                  if [ -x findent ]; then
-                     findent -r1 -m1 -c3 -Rr -C- -k- -j1 $file > $out;
+                  if type -p findent; then
+                     findent -r1 -m1 -c3 -Rr -C- -k- -j1 < $file > $out;
                   fi;;
                esac
                if [ -s $out ]; then

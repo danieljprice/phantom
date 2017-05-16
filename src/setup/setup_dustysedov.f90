@@ -120,10 +120,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     npart_previous = npart
 
     if (itype==igas) then
-            call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
+       call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
                                hfact,npart,xyzh,nptot=npart_total)
     else
-            call set_unifdis('cubic',id,master,xmin+0.5*deltax,xmax+0.5*deltax,ymin+0.5*deltax, &
+       call set_unifdis('cubic',id,master,xmin+0.5*deltax,xmax+0.5*deltax,ymin+0.5*deltax, &
                               ymax+0.5*deltax,zmin+0.5*deltax,zmax+0.5*deltax,deltax, &
                               hfact,npart,xyzh,nptot=npart_total)
     endif

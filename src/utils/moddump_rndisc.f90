@@ -64,7 +64,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                xyzh,vxyzu,inclination,sininclination,&
                rwarp,psimax,rsi,rso,do_twist)
 !---------------------------------------------
-  do i=npart_start_count,npart_tot
+ do i=npart_start_count,npart_tot
     xyzh(1,i)=xyzh(1,i)
     xyzh(2,i)=xyzh(2,i)
     xyzh(3,i)=xyzh(3,i)
@@ -78,35 +78,35 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 ! Add magnetic field
  if (mhd) then
- beta=10.
+    beta=10.
 
 ! Set up a magnetic field just in Bphi
- do ii = 1,npart
-    r2 = xyzh(1,ii)**2 + xyzh(2,ii)**2 + xyzh(3,ii)**2
-    r = sqrt(r2)
-    phi = atan2(xyzh(2,ii),xyzh(1,ii))
-    omega = r**(-1.5)
-    cs = HonR*r*omega
-    pmassii = massoftype(igas)
-    pressure = cs**2*rhoh(xyzh(4,ii),pmassii)
-    Bzero = sqrt(2.*pressure/beta)
-    Bevol(1,ii) = -Bzero*sin(phi)
-    Bevol(2,ii) = Bzero*cos(phi)
+    do ii = 1,npart
+       r2 = xyzh(1,ii)**2 + xyzh(2,ii)**2 + xyzh(3,ii)**2
+       r = sqrt(r2)
+       phi = atan2(xyzh(2,ii),xyzh(1,ii))
+       omega = r**(-1.5)
+       cs = HonR*r*omega
+       pmassii = massoftype(igas)
+       pressure = cs**2*rhoh(xyzh(4,ii),pmassii)
+       Bzero = sqrt(2.*pressure/beta)
+       Bevol(1,ii) = -Bzero*sin(phi)
+       Bevol(2,ii) = Bzero*cos(phi)
 
-    ! Calculate correction in v_phi due to B
-    vphiold = (-xyzh(2,ii)*vxyzu(1,ii) + xyzh(1,ii)*vxyzu(2,ii))/r
-    vphiold2 = vphiold**2
-    vphicorr2 = -2.*cs**2
+       ! Calculate correction in v_phi due to B
+       vphiold = (-xyzh(2,ii)*vxyzu(1,ii) + xyzh(1,ii)*vxyzu(2,ii))/r
+       vphiold2 = vphiold**2
+       vphicorr2 = -2.*cs**2
 !    if (vphicorr2 > vphi
-    vadd = sqrt(vphiold2 + vphicorr2)
-    vxyzu(1,ii) = vxyzu(1,ii) + sin(phi)*(vphiold - vadd)
-    vxyzu(2,ii) = vxyzu(2,ii) - cos(phi)*(vphiold - vadd)
+       vadd = sqrt(vphiold2 + vphicorr2)
+       vxyzu(1,ii) = vxyzu(1,ii) + sin(phi)*(vphiold - vadd)
+       vxyzu(2,ii) = vxyzu(2,ii) - cos(phi)*(vphiold - vadd)
 
- enddo
+    enddo
 
- Bevol(3,:) = 0.0
+    Bevol(3,:) = 0.0
 
- print*,'Magnetic field added.'
+    print*,'Magnetic field added.'
 
 ! Set up poloidal magnetic field throughout (part of) the disc
 !!  Bzero = sqrt(2.*polyk*rhosum/beta)
@@ -118,7 +118,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 !!       Bevol(3,ii) = 0.
 !!      endif
 !!    enddo
-endif
+ endif
 
 
 

@@ -66,6 +66,27 @@ module dim
  integer, parameter :: ncellsmax = maxp
 #endif
 
+ ! kdtree
+ integer, parameter :: minpart = 10
+
+ ! rhosum
+ integer, parameter :: maxrhosum = 39
+
+ ! fsum
+ integer, parameter :: maxfsum = 17
+
+ ! xpartveci
+ integer, parameter :: maxxpartvecidens = 14
+ integer, parameter :: maxxpartveciforce = 45
+
+ ! cell storage
+ integer, parameter :: maxprocs = 32
+#ifdef STACKSIZE
+ integer, parameter :: stacksize = STACKSIZE
+#else
+ integer, parameter :: stacksize = int(0.2 * maxp)
+#endif
+
  ! storage for artificial viscosity switch
 #ifdef DISC_VISCOSITY
  integer, parameter :: maxalpha = 0
@@ -237,5 +258,3 @@ module dim
  logical, public :: incl_erot     = .false.
 
 end module dim
-
-

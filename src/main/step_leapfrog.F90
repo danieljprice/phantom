@@ -31,13 +31,11 @@
 !+
 !--------------------------------------------------------------------------
 module step_lf_global
- use dim, only:maxp,maxvxyzu,maxBevol
+ use dim,  only:maxp,maxvxyzu,maxBevol
+ use part, only:vpred,Bpred,dustpred
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
-
- real,            private :: vpred(maxvxyzu,maxp),dustpred(maxp)
- real(kind=4),    private :: Bpred(maxBevol,maxp)
 
 contains
 
@@ -364,39 +362,39 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp enddo
 !$omp end parallel
 
- call check_velocity_error(errmax,v2mean,np,its,tolv,dtsph,timei,dterr,errmaxmean,converged)
+    call check_velocity_error(errmax,v2mean,np,its,tolv,dtsph,timei,dterr,errmaxmean,converged)
 
- if (.not.converged .and. npart > 0) then
-    !$omp parallel do private(i) schedule(static)
-    do i=1,npart
-       if (store_itype) itype = iamtype(iphase(i))
+    if (.not.converged .and. npart > 0) then
+       !$omp parallel do private(i) schedule(static)
+       do i=1,npart
+          if (store_itype) itype = iamtype(iphase(i))
 #ifdef IND_TIMESTEPS
-       if (iactive(iphase(i))) then
+          if (iactive(iphase(i))) then
+             vpred(:,i) = vxyzu(:,i)
+             if (mhd) Bpred(:,i) = Bevol(:,i)
+             if (use_dustfrac) dustpred(i) = dustevol(i)
+          endif
+#else
           vpred(:,i) = vxyzu(:,i)
           if (mhd) Bpred(:,i) = Bevol(:,i)
           if (use_dustfrac) dustpred(i) = dustevol(i)
-       endif
-#else
-       vpred(:,i) = vxyzu(:,i)
-       if (mhd) Bpred(:,i) = Bevol(:,i)
-       if (use_dustfrac) dustpred(i) = dustevol(i)
 !
 ! shift v back to the half step
 !
-       vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
-       if (itype==igas) then
-          if (mhd)          Bevol(:,i)  = Bevol(:,i) - real(hdtsph,kind=4)*dBevol(:,i)
-          if (use_dustfrac) dustevol(i) = dustevol(i) - hdtsph*ddustfrac(i)
-       endif
+          vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
+          if (itype==igas) then
+             if (mhd)          Bevol(:,i)  = Bevol(:,i) - real(hdtsph,kind=4)*dBevol(:,i)
+             if (use_dustfrac) dustevol(i) = dustevol(i) - hdtsph*ddustfrac(i)
+          endif
 #endif
-    enddo
-    !$omp end parallel do
+       enddo
+       !$omp end parallel do
 !
 !   get new force using updated velocity: no need to recalculate density etc.
 !
-    call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB,Bpred,dBevol,dustfrac,ddustfrac,timei,dtsph,dtnew)
+       call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB,Bpred,dBevol,dustfrac,ddustfrac,timei,dtsph,dtnew)
 
- endif
+    endif
 
  enddo iterations
 

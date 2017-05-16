@@ -124,7 +124,7 @@ subroutine sphpow3D(dat,xyzh,rho,pmass,npart,pk,xk,nk,numk,ptot,nkx,nky,nkz,dxma
 
           !print*,' i = ',1,xkx(1)
           !if (mod(i,2)==0) then
-             call powerk_fourier3D(npart,nsubsample,xyzh,dat,rho,pmass,xkx,an,bn,p2)
+          call powerk_fourier3D(npart,nsubsample,xyzh,dat,rho,pmass,xkx,an,bn,p2)
           !else
           !   p2 = 0.
           !endif
@@ -301,7 +301,7 @@ subroutine power_part(dxmax,dxmin,numk,xkgrid,pow,xyzh,dat,rho,massoftype,npart,
     !--get the power at each k from a slow fourier transform
     do isubk = 1, nsubk
        iktot = iktot + 1
-    !--choose kx, ky and kz evenly distributed on the sphere of radius k
+       !--choose kx, ky and kz evenly distributed on the sphere of radius k
        call pixel2vector(isubk-1,iresolution,Rmat,vmat,xkx)
        xkx(:) = xkx(:)*xk
        xkstore(:,iktot) = xkx(:)
@@ -335,7 +335,7 @@ subroutine power_part(dxmax,dxmin,numk,xkgrid,pow,xyzh,dat,rho,massoftype,npart,
 !
  if (.not.loopoverk) then
     call cpu_time(t1)
-   !--loop over particles
+    !--loop over particles
     sums(:,:) = 0.
     nsubsample = 5
     do i=1,npart,nsubsample

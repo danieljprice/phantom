@@ -396,7 +396,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        if (j == ipri .and. i2 /= huge(i2)) then
           ecc2=ecc_cell(i2)
           inc2=acos(unitL_cell(3,i2))
-        endif
+       endif
        if (j == ipri .and. i3 /= huge(i3)) then
           ecc3=ecc_cell(i3)
           inc3=acos(unitL_cell(3,i3))

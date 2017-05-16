@@ -88,11 +88,11 @@ subroutine get_pdf(xbin,pdf,nbins,npart,xpart,xmin,xmax)
     fi = pdf(ibin)
     xi = xbin(ibin)
     if (logx) then
-    ! \int pdf dx = ln(10)*\int x*pdf d(log_10 x)
+       ! \int pdf dx = ln(10)*\int x*pdf d(log_10 x)
        totprob = totprob + 0.5*log(10.)*dx*xbin(ibin)*(fi + fprev)
     elseif (lnx) then
-    ! \int pdf dx = \int x*pdf d(ln x)
-    !   totprob = totprob + 0.5*dx*xbin(ibin)*(fi + fprev)
+       ! \int pdf dx = \int x*pdf d(ln x)
+       !   totprob = totprob + 0.5*dx*xbin(ibin)*(fi + fprev)
        totprob = totprob + 0.5*(fi + fprev)*(log(xi)-log(xprev))
     else
        totprob = totprob + 0.5*dx*(fi + fprev)

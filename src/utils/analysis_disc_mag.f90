@@ -97,11 +97,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  discprefix = dumpfile(1:iline-1)
  inquire(file=trim(discprefix)//'.discparams', exist=ifile)
  if (ifile) then
-   call read_discparams(trim(discprefix)//'.discparams',R_in,R_out,H_R,p_index,q_index,M_star,iparams,ierr)
-   if (ierr /= 0) call fatal('analysis','could not open/read .discparams file')
+    call read_discparams(trim(discprefix)//'.discparams',R_in,R_out,H_R,p_index,q_index,M_star,iparams,ierr)
+    if (ierr /= 0) call fatal('analysis','could not open/read .discparams file')
  else
-   call read_discparams('discparams.list',R_in,R_out,H_R,p_index,q_index,M_star,iparams,ierr)
-   if (ierr /= 0) call fatal('analysis','could not open/read discparams.list')
+    call read_discparams('discparams.list',R_in,R_out,H_R,p_index,q_index,M_star,iparams,ierr)
+    if (ierr /= 0) call fatal('analysis','could not open/read discparams.list')
  endif
 
 ! Print out the parameters
@@ -292,15 +292,15 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     if (ninbin(i) > 0) then
        tilt  = acos(unitlz(i))
        twist(i) = atan2(unitly(i),unitlx(i))
-        if (i==1 .or. time==0.0) then
+       if (i==1 .or. time==0.0) then
           twistprev(i) = 0.0
-        endif
-        ! Taking into account negative twist
-        if (twist(i) < 0) then
+       endif
+       ! Taking into account negative twist
+       if (twist(i) < 0) then
           twistprev(i) = 2.*pi + twist(i)
-        else
+       else
           twistprev(i) = twist(i) !cumulative twist
-        endif
+       endif
     else
        tilt = 0.0
        twist = 0.0
@@ -309,9 +309,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
 ! Calculate the precession time
     if (twist(i) > tiny(twist(i))) then
-      tp(i) = time*2.*pi/twist(i)
+       tp(i) = time*2.*pi/twist(i)
     else
-      tp(i) = 0.0
+       tp(i) = 0.0
     endif
 
     if (ninbin(i) > 0) then
@@ -323,8 +323,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  enddo
 
 ! Calculate the required properties for each particle, sum to the necessary place
-den_sum(:) = 0.
-num_sum(:) = 0.
+ den_sum(:) = 0.
+ num_sum(:) = 0.
 
  do i=1,npart
     ri = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
@@ -373,25 +373,25 @@ num_sum(:) = 0.
     endif
  enddo
 
-    if (do_alphamag) then
-       write(filename,"(a,i3.3)")"alpha_mag"
-       if (numfile==0) then
-          open(unit=ialphamag,file=filename,status="replace")
-          write(ialphamag,'("# various alpha_mag measures averaged over disc",es18.10)')
-          write(ialphamag,"('#',6(1x,'[',i2.2,1x,a11,']',2x))") &
+ if (do_alphamag) then
+    write(filename,"(a,i3.3)")"alpha_mag"
+    if (numfile==0) then
+       open(unit=ialphamag,file=filename,status="replace")
+       write(ialphamag,'("# various alpha_mag measures averaged over disc",es18.10)')
+       write(ialphamag,"('#',6(1x,'[',i2.2,1x,a11,']',2x))") &
                1,'time', &
                2,'PB alpha_p', &
                3,'PB alpha_m', &
                4,'FN06', &
                5,'Armitage', &
                6,'Guburov'
-       else
-          open(unit=ialphamag,file=filename,status="old",access="append")
-       endif
-       write(ialphamag,'(6(es18.10,1X))') time,alpha_estimates(1),alpha_estimates(2),&
-                                          alpha_estimates(3),alpha_estimates(4),alpha_estimates(5)
-       close(unit=ialphamag)
+    else
+       open(unit=ialphamag,file=filename,status="old",access="append")
     endif
+    write(ialphamag,'(6(es18.10,1X))') time,alpha_estimates(1),alpha_estimates(2),&
+                                          alpha_estimates(3),alpha_estimates(4),alpha_estimates(5)
+    close(unit=ialphamag)
+ endif
 
  close(iunit)
 

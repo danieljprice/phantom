@@ -138,38 +138,38 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
     ddr    = 1./sqrt(rr2)
 #endif
     if (rr2 < (radkern*hsoft)**2) then
-      !
-      ! if the sink particle is given a softening length, soften the
-      ! force and potential if r < radkern*hsoft
-      !
-      hsoft1 = 1.0/hsoft
-      hsoft21= hsoft1**2
-      q2i    = rr2*hsoft21
-      qi     = sqrt(q2i)
-      call kernel_softening(q2i,qi,psoft,fsoft)  ! Note: psoft < 0
+       !
+       ! if the sink particle is given a softening length, soften the
+       ! force and potential if r < radkern*hsoft
+       !
+       hsoft1 = 1.0/hsoft
+       hsoft21= hsoft1**2
+       q2i    = rr2*hsoft21
+       qi     = sqrt(q2i)
+       call kernel_softening(q2i,qi,psoft,fsoft)  ! Note: psoft < 0
 
-      ! acceleration of gas due to point mass particle
-      f1     = pmassj*fsoft*hsoft21*ddr
-      ftmpxi = ftmpxi - dx*f1
-      ftmpyi = ftmpyi - dy*f1
-      ftmpzi = ftmpzi - dz*f1
-      phi    = phi + pmassj*psoft*hsoft1  ! potential (spline-softened)
+       ! acceleration of gas due to point mass particle
+       f1     = pmassj*fsoft*hsoft21*ddr
+       ftmpxi = ftmpxi - dx*f1
+       ftmpyi = ftmpyi - dy*f1
+       ftmpzi = ftmpzi - dz*f1
+       phi    = phi + pmassj*psoft*hsoft1  ! potential (spline-softened)
 
-      ! acceleration of sink from gas
-      if (tofrom) f2 = pmassi*fsoft*hsoft21*ddr
+       ! acceleration of sink from gas
+       if (tofrom) f2 = pmassi*fsoft*hsoft21*ddr
     else
-      ! no softening on the sink-gas interaction
-      dr3  = ddr*ddr*ddr
+       ! no softening on the sink-gas interaction
+       dr3  = ddr*ddr*ddr
 
-      ! acceleration of gas due to point mass particle
-      f1     = pmassj*dr3
-      ftmpxi = ftmpxi - dx*f1
-      ftmpyi = ftmpyi - dy*f1
-      ftmpzi = ftmpzi - dz*f1
-      phi    = phi    - pmassj*ddr      ! potential (GM/r)
+       ! acceleration of gas due to point mass particle
+       f1     = pmassj*dr3
+       ftmpxi = ftmpxi - dx*f1
+       ftmpyi = ftmpyi - dy*f1
+       ftmpzi = ftmpzi - dz*f1
+       phi    = phi    - pmassj*ddr      ! potential (GM/r)
 
-      ! acceleration of sink from gas
-      if (tofrom) f2 = pmassi*dr3
+       ! acceleration of sink from gas
+       if (tofrom) f2 = pmassi*dr3
     endif
 
     if (tofrom) then
@@ -258,68 +258,68 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     fzi    = 0.
     phii   = 0.
     do j=i+1,nptmass
-      dx     = xi - xyzmh_ptmass(1,j)
-      dy     = yi - xyzmh_ptmass(2,j)
-      dz     = zi - xyzmh_ptmass(3,j)
-      pmassj = xyzmh_ptmass(4,j)
-      !hsoftj = xyzmh_ptmass(5,j)
+       dx     = xi - xyzmh_ptmass(1,j)
+       dy     = yi - xyzmh_ptmass(2,j)
+       dz     = zi - xyzmh_ptmass(3,j)
+       pmassj = xyzmh_ptmass(4,j)
+       !hsoftj = xyzmh_ptmass(5,j)
 
-      rr2  = dx*dx + dy*dy + dz*dz + epsilon(rr2)
+       rr2  = dx*dx + dy*dy + dz*dz + epsilon(rr2)
 
 #ifdef FINVSQRT
-      ddr  = finvsqrt(rr2)
+       ddr  = finvsqrt(rr2)
 #else
-      ddr  = 1./sqrt(rr2)
+       ddr  = 1./sqrt(rr2)
 #endif
 
-      if (rr2 < (radkern*h_soft_sinksink)**2) then
-        !
-        ! if the sink particle is given a softening length, soften the
-        ! force and potential if r < radkern*h_soft_sinksink
-        !
-        hsoft1 = 1.0/h_soft_sinksink
-        hsoft21= hsoft1**2
-        q2i    = rr2*hsoft21
-        qi     = sqrt(q2i)
-        call kernel_softening(q2i,qi,psoft,fsoft)  ! Note: psoft < 0
+       if (rr2 < (radkern*h_soft_sinksink)**2) then
+          !
+          ! if the sink particle is given a softening length, soften the
+          ! force and potential if r < radkern*h_soft_sinksink
+          !
+          hsoft1 = 1.0/h_soft_sinksink
+          hsoft21= hsoft1**2
+          q2i    = rr2*hsoft21
+          qi     = sqrt(q2i)
+          call kernel_softening(q2i,qi,psoft,fsoft)  ! Note: psoft < 0
 
-        ! acceleration of sink1 from sink2
-        fterm = fsoft*hsoft21*ddr
-        f1    = pmassj*fterm
-        fxi   = fxi - dx*f1
-        fyi   = fyi - dy*f1
-        fzi   = fzi - dz*f1
-        pterm = psoft*hsoft1
-        phii  = phii + pmassj*pterm ! potential (spline-softened)
+          ! acceleration of sink1 from sink2
+          fterm = fsoft*hsoft21*ddr
+          f1    = pmassj*fterm
+          fxi   = fxi - dx*f1
+          fyi   = fyi - dy*f1
+          fzi   = fzi - dz*f1
+          pterm = psoft*hsoft1
+          phii  = phii + pmassj*pterm ! potential (spline-softened)
 
-        ! acceleration of sink2 from sink1
-        f2    = pmassi*fterm
-        term  = pmassi*pmassj*psoft*hsoft1
-      else
-        ! no softening on the sink-sink interaction
-        dr3   = ddr*ddr*ddr
+          ! acceleration of sink2 from sink1
+          f2    = pmassi*fterm
+          term  = pmassi*pmassj*psoft*hsoft1
+       else
+          ! no softening on the sink-sink interaction
+          dr3   = ddr*ddr*ddr
 
-        ! acceleration of sink1 from sink2
-        f1    = pmassj*dr3
-        fxi   = fxi - dx*f1
-        fyi   = fyi - dy*f1
-        fzi   = fzi - dz*f1
-        pterm = -ddr
-        phii  = phii + pmassj*pterm    ! potential (GM/r)
+          ! acceleration of sink1 from sink2
+          f1    = pmassj*dr3
+          fxi   = fxi - dx*f1
+          fyi   = fyi - dy*f1
+          fzi   = fzi - dz*f1
+          pterm = -ddr
+          phii  = phii + pmassj*pterm    ! potential (GM/r)
 
-        ! acceleration of sink2 from sink1
-        f2   = pmassi*dr3
-        term = -pmassi*pmassj*ddr
-      endif
+          ! acceleration of sink2 from sink1
+          f2   = pmassi*dr3
+          term = -pmassi*pmassj*ddr
+       endif
 
-      phitot = phitot + term  ! potential (G M_1 M_2/r)
+       phitot = phitot + term  ! potential (G M_1 M_2/r)
 
-      !$ call omp_set_lock(ipart_omp_lock(j))
-      fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + dx*f2
-      fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + dy*f2
-      fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + dz*f2
-      fxyz_ptmass(4,j) = fxyz_ptmass(4,j) + pmassi*pterm
-      !$ call omp_unset_lock(ipart_omp_lock(j))
+       !$ call omp_set_lock(ipart_omp_lock(j))
+       fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + dx*f2
+       fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + dy*f2
+       fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + dz*f2
+       fxyz_ptmass(4,j) = fxyz_ptmass(4,j) + pmassi*pterm
+       !$ call omp_unset_lock(ipart_omp_lock(j))
 
     enddo
 
@@ -365,7 +365,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     !  hundred steps per orbit
     !
     if (f2  >  0) then
-      dtsinksink = min(dtsinksink,dtfacphi*sqrt(abs(phii)/f2))
+       dtsinksink = min(dtsinksink,dtfacphi*sqrt(abs(phii)/f2))
     endif
  enddo
 
@@ -557,10 +557,10 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  !
  ! Verify particle is 'accretable'
  if (.not. is_accretable(itypei) ) then
-   if (present(nfaili)) nfaili = 5
-   if (iverbose >= 1 .and. iofailreason) &
+    if (present(nfaili)) nfaili = 5
+    if (iverbose >= 1 .and. iofailreason) &
        write(iprint,"(/,a)") 'ptmass_accrete: FAILED: particle is not an accretable type'
-   return
+    return
  endif
  !
  sinkloop : do i=is,nptmass
@@ -700,22 +700,22 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
 ! Track values for summary
        print_acc = .true.
        if (nptmass > maxisink) then
-         iosum_ptmass(1,1) = iosum_ptmass(1,1) + 1
-         if (ifail == -1) iosum_ptmass(2,1) = iosum_ptmass(2,1) + 1
+          iosum_ptmass(1,1) = iosum_ptmass(1,1) + 1
+          if (ifail == -1) iosum_ptmass(2,1) = iosum_ptmass(2,1) + 1
        else
-         iosum_ptmass(1,i) = iosum_ptmass(1,i) + 1
-         if (ifail == -1) iosum_ptmass(2,i) = iosum_ptmass(2,i) + 1
+          iosum_ptmass(1,i) = iosum_ptmass(1,i) + 1
+          if (ifail == -1) iosum_ptmass(2,i) = iosum_ptmass(2,i) + 1
        endif
 
        !$ call omp_unset_lock(ipart_omp_lock(i))
        hi = -abs(hi)
 
        if (record_accreted) then
-       !$omp critical(trackacc)
-           call track_accreted(time,i,dx,dy,dz,dvx,dvy,dvz,xyzmh_ptmass(1,i),xyzmh_ptmass(2,i), &
+          !$omp critical(trackacc)
+          call track_accreted(time,i,dx,dy,dz,dvx,dvy,dvz,xyzmh_ptmass(1,i),xyzmh_ptmass(2,i), &
             xyzmh_ptmass(3,i),xyzmh_ptmass(4,i),spinm,pmassi, &
             vxyz_ptmass(1:3,i),xs,ys,zs, vxs,vys,vzs)
-       !$omp end critical(trackacc)
+          !$omp end critical(trackacc)
        endif
 
 ! avoid possibility that two sink particles try to accrete the same gas particle by exiting the loop
@@ -744,7 +744,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
 #ifdef IND_TIMESTEPS
  use part,     only:ibin,ibinsink
 #endif
- use linklist, only:ifirstincell
+ use linklist, only:ifirstincell,getneigh_pos
  use eos,      only:equationofstate,gamma,gamma_pwp,utherm
  use options,  only:ieos
  use units,    only:unit_density
@@ -793,9 +793,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
  hi1  = 1.0/hi
  hi21 = hi1**2
  if (maxphase==maxp) then
-   itype = iamtype(iphase(itest))
+    itype = iamtype(iphase(itest))
  else
-   itype = igas
+    itype = igas
  endif
  pmassi = massoftype(itype)
  pmassj = massoftype(igas)
@@ -851,7 +851,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
 
  ! CHECK 3: all neighbours within h_acc are all active ( & perform math for checks 4-6)
  ! find neighbours within h_acc
- call getneigh((/xi,yi,zi/),0.,h_acc,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell,ll,get_hj=.false.)
+ call getneigh_pos((/xi,yi,zi/),0.,h_acc,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell,ll)
  ! determine if we should approximate epot
  calc_exact_epot = .true.
  if (nneigh_thresh > 0 .and. nneigh > nneigh_thresh) calc_exact_epot = .false.

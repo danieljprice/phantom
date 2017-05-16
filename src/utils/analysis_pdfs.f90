@@ -215,8 +215,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  print "(a)",' writing to '//trim(fileout)
 
  open(unit=iunit,file=trim(fileout),status='replace',form='formatted')
-    write(fmtstring,"('(',i3,'(es18.10,1x))')",iostat=ierr) 17
-    write(iunit,fmtstring) time,rhomean,rhomeanmw,rhovar,rhovarmw,sqrt(rhovar),sqrt(rhovarmw),&
+ write(fmtstring,"('(',i3,'(es18.10,1x))')",iostat=ierr) 17
+ write(iunit,fmtstring) time,rhomean,rhomeanmw,rhovar,rhovarmw,sqrt(rhovar),sqrt(rhovarmw),&
                            rmsv,rmsvmw,bval,bvalmw,smean,smeanmw,svar,svarmw,sqrt(svar),sqrt(svarmw)
  close(unit=iunit)
 !

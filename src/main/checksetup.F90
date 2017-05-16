@@ -131,8 +131,8 @@ subroutine check_setup(nerror,nwarn,restart)
     if (npartoftype(iboundary) > 0) then
        do i = 1,maxtypes
           if (npartoftype(i) > 0 .and. (i/=igas .and. i/=iboundary)) then
-            print*, 'Error in setup: boundary particles cannot coexist with non-gas particles'
-            nerror = nerror + 1
+             print*, 'Error in setup: boundary particles cannot coexist with non-gas particles'
+             nerror = nerror + 1
           endif
        enddo
     endif

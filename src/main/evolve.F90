@@ -21,10 +21,10 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: analysis, centreofmass, dim, energies, evwrite,
-!    externalforces, fileutils, forcing, inject, io, io_summary, mf_write,
-!    mpiutils, options, part, ptmass, quitdump, readwrite_dumps,
-!    readwrite_infile, sort_particles, step_lf_global, supertimestep,
-!    timestep, timestep_ind, timestep_sts, timing
+!    externalforces, fileutils, forcing, initial_params, inject, io,
+!    io_summary, mf_write, mpiutils, options, part, ptmass, quitdump,
+!    readwrite_dumps, readwrite_infile, sort_particles, step_lf_global,
+!    supertimestep, timestep, timestep_ind, timestep_sts, timing
 !+
 !--------------------------------------------------------------------------
 module evolve
@@ -49,7 +49,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use step_lf_global,   only:step
  use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
                             timer_dens,timer_force,timer_link
- use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi
+ use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
 #ifdef SORT
  use sort_particles,   only:sort_part
 #endif
@@ -97,20 +97,21 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
+ use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in
 #ifdef MFLOW
  use mf_write,         only:mflow_write
 #endif
 #ifdef VMFLOW
-use mf_write,          only:vmflow_write
+ use mf_write,          only:vmflow_write
 #endif
 #ifdef BINPOS
-use mf_write,          only:binpos_write
+ use mf_write,          only:binpos_write
 #endif
 
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: noutput,noutput_dtmax,nsteplast,ncount_fulldumps
- real            :: dtnew,dtlast,timecheck,etot_in,angtot_in,totmom_in,mdust_in
+ real            :: dtnew,dtlast,timecheck
  real            :: tprint,tzero,dtmaxold
  real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
  real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
@@ -141,10 +142,7 @@ use mf_write,          only:binpos_write
  nsteplast = 0
  tzero     = time
  dtlast    = 0.
- etot_in   = etot
- angtot_in = angtot
- totmom_in = totmom
- mdust_in  = mdust
+
  should_conserve_energy = (maxvxyzu==4 .and. ieos==2 .and. icooling==0 .and. &
                            ipdv_heating==1 .and. ishock_heating==1 &
                            .and. (.not.mhd .or. iresistive_heating==1))
@@ -342,9 +340,8 @@ use mf_write,          only:binpos_write
 
     ! advance time on master thread only
     if (id == master) time = time + dt
-    call barrier_mpi()
-    ! should be a broadcast (this is lazy)
-    time = reduceall_mpi('max',time)
+    call bcast_mpi(time)
+
 !
 !--set new timestep from Courant/forces condition
 !
@@ -493,9 +490,9 @@ use mf_write,          only:binpos_write
        if (dtwallmax > 1.0 .and. .not.fulldump) then
           twallperdump = timer_lastdump%wall
           if (twallperdump > dtwallmax) then
-            fulldump = .true.
-            write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON DT WALL TIME CONSTRAINTS... '
-            nfulldump = 1  !  also set all future dumps to be full dumps (otherwise gets confusing)
+             fulldump = .true.
+             write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON DT WALL TIME CONSTRAINTS... '
+             nfulldump = 1  !  also set all future dumps to be full dumps (otherwise gets confusing)
           endif
        endif
 !

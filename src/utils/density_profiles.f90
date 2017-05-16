@@ -85,16 +85,16 @@ subroutine rho_polytrope(gamma,polyk,Mstar,rtab,rhotab,npts,rhocentre,set_polyk,
 
  i = 2
  do while (v(i) >= 0.)
-   r(i)    = (i-1)*dr
-   rhs    = - r(i)*(v(i)/r(i))**an
-   v(i+1) = 2*v(i) - v(i-1) + dr*dr*rhs
-   i      = i + 1
-   if (i+1 > size(rtab)) then ! array is not large enough; restart with larger dr
-      dr   = dr*2.
-      r(2) = dr
-      v(2) = dr*(1.0 - dr*dr/6. )
-      i = 2
-   endif
+    r(i)    = (i-1)*dr
+    rhs    = - r(i)*(v(i)/r(i))**an
+    v(i+1) = 2*v(i) - v(i-1) + dr*dr*rhs
+    i      = i + 1
+    if (i+1 > size(rtab)) then ! array is not large enough; restart with larger dr
+       dr   = dr*2.
+       r(2) = dr
+       v(2) = dr*(1.0 - dr*dr/6. )
+       i = 2
+    endif
  enddo
  npts = i-1
  !
@@ -104,8 +104,8 @@ subroutine rho_polytrope(gamma,polyk,Mstar,rtab,rhotab,npts,rhocentre,set_polyk,
  den(1) = 1.0
  Mstar_f = 0.
  do j = 2,npts
-   den(j)   = (v(j)/r(j))**an
-   Mstar_f  = Mstar_f + fourpi*r(j)*r(j)*den(j)*dr
+    den(j)   = (v(j)/r(j))**an
+    Mstar_f  = Mstar_f + fourpi*r(j)*r(j)*den(j)*dr
  enddo
  !
  !--Rescale the central density to give desired mass, Mstar
@@ -396,7 +396,7 @@ subroutine read_red_giant_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
        else
           !--Second reading
           do i=1,n
-            read(iunit,*,iostat=ierr) stardata(n-i+1,:)
+             read(iunit,*,iostat=ierr) stardata(n-i+1,:)
           enddo
        endif
     endif
