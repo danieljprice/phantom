@@ -47,8 +47,10 @@ subroutine testsuite(string,first,last)
 #endif
  use testkernel,   only:test_kernel
  use testptmass,   only:test_ptmass
+#ifndef GR
  use testgnewton,  only:test_gnewton
  use testcorotate, only:test_corotate
+#endif
  use testexternf,  only:test_externf
  use testindtstep, only:test_indtstep
  use testrwdump,   only:test_rwdump
@@ -248,6 +250,8 @@ subroutine testsuite(string,first,last)
     call set_default_options ! restore defaults
     call barrier_mpi()
  endif
+
+#ifndef GR
 !
 !--test of gnewton module
 !
@@ -264,6 +268,8 @@ subroutine testsuite(string,first,last)
     call set_default_options ! restore defaults
     call barrier_mpi()
  endif
+#endif
+
 !
 !--test of set_disc module
 !
