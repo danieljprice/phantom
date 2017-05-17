@@ -900,6 +900,7 @@ ifeq ($(SETUP), sfmcfost)
     MULTIRUNFILE= multirun.f90
     IND_TIMESTEPS=yes
     GRAVITY=yes
+    LIGHTCURVE=yes
     MCFOST=yes
 endif
 

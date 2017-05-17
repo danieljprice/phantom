@@ -664,7 +664,7 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,update_tzero,updat
  endif
 
  ! modify dtmax based upon density, if requested, and print info to the logfile
- if (mod_dtmax_now) then
+ if (mod_dtmax_now .and. dtmax_rat0 > 1) then
     dtmax_rat         = dtmax_rat0 + dtmax_rat
     mod_dtmax_now     = .false. ! reset variable
     mod_dtmax         = .false. ! prevent any additional modifications of dtmax
