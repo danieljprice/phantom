@@ -147,12 +147,11 @@ subroutine compute_energies(t)
 !$omp private(tsi,iregime) &
 #endif
 #ifdef LIGHTCURVE
-!$omp shared(luminosity) &
+!$omp shared(luminosity,track_lum) &
 #endif
 !$omp reduction(+:np,xmom,ymom,zmom,angx,angy,angz) &
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
 !$omp reduction(+:ekin,etherm,emag,epot)
-
  call initialise_ev_data(ev_data_thread)
  np_rho_thread = 0
 !$omp do
