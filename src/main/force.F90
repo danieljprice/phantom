@@ -1786,7 +1786,8 @@ ifgas: if (iamgasi .and. iamgasj) then
                  ! these are equations (43) and (45) from Price & Laibe (2015)
                  ! but note there is a sign error in the term in eqn (45) in the paper
                  !dustfracterm(l)  = pmassj*rho1j*Dav(:)*(pri - prj)*grkernav*rij1
-                 dustfracterms(l) = pmassj*sqrtrhodustfracj(l)*rho1j*((tsi(l)-epstsi)*rhogas1i+(tsj(l)-epstsj)*rhogas1j)*(pri - prj)*grkernav*rij1
+                 dustfracterms(l) = pmassj*sqrtrhodustfracj(l)*rho1j*((tsi(l)-epstsi)*rhogas1i+(tsj(l)-epstsj)*rhogas1j) &
+                                       *(pri - prj)*grkernav*rij1
                  
                  !vsigeps = 0.5*(spsoundi + spsoundj) !abs(projv)
                  !depsdissterm(l) = pmassj*sqrtrhodustfracj(l)*rho1j*grkernav*vsigeps !(auterm*grkerni + autermj*grkernj)*vsigeps
