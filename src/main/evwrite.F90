@@ -157,8 +157,6 @@ subroutine init_evfile(iunit,evfile)
  if (use_dustfrac) then
     call fill_ev_tag(ev_fmt,   'dust/gas',    'xan',i,j)
     call fill_ev_tag(ev_fmt,   't_s',         'mn', i,j)
-    call fill_ev_tag(ev_fmt,   'mgas',        's',  i,j)
-    call fill_ev_tag(ev_fmt,   'mdust',       's',  i,j)
  endif
  if (iexternalforce > 0) then
     call fill_ev_tag(ev_fmt,   'totmomall',   '0',  i,j)
