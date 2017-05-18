@@ -75,6 +75,7 @@ subroutine init_drag(ierr)
  integer :: i
  real :: cste_seff
  real :: mass_mol_gas, cross_section_gas
+ real :: grid(ndusttypes+1) = 0.
 
  ierr = 0
  !--compute constants which are used in the ts calculation
@@ -87,7 +88,13 @@ subroutine init_drag(ierr)
 
  !--compute the grain mass (spherical compact grains of radius s)
  !--change this line for fractal grains or grains of different sizes
- if (ndusttypes>1) call get_grainsize(grainsizecgs,smincgs,smaxcgs)
+ if (ndusttypes>1) then
+    if (smincgs == smaxcgs) then
+       call get_grainsize(grainsizecgs,smincgs,smaxcgs)
+    else 
+       call get_grainsize(grainsizecgs,smincgs,smaxcgs,grid)
+    endif
+ endif
  grainsize(:)      = grainsizecgs(:)/udist
  graindens         = graindenscgs/unit_density
  grainmass(:)      = 4./3.*pi*graindens*grainsize(:)**3
@@ -218,7 +225,8 @@ subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,smin,smax,sindex)
     else
        exact = 1./power*(grid(ndusttypes+1)**power - grid(1)**power)
     endif
-    if (abs(rhodtot-exact)/exact>tol) call fatal('dust','Piecewise integration of MRN distribution not matching the exact solution!')
+    if (abs(rhodtot-exact)/exact>tol) &
+       call fatal('dust','Piecewise integration of MRN distribution not matching the exact solution!')
  endif
 
 !!
