@@ -265,7 +265,7 @@ subroutine test_dustydiffuse(ntests,npass)
  real    :: epstot,epsi(ndusttypes),rc,rc2,r2,A,B,eta
  real    :: erri,exact,errl2,term,tol
  real    :: ddustfrac_prev(ndusttypes,maxp)
- logical, parameter :: do_output = .false.
+ logical, parameter :: do_output = .true.
  real,    parameter :: t_write(5) = (/0.1,0.3,1.0,3.0,10.0/)
 
  if (use_dustfrac .and. periodic) then
@@ -527,10 +527,15 @@ subroutine write_file(time,xyzh,dustfrac,npart)
  integer, intent(in) :: npart
  character(len=30)   :: filename,str1,str2,fmt1
  integer :: i,lu
- real    :: r2
+ real    :: r2,dustfracsum(npart)
 
  write(str1,"(f5.1)") time
- write(str2,"(I5)") ndusttypes+1
+ if (ndusttypes>1) then
+    write(str2,"(I5)") ndusttypes+2
+    dustfracsum = sum(dustfrac,1)
+ else
+    write(str2,"(I5)") ndusttypes+1
+ endif
  filename = 'dustfrac_t'//trim(adjustl(str1))//'.txt'
  fmt1 = '('//trim(adjustl(str2))//'F15.8)'
  open(newunit=lu,file=filename,status='replace')
@@ -538,7 +543,11 @@ subroutine write_file(time,xyzh,dustfrac,npart)
  write(lu,*) time
  do i=1,npart
     r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
-    write(lu,fmt1) sqrt(r2),dustfrac(:,i)
+    if (ndusttypes>1) then
+       write(lu,fmt1) sqrt(r2),dustfracsum(i),dustfrac(:,i)
+    else
+       write(lu,fmt1) sqrt(r2),dustfrac(:,i)
+    endif
  enddo
  close(lu)
 

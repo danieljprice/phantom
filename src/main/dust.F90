@@ -87,7 +87,7 @@ subroutine init_drag(ierr)
 
  !--compute the grain mass (spherical compact grains of radius s)
  !--change this line for fractal grains or grains of different sizes
- if (ndusttypes>1) call get_grainsize(grainsizecgs,smincgs,smaxcgs,sindex)
+ if (ndusttypes>1) call get_grainsize(grainsizecgs,smincgs,smaxcgs)
  grainsize(:)      = grainsizecgs(:)/udist
  graindens         = graindenscgs/unit_density
  grainmass(:)      = 4./3.*pi*graindens*grainsize(:)**3
@@ -172,73 +172,68 @@ subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,smin,smax,sindex)
  use dim, only: ndusttypes
  real, intent(in)  :: dust_to_gas_tot,smin,smax,sindex
  real, intent(out) :: dustfrac(:)
- !real :: dust_to_gas_ind
  integer :: i
  real :: dustfrac_tot
  real :: norm
- real :: log_ds
- real :: Ndust
- real :: bins(ndusttypes+2),log_bins(ndusttypes+2)
- real :: ndusti(ndusttypes)
+ real :: s(ndusttypes)
+ real :: rhodtot
+ real :: grid(ndusttypes+1) = 0.
+ real :: rhodusti(ndusttypes)
  real :: exact
+ real :: power = 0.
  real, parameter :: tol = 1.e-10
 
  if (smax==smin) then
     !--If all the same grain size, then just scale the dust fraction
     dustfrac = dust_to_gas_tot/(1.+dust_to_gas_tot)*1./real(ndusttypes)
  else
-    !--Uniformly distribute grain sizes in log space between smax and smin
-    log_ds = log10(smax/smin)/(real(ndusttypes)-1.)
-
-    !--Define cell centered bins with ghost points in log space
-    do i = 1,ndusttypes+1
-       log_bins(i) = log10(smin) - log_ds/2. + log_ds*real(i-1)
-    enddo
-    
-    !--Convert bin corrdinates back to real space
-    bins = 10.**log_bins
-    
-    !--Set the grain size and sum the relative dust contribution in each bin
+    call get_grainsize(s,smin,smax,grid)
+   
+    !--Dust density is computed from drhodust ∝ dn*mdust where dn ∝ s**(-p)*ds
+    !  and mdust ∝ s**(3). This is then integrated across each cell to account
+    !  for mass contributions from unrepresented grain sizes
     do i = 1,ndusttypes
-       if (sindex == 1) then
-          ndusti(i) = log(bins(i+1)/bins(i))
+       if (sindex == 4.) then
+          rhodusti(i) = log(grid(i+1)/grid(i))
        else
-          ndusti(i) = 1./(1.-sindex)*(bins(i+1)**(1.-sindex) - bins(i)**(1.-sindex))
+          power = 4. - sindex
+          rhodusti(i) = 1./power*(grid(i+1)**power - grid(i)**power)
        endif
     enddo
     
-    !--Sum the contributions from each bin to get total relative dust content
-    Ndust = sum(ndusti)
+    !--Sum the contributions from each cell to get total relative dust content
+    rhodtot = sum(rhodusti)
     
     !--Calculate the total dust fraction from the dust-to-gas ratio
     dustfrac_tot = dust_to_gas_tot/(1.+dust_to_gas_tot)
 
-    !--Calculate the normalisation factor and multiply it into each
-    !  bin to get the true dust fraction for each dust species
-    norm         = dustfrac_tot/Ndust
-    dustfrac(:)  = norm*ndusti(:)
-    
+    !--Calculate the normalisation factor (∝ 1/rhotot) and scale the dust fractions
+    !  Note: dust density and dust fraction have the same power-law dependence on s.
+    norm         = dustfrac_tot/rhodtot
+    dustfrac(:)  = norm*rhodusti(:)
+
     !--Check to make sure the integral determining the contributions is correct
-    if (sindex == 1) then
-       exact = log(bins(ndusttypes+1)/bins(1))
+    if (sindex == 4.) then
+       exact = log(grid(ndusttypes+1)/grid(1))
     else
-       exact = 1./(1.-sindex)*(bins(ndusttypes+1)**(1.-sindex) - bins(1)**(1.-sindex))
+       exact = 1./power*(grid(ndusttypes+1)**power - grid(1)**power)
     endif
-    if (abs(Ndust-exact)/exact>tol) call fatal('dust','Piecewise integration of MRN distribution not matching the exact solution!')
+    if (abs(rhodtot-exact)/exact>tol) call fatal('dust','Piecewise integration of MRN distribution not matching the exact solution!')
  endif
 
-! 
-!-- PREVIOUS VERSION
-!
- !!dn/ds=const*(s/smax)^-sindex  where dn is the number of particles per cm^3 per interval ds in size (Draine et al. 2006)
- !if (sindex /= 4.) then
- !   dust_to_gas_ind = (dust_to_gas_tot*(4.-sindex)*s**(3.-sindex))/(smax**(4.-sindex)-smin**(4.-sindex))
- !elseif (sindex == 4.) then
- !   dust_to_gas_ind = (dust_to_gas_tot*s**(3.-sindex))/(log(smax/smin))
- !else
- !   call fatal('dust','congratulations on discovering a new number (please check your value for sindex)')
- !endif
- !dustfrac = dust_to_gas_ind/(1. + dust_to_gas_ind)
+!!
+!!-- PREVIOUS VERSION
+!!
+! !dn/ds=const*(s/smax)^-sindex  where dn is the number of particles per cm^3 per interval ds in size (Draine et al. 2006)
+! if (sindex /= 4.) then
+!    dust_to_gas_ind(:) = (dust_to_gas_tot*(4.-sindex)*s(:)**(3.-sindex)) &
+!                         /(smax**(4.-sindex)-smin**(4.-sindex))
+! elseif (sindex == 4.) then
+!    dust_to_gas_ind(:) = (dust_to_gas_tot*s(:)**(3.-sindex))/(log(smax/smin))
+! else
+!    call fatal('dust','congratulations on discovering a new number (please check your value for sindex)')
+! endif
+! dustfrac(:) = dust_to_gas_ind(:)/(1. + dust_to_gas_ind(:))
 
 end subroutine set_dustfrac_power_law
 
@@ -247,28 +242,34 @@ end subroutine set_dustfrac_power_law
 !  utility function to get a log-normal grain size distribution
 !+
 !----------------------------------------------------------------
-subroutine get_grainsize(s,smin,smax,sindex)
+subroutine get_grainsize(s,smin,smax,grid)
  use io,   only: fatal
  use dim,  only: ndusttypes
- real, intent(in)  :: smin,smax,sindex
+ real, intent(in)  :: smin,smax
  real, intent(out) :: s(:)
+ real, optional, intent(inout) :: grid(:)
  integer :: i
- real :: log_ds,log_s(ndusttypes)
+ real :: log_ds
+ real :: log_grid(ndusttypes+1)
  
  if (smax==smin) then
     !--If all the same grain size, then just scale the dust fraction
     s(:) = smax
  else
-    !--Uniformly distribute grain sizes in log space between smax and smin
-    log_ds = log10(smax/smin)/(real(ndusttypes)-1.)
-
-    !--Set the grain size and sum the relative dust contribution in each bin
-    do i = 1,ndusttypes
-       log_s(i)  = log10(smin) + log_ds*real(i-1)
+    !--Create a uniform grid with N+1 points between smax and smin (inclusive)
+    log_ds = log10(smax/smin)/real(ndusttypes)
+    do i = 1,ndusttypes+1
+       log_grid(i) = log10(smin) + (i-1)*log_ds
     enddo
-    
-    !--Convert grain size back to real space
-    s = 10.**log_s
+
+    !--Convert grid corrdinates back to real space
+    grid = 10.**log_grid
+
+    !--Find representative s for each cell
+    !  (skewed towards small grains because there are more small grains than large grains)
+    do i = 1,ndusttypes
+       s(i) = sqrt(grid(i)*grid(i+1))
+    enddo
  endif
  
 end subroutine get_grainsize

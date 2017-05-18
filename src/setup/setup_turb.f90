@@ -44,11 +44,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
- use part,         only:Bevol,maxvecp,mhd,maxBevol,dustfrac
+ use part,         only:Bevol,maxvecp,mhd,maxBevol,dustfrac,ndusttypes
  use physcon,      only:pi,solarm,pc,km
  use units,        only:set_units, unit_density
  use prompting,    only:prompt
- use dust,         only:set_dustfrac
+ use dust,         only:set_dustfrac,smincgs,smaxcgs,sindex
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -150,7 +150,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        Bevol(3,i) = 1.4142e-5
     endif
     if (use_dustfrac) then
-       call set_dustfrac(dust_to_gas,dustfrac(i))
+       if (ndusttypes==1) then
+          call set_dustfrac(dust_to_gas,dustfrac(:,i))
+       else
+          !!--you can alter the defaults by uncommenting and changing the following values
+          !smincgs = 1.e-5
+          !smaxcgs = 0.1
+          !sindex = 3.5
+          call set_dustfrac(dust_to_gas,dustfrac(:,i),smincgs,smaxcgs,sindex)
+       endif
     endif
  enddo
 

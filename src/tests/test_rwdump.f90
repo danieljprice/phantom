@@ -114,7 +114,7 @@ subroutine test_rwdump(ntests,npass)
        endif
        if (use_dustfrac) then
           dustfrac(:,i) = 16._4
-          if (ndusttypes>1) call get_grainsize(grainsizecgs,smincgs,smaxcgs,sindex)
+          if (ndusttypes>1) call get_grainsize(grainsizecgs,smincgs,smaxcgs)
        endif
     enddo
     nptmass = 10

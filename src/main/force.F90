@@ -1275,7 +1275,9 @@ end subroutine force
   real :: etaohmj,etahallj,etaambij,temperaturej
   real :: jcbcbj(3),jcbj(3),dBnonideal(3),dBnonidealj(3)
   real :: vsigavi,vsigavj,term
-  real :: dustfraci(ndusttypes),dustfracj(ndusttypes),tsi(ndusttypes),sqrtrhodustfraci(ndusttypes),sqrtrhodustfracj(ndusttypes) !,vsigeps,depsdissterm
+  real :: dustfraci(ndusttypes),dustfracj(ndusttypes),tsi(ndusttypes)
+  real :: sqrtrhodustfraci(ndusttypes),sqrtrhodustfracj(ndusttypes)
+  real :: vsigeps,depsdissterm(ndusttypes)
   real :: dustfracjsum,epstsi,epstsj
   logical :: usej
 
@@ -1766,14 +1768,14 @@ ifgas: if (iamgasi .and. iamgasj) then
            rhogas1i = rho1i/(1.-dustfracisum)
            rhogas1j = 1./rhogasj
            
-           ! Check that weighted sums of Tsj and tilde(Tsj) are equal (see Hutchison et al. 2017)
-           if (ndusttypes>1) then
-              if (abs(sum(dustfracj*tsj) - sum(dustfracj*(tsj-epstsj))/(1. - dustfracjsum)) > 1e-14) print*,'Stop! tsj or epstsj in force is incorrect!'
-           else
-              if (abs(tsj(1) - (tsj(1)-epstsj)/(1.-dustfracj(1)))>1e-14) then
-                 print*,'Warning! error in tsj is = ',tsj(1)-(tsj(1)-epstsj)/(1.-dustfracjsum)
-              endif
-           endif
+           !! Check that weighted sums of Tsj and tilde(Tsj) are equal (see Hutchison et al. 2017)
+           !if (ndusttypes>1) then
+           !   if (abs(sum(dustfracj*tsj) - sum(dustfracj*(tsj-epstsj))/(1. - dustfracjsum)) > 1e-14) &
+           !      print*,'Stop! tsj or epstsj in force is incorrect!'
+           !else
+           !   if (abs(tsj(1) - (tsj(1)-epstsj)/(1.-dustfracj(1)))>1e-14) &
+           !      print*,'Warning! error in tsj is = ',tsj(1)-(tsj(1)-epstsj)/(1.-dustfracjsum)
+           !endif
 
            do l = 1,ndusttypes
               if (dustfraci(l) > 0. .or. dustfracj(l) > 0.) then
@@ -1787,8 +1789,10 @@ ifgas: if (iamgasi .and. iamgasj) then
                  dustfracterms(l) = pmassj*sqrtrhodustfracj(l)*rho1j*((tsi(l)-epstsi)*rhogas1i+(tsj(l)-epstsj)*rhogas1j)*(pri - prj)*grkernav*rij1
                  
                  !vsigeps = 0.5*(spsoundi + spsoundj) !abs(projv)
-                 !depsdissterm = pmassj*sqrtrhodustfracj*rho1j*grkernav*vsigeps !(auterm*grkerni + autermj*grkernj)*vsigeps
-                 !dustfracterms = dustfracterms - depsdissterm*(dustfraci - dustfracj)
+                 !depsdissterm(l) = pmassj*sqrtrhodustfracj(l)*rho1j*grkernav*vsigeps !(auterm*grkerni + autermj*grkernj)*vsigeps
+                 !dustfracterms(l) = dustfracterms(l) - depsdissterm(l)*(dustfraci(l) - dustfracj(l))! &
+                 !!*1.e-1/(dustfraci(l) + dustfracj(l))
+
                  fsum(iddustfraci+(l-1)) = fsum(iddustfraci+(l-1)) - dustfracterms(l)
                  !fsum(iddustfraci+(l-1)) = fsum(iddustfraci+(l-1)) - dustfracterm(l)
                  if (maxvxyzu >= 4) fsum(idudtdusti+(l-1)) = fsum(idudtdusti+(l-1)) - sqrtrhodustfraci(l)*dustfracterms(l)*denij
