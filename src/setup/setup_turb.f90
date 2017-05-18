@@ -60,7 +60,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real :: totmass,deltax
  integer :: ipart,i,maxp,maxvxyzu
- real :: dust_to_gas
+ real :: dust_to_gas, dustsmincgs, dustsmaxcgs, dustpowerlaw
+
 !
 !--boundaries
 !
@@ -114,6 +115,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     dust_to_gas = 1.e-2
     if (id==master) call prompt(' enter dust-to-gas ratio ',dust_to_gas)
     call bcast_mpi(dust_to_gas)
+
+    if (ndusttypes > 1) then
+       dustpowerlaw = 3.5
+       dustsmincgs = 1.0e-5 ! 0.1 micron
+       dustsmaxcgs = 1.0e-3 ! 10 micron
+
+       if (id==master) call prompt(' enter power-law grain size distribution ', dustpowerlaw)
+       call bcast_mpi(dustpowerlaw)
+
+       if (id==master) call prompt(' enter minimum dust grain size ', dustsmincgs)
+       call bcast_mpi(dustsmincgs)
+
+       if (id==master) call prompt(' enter maximum dust grain size ', dustsmaxcgs)
+       call bcast_mpi(dustsmaxcgs)
+    endif 
  endif
 
  if (id==master) then
@@ -153,11 +169,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (ndusttypes==1) then
           call set_dustfrac(dust_to_gas,dustfrac(:,i))
        else
-          !!--you can alter the defaults by uncommenting and changing the following values
-          !smincgs = 1.e-5
-          !smaxcgs = 0.1
-          !sindex = 3.5
-          call set_dustfrac(dust_to_gas,dustfrac(:,i),smincgs,smaxcgs,sindex)
+          call set_dustfrac(dust_to_gas,dustfrac(:,i),dustsmincgs,dustsmaxcgs,dustpowerlaw)
        endif
     endif
  enddo
