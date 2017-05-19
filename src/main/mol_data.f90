@@ -84,12 +84,12 @@ module mol_data
  integer, parameter :: nco_column = 10 
  integer, parameter :: nco_data   = 120
 
- real :: co_temptab(nco_temp), co_colntab(nco_column), co_data_L0(nco_temp)
+ real :: co_temp(nco_temp), co_column(nco_column), co_data_L0(nco_temp)
  real :: co_data_LTE(nco_data), co_data_n05(nco_data), co_data_alp(nco_data)
 
- data co_temptab /5., 10., 20., 30., 50., 80., 100., 300., 600., 1000., 1500., 2000./
+ data co_temp /5., 10., 20., 30., 50., 80., 100., 300., 600., 1000., 1500., 2000./
 
- data co_colntab /14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5, 19.0/
+ data co_column /14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5, 19.0/
 
  data co_data_L0 /25.29, 24.96, 24.56, 24.36, 24.12, 23.88,23.88, &
                   23.40, 23.07, 22.81, 22.61, 22.47/

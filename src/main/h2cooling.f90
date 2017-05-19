@@ -467,7 +467,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 
  if (abco .gt. 1d-4 * abundo) then
 ! Don't bother to compute CO cooling rate when CO abundance very small
-   maximum_CO_column = co_colntab(nco_column)
+   maximum_CO_column = co_colntab(ncdco)
    if (divv .eq. 0d0) then
      N_co_eff   = maximum_CO_column
    else
@@ -1615,8 +1615,8 @@ subroutine co_cool(temp, N_co_eff, co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n
  elseif (temp .eq. co_temptab(1)) then
    itemp_co = 1
    dtemp_co = 0d0
- elseif (temp .ge. co_temptab(nco_temp)) then
-   itemp_co = nco_temp
+ elseif (temp .ge. co_temptab(nTco)) then
+   itemp_co = nTco
    dtemp_co = 0d0
  else
    itemp_co = int(temp) - 4    ! Table currently starts at 5K
@@ -1630,8 +1630,8 @@ subroutine co_cool(temp, N_co_eff, co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n
  if (N_co_eff .le. co_colntab(1)) then
    iN_co = 1
    dN_co = 0d0
- elseif (N_co_eff .ge. co_colntab(nco_column)) then
-   iN_co = nco_column
+ elseif (N_co_eff .ge. co_colntab(ncdco)) then
+   iN_co = ncdco
    dN_co = 0d0
  else
    iN_co = int((10 * N_co_eff) - 144)
@@ -1643,7 +1643,7 @@ subroutine co_cool(temp, N_co_eff, co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n
  co_rot_lte_1 = co_lte(iN_co,itemp_co) + dtemp_co * dTco_lte(iN_co,itemp_co)
  co_rot_alp_1 = co_alp(iN_co,itemp_co) + dtemp_co * dTco_alp(iN_co,itemp_co)
  co_rot_n05_1 = co_n05(iN_co,itemp_co) + dtemp_co * dTco_n05(iN_co,itemp_co)
- if (iN_co .eq. nco_column) then
+ if (iN_co .eq. ncdco) then
    co_rot_lte   = co_rot_lte_1
    co_rot_alpha = co_rot_alp_1
    co_rot_n05   = co_rot_n05_1
