@@ -1561,7 +1561,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use externalforces, only:write_headeropts_extern
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header
- use dust,           only:graindens,grainsize
+ use dust,           only:graindens,grainsize,smincgs,smaxcgs,sindex
  use dim,            only:use_dust,maxtypes,ndustfluids,ndusttypes
  use units,          only:udist,umass,utime,unit_Bfield
  logical,         intent(in)    :: sphNGdump
@@ -1643,7 +1643,12 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
        ! write dust information
        write(*,*) 'writing graindens and grainsize to header'
        call add_to_rheader(graindens,'graindens',hdr,ierr)
-       if (multidustdump) call add_to_rheader(grainsize,'grainsize',hdr,ierr)
+       if (multidustdump) then
+          call add_to_rheader(smincgs,'smincgs',hdr,ierr)
+          call add_to_rheader(smaxcgs,'smaxcgs',hdr,ierr)
+          call add_to_rheader(sindex,'sindex',hdr,ierr)
+          call add_to_rheader(grainsize,'grainsize',hdr,ierr)
+       endif
     endif
  endif
 
@@ -1670,7 +1675,7 @@ end subroutine fill_header
 subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
                           tfile,hfactfile,alphafile,iprint,ierr)
  use io,            only:id,master
- use dim,           only:maxp,maxvxyzu
+ use dim,           only:maxp,maxvxyzu,ndusttypes,use_dustfrac
  use eos,           only:polyk,gamma,polyk2,qfacdisc
  use options,       only:ieos,tolh,alpha,alphau,alphaB,iexternalforce
  use part,          only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,maxtypes
@@ -1679,6 +1684,8 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  use externalforces,only:read_headeropts_extern
  use boundary,      only:xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
  use dump_utils,    only:extract
+ use dust,          only:smincgs,smaxcgs,sindex
+ use prompting,     only:prompt
  type(dump_h), intent(in) :: hdr
  logical,      intent(in) :: phantomdump
  integer,      intent(in) :: iprint,ntypesinfile
@@ -1688,6 +1695,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  integer :: ierrs(10),iextern_in_file
  real    :: rk2,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi,dtmaxi
  real    :: alphaufile,alphaBfile,C_courfile,C_forcefile,tolhfile
+ real    :: smin,smax,sind
  logical :: iexist
 
  ierr  = 0
@@ -1805,6 +1813,24 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
 
  if (abs(gamma-1.) > tiny(gamma) .and. maxvxyzu < 4) then
     write(*,*) 'WARNING! compiled for isothermal equation of state but gamma /= 1, gamma=',gamma
+ endif
+ 
+ !--pull grain-size distribution values to preserve grain properties
+ if (use_dustfrac .and. ndusttypes>1 .and. multidustdump) then
+    call extract('smincgs',smin,hdr,ierrs(1))
+    call extract('smaxcgs',smax,hdr,ierrs(2))
+    call extract('sindex' ,sind,hdr,ierrs(3))
+    if (any(ierrs(1:3) /= 0)) then
+       if (ierrs(1) /= 0) call prompt('Enter the value for smincgs',smincgs,1.e-6,9.999)
+       if (ierrs(2) /= 0) call prompt('Enter the value for smaxcgs',smaxcgs,smincgs,10.)
+       if (ierrs(3) /= 0) call prompt('Enter the value for sindex' ,sindex ,0.,10.)
+    else
+       smincgs = smin
+       smaxcgs = smax
+       sindex  = sind
+    endif
+    write(*,*) 'Grain-size distribution properties, [smin,smax,sindex] = ', &
+               smincgs,smaxcgs,sindex
  endif
 
  return
