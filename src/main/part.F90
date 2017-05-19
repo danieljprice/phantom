@@ -163,6 +163,7 @@ module part
 !--storage associated with/dependent on timestepping
 !
  real         :: vpred(maxvxyzu,maxan)
+ real         :: ppred(maxvxyzu,maxan)
  real         :: dustpred(maxdustan)
  real(kind=4) :: Bpred(maxBevol,maxmhdan)
 #ifdef IND_TIMESTEPS

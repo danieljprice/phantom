@@ -1659,12 +1659,12 @@ else
    SRCMETRIC= metric_schwarzschild.f90
 endif
 endif
-   SRCGR=$(SRCMETRIC)
+   SRCGR= inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 cons2prim_gr.f90
    SRCPOT=externalforces_gr.F90
    SRCEVW=evwrite_gr.F90
    SRCTEST1 = $(SRCTESTS:test_externf.f90=test_externf_gr.f90)
    SRCTEST2 = $(SRCTEST1:test_gnewton.F90=)
-   SRCTEST = $(SRCTEST2:test_corotate.f90=)
+   SRCTEST = $(SRCTEST2:test_corotate.f90=) test_metric.f90 test_cons2prim.f90 test_gr.f90
 endif
 
 SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.f90
@@ -1675,8 +1675,8 @@ SRCEOS = ${SRCMESA} eos.F90
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
          utils_mathfunc.f90 part.F90 utils_timing.f90 ${DOMAIN} mpi_balance.F90 commons.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_sphNG.f90 utils_vectors.f90 \
-         utils_datafiles.f90 datafiles.f90 ${SRCFASTMATH} ${SRCGR} random.f90 \
-         checkoptions.F90 ${SRCEOS} set_binary.f90 \
+         utils_datafiles.f90 datafiles.f90 ${SRCFASTMATH} random.f90 \
+         checkoptions.F90 ${SRCEOS} ${SRCGR} set_binary.f90 \
          viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} \
          set_disc.F90 partinject.F90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} directsum.f90 ${SRCDUST} readwrite_dumps.F90 quitdump.f90 \

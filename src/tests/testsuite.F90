@@ -47,7 +47,9 @@ subroutine testsuite(string,first,last)
 #endif
  use testkernel,   only:test_kernel
  use testptmass,   only:test_ptmass
-#ifndef GR
+#ifdef GR
+ use testgr,       only:test_gr
+#else
  use testgnewton,  only:test_gnewton
  use testcorotate, only:test_corotate
 #endif
@@ -65,7 +67,7 @@ subroutine testsuite(string,first,last)
  integer, save :: ntests,npass,nfail
  logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity
- logical :: dosetdisc,doeos,docooling,dodust,docorotate,doany
+ logical :: dosetdisc,doeos,docooling,dodust,docorotate,doany,dogr
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
 #endif
@@ -102,6 +104,7 @@ subroutine testsuite(string,first,last)
  doeos      = .false.
  dodust      = .false.
  docooling   = .false.
+ dogr        = .false.
  if (index(string,'deriv') /= 0) doderivs = .true.
  if (index(string,'grav') /= 0)      dogravity = .true.
  if (index(string,'polytrope') /= 0) dogravity = .true.
@@ -110,6 +113,7 @@ subroutine testsuite(string,first,last)
  if (index(string,'dump') /= 0) dorwdump = .true.
  if (index(string,'sink') /= 0) doptmass = .true.
  if (index(string,'cool') /= 0) docooling = .true.
+ if (index(string,'gr') /= 0) dogr = .true.
  doany = any((/doderivs,dogravity,dodust,dorwdump,doptmass,docooling/))
 
  select case(trim(string))
@@ -143,6 +147,8 @@ subroutine testsuite(string,first,last)
     doeos = .true.
  case('dust')
     dodust = .true.
+ case('gr')
+    dogr = .true.
  case default
     if (.not.doany) testall = .true.
  end select
@@ -251,7 +257,13 @@ subroutine testsuite(string,first,last)
     call barrier_mpi()
  endif
 
-#ifndef GR
+#ifdef GR
+   if (dogr.or.testall) then
+      call test_gr(ntests,npass)
+      call set_default_options ! restore defaults
+      call barrier_mpi()
+   endif
+#else
 !
 !--test of gnewton module
 !
