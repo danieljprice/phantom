@@ -175,9 +175,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #ifdef MPI
  use mpiderivs,   only:send_cell,recv_cells,check_send_finished,init_cell_exchange,finish_cell_exchange, &
                        recv_while_wait
-#endif
-#ifdef MPI
- use stack,       only:reserve_stack
+ use stack,       only:reserve_stack,allocate_stack,deallocate_stack
 #endif
 
  integer,      intent(in)    :: icall,npart
@@ -234,17 +232,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  integer                   :: j,k,l
  logical                   :: do_export
 
- type(stackforce), save    :: stack_remote
- type(stackforce), save    :: stack_waiting
+ type(stackforce)    :: stack_remote
+ type(stackforce)    :: stack_waiting
 
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
  type(cellforce)           :: xrecvbuf(nprocs),xsendbuf
-
- ! check that stacks are empty
- if (stack_remote%n /= 0)  &
- & call fatal('force', 'remote stack is not empty: may be initialised improperly, or something left over')
- if (stack_waiting%n /= 0) &
- & call fatal('force', 'waiting stack is not empty: may be initialised improperly, or something left over')
 #endif
 
 #ifdef IND_TIMESTEPS
@@ -320,6 +312,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
 #ifdef MPI
  call init_cell_exchange(xrecvbuf,irequestrecv)
+ call allocate_stack(stack_remote)
+ call allocate_stack(stack_waiting)
 #endif
 
 !
@@ -539,6 +533,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
 !$omp single
  call finish_cell_exchange(irequestrecv,xsendbuf)
+ call deallocate_stack(stack_remote)
+ call deallocate_stack(stack_waiting)
 !$omp end single
 #endif
 

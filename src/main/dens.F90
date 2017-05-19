@@ -137,7 +137,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use mpiutils,  only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
 #ifdef MPI
  use linklist,  only:update_hmax_remote
- use stack,     only:reserve_stack
+ use stack,     only:reserve_stack,allocate_stack,deallocate_stack
  use mpiderivs, only:send_cell,recv_cells,check_send_finished,init_cell_exchange,finish_cell_exchange,recv_while_wait
 #endif
  use timestep,  only:rho_dtthresh,mod_dtmax,mod_dtmax_now
@@ -189,17 +189,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  type(stackdens), save     :: stack_waiting
  type(stackdens), save     :: stack_redo
 
- ! check that stacks are empty
- if (stack_remote%n /= 0)  &
-    call fatal('densityiterate','remote stack is not empty: may be initialised improperly, or something left over')
- if (stack_waiting%n /= 0) &
-    call fatal('densityiterate','waiting stack is not empty: may be initialised improperly, or something left over')
- if (stack_redo%n /= 0)    &
-    call fatal('densityiterate','redostack is not empty: may be initialised improperly, or something left over')
-#endif
-
-#ifdef MPI
  call init_cell_exchange(xrecvbuf,irequestrecv)
+ call allocate_stack(stack_remote)
+ call allocate_stack(stack_redo)
+ call allocate_stack(stack_waiting)
 #endif
 
  if (iverbose >= 3 .and. id==master) &
@@ -517,6 +510,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 #ifdef MPI
 
  call finish_cell_exchange(irequestrecv,xsendbuf)
+ call deallocate_stack(stack_remote)
+ call deallocate_stack(stack_redo)
+ call deallocate_stack(stack_waiting)
 #endif
 
  ! reduce max stress across MPI procs

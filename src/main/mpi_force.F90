@@ -60,8 +60,8 @@ module mpiforce
 
  type stackforce
     sequence
-    type(cellforce)  :: cells(stacksize)
-    integer          :: maxlength = stacksize
+    type(cellforce), allocatable  :: cells(:)
+    integer          :: maxlength = 0
     integer          :: n = 0
  endtype
 
