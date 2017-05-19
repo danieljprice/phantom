@@ -492,6 +492,7 @@ endif
  return
 end subroutine step
 
+#ifdef GR
 subroutine step_extern_gr(dt,npart,xyzh,vxyzu,pxyzu)
  use part, only:isdead_or_accreted
  use cons2prim_gr, only: conservative2primitive
@@ -521,7 +522,7 @@ subroutine step_extern_gr(dt,npart,xyzh,vxyzu,pxyzu)
  !$omp end parallel do
 
 end subroutine step_extern_gr
-
+#endif
 !----------------------------------------------------------------
 !+
 !  This is the equivalent of the routine below when no external
