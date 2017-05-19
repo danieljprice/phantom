@@ -61,8 +61,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  real, parameter :: Tdefault = 1.
  logical, parameter :: write_T_files = .true. ! ask mcfost to write fits files with temperature structure
- logical, parameter :: ISM = .true. ! turn on ISM heating
-
+ integer, parameter :: ISM = 2 ! ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto
 
  if (.not.init_mcfost) then
     ilen = index(dumpfile,'_')

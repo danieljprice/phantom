@@ -118,6 +118,7 @@ subroutine compute_energies(t)
  angaccz = 0.
  mgas    = 0.
  mdust   = 0.
+ mgas    = 0.
  if (maxalpha==maxp) then
     alphai = 0.
  else
@@ -147,12 +148,11 @@ subroutine compute_energies(t)
 !$omp private(tsi,iregime) &
 #endif
 #ifdef LIGHTCURVE
-!$omp shared(luminosity) &
+!$omp shared(luminosity,track_lum) &
 #endif
-!$omp reduction(+:np,xmom,ymom,zmom,angx,angy,angz) &
+!$omp reduction(+:np,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
 !$omp reduction(+:ekin,etherm,emag,epot)
-
  call initialise_ev_data(ev_data_thread)
  np_rho_thread = 0
 !$omp do
@@ -253,8 +253,8 @@ subroutine compute_energies(t)
              gasfrac     = 1. - dustfraci
              dust_to_gas = dustfraci/gasfrac
              call ev_data_update(ev_data_thread,'dust/gas',dust_to_gas     )
-             call ev_data_update(ev_data_thread,'mgas',    pmassi*gasfrac  ) ! mgas  = mgas  + pmassi*gasfrac
-             call ev_data_update(ev_data_thread,'mdust',   pmassi*dustfraci) ! mdust = mdust + pmassi*dustfraci
+             mgas  = mgas  + pmassi*gasfrac
+             mdust = mdust + pmassi*dustfraci
           else
              dustfraci = 0.
              gasfrac   = 1.
@@ -523,8 +523,8 @@ subroutine compute_energies(t)
  endif
 
  if (use_dustfrac) then
-    mgas  = ev_get_value('mgas')
-    mdust = ev_get_value('mdust')
+    mgas  = reduce_fn('+',mgas)
+    mdust = reduce_fn('+',mdust)
  endif
 
  if (.not. gas_only) then

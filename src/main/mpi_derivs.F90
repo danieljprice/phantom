@@ -361,7 +361,8 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv)
              target_stack%cells(iwait)%nneigh(k) = target_stack%cells(iwait)%nneigh(k) + xbuf(iproc)%nneigh(k)
           enddo
           do k = 1,nprocs
-             target_stack%cells(iwait)%remote_export(k) = target_stack%cells(iwait)%remote_export(k) .and. xbuf(iproc)%remote_export(k)
+             target_stack%cells(iwait)%remote_export(k) = target_stack%cells(iwait)%remote_export(k) &
+                  .and. xbuf(iproc)%remote_export(k)
           enddo
           target_stack%cells(iwait)%nneightry = target_stack%cells(iwait)%nneightry + xbuf(iproc)%nneightry
        else
@@ -406,7 +407,8 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
           enddo
 #endif
           do k =1,nprocs
-             target_stack%cells(iwait)%remote_export(k) = target_stack%cells(iwait)%remote_export(k) .and. xbuf(iproc)%remote_export(k)
+             target_stack%cells(iwait)%remote_export(k) = target_stack%cells(iwait)%remote_export(k) &
+               .and. xbuf(iproc)%remote_export(k)
           enddo
           target_stack%cells(iwait)%ndrag = target_stack%cells(iwait)%ndrag + xbuf(iproc)%ndrag
           target_stack%cells(iwait)%nstokes = target_stack%cells(iwait)%nstokes + xbuf(iproc)%nstokes
