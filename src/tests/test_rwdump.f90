@@ -53,6 +53,7 @@ subroutine test_rwdump(ntests,npass)
  real :: smincgs                  = 1.e-5
  real :: smaxcgs                  = 0.1
  real :: sindex                   = 3.5
+ real :: grid(ndusttypes+1)       = 0.
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(64)
  integer :: i,j,ierr,itest,ngas,ndust,ntot
@@ -114,7 +115,7 @@ subroutine test_rwdump(ntests,npass)
        endif
        if (use_dustfrac) then
           dustfrac(:,i) = 16._4
-          if (ndusttypes>1) call get_grainsize(grainsizecgs,smincgs,smaxcgs)
+          if (ndusttypes>1) call get_grainsize(smincgs,smaxcgs,grid)
        endif
     enddo
     nptmass = 10
