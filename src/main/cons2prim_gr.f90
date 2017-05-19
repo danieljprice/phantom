@@ -1,13 +1,57 @@
-module cons2prim
+module cons2prim_gr
+ use eos, only: gamma
 implicit none
 
-public :: conservative2primitive, primitive2conservative, get_p_from_v, get_v_from_p
+public :: conservative2primitive, primitive2conservative, get_u
 public :: error_to_string
 integer, parameter :: ierr_notconverged = 1
+
+private :: get_pressure, get_enthalpy
+
+integer, parameter, private :: eos_type = 2 ! cons2prim has been written for only adiabatic eos.
 
 private
 
 contains
+
+!=========================
+subroutine get_pressure(P,dens,u)
+use eos, only: equationofstate
+   real, intent(out) :: P
+   real, intent(in)  :: dens, u
+   real :: ponrho, spsound
+
+   call equationofstate(eos_type,ponrho,spsound,dens,0.,0.,0.)
+   P = ponrho*dens
+   ! P = (gamma-1.0)*dens*u
+
+end subroutine
+
+subroutine get_u(u,P,dens)
+use eos, only: equationofstate
+   real, intent(in)  :: dens,P
+   real, intent(out) :: u
+   real :: ponrho, spsound
+
+   call equationofstate(eos_type,ponrho,spsound,dens,0.,0.,0.)
+   u = ponrho/(gamma-1.)
+
+end subroutine
+
+subroutine get_enthalpy(enth,dens,P)
+use eos, only: equationofstate
+   real, intent(in)  :: dens,P
+   real, intent(out) :: enth
+   real :: ponrho, spsound
+
+   call equationofstate(eos_type,ponrho,spsound,dens,0.,0.,0.)
+   enth = 1.+ponrho*(gamma/(gamma-1.))
+
+   ! Needed in dust case when dens = 0 causes P/dens = NaN and therefore enth = NaN
+   if(abs(p)<tiny(p)) enth=1.
+
+end subroutine
+!=========================
 
 elemental function error_to_string(ierr) result(string)
    integer, intent(in) :: ierr
@@ -21,6 +65,47 @@ elemental function error_to_string(ierr) result(string)
    end select
 end function error_to_string
 
+subroutine primitive_to_conservative(npart,xyzh,dens,v,u,P,rho,pmom,en)
+   use part, only:isdead_or_accreted
+   integer, intent(in) :: npart
+   real, intent(in) :: xyzh(:,:), v(:,:)
+   real, intent(in) :: dens(:),u(:)
+   real, intent(out) :: pmom(:,:)
+   real, intent(out) :: rho(:), en(:), P(:)
+   integer :: i
+
+   do i=1,npart
+     if (.not.isdead_or_accreted(xyzh(4,i))) then
+       call primitive2conservative(xyzh(1:3,i),v(1:3,i),dens(i),u(i),P(i),rho(i),pmom(1:3,i),en(i),'entropy')
+     endif
+   enddo
+
+end subroutine primitive_to_conservative
+
+subroutine conservative_to_primitive(npart,xyzh,rho,pmom,en,dens,v,u,P)
+   use part, only:isdead_or_accreted
+   integer, intent(in) :: npart
+   real, intent(in) :: pmom(:,:),xyzh(:,:)
+   real, intent(in) :: rho(:),en(:)
+   real, intent(inout) :: v(:,:)
+   real, intent(inout) :: dens(:), u(:), P(:)
+   integer :: i, ierr
+
+   do i=1,npart
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+         call conservative2primitive(xyzh(1:3,i),v(1:3,i),dens(i),u(i),P(i),rho(i),pmom(1:3,i),en(i),ierr,'entropy')
+         if (ierr > 0) then
+            print*,' conservative2primitive: could not solve rootfinding for particle ',i
+            print*,' pmom =',pmom(1:3,i)
+            print*,' rho* =',rho(i)
+            print*,' en   =',en(i)
+            ! stop
+         endif
+      endif
+   end do
+
+end subroutine conservative_to_primitive
+
 !----------------------------------------------------------------
 !+
 !  Construct conserved variables from the primitive variables
@@ -31,7 +116,6 @@ end function error_to_string
 subroutine primitive2conservative(x,v,dens,u,P,rho,pmom,en,en_type)
    use utils_gr,     only: get_u0
    use metric_tools, only: get_metric
-   use eos,          only: get_enthalpy, gam
    real, intent(in)  :: x(1:3)
    real, intent(in) :: dens,v(1:3),u,P
    real, intent(out)  :: rho,pmom(1:3),en
@@ -60,14 +144,13 @@ subroutine primitive2conservative(x,v,dens,u,P,rho,pmom,en,en_type)
    enddo
    en = U0*enth*gvv + (1.+u)/U0
 
-   if (en_type == "entropy") en = P/(dens**gam)
+   if (en_type == "entropy") en = P/(dens**gamma)
 
 end subroutine primitive2conservative
 
 subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,en_type)
    use utils_gr, only: dot_product_gr, get_metric3plus1
    use metric_tools, only: get_metric
-   use eos, only: get_enthalpy, get_u, gam
    real, intent(in)  :: x(1:3)
    real, intent(inout) :: v(1:3),dens,u,P
    real, intent(in)  :: rho,pmom(1:3),en
@@ -96,15 +179,15 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,en_type)
       dens = rho*alpha/(sqrtg*lorentz_LEO)
 
       p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product_gr(pmom,beta,gammaijUP)),0.)
-      if (en_type == 'entropy') p = en*(rho*alpha/(sqrtg*lorentz_LEO))**gam
+      if (en_type == 'entropy') p = en*(rho*alpha/(sqrtg*lorentz_LEO))**gamma
 
       call get_enthalpy(enth,dens,p)
 
       f = enth-enth_old
 
-      !This line is unique to the equation of state
-      df= -1.+(gam/(gam-1.))*(1.-pmom2*p/(enth_old**3*lorentz_LEO**2*dens))
-      if (en_type == 'entropy') df = -1. + (gam*pmom2*P)/(lorentz_LEO**2 * enth_old**3 * dens)
+      !This line is unique to the equation of state - implemented for adiabatic at the moment
+      df= -1.+(gamma/(gamma-1.))*(1.-pmom2*p/(enth_old**3*lorentz_LEO**2*dens))
+      if (en_type == 'entropy') df = -1. + (gamma*pmom2*P)/(lorentz_LEO**2 * enth_old**3 * dens)
 
       enth = enth_old - f/df
 
@@ -129,7 +212,7 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,en_type)
    dens = rho*alpha/(sqrtg*lorentz_LEO)
 
    p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product_gr(pmom,beta,gammaijUP)),0.)
-   if (en_type == 'entropy') p = en*(rho*alpha/(sqrtg*lorentz_LEO))**gam
+   if (en_type == 'entropy') p = en*(rho*alpha/(sqrtg*lorentz_LEO))**gamma
 
    v3d(:) = alpha*pmom(:)/(enth*lorentz_LEO)-beta(:)
 
@@ -177,4 +260,4 @@ subroutine get_p_from_v(pmom,v,x)
 
 end subroutine get_p_from_v
 
-end module cons2prim
+end module cons2prim_gr
