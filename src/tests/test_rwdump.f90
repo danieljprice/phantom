@@ -48,7 +48,7 @@ subroutine test_rwdump(ntests,npass)
  use mpiutils,        only:barrier_mpi
  use dump_utils,      only:read_array_from_file
  use timing,          only:getused,printused
- use dust,            only:get_grainsize
+ use dust,            only:set_grainsize
  real :: grainsizecgs(ndusttypes) = 0.1
  real :: smincgs                  = 1.e-5
  real :: smaxcgs                  = 0.1
@@ -115,7 +115,7 @@ subroutine test_rwdump(ntests,npass)
        endif
        if (use_dustfrac) then
           dustfrac(:,i) = 16._4
-          if (ndusttypes>1) call get_grainsize(smincgs,smaxcgs,grid)
+          if (ndusttypes>1) call set_grainsize(smincgs,smaxcgs,grid)
        endif
     enddo
     nptmass = 10

@@ -53,7 +53,7 @@ use dim, only:ndusttypes
   module procedure set_dustfrac_single, set_dustfrac_power_law
  end interface set_dustfrac
  public           :: set_dustfrac
- public           :: get_grainsize
+ public           :: set_grainsize
 
  real, private    :: cste_mu,coeff_gei_1,seff
  private
@@ -89,9 +89,9 @@ subroutine init_drag(ierr)
  !--compute the grain mass (spherical compact grains of radius s)
  if (ndusttypes>1) then
     if (smincgs == smaxcgs) then
-       call get_grainsize(smincgs,smaxcgs)
+       call set_grainsize(smincgs,smaxcgs)
     else 
-       call get_grainsize(smincgs,smaxcgs,grid)
+       call set_grainsize(smincgs,smaxcgs,grid)
     endif
  endif
  do i = 1,ndusttypes
@@ -190,7 +190,7 @@ subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,smin,smax,sindex)
     !--If all the same grain size, then just scale the dust fraction
     dustfrac = dust_to_gas_tot/(1.+dust_to_gas_tot)*1./real(ndusttypes)
  else
-    call get_grainsize(smin,smax,grid)
+    call set_grainsize(smin,smax,grid)
    
     !--Dust density is computed from drhodust ∝ dn*mdust where dn ∝ s**(-p)*ds
     !  and mdust ∝ s**(3). This is then integrated across each cell to account
@@ -246,7 +246,7 @@ end subroutine set_dustfrac_power_law
 !  utility function to set the grain size
 !+
 !----------------------------------------------------------------
-subroutine get_grainsize(smin,smax,grid)
+subroutine set_grainsize(smin,smax,grid)
  use physcon, only:pi
  use io,      only: fatal
  use dim,     only: ndusttypes
@@ -282,7 +282,7 @@ subroutine get_grainsize(smin,smax,grid)
  graindens    = graindenscgs/unit_density
  grainmass(:) = 4./3.*pi*graindens*grainsize(:)**3
 
-end subroutine get_grainsize
+end subroutine set_grainsize
 
 !----------------------------------------------------------------------------
 !+
