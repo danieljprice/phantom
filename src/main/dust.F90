@@ -68,7 +68,7 @@ contains
 subroutine init_drag(ierr)
  use physcon,  only:pi
  use io,       only:error
- use units,    only:udist,umass,unit_density
+ use units,    only:udist,umass
  use physcon,  only:mass_proton_cgs,cross_section_H2_cgs
  use eos,      only:gamma
  integer, intent(out) :: ierr
@@ -87,23 +87,20 @@ subroutine init_drag(ierr)
  coeff_gei_1       = sqrt(8./(pi*gamma))
 
  !--compute the grain mass (spherical compact grains of radius s)
- !--change this line for fractal grains or grains of different sizes
  if (ndusttypes>1) then
     if (smincgs == smaxcgs) then
-       call get_grainsize(grainsizecgs,smincgs,smaxcgs)
+       call get_grainsize(smincgs,smaxcgs)
     else 
-       call get_grainsize(grainsizecgs,smincgs,smaxcgs,grid)
+       call get_grainsize(smincgs,smaxcgs,grid)
     endif
  endif
- grainsize(:)      = grainsizecgs(:)/udist
- graindens         = graindenscgs/unit_density
- grainmass(:)      = 4./3.*pi*graindens*grainsize(:)**3
  do i = 1,ndusttypes
     if (grainmass(i) <= 0.) then
        call error('init_drag','grain size/density <= 0',var='grainmass',val=grainmass(i))
        ierr = 2
     endif
  enddo
+ 
  !--compute the effective surface density used to calculate the mean free path
  cste_seff         = pi/sqrt(2.)*5./64.
  mass_mol_gas      = (2.*mass_proton_cgs)/umass
@@ -182,7 +179,6 @@ subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,smin,smax,sindex)
  integer :: i
  real :: dustfrac_tot
  real :: norm
- real :: s(ndusttypes)
  real :: rhodtot
  real :: grid(ndusttypes+1) = 0.
  real :: rhodusti(ndusttypes)
@@ -194,7 +190,7 @@ subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,smin,smax,sindex)
     !--If all the same grain size, then just scale the dust fraction
     dustfrac = dust_to_gas_tot/(1.+dust_to_gas_tot)*1./real(ndusttypes)
  else
-    call get_grainsize(s,smin,smax,grid)
+    call get_grainsize(smin,smax,grid)
    
     !--Dust density is computed from drhodust ∝ dn*mdust where dn ∝ s**(-p)*ds
     !  and mdust ∝ s**(3). This is then integrated across each cell to account
@@ -247,14 +243,15 @@ end subroutine set_dustfrac_power_law
 
 !----------------------------------------------------------------
 !+
-!  utility function to get a log-normal grain size distribution
+!  utility function to set the grain size
 !+
 !----------------------------------------------------------------
-subroutine get_grainsize(s,smin,smax,grid)
- use io,   only: fatal
- use dim,  only: ndusttypes
+subroutine get_grainsize(smin,smax,grid)
+ use physcon, only:pi
+ use io,      only: fatal
+ use dim,     only: ndusttypes
+ use units,   only: udist,unit_density
  real, intent(in)  :: smin,smax
- real, intent(out) :: s(:)
  real, optional, intent(inout) :: grid(:)
  integer :: i
  real :: log_ds
@@ -262,7 +259,7 @@ subroutine get_grainsize(s,smin,smax,grid)
  
  if (smax==smin) then
     !--If all the same grain size, then just scale the dust fraction
-    s(:) = smax
+    grainsizecgs(:) = smax
  else
     !--Create a uniform grid with N+1 points between smax and smin (inclusive)
     log_ds = log10(smax/smin)/real(ndusttypes)
@@ -276,10 +273,15 @@ subroutine get_grainsize(s,smin,smax,grid)
     !--Find representative s for each cell
     !  (skewed towards small grains because there are more small grains than large grains)
     do i = 1,ndusttypes
-       s(i) = sqrt(grid(i)*grid(i+1))
+       grainsizecgs(i) = sqrt(grid(i)*grid(i+1))
     enddo
  endif
  
+ !--Set the grain properties relating to grain size
+ grainsize(:) = grainsizecgs(:)/udist
+ graindens    = graindenscgs/unit_density
+ grainmass(:) = 4./3.*pi*graindens*grainsize(:)**3
+
 end subroutine get_grainsize
 
 !----------------------------------------------------------------------------
