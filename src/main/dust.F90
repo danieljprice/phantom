@@ -75,7 +75,6 @@ subroutine init_drag(ierr)
  integer :: i
  real :: cste_seff
  real :: mass_mol_gas, cross_section_gas
- real :: grid(ndusttypes+1) = 0.
 
  ierr = 0
  !--compute constants which are used in the ts calculation
@@ -88,11 +87,7 @@ subroutine init_drag(ierr)
 
  !--compute the grain mass (spherical compact grains of radius s)
  if (ndusttypes>1) then
-    if (smincgs == smaxcgs) then
-       call set_grainsize(smincgs,smaxcgs)
-    else 
-       call set_grainsize(smincgs,smaxcgs,grid)
-    endif
+    call set_grainsize(smincgs,smaxcgs)
  endif
  do i = 1,ndusttypes
     if (grainmass(i) <= 0.) then
@@ -241,22 +236,34 @@ subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,smin,smax,sindex)
 
 end subroutine set_dustfrac_power_law
 
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------------
 !+
 !  utility function to set the grain size
+!
+!  if spread of sizes, optionally returns an array of size bins in log space
 !+
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------------
 subroutine set_grainsize(smin,smax,grid)
  use physcon, only:pi
  use io,      only: fatal
  use dim,     only: ndusttypes
  use units,   only: udist,unit_density
  real, intent(in)  :: smin,smax
- real, optional, intent(inout) :: grid(:)
+ real, optional, intent(out) :: grid(:)
  integer :: i
  real :: log_ds
  real :: log_grid(ndusttypes+1)
- 
+
+ smincgs = smin
+ smaxcgs = smax
+
+ ! check whether grid is passed in, and if so, that is large enough
+ if (present(grid)) then
+    if (size(grid) < ndusttypes+1) then
+       print *, 'error trying to pass grid of insufficient size to set_grainsize()'
+    endif
+ endif
+
  if (smax==smin) then
     !--If all the same grain size, then just scale the dust fraction
     grainsizecgs(:) = smax
@@ -267,14 +274,20 @@ subroutine set_grainsize(smin,smax,grid)
        log_grid(i) = log10(smin) + (i-1)*log_ds
     enddo
 
-    !--Convert grid corrdinates back to real space
-    grid = 10.**log_grid
+    !--Convert grid coordinates back to real space
+    log_grid = 10.**log_grid
 
     !--Find representative s for each cell
     !  (skewed towards small grains because there are more small grains than large grains)
     do i = 1,ndusttypes
-       grainsizecgs(i) = sqrt(grid(i)*grid(i+1))
+       grainsizecgs(i) = sqrt(log_grid(i)*log_grid(i+1))
     enddo
+ 
+    ! if we supplied grid, then return it
+    if (present(grid)) then
+       grid = log_grid ! this is no longer log of the grid at this point
+    endif
+
  endif
  
  !--Set the grain properties relating to grain size
