@@ -772,7 +772,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     endif
 
     ! see if all the particles ended up in one node, if so, arbitrarily build 2 cells (global tree build is excepted)
-    if (((nl==npnode) .or. (nr==npnode)) .and. (.not. present(ifirstingroup))) then
+    if (((nl==npnode) .or. (nr==npnode)) .and. (.not. present(groupsize))) then
       ! no need to move particles because if they all ended up in one node,
       ! then they are still in the original order
       nl = npnode / 2
