@@ -877,6 +877,21 @@ ifeq ($(SETUP), mcfost)
     MCFOST=yes
 endif
 
+ifeq ($(SETUP), sfmcfost)
+#   live feedback from mcfost in star formation calculation
+    PERIODIC=yes
+    SETUPFILE= setup_sphereinbox.f90
+    ANALYSIS= analysis_mcfost.f90
+    LIVE_ANALYSIS=yes
+    ISOTHERMAL=no
+    KNOWN_SETUP=yes
+    MULTIRUNFILE= multirun.f90
+    IND_TIMESTEPS=yes
+    GRAVITY=yes
+    LIGHTCURVE=yes
+    MCFOST=yes
+endif
+
 ifeq ($(SETUP), HLTau_mcfost)
     # Question : why no -DDISC_VISCOSITY ???
     FPPFLAGS= -DSORT_RADIUS_INIT -DDISC_VISCOSITY
@@ -1219,6 +1234,25 @@ ifeq ($(SYSTEM), gfortran47)
     OMPFLAGS = -fopenmp
     CC = gcc
     CCFLAGS = -O3
+endif
+
+ifeq ($(SYSTEM), complexity)
+#   complexity.leicester.dirac.ac.uk
+    FC= ifort
+    FFLAGS= -O3 -xhost -ipo -mcmodel=medium -shared-intel -warn uninitialized \
+            -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+    OMPFLAGS = -qopenmp
+    CC = icc
+    CCFLAGS = -O3 -ipo -mcmodel=medium
+    LIBCXX = -cxxlib
+    QSYS=pbs
+    QNAME=q64
+    WALLTIME='48:00:00'
 endif
 
 ifeq ($(SYSTEM), ifort)

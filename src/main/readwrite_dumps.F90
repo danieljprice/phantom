@@ -22,9 +22,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, dump_utils, dust, eos, externalforces, io,
-!    lumin_nsdisc, mpi, mpiutils, options, part, setup_params, sphNGutils,
-!    timestep, units
+!  DEPENDENCIES: boundary, dim, dump_utils, dust, eos, externalforces,
+!    initial_params, io, lumin_nsdisc, mpi, mpiutils, options, part,
+!    setup_params, sphNGutils, timestep, units
 !+
 !--------------------------------------------------------------------------
 module readwrite_dumps
@@ -326,7 +326,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  integer, parameter :: isteps_sphNG = 0, iphase0 = 0
  integer(kind=8)    :: ilen(4)
  integer            :: nums(ndatatypes,4)
- integer            :: i,j,ipass,k
+ integer            :: i,ipass,k
  integer            :: ierr,ierrs(20)
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
@@ -438,11 +438,11 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (use_dustfrac) call write_array(1,deltav,deltav_label,3,npart,k,ipass,idump,nums,ierrs(6))
 
        ! write pressure to file
-       if (ieos==10 .and. k==i_real) then
+       if ((ieos==8 .or. ieos==9 .or. ieos==10) .and. k==i_real) then
           if (.not. allocated(temparr)) allocate(temparr(npart))
           if (.not.done_init_eos) call init_eos(ieos,ierr)
           do i=1,npart
-             rhoi = rhoh(xyzh(4,i),get_pmass(j,use_gas))
+             rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
              temparr(i) = ponrhoi*rhoi
           enddo
@@ -1338,11 +1338,19 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     write(*,*) 'ERROR: missing velocity information from file'
  endif
  if (maxvxyzu==4 .and. .not.got_vxyzu(4)) then
-    do i=i1,i2
-       vxyzu(4,i) = (1.0/(gamma-1.0))*polyk*rhoh(xyzh(4,i),get_pmass(i,use_gas))**(gamma - 1.)
-       !print*,'u = ',vxyzu(4,i)
-    enddo
-    write(*,*) 'WARNING: u not in file but setting u = (K*rho**(gamma-1))/(gamma-1)'
+    if (gamma < 1.01) then
+       do i=i1,i2
+          vxyzu(4,i) = 1.5*polyk
+          !print*,'u = ',vxyzu(4,i)
+       enddo
+       write(*,*) 'WARNING: u not in file but setting u = 3/2 * cs^2'
+    else
+       do i=i1,i2
+          vxyzu(4,i) = (1.0/(gamma-1.0))*polyk*rhoh(xyzh(4,i),get_pmass(i,use_gas))**(gamma - 1.)
+          !print*,'u = ',vxyzu(4,i)
+       enddo
+       write(*,*) 'WARNING: u not in file but setting u = (K*rho**(gamma-1))/(gamma-1)'
+    endif
  endif
  if (h2chemistry .and. .not.all(got_abund)) then
     write(*,*) 'error in rdump: using H2 chemistry, but abundances not found in dump file'
@@ -1539,6 +1547,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use eos,            only:polyk,gamma,polyk2,qfacdisc,isink
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,ieos
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz
+ use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use externalforces, only:write_headeropts_extern
@@ -1621,6 +1630,11 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(ymax,'ymax',hdr,ierr)
     call add_to_rheader(zmin,'zmin',hdr,ierr)
     call add_to_rheader(zmax,'zmax',hdr,ierr)
+    call add_to_rheader(get_conserv,'get_conserv',hdr,ierr)
+    call add_to_rheader(etot_in,'etot_in',hdr,ierr)
+    call add_to_rheader(angtot_in,'angtot_in',hdr,ierr)
+    call add_to_rheader(totmom_in,'totmom_in',hdr,ierr)
+    call add_to_rheader(mdust_in,'mdust_in',hdr,ierr)
     if (use_dust) then
        ! write dust information
        write(*,*) 'writing graindens and grainsize to header'
@@ -1656,6 +1670,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  use eos,           only:polyk,gamma,polyk2,qfacdisc
  use options,       only:ieos,tolh,alpha,alphau,alphaB,iexternalforce
  use part,          only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,maxtypes
+ use initial_params,only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,  only:rhozero
  use timestep,      only:dtmax,C_cour,C_force
  use externalforces,only:read_headeropts_extern
@@ -1783,6 +1798,17 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
     else
        write(*,*) 'External field found, Bext = ',Bextx,Bexty,Bextz
     endif
+ endif
+
+ ! values to track that conserved values remain conserved
+ call extract('get_conserv',get_conserv,hdr,ierrs(1))
+ call extract('etot_in',  etot_in,  hdr,ierrs(2))
+ call extract('angtot_in',angtot_in,hdr,ierrs(3))
+ call extract('totmom_in',totmom_in,hdr,ierrs(4))
+ call extract('mdust_in', mdust_in, hdr,ierrs(5))
+ if (any(ierrs(1:5) /= 0)) then
+    write(*,*) 'ERROR reading values to verify conservation laws.  Resetting initial values.'
+    get_conserv = 1.0
  endif
 
  if (abs(gamma-1.) > tiny(gamma) .and. maxvxyzu < 4) then

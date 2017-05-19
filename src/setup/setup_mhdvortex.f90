@@ -59,9 +59,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real :: deltax,totmass,dz
+ real :: deltax,totmass !,dz,rfact,expo
  integer :: i,maxvxyzu,nx,maxp
- real :: u, k, const, halfsqrt2, rfact, rsq1, expo, PplusdeltaP
+ real :: u, k, const, halfsqrt2,rsq1,PplusdeltaP
  logical :: use_closepacked
 !
 !--general parameters
@@ -83,20 +83,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  polyk = 0.
  if (maxvxyzu < 4) stop 'need maxvxyzu=4 for MHD vortex setup'
-
-
 !
 !--boundaries
 !
  call set_boundary(-5.0,5.0,-5.0,5.0,-5.0,5.0)
 
  use_closepacked = .true.
- nx = 128
+ nx = 64
  if (id==master) call prompt('Enter resolution (number of particles in x)',nx,8)
 
  call bcast_mpi(nx)
  deltax = dxbound/nx
-
 
  if (use_closepacked) then
     call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
@@ -158,4 +155,3 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 end subroutine setpart
 
 end module setup
-

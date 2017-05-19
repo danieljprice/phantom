@@ -22,11 +22,20 @@
 !--------------------------------------------------------------------------
 module stack
 #ifdef MPI
+ use dim,         only:stacksize
  use io,          only:fatal
  use mpidens,     only:celldens,stackdens
  use mpiforce,    only:cellforce,stackforce
 
  implicit none
+
+ interface allocate_stack
+  module procedure allocate_stack_dens,allocate_stack_force
+ end interface
+
+ interface deallocate_stack
+  module procedure deallocate_stack_dens,deallocate_stack_force
+ end interface
 
  interface push_onto_stack
   module procedure push_onto_stack_dens,push_onto_stack_force
@@ -41,11 +50,41 @@ module stack
  end interface
 
 
+ public :: allocate_stack
+ public :: deallocate_stack
  public :: push_onto_stack
  public :: pop_off_stack
  public :: reserve_stack
 
 contains
+
+subroutine allocate_stack_dens(stack)
+   type(stackdens),  intent(inout) :: stack
+
+   allocate(stack%cells(stacksize))
+   stack%maxlength = stacksize
+end subroutine allocate_stack_dens
+
+subroutine allocate_stack_force(stack)
+   type(stackforce),  intent(inout) :: stack
+
+   allocate(stack%cells(stacksize))
+   stack%maxlength = stacksize
+end subroutine allocate_stack_force
+
+subroutine deallocate_stack_dens(stack)
+   type(stackdens),  intent(inout) :: stack
+
+   deallocate(stack%cells)
+   stack%maxlength = 0
+end subroutine deallocate_stack_dens
+
+subroutine deallocate_stack_force(stack)
+   type(stackforce),  intent(inout) :: stack
+
+   deallocate(stack%cells)
+   stack%maxlength = 0
+end subroutine deallocate_stack_force
 
 subroutine push_onto_stack_dens(stack,cell)
  type(stackdens),    intent(inout)  :: stack

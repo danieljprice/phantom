@@ -87,9 +87,7 @@ module forces
        iponrhoi    = 42, &
        icurlBxi    = 43, &
        icurlByi    = 44, &
-       icurlBzi    = 45, &
-       idtdragi    = 46, &
-       ivsigmaxi   = 47
+       icurlBzi    = 45
 
  !--indexing for fsum array
  integer, parameter :: &
@@ -177,9 +175,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #ifdef MPI
  use mpiderivs,   only:send_cell,recv_cells,check_send_finished,init_cell_exchange,finish_cell_exchange, &
                        recv_while_wait
-#endif
-#ifdef MPI
- use stack,       only:reserve_stack
+ use stack,       only:reserve_stack,allocate_stack,deallocate_stack
 #endif
 
  integer,      intent(in)    :: icall,npart
@@ -236,20 +232,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  integer                   :: j,k,l
  logical                   :: do_export
 
- type(stackforce), save    :: stack_remote
- type(stackforce), save    :: stack_waiting
- type(stackforce), save    :: stack_ready
+ type(stackforce)    :: stack_remote
+ type(stackforce)    :: stack_waiting
 
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
  type(cellforce)           :: xrecvbuf(nprocs),xsendbuf
-
- ! check that stacks are empty
- if (stack_remote%n /= 0)  &
- & call fatal('force', 'remote stack is not empty: may be initialised improperly, or something left over')
- if (stack_waiting%n /= 0) &
- & call fatal('force', 'waiting stack is not empty: may be initialised improperly, or something left over')
- if (stack_ready%n /= 0)   &
- & call fatal('force', 'readystack is not empty: may be initialised improperly, or something left over')
 #endif
 
 #ifdef IND_TIMESTEPS
@@ -325,6 +312,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
 #ifdef MPI
  call init_cell_exchange(xrecvbuf,irequestrecv)
+ call allocate_stack(stack_remote)
+ call allocate_stack(stack_waiting)
 #endif
 
 !
@@ -372,7 +361,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp shared(id) &
 !$omp private(do_export) &
 !$omp shared(irequestrecv,irequestsend) &
-!$omp shared(stack_ready,stack_remote,stack_waiting) &
+!$omp shared(stack_remote,stack_waiting) &
 !$omp shared(xsendbuf,xrecvbuf) &
 #endif
 #ifdef IND_TIMESTEPS
@@ -492,7 +481,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
        cell%remote_export(id+1) = .false.
 
 !$omp critical
-       call check_send_finished(stack_ready,irequestsend,irequestrecv,xrecvbuf)
+       call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
        call send_cell(cell,1,irequestsend,xsendbuf)
 !$omp end critical
     enddo over_remote
@@ -504,46 +493,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  endif igot_remote
 
 !$omp single
- call check_send_finished(stack_ready,irequestsend,irequestrecv,xrecvbuf)
- call recv_while_wait(stack_ready,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
+ call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
+ call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
 !$omp end single
 
  iam_waiting: if (stack_waiting%n > 0) then
-!$omp do schedule(runtime)
-    recombine: do j = 1,stack_ready%n
-       i = stack_ready%cells(j)%waiting_index
-       do k = 1,stack_waiting%cells(i)%npcell
-          do l = 1,maxfsum
-!$omp atomic update
-             stack_waiting%cells(i)%fsums(l,k)      = stack_waiting%cells(i)%fsums(l,k) + stack_ready%cells(j)%fsums(l,k)
-          enddo
-!$omp atomic update
-          stack_waiting%cells(i)%xpartvec(idtdragi,k) = min(stack_waiting%cells(i)%xpartvec(idtdragi,k), &
-                                                         stack_ready%cells(j)%xpartvec(idtdragi,k))
-!$omp atomic update
-          stack_waiting%cells(i)%xpartvec(ivsigmaxi,k) = max(stack_waiting%cells(i)%xpartvec(ivsigmaxi,k), &
-                                                         stack_ready%cells(j)%xpartvec(ivsigmaxi,k))
-       enddo
-#ifdef GRAVITY
-       do k = 1,20
-!$omp atomic update
-          stack_waiting%cells(i)%fgrav(k) = stack_waiting%cells(i)%fgrav(k) + stack_ready%cells(j)%fgrav(k)
-       enddo
-#endif
-       do k = 1,nprocs
-!$omp atomic update
-          stack_waiting%cells(i)%remote_export(k)      = stack_waiting%cells(i)%remote_export(k) &
-                                                    .and. stack_ready%cells(j)%remote_export(k)
-       enddo
-!$omp atomic update
-       stack_waiting%cells(i)%ndrag           = stack_waiting%cells(i)%ndrag      + stack_ready%cells(j)%ndrag
-!$omp atomic update
-       stack_waiting%cells(i)%nstokes         = stack_waiting%cells(i)%nstokes    + stack_ready%cells(j)%nstokes
-!$omp atomic update
-       stack_waiting%cells(i)%nsuper          = stack_waiting%cells(i)%nsuper     + stack_ready%cells(j)%nsuper
-    enddo recombine
-!$omp enddo
-!$omp barrier
 !$omp do schedule(runtime)
     over_waiting: do i = 1, stack_waiting%n
        cell = stack_waiting%cells(i)
@@ -572,13 +526,14 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp enddo
 !$omp barrier
 !$omp single
-    stack_ready%n = 0
     stack_waiting%n = 0
 !$omp end single
  endif iam_waiting
 
 !$omp single
  call finish_cell_exchange(irequestrecv,xsendbuf)
+ call deallocate_stack(stack_remote)
+ call deallocate_stack(stack_waiting)
 !$omp end single
 #endif
 
@@ -1948,8 +1903,6 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  real(kind=8)                    :: hi1,hi21,hi31,hi41
  real(kind=8)                    :: gradhi,gradsofti
  real                            :: pmassi
- real                            :: vsigmax
- real                            :: dtdrag
 
  integer                         :: iamtypei
 
@@ -2022,17 +1975,14 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 
     call compute_forces(i,iamgasi,iamdusti,cell%xpartvec(:,ip),hi,hi1,hi21,hi41,gradhi,gradsofti, &
                          beta, &
-                         pmassi,listneigh,nneigh,xyzcache,cell%fsums(:,ip),vsigmax, &
+                         pmassi,listneigh,nneigh,xyzcache,cell%fsums(:,ip),cell%vsigmax(ip), &
                          .true.,realviscosity,useresistiveheat, &
                          xyzh,vxyzu,Bevol,iphase,massoftype, &
                          divcurlB,n_R,n_electronT, &
                          dustfrac,gradh,divcurlv,alphaind, &
                          alphau,alphaB,bulkvisc,stressmax, &
-                         cell%ndrag,cell%nstokes,cell%nsuper,dtdrag,ibin_wake,ibin_neigh, &
+                         cell%ndrag,cell%nstokes,cell%nsuper,cell%dtdrag(ip),ibin_wake,ibin_neigh, &
                          ignoreself)
-
-    cell%xpartvec(idtdragi,ip)  = dtdrag
-    cell%xpartvec(ivsigmaxi,ip) = vsigmax
 
  enddo over_parts
 
@@ -2164,8 +2114,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
     hi         = xpartveci(ihi)
     hi1        = 1./hi
     spsoundi   = xpartveci(ispsoundi)
-    vsigmax    = xpartveci(ivsigmaxi)
-    dtdrag     = xpartveci(idtdragi)
+    vsigmax    = cell%vsigmax(ip)
+    dtdrag     = cell%dtdrag(ip)
 
     if (iamgasi) then
        xi      = xpartveci(ixi)

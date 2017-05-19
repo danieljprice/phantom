@@ -137,7 +137,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use mpiutils,  only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
 #ifdef MPI
  use linklist,  only:update_hmax_remote
- use stack,     only:reserve_stack
+ use stack,     only:reserve_stack,allocate_stack,deallocate_stack
  use mpiderivs, only:send_cell,recv_cells,check_send_finished,init_cell_exchange,finish_cell_exchange,recv_while_wait
 #endif
  use timestep,  only:rho_dtthresh,mod_dtmax,mod_dtmax_now
@@ -187,22 +187,12 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  type(stackdens), save     :: stack_remote
  type(stackdens), save     :: stack_waiting
- type(stackdens), save     :: stack_ready
  type(stackdens), save     :: stack_redo
 
- ! check that stacks are empty
- if (stack_remote%n /= 0)  &
-    call fatal('densityiterate','remote stack is not empty: may be initialised improperly, or something left over')
- if (stack_waiting%n /= 0) &
-    call fatal('densityiterate','waiting stack is not empty: may be initialised improperly, or something left over')
- if (stack_ready%n /= 0)   &
-    call fatal('densityiterate','readystack is not empty: may be initialised improperly, or something left over')
- if (stack_redo%n /= 0)    &
-    call fatal('densityiterate','redostack is not empty: may be initialised improperly, or something left over')
-#endif
-
-#ifdef MPI
  call init_cell_exchange(xrecvbuf,irequestrecv)
+ call allocate_stack(stack_remote)
+ call allocate_stack(stack_redo)
+ call allocate_stack(stack_waiting)
 #endif
 
  if (iverbose >= 3 .and. id==master) &
@@ -268,7 +258,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(irequestsend) &
 !$omp shared(stack_remote) &
 !$omp shared(stack_waiting) &
-!$omp shared(stack_ready) &
 !$omp shared(stack_redo) &
 !$omp shared(iterations_finished) &
 !$omp shared(mpiits) &
@@ -434,7 +423,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
           ! communication happened while computing contributions to remote cells
 !$omp critical
-          call check_send_finished(stack_ready,irequestsend,irequestrecv,xrecvbuf)
+          call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
           ! direction return (1)
           call send_cell(cell,1,irequestsend,xsendbuf)
 !$omp end critical
@@ -450,34 +439,11 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     endif igot_remote
 
 !$omp single
-    call check_send_finished(stack_ready,irequestsend,irequestrecv,xrecvbuf)
-    call recv_while_wait(stack_ready,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
+    call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
+    call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
 !$omp end single
 
     iam_waiting: if (stack_waiting%n > 0) then
-!$omp do schedule(runtime)
-       recombine: do j = 1,stack_ready%n
-          i = stack_ready%cells(j)%waiting_index
-          do k = 1,stack_waiting%cells(i)%npcell
-             do l = 1,maxrhosum
-!$omp atomic update
-                stack_waiting%cells(i)%rhosums(l,k) = stack_waiting%cells(i)%rhosums(l,k) + stack_ready%cells(j)%rhosums(l,k)
-             enddo
-!$omp atomic update
-             stack_waiting%cells(i)%nneigh(k) = stack_waiting%cells(i)%nneigh(k) + stack_ready%cells(j)%nneigh(k)
-          enddo
-          do k = 1,nprocs
-!$omp atomic update
-             stack_waiting%cells(i)%remote_export(k) = stack_waiting%cells(i)%remote_export(k) &
-                                                   .and. stack_ready%cells(j)%remote_export(k)
-          enddo
-!$omp atomic update
-          stack_waiting%cells(i)%nneightry = stack_waiting%cells(i)%nneightry + stack_ready%cells(j)%nneightry
-       enddo recombine
-!$omp enddo
-
-!$omp barrier
-
 !$omp do schedule(runtime)
        over_waiting: do i = 1, stack_waiting%n
           cell = stack_waiting%cells(i)
@@ -520,7 +486,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
        ! reset stacks
 !$omp single
-       stack_ready%n = 0
        stack_waiting%n = 0
 !$omp end single
     endif iam_waiting
@@ -546,6 +511,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 #ifdef MPI
 
  call finish_cell_exchange(irequestrecv,xsendbuf)
+ call deallocate_stack(stack_remote)
+ call deallocate_stack(stack_redo)
+ call deallocate_stack(stack_waiting)
 #endif
 
  ! reduce max stress across MPI procs
