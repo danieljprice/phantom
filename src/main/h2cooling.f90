@@ -313,7 +313,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 
  real    :: maximum_CO_column, N_co_eff, dv, temp_co, co_rot_L0, &
             co_rot_lte, co_rot_alpha, co_rot_n05, neff, co_rot_inv, &
-            low_T_adjust
+            low_T_adjust, sigma_h2, v_e
 
  real    :: cl1       , cl2     , cl3     , cl6     , cl14  &
            , cl16      , cl17    , cl18    , cl19    , cl20  &
@@ -713,7 +713,11 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 !
 ! (R12) -- CO rotational cooling
 !
- neff = ynh2 + dsqrt(2d0) * ynh + 0.5d0 * yn * abhe
+ sigma_h2 = 3.3d-16 * (temp / 1d3)**(-0.25d0)
+ v_e = 1.03d4 * dsqrt(temp)
+ neff = ynh2 + dsqrt(2d0) * (2.3d-15 / sigma_h2) * ynh &
+      + (1.3d-8 / (sigma_h2 * v_e)) * yne
+!
  if (abco .le. 1d-4 * abundo .or. neff .eq. 0d0) then
    rates(12) = 0d0
  else
