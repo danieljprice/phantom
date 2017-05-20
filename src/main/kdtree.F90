@@ -1439,7 +1439,7 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
     if (level == 0) then
        call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
        ! fatal if there are no particles on this processor
-       if (ifirstincell(irootnode)==0) then
+       if (npcounter==0) then
           call fatal('maketreeglobal','no particles or all particles dead/accreted on process', id)
        endif
        np = npcounter
