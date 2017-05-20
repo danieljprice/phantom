@@ -69,6 +69,19 @@ module h2cooling
  real :: cltab(ncltab, nmd),dtcltab(ncltab, nmd)
  real :: dtlog, tmax, tmin
 
+! Parameters and tables used for CO rotational cooling
+!
+! Total number of combinations of column density, temperature for which we have tabulated rates
+ integer, parameter, public :: nTco = 1996
+
+! Number of CO column densities for which we have tabuled data
+ integer, parameter, public :: ncdco = 46
+
+ real :: co_temptab(nTco), co_colntab(ncdco)
+ real :: co_L0(nTco), dTco_L0(nTco)
+ real :: co_lte(ncdco,nTco), co_n05(ncdco,nTco), co_alp(ncdco,nTco)
+ real :: dTco_lte(ncdco,nTco), dTco_n05(ncdco,nTco), dTco_alp(ncdco,nTco)
+
 ! These variables must be initialised during problem setup
 ! (in Phantom these appear in the input file when cooling is set,
 !  here we give them sensible default values)
@@ -829,7 +842,8 @@ subroutine coolinmo
 !       AKD07 -- Abrahamsson, Krems & Dalgarno, 2007, ApJ, 654, 1171
 !
  use fs_data,     only:cIe10,cIe20,cIe21,oxe10,oxe20,oxe21
- use mol_data,    only:nh2data,h2_h_rate,h2_h2_rate,h2_lte,h2_temp
+ use mol_data,    only:nh2data,h2_h_rate,h2_h2_rate,h2_lte,h2_temp,nco_temp,nco_column,nco_data, &
+                       co_temp, co_column, co_data_L0, co_data_LTE, co_data_n05, co_data_alp
  use splineutils, only:spline_eval
 !
  integer :: i, j, itemp
@@ -842,6 +856,20 @@ subroutine coolinmo
 !
  real :: rate0(nmd), rate1(nmd), rate2(nmd), rate3(nmd)
 !
+! Raw data -- extracted from DATA tables in mol_data.f90
+!
+ real :: co_lte_raw(nco_temp), co_n05_raw(nco_temp), co_alp_raw(nco_temp)
+!
+! Temporary variables used in fitting procedure for CO rotational cooling
+!
+ real :: co_lte_fit(nTco),   co_alp_fit(nTco),   co_n05_fit(nTco)
+ real :: co_lte_fit2(ncdco), co_n05_fit2(ncdco), co_alp_fit2(ncdco)
+
+ real :: co_lte_fxT(nco_column), co_n05_fxT(nco_column), co_alp_fxT(nco_column)
+
+ real :: co_lte_smalltab(nco_column,nTco), co_n05_smalltab(nco_column,nTco), &
+         co_alp_smalltab(nco_column,nTco)
+
  real :: temp    , temp2   , f       , gg       , hh      &
        , dtemp   , tinv    , tau     , tsqrt    , opratio &
        , fortho  , brem    , fpara   , atomic   , tloge   &
@@ -1484,6 +1512,80 @@ subroutine coolinmo
        cltab(2,itemp) = 1d1**rate2(itemp)
        cltab(3,itemp) = 1d1**rate3(itemp)
     endif
+ enddo
+!
+! Initialize tables for CO, H2O cooling rates
+!
+! CO data: 1K bins, 5K -> 2000K
+!          0.1dex bins in column density
+!
+ do i = 1, nTco
+   co_temptab(i) = 4d0 + 1d0 * i
+ enddo
+!
+ do i = 1, ncdco
+   co_colntab(i) = 14.4d0 + 0.1d0 * i
+ enddo
+!
+! CO rotational cooling
+!
+! For each quantity:
+!   Do spline fits over T range for each N value
+!
+ call spline_eval(nco_temp, co_temp, co_data_L0, nTco, co_temptab, co_L0)
+!
+ do i = 1, nco_column
+   do j = 1, nco_temp
+     co_lte_raw(j) = co_data_LTE(nco_temp * (i-1) + j)
+     co_n05_raw(j) = co_data_n05(nco_temp * (i-1) + j)
+     co_alp_raw(j) = co_data_alp(nco_temp * (i-1) + j)
+   enddo
+!
+   call spline_eval(nco_temp, co_temp, co_lte_raw, nTco, co_temptab, co_lte_fit)
+   call spline_eval(nco_temp, co_temp, co_n05_raw, nTco, co_temptab, co_n05_fit)
+   call spline_eval(nco_temp, co_temp, co_alp_raw, nTco, co_temptab, co_alp_fit)
+!
+   do j = 1, nTco
+     co_lte_smalltab(i,j) = co_lte_fit(j)
+     co_n05_smalltab(i,j) = co_n05_fit(j)
+     co_alp_smalltab(i,j) = co_alp_fit(j)
+   enddo
+ enddo
+!
+!   do spline fits over N to fill in table
+!
+ do j = 1, nTco
+   do i = 1, nco_column
+     co_lte_fxT(i) = co_lte_smalltab(i,j)
+     co_n05_fxT(i) = co_n05_smalltab(i,j)
+     co_alp_fxT(i) = co_alp_smalltab(i,j)
+   enddo
+!
+   call spline_eval(nco_column, co_column, co_lte_fxT, ncdco, co_colntab, co_lte_fit2)
+   call spline_eval(nco_column, co_column, co_n05_fxT, ncdco, co_colntab, co_n05_fit2)
+   call spline_eval(nco_column, co_column, co_alp_fxT, ncdco, co_colntab, co_alp_fit2)
+!
+   do i = 1, ncdco
+     co_lte(i,j) = co_lte_fit2(i)
+     co_n05(i,j) = co_n05_fit2(i)
+     co_alp(i,j) = co_alp_fit2(i)
+   enddo
+ enddo
+!
+ do j = 1, nTco-1
+   dTco_L0(j)  = co_L0(j+1)  - co_L0(j)
+   do i = 1, ncdco
+     dTco_lte(i,j) = co_lte(i,j+1) - co_lte(i,j)
+     dTco_n05(i,j) = co_n05(i,j+1) - co_n05(i,j)
+     dTco_alp(i,j) = co_alp(i,j+1) - co_alp(i,j)
+   enddo
+ enddo
+!
+ dTco_L0(nTco) = dTco_L0(nTco-1)
+ do i = 1, ncdco
+   dTco_lte(i,nTco) = dTco_lte(i,nTco-1)
+   dTco_n05(i,nTco) = dTco_n05(i,nTco-1)
+   dTco_alp(i,nTco) = dTco_alp(i,nTco-1)
  enddo
 !
 ! (cl6) --  the atomic cooling function
