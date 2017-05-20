@@ -1386,6 +1386,7 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
  use domain,       only:ibelong
  use balance,      only:balancedomains
  use mpiderivs,    only:tree_sync,tree_bcast
+ use part,         only:isdead_or_accreted
 
  logical, parameter :: refine_tree = .true.
 
@@ -1417,6 +1418,7 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
  integer                       :: npcounter
 
  integer                       :: i, k, offset, roffset, roffset_prev, coffset, refinelevels
+ integer                       :: npnode
 
  integer, save                 :: list(maxp)
 
@@ -1487,6 +1489,30 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
 
     ! move particles to where they belong
     call balancedomains(np)
+
+    ! move particles from old array
+    ! this is a waste of time, but maintains compatibility
+    npnode = 0
+    do i=1,np
+       isnotdead: if (.not.isdead_or_accreted(xyzh(4,i))) then
+          npnode = npnode + 1
+#ifdef IND_TIMESTEPS
+          if (iactive(iphase(i))) then
+             inodeparts(npode) = i
+          else
+             inodeparts(npnode) = i
+          endif
+#else
+          inodeparts(npnode) = i
+#endif
+         xyzh_flip(npnode,:) = xyzh(:,i)
+         iphase_flip(npnode) = iphase(i)
+       endif isnotdead
+    enddo
+
+    ! set all particles to belong to this node
+    inoderange(1,iself) = 1
+    inoderange(2,iself) = np
 
     ! range of newly written tree
     nnodestart = 2**level
