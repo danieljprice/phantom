@@ -47,7 +47,7 @@ subroutine test_link(ntests,npass)
  use linklist, only:dcellx,dcelly,dcellz
 #endif
  use boundary, only:dxbound
- use part,            only:isdead_or_accreted
+ use part,            only:isdead_or_accreted,iphase_flip
  use kdtree,   only:inodeparts,inoderange
  integer, intent(inout) :: ntests,npass
  real                   :: psep,hzero,totmass,dxboundp,dyboundp,dzboundp
@@ -184,28 +184,26 @@ subroutine test_link(ntests,npass)
        !!$omp private(i,activecell,hasactive,iactivei,npartincell) &
        !!$omp reduction(+:nfailed1,nfailed2,ncheck1,ncheck2)
        do icell=1,int(ncells)
-          i = ifirstincell(icell)
-          if (i < 0) then
+          if (ifirstincell(icell) < 0) then
              activecell = .false.
-             i = -i
           else
              activecell = .true.
           endif
           npartincell = 0
           hasactive   = .false.
-          do while(i /= 0)
-             npartincell = npartincell + 1
-             iactivei = iactive(iphase(abs(i)))
-             if (iactivei) hasactive = .true.
-
-             if (.not.activecell) then
-                call checkvalbuf(iactivei,.false.,'inactive cell contains active particle',nfail1,ncheck1)
+          not_empty: if (ifirstincell(icell) /= 0) then
+             do i = inoderange(1,icell), inoderange(2,icell)
+                npartincell = npartincell + 1
+                iactivei = iactive(iphase_flip(i))
+                if (iactivei) hasactive = .true.
+                if (.not.activecell) then
+                   call checkvalbuf(iactivei,.false.,'inactive cell contains active particle',nfail1,ncheck1)
+                endif
+             enddo
+             if (activecell .and. npartincell > 0) then
+                call checkvalbuf(hasactive,.true.,'active cell has at least one active particle',nfail2,ncheck2)
              endif
-             i = ll(abs(i))
-          enddo
-          if (activecell .and. npartincell > 0) then
-             call checkvalbuf(hasactive,.true.,'active cell has at least one active particle',nfail2,ncheck2)
-          endif
+          endif not_empty
        enddo
        !!$omp end parallel do
        if (ncheck1 > 0) then
