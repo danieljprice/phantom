@@ -344,8 +344,6 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
 #else
        inodeparts(nproot) = i
 #endif
-       xyzh_flip(nproot,:) = xyzh(:,i)
-       iphase_flip(nproot) = iphase(i)
 
 #ifdef PERIODIC
        call cross_boundary(isperiodic,xyzh(:,i),ncross)
@@ -360,6 +358,8 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
        ymaxpart = max(ymaxpart,yi)
        zmaxpart = max(zmaxpart,zi)
 #endif
+       xyzh_flip(nproot,:) = xyzh(:,i)
+       iphase_flip(nproot) = iphase(i)
     endif isnotdead
  enddo
 
