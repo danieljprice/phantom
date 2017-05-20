@@ -1500,7 +1500,7 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
           if (iactive(iphase(i))) then
              inodeparts(npode) = i
           else
-             inodeparts(npnode) = i
+             inodeparts(npnode) = -i
           endif
 #else
           inodeparts(npnode) = i
