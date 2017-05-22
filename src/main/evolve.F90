@@ -664,7 +664,7 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,update_tzero,updat
  endif
 
  ! modify dtmax based upon density, if requested, and print info to the logfile
- if (mod_dtmax_now) then
+ if (mod_dtmax_now .and. dtmax_rat0 > 1) then
     dtmax_rat         = dtmax_rat0 + dtmax_rat
     mod_dtmax_now     = .false. ! reset variable
     mod_dtmax         = .false. ! prevent any additional modifications of dtmax
@@ -753,7 +753,7 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast,&
  write(iprint,"(1x,'Since last dump : ',a,' timesteps, wall: ',a,'s cpu: ',a,'s cpu/wall: ',a)") &
        trim(adjustl(string)),trim(string1),trim(string2),trim(string3)
 
- time_fullstep = timer_lastdump%wall + timer_io%wall
+ time_fullstep = timer_lastdump%wall + timer_ev%wall + timer_io%wall
  write(iprint,"(/,16x,a)") ' wall        cpu    cpu/wall   frac'
  call print_timer(iprint,timer_step%label,timer_step, time_fullstep)
  call print_timer(iprint,"step (force)",  timer_force,time_fullstep)

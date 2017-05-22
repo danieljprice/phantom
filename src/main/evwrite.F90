@@ -32,7 +32,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: James Wurster
+!  OWNER: Daniel Price
 !
 !  $Id$
 !
@@ -92,10 +92,10 @@ subroutine init_evfile(iunit,evfile)
  i = 1
  j = 1
  call fill_ev_tag(ev_fmt,'time',     '0',  i,j)
- call fill_ev_tag(ev_fmt,'ekin',     's',  i,j)
- call fill_ev_tag(ev_fmt,'etherm',   's',  i,j)
- call fill_ev_tag(ev_fmt,'emag',     's',  i,j)
- call fill_ev_tag(ev_fmt,'epot',     's',  i,j)
+ call fill_ev_tag(ev_fmt,'ekin',     '0',  i,j)
+ call fill_ev_tag(ev_fmt,'etherm',   '0',  i,j)
+ call fill_ev_tag(ev_fmt,'emag',     '0',  i,j)
+ call fill_ev_tag(ev_fmt,'epot',     '0',  i,j)
  call fill_ev_tag(ev_fmt,'etot',     '0',  i,j)
  call fill_ev_tag(ev_fmt,'totmom',   '0',  i,j)
  call fill_ev_tag(ev_fmt,'angtot',   '0',  i,j)
@@ -137,10 +137,10 @@ subroutine init_evfile(iunit,evfile)
           call fill_ev_tag(ev_fmt,'v_ion',    'xan',i,j)
           call fill_ev_tag(ev_fmt,'v_drift',  'xan',i,j)
        endif
-       call fill_ev_tag(ev_fmt,'ni/n(i+n)','xan',i,j)
-       call fill_ev_tag(ev_fmt,'ne/n(i+n)','xan',i,j)
-       call fill_ev_tag(ev_fmt,'n_e',      'xa', i,j)
-       call fill_ev_tag(ev_fmt,'n_n',      'xa', i,j)
+       call fill_ev_tag(ev_fmt,   'ni/n(i+n)','xan',i,j)
+       call fill_ev_tag(ev_fmt,   'ne/n(i+n)','xan',i,j)
+       call fill_ev_tag(ev_fmt,   'n_e',      'xa', i,j)
+       call fill_ev_tag(ev_fmt,   'n_n',      'xa', i,j)
        if (ion_rays) then
           call fill_ev_tag(ev_fmt,'n_ihR',    'xa', i,j)
           call fill_ev_tag(ev_fmt,'n_imR',    'xa', i,j)
@@ -155,22 +155,20 @@ subroutine init_evfile(iunit,evfile)
     endif
  endif
  if (use_dustfrac) then
-    call fill_ev_tag(ev_fmt,   'dust/gas',   'xan',i,j)
-    call fill_ev_tag(ev_fmt,   't_s',        'mn', i,j)
-    call fill_ev_tag(ev_fmt,   'mgas',       's',  i,j)
-    call fill_ev_tag(ev_fmt,   'mdust',      's',  i,j)
+    call fill_ev_tag(ev_fmt,   'dust/gas',    'xan',i,j)
+    call fill_ev_tag(ev_fmt,   't_s',         'mn', i,j)
  endif
  if (iexternalforce > 0) then
-    call fill_ev_tag(ev_fmt,   'totmomall',  '0',  i,j)
-    call fill_ev_tag(ev_fmt,   'angall',     '0',  i,j)
+    call fill_ev_tag(ev_fmt,   'totmomall',   '0',  i,j)
+    call fill_ev_tag(ev_fmt,   'angall',      '0',  i,j)
     if (iexternalforce==iext_binary) then
-       call fill_ev_tag(ev_fmt,'Macc sink 1','0',  i,j)
-       call fill_ev_tag(ev_fmt,'Macc sink 2','0',  i,j)
+       call fill_ev_tag(ev_fmt,'Macc sink 1', '0',  i,j)
+       call fill_ev_tag(ev_fmt,'Macc sink 2', '0',  i,j)
     endif
  endif
  if (iexternalforce>0 .or. nptmass > 0 .or. icreate_sinks > 0) then
-    call fill_ev_tag(ev_fmt,'accretedmas','s',  i,j)
-    call fill_ev_tag(ev_fmt,'eacc',       '0',  i,j)
+    call fill_ev_tag(ev_fmt,'accretedmas',    's',  i,j)
+    call fill_ev_tag(ev_fmt,'eacc',           '0',  i,j)
     track_mass     = .true.
  else
     track_mass     = .false.
@@ -218,7 +216,7 @@ end subroutine init_evfile
 subroutine fill_ev_tag(ev_fmt,label,cmd,i,j)
  integer,          intent(inout) :: i,j
  character(len=*), intent(in)    :: ev_fmt,label,cmd
- integer                         :: iindex
+ integer                         :: ki,kj,iindex
 
  ! set tag
  ev_tag(i) = label
@@ -244,8 +242,13 @@ subroutine fill_ev_tag(ev_fmt,label,cmd,i,j)
  endif
  if ( index(cmd,'0') + index(cmd,'s') + iindex > 1) &
     call fatal('fill_ev_tag','using an invalid sequence of actions for element', var=cmd)
- if (cmd(1:1)==cmd(2:2) .or. cmd(1:1)==cmd(3:3) .or. cmd(2:2)==cmd(3:3)) &
-    call fatal('fill_ev_tag','using duplicate actions for the same quantity', var=cmd)
+ do ki = 1,len(cmd)-1
+    do kj = ki+1,len(cmd)
+       if ( cmd(ki:ki)==cmd(kj:kj) ) then
+          call fatal('fill_ev_tag','using duplicate actions for the same quantity', var=cmd)
+       endif
+    enddo
+ enddo
  !
 end subroutine fill_ev_tag
 !----------------------------------------------------------------
@@ -337,9 +340,6 @@ subroutine write_evlog(iprint)
  use units,     only:unit_density
  integer, intent(in) :: iprint
  character(len=120)  :: string
-
- ! this is currently broken - disabled temporarily
- return
 
  write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") &
       'tot',etot,'kin',ekin,'therm',etherm,'pot',epot

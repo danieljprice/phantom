@@ -60,8 +60,8 @@ module mpidens
 
  type stackdens
     sequence
-    type(celldens)   :: cells(stacksize)
-    integer          :: maxlength = stacksize
+    type(celldens), allocatable   :: cells(:)
+    integer          :: maxlength = 0
     integer          :: n = 0
  endtype
 
