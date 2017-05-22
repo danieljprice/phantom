@@ -17,7 +17,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, mpidens, mpiforce
+!  DEPENDENCIES: dim, io, mpidens, mpiforce
 !+
 !--------------------------------------------------------------------------
 module stack
