@@ -680,7 +680,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  character(len=lenid)  :: fileidentr
  type(dump_h)          :: hdr
 
- write(iprint,"(/,1x,a,i3)") '>>> reading setup from file: '//trim(dumpfile)//' on unit ',idisk1
+ if (id==master) write(iprint,"(/,1x,a,i3)") '>>> reading setup from file: '//trim(dumpfile)//' on unit ',idisk1
  opened_full_dump = .true.
  dt_read_in       = .false.
  !
@@ -751,7 +751,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 !
  read (idisk1, end=100) number
  narraylengths = number/nblocks
- if (iverbose >= 2) then
+ if (iverbose >= 2 .and. id==master) then
     write(iprint,"(a,i3)") ' number of array sizes = ',narraylengths
     write(iprint,"(a,i3)") ' number of blocks      = ',nblocks
  endif
@@ -852,9 +852,9 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 
  if (sum(npartoftype)==0) npartoftype(1) = npart
  if (narraylengths >= 4) then
-    write(iprint,"(a,/)") ' <<< finished reading (MHD) file '
+    if (id==master) write(iprint,"(a,/)") ' <<< finished reading (MHD) file '
  else
-    write(iprint,"(a,/)") ' <<< finished reading (hydro) file '
+    if (id==master) write(iprint,"(a,/)") ' <<< finished reading (hydro) file '
  endif
  close(idisk1)
  return
@@ -898,7 +898,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  character(len=lenid)  :: fileidentr
  type(dump_h)          :: hdr
 
- write(iprint,"(/,1x,a,i3)") '>>> reading small dump file: '//trim(dumpfile)//' on unit ',idisk1
+ if (id==master) write(iprint,"(/,1x,a,i3)") '>>> reading small dump file: '//trim(dumpfile)//' on unit ',idisk1
  opened_full_dump = .false.
  !
  ! open dump file
@@ -1265,7 +1265,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  use eos,  only:polyk,gamma
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,&
                 xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac
- use io,   only:warning
+ use io,   only:warning,id,master
  use options,    only:alpha
  use sphNGutils, only:itype_from_sphNG_iphase,isphNG_accreted
  integer,         intent(in)    :: i1,i2,npartoftype(:),npartread,nptmass,nsinkproperties
@@ -1402,13 +1402,15 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     if (.not.all(got_sink_vels(1:3))) then
        write(*,*) 'WARNING! sink particle velocities not found'
     endif
-    print "(2(a,i2),a)",' got ',nsinkproperties,' sink properties from ',nptmass,' sink particles'
-    if (nptmass > 0) print "(1x,47('-'),/,1x,a,'|',4(a9,1x,'|'),/,1x,47('-'))",&
-                           'ID',' Mass    ',' Racc    ',' Macc    ',' hsoft   '
-    do i=1,min(nptmass,999)
-       print "(i3,'|',4(1pg9.2,1x,'|'))",i,xyzmh_ptmass(4,i),xyzmh_ptmass(ihacc,i),xyzmh_ptmass(imacc,i),xyzmh_ptmass(ihsoft,i)
-    enddo
-    if (nptmass > 0) print "(1x,47('-'))"
+    if (id==master) then
+       print "(2(a,i2),a)",' got ',nsinkproperties,' sink properties from ',nptmass,' sink particles'
+       if (nptmass > 0) print "(1x,47('-'),/,1x,a,'|',4(a9,1x,'|'),/,1x,47('-'))",&
+                              'ID',' Mass    ',' Racc    ',' Macc    ',' hsoft   '
+       do i=1,min(nptmass,999)
+          print "(i3,'|',4(1pg9.2,1x,'|'))",i,xyzmh_ptmass(4,i),xyzmh_ptmass(ihacc,i),xyzmh_ptmass(imacc,i),xyzmh_ptmass(ihsoft,i)
+       enddo
+       if (nptmass > 0) print "(1x,47('-'))"
+    endif
  endif
 
  !
