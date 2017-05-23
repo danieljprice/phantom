@@ -47,8 +47,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use readwrite_infile, only:write_infile
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
- use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
-                            timer_dens,timer_force,timer_link
+ use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer
+ use derivutils,       only:timer_dens,timer_force,timer_link
  use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
 #ifdef SORT
  use sort_particles,   only:sort_part
