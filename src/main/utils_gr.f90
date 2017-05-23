@@ -24,12 +24,17 @@
 module utils_gr
 implicit none
 
-public :: dot_product_gr, get_metric3plus1, get_u0, get_rderivs, get_ev
+public :: dot_product_gr, get_metric3plus1, get_u0, get_rderivs, get_ev, rho_to_dens, h2dens_all
 
 private
+
 interface get_metric3plus1
 module procedure get_metric3plus1_only, get_metric3plus1_both
 end interface get_metric3plus1
+
+interface rho_to_dens
+module procedure rho2dens, h2dens
+end interface rho_to_dens
 
 contains
 
@@ -166,7 +171,7 @@ subroutine get_ev(x,v,energy,angmom)
 
 end subroutine get_ev
 
-subroutine rho_to_dens(dens,rho,position,v)
+subroutine rho2dens(dens,rho,position,v)
    use metric_tools, only: get_metric
    real, intent(in) :: rho,position(1:3),v(1:3)
    real, intent(out):: dens
@@ -177,7 +182,38 @@ subroutine rho_to_dens(dens,rho,position,v)
 
    dens = rho/(sqrtg*U0)
 
-end subroutine rho_to_dens
+end subroutine rho2dens
+
+subroutine h2dens(dens,xyzh,v)
+   use metric_tools, only: get_metric
+   use part,         only: rhoh,massoftype,igas
+   real, intent(in) :: xyzh(1:4),v(1:3)
+   real, intent(out):: dens
+   real :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg, U0, rho
+
+   rho =  rhoh(xyzh(4),massoftype(igas))
+   call get_metric(xyzh(1:3),gcov,gcon,sqrtg)
+   call get_u0(xyzh(1:3),v,U0)
+
+   dens = rho/(sqrtg*U0)
+
+end subroutine h2dens
+
+subroutine h2dens_all(npart,dens,xyzh,vxyzu)
+   use part, only:isdead_or_accreted
+   real, intent(in) :: xyzh(:,:),vxyzu(:,:)
+   real, intent(out):: dens(:)
+   integer, intent(in) :: npart
+   integer :: i
+
+!$omp parallel do default (none) &
+!$omp shared(xyzh,vxyzu,dens,npart) &
+!$omp private(i)
+   do i=1,npart
+      if (.not.isdead_or_accreted(xyzh(4,i))) call h2dens(dens(i),xyzh(:,i),vxyzu(1:3,i))
+   enddo
+!$omp end parallel do
+end subroutine h2dens_all
 
 subroutine dens_to_rho(rho,dens,position,v)
    use metric_tools, only: get_metric
