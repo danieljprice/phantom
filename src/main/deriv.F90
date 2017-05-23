@@ -41,7 +41,7 @@ contains
 !+
 !-------------------------------------------------------------
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                  dustfrac,ddustfrac,time,dt,dtnew)
+                  dustfrac,ddustfrac,time,dt,dtnew,pxyzu)
  use dim,            only:maxp,maxvxyzu
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
@@ -60,6 +60,10 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  use timing,       only:get_timings
  use forces,       only:force
  use derivutils,  only: do_timing
+#ifdef GR
+ use part,           only: massoftype, rhoh
+ use cons2prim_gr,   only: conservative_to_primitive
+#endif
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -75,7 +79,12 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real,         intent(out)   :: ddustfrac(:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
+ real,         intent(inout), optional :: pxyzu(:,:)
  real(kind=4)       :: t1,tcpu1,tlast,tcpulast
+#ifdef GR
+ real, dimension(size(xyzh)) :: p, dens
+ integer :: i
+#endif
 
  t1 = 0.
  tcpu1 = 0.
@@ -119,6 +128,13 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
                         stressmax,fxyzu,fext,alphaind,gradh)
     call do_timing('dens',tlast,tcpulast)
  endif
+
+#ifdef GR
+ if (present(pxyzu)) then
+    call conservative_to_primitive(npart,xyzh,pxyzu,dens,vxyzu,P)
+ endif
+#endif
+
 !
 ! compute forces
 !
