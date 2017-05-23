@@ -79,7 +79,8 @@ end subroutine init_chem
 subroutine energ_h2cooling(ui,dudti,rhoi,chemarrays,nchem,dt,xi,yi,zi,divv,idudtcool,ichem)
  use h2cooling, only:nabn,nrates,cool_func,dlq
  use units,     only:utime,udist
- real,    intent(in)    :: ui,rhoi,dt,xi,yi,zi,divv
+ real,    intent(in)        :: ui,rhoi,dt,xi,yi,zi
+ real(kind=4), intent(in)   :: divv
  real,    intent(inout) :: dudti
  integer, intent(in)    :: nchem,idudtcool,ichem
  real,    intent(inout) :: chemarrays(nchem)

@@ -456,7 +456,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
                           get_accel_sink_gas,get_accel_sink_sink,f_acc,pt_write_sinkev
  use options,        only:iexternalforce
  use part,           only:maxphase,abundance,nabundances,h2chemistry,epot_sinksink,&
-                          isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh
+                          isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv
  use options,        only:icooling
  use chem,           only:energ_h2cooling
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
@@ -542,7 +542,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype) &
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,icooling) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,damp) &
-    !$omp shared(nptmass,f_acc,nsubsteps,C_force) &
+    !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv) &
     !$omp private(i,ichem,idudtcool,dudtcool,fxi,fyi,fzi,phii) &
     !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,deni,fextv,accreted) &
     !$omp private(fonrmaxi,dtphi2i,dtf) &
