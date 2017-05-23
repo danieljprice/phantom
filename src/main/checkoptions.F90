@@ -36,7 +36,8 @@ contains
 !
 !-------------------------------------------------------------------
 subroutine check_compile_time_settings(ierr)
- use part,  only:mhd,maxBevol,gravity,ngradh,h2chemistry,maxvxyzu
+ use part,  only:mhd,maxBevol,gravity,ngradh,h2chemistry,maxvxyzu,use_dust
+ use dim,   only:maxsts,maxstrain
  use io,    only:error
  integer, intent(out) :: ierr
  character(len=16), parameter :: string = 'compile settings'
@@ -97,6 +98,37 @@ subroutine check_compile_time_settings(ierr)
 #ifdef DUSTFRAC
 #ifdef MHD
  call error(string,'-DDUSTFRAC currently not compatible with magnetic fields (-DMHD)')
+#endif
+#endif
+
+#ifdef GR
+if (mhd) then
+   call error(string,'General relativity not compatible with MHD.')
+   ierr = 6
+endif
+if (use_dust) then
+   call error(string,'General relativity not compatible with dust.')
+   ierr = 7
+endif
+if (gravity) then
+   call error(string,'General relativity not compatible with self gravity.')
+   ierr = 7
+endif
+if (h2chemistry) then
+   call error(string,'General relativity not compatible with chemistry.')
+   ierr = 8
+endif
+if (maxstrain > 0) then
+   call error(string,'General relativity not compatible with physical viscosity.')
+   ierr = 9
+endif
+if (maxsts > 1) then
+   call error(string,'General relativity not compatible with super-timestepping.')
+   ierr = 10
+endif
+#ifdef DRIVING
+call error(string,'General relativity not compatible with turbulent driving.')
+ierr = 11
 #endif
 #endif
 
