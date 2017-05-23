@@ -2,11 +2,22 @@ module cons2prim_gr
  use eos, only: gamma
 implicit none
 
+interface conservative_to_primitive
+   module procedure conservative_to_primitive_split, conservative_to_primitive_combined
+end interface conservative_to_primitive
+
+interface primitive_to_conservative
+   module procedure primitive_to_conservative_split, primitive_to_conservative_combined
+end interface primitive_to_conservative
+
+public :: conservative_to_primitive, primitive_to_conservative
 public :: conservative2primitive, primitive2conservative, get_u
 public :: error_to_string
 integer, parameter :: ierr_notconverged = 1
 
 private :: get_pressure, get_enthalpy
+private :: primitive_to_conservative_split, primitive_to_conservative_combined, &
+           conservative_to_primitive_split, conservative_to_primitive_combined
 
 integer, parameter, private :: eos_type = 2 ! cons2prim has been written for only adiabatic eos.
 
@@ -65,7 +76,7 @@ elemental function error_to_string(ierr) result(string)
    end select
 end function error_to_string
 
-subroutine primitive_to_conservative(npart,xyzh,dens,v,u,P,rho,pmom,en)
+subroutine primitive_to_conservative_split(npart,xyzh,dens,v,u,P,rho,pmom,en)
    use part, only:isdead_or_accreted
    integer, intent(in) :: npart
    real, intent(in) :: xyzh(:,:), v(:,:)
@@ -83,10 +94,9 @@ subroutine primitive_to_conservative(npart,xyzh,dens,v,u,P,rho,pmom,en)
      endif
    enddo
 !$omp end parallel do
+end subroutine primitive_to_conservative_split
 
-end subroutine primitive_to_conservative
-
-subroutine conservative_to_primitive(npart,xyzh,rho,pmom,en,dens,v,u,P)
+subroutine conservative_to_primitive_split(npart,xyzh,rho,pmom,en,dens,v,u,P)
    use part, only:isdead_or_accreted
    use io,   only:fatal
    integer, intent(in) :: npart
@@ -111,8 +121,55 @@ subroutine conservative_to_primitive(npart,xyzh,rho,pmom,en,dens,v,u,P)
       endif
    end do
 !$omp end parallel do
+end subroutine conservative_to_primitive_split
 
-end subroutine conservative_to_primitive
+subroutine primitive_to_conservative_combined(npart,xyzh,dens,vxyzu,P,rho,pxyzu)
+   use part, only:isdead_or_accreted
+   integer, intent(in) :: npart
+   real, intent(in) :: xyzh(:,:), vxyzu(:,:)
+   real, intent(in) :: dens(:)
+   real, intent(out) :: pxyzu(:,:)
+   real, intent(out) :: rho(:), P(:)
+   integer :: i
+
+!$omp parallel do default (none) &
+!$omp shared(xyzh,vxyzu,dens,p,rho,pxyzu,npart) &
+!$omp private(i)
+   do i=1,npart
+     if (.not.isdead_or_accreted(xyzh(4,i))) then
+       call primitive2conservative(xyzh(1:3,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),P(i),rho(i),pxyzu(1:3,i),pxyzu(4,i),'entropy')
+     endif
+   enddo
+!$omp end parallel do
+end subroutine primitive_to_conservative_combined
+
+subroutine conservative_to_primitive_combined(npart,xyzh,pxyzu,dens,vxyzu,P)
+   use part, only:isdead_or_accreted, massoftype, igas, rhoh
+   use io,   only:fatal
+   integer, intent(in) :: npart
+   real, intent(in) :: pxyzu(:,:),xyzh(:,:)
+   real, intent(inout) :: vxyzu(:,:)
+   real, intent(inout) :: dens(:), P(:)
+   real :: rhoi
+   integer :: i, ierr
+
+!$omp parallel do default (none) &
+!$omp shared(xyzh,vxyzu,dens,p,pxyzu,npart,massoftype) &
+!$omp private(i,ierr,rhoi)
+   do i=1,npart
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+         rhoi = rhoh(xyzh(4,i),massoftype(igas))
+         call conservative2primitive(xyzh(1:3,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),P(i),rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,'entropy')
+         if (ierr > 0) then
+            print*,' pmom =',pxyzu(1:3,i)
+            print*,' rho* =',rhoi
+            print*,' en   =',pxyzu(4,i)
+            call fatal('cons2prim','could not solve rootfinding',i)
+         endif
+      endif
+   end do
+!$omp end parallel do
+end subroutine conservative_to_primitive_combined
 
 !----------------------------------------------------------------
 !+
