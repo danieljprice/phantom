@@ -148,6 +148,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustfrac,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh
+#ifdef GR
+ use part,             only:pxyzu
+ use utils_gr,         only:h2dens_all
+ use cons2prim_gr,     only:primitive_to_conservative
+#endif
 #ifdef PHOTO
  use photoevap,        only:set_photoevap_grid
 #endif
@@ -226,6 +231,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  logical         :: iexist
  integer :: ncount(maxtypes)
  character(len=len(dumpfile)) :: dumpfileold,fileprefix
+#ifdef GR
+ real, dimension(size(xyzh)) :: dens,p,rho
+#endif
 !
 !--do preliminary initialisation
 !
@@ -308,6 +316,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--Initialise values for summary array
  call summary_initialise
+
+#ifdef GR
+
+ call h2dens_all(npart,dens,xyzh,vxyzu(1:3,:))
+ call primitive_to_conservative(npart,xyzh,dens,vxyzu,P,rho,pxyzu)
+#endif
 !
 !--get total number of particles (on all processors)
 !
