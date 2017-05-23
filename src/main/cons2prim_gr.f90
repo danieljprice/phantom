@@ -74,16 +74,21 @@ subroutine primitive_to_conservative(npart,xyzh,dens,v,u,P,rho,pmom,en)
    real, intent(out) :: rho(:), en(:), P(:)
    integer :: i
 
+!$omp parallel do default (none) &
+!$omp shared(xyzh,v,dens,u,p,rho,pmom,en,npart) &
+!$omp private(i)
    do i=1,npart
      if (.not.isdead_or_accreted(xyzh(4,i))) then
        call primitive2conservative(xyzh(1:3,i),v(1:3,i),dens(i),u(i),P(i),rho(i),pmom(1:3,i),en(i),'entropy')
      endif
    enddo
+!$omp end parallel do
 
 end subroutine primitive_to_conservative
 
 subroutine conservative_to_primitive(npart,xyzh,rho,pmom,en,dens,v,u,P)
    use part, only:isdead_or_accreted
+   use io,   only:fatal
    integer, intent(in) :: npart
    real, intent(in) :: pmom(:,:),xyzh(:,:)
    real, intent(in) :: rho(:),en(:)
@@ -91,18 +96,21 @@ subroutine conservative_to_primitive(npart,xyzh,rho,pmom,en,dens,v,u,P)
    real, intent(inout) :: dens(:), u(:), P(:)
    integer :: i, ierr
 
+!$omp parallel do default (none) &
+!$omp shared(xyzh,v,dens,u,p,rho,pmom,en,npart) &
+!$omp private(i,ierr)
    do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
          call conservative2primitive(xyzh(1:3,i),v(1:3,i),dens(i),u(i),P(i),rho(i),pmom(1:3,i),en(i),ierr,'entropy')
          if (ierr > 0) then
-            print*,' conservative2primitive: could not solve rootfinding for particle ',i
             print*,' pmom =',pmom(1:3,i)
             print*,' rho* =',rho(i)
             print*,' en   =',en(i)
-            ! stop
+            call fatal('cons2prim','could not solve rootfinding',i)
          endif
       endif
    end do
+!$omp end parallel do
 
 end subroutine conservative_to_primitive
 
