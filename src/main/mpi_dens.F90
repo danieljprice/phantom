@@ -47,7 +47,7 @@ module mpidens
     real             :: hmax
     integer          :: icell
     integer          :: npcell                                 ! number of particles in here
-    integer          :: ll_position(minpart)
+    integer          :: arr_index(minpart)
     integer          :: owner                                  ! id of the process that owns this
     integer          :: nits                                   ! number of density iterations done so far
     integer          :: nneightry
@@ -148,7 +148,7 @@ subroutine get_mpitype_of_celldens(dtype)
  nblock = nblock + 1
  blens(nblock) = 1
  mpitypes(nblock) = MPI_INTEGER4
- call MPI_GET_ADDRESS(cell%ll_position,addr,mpierr)
+ call MPI_GET_ADDRESS(cell%arr_index,addr,mpierr)
  disp(nblock) = addr - start
 
  nblock = nblock + 1

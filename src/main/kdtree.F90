@@ -925,13 +925,6 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
                     xyzcache(nneigh+ipart,2) = xyzh_flip(inoderange(1,n)+ipart-1,2) + yoffset
                     xyzcache(nneigh+ipart,3) = xyzh_flip(inoderange(1,n)+ipart-1,3) + zoffset
                     xyzcache(nneigh+ipart,4) = 1./xyzh_flip(inoderange(1,n)+ipart-1,4)
-                  !   if (xyzh_flip(inoderange(1,n)+ipart-1,4) /= xyzh(4,listneigh(nneigh+ipart))) then
-                  !      print*, xyzh_flip(inoderange(1,n)+ipart-1,4), xyzh(4,listneigh(nneigh+ipart))
-                  !      print*, xyzh_flip(inoderange(1,n)+ipart-1,1), xyzh(1,listneigh(nneigh+ipart))
-                  !      print*, xyzh_flip(inoderange(1,n)+ipart-1,2), xyzh(2,listneigh(nneigh+ipart))
-                  !      print*, xyzh_flip(inoderange(1,n)+ipart-1,3), xyzh(3,listneigh(nneigh+ipart))
-                  !    stop 'disaster'
-                  ! endif
                   enddo
                  else
                    do ipart=1,npnode

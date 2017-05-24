@@ -1239,6 +1239,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  use dim,         only:maxvxyzu
  use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,set_boundaries_to_active
  use viscosity,   only:irealvisc
+ use kdtree,      only:inodeparts
 
  type(celldens),  intent(inout)  :: cell
 
@@ -1266,7 +1267,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  realviscosity = (irealvisc > 0)
 
  over_parts: do i = 1,cell%npcell
-    lli = cell%ll_position(i)
+    lli = inodeparts(cell%arr_index(i))
     ! note: only active particles have been sent here
     if (maxphase==maxp) then
        call get_partinfo(cell%iphase(i),iactivei,iamdusti,iamtypei)
@@ -1377,7 +1378,7 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
 
     cell%npcell = cell%npcell + 1
 
-    cell%ll_position(cell%npcell)             = i
+    cell%arr_index(cell%npcell)               = ip
     cell%iphase(cell%npcell)                  = iphase(i)
 
     cell%xpartvec(ixi,cell%npcell)            = xyzh(1,i)
@@ -1426,6 +1427,7 @@ subroutine finish_cell(cell,cell_converged)
  use io,       only:iprint,fatal
  use part,     only:get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,hrho
  use options,  only:tolh
+ use kdtree,   only:inodeparts
 
  type(celldens),  intent(inout) :: cell
  logical,         intent(out)   :: cell_converged
@@ -1496,7 +1498,7 @@ subroutine finish_cell(cell,cell_converged)
        write(iprint,*) 'error = ',abs(hnew-hi)/hi_old,' tolh = ',tolh
        write(iprint,*) 'itype = ',iamtypei
        write(iprint,*) 'x,y,z = ',xyzh(1:3)
-       call fatal('densityiterate','could not converge in density',cell%ll_position(i),'error',abs(hnew-hi)/hi_old)
+       call fatal('densityiterate','could not converge in density',inodeparts(cell%arr_index(i)),'error',abs(hnew-hi)/hi_old)
     endif
 
     if (converged) then
@@ -1562,7 +1564,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  use kernel,      only:radkern
 
  use part,        only:xyzh_flip
- use kdtree,      only:inoderange
+ use kdtree,      only:inoderange,inodeparts
 
  type(celldens),  intent(in)    :: cell
  logical,         intent(in)    :: getdv
@@ -1603,7 +1605,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  real         :: rho1i,term,denom,rhodusti
 
  do i = 1,cell%npcell
-    lli = cell%ll_position(i)
+    lli = inodeparts(cell%arr_index(i))
     hi = cell%h(i)
     rhosum = cell%rhosums(:,i)
 
@@ -1639,7 +1641,8 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
     !--store final results of density iteration
     !
     xyzh(4,lli) = hrho(rhoi,pmassi)
-    xyzh_flip(inoderange(1,cell%icell)+i-1,4) = xyzh(4,lli)
+    xyzh_flip(cell%arr_index(i),4) = xyzh(4,lli)
+
     if (xyzh(4,lli) < 0.) call fatal('densityiterate','setting negative h from hrho',i,var='rhoi',val=real(rhoi))
 
     if (maxgradh==maxp) then

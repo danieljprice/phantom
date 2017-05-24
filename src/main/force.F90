@@ -1792,7 +1792,7 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
     !-- cell packing
     !
     cell%npcell                                    = cell%npcell + 1
-    cell%ll_position(cell%npcell)                  = i
+    cell%arr_index(cell%npcell)                    = ip
     cell%iphase(cell%npcell)                       = iphase(i)
     cell%xpartvec(ixi,cell%npcell)                 = xyzh(1,i)
     cell%xpartvec(iyi,cell%npcell)                 = xyzh(2,i)
@@ -1878,6 +1878,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  use options,     only:beta,alphau,alphaB,iresistive_heating
  use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,massoftype
  use viscosity,   only:irealvisc,bulkvisc
+ use kdtree,      only:inodeparts
 
  type(cellforce), intent(inout)  :: cell
 
@@ -1940,7 +1941,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
        cycle over_parts
     endif
 
-    i = cell%ll_position(ip)
+    i = inodeparts(cell%arr_index(ip))
 
     pmassi = massoftype(iamtypei)
 
@@ -2018,7 +2019,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
  use viscosity,      only:bulkvisc,dt_viscosity,irealvisc,shearfunc
  use kernel,         only:kernel_softening
  use linklist,       only:get_distance_from_centre_of_mass
- use kdtree,         only:expand_fgrav_in_taylor_series
+ use kdtree,         only:expand_fgrav_in_taylor_series,inodeparts
  use nicil,          only:nimhd_get_dudt,nimhd_get_dt
  use cooling,        only:energ_cooling
  use chem,           only:energ_h2cooling
@@ -2106,7 +2107,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 
     pmassi = massoftype(iamtypei)
 
-    i = cell%ll_position(ip)
+    i = inodeparts(cell%arr_index(ip))
 
     fsum(:)       = cell%fsums(:,ip)
     xpartveci(:)  = cell%xpartvec(:,ip)
