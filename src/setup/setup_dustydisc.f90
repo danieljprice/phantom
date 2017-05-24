@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS:
 !    H_R               -- H/R at R=Rin
-!    H_R_dust          -- H/R at R=Rin for dust
+!    H_R_dust          -- H/R at R=Rin
 !    R_c               -- characteristic radius of the exponential taper
 !    R_c_dust          -- characteristic radius of the exponential taper
 !    R_in              -- inner radius
@@ -46,7 +46,7 @@
 !    pindex_dust       -- p index
 !    profile_set_dust  -- how to set dust density profile (0=equal to gas, 1=custom)
 !    qindex            -- q index
-!    qindex_dust       -- q index for dust
+!    qindex_dust       -- q index
 !    semimajoraxis     -- initial separation of binary (code units)
 !    setplanets        -- add planets? (0=no,1=yes)
 !    sigma_naught      -- Sigma0 of the gas profile Sigma = Sigma0*(R/Rc)^-p*Exp(-(R/Rc)^(2-p))
@@ -55,8 +55,9 @@
 !    umass             -- mass unit in g
 !    xinc              -- inclination angle
 !
-!  DEPENDENCIES: centreofmass, dim, dust, externalforces, infile_utils, io,
-!    options, part, physcon, prompting, setbinary, setdisc, timestep, units
+!  DEPENDENCIES: centreofmass, dim, dust, eos, externalforces,
+!    infile_utils, io, options, part, physcon, prompting, setbinary,
+!    setdisc, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
