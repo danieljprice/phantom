@@ -1657,7 +1657,7 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
 
  real         :: divcurlvi(ndivcurlv)
  real         :: straini(6),curlBi(3),jcbcbi(3),jcbi(3)
- real         :: hi,rhoi,rho1i,dhdrhoi,pmassi
+ real         :: hi,rhoi,rho1i,dhdrhoi,pmassi,eni
  real(kind=8) :: hi1
  real         :: dustfraci,rhogasi,ponrhoi,pro2i,pri,spsoundi,temperaturei
  real         :: sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso
@@ -1714,6 +1714,11 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
     if (iamgasi) then
        if (ndivcurlv >= 1) divcurlvi(:) = divcurlv(:,i)
        if (realviscosity .and. maxstrain==maxp) straini(:) = straintensor(:,i)
+       if (maxvxyzu >= 4) then
+          eni = vxyzu(4,i)
+       else
+          eni = 0.0
+       endif
 
        !
        ! one-fluid dust properties
@@ -1739,7 +1744,7 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
        call get_P(rhoi,rho1i, &
                   xyzh(1,i),xyzh(2,i),xyzh(3,i), &
                   pmassi, &
-                  vxyzu(4,i), &
+                  eni, &
                   Bxi,Byi,Bzi, &
                   dustfraci, &
                   ponrhoi,pro2i,pri,spsoundi, &
@@ -1768,7 +1773,7 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
                              n_R(:,i),n_electronT(i),ierr)
           if (ierr/=0) then
              call nicil_translate_error(ierr)
-             call fatal('force','error in calcuating eta(i) for non-ideal MHD')
+             if (ierr > 0) call fatal('force','error in calcuating eta(i) for non-ideal MHD')
           endif
           call nimhd_get_jcbcb(jcbcbi,jcbi,curlBi,Bxi,Byi,Bzi,Bi1)
        endif
