@@ -17,7 +17,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, mpidens, mpiforce
+!  DEPENDENCIES: dim, io, mpidens, mpiforce
 !+
 !--------------------------------------------------------------------------
 module stack
@@ -59,31 +59,31 @@ module stack
 contains
 
 subroutine allocate_stack_dens(stack)
-   type(stackdens),  intent(inout) :: stack
+ type(stackdens),  intent(inout) :: stack
 
-   allocate(stack%cells(stacksize))
-   stack%maxlength = stacksize
+ allocate(stack%cells(stacksize))
+ stack%maxlength = stacksize
 end subroutine allocate_stack_dens
 
 subroutine allocate_stack_force(stack)
-   type(stackforce),  intent(inout) :: stack
+ type(stackforce),  intent(inout) :: stack
 
-   allocate(stack%cells(stacksize))
-   stack%maxlength = stacksize
+ allocate(stack%cells(stacksize))
+ stack%maxlength = stacksize
 end subroutine allocate_stack_force
 
 subroutine deallocate_stack_dens(stack)
-   type(stackdens),  intent(inout) :: stack
+ type(stackdens),  intent(inout) :: stack
 
-   deallocate(stack%cells)
-   stack%maxlength = 0
+ deallocate(stack%cells)
+ stack%maxlength = 0
 end subroutine deallocate_stack_dens
 
 subroutine deallocate_stack_force(stack)
-   type(stackforce),  intent(inout) :: stack
+ type(stackforce),  intent(inout) :: stack
 
-   deallocate(stack%cells)
-   stack%maxlength = 0
+ deallocate(stack%cells)
+ stack%maxlength = 0
 end subroutine deallocate_stack_force
 
 subroutine push_onto_stack_dens(stack,cell)
