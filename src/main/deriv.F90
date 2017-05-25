@@ -61,8 +61,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  use forces,       only:force
  use derivutils,  only: do_timing
 #ifdef GR
- use part,           only: massoftype, rhoh
- use cons2prim_gr,   only: conservative_to_primitive
+ use cons2prim,      only: conservative_to_primitive
 #endif
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
@@ -81,10 +80,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real,         intent(out)   :: dtnew
  real,         intent(inout), optional :: pxyzu(:,:)
  real(kind=4)       :: t1,tcpu1,tlast,tcpulast
-#ifdef GR
- real, dimension(size(xyzh)) :: p, dens
- integer :: i
-#endif
 
  t1 = 0.
  tcpu1 = 0.
@@ -131,7 +126,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 
 #ifdef GR
  if (present(pxyzu)) then
-    call conservative_to_primitive(npart,xyzh,pxyzu,dens,vxyzu,P)
+    call conservative_to_primitive(npart,xyzh,pxyzu,vxyzu)
  endif
 #endif
 

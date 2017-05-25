@@ -45,7 +45,7 @@ subroutine test_cons2prim(ntests,npass)
 end subroutine test_cons2prim
 
 subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
-   use cons2prim_gr, only: conservative2primitive,primitive2conservative,error_to_string
+   use cons2prim_gr, only: conservative2primitive,primitive2conservative
    use testutils, only: checkval,checkvalbuf
    ! use checks, only: check
    use testmetric, only: test_metric_i
@@ -76,9 +76,6 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
 
    call primitive2conservative(x,v,dens,u,P,rho,pmom,en,'energy')
    call conservative2primitive(x,v_out,dens_out,u_out,p_out,rho,pmom,en,ierr,'energy')
-
-   ! if (ierr /= 0) print*,'ERROR: '//trim(error_to_string(ierr))
-   ! print*,error_to_string((/1,0,1,0/))
 
    ! call checkval(ierr,0,0,n_error,'ierr = 0 for convergence')
    call checkvalbuf(ierr,0,0,'[F]: ierr (convergence)',nerrors,ncheck)

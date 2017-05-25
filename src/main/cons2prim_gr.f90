@@ -2,22 +2,10 @@ module cons2prim_gr
  use eos, only: gamma
 implicit none
 
-interface conservative_to_primitive
-   module procedure conservative_to_primitive_split, conservative_to_primitive_combined
-end interface conservative_to_primitive
-
-interface primitive_to_conservative
-   module procedure primitive_to_conservative_split, primitive_to_conservative_combined
-end interface primitive_to_conservative
-
-public :: conservative_to_primitive, primitive_to_conservative
-public :: conservative2primitive, primitive2conservative, get_u
-public :: error_to_string
+public :: conservative2primitive,primitive2conservative,get_u,get_pressure
 integer, parameter :: ierr_notconverged = 1
 
-private :: get_pressure, get_enthalpy
-private :: primitive_to_conservative_split, primitive_to_conservative_combined, &
-           conservative_to_primitive_split, conservative_to_primitive_combined
+private :: get_enthalpy
 
 integer, parameter, private :: eos_type = 2 ! cons2prim has been written for only adiabatic eos.
 
@@ -32,7 +20,7 @@ use eos, only: equationofstate
    real, intent(in)  :: dens, u
    real :: ponrho, spsound
 
-   call equationofstate(eos_type,ponrho,spsound,dens,0.,0.,0.)
+   call equationofstate(eos_type,ponrho,spsound,dens,0.,0.,0.,u)
    P = ponrho*dens
    ! P = (gamma-1.0)*dens*u
 
@@ -64,113 +52,6 @@ use eos, only: equationofstate
 end subroutine
 !=========================
 
-elemental function error_to_string(ierr) result(string)
-   integer, intent(in) :: ierr
-   character(len=20) :: string
-
-   select case(ierr)
-   case(ierr_notconverged)
-      string = 'not converged'
-   case default
-      string = 'unknown error'
-   end select
-end function error_to_string
-
-subroutine primitive_to_conservative_split(npart,xyzh,dens,v,u,P,rho,pmom,en)
-   use part, only:isdead_or_accreted
-   integer, intent(in) :: npart
-   real, intent(in) :: xyzh(:,:), v(:,:)
-   real, intent(in) :: dens(:),u(:)
-   real, intent(out) :: pmom(:,:)
-   real, intent(out) :: rho(:), en(:), P(:)
-   integer :: i
-
-!$omp parallel do default (none) &
-!$omp shared(xyzh,v,dens,u,p,rho,pmom,en,npart) &
-!$omp private(i)
-   do i=1,npart
-     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call primitive2conservative(xyzh(1:3,i),v(1:3,i),dens(i),u(i),P(i),rho(i),pmom(1:3,i),en(i),'entropy')
-     endif
-   enddo
-!$omp end parallel do
-end subroutine primitive_to_conservative_split
-
-subroutine conservative_to_primitive_split(npart,xyzh,rho,pmom,en,dens,v,u,P)
-   use part, only:isdead_or_accreted
-   use io,   only:fatal
-   integer, intent(in) :: npart
-   real, intent(in) :: pmom(:,:),xyzh(:,:)
-   real, intent(in) :: rho(:),en(:)
-   real, intent(inout) :: v(:,:)
-   real, intent(inout) :: dens(:), u(:), P(:)
-   integer :: i, ierr
-
-!$omp parallel do default (none) &
-!$omp shared(xyzh,v,dens,u,p,rho,pmom,en,npart) &
-!$omp private(i,ierr)
-   do i=1,npart
-       if (.not.isdead_or_accreted(xyzh(4,i))) then
-         call conservative2primitive(xyzh(1:3,i),v(1:3,i),dens(i),u(i),P(i),rho(i),pmom(1:3,i),en(i),ierr,'entropy')
-         if (ierr > 0) then
-            print*,' pmom =',pmom(1:3,i)
-            print*,' rho* =',rho(i)
-            print*,' en   =',en(i)
-            call fatal('cons2prim','could not solve rootfinding',i)
-         endif
-      endif
-   end do
-!$omp end parallel do
-end subroutine conservative_to_primitive_split
-
-subroutine primitive_to_conservative_combined(npart,xyzh,dens,vxyzu,P,rho,pxyzu)
-   use part, only:isdead_or_accreted
-   integer, intent(in) :: npart
-   real, intent(in) :: xyzh(:,:), vxyzu(:,:)
-   real, intent(in) :: dens(:)
-   real, intent(out) :: pxyzu(:,:)
-   real, intent(out) :: rho(:), P(:)
-   integer :: i
-
-!$omp parallel do default (none) &
-!$omp shared(xyzh,vxyzu,dens,p,rho,pxyzu,npart) &
-!$omp private(i)
-   do i=1,npart
-     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call primitive2conservative(xyzh(1:3,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),P(i),rho(i),pxyzu(1:3,i),pxyzu(4,i),'entropy')
-     endif
-   enddo
-!$omp end parallel do
-end subroutine primitive_to_conservative_combined
-
-subroutine conservative_to_primitive_combined(npart,xyzh,pxyzu,dens,vxyzu,P)
-   use part, only:isdead_or_accreted, massoftype, igas, rhoh
-   use io,   only:fatal
-   integer, intent(in) :: npart
-   real, intent(in) :: pxyzu(:,:),xyzh(:,:)
-   real, intent(inout) :: vxyzu(:,:)
-   real, intent(inout) :: dens(:), P(:)
-   real :: rhoi
-   integer :: i, ierr
-
-!$omp parallel do default (none) &
-!$omp shared(xyzh,vxyzu,dens,p,pxyzu,npart,massoftype) &
-!$omp private(i,ierr,rhoi)
-   do i=1,npart
-       if (.not.isdead_or_accreted(xyzh(4,i))) then
-         rhoi = rhoh(xyzh(4,i),massoftype(igas))
-         call conservative2primitive(xyzh(1:3,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),P(i),rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,'entropy')
-         if (ierr > 0) then
-            print*,' pmom =',pxyzu(1:3,i)
-            print*,' rho* =',rhoi
-            print*,' en   =',pxyzu(4,i)
-            call fatal('cons2prim','could not solve rootfinding',i)
-         endif
-      endif
-   end do
-!$omp end parallel do
-end subroutine conservative_to_primitive_combined
-
 !----------------------------------------------------------------
 !+
 !  Construct conserved variables from the primitive variables
@@ -182,8 +63,8 @@ subroutine primitive2conservative(x,v,dens,u,P,rho,pmom,en,en_type)
    use utils_gr,     only: get_u0
    use metric_tools, only: get_metric
    real, intent(in)  :: x(1:3)
-   real, intent(in) :: dens,v(1:3),u,P
-   real, intent(out)  :: rho,pmom(1:3),en
+   real, intent(in)  :: dens,v(1:3),u,P
+   real, intent(out) :: rho,pmom(1:3),en
    character(len=*), intent(in) :: en_type
    real, dimension(0:3,0:3) :: gcov, gcon
    real :: sqrtg, enth, gvv, U0, v4U(0:3)
@@ -216,9 +97,10 @@ end subroutine primitive2conservative
 subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,en_type)
    use utils_gr, only: dot_product_gr, get_metric3plus1
    use metric_tools, only: get_metric
-   real, intent(in)  :: x(1:3)
-   real, intent(inout) :: v(1:3),dens,u,P
-   real, intent(in)  :: rho,pmom(1:3),en
+   real, intent(in)    :: x(1:3)
+   real, intent(inout) :: dens,P
+   real, intent(out)   :: v(1:3),u
+   real, intent(in)    :: rho,pmom(1:3),en
    integer, intent(out) :: ierr
    character(len=*), intent(in) :: en_type
    real, dimension(0:3,0:3) :: gcov,gcon
@@ -234,6 +116,7 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,en_type)
    call get_metric3plus1(x,alpha,beta,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
    pmom2 = dot_product_gr(pmom,pmom,gammaijUP)
 
+   ! Guess enthalpy (using previous values of dens and pressure)
    call get_enthalpy(enth,dens,p)
 
    niter = 0
