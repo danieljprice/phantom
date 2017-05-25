@@ -147,7 +147,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  integer,      intent(in)    :: icall,npart,nactive
  real,         intent(inout) :: xyzh(:,:)
  real,         intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real(kind=4), intent(in)    :: Bevol(:,:)
+ real,         intent(in)    :: Bevol(:,:)
  real(kind=4), intent(out)   :: divcurlv(:,:)
  real(kind=4), intent(out)   :: divcurlB(:,:)
  real(kind=4), intent(out)   :: alphaind(:,:)
@@ -580,7 +580,7 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,listneigh
  logical,      intent(in)    :: getdv,realviscosity
  logical,      intent(in)    :: getdB
  real,         intent(in)    :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real(kind=4), intent(in)    :: Bevol(:,:)
+ real,         intent(in)    :: Bevol(:,:)
  logical,      intent(in)    :: ignoreself
  integer(kind=1)             :: iphasej
  integer                     :: iamtypej
@@ -767,9 +767,9 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,listneigh
              endif
 
              if (getdB .and. gas_gas) then
-                dBx = xpartveci(iBevolxi) - real(Bevol(1,j))
-                dBy = xpartveci(iBevolyi) - real(Bevol(2,j))
-                dBz = xpartveci(iBevolzi) - real(Bevol(3,j))
+                dBx = xpartveci(iBevolxi) - Bevol(1,j)
+                dBy = xpartveci(iBevolyi) - Bevol(2,j)
+                dBz = xpartveci(iBevolzi) - Bevol(3,j)
                 projdB = dBx*runix + dBy*runiy + dBz*runiz
 
                 ! difference operator of divB
@@ -1244,7 +1244,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  integer,         intent(in)     :: nneigh
  logical,         intent(in)     :: getdv
  logical,         intent(in)     :: getdB
- real(kind=4),    intent(in)     :: Bevol(:,:)
+ real,            intent(in)     :: Bevol(:,:)
  real,            intent(in)     :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
  real,            intent(in)     :: xyzcache(3,isizecellcache)
 
@@ -1342,7 +1342,7 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
  real,               intent(in)    :: vxyzu(:,:)
  real,               intent(in)    :: fxyzu(:,:)
  real,               intent(in)    :: fext(:,:)
- real(kind=4),       intent(in)    :: Bevol(:,:)
+ real,               intent(in)    :: Bevol(:,:)
 
  integer :: i
  integer :: iamtypei

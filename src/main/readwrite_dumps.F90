@@ -1273,8 +1273,8 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha
  logical,         intent(in)    :: got_abund(:),got_dustfrac,got_sink_data(:),got_sink_vels(:),got_Bevol(:)
  integer(kind=1), intent(inout) :: iphase(:)
- real,            intent(inout) :: vxyzu(:,:)
- real(kind=4),    intent(inout) :: alphaind(:,:), Bevol(:,:)
+ real,            intent(inout) :: vxyzu(:,:), Bevol(:,:)
+ real(kind=4),    intent(inout) :: alphaind(:,:)
  real,            intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
  integer,         intent(in)    :: iprint
  integer,         intent(out)   :: ierr

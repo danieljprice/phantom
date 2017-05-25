@@ -68,8 +68,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real,         intent(in)    :: fext(:,:)
  real(kind=4), intent(out)   :: divcurlv(:,:)
  real(kind=4), intent(out)   :: divcurlB(:,:)
- real(kind=4), intent(in)    :: Bevol(:,:)
- real(kind=4), intent(out)   :: dBevol(:,:)
+ real,         intent(in)    :: Bevol(:,:)
+ real,         intent(out)   :: dBevol(:,:)
  real,         intent(in)    :: dustfrac(:)
  real,         intent(out)   :: ddustfrac(:)
  real,         intent(in)    :: time,dt

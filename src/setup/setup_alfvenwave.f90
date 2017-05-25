@@ -226,7 +226,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call transform_vec(Bvec,Bnew,sina,sinb,cosa,cosb)
 
     if (maxvxyzu >= 4) vxyzu(4,i) = uui
-    if (mhd) Bevol(1:3,i) = real(Bnew,kind=4)
+    if (mhd) Bevol(1:3,i) = Bnew
  enddo
 
  if (mhd) ihavesetupB = .true.
