@@ -449,6 +449,7 @@ ifeq ($(SETUP), srshock)
     METRIC=minkowski
     ISOTHERMAL=no
     KNOWN_SETUP=yes
+    MAXP=500000
 endif
 
 ifeq ($(SETUP), dustydisc)
