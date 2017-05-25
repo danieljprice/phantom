@@ -5,6 +5,8 @@ implicit none
 public :: conservative2primitive,primitive2conservative,get_u,get_pressure
 integer, parameter :: ierr_notconverged = 1
 
+logical, parameter, private :: do_nothing = .false.
+
 private :: get_enthalpy
 
 integer, parameter, private :: eos_type = 2 ! cons2prim has been written for only adiabatic eos.
@@ -70,6 +72,11 @@ subroutine primitive2conservative(x,v,dens,u,P,rho,pmom,en,en_type)
    real :: sqrtg, enth, gvv, U0, v4U(0:3)
    integer :: i, mu
 
+   if (do_nothing) then
+      pmom = v
+      rho = dens
+      en = u
+   else
    v4U(0) = 1.
    v4U(1:3) = v(:)
 
@@ -91,6 +98,7 @@ subroutine primitive2conservative(x,v,dens,u,P,rho,pmom,en,en_type)
    en = U0*enth*gvv + (1.+u)/U0
 
    if (en_type == "entropy") en = P/(dens**gamma)
+   endif
 
 end subroutine primitive2conservative
 
@@ -113,6 +121,11 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,en_type)
    logical :: converged
    ierr = 0
 
+   if (do_nothing) then
+      v = pmom
+      dens = rho
+      u = en
+   else
    call get_metric3plus1(x,alpha,beta,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
    pmom2 = dot_product_gr(pmom,pmom,gammaijUP)
 
@@ -172,6 +185,7 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,en_type)
    enddo
 
    call get_u(u,P,dens)
+   endif
 
 end subroutine conservative2primitive
 
