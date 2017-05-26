@@ -94,14 +94,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  allocate(dudt(nlum))
  if (lightcurve) then
     dudt(1:nlum) = luminosity(1:nlum)
- else 
-    dudt(1:nlum) = vxyzu(4,1:nlum) * massoftype(igas) / dtmax 
+ else
+    dudt(1:nlum) = vxyzu(4,1:nlum) * massoftype(igas) / dtmax
  endif
  allocate(Frad(3,ndusttypes,npart))
 
  factor = 1.0/(temperature_coef*gmw*(gamma-1))
  ! this this the factor needed to compute u^(n+1)/dtmax from temperature
- T_to_u = factor * massoftype(igas) /dtmax 
+ T_to_u = factor * massoftype(igas) /dtmax
 
  call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
    npartoftype,xyzh,vxyzu,itype,grain_size,graindens,dustfrac,massoftype,&
