@@ -19,7 +19,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, dust, eos, io, mcfost2phantom, part, units
+!  DEPENDENCIES: dim, dust, eos, io, mcfost2phantom, part, timestep, units
 !+
 !--------------------------------------------------------------------------
 module analysis
