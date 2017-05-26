@@ -1474,10 +1474,10 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
     endif
 
     do i = inoderange(1,il), inoderange(2,il)
-       ibelong(inodeparts(i)) = idleft
+       ibelong(abs(inodeparts(i))) = idleft
     enddo
     do i = inoderange(1,ir), inoderange(2,ir)
-       ibelong(inodeparts(i)) = idright
+       ibelong(abs(inodeparts(i))) = idright
     enddo
 
     ! move particles to where they belong
