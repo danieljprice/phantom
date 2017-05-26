@@ -1554,8 +1554,9 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
        enddo
 
        roffset_prev = roffset
-
-       call tree_sync(refinementnode(locstart:locend),roffset,nodeglobal(nnodestart:nnodeend),id,1,level)
+       ! sync, replacing level with globallevel, since all procs will get synced
+       ! and deeper comms do not exist
+       call tree_sync(refinementnode(locstart:locend),roffset,nodeglobal(nnodestart:nnodeend),id,1,globallevel)
     enddo
  endif
  ! cellatid is zero by default

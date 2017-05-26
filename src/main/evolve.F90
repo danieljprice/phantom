@@ -254,7 +254,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !  in step the next time it is called;
     !  for global timestepping, this is called in the block where at_dump_time==.true.
     if (istepfrac==2**nbinmax) then
-       twallperdump = timer_lastdump%wall
+       twallperdump = reduceall_mpi('max', timer_lastdump%wall)
        call check_dtmax_for_decrease(iprint,dtmax,twallperdump,update_tzero)
     endif
 
