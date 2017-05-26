@@ -1379,7 +1379,7 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
  use domain,       only:ibelong
  use balance,      only:balancedomains
  use mpiderivs,    only:tree_sync,tree_bcast
- use part,         only:isdead_or_accreted
+ use part,         only:isdead_or_accreted,iactive
 
  logical, parameter :: refine_tree = .true.
 
@@ -1491,7 +1491,7 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
           npnode = npnode + 1
 #ifdef IND_TIMESTEPS
           if (iactive(iphase(i))) then
-             inodeparts(npode) = i
+             inodeparts(npnode) = i
           else
              inodeparts(npnode) = -i
           endif
