@@ -1576,12 +1576,6 @@ ifeq ($(MCFOST), yes)
 endif
 
 #
-# whether or not all threads should read in parallel
-#
-ifeq ($(MPI_PARALLELREAD), yes)
-    FPPFLAGS += -DMPI_PARALLELREAD
-endif
-#
 # select domain decomposition type
 #
 DOMAIN= mpi_domain.F90

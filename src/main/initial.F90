@@ -269,17 +269,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (nwarn > 0) call warning('initial','warnings during particle setup',var='warnings',ival=nwarn)
     if (nerr > 0)  call fatal('initial','errors in particle setup',var='errors',ival=nerr)
  else
-#ifndef MPI_PARALLELREAD
-    call waitmyturn(id)
-#endif
     call read_dump(trim(dumpfile),time,hfactfile,idisk1,iprint,id,nprocs,ierr)
     if (ierr /= 0) call fatal('initial','error reading dumpfile')
     call check_setup(nerr,nwarn,restart=.true.) ! sanity check what has been read from file
     if (nwarn > 0) call warning('initial','warnings from particle data in file',var='warnings',ival=nwarn)
     if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
-#ifndef MPI_PARALLELREAD
-    call endmyturn(id)
-#endif
  endif
 !
 !--initialise values for non-ideal MHD
