@@ -1503,13 +1503,13 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
     !do i = 1, nl
     do while(ipart /= 0)
        ibelong(ipart) = idleft
-       ipart = ll(abs(ipart))
+       ipart = abs(ll(ipart))
     enddo
     ipart = abs(ifirstincell(ir))
     do while(ipart /= 0)
        !do i = 1, nr
        ibelong(ipart) = idright
-       ipart = ll(abs(ipart))
+       ipart = abs(ll(ipart))
     enddo
 
     ! move particles to where they belong, and relink lists
