@@ -48,8 +48,8 @@ module part
  real(kind=4) :: alphaind(nalpha,maxalpha)
  real(kind=4) :: divcurlv(ndivcurlv,maxp)
  real(kind=4) :: divcurlB(ndivcurlB,maxp)
- real(kind=4) :: Bevol(maxBevol,maxmhd)
- real(kind=4) :: Bxyz(3,maxvecp)
+ real :: Bevol(maxBevol,maxmhd)
+ real :: Bxyz(3,maxvecp)
  character(len=*), parameter :: xyzh_label(4) = (/'x','y','z','h'/)
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
  character(len=*), parameter :: Bevol_label(4) = (/'Bx ','By ','Bz ','psi'/)
@@ -155,7 +155,7 @@ module part
 !--derivatives (only needed if derivs is called)
 !
  real         :: fxyzu(maxvxyzu,maxan)
- real(kind=4) :: dBevol(maxBevol,maxmhdan)
+ real         :: dBevol(maxBevol,maxmhdan)
  real(kind=4) :: divBsymm(maxmhdan)
  real         :: fext(3,maxan)
  real         :: ddustfrac(maxdustan)
@@ -165,7 +165,7 @@ module part
  real         :: vpred(maxvxyzu,maxan)
  real         :: ppred(maxvxyzu,maxan)
  real         :: dustpred(maxdustan)
- real(kind=4) :: Bpred(maxBevol,maxmhdan)
+ real         :: Bpred(maxBevol,maxmhdan)
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin(maxan)
  integer(kind=1)    :: ibin_wake(maxan)
@@ -672,9 +672,9 @@ subroutine reorder_particles(iorder,np)
  call copy_array(vxyzu(:,1:np),iorder(1:np))
  call copy_array(fext(:,1:np),iorder(1:np))
  if (mhd) then
-    call copy_arrayr4(Bevol(:,1:npart),iorder(1:np))
+    call copy_array(Bevol(:,1:npart),iorder(1:np))
     !--also copy the Bfield here, as this routine is used in setup routines
-    if (maxvecp        ==maxp) call copy_arrayr4(Bxyz(:,1:np),        iorder(1:np))
+    if (maxvecp        ==maxp) call copy_array(Bxyz(:,1:np),        iorder(1:np))
  endif
  if (ndivcurlv > 0)     call copy_arrayr4(divcurlv(:,1:np),iorder(1:np))
  if (maxalpha ==maxp) call copy_arrayr4(alphaind(:,1:np),  iorder(1:np))

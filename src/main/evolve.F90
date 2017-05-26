@@ -753,7 +753,7 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast,&
  write(iprint,"(1x,'Since last dump : ',a,' timesteps, wall: ',a,'s cpu: ',a,'s cpu/wall: ',a)") &
        trim(adjustl(string)),trim(string1),trim(string2),trim(string3)
 
- time_fullstep = timer_lastdump%wall + timer_io%wall
+ time_fullstep = timer_lastdump%wall + timer_ev%wall + timer_io%wall
  write(iprint,"(/,16x,a)") ' wall        cpu    cpu/wall   frac'
  call print_timer(iprint,timer_step%label,timer_step, time_fullstep)
  call print_timer(iprint,"step (force)",  timer_force,time_fullstep)

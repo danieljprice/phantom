@@ -160,7 +160,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #endif
 
        if (itype==igas) then
-          if (mhd)          Bevol(:,i)  = Bevol(:,i) + real(hdti,kind=4)*dBevol(:,i)
+          if (mhd)          Bevol(:,i)  = Bevol(:,i) + hdti*dBevol(:,i)
           if (use_dustfrac) dustevol(i) = abs(dustevol(i) + hdti*ddustfrac(i))
        endif
     endif
@@ -238,7 +238,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
 #endif
        if (itype==igas) then
-          if (mhd)          Bpred(:,i)  = Bevol (:,i) + real(hdti,kind=4)*dBevol(:,i)
+          if (mhd)          Bpred(:,i)  = Bevol (:,i) + hdti*dBevol(:,i)
           if (use_dustfrac) then
              rhoi        = rhoh(xyzh(4,i),pmassi)
              dustpred(i) = dustevol(i) + hdti*ddustfrac(i)
@@ -355,7 +355,7 @@ endif
 #endif
 
              if (itype==igas) then
-                if (mhd)          Bevol(:,i)  = Bevol(:,i) + real(hdti,kind=4)*dBevol(:,i)
+                if (mhd)          Bevol(:,i)  = Bevol(:,i) + hdti*dBevol(:,i)
                 if (use_dustfrac) dustevol(i) = dustevol(i) + hdti*ddustfrac(i)
              endif
              twas(i)    = twas(i) + hdti
@@ -372,7 +372,7 @@ endif
 #endif
 
           if (itype==igas) then
-             if (mhd)          Bevol(:,i)  = Bevol(:,i) + real(hdti,kind=4)*dBevol(:,i)
+             if (mhd)          Bevol(:,i)  = Bevol(:,i) + hdti*dBevol(:,i)
              if (use_dustfrac) dustevol(i) = dustevol(i) + hdti*ddustfrac(i)
           endif
 #else
@@ -426,7 +426,7 @@ endif
              !
              ! corrector step for magnetic field and dust
              !
-             if (mhd)          Bevol(:,i) = Bevol(:,i) + real(hdtsph,kind=4)*dBevol(:,i)
+             if (mhd)          Bevol(:,i) = Bevol(:,i) + hdtsph*dBevol(:,i)
              if (use_dustfrac) dustevol(i) = dustevol(i) + hdtsph*ddustfrac(i)
           endif
 #endif
@@ -472,7 +472,7 @@ endif
           vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
 #endif
           if (itype==igas) then
-             if (mhd)          Bevol(:,i)  = Bevol(:,i) - real(hdtsph,kind=4)*dBevol(:,i)
+             if (mhd)          Bevol(:,i)  = Bevol(:,i) - hdtsph*dBevol(:,i)
              if (use_dustfrac) dustevol(i) = dustevol(i) - hdtsph*ddustfrac(i)
           endif
 #endif

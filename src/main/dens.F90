@@ -137,18 +137,17 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use mpiutils,  only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
 #ifdef MPI
  use linklist,  only:update_hmax_remote
- use stack,     only:reserve_stack
+ use stack,     only:reserve_stack,allocate_stack,deallocate_stack
  use mpiderivs, only:send_cell,recv_cells,check_send_finished,init_cell_exchange,finish_cell_exchange,recv_while_wait
 #endif
  use timestep,  only:rho_dtthresh,mod_dtmax,mod_dtmax_now
- use nicil,     only:nicil_get_ion_n,nicil_translate_error
  use part,      only:ngradh
  use viscosity, only:irealvisc
  use io_summary,only:summary_variable,iosumhup,iosumhdn
  integer,      intent(in)    :: icall,npart,nactive
  real,         intent(inout) :: xyzh(:,:)
  real,         intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real(kind=4), intent(in)    :: Bevol(:,:)
+ real,         intent(in)    :: Bevol(:,:)
  real(kind=4), intent(out)   :: divcurlv(:,:)
  real(kind=4), intent(out)   :: divcurlB(:,:)
  real(kind=4), intent(out)   :: alphaind(:,:)
@@ -189,17 +188,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  type(stackdens), save     :: stack_waiting
  type(stackdens), save     :: stack_redo
 
- ! check that stacks are empty
- if (stack_remote%n /= 0)  &
-    call fatal('densityiterate','remote stack is not empty: may be initialised improperly, or something left over')
- if (stack_waiting%n /= 0) &
-    call fatal('densityiterate','waiting stack is not empty: may be initialised improperly, or something left over')
- if (stack_redo%n /= 0)    &
-    call fatal('densityiterate','redostack is not empty: may be initialised improperly, or something left over')
-#endif
-
-#ifdef MPI
  call init_cell_exchange(xrecvbuf,irequestrecv)
+ call allocate_stack(stack_remote)
+ call allocate_stack(stack_redo)
+ call allocate_stack(stack_waiting)
 #endif
 
  if (iverbose >= 3 .and. id==master) &
@@ -517,6 +509,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 #ifdef MPI
 
  call finish_cell_exchange(irequestrecv,xsendbuf)
+ call deallocate_stack(stack_remote)
+ call deallocate_stack(stack_redo)
+ call deallocate_stack(stack_waiting)
 #endif
 
  ! reduce max stress across MPI procs
@@ -585,7 +580,7 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,listneigh
  logical,      intent(in)    :: getdv,realviscosity
  logical,      intent(in)    :: getdB
  real,         intent(in)    :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real(kind=4), intent(in)    :: Bevol(:,:)
+ real,         intent(in)    :: Bevol(:,:)
  logical,      intent(in)    :: ignoreself
  integer(kind=1)             :: iphasej
  integer                     :: iamtypej
@@ -772,9 +767,9 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,listneigh
              endif
 
              if (getdB .and. gas_gas) then
-                dBx = xpartveci(iBevolxi) - real(Bevol(1,j))
-                dBy = xpartveci(iBevolyi) - real(Bevol(2,j))
-                dBz = xpartveci(iBevolzi) - real(Bevol(3,j))
+                dBx = xpartveci(iBevolxi) - Bevol(1,j)
+                dBy = xpartveci(iBevolyi) - Bevol(2,j)
+                dBz = xpartveci(iBevolzi) - Bevol(3,j)
                 projdB = dBx*runix + dBy*runiy + dBz*runiz
 
                 ! difference operator of divB
@@ -1249,7 +1244,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  integer,         intent(in)     :: nneigh
  logical,         intent(in)     :: getdv
  logical,         intent(in)     :: getdB
- real(kind=4),    intent(in)     :: Bevol(:,:)
+ real,            intent(in)     :: Bevol(:,:)
  real,            intent(in)     :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
  real,            intent(in)     :: xyzcache(3,isizecellcache)
 
@@ -1337,7 +1332,7 @@ end subroutine compute_hmax
 subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
  use io,          only:fatal
  use dim,         only:maxp,maxvxyzu
- use part,        only:maxphase,get_partinfo,iboundary,maxBevol,mhd,igas,iamgas
+ use part,        only:maxphase,get_partinfo,iboundary,maxBevol,mhd,igas,iamgas,set_boundaries_to_active
 
  type(celldens),     intent(inout) :: cell
  integer,            intent(in)    :: ifirstincell(:)
@@ -1347,7 +1342,7 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
  real,               intent(in)    :: vxyzu(:,:)
  real,               intent(in)    :: fxyzu(:,:)
  real,               intent(in)    :: fext(:,:)
- real(kind=4),       intent(in)    :: Bevol(:,:)
+ real,               intent(in)    :: Bevol(:,:)
 
  integer :: i
  integer :: iamtypei
@@ -1375,8 +1370,14 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
        cycle over_parts
     endif
     if (iamtypei==iboundary) then ! do not compute forces on boundary parts
-       i = ll(i)
-       cycle over_parts
+       if (set_boundaries_to_active) then
+          iactivei = .true.
+          iamtypei = igas
+          iamgasi  = .true.
+       else
+          i = ll(i)
+          cycle over_parts
+       endif
     endif
 
     cell%npcell = cell%npcell + 1
@@ -1731,7 +1732,9 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
        call nicil_get_ion_n(real(rhoi),temperaturei,n_R(:,lli),n_electronT(lli),ierr)
        if (ierr/=0) then
           call nicil_translate_error(ierr)
-          call fatal('densityiterate','error in calcuating grain charge or electron number density')
+          if (ierr > 0) then
+             call fatal('densityiterate','error in calcuating grain charge or electron number density')
+          endif
        endif
     endif
 

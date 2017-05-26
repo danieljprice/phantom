@@ -46,7 +46,7 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
  real,         intent(in)  :: xyzh(:,:), vxyzu(:,:)
  real,         intent(in)  :: massoftype(:)
  real,         intent(in)  :: polyk
- real(kind=4), intent(out) :: Bevol(:,:)
+ real,         intent(out) :: Bevol(:,:)
  real,         intent(out) :: Bextx,Bexty,Bextz
  integer :: maxp,maxBevol
  integer :: igeom,i
@@ -207,9 +207,9 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
 !--B
 !
     do i=1,npart
-       Bevol(1,i) = real(Bxzero,kind=4)
-       Bevol(2,i) = real(Byzero,kind=4)
-       Bevol(3,i) = real(Bzzero,kind=4)
+       Bevol(1,i) = Bxzero
+       Bevol(2,i) = Byzero
+       Bevol(3,i) = Bzzero
     enddo
 
  case(2)
@@ -232,8 +232,8 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
     if (reverse_field_dir) Bzero = -Bzero
     do i=1,npart
        theta=atan2(xyzh(2,i),xyzh(1,i))
-       Bevol(1,i) = real(Bzero*sin(theta),kind=4)
-       Bevol(2,i) = real(-Bzero*cos(theta),kind=4)
+       Bevol(1,i) = Bzero*sin(theta)
+       Bevol(2,i) = -Bzero*cos(theta)
        Bevol(3,i) = 0.
     enddo
 
