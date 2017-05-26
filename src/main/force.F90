@@ -182,8 +182,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  real,         intent(in)    :: xyzh(:,:)
  real,         intent(in)    :: vxyzu(:,:), dustfrac(:)
  real,         intent(out)   :: fxyzu(:,:), ddustfrac(:)
- real(kind=4), intent(in)    :: Bevol(:,:)
- real(kind=4), intent(out)   :: dBevol(:,:)
+ real,         intent(in)    :: Bevol(:,:)
+ real,         intent(out)   :: dBevol(:,:)
  real(kind=4), intent(inout) :: divcurlv(:,:)
  real(kind=4), intent(in)    :: divcurlB(:,:)
  real,         intent(in)    :: dt,stressmax
@@ -805,7 +805,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  logical,         intent(in)    :: ifilledcellcache
  logical,         intent(in)    :: realviscosity,useresistiveheat
  real,            intent(in)    :: xyzh(:,:),vxyzu(:,:)
- real(kind=4),    intent(in)    :: Bevol(:,:)
+ real,            intent(in)    :: Bevol(:,:)
  real(kind=4),    intent(in)    :: divcurlB(:,:)
  real,            intent(in)    :: dustfrac(:)
  integer(kind=1), intent(in)    :: iphase(:)
@@ -1646,7 +1646,7 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
  real(kind=4),       intent(in)    :: divcurlv(:,:)
  real(kind=4),       intent(in)    :: divcurlB(:,:)
  real(kind=4),       intent(in)    :: straintensor(:,:)
- real(kind=4),       intent(in)    :: Bevol(:,:)
+ real,               intent(in)    :: Bevol(:,:)
  real,               intent(in)    :: dustfrac(:)
  real,               intent(in)    :: n_R(:,:)
  real,               intent(in)    :: n_electronT(:)
@@ -1655,7 +1655,7 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
 
  real         :: divcurlvi(ndivcurlv)
  real         :: straini(6),curlBi(3),jcbcbi(3),jcbi(3)
- real         :: hi,rhoi,rho1i,dhdrhoi,pmassi
+ real         :: hi,rhoi,rho1i,dhdrhoi,pmassi,eni
  real(kind=8) :: hi1
  real         :: dustfraci,rhogasi,ponrhoi,pro2i,pri,spsoundi,temperaturei
  real         :: sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso
@@ -1712,6 +1712,11 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
     if (iamgasi) then
        if (ndivcurlv >= 1) divcurlvi(:) = divcurlv(:,i)
        if (realviscosity .and. maxstrain==maxp) straini(:) = straintensor(:,i)
+       if (maxvxyzu >= 4) then
+          eni = vxyzu(4,i)
+       else
+          eni = 0.0
+       endif
 
        !
        ! one-fluid dust properties
@@ -1737,7 +1742,7 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
        call get_P(rhoi,rho1i, &
                   xyzh(1,i),xyzh(2,i),xyzh(3,i), &
                   pmassi, &
-                  vxyzu(4,i), &
+                  eni, &
                   Bxi,Byi,Bzi, &
                   dustfraci, &
                   ponrhoi,pro2i,pri,spsoundi, &
@@ -1766,7 +1771,7 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
                              n_R(:,i),n_electronT(i),ierr)
           if (ierr/=0) then
              call nicil_translate_error(ierr)
-             call fatal('force','error in calcuating eta(i) for non-ideal MHD')
+             if (ierr > 0) call fatal('force','error in calcuating eta(i) for non-ideal MHD')
           endif
           call nimhd_get_jcbcb(jcbcbi,jcbi,curlBi,Bxi,Byi,Bzi,Bi1)
        endif
@@ -1884,7 +1889,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 
  integer,         intent(in)     :: listneigh(:)
  integer,         intent(in)     :: nneigh
- real(kind=4),    intent(in)     :: Bevol(:,:)
+ real,            intent(in)     :: Bevol(:,:)
  real,            intent(in)     :: xyzh(:,:)
  real,            intent(in)     :: vxyzu(:,:)
  real,            intent(in)     :: fxyzu(:,:)
@@ -2039,7 +2044,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
  real(kind=4),       intent(out)   :: poten(:)
  real(kind=4),       intent(out)   :: divBsymm(:)
  real(kind=4),       intent(out)   :: divcurlv(:,:)
- real(kind=4),       intent(out)   :: dBevol(:,:)
+ real,               intent(out)   :: dBevol(:,:)
  real,               intent(out)   :: ddustfrac(:)
  real,               intent(out)   :: deltav(:,:)
 
@@ -2283,9 +2288,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
           !
           ! sum returns d(B/rho)/dt, convert this to dB/dt
           !
-          dBevol(1,i) = real(rhoi*fsum(idBevolxi) - Bevoli(1)*divvi,kind=kind(dBevol))
-          dBevol(2,i) = real(rhoi*fsum(idBevolyi) - Bevoli(2)*divvi,kind=kind(dBevol))
-          dBevol(3,i) = real(rhoi*fsum(idBevolzi) - Bevoli(3)*divvi,kind=kind(dBevol))
+          dBevol(1,i) = rhoi*fsum(idBevolxi) - Bevoli(1)*divvi
+          dBevol(2,i) = rhoi*fsum(idBevolyi) - Bevoli(2)*divvi
+          dBevol(3,i) = rhoi*fsum(idBevolzi) - Bevoli(3)*divvi
           !
           ! hyperbolic/parabolic cleaning terms (dpsi/dt) from Tricco & Price (2012)
           !
@@ -2298,7 +2303,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
              psii = xpartveci(ipsi)
 
              ! new cleaning evolving d/dt (psi/c_h)
-             dBevol(4,i) = real(-vcleani*fsum(idivBdiffi)*rho1i - psii*dtau - 0.5*psii*divvi,kind=kind(dBevol))
+             dBevol(4,i) = -vcleani*fsum(idivBdiffi)*rho1i - psii*dtau - 0.5*psii*divvi
 
              ! timestep from cleaning (should only matter if overcleaning applied)
              ! the factor of 0.5 is empirical, from checking when overcleaning with ind. timesteps is stable

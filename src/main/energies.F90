@@ -60,7 +60,7 @@ subroutine compute_energies(t)
  use part, only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,npartoftype, &
                 alphaind,Bxyz,Bevol,divcurlB,iamtype,igas,idust,iboundary,istar,idarkmatter,ibulge, &
                 nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,isdead_or_accreted,epot_sinksink,&
-                imacc,ispinx,ispiny,ispinz,mhd,maxvecp,divBsymm,gravity,poten,dustfrac,&
+                imacc,ispinx,ispiny,ispinz,mhd,maxvecp,gravity,poten,dustfrac,&
                 n_R,n_electronT,ionfrac_eta
  use eos,            only:polyk,utherm,gamma,equationofstate,get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
@@ -132,7 +132,7 @@ subroutine compute_energies(t)
 !$omp shared(xyzh,vxyzu,iexternalforce,npart,t,id,npartoftype) &
 !$omp shared(alphaind,massoftype,irealvisc) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass) &
-!$omp shared(Bxyz,Bevol,divBsymm,divcurlB,alphaB,iphase,poten,dustfrac) &
+!$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,nelements,n_R,n_electronT,ionfrac_eta) &
 !$omp shared(ielements,ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &

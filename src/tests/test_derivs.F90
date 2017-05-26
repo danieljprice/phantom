@@ -76,8 +76,7 @@ subroutine test_derivs(ntests,npass,string)
  integer                :: itest,ierr,ierr2,nptest
  real                   :: fracactive,speedup
  real(kind=4)           :: tallactive
- real,         allocatable :: fxyzstore(:,:)
- real(kind=4), allocatable :: dBdtstore(:,:)
+ real,         allocatable :: fxyzstore(:,:),dBdtstore(:,:)
 #else
  integer                :: nactive
 #endif
@@ -1119,7 +1118,8 @@ subroutine test_derivs(ntests,npass,string)
                 if (maxBevol >= 4) then
                    call checkval(nptest,dBevol(4,:),dBdtstore(4,1:nptest),1.e-5,nfailed(8),'dpsi/dt')
                 endif
-                call checkval(nptest,divBsymm,dBdtstore(maxBevol+1,1:nptest),1.e-3,nfailed(9),'div B (symm)')
+                call checkval(nptest,divBsymm,real(dBdtstore(maxBevol+1,1:nptest),kind=kind(divBsymm)),&
+                              1.e-3,nfailed(9),'div B (symm)')
              endif
              ntests = ntests + 1
              if (all(nfailed==0)) npass = npass + 1
