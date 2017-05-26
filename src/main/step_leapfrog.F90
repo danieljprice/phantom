@@ -32,7 +32,10 @@
 !--------------------------------------------------------------------------
 module step_lf_global
  use dim,  only:maxp,maxvxyzu,maxBevol
- use part, only:vpred,Bpred,dustpred,ppred
+ use part, only:vpred,Bpred,dustpred
+#ifdef GR
+ use part, only:ppred
+#endif
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -125,7 +128,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
+#ifdef GR
  !$omp shared(pxyzu) &
+#endif
  !$omp shared(Bevol,dBevol,dustevol,ddustfrac) &
 #ifdef IND_TIMESTEPS
  !$omp shared(ibin,ibinold,twas,timei) &
@@ -275,7 +280,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
 if (npart > 0) then
 #ifdef GR
-
+  call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
+                     divcurlB,Bpred,dBevol,dustfrac,ddustfrac,timei,dtsph,dtnew,pxyzu)
 #else
   call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                      divcurlB,Bpred,dBevol,dustfrac,ddustfrac,timei,dtsph,dtnew)
@@ -309,7 +315,10 @@ endif
     ntypes  = get_ntypes(npartoftype)
     store_itype = (maxphase==maxp .and. ntypes > 1)
 !$omp parallel default(none) &
-!$omp shared(xyzh,vxyzu,vpred,fxyzu,npart,hdtsph,store_itype,pxyzu,ppred) &
+!$omp shared(xyzh,vxyzu,vpred,fxyzu,npart,hdtsph,store_itype) &
+#ifdef GR
+!$omp shared(pxyzu,ppred) &
+#endif
 !$omp shared(Bevol,dBevol,iphase,its) &
 !$omp shared(dustevol,ddustfrac) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
@@ -474,7 +483,8 @@ endif
 !
 
 #ifdef GR
-
+       call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB,&
+                     Bpred,dBevol,dustfrac,ddustfrac,timei,dtsph,dtnew,pxyzu)
 #else
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB,Bpred,dBevol,dustfrac,ddustfrac,timei,dtsph,dtnew)
 #endif
