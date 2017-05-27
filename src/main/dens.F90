@@ -1415,8 +1415,6 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
        endif
     endif
 
-    i = ll(i)
-
  enddo over_parts
 
 end subroutine start_cell
