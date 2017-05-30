@@ -910,7 +910,6 @@ ifeq ($(SETUP), sfmcfost)
     MULTIRUNFILE= multirun.f90
     IND_TIMESTEPS=yes
     GRAVITY=yes
-    LIGHTCURVE=yes
     MCFOST=yes
 endif
 
@@ -1601,12 +1600,6 @@ ifeq ($(MCFOST), yes)
 #    LDFLAGS+=  ~/mcfost/src/libtmp/*.o  ~/mcfost/src/*.o  $(LIBCXX)
 endif
 
-#
-# whether or not all threads should read in parallel
-#
-ifeq ($(MPI_PARALLELREAD), yes)
-    FPPFLAGS += -DMPI_PARALLELREAD
-endif
 #
 # select domain decomposition type
 #

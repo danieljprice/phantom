@@ -19,7 +19,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, dust, eos, io, mcfost2phantom, part, units
+!  DEPENDENCIES: dim, dust, eos, io, mcfost2phantom, part, timestep, units
 !+
 !--------------------------------------------------------------------------
 module analysis
@@ -35,12 +35,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use mcfost2phantom, only:init_mcfost_phantom,run_mcfost_phantom
  use part,           only:massoftype,iphase,dustfrac,hfact,npartoftype,&
                           get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
-                          massoftype,xyzmh_ptmass,luminosity
+                          massoftype,xyzmh_ptmass,luminosity,igas
  use units,          only:umass,utime,udist
  use io,             only:fatal
  use dim,            only:use_dust,lightcurve
  use dust,           only:grainsize,graindens
  use eos, only : temperature_coef, gmw, gamma
+ use timestep,       only:dtmax
 
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
@@ -58,9 +59,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,dimension(6) :: SPH_limits
  real(kind=4),dimension(:,:,:),allocatable :: Frad
  real,dimension(:),allocatable :: dudt
-
+ real :: T_to_u
  real, parameter :: Tdefault = 1.
- logical, parameter :: write_T_files = .true. ! ask mcfost to write fits files with temperature structure
+ logical, parameter :: write_T_files = .false. ! ask mcfost to write fits files with temperature structure
  integer, parameter :: ISM = 2 ! ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto
 
  if (.not.init_mcfost) then
@@ -89,16 +90,23 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  endif
  grain_size(:) = grainsize
  SPH_limits = 0.
- nlum = 0
- if (lightcurve) nlum = npart
+ nlum = npart
  allocate(dudt(nlum))
- if (lightcurve) dudt(1:nlum) = luminosity(1:nlum)
+ if (lightcurve) then
+    dudt(1:nlum) = luminosity(1:nlum)
+ else
+    dudt(1:nlum) = vxyzu(4,1:nlum) * massoftype(igas) / dtmax
+ endif
  allocate(Frad(3,ndusttypes,npart))
+
+ factor = 1.0/(temperature_coef*gmw*(gamma-1))
+ ! this this the factor needed to compute u^(n+1)/dtmax from temperature
+ T_to_u = factor * massoftype(igas) /dtmax
 
  call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
    npartoftype,xyzh,vxyzu,itype,grain_size,graindens,dustfrac,massoftype,&
    xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
-   Frad,mu_gas,ierr,write_T_files,ISM)
+   Frad,mu_gas,ierr,write_T_files,ISM,T_to_u)
  !print*,' mu_gas = ',mu_gas
 
  write(*,*) ''
@@ -107,7 +115,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  write(*,*) ''
 
  ! set thermal energy
- factor = 1.0/(temperature_coef*gmw*(gamma-1))
+
  do i=1,npart
     if (Tdust(i) > 0.) then
        vxyzu(4,i) = Tdust(i) * factor

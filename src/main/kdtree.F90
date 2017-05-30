@@ -1503,13 +1503,13 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
     !do i = 1, nl
     do while(ipart /= 0)
        ibelong(ipart) = idleft
-       ipart = ll(abs(ipart))
+       ipart = abs(ll(ipart))
     enddo
     ipart = abs(ifirstincell(ir))
     do while(ipart /= 0)
        !do i = 1, nr
        ibelong(ipart) = idright
-       ipart = ll(abs(ipart))
+       ipart = abs(ll(ipart))
     enddo
 
     ! move particles to where they belong, and relink lists
@@ -1563,8 +1563,9 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
        enddo
 
        roffset_prev = roffset
-
-       call tree_sync(refinementnode(locstart:locend),roffset,nodeglobal(nnodestart:nnodeend),id,1,level)
+       ! sync, replacing level with globallevel, since all procs will get synced
+       ! and deeper comms do not exist
+       call tree_sync(refinementnode(locstart:locend),roffset,nodeglobal(nnodestart:nnodeend),id,1,globallevel)
     enddo
  endif
  ! cellatid is zero by default

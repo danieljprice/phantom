@@ -198,7 +198,10 @@ module part
    +ngradh*maxgradh/maxpd               &  ! gradh
    +maxphase/maxpd                      &  ! iphase
 #ifdef IND_TIMESTEPS
-   +2 +maxvxyzu                         &  ! ibin, divv, fxyzu
+   +1                                   &  ! ibin
+   +maxvxyzu                            &  ! fxyzu
+   +3                                   &  ! fext
+   +1                                   &  ! divcurlv
    +(maxmhd/maxpd)*maxBevol +3*(maxvecp/maxpd)  &  ! dB/dt, Bxyz
 #endif
    +(maxmhd/maxpd)*                     &  ! (mhd quantities)
