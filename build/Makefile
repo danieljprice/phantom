@@ -450,6 +450,7 @@ ifeq ($(SETUP), srshock)
     ISOTHERMAL=no
     KNOWN_SETUP=yes
     MAXP=500000
+    CONST_AV=yes
 endif
 
 ifeq ($(SETUP), dustydisc)
