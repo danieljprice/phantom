@@ -9,6 +9,7 @@ implicit none
 !      - Tensor transformations
 !
 character(len=*), parameter :: coordinate_sys = 'Cartesian'
+!--- When using this with PHANTOM, it should always be set to cartesian
 
 contains
 

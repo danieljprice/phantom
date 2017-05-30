@@ -38,7 +38,10 @@ contains
 subroutine check_compile_time_settings(ierr)
  use part,  only:mhd,maxBevol,gravity,ngradh,h2chemistry,maxvxyzu,use_dust
  use dim,   only:maxsts,maxstrain
- use io,    only:error
+ use io,    only:error,fatal
+#ifdef GR
+ use metric_tools, only:coordinate_sys
+#endif
  integer, intent(out) :: ierr
  character(len=16), parameter :: string = 'compile settings'
 
@@ -102,6 +105,7 @@ subroutine check_compile_time_settings(ierr)
 #endif
 
 #ifdef GR
+
 if (mhd) then
    call error(string,'General relativity not compatible with MHD.')
    ierr = 6
@@ -130,6 +134,10 @@ endif
 call error(string,'General relativity not compatible with turbulent driving.')
 ierr = 11
 #endif
+if (coordinate_sys /= 'Cartesian') then
+   call fatal('checkoptions (GR)',&
+   "You must use Cartesian-like coordinates in PHANTOM! Please change to Cartesian in metric_tools!'")
+endif
 #endif
 
  return
