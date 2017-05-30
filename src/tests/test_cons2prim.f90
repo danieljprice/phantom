@@ -2,17 +2,27 @@ module testcons2prim
 implicit none
 contains
 subroutine test_cons2prim(ntests,npass)
+   use eos,          only: gamma
    use cons2prim_gr, only: get_u
-   use utils_gr, only: dot_product_gr
+   use utils_gr,     only: dot_product_gr
    use metric_tools, only: get_metric
    integer, intent(inout) :: ntests,npass
-   integer :: j,ix,iy,iz,vx,vy,vz
+   integer :: j,ix,iy,iz,vx,vy,vz, ncombinations, ncombpassed
    real :: x(1:3),v(1:3),v4(0:3)
    real :: dens,u,p,gcov(0:3,0:3),gcon(0:3,0:3),sqrtg
 
    write(*,'(/,a,/)') '--> testing conservative2primitive solver'
 
+   ntests = ntests + 1
+   ncombinations = 0
+   ncombpassed = 0
+
+   gamma = 5./3.
    dens = 10.
+!$omp parallel do default (none) &
+!$omp shared(dens) &
+!$omp reduction(+:ncombinations,ncombpassed) &
+!$omp private(ix,iy,iz,vx,vy,vz,x,gcov,gcon,sqrtg,v,v4,j,u,p)
    do ix=0,50
       do iy=0,50
          do iz=0,50
@@ -27,10 +37,10 @@ subroutine test_cons2prim(ntests,npass)
                      ! Only allow valid combinations of position and velocity to be tested.
                      ! i.e. Not faster than the speed of light locally.
                      if (dot_product_gr(v4,v4,gcov) < 0.) then
-                        do j=0,0
+                        do j=0,10
                            p = j*.1
                            call get_u(u,p,dens)
-                           call test_cons2prim_i(x,v,dens,u,p,ntests,npass)
+                           call test_cons2prim_i(x,v,dens,u,p,ncombinations,ncombpassed)
                         enddo
                      endif
                   enddo
@@ -39,7 +49,9 @@ subroutine test_cons2prim(ntests,npass)
          enddo
       enddo
    enddo
-
+!$omp end parallel do
+   print*,ncombinations,' combinations tried, out of which ',ncombpassed,'passed.'
+   if (ncombpassed==ncombinations) npass = npass + 1
    write(*,'(/,a,/)') '<-- conservative2primitive test complete'
 
 end subroutine test_cons2prim
