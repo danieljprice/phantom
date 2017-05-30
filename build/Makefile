@@ -826,6 +826,14 @@ ifeq ($(SETUP), testlum)
     ISOTHERMAL=no
 endif
 
+ifeq ($(SETUP), testgr)
+    GR=yes
+    FPPFLAGS= -DGR
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=no
+    METRIC=schwarzschild
+endif
+
 ifeq ($(SETUP), default)
     KNOWN_SETUP=yes
     SETUPFILE= setup_unifdis.F90
@@ -2605,6 +2613,9 @@ testgrav:
 
 testdust:
 	${MAKE} SETUP=testdust && $(MPIEXEC) $(BINDIR)/phantom test dust
+
+testgr:
+	${MAKE} SETUP=testgr && $(MPIEXEC) $(BINDIR)/phantom test gr
 
 testall: test test2 testcyl testgrav
 
