@@ -5,7 +5,7 @@ implicit none
 public :: conservative2primitive,primitive2conservative,get_u,get_pressure
 integer, parameter :: ierr_notconverged = 1
 
-logical, parameter, private :: do_nothing = .true.
+logical, parameter, private :: do_nothing = .false.
 
 private :: get_enthalpy
 
