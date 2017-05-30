@@ -443,7 +443,11 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           if (.not.done_init_eos) call init_eos(ieos,ierr)
           do i=1,npart
              rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
-             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+             if (maxvxyzu >=4 ) then
+                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+             else
+                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i))
+             endif
              temparr(i) = ponrhoi*rhoi
           enddo
           call write_array(1,temparr,'pressure',npart,k,ipass,idump,nums,ierrs(7))
