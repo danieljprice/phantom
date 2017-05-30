@@ -253,14 +253,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vxyzu(2,i) = rightstate(ivy)
        vxyzu(3,i) = rightstate(ivz)
        if (maxvxyzu >= 4) vxyzu(4,i) = uuright
-       if (mhd) Bevol(1:3,i) = real(rightstate(iBx:iBz),kind=kind(Bevol))
+       if (mhd) Bevol(1:3,i) = rightstate(iBx:iBz)
     else
        xyzh(4,i) = hrho(leftstate(idens),massoftype(igas))
        vxyzu(1,i) = leftstate(ivx)
        vxyzu(2,i) = leftstate(ivy)
        vxyzu(3,i) = leftstate(ivz)
        if (maxvxyzu >= 4) vxyzu(4,i) = uuleft
-       if (mhd) Bevol(1:3,i) = real(leftstate(iBx:iBz),kind=kind(Bevol))
+       if (mhd) Bevol(1:3,i) = leftstate(iBx:iBz)
     endif
  enddo
  if (mhd) ihavesetupB = .true.
