@@ -53,7 +53,7 @@ end subroutine test_metric
 !  Subroutine containing the actual tests of the metric
 !+
 !----------------------------------------------------------------
-subroutine test_metric_i(x,v,ntests,npass)
+subroutine test_metric_i(x,v,ntests,npass,checkxv)
    use testutils, only: checkvalbuf
    use metric_tools, only: get_metric
    use utils_gr, only: dot_product_gr
@@ -65,6 +65,11 @@ subroutine test_metric_i(x,v,ntests,npass)
    ! real, parameter :: tol=4.e-13
    integer :: i,j, nerrors,ncheck,n_error
    real :: errmax
+   logical, intent(in), optional :: checkxv
+   logical :: do_checkxv
+
+   do_checkxv = .true.
+   if (present(checkxv)) do_checkxv = checkxv
 
    ntests=ntests+1
    nerrors = 0
@@ -89,6 +94,7 @@ subroutine test_metric_i(x,v,ntests,npass)
       enddo
    endif
 
+if (do_checkxv) then
    v4=(/1.,v/)
    call checkvalbuf(int(sign(1.,dot_product_gr(v4,v4,gcov))),-1,0,'[F]: &
    &sign of dot_product_gr(v4,v4,gcov))',nerrors,ncheck)
@@ -97,6 +103,7 @@ subroutine test_metric_i(x,v,ntests,npass)
       print*,'Warning: Bad combination of position and velocity... &
       &dot_product_gr(v4,v4,gcov)=',dot_product_gr(v4,v4,gcov),' > 0'
    endif
+endif
 
    if (nerrors/=0) then
       print*,'-- Metric test failed with:'
