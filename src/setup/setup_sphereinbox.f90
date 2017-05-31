@@ -73,8 +73,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield
  use eos,          only:polyk2,ieos
  use part,         only:Bevol,Bextx,Bexty,Bextz,igas,idust,set_particle_type
- use timestep,     only:dtmax,tmax
- !use timestep,    only:rho_dtthresh_cgs,dtmax_rat0 ! specific to the isolated protostar formation studies
+ use timestep,     only:dtmax,tmax,rho_dtthresh_cgs,dtmax_rat0
  use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
  use options,      only:twallmax, dtwallmax,nfulldump,alphaB
  use kernel,       only:hfact_default
@@ -94,6 +93,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real               :: rxy2,rxyz2,phi,dphi,lbox
  integer            :: i,nx,np_in,npartsphere,npmax,ierr
  logical            :: iexist,is_box,make_sinks
+ logical            :: modify_dtmax = .false.  ! decrease dtmax specifically for isolated protostar formation studies
  character(len=100) :: filename
  character(len=40)  :: fmt
  character(len=10)  :: string,h_acc_char
@@ -362,14 +362,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        rxy2  = xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i)
        rxyz2 = rxy2 + xyzh(3,i)*xyzh(3,i)
        if (rxyz2 <= r_sphere**2) then
-          phi  = atan(xyzh(2,i)/xyzh(1,i))
+          phi       = atan(xyzh(2,i)/xyzh(1,i))
           if (xyzh(1,i) < 0.0) phi = phi + pi
-          dphi = 0.5*rho_pert_amp*sin(2.0*phi)
-          phi  = phi - dphi
+          dphi      = 0.5*rho_pert_amp*sin(2.0*phi)
+          phi       = phi - dphi
           xyzh(1,i) = sqrt(rxy2)*cos(phi)
           xyzh(2,i) = sqrt(rxy2)*sin(phi)
        endif
     enddo
+    modify_dtmax = .false.
  endif
  !
  ! velocity field corresponding to uniform rotation
@@ -380,15 +381,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vxyzu(1,i) = -angvel_code*xyzh(2,i)
        vxyzu(2,i) =  angvel_code*xyzh(1,i)
        vxyzu(3,i) = 0.
-       if (size(vxyzu(:,i)) >= 4) vxyzu(4,i) = 1.5*polyk
+       if (maxvxyzu >= 4) vxyzu(4,i) = 1.5*polyk
     else
        vxyzu(1:3,i) = 0.
-       if (size(vxyzu(:,i)) >= 4) vxyzu(4,i) = 1.5*polyk2
+       if (maxvxyzu >= 4) vxyzu(4,i) = 1.5*polyk2
     endif
     if (mhd) then
        Bevol(:,i) = 0.
-       Bevol(1,i) = real(Bzero*sin(ang_Bomega*pi/180.0),kind=kind(Bevol))
-       Bevol(3,i) = real(Bzero*cos(ang_Bomega*pi/180.0),kind=kind(Bevol))
+       Bevol(1,i) = Bzero*sin(ang_Bomega*pi/180.0)
+       Bevol(3,i) = Bzero*cos(ang_Bomega*pi/180.0)
     endif
  enddo
  !
@@ -410,10 +411,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     nfulldump     = 1
     calc_erot     = .true.
     calc_erot_com = .false.
-    !dtmax_rat0       = 4           ! specific to the isolated protostar formation studies
-    !rho_dtthresh_cgs = 5.0d-13     ! specific to the isolated protostar formation studies
+    if (modify_dtmax) then
+       dtmax_rat0       = 4
+       rho_dtthresh_cgs = 5.0d-13
+    endif
  endif
- !dtmax = t_ff/100.                 ! specific to the isolated protostar formation studies
+ if (modify_dtmax) dtmax = t_ff/100.
 
 end subroutine setpart
 
