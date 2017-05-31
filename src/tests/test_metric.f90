@@ -1,56 +1,10 @@
 module testmetric
 implicit none
 contains
-!----------------------------------------------------------------
-!+
-!  Subroutine to test the metric for different values of x and v
-!  It should be used in the test suite.
-!+
-!----------------------------------------------------------------
-subroutine test_metric(ntests,npass)
-   use metric_tools, only: get_metric
-   use metric, only: metric_type
-   use utils_gr, only: get_metric3plus1, dot_product_gr
-   integer, intent(inout) :: ntests,npass
-   real :: x(1:3), v(1:3), v4(0:3)
-   real :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
-   integer :: ierr, ix,iy,iz,vx,vy,vz
-   ierr = 0
-
-   write(*,'(/,a)') '--> testing metric'
-   write(*,'(a,/)') '    metric type = '//trim(metric_type)
-
-   do ix=0,50
-      do iy=0,50
-         do iz=0,50
-            do vx=0,10
-               do vy=0,10
-                  do vz=0,10
-                     x = (/0.1*ix,0.1*iy,0.1*iz/)
-                     call get_metric(x,gcov,gcon,sqrtg)
-                     v = (/0.1*vx,0.1*vy,0.1*vz/)
-                     v4(0) = 1.
-                     v4(1:3) = v(:)
-                     ! Only allow valid combinations of position and velocity to be tested.
-                     ! i.e. Not faster than the speed of light locally.
-                     if (dot_product_gr(v4,v4,gcov) < 0.) then
-                        ! print*,dot_product_gr(v4,v4,gcov)
-                        call test_metric_i(x,v,ntests,npass)
-                     endif
-                  enddo
-               enddo
-            enddo
-         enddo
-      enddo
-   enddo
-   write(*,'(/,a,/)') '<-- metric test complete'
-
-end subroutine test_metric
-
 
 !----------------------------------------------------------------
 !+
-!  Subroutine containing the actual tests of the metric
+!  Tests of the metric
 !+
 !----------------------------------------------------------------
 subroutine test_metric_i(x,v,ntests,npass,checkxv)
