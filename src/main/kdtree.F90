@@ -1397,7 +1397,7 @@ end subroutine add_child_nodes
 !+
 !-------------------------------------------------------------------------------
 #ifdef MPI
-subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
+subroutine maketreeglobal(nodeglobal, xyzh, np, ndim, cellatid, ncells)
  use io,           only:fatal,warning,id,nprocs
  use mpiutils,     only:reduceall_mpi
  use domain,       only:ibelong
@@ -1410,7 +1410,6 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
  integer,      intent(inout)   :: np
  integer,      intent(in)      :: ndim
  real,         intent(inout)   :: xyzh(4,maxp)
- real,         intent(in)      :: vxyzu(:,:)
  integer,      intent(out)     :: cellatid(ncellsmax+1)
  integer                       :: ifirstincell(ncellsmax+1)
  real                          :: xmini(ndim),xmaxi(ndim)

@@ -151,7 +151,7 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
      .or. maxlevel > maxlevel_indexed) then
     !print*,' MAKETREE ',nactive,naccum
 #ifdef MPI
-    call maketreeglobal(nodeglobal,xyzh,vxyzu,npart,ndimtree,ifirstincellglobal,ncells)
+    call maketreeglobal(nodeglobal,xyzh,npart,ndimtree,ifirstincellglobal,ncells)
 #endif
     call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
     naccum = npart
@@ -160,7 +160,7 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
     naccum = naccum + nactive
 !    print *,' REVTREE ',nactive,naccum
 #ifdef MPI
-    call maketreeglobal(nodeglobal,xyzh,vxyzu,npart,ndimtree,ifirstincellglobal,ncells)
+    call maketreeglobal(nodeglobal,xyzh,npart,ndimtree,ifirstincellglobal,ncells)
 #endif
     call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
 !    call revtree(xyzh, ifirstincell, ncells)
