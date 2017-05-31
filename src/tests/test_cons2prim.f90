@@ -59,15 +59,13 @@ end subroutine test_cons2prim
 subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
    use cons2prim_gr, only: conservative2primitive,primitive2conservative
    use testutils, only: checkval,checkvalbuf
-   ! use checks, only: check
    use testmetric, only: test_metric_i
    real, intent(in) :: x(1:3),v(1:3),dens,u,p
    integer, intent(inout) :: ntests,npass
    real :: rho,pmom(1:3),en
    real :: v_out(1:3),dens_out,u_out,p_out
    real, parameter :: tol = 4.e-12
-   ! real, parameter :: tol = 4.e-10
-   integer :: nerrors, ierr,metricpass, j
+   integer :: nerrors, ierr, j
    integer :: ncheck,dummy
    real :: errmax
 
@@ -79,12 +77,6 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
    dens_out = dens
    u_out    = u
    p_out    = p
-
-   metricpass = 0
-   call test_metric_i(x,v,dummy,metricpass)
-   if (metricpass==0) then
-      print*,'Warning: Metric test failed so cons2prim may also fail...'
-   endif
 
    call primitive2conservative(x,v,dens,u,P,rho,pmom,en,'entropy')
    call conservative2primitive(x,v_out,dens_out,u_out,p_out,rho,pmom,en,ierr,'entropy')
