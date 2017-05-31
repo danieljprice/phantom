@@ -29,13 +29,11 @@ use eos, only: equationofstate
 end subroutine
 
 subroutine get_u(u,P,dens)
-use eos, only: equationofstate
    real, intent(in)  :: dens,P
    real, intent(out) :: u
-   real :: ponrho, spsound
 
-   call equationofstate(eos_type,ponrho,spsound,dens,0.,0.,0.)
-   u = ponrho/(gamma-1.)
+   u = (P/dens)/(gamma-1.)
+   if (P==0.) u=0.
 
 end subroutine
 
@@ -45,8 +43,8 @@ use eos, only: equationofstate
    real, intent(out) :: enth
    real :: ponrho, spsound
 
-   call equationofstate(eos_type,ponrho,spsound,dens,0.,0.,0.)
-   enth = 1.+ponrho*(gamma/(gamma-1.))
+   ! call equationofstate(eos_type,ponrho,spsound,dens,0.,0.,0.)
+   enth = 1.+p/dens*(gamma/(gamma-1.))
 
    ! Needed in dust case when dens = 0 causes P/dens = NaN and therefore enth = NaN
    if(abs(p)<tiny(p)) enth=1.
