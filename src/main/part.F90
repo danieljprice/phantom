@@ -186,6 +186,7 @@ module part
  integer, parameter, private :: maxpd =  max(maxp,1) ! avoid divide by zero
  integer, parameter :: ipartbufsize = 4 &  ! xyzh
    +maxvxyzu                            &  ! vxyzu
+   +maxvxyzu                            &  ! vpred
    +nalpha*maxalpha/maxpd               &  ! alphaind
    +ngradh*maxgradh/maxpd               &  ! gradh
    +maxphase/maxpd                      &  ! iphase
@@ -805,6 +806,7 @@ subroutine fill_sendbuf(i,xtemp)
  if (i > 0) then
     call fill_buffer(xtemp,xyzh(:,i),nbuf)
     call fill_buffer(xtemp,vxyzu(:,i),nbuf)
+    call fill_buffer(xtemp,vpred(:,i),nbuf)
     if (maxalpha==maxp) then
        call fill_buffer(xtemp,alphaind(:,i),nbuf)
     endif
@@ -856,6 +858,7 @@ subroutine unfill_buffer(ipart,xbuf)
  j = 0
  xyzh(:,ipart)          = unfill_buf(xbuf,j,4)
  vxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
+ vpred(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
  if (maxalpha==maxp) then
     alphaind(:,ipart)   = real(unfill_buf(xbuf,j,nalpha),kind(alphaind))
  endif
