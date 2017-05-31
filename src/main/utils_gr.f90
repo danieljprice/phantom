@@ -1,26 +1,3 @@
-!--------------------------------------------------------------------------!
-! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2015 The Authors (see AUTHORS)                        !
-! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
-!--------------------------------------------------------------------------!
-!+
-!  MODULE: utils_gr
-!
-!  DESCRIPTION:
-!   Contains utility routines for general relativity
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
 module utils_gr
 implicit none
 

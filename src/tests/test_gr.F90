@@ -1,25 +1,3 @@
-!--------------------------------------------------------------------------!
-! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
-! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
-!--------------------------------------------------------------------------!
-!+
-!  MODULE: testindtstep
-!
-!  DESCRIPTION:
-!  test module for individual timestepping utilities
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!+
-!--------------------------------------------------------------------------
 module testgr
  implicit none
  public :: test_gr
