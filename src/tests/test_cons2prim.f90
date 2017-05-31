@@ -86,8 +86,8 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
       print*,'Warning: Metric test failed so cons2prim may also fail...'
    endif
 
-   call primitive2conservative(x,v,dens,u,P,rho,pmom,en,'energy')
-   call conservative2primitive(x,v_out,dens_out,u_out,p_out,rho,pmom,en,ierr,'energy')
+   call primitive2conservative(x,v,dens,u,P,rho,pmom,en,'entropy')
+   call conservative2primitive(x,v_out,dens_out,u_out,p_out,rho,pmom,en,ierr,'entropy')
 
    ! call checkval(ierr,0,0,n_error,'ierr = 0 for convergence')
    call checkvalbuf(ierr,0,0,'[F]: ierr (convergence)',nerrors,ncheck)
