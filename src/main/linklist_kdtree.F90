@@ -153,7 +153,7 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
 #ifdef MPI
     call maketreeglobal(nodeglobal,xyzh,vxyzu,npart,ndimtree,ifirstincellglobal,ncells)
 #endif
-    call maketree(node,xyzh,vxyzu,npart,ndimtree,ifirstincell,ncells)
+    call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
     naccum = npart
 !    print *, 'maketree'
  else
@@ -162,7 +162,7 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
 #ifdef MPI
     call maketreeglobal(nodeglobal,xyzh,vxyzu,npart,ndimtree,ifirstincellglobal,ncells)
 #endif
-    call maketree(node,xyzh,vxyzu,npart,ndimtree,ifirstincell,ncells)
+    call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
 !    call revtree(xyzh, ifirstincell, ncells)
  endif
 ! call cpu_time(t2)
