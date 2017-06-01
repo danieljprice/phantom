@@ -1445,9 +1445,9 @@ function softpot(pspeed,softfac,ti)
  t1       = softfac * Tperiod
  epsact  =  2.*ti/t1 - 1.
  if (ti<t1) then
-   softpot = (3./16.*epsact**5 - 5./8.*epsact**3 + 15./16.*epsact + 0.5 )
+    softpot = (3./16.*epsact**5 - 5./8.*epsact**3 + 15./16.*epsact + 0.5 )
  else
-   softpot = 1.
+    softpot = 1.
  endif
 
  return
