@@ -1223,22 +1223,22 @@ subroutine Wadabar(xi,yi,d2,phii,ti,hi,phi,fextxi,fextyi)
  !--Use the Dehnen00 smooth activation function:
  Ab = softpot(phibar,1.,ti)
  StrBarWt =  Ab * StrBarW
- 
+
  d1 =sqrt(d2)
  bartrig   = 2.0*(phii +  phibar*ti )
  Cbartrig  = cos(bartrig)
  Sbartrig  = sin(bartrig)
-      
+
  rratio = d1/rcore
  rterm_inv  = 1./(1. + rratio*rratio)
- 
+
  pot = + StrBarWt * Cbartrig * rratio*rratio *rterm_inv*rterm_inv
  dpotdr     = +StrBarWt * Cbartrig *2.*d1/(rcore*rcore*rcore*rcore)*(rcore*rcore-d2)*rterm_inv*rterm_inv*rterm_inv
  dpotdtheta = -2. * StrBarWt * Sbartrig *  rratio*rratio *rterm_inv*rterm_inv
 
  fxi = - ( dpotdr*xi/d1 - dpotdtheta*yi/d2 )
  fyi = - ( dpotdr*yi/d1 + dpotdtheta*xi/d2 )
- 
+
  !--Update the input forces/potential
  phi    = phi + pot
  fextxi = fextxi + fxi
@@ -1445,9 +1445,9 @@ function softpot(pspeed,softfac,ti)
  t1       = softfac * Tperiod
  epsact  =  2.*ti/t1 - 1.
  if (ti<t1) then
-   softpot = (3./16.*epsact**5 - 5./8.*epsact**3 + 15./16.*epsact + 0.5 )
+    softpot = (3./16.*epsact**5 - 5./8.*epsact**3 + 15./16.*epsact + 0.5 )
  else
-   softpot = 1.
+    softpot = 1.
  endif
 
  return
