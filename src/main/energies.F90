@@ -777,7 +777,7 @@ subroutine ev_data_correction(evdata,evtag,scalar_in,evcmd)
  ival   = maxloc(iarray,1)
  if (iarray(ival) > 0) then
     jval = ev_istart(ival)
-    if (present(evcmd)) jval = jval + index(ev_action(jval),evcmd) - 1
+    if (present(evcmd)) jval = jval + index(ev_action(ival),evcmd) - 1
     evdata(jval) = evdata(jval)*scalar_in
  endif
 
@@ -799,7 +799,7 @@ real function ev_get_value(evtag,evcmd)
  ival   = maxloc(iarray,1)
  if (iarray(ival) > 0) then
     jval = ev_istart(ival)
-    if (present(evcmd)) jval = jval + index(ev_action(jval),evcmd) - 1
+    if (present(evcmd)) jval = jval + index(ev_action(ival),evcmd) - 1
     ev_get_value = ev_data(jval)
  else
     ev_get_value = 0.0
