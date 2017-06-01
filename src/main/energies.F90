@@ -86,7 +86,7 @@ subroutine compute_energies(t)
  real    :: epoti,pmassi,acci,dnptot
  real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
  real    :: ponrhoi,spsoundi,B2i,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
- real    :: n_total,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
+ real    :: n_total,n_total1,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
  real    :: gasfrac,dustfraci,dust_to_gas
  real    :: temperature,etaart,etaart1,etaohm,etahall,etaambi,vion,vdrift
  real    :: vioni(3),data_out(17+nelements_max*nlevels-3)
@@ -138,7 +138,7 @@ subroutine compute_energies(t)
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,acci,valfven2i,divBi,hdivBonBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
-!$omp private(gasfrac,dustfraci,dust_to_gas,n_total,n_ion) &
+!$omp private(gasfrac,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
 !$omp private(ierr,temperature,etaart,etaart1,etaohm,etahall,etaambi,vioni,vion,vdrift,data_out) &
 !$omp private(erotxi,erotyi,erotzi,fdum) &
 !$omp private(ev_data_thread,np_rho_thread) &
@@ -374,9 +374,14 @@ subroutine compute_energies(t)
                 endif
                 n_ion   = data_out(8) + data_out(9) + data_out(10) + data_out(11)
                 n_total = n_ion + data_out(7)
-                call ev_data_update(ev_data_thread,'ni/n(i+n)',n_ion/n_total)
-                call ev_data_update(ev_data_thread,'ne/n(i+n)',data_out(6)/n_total)
-                ionfrac_eta(1,i) = real(n_ion/n_total,kind=4)
+                if (n_total > 0.) then
+                   n_total1 = 1.0/n_total
+                else
+                   n_total1 = 0.0         ! only possible if eta_constant = .true.
+                endif
+                call ev_data_update(ev_data_thread,'ni/n(i+n)',n_ion*n_total1)
+                call ev_data_update(ev_data_thread,'ne/n(i+n)',data_out(6)*n_total1)
+                ionfrac_eta(1,i) = real(n_ion*n_total1,kind=4)
                 ionfrac_eta(2,i) = real(etaohm, kind=4)       ! Save eta_OR for the dump file
                 ionfrac_eta(3,i) = real(etahall,kind=4)       ! Save eta_HE for the dump file
                 ionfrac_eta(4,i) = real(etaambi,kind=4)       ! Save eta_AD for the dump file
