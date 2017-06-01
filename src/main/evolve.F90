@@ -146,7 +146,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  should_conserve_energy = (maxvxyzu==4 .and. ieos==2 .and. icooling==0 .and. &
                            ipdv_heating==1 .and. ishock_heating==1 &
                            .and. (.not.mhd .or. iresistive_heating==1))
- should_conserve_momentum = (npartoftype(iboundary)==0)
+ if (iexternalforce/=0) then
+   should_conserve_momentum = .false.
+ else
+   should_conserve_momentum = (npartoftype(iboundary)==0)
+ endif
  should_conserve_angmom   = (npartoftype(iboundary)==0 .and. .not.periodic)
  should_conserve_dustmass = use_dustfrac
 
