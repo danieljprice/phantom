@@ -1,14 +1,14 @@
 module derivutils
-use timing, only: timer
+ use timing, only: timer
 
-implicit none
+ implicit none
 
 
-type(timer), public     :: timer_dens,timer_force,timer_link
+ type(timer), public     :: timer_dens,timer_force,timer_link
 
-private
+ private
 
-public :: do_timing
+ public :: do_timing
 contains
 
 !-------------------------------------------------------------

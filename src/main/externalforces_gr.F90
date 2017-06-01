@@ -158,7 +158,7 @@ end function is_velocity_dependent
 !+
 !-----------------------------------------------------------------------
 subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti)
-  integer, intent(in)  :: iexternalforce
+ integer, intent(in)  :: iexternalforce
  real,    intent(in)  :: xyzi(3),veli(3)
  real,    intent(out) :: fexti(3)
  real,    intent(inout) :: poti
@@ -236,10 +236,10 @@ pure logical function was_accreted(iexternalforce,hi)
  integer, intent(in) :: iexternalforce
  real,    intent(in) :: hi
 
-    ! An accreted particle is indicated by h < 0.
-    ! Note less than, but not equal.
-    ! (h=0 indicates dead MPI particle)
-    was_accreted = (hi < 0.)
+ ! An accreted particle is indicated by h < 0.
+ ! Note less than, but not equal.
+ ! (h=0 indicates dead MPI particle)
+ was_accreted = (hi < 0.)
 
 end function was_accreted
 
@@ -264,7 +264,7 @@ subroutine write_options_externalforces(iunit,iexternalforce)
     call write_inopt(accradius1,'accradius1','accretion radius of central object',iunit)
  end select
 
-    !call write_options_corotate(iunit)
+ !call write_options_corotate(iunit)
 
 end subroutine write_options_externalforces
 
@@ -280,7 +280,7 @@ subroutine write_headeropts_extern(iexternalforce,hdr,time,ierr)
  real,         intent(in)    :: time
  integer,      intent(out)   :: ierr
 
-    ! call write_headeropts_gwinspiral(hdr,ierr)
+ ! call write_headeropts_gwinspiral(hdr,ierr)
 
 end subroutine write_headeropts_extern
 
@@ -338,7 +338,7 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
     if (accradius1 < 0.)    call fatal(tag,'negative accretion radius')
  case default
     imatch = .false.
-      ! call read_options_gwinspiral(name,valstring,imatch,igotallgwinspiral,ierr)
+    ! call read_options_gwinspiral(name,valstring,imatch,igotallgwinspiral,ierr)
  end select
  igotall = (ngot >= 1      .and. igotallgwinspiral)
 
@@ -373,15 +373,15 @@ subroutine initialise_externalforces(iexternalforce,ierr)
     endif
  end select
 
-    !
-    !--check that c=1 in code units
-    !
-    ccode = c*utime/udist
-    if (abs(ccode-1.) > 1.e-10) then
-       call error('units',trim(externalforcetype(iexternalforce))//&
+ !
+ !--check that c=1 in code units
+ !
+ ccode = c*utime/udist
+ if (abs(ccode-1.) > 1.e-10) then
+    call error('units',trim(externalforcetype(iexternalforce))//&
                   ' external force assumes c=1 in code units but we have',var='c',val=real(ccode))
-       ierr = ierr + 1
-    endif
+    ierr = ierr + 1
+ endif
 
 end subroutine initialise_externalforces
 

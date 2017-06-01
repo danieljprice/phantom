@@ -1,5 +1,5 @@
 module force_gr
-   implicit none
+ implicit none
 contains
 
 !----------------------------------------------------------------
@@ -36,9 +36,9 @@ subroutine get_forcegr(x,v,dens,u,p,fterm)
 
  ! energy-momentum tensor times sqrtg on 2rho*
  do j=0,3
-  do i=0,3
-   term(i,j) = 0.5*(enth*uzero*v4(i)*v4(j) + P*gcon(i,j)/(dens*uzero))
-  enddo
+    do i=0,3
+       term(i,j) = 0.5*(enth*uzero*v4(i)*v4(j) + P*gcon(i,j)/(dens*uzero))
+    enddo
  enddo
 
  ! source term
@@ -46,11 +46,11 @@ subroutine get_forcegr(x,v,dens,u,p,fterm)
  fterm(2) = 0.
  fterm(3) = 0.
  do j=0,3
-  do i=0,3
-   fterm(1) = fterm(1) + term(i,j)*dgcovdx1(i,j)
-   fterm(2) = fterm(2) + term(i,j)*dgcovdx2(i,j)
-   fterm(3) = fterm(3) + term(i,j)*dgcovdx3(i,j)
-  enddo
+    do i=0,3
+       fterm(1) = fterm(1) + term(i,j)*dgcovdx1(i,j)
+       fterm(2) = fterm(2) + term(i,j)*dgcovdx2(i,j)
+       fterm(3) = fterm(3) + term(i,j)*dgcovdx3(i,j)
+    enddo
  enddo
 
 end subroutine get_forcegr

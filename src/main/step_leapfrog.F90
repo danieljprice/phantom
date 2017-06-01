@@ -255,7 +255,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           hi   = xyzh(4,i)
           rhoi = rhoh(hi,pmassi)
 ! #ifdef GR
-   ! call conservative2primitive_combined(xyzh,ppred,vpred)
+          ! call conservative2primitive_combined(xyzh,ppred,vpred)
 ! #endif
           spsoundi = get_spsound(ieos,xyzh(:,i),rhoi,vpred(:,i))
           tdecay1  = avdecayconst*spsoundi/hi
@@ -284,15 +284,15 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  if ((iexternalforce /= 0 .or. nptmass > 0) .and. id==master .and. iverbose >= 2) &
    write(iprint,"(a,f14.6,/)") '> full step            : t=',timei
 
-if (npart > 0) then
+ if (npart > 0) then
 #ifdef GR
-  call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,&
+    call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                      divcurlB,Bpred,dBevol,dustfrac,ddustfrac,timei,dtsph,dtnew,ppred)
 #else
-  call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
+    call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                      divcurlB,Bpred,dBevol,dustfrac,ddustfrac,timei,dtsph,dtnew)
 #endif
-endif
+ endif
 !
 ! if using super-timestepping, determine what dt will be used on the next loop
 !
@@ -389,24 +389,24 @@ endif
           !
 
 #ifdef GR
-         pxi = pxyzu(1,i) + hdtsph*fxyzu(1,i)
-         pyi = pxyzu(2,i) + hdtsph*fxyzu(2,i)
-         pzi = pxyzu(3,i) + hdtsph*fxyzu(3,i)
-         eni = pxyzu(4,i) + hdtsph*fxyzu(4,i)
+          pxi = pxyzu(1,i) + hdtsph*fxyzu(1,i)
+          pyi = pxyzu(2,i) + hdtsph*fxyzu(2,i)
+          pzi = pxyzu(3,i) + hdtsph*fxyzu(3,i)
+          eni = pxyzu(4,i) + hdtsph*fxyzu(4,i)
 
-         erri = (pxi - ppred(1,i))**2 + (pyi - ppred(2,i))**2 + (pzi - ppred(3,i))**2
-         !if (erri > errmax) print*,id,' errmax = ',erri,' part ',i,vxi,vxoldi,vyi,vyoldi,vzi,vzoldi
-         errmax = max(errmax,erri)
+          erri = (pxi - ppred(1,i))**2 + (pyi - ppred(2,i))**2 + (pzi - ppred(3,i))**2
+          !if (erri > errmax) print*,id,' errmax = ',erri,' part ',i,vxi,vxoldi,vyi,vyoldi,vzi,vzoldi
+          errmax = max(errmax,erri)
 
-         p2i = pxi*pxi + pyi*vyi + pzi*vzi
-         p2mean = p2mean + p2i
-         np = np + 1
+          p2i = pxi*pxi + pyi*vyi + pzi*vzi
+          p2mean = p2mean + p2i
+          np = np + 1
 
-         pxyzu(1,i) = pxi
-         pxyzu(2,i) = pyi
-         pxyzu(3,i) = pzi
-         !--this is the energy equation if non-isothermal
-         pxyzu(4,i) = eni
+          pxyzu(1,i) = pxi
+          pxyzu(2,i) = pyi
+          pxyzu(3,i) = pzi
+          !--this is the energy equation if non-isothermal
+          pxyzu(4,i) = eni
 #else
           vxi = vxyzu(1,i) + hdtsph*fxyzu(1,i)
           vyi = vxyzu(2,i) + hdtsph*fxyzu(2,i)
@@ -454,7 +454,7 @@ endif
 #ifdef IND_TIMESTEPS
           if (iactive(iphase(i))) then
 #ifdef GR
-            ppred(:,i) = pxyzu(:,i)
+             ppred(:,i) = pxyzu(:,i)
 #else
              vpred(:,i) = vxyzu(:,i)
 #endif
@@ -463,7 +463,7 @@ endif
           endif
 #else
 #ifdef GR
-         ppred(:,i) = pxyzu(:,i)
+          ppred(:,i) = pxyzu(:,i)
 #else
           vpred(:,i) = vxyzu(:,i)
 #endif
@@ -529,11 +529,11 @@ subroutine step_extern_gr(dt,npart,xyzh,vxyzu,pxyzu)
     if (.not.isdead_or_accreted(xyzh(4,i))) then
 
        call conservative2primitive(xyzh(1:3,i),vxyzu(1:3,i),densi,vxyzu(4,i),P,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,'entropy')!
-      ! main position update
-      !
-      xyzh(1,i) = xyzh(1,i) + dt*vxyzu(1,i)
-      xyzh(2,i) = xyzh(2,i) + dt*vxyzu(2,i)
-      xyzh(3,i) = xyzh(3,i) + dt*vxyzu(3,i)
+       ! main position update
+       !
+       xyzh(1,i) = xyzh(1,i) + dt*vxyzu(1,i)
+       xyzh(2,i) = xyzh(2,i) + dt*vxyzu(2,i)
+       xyzh(3,i) = xyzh(3,i) + dt*vxyzu(3,i)
     endif
  enddo
  !$omp end parallel do

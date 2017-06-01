@@ -106,38 +106,38 @@ subroutine check_compile_time_settings(ierr)
 
 #ifdef GR
 
-if (mhd) then
-   call error(string,'General relativity not compatible with MHD.')
-   ierr = 6
-endif
-if (use_dust) then
-   call error(string,'General relativity not compatible with dust.')
-   ierr = 7
-endif
-if (gravity) then
-   call error(string,'General relativity not compatible with self gravity.')
-   ierr = 7
-endif
-if (h2chemistry) then
-   call error(string,'General relativity not compatible with chemistry.')
-   ierr = 8
-endif
-if (maxstrain > 0) then
-   call error(string,'General relativity not compatible with physical viscosity.')
-   ierr = 9
-endif
-if (maxsts > 1) then
-   call error(string,'General relativity not compatible with super-timestepping.')
-   ierr = 10
-endif
+ if (mhd) then
+    call error(string,'General relativity not compatible with MHD.')
+    ierr = 6
+ endif
+ if (use_dust) then
+    call error(string,'General relativity not compatible with dust.')
+    ierr = 7
+ endif
+ if (gravity) then
+    call error(string,'General relativity not compatible with self gravity.')
+    ierr = 7
+ endif
+ if (h2chemistry) then
+    call error(string,'General relativity not compatible with chemistry.')
+    ierr = 8
+ endif
+ if (maxstrain > 0) then
+    call error(string,'General relativity not compatible with physical viscosity.')
+    ierr = 9
+ endif
+ if (maxsts > 1) then
+    call error(string,'General relativity not compatible with super-timestepping.')
+    ierr = 10
+ endif
 #ifdef DRIVING
-call error(string,'General relativity not compatible with turbulent driving.')
-ierr = 11
+ call error(string,'General relativity not compatible with turbulent driving.')
+ ierr = 11
 #endif
-if (coordinate_sys /= 'Cartesian') then
-   call fatal('checkoptions (GR)',&
+ if (coordinate_sys /= 'Cartesian') then
+    call fatal('checkoptions (GR)',&
    "You must use Cartesian-like coordinates in PHANTOM! Please change to Cartesian in metric_tools!'")
-endif
+ endif
 #endif
 
  return
