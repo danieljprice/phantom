@@ -71,7 +71,7 @@ end subroutine test_nonidealmhd
 !--------------------------------------------------------------------------
 !+
 !  Tests the decay of a wave using ambipolar diffusion
-!  (e.g. Fig 3 of Wurster, Price & Ayliffe 2014, with the exact solution 
+!  (e.g. Fig 3 of Wurster, Price & Ayliffe 2014, with the exact solution
 !  given in Eqn. 49)
 !+
 !--------------------------------------------------------------------------
@@ -437,7 +437,7 @@ subroutine test_standingshock(ntests,npass)
     L2v = sqrt(L2v/npts)
     L2b = sqrt(L2b/npts)
  endif
- 
+
  call checkval(L2d,0.0,told,   nerr(1),'density error on standing shock, compared to analytics')
  call checkval(L2v,0.0,tolv,   nerr(2),'v_x error on standing shock, compared to analytics')
  call checkval(L2b,0.0,tolb,   nerr(3),'B_y error on standing shock, compared to analytics')
