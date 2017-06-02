@@ -122,6 +122,12 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni)
  real :: r,omega,bigH,polyk_new,r1,r2
  real :: gammai
  real :: cgsrhoi, cgseni, cgspgas, pgas, gam1
+#ifdef GR
+ real :: enthi,pondensi
+! Check to see if adiabatic equation of state is being used.
+ if (eos_type /= 2) call fatal('eos','GR is only compatible with an adiabatic equation of state, for the time being.',&
+ var='eos_type',val=real(eos_type))
+#endif
 
  select case(eos_type)
  case(1)
@@ -139,6 +145,18 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni)
 !   check value of gamma
     if (gamma < tiny(gamma)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gamma)
 
+#ifdef GR
+    if (.not. present(eni)) call fatal('eos','GR call to equationofstate requires thermal energy as input!')
+    if (eni < 0.) call fatal('eos','utherm < 0',var='u',val=eni)
+    if (gamma == 1.) then
+       call fatal('eos','GR not compatible with isorthermal equation of state, yet...',var='gamma',val=gamma)
+    else if (gamma > 1.0001) then
+       pondensi = (gamma-1.)*eni   ! eni is the thermal energy
+    endif
+    enthi = 1. + eni + pondensi    ! enthalpy
+    spsoundi = sqrt(gamma*pondensi/enthi)
+    ponrhoi = pondensi ! With GR this routine actually outputs pondensi (i.e. pressure on primitive density, not conserved.)
+#else
     if (present(eni)) then
        if (eni < 0.) call fatal('eos','utherm < 0',var='u',val=eni)
 
@@ -153,6 +171,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni)
        ponrhoi = polyk*rhoi**(gamma-1.)
     endif
     spsoundi = sqrt(gamma*ponrhoi)
+#endif
 
  case(3)
 !
