@@ -245,6 +245,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     uuright = 3.*rightstate(ipr)/(2.*rightstate(idens))
  endif
 
+ Bevol = 0.
+ vxyzu = 0.
  do i=1,npart
     delta = xyzh(1,i) - xshock
     if (delta > 0.) then
