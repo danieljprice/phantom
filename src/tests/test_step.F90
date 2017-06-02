@@ -71,10 +71,10 @@ subroutine test_step(ntests,npass)
  if (id == master) call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
 
 #ifdef MPI
-  do i=1,npart
-     ibelong(i) = mod(i, nprocs)
-  enddo
-  call balancedomains(npart)
+ do i=1,npart
+    ibelong(i) = mod(i, nprocs)
+ enddo
+ call balancedomains(npart)
 #endif
 
  npartoftype(:) = 0
