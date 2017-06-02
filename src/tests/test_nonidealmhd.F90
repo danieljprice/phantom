@@ -18,15 +18,14 @@
 !   Wurster, Price & Bate (2016), MNRAS 457, 1037
 !   Wurster (2016), PASA 33, e041
 !
-!  OWNER: Daniel Price
+!  OWNER: James Wurster
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, deriv, dim, dust, energies, eos, io, kernel,
-!    options, part, physcon, step_lf_global, testutils, timestep, unifdis,
-!    units
+!  DEPENDENCIES: boundary, deriv, dim, eos, io, kernel, nicil, options,
+!    part, physcon, step_lf_global, testutils, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module testnimhd

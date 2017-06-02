@@ -21,8 +21,8 @@
 !
 !  DEPENDENCIES: io, mpiutils, options, testcooling, testcorotate,
 !    testderivs, testdust, testeos, testexternf, testgnewton, testgravity,
-!    testindtstep, testkdtree, testkernel, testlink, testmath, testptmass,
-!    testrwdump, testsedov, testsetdisc, teststep, timing
+!    testindtstep, testkdtree, testkernel, testlink, testmath, testnimhd,
+!    testptmass, testrwdump, testsedov, testsetdisc, teststep, timing
 !+
 !--------------------------------------------------------------------------
 module test
