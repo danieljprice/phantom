@@ -443,7 +443,11 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           if (.not.done_init_eos) call init_eos(ieos,ierr)
           do i=1,npart
              rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
-             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+             if (maxvxyzu >=4 ) then
+                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+             else
+                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i))
+             endif
              temparr(i) = ponrhoi*rhoi
           enddo
           call write_array(1,temparr,'pressure',npart,k,ipass,idump,nums,ierrs(7))
@@ -806,14 +810,6 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
        ierr = 1
        return
     endif
-    npartoftype(1) = npart
-    npartoftypetot = reduceall_mpi('+',npartoftype)
-    if (any(npartoftypetot(2:) > 0)) then
-       print*,'npartoftypetot = ',npartoftypetot(2:)
-       write(*,*) 'WARNING: MPI + multiple types not yet implemented in dump format'
-       !ierr = 10
-       !return
-    endif
 #endif
     if (npartread <= 0 .and. nptmass <= 0) then
        print*,' SKIPPING BLOCK npartread = ',npartread
@@ -842,6 +838,12 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     if (ierr /= 0) call warning('read_dump','error reading arrays from file')
 
  enddo overblocks
+
+ !
+ ! determine npartoftype
+ !
+ call count_particle_types(npartoftype)
+ npartoftypetot = reduceall_mpi('+',npartoftype)
 
  !
  ! convert sinks from sphNG -> Phantom
@@ -1016,14 +1018,6 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
        ierr = 1
        return
     endif
-    npartoftype(1) = npart
-    npartoftypetot = reduceall_mpi('+',npartoftype)
-    if (any(npartoftypetot(2:) > 0)) then
-       print*,'npartoftypetot = ',npartoftypetot(2:)
-       write(*,*) 'MPI + multiple types not yet implemented in dump format'
-       ierr = 10
-       return
-    endif
 #endif
     if (npartread <= 0 .and. nptmass <= 0) then
        call skipblock(idisk1,nums(:,1),nums(:,2),nums(:,3),nums(:,4),tagged,ierr)
@@ -1051,6 +1045,12 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
     if (ierr /= 0) call warning('read_dump','error reading arrays from file')
 
  enddo overblocks
+
+ !
+ ! determine npartoftype
+ !
+ call count_particle_types(npartoftype)
+ npartoftypetot = reduceall_mpi('+',npartoftype)
 
  if (sum(npartoftype)==0) npartoftype(1) = npart
  if (narraylengths >= 4) then
@@ -2044,5 +2044,17 @@ subroutine write_gadgetdump(dumpfile,t,xyzh,particlemass,vxyzu,rho,utherm,npart)
 
  return
 end subroutine write_gadgetdump
+
+subroutine count_particle_types(npartoftype)
+   use part, only:iphase,iamtype,npart
+   integer, intent(out) :: npartoftype(:)
+   integer :: i, itype
+
+   npartoftype(:) = 0
+   do i = 1, npart
+      itype = iamtype(iphase(i))
+      npartoftype(itype) = npartoftype(itype) + 1
+   enddo
+end subroutine count_particle_types
 
 end module readwrite_dumps

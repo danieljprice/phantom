@@ -92,13 +92,12 @@ contains
 !  -implement revtree routine to update tree w/out rebuilding (done - Sep 2015)
 !+
 !-------------------------------------------------------------------------------
-subroutine maketree(node, xyzh, vxyzu, np, ndim, ifirstincell, ncells, refinelevels)
+subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
  use io,   only:fatal,warning,iprint,iverbose,id
 !$ use omp_lib
  type(kdnode),    intent(out)   :: node(ncellsmax+1)
  integer,         intent(in)    :: np,ndim
  real,            intent(inout) :: xyzh(4,maxp)  ! inout because of boundary crossing
- real,            intent(in)    :: vxyzu(:,:)
  integer,         intent(out)   :: ifirstincell(ncellsmax+1)
  integer(kind=8), intent(out)   :: ncells
  integer, optional, intent(out)  :: refinelevels
@@ -182,7 +181,7 @@ subroutine maketree(node, xyzh, vxyzu, np, ndim, ifirstincell, ncells, refinelev
     ! construct node
     call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, vxyzu, wassplit, list)
+            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list)
 
     if (wassplit) then ! add children to back of queue
        if (istack+2 > istacksize) call fatal('maketree',&
@@ -206,7 +205,7 @@ subroutine maketree(node, xyzh, vxyzu, np, ndim, ifirstincell, ncells, refinelev
 !$omp parallel default(none) &
 !$omp shared(queue) &
 !$omp shared(ll, ifirstincell) &
-!$omp shared(xyzh, vxyzu) &
+!$omp shared(xyzh) &
 !$omp shared(np, ndim) &
 !$omp shared(node, ncells) &
 !$omp shared(numthreads) &
@@ -233,7 +232,7 @@ subroutine maketree(node, xyzh, vxyzu, np, ndim, ifirstincell, ncells, refinelev
           ! construct node
           call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .false., &  ! don't construct in parallel
               il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-              ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, vxyzu, wassplit, list)
+              ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list)
 
           if (wassplit) then ! add children to top of stack
              if (istack+2 > istacksize) call fatal('maketree',&
@@ -434,7 +433,7 @@ end subroutine pop_off_stack
 !--------------------------------------------------------------------
 subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, doparallel,&
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, vxyzu, wassplit, list, &
+            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list, &
             groupsize)
  use part,      only:massoftype,igas,iphase,iamtype,maxphase,maxp
  use io,        only:fatal,error
@@ -455,7 +454,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  integer,           intent(out)   :: ifirstincell(ncellsmax+1)
  integer,           intent(inout) :: maxlevel, minlevel
  real,              intent(in)    :: xyzh(4,maxp)
- real,              intent(in)    :: vxyzu(:,:)
  logical,           intent(out)   :: wassplit
  integer,           intent(out)   :: list(:) ! not actually sent out, but to avoid repeated memory allocation/deallocation
 
@@ -527,7 +525,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  ! during initial queue build which is serial, we can parallelise this loop
  if (npnode > 1000 .and. doparallel) then
     !$omp parallel do schedule(static) default(none) &
-    !$omp shared(npnode,list,xyzh,x0,vxyzu,iphase,massoftype,dfac) &
+    !$omp shared(npnode,list,xyzh,x0,iphase,massoftype,dfac) &
     !$omp shared(xyzh_flip,inoderange,nnode,iphase_flip) &
     !$omp private(i,ipart,xi,yi,zi,hi,dx,dy,dz,dr2) &
     !$omp firstprivate(pmassi,fac) &
@@ -1373,7 +1371,7 @@ end subroutine add_child_nodes
 !+
 !-------------------------------------------------------------------------------
 #ifdef MPI
-subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
+subroutine maketreeglobal(nodeglobal, xyzh, np, ndim, cellatid, ncells)
  use io,           only:fatal,warning,id,nprocs
  use mpiutils,     only:reduceall_mpi
  use domain,       only:ibelong
@@ -1387,7 +1385,6 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
  integer,      intent(inout)   :: np
  integer,      intent(in)      :: ndim
  real,         intent(inout)   :: xyzh(4,maxp)
- real,         intent(in)      :: vxyzu(:,:)
  integer,      intent(out)     :: cellatid(ncellsmax+1)
  integer                       :: ifirstincell(ncellsmax+1)
  real                          :: xmini(ndim),xmaxi(ndim)
@@ -1442,7 +1439,7 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
 
     call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, np, .false., &
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, vxyzu, wassplit, list, &
+            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list, &
             groupsize)
 
     if (.not.wassplit) then
@@ -1524,7 +1521,7 @@ subroutine maketreeglobal(nodeglobal, xyzh, vxyzu, np, ndim, cellatid, ncells)
 
  if (refine_tree) then
     ! tree refinement
-    call maketree(refinementnode,xyzh,vxyzu,np,ndim,ifirstincell,ncells,refinelevels)
+    call maketree(refinementnode,xyzh,np,ndim,ifirstincell,ncells,refinelevels)
     refinelevels = int(reduceall_mpi('min',refinelevels),kind=kind(refinelevels))
     roffset_prev = 1
 

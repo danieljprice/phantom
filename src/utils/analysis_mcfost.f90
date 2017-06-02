@@ -125,6 +125,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     endif
  enddo
 
+ if (allocated(dudt)) deallocate(dudt)
+ if (allocated(Frad)) deallocate(Frad)
+
  return
 
 end subroutine do_analysis

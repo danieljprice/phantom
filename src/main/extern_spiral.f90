@@ -770,9 +770,14 @@ subroutine s_potential(xi,yi,zi,ti,potout,fextxi,fextyi,fextzi)
  real(kind=8) :: sechterm,sechtermBn,dsechtermdKn,dsechtermdz
  real(kind=8) :: cdkterm,dcdkdKn,costerm,sinterm,Dnterm,dKnterm,kzonb,term
  real(kind=8) :: costerm2,sinterm2,coshterm,sinhterm,tanhterm
- real(kind=8) :: expx,expxm
+ real(kind=8) :: expx,expxm,As,p0t
  real(kind=8) :: cosin(2,3)
  integer :: n
+
+!--Use the Dehnen00 smooth activation function:
+ As = softpot(phir,1.,ti)
+ p0t =  As * p0
+
 !
 !--Convert to cylindrical polars:
 !
@@ -845,7 +850,7 @@ subroutine s_potential(xi,yi,zi,ti,potout,fextxi,fextyi,fextzi)
 
  enddo
 
- term = -4.*pi*Hz*p0*exp(-(rcyl-r0)/rS)
+ term = -4.*pi*Hz*p0t*exp(-(rcyl-r0)/rS)
  pot   = term*sum
 
  fxi   = + term*xi/(rS*rcyl)*sum &
@@ -1084,8 +1089,8 @@ end function
 subroutine LMXbar(offset,ascale,bscale,xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
  real, intent(in)    :: offset,ti,xi,yi,zi,ascale,bscale
  real, intent(inout) :: phi,fextxi,fextyi,fextzi
- real(kind=8)  :: pot,fxi,fyi,fzi,xir,yir,zir,Splus,Sminus,fextxr,fextyr,abar,bbar
- !--Scale the bar from a default size:
+ real(kind=8)  :: pot,fxi,fyi,fzi,xir,yir,zir,Splus,Sminus,fextxr,fextyr,&
+  abar,bbar,Ab,barmasst !--Scale the bar from a default size:
  abar = ascale*LMabar
  bbar = bscale*LMbbar
  !--Rotate our reference frame so the bar is still x-allinged.
@@ -1093,14 +1098,18 @@ subroutine LMXbar(offset,ascale,bscale,xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
  yir = xi*sin(ti*phibar+offset)+yi*cos(ti*phibar+offset)
  zir = zi
 
+ !--Use the Dehnen00 smooth activation function:
+ Ab = softpot(phibar,1.,ti)
+ barmasst =  Ab * barmass
+
  Splus   =sqrt(bbar*bbar + yir*yir+zir*zir + (abar+xir)*(abar+xir))
  Sminus  =sqrt(bbar*bbar + yir*yir+zir*zir + (abar-xir)*(abar-xir))
 
- pot = + (gcode*barmass/(2.d0*abar))*log( (xir-abar+Sminus)/(xir+abar+Splus) )
- fextxr =  -2.d0*gcode*barmass*xir/(Splus*Sminus*(Splus+Sminus))
- fextyr =  -gcode*barmass*yir*(Sminus+Splus - 4.d0*xir*xir/(Sminus+Splus))&
+ pot = + (gcode*barmasst/(2.d0*abar))*log( (xir-abar+Sminus)/(xir+abar+Splus) )
+ fextxr =  -2.d0*gcode*barmasst*xir/(Splus*Sminus*(Splus+Sminus))
+ fextyr =  -gcode*barmasst*yir*(Sminus+Splus - 4.d0*xir*xir/(Sminus+Splus))&
  / ( 2.d0*Splus*Sminus*(yir*yir+zir*zir+bbar*bbar) )
- fzi =  -gcode*barmass*zir*(Sminus+Splus - 4.d0*xir*xir/(Sminus+Splus))&
+ fzi =  -gcode*barmasst*zir*(Sminus+Splus - 4.d0*xir*xir/(Sminus+Splus))&
  / ( 2.d0*Splus*Sminus*(yir*yir+zir*zir+bbar*bbar) )
 
  !--Rotate the reference frame of the forces back to those of the observer,
@@ -1122,7 +1131,7 @@ subroutine LMTbar(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
  real, intent(in)    :: xi,yi,zi,ti
  real, intent(inout) :: phi,fextxi,fextyi,fextzi
  real(kind=8)  :: pot,fxi,fyi,fzi,xir,yir,zir,Tplus,Tminus,fextxr,fextyr,&
-   barterm,barterm2
+   barterm,barterm2,barmasst,Ab
 
  !--Returns same as above as c->0.
  !--Rotate our reference frame so the bar is still x-allinged.
@@ -1130,15 +1139,19 @@ subroutine LMTbar(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
  yir = xi*sin(ti*phibar)+yi*cos(ti*phibar)
  zir = zi
 
+ !--Use the Dehnen00 smooth activation function:
+ Ab = softpot(phibar,1.,ti)
+ barmasst =  Ab * barmass
+
  barterm = (LMbbar+sqrt(LMcbar*LMcbar+zir*zir))
  barterm2 = barterm*barterm
  Tplus = sqrt((LMabar+xir)*(LMabar+xir)+yir*yir+ barterm2)
  Tminus= sqrt((LMabar-xir)*(LMabar-xir)+yir*yir+ barterm2)
- pot = + gcode*barmass*log( (xir-LMabar+Tminus)/(xir+LMabar+Tplus) )/(2.d0*LMabar)
- fextxr = -2.d0*gcode*barmass*xir/(Tplus*Tminus*(Tplus+Tminus))
- fextyr = -gcode*barmass*yir*(Tminus+Tplus - 4.d0*xir*xir/(Tminus+Tplus)) /&
+ pot = + gcode*barmasst*log( (xir-LMabar+Tminus)/(xir+LMabar+Tplus) )/(2.d0*LMabar)
+ fextxr = -2.d0*gcode*barmasst*xir/(Tplus*Tminus*(Tplus+Tminus))
+ fextyr = -gcode*barmasst*yir*(Tminus+Tplus - 4.d0*xir*xir/(Tminus+Tplus)) /&
   ( 2.d0*Tplus*Tminus*(yir*yir+barterm2) )
- fzi    = -gcode*barmass*zir*(Tminus+Tplus - 4.d0*xir*xir/(Tminus+Tplus)) *&
+ fzi    = -gcode*barmasst*zir*(Tminus+Tplus - 4.d0*xir*xir/(Tminus+Tplus)) *&
   ( barterm/(barterm-LMbbar) )  / ( 2.d0*Tplus*Tminus*(yir*yir+barterm2) )
 
  !--Rotate the reference frame of the forces back to those of the observer,
@@ -1204,26 +1217,28 @@ end subroutine DehnenBar
 subroutine Wadabar(xi,yi,d2,phii,ti,hi,phi,fextxi,fextyi)
  real, intent(in)    :: ti,xi,yi,d2,hi,phii
  real, intent(inout) :: phi,fextxi,fextyi
- real(kind=8)  :: d1,Cbartrig,rtemp,potx,poty,fxi,fyi,bartrig,pot
- real :: dhi
+ real(kind=8)  :: d1,Cbartrig,Sbartrig,fxi,fyi,bartrig,&
+   pot,rratio,rterm_inv,dpotdr,dpotdtheta,Ab,StrBarWt
+
+ !--Use the Dehnen00 smooth activation function:
+ Ab = softpot(phibar,1.,ti)
+ StrBarWt =  Ab * StrBarW
+
  d1 =sqrt(d2)
- dhi=0.000001*hi
-
- pot = + StrBarW * cos(2*(phii+phibar*ti)) * rcore*rcore*d2/(d2+rcore*rcore)**2.0
-
- bartrig   = 2.d0*(atan2(yi,xi+dhi) +  phibar*ti )
+ bartrig   = 2.0*(phii +  phibar*ti )
  Cbartrig  = cos(bartrig)
- rtemp     = sqrt((xi+dhi)*(xi+dhi)  +  yi*yi)
- potx= + StrBarW * Cbartrig * (rcore*rtemp/(rtemp*rtemp+rcore*rcore))**2.0
+ Sbartrig  = sin(bartrig)
 
- bartrig   = 2.d0*(atan2(yi+dhi,xi) +  phibar*ti )
- Cbartrig  = cos(bartrig)
- rtemp     = sqrt(xi*xi  +  (yi+dhi)*(yi+dhi))
- poty= + StrBarW * Cbartrig * (rcore*rtemp/(rtemp*rtemp+rcore*rcore))**2.0
+ rratio = d1/rcore
+ rterm_inv  = 1./(1. + rratio*rratio)
 
- !--Update the input forces/potential
- fxi = -(potx-pot)/dhi
- fyi = -(poty-pot)/dhi
+ pot = + StrBarWt * Cbartrig * rratio*rratio *rterm_inv*rterm_inv
+ dpotdr     = +StrBarWt * Cbartrig *2.*d1/(rcore*rcore*rcore*rcore)*(rcore*rcore-d2)*rterm_inv*rterm_inv*rterm_inv
+ dpotdtheta = -2. * StrBarWt * Sbartrig *  rratio*rratio *rterm_inv*rterm_inv
+
+ fxi = - ( dpotdr*xi/d1 - dpotdtheta*yi/d2 )
+ fyi = - ( dpotdr*yi/d1 + dpotdtheta*xi/d2 )
+
  !--Update the input forces/potential
  phi    = phi + pot
  fextxi = fextxi + fxi
@@ -1242,26 +1257,6 @@ subroutine Wang_bar(ri,phii,thetai,pot)
  real(kind=8), dimension(20) :: Anlm=(/1.509,-0.086,-0.033,-0.020,-2.606,&
  -0.221,-0.001,0.665,0.129,0.006,6.406,1.295,-0.660,-0.140,0.044,&
  -0.012,-5.859,0.984,-0.030,0.001/)
- !--My values:
- !real,dimension(20):: Anlm=(/1.4689426,-9.11576226E-02,-3.30780968E-02,&
- !-1.92942675E-02,-2.5757525,-0.22175097,-4.57693706E-04,0.66412669,&
- !0.12844490,5.83191449E-03,6.4555030,1.2737974,-0.65907264,-0.13953607,&
- !4.38133776E-02,1.22833895E-02,-4.8551197,0.98213351,-2.99074836E-02,1.08700758E-03/)
- !--Just the box, x0=(1,49,0.58,0.4):
- !real, dimension(20):: Anlm=(/1.0221820,2.63318289E-02,-5.92186823E-02,&
- !-9.26577300E-03,-2.1157207,-0.29177752,1.51500413E-02,0.66287607,&
- !0.12812333,5.85372280E-03,5.3328652,1.3679495,-0.65727895,-0.13917473,&
- !4.38200645E-02,1.22909667E-02,-1.9817845,0.98179668,-2.99122576E-02,1.08701596E-03/)
- !--Just the box, x0=(4,0.58,0.4):
- !real, dimension(20):: Anlm=(/1.8316127,0.26517430,-1.28609752E-02,-2.09722780E-02,&
- !-3.8886850,-0.97198749,-0.21909821,1.4681344,0.44938156,0.12059656,13.290856,4.2823801,&
- !-1.4605736,-0.44327793,0.11534847,4.31093276E-02,-42.532505,2.9012566,-7.92370215E-02,&
- !3.30819259E-03/)
- !--Just the box, x0=(4,2,0.4):
- !real, dimension(20):: Anlm=(/5.2231774,1.1921091,0.12694249,-8.69059265E-02,-11.876581,&
- !-3.7732186,-1.0909126,0.97862911,0.47169527,0.21190289,49.411171,16.608820,-0.82630318,&
- !-0.37773439,1.22346254E-02,7.42490124E-03,-218.01532,1.8993428,-5.71255432E-03,&
- !2.58321779E-05/)
 
  real(kind=8) :: thisphi,AlmnSum,s,Plm,Gnl
  integer, dimension(20) :: n_wbar=(/0,1,2,3,0,1,2,0,1,2,0,1,0,1,0,1,0,0,0,0/)
@@ -1430,6 +1425,33 @@ subroutine VogtSbar(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
 
  return
 end subroutine VogtSbar
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+!~~~~SOFTENER~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+function softpot(pspeed,softfac,ti)
+ !--Softens the potentials for bars/spirals to avoid "hard" activation.
+ !--Taken from Dehnen00.
+ !--The value for softpot reduces the density/mass of the potential.
+ use io, only:fatal
+ real(kind=8) :: softpot
+ real(kind=8), intent(in) :: pspeed,softfac,ti
+ real(kind=8) :: Tperiod,t1,epsact
+
+ !--rotation period keeping consistent code units:
+ Tperiod  = 2.*3.14159 / pspeed
+ !--potential activation time, D00 used 2.
+ t1       = softfac * Tperiod
+ epsact  =  2.*ti/t1 - 1.
+ if (ti<t1) then
+    softpot = (3./16.*epsact**5 - 5./8.*epsact**3 + 15./16.*epsact + 0.5 )
+ else
+    softpot = 1.
+ endif
+
+ return
+end function
 
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
