@@ -188,7 +188,7 @@ subroutine test_wavedamp(ntests,npass)
  nsteps   = 0
  valid_dt = .true.
  call init_step(npart,t,dtmax)
- do while (valid_dt .and. t.le.tmax)
+ do while (valid_dt .and. t <= tmax)
     t     = t + dt
     nsteps = nsteps + 1
     dtext = dt
@@ -368,7 +368,7 @@ subroutine test_standingshock(ntests,npass)
  nsteps   = 0
  valid_dt = .true.
  call init_step(npart,t,dtmax)
- do while (valid_dt .and. t.le.tmax)
+ do while (valid_dt .and. t <= tmax)
     t      = t + dt
     nsteps = nsteps + 1
     dtext  = dt
