@@ -1080,10 +1080,10 @@ end subroutine exactlinear
 real function vwave(xyzhi,pmassi,ieos,vxyzui,Bxyzi)
  use eos,  only:equationofstate
  use part, only:maxp,mhd,maxvxyzu,rhoh
- real,         intent(in) :: xyzhi(4),pmassi
- real,         intent(in) :: vxyzui(maxvxyzu)
- integer,      intent(in) :: ieos
- real(kind=4), intent(in), optional :: Bxyzi(3)
+ real,    intent(in) :: xyzhi(4),pmassi
+ real,    intent(in) :: vxyzui(maxvxyzu)
+ integer, intent(in) :: ieos
+ real,    intent(in), optional :: Bxyzi(3)
  real :: spsoundi,hi,rhoi,ponrhoi,valfven2i
 
  hi = xyzhi(4)
@@ -1397,7 +1397,7 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
     cell%xpartvec(ivzi,cell%npcell)           = vxyzu(3,i)
 
     if (maxvxyzu >= 4) then
-       cell%xpartvec(ieni,cell%npcell)         = vxyzu(4,i)
+       cell%xpartvec(ieni,cell%npcell)        = vxyzu(4,i)
     endif
 
     cell%xpartvec(ifxi,cell%npcell)           = fxyzu(1,i) + fext(1,i)
