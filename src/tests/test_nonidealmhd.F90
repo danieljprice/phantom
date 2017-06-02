@@ -495,16 +495,16 @@ subroutine test_narrays(ntests,npass)
  !       second set is high density/B-field to ensure thermal ionisation is working
  !
  call set_units(mass=solarm,dist=1.0d16,G=1.)
- rho0(1)      = 7.420d-18 /unit_density   ! g/cm^3
- Bz0(1)       = 8.130d-5  /unit_Bfield    ! G
- eta_act(1,1) = 1.1479d10                 ! analytical eta_ohm
- eta_act(2,1) = 3.5374d14                 ! analytical eta_hall
- eta_act(3,1) = 5.2420d17                 ! analytical eta_ambi
- rho0(2)      = 4.6d-3    /unit_density   ! g/cm^3
- Bz0(2)       = 1.92d2    /unit_Bfield    ! G
- eta_act(1,2) = 4.5690d8                  ! analytical eta_ohm
- eta_act(2,2) = 1.5122d4                  ! analytical eta_hall
- eta_act(3,2) = 8.9639d-3                 ! analytical eta_ambi
+ rho0(1)      = 7.420d-18 /unit_density   ! [g/cm^3]
+ Bz0(1)       = 8.130d-5  /unit_Bfield    ! [G]
+ eta_act(1,1) = 1.1479d10                 ! [cm^2/s] expected eta_ohm
+ eta_act(2,1) = 3.5374d14                 ! [cm^2/s] expected eta_hall
+ eta_act(3,1) = 5.2420d17                 ! [cm^2/s] expected eta_ambi
+ rho0(2)      = 4.6d-3    /unit_density   ! [g/cm^3]
+ Bz0(2)       = 1.92d2    /unit_Bfield    ! [G]
+ eta_act(1,2) = 4.5690d8                  ! [cm^2/s] expected eta_ohm
+ eta_act(2,2) = 1.5122d4                  ! [cm^2/s] expected eta_hall
+ eta_act(3,2) = 8.9639d-3                 ! [cm^2/s] expected eta_ambi
  !
  ! initialise values for grid
  !
