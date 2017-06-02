@@ -2119,6 +2119,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
     fsum(:)       = cell%fsums(:,ip)
     xpartveci(:)  = cell%xpartvec(:,ip)
 
+    xi         = xpartveci(ixi)
+    yi         = xpartveci(iyi)
+    zi         = xpartveci(izi)
     hi         = xpartveci(ihi)
     hi1        = 1./hi
     spsoundi   = xpartveci(ispsoundi)
@@ -2126,9 +2129,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
     dtdrag     = cell%dtdrag(ip)
 
     if (iamgasi) then
-       xi      = xpartveci(ixi)
-       yi      = xpartveci(iyi)
-       zi      = xpartveci(izi)
        rhoi    = xpartveci(irhoi)
        rho1i   = 1./rhoi
        rhogasi = xpartveci(irhogasi)

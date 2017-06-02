@@ -288,6 +288,7 @@ subroutine test_rwdump(ntests,npass)
     xyzmh_ptmass = 0.
     vxyz_ptmass = 0.
 
+#ifndef MPI
     ! test read of a single array from the file
     if (itest==1) then
        if (id==master) write(*,"(/,a)") '--> checking read of single array from file'
@@ -299,6 +300,7 @@ subroutine test_rwdump(ntests,npass)
        ntests = ntests + 1
        if (all(nfailed==0)) npass = npass + 1
     endif
+#endif
 
     if (id==master) then
        open(unit=idisk1,file='test.dump',status='old')

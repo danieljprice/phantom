@@ -32,7 +32,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: James Wurster
 !
 !  $Id$
 !
@@ -364,8 +364,7 @@ subroutine write_evlog(iprint)
     write(iprint,"(1x,'Mgas = ',es10.3,', Mdust = ',es10.3)") mgas,mdust
  endif
 
- write(iprint,"(1x,1(a,'=',es10.3))") &
-      'Accreted mass',accretedmass
+ if (track_mass) write(iprint,"(1x,1(a,'=',es10.3))") 'Accreted mass',accretedmass
 
  string = ''
  if (maxalpha==maxp) then
