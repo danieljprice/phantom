@@ -148,16 +148,18 @@ subroutine test_link(ntests,npass)
 #else
     if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
 #endif
-    ndead = 0
-    do i=1,npart
-       if (isdead_or_accreted(xyzh(4,i))) ndead = ndead + 1
-    enddo
-
 !
 !--setup the link list
 !
     write(*,"(/,1x,2(a,i1),a,/)") 'Test ',itest,' of ',nlinktest,': building linked list...'
     call set_linklist(npart,npart,xyzh,vxyzu)
+!
+!--count dead particles
+!
+    ndead = 0
+    do i=1,npart
+       if (isdead_or_accreted(xyzh(4,i))) ndead = ndead + 1
+    enddo
 !
 !--check that the number of cells is non-zero
 !
