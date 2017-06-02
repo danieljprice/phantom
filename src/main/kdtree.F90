@@ -769,8 +769,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        call error('maketree','number of left + right != parent number of particles while splitting node')
     endif
 
-    ! see if all the particles ended up in one node, if so, arbitrarily build 2 cells (global tree build is excepted)
-    if (((nl==npnode) .or. (nr==npnode)) .and. (.not. present(groupsize))) then
+    ! see if all the particles ended up in one node, if so, arbitrarily build 2 cells
+    if ((nl==npnode) .or. (nr==npnode)) then
       ! no need to move particles because if they all ended up in one node,
       ! then they are still in the original order
       nl = npnode / 2
