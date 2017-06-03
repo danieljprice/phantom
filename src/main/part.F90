@@ -192,8 +192,19 @@ module part
    +nalpha*maxalpha/maxpd               &  ! alphaind
    +ngradh*maxgradh/maxpd               &  ! gradh
    +maxphase/maxpd                      &  ! iphase
+#ifdef DUST
+   +1                                   &  ! dustfrac
+   +1                                   &  ! dustevol
+#endif
+   +(maxp_h2/maxpd)*nabundances         &  ! abundance
+   +(maxgrav/maxpd)                     &  ! poten
 #ifdef IND_TIMESTEPS
    +1                                   &  ! ibin
+   +1                                   &  ! ibin_wake
+   +1                                   &  ! ibinold
+   +1                                   &  ! ibinsink
+   +1                                   &  ! dt_in
+   +1                                   &  ! twas
    +maxvxyzu                            &  ! fxyzu
    +3                                   &  ! fext
    +1                                   &  ! divcurlv
@@ -824,8 +835,25 @@ subroutine fill_sendbuf(i,xtemp)
     if (maxphase==maxp) then
        call fill_buffer(xtemp,iphase(i),nbuf)
     endif
+    if (use_dust) then
+       call fill_buffer(xtemp, dustfrac(i),nbuf)
+       call fill_buffer(xtemp, dustevol(i),nbuf)
+    endif
+    if (maxp_h2==maxp) then
+       call fill_buffer(xtemp, abundance(:,i),nbuf)
+    endif
+    if (maxgrav==maxp) then
+       call fill_buffer(xtemp, poten(i),nbuf)
+    endif
 #ifdef IND_TIMESTEPS
     call fill_buffer(xtemp,ibin(i),nbuf)
+    call fill_buffer(xtemp,ibin_wake(i),nbuf)
+    call fill_buffer(xtemp,ibinold(i),nbuf)
+    call fill_buffer(xtemp,ibinsink(i),nbuf)
+
+    call fill_buffer(xtemp,dt_in(i),nbuf)
+    call fill_buffer(xtemp,twas(i),nbuf)
+
     !--inactive particles require derivs sent
     call fill_buffer(xtemp,fxyzu(:,i),nbuf)
     call fill_buffer(xtemp,fext(:,i),nbuf)
@@ -876,12 +904,29 @@ subroutine unfill_buffer(ipart,xbuf)
  if (maxphase==maxp) then
     iphase(ipart)       = nint(unfill_buf(xbuf,j),kind=1)
  endif
+ if (use_dust) then
+    dustfrac(ipart)     = unfill_buf(xbuf,j)
+    dustevol(ipart)     = unfill_buf(xbuf,j)
+ endif
+ if (maxp_h2==maxp) then
+    abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
+ endif
+ if (maxgrav==maxp) then
+    poten(ipart)        = real(unfill_buf(xbuf,j),kind=kind(poten))
+ endif
 #ifdef IND_TIMESTEPS
  ibin(ipart)            = nint(unfill_buf(xbuf,j),kind=1)
+ ibin_wake(ipart)       = nint(unfill_buf(xbuf,j),kind=1)
+ ibinold(ipart)         = nint(unfill_buf(xbuf,j),kind=1)
+ ibinsink(ipart)        = nint(unfill_buf(xbuf,j),kind=1)
+
+ dt_in(ipart)           = real(unfill_buf(xbuf,j),kind=kind(dt_in))
+ twas(ipart)            = unfill_buf(xbuf,j)
+
  fxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
  fext(:,ipart)          = unfill_buf(xbuf,j,3)
  if (ndivcurlv >= 1) then
-    divcurlv(1,ipart)  = unfill_buf(xbuf,j)
+    divcurlv(1,ipart)  = real(unfill_buf(xbuf,j),kind=kind(divcurlv))
  endif
  if (mhd) then
     dBevol(:,ipart)    = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
