@@ -1484,20 +1484,18 @@ subroutine maketreeglobal(nodeglobal, xyzh, np, ndim, cellatid, ncells)
     ! this is a waste of time, but maintains compatibility
     npnode = 0
     do i=1,np
-       isnotdead: if (.not.isdead_or_accreted(xyzh(4,i))) then
-          npnode = npnode + 1
+       npnode = npnode + 1
 #ifdef IND_TIMESTEPS
-          if (iactive(iphase(i))) then
-             inodeparts(npnode) = i
-          else
-             inodeparts(npnode) = -i
-          endif
-#else
+       if (iactive(iphase(i))) then
           inodeparts(npnode) = i
+       else
+          inodeparts(npnode) = -i
+       endif
+#else
+       inodeparts(npnode) = i
 #endif
-         xyzh_flip(npnode,:) = xyzh(:,i)
-         iphase_flip(npnode) = iphase(i)
-       endif isnotdead
+      xyzh_flip(npnode,:) = xyzh(:,i)
+      iphase_flip(npnode) = iphase(i)
     enddo
 
     ! set all particles to belong to this node
