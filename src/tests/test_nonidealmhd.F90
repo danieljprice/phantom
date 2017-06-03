@@ -469,7 +469,8 @@ subroutine test_narrays(ntests,npass)
  use unifdis,        only:set_unifdis
  use dim,            only:periodic
  use io,             only:iverbose
- use nicil,          only:nicil_initialise,nicil_get_eta,eta_constant,use_ohm,use_hall,use_ambi,unit_eta
+ use nicil,          only:nicil_initialise,nicil_get_eta,eta_constant,use_ohm,use_hall,use_ambi,&
+                          ion_rays,ion_thermal,unit_eta
  integer, intent(inout) :: ntests,npass
  integer, parameter     :: kmax = 2
  integer                :: i,k,nx,ierr
@@ -533,6 +534,8 @@ subroutine test_narrays(ntests,npass)
  use_ohm      = .true.
  use_hall     = .true.
  use_ambi     = .true.
+ ion_rays     = .true.
+ ion_thermal  = .true.
  ! initialise eos, & the Nicil library
  call init_eos(8,ierr)
  call nicil_initialise(utime,udist,umass,unit_Bfield,ierr)
@@ -569,7 +572,7 @@ subroutine test_narrays(ntests,npass)
     ! Calculate eta from NICIL
     Bi    = sqrt( dot_product(Bevol(1:3,1),Bevol(1:3,1)) )
     rhoi  = rhoh(xyzh(4,1),massoftype(1))
-    tempi = get_temperature(ieos,xyzh(1:3,1),rhoi,vxyzu(1:3,1))
+    tempi = get_temperature(ieos,xyzh(1:3,1),rhoi,vxyzu(:,1))
     call nicil_get_eta(etaohmi,etahalli,etaambii,Bi,rhoi,tempi,n_R(:,1),n_electronT(1),ierr)
 
     print*, ' Final   rho,B_z,temp (cgs): ',rhoi*unit_density,Bi*unit_Bfield,tempi
