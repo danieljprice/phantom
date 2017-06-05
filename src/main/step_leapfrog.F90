@@ -457,6 +457,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              ppred(:,i) = pxyzu(:,i)
 #else
              vpred(:,i) = vxyzu(:,i)
+#endif
              if (mhd)          Bpred(:,i)  = Bevol(:,i)
              if (use_dustfrac) dustpred(i) = dustevol(i)
           endif
@@ -465,6 +466,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           ppred(:,i) = pxyzu(:,i)
 #else
           vpred(:,i) = vxyzu(:,i)
+#endif
           if (mhd)          Bpred(:,i)  = Bevol(:,i)
           if (use_dustfrac) dustpred(i) = dustevol(i)
 !
