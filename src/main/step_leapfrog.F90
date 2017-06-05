@@ -361,10 +361,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #endif
 
              if (itype==igas) then
-                if (mhd)          Bevol(:,i)  = Bevol(:,i) + hdti*dBevol(:,i)
+                if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdti*dBevol(:,i)
                 if (use_dustfrac) dustevol(i) = dustevol(i) + hdti*ddustfrac(i)
              endif
-             twas(i)    = twas(i) + hdti
+             twas(i) = twas(i) + hdti
           endif
           !
           !--synchronise all particles
@@ -378,7 +378,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #endif
 
           if (itype==igas) then
-             if (mhd)          Bevol(:,i)  = Bevol(:,i) + hdti*dBevol(:,i)
+             if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdti*dBevol(:,i)
              if (use_dustfrac) dustevol(i) = dustevol(i) + hdti*ddustfrac(i)
           endif
 #else
@@ -417,9 +417,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           !if (erri > errmax) print*,id,' errmax = ',erri,' part ',i,vxi,vxoldi,vyi,vyoldi,vzi,vzoldi
           errmax = max(errmax,erri)
 
-          v2i = vxi*vxi + vyi*vyi + vzi*vzi
+          v2i    = vxi*vxi + vyi*vyi + vzi*vzi
           v2mean = v2mean + v2i
-          np = np + 1
+          np     = np + 1
 
           vxyzu(1,i) = vxi
           vxyzu(2,i) = vyi
@@ -432,7 +432,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              !
              ! corrector step for magnetic field and dust
              !
-             if (mhd)          Bevol(:,i) = Bevol(:,i) + hdtsph*dBevol(:,i)
+             if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdtsph*dBevol(:,i)
              if (use_dustfrac) dustevol(i) = dustevol(i) + hdtsph*ddustfrac(i)
           endif
 #endif
@@ -457,8 +457,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              ppred(:,i) = pxyzu(:,i)
 #else
              vpred(:,i) = vxyzu(:,i)
-#endif
-             if (mhd) Bpred(:,i) = Bevol(:,i)
+             if (mhd)          Bpred(:,i)  = Bevol(:,i)
              if (use_dustfrac) dustpred(i) = dustevol(i)
           endif
 #else
@@ -466,8 +465,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           ppred(:,i) = pxyzu(:,i)
 #else
           vpred(:,i) = vxyzu(:,i)
-#endif
-          if (mhd) Bpred(:,i) = Bevol(:,i)
+          if (mhd)          Bpred(:,i)  = Bevol(:,i)
           if (use_dustfrac) dustpred(i) = dustevol(i)
 !
 ! shift v back to the half step
@@ -478,7 +476,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
 #endif
           if (itype==igas) then
-             if (mhd)          Bevol(:,i)  = Bevol(:,i) - hdtsph*dBevol(:,i)
+             if (mhd)          Bevol(:,i)  = Bevol(:,i)  - hdtsph*dBevol(:,i)
              if (use_dustfrac) dustevol(i) = dustevol(i) - hdtsph*ddustfrac(i)
           endif
 #endif

@@ -344,6 +344,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     if (maxvxyzu >= 4) vxyzu(4,i) = uuzero
     if (mhd) then
+       Bevol(:,i) = 0.0
        Bevol(1,i) = Bxini
        Bevol(2,i) = Byini
        Bevol(3,i) = Bzini

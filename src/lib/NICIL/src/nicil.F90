@@ -514,10 +514,10 @@ subroutine nicil_initialise(utime,udist,umass,unit_Bfield,ierr,iprint_in,iprintw
      n_grain_dist = n_grain_coef_cgs/n_grain_coef_tot
    end if
    massj_mp(ing:ing+na-1) = massj_cgs(ing:ing+na-1)/mass_proton_cgs
-   nspecies = nspecies + 2*na
+   nspecies      = nspecies + 2*na
+   mass_grain_mp = mass_grain_mp/(mass_proton_cgs*na)
+   a01_grain     = a01_grain/na
  end if
- mass_grain_mp = mass_grain_mp/(mass_proton_cgs*na)
- a01_grain     = a01_grain/na
  !
  !--Initialise variables (Code unit variables)
  csqbyfourpi       = c**2/fourpi              / unit_eta
@@ -967,6 +967,14 @@ pure subroutine nicil_get_eta(eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,n_R,n_elect
  logical                       :: get_data_out,use_new_guess
  !
  ierr = 0                                 ! initialise error code
+ !
+ !--Return constant coefficient version and exit
+ if (eta_constant) then
+   call nicil_nimhd_get_eta_cnst(eta_ohm,eta_hall,eta_ambi,Bfield,rho)
+   if (present(data_out)) data_out = 0.0  ! bookkeeping has no meaning here
+   return
+ end if
+ !
  !--Exit with error message if T = 0 or B = 0
  if (T <= small .or. Bfield <= small) then
    if ( T      <=small ) ierr = ierr + ierr_T
@@ -982,13 +990,6 @@ pure subroutine nicil_get_eta(eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,n_R,n_elect
     get_data_out = .true.
  else
     get_data_out = .false.
- end if
- !
- !--Return constant coefficient version and exit
- if (eta_constant) then
-   call nicil_nimhd_get_eta_cnst(eta_ohm,eta_hall,eta_ambi,Bfield,rho)
-   if (present(data_out)) data_out = 0.0  ! bookkeeping has no meaning here
-   return
  end if
  !
  !--Determine the fractions of molecular and atomic Hydrogen

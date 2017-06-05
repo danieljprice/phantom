@@ -818,6 +818,18 @@ ifeq ($(SETUP), testdust)
     IND_TIMESTEPS=no
 endif
 
+ifeq ($(SETUP), testnimhd)
+#   non-ideal MHD (+ boundary particle) unit tests
+    PERIODIC=yes
+    ISOTHERMAL=yes
+    NONIDEALMHD=yes
+    MHD=yes
+    KERNEL=WendlandC4
+    IND_TIMESTEPS=no
+    STS_TIMESTEPS=no
+    KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), testlum)
 #   Lense-Thirring setup
     FPPFLAGS= -DSORT_RADIUS_INIT -DLIGHTCURVE -DUSE_STRAIN_TENSOR
@@ -1643,7 +1655,7 @@ endif
 
 SRCEVW=evwrite.F90
 
-SRCTESTS=${TEST_FASTMATH} test_kernel.f90 test_dust.F90 test_gravity.F90 \
+SRCTESTS=${TEST_FASTMATH} test_kernel.f90 test_dust.F90 test_nonidealmhd.F90 test_gravity.F90 \
          test_derivs.F90 test_cooling.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.F90 test_setdisc.F90 \
          test_link.F90 test_kdtree.F90 test_ptmass.F90 test_luminosity.F90\
@@ -2200,18 +2212,6 @@ evol_dustywaves: checksys $(OBJDUSTEVOL)
 	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJDUSTEVOL)
 
 #----------------------------------------------------
-# these are the sources for the test_nonideal utility
-#
-SRCTESTNIMHD=  units.f90 ${SRCNIMHD} test_nonideal.f90
-OBJTESTNIMHD= $(SRCTESTNIMHD:.f90=.o)
-
-test_nonideal: checksys $(OBJTESTNIMHD)
-	@echo ""
-	@echo "test_nonideal mhd"
-	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJTESTNIMHD)
-
-#----------------------------------------------------
 # these are the sources for the ev2mdot utility
 #
 .PHONY: ev2mdot
@@ -2609,6 +2609,9 @@ testdust:
 
 testgr:
 	${MAKE} SETUP=testgr && $(MPIEXEC) $(BINDIR)/phantom test gr
+
+testnimhd:
+	${MAKE} SETUP=testnimhd && $(MPIEXEC) $(BINDIR)/phantom test nimhd
 
 testall: test test2 testcyl testgrav
 

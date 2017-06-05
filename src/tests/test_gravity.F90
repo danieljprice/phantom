@@ -270,7 +270,7 @@ subroutine test_gravity(ntests,npass,string)
           npartoftype(k) = npart
           massoftype(:)  = 0.0
           massoftype(k)  = totmass/npart
-         if (maxphase==maxp) then
+          if (maxphase==maxp) then
              do i=1,npart
                 iphase(i) = isetphase(k,iactive=.true.)
              enddo
