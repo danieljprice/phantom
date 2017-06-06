@@ -36,7 +36,7 @@ contains
 !
 !-------------------------------------------------------------------
 subroutine check_compile_time_settings(ierr)
- use part,  only:mhd,maxBevol,gravity,ngradh,h2chemistry,maxvxyzu,use_dust
+ use part,  only:mhd,maxBevol,gravity,ngradh,h2chemistry,maxvxyzu,use_dust,gr
  use dim,   only:maxsts,maxstrain
  use io,    only:error,fatal
 #ifdef GR
@@ -105,7 +105,6 @@ subroutine check_compile_time_settings(ierr)
 #endif
 
 #ifdef GR
-
  if (mhd) then
     call error(string,'General relativity not compatible with MHD.')
     ierr = 6
@@ -137,6 +136,11 @@ subroutine check_compile_time_settings(ierr)
  if (coordinate_sys /= 'Cartesian') then
     call fatal('checkoptions (GR)',&
    "You must use Cartesian-like coordinates in PHANTOM! Please change to Cartesian in metric_tools!'")
+    ierr = 12
+ endif
+ if (.not.gr) then
+    call error(string,'-DGR but gr=.false.')
+    ierr = 13
  endif
 #endif
 
