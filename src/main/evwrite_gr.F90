@@ -138,7 +138,7 @@ end subroutine init_evfile
 subroutine fill_ev_tag(ev_fmt,label,cmd,i,j)
  integer,          intent(inout) :: i,j
  character(len=*), intent(in)    :: ev_fmt,label,cmd
- integer                         :: iindex
+ integer                         :: ki,kj,iindex
 
  ! set tag
  ev_tag(i) = label
@@ -164,8 +164,13 @@ subroutine fill_ev_tag(ev_fmt,label,cmd,i,j)
  endif
  if ( index(cmd,'0') + index(cmd,'s') + iindex > 1) &
     call fatal('fill_ev_tag','using an invalid sequence of actions for element', var=cmd)
- if (cmd(1:1)==cmd(2:2) .or. cmd(1:1)==cmd(3:3) .or. cmd(2:2)==cmd(3:3)) &
-    call fatal('fill_ev_tag','using duplicate actions for the same quantity', var=cmd)
+ do ki = 1,len(cmd)-1
+    do kj = ki+1,len(cmd)
+       if ( cmd(ki:ki)==cmd(kj:kj) ) then
+          call fatal('fill_ev_tag','using duplicate actions for the same quantity', var=cmd)
+       endif
+    enddo
+ enddo
  !
 end subroutine fill_ev_tag
 !----------------------------------------------------------------
