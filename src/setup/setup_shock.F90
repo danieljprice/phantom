@@ -316,7 +316,7 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
  use io,          only:fatal,id,master
  use dim,         only:mhd,maxvxyzu
  use physcon,     only:pi
- use options,     only:nfulldump,alpha,alphamax,alphaB
+ use options,     only:nfulldump,alpha,alphamax,alphaB,alphau
  use timestep,    only:dtmax,tmax
  use prompting,   only:prompt
 #ifdef NONIDEALMHD
@@ -371,6 +371,7 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
  shocks(6) = 'Brio-Wu (Ryu 5a)'
  shocks(7) = 'C-shock'
  shocks(8) = 'Steady shock'
+ shocks(9) = 'Relativistic Sod shock'
 
  do i = 1, nshocks
     if (trim(shocks(i)) /= 'none') write(*,"(a5,i2,1x,a30)") 'Case ', i, shocks(i)
@@ -379,6 +380,9 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
  choice = 1
 #ifdef NONIDEALMHD
  choice = 7
+#endif
+#ifdef GR
+ choice = 9
 #endif
  call prompt('Enter shock choice',choice,1,nshocks)
  icase = choice
@@ -486,6 +490,14 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
     leftstate  = (/1.7942,0.017942,-0.9759,-0.6561,0.,1.,1.74885,0./)
     rightstate = (/1.    ,0.01    ,-1.7510, 0.    ,0.,1.,0.6    ,0./)
     xleft      = -2.0
+ case(9)
+    !--Sod shock
+    shocktype = "Relativistic Sod shock"
+    gamma      = 5./3.
+    alphau     = 0.
+    leftstate  = (/10.0,40./3.,0.,0.,0.,0.,0.,0./)
+    rightstate = (/1.00,1.e-6 ,0.,0.,0.,0.,0.,0./)
+    if (maxvxyzu < 4) call fatal('setup','Sod shock tube requires ISOTHERMAL=no')
  end select
 
  call prompt('Enter resolution (number of particles in x) for left half (x<0)',nx,8)
