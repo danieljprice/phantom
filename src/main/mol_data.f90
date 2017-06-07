@@ -30,7 +30,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Simon Glover
 !
 !  $Id$
 !
