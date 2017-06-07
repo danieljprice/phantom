@@ -1168,7 +1168,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              !
              !--calculate j terms (which were precalculated outside loop for i)
              !
-             call get_P(rhoj,rho1j,xj,yj,zj,pmassj,enj,Bxj,Byj,Bzj,dustfracj, &
+             call get_P(rhoj,rho1j,xj,yj,zj, &
+#ifdef GR
+                        vxyzu(1:3,j), &
+#endif
+                        pmassj,enj,Bxj,Byj,Bzj,dustfracj, &
                         ponrhoj,pro2j,prj,spsoundj,vwavej, &
                         sxxj,sxyj,sxzj,syyj,syzj,szzj,visctermisoj,visctermanisoj, &
                         realviscosity,divvj,bulkvisc,strainj,stressmax)
@@ -1484,7 +1488,11 @@ end subroutine compute_forces
 !  quantities necessary to get a force, given that we have rho.
 !+
 !----------------------------------------------------------------
-subroutine get_P(rhoi,rho1i,xi,yi,zi,pmassi,eni,Bxi,Byi,Bzi,dustfraci, &
+subroutine get_P(rhoi,rho1i,xi,yi,zi, &
+#ifdef GR
+                 veli, &
+#endif GR
+                 pmassi,eni,Bxi,Byi,Bzi,dustfraci, &
                  ponrhoi,pro2i,pri,spsoundi,vwavei, &
                  sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso, &
                  realviscosity,divvi,bulkvisc,strain,stressmax)
@@ -1494,6 +1502,9 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi,pmassi,eni,Bxi,Byi,Bzi,dustfraci, &
  use eos,       only:equationofstate
  use options,   only:ieos
  use viscosity, only:shearfunc
+#ifdef GR
+ use utils_gr,  only:rho2dens
+#endif
  real,    intent(in)  :: rhoi,rho1i,xi,yi,zi,pmassi,eni
  real,    intent(in)  :: Bxi,Byi,Bzi,dustfraci
  real,    intent(out) :: ponrhoi,pro2i,pri,spsoundi,vwavei
@@ -1502,7 +1513,10 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi,pmassi,eni,Bxi,Byi,Bzi,dustfraci, &
  logical, intent(in)  :: realviscosity
  real,    intent(in)  :: divvi,bulkvisc,stressmax
  real,    intent(in)  :: strain(6)
-
+#ifdef GR
+ real,    intent(in)  :: veli(3)
+ real :: p_on_densgas, densgasi
+#endif
  real :: Bro2i,Brhoxi,Brhoyi,Brhozi,rhogasi,gasfrac
  real :: stressiso,term,graddivvcoeff,del2vcoeff
  real :: shearvisc,etavisc,valfven2i,p_on_rhogas
@@ -1511,14 +1525,20 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi,pmassi,eni,Bxi,Byi,Bzi,dustfraci, &
 !
  gasfrac = (1. - dustfraci)  ! rhogas/rho
  rhogasi = rhoi*gasfrac       ! rhogas = (1-eps)*rho
+#ifdef GR
+ call rho2dens(densgasi,rhogasi,(/xi,yi,zi/),veli)
+ call equationofstate(ieos,p_on_densgas,spsoundi,densgasi,xi,yi,zi,eni)
+ pri     = p_on_densgas*densgasi
+ ponrhoi = pri*rho1i ! Not sure about dust for the future...
+#else
  if (maxvxyzu >= 4) then
     call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi,eni)
  else
     call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi)
  endif
-
  pri     = p_on_rhogas*rhogasi
  ponrhoi = p_on_rhogas*gasfrac
+#endif
 
  sxxi = 0.
  sxyi = 0.
@@ -1743,6 +1763,9 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
        !
        call get_P(rhoi,rho1i, &
                   xyzh(1,i),xyzh(2,i),xyzh(3,i), &
+#ifdef GR
+                  vxyzu(1:3,i), &
+#endif
                   pmassi, &
                   eni, &
                   Bxi,Byi,Bzi, &
