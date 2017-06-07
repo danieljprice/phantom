@@ -1491,7 +1491,7 @@ end subroutine compute_forces
 subroutine get_P(rhoi,rho1i,xi,yi,zi, &
 #ifdef GR
                  veli, &
-#endif GR
+#endif
                  pmassi,eni,Bxi,Byi,Bzi,dustfraci, &
                  ponrhoi,pro2i,pri,spsoundi,vwavei, &
                  sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso, &
