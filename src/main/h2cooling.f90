@@ -484,8 +484,8 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
     if (divv == 0d0) then
        N_co_eff   = maximum_CO_column
     else
-       dv = 1d-5 * dabs(divv)
-       N_co_eff   = dlog10(abco * yn / dv)
+       dv = 1d-5 * abs(divv)
+       N_co_eff   = log10(abco * yn / dv)
        if (N_co_eff  >  maximum_CO_column) then
           N_co_eff = maximum_CO_column
        endif
@@ -714,7 +714,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 ! (R12) -- CO rotational cooling
 !
  sigma_h2 = 3.3d-16 * (temp / 1d3)**(-0.25d0)
- v_e = 1.03d4 * dsqrt(temp)
+ v_e = 1.03d4 * sqrt(temp)
  neff = ynh2 + dsqrt(2d0) * (2.3d-15 / sigma_h2) * ynh &
       + (1.3d-8 / (sigma_h2 * v_e)) * yne
 !

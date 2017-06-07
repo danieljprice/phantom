@@ -375,10 +375,10 @@ subroutine update_abundances(ui,rhoi,chemarrays,nchem,abund,tempiso,np1,dt,xi,yi
     abund(2)  = (1.d0-2.d0*h2ratio)*abHIq           ! HI
     abund(3)  = (1.d0-2.d0*h2ratio)*abhpq + abunde  ! e-
     abund(4)  = (1.d0-2.d0*h2ratio)*abhpq           ! p+ (HII)
-    abund(5)  = max(0.0d0, abundo - abco)           ! OI
-    abund(6)  = 0.0d0                               ! CI
-    abund(7)  = max(0.0d0, abundc - abco)           ! CII
-    abund(8)  = 0.0d0                               ! SiI
+    abund(5)  = max(0., abundo - abco)              ! OI
+    abund(6)  = 0.                                  ! CI
+    abund(7)  = max(0., abundc - abco)              ! CII
+    abund(8)  = 0.                                  ! SiI
     abund(9)  = abundsi                             ! SiII
     abund(10) = abco                                ! CO
 !------------------------------------------------------------------------------------
@@ -408,10 +408,10 @@ subroutine update_abundances(ui,rhoi,chemarrays,nchem,abund,tempiso,np1,dt,xi,yi
     abund(2)  = (1.d0-2.d0*h2ratio)*abHIq           ! HI
     abund(3)  = (1.d0-2.d0*h2ratio)*abhpq + abunde  ! e-
     abund(4)  = (1.d0-2.d0*h2ratio)*abhpq           ! p+ (HII)
-    abund(5)  = max(0.0d0, abundo - abco)           ! OI
-    abund(6)  = 0.0d0                               ! CI
-    abund(7)  = max(0.0d0, abundc - abco)           ! CII
-    abund(8)  = 0.0d0                               ! SiI
+    abund(5)  = max(0., abundo - abco)              ! OI
+    abund(6)  = 0.                                  ! CI
+    abund(7)  = max(0., abundc - abco)              ! CII
+    abund(8)  = 0.                                  ! SiI
     abund(9)  = abundsi                             ! SiII
     abund(10) = abco                                ! CO
 
