@@ -443,7 +443,11 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           if (.not.done_init_eos) call init_eos(ieos,ierr)
           do i=1,npart
              rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
-             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+             if (maxvxyzu >=4 ) then
+                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+             else
+                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i))
+             endif
              temparr(i) = ponrhoi*rhoi
           enddo
           call write_array(1,temparr,'pressure',npart,k,ipass,idump,nums,ierrs(7))
@@ -680,7 +684,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  character(len=lenid)  :: fileidentr
  type(dump_h)          :: hdr
 
- write(iprint,"(/,1x,a,i3)") '>>> reading setup from file: '//trim(dumpfile)//' on unit ',idisk1
+ if (id==master) write(iprint,"(/,1x,a,i3)") '>>> reading setup from file: '//trim(dumpfile)//' on unit ',idisk1
  opened_full_dump = .true.
  dt_read_in       = .false.
  !
@@ -751,7 +755,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 !
  read (idisk1, end=100) number
  narraylengths = number/nblocks
- if (iverbose >= 2) then
+ if (iverbose >= 2 .and. id==master) then
     write(iprint,"(a,i3)") ' number of array sizes = ',narraylengths
     write(iprint,"(a,i3)") ' number of blocks      = ',nblocks
  endif
@@ -806,14 +810,6 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
        ierr = 1
        return
     endif
-    npartoftype(1) = npart
-    npartoftypetot = reduceall_mpi('+',npartoftype)
-    if (any(npartoftypetot(2:) > 0)) then
-       print*,'npartoftypetot = ',npartoftypetot(2:)
-       write(*,*) 'WARNING: MPI + multiple types not yet implemented in dump format'
-       !ierr = 10
-       !return
-    endif
 #endif
     if (npartread <= 0 .and. nptmass <= 0) then
        print*,' SKIPPING BLOCK npartread = ',npartread
@@ -844,6 +840,12 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  enddo overblocks
 
  !
+ ! determine npartoftype
+ !
+ call count_particle_types(npartoftype)
+ npartoftypetot = reduceall_mpi('+',npartoftype)
+
+ !
  ! convert sinks from sphNG -> Phantom
  !
  if (.not.phantomdump .and. nptmass > 0 .and. maxphase==maxp) then
@@ -852,9 +854,9 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 
  if (sum(npartoftype)==0) npartoftype(1) = npart
  if (narraylengths >= 4) then
-    write(iprint,"(a,/)") ' <<< finished reading (MHD) file '
+    if (id==master) write(iprint,"(a,/)") ' <<< finished reading (MHD) file '
  else
-    write(iprint,"(a,/)") ' <<< finished reading (hydro) file '
+    if (id==master) write(iprint,"(a,/)") ' <<< finished reading (hydro) file '
  endif
  close(idisk1)
  return
@@ -898,7 +900,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  character(len=lenid)  :: fileidentr
  type(dump_h)          :: hdr
 
- write(iprint,"(/,1x,a,i3)") '>>> reading small dump file: '//trim(dumpfile)//' on unit ',idisk1
+ if (id==master) write(iprint,"(/,1x,a,i3)") '>>> reading small dump file: '//trim(dumpfile)//' on unit ',idisk1
  opened_full_dump = .false.
  !
  ! open dump file
@@ -1016,14 +1018,6 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
        ierr = 1
        return
     endif
-    npartoftype(1) = npart
-    npartoftypetot = reduceall_mpi('+',npartoftype)
-    if (any(npartoftypetot(2:) > 0)) then
-       print*,'npartoftypetot = ',npartoftypetot(2:)
-       write(*,*) 'MPI + multiple types not yet implemented in dump format'
-       ierr = 10
-       return
-    endif
 #endif
     if (npartread <= 0 .and. nptmass <= 0) then
        call skipblock(idisk1,nums(:,1),nums(:,2),nums(:,3),nums(:,4),tagged,ierr)
@@ -1051,6 +1045,12 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
     if (ierr /= 0) call warning('read_dump','error reading arrays from file')
 
  enddo overblocks
+
+ !
+ ! determine npartoftype
+ !
+ call count_particle_types(npartoftype)
+ npartoftypetot = reduceall_mpi('+',npartoftype)
 
  if (sum(npartoftype)==0) npartoftype(1) = npart
  if (narraylengths >= 4) then
@@ -1265,7 +1265,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  use eos,  only:polyk,gamma
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,&
                 xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac
- use io,   only:warning
+ use io,   only:warning,id,master
  use options,    only:alpha
  use sphNGutils, only:itype_from_sphNG_iphase,isphNG_accreted
  integer,         intent(in)    :: i1,i2,npartoftype(:),npartread,nptmass,nsinkproperties
@@ -1273,8 +1273,8 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha
  logical,         intent(in)    :: got_abund(:),got_dustfrac,got_sink_data(:),got_sink_vels(:),got_Bevol(:)
  integer(kind=1), intent(inout) :: iphase(:)
- real,            intent(inout) :: vxyzu(:,:)
- real(kind=4),    intent(inout) :: alphaind(:,:), Bevol(:,:)
+ real,            intent(inout) :: vxyzu(:,:), Bevol(:,:)
+ real(kind=4),    intent(inout) :: alphaind(:,:)
  real,            intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
  integer,         intent(in)    :: iprint
  integer,         intent(out)   :: ierr
@@ -1402,13 +1402,15 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     if (.not.all(got_sink_vels(1:3))) then
        write(*,*) 'WARNING! sink particle velocities not found'
     endif
-    print "(2(a,i2),a)",' got ',nsinkproperties,' sink properties from ',nptmass,' sink particles'
-    if (nptmass > 0) print "(1x,47('-'),/,1x,a,'|',4(a9,1x,'|'),/,1x,47('-'))",&
-                           'ID',' Mass    ',' Racc    ',' Macc    ',' hsoft   '
-    do i=1,min(nptmass,999)
-       print "(i3,'|',4(1pg9.2,1x,'|'))",i,xyzmh_ptmass(4,i),xyzmh_ptmass(ihacc,i),xyzmh_ptmass(imacc,i),xyzmh_ptmass(ihsoft,i)
-    enddo
-    if (nptmass > 0) print "(1x,47('-'))"
+    if (id==master) then
+       print "(2(a,i2),a)",' got ',nsinkproperties,' sink properties from ',nptmass,' sink particles'
+       if (nptmass > 0) print "(1x,47('-'),/,1x,a,'|',4(a9,1x,'|'),/,1x,47('-'))",&
+                              'ID',' Mass    ',' Racc    ',' Macc    ',' hsoft   '
+       do i=1,min(nptmass,999)
+          print "(i3,'|',4(1pg9.2,1x,'|'))",i,xyzmh_ptmass(4,i),xyzmh_ptmass(ihacc,i),xyzmh_ptmass(imacc,i),xyzmh_ptmass(ihsoft,i)
+       enddo
+       if (nptmass > 0) print "(1x,47('-'))"
+    endif
  endif
 
  !
@@ -2042,5 +2044,17 @@ subroutine write_gadgetdump(dumpfile,t,xyzh,particlemass,vxyzu,rho,utherm,npart)
 
  return
 end subroutine write_gadgetdump
+
+subroutine count_particle_types(npartoftype)
+ use part, only:iphase,iamtype,npart
+ integer, intent(out) :: npartoftype(:)
+ integer :: i, itype
+
+ npartoftype(:) = 0
+ do i = 1, npart
+    itype = iamtype(iphase(i))
+    npartoftype(itype) = npartoftype(itype) + 1
+ enddo
+end subroutine count_particle_types
 
 end module readwrite_dumps

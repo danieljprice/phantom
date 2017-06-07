@@ -76,8 +76,7 @@ subroutine test_derivs(ntests,npass,string)
  integer                :: itest,ierr,ierr2,nptest
  real                   :: fracactive,speedup
  real(kind=4)           :: tallactive
- real,         allocatable :: fxyzstore(:,:)
- real(kind=4), allocatable :: dBdtstore(:,:)
+ real,         allocatable :: fxyzstore(:,:),dBdtstore(:,:)
 #else
  integer                :: nactive
 #endif
@@ -669,13 +668,13 @@ subroutine test_derivs(ntests,npass,string)
              vxyzu(2,i) = vy(xyzh(:,i))
              vxyzu(3,i) = vz(xyzh(:,i))
              if (maxvecp==maxp) then
-                Bevol(1,i) = real(Ax(xyzh(:,i)),kind=kind(Bevol))
-                Bevol(2,i) = real(Ay(xyzh(:,i)),kind=kind(Bevol))
-                Bevol(3,i) = real(Az(xyzh(:,i)),kind=kind(Bevol))
+                Bevol(1,i) = Ax(xyzh(:,i))
+                Bevol(2,i) = Ay(xyzh(:,i))
+                Bevol(3,i) = Az(xyzh(:,i))
              else
-                Bevol(1,i) = real(Bx(xyzh(:,i)),kind=kind(Bevol))
-                Bevol(2,i) = real(By(xyzh(:,i)),kind=kind(Bevol))
-                Bevol(3,i) = real(Bz(xyzh(:,i)),kind=kind(Bevol))
+                Bevol(1,i) = Bx(xyzh(:,i))
+                Bevol(2,i) = By(xyzh(:,i))
+                Bevol(3,i) = Bz(xyzh(:,i))
              endif
              if (maxvxyzu==4) vxyzu(4,i) = 0.
           enddo
@@ -740,9 +739,9 @@ subroutine test_derivs(ntests,npass,string)
           do i=1,npart
              vxyzu(:,i) = 0.
              Bevol(:,i) = 0.
-             Bevol(1,i) = real(Bx(xyzh(:,i)),kind=kind(Bevol))
-             Bevol(2,i) = real(By(xyzh(:,i)),kind=kind(Bevol))
-             Bevol(3,i) = real(Bz(xyzh(:,i)),kind=kind(Bevol))
+             Bevol(1,i) = Bx(xyzh(:,i))
+             Bevol(2,i) = By(xyzh(:,i))
+             Bevol(3,i) = Bz(xyzh(:,i))
           enddo
           call set_active(npart,nactive,igas)
           call getused(t1)
@@ -809,13 +808,13 @@ subroutine test_derivs(ntests,npass,string)
              vxyzu(1,i) = vx(xyzh(:,i))
              vxyzu(2,i) = vy(xyzh(:,i))
              vxyzu(3,i) = vz(xyzh(:,i))
-             Bevol(1,i) = real(Bx(xyzh(:,i)),kind=kind(Bevol))
-             Bevol(2,i) = real(By(xyzh(:,i)),kind=kind(Bevol))
-             Bevol(3,i) = real(Bz(xyzh(:,i)),kind=kind(Bevol))
+             Bevol(1,i) = Bx(xyzh(:,i))
+             Bevol(2,i) = By(xyzh(:,i))
+             Bevol(3,i) = Bz(xyzh(:,i))
 
              vwavei = sqrt(polyk + (Bevol(1,i) * Bevol(1,i) + Bevol(2,i) * Bevol(2,i) + Bevol(3,i) * Bevol(3,i)) &
                                    / rhoh(xyzh(4,i),massoftype(1)))
-             Bevol(4,i) = real(psi(xyzh(:,i))/vwavei,kind=kind(Bevol))
+             Bevol(4,i) = psi(xyzh(:,i))/vwavei
              if (maxvxyzu==4) vxyzu(4,i) = 0.
           enddo
           call set_active(npart,nactive,igas)
@@ -863,10 +862,10 @@ subroutine test_derivs(ntests,npass,string)
              vxyzu(1,i) = vx(xyzh(:,i))
              vxyzu(2,i) = vy(xyzh(:,i))
              vxyzu(3,i) = vz(xyzh(:,i))
-             Bevol(1,i) = real(Bx(xyzh(:,i)),kind=kind(Bevol))
-             Bevol(2,i) = real(By(xyzh(:,i)),kind=kind(Bevol))
-             Bevol(3,i) = real(Bz(xyzh(:,i)),kind=kind(Bevol))
-             if (maxBevol>=4) Bevol(4,i) = 0._4
+             Bevol(1,i) = Bx(xyzh(:,i))
+             Bevol(2,i) = By(xyzh(:,i))
+             Bevol(3,i) = Bz(xyzh(:,i))
+             if (maxBevol>=4) Bevol(4,i) = 0.
              if (maxvxyzu==4) vxyzu(4,i) = 0.
           enddo
           call set_active(npart,nactive,igas)
@@ -1089,10 +1088,10 @@ subroutine test_derivs(ntests,npass,string)
              vxyzu(3,i) = vz(xyzh(:,i))
              if (maxvxyzu >= 4) vxyzu(4,i) = utherm(xyzh(:,i))
              if (mhd) then
-                Bevol(1,i) = real(Bx(xyzh(:,i)),kind=kind(Bevol))
-                Bevol(2,i) = real(By(xyzh(:,i)),kind=kind(Bevol))
-                Bevol(3,i) = real(Bz(xyzh(:,i)),kind=kind(Bevol))
-                if (maxBevol >= 4) Bevol(4,i) = real(psi(xyzh(:,i)),kind=kind(Bevol))
+                Bevol(1,i) = Bx(xyzh(:,i))
+                Bevol(2,i) = By(xyzh(:,i))
+                Bevol(3,i) = Bz(xyzh(:,i))
+                if (maxBevol >= 4) Bevol(4,i) = psi(xyzh(:,i))
              endif
           enddo
           call set_active(npart,nactive,igas)
@@ -1119,7 +1118,8 @@ subroutine test_derivs(ntests,npass,string)
                 if (maxBevol >= 4) then
                    call checkval(nptest,dBevol(4,:),dBdtstore(4,1:nptest),1.e-5,nfailed(8),'dpsi/dt')
                 endif
-                call checkval(nptest,divBsymm,dBdtstore(maxBevol+1,1:nptest),1.e-3,nfailed(9),'div B (symm)')
+                call checkval(nptest,divBsymm,real(dBdtstore(maxBevol+1,1:nptest),kind=kind(divBsymm)),&
+                              1.e-3,nfailed(9),'div B (symm)')
              endif
              ntests = ntests + 1
              if (all(nfailed==0)) npass = npass + 1

@@ -344,9 +344,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     if (maxvxyzu >= 4) vxyzu(4,i) = uuzero
     if (mhd) then
-       Bevol(1,i) = real(Bxini,kind=kind(Bevol))
-       Bevol(2,i) = real(Byini,kind=kind(Bevol))
-       Bevol(3,i) = real(Bzini,kind=kind(Bevol))
+       Bevol(:,i) = 0.0
+       Bevol(1,i) = Bxini
+       Bevol(2,i) = Byini
+       Bevol(3,i) = Bzini
     endif
  enddo
  if (mhd) ihavesetupB = .true.

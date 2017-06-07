@@ -61,15 +61,15 @@ contains
 !--------------------------------------------------------------------------
 
 subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
-                             xmin,datsmooth,nnodes,dxmax,normalise,ilendat4,dat4)
+                             xmin,datsmooth,nnodes,dxmax,normalise,ilendat,dat)
  use adaptivemesh, only:ifirstlevel,nsub,ndim,gridnodes
- integer,      intent(in)  :: npart,nnodes,ilendat4
+ integer,      intent(in)  :: npart,nnodes,ilendat
  real,         intent(in)  :: xyzh(:,:),vxyzu(:,:)
  real,         intent(in)  :: weight,pmass
  real,         intent(in)  :: xmin(3),dxmax(3)
- real,         intent(out) :: datsmooth(4+ilendat4,nsub**ndim,nnodes)
+ real,         intent(out) :: datsmooth(4+ilendat,nsub**ndim,nnodes)
  logical,      intent(in)  :: normalise
- real(kind=4), intent(in),              optional :: dat4(:,:)
+ real,         intent(in), optional :: dat(:,:)
  real, allocatable :: datnorm(:,:)
 !  real, dimension(nsub**ndim,nnodes) :: datnorm
 
@@ -82,7 +82,7 @@ subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
  real :: dxcell(ndim),xminnew(ndim)
  real :: t_start,t_end
  real :: termnorm
- real :: termdat(4+ilendat4)
+ real :: termdat(4+ilendat)
  logical :: iprintprogress
 !$ integer :: omp_get_num_threads,j
 #ifndef _OPENMP
@@ -100,13 +100,13 @@ subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
     print "(1x,a)",'interpolate3D_amr: error: grid size <= 0'
     return
  endif
- if (present(dat4)) then
-    if (ilendat4 /= size(dat4(:,1))) then
-       print "(1x,a,i2,i2)",'interpolate3D_amr: error in interface: size(dat4) /= ilendat4 ',size(dat4(:,1)),ilendat4
+ if (present(dat)) then
+    if (ilendat /= size(dat(:,1))) then
+       print "(1x,a,i2,i2)",'interpolate3D_amr: error in interface: size(dat) /= ilendat ',size(dat(:,1)),ilendat
        return
     endif
- elseif (ilendat4 /= 0) then
-    print "(1x,a)",'interpolate3D_amr: error in interface: dat4 has non-zero length but is not present'
+ elseif (ilendat /= 0) then
+    print "(1x,a)",'interpolate3D_amr: error in interface: dat has non-zero length but is not present'
     return
  endif
  if (normalise) then
@@ -149,8 +149,8 @@ subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
  !--loop over particles
  !
  !$omp parallel default(none) &
- !$omp shared(npart,xyzh,vxyzu,dat4,datsmooth,datnorm,gridnodes) &
- !$omp firstprivate(const,ilendat4,weight)                       &
+ !$omp shared(npart,xyzh,vxyzu,dat,datsmooth,datnorm,gridnodes) &
+ !$omp firstprivate(const,ilendat,weight)                       &
  !$omp firstprivate(xmin,pmass,imesh,nnodes,level)               &
  !$omp firstprivate(npixx,npixy,npixz,dxmax,dxcell,normalise)    &
  !$omp private(i,j,hi,hi1,hi21,radkern,termnorm,termdat)         &
@@ -189,8 +189,8 @@ subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
     radkern      = 2.*hi   ! radius of the smoothing kernel
     termdat(1)   = const*pmass*hi21*hi1  ! weight for density calculation
     termdat(2:4) = termnorm*vxyzu(1:3,i)
-    if (present(dat4) .and. ilendat4 > 0) then
-       termdat(5:5+ilendat4-1) = termnorm*dat4(1:ilendat4,i)
+    if (present(dat) .and. ilendat > 0) then
+       termdat(5:5+ilendat-1) = termnorm*dat(1:ilendat,i)
     endif
     !
     !--for each particle work out which pixels it contributes to
@@ -271,7 +271,7 @@ subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
                 xminnew(1) = xmin(1) + (ipixi-1)*dxcell(1)
                 xminnew(2) = xmin(2) + (jpixi-1)*dxcell(2)
                 xminnew(3) = xmin(3) + (kpixi-1)*dxcell(3)
-                call interpolate_submesh(xi,yi,zi,radkern,hi21,termnorm,4+ilendat4,termdat, &
+                call interpolate_submesh(xi,yi,zi,radkern,hi21,termnorm,4+ilendat,termdat, &
                          datsmooth,nnodes,datnorm,normalise,isubmesh,level+1,xminnew,dxmax)
              else
                 !
@@ -320,7 +320,7 @@ subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
  !--normalise dat array
  !
  if (normalise) then
-    do i=2,4+ilendat4  !--IN GENERAL BETTER TO NOT NORMALISE THE DENSITY (start from 2)
+    do i=2,4+ilendat  !--IN GENERAL BETTER TO NOT NORMALISE THE DENSITY (start from 2)
        where (datnorm > tiny(datnorm))
           datsmooth(i,:,:) = datsmooth(i,:,:)/datnorm(:,:)
        end where

@@ -804,6 +804,18 @@ ifeq ($(SETUP), testdust)
     IND_TIMESTEPS=no
 endif
 
+ifeq ($(SETUP), testnimhd)
+#   non-ideal MHD (+ boundary particle) unit tests
+    PERIODIC=yes
+    ISOTHERMAL=yes
+    NONIDEALMHD=yes
+    MHD=yes
+    KERNEL=WendlandC4
+    IND_TIMESTEPS=no
+    STS_TIMESTEPS=no
+    KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), testlum)
 #   Lense-Thirring setup
     FPPFLAGS= -DSORT_RADIUS_INIT -DLIGHTCURVE -DUSE_STRAIN_TENSOR
@@ -888,7 +900,6 @@ ifeq ($(SETUP), sfmcfost)
     MULTIRUNFILE= multirun.f90
     IND_TIMESTEPS=yes
     GRAVITY=yes
-    LIGHTCURVE=yes
     MCFOST=yes
 endif
 
@@ -1576,12 +1587,6 @@ ifeq ($(MCFOST), yes)
 endif
 
 #
-# whether or not all threads should read in parallel
-#
-ifeq ($(MPI_PARALLELREAD), yes)
-    FPPFLAGS += -DMPI_PARALLELREAD
-endif
-#
 # select domain decomposition type
 #
 DOMAIN= mpi_domain.F90
@@ -1644,7 +1649,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          step_leapfrog.F90 writeheader.F90 writegitinfo.f90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90\
          geometry.f90 stretchmap.f90 prompting.f90 density_profiles.f90 set_unifdis.f90 set_sphere.f90 set_vfield.f90 \
          ${SETUPFILE} checksetup.F90 utils_testsuite.f90 \
-         ${TEST_FASTMATH} test_kernel.f90 test_dust.F90 test_gravity.F90 \
+         ${TEST_FASTMATH} test_kernel.f90 test_dust.F90 test_nonidealmhd.F90 test_gravity.F90 \
          test_derivs.F90 test_cooling.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.F90 test_setdisc.F90 \
          test_link.F90 test_kdtree.F90 test_ptmass.F90 test_luminosity.F90\
@@ -2157,18 +2162,6 @@ evol_dustywaves: checksys $(OBJDUSTEVOL)
 	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJDUSTEVOL)
 
 #----------------------------------------------------
-# these are the sources for the test_nonideal utility
-#
-SRCTESTNIMHD=  units.f90 ${SRCNIMHD} test_nonideal.f90
-OBJTESTNIMHD= $(SRCTESTNIMHD:.f90=.o)
-
-test_nonideal: checksys $(OBJTESTNIMHD)
-	@echo ""
-	@echo "test_nonideal mhd"
-	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJTESTNIMHD)
-
-#----------------------------------------------------
 # these are the sources for the ev2mdot utility
 #
 .PHONY: ev2mdot
@@ -2563,6 +2556,9 @@ testgrav:
 
 testdust:
 	${MAKE} SETUP=testdust && $(MPIEXEC) $(BINDIR)/phantom test dust
+
+testnimhd:
+	${MAKE} SETUP=testnimhd && $(MPIEXEC) $(BINDIR)/phantom test nimhd
 
 testall: test test2 testcyl testgrav
 

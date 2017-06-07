@@ -48,8 +48,8 @@ module part
  real(kind=4) :: alphaind(nalpha,maxalpha)
  real(kind=4) :: divcurlv(ndivcurlv,maxp)
  real(kind=4) :: divcurlB(ndivcurlB,maxp)
- real(kind=4) :: Bevol(maxBevol,maxmhd)
- real(kind=4) :: Bxyz(3,maxvecp)
+ real :: Bevol(maxBevol,maxmhd)
+ real :: Bxyz(3,maxvecp)
  character(len=*), parameter :: xyzh_label(4) = (/'x','y','z','h'/)
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
  character(len=*), parameter :: Bevol_label(4) = (/'Bx ','By ','Bz ','psi'/)
@@ -148,7 +148,7 @@ module part
 !--derivatives (only needed if derivs is called)
 !
  real         :: fxyzu(maxvxyzu,maxan)
- real(kind=4) :: dBevol(maxBevol,maxmhdan)
+ real         :: dBevol(maxBevol,maxmhdan)
  real(kind=4) :: divBsymm(maxmhdan)
  real         :: fext(3,maxan)
  real         :: ddustfrac(maxdustan)
@@ -157,7 +157,7 @@ module part
 !
  real         :: vpred(maxvxyzu,maxan)
  real         :: dustpred(maxdustan)
- real(kind=4) :: Bpred(maxBevol,maxmhdan)
+ real         :: Bpred(maxBevol,maxmhdan)
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin(maxan)
  integer(kind=1)    :: ibin_wake(maxan)
@@ -186,11 +186,15 @@ module part
  integer, parameter, private :: maxpd =  max(maxp,1) ! avoid divide by zero
  integer, parameter :: ipartbufsize = 4 &  ! xyzh
    +maxvxyzu                            &  ! vxyzu
+   +maxvxyzu                            &  ! vpred
    +nalpha*maxalpha/maxpd               &  ! alphaind
    +ngradh*maxgradh/maxpd               &  ! gradh
    +maxphase/maxpd                      &  ! iphase
 #ifdef IND_TIMESTEPS
-   +2 +maxvxyzu                         &  ! ibin, divv, fxyzu
+   +1                                   &  ! ibin
+   +maxvxyzu                            &  ! fxyzu
+   +3                                   &  ! fext
+   +1                                   &  ! divcurlv
    +(maxmhd/maxpd)*maxBevol +3*(maxvecp/maxpd)  &  ! dB/dt, Bxyz
 #endif
    +(maxmhd/maxpd)*                     &  ! (mhd quantities)
@@ -662,9 +666,9 @@ subroutine reorder_particles(iorder,np)
  call copy_array(vxyzu(:,1:np),iorder(1:np))
  call copy_array(fext(:,1:np),iorder(1:np))
  if (mhd) then
-    call copy_arrayr4(Bevol(:,1:npart),iorder(1:np))
+    call copy_array(Bevol(:,1:npart),iorder(1:np))
     !--also copy the Bfield here, as this routine is used in setup routines
-    if (maxvecp        ==maxp) call copy_arrayr4(Bxyz(:,1:np),        iorder(1:np))
+    if (maxvecp        ==maxp) call copy_array(Bxyz(:,1:np),        iorder(1:np))
  endif
  if (ndivcurlv > 0)     call copy_arrayr4(divcurlv(:,1:np),iorder(1:np))
  if (maxalpha ==maxp) call copy_arrayr4(alphaind(:,1:np),  iorder(1:np))
@@ -802,7 +806,7 @@ subroutine fill_sendbuf(i,xtemp)
  if (i > 0) then
     call fill_buffer(xtemp,xyzh(:,i),nbuf)
     call fill_buffer(xtemp,vxyzu(:,i),nbuf)
-    !call fill_buffer(xtemp,fxyzu_prev(:,i),nbuf)
+    call fill_buffer(xtemp,vpred(:,i),nbuf)
     if (maxalpha==maxp) then
        call fill_buffer(xtemp,alphaind(:,i),nbuf)
     endif
@@ -811,7 +815,6 @@ subroutine fill_sendbuf(i,xtemp)
     endif
     if (mhd) then
        call fill_buffer(xtemp,Bevol(:,i),nbuf)
-       !call fill_buffer(xtemp,dBevol_prev(:,i),nbuf)
        if (maxvecp==maxp) then
           call fill_buffer(xtemp,Bxyz(:,i),nbuf)
        endif
@@ -853,23 +856,36 @@ subroutine unfill_buffer(ipart,xbuf)
  integer :: j
 
  j = 0
- xyzh(:,ipart)       = unfill_buf(xbuf,j,4)
- vxyzu(:,ipart)      = unfill_buf(xbuf,j,maxvxyzu)
- if (maxalpha==maxp) alphaind(:,ipart) = real(unfill_buf(xbuf,j,nalpha),kind(alphaind))
- if (maxgradh==maxp) gradh(:,ipart)    = real(unfill_buf(xbuf,j,ngradh),kind(gradh))
- if (mhd) then
-    Bevol(:,ipart)       = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
-    if (maxvecp  ==maxp) Bxyz(:,ipart)    = real(unfill_buf(xbuf,j,3),kind=kind(Bxyz))
+ xyzh(:,ipart)          = unfill_buf(xbuf,j,4)
+ vxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
+ vpred(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
+ if (maxalpha==maxp) then
+    alphaind(:,ipart)   = real(unfill_buf(xbuf,j,nalpha),kind(alphaind))
  endif
- if (maxphase==maxp) iphase(ipart) = nint(unfill_buf(xbuf,j),kind=1)
-#ifdef IND_TIMESTEPS
- ibin(ipart)    = nint(unfill_buf(xbuf,j),kind=1)
- fxyzu(:,ipart) = unfill_buf(xbuf,j,maxvxyzu)
- fext(:,ipart)  = unfill_buf(xbuf,j,3)
- if (ndivcurlv > 0) divcurlv(1,ipart) = unfill_buf(xbuf,j)
+ if (maxgradh==maxp) then
+    gradh(:,ipart)      = real(unfill_buf(xbuf,j,ngradh),kind(gradh))
+ endif
  if (mhd) then
-    dBevol(:,ipart) = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
-    if (maxvecp==maxp) Bxyz(:,ipart) = unfill_buf(xbuf,j,3)
+    Bevol(:,ipart)      = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
+    if (maxvecp  ==maxp) then
+       Bxyz(:,ipart)    = real(unfill_buf(xbuf,j,3),kind=kind(Bxyz))
+    endif
+ endif
+ if (maxphase==maxp) then
+    iphase(ipart)       = nint(unfill_buf(xbuf,j),kind=1)
+ endif
+#ifdef IND_TIMESTEPS
+ ibin(ipart)            = nint(unfill_buf(xbuf,j),kind=1)
+ fxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
+ fext(:,ipart)          = unfill_buf(xbuf,j,3)
+ if (ndivcurlv >= 1) then
+    divcurlv(1,ipart)  = unfill_buf(xbuf,j)
+ endif
+ if (mhd) then
+    dBevol(:,ipart)    = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
+    if (maxvecp==maxp) then
+       Bxyz(:,ipart)   = unfill_buf(xbuf,j,3)
+    endif
  endif
 #endif
 

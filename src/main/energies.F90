@@ -60,7 +60,7 @@ subroutine compute_energies(t)
  use part, only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,npartoftype, &
                 alphaind,Bxyz,Bevol,divcurlB,iamtype,igas,idust,iboundary,istar,idarkmatter,ibulge, &
                 nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,isdead_or_accreted,epot_sinksink,&
-                imacc,ispinx,ispiny,ispinz,mhd,maxvecp,divBsymm,gravity,poten,dustfrac,&
+                imacc,ispinx,ispiny,ispinz,mhd,maxvecp,gravity,poten,dustfrac,&
                 n_R,n_electronT,ionfrac_eta
  use eos,            only:polyk,utherm,gamma,equationofstate,get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
@@ -83,16 +83,16 @@ subroutine compute_energies(t)
  real    :: ev_data_thread(0:inumev)
  real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,rhoi,angx,angy,angz
  real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz
- real    :: epoti,pmassi,acci,dnptot
+ real    :: epoti,pmassi,acci,dnptot,dnpgas
  real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
  real    :: ponrhoi,spsoundi,B2i,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
- real    :: n_total,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
+ real    :: n_total,n_total1,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
  real    :: gasfrac,dustfraci,dust_to_gas
  real    :: temperature,etaart,etaart1,etaohm,etahall,etaambi,vion,vdrift
  real    :: vioni(3),data_out(17+nelements_max*nlevels-3)
  real    :: erotxi,erotyi,erotzi,fdum(3)
  integer :: i,j,itype,ierr
- integer(kind=8) :: np,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
+ integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
 
  ! initialise values
  itype  = igas
@@ -109,7 +109,8 @@ subroutine compute_energies(t)
  angx = 0.
  angy = 0.
  angz = 0.
- np = 0
+ np   = 0
+ npgas   = 0
  xmomacc = 0.
  ymomacc = 0.
  zmomacc = 0.
@@ -132,13 +133,13 @@ subroutine compute_energies(t)
 !$omp shared(xyzh,vxyzu,iexternalforce,npart,t,id,npartoftype) &
 !$omp shared(alphaind,massoftype,irealvisc) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass) &
-!$omp shared(Bxyz,Bevol,divBsymm,divcurlB,alphaB,iphase,poten,dustfrac) &
+!$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,nelements,n_R,n_electronT,ionfrac_eta) &
 !$omp shared(ielements,ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,acci,valfven2i,divBi,hdivBonBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
-!$omp private(gasfrac,dustfraci,dust_to_gas,n_total,n_ion) &
+!$omp private(gasfrac,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
 !$omp private(ierr,temperature,etaart,etaart1,etaohm,etahall,etaambi,vioni,vion,vdrift,data_out) &
 !$omp private(erotxi,erotyi,erotzi,fdum) &
 !$omp private(ev_data_thread,np_rho_thread) &
@@ -150,7 +151,7 @@ subroutine compute_energies(t)
 #ifdef LIGHTCURVE
 !$omp shared(luminosity,track_lum) &
 #endif
-!$omp reduction(+:np,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
+!$omp reduction(+:np,npgas,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
 !$omp reduction(+:ekin,etherm,emag,epot)
  call initialise_ev_data(ev_data_thread)
@@ -248,11 +249,12 @@ subroutine compute_energies(t)
        !
        isgas: if (itype==igas) then
 
+          npgas = npgas + 1
           if (use_dustfrac) then
              dustfraci   = dustfrac(i)
              gasfrac     = 1. - dustfraci
              dust_to_gas = dustfraci/gasfrac
-             call ev_data_update(ev_data_thread,'dust/gas',dust_to_gas     )
+             call ev_data_update(ev_data_thread,'dust/gas',dust_to_gas)
              mgas  = mgas  + pmassi*gasfrac
              mdust = mdust + pmassi*dustfraci
           else
@@ -374,9 +376,14 @@ subroutine compute_energies(t)
                 endif
                 n_ion   = data_out(8) + data_out(9) + data_out(10) + data_out(11)
                 n_total = n_ion + data_out(7)
-                call ev_data_update(ev_data_thread,'ni/n(i+n)',n_ion/n_total)
-                call ev_data_update(ev_data_thread,'ne/n(i+n)',data_out(6)/n_total)
-                ionfrac_eta(1,i) = real(n_ion/n_total,kind=4)
+                if (n_total > 0.) then
+                   n_total1 = 1.0/n_total
+                else
+                   n_total1 = 0.0         ! only possible if eta_constant = .true.
+                endif
+                call ev_data_update(ev_data_thread,'ni/n(i+n)',n_ion*n_total1)
+                call ev_data_update(ev_data_thread,'ne/n(i+n)',data_out(6)*n_total1)
+                ionfrac_eta(1,i) = real(n_ion*n_total1,kind=4)
                 ionfrac_eta(2,i) = real(etaohm, kind=4)       ! Save eta_OR for the dump file
                 ionfrac_eta(3,i) = real(etahall,kind=4)       ! Save eta_HE for the dump file
                 ionfrac_eta(4,i) = real(etaambi,kind=4)       ! Save eta_AD for the dump file
@@ -476,15 +483,22 @@ subroutine compute_energies(t)
 !$omp end critical(collatedata)
 !$omp end parallel
 
- !--Determing the number of active particles
+ !--Determing the number of active gas particles
  nptot     = reduce_fn('+',np)
+ npgas     = reduce_fn('+',npgas)
  if (nptot > 0.) then
     dnptot = 1./real(nptot)
  else
     dnptot = 0.
  endif
- !--Finalise the arrays & correct as necessary
- call finalise_ev_data(ev_data,dnptot)
+ if (npgas > 0.) then
+    dnpgas = 1./real(npgas)
+ else
+    dnpgas = 0.
+ endif
+ !--Finalise the arrays & correct as necessary;
+ !  Almost all of the average quantities are over gas particles only
+ call finalise_ev_data(ev_data,dnpgas)
  ekin = 0.5*ekin
  emag = 0.5*emag
  ekin = reduce_fn('+',ekin)
@@ -531,16 +545,16 @@ subroutine compute_energies(t)
     do i = 1,maxtypes
        np_rho(i) = reduce_fn('+',np_rho(i))
     enddo
-    ! correct the average densities so that division is by n_p and not n_total
-    if (np_rho(igas)        > 0) call ev_data_correction(ev_data,'rho gas', real(nptot)/real(np_rho(igas)),       'a')
-    if (np_rho(idust)       > 0) call ev_data_correction(ev_data,'rho dust',real(nptot)/real(np_rho(idust)),      'a')
-    if (np_rho(iboundary)   > 0) call ev_data_correction(ev_data,'rho bdy', real(nptot)/real(np_rho(iboundary)),  'a')
-    if (np_rho(istar)       > 0) call ev_data_correction(ev_data,'rho star',real(nptot)/real(np_rho(istar)),      'a')
-    if (np_rho(idarkmatter) > 0) call ev_data_correction(ev_data,'rho dm',  real(nptot)/real(np_rho(idarkmatter)),'a')
-    if (np_rho(ibulge)      > 0) call ev_data_correction(ev_data,'rho blg', real(nptot)/real(np_rho(ibulge)),     'a')
+    ! correct the average densities so that division is by n_p and not n_gas
+    call ev_data_correction(ev_data,'rho', real(npgas)*dnptot,'a')
+    if (np_rho(idust)       > 0) call ev_data_correction(ev_data,'rho dust',real(npgas)/real(np_rho(idust)),      'a')
+    if (np_rho(iboundary)   > 0) call ev_data_correction(ev_data,'rho bdy', real(npgas)/real(np_rho(iboundary)),  'a')
+    if (np_rho(istar)       > 0) call ev_data_correction(ev_data,'rho star',real(npgas)/real(np_rho(istar)),      'a')
+    if (np_rho(idarkmatter) > 0) call ev_data_correction(ev_data,'rho dm',  real(npgas)/real(np_rho(idarkmatter)),'a')
+    if (np_rho(ibulge)      > 0) call ev_data_correction(ev_data,'rho blg', real(npgas)/real(np_rho(ibulge)),     'a')
  endif
  call ev_data_correction(ev_data,'vrms',   dnptot)
- call ev_data_correction(ev_data,'rmsmach',dnptot)
+ call ev_data_correction(ev_data,'rmsmach',dnpgas)
  vrms    = ev_get_value('vrms')
  rmsmach = ev_get_value('rmsmach')
 
@@ -553,7 +567,6 @@ subroutine compute_energies(t)
     ymomall   = ymom + ymomacc
     zmomall   = zmom + zmomacc
     call ev_data_update(ev_data,'totmomall',sqrt(xmomall*xmomall + ymomall*ymomall + zmomall*zmomall))
-
 
     angaccx = reduce_fn('+',angaccx)
     angaccy = reduce_fn('+',angaccy)
@@ -777,7 +790,7 @@ subroutine ev_data_correction(evdata,evtag,scalar_in,evcmd)
  ival   = maxloc(iarray,1)
  if (iarray(ival) > 0) then
     jval = ev_istart(ival)
-    if (present(evcmd)) jval = jval + index(ev_action(jval),evcmd) - 1
+    if (present(evcmd)) jval = jval + index(ev_action(ival),evcmd) - 1
     evdata(jval) = evdata(jval)*scalar_in
  endif
 
@@ -799,7 +812,7 @@ real function ev_get_value(evtag,evcmd)
  ival   = maxloc(iarray,1)
  if (iarray(ival) > 0) then
     jval = ev_istart(ival)
-    if (present(evcmd)) jval = jval + index(ev_action(jval),evcmd) - 1
+    if (present(evcmd)) jval = jval + index(ev_action(ival),evcmd) - 1
     ev_get_value = ev_data(jval)
  else
     ev_get_value = 0.0
