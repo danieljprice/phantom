@@ -2037,7 +2037,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
- use dim,            only:mhd,mhd_nonideal,lightcurve,use_dustfrac,maxstrain
+ use dim,            only:mhd,mhd_nonideal,lightcurve,use_dustfrac,maxstrain,gr
  use eos,            only:use_entropy,gamma
  use options,        only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating
  use part,           only:h2chemistry,rhoanddhdrho,abundance,iboundary,igas,maxphase,maxvxyzu,nabundances, &
@@ -2260,9 +2260,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
                            + straini(4)**2 + straini(6)**2)
           endif
           fxyz4 = 0.
-          if (use_entropy) then
+          if (use_entropy .or. gr) then
              if (ishock_heating > 0) then
-                fxyz4 = fxyz4 + (gamma - 1.)*rhoi**(1.-gamma)*fsum(idudtdissi)
+                fxyz4 = fxyz4 + (gamma - 1.)*rhogasi**(1.-gamma)*fsum(idudtdissi)
              endif
           else
              fac = rhoi/rhogasi
