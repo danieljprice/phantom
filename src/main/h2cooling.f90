@@ -480,28 +480,28 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 
  if (abco  >  1d-4 * abundo) then
 ! Don't bother to compute CO cooling rate when CO abundance very small
-   maximum_CO_column = co_colntab(ncdco)
-   if (divv == 0d0) then
-     N_co_eff   = maximum_CO_column
-   else
-     dv = 1d-5 * dabs(divv)
-     N_co_eff   = dlog10(abco * yn / dv)
-     if (N_co_eff  >  maximum_CO_column) then
-       N_co_eff = maximum_CO_column
-     endif
-   endif
+    maximum_CO_column = co_colntab(ncdco)
+    if (divv == 0d0) then
+       N_co_eff   = maximum_CO_column
+    else
+       dv = 1d-5 * dabs(divv)
+       N_co_eff   = dlog10(abco * yn / dv)
+       if (N_co_eff  >  maximum_CO_column) then
+          N_co_eff = maximum_CO_column
+       endif
+    endif
 !
 ! If current temperature is less than the smallest tabulated value, we
 ! look up rates for smallest tabulated value and then reduce final
 ! cooling rate by an appropriate exponential factor
 !
-   if (temp  <=  co_temptab(1)) then
-     temp_co = co_temptab(1)
-   else
-     temp_co = temp
-   endif
+    if (temp  <=  co_temptab(1)) then
+       temp_co = co_temptab(1)
+    else
+       temp_co = temp
+    endif
 !
-   call co_cool(temp_co, N_co_eff, co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n05)
+    call co_cool(temp_co, N_co_eff, co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n05)
  endif
 !
 ! (R1) -- gas-grain cooling-heating -- dust:gas ratio already incorporated
@@ -719,21 +719,21 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
       + (1.3d-8 / (sigma_h2 * v_e)) * yne
 !
  if (abco  <=  1d-4 * abundo .or. neff == 0d0) then
-   rates(12) = 0d0
+    rates(12) = 0d0
  else
-   co_rot_inv = (1d0 / co_rot_L0) + (neff / co_rot_lte) + (1d0 / co_rot_L0) &
+    co_rot_inv = (1d0 / co_rot_L0) + (neff / co_rot_lte) + (1d0 / co_rot_L0) &
               * (1d0 - co_rot_n05 * co_rot_L0  / co_rot_lte) &
               * (neff / co_rot_n05)**co_rot_alpha
 !
-   rates(12) = abco * neff * yn / co_rot_inv
+    rates(12) = abco * neff * yn / co_rot_inv
 
-   if (temp  <=  co_temptab(1)) then
+    if (temp  <=  co_temptab(1)) then
 ! We don't have accurate data below 5K, but we don't necessarily want to impose a sharp floor there either.
 ! As a compromise, we reduce the cooling rate exponentially below 5 K.
 !
-     low_T_adjust = dexp(-1d1 / temp) / dexp(-1d1 / 5d0)
-     rates(12) = rates(12) * low_T_adjust
-   endif
+       low_T_adjust = dexp(-1d1 / temp) / dexp(-1d1 / 5d0)
+       rates(12) = rates(12) * low_T_adjust
+    endif
  endif
 !
 ! Benchmarking suggests that writing this out explicitly is more efficient
@@ -1524,11 +1524,11 @@ subroutine coolinmo
 !          0.1dex bins in column density
 !
  do i = 1, nTco
-   co_temptab(i) = 4d0 + 1d0 * i
+    co_temptab(i) = 4d0 + 1d0 * i
  enddo
 !
  do i = 1, ncdco
-   co_colntab(i) = 14.4d0 + 0.1d0 * i
+    co_colntab(i) = 14.4d0 + 0.1d0 * i
  enddo
 !
 ! CO rotational cooling
@@ -1539,57 +1539,57 @@ subroutine coolinmo
  call spline_eval(nco_temp, co_temp, co_data_L0, nTco, co_temptab, co_L0)
 !
  do i = 1, nco_column
-   do j = 1, nco_temp
-     co_lte_raw(j) = co_data_LTE(nco_temp * (i-1) + j)
-     co_n05_raw(j) = co_data_n05(nco_temp * (i-1) + j)
-     co_alp_raw(j) = co_data_alp(nco_temp * (i-1) + j)
-   enddo
+    do j = 1, nco_temp
+       co_lte_raw(j) = co_data_LTE(nco_temp * (i-1) + j)
+       co_n05_raw(j) = co_data_n05(nco_temp * (i-1) + j)
+       co_alp_raw(j) = co_data_alp(nco_temp * (i-1) + j)
+    enddo
 !
-   call spline_eval(nco_temp, co_temp, co_lte_raw, nTco, co_temptab, co_lte_fit)
-   call spline_eval(nco_temp, co_temp, co_n05_raw, nTco, co_temptab, co_n05_fit)
-   call spline_eval(nco_temp, co_temp, co_alp_raw, nTco, co_temptab, co_alp_fit)
+    call spline_eval(nco_temp, co_temp, co_lte_raw, nTco, co_temptab, co_lte_fit)
+    call spline_eval(nco_temp, co_temp, co_n05_raw, nTco, co_temptab, co_n05_fit)
+    call spline_eval(nco_temp, co_temp, co_alp_raw, nTco, co_temptab, co_alp_fit)
 !
-   do j = 1, nTco
-     co_lte_smalltab(i,j) = co_lte_fit(j)
-     co_n05_smalltab(i,j) = co_n05_fit(j)
-     co_alp_smalltab(i,j) = co_alp_fit(j)
-   enddo
+    do j = 1, nTco
+       co_lte_smalltab(i,j) = co_lte_fit(j)
+       co_n05_smalltab(i,j) = co_n05_fit(j)
+       co_alp_smalltab(i,j) = co_alp_fit(j)
+    enddo
  enddo
 !
 !   do spline fits over N to fill in table
 !
  do j = 1, nTco
-   do i = 1, nco_column
-     co_lte_fxT(i) = co_lte_smalltab(i,j)
-     co_n05_fxT(i) = co_n05_smalltab(i,j)
-     co_alp_fxT(i) = co_alp_smalltab(i,j)
-   enddo
+    do i = 1, nco_column
+       co_lte_fxT(i) = co_lte_smalltab(i,j)
+       co_n05_fxT(i) = co_n05_smalltab(i,j)
+       co_alp_fxT(i) = co_alp_smalltab(i,j)
+    enddo
 !
-   call spline_eval(nco_column, co_column, co_lte_fxT, ncdco, co_colntab, co_lte_fit2)
-   call spline_eval(nco_column, co_column, co_n05_fxT, ncdco, co_colntab, co_n05_fit2)
-   call spline_eval(nco_column, co_column, co_alp_fxT, ncdco, co_colntab, co_alp_fit2)
+    call spline_eval(nco_column, co_column, co_lte_fxT, ncdco, co_colntab, co_lte_fit2)
+    call spline_eval(nco_column, co_column, co_n05_fxT, ncdco, co_colntab, co_n05_fit2)
+    call spline_eval(nco_column, co_column, co_alp_fxT, ncdco, co_colntab, co_alp_fit2)
 !
-   do i = 1, ncdco
-     co_lte(i,j) = co_lte_fit2(i)
-     co_n05(i,j) = co_n05_fit2(i)
-     co_alp(i,j) = co_alp_fit2(i)
-   enddo
+    do i = 1, ncdco
+       co_lte(i,j) = co_lte_fit2(i)
+       co_n05(i,j) = co_n05_fit2(i)
+       co_alp(i,j) = co_alp_fit2(i)
+    enddo
  enddo
 !
  do j = 1, nTco-1
-   dTco_L0(j)  = co_L0(j+1)  - co_L0(j)
-   do i = 1, ncdco
-     dTco_lte(i,j) = co_lte(i,j+1) - co_lte(i,j)
-     dTco_n05(i,j) = co_n05(i,j+1) - co_n05(i,j)
-     dTco_alp(i,j) = co_alp(i,j+1) - co_alp(i,j)
-   enddo
+    dTco_L0(j)  = co_L0(j+1)  - co_L0(j)
+    do i = 1, ncdco
+       dTco_lte(i,j) = co_lte(i,j+1) - co_lte(i,j)
+       dTco_n05(i,j) = co_n05(i,j+1) - co_n05(i,j)
+       dTco_alp(i,j) = co_alp(i,j+1) - co_alp(i,j)
+    enddo
  enddo
 !
  dTco_L0(nTco) = dTco_L0(nTco-1)
  do i = 1, ncdco
-   dTco_lte(i,nTco) = dTco_lte(i,nTco-1)
-   dTco_n05(i,nTco) = dTco_n05(i,nTco-1)
-   dTco_alp(i,nTco) = dTco_alp(i,nTco-1)
+    dTco_lte(i,nTco) = dTco_lte(i,nTco-1)
+    dTco_n05(i,nTco) = dTco_n05(i,nTco-1)
+    dTco_alp(i,nTco) = dTco_alp(i,nTco-1)
  enddo
 !
 ! (cl6) --  the atomic cooling function
@@ -1713,20 +1713,20 @@ subroutine co_cool(temp, N_co_eff, co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n
 ! No CO cooling below 5K, as no good data
 !
  if (temp  <  co_temptab(1)) then
-   co_rot_L0    = 0.0
-   co_rot_lte   = 0.0
-   co_rot_n05   = 1.0
-   co_rot_alpha = 1.0
-   return
+    co_rot_L0    = 0.0
+    co_rot_lte   = 0.0
+    co_rot_n05   = 1.0
+    co_rot_alpha = 1.0
+    return
  elseif (temp == co_temptab(1)) then
-   itemp_co = 1
-   dtemp_co = 0d0
+    itemp_co = 1
+    dtemp_co = 0d0
  elseif (temp  >=  co_temptab(nTco)) then
-   itemp_co = nTco
-   dtemp_co = 0d0
+    itemp_co = nTco
+    dtemp_co = 0d0
  else
-   itemp_co = int(temp) - 4    ! Table currently starts at 5K
-   dtemp_co = temp - int(temp)
+    itemp_co = int(temp) - 4    ! Table currently starts at 5K
+    dtemp_co = temp - int(temp)
  endif
 !
 ! For column densities that do not lie within the region covered by the
@@ -1734,14 +1734,14 @@ subroutine co_cool(temp, N_co_eff, co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n
 ! values, as appropriate.
 !
  if (N_co_eff  <=  co_colntab(1)) then
-   iN_co = 1
-   dN_co = 0d0
+    iN_co = 1
+    dN_co = 0d0
  elseif (N_co_eff  >=  co_colntab(ncdco)) then
-   iN_co = ncdco
-   dN_co = 0d0
+    iN_co = ncdco
+    dN_co = 0d0
  else
-   iN_co = int((10 * N_co_eff) - 144)
-   dN_co = (N_co_eff - co_colntab(iN_co)) / 0.1d0
+    iN_co = int((10 * N_co_eff) - 144)
+    dN_co = (N_co_eff - co_colntab(iN_co)) / 0.1d0
  endif
 !
  co_rot_L0 = co_L0(itemp_co) + dtemp_co * dTco_L0(itemp_co)
@@ -1750,17 +1750,17 @@ subroutine co_cool(temp, N_co_eff, co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n
  co_rot_alp_1 = co_alp(iN_co,itemp_co) + dtemp_co * dTco_alp(iN_co,itemp_co)
  co_rot_n05_1 = co_n05(iN_co,itemp_co) + dtemp_co * dTco_n05(iN_co,itemp_co)
  if (iN_co == ncdco) then
-   co_rot_lte   = co_rot_lte_1
-   co_rot_alpha = co_rot_alp_1
-   co_rot_n05   = co_rot_n05_1
+    co_rot_lte   = co_rot_lte_1
+    co_rot_alpha = co_rot_alp_1
+    co_rot_n05   = co_rot_n05_1
  else
-   co_rot_lte_2 = co_lte(iN_co+1,itemp_co) + dtemp_co * dTco_lte(iN_co+1,itemp_co)
-   co_rot_alp_2 = co_alp(iN_co+1,itemp_co) + dtemp_co * dTco_alp(iN_co+1,itemp_co)
-   co_rot_n05_2 = co_n05(iN_co+1,itemp_co) + dtemp_co * dTco_n05(iN_co+1,itemp_co)
+    co_rot_lte_2 = co_lte(iN_co+1,itemp_co) + dtemp_co * dTco_lte(iN_co+1,itemp_co)
+    co_rot_alp_2 = co_alp(iN_co+1,itemp_co) + dtemp_co * dTco_alp(iN_co+1,itemp_co)
+    co_rot_n05_2 = co_n05(iN_co+1,itemp_co) + dtemp_co * dTco_n05(iN_co+1,itemp_co)
 !
-   co_rot_lte   = co_rot_lte_1 + (co_rot_lte_2 - co_rot_lte_1) * dN_co
-   co_rot_alpha = co_rot_alp_1 + (co_rot_alp_2 - co_rot_alp_1) * dN_co
-   co_rot_n05   = co_rot_n05_1 + (co_rot_n05_2 - co_rot_n05_1) * dN_co
+    co_rot_lte   = co_rot_lte_1 + (co_rot_lte_2 - co_rot_lte_1) * dN_co
+    co_rot_alpha = co_rot_alp_1 + (co_rot_alp_2 - co_rot_alp_1) * dN_co
+    co_rot_n05   = co_rot_n05_1 + (co_rot_n05_2 - co_rot_n05_1) * dN_co
  endif
 !
 ! Do final conversion to correct units:
@@ -1770,7 +1770,7 @@ subroutine co_cool(temp, N_co_eff, co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n
  co_rot_n05 = 10d0**(co_rot_n05)
 !
  return
- end subroutine co_cool
+end subroutine co_cool
 !
 !=======================================================================
 !
