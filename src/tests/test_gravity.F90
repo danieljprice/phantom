@@ -158,9 +158,9 @@ subroutine test_gravity(ntests,npass,string)
 
     dx = xposi - x0   ! perform expansion about x0
     call expand_fgrav_in_taylor_series(fnode,dx(1),dx(2),dx(3),f0(1),f0(2),f0(3),phi)
-    print*,'           exact force = ',fexact,' phi = ',phiexact
-    print*,'       force at origin = ',fnode(1:3), ' phi = ',fnode(20)
-    print*,'force w. taylor series = ',f0, ' phi = ',phi
+    !print*,'           exact force = ',fexact,' phi = ',phiexact
+    !print*,'       force at origin = ',fnode(1:3), ' phi = ',fnode(20)
+    !print*,'force w. taylor series = ',f0, ' phi = ',phi
     nfailed(:) = 0
     call checkval(f0(1),fexact(1),8.7e-5,nfailed(1),'fx taylor series about f0')
     call checkval(f0(2),fexact(2),1.5e-6,nfailed(2),'fy taylor series about f0')
