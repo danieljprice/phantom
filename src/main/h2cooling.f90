@@ -481,7 +481,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
  if (abco  >  1d-4 * abundo) then
 ! Don't bother to compute CO cooling rate when CO abundance very small
     maximum_CO_column = co_colntab(ncdco)
-    if (divv == 0d0) then
+    if (abs(divv) < tiny(divv)) then
        N_co_eff   = maximum_CO_column
     else
        dv = 1d-5 * abs(divv)
