@@ -106,6 +106,7 @@ subroutine testsuite(string,first,last)
  dodust     = .false.
  donimhd    = .false.
  docooling  = .false.
+ dogr       = .false.
  if (index(string,'deriv')     /= 0) doderivs  = .true.
  if (index(string,'grav')      /= 0) dogravity = .true.
  if (index(string,'polytrope') /= 0) dogravity = .true.
