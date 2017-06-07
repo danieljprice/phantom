@@ -512,23 +512,21 @@ end subroutine step
 #ifdef GR
 subroutine step_extern_gr(dt,npart,xyzh,vxyzu,pxyzu)
  use part, only:isdead_or_accreted
- use cons2prim_gr, only: conservative2primitive
+ use cons2prim, only: conservative2primitive_combined
  real,    intent(in)    :: dt
  integer, intent(in)    :: npart
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(in)    :: pxyzu(:,:)
  real,    intent(out)   :: vxyzu(:,:)
- real :: densi, rhoi, P
  integer :: i, ierr
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,dt) &
- !$omp shared(pxyzu,ierr,rhoi,densi,P) &
+ !$omp shared(pxyzu,ierr) &
  !$omp private(i)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-
-       call conservative2primitive(xyzh(1:3,i),vxyzu(1:3,i),densi,vxyzu(4,i),P,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,'entropy')!
+       call conservative2primitive_combined(xyzh(1:3,i),pxyzu(1:3,i),vxyzu(1:3,i),ierr)
        ! main position update
        !
        xyzh(1,i) = xyzh(1,i) + dt*vxyzu(1,i)
