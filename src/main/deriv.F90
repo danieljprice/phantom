@@ -41,7 +41,7 @@ contains
 !+
 !-------------------------------------------------------------
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                  dustfrac,ddustfrac,time,dt,dtnew,pxyzu)
+                  dustfrac,ddustfrac,time,dt,dtnew,pxyzu,dens)
  use dim,            only:maxp,maxvxyzu
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
@@ -78,7 +78,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real,         intent(out)   :: ddustfrac(:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
- real,         intent(inout), optional :: pxyzu(:,:)
+ real,         intent(inout), optional :: pxyzu(:,:), dens(:)
  real(kind=4)       :: t1,tcpu1,tlast,tcpulast
 
  t1 = 0.
@@ -125,8 +125,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  endif
 
 #ifdef GR
- if (present(pxyzu)) then
-    call conservative_to_primitive(npart,xyzh,pxyzu,vxyzu)
+ if (present(pxyzu) .and. present(dens)) then
+    call conservative_to_primitive(npart,xyzh,pxyzu,vxyzu,dens)
  endif
 #endif
 

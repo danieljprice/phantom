@@ -101,6 +101,7 @@ module part
  real :: pxyzu(maxvxyzu,maxgr)
  character(len=*), parameter :: pxyzu_label(4) = &
   (/'px     ','py     ','pz     ','entropy'/)
+ real :: dens(maxgr)
 
 !
 !--sink particles

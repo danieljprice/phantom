@@ -149,7 +149,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustfrac,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh
 #ifdef GR
- use part,             only:pxyzu
+ use part,             only:pxyzu,dens
  use cons2prim,        only:primitive_to_conservative
 #endif
 #ifdef PHOTO
@@ -309,7 +309,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  call summary_initialise
 
 #ifdef GR
- call primitive_to_conservative(npart,xyzh,vxyzu,pxyzu)
+ call primitive_to_conservative(npart,xyzh,vxyzu,dens,pxyzu)
 #endif
 !
 !--get total number of particles (on all processors)

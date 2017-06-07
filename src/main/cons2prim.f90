@@ -68,31 +68,33 @@ subroutine conservative_to_primitive_split(npart,xyzh,rho,pmom,en,dens,v,u,P)
 
 end subroutine conservative_to_primitive_split
 
-subroutine primitive_to_conservative_combined(npart,xyzh,vxyzu,pxyzu)
+subroutine primitive_to_conservative_combined(npart,xyzh,vxyzu,dens,pxyzu)
  use part,         only:isdead_or_accreted
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(inout) :: dens(:)
  real,    intent(out) :: pxyzu(:,:)
  integer :: i
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,vxyzu,pxyzu,npart) &
+!$omp shared(xyzh,vxyzu,dens,pxyzu,npart) &
 !$omp private(i)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call primitive2conservative_combined(xyzh(:,i),vxyzu(:,i),pxyzu(:,i))
+      call primitive2conservative_combined(xyzh(:,i),vxyzu(:,i),dens(i),pxyzu(:,i))
     endif
  enddo
 !$omp end parallel do
 
 end subroutine primitive_to_conservative_combined
 
-subroutine primitive2conservative_combined(xyzhi,vxyzui,pxyzui)
+subroutine primitive2conservative_combined(xyzhi,vxyzui,densi,pxyzui)
  use utils_gr,     only:h2dens
  use cons2prim_gr, only:primitive2conservative,get_pressure
  real, dimension(4), intent(in)  :: xyzhi, vxyzui
+ real, intent(inout)             :: densi
  real, dimension(4), intent(out) :: pxyzui
- real :: densi,rhoi,Pi,ui,xyzi(1:3),vi(1:3)
+ real :: rhoi,Pi,ui,xyzi(1:3),vi(1:3)
 
  xyzi = xyzhi(1:3)
  vi   = vxyzui(1:3)
@@ -103,21 +105,20 @@ subroutine primitive2conservative_combined(xyzhi,vxyzui,pxyzui)
 
 end subroutine primitive2conservative_combined
 
-subroutine conservative_to_primitive_combined(npart,xyzh,pxyzu,vxyzu)
+subroutine conservative_to_primitive_combined(npart,xyzh,pxyzu,vxyzu,dens)
  use part, only:isdead_or_accreted, massoftype, igas, rhoh
  use io,   only:fatal
  integer, intent(in)    :: npart
  real,    intent(in)    :: pxyzu(:,:),xyzh(:,:)
- real,    intent(inout) :: vxyzu(:,:)
+ real,    intent(inout) :: vxyzu(:,:),dens(:)
  integer :: i, ierr
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,vxyzu,pxyzu,npart,massoftype) &
-!a$omp private(i,ierr,rhoi,dens_guess,p_guess,u_guess,v_guess,xyzi)
+!$omp shared(xyzh,vxyzu,dens,pxyzu,npart,massoftype) &
 !$omp private(i,ierr)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call conservative2primitive_combined(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),ierr)
+       call conservative2primitive_combined(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
        if (ierr > 0) then
           print*,' pmom =',pxyzu(1:3,i)
           print*,' rho* =',rhoh(xyzh(4,i),massoftype(igas))
@@ -130,12 +131,13 @@ subroutine conservative_to_primitive_combined(npart,xyzh,pxyzu,vxyzu)
 
 end subroutine conservative_to_primitive_combined
 
-subroutine conservative2primitive_combined(xyzhi,pxyzui,vxyzui,ierr)
+subroutine conservative2primitive_combined(xyzhi,pxyzui,vxyzui,densi,ierr)
  use part,         only:massoftype, igas, rhoh
  use cons2prim_gr, only:conservative2primitive,get_pressure
  use utils_gr,     only:rho2dens
  real,    dimension(4), intent(in)    :: xyzhi,pxyzui
  real,    dimension(4), intent(inout) :: vxyzui
+ real, intent(inout)                  :: densi
  integer, intent(out),  optional      :: ierr
  real    :: rhoi, dens_guess, p_guess, xyzi(1:3), v_guess(1:3), u_guess
 
@@ -143,7 +145,7 @@ subroutine conservative2primitive_combined(xyzhi,pxyzui,vxyzui,ierr)
  xyzi    = xyzhi(1:3)
  v_guess = vxyzui(1:3)
  u_guess = vxyzui(4)
- call rho2dens(dens_guess,rhoi,xyzi,v_guess)
+ ! call rho2dens(dens_guess,rhoi,xyzi,v_guess)
  call get_pressure(p_guess,dens_guess,u_guess)
  call conservative2primitive(xyzi,vxyzui(1:3),dens_guess,vxyzui(4),p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierr,'entropy')
 

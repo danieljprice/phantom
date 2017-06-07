@@ -81,7 +81,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,mhd,maxBevol,&
                           switches_done_in_derivs,iboundary,get_ntypes,npartoftype,&
-                          dustfrac,dustevol,ddustfrac,alphaind,maxvecp,nptmass,pxyzu
+                          dustfrac,dustevol,ddustfrac,alphaind,maxvecp,nptmass,pxyzu,dens
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
@@ -175,7 +175,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! accretion onto sinks/potentials also happens during substepping
 !----------------------------------------------------------------------
 #ifdef GR
- call step_extern_gr(dtsph,npart,xyzh,vxyzu,pxyzu)
+ call step_extern_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu)
 #else
  if (nptmass > 0 .or. iexternalforce > 0 .or. (h2chemistry .and. icooling > 0) .or. damp > 0.) then
     call step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,t,damp,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
@@ -398,7 +398,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           !if (erri > errmax) print*,id,' errmax = ',erri,' part ',i,vxi,vxoldi,vyi,vyoldi,vzi,vzoldi
           errmax = max(errmax,erri)
 
-          p2i = pxi*pxi + pyi*vyi + pzi*vzi
+          p2i = pxi*pxi + pyi*pyi + pzi*pzi
           p2mean = p2mean + p2i
           np = np + 1
 
@@ -510,23 +510,23 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 end subroutine step
 
 #ifdef GR
-subroutine step_extern_gr(dt,npart,xyzh,vxyzu,pxyzu)
+subroutine step_extern_gr(dt,npart,xyzh,vxyzu,dens,pxyzu)
  use part, only:isdead_or_accreted
  use cons2prim, only: conservative2primitive_combined
  real,    intent(in)    :: dt
  integer, intent(in)    :: npart
- real,    intent(inout) :: xyzh(:,:)
+ real,    intent(inout) :: xyzh(:,:),dens(:)
  real,    intent(in)    :: pxyzu(:,:)
  real,    intent(out)   :: vxyzu(:,:)
  integer :: i, ierr
 
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,vxyzu,dt) &
+ !$omp shared(npart,xyzh,vxyzu,dens,dt) &
  !$omp shared(pxyzu,ierr) &
  !$omp private(i)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call conservative2primitive_combined(xyzh(1:3,i),pxyzu(1:3,i),vxyzu(1:3,i),ierr)
+       call conservative2primitive_combined(xyzh(1:3,i),pxyzu(1:3,i),vxyzu(1:3,i),dens(i),ierr)
        ! main position update
        !
        xyzh(1,i) = xyzh(1,i) + dt*vxyzu(1,i)
