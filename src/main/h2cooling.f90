@@ -478,15 +478,15 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 ! If divv is very small (or zero), then we set the effective column
 ! density to the largest tabulated value
 
- if (abco .gt. 1d-4 * abundo) then
+ if (abco  >  1d-4 * abundo) then
 ! Don't bother to compute CO cooling rate when CO abundance very small
    maximum_CO_column = co_colntab(ncdco)
-   if (divv .eq. 0d0) then
+   if (divv == 0d0) then
      N_co_eff   = maximum_CO_column
    else
      dv = 1d-5 * dabs(divv)
      N_co_eff   = dlog10(abco * yn / dv)
-     if (N_co_eff .gt. maximum_CO_column) then
+     if (N_co_eff  >  maximum_CO_column) then
        N_co_eff = maximum_CO_column
      endif
    endif
@@ -495,7 +495,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 ! look up rates for smallest tabulated value and then reduce final
 ! cooling rate by an appropriate exponential factor
 !
-   if (temp .le. co_temptab(1)) then
+   if (temp  <=  co_temptab(1)) then
      temp_co = co_temptab(1)
    else
      temp_co = temp
@@ -718,7 +718,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
  neff = ynh2 + dsqrt(2d0) * (2.3d-15 / sigma_h2) * ynh &
       + (1.3d-8 / (sigma_h2 * v_e)) * yne
 !
- if (abco .le. 1d-4 * abundo .or. neff .eq. 0d0) then
+ if (abco  <=  1d-4 * abundo .or. neff == 0d0) then
    rates(12) = 0d0
  else
    co_rot_inv = (1d0 / co_rot_L0) + (neff / co_rot_lte) + (1d0 / co_rot_L0) &
@@ -727,7 +727,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 !
    rates(12) = abco * neff * yn / co_rot_inv
 
-   if (temp .le. co_temptab(1)) then
+   if (temp  <=  co_temptab(1)) then
 ! We don't have accurate data below 5K, but we don't necessarily want to impose a sharp floor there either.
 ! As a compromise, we reduce the cooling rate exponentially below 5 K.
 !
@@ -1712,16 +1712,16 @@ subroutine co_cool(temp, N_co_eff, co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n
 !
 ! No CO cooling below 5K, as no good data
 !
- if (temp .lt. co_temptab(1)) then
+ if (temp  <  co_temptab(1)) then
    co_rot_L0    = 0.0
    co_rot_lte   = 0.0
    co_rot_n05   = 1.0
    co_rot_alpha = 1.0
    return
- elseif (temp .eq. co_temptab(1)) then
+ elseif (temp == co_temptab(1)) then
    itemp_co = 1
    dtemp_co = 0d0
- elseif (temp .ge. co_temptab(nTco)) then
+ elseif (temp  >=  co_temptab(nTco)) then
    itemp_co = nTco
    dtemp_co = 0d0
  else
@@ -1733,10 +1733,10 @@ subroutine co_cool(temp, N_co_eff, co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n
 ! NK93 or NLM95 data, we use the smallest or largest of the tabulated
 ! values, as appropriate.
 !
- if (N_co_eff .le. co_colntab(1)) then
+ if (N_co_eff  <=  co_colntab(1)) then
    iN_co = 1
    dN_co = 0d0
- elseif (N_co_eff .ge. co_colntab(ncdco)) then
+ elseif (N_co_eff  >=  co_colntab(ncdco)) then
    iN_co = ncdco
    dN_co = 0d0
  else
@@ -1749,7 +1749,7 @@ subroutine co_cool(temp, N_co_eff, co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n
  co_rot_lte_1 = co_lte(iN_co,itemp_co) + dtemp_co * dTco_lte(iN_co,itemp_co)
  co_rot_alp_1 = co_alp(iN_co,itemp_co) + dtemp_co * dTco_alp(iN_co,itemp_co)
  co_rot_n05_1 = co_n05(iN_co,itemp_co) + dtemp_co * dTco_n05(iN_co,itemp_co)
- if (iN_co .eq. ncdco) then
+ if (iN_co == ncdco) then
    co_rot_lte   = co_rot_lte_1
    co_rot_alpha = co_rot_alp_1
    co_rot_n05   = co_rot_n05_1
