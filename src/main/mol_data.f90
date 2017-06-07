@@ -24,8 +24,8 @@
 !  Data in the tables is for log(T) = 2.0 -> 4.0, at intervals of 0.05 dex
 !
 !  2) CO cooling function data: based on the LVG tabulated rates given in
-!  Neufeld & Kaufman (1993, ApJ, 418, 263) and Neufeld, Lepp & Melnick 
-!  (1995, ApJS, 100, 132). Extended from 10 K to 5 K by 
+!  Neufeld & Kaufman (1993, ApJ, 418, 263) and Neufeld, Lepp & Melnick
+!  (1995, ApJS, 100, 132). Extended from 10 K to 5 K by
 !  Glover & Clark (2012, MNRAS, 421, 116)
 !
 !  REFERENCES: None
@@ -78,10 +78,10 @@ module mol_data
               -18.813, -18.712, -18.624, -18.549, -18.484, -18.429, &
               -18.382, -18.341, -18.307, -18.278, -18.253/
 !
-! CO optically thick rotational cooling 
+! CO optically thick rotational cooling
 !
  integer, parameter :: nco_temp   = 12
- integer, parameter :: nco_column = 10 
+ integer, parameter :: nco_column = 10
  integer, parameter :: nco_data   = 120
 
  real :: co_temp(nco_temp), co_column(nco_column), co_data_L0(nco_temp)
@@ -131,9 +131,9 @@ module mol_data
                     2.72, 3.67, 4.25, 4.63, 4.92, 5.13, &
                     0.35, 0.40, 1.02, 1.41, 1.89, 2.19, &
                     2.22, 3.20, 3.77, 4.18, 4.51, 4.73, &
-                    -0.15, -0.09, 0.52, 0.91, 1.39, 1.69, & 
+                    -0.15, -0.09, 0.52, 0.91, 1.39, 1.69, &
                     1.73, 2.69, 3.29, 3.70, 4.03, 4.26, &
-                    -0.65, -0.59, 0.03, 0.41, 0.88, 1.19, & 
+                    -0.65, -0.59, 0.03, 0.41, 0.88, 1.19, &
                     1.23, 2.20, 2.79, 3.20, 3.54, 3.78/
 
  data co_data_alp / 0.46, 0.37, 0.41, 0.42, 0.41, 0.38, &
