@@ -486,15 +486,15 @@ subroutine compute_energies(t)
  !--Determing the number of active gas particles
  nptot     = reduce_fn('+',np)
  npgas     = reduce_fn('+',npgas)
- if (nptot > 0.) then
+ if (nptot > 0) then
     dnptot = 1./real(nptot)
  else
     dnptot = 0.
  endif
- if (npgas > 0.) then
+ if (npgas > 0) then
     dnpgas = 1./real(npgas)
  else
-    dnpgas = 0.
+    dnpgas = 0
  endif
  !--Finalise the arrays & correct as necessary;
  !  Almost all of the average quantities are over gas particles only
