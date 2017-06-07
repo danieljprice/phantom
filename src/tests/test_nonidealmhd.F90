@@ -174,8 +174,8 @@ subroutine test_wavedamp(ntests,npass)
  omegaR  =  0.5*sqrt( -quadb*quadb - 4.0*quada*quadc )
  !
  ! initialise the Nicil library
- call set_units(mass=1.0,dist=1.0)
- call nicil_initialise(utime,udist,umass,unit_Bfield,ierr)
+ call set_units(mass=1.d0,dist=1.d0)
+ call nicil_initialise(real(utime),real(udist),real(umass),real(unit_Bfield),ierr)
  !
  ! call derivs the first time around
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
@@ -354,8 +354,8 @@ subroutine test_standingshock(ntests,npass)
  if (maxalpha==maxp) alphaind(1,:) = real(alpha,kind=4)
  !
  ! initialise the Nicil library
- call set_units(mass=1.0,dist=1.0)
- call nicil_initialise(utime,udist,umass,unit_Bfield,ierr)
+ call set_units(mass=1.0d0,dist=1.0d0)
+ call nicil_initialise(real(utime),real(udist),real(umass),real(unit_Bfield),ierr)
  !
  ! call derivs the first time around
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
@@ -494,7 +494,7 @@ subroutine test_narrays(ntests,npass)
  ! Note: the first set of values is for the initial conditions of Wurster, Price & Bate (2016); the
  !       second set is high density/B-field to ensure thermal ionisation is working
  !
- call set_units(mass=solarm,dist=1.0d16,G=1.)
+ call set_units(mass=solarm,dist=1.0d16,G=1.d0)
  rho0(1)      = 7.420d-18 /unit_density   ! [g/cm^3]
  Bz0(1)       = 8.130d-5  /unit_Bfield    ! [G]
  eta_act(1,1) = 1.1479d10                 ! [cm^2/s] expected eta_ohm
@@ -538,7 +538,7 @@ subroutine test_narrays(ntests,npass)
  ion_thermal  = .true.
  ! initialise eos, & the Nicil library
  call init_eos(8,ierr)
- call nicil_initialise(utime,udist,umass,unit_Bfield,ierr)
+ call nicil_initialise(real(utime),real(udist),real(umass),real(unit_Bfield),ierr)
  !
  !--Loop over both sets of calculations
  !
