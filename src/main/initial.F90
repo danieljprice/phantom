@@ -481,7 +481,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                              Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtnew_first)
+                              Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtnew_first&
+#ifdef GR
+                              ,pxyzu)
+#else
+                              )
+#endif
     if (use_dustfrac) then
        ! set s = sqrt(rho*eps) from the initial dustfrac setting now we know rho
        pmassi = massoftype(igas)
