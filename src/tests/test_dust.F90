@@ -45,7 +45,6 @@ subroutine test_dust(ntests,npass)
  use eos,       only:gamma
 #endif
  integer, intent(inout) :: ntests,npass
-#ifndef MPI
 #ifdef DUST
  integer :: nfailed(10),ierr,iregime
  real :: dustfraci,rhoi,spsoundi,tsi
