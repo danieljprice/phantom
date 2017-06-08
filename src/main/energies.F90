@@ -89,7 +89,7 @@ subroutine compute_energies(t)
  real    :: n_total,n_total1,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
  real    :: gasfrac,dustfraci,dust_to_gas
  real    :: temperature,etaart,etaart1,etaohm,etahall,etaambi,vion,vdrift
- real    :: vioni(3),data_out(17+nelements_max*nlevels-3)
+ real    :: curlBi(3),vioni(3),data_out(17+nelements_max*nlevels-3)
  real    :: erotxi,erotyi,erotzi,fdum(3)
  integer :: i,j,itype,ierr
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
@@ -137,7 +137,7 @@ subroutine compute_energies(t)
 !$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,nelements,n_R,n_electronT,ionfrac_eta) &
 !$omp shared(ielements,ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
-!$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,acci,valfven2i,divBi,hdivBonBi) &
+!$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,acci,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
 !$omp private(gasfrac,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
 !$omp private(ierr,temperature,etaart,etaart1,etaohm,etahall,etaambi,vioni,vion,vdrift,data_out) &
@@ -346,7 +346,8 @@ subroutine compute_energies(t)
                 temperature = get_temperature_from_ponrho(ponrhoi)
                 call nicil_get_eta(etaohm,etahall,etaambi,sqrt(B2i),rhoi,temperature, &
                                    n_R(:,i),n_electronT(i),ierr,data_out)
-                call nicil_get_vion(etaambi,vxi,vyi,vzi,Bxi,Byi,Bzi,real(divcurlB(2:4,i)),vioni,ierr)
+                curlBi = divcurlB(2:4,i)
+                call nicil_get_vion(etaambi,vxi,vyi,vzi,Bxi,Byi,Bzi,curlBi,vioni,ierr)
                 etaart  = 0.5*hi*vsigi*alphaB
                 if (etaart > 0.) then
                    etaart1 = 1.0/etaart
@@ -494,7 +495,7 @@ subroutine compute_energies(t)
  if (npgas > 0) then
     dnpgas = 1./real(npgas)
  else
-    dnpgas = 0
+    dnpgas = 0.
  endif
  !--Finalise the arrays & correct as necessary;
  !  Almost all of the average quantities are over gas particles only
