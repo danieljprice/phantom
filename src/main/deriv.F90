@@ -127,6 +127,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 #ifdef GR
  if (present(pxyzu) .and. present(dens)) then
     call conservative_to_primitive(npart,xyzh,pxyzu,vxyzu,dens)
+ else
+    call fatal('deriv','(GR) pxyzu or dens not present in call to derivs')
  endif
 #endif
 
