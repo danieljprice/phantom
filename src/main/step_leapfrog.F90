@@ -95,9 +95,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use timestep_sts,   only:sts_get_hdti,sts_get_dtau_next,use_sts,ibinsts,sts_it_n
  use part,           only:ibin,ibinold,twas,iactive
 #endif
-! #ifdef GR
-!  use cons2prim,      only:conservative2primitive_combined
-! #endif
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
  real,    intent(in)    :: t,dtsph
@@ -254,9 +251,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (maxalpha==maxp) then
           hi   = xyzh(4,i)
           rhoi = rhoh(hi,pmassi)
-! #ifdef GR
-          ! call conservative2primitive_combined(xyzh,ppred,vpred)
-! #endif
           spsoundi = get_spsound(ieos,xyzh(:,i),rhoi,vpred(:,i))
           tdecay1  = avdecayconst*spsoundi/hi
           ddenom   = 1./(1. + dtsph*tdecay1) ! implicit integration for decay term
