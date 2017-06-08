@@ -775,7 +775,7 @@ subroutine s_potential(xi,yi,zi,ti,potout,fextxi,fextyi,fextzi)
  integer :: n
 
 !--Use the Dehnen00 smooth activation function:
- As = softpot(phir,1.,ti)
+ As = softpot(phir,1.d0,ti)
  p0t =  As * p0
 
 !
@@ -1099,7 +1099,7 @@ subroutine LMXbar(offset,ascale,bscale,xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
  zir = zi
 
  !--Use the Dehnen00 smooth activation function:
- Ab = softpot(phibar,1.,ti)
+ Ab = softpot(phibar,1.d0,ti)
  barmasst =  Ab * barmass
 
  Splus   =sqrt(bbar*bbar + yir*yir+zir*zir + (abar+xir)*(abar+xir))
@@ -1140,7 +1140,7 @@ subroutine LMTbar(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
  zir = zi
 
  !--Use the Dehnen00 smooth activation function:
- Ab = softpot(phibar,1.,ti)
+ Ab = softpot(phibar,1.d0,ti)
  barmasst =  Ab * barmass
 
  barterm = (LMbbar+sqrt(LMcbar*LMcbar+zir*zir))
@@ -1221,7 +1221,7 @@ subroutine Wadabar(xi,yi,d2,phii,ti,hi,phi,fextxi,fextyi)
    pot,rratio,rterm_inv,dpotdr,dpotdtheta,Ab,StrBarWt
 
  !--Use the Dehnen00 smooth activation function:
- Ab = softpot(phibar,1.,ti)
+ Ab = softpot(phibar,1.d0,ti)
  StrBarWt =  Ab * StrBarW
 
  d1 =sqrt(d2)
@@ -1436,7 +1436,8 @@ function softpot(pspeed,softfac,ti)
  !--The value for softpot reduces the density/mass of the potential.
  use io, only:fatal
  real(kind=8) :: softpot
- real(kind=8), intent(in) :: pspeed,softfac,ti
+ real(kind=8), intent(in) :: pspeed,softfac
+ real,         intent(in) :: ti
  real(kind=8) :: Tperiod,t1,epsact
 
  !--rotation period keeping consistent code units:

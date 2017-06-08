@@ -93,13 +93,9 @@ subroutine test_dust(ntests,npass)
 #else
  if (id==master) write(*,"(/,a)") '--> SKIPPING DUST TEST (REQUIRES -DDUST)'
 #endif
-#else
- if (id==master) write(*,"(/,a)") '--> SKIPPING DUST TEST (MPI NOT SUPPORTED)'
-#endif
 
 end subroutine test_dust
 
-#ifndef MPI
 #ifdef DUST
 !----------------------------------------------------
 !+
@@ -506,7 +502,6 @@ subroutine write_file(time,xyzh,dustfrac,npart)
 
 end subroutine write_file
 
-#endif
 #endif
 
 end module testdust

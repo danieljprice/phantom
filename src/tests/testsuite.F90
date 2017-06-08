@@ -21,8 +21,8 @@
 !
 !  DEPENDENCIES: io, mpiutils, options, testcooling, testcorotate,
 !    testderivs, testdust, testeos, testexternf, testgnewton, testgravity,
-!    testindtstep, testkdtree, testkernel, testlink, testmath, testptmass,
-!    testrwdump, testsedov, testsetdisc, teststep, timing
+!    testindtstep, testkdtree, testkernel, testlink, testmath, testnimhd,
+!    testptmass, testrwdump, testsedov, testsetdisc, teststep, timing
 !+
 !--------------------------------------------------------------------------
 module test
@@ -42,6 +42,7 @@ subroutine testsuite(string,first,last)
  use testsedov,    only:test_sedov
  use testgravity,  only:test_gravity
  use testdust,     only:test_dust
+ use testnimhd,    only:test_nonidealmhd
 #ifdef FINVSQRT
  use testmath,     only:test_math
 #endif
@@ -63,7 +64,7 @@ subroutine testsuite(string,first,last)
  integer, save :: ntests,npass,nfail
  logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity
- logical :: dosetdisc,doeos,docooling,dodust,docorotate,doany
+ logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
 #endif
@@ -82,14 +83,14 @@ subroutine testsuite(string,first,last)
     nfail  = 0
  endif
  call get_timings(twall1,tcpu1)
- testall  = .false.
- dokernel = .false.
- dolink   = .false.
- dokdtree = .false.
- doderivs = .false.
- dostep   = .false.
- doptmass = .false.
- dognewton = .false.
+ testall    = .false.
+ dokernel   = .false.
+ dolink     = .false.
+ dokdtree   = .false.
+ doderivs   = .false.
+ dostep     = .false.
+ doptmass   = .false.
+ dognewton  = .false.
  docorotate = .false.
  dosedov    = .false.
  doexternf  = .false.
@@ -98,17 +99,19 @@ subroutine testsuite(string,first,last)
  dorwdump   = .false.
  dosetdisc  = .false.
  doeos      = .false.
- dodust      = .false.
- docooling   = .false.
- if (index(string,'deriv') /= 0) doderivs = .true.
- if (index(string,'grav') /= 0)      dogravity = .true.
+ dodust     = .false.
+ donimhd    = .false.
+ docooling  = .false.
+ if (index(string,'deriv')     /= 0) doderivs  = .true.
+ if (index(string,'grav')      /= 0) dogravity = .true.
  if (index(string,'polytrope') /= 0) dogravity = .true.
  if (index(string,'directsum') /= 0) dogravity = .true.
- if (index(string,'dust') /= 0) dodust = .true.
- if (index(string,'dump') /= 0) dorwdump = .true.
- if (index(string,'sink') /= 0) doptmass = .true.
- if (index(string,'cool') /= 0) docooling = .true.
- doany = any((/doderivs,dogravity,dodust,dorwdump,doptmass,docooling/))
+ if (index(string,'dust')      /= 0) dodust    = .true.
+ if (index(string,'nimhd')     /= 0) donimhd   = .true.
+ if (index(string,'dump')      /= 0) dorwdump  = .true.
+ if (index(string,'sink')      /= 0) doptmass  = .true.
+ if (index(string,'cool')      /= 0) docooling = .true.
+ doany = any((/doderivs,dogravity,dodust,donimhd,dorwdump,doptmass,docooling/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -141,6 +144,8 @@ subroutine testsuite(string,first,last)
     doeos = .true.
  case('dust')
     dodust = .true.
+ case('nimhd')
+    donimhd = .true.
  case default
     if (.not.doany) testall = .true.
  end select
@@ -205,6 +210,14 @@ subroutine testsuite(string,first,last)
 !
  if (dodust.or.testall) then
     call test_dust(ntests,npass)
+    call set_default_options ! restore defaults
+    call barrier_mpi()
+ endif
+!
+!--test of non-ideal MHD
+!
+ if (donimhd.or.testall) then
+    call test_nonidealmhd(ntests,npass)
     call set_default_options ! restore defaults
     call barrier_mpi()
  endif
