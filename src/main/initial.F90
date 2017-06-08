@@ -483,7 +483,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                               Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtnew_first&
 #ifdef GR
-                              ,pxyzu)
+                              ,pxyzu,dens)
 #else
                               )
 #endif
