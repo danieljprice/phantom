@@ -2064,15 +2064,15 @@ subroutine write_gadgetdump(dumpfile,t,xyzh,particlemass,vxyzu,rho,utherm,npart)
 end subroutine write_gadgetdump
 
 subroutine count_particle_types(npartoftype)
-   use part, only:iphase,iamtype,npart
-   integer, intent(out) :: npartoftype(:)
-   integer :: i, itype
+ use part, only:iphase,iamtype,npart
+ integer, intent(out) :: npartoftype(:)
+ integer :: i, itype
 
-   npartoftype(:) = 0
-   do i = 1, npart
-      itype = iamtype(iphase(i))
-      npartoftype(itype) = npartoftype(itype) + 1
-   enddo
+ npartoftype(:) = 0
+ do i = 1, npart
+    itype = iamtype(iphase(i))
+    npartoftype(itype) = npartoftype(itype) + 1
+ enddo
 end subroutine count_particle_types
 
 end module readwrite_dumps
