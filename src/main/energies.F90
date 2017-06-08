@@ -172,30 +172,26 @@ subroutine compute_energies(t)
        rhoi = rhoh(hi,pmassi)
        call ev_data_update(ev_data_thread,'rho',rhoi)
        if (.not.gas_only) then
-          if (npartoftype(igas)        > 0) then
+          select case(itype)
+          case(igas)
              call ev_data_update(ev_data_thread,'rho gas', rhoi)
              np_rho_thread(igas) =  np_rho_thread(igas) + 1
-          endif
-          if (npartoftype(idust)       > 0) then
+          case(idust)
              call ev_data_update(ev_data_thread,'rho dust',rhoi)
              np_rho_thread(idust) =  np_rho_thread(idust) + 1
-          endif
-          if (npartoftype(iboundary)   > 0) then
+          case(iboundary)
              call ev_data_update(ev_data_thread,'rho bdy', rhoi)
              np_rho_thread(iboundary) =  np_rho_thread(iboundary) + 1
-          endif
-          if (npartoftype(istar)       > 0) then
+          case(istar)
              call ev_data_update(ev_data_thread,'rho star',rhoi)
              np_rho_thread(istar) =  np_rho_thread(istar) + 1
-          endif
-          if (npartoftype(idarkmatter) > 0) then
+          case(idarkmatter)
              call ev_data_update(ev_data_thread,'rho dm',  rhoi)
              np_rho_thread(idarkmatter) =  np_rho_thread(idarkmatter) + 1
-          endif
-          if (npartoftype(ibulge)      > 0) then
+          case(ibulge)
              call ev_data_update(ev_data_thread,'rho blg', rhoi)
              np_rho_thread(ibulge) =  np_rho_thread(ibulge) + 1
-          endif
+          end select
        endif
 
        np   = np + 1
