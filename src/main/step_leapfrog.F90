@@ -287,7 +287,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  if (npart > 0) then
 #ifdef GR
     call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,&
-                     divcurlB,Bpred,dBevol,dustfrac,ddustfrac,timei,dtsph,dtnew,ppred)
+                     divcurlB,Bpred,dBevol,dustfrac,ddustfrac,timei,dtsph,dtnew,ppred,dens)
 #else
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                      divcurlB,Bpred,dBevol,dustfrac,ddustfrac,timei,dtsph,dtnew)
@@ -490,7 +490,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
 #ifdef GR
        call derivs(2,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                     Bpred,dBevol,dustfrac,ddustfrac,timei,dtsph,dtnew,ppred)
+                     Bpred,dBevol,dustfrac,ddustfrac,timei,dtsph,dtnew,ppred,dens)
 #else
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB,&
                      Bpred,dBevol,dustfrac,ddustfrac,timei,dtsph,dtnew)
