@@ -53,6 +53,7 @@ subroutine test_sedov(ntests,npass)
  use viscosity, only:irealvisc
  use io_summary,only:summary_reset
  use initial_params, only:etot_in,angtot_in,totmom_in,mdust_in
+ use mpiutils,  only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2)
  integer :: i
@@ -108,7 +109,7 @@ subroutine test_sedov(ntests,npass)
 
     totmass = denszero*dxbound*dybound*dzbound
     massoftype(:) = 0.
-    massoftype(igas) = totmass/npart
+    massoftype(igas) = totmass/reduceall_mpi('+',npart)
     print*,' npart = ',npart,' particle mass = ',massoftype(igas)
 
     do i=1,npart
