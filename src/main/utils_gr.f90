@@ -78,13 +78,23 @@ subroutine get_u0(x,v,U0)
  use metric_tools, only: get_metric
  real, intent(in) :: x(1:3),v(1:3)
  real, intent(out) :: U0
- real :: v4(0:3), gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
+ real :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
 
  call get_metric(x,gcov,gcon,sqrtg)
+ call get_u0_given_metric(gcov,v,U0)
+
+end subroutine get_u0
+
+subroutine get_u0_given_metric(gcov,v,U0)
+ real, intent(in)  :: gcov(0:3,0:3), v(1:3)
+ real, intent(out) :: U0
+ real :: v4(0:3)
+
  v4(0) = 1.
  v4(1:3) = v(1:3)
  U0 = 1./sqrt(-dot_product_gr(v4,v4,gcov))
-end subroutine get_u0
+
+end subroutine get_u0_given_metric
 
 subroutine get_rderivs(position,dr)
  use metric, only: a
