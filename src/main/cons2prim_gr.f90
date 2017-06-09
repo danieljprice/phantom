@@ -7,9 +7,7 @@ module cons2prim_gr
 
  logical, parameter, private :: do_nothing = .false.
 
- private :: get_enthalpy
-
- integer, parameter, private :: eos_type = 2 ! cons2prim has been written for only adiabatic eos.
+! NOTE: cons2prim has been written for only adiabatic eos.
 
  private
 
@@ -17,14 +15,10 @@ contains
 
 !=========================
 subroutine get_pressure(P,dens,u)
- use eos, only: equationofstate
  real, intent(out) :: P
  real, intent(in)  :: dens, u
- real :: ponrho, spsound
 
- call equationofstate(eos_type,ponrho,spsound,dens,0.,0.,0.,u)
- P = ponrho*dens
- ! P = (gamma-1.0)*dens*u
+ P = (gamma-1.0)*dens*u
 
 end subroutine
 
@@ -38,12 +32,9 @@ subroutine get_u(u,P,dens)
 end subroutine
 
 subroutine get_enthalpy(enth,dens,P)
- use eos, only: equationofstate
  real, intent(in)  :: dens,P
  real, intent(out) :: enth
- real :: ponrho, spsound
 
- ! call equationofstate(eos_type,ponrho,spsound,dens,0.,0.,0.)
  enth = 1.+p/dens*(gamma/(gamma-1.))
 
  ! Needed in dust case when dens = 0 causes P/dens = NaN and therefore enth = NaN
