@@ -866,7 +866,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: jcbcbi(3),jcbi(3)
  real    :: alphai
  logical :: usej
- real    :: densi,densj
+ real    :: densi,densj,eni
+ real    :: vxi,vyi,vzi,vxj,vyj,vzj
+#ifdef GR
+ real    :: projvi,projvj,lorentzi_star,lorentzj_star,dpdtdiss,dlorentzv
+ real    :: enthi,enthj,qrho2i,qrho2j
+#endif
 
  ! unpack
  vwavei        = xpartveci(ivwavei)
@@ -1108,15 +1113,23 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        endif
 
        !--get dv : needed for timestep and av term
-       dvx = xpartveci(ivxi) - vxyzu(1,j)
-       dvy = xpartveci(ivyi) - vxyzu(2,j)
-       dvz = xpartveci(ivzi) - vxyzu(3,j)
+       vxi = xpartveci(ivxi)
+       vyi = xpartveci(ivyi)
+       vzi = xpartveci(ivzi)
+       vxj = vxyzu(1,j)
+       vyj = vxyzu(2,j)
+       vzj = vxyzu(3,j)
+       dvx = vxi - vxj
+       dvy = vyi - vyj
+       dvz = vzi - vzj
 
        projv = dvx*runix + dvy*runiy + dvz*runiz
 
+       eni = xpartveci(ieni)
+
        if (iamgasj .and. maxvxyzu >= 4) then
           enj   = vxyzu(4,j)
-          denij = xpartveci(ieni) - enj
+          denij = eni - enj
        else
           denij = 0.
        endif
@@ -1243,6 +1256,21 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              gradpi = pmassj*(pro2i - 0.5*rho1i*vsigavi*projv)*grkerni
              if (usej) gradpj = pmassj*(pro2j - 0.5*rho1j*vsigavj*projv)*grkernj
 
+#ifdef GR
+            !  call get_metric3plus1()
+             enthi  = 1.+eni+pri/densi
+             enthj  = 1.+enj+prj/densj
+             projvi = vxi*runix + vyi*runiy + vzi*runiz
+             projvj = vxj*runix + vyj*runiy + vzj*runiz
+             lorentzi_star = 1./sqrt(1.-projvi**2)
+             lorentzj_star = 1./sqrt(1.-projvj**2)
+             dlorentzv = lorentzi_star*projvi - lorentzj_star*projvj
+             qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv
+             qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv
+             dpdtdiss = pmassj*(qrho2i*grkerni + qrho2j*grkernj)
+             gradpi = pmassj*(pro2i + qrho2i)*grkerni
+             if (usej) gradpj = pmassj*(pro2j +qrho2j)*grkernj
+#endif
              !--energy conservation from artificial viscosity (don't need j term)
              dudtdissi = -0.5*pmassj*rho1i*vsigavi*projv**2*grkerni
           else
