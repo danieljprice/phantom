@@ -195,6 +195,7 @@ subroutine test_ptmass(ntests,npass)
        !--compute SPH forces
        !
        if (itest==2 .or. itest==3) then
+          fxyzu(:,:) = 0.
           call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                       Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
        endif

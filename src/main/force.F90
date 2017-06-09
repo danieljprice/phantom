@@ -2313,7 +2313,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
                    idudtcool = 1
                    ichem = 0
                    call energ_h2cooling(vxyzu(4,i),fxyz4,rhoi,&
-                        abundance(:,i),nabundances,dt,xyzh(1,i),xyzh(2,i),xyzh(3,i),idudtcool,ichem)
+                        abundance(:,i),nabundances,dt,xyzh(1,i),xyzh(2,i),xyzh(3,i),&
+                        divcurlv(1,i),idudtcool,ichem)
                 else
                    call energ_cooling(icooling,vxyzu(4,i),fxyz4,xyzh(1,i),xyzh(2,i),xyzh(3,i))
                 endif
