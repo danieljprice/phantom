@@ -18,9 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: balance, boundary, dim, domain, eos, io, mpiutils,
-!    options, part, physcon, step_lf_global, testutils, timestep, timing,
-!    unifdis, viscosity
+!  DEPENDENCIES: boundary, dim, eos, io, mpiutils, options, part, physcon,
+!    step_lf_global, testutils, timestep, timing, unifdis, viscosity
 !+
 !--------------------------------------------------------------------------
 module teststep
