@@ -64,7 +64,6 @@ module mpiderivs
  integer :: dtype_celldens
  integer :: dtype_cellforce
  integer :: comm_cellexchange
- integer :: comm_done
 
  integer :: globallevel
  integer :: comm_cofm(maxprocs)  ! only comms up to globallevel are used
@@ -490,7 +489,7 @@ end subroutine finish_cellforce_exchange
 !+
 !----------------------------------------------------------------
 subroutine init_tree_comms()
- integer :: i,level,groupsize,color
+ integer :: level,groupsize,color
 
  globallevel = int(ceiling(log(real(nprocs)) / log(2.0)))
 
