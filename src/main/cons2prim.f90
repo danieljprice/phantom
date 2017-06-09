@@ -139,16 +139,14 @@ subroutine conservative2primitive_combined(xyzhi,pxyzui,vxyzui,densi,ierr)
  real,    dimension(4), intent(inout) :: vxyzui
  real, intent(inout)                  :: densi
  integer, intent(out),  optional      :: ierr
- real    :: rhoi, dens_guess, p_guess, xyzi(1:3), v_guess(1:3), u_guess
+ real    :: rhoi, p_guess, xyzi(1:3), v_guess(1:3), u_guess
 
  rhoi    = rhoh(xyzhi(4),massoftype(igas))
  xyzi    = xyzhi(1:3)
  v_guess = vxyzui(1:3)
  u_guess = vxyzui(4)
- ! call rho2dens(dens_guess,rhoi,xyzi,v_guess)
- call get_pressure(p_guess,dens_guess,u_guess)
- call conservative2primitive(xyzi,vxyzui(1:3),dens_guess,vxyzui(4),p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierr,'entropy')
-
+ call get_pressure(p_guess,densi,u_guess)
+ call conservative2primitive(xyzi,vxyzui(1:3),densi,vxyzui(4),p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierr,'entropy')
 end subroutine conservative2primitive_combined
 
 

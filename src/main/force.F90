@@ -87,7 +87,8 @@ module forces
        iponrhoi    = 42, &
        icurlBxi    = 43, &
        icurlByi    = 44, &
-       icurlBzi    = 45
+       icurlBzi    = 45, &
+       idensGRi    = 46
 
  !--indexing for fsum array
  integer, parameter :: &
@@ -119,7 +120,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,&
-                 ipart_rhomax,dt,stressmax)
+                 ipart_rhomax,dt,stressmax,dens)
  use dim,          only:maxvxyzu,maxalpha,maxneigh,maxstrain,&
                     switches_done_in_derivs,mhd,mhd_nonideal,use_dustfrac,lightcurve
  use eos,          only:equationofstate,get_temperature_from_ponrho
@@ -188,6 +189,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  real(kind=4), intent(in)    :: divcurlB(:,:)
  real,         intent(in)    :: dt,stressmax
  integer,      intent(out)   :: ipart_rhomax ! test this particle for point mass creation
+ real,         intent(in)    :: dens(:)
 
  real, save :: xyzcache(4,maxcellcache)
  integer, save :: listneigh(maxneigh)
@@ -348,6 +350,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp private(cell) &
 !$omp private(remote_export) &
 !$omp private(nneigh) &
+!$omp shared(dens) &
 #ifdef GRAVITY
 !$omp shared(massoftype,npart) &
 !$omp private(hi,pmassi,rhoi) &
@@ -393,7 +396,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     cell%icell = icell
 
     call start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintensor,Bevol, &
-                         dustfrac,n_R,n_electronT,alphaind,stressmax)
+                         dustfrac,n_R,n_electronT,alphaind,stressmax,dens)
     if (cell%npcell == 0) cycle over_cells
 
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
@@ -428,7 +431,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                       iphase,divcurlv,divcurlB,alphaind,n_R,n_electronT, &
-                      dustfrac,gradh,ibin_wake,stressmax,xyzcache)
+                      dustfrac,gradh,ibin_wake,stressmax,xyzcache,dens)
 
 #ifdef MPI
     if (do_export) then
@@ -477,7 +480,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
        call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          iphase,divcurlv,divcurlB,alphaind,n_R,n_electronT, &
-                         dustfrac,gradh,ibin_wake,stressmax,xyzcache)
+                         dustfrac,gradh,ibin_wake,stressmax,xyzcache,dens)
 
        cell%remote_export(id+1) = .false.
 
@@ -764,7 +767,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                           dustfrac,gradh,divcurlv,alphaind, &
                           alphau,alphaB,bulkvisc,stressmax,&
                           ndrag,nstokes,nsuper,ts_min,ibin_wake,ibin_neigh,&
-                          ignoreself)
+                          ignoreself,dens)
 #ifdef FINVSQRT
  use fastmath,    only:finvsqrt
 #endif
@@ -819,6 +822,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real,            intent(out)   :: ts_min
  integer(kind=1), intent(out)   :: ibin_wake(:),ibin_neigh
  logical,         intent(in)    :: ignoreself
+ real,            intent(in)    :: dens(:)
  integer :: j,n,iamtypej,ierr
  logical :: iactivej,iamgasj,iamdustj
  real    :: rij2,q2i,qi,xj,yj,zj,dx,dy,dz,runix,runiy,runiz,rij1,hfacgrkern
@@ -862,6 +866,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: jcbcbi(3),jcbi(3)
  real    :: alphai
  logical :: usej
+ real    :: densi,densj
 
  ! unpack
  vwavei        = xpartveci(ivwavei)
@@ -891,6 +896,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  curlBi(1)     = xpartveci(icurlBxi)
  curlBi(2)     = xpartveci(icurlByi)
  curlBi(3)     = xpartveci(icurlBzi)
+ densi         = xpartveci(idensGRi)
 
  fsum(:) = 0.
  vsigmax = 0.
@@ -1165,12 +1171,15 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              endif
 
              if (maxalpha==maxp)  alphaj  = alphaind(1,j)
+
+             densj = dens(j)
+
              !
              !--calculate j terms (which were precalculated outside loop for i)
              !
              call get_P(rhoj,rho1j,xj,yj,zj, &
 #ifdef GR
-                        vxyzu(1:3,j), &
+                        densj, &
 #endif
                         pmassj,enj,Bxj,Byj,Bzj,dustfracj, &
                         ponrhoj,pro2j,prj,spsoundj,vwavej, &
@@ -1490,7 +1499,7 @@ end subroutine compute_forces
 !----------------------------------------------------------------
 subroutine get_P(rhoi,rho1i,xi,yi,zi, &
 #ifdef GR
-                 veli, &
+                 densi, &
 #endif
                  pmassi,eni,Bxi,Byi,Bzi,dustfraci, &
                  ponrhoi,pro2i,pri,spsoundi,vwavei, &
@@ -1514,8 +1523,8 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi, &
  real,    intent(in)  :: divvi,bulkvisc,stressmax
  real,    intent(in)  :: strain(6)
 #ifdef GR
- real,    intent(in)  :: veli(3)
- real :: p_on_densgas, densgasi
+ real,    intent(in)  :: densi
+ real :: p_on_densgas
 #endif
  real :: Bro2i,Brhoxi,Brhoyi,Brhozi,rhogasi,gasfrac
  real :: stressiso,term,graddivvcoeff,del2vcoeff
@@ -1526,9 +1535,8 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi, &
  gasfrac = (1. - dustfraci)  ! rhogas/rho
  rhogasi = rhoi*gasfrac       ! rhogas = (1-eps)*rho
 #ifdef GR
- call rho2dens(densgasi,rhogasi,(/xi,yi,zi/),veli)
- call equationofstate(ieos,p_on_densgas,spsoundi,densgasi,xi,yi,zi,eni)
- pri     = p_on_densgas*densgasi
+ call equationofstate(ieos,p_on_densgas,spsoundi,densi,xi,yi,zi,eni)
+ pri     = p_on_densgas*densi
  ponrhoi = pri*rho1i ! Not sure about dust for the future...
 #else
  if (maxvxyzu >= 4) then
@@ -1644,7 +1652,7 @@ end subroutine check_dtmin
 !----------------------------------------------------------------
 
 subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintensor,Bevol, &
-                     dustfrac,n_R,n_electronT,alphaind,stressmax)
+                     dustfrac,n_R,n_electronT,alphaind,stressmax,dens)
 
  use io,        only:fatal
  use options,   only:alpha
@@ -1674,6 +1682,7 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
  real,               intent(in)    :: n_electronT(:)
  real(kind=4),       intent(in)    :: alphaind(:,:)
  real,               intent(in)    :: stressmax
+ real,               intent(in)    :: dens(:)
 
  real         :: divcurlvi(ndivcurlv)
  real         :: straini(6),curlBi(3),jcbcbi(3),jcbi(3)
@@ -1688,6 +1697,7 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
  real         :: vwavei,alphai
 
  integer      :: i,iamtypei,ierr
+ real         :: densi
 
 #ifdef DUST
  integer :: iregime
@@ -1758,13 +1768,15 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
           Bzi = Bevol(3,i)
        endif
 
+       densi = dens(i)
+
        !
        ! calculate terms required in the force evaluation
        !
        call get_P(rhoi,rho1i, &
                   xyzh(1,i),xyzh(2,i),xyzh(3,i), &
 #ifdef GR
-                  vxyzu(1:3,i), &
+                  densi, &
 #endif
                   pmassi, &
                   eni, &
@@ -1895,6 +1907,7 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
        cell%xpartvec(ijcbyi,cell%npcell)          = jcbi(2)
        cell%xpartvec(ijcbzi,cell%npcell)          = jcbi(3)
     endif
+    cell%xpartvec(idensGRi,cell%npcell)          = densi
 
     i = ll(i)
  enddo over_parts
@@ -1903,7 +1916,7 @@ end subroutine start_cell
 
 subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                         iphase,divcurlv,divcurlB,alphaind,n_R,n_electronT, &
-                        dustfrac,gradh,ibin_wake,stressmax,xyzcache)
+                        dustfrac,gradh,ibin_wake,stressmax,xyzcache,dens)
  use io,          only:id,error
  use dim,         only:maxvxyzu
  use options,     only:beta,alphau,alphaB,iresistive_heating
@@ -1929,6 +1942,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  integer(kind=1), intent(inout)  :: ibin_wake(:)
  real,            intent(in)     :: stressmax
  real,            intent(in)     :: xyzcache(:,:)
+ real,            intent(in)     :: dens(:)
 
  real                            :: hi
  real(kind=8)                    :: hi1,hi21,hi31,hi41
@@ -2013,7 +2027,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          dustfrac,gradh,divcurlv,alphaind, &
                          alphau,alphaB,bulkvisc,stressmax, &
                          cell%ndrag,cell%nstokes,cell%nsuper,cell%dtdrag(ip),ibin_wake,ibin_neigh, &
-                         ignoreself)
+                         ignoreself,dens)
 
  enddo over_parts
 

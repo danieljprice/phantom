@@ -143,7 +143,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 
  stressmax = 0.
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
-            dustfrac,ddustfrac,ipart_rhomax,dt,stressmax)
+            dustfrac,ddustfrac,ipart_rhomax,dt,stressmax,dens)
  call do_timing('force',tlast,tcpulast)
 !
 ! set new timestep from Courant/forces condition

@@ -77,7 +77,7 @@ module dim
 
  ! xpartveci
  integer, parameter :: maxxpartvecidens = 14
- integer, parameter :: maxxpartveciforce = 45
+ integer, parameter :: maxxpartveciforce = 46
 
  ! cell storage
  integer, parameter :: maxprocs = 32
