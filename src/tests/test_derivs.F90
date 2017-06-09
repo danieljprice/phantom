@@ -146,16 +146,16 @@ subroutine test_derivs(ntests,npass,string)
  totmass = rhozero*dxbound*dybound*dzbound
 
 #ifdef PERIODIC
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
-    np = npart
+ call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
+ np = npart
 #else
-    rcut = min(xmax,ymax,zmax) - 2.*radkern*hfact*psep
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+ rcut = min(xmax,ymax,zmax) - 2.*radkern*hfact*psep
+ call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                   psep,hfact,npart,xyzh,rmax=rcut)
-    np = npart
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+ np = npart
+ call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                   psep,hfact,npart,xyzh,rmin=rcut)
-    print*,' using ',np,' of ',npart,' particles in test with free boundary'
+ print*,' using ',np,' of ',npart,' particles in test with free boundary'
 #endif
 
  npartoftype(1) = npart
