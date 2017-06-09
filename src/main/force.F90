@@ -2127,6 +2127,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 #endif
 
  integer               :: ip,i
+ real                  :: densi
 
  realviscosity = (irealvisc > 0)
 
@@ -2275,7 +2276,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
           endif
           fxyz4 = 0.
           if (use_entropy .or. gr) then
-             if (ishock_heating > 0) then
+             if (gr .and. ishock_heating > 0) then
+                densi = xpartveci(idensGRi)
+                fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*fsum(idudtdissi)
+             else if (ishock_heating > 0) then
                 fxyz4 = fxyz4 + (gamma - 1.)*rhogasi**(1.-gamma)*fsum(idudtdissi)
              endif
           else
