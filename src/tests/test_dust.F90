@@ -107,7 +107,7 @@ subroutine test_dustybox(ntests,npass)
  use kernel,         only:hfact_default
  use part,           only:igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                          dustfrac,dustevol,ddustfrac,iphase,iamdust
+                          dustfrac,dustevol,ddustfrac,iphase,iamdust,maxtypes
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use energies,       only:compute_energies,ekin
@@ -119,7 +119,9 @@ subroutine test_dustybox(ntests,npass)
  use dim,            only:periodic,mhd,use_dust
  use timestep,       only:dtmax
  use io,             only:iverbose
+ use mpiutils,       only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
+ integer(kind=8) :: npartoftypetot(maxtypes)
  integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(5), nerr(5)
  real :: deltax, dz, hfact, totmass, rhozero, errmax(5), dtext_dum
  real :: t, dt, dtext, dtnew
@@ -162,7 +164,8 @@ subroutine test_dustybox(ntests,npass)
        endif
     enddo
     npartoftype(itype) = npart - npart_previous
-    massoftype(itype) = totmass/npartoftype(itype)
+    npartoftypetot(itype) = reduceall_mpi('+',npartoftype(itype))
+    massoftype(itype) = totmass/npartoftypetot(itype)
  enddo
  !
  ! runtime parameters
