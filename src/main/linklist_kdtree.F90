@@ -124,12 +124,11 @@ end subroutine get_distance_from_centre_of_mass
 
 subroutine set_linklist(npart,nactive,xyzh,vxyzu)
  use dtypekdtree,  only:ndimtree
- use kdtree,       only:maketree,revtree,maxlevel,maxlevel_indexed
+ use kdtree,       only:maketree
 #ifdef MPI
  use kdtree,       only: maketreeglobal
 #endif
 
-! use timing, only:print_time
 #ifdef MPI
  integer, intent(inout) :: npart
 #else
@@ -138,35 +137,11 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
  integer, intent(in)    :: nactive
  real,    intent(inout) :: xyzh(4,maxp)
  real,    intent(in)    :: vxyzu(:,:)
- integer, save          :: naccum = 0
 
-! real(kind=4) :: t1,t2
-! call cpu_time(t1)
- !
- ! make the tree if more than 10% of the particles are active,
- ! or when the accumulated total number of active particles
- ! during revtree calls exceeds the number of particlees
- !
- if (10*nactive > npart .or. naccum==0 .or. naccum > 2*npart &
-     .or. maxlevel > maxlevel_indexed) then
-    !print*,' MAKETREE ',nactive,naccum
 #ifdef MPI
     call maketreeglobal(nodeglobal,xyzh,npart,ndimtree,ifirstincellglobal,ncells)
 #endif
     call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
-    naccum = npart
-!    print *, 'maketree'
- else
-    naccum = naccum + nactive
-!    print *,' REVTREE ',nactive,naccum
-#ifdef MPI
-    call maketreeglobal(nodeglobal,xyzh,npart,ndimtree,ifirstincellglobal,ncells)
-#endif
-    call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
-!    call revtree(xyzh, ifirstincell, ncells)
- endif
-! call cpu_time(t2)
-! call print_time(t2-t1)
 
 end subroutine set_linklist
 
