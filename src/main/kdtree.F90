@@ -769,7 +769,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        call error('maketree','number of left + right != parent number of particles while splitting node')
     endif
 
-    if ((nl==npnode) .or. (nr==npnode)) then
+    if (((nl==npnode) .or. (nr==npnode)) .and. (.not. present(groupsize)))then
        xminl  = xmaxi
        xminr  = xmaxi
        xmaxl  = xmini
@@ -778,70 +778,29 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        ifirstincell(ir) = 0
        nl = 0
        nr = 0
-       do i = 1,npnode
+       do i = 1,npnode / 2
           ipart = list(i)
-          xi = xyzh(iaxis,abs(ipart))
-          if (i < npnode / 2) then
-             xi = xi + epsilon(xi)
-          else
-             xi = xi - epsilon(xi)
-          endif
-          if (xi  <=  xpivot) then
-             ll(abs(ipart)) = ifirstincell(il)
-             ifirstincell(il) = ipart
-             nl = nl + 1
-             xminl(1) = min(xminl(1), xyzi(1))
-             xminl(2) = min(xminl(2), xyzi(2))
-             xminl(3) = min(xminl(3), xyzi(3))
-             xmaxl(1) = max(xmaxl(1), xyzi(1))
-             xmaxl(2) = max(xmaxl(2), xyzi(2))
-             xmaxl(3) = max(xmaxl(3), xyzi(3))
-          else
-             ll(abs(ipart)) = ifirstincell(ir)
-             ifirstincell(ir) = ipart
-             nr = nr + 1
-             xminr(1) = min(xminr(1), xyzi(1))
-             xminr(2) = min(xminr(2), xyzi(2))
-             xminr(3) = min(xminr(3), xyzi(3))
-             xmaxr(1) = max(xmaxr(1), xyzi(1))
-             xmaxr(2) = max(xmaxr(2), xyzi(2))
-             xmaxr(3) = max(xmaxr(3), xyzi(3))
-          endif
+          ll(abs(ipart)) = ifirstincell(il)
+          ifirstincell(il) = ipart
+          nl = nl + 1
+          xminl(1) = min(xminl(1), xyzi(1))
+          xminl(2) = min(xminl(2), xyzi(2))
+          xminl(3) = min(xminl(3), xyzi(3))
+          xmaxl(1) = max(xmaxl(1), xyzi(1))
+          xmaxl(2) = max(xmaxl(2), xyzi(2))
+          xmaxl(3) = max(xmaxl(3), xyzi(3))
        enddo
-    endif
-    ! check if the issue has been resolved, if not, arbitrarily build 2 cells (global tree build is excepted)
-    if (((nl==npnode) .or. (nr==npnode)) .and. (.not. present(groupsize))) then
-       xminl  = xmaxi
-       xminr  = xmaxi
-       xmaxl  = xmini
-       xmaxr  = xmini
-       ifirstincell(il) = 0
-       ifirstincell(ir) = 0
-       nl = 0
-       nr = 0
-       do i = 1,npnode
+       do i = npnode / 2, npnode
           ipart = list(i)
-          if (i < npnode / 2) then
-             ll(abs(ipart)) = ifirstincell(il)
-             ifirstincell(il) = ipart
-             nl = nl + 1
-             xminl(1) = min(xminl(1), xyzi(1))
-             xminl(2) = min(xminl(2), xyzi(2))
-             xminl(3) = min(xminl(3), xyzi(3))
-             xmaxl(1) = max(xmaxl(1), xyzi(1))
-             xmaxl(2) = max(xmaxl(2), xyzi(2))
-             xmaxl(3) = max(xmaxl(3), xyzi(3))
-          else
-             ll(abs(ipart)) = ifirstincell(ir)
-             ifirstincell(ir) = ipart
-             nr = nr + 1
-             xminr(1) = min(xminr(1), xyzi(1))
-             xminr(2) = min(xminr(2), xyzi(2))
-             xminr(3) = min(xminr(3), xyzi(3))
-             xmaxr(1) = max(xmaxr(1), xyzi(1))
-             xmaxr(2) = max(xmaxr(2), xyzi(2))
-             xmaxr(3) = max(xmaxr(3), xyzi(3))
-          endif
+          ll(abs(ipart)) = ifirstincell(ir)
+          ifirstincell(ir) = ipart
+          nr = nr + 1
+          xminr(1) = min(xminr(1), xyzi(1))
+          xminr(2) = min(xminr(2), xyzi(2))
+          xminr(3) = min(xminr(3), xyzi(3))
+          xmaxr(1) = max(xmaxr(1), xyzi(1))
+          xmaxr(2) = max(xmaxr(2), xyzi(2))
+          xmaxr(3) = max(xmaxr(3), xyzi(3))
        enddo
     endif
  endif
