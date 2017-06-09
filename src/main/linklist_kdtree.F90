@@ -139,9 +139,9 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
  real,    intent(in)    :: vxyzu(:,:)
 
 #ifdef MPI
-    call maketreeglobal(nodeglobal,xyzh,npart,ndimtree,ifirstincellglobal,ncells)
+ call maketreeglobal(nodeglobal,xyzh,npart,ndimtree,ifirstincellglobal,ncells)
 #endif
-    call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
+ call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
 
 end subroutine set_linklist
 
