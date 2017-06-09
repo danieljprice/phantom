@@ -81,7 +81,7 @@ subroutine primitive_to_conservative_combined(npart,xyzh,vxyzu,dens,pxyzu)
 !$omp private(i)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-      call primitive2conservative_combined(xyzh(:,i),vxyzu(:,i),dens(i),pxyzu(:,i))
+       call primitive2conservative_combined(xyzh(:,i),vxyzu(:,i),dens(i),pxyzu(:,i))
     endif
  enddo
 !$omp end parallel do
