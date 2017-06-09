@@ -32,6 +32,7 @@ program phantom
  use mpiutils,        only:init_mpi, finalise_mpi
 #ifdef MPI
  use mpiderivs,       only:init_tree_comms,finish_tree_comms
+ use stack,           only:init_mpi_memory,finish_mpi_memory
 #endif
  use initial,         only:initialise,startrun,endrun
  use io,              only:id,master,nprocs,set_io_unit_numbers,die
@@ -46,6 +47,7 @@ program phantom
  call init_mpi(id,nprocs)
 #ifdef MPI
  call init_tree_comms()
+ call init_mpi_memory()
 #endif
 
  call set_io_unit_numbers
@@ -83,6 +85,7 @@ program phantom
 
 #ifdef MPI
  call finish_tree_comms()
+ call finish_mpi_memory()
 #endif
  call finalise_mpi()
 

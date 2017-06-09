@@ -49,14 +49,37 @@ module stack
   module procedure reserve_stack_dens,reserve_stack_force
  end interface
 
-
+ public :: init_mpi_memory
+ public :: finish_mpi_memory
  public :: allocate_stack
  public :: deallocate_stack
  public :: push_onto_stack
  public :: pop_off_stack
  public :: reserve_stack
 
+ type(stackforce)    :: force_stack_remote
+ type(stackforce)    :: force_stack_waiting
+ type(stackdens)     :: dens_stack_remote
+ type(stackdens)     :: dens_stack_waiting
+ type(stackdens)     :: dens_stack_redo
+
 contains
+
+subroutine init_mpi_memory
+   call allocate_stack(dens_stack_remote)
+   call allocate_stack(dens_stack_waiting)
+   call allocate_stack(dens_stack_redo)
+   call allocate_stack(force_stack_remote)
+   call allocate_stack(force_stack_waiting)
+end subroutine init_mpi_memory
+
+subroutine finish_mpi_memory
+   call deallocate_stack(dens_stack_remote)
+   call deallocate_stack(dens_stack_waiting)
+   call deallocate_stack(dens_stack_redo)
+   call deallocate_stack(force_stack_remote)
+   call deallocate_stack(force_stack_waiting)
+end subroutine finish_mpi_memory
 
 subroutine allocate_stack_dens(stack)
  type(stackdens),  intent(inout) :: stack
