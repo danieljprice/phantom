@@ -558,7 +558,7 @@ subroutine write_smalldump(t,dumpfile)
  integer         :: nums(ndatatypes,4)
  integer         :: ierr,ipass,k
  integer         :: nblocks,nblockarrays,narraylengths
- integer(kind=8) :: nparttot,npartoftypetot(maxtypes)
+ integer(kind=8) :: nparttot,npartoftypetot(maxtypes),npartoftypetotact(maxtypes)
  logical         :: write_itype
  type(dump_h)    :: hdr
 
@@ -679,11 +679,12 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  integer               :: iblock,nblocks,i1,i2,noffset,npartread,narraylengths
  integer(kind=8)       :: ilen(4)
  integer               :: nums(ndatatypes,4)
- integer(kind=8)       :: nparttot,nhydrothisblock,npartoftypetot(maxtypes)
+ integer(kind=8)       :: nparttot,nhydrothisblock,npartoftypetot(maxtypes),npartoftypetotact(maxtypes)
  logical               :: tagged,phantomdump,smalldump
  real                  :: dumr,alphafile
  character(len=lenid)  :: fileidentr
  type(dump_h)          :: hdr
+ integer               :: i
 
  if (id==master) write(iprint,"(/,1x,a,i3)") '>>> reading setup from file: '//trim(dumpfile)//' on unit ',idisk1
  opened_full_dump = .true.
@@ -843,8 +844,16 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  !
  ! determine npartoftype
  !
+ npartoftypetot = npartoftype
  call count_particle_types(npartoftype)
- npartoftypetot = reduceall_mpi('+',npartoftype)
+ npartoftypetotact = reduceall_mpi('+',npartoftype)
+ do i = 1,maxtypes
+    if (npartoftypetotact(i) /= npartoftypetot(i)) then
+       write(*,*) 'npartoftypetot    =',npartoftypetot
+       write(*,*) 'npartoftypetotact =',npartoftypetotact
+       call error('read_dump','particle type counts do not match header')
+    endif
+ enddo
 
  !
  ! convert sinks from sphNG -> Phantom
@@ -895,11 +904,12 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  integer               :: iblock,nblocks,i1,i2,noffset,npartread,narraylengths
  integer(kind=8)       :: ilen(4)
  integer               :: nums(ndatatypes,4)
- integer(kind=8)       :: nparttot,nhydrothisblock,npartoftypetot(maxtypes)
+ integer(kind=8)       :: nparttot,nhydrothisblock,npartoftypetot(maxtypes),npartoftypetotact(maxtypes)
  logical               :: tagged,phantomdump,smalldump
  real                  :: alphafile
  character(len=lenid)  :: fileidentr
  type(dump_h)          :: hdr
+ integer               :: i
 
  if (id==master) write(iprint,"(/,1x,a,i3)") '>>> reading small dump file: '//trim(dumpfile)//' on unit ',idisk1
  opened_full_dump = .false.
@@ -1050,8 +1060,16 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  !
  ! determine npartoftype
  !
+ npartoftypetot = npartoftype
  call count_particle_types(npartoftype)
- npartoftypetot = reduceall_mpi('+',npartoftype)
+ npartoftypetotact = reduceall_mpi('+',npartoftype)
+ do i = 1,maxtypes
+    if (npartoftypetotact(i) /= npartoftypetot(i)) then
+       write(*,*) 'npartoftypetot    =',npartoftypetot
+       write(*,*) 'npartoftypetotact =',npartoftypetotact
+       call error('read_dump','particle type counts do not match header')
+    endif
+ enddo
 
  if (sum(npartoftype)==0) npartoftype(1) = npart
  if (narraylengths >= 4) then

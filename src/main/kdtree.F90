@@ -1592,10 +1592,8 @@ subroutine relink_particles(np,inode,ifirstincell,xyzh)
 
  ifirstincell(inode) = 0
  do i=1,np
-    isnotdead: if (.not.isdead_or_accreted(xyzh(4,i))) then
-       ll(i) = ifirstincell(inode)
-       ifirstincell(inode) = i
-    endif isnotdead
+    ll(i) = ifirstincell(inode)
+    ifirstincell(inode) = i
  enddo
 end subroutine relink_particles
 #endif

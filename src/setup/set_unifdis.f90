@@ -156,13 +156,15 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
              rcyl2 = xi*xi + yi*yi
              rr2   = rcyl2 + zi*zi
              if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
-                ipart = ipart + 1
                 iparttot = iparttot + 1
-                if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
-                xyzh(1,ipart) = xi
-                xyzh(2,ipart) = yi
-                xyzh(3,ipart) = zi
-                xyzh(4,ipart) = hfact*deltax
+                if (i_belong(iparttot) == id) then
+                   ipart = ipart + 1
+                   if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
+                   xyzh(1,ipart) = xi
+                   xyzh(2,ipart) = yi
+                   xyzh(3,ipart) = zi
+                   xyzh(4,ipart) = hfact*deltax
+                endif
              endif
           enddo
        enddo
@@ -266,12 +268,14 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        rr2   = rcyl2 + zi*zi
        if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
           iparttot = iparttot + 1
-          ipart = ipart + 1
-          if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
-          xyzh(1,ipart) = xi
-          xyzh(2,ipart) = yi
-          xyzh(3,ipart) = zi
-          xyzh(4,ipart) = hfact*deltax
+          if (i_belong(iparttot) == id) then
+             ipart = ipart + 1
+             if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
+             xyzh(1,ipart) = xi
+             xyzh(2,ipart) = yi
+             xyzh(3,ipart) = zi
+             xyzh(4,ipart) = hfact*deltax
+          endif
        endif
 
     enddo
@@ -430,17 +434,15 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        rcyl2 = xi*xi + yi*yi
        rr2   = rcyl2 + zi*zi
        if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
-          !if (ibelong(xi,yi,zi,id)==id) then
           iparttot = iparttot + 1
-          ipart = ipart + 1
-          if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
-          xyzh(1,ipart) = xi
-          xyzh(2,ipart) = yi
-          xyzh(3,ipart) = zi
-          xyzh(4,ipart) = hfact*deltax
-          !else
-          !   iparttot = iparttot + 1
-          !endif
+          if (i_belong(iparttot) == id) then
+             ipart = ipart + 1
+             if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
+             xyzh(1,ipart) = xi
+             xyzh(2,ipart) = yi
+             xyzh(3,ipart) = zi
+             xyzh(4,ipart) = hfact*deltax
+          endif
        endif
 
     enddo
@@ -486,17 +488,15 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        rcyl2 = xi*xi + yi*yi
        rr2   = rcyl2 + zi*zi
        if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
-          !if (ibelong(xi,yi,zi,id)==id) then
           iparttot = iparttot + 1
-          ipart = ipart + 1
-          if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
-          xyzh(1,ipart) = xi
-          xyzh(2,ipart) = yi
-          xyzh(3,ipart) = zi
-          xyzh(4,ipart) = hfact*delta
-          !else
-          !   iparttot = iparttot + 1
-          !endif
+          if (i_belong(iparttot) == id) then
+             ipart = ipart + 1
+             if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
+             xyzh(1,ipart) = xi
+             xyzh(2,ipart) = yi
+             xyzh(3,ipart) = zi
+             xyzh(4,ipart) = hfact*delta
+          endif
        endif
     enddo
     np = ipart
@@ -570,5 +570,12 @@ subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
  nz = 3*int(nz/3)
 
 end subroutine get_ny_nz_closepacked
+
+integer function i_belong(iparttot)
+ use io, only:nprocs
+ integer(kind=8), intent(in) :: iparttot
+
+ i_belong = int(mod(iparttot, int(nprocs, kind=kind(iparttot))), kind=kind(nprocs))
+end function i_belong
 !-------------------------------------------------------------
 end module unifdis

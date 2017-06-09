@@ -52,10 +52,6 @@ subroutine test_step(ntests,npass)
  use part,            only:iphase,isetphase,igas
  use timestep,        only:dtmax
  use testutils,       only:checkval,checkvalf
-#ifdef MPI
- use balance,  only:balancedomains
- use domain,   only:ibelong
-#endif
 #endif
  integer, intent(inout) :: ntests,npass
 #ifdef PERIODIC
@@ -68,14 +64,7 @@ subroutine test_step(ntests,npass)
 
  npart = 0
  psep = dxbound/50.
- if (id == master) call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
-
-#ifdef MPI
- do i=1,npart
-    ibelong(i) = mod(i, nprocs)
- enddo
- call balancedomains(npart)
-#endif
+ call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
 
  npartoftype(:) = 0
  npartoftype(1) = npart

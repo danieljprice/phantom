@@ -43,9 +43,9 @@ subroutine test_dust(ntests,npass)
  use physcon,   only:solarm,au
  use units,     only:set_units,unit_density
  use eos,       only:gamma
+ use mpiutils,  only:barrier_mpi
 #endif
  integer, intent(inout) :: ntests,npass
-#ifndef MPI
 #ifdef DUST
  integer :: nfailed(10),ierr,iregime
  real :: dustfraci,rhoi,spsoundi,tsi
@@ -78,28 +78,27 @@ subroutine test_dust(ntests,npass)
  ! Test transition between Epstein/Stokes drag
  !
  call test_epsteinstokes(ntests,npass)
+ call barrier_mpi()
 
  !
  ! DUSTYBOX test
  !
  call test_dustybox(ntests,npass)
+ call barrier_mpi()
 
  !
  ! DUSTYDIFFUSE test
  !
  call test_dustydiffuse(ntests,npass)
+ call barrier_mpi()
 
  if (id==master) write(*,"(/,a)") '<-- DUST TEST COMPLETE'
 #else
  if (id==master) write(*,"(/,a)") '--> SKIPPING DUST TEST (REQUIRES -DDUST)'
 #endif
-#else
- if (id==master) write(*,"(/,a)") '--> SKIPPING DUST TEST (MPI NOT SUPPORTED)'
-#endif
 
 end subroutine test_dust
 
-#ifndef MPI
 #ifdef DUST
 !----------------------------------------------------
 !+
@@ -112,7 +111,7 @@ subroutine test_dustybox(ntests,npass)
  use kernel,         only:hfact_default
  use part,           only:igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                          dustfrac,dustevol,ddustfrac,iphase,iamdust
+                          dustfrac,dustevol,ddustfrac,iphase,iamdust,maxtypes
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use energies,       only:compute_energies,ekin
@@ -124,7 +123,9 @@ subroutine test_dustybox(ntests,npass)
  use dim,            only:periodic,mhd,use_dust
  use timestep,       only:dtmax
  use io,             only:iverbose
+ use mpiutils,       only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
+ integer(kind=8) :: npartoftypetot(maxtypes)
  integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(5), nerr(5)
  real :: deltax, dz, hfact, totmass, rhozero, errmax(5), dtext_dum
  real :: t, dt, dtext, dtnew
@@ -167,7 +168,8 @@ subroutine test_dustybox(ntests,npass)
        endif
     enddo
     npartoftype(itype) = npart - npart_previous
-    massoftype(itype) = totmass/npartoftype(itype)
+    npartoftypetot(itype) = reduceall_mpi('+',npartoftype(itype))
+    massoftype(itype) = totmass/npartoftypetot(itype)
  enddo
  !
  ! runtime parameters
@@ -238,7 +240,7 @@ end subroutine test_dustybox
 !+
 !----------------------------------------------------
 subroutine test_dustydiffuse(ntests,npass)
- use dim,       only:use_dustfrac,maxp,periodic
+ use dim,       only:use_dustfrac,maxp,periodic,maxtypes
  use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac,dustevol, &
                      xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,set_particle_type,rhoh
  use kernel,    only:hfact_default
@@ -249,7 +251,9 @@ subroutine test_dustydiffuse(ntests,npass)
  use unifdis,   only:set_unifdis
  use deriv,     only:derivs
  use testutils, only:checkvalbuf,checkvalbuf_end
+ use mpiutils,  only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
+ integer(kind=8) :: npartoftypetot(maxtypes)
  integer :: nx,j,i,n,nsteps
  integer :: nerr(1),ncheck(1)
  real    :: errmax(1)
@@ -281,7 +285,8 @@ subroutine test_dustydiffuse(ntests,npass)
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                   deltax,hfact,npart,xyzh,verbose=.false.)
  npartoftype(igas) = npart
- massoftype(igas)  = totmass/npartoftype(igas)
+ npartoftypetot(igas) = reduceall_mpi('+',npartoftype(igas))
+ massoftype(igas)  = totmass/npartoftypetot(igas)
  vxyzu = 0.
  !
  ! runtime options
@@ -506,7 +511,6 @@ subroutine write_file(time,xyzh,dustfrac,npart)
 
 end subroutine write_file
 
-#endif
 #endif
 
 end module testdust
