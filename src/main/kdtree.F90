@@ -1411,7 +1411,7 @@ subroutine maketreeglobal(nodeglobal, xyzh, np, ndim, cellatid, ncells)
  integer,      intent(in)      :: ndim
  real,         intent(inout)   :: xyzh(4,maxp)
  integer,      intent(out)     :: cellatid(ncellsmax+1)
- integer                       :: ifirstincell(ncellsmax+1)
+ integer, save                 :: ifirstincell(ncellsmax+1)
  real                          :: xmini(ndim),xmaxi(ndim)
  real                          :: xminl(ndim),xmaxl(ndim)
  real                          :: xminr(ndim),xmaxr(ndim)
@@ -1424,7 +1424,7 @@ subroutine maketreeglobal(nodeglobal, xyzh, np, ndim, cellatid, ncells)
  integer(kind=8), intent(out)  :: ncells
 
  type(kdnode)                  :: mynode(1)
- type(kdnode)                  :: refinementnode(ncellsmax+1)
+ type(kdnode), save            :: refinementnode(ncellsmax+1)
 
  integer                       :: nl, nr
  integer                       :: il, ir, iself, parent
