@@ -95,7 +95,7 @@ subroutine test_link(ntests,npass)
  call set_unifdis('random',id,master,xminp,xmaxp,yminp,ymaxp,zminp,zmaxp,psep,hfact,npart,xyzh)
  npartoftype(:) = 0
  npartoftype(igas) = npart
- print*,'thread ',id,' npart = ',npart
+ !print*,'thread ',id,' npart = ',npart
  iverbose = 3
 
  rhozero = 7.5
@@ -151,7 +151,7 @@ subroutine test_link(ntests,npass)
 !
 !--setup the link list
 !
-    write(*,"(/,1x,2(a,i1),a,/)") 'Test ',itest,' of ',nlinktest,': building linked list...'
+    if (id==master) write(*,"(/,1x,2(a,i1),a,/)") 'Test ',itest,' of ',nlinktest,': building linked list...'
     call set_linklist(npart,npart,xyzh,vxyzu)
 !
 !--count dead particles
@@ -440,9 +440,9 @@ subroutine test_link(ntests,npass)
 !--check neighbour finding with some pathological configurations
 !
  nlinktest = nlinktest + 1
- write(*,"(/,1x,a,i2,a,/)") 'Test ',nlinktest,': building linked list...'
+ if (id==master) write(*,"(/,1x,a,i2,a,/)") 'Test ',nlinktest,': building linked list...'
  do maxpen=1,3
-    write(*,"(a)") ' particles in a line in '//xlabel(maxpen)//' direction '
+    if (id==master) write(*,"(a)") ' particles in a line in '//xlabel(maxpen)//' direction '
     !--particles in a line
     npart = 100 ! need a minimum number of particles for MPI tree building
     psep  = dxbound/npart
