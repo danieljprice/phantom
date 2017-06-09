@@ -191,6 +191,7 @@ subroutine checkvalfuncr8(n,xyzhi,x,func,tol,ndiff,label)
  character(len=*), intent(in)  :: label
  integer :: i
  real(kind=8) :: erri,val,errmax
+ real :: errmaxr
 
  call print_testinfo(trim(label))
 
@@ -214,7 +215,8 @@ subroutine checkvalfuncr8(n,xyzhi,x,func,tol,ndiff,label)
     endif
  enddo
 
- call printresult(n,ndiff,real(errmax),real(tol))
+ errmaxr = real(errmax)
+ call printresult(n,ndiff,errmaxr,real(tol))
 
  return
 end subroutine checkvalfuncr8
@@ -257,7 +259,7 @@ subroutine checkvalfuncr4(n,xyzhi,x,func,tol,ndiff,label)
     endif
  enddo
 
- call printresult(n,ndiff,real(errmax),real(tol))
+ call printresult(n,ndiff,errmax,real(tol))
 
  return
 end subroutine checkvalfuncr4
@@ -423,6 +425,7 @@ subroutine checkval_r8arr(n,x,xexact,tol,ndiff,label)
  character(len=*), intent(in)  :: label
  integer :: i,nval
  real(kind=8) :: erri,val,errmax,valmax,errl2
+ real :: errmaxr
 
  call print_testinfo(trim(label))
 
@@ -452,7 +455,8 @@ subroutine checkval_r8arr(n,x,xexact,tol,ndiff,label)
     endif
  enddo
 
- call printresult(n,ndiff,real(errmax),real(tol),real(errl2),real(valmax),nval)
+ errmaxr = real(errmax)
+ call printresult(n,ndiff,errmaxr,real(tol),real(errl2),real(valmax),nval)
 
  return
 end subroutine checkval_r8arr
@@ -470,6 +474,7 @@ subroutine checkval_r4arr(n,x,xexact,tol,ndiff,label)
  character(len=*), intent(in)  :: label
  integer :: i
  real(kind=4) :: erri,val,errmax
+ real :: errmaxr
 
  call print_testinfo(trim(label))
 
@@ -493,7 +498,8 @@ subroutine checkval_r4arr(n,x,xexact,tol,ndiff,label)
     endif
  enddo
 
- call printresult(n,ndiff,real(errmax),real(tol))
+ errmaxr = errmax
+ call printresult(n,ndiff,errmaxr,real(tol))
 
  return
 end subroutine checkval_r4arr
@@ -591,7 +597,8 @@ end subroutine checkvalbuf_logical
 !----------------------------------------------------------------
 subroutine checkvalbuf_end_int(label,n,ndiff,ierrmax,itol,ntot)
  character(len=*), intent(in) :: label
- integer,          intent(in) :: n,ndiff,ierrmax,itol
+ integer,          intent(in) :: n,itol
+ integer,          intent(inout) :: ndiff,ierrmax
  integer,          intent(in), optional :: ntot
 
  call print_testinfo(trim(label))
@@ -611,8 +618,10 @@ end subroutine checkvalbuf_end_int
 !----------------------------------------------------------------
 subroutine checkvalbuf_end_real(label,n,ndiff,errmax,tol)
  character(len=*), intent(in) :: label
- integer,          intent(in) :: n,ndiff
- real,             intent(in) :: errmax,tol
+ integer,          intent(in)    :: n
+ integer,          intent(inout) :: ndiff
+ real,             intent(inout) :: errmax
+ real,             intent(in)    :: tol
 
  call print_testinfo(trim(label))
  call printresult(n,ndiff,errmax,tol)
@@ -705,17 +714,19 @@ end subroutine print_testinfo
 !  formatting for printing test results
 !+
 !----------------------------------------------------------------
-subroutine printresult_real(npi,ndiffi,errmaxi,tol,errl2i,valmaxi,nvali)
- integer, intent(in) :: npi,ndiffi
- real,    intent(in) :: errmaxi,tol
+subroutine printresult_real(npi,ndiff,errmax,tol,errl2i,valmaxi,nvali)
+ integer, intent(in)    :: npi
+ integer, intent(inout) :: ndiff
+ real,    intent(inout) :: errmax
+ real,    intent(in)    :: tol
  real,    intent(in), optional :: errl2i,valmaxi
  integer, intent(in), optional :: nvali
- integer(kind=8) :: np,ndiff,nval
- real            :: errmax,valmax,errl2
+ integer(kind=8) :: np,nval
+ real            :: valmax,errl2
 
  np     = reduce_mpi('+',npi)
- ndiff  = reduce_mpi('+',ndiffi)
- errmax = reduce_mpi('max',errmaxi)
+ ndiff  = int(reduce_mpi('+',ndiff))
+ errmax = reduce_mpi('max',errmax)
 
  if (present(errl2i)) then
     errl2 = reduce_mpi('+',errl2i)
@@ -757,15 +768,17 @@ end subroutine printresult_real
 !  formatting for printing test results
 !+
 !----------------------------------------------------------------
-subroutine printresult_int(nchecki,ndiffi,ierrmaxi,itol,ntot)
- integer, intent(in) :: nchecki,ndiffi
- integer, intent(in) :: ierrmaxi,itol
+subroutine printresult_int(nchecki,ndiff,ierrmax,itol,ntot)
+ integer, intent(in)    :: nchecki
+ integer, intent(inout) :: ndiff
+ integer, intent(inout) :: ierrmax
+ integer, intent(in)    :: itol
  integer, intent(in), optional :: ntot
- integer(kind=8) :: ncheck,ndiff,ierrmax
+ integer(kind=8) :: ncheck
 
  ncheck  = reduce_mpi('+',nchecki)
- ndiff   = reduce_mpi('+',ndiffi)
- ierrmax = reduce_mpi('max',ierrmaxi)
+ ndiff   = int(reduce_mpi('+',ndiff))
+ ierrmax = int(reduce_mpi('max',ierrmax))
 
  if (id==master) then
     if (ndiff==0) then
