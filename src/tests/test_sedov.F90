@@ -18,8 +18,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, deriv, dim, energies, eos, evolve, evwrite,
-!    initial_params, io, io_summary, options, part, physcon, testutils,
-!    timestep, unifdis, viscosity
+!    initial_params, io, io_summary, mpiutils, options, part, physcon,
+!    testutils, timestep, unifdis, viscosity
 !+
 !--------------------------------------------------------------------------
 module testsedov

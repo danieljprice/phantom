@@ -18,9 +18,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: balance, boundary, densityforce, deriv, dim, domain, dust,
-!    eos, io, kernel, linklist, mpiutils, nicil, options, part, physcon,
-!    testutils, timestep_ind, timing, unifdis, units, viscosity
+!  DEPENDENCIES: boundary, densityforce, deriv, dim, dust, eos, io, kernel,
+!    linklist, mpiutils, nicil, options, part, physcon, testutils,
+!    timestep_ind, timing, unifdis, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module testderivs
