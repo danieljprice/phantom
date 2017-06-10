@@ -32,7 +32,7 @@ contains
 
 subroutine test_link(ntests,npass)
  use dim,      only:maxp,maxneigh
- use io,       only:id,master,iverbose
+ use io,       only:id,master,iverbose,nprocs
  use mpiutils, only:reduceall_mpi
  use part,     only:npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ll,igas
  use kernel,   only:radkern2,radkern
@@ -54,6 +54,7 @@ subroutine test_link(ntests,npass)
  real                   :: rhozero,hi21,dx,dy,dz,xi,yi,zi,q2,hmin,hmax,hi
  integer                :: i,j,icell,ixyzcachesize,ncellstest,nfailedprev,maxpen
  integer                :: nneigh,nneighexact,nneightry,max1,max2,ncheck1,ncheck2,nwarn
+ integer                :: nparttot
 #ifdef IND_TIMESTEPS
  integer                :: npartincell,nfail1,nfail2
  logical                :: hasactive
@@ -443,18 +444,24 @@ subroutine test_link(ntests,npass)
  if (id==master) write(*,"(/,1x,a,i2,a,/)") 'Test ',nlinktest,': building linked list...'
  do maxpen=1,3
     if (id==master) write(*,"(a)") ' particles in a line in '//xlabel(maxpen)//' direction '
+
     !--particles in a line
-    npart = 100 ! need a minimum number of particles for MPI tree building
-    psep  = dxbound/npart
+    nparttot = 20 * nprocs
+    psep  = dxbound/nparttot
+    massoftype(1)   = 2.
+    npart = 0
+    do i=1,nparttot
+       if (mod(i,nprocs) == id) then
+          npart = npart + 1
+          xyzh(:,npart) = 0.
+          xyzh(maxpen,npart)  = (i-1)*psep
+          xyzh(4,npart)       = hfact*psep
+          if (maxphase==maxp) iphase(npart) = isetphase(igas,iactive=.true.)
+       endif
+    enddo
     npartoftype(:) = 0
     npartoftype(igas) = npart
-    if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
-    massoftype(1)   = 2.
-    xyzh(:,1:npart) = 0.
-    do i=1,npart
-       xyzh(maxpen,i)  = (i-1)*psep
-       xyzh(4,i)       = hfact*psep
-    enddo
+
     ntests = ntests + 1
     call set_linklist(npart,npart,xyzh,vxyzu)
     !
