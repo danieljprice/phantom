@@ -313,7 +313,6 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  integer,         intent(inout) :: ifirstincell(ncellsmax+1)
  real,            intent(inout) :: xyzh(4,maxp)
  integer :: i,ncross
-#ifndef PERIODIC
  real    :: xminpart,yminpart,zminpart,xmaxpart,ymaxpart,zmaxpart
  real    :: xi, yi, zi
 
@@ -323,7 +322,6 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  xmaxpart = xminpart
  ymaxpart = yminpart
  zmaxpart = zminpart
-#endif
 
  ncross = 0
  nproot = 0
@@ -342,7 +340,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
 #endif
 #ifdef PERIODIC
        call cross_boundary(isperiodic,xyzh(:,i),ncross)
-#else
+#endif
        xi = xyzh(1,i)
        yi = xyzh(2,i)
        zi = xyzh(3,i)
@@ -352,19 +350,9 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
        xmaxpart = max(xmaxpart,xi)
        ymaxpart = max(ymaxpart,yi)
        zmaxpart = max(zmaxpart,zi)
-#endif
     endif isnotdead
  enddo
 
-#ifdef PERIODIC
- if (ndim==2) then
-    xmini(:) = (/xmin,ymin/)
-    xmaxi(:) = (/xmax,ymax/)
- else
-    xmini(:) = (/xmin,ymin,zmin/)
-    xmaxi(:) = (/xmax,ymax,zmax/)
- endif
-#else
  if (ndim==2) then
     xmini(:) = (/xminpart,yminpart/)
     xmaxi(:) = (/xmaxpart,ymaxpart/)
@@ -372,7 +360,6 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
     xmini(:) = (/xminpart,yminpart,zminpart/)
     xmaxi(:) = (/xmaxpart,ymaxpart,zmaxpart/)
  endif
-#endif
 
 end subroutine construct_root_node
 
