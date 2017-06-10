@@ -82,6 +82,10 @@ module mpiderivs
  public :: init_tree_comms
  public :: finish_tree_comms
 
+ interface reduce_group
+  module procedure reduce_group_real, reduce_group_int
+ end interface
+
 contains
 
 !----------------------------------------------------------------
@@ -566,10 +570,11 @@ end subroutine get_group_cofm
 
 !----------------------------------------------------------------
 !+
-!  get the r2max of the group
+!  tree group reductions
 !+
 !----------------------------------------------------------------
-function reduce_group(x,string,level) result(xg)
+
+function reduce_group_real(x,string,level) result(xg)
  use io, only:fatal
  real,               intent(in)        :: x
  character(len=*),   intent(in)        :: string
@@ -592,7 +597,32 @@ function reduce_group(x,string,level) result(xg)
 
  xg = ired
 
-end function reduce_group
+end function reduce_group_real
+
+function reduce_group_int(x,string,level) result(xg)
+ use io, only:fatal
+ integer,            intent(in)        :: x
+ character(len=*),   intent(in)        :: string
+ integer,            intent(in)        :: level
+ integer                               :: isend, ired
+ integer                               :: xg
+
+ isend = x
+
+ select case(trim(string))
+ case('+')
+    call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER,MPI_SUM,comm_cofm(level+1),mpierr)
+ case('max')
+    call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER,MPI_MAX,comm_cofm(level+1),mpierr)
+ case('min')
+    call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER,MPI_MIN,comm_cofm(level+1),mpierr)
+ case default
+    call fatal('reduceall (mpi)','unknown reduction operation')
+ end select
+
+ xg = ired
+
+end function reduce_group_int
 
 !----------------------------------------------------------------
 !+

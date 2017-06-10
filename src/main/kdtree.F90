@@ -316,7 +316,6 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  integer,         intent(inout) :: ifirstincell(ncellsmax+1)
  real,            intent(inout) :: xyzh(4,maxp)
  integer :: i,ncross
-#ifndef PERIODIC
  real    :: xminpart,yminpart,zminpart,xmaxpart,ymaxpart,zmaxpart
  real    :: xi, yi, zi
 
@@ -326,7 +325,6 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  xmaxpart = xminpart
  ymaxpart = yminpart
  zmaxpart = zminpart
-#endif
 
  ncross = 0
  nproot = 0
@@ -346,7 +344,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
 
 #ifdef PERIODIC
        call cross_boundary(isperiodic,xyzh(:,i),ncross)
-#else
+#endif
        xi = xyzh(1,i)
        yi = xyzh(2,i)
        zi = xyzh(3,i)
@@ -371,21 +369,12 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
 
 #ifdef PERIODIC
  if (ndim==2) then
-    xmini(:) = (/xmin,ymin/)
-    xmaxi(:) = (/xmax,ymax/)
- else
-    xmini(:) = (/xmin,ymin,zmin/)
-    xmaxi(:) = (/xmax,ymax,zmax/)
- endif
-#else
- if (ndim==2) then
     xmini(:) = (/xminpart,yminpart/)
     xmaxi(:) = (/xmaxpart,ymaxpart/)
  else
     xmini(:) = (/xminpart,yminpart,zminpart/)
     xmaxi(:) = (/xmaxpart,ymaxpart,zmaxpart/)
  endif
-#endif
 
 end subroutine construct_root_node
 
@@ -460,12 +449,12 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  real                           :: xyzcofm(ndim)
  real                           :: totmass_node
 #ifdef MPI
- real                           :: xyzcofmg(ndim)
- real                           :: totmassg
+ real    :: xyzcofmg(ndim)
+ real    :: totmassg
 #endif
+ integer :: npnodetot
 
  logical :: nodeisactive
- logical :: split
  integer :: i,ipart, npcounter
  real    :: xi,yi,zi,hi,dx,dy,dz,dr2,dnpnode
  real    :: r2max, hmax
@@ -493,7 +482,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  endif
 
  ! following lines to avoid compiler warnings on intent(out) variables
- wassplit = .false.
  ir = 0
  il = 0
  nl = 0
@@ -641,8 +629,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 
 #ifdef MPI
  if (present(groupsize)) then
-    r2max = reduce_group(r2max,'max',level)
-    hmax = reduce_group(hmax,'max',level)
+    r2max    = reduce_group(r2max,'max',level)
+    hmax     = reduce_group(hmax,'max',level)
     xmini(1) = reduce_group(xmini(1),'min',level)
     xmini(2) = reduce_group(xmini(2),'min',level)
     xmini(3) = reduce_group(xmini(3),'min',level)
@@ -657,6 +645,14 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     quads(5) = reduce_group(quads(5),'+',level)
     quads(6) = reduce_group(quads(6),'+',level)
 #endif
+ endif
+
+ if (present(groupsize)) then
+    npnodetot = reduce_group(npnode,'+',level)
+ else
+#endif
+    npnodetot = npnode
+#ifdef MPI
  endif
 #endif
 
@@ -674,7 +670,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  nodeentry%xmax(:) = xmaxi(:)
 #endif
 
- wassplit = (npnode > minpart)
+ wassplit = (npnodetot > minpart)
 
  if (.not. wassplit) then
     nodeentry%leftchild  = 0

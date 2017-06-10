@@ -32,7 +32,7 @@ contains
 
 subroutine test_link(ntests,npass)
  use dim,      only:maxp,maxneigh
- use io,       only:id,master,iverbose
+ use io,       only:id,master,iverbose,nprocs
  use mpiutils, only:reduceall_mpi
  use part,     only:npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ll,igas
  use kernel,   only:radkern2,radkern
@@ -56,11 +56,12 @@ subroutine test_link(ntests,npass)
  integer                :: i,j,icell,ixyzcachesize,ncellstest,nfailedprev,maxpen
  integer                :: nneigh,nneighexact,nneightry,max1,max2,ncheck1,ncheck2,nwarn
  integer                :: ip
+ integer                :: nparttot
 #ifdef IND_TIMESTEPS
  integer                :: npartincell,nfail1,nfail2
  logical                :: hasactive
 #endif
- integer                :: maxneighi,minneigh,iseed,nlinktest,itest,nll,ndead
+ integer                :: maxneighi,minneigh,iseed,nlinktest,itest,nll,ndead,ierrmax
  integer(kind=8)        :: meanneigh
  integer :: nfailed(8)
  logical                :: iactivei,iactivej,activecell
@@ -208,10 +209,11 @@ subroutine test_link(ntests,npass)
           endif not_empty
        enddo
        !!$omp end parallel do
+       ierrmax = 0
        if (ncheck1 > 0) then
-          call checkvalbuf_end('inactive cells have no active particles',ncheck1,nfail1,0,0,npart)
+          call checkvalbuf_end('inactive cells have no active particles',ncheck1,nfail1,ierrmax,0,npart)
        endif
-       call checkvalbuf_end('active cells have at least one active particle',ncheck2,nfail2,0,0,npart)
+       call checkvalbuf_end('active cells have at least one active particle',ncheck2,nfail2,ierrmax,0,npart)
 
        ntests = ntests + 2
        if (nfail1==0) npass = npass + 1
@@ -402,18 +404,24 @@ subroutine test_link(ntests,npass)
  if (id==master) write(*,"(/,1x,a,i2,a,/)") 'Test ',nlinktest,': building linked list...'
  do maxpen=1,3
     if (id==master) write(*,"(a)") ' particles in a line in '//xlabel(maxpen)//' direction '
+
     !--particles in a line
-    npart = 100 ! need a minimum number of particles for MPI tree building
-    psep  = dxbound/npart
+    nparttot = 20 * nprocs
+    psep  = dxbound/nparttot
+    massoftype(1)   = 2.
+    npart = 0
+    do i=1,nparttot
+       if (mod(i,nprocs) == id) then
+          npart = npart + 1
+          xyzh(:,npart) = 0.
+          xyzh(maxpen,npart)  = (i-1)*psep
+          xyzh(4,npart)       = hfact*psep
+          if (maxphase==maxp) iphase(npart) = isetphase(igas,iactive=.true.)
+       endif
+    enddo
     npartoftype(:) = 0
     npartoftype(igas) = npart
-    if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
-    massoftype(1)   = 2.
-    xyzh(:,1:npart) = 0.
-    do i=1,npart
-       xyzh(maxpen,i)  = (i-1)*psep
-       xyzh(4,i)       = hfact*psep
-    enddo
+
     ntests = ntests + 1
     call set_linklist(npart,npart,xyzh,vxyzu)
     !
