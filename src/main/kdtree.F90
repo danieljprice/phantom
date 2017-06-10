@@ -442,7 +442,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 
  logical :: nodeisactive
  integer :: i,ipart, npcounter
- real    :: xi,yi,zi,hi,dx,dy,dz,dr2,dnpnode
+ real    :: xi,yi,zi,hi,dx,dy,dz,dr2
  real    :: r2max, hmax
  real    :: xcofm,ycofm,zcofm,fac,dfac
  real    :: x0(ndimtree)
@@ -563,7 +563,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        zcofm = zcofm + fac*zi
     enddo
  endif
- dnpnode = 1./real(npnode)
  if (ndim==2) then
     xyzcofm(1:2) = (/xcofm,ycofm/)
  else
