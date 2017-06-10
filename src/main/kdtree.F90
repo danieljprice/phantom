@@ -444,16 +444,16 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  logical,           intent(out)   :: wassplit
  integer,           intent(out)   :: list(:) ! not actually sent out, but to avoid repeated memory allocation/deallocation
 
- real                           :: xyzi(ndim)
- real                           :: xyzcofm(ndim)
- real                           :: totmass_node
+ real    :: xyzi(ndim)
+ real    :: xyzcofm(ndim)
+ real    :: totmass_node
 #ifdef MPI
- real                           :: xyzcofmg(ndim)
- real                           :: totmassg
+ real    :: xyzcofmg(ndim)
+ real    :: totmassg
 #endif
+ integer :: npnodetot
 
  logical :: nodeisactive
- logical :: split
  integer :: i,ipart, npcounter
  real    :: xi,yi,zi,hi,dx,dy,dz,dr2,dnpnode
  real    :: r2max, hmax
@@ -484,7 +484,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  endif
 
  ! following lines to avoid compiler warnings on intent(out) variables
- wassplit = .false.
  ir = 0
  il = 0
  nl = 0
@@ -637,8 +636,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 
 #ifdef MPI
  if (present(groupsize)) then
-    r2max = reduce_group(r2max,'max',level)
-    hmax = reduce_group(hmax,'max',level)
+    r2max    = reduce_group(r2max,'max',level)
+    hmax     = reduce_group(hmax,'max',level)
     xmini(1) = reduce_group(xmini(1),'min',level)
     xmini(2) = reduce_group(xmini(2),'min',level)
     xmini(3) = reduce_group(xmini(3),'min',level)
@@ -653,6 +652,14 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     quads(5) = reduce_group(quads(5),'+',level)
     quads(6) = reduce_group(quads(6),'+',level)
 #endif
+ endif
+
+ if (present(groupsize)) then
+    npnodetot = reduce_group(npnode,'+',level)
+ else
+#endif
+    npnodetot = npnode
+#ifdef MPI
  endif
 #endif
 
@@ -670,11 +677,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  nodeentry%xmax(:) = xmaxi(:)
 #endif
 
- wassplit = .false.
+ wassplit = (npnodetot > minpart)
 
- split = (npnode > minpart)
-
- if (.not. split) then  ! fill link list of particles and return
+ if (.not. wassplit) then  ! fill link list of particles and return
     nodeentry%leftchild  = 0
     nodeentry%rightchild = 0
     maxlevel = max(level,maxlevel)
@@ -698,7 +703,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     ll(abs(list(npnode))) = 0 ! not strictly necessary
 #endif
  else ! split this node and add children to stack
-    wassplit = .true.
     iaxis  = maxloc(xmaxi - xmini,1) ! split along longest axis
     xpivot = xyzcofm(iaxis)          ! split on centre of mass
 
