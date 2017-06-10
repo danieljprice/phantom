@@ -456,7 +456,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 
  logical :: nodeisactive
  integer :: i,ipart, npcounter
- real    :: xi,yi,zi,hi,dx,dy,dz,dr2,dnpnode
+ real    :: xi,yi,zi,hi,dx,dy,dz,dr2
  real    :: r2max, hmax
  real    :: xcofm,ycofm,zcofm,fac,dfac
  real    :: x0(ndimtree)
@@ -486,7 +486,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  il = 0
  nl = 0
  nr = 0
- if (npnode < 1) return ! node has no particles, just quit
+ if ((.not. present(groupsize)) .and. (npnode  <  1)) return ! node has no particles, just quit
 
  x0(:) = 0.5*(xmini(:) + xmaxi(:))  ! geometric centre of the node
 
@@ -573,14 +573,16 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        zcofm = zcofm + fac*zi
     enddo
  endif
- dnpnode = 1./real(npnode)
  if (ndim==2) then
     xyzcofm(1:2) = (/xcofm,ycofm/)
  else
     xyzcofm = (/xcofm,ycofm,zcofm/)
  endif
- if (totmass_node<=0.) call fatal('mtree','totmass_node==0',val=totmass_node)
- xyzcofm(:)   = xyzcofm(:)/(totmass_node*dfac)
+
+ ! if we have no particles, then cofm is zero anyway
+ if (totmass_node > 0.) then
+    xyzcofm(:)   = xyzcofm(:)/(totmass_node*dfac)
+ endif
 
 #ifdef MPI
  ! if this is global node construction
@@ -590,6 +592,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     totmass_node = totmassg
  endif
 #endif
+
+ ! checks the reduced mass in the case of global maketree
+ if (totmass_node<=0.) call fatal('mtree','totmass_node==0',val=totmass_node)
 
 !--for gravity, we need the centre of the node to be the centre of mass
  x0(:) = xyzcofm(:)
