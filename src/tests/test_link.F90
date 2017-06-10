@@ -58,7 +58,7 @@ subroutine test_link(ntests,npass)
  integer                :: npartincell,nfail1,nfail2
  logical                :: hasactive
 #endif
- integer                :: maxneighi,minneigh,iseed,nlinktest,itest,nll,ndead
+ integer                :: maxneighi,minneigh,iseed,nlinktest,itest,nll,ndead,ierrmax
  integer(kind=8)        :: meanneigh
  integer :: nfailed(8)
  logical                :: iactivei,iactivej,activecell
@@ -225,10 +225,11 @@ subroutine test_link(ntests,npass)
           endif
        enddo
        !!$omp end parallel do
+       ierrmax = 0
        if (ncheck1 > 0) then
-          call checkvalbuf_end('inactive cells have no active particles',ncheck1,nfail1,0,0,npart)
+          call checkvalbuf_end('inactive cells have no active particles',ncheck1,nfail1,ierrmax,0,npart)
        endif
-       call checkvalbuf_end('active cells have at least one active particle',ncheck2,nfail2,0,0,npart)
+       call checkvalbuf_end('active cells have at least one active particle',ncheck2,nfail2,ierrmax,0,npart)
 
        ntests = ntests + 2
        if (nfail1==0) npass = npass + 1
