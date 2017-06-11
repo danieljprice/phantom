@@ -69,7 +69,7 @@ subroutine test_derivs(ntests,npass,string)
  character(len=*), intent(in)    :: string
  real                   :: psep,time,hzero,totmass
 #ifdef IND_TIMESTEPS
- integer                :: itest,ierr,ierr2,nptest
+ integer                :: itest,ierr,ierr2,nptest,nptesttot
  real                   :: fracactive,speedup
  real(kind=4)           :: tallactive
  real,         allocatable :: fxyzstore(:,:),dBdtstore(:,:)
@@ -1048,7 +1048,23 @@ subroutine test_derivs(ntests,npass,string)
     npart = 0
     call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                       psep,hfact,npart,xyzh)
-    nptot = reduceall_mpi('+',npart)
+
+    !
+    !--need to initialise dBevol to zero, otherwise if cleaning is not updated
+    !  then test may give NaNs
+    !
+    if (mhd) dBevol(4,:) = 0.0
+
+#ifdef MPI
+    !
+    !--call derivs once to ensure that particles are properly balanced
+    !  before allocating arrays
+    !
+    nactive = npart
+    call set_active(npart,nactive,igas)
+    call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                 Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+#endif
     !
     !--first do the calculation with all particles active, then
     !  perform the force calculation with only a fraction of particles active
