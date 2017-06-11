@@ -32,7 +32,7 @@ contains
 
 subroutine test_link(ntests,npass)
  use dim,      only:maxp,maxneigh
- use io,       only:id,master,iverbose,nprocs
+ use io,       only:id,master,nprocs!,iverbose
  use mpiutils, only:reduceall_mpi
  use part,     only:npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ll,igas
  use kernel,   only:radkern2,radkern
@@ -56,10 +56,10 @@ subroutine test_link(ntests,npass)
  integer                :: nneigh,nneighexact,nneightry,max1,max2,ncheck1,ncheck2,nwarn
  integer                :: nparttot
 #ifdef IND_TIMESTEPS
- integer                :: npartincell,nfail1,nfail2
+ integer                :: npartincell,nfail1,nfail2,ierrmax
  logical                :: hasactive
 #endif
- integer                :: maxneighi,minneigh,iseed,nlinktest,itest,nll,ndead,ierrmax
+ integer                :: maxneighi,minneigh,iseed,nlinktest,itest,nll,ndead
  integer(kind=8)        :: meanneigh
  integer :: nfailed(8)
  logical                :: iactivei,iactivej,activecell
@@ -68,7 +68,6 @@ subroutine test_link(ntests,npass)
  character(len=1), dimension(3), parameter :: xlabel = (/'x','y','z'/)
 
  if (id==master) write(*,"(a,/)") '--> TESTING LINKLIST / NEIGHBOUR FINDING'
-
 !
 !--set up a random particle distribution
 !
@@ -97,7 +96,7 @@ subroutine test_link(ntests,npass)
  npartoftype(:) = 0
  npartoftype(igas) = npart
  !print*,'thread ',id,' npart = ',npart
- iverbose = 3
+ !iverbose = 3
 
  rhozero = 7.5
  hfact = 1.2

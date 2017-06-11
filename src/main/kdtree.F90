@@ -260,7 +260,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
 
  if (present(refinelevels)) refinelevels = minlevel
 
- if (iverbose >= 2) then
+ if (iverbose >= 3) then
     write(iprint,"(a,i10,3(a,i2))") ' maketree: nodes = ',ncells,', max level = ',maxlevel,&
        ', min leaf level = ',minlevel,' max level indexed = ',maxlevel_indexed
  endif
