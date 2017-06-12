@@ -491,7 +491,11 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
 !$omp single
     if (reduceall_mpi('max',stack_redo%n) > 0) then
-       if (stack_redo%n > 0) stack_waiting = stack_redo
+       if (stack_redo%n > 0) then
+          stack_waiting%cells(1:stack_redo%n) = stack_redo%cells(1:stack_redo%n)
+          stack_waiting%maxlength = stack_redo%maxlength
+          stack_waiting%n = stack_redo%n
+       endif
     else
        iterations_finished = .true.
     endif

@@ -260,7 +260,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
 
  if (present(refinelevels)) refinelevels = minlevel
 
- if (iverbose >= 2) then
+ if (iverbose >= 3) then
     write(iprint,"(a,i10,3(a,i2))") ' maketree: nodes = ',ncells,', max level = ',maxlevel,&
        ', min leaf level = ',minlevel,' max level indexed = ',maxlevel_indexed
  endif
@@ -313,7 +313,6 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  integer,         intent(inout) :: ifirstincell(ncellsmax+1)
  real,            intent(inout) :: xyzh(4,maxp)
  integer :: i,ncross
-#ifndef PERIODIC
  real    :: xminpart,yminpart,zminpart,xmaxpart,ymaxpart,zmaxpart
  real    :: xi, yi, zi
 
@@ -323,7 +322,6 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  xmaxpart = xminpart
  ymaxpart = yminpart
  zmaxpart = zminpart
-#endif
 
  ncross = 0
  nproot = 0
@@ -342,7 +340,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
 #endif
 #ifdef PERIODIC
        call cross_boundary(isperiodic,xyzh(:,i),ncross)
-#else
+#endif
        xi = xyzh(1,i)
        yi = xyzh(2,i)
        zi = xyzh(3,i)
@@ -352,19 +350,9 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
        xmaxpart = max(xmaxpart,xi)
        ymaxpart = max(ymaxpart,yi)
        zmaxpart = max(zmaxpart,zi)
-#endif
     endif isnotdead
  enddo
 
-#ifdef PERIODIC
- if (ndim==2) then
-    xmini(:) = (/xmin,ymin/)
-    xmaxi(:) = (/xmax,ymax/)
- else
-    xmini(:) = (/xmin,ymin,zmin/)
-    xmaxi(:) = (/xmax,ymax,zmax/)
- endif
-#else
  if (ndim==2) then
     xmini(:) = (/xminpart,yminpart/)
     xmaxi(:) = (/xmaxpart,ymaxpart/)
@@ -372,7 +360,6 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
     xmini(:) = (/xminpart,yminpart,zminpart/)
     xmaxi(:) = (/xmaxpart,ymaxpart,zmaxpart/)
  endif
-#endif
 
 end subroutine construct_root_node
 
@@ -444,18 +431,18 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  logical,           intent(out)   :: wassplit
  integer,           intent(out)   :: list(:) ! not actually sent out, but to avoid repeated memory allocation/deallocation
 
- real                           :: xyzi(ndim)
- real                           :: xyzcofm(ndim)
- real                           :: totmass_node
+ real    :: xyzi(ndim)
+ real    :: xyzcofm(ndim)
+ real    :: totmass_node
 #ifdef MPI
- real                           :: xyzcofmg(ndim)
- real                           :: totmassg
+ real    :: xyzcofmg(ndim)
+ real    :: totmassg
 #endif
+ integer :: npnodetot
 
  logical :: nodeisactive
- logical :: split
  integer :: i,ipart, npcounter
- real    :: xi,yi,zi,hi,dx,dy,dz,dr2,dnpnode
+ real    :: xi,yi,zi,hi,dx,dy,dz,dr2
  real    :: r2max, hmax
  real    :: xcofm,ycofm,zcofm,fac,dfac
  real    :: x0(ndimtree)
@@ -484,12 +471,12 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  endif
 
  ! following lines to avoid compiler warnings on intent(out) variables
- wassplit = .false.
  ir = 0
  il = 0
  nl = 0
  nr = 0
- if (npnode  <  1) return ! node has no particles, just quit
+
+ if ((.not. present(groupsize)) .and. (npnode  <  1)) return ! node has no particles, just quit
 
  x0(:) = 0.5*(xmini(:) + xmaxi(:))  ! geometric centre of the node
 
@@ -577,14 +564,16 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        zcofm = zcofm + fac*zi
     enddo
  endif
- dnpnode = 1./real(npnode)
  if (ndim==2) then
     xyzcofm(1:2) = (/xcofm,ycofm/)
  else
     xyzcofm = (/xcofm,ycofm,zcofm/)
  endif
- if (totmass_node<=0.) call fatal('mtree','totmass_node==0',val=totmass_node)
- xyzcofm(:)   = xyzcofm(:)/(totmass_node*dfac)
+
+ ! if we have no particles, then cofm is zero anyway
+ if (totmass_node > 0.) then
+    xyzcofm(:)   = xyzcofm(:)/(totmass_node*dfac)
+ endif
 
 #ifdef MPI
  ! if this is global node construction
@@ -594,6 +583,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     totmass_node = totmassg
  endif
 #endif
+
+ ! checks the reduced mass in the case of global maketree
+ if (totmass_node<=0.) call fatal('mtree','totmass_node==0',val=totmass_node)
 
 !--for gravity, we need the centre of the node to be the centre of mass
 ! print*,npnode,' shifting from ',x0(:), ' to ',xyzcofm(:)
@@ -637,8 +629,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 
 #ifdef MPI
  if (present(groupsize)) then
-    r2max = reduce_group(r2max,'max',level)
-    hmax = reduce_group(hmax,'max',level)
+    r2max    = reduce_group(r2max,'max',level)
+    hmax     = reduce_group(hmax,'max',level)
     xmini(1) = reduce_group(xmini(1),'min',level)
     xmini(2) = reduce_group(xmini(2),'min',level)
     xmini(3) = reduce_group(xmini(3),'min',level)
@@ -653,6 +645,14 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     quads(5) = reduce_group(quads(5),'+',level)
     quads(6) = reduce_group(quads(6),'+',level)
 #endif
+ endif
+
+ if (present(groupsize)) then
+    npnodetot = reduce_group(npnode,'+',level)
+ else
+#endif
+    npnodetot = npnode
+#ifdef MPI
  endif
 #endif
 
@@ -670,11 +670,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  nodeentry%xmax(:) = xmaxi(:)
 #endif
 
- wassplit = .false.
+ wassplit = (npnodetot > minpart)
 
- split = (npnode > minpart)
-
- if (.not. split) then  ! fill link list of particles and return
+ if (.not. wassplit) then  ! fill link list of particles and return
     nodeentry%leftchild  = 0
     nodeentry%rightchild = 0
     maxlevel = max(level,maxlevel)
@@ -698,7 +696,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     ll(abs(list(npnode))) = 0 ! not strictly necessary
 #endif
  else ! split this node and add children to stack
-    wassplit = .true.
     iaxis  = maxloc(xmaxi - xmini,1) ! split along longest axis
     xpivot = xyzcofm(iaxis)          ! split on centre of mass
 
@@ -769,7 +766,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        call error('maketree','number of left + right != parent number of particles while splitting node')
     endif
 
-    if ((nl==npnode) .or. (nr==npnode)) then
+    if (((nl==npnode) .or. (nr==npnode)) .and. (.not. present(groupsize)))then
        xminl  = xmaxi
        xminr  = xmaxi
        xmaxl  = xmini
@@ -778,70 +775,29 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        ifirstincell(ir) = 0
        nl = 0
        nr = 0
-       do i = 1,npnode
+       do i = 1,npnode / 2
           ipart = list(i)
-          xi = xyzh(iaxis,abs(ipart))
-          if (i < npnode / 2) then
-             xi = xi + epsilon(xi)
-          else
-             xi = xi - epsilon(xi)
-          endif
-          if (xi  <=  xpivot) then
-             ll(abs(ipart)) = ifirstincell(il)
-             ifirstincell(il) = ipart
-             nl = nl + 1
-             xminl(1) = min(xminl(1), xyzi(1))
-             xminl(2) = min(xminl(2), xyzi(2))
-             xminl(3) = min(xminl(3), xyzi(3))
-             xmaxl(1) = max(xmaxl(1), xyzi(1))
-             xmaxl(2) = max(xmaxl(2), xyzi(2))
-             xmaxl(3) = max(xmaxl(3), xyzi(3))
-          else
-             ll(abs(ipart)) = ifirstincell(ir)
-             ifirstincell(ir) = ipart
-             nr = nr + 1
-             xminr(1) = min(xminr(1), xyzi(1))
-             xminr(2) = min(xminr(2), xyzi(2))
-             xminr(3) = min(xminr(3), xyzi(3))
-             xmaxr(1) = max(xmaxr(1), xyzi(1))
-             xmaxr(2) = max(xmaxr(2), xyzi(2))
-             xmaxr(3) = max(xmaxr(3), xyzi(3))
-          endif
+          ll(abs(ipart)) = ifirstincell(il)
+          ifirstincell(il) = ipart
+          nl = nl + 1
+          xminl(1) = min(xminl(1), xyzi(1))
+          xminl(2) = min(xminl(2), xyzi(2))
+          xminl(3) = min(xminl(3), xyzi(3))
+          xmaxl(1) = max(xmaxl(1), xyzi(1))
+          xmaxl(2) = max(xmaxl(2), xyzi(2))
+          xmaxl(3) = max(xmaxl(3), xyzi(3))
        enddo
-    endif
-    ! check if the issue has been resolved, if not, arbitrarily build 2 cells (global tree build is excepted)
-    if (((nl==npnode) .or. (nr==npnode)) .and. (.not. present(groupsize))) then
-       xminl  = xmaxi
-       xminr  = xmaxi
-       xmaxl  = xmini
-       xmaxr  = xmini
-       ifirstincell(il) = 0
-       ifirstincell(ir) = 0
-       nl = 0
-       nr = 0
-       do i = 1,npnode
+       do i = npnode / 2, npnode
           ipart = list(i)
-          if (i < npnode / 2) then
-             ll(abs(ipart)) = ifirstincell(il)
-             ifirstincell(il) = ipart
-             nl = nl + 1
-             xminl(1) = min(xminl(1), xyzi(1))
-             xminl(2) = min(xminl(2), xyzi(2))
-             xminl(3) = min(xminl(3), xyzi(3))
-             xmaxl(1) = max(xmaxl(1), xyzi(1))
-             xmaxl(2) = max(xmaxl(2), xyzi(2))
-             xmaxl(3) = max(xmaxl(3), xyzi(3))
-          else
-             ll(abs(ipart)) = ifirstincell(ir)
-             ifirstincell(ir) = ipart
-             nr = nr + 1
-             xminr(1) = min(xminr(1), xyzi(1))
-             xminr(2) = min(xminr(2), xyzi(2))
-             xminr(3) = min(xminr(3), xyzi(3))
-             xmaxr(1) = max(xmaxr(1), xyzi(1))
-             xmaxr(2) = max(xmaxr(2), xyzi(2))
-             xmaxr(3) = max(xmaxr(3), xyzi(3))
-          endif
+          ll(abs(ipart)) = ifirstincell(ir)
+          ifirstincell(ir) = ipart
+          nr = nr + 1
+          xminr(1) = min(xminr(1), xyzi(1))
+          xminr(2) = min(xminr(2), xyzi(2))
+          xminr(3) = min(xminr(3), xyzi(3))
+          xmaxr(1) = max(xmaxr(1), xyzi(1))
+          xmaxr(2) = max(xmaxr(2), xyzi(2))
+          xmaxr(3) = max(xmaxr(3), xyzi(3))
        enddo
     endif
  endif
@@ -1411,7 +1367,7 @@ subroutine maketreeglobal(nodeglobal, xyzh, np, ndim, cellatid, ncells)
  integer,      intent(in)      :: ndim
  real,         intent(inout)   :: xyzh(4,maxp)
  integer,      intent(out)     :: cellatid(ncellsmax+1)
- integer                       :: ifirstincell(ncellsmax+1)
+ integer, save                 :: ifirstincell(ncellsmax+1)
  real                          :: xmini(ndim),xmaxi(ndim)
  real                          :: xminl(ndim),xmaxl(ndim)
  real                          :: xminr(ndim),xmaxr(ndim)
@@ -1424,7 +1380,7 @@ subroutine maketreeglobal(nodeglobal, xyzh, np, ndim, cellatid, ncells)
  integer(kind=8), intent(out)  :: ncells
 
  type(kdnode)                  :: mynode(1)
- type(kdnode)                  :: refinementnode(ncellsmax+1)
+ type(kdnode), save            :: refinementnode(ncellsmax+1)
 
  integer                       :: nl, nr
  integer                       :: il, ir, iself, parent

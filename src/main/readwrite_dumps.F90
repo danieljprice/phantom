@@ -869,6 +869,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
        write(*,*) 'npartoftypetot    =',npartoftypetot
        write(*,*) 'npartoftypetotact =',npartoftypetotact
        call error('read_dump','particle type counts do not match header')
+       ierr = 8
     endif
  enddo
 

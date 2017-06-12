@@ -28,9 +28,8 @@ module balance
  use part,     only:ipartbufsize
  implicit none
  integer :: nsent,nrecv,npartnew,ncomplete
- integer, dimension(1), private :: irequestrecv, irequestcomplete,&
-                                   irequestsend, irequestend
- real, dimension(ipartbufsize) :: xsendbuf,xbuffer
+ integer, dimension(1), private :: irequestrecv,irequestsend
+ real, dimension(ipartbufsize)  :: xsendbuf,xbuffer
 
  private
  public :: balancedomains
@@ -122,7 +121,7 @@ subroutine balancedomains(npart)
  !print*,' thread ',id,' after shuffle, got ',npart,' dead ',ndead,' actual = ',npart - ndead
 
  ntot = reduceall_mpi('+',npart)
- if (iverbose >= 3) print*,'>> shuffle: thread ',id,' got ',npart,' of ',ntot
+ if (iverbose >= 4) print*,'>> shuffle: thread ',id,' got ',npart,' of ',ntot
 
  if (ntot /= ntot_start) call fatal('balance','number of particles before and after balance not equal')
  if (id==master .and. iverbose >= 3) call printused(tstart)
@@ -292,7 +291,7 @@ subroutine balance_finish(npart,replace)
  newproc = mod(id+1,nprocs)
  call MPI_RSEND(xsendbuf,0,MPI_DEFAULT_REAL,newproc,0,MPI_COMM_WORLD,mpierr)
 
- if (iverbose >= 3 .or. (iverbose >= 1 .and. (nsent > 0 .or. nrecv > 0))) then
+ if (iverbose >= 4 .or. (iverbose >= 3 .and. (nsent > 0 .or. nrecv > 0))) then
     print*,'>> balance: thread ',id,' sent:',nsent,' received:',nrecv,' npart =',npartnew
  endif
  call MPI_BARRIER(MPI_COMM_WORLD,mpierr)

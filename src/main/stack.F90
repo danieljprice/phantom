@@ -66,19 +66,19 @@ module stack
 contains
 
 subroutine init_mpi_memory
-   call allocate_stack(dens_stack_remote)
-   call allocate_stack(dens_stack_waiting)
-   call allocate_stack(dens_stack_redo)
-   call allocate_stack(force_stack_remote)
-   call allocate_stack(force_stack_waiting)
+ call allocate_stack(dens_stack_remote)
+ call allocate_stack(dens_stack_waiting)
+ call allocate_stack(dens_stack_redo)
+ call allocate_stack(force_stack_remote)
+ call allocate_stack(force_stack_waiting)
 end subroutine init_mpi_memory
 
 subroutine finish_mpi_memory
-   call deallocate_stack(dens_stack_remote)
-   call deallocate_stack(dens_stack_waiting)
-   call deallocate_stack(dens_stack_redo)
-   call deallocate_stack(force_stack_remote)
-   call deallocate_stack(force_stack_waiting)
+ call deallocate_stack(dens_stack_remote)
+ call deallocate_stack(dens_stack_waiting)
+ call deallocate_stack(dens_stack_redo)
+ call deallocate_stack(force_stack_remote)
+ call deallocate_stack(force_stack_waiting)
 end subroutine finish_mpi_memory
 
 subroutine allocate_stack_dens(stack)

@@ -32,7 +32,7 @@ contains
 
 subroutine test_link(ntests,npass)
  use dim,      only:maxp,maxneigh
- use io,       only:id,master,iverbose
+ use io,       only:id,master,nprocs!,iverbose
  use mpiutils, only:reduceall_mpi
  use part,     only:npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ll,igas
  use kernel,   only:radkern2,radkern
@@ -54,8 +54,9 @@ subroutine test_link(ntests,npass)
  real                   :: rhozero,hi21,dx,dy,dz,xi,yi,zi,q2,hmin,hmax,hi
  integer                :: i,j,icell,ixyzcachesize,ncellstest,nfailedprev,maxpen
  integer                :: nneigh,nneighexact,nneightry,max1,max2,ncheck1,ncheck2,nwarn
+ integer                :: nparttot
 #ifdef IND_TIMESTEPS
- integer                :: npartincell,nfail1,nfail2
+ integer                :: npartincell,nfail1,nfail2,ierrmax
  logical                :: hasactive
 #endif
  integer                :: maxneighi,minneigh,iseed,nlinktest,itest,nll,ndead
@@ -67,7 +68,6 @@ subroutine test_link(ntests,npass)
  character(len=1), dimension(3), parameter :: xlabel = (/'x','y','z'/)
 
  if (id==master) write(*,"(a,/)") '--> TESTING LINKLIST / NEIGHBOUR FINDING'
-
 !
 !--set up a random particle distribution
 !
@@ -95,8 +95,8 @@ subroutine test_link(ntests,npass)
  call set_unifdis('random',id,master,xminp,xmaxp,yminp,ymaxp,zminp,zmaxp,psep,hfact,npart,xyzh)
  npartoftype(:) = 0
  npartoftype(igas) = npart
- print*,'thread ',id,' npart = ',npart
- iverbose = 3
+ !print*,'thread ',id,' npart = ',npart
+ !iverbose = 3
 
  rhozero = 7.5
  hfact = 1.2
@@ -151,7 +151,7 @@ subroutine test_link(ntests,npass)
 !
 !--setup the link list
 !
-    write(*,"(/,1x,2(a,i1),a,/)") 'Test ',itest,' of ',nlinktest,': building linked list...'
+    if (id==master) write(*,"(/,1x,2(a,i1),a,/)") 'Test ',itest,' of ',nlinktest,': building linked list...'
     call set_linklist(npart,npart,xyzh,vxyzu)
 !
 !--count dead particles
@@ -225,10 +225,11 @@ subroutine test_link(ntests,npass)
           endif
        enddo
        !!$omp end parallel do
+       ierrmax = 0
        if (ncheck1 > 0) then
-          call checkvalbuf_end('inactive cells have no active particles',ncheck1,nfail1,0,0,npart)
+          call checkvalbuf_end('inactive cells have no active particles',ncheck1,nfail1,ierrmax,0,npart)
        endif
-       call checkvalbuf_end('active cells have at least one active particle',ncheck2,nfail2,0,0,npart)
+       call checkvalbuf_end('active cells have at least one active particle',ncheck2,nfail2,ierrmax,0,npart)
 
        ntests = ntests + 2
        if (nfail1==0) npass = npass + 1
@@ -440,21 +441,27 @@ subroutine test_link(ntests,npass)
 !--check neighbour finding with some pathological configurations
 !
  nlinktest = nlinktest + 1
- write(*,"(/,1x,a,i2,a,/)") 'Test ',nlinktest,': building linked list...'
+ if (id==master) write(*,"(/,1x,a,i2,a,/)") 'Test ',nlinktest,': building linked list...'
  do maxpen=1,3
-    write(*,"(a)") ' particles in a line in '//xlabel(maxpen)//' direction '
+    if (id==master) write(*,"(a)") ' particles in a line in '//xlabel(maxpen)//' direction '
+
     !--particles in a line
-    npart = 100 ! need a minimum number of particles for MPI tree building
-    psep  = dxbound/npart
+    nparttot = 20 * nprocs
+    psep  = dxbound/nparttot
+    massoftype(1)   = 2.
+    npart = 0
+    do i=1,nparttot
+       if (mod(i,nprocs) == id) then
+          npart = npart + 1
+          xyzh(:,npart) = 0.
+          xyzh(maxpen,npart)  = (i-1)*psep
+          xyzh(4,npart)       = hfact*psep
+          if (maxphase==maxp) iphase(npart) = isetphase(igas,iactive=.true.)
+       endif
+    enddo
     npartoftype(:) = 0
     npartoftype(igas) = npart
-    if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
-    massoftype(1)   = 2.
-    xyzh(:,1:npart) = 0.
-    do i=1,npart
-       xyzh(maxpen,i)  = (i-1)*psep
-       xyzh(4,i)       = hfact*psep
-    enddo
+
     ntests = ntests + 1
     call set_linklist(npart,npart,xyzh,vxyzu)
     !
