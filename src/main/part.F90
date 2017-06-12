@@ -35,7 +35,7 @@ module part
           mhd,maxmhd,maxBevol,maxvecp,maxp_h2,periodic, &
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
           switches_done_in_derivs,maxp_dustfrac,use_dust,use_dustfrac, &
-          lightcurve,maxlum,nalpha,maxmhdni
+          lightcurve,maxlum,nalpha,maxmhdni,ndusttypes
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -90,9 +90,10 @@ module part
 !
 !--one-fluid dust (small grains)
 !
- real :: dustfrac(maxp_dustfrac)
- real :: dustevol(maxp_dustfrac)
- real :: deltav(3,maxp_dustfrac)
+ real :: dustfrac(ndusttypes,maxp_dustfrac)
+ character(len=*), parameter :: dustfrac_label(ndusttypes) = 'dustfrac'
+ real :: dustevol(ndusttypes,maxp_dustfrac)
+ real :: deltav(3,ndusttypes,maxp_dustfrac)
  character(len=*), parameter :: deltav_label(3) = &
    (/'deltavx','deltavy','deltavz'/)
 !
@@ -151,12 +152,12 @@ module part
  real         :: dBevol(maxBevol,maxmhdan)
  real(kind=4) :: divBsymm(maxmhdan)
  real         :: fext(3,maxan)
- real         :: ddustfrac(maxdustan)
+ real         :: ddustfrac(ndusttypes,maxdustan)
 !
 !--storage associated with/dependent on timestepping
 !
  real         :: vpred(maxvxyzu,maxan)
- real         :: dustpred(maxdustan)
+ real         :: dustpred(ndusttypes,maxdustan)
  real         :: Bpred(maxBevol,maxmhdan)
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin(maxan)
@@ -191,8 +192,8 @@ module part
    +ngradh*maxgradh/maxpd               &  ! gradh
    +maxphase/maxpd                      &  ! iphase
 #ifdef DUST
-   +1                                   &  ! dustfrac
-   +1                                   &  ! dustevol
+   +ndusttypes                          &  ! dustfrac
+   +ndusttypes                          &  ! dustevol
 #endif
    +(maxp_h2/maxpd)*nabundances         &  ! abundance
    +(maxgrav/maxpd)                     &  ! poten
@@ -598,8 +599,8 @@ subroutine copy_particle(src, dst)
  twas(dst)      = twas(src)
 #endif
  if (use_dust) then
-    dustfrac(dst) = dustfrac(src)
-    dustevol(dst) = dustevol(src)
+    dustfrac(:,dst) = dustfrac(:,src)
+    dustevol(:,dst) = dustevol(:,src)
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
 
@@ -651,11 +652,11 @@ subroutine copy_particle_all(src,dst)
  twas(dst)      = twas(src)
 #endif
  if (use_dust) then
-    dustfrac(dst)  = dustfrac(src)
-    dustevol(dst)  = dustevol(src)
-    dustpred(dst)  = dustpred(src)
-    ddustfrac(dst) = ddustfrac(src)
-    deltav(:,dst)  = deltav(:,src)
+    dustfrac(:,dst)  = dustfrac(:,src)
+    dustevol(:,dst)  = dustevol(:,src)
+    dustpred(:,dst)  = dustpred(:,src)
+    ddustfrac(:,dst) = ddustfrac(:,src)
+    deltav(:,:,dst)  = deltav(:,:,src)
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
 
@@ -834,8 +835,8 @@ subroutine fill_sendbuf(i,xtemp)
        call fill_buffer(xtemp,iphase(i),nbuf)
     endif
     if (use_dust) then
-       call fill_buffer(xtemp, dustfrac(i),nbuf)
-       call fill_buffer(xtemp, dustevol(i),nbuf)
+       call fill_buffer(xtemp, dustfrac(:,i),nbuf)
+       call fill_buffer(xtemp, dustevol(:,i),nbuf)
     endif
     if (maxp_h2==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)
@@ -903,8 +904,8 @@ subroutine unfill_buffer(ipart,xbuf)
     iphase(ipart)       = nint(unfill_buf(xbuf,j),kind=1)
  endif
  if (use_dust) then
-    dustfrac(ipart)     = unfill_buf(xbuf,j)
-    dustevol(ipart)     = unfill_buf(xbuf,j)
+    dustfrac(:,ipart)   = unfill_buf(xbuf,j,ndusttypes)
+    dustevol(:,ipart)   = unfill_buf(xbuf,j,ndusttypes)
  endif
  if (maxp_h2==maxp) then
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)

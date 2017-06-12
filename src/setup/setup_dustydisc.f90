@@ -440,7 +440,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           call get_d2gratio(idust_to_gas_ratio,ri,iprofilegas,iprofiledust,sigma_naught,&
                             sigma_naughtdust,pindex,pindex_dust,R_c,R_c_dust)
        endif
-       call set_dustfrac(idust_to_gas_ratio,dustfrac(i))
+       call set_dustfrac(idust_to_gas_ratio,dustfrac(:,i))
     enddo
  else
     call set_disc(id,master  = master,             &

@@ -177,13 +177,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
        if (use_dustfrac) then
           if (itype==igas) then
-             dustfrac(i) = dtg/(1. + dtg)
+             dustfrac(:,i) = dtg/(1. + dtg)
+             if (ndusttypes>1) dustfrac(:,i) = dustfrac(:,i)/real(ndusttypes)
           else
-             dustfrac(i) = 0.
+             dustfrac(:,i) = 0.
           endif
        endif
     enddo
-
+    
     npartoftype(itype) = npart - npart_previous
     if (id==master) print*,' npart = ',npart,npart_total
 

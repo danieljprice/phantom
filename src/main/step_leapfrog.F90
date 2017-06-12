@@ -31,7 +31,7 @@
 !+
 !--------------------------------------------------------------------------
 module step_lf_global
- use dim,  only:maxp,maxvxyzu,maxBevol
+ use dim,  only:maxp,maxvxyzu,maxBevol,ndusttypes
  use part, only:vpred,Bpred,dustpred
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -149,7 +149,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
        if (itype==igas) then
           if (mhd)          Bevol(:,i)  = Bevol(:,i) + hdti*dBevol(:,i)
-          if (use_dustfrac) dustevol(i) = abs(dustevol(i) + hdti*ddustfrac(i))
+          if (use_dustfrac) dustevol(:,i) = abs(dustevol(:,i) + hdti*ddustfrac(:,i))
        endif
     endif
  enddo predictor
@@ -189,7 +189,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (itype==iboundary) then
              vpred(:,i) = vxyzu(:,i)
              if (mhd)          Bpred(:,i)  = Bevol (:,i)
-             if (use_dustfrac) dustpred(i) = dustevol(i)
+             if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
              cycle predict_sph
           endif
        endif
@@ -213,9 +213,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (itype==igas) then
           if (mhd)          Bpred(:,i)  = Bevol (:,i) + hdti*dBevol(:,i)
           if (use_dustfrac) then
-             rhoi        = rhoh(xyzh(4,i),pmassi)
-             dustpred(i) = dustevol(i) + hdti*ddustfrac(i)
-             dustfrac(i) = min(dustpred(i)**2/rhoi,1.) ! dustevol = sqrt(rho*eps)
+             rhoi          = rhoh(xyzh(4,i),pmassi)
+             dustpred(:,i) = dustevol(:,i) + hdti*ddustfrac(:,i)
+             dustfrac(:,i) = min(dustpred(:,i)**2/rhoi,1.) ! dustevol = sqrt(rho*eps)
           endif
        endif
        !
@@ -310,7 +310,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
              if (itype==igas) then
                 if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdti*dBevol(:,i)
-                if (use_dustfrac) dustevol(i) = dustevol(i) + hdti*ddustfrac(i)
+                if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdti*ddustfrac(:,i)
              endif
              twas(i) = twas(i) + hdti
           endif
@@ -322,7 +322,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdti*dBevol(:,i)
-             if (use_dustfrac) dustevol(i) = dustevol(i) + hdti*ddustfrac(i)
+             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdti*ddustfrac(:,i)
           endif
 #else
           !
@@ -354,7 +354,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              ! corrector step for magnetic field and dust
              !
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdtsph*dBevol(:,i)
-             if (use_dustfrac) dustevol(i) = dustevol(i) + hdtsph*ddustfrac(i)
+             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdtsph*ddustfrac(:,i)
           endif
 #endif
        endif
@@ -372,19 +372,19 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (iactive(iphase(i))) then
              vpred(:,i) = vxyzu(:,i)
              if (mhd)          Bpred(:,i)  = Bevol(:,i)
-             if (use_dustfrac) dustpred(i) = dustevol(i)
+             if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
           endif
 #else
           vpred(:,i) = vxyzu(:,i)
           if (mhd)          Bpred(:,i)  = Bevol(:,i)
-          if (use_dustfrac) dustpred(i) = dustevol(i)
+          if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
 !
 ! shift v back to the half step
 !
           vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  - hdtsph*dBevol(:,i)
-             if (use_dustfrac) dustevol(i) = dustevol(i) - hdtsph*ddustfrac(i)
+             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) - hdtsph*ddustfrac(:,i)
           endif
 #endif
        enddo

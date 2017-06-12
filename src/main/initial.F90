@@ -482,7 +482,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
              if (ntypes > 1 .and. maxphase==maxp) then
                 pmassi = massoftype(iamtype(iphase(i)))
              endif
-             dustevol(i) = sqrt(rhoh(xyzh(4,i),pmassi)*dustfrac(i))
+             dustevol(:,i) = sqrt(rhoh(xyzh(4,i),pmassi)*dustfrac(:,i))
           endif
        enddo
     endif

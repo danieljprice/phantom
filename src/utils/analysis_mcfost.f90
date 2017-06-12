@@ -52,7 +52,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real    :: mu_gas, factor
  real(kind=4) :: Tdust(npart)
  real    :: grain_size(1)
- integer :: ierr,ntypes,ndusttypes,dustfluidtype,ilen,nlum, i
+ integer :: ierr,ntypes,ndustfluids,dustfluidtype,ilen,nlum, i
  integer(kind=1) :: itype(maxp)
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
  logical :: compute_Frad
@@ -67,7 +67,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  if (.not.init_mcfost) then
     ilen = index(dumpfile,'_')
     mcfost_para_filename = dumpfile(1:ilen-1)//'.para'
-    call init_mcfost_phantom(mcfost_para_filename, ierr) !,  np, nptmass, ntypes, ndusttypes, npoftype)
+    call init_mcfost_phantom(mcfost_para_filename, ierr) !,  np, nptmass, ntypes, ndustfluids, npoftype)
     if (ierr /= 0) call fatal('mcfost-phantom','error in init_mcfost_phantom')
     init_mcfost = .true.
  endif
@@ -79,9 +79,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     itype(:) = 1
  endif
  if (use_dust) then
-    ndusttypes = 1
+    ndustfluids = 1
  else
-    ndusttypes = 0
+    ndustfluids = 0
  endif
  if (npartoftype(idust) > 0) then
     dustfluidtype = 2
@@ -97,13 +97,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  else
     dudt(1:nlum) = vxyzu(4,1:nlum) * massoftype(igas) / dtmax
  endif
- allocate(Frad(3,ndusttypes,npart))
+ allocate(Frad(3,ndustfluids,npart))
 
  factor = 1.0/(temperature_coef*gmw*(gamma-1))
  ! this this the factor needed to compute u^(n+1)/dtmax from temperature
  T_to_u = factor * massoftype(igas) /dtmax
 
- call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
+ call run_mcfost_phantom(npart,nptmass,ntypes,ndustfluids,dustfluidtype,&
    npartoftype,xyzh,vxyzu,itype,grain_size,graindens,dustfrac,massoftype,&
    xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
    Frad,mu_gas,ierr,write_T_files,ISM,T_to_u)

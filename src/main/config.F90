@@ -59,7 +59,28 @@ module dim
  integer, parameter :: maxneigh = maxp
 #endif
 
- ! maxmimum storage in linklist
+!------
+! Dust
+!------
+#ifdef DUST
+ logical, parameter :: use_dust = .true.
+ integer, parameter :: ndustfluids = 1
+#else
+ logical, parameter :: use_dust = .false.
+ integer, parameter :: ndustfluids = 0
+#endif
+
+#ifdef DUSTFRAC
+ logical, parameter :: use_dustfrac = .true.
+ integer, parameter :: maxp_dustfrac = maxp
+ integer, parameter :: ndusttypes = 10
+#else
+ logical, parameter :: use_dustfrac = .false.
+ integer, parameter :: maxp_dustfrac = maxp
+ integer, parameter :: ndusttypes = 1
+#endif
+
+! maxmimum storage in linklist
 #ifdef NCELLSMAX
  integer, parameter :: ncellsmax = NCELLSMAX
 #else
@@ -73,11 +94,16 @@ module dim
  integer, parameter :: maxrhosum = 39
 
  ! fsum
- integer, parameter :: maxfsum = 17
+ integer, parameter :: fsumvars = 17 ! Number of scalars in fsum
+ integer, parameter :: fsumarrs = 5  ! Number of arrays in fsum
+ integer, parameter :: maxfsum  = fsumvars + fsumarrs*(ndusttypes-1) ! Total number of values
 
  ! xpartveci
  integer, parameter :: maxxpartvecidens = 14
- integer, parameter :: maxxpartveciforce = 45
+ 
+ integer, parameter :: xpartvecvars = 45 ! Number of scalars in xpartvec
+ integer, parameter :: xpartvecarrs = 2  ! Number of arrays in xpartvec
+ integer, parameter :: maxxpartveciforce = xpartvecvars + xpartvecarrs*(ndusttypes-1) ! Total number of values
 
  ! cell storage
  integer, parameter :: maxprocs = 32
@@ -182,25 +208,6 @@ module dim
 
 ! viscosity switches, whether done in step or during derivs call
  logical, parameter :: switches_done_in_derivs = .false.
-
-!------
-! Dust
-!------
-#ifdef DUST
- logical, parameter :: use_dust = .true.
- integer, parameter :: ndusttypes = 1
-#else
- logical, parameter :: use_dust = .false.
- integer, parameter :: ndusttypes = 0
-#endif
-
-#ifdef DUSTFRAC
- logical, parameter :: use_dustfrac = .true.
- integer, parameter :: maxp_dustfrac = maxp
-#else
- logical, parameter :: use_dustfrac = .false.
- integer, parameter :: maxp_dustfrac = maxp
-#endif
 
 !--------------------
 ! H2 Chemistry

@@ -375,7 +375,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 ! set up dust
  if (use_dustfrac) then
     do i=1,npart
-       call set_dustfrac(dust_to_gas,dustfrac(i))
+       call set_dustfrac(dust_to_gas,dustfrac(:,i))
     enddo
  endif
 

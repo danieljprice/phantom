@@ -1551,7 +1551,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,n_R,n_electronT
  use io,          only:fatal,real4
  use eos,         only:get_temperature,get_spsound
- use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,mhd_nonideal,use_dust,use_dustfrac
+ use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,mhd_nonideal,use_dust,use_dustfrac,ndusttypes
  use part,        only:maxgradh,idust
  use options,     only:ieos,alpha,alphamax
  use viscosity,   only:bulkvisc,shearparam
@@ -1571,7 +1571,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  real(kind=4),    intent(inout) :: alphaind(:,:)
  real(kind=4),    intent(inout) :: straintensor(:,:)
  real,            intent(in)    :: vxyzu(:,:)
- real,            intent(out)   :: dustfrac(:)
+ real,            intent(out)   :: dustfrac(:,:)
  real,            intent(inout) :: rhomax
  integer(kind=8), intent(inout) :: nneightry
  integer(kind=8), intent(inout) :: nneighact
@@ -1595,7 +1595,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  real         :: divcurlvi(5),rmatrix(6),straini(6)
  real         :: divcurlBi(ndivcurlB)
  real         :: temperaturei
- real         :: rho1i,term,denom,rhodusti
+ real         :: rho1i,term,denom,rhodusti(ndusttypes)
 
  do i = 1,cell%npcell
     lli = cell%ll_position(i)
@@ -1643,7 +1643,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
 #endif
     endif
 
-    rho1i     = 1./rhoi
+    rho1i  = 1./rhoi
     rhomax = max(rhomax,real(rhoi))
     if (use_dust .and. .not. use_dustfrac .and. iamgasi) then
        !
@@ -1651,8 +1651,9 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
        ! and store it in dustfrac as dust-to-gas ratio
        ! so that rho times dustfrac gives dust density
        !
-       rhodusti = cnormk*massoftype(idust)*(rhosum(irhodusti))*hi31
-       dustfrac(i) = rhodusti*rho1i ! dust-to-gas ratio
+       rhodusti(:)   = cnormk*massoftype(idust)*(rhosum(irhodusti))*hi31
+       dustfrac(:,i) = rhodusti(:)*rho1i ! dust-to-gas ratio
+       if (ndusttypes>1) call fatal('dens','2-fluid not compatible with ndusttypes > 1')
     endif
     !
     ! store divv and curl v and related quantities

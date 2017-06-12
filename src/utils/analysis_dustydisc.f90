@@ -34,7 +34,7 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
- use dim,     only:use_dustfrac,maxp
+ use dim,     only:use_dustfrac,maxp,ndusttypes
  use io,      only:fatal
  use physcon, only:pi,jupiterm,years,au
  use part,    only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac,maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass
@@ -54,10 +54,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
  real :: angtot,Ltot,tilt,dtwist
  real :: Li(3)
  real :: rad(nr),Lx(nr),Ly(nr),Lz(nr),h_smooth(nr),sigma(nr),cs(nr),H(nr),omega(nr),St(nr)
- real :: zsettlgas(npartoftype(igas),nr),hgas(nr),meanzgas(nr),dustfracsum(nr),dust_fraction(nr)
+ real :: zsettlgas(npartoftype(igas),nr),hgas(nr),meanzgas(nr)
+ real :: dustfracsum(ndusttypes,nr),dust_fraction(ndusttypes,nr)
  real :: unitlx(nr),unitly(nr),unitlz(nr),tp(nr)
  real :: sigmadust(nr),zsettldust(npartoftype(idust),nr),hdust(nr),meanzdust(nr)
- real :: psi_x,psi_y,psi_z,psi,Mdust,Mgas,Mtot,Macc,pmassi,dustfraci,rho_grain,r_grain
+ real :: psi_x,psi_y,psi_z,psi,Mdust,Mgas,Mtot,Macc,pmassi,rho_grain,r_grain
+ real :: dustfraci(ndusttypes),dustfracisum
  real, save :: Mtot_in,Mgas_in,Mdust_in
  integer :: itype,lu
  logical, save :: init = .false.
@@ -148,8 +150,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
  lz(:)=0.0
  h_smooth(:)=0.0
  sigma(:)=0.0
- dustfracsum(:)=0.0
- dust_fraction(:)=0.0
+ dustfracsum(:,:)=0.0
+ dust_fraction(:,:)=0.0
  sigmadust(:)=0.0
  ninbindust(:)=0
  hgas(:)=0.0
@@ -199,7 +201,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
  Mdust = 0.
  Macc  = 0.
  pmassi    = massoftype(igas)
- dustfraci = 0.
+ dustfraci(:) = 0.
  do i = 1,npart
     if (maxphase==maxp) then
        itype = iamtype(iphase(i))
@@ -207,9 +209,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
     endif
     Mtot = Mtot + pmassi
     if (xyzh(4,i)  >  tiny(xyzh)) then
-       if (use_dustfrac) dustfraci = dustfrac(i)
-       Mgas  = Mgas  + pmassi*(1. - dustfraci)
-       Mdust = Mdust + pmassi*dustfraci
+       if (use_dustfrac) dustfraci(:) = dustfrac(:,i)
+       dustfracisum = sum(dustfraci)
+       Mgas  = Mgas  + pmassi*(1. - dustfracisum)
+       Mdust = Mdust + pmassi*dustfracisum
     else
        Macc  = Macc + pmassi
     endif
@@ -240,7 +243,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
           ninbin(ii) = ninbin(ii) + 1
           zsettlgas(ninbin(ii),ii)=xyzh(3,i)
           if (use_dustfrac) then
-             dustfracsum(ii) = dustfracsum(ii) + dustfrac(i)
+             dustfracsum(:,ii) = dustfracsum(:,ii) + dustfrac(:,i)
           endif
 
        elseif(iphase(i)==idust) then
@@ -284,7 +287,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
     if(ninbin(i)>1)then
        meanzgas(i)=sum(zsettlgas(1:ninbin(i),i))/real(ninbin(i))
        hgas(i)=sqrt(sum(((zsettlgas(1:ninbin(i),i)-meanzgas(i))**2)/(real(ninbin(i)-1))))
-       if (use_dustfrac) dust_fraction(i)=dustfracsum(i)/real(ninbin(i))
+       if (use_dustfrac) dust_fraction(:,i)=dustfracsum(:,i)/real(ninbin(i))
     endif
     if(ninbindust(i)>1)then
        meanzdust(i)=sum(zsettldust(1:ninbindust(i),i))/real(ninbindust(i))
@@ -423,7 +426,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
     if (npartoftype(idust)==0)then
        if (ninbin(i) > 0) then
           if (use_dustfrac) then
-             write(iunit,'(13(es18.10,1X))') rad(i),sigma(i)*(1.-dust_fraction(i)),sigma(i)*dust_fraction(i),h_smooth(i),&
+             write(iunit,'(13(es18.10,1X))') rad(i),sigma(i)*(1.-sum(dust_fraction(:,i))),sigma(i)*sum(dust_fraction(:,i)),h_smooth(i),&
                                        unitlx(i),unitly(i),unitlz(i),tilt,twist(i),psi,H(i)/rad(i),hgas(i)/rad(i),St(i)
           else
              write(iunit,'(12(es18.10,1X))') rad(i),sigma(i),h_smooth(i),unitlx(i),unitly(i),unitlz(i),&

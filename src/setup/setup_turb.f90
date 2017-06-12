@@ -149,7 +149,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        Bevol(3,i) = 1.4142e-5
     endif
     if (use_dustfrac) then
-       call set_dustfrac(dust_to_gas,dustfrac(i))
+       call set_dustfrac(dust_to_gas,dustfrac(:,i))
     endif
  enddo
 
