@@ -37,8 +37,8 @@ contains
 !-------------------------------------------------------------------
 subroutine check_compile_time_settings(ierr)
  use part,  only:mhd,maxBevol,gravity,ngradh,h2chemistry,maxvxyzu,use_dust,gr
+ use io,    only:error,id,master,fatal
  use dim,   only:maxsts,maxstrain
- use io,    only:error,fatal
 #ifdef GR
  use metric_tools, only:coordinate_sys
 #endif
@@ -51,19 +51,19 @@ subroutine check_compile_time_settings(ierr)
 !
 #ifdef MHD
  if (.not.mhd) then
-    call error(string,'-DMHD but mhd=.false.')
+    if (id==master) call error(string,'-DMHD but mhd=.false.')
     ierr = 1
  endif
 #endif
  if (mhd) then
     if (maxBevol < 3 .or. maxBevol > 4) then
-       call error(string,'must have maxBevol=3 (no cleaning) or maxBevol=4 (cleaning)')
+       if (id==master) call error(string,'must have maxBevol=3 (no cleaning) or maxBevol=4 (cleaning)')
        ierr = 1
     endif
  endif
 #ifdef NONIDEALMHD
  if (.not.mhd) then
-    call error(string,'-DNONIDEALMHD requires -DMHD')
+    if (id==master) call error(string,'-DNONIDEALMHD requires -DMHD')
     ierr = 1
  endif
 #endif
@@ -73,34 +73,34 @@ subroutine check_compile_time_settings(ierr)
 #endif
  if (gravity) then
     if (ngradh < 2) then
-       call error(string,'gravity requires ngradh=2 for gradsoft storage')
+       if (id==master) call error(string,'gravity requires ngradh=2 for gradsoft storage')
        ierr = 2
     endif
  endif
  if (h2chemistry) then
     if (maxvxyzu /= 4) then
-       call error(string,'must store thermal energy (maxvxyzu=4 in dim file) if using H2 chemistry')
+       if (id==master) call error(string,'must store thermal energy (maxvxyzu=4 in dim file) if using H2 chemistry')
        ierr = 3
     endif
  endif
 
 #ifdef DISC_VISCOSITY
 #ifdef CONST_AV
- call error(string,'should not use both -DCONST_AV and -DDISC_VISCOSITY')
+ if (id==master) call error(string,'should not use both -DCONST_AV and -DDISC_VISCOSITY')
  ierr = 4
 #endif
 #endif
 
 #ifdef DUSTFRAC
 #ifndef DUST
- call error(string,'-DDUSTFRAC requires -DDUST')
+ if (id==master) call error(string,'-DDUSTFRAC requires -DDUST')
  ierr = 5
 #endif
 #endif
 
 #ifdef DUSTFRAC
 #ifdef MHD
- call error(string,'-DDUSTFRAC currently not compatible with magnetic fields (-DMHD)')
+ if (id==master) call error(string,'-DDUSTFRAC currently not compatible with magnetic fields (-DMHD)')
 #endif
 #endif
 

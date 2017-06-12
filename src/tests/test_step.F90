@@ -18,9 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: balance, boundary, dim, domain, eos, io, mpiutils,
-!    options, part, physcon, step_lf_global, testutils, timestep, timing,
-!    unifdis, viscosity
+!  DEPENDENCIES: boundary, dim, eos, io, mpiutils, options, part, physcon,
+!    step_lf_global, testutils, timestep, timing, unifdis, viscosity
 !+
 !--------------------------------------------------------------------------
 module teststep
@@ -68,7 +67,7 @@ subroutine test_step(ntests,npass)
 
  npartoftype(:) = 0
  npartoftype(1) = npart
- print*,' thread ',id,' npart = ',npart
+ !print*,' thread ',id,' npart = ',npart
  iverbose = 0
 
  if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)

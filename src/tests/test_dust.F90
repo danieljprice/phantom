@@ -23,8 +23,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, deriv, dim, dust, energies, eos, io, kernel,
-!    options, part, physcon, step_lf_global, testutils, timestep, unifdis,
-!    units
+!    mpiutils, options, part, physcon, step_lf_global, testutils, timestep,
+!    unifdis, units
 !+
 !--------------------------------------------------------------------------
 module testdust
@@ -240,7 +240,7 @@ end subroutine test_dustybox
 !+
 !----------------------------------------------------
 subroutine test_dustydiffuse(ntests,npass)
- use dim,       only:use_dustfrac,maxp,periodic,maxtypes
+ use dim,       only:use_dustfrac,maxp,periodic,maxtypes,mhd
  use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac,dustevol, &
                      xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,set_particle_type,rhoh
  use kernel,    only:hfact_default
@@ -288,6 +288,7 @@ subroutine test_dustydiffuse(ntests,npass)
  npartoftypetot(igas) = reduceall_mpi('+',npartoftype(igas))
  massoftype(igas)  = totmass/npartoftypetot(igas)
  vxyzu = 0.
+ if (mhd) Bevol = 0.
  !
  ! runtime options
  !

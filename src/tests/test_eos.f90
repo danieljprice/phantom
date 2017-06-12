@@ -37,7 +37,7 @@ subroutine test_eos(ntests,npass)
  use units,     only:unit_density,set_units
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(maxeos),ncheck(maxeos)
- integer :: i,maxpts,ierr,ieos
+ integer :: i,maxpts,ierr,ieos,ierrmax
  real    :: rhoi,xi,yi,zi,ponrhoi,spsoundi,ponrhoprev,spsoundprev
  real    :: errmax
  character(len=20) :: pdir
@@ -79,7 +79,8 @@ subroutine test_eos(ntests,npass)
     ponrhoprev = ponrhoi
     spsoundprev = spsoundi
  enddo
- call checkvalbuf_end('p/rho is continuous',ncheck(1),nfailed(1),0,0,maxpts)
+ ierrmax = 0
+ call checkvalbuf_end('p/rho is continuous',ncheck(1),nfailed(1),ierrmax,0,maxpts)
  !call checkvalbuf_end('cs is continuous',ncheck(2),nfailed(2),0,0,maxpts)
  ntests = ntests + 1
  if (nfailed(1)==0) npass = npass + 1

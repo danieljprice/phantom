@@ -261,7 +261,7 @@ subroutine test_gravity(ntests,npass,string)
           call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh)
           !print*,' using npart = ',npart
           np       = npart
-          iverbose = 5
+          !iverbose = 5
 !
 !--set particle properties
 !
