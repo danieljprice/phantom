@@ -69,7 +69,7 @@ subroutine test_derivs(ntests,npass,string)
  character(len=*), intent(in)    :: string
  real                   :: psep,time,hzero,totmass
 #ifdef IND_TIMESTEPS
- integer                :: itest,ierr,ierr2,nptest,nptesttot
+ integer                :: itest,ierr,ierr2,nptest
  real                   :: fracactive,speedup
  real(kind=4)           :: tallactive
  real,         allocatable :: fxyzstore(:,:),dBdtstore(:,:)
