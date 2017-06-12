@@ -2548,6 +2548,9 @@ test:
 test2:
 	${MAKE} SETUP=test2 && $(MPIEXEC) $(BINDIR)/phantom test
 
+testkd:
+	${MAKE} SETUP=testkd && $(MPIEXEC) $(BINDIR)/phantom test
+
 testcyl:
 	${MAKE} SETUP=testcyl && $(MPIEXEC) $(BINDIR)/phantom test
 
