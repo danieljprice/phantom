@@ -299,7 +299,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
                  alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
                  nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,&
                  maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,maxvecp,maxBevol,&
-                 divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,pxyzu,pxyzu_label
+                 divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,pxyzu,pxyzu_label,dens
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
@@ -436,7 +436,10 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(4))
        if (use_dust)     call write_array(1,dustfrac,'dustfrac',npart,k,ipass,idump,nums,ierrs(5))
        if (use_dustfrac) call write_array(1,deltav,deltav_label,3,npart,k,ipass,idump,nums,ierrs(6))
-       if (gr)           call write_array(1,pxyzu,pxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(7))
+       if (gr) then
+          call write_array(1,pxyzu,pxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(7))
+          call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,ierrs(7))
+       endif
 
        ! write pressure to file
        if ((ieos==8 .or. ieos==9 .or. ieos==10) .and. k==i_real) then
