@@ -142,6 +142,10 @@ subroutine check_compile_time_settings(ierr)
     call error(string,'-DGR but gr=.false.')
     ierr = 13
  endif
+#ifdef DISC_VISCOSITY
+ call error(string,'General relativity not compatible with disc viscosity.')
+ ierr = 14
+#endif
 #endif
 
  return
