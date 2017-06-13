@@ -494,7 +494,7 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
     !--Sod shock
     shocktype = "Relativistic Sod shock"
     gamma      = 5./3.
-    alphau     = 0.
+    alphau     = 0.1
     leftstate  = (/10.0,40./3.,0.,0.,0.,0.,0.,0./)
     rightstate = (/1.00,1.e-6 ,0.,0.,0.,0.,0.,0./)
     if (maxvxyzu < 4) call fatal('setup','Sod shock tube requires ISOTHERMAL=no')

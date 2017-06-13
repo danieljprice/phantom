@@ -864,8 +864,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: densi,densj,eni
  real    :: vxi,vyi,vzi,vxj,vyj,vzj
 #ifdef GR
- real    :: projvi,projvj,lorentzi_star,lorentzj_star,dpdtdiss,dlorentzv
+ real    :: projvi,projvj,lorentzi_star,lorentzj_star,dlorentzv
  real    :: enthi,enthj,qrho2i,qrho2j
+ real    :: lorentzi,lorentzj,v2i,v2j
 #endif
 
  ! unpack
@@ -1238,19 +1239,19 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !   with beta viscosity only applied to approaching pairs)
           !
           if (projv < 0.) then
-             gradpi = pmassj*(pro2i - 0.5*rho1i*(alphai*spsoundi - beta*projv)*hi*rij1*projv)*grkerni
-             if (usej) gradpj = pmassj*(pro2j - 0.5*rho1j*(alphaj*spsoundj - beta*projv)*hj*rij1*projv)*grkernj
+             qrho2i = - 0.5*rho1i*(alphai*spsoundi - beta*projv)*hi*rij1*projv
+             if (usej) qrho2j = - 0.5*rho1j*(alphaj*spsoundj - beta*projv)*hj*rij1*projv
           else
-             gradpi = pmassj*(pro2i - 0.5*rho1i*alphai*spsoundi*hi*rij1*projv)*grkerni
-             if (usej) gradpj = pmassj*(pro2j - 0.5*rho1j*alphaj*spsoundj*hj*rij1*projv)*grkernj
+             qrho2i = - 0.5*rho1i*alphai*spsoundi*hi*rij1*projv
+             if (usej) qrho2j = - 0.5*rho1j*alphaj*spsoundj*hj*rij1*projv
           endif
-          dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*hi*rij1*projv**2*grkerni
-#else
-          if (projv < 0.) then
-             !--add av term to pressure
-             gradpi = pmassj*(pro2i - 0.5*rho1i*vsigavi*projv)*grkerni
-             if (usej) gradpj = pmassj*(pro2j - 0.5*rho1j*vsigavj*projv)*grkernj
+#endif
 
+          qrho2i = 0.
+          qrho2j = 0.
+          lorentzi = 1.
+
+          if (projv < 0.) then
 #ifdef GR
             !  call get_metric3plus1()
              enthi  = 1.+eni+pri/densi
@@ -1260,20 +1261,23 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              lorentzi_star = 1./sqrt(1.-projvi**2)
              lorentzj_star = 1./sqrt(1.-projvj**2)
              dlorentzv = lorentzi_star*projvi - lorentzj_star*projvj
+            !  vsigavi = 1.
+            !  vsigavj = 1.
              qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv
-             qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv
-             dpdtdiss = pmassj*(qrho2i*grkerni + qrho2j*grkernj)
-             gradpi = pmassj*(pro2i + qrho2i)*grkerni
-             if (usej) gradpj = pmassj*(pro2j +qrho2j)*grkernj
+             if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv
+#else
+             qrho2i = - 0.5*rho1i*vsigavi*projv
+             if (usej) qrho2j = - 0.5*rho1j*vsigavj*projv
 #endif
-             !--energy conservation from artificial viscosity (don't need j term)
-             dudtdissi = -0.5*pmassj*rho1i*vsigavi*projv**2*grkerni
-          else
-             gradpi = pmassj*pro2i*grkerni
-             if (usej) gradpj = pmassj*pro2j*grkernj
-             dudtdissi = 0.
           endif
-#endif
+
+          !--add av term to pressure
+          gradpi = pmassj*(pro2i + qrho2i)*grkerni
+          if (usej) gradpj = pmassj*(pro2j + qrho2j)*grkernj
+
+          !--energy conservation from artificial viscosity (don't need j term)
+          dudtdissi = pmassj*qrho2i*projv*grkerni
+
           !--artificial thermal conductivity (need j term)
           if (maxvxyzu >= 4) then
              if (gravity) then
@@ -1282,7 +1286,16 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 rhoav1 = 2./(rhoi + rhoj)
                 vsigu = sqrt(abs(pri - prj)*rhoav1)  !abs(projv) !sqrt(abs(denij))
              endif
+#ifdef GR
+             v2i = vxi*vxi + vyi*vyi + vzi*vzi
+             v2j = vxj*vxj + vyj*vyj + vzj*vzj
+             lorentzi = 1./sqrt(1.-v2i)
+             lorentzj = 1./sqrt(1.-v2j)
+             denij = eni/lorentzi - enj/lorentzj
+             dendissterm = denij*(auterm*vsigavi*grkerni + autermj*vsigavj*grkernj)
+#else
              dendissterm = vsigu*denij*(auterm*grkerni + autermj*grkernj)
+#endif
           endif
 
           if (mhd) then
@@ -2150,7 +2163,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 #endif
 
  integer               :: ip,i
- real                  :: densi
+ real                  :: densi, vxi,vyi,vzi,lorentzi
 
  realviscosity = (irealvisc > 0)
 
@@ -2188,6 +2201,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
     spsoundi   = xpartveci(ispsoundi)
     vsigmax    = cell%vsigmax(ip)
     dtdrag     = cell%dtdrag(ip)
+
+    vxi = xpartveci(ivxi)
+    vyi = xpartveci(ivyi)
+    vzi = xpartveci(ivzi)
+
+    lorentzi = 1.
+    if (gr) lorentzi = 1./sqrt(1.-(vxi*vxi + vyi*vyi + vzi*vzi))
 
     if (iamgasi) then
        rhoi    = xpartveci(irhoi)
@@ -2299,11 +2319,15 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
           endif
           fxyz4 = 0.
           if (use_entropy .or. gr) then
+             densi = xpartveci(idensGRi)
              if (gr .and. ishock_heating > 0) then
-                densi = xpartveci(idensGRi)
-                fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*fsum(idudtdissi)
+                fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*lorentzi*fsum(idudtdissi)
              else if (ishock_heating > 0) then
                 fxyz4 = fxyz4 + (gamma - 1.)*rhogasi**(1.-gamma)*fsum(idudtdissi)
+             endif
+             ! add conductivity for GR
+             if (gr) then
+                fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*lorentzi*fsum(idendtdissi)
              endif
           else
              fac = rhoi/rhogasi
