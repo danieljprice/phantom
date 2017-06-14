@@ -865,9 +865,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: vxi,vyi,vzi,vxj,vyj,vzj
 #ifdef GR
  real    :: projvi,projvj,lorentzi_star,lorentzj_star,dlorentzv
- real    :: enthi,enthj,qrho2i,qrho2j
+ real    :: enthi,enthj
  real    :: lorentzi,lorentzj,v2i,v2j
 #endif
+ real    :: qrho2i,qrho2j
 
  ! unpack
  vwavei        = xpartveci(ivwavei)
@@ -1249,7 +1250,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
           qrho2i = 0.
           qrho2j = 0.
-          lorentzi = 1.
 
           if (projv < 0.) then
 #ifdef GR
@@ -1804,7 +1804,9 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
           Bzi = Bevol(3,i)
        endif
 
+#ifdef GR
        densi = dens(i)
+#endif
 
        !
        ! calculate terms required in the force evaluation
