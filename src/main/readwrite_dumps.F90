@@ -1537,7 +1537,9 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
     ntypesinfile = 5
  endif
  call extract('nparttot',nparttot,hdr,ierr1)
- call extract('npartoftype',npartoftypetot(1:ntypesinfile),hdr,ierr1)
+ if (nblocks > 1) then
+    call extract('npartoftype',npartoftype(1:ntypesinfile),hdr,ierr1)
+ endif
  if (id==master) write(*,*) 'npart(total) = ',nparttot
 
 !--default real
