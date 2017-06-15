@@ -137,10 +137,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use mpiutils,  only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
 #ifdef MPI
  use linklist,  only:update_hmax_remote
- use stack,     only:reserve_stack
- use stack,     only:stack_remote => dens_stack_remote
- use stack,     only:stack_waiting => dens_stack_waiting
- use stack,     only:stack_redo => dens_stack_redo
+ use stack,     only:reserve_stack,swap_stacks
+ use stack,     only:stack_remote => dens_stack_1
+ use stack,     only:stack_waiting => dens_stack_2
+ use stack,     only:stack_redo => dens_stack_3
  use mpiderivs, only:send_cell,recv_cells,check_send_finished,init_cell_exchange,finish_cell_exchange,recv_while_wait
 #endif
  use timestep,  only:rho_dtthresh,mod_dtmax,mod_dtmax_now
@@ -492,9 +492,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp single
     if (reduceall_mpi('max',stack_redo%n) > 0) then
        if (stack_redo%n > 0) then
-          stack_waiting%cells(1:stack_redo%n) = stack_redo%cells(1:stack_redo%n)
-          stack_waiting%maxlength = stack_redo%maxlength
-          stack_waiting%n = stack_redo%n
+          call swap_stacks(stack_waiting, stack_redo)
        endif
     else
        iterations_finished = .true.
