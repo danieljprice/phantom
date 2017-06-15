@@ -354,7 +354,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
        xmaxpart = max(xmaxpart,xi)
        ymaxpart = max(ymaxpart,yi)
        zmaxpart = max(zmaxpart,zi)
-#endif
+
        xyzh_flip(nproot,:) = xyzh(:,i)
        iphase_flip(nproot) = iphase(i)
     endif isnotdead
@@ -367,7 +367,6 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
     inoderange(:,irootnode) = 0
  endif
 
-#ifdef PERIODIC
  if (ndim==2) then
     xmini(:) = (/xminpart,yminpart/)
     xmaxi(:) = (/xmaxpart,ymaxpart/)
