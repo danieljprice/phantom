@@ -1556,7 +1556,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  use linklist,    only:set_hmaxcell
  use kernel,      only:radkern
 
- use part,        only:xyzh_flip
+ use part,        only:xyzh_soa
  use kdtree,      only:inoderange,inodeparts
 
  type(celldens),  intent(in)    :: cell
@@ -1634,7 +1634,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
     !--store final results of density iteration
     !
     xyzh(4,lli) = hrho(rhoi,pmassi)
-    xyzh_flip(cell%arr_index(i),4) = xyzh(4,lli)
+    xyzh_soa(cell%arr_index(i),4) = xyzh(4,lli)
 
     if (xyzh(4,lli) < 0.) call fatal('densityiterate','setting negative h from hrho',i,var='rhoi',val=real(rhoi))
 

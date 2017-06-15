@@ -47,7 +47,7 @@ subroutine test_link(ntests,npass)
  use linklist, only:dcellx,dcelly,dcellz
 #endif
  use boundary, only:dxbound
- use part,            only:isdead_or_accreted,iphase_flip
+ use part,            only:isdead_or_accreted,iphase_soa
  use kdtree,   only:inodeparts,inoderange
  integer, intent(inout) :: ntests,npass
  real                   :: psep,hzero,totmass,dxboundp,dyboundp,dzboundp
@@ -196,7 +196,7 @@ subroutine test_link(ntests,npass)
           not_empty: if (ifirstincell(icell) /= 0) then
              do i = inoderange(1,icell), inoderange(2,icell)
                 npartincell = npartincell + 1
-                iactivei = iactive(iphase_flip(i))
+                iactivei = iactive(iphase_soa(i))
                 if (iactivei) hasactive = .true.
                 if (.not.activecell) then
                    call checkvalbuf(iactivei,.false.,'inactive cell contains active particle',nfail1,ncheck1)

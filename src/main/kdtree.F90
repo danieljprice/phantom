@@ -28,7 +28,7 @@ module kdtree
  use dim,         only:maxp,ncellsmax,minpart
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
- use part,        only:ll,iphase,xyzh_flip,iphase_flip,maxphase
+ use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase
 
  implicit none
 
@@ -355,8 +355,8 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
        ymaxpart = max(ymaxpart,yi)
        zmaxpart = max(zmaxpart,zi)
 
-       xyzh_flip(nproot,:) = xyzh(:,i)
-       iphase_flip(nproot) = iphase(i)
+       xyzh_soa(nproot,:) = xyzh(:,i)
+       iphase_soa(nproot) = iphase(i)
     endif isnotdead
  enddo
 
@@ -513,17 +513,17 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  if (npnode > 1000 .and. doparallel) then
     !$omp parallel do schedule(static) default(none) &
     !$omp shared(npnode,list,xyzh,x0,iphase,massoftype,dfac) &
-    !$omp shared(xyzh_flip,inoderange,nnode,iphase_flip) &
+    !$omp shared(xyzh_soa,inoderange,nnode,iphase_soa) &
     !$omp private(i,ipart,xi,yi,zi,hi,dx,dy,dz,dr2) &
     !$omp firstprivate(pmassi,fac) &
     !$omp reduction(+:xcofm,ycofm,zcofm,totmass_node) &
     !$omp reduction(max:r2max) &
     !$omp reduction(max:hmax)
     do i=1,npnode
-       xi = xyzh_flip(inoderange(1,nnode)+i-1,1)
-       yi = xyzh_flip(inoderange(1,nnode)+i-1,2)
-       zi = xyzh_flip(inoderange(1,nnode)+i-1,3)
-       hi = xyzh_flip(inoderange(1,nnode)+i-1,4)
+       xi = xyzh_soa(inoderange(1,nnode)+i-1,1)
+       yi = xyzh_soa(inoderange(1,nnode)+i-1,2)
+       zi = xyzh_soa(inoderange(1,nnode)+i-1,3)
+       hi = xyzh_soa(inoderange(1,nnode)+i-1,4)
 
        dx    = xi - x0(1)
        dy    = yi - x0(2)
@@ -536,7 +536,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        r2max = max(r2max,dr2)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase_flip(inoderange(1,nnode)+i-1)))
+          pmassi = massoftype(iamtype(iphase_soa(inoderange(1,nnode)+i-1)))
           fac    = pmassi*dfac ! to avoid round-off error
        endif
        totmass_node = totmass_node + pmassi
@@ -547,10 +547,10 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     !$omp end parallel do
  else
     do i=1,npnode
-       xi = xyzh_flip(inoderange(1,nnode)+i-1,1)
-       yi = xyzh_flip(inoderange(1,nnode)+i-1,2)
-       zi = xyzh_flip(inoderange(1,nnode)+i-1,3)
-       hi = xyzh_flip(inoderange(1,nnode)+i-1,4)
+       xi = xyzh_soa(inoderange(1,nnode)+i-1,1)
+       yi = xyzh_soa(inoderange(1,nnode)+i-1,2)
+       zi = xyzh_soa(inoderange(1,nnode)+i-1,3)
+       hi = xyzh_soa(inoderange(1,nnode)+i-1,4)
 
        dx    = xi - x0(1)
        dy    = yi - x0(2)
@@ -563,7 +563,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        r2max = max(r2max,dr2)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase_flip(inoderange(1,nnode)+i-1)))
+          pmassi = massoftype(iamtype(iphase_soa(inoderange(1,nnode)+i-1)))
           fac    = pmassi*dfac ! to avoid round-off error
        endif
        totmass_node = totmass_node + pmassi
@@ -604,10 +604,10 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 
  !--recompute size of node
  do i=1,npnode
-    xi = xyzh_flip(inoderange(1,nnode)+i-1,1)
-    yi = xyzh_flip(inoderange(1,nnode)+i-1,2)
-    zi = xyzh_flip(inoderange(1,nnode)+i-1,3)
-    hi = xyzh_flip(inoderange(1,nnode)+i-1,4)
+    xi = xyzh_soa(inoderange(1,nnode)+i-1,1)
+    yi = xyzh_soa(inoderange(1,nnode)+i-1,2)
+    zi = xyzh_soa(inoderange(1,nnode)+i-1,3)
+    hi = xyzh_soa(inoderange(1,nnode)+i-1,4)
 
     dx    = xi - x0(1)
     dy    = yi - x0(2)
@@ -620,7 +620,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     r2max = max(r2max,dr2)
 #ifdef GRAVITY
     if (maxphase==maxp) then
-       pmassi = massoftype(iamtype(iphase_flip(inoderange(1,nnode)+i-1)))
+       pmassi = massoftype(iamtype(iphase_soa(inoderange(1,nnode)+i-1)))
     endif
     quads(1) = quads(1) + pmassi*(3.*dx*dx - dr2)
     quads(2) = quads(2) + pmassi*(3.*dx*dy)
@@ -726,19 +726,19 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     nl = inoderange(1,nnode)
     nr = inoderange(2,nnode)
     inodeparts_swap(nl:nr) = inodeparts(nl:nr)
-    xyzh_swap(nl:nr,:) = xyzh_flip(nl:nr,:)
-    iphase_swap(nl:nr) = iphase_flip(nl:nr)
+    xyzh_swap(nl:nr,:) = xyzh_soa(nl:nr,:)
+    iphase_swap(nl:nr) = iphase_soa(nl:nr)
     counterl = 0
     !DIR$ ivdep
     do i = inoderange(1,nnode), inoderange(2,nnode)
        xi = xyzh_swap(i,iaxis)
        if (xi  <=  xpivot) then
           inodeparts(nl+counterl) = inodeparts_swap(i)
-          xyzh_flip(nl+counterl,1) = xyzh_swap(i,1)
-          xyzh_flip(nl+counterl,2) = xyzh_swap(i,2)
-          xyzh_flip(nl+counterl,3) = xyzh_swap(i,3)
-          xyzh_flip(nl+counterl,4) = xyzh_swap(i,4)
-          iphase_flip(nl+counterl) = iphase_swap(i)
+          xyzh_soa(nl+counterl,1) = xyzh_swap(i,1)
+          xyzh_soa(nl+counterl,2) = xyzh_swap(i,2)
+          xyzh_soa(nl+counterl,3) = xyzh_swap(i,3)
+          xyzh_soa(nl+counterl,4) = xyzh_swap(i,4)
+          iphase_soa(nl+counterl) = iphase_swap(i)
           counterl = counterl + 1
        endif
     enddo
@@ -749,11 +749,11 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        xi = xyzh_swap(i,iaxis)
        if (xi  >  xpivot) then
           inodeparts(nl+counterr) = inodeparts_swap(i)
-          xyzh_flip(nl+counterr,1) = xyzh_swap(i,1)
-          xyzh_flip(nl+counterr,2) = xyzh_swap(i,2)
-          xyzh_flip(nl+counterr,3) = xyzh_swap(i,3)
-          xyzh_flip(nl+counterr,4) = xyzh_swap(i,4)
-          iphase_flip(nl+counterr) = iphase_swap(i)
+          xyzh_soa(nl+counterr,1) = xyzh_swap(i,1)
+          xyzh_soa(nl+counterr,2) = xyzh_swap(i,2)
+          xyzh_soa(nl+counterr,3) = xyzh_swap(i,3)
+          xyzh_soa(nl+counterr,4) = xyzh_swap(i,4)
+          iphase_soa(nl+counterr) = iphase_swap(i)
           counterr = counterr + 1
        endif
     enddo
@@ -781,18 +781,18 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
       inoderange(2,ir) = inoderange(2,nnode)
     endif
 
-    xminl(1) = minval(xyzh_flip(inoderange(1,il):inoderange(2,il),1))
-    xminl(2) = minval(xyzh_flip(inoderange(1,il):inoderange(2,il),2))
-    xminl(3) = minval(xyzh_flip(inoderange(1,il):inoderange(2,il),3))
-    xmaxl(1) = maxval(xyzh_flip(inoderange(1,il):inoderange(2,il),1))
-    xmaxl(2) = maxval(xyzh_flip(inoderange(1,il):inoderange(2,il),2))
-    xmaxl(3) = maxval(xyzh_flip(inoderange(1,il):inoderange(2,il),3))
-    xminr(1) = minval(xyzh_flip(inoderange(1,ir):inoderange(2,ir),1))
-    xminr(2) = minval(xyzh_flip(inoderange(1,ir):inoderange(2,ir),2))
-    xminr(3) = minval(xyzh_flip(inoderange(1,ir):inoderange(2,ir),3))
-    xmaxr(1) = maxval(xyzh_flip(inoderange(1,ir):inoderange(2,ir),1))
-    xmaxr(2) = maxval(xyzh_flip(inoderange(1,ir):inoderange(2,ir),2))
-    xmaxr(3) = maxval(xyzh_flip(inoderange(1,ir):inoderange(2,ir),3))
+    xminl(1) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),1))
+    xminl(2) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),2))
+    xminl(3) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),3))
+    xmaxl(1) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),1))
+    xmaxl(2) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),2))
+    xmaxl(3) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),3))
+    xminr(1) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),1))
+    xminr(2) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),2))
+    xminr(3) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),3))
+    xmaxr(1) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),1))
+    xmaxr(2) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),2))
+    xmaxr(3) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),3))
 
  endif
 
@@ -919,34 +919,34 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
                  if (maxcache >= 4) then
                    do ipart=1,npnode
                     listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
-                    xyzcache(nneigh+ipart,1) = xyzh_flip(inoderange(1,n)+ipart-1,1) + xoffset
-                    xyzcache(nneigh+ipart,2) = xyzh_flip(inoderange(1,n)+ipart-1,2) + yoffset
-                    xyzcache(nneigh+ipart,3) = xyzh_flip(inoderange(1,n)+ipart-1,3) + zoffset
-                    xyzcache(nneigh+ipart,4) = 1./xyzh_flip(inoderange(1,n)+ipart-1,4)
+                    xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
+                    xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
+                    xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
+                    xyzcache(nneigh+ipart,4) = 1./xyzh_soa(inoderange(1,n)+ipart-1,4)
                   enddo
                  else
                    do ipart=1,npnode
                     listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
-                    xyzcache(nneigh+ipart,1) = xyzh_flip(inoderange(1,n)+ipart-1,1) + xoffset
-                    xyzcache(nneigh+ipart,2) = xyzh_flip(inoderange(1,n)+ipart-1,2) + yoffset
-                    xyzcache(nneigh+ipart,3) = xyzh_flip(inoderange(1,n)+ipart-1,3) + zoffset
+                    xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
+                    xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
+                    xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
                    enddo
                  endif
              elseif (nneigh < ixyzcachesize) then
                 if (maxcache >= 4) then
                    do ipart=1,ixyzcachesize-nneigh
                       listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
-                      xyzcache(nneigh+ipart,1) = xyzh_flip(inoderange(1,n)+ipart-1,1) + xoffset
-                      xyzcache(nneigh+ipart,2) = xyzh_flip(inoderange(1,n)+ipart-1,2) + yoffset
-                      xyzcache(nneigh+ipart,3) = xyzh_flip(inoderange(1,n)+ipart-1,3) + zoffset
-                      xyzcache(nneigh+ipart,4) = 1./xyzh_flip(inoderange(1,n)+ipart-1,4)
+                      xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
+                      xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
+                      xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
+                      xyzcache(nneigh+ipart,4) = 1./xyzh_soa(inoderange(1,n)+ipart-1,4)
                    enddo
                 else
                    do ipart=1,ixyzcachesize-nneigh
                       listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
-                      xyzcache(nneigh+ipart,1) = xyzh_flip(inoderange(1,n)+ipart-1,1) + xoffset
-                      xyzcache(nneigh+ipart,2) = xyzh_flip(inoderange(1,n)+ipart-1,2) + yoffset
-                      xyzcache(nneigh+ipart,3) = xyzh_flip(inoderange(1,n)+ipart-1,3) + zoffset
+                      xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
+                      xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
+                      xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
                    enddo
                 endif
                 do ipart=ixyzcachesize-nneigh+1,npnode
@@ -1494,8 +1494,8 @@ subroutine maketreeglobal(nodeglobal, xyzh, np, ndim, cellatid, ncells)
 #else
        inodeparts(npnode) = i
 #endif
-      xyzh_flip(npnode,:) = xyzh(:,i)
-      iphase_flip(npnode) = iphase(i)
+      xyzh_soa(npnode,:) = xyzh(:,i)
+      iphase_soa(npnode) = iphase(i)
     enddo
 
     ! set all particles to belong to this node

@@ -44,7 +44,7 @@ module part
 !--basic storage needed for read/write of particle data
 !
  real :: xyzh(4,maxp)
- real :: xyzh_flip(maxp,4)
+ real :: xyzh_soa(maxp,4)
  real :: vxyzu(maxvxyzu,maxp)
  real(kind=4) :: alphaind(nalpha,maxalpha)
  real(kind=4) :: divcurlv(ndivcurlv,maxp)
@@ -172,7 +172,7 @@ module part
  integer, parameter :: maxphase = maxan
  integer, parameter :: maxgradh = maxan
  integer(kind=1)    :: iphase(maxphase)
- integer(kind=1)    :: iphase_flip(maxphase)
+ integer(kind=1)    :: iphase_soa(maxphase)
  logical, public    :: all_active = .true.
 
  real(kind=4) :: gradh(ngradh,maxgradh)
