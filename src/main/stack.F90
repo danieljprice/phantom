@@ -99,19 +99,19 @@ subroutine init_mpi_memory
 end subroutine init_mpi_memory
 
 subroutine finish_mpi_memory
-   !
-   !--Only called at the end, so deallocation_stack is not strictly necessary.
-   !  May be useful in the future. TODO: Allow for unordered deallocation.
-   !
+ !
+ !--Only called at the end, so deallocation_stack is not strictly necessary.
+ !  May be useful in the future. TODO: Allow for unordered deallocation.
+ !
 
-   ! call deallocate_stack(dens_stack_3, idens)
-   ! call deallocate_stack(dens_stack_2, idens)
-   ! call deallocate_stack(dens_stack_1, idens)
-   deallocate(dens_cells)
+ ! call deallocate_stack(dens_stack_3, idens)
+ ! call deallocate_stack(dens_stack_2, idens)
+ ! call deallocate_stack(dens_stack_1, idens)
+ deallocate(dens_cells)
 
-   ! call deallocate_stack(force_stack_2, idens)
-   ! call deallocate_stack(force_stack_1, idens)
-   deallocate(force_cells)
+ ! call deallocate_stack(force_stack_2, idens)
+ ! call deallocate_stack(force_stack_1, idens)
+ deallocate(force_cells)
 end subroutine finish_mpi_memory
 
 subroutine allocate_stack_dens(stack, i)
