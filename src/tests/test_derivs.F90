@@ -159,6 +159,7 @@ subroutine test_derivs(ntests,npass,string)
 #endif
 
  npartoftype(1) = npart
+ nptot = reduceall_mpi('+',npart)
 
  if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
  nactive = npart
@@ -209,7 +210,6 @@ subroutine test_derivs(ntests,npass,string)
     !
     !--check hydro quantities come out as they should do
     !
-    nptot = reduceall_mpi('+',npart)
     nfailed(:) = 0
     call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
     call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
@@ -259,7 +259,7 @@ subroutine test_derivs(ntests,npass,string)
 #ifdef IND_TIMESTEPS
     tallactive = t2-t1
 
-    do itest=0,nint(log10(real(np)))-1
+    do itest=0,nint(log10(real(nptot)))-1
        nactive = 10**itest
        if (id==master) write(*,"(/,a,i10,a)") '--> testing Hydro derivatives (on ',nactive,' active particles)'
 
@@ -269,7 +269,7 @@ subroutine test_derivs(ntests,npass,string)
           vxyzu(3,i) = vz(xyzh(:,i))
           if (maxvxyzu==4) vxyzu(4,i) = utherm(xyzh(:,i))
 
-          if (i <= nactive) then
+          if (i <= nactive/nprocs) then
              iphase(i) = isetphase(igas,iactive=.true.)
              xyzh(4,i) = hzero
           else
@@ -335,7 +335,7 @@ subroutine test_derivs(ntests,npass,string)
 
  testavderivs: if (testav .or. testall) then
 #ifdef IND_TIMESTEPS
-    do itest=nint(log10(real(np))),0,-2
+    do itest=nint(log10(real(nptot))),0,-2
        nactive = 10**itest
 #endif
 !
@@ -629,7 +629,7 @@ subroutine test_derivs(ntests,npass,string)
 !
  testmhd: if (testmhdderivs .or. testall) then
 #ifdef IND_TIMESTEPS
-    do itest=nint(log10(real(np))),0,-2
+    do itest=nint(log10(real(nptot))),0,-2
        nactive = 10**itest
 #endif
        polyk = 0.
@@ -662,7 +662,7 @@ subroutine test_derivs(ntests,npass,string)
              endif
              if (maxvxyzu==4) vxyzu(4,i) = 0.
           enddo
-          call set_active(npart,nactive,igas)
+          call set_active(npart,nactive/nprocs,igas)
           call getused(t1)
           call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                    Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
@@ -706,7 +706,7 @@ subroutine test_derivs(ntests,npass,string)
 #ifdef IND_TIMESTEPS
        call reset_allactive()
     enddo
-    do itest=nint(log10(real(np))),0,-2
+    do itest=nint(log10(real(nptot))),0,-2
        nactive = 10**itest
 #endif
        if (mhd .and. maxvecp /= maxp) then
@@ -774,7 +774,7 @@ subroutine test_derivs(ntests,npass,string)
     enddo
     tolh_old = tolh
     tolh = 1.e-7
-    do itest=nint(log10(real(np))),0,-2
+    do itest=nint(log10(real(nptot))),0,-2
        nactive = 10**itest
 #endif
        if (mhd .and. maxvecp /= maxp .and. maxBevol==4) then
@@ -828,7 +828,7 @@ subroutine test_derivs(ntests,npass,string)
        call reset_allactive()
     enddo
     tolh = tolh_old
-    do itest=nint(log10(real(np))),0,-2
+    do itest=nint(log10(real(nptot))),0,-2
        nactive = 10**itest
 #endif
        if (mhd .and. use_ambi .and. testambipolar) then
@@ -909,6 +909,7 @@ subroutine test_derivs(ntests,npass,string)
     !
     call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh,rmin=rblob)
     npartoftype(1) = npart
+    nptot = reduceall_mpi('+',npart)
     print*,' thread ',id,' npart = ',npart,' in blob = ',npartblob,' to test = ',nparttest
 
     totvol = dxbound*dybound*dzbound - 4./3.*pi*rblob**3
@@ -1047,6 +1048,23 @@ subroutine test_derivs(ntests,npass,string)
     npart = 0
     call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                       psep,hfact,npart,xyzh)
+
+    !
+    !--need to initialise dBevol to zero, otherwise if cleaning is not updated
+    !  then test may give NaNs
+    !
+    if (mhd) dBevol(4,:) = 0.0
+
+#ifdef MPI
+    !
+    !--call derivs once to ensure that particles are properly balanced
+    !  before allocating arrays
+    !
+    nactive = npart
+    call set_active(npart,nactive,igas)
+    call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                 Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+#endif
     !
     !--first do the calculation with all particles active, then
     !  perform the force calculation with only a fraction of particles active

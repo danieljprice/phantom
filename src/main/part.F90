@@ -191,6 +191,8 @@ module part
    +maxvxyzu                            &  ! vpred
    +nalpha*maxalpha/maxpd               &  ! alphaind
    +ngradh*maxgradh/maxpd               &  ! gradh
+   +(maxmhd/maxpd)*maxBevol             &  ! Bevol
+   +(maxmhd/maxpd)*maxBevol             &  ! Bpred
    +maxphase/maxpd                      &  ! iphase
 #ifdef DUST
    +1                                   &  ! dustfrac
@@ -208,11 +210,8 @@ module part
    +maxvxyzu                            &  ! fxyzu
    +3                                   &  ! fext
    +1                                   &  ! divcurlv
-   +(maxmhd/maxpd)*maxBevol +3*(maxvecp/maxpd)  &  ! dB/dt, Bxyz
 #endif
-   +(maxmhd/maxpd)*                     &  ! (mhd quantities)
-    (maxBevol                           &  ! Bevol
-   +3*(maxvecp/maxpd))                     ! Bxyz
+   +0
 
  real            :: hfact,Bextx,Bexty,Bextz
  integer         :: npart
@@ -828,9 +827,7 @@ subroutine fill_sendbuf(i,xtemp)
     endif
     if (mhd) then
        call fill_buffer(xtemp,Bevol(:,i),nbuf)
-       if (maxvecp==maxp) then
-          call fill_buffer(xtemp,Bxyz(:,i),nbuf)
-       endif
+       call fill_buffer(xtemp,Bpred(:,i),nbuf)
     endif
     if (maxphase==maxp) then
        call fill_buffer(xtemp,iphase(i),nbuf)
@@ -859,12 +856,6 @@ subroutine fill_sendbuf(i,xtemp)
     call fill_buffer(xtemp,fext(:,i),nbuf)
     if (ndivcurlv >= 1) then
        call fill_buffer(xtemp,divcurlv(1,i),nbuf)
-    endif
-    if (mhd) then
-       call fill_buffer(xtemp,dBevol(:,i),nbuf)
-       if (maxvecp==maxp) then
-          call fill_buffer(xtemp,Bxyz(:,i),nbuf)
-       endif
     endif
 #endif
  endif
@@ -897,9 +888,7 @@ subroutine unfill_buffer(ipart,xbuf)
  endif
  if (mhd) then
     Bevol(:,ipart)      = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
-    if (maxvecp  ==maxp) then
-       Bxyz(:,ipart)    = real(unfill_buf(xbuf,j,3),kind=kind(Bxyz))
-    endif
+    Bpred(:,ipart)      = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
  endif
  if (maxphase==maxp) then
     iphase(ipart)       = nint(unfill_buf(xbuf,j),kind=1)
@@ -927,12 +916,6 @@ subroutine unfill_buffer(ipart,xbuf)
  fext(:,ipart)          = unfill_buf(xbuf,j,3)
  if (ndivcurlv >= 1) then
     divcurlv(1,ipart)  = real(unfill_buf(xbuf,j),kind=kind(divcurlv))
- endif
- if (mhd) then
-    dBevol(:,ipart)    = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
-    if (maxvecp==maxp) then
-       Bxyz(:,ipart)   = unfill_buf(xbuf,j,3)
-    endif
  endif
 #endif
 

@@ -263,7 +263,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
 
  if (present(refinelevels)) refinelevels = minlevel
 
- if (iverbose >= 2) then
+ if (iverbose >= 3) then
     write(iprint,"(a,i10,3(a,i2))") ' maketree: nodes = ',ncells,', max level = ',maxlevel,&
        ', min leaf level = ',minlevel,' max level indexed = ',maxlevel_indexed
  endif
@@ -587,7 +587,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 #ifdef MPI
  ! if this is global node construction
  if (present(groupsize)) then
-    call get_group_cofm(xyzcofm,totmass_node,level,groupsize,xyzcofmg,totmassg)
+    call get_group_cofm(xyzcofm,totmass_node,level,xyzcofmg,totmassg)
     xyzcofm = xyzcofmg
     totmass_node = totmassg
  endif

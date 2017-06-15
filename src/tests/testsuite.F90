@@ -152,11 +152,15 @@ subroutine testsuite(string,first,last)
 
 #ifdef FINVSQRT
  call test_math(ntests,npass,usefsqrt,usefinvsqrt)
+ call barrier_mpi()
 #endif
 !
 !--test kernel module
 !
- if (dokernel.or.testall) call test_kernel(ntests,npass)
+ if (dokernel.or.testall) then
+    call test_kernel(ntests,npass)
+    call barrier_mpi()
+ endif
 !
 !--test of linklist/neighbour finding module
 !

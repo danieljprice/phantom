@@ -37,6 +37,10 @@ module stack
   module procedure deallocate_stack_dens,deallocate_stack_force
  end interface
 
+ interface swap_stacks ! force doesn't require a stack swap
+  module procedure swap_stacks_dens
+ end interface
+
  interface push_onto_stack
   module procedure push_onto_stack_dens,push_onto_stack_force
  end interface
@@ -53,61 +57,138 @@ module stack
  public :: finish_mpi_memory
  public :: allocate_stack
  public :: deallocate_stack
+ public :: swap_stacks
  public :: push_onto_stack
  public :: pop_off_stack
  public :: reserve_stack
 
- type(stackforce)    :: force_stack_remote
- type(stackforce)    :: force_stack_waiting
- type(stackdens)     :: dens_stack_remote
- type(stackdens)     :: dens_stack_waiting
- type(stackdens)     :: dens_stack_redo
+ ! primary chunk of memory requested using alloc
+ integer, parameter  :: n_dens_cells  = stacksize*3
+ integer, parameter  :: n_force_cells = stacksize*2
+ type(celldens),  allocatable, target :: dens_cells(:)
+ type(cellforce), allocatable, target :: force_cells(:)
+
+ ! memory allocation counters
+ integer             :: idens
+ integer             :: iforce
+
+ ! stacks to be referenced from density and force routines
+ type(stackdens)     :: dens_stack_1
+ type(stackdens)     :: dens_stack_2
+ type(stackdens)     :: dens_stack_3
+ type(stackforce)    :: force_stack_1
+ type(stackforce)    :: force_stack_2
 
 contains
 
 subroutine init_mpi_memory
- call allocate_stack(dens_stack_remote)
- call allocate_stack(dens_stack_waiting)
- call allocate_stack(dens_stack_redo)
- call allocate_stack(force_stack_remote)
- call allocate_stack(force_stack_waiting)
+ integer :: idens, iforce ! memory allocation counters
+
+ allocate(dens_cells(n_dens_cells))
+ idens = 1
+ call allocate_stack(dens_stack_1, idens)
+ call allocate_stack(dens_stack_2, idens)
+ call allocate_stack(dens_stack_3, idens)
+ if (idens - 1 > n_dens_cells) call fatal('stack','memory allocation error')
+
+ allocate(force_cells(n_force_cells))
+ iforce = 1
+ call allocate_stack(force_stack_1,iforce)
+ call allocate_stack(force_stack_2,iforce)
+ if (iforce - 1 > n_force_cells) call fatal('stack','memory allocation error')
 end subroutine init_mpi_memory
 
 subroutine finish_mpi_memory
- call deallocate_stack(dens_stack_remote)
- call deallocate_stack(dens_stack_waiting)
- call deallocate_stack(dens_stack_redo)
- call deallocate_stack(force_stack_remote)
- call deallocate_stack(force_stack_waiting)
+ !
+ !--Only called at the end, so deallocation_stack is not strictly necessary.
+ !  May be useful in the future. TODO: Allow for unordered deallocation.
+ !
+
+ ! call deallocate_stack(dens_stack_3, idens)
+ ! call deallocate_stack(dens_stack_2, idens)
+ ! call deallocate_stack(dens_stack_1, idens)
+ deallocate(dens_cells)
+
+ ! call deallocate_stack(force_stack_2, idens)
+ ! call deallocate_stack(force_stack_1, idens)
+ deallocate(force_cells)
 end subroutine finish_mpi_memory
 
-subroutine allocate_stack_dens(stack)
- type(stackdens),  intent(inout) :: stack
+subroutine allocate_stack_dens(stack, i)
+ type(stackdens), intent(inout) :: stack
+ integer,         intent(inout) :: i
 
- allocate(stack%cells(stacksize))
+ stack%mem_start = i
+ stack%mem_end   = i + stacksize - 1
+
+ stack%cells => dens_cells(stack%mem_start:stack%mem_end)
  stack%maxlength = stacksize
+
+ i = i + stacksize
 end subroutine allocate_stack_dens
 
-subroutine allocate_stack_force(stack)
- type(stackforce),  intent(inout) :: stack
+subroutine allocate_stack_force(stack, i)
+ type(stackforce),   intent(inout) :: stack
+ integer,            intent(inout) :: i
 
- allocate(stack%cells(stacksize))
+ stack%mem_start = i
+ stack%mem_end   = i + stacksize - 1
+
+ stack%cells => force_cells(stack%mem_start:stack%mem_end)
  stack%maxlength = stacksize
+
+ i = i + stacksize
 end subroutine allocate_stack_force
 
-subroutine deallocate_stack_dens(stack)
+subroutine deallocate_stack_dens(stack, i)
  type(stackdens),  intent(inout) :: stack
+ integer,          intent(inout) :: i
 
- deallocate(stack%cells)
- stack%maxlength = 0
+ if (i - 1 /= stack%mem_end) call fatal('stack','memory deallocation not from top of stack')
+ i = stack%mem_start - 1
+ stack%mem_start = -1
+ stack%mem_end   = -1
 end subroutine deallocate_stack_dens
 
-subroutine deallocate_stack_force(stack)
+subroutine deallocate_stack_force(stack, i)
  type(stackforce),  intent(inout) :: stack
+ integer,           intent(inout) :: i
 
- deallocate(stack%cells)
- stack%maxlength = 0
+ if (i - 1 /= stack%mem_end) call fatal('stack','memory deallocation not from top of stack')
+ i = stack%mem_start - 1
+ stack%mem_start = -1
+ stack%mem_end   = -1
 end subroutine deallocate_stack_force
+
+subroutine swap_stacks_dens(stack_a, stack_b)
+ type(stackdens),   intent(inout) :: stack_a
+ type(stackdens),   intent(inout) :: stack_b
+
+ type(celldens), pointer :: temp_cells(:)
+ integer :: temp_n
+ integer :: temp_start
+ integer :: temp_end
+
+ if (stack_a%maxlength /= stack_b%maxlength) call fatal('stack', 'stack swap of unequal size')
+
+ ! counters
+ temp_n = stack_a%n
+ stack_a%n = stack_b%n
+ stack_b%n = temp_n
+
+ ! cell pointers
+ temp_cells => stack_a%cells
+ stack_a%cells => stack_b%cells
+ stack_b%cells => temp_cells
+
+ ! addresses
+ temp_start = stack_a%mem_start
+ temp_end   = stack_a%mem_end
+ stack_a%mem_start = stack_b%mem_start
+ stack_a%mem_end   = stack_b%mem_end
+ stack_b%mem_start = temp_start
+ stack_b%mem_end   = temp_end
+end subroutine swap_stacks_dens
 
 subroutine push_onto_stack_dens(stack,cell)
  type(stackdens),    intent(inout)  :: stack

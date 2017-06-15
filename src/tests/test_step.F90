@@ -67,7 +67,7 @@ subroutine test_step(ntests,npass)
 
  npartoftype(:) = 0
  npartoftype(1) = npart
- print*,' thread ',id,' npart = ',npart
+ !print*,' thread ',id,' npart = ',npart
  iverbose = 0
 
  if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)

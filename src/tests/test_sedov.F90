@@ -30,13 +30,13 @@ module testsedov
 contains
 
 subroutine test_sedov(ntests,npass)
- use dim,      only:maxp,maxvxyzu,maxalpha
+ use dim,      only:maxp,maxvxyzu,maxalpha,use_dust
  use io,       only:id,master,iprint,ievfile,iverbose,real4
  use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use unifdis,  only:set_unifdis
  use part,     only:mhd,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,fxyzu,fext,ntot, &
                     divcurlv,divcurlB,Bevol,dBevol,Bextx,Bexty,Bextz,alphaind,&
-                    dustfrac,ddustfrac
+                    dustfrac,ddustfrac,dustevol
  use part,     only:iphase,maxphase,igas,isetphase
  use eos,      only:gamma,polyk
  use options,  only:ieos,tolh,alpha,alphau,alphaB,beta,tolv
@@ -115,6 +115,10 @@ subroutine test_sedov(ntests,npass)
     do i=1,npart
        if (maxphase==maxp) iphase(i) = isetphase(igas,iactive=.true.)
        vxyzu(:,i) = 0.
+       if (use_dust) then
+          dustfrac(i) = 0.
+          dustevol(i) = 0.
+       endif
 
        if ((xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2) < rblast*rblast) then
           vxyzu(4,i) = prblast/(gam1*denszero)

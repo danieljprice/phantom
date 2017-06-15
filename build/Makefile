@@ -1372,6 +1372,24 @@ ifeq ($(SYSTEM), hydra)
     LIBCXX = -cxxlib
 endif
 
+ifeq ($(SYSTEM), lyoccf)
+# LIO CCF cluster
+    FC= ifort
+    FFLAGS= -O3 -ftz -xavx -cpp -sox -ipo -fno-alias -fno-fnalias \
+            -no-prec-div -no-prec-sqrt -align all -warn uninitialized \
+            -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+# or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
+    OMPFLAGS = -openmp
+    CC = icc
+    CCFLAGS = -O3 -ipo -mcmodel=medium
+    LIBCXX = -cxxlib
+endif
+
 
 # Set some default files if not defined above
 ifdef MAXP
@@ -2547,6 +2565,9 @@ test:
 
 test2:
 	${MAKE} SETUP=test2 && $(MPIEXEC) $(BINDIR)/phantom test
+
+testkd:
+	${MAKE} SETUP=testkd && $(MPIEXEC) $(BINDIR)/phantom test
 
 testcyl:
 	${MAKE} SETUP=testcyl && $(MPIEXEC) $(BINDIR)/phantom test

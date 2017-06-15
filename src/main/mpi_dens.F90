@@ -60,9 +60,11 @@ module mpidens
 
  type stackdens
     sequence
-    type(celldens), allocatable   :: cells(:)
-    integer          :: maxlength = 0
-    integer          :: n = 0
+    type(celldens), pointer   :: cells(:)
+    integer                   :: maxlength = 0
+    integer                   :: n = 0
+    integer                   :: mem_start
+    integer                   :: mem_end
  endtype
 
 contains
