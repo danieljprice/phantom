@@ -578,7 +578,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 #ifdef MPI
  ! if this is global node construction
  if (present(groupsize)) then
-    call get_group_cofm(xyzcofm,totmass_node,level,groupsize,xyzcofmg,totmassg)
+    call get_group_cofm(xyzcofm,totmass_node,level,xyzcofmg,totmassg)
     xyzcofm = xyzcofmg
     totmass_node = totmassg
  endif

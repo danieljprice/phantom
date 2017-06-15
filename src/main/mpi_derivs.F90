@@ -539,10 +539,10 @@ end subroutine finish_tree_comms
 !  get the COFM of the group
 !+
 !----------------------------------------------------------------
-subroutine get_group_cofm(xyzcofm,totmass_node,level,groupsize,cofmsum,totmassg)
+subroutine get_group_cofm(xyzcofm,totmass_node,level,cofmsum,totmassg)
  real,      intent(in)        :: xyzcofm(3)
  real,      intent(in)        :: totmass_node
- integer,   intent(in)        :: level, groupsize
+ integer,   intent(in)        :: level
 
  real,      intent(out)       :: cofmsum(3)
  real,      intent(out)       :: totmassg
