@@ -547,8 +547,11 @@ subroutine get_group_cofm(xyzcofm,totmass_node,level,cofmsum,totmassg)
  real,      intent(out)       :: cofmsum(3)
  real,      intent(out)       :: totmassg
 
+ real                         :: cofmpart(3)
+
+ cofmpart = xyzcofm * totmass_node
  call MPI_ALLREDUCE(totmass_node,totmassg,1,MPI_REAL8,MPI_SUM,comm_cofm(level+1),mpierr)
- call MPI_ALLREDUCE(xyzcofm*totmass_node,cofmsum,3,MPI_REAL8,MPI_SUM,comm_cofm(level+1),mpierr)
+ call MPI_ALLREDUCE(cofmpart,cofmsum,3,MPI_REAL8,MPI_SUM,comm_cofm(level+1),mpierr)
  cofmsum = cofmsum / totmassg
 
 end subroutine get_group_cofm
