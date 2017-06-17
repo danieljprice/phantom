@@ -1353,21 +1353,20 @@ end subroutine add_child_nodes
 !+
 !-------------------------------------------------------------------------------
 #ifdef MPI
-subroutine maketreeglobal(nodeglobal, xyzh, np, ndim, cellatid, ncells)
+subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,ncells)
  use io,           only:fatal,warning,id,nprocs
  use mpiutils,     only:reduceall_mpi
  use domain,       only:ibelong
  use balance,      only:balancedomains
  use mpiderivs,    only:tree_sync,tree_bcast
 
- logical, parameter :: refine_tree = .true.
-
  type(kdnode), intent(out)     :: nodeglobal(ncellsmax+1)
+ type(kdnode), intent(out)     :: node(ncellsmax+1)
  integer,      intent(inout)   :: np
  integer,      intent(in)      :: ndim
  real,         intent(inout)   :: xyzh(4,maxp)
  integer,      intent(out)     :: cellatid(ncellsmax+1)
- integer, save                 :: ifirstincell(ncellsmax+1)
+ integer,      intent(out)     :: ifirstincell(ncellsmax+1)
  real                          :: xmini(ndim),xmaxi(ndim)
  real                          :: xminl(ndim),xmaxl(ndim)
  real                          :: xminr(ndim),xmaxr(ndim)
@@ -1484,43 +1483,45 @@ subroutine maketreeglobal(nodeglobal, xyzh, np, ndim, cellatid, ncells)
 
  enddo levels
 
- if (refine_tree) then
-    ! tree refinement
-    call maketree(refinementnode,xyzh,np,ndim,ifirstincell,ncells,refinelevels)
-    refinelevels = int(reduceall_mpi('min',refinelevels),kind=kind(refinelevels))
-    roffset_prev = 1
+ ! local tree
+ call maketree(node,xyzh,np,ndim,ifirstincell,ncells,refinelevels)
 
-    do i = 1,refinelevels
-       offset = 2**(globallevel + i)
-       roffset = 2**i
+ ! tree refinement
+ refinementnode(1:ncells) = node(1:ncells)
+ refinelevels = int(reduceall_mpi('min',refinelevels),kind=kind(refinelevels))
+ roffset_prev = 1
 
-       nnodestart = offset
-       nnodeend   = 2*nnodestart-1
+ do i = 1,refinelevels
+    offset = 2**(globallevel + i)
+    roffset = 2**i
 
-       locstart   = roffset
-       locend     = 2*locstart-1
+    nnodestart = offset
+    nnodeend   = 2*nnodestart-1
 
-       ! index shift the node to the global level
-       do k = roffset,2*roffset-1
-          coffset = refinementnode(k)%parent - roffset_prev
+    locstart   = roffset
+    locend     = 2*locstart-1
 
-          refinementnode(k)%parent = 2**(globallevel + i - 1) + id * roffset_prev + coffset
+    ! index shift the node to the global level
+    do k = roffset,2*roffset-1
+       coffset = refinementnode(k)%parent - roffset_prev
 
-          if (i /= refinelevels) then
-             refinementnode(k)%leftchild  = 2**(globallevel + i + 1) + 2*id*roffset + 2*(k - roffset)
-             refinementnode(k)%rightchild = refinementnode(k)%leftchild + 1
-          else
-             refinementnode(k)%leftchild = 0
-             refinementnode(k)%rightchild = 0
-          endif
-       enddo
+       refinementnode(k)%parent = 2**(globallevel + i - 1) + id * roffset_prev + coffset
 
-       roffset_prev = roffset
-       ! sync, replacing level with globallevel, since all procs will get synced
-       ! and deeper comms do not exist
-       call tree_sync(refinementnode(locstart:locend),roffset,nodeglobal(nnodestart:nnodeend),id,1,globallevel)
+       if (i /= refinelevels) then
+          refinementnode(k)%leftchild  = 2**(globallevel + i + 1) + 2*id*roffset + 2*(k - roffset)
+          refinementnode(k)%rightchild = refinementnode(k)%leftchild + 1
+       else
+          refinementnode(k)%leftchild = 0
+          refinementnode(k)%rightchild = 0
+       endif
     enddo
- endif
+
+    roffset_prev = roffset
+    ! sync, replacing level with globallevel, since all procs will get synced
+    ! and deeper comms do not exist
+    call tree_sync(refinementnode(locstart:locend),roffset,nodeglobal(nnodestart:nnodeend),id,1,globallevel)
+ enddo
+
  ! cellatid is zero by default
  cellatid = 0
  do i = 1,nprocs
@@ -1530,8 +1531,6 @@ subroutine maketreeglobal(nodeglobal, xyzh, np, ndim, cellatid, ncells)
        cellatid(offset + (i - 1) * roffset + (k - 1)) = i
     enddo
  enddo
-
- ncells = 2**(globallevel + refinelevels + 1) - 1
 
 end subroutine maketreeglobal
 

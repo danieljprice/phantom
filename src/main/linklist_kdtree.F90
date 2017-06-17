@@ -34,15 +34,14 @@ module linklist
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
 
+ integer, public :: cellatid(ncellsmax+1)
  integer, public :: ifirstincell(ncellsmax+1)
- integer, public :: ifirstincellglobal(ncellsmax+1)
- !real(kind=4), dimension(ncellsmax+1), public :: hmaxcell
  integer(kind=8), public :: ncells
  real, public            :: dxcell
  real, public :: dcellx = 0.,dcelly = 0.,dcellz = 0.
 
- type(kdnode), public :: node(ncellsmax+1)
  type(kdnode), public :: nodeglobal(ncellsmax+1)
+ type(kdnode), public :: node(ncellsmax+1)
 
  public :: set_linklist, get_neighbour_list, write_inopts_link, read_inopts_link
  public :: get_distance_from_centre_of_mass, getneigh_pos
@@ -139,9 +138,10 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
  real,    intent(in)    :: vxyzu(:,:)
 
 #ifdef MPI
- call maketreeglobal(nodeglobal,xyzh,npart,ndimtree,ifirstincellglobal,ncells)
-#endif
+ call maketreeglobal(nodeglobal,node,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells)
+#else
  call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
+#endif
 
 end subroutine set_linklist
 
@@ -205,7 +205,7 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
     if (present(remote_export)) then
        remote_export = .false.
        call getneigh(nodeglobal,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
-                ifirstincellglobal,ll,get_j,fgrav,remote_export=remote_export)
+                cellatid,ll,get_j,fgrav,remote_export=remote_export)
     endif
 #endif
     call getneigh(node,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
@@ -216,7 +216,7 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
     if (present(remote_export)) then
        remote_export = .false.
        call getneigh(nodeglobal,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
-              ifirstincellglobal,ll,get_j,remote_export=remote_export)
+              cellatid,ll,get_j,remote_export=remote_export)
     endif
 #endif
     call getneigh(node,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
