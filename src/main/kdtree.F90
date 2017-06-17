@@ -1487,7 +1487,6 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
  call maketree(node,xyzh,np,ndim,ifirstincell,ncells,refinelevels)
 
  ! tree refinement
- refinementnode(1:ncells) = node(1:ncells)
  refinelevels = int(reduceall_mpi('min',refinelevels),kind=kind(refinelevels))
  roffset_prev = 1
 
@@ -1503,6 +1502,7 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
 
     ! index shift the node to the global level
     do k = roffset,2*roffset-1
+       refinementnode(k) = node(k)
        coffset = refinementnode(k)%parent - roffset_prev
 
        refinementnode(k)%parent = 2**(globallevel + i - 1) + id * roffset_prev + coffset
