@@ -1182,7 +1182,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
              if (maxalpha==maxp)  alphaj  = alphaind(1,j)
 
+#ifdef GR
              densj = dens(j)
+#endif
 
              !
              !--calculate j terms (which were precalculated outside loop for i)
@@ -1251,13 +1253,18 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           qrho2i = 0.
           qrho2j = 0.
 
+#ifdef GR
+          call get_vsig_gr(vsigi,v2i,projvi,runix,runiy,runiz,vxi,vyi,vzi,spsoundi)
+          call get_vsig_gr(vsigj,v2j,projvj,runix,runiy,runiz,vxj,vyj,vzj,spsoundj)
+          vsigavi = alphai*vsigi
+          vsigavj = alphaj*vsigj
+#endif
+
           if (projv < 0.) then
 #ifdef GR
             !  call get_metric3plus1()
              enthi  = 1.+eni+pri/densi
              enthj  = 1.+enj+prj/densj
-             projvi = vxi*runix + vyi*runiy + vzi*runiz
-             projvj = vxj*runix + vyj*runiy + vzj*runiz
              lorentzi_star = 1./sqrt(1.-projvi**2)
              lorentzj_star = 1./sqrt(1.-projvj**2)
              dlorentzv = lorentzi_star*projvi - lorentzj_star*projvj
@@ -1287,8 +1294,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 vsigu = sqrt(abs(pri - prj)*rhoav1)  !abs(projv) !sqrt(abs(denij))
              endif
 #ifdef GR
-             v2i = vxi*vxi + vyi*vyi + vzi*vzi
-             v2j = vxj*vxj + vyj*vyj + vzj*vzj
              lorentzi = 1./sqrt(1.-v2i)
              lorentzj = 1./sqrt(1.-v2j)
              denij = eni/lorentzi - enj/lorentzj
@@ -1656,6 +1661,37 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi, &
 
  return
 end subroutine get_P
+
+#ifdef GR
+!
+! Internal subroutine that computes the signal velocity for GR,
+! as well as some other quantities also needed for artificial viscosity.
+!
+subroutine get_vsig_gr(vsigi,v2i,projvi,runix,runiy,runiz,vxi,vyi,vzi,spsoundi)
+ real, intent(out) :: vsigi,v2i,projvi
+ real, intent(in)  :: runix,runiy,runiz,vxi,vyi,vzi,spsoundi
+ real :: spsi2,vperpxi,vperpyi,vperpzi,vperp2i,numeratorL,numeratorR,denominator
+
+ v2i = vxi*vxi + vyi*vyi + vzi*vzi
+ projvi = vxi*runix + vyi*runiy + vzi*runiz
+
+ spsi2 = spsoundi**2
+
+ vperpxi = vxi - projvi*runix
+ vperpyi = vyi - projvi*runiy
+ vperpzi = vzi - projvi*runiz
+ vperp2i = vperpxi*vperpxi + vperpyi*vperpyi + vperpzi*vperpzi
+
+ numeratorL  = projvi*(1.-spsi2)
+ numeratorR  = spsoundi*sqrt((1.-v2i)*(1.-projvi**2-vperp2i*spsi2))
+ denominator = 1.-v2i*spsi2
+
+ vsigi = max( 0., (numeratorL+numeratorR)/denominator, (-numeratorL+numeratorR)/denominator )
+
+ return
+end subroutine get_vsig_gr
+! From Rosswog 2010
+#endif
 
 #ifdef IND_TIMESTEPS
 !----------------------------------------------------------------
