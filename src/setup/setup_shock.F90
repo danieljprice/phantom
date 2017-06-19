@@ -326,13 +326,14 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
  integer, intent(in)    :: ndim
  real,    intent(inout) :: gamma,polyk
  logical, intent(in)    :: iexist
- integer, parameter     :: nshocks = 10
+ integer, parameter     :: nshocks = 11
  character(len=30)      :: shocks(nshocks)
  integer                :: i, choice
  real                   :: const !, dxright
 #ifdef NONIDEALMHD
  real                   :: gamma_AD,rho_i_cnst
 #endif
+ integer                :: relativistic_choice
 !
 !--set default file output parameters
 !
@@ -492,11 +493,20 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
     xleft      = -2.0
  case(9)
     !--Sod shock
-    shocktype = "Relativistic Sod shock"
+    relativistic_choice = 1
+    shocktype = "Mildly-Relativistic Sod shock"
     gamma      = 5./3.
     alphau     = 0.1
     leftstate  = (/10.0,40./3.,0.,0.,0.,0.,0.,0./)
     rightstate = (/1.00,1.e-6 ,0.,0.,0.,0.,0.,0./)
+    write(*,"(a5,i2,1x,a20)") 'Case ', 1, 'Mildly relativistic'
+    write(*,"(a5,i2,1x,a20)") 'Case ', 2, 'Ultra relativistic'
+    call prompt('Enter relativistic shock choice',relativistic_choice,1,2)
+    if (relativistic_choice==2) then
+      shocktype = "Ultra-Relativistic Sod shock"
+      leftstate  = (/1.,1000.,0.,0.,0.,0.,0.,0./)
+      rightstate = (/1.,0.01 ,0.,0.,0.,0.,0.,0./)
+    endif
     if (maxvxyzu < 4) call fatal('setup','Sod shock tube requires ISOTHERMAL=no')
  end select
 
