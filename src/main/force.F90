@@ -177,8 +177,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use mpiderivs,   only:send_cell,recv_cells,check_send_finished,init_cell_exchange,finish_cell_exchange, &
                        recv_while_wait
  use stack,       only:reserve_stack
- use stack,       only:stack_remote => force_stack_remote
- use stack,       only:stack_waiting => force_stack_waiting
+ use stack,       only:stack_remote => force_stack_1
+ use stack,       only:stack_waiting => force_stack_2
 #endif
 
  integer,      intent(in)    :: icall,npart

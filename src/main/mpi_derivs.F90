@@ -539,31 +539,19 @@ end subroutine finish_tree_comms
 !  get the COFM of the group
 !+
 !----------------------------------------------------------------
-subroutine get_group_cofm(xyzcofm,totmass_node,level,groupsize,cofmsum,totmassg)
+subroutine get_group_cofm(xyzcofm,totmass_node,level,cofmsum,totmassg)
  real,      intent(in)        :: xyzcofm(3)
  real,      intent(in)        :: totmass_node
- integer,   intent(in)        :: level, groupsize
+ integer,   intent(in)        :: level
 
  real,      intent(out)       :: cofmsum(3)
  real,      intent(out)       :: totmassg
 
- real                  :: recvbuffer(3*groupsize)
- real                  :: groupxyzcofm(3,groupsize), totmass(groupsize)
+ real                         :: cofmpart(3)
 
- integer               :: i
-
- ! perform COFM exchange
- call MPI_ALLGATHER(xyzcofm,3,MPI_REAL8,recvbuffer,3,MPI_REAL8,comm_cofm(level+1),mpierr)
- groupxyzcofm = reshape(recvbuffer,(/3,groupsize/))
-
- call MPI_ALLGATHER(totmass_node,1,MPI_REAL8,totmass,1,MPI_REAL8,comm_cofm(level+1),mpierr)
-
- cofmsum = 0
- do i=1,groupsize
-    cofmsum = cofmsum + groupxyzcofm(:,i) * totmass(i)
- enddo
-
- totmassg = sum(totmass)
+ cofmpart = xyzcofm * totmass_node
+ call MPI_ALLREDUCE(totmass_node,totmassg,1,MPI_REAL8,MPI_SUM,comm_cofm(level+1),mpierr)
+ call MPI_ALLREDUCE(cofmpart,cofmsum,3,MPI_REAL8,MPI_SUM,comm_cofm(level+1),mpierr)
  cofmsum = cofmsum / totmassg
 
 end subroutine get_group_cofm

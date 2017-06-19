@@ -687,7 +687,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  real                  :: dumr,alphafile
  character(len=lenid)  :: fileidentr
  type(dump_h)          :: hdr
- integer               :: i
+ integer               :: i,ierrh
 
  if (id==master) write(iprint,"(/,1x,a,i3)") '>>> reading setup from file: '//trim(dumpfile)//' on unit ',idisk1
  opened_full_dump = .true.
@@ -748,7 +748,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
                     tfile,hfactfile,alphafile,iprint,id,nprocs,ierr)
  if (ierr /= 0) then
     call error('read_dump','error extracting necessary information from file header')
-    call free_header(hdr,ierr)
+    call free_header(hdr,ierrh)
     return
  endif
 
@@ -1553,7 +1553,9 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
     ntypesinfile = 5
  endif
  call extract('nparttot',nparttot,hdr,ierr1)
- call extract('npartoftype',npartoftypetot(1:ntypesinfile),hdr,ierr1)
+ if (nblocks > 1) then
+    call extract('npartoftype',npartoftype(1:ntypesinfile),hdr,ierr1)
+ endif
  if (id==master) write(*,*) 'npart(total) = ',nparttot
 
 !--default real
