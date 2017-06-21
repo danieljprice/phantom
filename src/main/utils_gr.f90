@@ -1,7 +1,7 @@
 module utils_gr
  implicit none
 
- public :: dot_product_gr, get_metric3plus1, get_u0, get_rderivs, get_ev, rho2dens, h2dens
+ public :: dot_product_gr, get_metric3plus1, get_u0, get_bigv, get_rderivs, get_ev, rho2dens, h2dens
 
  private
 
@@ -34,6 +34,24 @@ pure real function dot_product_gr(vec1,vec2,gcov)
 
  return
 end function dot_product_gr
+
+! real function dot_product_gr_3plus1(x,vec1,vec2)
+!  real, intent(in) :: x(1:3), vec1(1:3), vec2(1:3)
+!  real :: alpha,beta(1:3),gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
+!  real :: vec1i
+!  integer :: i,j
+!
+!  call get_metric3plus1(x,alpha,beta,gammaijdown,gammaijUP)
+!  dot_product_gr_3plus1 = 0.
+!  do i=1,size(vec1)
+!     vec1i = vec1(i)
+!     do j=1,size(vec2)
+!        dot_product_gr_3plus1 = dot_product_gr_3plus1 + gammaijdown(j,i)*vec1i*vec2(j)
+!     enddo
+!  enddo
+!
+!  return
+! end function dot_product_gr_3plus1
 
 subroutine get_metric3plus1_only(x,alpha,beta,gammaijdown,gammaijUP)
  real, intent(in)  :: x(1:3)
@@ -84,6 +102,21 @@ subroutine get_u0(x,v,U0)
  call get_u0_given_metric(gcov,v,U0)
 
 end subroutine get_u0
+
+subroutine get_bigv(x,v,bigv,bigv2,alpha,lorentz)
+ real, intent(in)  :: x(1:3),v(1:3)
+ real, intent(out) :: bigv(1:3),bigv2,alpha,lorentz
+ real :: beta(1:3),gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
+
+ call get_metric3plus1(x,alpha,beta,gammaijdown,gammaijUP)
+
+ bigv = (v + beta)/alpha
+
+ bigv2 = dot_product_gr(bigv,bigv,gammaijdown)
+
+ lorentz = 1./sqrt(1.-bigv2)
+
+end subroutine get_bigv
 
 subroutine get_u0_given_metric(gcov,v,U0)
  real, intent(in)  :: gcov(0:3,0:3), v(1:3)

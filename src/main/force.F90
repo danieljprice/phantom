@@ -790,6 +790,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
  use timestep,    only:bignumber
  use options,     only:overcleanfac
+#ifdef GR
+ use utils_gr,    only:get_bigv
+#endif
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
  real,            intent(in)    :: xpartveci(:)
@@ -864,9 +867,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: densi,densj,eni
  real    :: vxi,vyi,vzi,vxj,vyj,vzj
 #ifdef GR
- real    :: projvi,projvj,lorentzi_star,lorentzj_star,dlorentzv
+ real    :: projbigvi,projbigvj,lorentzi_star,lorentzj_star,dlorentzv
  real    :: enthi,enthj
- real    :: lorentzi,lorentzj,v2i,v2j
+ real    :: lorentzi,lorentzj
+ real    :: bigvi(1:3),bigvj(1:3),bigv2i,bigv2j,alphagri,alphagrj
+ real    :: xi,yi,zi
 #endif
  real    :: qrho2i,qrho2j
 
@@ -1254,22 +1259,24 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           qrho2j = 0.
 
 #ifdef GR
-          call get_vsig_gr(vsigi,v2i,projvi,runix,runiy,runiz,vxi,vyi,vzi,spsoundi)
-          call get_vsig_gr(vsigj,v2j,projvj,runix,runiy,runiz,vxj,vyj,vzj,spsoundj)
+          xi = xpartveci(ixi)
+          yi = xpartveci(iyi)
+          zi = xpartveci(izi)
+          call get_bigv((/xi,yi,zi/),(/vxi,vyi,vzi/),bigvi,bigv2i,alphagri,lorentzi)
+          call get_bigv((/xj,yj,zj/),(/vxj,vyj,vzj/),bigvj,bigv2j,alphagrj,lorentzj)
+          call get_vsig_gr(vsigi,projbigvi,bigv2i,runix,runiy,runiz,bigvi(1),bigvi(2),bigvi(3),spsoundi)
+          call get_vsig_gr(vsigj,projbigvj,bigv2j,runix,runiy,runiz,bigvj(1),bigvj(2),bigvj(3),spsoundj)
           vsigavi = alphai*vsigi
           vsigavj = alphaj*vsigj
 #endif
 
           if (projv < 0.) then
 #ifdef GR
-            !  call get_metric3plus1()
              enthi  = 1.+eni+pri/densi
              enthj  = 1.+enj+prj/densj
-             lorentzi_star = 1./sqrt(1.-projvi**2)
-             lorentzj_star = 1./sqrt(1.-projvj**2)
-             dlorentzv = lorentzi_star*projvi - lorentzj_star*projvj
-            !  vsigavi = 1.
-            !  vsigavj = 1.
+             lorentzi_star = 1./sqrt(1.-projbigvi**2)
+             lorentzj_star = 1./sqrt(1.-projbigvj**2)
+             dlorentzv = lorentzi_star*projbigvi - lorentzj_star*projbigvj
              qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv
              if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv
 #else
@@ -1294,9 +1301,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 vsigu = sqrt(abs(pri - prj)*rhoav1)  !abs(projv) !sqrt(abs(denij))
              endif
 #ifdef GR
-             lorentzi = 1./sqrt(1.-v2i)
-             lorentzj = 1./sqrt(1.-v2j)
-             denij = eni/lorentzi - enj/lorentzj
+             denij = alphagri*eni/lorentzi - alphagrj*enj/lorentzj
              dendissterm = denij*(auterm*vsigavi*grkerni + autermj*vsigavj*grkernj)
 #else
              dendissterm = vsigu*denij*(auterm*grkerni + autermj*grkernj)
@@ -1667,12 +1672,11 @@ end subroutine get_P
 ! Internal subroutine that computes the signal velocity for GR,
 ! as well as some other quantities also needed for artificial viscosity.
 !
-subroutine get_vsig_gr(vsigi,v2i,projvi,runix,runiy,runiz,vxi,vyi,vzi,spsoundi)
- real, intent(out) :: vsigi,v2i,projvi
- real, intent(in)  :: runix,runiy,runiz,vxi,vyi,vzi,spsoundi
+subroutine get_vsig_gr(vsigi,projvi,v2i,runix,runiy,runiz,vxi,vyi,vzi,spsoundi)
+ real, intent(out) :: vsigi,projvi
+ real, intent(in)  :: v2i,runix,runiy,runiz,vxi,vyi,vzi,spsoundi
  real :: spsi2,vperpxi,vperpyi,vperpzi,vperp2i,numeratorL,numeratorR,denominator
 
- v2i = vxi*vxi + vyi*vyi + vzi*vzi
  projvi = vxi*runix + vyi*runiy + vzi*runiz
 
  spsi2 = spsoundi**2
