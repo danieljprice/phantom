@@ -278,7 +278,7 @@ subroutine test_dustydiffuse(ntests,npass)
  real    :: deltax,rhozero,totmass,dt,dtnew,time,tmax
  real    :: epstot,epsi(ndusttypes),rc,rc2,r2,A,B,eta
  real    :: erri,exact,errl2,term,tol
- real    :: ddustfrac_prev(ndusttypes,maxp)
+ real,allocatable   :: ddustfrac_prev(:,:)
  logical, parameter :: do_output = .false.
  real,    parameter :: t_write(5) = (/0.1,0.3,1.0,3.0,10.0/)
 
@@ -306,6 +306,7 @@ subroutine test_dustydiffuse(ntests,npass)
  npartoftype(igas) = npart
  npartoftypetot(igas) = reduceall_mpi('+',npartoftype(igas))
  massoftype(igas)  = totmass/npartoftypetot(igas)
+ allocate(ddustfrac_prev(ndusttypes,npart))
  vxyzu = 0.
  if (mhd) Bevol = 0.
  !
