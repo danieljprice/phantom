@@ -297,6 +297,7 @@ subroutine test_dustydiffuse(ntests,npass)
  hfact = hfact_default
  rhozero = 3.
  totmass = rhozero*dxbound*dybound*dzbound
+ time  = 0.
  npart = 0
  npartoftype(:) = 0
  iverbose = 2
