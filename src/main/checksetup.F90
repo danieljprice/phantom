@@ -45,7 +45,8 @@ subroutine check_setup(nerror,nwarn,restart)
  use dim,  only:maxp,maxvxyzu,periodic,use_dust,use_dustfrac,ndim,ndusttypes
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
-                idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary
+                idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,&
+                kill_particle,shuffle_part,iamdust
  use eos,             only:gamma,polyk
  use centreofmass,    only:get_centreofmass
  use options,         only:ieos,icooling,iexternalforce
@@ -63,6 +64,7 @@ subroutine check_setup(nerror,nwarn,restart)
  real(kind=8) :: gcode
  real         :: hi,hmin,hmax,dust_to_gas
  logical      :: accreted,dorestart
+ character(len=3) :: string
 !
 !--check that setup is sensible
 !
@@ -286,11 +288,25 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
     if (use_dustfrac) then
-       if (id==master) then
-          print*,'ERROR in setup: use of dust particles AND a dust fraction not implemented'
-          print*,'                i.e. cannot yet mix two-fluid and one-fluid methods'
+       call get_environment_variable('PHANTOM_RESTART_ONEFLUID',string)
+       if (index(string,'yes') > 0) then
+          if (id==master) print "(/,a,/)",' DELETING DUST PARTICLES (from PHANTOM_RESTART_ONEFLUID=yes)'
+          if (maxphase==maxp) then
+             do i=1,npart
+                if (iamdust(iphase(i))) call kill_particle(i)
+             enddo
+          endif
+          call shuffle_part(npart)
+          npartoftype(idust) = 0
+       else
+          if (id==master) then
+             print*,'ERROR in setup: use of dust particles AND a dust fraction not implemented'
+             print*,'                i.e. cannot yet mix two-fluid and one-fluid methods'
+             print "(2(/,a),/)",' ** Set PHANTOM_RESTART_ONEFLUID=yes to restart a two fluid', &
+                                '    calculation using the one fluid method (dustfrac) **'
+          endif
+          nerror = nerror + 1
        endif
-       nerror = nerror + 1
     endif
  endif
 !
