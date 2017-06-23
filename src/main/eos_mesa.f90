@@ -23,7 +23,7 @@
 module eos_mesa
 
  use mesa_microphysics!, only: get_eos_constants_mesa, getpressure_mesa, getgamma1_mesa, &
-                              !mesa, deallocate_arrays_mesa
+ !mesa, deallocate_arrays_mesa
 
  implicit none
 

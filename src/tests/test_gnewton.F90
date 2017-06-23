@@ -79,6 +79,7 @@ subroutine test_gnewton(ntests,npass)
     xyzh(1,1) = ra
     xyzh(2,1) = 0.
     xyzh(3,1) = 0.
+    xyzh(4,1) = 1.e-2
 
     vxyzu(1,1) = 0.
     vxyzu(2,1) = va
@@ -89,21 +90,23 @@ subroutine test_gnewton(ntests,npass)
     call get_gnewton_energy(xyzh(1:3,1),vxyzu(1:3,1),mass1,energyin,angmomxin,angmomyin,angmomzin)
     angmomin = sqrt(angmomxin**2 + angmomyin**2 + angmomzin**2)
 
-    print "(/,2x,a)",'---------- orbital parameters ---------- '
-    print "(6(2x,a,f15.3,/),2x,a,5x,es10.3)", &
-          'apocenter               :',ra, &
-          'pericenter              :',rp, &
-          'semi-major axis         :',a, &
-          'eccentricity            :',e, &
-          'initial velocity        :',va, &
-          'gravitational radius    :',rg, &
-          'central mass            :',mass1
-    print "(2x,40('-'),/)"
+    if (id==master) then
+       print "(/,2x,a)",'---------- orbital parameters ---------- '
+       print "(6(2x,a,f15.3,/),2x,a,5x,es10.3)", &
+             'apocenter               :',ra, &
+             'pericenter              :',rp, &
+             'semi-major axis         :',a, &
+             'eccentricity            :',e, &
+             'initial velocity        :',va, &
+             'gravitational radius    :',rg, &
+             'central mass            :',mass1
+       print "(2x,40('-'),/)"
+    endif
     !
     !--evolve this
     !
     C_force = 1e-4
-    print*,'integrating the orbit for one azimuthal period... ( C_force = ',C_force,')'
+    if (id==master) print*,'integrating the orbit for one azimuthal period... ( C_force = ',C_force,')'
 
     t = 0.
     call externalforce(iexternalforce,xyzh(1,1),xyzh(2,1),xyzh(3,1),xyzh(4,1), &

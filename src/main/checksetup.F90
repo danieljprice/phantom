@@ -45,7 +45,8 @@ subroutine check_setup(nerror,nwarn,restart)
  use dim,  only:maxp,maxvxyzu,periodic,use_dust,use_dustfrac,ndim,ndusttypes
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
-                idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary
+                idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,&
+                kill_particle,shuffle_part,iamdust
  use eos,             only:gamma,polyk
  use centreofmass,    only:get_centreofmass
  use options,         only:ieos,icooling,iexternalforce
@@ -63,6 +64,7 @@ subroutine check_setup(nerror,nwarn,restart)
  real(kind=8) :: gcode
  real         :: hi,hmin,hmax,dust_to_gas
  logical      :: accreted,dorestart
+ character(len=3) :: string
 !
 !--check that setup is sensible
 !
@@ -132,8 +134,8 @@ subroutine check_setup(nerror,nwarn,restart)
     if (npartoftype(iboundary) > 0) then
        do i = 1,maxtypes
           if (npartoftype(i) > 0 .and. (i/=igas .and. i/=iboundary)) then
-            print*, 'Error in setup: boundary particles cannot coexist with non-gas particles'
-            nerror = nerror + 1
+             print*, 'Error in setup: boundary particles cannot coexist with non-gas particles'
+             nerror = nerror + 1
           endif
        enddo
     endif
@@ -282,13 +284,29 @@ subroutine check_setup(nerror,nwarn,restart)
 !
  if (npartoftype(idust) > 0) then
     if (.not. use_dust) then
-       print*,'Error in setup: dust particles present but -DDUST is not set'
+       if (id==master) print*,'Error in setup: dust particles present but -DDUST is not set'
        nerror = nerror + 1
     endif
     if (use_dustfrac) then
-       print*,'ERROR in setup: use of dust particles AND a dust fraction not implemented'
-       print*,'                i.e. cannot yet mix two-fluid and one-fluid methods'
-       nerror = nerror + 1
+       call get_environment_variable('PHANTOM_RESTART_ONEFLUID',string)
+       if (index(string,'yes') > 0) then
+          if (id==master) print "(/,a,/)",' DELETING DUST PARTICLES (from PHANTOM_RESTART_ONEFLUID=yes)'
+          if (maxphase==maxp) then
+             do i=1,npart
+                if (iamdust(iphase(i))) call kill_particle(i)
+             enddo
+          endif
+          call shuffle_part(npart)
+          npartoftype(idust) = 0
+       else
+          if (id==master) then
+             print*,'ERROR in setup: use of dust particles AND a dust fraction not implemented'
+             print*,'                i.e. cannot yet mix two-fluid and one-fluid methods'
+             print "(2(/,a),/)",' ** Set PHANTOM_RESTART_ONEFLUID=yes to restart a two fluid', &
+                                '    calculation using the one fluid method (dustfrac) **'
+          endif
+          nerror = nerror + 1
+       endif
     endif
  endif
 !
@@ -302,7 +320,7 @@ subroutine check_setup(nerror,nwarn,restart)
        do j=1,ndusttypes
           if (dustfrac(j,i) < 0. .or. dustfrac(j,i) > 1.) then
              nbad = nbad + 1
-             if (nbad <= 10) print*,'ndusttype ',j,' particle ',i,' dustfrac = ',dustfrac(j,i)
+             if (nbad <= 10) print*,' particle ',i,' dustfrac = ',dustfrac(j,i)
           elseif (abs(dustfrac(j,i)-1.) < tiny(1.)) then
              nunity = nunity + 1
           else
@@ -346,7 +364,7 @@ subroutine check_setup(nerror,nwarn,restart)
  endif
 
  if (nerror==0 .and. nwarn==0) then
-    write(*,"(1x,a)") 'Particle setup OK'
+    if (id==master) write(*,"(1x,a)") 'Particle setup OK'
  endif
 
  return

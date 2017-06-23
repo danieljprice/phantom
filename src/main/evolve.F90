@@ -21,10 +21,10 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: analysis, centreofmass, dim, energies, evwrite,
-!    externalforces, fileutils, forcing, inject, io, io_summary, mf_write,
-!    mpiutils, options, part, ptmass, quitdump, readwrite_dumps,
-!    readwrite_infile, sort_particles, step_lf_global, supertimestep,
-!    timestep, timestep_ind, timestep_sts, timing
+!    externalforces, fileutils, forcing, initial_params, inject, io,
+!    io_summary, mf_write, mpiutils, options, part, ptmass, quitdump,
+!    readwrite_dumps, readwrite_infile, sort_particles, step_lf_global,
+!    supertimestep, timestep, timestep_ind, timestep_sts, timing
 !+
 !--------------------------------------------------------------------------
 module evolve
@@ -40,7 +40,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce
  use evwrite,          only:write_evfile,write_evlog
  use energies,         only:etot,totmom,angtot,mdust,get_erot_com
- use dim,              only:calc_erot,maxvxyzu,mhd,use_dustfrac,ndusttypes
+ use dim,              only:calc_erot,maxvxyzu,mhd,use_dustfrac,ndusttypes,periodic
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,dtwallmax,nmaxdumps,iexternalforce,&
                             icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
@@ -49,7 +49,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use step_lf_global,   only:step
  use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
                             timer_dens,timer_force,timer_link
- use mpiutils,         only:reduce_mpi,reduceall_mpi
+ use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
 #ifdef SORT
  use sort_particles,   only:sort_part
 #endif
@@ -97,20 +97,21 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
+ use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in
 #ifdef MFLOW
  use mf_write,         only:mflow_write
 #endif
 #ifdef VMFLOW
-use mf_write,          only:vmflow_write
+ use mf_write,          only:vmflow_write
 #endif
 #ifdef BINPOS
-use mf_write,          only:binpos_write
+ use mf_write,          only:binpos_write
 #endif
 
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: noutput,noutput_dtmax,nsteplast,ncount_fulldumps
- real            :: dtnew,dtlast,timecheck,etot_in,angtot_in,totmom_in,mdust_in(ndusttypes)
+ real            :: dtnew,dtlast,timecheck
  real            :: tprint,tzero,dtmaxold
  real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
  real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
@@ -141,15 +142,16 @@ use mf_write,          only:binpos_write
  nsteplast = 0
  tzero     = time
  dtlast    = 0.
- etot_in   = etot
- angtot_in = angtot
- totmom_in = totmom
- mdust_in  = mdust
+
  should_conserve_energy = (maxvxyzu==4 .and. ieos==2 .and. icooling==0 .and. &
                            ipdv_heating==1 .and. ishock_heating==1 &
                            .and. (.not.mhd .or. iresistive_heating==1))
- should_conserve_momentum = (npartoftype(iboundary)==0)
- should_conserve_angmom   = (npartoftype(iboundary)==0)
+ if (iexternalforce/=0) then
+    should_conserve_momentum = .false.
+ else
+    should_conserve_momentum = (npartoftype(iboundary)==0)
+ endif
+ should_conserve_angmom   = (npartoftype(iboundary)==0 .and. .not.periodic)
  should_conserve_dustmass = use_dustfrac
 
  noutput          = 1
@@ -201,7 +203,7 @@ use mf_write,          only:binpos_write
  if (iexternalforce==iext_spiral) then
     nevwrite_threshold = int(4.99*npart) ! every 5 full steps
  else
-    nevwrite_threshold = int(1.99*npart) ! every 2 full steps
+    nevwrite_threshold = int(3.99*npart) ! every 2 full steps
  endif
  nskipped_sink = 0
  nsinkwrite_threshold  = int(0.99*npart)
@@ -256,7 +258,7 @@ use mf_write,          only:binpos_write
     !  in step the next time it is called;
     !  for global timestepping, this is called in the block where at_dump_time==.true.
     if (istepfrac==2**nbinmax) then
-       twallperdump = timer_lastdump%wall
+       twallperdump = reduceall_mpi('max', timer_lastdump%wall)
        call check_dtmax_for_decrease(iprint,dtmax,twallperdump,update_tzero)
     endif
 
@@ -339,7 +341,11 @@ use mf_write,          only:binpos_write
     endif
 
 #else
-    time = time + dt
+
+    ! advance time on master thread only
+    if (id == master) time = time + dt
+    call bcast_mpi(time)
+
 !
 !--set new timestep from Courant/forces condition
 !
@@ -407,6 +413,7 @@ use mf_write,          only:binpos_write
              call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)
           enddo
        endif
+
        !--write with the same ev file frequency also mass flux and binary position
 #ifdef MFLOW
        call mflow_write(time,dt)
@@ -491,9 +498,9 @@ use mf_write,          only:binpos_write
        if (dtwallmax > 1.0 .and. .not.fulldump) then
           twallperdump = timer_lastdump%wall
           if (twallperdump > dtwallmax) then
-            fulldump = .true.
-            write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON DT WALL TIME CONSTRAINTS... '
-            nfulldump = 1  !  also set all future dumps to be full dumps (otherwise gets confusing)
+             fulldump = .true.
+             write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON DT WALL TIME CONSTRAINTS... '
+             nfulldump = 1  !  also set all future dumps to be full dumps (otherwise gets confusing)
           endif
        endif
 !
@@ -665,7 +672,7 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,update_tzero,updat
  endif
 
  ! modify dtmax based upon density, if requested, and print info to the logfile
- if (mod_dtmax_now) then
+ if (mod_dtmax_now .and. dtmax_rat0 > 1) then
     dtmax_rat         = dtmax_rat0 + dtmax_rat
     mod_dtmax_now     = .false. ! reset variable
     mod_dtmax         = .false. ! prevent any additional modifications of dtmax
@@ -698,7 +705,7 @@ subroutine check_conservation_error(val,ref,tol,label,decrease)
  real :: err
  character(len=20) :: string
 
- if (abs(ref) > 1.e-6) then
+ if (abs(ref) > 1.e-3) then
     err = (val - ref)/abs(ref)
  else
     err = (val - ref)
@@ -754,7 +761,7 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast,&
  write(iprint,"(1x,'Since last dump : ',a,' timesteps, wall: ',a,'s cpu: ',a,'s cpu/wall: ',a)") &
        trim(adjustl(string)),trim(string1),trim(string2),trim(string3)
 
- time_fullstep = timer_lastdump%wall + timer_io%wall
+ time_fullstep = timer_lastdump%wall + timer_ev%wall + timer_io%wall
  write(iprint,"(/,16x,a)") ' wall        cpu    cpu/wall   frac'
  call print_timer(iprint,timer_step%label,timer_step, time_fullstep)
  call print_timer(iprint,"step (force)",  timer_force,time_fullstep)

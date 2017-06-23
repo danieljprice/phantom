@@ -165,8 +165,8 @@ subroutine write_rhomach(filename,time,rhomeanvw,rhomeanmw,rhovarvw,rhovarmw,&
  endif
 
  open(unit=lunit_rhomach,file=trim(filename),status='replace',form='formatted')
-    write(fmtstring,"('(',i2,'(es18.10,1x))')",iostat=ierr) 17
-    write(lunit_rhomach,fmtstring) time,rhomeanvw,rhomeanmw,rhovarvw,rhovarmw,sqrt(rhovarvw),sqrt(rhovarmw),&
+ write(fmtstring,"('(',i2,'(es18.10,1x))')",iostat=ierr) 17
+ write(lunit_rhomach,fmtstring) time,rhomeanvw,rhomeanmw,rhovarvw,rhovarmw,sqrt(rhovarvw),sqrt(rhovarmw),&
                            rmsv,rmsvmw,bval,bvalmw,smeanvw,smeanmw,svarvw,svarmw,sqrt(svarvw),sqrt(svarmw)
  close(unit=lunit_rhomach)
 

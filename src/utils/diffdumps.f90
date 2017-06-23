@@ -51,10 +51,10 @@ program diffdumps
  call get_command_argument(1,dumpfile)
  call get_command_argument(2,dumpfile2)
  if (nargs >= 3) then
-   call get_command_argument(3,tolstring)
-   read(tolstring,*)tolerance
+    call get_command_argument(3,tolstring)
+    read(tolstring,*)tolerance
  else
-   tolerance = tiny(0.)
+    tolerance = tiny(0.)
  endif
 
  print "(/,a,/)",' diffdumps: we welcome you'

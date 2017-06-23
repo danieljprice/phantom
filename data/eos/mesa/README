@@ -3,7 +3,7 @@ They will be downloaded automatically when you run the code
 
 or can be retrieved manually using wget from the phantom website, e.g.:
 
-wget http://users.monash.edu.au/~dprice/phantom/eos/mesa/opacs.bindata
+wget http://users.monash.edu.au/~dprice/phantom/data/eos/mesa/opacs.bindata
 
 The files are:
 

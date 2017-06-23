@@ -30,14 +30,14 @@
 !--------------------------------------------------------------------------
 
 module dust
-use dim, only:ndusttypes
+use dim, only: ndusttypes
  implicit none
  !--Default values for the dust in the infile
  real, public     :: K_code                   = 1.
  real, public     :: grainsizecgs(ndusttypes) = 0.1
  real, public     :: smincgs                  = 1.e-5
- real, public     :: smaxcgs                  = 0.1
- real, public     :: sindex                   = 3.5
+ real, public     :: smaxcgs                  = 0.1 
+ real, public     :: sindex                   = 3.5 
  real, public     :: graindenscgs             = 3.
 
  integer, public  :: idrag             = 1
@@ -73,8 +73,8 @@ subroutine init_drag(ierr)
  use eos,      only:gamma
  integer, intent(out) :: ierr
  integer :: i
- real :: cste_seff
- real :: mass_mol_gas, cross_section_gas
+ real    :: cste_seff
+ real    :: mass_mol_gas, cross_section_gas
 
  ierr = 0
  !--compute constants which are used in the ts calculation
@@ -86,13 +86,11 @@ subroutine init_drag(ierr)
  coeff_gei_1       = sqrt(8./(pi*gamma))
 
  !--compute the grain mass (spherical compact grains of radius s)
- if (ndusttypes>1) then
-    call set_grainsize(smincgs,smaxcgs)
- endif
+ call set_grainsize(smincgs,smaxcgs)
  do i = 1,ndusttypes
     if (grainmass(i) <= 0.) then
        call error('init_drag','grain size/density <= 0',var='grainmass',val=grainmass(i))
-       ierr = 2
+       ierr = 2 
     endif
  enddo
  
@@ -122,16 +120,16 @@ subroutine print_dustinfo(iprint)
  use units, only:unit_density,umass,udist
  integer, intent(in) :: iprint
  integer :: i
- real :: rhocrit
+ real    :: rhocrit
 
  select case(idrag)
  case(1)
     write(iprint,"(a)")              ' Using Epstein/Stokes drag: '
     do i = 1,ndusttypes
-       write(iprint,"(2(a,1pg10.3),a)") '        Grain size = ',grainsize(i)*udist,     ' cm     = ',grainsize(i),' (code units)'
-       write(iprint,"(2(a,1pg10.3),a)") '        Grain mass = ',grainmass(i)*umass,     ' g      = ',grainmass(i),' (code units)'
-       write(iprint,"(2(a,1pg10.3),a)") '     Grain density = ',graindens*unit_density, ' g/cm^3 = ',graindens,   ' (code units)'
-       write(iprint,"(2(a,1pg10.3),a)") '  Gas mfp at rho=1 = ',seff*udist/unit_density,' cm     = ',seff,        ' (code units)'
+       write(iprint,"(2(a,1pg10.3),a)") '        Grain size = ',grainsize(i)*udist,        ' cm     = ',grainsize(i),' (code units)'
+       write(iprint,"(2(a,1pg10.3),a)") '        Grain mass = ',grainmass(i)*umass,        ' g      = ',grainmass(i),' (code units)'
+       write(iprint,"(2(a,1pg10.3),a)") '     Grain density = ',graindens*unit_density, ' g/cm^3 = ',graindens,' (code units)'
+       write(iprint,"(2(a,1pg10.3),a)") '  Gas mfp at rho=1 = ',seff*udist/unit_density,' cm     = ',seff,' (code units)'
        rhocrit = 9.*seff/(4.*grainsize(i))
     enddo
     write(iprint,"(/,a)")              ' Density above which Stokes drag is used:'
@@ -155,7 +153,7 @@ end subroutine print_dustinfo
 subroutine set_dustfrac_single(dust_to_gas,dustfrac)
  real, intent(in)  :: dust_to_gas
  real, intent(out) :: dustfrac(:)
- 
+
  dustfrac = dust_to_gas/(1. + dust_to_gas)
 
 end subroutine set_dustfrac_single
@@ -181,12 +179,12 @@ subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,smin,smax,sindex)
  real :: power = 0.
  real, parameter :: tol = 1.e-10
 
- if (smax==smin) then
+ if (smax==smin .or. ndusttypes==1) then
     !--If all the same grain size, then just scale the dust fraction
     dustfrac = dust_to_gas_tot/(1.+dust_to_gas_tot)*1./real(ndusttypes)
  else
     call set_grainsize(smin,smax,grid)
-   
+
     !--Dust density is computed from drhodust ∝ dn*mdust where dn ∝ s**(-p)*ds
     !  and mdust ∝ s**(3). This is then integrated across each cell to account
     !  for mass contributions from unrepresented grain sizes
@@ -198,10 +196,10 @@ subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,smin,smax,sindex)
           rhodusti(i) = 1./power*(grid(i+1)**power - grid(i)**power)
        endif
     enddo
-    
+
     !--Sum the contributions from each cell to get total relative dust content
     rhodtot = sum(rhodusti)
-    
+
     !--Calculate the total dust fraction from the dust-to-gas ratio
     dustfrac_tot = dust_to_gas_tot/(1.+dust_to_gas_tot)
 
@@ -282,14 +280,13 @@ subroutine set_grainsize(smin,smax,grid)
     do i = 1,ndusttypes
        grainsizecgs(i) = sqrt(log_grid(i)*log_grid(i+1))
     enddo
- 
+
     ! if we supplied grid, then return it
     if (present(grid)) then
        grid = log_grid ! this is no longer log of the grid at this point
     endif
-
  endif
- 
+
  !--Set the grain properties relating to grain size
  grainsize(:) = grainsizecgs(:)/udist
  graindens    = graindenscgs/unit_density
@@ -312,7 +309,7 @@ subroutine get_ts(idrag,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
  integer, intent(out) :: iregime
  real,    intent(in)  :: sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2
  real,    intent(out) :: ts
- 
+
  real :: tol_super
  real :: rhosum,abs_dv,kwok
  real :: lambda,kn_eff,viscmol_nu,Re_dust
@@ -329,93 +326,93 @@ subroutine get_ts(idrag,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
  ! compute quantities specific to the drag regime
  select case(idrag)
  case(1)
-   !
-   ! physical drag (Epstein or Stokes regime)
-   ! check if the regime is Epstein or Stokes
-   !
-   lambda = seff/rhogas
-   if (sgrain > 0.) then
-      kn_eff = 9.*lambda/(4.*sgrain)
-   else
-      kn_eff = huge(kn_eff)
-   endif
+    !
+    ! physical drag (Epstein or Stokes regime)
+    ! check if the regime is Epstein or Stokes
+    !
+    lambda = seff/rhogas
+    if (sgrain > 0.) then
+       kn_eff = 9.*lambda/(4.*sgrain)
+    else
+       kn_eff = huge(kn_eff)
+    endif
 
-   if (kn_eff >= 1.) then
-   !
-   ! Epstein regime
-   !
-      if (densgrain > tiny(densgrain)) then
-         dragcoeff = coeff_gei_1*spsoundgas/(densgrain*sgrain)
-         !if (dragcoeff > 1.e10) print*,dragcoeff
-      else
-         dragcoeff = huge(dragcoeff) ! so get ts=0 in this case
-      endif
-      if (spsoundgas > 0. .and. dv2 > 0.) then
-         kwok = 9.*pi/128.*dv2/(spsoundgas*spsoundgas)
-         f = sqrt(1.+kwok)
-      else
-         kwok = 0.
-         f = 1. ! not important
-      endif
-      iregime   = 1
-      ! count where Kwok (1975) correction for supersonic drag is important
-      if (kwok > tol_super) iregime = 2
-   else
-   !
-   ! Stokes regime
-   !
-      viscmol_nu = cste_mu*lambda*spsoundgas  ! kinematic viscosity
-      !--compute the local Stokes number
-      abs_dv  = sqrt(dv2)
-      Re_dust = 2.*sgrain*abs_dv/viscmol_nu
-      if (Re_dust  <=  1.) then
-         dragcoeff = 4.5*viscmol_nu/(densgrain*sgrain*sgrain)
-         f         = 1.
-         iregime   = 3
-      elseif (Re_dust  <=  800.) then
-         dragcoeff = 9./(densgrain*sgrain*Re_dust**0.6)
-         f         = abs_dv
-         iregime   = 4
-      else
-         dragcoeff = 0.163075/(densgrain*sgrain)  ! coeff is (3/8)*24/800**0.6
-         f         = abs_dv
-         iregime   = 5
-      endif
-   endif
-   if (dragcoeff == huge(dragcoeff)) then
-      ts1 = huge(ts1)
-   else
-      ts1 = dragcoeff*f*rhosum
-   endif
-   if (ts1 >= 0.) then
-      ts  = 1./ts1
-   else
-      ts = huge(ts)
-   endif
+    if (kn_eff >= 1.) then
+       !
+       ! Epstein regime
+       !
+       if (densgrain > tiny(densgrain)) then
+          dragcoeff = coeff_gei_1*spsoundgas/(densgrain*sgrain)
+          !if (dragcoeff > 1.e10) print*,dragcoeff
+       else
+          dragcoeff = huge(dragcoeff) ! so get ts=0 in this case
+       endif
+       if (spsoundgas > 0. .and. dv2 > 0.) then
+          kwok = 9.*pi/128.*dv2/(spsoundgas*spsoundgas)
+          f = sqrt(1.+kwok)
+       else
+          kwok = 0.
+          f = 1. ! not important
+       endif
+       iregime   = 1
+       ! count where Kwok (1975) correction for supersonic drag is important
+       if (kwok > tol_super) iregime = 2
+    else
+       !
+       ! Stokes regime
+       !
+       viscmol_nu = cste_mu*lambda*spsoundgas  ! kinematic viscosity
+       !--compute the local Stokes number
+       abs_dv  = sqrt(dv2)
+       Re_dust = 2.*sgrain*abs_dv/viscmol_nu
+       if (Re_dust  <=  1.) then
+          dragcoeff = 4.5*viscmol_nu/(densgrain*sgrain*sgrain)
+          f         = 1.
+          iregime   = 3
+       elseif (Re_dust  <=  800.) then
+          dragcoeff = 9./(densgrain*sgrain*Re_dust**0.6)
+          f         = abs_dv
+          iregime   = 4
+       else
+          dragcoeff = 0.163075/(densgrain*sgrain)  ! coeff is (3/8)*24/800**0.6
+          f         = abs_dv
+          iregime   = 5
+       endif
+    endif
+    if (dragcoeff == huge(dragcoeff)) then
+       ts1 = huge(ts1)
+    else
+       ts1 = dragcoeff*f*rhosum
+    endif
+    if (ts1 >= 0.) then
+       ts  = 1./ts1
+    else
+       ts = huge(ts)
+    endif
 
  case(2)
- !
- ! constant drag coefficient
- !
-   if (K_code > 0.) then
-      ! WARNING! When ndusttypes > 1, K_code ONLY makes sense
-      ! if all of the grains are identical to one another.
-      ts = rhogas*rhodust/(K_code*rhosum)
-   else
-      ts = huge(ts)
-   endif
-   iregime = 0
+    !
+    ! constant drag coefficient
+    !
+    if (K_code > 0.) then
+       ! WARNING! When ndusttypes > 1, K_code ONLY makes sense
+       ! if all of the grains are identical to one another.
+       ts = rhogas*rhodust/(K_code*rhosum)
+    else
+       ts = huge(ts)
+    endif
+    iregime = 0
 
  case(3)
- !
- ! constant ts
- !
-   ts = K_code
-   iregime = 0
+    !
+    ! constant ts
+    !
+    ts = K_code
+    iregime = 0
 
  case default
-   ts = 0.
-   iregime = 0 ! unknown
+    ts = 0.
+    iregime = 0 ! unknown
  end select
 
 end subroutine get_ts
@@ -435,10 +432,7 @@ subroutine write_options_dust(iunit)
  write(iunit,"(/,a)") '# options controlling dust ('//trim(adjustl(numdust))//' dust species)'
  call write_inopt(idrag,'idrag','gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)',iunit)
  if (ndusttypes>1) then
-    !These options are now set in the setup file and shouldn't be changed at runtime
-    !call write_inopt(smincgs,'smin','Minimum grain size in cm',iunit)
-    !call write_inopt(smaxcgs,'smax','Maximum grain size in cm',iunit)
-    !call write_inopt(sindex,'p','MRN power-law index [f(s) = A*s**(-p)]',iunit)
+    !--the grainsize (and powerlaw index) should be set in the setup file
  else
     call write_inopt(grainsizecgs(ndusttypes),'grainsize','Grain size in cm',iunit)
  endif

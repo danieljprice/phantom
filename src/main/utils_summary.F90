@@ -381,8 +381,8 @@ subroutine summary_printout(iprint,nptmass)
     endif
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif
-10  format(a,i10,13x,a)
-20  format(a,18x,F10.3,a)
+10 format(a,i10,13x,a)
+20 format(a,18x,F10.3,a)
  !
  !-- Summary of Timesteps
  if ( print_dt ) then
@@ -495,7 +495,7 @@ subroutine summary_printout(iprint,nptmass)
                                               ,iosum_ave(iosumextst),'|',1.0/iosum_max(iosumextst) ,'|'
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif
-90  format(a,i6,a,f8.2,1x,a,f8.2,1x,a,f8.2,1x,a,Es13.3,1x,a,Es13.3,1x,a)
+90 format(a,i6,a,f8.2,1x,a,f8.2,1x,a,f8.2,1x,a,Es13.3,1x,a,Es13.3,1x,a)
  !
  !--Summary of Dust terms
  if ( print_dust ) then

@@ -55,114 +55,114 @@ contains
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
            npart,npartoftype)
-  use io,        only:fatal,iverbose
-  use part,      only:massoftype,igas,ihacc,i_tlast
-  use partinject,only:add_or_update_particle
-  use setbinary, only:L1_point
-  use physcon,   only:pi,solarm,seconds,years,km,kb_on_mH
-  use units,     only:umass,udist,utime,unit_velocity
-  use random,    only:ran2
-  use eos,       only:gmw,gamma
-  real,    intent(in)    :: time, dtlast
-  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
-  integer, intent(inout) :: npart
-  integer, intent(inout) :: npartoftype(:)
-  real :: r2,Mcut,Mdot_fac,vel_fac,Minject,Mdot_code,tlast
-  real :: xyzi(3),vxyz(3),xyz_star(3),vxyz_star(3),dir(3)
-  real :: rr,phi,theta,cosphi,sinphi,costheta,sintheta
-  real :: deltat,h,u,vinject,temp_inject,uu_inject,gam1
-  integer :: i,j,k,nskip,i_part,ninject
+ use io,        only:fatal,iverbose
+ use part,      only:massoftype,igas,ihacc,i_tlast
+ use partinject,only:add_or_update_particle
+ use setbinary, only:L1_point
+ use physcon,   only:pi,solarm,seconds,years,km,kb_on_mH
+ use units,     only:umass,udist,utime,unit_velocity
+ use random,    only:ran2
+ use eos,       only:gmw,gamma
+ real,    intent(in)    :: time, dtlast
+ real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npartoftype(:)
+ real :: r2,Mcut,Mdot_fac,vel_fac,Minject,Mdot_code,tlast
+ real :: xyzi(3),vxyz(3),xyz_star(3),vxyz_star(3),dir(3)
+ real :: rr,phi,theta,cosphi,sinphi,costheta,sintheta
+ real :: deltat,h,u,vinject,temp_inject,uu_inject,gam1
+ integer :: i,j,k,nskip,i_part,ninject
 !
 ! kill particles outside some outer radius
 !
-  !$omp parallel do default(none) &
-  !$omp shared(npart,xyzh,outer_boundary) &
-  !$omp private(i,r2)
-  do i=1,npart
-     r2 = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
-     if (r2 > outer_boundary**2) xyzh(4,i) = -abs(xyzh(4,i))
-  enddo
-  !$omp end parallel do
+ !$omp parallel do default(none) &
+ !$omp shared(npart,xyzh,outer_boundary) &
+ !$omp private(i,r2)
+ do i=1,npart
+    r2 = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
+    if (r2 > outer_boundary**2) xyzh(4,i) = -abs(xyzh(4,i))
+ enddo
+ !$omp end parallel do
 
-  Mcut = 1000.*(solarm/umass)
-  nskip = 1
-  do while(xyzmh_ptmass(4,nskip) > Mcut)
-     nskip = nskip + 1
-  enddo
-  print*,' skipping ',nskip,' point masses'
+ Mcut = 1000.*(solarm/umass)
+ nskip = 1
+ do while(xyzmh_ptmass(4,nskip) > Mcut)
+    nskip = nskip + 1
+ enddo
+ print*,' skipping ',nskip,' point masses'
 !
 ! convert mass loss rate from Msun/yr to code units
 !
-  Mdot_fac = (solarm/umass)*(utime/years)
-  vel_fac  = (km/udist)*(utime/seconds)
+ Mdot_fac = (solarm/umass)*(utime/years)
+ vel_fac  = (km/udist)*(utime/seconds)
 
-  temp_inject = 1.e4
-  gam1 = gamma - 1.
-  if (gam1 <= 0) call fatal('inject','require gamma > 1 for wind injection')
+ temp_inject = 1.e4
+ gam1 = gamma - 1.
+ if (gam1 <= 0) call fatal('inject','require gamma > 1 for wind injection')
 !
 ! convert from temperature to thermal energy
 ! P/rho = kT/(mu m_H) = (gam-1)*u
 !
-  uu_inject = temp_inject * (((kb_on_mh) / unit_velocity)/unit_velocity) / (gmw*gam1)
-  !print*,' uu_inject = ',uu_inject,kb_on_mh,unit_velocity,gmw,gam1
+ uu_inject = temp_inject * (((kb_on_mh) / unit_velocity)/unit_velocity) / (gmw*gam1)
+ !print*,' uu_inject = ',uu_inject,kb_on_mh,unit_velocity,gmw,gam1
 !
 ! loop over all wind particles
 !
-  !!$omp parallel do default(none) &
-  !!$omp shared(nptmass)
-  do i=nskip+1,nptmass
-     !
-     ! extract current position, velocity and injection radius of star
-     !
-     xyz_star  = xyzmh_ptmass(1:3,i)
-     rr        = 1.0001*xyzmh_ptmass(ihacc,i)
-     tlast     = xyzmh_ptmass(i_tlast,i)
-     vxyz_star = vxyz_ptmass(1:3,i)
+ !!$omp parallel do default(none) &
+ !!$omp shared(nptmass)
+ do i=nskip+1,nptmass
+    !
+    ! extract current position, velocity and injection radius of star
+    !
+    xyz_star  = xyzmh_ptmass(1:3,i)
+    rr        = 1.0001*xyzmh_ptmass(ihacc,i)
+    tlast     = xyzmh_ptmass(i_tlast,i)
+    vxyz_star = vxyz_ptmass(1:3,i)
 
-     !
-     ! calculate how much mass to inject based on
-     ! time interval since last injection
-     !
-     j = i - nskip ! position in wind table
-     Mdot_code = wind(i_Mdot,j)*Mdot_fac
-     vinject   = wind(i_vel,j)*vel_fac
-     deltat    = time - tlast
-     Minject   = Mdot_code*deltat
-     !
-     ! divide by mass of gas particles
-     !
-     ninject = int(Minject/massoftype(igas))
-     if (iverbose>=0) print*,' point mass ',i,j,' injecting ',ninject,Minject,massoftype(igas)
+    !
+    ! calculate how much mass to inject based on
+    ! time interval since last injection
+    !
+    j = i - nskip ! position in wind table
+    Mdot_code = wind(i_Mdot,j)*Mdot_fac
+    vinject   = wind(i_vel,j)*vel_fac
+    deltat    = time - tlast
+    Minject   = Mdot_code*deltat
+    !
+    ! divide by mass of gas particles
+    !
+    ninject = int(Minject/massoftype(igas))
+    if (iverbose>=0) print*,' point mass ',i,j,' injecting ',ninject,Minject,massoftype(igas)
 
-     do k=1,ninject
-        !
-        ! get random position on sphere
-        !
-        phi = 2.*pi*(ran2(iseed) - 0.5)
-        theta = acos(2.*ran2(iseed) - 1.)
-        sintheta = sin(theta)
-        costheta = cos(theta)
-        sinphi   = sin(phi)
-        cosphi   = cos(phi)
-        dir  = (/sintheta*cosphi,sintheta*sinphi,costheta/)
+    do k=1,ninject
+       !
+       ! get random position on sphere
+       !
+       phi = 2.*pi*(ran2(iseed) - 0.5)
+       theta = acos(2.*ran2(iseed) - 1.)
+       sintheta = sin(theta)
+       costheta = cos(theta)
+       sinphi   = sin(phi)
+       cosphi   = cos(phi)
+       dir  = (/sintheta*cosphi,sintheta*sinphi,costheta/)
 
-        xyzi = rr*dir + xyz_star
-        vxyz = vinject*dir + vxyz_star
-        !print*,' v = ',vinject,vxyz_star
-        print*,rr,vinject*deltat,100.*rr
-        h = max(rr,10.*vinject*deltat) !/ninject**(1./3.)
+       xyzi = rr*dir + xyz_star
+       vxyz = vinject*dir + vxyz_star
+       !print*,' v = ',vinject,vxyz_star
+       print*,rr,vinject*deltat,100.*rr
+       h = max(rr,10.*vinject*deltat) !/ninject**(1./3.)
 
-        u = uu_inject
+       u = uu_inject
 
-        i_part = npart + 1 ! all particles are new
-        call add_or_update_particle(igas, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
-     enddo
-     !
-     ! update tlast to current time
-     !
-     xyzmh_ptmass(i_tlast,i) = time
-  enddo
-  if (iverbose >= 0) print*,'npart = ',npart
+       i_part = npart + 1 ! all particles are new
+       call add_or_update_particle(igas, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
+    enddo
+    !
+    ! update tlast to current time
+    !
+    xyzmh_ptmass(i_tlast,i) = time
+ enddo
+ if (iverbose >= 0) print*,'npart = ',npart
 
 end subroutine inject_particles
 

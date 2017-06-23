@@ -49,7 +49,7 @@ module setup
  real    :: object_mass, accradius
 
  private
-real(kind=8) :: udist,umass
+ real(kind=8) :: udist,umass
 
 contains
 
@@ -99,8 +99,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call set_units(dist=udist,mass=umass,G=1.)
 
     if(ierr/=0) then
-        if(id==master) call write_discinputfile(filename)
-        stop
+       if(id==master) call write_discinputfile(filename)
+       stop
     endif
 
  elseif (id==master) then
@@ -196,6 +196,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  iexternalforce = icentralforce
  icooling = 1 ! Switches on beta cooling
+#ifdef MCFOST
+ icooling = 0
+#endif
 
  !
  !--Define a typical density so that B-fields can be correctly initialised
@@ -311,7 +314,7 @@ subroutine write_discinputfile(filename)
  call write_inopt(icentralforce,'icentralforce', 'central mass force choice (0=sink,1=external force)',iunit)
  call write_inopt(accradius, 'accradius','accretion radius',iunit)
 
-close(iunit)
+ close(iunit)
 
 end subroutine write_discinputfile
 !----------------------------------------------------------------

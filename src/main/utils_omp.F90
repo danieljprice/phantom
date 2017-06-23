@@ -74,22 +74,22 @@ end subroutine init_omp
 !+
 !----------------------------------------------------------------
 subroutine limits_omp (n1,n2,i1,i2)
-  integer, intent(in)  :: n1,n2
-  integer, intent(out) :: i1,i2
+ integer, intent(in)  :: n1,n2
+ integer, intent(out) :: i1,i2
 #ifdef _OPENMP
-  integer :: omp_get_num_threads, omp_get_thread_num
-  logical :: omp_in_parallel
+ integer :: omp_get_num_threads, omp_get_thread_num
+ logical :: omp_in_parallel
 
-  if (omp_in_parallel()) then
+ if (omp_in_parallel()) then
     i1 = n1 + ((omp_get_thread_num()  )*n2)/omp_get_num_threads()
     i2 =      ((omp_get_thread_num()+1)*n2)/omp_get_num_threads()
-  else
+ else
     i1 = max(1,n1)
     i2 = n2
-  endif
+ endif
 #else
-  i1 = max(1,n1)
-  i2 = n2
+ i1 = max(1,n1)
+ i2 = n2
 #endif
 end subroutine limits_omp
 

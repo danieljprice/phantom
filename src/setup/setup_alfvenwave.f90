@@ -211,7 +211,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !       if (iselect==4) then
 !          uui = przero/(gam1*rhofunc(x1))
 !       else
-          uui = uuzero + du*cosx1
+       uui = uuzero + du*cosx1
 !       endif
 
        !q = q0 + ampl*rvec*cosx1
@@ -226,7 +226,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call transform_vec(Bvec,Bnew,sina,sinb,cosa,cosb)
 
     if (maxvxyzu >= 4) vxyzu(4,i) = uui
-    if (mhd) Bevol(1:3,i) = real(Bnew,kind=4)
+    if (mhd) Bevol(1:3,i) = Bnew
  enddo
 
  if (mhd) ihavesetupB = .true.
@@ -361,16 +361,16 @@ pure subroutine get_eigenvector(iwave,rvec)
  rvec = 0.
  select case(iwave)
  case(1)
- ! fast wave
+    ! fast wave
     rvec = (/2., 4.*dir, -2.*dir, 0., 0., 4., 0., 9./)/(2.*sqrt(5.))
  case(2)
- ! Alfven wave
+    ! Alfven wave
     rvec = (/0., 0., 0., -1.*dir, 0., 0., 1., 0./)
  case(3)
- ! slow wave
+    ! slow wave
     rvec = (/4., 2.*dir, 4.*dir, 0., 0., -2., 0., 3./)/(2.*sqrt(5.))
  case(4)
- ! entropy wave
+    ! entropy wave
     rvec = 0.5*(/2., 2., 0., 0., 0., 0., 0., 1./)
  end select
 

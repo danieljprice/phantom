@@ -38,16 +38,16 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:use_dustfrac
+ use dim,          only:use_dustfrac,ndusttypes
  use setup_params, only:rhozero,npart_total
  use io,           only:master
  use unifdis,      only:set_unifdis
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
- use part,         only:dustfrac,ndusttypes
+ use part,         only:dustfrac
  use prompting,    only:prompt
  use physcon,      only:pi
- use dust,         only:set_dustfrac,smincgs,smaxcgs,sindex
+ use dust,         only:set_dustfrac
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -58,7 +58,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  real :: totmass,deltax,dust_to_gas
- integer :: i,j,maxp,maxvxyzu
+ real :: smin,smax,sind
+ integer :: i,maxp,maxvxyzu
 !
 !--general parameters
 !
@@ -99,10 +100,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (use_dustfrac) then
     dust_to_gas = 1.e-2
-    do i = 1,ndusttypes
-       if (id==master) call prompt(' enter dust-to-gas ratio ',dust_to_gas,0.)
-       call bcast_mpi(dust_to_gas)
-    enddo
+    if (id==master) call prompt(' enter dust-to-gas ratio ',dust_to_gas,0.)
+    call bcast_mpi(dust_to_gas)
  endif
 
  if (id==master) then
@@ -141,11 +140,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (ndusttypes==1) then
           call set_dustfrac(dust_to_gas,dustfrac(:,i))
        else
-          !!--you can alter the defaults by uncommenting and changing the following values
-          !smincgs = 1.e-5
-          !smaxcgs = 0.1
-          !sindex = 3.5
-          call set_dustfrac(dust_to_gas,dustfrac(:,i),smincgs,smaxcgs,sindex)
+          smin = 1.e-5
+          smax = 0.1
+          sind = 3.5
+          call set_dustfrac(dust_to_gas,dustfrac(:,i),smin,smax,sind)
        endif
     enddo
  endif

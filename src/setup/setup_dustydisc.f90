@@ -18,6 +18,7 @@
 !
 !  RUNTIME PARAMETERS:
 !    H_R               -- H/R at R=Rin
+!    H_R_dust          -- H/R at R=Rin
 !    R_c               -- characteristic radius of the exponential taper
 !    R_c_dust          -- characteristic radius of the exponential taper
 !    R_in              -- inner radius
@@ -45,6 +46,7 @@
 !    pindex_dust       -- p index
 !    profile_set_dust  -- how to set dust density profile (0=equal to gas, 1=custom)
 !    qindex            -- q index
+!    qindex_dust       -- q index
 !    semimajoraxis     -- initial separation of binary (code units)
 !    setplanets        -- add planets? (0=no,1=yes)
 !    sigma_naught      -- Sigma0 of the gas profile Sigma = Sigma0*(R/Rc)^-p*Exp(-(R/Rc)^(2-p))
@@ -53,15 +55,16 @@
 !    umass             -- mass unit in g
 !    xinc              -- inclination angle
 !
-!  DEPENDENCIES: centreofmass, dim, dust, externalforces, infile_utils, io,
-!    options, part, physcon, prompting, setbinary, setdisc, timestep, units
+!  DEPENDENCIES: centreofmass, dim, dust, eos, externalforces,
+!    infile_utils, io, options, part, physcon, prompting, setbinary,
+!    setdisc, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
  use dim,            only:maxp,use_dust,use_dustfrac,maxalpha
  implicit none
  public :: setpart
- real :: R_in,R_out,xinc,star_m,disc_m,pindex,qindex,pindex_dust,H_R,sigma_naught,grainsizeinp,graindensinp
+ real :: R_in,R_out,xinc,star_m,disc_m,pindex,qindex,pindex_dust,qindex_dust,H_R,H_R_dust,sigma_naught,grainsizeinp,graindensinp
  real :: disc_mdust,dust_to_gas_ratio,R_outdust,R_indust,R_c,R_c_dust
  real :: accradius,alphaSS
  integer, parameter :: maxplanets = 9
@@ -83,6 +86,7 @@ contains
 !
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
+ use eos,            only:qfacdisc
  use setdisc,        only:set_disc
  use setbinary,      only:set_binary
  use part,           only:nptmass,xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,igas,idust,dustfrac
@@ -107,7 +111,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=100)               :: filename
  logical :: iexist,isigmapringlegas,isigmapringledust,is_binary,questplanets
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest,idust_to_gas_ratio,ri,sigma_naughtdust,period
- real    :: sini,cosi
+ real    :: sini,cosi,polyk_dust
  integer :: ierr,j
 
  !
@@ -146,6 +150,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  alphaSS            = 0.005
  xinc               = 0.0
  H_R                = 0.05
+ H_R_dust           = H_R
  isigmapringlegas   = .false.
  isigmapringledust  = .false.
  is_binary          = .false.
@@ -157,6 +162,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  R_c                = R_out
  R_c_dust           = R_outdust
  qindex             = 0.25
+ qindex_dust        = qindex
  mprimary           = star_m
  massratio          = 1.
  semimajoraxis      = 1.*au/udist
@@ -193,10 +199,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  inquire(file=filename,exist=iexist)
  if (iexist) then
     call read_dustydiscinputfile(filename,ierr)
-    call write_dustydiscinputfile(filename)
+    if (id==master) call write_dustydiscinputfile(filename)
     call set_units(dist=u_dist,mass=u_mass,G=1.d0)
     if (ierr /= 0) then
-       if (id==master) call write_dustydiscinputfile(filename)
        stop
     endif
  elseif (id==master) then
@@ -282,6 +287,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           R_indust          = R_in
           R_outdust         = R_out
           pindex_dust       = pindex
+          qindex_dust       = qindex
+          H_R_dust          = H_R
           isigmapringledust = isigmapringlegas
           iprofiledust      = iprofilegas
           if (isigmapringledust) R_c_dust = R_c
@@ -293,6 +300,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           else
              call prompt('Enter inner radius (code units) of protoplanetary disc in dust',R_indust,0.01)
              call prompt('Enter outer radius (code units) of protoplanetary disc in dust',R_outdust,R_indust)
+             call prompt('Enter q index of temperature profile cs = cs0*R^-q for dust',qindex_dust,0.)
+             call prompt('Enter H/R at R=Rin for dust',H_R_dust,0.)
           endif
           call prompt('Do you want to taper the power-law dust surface density profile by an exponential function?',&
                      isigmapringledust)
@@ -369,9 +378,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        xyzmh_ptmass(ihsoft,nptmass) = accradius
        vxyz_ptmass                  = 0.
     else
-      print "(a)", 'Central object represented by external force with accretion boundary'
-      print*, ' Accretion Radius: ', accradius
-      accradius1 = accradius
+       print "(a)", 'Central object represented by external force with accretion boundary'
+       print*, ' Accretion Radius: ', accradius
+       accradius1 = accradius
     endif
  endif
 
@@ -431,7 +440,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           call get_d2gratio(idust_to_gas_ratio,ri,iprofilegas,iprofiledust,sigma_naught,&
                             sigma_naughtdust,pindex,pindex_dust,R_c,R_c_dust)
        endif
-       call set_dustfrac(idust_to_gas_ratio,dustfrac(i))
+       call set_dustfrac(idust_to_gas_ratio,dustfrac(:,i))
     enddo
  else
     call set_disc(id,master  = master,             &
@@ -470,8 +479,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                    indexprofile  = iprofiledust,       &
                    rc            = R_c_dust,           &
                    p_index       = pindex_dust,        &
-                   q_index       = qindex,             &
-                   HoverR        = H_R,                &
+                   q_index       = qindex_dust,        &
+                   HoverR        = H_R_dust,           &
                    disc_mass     = disc_mdust,         &
                    star_mass     = star_m,             &
                    gamma         = gamma,              &
@@ -479,7 +488,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                    hfact         = hfact,              &
                    xyzh          = xyzh,               &
                    vxyzu         = vxyzu,              &
-                   polyk         = polyk,              &
+                   polyk         = polyk_dust,         &
                    ismooth       = .false.,            &
                    inclination   = xinc,               &
                    twist         = .false.,            &
@@ -487,6 +496,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
  endif
 
+ qfacdisc = qindex ! reset qfacdisc to gas disc value
 
  if(use_dust)then
     grainsizecgs = grainsizeinp
@@ -628,13 +638,17 @@ subroutine write_dustydiscinputfile(filename)
     call write_inopt(icentralforce,'icentralforce', 'central mass force choice (0=sink,1=external force)',iunit)
  endif
  if (use_dust) then
- write(iunit,"(/,a)") '# options for dust accretion disc'
+    write(iunit,"(/,a)") '# options for dust accretion disc'
     call write_inopt(dust_to_gas_ratio,'dust_to_gas_ratio','dust to gas ratio',iunit)
     call write_inopt(profile_set_dust,'profile_set_dust','how to set dust density profile (0=equal to gas, 1=custom)',iunit)
     select case(profile_set_dust)
     case(1)
        call write_inopt(iprofiledust,'iprofiledust','set dust surface density profile (0=power-law, 1=tapered power-law)',iunit)
        call write_inopt(pindex_dust,'pindex_dust','p index',iunit)
+       if (.not. use_dustfrac) then
+          call write_inopt(qindex_dust,'qindex_dust','q index',iunit)
+          call write_inopt(H_R_dust,'H_R_dust','H/R at R=Rin',iunit)
+       endif
        if (iprofiledust==1) call write_inopt(R_c_dust,'R_c_dust','characteristic radius of the exponential taper',iunit)
        call write_inopt(R_indust,'R_indust','inner radius in dust',iunit)
        call write_inopt(R_outdust,'R_outdust','outer radius in dust',iunit)
@@ -643,7 +657,7 @@ subroutine write_dustydiscinputfile(filename)
     call write_inopt(graindensinp,'graindensinp','intrinsic grain density (in g/cm^3)',iunit)
  endif
  if(setplanets==1)then
- !--planets
+    !--planets
     write(iunit,"(/,a)") '# set planets'
     call write_inopt(nplanets,'nplanets','number of planets',iunit)
     do i=1,nplanets
@@ -716,6 +730,12 @@ subroutine read_dustydiscinputfile(filename,ierr)
     case(1)
        call read_inopt(iprofiledust,'iprofiledust',db,min=0,max=1,errcount=nerr)
        call read_inopt(pindex_dust,'pindex_dust',db,errcount=nerr)
+       if (.not. use_dustfrac) then
+          call read_inopt(qindex_dust,'qindex_dust',db,err=ierr,errcount=nerr)
+          if (ierr /= 0) qindex_dust = qindex
+          call read_inopt(H_R_dust,'H_R_dust',db,min=0.,err=ierr,errcount=nerr)
+          if (ierr /= 0) H_R_dust = H_R
+       endif
        if (iprofiledust==1) call read_inopt(R_c_dust,'R_c_dust',db,min=0.,errcount=nerr)
        if (use_dustfrac) then
           call read_inopt(R_indust,'R_indust',db,min=R_in,errcount=nerr)
@@ -798,9 +818,9 @@ subroutine get_d2gratio(id2g,ri,iprofilegas,iprofiledust,sigma_naught,sigma_naug
     endif
  endif
 
- end subroutine get_d2gratio
+end subroutine get_d2gratio
 
- pure subroutine rotate(xyz,cosi,sini)
+pure subroutine rotate(xyz,cosi,sini)
  real, intent(inout) :: xyz(3)
  real, intent(in)    :: cosi,sini
  real :: xi,yi,zi
@@ -812,6 +832,6 @@ subroutine get_d2gratio(id2g,ri,iprofilegas,iprofiledust,sigma_naught,sigma_naug
  xyz(2) =  yi
  xyz(3) = -xi*sini + zi*cosi
 
- end subroutine rotate
+end subroutine rotate
 
 end module setup

@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: part, random, stretchmap
+!  DEPENDENCIES: io, part, random, stretchmap
 !+
 !--------------------------------------------------------------------------
 module unifdis
@@ -156,13 +156,15 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
              rcyl2 = xi*xi + yi*yi
              rr2   = rcyl2 + zi*zi
              if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
-                 ipart = ipart + 1
-                 iparttot = iparttot + 1
-                 if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
-                 xyzh(1,ipart) = xi
-                 xyzh(2,ipart) = yi
-                 xyzh(3,ipart) = zi
-                 xyzh(4,ipart) = hfact*deltax
+                iparttot = iparttot + 1
+                if (i_belong(iparttot) == id) then
+                   ipart = ipart + 1
+                   if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
+                   xyzh(1,ipart) = xi
+                   xyzh(2,ipart) = yi
+                   xyzh(3,ipart) = zi
+                   xyzh(4,ipart) = hfact*deltax
+                endif
              endif
           enddo
        enddo
@@ -258,20 +260,22 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        ypartmax = max(ypartmax,yi)
        zpartmax = max(zpartmax,zi)
 
-   !
-   !--trim to fit radius. do not allow particles to have *exactly* rmax
-   !  (this stops round-off error from giving non-zero centre of mass)
-   !
+       !
+       !--trim to fit radius. do not allow particles to have *exactly* rmax
+       !  (this stops round-off error from giving non-zero centre of mass)
+       !
        rcyl2 = xi*xi + yi*yi
        rr2   = rcyl2 + zi*zi
        if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
           iparttot = iparttot + 1
-          ipart = ipart + 1
-          if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
-          xyzh(1,ipart) = xi
-          xyzh(2,ipart) = yi
-          xyzh(3,ipart) = zi
-          xyzh(4,ipart) = hfact*deltax
+          if (i_belong(iparttot) == id) then
+             ipart = ipart + 1
+             if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
+             xyzh(1,ipart) = xi
+             xyzh(2,ipart) = yi
+             xyzh(3,ipart) = zi
+             xyzh(4,ipart) = hfact*deltax
+          endif
        endif
 
     enddo
@@ -295,12 +299,12 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
     !xcentre = 0.5*(xmin + xmax)
     !ycentre = 0.5*(ymin + ymax)
     !zcentre = 0.5*(zmin + zmax)
-   ! xmin = -rmax
-   ! ymin = -rmax
-   ! zmin = -rmax
-   ! xmax = rmax
-   ! ymax = rmax
-   ! zmax = rmax
+    ! xmin = -rmax
+    ! ymin = -rmax
+    ! zmin = -rmax
+    ! xmax = rmax
+    ! ymax = rmax
+    ! zmax = rmax
 
     deltax = delta
     deltay = delta*sqrt(3./4.)
@@ -351,16 +355,16 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        endif
     endif
 
-   !
-   !--set the limits so that the particles are
-   !  exactly centred on the origin
-   !
-   ! xmin = xcentre - (nx-1)/2*psepx
-   ! xmax = xcentre + (nx-1)/2*psepx
-   ! ymin = ycentre - (ny-1)/2*psepy
-   ! ymax = ycentre + (ny-1)/2*psepy
-   ! zmin = zcentre - (nz-1)/2*psepz
-   ! zmax = zcentre + (nz-1)/2*psepz
+    !
+    !--set the limits so that the particles are
+    !  exactly centred on the origin
+    !
+    ! xmin = xcentre - (nx-1)/2*psepx
+    ! xmax = xcentre + (nx-1)/2*psepx
+    ! ymin = ycentre - (ny-1)/2*psepy
+    ! ymax = ycentre + (ny-1)/2*psepy
+    ! zmin = zcentre - (nz-1)/2*psepz
+    ! zmax = zcentre + (nz-1)/2*psepz
 
     k = 0
     l = 1
@@ -386,9 +390,9 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        !ystart = ycentre - 0.5*ny*deltay
        !zstart = zcentre - 0.5*nz*deltaz
 
-    !   xstart = xmin
-    !   ystart = ymin + 0.5*dely
-    !   zstart = zmin + 0.5*deltaz
+       !   xstart = xmin
+       !   ystart = ymin + 0.5*dely
+       !   zstart = zmin + 0.5*deltaz
 
        xstart = xmin + 0.5*delx
        ystart = ymin + 0.5*dely
@@ -423,34 +427,32 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        ypartmax = max(ypartmax,yi)
        zpartmax = max(zpartmax,zi)
 
-   !
-   !--trim to fit radius. do not allow particles to have *exactly* rmax
-   !  (this stops round-off error from giving non-zero centre of mass)
-   !
+       !
+       !--trim to fit radius. do not allow particles to have *exactly* rmax
+       !  (this stops round-off error from giving non-zero centre of mass)
+       !
        rcyl2 = xi*xi + yi*yi
        rr2   = rcyl2 + zi*zi
        if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
-          !if (ibelong(xi,yi,zi,id)==id) then
-             iparttot = iparttot + 1
+          iparttot = iparttot + 1
+          if (i_belong(iparttot) == id) then
              ipart = ipart + 1
              if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
              xyzh(1,ipart) = xi
              xyzh(2,ipart) = yi
              xyzh(3,ipart) = zi
              xyzh(4,ipart) = hfact*deltax
-          !else
-          !   iparttot = iparttot + 1
-          !endif
+          endif
        endif
 
     enddo
 
     !if (id==master .and. periodic) then
-       !print*,'part boundaries',xpartmin,xpartmax,ypartmin,ypartmax,zpartmin,zpartmax
+    !print*,'part boundaries',xpartmin,xpartmax,ypartmin,ypartmax,zpartmin,zpartmax
 
-       !print*,'part spacing with the edges of the box ','x',(xpartmin-xmin)/deltax,(xmax-xpartmax)/deltax, &
-       !    'y',(ypartmin-ymin)/deltay,(ymax-ypartmax)/deltay, &
-       !    'z',(zpartmin-zmin)/deltaz,(zmax-zpartmax)/deltaz
+    !print*,'part spacing with the edges of the box ','x',(xpartmin-xmin)/deltax,(xmax-xpartmax)/deltax, &
+    !    'y',(ypartmin-ymin)/deltay,(ymax-ypartmax)/deltay, &
+    !    'z',(zpartmin-zmin)/deltaz,(zmax-zpartmax)/deltaz
     !endif
     np = ipart
     if (present(nptot)) then
@@ -486,17 +488,15 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        rcyl2 = xi*xi + yi*yi
        rr2   = rcyl2 + zi*zi
        if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
-          !if (ibelong(xi,yi,zi,id)==id) then
-             iparttot = iparttot + 1
+          iparttot = iparttot + 1
+          if (i_belong(iparttot) == id) then
              ipart = ipart + 1
              if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
              xyzh(1,ipart) = xi
              xyzh(2,ipart) = yi
              xyzh(3,ipart) = zi
              xyzh(4,ipart) = hfact*delta
-          !else
-          !   iparttot = iparttot + 1
-          !endif
+          endif
        endif
     enddo
     np = ipart
@@ -570,5 +570,12 @@ subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
  nz = 3*int(nz/3)
 
 end subroutine get_ny_nz_closepacked
+
+integer function i_belong(iparttot)
+ use io, only:nprocs
+ integer(kind=8), intent(in) :: iparttot
+
+ i_belong = int(mod(iparttot, int(nprocs, kind=kind(iparttot))), kind=kind(nprocs))
+end function i_belong
 !-------------------------------------------------------------
 end module unifdis

@@ -59,9 +59,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real :: deltax,totmass,dz
+ real :: deltax,totmass !,dz,rfact,expo
  integer :: i,maxvxyzu,nx,maxp
- real :: u, k, const, halfsqrt2, rfact, rsq1, expo, PplusdeltaP
+ real :: u, k, const, halfsqrt2,rsq1,PplusdeltaP
  logical :: use_closepacked
 !
 !--general parameters
@@ -83,20 +83,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  polyk = 0.
  if (maxvxyzu < 4) stop 'need maxvxyzu=4 for MHD vortex setup'
-
-
 !
 !--boundaries
 !
  call set_boundary(-5.0,5.0,-5.0,5.0,-5.0,5.0)
 
  use_closepacked = .true.
- nx = 128
+ nx = 64
  if (id==master) call prompt('Enter resolution (number of particles in x)',nx,8)
 
  call bcast_mpi(nx)
  deltax = dxbound/nx
-
 
  if (use_closepacked) then
     call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
@@ -114,9 +111,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  const = 1.0 / (2.0 * pi)
  halfsqrt2 = 0.5 * sqrt(2.0)
  do i=1,npart
-     !!
-     !! I believe this is the 3D version from Dumbser et al (2008), which includes lots of rotation factors
-     !!
+    !!
+    !! I believe this is the 3D version from Dumbser et al (2008), which includes lots of rotation factors
+    !!
 
 !    rfact = 1.0 - halfsqrt2*xyzh(1,i) - halfsqrt2*xyzh(3,i)
 !    rsq1 = 1.0 - rfact*rfact * (xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i) + xyzh(3,i)*xyzh(3,i))
@@ -134,22 +131,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !    vxyzu(4,i) = 1.5 * PplusdeltaP
 
 
-     !!
-     !! This is the original Balsara (2004) version with an added v_z = 1 component, otherwise identical.
-     !!
+    !!
+    !! This is the original Balsara (2004) version with an added v_z = 1 component, otherwise identical.
+    !!
 
-     rsq1 = 1.0 - xyzh(1,i)*xyzh(1,i) - xyzh(2,i)*xyzh(2,i)
+    rsq1 = 1.0 - xyzh(1,i)*xyzh(1,i) - xyzh(2,i)*xyzh(2,i)
 
-     vxyzu(1,i) = 1.0 - xyzh(2,i) * k * const * exp(0.5*rsq1)
-     vxyzu(2,i) = 1.0 + xyzh(1,i) * k * const * exp(0.5*rsq1)
-     vxyzu(3,i) = 1.0
+    vxyzu(1,i) = 1.0 - xyzh(2,i) * k * const * exp(0.5*rsq1)
+    vxyzu(2,i) = 1.0 + xyzh(1,i) * k * const * exp(0.5*rsq1)
+    vxyzu(3,i) = 1.0
 
-     Bevol(1,i) = -xyzh(2,i) * u * const * exp(0.5*rsq1)
-     Bevol(2,i) =  xyzh(1,i) * u * const * exp(0.5*rsq1)
-     Bevol(3,i) = 0.0
+    Bevol(1,i) = -xyzh(2,i) * u * const * exp(0.5*rsq1)
+    Bevol(2,i) =  xyzh(1,i) * u * const * exp(0.5*rsq1)
+    Bevol(3,i) = 0.0
 
-     PplusdeltaP = 1.0 + exp(rsq1) / (32.0 * pi**3) * (u*u*rsq1 - 0.5*k*k)
-     vxyzu(4,i) = 1.5 * PplusdeltaP
+    PplusdeltaP = 1.0 + exp(rsq1) / (32.0 * pi**3) * (u*u*rsq1 - 0.5*k*k)
+    vxyzu(4,i) = 1.5 * PplusdeltaP
 
  enddo
 
@@ -158,4 +155,3 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 end subroutine setpart
 
 end module setup
-

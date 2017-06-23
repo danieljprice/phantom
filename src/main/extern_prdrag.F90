@@ -79,19 +79,19 @@ subroutine get_prdrag_spatial_force(xi,yi,zi,MStar,fextxi,fextyi,fextzi,phi)
  r2 = xi*xi + yi*yi + zi*zi
  betai = beta(xi,yi,zi)
  rbetai = k0*betai
-   if (r2 > epsilon(r2)) then
+ if (r2 > epsilon(r2)) then
 #ifdef FINVSQRT
-      dr  = finvsqrt(r2)
+    dr  = finvsqrt(r2)
 #else
-      dr = 1./sqrt(r2)
+    dr = 1./sqrt(r2)
 #endif
-      dr3 = dr**3
-      Mbdr3 = Mstar*gcode*(1.-rbetai)*dr3
-      fextxi = fextxi - xi*Mbdr3
-      fextyi = fextyi - yi*Mbdr3
-      fextzi = fextzi - zi*Mbdr3
-      phi    = -Mstar*gcode*dr*(1.-rbetai)
-   endif
+    dr3 = dr**3
+    Mbdr3 = Mstar*gcode*(1.-rbetai)*dr3
+    fextxi = fextxi - xi*Mbdr3
+    fextyi = fextyi - yi*Mbdr3
+    fextzi = fextzi - zi*Mbdr3
+    phi    = -Mstar*gcode*dr*(1.-rbetai)
+ endif
 
 end subroutine get_prdrag_spatial_force
 

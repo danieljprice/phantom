@@ -32,7 +32,7 @@ contains
 
 subroutine test_link(ntests,npass)
  use dim,      only:maxp,maxneigh
- use io,       only:id,master,iverbose
+ use io,       only:id,master,nprocs!,iverbose
  use mpiutils, only:reduceall_mpi
  use part,     only:npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ll,igas
  use kernel,   only:radkern2,radkern
@@ -54,8 +54,9 @@ subroutine test_link(ntests,npass)
  real                   :: rhozero,hi21,dx,dy,dz,xi,yi,zi,q2,hmin,hmax,hi
  integer                :: i,j,icell,ixyzcachesize,ncellstest,nfailedprev,maxpen
  integer                :: nneigh,nneighexact,nneightry,max1,max2,ncheck1,ncheck2,nwarn
+ integer                :: nparttot
 #ifdef IND_TIMESTEPS
- integer                :: npartincell,nfail1,nfail2
+ integer                :: npartincell,nfail1,nfail2,ierrmax
  logical                :: hasactive
 #endif
  integer                :: maxneighi,minneigh,iseed,nlinktest,itest,nll,ndead
@@ -67,7 +68,6 @@ subroutine test_link(ntests,npass)
  character(len=1), dimension(3), parameter :: xlabel = (/'x','y','z'/)
 
  if (id==master) write(*,"(a,/)") '--> TESTING LINKLIST / NEIGHBOUR FINDING'
-
 !
 !--set up a random particle distribution
 !
@@ -95,13 +95,13 @@ subroutine test_link(ntests,npass)
  call set_unifdis('random',id,master,xminp,xmaxp,yminp,ymaxp,zminp,zmaxp,psep,hfact,npart,xyzh)
  npartoftype(:) = 0
  npartoftype(igas) = npart
- print*,'thread ',id,' npart = ',npart
- iverbose = 3
+ !print*,'thread ',id,' npart = ',npart
+ !iverbose = 3
 
  rhozero = 7.5
  hfact = 1.2
  totmass = rhozero/(dxboundp*dyboundp*dzboundp)
- massoftype(igas) = totmass/real(npart) !OK: reduceall_mpi('+',npart)
+ massoftype(igas) = totmass/reduceall_mpi('+',npart)
  hzero = hfact*(massoftype(1)/rhozero)**(1./3.)
 
  hmin = 0.01*hzero
@@ -148,16 +148,18 @@ subroutine test_link(ntests,npass)
 #else
     if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
 #endif
+!
+!--setup the link list
+!
+    if (id==master) write(*,"(/,1x,2(a,i1),a,/)") 'Test ',itest,' of ',nlinktest,': building linked list...'
+    call set_linklist(npart,npart,xyzh,vxyzu)
+!
+!--count dead particles
+!
     ndead = 0
     do i=1,npart
        if (isdead_or_accreted(xyzh(4,i))) ndead = ndead + 1
     enddo
-
-!
-!--setup the link list
-!
-    write(*,"(/,1x,2(a,i1),a,/)") 'Test ',itest,' of ',nlinktest,': building linked list...'
-    call set_linklist(npart,npart,xyzh,vxyzu)
 !
 !--check that the number of cells is non-zero
 !
@@ -223,10 +225,11 @@ subroutine test_link(ntests,npass)
           endif
        enddo
        !!$omp end parallel do
+       ierrmax = 0
        if (ncheck1 > 0) then
-          call checkvalbuf_end('inactive cells have no active particles',ncheck1,nfail1,0,0,npart)
+          call checkvalbuf_end('inactive cells have no active particles',ncheck1,nfail1,ierrmax,0,npart)
        endif
-       call checkvalbuf_end('active cells have at least one active particle',ncheck2,nfail2,0,0,npart)
+       call checkvalbuf_end('active cells have at least one active particle',ncheck2,nfail2,ierrmax,0,npart)
 
        ntests = ntests + 2
        if (nfail1==0) npass = npass + 1
@@ -266,8 +269,7 @@ subroutine test_link(ntests,npass)
              activecell = .true.
           endif
 
-          call get_neighbour_list(icell,listneigh,nneightry,xyzh,xyzcache,ixyzcachesize, &
-                            activeonly=.not.activecell)
+          call get_neighbour_list(icell,listneigh,nneightry,xyzh,xyzcache,ixyzcachesize)
 
 !
 !--the following is a check to ensure that the active list contains
@@ -346,6 +348,13 @@ subroutine test_link(ntests,npass)
                       dx = xi - xyzcache(1,j)
                       dy = yi - xyzcache(2,j)
                       dz = zi - xyzcache(3,j)
+#ifdef MPI
+#ifdef PERIODIC
+                      if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+                      if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+                      if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+#endif
+#endif
                    else
                       dx = xi - xyzh(1,listneigh(j))
                       dy = yi - xyzh(2,listneigh(j))
@@ -371,44 +380,44 @@ subroutine test_link(ntests,npass)
 #ifdef PERIODIC
              if (radkern*hi < min(0.5*dxbound-2.*dcellx,0.5*dybound-2.*dcelly,0.5*dzbound-2.*dcellz)) then
 #endif
-             do j=1,nneightry
-#ifdef IND_TIMESTEPS
-                iactivej = iactive(iphase(listneigh(j)))
-#endif
-                if (activecell .or. iactivej) then
-                   dx = xi - xyzh(1,listneigh(j))
-                   dy = yi - xyzh(2,listneigh(j))
-                   dz = zi - xyzh(3,listneigh(j))
-#ifdef PERIODIC
-                   if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
-                   if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
-                   if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
-#endif
-                   q2 = (dx*dx + dy*dy + dz*dz)*hi21
-                   if (q2 < radkern2) then
-                      nneigh = nneigh + 1
-                   endif
-                endif
-             enddo
-             nfailedprev = nfailed(2)
-             call checkvalbuf(nneigh,nneighexact,0,'nneigh (no cache)',nfailed(2),ncheck2,max2)
-             !if (nneigh > 0) print*,'cell ',icell,' part ',i,' nneigh = ',nneigh,' should be ',nneighexact
-
-             if (nfailed(2) > nfailedprev) then
-                !
-                !--check for double counting in neighbour list
-                !
                 do j=1,nneightry
-                   if (nwarn < 20) then
-                      if (any(listneigh(1:j-1)==listneigh(j))) then
-                         nwarn = nwarn + 1
-                         print*,' ERROR: double counting in neighbour list ',listneigh(j) !,listneigh(1:j-1)
+#ifdef IND_TIMESTEPS
+                   iactivej = iactive(iphase(listneigh(j)))
+#endif
+                   if (activecell .or. iactivej) then
+                      dx = xi - xyzh(1,listneigh(j))
+                      dy = yi - xyzh(2,listneigh(j))
+                      dz = zi - xyzh(3,listneigh(j))
+#ifdef PERIODIC
+                      if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+                      if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+                      if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+#endif
+                      q2 = (dx*dx + dy*dy + dz*dz)*hi21
+                      if (q2 < radkern2) then
+                         nneigh = nneigh + 1
                       endif
                    endif
                 enddo
-             endif
+                nfailedprev = nfailed(2)
+                call checkvalbuf(nneigh,nneighexact,0,'nneigh (no cache)',nfailed(2),ncheck2,max2)
+                !if (nneigh > 0) print*,'cell ',icell,' part ',i,' nneigh = ',nneigh,' should be ',nneighexact
+
+                if (nfailed(2) > nfailedprev) then
+                   !
+                   !--check for double counting in neighbour list
+                   !
+                   do j=1,nneightry
+                      if (nwarn < 20) then
+                         if (any(listneigh(1:j-1)==listneigh(j))) then
+                            nwarn = nwarn + 1
+                            print*,' ERROR: double counting in neighbour list ',listneigh(j) !,listneigh(1:j-1)
+                         endif
+                      endif
+                   enddo
+                endif
 #ifdef PERIODIC
-          endif
+             endif
 #endif
              if (i < 0) stop 'i<0 when about to access ll'
              i = ll(i)
@@ -432,21 +441,27 @@ subroutine test_link(ntests,npass)
 !--check neighbour finding with some pathological configurations
 !
  nlinktest = nlinktest + 1
- write(*,"(/,1x,a,i2,a,/)") 'Test ',nlinktest,': building linked list...'
+ if (id==master) write(*,"(/,1x,a,i2,a,/)") 'Test ',nlinktest,': building linked list...'
  do maxpen=1,3
-    write(*,"(a)") ' particles in a line in '//xlabel(maxpen)//' direction '
+    if (id==master) write(*,"(a)") ' particles in a line in '//xlabel(maxpen)//' direction '
+
     !--particles in a line
-    npart = 10
-    psep  = dxbound/npart
+    nparttot = 20 * nprocs
+    psep  = dxbound/nparttot
+    massoftype(1)   = 2.
+    npart = 0
+    do i=1,nparttot
+       if (mod(i,nprocs) == id) then
+          npart = npart + 1
+          xyzh(:,npart) = 0.
+          xyzh(maxpen,npart)  = (i-1)*psep
+          xyzh(4,npart)       = hfact*psep
+          if (maxphase==maxp) iphase(npart) = isetphase(igas,iactive=.true.)
+       endif
+    enddo
     npartoftype(:) = 0
     npartoftype(igas) = npart
-    if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
-    massoftype(1)   = 2.
-    xyzh(:,1:npart) = 0.
-    do i=1,npart
-       xyzh(maxpen,i)  = (i-1)*psep
-       xyzh(4,i)       = hfact*psep
-    enddo
+
     ntests = ntests + 1
     call set_linklist(npart,npart,xyzh,vxyzu)
     !

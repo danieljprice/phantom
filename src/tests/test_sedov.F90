@@ -17,9 +17,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, deriv, dim, energies, eos, evolve, evwrite, io,
-!    io_summary, options, part, physcon, testutils, timestep, unifdis,
-!    viscosity
+!  DEPENDENCIES: boundary, deriv, dim, energies, eos, evolve, evwrite,
+!    initial_params, io, io_summary, mpiutils, options, part, physcon,
+!    testutils, timestep, unifdis, viscosity
 !+
 !--------------------------------------------------------------------------
 module testsedov
@@ -30,13 +30,13 @@ module testsedov
 contains
 
 subroutine test_sedov(ntests,npass)
- use dim,      only:maxp,maxvxyzu,maxalpha
+ use dim,      only:maxp,maxvxyzu,maxalpha,use_dust
  use io,       only:id,master,iprint,ievfile,iverbose,real4
  use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use unifdis,  only:set_unifdis
  use part,     only:mhd,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,fxyzu,fext,ntot, &
                     divcurlv,divcurlB,Bevol,dBevol,Bextx,Bexty,Bextz,alphaind,&
-                    dustfrac,ddustfrac
+                    dustfrac,ddustfrac,dustevol
  use part,     only:iphase,maxphase,igas,isetphase
  use eos,      only:gamma,polyk
  use options,  only:ieos,tolh,alpha,alphau,alphaB,beta,tolv
@@ -48,10 +48,12 @@ subroutine test_sedov(ntests,npass)
 #endif
  use testutils, only:checkval
  use evwrite,   only:init_evfile,write_evfile
- use energies,  only:etot,totmom
+ use energies,  only:etot,totmom,angtot,mdust
  use evolve,    only:evol
  use viscosity, only:irealvisc
  use io_summary,only:summary_reset
+ use initial_params, only:etot_in,angtot_in,totmom_in,mdust_in
+ use mpiutils,  only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2)
  integer :: i
@@ -107,12 +109,16 @@ subroutine test_sedov(ntests,npass)
 
     totmass = denszero*dxbound*dybound*dzbound
     massoftype(:) = 0.
-    massoftype(igas) = totmass/npart
+    massoftype(igas) = totmass/reduceall_mpi('+',npart)
     print*,' npart = ',npart,' particle mass = ',massoftype(igas)
 
     do i=1,npart
        if (maxphase==maxp) iphase(i) = isetphase(igas,iactive=.true.)
        vxyzu(:,i) = 0.
+       if (use_dust) then
+          dustfrac(:,i) = 0.
+          dustevol(:,i) = 0.
+       endif
 
        if ((xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2) < rblast*rblast) then
           vxyzu(4,i) = prblast/(gam1*denszero)
@@ -150,6 +156,10 @@ subroutine test_sedov(ntests,npass)
     call write_evfile(time,dt)
     etotin    = etot
     momtotin  = totmom
+    etot_in   = etot
+    angtot_in = angtot
+    totmom_in = totmom
+    mdust_in  = mdust
     call evol('test.in',logfile,evfile,dumpfile)
     call write_evfile(time,dt)
     etotend   = etot

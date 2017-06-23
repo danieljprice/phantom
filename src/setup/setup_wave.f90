@@ -45,7 +45,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use centreofmass, only:reset_centreofmass
  use physcon,      only:pi
  use kernel,       only:radkern
- use dim,          only:maxvxyzu,use_dust,use_dustfrac,maxp,ndusttypes
+ use dim,          only:maxvxyzu,use_dust,use_dustfrac,maxp
  use prompting,    only:prompt
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -184,7 +184,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           endif
        endif
     enddo
-
+    
     npartoftype(itype) = npart - npart_previous
     if (id==master) print*,' npart = ',npart,npart_total
 

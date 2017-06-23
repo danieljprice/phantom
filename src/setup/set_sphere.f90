@@ -167,81 +167,81 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
  !
  !--Perform the iterations
  do while (iterate_to_get_nps .and. iter < 100)
-   iter = iter + 1
-   nx   = int(np**(1./3.)) - 1           ! subtract 1 because of adjustment due to periodic BCs
-   psep = (v_sphere)**(1./3.)/real(nx) ! particle separation in sphere
-   if (lattice=='closepacked') psep = psep*sqrt(2.)**(1./3.)         ! adjust psep for close-packed lattice
-   npart       = npin
-   npart_total = npart_local
-   call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
+    iter = iter + 1
+    nx   = int(np**(1./3.)) - 1           ! subtract 1 because of adjustment due to periodic BCs
+    psep = (v_sphere)**(1./3.)/real(nx) ! particle separation in sphere
+    if (lattice=='closepacked') psep = psep*sqrt(2.)**(1./3.)         ! adjust psep for close-packed lattice
+    npart       = npin
+    npart_total = npart_local
+    call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
                     hfact,npart,xyzh,rmax=r_sphere,nptot=npart_total,verbose=.false.)
-   npart0 = npart - npin
-   if (npart0==nps_requested) then
-     iterate_to_get_nps = .false.
-   elseif (npart0 < nps_requested .and. nps_hi==npmax) then
-     ! initialising for the case where npart0 is too small
-     nps_lo = npart0
-     npr_lo = np
-     np     = np + dn
-   elseif (npart0 > nps_requested .and. nps_lo==0) then
-     ! initialising for the case where npart0 is too large
-     nps_hi = npart0
-     npr_hi = np
-     np     = np - dn
-   else
-     if (nps_lo==0 .or. nps_hi==npmax) then
-       ! finalise the boundaries, and begin testing upwards
-       if (nps_lo == 0    ) then
-         nps_lo = npart0
-         npr_lo = np
-       else if (nps_hi == npmax) then
-         nps_hi = npart0
-         npr_hi = np
-       endif
-       np = npr_lo + (npr_hi - npr_lo)/3
-       test_region = -1
-     elseif (test_region == -1) then
-       if (npart0 <= nps_lo .or. npart0 > nps_requested) then
-         test_region = 1
-         np     = npr_lo +  2*(npr_hi - npr_lo)/3
-       else
-         nps_lo = npart0
-         npr_lo = np
-         np     = npr_lo + (npr_hi - npr_lo)/3
-       endif
-     elseif (test_region == 1) then
-       if (npart0 >= nps_hi .or. npart0 <= nps_requested ) then
-         ! this should be compelete
-         if (nps_lo > nps_requested .or. nps_requested > nps_hi) then ! sanity check
-            call fatal("set_sphere","Did not converge to the correct two options for number of particles in the sphere.")
-         endif
-         if (nps_requested - nps_lo > nps_hi - nps_requested) then
-             nps_requested = nps_hi
-             np            = npr_hi
-         else
-           write(*,'(a,I8,a,F5.2,a)') "set_sphere: Suggesting to use ",nps_lo," in the sphere, which is "&
+    npart0 = npart - npin
+    if (npart0==nps_requested) then
+       iterate_to_get_nps = .false.
+    elseif (npart0 < nps_requested .and. nps_hi==npmax) then
+       ! initialising for the case where npart0 is too small
+       nps_lo = npart0
+       npr_lo = np
+       np     = np + dn
+    elseif (npart0 > nps_requested .and. nps_lo==0) then
+       ! initialising for the case where npart0 is too large
+       nps_hi = npart0
+       npr_hi = np
+       np     = np - dn
+    else
+       if (nps_lo==0 .or. nps_hi==npmax) then
+          ! finalise the boundaries, and begin testing upwards
+          if (nps_lo == 0    ) then
+             nps_lo = npart0
+             npr_lo = np
+          else if (nps_hi == npmax) then
+             nps_hi = npart0
+             npr_hi = np
+          endif
+          np = npr_lo + (npr_hi - npr_lo)/3
+          test_region = -1
+       elseif (test_region == -1) then
+          if (npart0 <= nps_lo .or. npart0 > nps_requested) then
+             test_region = 1
+             np     = npr_lo +  2*(npr_hi - npr_lo)/3
+          else
+             nps_lo = npart0
+             npr_lo = np
+             np     = npr_lo + (npr_hi - npr_lo)/3
+          endif
+       elseif (test_region == 1) then
+          if (npart0 >= nps_hi .or. npart0 <= nps_requested ) then
+             ! this should be compelete
+             if (nps_lo > nps_requested .or. nps_requested > nps_hi) then ! sanity check
+                call fatal("set_sphere","Did not converge to the correct two options for number of particles in the sphere.")
+             endif
+             if (nps_requested - nps_lo > nps_hi - nps_requested) then
+                nps_requested = nps_hi
+                np            = npr_hi
+             else
+                write(*,'(a,I8,a,F5.2,a)') "set_sphere: Suggesting to use ",nps_lo," in the sphere, which is "&
                  ,float(nps_requested-nps_lo)/float(nps_requested)*100.0,"% than less requested."
-           write(*,'(a,I8,a,F5.2,a)') "set_sphere: The alternative is to use " &
+                write(*,'(a,I8,a,F5.2,a)') "set_sphere: The alternative is to use " &
                  , nps_hi," particles, which is ",float(nps_hi - nps_requested)/float(nps_requested)*100.0 &
                  ,"% more than requested."
-           call prompt(' set_sphere: Use the increased number of particles ',increase_np)
-           if (increase_np) then
-             nps_requested = nps_hi
-             np            = npr_hi
-           else
-             nps_requested = nps_lo
-             np            = npr_lo
-           endif
-         endif
+                call prompt(' set_sphere: Use the increased number of particles ',increase_np)
+                if (increase_np) then
+                   nps_requested = nps_hi
+                   np            = npr_hi
+                else
+                   nps_requested = nps_lo
+                   np            = npr_lo
+                endif
+             endif
+          else
+             nps_hi = npart0
+             npr_hi = np
+             np     = npr_lo + 2*(npr_hi - npr_lo)/3
+          endif
        else
-         nps_hi = npart0
-         npr_hi = np
-         np     = npr_lo + 2*(npr_hi - npr_lo)/3
+          call fatal("set_sphere","iterating to get npart_sphere.  This option should not be possible")
        endif
-     else
-       call fatal("set_sphere","iterating to get npart_sphere.  This option should not be possible")
-     endif
-   endif
+    endif
  enddo
  if (iter >= 100) call fatal("set_sphere","Failed to converge to the correct number of particles in the sphere")
  write(*,'(a,I10,a)') ' set_sphere: Iterations complete: added ',npart0,' particles in sphere'

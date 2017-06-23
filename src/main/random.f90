@@ -175,8 +175,8 @@ subroutine sobseq(n,x)
           i=iu(k,j-mdeg(k))
           i=ieor(i,i/2**mdeg(k))
           do l=mdeg(k)-1,1,-1
-            if(iand(ipp,1) /= 0)i=ieor(i,iu(k,j-l))
-            ipp=ipp/2
+             if(iand(ipp,1) /= 0)i=ieor(i,iu(k,j-l))
+             ipp=ipp/2
           enddo
           iu(k,j)=i
        enddo
@@ -184,18 +184,18 @@ subroutine sobseq(n,x)
     fac=1./2.**maxbit
     in=0
  else
-   im=in
-   do j=1,maxbit
-      if(iand(im,1)==0)goto 1
-      im=im/2
-   enddo
-   stop 'maxbit too small in sobseq'
-1  im=(j-1)*maxdim
-   do k=1,min(n,maxdim)
-      ix(k)=ieor(ix(k),iv(im+k))
-      x(k)=ix(k)*fac
-   enddo
-   in=in+1
+    im=in
+    do j=1,maxbit
+       if(iand(im,1)==0)goto 1
+       im=im/2
+    enddo
+    stop 'maxbit too small in sobseq'
+1   im=(j-1)*maxdim
+    do k=1,min(n,maxdim)
+       ix(k)=ieor(ix(k),iv(im+k))
+       x(k)=ix(k)*fac
+    enddo
+    in=in+1
  endif
  return
 end subroutine sobseq
@@ -234,17 +234,17 @@ subroutine ranset(ir,iseed)
  common /ranpak/ isd
 
  if (iseed > 0) then
-   iset = iseed
+    iset = iseed
  else
- ! use the "demonic" default seed
-   iset = 666
+    ! use the "demonic" default seed
+    iset = 666
  endif
 
  if (ir < 1) then
- !  initialize all random number generator seeds
- !  to iseed
+    !  initialize all random number generator seeds
+    !  to iseed
     do i=1,nrg
-      isd(i) = iset
+       isd(i) = iset
     enddo
  elseif (ir <= nrg) then
     isd(ir) = iset

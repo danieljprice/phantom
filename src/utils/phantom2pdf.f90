@@ -77,89 +77,89 @@ program phantom2pdf
 
  over_files: do ifile=istart,nargs
 
- call get_command_argument(ifile,dumpfile)
+    call get_command_argument(ifile,dumpfile)
 !
 !--read particle setup from dumpfile
 !
- call read_dump(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr)
- if (ierr /= 0) then
-    print*,'error reading dumpfile'
-    cycle over_files
- endif
+    call read_dump(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr)
+    if (ierr /= 0) then
+       print*,'error reading dumpfile'
+       cycle over_files
+    endif
 !
 ! calculate quantities on the particles to check against the values on the grid
 !
- rhomin = huge(rhomin)
- rhomax = 0.
- rhomeanvw = 0.
- totvol = 0.
- rmsv   = 0.
- print*,'hfact = ',hfact
- do i=1,npart
-    rhoi = rhoh(xyzh(4,i),massoftype(1))
-    dvol = massoftype(1)/rhoi
-    rhomin = min(rhomin,rhoi)
-    rhomax = max(rhomax,rhoi)
-    vx2 = vxyzu(1,i)**2
-    vy2 = vxyzu(2,i)**2
-    vz2 = vxyzu(3,i)**2
-    rmsv = rmsv + dvol*(vx2 + vy2 + vz2)
-    totvol = totvol + dvol
-    rhomeanvw = rhomeanvw + dvol*rhoi
- enddo
- rmsv = sqrt(rmsv/totvol)
- rhomeanvw = rhomeanvw/totvol
- print*,'On parts: Total Volume =',totvol,' rms v = ',rmsv
- print*,'On parts: Total Mass = ',massoftype(1)*npart,' mean dens = ',rhomeanvw
- print*,'On parts: max. dens = ',rhomax,' min. dens = ',rhomin
+    rhomin = huge(rhomin)
+    rhomax = 0.
+    rhomeanvw = 0.
+    totvol = 0.
+    rmsv   = 0.
+    print*,'hfact = ',hfact
+    do i=1,npart
+       rhoi = rhoh(xyzh(4,i),massoftype(1))
+       dvol = massoftype(1)/rhoi
+       rhomin = min(rhomin,rhoi)
+       rhomax = max(rhomax,rhoi)
+       vx2 = vxyzu(1,i)**2
+       vy2 = vxyzu(2,i)**2
+       vz2 = vxyzu(3,i)**2
+       rmsv = rmsv + dvol*(vx2 + vy2 + vz2)
+       totvol = totvol + dvol
+       rhomeanvw = rhomeanvw + dvol*rhoi
+    enddo
+    rmsv = sqrt(rmsv/totvol)
+    rhomeanvw = rhomeanvw/totvol
+    print*,'On parts: Total Volume =',totvol,' rms v = ',rmsv
+    print*,'On parts: Total Mass = ',massoftype(1)*npart,' mean dens = ',rhomeanvw
+    print*,'On parts: max. dens = ',rhomax,' min. dens = ',rhomin
 
 !---------------------------------------------
 !
 !--interpolate to the 3D grid
 !
- pixwidth = dxbound/npixx
- weight = 1.d0/hfact**3
- print*,'using hfact = ',hfact,' weight = ',weight
+    pixwidth = dxbound/npixx
+    weight = 1.d0/hfact**3
+    print*,'using hfact = ',hfact,' weight = ',weight
 
- call interpolate3D(xyzh,weight,massoftype(1),vxyzu,npart,xmin,ymin,zmin,datgrid, &
+    call interpolate3D(xyzh,weight,massoftype(1),vxyzu,npart,xmin,ymin,zmin,datgrid, &
                     npixx,npixy,npixz,pixwidth,.true.,0)
- !
- !--calculate rhomach quantities from the gridded data
- !
- rhologmin = -15.
- rhologmax = 15.
- call get_rhomach_grid(datgrid,npixx,npixy,npixz,rhologmin,&
+    !
+    !--calculate rhomach quantities from the gridded data
+    !
+    rhologmin = -15.
+    rhologmax = 15.
+    call get_rhomach_grid(datgrid,npixx,npixy,npixz,rhologmin,&
                        rhomeanvw,rhovarvw,smeanvw,svarvw,rmsv,rhogrid)
- !
- !--fill in the blanks
- !
- rhomeanmw = 0.
- rhovarmw  = 0.
- svarmw    = 0.
- smeanmw   = 0.
- rmsvmw    = 0.
- !
- !--write line to rhomach file
- !
- write(fileout,"(a,i3.3,a)") 'rhomach_'//trim(dumpfile)//'_grid',npixx,'.out'
- call write_rhomach(trim(fileout),time,rhomeanvw,rhomeanmw,rhovarvw,rhovarmw,&
+    !
+    !--fill in the blanks
+    !
+    rhomeanmw = 0.
+    rhovarmw  = 0.
+    svarmw    = 0.
+    smeanmw   = 0.
+    rmsvmw    = 0.
+    !
+    !--write line to rhomach file
+    !
+    write(fileout,"(a,i3.3,a)") 'rhomach_'//trim(dumpfile)//'_grid',npixx,'.out'
+    call write_rhomach(trim(fileout),time,rhomeanvw,rhomeanmw,rhovarvw,rhovarmw,&
                     rmsv,rmsvmw,smeanvw,smeanmw,svarvw,svarmw)
 !
 !--allocate memory for PDF calculation
 !
- binspacing = 0.1
- nbins = nint((rhologmax - rhologmin)/binspacing)
- print "(a,i3,a)",' (allocating memory for ',nbins,' PDF bins)'
- if (.not.allocated(xval)) allocate(xval(nbins),pdf(nbins))
+    binspacing = 0.1
+    nbins = nint((rhologmax - rhologmin)/binspacing)
+    print "(a,i3,a)",' (allocating memory for ',nbins,' PDF bins)'
+    if (.not.allocated(xval)) allocate(xval(nbins),pdf(nbins))
 
- !
- !--calculate PDF of lnrho
- !
- call pdf_calc(npixx*npixy*npixz,rhogrid,rhologmin,rhologmax,nbins,xval,pdf,pdfmin,pdfmax,.true.,volweighted,ierr)
+    !
+    !--calculate PDF of lnrho
+    !
+    call pdf_calc(npixx*npixy*npixz,rhogrid,rhologmin,rhologmax,nbins,xval,pdf,pdfmin,pdfmax,.true.,volweighted,ierr)
 
- xval = exp(xval)
- call pdf_write(nbins,xval,pdf,'lnrhogrid',volweighted,trim(dumpfile),trim(tagline))
- if (allocated(rhogrid)) deallocate(rhogrid)
+    xval = exp(xval)
+    call pdf_write(nbins,xval,pdf,'lnrhogrid',volweighted,trim(dumpfile),trim(tagline))
+    if (allocated(rhogrid)) deallocate(rhogrid)
 
  enddo over_files
 

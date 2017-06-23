@@ -24,12 +24,16 @@
 !
 !  USAGE: phantom infilename
 !
-!  DEPENDENCIES: dim, evolve, initial, io, mpiutils, test
+!  DEPENDENCIES: dim, evolve, initial, io, mpiderivs, mpiutils, stack, test
 !+
 !--------------------------------------------------------------------------
 program phantom
  use dim,             only:tagline
  use mpiutils,        only:init_mpi, finalise_mpi
+#ifdef MPI
+ use mpiderivs,       only:init_tree_comms,finish_tree_comms
+ use stack,           only:init_mpi_memory,finish_mpi_memory
+#endif
  use initial,         only:initialise,startrun,endrun
  use io,              only:id,master,nprocs,set_io_unit_numbers,die
  use evolve,          only:evol
@@ -41,6 +45,10 @@ program phantom
  id = 0
 
  call init_mpi(id,nprocs)
+#ifdef MPI
+ call init_tree_comms()
+ call init_mpi_memory()
+#endif
 
  call set_io_unit_numbers
 !
@@ -75,6 +83,10 @@ program phantom
     if (id==master) call endrun()
  endif
 
+#ifdef MPI
+ call finish_tree_comms()
+ call finish_mpi_memory()
+#endif
  call finalise_mpi()
 
 end program phantom

@@ -31,7 +31,7 @@ module teststep
 contains
 
 subroutine test_step(ntests,npass)
- use io,       only:id,master
+ use io,       only:id,master,nprocs
 #ifdef PERIODIC
  use io,       only:iverbose
  use dim,      only:maxp,maxvxyzu,maxalpha,maxstrain
@@ -64,16 +64,17 @@ subroutine test_step(ntests,npass)
  npart = 0
  psep = dxbound/50.
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
+
  npartoftype(:) = 0
  npartoftype(1) = npart
- print*,' thread ',id,' npart = ',npart
+ !print*,' thread ',id,' npart = ',npart
  iverbose = 0
 
  if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
 
  rhozero = 7.5
  totmass = rhozero/(dxbound*dybound*dzbound)
- massoftype(igas) = totmass/real(npart) !OK: reduceall_mpi('+',npart)
+ massoftype(igas) = totmass/real(reduceall_mpi('+',npart))
  hzero = hfact*(massoftype(igas)/rhozero)**(1./3.)
 !
 !--set constant velocity (in all components)

@@ -23,8 +23,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, deriv, dim, dust, energies, eos, io, kernel,
-!    options, part, physcon, step_lf_global, testutils, timestep, unifdis,
-!    units
+!    mpiutils, options, part, physcon, step_lf_global, testutils, timestep,
+!    unifdis, units
 !+
 !--------------------------------------------------------------------------
 module testdust
@@ -45,6 +45,7 @@ subroutine test_dust(ntests,npass)
  use units,     only:set_units,unit_density
  use eos,       only:gamma
  use dim,       only:ndusttypes
+ use mpiutils,  only:barrier_mpi
 #endif
  integer, intent(inout) :: ntests,npass
 #ifdef DUST
@@ -89,16 +90,19 @@ subroutine test_dust(ntests,npass)
  ! Test transition between Epstein/Stokes drag
  !
  call test_epsteinstokes(ntests,npass)
+ call barrier_mpi()
 
  !
  ! DUSTYBOX test
  !
  call test_dustybox(ntests,npass)
+ call barrier_mpi()
 
  !
  ! DUSTYDIFFUSE test
  !
  call test_dustydiffuse(ntests,npass)
+ call barrier_mpi()
 
  if (id==master) write(*,"(/,a)") '<-- DUST TEST COMPLETE'
 #else
@@ -118,7 +122,8 @@ subroutine test_dustybox(ntests,npass)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
-                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,iphase,iamdust
+                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
+                          dustfrac,dustevol,ddustfrac,iphase,iamdust,maxtypes
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use energies,       only:compute_energies,ekin
@@ -127,10 +132,12 @@ subroutine test_dustybox(ntests,npass)
  use dust,           only:K_code,idrag
  use options,        only:alpha,alphamax
  use unifdis,        only:set_unifdis
- use dim,            only:periodic,mhd,use_dustfrac,ndusttypes
+ use dim,            only:periodic,mhd,use_dust,use_dustfrac,ndusttypes
  use timestep,       only:dtmax
  use io,             only:iverbose
+ use mpiutils,       only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
+ integer(kind=8) :: npartoftypetot(maxtypes)
  integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(5), nerr(5)
  real :: deltax, dz, hfact, totmass, rhozero, errmax(5), dtext_dum
  real :: t, dt, dtext, dtnew
@@ -172,9 +179,14 @@ subroutine test_dustybox(ntests,npass)
        endif
        fext(:,i) = 0.
        if (mhd) Bevol(:,i) = 0.
+       if (use_dust) then
+          dustevol(:,i) = 0.
+          dustfrac(:,i) = 0.
+       endif
     enddo
     npartoftype(itype) = npart - npart_previous
-    massoftype(itype) = totmass/npartoftype(itype)
+    npartoftypetot(itype) = reduceall_mpi('+',npartoftype(itype))
+    massoftype(itype) = totmass/npartoftypetot(itype)
  enddo
  !
  ! runtime parameters
@@ -245,7 +257,7 @@ end subroutine test_dustybox
 !+
 !----------------------------------------------------
 subroutine test_dustydiffuse(ntests,npass)
- use dim,       only:use_dustfrac,maxp,periodic,ndusttypes
+ use dim,       only:use_dustfrac,maxp,periodic,maxtypes,mhd,ndusttypes
  use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac,dustevol, &
                      xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,set_particle_type,rhoh
  use kernel,    only:hfact_default
@@ -256,16 +268,18 @@ subroutine test_dustydiffuse(ntests,npass)
  use unifdis,   only:set_unifdis
  use deriv,     only:derivs
  use testutils, only:checkvalbuf,checkvalbuf_end
+ use mpiutils,  only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
+ integer(kind=8) :: npartoftypetot(maxtypes)
  integer :: nx,j,i,n,nsteps
- integer :: nerr,ncheck
+ integer :: nerr(1),ncheck(1)
  integer :: eps_type
- real    :: errmax
+ real    :: errmax(1)
  real    :: deltax,rhozero,totmass,dt,dtnew,time,tmax
  real    :: epstot,epsi(ndusttypes),rc,rc2,r2,A,B,eta
  real    :: erri,exact,errl2,term,tol
- real    :: ddustfrac_prev(ndusttypes,maxp)
- logical, parameter :: do_output = .true.
+ real,allocatable   :: ddustfrac_prev(:,:)
+ logical, parameter :: do_output = .false.
  real,    parameter :: t_write(5) = (/0.1,0.3,1.0,3.0,10.0/)
 
  if (use_dustfrac .and. periodic) then
@@ -283,14 +297,18 @@ subroutine test_dustydiffuse(ntests,npass)
  hfact = hfact_default
  rhozero = 3.
  totmass = rhozero*dxbound*dybound*dzbound
+ time  = 0.
  npart = 0
  npartoftype(:) = 0
  iverbose = 2
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                   deltax,hfact,npart,xyzh,verbose=.false.)
  npartoftype(igas) = npart
- massoftype(igas)  = totmass/npartoftype(igas)
+ npartoftypetot(igas) = reduceall_mpi('+',npartoftype(igas))
+ massoftype(igas)  = totmass/npartoftypetot(igas)
+ allocate(ddustfrac_prev(ndusttypes,npart))
  vxyzu = 0.
+ if (mhd) Bevol = 0.
  !
  ! runtime options
  !
@@ -305,8 +323,8 @@ subroutine test_dustydiffuse(ntests,npass)
  ! setup dust fraction in the box
  !
  epstot = 0.1
- 
- eps_type = 2
+
+ eps_type = 2 
  select case(eps_type)
  case(1)
     !--Equal dust fractions
@@ -327,7 +345,7 @@ subroutine test_dustydiffuse(ntests,npass)
     print*,'SUM(epsilon_k) = ',sum(epsi)
     print*,'       epsilon = ',epstot
  endif
- 
+
  rc   = 0.25
  rc2  = rc**2
  do i=1,npart
@@ -360,7 +378,7 @@ subroutine test_dustydiffuse(ntests,npass)
     dustevol(:,i) = sqrt(dustfrac(:,i)*rhoh(xyzh(4,i),massoftype(igas)))
  enddo
 
- nerr   = 0
+ nerr = 0
  ncheck = 0
  errmax = 0.
  do j=1,nsteps
@@ -399,22 +417,19 @@ subroutine test_dustydiffuse(ntests,npass)
     !$omp end parallel do
     errl2 = sqrt(errl2/n)
     tol = 2.5e-3 !1.5e-3/(1. + time)  ! take tolerance down with time
-    call checkvalbuf(errl2,0.,tol,'L2 err',nerr,ncheck,errmax)
+    call checkvalbuf(errl2,0.,tol,'L2 err',nerr(1),ncheck(1),errmax(1))
     !
     ! write solution to file if necessary
     !
     if (do_output .and. any(abs(t_write-time) < 0.01*dt)) call write_file(time,xyzh,dustfrac,npart)
  enddo
- call checkvalbuf_end('dust diffusion matches exact solution',ncheck,nerr,errmax,tol)
- 
- ntests = ntests + 1
- if (nerr==0) npass = npass + 1
+ call checkvalbuf_end('dust diffusion matches exact solution',ncheck(1),nerr(1),errmax(1),tol)
 
  !
  ! clean up dog poo
  !
- dustevol = 0.
- dustfrac = 0.
+ dustevol  = 0.
+ dustfrac  = 0.
  ddustfrac = 0.
 
 end subroutine test_dustydiffuse

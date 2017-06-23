@@ -17,8 +17,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, io, kernel, options, part, physcon, prompting,
-!    setup_params, timestep, unifdis
+!  DEPENDENCIES: boundary, io, kernel, mpiutils, options, part, physcon,
+!    prompting, setup_params, timestep, unifdis
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -45,6 +45,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use prompting,    only:prompt
  use kernel,       only:wkern,cnormk,radkern2,hfact_default
  use part,         only:igas
+ use mpiutils,     only:bcast_mpi,reduceall_mpi
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -67,9 +68,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  maxp = size(xyzh(1,:))
  maxvxyzu = size(vxyzu(:,1))
- print*,'Setup for Sedov blast wave problem...'
  npartx = 50
- call prompt(' Enter number of particles in x ',npartx,8,nint((maxp)**(1/3.)))
+ if (id==master) then
+    print*,'Setup for Sedov blast wave problem...'
+    call prompt(' Enter number of particles in x ',npartx,8,nint((maxp)**(1/3.)))
+ endif
+ call bcast_mpi(npartx)
  deltax = dxbound/npartx
 
  rhozero = 1.0
@@ -89,8 +93,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(igas) = npart
 
  totmass = rhozero*dxbound*dybound*dzbound
- massoftype = totmass/npart
- print*,' particle mass = ',massoftype(igas)
+ massoftype = totmass/reduceall_mpi('+',npart)
+ if (id==master) print*,' particle mass = ',massoftype(igas)
 
  toten = 0.
  do i=1,npart

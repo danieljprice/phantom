@@ -47,39 +47,39 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  ! Only does this check the first time this subroutine is called.
  if (j==0) then
-  over_sinks: do i=0,maxptmass
-     write(fname,"('sink_',i5.5,'.dat')") i
-     inquire(file=fname,exist=does_it_exists)
-     if (does_it_exists) then
-       print "(a)",'It appears that you already have files for sinkmasses.'
-       print "(a)",'Data will be appended to these files.'
-       cont = .false.
-       call prompt('Do you wish to continue?',cont)
-       if (cont) then
-         exit over_sinks
-       else
-         stop 'Bailing out!!'
+    over_sinks: do i=0,maxptmass
+       write(fname,"('sink_',i5.5,'.dat')") i
+       inquire(file=fname,exist=does_it_exists)
+       if (does_it_exists) then
+          print "(a)",'It appears that you already have files for sinkmasses.'
+          print "(a)",'Data will be appended to these files.'
+          cont = .false.
+          call prompt('Do you wish to continue?',cont)
+          if (cont) then
+             exit over_sinks
+          else
+             stop 'Bailing out!!'
+          endif
        endif
-     endif
-   enddo over_sinks
+    enddo over_sinks
  endif
 
  ! Write the mass at a specific time to a different file for each sink.
  if (nptmass > 0) then
-   do i = 1,nptmass
-     write(fname,"('sink_',i5.5,'.dat')") i
-     inquire(file=fname,exist=does_it_exists)
-     if (does_it_exists) then
-       open(iunit,file=fname,position='append')
-     else
-       open(iunit,file=fname,status='replace')
-     endif
-     write(iunit,*) time, xyzmh_ptmass(4,i)
-     close(iunit)
-   enddo
+    do i = 1,nptmass
+       write(fname,"('sink_',i5.5,'.dat')") i
+       inquire(file=fname,exist=does_it_exists)
+       if (does_it_exists) then
+          open(iunit,file=fname,position='append')
+       else
+          open(iunit,file=fname,status='replace')
+       endif
+       write(iunit,*) time, xyzmh_ptmass(4,i)
+       close(iunit)
+    enddo
  endif
 
-j=1
+ j=1
 
 end subroutine do_analysis
 

@@ -39,7 +39,7 @@ module fastmath
  public :: finvsqrt,testsqrt,checksqrt
 
  interface finvsqrt
-    module procedure fastinvsqrt,dfastinvsqrt
+  module procedure fastinvsqrt,dfastinvsqrt
  end interface
 
 contains

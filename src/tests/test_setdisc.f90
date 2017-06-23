@@ -19,7 +19,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: checksetup, deriv, dim, eos, io, options, part, setdisc,
-!    testutils, timing
+!    testutils, timing, units
 !+
 !--------------------------------------------------------------------------
 module testsetdisc
@@ -31,18 +31,19 @@ module testsetdisc
 contains
 
 subroutine test_setdisc(ntests,npass)
- use dim,       only:maxp
- use io,        only:id,master
- use part,      only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,Bevol,mhd, &
-                     alphaind,maxalpha, &
-                     divcurlv,divcurlB,dBevol,periodic,maxvxyzu,dustfrac,ddustfrac
- use eos,       only:polyk,gamma
- use options,   only:ieos,alpha,alphau,alphaB
- use testutils, only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end
- use deriv,     only:derivs
- use timing,    only:getused,printused
- use setdisc,   only:set_disc
+ use dim,        only:maxp
+ use io,         only:id,master
+ use part,       only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,Bevol,mhd, &
+                      alphaind,maxalpha, &
+                      divcurlv,divcurlB,dBevol,periodic,maxvxyzu,dustfrac,ddustfrac
+ use eos,        only:polyk,gamma
+ use options,    only:ieos,alpha,alphau,alphaB
+ use testutils,  only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end
+ use deriv,      only:derivs
+ use timing,     only:getused,printused
+ use setdisc,    only:set_disc
  use checksetup, only:check_setup
+ use units,      only:set_units
  integer, intent(inout) :: ntests,npass
  integer :: nfailed,ncheck
  integer :: i,nerr,nwarn,nfail
@@ -60,6 +61,7 @@ subroutine test_setdisc(ntests,npass)
  endif
 
  testall  = .true.
+ call set_units(mass=1.d0,dist=1.d0,G=1.d0)
 !
 !--test that centrifugal acceleration balances radial forces
 !

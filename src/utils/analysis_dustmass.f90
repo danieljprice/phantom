@@ -32,24 +32,25 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use dim,  only:maxp,use_dustfrac
+ use dim,  only:maxp,use_dustfrac,ndusttypes
  use part, only:maxphase,isdead_or_accreted,dustfrac,massoftype,igas,&
                 iphase,iamtype
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
- real    :: Mtot,Mgas,Mdust,Macc,pmassi,dustfraci
- real, save :: Mtot_in,Mgas_in,Mdust_in
- integer :: i,itype,lu
+ real          :: Mtot,Mgas,Mdust,Macc,pmassi
+ real          :: dustfraci(ndusttypes),dustfracisum
+ real, save    :: Mtot_in,Mgas_in,Mdust_in
+ integer       :: i,itype,lu
  logical, save :: init = .false.
 
- Mtot  = 0.
- Mgas  = 0.
- Mdust = 0.
- Macc  = 0.
- pmassi    = massoftype(igas)
- dustfraci = 0.
+ Mtot   = 0.
+ Mgas   = 0.
+ Mdust  = 0.
+ Macc   = 0.
+ pmassi = massoftype(igas)
+ dustfraci(:) = 0.
  do i=1,npart
     if (maxphase==maxp) then
        itype = iamtype(iphase(i))
@@ -57,9 +58,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     endif
     Mtot = Mtot + pmassi
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       if (use_dustfrac) dustfraci = dustfrac(i)
-       Mgas  = Mgas  + pmassi*(1. - dustfraci)
-       Mdust = Mdust + pmassi*dustfraci
+       if (use_dustfrac) dustfraci(:) = dustfrac(:,i)
+       dustfracisum = sum(dustfraci)
+       Mgas  = Mgas  + pmassi*(1. - dustfracisum)
+       Mdust = Mdust + pmassi*dustfracisum
     else
        Macc  = Macc + pmassi
     endif

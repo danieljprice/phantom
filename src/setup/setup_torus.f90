@@ -239,8 +239,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  rhosum = 0.0
  pmassii = massoftype(igas)
  do ii=1,npart
-  if (maxphase==maxp) pmassii = massoftype(iamtype(iphase(ii)))
-  rhosum = rhosum + rhoh(xyzh(4,ii),pmassii)
+    if (maxphase==maxp) pmassii = massoftype(iamtype(iphase(ii)))
+    rhosum = rhosum + rhoh(xyzh(4,ii),pmassii)
  enddo
  rhosum = rhosum/npart
 
@@ -264,8 +264,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  iamtypei = igas
  do i=1,npart
     if (maxphase==maxp) then
-      call get_partinfo(iphase(i),iactivei,iamdusti,iamtypei)
-      pmassi = massoftype(iamtypei)
+       call get_partinfo(iphase(i),iactivei,iamdusti,iamtypei)
+       pmassi = massoftype(iamtypei)
     endif
     densi = rhoh(xyzh(4,i),pmassi)
     Bzi   = sqrt(2.*polyk*densi**gamma/beta)
@@ -296,7 +296,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           Bevol(2,i) = dbeta*((2.*Mstar/(polyk*gamma))*densi**(3.-gamma) &
                        *(xyzh(3,i)/rsph**3))*xyzh(2,i)/rcyl
        endif
- !     print*,'B ',i,' = ',Bevol(:,i)
+       !     print*,'B ',i,' = ',Bevol(:,i)
     endif
  enddo
 
@@ -339,7 +339,7 @@ subroutine setring(npartphi,ipart,ri,deltar,deltaphi,densi)
  zi = 0.
 !--upwards from and including the midplane
  do while (denszi > densmin)
-   !--now setup ring of particles
+    !--now setup ring of particles
     do i = 1,npartphi
        ipart = ipart + 1
        if (ipart > maxp) stop 'error: ipart > maxp'
@@ -370,7 +370,7 @@ subroutine setring(npartphi,ipart,ri,deltar,deltaphi,densi)
  zi = 0.
 !--downwards from midplane
  do while (denszi > densmin)
-   !--take half step in r using current deltaz
+    !--take half step in r using current deltaz
     ztemp = zi - 0.5*deltaz
     denstemp = rhofac*rhofunc(ri,ztemp,polyn,dfac,Mstar,Rtorus)
     if (denstemp > tiny(denstemp)) then
@@ -385,18 +385,18 @@ subroutine setring(npartphi,ipart,ri,deltar,deltaphi,densi)
     if (denszi > densmin) then
        !--now setup ring of particles
        do i = 1,npartphi
-           ipart = ipart + 1
-           if (ipart > maxp) stop 'error: ipart > maxp'
-           phii = (i-1)*deltaphi
-           xyzh(1,ipart) = ri*cos(phii)
-           xyzh(2,ipart) = ri*sin(phii)
-           xyzh(3,ipart) = zi
-           xyzh(4,ipart) = hrho(denszi)
-           pri = polyk*denszi**gamma
-           if (maxvxyzu >= 4) vxyzu(4,ipart) = pri/(denszi*(gamma-1.))
-        enddo
+          ipart = ipart + 1
+          if (ipart > maxp) stop 'error: ipart > maxp'
+          phii = (i-1)*deltaphi
+          xyzh(1,ipart) = ri*cos(phii)
+          xyzh(2,ipart) = ri*sin(phii)
+          xyzh(3,ipart) = zi
+          xyzh(4,ipart) = hrho(denszi)
+          pri = polyk*denszi**gamma
+          if (maxvxyzu >= 4) vxyzu(4,ipart) = pri/(denszi*(gamma-1.))
+       enddo
     endif
-     !print*,'zi = ',ri,zi,denszi,ipart
+    !print*,'zi = ',ri,zi,denszi,ipart
  enddo
 
 ! print*,'set ring: r = ',ri,' npart = ',ipart

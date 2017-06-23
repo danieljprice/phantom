@@ -1,6 +1,6 @@
 #--------------------------------------------------------------------------!
 # The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-# Copyright (c) 2007-2015 The Authors (see AUTHORS)                        !
+# Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
 # See LICENCE file for usage and distribution conditions                   !
 # http://users.monash.edu.au/~dprice/phantom                               !
 #--------------------------------------------------------------------------!
@@ -35,7 +35,7 @@ MODFILE       = moddump_default.f90
 ANALYSIS      = analysis_dtheader.f90
 MULTIRUNFILE  = multirun.f90
 LIVE_ANALYSIS = no
-LINKLIST      = kdtree.F90 linklist_kdtree.F90
+LINKLIST      = dtype_kdtree.F90 kdtree.F90 linklist_kdtree.F90
 #
 # can comment out the following lines and instead set
 # the parameters as environment variables
@@ -374,6 +374,7 @@ ifeq ($(SETUP), quebec)
     SETUPFILE = setup_quebec.f90
     GRAVITY = yes
     KNOWN_SETUP = yes
+    MODFILE = moddump_binarystar.f90
 endif
 
 ifeq ($(SETUP), polytrope)
@@ -660,7 +661,7 @@ ifeq ($(SETUP),star)
     MODFILE= moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} kdtree.o linklist_kdtree.o utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
     KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
+    IND_TIMESTEPS=no
     MAXP=10000000
     MHD=no
 endif
@@ -817,6 +818,18 @@ ifeq ($(SETUP), testdust)
     IND_TIMESTEPS=no
 endif
 
+ifeq ($(SETUP), testnimhd)
+#   non-ideal MHD (+ boundary particle) unit tests
+    PERIODIC=yes
+    ISOTHERMAL=yes
+    NONIDEALMHD=yes
+    MHD=yes
+    KERNEL=WendlandC4
+    IND_TIMESTEPS=no
+    STS_TIMESTEPS=no
+    KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), testlum)
 #   Lense-Thirring setup
     FPPFLAGS= -DSORT_RADIUS_INIT -DLIGHTCURVE -DUSE_STRAIN_TENSOR
@@ -887,6 +900,20 @@ ifeq ($(SETUP), mcfost)
     KNOWN_SETUP=yes
     MULTIRUNFILE= multirun.f90
     IND_TIMESTEPS=yes
+    MCFOST=yes
+endif
+
+ifeq ($(SETUP), sfmcfost)
+#   live feedback from mcfost in star formation calculation
+    PERIODIC=yes
+    SETUPFILE= setup_sphereinbox.f90
+    ANALYSIS= analysis_mcfost.f90
+    LIVE_ANALYSIS=yes
+    ISOTHERMAL=no
+    KNOWN_SETUP=yes
+    MULTIRUNFILE= multirun.f90
+    IND_TIMESTEPS=yes
+    GRAVITY=yes
     MCFOST=yes
 endif
 
@@ -1080,6 +1107,37 @@ ifeq ($(SYSTEM), g2)
     MPIEXEC='mpiexec -npernode 1'
 endif
 
+ifeq ($(SYSTEM), monarch)
+    FC= ifort
+    FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -debug all # -fpe0 -fp-stack-check -debug all
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+    OMPFLAGS = -openmp
+    CC = icc
+    CCFLAGS = -O3 -mcmodel=medium
+    QSYS = slurm
+    QPROJECT='p01'
+    WALLTIME='100:59:59'
+endif
+
+ifeq ($(SYSTEM), monarchpsxe)
+    FC= ifort
+    FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -debug all # -fpe0 -fp-stack-check -debug all
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+    OMPFLAGS = -qopenmp
+    CC = icc
+    CCFLAGS = -O3 -mcmodel=medium
+    QSYS = slurm
+    QPROJECT='p01'
+endif
+
 ifeq ($(SYSTEM), raijin)
 #   raijin (NCI machine)
     FC= ifort
@@ -1203,6 +1261,25 @@ ifeq ($(SYSTEM), gfortran47)
     CCFLAGS = -O3
 endif
 
+ifeq ($(SYSTEM), complexity)
+#   complexity.leicester.dirac.ac.uk
+    FC= ifort
+    FFLAGS= -O3 -xhost -ipo -mcmodel=medium -shared-intel -warn uninitialized \
+            -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+    OMPFLAGS = -qopenmp
+    CC = icc
+    CCFLAGS = -O3 -ipo -mcmodel=medium
+    LIBCXX = -cxxlib
+    QSYS=pbs
+    QNAME=q64
+    WALLTIME='48:00:00'
+endif
+
 ifeq ($(SYSTEM), ifort)
     FC= ifort
     FFLAGS= -O3 -xhost -ipo -mcmodel=medium -shared-intel -warn uninitialized \
@@ -1213,9 +1290,41 @@ ifeq ($(SYSTEM), ifort)
     ENDIANFLAGBIG= -convert big_endian
     ENDIANFLAGLITTLE= -convert little_endian
 # or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
-    OMPFLAGS = -openmp
+    OMPFLAGS = -qopenmp
     CC = icc
     CCFLAGS = -O3 -ipo -mcmodel=medium
+    LIBCXX = -cxxlib
+endif
+
+ifeq ($(SYSTEM), ifortmac)
+    FC= ifort
+    FFLAGS= -O3 -xhost -shared-intel -warn uninitialized \
+            -warn unused -warn truncated_source -Wl,-rpath,/opt/intel/lib
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+# or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
+    OMPFLAGS = -qopenmp
+    CC = icc
+    CCFLAGS = -O3
+    LIBCXX = -cxxlib
+endif
+
+ifeq ($(SYSTEM), ifort17)
+    # SYSTEM= ifort fails "make test" for ifort 17.0
+    FC= ifort
+    FFLAGS= -O3 -mcmodel=medium -shared-intel \
+            -warn uninitialized -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+    OMPFLAGS = -qopenmp
+    CC = icc
+    CCFLAGS = -O3 -mcmodel=medium
     LIBCXX = -cxxlib
 endif
 
@@ -1277,6 +1386,24 @@ ifeq ($(SYSTEM), hydra)
     LIBCXX = -cxxlib
 endif
 
+ifeq ($(SYSTEM), lyoccf)
+# LIO CCF cluster
+    FC= ifort
+    FFLAGS= -O3 -ftz -xavx -cpp -sox -ipo -fno-alias -fno-fnalias \
+            -no-prec-div -no-prec-sqrt -align all -warn uninitialized \
+            -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+# or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
+    OMPFLAGS = -openmp
+    CC = icc
+    CCFLAGS = -O3 -ipo -mcmodel=medium
+    LIBCXX = -cxxlib
+endif
+
 
 # Set some default files if not defined above
 ifdef MAXP
@@ -1291,11 +1418,15 @@ endif
 ifdef NCELLSMAX
    FPPFLAGS += -DNCELLSMAX=${NCELLSMAX}
 endif
+ifdef STACKSIZE
+   FPPFLAGS += -DSTACKSIZE=${STACKSIZE}
+endif
 # Set other optional flags depending on settings
 
 ifeq ($(DEBUG), yes)
     FFLAGS += ${DEBUGFLAG}
     FFLAGS := $(FFLAGS:-O3=-O0)
+    FFLAGS := $(FFLAGS:-ipo= )
 endif
 
 ifeq ($(ENDIAN), BIG)
@@ -1458,11 +1589,19 @@ ifeq ($(MPI), zen)
     USEMPI=yes
 endif
 
+ifeq ($(MPI), psxe)
+    FC= mpiifort
+    LDFLAGS+= `mpiifort--showme:link`
+    FPPFLAGS += -DMPI
+    USEMPI=yes
+endif
+
 ifeq ($(MPI), apac)
     LDFLAGS= -lmpi
     FPPFLAGS += -DMPI
     USEMPI=yes
 endif
+
 #
 # HDF5 libraries (if required)
 #
@@ -1479,12 +1618,6 @@ ifeq ($(MCFOST), yes)
 #    LDFLAGS+=  ~/mcfost/src/libtmp/*.o  ~/mcfost/src/*.o  $(LIBCXX)
 endif
 
-#
-# whether or not all threads should read in parallel
-#
-ifeq ($(MPI_PARALLELREAD), yes)
-    FPPFLAGS += -DMPI_PARALLELREAD
-endif
 #
 # select domain decomposition type
 #
@@ -1531,23 +1664,24 @@ SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cool
 SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
 SRCEOS = ${SRCMESA} eos.F90
 
-SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 utils_omp.F90 utils_cpuinfo.f90 \
-         utils_mathfunc.f90 part.F90 commons.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
-         utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_sphNG.f90 utils_timing.f90 utils_vectors.f90 \
+SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
+         utils_mathfunc.f90 part.F90 utils_timing.f90 ${DOMAIN} mpi_balance.F90 commons.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
+         utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_sphNG.f90 utils_vectors.f90 \
          utils_datafiles.f90 datafiles.f90 ${SRCFASTMATH} random.f90 \
          checkoptions.F90 ${SRCEOS} set_binary.f90 \
          viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} \
          set_disc.F90 partinject.F90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} directsum.f90 ${SRCDUST} prompting.f90 readwrite_dumps.F90 quitdump.f90 \
-         ${DOMAIN} mpi_derivs.F90 ${LINKLIST} \
+         mpi_dens.F90 mpi_force.F90 stack.F90 \
+         mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
          ${SRCTURB} ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} \
          ptmass.F90 readwrite_infile.F90 \
-	 dens.F90 force.F90 deriv.F90 energies.F90 \
+         dens.F90 force.F90 deriv.F90 energies.F90 \
          sort_particles.F90 evwrite.F90 \
          step_leapfrog.F90 writeheader.F90 writegitinfo.f90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90\
          geometry.f90 stretchmap.f90 density_profiles.f90 set_unifdis.f90 set_sphere.f90 set_vfield.f90 \
          ${SETUPFILE} checksetup.F90 utils_testsuite.f90 \
-         ${TEST_FASTMATH} test_kernel.f90 test_dust.F90 test_gravity.F90 \
+         ${TEST_FASTMATH} test_kernel.f90 test_dust.F90 test_nonidealmhd.F90 test_gravity.F90 \
          test_derivs.F90 test_cooling.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.F90 test_setdisc.F90 \
          test_link.F90 test_kdtree.F90 test_ptmass.F90 test_luminosity.F90\
@@ -1602,7 +1736,7 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          utils_datafiles.f90 datafiles.f90 part.F90 utils_sphNG.f90 \
          commons.f90 ${SRCFASTMATH} ${SRCEOS} centreofmass.f90 ${SRCPOT} checkoptions.F90 \
          viscosity.f90 options.f90 ${SRCDUST} \
-         readwrite_dumps.F90
+         prompting.f90 readwrite_dumps.F90
 OBJDUMP1= $(SRCDUMP:.f90=.o)
 OBJDUMP= $(OBJDUMP1:.F90=.o)
 
@@ -1614,8 +1748,8 @@ physcon.o: .make_mathflags
 # these are the sources for phantom setup utility
 #
 SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_filenames.f90 utils_summary.F90 \
-          utils_tables.f90 random.f90 ${DOMAIN} set_binary.f90 \
-          utils_indtimesteps.F90 partinject.F90 ${LINKLIST} \
+          utils_tables.f90 random.f90 mpi_balance.F90 ${DOMAIN} set_binary.f90 \
+          utils_indtimesteps.F90 partinject.F90 dtype_kdtree.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} \
           ptmass.F90 energies.F90 \
           geometry.f90 stretchmap.f90 prompting.f90 density_profiles.f90 \
@@ -2060,18 +2194,6 @@ evol_dustywaves: checksys $(OBJDUSTEVOL)
 	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJDUSTEVOL)
 
 #----------------------------------------------------
-# these are the sources for the test_nonideal utility
-#
-SRCTESTNIMHD=  units.f90 ${SRCNIMHD} test_nonideal.f90
-OBJTESTNIMHD= $(SRCTESTNIMHD:.f90=.o)
-
-test_nonideal: checksys $(OBJTESTNIMHD)
-	@echo ""
-	@echo "test_nonideal mhd"
-	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJTESTNIMHD)
-
-#----------------------------------------------------
 # these are the sources for the ev2mdot utility
 #
 .PHONY: ev2mdot
@@ -2252,7 +2374,7 @@ qscript:
 	@echo 'echo "SGE: NHOSTS  = $$NHOSTS"'
 	@echo 'echo "SGE: NSLOTS  = $$NSLOTS"'
 	@echo 'echo "SGE: NQUEUES = $$NQUEUES"'
-    else
+    else ifeq ($(QSYS),pbs)
 	@echo '## PBS Job Submission Script, created by "make qscript" '`date`
         ifdef QNODES
 	   @echo '#PBS -l '$(QNODES)
@@ -2346,6 +2468,32 @@ qscript:
 	@echo 'echo "PBS_JOBNAME is $$PBS_JOBNAME"'
 	@echo 'env | grep PBS'
 	@echo 'cat $$PBS_NODEFILE > nodefile'
+    else
+        ifdef QNODES
+	   @echo '#SBATCH --nodes='$(QNODES)
+        else
+	   @echo '#SBATCH --nodes='$(NMPI)' --ntasks='$(NOMP)
+        endif
+	@echo '#SBATCH --cpus-per-task=1'
+	@echo '#SBATCH --job-name='`../scripts/randomword.pl`
+        ifdef QNAME
+	   @echo '#SBATCH --queue='$(QNAME)
+        endif
+        ifdef QPROJECT
+	   @echo '#SBATCH --account='$(QPROJECT)
+        endif
+	@echo '#SBATCH --output='$(OUTFILE)
+        ifdef MAILTO
+	   @echo '#SBATCH --mail-type=BEGIN'
+	   @echo '#SBATCH --mail-type=FAIL'
+	   @echo '#SBATCH --mail-type=END'
+	   @echo '#SBATCH --mail-user='$(MAILTO)
+        endif
+	@echo '#SBATCH --time=0-'$(WALLTIME)
+	@echo '#SBATCH --mem='$(MAXMEM)
+        ifdef QEXTRA
+	   @echo '#SBATCH '$(QEXTRA)
+        endif
     endif
 	@echo 'echo "HOSTNAME = $$HOSTNAME"'
 	@echo 'echo "HOSTTYPE = $$HOSTTYPE"'
@@ -2362,9 +2510,11 @@ qscript:
         ifeq ($(QSHELL),tcsh)
 	   @echo 'setenv OMP_SCHEDULE "'$(OMP_SCHEDULE)'"'
 	   @echo 'setenv OMP_NUM_THREADS '$(NOMP)
+	   @echo 'setenv OMP_STACKSIZE 1024m'
         else
 	   @echo 'export OMP_SCHEDULE="'$(OMP_SCHEDULE)'"'
 	   @echo 'export OMP_NUM_THREADS='$(NOMP)
+	   @echo 'export OMP_STACKSIZE=1024m'
         endif
     endif
 	@echo
@@ -2372,10 +2522,8 @@ qscript:
     ifeq ($(SYSTEM),msg)
         ifeq ($(QSHELL),bash)
 	   @echo 'source /etc/profile'
-	   @echo 'export KMP_STACKSIZE=1024m'
 	   @echo 'export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}'
         else
-	   @echo 'setenv KMP_STACKSIZE 1024m'
 	   @echo 'setenv LD_LIBRARY_PATH '${LD_LIBRARY_PATH}
         endif
 	@cat ~/.modules
@@ -2432,6 +2580,9 @@ test:
 test2:
 	${MAKE} SETUP=test2 && $(MPIEXEC) $(BINDIR)/phantom test
 
+testkd:
+	${MAKE} SETUP=testkd && $(MPIEXEC) $(BINDIR)/phantom test
+
 testcyl:
 	${MAKE} SETUP=testcyl && $(MPIEXEC) $(BINDIR)/phantom test
 
@@ -2440,6 +2591,9 @@ testgrav:
 
 testdust:
 	${MAKE} SETUP=testdust && $(MPIEXEC) $(BINDIR)/phantom test dust
+
+testnimhd:
+	${MAKE} SETUP=testnimhd && $(MPIEXEC) $(BINDIR)/phantom test nimhd
 
 testall: test test2 testcyl testgrav
 

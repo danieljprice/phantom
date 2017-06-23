@@ -375,9 +375,9 @@ subroutine init_eos(eos_type,ierr)
  !
  select case(eos_type)
  case(6)
- !
- !--Check that if using ieos=6, then isink is set properly
- !
+    !
+    !--Check that if using ieos=6, then isink is set properly
+    !
     if (isink==0) then
        call error('eos','ieos=6, but isink is not set')
        ierr = 1
@@ -385,9 +385,9 @@ subroutine init_eos(eos_type,ierr)
     endif
 
  case(8)
- !
- !--calculate initial variables for the barotropic equation of state
- !
+    !
+    !--calculate initial variables for the barotropic equation of state
+    !
     if (unit_density <= 0.) then
        ierr = 1
        return
@@ -422,9 +422,9 @@ subroutine init_eos(eos_type,ierr)
     endif
 
  case(9)
- !
- !--calculate initial variables for the piecewise polytrope equation of state
- !
+    !
+    !--calculate initial variables for the piecewise polytrope equation of state
+    !
     if (unit_density <= 0.0 .or. unit_pressure<=0.0) then
        ierr = 1
        return
@@ -445,9 +445,9 @@ subroutine init_eos(eos_type,ierr)
     logrhomax = 20.  ! for testing the EoS [cgs]
 
  case(10)
- !
- !--MESA EoS initialisation
- !
+    !
+    !--MESA EoS initialisation
+    !
     call init_eos_mesa(X_in,Z_in,ierr)
 
  end select
@@ -472,13 +472,13 @@ subroutine finish_eos(eos_type,ierr)
  select case(eos_type)
 
  case(10)
- !
- !--MESA EoS deallocation
- !
+    !
+    !--MESA EoS deallocation
+    !
     call finish_eos_mesa
 
  end select
-
+ done_init_eos=.false.
 end subroutine finish_eos
 
 !-----------------------------------------------------------------------
@@ -492,8 +492,8 @@ subroutine verify_less_than(ierr,val1,val2)
  real,    intent(in)    :: val1,val2
  !
  if (val1 > val2) then
-   ierr = ierr + 1
-   call error('eos','incorrect ordering of rhocrit')
+    ierr = ierr + 1
+    call error('eos','incorrect ordering of rhocrit')
  endif
  !
 end subroutine verify_less_than
@@ -798,11 +798,11 @@ subroutine eosinfo(eos_type,iprint)
  real, parameter :: uthermcheck = 3.14159, rhocheck = 23.456
 
  select case(eos_type)
- !
+    !
  case(1,11)
     write(iprint,"(/,a,f10.6)") ' Isothermal equation of state:     cs^2 = ',polyk
     if (eos_type==11) write(iprint,*) ' (ZERO PRESSURE) '
- !
+    !
  case(2)
     if (use_entropy) then
        write(iprint,"(/,a,f10.6,a,f10.6)") ' Adiabatic equation of state (evolving ENTROPY): polyk = ',polyk,' gamma = ',gamma
@@ -822,14 +822,14 @@ subroutine eosinfo(eos_type,iprint)
     else
        write(iprint,"(/,a,f10.6,a,f10.6)") ' Polytropic equation of state: P = ',polyk,'*rho^',gamma
     endif
- !
+    !
  case(3)
     write(iprint,"(/,a,f10.6,a,f10.6)") ' Locally isothermal eq of state (R_sph): cs^2_0 = ',polyk,' qfac = ',qfacdisc
- !
+    !
  case(6)
     write(iprint,"(/,a,i2,a,f10.6,a,f10.6)") ' Locally (on sink ',isink, &
           ') isothermal eos (R_sph): cs^2_0 = ',polyk,' qfac = ',qfacdisc
- !
+    !
  case(8)
     write(iprint,"(/,a,2(es10.3,a))")    ' Barotropic eq of state: cs_ld            = ',sqrt(polyk2),' code units = '&
                                          ,sqrt(polyk2)*unit_velocity,' cm/s'
@@ -867,7 +867,7 @@ subroutine eosinfo(eos_type,iprint)
                                          ,'*(rho /rho2)^',gamma2,'                    for rho2 <= rho/(g/cm^3) < rho3'
     write(iprint,"(3(a,f6.3),a)")        ' Barotropic eq of state: P = cs*rho1*(rho2/rho1)^',gamma1 &
                                         ,'*(rho3/rho2)^',gamma2,'*(rho /rho3)^',gamma3,' for rho3 <= rho/(g/cm^3)'
- !
+    !
  case(9)
     write(iprint,"(/,a,3(es10.3),a,4(es10.3))") ' Piecewise polytropic eq of state (code units) : rhocrit = '&
                                                  ,rhocrit0pwp,rhocrit1pwp,rhocrit2pwp, '; K = ',k0pwp,k1pwp,k2pwp,k3pwp

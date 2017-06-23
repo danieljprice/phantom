@@ -17,9 +17,10 @@ datetag=`date "+%Y%m%d"`;
 webdir=$dir/web
 codedir=$dir/phantom
 #url="https://phantomsph.bitbucket.io/"
-url="http://users.monash.edu.au/~dprice/phantom/"
-webserver="users.monash.edu.au:WWW/phantom/"
-#logsurl="https://users.monash.edu.au/~dprice/phantom/logs/"
+urlgitrepo="https://bitbucket.org/danielprice/phantom";
+url="http://users.monash.edu.au/~dprice/phantom";
+webserver="users.monash.edu.au:WWW/phantom/";
+#urllogs="https://users.monash.edu.au/~dprice/phantom/nightly/logs/"
 admin="daniel.price@monash.edu";
 systems="msg gfortran";
 mailfile="$dir/mail.tmp";
@@ -106,7 +107,7 @@ write_htmlfile_gittag_and_mailfile ()
    i=0;
    for changeset in $changesets; do
        ref=$((i++));
-       echo "<tr><td><a href=\"$url/changeset/$changeset\">$changeset</a></td><td>${summary[$ref]}</td></tr>" >> $htmlfile;
+       echo "<tr><td><a href=\"$urlgitrepo/changeset/$changeset\">$changeset</a></td><td>${summary[$ref]}</td></tr>" >> $htmlfile;
    done
    echo "</table>" >> $htmlfile;  # start blank mail file
 #
@@ -128,6 +129,7 @@ write_htmlfile_gittag_and_mailfile ()
        done
        faillog=$codedir/logs/build-failures-$SYSTEM.txt;
        faillogtest=$codedir/logs/test-failures-$SYSTEM.txt;
+       faillogsetup=$codedir/logs/setup-failures-$SYSTEM.txt;
        if [ -e $faillog ]; then
           fails='';
           for fail in `cat $faillog`; do
@@ -152,6 +154,19 @@ write_htmlfile_gittag_and_mailfile ()
              failtext="test";
           fi
           errors+=" testsuite failures";
+          prev="True";
+       fi
+       if [ -e $faillogsetup ]; then
+          if [ -e $faillog ]; then
+             errors+=" and";
+             failtext+=" and setup";
+          else
+             if [ "X$prev" != "X" ]; then
+                errors+=" and";
+             fi
+             failtext="setup";
+          fi
+          errors+=" setup failures";
           prev="True";
        fi
        grep -q 'NEW WARNINGS' $codedir/logs/build-status-$SYSTEM.html; gotwarn=$?;
@@ -179,7 +194,8 @@ write_htmlfile_gittag_and_mailfile ()
          msg+="$warnings";
          text+=", and avoid introducing new warnings";
       fi
-      gittag="${failtext/ and /}fail-$datetag"
+      failtext=${failtext/ and /};
+      gittag="${failtext/ and /}fail-$datetag";
    else
       if [ "X$warnings" != "X" ]; then
          gotissues=1;
@@ -220,7 +236,7 @@ Content-Type: text/html
 
 <p>Dear $names</p>
 
-<p>$preamble Details below, or on the <a href="$url/nightly/build">web page</a>.</p>
+<p>$preamble Details below, or on the <a href="$url/nightly/">web page</a>.</p>
 
 <p>$text.</p>
 

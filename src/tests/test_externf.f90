@@ -48,7 +48,7 @@ subroutine test_externf(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer                :: i,iextf,nfail1,ierr
  logical                :: dotest1,dotest2,dotest3,accreted
- integer :: nfailed(7),ncheck(7)
+ integer :: nfailed(7),ncheck(7),ierrmax
  real :: psep,fxi,fyi,fzi,dtf,time,pmassi,dhi
  real :: fextxi,fextyi,fextzi,dumx,dumy,dumz,pot1,pot2
  real :: xerrmax,yerrmax,zerrmax,ferrmaxx,ferrmaxy,ferrmaxz
@@ -162,7 +162,8 @@ subroutine test_externf(ntests,npass)
        call accrete_particles(iextf,xi(1),xi(2),xi(3),xi(4),pmassi,time,accreted)
        call checkvalbuf(was_accreted(iextf,xi(4)),accreted,'accrete/=was_accreted',nfail1,ncheck(1))
     enddo
-    call checkvalbuf_end('accreted=was_accreted for all externf',ncheck(1),nfail1,0,0)
+    ierrmax = 0
+    call checkvalbuf_end('accreted=was_accreted for all externf',ncheck(1),nfail1,ierrmax,0)
     ntests = ntests + 1
     if (nfail1==0) npass = npass + 1
  endif test2

@@ -22,9 +22,9 @@
 !--------------------------------------------------------------------------
 program lombperiod
 
-  use powerspectrums, only: powerspectrum
+ use powerspectrums, only: powerspectrum
 
-implicit none
+ implicit none
 
  integer           :: nargs,iunitin=42,iunitout=43,ierr=0,i=0,k=1,nfreq,imf
  character(len=120):: mflowfile,outname,num1,num2
@@ -44,20 +44,20 @@ implicit none
  power(:)=0
  freq(:)=0
 
-  !--frequencies
+ !--frequencies
  do i=1, nfreq
-  freq(i)=maxfreq*i/nfreq
+    freq(i)=maxfreq*i/nfreq
 ! print*,freq(i),i, maxfreq, maxmultiple,nfreq
  enddo
 
  i=1
 
-  nargs = command_argument_count()
+ nargs = command_argument_count()
  if (nargs < 3 .or. nargs>3 ) then
-        print "(a,/)",' Lomb-Scargle periodogram'
-        call get_command_argument(0,mflowfile)
-        print "(a)",' Usage: '//trim(mflowfile)//' time1 time2 *-colxxxxx.mflow file'
-        stop
+    print "(a,/)",' Lomb-Scargle periodogram'
+    call get_command_argument(0,mflowfile)
+    print "(a)",' Usage: '//trim(mflowfile)//' time1 time2 *-colxxxxx.mflow file'
+    stop
  endif
 
  call get_command_argument(1,num1)
@@ -71,9 +71,9 @@ implicit none
 
  imf = index(mflowfile,'-col') + 1
  if (imf <= 0) then
-             outname = trim(mflowfile)//'.lsp'//trim(num1)//'_'//trim(num2)
+    outname = trim(mflowfile)//'.lsp'//trim(num1)//'_'//trim(num2)
  else
-             outname = trim(mflowfile(imf:len_trim(mflowfile)))//'.lsp'//trim(num1)//'_'//trim(num2)
+    outname = trim(mflowfile(imf:len_trim(mflowfile)))//'.lsp'//trim(num1)//'_'//trim(num2)
  endif
 
 
@@ -85,15 +85,15 @@ implicit none
 
  !--Check if inputfile present
  if(ierr/=0) then
-          print*, "Couldn't find input file!"
-          stop
+    print*, "Couldn't find input file!"
+    stop
  endif
 
  !--Count how many lines
 
  do while(ierr==0)
-       read (iunitin,*,iostat=ierr)
-       i=i+1
+    read (iunitin,*,iostat=ierr)
+    i=i+1
  enddo
 
  ierr=0
@@ -106,15 +106,15 @@ implicit none
  dat(:)=0
 
  open(unit=443,file=trim(mflowfile),status='old',form='formatted',iostat=ierr)
-  !--Cycle over times
+ !--Cycle over times
  do while(ierr==0)
 
-          read(443,*,iostat=ierr)time(k),dat(k)
-          if(time1>time(k)) then
-                 cycle
-          elseif(time1<time(k) .and. time2>time(k)) then
-                  k=k+1
-          endif
+    read(443,*,iostat=ierr)time(k),dat(k)
+    if(time1>time(k)) then
+       cycle
+    elseif(time1<time(k) .and. time2>time(k)) then
+       k=k+1
+    endif
  enddo
 
  k=k-1 !otherwise count also last term in input file
@@ -128,7 +128,7 @@ implicit none
  !--write output
 
  do i=1, nfreq
-          write(iunitout,"(2(1x,es18.10,1x))")freq(i)/(tbin),power(i)/k
+    write(iunitout,"(2(1x,es18.10,1x))")freq(i)/(tbin),power(i)/k
 
  enddo
 

@@ -30,8 +30,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use setup_params, only: ihavesetupB
  use part,         only: hfact,mhd
 ! use timestep,      only: dtmax
-       !traced dtmax to "timestep" but can't find "timestep"?
-       !also can't find "dim"?
+ !traced dtmax to "timestep" but can't find "timestep"?
+ !also can't find "dim"?
 
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
@@ -45,9 +45,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! npartoftype
  ! isink (?)
  ! nparttotal
-      ! = number of particles = npart = sum(npartoftype)?
+ ! = number of particles = npart = sum(npartoftype)?
  ! system time (check dtmax as well)
-      ! - from 'set_default_options' - options which comes from 'timestep' ?
+ ! - from 'set_default_options' - options which comes from 'timestep' ?
 
  ! Define hfact
  hfact = 1.2

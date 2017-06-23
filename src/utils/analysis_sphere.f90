@@ -77,32 +77,32 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !--Calculate the angular momentum about the origin
  !
  aparts: do i = 1,npart
-   xi = xyzh(1,i)
-   yi = xyzh(2,i)
-   zi = xyzh(3,i)
-   hi = xyzh(4,i)
-   if (hi < tiny (hi)) cycle aparts      ! dead particle
-   if (maxphase==maxp) then
-     itype = iamtype(iphase(i))
-   else
-     itype = igas
-   endif
-   if (itype/=igas) cycle aparts         ! not gas
-   vxi = vxyzu(1,i)
-   vyi = vxyzu(2,i)
-   vzi = vxyzu(3,i)
-   rvphi = xi*vyi - yi*vxi
-   ! angular momentum above a given density threshhold
-   if (rhoh(hi,particlemass) > rhothresh) then
-      angxa = angxa + particlemass*(yi*vzi - zi*vyi)
-      angya = angya + particlemass*(zi*vxi - xi*vzi)
-      angza = angza + particlemass*(xi*vyi - yi*vxi)
-      if (rvphi > 0.0) then
-         angpa = angpa + particlemass*rvphi
-      else
-         angma = angma + particlemass*rvphi
-      endif
-   endif
+    xi = xyzh(1,i)
+    yi = xyzh(2,i)
+    zi = xyzh(3,i)
+    hi = xyzh(4,i)
+    if (hi < tiny (hi)) cycle aparts      ! dead particle
+    if (maxphase==maxp) then
+       itype = iamtype(iphase(i))
+    else
+       itype = igas
+    endif
+    if (itype/=igas) cycle aparts         ! not gas
+    vxi = vxyzu(1,i)
+    vyi = vxyzu(2,i)
+    vzi = vxyzu(3,i)
+    rvphi = xi*vyi - yi*vxi
+    ! angular momentum above a given density threshhold
+    if (rhoh(hi,particlemass) > rhothresh) then
+       angxa = angxa + particlemass*(yi*vzi - zi*vyi)
+       angya = angya + particlemass*(zi*vxi - xi*vzi)
+       angza = angza + particlemass*(xi*vyi - yi*vxi)
+       if (rvphi > 0.0) then
+          angpa = angpa + particlemass*rvphi
+       else
+          angma = angma + particlemass*rvphi
+       endif
+    endif
  enddo aparts
  angtota = sqrt(angxa*angxa + angya*angya + angza*angza)
  !
@@ -115,7 +115,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  else
     dr = (log10(rmax)-log10(rmin))/float(nbins)
     do i = 1,nbins
-      rbins(i) = 10**(log10(rmin) +(i-1)*dr )
+       rbins(i) = 10**(log10(rmin) +(i-1)*dr )
     enddo
  endif
  !
@@ -125,48 +125,48 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !
  !--Bin the data
  parts: do i = 1,npart
-   xi = xyzh(1,i)
-   yi = xyzh(2,i)
-   zi = xyzh(3,i)
-   hi = xyzh(4,i)
-   if (hi < tiny (hi)) cycle parts      ! dead particle
-   if (maxphase==maxp) then
-     itype = iamtype(iphase(i))
-   else
-     itype = igas
-   endif
-   if (itype/=igas) cycle parts         ! not gas
-   vxi = vxyzu(1,i)
-   vyi = vxyzu(2,i)
-   vzi = vxyzu(3,i)
-   ui  = vxyzu(4,i)
-   rvphi = xi*vyi - yi*vxi
-   ! angular momentum above a given density threshhold
-   if (rhoh(hi,particlemass) > rhothresh) then
-      angx = angx + particlemass*(yi*vzi - zi*vyi)
-      angy = angy + particlemass*(zi*vxi - xi*vzi)
-      angz = angz + particlemass*(xi*vyi - yi*vxi)
-      if (rvphi > 0.0) then
-         angp = angp + particlemass*rvphi
-      else
-         angm = angm + particlemass*rvphi
-      endif
-   endif
-   !--Calculate properties of the particle
-   rad      = sqrt(xi*xi + yi*yi + zi*zi)
-   velocity = sqrt(vxi*vxi + vyi*vyi + vzi*vzi)
-   vr       = (xi*vxi + yi*vyi + zi*vzi)/rad
-   !--Find the bin
-   j = 1
-   do while (rad > rbins(j) .and. j<nbins)
-      j = j + 1
-   enddo
-   if (j < nbins) then
-      ibins(j) = ibins(j) + 1
-      ubins(j) = ubins(j) + ui
-      vbins(j) = vbins(j) + vr
-      hbins(j) = hbins(j) + hi
-   endif
+    xi = xyzh(1,i)
+    yi = xyzh(2,i)
+    zi = xyzh(3,i)
+    hi = xyzh(4,i)
+    if (hi < tiny (hi)) cycle parts      ! dead particle
+    if (maxphase==maxp) then
+       itype = iamtype(iphase(i))
+    else
+       itype = igas
+    endif
+    if (itype/=igas) cycle parts         ! not gas
+    vxi = vxyzu(1,i)
+    vyi = vxyzu(2,i)
+    vzi = vxyzu(3,i)
+    ui  = vxyzu(4,i)
+    rvphi = xi*vyi - yi*vxi
+    ! angular momentum above a given density threshhold
+    if (rhoh(hi,particlemass) > rhothresh) then
+       angx = angx + particlemass*(yi*vzi - zi*vyi)
+       angy = angy + particlemass*(zi*vxi - xi*vzi)
+       angz = angz + particlemass*(xi*vyi - yi*vxi)
+       if (rvphi > 0.0) then
+          angp = angp + particlemass*rvphi
+       else
+          angm = angm + particlemass*rvphi
+       endif
+    endif
+    !--Calculate properties of the particle
+    rad      = sqrt(xi*xi + yi*yi + zi*zi)
+    velocity = sqrt(vxi*vxi + vyi*vyi + vzi*vzi)
+    vr       = (xi*vxi + yi*vyi + zi*vzi)/rad
+    !--Find the bin
+    j = 1
+    do while (rad > rbins(j) .and. j<nbins)
+       j = j + 1
+    enddo
+    if (j < nbins) then
+       ibins(j) = ibins(j) + 1
+       ubins(j) = ubins(j) + ui
+       vbins(j) = vbins(j) + vr
+       hbins(j) = hbins(j) + hi
+    endif
  enddo parts
  angtot = sqrt(angx*angx + angy*angy + angz*angz)
  !

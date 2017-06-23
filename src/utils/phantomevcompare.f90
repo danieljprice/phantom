@@ -281,7 +281,7 @@ program phantomevcompare
  !
  !--Write .columns file (verbosely)
  if ( write_columns ) then
-     call write_columns_to_file(numcol0,columns0,outprefix)
+    call write_columns_to_file(numcol0,columns0,outprefix)
  endif
  write(*,'(3a,I4,a)') 'The .columns file is ',trim(outprefix),'.columns, with ',numcol0,' entries'
  !

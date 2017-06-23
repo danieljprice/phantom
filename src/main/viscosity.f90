@@ -94,16 +94,16 @@ real function shearfunc(xi,yi,zi,spsoundi)
 !--Shakura & Sunyaev for ieos=14
 !
 
-      r1=sqrt((xi-xyzmh_ptmass(1,1))**2+(yi-xyzmh_ptmass(2,1))**2 + (zi-xyzmh_ptmass(3,1))**2)
-      r2=sqrt((xi-xyzmh_ptmass(1,2))**2+(yi-xyzmh_ptmass(2,2))**2 + (zi-xyzmh_ptmass(3,2))**2)
+    r1=sqrt((xi-xyzmh_ptmass(1,1))**2+(yi-xyzmh_ptmass(2,1))**2 + (zi-xyzmh_ptmass(3,1))**2)
+    r2=sqrt((xi-xyzmh_ptmass(1,2))**2+(yi-xyzmh_ptmass(2,2))**2 + (zi-xyzmh_ptmass(3,2))**2)
 
-      if(r2<r1) then
-          H=sqrt(polyk)*r2**(-qfacdisc+1.5)
-      else
-          H=sqrt(polyk)*r1**(-qfacdisc+1.5)
-      endif
+    if(r2<r1) then
+       H=sqrt(polyk)*r2**(-qfacdisc+1.5)
+    else
+       H=sqrt(polyk)*r1**(-qfacdisc+1.5)
+    endif
 
-      shearfunc=shearparam*spsoundi*H
+    shearfunc=shearparam*spsoundi*H
 
 
  case default

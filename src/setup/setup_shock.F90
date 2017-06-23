@@ -131,10 +131,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart          = 0
  npart_total    = 0
  npartoftype(:) = 0
- 
+
  !--zero dust to gas ratio in case dust is not being used
  dtg = 0.
- 
+
  !
  ! read shock parameters from the .setup file.
  ! if file does not exist, then ask for user input
@@ -260,6 +260,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     uuright = 3.*rightstate(ipr)/(2.*rightstate(idens))
  endif
 
+ Bevol = 0.
+ vxyzu = 0.
  do i=1,npart
     delta = xyzh(1,i) - xshock
     if (delta > 0.) then
@@ -268,14 +270,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vxyzu(2,i) = rightstate(ivy)
        vxyzu(3,i) = rightstate(ivz)
        if (maxvxyzu >= 4) vxyzu(4,i) = uuright
-       if (mhd) Bevol(1:3,i) = real(rightstate(iBx:iBz),kind=kind(Bevol))
+       if (mhd) Bevol(1:3,i) = rightstate(iBx:iBz)
     else
        xyzh(4,i) = hrho(leftstate(idens),massoftype(igas))
        vxyzu(1,i) = leftstate(ivx)
        vxyzu(2,i) = leftstate(ivy)
        vxyzu(3,i) = leftstate(ivz)
        if (maxvxyzu >= 4) vxyzu(4,i) = uuleft
-       if (mhd) Bevol(1:3,i) = real(leftstate(iBx:iBz),kind=kind(Bevol))
+       if (mhd) Bevol(1:3,i) = leftstate(iBx:iBz)
     endif
  enddo
  if (mhd) ihavesetupB = .true.
@@ -303,7 +305,6 @@ subroutine adjust_shock_boundaries(dxleft,dxright,radkern,vxleft,vxright, &
     xleft = xleft - vxleft*tmax
  endif
  dxright = dxleft*(densleft/densright)**(1./ndim) ! NB: dxright here is only approximate
- !dxright = dxleft*(densleft/densright)**(1./ndim) ! NB: dxright here is only approximate
  if (vxright < -tiny(vxright)) then
     xright = xright - vxright*tmax
  endif
@@ -392,6 +393,9 @@ subroutine choose_shock (gamma,polyk,dtg,ndim,iexist)
  enddo
 
  choice = 1
+#ifdef NONIDEALMHD
+ choice = 7
+#endif
  call prompt('Enter shock choice',choice,1,nshocks)
  icase = choice
 
@@ -409,8 +413,8 @@ subroutine choose_shock (gamma,polyk,dtg,ndim,iexist)
     shocktype = "Ryu et al. shock 1a"
     nx          = 128
     if (.not. iexist) then
-      tmax      =   0.08
-      dtmax     =   0.004
+       tmax      =   0.08
+       dtmax     =   0.004
     endif
     gamma      =   5./3.
     leftstate  = (/1.,20.,10.,0.,0.,5./const,5./const,0./)
@@ -419,8 +423,8 @@ subroutine choose_shock (gamma,polyk,dtg,ndim,iexist)
     !--Ryu et al. shock 1b
     shocktype = "Ryu et al. shock 1b"
     if (.not. iexist) then
-      tmax      =   0.03
-      dtmax     =   0.0015
+       tmax      =   0.03
+       dtmax     =   0.0015
     endif
     gamma      =  5./3.
     leftstate  = (/1.0,1. ,0.,0.,0.,5./const,5./const,0./)
@@ -435,8 +439,8 @@ subroutine choose_shock (gamma,polyk,dtg,ndim,iexist)
     !--Ryu et al. shock 2b
     shocktype = "Ryu et al. shock 2b"
     if (.not. iexist) then
-      tmax     =   0.035
-      dtmax    =   0.00175
+       tmax     =   0.035
+       dtmax    =   0.00175
     endif
     gamma      = 5./3.
     leftstate  = (/1.0,1. ,0.,0.,0.,3./const,6./const,0./)
@@ -567,7 +571,7 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
     call write_inopt(polyk,'polyk','square of the isothermal sound speed',lu,ierr1)
  endif
  if (ierr1 /= 0 .or. ierr2 /= 0) write(*,*) 'ERROR writing gamma, polyk'
- 
+
  if (use_dustfrac) then
     write(lu,"(/,a)") '# dust properties'
     call write_inopt(dtg,'dtg','Dust to gas ratio',lu,ierr1)

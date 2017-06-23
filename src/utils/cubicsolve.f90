@@ -62,16 +62,16 @@ subroutine cubicsolve(a,b,c,d,x,nreal,check)
        nreal = 0
     else
        if (abs(b) < eps) then
-       !--no solutions if a = 0, b = 0, c = 0
+          !--no solutions if a = 0, b = 0, c = 0
           if (abs(c) < eps) then
              nreal = 0
           else
-       !--solve linear equation if a = 0, b = 0
+             !--solve linear equation if a = 0, b = 0
              nreal = 1
              x(1) = -d/c
           endif
        else
-       !--solve quadratic for a = 0
+          !--solve quadratic for a = 0
           nreal = 2
           sqrtdet = sqrt(det)
           x(1) = 0.5*(-c + sqrtdet)/b
@@ -91,7 +91,7 @@ subroutine cubicsolve(a,b,c,d,x,nreal,check)
 !--determine number of solutions
 !
     if (det < 0.) then
-    !--3 distinct real roots
+       !--3 distinct real roots
        nreal = 3
        term = sqrt(abs(p)/3.)
        phi = acos(-0.5*q*term**(-3))
@@ -102,7 +102,7 @@ subroutine cubicsolve(a,b,c,d,x,nreal,check)
        y2 = -2.*term*cos((phi + pi)/3.)
        y3 = -2.*term*cos((phi - pi)/3.)
     else
-    !--1 real, 2 complex roots
+       !--1 real, 2 complex roots
        term = -0.5*q + sqrt(det)
        !--must take cube root of positive quantity, then give sign later
        !  (otherwise gives NaNs)
@@ -111,7 +111,7 @@ subroutine cubicsolve(a,b,c,d,x,nreal,check)
        v = (abs(term))**(1/3.)*SIGN(1.0,term)
        nreal = 1
        y1 = u + v
-    !--if det=0, 3 real roots, but at least 2 equal, so max of 2 unique roots)
+       !--if det=0, 3 real roots, but at least 2 equal, so max of 2 unique roots)
        if (abs(det) < eps) then
           nreal = 2
           y2 = -(u + v)/2.
@@ -185,7 +185,7 @@ subroutine cubicsolve_complex(a,b,c,x,nreal,check)
 !--cubic solution
 !
  if (p < 0) then
- !--one real, two complex roots irrespective of the value of D
+    !--one real, two complex roots irrespective of the value of D
     sqrtp = sqrt(-p)
     t = 1./3.*asinh(q/sqrtp**3)
     sinht = sinh(t)
@@ -196,7 +196,7 @@ subroutine cubicsolve_complex(a,b,c,x,nreal,check)
     x(3) = cmplx(termr,-termi)
     if (present(nreal)) nreal = 1
  elseif (det > 0) then ! p > 0
- !--three real roots
+    !--three real roots
     sqrtp = sqrt(p)
     term = acos(q/sqrt(p3))
     x(1) = -a/3. + 2.*sqrtp*cos(term/3.) ! real
@@ -204,11 +204,11 @@ subroutine cubicsolve_complex(a,b,c,x,nreal,check)
     x(3) = -a/3. + 2.*sqrtp*cos((2.*pi + term)/3.)
     if (present(nreal)) nreal = 3
  else ! p < 0 and d < 0
- !--one real, two complex roots
+    !--one real, two complex roots
     sqrtdet = sqrt(-det)
     term = q - sqrtdet
- !--must take cube root of positive quantity, then give sign later
- !  (otherwise gives NaNs)
+    !--must take cube root of positive quantity, then give sign later
+    !  (otherwise gives NaNs)
     u = (abs(term))**(1./3.)*SIGN(1.0,term)
     term = q + sqrtdet
     v = (abs(term))**(1./3.)*SIGN(1.0,term)

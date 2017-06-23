@@ -38,7 +38,7 @@ subroutine test_gravity(ntests,npass,string)
  use part,      only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,Bevol,mhd, &
                      alphaind,maxalpha, &
                      divcurlv,divcurlB,dBevol,gradh,poten,&
-                     iphase,isetphase,maxphase,igas,dustfrac,ddustfrac
+                     iphase,isetphase,maxphase,dustfrac,ddustfrac,labeltype
  use eos,       only:polyk,gamma
  use options,   only:ieos,alpha,alphau,alphaB,tolh
  use testutils, only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end
@@ -54,7 +54,7 @@ subroutine test_gravity(ntests,npass,string)
 #ifdef GRAVITY
  integer :: nfailed(18)
  logical                :: testdirectsum,testpolytrope,testtaylorseries,testall
- integer :: maxvxyzu,nx,np,i,npnode
+ integer :: maxvxyzu,nx,np,i,npnode,k
  real :: psep,totvol,totmass,rhozero
  real :: time,rmin,rmax,dtext_dum,phitot
  real(kind=4) :: t1,t2
@@ -62,7 +62,7 @@ subroutine test_gravity(ntests,npass,string)
  real :: xposjd(3,3),dfdx_approx(3,3),d2f(3,3),dpot(3)
  real :: fnode(20)
  real :: quads(6)
- real :: dr,phiexact,phi,dr2,pmassi,epot,tol
+ real :: dr,phiexact,phi,dr2,pmassi,epot,tol,tree_acc_prev
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING SELF-GRAVITY'
 
@@ -102,9 +102,9 @@ subroutine test_gravity(ntests,npass,string)
 
     dx = xposi - x0   ! perform expansion about x0
     call expand_fgrav_in_taylor_series(fnode,dx(1),dx(2),dx(3),f0(1),f0(2),f0(3),phi)
-    print*,'           exact force = ',fexact,' phi = ',phiexact
-    print*,'       force at origin = ',fnode(1:3), ' phi = ',fnode(20)
-    print*,'force w. taylor series = ',f0, ' phi = ',phi
+    !print*,'           exact force = ',fexact,' phi = ',phiexact
+    !print*,'       force at origin = ',fnode(1:3), ' phi = ',fnode(20)
+    !print*,'force w. taylor series = ',f0, ' phi = ',phi
     nfailed(:) = 0
     call checkval(f0(1),fexact(1),3.e-4,nfailed(1),'fx taylor series about f0')
     call checkval(f0(2),fexact(2),1.1e-4,nfailed(2),'fy taylor series about f0')
@@ -125,7 +125,7 @@ subroutine test_gravity(ntests,npass,string)
        xposj = xposj + pmassi*xposjd(:,i)     ! centre of mass of distant node
     enddo
     xposj = xposj/totmass
-    print*,' centre of mass of distant node = ',xposj
+    !print*,' centre of mass of distant node = ',xposj
     !--compute quadrupole moments
     quads = 0.
     do i=1,npnode
@@ -158,9 +158,9 @@ subroutine test_gravity(ntests,npass,string)
 
     dx = xposi - x0   ! perform expansion about x0
     call expand_fgrav_in_taylor_series(fnode,dx(1),dx(2),dx(3),f0(1),f0(2),f0(3),phi)
-    print*,'           exact force = ',fexact,' phi = ',phiexact
-    print*,'       force at origin = ',fnode(1:3), ' phi = ',fnode(20)
-    print*,'force w. taylor series = ',f0, ' phi = ',phi
+    !print*,'           exact force = ',fexact,' phi = ',phiexact
+    !print*,'       force at origin = ',fnode(1:3), ' phi = ',fnode(20)
+    !print*,'force w. taylor series = ',f0, ' phi = ',phi
     nfailed(:) = 0
     call checkval(f0(1),fexact(1),8.7e-5,nfailed(1),'fx taylor series about f0')
     call checkval(f0(2),fexact(2),1.5e-6,nfailed(2),'fy taylor series about f0')
@@ -218,9 +218,9 @@ subroutine test_gravity(ntests,npass,string)
 
     dx = xposi - x0   ! perform expansion about x0
     call expand_fgrav_in_taylor_series(fnode,dx(1),dx(2),dx(3),f0(1),f0(2),f0(3),phi)
-    print*,'           exact force = ',fexact,' phi = ',phiexact
-    print*,'       force at origin = ',fnode(1:3), ' phi = ',fnode(20)
-    print*,'force w. taylor series = ',f0, ' phi = ',phi
+    !print*,'           exact force = ',fexact,' phi = ',phiexact
+    !print*,'       force at origin = ',fnode(1:3), ' phi = ',fnode(20)
+    !print*,'force w. taylor series = ',f0, ' phi = ',phi
     nfailed(:) = 0
     call checkval(f0(1),fexact(1),4.3e-5,nfailed(1),'fx taylor series about f0')
     call checkval(f0(2),fexact(2),1.4e-4,nfailed(2),'fy taylor series about f0')
@@ -232,91 +232,101 @@ subroutine test_gravity(ntests,npass,string)
  endif
 
  testsum: if (testdirectsum .or. testall) then
-    if (id==master) write(*,"(/,a)") '--> testing gravity force in densityforce'
+
+    tree_acc_prev = tree_accuracy
+    do k = 1,6
+       if (labeltype(k)/='bound') then
+          if (id==master) write(*,"(/,3a)") '--> testing gravity force in densityforce for ',labeltype(k),' particles'
 !
 !--general parameters
 !
-    time = 0.
-    hfact = 1.2
-    gamma = 5./3.
-    rmin  = 0.
-    rmax  = 1.
-    ieos = 2
-    tree_accuracy = 0.5
+          time  = 0.
+          hfact = 1.2
+          gamma = 5./3.
+          rmin  = 0.
+          rmax  = 1.
+          ieos  = 2
+          tree_accuracy = 0.5
 !
 !--setup particles
 !
-    np = 1000
-    maxvxyzu = size(vxyzu(:,1))
-    totvol = 4./3.*pi*rmax**3
-    nx = int(np**(1./3.))
-    psep = totvol**(1./3.)/real(nx)
-    print*,' got psep = ',nx,psep
-    psep = 0.18
-    npart = 0
-    call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh)
-    print*,' using npart = ',npart
-    np = npart
-    iverbose = 5
+          np       = 1000
+          maxvxyzu = size(vxyzu(:,1))
+          totvol   = 4./3.*pi*rmax**3
+          nx       = int(np**(1./3.))
+          psep     = totvol**(1./3.)/real(nx)
+          !print*,' got psep = ',nx,psep
+          psep     = 0.18
+          npart    = 0
+          call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh)
+          !print*,' using npart = ',npart
+          np       = npart
+          !iverbose = 5
 !
 !--set particle properties
 !
-    totmass = 1.
-    rhozero = totmass/totvol
-    npartoftype(:) = 0
-    npartoftype(1) = npart
-    massoftype(1) = totmass/npart
-    if (maxphase==maxp) then
-       do i=1,npart
-          iphase(i) = isetphase(igas,iactive=.true.)
-       enddo
-    endif
+          totmass        = 1.
+          rhozero        = totmass/totvol
+          npartoftype(:) = 0
+          npartoftype(k) = npart
+          massoftype(:)  = 0.0
+          massoftype(k)  = totmass/npart
+          if (maxphase==maxp) then
+             do i=1,npart
+                iphase(i) = isetphase(k,iactive=.true.)
+             enddo
+          endif
 !
 !--set thermal terms and velocity to zero, so only force is gravity
 !
-    polyk   = 0.
-    vxyzu(:,:) = 0.
-    if (mhd) Bevol(:,:) = 0.
+          polyk      = 0.
+          vxyzu(:,:) = 0.
+          if (mhd) Bevol(:,:) = 0.
 !
 !--make sure AV is off
 !
-    alpha  = 0.
-    alphau = 0.
-    alphaB = 0.
-    tolh = 1.e-5
-    if (maxalpha==maxp)  alphaind(:,:) = 0.
+          alpha  = 0.
+          alphau = 0.
+          alphaB = 0.
+          tolh = 1.e-5
+          if (maxalpha==maxp)  alphaind(:,:) = 0.
 
-    ntests = ntests + 1
+          ntests = ntests + 1
 !
 !--calculate derivatives
 !
-    call getused(t1)
-    call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
-    call getused(t2)
-    if (id==master) call printused(t1)
+          call getused(t1)
+          call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                      Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+          call getused(t2)
+          if (id==master) call printused(t1)
 !
 !--compute gravitational forces by direct summation
 !
-    call directsum_grav(xyzh,gradh,vxyzu,phitot,npart)
+          call directsum_grav(xyzh,gradh,vxyzu,phitot,npart)
 !
 !--compare the results
 !
-    call checkval(np,fxyzu(1,:),vxyzu(1,:),5.e-3,nfailed(1),'fgrav(x)')
-    call checkval(np,fxyzu(2,:),vxyzu(2,:),6.e-3,nfailed(2),'fgrav(y)')
-    call checkval(np,fxyzu(3,:),vxyzu(3,:),4.e-3,nfailed(3),'fgrav(z)')
-    epot = 0.
-    do i=1,npart
-       epot = epot + poten(i)
+          call checkval(np,fxyzu(1,:),vxyzu(1,:),5.e-3,nfailed(1),'fgrav(x)')
+          call checkval(np,fxyzu(2,:),vxyzu(2,:),6.e-3,nfailed(2),'fgrav(y)')
+          call checkval(np,fxyzu(3,:),vxyzu(3,:),9.4e-3,nfailed(3),'fgrav(z)')
+          epot = 0.
+          do i=1,npart
+             epot = epot + poten(i)
+          enddo
+          call checkval(epot,phitot,4.8e-4,nfailed(4),'potential')
+
+          if (all(nfailed(1:4)==0)) npass = npass + 1
+       endif
     enddo
-    call checkval(epot,phitot,2.6e-4,nfailed(4),'potential')
-    !do i=1,npart
-    !write(1,*) xyzh(1:3,i),fxyzu(1:3,i),fxyzu(1:3,i) - vxyzu(1:3,i),norm2(fxyzu(1:3,i) - vxyzu(1:3,i))
-    !enddo
-    !do i=1,npart
-    !write(2,*) xyzh(1:3,i),vxyzu(1:3,i)
-    !enddo
-    if (all(nfailed(1:4)==0)) npass = npass + 1
+!
+!--clean up doggie-doos
+!
+    npartoftype(:) = 0
+    massoftype(:) = 0.
+    tree_accuracy = tree_acc_prev
+    fxyzu = 0.
+    vxyzu = 0.
 
  endif testsum
 

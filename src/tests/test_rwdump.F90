@@ -33,9 +33,9 @@ contains
 subroutine test_rwdump(ntests,npass)
  use part,      only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu, &
                     Bevol,Bextx,Bexty,Bextz,alphaind,maxalpha,periodic, &
-                    maxphase,mhd,maxvxyzu,maxBevol,igas,idust,maxp, &
-                    poten,gravity,use_dustfrac,dustfrac,xyzmh_ptmass,nptmass, &
-                    nsinkproperties,xyzh_label,xyzmh_ptmass_label,dustfrac_label, &
+                    maxphase,mhd,maxvxyzu,maxBevol,igas,idust,maxp,&
+                    poten,gravity,use_dust,dustfrac,xyzmh_ptmass,nptmass,&
+                    nsinkproperties,xyzh_label,xyzmh_ptmass_label,dustfrac_label,&
                     vxyz_ptmass,vxyz_ptmass_label,vxyzu_label,set_particle_type,iphase
  use dim,             only:ndusttypes
  use testutils,       only:checkval
@@ -112,7 +112,7 @@ subroutine test_rwdump(ntests,npass)
        if (gravity) then
           poten(i) = 15._4
        endif
-       if (use_dustfrac) then
+       if (use_dust) then
           dustfrac(:,i) = 16._4
           if (ndusttypes>1) call set_grainsize(smincgs,smaxcgs)
        endif
@@ -173,7 +173,7 @@ subroutine test_rwdump(ntests,npass)
     if (gravity) then
        poten = 0.
     endif
-    if (use_dustfrac) then
+    if (use_dust) then
        dustfrac(:,:) = 0.
     endif
     gamma = 0.
@@ -188,14 +188,14 @@ subroutine test_rwdump(ntests,npass)
 !
     if (test_speed) call getused(t1)
     if (itest==2) then
-       write(*,"(/,a)") '--> checking read_dump'
+       if (id==master) write(*,"(/,a)") '--> checking read_dump'
        ntests = ntests + 1
        nfailed = 0
        call read_dump('test.dump',tfile,hfactfile,idisk1,iprint,id,nprocs,ierr)
        call checkval(ierr,is_small_dump,0,nfailed(1),'read_dump returns is_small_dump error code')
        if (all(nfailed==0)) npass = npass + 1
 
-       write(*,"(/,a)") '--> checking read_smalldump'
+       if (id==master) write(*,"(/,a)") '--> checking read_smalldump'
        call read_smalldump('test.dump',tfile,hfactfile,idisk1,iprint,id,nprocs,ierr)
        toldp = epsilon(0._4)
     else
@@ -207,7 +207,7 @@ subroutine test_rwdump(ntests,npass)
 !--check that values match
 !
     nfailed(:) = 0
-    write(*,"(/,a)") '--> checking header'
+    if (id==master) write(*,"(/,a)") '--> checking header'
     call checkval(ierr,0,0,nfailed(1),'read without errors')
     call checkval(tfile,time,toldp,nfailed(2),'time')
     call checkval(hfactfile,hfact,toldp,nfailed(3),'hfact')
@@ -236,7 +236,9 @@ subroutine test_rwdump(ntests,npass)
     ntests = ntests + 1
     if (all(nfailed==0)) npass = npass + 1
 
-    write(*,"(/,a)") '--> checking particle arrays'
+    call barrier_mpi()
+
+    if (id==master) write(*,"(/,a)") '--> checking particle arrays'
     if (all(xyzh(4,:) <= 0.)) xyzh(4,:) = 1. ! otherwise indicates dead particles and not checked
     nfailed(:) = 0
     do j=1,4
@@ -258,7 +260,7 @@ subroutine test_rwdump(ntests,npass)
        if (gravity) then
           call checkval(npart,poten,15.,tol,nfailed(15),'poten')
        endif
-       if (use_dustfrac) then
+       if (use_dust) then
           do i = 1,ndusttypes
              call checkval(npart,dustfrac(i,:),16.,tol,nfailed(16),'dustfrac')
           enddo
@@ -271,7 +273,7 @@ subroutine test_rwdump(ntests,npass)
     ntests = ntests + 1
     if (all(nfailed==0)) npass = npass + 1
 
-    write(*,"(/,a)") '--> checking sink particle arrays'
+    if (id==master) write(*,"(/,a)") '--> checking sink particle arrays'
     nfailed = 0
     do j=1,nsinkproperties
        call checkval(nptmass,xyzmh_ptmass(j,:),real(100+j),tiny(xyzmh_ptmass),nfailed(j),xyzmh_ptmass_label(j))
@@ -285,18 +287,20 @@ subroutine test_rwdump(ntests,npass)
     ntests = ntests + 1
     if (all(nfailed==0)) npass = npass + 1
 
+    call barrier_mpi()
+
     ! clean up doggie-doos
-    if (use_dustfrac) then
+    if (use_dust) then
        dustfrac(:,:) = 0.
     endif
     nptmass = 0
     xyzmh_ptmass = 0.
     vxyz_ptmass = 0.
-    call barrier_mpi()
 
+#ifndef MPI
     ! test read of a single array from the file
     if (itest==1) then
-       write(*,"(/,a)") '--> checking read of single array from file'
+       if (id==master) write(*,"(/,a)") '--> checking read of single array from file'
        xyzh(2,:) = 0.
        nfailed = 0
        call read_array_from_file(idisk1,'test.dump','y',xyzh(1,:),ierr)
@@ -305,6 +309,7 @@ subroutine test_rwdump(ntests,npass)
        ntests = ntests + 1
        if (all(nfailed==0)) npass = npass + 1
     endif
+#endif
 
     if (id==master) then
        open(unit=idisk1,file='test.dump',status='old')

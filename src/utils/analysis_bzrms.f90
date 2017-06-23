@@ -52,7 +52,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real                         :: vmax(3),vrms(3),vaave,B2,vA
  real                         :: h0,quada,quadb,quadc,omegaI,omegaR,hoft,pdiffW
  real                         :: termANA,termACT,ratioANA,ratioACT,pdiffR,npart1
- real(kind=4)                 :: Bave(3),Bzrms,Bzrmsnoa,npart1k4
+ real                         :: Bave(3),Bzrms,Bzrmsnoa
  character(len=200)           :: fileout,filename
  logical                      :: iexist
  !
@@ -92,12 +92,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  filename=trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) then
-   call read_setupfile(filename,mhd)
+    call read_setupfile(filename,mhd)
  elseif (id==master) then
-   rhoin0     = 1.0
-   Bxin0      = 1.0
-   amplitude  = 0.01
-   kwave      = 2.0
+    rhoin0     = 1.0
+    Bxin0      = 1.0
+    amplitude  = 0.01
+    kwave      = 2.0
  endif
  !
  !--Get coefficient values from the .in file
@@ -122,8 +122,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     vmax(3)   = max(vmax(3),abs(vxyzu(3,i)))
  enddo
  npart1   = 1.0/npart
- npart1k4 = real(npart1,kind=4)
- Bave     = Bave *npart1k4
+ Bave     = Bave *npart1
  vaave    = vaave*npart1
  !
  !--Calculate the rms average
@@ -135,9 +134,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     Bzrmsnoa  = Bzrmsnoa  + Bevol(3,i)**2
     vrms(1:3) = vrms(1:3) + vxyzu(1:3,i)**2
  enddo
- Bzrms    = sqrt(Bzrms   *npart1k4)
- vrms     = sqrt(vrms    *npart1  )
- Bzrmsnoa = sqrt(Bzrmsnoa*npart1k4)
+ Bzrms    = sqrt(Bzrms   *npart1)
+ vrms     = sqrt(vrms    *npart1)
+ Bzrmsnoa = sqrt(Bzrmsnoa*npart1)
  !
  !--Produce no results if ambitest .and. halltest
  if (ambitest .and. halltest) then

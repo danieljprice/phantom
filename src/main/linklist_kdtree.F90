@@ -22,33 +22,37 @@
 !  RUNTIME PARAMETERS:
 !    tree_accuracy -- tree opening criterion (0.0-1.0)
 !
-!  DEPENDENCIES: boundary, dim, infile_utils, io, kdtree, kernel, mpiutils,
-!    part
+!  DEPENDENCIES: boundary, dim, dtypekdtree, infile_utils, io, kdtree,
+!    kernel, mpiutils, part
 !+
 !--------------------------------------------------------------------------
 module linklist
- use dim,     only:maxp,ncellsmax
- use part,    only:ll
+ use dim,          only:maxp,ncellsmax
+ use part,         only:ll
+ use dtypekdtree,  only:kdnode
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
 
+ integer, public :: cellatid(ncellsmax+1)
  integer, public :: ifirstincell(ncellsmax+1)
- !real(kind=4), dimension(ncellsmax+1), public :: hmaxcell
  integer(kind=8), public :: ncells
  real, public            :: dxcell
  real, public :: dcellx = 0.,dcelly = 0.,dcellz = 0.
 
+ type(kdnode), public :: nodeglobal(ncellsmax+1)
+ type(kdnode), public :: node(ncellsmax+1)
+
  public :: set_linklist, get_neighbour_list, write_inopts_link, read_inopts_link
-
+ public :: get_distance_from_centre_of_mass, getneigh_pos
  public :: set_hmaxcell,get_hmaxcell,update_hmax_remote
+ public :: get_cell_location
 
-private
+ private
 
 contains
 
 subroutine get_hmaxcell(inode,hmaxcell)
- use kdtree, only:node
  integer, intent(in)  :: inode
  real,    intent(out) :: hmaxcell
 
@@ -58,7 +62,6 @@ end subroutine get_hmaxcell
 
 subroutine set_hmaxcell(inode,hmaxcell)
 !!!$ use omputils, only:ipart_omp_lock,nlockgrp
- use kdtree, only:node
  integer, intent(in) :: inode
  real,    intent(in) :: hmaxcell
  integer :: n
@@ -68,16 +71,15 @@ subroutine set_hmaxcell(inode,hmaxcell)
 
  ! walk tree up
  do while (node(n)%parent  /=  0)
-   n = node(n)%parent
+    n = node(n)%parent
 !$omp critical (hmax)
-   node(n)%hmax = max(node(n)%hmax, hmaxcell)
+    node(n)%hmax = max(node(n)%hmax, hmaxcell)
 !$omp end critical (hmax)
  enddo
 
 end subroutine set_hmaxcell
 
 subroutine update_hmax_remote(ncells)
- use kdtree,   only:node
  use mpiutils, only:reduceall_mpi
  integer(kind=8), intent(in) :: ncells
  integer :: n,j
@@ -101,35 +103,45 @@ subroutine update_hmax_remote(ncells)
 
 end subroutine update_hmax_remote
 
+subroutine get_distance_from_centre_of_mass(inode,xi,yi,zi,dx,dy,dz,xcen)
+ integer,   intent(in)           :: inode
+ real,      intent(in)           :: xi,yi,zi
+ real,      intent(out)          :: dx,dy,dz
+ real,      intent(in), optional :: xcen(3)
+
+ if (present(xcen)) then
+    dx = xi - xcen(1)
+    dy = yi - xcen(2)
+    dz = zi - xcen(3)
+ else
+    dx = xi - node(inode)%xcen(1)
+    dy = yi - node(inode)%xcen(2)
+    dz = zi - node(inode)%xcen(3)
+ endif
+
+end subroutine get_distance_from_centre_of_mass
+
 subroutine set_linklist(npart,nactive,xyzh,vxyzu)
- use kdtree, only:maketree,revtree,ndimtree,maxlevel,maxlevel_indexed
-! use timing, only:print_time
- integer, intent(in)    :: npart,nactive
+ use dtypekdtree,  only:ndimtree
+ use kdtree,       only:maketree
+#ifdef MPI
+ use kdtree,       only: maketreeglobal
+#endif
+
+#ifdef MPI
+ integer, intent(inout) :: npart
+#else
+ integer, intent(in)    :: npart
+#endif
+ integer, intent(in)    :: nactive
  real,    intent(inout) :: xyzh(4,maxp)
  real,    intent(in)    :: vxyzu(:,:)
- integer, save :: naccum = 0
-! real(kind=4) :: t1,t2
 
-! call cpu_time(t1)
- !
- ! make the tree if more than 10% of the particles are active,
- ! or when the accumulated total number of active particles
- ! during revtree calls exceeds the number of particlees
- !
- if (10*nactive > npart .or. naccum==0 .or. naccum > 2*npart &
-     .or. maxlevel > maxlevel_indexed) then
-    !print*,' MAKETREE ',nactive,naccum
-    call maketree(xyzh,vxyzu,npart,ndimtree,ifirstincell,ncells)
-    naccum = npart
-!    print *, 'maketree'
- else
-    naccum = naccum + nactive
-!    print *,' REVTREE ',nactive,naccum
-    call maketree(xyzh,vxyzu,npart,ndimtree,ifirstincell,ncells)
-!    call revtree(xyzh, ifirstincell, ncells)
- endif
-! call cpu_time(t2)
-! call print_time(t2-t1)
+#ifdef MPI
+ call maketreeglobal(nodeglobal,node,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells)
+#else
+ call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
+#endif
 
 end subroutine set_linklist
 
@@ -142,8 +154,9 @@ end subroutine set_linklist
 !+
 !-----------------------------------------------------------------------
 subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
-                              activeonly,hmaxold,inactiveonly,getj,f)
- use kdtree, only:getneigh,node,lenfgrav
+                              getj,f,remote_export, &
+                              cell_xpos,cell_xsizei,cell_rcuti)
+ use kdtree, only:getneigh,lenfgrav
  use kernel, only:radkern
 #ifdef PERIODIC
  use io,       only:warning
@@ -152,12 +165,12 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
  integer, intent(in)  :: inode,ixyzcachesize
  integer, intent(out) :: listneigh(:)
  integer, intent(out) :: nneigh
- real,    intent(in)  :: xyzh(:,:)
+ real,    intent(in)  :: xyzh(4,maxp)
  real,    intent(out) :: xyzcache(:,:)
- logical, intent(in)  :: activeonly
- logical, intent(in),  optional :: inactiveonly,getj
- real,    intent(in),  optional :: hmaxold
+ logical, intent(in),  optional :: getj
  real,    intent(out), optional :: f(lenfgrav)
+ logical, intent(out), optional :: remote_export(:)
+ real,    intent(in),  optional :: cell_xpos(3),cell_xsizei,cell_rcuti
  real :: xpos(3)
  real :: fgrav(lenfgrav)
  real :: xsizei,rcuti
@@ -165,35 +178,70 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
 !
 !--retrieve geometric centre of the node and the search radius (e.g. 2*hmax)
 !
- xpos    = node(inode)%xcen(1:3)
- xsizei  = node(inode)%size
- rcuti   = radkern*node(inode)%hmax ! 2h
+ if (present(cell_xpos)) then
+    xpos = cell_xpos
+    xsizei = cell_xsizei
+    rcuti = cell_rcuti
+ else
+    call get_cell_location(inode,xpos,xsizei,rcuti)
+ endif
 
 #ifdef PERIODIC
-  if (rcuti > 0.5*min(dxbound,dybound,dzbound)) then
-     call warning('get_neighbour_list', '2h > 0.5*L in periodic neighb. '//&
+ if (rcuti > 0.5*min(dxbound,dybound,dzbound)) then
+    call warning('get_neighbour_list', '2h > 0.5*L in periodic neighb. '//&
                 'search: USE HIGHER RES, BIGGER BOX or LOWER MINPART IN TREE')
-  endif
+ endif
 #endif
-!
-!--perform top-down tree walk to find all particles within radkern*h
-!  and force due to node-node interactions
-!
-! print*,' searching for cell ',icell,' xpos = ',xpos(:),' hmax = ',rcut/radkern
+ !
+ !--perform top-down tree walk to find all particles within radkern*h
+ !  and force due to node-node interactions
+ !
+ ! print*,' searching for cell ',icell,' xpos = ',xpos(:),' hmax = ',rcut/radkern
  get_j = .false.
  if (present(getj)) get_j = getj
 
  if (present(f)) then
-    call getneigh(xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
-               ifirstincell,ll,get_j,fgrav)
+#ifdef MPI
+    if (present(remote_export)) then
+       remote_export = .false.
+       call getneigh(nodeglobal,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+                cellatid,ll,get_j,fgrav,remote_export=remote_export)
+    endif
+#endif
+    call getneigh(node,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+              ifirstincell,ll,get_j,fgrav)
     f = fgrav
  else
-    call getneigh(xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+#ifdef MPI
+    if (present(remote_export)) then
+       remote_export = .false.
+       call getneigh(nodeglobal,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+              cellatid,ll,get_j,remote_export=remote_export)
+    endif
+#endif
+    call getneigh(node,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
                ifirstincell,ll,get_j)
  endif
 
- return
 end subroutine get_neighbour_list
+
+subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,ifirstincell,ll)
+ use dim,    only:maxneigh
+ use kdtree, only:getneigh
+ integer, intent(in)  :: ndim,ixyzcachesize
+ real,    intent(in)  :: xpos(ndim)
+ real,    intent(in)  :: xsizei,rcuti
+ integer, intent(out) :: listneigh(maxneigh)
+ integer, intent(out) :: nneigh
+ real,    intent(in)  :: xyzh(4,maxp)
+ real,    intent(out) :: xyzcache(:,:)
+ integer, intent(in)  :: ifirstincell(ncellsmax+1)
+ integer, intent(in)  :: ll(maxp)
+
+ call getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
+               ifirstincell,ll,.false.)
+
+end subroutine getneigh_pos
 
 !-----------------------------------------------------------------------
 !+
@@ -245,5 +293,18 @@ subroutine read_inopts_link(name,valstring,imatch,igotall,ierr)
  endif
 
 end subroutine read_inopts_link
+
+subroutine get_cell_location(inode,xpos,xsizei,rcuti)
+ use kernel, only:radkern
+ integer,            intent(in)     :: inode
+ real,               intent(out)    :: xpos(3)
+ real,               intent(out)    :: xsizei
+ real,               intent(out)    :: rcuti
+
+ xpos    = node(inode)%xcen(1:3)
+ xsizei  = node(inode)%size
+ rcuti   = radkern*node(inode)%hmax
+
+end subroutine get_cell_location
 
 end module linklist

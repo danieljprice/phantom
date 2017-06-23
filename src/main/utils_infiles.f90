@@ -58,9 +58,9 @@ module infile_utils
 ! structure for input options database
 !
  type inopts
-   character(len=maxlen)    :: tag
-   character(len=maxlenval) :: val
-   logical :: retrieved
+    character(len=maxlen)    :: tag
+    character(len=maxlenval) :: val
+    logical :: retrieved
  end type
 
  public :: inopts,open_db_from_file,close_db,errtext
@@ -679,7 +679,7 @@ subroutine read_inopt_from_line(line,name,valstring,ierr,comment)
     nsec = 0
     read(valstring,"(i3.3,1x,i2.2,1x,i2.2)",iostat=ierr) nhr,nmin,nsec
     if (ierr/=0) then
-      read(valstring,"(i2.2,1x,i2.2,1x,i2.2)",iostat=ierr) nhr,nmin,nsec
+       read(valstring,"(i2.2,1x,i2.2,1x,i2.2)",iostat=ierr) nhr,nmin,nsec
     endif
     !print*,'hh,mm,ss=',nhr,nmin,nsec,((nhr*60. + nmin)*60. + nsec),ierr
     write(valstring,"(es11.4)",iostat=ierr) ((nhr*60. + nmin)*60. + nsec)
@@ -860,9 +860,9 @@ subroutine get_loopinfo_real(valstring,rvalstart,rvalend,rstep,njobs,log,ierr)
     read(valstring(ito+4:istep-1),*,iostat=ierr) rvalend
 
     if (instep > 0) then
-    !
-    !--here the number of steps between the end points has been specified
-    !
+       !
+       !--here the number of steps between the end points has been specified
+       !
        read(valstring(istep+7:),*,iostat=ierr) njobs
        if (njobs > 1) then
           rstep = (rvalend - rvalstart)/real(njobs-1)
@@ -870,9 +870,9 @@ subroutine get_loopinfo_real(valstring,rvalstart,rvalend,rstep,njobs,log,ierr)
           rstep = 0.
        endif
     elseif (inlogstep > 0) then
-    !
-    !--here the number of steps is specified and the loop is in log space
-    !
+       !
+       !--here the number of steps is specified and the loop is in log space
+       !
        read(valstring(istep+10:),*,iostat=ierr) njobs
        log = .true.
        if (njobs > 1) then
@@ -881,9 +881,9 @@ subroutine get_loopinfo_real(valstring,rvalstart,rvalend,rstep,njobs,log,ierr)
           rstep = 0.
        endif
     elseif (ilogstep > 0) then
-    !
-    !--here the step interval has been specified in log space
-    !
+       !
+       !--here the step interval has been specified in log space
+       !
        read(valstring(istep+9:),*,iostat=ierr) rstep
        log = .true.
        if (rvalend <= rvalstart) then
@@ -892,9 +892,9 @@ subroutine get_loopinfo_real(valstring,rvalstart,rvalend,rstep,njobs,log,ierr)
           njobs = int((log10(rvalend) - log10(rvalstart) + tiny(0.))/rstep) + 1
        endif
     else
-    !
-    !--here the step interval has been specified
-    !
+       !
+       !--here the step interval has been specified
+       !
        read(valstring(istep+6:),*,iostat=ierr) rstep
        if (rvalend <= rvalstart) then
           njobs = 0
@@ -987,14 +987,14 @@ logical function isintloop(valstring)
     do inum=1,3
        select case(inum)
        case(1)
-         i1 = 1
-         i2 = ito-1
+          i1 = 1
+          i2 = ito-1
        case(2)
-         i1 = ito+4
-         i2 = istep
+          i1 = ito+4
+          i2 = istep
        case(3)
-         i1 = istep+6
-         i2 = len(valstring)
+          i1 = istep+6
+          i2 = len(valstring)
        end select
        do i=i1,i2
           select case(valstring(i:i))

@@ -8,9 +8,9 @@
 !  MODULE: setup
 !
 !  DESCRIPTION:
-!  This module does setup
+!   Setup for Taylor-Green Vortex test (used in Phantom paper)
 !
-!  REFERENCES: None
+!  REFERENCES: Price et al. (2017)
 !
 !  OWNER: Daniel Price
 !
@@ -26,7 +26,7 @@ module setup
  implicit none
  public :: setpart
 
- real,    private :: deltax,rhozero,polykset
+ real,    private :: polykset
  private
 
 contains
@@ -75,12 +75,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  deltax = dxbound/nx
 
  if (id==master) then
-    print *, ''
-    print *, 'Select lattice type (1=cubic, 2=closepacked)'
-    read*,ilattice
+    ilattice = 2
+    call prompt('Select lattice type (1=cubic, 2=closepacked)',ilattice,1,2)
  endif
  call bcast_mpi(ilattice)
-
 
  if (ilattice == 2) then
     dz = 2.*sqrt(6.)/nx
@@ -88,7 +86,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     dz = 6.*deltax
  endif
  call set_boundary(0.,1.,0.,1.,-dz,dz)
-
 
  rhozero = 1.
  if (maxvxyzu < 4) then
@@ -131,4 +128,3 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 end subroutine setpart
 
 end module setup
-

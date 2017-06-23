@@ -374,7 +374,7 @@ subroutine sts_get_dtau_array(Nmegasts,dt_next,dtdiff_in,Nmega_in)
           dtau(k)        = dt_next/real(Nreal)
           isfirstdtau(k) = iyes
        endif
-   enddo
+    enddo
  enddo
  !
 end subroutine sts_get_dtau_array
@@ -538,9 +538,9 @@ subroutine sts_set_active_particles(npart,nactive,all_active)
  !
  nactive = 0
  if (all_active) then
-   isactive_opt2 = isactive_yes
+    isactive_opt2 = isactive_yes
  else
-   isactive_opt2 = isactive_sts
+    isactive_opt2 = isactive_sts
  endif
 !$omp parallel default(none) &
 !$omp shared(npart,iphase,xyzh,istsactive,isactive_opt2) &
@@ -603,7 +603,7 @@ real function sts_get_hdti(i,dtmax,dtau_next_in,ibini)
  ! use dtau if particle i will be sts-active on the next step
  ! use ibin if particle will be active, but not sts-active, on the next step
  if (.not.sts_it_n .or. (sts_it_n .and. ibinsts(i) > ibini)) then
- !if (ibinsts(i) > ibini .and. .not.sts_it_n) then
+    !if (ibinsts(i) > ibini .and. .not.sts_it_n) then
     dt_next = dtau_next_in
  else
     dt_next = dtmax/2**ibini

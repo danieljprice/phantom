@@ -33,21 +33,26 @@ module testptmass
 contains
 
 subroutine test_ptmass(ntests,npass)
- use dim,      only:maxp,mhd,periodic
+ use dim,      only:maxp,mhd,periodic,gravity,maxptmass
  use io,       only:id,master,iverbose
  use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,&
                     xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,epot_sinksink,&
                     ihacc,isdead_or_accreted,igas,divcurlv,iphase,isetphase,maxphase,&
-                    Bevol,dBevol,dustfrac,ddustfrac,divcurlB,fxyzu,set_particle_type
+                    Bevol,dBevol,dustfrac,ddustfrac,divcurlB,fxyzu,set_particle_type,&
+                    ispinx,ispiny,ispinz
  use eos,             only:gamma,polyk
  use timestep,        only:dtmax,C_force
  use testutils,       only:checkval,checkvalf
  use setbinary,       only:set_binary
  use step_lf_global,  only:step,init_step
- use io,              only:iverbose
+ use io,              only:iverbose,nprocs
  use energies,        only:compute_energies,etot,totmom,epot,angtot !,accretedmass
- use ptmass,          only:get_accel_sink_sink,ptmass_accrete,h_soft_sinksink
- use ptmass,          only:ptmass_create,h_acc,get_accel_sink_gas,f_acc
+ use ptmass,          only:get_accel_sink_sink,ptmass_accrete,h_soft_sinksink, &
+                           ptmass_create,h_acc,get_accel_sink_gas,f_acc,finish_ptmass, &
+                           ipart_rhomax,icreate_sinks, &
+                           idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
+                           idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
+                           ndptmass
  use physcon,         only:pi
  use setdisc,         only:set_disc
  use spherical,       only:set_sphere
@@ -64,17 +69,25 @@ subroutine test_ptmass(ntests,npass)
  use part,            only:ibin
 #endif
  integer, intent(inout) :: ntests,npass
- integer                :: i,nsteps,nbinary_tests,itest,nerr,nwarn
+ integer                :: i,nsteps,nbinary_tests,itest,nerr,nwarn,itestp
  logical                :: test_binary,test_accretion,test_createsink, test_softening
  logical                :: accreted
  real                   :: massr,m1,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,dr
  real                   :: etotin,totmomin,dtsinksink,omega,mred,errmax,angmomin
- real                   :: r2,r2min,dtext_dum,xcofm(3),totmass,dum,dum2,psep
+ real                   :: r2,r2min,dtext_dum,xcofm(3),totmass,dum,dum2,psep,tolen
  real                   :: xyzm_ptmass_old(4,1), vxyz_ptmass_old(3,1)
  real                   :: q,phisoft,fsoft,m2,mu,v_c1,v_c2,r1,omega1,omega2
+ real                   :: newptmass(maxptmass),newptmass1(maxptmass)
+ real                   :: dptmass(ndptmass,maxptmass)
+ real                   :: dptmass_thread(ndptmass,maxptmass)
  integer                :: norbits
- integer                :: nfailed(11)
+ integer                :: nfailed(11),imin(1)
  character(len=20)      :: dumpfile
+
+ if (nprocs > 1) then
+    write(*,"(/,a,/)") '--> PTMASS TESTS DO NOT WORK WITH MPI YET'
+    return
+ endif
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
 
@@ -107,6 +120,7 @@ subroutine test_ptmass(ntests,npass)
     ibin(:) = 0_1
 #endif
     iverbose = 0
+    tree_accuracy = 0.
 
     binary_tests: do itest = 1,nbinary_tests
        if (id==master) then
@@ -188,6 +202,7 @@ subroutine test_ptmass(ntests,npass)
        !--compute SPH forces
        !
        if (itest==2 .or. itest==3) then
+          fxyzu(:,:) = 0.
           call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                       Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
        endif
@@ -250,18 +265,20 @@ subroutine test_ptmass(ntests,npass)
           call checkval(angtot,angmomin,2.1e-6,nfailed(3),'angular momentum')
           call checkval(totmom,totmomin,5.e-6,nfailed(2),'linear momentum')
 #else
-          call checkval(angtot,angmomin,1.e-6,nfailed(3),'angular momentum')
+          call checkval(angtot,angmomin,1.1e-6,nfailed(3),'angular momentum')
           call checkval(totmom,totmomin,3.e-14,nfailed(2),'linear momentum')
 #endif
           call checkval(etotin+errmax,etotin,1.2e-2,nfailed(1),'total energy')
        case(2)
-          call checkval(angtot,angmomin,2.e-7,nfailed(3),'angular momentum')
+          call checkval(angtot,angmomin,3.e-7,nfailed(3),'angular momentum')
           call checkval(totmom,totmomin,3.e-14,nfailed(2),'linear momentum')
-          call checkval(etotin+errmax,etotin,2.e-3,nfailed(1),'total energy')
+          tolen = 2.e-3
+          if (gravity) tolen = 3.1e-3
+          call checkval(etotin+errmax,etotin,tolen,nfailed(1),'total energy')
        case default
-          call checkval(angtot,angmomin,1.e-10,nfailed(3),'angular momentum')
+          call checkval(angtot,angmomin,3.e-14,nfailed(3),'angular momentum')
           call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
-          call checkval(etotin+errmax,etotin,1.e-6,nfailed(1),'total energy')
+          call checkval(etotin+errmax,etotin,3.e-8,nfailed(1),'total energy')
        end select
        !
        !--check energy conservation
@@ -396,14 +413,47 @@ subroutine test_ptmass(ntests,npass)
     totmomin = totmom
     angmomin = angtot
 
-    !$omp parallel do default(shared) private(i)
+    dptmass(:,1:nptmass) = 0.
+    dptmass_thread(:,1:nptmass) = 0.
+    !$omp parallel do default(shared) private(i) firstprivate(dptmass_thread)
     do i=1,npart
        call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                            vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
-                           igas,massoftype(igas),xyzmh_ptmass,xyzm_ptmass_old,vxyz_ptmass,&
-                           vxyz_ptmass_old,fxyz_ptmass,accreted,t,1.0)
+                           igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
+                           accreted,dptmass_thread,t,1.0)
+
+       !$omp critical(dptmassadd)
+       dptmass(:,1:nptmass) = dptmass(:,1:nptmass) + dptmass_thread(:,1:nptmass)
+       !$omp end critical(dptmassadd)
     enddo
     !$omp end parallel do
+
+    ! update ptmass position, spin, velocity, acceleration, and mass
+    newptmass(1:nptmass)            = xyzmh_ptmass(4,1:nptmass) + dptmass(idmsi,1:nptmass)
+    newptmass1(1:nptmass)           = 1./newptmass(1:nptmass)
+    xyzmh_ptmass(1,1:nptmass)       = (dptmass(idxmsi,1:nptmass) + &
+                                      xyzmh_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    xyzmh_ptmass(2,1:nptmass)       = (dptmass(idymsi,1:nptmass) + &
+                                      xyzmh_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    xyzmh_ptmass(3,1:nptmass)       = (dptmass(idzmsi,1:nptmass) + &
+                                      xyzmh_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    xyzmh_ptmass(ispinx,1:nptmass)  = xyzmh_ptmass(ispinx,1:nptmass) + dptmass(idspinxsi,1:nptmass)
+    xyzmh_ptmass(ispiny,1:nptmass)  = xyzmh_ptmass(ispiny,1:nptmass) + dptmass(idspinysi,1:nptmass)
+    xyzmh_ptmass(ispinz,1:nptmass)  = xyzmh_ptmass(ispinz,1:nptmass) + dptmass(idspinzsi,1:nptmass)
+    vxyz_ptmass(1,1:nptmass)        = (dptmass(idvxmsi,1:nptmass) + &
+                                      vxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    vxyz_ptmass(2,1:nptmass)        = (dptmass(idvymsi,1:nptmass) + &
+                                      vxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    vxyz_ptmass(3,1:nptmass)        = (dptmass(idvzmsi,1:nptmass) + &
+                                      vxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    fxyz_ptmass(1,1:nptmass)        = (dptmass(idfxmsi,1:nptmass) + &
+                                      fxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    fxyz_ptmass(2,1:nptmass)        = (dptmass(idfymsi,1:nptmass) + &
+                                      fxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    fxyz_ptmass(3,1:nptmass)        = (dptmass(idfzmsi,1:nptmass) + &
+                                      fxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    xyzmh_ptmass(4,1:nptmass)       = newptmass(1:nptmass)
+
     call checkval(accreted,.true.,nfailed(1),'accretion flag')
     !--check that h has been changed to indicate particle has been accreted
     call checkval(isdead_or_accreted(xyzh(4,1)),.true.,nfailed(2),'isdead_or_accreted flag')
@@ -438,102 +488,113 @@ subroutine test_ptmass(ntests,npass)
 !  Test sink particle creation
 !
  testcreatesink: if (test_createsink) then
-    if (id==master) write(*,"(/,a)") '--> testing sink particle creation'
-    xyzmh_ptmass(:,:) = 0.
-    vxyz_ptmass(:,:) = 0.
-    nptmass = 0
+    do itest=1,2
+       select case(itest)
+       case(2)
+          if (id==master) write(*,"(/,a)") '--> testing sink particle creation (sin)'
+       case default
+          if (id==master) write(*,"(/,a)") '--> testing sink particle creation (uniform density)'
+       end select
+       xyzmh_ptmass(:,:) = 0.
+       vxyz_ptmass(:,:) = 0.
+       nptmass = 0
 
-    npart = 0
-    npartoftype(:) = 0
-    massoftype = 0.
+       npart = 0
+       npartoftype(:) = 0
+       massoftype = 0.
 
-    xyzh(:,:)  = 0.
-    vxyzu(:,:) = 0.
-    fxyzu(:,:) = 0.
-    fext(:,:) = 0.
-    if (mhd) Bevol = 0.
-    iverbose = 1
-    call set_boundary(-1.,1.,-1.,1.,-1.,1.)
-    !
-    ! set up gas particles in a uniform sphere with radius R=0.2
-    !
-    psep = 0.05  ! required as a variable since this may change under conditions not requested here
-    call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh)
-    totmass = 1.0
-    massoftype(igas) = totmass/real(npartoftype(igas))
-    npart = npartoftype(igas)
-    !
-    ! give inward radial velocities
-    !
-    itest = npart
-    r2min = huge(r2min)
-    xcofm(:) = 0.
-    do i=1,npart
-       r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
-       if (r2 < r2min) then
-          itest = i
-          r2min = r2
+       xyzh(:,:)  = 0.
+       vxyzu(:,:) = 0.
+       fxyzu(:,:) = 0.
+       fext(:,:) = 0.
+       if (mhd) Bevol = 0.
+       iverbose = 1
+       call set_boundary(-1.,1.,-1.,1.,-1.,1.)
+       !
+       ! set up gas particles in a uniform sphere with radius R=0.2
+       !
+       psep = 0.05  ! required as a variable since this may change under conditions not requested here
+       if (itest==2) then
+          ! use random so particle with maximum density is unique
+          call set_sphere('random',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh,rhofunc=gaussianr)
+       else
+          call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh)
        endif
-       xcofm = xcofm + xyzh(1:3,i)
-    enddo
-    xcofm = massoftype(igas)*xcofm/totmass
-    if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
-    !
-    ! set up tree for neighbour finding
-    ! and make sure that gravitational potential energy has been computed
-    !
-    tree_accuracy = 0.
-    call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustfrac,ddustfrac,0.,0.,dtext_dum)
-    !
-    ! check energies before insertion of sink
-    !
-    call compute_energies(t)
-    !print*,' got ETOT = ',etot,totmom,epot
-    etotin   = etot
-    totmomin = totmom
-    angmomin = angtot
-    !
-    ! now create point mass by accreting these particles
-    !
-    h_acc = 0.15
-    call ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype,&
-                       xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,0.)
-    !
-    ! check that creation succeeded
-    !
-    nfailed(:) = 0
-    call checkval(nptmass,1,0,nfailed(1),'nptmass=1')
-    ntests = ntests + 1
-    if (all(nfailed==0)) npass = npass + 1
+       totmass = 1.0
+       massoftype(igas) = totmass/real(npartoftype(igas))
+       npart = npartoftype(igas)
+       !
+       ! give inward radial velocities
+       !
+       itestp = npart
+       r2min = huge(r2min)
+       xcofm(:) = 0.
+       do i=1,npart
+          r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
+          if (r2 < r2min) then
+             itestp = i
+             r2min = r2
+          endif
+          xcofm = xcofm + xyzh(1:3,i)
+       enddo
 
-    !
-    ! check centre of mass position
-    !
-    xcofm(:) = 0.
-    do i=1,npart
-       r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
-       if (r2 < r2min) then
-          itest = i
-          r2min = r2
+       xcofm = massoftype(igas)*xcofm/totmass
+       if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
+       !
+       ! set up tree for neighbour finding
+       ! and make sure that gravitational potential energy has been computed
+       !
+       tree_accuracy = 0.
+       icreate_sinks = 1
+       iverbose = 1
+       call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                   Bevol,dBevol,dustfrac,ddustfrac,0.,0.,dtext_dum)
+       !
+       ! check that maximum density gives correct particle for itest=2
+       !
+       if (itest==2 .and. gravity) then
+          imin = minloc(xyzh(4,1:npart))
+          itestp = imin(1)
+          call checkval(ipart_rhomax,itestp,0,nfailed(1),'ipart_rhomax')
+          ntests = ntests + 1
+          if (nfailed(1)==0) npass = npass + 1
        endif
-       xcofm = xcofm + xyzh(1:3,i)
+       !
+       ! check energies before insertion of sink
+       !
+       call compute_energies(t)
+       !print*,' got ETOT = ',etot,totmom,epot
+       etotin   = etot
+       totmomin = totmom
+       angmomin = angtot
+       !
+       ! now create point mass by accreting these particles
+       !
+       h_acc = 0.15
+       call ptmass_create(nptmass,npart,itestp,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype,&
+                          xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,0.)
+       !
+       ! check that creation succeeded
+       !
+       nfailed(:) = 0
+       call checkval(nptmass,1,0,nfailed(1),'nptmass=1')
+       ntests = ntests + 1
+       if (all(nfailed==0)) npass = npass + 1
+
+       !
+       ! check that linear and angular momentum and energy is conserved
+       !
+       nfailed(:) = 0
+       call compute_energies(t)
+       !print*,' got ETOT = ',etot,totmom,epot
+       call checkval(angtot,angmomin,1.e-10,nfailed(3),'angular momentum')
+       call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
+       !call checkval(etot,etotin,1.e-6,nfailed(1),'total energy')
+       ntests = ntests + 1
+       if (all(nfailed==0)) npass = npass + 1
+       iverbose = 0
+       call finish_ptmass(nptmass)
     enddo
-    xcofm = massoftype(igas)*xcofm/totmass
-
-    !
-    ! check that linear and angular momentum and energy is conserved
-    !
-    nfailed(:) = 0
-    call compute_energies(t)
-    !print*,' got ETOT = ',etot,totmom,epot
-    call checkval(angtot,angmomin,1.e-10,nfailed(3),'angular momentum')
-    call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
-    !call checkval(etot,etotin,1.e-6,nfailed(1),'total energy')
-    ntests = ntests + 1
-    if (all(nfailed==0)) npass = npass + 1
-    iverbose = 0
-
  endif testcreatesink
 
  !--reset stuff
@@ -542,5 +603,12 @@ subroutine test_ptmass(ntests,npass)
  if (id==master) write(*,"(/,a)") '<-- PTMASS TEST COMPLETE'
 
 end subroutine test_ptmass
+
+real function gaussianr(r)
+ real, intent(in) :: r
+
+ gaussianr = exp(-(r/0.05)**2) !1./(r**2 + 0.0001**2)
+
+end function gaussianr
 
 end module testptmass

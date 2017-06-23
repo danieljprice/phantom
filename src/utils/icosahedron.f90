@@ -131,9 +131,9 @@ subroutine demo()
  f = 'test.dat'
  open(2,file=f)
  do i=0,n-1
-   call pixel2vector(i,resolution,R,v,vector)
-   call vector2pixel(vector,resolution,R,v,pixel)
-   write(2,'(2i6,3f9.5)') i, pixel, (vector(j),j=1,3)
+    call pixel2vector(i,resolution,R,v,vector)
+    call vector2pixel(vector,resolution,R,v,pixel)
+    write(2,'(2i6,3f9.5)') i, pixel, (vector(j),j=1,3)
  enddo
  close(2)
  print *,n,' pixels saved in the file ',f
@@ -174,21 +174,21 @@ subroutine vector2pixel(vector,resolution,R,v,pixel)
  call adjust(x,y)
  call tangentplanepixel(resolution,x,y,pix,ifail)
  if (ifail > 0) then
-   ! Try the runner-up face:
-   call find_another_face(vector,R,face)
-   call getmatrix(face,R,A)
-   call vecmatmul2(A,vector,vec)
-   x      = vec(1)/vec(3)
-   y      = vec(2)/vec(3)
-   call adjust(x,y)
-   call tangentplanepixel(resolution,x,y,pix,ifail)
+    ! Try the runner-up face:
+    call find_another_face(vector,R,face)
+    call getmatrix(face,R,A)
+    call vecmatmul2(A,vector,vec)
+    x      = vec(1)/vec(3)
+    y      = vec(2)/vec(3)
+    call adjust(x,y)
+    call tangentplanepixel(resolution,x,y,pix,ifail)
  endif
  pixel = face*pixperface + pix
  if (ifail > 0) then
-   ! The pixel wasn't in any of those two faces,
-   ! so it must be a corner pixel.
-   call find_corner(vector,v,pix)
-   pixel = 20*pixperface + pix
+    ! The pixel wasn't in any of those two faces,
+    ! so it must be a corner pixel.
+    call find_corner(vector,v,pix)
+    pixel = 20*pixperface + pix
  endif
 
  return
@@ -208,28 +208,28 @@ subroutine pixel2vector(pixel,resolution,R,v,vector)
  if (pixel < 0) call error('pixel2vector','negative pixel number')
  if (pixel >= 20*pixperface+12) call error('pixel2vector','pixel number too large')
  if (pixperface > 0) then
-   face = pixel/pixperface
-   if (face > 20) face = 20
+    face = pixel/pixperface
+    if (face > 20) face = 20
  else ! There are no pixels at all on the faces - just corners.
-   face = 20
+    face = 20
  endif
  pix = pixel - face*pixperface
  if (face < 20) then
-   ! The pixel is on one of the 20 faces:
-   call tangentplanevector(pix,resolution,x,y)
-   call unadjust(x,y)
-   norm       = sqrt(x*x+y*y+1)
-   vector(1)      = x/norm
-   vector(2)      = y/norm
-   vector(3)      = 1./norm
-   call getmatrix(face,R,A)
-   call vecmatmul1(A,vector,vector)
+    ! The pixel is on one of the 20 faces:
+    call tangentplanevector(pix,resolution,x,y)
+    call unadjust(x,y)
+    norm       = sqrt(x*x+y*y+1)
+    vector(1)      = x/norm
+    vector(2)      = y/norm
+    vector(3)      = 1./norm
+    call getmatrix(face,R,A)
+    call vecmatmul1(A,vector,vector)
  else
-   ! This is a corner pixel:
-   if (pix > 11) call error('pixel2vector','pixel number too big')
-   vector(1) = v(pix,1)
-   vector(2) = v(pix,2)
-   vector(3) = v(pix,3)
+    ! This is a corner pixel:
+    if (pix > 11) call error('pixel2vector','pixel number too big')
+    vector(1) = v(pix,1)
+    vector(2) = v(pix,2)
+    vector(3) = v(pix,3)
  endif
 
  return
@@ -246,12 +246,12 @@ subroutine compute_matrices(R)
  real    :: pi, sn, cs, ct, x
  integer :: i,j,n
  do i=1,3
-   do j=1,3
-     A(i,j) = 0.
-     B(i,j) = 0.
-     C(i,j) = 0.
-     D(i,j) = 0.
-   enddo
+    do j=1,3
+       A(i,j) = 0.
+       B(i,j) = 0.
+       C(i,j) = 0.
+       D(i,j) = 0.
+    enddo
  enddo
  pi       = 4.*atan(1.)
  x       = 2.*pi/5.
@@ -286,10 +286,10 @@ subroutine compute_matrices(R)
  call matmul2(E,C,B)      ! B = CDC^t
  ! B rotates face 1 by 120 degrees.
  do i=1,3
-   do j=1,3
-     E(i,j) = 0.
-   enddo
-   E(i,i) = 1.
+    do j=1,3
+       E(i,j) = 0.
+    enddo
+    E(i,i) = 1.
  enddo      ! Now E is the identity matrix.
  call putmatrix(0,R,E)
  call matmul1(B,A,E)
@@ -302,20 +302,20 @@ subroutine compute_matrices(R)
  call matmul1(E,A,E)
  call putmatrix(15,R,E)
  do n=0,15,5
-   call getmatrix(n,R,E)
-   do i=1,4
-     call matmul1(A,E,E)
-     call putmatrix(n+i,R,E)
-   enddo
+    call getmatrix(n,R,E)
+    do i=1,4
+       call matmul1(A,E,E)
+       call putmatrix(n+i,R,E)
+    enddo
  enddo
  ! Now the nth matrix in R will rotate
  ! face 1 into face n.
  ! Multiply by C so that they will rotate
  ! the tangent plane into face n instead:
  do n=0,19
-   call getmatrix(n,R,E)
-   call matmul1(E,C,E)
-   call putmatrix(n,R,E)
+    call getmatrix(n,R,E)
+    call matmul1(E,C,E)
+    call putmatrix(n,R,E)
  enddo
  return
 end subroutine compute_matrices
@@ -336,15 +336,15 @@ subroutine compute_corners(v)
  z = 0.447213595      ! This is 1/(2 sin^2(pi/5)) - 1
  rho = sqrt(1.-z*z)
  do i=0,4
-   v(1+i,1) = -rho*sin(i*dphi)
-   v(1+i,2) =  rho*cos(i*dphi)
-   v(1+i,3) = z
+    v(1+i,1) = -rho*sin(i*dphi)
+    v(1+i,2) =  rho*cos(i*dphi)
+    v(1+i,3) = z
  enddo
  ! The 2nd half are simply opposite the first half:
  do i=0,5
-   v(6+i,1) = -v(i,1)
-   v(6+i,2) = -v(i,2)
-   v(6+i,3) = -v(i,3)
+    v(6+i,1) = -v(i,1)
+    v(6+i,2) = -v(i,2)
+    v(6+i,3) = -v(i,3)
  enddo
  return
 end subroutine compute_corners
@@ -400,13 +400,13 @@ subroutine matmul1(A,B,C)
 
  sum = 0.
  do i=1,3
-   do j=1,3
-     sum = 0.
-     do k=1,3
-       sum = sum + A(i,k)*B(k,j)
-     enddo
-     D(i,j) = sum
-   enddo
+    do j=1,3
+       sum = 0.
+       do k=1,3
+          sum = sum + A(i,k)*B(k,j)
+       enddo
+       D(i,j) = sum
+    enddo
  enddo
  call copymatrix(D,C)
 
@@ -423,13 +423,13 @@ subroutine matmul2(A,B,C)
 
  sum = 0.
  do i=1,3
-   do j=1,3
-     sum = 0.
-     do k=1,3
-       sum = sum + A(i,k)*B(j,k)
-     enddo
-     D(i,j) = sum
-   enddo
+    do j=1,3
+       sum = 0.
+       do k=1,3
+          sum = sum + A(i,k)*B(j,k)
+       enddo
+       D(i,j) = sum
+    enddo
  enddo
  call copymatrix(D,C)
 
@@ -469,11 +469,11 @@ subroutine vecmatmul1(A,b,c)
 
  sum = 0.
  do i=1,3
-   sum = 0.
-   do j=1,3
-     sum = sum + A(i,j)*b(j)
-   enddo
-   d(i) = sum
+    sum = 0.
+    do j=1,3
+       sum = sum + A(i,j)*b(j)
+    enddo
+    d(i) = sum
  enddo
  call copyvector(d,c)
 
@@ -490,11 +490,11 @@ subroutine vecmatmul2(A,b,c)
 
  sum = 0.
  do i=1,3
-   sum = 0.
-   do j=1,3
-     sum = sum + A(j,i)*b(j)
-   enddo
-   d(i) = sum
+    sum = 0.
+    do j=1,3
+       sum = sum + A(j,i)*b(j)
+    enddo
+    d(i) = sum
  enddo
  call copyvector(d,c)
 
@@ -508,9 +508,9 @@ subroutine copymatrix(A,B)
  integer :: i,j
 
  do i=1,3
-   do j=1,3
-     B(i,j) = A(i,j)
-   enddo
+    do j=1,3
+       B(i,j) = A(i,j)
+    enddo
  enddo
 
  return
@@ -537,9 +537,9 @@ subroutine getmatrix(n,R,A)
  integer :: i,j
 
  do i=1,3
-   do j=1,3
-     A(i,j) = R(n,i,j)
-   enddo
+    do j=1,3
+       A(i,j) = R(n,i,j)
+    enddo
  enddo
 
  return
@@ -553,9 +553,9 @@ subroutine putmatrix(n,R,A)
  integer :: i,j
 
  do i=1,3
-   do j=1,3
-      R(n,i,j) = A(i,j)
-   enddo
+    do j=1,3
+       R(n,i,j) = A(i,j)
+    enddo
  enddo
 
  return
@@ -577,14 +577,14 @@ subroutine find_face(vector,R,face)
  max  = -17.
  face = 0 ! to avoid compiler warnings
  do n=0,19
-   dot = 0.
-   do i=1,3
-      dot = dot + R(n,i,3)*vector(i)
-   enddo
-   if (dot > max) then
-      face = n
-      max = dot
-   endif
+    dot = 0.
+    do i=1,3
+       dot = dot + R(n,i,3)*vector(i)
+    enddo
+    if (dot > max) then
+       face = n
+       max = dot
+    endif
  enddo
 
  return
@@ -635,14 +635,14 @@ subroutine find_corner(vector,v,corner)
 
  max = -17.
  do n=0,11
-   dot = 0.
-   do i=1,3
-      dot = dot + v(n,i)*vector(i)
-   enddo
-   if (dot > max) then
-      corner = n
-      max = dot
-   endif
+    dot = 0.
+    do i=1,3
+       dot = dot + v(n,i)*vector(i)
+    enddo
+    if (dot > max) then
+       corner = n
+       max = dot
+    endif
  enddo
 
  return
@@ -658,29 +658,29 @@ subroutine find_mn(pixel,resolution,m,n)
  interiorpix = (2*resolution-3)*(resolution-1)
  pixperedge  = (resolution)-1
  if (pix < interiorpix) then
-   ! The pixel lies in the interior of the triangle.
-   m = int((sqrt(1.+8.*pix)-1.)/2. + 0.5/resolution)
-   ! 0.5/resolution was added to avoid problems with
-   ! rounding errors for the case when n=0.
-   ! As long as you don't add more than 2/m, you're OK.
-   n = pix - m*(m+1)/2
-   m = m + 2
-   n = n + 1
-   return
+    ! The pixel lies in the interior of the triangle.
+    m = int((sqrt(1.+8.*pix)-1.)/2. + 0.5/resolution)
+    ! 0.5/resolution was added to avoid problems with
+    ! rounding errors for the case when n=0.
+    ! As long as you don't add more than 2/m, you're OK.
+    n = pix - m*(m+1)/2
+    m = m + 2
+    n = n + 1
+    return
  endif
  pix = pix - interiorpix
  if (pix < pixperedge) then
-   ! The pixel lies on the bottom edge.
-   m = 2*resolution-1
-   n = pix+1
-   return
+    ! The pixel lies on the bottom edge.
+    m = 2*resolution-1
+    n = pix+1
+    return
  endif
  pix = pix - pixperedge
  if (pix < pixperedge) then
-   ! The pixel lies on the right edge.
-   m = 2*resolution-(pix+2)
-   n = m
-   return
+    ! The pixel lies on the right edge.
+    m = 2*resolution-(pix+2)
+    n = m
+    return
  endif
  pix = pix - pixperedge
  ! The pixel lies on the left edge.
@@ -718,26 +718,26 @@ subroutine tangentplanepixel(resolution,x,y,pix,ifail)
  pix     = (m-2)*(m-1)/2 + (n-1)
  ifail = 0
  if (m==r2-1) then            ! On bottom row
-   if ((n <= 0).or.(n >= resolution)) then
-     ifail=1
-   endif
-   return                      ! Pix already correct
+    if ((n <= 0).or.(n >= resolution)) then
+       ifail=1
+    endif
+    return                      ! Pix already correct
  endif
  if (n==m) then                  ! On right edge
-   k = (r2-1) - m
-   if ((k <= 0).or.(k >= resolution)) then
-     ifail = 1
-   else
-     pix = (r2-2)*(resolution-1) + k - 1
-   endif
-   return
+    k = (r2-1) - m
+    if ((k <= 0).or.(k >= resolution)) then
+       ifail = 1
+    else
+       pix = (r2-2)*(resolution-1) + k - 1
+    endif
+    return
  endif
  if (n==0) then                  ! On left edge
-   if ((m <= 0).or.(m >= resolution)) then
-     ifail = 1
-   else
-     pix = (r2-1)*(resolution-1) + m - 1
-   endif
+    if ((m <= 0).or.(m >= resolution)) then
+       ifail = 1
+    else
+       pix = (r2-1)*(resolution-1) + m - 1
+    endif
  endif
 
  return
@@ -781,31 +781,31 @@ subroutine find_sixth(x,y,rot,flip)
 
  d = c*y
  if (x >= 0) then
-   if (x <= -d) then
-     rot  = 0
-     flip = 0
-   else
-     if (x >= d) then
-       rot  = 2
-       flip = 1
-     else
-       rot  = 2
-       flip = 0
-     endif
-   endif
- else
-   if (x >= -d) then
-     rot  = 1
-     flip = 1
-   else
-     if (x <= d) then
-       rot  = 1
-       flip = 0
-     else
+    if (x <= -d) then
        rot  = 0
+       flip = 0
+    else
+       if (x >= d) then
+          rot  = 2
+          flip = 1
+       else
+          rot  = 2
+          flip = 0
+       endif
+    endif
+ else
+    if (x >= -d) then
+       rot  = 1
        flip = 1
-     endif
-   endif
+    else
+       if (x <= d) then
+          rot  = 1
+          flip = 0
+       else
+          rot  = 0
+          flip = 1
+       endif
+    endif
  endif
 
  return
@@ -819,14 +819,14 @@ subroutine rotate_and_flip(rot,flip,x,y)
  real :: x1, sn
 
  if (rot > 0) then
-   if (rot==1) then
-     sn = c      ! Rotate 120 degrees anti-clockwise
-   else
-     sn = -c      ! Rotate 120 degrees anti-clockwise
-   endif
-   x1 = x
-   x  = cs*x1 - sn*y
-   y  = sn*x1 + cs*y
+    if (rot==1) then
+       sn = c      ! Rotate 120 degrees anti-clockwise
+    else
+       sn = -c      ! Rotate 120 degrees anti-clockwise
+    endif
+    x1 = x
+    x  = cs*x1 - sn*y
+    y  = sn*x1 + cs*y
  endif
  if (flip > 0) x = -x
 
@@ -846,9 +846,9 @@ subroutine adjust(x,y)
  ! Now rotate & flip the sixth back into its
  ! original position:
  if ((flip==0).and.(rot > 0)) then
-   call rotate_and_flip(3-rot,flip,x,y)
+    call rotate_and_flip(3-rot,flip,x,y)
  else
-   call rotate_and_flip(rot,flip,x,y)
+    call rotate_and_flip(rot,flip,x,y)
  endif
 
  return
@@ -865,9 +865,9 @@ subroutine unadjust(x,y)
  ! Now rotate & flip the sixth back into its
  ! original position:
  if ((flip==0).and.(rot > 0)) then
-   call rotate_and_flip(3-rot,flip,x,y)
+    call rotate_and_flip(3-rot,flip,x,y)
  else
-   call rotate_and_flip(rot,flip,x,y)
+    call rotate_and_flip(rot,flip,x,y)
  endif
 
  return

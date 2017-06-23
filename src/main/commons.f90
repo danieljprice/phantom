@@ -30,8 +30,8 @@
 !---------------------------------------------------------------
 module timestep
  implicit none
- real :: tmax,dtmax
- real :: C_cour, C_force, C_cool
+ real    :: tmax,dtmax
+ real    :: C_cour,C_force,C_cool
  integer :: nmax,nout
  integer :: nsteps
  real, parameter :: bignumber = 1.e29
@@ -59,13 +59,28 @@ end module timestep
 
 !----------------------------------------------------------------
 !+
+!  Parameters related the initial conditions
+!  These will be calculated upon first initialisation, and will be
+!  used for subsequent restarts
+!+
+!---------------------------------------------------------------
+module initial_params
+use dim, only:ndusttypes
+ implicit none
+ real,    public :: get_conserv = 1.0 ! to track when we have initial values for conservation laws
+ real,    public :: etot_in,angtot_in,totmom_in,mdust_in(ndusttypes)
+
+end module initial_params
+
+!----------------------------------------------------------------
+!+
 !  Parameters related to initial setup
 !+
 !---------------------------------------------------------------
 module setup_params
  implicit none
- real :: rmax, rhozero
- logical :: ihavesetupB = .false.
+ real            :: rmax,rhozero
+ logical         :: ihavesetupB = .false.
  integer(kind=8) :: npart_total
 
 end module setup_params

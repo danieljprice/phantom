@@ -19,22 +19,23 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    accr1             -- primary accretion radius
-!    accr2             -- secondary accretion radius
-!    alphaSS           -- desired Shakura-Sunyaev alpha viscosity parameter
-!    binary_argperi    -- binary angle for argument of periapsis (deg)
-!    binary_inc        -- binary inclination in degrees
-!    binary_posang     -- binary position angle of ascending node (deg)
-!    binary_separation -- binary separation
-!    deltat            -- output interval as fraction of binary orbital period
-!    dist_unit         -- distance unit (e.g. au)
-!    dust_to_gas       -- initial dust-to-gas ratio
-!    ecc               -- binary eccentricity
-!    m1                -- primary mass
-!    m2                -- secondary mass
-!    mass_unit         -- mass unit (e.g. solarm)
-!    norbits           -- maximum number of binary orbits
-!    np                -- number of particles
+!    accr1       -- primary accretion radius
+!    accr2       -- secondary accretion radius
+!    alphaSS     -- desired Shakura-Sunyaev alpha viscosity parameter
+!    binary_O    -- Omega, PA of ascending node (deg)
+!    binary_a    -- binary semi-major axis
+!    binary_e    -- binary eccentricity
+!    binary_f    -- f, initial true anomaly (deg,180=apastron)
+!    binary_i    -- i, inclination (deg)
+!    binary_w    -- w, argument of periapsis (deg)
+!    deltat      -- output interval as fraction of binary orbital period
+!    dist_unit   -- distance unit (e.g. au)
+!    dust_to_gas -- initial dust-to-gas ratio
+!    m1          -- primary mass
+!    m2          -- secondary mass
+!    mass_unit   -- mass unit (e.g. solarm)
+!    norbits     -- maximum number of binary orbits
+!    np          -- number of particles
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, infile_utils, io, options,
 !    part, physcon, prompting, setbinary, setdisc, timestep, units
@@ -45,7 +46,7 @@ module setup
  implicit none
  public :: setpart
  !--private module variables
- real :: m1,m2,ecc,binary_separation,binary_inc,binary_posang,binary_argperi,accr1,accr2,alphaSS,deltat
+ real :: m1,m2,binary_a,binary_e,binary_i,binary_O,binary_w,binary_f,accr1,accr2,alphaSS,deltat
  logical :: iuse_disc(3),ismooth_edge(3)
  real :: R_in(3),R_out(3),HoverR(3),disc_mass(3),p_index(3),q_index(3),xinc(3)
  real :: dust_to_gas
@@ -90,7 +91,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=100) :: filename
  real :: Rochelobe,totmass,starmass,Rochesizei,minq,period
  integer :: i,ntot,npindisc,j,itest,ierr
- logical :: iexist
+ logical :: iexist,seq_exists
  real :: xorigini(3),vorigini(3),alpha_returned(3)
  integer :: number_of_discs
 !
@@ -105,6 +106,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  norbits = 10
  deltat  = 0.1
  dust_to_gas = 0.01
+ binary_f = 180.
 
  print "(/,65('-'),2(/,a),/,65('-'),/)",&
    ' Welcome to the Ultimate Binary Disc Setup Routine^TM', &
@@ -114,6 +116,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call read_binaryinputfile(filename,ierr)
     if (ierr /= 0) then
        if (id==master) call write_binaryinputfile(filename)
+       stop
+    endif
+    inquire(file='orbits.dat',exist=iexist)
+    inquire(file=trim(fileprefix)//'A.setup',exist=seq_exists)
+    if (iexist .and. .not.seq_exists) then
+       open(unit=23,file='orbits.dat',status='old',iostat=ierr)
+       j = 0
+       do while(ierr==0)
+          read(23,*,iostat=ierr) binary_a,binary_e,binary_i,binary_O,binary_w,binary_f
+          if (ierr==0) then
+             j = j + 1
+             write(filename,"(a)") trim(fileprefix)//achar(j+64)//'.setup'
+             if (id==master) call write_binaryinputfile(filename)
+          endif
+       enddo
+       close(unit=23)
        stop
     endif
  elseif (id==master) then
@@ -141,21 +159,23 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call prompt('Enter primary mass (code units)',m1,0.)
     m2 = 0.1
     call prompt('Enter secondary mass (code units)',m2,0.,m1)
-    binary_separation = 1.
-    call prompt('Enter the binary separation',binary_separation,0.)
-    ecc = 0.
-    call prompt('Enter the eccentricity of the binary',ecc,0.,1.)
-    binary_inc = 0.
-    call prompt('Enter the inclination of the binary in degrees',binary_inc,-180.,180.)
-    binary_posang = 0.
-    call prompt('Enter position angle of the ascending node in degrees',binary_posang,-180.,180.)
-    binary_argperi = 0.
-    call prompt('Enter the angle of the argument of periapsis in degrees',binary_argperi,-180.,180.)
+    binary_a = 1.
+    call prompt('Enter the binary semi-major axis',binary_a,0.)
+    binary_e = 0.
+    call prompt('Enter the eccentricity of the binary',binary_e,0.,1.)
+    binary_i = 0.
+    call prompt('Enter the inclination of the binary in degrees',binary_i,-180.,180.)
+    binary_O = 0.
+    call prompt('Enter position angle of the ascending node in degrees',binary_O,-180.,180.)
+    binary_w = 0.
+    call prompt('Enter the angle of the argument of periapsis in degrees',binary_w,-180.,180.)
+    binary_f = 180.
+    call prompt('Enter true anomaly in degrees (180=apastron)',binary_f,0.,360.)
 
-    accr1 = 0.25*binary_separation
-    call prompt('Enter accretion radius for primary (can be adjusted later)',accr1,0.,binary_separation)
-    accr2 = 0.25*binary_separation
-    call prompt('Enter accretion radius for secondary (can be adjusted later)',accr2,0.,binary_separation)
+    accr1 = 0.25*binary_a
+    call prompt('Enter accretion radius for primary (can be adjusted later)',accr1,0.,binary_a)
+    accr2 = 0.25*binary_a
+    call prompt('Enter accretion radius for secondary (can be adjusted later)',accr2,0.,binary_a)
 
     xinc(:) = 0.0
     p_index(:) = 1.5
@@ -163,10 +183,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     iuse_disc = .false.
     ismooth_edge = .false.
 
-    Rochelobe = Rochelobe_estimate(m1,m2,binary_separation)
+    Rochelobe = Rochelobe_estimate(m1,m2,binary_a)
 !    R_in  = (/2.**(2./3.)*binary_separation,accr,accr/)
-    R_in = (/binary_separation + Rochelobe + accr1,accr1,accr2/)
-    R_out = (/10.*R_in(1),binary_separation - Rochelobe - accr1,Rochelobe - accr2/)
+    R_in = (/binary_a + Rochelobe + accr1,accr1,accr2/)
+    R_out = (/10.*R_in(1),binary_a - Rochelobe - accr1,Rochelobe - accr2/)
     disc_mass = (/1.e-2*m1,1.e-3*m1,1.e-4*m1/)
     HoverR(:) = 0.1
 
@@ -177,7 +197,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           if (iuse_disc(i)) then
              if (i==1) then
                 print "(a,es10.3,a)",' Recommended minimum value of Rin = ',R_in(i),' (a + Rochelobe + acc. radius)'
-                call prompt('Enter inner radius of circum'//trim(disctype(i))//' disc',R_in(i),binary_separation)
+                call prompt('Enter inner radius of circum'//trim(disctype(i))//' disc',R_in(i),binary_a)
                 call prompt('Enter outer radius of circum'//trim(disctype(i))//' disc',R_out(i),R_in(i))
              else
                 print "(a,es10.3)",' Setting R_in for circum'//trim(disctype(i))//' to ',R_in(i)
@@ -229,9 +249,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  call set_units(dist=udist,mass=umass,G=1.d0)
 
- Rochelobe = Rochelobe_estimate(m1,m2,binary_separation)
+ Rochelobe = Rochelobe_estimate(m1,m2,binary_a)
 
- period = sqrt(4.*pi**2*binary_separation**3/(m1 + m2))
+ period = sqrt(4.*pi**2*binary_a**3/(m1 + m2))
  print*,' PERIOD = ',period,' or ',period*(utime/years),' YEARS'
 
 ! Convert inclination into radians
@@ -241,9 +261,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  nptmass = 0
 
- call set_binary(m1,massratio=m2/m1,semimajoraxis=binary_separation,eccentricity=ecc, &
-                 posang_ascnode=binary_posang,arg_peri=binary_argperi,incl=binary_inc,&
-                 accretion_radius1=accr1,accretion_radius2=accr2,&
+ call set_binary(m1,massratio=m2/m1,semimajoraxis=binary_a,eccentricity=binary_e, &
+                 posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i,&
+                 f=binary_f,accretion_radius1=accr1,accretion_radius2=accr2,&
                  xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass)
 
  gamma = 1.0
@@ -284,7 +304,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  totmass = 0.
  do i=1,3
-   if (iuse_disc(i)) totmass = totmass + disc_mass(i)
+    if (iuse_disc(i)) totmass = totmass + disc_mass(i)
  enddo
  print*,' total mass of system = ',totmass
 
@@ -302,7 +322,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           xorigini(:) = xyzmh_ptmass(1:3,1)
           vorigini(:) = vxyz_ptmass(1:3,1)
           starmass    = m1
-          Rochesizei  = binary_separation - Rochelobe
+          Rochesizei  = binary_a - Rochelobe
        case default
           !
           !--centre of mass of binary defined to be zero
@@ -313,7 +333,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           starmass    = m1 + m2
           Rochesizei  = huge(0.)
        end select
-       if (R_out(i) >  Rochesizei .and. R_out(i) < binary_separation) then
+       if (R_out(i) >  Rochesizei .and. R_out(i) < binary_a) then
           print "(/,a,/)",'*** WARNING: Outer disc radius for circum'//trim(disctype(i))//&
                            ' > Roche lobe of '//trim(disctype(i))//' ***'
        endif
@@ -355,7 +375,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 ! set up dust
  if (use_dustfrac) then
     do i=1,npart
-       call set_dustfrac(dust_to_gas,dustfrac(i))
+       call set_dustfrac(dust_to_gas,dustfrac(:,i))
     enddo
  endif
 
@@ -415,11 +435,12 @@ subroutine write_binaryinputfile(filename)
  write(iunit,"(/,a)") '# options for binary'
  call write_inopt(m1,'m1','primary mass',iunit)
  call write_inopt(m2,'m2','secondary mass',iunit)
- call write_inopt(ecc,'ecc','binary eccentricity',iunit)
- call write_inopt(binary_separation,'binary_separation','binary separation',iunit)
- call write_inopt(binary_inc,'binary_inc','binary inclination in degrees',iunit)
- call write_inopt(binary_posang,'binary_posang','binary position angle of ascending node (deg)',iunit)
- call write_inopt(binary_argperi,'binary_argperi','binary angle for argument of periapsis (deg)',iunit)
+ call write_inopt(binary_a,'binary_a','binary semi-major axis',iunit)
+ call write_inopt(binary_e,'binary_e','binary eccentricity',iunit)
+ call write_inopt(binary_i,'binary_i','i, inclination (deg)',iunit)
+ call write_inopt(binary_O,'binary_O','Omega, PA of ascending node (deg)',iunit)
+ call write_inopt(binary_w,'binary_w','w, argument of periapsis (deg)',iunit)
+ call write_inopt(binary_f,'binary_f','f, initial true anomaly (deg,180=apastron)',iunit)
 
  call write_inopt(accr1,'accr1','primary accretion radius',iunit)
  call write_inopt(accr2,'accr2','secondary accretion radius',iunit)
@@ -490,11 +511,12 @@ subroutine read_binaryinputfile(filename,ierr)
 
  call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
  call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
- call read_inopt(ecc,'ecc',db,min=0.,errcount=nerr)
- call read_inopt(binary_separation,'binary_separation',db,errcount=nerr)
- call read_inopt(binary_inc,'binary_inc',db,errcount=nerr)
- call read_inopt(binary_argperi,'binary_argperi',db,errcount=nerr)
- call read_inopt(binary_posang,'binary_posang',db,errcount=nerr)
+ call read_inopt(binary_a,'binary_a',db,errcount=nerr)
+ call read_inopt(binary_e,'binary_e',db,min=0.,errcount=nerr)
+ call read_inopt(binary_i,'binary_i',db,errcount=nerr)
+ call read_inopt(binary_O,'binary_O',db,errcount=nerr)
+ call read_inopt(binary_w,'binary_w',db,errcount=nerr)
+ call read_inopt(binary_f,'binary_f',db,errcount=nerr)
  call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
  call read_inopt(accr2,'accr2',db,min=0.,errcount=nerr)
  do i=1,3

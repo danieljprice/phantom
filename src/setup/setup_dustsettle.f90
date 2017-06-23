@@ -51,7 +51,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use timestep,       only:dtmax,tmax
  use units,          only:set_units,udist
  use dust,           only:init_drag,grainsizecgs,grainsize,graindens,get_ts, &
-                          set_dustfrac,smincgs,smaxcgs,sindex
+                          set_dustfrac
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -67,6 +67,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: npart_previous
  real    :: H0,HonR,omega,ts
  real    :: xmini,xmaxi,ymaxdisc,cs,dtg,t_orb
+ real    :: smin,smax,sind
 !
 ! default options
 !
@@ -167,16 +168,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--one fluid dust: set dust fraction on gas particles
 !
        if (use_dustfrac) then
-          if (ndusttypes==1) then
+          if (ndusttypes==1 .and. itype==igas) then
              call set_dustfrac(dtg,dustfrac(:,i))
           else
-             !!--you can alter the defaults by uncommenting and changing the following values
-             !smincgs = 1.e-5
-             !smaxcgs = 0.1
-             !sindex = 3.5
-             call set_dustfrac(dtg,dustfrac(:,i),smincgs,smaxcgs,sindex)
+             smin = 1.e-5
+             smax = 0.1
+             sind = 3.5
+             call set_dustfrac(dtg,dustfrac(:,i),smin,smax,sind)
           endif
- 
        endif
     enddo
 

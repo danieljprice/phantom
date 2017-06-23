@@ -37,7 +37,7 @@ module physcon
 !
  real(kind=8), parameter :: c = 2.997924d10                     !Speed of light            cm/s
  real(kind=8), parameter :: gg = 6.672041d-8                    !Gravitational constant    dyn cm^2 g^-2
-                                                                !                          cm^3 s^-2 g^-1
+ !                          cm^3 s^-2 g^-1
 
  real(kind=8), parameter :: Rg = 8.314d7                        !Gas constant              ergs mole^-1 K^-1
  real(kind=8), parameter :: cgsmu0 = 4.*pi

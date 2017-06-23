@@ -27,27 +27,27 @@
 !+
 !--------------------------------------------------------------------------
 module extern_binary
-  implicit none
-  !
-  !--code input parameters: these are the default values
-  !  and can be changed in the input file
-  !
-  real, public, parameter :: massp = 1.
-  real, public :: massr = 0.001
-  real, public :: a0 = 30.
-  real, public :: accradius1  = 2.0
-  real, public :: accradius2  = 2. ! accradius1 x mass ratio
-  real, public :: direction = 1.
-  real, public :: accretedmass1 = 0.
-  real, public :: accretedmass2 = 0.
+ implicit none
+ !
+ !--code input parameters: these are the default values
+ !  and can be changed in the input file
+ !
+ real, public, parameter :: massp = 1.
+ real, public :: massr = 0.001
+ real, public :: a0 = 30.
+ real, public :: accradius1  = 2.0
+ real, public :: accradius2  = 2. ! accradius1 x mass ratio
+ real, public :: direction = 1.
+ real, public :: accretedmass1 = 0.
+ real, public :: accretedmass2 = 0.
 
-  public :: binary_force, binary_posvel, binary_accreted, update_binary
-  public :: write_options_externbinary, read_options_externbinary
-  public :: write_headeropts_externbinary, read_headeropts_externbinary
-  private
+ public :: binary_force, binary_posvel, binary_accreted, update_binary
+ public :: write_options_externbinary, read_options_externbinary
+ public :: write_headeropts_externbinary, read_headeropts_externbinary
+ private
 
-  !real, private, save :: tset = -1.
-  real, private :: xyzbin(3,2)
+ !real, private, save :: tset = -1.
+ real, private :: xyzbin(3,2)
 
 contains
 !----------------------------------------------
@@ -70,18 +70,18 @@ end subroutine update_binary
 !+
 !----------------------------------------------
 subroutine compute_binary_pos(ti)
-  real, intent(in) :: ti
-  real             :: posmh(10)
-  real             :: vels(6)
+ real, intent(in) :: ti
+ real             :: posmh(10)
+ real             :: vels(6)
 
-  call binary_posvel(ti,posmh,vels)
-  xyzbin(1,1) = posmh(1)
-  xyzbin(2,1) = posmh(2)
-  xyzbin(3,1) = posmh(3)
-  xyzbin(1,2) = posmh(6)
-  xyzbin(2,2) = posmh(7)
-  xyzbin(3,2) = posmh(8)
-  !tset = ti
+ call binary_posvel(ti,posmh,vels)
+ xyzbin(1,1) = posmh(1)
+ xyzbin(2,1) = posmh(2)
+ xyzbin(3,1) = posmh(3)
+ xyzbin(1,2) = posmh(6)
+ xyzbin(2,2) = posmh(7)
+ xyzbin(3,2) = posmh(8)
+ !tset = ti
 
 end subroutine compute_binary_pos
 
@@ -92,13 +92,13 @@ end subroutine compute_binary_pos
 !+
 !----------------------------------------------
 subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi)
-  real, intent(in)  :: xi,yi,zi,ti
-  real, intent(out) :: fxi,fyi,fzi,phi
-  real :: x1,y1
-  real :: dx1,dy1,dz1,dx2,dy2,dz2
-  real :: rr1,rr2,f1,f2,dr1,dr2,phi1,phi2
+ real, intent(in)  :: xi,yi,zi,ti
+ real, intent(out) :: fxi,fyi,fzi,phi
+ real :: x1,y1
+ real :: dx1,dy1,dz1,dx2,dy2,dz2
+ real :: rr1,rr2,f1,f2,dr1,dr2,phi1,phi2
 
-  if (abs(massr) < tiny(massr)) then
+ if (abs(massr) < tiny(massr)) then
     x1=0.
     y1=0.
 
@@ -115,7 +115,7 @@ subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi)
     fxi  = -dx1*f1
     fyi  = -dy1*f1
     fzi  = -dz1*f1
-  else
+ else
     !if (abs(ti-tset) > epsilon(0.)) call compute_binary_pos(ti)
 
     !--compute gravitational force on gas particle i
@@ -144,10 +144,10 @@ subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi)
     phi1 = massp*dr1
     phi2 = massp*massr*dr2
     phi  = phi1 + phi2
-  endif
+ endif
 
-  !write (*,*) ti,0.,0.,0.,0.,x2,y2,0.,0.,0.,0.,a,theta
-  return
+ !write (*,*) ti,0.,0.,0.,0.,x2,y2,0.,0.,0.,0.,a,theta
+ return
 end subroutine binary_force
 
 !----------------------------------------------
@@ -163,67 +163,67 @@ subroutine binary_posvel(ti,posmh,vels)
  real :: theta,a,mu,mtot,tau,x,y,omega,dadt,vx,vy
 
  if (abs(massr) < tiny(massr)) then
-  posmh(1:3) = 0.
-  posmh(4)   = massp
-  posmh(5)   = accradius1
-  posmh(6:8) = 0.
-  posmh(9)   = massp*massr
-  posmh(10)  = accradius2
+    posmh(1:3) = 0.
+    posmh(4)   = massp
+    posmh(5)   = accradius1
+    posmh(6:8) = 0.
+    posmh(9)   = massp*massr
+    posmh(10)  = accradius2
 
-  vels(1) = 0.
-  vels(2) = 0.
-  vels(3) = 0.
-  vels(4) = 0.
-  vels(5) = 0.
-  vels(6) = 0.
+    vels(1) = 0.
+    vels(2) = 0.
+    vels(3) = 0.
+    vels(4) = 0.
+    vels(5) = 0.
+    vels(6) = 0.
 
  else
 
-  mtot=massp+massp*massr;
-  mu=(massp**2)*massr/mtot;
+    mtot=massp+massp*massr;
+    mu=(massp**2)*massr/mtot;
 
-  !--time of coalescence
-  tau=5./256.*a0**4/(mu * mtot**2)
-  !--separation
-  a=a0*((1.-ti/tau)**.25)
+    !--time of coalescence
+    tau=5./256.*a0**4/(mu * mtot**2)
+    !--separation
+    a=a0*((1.-ti/tau)**.25)
 
-  !--relative angular position
-  theta=direction*(-1./32.)*1./(mu*mtot**(2./3.))*(5./256.*1./(mu*mtot**(2./3.))*1./(tau-ti))**(-5./8.)
+    !--relative angular position
+    theta=direction*(-1./32.)*1./(mu*mtot**(2./3.))*(5./256.*1./(mu*mtot**(2./3.))*1./(tau-ti))**(-5./8.)
 
-  !--relative position
-  x=a*cos(theta)
-  y=a*sin(theta)
+    !--relative position
+    x=a*cos(theta)
+    y=a*sin(theta)
 
-  !--positions of primary and secondary (exact)
-  posmh(1) = -massp*massr/mtot*x
-  posmh(2) = -massp*massr/mtot*y
-  posmh(3) = 0.
-  posmh(4) = massp
-  posmh(5) = accradius1
+    !--positions of primary and secondary (exact)
+    posmh(1) = -massp*massr/mtot*x
+    posmh(2) = -massp*massr/mtot*y
+    posmh(3) = 0.
+    posmh(4) = massp
+    posmh(5) = accradius1
 
-  posmh(6) = massp/mtot*x
-  posmh(7) = massp/mtot*y
-  posmh(8) = 0.
-  posmh(9) = massp*massr
-  posmh(10) = accradius2
+    posmh(6) = massp/mtot*x
+    posmh(7) = massp/mtot*y
+    posmh(8) = 0.
+    posmh(9) = massp*massr
+    posmh(10) = accradius2
 
-  !-- rate of shrinking
-  dadt = -64./5. * mu*mtot**2/a**3
+    !-- rate of shrinking
+    dadt = -64./5. * mu*mtot**2/a**3
 
-  !-- rate of rotating
-  omega = direction*(5./256. * 1./(mu*mtot**(2./3.)) *1./(tau-ti))**(3./8.)
+    !-- rate of rotating
+    omega = direction*(5./256. * 1./(mu*mtot**(2./3.)) *1./(tau-ti))**(3./8.)
 
-  !--relative velocity
-  vx = 1./a*dadt*x - omega*y
-  vy = 1./a*dadt*y + omega*x
+    !--relative velocity
+    vx = 1./a*dadt*x - omega*y
+    vy = 1./a*dadt*y + omega*x
 
-  !--absolute velocity
-  vels(1) = -massp*massr/mtot*vx
-  vels(2) = -massp*massr/mtot*vy
-  vels(3) = 0.
-  vels(4) = massp/mtot*vx
-  vels(5) = massp/mtot*vy
-  vels(6) = 0.
+    !--absolute velocity
+    vels(1) = -massp*massr/mtot*vx
+    vels(2) = -massp*massr/mtot*vy
+    vels(3) = 0.
+    vels(4) = massp/mtot*vx
+    vels(5) = massp/mtot*vy
+    vels(6) = 0.
 
  endif
 
@@ -237,12 +237,12 @@ end subroutine binary_posvel
 !+
 !----------------------------------------------
 logical function binary_accreted(xi,yi,zi,mi,ti)
-  real, intent(in) :: xi,yi,zi,mi,ti
-  real :: x1,y1
-  real :: dx1,dy1,dz1,dx2,dy2,dz2
-  real :: rr1,rr2
+ real, intent(in) :: xi,yi,zi,mi,ti
+ real :: x1,y1
+ real :: dx1,dy1,dz1,dx2,dy2,dz2
+ real :: rr1,rr2
 
-  if (abs(massr) < tiny(massr)) then
+ if (abs(massr) < tiny(massr)) then
     x1=0.
     y1=0.
 
@@ -252,7 +252,7 @@ logical function binary_accreted(xi,yi,zi,mi,ti)
 
     rr1 = dx1*dx1 + dy1*dy1 + dz1*dz1
     rr2 = 1.e10
-  else
+ else
     !if (abs(ti-tset) > epsilon(0.)) call compute_binary_pos(ti)
     dx1 = xi - xyzbin(1,1)
     dy1 = yi - xyzbin(2,1)
@@ -264,17 +264,17 @@ logical function binary_accreted(xi,yi,zi,mi,ti)
 
     rr1 = dx1*dx1 + dy1*dy1 + dz1*dz1
     rr2 = dx2*dx2 + dy2*dy2 + dz2*dz2
-  endif
+ endif
 
-  if (rr1 < accradius1**2) then
-     binary_accreted = .true.
-     accretedmass1 = accretedmass1 + mi
-  elseif (rr2 < accradius2**2) then
-     binary_accreted = .true.
-     accretedmass2 = accretedmass2 + mi
-  else
-     binary_accreted = .false.
-  endif
+ if (rr1 < accradius1**2) then
+    binary_accreted = .true.
+    accretedmass1 = accretedmass1 + mi
+ elseif (rr2 < accradius2**2) then
+    binary_accreted = .true.
+    accretedmass2 = accretedmass2 + mi
+ else
+    binary_accreted = .false.
+ endif
 
 end function binary_accreted
 

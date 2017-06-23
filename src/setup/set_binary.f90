@@ -9,10 +9,15 @@
 !
 !  DESCRIPTION:
 !   This module is contains utilities for setting up binaries
+!   Our conventions for binary orbital parameters are consistent with
+!   those produced by the imorbel code (Pearce, Wyatt & Kennedy 2015)
+!   which can be used to produce orbits matching observed orbital
+!   arcs of binary companions on the sky
 !
 !  REFERENCES:
 !   Eggleton (1983) ApJ 268, 368-369 (ref:eggleton83)
 !   Lucy (2014), A&A 563, A126
+!   Pearce, Wyatt & Kennedy (2015), MNRAS 448, 3679
 !   https://en.wikipedia.org/wiki/Orbital_elements
 !
 !  OWNER: Daniel Price
@@ -41,21 +46,21 @@ contains
 subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
                       accretion_radius1,accretion_radius2, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,omega_corotate,&
-                      posang_ascnode,arg_peri,incl,verbose)
+                      posang_ascnode,arg_peri,incl,f,verbose)
  use part,    only:ihacc,ihsoft
  real,    intent(in)    :: mprimary,massratio
  real,    intent(in)    :: semimajoraxis,eccentricity
  real,    intent(in)    :: accretion_radius1,accretion_radius2
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: nptmass
- real,    intent(in),  optional :: posang_ascnode,arg_peri,incl
+ real,    intent(in),  optional :: posang_ascnode,arg_peri,incl,f
  real,    intent(out), optional :: omega_corotate
  logical, intent(in),  optional :: verbose
  integer :: i1,i2,i
  real    :: m1,m2,mtot,dx(3),dv(3),Rochelobe,Rochelobe2,period
  real    :: x1(3),x2(3),v1(3),v2(3),omega0,cosi,sini,xangle,reducedmass,angmbin
- real    :: a,E,E_dot,P(3),Q(3),omega,big_omega,inc,ecc,tperi,term1,term2
- logical :: do_verbose,flip_x
+ real    :: a,E,E_dot,P(3),Q(3),omega,big_omega,inc,ecc,tperi,term1,term2,theta
+ logical :: do_verbose
 
  do_verbose = .true.
  if (present(verbose)) do_verbose = verbose
@@ -110,15 +115,23 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
     ! Campbell elements
     a = semimajoraxis
     ecc = eccentricity
-    omega     = arg_peri*pi/180. !(arg_peri + 180.)*pi/180.
-    flip_x    = .true.
-    if (flip_x) omega = omega + pi/2.
-    big_omega = posang_ascnode*pi/180.
+    omega     = arg_peri*pi/180.
+    ! our conventions here are Omega is measured East of North
+    big_omega = posang_ascnode*pi/180. + 0.5*pi
     inc       = incl*pi/180.
-    tperi     = 0.5*period ! time since periastron: use half period to set binary initially at apastron
 
-    ! Solve Kepler equation for eccentric anomaly
-    E = get_E(period,eccentricity,tperi)
+    if (present(f)) then
+       ! get eccentric anomaly from true anomaly
+       ! (https://en.wikipedia.org/wiki/Eccentric_anomaly#From_the_true_anomaly)
+       theta = f*pi/180.
+       E = atan2(sqrt(1. - ecc**2)*sin(theta),(ecc + cos(theta)))
+    else
+       ! set binary at apastron
+       tperi = 0.5*period ! time since periastron: half period = apastron
+
+       ! Solve Kepler equation for eccentric anomaly
+       E = get_E(period,eccentricity,tperi)
+    endif
 
     ! Positions in plane (Thiele-Innes elements)
     P(1) = cos(omega)*cos(big_omega) - sin(omega)*cos(inc)*sin(big_omega)
@@ -136,9 +149,11 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
        print "(4(2x,a,g12.4,/),2x,a,g12.4)", &
              'Eccentric anomaly:',E, &
              'E_dot            :',E_dot, &
-             'inclination (deg):',incl, &
-             'arg. pericentre  :',arg_peri, &
-             'angle asc. node  :',posang_ascnode
+             'inclination     (i, deg):',incl, &
+             'angle asc. node (O, deg):',posang_ascnode, &
+             'arg. pericentre (w, deg):',arg_peri
+       if (present(f)) print "(2x,a,g12.4)", &
+             'true anomaly    (f, deg):',f
     endif
 
     ! Rotating everything
@@ -148,13 +163,6 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
     ! Set the velocities
     dv(:) = -a*sin(E)*E_dot*P(:) + a*sqrt(1.-(ecc*ecc))*cos(E)*E_dot*Q(:)
 
-    if (flip_x) then
-       ! flip x axis (because observers convention is for x axis increasing to the left)
-       dx(1) = -dx(1)
-       dv(1) = -dv(1)
-       ! orbit in the other direction
-       dv = -dv
-    endif
  else
     ! set binary at apastron
     dx = (/semimajoraxis*(1. + eccentricity),0.,0./)
@@ -304,10 +312,10 @@ real function L1_point(qinv)
 
  dL = 1.e7
  do while (abs(dL)>1.e-6)
-   fL = qinv/L**2- 1./(1.-L)**2 - (1.+qinv)*L + 1.
-   dfL=-2*qinv/L**3 - 2./(1.-L)**3 - (1.+qinv)
-   dL = -fL/(dfL*L)
-   L = L*(1.+dL)
+    fL = qinv/L**2- 1./(1.-L)**2 - (1.+qinv)*L + 1.
+    dfL=-2*qinv/L**3 - 2./(1.-L)**3 - (1.+qinv)
+    dL = -fL/(dfL*L)
+    L = L*(1.+dL)
  enddo
 
  L1_point = L

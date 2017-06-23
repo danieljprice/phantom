@@ -428,7 +428,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     if (isink > 0) then
        call get_mass_and_radius(npart,ndens,rad2,xyzh(3,:),xyzh(4,:),indx,particlemass,mdisc,rdisc)
     else
-        call get_radius(npart,rdisc,msink,(msink+mdisc)*massfrac,rad2,massoftype(igas),indx)
+       call get_radius(npart,rdisc,msink,(msink+mdisc)*massfrac,rad2,massoftype(igas),indx)
     endif
     !
     ! Call analysis to get the (r,phi,z) components of the B & V fields;  this is for gas only!
@@ -663,12 +663,12 @@ end subroutine get_mass_and_radius
 !+
 !----------------------------------------------------------------
 subroutine get_eta_global(etaohm,etahall,etaambi,rhoi,n_Ri,n_electronTi,B)
- real,         intent(inout) :: n_Ri(:),n_electronTi
- real,         intent(in)    :: rhoi
- real(kind=4), intent(in)    :: B(3)
- real        , intent(out)   :: etaohm,etahall,etaambi
- integer                     :: ierr
- real                        :: temperature,B2i,vdummy(maxvxyzu),xdummy(3)
+ real,   intent(inout) :: n_Ri(:),n_electronTi
+ real,   intent(in)    :: rhoi
+ real,   intent(in)    :: B(3)
+ real,   intent(out)   :: etaohm,etahall,etaambi
+ integer               :: ierr
+ real                  :: temperature,B2i,vdummy(maxvxyzu),xdummy(3)
  !
  ! Calculate temperature
  xdummy      = 0.0
@@ -689,9 +689,9 @@ end subroutine get_eta_global
 !+
 !----------------------------------------------------------------
 real function etaart_old(hi,rhoi,alphaB_in,B)
- real,         intent(in)    :: hi,rhoi,alphaB_in
- real(kind=4), intent(in)    :: B(3)
- real                        :: spsoundi,B2i,valfven2i,vsigi,vdummy(maxvxyzu),xdummy(3)
+ real, intent(in)    :: hi,rhoi,alphaB_in
+ real, intent(in)    :: B(3)
+ real                :: spsoundi,B2i,valfven2i,vsigi,vdummy(maxvxyzu),xdummy(3)
  !
  xdummy   = 0.0
  vdummy   = 0.0
@@ -777,7 +777,7 @@ end function etaart_new
 subroutine get_mu(npart,nptmass,nrad,rad_mu,mu,mass,B,xyzh,xyzmh_ptmass,Bevol,pmassi)
  integer,      intent(in)  :: npart,nptmass,nrad
  real,         intent(in)  :: pmassi,rad_mu(:),xyzh(:,:),xyzmh_ptmass(:,:)
- real(kind=4), intent(in)  :: Bevol(:,:)
+ real,         intent(in)  :: Bevol(:,:)
  real,         intent(out) :: mu(nrad),mass(nrad),B(nrad)
  integer                   :: i,j
  real                      :: rmasstoflux_crit
@@ -861,7 +861,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bevol,particlemass,
  character(len=*), intent(in) :: dumpfile,csink
  integer,          intent(in) :: npart,num
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:),rdisc2,time,rthresh2,dmassp
- real(kind=4),     intent(in) :: Bevol(:,:)
+ real,             intent(in) :: Bevol(:,:)
  real,             intent(in) :: particlemass,dthreshg,au,udist,umass,solarm,unit_velocity,unit_Bfield
  logical,          intent(in) :: mhd
  !

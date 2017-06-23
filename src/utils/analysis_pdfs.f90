@@ -63,7 +63,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real               :: rhomeanmw,rhovarmw,svarmw,smeanmw,bvalmw,rmsvmw
  real               :: rhovar,svar,totprob,bval,t2,t1
  integer            :: maxp,maxmhd,np,ninbox
- integer            :: nmesh,i,j,nbins,ibin,ierr,ilendat4
+ integer            :: nmesh,i,j,nbins,ibin,ierr,ilendat
  character(len=120) :: tagline1,fileout
  character(len=20)  :: fmtstring,fmt
  character(len=20), parameter :: filename = 'analysis.in'
@@ -154,11 +154,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  maxp = size(xyzh, 2)
  maxmhd = size(Bevol, 2)
- ilendat4 = 4*(maxmhd/maxp)
+ ilendat = 4*(maxmhd/maxp)
 
 ! allocate memory for the grid data
 !
- allocate(datgrid(4+ilendat4,nsub**ndim,nmesh))
+ allocate(datgrid(4+ilendat,nsub**ndim,nmesh))
 !
 !--interpolate to the 3D grid
 !
@@ -167,7 +167,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  if (maxmhd > 0) then
     call interpolate3D_amr(xyzh,weight,particlemass,vxyzu,npart, &
-                           xminp,datgrid,nmesh,dxmaxp,.true.,ilendat4,Bevol)
+                           xminp,datgrid,nmesh,dxmaxp,.true.,ilendat,Bevol)
  else
     call interpolate3D_amr(xyzh,weight,particlemass,vxyzu,npart, &
                            xminp,datgrid,nmesh,dxmaxp,.true.,0)
@@ -215,8 +215,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  print "(a)",' writing to '//trim(fileout)
 
  open(unit=iunit,file=trim(fileout),status='replace',form='formatted')
-    write(fmtstring,"('(',i3,'(es18.10,1x))')",iostat=ierr) 17
-    write(iunit,fmtstring) time,rhomean,rhomeanmw,rhovar,rhovarmw,sqrt(rhovar),sqrt(rhovarmw),&
+ write(fmtstring,"('(',i3,'(es18.10,1x))')",iostat=ierr) 17
+ write(iunit,fmtstring) time,rhomean,rhomeanmw,rhovar,rhovarmw,sqrt(rhovar),sqrt(rhovarmw),&
                            rmsv,rmsvmw,bval,bvalmw,smean,smeanmw,svar,svarmw,sqrt(svar),sqrt(svarmw)
  close(unit=iunit)
 !

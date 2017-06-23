@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: externalforces, io, mpiutils, options, physcon, setdisc,
-!    timestep, units
+!  DEPENDENCIES: externalforces, io, mpiutils, options, physcon, prompting,
+!    setdisc, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -45,6 +45,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,        only:pi,au,solarm
  use mpiutils,       only:bcast_mpi
  use units,          only:set_units
+ use prompting,      only:prompt
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -73,8 +74,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dr_warp = 1.5
  term    = pi*R_warp/(4.*dr_warp)
  if (id==master) then
-    print*,' Enter warp amplitude (maximum psi)'
-    read*,psimax
+    psimax = 0.05
+    call prompt(' Enter warp amplitude (maximum psi)',psimax,0.,1.)
  endif
  call bcast_mpi(psimax)
  if (psimax < 0. .or. psimax > 10.) call fatal('setup','error in psi-max')

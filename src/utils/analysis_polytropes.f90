@@ -31,8 +31,8 @@ module analysis
  logical, private :: binary    = .false. ! The model is of a binary star
  real,    private :: rthresh   = 0.5     ! Radius within which the L1 error will be calculated
  integer, private :: frequency = 10      ! Will determine the density profile every frequency-th dump;
-                                         ! keep this since, if binary, then the CoM will be required
-                                         ! more frequently
+ ! keep this since, if binary, then the CoM will be required
+ ! more frequently
  !--stored values to track orbital period of binary
  integer          :: iperiod(4)
  real             :: period(8,32)

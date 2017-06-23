@@ -40,7 +40,7 @@ program phantomsetup
  use checksetup,      only:check_setup
  use physcon,         only:pi
  use units,           only:set_units,print_units
- use mpiutils,        only:init_mpi,finalise_mpi,use_mpi
+ use mpiutils,        only:init_mpi,finalise_mpi,use_mpi,reduceall_mpi
  use domain,          only:init_domains
  use boundary,        only:set_boundary
  use fileutils,       only:strip_extension
@@ -52,7 +52,7 @@ program phantomsetup
  use part,            only:luminosity,maxlum,lightcurve
 #endif
  implicit none
- integer                     :: nargs,i,nprocsfake,nerr,nwarn,myid
+ integer                     :: nargs,i,nprocsfake,nerr,nwarn,myid,myid1
  integer(kind=8)             :: ntotal
  integer, parameter          :: lenprefix = 120
  character(len=lenprefix)    :: fileprefix
@@ -148,9 +148,11 @@ program phantomsetup
     id = 0
  endif
 
- do myid=id,nprocsfake-1
+ do myid=0,nprocsfake-1
 
-    call setpart(myid,npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk,gamma,hfact,time,fileprefix)
+    myid1 = myid
+    if (use_mpi) myid1 = id
+    call setpart(myid1,npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk,gamma,hfact,time,fileprefix)
 !
 !--perform sanity checks on the output of setpart routine
 !
@@ -181,7 +183,7 @@ program phantomsetup
     if (nprocsfake > 1) then
        ntotal = npart_total
     else
-       ntotal = npart
+       ntotal = reduceall_mpi('+',npart)
     endif
     if (id==master) call print_units()
 !
@@ -194,12 +196,12 @@ program phantomsetup
 !--write initial conditions to the dump file
 !
 #ifdef SORT_RADIUS_INIT
-    write(*,"(a)",ADVANCE='NO') ' Sorting particles by radius...'
+    if (id==master) write(*,"(a)",ADVANCE='NO') ' Sorting particles by radius...'
     call get_centreofmass(x0,v0,npart,xyzh,vxyzu)
-    print*,' setting origin for sort to ',x0
+    if (id==master) print*,' setting origin for sort to ',x0
     call set_r2func_origin(x0(1),x0(2),x0(3))
     call indexxfunc(npart,r2func_origin,xyzh,iorder)
-    write(*,"(a)") ' done'
+    if (id==master) write(*,"(a)") ' done'
     call write_fulldump(time,dumpfile,ntotal,iorder)
 #else
     call write_fulldump(time,dumpfile,ntotal)
