@@ -126,8 +126,8 @@ subroutine print_dustinfo(iprint)
  case(1)
     write(iprint,"(a)")              ' Using Epstein/Stokes drag: '
     do i = 1,ndusttypes
-       write(iprint,"(2(a,1pg10.3),a)") '        Grain size = ',grainsize(i)*udist,        ' cm     = ',grainsize,' (code units)'
-       write(iprint,"(2(a,1pg10.3),a)") '        Grain mass = ',grainmass(i)*umass,        ' g      = ',grainmass,' (code units)'
+       write(iprint,"(2(a,1pg10.3),a)") '        Grain size = ',grainsize(i)*udist,        ' cm     = ',grainsize(i),' (code units)'
+       write(iprint,"(2(a,1pg10.3),a)") '        Grain mass = ',grainmass(i)*umass,        ' g      = ',grainmass(i),' (code units)'
        write(iprint,"(2(a,1pg10.3),a)") '     Grain density = ',graindens*unit_density, ' g/cm^3 = ',graindens,' (code units)'
        write(iprint,"(2(a,1pg10.3),a)") '  Gas mfp at rho=1 = ',seff*udist/unit_density,' cm     = ',seff,' (code units)'
        rhocrit = 9.*seff/(4.*grainsize(i))
