@@ -577,10 +577,14 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
                           update_vdependent_extforce_leapfrog,is_velocity_dependent
  use ptmass,         only:ptmass_predictor,ptmass_corrector,ptmass_accrete, &
-                          get_accel_sink_gas,get_accel_sink_sink,f_acc,pt_write_sinkev
+                          get_accel_sink_gas,get_accel_sink_sink,f_acc,pt_write_sinkev, &
+                          idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
+                          idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
+                          ndptmass
  use options,        only:iexternalforce
  use part,           only:maxphase,abundance,nabundances,h2chemistry,epot_sinksink,&
-                          isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv
+                          isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
+                          ispinx,ispiny,ispinz
  use options,        only:icooling
  use chem,           only:energ_h2cooling
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
@@ -600,10 +604,14 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
  real    :: xyzm_ptmass_old(4,nptmass),vxyz_ptmass_old(3,nptmass)
  real    :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
  real    :: dtf,accretedmass,t_end_step,dtextforce_min
+ real    :: dptmass(ndptmass,nptmass)
+ real    :: newptmass(nptmass),newptmass1(nptmass)
  real, save :: fxyz_ptmass_thread(4,maxptmass)
+ real, save :: dptmass_thread(ndptmass,maxptmass)
  real, save :: dmdt = 0.
  logical :: last_step,done
  !$omp threadprivate(fxyz_ptmass_thread)
+ !$omp threadprivate(dptmass_thread)
 !
 ! determine whether or not to use substepping
 !
@@ -799,10 +807,15 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     accretedmass = 0.
     nfail        = 0
     naccreted    = 0
+
+    dptmass(:,1:nptmass) = 0.
+    dptmass_thread(:,1:nptmass) = 0.
+
     !$omp parallel do default(none) &
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei,nptmass,sts_it_n) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,f_acc) &
     !$omp shared(iexternalforce,vxyz_ptmass_old,xyzm_ptmass_old) &
+    !$omp shared(dptmass) &
     !$omp private(i,accreted,nfaili,fxi,fyi,fzi) &
     !$omp firstprivate(itype,pmassi) &
     !$omp reduction(+:accretedmass,nfail,naccreted)
@@ -835,8 +848,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
              fzi = fext(3,i)
              call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                                  vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxi,fyi,fzi,&
-                                 itype,pmassi,xyzmh_ptmass,xyzm_ptmass_old,vxyz_ptmass, &
-                                 vxyz_ptmass_old,fxyz_ptmass,accreted,timei,f_acc,nfaili)
+                                 itype,pmassi,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
+                                 accreted,dptmass_thread,timei,f_acc,nfaili)
              if (accreted) then
                 naccreted = naccreted + 1
                 cycle accreteloop
@@ -844,8 +857,29 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
              if (nfaili > 1) nfail = nfail + 1
           endif
        endif
+
+    !$omp critical(dptmassadd)
+    dptmass(:,1:nptmass) = dptmass(:,1:nptmass) + dptmass_thread(:,1:nptmass)
+    !$omp end critical(dptmassadd)
     enddo accreteloop
     !$omp end parallel do
+
+    ! update ptmass position, spin, velocity, acceleration, and mass
+    newptmass(1:nptmass)            = xyzmh_ptmass(4,1:nptmass) + dptmass(idmsi,1:nptmass)
+    newptmass1(1:nptmass)           = 1./newptmass(1:nptmass)
+    xyzmh_ptmass(1,1:nptmass)       = (dptmass(idxmsi,1:nptmass) + xyzmh_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+    xyzmh_ptmass(2,1:nptmass)       = (dptmass(idymsi,1:nptmass) + xyzmh_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+    xyzmh_ptmass(3,1:nptmass)       = (dptmass(idzmsi,1:nptmass) + xyzmh_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+    xyzmh_ptmass(ispinx,1:nptmass)  = xyzmh_ptmass(ispinx,1:nptmass) + dptmass(idspinxsi,1:nptmass)
+    xyzmh_ptmass(ispiny,1:nptmass)  = xyzmh_ptmass(ispiny,1:nptmass) + dptmass(idspinysi,1:nptmass)
+    xyzmh_ptmass(ispinz,1:nptmass)  = xyzmh_ptmass(ispinz,1:nptmass) + dptmass(idspinzsi,1:nptmass)
+    vxyz_ptmass(1,1:nptmass)        = (dptmass(idvxmsi,1:nptmass) + vxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+    vxyz_ptmass(2,1:nptmass)        = (dptmass(idvymsi,1:nptmass) + vxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+    vxyz_ptmass(3,1:nptmass)        = (dptmass(idvzmsi,1:nptmass) + vxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+    fxyz_ptmass(1,1:nptmass)        = (dptmass(idfxmsi,1:nptmass) + fxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+    fxyz_ptmass(2,1:nptmass)        = (dptmass(idfymsi,1:nptmass) + fxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+    fxyz_ptmass(3,1:nptmass)        = (dptmass(idfzmsi,1:nptmass) + fxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+    xyzmh_ptmass(4,1:nptmass)       = newptmass(1:nptmass)
 
     if (iverbose >= 2 .and. id==master .and. naccreted /= 0) write(iprint,"(a,es10.3,a,i4,a,i4,a)") &
        'Step: at time ',timei,', ',naccreted,' particles were accreted amongst ',nptmass,' sink(s).'
