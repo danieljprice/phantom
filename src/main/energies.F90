@@ -783,7 +783,7 @@ subroutine ev_data_correction(evdata,evtag,scalar_in,evcmd)
 
 ! write(evtag0,'(a)') evtag
 ! evtag0 = evtag
- iarray = index(evtag(1:11),ev_tag)
+ iarray = index(evtag(1:3),ev_tag)
  ival   = maxloc(iarray,1)
  if (iarray(ival) > 0) then
     jval = ev_istart(ival)
@@ -806,7 +806,7 @@ real function ev_get_value(evtag,evcmd)
 
  !write(evtag0,'(a)') evtag
  !evtag0 = evtag
- iarray = index(evtag(1:11),ev_tag)
+ iarray = index(evtag(1:4),ev_tag)
  ival   = maxloc(iarray,1)
  if (iarray(ival) > 0) then
     jval = ev_istart(ival)
