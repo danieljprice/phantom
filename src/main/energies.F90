@@ -611,7 +611,7 @@ subroutine get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
  real, intent(out) :: erotxi,erotyi,erotzi
  real              :: dx,dy,dz,dvx,dvy,dvz
  real              :: rcrossvx,rcrossvy,rcrossvz,radxy2,radyz2,radxz2
-
+ !
  erotxi = 0.0
  erotyi = 0.0
  erotzi = 0.0
@@ -634,7 +634,7 @@ subroutine get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
  if (radyz2 > 0.) erotxi = pmassi*rcrossvx*rcrossvx/radyz2
  if (radxz2 > 0.) erotyi = pmassi*rcrossvy*rcrossvy/radxz2
  if (radxy2 > 0.) erotzi = pmassi*rcrossvz*rcrossvz/radxy2
-
+ !
 end subroutine get_erot
 !----------------------------------------------------------------
 !+
@@ -648,18 +648,18 @@ subroutine ev_data_update(evdata,evtag,val)
  integer                          :: iarray(inumev)
  integer                          :: ival,jval,j_actual
  character(len= 3)                :: cmd
- !character(len=11)                :: evtag0
+ character(len=11)                :: evtag0
 
- !evtag0 = evtag
- !write(evtag0,'(a)') evtag
- iarray = index(evtag,ev_tag)
+ write(evtag0,'(a)') evtag
+ iarray = index(evtag0,ev_tag)
  ival   = maxloc(iarray,1)
  if (iarray(ival) > 0) then
     cmd    = ev_action(ival)
     jval   = ev_istart(ival)
     if (index(cmd,'0') > 0) then
        evdata(jval) =     val
-    elseif (index(cmd,'s') > 0) then
+    endif
+    if (index(cmd,'s') > 0) then
        evdata(jval) =     evdata(jval)+val
     endif
     if (index(cmd,'x') > 0) then
@@ -686,7 +686,7 @@ subroutine initialise_ev_data(evdata)
  real,    intent(inout) :: evdata(0:inumev)
  integer                :: i,jval,j_actual
  character(len=3)       :: cmd
-
+ !
  evdata = 0.0
  do i = 1,iquantities
     jval = ev_istart(i)
@@ -700,7 +700,7 @@ subroutine initialise_ev_data(evdata)
        evdata(j_actual) =  huge(evdata(j_actual  ))
     endif
  enddo
-
+ !
 end subroutine initialise_ev_data
 !----------------------------------------------------------------
 !+
@@ -712,7 +712,7 @@ subroutine collate_ev_data(evdata_thread,evdata)
  real,            intent(inout) :: evdata(0:inumev)
  integer                        :: i,jval,j_actual
  character(len=3)               :: cmd
-
+ !
  do i = 1,iquantities
     jval = ev_istart(i)
     cmd  = ev_action(i)
@@ -732,7 +732,7 @@ subroutine collate_ev_data(evdata_thread,evdata)
        evdata(j_actual) = min(evdata(j_actual), evdata_thread(j_actual))
     endif
  enddo
-
+ !
 end subroutine collate_ev_data
 !----------------------------------------------------------------
 !+
@@ -746,6 +746,7 @@ subroutine finalise_ev_data(evdata,dnptot)
  integer                        :: i,jval,j_actual
  character(len=3)               :: cmd
 
+ !
  do i = 1,iquantities
     jval = ev_istart(i)
     cmd  = ev_action(i)
@@ -765,7 +766,7 @@ subroutine finalise_ev_data(evdata,dnptot)
        evdata(j_actual) = reduce_fn('min',evdata(j_actual))
     endif
  enddo
-
+ !
 end subroutine finalise_ev_data
 !----------------------------------------------------------------
 !+
@@ -777,13 +778,12 @@ subroutine ev_data_correction(evdata,evtag,scalar_in,evcmd)
  real,                        intent(in)    :: scalar_in
  character(len=*),            intent(in)    :: evtag
  character(len= 1), optional, intent(in)    :: evcmd
- !character(len=11)                          :: evtag0
+ character(len=11)                          :: evtag0
  integer                                    :: iarray(inumev)
  integer                                    :: ival,jval
 
-! write(evtag0,'(a)') evtag
-! evtag0 = evtag
- iarray = index(evtag(1:3),ev_tag)
+ write(evtag0,'(a)') evtag
+ iarray = index(evtag0,ev_tag)
  ival   = maxloc(iarray,1)
  if (iarray(ival) > 0) then
     jval = ev_istart(ival)
@@ -800,13 +800,12 @@ end subroutine ev_data_correction
 real function ev_get_value(evtag,evcmd)
  character(len=*),            intent(in) :: evtag
  character(len= 1), optional, intent(in) :: evcmd
- !character(len=11)                       :: evtag0
+ character(len=11)                       :: evtag0
  integer                                 :: iarray(inumev)
  integer                                 :: ival,jval
 
- !write(evtag0,'(a)') evtag
- !evtag0 = evtag
- iarray = index(evtag(1:4),ev_tag)
+ write(evtag0,'(a)') evtag
+ iarray = index(evtag0,ev_tag)
  ival   = maxloc(iarray,1)
  if (iarray(ival) > 0) then
     jval = ev_istart(ival)
