@@ -900,9 +900,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
     endif
 
     if (n <= maxcache) then
-       xj = xyzcache(1,n)
-       yj = xyzcache(2,n)
-       zj = xyzcache(3,n)
+       xj = xyzcache(n,1)
+       yj = xyzcache(n,2)
+       zj = xyzcache(n,3)
     else
        xj = xyzh(1,j)
        yj = xyzh(2,j)
