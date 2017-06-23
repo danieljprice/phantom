@@ -132,7 +132,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,calc_erot,use_dustfrac
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,calc_erot,use_dustfrac,ndusttypes
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -555,7 +555,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  write(iprint,'(2x,a,Es18.6)') "Initial total energy:     ", etot_in
  write(iprint,'(2x,a,Es18.6)') "Initial angular momentum: ", angtot_in
  write(iprint,'(2x,a,Es18.6)') "Initial linear momentum:  ", totmom_in
- write(iprint,'(2x,a,Es18.6)') "Initial dust mass:        ", mdust_in
+ do i=1,ndusttypes
+    write(iprint,'(2x,a,I3,Es18.6)') "Initial dust mass: i = ",i, mdust_in(i)
+ enddo
 !
 !--write initial conditions to output file
 !  if the input file ends in .tmp or .init
