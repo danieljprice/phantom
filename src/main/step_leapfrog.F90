@@ -734,9 +734,9 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
           endif
        endif
 
-    !$omp critical(dptmassadd)
-    dptmass(:,1:nptmass) = dptmass(:,1:nptmass) + dptmass_thread(:,1:nptmass)
-    !$omp end critical(dptmassadd)
+       !$omp critical(dptmassadd)
+       dptmass(:,1:nptmass) = dptmass(:,1:nptmass) + dptmass_thread(:,1:nptmass)
+       !$omp end critical(dptmassadd)
     enddo accreteloop
     !$omp end parallel do
 
