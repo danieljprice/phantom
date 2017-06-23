@@ -33,12 +33,13 @@ module testptmass
 contains
 
 subroutine test_ptmass(ntests,npass)
- use dim,      only:maxp,mhd,periodic,gravity
+ use dim,      only:maxp,mhd,periodic,gravity,maxptmass
  use io,       only:id,master,iverbose
  use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,&
                     xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,epot_sinksink,&
                     ihacc,isdead_or_accreted,igas,divcurlv,iphase,isetphase,maxphase,&
-                    Bevol,dBevol,dustfrac,ddustfrac,divcurlB,fxyzu,set_particle_type
+                    Bevol,dBevol,dustfrac,ddustfrac,divcurlB,fxyzu,set_particle_type,&
+                    ispinx,ispiny,ispinz
  use eos,             only:gamma,polyk
  use timestep,        only:dtmax,C_force
  use testutils,       only:checkval,checkvalf
@@ -48,7 +49,10 @@ subroutine test_ptmass(ntests,npass)
  use energies,        only:compute_energies,etot,totmom,epot,angtot !,accretedmass
  use ptmass,          only:get_accel_sink_sink,ptmass_accrete,h_soft_sinksink, &
                            ptmass_create,h_acc,get_accel_sink_gas,f_acc,finish_ptmass, &
-                           ipart_rhomax,icreate_sinks
+                           ipart_rhomax,icreate_sinks, &
+                           idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
+                           idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
+                           ndptmass
  use physcon,         only:pi
  use setdisc,         only:set_disc
  use spherical,       only:set_sphere
@@ -73,6 +77,9 @@ subroutine test_ptmass(ntests,npass)
  real                   :: r2,r2min,dtext_dum,xcofm(3),totmass,dum,dum2,psep,tolen
  real                   :: xyzm_ptmass_old(4,1), vxyz_ptmass_old(3,1)
  real                   :: q,phisoft,fsoft,m2,mu,v_c1,v_c2,r1,omega1,omega2
+ real                   :: newptmass(maxptmass),newptmass1(maxptmass)
+ real                   :: dptmass(ndptmass,maxptmass)
+ real                   :: dptmass_thread(ndptmass,maxptmass)
  integer                :: norbits
  integer                :: nfailed(11),imin(1)
  character(len=20)      :: dumpfile
@@ -406,14 +413,47 @@ subroutine test_ptmass(ntests,npass)
     totmomin = totmom
     angmomin = angtot
 
-    !$omp parallel do default(shared) private(i)
+    dptmass(:,1:nptmass) = 0.
+    dptmass_thread(:,1:nptmass) = 0.
+    !$omp parallel do default(shared) private(i) firstprivate(dptmass_thread)
     do i=1,npart
        call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                            vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
-                           igas,massoftype(igas),xyzmh_ptmass,xyzm_ptmass_old,vxyz_ptmass,&
-                           vxyz_ptmass_old,fxyz_ptmass,accreted,t,1.0)
+                           igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
+                           accreted,dptmass_thread,t,1.0)
+
+       !$omp critical(dptmassadd)
+       dptmass(:,1:nptmass) = dptmass(:,1:nptmass) + dptmass_thread(:,1:nptmass)
+       !$omp end critical(dptmassadd)
     enddo
     !$omp end parallel do
+
+    ! update ptmass position, spin, velocity, acceleration, and mass
+    newptmass(1:nptmass)            = xyzmh_ptmass(4,1:nptmass) + dptmass(idmsi,1:nptmass)
+    newptmass1(1:nptmass)           = 1./newptmass(1:nptmass)
+    xyzmh_ptmass(1,1:nptmass)       = (dptmass(idxmsi,1:nptmass) + &
+                                      xyzmh_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    xyzmh_ptmass(2,1:nptmass)       = (dptmass(idymsi,1:nptmass) + &
+                                      xyzmh_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    xyzmh_ptmass(3,1:nptmass)       = (dptmass(idzmsi,1:nptmass) + &
+                                      xyzmh_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    xyzmh_ptmass(ispinx,1:nptmass)  = xyzmh_ptmass(ispinx,1:nptmass) + dptmass(idspinxsi,1:nptmass)
+    xyzmh_ptmass(ispiny,1:nptmass)  = xyzmh_ptmass(ispiny,1:nptmass) + dptmass(idspinysi,1:nptmass)
+    xyzmh_ptmass(ispinz,1:nptmass)  = xyzmh_ptmass(ispinz,1:nptmass) + dptmass(idspinzsi,1:nptmass)
+    vxyz_ptmass(1,1:nptmass)        = (dptmass(idvxmsi,1:nptmass) + &
+                                      vxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    vxyz_ptmass(2,1:nptmass)        = (dptmass(idvymsi,1:nptmass) + &
+                                      vxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    vxyz_ptmass(3,1:nptmass)        = (dptmass(idvzmsi,1:nptmass) + &
+                                      vxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    fxyz_ptmass(1,1:nptmass)        = (dptmass(idfxmsi,1:nptmass) + &
+                                      fxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    fxyz_ptmass(2,1:nptmass)        = (dptmass(idfymsi,1:nptmass) + &
+                                      fxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    fxyz_ptmass(3,1:nptmass)        = (dptmass(idfzmsi,1:nptmass) + &
+                                      fxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+    xyzmh_ptmass(4,1:nptmass)       = newptmass(1:nptmass)
+
     call checkval(accreted,.true.,nfailed(1),'accretion flag')
     !--check that h has been changed to indicate particle has been accreted
     call checkval(isdead_or_accreted(xyzh(4,1)),.true.,nfailed(2),'isdead_or_accreted flag')
