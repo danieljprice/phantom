@@ -782,7 +782,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin_itest
 #endif
- real    :: xyzcache(3,maxcache)
+ real    :: xyzcache(maxcache,3)
  real    :: dptmass(ndptmass,nptmass+1)
  real    :: newptmass(nptmass+1),newptmass1(nptmass+1)
  real    :: xi,yi,zi,hi,hi1,hi21,xj,yj,zj,hj1,hj21,xk,yk,zk,hk1
