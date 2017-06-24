@@ -724,7 +724,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
              fzi = fext(3,i)
              call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                                  vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxi,fyi,fzi,&
-                                 itype,pmassi,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
+                                 itype,pmassi,xyzmh_ptmass,vxyz_ptmass,&
                                  accreted,dptmass_thread,timei,f_acc,nfaili)
              if (accreted) then
                 naccreted = naccreted + 1
