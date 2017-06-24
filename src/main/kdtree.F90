@@ -423,7 +423,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
             ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list, &
             groupsize)
- use part,      only:massoftype,igas,iphase,iamtype,maxphase,maxp
+ use dim,       only:maxtypes
+ use part,      only:massoftype,igas,iphase,iamtype,maxphase,maxp,npartoftype
  use io,        only:fatal,error
 #ifdef MPI
  use mpiderivs, only:get_group_cofm,reduce_group
@@ -506,7 +507,12 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  if (pmassi > 0.) then
     dfac = 1./pmassi
  else
-    dfac = 1.
+    pmassi = massoftype(maxloc(npartoftype(2:maxtypes),1)+1)
+    if (pmassi > 0.) then
+       dfac = 1./pmassi
+    else
+       dfac = 1.
+    endif
  endif
 
  ! during initial queue build which is serial, we can parallelise this loop
