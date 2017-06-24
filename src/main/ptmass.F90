@@ -545,7 +545,7 @@ end function ptmass_not_obscured
 ! in which particles is added is irrelevant.
 !----------------------------------------------------------------
 subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
-                          itypei,pmassi,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,accreted, &
+                          itypei,pmassi,xyzmh_ptmass,vxyz_ptmass,accreted, &
                           dptmass,time,facc,nfaili)
  !$ use omputils, only:ipart_omp_lock
  use part, only:ihacc,imacc,ispinx,ispiny,ispinz
@@ -555,7 +555,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  real,    intent(in)    :: xi,yi,zi,pmassi,vxi,vyi,vzi,fxi,fyi,fzi,time,facc
  real,    intent(inout) :: hi
  real,    intent(in)    :: xyzmh_ptmass(nsinkproperties,maxptmass)
- real,    intent(in)    :: vxyz_ptmass(3,maxptmass),fxyz_ptmass(4,maxptmass)
+ real,    intent(in)    :: vxyz_ptmass(3,maxptmass)
  logical, intent(out)   :: accreted
  real,    intent(inout) :: dptmass(ndptmass,maxptmass)
  integer, optional, intent(out) :: nfaili
@@ -774,7 +774,6 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real,    intent(inout) :: vxyz_ptmass(3,maxptmass),fxyz_ptmass(4,maxptmass)
  real,    intent(in)    :: time
- real                   :: xyzm_ptmass_old(4,nptmass+1),vxyz_ptmass_old(3,nptmass+1)
  integer :: nneigh
  integer :: listneigh(maxneigh)
  integer, parameter :: maxcache      = 12000
@@ -1162,7 +1161,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
        fzj = fxyzu(3,j) + fext(3,j)
        call ptmass_accrete(nptmass,nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),&
                            vxyzu(1,j),vxyzu(2,j),vxyzu(3,j),fxj,fyj,fzj, &
-                           itypej,pmassj,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,accreted, &
+                           itypej,pmassj,xyzmh_ptmass,vxyz_ptmass,accreted, &
                            dptmass,time,1.0)
 
        if (accreted) nacc = nacc + 1
