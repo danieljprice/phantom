@@ -781,7 +781,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin_itest
 #endif
- real    :: xyzcache(3,maxcache)
+ real    :: xyzcache(maxcache,3)
  real    :: dptmass(ndptmass,nptmass+1)
  real    :: newptmass(nptmass+1),newptmass1(nptmass+1)
  real    :: xi,yi,zi,hi,hi1,hi21,xj,yj,zj,hj1,hj21,xk,yk,zk,hk1
@@ -899,9 +899,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
     endif
 
     if (n <= maxcache) then
-       xj = xyzcache(1,n)
-       yj = xyzcache(2,n)
-       zj = xyzcache(3,n)
+       xj = xyzcache(n,1)
+       yj = xyzcache(n,2)
+       zj = xyzcache(n,3)
     else
        xj = xyzh(1,j)
        yj = xyzh(2,j)
@@ -992,9 +992,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
                 endif
                 !
                 if (nk <= maxcache) then
-                   xk = xyzcache(1,nk)
-                   yk = xyzcache(2,nk)
-                   zk = xyzcache(3,nk)
+                   xk = xyzcache(nk,1)
+                   yk = xyzcache(nk,2)
+                   zk = xyzcache(nk,3)
                 else
                    xk = xyzh(1,k)
                    yk = xyzh(2,k)

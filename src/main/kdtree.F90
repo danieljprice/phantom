@@ -27,8 +27,8 @@
 module kdtree
  use dim,         only:maxp,ncellsmax,minpart
  use io,          only:nprocs
- use part,        only:ll
  use dtypekdtree, only:kdnode,ndimtree
+ use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase
 
  implicit none
 
@@ -65,6 +65,12 @@ module kdtree
     real    :: xmin(ndimtree)
     real    :: xmax(ndimtree)
  end type
+
+ integer, public  :: inoderange(2,ncellsmax+1)
+ integer, public  :: inodeparts(maxp)
+ real             :: xyzh_swap(maxp,4)
+ integer          :: inodeparts_swap(maxp)
+ integer(kind=1)  :: iphase_swap(maxphase)
 
  private
 
@@ -112,9 +118,6 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
  irootnode = 1
  ifirstincell = 0
 
-! call empty_tree()
-
- ll = 0
  ir = 0
  il = 0
  nl = 0
@@ -125,7 +128,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
  ! construct root node, i.e. find bounds of all particles
  call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
 
- if (ifirstincell(irootnode)==0) then
+ if (inoderange(1,irootnode)==0 .or. inoderange(2,irootnode)==0 ) then
     call fatal('maketree','no particles or all particles dead/accreted')
  endif
 
@@ -328,16 +331,17 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  do i=1,np
     isnotdead: if (.not.isdead_or_accreted(xyzh(4,i))) then
        nproot = nproot + 1
-       ll(i)  = ifirstincell(irootnode)
+
 #ifdef IND_TIMESTEPS
        if (iactive(iphase(i))) then
-          ifirstincell(irootnode) = i  ! +ve if active
+          inodeparts(nproot) = i  ! +ve if active
        else
-          ifirstincell(irootnode) = -i ! -ve if inactive
+          inodeparts(nproot) = -i ! -ve if inactive
        endif
 #else
-       ifirstincell(irootnode) = i
+       inodeparts(nproot) = i
 #endif
+
 #ifdef PERIODIC
        call cross_boundary(isperiodic,xyzh(:,i),ncross)
 #endif
@@ -350,8 +354,18 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
        xmaxpart = max(xmaxpart,xi)
        ymaxpart = max(ymaxpart,yi)
        zmaxpart = max(zmaxpart,zi)
+
+       xyzh_soa(nproot,:) = xyzh(:,i)
+       iphase_soa(nproot) = iphase(i)
     endif isnotdead
  enddo
+
+ if (nproot /= 0) then
+    inoderange(1,irootnode) = 1
+    inoderange(2,irootnode) = nproot
+ else
+    inoderange(:,irootnode) = 0
+ endif
 
  if (ndim==2) then
     xmini(:) = (/xminpart,yminpart/)
@@ -409,7 +423,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
             ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list, &
             groupsize)
- use part,      only:massoftype,igas,iphase,iamtype,maxphase,maxp
+ use dim,       only:maxtypes
+ use part,      only:massoftype,igas,iphase,iamtype,maxphase,maxp,npartoftype
  use io,        only:fatal,error
 #ifdef MPI
  use mpiderivs, only:get_group_cofm,reduce_group
@@ -431,9 +446,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  logical,           intent(out)   :: wassplit
  integer,           intent(out)   :: list(:) ! not actually sent out, but to avoid repeated memory allocation/deallocation
 
- real    :: xyzi(ndim)
- real    :: xyzcofm(ndim)
- real    :: totmass_node
+ real                           :: xyzcofm(ndim)
+ real                           :: totmass_node
 #ifdef MPI
  real    :: xyzcofmg(ndim)
  real    :: totmassg
@@ -454,16 +468,13 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 #endif
  real    :: pmassi
 
- npcounter = 0
- ipart = ifirstincell(nnode)
- nodeisactive = .false.
+ integer :: counterl, counterr
 
- do while(ipart /= 0)
-    npcounter = npcounter + 1
-    list(npcounter) = ipart
-    if (ipart > 0) nodeisactive = .true.
-    ipart = ll(abs(ipart))
+ nodeisactive = .false.
+ do i = inoderange(1,nnode),inoderange(2,nnode)
+    if (inodeparts(i) > 0) nodeisactive = .true.
  enddo
+ npcounter = inoderange(2,nnode) - inoderange(1,nnode) + 1
 
  if (npcounter /= npnode) then
     print*,'constructing node ',nnode,': found ',npcounter,' particles, expected:',npnode,' particles for this node'
@@ -475,7 +486,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  il = 0
  nl = 0
  nr = 0
-
  if ((.not. present(groupsize)) .and. (npnode  <  1)) return ! node has no particles, just quit
 
  x0(:) = 0.5*(xmini(:) + xmaxi(:))  ! geometric centre of the node
@@ -497,25 +507,30 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  if (pmassi > 0.) then
     dfac = 1./pmassi
  else
-    dfac = 1.
+    pmassi = massoftype(maxloc(npartoftype(2:maxtypes),1)+1)
+    if (pmassi > 0.) then
+       dfac = 1./pmassi
+    else
+       dfac = 1.
+    endif
  endif
 
  ! during initial queue build which is serial, we can parallelise this loop
  if (npnode > 1000 .and. doparallel) then
     !$omp parallel do schedule(static) default(none) &
     !$omp shared(npnode,list,xyzh,x0,iphase,massoftype,dfac) &
+    !$omp shared(xyzh_soa,inoderange,nnode,iphase_soa) &
     !$omp private(i,ipart,xi,yi,zi,hi,dx,dy,dz,dr2) &
     !$omp firstprivate(pmassi,fac) &
     !$omp reduction(+:xcofm,ycofm,zcofm,totmass_node) &
     !$omp reduction(max:r2max) &
     !$omp reduction(max:hmax)
     do i=1,npnode
-       ipart = abs(list(i))
-       !--lines below expanded for optimisation
-       xi    = xyzh(1,ipart)
-       yi    = xyzh(2,ipart)
-       zi    = xyzh(3,ipart)
-       hi    = xyzh(4,ipart)
+       xi = xyzh_soa(inoderange(1,nnode)+i-1,1)
+       yi = xyzh_soa(inoderange(1,nnode)+i-1,2)
+       zi = xyzh_soa(inoderange(1,nnode)+i-1,3)
+       hi = xyzh_soa(inoderange(1,nnode)+i-1,4)
+
        dx    = xi - x0(1)
        dy    = yi - x0(2)
 #ifdef TREEVIZ
@@ -527,7 +542,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        r2max = max(r2max,dr2)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase(ipart)))
+          pmassi = massoftype(iamtype(iphase_soa(inoderange(1,nnode)+i-1)))
           fac    = pmassi*dfac ! to avoid round-off error
        endif
        totmass_node = totmass_node + pmassi
@@ -538,12 +553,11 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     !$omp end parallel do
  else
     do i=1,npnode
-       ipart = abs(list(i))
-       !--lines below expanded for optimisation
-       xi    = xyzh(1,ipart)
-       yi    = xyzh(2,ipart)
-       zi    = xyzh(3,ipart)
-       hi    = xyzh(4,ipart)
+       xi = xyzh_soa(inoderange(1,nnode)+i-1,1)
+       yi = xyzh_soa(inoderange(1,nnode)+i-1,2)
+       zi = xyzh_soa(inoderange(1,nnode)+i-1,3)
+       hi = xyzh_soa(inoderange(1,nnode)+i-1,4)
+
        dx    = xi - x0(1)
        dy    = yi - x0(2)
 #ifdef TREEVIZ
@@ -555,7 +569,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        r2max = max(r2max,dr2)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase(ipart)))
+          pmassi = massoftype(iamtype(iphase_soa(inoderange(1,nnode)+i-1)))
           fac    = pmassi*dfac ! to avoid round-off error
        endif
        totmass_node = totmass_node + pmassi
@@ -588,8 +602,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  if (totmass_node<=0.) call fatal('mtree','totmass_node==0',val=totmass_node)
 
 !--for gravity, we need the centre of the node to be the centre of mass
-! print*,npnode,' shifting from ',x0(:), ' to ',xyzcofm(:)
-! print*,' size was ',sqrt(r2max)
  x0(:) = xyzcofm(:)
  r2max = 0.
 #ifdef GRAVITY
@@ -598,12 +610,11 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 
  !--recompute size of node
  do i=1,npnode
-    ipart = abs(list(i))
-    !--lines below expanded for optimisation
-    xi    = xyzh(1,ipart)
-    yi    = xyzh(2,ipart)
-    zi    = xyzh(3,ipart)
-    hi    = xyzh(4,ipart)
+    xi = xyzh_soa(inoderange(1,nnode)+i-1,1)
+    yi = xyzh_soa(inoderange(1,nnode)+i-1,2)
+    zi = xyzh_soa(inoderange(1,nnode)+i-1,3)
+    hi = xyzh_soa(inoderange(1,nnode)+i-1,4)
+
     dx    = xi - x0(1)
     dy    = yi - x0(2)
 #ifdef TREEVIZ
@@ -615,7 +626,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     r2max = max(r2max,dr2)
 #ifdef GRAVITY
     if (maxphase==maxp) then
-       pmassi = massoftype(iamtype(iphase(ipart)))
+       pmassi = massoftype(iamtype(iphase_soa(inoderange(1,nnode)+i-1)))
     endif
     quads(1) = quads(1) + pmassi*(3.*dx*dx - dr2)
     quads(2) = quads(2) + pmassi*(3.*dx*dy)
@@ -625,7 +636,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     quads(6) = quads(6) + pmassi*(3.*dz*dz - dr2)
 #endif
  enddo
-! print*,' size is ',sqrt(r2max)
 
 #ifdef MPI
  if (present(groupsize)) then
@@ -672,7 +682,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 
  wassplit = (npnodetot > minpart)
 
- if (.not. wassplit) then  ! fill link list of particles and return
+ if (.not. wassplit) then
     nodeentry%leftchild  = 0
     nodeentry%rightchild = 0
     maxlevel = max(level,maxlevel)
@@ -685,15 +695,12 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     !  or inactive by setting the firstincell to +ve (active) or -ve (inactive)
     !
     if (nodeisactive) then
-       ifirstincell(nnode) = abs(list(1))
+       ifirstincell(nnode) = 1
     else
-       ifirstincell(nnode) = -abs(list(1))
+       ifirstincell(nnode) = -1
     endif
-    !--fill link list for this node
-    do i=1,npnode-1
-       ll(abs(list(i))) = list(i+1)
-    enddo
-    ll(abs(list(npnode))) = 0 ! not strictly necessary
+#else
+    ifirstincell(nnode) = 1
 #endif
  else ! split this node and add children to stack
     iaxis  = maxloc(xmaxi - xmini,1) ! split along longest axis
@@ -720,86 +727,79 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     nodeentry%leftchild  = il
     nodeentry%rightchild = ir
 
-    ! initialise min and max values as extremes, compute actual values later
-    xminl  = xmaxi
-    xminr  = xmaxi
-    xmaxl  = xmini
-    xmaxr  = xmini
-
-    ! delete the link list of the parent node
     ifirstincell(nnode) = 0
 
-    ! fill the link list structures of children nodes
-    ifirstincell(il) = 0
-    ifirstincell(ir) = 0
-    nl = 0
-    nr = 0
-    do i=1,npnode
-       ipart = list(i)
-       iactivei = (ipart > 0) ! doesn't seem to do anything?
-       xyzi = xyzh(1:3,abs(ipart))
-       xi = xyzi(iaxis)
+    nl = inoderange(1,nnode)
+    nr = inoderange(2,nnode)
+    inodeparts_swap(nl:nr) = inodeparts(nl:nr)
+    xyzh_swap(nl:nr,:) = xyzh_soa(nl:nr,:)
+    iphase_swap(nl:nr) = iphase_soa(nl:nr)
+    counterl = 0
+    !DIR$ ivdep
+    do i = inoderange(1,nnode), inoderange(2,nnode)
+       xi = xyzh_swap(i,iaxis)
        if (xi  <=  xpivot) then
-          ll(abs(ipart)) = ifirstincell(il)
-          ifirstincell(il) = ipart
-          nl = nl + 1
-          xminl(1) = min(xminl(1), xyzi(1))
-          xminl(2) = min(xminl(2), xyzi(2))
-          xminl(3) = min(xminl(3), xyzi(3))
-          xmaxl(1) = max(xmaxl(1), xyzi(1))
-          xmaxl(2) = max(xmaxl(2), xyzi(2))
-          xmaxl(3) = max(xmaxl(3), xyzi(3))
-       else
-          ll(abs(ipart)) = ifirstincell(ir)
-          ifirstincell(ir) = ipart
-          nr = nr + 1
-          xminr(1) = min(xminr(1), xyzi(1))
-          xminr(2) = min(xminr(2), xyzi(2))
-          xminr(3) = min(xminr(3), xyzi(3))
-          xmaxr(1) = max(xmaxr(1), xyzi(1))
-          xmaxr(2) = max(xmaxr(2), xyzi(2))
-          xmaxr(3) = max(xmaxr(3), xyzi(3))
+          inodeparts(nl+counterl) = inodeparts_swap(i)
+          xyzh_soa(nl+counterl,1) = xyzh_swap(i,1)
+          xyzh_soa(nl+counterl,2) = xyzh_swap(i,2)
+          xyzh_soa(nl+counterl,3) = xyzh_swap(i,3)
+          xyzh_soa(nl+counterl,4) = xyzh_swap(i,4)
+          iphase_soa(nl+counterl) = iphase_swap(i)
+          counterl = counterl + 1
        endif
     enddo
+    nl = nl + counterl
+    counterr=0
+    !DIR$ ivdep
+    do i = inoderange(1,nnode), inoderange(2,nnode)
+       xi = xyzh_swap(i,iaxis)
+       if (xi  >  xpivot) then
+          inodeparts(nl+counterr) = inodeparts_swap(i)
+          xyzh_soa(nl+counterr,1) = xyzh_swap(i,1)
+          xyzh_soa(nl+counterr,2) = xyzh_swap(i,2)
+          xyzh_soa(nl+counterr,3) = xyzh_swap(i,3)
+          xyzh_soa(nl+counterr,4) = xyzh_swap(i,4)
+          iphase_soa(nl+counterr) = iphase_swap(i)
+          counterr = counterr + 1
+       endif
+    enddo
+    nr = nr - counterr
+    inoderange(1,il) = inoderange(1,nnode)
+    inoderange(2,il) = nl - 1
+    inoderange(1,ir) = nr + 1
+    inoderange(2,ir) = inoderange(2,nnode)
+    nl = nl - inoderange(1,nnode)
+    nr = inoderange(2,nnode) - nr
 
     if (nr + nl  /=  npnode) then
        call error('maketree','number of left + right != parent number of particles while splitting node')
     endif
 
-    if (((nl==npnode) .or. (nr==npnode)) .and. (.not. present(groupsize)))then
-       xminl  = xmaxi
-       xminr  = xmaxi
-       xmaxl  = xmini
-       xmaxr  = xmini
-       ifirstincell(il) = 0
-       ifirstincell(ir) = 0
-       nl = 0
-       nr = 0
-       do i = 1,npnode / 2
-          ipart = list(i)
-          ll(abs(ipart)) = ifirstincell(il)
-          ifirstincell(il) = ipart
-          nl = nl + 1
-          xminl(1) = min(xminl(1), xyzi(1))
-          xminl(2) = min(xminl(2), xyzi(2))
-          xminl(3) = min(xminl(3), xyzi(3))
-          xmaxl(1) = max(xmaxl(1), xyzi(1))
-          xmaxl(2) = max(xmaxl(2), xyzi(2))
-          xmaxl(3) = max(xmaxl(3), xyzi(3))
-       enddo
-       do i = npnode / 2, npnode
-          ipart = list(i)
-          ll(abs(ipart)) = ifirstincell(ir)
-          ifirstincell(ir) = ipart
-          nr = nr + 1
-          xminr(1) = min(xminr(1), xyzi(1))
-          xminr(2) = min(xminr(2), xyzi(2))
-          xminr(3) = min(xminr(3), xyzi(3))
-          xmaxr(1) = max(xmaxr(1), xyzi(1))
-          xmaxr(2) = max(xmaxr(2), xyzi(2))
-          xmaxr(3) = max(xmaxr(3), xyzi(3))
-       enddo
+    ! see if all the particles ended up in one node, if so, arbitrarily build 2 cells
+    if ((nl==npnode) .or. (nr==npnode)) then
+      ! no need to move particles because if they all ended up in one node,
+      ! then they are still in the original order
+      nl = npnode / 2
+      nr= npnode - counterl
+      inoderange(1,il) = inoderange(1,nnode)
+      inoderange(2,il) = inoderange(1,nnode) + nl - 1
+      inoderange(1,ir) = inoderange(2,nnode) - nr + 1
+      inoderange(2,ir) = inoderange(2,nnode)
     endif
+
+    xminl(1) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),1))
+    xminl(2) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),2))
+    xminl(3) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),3))
+    xmaxl(1) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),1))
+    xmaxl(2) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),2))
+    xmaxl(3) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),3))
+    xminr(1) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),1))
+    xminr(2) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),2))
+    xminr(3) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),3))
+    xmaxr(1) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),1))
+    xmaxr(2) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),2))
+    xmaxr(3) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),3))
+
  endif
 
 end subroutine construct_node
@@ -838,7 +838,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
  integer, parameter :: istacksize = 300
  integer :: maxcache
  integer :: nstack(istacksize)
- integer :: ipart,n,istack,il,ir
+ integer :: ipart,n,istack,il,ir,npnode
  real :: dx,dy,dz,xsizej,rcutj
  real :: rcut,rcut2,r2
  real :: xoffset,yoffset,zoffset,tree_acc2
@@ -859,7 +859,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
  rcut     = rcuti
 
  if (ixyzcachesize > 0) then
-    maxcache = size(xyzcache(:,1))
+    maxcache = size(xyzcache(1,:))
  else
     maxcache = 0
  endif
@@ -870,6 +870,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
  istack = 1
  nstack(istack) = irootnode
  open_tree_node = .false.
+
  over_stack: do while(istack /= 0)
     n = nstack(istack)
     istack = istack - 1
@@ -912,33 +913,57 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
     open_tree_node = tree_acc2*r2 < xsizej*xsizej    ! tree opening criterion for self-gravity
 #endif
     if ((r2 < rcut2) .or. open_tree_node) then
-       ipart = ifirstincell(n)
-       if (ipart /= 0) then    ! once we hit a leaf node, retrieve contents into trial neighbour cache
+       if_leaf: if (ifirstincell(n) /= 0) then ! once we hit a leaf node, retrieve contents into trial neighbour cache
           if_global_walk: if (present(remote_export)) then
              ! id is stored in ipart as id + 1
-             if (ipart /= (id + 1)) then
-                remote_export(ipart) = .true.
+             if (ifirstincell(n) /= (id + 1)) then
+                remote_export(ifirstincell(n)) = .true.
              endif
           else
-             over_parts: do while(ipart /= 0)
-                nneigh = nneigh + 1
-                if (nneigh > maxneigh) then
-                   write(iprint,*) 'getneigh: neighbour list overflow ',nneigh,size(listneigh)
-                   call fatal('getneigh','list overflow: rerun with maxneigh set larger',nneigh)
+             npnode = inoderange(2,n) - inoderange(1,n) + 1
+             if_cache_fits: if (nneigh + npnode <= ixyzcachesize) then
+                 if (maxcache >= 4) then
+                   do ipart=1,npnode
+                    listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
+                    xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
+                    xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
+                    xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
+                    xyzcache(nneigh+ipart,4) = 1./xyzh_soa(inoderange(1,n)+ipart-1,4)
+                  enddo
+                 else
+                   do ipart=1,npnode
+                    listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
+                    xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
+                    xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
+                    xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
+                   enddo
+                 endif
+             elseif (nneigh < ixyzcachesize) then
+                if (maxcache >= 4) then
+                   do ipart=1,ixyzcachesize-nneigh
+                      listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
+                      xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
+                      xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
+                      xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
+                      xyzcache(nneigh+ipart,4) = 1./xyzh_soa(inoderange(1,n)+ipart-1,4)
+                   enddo
                 else
-                   ipart = abs(ipart)
-                   if (nneigh <= ixyzcachesize) then
-                      xyzcache(1,nneigh) = xyzh(1,ipart) + xoffset
-                      xyzcache(2,nneigh) = xyzh(2,ipart) + yoffset
-                      xyzcache(3,nneigh) = xyzh(3,ipart) + zoffset
-                      if (maxcache >= 4) then
-                         xyzcache(4,nneigh) = 1./xyzh(4,ipart)
-                      endif
-                   endif
-                   listneigh(nneigh) = ipart
-                   ipart = ll(ipart)
+                   do ipart=1,ixyzcachesize-nneigh
+                      listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
+                      xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
+                      xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
+                      xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
+                   enddo
                 endif
-             enddo over_parts
+                do ipart=ixyzcachesize-nneigh+1,npnode
+                   listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
+                enddo
+             else
+                do ipart=1,npnode
+                   listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
+                enddo
+             endif if_cache_fits
+             nneigh = nneigh + npnode
           endif if_global_walk
        else
           if (istack+2 > istacksize) call fatal('getneigh','stack overflow in getneigh')
@@ -950,7 +975,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
              istack = istack + 1
              nstack(istack) = ir
           endif
-       endif
+       endif if_leaf
 #ifdef GRAVITY
     elseif (present(fnode)) then
 
@@ -964,7 +989,6 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
        dr = 1./sqrt(r2)
 #endif
        call compute_fnode(dx,dy,dz,dr,totmass_node,quads,fnode)
-       !print*,' node ',n,': compute long-distance force, distance =  ',sqrt(r2),' size = ',xsizej,' angle = ',xsizej*xsizej/r2
 #endif
     endif
  enddo over_stack
@@ -1359,6 +1383,7 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
  use domain,       only:ibelong
  use balance,      only:balancedomains
  use mpiderivs,    only:tree_sync,tree_bcast
+ use part,         only:isdead_or_accreted,iactive
 
  type(kdnode), intent(out)     :: nodeglobal(ncellsmax+1)
  type(kdnode), intent(out)     :: node(ncellsmax+1)
@@ -1388,6 +1413,7 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
  integer                       :: npcounter
 
  integer                       :: i, k, offset, roffset, roffset_prev, coffset, refinelevels
+ integer                       :: npnode
 
  integer, save                 :: list(maxp)
 
@@ -1398,7 +1424,6 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
  iself = irootnode
  ifirstincell = 0
 
- ! one global leaf per processor (can change to be more later)
  ! root is level 0
  globallevel = int(ceiling(log(real(nprocs)) / log(2.0)))
 
@@ -1411,7 +1436,7 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
     if (level == 0) then
        call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
        ! fatal if there are no particles on this processor
-       if (ifirstincell(irootnode)==0) then
+       if (npcounter==0) then
           call fatal('maketreeglobal','no particles or all particles dead/accreted on process', id)
        endif
        np = npcounter
@@ -1450,23 +1475,37 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
        xmaxi = xmaxr
     endif
 
-    ! change ibelongs
-    ipart = abs(ifirstincell(il))
-    !do i = 1, nl
-    do while(ipart /= 0)
-       ibelong(ipart) = idleft
-       ipart = abs(ll(ipart))
+    do i = inoderange(1,il), inoderange(2,il)
+       ibelong(abs(inodeparts(i))) = idleft
     enddo
-    ipart = abs(ifirstincell(ir))
-    do while(ipart /= 0)
-       !do i = 1, nr
-       ibelong(ipart) = idright
-       ipart = abs(ll(ipart))
+    do i = inoderange(1,ir), inoderange(2,ir)
+       ibelong(abs(inodeparts(i))) = idright
     enddo
 
-    ! move particles to where they belong, and relink lists
+    ! move particles to where they belong
     call balancedomains(np)
-    call relink_particles(np,iself,ifirstincell,xyzh)
+
+    ! move particles from old array
+    ! this is a waste of time, but maintains compatibility
+    npnode = 0
+    do i=1,np
+       npnode = npnode + 1
+#ifdef IND_TIMESTEPS
+       if (iactive(iphase(i))) then
+          inodeparts(npnode) = i
+       else
+          inodeparts(npnode) = -i
+       endif
+#else
+       inodeparts(npnode) = i
+#endif
+      xyzh_soa(npnode,:) = xyzh(:,i)
+      iphase_soa(npnode) = iphase(i)
+    enddo
+
+    ! set all particles to belong to this node
+    inoderange(1,iself) = 1
+    inoderange(2,iself) = np
 
     ! range of newly written tree
     nnodestart = 2**level
