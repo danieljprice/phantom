@@ -972,9 +972,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        dz = xpartveci(izi) - zj
     endif
 #ifdef PERIODIC
-       if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
-       if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
-       if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+    if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+    if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+    if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
 #endif
     rij2 = dx*dx + dy*dy + dz*dz
     q2i = rij2*hi21

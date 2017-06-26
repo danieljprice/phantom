@@ -19,9 +19,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, eos, fastmath, io, io_summary, kernel,
-!    linklist, mpidens, mpiderivs, mpiutils, nicil, options, part, stack,
-!    timestep, timing, viscosity
+!  DEPENDENCIES: boundary, dim, eos, fastmath, io, io_summary, kdtree,
+!    kernel, linklist, mpidens, mpiderivs, mpiutils, nicil, options, part,
+!    stack, timestep, timing, viscosity
 !+
 !--------------------------------------------------------------------------
 module densityforce

@@ -776,14 +776,14 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 
     ! see if all the particles ended up in one node, if so, arbitrarily build 2 cells
     if ((nl==npnode) .or. (nr==npnode)) then
-      ! no need to move particles because if they all ended up in one node,
-      ! then they are still in the original order
-      nl = npnode / 2
-      nr= npnode - counterl
-      inoderange(1,il) = inoderange(1,nnode)
-      inoderange(2,il) = inoderange(1,nnode) + nl - 1
-      inoderange(1,ir) = inoderange(2,nnode) - nr + 1
-      inoderange(2,ir) = inoderange(2,nnode)
+       ! no need to move particles because if they all ended up in one node,
+       ! then they are still in the original order
+       nl = npnode / 2
+       nr= npnode - counterl
+       inoderange(1,il) = inoderange(1,nnode)
+       inoderange(2,il) = inoderange(1,nnode) + nl - 1
+       inoderange(1,ir) = inoderange(2,nnode) - nr + 1
+       inoderange(2,ir) = inoderange(2,nnode)
     endif
 
     xminl(1) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),1))
@@ -920,22 +920,22 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
           else
              npnode = inoderange(2,n) - inoderange(1,n) + 1
              if_cache_fits: if (nneigh + npnode <= ixyzcachesize) then
-                 if (maxcache >= 4) then
+                if (maxcache >= 4) then
                    do ipart=1,npnode
-                    listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
-                    xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
-                    xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
-                    xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
-                    xyzcache(nneigh+ipart,4) = 1./xyzh_soa(inoderange(1,n)+ipart-1,4)
-                  enddo
-                 else
-                   do ipart=1,npnode
-                    listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
-                    xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
-                    xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
-                    xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
+                      listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
+                      xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
+                      xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
+                      xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
+                      xyzcache(nneigh+ipart,4) = 1./xyzh_soa(inoderange(1,n)+ipart-1,4)
                    enddo
-                 endif
+                else
+                   do ipart=1,npnode
+                      listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
+                      xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
+                      xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
+                      xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
+                   enddo
+                endif
              elseif (nneigh < ixyzcachesize) then
                 if (maxcache >= 4) then
                    do ipart=1,ixyzcachesize-nneigh
@@ -1497,8 +1497,8 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
 #else
        inodeparts(npnode) = i
 #endif
-      xyzh_soa(npnode,:) = xyzh(:,i)
-      iphase_soa(npnode) = iphase(i)
+       xyzh_soa(npnode,:) = xyzh(:,i)
+       iphase_soa(npnode) = iphase(i)
     enddo
 
     ! set all particles to belong to this node
