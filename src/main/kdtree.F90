@@ -462,7 +462,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  real    :: x0(ndimtree)
  integer :: iaxis
  real    :: xpivot
- logical :: iactivei
 #ifdef GRAVITY
  real    :: quads(6)
 #endif
@@ -811,7 +810,7 @@ end subroutine construct_node
 !+
 !----------------------------------------------------------------
 subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,ifirstincell,&
-& ll,get_hj,fnode,remote_export)
+& get_hj,fnode,remote_export)
  use dim,      only:maxneigh
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
@@ -831,7 +830,6 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
  real,    intent(in)                :: xyzh(4,maxp)
  real,    intent(out)               :: xyzcache(:,:)
  integer, intent(in)                :: ifirstincell(ncellsmax+1)
- integer, intent(in)                :: ll(maxp)
  logical, intent(in)                :: get_hj
  real,    intent(out),    optional  :: fnode(lenfgrav)
  logical, intent(out),    optional  :: remote_export(:)

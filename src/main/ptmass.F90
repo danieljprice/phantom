@@ -869,7 +869,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
 
  ! CHECK 3: all neighbours within h_acc are all active ( & perform math for checks 4-6)
  ! find neighbours within h_acc
- call getneigh_pos((/xi,yi,zi/),0.,h_acc,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell,ll)
+ call getneigh_pos((/xi,yi,zi/),0.,h_acc,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
  ! determine if we should approximate epot
  calc_exact_epot = .true.
  if (nneigh_thresh > 0 .and. nneigh > nneigh_thresh) calc_exact_epot = .false.

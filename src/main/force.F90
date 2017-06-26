@@ -389,7 +389,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
     cell%icell = icell
 
-    call start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintensor,Bevol, &
+    call start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintensor,Bevol, &
                          dustfrac,n_R,n_electronT,alphaind,stressmax)
     if (cell%npcell == 0) cycle over_cells
 
@@ -1616,7 +1616,7 @@ end subroutine check_dtmin
 
 !----------------------------------------------------------------
 
-subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintensor,Bevol, &
+subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintensor,Bevol, &
                      dustfrac,n_R,n_electronT,alphaind,stressmax)
 
  use io,        only:fatal
@@ -1632,8 +1632,6 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
  use nicil,     only:nicil_get_eta,nicil_translate_error,nimhd_get_dt,nimhd_get_jcbcb
  use kdtree,    only:inodeparts,inoderange
  type(cellforce),    intent(inout) :: cell
- integer,            intent(in)    :: ifirstincell(:)
- integer,            intent(in)    :: ll(:)
  integer(kind=1),    intent(in)    :: iphase(:)
  real,               intent(in)    :: xyzh(:,:)
  real,               intent(in)    :: vxyzu(:,:)
@@ -1661,7 +1659,6 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,gradh,divcurlv,divc
  real         :: vwavei,alphai
 
  integer      :: i,iamtypei,ierr,ip
- integer      :: nneighcounter
 
 #ifdef DUST
  integer :: iregime

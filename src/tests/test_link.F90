@@ -61,7 +61,7 @@ subroutine test_link(ntests,npass)
  integer                :: npartincell,nfail1,nfail2,ierrmax
  logical                :: hasactive
 #endif
- integer                :: maxneighi,minneigh,iseed,nlinktest,itest,nll,ndead
+ integer                :: maxneighi,minneigh,iseed,nlinktest,itest,ndead
  integer(kind=8)        :: meanneigh
  integer :: nfailed(8)
  logical                :: iactivei,iactivej,activecell

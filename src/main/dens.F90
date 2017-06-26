@@ -309,7 +309,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     cell%nneigh                  = 0
     cell%remote_export(1:nprocs) = remote_export
 
-    call start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
+    call start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
 
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
     call get_hmaxcell(icell,cell%hmax)
@@ -1327,15 +1327,13 @@ pure subroutine compute_hmax(cell,redo_neighbours)
 
 end subroutine compute_hmax
 
-subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
+subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
  use io,          only:fatal
  use dim,         only:maxp,maxvxyzu
  use part,        only:maxphase,get_partinfo,iboundary,maxBevol,mhd,igas,iamgas,set_boundaries_to_active
  use kdtree,      only:inodeparts,inoderange
 
  type(celldens),     intent(inout) :: cell
- integer,            intent(in)    :: ifirstincell(:)
- integer,            intent(in)    :: ll(:)
  integer(kind=1),    intent(in)    :: iphase(:)
  real,               intent(in)    :: xyzh(:,:)
  real,               intent(in)    :: vxyzu(:,:)

@@ -205,27 +205,27 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
     if (present(remote_export)) then
        remote_export = .false.
        call getneigh(nodeglobal,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
-                cellatid,ll,get_j,fgrav,remote_export=remote_export)
+                cellatid,get_j,fgrav,remote_export=remote_export)
     endif
 #endif
     call getneigh(node,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
-              ifirstincell,ll,get_j,fgrav)
+              ifirstincell,get_j,fgrav)
     f = fgrav
  else
 #ifdef MPI
     if (present(remote_export)) then
        remote_export = .false.
        call getneigh(nodeglobal,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
-              cellatid,ll,get_j,remote_export=remote_export)
+              cellatid,get_j,remote_export=remote_export)
     endif
 #endif
     call getneigh(node,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
-               ifirstincell,ll,get_j)
+               ifirstincell,get_j)
  endif
 
 end subroutine get_neighbour_list
 
-subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,ifirstincell,ll)
+subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,ifirstincell)
  use dim,    only:maxneigh
  use kdtree, only:getneigh
  integer, intent(in)  :: ndim,ixyzcachesize
@@ -236,10 +236,9 @@ subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ix
  real,    intent(in)  :: xyzh(4,maxp)
  real,    intent(out) :: xyzcache(:,:)
  integer, intent(in)  :: ifirstincell(ncellsmax+1)
- integer, intent(in)  :: ll(maxp)
 
  call getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
-               ifirstincell,ll,.false.)
+               ifirstincell,.false.)
 
 end subroutine getneigh_pos
 
