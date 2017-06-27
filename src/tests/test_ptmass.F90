@@ -118,23 +118,21 @@ subroutine test_ptmass(ntests,npass)
     tree_accuracy = 0.
 
     binary_tests: do itest = 1,nbinary_tests
-       if (id==master) then
-          select case(itest)
-          case(2,3)
-             if (periodic) then
-                write(*,"(/,a)") '--> skipping circumbinary disc test (-DPERIODIC is set)'
-                cycle binary_tests
+       select case(itest)
+       case(2,3)
+          if (periodic) then
+             if (id==master) write(*,"(/,a)") '--> skipping circumbinary disc test (-DPERIODIC is set)'
+             cycle binary_tests
+          else
+             if (itest==3) then
+                if (id==master) write(*,"(/,a)") '--> testing integration of disc around eccentric binary'
              else
-                if (itest==3) then
-                   write(*,"(/,a)") '--> testing integration of disc around eccentric binary'
-                else
-                   write(*,"(/,a)") '--> testing integration of circumbinary disc'
-                endif
+                if (id==master) write(*,"(/,a)") '--> testing integration of circumbinary disc'
              endif
-          case default
-             write(*,"(/,a)") '--> testing integration of binary orbit'
-          end select
-       endif
+          endif
+       case default
+          if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit'
+       end select
        !
        !--setup sink-sink binary (no gas particles)
        !
