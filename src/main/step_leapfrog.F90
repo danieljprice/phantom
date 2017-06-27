@@ -467,7 +467,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
                           summary_accrete,summary_accrete_fail
  use timestep,       only:bignumber,C_force
  use timestep_sts,   only:sts_it_n
- use mpiutils,       only:bcast_mpi,reduce_in_place_mpi
+ use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  integer, intent(in)    :: npart,ntypes,nptmass
  real,    intent(in)    :: dtsph,time,damp
  real,    intent(inout) :: dtextforce
@@ -543,8 +543,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
           if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
        else
           fxyz_ptmass(:,:) = 0.
-          epot_sinksink = 0.
        endif
+       call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
        call bcast_mpi(epot_sinksink)
        call bcast_mpi(dtf)
        !--don't broadcast force, that is summed at the end
@@ -695,70 +695,74 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     !
     ! corrector step on gas particles (also accrete particles at end of step)
     !
-    if (id==master) then
-       accretedmass = 0.
-       nfail        = 0
-       naccreted    = 0
+    accretedmass = 0.
+    nfail        = 0
+    naccreted    = 0
 
-       dptmass(:,1:nptmass) = 0.
+    dptmass(:,1:nptmass) = 0.
 
-       !$omp parallel default(none) &
-       !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei,nptmass,sts_it_n) &
-       !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,f_acc) &
-       !$omp shared(iexternalforce,vxyz_ptmass_old,xyzm_ptmass_old) &
-       !$omp shared(dptmass) &
-       !$omp private(i,accreted,nfaili,fxi,fyi,fzi) &
-       !$omp firstprivate(itype,pmassi) &
-       !$omp reduction(+:accretedmass,nfail,naccreted)
-       dptmass_thread(:,1:nptmass) = 0.
-       !$omp do
-       accreteloop: do i=1,npart
-          if (.not.isdead_or_accreted(xyzh(4,i))) then
-             if (ntypes > 1 .and. maxphase==maxp) then
-                itype = iamtype(iphase(i))
-                pmassi = massoftype(itype)
-                if (itype==iboundary) cycle accreteloop
-             endif
-             !
-             ! correct v to the full step using only the external force
-             !
-            vxyzu(1:3,i) = vxyzu(1:3,i) + hdt*fext(1:3,i)
-
-             if (iexternalforce > 0) then
-                call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
-                                       xyzh(3,i),xyzh(4,i),pmassi,timei,accreted)
-                if (accreted) accretedmass = accretedmass + pmassi
-             endif
-             !
-             ! accretion onto sink particles
-             ! need position, velocities and accelerations of both gas and sinks to be synchronised,
-             ! otherwise will not conserve momentum
-             ! Note: requiring sts_it_n since this is supertimestep with the most active particles
-             !
-             if (nptmass > 0 .and. sts_it_n) then
-                fxi = fext(1,i)
-                fyi = fext(2,i)
-                fzi = fext(3,i)
-                call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
-                                    vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxi,fyi,fzi,&
-                                    itype,pmassi,xyzmh_ptmass,vxyz_ptmass,&
-                                    accreted,dptmass_thread,timei,f_acc,nfaili)
-                if (accreted) then
-                   naccreted = naccreted + 1
-                   cycle accreteloop
-                endif
-                if (nfaili > 1) nfail = nfail + 1
-             endif
+    !$omp parallel default(none) &
+    !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei,nptmass,sts_it_n) &
+    !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,f_acc) &
+    !$omp shared(iexternalforce,vxyz_ptmass_old,xyzm_ptmass_old) &
+    !$omp shared(dptmass) &
+    !$omp private(i,accreted,nfaili,fxi,fyi,fzi) &
+    !$omp firstprivate(itype,pmassi) &
+    !$omp reduction(+:accretedmass,nfail,naccreted)
+    dptmass_thread(:,1:nptmass) = 0.
+    !$omp do
+    accreteloop: do i=1,npart
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          if (ntypes > 1 .and. maxphase==maxp) then
+             itype = iamtype(iphase(i))
+             pmassi = massoftype(itype)
+             if (itype==iboundary) cycle accreteloop
           endif
+          !
+          ! correct v to the full step using only the external force
+          !
+         vxyzu(1:3,i) = vxyzu(1:3,i) + hdt*fext(1:3,i)
 
-       enddo accreteloop
-       !$omp enddo
+          if (iexternalforce > 0) then
+             call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
+                                    xyzh(3,i),xyzh(4,i),pmassi,timei,accreted)
+             if (accreted) accretedmass = accretedmass + pmassi
+          endif
+          !
+          ! accretion onto sink particles
+          ! need position, velocities and accelerations of both gas and sinks to be synchronised,
+          ! otherwise will not conserve momentum
+          ! Note: requiring sts_it_n since this is supertimestep with the most active particles
+          !
+          if (nptmass > 0 .and. sts_it_n) then
+             fxi = fext(1,i)
+             fyi = fext(2,i)
+             fzi = fext(3,i)
+             call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+                                 vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxi,fyi,fzi,&
+                                 itype,pmassi,xyzmh_ptmass,vxyz_ptmass,&
+                                 accreted,dptmass_thread,timei,f_acc,nfaili)
+             if (accreted) then
+                naccreted = naccreted + 1
+                cycle accreteloop
+             endif
+             if (nfaili > 1) nfail = nfail + 1
+          endif
+       endif
 
-       !$omp critical(dptmassadd)
-       dptmass(:,1:nptmass) = dptmass(:,1:nptmass) + dptmass_thread(:,1:nptmass)
-       !$omp end critical(dptmassadd)
-       !$omp end parallel
+    enddo accreteloop
+    !$omp enddo
 
+    !$omp critical(dptmassadd)
+    dptmass(:,1:nptmass) = dptmass(:,1:nptmass) + dptmass_thread(:,1:nptmass)
+    !$omp end critical(dptmassadd)
+    !$omp end parallel
+
+    naccreted = reduceall_mpi('+',naccreted)
+    nfail = reduceall_mpi('+',nfail)
+    call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
+
+    if (id==master) then
        ! update ptmass position, spin, velocity, acceleration, and mass
        newptmass(1:nptmass)          =xyzmh_ptmass(4,1:nptmass)+dptmass(idmsi,1:nptmass)
        newptmass1(1:nptmass)         =1./newptmass(1:nptmass)
@@ -775,34 +779,32 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
        fxyz_ptmass(2,1:nptmass)      =(dptmass(idfymsi,1:nptmass)+fxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
        fxyz_ptmass(3,1:nptmass)      =(dptmass(idfzmsi,1:nptmass)+fxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
        xyzmh_ptmass(4,1:nptmass)     =newptmass(1:nptmass)
+    endif
 
-       if (iverbose >= 2 .and. id==master .and. naccreted /= 0) write(iprint,"(a,es10.3,a,i4,a,i4,a)") &
-          'Step: at time ',timei,', ',naccreted,' particles were accreted amongst ',nptmass,' sink(s).'
-
-       if (nptmass > 0) then
-          call summary_accrete_fail(nfail)
-          call summary_accrete(nptmass)
-          ! only write to .ev during substeps if no gas particles present
-          if (npart==0) call pt_write_sinkev(nptmass,timei,xyzmh_ptmass,vxyz_ptmass)
-       endif
-       !
-       ! check if timestep criterion was violated during substeps
-       !
-       if (nptmass > 0) then
-          if (fonrmax > 0.) then
-             dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
-          endif
-          if (iverbose >= 2) write(iprint,*) nsubsteps,'dt(ext/sink-sink) = ',dtextforcenew,', dt(sink-gas) = ',dtsinkgas
-          dtextforcenew = min(dtextforcenew,dtsinkgas)
-       endif
-    endif ! id==master
-
-    !
-    ! MPI broadcast sink particles
-    !
     call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
     call bcast_mpi(vxyz_ptmass(:,1:nptmass))
     call bcast_mpi(fxyz_ptmass(:,1:nptmass))
+
+    if (iverbose >= 2 .and. id==master .and. naccreted /= 0) write(iprint,"(a,es10.3,a,i4,a,i4,a)") &
+       'Step: at time ',timei,', ',naccreted,' particles were accreted amongst ',nptmass,' sink(s).'
+
+    if (nptmass > 0) then
+       call summary_accrete_fail(nfail)
+       call summary_accrete(nptmass)
+       ! only write to .ev during substeps if no gas particles present
+       if (npart==0) call pt_write_sinkev(nptmass,timei,xyzmh_ptmass,vxyz_ptmass)
+    endif
+    !
+    ! check if timestep criterion was violated during substeps
+    !
+    if (nptmass > 0) then
+       if (fonrmax > 0.) then
+          dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
+       endif
+       if (iverbose >= 2) write(iprint,*) nsubsteps,'dt(ext/sink-sink) = ',dtextforcenew,', dt(sink-gas) = ',dtsinkgas
+       dtextforcenew = min(dtextforcenew,dtsinkgas)
+    endif
+
     call bcast_mpi(dtextforcenew)
 
     dtextforce_min = min(dtextforce_min,dtextforcenew)
