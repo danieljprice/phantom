@@ -215,7 +215,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  fxi = fxi + ftmpxi
  fyi = fyi + ftmpyi
  fzi = fzi + ftmpzi
-
+ 
  return
 end subroutine get_accel_sink_gas
 
@@ -227,11 +227,13 @@ end subroutine get_accel_sink_gas
 !----------------------------------------------------------------
 subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,&
             iexternalforce,ti)
+ use io,       only:id,master
 #ifdef FINVSQRT
  use fastmath, only:finvsqrt
 #endif
  use externalforces, only:externalforce
  use kernel,   only:kernel_softening,radkern
+ use mpiutils, only:bcast_mpi
  !$ use omputils, only:ipart_omp_lock
  integer, intent(in)  :: nptmass
  real,    intent(in)  :: xyzmh_ptmass(nsinkproperties,maxptmass)
