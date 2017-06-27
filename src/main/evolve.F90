@@ -203,7 +203,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  if (iexternalforce==iext_spiral) then
     nevwrite_threshold = int(4.99*npart) ! every 5 full steps
  else
-    nevwrite_threshold = int(3.99*npart) ! every 2 full steps
+    nevwrite_threshold = int(1.99*npart) ! every 2 full steps
  endif
  nskipped_sink = 0
  nsinkwrite_threshold  = int(0.99*npart)
