@@ -749,7 +749,7 @@ end subroutine ptmass_accrete
 !-------------------------------------------------------------------------
 subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype,&
                          xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
- use part,   only:ihacc,ihsoft,igas,iamtype,get_partinfo,iphase,iactive,maxphase,ll,rhoh, &
+ use part,   only:ihacc,ihsoft,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
                   ispinx,ispiny,ispinz
  use dim,    only:maxp,maxneigh,maxvxyzu
  use kdtree, only:getneigh
