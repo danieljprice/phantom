@@ -51,7 +51,7 @@ module energies
  public  :: compute_energies,get_erot_com,ev_data_update
  private :: get_erot,initialise_ev_data,collate_ev_data,finalise_ev_data
  ! Arrays
- real,             public :: ev_data(4,inumev),erot_com(6)
+ real,             public :: ev_data(4,0:inumev),erot_com(6)
 
 contains
 
@@ -85,7 +85,7 @@ subroutine compute_energies(t)
  use part,         only:luminosity
 #endif
  real, intent(in) :: t
- real    :: ev_data_thread(4,inumev)
+ real    :: ev_data_thread(4,0:inumev)
  real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,rhoi,angx,angy,angz
  real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz
  real    :: epoti,pmassi,acci,dnptot,dnpgas
@@ -652,7 +652,7 @@ end subroutine get_erot
 !+
 !----------------------------------------------------------------
 subroutine initialise_ev_data(evdata)
- real,    intent(inout) :: evdata(4,inumev)
+ real,    intent(inout) :: evdata(4,0:inumev)
  !
  evdata            = 0.0
  evdata(iev_max,:) = -huge(evdata(iev_max,:))
@@ -667,7 +667,7 @@ end subroutine initialise_ev_data
 subroutine ev_data_update(evdata,itag,val)
  integer, intent(in)    :: itag
  real,    intent(in)    :: val
- real,    intent(inout) :: evdata(4,inumev)
+ real,    intent(inout) :: evdata(4,0:inumev)
 
  evdata(iev_sum,itag) =     evdata(iev_sum,itag)+val
  evdata(iev_max,itag) = max(evdata(iev_max,itag),val)
@@ -680,8 +680,8 @@ end subroutine ev_data_update
 !+
 !----------------------------------------------------------------
 subroutine collate_ev_data(evdata_thread,evdata)
- real,            intent(in)    :: evdata_thread(4,inumev)
- real,            intent(inout) :: evdata(4,inumev)
+ real,            intent(in)    :: evdata_thread(4,0:inumev)
+ real,            intent(inout) :: evdata(4,0:inumev)
  integer                        :: i
 
  do i = 1,iquantities
@@ -698,7 +698,7 @@ end subroutine collate_ev_data
 !----------------------------------------------------------------
 subroutine finalise_ev_data(evdata,dnptot)
  use mpiutils, only:reduceall_mpi
- real,            intent(inout) :: evdata(4,inumev)
+ real,            intent(inout) :: evdata(4,0:inumev)
  real,            intent(in)    :: dnptot
  integer                        :: i
 
