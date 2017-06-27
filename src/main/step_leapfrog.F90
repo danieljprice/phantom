@@ -543,6 +543,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
           if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
        else
           fxyz_ptmass(:,:) = 0.
+          epot_sinksink = 0.
        endif
        call bcast_mpi(epot_sinksink)
        call bcast_mpi(dtf)
