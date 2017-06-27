@@ -68,6 +68,7 @@ subroutine test_ptmass(ntests,npass)
 #ifdef IND_TIMESTEPS
  use part,            only:ibin
 #endif
+ use mpiutils,        only:bcast_mpi,reduce_in_place_mpi
  integer, intent(inout) :: ntests,npass
  integer                :: i,nsteps,nbinary_tests,itest,nerr,nwarn,itestp
  logical                :: test_binary,test_accretion,test_createsink, test_softening
@@ -179,12 +180,19 @@ subroutine test_ptmass(ntests,npass)
        !
        ! initialise forces
        !
-       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,0,0.)
+       if (id==master) then
+          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,0,0.)
+       endif
+       call bcast_mpi(epot_sinksink)
+       call bcast_mpi(dtsinksink)
+       call bcast_mpi(fxyz_ptmass)
+
        fext(:,:) = 0.
        do i=1,npart
           call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
                    fext(1,i),fext(2,i),fext(3,i),dum,massoftype(igas),fxyz_ptmass,dum,dum2)
        enddo
+       call reduce_in_place_mpi('+',fxyz_ptmass)
        !
        !--take the sink-sink timestep specified by the get_forces routine
        !
