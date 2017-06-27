@@ -430,46 +430,52 @@ subroutine compute_energies(t)
 !--add contribution from sink particles
 !
 
-!$omp do
- do i=1,nptmass
-    xi     = xyzmh_ptmass(1,i)
-    yi     = xyzmh_ptmass(2,i)
-    zi     = xyzmh_ptmass(3,i)
-    pmassi = xyzmh_ptmass(4,i)
-    !--acci is the accreted mass on the sink
-    acci   = xyzmh_ptmass(imacc,i)
-    if (track_mass) call ev_data_update(ev_data_thread,'accretedmas',acci)
+ !
+ !-- only add ptmass contributions from master, other threads have ghosts
+ !
+ if (id==master) then
+ !$omp do
+    do i=1,nptmass
+       xi     = xyzmh_ptmass(1,i)
+       yi     = xyzmh_ptmass(2,i)
+       zi     = xyzmh_ptmass(3,i)
+       pmassi = xyzmh_ptmass(4,i)
+       !--acci is the accreted mass on the sink
+       acci   = xyzmh_ptmass(imacc,i)
+       if (track_mass) call ev_data_update(ev_data_thread,'accretedmas',acci)
 
-    vxi    = vxyz_ptmass(1,i)
-    vyi    = vxyz_ptmass(2,i)
-    vzi    = vxyz_ptmass(3,i)
+       vxi    = vxyz_ptmass(1,i)
+       vyi    = vxyz_ptmass(2,i)
+       vzi    = vxyz_ptmass(3,i)
 
-    !phii   = fxyz_ptmass(4,i)
+       !phii   = fxyz_ptmass(4,i)
 
-    xmom   = xmom + pmassi*vxi
-    ymom   = ymom + pmassi*vyi
-    zmom   = zmom + pmassi*vzi
+       xmom   = xmom + pmassi*vxi
+       ymom   = ymom + pmassi*vyi
+       zmom   = zmom + pmassi*vzi
 
-    angx = angx + pmassi*(yi*vzi - zi*vyi)
-    angy = angy + pmassi*(zi*vxi - xi*vzi)
-    angz = angz + pmassi*(xi*vyi - yi*vxi)
+       angx = angx + pmassi*(yi*vzi - zi*vyi)
+       angy = angy + pmassi*(zi*vxi - xi*vzi)
+       angz = angz + pmassi*(xi*vyi - yi*vxi)
 
-    angx   = angx + xyzmh_ptmass(ispinx,i)
-    angy   = angy + xyzmh_ptmass(ispiny,i)
-    angz   = angz + xyzmh_ptmass(ispinz,i)
+       angx   = angx + xyzmh_ptmass(ispinx,i)
+       angy   = angy + xyzmh_ptmass(ispiny,i)
+       angz   = angz + xyzmh_ptmass(ispinz,i)
 
-    v2i    = vxi*vxi + vyi*vyi + vzi*vzi
-    ekin   = ekin + pmassi*v2i
+       v2i    = vxi*vxi + vyi*vyi + vzi*vzi
+       ekin   = ekin + pmassi*v2i
 
-    ! rotational energy around each axis through the origin
-    if (calc_erot) then
-       call get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
-       call ev_data_update(ev_data_thread,'erot_x',erotxi)
-       call ev_data_update(ev_data_thread,'erot_y',erotyi)
-       call ev_data_update(ev_data_thread,'erot_z',erotzi)
-    endif
- enddo
-!$omp enddo
+       ! rotational energy around each axis through the origin
+       if (calc_erot) then
+          call get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
+          call ev_data_update(ev_data_thread,'erot_x',erotxi)
+          call ev_data_update(ev_data_thread,'erot_y',erotyi)
+          call ev_data_update(ev_data_thread,'erot_z',erotzi)
+       endif
+    enddo
+    !$omp enddo
+ endif
+
 !$omp critical(collatedata)
  call collate_ev_data(ev_data_thread,ev_data)
  if (.not.gas_only) then
