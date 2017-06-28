@@ -545,6 +545,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
           fxyz_ptmass(:,:) = 0.
        endif
        call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
+       call bcast_mpi(vxyz_ptmass(:,1:nptmass))
        call bcast_mpi(epot_sinksink)
        call bcast_mpi(dtf)
        !--don't broadcast force, that is summed at the end
@@ -753,14 +754,21 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     enddo accreteloop
     !$omp enddo
 
+    !
+    ! reduction of sink particle changes across OMP
+    !
     !$omp critical(dptmassadd)
     dptmass(:,1:nptmass) = dptmass(:,1:nptmass) + dptmass_thread(:,1:nptmass)
     !$omp end critical(dptmassadd)
     !$omp end parallel
 
+    !
+    ! reduction of sink particle changes across MPI
+    !
+    call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
+
     naccreted = reduceall_mpi('+',naccreted)
     nfail = reduceall_mpi('+',nfail)
-    call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
 
     if (id==master) then
        ! update ptmass position, spin, velocity, acceleration, and mass

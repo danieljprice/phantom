@@ -182,10 +182,11 @@ subroutine test_ptmass(ntests,npass)
        !
        if (id==master) then
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,0,0.)
+       else
+          fxyz_ptmass(:,:) = 0.
        endif
        call bcast_mpi(epot_sinksink)
        call bcast_mpi(dtsinksink)
-       call bcast_mpi(fxyz_ptmass)
 
        fext(:,:) = 0.
        do i=1,npart
