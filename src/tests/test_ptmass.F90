@@ -395,13 +395,18 @@ subroutine test_ptmass(ntests,npass)
     fxyz_ptmass(1:3,1)    = 40.
     massoftype(1)   = 10.
     !--setup 1 SPH particle at (5,5,5)
-    call set_particle_type(1,igas)
-    npartoftype(igas) = 1
-    npart        = 1
-    xyzh(1:3,1)  = 5.
-    xyzh(4,1)    = 0.01
-    vxyzu(1:3,1) = 80.
-    fxyzu(1:3,1) = 20.
+    if (id==master) then
+       call set_particle_type(1,igas)
+       npartoftype(igas) = 1
+       npart        = 1
+       xyzh(1:3,1)  = 5.
+       xyzh(4,1)    = 0.01
+       vxyzu(1:3,1) = 80.
+       fxyzu(1:3,1) = 20.
+    else
+      npartoftype(igas) = 0
+      npart        = 0
+    endif
     xyzm_ptmass_old = xyzmh_ptmass(1:4,1:nptmass)
     vxyz_ptmass_old = vxyz_ptmass (1:3,1:nptmass)
     dr = sqrt(dot_product(xyzh(1:3,1) - xyzmh_ptmass(1:3,1),xyzh(1:3,1) - xyzmh_ptmass(1:3,1)))
@@ -415,49 +420,60 @@ subroutine test_ptmass(ntests,npass)
     angmomin = angtot
 
     dptmass(:,1:nptmass) = 0.
+    !$omp parallel default(shared) private(i) firstprivate(dptmass_thread)
     dptmass_thread(:,1:nptmass) = 0.
-    !$omp parallel do default(shared) private(i) firstprivate(dptmass_thread)
+    !$omp do
     do i=1,npart
        call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                            vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
                            igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
                            accreted,dptmass_thread,t,1.0)
-
-       !$omp critical(dptmassadd)
-       dptmass(:,1:nptmass) = dptmass(:,1:nptmass) + dptmass_thread(:,1:nptmass)
-       !$omp end critical(dptmassadd)
     enddo
-    !$omp end parallel do
+    !$omp enddo
+    !$omp critical(dptmassadd)
+    dptmass(:,1:nptmass) = dptmass(:,1:nptmass) + dptmass_thread(:,1:nptmass)
+    !$omp end critical(dptmassadd)
+    !$omp end parallel
 
-    ! update ptmass position, spin, velocity, acceleration, and mass
-    newptmass(1:nptmass)            = xyzmh_ptmass(4,1:nptmass) + dptmass(idmsi,1:nptmass)
-    newptmass1(1:nptmass)           = 1./newptmass(1:nptmass)
-    xyzmh_ptmass(1,1:nptmass)       = (dptmass(idxmsi,1:nptmass) + &
-                                      xyzmh_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    xyzmh_ptmass(2,1:nptmass)       = (dptmass(idymsi,1:nptmass) + &
-                                      xyzmh_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    xyzmh_ptmass(3,1:nptmass)       = (dptmass(idzmsi,1:nptmass) + &
-                                      xyzmh_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    xyzmh_ptmass(ispinx,1:nptmass)  = xyzmh_ptmass(ispinx,1:nptmass) + dptmass(idspinxsi,1:nptmass)
-    xyzmh_ptmass(ispiny,1:nptmass)  = xyzmh_ptmass(ispiny,1:nptmass) + dptmass(idspinysi,1:nptmass)
-    xyzmh_ptmass(ispinz,1:nptmass)  = xyzmh_ptmass(ispinz,1:nptmass) + dptmass(idspinzsi,1:nptmass)
-    vxyz_ptmass(1,1:nptmass)        = (dptmass(idvxmsi,1:nptmass) + &
-                                      vxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    vxyz_ptmass(2,1:nptmass)        = (dptmass(idvymsi,1:nptmass) + &
-                                      vxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    vxyz_ptmass(3,1:nptmass)        = (dptmass(idvzmsi,1:nptmass) + &
-                                      vxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    fxyz_ptmass(1,1:nptmass)        = (dptmass(idfxmsi,1:nptmass) + &
-                                      fxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    fxyz_ptmass(2,1:nptmass)        = (dptmass(idfymsi,1:nptmass) + &
-                                      fxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    fxyz_ptmass(3,1:nptmass)        = (dptmass(idfzmsi,1:nptmass) + &
-                                      fxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    xyzmh_ptmass(4,1:nptmass)       = newptmass(1:nptmass)
+    call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
 
-    call checkval(accreted,.true.,nfailed(1),'accretion flag')
-    !--check that h has been changed to indicate particle has been accreted
-    call checkval(isdead_or_accreted(xyzh(4,1)),.true.,nfailed(2),'isdead_or_accreted flag')
+    if (id==master) then
+       ! update ptmass position, spin, velocity, acceleration, and mass
+       newptmass(1:nptmass)            = xyzmh_ptmass(4,1:nptmass) + dptmass(idmsi,1:nptmass)
+       newptmass1(1:nptmass)           = 1./newptmass(1:nptmass)
+       xyzmh_ptmass(1,1:nptmass)       = (dptmass(idxmsi,1:nptmass) + &
+                                         xyzmh_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+       xyzmh_ptmass(2,1:nptmass)       = (dptmass(idymsi,1:nptmass) + &
+                                         xyzmh_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+       xyzmh_ptmass(3,1:nptmass)       = (dptmass(idzmsi,1:nptmass) + &
+                                         xyzmh_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+       xyzmh_ptmass(ispinx,1:nptmass)  = xyzmh_ptmass(ispinx,1:nptmass) + dptmass(idspinxsi,1:nptmass)
+       xyzmh_ptmass(ispiny,1:nptmass)  = xyzmh_ptmass(ispiny,1:nptmass) + dptmass(idspinysi,1:nptmass)
+       xyzmh_ptmass(ispinz,1:nptmass)  = xyzmh_ptmass(ispinz,1:nptmass) + dptmass(idspinzsi,1:nptmass)
+       vxyz_ptmass(1,1:nptmass)        = (dptmass(idvxmsi,1:nptmass) + &
+                                         vxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+       vxyz_ptmass(2,1:nptmass)        = (dptmass(idvymsi,1:nptmass) + &
+                                         vxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+       vxyz_ptmass(3,1:nptmass)        = (dptmass(idvzmsi,1:nptmass) + &
+                                         vxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+       fxyz_ptmass(1,1:nptmass)        = (dptmass(idfxmsi,1:nptmass) + &
+                                         fxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+       fxyz_ptmass(2,1:nptmass)        = (dptmass(idfymsi,1:nptmass) + &
+                                         fxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+       fxyz_ptmass(3,1:nptmass)        = (dptmass(idfzmsi,1:nptmass) + &
+                                         fxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
+       xyzmh_ptmass(4,1:nptmass)       = newptmass(1:nptmass)
+    endif
+
+    call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
+    call bcast_mpi(vxyz_ptmass(:,1:nptmass))
+    call bcast_mpi(fxyz_ptmass(:,1:nptmass))
+
+    if (id==master) then
+       call checkval(accreted,.true.,nfailed(1),'accretion flag')
+       !--check that h has been changed to indicate particle has been accreted
+       call checkval(isdead_or_accreted(xyzh(4,1)),.true.,nfailed(2),'isdead_or_accreted flag')
+    endif
     call checkval(xyzmh_ptmass(1,1),3.,tiny(0.),nfailed(3),'x(ptmass) after accretion')
     call checkval(xyzmh_ptmass(2,1),3.,tiny(0.),nfailed(4),'y(ptmass) after accretion')
     call checkval(xyzmh_ptmass(3,1),3.,tiny(0.),nfailed(5),'z(ptmass) after accretion')
