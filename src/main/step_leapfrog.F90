@@ -478,7 +478,6 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
  real    :: timei,hdt,fextx,fexty,fextz,fextxi,fextyi,fextzi,phii,pmassi
  real    :: dtphi2,dtphi2i,vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,deni
  real    :: dudtcool,fextv(3),fac,poti
- real    :: xyzm_ptmass_old(4,nptmass),vxyz_ptmass_old(3,nptmass)
  real    :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
  real    :: dtf,accretedmass,t_end_step,dtextforce_min
  real    :: dptmass(ndptmass,nptmass)
@@ -683,13 +682,6 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     if (nptmass > 0) then
        if (id==master) then
           call ptmass_corrector(nptmass,dt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,iexternalforce)
-          !
-          ! Save sink particle properties for use in checks to see if particles should be accreted
-          !
-          if (nptmass /= 0) then
-             xyzm_ptmass_old = xyzmh_ptmass(1:4,1:nptmass)
-             vxyz_ptmass_old = vxyz_ptmass (1:3,1:nptmass)
-          endif
        endif
     endif
 
@@ -705,7 +697,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     !$omp parallel default(none) &
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei,nptmass,sts_it_n) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,f_acc) &
-    !$omp shared(iexternalforce,vxyz_ptmass_old,xyzm_ptmass_old) &
+    !$omp shared(iexternalforce) &
     !$omp shared(dptmass) &
     !$omp private(i,accreted,nfaili,fxi,fyi,fzi) &
     !$omp firstprivate(itype,pmassi) &
