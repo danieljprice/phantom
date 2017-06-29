@@ -1447,10 +1447,11 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
     ifirstingroup = (id / groupsize) * groupsize
     if (level == 0) then
        call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
-       np = npcounter
+    else
+       npcounter = np
     endif
 
-    call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, np, .false., &
+    call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .false., &
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
             ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list, &
             groupsize)
