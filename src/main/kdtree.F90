@@ -1484,12 +1484,14 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
        xmaxi = xmaxr
     endif
 
-    do i = inoderange(1,il), inoderange(2,il)
-       ibelong(abs(inodeparts(i))) = idleft
-    enddo
-    do i = inoderange(1,ir), inoderange(2,ir)
-       ibelong(abs(inodeparts(i))) = idright
-    enddo
+    if (np > 0) then
+       do i = inoderange(1,il), inoderange(2,il)
+          ibelong(abs(inodeparts(i))) = idleft
+       enddo
+       do i = inoderange(1,ir), inoderange(2,ir)
+          ibelong(abs(inodeparts(i))) = idright
+       enddo
+    endif
 
     ! move particles to where they belong
     call balancedomains(np)
