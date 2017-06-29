@@ -154,13 +154,20 @@ subroutine test_ptmass(ntests,npass)
        call set_units(mass=1.d0,dist=1.d0,G=1.d0)
        call set_binary(m1,massr,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,verbose=.false.)
        if (itest==2 .or. itest==3) then
-          !  add a circumbinary gas disc around it
-          npartoftype(1) = 1000
-          npart = npartoftype(1)
-          call set_disc(id,master,npart=npartoftype(1),rmin=1.5*a,rmax=15.*a,p_index=1.5,q_index=0.75,&
-                        HoverR=0.1,disc_mass=0.01*m1,star_mass=m1+massr*m1,gamma=gamma,&
-                        particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
-                        polyk=polyk,verbose=.false.)
+          if (id==master) then
+             !  add a circumbinary gas disc around it
+             npartoftype(1) = 1000
+             npart = npartoftype(1)
+             call set_disc(id,master,npart=npartoftype(1),rmin=1.5*a,rmax=15.*a,p_index=1.5,q_index=0.75,&
+                           HoverR=0.1,disc_mass=0.01*m1,star_mass=m1+massr*m1,gamma=gamma,&
+                           particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
+                           polyk=polyk,verbose=.false.)
+          else
+             npartoftype(1) = 0
+             npart = npartoftype(1)
+          endif
+          call bcast_mpi(massoftype(igas))
+
           !
           ! check that no errors occurred when setting up disc
           !
