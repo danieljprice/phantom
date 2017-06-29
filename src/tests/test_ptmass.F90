@@ -81,6 +81,7 @@ subroutine test_ptmass(ntests,npass)
  real                   :: newptmass(maxptmass),newptmass1(maxptmass)
  real                   :: dptmass(ndptmass,maxptmass)
  real                   :: dptmass_thread(ndptmass,maxptmass)
+ real                   :: fxyz_sinksink(4,maxptmass)
  integer                :: norbits
  integer                :: nfailed(11),imin(1)
  character(len=20)      :: dumpfile
@@ -188,10 +189,9 @@ subroutine test_ptmass(ntests,npass)
        ! initialise forces
        !
        if (id==master) then
-          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,0,0.)
-       else
-          fxyz_ptmass(:,:) = 0.
+          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,dtsinksink,0,0.)
        endif
+       fxyz_ptmass(:,:) = 0.
        call bcast_mpi(epot_sinksink)
        call bcast_mpi(dtsinksink)
 
@@ -200,6 +200,7 @@ subroutine test_ptmass(ntests,npass)
           call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
                    fext(1,i),fext(2,i),fext(3,i),dum,massoftype(igas),fxyz_ptmass,dum,dum2)
        enddo
+       if (id==master) fxyz_ptmass(:,:) = fxyz_ptmass(:,:) + fxyz_sinksink(:,:)
        call reduce_in_place_mpi('+',fxyz_ptmass)
        !
        !--take the sink-sink timestep specified by the get_forces routine

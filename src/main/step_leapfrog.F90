@@ -482,6 +482,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
  real    :: dtf,accretedmass,t_end_step,dtextforce_min
  real    :: dptmass(ndptmass,nptmass)
  real    :: newptmass(nptmass),newptmass1(nptmass)
+ real, save :: fxyz_sinksink(4,maxptmass)
  real, save :: fxyz_ptmass_thread(4,maxptmass)
  real, save :: dptmass_thread(ndptmass,maxptmass)
  real, save :: dmdt = 0.
@@ -538,10 +539,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
           !
           ! get sink-sink forces (and a new sink-sink timestep.  Note: fxyz_ptmass is zeroed in this subroutine)
           !
-          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtf,iexternalforce,timei)
+          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,dtf,iexternalforce,timei)
           if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
-       else
-          fxyz_ptmass(:,:) = 0.
        endif
        call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
        call bcast_mpi(vxyz_ptmass(:,1:nptmass))
@@ -555,6 +554,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     ! predictor step for sink-gas and external forces, also recompute sink-gas and external forces
     !
     fonrmax = 0.
+    fxyz_ptmass(:,:) = 0.
     !$omp parallel default(none) &
     !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype) &
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,icooling) &
@@ -671,6 +671,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     !
     ! reduction of sink-gas forces from each MPI thread
     !
+    if (id==master) fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_sinksink(:,1:nptmass)
     call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
 
     !---------------------------
@@ -683,6 +684,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
        if (id==master) then
           call ptmass_corrector(nptmass,dt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,iexternalforce)
        endif
+       call bcast_mpi(vxyz_ptmass(:,1:nptmass))
     endif
 
     !
