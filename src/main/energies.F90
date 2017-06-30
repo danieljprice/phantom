@@ -35,18 +35,23 @@ module energies
  real,            public    :: vrms,rmsmach,accretedmass,mdust(ndusttypes),mgas
  real,            public    :: xmom,ymom,zmom
  real,            public    :: totlum
- integer,         public    :: ielements,iquantities
- integer,         parameter :: inumev = 150
+ integer,         public    :: iquantities
+ integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,&
+                               iev_angmom,iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop(6),&
+                               iev_alpha,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
+                               iev_etaa(2),iev_vel,iev_vion,iev_vdrift,iev_n(4),iev_nR(5),iev_nT(2),&
+                               iev_dtg,iev_ts,iev_momall,iev_angall,iev_maccsink(2),&
+                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat
+ integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
+ integer,         parameter :: iev_sum = 1    ! array index of the sum of the quantity
+ integer,         parameter :: iev_max = 2    ! array index of the maximum of the quantity
+ integer,         parameter :: iev_min = 3    ! array index of the minimum of the quantity
+ integer,         parameter :: iev_ave = 4    ! array index of the average of the quantity
  ! Subroutines
  public  :: compute_energies,get_erot_com,ev_data_update
- private :: get_erot,initialise_ev_data,collate_ev_data,finalise_ev_data,ev_data_correction
- ! Functions
- public  :: ev_get_value
+ private :: get_erot,initialise_ev_data,collate_ev_data,finalise_ev_data
  ! Arrays
- real,             public :: ev_data(0:inumev),erot_com(6)
- character(len=11),public :: ev_tag(inumev)    ! the tag of the various quantities to print
- character(len= 3),public :: ev_action(inumev) ! the actions to be performed on the given quantity
- integer,          public :: ev_istart(inumev) ! the first array element in ev_data
+ real,             public :: ev_data(4,0:inumev),erot_com(6)
 
 contains
 
@@ -80,7 +85,7 @@ subroutine compute_energies(t)
  use part,         only:luminosity
 #endif
  real, intent(in) :: t
- real    :: ev_data_thread(0:inumev)
+ real    :: ev_data_thread(4,0:inumev)
  real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,rhoi,angx,angy,angz
  real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz
  real    :: epoti,pmassi,acci,dnptot,dnpgas
@@ -135,7 +140,11 @@ subroutine compute_energies(t)
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass) &
 !$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,nelements,n_R,n_electronT,ionfrac_eta) &
-!$omp shared(ielements,ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
+!$omp shared(ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
+!$omp shared(iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha) &
+!$omp shared(iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah) &
+!$omp shared(iev_etaa,iev_vel,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
+!$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,acci,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
@@ -170,26 +179,26 @@ subroutine compute_energies(t)
        endif
 
        rhoi = rhoh(hi,pmassi)
-       call ev_data_update(ev_data_thread,'rho',rhoi)
+       call ev_data_update(ev_data_thread,iev_rho,rhoi)
        if (.not.gas_only) then
           select case(itype)
           case(igas)
-             call ev_data_update(ev_data_thread,'rho gas', rhoi)
+             call ev_data_update(ev_data_thread,iev_rhop(1), rhoi)
              np_rho_thread(igas) =  np_rho_thread(igas) + 1
           case(idust)
-             call ev_data_update(ev_data_thread,'rho dust',rhoi)
+             call ev_data_update(ev_data_thread,iev_rhop(2),rhoi)
              np_rho_thread(idust) =  np_rho_thread(idust) + 1
           case(iboundary)
-             call ev_data_update(ev_data_thread,'rho bdy', rhoi)
+             call ev_data_update(ev_data_thread,iev_rhop(3), rhoi)
              np_rho_thread(iboundary) =  np_rho_thread(iboundary) + 1
           case(istar)
-             call ev_data_update(ev_data_thread,'rho star',rhoi)
+             call ev_data_update(ev_data_thread,iev_rhop(4),rhoi)
              np_rho_thread(istar) =  np_rho_thread(istar) + 1
           case(idarkmatter)
-             call ev_data_update(ev_data_thread,'rho dm',  rhoi)
+             call ev_data_update(ev_data_thread,iev_rhop(5),  rhoi)
              np_rho_thread(idarkmatter) =  np_rho_thread(idarkmatter) + 1
           case(ibulge)
-             call ev_data_update(ev_data_thread,'rho blg', rhoi)
+             call ev_data_update(ev_data_thread,iev_rhop(6), rhoi)
              np_rho_thread(ibulge) =  np_rho_thread(ibulge) + 1
           end select
        endif
@@ -213,15 +222,15 @@ subroutine compute_energies(t)
        ! kinetic energy & rms velocity
        v2i  = vxi*vxi + vyi*vyi + vzi*vzi
        ekin = ekin + pmassi*v2i
-       call ev_data_update(ev_data_thread,'vrms',v2i)        ! vrms = vrms + v2i
+       call ev_data_update(ev_data_thread,iev_vrms,v2i)        ! vrms = vrms + v2i
 
        ! rotational energy around each axis through the Centre of mass
        ! note: centre of mass is updated only when dumpfiles are created
        if (calc_erot) then
           call get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
-          call ev_data_update(ev_data_thread,'erot_x',erotxi)
-          call ev_data_update(ev_data_thread,'erot_y',erotyi)
-          call ev_data_update(ev_data_thread,'erot_z',erotzi)
+          call ev_data_update(ev_data_thread,iev_erot(1),erotxi)
+          call ev_data_update(ev_data_thread,iev_erot(2),erotyi)
+          call ev_data_update(ev_data_thread,iev_erot(3),erotzi)
        endif
 
        if (iexternalforce > 0) then
@@ -252,7 +261,7 @@ subroutine compute_energies(t)
              gasfrac        = 1. - dustfracisum
              dust_to_gas(:) = dustfraci(:)/gasfrac
              do j = 1,ndusttypes
-                call ev_data_update(ev_data_thread,'dust/gas',dust_to_gas(j))
+                call ev_data_update(ev_data_thread,iev_dtg,dust_to_gas(j))
              enddo
              mgas     = mgas     + pmassi*gasfrac
              mdust(:) = mdust(:) + pmassi*dustfraci(:)
@@ -278,7 +287,7 @@ subroutine compute_energies(t)
           endif
           vsigi = spsoundi
           ! entropy
-          call ev_data_update(ev_data_thread,'totentrop',pmassi*ponrhoi*rhoi**(1.-gamma))
+          call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma))
 
 #ifdef DUST
           ! min and mean stopping time
@@ -286,22 +295,22 @@ subroutine compute_energies(t)
              rhogasi = rhoi*gasfrac
              do j = 1,ndusttypes
                 call get_ts(idrag,grainsize(j),graindens,rhogasi,rhoi*dustfracisum,spsoundi,0.,tsi(j),iregime)
-                call ev_data_update(ev_data_thread,'t_s',tsi(j))
+                call ev_data_update(ev_data_thread,iev_ts,tsi(j))
              enddo
           endif
 #endif
 
 #ifdef LIGHTCURVE
-          if (track_lum) call ev_data_update(ev_data_thread,'tot lum',real(luminosity(i)))
+          if (track_lum) call ev_data_update(ev_data_thread,iev_totlum,real(luminosity(i)))
 #endif
 
           ! rms mach number (rmsmach = rmsmach + v2i/spsoundi**2)
-          if (spsoundi > 0.) call ev_data_update(ev_data_thread,'rmsmach',v2i/spsoundi**2)
+          if (spsoundi > 0.) call ev_data_update(ev_data_thread,iev_rmsmach,v2i/spsoundi**2)
 
           ! max of dissipation parameters
           if (maxalpha==maxp) then
              alphai = alphaind(1,i)
-             call ev_data_update(ev_data_thread,'alpha',alphai)
+             call ev_data_update(ev_data_thread,iev_alpha,alphai)
           endif
 
           ! physical viscosity
@@ -313,7 +322,7 @@ subroutine compute_energies(t)
              else
                 ratio_phys_to_av = 0.
              endif
-             call ev_data_update(ev_data_thread,'visc_rat',ratio_phys_to_av)
+             call ev_data_update(ev_data_thread,iev_viscrat,ratio_phys_to_av)
           endif
 
           ! mhd parameters
@@ -341,9 +350,9 @@ subroutine compute_energies(t)
                 hdivBonBi = 0.
                 betai     = 0.
              endif
-             call ev_data_update(ev_data_thread,'divB',   divBi    )
-             call ev_data_update(ev_data_thread,'hdivB/B',hdivBonBi)
-             call ev_data_update(ev_data_thread,'beta',   betai    )
+             call ev_data_update(ev_data_thread,iev_divB,   divBi    )
+             call ev_data_update(ev_data_thread,iev_hdivB,hdivBonBi)
+             call ev_data_update(ev_data_thread,iev_beta,   betai    )
 
              if ( mhd_nonideal ) then
                 temperature = get_temperature_from_ponrho(ponrhoi)
@@ -357,26 +366,26 @@ subroutine compute_energies(t)
                 else
                    etaart1 = 0.0
                 endif
-                call ev_data_update(ev_data_thread,'temp',  temperature)
-                call ev_data_update(ev_data_thread,'eta_ar',etaart     )
+                call ev_data_update(ev_data_thread,iev_temp, temperature)
+                call ev_data_update(ev_data_thread,iev_etaar,etaart     )
                 if (use_ohm) then
-                   call ev_data_update(ev_data_thread,'eta_o',    etaohm              )
-                   call ev_data_update(ev_data_thread,'eta_o/art',etaohm*etaart1      )
+                   call ev_data_update(ev_data_thread,iev_etao(1),etaohm              )
+                   call ev_data_update(ev_data_thread,iev_etao(2),etaohm*etaart1      )
                 endif
                 if (use_hall) then
-                   call ev_data_update(ev_data_thread,'eta_h',        etahall         )
-                   call ev_data_update(ev_data_thread,'|eta_h|',  abs(etahall)        )
-                   call ev_data_update(ev_data_thread,'eta_h/art',    etahall*etaart1 )
-                   call ev_data_update(ev_data_thread,'|e_h|/art',abs(etahall)*etaart1)
+                   call ev_data_update(ev_data_thread,iev_etah(1),etahall             )
+                   call ev_data_update(ev_data_thread,iev_etah(2),abs(etahall)        )
+                   call ev_data_update(ev_data_thread,iev_etah(3),etahall*etaart1     )
+                   call ev_data_update(ev_data_thread,iev_etah(4),abs(etahall)*etaart1)
                 endif
                 if (use_ambi) then
                    vion   = sqrt( dot_product(vioni,vioni) )
                    vdrift = sqrt( (vioni(1)-vxi)**2 + (vioni(2)-vyi)**2 + (vioni(3)-vzi)**2)
-                   call ev_data_update(ev_data_thread,'eta_a',    etaambi        )
-                   call ev_data_update(ev_data_thread,'eta_a/art',etaambi*etaart1)
-                   call ev_data_update(ev_data_thread,'velocity', sqrt(v2i)      )
-                   call ev_data_update(ev_data_thread,'v_ion',    vion           )
-                   call ev_data_update(ev_data_thread,'v_drift',  vdrift         )
+                   call ev_data_update(ev_data_thread,iev_etaa(1),etaambi        )
+                   call ev_data_update(ev_data_thread,iev_etaa(2),etaambi*etaart1)
+                   call ev_data_update(ev_data_thread,iev_vel,    sqrt(v2i)      )
+                   call ev_data_update(ev_data_thread,iev_vion,   vion           )
+                   call ev_data_update(ev_data_thread,iev_vdrift, vdrift         )
                 endif
                 n_ion   = data_out(8) + data_out(9) + data_out(10) + data_out(11)
                 n_total = n_ion + data_out(7)
@@ -385,24 +394,24 @@ subroutine compute_energies(t)
                 else
                    n_total1 = 0.0         ! only possible if eta_constant = .true.
                 endif
-                call ev_data_update(ev_data_thread,'ni/n(i+n)',n_ion*n_total1)
-                call ev_data_update(ev_data_thread,'ne/n(i+n)',data_out(6)*n_total1)
+                call ev_data_update(ev_data_thread,iev_n(1),n_ion*n_total1)
+                call ev_data_update(ev_data_thread,iev_n(2),data_out(6)*n_total1)
                 ionfrac_eta(1,i) = real(n_ion*n_total1,kind=4)
                 ionfrac_eta(2,i) = real(etaohm, kind=4)       ! Save eta_OR for the dump file
                 ionfrac_eta(3,i) = real(etahall,kind=4)       ! Save eta_HE for the dump file
                 ionfrac_eta(4,i) = real(etaambi,kind=4)       ! Save eta_AD for the dump file
-                call ev_data_update(ev_data_thread,   'n_e',      data_out( 6))
-                call ev_data_update(ev_data_thread,   'n_n',      data_out( 7))
+                call ev_data_update(ev_data_thread,   iev_n(3),  data_out( 6))
+                call ev_data_update(ev_data_thread,   iev_n(4),  data_out( 7))
                 if (ion_rays) then
-                   call ev_data_update(ev_data_thread,'n_ihR',    data_out( 8))
-                   call ev_data_update(ev_data_thread,'n_imR',    data_out( 9))
-                   call ev_data_update(ev_data_thread,'n_g(Z=-1)',data_out(12))
-                   call ev_data_update(ev_data_thread,'n_g(Z= 0)',data_out(13))
-                   call ev_data_update(ev_data_thread,'n_g(Z=+1)',data_out(14))
+                   call ev_data_update(ev_data_thread,iev_nR(1),data_out( 8))
+                   call ev_data_update(ev_data_thread,iev_nR(2),data_out( 9))
+                   call ev_data_update(ev_data_thread,iev_nR(3),data_out(12))
+                   call ev_data_update(ev_data_thread,iev_nR(4),data_out(13))
+                   call ev_data_update(ev_data_thread,iev_nR(5),data_out(14))
                 endif
                 if (ion_thermal) then
-                   call ev_data_update(ev_data_thread,'n_isT',    data_out(10))
-                   call ev_data_update(ev_data_thread,'n_idT',    data_out(11))
+                   call ev_data_update(ev_data_thread,iev_nT(1),data_out(10))
+                   call ev_data_update(ev_data_thread,iev_nT(2),data_out(11))
                 endif
              endif
           endif
@@ -428,7 +437,7 @@ subroutine compute_energies(t)
        angaccy = angaccy + pmassi*(zi*vxi - xi*vzi)
        angaccz = angaccz + pmassi*(xi*vyi - yi*vxi)
 
-       if (track_mass) call ev_data_update(ev_data_thread,'accretedmas',pmassi)
+       if (track_mass) call ev_data_update(ev_data_thread,iev_macc,pmassi)
 
     endif
  enddo
@@ -445,7 +454,7 @@ subroutine compute_energies(t)
     pmassi = xyzmh_ptmass(4,i)
     !--acci is the accreted mass on the sink
     acci   = xyzmh_ptmass(imacc,i)
-    if (track_mass) call ev_data_update(ev_data_thread,'accretedmas',acci)
+    if (track_mass) call ev_data_update(ev_data_thread,iev_macc,acci)
 
     vxi    = vxyz_ptmass(1,i)
     vyi    = vxyz_ptmass(2,i)
@@ -471,9 +480,9 @@ subroutine compute_energies(t)
     ! rotational energy around each axis through the origin
     if (calc_erot) then
        call get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
-       call ev_data_update(ev_data_thread,'erot_x',erotxi)
-       call ev_data_update(ev_data_thread,'erot_y',erotyi)
-       call ev_data_update(ev_data_thread,'erot_z',erotzi)
+       call ev_data_update(ev_data_thread,iev_erot(1),erotxi)
+       call ev_data_update(ev_data_thread,iev_erot(2),erotyi)
+       call ev_data_update(ev_data_thread,iev_erot(3),erotzi)
     endif
  enddo
 !$omp enddo
@@ -524,20 +533,22 @@ subroutine compute_energies(t)
  angtot = sqrt(angx*angx + angy*angy + angz*angz)
 
  !--fill in the relevant array elements for energy & momentum
- call ev_data_update(ev_data,'time',  t     )
- call ev_data_update(ev_data,'ekin',  ekin  )
- call ev_data_update(ev_data,'etherm',etherm)
- call ev_data_update(ev_data,'emag',  emag  )
- call ev_data_update(ev_data,'epot',  epot  )
- call ev_data_update(ev_data,'etot',  etot  )
- call ev_data_update(ev_data,'totmom',totmom)
- call ev_data_update(ev_data,'angtot',angtot)
+ ev_data(iev_sum,iev_time  ) = t
+ ev_data(iev_sum,iev_ekin  ) = ekin
+ ev_data(iev_sum,iev_etherm) = etherm
+ ev_data(iev_sum,iev_emag  ) = emag
+ ev_data(iev_sum,iev_epot  ) = epot
+ ev_data(iev_sum,iev_etot  ) = etot
+ ev_data(iev_sum,iev_totmom) = totmom
+ ev_data(iev_sum,iev_angmom) = angtot
 
  if (calc_erot) then
-    call ev_data_correction(ev_data,'erot_x',0.5)  ! erot = 0.5*erot
-    call ev_data_correction(ev_data,'erot_y',0.5)  ! erot = 0.5*erot
-    call ev_data_correction(ev_data,'erot_z',0.5)  ! erot = 0.5*erot
-    call ev_data_update(ev_data,'erot', sqrt(ev_get_value('erot_x')**2+ev_get_value('erot_y')**2+ev_get_value('erot_z')**2))
+    ev_data(iev_sum,iev_erot(1)) = 0.5*ev_data(iev_sum,iev_erot(1))
+    ev_data(iev_sum,iev_erot(2)) = 0.5*ev_data(iev_sum,iev_erot(2))
+    ev_data(iev_sum,iev_erot(3)) = 0.5*ev_data(iev_sum,iev_erot(3))
+    ev_data(iev_sum,iev_erot(4)) = sqrt(ev_data(iev_sum,iev_erot(1))**2 &
+                                 +      ev_data(iev_sum,iev_erot(2))**2 &
+                                 +      ev_data(iev_sum,iev_erot(3))**2)
  endif
 
  if (use_dustfrac) then
@@ -550,17 +561,17 @@ subroutine compute_energies(t)
        np_rho(i) = reduce_fn('+',np_rho(i))
     enddo
     ! correct the average densities so that division is by n_p and not n_gas
-    call ev_data_correction(ev_data,'rho', real(npgas)*dnptot,'a')
-    if (np_rho(idust)       > 0) call ev_data_correction(ev_data,'rho dust',real(npgas)/real(np_rho(idust)),      'a')
-    if (np_rho(iboundary)   > 0) call ev_data_correction(ev_data,'rho bdy', real(npgas)/real(np_rho(iboundary)),  'a')
-    if (np_rho(istar)       > 0) call ev_data_correction(ev_data,'rho star',real(npgas)/real(np_rho(istar)),      'a')
-    if (np_rho(idarkmatter) > 0) call ev_data_correction(ev_data,'rho dm',  real(npgas)/real(np_rho(idarkmatter)),'a')
-    if (np_rho(ibulge)      > 0) call ev_data_correction(ev_data,'rho blg', real(npgas)/real(np_rho(ibulge)),     'a')
+    ev_data(iev_ave,iev_rho) = ev_data(iev_ave,iev_rho)*real(npgas)*dnptot
+    if (np_rho(idust)       > 0) ev_data(iev_ave,iev_rhop(2)) = ev_data(iev_ave,iev_rhop(2))*real(npgas)/real(np_rho(idust))
+    if (np_rho(iboundary)   > 0) ev_data(iev_ave,iev_rhop(3)) = ev_data(iev_ave,iev_rhop(3))*real(npgas)/real(np_rho(iboundary))
+    if (np_rho(istar)       > 0) ev_data(iev_ave,iev_rhop(4)) = ev_data(iev_ave,iev_rhop(4))*real(npgas)/real(np_rho(istar))
+    if (np_rho(idarkmatter) > 0) ev_data(iev_ave,iev_rhop(5)) = ev_data(iev_ave,iev_rhop(5))*real(npgas)/real(np_rho(idarkmatter))
+    if (np_rho(ibulge)      > 0) ev_data(iev_ave,iev_rhop(6)) = ev_data(iev_ave,iev_rhop(6))*real(npgas)/real(np_rho(ibulge))
  endif
- call ev_data_correction(ev_data,'vrms',   dnptot)
- call ev_data_correction(ev_data,'rmsmach',dnpgas)
- vrms    = ev_get_value('vrms')
- rmsmach = ev_get_value('rmsmach')
+ ev_data(iev_sum,iev_vrms   ) = ev_data(iev_sum,iev_vrms   )*dnptot
+ ev_data(iev_sum,iev_rmsmach) = ev_data(iev_sum,iev_rmsmach)*dnpgas
+ vrms    = ev_data(iev_sum,iev_vrms)
+ rmsmach = ev_data(iev_sum,iev_rmsmach)
 
  if (iexternalforce > 0) then
     xmomacc   = reduce_fn('+',xmomacc)
@@ -570,7 +581,7 @@ subroutine compute_energies(t)
     xmomall   = xmom + xmomacc
     ymomall   = ymom + ymomacc
     zmomall   = zmom + zmomacc
-    call ev_data_update(ev_data,'totmomall',sqrt(xmomall*xmomall + ymomall*ymomall + zmomall*zmomall))
+    ev_data(iev_sum,iev_momall) = sqrt(xmomall*xmomall + ymomall*ymomall + zmomall*zmomall)
 
     angaccx = reduce_fn('+',angaccx)
     angaccy = reduce_fn('+',angaccy)
@@ -578,15 +589,14 @@ subroutine compute_energies(t)
     angxall = angx + angaccx
     angyall = angy + angaccy
     angzall = angz + angaccz
-    call ev_data_update(ev_data,'angall',sqrt(angxall*angxall + angyall*angyall + angzall*angzall))
-
+    ev_data(iev_sum,iev_angall) = sqrt(angxall*angxall + angyall*angyall + angzall*angzall)
  endif
 
  if (track_mass) then
-    accretedmass = ev_get_value('accretedmas')
-    call ev_data_update(ev_data,'eacc',accretedmass/accradius1) ! total accretion energy
+    accretedmass = ev_data(iev_sum,iev_macc)
+    ev_data(iev_sum,iev_eacc) = accretedmass/accradius1 ! total accretion energy
  endif
- if (track_lum) totlum = ev_get_value('tot lum')
+ if (track_lum) totlum = ev_data(iev_sum,iev_totlum)
 
  return
 end subroutine compute_energies
@@ -618,7 +628,7 @@ subroutine get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
  real, intent(out) :: erotxi,erotyi,erotzi
  real              :: dx,dy,dz,dvx,dvy,dvz
  real              :: rcrossvx,rcrossvy,rcrossvz,radxy2,radyz2,radxz2
-
+ !
  erotxi = 0.0
  erotyi = 0.0
  erotzi = 0.0
@@ -641,103 +651,50 @@ subroutine get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
  if (radyz2 > 0.) erotxi = pmassi*rcrossvx*rcrossvx/radyz2
  if (radxz2 > 0.) erotyi = pmassi*rcrossvy*rcrossvy/radxz2
  if (radxy2 > 0.) erotzi = pmassi*rcrossvz*rcrossvz/radxy2
-
+ !
 end subroutine get_erot
+!----------------------------------------------------------------
+!+
+!  initiallised the ev_data array
+!+
+!----------------------------------------------------------------
+subroutine initialise_ev_data(evdata)
+ real,    intent(inout) :: evdata(4,0:inumev)
+ !
+ evdata            = 0.0
+ evdata(iev_max,:) = -huge(evdata(iev_max,:))
+ evdata(iev_min,:) =  huge(evdata(iev_min,:))
+ !
+end subroutine initialise_ev_data
 !----------------------------------------------------------------
 !+
 !  update the ev_data_array
 !+
 !----------------------------------------------------------------
-subroutine ev_data_update(evdata,evtag,val)
- real,              intent(in)    :: val
- real,              intent(inout) :: evdata(0:inumev)
- character(len=*),  intent(in)    :: evtag
- integer                          :: iarray(inumev)
- integer                          :: ival,jval,j_actual
- character(len= 3)                :: cmd
- !character(len=11)                :: evtag0
+subroutine ev_data_update(evdata,itag,val)
+ integer, intent(in)    :: itag
+ real,    intent(in)    :: val
+ real,    intent(inout) :: evdata(4,0:inumev)
 
- !evtag0 = evtag
- !write(evtag0,'(a)') evtag
- iarray = index(evtag,ev_tag)
- ival   = maxloc(iarray,1)
- if (iarray(ival) > 0) then
-    cmd    = ev_action(ival)
-    jval   = ev_istart(ival)
-    if (index(cmd,'0') > 0) then
-       evdata(jval) =     val
-    elseif (index(cmd,'s') > 0) then
-       evdata(jval) =     evdata(jval)+val
-    endif
-    if (index(cmd,'x') > 0) then
-       j_actual         = jval + index(cmd,'x') - 1
-       evdata(j_actual) = max(evdata(j_actual),val)
-    endif
-    if (index(cmd,'a') > 0) then
-       j_actual         = jval + index(cmd,'a') - 1
-       evdata(j_actual) =     evdata(j_actual)+val
-    endif
-    if (index(cmd,'n') > 0) then
-       j_actual         = jval + index(cmd,'n') - 1
-       evdata(j_actual) = min(evdata(j_actual),val)
-    endif
- endif
+ evdata(iev_sum,itag) =     evdata(iev_sum,itag)+val
+ evdata(iev_max,itag) = max(evdata(iev_max,itag),val)
+ evdata(iev_min,itag) = min(evdata(iev_min,itag),val)
 
 end subroutine ev_data_update
-!----------------------------------------------------------------
-!+
-!  initiallised the ev_data array to zero or huge (for min)
-!+
-!----------------------------------------------------------------
-subroutine initialise_ev_data(evdata)
- real,    intent(inout) :: evdata(0:inumev)
- integer                :: i,jval,j_actual
- character(len=3)       :: cmd
-
- evdata = 0.0
- do i = 1,iquantities
-    jval = ev_istart(i)
-    cmd  = ev_action(i)
-    if (index(cmd,'x') > 0) then
-       j_actual         = jval + index(cmd,'x') - 1
-       evdata(j_actual) = -huge(evdata(j_actual  ))
-    endif
-    if (index(cmd,'n') > 0) then
-       j_actual         = jval + index(cmd,'n') - 1
-       evdata(j_actual) =  huge(evdata(j_actual  ))
-    endif
- enddo
-
-end subroutine initialise_ev_data
 !----------------------------------------------------------------
 !+
 !  combines the ev_data from the various threads
 !+
 !----------------------------------------------------------------
 subroutine collate_ev_data(evdata_thread,evdata)
- real,            intent(in)    :: evdata_thread(0:inumev)
- real,            intent(inout) :: evdata(0:inumev)
- integer                        :: i,jval,j_actual
- character(len=3)               :: cmd
+ real,            intent(in)    :: evdata_thread(4,0:inumev)
+ real,            intent(inout) :: evdata(4,0:inumev)
+ integer                        :: i
 
  do i = 1,iquantities
-    jval = ev_istart(i)
-    cmd  = ev_action(i)
-    if (index(cmd,'s') > 0) then
-       evdata(jval    ) =     evdata(jval    )+ evdata_thread(jval    )
-    endif
-    if (index(cmd,'x') > 0) then
-       j_actual         = jval + index(cmd,'x') - 1
-       evdata(j_actual) = max(evdata(j_actual), evdata_thread(j_actual))
-    endif
-    if (index(cmd,'a') > 0) then
-       j_actual         = jval + index(cmd,'a') - 1
-       evdata(j_actual) =     evdata(j_actual)+ evdata_thread(j_actual)
-    endif
-    if (index(cmd,'n') > 0) then
-       j_actual         = jval + index(cmd,'n') - 1
-       evdata(j_actual) = min(evdata(j_actual), evdata_thread(j_actual))
-    endif
+    evdata(iev_sum,i) =     evdata(iev_sum,i)+evdata_thread(iev_sum,i)
+    evdata(iev_max,i) = max(evdata(iev_max,i),evdata_thread(iev_max,i))
+    evdata(iev_min,i) = min(evdata(iev_min,i),evdata_thread(iev_min,i))
  enddo
 
 end subroutine collate_ev_data
@@ -748,81 +705,18 @@ end subroutine collate_ev_data
 !----------------------------------------------------------------
 subroutine finalise_ev_data(evdata,dnptot)
  use mpiutils, only:reduceall_mpi
- real,            intent(inout) :: evdata(0:inumev)
+ real,            intent(inout) :: evdata(4,0:inumev)
  real,            intent(in)    :: dnptot
- integer                        :: i,jval,j_actual
- character(len=3)               :: cmd
+ integer                        :: i
 
  do i = 1,iquantities
-    jval = ev_istart(i)
-    cmd  = ev_action(i)
-    if (index(cmd,'s') > 0) then
-       evdata(jval    ) =  reduce_fn('+',evdata(jval  ))
-    endif
-    if (index(cmd,'x') > 0) then
-       j_actual         = jval + index(cmd,'x') - 1
-       evdata(j_actual) = reduce_fn('max',evdata(j_actual))
-    endif
-    if (index(cmd,'a') > 0) then
-       j_actual         = jval + index(cmd,'a') - 1
-       evdata(j_actual) = reduce_fn('+',  evdata(j_actual))*dnptot
-    endif
-    if (index(cmd,'n') > 0) then
-       j_actual         = jval + index(cmd,'n') - 1
-       evdata(j_actual) = reduce_fn('min',evdata(j_actual))
-    endif
+    evdata(iev_sum,i) = reduce_fn('+',  evdata(iev_sum,i))
+    evdata(iev_max,i) = reduce_fn('max',evdata(iev_max,i))
+    evdata(iev_min,i) = reduce_fn('min',evdata(iev_min,i))
+    evdata(iev_ave,i) = evdata(iev_sum,i)*dnptot
  enddo
 
 end subroutine finalise_ev_data
-!----------------------------------------------------------------
-!+
-!  Scale value
-!+
-!----------------------------------------------------------------
-subroutine ev_data_correction(evdata,evtag,scalar_in,evcmd)
- real,                        intent(inout) :: evdata(0:inumev)
- real,                        intent(in)    :: scalar_in
- character(len=*),            intent(in)    :: evtag
- character(len= 1), optional, intent(in)    :: evcmd
- !character(len=11)                          :: evtag0
- integer                                    :: iarray(inumev)
- integer                                    :: ival,jval
 
-! write(evtag0,'(a)') evtag
-! evtag0 = evtag
- iarray = index(evtag(1:3),ev_tag)
- ival   = maxloc(iarray,1)
- if (iarray(ival) > 0) then
-    jval = ev_istart(ival)
-    if (present(evcmd)) jval = jval + index(ev_action(ival),evcmd) - 1
-    evdata(jval) = evdata(jval)*scalar_in
- endif
-
-end subroutine ev_data_correction
-!----------------------------------------------------------------
-!+
-!  Return a single array value
-!+
-!----------------------------------------------------------------
-real function ev_get_value(evtag,evcmd)
- character(len=*),            intent(in) :: evtag
- character(len= 1), optional, intent(in) :: evcmd
- !character(len=11)                       :: evtag0
- integer                                 :: iarray(inumev)
- integer                                 :: ival,jval
-
- !write(evtag0,'(a)') evtag
- !evtag0 = evtag
- iarray = index(evtag(1:4),ev_tag)
- ival   = maxloc(iarray,1)
- if (iarray(ival) > 0) then
-    jval = ev_istart(ival)
-    if (present(evcmd)) jval = jval + index(ev_action(ival),evcmd) - 1
-    ev_get_value = ev_data(jval)
- else
-    ev_get_value = 0.0
- endif
-
-end function ev_get_value
 !----------------------------------------------------------------
 end module energies
