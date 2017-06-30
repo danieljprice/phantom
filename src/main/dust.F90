@@ -262,7 +262,9 @@ subroutine set_grainsize(smin,smax,grid)
     endif
  endif
 
- if (smax==smin .or. ndusttypes==1) then
+ if (ndusttypes==1) then
+    !--Grain size is set in the input file
+ elseif (smax==smin .and. ndusttypes>1) then
     !--If all the same grain size, then just scale the dust fraction
     grainsizecgs(:) = smax
  else
