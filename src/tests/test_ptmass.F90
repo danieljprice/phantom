@@ -71,6 +71,7 @@ subroutine test_ptmass(ntests,npass)
  use mpiutils,        only:bcast_mpi,reduce_in_place_mpi
  integer, intent(inout) :: ntests,npass
  integer                :: i,nsteps,nbinary_tests,itest,nerr,nwarn,itestp
+ integer                :: nparttot
  logical                :: test_binary,test_accretion,test_createsink, test_softening
  logical                :: accreted
  real                   :: massr,m1,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,dr
@@ -155,19 +156,14 @@ subroutine test_ptmass(ntests,npass)
        call set_units(mass=1.d0,dist=1.d0,G=1.d0)
        call set_binary(m1,massr,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,verbose=.false.)
        if (itest==2 .or. itest==3) then
-          if (id==master) then
-             !  add a circumbinary gas disc around it
-             npartoftype(1) = 1000
-             npart = npartoftype(1)
-             call set_disc(id,master,npart=npartoftype(1),rmin=1.5*a,rmax=15.*a,p_index=1.5,q_index=0.75,&
-                           HoverR=0.1,disc_mass=0.01*m1,star_mass=m1+massr*m1,gamma=gamma,&
-                           particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
-                           polyk=polyk,verbose=.false.)
-          else
-             npartoftype(1) = 0
-             npart = npartoftype(1)
-          endif
-          call bcast_mpi(massoftype(igas))
+          !  add a circumbinary gas disc around it
+          nparttot = 1000
+          call set_disc(id,master,nparttot=nparttot,npart=npart,rmin=1.5*a,rmax=15.*a,p_index=1.5,q_index=0.75,&
+                        HoverR=0.1,disc_mass=0.01*m1,star_mass=m1+massr*m1,gamma=gamma,&
+                        particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
+                        polyk=polyk,verbose=.false.)
+          print*,id,'NPART',npart
+          npartoftype(1) = npart
 
           !
           ! check that no errors occurred when setting up disc
