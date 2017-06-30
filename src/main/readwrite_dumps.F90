@@ -1682,15 +1682,16 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(totmom_in,'totmom_in',hdr,ierr)
     call add_to_rheader(mdust_in,'mdust_in',hdr,ierr)
     if (use_dust) then
-       ! write dust information
-       write(*,*) 'writing graindens and grainsize to header'
-       call add_to_rheader(graindens,'graindens',hdr,ierr)
+       write(*,*) 'writing grain properties to header'
        if (multidustdump) then
+          !--grainsize needs to be reconstructed from these three quantities
           call add_to_rheader(smincgs,'smincgs',hdr,ierr)
           call add_to_rheader(smaxcgs,'smaxcgs',hdr,ierr)
           call add_to_rheader(sindex,'sindex',hdr,ierr)
+       else
           call add_to_rheader(grainsize,'grainsize',hdr,ierr)
        endif
+       call add_to_rheader(graindens,'graindens',hdr,ierr)
     endif
  endif
 
