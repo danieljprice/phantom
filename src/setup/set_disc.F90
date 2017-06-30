@@ -856,28 +856,45 @@ end subroutine set_disc_velocities_u
 !-------------------------------------------------------------
 ! shift the particles so the centre of mass is at the origin
 !-------------------------------------------------------------
-pure subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
+subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
+ use domain,      only:i_belong
+ use mpiutils,   only:reduceall_mpi
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
  real,    intent(in)    :: particle_mass
  integer, intent(in)    :: i1,i2
  real,    intent(in)    :: x0(3),v0(3)
  real :: xcentreofmass(3), vcentreofmass(3)
- integer :: i
+ integer :: i,ipart
  real    :: totmass
 
  xcentreofmass = 0.
  vcentreofmass = 0.
  totmass       = 0.
+ ipart = 0
  do i=i1,i2
-    xcentreofmass(:) = xcentreofmass(:) + particle_mass*xyzh(1:3,i)
-    vcentreofmass(:) = vcentreofmass(:) + particle_mass*vxyzu(1:3,i)
-    totmass = totmass + particle_mass
+    if (i_belong(i)) then
+       ipart = ipart + 1
+       xcentreofmass(:) = xcentreofmass(:) + particle_mass*xyzh(1:3,ipart)
+       vcentreofmass(:) = vcentreofmass(:) + particle_mass*vxyzu(1:3,ipart)
+       totmass = totmass + particle_mass
+    endif
  enddo
+
+ totmass = reduceall_mpi('+',totmass)
+
  xcentreofmass(:) = xcentreofmass(:)/totmass
  vcentreofmass(:) = vcentreofmass(:)/totmass
+
+ xcentreofmass = reduceall_mpi('+',xcentreofmass)
+ vcentreofmass = reduceall_mpi('+',vcentreofmass)
+
+ ipart = 0
  do i=i1,i2
-    xyzh(1:3,i)  = xyzh(1:3,i)  - xcentreofmass(:) + x0(:)
-    vxyzu(1:3,i)  = vxyzu(1:3,i)  - vcentreofmass(:) + v0(:)
+    if (i_belong(i)) then
+       ipart = ipart + 1
+       xyzh(1:3,ipart)  = xyzh(1:3,ipart)  - xcentreofmass(:) + x0(:)
+       vxyzu(1:3,ipart)  = vxyzu(1:3,ipart)  - vcentreofmass(:) + v0(:)
+    endif
  enddo
 
 end subroutine adjust_centre_of_mass
