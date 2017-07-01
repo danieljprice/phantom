@@ -1584,22 +1584,5 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
 
 end subroutine maketreeglobal
 
-!-----------------------------------------------------------------------
-!+
-!  relink the linked list after particle exchange
-!+
-!-----------------------------------------------------------------------
-subroutine relink_particles(np,inode,ifirstincell,xyzh)
- use part,      only:isdead_or_accreted
- integer,             intent(inout)     :: np,inode,ifirstincell(:)
- real,                intent(in)        :: xyzh(4,maxp)
- integer                                :: i
-
- ifirstincell(inode) = 0
- do i=1,np
-    ll(i) = ifirstincell(inode)
-    ifirstincell(inode) = i
- enddo
-end subroutine relink_particles
 #endif
 end module kdtree
