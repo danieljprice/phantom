@@ -46,7 +46,7 @@ subroutine test_derivs(ntests,npass,string)
                     gradh,divBsymm,Bevol,dBevol,Bxyz,Bextx,Bexty,Bextz,alphaind, &
                     maxphase,rhoh,mhd,maxvecp,maxBevol,ndivcurlB,straintensor, &
                     dustfrac,ddustfrac,idivv,icurlvx,icurlvy,icurlvz, &
-                    idivB,icurlBx,icurlBy,icurlBz,deltav
+                    idivB,icurlBx,icurlBy,icurlBz,deltav,rcut_resort
  use unifdis,  only:set_unifdis
  use physcon,  only:pi,au,solarm
  use deriv,           only:derivs
@@ -145,29 +145,37 @@ subroutine test_derivs(ntests,npass,string)
  npart = 0
  totmass = rhozero*dxbound*dybound*dzbound
 
-#ifdef PERIODIC
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
  np = npart
-#else
- rcut = min(xmax,ymax,zmax) - 2.*radkern*hfact*psep
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                  psep,hfact,npart,xyzh,rmax=rcut)
- np = npart
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                  psep,hfact,npart,xyzh,rmin=rcut)
- print*,' using ',np,' of ',npart,' particles in test with free boundary'
-#endif
-
- npartoftype(1) = npart
- nptot = reduceall_mpi('+',npart)
 
  if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
  nactive = npart
+ npartoftype(1) = npart
+ nptot = reduceall_mpi('+',npart)
+ massoftype(1) = totmass/reduceall_mpi('+',npart)
+
+#ifndef PERIODIC
+ rcut = min(xmax,ymax,zmax) - 2.*radkern*hfact*psep
+ if (nprocs > 1) then
+    ! balance before selecting particle to test
+    call set_linklist(npart,nactive,xyzh,vxyzu)
+    call rcut_resort(rcut,npart,nparttest)
+    np = nparttest
+ else
+    ! hack, but okay to overwrite previously set particles
+    npart = 0
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                     psep,hfact,npart,xyzh,rmax=rcut)
+    np = npart
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                     psep,hfact,npart,xyzh,rmin=rcut)
+ endif
+ print*,' using ',np,' of ',npart,' particles in test with free boundary'
+#endif
 
  print*,'thread ',id,' npart = ',npart
  if (id==master) print "(a,g9.2)",' hfact = ',hfact
 
- massoftype(1) = totmass/reduceall_mpi('+',npart)
  hzero = hfact*(massoftype(1)/rhozero)**(1./3.)
 !
 !--make sure AV is off
