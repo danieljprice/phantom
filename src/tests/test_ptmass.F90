@@ -52,7 +52,7 @@ subroutine test_ptmass(ntests,npass)
                            ipart_rhomax,icreate_sinks, &
                            idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
                            idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
-                           ndptmass
+                           ndptmass,update_ptmass
  use physcon,         only:pi
  use setdisc,         only:set_disc
  use spherical,       only:set_sphere
@@ -79,7 +79,6 @@ subroutine test_ptmass(ntests,npass)
  real                   :: r2,r2min,dtext_dum,xcofm(3),totmass,dum,dum2,psep,tolen
  real                   :: xyzm_ptmass_old(4,1), vxyz_ptmass_old(3,1)
  real                   :: q,phisoft,fsoft,m2,mu,v_c1,v_c2,r1,omega1,omega2
- real                   :: newptmass(maxptmass),newptmass1(maxptmass)
  real                   :: dptmass(ndptmass,maxptmass)
  real                   :: dptmass_thread(ndptmass,maxptmass)
  real                   :: fxyz_sinksink(4,maxptmass)
@@ -162,7 +161,6 @@ subroutine test_ptmass(ntests,npass)
                         HoverR=0.1,disc_mass=0.01*m1,star_mass=m1+massr*m1,gamma=gamma,&
                         particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
                         polyk=polyk,verbose=.false.)
-          print*,id,'NPART',npart
           npartoftype(1) = npart
 
           !
@@ -442,33 +440,7 @@ subroutine test_ptmass(ntests,npass)
 
     call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
 
-    if (id==master) then
-       ! update ptmass position, spin, velocity, acceleration, and mass
-       newptmass(1:nptmass)            = xyzmh_ptmass(4,1:nptmass) + dptmass(idmsi,1:nptmass)
-       newptmass1(1:nptmass)           = 1./newptmass(1:nptmass)
-       xyzmh_ptmass(1,1:nptmass)       = (dptmass(idxmsi,1:nptmass) + &
-                                         xyzmh_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-       xyzmh_ptmass(2,1:nptmass)       = (dptmass(idymsi,1:nptmass) + &
-                                         xyzmh_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-       xyzmh_ptmass(3,1:nptmass)       = (dptmass(idzmsi,1:nptmass) + &
-                                         xyzmh_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-       xyzmh_ptmass(ispinx,1:nptmass)  = xyzmh_ptmass(ispinx,1:nptmass) + dptmass(idspinxsi,1:nptmass)
-       xyzmh_ptmass(ispiny,1:nptmass)  = xyzmh_ptmass(ispiny,1:nptmass) + dptmass(idspinysi,1:nptmass)
-       xyzmh_ptmass(ispinz,1:nptmass)  = xyzmh_ptmass(ispinz,1:nptmass) + dptmass(idspinzsi,1:nptmass)
-       vxyz_ptmass(1,1:nptmass)        = (dptmass(idvxmsi,1:nptmass) + &
-                                         vxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-       vxyz_ptmass(2,1:nptmass)        = (dptmass(idvymsi,1:nptmass) + &
-                                         vxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-       vxyz_ptmass(3,1:nptmass)        = (dptmass(idvzmsi,1:nptmass) + &
-                                         vxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-       fxyz_ptmass(1,1:nptmass)        = (dptmass(idfxmsi,1:nptmass) + &
-                                         fxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-       fxyz_ptmass(2,1:nptmass)        = (dptmass(idfymsi,1:nptmass) + &
-                                         fxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-       fxyz_ptmass(3,1:nptmass)        = (dptmass(idfzmsi,1:nptmass) + &
-                                         fxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-       xyzmh_ptmass(4,1:nptmass)       = newptmass(1:nptmass)
-    endif
+    if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 
     call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
     call bcast_mpi(vxyz_ptmass(:,1:nptmass))

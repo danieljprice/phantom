@@ -456,11 +456,10 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
                           get_accel_sink_gas,get_accel_sink_sink,f_acc,pt_write_sinkev, &
                           idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
                           idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
-                          ndptmass
+                          ndptmass,update_ptmass
  use options,        only:iexternalforce
  use part,           only:maxphase,abundance,nabundances,h2chemistry,epot_sinksink,&
-                          isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
-                          ispinx,ispiny,ispinz
+                          isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv
  use options,        only:icooling
  use chem,           only:energ_h2cooling
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
@@ -481,7 +480,6 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
  real    :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
  real    :: dtf,accretedmass,t_end_step,dtextforce_min
  real    :: dptmass(ndptmass,nptmass)
- real    :: newptmass(nptmass),newptmass1(nptmass)
  real, save :: fxyz_sinksink(4,maxptmass)
  real, save :: fxyz_ptmass_thread(4,maxptmass)
  real, save :: dptmass_thread(ndptmass,maxptmass)
@@ -546,7 +544,6 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
        call bcast_mpi(vxyz_ptmass(:,1:nptmass))
        call bcast_mpi(epot_sinksink)
        call bcast_mpi(dtf)
-       !--don't broadcast force, that is summed at the end
        dtextforcenew = min(dtextforcenew,C_force*dtf)
     endif
 
@@ -764,24 +761,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     naccreted = reduceall_mpi('+',naccreted)
     nfail = reduceall_mpi('+',nfail)
 
-    if (id==master) then
-       ! update ptmass position, spin, velocity, acceleration, and mass
-       newptmass(1:nptmass)          =xyzmh_ptmass(4,1:nptmass)+dptmass(idmsi,1:nptmass)
-       newptmass1(1:nptmass)         =1./newptmass(1:nptmass)
-       xyzmh_ptmass(1,1:nptmass)     =(dptmass(idxmsi,1:nptmass)+xyzmh_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-       xyzmh_ptmass(2,1:nptmass)     =(dptmass(idymsi,1:nptmass)+xyzmh_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-       xyzmh_ptmass(3,1:nptmass)     =(dptmass(idzmsi,1:nptmass)+xyzmh_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-       xyzmh_ptmass(ispinx,1:nptmass)=xyzmh_ptmass(ispinx,1:nptmass)+dptmass(idspinxsi,1:nptmass)
-       xyzmh_ptmass(ispiny,1:nptmass)=xyzmh_ptmass(ispiny,1:nptmass)+dptmass(idspinysi,1:nptmass)
-       xyzmh_ptmass(ispinz,1:nptmass)=xyzmh_ptmass(ispinz,1:nptmass)+dptmass(idspinzsi,1:nptmass)
-       vxyz_ptmass(1,1:nptmass)      =(dptmass(idvxmsi,1:nptmass)+vxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-       vxyz_ptmass(2,1:nptmass)      =(dptmass(idvymsi,1:nptmass)+vxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-       vxyz_ptmass(3,1:nptmass)      =(dptmass(idvzmsi,1:nptmass)+vxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-       fxyz_ptmass(1,1:nptmass)      =(dptmass(idfxmsi,1:nptmass)+fxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-       fxyz_ptmass(2,1:nptmass)      =(dptmass(idfymsi,1:nptmass)+fxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-       fxyz_ptmass(3,1:nptmass)      =(dptmass(idfzmsi,1:nptmass)+fxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-       xyzmh_ptmass(4,1:nptmass)     =newptmass(1:nptmass)
-    endif
+    if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 
     call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
     call bcast_mpi(vxyz_ptmass(:,1:nptmass))
