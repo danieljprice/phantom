@@ -724,47 +724,6 @@ subroutine shuffle_part(np)
  return
 end subroutine shuffle_part
 
-!-----------------------------------------------------------------------
-!+
-!  MPI modifies particle ordering, need to sort particles that shouldn't be tested
-!  to the end of the array
-!+
-!-----------------------------------------------------------------------
-subroutine rcut_resort(rcut,npart,nptest)
- use io, only:fatal
- real,      intent(in)  :: rcut
- integer,   intent(in)  :: npart
- integer,   intent(out) :: nptest
- real    :: xi,yi,zi
- real    :: r2,rcut2
- integer :: inewpart
- integer :: np
- integer :: i
-
- np = npart
- call shuffle_part(np)
- nptest = 0
- rcut2 = rcut*rcut
- inewpart = npart
- do i=1,npart
-    xi = xyzh(1,i)
-    yi = xyzh(2,i)
-    zi = xyzh(3,i)
-    r2 = xi*xi + yi+yi + zi+zi
-    if (r2 > rcut) then
-       inewpart = inewpart + 1
-       call copy_particle_all(i,inewpart)
-       call kill_particle(i)
-    else
-       nptest = nptest + 1
-    endif
- enddo
- call shuffle_part(inewpart)
- print*,inewpart,np
- if (inewpart /= np) call fatal('part','particles have gone missing in rcut_resort')
-
-end subroutine rcut_resort
-
 integer function count_dead_particles()
  integer :: i
 
