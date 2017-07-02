@@ -478,6 +478,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
        cell%remote_export(id+1) = .false.
 
 !$omp critical
+       call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
        call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
        call send_cell(cell,1,irequestsend,xsendbuf)
 !$omp end critical

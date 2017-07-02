@@ -418,6 +418,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
           ! communication happened while computing contributions to remote cells
 !$omp critical
+          call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
           call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
           ! direction return (1)
           call send_cell(cell,1,irequestsend,xsendbuf)
