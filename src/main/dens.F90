@@ -1372,7 +1372,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
           iamgasi  = .true.
        else
           cycle over_parts
-      endif
+       endif
     endif
 
     cell%npcell = cell%npcell + 1
