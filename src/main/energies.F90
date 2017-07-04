@@ -561,8 +561,8 @@ subroutine compute_energies(t)
     if (np_rho(idarkmatter) > 0) ev_data(iev_ave,iev_rhop(5)) = ev_data(iev_ave,iev_rhop(5))*real(npgas)/real(np_rho(idarkmatter))
     if (np_rho(ibulge)      > 0) ev_data(iev_ave,iev_rhop(6)) = ev_data(iev_ave,iev_rhop(6))*real(npgas)/real(np_rho(ibulge))
  endif
- ev_data(iev_sum,iev_vrms   ) = ev_data(iev_sum,iev_vrms   )*dnptot
- ev_data(iev_sum,iev_rmsmach) = ev_data(iev_sum,iev_rmsmach)*dnpgas
+ ev_data(iev_sum,iev_vrms   ) = sqrt(ev_data(iev_sum,iev_vrms   )*dnptot)
+ ev_data(iev_sum,iev_rmsmach) = sqrt(ev_data(iev_sum,iev_rmsmach)*dnpgas)
  vrms    = ev_data(iev_sum,iev_vrms)
  rmsmach = ev_data(iev_sum,iev_rmsmach)
 
