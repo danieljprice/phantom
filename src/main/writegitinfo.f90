@@ -29,7 +29,8 @@ module writegitinfo
 contains
 !--------------------------------------------------------------------------
 subroutine write_gitinfo(iunit)
- use io, only: igit
+ use dim, only: use_debug
+ use io,  only: igit
  integer, intent(in) :: iunit
  integer             :: i,j,k,io_local,lfile
  integer, parameter  :: nfiles = 34
@@ -47,6 +48,7 @@ subroutine write_gitinfo(iunit)
     do i = 1,4
        read(igit,'(a)') gitinfo
        write(iunit,'(4x,a)') trim(gitinfo)
+       if (use_debug .and. i==2) write(iunit,'(4x,a)') "Phantom was compiled with DEBUG=YES"
     enddo
     read(igit,'(a)',iostat=io_local) gitinfo
     if (io_local==0) write(iunit,'(4x,a)') trim(gitinfo)

@@ -1499,6 +1499,10 @@ ifeq ($(STS_TIMESTEPS), yes)
     FPPFLAGS += -DSTS_TIMESTEPS
 endif
 
+ifeq ($(DEBUG), yes)
+    FFLAGS += -DDEBUG
+endif
+
 ifdef SRCTURB
     FPPFLAGS += -DDRIVING
 endif
