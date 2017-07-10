@@ -17,7 +17,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io
+!  DEPENDENCIES: dim, io
 !+
 !--------------------------------------------------------------------------
 module writegitinfo
