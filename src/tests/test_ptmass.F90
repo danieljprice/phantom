@@ -271,7 +271,7 @@ subroutine test_ptmass(ntests,npass)
           call checkval(etotin+errmax,etotin,1.2e-2,nfailed(1),'total energy')
        case(2)
           call checkval(angtot,angmomin,3.e-7,nfailed(3),'angular momentum')
-          call checkval(totmom,totmomin,3.e-14,nfailed(2),'linear momentum')
+          call checkval(totmom,totmomin,5.e-14,nfailed(2),'linear momentum')
           tolen = 2.e-3
           if (gravity) tolen = 3.1e-3
           call checkval(etotin+errmax,etotin,tolen,nfailed(1),'total energy')
@@ -419,7 +419,7 @@ subroutine test_ptmass(ntests,npass)
     do i=1,npart
        call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                            vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
-                           igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
+                           igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
                            accreted,dptmass_thread,t,1.0)
 
        !$omp critical(dptmassadd)

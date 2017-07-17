@@ -10,17 +10,19 @@
 !  DESCRIPTION:
 !  Calculates conserved quantities etc and writes to .ev file;
 !  Also writes log output
-!  To Developer: Adding values to the .ev file is a two step process.
+!  To Developer: To add values to the .ev file, follow the following procedure.
 !     In the init_evfile subroutine in evwrite.F90, add the following command:
-!        call fill_ev_label(ev_fmt,ev_tag,action,i,j)
-!     and in compute_energies subroutine in energies.F90, add the following
-!     command:
-!        call ev_data_update(ev_data_thread,ev_tag,value)
+!        call fill_ev_label(ev_fmt,ev_tag_int,ev_tag_char,action,i,j)
+!     and in compute_energies subroutine in energies.F90, add the following command:
+!        call ev_data_update(ev_data_thread,ev_tag_int,value)
 !     where
 !        ev_fmt,ev_data_thread,i,j: pre-defined quantities to included verbatim
-!        ev_tag: a string to identify the quantity (e.g. 'c_s' for sound speed)
-!        ev_value: the value of the quantity for particle i (e.g., spsoundi
-!                  for sound speed)
+!        ev_tag_char: a string to identify the quantity for use in the header
+!                     (e.g. 'c_s' for sound speed)
+!        ev_tag_int:  an integer to identify the quantity (e.g. 'iev_cs' for sound speed);
+!                     this integer must be included in energies (as a public variable,
+!                     and in the openmp declarations), and passed to evwrite via use energies.
+!        ev_value: the value of the quantity for particle i (e.g., spsoundi for sound speed)
 !        action: a string identifying what action(s) you would like performed
 !                on the quantity.  The available options are
 !           0: no action taken (e.g. for time)
@@ -28,7 +30,8 @@
 !           x: print the maximum quantity
 !           a: print the average (mean) quantity
 !           n: print the minimum quantity
-!        where any or all of x,a,n can be used as a single action
+!        where any or all of x,a,n can be used as a single action.  Although 0 & s are treated
+!        the same, they are kept separate for clarity without added computational cost
 !
 !  REFERENCES: None
 !
@@ -46,14 +49,22 @@ module evwrite
  use io,             only: fatal
  use options,        only: iexternalforce
  use externalforces, only: iext_binary
- use energies,       only: inumev,ielements,iquantities,ev_tag,ev_action,ev_istart,ev_data
+ use energies,       only: inumev,iquantities,ev_data
  use energies,       only: erot_com,gas_only,track_mass,track_lum
+ use energies,       only: iev_sum,iev_max,iev_min,iev_ave
+ use energies,       only: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,&
+                           iev_angmom,iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
+                           iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah,&
+                           iev_etaa,iev_vel,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT,&
+                           iev_dtg,iev_ts,iev_momall,iev_angall,iev_angall,iev_maccsink,&
+                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat
 
  implicit none
  public                    :: init_evfile, write_evfile, write_evlog
  private                   :: fill_ev_tag, fill_ev_header
 
- integer,          private :: ievfile
+ integer,          private :: ievfile,ielements
+ integer,          private :: ev_cmd(inumev)    ! array of the actions to be taken
  character(len=19),private :: ev_label(inumev)  ! to make the header for the .ev file
 
  private
@@ -91,102 +102,102 @@ subroutine init_evfile(iunit,evfile)
  !
  i = 1
  j = 1
- call fill_ev_tag(ev_fmt,'time',     '0',  i,j)
- call fill_ev_tag(ev_fmt,'ekin',     '0',  i,j)
- call fill_ev_tag(ev_fmt,'etherm',   '0',  i,j)
- call fill_ev_tag(ev_fmt,'emag',     '0',  i,j)
- call fill_ev_tag(ev_fmt,'epot',     '0',  i,j)
- call fill_ev_tag(ev_fmt,'etot',     '0',  i,j)
- call fill_ev_tag(ev_fmt,'totmom',   '0',  i,j)
- call fill_ev_tag(ev_fmt,'angtot',   '0',  i,j)
- call fill_ev_tag(ev_fmt,'rho',      'xa', i,j)
- call fill_ev_tag(ev_fmt,'dt',       '0',  i,j)
- call fill_ev_tag(ev_fmt,'totentrop','s',  i,j)
- call fill_ev_tag(ev_fmt,'rmsmach',  's',  i,j)
- call fill_ev_tag(ev_fmt,'vrms',     's',  i,j)
+ call fill_ev_tag(ev_fmt,iev_time,   'time',     '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_ekin,   'ekin',     '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_etherm, 'etherm',   '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_emag,   'emag',     '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_epot,   'epot',     '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_etot,   'etot',     '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_totmom, 'totmom',   '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_angmom, 'angtot',   '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_rho,    'rho',      'xa',i,j)
+ call fill_ev_tag(ev_fmt,iev_dt,     'dt',       '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_entrop, 'totentrop','s', i,j)
+ call fill_ev_tag(ev_fmt,iev_rmsmach,'rmsmach',  's', i,j)
+ call fill_ev_tag(ev_fmt,iev_vrms,   'vrms',     's', i,j)
  if (.not. gas_only) then
-    if (npartoftype(igas)        > 0) call fill_ev_tag(ev_fmt,'rho gas', 'xa', i,j)
-    if (npartoftype(idust)       > 0) call fill_ev_tag(ev_fmt,'rho dust','xa', i,j)
-    if (npartoftype(iboundary)   > 0) call fill_ev_tag(ev_fmt,'rho bdy', 'xa', i,j)
-    if (npartoftype(istar)       > 0) call fill_ev_tag(ev_fmt,'rho star','xa', i,j)
-    if (npartoftype(idarkmatter) > 0) call fill_ev_tag(ev_fmt,'rho dm',  'xa', i,j)
-    if (npartoftype(ibulge)      > 0) call fill_ev_tag(ev_fmt,'rho blg', 'xa', i,j)
+    if (npartoftype(igas)        > 0) call fill_ev_tag(ev_fmt,iev_rhop(1),'rho gas', 'xa',i,j)
+    if (npartoftype(idust)       > 0) call fill_ev_tag(ev_fmt,iev_rhop(2),'rho dust','xa',i,j)
+    if (npartoftype(iboundary)   > 0) call fill_ev_tag(ev_fmt,iev_rhop(3),'rho bdy', 'xa',i,j)
+    if (npartoftype(istar)       > 0) call fill_ev_tag(ev_fmt,iev_rhop(4),'rho star','xa',i,j)
+    if (npartoftype(idarkmatter) > 0) call fill_ev_tag(ev_fmt,iev_rhop(5),'rho dm',  'xa',i,j)
+    if (npartoftype(ibulge)      > 0) call fill_ev_tag(ev_fmt,iev_rhop(6),'rho blg', 'xa',i,j)
  endif
- if (maxalpha==maxp)                  call fill_ev_tag(ev_fmt,'alpha',   'x',  i,j)
+ if (maxalpha==maxp)                  call fill_ev_tag(ev_fmt,iev_alpha,  'alpha',   'x' ,i,j)
  if ( mhd ) then
-    call fill_ev_tag(ev_fmt,      'divB',     'xa', i,j)
-    call fill_ev_tag(ev_fmt,      'hdivB/B',  'xa', i,j)
-    call fill_ev_tag(ev_fmt,      'beta',     'xan',i,j)
+    call fill_ev_tag(ev_fmt,      iev_divB,   'divB',   'xa' ,i,j)
+    call fill_ev_tag(ev_fmt,      iev_hdivB,  'hdivB/B','xa' ,i,j)
+    call fill_ev_tag(ev_fmt,      iev_beta,   'beta',   'xan',i,j)
     if (mhd_nonideal) then
-       call fill_ev_tag(ev_fmt,   'temp',     'xan',i,j)
-       call fill_ev_tag(ev_fmt,   'eta_ar',   'xan',i,j)
+       call fill_ev_tag(ev_fmt,   iev_temp,   'temp',     'xan',i,j)
+       call fill_ev_tag(ev_fmt,   iev_etaar,  'eta_ar',   'xan',i,j)
        if (use_ohm) then
-          call fill_ev_tag(ev_fmt,'eta_o',    'xan',i,j)
-          call fill_ev_tag(ev_fmt,'eta_o/art','xan',i,j)
+          call fill_ev_tag(ev_fmt,iev_etao(1),'eta_o',    'xan',i,j)
+          call fill_ev_tag(ev_fmt,iev_etao(2),'eta_o/art','xan',i,j)
        endif
        if (use_hall) then
-          call fill_ev_tag(ev_fmt,'eta_h',    'xan',i,j)
-          call fill_ev_tag(ev_fmt,'|eta_h|',  'xan',i,j)
-          call fill_ev_tag(ev_fmt,'eta_h/art','xan',i,j)
-          call fill_ev_tag(ev_fmt,'|e_h|/art','xan',i,j)
+          call fill_ev_tag(ev_fmt,iev_etah(1),'eta_h',    'xan',i,j)
+          call fill_ev_tag(ev_fmt,iev_etah(2),'|eta_h|',  'xan',i,j)
+          call fill_ev_tag(ev_fmt,iev_etah(3),'eta_h/art','xan',i,j)
+          call fill_ev_tag(ev_fmt,iev_etah(4),'|e_h|/art','xan',i,j)
        endif
        if (use_ambi) then
-          call fill_ev_tag(ev_fmt,'eta_a',    'xan',i,j)
-          call fill_ev_tag(ev_fmt,'eta_a/art','xan',i,j)
-          call fill_ev_tag(ev_fmt,'velocity', 'xan',i,j)
-          call fill_ev_tag(ev_fmt,'v_ion',    'xan',i,j)
-          call fill_ev_tag(ev_fmt,'v_drift',  'xan',i,j)
+          call fill_ev_tag(ev_fmt,iev_etaa(1),'eta_a',    'xan',i,j)
+          call fill_ev_tag(ev_fmt,iev_etaa(2),'eta_a/art','xan',i,j)
+          call fill_ev_tag(ev_fmt,iev_vel,    'velocity', 'xan',i,j)
+          call fill_ev_tag(ev_fmt,iev_vion,   'v_ion',    'xan',i,j)
+          call fill_ev_tag(ev_fmt,iev_vdrift, 'v_drift',  'xan',i,j)
        endif
-       call fill_ev_tag(ev_fmt,   'ni/n(i+n)','xan',i,j)
-       call fill_ev_tag(ev_fmt,   'ne/n(i+n)','xan',i,j)
-       call fill_ev_tag(ev_fmt,   'n_e',      'xa', i,j)
-       call fill_ev_tag(ev_fmt,   'n_n',      'xa', i,j)
+       call fill_ev_tag(ev_fmt,   iev_n(1),   'ni/n(i+n)','xan',i,j)
+       call fill_ev_tag(ev_fmt,   iev_n(2),   'ne/n(i+n)','xan',i,j)
+       call fill_ev_tag(ev_fmt,   iev_n(3),   'n_e',      'xa', i,j)
+       call fill_ev_tag(ev_fmt,   iev_n(4),   'n_n',      'xa', i,j)
        if (ion_rays) then
-          call fill_ev_tag(ev_fmt,'n_ihR',    'xa', i,j)
-          call fill_ev_tag(ev_fmt,'n_imR',    'xa', i,j)
-          call fill_ev_tag(ev_fmt,'n_g(Z=-1)','xa', i,j)
-          call fill_ev_tag(ev_fmt,'n_g(Z= 0)','xa', i,j)
-          call fill_ev_tag(ev_fmt,'n_g(Z=+1)','xa', i,j)
+          call fill_ev_tag(ev_fmt,iev_nR(1),  'n_ihR',    'xa', i,j)
+          call fill_ev_tag(ev_fmt,iev_nR(2),  'n_imR',    'xa', i,j)
+          call fill_ev_tag(ev_fmt,iev_nR(3),  'n_g(Z=-1)','xa', i,j)
+          call fill_ev_tag(ev_fmt,iev_nR(4),  'n_g(Z= 0)','xa', i,j)
+          call fill_ev_tag(ev_fmt,iev_nR(5),  'n_g(Z=+1)','xa', i,j)
        endif
        if (ion_thermal) then
-          call fill_ev_tag(ev_fmt,'n_isT',    'xa', i,j)
-          call fill_ev_tag(ev_fmt,'n_idT',    'xa', i,j)
+          call fill_ev_tag(ev_fmt,iev_nT(1),  'n_isT',    'xa', i,j)
+          call fill_ev_tag(ev_fmt,iev_nT(2),  'n_idT',    'xa', i,j)
        endif
     endif
  endif
  if (use_dustfrac) then
-    call fill_ev_tag(ev_fmt,   'dust/gas',    'xan',i,j)
-    call fill_ev_tag(ev_fmt,   't_s',         'mn', i,j)
+    call fill_ev_tag(ev_fmt,   iev_dtg,'dust/gas',     'xan',i,j)
+    call fill_ev_tag(ev_fmt,   iev_ts, 't_s',          'mn', i,j)
  endif
  if (iexternalforce > 0) then
-    call fill_ev_tag(ev_fmt,   'totmomall',   '0',  i,j)
-    call fill_ev_tag(ev_fmt,   'angall',      '0',  i,j)
+    call fill_ev_tag(ev_fmt,   iev_momall,'totmomall',   '0',i,j)
+    call fill_ev_tag(ev_fmt,   iev_angall,'angall',      '0',i,j)
     if (iexternalforce==iext_binary) then
-       call fill_ev_tag(ev_fmt,'Macc sink 1', '0',  i,j)
-       call fill_ev_tag(ev_fmt,'Macc sink 2', '0',  i,j)
+       call fill_ev_tag(ev_fmt,iev_maccsink(1),'Macc sink 1', '0',i,j)
+       call fill_ev_tag(ev_fmt,iev_maccsink(2),'Macc sink 2', '0',i,j)
     endif
  endif
  if (iexternalforce>0 .or. nptmass > 0 .or. icreate_sinks > 0) then
-    call fill_ev_tag(ev_fmt,'accretedmas',    's',  i,j)
-    call fill_ev_tag(ev_fmt,'eacc',           '0',  i,j)
+    call fill_ev_tag(ev_fmt,iev_macc,     'accretedmas', 's',i,j)
+    call fill_ev_tag(ev_fmt,iev_eacc,     'eacc',        '0',i,j)
     track_mass     = .true.
  else
     track_mass     = .false.
  endif
  if (ishock_heating==0 .or. ipdv_heating==0 .or. lightcurve) then
-    call fill_ev_tag(ev_fmt,'tot lum', 's',  i,j)
+    call fill_ev_tag(ev_fmt,iev_totlum,'tot lum', 's',i,j)
     track_lum      = .true.
  else
     track_lum      = .false.
  endif
  if (calc_erot) then
-    call fill_ev_tag(ev_fmt,'erot',    '0',  i,j)
-    call fill_ev_tag(ev_fmt,'erot_x',  's',  i,j)
-    call fill_ev_tag(ev_fmt,'erot_y',  's',  i,j)
-    call fill_ev_tag(ev_fmt,'erot_z',  's',  i,j)
+    call fill_ev_tag(ev_fmt,iev_erot(1),'erot_x',  's',i,j)
+    call fill_ev_tag(ev_fmt,iev_erot(2),'erot_y',  's',i,j)
+    call fill_ev_tag(ev_fmt,iev_erot(3),'erot_z',  's',i,j)
+    call fill_ev_tag(ev_fmt,iev_erot(4),'erot',    '0',i,j)
  endif
  if (irealvisc /= 0) then
-    call fill_ev_tag(ev_fmt,'visc_rat','xan',i,j)
+    call fill_ev_tag(ev_fmt,iev_viscrat,'visc_rat','xan',i,j)
  endif
  iquantities = i - 1 ! The number of different quantities to analyse
  ielements   = j - 1 ! The number of values to be calculated (i.e. the number of columns in .ve)
@@ -213,24 +224,34 @@ end subroutine init_evfile
 !  tracking arrays; this includes a check to verify the actions are legal
 !+
 !----------------------------------------------------------------
-subroutine fill_ev_tag(ev_fmt,label,cmd,i,j)
+subroutine fill_ev_tag(ev_fmt,itag,label,cmd,i,j)
  integer,          intent(inout) :: i,j
+ integer,          intent(out)   :: itag
  character(len=*), intent(in)    :: ev_fmt,label,cmd
- integer                         :: ki,kj,iindex
+ integer                         :: ki,kj,iindex,joffset
 
- ! set tag
- ev_tag(i) = label
- ! set command
- ev_action(i) = cmd
- ! set first element in the ev_data array
- ev_istart(i) = j
+ ! initialise command
+ itag      = i
+ joffset   = 1
+ ev_cmd(i) = 0
  !
- ! make the headers
- if (index(cmd,'0') > 0) call fill_ev_header(ev_fmt,label,'0',j,index(cmd,'0'))
- if (index(cmd,'s') > 0) call fill_ev_header(ev_fmt,label,'s',j,index(cmd,'s'))
- if (index(cmd,'x') > 0) call fill_ev_header(ev_fmt,label,'x',j,index(cmd,'x'))
- if (index(cmd,'a') > 0) call fill_ev_header(ev_fmt,label,'a',j,index(cmd,'a'))
- if (index(cmd,'n') > 0) call fill_ev_header(ev_fmt,label,'n',j,index(cmd,'n'))
+ ! make the headers & set ev_cmd
+ if (index(cmd,'0') > 0) call fill_ev_header(ev_fmt,label,'0',j,joffset)
+ if (index(cmd,'s') > 0) call fill_ev_header(ev_fmt,label,'s',j,joffset)
+ if (index(cmd,'x') > 0) then
+    call fill_ev_header(ev_fmt,label,'x',j,joffset)
+    ev_cmd(i) = ev_cmd(i) + 1
+    joffset   = joffset   + 1
+ endif
+ if (index(cmd,'a') > 0) then
+    call fill_ev_header(ev_fmt,label,'a',j,joffset)
+    ev_cmd(i) = ev_cmd(i) + 2
+    joffset   = joffset   + 1
+ endif
+ if (index(cmd,'n') > 0) then
+    call fill_ev_header(ev_fmt,label,'n',j,joffset)
+    ev_cmd(i) = ev_cmd(i) + 5
+ endif
  i = i + 1
  j = j + len(trim(cmd))
  !
@@ -301,24 +322,50 @@ subroutine write_evfile(t,dt)
  use io,            only:id,master
  use options,       only:iexternalforce
  use extern_binary, only:accretedmass1,accretedmass2
- real, intent(in)  :: t, dt
+ real, intent(in)  :: t,dt
+ integer           :: i,j
+ real              :: ev_data_out(ielements)
  character(len=35) :: ev_format
 
  call compute_energies(t)
 
  if (id==master) then
-    !
     !--fill in additional details that are not calculated in energies.f
-    call ev_data_update(ev_data,'dt',dt)
+    ev_data(iev_sum,iev_dt) = dt
     if (iexternalforce==iext_binary) then
-       call ev_data_update(ev_data,'Macc sink 1',accretedmass1)
-       call ev_data_update(ev_data,'Macc sink 2',accretedmass2)
+       ev_data(iev_sum,iev_maccsink(1)) = accretedmass1
+       ev_data(iev_sum,iev_maccsink(2)) = accretedmass2
     endif
+    ! Fill in the data_out array
+    j = 1
+    do i = 1,iquantities
+       if (ev_cmd(i)==0) then
+          ! include the total value
+          ev_data_out(j) = ev_data(iev_sum,i)
+          j = j + 1
+       else
+          if (ev_cmd(i)==1 .or. ev_cmd(i)==3 .or. ev_cmd(i)==6 .or. ev_cmd(i)==8) then
+             ! include the maximum value
+             ev_data_out(j) = ev_data(iev_max,i)
+             j = j + 1
+          endif
+          if (ev_cmd(i)==2 .or. ev_cmd(i)==3 .or. ev_cmd(i)==7 .or. ev_cmd(i)==8) then
+             ! include the average value
+             ev_data_out(j) = ev_data(iev_ave,i)
+             j = j + 1
+          endif
+          if (ev_cmd(i)==5 .or. ev_cmd(i)==6 .or. ev_cmd(i)==7 .or. ev_cmd(i)==8) then
+             ! include the minimum value
+             ev_data_out(j) = ev_data(iev_min,i)
+             j = j + 1
+          endif
+       endif
+    enddo
     !
     !--write line to .ev file (should correspond to header, below)
     !
     write(ev_format,'(a,I3,a)')"(",ielements,"(1pe18.10,1x))"
-    write(ievfile,ev_format) ev_data(1:ielements)
+    write(ievfile,ev_format) ev_data_out
     call flush(ievfile)
  endif
 
@@ -334,7 +381,6 @@ end subroutine write_evfile
 subroutine write_evlog(iprint)
  use dim,       only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,use_dustfrac
  use energies,  only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas
- use energies,  only:ev_get_value
  use viscosity, only:irealvisc,shearparam
  use boundary,  only:dxbound,dybound,dzbound
  use units,     only:unit_density
@@ -344,23 +390,23 @@ subroutine write_evlog(iprint)
  write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") &
       'tot',etot,'kin',ekin,'therm',etherm,'pot',epot
  if (mhd)        write(iprint,"(1x,('E',a,'=',es10.3))") 'mag',emag
- if (track_mass) write(iprint,"(1x,('E',a,'=',es10.3))") 'acc',ev_get_value('eacc')
+ if (track_mass) write(iprint,"(1x,('E',a,'=',es10.3))") 'acc',ev_data(iev_sum,iev_eacc)
  write(iprint,"(1x,1(a,'=',es10.3,', '),(a,'=',es10.3))") &
-      'Linm',ev_get_value('totmom'),'Angm',ev_get_value('angtot')
+      'Linm',ev_data(iev_sum,iev_totmom),'Angm',ev_data(iev_sum,iev_angmom)
  if (iexternalforce > 0) then
-    if (abs(ev_get_value('angall')-ev_get_value('angtot')) > tiny(0.)) then
+    if (abs(ev_data(iev_sum,iev_angall)-ev_data(iev_sum,iev_angmom)) > tiny(0.)) then
        write(iprint,"(1x,1(a,'=',es10.3,', '),(a,'=',es10.3),a)") &
-       'Linm',ev_get_value('totmomall'),'Angm',ev_get_value('angall'),' [including accreted particles]'
+       'Linm',ev_data(iev_sum,iev_momall),'Angm',ev_data(iev_sum,iev_angall),' [including accreted particles]'
     endif
  endif
 
  write(iprint,"(1x,a,'(max)=',es10.3,' (mean)=',es10.3,' (max)=',es10.3,a)") &
-      'density  ',ev_get_value('rho','x'),ev_get_value('rho','a'),ev_get_value('rho','x')*unit_density,' g/cm^3'
+      'density  ',ev_data(iev_max,iev_rho),ev_data(iev_ave,iev_rho),ev_data(iev_max,iev_rho)*unit_density,' g/cm^3'
 
  if (use_dustfrac) then
     write(iprint,"(1x,a,'(max)=',es10.3,1x,'(mean)=',es10.3,1x,'(min)=',es10.3)") &
-         'dust2gas ',ev_get_value('dust/gas','x'),ev_get_value('dust/gas','n')
-    write(iprint,"(3x,a,'(mean)=',es10.3,1x,'(min)=',es10.3)") 't_stop ',ev_get_value('t_s','a'),ev_get_value('t_s','n')
+         'dust2gas ',ev_data(iev_max,iev_dtg),ev_data(iev_ave,iev_dtg)
+    write(iprint,"(3x,a,'(mean)=',es10.3,1x,'(min)=',es10.3)") 't_stop ',ev_data(iev_ave,iev_ts),ev_data(iev_min,iev_ts)
     write(iprint,"(1x,'Mgas = ',es10.3,', Mdust = ',es10.3)") mgas,mdust
  endif
 
@@ -368,7 +414,7 @@ subroutine write_evlog(iprint)
 
  string = ''
  if (maxalpha==maxp) then
-    write(string,"(a,'(max)=',es10.3)") ' alpha',ev_get_value('alpha','x')
+    write(string,"(a,'(max)=',es10.3)") ' alpha',ev_data(iev_max,iev_alpha)
  endif
  if (len_trim(string) > 0) write(iprint,"(a)") trim(string)
 
@@ -380,7 +426,7 @@ subroutine write_evlog(iprint)
        endif
     endif
     write(iprint,"(1x,1(a,'(max)=',es10.3,', '),('(mean)=',es10.3),(' (min)=',es10.3))") &
-         'Ratio of physical-to-art. visc',ev_get_value('visc_rat','x'),ev_get_value('visc_rat','n')
+         'Ratio of physical-to-art. visc',ev_data(iev_max,iev_viscrat),ev_data(iev_min,iev_viscrat)
  else
     write(iprint,"(1x,1(a,'=',es10.3))") &
         'RMS Mach #',rmsmach
@@ -388,9 +434,9 @@ subroutine write_evlog(iprint)
 
  if (mhd) then
     write(iprint,"(1x,1(a,'(max)=',es10.3,', '),(a,'(mean)=',es10.3))") &
-      'div B ',ev_get_value('divB','x'),'div B ',ev_get_value('divB','a')
+      'div B ',ev_data(iev_max,iev_divB),'div B ',ev_data(iev_ave,iev_divB)
     write(iprint,"(1x,1(a,'(max)=',es10.3,', '),(a,'(mean)=',es10.3))") &
-      'h|div B|/B ',ev_get_value('hdivB/B','x'),'h|div B|/B ',ev_get_value('hdivB/B','a')
+      'h|div B|/B ',ev_data(iev_max,iev_hdivB),'h|div B|/B ',ev_data(iev_ave,iev_hdivB)
  endif
  write(iprint,"(/)")
 
