@@ -1365,8 +1365,14 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
     if (.not.iactivei) then ! handles case where first particle in cell is inactive
        cycle over_parts
     endif
-    if (iamtypei==iboundary) then ! do not compute forces on boundary parts
-       cycle over_parts
+    if (iamtypei==iboundary) then
+       if (set_boundaries_to_active) then
+          iactivei = .true.
+          iamtypei = igas
+          iamgasi  = .true.
+       else
+          cycle over_parts
+       endif
     endif
 
     cell%npcell = cell%npcell + 1

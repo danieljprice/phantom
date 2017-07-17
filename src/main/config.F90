@@ -145,6 +145,12 @@ module dim
  logical, parameter :: periodic = .false.
 #endif
 
+ ! Debugging flag (for header only)
+#ifdef DEBUG
+ logical, parameter :: use_debug = .true.
+#else
+ logical, parameter :: use_debug = .false.
+#endif
  !
  ! Maximum number of particle types
  !
