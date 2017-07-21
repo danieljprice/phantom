@@ -127,12 +127,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use linklist,     only:ncells,ifirstincell,get_neighbour_list,get_hmaxcell,get_cell_location
  use options,      only:iresistive_heating
  use part,         only:rhoh,dhdrho,rhoanddhdrho,massoftype,&
-                        alphaind,abundance,nabundances,&
+                        alphaind,nabundances,&
                         ll,get_partinfo,iactive,gradh,&
                         hrho,iphase,maxphase,igas,iboundary,maxgradh,straintensor, &
                         n_R,n_electronT,deltav,&
                         poten
- use timestep,     only:dtcourant,dtforce,bignumber
+ use timestep,     only:dtcourant,dtforce,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
                         iosumdtf,iosumdtd,iosumdtv,iosumdtc,iosumdto,iosumdth,iosumdta, &
                         iosumdgs,iosumdge,iosumdgr,iosumdtfng,iosumdtdd,iosumdte
@@ -143,15 +143,13 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use viscosity,    only:irealvisc,shearfunc,dt_viscosity
 #ifdef IND_TIMESTEPS
  use timestep_ind, only:nbinmax,ibinnow,get_newbin
- use timestep_sts, only:nbinmaxsts,sts_modify_ibin,sts_it_n
+ use timestep_sts, only:use_sts,nbinmaxsts,sts_modify_ibin,ibinsts
  use part,         only:ibin,ibinsink
- use timestep_sts, only:ibinsts
- use timestep,     only:nsteps,time,dtmax
+ use timestep,     only:nsteps,time
 #else
  use timestep,     only:C_cour,C_force
 #endif
  use part,         only:divBsymm,isdead_or_accreted,h2chemistry,ngradh,gravity,ibin_wake
- use timestep_sts, only:use_sts
  use mpiutils,     only:reduce_mpi,reduceall_mpi
  use cooling,      only:energ_cooling
  use chem,         only:energ_h2cooling
@@ -371,7 +369,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp reduction(max:dtfrcfacmax,dtfrcngfacmax,dtdragfacmax,dtdragdfacmax,dtcoolfacmax,dtviscfacmax) &
 !$omp reduction(max:nbinmaxnew,nbinmaxstsnew) &
 #endif
-!$omp reduction(min:dtohm,dthall,dtambi) &
+!$omp reduction(min:dtohm,dthall,dtambi,dtdiff) &
 !$omp reduction(min:dtcourant,dtforce,dtvisc) &
 !$omp reduction(max:dtmaxi) &
 !$omp reduction(min:dtmini) &
@@ -433,7 +431,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #endif
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,straintensor,&
                              divBsymm,divcurlv,dBevol,ddustfrac,deltav, &
-                             dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtmini,dtmaxi, &
+                             dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                              nbinmaxnew,nbinmaxstsnew,ncheckbin, &
                              ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd, &
@@ -767,7 +765,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:mhd,maxvxyzu,maxBevol,maxstrain
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,use_dustfrac
  use part,        only:rhoh,maxgradh,straintensor
- use eos,         only:ieos,get_temperature_from_ponrho
+ use eos,         only:get_temperature_from_ponrho
  use nicil,       only:nicil_get_eta,nimhd_get_jcbcb,nimhd_get_dBdt
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
@@ -1870,7 +1868,10 @@ end subroutine start_cell
 subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                         iphase,divcurlv,divcurlB,alphaind,n_R,n_electronT, &
                         dustfrac,gradh,ibin_wake,stressmax,xyzcache)
- use io,          only:id,error
+ use io,          only:error
+#ifdef MPI
+ use io,          only:id
+#endif
  use dim,         only:maxvxyzu
  use options,     only:beta,alphau,alphaB,iresistive_heating
  use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,massoftype
@@ -1988,7 +1989,7 @@ end subroutine compute_cell
 
 subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,straintensor,&
                                          divBsymm,divcurlv,dBevol,ddustfrac,deltav, &
-                                         dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtmini,dtmaxi, &
+                                         dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                                          nbinmaxnew,nbinmaxstsnew,ncheckbin, &
                                          ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd, &
@@ -2012,6 +2013,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 #ifdef IND_TIMESTEPS
  use part,           only:ibin,ibinsink
  use timestep_ind,   only:get_newbin
+ use timestep_sts,   only:sts_it_n,ibinsts
 #endif
  use viscosity,      only:bulkvisc,dt_viscosity,irealvisc,shearfunc
  use kernel,         only:kernel_softening
@@ -2021,7 +2023,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
  use cooling,        only:energ_cooling
  use chem,           only:energ_h2cooling
  use timestep,       only:C_cour,C_cool,C_force,bignumber,dtmax
- use timestep_sts,   only:use_sts,sts_it_n,ibinsts
+ use timestep_sts,   only:use_sts
 #ifdef LIGHTCURVE
  use part,           only:luminosity
 #endif
@@ -2040,8 +2042,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
  real,               intent(out)   :: ddustfrac(:)
  real,               intent(out)   :: deltav(:,:)
 
- real,               intent(inout) :: dtcourant,dtforce,dtvisc,dtohm
- real,               intent(inout) :: dthall,dtambi,dtmini,dtmaxi
+ real,               intent(inout) :: dtcourant,dtforce,dtvisc
+ real,               intent(inout) :: dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi
 #ifdef IND_TIMESTEPS
  integer,            intent(inout) :: nbinmaxnew,nbinmaxstsnew,ncheckbin
  integer,            intent(inout) :: ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd
@@ -2060,23 +2062,25 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
  real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,vcleani
  real    :: ponrhoi,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
  real    :: psii,dtau,dustresfacmean,dustresfacmax
- real    :: eni,dudt_radi,dudtnonideal
+ real    :: eni,dudtnonideal
  real    :: tstop,dustfraci,dtdustdenom
  real    :: etaambii,etahalli,etaohmi
  real    :: vsigmax,vwavei,fxyz4
+#ifdef LIGHTCURVE
+ real    :: dudt_radi
+#endif
 #ifdef GRAVITY
  real    :: potensoft0,dum,dx,dy,dz,fxi,fyi,fzi,poti,epoti
 #endif
- real    :: vsigdtc,dtc,dtf,dti,dtcool,dtdiffi,dtdiff
+ real    :: vsigdtc,dtc,dtf,dti,dtcool,dtdiffi
  real    :: dtohmi,dtambii,dthalli,dtvisci,dtdrag,dtdusti,dtclean
- character(len=16) :: dtchar
 
- integer  :: idudtcool,ichem,ndustres,iamtypei
- logical  :: iactivei,iamgasi,iamdusti,realviscosity
+ integer :: idudtcool,ichem,ndustres,iamtypei
+ logical :: iactivei,iamgasi,iamdusti,realviscosity
 
 #ifdef IND_TIMESTEPS
- integer(kind=1)       :: ibinnow_m1
  logical               :: allow_decrease,dtcheck
+ character(len=16)     :: dtchar
 #endif
 
  integer               :: ip,i

@@ -496,7 +496,7 @@ endif
 
 ifeq ($(SETUP), wavedamp)
 #   Wave dampening test as per Choi et al (2009)
-    FPPFLAGS= -DPERIODIC -DCONST_ARTRES
+    FPPFLAGS= -DPERIODIC
     SETUPFILE= setup_wavedamp.f90
     ISOTHERMAL=yes
     NONIDEALMHD=yes
@@ -805,14 +805,14 @@ ifeq ($(SETUP), testdust)
 endif
 
 ifeq ($(SETUP), testnimhd)
-#   non-ideal MHD (+ boundary particle) unit tests
+#   non-ideal MHD (+ boundary particle + super-timestepping) unit tests
     PERIODIC=yes
     ISOTHERMAL=yes
     NONIDEALMHD=yes
     MHD=yes
     KERNEL=WendlandC4
     IND_TIMESTEPS=no
-    STS_TIMESTEPS=no
+    STS_TIMESTEPS=yes
     KNOWN_SETUP=yes
 endif
 
