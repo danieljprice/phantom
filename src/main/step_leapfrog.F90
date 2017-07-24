@@ -512,20 +512,38 @@ subroutine step_extern_gr(dt,npart,xyzh,vxyzu,dens,pxyzu)
  real,    intent(inout) :: xyzh(:,:),dens(:)
  real,    intent(in)    :: pxyzu(:,:)
  real,    intent(out)   :: vxyzu(:,:)
- integer :: i, ierr
+ integer, parameter :: nitermax = 100
+ real,    parameter ::     xtol = 1.e-5
+ integer :: i,ierr,niter
+ real    :: xpred(1:3),vold(1:3),diff
+ logical :: converged
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,dens,dt) &
  !$omp shared(pxyzu,ierr) &
- !$omp private(i)
+ !$omp private(i,niter,diff,xpred,vold,converged)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call conservative2primitive_combined(xyzh(1:3,i),pxyzu(1:3,i),vxyzu(1:3,i),dens(i),ierr)
+       call conservative2primitive_combined(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
+
+       !
        ! main position update
        !
-       xyzh(1,i) = xyzh(1,i) + dt*vxyzu(1,i)
-       xyzh(2,i) = xyzh(2,i) + dt*vxyzu(2,i)
-       xyzh(3,i) = xyzh(3,i) + dt*vxyzu(3,i)
+
+       xpred = xyzh(1:3,i) + dt*vxyzu(1:3,i)
+       vold  = vxyzu(1:3,i)
+
+       converged = .false.
+       niter = 0
+       do while (.not. converged .and. niter<=nitermax)
+          niter = niter + 1
+          call conservative2primitive_combined(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
+          xyzh(1:3,i) = xpred + 0.5*dt*(vxyzu(1:3,i)-vold)
+          diff = maxval(abs(xyzh(1:3,i)-xpred))
+          if (diff < xtol) converged = .true.
+       enddo
+       if (niter > nitermax) print*,'Warning! Not converged. Reached max number of x iterations.'
+
     endif
  enddo
  !$omp end parallel do
