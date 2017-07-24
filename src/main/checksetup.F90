@@ -404,6 +404,14 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  real :: dx(3)
  real :: r
 
+#ifdef GR
+ if (nptmass > 0) then
+    print*,' Error in setup: nptmass = ',nptmass, ' should be = 0 for GR'
+    nerror = nerror + 1
+    return
+ endif
+#endif
+
  if (nptmass < 0) then
     print*,' Error in setup: nptmass = ',nptmass, ' should be >= 0 '
     nerror = nerror + 1
