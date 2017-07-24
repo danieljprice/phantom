@@ -172,7 +172,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! accretion onto sinks/potentials also happens during substepping
 !----------------------------------------------------------------------
 #ifdef GR
- call step_extern_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu)
+ if (.false.) then
+    call stepgr_extern()
+ else
+    call stepgr_extern_sph(dtsph,npart,xyzh,vxyzu,dens,pxyzu)
+ endif
+
 #else
  if (nptmass > 0 .or. iexternalforce > 0 .or. (h2chemistry .and. icooling > 0) .or. damp > 0.) then
     call step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,t,damp,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
@@ -504,7 +509,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 end subroutine step
 
 #ifdef GR
-subroutine step_extern_gr(dt,npart,xyzh,vxyzu,dens,pxyzu)
+subroutine stepgr_extern_sph(dt,npart,xyzh,vxyzu,dens,pxyzu)
  use part, only:isdead_or_accreted
  use cons2prim, only: conservative2primitive_combined
  real,    intent(in)    :: dt
@@ -548,9 +553,9 @@ subroutine step_extern_gr(dt,npart,xyzh,vxyzu,dens,pxyzu)
  enddo
  !$omp end parallel do
 
-end subroutine step_extern_gr
+end subroutine stepgr_extern_sph
 
-! subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fext,time,damp,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
+subroutine stepgr_extern()!(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fext,time,damp,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
 !  use dim,            only:maxptmass,maxp,maxvxyzu
 !  use io,             only:iverbose,id,master,iprint,warning
 !  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
@@ -888,7 +893,7 @@ end subroutine step_extern_gr
 !     endif
 !  endif
 !
-! end subroutine step_extern_gr
+end subroutine stepgr_extern
 
 #endif
 !----------------------------------------------------------------
