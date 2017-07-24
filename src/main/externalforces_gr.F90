@@ -157,13 +157,21 @@ end function is_velocity_dependent
 !  This routine returns an explicit evaluation
 !+
 !-----------------------------------------------------------------------
-subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti)
+subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui)
+ use extern_gr, only:get_gr_force
+ use eos,       only:equationofstate,ieos
  integer, intent(in)  :: iexternalforce
  real,    intent(in)  :: xyzi(3),veli(3)
  real,    intent(out) :: fexti(3)
  real,    intent(inout) :: poti
+ real,    intent(in), optional :: densi,ui
+ real :: pi,pondensi,spsoundi
 
- fexti(:) = 0.
+ if (.not. present(densi) .or. .not. present(ui)) STOP 'update_vdependent_extforce_leapfrog, densi and ui not present'
+ call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
+ pi = pondensi*densi
+
+ call get_gr_force(xyzi,veli,densi,ui,pi,fexti)
 
 end subroutine externalforce_vdependent
 
@@ -175,14 +183,22 @@ end subroutine externalforce_vdependent
 !+
 !-----------------------------------------------------------------------
 subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
-           vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi)
+           vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui)
+ use extern_gr, only:update_grforce_leapfrog
+ use eos,       only:equationofstate,ieos
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: dt,xi,yi,zi
  real,    intent(in)    :: vhalfx,vhalfy,vhalfz
  real,    intent(inout) :: fxi,fyi,fzi
  real,    intent(out)   :: fexti(3)
+ real,    intent(in), optional    :: densi,ui
+ real :: pi,pondensi,spsoundi
 
-!    call update_coriolis_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt)
+ if (.not. present(densi) .or. .not. present(ui)) STOP 'update_vdependent_extforce_leapfrog, densi and ui not present'
+ call equationofstate(ieos,pondensi,spsoundi,densi,xi,yi,zi,ui)
+ pi = pondensi*densi
+
+ call update_grforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui,pi)
 
 end subroutine update_vdependent_extforce_leapfrog
 

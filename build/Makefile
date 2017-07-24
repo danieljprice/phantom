@@ -1693,7 +1693,7 @@ else
 endif
 endif
    SRCGR= inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 cons2prim_gr.f90 cons2prim.f90
-   SRCPOT=externalforces_gr.F90
+   SRCPOT=force_gr.f90 extern_gr.f90 externalforces_gr.F90
    SRCEVW=evwrite_gr.F90
    SRCTEST1 = $(SRCTESTS:test_externf.f90=test_externf_gr.f90)
    SRCTEST2 = $(SRCTEST1:test_gnewton.F90=)
@@ -1770,7 +1770,7 @@ edit: checksetup
 SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 \
          utils_dumpfiles.f90 utils_mathfunc.f90 utils_infiles.f90 utils_vectors.f90 \
          utils_datafiles.f90 datafiles.f90 part.F90 utils_sphNG.f90 \
-         commons.f90 ${SRCFASTMATH} ${SRCEOS} centreofmass.f90 ${SRCPOT} checkoptions.F90 \
+         commons.f90 ${SRCFASTMATH} ${SRCEOS} centreofmass.f90 ${SRCGR} ${SRCPOT} checkoptions.F90 \
          viscosity.f90 options.f90 ${SRCDUST} \
          readwrite_dumps.F90
 OBJDUMP1= $(SRCDUMP:.f90=.o)

@@ -460,7 +460,7 @@ end function is_velocity_dependent
 !  This routine returns an explicit evaluation
 !+
 !-----------------------------------------------------------------------
-subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti)
+subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui)
  use extern_corotate,      only:get_coriolis_force
  use extern_prdrag,        only:get_prdrag_vdependent_force
  use extern_lensethirring, only:get_lense_thirring_force
@@ -469,6 +469,7 @@ subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti)
  real,    intent(in)  :: xyzi(3),veli(3)
  real,    intent(out) :: fexti(3)
  real,    intent(inout) :: poti
+ real,    intent(in), optional :: densi,ui ! Needed for compatibility with gr
 
  select case(iexternalforce)
  case(iext_corotate)
@@ -493,7 +494,7 @@ end subroutine externalforce_vdependent
 !+
 !-----------------------------------------------------------------------
 subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
-           vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi)
+           vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui)
  use extern_corotate,      only:update_coriolis_leapfrog
  use extern_prdrag,        only:update_prdrag_leapfrog
  use extern_lensethirring, only:update_ltforce_leapfrog
@@ -503,6 +504,7 @@ subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
  real,    intent(in)    :: vhalfx,vhalfy,vhalfz
  real,    intent(inout) :: fxi,fyi,fzi
  real,    intent(out)   :: fexti(3)
+ real,    intent(in), optional :: densi,ui ! Needed for compatibility with gr
 
  select case(iexternalforce)
  case(iext_corotate)
