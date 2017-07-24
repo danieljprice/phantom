@@ -158,7 +158,7 @@ end function is_velocity_dependent
 !+
 !-----------------------------------------------------------------------
 subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui)
- use extern_gr, only:get_gr_force
+ use extern_gr, only:get_grforce
  use eos,       only:equationofstate,ieos
  integer, intent(in)  :: iexternalforce
  real,    intent(in)  :: xyzi(3),veli(3)
@@ -171,7 +171,7 @@ subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui
  call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
  pi = pondensi*densi
 
- call get_gr_force(xyzi,veli,densi,ui,pi,fexti)
+ call get_grforce(xyzi,veli,densi,ui,pi,fexti)
 
 end subroutine externalforce_vdependent
 

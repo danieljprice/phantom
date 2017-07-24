@@ -1,7 +1,7 @@
 module extern_gr
  implicit none
 
- public :: get_gr_force, update_grforce_leapfrog
+ public :: get_grforce, update_grforce_leapfrog
 
  private
 
@@ -9,11 +9,12 @@ contains
 
 !---------------------------------------------------------------
 !+
-!  subroutine to compute the force due to spacetime curvature
+!  Wrapper subroutine for computing the force due to spacetime curvature
+!  (This may be useful in the future if there is something that indicates
+!   whether a particle is gas or test particle.)
 !+
 !---------------------------------------------------------------
-subroutine get_gr_force(xyzi,veli,densi,ui,pi,fexti)
- use force_gr, only:get_forcegr
+subroutine get_grforce(xyzi,veli,densi,ui,pi,fexti)
  real, intent(in)  :: xyzi(3),veli(3),densi,ui,pi
  real, intent(out) :: fexti(3)
  logical :: its_a_testparticle
@@ -22,10 +23,73 @@ subroutine get_gr_force(xyzi,veli,densi,ui,pi,fexti)
  if (its_a_testparticle) then
     call get_sourceterms(xyzi,veli,fexti)
  else
-    call get_forcegr(xyzi,veli,densi,ui,pi,fexti)
+    call forcegr(xyzi,veli,densi,ui,pi,fexti)
  endif
 
-end subroutine get_gr_force
+end subroutine get_grforce
+
+!----------------------------------------------------------------
+!+
+!  Compute the source terms required on the right hand side of
+!  the relativistic momentum equation. These are of the form:
+!   T^\mu\nu dg_\mu\nu/dx^i
+!+
+!----------------------------------------------------------------
+subroutine forcegr(x,v,dens,u,p,fterm)
+ use metric_tools, only: get_metric, get_metric_derivs
+ use utils_gr,     only: get_u0
+ real,    intent(in)  :: x(3),v(3),dens,u,p
+ real,    intent(out) :: fterm(3)
+ real    :: gcov(0:3,0:3), gcon(0:3,0:3)
+ real    :: sqrtg
+ real    :: dgcovdx1(0:3,0:3), dgcovdx2(0:3,0:3), dgcovdx3(0:3,0:3)
+ real    :: v4(0:3), term(0:3,0:3)
+ real    :: enth, uzero
+ integer :: i,j
+
+ call get_metric(x,gcov,gcon,sqrtg)
+ call get_metric_derivs(x,dgcovdx1, dgcovdx2, dgcovdx3)
+ enth = 1. + u + p/dens
+
+ ! lower-case 4-velocity
+ v4(0) = 1.
+ v4(1:3) = v(:)
+
+ ! first component of the upper-case 4-velocity
+ call get_u0(x,v,uzero)
+
+ ! energy-momentum tensor times sqrtg on 2rho*
+ do j=0,3
+    do i=0,3
+       term(i,j) = 0.5*(enth*uzero*v4(i)*v4(j) + P*gcon(i,j)/(dens*uzero))
+    enddo
+ enddo
+
+ ! source term
+ fterm(1) = 0.
+ fterm(2) = 0.
+ fterm(3) = 0.
+ do j=0,3
+    do i=0,3
+       fterm(1) = fterm(1) + term(i,j)*dgcovdx1(i,j)
+       fterm(2) = fterm(2) + term(i,j)*dgcovdx2(i,j)
+       fterm(3) = fterm(3) + term(i,j)*dgcovdx3(i,j)
+    enddo
+ enddo
+
+end subroutine forcegr
+
+! Wrapper routine to call get_forcegr for a test particle
+subroutine get_sourceterms(x,v,fterm)
+ real, intent(in)  :: x(3),v(3)
+ real, intent(out) :: fterm(3)
+ real :: dens,u,p
+
+ P = 0.
+ u = 0.
+ dens = 1. ! this value does not matter (will cancel in the momentum equation)
+ call forcegr(x,v,dens,u,p,fterm)
+end subroutine get_sourceterms
 
 subroutine update_grforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui,pi)
  use io,             only:fatal
@@ -62,7 +126,7 @@ subroutine update_grforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,
     v1zold = v1z
     pos = (/xi,yi,zi/)
     vel = (/v1x,v1y,v1z/)
-    call get_gr_force(pos,vel,densi,ui,pi,fextv)
+    call get_grforce(pos,vel,densi,ui,pi,fextv)
 !    xi = pos(1)
 !    yi = pos(2)
 !    zi = pos(3)

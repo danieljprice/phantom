@@ -18,8 +18,8 @@ contains
 
 
 subroutine primitive_to_conservative_split(npart,xyzh,dens,v,u,P,rho,pmom,en)
- use part,         only:isdead_or_accreted
- use cons2prim_gr, only:primitive2conservative
+ use part,            only:isdead_or_accreted
+ use cons2primsolver, only:primitive2conservative
  integer, intent(in) :: npart
  real, intent(in) :: xyzh(:,:), v(:,:)
  real, intent(in) :: dens(:),u(:)
@@ -40,9 +40,9 @@ subroutine primitive_to_conservative_split(npart,xyzh,dens,v,u,P,rho,pmom,en)
 end subroutine primitive_to_conservative_split
 
 subroutine conservative_to_primitive_split(npart,xyzh,rho,pmom,en,dens,v,u,P)
- use part,         only:isdead_or_accreted
- use io,           only:fatal
- use cons2prim_gr, only:conservative2primitive
+ use part,            only:isdead_or_accreted
+ use io,              only:fatal
+ use cons2primsolver, only:conservative2primitive
  integer, intent(in) :: npart
  real, intent(in) :: pmom(:,:),xyzh(:,:)
  real, intent(in) :: rho(:),en(:)
@@ -89,8 +89,8 @@ subroutine primitive_to_conservative_combined(npart,xyzh,vxyzu,dens,pxyzu)
 end subroutine primitive_to_conservative_combined
 
 subroutine primitive2conservative_combined(xyzhi,vxyzui,densi,pxyzui)
- use utils_gr,     only:h2dens
- use cons2prim_gr, only:primitive2conservative
+ use utils_gr,        only:h2dens
+ use cons2primsolver, only:primitive2conservative
  use eos,          only:equationofstate,ieos
  real, dimension(4), intent(in)  :: xyzhi, vxyzui
  real, intent(inout)             :: densi
@@ -134,10 +134,10 @@ subroutine conservative_to_primitive_combined(npart,xyzh,pxyzu,vxyzu,dens)
 end subroutine conservative_to_primitive_combined
 
 subroutine conservative2primitive_combined(xyzhi,pxyzui,vxyzui,densi,ierr)
- use part,         only:massoftype, igas, rhoh
- use cons2prim_gr, only:conservative2primitive
- use utils_gr,     only:rho2dens
- use eos,          only:equationofstate,ieos
+ use part,            only:massoftype, igas, rhoh
+ use cons2primsolver, only:conservative2primitive
+ use utils_gr,        only:rho2dens
+ use eos,             only:equationofstate,ieos
  real,    dimension(4), intent(in)    :: xyzhi,pxyzui
  real,    dimension(4), intent(inout) :: vxyzui
  real, intent(inout)                  :: densi

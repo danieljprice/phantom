@@ -1,4 +1,4 @@
-module cons2prim_gr
+module cons2primsolver
  use eos, only: gamma
  implicit none
 
@@ -219,4 +219,4 @@ subroutine get_p_from_v(pmom,v,x)
 
 end subroutine get_p_from_v
 
-end module cons2prim_gr
+end module cons2primsolver

@@ -1692,8 +1692,8 @@ else
    SRCMETRIC= metric_schwarzschild.f90
 endif
 endif
-   SRCGR= inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 cons2prim_gr.f90 cons2prim.f90
-   SRCPOT=force_gr.f90 extern_gr.f90 externalforces_gr.F90
+   SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 cons2primsolver.f90 cons2prim.f90
+   SRCPOT=extern_gr.f90 externalforces_gr.F90
    SRCEVW=evwrite_gr.F90
    SRCTEST1 = $(SRCTESTS:test_externf.f90=test_externf_gr.f90)
    SRCTEST2 = $(SRCTEST1:test_gnewton.F90=)

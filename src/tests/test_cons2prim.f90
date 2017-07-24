@@ -3,7 +3,7 @@ module testcons2prim
 contains
 
 subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
- use cons2prim_gr, only: conservative2primitive,primitive2conservative
+ use cons2primsolver, only: conservative2primitive,primitive2conservative
  use testutils, only: checkval,checkvalbuf
  use testmetric, only: test_metric_i
  real, intent(in) :: x(1:3),v(1:3),dens,u,p
