@@ -11,16 +11,15 @@ subroutine test_gr(ntests,npass)
  use testutils,       only:checkvalbuf,checkvalbuf_end,checkval
  use testmetric,      only:test_metric_i
  use testcons2prim,   only:test_cons2prim_i
- use eos,             only:gamma
+ use eos,             only:gamma,equationofstate,ieos
  use utils_gr,        only:dot_product_gr
  use metric_tools,    only:get_metric
  use metric,          only:metric_type
- use cons2prim_gr,    only:get_u
  integer, intent(inout) :: ntests,npass
  real :: radii(5),theta(5),phi(5),vx(5),vy(5),vz(5)
- real :: pressure(4),density(4)
+ real :: utherm(4),density(4)
  real :: position(3),v(3),v4(0:3),sqrtg,gcov(0:3,0:3),gcon(0:3,0:3)
- real :: pi,ri,thetai,phii,vxi,vyi,vzi,x,y,z,p,dens,u
+ real :: pi,ri,thetai,phii,vxi,vyi,vzi,x,y,z,p,dens,u,pondens,spsound
  integer :: i,j,k,l,m,n,ii,jj,count
  integer :: ncomb_metric,npass_metric,ncomb_cons2prim,npass_cons2prim
 
@@ -47,7 +46,7 @@ subroutine test_gr(ntests,npass)
  vy = vx
  vz = vx
 
- pressure = (/0.,2.,10.,100./)
+ utherm   = (/0.,2.,10.,100./)
  density  = (/1.,2.,10.,100./)
 
  do i=1,size(radii)
@@ -78,11 +77,12 @@ subroutine test_gr(ntests,npass)
                       count = npass_metric
                       call test_metric_i(position,v,ncomb_metric,npass_metric,checkxv=.false.)
                       if (npass_metric/=count+1) print*,'Warning: Metric test failed so cons2prim may also fail...'
-                      do ii=1,size(pressure)
-                         p = pressure(ii)
+                      do ii=1,size(utherm)
+                         u = utherm(ii)
                          do jj=1,size(density)
                             dens = density(jj)
-                            call get_u(u,p,dens)
+                            call equationofstate(ieos,pondens,spsound,dens,x,y,z,u)
+                            p = pondens*dens
                             call test_cons2prim_i(position,v,dens,u,p,ncomb_cons2prim,npass_cons2prim)
                          enddo
                       enddo
