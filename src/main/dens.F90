@@ -19,9 +19,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, eos, fastmath, io, io_summary, kernel,
-!    linklist, mpidens, mpiderivs, mpiutils, nicil, options, part, stack,
-!    timestep, timing, viscosity
+!  DEPENDENCIES: boundary, dim, eos, fastmath, io, io_summary, kdtree,
+!    kernel, linklist, mpidens, mpiderivs, mpiutils, nicil, options, part,
+!    stack, timestep, timing, viscosity
 !+
 !--------------------------------------------------------------------------
 module densityforce
@@ -158,7 +158,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real,         intent(out)   :: stressmax
 
  integer, save :: listneigh(maxneigh)
- real,   save :: xyzcache(3,isizecellcache)
+ real,   save :: xyzcache(isizecellcache,3)
 !$omp threadprivate(xyzcache,listneigh)
 
  integer :: i,icell
@@ -308,7 +308,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     cell%nits                    = 0
     cell%nneigh                  = 0
     cell%remote_export(1:nprocs) = remote_export
-    call start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
+
+    call start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
 
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
     call get_hmaxcell(icell,cell%hmax)
@@ -623,9 +624,9 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,iamdusti,
     else
        if (ifilledcellcache .and. n <= isizecellcache) then
           ! positions from cache are already mod boundary
-          dx = xpartveci(ixi) - xyzcache(1,n)
-          dy = xpartveci(iyi) - xyzcache(2,n)
-          dz = xpartveci(izi) - xyzcache(3,n)
+          dx = xpartveci(ixi) - xyzcache(n,1)
+          dy = xpartveci(iyi) - xyzcache(n,2)
+          dz = xpartveci(izi) - xyzcache(n,3)
        else
           dx = xpartveci(ixi) - xyzh(1,j)
           dy = xpartveci(iyi) - xyzh(2,j)
@@ -1233,6 +1234,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  use dim,         only:maxvxyzu
  use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,set_boundaries_to_active
  use viscosity,   only:irealvisc
+ use kdtree,      only:inodeparts
 
  type(celldens),  intent(inout)  :: cell
 
@@ -1242,7 +1244,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  logical,         intent(in)     :: getdB
  real,            intent(in)     :: Bevol(:,:)
  real,            intent(in)     :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real,            intent(in)     :: xyzcache(3,isizecellcache)
+ real,            intent(in)     :: xyzcache(isizecellcache,3)
 
  real                            :: dxcache(7,isizeneighcache)
 
@@ -1260,7 +1262,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  realviscosity = (irealvisc > 0)
 
  over_parts: do i = 1,cell%npcell
-    lli = cell%ll_position(i)
+    lli = inodeparts(cell%arr_index(i))
     ! note: only active particles have been sent here
     if (maxphase==maxp) then
        call get_partinfo(cell%iphase(i),iactivei,iamdusti,iamtypei)
@@ -1325,14 +1327,13 @@ pure subroutine compute_hmax(cell,redo_neighbours)
 
 end subroutine compute_hmax
 
-subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
+subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
  use io,          only:fatal
  use dim,         only:maxp,maxvxyzu
  use part,        only:maxphase,get_partinfo,iboundary,maxBevol,mhd,igas,iamgas,set_boundaries_to_active
+ use kdtree,      only:inodeparts,inoderange
 
  type(celldens),     intent(inout) :: cell
- integer,            intent(in)    :: ifirstincell(:)
- integer,            intent(in)    :: ll(:)
  integer(kind=1),    intent(in)    :: iphase(:)
  real,               intent(in)    :: xyzh(:,:)
  real,               intent(in)    :: vxyzu(:,:)
@@ -1340,15 +1341,15 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
  real,               intent(in)    :: fext(:,:)
  real,               intent(in)    :: Bevol(:,:)
 
- integer :: i
+ integer :: i,ip
  integer :: iamtypei
  logical :: iactivei,iamgasi,iamdusti
 
- i = ifirstincell(cell%icell)
  cell%npcell = 0
- over_parts: do while(i /= 0)
+ over_parts: do ip = inoderange(1,cell%icell),inoderange(2,cell%icell)
+    i = inodeparts(ip)
+
     if (i < 0) then
-       i = ll(abs(i))
        cycle over_parts
     endif
 
@@ -1362,23 +1363,21 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
        iamgasi  = .true.
     endif
     if (.not.iactivei) then ! handles case where first particle in cell is inactive
-       i = ll(i)
        cycle over_parts
     endif
-    if (iamtypei==iboundary) then ! do not compute forces on boundary parts
+    if (iamtypei==iboundary) then
        if (set_boundaries_to_active) then
           iactivei = .true.
           iamtypei = igas
           iamgasi  = .true.
        else
-          i = ll(i)
           cycle over_parts
        endif
     endif
 
     cell%npcell = cell%npcell + 1
 
-    cell%ll_position(cell%npcell)             = i
+    cell%arr_index(cell%npcell)               = ip
     cell%iphase(cell%npcell)                  = iphase(i)
 
     cell%xpartvec(ixi,cell%npcell)            = xyzh(1,i)
@@ -1416,8 +1415,6 @@ subroutine start_cell(cell,ifirstincell,ll,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
        endif
     endif
 
-    i = ll(i)
-
  enddo over_parts
 
 end subroutine start_cell
@@ -1427,6 +1424,7 @@ subroutine finish_cell(cell,cell_converged)
  use io,       only:iprint,fatal
  use part,     only:get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,hrho
  use options,  only:tolh
+ use kdtree,   only:inodeparts
 
  type(celldens),  intent(inout) :: cell
  logical,         intent(out)   :: cell_converged
@@ -1497,7 +1495,7 @@ subroutine finish_cell(cell,cell_converged)
        write(iprint,*) 'error = ',abs(hnew-hi)/hi_old,' tolh = ',tolh
        write(iprint,*) 'itype = ',iamtypei
        write(iprint,*) 'x,y,z = ',xyzh(1:3)
-       call fatal('densityiterate','could not converge in density',cell%ll_position(i),'error',abs(hnew-hi)/hi_old)
+       call fatal('densityiterate','could not converge in density',inodeparts(cell%arr_index(i)),'error',abs(hnew-hi)/hi_old)
     endif
 
     if (converged) then
@@ -1562,6 +1560,9 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  use linklist,    only:set_hmaxcell
  use kernel,      only:radkern
 
+ use part,        only:xyzh_soa
+ use kdtree,      only:inoderange,inodeparts
+
  type(celldens),  intent(in)    :: cell
  logical,         intent(in)    :: getdv
  logical,         intent(in)    :: getdB
@@ -1601,7 +1602,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  real         :: rho1i,term,denom,rhodusti
 
  do i = 1,cell%npcell
-    lli = cell%ll_position(i)
+    lli = inodeparts(cell%arr_index(i))
     hi = cell%h(i)
     rhosum = cell%rhosums(:,i)
 
@@ -1637,6 +1638,8 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
     !--store final results of density iteration
     !
     xyzh(4,lli) = hrho(rhoi,pmassi)
+    xyzh_soa(cell%arr_index(i),4) = xyzh(4,lli)
+
     if (xyzh(4,lli) < 0.) call fatal('densityiterate','setting negative h from hrho',i,var='rhoi',val=real(rhoi))
 
     if (maxgradh==maxp) then

@@ -545,7 +545,7 @@ end function ptmass_not_obscured
 ! in which particles is added is irrelevant.
 !----------------------------------------------------------------
 subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
-                          itypei,pmassi,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,accreted, &
+                          itypei,pmassi,xyzmh_ptmass,vxyz_ptmass,accreted, &
                           dptmass,time,facc,nfaili)
  !$ use omputils, only:ipart_omp_lock
  use part, only:ihacc,imacc,ispinx,ispiny,ispinz
@@ -555,7 +555,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  real,    intent(in)    :: xi,yi,zi,pmassi,vxi,vyi,vzi,fxi,fyi,fzi,time,facc
  real,    intent(inout) :: hi
  real,    intent(in)    :: xyzmh_ptmass(nsinkproperties,maxptmass)
- real,    intent(in)    :: vxyz_ptmass(3,maxptmass),fxyz_ptmass(4,maxptmass)
+ real,    intent(in)    :: vxyz_ptmass(3,maxptmass)
  logical, intent(out)   :: accreted
  real,    intent(inout) :: dptmass(ndptmass,maxptmass)
  integer, optional, intent(out) :: nfaili
@@ -749,7 +749,7 @@ end subroutine ptmass_accrete
 !-------------------------------------------------------------------------
 subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype,&
                          xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
- use part,   only:ihacc,ihsoft,igas,iamtype,get_partinfo,iphase,iactive,maxphase,ll,rhoh, &
+ use part,   only:ihacc,ihsoft,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
                   ispinx,ispiny,ispinz
  use dim,    only:maxp,maxneigh,maxvxyzu
  use kdtree, only:getneigh
@@ -774,7 +774,6 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real,    intent(inout) :: vxyz_ptmass(3,maxptmass),fxyz_ptmass(4,maxptmass)
  real,    intent(in)    :: time
- real                   :: xyzm_ptmass_old(4,nptmass+1),vxyz_ptmass_old(3,nptmass+1)
  integer :: nneigh
  integer :: listneigh(maxneigh)
  integer, parameter :: maxcache      = 12000
@@ -782,7 +781,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin_itest
 #endif
- real    :: xyzcache(3,maxcache)
+ real    :: xyzcache(maxcache,3)
  real    :: dptmass(ndptmass,nptmass+1)
  real    :: newptmass(nptmass+1),newptmass1(nptmass+1)
  real    :: xi,yi,zi,hi,hi1,hi21,xj,yj,zj,hj1,hj21,xk,yk,zk,hk1
@@ -870,7 +869,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
 
  ! CHECK 3: all neighbours within h_acc are all active ( & perform math for checks 4-6)
  ! find neighbours within h_acc
- call getneigh_pos((/xi,yi,zi/),0.,h_acc,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell,ll)
+ call getneigh_pos((/xi,yi,zi/),0.,h_acc,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
  ! determine if we should approximate epot
  calc_exact_epot = .true.
  if (nneigh_thresh > 0 .and. nneigh > nneigh_thresh) calc_exact_epot = .false.
@@ -900,9 +899,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
     endif
 
     if (n <= maxcache) then
-       xj = xyzcache(1,n)
-       yj = xyzcache(2,n)
-       zj = xyzcache(3,n)
+       xj = xyzcache(n,1)
+       yj = xyzcache(n,2)
+       zj = xyzcache(n,3)
     else
        xj = xyzh(1,j)
        yj = xyzh(2,j)
@@ -993,9 +992,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
                 endif
                 !
                 if (nk <= maxcache) then
-                   xk = xyzcache(1,nk)
-                   yk = xyzcache(2,nk)
-                   zk = xyzcache(3,nk)
+                   xk = xyzcache(nk,1)
+                   yk = xyzcache(nk,2)
+                   zk = xyzcache(nk,3)
                 else
                    xk = xyzh(1,k)
                    yk = xyzh(2,k)
@@ -1162,7 +1161,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
        fzj = fxyzu(3,j) + fext(3,j)
        call ptmass_accrete(nptmass,nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),&
                            vxyzu(1,j),vxyzu(2,j),vxyzu(3,j),fxj,fyj,fzj, &
-                           itypej,pmassj,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,accreted, &
+                           itypej,pmassj,xyzmh_ptmass,vxyz_ptmass,accreted, &
                            dptmass,time,1.0)
 
        if (accreted) nacc = nacc + 1

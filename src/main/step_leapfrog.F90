@@ -1168,9 +1168,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     naccreted    = 0
 
     dptmass(:,1:nptmass) = 0.
-    dptmass_thread(:,1:nptmass) = 0.
 
-    !$omp parallel do default(none) &
+    !$omp parallel default(none) &
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei,nptmass,sts_it_n) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,f_acc) &
     !$omp shared(iexternalforce,vxyz_ptmass_old,xyzm_ptmass_old) &
@@ -1178,6 +1177,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     !$omp private(i,accreted,nfaili,fxi,fyi,fzi) &
     !$omp firstprivate(itype,pmassi) &
     !$omp reduction(+:accretedmass,nfail,naccreted)
+    dptmass_thread(:,1:nptmass) = 0.
+    !$omp do
     accreteloop: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           if (ntypes > 1 .and. maxphase==maxp) then
@@ -1207,7 +1208,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
              fzi = fext(3,i)
              call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                                  vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxi,fyi,fzi,&
-                                 itype,pmassi,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
+                                 itype,pmassi,xyzmh_ptmass,vxyz_ptmass,&
                                  accreted,dptmass_thread,timei,f_acc,nfaili)
              if (accreted) then
                 naccreted = naccreted + 1
@@ -1217,11 +1218,13 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
           endif
        endif
 
+    enddo accreteloop
+    !$omp enddo
+
     !$omp critical(dptmassadd)
     dptmass(:,1:nptmass) = dptmass(:,1:nptmass) + dptmass_thread(:,1:nptmass)
     !$omp end critical(dptmassadd)
-    enddo accreteloop
-    !$omp end parallel do
+    !$omp end parallel
 
     ! update ptmass position, spin, velocity, acceleration, and mass
     newptmass(1:nptmass)            = xyzmh_ptmass(4,1:nptmass) + dptmass(idmsi,1:nptmass)

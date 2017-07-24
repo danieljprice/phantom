@@ -25,16 +25,23 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, deriv, dim, eos, io, kernel, nicil, options,
-!    part, physcon, step_lf_global, testutils, timestep, unifdis, units
+!    part, physcon, step_lf_global, testutils, timestep, timestep_sts,
+!    unifdis, units
 !+
 !--------------------------------------------------------------------------
 module testnimhd
  use testutils, only:checkval
  use io,        only:id,master
+#ifdef STS_TIMESTEPS
+ use timestep_sts,   only:use_sts
+#endif
  implicit none
  public :: test_nonidealmhd
 
  private
+#ifndef STS_TIMESTEPS
+ logical :: use_sts
+#endif
 
 contains
 !--------------------------------------------------------------------------
@@ -93,15 +100,23 @@ subroutine test_wavedamp(ntests,npass)
  use io,             only:iverbose
  use nicil,          only:nicil_initialise,eta_constant,eta_const_type,icnstsemi, &
                           use_ohm,use_hall,use_ambi,C_AD
+#ifdef STS_TIMESTEPS
+ use timestep_sts,   only:sts_initialise
+ use timestep,       only:dtdiff,dtcourant
+#endif
  integer, intent(inout) :: ntests,npass
  integer                :: i,j,nx,nsteps,ierr
- integer                :: nerr(2)
+ integer                :: nerr(4)
  real                   :: deltax,x_min,y_min,z_min,kx,rhozero,Bx0,vA,vcoef,totmass
  real                   :: t,dt,dtext_dum,dtext,dtnew
  real                   :: L2,h0,quada,quadb,quadc,omegaI,omegaR,Bzrms_num,Bzrms_ana
- real, parameter        :: tol = 7.15d-5
+ real, parameter        :: tol     = 7.15d-5
+ real, parameter        :: toltime = 1.30d-8
  logical                :: valid_dt
  logical                :: print_output = .false.
+#ifndef STS_TIMESTEPS
+ logical                :: use_sts
+#endif
 
 #ifndef ISOTHERMAL
  if (id==master) write(*,"(/,a)") '--> skipping wave dampening test (need -DISOTHERMAL)'
@@ -128,6 +143,11 @@ subroutine test_wavedamp(ntests,npass)
  vcoef   = 0.01*vA
  totmass = rhozero*dxbound*dybound*dzbound
  npart   = 0
+#ifdef STS_TIMESTEPS
+ call sts_initialise(ierr,dtdiff)
+#else
+ if (id==master) write(*,"(/,a)") '--> skipping super-timestepping portion of test (need -DSTS_TIMESTEPS)'
+#endif
  !
  ! set particles
  !
@@ -178,8 +198,10 @@ subroutine test_wavedamp(ntests,npass)
  call nicil_initialise(real(utime),real(udist),real(umass),real(unit_Bfield),ierr)
  !
  ! call derivs the first time around
+ use_sts = .true.
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
              Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
+ use_sts = .false.  ! Since we only want to run supertimestepping once to verify we get the correct dt
  !
  ! run wave damp problem
  !
@@ -215,6 +237,10 @@ subroutine test_wavedamp(ntests,npass)
  L2 = sqrt(L2/nsteps)
  call checkval(L2,0.0,tol,nerr(1),'L2 error on wave damp test')
  call checkval(valid_dt,.true.,nerr(2),'dt to ensure above valid default')
+#ifdef STS_TIMESTEPS
+ call checkval(dtcourant,4.5249944d-3,toltime,nerr(3),'initial courant dt')
+ call checkval(dtdiff,   2.8995286d-2,toltime,nerr(4),'initial dissipation dt from sts')
+#endif
 
  ntests = ntests + 1
  if (all(nerr==0)) npass = npass + 1
@@ -234,7 +260,7 @@ subroutine test_standingshock(ntests,npass)
  use kernel,         only:hfact_default,radkern
  use part,           only:npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,hrho,rhoh,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,igas,iboundary,&
-                          set_boundaries_to_active,alphaind,maxalpha,maxp
+                          set_boundaries_to_active,alphaind,maxalpha,maxp,iphase
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use testutils,      only:checkval
@@ -248,14 +274,15 @@ subroutine test_standingshock(ntests,npass)
                           use_ohm,use_hall,use_ambi,C_OR,C_HE,C_AD
  integer, intent(inout) :: ntests,npass
  integer                :: i,nx,ny,nz,nsteps,ierr,idr,npts
- integer                :: nerr(4)
- real                   :: volume,totmass,fac,xleft,xright,dxleft,dxright,yleft,yright,zleft,zright
+ integer                :: nerr(5)
+ real                   :: volume,totmass,fac,xleft,xright,dxleft,dxright,yleft,yright,zleft,zright,rhoi
  real                   :: t,dt,dtext_dum,dtext,dtnew
  real                   :: dexact,bexact,vexact,L2d,L2v,L2b,dx
  real                   :: leftstate(8),rightstate(8),exact_x(51),exact_d(51),exact_vx(51),exact_by(51)
  real, parameter        :: told = 2.1d-2, tolv=3.0d-2, tolb=1.2d-1
  logical                :: valid_dt
  logical                :: print_output = .false.
+ logical                :: valid_bdy
 
 #ifndef ISOTHERMAL
  if (id==master) write(*,"(/,a)") '--> skipping standing shock test (need -DISOTHERMAL)'
@@ -284,6 +311,7 @@ subroutine test_standingshock(ntests,npass)
  zright         = -zleft
  npart          = 0
  npartoftype(:) = 0
+ use_sts        = .false.
  call set_boundary(xleft-1000.*dxleft,xright+1000.*dxright,yleft,yright,zleft,zright) ! false periodicity in x
  !
  ! set particles on the left half of the shock
@@ -406,26 +434,30 @@ subroutine test_standingshock(ntests,npass)
  L2v  = 0.0
  L2b  = 0.0
  npts = 0
+ valid_bdy = .true.
  ! For printing outputs if further debugging is required.
  if (print_output) then
     open(unit=112,file='nimhd_shock_particles.dat')
     open(unit=113,file='nimhd_shock_solution.dat')
  endif
  do i = 1,npart
-    if (print_output) write(112,'(5Es18.6)') xyzh(1:2,i),rhoh(xyzh(4,i),massoftype(igas)),vxyzu(1,i),Bevol(2,i)
+    rhoi = rhoh(xyzh(4,i),massoftype(igas))
+    if (print_output) write(112,'(5Es18.6,I3)') xyzh(1:2,i),rhoi,vxyzu(1,i),Bevol(2,i),iphase(i)
     if (exact_x(1) < xyzh(1,i) .and. xyzh(1,i) < exact_x(50) ) then
        npts   = npts + 1
        idr    = int(xyzh(1,i)/dx)+1
        dexact = exact_d (idr) + (exact_d (idr+1) - exact_d (idr))/dx*(exact_x(idr+1)-xyzh(1,i) )
        vexact = exact_vx(idr) + (exact_vx(idr+1) - exact_vx(idr))/dx*(exact_x(idr+1)-xyzh(1,i) )
        bexact = exact_by(idr) + (exact_by(idr+1) - exact_by(idr))/dx*(exact_x(idr+1)-xyzh(1,i) )
-       L2d = L2d + (dexact - rhoh(xyzh(4,i),massoftype(igas)))**2
+       L2d = L2d + (dexact - rhoi      )**2
        L2v = L2v + (vexact - vxyzu(1,i))**2
        L2b = L2b + (bexact - Bevol(2,i))**2
        if (print_output) then
-          write(113,'(7Es18.6)') xyzh(1,i),rhoh(xyzh(4,i),massoftype(igas)),vxyzu(1,i),Bevol(2,i),dexact,vexact,bexact
+          write(113,'(7Es18.6)') xyzh(1,i),rhoi,vxyzu(1,i),Bevol(2,i),dexact,vexact,bexact
        endif
     endif
+    if (xyzh(1,i) >  0.71 .and. rhoi > 0.99) valid_bdy = .false.
+    if (xyzh(1,i) < -1.69 .and. rhoi > 1.78) valid_bdy = .false.
  enddo
  if (print_output) then
     close(112)
@@ -438,10 +470,11 @@ subroutine test_standingshock(ntests,npass)
     L2b = sqrt(L2b/npts)
  endif
 
- call checkval(L2d,0.0,told,   nerr(1),'density error on standing shock, compared to analytics')
- call checkval(L2v,0.0,tolv,   nerr(2),'v_x error on standing shock, compared to analytics')
- call checkval(L2b,0.0,tolb,   nerr(3),'B_y error on standing shock, compared to analytics')
- call checkval(valid_dt,.true.,nerr(4),'dt to ensure above valid default')
+ call checkval(L2d,0.0,  told,  nerr(1),'density error on standing shock, compared to analytics')
+ call checkval(L2v,0.0,  tolv,  nerr(2),'v_x error on standing shock, compared to analytics')
+ call checkval(L2b,0.0,  tolb,  nerr(3),'B_y error on standing shock, compared to analytics')
+ call checkval(valid_dt, .true.,nerr(4),'dt to ensure above valid default')
+ call checkval(valid_bdy,.true.,nerr(5),'Boundary particles are correctly initialised')
 
  ntests = ntests + 1
  if (all(nerr==0)) npass = npass + 1
@@ -536,6 +569,7 @@ subroutine test_narrays(ntests,npass)
  use_ambi     = .true.
  ion_rays     = .true.
  ion_thermal  = .true.
+ use_sts      = .false.
  ! initialise eos, & the Nicil library
  call init_eos(8,ierr)
  call nicil_initialise(real(utime),real(udist),real(umass),real(unit_Bfield),ierr)
