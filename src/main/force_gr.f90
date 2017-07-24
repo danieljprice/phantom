@@ -11,8 +11,7 @@ contains
 !----------------------------------------------------------------
 subroutine get_forcegr(x,v,dens,u,p,fterm)
  use metric_tools, only: get_metric, get_metric_derivs
- use utils_gr, only: get_u0
- use eos, only: get_enthalpy
+ use utils_gr,     only: get_u0
  real,    intent(in)  :: x(3),v(3),dens,u,p
  real,    intent(out) :: fterm(3)
  real    :: gcov(0:3,0:3), gcon(0:3,0:3)
@@ -21,11 +20,10 @@ subroutine get_forcegr(x,v,dens,u,p,fterm)
  real    :: v4(0:3), term(0:3,0:3)
  real    :: enth, uzero
  integer :: i,j
- ! Note to self: try with potential from Tejeda, Rosswog  2013
+
  call get_metric(x,gcov,gcon,sqrtg)
  call get_metric_derivs(x,dgcovdx1, dgcovdx2, dgcovdx3)
-
- call get_enthalpy(enth,dens,p)
+ enth = 1. + u + p/dens
 
  ! lower-case 4-velocity
  v4(0) = 1.

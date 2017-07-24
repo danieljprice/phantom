@@ -90,17 +90,19 @@ end subroutine primitive_to_conservative_combined
 
 subroutine primitive2conservative_combined(xyzhi,vxyzui,densi,pxyzui)
  use utils_gr,     only:h2dens
- use cons2prim_gr, only:primitive2conservative,get_pressure
+ use cons2prim_gr, only:primitive2conservative
+ use eos,          only:equationofstate,ieos
  real, dimension(4), intent(in)  :: xyzhi, vxyzui
  real, intent(inout)             :: densi
  real, dimension(4), intent(out) :: pxyzui
- real :: rhoi,Pi,ui,xyzi(1:3),vi(1:3)
+ real :: rhoi,Pi,ui,xyzi(1:3),vi(1:3),pondensi,spsoundi
 
  xyzi = xyzhi(1:3)
  vi   = vxyzui(1:3)
  ui   = vxyzui(4)
  call h2dens(densi,xyzhi,vi)
- call get_pressure(pi,densi,ui)
+ call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
+ pi = pondensi*densi
  call primitive2conservative(xyzi,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4),'entropy')
 
 end subroutine primitive2conservative_combined
@@ -133,21 +135,22 @@ end subroutine conservative_to_primitive_combined
 
 subroutine conservative2primitive_combined(xyzhi,pxyzui,vxyzui,densi,ierr)
  use part,         only:massoftype, igas, rhoh
- use cons2prim_gr, only:conservative2primitive,get_pressure
+ use cons2prim_gr, only:conservative2primitive
  use utils_gr,     only:rho2dens
+ use eos,          only:equationofstate,ieos
  real,    dimension(4), intent(in)    :: xyzhi,pxyzui
  real,    dimension(4), intent(inout) :: vxyzui
  real, intent(inout)                  :: densi
  integer, intent(out),  optional      :: ierr
- real    :: rhoi, p_guess, xyzi(1:3), v_guess(1:3), u_guess
+ real    :: rhoi, p_guess, xyzi(1:3), v_guess(1:3), u_guess, pondens, spsound
 
  rhoi    = rhoh(xyzhi(4),massoftype(igas))
  xyzi    = xyzhi(1:3)
  v_guess = vxyzui(1:3)
  u_guess = vxyzui(4)
- call get_pressure(p_guess,densi,u_guess)
+ call equationofstate(ieos,pondens,spsound,densi,xyzi(1),xyzi(2),xyzi(3),u_guess)
+ p_guess = pondens*densi
  call conservative2primitive(xyzi,vxyzui(1:3),densi,vxyzui(4),p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierr,'entropy')
 end subroutine conservative2primitive_combined
-
 
 end module cons2prim

@@ -2,25 +2,33 @@ module cons2prim_gr
  use eos, only: gamma
  implicit none
 
- public :: conservative2primitive,primitive2conservative,get_u,get_pressure
+ public :: conservative2primitive,primitive2conservative
+
+ private :: get_u,get_enthalpy
+
  integer, parameter :: ierr_notconverged = 1
 
  logical, parameter, private :: do_nothing = .false.
 
-! NOTE: cons2prim has been written for only adiabatic eos.
 
+!!!!!!====================================================
+!
+!
+! NOTE: cons2prim has been written for only adiabatic eos.
+!
+!
+!!!!!!====================================================
  private
 
 contains
 
+!
+! A few subroutines to compute stuff to do with the equation of state.
+! They assume an adiabatic eos (ideal gas).
+! These subroutines will need to be different for a different eos.
+! (Should really exist in the eos module)
+!
 !=========================
-subroutine get_pressure(P,dens,u)
- real, intent(out) :: P
- real, intent(in)  :: dens, u
-
- P = (gamma-1.0)*dens*u
-
-end subroutine
 
 subroutine get_u(u,P,dens)
  real, intent(in)  :: dens,P
