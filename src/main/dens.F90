@@ -1549,14 +1549,15 @@ end subroutine finish_rhosum
 
 subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
                         straintensor,vxyzu,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
- use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,n_R,n_electronT
+ use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,&
+                       n_R,n_electronT,eta_nimhd,iohm,ihall,iambi
  use io,          only:fatal,real4
  use eos,         only:get_temperature,get_spsound
  use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,mhd_nonideal,use_dust,use_dustfrac
  use part,        only:maxgradh,idust
  use options,     only:ieos,alpha,alphamax
  use viscosity,   only:bulkvisc,shearparam
- use nicil,       only:nicil_get_ion_n,nicil_translate_error
+ use nicil,       only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
  use linklist,    only:set_hmaxcell
  use kernel,      only:radkern
 
@@ -1584,7 +1585,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  integer,         intent(inout) :: np
  integer(kind=8), intent(inout) :: ncalc
 
- real    :: rhosum(maxrhosum)
+ real         :: rhosum(maxrhosum)
 
  integer      :: iamtypei,i,lli,ierr
  logical      :: iactivei,iamgasi,iamdusti
@@ -1598,7 +1599,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  real         :: spsoundi,xi_limiter
  real         :: divcurlvi(5),rmatrix(6),straini(6)
  real         :: divcurlBi(ndivcurlB)
- real         :: temperaturei
+ real         :: temperaturei,Bi
  real         :: rho1i,term,denom,rhodusti
 
  do i = 1,cell%npcell
@@ -1706,8 +1707,31 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
        else
           divcurlBi(:) = 0.
        endif
+       !
+       !--calculate Z_grain, n_electron and non-ideal MHD coefficients
+       !
+       if (mhd_nonideal) then
+          if (.not. igotspsound) then
+             vxyzui(1) = cell%rhosums(ivxi,i)
+             vxyzui(2) = cell%rhosums(ivyi,i)
+             vxyzui(3) = cell%rhosums(ivzi,i)
+             vxyzui(4) = cell%rhosums(ieni,i)
+          endif
+          temperaturei = get_temperature(ieos,cell%xpartvec(ixi:izi,i),real(rhoi),vxyzui(:))
+          Bi           = sqrt(Bxi*Bxi + Byi*Byi + Bzi*Bzi)
+          call nicil_get_ion_n(real(rhoi),temperaturei,n_R(:,lli),n_electronT(lli),ierr)
+          if (ierr/=0) then
+             call nicil_translate_error(ierr)
+             if (ierr > 0) call fatal('densityiterate','error in Nicil in calculating number densities')
+          endif
+          call nicil_get_eta(eta_nimhd(iohm,lli),eta_nimhd(ihall,lli),eta_nimhd(iambi,lli),Bi &
+                            ,real(rhoi),temperaturei,n_R(:,lli),n_electronT(lli),ierr)
+          if (ierr/=0) then ! ierr is reset in the above subroutine
+             call nicil_translate_error(ierr)
+             if (ierr > 0) call fatal('densityiterate','error in Nicil in calculating eta')
+          endif
+       endif
     endif
-
     !
     !--get strain tensor from summations
     !
@@ -1719,25 +1743,6 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
        ! store strain tensor
        straintensor(:,lli) = real(straini(:),kind=kind(straintensor))
     endif realvisc
-    !
-    !--calculate Z_grain & n_electron
-    !
-    if (mhd_nonideal .and. iamgasi) then
-       if (.not. igotspsound) then
-          vxyzui(1) = cell%rhosums(ivxi,i)
-          vxyzui(2) = cell%rhosums(ivyi,i)
-          vxyzui(3) = cell%rhosums(ivzi,i)
-          vxyzui(4) = cell%rhosums(ieni,i)
-       endif
-       temperaturei = get_temperature(ieos,cell%xpartvec(ixi:izi,i),real(rhoi),vxyzui(:))
-       call nicil_get_ion_n(real(rhoi),temperaturei,n_R(:,lli),n_electronT(lli),ierr)
-       if (ierr/=0) then
-          call nicil_translate_error(ierr)
-          if (ierr > 0) then
-             call fatal('densityiterate','error in calcuating grain charge or electron number density')
-          endif
-       endif
-    endif
 
     ! stats
     nneightry = nneightry + cell%nneightry
