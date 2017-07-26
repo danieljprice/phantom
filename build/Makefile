@@ -510,7 +510,7 @@ endif
 
 ifeq ($(SETUP), wavedamp)
 #   Wave dampening test as per Choi et al (2009)
-    FPPFLAGS= -DPERIODIC -DCONST_ARTRES
+    FPPFLAGS= -DPERIODIC
     SETUPFILE= setup_wavedamp.f90
     ISOTHERMAL=yes
     NONIDEALMHD=yes
@@ -819,14 +819,14 @@ ifeq ($(SETUP), testdust)
 endif
 
 ifeq ($(SETUP), testnimhd)
-#   non-ideal MHD (+ boundary particle) unit tests
+#   non-ideal MHD (+ boundary particle + super-timestepping) unit tests
     PERIODIC=yes
     ISOTHERMAL=yes
     NONIDEALMHD=yes
     MHD=yes
     KERNEL=WendlandC4
     IND_TIMESTEPS=no
-    STS_TIMESTEPS=no
+    STS_TIMESTEPS=yes
     KNOWN_SETUP=yes
 endif
 
@@ -1197,6 +1197,22 @@ ifeq ($(SYSTEM), gfortran)
     ENDIANFLAGBIG= -fconvert=big-endian
     ENDIANFLAGLITTLE= -fconvert=little-endian
     OMPFLAGS = -fopenmp #-fmax-stack-var-size=10000000
+    CC = gcc
+    CCFLAGS = -O3
+    LIBCXX = -lstdc++
+endif
+
+ifeq ($(SYSTEM), gfortran7)
+    FC= gfortran
+    FFLAGS+= -O3 -Wall -Wno-unused-dummy-argument -frecord-marker=4 -gdwarf-2 \
+            -mcmodel=medium -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize \
+            -std=f2008 -fall-intrinsics -finit-derived
+    DBLFLAG= -fdefault-real-8 -fdefault-double-8
+    DEBUGFLAG= -g -fcheck=all -ffpe-trap=invalid -finit-real=nan -finit-integer=nan -fbacktrace
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -fconvert=big-endian
+    ENDIANFLAGLITTLE= -fconvert=little-endian
+    OMPFLAGS = -fopenmp
     CC = gcc
     CCFLAGS = -O3
     LIBCXX = -lstdc++

@@ -316,7 +316,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 #endif
 #ifdef NONIDEALMHD
  use dim,  only:mhd_nonideal
- use part, only:ionfrac_eta,ionfrac_eta_label
+ use part, only:eta_nimhd,eta_nimhd_label
 #endif
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
@@ -525,7 +525,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           if (any(ierrs(1:2) /= 0)) call error('write_dump','error writing MHD arrays')
 #ifdef NONIDEALMHD
           if (mhd_nonideal) then
-             call write_array(4,ionfrac_eta,ionfrac_eta_label,4,npart,k,ipass,idump,nums,ierrs(1))
+             call write_array(4,eta_nimhd,eta_nimhd_label,4,npart,k,ipass,idump,nums,ierrs(1))
              if (ierrs(1) /= 0) call error('write_dump','error writing non-ideal MHD arrays')
           endif
 #endif
