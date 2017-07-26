@@ -123,10 +123,13 @@ module part
 !
 !--Non-ideal MHD
 !
- real         :: n_R(4,maxmhdni),n_electronT(maxmhdni)
- real(kind=4) :: ionfrac_eta(4,maxmhdni)
+ real :: n_R(4,maxmhdni),n_electronT(maxmhdni),eta_nimhd(4,maxmhdni)
+ integer, parameter :: iohm  = 1 ! eta_ohm
+ integer, parameter :: ihall = 2 ! eta_hall
+ integer, parameter :: iambi = 3 ! eta_ambi
+ integer, parameter :: iion  = 4 ! ionisation fraction
 #ifdef NONIDEALMHD
- character(len=*), parameter :: ionfrac_eta_label(4) = (/'ne_by_n','eta_OR ','eta_HE ','eta_AD '/)
+ character(len=*), parameter :: eta_nimhd_label(4) = (/'eta_{OR}','eta_{HE}','eta_{AD}','ne/n    '/)
 #endif
 !
 !--for analysis routines, do not allocate any more storage
@@ -631,9 +634,9 @@ subroutine copy_particle_all(src,dst)
     if (maxvecp==maxp) Bxyz(:,dst)   = Bxyz(:,src)
     divBsymm(dst) = divBsymm(src)
     if (maxmhdni==maxp) then
-       n_R(:,dst)         = n_R(:,src)
-       n_electronT(dst)   = n_electronT(src)
-       ionfrac_eta(:,dst) = ionfrac_eta(:,src)
+       n_R(:,dst)       = n_R(:,src)
+       n_electronT(dst) = n_electronT(src)
+       eta_nimhd(:,dst) = eta_nimhd(:,src)
     endif
  endif
  if (ndivcurlv > 0) divcurlv(:,dst) = divcurlv(:,src)

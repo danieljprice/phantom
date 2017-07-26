@@ -66,7 +66,7 @@ subroutine compute_energies(t)
                 alphaind,Bxyz,Bevol,divcurlB,iamtype,igas,idust,iboundary,istar,idarkmatter,ibulge, &
                 nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,isdead_or_accreted,epot_sinksink,&
                 imacc,ispinx,ispiny,ispinz,mhd,maxvecp,gravity,poten,dustfrac,&
-                n_R,n_electronT,ionfrac_eta
+                n_R,n_electronT,eta_nimhd,iion
  use eos,            only:polyk,utherm,gamma,equationofstate,get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
@@ -130,7 +130,6 @@ subroutine compute_energies(t)
  else
     alphai = alpha
  endif
- ionfrac_eta = 0.
  np_rho      = 0
  call initialise_ev_data(ev_data)
 !
@@ -139,7 +138,7 @@ subroutine compute_energies(t)
 !$omp shared(alphaind,massoftype,irealvisc) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass) &
 !$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac) &
-!$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,nelements,n_R,n_electronT,ionfrac_eta) &
+!$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,nelements,n_R,n_electronT,eta_nimhd) &
 !$omp shared(ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
 !$omp shared(iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha) &
 !$omp shared(iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah) &
@@ -389,10 +388,7 @@ subroutine compute_energies(t)
                 endif
                 call ev_data_update(ev_data_thread,iev_n(1),n_ion*n_total1)
                 call ev_data_update(ev_data_thread,iev_n(2),data_out(6)*n_total1)
-                ionfrac_eta(1,i) = real(n_ion*n_total1,kind=4)
-                ionfrac_eta(2,i) = real(etaohm, kind=4)       ! Save eta_OR for the dump file
-                ionfrac_eta(3,i) = real(etahall,kind=4)       ! Save eta_HE for the dump file
-                ionfrac_eta(4,i) = real(etaambi,kind=4)       ! Save eta_AD for the dump file
+                eta_nimhd(iion,i) = n_ion*n_total1    ! Save ionisation fraction for the dump file
                 call ev_data_update(ev_data_thread,   iev_n(3),  data_out( 6))
                 call ev_data_update(ev_data_thread,   iev_n(4),  data_out( 7))
                 if (ion_rays) then
@@ -567,8 +563,8 @@ subroutine compute_energies(t)
     if (np_rho(idarkmatter) > 0) ev_data(iev_ave,iev_rhop(5)) = ev_data(iev_ave,iev_rhop(5))*real(npgas)/real(np_rho(idarkmatter))
     if (np_rho(ibulge)      > 0) ev_data(iev_ave,iev_rhop(6)) = ev_data(iev_ave,iev_rhop(6))*real(npgas)/real(np_rho(ibulge))
  endif
- ev_data(iev_sum,iev_vrms   ) = ev_data(iev_sum,iev_vrms   )*dnptot
- ev_data(iev_sum,iev_rmsmach) = ev_data(iev_sum,iev_rmsmach)*dnpgas
+ ev_data(iev_sum,iev_vrms   ) = sqrt(ev_data(iev_sum,iev_vrms   )*dnptot)
+ ev_data(iev_sum,iev_rmsmach) = sqrt(ev_data(iev_sum,iev_rmsmach)*dnpgas)
  vrms    = ev_data(iev_sum,iev_vrms)
  rmsmach = ev_data(iev_sum,iev_rmsmach)
 
