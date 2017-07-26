@@ -164,10 +164,10 @@ end subroutine set_dustfrac_single
 !  dust-to-gas ratio.
 !+
 !----------------------------------------------------------------
-subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,smin,smax,sindex)
+subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,smin,smax,sind)
  use io,  only: fatal
  use dim, only: ndusttypes
- real, intent(in)  :: dust_to_gas_tot,smin,smax,sindex
+ real, intent(in)  :: dust_to_gas_tot,smin,smax,sind
  real, intent(out) :: dustfrac(:)
  integer :: i
  real :: dustfrac_tot
@@ -178,6 +178,9 @@ subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,smin,smax,sindex)
  real :: exact
  real :: power = 0.
  real, parameter :: tol = 1.e-10
+
+ !--reset the global variable
+ sindex = sind
 
  if (smax==smin .or. ndusttypes==1) then
     !--If all the same grain size, then just scale the dust fraction
