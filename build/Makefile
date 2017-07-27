@@ -1188,6 +1188,22 @@ ifeq ($(SYSTEM), gfortran)
     LIBCXX = -lstdc++
 endif
 
+ifeq ($(SYSTEM), gfortran7)
+    FC= gfortran
+    FFLAGS+= -O3 -Wall -Wno-unused-dummy-argument -frecord-marker=4 -gdwarf-2 \
+            -mcmodel=medium -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize \
+            -std=f2008 -fall-intrinsics -finit-derived
+    DBLFLAG= -fdefault-real-8 -fdefault-double-8
+    DEBUGFLAG= -g -fcheck=all -ffpe-trap=invalid -finit-real=nan -finit-integer=nan -fbacktrace
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -fconvert=big-endian
+    ENDIANFLAGLITTLE= -fconvert=little-endian
+    OMPFLAGS = -fopenmp
+    CC = gcc
+    CCFLAGS = -O3
+    LIBCXX = -lstdc++
+endif
+
 ifeq ($(SYSTEM), gfortranOSX)  # for use with macports gfortran (5.3.0 tested)
     FC= gfortran
     FFLAGS= -O3 -Wall -Wno-unused-dummy-argument -frecord-marker=4 -gdwarf-2 \
