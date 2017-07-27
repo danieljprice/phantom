@@ -189,11 +189,13 @@ module part
 !  information between MPI threads
 !
  integer, parameter, private :: maxpd =  max(maxp,1) ! avoid divide by zero
+ integer, parameter, private :: usedivcurlv = min(ndivcurlv,1)
  integer, parameter :: ipartbufsize = 4 &  ! xyzh
    +maxvxyzu                            &  ! vxyzu
    +maxvxyzu                            &  ! vpred
    +maxvxyzu                            &  ! fxyzu
    +3                                   &  ! fext
+   +usedivcurlv                         &  ! divcurlv
    +nalpha*maxalpha/maxpd               &  ! alphaind
    +ngradh*maxgradh/maxpd               &  ! gradh
    +(maxmhd/maxpd)*maxBevol             &  ! Bevol
@@ -212,7 +214,6 @@ module part
    +1                                   &  ! ibinsink
    +1                                   &  ! dt_in
    +1                                   &  ! twas
-   +1                                   &  ! divcurlv
 #endif
    +0
 
@@ -824,6 +825,9 @@ subroutine fill_sendbuf(i,xtemp)
     call fill_buffer(xtemp,vpred(:,i),nbuf)
     call fill_buffer(xtemp,fxyzu(:,i),nbuf)
     call fill_buffer(xtemp,fext(:,i),nbuf)
+    if (ndivcurlv > 0) then
+       call fill_buffer(xtemp,divcurlv(1,i),nbuf)
+    endif
     if (maxalpha==maxp) then
        call fill_buffer(xtemp,alphaind(:,i),nbuf)
     endif
@@ -854,9 +858,6 @@ subroutine fill_sendbuf(i,xtemp)
     call fill_buffer(xtemp,ibinsink(i),nbuf)
     call fill_buffer(xtemp,dt_in(i),nbuf)
     call fill_buffer(xtemp,twas(i),nbuf)
-    if (ndivcurlv >= 1) then
-       call fill_buffer(xtemp,divcurlv(1,i),nbuf)
-    endif
 #endif
  endif
  if (nbuf /= ipartbufsize) call fatal('fill_sendbuf','error in send buffer size')
@@ -882,6 +883,9 @@ subroutine unfill_buffer(ipart,xbuf)
  vpred(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
  fxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
  fext(:,ipart)          = unfill_buf(xbuf,j,3)
+ if (ndivcurlv > 0) then
+    divcurlv(1,ipart)  = real(unfill_buf(xbuf,j),kind=kind(divcurlv))
+ endif
  if (maxalpha==maxp) then
     alphaind(:,ipart)   = real(unfill_buf(xbuf,j,nalpha),kind(alphaind))
  endif
@@ -912,9 +916,6 @@ subroutine unfill_buffer(ipart,xbuf)
  ibinsink(ipart)        = nint(unfill_buf(xbuf,j),kind=1)
  dt_in(ipart)           = real(unfill_buf(xbuf,j),kind=kind(dt_in))
  twas(ipart)            = unfill_buf(xbuf,j)
- if (ndivcurlv >= 1) then
-    divcurlv(1,ipart)  = real(unfill_buf(xbuf,j),kind=kind(divcurlv))
- endif
 #endif
 
 !--just to be on the safe side, set other things to zero
