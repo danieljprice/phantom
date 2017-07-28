@@ -786,7 +786,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
        dtextforcenew = min(dtextforcenew,dtsinkgas)
     endif
 
-    call bcast_mpi(dtextforcenew)
+    dtextforcenew = reduceall_mpi('min',dtextforcenew)
 
     dtextforce_min = min(dtextforce_min,dtextforcenew)
     dtextforce = dtextforcenew
