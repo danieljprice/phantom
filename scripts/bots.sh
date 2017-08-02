@@ -12,8 +12,6 @@
 #               (relies on external perl script)
 # [author-bot]: updates AUTHORS file
 # [indent-bot]: adjusts indentation (relies on external findent program)
-# [git info-bot]: updates writegitinfo.f90 with most recent git commit information
-#                 (relies on external pythin script.  added by: JW)
 #
 # Written by Daniel Price 2014-
 #
