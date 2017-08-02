@@ -141,6 +141,7 @@ subroutine read_evfile(filename,dat,labels,ncols,nsteps,ierr)
  !
  ! read the first line and extract the column labels
  !
+ labels(:) = ' '
  nheaderlines = 1
  read(lu,"(a)",iostat=ierr) line
  call get_column_labels(line,labels,ncols)

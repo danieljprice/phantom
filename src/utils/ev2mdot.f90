@@ -27,7 +27,7 @@ program get_mdot
  use evutils
  use fileutils, only:files_are_sequential
  implicit none
- integer, parameter :: lu1 = 11, lu2 = 13, max_files = 128
+ integer, parameter :: max_files = 128
  integer            :: ncols,imacc_col,imacc1_col,imacc2_col,iend,nfiles
  character(len=20)  :: labels(max_columns)
  real, dimension(:,:), allocatable :: dat,dat_combined,temp_array
@@ -128,6 +128,7 @@ program get_mdot
        endif
     endif
 
+    nsteps_keep = 0
     if (combine_files) then
        if (i > 1) then
           !
@@ -136,7 +137,6 @@ program get_mdot
           !
           tfile = dat(1,1)   ! earliest time in current file
           dt = 1.
-          nsteps_keep = 0
           do while(dt > 0. .and. nsteps_keep < nsteps_prev)
              nsteps_keep = nsteps_keep + 1
              dt = tfile - dat_combined(1,nsteps_keep)
@@ -209,7 +209,6 @@ subroutine compute_and_write_mdot(outfile,dat,dtmin,nsteps,ncol,imacc_col,imacc1
  maccprev2 = 0.
  macc1 = 0.
  macc2 = 0.
- ierr = 0
 
  do i=1,nsteps
     macc = dat(imacc_col,i)
@@ -225,8 +224,7 @@ subroutine compute_and_write_mdot(outfile,dat,dtmin,nsteps,ncol,imacc_col,imacc1
        mdot1 = 0.
        mdot2 = 0.
     endif
-    if (dt > dtmin .and. ierr==0) then
-       !print *,' time ',datfull2(1,isteps),' mass accreted = ',macc, ' mdot = ',mdot
+    if (dt > dtmin) then
        if (imacc1_col > 0 .and. imacc2_col > 0) then
           write(iout,"(3(es18.10,1x))",iostat=ierr) dat(1,i),mdot,macc,mdot1,macc1,mdot2,macc2
        else
