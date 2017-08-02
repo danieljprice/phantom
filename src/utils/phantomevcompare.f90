@@ -18,7 +18,7 @@
 !
 !  USAGE: phantomevcompare [no arguments]
 !
-!  DEPENDENCIES: evcompare, io, prompting
+!  DEPENDENCIES: evutils, prompting
 !+
 !--------------------------------------------------------------------------
 program phantomevcompare

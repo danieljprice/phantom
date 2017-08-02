@@ -18,9 +18,9 @@
 !
 !  $Id$
 !
-!  USAGE: ev2mdot [dt_min] file1.ev file2.ev ...
+!  USAGE: ev2mdot [dt_min] file01.ev file02.ev ...
 !
-!  DEPENDENCIES: None
+!  DEPENDENCIES: evutils, fileutils
 !+
 !--------------------------------------------------------------------------
 program get_mdot

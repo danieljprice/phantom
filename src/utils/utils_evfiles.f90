@@ -20,7 +20,7 @@
 !  RUNTIME PARAMETERS:
 !    Concise -- write columns that exist in all files (F: write columns that exist in any file)
 !
-!  DEPENDENCIES: infile_utils, io
+!  DEPENDENCIES: infile_utils
 !+
 !--------------------------------------------------------------------------
 module evutils
