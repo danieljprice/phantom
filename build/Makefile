@@ -2067,7 +2067,7 @@ cleanphantom2mcfost:
 #----------------------------------------------------
 # utility to rewrite .ev files using a common header
 #
-SRCEV=utils_infiles.f90 utils_evcompare.f90 prompting.f90
+SRCEV=utils_infiles.f90 utils_evfiles.f90 prompting.f90
 SRCEVC1=${SRCEV:.F90=.o}
 SRCEVC =${SRCEVC1:.f90=.o}
 
@@ -2187,11 +2187,11 @@ evol_dustywaves: checksys $(OBJDUSTEVOL)
 # these are the sources for the ev2mdot utility
 #
 .PHONY: ev2mdot
-ev2mdot: checksys utils_infiles.o utils_evcompare.o ev2mdot.o
+ev2mdot: checksys utils_infiles.o utils_evfiles.o ev2mdot.o
 	@echo ""
 	@echo "ev2mdot: Accretion rates R us."
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2mdot.o utils_evcompare.o utils_infiles.o
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2mdot.o utils_evfiles.o utils_infiles.o
 
 cleanev2mdot:
 	rm -f $(BINDIR)/ev2mdot
