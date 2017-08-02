@@ -8,8 +8,9 @@
 !  PROGRAM: get_mdot
 !
 !  DESCRIPTION: Utility to extract mdot as a function of time
-!    from the .ev file
-!    Daniel Price, March 2011
+!    from the .ev file. Splices the sequence of .ev files back
+!    together to reconstruct a single file dataset
+!    Daniel Price, March 2011, rewritten in Aug 2017
 !
 !  REFERENCES: None
 !
@@ -24,34 +25,33 @@
 !--------------------------------------------------------------------------
 program get_mdot
  use evutils
+ use fileutils, only:files_are_sequential
  implicit none
- integer, parameter :: lu1 = 11, lu2 = 13, iout = 12
- integer, parameter :: maxcol = 128
- integer :: ncols,imacc_col,imacc1_col,imacc2_col
- real    :: dat(maxcol),dat2(maxcol-1)
- character(len=20) :: labels(maxcol)
- real, dimension(:,:), allocatable :: datfull,datfull2,temp_array
- character(len=40) :: filename,outfile
- integer :: i,nargs,ierr,nlines,iev,isteps,istart,append_length,stepstart,ii,jj,stepend
- real    :: maccprev,maccprev1,maccprev2,macc,macc1,macc2,mdot,mdot1,mdot2
- real    :: tprev,dt,dtmin,thold
+ integer, parameter :: lu1 = 11, lu2 = 13, max_files = 128
+ integer            :: ncols,imacc_col,imacc1_col,imacc2_col,iend,nfiles
+ character(len=20)  :: labels(max_columns)
+ real, dimension(:,:), allocatable :: dat,dat_combined,temp_array
+ character(len=40)  :: string,filenames(max_files),outfile,filename
+ integer :: i,istart,nargs,ierr,iev,ncols1,nsteps,nsteps_prev,nsteps_keep
+ logical :: combine_files
+ real    :: dtmin,dt,tfile
 
  !
  ! get number of arguments and name of current program
  !
  nargs = command_argument_count()
- call get_command_argument(0,filename)
+ call get_command_argument(0,string)
 
  if (nargs <= 0) then
-    print "(a)",' Usage: '//trim(filename)//' [dt_min] file1.ev file2.ev ...'
+    print "(a)",' Usage: '//trim(string)//' [dt_min] file01.ev file02.ev ...'
     stop
  endif
  !
  ! set the time interval based on the (optional) first command line argument
  ! if not read as a sensible real number, assume dtmin = 0.
  !
- call get_command_argument(1,filename)
- read(filename,*,iostat=ierr) dtmin
+ call get_command_argument(1,string)
+ read(string,*,iostat=ierr) dtmin
  if (ierr /= 0) then
     dtmin = 0.
     istart = 1
@@ -59,168 +59,163 @@ program get_mdot
     print*,'Using minimum time interval = ',dtmin
     istart = 2
  endif
+ !
+ ! extract filenames from command line
+ !
+ iend = min(nargs,max_files)
+ do i=istart,iend
+    call get_command_argument(i,filenames(i))
+ enddo
+ nfiles = iend - istart + 1
+ !
+ ! check if filenames form a sequence file01.ev, file02.ev, file03.ev
+ !
+ combine_files = files_are_sequential(filenames(1:nfiles))
 
- !
- ! get name of the first file
- !
- call get_command_argument(istart,filename)
- !
- ! get labels and number of columns from the first line of the file
- !
- call get_column_labels_from_ev(filename,labels,ncols,ierr)
- if (ncols < 0) then
-    print "(a,i2)",' ERROR: could not determine number of columns in '//trim(filename)//' ...skipping'
-    stop
- endif
- imacc_col = find_column(labels,'accretedmas') ! global .ev file
- if (imacc_col <= 0) imacc_col = find_column(labels,'macc') ! sink particle .ev file
- if (imacc_col <= 0) stop 'could not locate accreted mass column from header information'
-
- !
- ! find column numbers for binary mass accretion rates
- ! (only if binary information exists in .ev file)
- !
- imacc1_col = find_column(labels,'macc1')
- imacc2_col = find_column(labels,'macc2')
-
- !
- ! open the file for reading and set the name of the output file
- !
- open(unit=lu1,file=trim(filename),status='old',form='formatted',iostat=ierr)
- if (ierr /= 0) then
-    print "(a)",' ERROR opening '//trim(filename)//' ...skipping'
- else
-    ! open output file
-    iev = index(filename,'.ev') - 1
-    if (iev <= 0) iev = len_trim(filename)
-    ! outfile = filename(1:iev)//'-mdot.ev'
-    outfile = trim(filename(1:iev-2))//'.mdot'
-    open(unit=iout,file=trim(outfile),status='replace',form='formatted')
-    if (imacc1_col > 0 .and. imacc2_col > 0) then
-       write(iout,"('#',7(a17,2x))") 't','mdot','macc','mdot1','macc1','mdot2','macc2'
-    else
-       write(iout,"('#',3(a17,2x))") 't','mdot','macc'
-    endif
- endif
- !
- ! allocate memory
- !
- allocate(datfull2(ncols,1))
- datfull2(:,:) = 0.
-
- stepstart = 1
- isteps = 1
- stepend = stepstart
- imacc_col = 0
-
- over_args: do i=istart,nargs
-    print "(a)",trim(filename)//' --> '//trim(outfile)
-    call get_command_argument(i,filename)
-    
+ nsteps_prev = 0
+ nsteps_keep = 0
+ imacc_col = 0   ! to prevent compiler warnings
+ imacc1_col = 0
+ imacc2_col = 0
+ ncols = 0
+ over_files: do i=1,nfiles
+    filename = filenames(i)
     !
-    ! now open the file properly
+    ! read the .ev file
     !
-    open(unit=lu1,file=trim(filename),status='old',form='formatted',iostat=ierr)
+    call read_evfile(filename,dat,labels,ncols1,nsteps,ierr)
     if (ierr /= 0) then
        print "(a)",' ERROR opening '//trim(filename)//' ...skipping'
-    else
-       ! skip header lines
-       ierr = 1
-       nlines = 0
-       do while(ierr /= 0 .and. nlines <= 200)
-          nlines = nlines + 1
-          read(lu1,*,iostat=ierr) dat(1:ncols)
-       enddo
-
-       if (nlines==200) then
-          print*,' error: only one line or fewer in file'
-          close(unit=lu1)
-          cycle over_args
-       endif
-
-       !
-       ! count the number of useable lines (timesteps) in the file
-       !
-       isteps = 0
-       do while(ierr == 0)
-          isteps = isteps + 1
-          read(lu1,*,iostat=ierr) !dat(1:ncols)
-       enddo
-       !
-       ! allocate enough memory to read it all
-       !
-       allocate(datfull(1:ncols,1:isteps))
-       datfull(:,:) = 0.
-
-       !
-       ! rewind file
-       !
-       rewind(unit=lu1)
-
-       !
-       ! skip header lines again
-       !
-       do jj=1,nlines
-          read(lu1,*,iostat=ierr)
-       enddo
-       !
-       ! read the data
-       !
-       do jj = 1,isteps
-          read(lu1,*,iostat=ierr) dat(1:ncols)
-          datfull(1:ncols,jj) = dat(1:ncols)
-       enddo
-
-       ! Work out where the overlap between the files is
-       call get_command_argument(i+1,filename)
-       open(unit=lu2,file=trim(filename),status='old',form='formatted',iostat=ierr)
-       if (ierr /= 0) then
-          append_length = isteps-1
-       else
-          read(lu2,*,iostat=ierr)
-          read(lu2,*,iostat=ierr) thold,dat2(1:ncols-1)
-          append_length = minloc(abs(datfull(1,:)-thold),1)-1
-       endif
-       close(unit=lu2)
-
-       ii = 1
-       stepend = stepstart + append_length
-       ! print*,'Loop start at',stepstart,'/',datfull(1,1),'finish at',stepend,'/',thold
-
-       ! Resize datfull2 here
-       allocate(temp_array(ncols,stepstart))
-       temp_array(:,1:stepstart) = datfull2(:,:)
-       deallocate(datfull2)
-       ! Reassign all values to datfull2
-       allocate(datfull2(ncols,1:stepend))
-       datfull2(:,1:stepstart) = temp_array(:,:)
-       datfull2(:,stepstart:stepend) = datfull(:,1:(append_length+1))
-       deallocate(temp_array)
-       close(unit=lu1)
-       deallocate(datfull)
+       cycle over_files
     endif
-    stepstart=stepend
- enddo over_args
+    !
+    ! open the output (.mdot) file
+    !
+    if (.not.combine_files .or. (combine_files .and. i==1)) then
+       ncols  = ncols1
+       !
+       ! get labels and number of columns from the first line of the file
+       !
+       imacc_col = find_column(labels,'accretedm') ! label used in standard .ev files
+       if (imacc_col <= 0) imacc_col = find_column(labels,'macc') ! label used in sink particle .ev files
+       if (imacc_col <= 0) then
+          print*,"(a)",'ERROR: could not locate accreted mass column from header information'
+          if (combine_files) then
+             exit over_files
+          else
+             cycle over_files
+          endif
+       endif
+       !
+       ! find column numbers for binary mass accretion rates
+       ! (only if binary information exists in .ev file)
+       !
+       imacc1_col = find_column(labels,'macc1')
+       imacc2_col = find_column(labels,'macc2')
+       !
+       ! set output file name
+       !
+       iev = index(filename,'.ev') - 1
+       if (iev <= 0) iev = len_trim(filename)
+       if (combine_files) then
+          outfile = trim(filename(1:iev-2))//'.mdot'
+       else
+          outfile = trim(filename(1:iev))//'.mdot'
+       endif
+       if (combine_files) then
+          allocate(dat_combined(ncols,nsteps))
+          dat_combined = dat
+       endif
+    endif
 
+    if (combine_files) then
+       if (i > 1) then
+          !
+          ! exclude any times from previous files that
+          ! overlap with times in the current file
+          !
+          tfile = dat(1,1)   ! earliest time in current file
+          dt = 1.
+          nsteps_keep = 0
+          do while(dt > 0. .and. nsteps_keep < nsteps_prev)
+             nsteps_keep = nsteps_keep + 1
+             dt = tfile - dat_combined(1,nsteps_keep)
+          enddo
+          if (dt <= 0.) nsteps_keep = nsteps_keep - 1
+          print "(a,i6,a)",trim(filename) !//' (',nsteps_prev-nsteps_keep,' steps overlap with previous file)'
+
+          ! resize dat_combined array
+          allocate(temp_array(ncols,nsteps_keep))
+          temp_array(:,1:nsteps_keep) = dat_combined(:,1:nsteps_keep)
+          if (allocated(dat_combined)) deallocate(dat_combined)
+
+          ! Reassign all values to dat_combined
+          allocate(dat_combined(ncols,nsteps_keep + nsteps))
+          dat_combined(:,1:nsteps_keep) = temp_array(:,:)
+          dat_combined(:,nsteps_keep+1:nsteps_keep+nsteps) = dat(1:ncols,1:nsteps)
+          if (allocated(temp_array)) deallocate(temp_array)
+       else
+          print "(a)",trim(filename)
+       endif
+    else
+       print "(a)",trim(filename)//' --> '//trim(outfile)
+       call compute_and_write_mdot(outfile,dat,dtmin,nsteps,ncols,imacc_col,imacc1_col,imacc2_col)
+    endif
+    !
+    ! close .ev file and deallocate memory
+    !
+    deallocate(dat)
+
+    nsteps = nsteps + nsteps_keep
+    nsteps_prev = nsteps
+
+ enddo over_files
+
+ if (combine_files .and. imacc_col > 0 .and. allocated(dat_combined)) then
+    print "(a)",' --> '//trim(outfile)
+    call compute_and_write_mdot(outfile,dat_combined,dtmin,nsteps,ncols,imacc_col,imacc1_col,imacc2_col)
+ endif
+
+ if (allocated(dat))          deallocate(dat)
+ if (allocated(dat_combined)) deallocate(dat_combined)
+
+contains
+
+subroutine compute_and_write_mdot(outfile,dat,dtmin,nsteps,ncol,imacc_col,imacc1_col,imacc2_col)
+ character(len=*), intent(in) :: outfile
+ real,             intent(in) :: dat(:,:)
+ real,             intent(in) :: dtmin
+ integer,          intent(in) :: nsteps,ncol,imacc_col,imacc1_col,imacc2_col
+ real :: maccprev,maccprev1,maccprev2,macc,macc1,macc2,mdot,mdot1,mdot2
+ real :: tprev,dt
+ integer :: i
+ integer, parameter :: iout = 14
+
+ !
+ ! open the output file for output
+ !
+ open(unit=iout,file=trim(outfile),status='replace',form='formatted')
+ if (imacc1_col > 0 .and. imacc2_col > 0) then
+    write(iout,"('#',7(a17,2x))") 't','mdot','macc','mdot1','macc1','mdot2','macc2'
+ else
+    write(iout,"('#',3(a17,2x))") 't','mdot','macc'
+ endif
  !
  ! Now calculate the accretion rates
  !
- isteps = 0
- tprev = 0
+ tprev = 0.
  maccprev = 0.
  maccprev1 = 0.
  maccprev2 = 0.
  macc1 = 0.
  macc2 = 0.
- dat(:) = 0.
  ierr = 0
 
- do while(isteps  <=  (size(datfull2,2)-1))
-    isteps = isteps + 1
-    macc = datfull2(imacc_col,isteps) !dat(imacc_col)
-    if (imacc1_col > 0) macc1 = datfull2(imacc1_col,isteps)
-    if (imacc2_col > 0) macc2 = datfull2(imacc2_col,isteps)
-    dt = datfull2(1,isteps) - tprev
+ do i=1,nsteps
+    macc = dat(imacc_col,i)
+    if (imacc1_col > 0 .and. imacc1_col <= ncol) macc1 = dat(imacc1_col,i)
+    if (imacc2_col > 0 .and. imacc2_col <= ncol) macc2 = dat(imacc2_col,i)
+    dt = dat(1,i) - tprev
     if (dt > tiny(dt)) then
        mdot = max(0., (macc - maccprev)/dt)
        mdot1 = max(0., (macc1 - maccprev1)/dt)
@@ -233,11 +228,11 @@ program get_mdot
     if (dt > dtmin .and. ierr==0) then
        !print *,' time ',datfull2(1,isteps),' mass accreted = ',macc, ' mdot = ',mdot
        if (imacc1_col > 0 .and. imacc2_col > 0) then
-          write(iout,"(3(es18.10,1x))",iostat=ierr) datfull2(1,isteps),mdot,macc,mdot1,macc1,mdot2,macc2
+          write(iout,"(3(es18.10,1x))",iostat=ierr) dat(1,i),mdot,macc,mdot1,macc1,mdot2,macc2
        else
-          write(iout,"(3(es18.10,1x))",iostat=ierr) datfull2(1,isteps),mdot,macc
+          write(iout,"(3(es18.10,1x))",iostat=ierr) dat(1,i),mdot,macc
        endif
-       tprev = datfull2(1,isteps)
+       tprev = dat(1,i)
        maccprev = macc
        maccprev1 = macc1
        maccprev2 = macc2
@@ -245,5 +240,7 @@ program get_mdot
  enddo
 
  close(unit=iout)
+
+end subroutine compute_and_write_mdot
 
 end program get_mdot

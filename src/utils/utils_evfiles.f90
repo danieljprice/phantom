@@ -28,13 +28,12 @@ module evutils
  !
  ! Subroutines
  !
+ public :: read_evfile
  public :: get_column_labels_from_ev,write_columns_to_file
  public :: read_evin_file,read_evin_filenames,write_evin_file
- public :: find_column
- !
- ! maximum number of .ev files
- !
- integer, parameter, public  :: inumev = 150
+ public :: find_column,verboseentry
+ integer, parameter, public :: max_columns = 150
+ integer, parameter :: inumev = max_columns
  !
  ! logical unit number for read/write operations
  !
@@ -46,14 +45,13 @@ contains
 !----------------------------------------------------------------
 !+
 !  Read the column labels from the .ev file
-!  Note: This formatting is specific to the formating in evwrite.f90
+!  this is a wrapper to the subroutine below
 !+
 !----------------------------------------------------------------
 subroutine get_column_labels_from_ev(evfile,labels,numcol,ierr)
  integer,             intent(out) :: numcol,ierr
  character(len=*   ), intent(in)  :: evfile
  character(len=*   ), intent(out) :: labels(:)
- integer                          :: i,iopen,iclose
  logical                          :: iexist
  character(len=2048)              :: line
 
@@ -63,16 +61,7 @@ subroutine get_column_labels_from_ev(evfile,labels,numcol,ierr)
     open(unit=ianalysis,file=trim(evfile))
     read(ianalysis,'(a)') line
     close(ianalysis)
-    i     = 0
-    iopen = 1 ! to get into the loop
-    do while ( iopen > 0 .and. i < inumev)
-       iopen  = index(line,'[')
-       iclose = index(line,']')
-       i = i + 1
-       labels(i) = line(iopen +3:iclose-1)
-       line      = line(iclose+1:len(line))
-    enddo
-    numcol = i - 1
+    call get_column_labels(line,labels,numcol)
  else
     ierr   = 1
     numcol = 0
@@ -80,6 +69,31 @@ subroutine get_column_labels_from_ev(evfile,labels,numcol,ierr)
 
 end subroutine get_column_labels_from_ev
 
+!----------------------------------------------------------------
+!+
+!  find the column labels from the corresponding header line
+!  Note: This formatting is specific to the formating in evwrite.f90
+!  i.e. [01  blah] [02  blah] [03  blah]
+!+
+!----------------------------------------------------------------
+subroutine get_column_labels(line,labels,numcol)
+ character(len=*), intent(inout) :: line
+ character(len=*), intent(out)   :: labels(:)
+ integer,          intent(out)   :: numcol
+ integer                         :: i,iopen,iclose
+
+ i = 0
+ iopen = 1 ! to get into the loop
+ do while ( iopen > 0 .and. i < size(labels))
+    iopen  = index(line,'[')
+    iclose = index(line,']')
+    i = i + 1
+    labels(i) = trim(adjustl(line(iopen +3:iclose-1)))
+    line      = line(iclose+1:)
+ enddo
+ numcol = i - 1
+
+end subroutine get_column_labels
 
 !----------------------------------------------------------------
 !+
@@ -100,6 +114,73 @@ integer function find_column(labels,tag)
  enddo
 
 end function find_column
+
+!----------------------------------------------------------------
+!+
+!  subroutine to read entire contents of .ev file into an array
+!  we also allocate the correct amount of memory for dat
+!  returns both data and column labels
+!+
+!----------------------------------------------------------------
+subroutine read_evfile(filename,dat,labels,ncols,nsteps,ierr)
+ character(len=*),  intent(in)  :: filename
+ real, allocatable, intent(out) :: dat(:,:)
+ character(len=*),  intent(out) :: labels(:)
+ integer,           intent(out) :: ncols,nsteps,ierr
+ integer :: i,lu,nheaderlines
+ character(len=2048) :: line
+ !
+ ! open the file
+ !
+ lu = ianalysis
+ open(unit=lu,file=trim(filename),status='old',form='formatted',iostat=ierr)
+ if (ierr /= 0) then
+    !print "(a,i2)",' ERROR opening '//trim(filename)
+    return
+ endif
+ !
+ ! read the first line and extract the column labels
+ !
+ nheaderlines = 1
+ read(lu,"(a)",iostat=ierr) line
+ call get_column_labels(line,labels,ncols)
+ if (ncols <= 0 .or. ierr /= 0) then
+    !print "(a,i2)",' ERROR: could not determine number of columns in '//trim(filename)
+    return
+ endif
+ !
+ ! count the number of useable lines (timesteps) in the file
+ !
+ nsteps = 0
+ do while(ierr == 0)
+    nsteps = nsteps + 1
+    read(lu,*,iostat=ierr)
+ enddo
+ nsteps = nsteps - 1
+ !
+ ! allocate memory
+ !
+ allocate(dat(ncols,nsteps))
+ dat(:,:) = 0.
+ !
+ ! rewind the file
+ !
+ rewind(lu)
+ !
+ ! skip header lines again
+ !
+ do i=1,nheaderlines
+    read(lu,*,iostat=ierr)
+ enddo
+ !
+ ! read the data
+ !
+ do i = 1,nsteps
+    read(lu,*,iostat=ierr) dat(1:ncols,i)
+ enddo
+ close(lu)
+
+end subroutine read_evfile
 
 !----------------------------------------------------------------
 !+
@@ -225,146 +306,133 @@ end subroutine write_evin_file
 
 !----------------------------------------------------------------
 !+
-!  A list of the possible columns, written verbosely
+!  convert concise label into verbose label
 !+
 !----------------------------------------------------------------
 character(len=128) function verboseentry(label)
  character(len=*), intent(in) :: label
- character(len=12)            :: columnT(inumev)
- character(len=128)           :: columnV(inumev)
- integer                      :: i,j
- logical                      :: keep_searching
+ character(len=128)           :: l
  !
  ! List of the verbose entries
  !
- i = 1
- columnT(i) = "        time" ; columnV(i) = "Time"; i=i+1
- columnT(i) = "        ekin" ; columnV(i) = "Kinetic energy"; i=i+1
- columnT(i) = "      etherm" ; columnV(i) = "Thermal energy"; i=i+1
- columnT(i) = "        emag" ; columnV(i) = "Magnetic energy"; i=i+1
- columnT(i) = "        epot" ; columnV(i) = "Potential energy"; i=i+1
- columnT(i) = "        etot" ; columnV(i) = "Total energy"; i=i+1
- columnT(i) = "      totmom" ; columnV(i) = "Total momentum"; i=i+1
- columnT(i) = "      angtot" ; columnV(i) = "Total angular momentum"; i=i+1
- columnT(i) = "      rhomax" ; columnV(i) = "max( rho )"; i=i+1
- columnT(i) = "     rhomean" ; columnV(i) = "mean( rho )"; i=i+1
- columnT(i) = "          dt" ; columnV(i) = "dt"; i=i+1
- columnT(i) = "   totentrop" ; columnV(i) = "Total entropy"; i=i+1
- columnT(i) = "     rmsmach" ; columnV(i) = "RMS Mach number"; i=i+1
- columnT(i) = "  rho dust X" ; columnV(i) = "max( rho_dust )"; i=i+1
- columnT(i) = "  rho dust A" ; columnV(i) = "mean( rho_dust )"; i=i+1
- columnT(i) = "   rho bdy X" ; columnV(i) = "max( rho_boundary )"; i=i+1
- columnT(i) = "   rho bdy A" ; columnV(i) = "mean( rho_boundary )"; i=i+1
- columnT(i) = "  rho star X" ; columnV(i) = "max( rho_star )"; i=i+1
- columnT(i) = "  rho star A" ; columnV(i) = "mean( rho_star )"; i=i+1
- columnT(i) = "    rho dm X" ; columnV(i) = "max( rho_darkmatter )"; i=i+1
- columnT(i) = "    rho dm A" ; columnV(i) = "mean( rho_darkmatter )"; i=i+1
- columnT(i) = "   rho blg X" ; columnV(i) = "max( rho_bulge )"; i=i+1
- columnT(i) = "   rho blg A" ; columnV(i) = "mean( rho_bulge )"; i=i+1
- columnT(i) = "   rho gas X" ; columnV(i) = "max( rho_gas )"; i=i+1
- columnT(i) = "   rho gas A" ; columnV(i) = "mean( rho_gas )"; i=i+1
- columnT(i) = "   alpha max" ; columnV(i) = "max( alpha )"; i=i+1
- columnT(i) = "  alphaB max" ; columnV(i) = "max( alphaB )"; i=i+1
- columnT(i) = "    divB max" ; columnV(i) = "max( divB )"; i=i+1
- columnT(i) = "    divB ave" ; columnV(i) = "mean( divB )"; i=i+1
- columnT(i) = " hdivB/B max" ; columnV(i) = "max( hdivB/B )"; i=i+1
- columnT(i) = " hdivB/B ave" ; columnV(i) = "mean( hdivB/B )"; i=i+1
- columnT(i) = "    beta max" ; columnV(i) = "max( Plasma beta )"; i=i+1
- columnT(i) = "    beta ave" ; columnV(i) = "mean( Plasma beta )"; i=i+1
- columnT(i) = "    beta min" ; columnV(i) = "min( Plasma beta )"; i=i+1
- columnT(i) = "    temp max" ; columnV(i) = "max( Temperature )"; i=i+1
- columnT(i) = "    temp ave" ; columnV(i) = "mean( Temperature )"; i=i+1
- columnT(i) = "  eta_ar max" ; columnV(i) = "max( eta_artificial )"; i=i+1
- columnT(i) = "  eta_ar ave" ; columnV(i) = "mean( eta_artificial )"; i=i+1
- columnT(i) = "   eta_o max" ; columnV(i) = "max( eta_Ohm )"; i=i+1
- columnT(i) = "   eta_o ave" ; columnV(i) = "mean( eta_Ohm )"; i=i+1
- columnT(i) = "   eta_o min" ; columnV(i) = "min( eta_Ohm )"; i=i+1
- columnT(i) = " eta_o/art X" ; columnV(i) = "max( eta_Ohm/eta_artificial )"; i=i+1
- columnT(i) = " eta_o/art A" ; columnV(i) = "mean( eta_Ohm/eta_artificial )"; i=i+1
- columnT(i) = " eta_o/art N" ; columnV(i) = "min( eta_Ohm/eta_artificial )"; i=i+1
- columnT(i) = "   eta_h max" ; columnV(i) = "max( eta_hall )"; i=i+1
- columnT(i) = "   eta_h ave" ; columnV(i) = "mean( eta_hall )"; i=i+1
- columnT(i) = "   eta_h min" ; columnV(i) = "min( eta_hall )"; i=i+1
- columnT(i) = " |eta_h| max" ; columnV(i) = "max( |eta_hall| )"; i=i+1
- columnT(i) = " |eta_h| ave" ; columnV(i) = "mean( |eta_hall| )"; i=i+1
- columnT(i) = " |eta_h| min" ; columnV(i) = "min( |eta_hall| )"; i=i+1
- columnT(i) = " eta_h/art X" ; columnV(i) = "max( eta_hall/eta_artificial )"; i=i+1
- columnT(i) = " eta_h/art A" ; columnV(i) = "mean( eta_hall/eta_artificial )"; i=i+1
- columnT(i) = " eta_h/art N" ; columnV(i) = "min( eta_hall/eta_artificial )"; i=i+1
- columnT(i) = " |e_h|/art X" ; columnV(i) = "max( |eta_hall|/eta_artificial )"; i=i+1
- columnT(i) = " |e_h|/art A" ; columnV(i) = "mean( |eta_hall|/eta_artificial )"; i=i+1
- columnT(i) = " |e_h|/art N" ; columnV(i) = "min( |eta_hall|/eta_artificial )"; i=i+1
- columnT(i) = "   eta_a max" ; columnV(i) = "max( eta_ambipolar )"; i=i+1
- columnT(i) = "   eta_a ave" ; columnV(i) = "mean( eta_ambipolar )"; i=i+1
- columnT(i) = "   eta_a min" ; columnV(i) = "min( eta_ambipolar )"; i=i+1
- columnT(i) = " eta_a/art X" ; columnV(i) = "max( eta_ambipolar/eta_artificial )"; i=i+1
- columnT(i) = " eta_a/art A" ; columnV(i) = "mean( eta_ambipolar/eta_artificial )"; i=i+1
- columnT(i) = " eta_a/art N" ; columnV(i) = "min( eta_ambipolar/eta_artificial )"; i=i+1
- columnT(i) = "   n_e/n max" ; columnV(i) = "max( n_e/n )"; i=i+1
- columnT(i) = "   n_e/n ave" ; columnV(i) = "mean( n_e/n )"; i=i+1
- columnT(i) = "     n_e max" ; columnV(i) = "max( n_electron )"; i=i+1
- columnT(i) = "     n_e ave" ; columnV(i) = "mean( n_electron )"; i=i+1
- columnT(i) = "     n_n max" ; columnV(i) = "max( n_neutral )"; i=i+1
- columnT(i) = "     n_n ave" ; columnV(i) = "mean( n_neutral )"; i=i+1
- columnT(i) = " Z_Grain max" ; columnV(i) = "max( Z_grain )"; i=i+1
- columnT(i) = " Z_Grain ave" ; columnV(i) = "mean( Z_grain )"; i=i+1
- columnT(i) = " Z_Grain min" ; columnV(i) = "min( Z_grain )"; i=i+1
- columnT(i) = "   n_ihR max" ; columnV(i) = "max( n_ion_lightElements (cosmic rays) )"; i=i+1
- columnT(i) = "   n_ihR ave" ; columnV(i) = "mean( n_ion_lightElements (cosmic rays) )"; i=i+1
- columnT(i) = "   n_imR max" ; columnV(i) = "max( n_ion_metallicElements (cosmic rays) )"; i=i+1
- columnT(i) = "   n_imR ave" ; columnV(i) = "mean( n_ion_metallicElements (cosmic rays) )"; i=i+1
- columnT(i) = "    n_gR max" ; columnV(i) = "max( n_grain (cosmic rays) )"; i=i+1
- columnT(i) = "    n_gR ave" ; columnV(i) = "mean( n_grain (cosmic rays) )"; i=i+1
- columnT(i) = "    n_iT max" ; columnV(i) = "max( n_ion (thermal) )"; i=i+1
- columnT(i) = "    n_iT ave" ; columnV(i) = "mean( n_ion (thermal) )"; i=i+1
- columnT(i) = "    n_H+ max" ; columnV(i) = "max( n_Hydrogen+ )"; i=i+1
- columnT(i) = "    n_H+ ave" ; columnV(i) = "mean( n_Hydrogen+ )"; i=i+1
- columnT(i) = "   n_He+ max" ; columnV(i) = "max( n_Helium+ )"; i=i+1
- columnT(i) = "   n_He+ ave" ; columnV(i) = "mean( n_Helium+ )"; i=i+1
- columnT(i) = "   n_Na+ max" ; columnV(i) = "max( n_Sodium+ )"; i=i+1
- columnT(i) = "   n_Na+ ave" ; columnV(i) = "mean( n_Sodium+ )"; i=i+1
- columnT(i) = "   n_Mg+ max" ; columnV(i) = "max( n_Magnesium+ )"; i=i+1
- columnT(i) = "   n_Mg+ ave" ; columnV(i) = "mean( n_Magnesium+ )"; i=i+1
- columnT(i) = "    n_K+ max" ; columnV(i) = "max( n_Potassium+ )"; i=i+1
- columnT(i) = "    n_K+ ave" ; columnV(i) = "mean( n_Potassium+ )"; i=i+1
- columnT(i) = "  n_He++ max" ; columnV(i) = "max( n_Helium++ )"; i=i+1
- columnT(i) = "  n_He++ ave" ; columnV(i) = "mean( n_Helium++ )"; i=i+1
- columnT(i) = "  n_Na++ max" ; columnV(i) = "max( n_Sodium++ )"; i=i+1
- columnT(i) = "  n_Na++ ave" ; columnV(i) = "mean( n_Sodium++ )"; i=i+1
- columnT(i) = "  n_Mg++ max" ; columnV(i) = "max( n_Magnesium++ )"; i=i+1
- columnT(i) = "  n_Mg++ ave" ; columnV(i) = "mean( n_Magnesium++ )"; i=i+1
- columnT(i) = "   n_K++ max" ; columnV(i) = "max( n_Potassium++ )"; i=i+1
- columnT(i) = "   n_K++ ave" ; columnV(i) = "mean( n_Potassium++ )"; i=i+1
- columnT(i) = "  dust/gas X" ; columnV(i) = "max( dust/gas )"; i=i+1
- columnT(i) = "  dust/gas A" ; columnV(i) = "mean( dust/gas )"; i=i+1
- columnT(i) = "  dust/gas N" ; columnV(i) = "min( dust/gas )"; i=i+1
- columnT(i) = "     t_s ave" ; columnV(i) = "mean( t_s )"; i=i+1
- columnT(i) = "     t_s min" ; columnV(i) = "min( t_s )"; i=i+1
- columnT(i) = "   totmomall" ; columnV(i) = "Total momentum (incl. accreted)"; i=i+1
- columnT(i) = "      angall" ; columnV(i) = "Total anglular momentum (incl. accreted)"; i=i+1
- columnT(i) = " Macc sink 1" ; columnV(i) = "Accreted mass onto star 1"; i=i+1
- columnT(i) = " Macc sink 2" ; columnV(i) = "Accreted mass onto star 2"; i=i+1
- columnT(i) = " accretedmas" ; columnV(i) = "Accreted mass"; i=i+1
- columnT(i) = "        eacc" ; columnV(i) = "Accreted energy"; i=i+1
- columnT(i) = "     tot lum" ; columnV(i) = "Total luminosity"; i=i+1
- columnT(i) = "        erot" ; columnV(i) = "Rotational energy"; i=i+1
- columnT(i) = "  visc_rat X" ; columnV(i) = "max( Viscious ratio )"; i=i+1
- columnT(i) = "  visc_rat A" ; columnV(i) = "mean( Viscious ratio )"; i=i+1
- columnT(i) = "  visc_rat N" ; columnV(i) = "min( Viscious ratio )"; i=i+1
- !
- !--Determine the entry to use
- !
- verboseentry = label ! default value
- j = 0
- keep_searching = .true.
- do while (keep_searching .and. j < i - 1)
-    j = j + 1
-    if (label==columnT(j)) then
-       verboseentry   = columnV(j)
-       keep_searching = .false.
-    endif
- enddo
+ l = trim(adjustl(label))
+ select case(trim(adjustl(label)))
+ case('time');        l='Time'
+ case('ekin');        l='Kinetic energy'
+ case('etherm');      l='Thermal energy'
+ case('emag');        l='Magnetic energy'
+ case('epot');        l='Potential energy'
+ case('etot');        l='Total energy'
+ case('totmom');      l='Total momentum'
+ case('angtot');      l='Total angular momentum'
+ case('rhomax');      l='max( rho )'
+ case('rhomean');     l='mean( rho )'
+ case('dt');          l='dt'
+ case('totentrop');   l='Total entropy'
+ case('rmsmach');     l='RMS Mach number'
+ case('rho dust X');  l='max( rho_dust )'
+ case('rho dust A');  l='mean( rho_dust )'
+ case('rho bdy X');   l='max( rho_boundary )'
+ case('rho bdy A');   l='mean( rho_boundary )'
+ case('rho star X');  l='max( rho_star )'
+ case('rho star A');  l='mean( rho_star )'
+ case('rho dm X');    l='max( rho_darkmatter )'
+ case('rho dm A');    l='mean( rho_darkmatter )'
+ case('rho blg X');   l='max( rho_bulge )'
+ case('rho blg A');   l='mean( rho_bulge )'
+ case('rho gas X');   l='max( rho_gas )'
+ case('rho gas A');   l='mean( rho_gas )'
+ case('alpha max');   l='max( alpha )'
+ case('alphaB max');  l='max( alphaB )'
+ case('divB max');    l='max( divB )'
+ case('divB ave');    l='mean( divB )'
+ case('hdivB/B max'); l='max( hdivB/B )'
+ case('hdivB/B ave'); l='mean( hdivB/B )'
+ case('beta max');    l='max( Plasma beta )'
+ case('beta ave');    l='mean( Plasma beta )'
+ case('beta min');    l='min( Plasma beta )'
+ case('temp max');    l='max( Temperature )'
+ case('temp ave');    l='mean( Temperature )'
+ case('eta_ar max');  l='max( eta_artificial )'
+ case('eta_ar ave');  l='mean( eta_artificial )'
+ case('eta_o max');   l='max( eta_Ohm )'
+ case('eta_o ave');   l='mean( eta_Ohm )'
+ case('eta_o min');   l='min( eta_Ohm )'
+ case('eta_o/art X'); l='max( eta_Ohm/eta_artificial )'
+ case('eta_o/art A'); l='mean( eta_Ohm/eta_artificial )'
+ case('eta_o/art N'); l='min( eta_Ohm/eta_artificial )'
+ case('eta_h max');   l='max( eta_hall )'
+ case('eta_h ave');   l='mean( eta_hall )'
+ case('eta_h min');   l='min( eta_hall )'
+ case('|eta_h| max'); l='max( |eta_hall| )'
+ case('|eta_h| ave'); l='mean( |eta_hall| )'
+ case('|eta_h| min'); l='min( |eta_hall| )'
+ case('eta_h/art X'); l='max( eta_hall/eta_artificial )'
+ case('eta_h/art A'); l='mean( eta_hall/eta_artificial )'
+ case('eta_h/art N'); l='min( eta_hall/eta_artificial )'
+ case('|e_h|/art X'); l='max( |eta_hall|/eta_artificial )'
+ case('|e_h|/art A'); l='mean( |eta_hall|/eta_artificial )'
+ case('|e_h|/art N'); l='min( |eta_hall|/eta_artificial )'
+ case('eta_a max');   l='max( eta_ambipolar )'
+ case('eta_a ave');   l='mean( eta_ambipolar )'
+ case('eta_a min');   l='min( eta_ambipolar )'
+ case('eta_a/art X'); l='max( eta_ambipolar/eta_artificial )'
+ case('eta_a/art A'); l='mean( eta_ambipolar/eta_artificial )'
+ case('eta_a/art N'); l='min( eta_ambipolar/eta_artificial )'
+ case('n_e/n max');   l='max( n_e/n )'
+ case('n_e/n ave');   l='mean( n_e/n )'
+ case('n_e max');     l='max( n_electron )'
+ case('n_e ave');     l='mean( n_electron )'
+ case('n_n max');     l='max( n_neutral )'
+ case('n_n ave');     l='mean( n_neutral )'
+ case('Z_Grain max'); l='max( Z_grain )'
+ case('Z_Grain ave'); l='mean( Z_grain )'
+ case('Z_Grain min'); l='min( Z_grain )'
+ case('n_ihR max');   l='max( n_ion_lightElements (cosmic rays) )'
+ case('n_ihR ave');   l='mean( n_ion_lightElements (cosmic rays) )'
+ case('n_imR max');   l='max( n_ion_metallicElements (cosmic rays) )'
+ case('n_imR ave');   l='mean( n_ion_metallicElements (cosmic rays) )'
+ case('n_gR max');    l='max( n_grain (cosmic rays) )'
+ case('n_gR ave');    l='mean( n_grain (cosmic rays) )'
+ case('n_iT max');    l='max( n_ion (thermal) )'
+ case('n_iT ave');    l='mean( n_ion (thermal) )'
+ case('n_H+ max');    l='max( n_Hydrogen+ )'
+ case('n_H+ ave');    l='mean( n_Hydrogen+ )'
+ case('n_He+ max');   l='max( n_Helium+ )'
+ case('n_He+ ave');   l='mean( n_Helium+ )'
+ case('n_Na+ max');   l='max( n_Sodium+ )'
+ case('n_Na+ ave');   l='mean( n_Sodium+ )'
+ case('n_Mg+ max');   l='max( n_Magnesium+ )'
+ case('n_Mg+ ave');   l='mean( n_Magnesium+ )'
+ case('n_K+ max');    l='max( n_Potassium+ )'
+ case('n_K+ ave');    l='mean( n_Potassium+ )'
+ case('n_He++ max');  l='max( n_Helium++ )'
+ case('n_He++ ave');  l='mean( n_Helium++ )'
+ case('n_Na++ max');  l='max( n_Sodium++ )'
+ case('n_Na++ ave');  l='mean( n_Sodium++ )'
+ case('n_Mg++ max');  l='max( n_Magnesium++ )'
+ case('n_Mg++ ave');  l='mean( n_Magnesium++ )'
+ case('n_K++ max');   l='max( n_Potassium++ )'
+ case('n_K++ ave');   l='mean( n_Potassium++ )'
+ case('dust/gas X');  l='max( dust/gas )'
+ case('dust/gas A');  l='mean( dust/gas )'
+ case('dust/gas N');  l='min( dust/gas )'
+ case('t_s ave');     l='mean( t_s )'
+ case('t_s min');     l='min( t_s )'
+ case('totmomall');   l='Total momentum (incl. accreted)'
+ case('angall');      l='Total anglular momentum (incl. accreted)'
+ case('Macc sink 1'); l='Accreted mass onto star 1'
+ case('Macc sink 2'); l='Accreted mass onto star 2'
+ case('accretedmas'); l='Accreted mass'
+ case('eacc');        l='Accreted energy'
+ case('tot lum');     l='Total luminosity'
+ case('erot');        l='Rotational energy'
+ case('visc_rat X');  l='max( Viscious ratio )'
+ case('visc_rat A');  l='mean( Viscious ratio )'
+ case('visc_rat N');  l='min( Viscious ratio )'
+ end select
+ verboseentry = l
 
 end function verboseentry
-!-----------------------------------------------------------------------
+
 end module evutils
