@@ -35,7 +35,6 @@ module io
  integer, public :: imflow, ivmflow, ibinpos, igpos
  integer, public :: ifile,ifdump,ifdumpread,ireadgrid,ireaddrv,ianalysis
  integer, public :: iscfile,ipafile,iskfile,igit,iuniteos
- integer, public :: icolA,icolB
 
  !--verboseness level is set to zero by default
  !  but can be changed by external routines (e.g. as input file option)
@@ -107,8 +106,6 @@ subroutine set_io_unit_numbers
  ireadgrid  = 53 ! for reading gridded density derivative file
  ireaddrv   = 24 ! for reading input file for turbulent driving
  ianalysis  = 25 ! for writing analysis output
- icolA      = 26 ! for opening/comparing .columns files
- icolB      = 27 ! for opening/comparing .columns files
  iuniteos   = 28 ! for printing the eos to file
  igit       = 29 ! for reading phantom_version
  iscfile    = 32 ! for writing details of sink creation

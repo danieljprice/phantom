@@ -23,20 +23,22 @@
 !+
 !--------------------------------------------------------------------------
 program get_mdot
+ use evutils
  implicit none
  integer, parameter :: lu1 = 11, lu2 = 13, iout = 12
-! integer, parameter :: nsmooth = 20
- integer, parameter :: imacc_col = 14
- integer, parameter :: ncols = imacc_col
- real :: dat(ncols),dat2(ncols-1)
+ integer, parameter :: maxcol = 128
+ integer :: ncols,imacc_col,imacc1_col,imacc2_col
+ real    :: dat(maxcol),dat2(maxcol-1)
+ character(len=20) :: labels(maxcol)
  real, dimension(:,:), allocatable :: datfull,datfull2,temp_array
  character(len=40) :: filename,outfile
  integer :: i,nargs,ierr,nlines,iev,isteps,istart,append_length,stepstart,ii,jj,stepend
- real :: maccprev,macc,tprev,dt,mdot,dtmin,thold
+ real    :: maccprev,maccprev1,maccprev2,macc,macc1,macc2,mdot,mdot1,mdot2
+ real    :: tprev,dt,dtmin,thold
 
- allocate(datfull2(ncols,1))
- datfull2(:,:) = 0.
-
+ !
+ ! get number of arguments and name of current program
+ !
  nargs = command_argument_count()
  call get_command_argument(0,filename)
 
@@ -44,6 +46,10 @@ program get_mdot
     print "(a)",' Usage: '//trim(filename)//' [dt_min] file1.ev file2.ev ...'
     stop
  endif
+ !
+ ! set the time interval based on the (optional) first command line argument
+ ! if not read as a sensible real number, assume dtmin = 0.
+ !
  call get_command_argument(1,filename)
  read(filename,*,iostat=ierr) dtmin
  if (ierr /= 0) then
@@ -54,7 +60,32 @@ program get_mdot
     istart = 2
  endif
 
+ !
+ ! get name of the first file
+ !
  call get_command_argument(istart,filename)
+ !
+ ! get labels and number of columns from the first line of the file
+ !
+ call get_column_labels_from_ev(filename,labels,ncols,ierr)
+ if (ncols < 0) then
+    print "(a,i2)",' ERROR: could not determine number of columns in '//trim(filename)//' ...skipping'
+    stop
+ endif
+ imacc_col = find_column(labels,'accretedmas') ! global .ev file
+ if (imacc_col <= 0) imacc_col = find_column(labels,'macc') ! sink particle .ev file
+ if (imacc_col <= 0) stop 'could not locate accreted mass column from header information'
+
+ !
+ ! find column numbers for binary mass accretion rates
+ ! (only if binary information exists in .ev file)
+ !
+ imacc1_col = find_column(labels,'macc1')
+ imacc2_col = find_column(labels,'macc2')
+
+ !
+ ! open the file for reading and set the name of the output file
+ !
  open(unit=lu1,file=trim(filename),status='old',form='formatted',iostat=ierr)
  if (ierr /= 0) then
     print "(a)",' ERROR opening '//trim(filename)//' ...skipping'
@@ -65,16 +96,30 @@ program get_mdot
     ! outfile = filename(1:iev)//'-mdot.ev'
     outfile = trim(filename(1:iev-2))//'.mdot'
     open(unit=iout,file=trim(outfile),status='replace',form='formatted')
-    write(iout,"('#',3(a17,2x))") 't','mdot','macc'
+    if (imacc1_col > 0 .and. imacc2_col > 0) then
+       write(iout,"('#',7(a17,2x))") 't','mdot','macc','mdot1','macc1','mdot2','macc2'
+    else
+       write(iout,"('#',3(a17,2x))") 't','mdot','macc'
+    endif
  endif
+ !
+ ! allocate memory
+ !
+ allocate(datfull2(ncols,1))
+ datfull2(:,:) = 0.
 
  stepstart = 1
  isteps = 1
  stepend = stepstart
+ imacc_col = 0
 
  over_args: do i=istart,nargs
     print "(a)",trim(filename)//' --> '//trim(outfile)
     call get_command_argument(i,filename)
+    
+    !
+    ! now open the file properly
+    !
     open(unit=lu1,file=trim(filename),status='old',form='formatted',iostat=ierr)
     if (ierr /= 0) then
        print "(a)",' ERROR opening '//trim(filename)//' ...skipping'
@@ -93,18 +138,34 @@ program get_mdot
           cycle over_args
        endif
 
+       !
+       ! count the number of useable lines (timesteps) in the file
+       !
        isteps = 0
        do while(ierr == 0)
           isteps = isteps + 1
           read(lu1,*,iostat=ierr) !dat(1:ncols)
        enddo
+       !
+       ! allocate enough memory to read it all
+       !
        allocate(datfull(1:ncols,1:isteps))
        datfull(:,:) = 0.
 
-       close(unit=lu1)
-       open(unit=lu1,file=trim(filename),status='old',form='formatted',iostat=ierr)
-       read(lu1,*,iostat=ierr)
+       !
+       ! rewind file
+       !
+       rewind(unit=lu1)
 
+       !
+       ! skip header lines again
+       !
+       do jj=1,nlines
+          read(lu1,*,iostat=ierr)
+       enddo
+       !
+       ! read the data
+       !
        do jj = 1,isteps
           read(lu1,*,iostat=ierr) dat(1:ncols)
           datfull(1:ncols,jj) = dat(1:ncols)
@@ -141,27 +202,45 @@ program get_mdot
     stepstart=stepend
  enddo over_args
 
+ !
  ! Now calculate the accretion rates
+ !
  isteps = 0
  tprev = 0
  maccprev = 0.
+ maccprev1 = 0.
+ maccprev2 = 0.
+ macc1 = 0.
+ macc2 = 0.
  dat(:) = 0.
  ierr = 0
 
  do while(isteps  <=  (size(datfull2,2)-1))
     isteps = isteps + 1
     macc = datfull2(imacc_col,isteps) !dat(imacc_col)
+    if (imacc1_col > 0) macc1 = datfull2(imacc1_col,isteps)
+    if (imacc2_col > 0) macc2 = datfull2(imacc2_col,isteps)
     dt = datfull2(1,isteps) - tprev
     if (dt > tiny(dt)) then
        mdot = max(0., (macc - maccprev)/dt)
+       mdot1 = max(0., (macc1 - maccprev1)/dt)
+       mdot2 = max(0., (macc2 - maccprev2)/dt)
     else
        mdot = 0.
+       mdot1 = 0.
+       mdot2 = 0.
     endif
     if (dt > dtmin .and. ierr==0) then
        !print *,' time ',datfull2(1,isteps),' mass accreted = ',macc, ' mdot = ',mdot
-       write(iout,"(3(es18.10,1x))") datfull2(1,isteps),mdot,macc
+       if (imacc1_col > 0 .and. imacc2_col > 0) then
+          write(iout,"(3(es18.10,1x))",iostat=ierr) datfull2(1,isteps),mdot,macc,mdot1,macc1,mdot2,macc2
+       else
+          write(iout,"(3(es18.10,1x))",iostat=ierr) datfull2(1,isteps),mdot,macc
+       endif
        tprev = datfull2(1,isteps)
        maccprev = macc
+       maccprev1 = macc1
+       maccprev2 = macc2
     endif
  enddo
 

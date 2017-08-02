@@ -5,11 +5,11 @@
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
 !+
-!  MODULE: evcompare
+!  MODULE: evutils
 !
 !  DESCRIPTION:
-!  Contains supplementary subroutines required when rewriting .ev files
-!  with like headers
+!   Contains supplementary subroutines useful for dealing with .ev files
+!   -> currently used by phantomevcompare and ev2mdot
 !
 !  REFERENCES:
 !
@@ -23,56 +23,84 @@
 !  DEPENDENCIES: infile_utils, io
 !+
 !--------------------------------------------------------------------------
-module evcompare
- use io, only: ianalysis
+module evutils
  implicit none
  !
- !--Subroutines
- public  :: read_columns_from_ev,write_columns_to_file
- public  :: read_evin_file,read_evin_filenames,write_evin_file
- private :: verboseentry
- integer, public, parameter :: inumev = 150
-
+ ! Subroutines
  !
+ public :: get_column_labels_from_ev,write_columns_to_file
+ public :: read_evin_file,read_evin_filenames,write_evin_file
+ public :: find_column
+ !
+ ! maximum number of .ev files
+ !
+ integer, parameter, public  :: inumev = 150
+ !
+ ! logical unit number for read/write operations
+ !
+ integer, parameter :: ianalysis = 25
+
  private
 
 contains
 !----------------------------------------------------------------
 !+
-!  Read the columns from the .ev file
+!  Read the column labels from the .ev file
 !  Note: This formatting is specific to the formating in evwrite.f90
 !+
 !----------------------------------------------------------------
-subroutine read_columns_from_ev(evfile,columns,numcol,ierr)
+subroutine get_column_labels_from_ev(evfile,labels,numcol,ierr)
  integer,             intent(out) :: numcol,ierr
  character(len=*   ), intent(in)  :: evfile
- character(len=*   ), intent(out) :: columns(:)
+ character(len=*   ), intent(out) :: labels(:)
  integer                          :: i,iopen,iclose
  logical                          :: iexist
- character(len=2048)              :: cdummy
- !
+ character(len=2048)              :: line
+
  ierr = 0
  inquire(file=trim(evfile),exist=iexist)
  if (iexist) then
     open(unit=ianalysis,file=trim(evfile))
-    read(ianalysis,'(a)') cdummy
+    read(ianalysis,'(a)') line
     close(ianalysis)
     i     = 0
     iopen = 1 ! to get into the loop
     do while ( iopen > 0 .and. i < inumev)
-       iopen  = index(cdummy,'[')
-       iclose = index(cdummy,']')
+       iopen  = index(line,'[')
+       iclose = index(line,']')
        i = i + 1
-       columns(i) = cdummy(iopen +3:iclose-1)
-       cdummy     = cdummy(iclose+1:len(cdummy))
+       labels(i) = line(iopen +3:iclose-1)
+       line      = line(iclose+1:len(line))
     enddo
     numcol = i - 1
  else
     ierr   = 1
     numcol = 0
  endif
- !
-end subroutine read_columns_from_ev
+
+end subroutine get_column_labels_from_ev
+
+
+!----------------------------------------------------------------
+!+
+!  find the column number matching a particular label
+!+
+!----------------------------------------------------------------
+integer function find_column(labels,tag)
+ character(len=*), intent(in) :: labels(:)
+ character(len=*), intent(in) :: tag
+ integer :: i
+
+ find_column = 0
+ do i=1,size(labels)  ! find first one that matches
+    if (trim(adjustl(labels(i)))==trim(adjustl(tag))) then
+       find_column = i
+       exit
+    endif
+ enddo
+
+end function find_column
+
 !----------------------------------------------------------------
 !+
 !  Write the .columns file
@@ -84,7 +112,8 @@ subroutine write_columns_to_file(numcol0,columns0,outputprefix)
  integer                       :: i
  character(len=200)            :: columnsfile,label
  !
- !create and open file
+ ! create and open file
+ !
  write(columnsfile,'(2a)') trim(outputprefix),'.columns'
  open(ianalysis,file=trim(columnsfile))
  do i = 1,numcol0
@@ -92,7 +121,7 @@ subroutine write_columns_to_file(numcol0,columns0,outputprefix)
     write(ianalysis,'(a)') trim(verboseentry(columns0(i)))
  enddo
  close(ianalysis)
- !
+
 end subroutine write_columns_to_file
 !----------------------------------------------------------------
 !+
@@ -108,17 +137,21 @@ subroutine read_evin_file(filename,outprefix,single_output,concise,ierr)
  integer,          intent(out) :: ierr
  integer,          parameter   :: iunit = 21
  type(inopts),     allocatable :: db(:)
- !
+
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
  call read_inopt(outprefix,     'Output prefix', db,ierr)
  call read_inopt(single_output, 'Num Outputs',   db,ierr)
  call read_inopt(concise,       'Concise',       db,ierr)
  call close_db(db)
- !
+
 end subroutine read_evin_file
-!
+
+!----------------------------------------------------------------
+!+
 ! Determine filenames
+!+
+!----------------------------------------------------------------
 subroutine read_evin_filenames(maxfiles,filename,infilenames,nummodels,ierr)
  integer,            intent(in)    :: maxfiles
  integer,            intent(out)   :: nummodels
@@ -128,7 +161,7 @@ subroutine read_evin_filenames(maxfiles,filename,infilenames,nummodels,ierr)
  integer,            parameter     :: iunit = 21
  integer                           :: io,imodel,iequal,iem,ispace
  character(len=512)                :: evinline,infiletmp
- !
+
  nummodels = 0
  io        = 0
  open(unit=iunit,file=filename)
@@ -154,7 +187,7 @@ subroutine read_evin_filenames(maxfiles,filename,infilenames,nummodels,ierr)
  enddo
  close(iunit)
  if (nummodels==0) ierr = ierr + 1
- !
+
 end subroutine read_evin_filenames
 !----------------------------------------------------------------
 !+
@@ -169,26 +202,27 @@ subroutine write_evin_file(outprefix,infilenames,nummodels,single_output,concise
  integer,          parameter  :: iunit = 668
  integer                      :: i
  character(len=120)           :: filename
- !
+
  filename = trim(outprefix)//".evin"
  print "(a)",' writing input options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
- !
+
  write(iunit,"(/,a)") '# Output prefix'
  call write_inopt(trim(outprefix),        'Output prefix',   'output file name prefix of all compared files',iunit)
- !
+
  write(iunit,"(/,a)") '# Files to compare'
  do i = 1,nummodels
     call write_inopt(trim(infilenames(i)),"Model",    'prefix of an .ev file to compare',iunit)
  enddo
- !
+
  write(iunit,"(/,a)") '# Output Format'
  call write_inopt(single_output,'Num Outputs','output one .ev file per model (F: one output per .ev per model)',iunit)
  call write_inopt(concise,'Concise','write columns that exist in all files (F: write columns that exist in any file)',iunit)
- !
+
  close(iunit)
- !
+
 end subroutine write_evin_file
+
 !----------------------------------------------------------------
 !+
 !  A list of the possible columns, written verbosely
@@ -201,7 +235,8 @@ character(len=128) function verboseentry(label)
  integer                      :: i,j
  logical                      :: keep_searching
  !
- !--List of the verbose entries
+ ! List of the verbose entries
+ !
  i = 1
  columnT(i) = "        time" ; columnV(i) = "Time"; i=i+1
  columnT(i) = "        ekin" ; columnV(i) = "Kinetic energy"; i=i+1
@@ -318,6 +353,7 @@ character(len=128) function verboseentry(label)
  columnT(i) = "  visc_rat N" ; columnV(i) = "min( Viscious ratio )"; i=i+1
  !
  !--Determine the entry to use
+ !
  verboseentry = label ! default value
  j = 0
  keep_searching = .true.
@@ -328,7 +364,7 @@ character(len=128) function verboseentry(label)
        keep_searching = .false.
     endif
  enddo
- !
+
 end function verboseentry
 !-----------------------------------------------------------------------
-end module evcompare
+end module evutils
