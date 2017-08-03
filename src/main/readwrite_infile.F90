@@ -527,7 +527,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     endif
     if (beta < 0.)     call fatal(label,'beta < 0')
     if (beta > 4.)     call warn(label,'very high beta viscosity set')
-    if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 10)) call fatal(label,'only ieos=2 makes sense if storing thermal energy')
+    if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 10 .and. ieos /= 11)) &
+    call fatal(label,'only ieos=2 makes sense if storing thermal energy')
     if (irealvisc < 0 .or. irealvisc > 12)  call fatal(label,'invalid setting for physical viscosity')
     if (shearparam < 0.)                     call fatal(label,'stupid value for shear parameter (< 0)')
     if (irealvisc==2 .and. shearparam > 1) call error(label,'alpha > 1 for shakura-sunyaev viscosity')

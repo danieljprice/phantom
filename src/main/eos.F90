@@ -125,7 +125,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni)
 #ifdef GR
  real :: enthi,pondensi
 ! Check to see if adiabatic equation of state is being used.
- if (eos_type /= 2) call fatal('eos','GR is only compatible with an adiabatic equation of state, for the time being.',&
+ if (eos_type /= 2 .or. eos_type /= 11) &
+ call fatal('eos','GR is only compatible with an adiabatic equation of state (ieos=2), for the time being.',&
  var='eos_type',val=real(eos_type))
 #endif
 
