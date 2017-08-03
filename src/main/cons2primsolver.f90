@@ -34,8 +34,14 @@ subroutine get_u(u,P,dens)
  real, intent(in)  :: dens,P
  real, intent(out) :: u
 
- u = (P/dens)/(gamma-1.)
- if (P==0.) u=0.
+ ! Needed in dust case when dens = 0 causes P/dens = NaN and therefore enth = NaN
+ ! or gamma=1 gives divide-by-zero
+
+ if (P==0. .or. abs(p)<tiny(p)) then
+    u = 0.
+ else
+    u = (P/dens)/(gamma-1.)
+ endif
 
 end subroutine
 
@@ -43,10 +49,13 @@ subroutine get_enthalpy(enth,dens,P)
  real, intent(in)  :: dens,P
  real, intent(out) :: enth
 
- enth = 1.+p/dens*(gamma/(gamma-1.))
-
  ! Needed in dust case when dens = 0 causes P/dens = NaN and therefore enth = NaN
- if(abs(p)<tiny(p)) enth=1.
+ ! or gamma=1 gives divide-by-zero
+ if(P==0. .or. abs(p)<tiny(p)) then
+    enth = 1.
+ else
+    enth = 1.+p/dens*(gamma/(gamma-1.))
+ endif
 
 end subroutine
 !=========================
