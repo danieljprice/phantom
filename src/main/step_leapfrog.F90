@@ -511,7 +511,7 @@ end subroutine step
 #ifdef GR
 subroutine stepgr_extern_sph(dt,npart,xyzh,vxyzu,dens,pxyzu)
  use part, only:isdead_or_accreted
- use cons2prim, only: conservative2primitive_combined
+ use cons2prim, only:conservative_to_primitive
  real,    intent(in)    :: dt
  integer, intent(in)    :: npart
  real,    intent(inout) :: xyzh(:,:),dens(:)
@@ -529,8 +529,7 @@ subroutine stepgr_extern_sph(dt,npart,xyzh,vxyzu,dens,pxyzu)
  !$omp private(i,niter,diff,xpred,vold,converged)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call conservative2primitive_combined(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
-
+       call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
        !
        ! main position update
        !
@@ -542,7 +541,7 @@ subroutine stepgr_extern_sph(dt,npart,xyzh,vxyzu,dens,pxyzu)
        niter = 0
        do while (.not. converged .and. niter<=nitermax)
           niter = niter + 1
-          call conservative2primitive_combined(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
+          call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
           xyzh(1:3,i) = xpred + 0.5*dt*(vxyzu(1:3,i)-vold)
           diff = maxval(abs(xyzh(1:3,i)-xpred))
           if (diff < xtol) converged = .true.

@@ -1,30 +1,45 @@
 module cons2prim
  implicit none
 
- interface conservative_to_primitive
-  module procedure conservative_to_primitive_split, conservative_to_primitive_combined
- end interface conservative_to_primitive
-
  interface primitive_to_conservative
-  module procedure primitive_to_conservative_split, primitive_to_conservative_combined
+  module procedure prim2cons_i,prim2cons_all, prim2consphantom_i,prim2consphantom_all
  end interface primitive_to_conservative
 
+ interface conservative_to_primitive
+  module procedure cons2prim_i,cons2prim_all, cons2primphantom_i,cons2primphantom_all
+ end interface conservative_to_primitive
+
  public :: primitive_to_conservative, conservative_to_primitive
- public :: conservative2primitive_combined
 
  private
 
 contains
 
+!-------------------------------------
+!
+!  Primitive to conservative routines
+!
+!-------------------------------------
 
-subroutine primitive_to_conservative_split(npart,xyzh,dens,v,u,P,rho,pmom,en)
+subroutine prim2cons_i(pos,vel,dens,u,P,rho,pmom,en)
+ use cons2primsolver, only:primitive2conservative
+ real, intent(in)  :: pos(1:3)
+ real, intent(in)  :: dens,vel(1:3),u,P
+ real, intent(out) :: rho,pmom(1:3),en
+
+ call primitive2conservative(pos,vel,dens,u,P,rho,pmom,en,'entropy')
+
+end subroutine prim2cons_i
+
+
+subroutine prim2cons_all(npart,xyzh,dens,v,u,P,rho,pmom,en)
  use part,            only:isdead_or_accreted
  use cons2primsolver, only:primitive2conservative
  integer, intent(in) :: npart
  real, intent(in) :: xyzh(:,:), v(:,:)
- real, intent(in) :: dens(:),u(:)
+ real, intent(in) :: dens(:),u(:),P(:)
  real, intent(out) :: pmom(:,:)
- real, intent(out) :: rho(:), en(:), P(:)
+ real, intent(out) :: rho(:), en(:)
  integer :: i
 
 !$omp parallel do default (none) &
@@ -32,63 +47,15 @@ subroutine primitive_to_conservative_split(npart,xyzh,dens,v,u,P,rho,pmom,en)
 !$omp private(i)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call primitive2conservative(xyzh(1:3,i),v(1:3,i),dens(i),u(i),P(i),rho(i),pmom(1:3,i),en(i),'entropy')
+       call prim2cons_i(xyzh(1:3,i),v(1:3,i),dens(i),u(i),P(i),rho(i),pmom(1:3,i),en(i))
     endif
  enddo
 !$omp end parallel do
 
-end subroutine primitive_to_conservative_split
+end subroutine prim2cons_all
 
-subroutine conservative_to_primitive_split(npart,xyzh,rho,pmom,en,dens,v,u,P)
- use part,            only:isdead_or_accreted
- use io,              only:fatal
- use cons2primsolver, only:conservative2primitive
- integer, intent(in) :: npart
- real, intent(in) :: pmom(:,:),xyzh(:,:)
- real, intent(in) :: rho(:),en(:)
- real, intent(inout) :: v(:,:)
- real, intent(inout) :: dens(:), u(:), P(:)
- integer :: i, ierr
 
-!$omp parallel do default (none) &
-!$omp shared(xyzh,v,dens,u,p,rho,pmom,en,npart) &
-!$omp private(i,ierr)
- do i=1,npart
-    if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call conservative2primitive(xyzh(1:3,i),v(1:3,i),dens(i),u(i),P(i),rho(i),pmom(1:3,i),en(i),ierr,'entropy')
-       if (ierr > 0) then
-          print*,' pmom =',pmom(1:3,i)
-          print*,' rho* =',rho(i)
-          print*,' en   =',en(i)
-          call fatal('cons2prim','could not solve rootfinding',i)
-       endif
-    endif
- end do
-!$omp end parallel do
-
-end subroutine conservative_to_primitive_split
-
-subroutine primitive_to_conservative_combined(npart,xyzh,vxyzu,dens,pxyzu)
- use part,         only:isdead_or_accreted
- integer, intent(in)  :: npart
- real,    intent(in)  :: xyzh(:,:),vxyzu(:,:)
- real,    intent(inout) :: dens(:)
- real,    intent(out) :: pxyzu(:,:)
- integer :: i
-
-!$omp parallel do default (none) &
-!$omp shared(xyzh,vxyzu,dens,pxyzu,npart) &
-!$omp private(i)
- do i=1,npart
-    if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call primitive2conservative_combined(xyzh(:,i),vxyzu(:,i),dens(i),pxyzu(:,i))
-    endif
- enddo
-!$omp end parallel do
-
-end subroutine primitive_to_conservative_combined
-
-subroutine primitive2conservative_combined(xyzhi,vxyzui,densi,pxyzui)
+subroutine prim2consphantom_i(xyzhi,vxyzui,densi,pxyzui)
  use utils_gr,        only:h2dens
  use cons2primsolver, only:primitive2conservative
  use eos,          only:equationofstate,ieos
@@ -105,9 +72,104 @@ subroutine primitive2conservative_combined(xyzhi,vxyzui,densi,pxyzui)
  pi = pondensi*densi
  call primitive2conservative(xyzi,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4),'entropy')
 
-end subroutine primitive2conservative_combined
+end subroutine prim2consphantom_i
 
-subroutine conservative_to_primitive_combined(npart,xyzh,pxyzu,vxyzu,dens)
+
+subroutine prim2consphantom_all(npart,xyzh,vxyzu,dens,pxyzu)
+ use part,         only:isdead_or_accreted
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(inout) :: dens(:)
+ real,    intent(out) :: pxyzu(:,:)
+ integer :: i
+
+!$omp parallel do default (none) &
+!$omp shared(xyzh,vxyzu,dens,pxyzu,npart) &
+!$omp private(i)
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       call prim2consphantom_i(xyzh(:,i),vxyzu(:,i),dens(i),pxyzu(:,i))
+    endif
+ enddo
+!$omp end parallel do
+
+end subroutine prim2consphantom_all
+
+
+!-------------------------------------
+!
+!  Conservative to primitive routines
+!
+!-------------------------------------
+
+subroutine cons2prim_i(pos,vel,dens,u,P,rho,pmom,en,ierr)
+ use cons2primsolver, only:conservative2primitive
+ real, intent(in)     :: pos(1:3)
+ real, intent(in)     :: rho,pmom(1:3),en
+ real, intent(out)    :: vel(1:3),u
+ real, intent(inout)  :: dens,P      ! Intent=inout because we need their previous values as an initial guess in the solver
+ integer, intent(out) :: ierr
+
+ call conservative2primitive(pos,vel,dens,u,P,rho,pmom,en,ierr,'entropy')
+
+end subroutine cons2prim_i
+
+
+subroutine cons2prim_all(npart,xyzh,rho,pmom,en,dens,v,u,P)
+ use part,            only:isdead_or_accreted
+ use io,              only:fatal
+ use cons2primsolver, only:conservative2primitive
+ integer, intent(in) :: npart
+ real, intent(in) :: pmom(:,:),xyzh(:,:)
+ real, intent(in) :: rho(:),en(:)
+ real, intent(inout) :: v(:,:)
+ real, intent(inout) :: dens(:), u(:), P(:)
+ integer :: i, ierr
+
+!$omp parallel do default (none) &
+!$omp shared(xyzh,v,dens,u,p,rho,pmom,en,npart) &
+!$omp private(i,ierr)
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       call cons2prim_i(xyzh(1:3,i),v(1:3,i),dens(i),u(i),P(i),rho(i),pmom(1:3,i),en(i),ierr)
+       if (ierr > 0) then
+          print*,' pmom =',pmom(1:3,i)
+          print*,' rho* =',rho(i)
+          print*,' en   =',en(i)
+          call fatal('cons2prim','could not solve rootfinding',i)
+       endif
+    endif
+ end do
+!$omp end parallel do
+
+end subroutine cons2prim_all
+
+
+subroutine cons2primphantom_i(xyzhi,pxyzui,vxyzui,densi,ierr,pressure)
+ use part,            only:massoftype, igas, rhoh
+ use cons2primsolver, only:conservative2primitive
+ use utils_gr,        only:rho2dens
+ use eos,             only:equationofstate,ieos
+ real,    dimension(4), intent(in)    :: xyzhi,pxyzui
+ real,    dimension(4), intent(inout) :: vxyzui
+ real, intent(inout)                  :: densi
+ integer, intent(out),  optional      :: ierr
+ real,    intent(out),  optional      :: pressure
+ real    :: rhoi, p_guess, xyzi(1:3), v_guess(1:3), u_guess, pondens, spsound
+
+ rhoi    = rhoh(xyzhi(4),massoftype(igas))
+ xyzi    = xyzhi(1:3)
+ v_guess = vxyzui(1:3)
+ u_guess = vxyzui(4)
+ call equationofstate(ieos,pondens,spsound,densi,xyzi(1),xyzi(2),xyzi(3),u_guess)
+ p_guess = pondens*densi
+ call conservative2primitive(xyzi,vxyzui(1:3),densi,vxyzui(4),p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierr,'entropy')
+ if (present(pressure)) pressure = p_guess
+
+end subroutine cons2primphantom_i
+
+
+subroutine cons2primphantom_all(npart,xyzh,pxyzu,vxyzu,dens)
  use part, only:isdead_or_accreted, massoftype, igas, rhoh
  use io,   only:fatal
  integer, intent(in)    :: npart
@@ -120,7 +182,7 @@ subroutine conservative_to_primitive_combined(npart,xyzh,pxyzu,vxyzu,dens)
 !$omp private(i,ierr)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call conservative2primitive_combined(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
+       call cons2primphantom_i(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
        if (ierr > 0) then
           print*,' pmom =',pxyzu(1:3,i)
           print*,' rho* =',rhoh(xyzh(4,i),massoftype(igas))
@@ -131,26 +193,6 @@ subroutine conservative_to_primitive_combined(npart,xyzh,pxyzu,vxyzu,dens)
  end do
 !$omp end parallel do
 
-end subroutine conservative_to_primitive_combined
-
-subroutine conservative2primitive_combined(xyzhi,pxyzui,vxyzui,densi,ierr)
- use part,            only:massoftype, igas, rhoh
- use cons2primsolver, only:conservative2primitive
- use utils_gr,        only:rho2dens
- use eos,             only:equationofstate,ieos
- real,    dimension(4), intent(in)    :: xyzhi,pxyzui
- real,    dimension(4), intent(inout) :: vxyzui
- real, intent(inout)                  :: densi
- integer, intent(out),  optional      :: ierr
- real    :: rhoi, p_guess, xyzi(1:3), v_guess(1:3), u_guess, pondens, spsound
-
- rhoi    = rhoh(xyzhi(4),massoftype(igas))
- xyzi    = xyzhi(1:3)
- v_guess = vxyzui(1:3)
- u_guess = vxyzui(4)
- call equationofstate(ieos,pondens,spsound,densi,xyzi(1),xyzi(2),xyzi(3),u_guess)
- p_guess = pondens*densi
- call conservative2primitive(xyzi,vxyzui(1:3),densi,vxyzui(4),p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierr,'entropy')
-end subroutine conservative2primitive_combined
+end subroutine cons2primphantom_all
 
 end module cons2prim
