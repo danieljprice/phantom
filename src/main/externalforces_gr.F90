@@ -160,6 +160,7 @@ end function is_velocity_dependent
 subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui)
  use extern_gr, only:get_grforce
  use eos,       only:equationofstate,ieos
+ use io,        only:fatal
  integer, intent(in)  :: iexternalforce
  real,    intent(in)  :: xyzi(3),veli(3)
  real,    intent(out) :: fexti(3)
@@ -167,7 +168,7 @@ subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui
  real,    intent(in), optional :: densi,ui
  real :: pi,pondensi,spsoundi
 
- if (.not. present(densi) .or. .not. present(ui)) STOP 'update_vdependent_extforce_leapfrog, densi and ui not present'
+ if (.not. present(densi) .or. .not. present(ui)) call fatal('externalforce_vdependent','densi and ui not present')
  call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
  pi = pondensi*densi
 
@@ -186,6 +187,7 @@ subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
            vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui)
  use extern_gr, only:update_grforce_leapfrog
  use eos,       only:equationofstate,ieos
+ use io,        only:fatal
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: dt,xi,yi,zi
  real,    intent(in)    :: vhalfx,vhalfy,vhalfz
@@ -194,7 +196,7 @@ subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
  real,    intent(in), optional    :: densi,ui
  real :: pi,pondensi,spsoundi
 
- if (.not. present(densi) .or. .not. present(ui)) STOP 'update_vdependent_extforce_leapfrog, densi and ui not present'
+ if (.not. present(densi) .or. .not. present(ui)) call fatal('update_vdependent_extforce_leapfrog','densi and ui not present')
  call equationofstate(ieos,pondensi,spsoundi,densi,xi,yi,zi,ui)
  pi = pondensi*densi
 
