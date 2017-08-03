@@ -26,7 +26,7 @@
 module fileutils
  implicit none
  public :: getnextfilename,numfromfile,basename,get_ncolumns,skip_header
- public :: strip_extension,is_digit
+ public :: strip_extension,is_digit,files_are_sequential
  public :: ucase,lcase
 
  private
@@ -114,6 +114,28 @@ integer function numfromfile(filename)
 
  return
 end function numfromfile
+
+!----------------------------------------------------------------
+!+
+!  see if files have been written as a sequence
+!  (according to the numbering from getnextfilename routine)
+!+
+!----------------------------------------------------------------
+logical function files_are_sequential(filenames)
+ character(len=*) :: filenames(:)
+ integer :: i
+
+ if (size(filenames)<=1) then
+    files_are_sequential = .false.  ! return false for just one file
+ else
+    files_are_sequential = .true.
+ endif
+
+ do i=2,size(filenames)
+    if (.not.(filenames(i)==getnextfilename(filenames(i-1)))) files_are_sequential = .false.
+ enddo
+
+end function files_are_sequential
 
 !---------------------------------------------------------------------------
 !+
