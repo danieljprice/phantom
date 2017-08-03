@@ -1079,7 +1079,7 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
  case(11) !Interpolated Ray Profile
 
     call get_centreofmass(com_pos,com_v,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
-    
+
     ray = (/ 1, 0, 0 /)
 
     ray = ray / sqrt(dot_product(ray,ray))
@@ -1099,7 +1099,7 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
           far_i = i
        endif
     enddo
-    
+
     n_sample = int(10**nint(log10(real(npart))))/10
 
     allocate(ray_profile(9,n_sample))
@@ -1453,7 +1453,7 @@ end subroutine cross
 subroutine separation_vector(a,b,c)
  real, intent(in), dimension(3) :: a,b
  real, intent(out), dimension(4) :: c
- 
+
  c(1) = a(1) - b(1)
  c(2) = a(2) - b(2)
  c(3) = a(3) - b(3)
@@ -1462,7 +1462,7 @@ end subroutine separation_vector
 
 real function separation(a,b)
  real, intent(in), dimension(3) :: a,b
- 
+
  separation = sqrt((a(1)-b(1))**2 +&
                    (a(2)-b(2))**2 +&
                    (a(3)-b(3))**2)

@@ -115,7 +115,7 @@ end subroutine get_eos_kappa_mesa
 
 !----------------------------------------------------------------
 !+
-!  subroutine returns pressure/temperature/gamma1 as 
+!  subroutine returns pressure/temperature/gamma1 as
 !  a function of density/internal energy
 !+
 !----------------------------------------------------------------
