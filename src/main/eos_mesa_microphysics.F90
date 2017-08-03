@@ -36,24 +36,14 @@ module mesa_microphysics
  integer :: mesa_opacs_nz,mesa_opacs_nx,mesa_opacs_nr,mesa_opacs_nt
  real  :: mesa_opacs_dr,mesa_opacs_dt
  real, dimension(:), allocatable :: mesa_opacs_zs,mesa_opacs_xs, mesa_opacs_rs,mesa_opacs_ts
-
-!#ifdef ACTIVESCALARS
-!    real, dimension(:,:,:), allocatable :: mesa_opacs_kx,mesa_opacs_kdx,mesa_opacs_ktx
-!#else
  real, dimension(:,:), allocatable :: mesa_opacs_k,mesa_opacs_kd,mesa_opacs_kt
-!#endif
 
 !EOS
  integer  :: mesa_eos_ne, mesa_eos_nv, mesa_eos_nvar2
  real  :: mesa_eos_v1, mesa_eos_e1, mesa_eos_de, mesa_eos_dv
  real, dimension(:), allocatable :: mesa_eos_z, mesa_eos_h, mesa_eos_logEs, mesa_eos_logVs
  integer, dimension(:,:), allocatable :: mesa_eos_data_exists
-!#ifdef ACTIVESCALARS
-!    real :: mesa_eos_x1, mesa_eos_dx
-!    real, dimension(:,:,:,:), allocatable :: mesa_de_datax
-!#else
  real, dimension(:,:,:), allocatable :: mesa_de_data
-!#endif
  real, dimension(:,:,:,:), allocatable :: mesa_eos0
  real, dimension(:,:,:,:,:), allocatable :: mesa_de_data0
 
@@ -95,14 +85,8 @@ subroutine get_opacity_constants_mesa
     close(fnum)
  endif
  allocate(mesa_opacs_zs(mesa_opacs_nz),mesa_opacs_xs(mesa_opacs_nx),mesa_opacs_rs(mesa_opacs_nr),mesa_opacs_ts(mesa_opacs_nt))
-
-!#ifdef ACTIVESCALARS
-!    allocate(mesa_opacs_kx(mesa_opacs_nx,mesa_opacs_nr,mesa_opacs_nt),mesa_opacs_kdx(mesa_opacs_nx,mesa_opacs_nr,mesa_opacs_nt))
-!    allocate(mesa_opacs_ktx(mesa_opacs_nx,mesa_opacs_nr,mesa_opacs_nt))
-!#else
  allocate(mesa_opacs_k(mesa_opacs_nr,mesa_opacs_nt),mesa_opacs_kd(mesa_opacs_nr,mesa_opacs_nt))
  allocate(mesa_opacs_kt(mesa_opacs_nr,mesa_opacs_nt))
-!#endif
 
  return
 
@@ -193,9 +177,6 @@ subroutine read_opacity_simple_mesa(x,z)  !This reads the opacity for a single c
  enddo
  dz=(z-mesa_opacs_zs(nz2-1))/(mesa_opacs_zs(nz2)-mesa_opacs_zs(nz2-1))
 
-!#ifdef ACTIVESCALARS
-
-!#else
  nx2=mesa_opacs_nx
  do xx=2,mesa_opacs_nx-1
     if(mesa_opacs_xs(xx) >= x) then
@@ -204,90 +185,48 @@ subroutine read_opacity_simple_mesa(x,z)  !This reads the opacity for a single c
     endif
  enddo
  dx=(x-mesa_opacs_xs(nx2-1))/(mesa_opacs_xs(nx2)-mesa_opacs_xs(nx2-1))
-!#endif
- !write(*,*)'nz2,nx2=',nz2,nx2
- !write(*,*)'dz,dx=',dz,dx
 
 !Calculate kappa and derivatives...
  do k=1,mesa_opacs_nt
     do i=1,mesa_opacs_nr
-
-!#ifdef ACTIVESCALARS
-!          do xx=1,mesa_opacs_nx
-!             mesa_opacs_kx(xx,i,k)=dz*kappas(nz2,xx,i,k)+(1.d0-dz)*kappas(nz2-1,xx,i,k)
-!          enddo
-!#else
-       mesa_opacs_k(i,k)=dz*(dx*kappas(nz2,nx2,i,k)+(1.d0-dx)*kappas(nz2,nx2-1,i,k))&
-+(1.d0-dz)*(dx*kappas(nz2-1,nx2,i,k)+(1.d0-dx)*kappas(nz2-1,nx2-1,i,k))
-!#endif
+       mesa_opacs_k(i,k)=dz*(dx*kappas(nz2,nx2,i,k)+(1.d0-dx)*kappas(nz2,nx2-1,i,k))+&
+                (1.d0-dz)*(dx*kappas(nz2-1,nx2,i,k)+(1.d0-dx)*kappas(nz2-1,nx2-1,i,k))
     enddo
  enddo
 
  do k=1,mesa_opacs_nt
     do i=2,mesa_opacs_nr-1
-
-!#ifdef ACTIVESCALARS
-!          do xx=1,mesa_opacs_nx
-!             mesa_opacs_kdx(xx,i,k)=(mesa_opacs_kx(xx,i+1,k)-mesa_opacs_kx(xx,i-1,k))&
-!/(mesa_opacs_rs(i+1)-mesa_opacs_rs(i-1))
-!          enddo
-!#else
-       mesa_opacs_kd(i,k)=(mesa_opacs_k(i+1,k)-mesa_opacs_k(i-1,k))&
-/(mesa_opacs_rs(i+1)-mesa_opacs_rs(i-1))
-!#endif
+       mesa_opacs_kd(i,k)=(mesa_opacs_k(i+1,k)-mesa_opacs_k(i-1,k))/&
+                          (mesa_opacs_rs(i+1)-mesa_opacs_rs(i-1))
     enddo
-!#ifdef ACTIVESCALARS
-!       do xx=1,mesa_opacs_nx
-!          mesa_opacs_kdx(xx,1,k)=mesa_opacs_kdx(xx,3,k)+(mesa_opacs_rs(1)&
-!-mesa_opacs_rs(3))*(mesa_opacs_kdx(xx,2,k)-mesa_opacs_kdx(xx,3,k))/(mesa_opacs_rs(2)-mesa_opacs_rs(3))
-!          mesa_opacs_kdx(xx,mesa_opacs_nr,k)=mesa_opacs_kdx(xx,mesa_opacs_nr+1-3,k)&
-!+(mesa_opacs_rs(mesa_opacs_nr+1-1)-mesa_opacs_rs(mesa_opacs_nr+1-3))&
-!*(mesa_opacs_kdx(xx,mesa_opacs_nr+1-2,k)-mesa_opacs_kdx(xx,mesa_opacs_nr+1-3,k))&
-!/(mesa_opacs_rs(mesa_opacs_nr+1-2)-mesa_opacs_rs(mesa_opacs_nr+1-3))
-!       enddo
-!#else
-    mesa_opacs_kd(1,k)=mesa_opacs_kd(3,k)+(mesa_opacs_rs(1)&
--mesa_opacs_rs(3))*(mesa_opacs_kd(2,k)-mesa_opacs_kd(3,k))/(mesa_opacs_rs(2)-mesa_opacs_rs(3))
+
+    mesa_opacs_kd(1,k)=mesa_opacs_kd(3,k)+(mesa_opacs_rs(1)-mesa_opacs_rs(3))*&
+                                          (mesa_opacs_kd(2,k)-mesa_opacs_kd(3,k))/&
+                                          (mesa_opacs_rs(2)-mesa_opacs_rs(3))
+
     mesa_opacs_kd(mesa_opacs_nr,k)=mesa_opacs_kd(mesa_opacs_nr+1-3,k)&
 +(mesa_opacs_rs(mesa_opacs_nr+1-1)-mesa_opacs_rs(mesa_opacs_nr+1-3))&
 *(mesa_opacs_kd(mesa_opacs_nr+1-2,k)-mesa_opacs_kd(mesa_opacs_nr+1-3,k))&
 /(mesa_opacs_rs(mesa_opacs_nr+1-2)-mesa_opacs_rs(mesa_opacs_nr+1-3))
-!#endif
+
  enddo
 
  do i=1,mesa_opacs_nr
     do k=2,mesa_opacs_nt-1
-!#ifdef ACTIVESCALARS
-!          do xx=1,mesa_opacs_nx
-!             mesa_opacs_ktx(xx,i,k)=(mesa_opacs_kx(xx,i,k+1)-mesa_opacs_kx(xx,i,k-1))&
-!/(mesa_opacs_ts(k+1)-mesa_opacs_ts(k-1))-3.d0*mesa_opacs_kdx(xx,i,k)
-!          enddo
-!#else
-       mesa_opacs_kt(i,k)=(mesa_opacs_k(i,k+1)-mesa_opacs_k(i,k-1))&
-/(mesa_opacs_ts(k+1)-mesa_opacs_ts(k-1))-3.d0*mesa_opacs_kd(i,k)
-!#endif
+       mesa_opacs_kt(i,k)=(mesa_opacs_k(i,k+1)-mesa_opacs_k(i,k-1))/&
+                           (mesa_opacs_ts(k+1)-mesa_opacs_ts(k-1)) -3.d0*mesa_opacs_kd(i,k)
     enddo
-!#ifdef ACTIVESCALARS
-!       do xx=1,mesa_opacs_nx
-!          mesa_opacs_ktx(xx,i,1)=mesa_opacs_ktx(xx,i,3)+(mesa_opacs_ts(1)-&
-!mesa_opacs_ts(3))*(mesa_opacs_ktx(xx,i,2)-mesa_opacs_ktx(xx,i,3))&
-!/(mesa_opacs_ts(2)-mesa_opacs_ts(3))-3.d0*mesa_opacs_kdx(xx,i,1)
-!          mesa_opacs_ktx(xx,i,mesa_opacs_nt+1-1)=mesa_opacs_ktx(xx,i,mesa_opacs_nt+1-3)&
-!+(mesa_opacs_ts(mesa_opacs_nt+1-1)-mesa_opacs_ts(mesa_opacs_nt+1-3))&
-!*(mesa_opacs_ktx(xx,i,mesa_opacs_nt+1-2)-mesa_opacs_ktx(xx,i,mesa_opacs_nt+1-3))&
-!/(mesa_opacs_ts(mesa_opacs_nt+1-2)-mesa_opacs_ts(mesa_opacs_nt+1-3))&
-!-3.d0*mesa_opacs_kdx(xx,i,mesa_opacs_nt+1-1)
-!       enddo
-!#else
+
     mesa_opacs_kt(i,1)=mesa_opacs_kt(i,3)+(mesa_opacs_ts(1)-&
-mesa_opacs_ts(3))*(mesa_opacs_kt(i,2)-mesa_opacs_kt(i,3))&
-/(mesa_opacs_ts(2)-mesa_opacs_ts(3))-3.d0*mesa_opacs_kd(i,1)
+                       mesa_opacs_ts(3))*(mesa_opacs_kt(i,2)-mesa_opacs_kt(i,3))/&
+                       (mesa_opacs_ts(2)-mesa_opacs_ts(3))-3.d0*mesa_opacs_kd(i,1)
+
     mesa_opacs_kt(i,mesa_opacs_nt+1-1)=mesa_opacs_kt(i,mesa_opacs_nt+1-3)&
 +(mesa_opacs_ts(mesa_opacs_nt+1-1)-mesa_opacs_ts(mesa_opacs_nt+1-3))&
 *(mesa_opacs_kt(i,mesa_opacs_nt+1-2)-mesa_opacs_kt(i,mesa_opacs_nt+1-3))&
 /(mesa_opacs_ts(mesa_opacs_nt+1-2)-mesa_opacs_ts(mesa_opacs_nt+1-3))&
 -3.d0*mesa_opacs_kd(i,mesa_opacs_nt+1-1)
-!#endif
+
  enddo
 
  mesa_opacs_dr=mesa_opacs_rs(2)-mesa_opacs_rs(1)
@@ -310,16 +249,13 @@ subroutine get_kappa_mesa(x,rho,temp,cap,capt,capr,nErrNum)
  real :: dnr, dnt
  integer :: nr,nt
  real :: logrho,logt,logr,dr,dt
-!#ifdef ACTIVESCALARS
-!    real :: dx
-!    integer :: xx, nx
-!#endif
 
  logrho=log10(rho)
  logt=log10(temp)
  logr=logrho+18.d0-3.d0*logt
 
  dnr=1.d0+((logr-mesa_opacs_rs(1))/mesa_opacs_dr)
+
  nr=int(dnr)
  if(nr > (mesa_opacs_nr-1)) nr=mesa_opacs_nr-1
  if(nr < 1) nr=1
@@ -330,7 +266,6 @@ subroutine get_kappa_mesa(x,rho,temp,cap,capt,capr,nErrNum)
 
  dr=(logr-mesa_opacs_rs(nr))/mesa_opacs_dr
  dt=(logt-mesa_opacs_ts(nt))/mesa_opacs_dt
-
 
  opac_k=dr*(dt*mesa_opacs_k(nr+1,nt+1)+(1.d0-dt)*mesa_opacs_k(nr+1,nt))+(1.d0-dr)*(dt*mesa_opacs_k(nr,nt+1) &
       +(1.d0-dt)*mesa_opacs_k(nr,nt))
@@ -705,10 +640,8 @@ subroutine fasteossc_mesa(x,rom,eint,pint,tint)
  real, intent(out) :: pint, tint
  real :: loge, logv, de, dv
  integer :: ne, nv, nn
-!#ifdef ACTIVESCALARS
  integer :: nx
  real :: dx
-!#endif
 
 !logRho = logV + 0.7*logE - 20
 
@@ -739,27 +672,12 @@ subroutine fasteossc_mesa(x,rom,eint,pint,tint)
     call eos_cubic_spline_mesa(ne,nv,loge,logv,'t',tint,nx,dx)
     tint=10.d0**tint
  else
-#ifdef ACTIVESCALARS
-    nn=2
-    pint = 10.d0**((1.d0-dx)*((1.d0-de)*(1.d0-dv)*mesa_de_datax(nx,ne,nv,nn) &
-           +de*(1.d0-dv)*mesa_de_datax(nx,ne+1,nv,nn)+(1.d0-de)*dv*mesa_de_datax(nx,ne,nv+1,nn) &
-           +de*dv*mesa_de_datax(nx,ne+1,nv+1,nn)) + dx*((1.d0-de)*(1.d0-dv)*mesa_de_datax(nx+1,ne,nv,nn) &
-           +de*(1.d0-dv)*mesa_de_datax(nx+1,ne+1,nv,nn)+(1.d0-de)*dv*mesa_de_datax(nx+1,ne,nv+1,nn) &
-           +de*dv*mesa_de_datax(nx+1,ne+1,nv+1,nn)))
-    nn=4
-    tint = 10.d0**((1.d0-dx)*((1.d0-de)*(1.d0-dv)*mesa_de_datax(nx,ne,nv,nn) &
-           +de*(1.d0-dv)*mesa_de_datax(nx,ne+1,nv,nn)+(1.d0-de)*dv*mesa_de_datax(nx,ne,nv+1,nn) &
-           +de*dv*mesa_de_datax(nx,ne+1,nv+1,nn)) + dx*((1.d0-de)*(1.d0-dv)*mesa_de_datax(nx+1,ne,nv,nn) &
-           +de*(1.d0-dv)*mesa_de_datax(nx+1,ne+1,nv,nn)+(1.d0-de)*dv*mesa_de_datax(nx+1,ne,nv+1,nn) &
-           +de*dv*mesa_de_datax(nx+1,ne+1,nv+1,nn)))
-#else
     nn=2
     pint = 10.d0**((1.d0-de)*(1.d0-dv)*mesa_de_data(ne,nv,nn)+de*(1.d0-dv)*mesa_de_data(ne+1,nv,nn) &
          +(1.d0-de)*dv*mesa_de_data(ne,nv+1,nn)+de*dv*mesa_de_data(ne+1,nv+1,nn))
     nn=4
     tint = 10.d0**((1.d0-de)*(1.d0-dv)*mesa_de_data(ne,nv,nn)+de*(1.d0-dv)*mesa_de_data(ne+1,nv,nn) &
          +(1.d0-de)*dv*mesa_de_data(ne,nv+1,nn)+de*dv*mesa_de_data(ne+1,nv+1,nn))
-#endif
  endif
 
  return
@@ -775,10 +693,8 @@ subroutine sloweossc_mesa(x,rom,eint,pint,proint,peint,tint,troint,teint,entrop,
  real, intent(out) :: pint,proint,peint,tint,troint,teint,entrop,abad,gamma1,gam
  real :: loge, logv, de, dv
  integer :: ne, nv, nn
-!#ifdef ACTIVESCALARS
  integer :: nx
  real :: dx
-!#endif
 
 !logRho = logV + 0.7*logE - 20
 
@@ -1017,6 +933,10 @@ subroutine deallocate_arrays_mesa
  if (allocated(mesa_opacs_xs)) deallocate(mesa_opacs_xs)
  if (allocated(mesa_opacs_rs)) deallocate(mesa_opacs_rs)
  if (allocated(mesa_opacs_ts)) deallocate(mesa_opacs_ts)
+
+ if (allocated(mesa_opacs_k)) deallocate(mesa_opacs_k)
+ if (allocated(mesa_opacs_kd)) deallocate(mesa_opacs_kd)
+ if (allocated(mesa_opacs_kt)) deallocate(mesa_opacs_kt)
 
  if (allocated(mesa_eos_z)) deallocate(mesa_eos_z)
  if (allocated(mesa_eos_h)) deallocate(mesa_eos_h)
