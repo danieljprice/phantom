@@ -63,7 +63,7 @@ module mpiderivs
 
  integer :: dtype_celldens
  integer :: dtype_cellforce
- integer :: comm_cellexchange
+ integer, parameter :: comm_cellexchange = MPI_COMM_WORLD
 
  integer :: globallevel
  integer :: comm_cofm(maxprocs)  ! only comms up to globallevel are used
@@ -109,7 +109,6 @@ subroutine init_celldens_exchange(xbufrecv,ireq)
 !  We post a receive for EACH processor, to match the number of sends
 !
 
- call MPI_COMM_DUP(MPI_COMM_WORLD,comm_cellexchange,mpierr)
  call get_mpitype_of_celldens(dtype_celldens)
 
  do iproc=1,nprocs
@@ -143,7 +142,6 @@ subroutine init_cellforce_exchange(xbufrecv,ireq)
 !  We post a receive for EACH processor, to match the number of sends
 !
 
- call MPI_COMM_DUP(MPI_COMM_WORLD,comm_cellexchange,mpierr)
  call get_mpitype_of_cellforce(dtype_cellforce)
 
  do iproc=1,nprocs
@@ -454,7 +452,6 @@ subroutine finish_celldens_exchange(irequestrecv,xsendbuf)
     call MPI_WAIT(irequestrecv(iproc),status,mpierr)
     call MPI_REQUEST_FREE(irequestrecv(iproc),mpierr)
  enddo
- call MPI_COMM_FREE(comm_cellexchange,mpierr)
 
 end subroutine finish_celldens_exchange
 
@@ -483,7 +480,6 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
     call MPI_WAIT(irequestrecv(iproc),status,mpierr)
     call MPI_REQUEST_FREE(irequestrecv(iproc),mpierr)
  enddo
- call MPI_COMM_FREE(comm_cellexchange,mpierr)
 
 end subroutine finish_cellforce_exchange
 
