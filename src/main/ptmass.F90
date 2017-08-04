@@ -60,7 +60,7 @@ module ptmass
  real,    public :: rho_crit_cgs  = 1.e-10
  real,    public :: r_crit = 5.e-3
  real,    public :: h_acc  = 1.e-3
- real,    public :: f_acc  = 0.5
+ real,    public :: f_acc  = 0.8
  real,    public :: h_soft_sinkgas  = 0.0
  real,    public :: h_soft_sinksink = 0.0
 

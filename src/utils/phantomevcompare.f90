@@ -23,24 +23,24 @@
 !--------------------------------------------------------------------------
 program phantomevcompare
  use prompting, only: prompt
- use evutils,   only: inumev,get_column_labels_from_ev,read_evin_file,read_evin_filenames, &
+ use evutils,   only: max_columns,get_column_labels_from_ev,read_evin_file,read_evin_filenames, &
                       write_evin_file,write_columns_to_file
  implicit none
  integer, parameter  :: maxfiles  = 100
  logical, parameter  :: write_columns = .true.
  integer             :: i,j,k,ki,kj,iio,idot,numcol,numcol0,nummodels,nargs,ierr
- integer             :: headerorder(inumev)
- real                :: oldorder(inumev),neworder(inumev)
+ integer             :: headerorder(max_columns)
+ real                :: oldorder(max_columns),neworder(max_columns)
  logical             :: interactive,single_output,concise
  logical             :: enter_filename,add_prefix,add_prefix_verified,get_newfile
  logical             :: initial_entry,keep_searching,iexist,ifailed,readfailed,make_outname
- character(len=  12) :: columns0(inumev),columns(inumev)
- character(len=  19) :: columnsEV(inumev)
+ character(len=  12) :: columns0(max_columns),columns(max_columns)
+ character(len=  19) :: columnsEV(max_columns)
  character(len=  64) :: filename,evfile,evinfile,outprefix,modelprefix,ev_fmtD,ev_fmtH
  character(len=  64) :: infilenames(maxfiles),outfilenames(maxfiles),outfilename0a,outfilename0b
  character(len= 256) :: evout_new
  character(len=4096) :: cdummy
- integer, parameter  :: icolA = 26, icolB = 26
+ integer, parameter  :: icolA = 26, icolB = 27
 
  !
  !--If argument exists, read it in
