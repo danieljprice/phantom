@@ -296,26 +296,26 @@ subroutine test_derivs(ntests,npass,string)
        ! calculated (finds bug of mistakenly setting inactives to zero)
        !
        nfailed(:) = 0
-       call checkval(np,xyzh(4,1:np),hzero,3.e-4,nfailed(1),'h (density)')
-       call checkvalf(np,xyzh,divcurlv(1,1:np),divvfunc,1.e-3,nfailed(2),'divv')
+       call checkval(np,xyzh(4,1:np),hzero,3.e-4,nfailed(1),'h (density)',checkmask)
+       call checkvalf(np,xyzh,divcurlv(1,1:np),divvfunc,1.e-3,nfailed(2),'divv',checkmask)
        if (ndivcurlv >= 4) then
-          call checkvalf(np,xyzh,divcurlv(icurlvx,1:np),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
-          call checkvalf(np,xyzh,divcurlv(icurlvy,1:np),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
-          call checkvalf(np,xyzh,divcurlv(icurlvz,1:np),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
+          call checkvalf(np,xyzh,divcurlv(icurlvx,1:np),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)',checkmask)
+          call checkvalf(np,xyzh,divcurlv(icurlvy,1:np),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
+          call checkvalf(np,xyzh,divcurlv(icurlvz,1:np),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
        endif
        if (maxgradh==maxp) then
-          call checkval(np,gradh(1,1:np),1.01948,1.e-5,nfailed(6),'gradh')
+          call checkval(np,gradh(1,1:np),1.01948,1.e-5,nfailed(6),'gradh',checkmask)
        endif
        if (maxvxyzu==4) then
-          call checkvalf(np,xyzh,fxyzu(1,1:np),forcefuncx,1.e-3,nfailed(7),'force(x)')
-          call checkvalf(np,xyzh,fxyzu(2,1:np),forcefuncy,1.e-3,nfailed(8),'force(y)')
-          call checkvalf(np,xyzh,fxyzu(3,1:np),forcefuncz,1.e-3,nfailed(9),'force(z)')
+          call checkvalf(np,xyzh,fxyzu(1,1:np),forcefuncx,1.e-3,nfailed(7),'force(x)',checkmask)
+          call checkvalf(np,xyzh,fxyzu(2,1:np),forcefuncy,1.e-3,nfailed(8),'force(y)',checkmask)
+          call checkvalf(np,xyzh,fxyzu(3,1:np),forcefuncz,1.e-3,nfailed(9),'force(z)',checkmask)
           if (use_entropy .or. ieos /= 2) then
-             call checkval(np,fxyzu(4,1:np),0.,epsilon(fxyzu),nfailed(10),'den/dt')
+             call checkval(np,fxyzu(4,1:np),0.,epsilon(fxyzu),nfailed(10),'den/dt',checkmask)
           else
              allocate(dummy(1:np))
              dummy(1:np) = fxyzu(4,1:np)/((gamma-1.)*vxyzu(4,1:np))
-             call checkvalf(np,xyzh,dummy(1:np),dudtfunc,1.e-3,nfailed(11),'du/dt')
+             call checkvalf(np,xyzh,dummy(1:np),dudtfunc,1.e-3,nfailed(11),'du/dt',checkmask)
              deallocate(dummy)
           endif
        endif
