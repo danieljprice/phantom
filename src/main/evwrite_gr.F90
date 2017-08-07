@@ -77,72 +77,10 @@ subroutine init_evfile(iunit,evfile)
     if (npartoftype(ibulge)      > 0) call fill_ev_tag(ev_fmt,iev_rhop(6),'rho blg', 'xa',i,j)
  endif
  if (maxalpha==maxp)                  call fill_ev_tag(ev_fmt,iev_alpha,  'alpha',   'x' ,i,j)
- if ( mhd ) then
-    call fill_ev_tag(ev_fmt,      iev_divB,   'divB',   'xa' ,i,j)
-    call fill_ev_tag(ev_fmt,      iev_hdivB,  'hdivB/B','xa' ,i,j)
-    call fill_ev_tag(ev_fmt,      iev_beta,   'beta',   'xan',i,j)
-    if (mhd_nonideal) then
-       call fill_ev_tag(ev_fmt,   iev_temp,   'temp',     'xan',i,j)
-       call fill_ev_tag(ev_fmt,   iev_etaar,  'eta_ar',   'xan',i,j)
-       if (use_ohm) then
-          call fill_ev_tag(ev_fmt,iev_etao(1),'eta_o',    'xan',i,j)
-          call fill_ev_tag(ev_fmt,iev_etao(2),'eta_o/art','xan',i,j)
-       endif
-       if (use_hall) then
-          call fill_ev_tag(ev_fmt,iev_etah(1),'eta_h',    'xan',i,j)
-          call fill_ev_tag(ev_fmt,iev_etah(2),'|eta_h|',  'xan',i,j)
-          call fill_ev_tag(ev_fmt,iev_etah(3),'eta_h/art','xan',i,j)
-          call fill_ev_tag(ev_fmt,iev_etah(4),'|e_h|/art','xan',i,j)
-       endif
-       if (use_ambi) then
-          call fill_ev_tag(ev_fmt,iev_etaa(1),'eta_a',    'xan',i,j)
-          call fill_ev_tag(ev_fmt,iev_etaa(2),'eta_a/art','xan',i,j)
-          call fill_ev_tag(ev_fmt,iev_vel,    'velocity', 'xan',i,j)
-          call fill_ev_tag(ev_fmt,iev_vion,   'v_ion',    'xan',i,j)
-          call fill_ev_tag(ev_fmt,iev_vdrift, 'v_drift',  'xan',i,j)
-       endif
-       call fill_ev_tag(ev_fmt,   iev_n(1),   'ni/n(i+n)','xan',i,j)
-       call fill_ev_tag(ev_fmt,   iev_n(2),   'ne/n(i+n)','xan',i,j)
-       call fill_ev_tag(ev_fmt,   iev_n(3),   'n_e',      'xa', i,j)
-       call fill_ev_tag(ev_fmt,   iev_n(4),   'n_n',      'xa', i,j)
-       if (ion_rays) then
-          call fill_ev_tag(ev_fmt,iev_nR(1),  'n_ihR',    'xa', i,j)
-          call fill_ev_tag(ev_fmt,iev_nR(2),  'n_imR',    'xa', i,j)
-          call fill_ev_tag(ev_fmt,iev_nR(3),  'n_g(Z=-1)','xa', i,j)
-          call fill_ev_tag(ev_fmt,iev_nR(4),  'n_g(Z= 0)','xa', i,j)
-          call fill_ev_tag(ev_fmt,iev_nR(5),  'n_g(Z=+1)','xa', i,j)
-       endif
-       if (ion_thermal) then
-          call fill_ev_tag(ev_fmt,iev_nT(1),  'n_isT',    'xa', i,j)
-          call fill_ev_tag(ev_fmt,iev_nT(2),  'n_idT',    'xa', i,j)
-       endif
-    endif
- endif
- if (use_dustfrac) then
-    call fill_ev_tag(ev_fmt,   iev_dtg,'dust/gas',     'xan',i,j)
-    call fill_ev_tag(ev_fmt,   iev_ts, 't_s',          'mn', i,j)
- endif
- if (iexternalforce > 0) then
-    call fill_ev_tag(ev_fmt,   iev_momall,'totmomall',   '0',i,j)
-    call fill_ev_tag(ev_fmt,   iev_angall,'angall',      '0',i,j)
-    if (iexternalforce==iext_binary) then
-       call fill_ev_tag(ev_fmt,iev_maccsink(1),'Macc sink 1', '0',i,j)
-       call fill_ev_tag(ev_fmt,iev_maccsink(2),'Macc sink 2', '0',i,j)
-    endif
- endif
- if (iexternalforce>0 .or. nptmass > 0 .or. icreate_sinks > 0) then
-    call fill_ev_tag(ev_fmt,iev_macc,     'accretedmas', 's',i,j)
-    call fill_ev_tag(ev_fmt,iev_eacc,     'eacc',        '0',i,j)
-    track_mass     = .true.
- else
+
     track_mass     = .false.
- endif
- if (ishock_heating==0 .or. ipdv_heating==0 .or. lightcurve) then
-    call fill_ev_tag(ev_fmt,iev_totlum,'tot lum', 's',i,j)
-    track_lum      = .true.
- else
     track_lum      = .false.
- endif
+
  if (calc_erot) then
     call fill_ev_tag(ev_fmt,iev_erot(1),'erot_x',  's',i,j)
     call fill_ev_tag(ev_fmt,iev_erot(2),'erot_y',  's',i,j)
