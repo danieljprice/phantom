@@ -568,7 +568,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_in,R_out,
  use physcon, only:pi
  use part,    only:igas,set_particle_type
  use random,  only:ran2
- use io,      only:fatal
+ use io,      only:fatal,id
  integer, intent(in)    :: npart_start_count,npart_tot
  real,    intent(in)    :: R_in,R_out,phi_min,phi_max
  real,    intent(in)    :: sig0,p_index,cs0,q_index,star_M,G,particle_mass,hfact
@@ -586,7 +586,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_in,R_out,
  real :: xcentreofmass(3)
 
 ! seed for random number generator
- iseed = -34598 + (itype - igas)
+ iseed = -34598 + (itype - igas) + id
  honH = 0.
  ninz = 0
 
