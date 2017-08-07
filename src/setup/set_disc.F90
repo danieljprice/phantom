@@ -568,7 +568,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_in,R_out,
  use physcon, only:pi
  use part,    only:igas,set_particle_type
  use random,  only:ran2
- use io,      only:fatal,id
+ use io,      only:fatal,id,master
  integer, intent(in)    :: npart_start_count,npart_tot
  real,    intent(in)    :: R_in,R_out,phi_min,phi_max
  real,    intent(in)    :: sig0,p_index,cs0,q_index,star_M,G,particle_mass,hfact
@@ -586,149 +586,149 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_in,R_out,
  real :: xcentreofmass(3)
 
 ! seed for random number generator
- iseed = -34598 + (itype - igas) + id
+ iseed = -34598 + (itype - igas)
  honH = 0.
  ninz = 0
 
  xcentreofmass(:) = 0.
  ipart = 0
  do i = npart_start_count, npart_tot
-    if (i_belong(i)) then
-       ipart = ipart + 1
-       if (mod(i,npart_tot/10)==0 .and. verbose) print*,i
-       !
-       ! get a random angle between phi_min and phi_max
-       !
-       rand_no = ran2(iseed)
-       phi  = phi_min + (phi_max - phi_min)*ran2(iseed)
-       ! Now get radius
-       if (do_sigmapringle) then
+    if (id==master .and. mod(i,npart_tot/10)==0 .and. verbose) print*,i
+    !
+    ! get a random angle between phi_min and phi_max
+    !
+    rand_no = ran2(iseed)
+    phi  = phi_min + (phi_max - phi_min)*ran2(iseed)
+    ! Now get radius
+    if (do_sigmapringle) then
+       ! power law profile tapered by an exponential function (Lynden-Bell & Pringle 1974)
+       if(p_index < 1.) then
+          r_max = rc0*exp(log((1.-p_index)/(2.-p_index))/(2.-p_index))
+          f_max = rc0*((r_max/rc0)**(1.-p_index))*exp(-(r_max/rc0)**(2.-p_index))
+       else
+          f_max = rc0*((R_in/rc0)**(1.-p_index))*exp(-(R_in/rc0)**(2.-p_index))
+          if (smooth_sigma) then
+             f_max = rc0*((R_in/rc0)**(1.-p_index))*exp(-(R_in/rc0)**(2.-p_index))/4.
+          endif
+       endif
+    else
+       ! power law profile
+       if(p_index <= 1.) then
+          f_max = R_out**(-(p_index-1.))
+       else
+          f_max = R_in**(-(p_index-1.))
+!      Use following lines if sigma = 0 at inner edge
+          if (smooth_sigma) then
+             f_max = R_in**(-(p_index-1.))/4.
+          endif
+       endif
+    endif
+    if (do_mixture) then
+       if (do_sigmapringledust) then
           ! power law profile tapered by an exponential function (Lynden-Bell & Pringle 1974)
-          if(p_index < 1.) then
-             r_max = rc0*exp(log((1.-p_index)/(2.-p_index))/(2.-p_index))
-             f_max = rc0*((r_max/rc0)**(1.-p_index))*exp(-(r_max/rc0)**(2.-p_index))
+          if(p_inddust < 1.) then
+             r_max = rc0dust*exp(log((1.-p_inddust)/(2.-p_inddust))/(2.-p_inddust))
+             f_max = f_max + rc0dust*((r_max/rc0dust)**(1.-p_inddust))*exp(-(r_max/rc0dust)**(2.-p_inddust))
           else
-             f_max = rc0*((R_in/rc0)**(1.-p_index))*exp(-(R_in/rc0)**(2.-p_index))
+             f_max = f_max + rc0dust*((R_indust/rc0dust)**(1.-p_inddust))*exp(-(R_indust/rc0dust)**(2.-p_inddust))
              if (smooth_sigma) then
-                f_max = rc0*((R_in/rc0)**(1.-p_index))*exp(-(R_in/rc0)**(2.-p_index))/4.
+                f_max = f_max + rc0dust*((R_indust/rc0dust)**(1.-p_inddust))*exp(-(R_indust/rc0dust)**(2.-p_inddust))/4.
              endif
           endif
        else
           ! power law profile
-          if(p_index <= 1.) then
-             f_max = R_out**(-(p_index-1.))
+          if(p_inddust <= 1.) then
+             f_max = f_max + R_outdust**(-(p_inddust-1.))
           else
-             f_max = R_in**(-(p_index-1.))
-   !      Use following lines if sigma = 0 at inner edge
+             f_max = f_max + R_indust**(-(p_inddust-1.))
+!         Use following lines if sigma = 0 at inner edge
              if (smooth_sigma) then
-                f_max = R_in**(-(p_index-1.))/4.
+                f_max = f_max + R_indust**(-(p_inddust-1.))/4.
              endif
           endif
        endif
+    endif
+! ----------------------------------------------------
+    f = 0.
+    randtest = 1.
+    fmixt = 0.
+    do while (randtest > f)
+       r = R_in + (R_out - R_in)*ran2(iseed)
+       randtest = f_max*ran2(iseed)
+       !--this function is R*sigma
+       if (do_sigmapringle) then
+          f = rc0*((r/rc0)**(1.-p_index))*exp(-(r/rc0)**(2.-p_index))
+       else
+          f = r**(-(p_index-1.))
+       endif
+       if (smooth_sigma) then
+          f = f*(1.0d0-sqrt(R_in/r))
+       endif
+       sigma = sig0*f/r
        if (do_mixture) then
-          if (do_sigmapringledust) then
-             ! power law profile tapered by an exponential function (Lynden-Bell & Pringle 1974)
-             if(p_inddust < 1.) then
-                r_max = rc0dust*exp(log((1.-p_inddust)/(2.-p_inddust))/(2.-p_inddust))
-                f_max = f_max + rc0dust*((r_max/rc0dust)**(1.-p_inddust))*exp(-(r_max/rc0dust)**(2.-p_inddust))
+          if (r>=R_indust .and. r<=R_outdust) then
+             !--this function is R*sigma
+             if (do_sigmapringledust) then
+                fmixt = rc0dust*((r/rc0dust)**(1.-p_inddust))*exp(-(r/rc0dust)**(2.-p_inddust))*sig0dust/sig0
              else
-                f_max = f_max + rc0dust*((R_indust/rc0dust)**(1.-p_inddust))*exp(-(R_indust/rc0dust)**(2.-p_inddust))
-                if (smooth_sigma) then
-                   f_max = f_max + rc0dust*((R_indust/rc0dust)**(1.-p_inddust))*exp(-(R_indust/rc0dust)**(2.-p_inddust))/4.
-                endif
+                fmixt = r**(-(p_inddust-1.))*sig0dust/sig0
              endif
-          else
-             ! power law profile
-             if(p_inddust <= 1.) then
-                f_max = f_max + R_outdust**(-(p_inddust-1.))
-             else
-                f_max = f_max + R_indust**(-(p_inddust-1.))
-   !         Use following lines if sigma = 0 at inner edge
-                if (smooth_sigma) then
-                   f_max = f_max + R_indust**(-(p_inddust-1.))/4.
-                endif
+             if (smooth_sigma) then
+                fmixt = r**(-(p_inddust-1.))*(1.0d0-sqrt(R_indust/r))*sig0dust/sig0
              endif
+             f = f + fmixt
+             sigma = sigma+sig0dust*fmixt/r
           endif
        endif
-   ! ----------------------------------------------------
-       f = 0.
-       randtest = 1.
-       fmixt = 0.
-       do while (randtest > f)
-          r = R_in + (R_out - R_in)*ran2(iseed)
-          randtest = f_max*ran2(iseed)
-          !--this function is R*sigma
-          if (do_sigmapringle) then
-             f = rc0*((r/rc0)**(1.-p_index))*exp(-(r/rc0)**(2.-p_index))
-          else
-             f = r**(-(p_index-1.))
-          endif
-          if (smooth_sigma) then
-             f = f*(1.0d0-sqrt(R_in/r))
-          endif
-          sigma = sig0*f/r
-          if (do_mixture) then
-             if (r>=R_indust .and. r<=R_outdust) then
-                !--this function is R*sigma
-                if (do_sigmapringledust) then
-                   fmixt = rc0dust*((r/rc0dust)**(1.-p_inddust))*exp(-(r/rc0dust)**(2.-p_inddust))*sig0dust/sig0
-                else
-                   fmixt = r**(-(p_inddust-1.))*sig0dust/sig0
-                endif
-                if (smooth_sigma) then
-                   fmixt = r**(-(p_inddust-1.))*(1.0d0-sqrt(R_indust/r))*sig0dust/sig0
-                endif
-                f = f + fmixt
-                sigma = sigma+sig0dust*fmixt/r
-             endif
-          endif
-       enddo
-   ! ----------------------------------------------------
-   !
-   ! Finally, get z
-   !
-       ! First get sound speed at r
-       cs = cs_func(cs0,r,q_index)
-       ! Then pressure scale-height - multiplied by sqrt(2)
-       ! for convenience in rhoz calc.
-       omega   = sqrt(G*Star_M/r**3)
-       HH      = cs/omega
-       HHsqrt2 = sqrt(2.0d0)*HH
-   ! -----------------------------------------------
-       z_min = -3.0d0*HHsqrt2
-       z_max =  3.0d0*HHsqrt2
-       f_max = 1.0d0
-       f = 0.
-       randtest = 1.
-       do while(randtest > f)
-          zi = z_min + (z_max - z_min)*ran2(iseed)
-          randtest = f_max*ran2(iseed)
-          f = exp(-(zi/(HHsqrt2))**2)
-          rhoz = f/(HHsqrt2*sqrt(pi))
-       enddo
+    enddo
+! ----------------------------------------------------
+!
+! Finally, get z
+!
+    ! First get sound speed at r
+    cs = cs_func(cs0,r,q_index)
+    ! Then pressure scale-height - multiplied by sqrt(2)
+    ! for convenience in rhoz calc.
+    omega   = sqrt(G*Star_M/r**3)
+    HH      = cs/omega
+    HHsqrt2 = sqrt(2.0d0)*HH
+! -----------------------------------------------
+    z_min = -3.0d0*HHsqrt2
+    z_max =  3.0d0*HHsqrt2
+    f_max = 1.0d0
+    f = 0.
+    randtest = 1.
+    do while(randtest > f)
+       zi = z_min + (z_max - z_min)*ran2(iseed)
+       randtest = f_max*ran2(iseed)
+       f = exp(-(zi/(HHsqrt2))**2)
+       rhoz = f/(HHsqrt2*sqrt(pi))
+    enddo
 
-   !----------------------------------------------
-   ! Set positions -- move to origin below
-       xyzh(1,ipart) = r*cos(phi)
-       xyzh(2,ipart) = r*sin(phi)
-       xyzh(3,ipart) = zi
+   if (i_belong(i)) then
+      ipart = ipart + 1
+      !----------------------------------------------
+      ! Set positions -- move to origin below
+      xyzh(1,ipart) = r*cos(phi)
+      xyzh(2,ipart) = r*sin(phi)
+      xyzh(3,ipart) = zi
 
-   !------------------------------------------
-   !  Starting estimate of smoothing length for h-rho iterations
-       rhopart = sigma*rhoz
-       hpart = hfact*(particle_mass/rhopart)**(1./3.)
-       xyzh(4,ipart) = hpart
+      !------------------------------------------
+      !  Starting estimate of smoothing length for h-rho iterations
+      rhopart = sigma*rhoz
+      hpart = hfact*(particle_mass/rhopart)**(1./3.)
+      xyzh(4,ipart) = hpart
+
+      !------------------------------------------
+      !  Set particle type
+      call set_particle_type(ipart,itype)
+   endif
 
    ! HH is scale height
        if (zi*zi < HH*HH) then
           ninz = ninz + 1
           honH = honH + hpart/HH
        endif
-
-   !------------------------------------------
-   !  Set particle type
-       call set_particle_type(ipart,itype)
-    endif
  enddo
 !
 ! Set honH
