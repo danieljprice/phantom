@@ -237,8 +237,10 @@ subroutine compute_energies(t)
           dumx = 0.
           dumy = 0.
           dumz = 0.
+#ifndef GR
           call externalforce(iexternalforce,xi,yi,zi,hi,t,dumx,dumy,dumz,epoti,ii=i)
           call externalforce_vdependent(iexternalforce,xyzh(1:3,i),vxyzu(1:3,i),fdum,epoti)
+#endif
           epot = epot + pmassi*epoti
        endif
        if (nptmass > 0) then

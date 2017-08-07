@@ -14,17 +14,27 @@ contains
 !   whether a particle is gas or test particle.)
 !+
 !---------------------------------------------------------------
-subroutine get_grforce(xyzi,veli,densi,ui,pi,fexti)
+subroutine get_grforce(xyzi,veli,densi,ui,pi,fexti,dtf)
  real, intent(in)  :: xyzi(3),veli(3),densi,ui,pi
- real, intent(out) :: fexti(3)
+ real, intent(out) :: fexti(3),dtf
+ real :: x,y,z,r2,r
  logical :: its_a_testparticle
- its_a_testparticle = .false.
+ its_a_testparticle = .true.
 
  if (its_a_testparticle) then
     call get_sourceterms(xyzi,veli,fexti)
  else
     call forcegr(xyzi,veli,densi,ui,pi,fexti)
  endif
+
+ x = xyzi(1)
+ y = xyzi(2)
+ z = xyzi(3)
+
+ r2 = x*x + y*y + z*z
+ r  = sqrt(r2)
+
+ dtf = 0.0001*sqrt(r*r2)
 
 end subroutine get_grforce
 
@@ -106,6 +116,7 @@ subroutine update_grforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,
  real, parameter :: tolv = 1.e-2
  real, parameter :: tolv2 = tolv*tolv
  real,dimension(3) :: pos,vel
+ real :: dtf
 
  itsmax = maxitsext
  its = 0
@@ -126,7 +137,7 @@ subroutine update_grforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,
     v1zold = v1z
     pos = (/xi,yi,zi/)
     vel = (/v1x,v1y,v1z/)
-    call get_grforce(pos,vel,densi,ui,pi,fextv)
+    call get_grforce(pos,vel,densi,ui,pi,fextv,dtf)
 !    xi = pos(1)
 !    yi = pos(2)
 !    zi = pos(3)
@@ -155,66 +166,5 @@ subroutine update_grforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,
  fzi = fzi + fexti(3)
 
 end subroutine update_grforce_leapfrog
-
-
-! !-----------------------------------------------------------------------
-! !+
-! !  writes input options to the input file
-! !+
-! !-----------------------------------------------------------------------
-! subroutine write_options_ltforce(iunit)
-!  use infile_utils, only:write_inopt
-!  use physcon, only:pi
-!  integer, intent(in) :: iunit
-!
-!  blackhole_spin_angle = blackhole_spin_angle*(180.0/pi)
-!  write(iunit,"(/,a)") '# options relating to Lense-Thirring precession'
-!  call write_inopt(blackhole_spin,'blackhole_spin','spin of central black hole (-1 to 1)',iunit)
-!  call write_inopt(blackhole_spin_angle, &
-!                  'blackhole_spin_angle','black hole spin angle w.r.t. x-y plane (0 to 180)',iunit)
-!  blackhole_spin_angle = blackhole_spin_angle*(pi/180.0)
-!
-! end subroutine write_options_ltforce
-
-! !-----------------------------------------------------------------------
-! !+
-! !  reads input options from the input file
-! !+
-! !-----------------------------------------------------------------------
-! subroutine read_options_ltforce(name,valstring,imatch,igotall,ierr)
-!  use io,      only:fatal
-!  use physcon, only:pi
-!  character(len=*), intent(in)  :: name,valstring
-!  logical,          intent(out) :: imatch,igotall
-!  integer,          intent(out) :: ierr
-!  integer, save :: ngot = 0
-!  character(len=30), parameter :: label = 'read_options_ltforce'
-!
-!  imatch  = .true.
-!  igotall = .false.
-!
-!  select case(trim(name))
-!  case('blackhole_spin')
-!     read(valstring,*,iostat=ierr) blackhole_spin
-!     if (blackhole_spin > 1 .or. blackhole_spin < -1.) then
-!        call fatal(label,'invalid spin parameter for black hole')
-!     endif
-!     ngot = ngot + 1
-!  case('blackhole_spin_angle')
-!     read(valstring,*,iostat=ierr) blackhole_spin_angle
-!     if (blackhole_spin_angle > 180. .or. blackhole_spin_angle < 0.) then
-!        call fatal(label,'invalid spin angle for black hole (should be between 0 and 180 degrees)')
-!     else
-!        blackhole_spin_angle = blackhole_spin_angle*(pi/180.0)
-!        sin_spinangle = sin(blackhole_spin_angle)
-!        cos_spinangle = cos(blackhole_spin_angle)
-!     endif
-!  case default
-!     imatch = .false.
-!  end select
-!
-!  igotall = (ngot >= 1)
-!
-! end subroutine read_options_ltforce
 
 end module extern_gr

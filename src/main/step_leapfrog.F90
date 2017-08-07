@@ -95,6 +95,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use timestep_sts,   only:sts_get_hdti,sts_get_dtau_next,use_sts,ibinsts,sts_it_n
  use part,           only:ibin,ibinold,twas,iactive
 #endif
+#ifdef GR
+ use metric,         only:metric_type
+#endif
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
  real,    intent(in)    :: t,dtsph
@@ -172,10 +175,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! accretion onto sinks/potentials also happens during substepping
 !----------------------------------------------------------------------
 #ifdef GR
- if (.false.) then
-    call stepgr_extern()
+ if (iexternalforce > 0 .and. .not. metric_type == 'Minkowski') then
+    call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fext,t,damp)
  else
-    call stepgr_extern_sph(dtsph,npart,xyzh,vxyzu,dens,pxyzu)
+    call step_extern_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu)
  endif
 
 #else
@@ -509,16 +512,16 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 end subroutine step
 
 #ifdef GR
-subroutine stepgr_extern_sph(dt,npart,xyzh,vxyzu,dens,pxyzu)
- use part, only:isdead_or_accreted
+subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu)
+ use part,      only:isdead_or_accreted
  use cons2prim, only:conservative_to_primitive
  real,    intent(in)    :: dt
  integer, intent(in)    :: npart
  real,    intent(inout) :: xyzh(:,:),dens(:)
  real,    intent(in)    :: pxyzu(:,:)
  real,    intent(out)   :: vxyzu(:,:)
- integer, parameter :: nitermax = 100
- real,    parameter ::     xtol = 1.e-5
+ integer, parameter :: nitermax = 10
+ real,    parameter ::     xtol = 1.e-15
  integer :: i,ierr,niter
  real    :: xpred(1:3),vold(1:3),diff
  logical :: converged
@@ -533,10 +536,8 @@ subroutine stepgr_extern_sph(dt,npart,xyzh,vxyzu,dens,pxyzu)
        !
        ! main position update
        !
-
        xpred = xyzh(1:3,i) + dt*vxyzu(1:3,i)
        vold  = vxyzu(1:3,i)
-
        converged = .false.
        niter = 0
        do while (.not. converged .and. niter<=nitermax)
@@ -552,347 +553,216 @@ subroutine stepgr_extern_sph(dt,npart,xyzh,vxyzu,dens,pxyzu)
  enddo
  !$omp end parallel do
 
-end subroutine stepgr_extern_sph
+end subroutine step_extern_sph_gr
 
-subroutine stepgr_extern()!(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fext,time,damp,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
-!  use dim,            only:maxptmass,maxp,maxvxyzu
-!  use io,             only:iverbose,id,master,iprint,warning
-!  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
-!                           update_vdependent_extforce_leapfrog,is_velocity_dependent
-!  use ptmass,         only:ptmass_predictor,ptmass_corrector,ptmass_accrete, &
-!                           get_accel_sink_gas,get_accel_sink_sink,f_acc,pt_write_sinkev, &
-!                           idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
-!                           idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
-!                           ndptmass
-!  use options,        only:iexternalforce
-!  use part,           only:maxphase,abundance,nabundances,h2chemistry,epot_sinksink,&
-!                           isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
-!                           ispinx,ispiny,ispinz
-!  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
-!                           summary_accrete,summary_accrete_fail
-!  use timestep,       only:bignumber,C_force
-!  use timestep_sts,   only:sts_it_n
-!  integer, intent(in)    :: npart,ntypes,nptmass
-!  real,    intent(in)    :: dtsph,time,damp
-!  real,    intent(inout) :: dtextforce
-!  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:)
-!  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
-!  integer :: i,itype,nsubsteps,idudtcool,ichem,naccreted,nfail,nfaili
-!  logical :: accreted,extf_is_velocity_dependent
-!  real    :: timei,hdt,fextx,fexty,fextz,fextxi,fextyi,fextzi,phii,pmassi
-!  real    :: dtphi2,dtphi2i,vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,deni
-!  real    :: dudtcool,fextv(3),fac,poti
-!  real    :: xyzm_ptmass_old(4,nptmass),vxyz_ptmass_old(3,nptmass)
-!  real    :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
-!  real    :: dtf,accretedmass,t_end_step,dtextforce_min
-!  real    :: dptmass(ndptmass,nptmass)
-!  real    :: newptmass(nptmass),newptmass1(nptmass)
-!  real, save :: fxyz_ptmass_thread(4,maxptmass)
-!  real, save :: dptmass_thread(ndptmass,maxptmass)
-!  real, save :: dmdt = 0.
-!  logical :: last_step,done
-!  !$omp threadprivate(fxyz_ptmass_thread)
-!  !$omp threadprivate(dptmass_thread)
-! !
-! ! determine whether or not to use substepping
-! !
-!  if ((iexternalforce > 0 .or. nptmass > 0) .and. dtextforce < dtsph) then
-!     dt = dtextforce
-!     last_step = .false.
-!  else
-!     dt = dtsph
-!     last_step = .true.
-!  endif
+subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fext,time,damp)
+ use dim,            only:maxptmass,maxp,maxvxyzu
+ use io,             only:iverbose,id,master,iprint,warning
+ use externalforces, only:externalforce,accrete_particles,update_externalforce
+ use options,        only:iexternalforce
+ use part,           only:maxphase,isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh
+ use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
+                          summary_accrete,summary_accrete_fail
+ use timestep,       only:bignumber,C_force
+ use timestep_sts,   only:sts_it_n
+ use cons2prim,      only:conservative_to_primitive
+ use extern_gr,      only:get_grforce
+ use eos,            only:equationofstate,ieos
+ integer, intent(in)    :: npart,ntypes
+ real,    intent(in)    :: dtsph,time,damp
+ real,    intent(inout) :: dtextforce
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:)
+ integer :: i,itype,nsubsteps,naccreted,nfail,nfaili,its,ierr
+ logical :: accreted
+ real    :: timei,hdt,fextx,fexty,fextz,fextxi,fextyi,fextzi,phii,pmassi
+ real    :: dtphi2,dtphi2i,vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,deni
+ real    :: dudtcool,fextv(3),fac,poti
+ real    :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
+ real    :: dtf,accretedmass,t_end_step,dtextforce_min
+ real    :: xnew(4),pi,poldi(3),pprev(3),xyz_prev(3),pondensi,spsoundi
+ real    :: x_err,pmom_err
+ real, save :: dmdt = 0.
+ logical :: last_step,done,converged
+ integer, parameter :: itsmax = 100
+ real, parameter :: ptol = 1.e-5, xtol = 1.e-2
 !
-!  timei = time
-!  extf_is_velocity_dependent = is_velocity_dependent(iexternalforce)
-!  accretedmass   = 0.
-!  itype          = igas
-!  pmassi         = massoftype(igas)
-!  fac            = 0.
-!  t_end_step     = timei + dtsph
-!  nsubsteps      = 0
-!  dtextforce_min = huge(dt)
-!  done           = .false.
+! determine whether or not to use substepping
 !
-!  substeps: do while (timei <= t_end_step .and. .not.done)
-!     hdt           = 0.5*dt
-!     timei         = timei + dt
-!     nsubsteps     = nsubsteps + 1
-!     dtextforcenew = bignumber
-!     dtsinkgas     = bignumber
-!     dtphi2        = bignumber
-!
-!     if (.not.last_step .and. iverbose > 1 .and. id==master) then
-!        write(iprint,"(a,f14.6)") '> external/ptmass forces only : t=',timei
-!     endif
-!
-!     !---------------------------
-!     ! predictor during substeps
-!     !---------------------------
-!     !
-!     ! point mass predictor step
-!     !
-!     if (nptmass > 0) call ptmass_predictor(nptmass,dt,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
-!     !
-!     ! get sink-sink forces (and a new sink-sink timestep.  Note: fxyz_ptmass is zeroed in this subroutine)
-!     !
-!     if (nptmass > 0) then
-!        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtf,iexternalforce,timei)
-!        dtextforcenew = min(dtextforcenew,C_force*dtf)
-!        if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
-!     endif
-!
-!     !
-!     ! predictor step for sink-gas and external forces, also recompute sink-gas and external forces
-!     !
-!     fonrmax = 0.
-!     !$omp parallel default(none) &
-!     !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype) &
-!     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,icooling) &
-!     !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,damp) &
-!     !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv) &
-!     !$omp private(i,ichem,idudtcool,dudtcool,fxi,fyi,fzi,phii) &
-!     !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,deni,fextv,accreted) &
-!     !$omp private(fonrmaxi,dtphi2i,dtf) &
-!     !$omp private(vxhalfi,vyhalfi,vzhalfi) &
-!     !$omp firstprivate(pmassi,itype) &
-!     !$omp reduction(+:accretedmass) &
-!     !$omp reduction(min:dtextforcenew,dtsinkgas,dtphi2) &
-!     !$omp reduction(max:fonrmax)
-!     fxyz_ptmass_thread(:,1:nptmass) = 0.
-!     !$omp do
-!     predictor: do i=1,npart
-!        if (.not.isdead_or_accreted(xyzh(4,i))) then
-!           if (ntypes > 1 .and. maxphase==maxp) then
-!              itype = iamtype(iphase(i))
-!              pmassi = massoftype(itype)
-!           endif
-!
-!
-!           !
-!           ! predict p to the half step
-!           !
-!           pxyzu(1:3,i) = pxyzu(1:3,i) + hdt*fext(1:3,i)
-!           call conservative2primitive_combined(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
-!           !
-!           ! main position update
-!           !
-!           xyzh(1,i) = xyzh(1,i) + dt*vxyzu(1,i)
-!           xyzh(2,i) = xyzh(2,i) + dt*vxyzu(2,i)
-!           xyzh(3,i) = xyzh(3,i) + dt*vxyzu(3,i)
-!           !
-!           ! Skip remainder of update if boundary particle; note that fext==0 for these particles
-!           if (itype==iboundary) cycle predictor
-!           !
-!           ! compute and add sink-gas force
-!           !
-!           fextx = 0.
-!           fexty = 0.
-!           fextz = 0.
-!           if (nptmass > 0) then
-!              call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
-!                       fextx,fexty,fextz,phii,pmassi,fxyz_ptmass_thread,fonrmaxi,dtphi2i)
-!              fonrmax = max(fonrmax,fonrmaxi)
-!              dtphi2  = min(dtphi2,dtphi2i)
-!           endif
-!           !
-!           ! compute and add external forces
-!           !
-!           if (iexternalforce > 0) then
-!              call externalforce(iexternalforce,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i), &
-!                                 timei,fextxi,fextyi,fextzi,poti,dtf,i)  !????? VELOCITY and other quantities ?
-!              dtextforcenew = min(dtextforcenew,C_force*dtf)
-!
-!              fextx = fextx + fextxi
-!              fexty = fexty + fextyi
-!              fextz = fextz + fextzi
-!              !
-!              !  Velocity-dependent external forces require special handling
-!              !  in leapfrog (corrector is implicit)
-!              !
-!              if (extf_is_velocity_dependent) then
-!                 vxhalfi = vxyzu(1,i)
-!                 vyhalfi = vxyzu(2,i)
-!                 vzhalfi = vxyzu(3,i)
-!                 fxi = fextx
-!                 fyi = fexty
-!                 fzi = fextz
-!                 call update_vdependent_extforce_leapfrog(iexternalforce,&
-!                      vxhalfi,vyhalfi,vzhalfi, &
-!                      fxi,fyi,fzi,fextv,dt,xyzh(1,i),xyzh(2,i),xyzh(3,i),dens(i),vxyzu(4,i))
-!                 fextx = fextx + fextv(1)
-!                 fexty = fexty + fextv(2)
-!                 fextz = fextz + fextv(3)
-!              endif
-!           endif
-!           fext(1,i) = fextx
-!           fext(2,i) = fexty
-!           fext(3,i) = fextz
-!        endif
-!     enddo predictor
-!     !$omp enddo
-!
-!     !
-!     ! reduction of sink-gas forces from each thread
-!     !
-!     if (nptmass > 0 .and. npart > 0) then
-!        !$omp critical(ptmassadd)
-!        fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_ptmass_thread(:,1:nptmass)
-!        !$omp end critical(ptmassadd)
-!     endif
-!     !$omp end parallel
-!
-!     !---------------------------
-!     ! corrector during substeps
-!     !---------------------------
-!     !
-!     ! corrector step on sinks (changes velocities only, does not change position)
-!     !
-!     if (nptmass > 0) then
-!        call ptmass_corrector(nptmass,dt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,iexternalforce)
-!     endif
-!
-!     !
-!     ! Save sink particle properties for use in checks to see if particles should be accreted
-!     !
-!     if (nptmass /= 0) then
-!        xyzm_ptmass_old = xyzmh_ptmass(1:4,1:nptmass)
-!        vxyz_ptmass_old = vxyz_ptmass (1:3,1:nptmass)
-!     endif
-!
-!     !
-!     ! corrector step on gas particles (also accrete particles at end of step)
-!     !
-!     accretedmass = 0.
-!     nfail        = 0
-!     naccreted    = 0
-!
-!     dptmass(:,1:nptmass) = 0.
-!     dptmass_thread(:,1:nptmass) = 0.
-!
-!     !$omp parallel do default(none) &
-!     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei,nptmass,sts_it_n) &
-!     !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,f_acc) &
-!     !$omp shared(iexternalforce,vxyz_ptmass_old,xyzm_ptmass_old) &
-!     !$omp shared(dptmass) &
-!     !$omp private(i,accreted,nfaili,fxi,fyi,fzi) &
-!     !$omp firstprivate(itype,pmassi) &
-!     !$omp reduction(+:accretedmass,nfail,naccreted)
-!     accreteloop: do i=1,npart
-!        if (.not.isdead_or_accreted(xyzh(4,i))) then
-!           if (ntypes > 1 .and. maxphase==maxp) then
-!              itype = iamtype(iphase(i))
-!              pmassi = massoftype(itype)
-!              if (itype==iboundary) cycle accreteloop
-!           endif
-!           !
-!           ! correct v to the full step using only the external force
-!           !
-!           vxyzu(1:3,i) = vxyzu(1:3,i) + hdt*fext(1:3,i)
-!
-!           if (iexternalforce > 0) then
-!              call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
-!                                     xyzh(3,i),xyzh(4,i),pmassi,timei,accreted)
-!              if (accreted) accretedmass = accretedmass + pmassi
-!           endif
-!           !
-!           ! accretion onto sink particles
-!           ! need position, velocities and accelerations of both gas and sinks to be synchronised,
-!           ! otherwise will not conserve momentum
-!           ! Note: requiring sts_it_n since this is supertimestep with the most active particles
-!           !
-!           if (nptmass > 0 .and. sts_it_n) then
-!              fxi = fext(1,i)
-!              fyi = fext(2,i)
-!              fzi = fext(3,i)
-!              call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
-!                                  vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxi,fyi,fzi,&
-!                                  itype,pmassi,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
-!                                  accreted,dptmass_thread,timei,f_acc,nfaili)
-!              if (accreted) then
-!                 naccreted = naccreted + 1
-!                 cycle accreteloop
-!              endif
-!              if (nfaili > 1) nfail = nfail + 1
-!           endif
-!        endif
-!
-!     !$omp critical(dptmassadd)
-!     dptmass(:,1:nptmass) = dptmass(:,1:nptmass) + dptmass_thread(:,1:nptmass)
-!     !$omp end critical(dptmassadd)
-!     enddo accreteloop
-!     !$omp end parallel do
-!
-!     ! update ptmass position, spin, velocity, acceleration, and mass
-!     newptmass(1:nptmass)            = xyzmh_ptmass(4,1:nptmass) + dptmass(idmsi,1:nptmass)
-!     newptmass1(1:nptmass)           = 1./newptmass(1:nptmass)
-!     xyzmh_ptmass(1,1:nptmass)       = (dptmass(idxmsi,1:nptmass) + xyzmh_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-!     xyzmh_ptmass(2,1:nptmass)       = (dptmass(idymsi,1:nptmass) + xyzmh_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-!     xyzmh_ptmass(3,1:nptmass)       = (dptmass(idzmsi,1:nptmass) + xyzmh_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-!     xyzmh_ptmass(ispinx,1:nptmass)  = xyzmh_ptmass(ispinx,1:nptmass) + dptmass(idspinxsi,1:nptmass)
-!     xyzmh_ptmass(ispiny,1:nptmass)  = xyzmh_ptmass(ispiny,1:nptmass) + dptmass(idspinysi,1:nptmass)
-!     xyzmh_ptmass(ispinz,1:nptmass)  = xyzmh_ptmass(ispinz,1:nptmass) + dptmass(idspinzsi,1:nptmass)
-!     vxyz_ptmass(1,1:nptmass)        = (dptmass(idvxmsi,1:nptmass) + vxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-!     vxyz_ptmass(2,1:nptmass)        = (dptmass(idvymsi,1:nptmass) + vxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-!     vxyz_ptmass(3,1:nptmass)        = (dptmass(idvzmsi,1:nptmass) + vxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-!     fxyz_ptmass(1,1:nptmass)        = (dptmass(idfxmsi,1:nptmass) + fxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-!     fxyz_ptmass(2,1:nptmass)        = (dptmass(idfymsi,1:nptmass) + fxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-!     fxyz_ptmass(3,1:nptmass)        = (dptmass(idfzmsi,1:nptmass) + fxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-!     xyzmh_ptmass(4,1:nptmass)       = newptmass(1:nptmass)
-!
-!     if (iverbose >= 2 .and. id==master .and. naccreted /= 0) write(iprint,"(a,es10.3,a,i4,a,i4,a)") &
-!        'Step: at time ',timei,', ',naccreted,' particles were accreted amongst ',nptmass,' sink(s).'
-!
-!     if (nptmass > 0) then
-!        call summary_accrete_fail(nfail)
-!        call summary_accrete(nptmass)
-!        ! only write to .ev during substeps if no gas particles present
-!        if (npart==0) call pt_write_sinkev(nptmass,timei,xyzmh_ptmass,vxyz_ptmass)
-!     endif
-!     !
-!     ! check if timestep criterion was violated during substeps
-!     !
-!     if (nptmass > 0) then
-!        if (fonrmax > 0.) then
-!           dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
-!        endif
-!        if (iverbose >= 2) write(iprint,*) nsubsteps,'dt(ext/sink-sink) = ',dtextforcenew,', dt(sink-gas) = ',dtsinkgas
-!        dtextforcenew = min(dtextforcenew,dtsinkgas)
-!     endif
-!
-!     dtextforce_min = min(dtextforce_min,dtextforcenew)
-!     dtextforce = dtextforcenew
-!
-!     if (last_step) then
-!        done = .true.
-!     else
-!        dt = dtextforce
-!        if (timei + dt > t_end_step) then
-!           dt = t_end_step - timei
-!           last_step = .true.
-!        endif
-!     endif
-!  enddo substeps
-!
-!  if (nsubsteps > 1) then
-!     if (iverbose>=1 .and. id==master) then
-!        write(iprint,"(a,i6,a,f8.2,a,es10.3,a,es10.3)") &
-!            ' using ',nsubsteps,' substeps (dthydro/dtextf = ',dtsph/dtextforce_min,'), dt = ',dtextforce_min,' dtsph = ',dtsph
-!     endif
-!     if (nptmass >  0 .and. iexternalforce <= 0) then
-!        call summary_variable('ext',iosumextsr,nsubsteps,dtsph/dtextforce_min)
-!        call summary_variable('ext',iosumextst,nsubsteps,dtextforce_min,1.0/dtextforce_min)
-!     elseif (nptmass <= 0 .and. iexternalforce >  0) then
-!        call summary_variable('ext',iosumexter,nsubsteps,dtsph/dtextforce_min)
-!        call summary_variable('ext',iosumextet,nsubsteps,dtextforce_min,1.0/dtextforce_min)
-!     else
-!        call summary_variable('ext',iosumextr ,nsubsteps,dtsph/dtextforce_min)
-!        call summary_variable('ext',iosumextt ,nsubsteps,dtextforce_min,1.0/dtextforce_min)
-!     endif
-!  endif
-!
-end subroutine stepgr_extern
+ if ((iexternalforce > 0) .and. dtextforce < dtsph) then
+    dt = dtextforce
+    last_step = .false.
+ else
+    dt = dtsph
+    last_step = .true.
+ endif
+
+ timei = time
+ accretedmass   = 0.
+ itype          = igas
+ pmassi         = massoftype(igas)
+ fac            = 0.
+ t_end_step     = timei + dtsph
+ nsubsteps      = 0
+ dtextforce_min = huge(dt)
+ done           = .false.
+
+ substeps: do while (timei <= t_end_step .and. .not.done)
+    hdt           = 0.5*dt
+    timei         = timei + dt
+    nsubsteps     = nsubsteps + 1
+    dtextforcenew = bignumber
+    dtsinkgas     = bignumber
+    dtphi2        = bignumber
+
+    if (.not.last_step .and. iverbose > 1 .and. id==master) then
+       write(iprint,"(a,f14.6)") '> external forces only : t=',timei
+    endif
+
+    !---------------------------
+    ! predictor during substeps
+    !---------------------------
+    !
+    ! predictor step for external forces, also recompute external forces
+    !
+    fonrmax = 0.
+    !$omp parallel default(none) &
+    !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype) &
+    !$omp shared(dt,hdt,timei,iexternalforce) &
+    !$omp shared(damp) &
+    !$omp shared(nsubsteps,C_force) &
+    !$omp private(i,dudtcool,fxi,fyi,fzi,phii) &
+    !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,deni,fextv,accreted) &
+    !$omp private(fonrmaxi,dtphi2i,dtf) &
+    !$omp private(vxhalfi,vyhalfi,vzhalfi) &
+    !$omp private(poldi,converged,pprev,pi,ierr,xnew,xyz_prev,x_err,pmom_err) &
+    !$omp shared(its,pxyzu,dens) &
+    !$omp firstprivate(pmassi,itype) &
+    !$omp reduction(+:accretedmass) &
+    !$omp reduction(min:dtextforcenew,dtsinkgas,dtphi2) &
+    !$omp reduction(max:fonrmax)
+    !$omp do
+    predictor: do i=1,npart
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          if (ntypes > 1 .and. maxphase==maxp) then
+             itype = iamtype(iphase(i))
+             pmassi = massoftype(itype)
+          endif
+
+          its       = 0
+          poldi     = pxyzu(1:3,i)
+          converged = .false.
+          pmom_iterations: do while (its <= itsmax .and. .not. converged)
+             its   = its + 1
+             pprev = pxyzu(1:3,i)
+             call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr,pi)
+             call get_grforce(xyzh(1:3,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fextv,dtf)
+            !  pxyzu(1:3,i) = pprev + hdt*(fextv - fext(1:3,i))
+            !  fext(1:3,i) = fextv
+             pxyzu(1:3,i) = poldi + hdt*fextv
+             pmom_err = abs( maxval( (pxyzu(1:3,i) - pprev)/pprev ) )
+             if (pmom_err < ptol) converged = .true.
+          enddo pmom_iterations
+          if (its > itsmax ) print*,'Warning! Not converged. Reached max number of pmom iterations.'
+          fext(1:3,i) = fextv
+
+
+          call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr,pi)
+          xyzh(1:3,i) = xyzh(1:3,i) + hdt*vxyzu(1:3,i)
+
+
+          its       = 0
+          xnew(4)   = xyzh(4,i)
+          converged = .false.
+          xyz_iterations: do while (its <= itsmax .and. .not. converged)
+             its       = its+1
+             xyz_prev  = xyzh(1:3,i)
+             xnew(1:3) = xyzh(1:3,i) + hdt*vxyzu(1:3,i)
+             call conservative_to_primitive(xnew,pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
+             x_err = abs( maxval( (xnew(1:3)-xyz_prev)/xyz_prev ) )
+             if (x_err < xtol) converged = .true.
+          enddo xyz_iterations
+          if (its > itsmax ) print*,'Warning! Not converged. Reached max number of x iterations.'
+          xyzh(1:3,i) = xnew(1:3)
+
+
+          ! Skip remainder of update if boundary particle; note that fext==0 for these particles
+          if (itype==iboundary) cycle predictor
+       endif
+    enddo predictor
+    !$omp enddo
+    !$omp end parallel
+
+    !
+    ! corrector step on gas particles (also accrete particles at end of step)
+    !
+    accretedmass = 0.
+    nfail        = 0
+    naccreted    = 0
+    dtextforce_min = bignumber
+
+    !$omp parallel do default(none) &
+    !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei,sts_it_n) &
+    !$omp shared(iexternalforce) &
+    !$omp private(i,accreted,nfaili,fxi,fyi,fzi) &
+    !$omp shared(dens,pxyzu,ieos) &
+    !$omp private(pi,pondensi,spsoundi,dtf) &
+    !$omp firstprivate(itype,pmassi) &
+    !$omp reduction(+:accretedmass,nfail,naccreted) &
+    !$omp reduction(min:dtextforce_min)
+    accreteloop: do i=1,npart
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          if (ntypes > 1 .and. maxphase==maxp) then
+             itype = iamtype(iphase(i))
+             pmassi = massoftype(itype)
+             if (itype==iboundary) cycle accreteloop
+          endif
+
+          call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+          pi = pondensi*dens(i)
+          call get_grforce(xyzh(1:3,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
+          dtextforce_min = min(dtf,dtextforce_min)
+          !
+          ! correct v to the full step using only the external force
+          !
+          pxyzu(1:3,i) = pxyzu(1:3,i) + hdt*fext(1:3,i)
+
+          if (iexternalforce > 0) then
+             call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
+                                    xyzh(3,i),xyzh(4,i),pmassi,timei,accreted)
+             if (accreted) accretedmass = accretedmass + pmassi
+          endif
+       endif
+    enddo accreteloop
+    !$omp end parallel do
+
+    if (iverbose >= 2 .and. id==master .and. naccreted /= 0) write(iprint,"(a,es10.3,a,i4,a)") &
+       'Step: at time ',timei,', ',naccreted,' particles were accreted'
+
+    dtextforcenew = min(dtextforce_min,dtextforcenew)
+    dtextforce    = dtextforcenew
+
+    if (last_step) then
+       done = .true.
+    else
+       dt = dtextforce
+       if (timei + dt > t_end_step) then
+          dt = t_end_step - timei
+          last_step = .true.
+       endif
+    endif
+
+ enddo substeps
+
+ if (nsubsteps > 1) then
+    if (iverbose>=1 .and. id==master) then
+       write(iprint,"(a,i6,a,f8.2,a,es10.3,a,es10.3)") &
+           ' using ',nsubsteps,' substeps (dthydro/dtextf = ',dtsph/dtextforce_min,'), dt = ',dtextforce_min,' dtsph = ',dtsph
+    endif
+    call summary_variable('ext',iosumextr ,nsubsteps,dtsph/dtextforce_min)
+    call summary_variable('ext',iosumextt ,nsubsteps,dtextforce_min,1.0/dtextforce_min)
+ endif
+
+end subroutine step_extern_gr
 
 #endif
 !----------------------------------------------------------------

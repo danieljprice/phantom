@@ -151,6 +151,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef GR
  use part,             only:pxyzu,dens
  use cons2prim,        only:primitive_to_conservative
+ use eos,              only:equationofstate,ieos
+ use extern_gr,        only:get_grforce
 #endif
 #ifdef PHOTO
  use photoevap,        only:set_photoevap_grid
@@ -230,6 +232,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  logical         :: iexist
  integer :: ncount(maxtypes)
  character(len=len(dumpfile)) :: dumpfileold,fileprefix
+#ifdef GR
+ real :: pi,pondensi,spsoundi
+#endif
 
 !
 !--do preliminary initialisation
@@ -416,11 +421,31 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
  dtextforce = huge(dtextforce)
  fext(:,:)  = 0.
+
+#ifdef GR
+ if (iexternalforce > 0) then
+    call initialise_externalforces(iexternalforce,ierr)
+    if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
+    !$omp parallel do default(none) &
+    !$omp shared(npart,xyzh,vxyzu,dens,fext,iexternalforce,ieos,C_force) &
+    !$omp private(i,dtf,spsoundi,pondensi,pi) &
+    !$omp reduction(min:dtextforce)
+    do i=1,npart
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+          pi = pondensi*dens(i)
+          call get_grforce(xyzh(1:3,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
+          dtextforce = min(dtextforce,C_force*dtf)
+       endif
+    enddo
+    !$omp end parallel do
+    write(iprint,*) 'dt(extforce)  = ',dtextforce
+ endif
+#else
  if (iexternalforce > 0) then
     call initialise_externalforces(iexternalforce,ierr)
     call update_externalforce(iexternalforce,time,0.)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
-
     !$omp parallel do default(none) &
     !$omp shared(npart,xyzh,vxyzu,fext,time,iexternalforce,C_force) &
     !$omp private(i,poti,dtf,fextv) &
@@ -428,7 +453,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           call externalforce(iexternalforce,xyzh(1,i),xyzh(2,i),xyzh(3,i), &
-                             xyzh(4,i),time,fext(1,i),fext(2,i),fext(3,i),poti,dtf,i)
+                              xyzh(4,i),time,fext(1,i),fext(2,i),fext(3,i),poti,dtf,i)
           dtextforce = min(dtextforce,C_force*dtf)
           ! add velocity-dependent part
           call externalforce_vdependent(iexternalforce,xyzh(1:3,i),vxyzu(1:3,i),fextv,poti)
@@ -438,6 +463,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     !$omp end parallel do
     write(iprint,*) 'dt(extforce)  = ',dtextforce
  endif
+#endif
+
 !
 !--get timestep and forces for sink particles
 !
@@ -485,7 +512,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef GR
                               ,pxyzu,dens)
 #else
-                              )
+    )
 #endif
     if (use_dustfrac) then
        ! set s = sqrt(rho*eps) from the initial dustfrac setting now we know rho

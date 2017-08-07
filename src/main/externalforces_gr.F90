@@ -166,13 +166,13 @@ subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui
  real,    intent(out) :: fexti(3)
  real,    intent(inout) :: poti
  real,    intent(in), optional :: densi,ui
- real :: pi,pondensi,spsoundi
+ real :: pi,pondensi,spsoundi,dtf
 
  if (.not. present(densi) .or. .not. present(ui)) call fatal('externalforce_vdependent','densi and ui not present')
  call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
  pi = pondensi*densi
 
- call get_grforce(xyzi,veli,densi,ui,pi,fexti)
+ call get_grforce(xyzi,veli,densi,ui,pi,fexti,dtf)
 
 end subroutine externalforce_vdependent
 
