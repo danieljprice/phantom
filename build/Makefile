@@ -453,6 +453,34 @@ ifeq ($(SETUP), srshock)
     CONST_AV=yes
 endif
 
+
+ifeq ($(SETUP), testparticles)
+#
+    PERIODIC=no
+    SETUPFILE= setup_testparticles.F90
+    DOUBLEPRECISION=yes
+    GR=no
+    ISOTHERMAL=no
+    KNOWN_SETUP=yes
+    MAXP=500000
+    CONST_AV=yes
+    ANALYSIS= analysis_1particle.f90
+endif
+
+ifeq ($(SETUP), gr_testparticles)
+#
+    PERIODIC=no
+    SETUPFILE= setup_testparticles.f90
+    DOUBLEPRECISION=yes
+    GR=yes
+    METRIC=schwarzschild
+    ISOTHERMAL=no
+    KNOWN_SETUP=yes
+    MAXP=500000
+    CONST_AV=yes
+    ANALYSIS= analysis_1particle.f90
+endif
+
 ifeq ($(SETUP), dustydisc)
 #   locally isothermal discs
     FPPFLAGS= -DDISC_VISCOSITY
