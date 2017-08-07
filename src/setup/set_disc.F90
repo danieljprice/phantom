@@ -705,30 +705,30 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_in,R_out,
        rhoz = f/(HHsqrt2*sqrt(pi))
     enddo
 
-   if (i_belong(i)) then
-      ipart = ipart + 1
-      !----------------------------------------------
-      ! Set positions -- move to origin below
-      xyzh(1,ipart) = r*cos(phi)
-      xyzh(2,ipart) = r*sin(phi)
-      xyzh(3,ipart) = zi
+    !------------------------------------------
+    !  Starting estimate of smoothing length for h-rho iterations
+    rhopart = sigma*rhoz
+    hpart = hfact*(particle_mass/rhopart)**(1./3.)
 
-      !------------------------------------------
-      !  Starting estimate of smoothing length for h-rho iterations
-      rhopart = sigma*rhoz
-      hpart = hfact*(particle_mass/rhopart)**(1./3.)
-      xyzh(4,ipart) = hpart
+    if (i_belong(i)) then
+       ipart = ipart + 1
+       !----------------------------------------------
+       ! Set positions -- move to origin below
+       xyzh(1,ipart) = r*cos(phi)
+       xyzh(2,ipart) = r*sin(phi)
+       xyzh(3,ipart) = zi
+       xyzh(4,ipart) = hpart
 
-      !------------------------------------------
-      !  Set particle type
-      call set_particle_type(ipart,itype)
-   endif
+       !------------------------------------------
+       !  Set particle type
+       call set_particle_type(ipart,itype)
+    endif
 
-   ! HH is scale height
-       if (zi*zi < HH*HH) then
-          ninz = ninz + 1
-          honH = honH + hpart/HH
-       endif
+    ! HH is scale height
+    if (zi*zi < HH*HH) then
+       ninz = ninz + 1
+       honH = honH + hpart/HH
+    endif
  enddo
 !
 ! Set honH
