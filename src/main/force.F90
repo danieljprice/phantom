@@ -226,7 +226,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  type(cellforce)           :: cell
 
 #ifdef MPI
- integer                   :: j,k,l
  logical                   :: do_export
 
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
