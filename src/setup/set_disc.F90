@@ -1105,7 +1105,8 @@ end subroutine write_discinfo
 !   honHmin, honH, honHmax - max mean and min ratio of h/H within range of R
 !-----------------------------------------------------------------------------
 subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart,H_R,q_index,M_star,R_in,i1,i2,verbose,rwarp)
- use domain, only:i_belong
+ use domain,   only:i_belong
+ use mpiutils, only:reduceall_mpi
  real,    intent(in)  :: xyzh(:,:)
  real,    intent(out) :: honHmax,honHmin,honH
  integer, intent(in)  :: npart,i1,i2
@@ -1174,6 +1175,9 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart,H_R,q_index,M_
        endif
     endif
  enddo
+
+ h_smooth = reduceall_mpi('+', h_smooth)
+ ninbin = reduceall_mpi('+', ninbin)
 
 ! Average h_smooth
  do i = 1,nr
