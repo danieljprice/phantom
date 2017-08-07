@@ -119,4 +119,12 @@ subroutine tensortransform_dd(position,T_old,T_new)
  enddo
 end subroutine tensortransform_dd
 
+subroutine print_metricinfo(iprint)
+ use metric, only:metric_type
+ integer, intent(in) :: iprint
+
+ write(iprint,*) 'Metric = ',trim(metric_type)
+
+end subroutine print_metricinfo
+
 end module metric_tools

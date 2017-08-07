@@ -78,6 +78,9 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 #ifdef DUST
  use dust,             only:print_dustinfo
 #endif
+#ifdef GR
+ use metric_tools,     only:print_metricinfo
+#endif
  integer                      :: Nneigh,i
  integer,          intent(in) :: icall
  character(len=*), intent(in) :: infile,evfile,logfile,dumpfile
@@ -216,6 +219,11 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 #ifdef DUST
     call print_dustinfo(iprint)
 #endif
+
+#ifdef GR
+    call print_metricinfo(iprint)
+#endif
+
 !
 !  print units information
 !
