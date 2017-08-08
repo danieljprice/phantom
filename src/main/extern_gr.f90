@@ -34,7 +34,7 @@ subroutine get_grforce(xyzi,veli,densi,ui,pi,fexti,dtf)
  r2 = x*x + y*y + z*z
  r  = sqrt(r2)
 
- dtf = 0.0001*sqrt(r*r2)
+ dtf = 0.25*sqrt(r*r2)*1.e-2
 
 end subroutine get_grforce
 

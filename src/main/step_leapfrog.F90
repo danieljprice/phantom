@@ -563,8 +563,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
  use part,           only:maxphase,isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
                           summary_accrete,summary_accrete_fail
- use timestep,       only:bignumber,C_force
- use timestep_sts,   only:sts_it_n
+ use timestep,       only:bignumber
  use cons2prim,      only:conservative_to_primitive
  use extern_gr,      only:get_grforce
  use eos,            only:equationofstate,ieos
@@ -572,19 +571,16 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
  real,    intent(in)    :: dtsph,time,damp
  real,    intent(inout) :: dtextforce
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:)
- integer :: i,itype,nsubsteps,naccreted,nfail,nfaili,its,ierr
- logical :: accreted
- real    :: timei,hdt,fextx,fexty,fextz,fextxi,fextyi,fextzi,phii,pmassi
- real    :: dtphi2,dtphi2i,vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,deni
- real    :: dudtcool,fextv(3),fac,poti
- real    :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
- real    :: dtf,accretedmass,t_end_step,dtextforce_min
- real    :: xnew(4),pi,poldi(3),pprev(3),xyz_prev(3),pondensi,spsoundi
- real    :: x_err,pmom_err
- real, save :: dmdt = 0.
+ integer :: i,itype,nsubsteps,naccreted,its,ierr
+ real    :: timei,t_end_step,hdt,pmassi
+ real    :: dt,dtf,dtextforcenew,dtextforce_min
+ real    :: pi,pprev(3),xyz_prev(3),spsoundi,pondensi
+ real    :: x_err,pmom_err,fstar(3),vxyzu_star(4)
+ ! real, save :: dmdt = 0.
  logical :: last_step,done,converged
- integer, parameter :: itsmax = 100
- real, parameter :: ptol = 1.e-5, xtol = 1.e-2
+ integer, parameter :: itsmax = 25
+ real, parameter :: ptol = 1.e-18, xtol = 1.e-18
+ integer, save :: pitsmax = 0, xitsmax = 0
 !
 ! determine whether or not to use substepping
 !
@@ -597,10 +593,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
  endif
 
  timei = time
- accretedmass   = 0.
  itype          = igas
  pmassi         = massoftype(igas)
- fac            = 0.
  t_end_step     = timei + dtsph
  nsubsteps      = 0
  dtextforce_min = huge(dt)
@@ -611,8 +605,6 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
     timei         = timei + dt
     nsubsteps     = nsubsteps + 1
     dtextforcenew = bignumber
-    dtsinkgas     = bignumber
-    dtphi2        = bignumber
 
     if (.not.last_step .and. iverbose > 1 .and. id==master) then
        write(iprint,"(a,f14.6)") '> external forces only : t=',timei
@@ -624,22 +616,15 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
     !
     ! predictor step for external forces, also recompute external forces
     !
-    fonrmax = 0.
     !$omp parallel default(none) &
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype) &
-    !$omp shared(dt,hdt,timei,iexternalforce) &
-    !$omp shared(damp) &
-    !$omp shared(nsubsteps,C_force) &
-    !$omp private(i,dudtcool,fxi,fyi,fzi,phii) &
-    !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,deni,fextv,accreted) &
-    !$omp private(fonrmaxi,dtphi2i,dtf) &
-    !$omp private(vxhalfi,vyhalfi,vzhalfi) &
-    !$omp private(poldi,converged,pprev,pi,ierr,xnew,xyz_prev,x_err,pmom_err) &
+    !$omp shared(dt,hdt) &
     !$omp shared(its,pxyzu,dens) &
+    !$omp private(i,dtf,vxyzu_star,fstar) &
+    !$omp private(converged,ierr,pprev,pmom_err,xyz_prev,x_err,pi) &
     !$omp firstprivate(pmassi,itype) &
-    !$omp reduction(+:accretedmass) &
-    !$omp reduction(min:dtextforcenew,dtsinkgas,dtphi2) &
-    !$omp reduction(max:fonrmax)
+    !$omp reduction(max:xitsmax,pitsmax) &
+    !$omp reduction(min:dtextforcenew)
     !$omp do
     predictor: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -649,40 +634,48 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
           endif
 
           its       = 0
-          poldi     = pxyzu(1:3,i)
           converged = .false.
+
+          pxyzu(1:3,i) = pxyzu(1:3,i) + hdt*fext(1:3,i)
+
           pmom_iterations: do while (its <= itsmax .and. .not. converged)
              its   = its + 1
              pprev = pxyzu(1:3,i)
              call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr,pi)
-             call get_grforce(xyzh(1:3,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fextv,dtf)
-            !  pxyzu(1:3,i) = pprev + hdt*(fextv - fext(1:3,i))
-            !  fext(1:3,i) = fextv
-             pxyzu(1:3,i) = poldi + hdt*fextv
-             pmom_err = abs( maxval( (pxyzu(1:3,i) - pprev)/pprev ) )
+             call get_grforce(xyzh(1:3,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fstar,dtf)
+             pxyzu(1:3,i) = pprev + hdt*(fstar - fext(1:3,i))
+             pmom_err = maxval( abs( (pxyzu(1:3,i) - pprev)/pprev ) )
              if (pmom_err < ptol) converged = .true.
+             fext(1:3,i) = fstar
           enddo pmom_iterations
-          if (its > itsmax ) print*,'Warning! Not converged. Reached max number of pmom iterations.'
-          fext(1:3,i) = fextv
+          if (its > itsmax ) then
+             print*,'WARNING! Not converged. Reached max number of pmom iterations.'
+             read*
+          endif
 
+          pitsmax = max(its,pitsmax)
 
           call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr,pi)
-          xyzh(1:3,i) = xyzh(1:3,i) + hdt*vxyzu(1:3,i)
+          xyzh(1:3,i) = xyzh(1:3,i) + dt*vxyzu(1:3,i)
 
 
-          its       = 0
-          xnew(4)   = xyzh(4,i)
-          converged = .false.
+          its        = 0
+          converged  = .false.
+          vxyzu_star = vxyzu(:,i)
           xyz_iterations: do while (its <= itsmax .and. .not. converged)
-             its       = its+1
-             xyz_prev  = xyzh(1:3,i)
-             xnew(1:3) = xyzh(1:3,i) + hdt*vxyzu(1:3,i)
-             call conservative_to_primitive(xnew,pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
-             x_err = abs( maxval( (xnew(1:3)-xyz_prev)/xyz_prev ) )
+             its         = its+1
+             xyz_prev    = xyzh(1:3,i)
+             call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu_star,dens(i),ierr)
+             xyzh(1:3,i)  = xyz_prev + hdt*(vxyzu_star(1:3) - vxyzu(1:3,i))
+             x_err = maxval( abs( (xyzh(1:3,i)-xyz_prev)/xyz_prev ) )
              if (x_err < xtol) converged = .true.
+             vxyzu(:,i)   = vxyzu_star
           enddo xyz_iterations
-          if (its > itsmax ) print*,'Warning! Not converged. Reached max number of x iterations.'
-          xyzh(1:3,i) = xnew(1:3)
+          if (its > itsmax ) then
+             print*,'WARNING! Not converged. Reached max number of x iterations.'
+             read*
+          endif
+          xitsmax = max(its,xitsmax)
 
 
           ! Skip remainder of update if boundary particle; note that fext==0 for these particles
@@ -692,22 +685,24 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
     !$omp enddo
     !$omp end parallel
 
+   !  print*,'max pmom iterations:',pitsmax
+   !  print*,'max x    iterations:',xitsmax
+   !  print*,'==================='
+
     !
     ! corrector step on gas particles (also accrete particles at end of step)
     !
-    accretedmass = 0.
-    nfail        = 0
-    naccreted    = 0
+   !  accretedmass = 0.
+   !  nfail        = 0
+   !  naccreted    = 0
     dtextforce_min = bignumber
 
     !$omp parallel do default(none) &
-    !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei,sts_it_n) &
-    !$omp shared(iexternalforce) &
-    !$omp private(i,accreted,nfaili,fxi,fyi,fzi) &
-    !$omp shared(dens,pxyzu,ieos) &
+    !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype,hdt) &
+    !$omp private(i) &
+    !$omp shared(ieos,dens,pxyzu) &
     !$omp private(pi,pondensi,spsoundi,dtf) &
     !$omp firstprivate(itype,pmassi) &
-    !$omp reduction(+:accretedmass,nfail,naccreted) &
     !$omp reduction(min:dtextforce_min)
     accreteloop: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -726,11 +721,11 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
           !
           pxyzu(1:3,i) = pxyzu(1:3,i) + hdt*fext(1:3,i)
 
-          if (iexternalforce > 0) then
-             call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
-                                    xyzh(3,i),xyzh(4,i),pmassi,timei,accreted)
-             if (accreted) accretedmass = accretedmass + pmassi
-          endif
+         !  if (iexternalforce > 0) then
+         !     call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
+         !                            xyzh(3,i),xyzh(4,i),pmassi,timei,accreted)
+         !     if (accreted) accretedmass = accretedmass + pmassi
+         !  endif
        endif
     enddo accreteloop
     !$omp end parallel do
