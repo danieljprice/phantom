@@ -59,6 +59,7 @@ module eos
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc
  logical, parameter, public :: use_entropy = .false.
+ logical,            public :: extract_eos_from_hdr = .false.
  integer,            public :: isink = 0
 
  data qfacdisc /0.75/

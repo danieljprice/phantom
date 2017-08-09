@@ -179,7 +179,7 @@ subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,smin,smax,sind)
  real :: power = 0.
  real, parameter :: tol = 1.e-10
 
- !--reset the global variable
+ !--reset global power-law index
  sindex = sind
 
  if (smax==smin .or. ndusttypes==1) then

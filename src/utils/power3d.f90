@@ -24,7 +24,7 @@
 !***********************************************************************
 module power
 
-CONTAINS
+contains
 
 subroutine FAKE_NAMELIST(unit,name,var,string)
  implicit none
@@ -190,4 +190,4 @@ subroutine power3d (ft,mx,my,mz,pk,xk,nk,mk,ptot,compensate,do_average,fty,ftz)
 !$omp barrier
 
 end subroutine
-END MODULE
+end module

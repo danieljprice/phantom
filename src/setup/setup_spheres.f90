@@ -335,6 +335,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     call init_eos(ieos,ierr)
 
+#ifdef SETUPIEOS
+    call prompt('Enter the desired EoS for setup', ieos)
+#endif
+
     do i=istart(k),iend(k)
        if (maxvxyzu==4) then
           if (gamma < 1.00001 .or. isphere==ievrard) then

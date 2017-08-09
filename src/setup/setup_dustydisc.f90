@@ -99,6 +99,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use timestep,       only:tmax,dtmax
  use centreofmass,   only:reset_centreofmass
  use dust,           only:set_dustfrac,grainsizecgs,graindenscgs
+ use dim,            only:ndusttypes
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -112,6 +113,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical :: iexist,isigmapringlegas,isigmapringledust,is_binary,questplanets
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest,idust_to_gas_ratio,ri,sigma_naughtdust,period
  real    :: sini,cosi,polyk_dust
+ real    :: smin,smax,sind
  integer :: ierr,j
 
  !
@@ -440,7 +442,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           call get_d2gratio(idust_to_gas_ratio,ri,iprofilegas,iprofiledust,sigma_naught,&
                             sigma_naughtdust,pindex,pindex_dust,R_c,R_c_dust)
        endif
-       call set_dustfrac(idust_to_gas_ratio,dustfrac(:,i))
+       !
+       !--one fluid dust: set dust fraction on gas particles
+       !
+       if (use_dustfrac) then
+          if (ndusttypes==1 .and. itype==igas) then
+             call set_dustfrac(idust_to_gas_ratio,dustfrac(:,i))
+          else
+             smin = 1.e-5
+             smax = 0.1
+             sind = 3.5
+             call set_dustfrac(idust_to_gas_ratio,dustfrac(:,i),smin,smax,sind)
+          endif
+       endif
     enddo
  else
     call set_disc(id,master  = master,             &

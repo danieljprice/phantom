@@ -316,7 +316,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 #endif
 #ifdef NONIDEALMHD
  use dim,  only:mhd_nonideal
- use part, only:ionfrac_eta,ionfrac_eta_label
+ use part, only:eta_nimhd,eta_nimhd_label
 #endif
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
@@ -442,9 +442,9 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(6))
        if (use_dustfrac .and. ndusttypes>1 .and. multidustdump) then 
           dustfracisum1(:) = 1./sum(dustfrac(:,1:npart),1)
-          deltavsum(1,:)   = dustfracisum1*sum(dustfrac(:,1:npart)*deltav(1,:,1:npart),1)
-          deltavsum(2,:)   = dustfracisum1*sum(dustfrac(:,1:npart)*deltav(2,:,1:npart),1)
-          deltavsum(3,:)   = dustfracisum1*sum(dustfrac(:,1:npart)*deltav(3,:,1:npart),1)
+          deltavsum(1,:)   = dustfracisum1(:)*sum(dustfrac(:,1:npart)*deltav(1,:,1:npart),1)
+          deltavsum(2,:)   = dustfracisum1(:)*sum(dustfrac(:,1:npart)*deltav(2,:,1:npart),1)
+          deltavsum(3,:)   = dustfracisum1(:)*sum(dustfrac(:,1:npart)*deltav(3,:,1:npart),1)
           call write_array(1,deltavsum,(/'deltavsumx','deltavsumy','deltavsumz'/),3,npart,k,ipass,idump,nums,ierrs(7))
        endif
        do l = 1,ndusttypes
@@ -525,7 +525,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           if (any(ierrs(1:2) /= 0)) call error('write_dump','error writing MHD arrays')
 #ifdef NONIDEALMHD
           if (mhd_nonideal) then
-             call write_array(4,ionfrac_eta,ionfrac_eta_label,4,npart,k,ipass,idump,nums,ierrs(1))
+             call write_array(4,eta_nimhd,eta_nimhd_label,4,npart,k,ipass,idump,nums,ierrs(1))
              if (ierrs(1) /= 0) call error('write_dump','error writing non-ideal MHD arrays')
           endif
 #endif
@@ -1719,7 +1719,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
                           tfile,hfactfile,alphafile,iprint,ierr)
  use io,            only:id,master
  use dim,           only:maxp,maxvxyzu,ndusttypes,use_dustfrac
- use eos,           only:polyk,gamma,polyk2,qfacdisc
+ use eos,           only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
  use options,       only:ieos,tolh,alpha,alphau,alphaB,iexternalforce
  use part,          only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,maxtypes
  use initial_params,only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
@@ -1788,6 +1788,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
     endif
     call extract('polyk2',polyk2,hdr,ierr)
     call extract('qfacdisc',qfacdisc,hdr,ierr)
+    if (extract_eos_from_hdr) call extract('ieos',ieos,hdr,ierr)
     if (ieos==3) then
        if (qfacdisc <= tiny(qfacdisc)) then
           write(iprint,*) 'ERROR: qfacdisc <= 0'

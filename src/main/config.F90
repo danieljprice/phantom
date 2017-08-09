@@ -73,7 +73,7 @@ module dim
 #ifdef DUSTFRAC
  logical, parameter :: use_dustfrac = .true.
  integer, parameter :: maxp_dustfrac = maxp
- integer, parameter :: ndusttypes = 10
+ integer, parameter :: ndusttypes = 1
 #else
  logical, parameter :: use_dustfrac = .false.
  integer, parameter :: maxp_dustfrac = maxp

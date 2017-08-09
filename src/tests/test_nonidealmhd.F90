@@ -25,16 +25,23 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, deriv, dim, eos, io, kernel, nicil, options,
-!    part, physcon, step_lf_global, testutils, timestep, unifdis, units
+!    part, physcon, step_lf_global, testutils, timestep, timestep_sts,
+!    unifdis, units
 !+
 !--------------------------------------------------------------------------
 module testnimhd
  use testutils, only:checkval
  use io,        only:id,master
+#ifdef STS_TIMESTEPS
+ use timestep_sts,   only:use_sts
+#endif
  implicit none
  public :: test_nonidealmhd
 
  private
+#ifndef STS_TIMESTEPS
+ logical :: use_sts
+#endif
 
 contains
 !--------------------------------------------------------------------------
@@ -93,15 +100,23 @@ subroutine test_wavedamp(ntests,npass)
  use io,             only:iverbose
  use nicil,          only:nicil_initialise,eta_constant,eta_const_type,icnstsemi, &
                           use_ohm,use_hall,use_ambi,C_AD
+#ifdef STS_TIMESTEPS
+ use timestep_sts,   only:sts_initialise
+ use timestep,       only:dtdiff,dtcourant
+#endif
  integer, intent(inout) :: ntests,npass
  integer                :: i,j,nx,nsteps,ierr
- integer                :: nerr(2)
+ integer                :: nerr(4)
  real                   :: deltax,x_min,y_min,z_min,kx,rhozero,Bx0,vA,vcoef,totmass
  real                   :: t,dt,dtext_dum,dtext,dtnew
  real                   :: L2,h0,quada,quadb,quadc,omegaI,omegaR,Bzrms_num,Bzrms_ana
- real, parameter        :: tol = 7.15d-5
+ real, parameter        :: tol     = 7.15d-5
+ real, parameter        :: toltime = 1.30d-8
  logical                :: valid_dt
  logical                :: print_output = .false.
+#ifndef STS_TIMESTEPS
+ logical                :: use_sts
+#endif
 
 #ifndef ISOTHERMAL
  if (id==master) write(*,"(/,a)") '--> skipping wave dampening test (need -DISOTHERMAL)'
@@ -128,6 +143,11 @@ subroutine test_wavedamp(ntests,npass)
  vcoef   = 0.01*vA
  totmass = rhozero*dxbound*dybound*dzbound
  npart   = 0
+#ifdef STS_TIMESTEPS
+ call sts_initialise(ierr,dtdiff)
+#else
+ if (id==master) write(*,"(/,a)") '--> skipping super-timestepping portion of test (need -DSTS_TIMESTEPS)'
+#endif
  !
  ! set particles
  !
@@ -178,8 +198,10 @@ subroutine test_wavedamp(ntests,npass)
  call nicil_initialise(real(utime),real(udist),real(umass),real(unit_Bfield),ierr)
  !
  ! call derivs the first time around
+ use_sts = .true.
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
              Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
+ use_sts = .false.  ! Since we only want to run supertimestepping once to verify we get the correct dt
  !
  ! run wave damp problem
  !
@@ -215,6 +237,10 @@ subroutine test_wavedamp(ntests,npass)
  L2 = sqrt(L2/nsteps)
  call checkval(L2,0.0,tol,nerr(1),'L2 error on wave damp test')
  call checkval(valid_dt,.true.,nerr(2),'dt to ensure above valid default')
+#ifdef STS_TIMESTEPS
+ call checkval(dtcourant,4.5249944d-3,toltime,nerr(3),'initial courant dt')
+ call checkval(dtdiff,   2.8995286d-2,toltime,nerr(4),'initial dissipation dt from sts')
+#endif
 
  ntests = ntests + 1
  if (all(nerr==0)) npass = npass + 1
@@ -285,6 +311,7 @@ subroutine test_standingshock(ntests,npass)
  zright         = -zleft
  npart          = 0
  npartoftype(:) = 0
+ use_sts        = .false.
  call set_boundary(xleft-1000.*dxleft,xright+1000.*dxright,yleft,yright,zleft,zright) ! false periodicity in x
  !
  ! set particles on the left half of the shock
@@ -542,6 +569,7 @@ subroutine test_narrays(ntests,npass)
  use_ambi     = .true.
  ion_rays     = .true.
  ion_thermal  = .true.
+ use_sts      = .false.
  ! initialise eos, & the Nicil library
  call init_eos(8,ierr)
  call nicil_initialise(real(utime),real(udist),real(umass),real(unit_Bfield),ierr)

@@ -63,7 +63,7 @@ module timestep_sts
  integer(kind=1), parameter :: ino          =  0      ! States that this dtau is in the middle of the sequence; needed if megasteps used
  integer(kind=1), parameter :: iyes         =  1      ! States that this dtau is at the beginning of the sequence; needed if megasteps used
  !
- logical,         private   :: print_nu_to_file = .true.  ! to allow nu to be printed for testing purposes
+ logical,         private   :: print_nu_to_file = .false.  ! to allow nu to be printed for testing purposes
  !
  !--Variables
  real,            private   :: hi_rhomax_sts

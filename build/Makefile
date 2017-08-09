@@ -460,6 +460,7 @@ ifeq ($(SETUP), dustydisc)
     ISOTHERMAL=yes
     DUST=yes
     DUSTFRAC=yes
+    KERNEL=quintic
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ANALYSIS=analysis_dustydisc.f90
@@ -510,7 +511,7 @@ endif
 
 ifeq ($(SETUP), wavedamp)
 #   Wave dampening test as per Choi et al (2009)
-    FPPFLAGS= -DPERIODIC -DCONST_ARTRES
+    FPPFLAGS= -DPERIODIC
     SETUPFILE= setup_wavedamp.f90
     ISOTHERMAL=yes
     NONIDEALMHD=yes
@@ -819,14 +820,14 @@ ifeq ($(SETUP), testdust)
 endif
 
 ifeq ($(SETUP), testnimhd)
-#   non-ideal MHD (+ boundary particle) unit tests
+#   non-ideal MHD (+ boundary particle + super-timestepping) unit tests
     PERIODIC=yes
     ISOTHERMAL=yes
     NONIDEALMHD=yes
     MHD=yes
     KERNEL=WendlandC4
     IND_TIMESTEPS=no
-    STS_TIMESTEPS=no
+    STS_TIMESTEPS=yes
     KNOWN_SETUP=yes
 endif
 
@@ -1197,6 +1198,22 @@ ifeq ($(SYSTEM), gfortran)
     ENDIANFLAGBIG= -fconvert=big-endian
     ENDIANFLAGLITTLE= -fconvert=little-endian
     OMPFLAGS = -fopenmp #-fmax-stack-var-size=10000000
+    CC = gcc
+    CCFLAGS = -O3
+    LIBCXX = -lstdc++
+endif
+
+ifeq ($(SYSTEM), gfortran7)
+    FC= gfortran
+    FFLAGS+= -O3 -Wall -Wno-unused-dummy-argument -frecord-marker=4 -gdwarf-2 \
+            -mcmodel=medium -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize \
+            -std=f2008 -fall-intrinsics -finit-derived
+    DBLFLAG= -fdefault-real-8 -fdefault-double-8
+    DEBUGFLAG= -g -fcheck=all -ffpe-trap=invalid -finit-real=nan -finit-integer=nan -fbacktrace
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -fconvert=big-endian
+    ENDIANFLAGLITTLE= -fconvert=little-endian
+    OMPFLAGS = -fopenmp
     CC = gcc
     CCFLAGS = -O3
     LIBCXX = -lstdc++
@@ -1690,7 +1707,8 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          test_step.F90 test_indtstep.F90 test_setdisc.F90 \
          test_link.F90 test_kdtree.F90 test_ptmass.F90 test_luminosity.F90\
          test_gnewton.F90 test_corotate.f90 \
-         test_sedov.F90 testsuite.F90 initial.F90
+         test_sedov.F90 testsuite.F90 initial.F90 \
+         leastsquares.f90
 
 OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
@@ -1712,16 +1730,16 @@ endif
 #
 utils: phantomsetup phantomanalysis \
        multirun memcheck phantom_moddump \
-       phantom2divv phantom2divb \
-       diffdumps ev2mdot ev2mdotsink ev2mdotbinary acc2ang \
+       phantom2divv phantom2ndust phantom2divb \
+       diffdumps ev2mdot phantomevcompare acc2ang \
        phantom2sphNG phantom2gadget \
        sfutils phantom2pdf phantom2pdf-amr \
-       phantom2struct phantom2power phantomevcompare libphantom
+       phantom2struct phantom2power libphantom
 
 cleanutils: cleansetup cleananalysis \
             cleanmultirun cleanmemcheck cleanmoddump \
-            cleanphantom2divv cleanphantom2divb \
-            cleandiffdumps cleanev2mdot cleanev2mdotsink cleanev2mdotbinary cleanacc2ang \
+            cleanphantom2divv cleanphantom2ndust cleanphantom2divb \
+            cleandiffdumps cleanev2mdot cleanacc2ang \
             cleanp2s cleanphantom2gadget \
             cleansfutils cleanp2p cleanphantom2pdf-amr \
             cleanphantom2struct cleanphantom2power cleanphantomevcompare cleanlibphantom
@@ -1756,7 +1774,7 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_filenames.f90 util
           utils_indtimesteps.F90 partinject.F90 dtype_kdtree.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} \
           ptmass.F90 energies.F90 \
-          geometry.f90 stretchmap.f90 prompting.f90 density_profiles.f90 \
+          geometry.f90 stretchmap.f90 density_profiles.f90 \
           set_unifdis.f90 set_sphere.f90 set_disc.F90 \
           set_vfield.f90 sort_particles.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
@@ -1919,7 +1937,7 @@ cleanmoddump:
 OBJAN1 = ${ANALYSIS:.f90=.o}
 OBJAN2 = ${OBJAN1:.F90=.o}
 OBJAN = ${OBJAN2:.f=.o}
-OBJA= utils_filenames.o utils_sort.o ${OBJDUMP} set_binary.o prompting.o ${OBJAN}
+OBJA= utils_filenames.o utils_sort.o ${OBJDUMP} set_binary.o ${OBJAN}
 
 ifndef ANALYSISBIN
 ANALYSISBIN=phantomanalysis
@@ -2010,6 +2028,19 @@ cleanphantom2divv:
 	rm -f $(BINDIR)/phantom2divv
 
 #----------------------------------------------------
+# utility to calculate radial velocities of dust grains from a dump file
+# compile using all phantom files
+#
+phantom2ndust: checksys checkparams $(OBJECTS) phantom2ndust.o
+	@echo ""
+	@echo "phantom2ndust: dust simulations are like a giant sandbox"
+	@echo ""
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJECTS) phantom2ndust.o
+
+cleanphantom2ndust:
+	rm -f $(BINDIR)/phantom2ndust
+
+#----------------------------------------------------
 # utility to calculate divB & curlB from a dump file
 # compile using all phantom files
 #
@@ -2081,15 +2112,16 @@ cleanphantom2mcfost:
 #----------------------------------------------------
 # utility to rewrite .ev files using a common header
 #
-SRCEV=io.F90 utils_infiles.f90 utils_evcompare.f90 prompting.f90
-SRCEVC1=${SRCEV:.F90=.o}
-SRCEVC =${SRCEVC1:.f90=.o}
+SRCEV=utils_infiles.f90 utils_evfiles.f90 prompting.f90 phantomevcompare.f90
+OBJEVC1 = ${SRCEV:.f90=.o}
+OBJEVC = ${OBJEVC1:.F90=.o}
 
-phantomevcompare: $(SRCEVC) phantomevcompare.o
+.PHONY: phantomevcompare
+phantomevcompare: $(OBJEVC)
 	@echo ""
 	@echo "phantomevcompare: let the graphing begin!"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(SRCEVC) phantomevcompare.o
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJEVC)
 
 cleanphantomevcompare:
 	rm -f $(BINDIR)/phantomevcompare
@@ -2201,34 +2233,14 @@ evol_dustywaves: checksys $(OBJDUSTEVOL)
 # these are the sources for the ev2mdot utility
 #
 .PHONY: ev2mdot
-ev2mdot: checksys ev2mdot.o ev2mdotsink ev2mdotbinary
+ev2mdot: checksys utils_filenames.o utils_infiles.o utils_evfiles.o ev2mdot.o
 	@echo ""
 	@echo "ev2mdot: Accretion rates R us."
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2mdot.o
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2mdot.o utils_filenames.o utils_evfiles.o utils_infiles.o
 
 cleanev2mdot:
 	rm -f $(BINDIR)/ev2mdot
-
-.PHONY: ev2mdotsink
-ev2mdotsink: checksys ev2mdotsink.o
-	@echo ""
-	@echo "ev2mdotsink: Accretion rates R us."
-	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2mdotsink.o
-
-cleanev2mdotsink:
-	rm -f $(BINDIR)/ev2mdotsink
-
-.PHONY: ev2mdotbinary
-ev2mdotbinary: checksys ev2mdotbinary.o
-	@echo ""
-	@echo "ev2mdotbinary: Accretion rates R us."
-	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2mdotbinary.o
-
-cleanev2mdotbinary:
-	rm -f $(BINDIR)/ev2mdotbinary
 
 #----------------------------------------------------
 # these are the sources for the acc2ang utility
@@ -2252,7 +2264,7 @@ OBJMF = ${OBJMF2:.f=.o}
 OBJM= utils_filenames.o utils_sort.o ${OBJDUMP} ${OBJMF} set_binary.o mf_write.o
 
 .PHONY: mflow
-mflow: checksys $(OBJM)  mflow.o ev2mdotbinary ev2mdot lombperiod
+mflow: checksys $(OBJM)  mflow.o ev2mdot lombperiod
 	@echo ""
 	@echo "mflow: mass flow R us."
 	@echo ""

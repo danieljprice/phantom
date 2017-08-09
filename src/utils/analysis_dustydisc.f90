@@ -426,8 +426,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
     if (npartoftype(idust)==0)then
        if (ninbin(i) > 0) then
           if (use_dustfrac) then
-             write(iunit,'(13(es18.10,1X))') rad(i),sigma(i)*(1.-sum(dust_fraction(:,i))),sigma(i)*sum(dust_fraction(:,i)),h_smooth(i),&
-                                       unitlx(i),unitly(i),unitlz(i),tilt,twist(i),psi,H(i)/rad(i),hgas(i)/rad(i),St(i)
+             write(iunit,'(13(es18.10,1X))') rad(i),sigma(i)*(1.-sum(dust_fraction(:,i))), &
+                                             sigma(i)*sum(dust_fraction(:,i)),h_smooth(i), &
+                                             unitlx(i),unitly(i),unitlz(i),tilt,twist(i),  &
+                                             psi,H(i)/rad(i),hgas(i)/rad(i),St(i)
           else
              write(iunit,'(12(es18.10,1X))') rad(i),sigma(i),h_smooth(i),unitlx(i),unitly(i),unitlz(i),&
                                        tilt,twist(i),psi,H(i)/rad(i),hgas(i)/rad(i),St(i)
