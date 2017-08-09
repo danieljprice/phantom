@@ -83,19 +83,22 @@ contains
 
 subroutine init_mpi_memory
  integer :: idens, iforce ! memory allocation counters
+ integer :: allocstat
 
- allocate(dens_cells(n_dens_cells))
+ allocate(dens_cells(n_dens_cells), stat = allocstat)
+ if (allocstat /= 0) call fatal('stack','fortran memory allocation error')
  idens = 1
  call allocate_stack(dens_stack_1, idens)
  call allocate_stack(dens_stack_2, idens)
  call allocate_stack(dens_stack_3, idens)
- if (idens - 1 > n_dens_cells) call fatal('stack','memory allocation error')
+ if (idens - 1 > n_dens_cells) call fatal('stack','phantom memory allocation error')
 
- allocate(force_cells(n_force_cells))
+ allocate(force_cells(n_force_cells), stat = allocstat)
+ if (allocstat /= 0) call fatal('stack','fortran memory allocation error')
  iforce = 1
  call allocate_stack(force_stack_1,iforce)
  call allocate_stack(force_stack_2,iforce)
- if (iforce - 1 > n_force_cells) call fatal('stack','memory allocation error')
+ if (iforce - 1 > n_force_cells) call fatal('stack','phantom memory allocation error')
 end subroutine init_mpi_memory
 
 subroutine finish_mpi_memory
