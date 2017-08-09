@@ -460,6 +460,7 @@ ifeq ($(SETUP), dustydisc)
     ISOTHERMAL=yes
     DUST=yes
     DUSTFRAC=yes
+    KERNEL=quintic
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ANALYSIS=analysis_dustydisc.f90
@@ -1706,7 +1707,8 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          test_step.F90 test_indtstep.F90 test_setdisc.F90 \
          test_link.F90 test_kdtree.F90 test_ptmass.F90 test_luminosity.F90\
          test_gnewton.F90 test_corotate.f90 \
-         test_sedov.F90 testsuite.F90 initial.F90
+         test_sedov.F90 testsuite.F90 initial.F90 \
+         leastsquares.f90
 
 OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
@@ -1728,7 +1730,7 @@ endif
 #
 utils: phantomsetup phantomanalysis \
        multirun memcheck phantom_moddump \
-       phantom2divv phantom2divb \
+       phantom2divv phantom2ndust phantom2divb \
        diffdumps ev2mdot ev2mdotsink ev2mdotbinary acc2ang \
        phantom2sphNG phantom2gadget \
        sfutils phantom2pdf phantom2pdf-amr \
@@ -1736,7 +1738,7 @@ utils: phantomsetup phantomanalysis \
 
 cleanutils: cleansetup cleananalysis \
             cleanmultirun cleanmemcheck cleanmoddump \
-            cleanphantom2divv cleanphantom2divb \
+            cleanphantom2divv cleanphantom2ndust cleanphantom2divb \
             cleandiffdumps cleanev2mdot cleanev2mdotsink cleanev2mdotbinary cleanacc2ang \
             cleanp2s cleanphantom2gadget \
             cleansfutils cleanp2p cleanphantom2pdf-amr \
@@ -1772,7 +1774,7 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_filenames.f90 util
           utils_indtimesteps.F90 partinject.F90 dtype_kdtree.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} \
           ptmass.F90 energies.F90 \
-          geometry.f90 stretchmap.f90 prompting.f90 density_profiles.f90 \
+          geometry.f90 stretchmap.f90 density_profiles.f90 \
           set_unifdis.f90 set_sphere.f90 set_disc.F90 \
           set_vfield.f90 sort_particles.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
@@ -1935,7 +1937,7 @@ cleanmoddump:
 OBJAN1 = ${ANALYSIS:.f90=.o}
 OBJAN2 = ${OBJAN1:.F90=.o}
 OBJAN = ${OBJAN2:.f=.o}
-OBJA= utils_filenames.o utils_sort.o ${OBJDUMP} set_binary.o prompting.o ${OBJAN}
+OBJA= utils_filenames.o utils_sort.o ${OBJDUMP} set_binary.o ${OBJAN}
 
 ifndef ANALYSISBIN
 ANALYSISBIN=phantomanalysis
@@ -2024,6 +2026,19 @@ phantom2divv: checksys checkparams $(OBJECTS) phantom2divv.o
 
 cleanphantom2divv:
 	rm -f $(BINDIR)/phantom2divv
+
+#----------------------------------------------------
+# utility to calculate radial velocities of dust grains from a dump file
+# compile using all phantom files
+#
+phantom2ndust: checksys checkparams $(OBJECTS) phantom2ndust.o
+	@echo ""
+	@echo "phantom2ndust: dust simulations are like a giant sandbox"
+	@echo ""
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJECTS) phantom2ndust.o
+
+cleanphantom2ndust:
+	rm -f $(BINDIR)/phantom2ndust
 
 #----------------------------------------------------
 # utility to calculate divB & curlB from a dump file
