@@ -442,9 +442,9 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(6))
        if (use_dustfrac .and. ndusttypes>1 .and. multidustdump) then 
           dustfracisum1(:) = 1./sum(dustfrac(:,1:npart),1)
-          deltavsum(1,:)   = dustfracisum1*sum(dustfrac(:,1:npart)*deltav(1,:,1:npart),1)
-          deltavsum(2,:)   = dustfracisum1*sum(dustfrac(:,1:npart)*deltav(2,:,1:npart),1)
-          deltavsum(3,:)   = dustfracisum1*sum(dustfrac(:,1:npart)*deltav(3,:,1:npart),1)
+          deltavsum(1,:)   = dustfracisum1(:)*sum(dustfrac(:,1:npart)*deltav(1,:,1:npart),1)
+          deltavsum(2,:)   = dustfracisum1(:)*sum(dustfrac(:,1:npart)*deltav(2,:,1:npart),1)
+          deltavsum(3,:)   = dustfracisum1(:)*sum(dustfrac(:,1:npart)*deltav(3,:,1:npart),1)
           call write_array(1,deltavsum,(/'deltavsumx','deltavsumy','deltavsumz'/),3,npart,k,ipass,idump,nums,ierrs(7))
        endif
        do l = 1,ndusttypes
@@ -1719,7 +1719,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
                           tfile,hfactfile,alphafile,iprint,ierr)
  use io,            only:id,master
  use dim,           only:maxp,maxvxyzu,ndusttypes,use_dustfrac
- use eos,           only:polyk,gamma,polyk2,qfacdisc
+ use eos,           only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
  use options,       only:ieos,tolh,alpha,alphau,alphaB,iexternalforce
  use part,          only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,maxtypes
  use initial_params,only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
@@ -1788,6 +1788,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
     endif
     call extract('polyk2',polyk2,hdr,ierr)
     call extract('qfacdisc',qfacdisc,hdr,ierr)
+    if (extract_eos_from_hdr) call extract('ieos',ieos,hdr,ierr)
     if (ieos==3) then
        if (qfacdisc <= tiny(qfacdisc)) then
           write(iprint,*) 'ERROR: qfacdisc <= 0'
