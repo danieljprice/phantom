@@ -167,7 +167,6 @@ subroutine swap_stacks_dens(stack_a, stack_b)
  type(stackdens),   intent(inout) :: stack_a
  type(stackdens),   intent(inout) :: stack_b
 
- type(celldens), pointer :: temp_cells(:)
  integer :: temp_n
  integer :: temp_start
  integer :: temp_end
@@ -179,11 +178,6 @@ subroutine swap_stacks_dens(stack_a, stack_b)
  stack_a%n = stack_b%n
  stack_b%n = temp_n
 
- ! cell pointers
- temp_cells => stack_a%cells
- stack_a%cells => stack_b%cells
- stack_b%cells => temp_cells
-
  ! addresses
  temp_start = stack_a%mem_start
  temp_end   = stack_a%mem_end
@@ -191,6 +185,11 @@ subroutine swap_stacks_dens(stack_a, stack_b)
  stack_a%mem_end   = stack_b%mem_end
  stack_b%mem_start = temp_start
  stack_b%mem_end   = temp_end
+
+ ! change pointers
+ stack_a%cells => dens_cells(stack_a%mem_start:stack_a%mem_end)
+ stack_b%cells => dens_cells(stack_b%mem_start:stack_b%mem_end)
+
 end subroutine swap_stacks_dens
 
 subroutine push_onto_stack_dens(stack,cell)
