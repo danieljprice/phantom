@@ -22,7 +22,8 @@
 !+
 !--------------------------------------------------------------------------
 module analysis
- use dim, only:ndusttypes
+ use dim,  only:ndusttypes
+ use dust, only:grainsizecgs
  implicit none
  character(len=20), parameter, public :: analysistype = 'dustydisc'
  public :: do_analysis
@@ -113,7 +114,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav, &
  real :: psi_x,psi_y,psi_z,psi,Mdust,Mgas,Mtot,Macc,pmassi
  real :: dustfraci(ndusttypes),dustfracisum,rhoeff
  !real :: beta,phi,Q,tstop1,tstop2
- real :: d2g_ratio = 0.01
+ real :: d2g_ratio
  real :: log_dr,log_grid(nr+1),grid(nr+1)
  real :: cut_fact = 1000.
  real, save :: Mtot_in,Mgas_in,Mdust_in
@@ -124,11 +125,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav, &
  logical :: fit_sigma  = .true.
  logical :: fixslope   = .true.
  logical :: logdata    = .true.
+ integer, parameter :: isetupparams = 2
  integer, parameter :: iparams = 10
  integer, parameter :: iprec   = 24
  integer, parameter :: isplash = 33
  integer, parameter :: isol    = 34
- logical :: do_precession,ifile
+ logical :: do_precession,ifile,isetupfile
 
 ! Print the analysis being done
  write(*,'("Performing analysis type ",A)') analysistype
@@ -156,7 +158,15 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav, &
          R_in,R_out,R_warp,H_R,p_index,R_c,q_index,M_star,M_disc,Sig0,cs0,iparams,ierr)
     if (ierr /= 0) call fatal('analysis','could not open/read discparams.list')
  endif
-
+ 
+ iline = index(dumpfile,'_')
+ discprefix = dumpfile(1:iline-1)
+ inquire(file=trim(discprefix)//'.setup', exist=isetupfile)
+ if (isetupfile) then
+    call read_setup(trim(discprefix)//'.setup',d2g_ratio,grainsizecgs(:),isetupparams,ierr)
+    if (ierr /= 0) call fatal('analysis','could not open/read .setup file')
+ endif
+ 
  ! Print out the parameters of gas disc
  write(*,*)
  write(*,'("Gas disc parameters are:")')
@@ -770,7 +780,7 @@ end subroutine do_analysis
 
 subroutine solve_bai_stone_2010(d2g_ratio,eta,vK,vrsol,scale_vel)
  use dim, only:ndusttypes
- use dust, only:set_dustfrac,smincgs,smaxcgs,sindex,grainsizecgs
+ use dust, only:set_dustfrac,smincgs,smaxcgs,sindex
  integer, parameter :: dp = selected_real_kind(14, 60)
  real (dp) :: soln(nxn)
  real, intent(in)  :: d2g_ratio,eta(:),vK(:)
@@ -832,7 +842,7 @@ subroutine solve_bai_stone_2010(d2g_ratio,eta,vK,vrsol,scale_vel)
     print*,'   sindex = ',sindex
  endif
  do i = 1,ndusttypes
-    print*,i,'dustfrac = ',dustfraci(i),'s [cm] = ',grainsizecgs(i)
+    print*,i,': dustfrac = ',dustfraci(i),';  s [cm] = ',grainsizecgs(i)
  enddo
 
  return
@@ -1118,6 +1128,32 @@ subroutine read_discparams(filename,R_in,R_out,R_warp,H_R,p_index,R_c,q_index, &
  call close_db(db)
 
 end subroutine read_discparams
+
+!----------------------------------------------------------------
+!+
+!  Read disc information from discparams.list file
+!+
+!----------------------------------------------------------------
+subroutine read_setup(filename,d2g_ratio,grainsize,iunit,ierr)
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ character(len=*), intent(in)  :: filename
+ real,             intent(out) :: d2g_ratio,grainsize(:)
+ integer,          intent(in)  :: iunit
+ integer,          intent(out) :: ierr
+ real :: sgrain
+ type(inopts), allocatable :: db(:)
+ 
+! Read in parameters from the .setup file
+ call open_db_from_file(db,filename,iunit,ierr)
+ call read_inopt(d2g_ratio,'dust_to_gas_ratio',db,ierr)
+ if (ierr /= 0) return
+ call read_inopt(sgrain,'grainsizeinp',db,ierr)
+ if (ierr /= 0) return
+ call close_db(db)
+
+ grainsize(:) = sgrain
+
+end subroutine read_setup
 
 end module analysis
 
