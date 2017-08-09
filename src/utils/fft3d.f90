@@ -23,7 +23,7 @@
 module fft3d
  use omputils, only:limits_omp
 
-CONTAINS
+contains
 !**********************************************************************
 subroutine fft3d_k2 (k2,dx,dy,dz,mx,my,mz)
  implicit none
@@ -148,4 +148,4 @@ subroutine fft3db (rr,r,mx,my,mz)
  !$omp barrier
 
 end subroutine
-END MODULE
+end module

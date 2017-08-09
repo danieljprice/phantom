@@ -1731,15 +1731,15 @@ endif
 utils: phantomsetup phantomanalysis \
        multirun memcheck phantom_moddump \
        phantom2divv phantom2ndust phantom2divb \
-       diffdumps ev2mdot ev2mdotsink ev2mdotbinary acc2ang \
+       diffdumps ev2mdot phantomevcompare acc2ang \
        phantom2sphNG phantom2gadget \
        sfutils phantom2pdf phantom2pdf-amr \
-       phantom2struct phantom2power phantomevcompare libphantom
+       phantom2struct phantom2power libphantom
 
 cleanutils: cleansetup cleananalysis \
             cleanmultirun cleanmemcheck cleanmoddump \
             cleanphantom2divv cleanphantom2ndust cleanphantom2divb \
-            cleandiffdumps cleanev2mdot cleanev2mdotsink cleanev2mdotbinary cleanacc2ang \
+            cleandiffdumps cleanev2mdot cleanacc2ang \
             cleanp2s cleanphantom2gadget \
             cleansfutils cleanp2p cleanphantom2pdf-amr \
             cleanphantom2struct cleanphantom2power cleanphantomevcompare cleanlibphantom
@@ -2112,15 +2112,16 @@ cleanphantom2mcfost:
 #----------------------------------------------------
 # utility to rewrite .ev files using a common header
 #
-SRCEV=io.F90 utils_infiles.f90 utils_evcompare.f90 prompting.f90
-SRCEVC1=${SRCEV:.F90=.o}
-SRCEVC =${SRCEVC1:.f90=.o}
+SRCEV=utils_infiles.f90 utils_evfiles.f90 prompting.f90 phantomevcompare.f90
+OBJEVC1 = ${SRCEV:.f90=.o}
+OBJEVC = ${OBJEVC1:.F90=.o}
 
-phantomevcompare: $(SRCEVC) phantomevcompare.o
+.PHONY: phantomevcompare
+phantomevcompare: $(OBJEVC)
 	@echo ""
 	@echo "phantomevcompare: let the graphing begin!"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(SRCEVC) phantomevcompare.o
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJEVC)
 
 cleanphantomevcompare:
 	rm -f $(BINDIR)/phantomevcompare
@@ -2232,34 +2233,14 @@ evol_dustywaves: checksys $(OBJDUSTEVOL)
 # these are the sources for the ev2mdot utility
 #
 .PHONY: ev2mdot
-ev2mdot: checksys ev2mdot.o ev2mdotsink ev2mdotbinary
+ev2mdot: checksys utils_filenames.o utils_infiles.o utils_evfiles.o ev2mdot.o
 	@echo ""
 	@echo "ev2mdot: Accretion rates R us."
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2mdot.o
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2mdot.o utils_filenames.o utils_evfiles.o utils_infiles.o
 
 cleanev2mdot:
 	rm -f $(BINDIR)/ev2mdot
-
-.PHONY: ev2mdotsink
-ev2mdotsink: checksys ev2mdotsink.o
-	@echo ""
-	@echo "ev2mdotsink: Accretion rates R us."
-	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2mdotsink.o
-
-cleanev2mdotsink:
-	rm -f $(BINDIR)/ev2mdotsink
-
-.PHONY: ev2mdotbinary
-ev2mdotbinary: checksys ev2mdotbinary.o
-	@echo ""
-	@echo "ev2mdotbinary: Accretion rates R us."
-	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2mdotbinary.o
-
-cleanev2mdotbinary:
-	rm -f $(BINDIR)/ev2mdotbinary
 
 #----------------------------------------------------
 # these are the sources for the acc2ang utility
@@ -2283,7 +2264,7 @@ OBJMF = ${OBJMF2:.f=.o}
 OBJM= utils_filenames.o utils_sort.o ${OBJDUMP} ${OBJMF} set_binary.o mf_write.o
 
 .PHONY: mflow
-mflow: checksys $(OBJM)  mflow.o ev2mdotbinary ev2mdot lombperiod
+mflow: checksys $(OBJM)  mflow.o ev2mdot lombperiod
 	@echo ""
 	@echo "mflow: mass flow R us."
 	@echo ""

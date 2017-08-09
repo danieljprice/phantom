@@ -18,32 +18,30 @@
 !
 !  USAGE: phantomevcompare [no arguments]
 !
-!  DEPENDENCIES: evcompare, io, prompting
+!  DEPENDENCIES: evutils, prompting
 !+
 !--------------------------------------------------------------------------
 program phantomevcompare
  use prompting, only: prompt
- use io,        only: set_io_unit_numbers,fatal,icolA,icolB
- use evcompare, only: inumev,read_columns_from_ev,read_evin_file,read_evin_filenames, &
-                       write_evin_file,write_columns_to_file
+ use evutils,   only: max_columns,get_column_labels_from_ev,read_evin_file,read_evin_filenames, &
+                      write_evin_file,write_columns_to_file
  implicit none
  integer, parameter  :: maxfiles  = 100
  logical, parameter  :: write_columns = .true.
  integer             :: i,j,k,ki,kj,iio,idot,numcol,numcol0,nummodels,nargs,ierr
- integer             :: headerorder(inumev)
- real                :: oldorder(inumev),neworder(inumev)
+ integer             :: headerorder(max_columns)
+ real                :: oldorder(max_columns),neworder(max_columns)
  logical             :: interactive,single_output,concise
  logical             :: enter_filename,add_prefix,add_prefix_verified,get_newfile
  logical             :: initial_entry,keep_searching,iexist,ifailed,readfailed,make_outname
- character(len=  12) :: columns0(inumev),columns(inumev)
- character(len=  19) :: columnsEV(inumev)
+ character(len=  12) :: columns0(max_columns),columns(max_columns)
+ character(len=  19) :: columnsEV(max_columns)
  character(len=  64) :: filename,evfile,evinfile,outprefix,modelprefix,ev_fmtD,ev_fmtH
  character(len=  64) :: infilenames(maxfiles),outfilenames(maxfiles),outfilename0a,outfilename0b
  character(len= 256) :: evout_new
  character(len=4096) :: cdummy
- !
- !-------------------------------------------------------------------------
- call set_io_unit_numbers
+ integer, parameter  :: icolA = 26, icolB = 27
+
  !
  !--If argument exists, read it in
  !
@@ -212,12 +210,12 @@ program phantomevcompare
        write(evfile,'(a,I2.2,a)') trim(infilenames(j)),i,'.ev'
        if (initial_entry) then
           !--Get the columns of the first file and use as a baseline
-          call read_columns_from_ev(evfile,columns0,numcol0,ierr)
-          if (ierr /=0) call fatal('evcompare','file does not exist: sanity check: should not happen')
+          call get_column_labels_from_ev(evfile,columns0,numcol0,ierr)
+          if (ierr /=0) stop 'evcompare: file does not exist (sanity check: should not happen)'
           initial_entry = .false.
        else
           !--Read the columns from the next file and compare; make modifications to columns0
-          call read_columns_from_ev(evfile,columns,numcol,ierr)
+          call get_column_labels_from_ev(evfile,columns,numcol,ierr)
           if (ierr==0) then ! if /=0, file does not exist, which acceptable/expected for i > 1
              !
              if ( concise ) then
@@ -305,7 +303,7 @@ program phantomevcompare
     do while (ierr==0)
        i = i + 1
        write(evfile,'(a,I2.2,a)') trim(infilenames(j)),i,'.ev'
-       call read_columns_from_ev(evfile,columns,numcol,ierr)
+       call get_column_labels_from_ev(evfile,columns,numcol,ierr)
        if (ierr==0) then
           !--Compare the header to the master header
           headerorder = 0
@@ -376,6 +374,5 @@ program phantomevcompare
  !--Write inputs to .evin file
  !
  call write_evin_file(outprefix,infilenames(1:nummodels),nummodels,single_output,concise)
- !
-!--------------------------------------------------------------------------
+
 end program phantomevcompare

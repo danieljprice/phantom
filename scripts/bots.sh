@@ -12,8 +12,6 @@
 #               (relies on external perl script)
 # [author-bot]: updates AUTHORS file
 # [indent-bot]: adjusts indentation (relies on external findent program)
-# [git info-bot]: updates writegitinfo.f90 with most recent git commit information
-#                 (relies on external pythin script.  added by: JW)
 #
 # Written by Daniel Price 2014-
 #
@@ -111,6 +109,8 @@ for edittype in $bots_to_run; do
                      -e 's/END DO/end do/g' \
                      -e 's/END PARALLEL/end parallel/g' \
                      -e 's/END SUBROUTINE/end subroutine/g' \
+                     -e 's/END MODULE/end module/g' \
+                     -e 's/CONTAINS/contains/g' \
                      -e 's/$OMP PARALLEL/$omp parallel/g' \
                      -e 's/$OMP DO SCHEDULE/$omp do schedule/g' \
                      -e 's/$OMP/$omp/g' \
