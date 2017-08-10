@@ -62,6 +62,8 @@ module mpiutils
  integer, public :: status(MPI_STATUS_SIZE)
  integer, public :: MPI_DEFAULT_REAL
 
+ integer, public :: comm_cellexchange, comm_cellcount
+
 !
 !--generic interface send_recv
 !
@@ -146,6 +148,9 @@ subroutine init_mpi(id,nprocs)
  call MPI_COMM_RANK(MPI_COMM_WORLD,id,mpierr)
  if (mpierr /= 0) call fatal('init_mpi','error starting mpi')
 
+ call MPI_COMM_DUP(MPI_COMM_WORLD,comm_cellexchange,mpierr)
+ call MPI_COMM_DUP(MPI_COMM_WORLD,comm_cellcount,mpierr)
+
  if (id==master) print "(a,i0,a)",' running in MPI on ',nprocs,' threads'
 !
 !--also work out the size of default real for MPI communications
@@ -174,6 +179,10 @@ end subroutine init_mpi
 subroutine finalise_mpi()
 #ifdef MPI
  use io, only:fatal
+
+ call MPI_COMM_FREE(comm_cellexchange,mpierr)
+ call MPI_COMM_FREE(comm_cellcount,mpierr)
+
  call MPI_FINALIZE(mpierr)
  if (mpierr /= 0) call fatal('reduce','error in mpi_finalize call')
 #endif
