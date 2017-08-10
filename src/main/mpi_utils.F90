@@ -62,7 +62,7 @@ module mpiutils
  integer, public :: status(MPI_STATUS_SIZE)
  integer, public :: MPI_DEFAULT_REAL
 
- integer, public :: comm_cellexchange, comm_cellcount
+ integer, public :: comm_cellexchange, comm_cellcount, comm_balance, comm_balancecount
 
 !
 !--generic interface send_recv
@@ -150,6 +150,8 @@ subroutine init_mpi(id,nprocs)
 
  call MPI_COMM_DUP(MPI_COMM_WORLD,comm_cellexchange,mpierr)
  call MPI_COMM_DUP(MPI_COMM_WORLD,comm_cellcount,mpierr)
+ call MPI_COMM_DUP(MPI_COMM_WORLD,comm_balance,mpierr)
+ call MPI_COMM_DUP(MPI_COMM_WORLD,comm_balancecount,mpierr)
 
  if (id==master) print "(a,i0,a)",' running in MPI on ',nprocs,' threads'
 !
@@ -182,6 +184,8 @@ subroutine finalise_mpi()
 
  call MPI_COMM_FREE(comm_cellexchange,mpierr)
  call MPI_COMM_FREE(comm_cellcount,mpierr)
+ call MPI_COMM_FREE(comm_balance,mpierr)
+ call MPI_COMM_FREE(comm_balancecount,mpierr)
 
  call MPI_FINALIZE(mpierr)
  if (mpierr /= 0) call fatal('reduce','error in mpi_finalize call')

@@ -24,17 +24,27 @@
 #ifdef MPI
 module balance
  use mpi
- use mpiutils, only:mpierr,status,MPI_DEFAULT_REAL,reduceall_mpi
+ use io,       only:id,nprocs
+ use dim,      only:maxprocs
+ use mpiutils, only:mpierr,status,MPI_DEFAULT_REAL,reduceall_mpi, &
+                    comm_balance,comm_balancecount
  use part,     only:ipartbufsize
+
  implicit none
- integer :: nsent,nrecv,npartnew,ncomplete
+
+ integer :: npartnew,ncomplete
  integer, dimension(1), private :: irequestrecv,irequestsend
+
  real, dimension(ipartbufsize)  :: xsendbuf,xbuffer
 
  private
  public :: balancedomains
  public :: balance_init,balance_finish,send_part,recv_part
+
  integer(kind=8) :: ntot_start
+
+ integer :: nsent(maxprocs),nexpect(maxprocs),nrecv(maxprocs)
+ integer :: countrequest(maxprocs)
 
 contains
 
@@ -48,19 +58,32 @@ subroutine balance_init(npart)
  implicit none
  integer, intent(in) :: npart
 
+ integer :: i
+
 !--use persistent communication type for receives
 !  cannot do same for sends as there are different destination,
 !  unless we make a request for each processor
 !
  call MPI_RECV_INIT(xbuffer,size(xbuffer),MPI_DEFAULT_REAL,MPI_ANY_SOURCE, &
-                    MPI_ANY_TAG,MPI_COMM_WORLD,irequestrecv(1),mpierr)
+                    MPI_ANY_TAG,comm_balance,irequestrecv(1),mpierr)
 !
 !--post a non-blocking receive so that we can receive particles
 !
  call MPI_START(irequestrecv(1),mpierr)
 
- nsent = 0
- nrecv = 0
+ !
+ !--count checking
+ !
+ nsent(:) = 0
+ nexpect(:) = -1
+ nrecv(:) = 0
+ do i=1,nprocs
+    if (id /= i-1) then
+       call MPI_IRECV(nexpect(i),1,MPI_INTEGER4,i-1, &
+                      MPI_ANY_TAG,comm_balancecount,countrequest(i),mpierr)
+    endif
+ enddo
+
  npartnew = npart
  ntot_start = reduceall_mpi('+',npart)
 
@@ -109,8 +132,8 @@ subroutine balancedomains(npart)
  enddo
 
  if (iverbose >= 5) then
-    print*,id,' finished send, nsent = ',nsent,' npart = ',npartnew
-    print*,id,' received so far ',nrecv
+    print*,id,' finished send, nsent = ',sum(nsent(1:nprocs)),' npart = ',npartnew
+    print*,id,' received so far ',sum(nrecv(1:nprocs))
  endif
  call balance_finish(npart)
  ndead = count_dead_particles()
@@ -151,49 +174,45 @@ subroutine recv_part(replace)
 
  if (igotpart) then
     jpart = status(MPI_TAG)
-    if (jpart == 0) then ! signal the end
-       ncomplete = ncomplete + 1
-    else
-       if (jpart > maxp .or. jpart <= 0) call fatal('balance','error in receive tag',jpart)
+    if (jpart > maxp .or. jpart <= 0) call fatal('balance','error in receive tag',jpart)
 !$omp critical
-       nrecv = nrecv + 1
+    nrecv(status(MPI_SOURCE)+1) = nrecv(status(MPI_SOURCE)+1) + 1
 !$omp end critical
-       if (present(replace)) then
-          if (replace) then
-             inew = ideadhead
-          else
-             inew = 0
-          endif
-       else
+    if (present(replace)) then
+       if (replace) then
           inew = ideadhead
-       endif
-
-       if (inew > 0 .and. inew <= maxp) then
-          if (.not.isdead(inew)) &
-             call fatal('balance','replacing non-dead particle')
-          !
-          !--replace a particle which has already been sent
-          !
-          call unfill_buffer(inew,xbuffer)
-          !
-          !--assume that this particle landed in the right place
-          !
-          ibelong(inew) = id
-!$omp critical
-          ideadhead = ll(inew)
-!$omp end critical
        else
-          if (inew /= 0) call fatal('balance','error in dead particle list',inew)
-          !
-          !--make a new particle
-          !
-!$omp critical
-          npartnew = npartnew + 1
-!$omp end critical
-          if (npartnew > maxp) call fatal('recv_part','npartnew > maxp',npartnew)
-          call unfill_buffer(npartnew,xbuffer)
-          ibelong(npartnew) = id
+          inew = 0
        endif
+    else
+       inew = ideadhead
+    endif
+
+    if (inew > 0 .and. inew <= maxp) then
+       if (.not.isdead(inew)) &
+          call fatal('balance','replacing non-dead particle')
+       !
+       !--replace a particle which has already been sent
+       !
+       call unfill_buffer(inew,xbuffer)
+       !
+       !--assume that this particle landed in the right place
+       !
+       ibelong(inew) = id
+!$omp critical
+       ideadhead = ll(inew)
+!$omp end critical
+    else
+       if (inew /= 0) call fatal('balance','error in dead particle list',inew)
+       !
+       !--make a new particle
+       !
+!$omp critical
+       npartnew = npartnew + 1
+!$omp end critical
+       if (npartnew > maxp) call fatal('recv_part','npartnew > maxp',npartnew)
+       call unfill_buffer(npartnew,xbuffer)
+       ibelong(npartnew) = id
     endif
     !
     !--post another receive ready for next particle
@@ -228,7 +247,7 @@ subroutine send_part(i,newproc,replace)
     call fatal('balance','error in ibelong',ival=newproc,var='ibelong')
  else
     call fill_sendbuf(i,xsendbuf)
-    call MPI_ISEND(xsendbuf,size(xsendbuf),MPI_DEFAULT_REAL,newproc,i,MPI_COMM_WORLD,irequestsend(1),mpierr)
+    call MPI_ISEND(xsendbuf,size(xsendbuf),MPI_DEFAULT_REAL,newproc,i,comm_balance,irequestsend(1),mpierr)
 
     !--wait for send to complete, receive whilst doing so
     idone = .false.
@@ -240,7 +259,7 @@ subroutine send_part(i,newproc,replace)
  !--kill particle on this processor
  call kill_particle(i)
 
- nsent = nsent + 1
+ nsent(newproc+1) = nsent(newproc+1) + 1
  return
 end subroutine send_part
 
@@ -253,21 +272,22 @@ subroutine balance_finish(npart,replace)
  use dim, only:maxp
  use io,  only:id,nprocs,fatal,iverbose
  implicit none
- integer, intent(out) :: npart
- logical, intent(in), optional :: replace
- integer :: newproc
- logical, parameter :: iamcomplete = .true.
- logical :: doreplace
+ integer, intent(out)            :: npart
+ logical, intent(in), optional   :: replace
+
+ integer             :: newproc
+ integer             :: sendrequest !dummy
+ logical, parameter  :: iamcomplete = .true.
+ logical             :: doreplace
 
 !
 !--send the complete signal to all other threads;
 !  start receiving the complete signal from other threads
 !
  do newproc=0,nprocs-1
-    !
-    !-- tag=0, rest is junk
-    !
-    call MPI_ISEND(xsendbuf,0,MPI_DEFAULT_REAL,newproc,0,MPI_COMM_WORLD,irequestsend(1),mpierr)
+    if (newproc /= id) then
+       call MPI_ISEND(nsent(newproc+1),1,MPI_INTEGER4,newproc,0,comm_balancecount,sendrequest,mpierr)
+    endif
  enddo
 
  if (present(replace)) then
@@ -280,6 +300,7 @@ subroutine balance_finish(npart,replace)
 !
  do while (ncomplete < nprocs)
     call recv_part(replace=doreplace)
+    call check_complete
  enddo
  npart = npartnew
 
@@ -289,10 +310,10 @@ subroutine balance_finish(npart,replace)
 !  (we know the receive has been posted for this, so use RSEND)
 !
  newproc = mod(id+1,nprocs)
- call MPI_RSEND(xsendbuf,0,MPI_DEFAULT_REAL,newproc,0,MPI_COMM_WORLD,mpierr)
+ call MPI_RSEND(xsendbuf,0,MPI_DEFAULT_REAL,newproc,0,comm_balance,mpierr)
 
- if (iverbose >= 4 .or. (iverbose >= 3 .and. (nsent > 0 .or. nrecv > 0))) then
-    print*,'>> balance: thread ',id,' sent:',nsent,' received:',nrecv,' npart =',npartnew
+ if (iverbose >= 4 .or. (iverbose >= 3 .and. (sum(nsent(1:nprocs)) > 0 .or. sum(nrecv(1:nprocs)) > 0))) then
+    print*,'>> balance: thread ',id,' sent:',sum(nsent(1:nprocs)),' received:',sum(nrecv(1:nprocs)),' npart =',npartnew
  endif
  call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
 
@@ -301,6 +322,29 @@ subroutine balance_finish(npart,replace)
  call MPI_REQUEST_FREE(irequestrecv(1),mpierr)
 
 end subroutine balance_finish
+
+subroutine check_complete
+ use io, only:fatal
+ integer :: i
+ logical :: countreceived
+
+ ncomplete = 1 !self
+ do i=1,nprocs
+    if (i /= id + 1) then
+       call MPI_TEST(countrequest(i),countreceived,status,mpierr)
+       if (countreceived) then
+          if (nrecv(i) == nexpect(i)) then
+             ncomplete = ncomplete + 1
+          elseif (nrecv(i) > nexpect(i)) then
+             print*,'on',id,'from',i-1
+             print*,'nrecv',nrecv(i)
+             print*,'nexpect',nexpect(i)
+             call fatal('mpibalance', 'received more particles than expected')
+          endif
+       endif
+    endif
+ enddo
+end subroutine check_complete
 
 end module balance
 #endif
