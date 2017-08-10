@@ -112,7 +112,7 @@ subroutine init_celldens_exchange(xbufrecv,ireq)
  call get_mpitype_of_celldens(dtype_celldens)
 
  do iproc=1,nprocs
-    call MPI_RECV_INIT(xbufrecv(iproc),1,dtype_celldens,MPI_ANY_SOURCE, &
+    call MPI_RECV_INIT(xbufrecv(iproc),1,dtype_celldens,iproc-1, &
                        MPI_ANY_TAG,comm_cellexchange,ireq(iproc),mpierr)
     if (mpierr /= 0) call fatal('init_cell_exchange','error in MPI_RECV_INIT')
 !
@@ -145,7 +145,7 @@ subroutine init_cellforce_exchange(xbufrecv,ireq)
  call get_mpitype_of_cellforce(dtype_cellforce)
 
  do iproc=1,nprocs
-    call MPI_RECV_INIT(xbufrecv(iproc),1,dtype_cellforce,MPI_ANY_SOURCE, &
+    call MPI_RECV_INIT(xbufrecv(iproc),1,dtype_cellforce,iproc-1, &
                        MPI_ANY_TAG,comm_cellexchange,ireq(iproc),mpierr)
     if (mpierr /= 0) call fatal('init_cell_exchange','error in MPI_RECV_INIT')
 !
