@@ -487,7 +487,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
 !$omp end single
  endif igot_remote
-
+!$omp barrier
 !$omp single
  call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend)
 !$omp end single

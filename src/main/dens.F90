@@ -430,9 +430,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp end critical
        enddo over_remote
 !$omp enddo
-
 !$omp barrier
-
 !$omp single
        ! reset remote stack
        stack_remote%n = 0
@@ -440,7 +438,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
 !$omp end single
     endif igot_remote
-
+!$omp barrier
 !$omp single
     call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend)
     call reset_cell_counters
@@ -490,16 +488,14 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
        enddo over_waiting
 !$omp enddo
-
 !$omp barrier
-
-       ! reset stacks
 !$omp single
+       ! reset stacks
        stack_waiting%n = 0
        call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
 !$omp end single
     endif iam_waiting
-
+!$omp barrier
 !$omp single
     call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
 !$omp end single
