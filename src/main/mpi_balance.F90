@@ -85,7 +85,6 @@ subroutine balance_init(npart)
  enddo
 
  npartnew = npart
- ntot_start = reduceall_mpi('+',npart)
 
  !
  !--count number of proceses that have completed sending particles
@@ -117,6 +116,7 @@ subroutine balancedomains(npart)
  if (id==master .and. iverbose >= 5) print*,'starting balance',npart
 
  call balance_init(npart)
+ ntot_start = reduceall_mpi('+',npart - count_dead_particles())
 
  do i=1,npart
 !
@@ -136,17 +136,21 @@ subroutine balancedomains(npart)
     print*,id,' received so far ',sum(nrecv(1:nprocs))
  endif
  call balance_finish(npart)
- ndead = count_dead_particles()
- !print*,' thread ',id,' before shuffle, got ',npart,' dead ',ndead,' actual = ',npart - ndead,ideadhead
+ ! ndead = count_dead_particles()
+ ! print*,' thread ',id,' before shuffle, got ',npart,' dead ',ndead,' actual = ',npart - ndead,ideadhead
  call shuffle_part(npart)
  call barrier_mpi()
- ndead = count_dead_particles()
- !print*,' thread ',id,' after shuffle, got ',npart,' dead ',ndead,' actual = ',npart - ndead
+ ! ndead = count_dead_particles()
+ ! print*,' thread ',id,' after shuffle, got ',npart,' dead ',ndead,' actual = ',npart - ndead
 
  ntot = reduceall_mpi('+',npart)
  if (iverbose >= 4) print*,'>> shuffle: thread ',id,' got ',npart,' of ',ntot
 
- if (ntot /= ntot_start) call fatal('balance','number of particles before and after balance not equal')
+ if (ntot /= ntot_start) then
+    print*,id,'ntot',ntot
+    print*,id,'ntot_start',ntot_start
+    call fatal('balance','number of particles before and after balance not equal')
+endif
  if (id==master .and. iverbose >= 3) call printused(tstart)
 
  return
