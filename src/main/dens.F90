@@ -433,14 +433,15 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
 !$omp barrier
 
-       ! reset remote stack
 !$omp single
+       ! reset remote stack
        stack_remote%n = 0
+       ! ensure send has finished
+       call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
 !$omp end single
     endif igot_remote
 
 !$omp single
-    call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
     call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend)
     call reset_cell_counters
 !$omp end single
@@ -495,11 +496,11 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        ! reset stacks
 !$omp single
        stack_waiting%n = 0
+       call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
 !$omp end single
     endif iam_waiting
 
 !$omp single
-    call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
     call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
 !$omp end single
 
@@ -517,7 +518,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 #endif
 !$omp end parallel
 #ifdef MPI
-
  call finish_cell_exchange(irequestrecv,xsendbuf)
 #endif
 
