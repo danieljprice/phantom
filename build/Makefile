@@ -1721,10 +1721,10 @@ endif
 utils: phantomsetup phantomanalysis \
        multirun memcheck phantom_moddump \
        phantom2divv phantom2divb \
-       diffdumps ev2mdot acc2ang \
+       diffdumps ev2mdot phantomevcompare acc2ang \
        phantom2sphNG phantom2gadget \
        sfutils phantom2pdf phantom2pdf-amr \
-       phantom2struct phantom2power phantomevcompare libphantom
+       phantom2struct phantom2power libphantom
 
 cleanutils: cleansetup cleananalysis \
             cleanmultirun cleanmemcheck cleanmoddump \
@@ -2089,15 +2089,16 @@ cleanphantom2mcfost:
 #----------------------------------------------------
 # utility to rewrite .ev files using a common header
 #
-SRCEV=utils_infiles.f90 utils_evfiles.f90 prompting.f90
-SRCEVC1=${SRCEV:.F90=.o}
-SRCEVC =${SRCEVC1:.f90=.o}
+SRCEV=utils_infiles.f90 utils_evfiles.f90 prompting.f90 phantomevcompare.f90
+OBJEVC1 = ${SRCEV:.f90=.o}
+OBJEVC = ${OBJEVC1:.F90=.o}
 
-phantomevcompare: $(SRCEVC) phantomevcompare.o
+.PHONY: phantomevcompare
+phantomevcompare: $(OBJEVC)
 	@echo ""
 	@echo "phantomevcompare: let the graphing begin!"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(SRCEVC) phantomevcompare.o
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJEVC)
 
 cleanphantomevcompare:
 	rm -f $(BINDIR)/phantomevcompare
