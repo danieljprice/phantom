@@ -154,6 +154,13 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  should_conserve_angmom   = (npartoftype(iboundary)==0 .and. .not.periodic)
  should_conserve_dustmass = use_dustfrac
 
+! Each injection routine will need to bookeep conserved quantities, but until then...
+#ifdef INJECT_PARTICLES
+ should_conserve_energy = .false.
+ should_conserve_momentum = .false.
+ should_conserve_angmom = .false.
+#endif
+
  noutput          = 1
  noutput_dtmax    = 1
  ncount_fulldumps = 0
