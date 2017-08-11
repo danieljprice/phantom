@@ -34,7 +34,7 @@ subroutine test_link(ntests,npass)
  use dim,      only:maxp,maxneigh
  use io,       only:id,master,nprocs!,iverbose
  use mpiutils, only:reduceall_mpi
- use part,     only:npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ll,igas
+ use part,     only:npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ll,igas,kill_particle
  use kernel,   only:radkern2,radkern
  use unifdis,  only:set_unifdis
  use timing,   only:getused
@@ -140,7 +140,7 @@ subroutine test_link(ntests,npass)
        elseif (itest==2) then
           !--mark a number of particles as dead or accreted
           if (xyzh(4,i) > (hmin + 0.2*(hmax-hmin))) xyzh(4,i) = -abs(xyzh(4,i))
-          if (mod(i,1000)==0) xyzh(4,i) = 0.
+          if (mod(i,1000)==0) call kill_particle(i)
           iphase(i) = isetphase(igas,iactive=.true.)
        else
           !--all active
