@@ -321,12 +321,11 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend)
  type(cellforce),  intent(inout) :: xrecvbuf(nprocs)
  integer,          intent(inout) :: irequestrecv(nprocs),irequestsend(nprocs)
  integer             :: newproc
- integer             :: sendrequest !dummy
 
  do newproc=0,nprocs-1
     if (newproc /= id) then
        !--tag=0 to signal done
-       call MPI_ISEND(nsent(newproc+1),1,MPI_INTEGER4,newproc,0,comm_cellcount,sendrequest,mpierr)
+       call MPI_ISEND(nsent(newproc+1),1,MPI_INTEGER4,newproc,0,comm_cellcount,irequestsend(newproc+1),mpierr)
     endif
  enddo
 
