@@ -649,8 +649,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
              fext(1:3,i) = fstar
           enddo pmom_iterations
           if (its > itsmax ) then
-             print*,'WARNING! Not converged. Reached max number of pmom iterations.'
-             read*
+             print*,'WARNING! Not converged. Reached max number of pmom iterations. pmom_err = ',pmom_err
           endif
 
           pitsmax = max(its,pitsmax)
@@ -672,8 +671,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
              vxyzu(:,i)   = vxyzu_star
           enddo xyz_iterations
           if (its > itsmax ) then
-             print*,'WARNING! Not converged. Reached max number of x iterations.'
-             read*
+             print*,'WARNING! Not converged. Reached max number of x iterations. x_err = ',x_err
           endif
           xitsmax = max(its,xitsmax)
 
