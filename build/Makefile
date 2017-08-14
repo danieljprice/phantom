@@ -370,6 +370,18 @@ ifeq ($(SETUP), galcen)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), bondi)
+#   Bondi accretion
+    SETUPFILE= setup_bondi.f90
+    KNOWN_SETUP=yes
+endif
+ifeq ($(SETUP), bondi_gr)
+#   Bondi accretion
+    SETUPFILE= setup_bondi.f90
+    KNOWN_SETUP=yes
+    GR=yes
+endif
+
 ifeq ($(SETUP), quebec)
     SETUPFILE = setup_quebec.f90
     GRAVITY = yes

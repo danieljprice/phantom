@@ -32,7 +32,7 @@ contains
 
 !----------------------------------------------------------------
 !+
-!  setup for a galactic centre model
+!  setup for bondi accretion
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
@@ -40,11 +40,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:master,fatal
  use spherical,    only:set_sphere
  use options,      only:ieos,iexternalforce
- use timestep,     only:tmax
+ use timestep,     only:tmax,dtmax
  use centreofmass, only:reset_centreofmass
  use units,        only:udist,umass,utime,set_units
- use physcon,      only:pc,solarm,gg,years,pi
- use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas
+ use physcon,      only:pc,solarm,gg,pi
+ use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,igas
+#ifdef GR
+ use metric,      only:metric_type
+#endif
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -54,183 +57,148 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- ! real, allocatable,    dimension(:)   :: rnew
- real    :: psep,bgmass,snmass,totmass
- real    :: bgvol,bgrmax,bgrmin
- real    :: snvol,snrmax,snrmin
- real    :: ufac,uval,mbh,ro,accretion_radius,gcode
- real    :: enblast,spsoundsn
- integer :: i,np,nx,omega,ilattice,maxvxyzu,i1 !,iseed
- integer :: npinsn,npinbg
- integer, parameter :: ng  = 1024
- real(kind=8) :: uergg
- real :: r(ng) !,den
- ! logical :: dostretch
+ real    :: psep,totmass,tff
+ real    :: vol,rmax,rmin
+ real    :: accretion_radius,gcode
+ integer :: i,np,nx,ilattice,maxvxyzu,acc_rad
+#ifdef GR
+ real :: r,pos(3)
+#endif
 
- call set_units(dist=pc,mass=solarm,G=1.)
+ call set_units(mass=solarm,G=1.d0,c=1.d0)
 !
 !--general parameters
 !
  time = 0.
  hfact = 1.2
  gamma = 5./3.
- bgrmin  = 0. !0.001*pc/udist
- bgrmax  = 1.*pc/udist
- snrmin = 0.0
- snrmax = 1.0d-3*pc/udist
- bgmass = 10.*solarm/umass
- snmass = 1.*solarm/umass
- totmass = bgmass+snmass
- mbh = 4.0d6*solarm/umass
- iexternalforce = 0
+
+acc_rad = 2.1
+#ifndef GR
+ !--set sink properties
+  nptmass = 1
+  accretion_radius = acc_rad
+  xyzmh_ptmass(:,nptmass) = 0.
+  xyzmh_ptmass(4,nptmass) = 1.
+  xyzmh_ptmass(ihacc,nptmass) = accretion_radius
+  vxyz_ptmass(:,:) = 0.
+#endif
+
+ !--setup particles
+ rmin  = 5.*acc_rad
+ rmax  = 100.
+ np = 1000
+ vol = 4./3.*pi*rmax**3
+ nx = int(np**(1./3.))
+ psep = vol**(1./3.)/real(nx)
+ print*,'Setup for gas: '
+ print*,' volume = ',vol,' particle separation = ',psep
+ print*,' maximum radius = ',rmax
+ print*,' vol/psep**3 = ',vol/psep**3
+ totmass = 10.*solarm/umass
+ rhozero = totmass/vol
+ tff = sqrt(3.*pi/(32.*rhozero))
+ print*,' free fall time = ',tff
+
+ tmax = tff*5
+ dtmax = tmax/100.
+
+ iexternalforce = 1
  ilattice = 2
- ieos = 2
- tmax = 1.
-!
-!--setup particles
-!
- np = 10000 !size(xyzh(1,:))
- npinsn = np/8. ! just to test
- npinbg = np-npinsn
- print *,'initial npinbg, npinsn = ',npinbg,npinsn
+ ieos = 11
 
  maxvxyzu = size(vxyzu(:,1))
- bgvol = 4./3.*pi*bgrmax**3
- nx = int(npinbg**(1./3.))
- psep = bgvol**(1./3.)/real(nx)
- print*,'Setup for background gas: '
- print*,' background volume = ',bgvol,' particle separation = ',psep
- print*,' maximum background radius = ',bgrmax
- print*,' bgvol/psep**3 = ',bgvol/psep**3
  if (maxvxyzu < 4) then
     call fatal('setup','Setup requires thermal energy to be stored')
  endif
-!
-!--add stretched sphere for background
-!
+#ifdef GR
+ if (.not. metric_type == 'Schwarzschild') then
+    call fatal('setup','GR on, but metric is not Schwarzschild. Change the metric to Schwarzschild for gr_bondi setup.')
+ endif
+#endif
+
+!--add stretched sphere
  npart = 0
  npart_total = 0
- call set_sphere('closepacked',id,master,bgrmin,bgrmax,psep,hfact,npart,xyzh,rhofunc=rhofunc,nptot=npart_total)
- npinbg = npart_total
-!
-!--set particle properties
-!
- rhozero = bgmass/bgvol
- polyk   = 0.
- print*,' background mass = ',bgmass,' mean density = ',rhozero,' polyk = ',polyk
- print*,' free fall time = ',sqrt(3.*pi/(32.*rhozero))
-
- massoftype(igas) = bgmass/npinbg ! change this: scale to sn mass
- print*,' particle mass = ',massoftype(igas)
+ call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,xyzh,rhofunc=rhofunc,nptot=npart_total)
+ massoftype(igas) = totmass/npart_total
 
  gcode = gg*umass*utime**2/udist**3
+
  print *,'gcode = ',gcode
- ufac = gcode*mbh/((gamma-1.)*(omega+1.))/bgmass
- ! allocate(rnew(npart))
+ print*,'npart = ',npart
+
  do i=1,npart
-    ! ro = sqrt(sum(xyzh(1:3,i)**2))
-    vxyzu(4,i) = 0. !ufac*(1./ro - (ro**omega)/(rmax**(omega+1)))
+#ifdef GR
+    pos = xyzh(1:3,i)
+    r = sqrt(dot_product(pos,pos))
+    vxyzu(1:3,i) = -vfunc(r)*pos/r
+#endif
+
+    vxyzu(4,i) = 0.
  enddo
-!
-!--set sink properties
-!
- nptmass = 1
- accretion_radius = 0.001*pc/udist
- xyzmh_ptmass(:,nptmass) = 0.
- xyzmh_ptmass(4,nptmass) = mbh
- xyzmh_ptmass(ihacc,nptmass) = accretion_radius
- xyzmh_ptmass(ihsoft,i1) = 0.0
- vxyz_ptmass(:,:) = 0.
-!
+
 !--reset centre of mass to the origin
-!
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
-!
-!--now add an (offset) explosion
-!
 
- snvol = 4./3.*pi*snrmax**3
- nx = int(npinsn**(1./3.))
- psep = snvol**(1./3.)/real(nx)
- print*,' Setup for blast wave: '
- print*,' initial volume = ',snvol,' particle separation = ',psep
- print*,' initial maximum radius = ',snrmax
- print*,' snvol/psep**3 = ',snvol/psep**3
-
- uergg = umass*udist**2/utime**2
- print *,'uergg = ',uergg
- enblast = 1.0e51/uergg
-
- call set_supernova('closepacked',id,master,snrmin,snrmax,psep,hfact,npart,xyzh,vxyzu,massoftype,enblast,npart_total)
-
- npinsn = npart_total-npinbg
  npartoftype(:) = 0
  npartoftype(igas) = npart_total
-
- ! sound speed = sqrt(gamma*P/rho) = sqrt(gamma*(gamma-1)*u)
- spsoundsn = sqrt(gamma*(gamma-1.)*enblast/(npinsn*massoftype(igas)))
- if (id==master) then
-    print *,'enblast/(npinsn*massoftype(igas))',enblast/(npinsn*massoftype(igas))
-    print *,'supernova sound crossing time = ',snrmax/spsoundsn
- endif
 
 end subroutine setpart
 
 
 real function rhofunc(r)
- real, intent(in) :: r
+#ifdef GR
+use utils_gr, only:dot_product_gr,get_metric3plus1
+real :: x(3),v(3),alpha,beta(3),gammaijdown(3,3),gammaijUP(3,3),gcov(0:3,0:3),gcon(0:3,0:3),sqrtg
+#endif
+real, intent(in) :: r
 
- rhofunc = 1./r
+#ifdef GR
+ x = (/r,0.,0./)
+ v = (/vfunc(r),0.,0./)
+ call get_metric3plus1(x,alpha,beta,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
+ rhofunc = (sqrtg/alpha)*dfunc(r)
+#else
+ rhofunc = 1./r**2
+#endif
 
 end function rhofunc
 
-
-subroutine set_supernova(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh,vxyzu,massoftype,enblast,nptot)
-
- use physcon,   only:pc
- use units,     only:udist
- use io,        only:error,fatal
- use spherical, only:set_sphere
- use part,      only:igas
- character(len=*), intent(in)    :: lattice
- integer,          intent(in)    :: id,master
- integer,          intent(inout) :: np
- real,             intent(in)    :: rmin,rmax,hfact,enblast
- real,             intent(out)   :: xyzh(:,:)
- real,             intent(out)   :: vxyzu(:,:)
- real,             intent(in)    :: massoftype(:)
- real,             intent(inout) :: delta
- integer(kind=8),  intent(inout) :: nptot
- real :: xyz_origin(3)
- real               :: massinsn
- integer            :: i,npin
- integer(kind=8)    :: npintot
-
- npin = np
- npintot = nptot
-
- xyz_origin = (/0.25*pc/udist,0.,0./)
-
- call set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh,xyz_origin=xyz_origin,rhofunc=rhosnfunc,nptot=nptot)
- massinsn = massoftype(igas)*(nptot-npintot)
- if (id==master) then
-    print *,'Number of particles in supernova: ',nptot-npintot,' mass = ',massinsn,' enblast/massinsn = ',enblast/massinsn
- endif
- do i = npin+1,np
-    vxyzu(1:3,i) = 0.
-    vxyzu(4,i) = enblast/massinsn
- enddo
-
-end subroutine set_supernova
-
-
-real function rhosnfunc(r)
+real function dfunc(r)
  real, intent(in) :: r
+ real :: d,m
+ m = 1.
+ d = 12.
 
- rhosnfunc = 1.
+ dfunc = d/(r**2*sqrt(2.*m/r*(1.- 2.*m/r)))
 
-end function rhosnfunc
+end function dfunc
 
+#ifdef GR
+real function gammafunc(r)
+ use utils_gr, only:dot_product_gr,get_metric3plus1
+ real, intent(in) :: r
+ real :: m,x(3),v(3),v2,alpha,beta(3),gammaijdown(3,3),gammaijUP(3,3),gcov(0:3,0:3),gcon(0:3,0:3),sqrtg
+ m = 1.
+
+ x = (/r,0.,0./)
+ v = (/vfunc(r),0.,0./)
+
+ call get_metric3plus1(x,alpha,beta,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
+
+ v2 = dot_product_gr(v,v,gammaijdown)
+
+ gammafunc = 1./sqrt(1.-v2)
+
+end function gammafunc
+
+real function vfunc(r)
+ real, intent(in) :: r
+ real :: m
+  m = 1.
+  vfunc = sqrt(2.*m/r)*(1. - 2.*m/r)
+end function vfunc
+#endif
 
 end module setup
-
