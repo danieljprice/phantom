@@ -49,8 +49,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call prompt('Choice',opt, 1, 2)
 
  if (opt  /=  1 .and. opt  /=  2) then
-     print *, 'Incorrect option selected. Doing nothing.'
-     return
+    print *, 'Incorrect option selected. Doing nothing.'
+    return
  endif
 
  sep = 10.0
@@ -60,7 +60,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print *, ''
 
  if (opt == 1) then
-     call duplicate_star(npart, npartoftype, massoftype, xyzh, vxyzu)
+    call duplicate_star(npart, npartoftype, massoftype, xyzh, vxyzu)
  endif
 
  mtot = npart*massoftype(igas)
@@ -136,36 +136,36 @@ subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep)
  vz1com = 0.
  totmass = 0.
  do i = 1, npart/2
-     xi = xyzh(1,i)
-     yi = xyzh(2,i)
-     zi = xyzh(3,i)
-     vxi = vxyzu(1,i)
-     vyi = vxyzu(2,i)
-     vzi = vxyzu(3,i)
-     if (maxphase == maxp) then
-         itype = iamtype(iphase(i))
-         if (itype > 0) then
-             pmassi = massoftype(itype)
-         else
-             pmassi = massoftype(igas)
-         endif
-     else
-         pmassi = massoftype(igas)
-     endif
+    xi = xyzh(1,i)
+    yi = xyzh(2,i)
+    zi = xyzh(3,i)
+    vxi = vxyzu(1,i)
+    vyi = vxyzu(2,i)
+    vzi = vxyzu(3,i)
+    if (maxphase == maxp) then
+       itype = iamtype(iphase(i))
+       if (itype > 0) then
+          pmassi = massoftype(itype)
+       else
+          pmassi = massoftype(igas)
+       endif
+    else
+       pmassi = massoftype(igas)
+    endif
 
-     totmass = totmass + pmassi
-     x1com = x1com + pmassi * xi
-     y1com = y1com + pmassi * yi
-     z1com = z1com + pmassi * zi
-     vx1com = vx1com + pmassi * vxi
-     vy1com = vy1com + pmassi * vyi
-     vz1com = vz1com + pmassi * vzi
+    totmass = totmass + pmassi
+    x1com = x1com + pmassi * xi
+    y1com = y1com + pmassi * yi
+    z1com = z1com + pmassi * zi
+    vx1com = vx1com + pmassi * vxi
+    vy1com = vy1com + pmassi * vyi
+    vz1com = vz1com + pmassi * vzi
  enddo
 
  if (totmass > tiny(totmass)) then
-     dm = 1.d0/totmass
+    dm = 1.d0/totmass
  else
-     dm = 0.d0
+    dm = 0.d0
  endif
  x1com = dm * x1com
  y1com = dm * y1com
@@ -183,36 +183,36 @@ subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep)
  vz2com = 0.
  totmass = 0.
  do i = npart/2 + 1, npart
-     xi = xyzh(1,i)
-     yi = xyzh(2,i)
-     zi = xyzh(3,i)
-     vxi = vxyzu(1,i)
-     vyi = vxyzu(2,i)
-     vzi = vxyzu(3,i)
-     if (maxphase == maxp) then
-         itype = iamtype(iphase(i))
-         if (itype > 0) then
-             pmassi = massoftype(itype)
-         else
-             pmassi = massoftype(igas)
-         endif
-     else
-         pmassi = massoftype(igas)
-     endif
+    xi = xyzh(1,i)
+    yi = xyzh(2,i)
+    zi = xyzh(3,i)
+    vxi = vxyzu(1,i)
+    vyi = vxyzu(2,i)
+    vzi = vxyzu(3,i)
+    if (maxphase == maxp) then
+       itype = iamtype(iphase(i))
+       if (itype > 0) then
+          pmassi = massoftype(itype)
+       else
+          pmassi = massoftype(igas)
+       endif
+    else
+       pmassi = massoftype(igas)
+    endif
 
-     totmass = totmass + pmassi
-     x2com = x2com + pmassi * xi
-     y2com = y2com + pmassi * yi
-     z2com = z2com + pmassi * zi
-     vx2com = vx2com + pmassi * vxi
-     vy2com = vy2com + pmassi * vyi
-     vz2com = vz2com + pmassi * vzi
+    totmass = totmass + pmassi
+    x2com = x2com + pmassi * xi
+    y2com = y2com + pmassi * yi
+    z2com = z2com + pmassi * zi
+    vx2com = vx2com + pmassi * vxi
+    vy2com = vy2com + pmassi * vyi
+    vz2com = vz2com + pmassi * vzi
  enddo
 
  if (totmass > tiny(totmass)) then
-     dm = 1.d0/totmass
+    dm = 1.d0/totmass
  else
-     dm = 0.d0
+    dm = 0.d0
  endif
  x2com = dm * x2com
  y2com = dm * y2com
@@ -224,21 +224,21 @@ subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep)
 
  ! now we now the centre point of each star, we can set star 1 to origin, star 2 sep away on x axis, then reset com
  do i = 1, npart/2
-     xyzh(1,i) = xyzh(1,i) - x1com
-     xyzh(2,i) = xyzh(2,i) - y1com
-     xyzh(3,i) = xyzh(3,i) - z1com
-     vxyzu(1,i) = vxyzu(1,i) - vx1com
-     vxyzu(2,i) = vxyzu(2,i) - vy1com
-     vxyzu(3,i) = vxyzu(3,i) - vz1com
+    xyzh(1,i) = xyzh(1,i) - x1com
+    xyzh(2,i) = xyzh(2,i) - y1com
+    xyzh(3,i) = xyzh(3,i) - z1com
+    vxyzu(1,i) = vxyzu(1,i) - vx1com
+    vxyzu(2,i) = vxyzu(2,i) - vy1com
+    vxyzu(3,i) = vxyzu(3,i) - vz1com
  enddo
 
  do i = npart/2 + 1, npart
-     xyzh(1,i) = xyzh(1,i) - x2com + sep
-     xyzh(2,i) = xyzh(2,i) - y2com
-     xyzh(3,i) = xyzh(3,i) - z2com
-     vxyzu(1,i) = vxyzu(1,i) - vx2com
-     vxyzu(2,i) = vxyzu(2,i) - vy2com
-     vxyzu(3,i) = vxyzu(3,i) - vz2com
+    xyzh(1,i) = xyzh(1,i) - x2com + sep
+    xyzh(2,i) = xyzh(2,i) - y2com
+    xyzh(3,i) = xyzh(3,i) - z2com
+    vxyzu(1,i) = vxyzu(1,i) - vx2com
+    vxyzu(2,i) = vxyzu(2,i) - vy2com
+    vxyzu(3,i) = vxyzu(3,i) - vz2com
  enddo
 
 end subroutine adjust_sep
