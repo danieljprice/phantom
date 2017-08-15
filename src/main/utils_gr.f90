@@ -1,7 +1,7 @@
 module utils_gr
  implicit none
 
- public :: dot_product_gr, get_metric3plus1, get_u0, get_bigv, get_rderivs, get_ev, rho2dens, h2dens
+ public :: dot_product_gr, get_metric3plus1, get_u0, get_bigv, get_ev, rho2dens, h2dens
 
  private
 
@@ -129,36 +129,39 @@ subroutine get_u0_given_metric(gcov,v,U0)
 
 end subroutine get_u0_given_metric
 
-subroutine get_rderivs(position,dr)
- use metric, only: a
- real, dimension(3), intent(in) :: position
- real, dimension(3), intent(out) :: dr
- real :: x,y,z,dxdr,dydr,dzdr,r,r2sphere
-
- x=position(1)
- y=position(2)
- z=position(3)
-
- r2sphere = x**2+y**2+z**2
-
- r = sqrt(0.5*(r2sphere-a**2+sqrt((r2sphere-a**2))**2 + 4.*a**2*z**2))
-
- dxdr=x*r/(r**2+a**2)
- dydr=y*r/(r**2+a**2)
- dzdr=z/r
-
- dr=(/dxdr,dydr,dzdr/)
-
-end subroutine get_rderivs
+! subroutine get_rderivs(position,dr)
+!  use metric, only: a
+!  real, dimension(3), intent(in) :: position
+!  real, dimension(3), intent(out) :: dr
+!  real :: x,y,z,dxdr,dydr,dzdr,r,r2sphere
+!
+!  x=position(1)
+!  y=position(2)
+!  z=position(3)
+!
+!  r2sphere = x**2+y**2+z**2
+!
+!  r = sqrt(0.5*(r2sphere-a**2+sqrt((r2sphere-a**2))**2 + 4.*a**2*z**2))
+!
+!  dxdr=x*r/(r**2+a**2)
+!  dydr=y*r/(r**2+a**2)
+!  dzdr=z/r
+!
+!  dr=(/dxdr,dydr,dzdr/)
+!
+! end subroutine get_rderivs
 
 subroutine get_ev(x,v,energy,angmom)
- use metric, only: metric_type, rs
+ use metric, only: metric_type, mass1
  use metric_tools, only: coordinate_sys
  real, intent(in), dimension(3) :: x,v
  real, intent(out) :: energy, angmom
  real :: r, U0
+ real :: rs
  integer, save :: i = 0
  character(len=*), parameter :: force_type = 'GR'
+
+ rs = 2.*mass1
 
  ! For Schwarzschild only
  if (metric_type=='Schwarzschild') then

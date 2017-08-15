@@ -2,10 +2,6 @@ module metric
  implicit none
  character(len=*), parameter :: metric_type = 'Minkowski'
 
- real, parameter, public :: mass1 = 0.  ! mass of central object
- real, parameter, public :: a     = 0.  ! spin of central object
- real, parameter, public :: rs    = 2.*mass1
-
 contains
 
 !----------------------------------------------------------------

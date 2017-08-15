@@ -1,11 +1,10 @@
 module metric
  implicit none
  character(len=*), parameter :: metric_type = 'Kerr'
- character(len=*), parameter :: frame = 'Boyer-Lindquist'
+ character(len=*), parameter :: frame       = 'Boyer-Lindquist'
 
- real, parameter, public :: mass1 = 1.       ! mass of central object
- real, parameter, public :: a     = 1.       ! spin of central object
- real, parameter, public :: rs    = 2.*mass1
+ real, public  :: mass1 = 1.       ! mass of central object
+ real, public  :: a     = 1.       ! spin of central object
 
 contains
 
@@ -23,6 +22,8 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  real :: r2spherical,r2,r
  real :: rho2,delta,r2a2,term,sintheta2
  real :: gphiphi,gtphi,gtt
+ real :: rs
+ rs = 2.*mass1
 
  sqrtg = 1.
 
@@ -130,6 +131,8 @@ subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
  real :: a2,r2,r,rho2,delta,sintheta2
  real :: gtt,grr,gthetatheta,gtphi,gphiphi
  real :: phi,theta
+ real :: rs
+ rs = 2.*mass1
  select case(frame)
  case('Boyer-Lindquist')
     a2 = a**2
@@ -208,6 +211,8 @@ subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi
  real, intent(in) :: position(3)
  real, intent(out), dimension(0:3,0:3) :: dgcovdr,dgcovdtheta,dgcovdphi
  real :: r, theta, sintheta, costheta, rho, delta
+ real :: rs
+ rs = 2*.mass1
  select case(frame)
  case('Boyer-Lindquist')
     r = position(1)
@@ -258,6 +263,8 @@ subroutine get_jacobian(position,dxdx)
  real :: x,y,z,x2,y2,z2
  real :: a2,r2spherical,r2,r,rho2,delta
  real :: sintheta
+ real :: rs
+ rs = 2.*mass1
  select case(frame)
  case('Boyer-Lindquist')
     x  = position(1)
