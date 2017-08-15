@@ -52,7 +52,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
      print *, 'Incorrect option selected. Doing nothing.'
      return
  endif
- 
+
  sep = 10.0
  print *, ''
  print *, 'Distance unit is: ', udist
@@ -144,7 +144,7 @@ subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep)
      vzi = vxyzu(3,i)
      if (maxphase == maxp) then
          itype = iamtype(iphase(i))
-         if (itype > 0) then 
+         if (itype > 0) then
              pmassi = massoftype(itype)
          else
              pmassi = massoftype(igas)
@@ -191,7 +191,7 @@ subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep)
      vzi = vxyzu(3,i)
      if (maxphase == maxp) then
          itype = iamtype(iphase(i))
-         if (itype > 0) then 
+         if (itype > 0) then
              pmassi = massoftype(itype)
          else
              pmassi = massoftype(igas)
@@ -223,7 +223,7 @@ subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep)
 
 
  ! now we now the centre point of each star, we can set star 1 to origin, star 2 sep away on x axis, then reset com
- do i = 1, npart/2 
+ do i = 1, npart/2
      xyzh(1,i) = xyzh(1,i) - x1com
      xyzh(2,i) = xyzh(2,i) - y1com
      xyzh(3,i) = xyzh(3,i) - z1com
@@ -264,7 +264,7 @@ subroutine set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,velocity)
  do i = 1, npart/2
     vxyzu(2,i) = vxyzu(2,i) + velocity
  enddo
- 
+
  do i = npart/2 + 1, npart
     vxyzu(2,i) = vxyzu(2,i) - velocity
  enddo
