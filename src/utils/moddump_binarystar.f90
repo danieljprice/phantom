@@ -48,7 +48,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  opt = 1
  call prompt('Choice',opt, 1, 2)
 
- if (opt .ne. 1 .and. opt .ne. 2) then
+ if (opt  /=  1 .and. opt  /=  2) then
      print *, 'Incorrect option selected. Doing nothing.'
      return
  endif
