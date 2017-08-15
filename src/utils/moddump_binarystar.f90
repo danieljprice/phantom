@@ -27,10 +27,11 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas
- use units,        only: set_units,udist,unit_velocity
- use prompting,    only: prompt
- use centreofmass, only: reset_centreofmass
+ use part,           only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas
+ use units,          only: set_units,udist,unit_velocity
+ use prompting,      only: prompt
+ use centreofmass,   only: reset_centreofmass
+ use initial_params, only: get_conserv
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -71,6 +72,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  ! reset centre of mass of the binary system
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+
+ get_conserv = 1.
 
 end subroutine modify_dump
 
