@@ -39,6 +39,7 @@ subroutine test_link(ntests,npass)
  use unifdis,  only:set_unifdis
  use timing,   only:getused
  use random,   only:ran1
+ use domain,   only:i_belong
  use part,            only:maxphase,iphase,isetphase,igas,iactive
  use testutils,       only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end
  use linklist,        only:set_linklist,get_neighbour_list,ifirstincell,ncells
@@ -57,6 +58,7 @@ subroutine test_link(ntests,npass)
  integer                :: nneigh,nneighexact,nneightry,max1,max2,ncheck1,ncheck2,nwarn
  integer                :: ip
  integer                :: nparttot
+ integer(kind=8)        :: nptot
 #ifdef IND_TIMESTEPS
  integer                :: npartincell,nfail1,nfail2,ierrmax
  logical                :: hasactive
@@ -94,7 +96,7 @@ subroutine test_link(ntests,npass)
  dzboundp = zmaxp-zminp
  psep = (xmaxp-xminp)/32.
 
- call set_unifdis('random',id,master,xminp,xmaxp,yminp,ymaxp,zminp,zmaxp,psep,hfact,npart,xyzh)
+ call set_unifdis('random',id,master,xminp,xmaxp,yminp,ymaxp,zminp,zmaxp,psep,hfact,npart,xyzh,nptot=nptot)
  npartoftype(:) = 0
  npartoftype(igas) = npart
  !print*,'thread ',id,' npart = ',npart
@@ -118,9 +120,14 @@ subroutine test_link(ntests,npass)
  over_tests: do itest=1,nlinktest
 
     iseed = -24358
-    do i=1,npart
-       !--give random smoothing lengths
-       xyzh(4,i) = hmin + ran1(iseed)*(hmax - hmin)
+    ip = 0
+    do i=1,nptot
+       hi = hmin + ran1(iseed)*(hmax - hmin)
+       if (i_belong(i)) then
+          ip = ip + 1
+          !--give random smoothing lengths
+          xyzh(4,ip) = hi
+       endif
     enddo
 
 #ifdef IND_TIMESTEPS
