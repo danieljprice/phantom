@@ -81,16 +81,16 @@ module ptmass
 
  integer, public, parameter :: ndptmass = 13
  integer, public, parameter :: &
-       idxmsi            = 1, &
-       idymsi            = 2, &
-       idzmsi            = 3, &
-       idmsi            = 4, &
-       idspinxsi        = 5, &
-       idspinysi        = 6, &
-       idspinzsi        = 7, &
-       idvxmsi           = 8, &
-       idvymsi           = 9, &
-       idvzmsi           = 10, &
+       idxmsi           =  1, &
+       idymsi           =  2, &
+       idzmsi           =  3, &
+       idmsi            =  4, &
+       idspinxsi        =  5, &
+       idspinysi        =  6, &
+       idspinzsi        =  7, &
+       idvxmsi          =  8, &
+       idvymsi          =  9, &
+       idvzmsi          = 10, &
        idfxmsi          = 11, &
        idfymsi          = 12, &
        idfzmsi          = 13
@@ -548,7 +548,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
                           itypei,pmassi,xyzmh_ptmass,vxyz_ptmass,accreted, &
                           dptmass,time,facc,nfaili)
  !$ use omputils, only:ipart_omp_lock
- use part, only:ihacc,imacc,ispinx,ispiny,ispinz
+ use part, only:ihacc
  use io,   only:iprint,iverbose,fatal
  use io_summary, only: iosum_ptmass,maxisink,print_acc
  integer, intent(in)    :: is,nptmass,itypei
