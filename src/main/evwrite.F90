@@ -42,7 +42,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, energies, extern_binary, externalforces,
-!    io, nicil, options, part, ptmass, units, viscosity
+!    io, nicil, options, part, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module evwrite
