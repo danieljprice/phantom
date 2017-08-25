@@ -407,8 +407,8 @@ subroutine test_ptmass(ntests,npass)
        vxyzu(1:3,1) = 80.
        fxyzu(1:3,1) = 20.
     else
-      npartoftype(igas) = 0
-      npart        = 0
+       npartoftype(igas) = 0
+       npart        = 0
     endif
     xyzm_ptmass_old = xyzmh_ptmass(1:4,1:nptmass)
     vxyz_ptmass_old = vxyz_ptmass (1:3,1:nptmass)

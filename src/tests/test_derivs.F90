@@ -2639,26 +2639,26 @@ real function deltavx_func(xyzhi)
 end function deltavx_func
 
 subroutine rcut_checkmask(rcut,xyzh,npart,checkmask)
-   real,    intent(in)  :: rcut
-   real,    intent(in)  :: xyzh(:,:)
-   integer, intent(in)  :: npart
-   logical, intent(out) :: checkmask(:)
-   real                 :: rcut2, xi,yi,zi,r2
-   integer              :: i,ncheck
+ real,    intent(in)  :: rcut
+ real,    intent(in)  :: xyzh(:,:)
+ integer, intent(in)  :: npart
+ logical, intent(out) :: checkmask(:)
+ real                 :: rcut2, xi,yi,zi,r2
+ integer              :: i,ncheck
 
-   ncheck = 0
-   rcut2 = rcut*rcut
-   checkmask(:) = .false.
-   do i=1,npart
-      xi = xyzh(1,i)
-      yi = xyzh(2,i)
-      zi = xyzh(3,i)
-      r2 = xi*xi + yi*yi + zi*zi
-      if (r2 < rcut2) then
-         checkmask(i) = .true.
-         ncheck = ncheck + 1
-      endif
-   enddo
+ ncheck = 0
+ rcut2 = rcut*rcut
+ checkmask(:) = .false.
+ do i=1,npart
+    xi = xyzh(1,i)
+    yi = xyzh(2,i)
+    zi = xyzh(3,i)
+    r2 = xi*xi + yi*yi + zi*zi
+    if (r2 < rcut2) then
+       checkmask(i) = .true.
+       ncheck = ncheck + 1
+    endif
+ enddo
 
 end subroutine rcut_checkmask
 

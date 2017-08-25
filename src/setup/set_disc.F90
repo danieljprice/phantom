@@ -1166,7 +1166,7 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart,H_R,q_index,M_
           if (ii > nr) cycle
           if (ii < 1)  cycle
 
-   ! Ignoring the large smoothing length particles far from the mid-plane
+          ! Ignoring the large smoothing length particles far from the mid-plane
           if (xyzh(3,ipart)**2 < 4.*H(ii)*H(ii)) then
              h_smooth(ii) = h_smooth(ii) + xyzh(4,ipart)
 

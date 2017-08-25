@@ -150,7 +150,7 @@ subroutine balancedomains(npart)
     print*,id,'ntot',ntot
     print*,id,'ntot_start',ntot_start
     call fatal('balance','number of particles before and after balance not equal')
-endif
+ endif
  if (id==master .and. iverbose >= 3) call printused(tstart)
 
  return

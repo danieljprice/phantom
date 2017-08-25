@@ -713,7 +713,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
           !
           ! correct v to the full step using only the external force
           !
-         vxyzu(1:3,i) = vxyzu(1:3,i) + hdt*fext(1:3,i)
+          vxyzu(1:3,i) = vxyzu(1:3,i) + hdt*fext(1:3,i)
 
           if (iexternalforce > 0) then
              call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
