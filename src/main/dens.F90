@@ -1606,6 +1606,9 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  real         :: divcurlBi(ndivcurlB)
  real         :: temperaturei,Bi
  real         :: rho1i,term,denom,rhodusti
+ real         :: hmax
+
+ hmax = 0.
 
  do i = 1,cell%npcell
     lli = inodeparts(cell%arr_index(i))
@@ -1645,6 +1648,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
     !
     xyzh(4,lli) = hrho(rhoi,pmassi)
     xyzh_soa(cell%arr_index(i),4) = xyzh(4,lli)
+    hmax = max(hmax, xyzh(4,lli))
 
     if (xyzh(4,lli) < 0.) call fatal('densityiterate','setting negative h from hrho',i,var='rhoi',val=real(rhoi))
 
@@ -1758,7 +1762,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  np = np + cell%npcell
  ncalc = ncalc + cell%npcell * cell%nits
 
- call set_hmaxcell(cell%icell,cell%hmax)
+ call set_hmaxcell(cell%icell,hmax)
 
 end subroutine store_results
 
