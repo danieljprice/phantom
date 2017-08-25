@@ -435,12 +435,13 @@ subroutine compute_energies(t)
 !--add contribution from sink particles
 !
 
-!$omp do
- do i=1,nptmass
-    xi     = xyzmh_ptmass(1,i)
-    yi     = xyzmh_ptmass(2,i)
-    zi     = xyzmh_ptmass(3,i)
-    pmassi = xyzmh_ptmass(4,i)
+ if (id==master) then
+    !$omp do
+    do i=1,nptmass
+       xi     = xyzmh_ptmass(1,i)
+       yi     = xyzmh_ptmass(2,i)
+       zi     = xyzmh_ptmass(3,i)
+       pmassi = xyzmh_ptmass(4,i)
 
        vxi    = vxyz_ptmass(1,i)
        vyi    = vxyz_ptmass(2,i)
@@ -452,9 +453,9 @@ subroutine compute_energies(t)
        ymom   = ymom + pmassi*vyi
        zmom   = zmom + pmassi*vzi
 
-    angx   = angx + pmassi*(yi*vzi - zi*vyi)
-    angy   = angy + pmassi*(zi*vxi - xi*vzi)
-    angz   = angz + pmassi*(xi*vyi - yi*vxi)
+       angx   = angx + pmassi*(yi*vzi - zi*vyi)
+       angy   = angy + pmassi*(zi*vxi - xi*vzi)
+       angz   = angz + pmassi*(xi*vyi - yi*vxi)
 
        angx   = angx + xyzmh_ptmass(ispinx,i)
        angy   = angy + xyzmh_ptmass(ispiny,i)
