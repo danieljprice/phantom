@@ -293,7 +293,7 @@ subroutine recv_while_wait_dens(stack,xrecvbuf,irequestrecv,irequestsend)
  type(stackdens),  intent(inout) :: stack
  type(celldens),   intent(inout) :: xrecvbuf(nprocs)
  integer,          intent(inout) :: irequestrecv(nprocs),irequestsend(nprocs)
- 
+
  integer             :: newproc
 
  do newproc=0,nprocs-1
