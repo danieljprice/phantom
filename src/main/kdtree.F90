@@ -470,10 +470,15 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  integer :: counterl, counterr
 
  nodeisactive = .false.
- do i = inoderange(1,nnode),inoderange(2,nnode)
-    if (inodeparts(i) > 0) nodeisactive = .true.
- enddo
- npcounter = inoderange(2,nnode) - inoderange(1,nnode) + 1
+ if (inoderange(1,nnode) > 0) then
+    do i = inoderange(1,nnode),inoderange(2,nnode)
+       if (inodeparts(i) > 0) nodeisactive = .true.
+    enddo
+    npcounter = inoderange(2,nnode) - inoderange(1,nnode) + 1
+ else
+    npcounter = 0
+ endif
+
 
  if (npcounter /= npnode) then
     print*,'constructing node ',nnode,': found ',npcounter,' particles, expected:',npnode,' particles for this node'
@@ -728,76 +733,85 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 
     ifirstincell(nnode) = 0
 
-    nl = inoderange(1,nnode)
-    nr = inoderange(2,nnode)
-    inodeparts_swap(nl:nr) = inodeparts(nl:nr)
-    xyzh_swap(nl:nr,:) = xyzh_soa(nl:nr,:)
-    iphase_swap(nl:nr) = iphase_soa(nl:nr)
-    counterl = 0
-    !DIR$ ivdep
-    do i = inoderange(1,nnode), inoderange(2,nnode)
-       xi = xyzh_swap(i,iaxis)
-       if (xi  <=  xpivot) then
-          inodeparts(nl+counterl) = inodeparts_swap(i)
-          xyzh_soa(nl+counterl,1) = xyzh_swap(i,1)
-          xyzh_soa(nl+counterl,2) = xyzh_swap(i,2)
-          xyzh_soa(nl+counterl,3) = xyzh_swap(i,3)
-          xyzh_soa(nl+counterl,4) = xyzh_swap(i,4)
-          iphase_soa(nl+counterl) = iphase_swap(i)
-          counterl = counterl + 1
-       endif
-    enddo
-    nl = nl + counterl
-    counterr=0
-    !DIR$ ivdep
-    do i = inoderange(1,nnode), inoderange(2,nnode)
-       xi = xyzh_swap(i,iaxis)
-       if (xi  >  xpivot) then
-          inodeparts(nl+counterr) = inodeparts_swap(i)
-          xyzh_soa(nl+counterr,1) = xyzh_swap(i,1)
-          xyzh_soa(nl+counterr,2) = xyzh_swap(i,2)
-          xyzh_soa(nl+counterr,3) = xyzh_swap(i,3)
-          xyzh_soa(nl+counterr,4) = xyzh_swap(i,4)
-          iphase_soa(nl+counterr) = iphase_swap(i)
-          counterr = counterr + 1
-       endif
-    enddo
-    nr = nr - counterr
-    inoderange(1,il) = inoderange(1,nnode)
-    inoderange(2,il) = nl - 1
-    inoderange(1,ir) = nr + 1
-    inoderange(2,ir) = inoderange(2,nnode)
-    nl = nl - inoderange(1,nnode)
-    nr = inoderange(2,nnode) - nr
-
-    if (nr + nl  /=  npnode) then
-       call error('maketree','number of left + right != parent number of particles while splitting node')
-    endif
-
-    ! see if all the particles ended up in one node, if so, arbitrarily build 2 cells
-    if ((nl==npnode) .or. (nr==npnode)) then
-       ! no need to move particles because if they all ended up in one node,
-       ! then they are still in the original order
-       nl = npnode / 2
-       nr= npnode - counterl
+    if (npnode > 0) then
+       nl = inoderange(1,nnode)
+       nr = inoderange(2,nnode)
+       inodeparts_swap(nl:nr) = inodeparts(nl:nr)
+       xyzh_swap(nl:nr,:) = xyzh_soa(nl:nr,:)
+       iphase_swap(nl:nr) = iphase_soa(nl:nr)
+       counterl = 0
+       !DIR$ ivdep
+       do i = inoderange(1,nnode), inoderange(2,nnode)
+          xi = xyzh_swap(i,iaxis)
+          if (xi  <=  xpivot) then
+             inodeparts(nl+counterl) = inodeparts_swap(i)
+             xyzh_soa(nl+counterl,1) = xyzh_swap(i,1)
+             xyzh_soa(nl+counterl,2) = xyzh_swap(i,2)
+             xyzh_soa(nl+counterl,3) = xyzh_swap(i,3)
+             xyzh_soa(nl+counterl,4) = xyzh_swap(i,4)
+             iphase_soa(nl+counterl) = iphase_swap(i)
+             counterl = counterl + 1
+          endif
+       enddo
+       nl = nl + counterl
+       counterr=0
+       !DIR$ ivdep
+       do i = inoderange(1,nnode), inoderange(2,nnode)
+          xi = xyzh_swap(i,iaxis)
+          if (xi  >  xpivot) then
+             inodeparts(nl+counterr) = inodeparts_swap(i)
+             xyzh_soa(nl+counterr,1) = xyzh_swap(i,1)
+             xyzh_soa(nl+counterr,2) = xyzh_swap(i,2)
+             xyzh_soa(nl+counterr,3) = xyzh_swap(i,3)
+             xyzh_soa(nl+counterr,4) = xyzh_swap(i,4)
+             iphase_soa(nl+counterr) = iphase_swap(i)
+             counterr = counterr + 1
+          endif
+       enddo
+       nr = nr - counterr
        inoderange(1,il) = inoderange(1,nnode)
-       inoderange(2,il) = inoderange(1,nnode) + nl - 1
-       inoderange(1,ir) = inoderange(2,nnode) - nr + 1
+       inoderange(2,il) = nl - 1
+       inoderange(1,ir) = nr + 1
        inoderange(2,ir) = inoderange(2,nnode)
-    endif
+       nl = nl - inoderange(1,nnode)
+       nr = inoderange(2,nnode) - nr
 
-    xminl(1) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),1))
-    xminl(2) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),2))
-    xminl(3) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),3))
-    xmaxl(1) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),1))
-    xmaxl(2) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),2))
-    xmaxl(3) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),3))
-    xminr(1) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),1))
-    xminr(2) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),2))
-    xminr(3) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),3))
-    xmaxr(1) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),1))
-    xmaxr(2) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),2))
-    xmaxr(3) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),3))
+       if (nr + nl  /=  npnode) then
+          call error('maketree','number of left + right != parent number of particles while splitting node')
+       endif
+
+       ! see if all the particles ended up in one node, if so, arbitrarily build 2 cells
+       if ((nl==npnode) .or. (nr==npnode)) then
+          ! no need to move particles because if they all ended up in one node,
+          ! then they are still in the original order
+          nl = npnode / 2
+          nr= npnode - counterl
+          inoderange(1,il) = inoderange(1,nnode)
+          inoderange(2,il) = inoderange(1,nnode) + nl - 1
+          inoderange(1,ir) = inoderange(2,nnode) - nr + 1
+          inoderange(2,ir) = inoderange(2,nnode)
+       endif
+
+       xminl(1) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),1))
+       xminl(2) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),2))
+       xminl(3) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),3))
+       xmaxl(1) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),1))
+       xmaxl(2) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),2))
+       xmaxl(3) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),3))
+       xminr(1) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),1))
+       xminr(2) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),2))
+       xminr(3) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),3))
+       xmaxr(1) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),1))
+       xmaxr(2) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),2))
+       xmaxr(3) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),3))
+    else
+       nl = 0
+       nr = 0
+       xminl = xmini
+       xmaxl = xmaxi
+       xminr = xmini
+       xmaxr = xmaxi
+    endif
 
  endif
 
@@ -1433,14 +1447,11 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
     ifirstingroup = (id / groupsize) * groupsize
     if (level == 0) then
        call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
-       ! fatal if there are no particles on this processor
-       if (npcounter==0) then
-          call fatal('maketreeglobal','no particles or all particles dead/accreted on process', id)
-       endif
-       np = npcounter
+    else
+       npcounter = np
     endif
 
-    call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, np, .false., &
+    call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .false., &
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
             ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list, &
             groupsize)
@@ -1473,12 +1484,14 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
        xmaxi = xmaxr
     endif
 
-    do i = inoderange(1,il), inoderange(2,il)
-       ibelong(abs(inodeparts(i))) = idleft
-    enddo
-    do i = inoderange(1,ir), inoderange(2,ir)
-       ibelong(abs(inodeparts(i))) = idright
-    enddo
+    if (np > 0) then
+       do i = inoderange(1,il), inoderange(2,il)
+          ibelong(abs(inodeparts(i))) = idleft
+       enddo
+       do i = inoderange(1,ir), inoderange(2,ir)
+          ibelong(abs(inodeparts(i))) = idright
+       enddo
+    endif
 
     ! move particles to where they belong
     call balancedomains(np)
@@ -1571,22 +1584,5 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
 
 end subroutine maketreeglobal
 
-!-----------------------------------------------------------------------
-!+
-!  relink the linked list after particle exchange
-!+
-!-----------------------------------------------------------------------
-subroutine relink_particles(np,inode,ifirstincell,xyzh)
- use part,      only:isdead_or_accreted
- integer,             intent(inout)     :: np,inode,ifirstincell(:)
- real,                intent(in)        :: xyzh(4,maxp)
- integer                                :: i
-
- ifirstincell(inode) = 0
- do i=1,np
-    ll(i) = ifirstincell(inode)
-    ifirstincell(inode) = i
- enddo
-end subroutine relink_particles
 #endif
 end module kdtree

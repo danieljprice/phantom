@@ -41,6 +41,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  use random,     only:ran1
  use part,       only:periodic
  use stretchmap, only:set_density_profile
+ use domain,     only:i_belong
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master
  integer,          intent(inout) :: np
@@ -157,7 +158,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
              rr2   = rcyl2 + zi*zi
              if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
                 iparttot = iparttot + 1
-                if (i_belong(iparttot) == id) then
+                if (i_belong(iparttot)) then
                    ipart = ipart + 1
                    if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
                    xyzh(1,ipart) = xi
@@ -268,7 +269,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        rr2   = rcyl2 + zi*zi
        if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
           iparttot = iparttot + 1
-          if (i_belong(iparttot) == id) then
+          if (i_belong(iparttot)) then
              ipart = ipart + 1
              if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
              xyzh(1,ipart) = xi
@@ -435,7 +436,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        rr2   = rcyl2 + zi*zi
        if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
           iparttot = iparttot + 1
-          if (i_belong(iparttot) == id) then
+          if (i_belong(iparttot)) then
              ipart = ipart + 1
              if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
              xyzh(1,ipart) = xi
@@ -489,7 +490,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        rr2   = rcyl2 + zi*zi
        if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
           iparttot = iparttot + 1
-          if (i_belong(iparttot) == id) then
+          if (i_belong(iparttot)) then
              ipart = ipart + 1
              if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
              xyzh(1,ipart) = xi
@@ -571,11 +572,5 @@ subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
 
 end subroutine get_ny_nz_closepacked
 
-integer function i_belong(iparttot)
- use io, only:nprocs
- integer(kind=8), intent(in) :: iparttot
-
- i_belong = int(mod(iparttot, int(nprocs, kind=kind(iparttot))), kind=kind(nprocs))
-end function i_belong
 !-------------------------------------------------------------
 end module unifdis

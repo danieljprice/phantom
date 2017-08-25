@@ -141,7 +141,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use stack,     only:stack_remote => dens_stack_1
  use stack,     only:stack_waiting => dens_stack_2
  use stack,     only:stack_redo => dens_stack_3
- use mpiderivs, only:send_cell,recv_cells,check_send_finished,init_cell_exchange,finish_cell_exchange,recv_while_wait
+ use mpiderivs, only:send_cell,recv_cells,check_send_finished,init_cell_exchange, &
+                     finish_cell_exchange,recv_while_wait,reset_cell_counters
 #endif
  use timestep,  only:rho_dtthresh,mod_dtmax,mod_dtmax_now
  use part,      only:ngradh
@@ -183,11 +184,14 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  integer                   :: j,k,l
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
  type(celldens)            :: xrecvbuf(nprocs),xsendbuf
- integer                   :: nsent,mpiits,nlocal
+ integer                   :: mpiits,nlocal
  logical                   :: iterations_finished
  logical                   :: do_export
 
  call init_cell_exchange(xrecvbuf,irequestrecv)
+ stack_waiting%n = 0
+ stack_remote%n = 0
+ stack_redo%n = 0
 #endif
 
  if (iverbose >= 3 .and. id==master) &
@@ -217,8 +221,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 #ifdef MPI
  ! number of local only cells
  nlocal = 0
- ! send counter
- nsent = 0
+ call reset_cell_counters
+
 #endif
 
  rhomax = 0.0
@@ -390,7 +394,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
 !$omp single
  if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
- call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
+ call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
 !$omp end single
 
 !$omp single
@@ -401,6 +405,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  remote_its: do while(.not. iterations_finished)
 !$omp single
     mpiits = mpiits + 1
+    call reset_cell_counters
 !$omp end single
 
     igot_remote: if (stack_remote%n > 0) then
@@ -418,26 +423,26 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
           ! communication happened while computing contributions to remote cells
 !$omp critical
+          call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
           call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
           ! direction return (1)
           call send_cell(cell,1,irequestsend,xsendbuf)
 !$omp end critical
        enddo over_remote
 !$omp enddo
-
 !$omp barrier
-
-       ! reset remote stack
 !$omp single
+       ! reset remote stack
        stack_remote%n = 0
+       ! ensure send has finished
+       call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
 !$omp end single
     endif igot_remote
-
+!$omp barrier
 !$omp single
-    call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
-    call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
+    call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend)
+    call reset_cell_counters
 !$omp end single
-
     iam_waiting: if (stack_waiting%n > 0) then
 !$omp do schedule(runtime)
        over_waiting: do i = 1, stack_waiting%n
@@ -445,6 +450,13 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
           if (any(cell%remote_export(1:nprocs))) then
              print*,id,cell%remote_export(1:nprocs)
+             print*,id,'mpiits',mpiits
+             print*,id,'owner',cell%owner
+             print*,id,'icell',cell%icell
+             print*,id,'npcell',cell%npcell
+             print*,id,'xpos',cell%xpos
+             print*,id,'stackpos',i
+             print*,id,'waitindex',cell%waiting_index
              call fatal('dens', 'not all results returned from remote processor')
           endif
 
@@ -476,25 +488,21 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
        enddo over_waiting
 !$omp enddo
-
 !$omp barrier
-
-       ! reset stacks
 !$omp single
+       ! reset stacks
        stack_waiting%n = 0
+       call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
 !$omp end single
     endif iam_waiting
-
+!$omp barrier
 !$omp single
-    call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
-    call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
+    call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
 !$omp end single
 
 !$omp single
     if (reduceall_mpi('max',stack_redo%n) > 0) then
-       if (stack_redo%n > 0) then
-          call swap_stacks(stack_waiting, stack_redo)
-       endif
+       call swap_stacks(stack_waiting, stack_redo)
     else
        iterations_finished = .true.
     endif
@@ -506,7 +514,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 #endif
 !$omp end parallel
 #ifdef MPI
-
  call finish_cell_exchange(irequestrecv,xsendbuf)
 #endif
 
