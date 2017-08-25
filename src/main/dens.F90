@@ -124,7 +124,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                      mhd_nonideal,nalpha
  use eos,       only:get_spsound,get_temperature
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
- use linklist,  only:ncells,ifirstincell,get_neighbour_list,get_hmaxcell,set_hmaxcell, &
+ use linklist,  only:ncells,ifirstincell,get_neighbour_list,get_hmaxcell, &
                      get_cell_location
  use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho, &
                      ll,get_partinfo,iactive,maxgradh,&
@@ -349,7 +349,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           if (icall == 0) converged = .true.
           if (.not. converged) then
              if (redo_neighbours) then
-                call set_hmaxcell(cell%icell,cell%hmax)
                 call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                       cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti, &
                                       remote_export=remote_export)
@@ -1759,6 +1758,8 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  enddo
  np = np + cell%npcell
  ncalc = ncalc + cell%npcell * cell%nits
+
+ call set_hmaxcell(cell%icell,cell%hmax)
 
 end subroutine store_results
 
