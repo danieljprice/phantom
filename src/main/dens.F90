@@ -36,7 +36,7 @@ module densityforce
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
 
- public :: densityiterate,get_neighbour_stats,vwave,get_alphaloc
+ public :: densityiterate,get_neighbour_stats,get_alphaloc
 
  !--indexing for xpartveci array
  integer, parameter :: &
@@ -1072,37 +1072,6 @@ pure subroutine exactlinear(gradAx,gradAy,gradAz,dAx,dAy,dAz,rmatrix,ddenom)
  gradAz =(dAx*rmatrix(3) + dAy*rmatrix(5) + dAz*rmatrix(6))*ddenom
 
 end subroutine exactlinear
-
-!----------------------------------------------------------------
-!+
-!  query function to return the wave speed
-!  (called from step for decay timescale in alpha switches)
-!+
-!----------------------------------------------------------------
-real function vwave(xyzhi,pmassi,ieos,vxyzui,Bxyzi)
- use eos,  only:equationofstate
- use part, only:maxp,mhd,maxvxyzu,rhoh
- real,    intent(in) :: xyzhi(4),pmassi
- real,    intent(in) :: vxyzui(maxvxyzu)
- integer, intent(in) :: ieos
- real,    intent(in), optional :: Bxyzi(3)
- real :: spsoundi,hi,rhoi,ponrhoi,valfven2i
-
- hi = xyzhi(4)
- rhoi = rhoh(hi,pmassi)
- if (maxvxyzu==4) then
-    call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzhi(1),xyzhi(2),xyzhi(3),vxyzui(4))
- else
-    call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzhi(1),xyzhi(2),xyzhi(3))
- endif
- if (present(Bxyzi)) then
-    valfven2i = (Bxyzi(1)**2 + Bxyzi(2)**2 + Bxyzi(3)**2)/rhoi
-    vwave = sqrt(valfven2i**2 + spsoundi**2)
- else
-    vwave = spsoundi
- endif
-
-end function vwave
 
 !-------------------------------------------------------------------------------
 !+
