@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, part, random, stretchmap
+!  DEPENDENCIES: domain, part, random, stretchmap
 !+
 !--------------------------------------------------------------------------
 module unifdis

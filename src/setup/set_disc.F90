@@ -42,8 +42,8 @@
 !    umass       -- mass units (cgs)
 !    utime       -- time units (cgs)
 !
-!  DEPENDENCIES: dim, eos, externalforces, infile_utils, io, options, part,
-!    physcon, random, units
+!  DEPENDENCIES: dim, domain, eos, externalforces, infile_utils, io,
+!    mpiutils, options, part, physcon, random, units
 !+
 !--------------------------------------------------------------------------
 module setdisc

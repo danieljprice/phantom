@@ -19,9 +19,9 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, checksetup, deriv, dim, energies, eos,
-!    fileutils, io, kdtree, kernel, options, part, physcon, ptmass,
-!    setbinary, setdisc, spherical, step_lf_global, testutils, timestep,
-!    units
+!    fileutils, io, kdtree, kernel, mpiutils, options, part, physcon,
+!    ptmass, setbinary, setdisc, spherical, step_lf_global, testutils,
+!    timestep, units
 !+
 !--------------------------------------------------------------------------
 module testptmass

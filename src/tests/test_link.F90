@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, io, kdtree, kernel, linklist, mpiutils,
-!    part, random, testutils, timing, unifdis
+!  DEPENDENCIES: boundary, dim, domain, io, kdtree, kernel, linklist,
+!    mpiutils, part, random, testutils, timing, unifdis
 !+
 !--------------------------------------------------------------------------
 module testlink
