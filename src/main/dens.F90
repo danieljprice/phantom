@@ -125,7 +125,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use eos,       only:get_spsound,get_temperature
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ncells,ifirstincell,get_neighbour_list,get_hmaxcell, &
-                     get_cell_location
+                     get_cell_location,set_hmaxcell
  use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho, &
                      ll,get_partinfo,iactive,maxgradh,&
                      hrho,iphase,maxphase,igas,idust,iboundary,iamgas,periodic,&
@@ -348,6 +348,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           if (icall == 0) converged = .true.
           if (.not. converged) then
              if (redo_neighbours) then
+                call set_hmaxcell(cell%icell,cell%hmax)
                 call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                       cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti, &
                                       remote_export=remote_export)
@@ -466,6 +467,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           call recv_cells(stack_remote,xrecvbuf,irequestrecv)
 !$omp end critical
           if (.not. converged) then
+             call set_hmaxcell(cell%icell,cell%hmax)
              call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                     cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti, &
                                     remote_export=remote_export)
@@ -1294,7 +1296,7 @@ pure subroutine compute_hmax(cell,redo_neighbours)
 
  redo_neighbours = .false.
  hmax_old = cell%hmax
- hmax     = maxval(cell%h(1:cell%npcell))
+ hmax     = 1.01*maxval(cell%h(1:cell%npcell))
  if (hmax > hmax_old) redo_neighbours = .true.
  cell%hmax  = hmax
  cell%rcuti = radkern*hmax
@@ -1575,9 +1577,6 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  real         :: divcurlBi(ndivcurlB)
  real         :: temperaturei,Bi
  real         :: rho1i,term,denom,rhodusti
- real         :: hmax
-
- hmax = 0.
 
  do i = 1,cell%npcell
     lli = inodeparts(cell%arr_index(i))
@@ -1617,7 +1616,6 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
     !
     xyzh(4,lli) = hrho(rhoi,pmassi)
     xyzh_soa(cell%arr_index(i),4) = xyzh(4,lli)
-    hmax = max(hmax, xyzh(4,lli))
 
     if (xyzh(4,lli) < 0.) call fatal('densityiterate','setting negative h from hrho',i,var='rhoi',val=real(rhoi))
 
@@ -1730,8 +1728,6 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  enddo
  np = np + cell%npcell
  ncalc = ncalc + cell%npcell * cell%nits
-
- call set_hmaxcell(cell%icell,hmax)
 
 end subroutine store_results
 
