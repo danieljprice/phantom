@@ -103,7 +103,7 @@ module mpiutils
 !--generic interface bcast_mpi
 !
  interface bcast_mpi
-  module procedure bcast_mpi_int, bcast_mpi_int8, bcast_mpi_real4, bcast_mpi_real8, bcast_mpi_real8arr2
+  module procedure bcast_mpi_int, bcast_mpi_int8, bcast_mpi_real4, bcast_mpi_real8, bcast_mpi_real8arr2, bcast_mpi_real4arr2
  end interface
 !
 !--generic interface fill_buffer
@@ -1256,6 +1256,25 @@ subroutine bcast_mpi_real8arr2(dval)
 #endif
 
 end subroutine bcast_mpi_real8arr2
+
+!--------------------------------------------------------------------------
+!+
+!  function performing MPI BROADCAST (real*4 2d array)
+!+
+!--------------------------------------------------------------------------
+subroutine bcast_mpi_real4arr2(dval)
+#ifdef MPI
+ use io, only:fatal,master
+#endif
+ real(kind=4), intent(inout) :: dval(:,:)
+#ifdef MPI
+
+ call MPI_BCAST(dval,size(dval),MPI_REAL4,master,MPI_COMM_WORLD,mpierr)
+ if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
+
+#endif
+
+end subroutine bcast_mpi_real4arr2
 
 !--------------------------------------------------------------------------
 !+
