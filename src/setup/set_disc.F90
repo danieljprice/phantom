@@ -72,7 +72,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  use part,    only:maxp,igas,idust,set_particle_type,labeltype,gravity,maxtypes
  use io,      only:fatal,warning,stdout
  integer,                     intent(in)    :: id,master
- integer,                     intent(in)    :: nparttot
+ integer, optional,           intent(in)    :: nparttot
  integer,                     intent(out)   :: npart
  integer, optional,           intent(in)    :: npart_start,isink,indexprofile,indexprofiledust
  real,                        intent(in)    :: rmin,rmax
