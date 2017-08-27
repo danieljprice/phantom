@@ -76,6 +76,7 @@ subroutine test_link(ntests,npass)
 !--set up a random particle distribution
 !
  npart = 0
+ nptot = 0
 #ifdef PERIODIC
  xminp = xmin
  xmaxp = xmax
