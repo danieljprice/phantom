@@ -78,6 +78,7 @@ end subroutine reset_centreofmass
 !+
 !----------------------------------------------------------------
 subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,mass)
+ use io,       only:id,master
  use part,     only:massoftype,iamtype,iphase,igas,maxphase,maxp,isdead_or_accreted
  use mpiutils, only:reduceall_mpi
  real,         intent(out) :: xcom(3),vcom(3)
@@ -130,7 +131,7 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
  enddo
 !$omp enddo
 !$omp end parallel
- if (present(xyzmh_ptmass) .and. present(vxyz_ptmass) .and. present(nptmass)) then
+ if (id==master .and. present(xyzmh_ptmass) .and. present(vxyz_ptmass) .and. present(nptmass)) then
     do i=1,nptmass
        pmassi = xyzmh_ptmass(4,i)
        totmass = totmass + pmassi

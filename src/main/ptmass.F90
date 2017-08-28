@@ -53,6 +53,7 @@ module ptmass
  public :: ptmass_not_obscured
  public :: ptmass_accrete, ptmass_create
  public :: write_options_ptmass, read_options_ptmass
+ public :: update_ptmass
 
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0
@@ -227,6 +228,7 @@ end subroutine get_accel_sink_gas
 !----------------------------------------------------------------
 subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,&
             iexternalforce,ti)
+ use io,       only:id,master
 #ifdef FINVSQRT
  use fastmath, only:finvsqrt
 #endif
@@ -783,7 +785,6 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
 #endif
  real    :: xyzcache(maxcache,3)
  real    :: dptmass(ndptmass,nptmass+1)
- real    :: newptmass(nptmass+1),newptmass1(nptmass+1)
  real    :: xi,yi,zi,hi,hi1,hi21,xj,yj,zj,hj1,hj21,xk,yk,zk,hk1
  real    :: rij2,rik2,rjk2,dx,dy,dz,h_acc2
  real    :: vxi,vyi,vzi,dv2,dvx,dvy,dvz
@@ -1167,21 +1168,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
        if (accreted) nacc = nacc + 1
     enddo
     ! update ptmass position, spin, velocity, acceleration, and mass
-    newptmass(1:nptmass)            = xyzmh_ptmass(4,1:nptmass) + dptmass(idmsi,1:nptmass)
-    newptmass1(1:nptmass)           = 1./newptmass(1:nptmass)
-    xyzmh_ptmass(1,1:nptmass)       = (dptmass(idxmsi,1:nptmass) + xyzmh_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-    xyzmh_ptmass(2,1:nptmass)       = (dptmass(idymsi,1:nptmass) + xyzmh_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-    xyzmh_ptmass(3,1:nptmass)       = (dptmass(idzmsi,1:nptmass) + xyzmh_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-    xyzmh_ptmass(ispinx,1:nptmass)  = xyzmh_ptmass(ispinx,1:nptmass) + dptmass(idspinxsi,1:nptmass)
-    xyzmh_ptmass(ispiny,1:nptmass)  = xyzmh_ptmass(ispiny,1:nptmass) + dptmass(idspinysi,1:nptmass)
-    xyzmh_ptmass(ispinz,1:nptmass)  = xyzmh_ptmass(ispinz,1:nptmass) + dptmass(idspinzsi,1:nptmass)
-    vxyz_ptmass(1,1:nptmass)        = (dptmass(idvxmsi,1:nptmass) + vxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-    vxyz_ptmass(2,1:nptmass)        = (dptmass(idvymsi,1:nptmass) + vxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-    vxyz_ptmass(3,1:nptmass)        = (dptmass(idvzmsi,1:nptmass) + vxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-    fxyz_ptmass(1,1:nptmass)        = (dptmass(idfxmsi,1:nptmass) + fxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-    fxyz_ptmass(2,1:nptmass)        = (dptmass(idfymsi,1:nptmass) + fxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-    fxyz_ptmass(3,1:nptmass)        = (dptmass(idfzmsi,1:nptmass) + fxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
-    xyzmh_ptmass(4,1:nptmass)       = newptmass(1:nptmass)
+
+    call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 
     write(iprint,"(a,i3,a,4(es10.3,1x),a,i6,a,es10.3)") ' created ptmass #',nptmass,&
      ' at (x,y,z,t)=(',xyzmh_ptmass(1:3,nptmass),time,') by accreting ',nacc,' particles: M=',xyzmh_ptmass(4,nptmass)
@@ -1503,4 +1491,33 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
 
 end subroutine read_options_ptmass
 
+subroutine update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
+ use part,  only:ispinx,ispiny,ispinz,imacc
+ real, intent(in)    :: dptmass(:,:)
+ real, intent(inout) :: xyzmh_ptmass(:,:)
+ real, intent(inout) :: vxyz_ptmass(:,:)
+ real, intent(inout) :: fxyz_ptmass(:,:)
+ integer, intent(in) :: nptmass
+
+ real    :: newptmass(nptmass),newptmass1(nptmass)
+
+ ! update ptmass position, spin, velocity, acceleration, and mass
+ newptmass(1:nptmass)           =xyzmh_ptmass(4,1:nptmass)+dptmass(idmsi,1:nptmass)
+ newptmass1(1:nptmass)          =1./newptmass(1:nptmass)
+ xyzmh_ptmass(1,1:nptmass)      =(dptmass(idxmsi,1:nptmass)+xyzmh_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+ xyzmh_ptmass(2,1:nptmass)      =(dptmass(idymsi,1:nptmass)+xyzmh_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+ xyzmh_ptmass(3,1:nptmass)      =(dptmass(idzmsi,1:nptmass)+xyzmh_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+ xyzmh_ptmass(imacc, 1:nptmass) = xyzmh_ptmass(imacc,1:nptmass)+dptmass(idmsi,    1:nptmass)
+ xyzmh_ptmass(ispinx,1:nptmass) =xyzmh_ptmass(ispinx,1:nptmass)+dptmass(idspinxsi,1:nptmass)
+ xyzmh_ptmass(ispiny,1:nptmass) =xyzmh_ptmass(ispiny,1:nptmass)+dptmass(idspinysi,1:nptmass)
+ xyzmh_ptmass(ispinz,1:nptmass) =xyzmh_ptmass(ispinz,1:nptmass)+dptmass(idspinzsi,1:nptmass)
+ vxyz_ptmass(1,1:nptmass)       =(dptmass(idvxmsi,1:nptmass)+vxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+ vxyz_ptmass(2,1:nptmass)       =(dptmass(idvymsi,1:nptmass)+vxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+ vxyz_ptmass(3,1:nptmass)       =(dptmass(idvzmsi,1:nptmass)+vxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+ fxyz_ptmass(1,1:nptmass)       =(dptmass(idfxmsi,1:nptmass)+fxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+ fxyz_ptmass(2,1:nptmass)       =(dptmass(idfymsi,1:nptmass)+fxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+ fxyz_ptmass(3,1:nptmass)       =(dptmass(idfzmsi,1:nptmass)+fxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
+ xyzmh_ptmass(4,1:nptmass)      =newptmass(1:nptmass)
+
+end subroutine update_ptmass
 end module ptmass

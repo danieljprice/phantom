@@ -169,7 +169,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #endif
 #ifdef MPI
  use mpiderivs,   only:send_cell,recv_cells,check_send_finished,init_cell_exchange,finish_cell_exchange, &
-                       recv_while_wait
+                       recv_while_wait,reset_cell_counters
  use stack,       only:reserve_stack
  use stack,       only:stack_remote => force_stack_1
  use stack,       only:stack_waiting => force_stack_2
@@ -226,7 +226,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  type(cellforce)           :: cell
 
 #ifdef MPI
- integer                   :: j,k,l
  logical                   :: do_export
 
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
@@ -306,6 +305,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
 #ifdef MPI
  call init_cell_exchange(xrecvbuf,irequestrecv)
+ stack_waiting%n = 0
+ stack_remote%n = 0
+ call reset_cell_counters
 #endif
 
 !
@@ -451,7 +453,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
 !$omp single
  if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
- call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
+ call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
+ call reset_cell_counters
 !$omp end single
 
  igot_remote: if (stack_remote%n > 0) then
@@ -472,6 +475,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
        cell%remote_export(id+1) = .false.
 
 !$omp critical
+       call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
        call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
        call send_cell(cell,1,irequestsend,xsendbuf)
 !$omp end critical
@@ -480,12 +484,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp barrier
 !$omp single
     stack_remote%n = 0
+    call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
 !$omp end single
  endif igot_remote
-
+!$omp barrier
 !$omp single
- call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
- call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,xsendbuf,irequestsend)
+ call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend)
 !$omp end single
 
  iam_waiting: if (stack_waiting%n > 0) then
@@ -500,7 +504,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,straintensor, &
                                           divBsymm,divcurlv,dBevol,ddustfrac, deltav, &
-                                          dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtmini,dtmaxi, &
+                                          dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                                           nbinmaxnew,nbinmaxstsnew,ncheckbin, &
                                           ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd, &

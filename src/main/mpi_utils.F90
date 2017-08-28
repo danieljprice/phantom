@@ -62,6 +62,8 @@ module mpiutils
  integer, public :: status(MPI_STATUS_SIZE)
  integer, public :: MPI_DEFAULT_REAL
 
+ integer, public :: comm_cellexchange, comm_cellcount, comm_balance, comm_balancecount
+
 !
 !--generic interface send_recv
 !
@@ -101,7 +103,7 @@ module mpiutils
 !--generic interface bcast_mpi
 !
  interface bcast_mpi
-  module procedure bcast_mpi_int, bcast_mpi_int8, bcast_mpi_real4, bcast_mpi_real8
+  module procedure bcast_mpi_int, bcast_mpi_int8, bcast_mpi_real4, bcast_mpi_real8, bcast_mpi_real8arr2, bcast_mpi_real4arr2
  end interface
 !
 !--generic interface fill_buffer
@@ -146,6 +148,11 @@ subroutine init_mpi(id,nprocs)
  call MPI_COMM_RANK(MPI_COMM_WORLD,id,mpierr)
  if (mpierr /= 0) call fatal('init_mpi','error starting mpi')
 
+ call MPI_COMM_DUP(MPI_COMM_WORLD,comm_cellexchange,mpierr)
+ call MPI_COMM_DUP(MPI_COMM_WORLD,comm_cellcount,mpierr)
+ call MPI_COMM_DUP(MPI_COMM_WORLD,comm_balance,mpierr)
+ call MPI_COMM_DUP(MPI_COMM_WORLD,comm_balancecount,mpierr)
+
  if (id==master) print "(a,i0,a)",' running in MPI on ',nprocs,' threads'
 !
 !--also work out the size of default real for MPI communications
@@ -174,6 +181,12 @@ end subroutine init_mpi
 subroutine finalise_mpi()
 #ifdef MPI
  use io, only:fatal
+
+ call MPI_COMM_FREE(comm_cellexchange,mpierr)
+ call MPI_COMM_FREE(comm_cellcount,mpierr)
+ call MPI_COMM_FREE(comm_balance,mpierr)
+ call MPI_COMM_FREE(comm_balancecount,mpierr)
+
  call MPI_FINALIZE(mpierr)
  if (mpierr /= 0) call fatal('reduce','error in mpi_finalize call')
 #endif
@@ -1224,6 +1237,44 @@ subroutine bcast_mpi_real8(dval)
 #endif
 
 end subroutine bcast_mpi_real8
+
+!--------------------------------------------------------------------------
+!+
+!  function performing MPI BROADCAST (real*8 2d array)
+!+
+!--------------------------------------------------------------------------
+subroutine bcast_mpi_real8arr2(dval)
+#ifdef MPI
+ use io, only:fatal,master
+#endif
+ real(kind=8), intent(inout) :: dval(:,:)
+#ifdef MPI
+
+ call MPI_BCAST(dval,size(dval),MPI_REAL8,master,MPI_COMM_WORLD,mpierr)
+ if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
+
+#endif
+
+end subroutine bcast_mpi_real8arr2
+
+!--------------------------------------------------------------------------
+!+
+!  function performing MPI BROADCAST (real*4 2d array)
+!+
+!--------------------------------------------------------------------------
+subroutine bcast_mpi_real4arr2(dval)
+#ifdef MPI
+ use io, only:fatal,master
+#endif
+ real(kind=4), intent(inout) :: dval(:,:)
+#ifdef MPI
+
+ call MPI_BCAST(dval,size(dval),MPI_REAL4,master,MPI_COMM_WORLD,mpierr)
+ if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
+
+#endif
+
+end subroutine bcast_mpi_real4arr2
 
 !--------------------------------------------------------------------------
 !+
