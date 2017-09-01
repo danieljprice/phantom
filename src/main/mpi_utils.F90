@@ -93,6 +93,12 @@ module mpiutils
   module procedure reduceall_mpi_real, reduceall_mpi_real4, reduceall_mpi_int, reduceall_mpi_int8, reduceall_mpi_int1, &
                      reduceall_mpi_realarr, reduceall_mpi_real4arr, reduceall_mpi_int4arr
  end interface
+ !
+ !--generic interface loc_mpi
+ !
+  interface loc_mpi
+   module procedure loc_mpi_real
+  end interface
 !
 !  generic interface reduce_in_place
 !
@@ -124,6 +130,7 @@ module mpiutils
  public :: bcast_mpi
  public :: barrier_mpi
  public :: fill_buffer, unfill_buf
+ public :: loc_mpi
 
  private
 
@@ -904,6 +911,38 @@ subroutine reduce_in_place_mpi_real4arr2(string,xproc)
 
 end subroutine reduce_in_place_mpi_real4arr2
 
+!--------------------------------------------------------------------------
+!+
+!  min/max reduction identifying which proc has the maximum
+!+
+!--------------------------------------------------------------------------
+subroutine loc_mpi_real(string,xproc,loc)
+#ifdef MPI
+ use io, only:fatal,id
+#endif
+ character(len=*), intent(in)    :: string
+ real(kind=8),     intent(inout) :: xproc
+ integer,          intent(out)   :: loc
+#ifdef MPI
+ real(kind=8) :: xred(2),xsend(2)
+
+ xsend(1) = xproc
+ xsend(2) = float(id)
+ select case(trim(string))
+ case('max')
+    call MPI_ALLREDUCE(xsend,xred,1,MPI_REAL8,MPI_MAXLOC,MPI_COMM_WORLD,mpierr)
+ case('min')
+    call MPI_ALLREDUCE(xsend,xred,1,MPI_REAL8,MPI_MINLOC,MPI_COMM_WORLD,mpierr)
+ case default
+    call fatal('reduceall (mpi)','unknown reduction operation')
+ end select
+ if (mpierr /= 0) call fatal('reduceall','error in mpi_reduce call')
+ xproc = xred(1)
+ loc = int(xred(2))
+#endif
+
+end subroutine loc_mpi_real
+
 #ifdef MPI
 !----------------------------------------------------------------
 !+
@@ -1167,14 +1206,21 @@ end subroutine cart_shift_diag
 !  function performing MPI BROADCAST (integer)
 !+
 !--------------------------------------------------------------------------
-subroutine bcast_mpi_int(ival)
+subroutine bcast_mpi_int(ival,src)
 #ifdef MPI
  use io, only:fatal,master
 #endif
  integer, intent(inout) :: ival
+ integer, optional, intent(in) :: src
 #ifdef MPI
+ integer :: sendsrc
+ if (present(src)) then
+    sendsrc = src
+ else
+    sendsrc = master
+ endif
 
- call MPI_BCAST(ival,1,MPI_INTEGER,master,MPI_COMM_WORLD,mpierr)
+ call MPI_BCAST(ival,1,MPI_INTEGER,sendsrc,MPI_COMM_WORLD,mpierr)
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
 
 #endif
@@ -1186,14 +1232,21 @@ end subroutine bcast_mpi_int
 !  function performing MPI BROADCAST (integer*8)
 !+
 !--------------------------------------------------------------------------
-subroutine bcast_mpi_int8(ival)
+subroutine bcast_mpi_int8(ival,src)
 #ifdef MPI
  use io, only:fatal,master
 #endif
  integer(kind=8), intent(inout) :: ival
+ integer, optional, intent(in) :: src
 #ifdef MPI
+ integer :: sendsrc
+ if (present(src)) then
+    sendsrc = src
+ else
+    sendsrc = master
+ endif
 
- call MPI_BCAST(ival,1,MPI_INTEGER8,master,MPI_COMM_WORLD,mpierr)
+ call MPI_BCAST(ival,1,MPI_INTEGER8,sendsrc,MPI_COMM_WORLD,mpierr)
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
 
 #endif
@@ -1205,14 +1258,21 @@ end subroutine bcast_mpi_int8
 !  function performing MPI BROADCAST (real*4)
 !+
 !--------------------------------------------------------------------------
-subroutine bcast_mpi_real4(rval)
+subroutine bcast_mpi_real4(rval,src)
 #ifdef MPI
  use io, only:fatal,master
 #endif
  real(kind=4), intent(inout) :: rval
+ integer, optional, intent(in) :: src
 #ifdef MPI
+ integer :: sendsrc
+ if (present(src)) then
+    sendsrc = src
+ else
+    sendsrc = master
+ endif
 
- call MPI_BCAST(rval,1,MPI_REAL4,master,MPI_COMM_WORLD,mpierr)
+ call MPI_BCAST(rval,1,MPI_REAL4,sendsrc,MPI_COMM_WORLD,mpierr)
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
 
 #endif
@@ -1224,14 +1284,21 @@ end subroutine bcast_mpi_real4
 !  function performing MPI BROADCAST (real*8)
 !+
 !--------------------------------------------------------------------------
-subroutine bcast_mpi_real8(dval)
+subroutine bcast_mpi_real8(dval,src)
 #ifdef MPI
  use io, only:fatal,master
 #endif
  real(kind=8), intent(inout) :: dval
+ integer, optional, intent(in) :: src
 #ifdef MPI
+ integer :: sendsrc
+ if (present(src)) then
+    sendsrc = src
+ else
+    sendsrc = master
+ endif
 
- call MPI_BCAST(dval,1,MPI_REAL8,master,MPI_COMM_WORLD,mpierr)
+ call MPI_BCAST(dval,1,MPI_REAL8,sendsrc,MPI_COMM_WORLD,mpierr)
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
 
 #endif
@@ -1243,14 +1310,20 @@ end subroutine bcast_mpi_real8
 !  function performing MPI BROADCAST (real*8 2d array)
 !+
 !--------------------------------------------------------------------------
-subroutine bcast_mpi_real8arr2(dval)
+subroutine bcast_mpi_real8arr2(dval,src)
 #ifdef MPI
  use io, only:fatal,master
 #endif
  real(kind=8), intent(inout) :: dval(:,:)
+ integer, optional, intent(in) :: src
 #ifdef MPI
-
- call MPI_BCAST(dval,size(dval),MPI_REAL8,master,MPI_COMM_WORLD,mpierr)
+ integer :: sendsrc
+ if (present(src)) then
+    sendsrc = src
+ else
+    sendsrc = master
+ endif
+ call MPI_BCAST(dval,size(dval),MPI_REAL8,sendsrc,MPI_COMM_WORLD,mpierr)
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
 
 #endif
@@ -1262,14 +1335,21 @@ end subroutine bcast_mpi_real8arr2
 !  function performing MPI BROADCAST (real*4 2d array)
 !+
 !--------------------------------------------------------------------------
-subroutine bcast_mpi_real4arr2(dval)
+subroutine bcast_mpi_real4arr2(dval,src)
 #ifdef MPI
  use io, only:fatal,master
 #endif
  real(kind=4), intent(inout) :: dval(:,:)
+ integer, optional, intent(in) :: src
 #ifdef MPI
+ integer :: sendsrc
+ if (present(src)) then
+    sendsrc = src
+ else
+    sendsrc = master
+ endif
 
- call MPI_BCAST(dval,size(dval),MPI_REAL4,master,MPI_COMM_WORLD,mpierr)
+ call MPI_BCAST(dval,size(dval),MPI_REAL4,sendsrc,MPI_COMM_WORLD,mpierr)
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
 
 #endif

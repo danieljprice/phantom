@@ -68,6 +68,12 @@ module ptmass
  integer, public :: ipart_rhomax
  real,    public :: r_crit2,rho_crit
 
+ real,            public :: rhomax_xyzh(4)
+ real,            public :: rhomax_vxyz(3)
+ integer(kind=1), public :: rhomax_iphase
+ real(kind=4),    public :: rhomax_divv
+ integer(kind=1), public :: rhomax_ibin
+
  ! calibration of timestep control on sink-sink and sink-gas orbital integration
  ! this is hardwired because can be adjusted by changing C_force
  ! just means that with the default setting of C_force the orbits are accurate
@@ -750,7 +756,8 @@ end subroutine ptmass_accrete
 ! Conditions are given in section 2.2.2 of BBP95 and in the Phantom paper
 !-------------------------------------------------------------------------
 subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype,&
-                         xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
+                         xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time,&
+                         xyzhi,vxyzi,iphasei_test,divvi_test,ibini)
  use part,   only:ihacc,ihsoft,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
                   ispinx,ispiny,ispinz
  use dim,    only:maxp,maxneigh,maxvxyzu
@@ -768,14 +775,19 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
  use options,  only:ieos
  use units,    only:unit_density
  use io_summary, only:summary_variable_rhomax,summary_ptmass_fail
- integer, intent(inout) :: nptmass
- integer, intent(in)    :: npart,itest
- real,    intent(inout) :: xyzh(:,:)
- real,    intent(in)    :: vxyzu(:,:), fxyzu(:,:), fext(:,:), massoftype(:)
- real(4), intent(in)    :: divcurlv(:,:)
- real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass)
- real,    intent(inout) :: vxyz_ptmass(3,maxptmass),fxyz_ptmass(4,maxptmass)
- real,    intent(in)    :: time
+ use mpiutils, only:reduceall_mpi
+ integer,         intent(inout) :: nptmass
+ integer,         intent(in)    :: npart,itest
+ real,            intent(inout) :: xyzh(:,:)
+ real,            intent(in)    :: vxyzu(:,:), fxyzu(:,:), fext(:,:), massoftype(:)
+ real(4),         intent(in)    :: divcurlv(:,:)
+ real,            intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass)
+ real,            intent(inout) :: vxyz_ptmass(3,maxptmass),fxyz_ptmass(4,maxptmass)
+ real,            intent(in)    :: time
+ real, optional,  intent(in)    :: xyzhi(4),vxyzi(3)
+ real(kind=4),    optional, intent(in) :: divvi_test
+ integer(kind=1), optional, intent(in) :: iphasei_test,ibini
+ integer(kind=1) :: iphasei
  integer :: nneigh
  integer :: listneigh(maxneigh)
  integer, parameter :: maxcache      = 12000
@@ -798,21 +810,41 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
  logical :: accreted,iactivej,isdustj,iactivek,isdustk,calc_exact_epot
 
  ifail  = 0
- if (itest <= 0 .or. itest > npart) return
  ifail7 = 0
 
  ! itest's characteristics
- xi = xyzh(1,itest)
- yi = xyzh(2,itest)
- zi = xyzh(3,itest)
- hi = xyzh(4,itest)
- vxi = vxyzu(1,itest)
- vyi = vxyzu(2,itest)
- vzi = vxyzu(3,itest)
+ if (present(xyzhi)) then
+    xi = xyzhi(1)
+    yi = xyzhi(2)
+    zi = xyzhi(3)
+    hi = xyzhi(4)
+    vxi = vxyzi(1)
+    vyi = vxyzi(2)
+    vzi = vxyzi(3)
+    iphasei= iphasei_test
+    divvi = divvi_test
+#ifdef IND_TIMESTEPS
+    ibin_itest = ibini
+#endif
+  else
+    if (itest <= 0 .or. itest > npart) return
+    xi = xyzh(1,itest)
+    yi = xyzh(2,itest)
+    zi = xyzh(3,itest)
+    hi = xyzh(4,itest)
+    vxi = vxyzu(1,itest)
+    vyi = vxyzu(2,itest)
+    vzi = vxyzu(3,itest)
+    iphasei = iphase(itest)
+    divvi = divcurlv(1,itest)
+#ifdef IND_TIMESTEPS
+    ibin_itest = ibin(itest)
+#endif
+ endif
  hi1  = 1.0/hi
  hi21 = hi1**2
  if (maxphase==maxp) then
-    itype = iamtype(iphase(itest))
+    itype = iamtype(iphasei)
  else
     itype = igas
  endif
@@ -837,7 +869,6 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
  endif
 
  ! CHECK 1: divv < 0
- divvi = divcurlv(1,itest)
  if (divvi > 0._4) then
     if (iverbose >= 1) write(iprint,"(/,1x,a)") 'ptmass_create: FAILED because div v > 0'
     call summary_ptmass_fail(6)
@@ -863,10 +894,6 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
  erotz  = 0.
  epot_mass = 0.
  epot_rad  = 0.
-#ifdef IND_TIMESTEPS
- ibin_itest = ibin(itest)
- !ibinsink   = 0
-#endif
 
  ! CHECK 3: all neighbours within h_acc are all active ( & perform math for checks 4-6)
  ! find neighbours within h_acc
@@ -1059,6 +1086,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
        ifail = 7
     endif
  endif
+
  !
  !--Continue checks (non-sensical for ifail==1 since energies not completely calculated)
  if (ifail==0 .or. (record_created .and. ifail > 1)) then
@@ -1068,6 +1096,10 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
     eroty = 0.5*eroty
     erotz = 0.5*erotz
     erot  = sqrt(erotx*erotx + eroty*eroty + erotz*erotz)
+
+    ekin = reduceall_mpi('+', ekin)
+    erot = reduceall_mpi('+', erot)
+
     if (gravity) then
        if (.not. calc_exact_epot) then
           ! Approximate the potential enegy by approximating a uniform density sphere.
@@ -1167,8 +1199,11 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
 
        if (accreted) nacc = nacc + 1
     enddo
-    ! update ptmass position, spin, velocity, acceleration, and mass
 
+    ! perform reduction just for this sink
+    call reduce_in_place_mpi('+',dptmass(:,nptmass))
+
+    ! update ptmass position, spin, velocity, acceleration, and mass
     call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 
     write(iprint,"(a,i3,a,4(es10.3,1x),a,i6,a,es10.3)") ' created ptmass #',nptmass,&
