@@ -42,11 +42,14 @@ module linklist
 
  type(kdnode), public :: nodeglobal(ncellsmax+1)
  type(kdnode), public :: node(ncellsmax+1)
+ integer              :: nodemap(ncellsmax+1)
+ integer              :: globallevel,refinelevels
 
  public :: set_linklist, get_neighbour_list, write_inopts_link, read_inopts_link
  public :: get_distance_from_centre_of_mass, getneigh_pos
  public :: set_hmaxcell,get_hmaxcell,update_hmax_remote
  public :: get_cell_location
+ public :: sync_hmax_mpi
 
  private
 
@@ -70,7 +73,7 @@ subroutine set_hmaxcell(inode,hmaxcell)
  node(n)%hmax = hmaxcell
 
  ! walk tree up
- do while (node(n)%parent  /=  0)
+ do while (node(n)%parent /= 0)
     n = node(n)%parent
 !$omp critical (hmax)
     node(n)%hmax = max(node(n)%hmax, hmaxcell)
@@ -138,7 +141,7 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
  real,    intent(in)    :: vxyzu(:,:)
 
 #ifdef MPI
- call maketreeglobal(nodeglobal,node,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells)
+ call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells)
 #else
  call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
 #endif
@@ -305,5 +308,36 @@ subroutine get_cell_location(inode,xpos,xsizei,rcuti)
  rcuti   = radkern*node(inode)%hmax
 
 end subroutine get_cell_location
+
+subroutine sync_hmax_mpi
+ use mpiutils,  only:reduceall_mpi
+ use io,        only:nprocs,id
+ integer :: i, n
+ real    :: hmax(2**(globallevel+refinelevels+1)-1)
+
+ hmax(:) = 0.0
+ ! copy hmax values into contiguous array
+ do i = 2,2**(refinelevels+1)-1
+    hmax(nodemap(i)) = node(i)%hmax
+ enddo
+
+ ! reduce across threads
+ hmax = reduceall_mpi('max', hmax)
+
+ ! put values back into node
+ do i = 2*nprocs,2**(globallevel+refinelevels+1)-1
+    nodeglobal(i)%hmax = hmax(i)
+ enddo
+
+ ! walk tree up
+ do i = 2*nprocs,4*nprocs
+    n = i
+    do while (nodeglobal(n)%parent /= 0)
+       n = nodeglobal(n)%parent
+       nodeglobal(n)%hmax = max(nodeglobal(n)%hmax, hmax(i))
+    enddo
+ enddo
+
+end subroutine sync_hmax_mpi
 
 end module linklist

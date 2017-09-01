@@ -125,7 +125,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use eos,       only:get_spsound,get_temperature
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ncells,ifirstincell,get_neighbour_list,get_hmaxcell, &
-                     get_cell_location,set_hmaxcell
+                     get_cell_location,set_hmaxcell,sync_hmax_mpi
  use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho, &
                      ll,get_partinfo,iactive,maxgradh,&
                      hrho,iphase,maxphase,igas,idust,iboundary,iamgas,periodic,&
@@ -515,6 +515,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp end parallel
 #ifdef MPI
  call finish_cell_exchange(irequestrecv,xsendbuf)
+ call sync_hmax_mpi
 #endif
 
  ! reduce max stress across MPI procs

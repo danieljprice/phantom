@@ -1389,7 +1389,7 @@ end subroutine add_child_nodes
 !+
 !-------------------------------------------------------------------------------
 #ifdef MPI
-subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,ncells)
+subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,np,ndim,cellatid,ifirstincell,ncells)
  use io,           only:fatal,warning,id,nprocs
  use mpiutils,     only:reduceall_mpi
  use domain,       only:ibelong
@@ -1399,6 +1399,9 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
 
  type(kdnode), intent(out)     :: nodeglobal(ncellsmax+1)
  type(kdnode), intent(out)     :: node(ncellsmax+1)
+ integer,      intent(out)     :: nodemap(ncellsmax+1)
+ integer,      intent(out)     :: globallevel
+ integer,      intent(out)     :: refinelevels
  integer,      intent(inout)   :: np
  integer,      intent(in)      :: ndim
  real,         intent(inout)   :: xyzh(4,maxp)
@@ -1408,7 +1411,7 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
  real                          :: xminl(ndim),xmaxl(ndim)
  real                          :: xminr(ndim),xmaxr(ndim)
 
- integer                       :: globallevel, minlevel, maxlevel
+ integer                       :: minlevel, maxlevel
 
  integer                       :: idleft, idright
  integer                       :: groupsize,ifirstingroup,groupsplit
@@ -1424,7 +1427,8 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
  integer                       :: nnodestart, nnodeend,locstart,locend
  integer                       :: npcounter
 
- integer                       :: i, k, offset, roffset, roffset_prev, coffset, refinelevels
+ integer                       :: i, k, offset, roffset, roffset_prev, coffset
+ integer                       :: inode
  integer                       :: npnode
 
  integer, save                 :: list(maxp)
@@ -1570,13 +1574,18 @@ subroutine maketreeglobal(nodeglobal,node,xyzh,np,ndim,cellatid,ifirstincell,nce
     ! sync, replacing level with globallevel, since all procs will get synced
     ! and deeper comms do not exist
     call tree_sync(refinementnode(locstart:locend),roffset,nodeglobal(nnodestart:nnodeend),id,1,globallevel)
+
+    ! get the mapping from the local tree to the global tree, for future hmax updates
+    do inode = locstart,locend
+       nodemap(inode) = nnodestart + (id * roffset) + (inode - locstart)
+    enddo
  enddo
 
  ! cellatid is zero by default
  cellatid = 0
  do i = 1,nprocs
-    offset = 2**(globallevel + refinelevels)
-    roffset = 2**(refinelevels)
+    offset = 2**(globallevel+refinelevels)
+    roffset = 2**refinelevels
     do k = 1,roffset
        cellatid(offset + (i - 1) * roffset + (k - 1)) = i
     enddo
