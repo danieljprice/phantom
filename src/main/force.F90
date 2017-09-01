@@ -599,22 +599,22 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  if (reduceall_mpi('max',id_rhomax) > 0) then
     call loc_mpi_real('max',rhomax,id_rhomax)
     if (id == id_rhomax) then
-      rhomax_xyzh = xyzh(1:4,ipart_rhomax)
-      rhomax_vxyz = vxyzu(1:3,ipart_rhomax)
-      rhomax_iphase = iphase(ipart_rhomax)
-      rhomax_divv = divcurlv(1,ipart_rhomax)
+       rhomax_xyzh = xyzh(1:4,ipart_rhomax)
+       rhomax_vxyz = vxyzu(1:3,ipart_rhomax)
+       rhomax_iphase = iphase(ipart_rhomax)
+       rhomax_divv = divcurlv(1,ipart_rhomax)
 #ifdef IND_TIMESTEPS
-      rhomax_ibin = ibin(ipart_rhomax)
+       rhomax_ibin = ibin(ipart_rhomax)
 #endif
     else
-      ipart_rhomax = -1
+       ipart_rhomax = -1
     endif
     call bcast_mpi(rhomax_xyzh,id)
     call bcast_mpi(rhomax_vxyz,id)
     call bcast_mpi(rhomax_iphase,id)
     call bcast_mpi(rhomax_divv,id)
 #ifdef IND_TIMESTEPS
-   call bcast_mpi(rhomax_ibin,id)
+    call bcast_mpi(rhomax_ibin,id)
 #endif
  endif
  if (icreate_sinks > 0 .and. ipart_rhomax > 0 .and. iverbose>=1) then

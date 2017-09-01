@@ -826,7 +826,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
 #ifdef IND_TIMESTEPS
     ibin_itest = ibini
 #endif
-  else
+ else
     if (itest <= 0 .or. itest > npart) return
     xi = xyzh(1,itest)
     yi = xyzh(2,itest)

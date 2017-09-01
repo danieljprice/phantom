@@ -96,9 +96,9 @@ module mpiutils
  !
  !--generic interface loc_mpi
  !
-  interface loc_mpi
-   module procedure loc_mpi_real
-  end interface
+ interface loc_mpi
+  module procedure loc_mpi_real
+ end interface
 !
 !  generic interface reduce_in_place
 !
