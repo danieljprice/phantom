@@ -148,7 +148,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use timestep,     only:C_cour,C_force
 #endif
  use part,         only:divBsymm,isdead_or_accreted,h2chemistry,ngradh,gravity,ibin_wake
- use mpiutils,     only:reduce_mpi,reduceall_mpi
+ use mpiutils,     only:reduce_mpi,reduceall_mpi,loc_mpi,bcast_mpi
  use cooling,      only:energ_cooling
  use chem,         only:energ_h2cooling
 #ifdef GRAVITY
@@ -156,7 +156,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use kdtree,       only:expand_fgrav_in_taylor_series
  use linklist,     only:get_distance_from_centre_of_mass
  use part,         only:xyzmh_ptmass,nptmass
- use ptmass,       only:icreate_sinks,rho_crit,r_crit2
+ use ptmass,       only:icreate_sinks,rho_crit,r_crit2,&
+                        rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin
  use units,        only:unit_density
 #endif
 #ifdef DUST
@@ -197,7 +198,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  real    :: potensoft0,dum,dx,dy,dz,fxi,fyi,fzi,poti,epoti
  real    :: rhomax,rhomax_thread
  logical :: use_part
- integer :: ipart_rhomax_thread,j
+ integer :: ipart_rhomax_thread,j,id_rhomax
  real    :: hi,pmassi,rhoi
  logical :: iactivei,iamdusti
  integer :: iamtypei
@@ -595,6 +596,27 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp end parallel
 
 #ifdef GRAVITY
+ if (reduceall_mpi('max',id_rhomax) > 0) then
+    call loc_mpi_real('max',rhomax,id_rhomax)
+    if (id == id_rhomax) then
+      rhomax_xyzh = xyzh(1:4,ipart_rhomax)
+      rhomax_vxyz = vxyzu(1:3,ipart_rhomax)
+      rhomax_iphase = iphase(ipart_rhomax)
+      rhomax_divv = divcurlv(1,ipart_rhomax)
+#ifdef IND_TIMESTEPS
+      rhomax_ibin = ibin(ipart_rhomax)
+#endif
+    else
+      ipart_rhomax = -1
+    endif
+    call bcast_mpi(rhomax_xyzh,id)
+    call bcast_mpi(rhomax_vxyz,id)
+    call bcast_mpi(rhomax_iphase,id)
+    call bcast_mpi(rhomax_divv,id)
+#ifdef IND_TIMESTEPS
+   call bcast_mpi(rhomax_ibin,id)
+#endif
+ endif
  if (icreate_sinks > 0 .and. ipart_rhomax > 0 .and. iverbose>=1) then
     print*,' got rhomax = ',rhomax*unit_density,' on particle ',ipart_rhomax !,rhoh(xyzh(4,ipart_rhomax))
  endif
