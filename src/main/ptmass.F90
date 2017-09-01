@@ -35,8 +35,8 @@
 !    rho_crit_cgs    -- density above which sink particles are created (g/cm^3)
 !
 !  DEPENDENCIES: boundary, dim, eos, externalforces, fastmath,
-!    infile_utils, io, io_summary, kdtree, kernel, linklist, options, part,
-!    units
+!    infile_utils, io, io_summary, kdtree, kernel, linklist, mpiutils,
+!    options, part, units
 !+
 !--------------------------------------------------------------------------
 module ptmass
