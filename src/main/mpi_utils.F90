@@ -109,7 +109,8 @@ module mpiutils
 !--generic interface bcast_mpi
 !
  interface bcast_mpi
-  module procedure bcast_mpi_int, bcast_mpi_int8, bcast_mpi_real4, bcast_mpi_real8, bcast_mpi_real8arr2, bcast_mpi_real4arr2
+  module procedure bcast_mpi_int1, bcast_mpi_int, bcast_mpi_int8, bcast_mpi_real4, bcast_mpi_real8, &
+                   bcast_mpi_real8arr, bcast_mpi_real4arr, bcast_mpi_real8arr2, bcast_mpi_real4arr2
  end interface
 !
 !--generic interface fill_buffer
@@ -1200,6 +1201,31 @@ subroutine cart_shift_diag(comm_cart,icoords,ishift,irecvfrom,isendto)
 end subroutine cart_shift_diag
 #endif
 
+!--------------------------------------------------------------------------
+!+
+!  function performing MPI BROADCAST (integer*1)
+!+
+!--------------------------------------------------------------------------
+subroutine bcast_mpi_int1(ival,src)
+#ifdef MPI
+ use io, only:fatal,master
+#endif
+ integer(kind=1), intent(inout) :: ival
+ integer, optional, intent(in) :: src
+#ifdef MPI
+ integer :: sendsrc
+ if (present(src)) then
+    sendsrc = src
+ else
+    sendsrc = master
+ endif
+
+ call MPI_BCAST(ival,1,MPI_INTEGER1,sendsrc,MPI_COMM_WORLD,mpierr)
+ if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
+
+#endif
+
+end subroutine bcast_mpi_int1
 
 !--------------------------------------------------------------------------
 !+
@@ -1304,6 +1330,57 @@ subroutine bcast_mpi_real8(dval,src)
 #endif
 
 end subroutine bcast_mpi_real8
+
+!--------------------------------------------------------------------------
+!+
+!  function performing MPI BROADCAST (real*8 1d array)
+!+
+!--------------------------------------------------------------------------
+subroutine bcast_mpi_real8arr(dval,src)
+#ifdef MPI
+ use io, only:fatal,master
+#endif
+ real(kind=8), intent(inout) :: dval(:)
+ integer, optional, intent(in) :: src
+#ifdef MPI
+ integer :: sendsrc
+ if (present(src)) then
+    sendsrc = src
+ else
+    sendsrc = master
+ endif
+ call MPI_BCAST(dval,size(dval),MPI_REAL8,sendsrc,MPI_COMM_WORLD,mpierr)
+ if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
+
+#endif
+
+end subroutine bcast_mpi_real8arr
+
+!--------------------------------------------------------------------------
+!+
+!  function performing MPI BROADCAST (real*4 1d array)
+!+
+!--------------------------------------------------------------------------
+subroutine bcast_mpi_real4arr(dval,src)
+#ifdef MPI
+ use io, only:fatal,master
+#endif
+ real(kind=4), intent(inout) :: dval(:)
+ integer, optional, intent(in) :: src
+#ifdef MPI
+ integer :: sendsrc
+ if (present(src)) then
+    sendsrc = src
+ else
+    sendsrc = master
+ endif
+
+ call MPI_BCAST(dval,size(dval),MPI_REAL4,sendsrc,MPI_COMM_WORLD,mpierr)
+ if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
+
+#endif
+
+end subroutine bcast_mpi_real4arr
 
 !--------------------------------------------------------------------------
 !+

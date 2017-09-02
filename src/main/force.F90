@@ -597,7 +597,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
 #ifdef GRAVITY
  if (reduceall_mpi('max',id_rhomax) > 0) then
-    call loc_mpi_real('max',rhomax,id_rhomax)
+    call loc_mpi('max',rhomax,id_rhomax)
     if (id == id_rhomax) then
        rhomax_xyzh = xyzh(1:4,ipart_rhomax)
        rhomax_vxyz = vxyzu(1:3,ipart_rhomax)
