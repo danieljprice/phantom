@@ -94,10 +94,10 @@ module mpiutils
                      reduceall_mpi_realarr, reduceall_mpi_real4arr, reduceall_mpi_int4arr
  end interface
  !
- !--generic interface loc_mpi
+ !--generic interface reduceloc_mpi
  !
- interface loc_mpi
-  module procedure loc_mpi_real
+ interface reduceloc_mpi
+  module procedure reduceloc_mpi_real
  end interface
 !
 !  generic interface reduce_in_place
@@ -131,7 +131,7 @@ module mpiutils
  public :: bcast_mpi
  public :: barrier_mpi
  public :: fill_buffer, unfill_buf
- public :: loc_mpi
+ public :: reduceloc_mpi
 
  private
 
@@ -917,7 +917,7 @@ end subroutine reduce_in_place_mpi_real4arr2
 !  min/max reduction identifying which proc has the maximum
 !+
 !--------------------------------------------------------------------------
-subroutine loc_mpi_real(string,xproc,loc)
+subroutine reduceloc_mpi_real(string,xproc,loc)
 #ifdef MPI
  use io, only:fatal,id
 #endif
@@ -942,7 +942,7 @@ subroutine loc_mpi_real(string,xproc,loc)
  loc = int(xred(2))
 #endif
 
-end subroutine loc_mpi_real
+end subroutine reduceloc_mpi_real
 
 #ifdef MPI
 !----------------------------------------------------------------

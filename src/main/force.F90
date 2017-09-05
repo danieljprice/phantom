@@ -148,7 +148,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use timestep,     only:C_cour,C_force
 #endif
  use part,         only:divBsymm,isdead_or_accreted,h2chemistry,ngradh,gravity,ibin_wake
- use mpiutils,     only:reduce_mpi,reduceall_mpi,loc_mpi,bcast_mpi
+ use mpiutils,     only:reduce_mpi,reduceall_mpi,reduceloc_mpi,bcast_mpi
  use cooling,      only:energ_cooling
  use chem,         only:energ_h2cooling
 #ifdef GRAVITY
@@ -597,7 +597,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
 #ifdef GRAVITY
  if (reduceall_mpi('max',ipart_rhomax) > 0) then
-    call loc_mpi('max',rhomax,id_rhomax)
+    call reduceloc_mpi('max',rhomax,id_rhomax)
     if (id == id_rhomax) then
        rhomax_xyzh = xyzh(1:4,ipart_rhomax)
        rhomax_vxyz = vxyzu(1:3,ipart_rhomax)
