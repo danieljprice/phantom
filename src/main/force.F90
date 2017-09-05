@@ -596,7 +596,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp end parallel
 
 #ifdef GRAVITY
- if (reduceall_mpi('max',id_rhomax) > 0) then
+ if (reduceall_mpi('max',ipart_rhomax) > 0) then
     call loc_mpi('max',rhomax,id_rhomax)
     if (id == id_rhomax) then
        rhomax_xyzh = xyzh(1:4,ipart_rhomax)
