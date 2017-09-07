@@ -34,6 +34,7 @@ module stretchmap
  use physcon, only:pi
  implicit none
  public :: set_density_profile
+ public :: get_mass_r
 
  integer, private :: ngrid = 1024 ! number of points used when integrating rho to get mass
  integer, parameter, private :: maxits = 100  ! max number of iterations
