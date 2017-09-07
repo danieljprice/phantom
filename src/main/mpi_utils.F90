@@ -918,9 +918,7 @@ end subroutine reduce_in_place_mpi_real4arr2
 !+
 !--------------------------------------------------------------------------
 subroutine reduceloc_mpi_real(string,xproc,loc)
-#ifdef MPI
  use io, only:fatal,id
-#endif
  character(len=*), intent(in)    :: string
  real(kind=8),     intent(inout) :: xproc
  integer,          intent(out)   :: loc
@@ -940,6 +938,8 @@ subroutine reduceloc_mpi_real(string,xproc,loc)
  if (mpierr /= 0) call fatal('reduceall','error in mpi_reduce call')
  xproc = xred(1)
  loc = int(xred(2))
+#else
+ loc = id
 #endif
 
 end subroutine reduceloc_mpi_real
