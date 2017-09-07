@@ -44,7 +44,7 @@ module externalforces
  real, public :: mass1 = 1.0
  real, public :: eps_soft = 0.d0
  real, public :: omega_corotate = 0.d0
- real, public :: accradius1 = 0.d0
+ real, public :: accradius1 = 2.5
 
  !
  ! enumerated list of external forces
@@ -224,6 +224,7 @@ end subroutine update_externalforce
 !+
 !-----------------------------------------------------------------------
 subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
+ use metric, only:metric_type
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: xi,yi,zi,mi,ti
  real,    intent(inout) :: hi
@@ -231,11 +232,16 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
  real :: r2
 
  accreted = .false.
- select case(iexternalforce)
- case(iext_gr)
+ select case(metric_type)
+ case('Minkowski')
+    print*,"WARNING: Metric is Minkowski and you're trying to accrete"
 
+ case('Schwarzschild')
     r2 = xi*xi + yi*yi + zi*zi
     if (r2 < accradius1**2) accreted = .true.
+
+ case('Kerr')
+    print*,'Accrete particles: no accretion implemented for Kerr metric'
 
  end select
 

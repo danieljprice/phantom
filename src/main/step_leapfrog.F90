@@ -575,11 +575,11 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
  real    :: timei,t_end_step,hdt,pmassi
  real    :: dt,dtf,dtextforcenew,dtextforce_min
  real    :: pi,pprev(3),xyz_prev(3),spsoundi,pondensi
- real    :: x_err,pmom_err,fstar(3),vxyzu_star(4)
+ real    :: x_err,pmom_err,fstar(3),vxyzu_star(4),accretedmass
  ! real, save :: dmdt = 0.
- logical :: last_step,done,converged
+ logical :: last_step,done,converged,accreted
  integer, parameter :: itsmax = 25
- real, parameter :: ptol = 1.e-18, xtol = 1.e-18
+ real, parameter :: ptol = 1.e-15, xtol = 1.e-15
  integer, save :: pitsmax = 0, xitsmax = 0
 !
 ! determine whether or not to use substepping
@@ -690,18 +690,18 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
     !
     ! corrector step on gas particles (also accrete particles at end of step)
     !
-   !  accretedmass = 0.
-   !  nfail        = 0
-   !  naccreted    = 0
+    accretedmass = 0.
+    naccreted    = 0
     dtextforce_min = bignumber
 
     !$omp parallel do default(none) &
-    !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype,hdt) &
-    !$omp private(i) &
-    !$omp shared(ieos,dens,pxyzu) &
+    !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei) &
+    !$omp private(i,accreted) &
+    !$omp shared(ieos,dens,pxyzu,iexternalforce) &
     !$omp private(pi,pondensi,spsoundi,dtf) &
     !$omp firstprivate(itype,pmassi) &
-    !$omp reduction(min:dtextforce_min)
+    !$omp reduction(min:dtextforce_min) &
+    !$omp reduction(+:accretedmass,naccreted)
     accreteloop: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           if (ntypes > 1 .and. maxphase==maxp) then
@@ -719,17 +719,20 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
           !
           pxyzu(1:3,i) = pxyzu(1:3,i) + hdt*fext(1:3,i)
 
-         !  if (iexternalforce > 0) then
-         !     call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
-         !                            xyzh(3,i),xyzh(4,i),pmassi,timei,accreted)
-         !     if (accreted) accretedmass = accretedmass + pmassi
-         !  endif
+          if (iexternalforce > 0) then
+             call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
+                                    xyzh(3,i),xyzh(4,i),pmassi,timei,accreted)
+             if (accreted) then
+                accretedmass = accretedmass + pmassi
+                naccreted = naccreted + 1
+             endif
+          endif
        endif
     enddo accreteloop
     !$omp end parallel do
 
     if (iverbose >= 2 .and. id==master .and. naccreted /= 0) write(iprint,"(a,es10.3,a,i4,a)") &
-       'Step: at time ',timei,', ',naccreted,' particles were accreted'
+       'Step: at time ',timei,', ',naccreted,' particles were accreted. Mass accreted = ',accretedmass
 
     dtextforcenew = min(dtextforce_min,dtextforcenew)
     dtextforce    = dtextforcenew
