@@ -1664,8 +1664,8 @@ OBJDIR=obj
 
 # these are the sources common to all compilations
 ifeq (X$(SRCPOTS), X)
-SRCPOTS= extern_binary.f90 \
-         extern_corotate.f90 \
+SRCPOTS= extern_corotate.f90 \
+ 		 extern_binary.f90 \
          extern_spiral.f90 \
          extern_lensethirring.f90 \
          extern_gnewton.F90 \
