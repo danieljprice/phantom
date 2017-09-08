@@ -42,8 +42,8 @@
 !    umass       -- mass units (cgs)
 !    utime       -- time units (cgs)
 !
-!  DEPENDENCIES: dim, eos, externalforces, infile_utils, io, options, part,
-!    physcon, random, units
+!  DEPENDENCIES: dim, domain, eos, externalforces, infile_utils, io,
+!    mpiutils, options, part, physcon, random, units
 !+
 !--------------------------------------------------------------------------
 module setdisc
@@ -59,11 +59,12 @@ contains
 ! This subroutine is a utility for setting up discs
 !
 !----------------------------------------------------------------
-subroutine set_disc(id,master,mixture,npart,npart_start,rmin,rmax,rmindust,rmaxdust,phimin,phimax,&
+subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmindust,rmaxdust,phimin,phimax,&
                     indexprofile,indexprofiledust,rc,rcdust,p_index,p_indexdust,q_index,HoverR,gamma,&
                     disc_Q,disc_mass,disc_massdust,sig_naught,star_mass,xyz_origin,vxyz_origin,&
                     particle_type,particle_mass,hfact,xyzh,vxyzu,polyk,inclination,sininclination,&
                     twist,ismooth,alpha,isink,rwarp,warp_smoothl,bh_spin,R_ref,writefile,ierr,prefix,verbose)
+ use domain,  only:i_belong
  use physcon, only:pi,gg,c
  use units,   only:umass,udist,utime
  use eos,     only:qfacdisc
@@ -71,7 +72,8 @@ subroutine set_disc(id,master,mixture,npart,npart_start,rmin,rmax,rmindust,rmaxd
  use part,    only:maxp,igas,idust,set_particle_type,labeltype,gravity,maxtypes
  use io,      only:fatal,warning,stdout
  integer,                     intent(in)    :: id,master
- integer,                     intent(in)    :: npart
+ integer, optional,           intent(in)    :: nparttot
+ integer,                     intent(out)   :: npart
  integer, optional,           intent(in)    :: npart_start,isink,indexprofile,indexprofiledust
  real,                        intent(in)    :: rmin,rmax
  real, optional,              intent(in)    :: rmindust,rmaxdust,p_indexdust,disc_massdust
@@ -92,6 +94,7 @@ subroutine set_disc(id,master,mixture,npart,npart_start,rmin,rmax,rmindust,rmaxd
  character(len=20), optional, intent(in)    :: prefix
  integer, parameter :: maxbins = 256
  integer :: maxvxyzu,itype,npart_tot,npart_start_count,ierror
+ integer :: i
  real    :: Q,Q_tmp,G,cs0,sig0,clight,sig0dust
  real    :: R_in,R_out,phi_min,phi_max,H_R,R_indust,R_outdust,p_inddust,rc0,rc0dust
  real    :: star_M,disc_M,rminav,rmaxav,honHmin,honHmax
@@ -153,8 +156,8 @@ subroutine set_disc(id,master,mixture,npart,npart_start,rmin,rmax,rmindust,rmaxd
        return
     endif
  endif
- if (npart <= 0) then
-    if (id==master) print*,' ERROR: set_disc: npart <= 0 in call to set_disc, doing nothing'
+ if (nparttot <= 0) then
+    if (id==master) print*,' ERROR: set_disc: nparttot <= 0 in call to set_disc, doing nothing'
     if (present(ierr)) ierr = 3
     return
  endif
@@ -222,9 +225,9 @@ subroutine set_disc(id,master,mixture,npart,npart_start,rmin,rmax,rmindust,rmaxd
  if (id==master .and. do_verbose) then
     if (do_mixture) then
        print*,' Setting up disc mixture containing ',&
-                 npart,' '//trim(labeltype(itype))//'/'//trim(labeltype(itype+1))//' particles'
+                 nparttot,' '//trim(labeltype(itype))//'/'//trim(labeltype(itype+1))//' particles'
     else
-       print*,' Setting up disc containing ',npart,' '//trim(labeltype(itype))//' particles'
+       print*,' Setting up disc containing ',nparttot,' '//trim(labeltype(itype))//' particles'
     endif
  endif
 !
@@ -320,7 +323,7 @@ subroutine set_disc(id,master,mixture,npart,npart_start,rmin,rmax,rmindust,rmaxd
 !
 ! set the particle mass
 !
-    particle_mass = disc_m / dble(npart)
+    particle_mass = disc_m / dble(nparttot)
  else
     sig0dust = 1.d0
     call get_disc_mass(sig0dust,do_sigmapringledust,rc0dust,p_inddust,smooth_surface_density,cs0,q_index,star_M,G, &
@@ -329,12 +332,19 @@ subroutine set_disc(id,master,mixture,npart,npart_start,rmin,rmax,rmindust,rmaxd
 !
 ! set the particle mass of the mixture
 !
-    particle_mass = (disc_m+disc_massdust) / dble(npart)
+    particle_mass = (disc_m+disc_massdust) / dble(nparttot)
  endif
+!
+! count particles on this MPI thread
+!
+ npart = 0
+ do i = 1,nparttot
+    if (i_belong(i)) npart = npart + 1
+ enddo
 !
 ! set particle positions and smoothing lengths
 !
- npart_tot = npart_start_count + npart - 1
+ npart_tot = npart_start_count + nparttot - 1
  if (npart_tot > maxp) call fatal('set_disc','number of particles exceeds array dimensions',var='n',ival=npart_tot)
 
  call set_disc_positions(npart_tot,npart_start_count,do_mixture,R_in,R_out,R_indust,R_outdust,phi_min,phi_max,&
@@ -369,10 +379,10 @@ subroutine set_disc(id,master,mixture,npart,npart_start,rmin,rmax,rmindust,rmaxd
  endif
  rmaxav = R_out
  if (present(rwarp)) then
-    call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart,H_R,q_index,Star_M,R_in,&
+    call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,nparttot,H_R,q_index,Star_M,R_in,&
                   npart_start_count,npart_tot,do_verbose,rwarp)
  else
-    call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart,H_R,q_index,Star_M,R_in,&
+    call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,nparttot,H_R,q_index,Star_M,R_in,&
                   npart_start_count,npart_tot,do_verbose)
  endif
 
@@ -554,10 +564,11 @@ end subroutine get_disc_mass
 subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_in,R_out,R_indust,R_outdust,phi_min,phi_max,&
                               sig0,sig0dust,do_sigmapringle,do_sigmapringledust,rc0,rc0dust,p_index,p_inddust,cs0,&
                               q_index,star_M,G,particle_mass,hfact,smooth_sigma,itype,xyzh,honH,verbose)
+ use domain,  only:i_belong
  use physcon, only:pi
  use part,    only:igas,set_particle_type
  use random,  only:ran2
- use io,      only:fatal
+ use io,      only:fatal,id,master
  integer, intent(in)    :: npart_start_count,npart_tot
  real,    intent(in)    :: R_in,R_out,phi_min,phi_max
  real,    intent(in)    :: sig0,p_index,cs0,q_index,star_M,G,particle_mass,hfact
@@ -567,6 +578,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_in,R_out,
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(out)   :: honH
  integer :: i,iseed,ninz
+ integer :: ipart
  real    :: rand_no,randtest,r,phi,zi
  real    :: f,f_max,sigma,cs,omega,fmixt
  real    :: HH,HHsqrt2,z_min,z_max
@@ -579,14 +591,15 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_in,R_out,
  ninz = 0
 
  xcentreofmass(:) = 0.
+ ipart = 0
  do i = npart_start_count, npart_tot
-    if (mod(i,npart_tot/10)==0 .and. verbose) print*,i
-!
-! get a random angle between phi_min and phi_max
-!
+    if (id==master .and. mod(i,npart_tot/10)==0 .and. verbose) print*,i
+    !
+    ! get a random angle between phi_min and phi_max
+    !
     rand_no = ran2(iseed)
     phi  = phi_min + (phi_max - phi_min)*ran2(iseed)
-! Now get radius
+    ! Now get radius
     if (do_sigmapringle) then
        ! power law profile tapered by an exponential function (Lynden-Bell & Pringle 1974)
        if(p_index < 1.) then
@@ -692,27 +705,30 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_in,R_out,
        rhoz = f/(HHsqrt2*sqrt(pi))
     enddo
 
-!----------------------------------------------
-! Set positions -- move to origin below
-    xyzh(1,i) = r*cos(phi)
-    xyzh(2,i) = r*sin(phi)
-    xyzh(3,i) = zi
-
-!------------------------------------------
-!  Starting estimate of smoothing length for h-rho iterations
+    !------------------------------------------
+    !  Starting estimate of smoothing length for h-rho iterations
     rhopart = sigma*rhoz
     hpart = hfact*(particle_mass/rhopart)**(1./3.)
-    xyzh(4,i) = hpart
 
-! HH is scale height
+    if (i_belong(i)) then
+       ipart = ipart + 1
+       !----------------------------------------------
+       ! Set positions -- move to origin below
+       xyzh(1,ipart) = r*cos(phi)
+       xyzh(2,ipart) = r*sin(phi)
+       xyzh(3,ipart) = zi
+       xyzh(4,ipart) = hpart
+
+       !------------------------------------------
+       !  Set particle type
+       call set_particle_type(ipart,itype)
+    endif
+
+    ! HH is scale height
     if (zi*zi < HH*HH) then
        ninz = ninz + 1
        honH = honH + hpart/HH
     endif
-
-!------------------------------------------
-!  Set particle type
-    call set_particle_type(i,itype)
  enddo
 !
 ! Set honH
@@ -729,6 +745,7 @@ end subroutine set_disc_positions
 subroutine set_disc_velocities_u(npart_tot,npart_start_count,itype,G,Star_M,aspin,&
                                       clight,cs0,do_sigmapringle,p_index,q_index,gamma,r_in,&
                                       maxbins,r_c,enc_m,smooth_sigma,xyzh,vxyzu,ierr)
+ use domain,         only:i_belong
  use part,           only:gravity,igas,maxvxyzu
  use options,        only:iexternalforce
  use externalforces, only:iext_lensethirring,iext_einsteinprec
@@ -743,88 +760,93 @@ subroutine set_disc_velocities_u(npart_tot,npart_start_count,itype,G,Star_M,aspi
  real :: term,term_pr,term_bh,det,vr,vphi
  real :: cs,r,phi
  integer :: i,itable
+ integer :: ipart
 
  ierr = 0
+ ipart = 0
  do i = npart_start_count, npart_tot
-!----------------------------------------------
-!   Set velocities to give centrifugal balance:
-!   v_phi^2 = GM/r - term_pr - 2*vphi*term_bh
-!
-    r    = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
-    phi  = atan2(xyzh(2,i),xyzh(1,i))
-    term = G*Star_M/r
-    ! Need to declare iexternalforce before calling setdisc
-    if (iexternalforce==11) term=term*(1.0 + (6.0/r)) ! assumes Rg=1.
-!
-!  Correction due to self-gravity
-!
-    if (gravity) then
-       itable = nint((r-r_c(1))/(r_c(2)-r_c(1))) + 1
-       term = G*enc_m(itable)/r
-    endif
-!
-!  Add contribution from pressure gradients
-!  Pressure contribution from a powerlaw disc
-!
-    select case(itype)
-    case(igas)
-       cs = cs_func(cs0,r,q_index)
-       if (do_sigmapringle) then
+    if (i_belong(i)) then
+       ipart = ipart + 1
+       !----------------------------------------------
+       !   Set velocities to give centrifugal balance:
+       !   v_phi^2 = GM/r - term_pr - 2*vphi*term_bh
+       !
+       r    = sqrt(xyzh(1,ipart)**2 + xyzh(2,ipart)**2)
+       phi  = atan2(xyzh(2,ipart),xyzh(1,ipart))
+       term = G*Star_M/r
+       ! Need to declare iexternalforce before calling setdisc
+       if (iexternalforce==11) term=term*(1.0 + (6.0/r)) ! assumes Rg=1.
+       !
+       !  Correction due to self-gravity
+       !
+       if (gravity) then
+          itable = nint((r-r_c(1))/(r_c(2)-r_c(1))) + 1
+          term = G*enc_m(itable)/r
+       endif
+       !
+       !  Add contribution from pressure gradients
+       !  Pressure contribution from a powerlaw disc
+       !
+       select case(itype)
+       case(igas)
+          cs = cs_func(cs0,r,q_index)
+          if (do_sigmapringle) then
+             term_pr = 0.
+          else
+             if (smooth_sigma .and. r > R_in) then  ! r > R_in can happen because of disc shifting
+                term_pr = -cs**2*(1.5+p_index+q_index - 0.5/(sqrt(r/R_in) - 1.))
+             else
+                term_pr = -cs**2*(1.5+p_index+q_index)
+             endif
+          endif
+          if (term + term_pr < 0.) then
+             ierr = 1
+          endif
+       case default
+          cs = 0.
           term_pr = 0.
-       else
-          if (smooth_sigma .and. r > R_in) then  ! r > R_in can happen because of disc shifting
-             term_pr = -cs**2*(1.5+p_index+q_index - 0.5/(sqrt(r/R_in) - 1.))
-          else
-             term_pr = -cs**2*(1.5+p_index+q_index)
-          endif
+       end select
+       !
+       !  Correction due to Lense-Thirring precession:
+       !  Nealon, Nixon & Price correction for Nelson & Papaloizou v x h term
+       !
+       term_bh = 0.
+       if (aspin > tiny(aspin) .and. (iexternalforce==iext_lensethirring &
+                                .or. iexternalforce==iext_einsteinprec)) then
+          ! this is Eq. 5.21 in Nealon (2013) multiplied by -r
+          term_bh = -2.*aspin*(G*Star_M/r)**2/clight**3
        endif
-       if (term + term_pr < 0.) then
-          ierr = 1
-       endif
-    case default
-       cs = 0.
-       term_pr = 0.
-    end select
-!
-!  Correction due to Lense-Thirring precession:
-!  Nealon, Nixon & Price correction for Nelson & Papaloizou v x h term
-!
-    term_bh = 0.
-    if (aspin > tiny(aspin) .and. (iexternalforce==iext_lensethirring &
-                             .or. iexternalforce==iext_einsteinprec)) then
-       ! this is Eq. 5.21 in Nealon (2013) multiplied by -r
-       term_bh = -2.*aspin*(G*Star_M/r)**2/clight**3
-    endif
-!
-!  now solve quadratic equation for vphi
-!
-    det = term_bh**2 + 4.*(term + term_pr)
-    vphi = 0.5*(term_bh + sqrt(det))
-!
-! radial velocities (zero in general)
-!
-    vr = 0.d0
+       !
+       !  now solve quadratic equation for vphi
+       !
+       det = term_bh**2 + 4.*(term + term_pr)
+       vphi = 0.5*(term_bh + sqrt(det))
+       !
+       ! radial velocities (zero in general)
+       !
+       vr = 0.d0
 
-!  --------------------------------------
-!  Set velocities -- move to origin below
-    vxyzu(1,i)  = -vphi*sin(phi)+ vr*cos(phi)
-    vxyzu(2,i)  = vphi*cos(phi) + vr*sin(phi)
-    vxyzu(3,i)  = 0.0d0
+       !  --------------------------------------
+       !  Set velocities -- move to origin below
+       vxyzu(1,ipart)  = -vphi*sin(phi)+ vr*cos(phi)
+       vxyzu(2,ipart)  = vphi*cos(phi) + vr*sin(phi)
+       vxyzu(3,ipart)  = 0.0d0
 
-!-----------------------------------------
-!  Set thermal energy
+       !-----------------------------------------
+       !  Set thermal energy
 
-    !  utherm generally should not be stored
-    !  for an isothermal equation of state
-    if (maxvxyzu >= 4) then
-       if (itype==igas) then
-          if (gamma > 1.) then
-             vxyzu(4,i) = cs**2/(gamma - 1.)/gamma
+       !  utherm generally should not be stored
+       !  for an isothermal equation of state
+       if (maxvxyzu >= 4) then
+          if (itype==igas) then
+             if (gamma > 1.) then
+                vxyzu(4,ipart) = cs**2/(gamma - 1.)/gamma
+             else
+                vxyzu(4,ipart) = 1.5*cs**2
+             endif
           else
-             vxyzu(4,i) = 1.5*cs**2
+             vxyzu(4,ipart) = 0.
           endif
-       else
-          vxyzu(4,i) = 0.
        endif
     endif
  enddo
@@ -834,28 +856,45 @@ end subroutine set_disc_velocities_u
 !-------------------------------------------------------------
 ! shift the particles so the centre of mass is at the origin
 !-------------------------------------------------------------
-pure subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
+subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
+ use domain,      only:i_belong
+ use mpiutils,   only:reduceall_mpi
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
  real,    intent(in)    :: particle_mass
  integer, intent(in)    :: i1,i2
  real,    intent(in)    :: x0(3),v0(3)
  real :: xcentreofmass(3), vcentreofmass(3)
- integer :: i
+ integer :: i,ipart
  real    :: totmass
 
  xcentreofmass = 0.
  vcentreofmass = 0.
  totmass       = 0.
+ ipart = 0
  do i=i1,i2
-    xcentreofmass(:) = xcentreofmass(:) + particle_mass*xyzh(1:3,i)
-    vcentreofmass(:) = vcentreofmass(:) + particle_mass*vxyzu(1:3,i)
-    totmass = totmass + particle_mass
+    if (i_belong(i)) then
+       ipart = ipart + 1
+       xcentreofmass(:) = xcentreofmass(:) + particle_mass*xyzh(1:3,ipart)
+       vcentreofmass(:) = vcentreofmass(:) + particle_mass*vxyzu(1:3,ipart)
+       totmass = totmass + particle_mass
+    endif
  enddo
+
+ totmass = reduceall_mpi('+',totmass)
+
  xcentreofmass(:) = xcentreofmass(:)/totmass
  vcentreofmass(:) = vcentreofmass(:)/totmass
+
+ xcentreofmass = reduceall_mpi('+',xcentreofmass)
+ vcentreofmass = reduceall_mpi('+',vcentreofmass)
+
+ ipart = 0
  do i=i1,i2
-    xyzh(1:3,i)  = xyzh(1:3,i)  - xcentreofmass(:) + x0(:)
-    vxyzu(1:3,i)  = vxyzu(1:3,i)  - vcentreofmass(:) + v0(:)
+    if (i_belong(i)) then
+       ipart = ipart + 1
+       xyzh(1:3,ipart)  = xyzh(1:3,ipart)  - xcentreofmass(:) + x0(:)
+       vxyzu(1:3,ipart)  = vxyzu(1:3,ipart)  - vcentreofmass(:) + v0(:)
+    endif
  enddo
 
 end subroutine adjust_centre_of_mass
@@ -1066,6 +1105,8 @@ end subroutine write_discinfo
 !   honHmin, honH, honHmax - max mean and min ratio of h/H within range of R
 !-----------------------------------------------------------------------------
 subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart,H_R,q_index,M_star,R_in,i1,i2,verbose,rwarp)
+ use domain,   only:i_belong
+ use mpiutils, only:reduceall_mpi
  real,    intent(in)  :: xyzh(:,:)
  real,    intent(out) :: honHmax,honHmin,honH
  integer, intent(in)  :: npart,i1,i2
@@ -1077,6 +1118,7 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart,H_R,q_index,M_
  integer :: i,ii,iwarp
  real :: G,rmin,rmax,dr,cs0,ri
  real :: rad(nr),ninbin(nr),h_smooth(nr),cs(nr),H(nr),omega(nr)
+ integer :: ipart
 
  G = 1.0
 
@@ -1113,22 +1155,29 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart,H_R,q_index,M_
  enddo
 
 ! Loop over particles putting properties into the correct bin
+ ipart = 0
  do i = i1,i2
-    if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
-       ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-       ii = int((ri-rad(1))/dr + 1)
+    if (i_belong(i)) then
+       ipart = ipart + 1
+       if (xyzh(4,ipart)  >  tiny(xyzh)) then ! IF ACTIVE
+          ri = sqrt(dot_product(xyzh(1:3,ipart),xyzh(1:3,ipart)))
+          ii = int((ri-rad(1))/dr + 1)
 
-       if (ii > nr) cycle
-       if (ii < 1)  cycle
+          if (ii > nr) cycle
+          if (ii < 1)  cycle
 
-! Ignoring the large smoothing length particles far from the mid-plane
-       if (xyzh(3,i)**2 < 4.*H(ii)*H(ii)) then
-          h_smooth(ii) = h_smooth(ii) + xyzh(4,i)
+          ! Ignoring the large smoothing length particles far from the mid-plane
+          if (xyzh(3,ipart)**2 < 4.*H(ii)*H(ii)) then
+             h_smooth(ii) = h_smooth(ii) + xyzh(4,ipart)
 
-          ninbin(ii) = ninbin(ii) + 1
+             ninbin(ii) = ninbin(ii) + 1
+          endif
        endif
     endif
  enddo
+
+ h_smooth = reduceall_mpi('+', h_smooth)
+ ninbin = reduceall_mpi('+', ninbin)
 
 ! Average h_smooth
  do i = 1,nr
