@@ -61,9 +61,14 @@ contains
 !+
 !----------------------------------------------
 subroutine update_binary(ti)
- use physcon, only:pi
+ use physcon,         only:pi
+ use options,         only:iexternalforce
+ use externalforces,  only:iext_corot_binary
+ use extern_corotate, only: omega_corotate
  real, intent(in) :: ti
  real :: cost,sint
+ real :: oldvec(3)
+ real :: omega
 
  if (ramp .and. ti < 10.*pi) then
     binarymassri = binarymassr*(sin(ti/20.)**2)
@@ -72,14 +77,65 @@ subroutine update_binary(ti)
     binarymassri = binarymassr
  endif
 
- cost = cos(ti)
- sint = sin(ti)
+ if (iexternalforce == iext_corot_binary) then
+    omega = 1. - omega_corotate
+ else
+    omega = 1.
+ endif
+
+ cost = cos(omega*ti)
+ sint = sin(omega*ti)
  x1 = (1.-binarymassri)*cost
  y1 = (1.-binarymassri)*sint
  x2 = -binarymassri*cost
  y2 = -binarymassri*sint
 
 end subroutine update_binary
+
+!!----------------------------------------------
+!!+
+!!  compute the force on a given particle from
+!!  the binary system
+!!+
+!!----------------------------------------------
+!subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi)
+! real, intent(in)  :: xi,yi,zi,ti
+! real, intent(out) :: phi
+! real, intent(inout) :: fxi,fyi,fzi
+! real :: dx1,dy1,dz1,rr1,f1
+! real :: dx2,dy2,dz2,rr2,f2
+! real :: dr1,dr2,phi1,phi2
+!
+! !--compute gravitational force on gas particle i
+! !  from the binary
+! dx1 = xi - x1
+! dy1 = yi - y1
+! dz1 = zi
+!
+! dx2 = xi - x2
+! dy2 = yi - y2
+! dz2 = zi
+!
+! rr1 = dx1*dx1 + dy1*dy1 + dz1*dz1
+! rr2 = dx2*dx2 + dy2*dy2 + dz2*dz2
+!
+! dr1 = 1./sqrt(rr1 + eps_soft1**2)
+! dr2 = 1./sqrt(rr2 + eps_soft2**2)
+!
+! f1   = binarymassri*dr1*dr1*dr1
+! f2   = (1.-binarymassri)*dr2*dr2*dr2
+!
+! fxi  = -dx1*f1 - dx2*f2
+! fyi  = -dy1*f1 - dy2*f2
+! fzi  = -dz1*f1 - dz2*f2
+!
+! phi1 = -binarymassri*dr1
+! phi2 = -(1.-binarymassri)*dr2
+! phi  = phi1 + phi2
+!
+! return
+!end subroutine binary_force
+
 
 !----------------------------------------------
 !+
@@ -90,7 +146,8 @@ end subroutine update_binary
 subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi)
  real, intent(in)  :: xi,yi,zi,ti
  real, intent(out) :: fxi,fyi,fzi,phi
- real :: dx1,dy1,dz1,rr1,f1
+ real :: dx1,dy1,dz1,rr1,f1,r1
+ real :: c1,c2,c3,c4,c5,epseps,int_const
  real :: dx2,dy2,dz2,rr2,f2
  real :: dr1,dr2,phi1,phi2
 
@@ -107,22 +164,50 @@ subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi)
  rr1 = dx1*dx1 + dy1*dy1 + dz1*dz1
  rr2 = dx2*dx2 + dy2*dy2 + dz2*dz2
 
+ r1  = sqrt(rr1)
+ epseps = eps_soft1*eps_soft1
+
  dr1 = 1./sqrt(rr1 + eps_soft1**2)
  dr2 = 1./sqrt(rr2 + eps_soft2**2)
 
- f1   = binarymassri*dr1*dr1*dr1
+ if (r1 < 2.*eps_soft1) then
+    !f1   =  binarymassri*dr1*dr1*dr1*(1.-((2.*eps_soft1-r1)/eps_soft1)**4)
+    f1   =  binarymassri/(rr1*r1)*(1.-((2.*eps_soft1-r1)/eps_soft1)**4)
+
+    c1   =  rr1*rr1
+    c2   = -12.*rr1*r1*eps_soft1
+    c3   =  72.*rr1*epseps
+    c4   = -96.*r1*epseps*eps_soft1*log(r1)
+    c5   = -45.*epseps*epseps
+    int_const = (16.*binarymassri*(5. - 6.*log(2.*eps_soft1)))/(3.*eps_soft1)
+
+    !phi1 = (1./(15.*eps_soft1**4))*(binarymassri*(-5.*r1**3 + 60.*r1**2*eps_soft1 - 345.*r1*eps_soft1**2 +  &
+    !         eps_soft1**3*(490. - 3.*sqrt(5.) - 120.*atan(2.) + 120.*atan(r1/eps_soft1) +  &
+    !              180.*log((1./5.)*(1. + r1**2/eps_soft1**2)))))
+
+    phi1 = -binarymassri/(3.*r1*epseps*epseps)*(c1+c2+c3+c4+c5) + int_const
+    !phi1 = -binarymassri*dr1
+ else
+    f1   = binarymassri/(rr1*r1)
+    phi1 = -binarymassri/r1
+
+    !f1   = binarymassri*dr1*dr1*dr1
+    !phi1 = -binarymassri*dr1
+ endif
  f2   = (1.-binarymassri)*dr2*dr2*dr2
 
  fxi  = -dx1*f1 - dx2*f2
  fyi  = -dy1*f1 - dy2*f2
  fzi  = -dz1*f1 - dz2*f2
 
- phi1 = -binarymassri*dr1
+ !phi1 = -binarymassri*dr1
  phi2 = -(1.-binarymassri)*dr2
  phi  = phi1 + phi2
 
  return
 end subroutine binary_force
+
+
 
 !----------------------------------------------
 !+

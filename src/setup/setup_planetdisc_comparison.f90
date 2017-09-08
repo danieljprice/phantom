@@ -51,16 +51,17 @@ contains
 !
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use setdisc,       only:set_disc
- use units,         only:set_units
- use physcon,       only:solarm,au,pi
- use io,            only:master
- use options,       only:iexternalforce,alpha
- use timestep,      only:dtmax
- use prompting,     only:prompt
- use extern_binary, only:accradius1,accradius2 !,binary_posvel
- use extern_binary, only:binarymassr,eps_soft1,eps_soft2,ramp
- use externalforces, only:iext_binary
+ use setdisc,         only:set_disc
+ use units,           only:set_units
+ use physcon,         only:solarm,au,pi
+ use io,              only:master
+ use options,         only:iexternalforce,alpha
+ use timestep,        only:dtmax
+ use prompting,       only:prompt
+ use extern_binary,   only:accradius1,accradius2 !,binary_posvel
+ use extern_binary,   only:binarymassr,eps_soft1,eps_soft2,ramp
+ use externalforces,  only:iext_binary,iext_corot_binary,iext_corotate
+ use extern_corotate, only: omega_corotate
 
  integer,            intent(in)            :: id
  integer,            intent(out)           :: npart
@@ -71,10 +72,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,               intent(out)           :: massoftype(:)
  real,               intent(inout)         :: time
  character (len=20), intent (in), optional :: fileprefix
- !integer :: i
+ integer :: i
 
  !real :: xbinary(10),vbinary(6)
- real :: a0
+ real :: a0,Mstar
+ real :: vmag,omega0,v_0(3),v_subtract(3)
+ real :: phipart,r
 
  logical :: iexist
  character(len=100) :: filename
@@ -93,6 +96,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  hfact = 1.2
  time  = 0.
  a0    = 1.
+ Mstar = 1.
  binarymassr = 1.e-3
  HoverRinput = 0.05
  accradius1 = 0.0
@@ -155,7 +159,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                q_index = q_indexinput,   &
                HoverR  = HoverRinput,  &
                sig_naught = sig0, &
-               star_mass = 1.0,  &
+               star_mass = Mstar,  &
                gamma     = gamma,  &
                particle_mass = massoftype(1), &
                hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,polyk=polyk,alpha=alpha, &
@@ -163,7 +167,39 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--set default options for the input file
  !
- iexternalforce = iext_binary
+ !iexternalforce = iext_binary
+ iexternalforce = iext_corot_binary
+ !iexternalforce = iext_corotate
+
+ if (iexternalforce == iext_corotate .or. &
+     iexternalforce == iext_corot_binary) then
+
+    !
+    !--Change to corotating frame
+
+    ! Calculate velocity at planet
+    vmag = sqrt(Mstar/a0)
+    omega0 = sqrt(Mstar/a0**3)
+
+    ! v_phi = v_y at y=0
+    ! Obtain the true v_phi at any point (r,phi) via rotation in z axis
+
+    v_0 = (/0.0, vmag,0.0/)
+
+    print *, 'Transforming to corotating frame: angular velocity ', omega0
+
+    do i=1,npart
+       phipart = atan2(xyzh(2,i),xyzh(1,i))
+       r = sqrt(xyzh(1,i)**2+xyzh(2,i)**2)
+       !call rotate_z(v_0, v_subtract,phipart)
+       !vxyzu(1:3,i) = vxyzu(1:3,i)-r*v_subtract(:)
+       vxyzu(1,i) = vxyzu(1,i) - r*(-omega0)*sin(phipart)
+       vxyzu(2,i) = vxyzu(2,i) + r*(-omega0)*cos(phipart)
+    enddo
+
+    omega_corotate = omega0
+ endif
+
 
  dtmax = 2.*pi
 
@@ -252,5 +288,19 @@ subroutine read_gwinputfile(filename)
 
 end subroutine read_gwinputfile
 
+!!----------------------------------------------------------------
+!!
+!! Rotates a vector in the z axis
+!!
+!!----------------------------------------------------------------
+!subroutine rotate_z(oldvec,newvec,phi)
+! real, intent(inout) :: oldvec(3), newvec(3)
+! real, intent(in) :: phi
+!
+! newvec(1) = oldvec(1)*cos(phi) - oldvec(2)*sin(phi)
+! newvec(2) = oldvec(1)*sin(phi) + oldvec(2)*cos(phi)
+!
+! return
+!end subroutine rotate_z
 
 end module setup
