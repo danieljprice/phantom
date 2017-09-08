@@ -11,3 +11,5 @@ pipelines:
         script: # Modify the commands below to build your repository.
           - make SETUP=testkd
           - ./bin/phantom test
+          - make SETUP=testkd MPI=yes
+          - mpirun -np 4 ./bin/phantom test
