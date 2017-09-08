@@ -130,6 +130,7 @@ subroutine test_link(ntests,npass)
           xyzh(4,ip) = hi
        endif
     enddo
+    npart = ip
 
 #ifdef IND_TIMESTEPS
 !----------------------------------------------------
