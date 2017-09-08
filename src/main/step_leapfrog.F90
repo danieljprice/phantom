@@ -481,12 +481,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
  real    :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
  real    :: dtf,accretedmass,t_end_step,dtextforce_min
  real    :: dptmass(ndptmass,nptmass)
- real, save :: fxyz_ptmass_thread(4,maxptmass)
- real, save :: dptmass_thread(ndptmass,maxptmass)
  real, save :: dmdt = 0.
  logical :: last_step,done
- !$omp threadprivate(fxyz_ptmass_thread)
- !$omp threadprivate(dptmass_thread)
 !
 ! determine whether or not to use substepping
 !
@@ -556,7 +552,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     !$omp parallel default(none) &
     !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype) &
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,icooling) &
-    !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,damp) &
+    !$omp shared(xyzmh_ptmass,vxyz_ptmass,damp) &
     !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv) &
     !$omp private(i,ichem,idudtcool,dudtcool,fxi,fyi,fzi,phii) &
     !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,deni,fextv,accreted) &
@@ -565,8 +561,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     !$omp firstprivate(pmassi,itype) &
     !$omp reduction(+:accretedmass) &
     !$omp reduction(min:dtextforcenew,dtsinkgas,dtphi2) &
-    !$omp reduction(max:fonrmax)
-    fxyz_ptmass_thread(:,1:nptmass) = 0.
+    !$omp reduction(max:fonrmax) &
+    !$omp reduction(+:fxyz_ptmass)
     !$omp do
     predictor: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -595,7 +591,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
           fextz = 0.
           if (nptmass > 0) then
              call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
-                      fextx,fexty,fextz,phii,pmassi,fxyz_ptmass_thread,fonrmaxi,dtphi2i)
+                      fextx,fexty,fextz,phii,pmassi,fxyz_ptmass,fonrmaxi,dtphi2i)
              fonrmax = max(fonrmax,fonrmaxi)
              dtphi2  = min(dtphi2,dtphi2i)
           endif
@@ -655,15 +651,6 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
        endif
     enddo predictor
     !$omp enddo
-
-    !
-    ! reduction of sink-gas forces from each OMP thread
-    !
-    if (nptmass > 0 .and. npart > 0) then
-       !$omp critical(ptmassadd)
-       fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_ptmass_thread(:,1:nptmass)
-       !$omp end critical(ptmassadd)
-    endif
     !$omp end parallel
 
     !
@@ -697,11 +684,10 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei,nptmass,sts_it_n) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,f_acc) &
     !$omp shared(iexternalforce) &
-    !$omp shared(dptmass) &
+    !$omp reduction(+:dptmass) &
     !$omp private(i,accreted,nfaili,fxi,fyi,fzi) &
     !$omp firstprivate(itype,pmassi) &
     !$omp reduction(+:accretedmass,nfail,naccreted)
-    dptmass_thread(:,1:nptmass) = 0.
     !$omp do
     accreteloop: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -733,7 +719,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
              call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                                  vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxi,fyi,fzi,&
                                  itype,pmassi,xyzmh_ptmass,vxyz_ptmass,&
-                                 accreted,dptmass_thread,timei,f_acc,nfaili)
+                                 accreted,dptmass,timei,f_acc,nfaili)
              if (accreted) then
                 naccreted = naccreted + 1
                 cycle accreteloop
@@ -744,13 +730,6 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
 
     enddo accreteloop
     !$omp enddo
-
-    !
-    ! reduction of sink particle changes across OMP
-    !
-    !$omp critical(dptmassadd)
-    dptmass(:,1:nptmass) = dptmass(:,1:nptmass) + dptmass_thread(:,1:nptmass)
-    !$omp end critical(dptmassadd)
     !$omp end parallel
 
     !
