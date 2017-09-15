@@ -576,6 +576,31 @@ subroutine test_ptmass(ntests,npass)
        ! now create point mass by accreting these particles
        !
        h_acc = 0.15
+
+       !
+       ! if gravity is not enabled, then need to choose a particle to create ptmass from
+       !
+       if (.not. gravity) then
+          ipart_rhomax_global = itestp
+          call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
+          if (id == id_rhomax) then
+             rhomax_xyzh = xyzh(1:4,itestp)
+             rhomax_vxyz = vxyzu(1:3,itestp)
+             rhomax_iphase = iphase(itestp)
+             rhomax_divv = divcurlv(1,itestp)
+#ifdef IND_TIMESTEPS
+             rhomax_ibin = ibin(itestp)
+#endif
+          endif
+          call bcast_mpi(rhomax_xyzh,id_rhomax)
+          call bcast_mpi(rhomax_vxyz,id_rhomax)
+          call bcast_mpi(rhomax_iphase,id_rhomax)
+          call bcast_mpi(rhomax_divv,id_rhomax)
+#ifdef IND_TIMESTEPS
+          call bcast_mpi(rhomax_ibin,id_rhomax)
+#endif
+       endif
+       
        call ptmass_create(nptmass,npart,itestp,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype,&
                           xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,0.,&
                           rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin)
