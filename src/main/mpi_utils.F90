@@ -929,9 +929,9 @@ subroutine reduceloc_mpi_real(string,xproc,loc)
  xsend(2) = float(id)
  select case(trim(string))
  case('max')
-    call MPI_ALLREDUCE(xsend,xred,1,MPI_REAL8,MPI_MAXLOC,MPI_COMM_WORLD,mpierr)
+    call MPI_ALLREDUCE(xsend,xred,1,MPI_2DOUBLE_PRECISION,MPI_MAXLOC,MPI_COMM_WORLD,mpierr)
  case('min')
-    call MPI_ALLREDUCE(xsend,xred,1,MPI_REAL8,MPI_MINLOC,MPI_COMM_WORLD,mpierr)
+    call MPI_ALLREDUCE(xsend,xred,1,MPI_2DOUBLE_PRECISION,MPI_MINLOC,MPI_COMM_WORLD,mpierr)
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
