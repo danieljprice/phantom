@@ -68,7 +68,7 @@ subroutine test_ptmass(ntests,npass)
 #ifdef IND_TIMESTEPS
  use part,            only:ibin
 #endif
- use mpiutils,        only:bcast_mpi,reduce_in_place_mpi
+ use mpiutils,        only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi
  integer, intent(inout) :: ntests,npass
  integer                :: i,nsteps,nbinary_tests,itest,nerr,nwarn,itestp
  integer                :: nparttot
@@ -84,6 +84,7 @@ subroutine test_ptmass(ntests,npass)
  real                   :: fxyz_sinksink(4,maxptmass)
  integer                :: norbits
  integer                :: nfailed(11),imin(1)
+ integer                :: id_rhomax,ipart_rhomax_global
  character(len=20)      :: dumpfile
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -549,7 +550,16 @@ subroutine test_ptmass(ntests,npass)
        if (itest==2 .and. gravity) then
           imin = minloc(xyzh(4,1:npart))
           itestp = imin(1)
-          call checkval(ipart_rhomax,itestp,0,nfailed(1),'ipart_rhomax')
+          !
+          ! only check on the thread that has rhomax
+          !
+          ipart_rhomax_global = ipart_rhomax
+          call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
+          if (id == id_rhomax) then
+             call checkval(ipart_rhomax,itestp,0,nfailed(1),'ipart_rhomax')
+          else
+             call checkval(ipart_rhomax,-1,0,nfailed(1),'ipart_rhomax')
+          endif
           ntests = ntests + 1
           if (nfailed(1)==0) npass = npass + 1
        endif
