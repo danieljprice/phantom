@@ -52,7 +52,8 @@ subroutine test_ptmass(ntests,npass)
                            ipart_rhomax,icreate_sinks, &
                            idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
                            idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
-                           ndptmass,update_ptmass
+                           ndptmass,update_ptmass, &
+                           rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin
  use physcon,         only:pi
  use setdisc,         only:set_disc
  use spherical,       only:set_sphere
@@ -576,7 +577,8 @@ subroutine test_ptmass(ntests,npass)
        !
        h_acc = 0.15
        call ptmass_create(nptmass,npart,itestp,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype,&
-                          xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,0.)
+                          xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,0.,&
+                          rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin)
        !
        ! check that creation succeeded
        !
