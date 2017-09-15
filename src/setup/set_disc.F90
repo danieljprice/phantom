@@ -73,7 +73,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  use io,      only:fatal,warning,stdout
  integer,                     intent(in)    :: id,master
  integer, optional,           intent(in)    :: nparttot
- integer,                     intent(out)   :: npart
+ integer,                     intent(inout) :: npart
  integer, optional,           intent(in)    :: npart_start,isink,indexprofile,indexprofiledust
  real,                        intent(in)    :: rmin,rmax
  real, optional,              intent(in)    :: rmindust,rmaxdust,p_indexdust,disc_massdust
@@ -95,6 +95,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  integer, parameter :: maxbins = 256
  integer :: maxvxyzu,itype,npart_tot,npart_start_count,ierror
  integer :: i
+ integer :: npart_set
  real    :: Q,Q_tmp,G,cs0,sig0,clight,sig0dust
  real    :: R_in,R_out,phi_min,phi_max,H_R,R_indust,R_outdust,p_inddust,rc0,rc0dust
  real    :: star_M,disc_M,rminav,rmaxav,honHmin,honHmax
@@ -156,7 +157,12 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
        return
     endif
  endif
- if (nparttot <= 0) then
+ if (present(nparttot)) then
+    npart_set = nparttot
+ else
+    npart_set = npart
+ endif
+ if (npart_set <= 0) then
     if (id==master) print*,' ERROR: set_disc: nparttot <= 0 in call to set_disc, doing nothing'
     if (present(ierr)) ierr = 3
     return
@@ -225,9 +231,9 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  if (id==master .and. do_verbose) then
     if (do_mixture) then
        print*,' Setting up disc mixture containing ',&
-                 nparttot,' '//trim(labeltype(itype))//'/'//trim(labeltype(itype+1))//' particles'
+                 npart_set,' '//trim(labeltype(itype))//'/'//trim(labeltype(itype+1))//' particles'
     else
-       print*,' Setting up disc containing ',nparttot,' '//trim(labeltype(itype))//' particles'
+       print*,' Setting up disc containing ',npart_set,' '//trim(labeltype(itype))//' particles'
     endif
  endif
 !
@@ -323,7 +329,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
 !
 ! set the particle mass
 !
-    particle_mass = disc_m / dble(nparttot)
+    particle_mass = disc_m / dble(npart_set)
  else
     sig0dust = 1.d0
     call get_disc_mass(sig0dust,do_sigmapringledust,rc0dust,p_inddust,smooth_surface_density,cs0,q_index,star_M,G, &
@@ -332,19 +338,21 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
 !
 ! set the particle mass of the mixture
 !
-    particle_mass = (disc_m+disc_massdust) / dble(nparttot)
+    particle_mass = (disc_m+disc_massdust) / dble(npart_set)
  endif
 !
 ! count particles on this MPI thread
 !
- npart = 0
- do i = 1,nparttot
-    if (i_belong(i)) npart = npart + 1
- enddo
+ if (present(nparttot)) then
+    npart = 0
+    do i = 1,npart_set
+       if (i_belong(i)) npart = npart + 1
+    enddo
+ endif
 !
 ! set particle positions and smoothing lengths
 !
- npart_tot = npart_start_count + nparttot - 1
+ npart_tot = npart_start_count + npart_set - 1
  if (npart_tot > maxp) call fatal('set_disc','number of particles exceeds array dimensions',var='n',ival=npart_tot)
 
  call set_disc_positions(npart_tot,npart_start_count,do_mixture,R_in,R_out,R_indust,R_outdust,phi_min,phi_max,&
@@ -379,10 +387,10 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  endif
  rmaxav = R_out
  if (present(rwarp)) then
-    call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,nparttot,H_R,q_index,Star_M,R_in,&
+    call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart_set,H_R,q_index,Star_M,R_in,&
                   npart_start_count,npart_tot,do_verbose,rwarp)
  else
-    call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,nparttot,H_R,q_index,Star_M,R_in,&
+    call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart_set,H_R,q_index,Star_M,R_in,&
                   npart_start_count,npart_tot,do_verbose)
  endif
 
