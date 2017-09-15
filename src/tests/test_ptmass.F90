@@ -600,7 +600,7 @@ subroutine test_ptmass(ntests,npass)
           call bcast_mpi(rhomax_ibin,id_rhomax)
 #endif
        endif
-       
+
        call ptmass_create(nptmass,npart,itestp,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype,&
                           xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,0.,&
                           rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin)
