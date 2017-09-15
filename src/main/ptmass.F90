@@ -763,7 +763,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
  use dim,    only:maxp,maxneigh,maxvxyzu
  use kdtree, only:getneigh
  use kernel, only:kernel_softening
- use io,     only:iprint,fatal,iverbose
+ use io,     only:iprint,fatal,iverbose,nprocs
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
 #endif
@@ -902,6 +902,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
  calc_exact_epot = .true.
  if (nneigh_thresh > 0 .and. nneigh > nneigh_thresh) calc_exact_epot = .false.
 !$omp parallel default(none) &
+!$omp shared(nprocs) &
 !$omp shared(nneigh,listneigh,h_acc2,xyzh,xyzcache,vxyzu,massoftype,iphase,pmassgas1,calc_exact_epot) &
 !$omp shared(itest,ifail,xi,yi,zi,hi,vxi,vyi,vzi,hi1,hi21,itype,pmassi,ieos,gamma) &
 #ifdef PERIODIC
@@ -998,6 +999,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
        ! gravitational potential energy of clump
        if (gravity) then
           if (calc_exact_epot) then
+             if (nprocs > 1) call fatal('ptmass_create', 'cannot use calc_exact_epot with MPI')
              ! Calculate potential energy exactly
              !
              ! add contribution of i-j (since, e.g., rij2 is already calculated)
@@ -1070,7 +1072,12 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
  enddo over_neigh
 !$omp enddo
 !$omp end parallel
- if (.not. calc_exact_epot) epot_mass = epot_mass + pmassi*pmassgas1  !self-contribution of the candidate particle
+
+ if (.not. calc_exact_epot) then
+    epot_mass = reduceall_mpi('+', epot_mass)
+    epot_rad  = reduceall_mpi('+', epot_rad)
+    epot_mass = epot_mass + pmassi*pmassgas1  !self-contribution of the candidate particle
+ endif
  !
  !--Update tracking array & reset ifail if required
  !  Note that if ifail7(5,6,7)==1 and record_created==.false., this subroutine will
