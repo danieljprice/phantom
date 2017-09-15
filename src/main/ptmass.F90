@@ -900,7 +900,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
  call getneigh_pos((/xi,yi,zi/),0.,h_acc,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
  ! determine if we should approximate epot
  calc_exact_epot = .true.
- if (nneigh_thresh > 0 .and. nneigh > nneigh_thresh) calc_exact_epot = .false.
+ if ((nneigh_thresh > 0 .and. nneigh > nneigh_thresh) .or. (nprocs > 1)) calc_exact_epot = .false.
 !$omp parallel default(none) &
 !$omp shared(nprocs) &
 !$omp shared(nneigh,listneigh,h_acc2,xyzh,xyzcache,vxyzu,massoftype,iphase,pmassgas1,calc_exact_epot) &
