@@ -49,6 +49,8 @@ module externalforces
  real, private :: eps2_soft = 0.d0
  real, public :: Rdisc = 5.
 
+ real, public :: accradius1_hard = 0.
+
  !
  ! enumerated list of external forces
  !
@@ -559,12 +561,14 @@ end subroutine update_externalforce
 !   add checks to see if particle is bound etc. here)
 !+
 !-----------------------------------------------------------------------
-subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
+subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
  use extern_binary, only:binary_accreted,accradius1
+ use part,          only:set_particle_type,iboundary,maxphase,maxp,igas,npartoftype
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: xi,yi,zi,mi,ti
  real,    intent(inout) :: hi
  logical, intent(out)   :: accreted
+ integer, intent(in), optional :: i
  real :: r2
 
  accreted = .false.
@@ -572,7 +576,12 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
  case(iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton)
 
     r2 = xi*xi + yi*yi + zi*zi
-    if (r2 < accradius1**2) accreted = .true.
+    if (r2 < accradius1**2 .and. maxphase==maxp .and. present(i)) then
+       call set_particle_type(i,iboundary)
+       !npartoftype(igas) = npartoftype(igas) - 1
+       !npartoftype(iboundary) = npartoftype(iboundary) + 1
+    endif
+    if (r2 < (accradius1_hard)**2) accreted = .true.
 
  case(iext_binary)
 
@@ -634,7 +643,9 @@ subroutine write_options_externalforces(iunit,iexternalforce)
  select case(iexternalforce)
  case(iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton)
     call write_inopt(mass1,'mass1','mass of central object in code units',iunit)
-    call write_inopt(accradius1,'accradius1','accretion radius of central object',iunit)
+    if (accradius1_hard < tiny(0.)) accradius1_hard = accradius1
+    call write_inopt(accradius1,'accradius1','soft accretion radius of central object',iunit)
+    call write_inopt(accradius1_hard,'accradius1_hard','hard accretion radius of central object',iunit)
  end select
 
  select case(iexternalforce)
@@ -762,6 +773,10 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
     read(valstring,*,iostat=ierr) accradius1
     if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')
     if (accradius1 < 0.)    call fatal(tag,'negative accretion radius')
+ case('accradius1_hard')
+    read(valstring,*,iostat=ierr) accradius1_hard
+    if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')
+    if (accradius1_hard > accradius1) call fatal(tag,'hard accretion boundary must be within soft accretion boundary')
  case('eps_soft')
     read(valstring,*,iostat=ierr) eps_soft
     if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')

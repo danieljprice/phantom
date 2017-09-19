@@ -707,7 +707,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
           if (ntypes > 1 .and. maxphase==maxp) then
              itype = iamtype(iphase(i))
              pmassi = massoftype(itype)
-             if (itype==iboundary) cycle accreteloop
+            !  if (itype==iboundary) cycle accreteloop
           endif
 
           call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
@@ -721,7 +721,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
 
           if (iexternalforce > 0) then
              call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
-                                    xyzh(3,i),xyzh(4,i),pmassi,timei,accreted)
+                                    xyzh(3,i),xyzh(4,i),pmassi,timei,accreted,i)
              if (accreted) then
                 accretedmass = accretedmass + pmassi
                 naccreted = naccreted + 1
@@ -1054,7 +1054,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
           if (ntypes > 1 .and. maxphase==maxp) then
              itype = iamtype(iphase(i))
              pmassi = massoftype(itype)
-             if (itype==iboundary) cycle accreteloop
+             !if (itype==iboundary) cycle accreteloop
           endif
           !
           ! correct v to the full step using only the external force
@@ -1063,7 +1063,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
 
           if (iexternalforce > 0) then
              call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
-                                    xyzh(3,i),xyzh(4,i),pmassi,timei,accreted)
+                                    xyzh(3,i),xyzh(4,i),pmassi,timei,accreted,i)
              if (accreted) accretedmass = accretedmass + pmassi
           endif
           !

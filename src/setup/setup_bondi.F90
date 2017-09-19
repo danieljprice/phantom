@@ -53,13 +53,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:rhozero,npart_total
  use io,           only:master,fatal
  use spherical,    only:set_sphere
- use options,      only:ieos,iexternalforce,nfulldump,alpha,alphau,beta
+ use options,      only:ieos,iexternalforce,nfulldump
  use timestep,     only:tmax,dtmax
  use centreofmass, only:reset_centreofmass
  use units,        only:udist,umass,utime,set_units
  use physcon,      only:pc,solarm,gg
- use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,igas
+ use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,igas,set_particle_type,iboundary
  use stretchmap,   only:get_mass_r
+ use kernel,       only:radkern
+ use externalforces,only:accradius1_hard
 #ifdef GR
  use metric,       only:metric_type
 #endif
@@ -75,43 +77,52 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: psep,tff
  real    :: vol,rmax,rmin
  real    :: gcode
- integer :: i,np,nx,ilattice,maxvxyzu
+ integer :: i,np,nx,ilattice,maxvxyzu,nbound
  real    :: r,pos(3),cs2
  real    :: totmass
+ real    :: approx_m,approx_h
 
 !-- Set code units
  call set_units(mass=solarm,G=1.d0,c=1.d0)
  gcode = gg*umass*utime**2/udist**3
  print*,' gcode = ',gcode
 
-!--Set general parameters
- time  = 0.
- hfact = 1.2
- gamma      = 5./3.
- gamma_eos  = gamma
- accradius1 = 2.
+ maxvxyzu = size(vxyzu(:,1))
 
-if(.not. gr) then
-   ieos   = 11.
-   alpha  = 0.
-   alphau = 0.
-   beta   = 0.
-   iexternalforce = 1
-else
-   ieos = 2.
-endif
+!--Set general parameters
+ time = 0.
+ if (maxvxyzu >=4) then
+    gamma      = 5./3.
+    ieos = 2
+ else
+    gamma = 1.
+    ieos = 1
+ endif
+ gamma_eos = gamma
+ if(.not. gr ) then
+    iexternalforce = 1
+ endif
 
 !--- Setup particles
- rmin  = accradius1*1.01
- rmax  = 18.1
- np    = 1000*100
- vol   = 4./3.*pi*rmax**3
- nx    = int(np**(1./3.))
- psep  = vol**(1./3.)/real(nx)
+ rmax = 18.1
+ np   = 100*1000
+ vol  = 4./3.*pi*rmax**3
+ nx   = int(np**(1./3.))
+ psep = vol**(1./3.)/real(nx)
  if(.not.gr) then
     cs2  = mass1/(2.*rc)
+    polyk = cs2
     mdot = rhocrit*4.*pi*rc**2*sqrt(cs2)
  endif
+
+ accradius1 = 2.
+ if(gr) accradius1 = 3.
+ approx_m    = get_mass_r(rhofunc,rmax,accradius1)/np
+ approx_h    = hfact*(approx_m/rhofunc(accradius1))**(1./3.)
+ accradius1_hard = (accradius1 - radkern*approx_h)
+
+ rmin  = accradius1_hard
+ if(gr.and.rmin <=2.) STOP 'rmin is less than Schwarzschild radius!'
  totmass = get_mass_r(rhofunc,rmax,rmin)
  rhozero = totmass/vol
  tff     = sqrt(3.*pi/(32.*rhozero))
@@ -121,20 +132,17 @@ endif
  print*,' min,max radius = ',rmin,rmax
  print*,' volume         = ',vol        ,' particle separation = ',psep
  print*,' vol/psep**3    = ',vol/psep**3,' totmass             = ',totmass
- print*,' free fall time = ',tff        ,' mdot                = ',mdot
+ print*,' free fall time = ',tff        ,' tmax                = ',tmax
  print*,''
 
  tmax = totmass/mdot
+ if(gr) tmax = 10.*tff
  dtmax = tmax/500.
 
  ilattice       = 2
  nfulldump      = 1
  iexternalforce = 1
 
- maxvxyzu = size(vxyzu(:,1))
- if (maxvxyzu < 4) then
-    call fatal('setup','Setup requires thermal energy to be stored')
- endif
 #ifdef GR
  if (.not. metric_type == 'Schwarzschild') then
     call fatal('setup','GR on, but metric is not Schwarzschild. Change the metric to Schwarzschild for gr_bondi setup.')
@@ -145,19 +153,26 @@ endif
  npart = 0
  npart_total = 0
  call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,xyzh,rhofunc=rhofunc,nptot=npart_total)
- massoftype(igas) = totmass/npart
+ massoftype(:) = totmass/npart
  print*,' npart = ',npart
  print*,''
 
+ nbound = 0
  do i=1,npart
     pos = xyzh(1:3,i)
     r = sqrt(dot_product(pos,pos))
     if(gr) then
-       vxyzu(4,i)   = efunc(r)/dfunc(r)
+       if (maxvxyzu >= 4) vxyzu(4,i)   = efunc(r)/dfunc(r)
        vxyzu(1:3,i) = vfunc(r)*pos/r
     else
-       vxyzu(4,i)   = cs2/(gamma-1.)
+       if (maxvxyzu >= 4) vxyzu(4,i)   = cs2/(gamma-1.)
        vxyzu(1:3,i) = vfunc(r,rc)*pos/r
+    endif
+    if (r + radkern*xyzh(4,i)>rmax) then
+       call set_particle_type(i,iboundary)
+       nbound = nbound + 1
+    else
+       call set_particle_type(i,igas)
     endif
  enddo
 
@@ -165,10 +180,11 @@ endif
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  npartoftype(:) = 0
- npartoftype(igas) = npart_total
+ npartoftype(igas) = npart_total-nbound
+ npartoftype(iboundary) = nbound
 
 end subroutine setpart
-!>>>>>----------------------------------------------------------------<<<<<
+!=====----------------------------------------------------------------=====
 
 !--- Density rhostar(r)
 real function rhofunc(r)
@@ -207,7 +223,7 @@ real function vfunc(r,r0)
 end function vfunc
 
 
-!>>>>>----------------------------------------------------------------------------------------------<<<<<
+!=====----------------------------------------------------------------------------------------------=====
 !
 !---Functions for GR solution
 !
@@ -241,7 +257,7 @@ end function gammafunc
 #endif
 
 
-!>>>>>----------------------------------------------------------------------------------------------<<<<<
+!=====----------------------------------------------------------------------------------------------=====
 !
 !---Functions for non-relativistic solution
 !

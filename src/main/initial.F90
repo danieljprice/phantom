@@ -147,7 +147,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustfrac,&
-                            set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh
+                            set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,iboundary
 #ifdef GR
  use part,             only:pxyzu,dens
  use cons2prim,        only:primitive_to_conservative
@@ -465,6 +465,17 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  endif
 #endif
 
+!
+!-- Set external force to zero on boundary particles
+!
+if (maxphase==maxp) then
+!$omp parallel do default(none) &
+!$omp shared(npart,fext,iphase) private(i)
+ do i=1,npart
+    if(iamtype(iphase(i))==iboundary) fext(:,i)=0.
+ enddo
+!$omp end parallel do
+endif
 !
 !--get timestep and forces for sink particles
 !

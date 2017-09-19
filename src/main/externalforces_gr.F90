@@ -1,32 +1,3 @@
-!--------------------------------------------------------------------------!
-! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
-! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
-!--------------------------------------------------------------------------!
-!+
-!  MODULE: externalforces
-!
-!  DESCRIPTION:
-!  Routines dealing with external forces/ potentials
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    accradius1 -- accretion radius of central object
-!    eps_soft   -- softening length (Plummer) for central potential in code units
-!    mass1      -- mass of central object in code units
-!
-!  DEPENDENCIES: dump_utils, extern_Bfield, extern_binary, extern_corotate,
-!    extern_gnewton, extern_gwinspiral, extern_lensethirring,
-!    extern_neutronstar, extern_prdrag, extern_spiral, extern_staticsine,
-!    fastmath, infile_utils, io, lumin_nsdisc, part, physcon, units
-!+
-!--------------------------------------------------------------------------
 module externalforces
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -41,18 +12,18 @@ module externalforces
  public :: update_externalforce
  public :: write_headeropts_extern,read_headeropts_extern
 
+
  real, public :: mass1 = 1.0
- real, public :: eps_soft = 0.d0
- real, public :: omega_corotate = 0.d0
  real, public :: accradius1 = 2.5
+ real, public :: accradius1_hard = 0.
 
  !
  ! enumerated list of external forces
  !
  integer, parameter, public :: iext_gr = 1
- !
- ! the following for compatibility with non-relativistic code
- !
+
+
+ ! (the following for compatibility with non-relativistic code)
  integer, parameter, public :: iext_lensethirring = -1
  integer, parameter, public :: iext_einsteinprec = -1
  integer, parameter, public :: iext_binary = -1
@@ -223,12 +194,14 @@ end subroutine update_externalforce
 !   add checks to see if particle is bound etc. here)
 !+
 !-----------------------------------------------------------------------
-subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
+subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
  use metric, only:metric_type
+ use part,   only:set_particle_type,iboundary,maxphase,maxp,igas,npartoftype
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: xi,yi,zi,mi,ti
  real,    intent(inout) :: hi
  logical, intent(out)   :: accreted
+ integer, intent(in), optional :: i
  real :: r2
 
  accreted = .false.
@@ -238,7 +211,12 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
 
  case('Schwarzschild')
     r2 = xi*xi + yi*yi + zi*zi
-    if (r2 < accradius1**2) accreted = .true.
+    if (r2 < accradius1**2 .and. maxphase==maxp .and. present(i)) then
+      call set_particle_type(i,iboundary)
+      !npartoftype(igas) = npartoftype(igas) - 1
+      !npartoftype(iboundary) = npartoftype(iboundary) + 1
+    endif
+    if (r2 < (accradius1_hard)**2) accreted = .true.
 
  case('Kerr')
     print*,'Accrete particles: no accretion implemented for Kerr metric'
@@ -285,7 +263,9 @@ subroutine write_options_externalforces(iunit,iexternalforce)
  select case(iexternalforce)
  case(iext_gr)
     call write_inopt(mass1,'mass1','mass of central object in code units',iunit)
-    call write_inopt(accradius1,'accradius1','accretion radius of central object',iunit)
+    if (accradius1_hard < tiny(0.)) accradius1_hard = accradius1
+    call write_inopt(accradius1,'accradius1','soft accretion radius of central object',iunit)
+    call write_inopt(accradius1_hard,'accradius1_hard','hard accretion radius of central object',iunit)
  end select
 
  !call write_options_corotate(iunit)
@@ -360,6 +340,10 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
     read(valstring,*,iostat=ierr) accradius1
     if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')
     if (accradius1 < 0.)    call fatal(tag,'negative accretion radius')
+ case('accradius1_hard')
+    read(valstring,*,iostat=ierr) accradius1_hard
+    if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')
+    if (accradius1_hard > accradius1) call fatal(tag,'hard accretion boundary must be within soft accretion boundary')
  case default
     imatch = .false.
     ! call read_options_gwinspiral(name,valstring,imatch,igotallgwinspiral,ierr)
