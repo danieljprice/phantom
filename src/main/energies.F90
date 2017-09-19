@@ -67,6 +67,7 @@ subroutine compute_energies(t)
                 nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,isdead_or_accreted,epot_sinksink,&
                 imacc,ispinx,ispiny,ispinz,mhd,maxvecp,gravity,poten,dustfrac,&
                 n_R,n_electronT,ionfrac_eta
+ use part, only:pxyzu
  use eos,            only:polyk,utherm,gamma,equationofstate,get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
@@ -76,6 +77,10 @@ subroutine compute_energies(t)
  use viscosity,      only:irealvisc,shearfunc
  use nicil,          only:nicil_get_eta,nicil_get_vion,use_ohm,use_hall,use_ambi,ion_rays,ion_thermal, &
                      nelements_max,nelements,nlevels
+#ifdef GR
+ use utils_gr,       only:dot_product_gr,get_metric3plus1
+ use vectorutils,    only:cross_product3D
+#endif
 #ifdef DUST
  use dust,           only:get_ts,graindens,grainsize,idrag
  integer :: iregime
@@ -96,6 +101,10 @@ subroutine compute_energies(t)
  real    :: temperature,etaart,etaart1,etaohm,etahall,etaambi,vion,vdrift
  real    :: curlBi(3),vioni(3),data_out(17+nelements_max*nlevels-3)
  real    :: erotxi,erotyi,erotzi,fdum(3)
+ real    :: ethermi 
+#ifdef GR
+ real    :: pdotv,bigvi(1:3),alpha_gr,beta_gr(1:3),lorentzi,pxi,pyi,pzi,gammaijdown(1:3,1:3),gammaijUP(1:3,1:3),angi(1:3)
+#endif
  integer :: i,j,itype,ierr
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
 
@@ -136,6 +145,7 @@ subroutine compute_energies(t)
 !
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyzu,iexternalforce,npart,t,id,npartoftype) &
+!$omp shared(pxyzu) &
 !$omp shared(alphaind,massoftype,irealvisc) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass) &
 !$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac) &
@@ -146,6 +156,10 @@ subroutine compute_energies(t)
 !$omp shared(iev_etaa,iev_vel,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
+#ifdef GR
+!$omp private(pxi,pyi,pzi,gammaijdown,gammaijUP,alpha_gr,beta_gr,bigvi,lorentzi,pdotv,angi) &
+#endif
+!$omp private(ethermi) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,acci,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
 !$omp private(gasfrac,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
@@ -209,6 +223,31 @@ subroutine compute_energies(t)
        vyi  = vxyzu(2,i)
        vzi  = vxyzu(3,i)
 
+#ifdef GR
+       pxi  = pxyzu(1,i)
+       pyi  = pxyzu(2,i)
+       pzi  = pxyzu(3,i)
+
+       !  linear momentum
+       xmom = xmom + pmassi*pxi
+       ymom = ymom + pmassi*pyi
+       zmom = zmom + pmassi*pzi
+
+       call get_metric3plus1(xyzh(1:3,i),alpha_gr,beta_gr,gammaijdown,gammaijUP)
+       bigvi    = (vxyzu(1:3,i)+beta_gr)/alpha_gr
+       v2i      = dot_product_gr(bigvi,bigvi,gammaijdown)
+       lorentzi = 1./sqrt(1.-v2i)
+       pdotv    = pxi*vxi + pyi*vyi + pzi*vzi
+
+       ! angular momentum
+       call cross_product3D(xyzh(1:3,i),(lorentzi/alpha_gr)*vxyzu(1:3,i),angi) ! position cross with four-velocity
+       angx = angx + pmassi*angi(1)
+       angy = angy + pmassi*angi(2)
+       angz = angz + pmassi*angi(3)
+
+       ! kinetic energy
+       ekin     = ekin + pmassi*(pdotv + alpha_gr/lorentzi) ! The 'kinetic term' in total specific energy
+#else
        !  linear momentum
        xmom = xmom + pmassi*vxi
        ymom = ymom + pmassi*vyi
@@ -222,6 +261,8 @@ subroutine compute_energies(t)
        ! kinetic energy & rms velocity
        v2i  = vxi*vxi + vyi*vyi + vzi*vzi
        ekin = ekin + pmassi*v2i
+#endif
+
        call ev_data_update(ev_data_thread,iev_vrms,v2i)        ! vrms = vrms + v2i
 
        ! rotational energy around each axis through the Centre of mass
@@ -237,7 +278,9 @@ subroutine compute_energies(t)
           dumx = 0.
           dumy = 0.
           dumz = 0.
-#ifndef GR
+#ifdef GR
+          epoti = 0.
+#else
           call externalforce(iexternalforce,xi,yi,zi,hi,t,dumx,dumy,dumz,epoti,ii=i)
           call externalforce_vdependent(iexternalforce,xyzh(1:3,i),vxyzu(1:3,i),fdum,epoti)
 #endif
@@ -271,7 +314,11 @@ subroutine compute_energies(t)
 
           ! thermal energy
           if (maxvxyzu >= 4) then
-             etherm = etherm + pmassi*utherm(vxyzu(4,i),rhoi)*gasfrac
+             ethermi = pmassi*utherm(vxyzu(4,i),rhoi)*gasfrac
+#ifdef GR
+             ethermi = (alpha_gr/lorentzi)*ethermi
+#endif
+             etherm = etherm + ethermi
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(4,i))
           else
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi)
@@ -285,7 +332,7 @@ subroutine compute_energies(t)
           endif
           vsigi = spsoundi
           ! entropy
-          call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma))
+          call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma)) !!!! GR version same ?
 
 #ifdef DUST
           ! min and mean stopping time
@@ -507,7 +554,9 @@ subroutine compute_energies(t)
  !--Finalise the arrays & correct as necessary;
  !  Almost all of the average quantities are over gas particles only
  call finalise_ev_data(ev_data,dnpgas)
+#ifndef GR
  ekin = 0.5*ekin
+#endif
  emag = 0.5*emag
  ekin = reduce_fn('+',ekin)
  if (maxvxyzu >= 4 .or. gamma >= 1.0001) etherm = reduce_fn('+',etherm)
