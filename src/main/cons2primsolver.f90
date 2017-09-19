@@ -195,37 +195,4 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,en_type)
 
 end subroutine conservative2primitive
 
-subroutine get_v_from_p(pmom,v,x)
- ! Conservative to primitive solver for the dust case (Pressure=0)
- use metric_tools, only: get_metric
- use utils_gr, only: dot_product_gr
- real, intent(in) :: pmom(1:3), x(1:3)
- real, intent(out) :: v(1:3)
- real :: en, rho, P, u, dens
- integer :: ierr
-
- en  = 1.
- rho = 0.
- P   = 0.
- u   = 0.
- dens= 0.
- call conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,'energy')
-
-
-end subroutine get_v_from_p
-
-subroutine get_p_from_v(pmom,v,x)
- use metric_tools, only: get_metric
- real, intent(in) :: v(1:3), x(1:3)
- real, intent(out) :: pmom(1:3)
- real :: rho, en, dens, u, P
-
- dens = 0.
- u    = 0.
- P    = 0.
- call primitive2conservative(x,v,dens,u,P,rho,pmom,en,'energy')
-
-
-end subroutine get_p_from_v
-
 end module cons2primsolver
