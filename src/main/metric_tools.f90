@@ -11,6 +11,8 @@ module metric_tools
  character(len=*), parameter :: coordinate_sys = 'Cartesian'
 !--- When using this with PHANTOM, it should always be set to cartesian
 
+logical, private, parameter :: useinv4x4 = .true.
+
 contains
 
 ! This is a wrapper subroutine to get the metric tensor in both covariant (gcov) and
@@ -21,11 +23,8 @@ subroutine get_metric(position,gcov,gcon,sqrtg)
  real,    intent(in)  :: position(3)
  real,    intent(out) :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
  real :: det
- ! real :: gcovs(0:3,0:3), gcons(0:3,0:3), sqrtgs, dxdx(0:3,0:3), det, xsphere(3)
- logical, parameter :: useinv4x4 = .true.
 
  select case(coordinate_sys)
-
  case('Cartesian')
     call get_metric_cartesian(position,gcov,gcon,sqrtg)
  case('Spherical')
@@ -33,10 +32,7 @@ subroutine get_metric(position,gcov,gcon,sqrtg)
  end select
 
  if (useinv4x4) call inv4x4(gcov,gcon,det)
- ! call cartesian2spherical(position,xsphere)
- ! sqrtg=1.
- ! call inv4x4(gcov,gcon,det)
- ! sqrtg = sqrt(-det)
+
 end subroutine get_metric
 
 ! This is a wrapper subroutine to get the derivatives of the covariant metric tensor.
