@@ -31,12 +31,28 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
+ use prompting, only:prompt
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
+ integer, save :: ii = 0, particlei = 1
+ character(len=50), save :: filename
 
- write(1,*) time,xyzh(1:3,1),vxyzu(1:3,1)
+ if (ii==0) then
+   call prompt('select which particle you want the position and velocity for',particlei)
+   write(filename,"(a,i5.5,a)") 'particle_',particlei,'.ev'
+   filename=trim(filename)
+   open(unit=1234,file=filename,status='replace')
+   write(1234,"(a1,a26,6a27)") '#','time','x','y','z','vx','vy','vz'
+   ii=1
+ else
+   open(unit=1234,file=filename,position='append')
+ endif
+
+ write(1234,"(7e27.17)") time,xyzh(1:3,particlei),vxyzu(1:3,particlei)
+
+ close(1234)
 
 end subroutine do_analysis
 
