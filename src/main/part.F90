@@ -131,10 +131,13 @@ module part
 !
 !--Non-ideal MHD
 !
- real         :: n_R(4,maxmhdni),n_electronT(maxmhdni)
- real(kind=4) :: ionfrac_eta(4,maxmhdni)
+ real :: n_R(4,maxmhdni),n_electronT(maxmhdni),eta_nimhd(4,maxmhdni)
+ integer, parameter :: iohm  = 1 ! eta_ohm
+ integer, parameter :: ihall = 2 ! eta_hall
+ integer, parameter :: iambi = 3 ! eta_ambi
+ integer, parameter :: iion  = 4 ! ionisation fraction
 #ifdef NONIDEALMHD
- character(len=*), parameter :: ionfrac_eta_label(4) = (/'ne_by_n','eta_OR ','eta_HE ','eta_AD '/)
+ character(len=*), parameter :: eta_nimhd_label(4) = (/'eta_{OR}','eta_{HE}','eta_{AD}','ne/n    '/)
 #endif
 !
 !--for analysis routines, do not allocate any more storage
@@ -195,9 +198,13 @@ module part
 !  information between MPI threads
 !
  integer, parameter, private :: maxpd =  max(maxp,1) ! avoid divide by zero
+ integer, parameter, private :: usedivcurlv = min(ndivcurlv,1)
  integer, parameter :: ipartbufsize = 4 &  ! xyzh
    +maxvxyzu                            &  ! vxyzu
    +maxvxyzu                            &  ! vpred
+   +maxvxyzu                            &  ! fxyzu
+   +3                                   &  ! fext
+   +usedivcurlv                         &  ! divcurlv
    +nalpha*maxalpha/maxpd               &  ! alphaind
    +ngradh*maxgradh/maxpd               &  ! gradh
    +(maxmhd/maxpd)*maxBevol             &  ! Bevol
@@ -216,9 +223,6 @@ module part
    +1                                   &  ! ibinsink
    +1                                   &  ! dt_in
    +1                                   &  ! twas
-   +maxvxyzu                            &  ! fxyzu
-   +3                                   &  ! fext
-   +1                                   &  ! divcurlv
 #endif
    +0
 
@@ -641,9 +645,9 @@ subroutine copy_particle_all(src,dst)
     if (maxvecp==maxp) Bxyz(:,dst)   = Bxyz(:,src)
     divBsymm(dst) = divBsymm(src)
     if (maxmhdni==maxp) then
-       n_R(:,dst)         = n_R(:,src)
-       n_electronT(dst)   = n_electronT(src)
-       ionfrac_eta(:,dst) = ionfrac_eta(:,src)
+       n_R(:,dst)       = n_R(:,src)
+       n_electronT(dst) = n_electronT(src)
+       eta_nimhd(:,dst) = eta_nimhd(:,src)
     endif
  endif
  if (gr) pxyzu(:,dst) = pxyzu(:,src)
@@ -830,6 +834,11 @@ subroutine fill_sendbuf(i,xtemp)
     call fill_buffer(xtemp,xyzh(:,i),nbuf)
     call fill_buffer(xtemp,vxyzu(:,i),nbuf)
     call fill_buffer(xtemp,vpred(:,i),nbuf)
+    call fill_buffer(xtemp,fxyzu(:,i),nbuf)
+    call fill_buffer(xtemp,fext(:,i),nbuf)
+    if (ndivcurlv > 0) then
+       call fill_buffer(xtemp,divcurlv(1,i),nbuf)
+    endif
     if (maxalpha==maxp) then
        call fill_buffer(xtemp,alphaind(:,i),nbuf)
     endif
@@ -858,16 +867,8 @@ subroutine fill_sendbuf(i,xtemp)
     call fill_buffer(xtemp,ibin_wake(i),nbuf)
     call fill_buffer(xtemp,ibinold(i),nbuf)
     call fill_buffer(xtemp,ibinsink(i),nbuf)
-
     call fill_buffer(xtemp,dt_in(i),nbuf)
     call fill_buffer(xtemp,twas(i),nbuf)
-
-    !--inactive particles require derivs sent
-    call fill_buffer(xtemp,fxyzu(:,i),nbuf)
-    call fill_buffer(xtemp,fext(:,i),nbuf)
-    if (ndivcurlv >= 1) then
-       call fill_buffer(xtemp,divcurlv(1,i),nbuf)
-    endif
 #endif
  endif
  if (nbuf /= ipartbufsize) call fatal('fill_sendbuf','error in send buffer size')
@@ -891,6 +892,11 @@ subroutine unfill_buffer(ipart,xbuf)
  xyzh(:,ipart)          = unfill_buf(xbuf,j,4)
  vxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
  vpred(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
+ fxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
+ fext(:,ipart)          = unfill_buf(xbuf,j,3)
+ if (ndivcurlv > 0) then
+    divcurlv(1,ipart)  = real(unfill_buf(xbuf,j),kind=kind(divcurlv))
+ endif
  if (maxalpha==maxp) then
     alphaind(:,ipart)   = real(unfill_buf(xbuf,j,nalpha),kind(alphaind))
  endif
@@ -919,15 +925,8 @@ subroutine unfill_buffer(ipart,xbuf)
  ibin_wake(ipart)       = nint(unfill_buf(xbuf,j),kind=1)
  ibinold(ipart)         = nint(unfill_buf(xbuf,j),kind=1)
  ibinsink(ipart)        = nint(unfill_buf(xbuf,j),kind=1)
-
  dt_in(ipart)           = real(unfill_buf(xbuf,j),kind=kind(dt_in))
  twas(ipart)            = unfill_buf(xbuf,j)
-
- fxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
- fext(:,ipart)          = unfill_buf(xbuf,j,3)
- if (ndivcurlv >= 1) then
-    divcurlv(1,ipart)  = real(unfill_buf(xbuf,j),kind=kind(divcurlv))
- endif
 #endif
 
 !--just to be on the safe side, set other things to zero

@@ -47,8 +47,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer                :: i, ierr, setup_case, two_sink_case = 1, npts, rhomaxi, n
- real                   :: primary_mass, companion_mass, mass_ratio, a, e, omega_vec(3), omegacrossr(3), vr = 0.0, hsoft_default = 3
- real                   :: hacc1,hacc2,mcore,comp_shift=100, sink_dist, vel_shift
+ real                   :: primary_mass, companion_mass_1, companion_mass_2, mass_ratio
+ real                   :: a1, a2, e, omega_vec(3), omegacrossr(3), vr = 0.0, hsoft_default = 3
+ real                   :: hacc1,hacc2,hacc3,mcore,comp_shift=100, sink_dist, vel_shift
  real                   :: mcut,rcut,Mstar,radi,rhopart,rhomax = 0.0
  integer, parameter     :: ng_max = 5000
  real                   :: r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),enitab(ng_max)
@@ -131,12 +132,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  else
 
 !choose what to do with the star: set a binary or setup a magnetic field
-    print "(3(/,a))",'1) setup a binary system', &
+    print "(4(/,a))",'1) setup a binary system', &
                   '2) setup a magnetic field in the star', &
-                  '3) manually create sink in core'
+                  '3) manually create sink in core', &
+                  '4) setup trinary system'
 
     setup_case = 1
-    call prompt('Choose a setup option ',setup_case,1,3)
+    call prompt('Choose a setup option ',setup_case,1,4)
 
     select case(setup_case)
 
@@ -144,12 +146,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
        !takes necessary inputs from user 1
        print*, 'Current mass unit is ', umass,'g):'
-       companion_mass = 0.6
-       call prompt('Enter companion mass in code units',companion_mass,0.)
+       companion_mass_1 = 0.6
+       call prompt('Enter companion mass in code units',companion_mass_1,0.)
 
        print*, 'Current length unit is ', udist ,'cm):'
-       a = 100.
-       call prompt('Enter orbit semi-major axis in code units', a, 0.0)
+       a1 = 100.
+       call prompt('Enter orbit semi-major axis in code units', a1, 0.0)
 
        e = 0.0
        call prompt('Enter orbit eccentricity', e, 0.0, 1.0)
@@ -179,7 +181,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        endif
 
        primary_mass = npartoftype(igas) * massoftype(igas) + mcore
-       mass_ratio = companion_mass / primary_mass
+       mass_ratio = companion_mass_1 / primary_mass
 
        !sets the binary
        !corotating frame
@@ -187,7 +189,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           !turns on corotation
           iexternalforce = iext_corotate
 
-          call set_binary(primary_mass,mass_ratio,a,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,omega_corotate)
+          call set_binary(primary_mass,mass_ratio,a1,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,omega_corotate)
 
           print "(/,a,es18.10,/)", ' The angular velocity in the corotating frame is: ', omega_corotate
 
@@ -200,7 +202,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           enddo
           !non corotating frame
        else
-          call set_binary(primary_mass,mass_ratio,a,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
+          call set_binary(primary_mass,mass_ratio,a1,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
        endif
 
        !"set_binary" newly created sinks shifted to the first and second element of the xyzmh_ptmass array (original sink overwritten)
@@ -298,6 +300,83 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
        call shuffle_part(npart)
 
+    case(4)
+
+       !takes necessary inputs from user 1
+       print*, 'Current mass unit is ', umass,'g):'
+       companion_mass_1 = 0.0095
+       call prompt('Enter 1st companion mass in code units',companion_mass_1,0.)
+       companion_mass_2 = 0.0095
+       call prompt('Enter 2nd companion mass in code units',companion_mass_2,0.)
+
+       print*, 'Current length unit is ', udist ,'cm):'
+       a1 = 166.5
+       call prompt('Enter 1st companion orbit semi-major axis in code units', a1, 0.0)
+       a2 = 336.8
+       call prompt('Enter 2nd companion orbit semi-major axis in code units', a2, 0.0)
+
+       print*, 'Current length unit is ', udist ,'cm):'
+       hacc1 = 0.0
+       hacc2 = 0.0
+       hacc3 = 0.0
+       call prompt('Enter accretion radius for the primary in code units', hacc1, 0.0)
+       call prompt('Enter accretion radius for the 1st companion in code units', hacc2, 0.0)
+       call prompt('Enter accretion radius for the 2nd companion in code units', hacc3, 0.0)
+
+       !resets to (0,0,0) position and velocity of centre of mass for whole system before creating the binary
+       call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+
+       !removes the dead or accreted particles for a correct total mass computation
+       call delete_dead_or_accreted_particles(npart,npartoftype)
+       print*,' Got ',npart,npartoftype(igas),' after deleting accreted particles'
+
+       !sets up the binary system orbital parameters
+       if (nptmass > 0) then
+          mcore = xyzmh_ptmass(4,1)
+       else
+          mcore = 0.
+       endif
+
+       primary_mass = npartoftype(igas) * massoftype(igas) + mcore
+
+       call set_trinary(primary_mass,companion_mass_1,companion_mass_2,&
+                        a1,a2,hacc1,hacc2,hacc3,&
+                        xyzmh_ptmass,vxyz_ptmass,nptmass)
+
+
+       if (nptmass > 3) then
+          xyzmh_ptmass(1:3,1) = xyzmh_ptmass(1:3,2)
+          xyzmh_ptmass(:,2) = xyzmh_ptmass(:,3)
+          xyzmh_ptmass(:,3) = xyzmh_ptmass(:,4)
+
+          vxyz_ptmass(:,1) = vxyz_ptmass(:,2)
+          vxyz_ptmass(:,2) = vxyz_ptmass(:,3)
+          vxyz_ptmass(:,3) = vxyz_ptmass(:,4)
+       endif
+
+       xyzmh_ptmass(ihsoft,1) = xyzmh_ptmass(ihsoft,1)
+       xyzmh_ptmass(ihsoft,2) = xyzmh_ptmass(ihsoft,1)
+       xyzmh_ptmass(ihsoft,3) = xyzmh_ptmass(ihsoft,1)
+       call prompt('Enter softening length for primary',xyzmh_ptmass(ihsoft,1),0.)
+       call prompt('Enter softening length for secondary',xyzmh_ptmass(ihsoft,2),0.)
+       call prompt('Enter softening length for tertiary',xyzmh_ptmass(ihsoft,3),0.)
+
+
+       !shifts gas to the primary point mass created in 'set_binary'
+       do i=1,npart
+          !positions
+          xyzh(1:3,i) = xyzh(1:3,i) + xyzmh_ptmass(1:3,1)
+
+          !velocities
+          vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz_ptmass(1:3,1)
+       enddo
+
+       !deletes third point mass
+       nptmass = 3
+
+       !resets to (0,0,0) position and velocity of centre of mass for whole system after creating the binary
+       call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+
     end select
 
  endif
@@ -317,6 +396,82 @@ subroutine cross(a,b,c)
  c(3) = a(1)*b(2)-b(1)*a(2)
 
 end subroutine cross
+
+subroutine set_trinary(mprimary,msecondary,mtertiary,semimajoraxis12,semimajoraxis13,&
+                      accretion_radius1,accretion_radius2,accretion_radius3,&
+                      xyzmh_ptmass,vxyz_ptmass,nptmass)
+ use part,    only:ihacc,ihsoft
+ real,    intent(in)    :: mprimary,msecondary,mtertiary
+ real,    intent(in)    :: semimajoraxis12,semimajoraxis13
+ real,    intent(in)    :: accretion_radius1,accretion_radius2,accretion_radius3
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, intent(inout) :: nptmass
+
+ integer :: i1,i2,i3
+ real    :: m1,m2,m3,mtot,dx12(3),dx13(3),dv12(3),dv13(3)
+ real    :: x1(3),x2(3),x3(3),v1(3),v2(3),v3(3)
+
+ i1 = nptmass + 1
+ i2 = nptmass + 2
+ i3 = nptmass + 3
+ nptmass = nptmass + 3
+
+ ! masses
+ m1 = mprimary
+ m2 = msecondary
+ m3 = mtertiary
+ mtot = m1 + m2 + m3
+
+!
+!--check for stupid parameter choices
+!
+! if (mprimary <= 0.)      stop 'ERROR: primary mass <= 0'
+! if (massratio < 0.)      stop 'ERROR: binary mass ratio < 0'
+! if (semimajoraxis <= 0.) stop 'ERROR: semi-major axis <= 0'
+! if (eccentricity > 1. .or. eccentricity < 0.) &
+!    stop 'ERROR: eccentricity must be between 0 and 1'
+
+ dx12 = (/semimajoraxis12,0.,0./)
+ dv12 = (/0.,sqrt((m1+m2)/dx12(1)),0./)
+
+ dx13 = (/semimajoraxis13,0.,0./)
+ dv13 = (/0.,sqrt(mtot/dx13(1)),0./)
+
+ ! positions of each star so centre of mass is at zero
+ x1 = -(dx12*m2 + dx13*m3)/mtot
+ x2 = (dx12*m1 + dx12*m3 - dx13*m3)/mtot
+ x3 = (dx13*m1 + dx13*m2 - dx12*m2)/mtot
+
+ ! velocities
+ v1 = -(dv12*m2 + dv13*m3)/mtot
+ v2 = (dv12*m1 + dv12*m3 - dv13*m3)/mtot
+ v3 = (dv13*m1 + dv13*m2 - dv12*m2)/mtot
+
+!
+!--positions and accretion radii
+!
+ xyzmh_ptmass(:,i1:i3) = 0.
+ xyzmh_ptmass(1:3,i1) = x1
+ xyzmh_ptmass(1:3,i2) = x2
+ xyzmh_ptmass(1:3,i3) = x3
+ xyzmh_ptmass(4,i1) = m1
+ xyzmh_ptmass(4,i2) = m2
+ xyzmh_ptmass(4,i3) = m3
+ xyzmh_ptmass(ihacc,i1) = accretion_radius1
+ xyzmh_ptmass(ihacc,i2) = accretion_radius2
+ xyzmh_ptmass(ihacc,i3) = accretion_radius3
+ xyzmh_ptmass(ihsoft,i1) = 0.0
+ xyzmh_ptmass(ihsoft,i2) = 0.0
+ xyzmh_ptmass(ihsoft,i3) = 0.0
+!
+!--velocities
+!
+ vxyz_ptmass(:,i1) = v1
+ vxyz_ptmass(:,i2) = v2
+ vxyz_ptmass(:,i3) = v3
+
+end subroutine set_trinary
+
 
 end module moddump
 

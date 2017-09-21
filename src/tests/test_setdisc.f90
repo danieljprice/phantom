@@ -45,6 +45,7 @@ subroutine test_setdisc(ntests,npass)
  use checksetup, only:check_setup
  use units,      only:set_units
  integer, intent(inout) :: ntests,npass
+ integer :: nparttot
  integer :: nfailed,ncheck
  integer :: i,nerr,nwarn,nfail
  real :: time,dtext_dum
@@ -70,9 +71,7 @@ subroutine test_setdisc(ntests,npass)
     !
     !  Set problem parameters
     !
-    npart   = min(size(xyzh(1,:)),1000000)
-    npartoftype(:) = 0
-    npartoftype(1) = npart
+    nparttot= min(size(xyzh(1,:)),1000000)
     gamma   = 1.0
     time    = 0.
     hfact = 1.2
@@ -81,7 +80,8 @@ subroutine test_setdisc(ntests,npass)
     ! set up the disc
     !
     call set_disc(id,master=master,&
-                   npart   = npartoftype(1),&
+                   nparttot = nparttot,&
+                   npart   = npart,&
                    rmin    = 0.5, &
                    rmax    = 10.,&
                    p_index = 1.5,    &
@@ -93,7 +93,8 @@ subroutine test_setdisc(ntests,npass)
                    particle_mass = massoftype(1), &
                    hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,polyk=polyk,&
                    ismooth=.true.,writefile=.false.)
-
+    npartoftype(:) = 0
+    npartoftype(1) = npart
     if (mhd) Bevol(:,:) = 0.
 !
 !--make sure AV is off

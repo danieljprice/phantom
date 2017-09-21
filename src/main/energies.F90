@@ -66,7 +66,7 @@ subroutine compute_energies(t)
                 alphaind,Bxyz,Bevol,divcurlB,iamtype,igas,idust,iboundary,istar,idarkmatter,ibulge, &
                 nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,isdead_or_accreted,epot_sinksink,&
                 imacc,ispinx,ispiny,ispinz,mhd,maxvecp,gravity,poten,dustfrac,&
-                n_R,n_electronT,ionfrac_eta
+                n_R,n_electronT,eta_nimhd,iion
  use part, only:pxyzu
  use eos,            only:polyk,utherm,gamma,equationofstate,get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
@@ -94,7 +94,7 @@ subroutine compute_energies(t)
  real    :: ev_data_thread(4,0:inumev)
  real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,rhoi,angx,angy,angz
  real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz
- real    :: epoti,pmassi,acci,dnptot,dnpgas
+ real    :: epoti,pmassi,dnptot,dnpgas
  real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
  real    :: ponrhoi,spsoundi,B2i,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
  real    :: n_total,n_total1,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
@@ -140,7 +140,6 @@ subroutine compute_energies(t)
  else
     alphai = alpha
  endif
- ionfrac_eta = 0.
  np_rho      = 0
  call initialise_ev_data(ev_data)
 !
@@ -150,7 +149,7 @@ subroutine compute_energies(t)
 !$omp shared(alphaind,massoftype,irealvisc) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass) &
 !$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac) &
-!$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,nelements,n_R,n_electronT,ionfrac_eta) &
+!$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,nelements,n_R,n_electronT,eta_nimhd) &
 !$omp shared(ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
 !$omp shared(iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha) &
 !$omp shared(iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah) &
@@ -161,7 +160,7 @@ subroutine compute_energies(t)
 !$omp private(pxi,pyi,pzi,gammaijdown,gammaijUP,alpha_gr,beta_gr,bigvi,lorentzi,pdotv,angi) &
 #endif
 !$omp private(ethermi) &
-!$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,acci,valfven2i,divBi,hdivBonBi,curlBi) &
+!$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
 !$omp private(gasfrac,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
 !$omp private(ierr,temperature,etaart,etaart1,etaohm,etahall,etaambi,vioni,vion,vdrift,data_out) &
@@ -439,10 +438,7 @@ subroutine compute_energies(t)
                 endif
                 call ev_data_update(ev_data_thread,iev_n(1),n_ion*n_total1)
                 call ev_data_update(ev_data_thread,iev_n(2),data_out(6)*n_total1)
-                ionfrac_eta(1,i) = real(n_ion*n_total1,kind=4)
-                ionfrac_eta(2,i) = real(etaohm, kind=4)       ! Save eta_OR for the dump file
-                ionfrac_eta(3,i) = real(etahall,kind=4)       ! Save eta_HE for the dump file
-                ionfrac_eta(4,i) = real(etaambi,kind=4)       ! Save eta_AD for the dump file
+                eta_nimhd(iion,i) = n_ion*n_total1    ! Save ionisation fraction for the dump file
                 call ev_data_update(ev_data_thread,   iev_n(3),  data_out( 6))
                 call ev_data_update(ev_data_thread,   iev_n(4),  data_out( 7))
                 if (ion_rays) then
@@ -480,7 +476,7 @@ subroutine compute_energies(t)
        angaccy = angaccy + pmassi*(zi*vxi - xi*vzi)
        angaccz = angaccz + pmassi*(xi*vyi - yi*vxi)
 
-       if (track_mass) call ev_data_update(ev_data_thread,iev_macc,pmassi)
+       call ev_data_update(ev_data_thread,iev_macc,pmassi)
 
     endif
  enddo
@@ -489,46 +485,46 @@ subroutine compute_energies(t)
 !--add contribution from sink particles
 !
 
-!$omp do
- do i=1,nptmass
-    xi     = xyzmh_ptmass(1,i)
-    yi     = xyzmh_ptmass(2,i)
-    zi     = xyzmh_ptmass(3,i)
-    pmassi = xyzmh_ptmass(4,i)
-    !--acci is the accreted mass on the sink
-    acci   = xyzmh_ptmass(imacc,i)
-    if (track_mass) call ev_data_update(ev_data_thread,iev_macc,acci)
+ if (id==master) then
+    !$omp do
+    do i=1,nptmass
+       xi     = xyzmh_ptmass(1,i)
+       yi     = xyzmh_ptmass(2,i)
+       zi     = xyzmh_ptmass(3,i)
+       pmassi = xyzmh_ptmass(4,i)
 
-    vxi    = vxyz_ptmass(1,i)
-    vyi    = vxyz_ptmass(2,i)
-    vzi    = vxyz_ptmass(3,i)
+       vxi    = vxyz_ptmass(1,i)
+       vyi    = vxyz_ptmass(2,i)
+       vzi    = vxyz_ptmass(3,i)
 
-    !phii   = fxyz_ptmass(4,i)
+       !phii   = fxyz_ptmass(4,i)
 
-    xmom   = xmom + pmassi*vxi
-    ymom   = ymom + pmassi*vyi
-    zmom   = zmom + pmassi*vzi
+       xmom   = xmom + pmassi*vxi
+       ymom   = ymom + pmassi*vyi
+       zmom   = zmom + pmassi*vzi
 
-    angx = angx + pmassi*(yi*vzi - zi*vyi)
-    angy = angy + pmassi*(zi*vxi - xi*vzi)
-    angz = angz + pmassi*(xi*vyi - yi*vxi)
+       angx   = angx + pmassi*(yi*vzi - zi*vyi)
+       angy   = angy + pmassi*(zi*vxi - xi*vzi)
+       angz   = angz + pmassi*(xi*vyi - yi*vxi)
 
-    angx   = angx + xyzmh_ptmass(ispinx,i)
-    angy   = angy + xyzmh_ptmass(ispiny,i)
-    angz   = angz + xyzmh_ptmass(ispinz,i)
+       angx   = angx + xyzmh_ptmass(ispinx,i)
+       angy   = angy + xyzmh_ptmass(ispiny,i)
+       angz   = angz + xyzmh_ptmass(ispinz,i)
 
-    v2i    = vxi*vxi + vyi*vyi + vzi*vzi
-    ekin   = ekin + pmassi*v2i
+       v2i    = vxi*vxi + vyi*vyi + vzi*vzi
+       ekin   = ekin + pmassi*v2i
 
-    ! rotational energy around each axis through the origin
-    if (calc_erot) then
-       call get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
-       call ev_data_update(ev_data_thread,iev_erot(1),erotxi)
-       call ev_data_update(ev_data_thread,iev_erot(2),erotyi)
-       call ev_data_update(ev_data_thread,iev_erot(3),erotzi)
-    endif
- enddo
-!$omp enddo
+       ! rotational energy around each axis through the origin
+       if (calc_erot) then
+          call get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
+          call ev_data_update(ev_data_thread,iev_erot(1),erotxi)
+          call ev_data_update(ev_data_thread,iev_erot(2),erotyi)
+          call ev_data_update(ev_data_thread,iev_erot(3),erotzi)
+       endif
+    enddo
+    !$omp enddo
+ endif
+
 !$omp critical(collatedata)
  call collate_ev_data(ev_data_thread,ev_data)
  if (.not.gas_only) then

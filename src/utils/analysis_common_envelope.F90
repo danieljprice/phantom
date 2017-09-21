@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: centreofmass, energies, eos, kernel, part, physcon,
-!    prompting, ptmass, setbinary, units
+!  DEPENDENCIES: centreofmass, energies, eos, eos_mesa, kernel, part,
+!    physcon, prompting, ptmass, setbinary, units
 !+
 !--------------------------------------------------------------------------
 
@@ -34,6 +34,8 @@ module analysis
  real                                 :: constraint_max, constraint_min, omega_corotate=0, init_radius, surfacedensity
  integer                              :: bin_res
  logical, dimension(5)                :: switch = .false.
+
+ real                                 :: hsoftk, hsoft1, hsoft21, q2i, qi, psoft, fsoft
 
 
  public                               :: do_analysis
@@ -52,8 +54,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use centreofmass, only:get_centreofmass
  use energies,     only:compute_energies,ekin,etherm,epot,etot
  use ptmass,       only:get_accel_sink_sink, get_accel_sink_gas
- use kernel,       only:kernel_softening
- use eos,          only:gamma,equationofstate,ieos,init_eos,finish_eos
+ use kernel,       only:kernel_softening,radkern,wkern,cnormk
+ use eos,          only:gamma,equationofstate,ieos,init_eos,finish_eos,X_in
+ use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa
  use setbinary,    only:Rochelobe_estimate
 
  !general variables
@@ -66,7 +69,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real                         :: hsoft = 3.0
 
  !case 1 variables
- real                         :: separation(4)
+ real                         :: sink_separation(4,nptmass-1)
 
  !case 2 variables
  real                         :: com_pos(3),com_v(3)
@@ -101,10 +104,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer, parameter           :: ietot_u3 = 24
 
  !case 3 variables
- real                         :: encomp(22)
- real                         :: sink_vel(4)=0, r_sink_sink, radvel
+ real                         :: encomp(23)
+ real                         :: sink_vel(4)=0., r_sink_sink, radvel
  real                         :: part_kin, part_ps_pot
- real                         :: hsoftk, hsoft1, hsoft21, q2i, qi, psoft, fsoft, ponrhoi, spsoundi
+ real                         :: ponrhoi, spsoundi
  real                         :: e=0, a, mtot, sep, vmag, v_part_com(4)=0, omega_vec(3)=0, omegacrossr(3)
  real                         :: r_part_com(4), rcrossmv(3), jz, boundparts(8,npart+nptmass)
  logical                      :: inearsink
@@ -116,24 +119,33 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer, parameter           :: ipot_sink     = 5
  integer, parameter           :: ikin_sink     = 6
  integer, parameter           :: iorb_sink     = 7
- integer, parameter           :: ipot_env      = 8
- integer, parameter           :: ie_env        = 9
- integer, parameter           :: ikin_bound    = 10
- integer, parameter           :: ikin_unbound  = 11
- integer, parameter           :: imass_bound   = 12
- integer, parameter           :: imass_unbound = 13
- integer, parameter           :: ipot_pp       = 14
- integer, parameter           :: ipot_ps       = 15
- integer, parameter           :: ijz_tot       = 16
- integer, parameter           :: ijz_bound     = 17
- integer, parameter           :: ijz_unbound   = 18
- integer, parameter           :: ijz_orb       = 19
- integer, parameter           :: ie_gas        = 20
- integer, parameter           :: fallbackmass  = 21
- integer, parameter           :: fallbackmom   = 22
+ integer, parameter           :: iorb_comp     = 8
+ integer, parameter           :: ipot_env      = 9
+ integer, parameter           :: ie_env        = 10
+ integer, parameter           :: ikin_bound    = 11
+ integer, parameter           :: ikin_unbound  = 12
+ integer, parameter           :: imass_bound   = 13
+ integer, parameter           :: imass_unbound = 14
+ integer, parameter           :: ipot_pp       = 15
+ integer, parameter           :: ipot_ps       = 16
+ integer, parameter           :: ijz_tot       = 17
+ integer, parameter           :: ijz_bound     = 18
+ integer, parameter           :: ijz_unbound   = 19
+ integer, parameter           :: ijz_orb       = 20
+ integer, parameter           :: ie_gas        = 21
+ integer, parameter           :: fallbackmass  = 22
+ integer, parameter           :: fallbackmom   = 23
+
+ !case 4 variables
+ real, allocatable            :: profile(:,:)
+ real                         :: ray(3), xyz(3,npart), xyz_profile(3), proj(3), proj_orth(3)
+ real                         :: proj_mag, proj_dist, proj_orth_dist, far_dist, Wj, kappa(npart), kappat, kappar
+ real                         :: pres, temp(npart)
+ integer                      :: far_i, n_sample
+ real, dimension(:,:), allocatable    :: ray_profile
 
  !case 5 variables
- real                         :: totvol, rhopart, VER(1), profile(9,npart)
+ real                         :: totvol, rhopart, VER(1)
 
  !case 6 variables
  !real                         :: m1,m2
@@ -162,7 +174,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !chose analysis type
  if (dump_number==0) then
-    print "(9(/,a,/))", ' 1) Sink separation', &
+    print "(12(/,a,/))", ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
             ' 4) Profile from centre of mass', &
@@ -170,11 +182,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             ' 6) Mass within initial Roche-lobes', &
             ' 7) Histograms ', &
             ' 8) Star stabilisation suite', &
-            ' 9) Output simulation units'
+            ' 9) Output simulation units', &
+            '10) Something', &
+            '11) Interpolated ray profile', &
+            '12) Output .divv'
 
     analysis_to_perform = 1
 
-    call prompt('Choose analysis type ',analysis_to_perform,1,9)
+    call prompt('Choose analysis type ',analysis_to_perform,1,12)
 
  endif
 
@@ -185,16 +200,19 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  case(1) !sink separation
 
+    allocate(columns(4 * (nptmass-1)))
     !computes sink separation
-    separation(1:3) = xyzmh_ptmass(1:3,1) - xyzmh_ptmass(1:3,2)
-    separation(4) = sqrt(dot_product(separation(1:3),separation(1:3)))
+    do i=1,(nptmass-1)
+       call separation_vector(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,i+1),sink_separation(1:4,i))
 
-    columns = (/'x separation',&
-                   'y separation',&
-                   'z separation',&
-                   '  separation'/)
+       write(columns((i*4)-3), '(A11,I1)') '    x sep. ', i
+       write(columns((i*4)-2), '(A11,I1)') '    y sep. ', i
+       write(columns((i*4)-1), '(A11,I1)') '    z sep. ', i
+       write(columns((i*4)), '(A11,I1)')   '      sep. ', i
+    enddo
 
-    call write_time_file('separation_vs_time', columns, time, separation, 4, num)
+    call write_time_file('separation_vs_time', columns, time, sink_separation, 4*(nptmass-1), num)
+    deallocate(columns)
 
  case(2) !bound and unbound quantities
     bound = 0
@@ -209,9 +227,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
        do k=1,nptmass
 
-          r_sink_part = sqrt((xyzmh_ptmass(1,k) - xyzh(1,i))**2.0 + &
-                                (xyzmh_ptmass(2,k) - xyzh(2,i))**2.0 + &
-                                (xyzmh_ptmass(3,k) - xyzh(3,i))**2.0)
+          r_sink_part = separation(xyzmh_ptmass(1:3,k),xyzh(1:3,i))
 
           part_ps_pot = part_ps_pot - ((gg*umass*utime**2/udist**3) * xyzmh_ptmass(4,k)) / r_sink_part
 
@@ -220,9 +236,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        part_ps_pot = particlemass * part_ps_pot
 
        !kin en
-       part_kin = particlemass * 0.5 * ((vxyzu(1,i) - com_v(1))**2.0 + &
-                                                    (vxyzu(2,i) - com_v(2))**2.0 + &
-                                                    (vxyzu(3,i) - com_v(3))**2.0)
+       part_kin = particlemass * 0.5 * separation(vxyzu(1:3,i),com_v(1:3))**2
+
        !therm en
        etherm_current_part = particlemass * vxyzu(4,i)
 
@@ -232,10 +247,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        rhopart = rhoh(xyzh(4,i), particlemass)
        ppart = (gamma - 1.) * rhopart * etherm_current_part
 
-       r_part_com(1:3) = xyzh(1:3,i) - com_pos(1:3)
-       r_part_com(4) = sqrt(dot_product(r_part_com(1:3),r_part_com(1:3)))
-       v_part_com(1:3) = vxyzu(1:3,i) - com_v(1:3)
-       v_part_com(4) = sqrt(dot_product(v_part_com(1:3),v_part_com(1:3)))
+       call separation_vector(xyzh(1:3,i),com_pos(1:3),r_part_com(1:4))
+       call separation_vector(vxyzu(1:3,i),com_v(1:3),v_part_com(1:4))
 
        call cross(r_part_com(1:3),v_part_com(1:3)*particlemass,ltot_current_part)
 
@@ -300,29 +313,29 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     enddo
 
     columns = (/'  b num part', &
-                      '      b mass', &
-                      '   b ang mom', &
-                      '    b tot en', &
-                      ' ub num part', &
-                      '     ub mass', &
-                      '  ub ang mom', &
-                      '   ub tot en', &
-                      ' bt num part', &
-                      '     bt mass', &
-                      '  bt ang mom', &
-                      '   bt tot en', &
-                      'ubt num part', &
-                      '    ubt mass', &
-                      ' ubt ang mom', &
-                      '  ubt tot en', &
-                      ' be num part', &
-                      '     be mass', &
-                      '  be ang mom', &
-                      '   be tot en', &
-                      'ube num part', &
-                      '    ube mass', &
-                      ' ube ang mom', &
-                      '  ube tot en'/)
+                '      b mass', &
+                '   b ang mom', &
+                '    b tot en', &
+                ' ub num part', &
+                '     ub mass', &
+                '  ub ang mom', &
+                '   ub tot en', &
+                ' bt num part', &
+                '     bt mass', &
+                '  bt ang mom', &
+                '   bt tot en', &
+                'ubt num part', &
+                '    ubt mass', &
+                ' ubt ang mom', &
+                '  ubt tot en', &
+                ' be num part', &
+                '     be mass', &
+                '  be ang mom', &
+                '   be tot en', &
+                'ube num part', &
+                '    ube mass', &
+                ' ube ang mom', &
+                '  ube tot en'/)
 
     call write_time_file('boundunbound_vs_time', columns, time, bound, 24, num)
 
@@ -365,8 +378,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           encomp(ipot_pp) = encomp(ipot_pp) + poten(i)
           encomp(ipot_env) = encomp(ipot_env) + poten(i)
 
-          r_part_com(1:3) = xyzh(1:3,i) - com_pos(1:3)
-          r_part_com(4) = sqrt(dot_product(r_part_com(1:3),r_part_com(1:3)))
+          call separation_vector(xyzh(1:3,i),com_pos(1:3),r_part_com(1:4))
 
           rhopart = rhoh(xyzh(4,i), particlemass)
 
@@ -375,21 +387,18 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
           call cross(omega_vec,r_part_com(1:3),omegacrossr)
 
-          v_part_com(1:3) = vxyzu(1:3,i) + omegacrossr(1:3) - com_v(1:3)
-          v_part_com(4) = sqrt(dot_product(v_part_com(1:3),v_part_com(1:3)))
+          call separation_vector(vxyzu(1:3,i) + omegacrossr(1:3),com_v(1:3),v_part_com(1:4))
 
           part_kin = 0.5 * particlemass * v_part_com(4)**2
           part_ps_pot = 0.
 
-          call cross(r_part_com(:3),particlemass * v_part_com(:3),rcrossmv)
+          call cross(r_part_com(1:3),particlemass * v_part_com(1:3),rcrossmv)
 
           jz = rcrossmv(3)
           encomp(ijz_tot) = encomp(ijz_tot) + jz
 
           do k=1,nptmass
-             r_sink_part = (xyzmh_ptmass(1,k) - xyzh(1,i))**2 + &
-                           (xyzmh_ptmass(2,k) - xyzh(2,i))**2 + &
-                           (xyzmh_ptmass(3,k) - xyzh(3,i))**2
+             r_sink_part = separation(xyzmh_ptmass(1:3,k),xyzh(1:3,i))**2
 
              hsoftk = max(xyzmh_ptmass(ihsoft,k),xyzh(4,i))
              hsoft1 = 1.0/hsoftk
@@ -424,9 +433,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              encomp(imass_bound) = encomp(imass_bound) + particlemass
              encomp(ijz_bound) = encomp(ijz_bound) + jz
              boundparts(8,i) = -1
-             radvel = (v_part_com(1) * r_part_com(1) + &
-                       v_part_com(2) * r_part_com(2) + &
-                       v_part_com(3) * r_part_com(3)) / r_part_com(4)
+             radvel = dot_product(v_part_com(1:3),r_part_com(1:3)) / r_part_com(4)
              if (inearsink .eqv. .false.) then
                 if (radvel < 0.) then
                    encomp(fallbackmass) = encomp(fallbackmass) + particlemass
@@ -443,18 +450,15 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        endif
     enddo
 
-    open(26,file=trim(dumpfile)//".divv",status='replace',form='unformatted')
-    write(26) (real(boundparts(7,i),kind=4),i=1,npart)
-    close(26)
+    !open(26,file=trim(dumpfile)//".divv",status='replace',form='unformatted')
+    !write(26) (real(boundparts(7,i),kind=4),i=1,npart)
+    !close(26)
 
     do i=1,nptmass
        call cross(omega_vec,xyzmh_ptmass(:3,i),omegacrossr)
 
-       sink_vel(1:3) = vxyz_ptmass(1:3,i) + omegacrossr(1:3) - com_v(1:3)
-       sink_vel(4) = sqrt(dot_product(sink_vel(1:3),sink_vel(1:3)))
-
-       r_part_com(1:3) = xyzmh_ptmass(1:3,i) - com_pos(1:3)
-       r_part_com(4) = sqrt(dot_product(r_part_com(1:3),r_part_com(1:3)))
+       call separation_vector(vxyz_ptmass(1:3,i) + omegacrossr(1:3),com_v(1:3),sink_vel(1:4))
+       call separation_vector(xyzmh_ptmass(1:3,i),com_pos(1:3),r_part_com(1:4))
 
        call cross(r_part_com(:3),xyzmh_ptmass(4,i) * sink_vel(:3),rcrossmv)
 
@@ -462,13 +466,17 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        encomp(ijz_tot) = jz + encomp(ijz_tot)
        encomp(ijz_orb) = jz + encomp(ijz_orb)
        encomp(ikin_sink) = encomp(ikin_sink) + 0.5 * xyzmh_ptmass(4,i) * sink_vel(4)**2
+       if (i==2) encomp(iorb_comp) = encomp(iorb_comp) + 0.5 * xyzmh_ptmass(4,i) * sink_vel(4)**2
     enddo
 
-    r_sink_sink = sqrt((xyzmh_ptmass(1,1) - xyzmh_ptmass(1,2))**2 + &
-                          (xyzmh_ptmass(2,1) - xyzmh_ptmass(2,2))**2 + &
-                          (xyzmh_ptmass(3,1) - xyzmh_ptmass(3,2))**2)
+    do i=1,nptmass-1
+       do j=i+1,nptmass
+          r_sink_sink = separation(xyzmh_ptmass(1:3,i),xyzmh_ptmass(1:3,j))
 
-    encomp(ipot_sink) = - xyzmh_ptmass(4,1) * xyzmh_ptmass(4,2) / r_sink_sink
+          encomp(ipot_sink) = encomp(ipot_sink) - xyzmh_ptmass(4,i) * xyzmh_ptmass(4,j) / r_sink_sink
+          if (i==1 .and. j==2) encomp(iorb_comp) = encomp(iorb_comp) - xyzmh_ptmass(4,i) * xyzmh_ptmass(4,j) / r_sink_sink
+       enddo
+    enddo
 
     ekin = encomp(ikin_bound) + encomp(ikin_unbound) + encomp(ikin_sink)
     encomp(iorb_sink) = encomp(ipot_sink) + encomp(ikin_sink)
@@ -490,6 +498,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                 '    sink pot',&
                 '    sink kin',&
                 '    sink orb',&
+                '    comp orb',&
                 '     env pot',&
                 '  env energy',&
                 '   bound kin',&
@@ -506,7 +515,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                 '    fallback',&
                 'fallback mom'/)
 
-    call write_time_file('energy', columns, time, encomp, 20, num)
+    call write_time_file('energy', columns, time, encomp, 23, num)
 
     if (switch(2)) then
        columns = (/'     x-coord', '     y-coord', '     z-coord', &
@@ -519,7 +528,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  case(4) !Profile from COM (can be used for stellar profile)
 
-    call stellar_profile(time,particlemass,npart,xyzh,vxyzu,profile)
+    call stellar_profile(time,particlemass,npart,xyzh,vxyzu,profile,(/1.,0.,0./))
 
     columns = (/'      radius',&
                 '  mass coord',&
@@ -529,9 +538,22 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                 '    pressure',&
                 '    velocity',&
                 '   rad. vel.',&
-                ' sound speed'/)
+                ' sound speed',&
+                '  ideal temp',&
+                '   mesa temp',&
+                ' ideal kappa',&
+                '  mesa kappa',&
+                '   ideal mfp',&
+                '    mesa mfp',&
+                '      energy'/)
 
-    call write_file('profile', 'profile', columns, profile, npart, 9, num)
+    print*, 'Writing file...'
+
+    call write_file('ray_profile', 'profile', columns, profile, size(profile(1,:)), 16, num)
+
+    print*, 'File written'
+
+    deallocate(profile)
 
     unitnum = unitnum + 1
 
@@ -919,7 +941,6 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
        print*, histogram_bins
        columns = (/'ang vel frac','      number'/)
        call write_file('ang_vel_frac', 'histograms', columns, histogram_bins, bin_res, 2, num)
-
     end select
 
 
@@ -998,7 +1019,7 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
                                      unit_pressure,'g/cm s^2'
     write(*,"(2(a,es10.3,1x),/)")   '        G: ', gg*umass*utime**2/udist**3,'             c: ',c*utime/udist
 
- case(10)
+ case(10) !It's a thing
 
     C_force = 0.25
     dtsg    = huge(dtsg)
@@ -1055,89 +1076,251 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
 
     close(unit=unitnum)
 
+ case(11) !Interpolated Ray Profile
+
+    call get_centreofmass(com_pos,com_v,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+
+    ray = (/ 1, 0, 0 /)
+
+    ray = ray / sqrt(dot_product(ray,ray))
+    print*, ray
+    far_dist = 0.
+
+    do i=1,npart
+       xyz(1:3,i) = xyzh(1:3,i) - com_pos(1:3)
+       proj_mag = dot_product(xyz(1:3,i),ray(1:3))
+       proj = proj_mag * ray
+       proj_orth(1:3) = xyz(1:3,i) - proj(1:3)
+       proj_dist = separation(proj,(/0.,0.,0./))
+       proj_orth_dist = separation(proj_orth,(/0.,0.,0./))
+       qi = proj_orth_dist / xyzh(4,i)
+       if (proj_dist > far_dist .and. qi < radkern .and. proj_mag > 0.) then
+          far_dist = proj_dist
+          far_i = i
+       endif
+    enddo
+
+    n_sample = int(10**nint(log10(real(npart))))/10
+
+    allocate(ray_profile(9,n_sample))
+
+    ray_profile = 0.
+    do i=1,n_sample
+       ray_profile(1,i) = i * far_dist / n_sample
+       xyz_profile(1:3) = ray_profile(1,i) * ray(1:3)
+       do j=1,npart
+          qi = separation(xyz_profile(1:3),xyz(1:3,j)) / xyzh(4,j)
+          if (qi < radkern) then
+             Wj = (cnormk * wkern(qi**2,qi) / (xyzh(4,j)**3))
+             ray_profile(2,i) = ray_profile(2,i) + particlemass * Wj
+             ray_profile(3,i) = ray_profile(3,i) + particlemass * (vxyzu(4,j) / rhoh(xyzh(4,j), particlemass)) * Wj
+             call separation_vector(xyzh(1:3,j),com_pos(1:3),r_part_com)
+             call separation_vector(vxyzu(1:3,j),com_v(1:3),v_part_com)
+             ray_profile(5,i) = ray_profile(5,i) + particlemass * (v_part_com(4) / rhoh(xyzh(4,j), particlemass)) * Wj
+             radvel = dot_product(v_part_com(1:3),r_part_com(1:3)) / r_part_com(4)
+             ray_profile(6,i) = ray_profile(6,i) + particlemass * (radvel / rhoh(xyzh(4,j), particlemass)) * Wj
+
+          endif
+       enddo
+
+       call get_eos_pressure_temp_mesa(X_in,ray_profile(2,i)*unit_density,&
+                                       ray_profile(3,i) * unit_ergg,ray_profile(4,i),ray_profile(7,i))
+
+       call get_eos_kappa_mesa(X_in,ray_profile(2,i)*unit_density,ray_profile(7,i),ray_profile(8,i),kappat,kappar,ierr)
+
+       !ray_profile(4,i) = ponrhoi * ray_profile(2,i)
+       ray_profile(9,i) = 1. / (ray_profile(8,i) * ray_profile(2,i) * unit_density)
+       if (mod(i*10,n_sample)==0) write(*,"(2A,I3,A)",advance='no') achar(13), "Profile is ", i * 100 / n_sample, "% complete."
+    enddo
+
+    ray_profile(1,:) = ray_profile(1,:) * udist
+    ray_profile(2,:) = ray_profile(2,:) * unit_density
+    ray_profile(3,:) = ray_profile(3,:) * unit_ergg
+    ray_profile(5:6,:) = ray_profile(5:6,:) * unit_velocity
+
+    columns = (/'      radius',&
+                '     density',&
+                ' int. energy',&
+                '    pressure',&
+                '    velocity',&
+                '     rad vel',&
+                ' temperature',&
+                '       kappa',&
+                '         MFP'/)
+
+    call write_file('rayprofile', 'profile', columns, ray_profile, n_sample, 9, num)
+
+    print*, 'File written'
+
+    unitnum = unitnum + 1
+
+
+ case(12) !Output .divv
+
+    call compute_energies(time)
+
+    call get_centreofmass(com_pos,com_v,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+
+    do i=1,npart
+       if (xyzh(4,i)  >=  0) then
+          call separation_vector(xyzh(1:3,i),com_pos(1:3),r_part_com(1:4))
+
+          rhopart = rhoh(xyzh(4,i), particlemass)
+
+          call equationofstate(ieos,ponrhoi,spsoundi,rhopart,&
+                                  r_part_com(1),r_part_com(2),r_part_com(3),vxyzu(4,i))
+          if (ieos==10) then
+             call get_eos_pressure_temp_mesa(X_in,rhopart*unit_density,vxyzu(4,i) * unit_ergg,pres,temp(i))
+             call get_eos_kappa_mesa(X_in,rhopart*unit_density,temp(i),kappa(i),kappat,kappar,ierr)
+          else
+             kappa(i) = 1
+          endif
+       endif
+    enddo
+
+    open(26,file=trim(dumpfile)//".divv",status='replace',form='unformatted')
+    write(26) (real(kappa(i),kind=4),i=1,npart)
+    write(26) (real(temp(i),kind=4),i=1,npart)
+    close(26)
+
  end select
 
  !increase dump number counter
  dump_number = dump_number + 1
 
+ print*, "Finishing EoS.."
  call finish_eos(ieos, ierr)
 
 end subroutine do_analysis
 
  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-subroutine stellar_profile(time,particlemass,npart,xyzh,vxyzu,profile)
- use eos,          only:ieos,equationofstate
+subroutine stellar_profile(time,particlemass,npart,xyzh,vxyzu,profile,ray)
+ use eos,          only:ieos,equationofstate,X_in
+ use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa
+ use physcon,      only:kboltz,mass_proton_cgs
  use centreofmass, only:get_centreofmass
  use energies,     only:compute_energies
- use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,rhoh
- use units,        only:udist,unit_ergg,unit_density,unit_pressure,unit_velocity
+ use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,rhoh,ihsoft,poten
+ use units,        only:udist,unit_ergg,unit_density,unit_pressure,unit_velocity,unit_energ
+ use kernel,       only:kernel_softening,radkern
 
- integer           :: i,j
+ integer           :: i,j,iprofile,ierr
+ integer, parameter:: ncols = 16
+ real              :: proj(3),orth(3),proj_mag,orth_dist,orth_ratio
  real              :: rhopart,ponrhoi,spsoundi
+ real              :: ideal_temp,temp,kappa,kappat,kappar,pres,ideal_kappa
+ real              :: part_kin,part_ps_pot,r_sink_part
  real              :: v_part_com(4),r_part_com(4)
  real              :: com_pos(3),com_v(3)
+ real, intent(in), optional :: ray(3)
  real, intent(in)  :: xyzh(:,:),vxyzu(:,:)
  real, intent(in)  :: particlemass,time
  integer, intent(in) :: npart
- real, intent(out) :: profile(9,npart)
+ real, intent(out), allocatable :: profile(:,:)
+ real              :: temp_profile(ncols,npart)
+ logical           :: criteria
 
  call compute_energies(time)
 
  call get_centreofmass(com_pos,com_v,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
- do i=1,npart
-    if (xyzh(4,i)  >=  0) then
+ print*,com_pos
 
-       rhopart = rhoh(xyzh(4,i), particlemass)
-
-       call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
-
-       r_part_com(1) = xyzh(1,i) - com_pos(1)
-       r_part_com(2) = xyzh(2,i) - com_pos(2)
-       r_part_com(3) = xyzh(3,i) - com_pos(3)
-       r_part_com(4) = sqrt(r_part_com(1)**2 + &
-                            r_part_com(2)**2 + &
-                            r_part_com(3)**2)
-
-       v_part_com(1) = vxyzu(1,i) - com_v(1)
-       v_part_com(2) = vxyzu(2,i) - com_v(2)
-       v_part_com(3) = vxyzu(3,i) - com_v(3)
-       v_part_com(4) = sqrt(v_part_com(1)**2 + &
-                            v_part_com(2)**2 + &
-                            v_part_com(3)**2)
-
-       profile(1,i)  = r_part_com(4) * udist
-       profile(3,i)  = atan2(xyzh(2,i),xyzh(1,i))
-       profile(4,i)  = vxyzu(4,i) * unit_ergg
-       profile(5,i)  = rhopart * unit_density
-       profile(6,i)  = ponrhoi * rhopart * unit_pressure
-       profile(7,i)  = v_part_com(4) * unit_velocity
-       profile(8,i)  = (v_part_com(1) * r_part_com(1) + &
-                        v_part_com(2) * r_part_com(2) + &
-                        v_part_com(3) * r_part_com(3)) / r_part_com(4) * unit_velocity
-       profile(9,i)  = spsoundi * unit_velocity
-
-    endif
- enddo
+ iprofile = 0
 
  do i=1,npart
     if (xyzh(4,i)  >=  0) then
-       rhopart = rhoh(xyzh(4,i), particlemass)
-       profile(2,i) = 0
-       do j=1,npart
-          if (profile(1,i) > profile(1,j)) then
-             profile(2,i) = profile(2,i) + particlemass
+
+       call separation_vector(xyzh(1:3,i),com_pos(1:3),r_part_com)
+       call separation_vector(vxyzu(1:3,i),com_v(1:3),v_part_com)
+
+
+       if (present(ray)) then
+          proj_mag = dot_product(r_part_com(1:3),ray(1:3))
+          proj = proj_mag * ray
+          orth(1:3) = r_part_com(1:3) - proj(1:3)
+          orth_dist = separation(orth,(/0.,0.,0./))
+          orth_ratio = orth_dist / xyzh(4,i)
+          if (orth_ratio < radkern .and. proj_mag > 0.) then
+             criteria = .true.
+          else
+             criteria = .false.
           endif
-       enddo
+       else
+          criteria = .true.
+       endif
+
+       if (criteria) then
+
+          iprofile = iprofile + 1
+
+          rhopart = rhoh(xyzh(4,i), particlemass)
+
+          call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+
+          call get_eos_pressure_temp_mesa(X_in,rhopart*unit_density,vxyzu(4,i) * unit_ergg,pres,temp)
+
+          ideal_temp = (ponrhoi * (unit_pressure/unit_density) * 2.381 * mass_proton_cgs) / kboltz
+
+          call get_eos_kappa_mesa(X_in,rhopart*unit_density,temp,kappa,kappat,kappar,ierr)
+          call get_eos_kappa_mesa(X_in,rhopart*unit_density,ideal_temp,ideal_kappa,kappat,kappar,ierr)
+
+          !kappa = 1.
+
+          part_kin = 0.5 * particlemass * v_part_com(4)**2
+          part_ps_pot = 0.
+          do j=1,nptmass
+             r_sink_part = separation(xyzmh_ptmass(1:3,j),xyzh(1:3,i))**2
+
+             hsoftk = max(xyzmh_ptmass(ihsoft,j),xyzh(4,i))
+             hsoft1 = 1.0/hsoftk
+             hsoft21= hsoft1**2
+             q2i    = r_sink_part*hsoft21
+             qi     = sqrt(q2i)
+
+             call kernel_softening(q2i,qi,psoft,fsoft)
+
+             part_ps_pot = part_ps_pot + psoft*hsoft1*xyzmh_ptmass(4,j)*particlemass
+
+          enddo
+
+          temp_profile(1,iprofile)  = r_part_com(4) * udist
+          temp_profile(3,iprofile)  = atan2(xyzh(2,i),xyzh(1,i))
+          temp_profile(4,iprofile)  = vxyzu(4,i) * unit_ergg
+          temp_profile(5,iprofile)  = rhopart * unit_density
+          temp_profile(6,iprofile)  = ponrhoi * rhopart * unit_pressure
+          temp_profile(7,iprofile)  = v_part_com(4) * unit_velocity
+          temp_profile(8,iprofile)  = (v_part_com(1) * r_part_com(1) + &
+                                  v_part_com(2) * r_part_com(2) + &
+                                  v_part_com(3) * r_part_com(3)) / r_part_com(4) * unit_velocity
+          temp_profile(9,iprofile)  = spsoundi * unit_velocity
+          temp_profile(10,iprofile) = ideal_temp
+          temp_profile(11,iprofile) = temp
+          temp_profile(12,iprofile) = ideal_kappa
+          temp_profile(13,iprofile) = kappa
+          temp_profile(14,iprofile) = 1. / (ideal_kappa * rhopart * unit_density)
+          temp_profile(15,iprofile) = 1. / (kappa * rhopart * unit_density)
+          temp_profile(16,iprofile) = (part_kin + part_ps_pot + poten(i) + (vxyzu(4,i)*particlemass)) * unit_energ
+       endif
     endif
  enddo
 
- call quicksort(profile, 1, npart, 9, 1)
+ allocate(profile(ncols,iprofile))
+ profile(1:ncols,1:iprofile) = temp_profile(1:ncols,1:iprofile)
+
+ call quicksort(profile, 1, iprofile, ncols, 1)
+
+ do i=1,iprofile
+    if (i==1) profile(2,i) = particlemass
+    if (i > 1) profile(2,i) = profile(2,i-1) + particlemass
+ enddo
+
+ print*, "Profile completed"
+
 end subroutine stellar_profile
 
 subroutine histogram_setup(distribution_variable,npart,bin_res,bin_size,histogram_bins,allow_bin_res)
- implicit none
  integer, intent(in)          :: npart
  real, dimension(:,:), allocatable, intent(out) :: histogram_bins
  real, dimension(4,npart)     :: distribution_variable
@@ -1257,9 +1440,7 @@ subroutine write_time_file(name_in, cols, time, data_in, ncols, num)
 end subroutine
 
 subroutine cross(a,b,c)
-
  ! Return the vector cross product of two 3d vectors
- implicit none
  real,intent(in),dimension(3)  :: a,b
  real,intent(out),dimension(3) :: c
 
@@ -1269,10 +1450,27 @@ subroutine cross(a,b,c)
 
 end subroutine cross
 
+subroutine separation_vector(a,b,c)
+ real, intent(in), dimension(3) :: a,b
+ real, intent(out), dimension(4) :: c
+
+ c(1) = a(1) - b(1)
+ c(2) = a(2) - b(2)
+ c(3) = a(3) - b(3)
+ c(4) = sqrt(c(1)**2 + c(2)**2 + c(3)**2)
+end subroutine separation_vector
+
+real function separation(a,b)
+ real, intent(in), dimension(3) :: a,b
+
+ separation = sqrt((a(1)-b(1))**2 +&
+                   (a(2)-b(2))**2 +&
+                   (a(3)-b(3))**2)
+end function separation
+
 
 !Sorting routines
 recursive subroutine quicksort(a, first, last, ncols, sortcol)
- implicit none
  integer, intent(in)                                :: first, last, ncols, sortcol
  real, dimension(ncols,last-first+1), intent(inout) :: a
  real                                               :: x
@@ -1304,7 +1502,6 @@ recursive subroutine quicksort(a, first, last, ncols, sortcol)
 end subroutine quicksort
 
 subroutine swap(a,b)
- implicit none
  real, intent(inout) :: a,b
  real                :: c
 

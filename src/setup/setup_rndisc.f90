@@ -75,7 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  R_out   = 100.
  R_warp  = R_in
 ! npart   = size(xyzh(1,:))
- npart = 1000000
+ npart = 100000
  npartoftype(:) = 0
  npartoftype(1) = npart
  gamma   = 5./3. !Unless otherwise specified, 1.0
@@ -91,7 +91,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  accradius1 = R_in
 
  call set_disc(id,master=master,&
-                npart     = npartoftype(igas),&
+                nparttot  = npart,  &
+                npart     = npart,  &
                 rmin      = R_in,   &
                 rmax      = R_out,  &
                 rwarp     = R_warp, &
