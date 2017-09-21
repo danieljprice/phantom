@@ -1,6 +1,8 @@
 module metric_tools
 
  implicit none
+
+!-------------------------------------------------------------------------------
 !
 ! This module contains wrapper subroutines to get:
 !      - The metric (covariant and contravariant)
@@ -9,15 +11,29 @@ module metric_tools
 !      - Numerical metric derivatives
 !      - Tensor transformations
 !
- character(len=*), public, parameter :: coordinate_sys = 'Cartesian'
-!--- When using this with PHANTOM, it should always be set to cartesian
+!-------------------------------------------------------------------------------
 
+!--- List of coordinates
+ integer, public, parameter :: &
+    icoord_cartesian  = 1,     &    ! Cartesian coordinates
+    icoord_spherical  = 2           ! Spherical coordinates
+
+!--- List of metrics
+ integer, public, parameter :: &
+    imet_minkowski      = 1,   &    ! Minkowski metric
+    imet_schwarzschild  = 2,   &    ! Schwarzschild metric
+    imet_kerr           = 3         ! Kerr metric
+
+!--- Choice of coordinate system
+!    (When using this with PHANTOM, it should always be set to cartesian)
+ integer, public, parameter :: icoordinate = icoord_cartesian
+
+!--- Choice for contravariant metric
+!    false  ->  use analytic contravariant metric
+!    true   ->  invert the covariant metric
  logical, private, parameter :: useinv4x4 = .true.
 
- integer, public, parameter :: &
-   imet_minkowski      = 1, &
-   imet_schwarzschild  = 2, &
-   imet_kerr           = 3
+!-------------------------------------------------------------------------------
 
  public :: get_metric, get_metric_derivs, get_metric3plus1, print_metricinfo
 
@@ -29,19 +45,21 @@ module metric_tools
 
 contains
 
-! This is a wrapper subroutine to get the metric tensor in both covariant (gcov) and
-! contravariant (gcon) form.
+!-------------------------------------------------------------------------------
+
+!--- This is a wrapper subroutine to get the metric tensor in both covariant (gcov) and
+!    contravariant (gcon) form.
 subroutine get_metric(position,gcov,gcon,sqrtg)
- use metric, only: get_metric_cartesian,get_metric_spherical,cartesian2spherical
+ use metric,     only: get_metric_cartesian,get_metric_spherical,cartesian2spherical
  use inverse4x4, only: inv4x4
- real,    intent(in)  :: position(3)
- real,    intent(out) :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
+ real, intent(in)  :: position(3)
+ real, intent(out) :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
  real :: det
 
- select case(coordinate_sys)
- case('Cartesian')
+ select case(icoordinate)
+ case(icoord_cartesian)
     call get_metric_cartesian(position,gcov,gcon,sqrtg)
- case('Spherical')
+ case(icoord_spherical)
     call get_metric_spherical(position,gcov,gcon,sqrtg)
  end select
 
@@ -54,12 +72,12 @@ end subroutine get_metric
 ! of metric.
 subroutine get_metric_derivs(position,dgcovdx1, dgcovdx2, dgcovdx3)
  use metric, only: metric_cartesian_derivatives, metric_spherical_derivatives, imetric
- real,    intent(in)  :: position(3)
- real,    intent(out) :: dgcovdx1(0:3,0:3), dgcovdx2(0:3,0:3), dgcovdx3(0:3,0:3)
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdx1(0:3,0:3), dgcovdx2(0:3,0:3), dgcovdx3(0:3,0:3)
 
- select case(coordinate_sys)
+ select case(icoordinate)
 
- case('Cartesian')
+ case(icoord_cartesian)
     if (imetric /= imet_kerr) then
        call metric_cartesian_derivatives(position,dgcovdx1, dgcovdx2, dgcovdx3)
     else if (imetric == imet_kerr) then
@@ -67,7 +85,7 @@ subroutine get_metric_derivs(position,dgcovdx1, dgcovdx2, dgcovdx3)
     else
        STOP 'No derivatives being used...'
     end if
- case('Spherical')
+ case(icoord_spherical)
     call metric_spherical_derivatives(position,dgcovdx1, dgcovdx2, dgcovdx3)
  end select
 

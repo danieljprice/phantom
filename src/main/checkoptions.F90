@@ -40,7 +40,7 @@ subroutine check_compile_time_settings(ierr)
  use io,    only:error,id,master,fatal
  use dim,   only:maxsts,maxstrain
 #ifdef GR
- use metric_tools, only:coordinate_sys
+ use metric_tools, only:icoordinate,icoord_cartesian
 #endif
  integer, intent(out) :: ierr
  character(len=16), parameter :: string = 'compile settings'
@@ -133,7 +133,7 @@ subroutine check_compile_time_settings(ierr)
  call error(string,'General relativity not compatible with turbulent driving.')
  ierr = 11
 #endif
- if (coordinate_sys /= 'Cartesian') then
+ if (icoordinate /= icoord_cartesian) then
     call fatal('checkoptions (GR)',&
    "You must use Cartesian-like coordinates in PHANTOM! Please change to Cartesian in metric_tools!'")
     ierr = 12
