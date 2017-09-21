@@ -8,10 +8,18 @@ module metric_tools
 !      - Numerical metric derivatives
 !      - Tensor transformations
 !
- character(len=*), parameter :: coordinate_sys = 'Cartesian'
+ character(len=*), public, parameter :: coordinate_sys = 'Cartesian'
 !--- When using this with PHANTOM, it should always be set to cartesian
 
 logical, private, parameter :: useinv4x4 = .true.
+
+public :: get_metric, get_metric_derivs, get_metric3plus1, print_metricinfo
+
+interface get_metric3plus1
+ module procedure get_metric3plus1_only, get_metric3plus1_both
+end interface get_metric3plus1
+
+private
 
 contains
 
@@ -59,6 +67,8 @@ subroutine get_metric_derivs(position,dgcovdx1, dgcovdx2, dgcovdx3)
 
 end subroutine get_metric_derivs
 
+!-------------------------------------------------------------------------------
+
 !--- The numerical derivatives of the covariant metric tensor
 subroutine numerical_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
  real, intent(in) :: position(3)
@@ -94,6 +104,42 @@ subroutine numerical_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
  dgcovdz = 0.5*(gplus-gminus)/dz
 end subroutine numerical_metric_derivs
 
+!-------------------------------------------------------------------------------
+subroutine get_metric3plus1_only(x,alpha,beta,gammaijdown,gammaijUP)
+ real, intent(in)  :: x(1:3)
+ real, intent(out) :: alpha, beta(1:3), gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
+ real              :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
+ call metric3p1(x,alpha,beta,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
+end subroutine get_metric3plus1_only
+
+subroutine get_metric3plus1_both(x,alpha,beta,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
+ real, intent(in)  :: x(1:3)
+ real, intent(out) :: alpha,beta(1:3), gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
+ real, intent(out) :: gcov(0:3,0:3),gcon(0:3,0:3),sqrtg
+ call metric3p1(x,alpha,beta,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
+end subroutine get_metric3plus1_both
+
+subroutine metric3p1(x,alpha,beta,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
+ real, intent(in)  :: x(1:3)
+ real, intent(out) :: alpha,beta(1:3), gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
+ real, intent(out) :: gcov(0:3,0:3),gcon(0:3,0:3),sqrtg
+ real :: betaUP(1:3)
+ integer :: i,j
+
+ call get_metric(x,gcov,gcon,sqrtg)
+ beta        = gcov(0,1:3)
+ gammaijdown = gcov(1:3,1:3)
+ alpha       = sqrt(-1./gcon(0,0))
+ betaUP      = gcon(0,1:3)*alpha**2
+ gammaijUP   = 0.
+ do i=1,3
+    do j=1,3
+       gammaijUP(i,j) = gcon(i,j) + betaUP(i)*betaUP(j)/alpha**2
+    enddo
+ enddo
+end subroutine metric3p1
+!-------------------------------------------------------------------------------
+
 !-- Do a coordinate transformation of a 4x4 rank-2 tensor with both indices down
 subroutine tensortransform_dd(position,T_old,T_new)
  use metric, only: get_jacobian
@@ -122,5 +168,22 @@ subroutine print_metricinfo(iprint)
  write(iprint,*) 'Metric = ',trim(metric_type)
 
 end subroutine print_metricinfo
+
+!-----------------------------------------------------------------------
+!+
+!  writes input options to the input file
+!+
+!-----------------------------------------------------------------------
+! subroutine write_options_metric(iunit)
+!  use infile_utils, only:write_inopt,get_optstring
+!  integer, intent(in) :: iunit,iexternalforce
+!
+!  write(iunit,"(/,a)") '# options relating to the metric'
+!
+!     call write_inopt(mass1,'mass1','mass of central object in code units',iunit)
+!     call write_inopt(accradius1,'accradius1','soft accretion radius of central object',iunit)
+!     call write_inopt(accradius1_hard,'accradius1_hard','hard accretion radius of central object',iunit)
+!
+! end subroutine write_options_metric
 
 end module metric_tools

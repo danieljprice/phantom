@@ -189,7 +189,8 @@ end subroutine setpart
 !--- Density rhostar(r)
 real function rhofunc(r)
 #ifdef GR
-use utils_gr, only:dot_product_gr,get_metric3plus1
+use metric_tools, only:get_metric3plus1
+use utils_gr,     only:dot_product_gr
 real :: x(3),v(3),alpha,beta(3),gammaijdown(3,3),gammaijUP(3,3),gcov(0:3,0:3),gcon(0:3,0:3),sqrtg
 #endif
 real, intent(in) :: r
@@ -245,7 +246,8 @@ end function efunc
 #ifdef GR
 !--- Lorentz factor in GR
 real function gammafunc(r)
- use utils_gr, only:dot_product_gr,get_metric3plus1
+ use metric_tools,   only:get_metric3plus1
+ use utils_gr,       only:dot_product_gr
  real, intent(in) :: r
  real :: x(3),v(3),v2,alpha,beta(3),gammaijdown(3,3),gammaijUP(3,3),gcov(0:3,0:3),gcon(0:3,0:3),sqrtg
  x = (/r,0.,0./)

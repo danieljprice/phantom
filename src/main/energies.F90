@@ -78,7 +78,8 @@ subroutine compute_energies(t)
  use nicil,          only:nicil_get_eta,nicil_get_vion,use_ohm,use_hall,use_ambi,ion_rays,ion_thermal, &
                      nelements_max,nelements,nlevels
 #ifdef GR
- use utils_gr,       only:dot_product_gr,get_metric3plus1
+ use metric_tools,   only:get_metric3plus1
+ use utils_gr,       only:dot_product_gr
  use vectorutils,    only:cross_product3D
 #endif
 #ifdef DUST
@@ -101,7 +102,7 @@ subroutine compute_energies(t)
  real    :: temperature,etaart,etaart1,etaohm,etahall,etaambi,vion,vdrift
  real    :: curlBi(3),vioni(3),data_out(17+nelements_max*nlevels-3)
  real    :: erotxi,erotyi,erotzi,fdum(3)
- real    :: ethermi 
+ real    :: ethermi
 #ifdef GR
  real    :: pdotv,bigvi(1:3),alpha_gr,beta_gr(1:3),lorentzi,pxi,pyi,pzi,gammaijdown(1:3,1:3),gammaijUP(1:3,1:3),angi(1:3)
 #endif

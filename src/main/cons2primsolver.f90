@@ -109,8 +109,8 @@ subroutine primitive2conservative(x,v,dens,u,P,rho,pmom,en,en_type)
 end subroutine primitive2conservative
 
 subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,en_type)
- use utils_gr, only: dot_product_gr, get_metric3plus1
- use metric_tools, only: get_metric
+ use utils_gr,     only: dot_product_gr
+ use metric_tools, only: get_metric, get_metric3plus1
  real, intent(in)    :: x(1:3)
  real, intent(inout) :: dens,P
  real, intent(out)   :: v(1:3),u
