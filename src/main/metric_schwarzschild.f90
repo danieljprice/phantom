@@ -1,7 +1,6 @@
 module metric
  implicit none
  character(len=*), parameter :: metric_type = 'Schwarzschild'
- character(len=*), parameter :: frame       = 'Schwarzschild'
 
  real, public :: mass1 = 1.       ! mass of central object
 
@@ -32,10 +31,8 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  y2 = y**2
  z2 = z**2
 
- select case(frame)
 
     !--- The Schwarzschild metric tensor in CARTESIAN-like form
- case('Schwarzschild')
     sqrtg = 1.
 
     term  = (1.-rs/r)
@@ -70,7 +67,7 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
     gcon(1,3) = gcon(3,1)
     gcon(2,3) = gcon(3,2)
     gcon(3,3) = 1.-rs_on_r3*z2
- end select
+
 end subroutine get_metric_cartesian
 
 pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
@@ -80,8 +77,6 @@ pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
  real :: rs
  rs = 2.*mass1
 
- select case(frame)
- case('Schwarzschild')
     r = position(1)
     r2 = r**2
     theta = position(2)
@@ -123,7 +118,6 @@ pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
 
     sqrtg = r2*sintheta
 
- end select
 end subroutine get_metric_spherical
 
 !----------------------------------------------------------------
@@ -154,8 +148,7 @@ pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
  r3 = r*r2
  r4 = r2*r2
  r5 = r*r4
- select case(frame)
- case('Schwarzschild')
+
     rs_on_r3 = rs/r3
     rs2 = rs**2
 
@@ -221,7 +214,7 @@ pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
     dgcovdz(1,3) = dgcovdz(3,1)
     dgcovdz(2,3) = dgcovdz(3,2)
     dgcovdz(3,3) = (z*(2*(r - rs)*(r3 - r*(x2 + y2) + rs*(x2 + y2)) + r*(-2*r + rs)*z2))/(r4*(r - rs)**2)
- end select
+
 end subroutine metric_cartesian_derivatives
 
 !--- Derivatives of the covariant 'SPHERICAL' metric
@@ -232,8 +225,6 @@ pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgco
  real :: rs
  rs = 2.*mass1
 
- select case(frame)
- case('Schwarzschild')
     r = position(1)
     theta = position(2)
 
@@ -247,7 +238,7 @@ pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgco
     dgcovdr(3,3) = 2*r*sin(theta)**2
 
     dgcovdtheta(3,3) = 2.*r**2*cos(theta)*sin(theta)
- end select
+
 end subroutine metric_spherical_derivatives
 
 !----------------------------------------------------------------
@@ -265,8 +256,7 @@ subroutine get_jacobian(position,dxdx)
  real :: dthetadx,dthetady,dthetadz
  real :: dphidx,dphidy,dphidz
  real :: x,y,z,x2,y2,z2,r2,r,rcyl2,rcyl
- select case(frame)
- case('Schwarzschild')
+
     x  = position(1)
     y  = position(2)
     z  = position(3)
@@ -299,7 +289,7 @@ subroutine get_jacobian(position,dxdx)
     dxdx(1:3,1) = dSPHERICALdx
     dxdx(1:3,2) = dSPHERICALdy
     dxdx(1:3,3) = dSPHERICALdz
- end select
+
 end subroutine get_jacobian
 
 subroutine cartesian2spherical(xcart,xspher)
@@ -307,8 +297,7 @@ subroutine cartesian2spherical(xcart,xspher)
  real, intent(out) ::xspher(3)
  real :: x,y,z
  real :: r,theta,phi
- select case(frame)
- case('Schwarzschild')
+
     x  = xcart(1)
     y  = xcart(2)
     z  = xcart(3)
@@ -318,15 +307,14 @@ subroutine cartesian2spherical(xcart,xspher)
     phi   = atan2(y,x)
 
     xspher   = (/r,theta,phi/)
- end select
+
 end subroutine cartesian2spherical
 
 subroutine spherical2cartesian(xspher,xcart)
  real, intent(in) :: xspher(3)
  real, intent(out) :: xcart(3)
  real :: x,y,z,r,theta,phi
- select case(frame)
- case('Schwarzschild')
+
     r     = xspher(1)
     theta = xspher(2)
     phi   = xspher(3)
@@ -335,7 +323,7 @@ subroutine spherical2cartesian(xspher,xcart)
     z = r*cos(theta)
 
     xcart = (/x,y,z/)
- end select
+
 end subroutine spherical2cartesian
 
 end module metric

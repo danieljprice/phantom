@@ -1,7 +1,9 @@
 module metric
+
+!------ The Kerr metric in Boyer-Lindquist coordinates
+
  implicit none
  character(len=*), parameter :: metric_type = 'Kerr'
- character(len=*), parameter :: frame       = 'Boyer-Lindquist'
 
  real, public  :: mass1 = 1.       ! mass of central object
  real, public  :: a     = 1.       ! spin of central object
@@ -39,10 +41,8 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  r         = sqrt(r2)
  rho2      = r2 + a2*(z2/r2)
 
- select case(frame)
-
     !--- The Boyer-Lindquist metric tensor in CARTESIAN-like form
- case('Boyer-Lindquist')
+
     delta     = r2 - rs*r + a2
     sintheta2 = 1. - z2/r2
     gtt       = -1. + (r*rs)/rho2
@@ -83,45 +83,6 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
     gcon(2,3) = -((y*z)/rho2) + (delta*y*z)/((a2 + r2)*rho2)
     gcon(3,3) = (r2 - z2)/rho2 + (delta*z2)/(r2*rho2)
 
-    !--- The Kerr-Schild metric tensor in CARTESIAN-like form
- case('Kerr-Schild')
-    r2a2 = r2+a2
-    term = rs/rho2
-
-    gcov(0,0) = -1. + term*r                                 !gtt
-    gcov(0,1) = term*r*(r*x+a*y)/r2a2                        !gtx
-    gcov(0,2) = term*r*(r*y-a*x)/r2a2                        !gty
-    gcov(0,3) = term*z                                       !gtz
-    gcov(1,0) = gcov(0,1)                                    !gxt
-    gcov(1,1) = 1.+term*r*((r*x+a*y)/r2a2)**2                !gxx
-    gcov(1,2) = term*r*(r*x+a*y)*(r*y-a*x)/r2a2**2           !gxy
-    gcov(1,3) = term*z*(r*x+a*y)/r2a2                        !gxz
-    gcov(2,0) = gcov(0,2)                                    !gyt
-    gcov(2,1) = gcov(1,2)                                    !gyx
-    gcov(2,2) = 1.+term*r*((r*y-a*x)/r2a2)**2                !gyy
-    gcov(2,3) = term*z*(r*y-a*x)/r2a2                        !gyz
-    gcov(3,0) = gcov(0,3)                                    !gzt
-    gcov(3,1) = gcov(1,3)                                    !gzx
-    gcov(3,2) = gcov(2,3)                                    !gzy
-    gcov(3,3) = 1.+term*z2/r                                 !gzz
-
-    gcon(0,0) = -1. - term*r                                 !gtt
-    gcon(0,1) = term*r*(r*x+a*y)/r2a2                        !gtx
-    gcon(0,2) = term*r*(r*y-a*x)/r2a2                        !gty
-    gcon(0,3) = term*z                                       !gtz
-    gcon(1,0) = gcon(0,1)                                    !gxt
-    gcon(1,1) = 1.-term*r*((r*x+a*y)/r2a2)**2                !gxx
-    gcon(1,2) = -term*r*(r*x+a*y)*(r*y-a*x)/r2a2**2          !gxy
-    gcon(1,3) = -term*z*(r*x+a*y)/r2a2                       !gxz
-    gcon(2,0) = gcon(0,2)                                    !gyt
-    gcon(2,1) = gcon(1,2)                                    !gyx
-    gcon(2,2) = 1.-term*r*((r*y-a*x)/r2a2)**2                !gyy
-    gcon(2,3) = -term*z*(r*y-a*x)/r2a2                       !gyz
-    gcon(3,0) = gcon(0,3)                                    !gzt
-    gcon(3,1) = gcon(1,3)                                    !gzx
-    gcon(3,2) = gcon(2,3)                                    !gzy
-    gcon(3,3) = 1.-term*z2/r                                 !gzz
- end select
 end subroutine get_metric_cartesian
 
 !--- The metric tensor in SPHERICAL-like form
@@ -133,8 +94,7 @@ subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
  real :: phi,theta
  real :: rs
  rs = 2.*mass1
- select case(frame)
- case('Boyer-Lindquist')
+
     a2 = a**2
     r     = position(1)
     theta = position(2)
@@ -185,9 +145,7 @@ subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
     gcon(3,3) = gtt/(-gtphi**2 + gphiphi*gtt)
 
     sqrtg = grr*gthetatheta*(-gtphi**2+gphiphi*gtt)
- case('Kerr-Schild')
-    STOP 'No metric in spherical coordinates implemented for Kerr-Schild'
- end select
+
 end subroutine get_metric_spherical
 
 !----------------------------------------------------------------
@@ -213,8 +171,7 @@ subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi
  real :: r, theta, sintheta, costheta, rho, delta
  real :: rs
  rs = 2*.mass1
- select case(frame)
- case('Boyer-Lindquist')
+
     r = position(1)
     theta = position(2)
     sintheta = sin(theta)
@@ -240,9 +197,7 @@ subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi
     dgcovdtheta(0,3) = (-2.*a*costheta*r*rs*sintheta)/rho**2 - (2.*a**3*costheta*r*rs*sintheta**3)/rho**4
     dgcovdtheta(3,3) = 2.*costheta*sintheta*(a**2 + r**2 + (a**2*r*rs*sintheta**2)/rho**2)                                     &
     &                  + sintheta**2*((2.*a**2*costheta*r*rs*sintheta)/rho**2 + (2.*a**4*costheta*r*rs*sintheta**3)/rho**4)
- case('Kerr-Schild')
-    STOP 'No spherical derivatives implemented for Kerr-Schild'
- end select
+
 end subroutine metric_spherical_derivatives
 
 
@@ -265,8 +220,7 @@ subroutine get_jacobian(position,dxdx)
  real :: sintheta
  real :: rs
  rs = 2.*mass1
- select case(frame)
- case('Boyer-Lindquist')
+
     x  = position(1)
     y  = position(2)
     z  = position(3)
@@ -303,9 +257,7 @@ subroutine get_jacobian(position,dxdx)
     dxdx(1:3,1) = dBLdx
     dxdx(1:3,2) = dBLdy
     dxdx(1:3,3) = dBLdz
- case('Kerr-Schild')
-    STOP 'No Jacobian implemented for Kerr-Schild'
- end select
+
 end subroutine get_jacobian
 
 !--- Boyer-Lindquist coordinate transformations from CARTEISAN to SPHERICAL
@@ -314,8 +266,7 @@ subroutine cartesian2spherical(xcart,xspher)
  real, intent(out) ::xspher(3)
  real :: x,y,z,x2,y2,z2,a2,r2spherical,r2,r
  real :: theta,phi
- select case(frame)
- case('Boyer-Lindquist')
+
     x  = xcart(1)
     y  = xcart(2)
     z  = xcart(3)
@@ -329,9 +280,7 @@ subroutine cartesian2spherical(xcart,xspher)
     theta     = acos(z/r)
     phi       = atan2(y,x)
     xspher   = (/r,theta,phi/)
- case('Kerr-Schild')
-    STOP 'No cartesian2spherical implemented for Kerr-Schild'
- end select
+
 end subroutine cartesian2spherical
 
 !--- Boyer-Lindquist coordinate transformations from SPHERICAL to CARTEISAN
@@ -339,8 +288,7 @@ subroutine spherical2cartesian(xspher,xcart)
  real, intent(in) :: xspher(3)
  real, intent(out) :: xcart(3)
  real :: x,y,z,r,theta,phi,r2,a2
- select case(frame)
- case('Boyer-Lindquist')
+
     a2 = a**2
     r  = xspher(1)
     r2 = r**2
@@ -350,9 +298,7 @@ subroutine spherical2cartesian(xspher,xcart)
     y = sqrt(r2+a2)*sin(theta)*sin(phi)
     z = r*cos(theta)
     xcart = (/x,y,z/)
- case('Kerr-Schild')
-    STOP 'No spherical2cartesian implemented for Kerr-Schild'
- end select
+
 end subroutine spherical2cartesian
 
 end module metric
