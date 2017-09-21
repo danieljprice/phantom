@@ -89,7 +89,7 @@ subroutine primitive2conservative(x,v,dens,u,P,rho,pmom,en,en_type)
     call get_enthalpy(enth,dens,p) !enth = 1.+ u + P/dens
 
     call get_metric(x,gcov,gcon,sqrtg)
-    call get_u0(x,v,U0)
+    call get_u0(gcov,v,U0)
     rho = sqrtg*dens*U0
     do i=1,3
        pmom(i) = U0*enth*dot_product(gcov(i,:),v4U(:))

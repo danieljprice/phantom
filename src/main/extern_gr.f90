@@ -60,7 +60,7 @@ subroutine forcegr(x,v,dens,u,p,fterm)
  v4(1:3) = v(:)
 
  ! first component of the upper-case 4-velocity
- call get_u0(x,v,uzero)
+ call get_u0(gcov,v,uzero)
 
  ! energy-momentum tensor times sqrtg on 2rho*
  do j=0,3

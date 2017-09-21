@@ -33,18 +33,7 @@ end function dot_product_gr
 
 !-------------------------------------------------------------------------------
 
-subroutine get_u0(x,v,U0)
- use metric_tools, only: get_metric
- real, intent(in) :: x(1:3),v(1:3)
- real, intent(out) :: U0
- real :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
-
- call get_metric(x,gcov,gcon,sqrtg)
- call get_u0_given_metric(gcov,v,U0)
-
-end subroutine get_u0
-
-subroutine get_u0_given_metric(gcov,v,U0)
+subroutine get_u0(gcov,v,U0)
  real, intent(in)  :: gcov(0:3,0:3), v(1:3)
  real, intent(out) :: U0
  real :: v4(0:3)
@@ -53,7 +42,7 @@ subroutine get_u0_given_metric(gcov,v,U0)
  v4(1:3) = v(1:3)
  U0 = 1./sqrt(-dot_product_gr(v4,v4,gcov))
 
-end subroutine get_u0_given_metric
+end subroutine get_u0
 
 !-------------------------------------------------------------------------------
 
@@ -93,7 +82,7 @@ subroutine rho2dens(dens,rho,position,v)
  real :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg, U0
 
  call get_metric(position,gcov,gcon,sqrtg)
- call get_u0(position,v,U0)
+ call get_u0(gcov,v,U0)
  dens = rho/(sqrtg*U0)
 
 end subroutine rho2dens
@@ -105,7 +94,7 @@ subroutine dens2rho(rho,dens,position,v)
  real :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg, U0
 
  call get_metric(position,gcov,gcon,sqrtg)
- call get_u0(position,v,U0)
+ call get_u0(gcov,v,U0)
 
  rho = sqrtg*U0*dens
 
