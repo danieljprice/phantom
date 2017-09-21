@@ -11,15 +11,15 @@ module metric_tools
  character(len=*), public, parameter :: coordinate_sys = 'Cartesian'
 !--- When using this with PHANTOM, it should always be set to cartesian
 
-logical, private, parameter :: useinv4x4 = .true.
+ logical, private, parameter :: useinv4x4 = .true.
 
-public :: get_metric, get_metric_derivs, get_metric3plus1, print_metricinfo
+ public :: get_metric, get_metric_derivs, get_metric3plus1, print_metricinfo
 
-interface get_metric3plus1
- module procedure get_metric3plus1_only, get_metric3plus1_both
-end interface get_metric3plus1
+ interface get_metric3plus1
+  module procedure get_metric3plus1_only, get_metric3plus1_both
+ end interface get_metric3plus1
 
-private
+ private
 
 contains
 
