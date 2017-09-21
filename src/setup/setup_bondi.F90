@@ -25,7 +25,12 @@
 module setup
  use dim,            only:gr
  use physcon,        only:pi
- use externalforces, only:accradius1,mass1
+ use externalforces, only:accradius1
+#ifdef GR
+ use metric,         only:mass1
+#else
+ use externalforces, only:mass1
+#endif
  implicit none
  public :: setpart
 

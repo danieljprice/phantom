@@ -153,4 +153,33 @@ subroutine get_jacobian(position,dxdx)
  dxdx(1:3,2) = dSPHERICALdy
  dxdx(1:3,3) = dSPHERICALdz
 end subroutine get_jacobian
+
+!-----------------------------------------------------------------------
+!+
+!  writes metric options to the input file
+!+
+!-----------------------------------------------------------------------
+subroutine write_options_metric(iunit)
+ use infile_utils, only:write_inopt
+ integer, intent(in) :: iunit
+
+ write(iunit,"(/,a)") '# There are no options relating to the '//trim(metric_type)//' metric'
+
+end subroutine write_options_metric
+
+!-----------------------------------------------------------------------
+!+
+!  reads metric options from the input file
+!+
+!-----------------------------------------------------------------------
+subroutine read_options_metric(name,valstring,imatch,igotall,ierr)
+ character(len=*), intent(in)  :: name,valstring
+ logical,          intent(out) :: imatch,igotall
+ integer,          intent(out) :: ierr
+
+ ! imatch  = .true.
+ ! igotall = .true.
+
+end subroutine read_options_metric
+
 end module metric

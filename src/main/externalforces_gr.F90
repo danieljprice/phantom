@@ -12,15 +12,13 @@ module externalforces
  public :: update_externalforce
  public :: write_headeropts_extern,read_headeropts_extern
 
-
- real, public :: mass1 = 1.0
- real, public :: accradius1 = 2.5
- real, public :: accradius1_hard = 0.
-
  !
  ! enumerated list of external forces
  !
  integer, parameter, public :: iext_gr = 1
+
+ real, public :: accradius1 = 0.
+ real, public :: accradius1_hard = 0.
 
 
  ! (the following for compatibility with non-relativistic code)
@@ -252,24 +250,17 @@ end function was_accreted
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_externalforces(iunit,iexternalforce)
- use infile_utils,         only:write_inopt,get_optstring
+ use metric,       only:imetric
+ use metric_tools, only:imet_minkowski
+ use infile_utils, only:write_inopt
  integer, intent(in) :: iunit,iexternalforce
- character(len=80) :: string
 
- write(iunit,"(/,a)") '# options relating to gr forces'
-
- call get_optstring(iexternalforce_max,externalforcetype,string,4)
- call write_inopt(iexternalforce,'iexternalforce',trim(string),iunit)
-
- select case(iexternalforce)
- case(iext_gr)
-    call write_inopt(mass1,'mass1','mass of central object in code units',iunit)
+ if (imetric /= imet_minkowski) then
+    write(iunit,"(/,a)") '# options relating to GR external forces'
     if (accradius1_hard < tiny(0.)) accradius1_hard = accradius1
-    call write_inopt(accradius1,'accradius1','soft accretion radius of central object',iunit)
-    call write_inopt(accradius1_hard,'accradius1_hard','hard accretion radius of central object',iunit)
- end select
-
- !call write_options_corotate(iunit)
+    call write_inopt(accradius1,'accradius1','soft accretion radius of black hole',iunit)
+    call write_inopt(accradius1_hard,'accradius1_hard','hard accretion radius of black hole',iunit)
+ endif
 
 end subroutine write_options_externalforces
 
@@ -311,45 +302,44 @@ end subroutine read_headeropts_extern
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexternalforce)
- use io,                   only:fatal,warn
+ use io,           only:fatal,warn
+ use metric,       only:imetric
+ use metric_tools, only:imet_minkowski
  character(len=*), intent(in)    :: name,valstring
  logical,          intent(out)   :: imatch,igotall
  integer,          intent(out)   :: ierr
  integer,          intent(inout) :: iexternalforce
  integer, save :: ngot = 0
- logical :: igotallgwinspiral
- character(len=30), parameter :: tag = 'externalforces'
+ character(len=*), parameter :: tag = 'externalforces_gr'
 
  imatch            = .true.
  igotall           = .false.
- igotallgwinspiral = .true.
 
- !call read_inopt(db,'iexternalforce',iexternalforce,min=0,max=9,required=true)
- !if (imatch) ngot = ngot + 1
+ if (imetric /= imet_minkowski) then
 
- select case(trim(name))
- case('iexternalforce')
-    read(valstring,*,iostat=ierr) iexternalforce
-    if (iexternalforce < 0) call fatal(tag,'silly choice of iexternalforce, use 0')
-    ngot = ngot + 1
- case('mass1')
-    read(valstring,*,iostat=ierr) mass1
-    if (mass1 < 0)           call fatal(tag,'mass of central object cannot be -ve')
-    if (mass1 < tiny(mass1)) call warn(tag,'mass of central object is zero')
-    ngot = ngot + 1
- case('accradius1')
-    read(valstring,*,iostat=ierr) accradius1
-    if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')
-    if (accradius1 < 0.)    call fatal(tag,'negative accretion radius')
- case('accradius1_hard')
-    read(valstring,*,iostat=ierr) accradius1_hard
-    if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')
-    if (accradius1_hard > accradius1) call fatal(tag,'hard accretion boundary must be within soft accretion boundary')
- case default
-    imatch = .false.
-    ! call read_options_gwinspiral(name,valstring,imatch,igotallgwinspiral,ierr)
- end select
- igotall = (ngot >= 1      .and. igotallgwinspiral)
+    select case(trim(name))
+    case('accradius1')
+       read(valstring,*,iostat=ierr) accradius1
+       if (accradius1 < 0.)    call fatal(tag,'negative accretion radius')
+       if (imetric == imet_minkowski) call warn(tag,'Minkowski metric: ignoring accradius1 value')
+       ngot = ngot + 1
+    case('accradius1_hard')
+       read(valstring,*,iostat=ierr) accradius1_hard
+       if (accradius1_hard > accradius1) call fatal(tag,'hard accretion boundary must be within soft accretion boundary')
+       if (imetric == imet_minkowski) call warn(tag,'Minkowski metric: ignoring accradius1_hard value')
+       ngot = ngot + 1
+    end select
+
+    igotall = (ngot >= 2)
+
+ else
+
+    igotall = .true.
+
+    if (accradius1 > 0.)      call fatal(tag,'accradius1 > 0 when metric = Minkowski')
+    if (accradius1_hard > 0.) call fatal(tag,'accradius1_hard > 0 when metric = Minkowski')
+
+ endif
 
 end subroutine read_options_externalforces
 
@@ -367,20 +357,16 @@ subroutine initialise_externalforces(iexternalforce,ierr)
  real(kind=8) :: gcode, ccode
 
  ierr = 0
- !call initialise_gwinspiral(npart,ierr)
 
- select case(iexternalforce)
- case(iext_gr)
-    !
-    !--check that G=1 in code units
-    !
-    gcode = gg*umass*utime**2/udist**3
-    if (abs(gcode-1.) > 1.e-10) then
-       call error('units',trim(externalforcetype(iexternalforce))//&
-                  ' external force assumes G=1 in code units but we have',var='G',val=real(gcode))
-       ierr = ierr + 1
-    endif
- end select
+ !
+ !--check that G=1 in code units
+ !
+ gcode = gg*umass*utime**2/udist**3
+ if (abs(gcode-1.) > 1.e-10) then
+    call error('units',trim(externalforcetype(iexternalforce))//&
+               ' external force assumes G=1 in code units but we have',var='G',val=real(gcode))
+    ierr = ierr + 1
+ endif
 
  !
  !--check that c=1 in code units

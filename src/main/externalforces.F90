@@ -775,7 +775,7 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
     if (accradius1 < 0.)    call fatal(tag,'negative accretion radius')
  case('accradius1_hard')
     read(valstring,*,iostat=ierr) accradius1_hard
-    if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')
+    if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1_hard value')
     if (accradius1_hard > accradius1) call fatal(tag,'hard accretion boundary must be within soft accretion boundary')
  case('eps_soft')
     read(valstring,*,iostat=ierr) eps_soft

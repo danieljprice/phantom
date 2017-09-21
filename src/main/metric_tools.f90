@@ -193,21 +193,4 @@ subroutine print_metricinfo(iprint)
 
 end subroutine print_metricinfo
 
-!-----------------------------------------------------------------------
-!+
-!  writes input options to the input file
-!+
-!-----------------------------------------------------------------------
-! subroutine write_options_metric(iunit)
-!  use infile_utils, only:write_inopt,get_optstring
-!  integer, intent(in) :: iunit,iexternalforce
-!
-!  write(iunit,"(/,a)") '# options relating to the metric'
-!
-!     call write_inopt(mass1,'mass1','mass of central object in code units',iunit)
-!     call write_inopt(accradius1,'accradius1','soft accretion radius of central object',iunit)
-!     call write_inopt(accradius1_hard,'accradius1_hard','hard accretion radius of central object',iunit)
-!
-! end subroutine write_options_metric
-
 end module metric_tools

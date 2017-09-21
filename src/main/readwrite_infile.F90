@@ -103,6 +103,9 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef NONIDEALMHD
  use nicil_sup,       only:write_options_nicil
 #endif
+#ifdef GR
+ use metric,          only:write_options_metric
+#endif
  use eos,             only:write_options_eos,ieos
  use ptmass,          only:write_options_ptmass
  use cooling,         only:write_options_cooling
@@ -235,6 +238,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
 #ifdef NONIDEALMHD
  call write_options_nicil(iwritein)
+#endif
+
+#ifdef GR
+ call write_options_metric(iwritein)
 #endif
 
  if (iwritein /= iprint) close(unit=iwritein)

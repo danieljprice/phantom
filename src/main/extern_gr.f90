@@ -83,6 +83,8 @@ subroutine forcegr(x,v,dens,u,p,fterm)
 
 end subroutine forcegr
 
+
+!-------- I don't think this is actually being used at the moment....
 subroutine update_grforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui,pi)
  use io,             only:fatal
  real, intent(in)    :: dt,xi,yi,zi
