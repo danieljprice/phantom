@@ -17,7 +17,7 @@ module metric_tools
  integer, public, parameter :: &
    imet_minkowski      = 1, &
    imet_schwarzschild  = 2, &
-   imet_kerr           = 3  &
+   imet_kerr           = 3
 
  public :: get_metric, get_metric_derivs, get_metric3plus1, print_metricinfo
 
