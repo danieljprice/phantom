@@ -18,14 +18,8 @@ subroutine get_grforce(xyzi,veli,densi,ui,pi,fexti,dtf)
  real, intent(in)  :: xyzi(3),veli(3),densi,ui,pi
  real, intent(out) :: fexti(3),dtf
  real :: x,y,z,r2,r
- logical :: its_a_testparticle
- its_a_testparticle = .true.
 
- if (its_a_testparticle) then
-    call get_sourceterms(xyzi,veli,fexti)
- else
-    call forcegr(xyzi,veli,densi,ui,pi,fexti)
- endif
+ call forcegr(xyzi,veli,densi,ui,pi,fexti)
 
  x = xyzi(1)
  y = xyzi(2)
@@ -88,18 +82,6 @@ subroutine forcegr(x,v,dens,u,p,fterm)
  enddo
 
 end subroutine forcegr
-
-! Wrapper routine to call get_forcegr for a test particle
-subroutine get_sourceterms(x,v,fterm)
- real, intent(in)  :: x(3),v(3)
- real, intent(out) :: fterm(3)
- real :: dens,u,p
-
- P = 0.
- u = 0.
- dens = 1. ! this value does not matter (will cancel in the momentum equation)
- call forcegr(x,v,dens,u,p,fterm)
-end subroutine get_sourceterms
 
 subroutine update_grforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui,pi)
  use io,             only:fatal
