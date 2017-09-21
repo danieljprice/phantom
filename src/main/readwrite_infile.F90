@@ -269,6 +269,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef DUST
  use dust,          only:read_options_dust
 #endif
+#ifdef GR
+ use metric,        only:read_options_metric
+#endif
 #ifdef PHOTO
  use photoevap,     only:read_options_photoevap
 #endif
@@ -413,6 +416,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (.not.imatch) call read_inopts_link(name,valstring,imatch,igotalllink,ierr)
 #ifdef DUST
        if (.not.imatch) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
+#endif
+#ifdef GR
+       if (.not.imatch) call read_options_metric(name,valstring,imatch,igotalldust,ierr)
 #endif
 #ifdef PHOTO
        if (.not.imatch) call read_options_photoevap(name,valstring,imatch,igotallphoto,ierr)

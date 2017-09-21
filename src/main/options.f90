@@ -59,7 +59,7 @@ subroutine set_default_options
  use timestep,  only:C_cour,C_force,C_cool,tmax,dtmax,nmax,nout,restartonshortest
  use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha
  use viscosity, only:set_defaults_viscosity
- use dim,       only:maxp,maxvxyzu,nalpha
+ use dim,       only:maxp,maxvxyzu,nalpha,gr
  use kernel,    only:hfact_default
 
  C_cour = 0.3
@@ -81,6 +81,7 @@ subroutine set_default_options
  Bextz = 0.
  tolh = 1.e-4    ! tolerance on h iterations
  iexternalforce = 0  ! external forces
+ if (gr) iexternalforce = 1
  damp = 0.       ! damping of velocities
 
  ! equation of state

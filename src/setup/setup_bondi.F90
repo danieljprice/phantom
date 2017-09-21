@@ -105,9 +105,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ieos = 1
  endif
  gamma_eos = gamma
- if(.not. gr ) then
-    iexternalforce = 1
- endif
 
 !--- Setup particles
  rmax = 18.1
@@ -133,6 +130,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  rhozero = totmass/vol
  tff     = sqrt(3.*pi/(32.*rhozero))
 
+ tmax = totmass/mdot
+ if(gr) tmax = 10.*tff
+ dtmax = tmax/500.
+
  print*,''
  print*,' Setup for gas: '
  print*,' min,max radius = ',rmin,rmax
@@ -141,13 +142,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  print*,' free fall time = ',tff        ,' tmax                = ',tmax
  print*,''
 
- tmax = totmass/mdot
- if(gr) tmax = 10.*tff
- dtmax = tmax/500.
-
  ilattice       = 2
  nfulldump      = 1
- iexternalforce = 1
+ if (.not.gr) iexternalforce = 1
 
 #ifdef GR
  if (imetric /= imet_schwarzschild) then
