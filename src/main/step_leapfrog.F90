@@ -96,7 +96,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:ibin,ibinold,twas,iactive
 #endif
 #ifdef GR
- use metric,         only:metric_type
+ use metric,         only:imetric
+ use metric_tools,   only:imet_minkowski
 #endif
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -175,7 +176,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! accretion onto sinks/potentials also happens during substepping
 !----------------------------------------------------------------------
 #ifdef GR
- if (iexternalforce > 0 .and. .not. metric_type == 'Minkowski') then
+ if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
     call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fext,t,damp)
  else
     call step_extern_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu)

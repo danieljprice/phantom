@@ -63,7 +63,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use kernel,       only:radkern
  use externalforces,only:accradius1_hard
 #ifdef GR
- use metric,       only:metric_type
+ use metric,       only:imetric
+ use metric_tools, only:imet_schwarzschild
 #endif
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -144,7 +145,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  iexternalforce = 1
 
 #ifdef GR
- if (.not. metric_type == 'Schwarzschild') then
+ if (imetric /= imet_schwarzschild) then
     call fatal('setup','GR on, but metric is not Schwarzschild. Change the metric to Schwarzschild for gr_bondi setup.')
  endif
 #endif

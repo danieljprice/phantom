@@ -195,8 +195,9 @@ end subroutine update_externalforce
 !+
 !-----------------------------------------------------------------------
 subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
- use metric, only:metric_type
- use part,   only:set_particle_type,iboundary,maxphase,maxp,igas,npartoftype
+ use metric,       only:imetric
+ use metric_tools, only:imet_minkowski,imet_schwarzschild,imet_kerr
+ use part,         only:set_particle_type,iboundary,maxphase,maxp,igas,npartoftype
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: xi,yi,zi,mi,ti
  real,    intent(inout) :: hi
@@ -205,11 +206,11 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
  real :: r2
 
  accreted = .false.
- select case(metric_type)
- case('Minkowski')
+ select case(imetric)
+ case(imet_minkowski)
     print*,"WARNING: Metric is Minkowski and you're trying to accrete"
 
- case('Schwarzschild')
+ case(imet_schwarzschild)
     r2 = xi*xi + yi*yi + zi*zi
     if (r2 < accradius1**2 .and. maxphase==maxp .and. present(i)) then
       call set_particle_type(i,iboundary)
@@ -218,7 +219,7 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
     endif
     if (r2 < (accradius1_hard)**2) accreted = .true.
 
- case('Kerr')
+ case(imet_kerr)
     print*,'Accrete particles: no accretion implemented for Kerr metric'
 
  end select

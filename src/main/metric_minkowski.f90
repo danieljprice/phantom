@@ -1,6 +1,7 @@
 module metric
  implicit none
  character(len=*), parameter :: metric_type = 'Minkowski'
+ integer,          parameter :: imetric     = 1
 
 contains
 

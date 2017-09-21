@@ -4,6 +4,7 @@ module metric
 
  implicit none
  character(len=*), parameter :: metric_type = 'Kerr'
+ integer,          parameter :: imetric     = 3
 
  real, public  :: mass1 = 1.       ! mass of central object
  real, public  :: a     = 1.       ! spin of central object

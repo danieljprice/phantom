@@ -1,6 +1,7 @@
 module metric
  implicit none
  character(len=*), parameter :: metric_type = 'Schwarzschild'
+ integer,          parameter :: imetric     = 2
 
  real, public :: mass1 = 1.       ! mass of central object
 

@@ -1,4 +1,5 @@
 module metric_tools
+
  implicit none
 !
 ! This module contains wrapper subroutines to get:
@@ -12,6 +13,11 @@ module metric_tools
 !--- When using this with PHANTOM, it should always be set to cartesian
 
  logical, private, parameter :: useinv4x4 = .true.
+
+ integer, public, parameter :: &
+   imet_minkowski      = 1, &
+   imet_schwarzschild  = 2, &
+   imet_kerr           = 3  &
 
  public :: get_metric, get_metric_derivs, get_metric3plus1, print_metricinfo
 
@@ -47,16 +53,16 @@ end subroutine get_metric
 ! The actual analytic metric derivaties are in the metric module, which are different for each type
 ! of metric.
 subroutine get_metric_derivs(position,dgcovdx1, dgcovdx2, dgcovdx3)
- use metric, only: metric_cartesian_derivatives, metric_spherical_derivatives, metric_type
+ use metric, only: metric_cartesian_derivatives, metric_spherical_derivatives, imetric
  real,    intent(in)  :: position(3)
  real,    intent(out) :: dgcovdx1(0:3,0:3), dgcovdx2(0:3,0:3), dgcovdx3(0:3,0:3)
 
  select case(coordinate_sys)
 
  case('Cartesian')
-    if (.not. metric_type=='Kerr') then
+    if (imetric /= imet_kerr) then
        call metric_cartesian_derivatives(position,dgcovdx1, dgcovdx2, dgcovdx3)
-    else if (metric_type=='Kerr') then
+    else if (imetric == imet_kerr) then
        call numerical_metric_derivs(position,dgcovdx1, dgcovdx2, dgcovdx3)
     else
        STOP 'No derivatives being used...'
