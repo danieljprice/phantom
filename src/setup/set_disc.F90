@@ -599,7 +599,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_in,R_out,
  ninz = 0
 
  xcentreofmass(:) = 0.
- ipart = 0
+ ipart = npart_start_count -1
  do i = npart_start_count, npart_tot
     if (id==master .and. mod(i,npart_tot/10)==0 .and. verbose) print*,i
     !
@@ -771,7 +771,7 @@ subroutine set_disc_velocities_u(npart_tot,npart_start_count,itype,G,Star_M,aspi
  integer :: ipart
 
  ierr = 0
- ipart = 0
+ ipart = npart_start_count -1
  do i = npart_start_count, npart_tot
     if (i_belong(i)) then
        ipart = ipart + 1
