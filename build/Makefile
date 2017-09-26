@@ -343,6 +343,17 @@ ifeq ($(SETUP), planetdisc)
     ANALYSIS=analysis_disc.f90
 endif
 
+ifeq ($(SETUP), planetatm)
+#   disc interaction with fixed planet orbit + atmosphere
+    FPPFLAGS= -DSORT_RADIUS_INIT
+    SETUPFILE= setup_planetatm.f90
+    ISOTHERMAL=yes
+    IND_TIMESTEPS=yes
+    CURLV=yes
+    KNOWN_SETUP=yes
+    ANALYSIS=analysis_disc.f90
+endif
+
 ifeq ($(SETUP), warp)
 #   warped locally isothermal discs
     FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
