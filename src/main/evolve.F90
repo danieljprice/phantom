@@ -698,7 +698,9 @@ end subroutine check_dtmax_for_decrease
 !+
 !----------------------------------------------------------------
 subroutine check_conservation_error(val,ref,tol,label,decrease)
- use io, only:error,fatal,iverbose
+ use io,             only:error,fatal,iverbose
+ use options,        only:iexternalforce
+ use externalforces, only:iext_corot_binary
  real, intent(in) :: val,ref,tol
  character(len=*), intent(in) :: label
  logical, intent(in), optional :: decrease
@@ -716,12 +718,16 @@ subroutine check_conservation_error(val,ref,tol,label,decrease)
     err = abs(err)
  endif
  if (err > tol) then
-    call error('evolve','Large error in '//trim(label)//' conservation ',var='err',val=err)
-    call get_environment_variable('I_WILL_NOT_PUBLISH_CRAP',string)
-    if (.not. (trim(string)=='yes')) then
-       print "(2(/,a))",' You can ignore this error and continue by setting the ',&
-                        ' environment variable I_WILL_NOT_PUBLISH_CRAP=yes to continue'
-       call fatal('evolve',' Conservation errors too large to continue simulation')
+    if (trim(label) == 'angular momentum' .and. iexternalforce == iext_corot_binary) then
+       call error('evolve','Angular momentum is not being conserved due to corotating frame',var='err',val=err)
+    else
+       call error('evolve','Large error in '//trim(label)//' conservation ',var='err',val=err)
+       call get_environment_variable('I_WILL_NOT_PUBLISH_CRAP',string)
+       if (.not. (trim(string)=='yes')) then
+          print "(2(/,a))",' You can ignore this error and continue by setting the ',&
+                           ' environment variable I_WILL_NOT_PUBLISH_CRAP=yes to continue'
+          call fatal('evolve',' Conservation errors too large to continue simulation')
+       endif
     endif
  else
     if (iverbose >= 2) print "(a,es10.3)",trim(label)//' error is ',err
