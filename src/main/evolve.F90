@@ -94,7 +94,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,npartoftype
  use quitdump,         only:quit
- use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev
+ use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev, &
+                            rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
  use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in
@@ -153,6 +154,13 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  endif
  should_conserve_angmom   = (npartoftype(iboundary)==0 .and. .not.periodic)
  should_conserve_dustmass = use_dustfrac
+
+! Each injection routine will need to bookeep conserved quantities, but until then...
+#ifdef INJECT_PARTICLES
+ should_conserve_energy = .false.
+ should_conserve_momentum = .false.
+ should_conserve_angmom = .false.
+#endif
 
  noutput          = 1
  noutput_dtmax    = 1
@@ -278,12 +286,14 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     if (iverbose >= 2) call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
 #endif
 
-    if (gravity .and. icreate_sinks > 0 .and. ipart_rhomax > 0) then
+    if (gravity .and. icreate_sinks > 0 .and. ipart_rhomax /= 0) then
        !
        ! creation of new sink particles
+       ! send itest=-1 for compatibility with old interface
        !
-       call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
-                          massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
+       call ptmass_create(nptmass,npart,-1,xyzh,vxyzu,fxyzu,fext,divcurlv,&
+                          massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time,&
+                          rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin)
     endif
 
     nsteps = nsteps + 1

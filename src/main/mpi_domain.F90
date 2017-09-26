@@ -43,7 +43,11 @@ module domain
  logical, dimension(ndim), public :: isperiodic = .false.
 #endif
 
- public :: init_domains, assign_to_domain
+ public :: init_domains, assign_to_domain, i_belong
+
+ interface i_belong
+  module procedure i_belong_r4, i_belong_r8
+ end interface
 
  private
 
@@ -76,5 +80,19 @@ integer function assign_to_domain(i,id)
 #endif
 
 end function assign_to_domain
+
+logical function i_belong_r4(iparttot)
+ use io, only:nprocs,id
+ integer(kind=4), intent(in) :: iparttot
+
+ i_belong_r4 = (id == int(mod(iparttot, int(nprocs, kind=kind(iparttot))), kind=kind(nprocs)) )
+end function i_belong_r4
+
+logical function i_belong_r8(iparttot)
+ use io, only:nprocs,id
+ integer(kind=8), intent(in) :: iparttot
+
+ i_belong_r8 = (id == int(mod(iparttot, int(nprocs, kind=kind(iparttot))), kind=kind(nprocs)) )
+end function i_belong_r8
 
 end module domain

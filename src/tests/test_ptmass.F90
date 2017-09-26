@@ -19,9 +19,9 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, checksetup, deriv, dim, energies, eos,
-!    fileutils, io, kdtree, kernel, options, part, physcon, ptmass,
-!    setbinary, setdisc, spherical, step_lf_global, testutils, timestep,
-!    units
+!    fileutils, io, kdtree, kernel, mpiutils, options, part, physcon,
+!    ptmass, setbinary, setdisc, spherical, step_lf_global, testutils,
+!    timestep, units
 !+
 !--------------------------------------------------------------------------
 module testptmass
@@ -52,7 +52,8 @@ subroutine test_ptmass(ntests,npass)
                            ipart_rhomax,icreate_sinks, &
                            idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
                            idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
-                           ndptmass
+                           ndptmass,update_ptmass, &
+                           rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin
  use physcon,         only:pi
  use setdisc,         only:set_disc
  use spherical,       only:set_sphere
@@ -68,8 +69,10 @@ subroutine test_ptmass(ntests,npass)
 #ifdef IND_TIMESTEPS
  use part,            only:ibin
 #endif
+ use mpiutils,        only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi
  integer, intent(inout) :: ntests,npass
  integer                :: i,nsteps,nbinary_tests,itest,nerr,nwarn,itestp
+ integer                :: nparttot
  logical                :: test_binary,test_accretion,test_createsink, test_softening
  logical                :: accreted
  real                   :: massr,m1,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,dr
@@ -77,17 +80,13 @@ subroutine test_ptmass(ntests,npass)
  real                   :: r2,r2min,dtext_dum,xcofm(3),totmass,dum,dum2,psep,tolen
  real                   :: xyzm_ptmass_old(4,1), vxyz_ptmass_old(3,1)
  real                   :: q,phisoft,fsoft,m2,mu,v_c1,v_c2,r1,omega1,omega2
- real                   :: newptmass(maxptmass),newptmass1(maxptmass)
  real                   :: dptmass(ndptmass,maxptmass)
  real                   :: dptmass_thread(ndptmass,maxptmass)
+ real                   :: fxyz_sinksink(4,maxptmass)
  integer                :: norbits
  integer                :: nfailed(11),imin(1)
+ integer                :: id_rhomax,ipart_rhomax_global
  character(len=20)      :: dumpfile
-
- if (nprocs > 1) then
-    write(*,"(/,a,/)") '--> PTMASS TESTS DO NOT WORK WITH MPI YET'
-    return
- endif
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
 
@@ -123,23 +122,21 @@ subroutine test_ptmass(ntests,npass)
     tree_accuracy = 0.
 
     binary_tests: do itest = 1,nbinary_tests
-       if (id==master) then
-          select case(itest)
-          case(2,3)
-             if (periodic) then
-                write(*,"(/,a)") '--> skipping circumbinary disc test (-DPERIODIC is set)'
-                cycle binary_tests
+       select case(itest)
+       case(2,3)
+          if (periodic) then
+             if (id==master) write(*,"(/,a)") '--> skipping circumbinary disc test (-DPERIODIC is set)'
+             cycle binary_tests
+          else
+             if (itest==3) then
+                if (id==master) write(*,"(/,a)") '--> testing integration of disc around eccentric binary'
              else
-                if (itest==3) then
-                   write(*,"(/,a)") '--> testing integration of disc around eccentric binary'
-                else
-                   write(*,"(/,a)") '--> testing integration of circumbinary disc'
-                endif
+                if (id==master) write(*,"(/,a)") '--> testing integration of circumbinary disc'
              endif
-          case default
-             write(*,"(/,a)") '--> testing integration of binary orbit'
-          end select
-       endif
+          endif
+       case default
+          if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit'
+       end select
        !
        !--setup sink-sink binary (no gas particles)
        !
@@ -161,12 +158,13 @@ subroutine test_ptmass(ntests,npass)
        call set_binary(m1,massr,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,verbose=.false.)
        if (itest==2 .or. itest==3) then
           !  add a circumbinary gas disc around it
-          npartoftype(1) = 1000
-          npart = npartoftype(1)
-          call set_disc(id,master,npart=npartoftype(1),rmin=1.5*a,rmax=15.*a,p_index=1.5,q_index=0.75,&
+          nparttot = 1000
+          call set_disc(id,master,nparttot=nparttot,npart=npart,rmin=1.5*a,rmax=15.*a,p_index=1.5,q_index=0.75,&
                         HoverR=0.1,disc_mass=0.01*m1,star_mass=m1+massr*m1,gamma=gamma,&
                         particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
                         polyk=polyk,verbose=.false.)
+          npartoftype(1) = npart
+
           !
           ! check that no errors occurred when setting up disc
           !
@@ -186,12 +184,20 @@ subroutine test_ptmass(ntests,npass)
        !
        ! initialise forces
        !
-       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,0,0.)
+       if (id==master) then
+          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,dtsinksink,0,0.)
+       endif
+       fxyz_ptmass(:,:) = 0.
+       call bcast_mpi(epot_sinksink)
+       call bcast_mpi(dtsinksink)
+
        fext(:,:) = 0.
        do i=1,npart
           call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
                    fext(1,i),fext(2,i),fext(3,i),dum,massoftype(igas),fxyz_ptmass,dum,dum2)
        enddo
+       if (id==master) fxyz_ptmass(:,:) = fxyz_ptmass(:,:) + fxyz_sinksink(:,:)
+       call reduce_in_place_mpi('+',fxyz_ptmass)
        !
        !--take the sink-sink timestep specified by the get_forces routine
        !
@@ -394,13 +400,18 @@ subroutine test_ptmass(ntests,npass)
     fxyz_ptmass(1:3,1)    = 40.
     massoftype(1)   = 10.
     !--setup 1 SPH particle at (5,5,5)
-    call set_particle_type(1,igas)
-    npartoftype(igas) = 1
-    npart        = 1
-    xyzh(1:3,1)  = 5.
-    xyzh(4,1)    = 0.01
-    vxyzu(1:3,1) = 80.
-    fxyzu(1:3,1) = 20.
+    if (id==master) then
+       call set_particle_type(1,igas)
+       npartoftype(igas) = 1
+       npart        = 1
+       xyzh(1:3,1)  = 5.
+       xyzh(4,1)    = 0.01
+       vxyzu(1:3,1) = 80.
+       fxyzu(1:3,1) = 20.
+    else
+       npartoftype(igas) = 0
+       npart        = 0
+    endif
     xyzm_ptmass_old = xyzmh_ptmass(1:4,1:nptmass)
     vxyz_ptmass_old = vxyz_ptmass (1:3,1:nptmass)
     dr = sqrt(dot_product(xyzh(1:3,1) - xyzmh_ptmass(1:3,1),xyzh(1:3,1) - xyzmh_ptmass(1:3,1)))
@@ -414,49 +425,34 @@ subroutine test_ptmass(ntests,npass)
     angmomin = angtot
 
     dptmass(:,1:nptmass) = 0.
+    !$omp parallel default(shared) private(i) firstprivate(dptmass_thread)
     dptmass_thread(:,1:nptmass) = 0.
-    !$omp parallel do default(shared) private(i) firstprivate(dptmass_thread)
+    !$omp do
     do i=1,npart
        call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                            vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
                            igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
                            accreted,dptmass_thread,t,1.0)
-
-       !$omp critical(dptmassadd)
-       dptmass(:,1:nptmass) = dptmass(:,1:nptmass) + dptmass_thread(:,1:nptmass)
-       !$omp end critical(dptmassadd)
     enddo
-    !$omp end parallel do
+    !$omp enddo
+    !$omp critical(dptmassadd)
+    dptmass(:,1:nptmass) = dptmass(:,1:nptmass) + dptmass_thread(:,1:nptmass)
+    !$omp end critical(dptmassadd)
+    !$omp end parallel
 
-    ! update ptmass position, spin, velocity, acceleration, and mass
-    newptmass(1:nptmass)            = xyzmh_ptmass(4,1:nptmass) + dptmass(idmsi,1:nptmass)
-    newptmass1(1:nptmass)           = 1./newptmass(1:nptmass)
-    xyzmh_ptmass(1,1:nptmass)       = (dptmass(idxmsi,1:nptmass) + &
-                                      xyzmh_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    xyzmh_ptmass(2,1:nptmass)       = (dptmass(idymsi,1:nptmass) + &
-                                      xyzmh_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    xyzmh_ptmass(3,1:nptmass)       = (dptmass(idzmsi,1:nptmass) + &
-                                      xyzmh_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    xyzmh_ptmass(ispinx,1:nptmass)  = xyzmh_ptmass(ispinx,1:nptmass) + dptmass(idspinxsi,1:nptmass)
-    xyzmh_ptmass(ispiny,1:nptmass)  = xyzmh_ptmass(ispiny,1:nptmass) + dptmass(idspinysi,1:nptmass)
-    xyzmh_ptmass(ispinz,1:nptmass)  = xyzmh_ptmass(ispinz,1:nptmass) + dptmass(idspinzsi,1:nptmass)
-    vxyz_ptmass(1,1:nptmass)        = (dptmass(idvxmsi,1:nptmass) + &
-                                      vxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    vxyz_ptmass(2,1:nptmass)        = (dptmass(idvymsi,1:nptmass) + &
-                                      vxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    vxyz_ptmass(3,1:nptmass)        = (dptmass(idvzmsi,1:nptmass) + &
-                                      vxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    fxyz_ptmass(1,1:nptmass)        = (dptmass(idfxmsi,1:nptmass) + &
-                                      fxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    fxyz_ptmass(2,1:nptmass)        = (dptmass(idfymsi,1:nptmass) + &
-                                      fxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    fxyz_ptmass(3,1:nptmass)        = (dptmass(idfzmsi,1:nptmass) + &
-                                      fxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1(1:nptmass)
-    xyzmh_ptmass(4,1:nptmass)       = newptmass(1:nptmass)
+    call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
 
-    call checkval(accreted,.true.,nfailed(1),'accretion flag')
-    !--check that h has been changed to indicate particle has been accreted
-    call checkval(isdead_or_accreted(xyzh(4,1)),.true.,nfailed(2),'isdead_or_accreted flag')
+    if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
+
+    call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
+    call bcast_mpi(vxyz_ptmass(:,1:nptmass))
+    call bcast_mpi(fxyz_ptmass(:,1:nptmass))
+
+    if (id==master) then
+       call checkval(accreted,.true.,nfailed(1),'accretion flag')
+       !--check that h has been changed to indicate particle has been accreted
+       call checkval(isdead_or_accreted(xyzh(4,1)),.true.,nfailed(2),'isdead_or_accreted flag')
+    endif
     call checkval(xyzmh_ptmass(1,1),3.,tiny(0.),nfailed(3),'x(ptmass) after accretion')
     call checkval(xyzmh_ptmass(2,1),3.,tiny(0.),nfailed(4),'y(ptmass) after accretion')
     call checkval(xyzmh_ptmass(3,1),3.,tiny(0.),nfailed(5),'z(ptmass) after accretion')
@@ -555,7 +551,16 @@ subroutine test_ptmass(ntests,npass)
        if (itest==2 .and. gravity) then
           imin = minloc(xyzh(4,1:npart))
           itestp = imin(1)
-          call checkval(ipart_rhomax,itestp,0,nfailed(1),'ipart_rhomax')
+          !
+          ! only check on the thread that has rhomax
+          !
+          ipart_rhomax_global = ipart_rhomax
+          call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
+          if (id == id_rhomax) then
+             call checkval(ipart_rhomax,itestp,0,nfailed(1),'ipart_rhomax')
+          else
+             call checkval(ipart_rhomax,-1,0,nfailed(1),'ipart_rhomax')
+          endif
           ntests = ntests + 1
           if (nfailed(1)==0) npass = npass + 1
        endif
@@ -571,8 +576,34 @@ subroutine test_ptmass(ntests,npass)
        ! now create point mass by accreting these particles
        !
        h_acc = 0.15
+
+       !
+       ! if gravity is not enabled, then need to choose a particle to create ptmass from
+       !
+       if (.not. gravity) then
+          ipart_rhomax_global = itestp
+          call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
+          if (id == id_rhomax) then
+             rhomax_xyzh = xyzh(1:4,itestp)
+             rhomax_vxyz = vxyzu(1:3,itestp)
+             rhomax_iphase = iphase(itestp)
+             rhomax_divv = divcurlv(1,itestp)
+#ifdef IND_TIMESTEPS
+             rhomax_ibin = ibin(itestp)
+#endif
+          endif
+          call bcast_mpi(rhomax_xyzh,id_rhomax)
+          call bcast_mpi(rhomax_vxyz,id_rhomax)
+          call bcast_mpi(rhomax_iphase,id_rhomax)
+          call bcast_mpi(rhomax_divv,id_rhomax)
+#ifdef IND_TIMESTEPS
+          call bcast_mpi(rhomax_ibin,id_rhomax)
+#endif
+       endif
+
        call ptmass_create(nptmass,npart,itestp,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype,&
-                          xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,0.)
+                          xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,0.,&
+                          rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin)
        !
        ! check that creation succeeded
        !

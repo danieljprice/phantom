@@ -83,9 +83,8 @@ subroutine test_derivs(ntests,npass,string)
  integer                :: maxtrial,maxactual
  integer(kind=8)        :: nrhocalc,nactual,nexact
  real                   :: trialmean,actualmean,realneigh
-#else
- real                   :: rcut
 #endif
+ real                   :: rcut
  real                   :: dtext_dum,rho1i,deint,demag,dekin,dedust,dmdust(ndusttypes),dustfraci(ndusttypes),tol
  real(kind=4)           :: t1,t2
  integer                :: nfailed(21),i,j,npartblob,nparttest
@@ -98,6 +97,7 @@ subroutine test_derivs(ntests,npass,string)
 #ifdef IND_TIMESTEPS
  real                   :: tolh_old
 #endif
+ logical                :: checkmask(maxp)
 
  if (id==master) write(*,"(a,/)") '--> TESTING DERIVS MODULE'
 
@@ -147,29 +147,26 @@ subroutine test_derivs(ntests,npass,string)
  npart = 0
  totmass = rhozero*dxbound*dybound*dzbound
 
-#ifdef PERIODIC
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
  np = npart
-#else
- rcut = min(xmax,ymax,zmax) - 2.*radkern*hfact*psep
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                  psep,hfact,npart,xyzh,rmax=rcut)
- np = npart
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                  psep,hfact,npart,xyzh,rmin=rcut)
- print*,' using ',np,' of ',npart,' particles in test with free boundary'
-#endif
-
- npartoftype(1) = npart
- nptot = reduceall_mpi('+',npart)
 
  if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
  nactive = npart
+ npartoftype(1) = npart
+ nptot = reduceall_mpi('+',npart)
+ massoftype(1) = totmass/reduceall_mpi('+',npart)
+
+#ifndef PERIODIC
+ ! exclude particles near edge
+ rcut = min(xmax,ymax,zmax) - 2.*radkern*hfact*psep
+#else
+ ! include all
+ rcut = 2*(max(xmax,ymax,zmax) - min(xmax,ymax,zmax))
+#endif
 
  print*,'thread ',id,' npart = ',npart
  if (id==master) print "(a,g9.2)",' hfact = ',hfact
 
- massoftype(1) = totmass/reduceall_mpi('+',npart)
  hzero = hfact*(massoftype(1)/rhozero)**(1./3.)
 !
 !--make sure AV is off
@@ -209,28 +206,29 @@ subroutine test_derivs(ntests,npass,string)
                 Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
     call getused(t2)
     if (id==master) call printused(t1)
+    call rcut_checkmask(rcut,xyzh,npart,checkmask)
     !
     !--check hydro quantities come out as they should do
     !
     nfailed(:) = 0
-    call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
-    call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
+    call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)',checkmask)
+    call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv',checkmask)
     if (ndivcurlv >= 4) then
-       call checkvalf(np,xyzh,divcurlv(icurlvx,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
-       call checkvalf(np,xyzh,divcurlv(icurlvy,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
-       call checkvalf(np,xyzh,divcurlv(icurlvz,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
+       call checkvalf(np,xyzh,divcurlv(icurlvx,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)',checkmask)
+       call checkvalf(np,xyzh,divcurlv(icurlvy,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
+       call checkvalf(np,xyzh,divcurlv(icurlvz,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
     endif
     if (maxgradh==maxp) then
-       call checkval(np,gradh(1,:),1.01948,1.e-5,nfailed(6),'gradh')
+       call checkval(np,gradh(1,:),1.01948,1.e-5,nfailed(6),'gradh',checkmask)
     endif
     if (maxvxyzu==4) then
-       call checkvalf(np,xyzh,fxyzu(1,:),forcefuncx,1.e-3,nfailed(7),'force(x)')
-       call checkvalf(np,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(8),'force(y)')
-       call checkvalf(np,xyzh,fxyzu(3,:),forcefuncz,1.e-3,nfailed(9),'force(z)')
+       call checkvalf(np,xyzh,fxyzu(1,:),forcefuncx,1.e-3,nfailed(7),'force(x)',checkmask)
+       call checkvalf(np,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(8),'force(y)',checkmask)
+       call checkvalf(np,xyzh,fxyzu(3,:),forcefuncz,1.e-3,nfailed(9),'force(z)',checkmask)
        if (use_entropy .or. ieos /= 2) then
-          call checkval(np,fxyzu(4,:),0.,epsilon(fxyzu),nfailed(10),'den/dt')
+          call checkval(np,fxyzu(4,:),0.,epsilon(fxyzu),nfailed(10),'den/dt',checkmask)
        else
-          call checkvalf(np,xyzh,fxyzu(4,1:np)/((gamma-1.)*vxyzu(4,1:np)),dudtfunc,1.e-3,nfailed(10),'du/dt')
+          call checkvalf(np,xyzh,fxyzu(4,1:np)/((gamma-1.)*vxyzu(4,1:np)),dudtfunc,1.e-3,nfailed(10),'du/dt',checkmask)
        endif
     endif
     !
@@ -300,26 +298,26 @@ subroutine test_derivs(ntests,npass,string)
        ! calculated (finds bug of mistakenly setting inactives to zero)
        !
        nfailed(:) = 0
-       call checkval(np,xyzh(4,1:np),hzero,3.e-4,nfailed(1),'h (density)')
-       call checkvalf(np,xyzh,divcurlv(1,1:np),divvfunc,1.e-3,nfailed(2),'divv')
+       call checkval(np,xyzh(4,1:np),hzero,3.e-4,nfailed(1),'h (density)',checkmask)
+       call checkvalf(np,xyzh,divcurlv(1,1:np),divvfunc,1.e-3,nfailed(2),'divv',checkmask)
        if (ndivcurlv >= 4) then
-          call checkvalf(np,xyzh,divcurlv(icurlvx,1:np),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
-          call checkvalf(np,xyzh,divcurlv(icurlvy,1:np),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
-          call checkvalf(np,xyzh,divcurlv(icurlvz,1:np),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
+          call checkvalf(np,xyzh,divcurlv(icurlvx,1:np),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)',checkmask)
+          call checkvalf(np,xyzh,divcurlv(icurlvy,1:np),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
+          call checkvalf(np,xyzh,divcurlv(icurlvz,1:np),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
        endif
        if (maxgradh==maxp) then
-          call checkval(np,gradh(1,1:np),1.01948,1.e-5,nfailed(6),'gradh')
+          call checkval(np,gradh(1,1:np),1.01948,1.e-5,nfailed(6),'gradh',checkmask)
        endif
        if (maxvxyzu==4) then
-          call checkvalf(np,xyzh,fxyzu(1,1:np),forcefuncx,1.e-3,nfailed(7),'force(x)')
-          call checkvalf(np,xyzh,fxyzu(2,1:np),forcefuncy,1.e-3,nfailed(8),'force(y)')
-          call checkvalf(np,xyzh,fxyzu(3,1:np),forcefuncz,1.e-3,nfailed(9),'force(z)')
+          call checkvalf(np,xyzh,fxyzu(1,1:np),forcefuncx,1.e-3,nfailed(7),'force(x)',checkmask)
+          call checkvalf(np,xyzh,fxyzu(2,1:np),forcefuncy,1.e-3,nfailed(8),'force(y)',checkmask)
+          call checkvalf(np,xyzh,fxyzu(3,1:np),forcefuncz,1.e-3,nfailed(9),'force(z)',checkmask)
           if (use_entropy .or. ieos /= 2) then
-             call checkval(np,fxyzu(4,1:np),0.,epsilon(fxyzu),nfailed(10),'den/dt')
+             call checkval(np,fxyzu(4,1:np),0.,epsilon(fxyzu),nfailed(10),'den/dt',checkmask)
           else
              allocate(dummy(1:np))
              dummy(1:np) = fxyzu(4,1:np)/((gamma-1.)*vxyzu(4,1:np))
-             call checkvalf(np,xyzh,dummy(1:np),dudtfunc,1.e-3,nfailed(11),'du/dt')
+             call checkvalf(np,xyzh,dummy(1:np),dudtfunc,1.e-3,nfailed(11),'du/dt',checkmask)
              deallocate(dummy)
           endif
        endif
@@ -374,18 +372,18 @@ subroutine test_derivs(ntests,npass,string)
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
        if (id==master) call printused(t1)
-
+       call rcut_checkmask(rcut,xyzh,npart,checkmask)
        nfailed(:) = 0
-       call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
-       call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
+       call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)',checkmask)
+       call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv',checkmask)
        if (ndivcurlv >= 4) then
-          call checkvalf(np,xyzh,divcurlv(icurlvx,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
-          call checkvalf(np,xyzh,divcurlv(icurlvy,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
-          call checkvalf(np,xyzh,divcurlv(icurlvz,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
+          call checkvalf(np,xyzh,divcurlv(icurlvx,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)',checkmask)
+          call checkvalf(np,xyzh,divcurlv(icurlvy,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
+          call checkvalf(np,xyzh,divcurlv(icurlvz,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
        endif
-       call checkvalf(np,xyzh,fxyzu(1,:),forceavx,3.2e-2,nfailed(3),'art. visc force(x)')
-       call checkvalf(np,xyzh,fxyzu(2,:),forceavy,2.4e-2,nfailed(4),'art. visc force(y)')
-       call checkvalf(np,xyzh,fxyzu(3,:),forceavz,2.4e-2,nfailed(5),'art. visc force(z)')
+       call checkvalf(np,xyzh,fxyzu(1,:),forceavx,3.2e-2,nfailed(3),'art. visc force(x)',checkmask)
+       call checkvalf(np,xyzh,fxyzu(2,:),forceavy,2.4e-2,nfailed(4),'art. visc force(y)',checkmask)
+       call checkvalf(np,xyzh,fxyzu(3,:),forceavz,2.4e-2,nfailed(5),'art. visc force(z)',checkmask)
 
        ntests = ntests + 1
        if (all(nfailed==0)) npass = npass + 1
@@ -472,27 +470,28 @@ subroutine test_derivs(ntests,npass,string)
     call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
     if (id==master) call printused(t1)
+    call rcut_checkmask(rcut,xyzh,npart,checkmask)
 
     nfailed(:) = 0
-    call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
-    call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
+    call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)',checkmask)
+    call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv',checkmask)
     if (ndivcurlv >= 4) then
-       call checkvalf(np,xyzh,divcurlv(icurlvx,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
-       call checkvalf(np,xyzh,divcurlv(icurlvy,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
-       call checkvalf(np,xyzh,divcurlv(icurlvz,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
+       call checkvalf(np,xyzh,divcurlv(icurlvx,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)',checkmask)
+       call checkvalf(np,xyzh,divcurlv(icurlvy,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
+       call checkvalf(np,xyzh,divcurlv(icurlvz,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
     endif
     if (maxstrain==maxp) then
-       call checkvalf(np,xyzh,straintensor(1,:),sxx,1.7e-3,nfailed(6), 'strain tensor (xx)')
-       call checkvalf(np,xyzh,straintensor(2,:),sxy,1.e-3,nfailed(7),'strain tensor (xy)')
-       call checkvalf(np,xyzh,straintensor(3,:),sxz,2.5e-15,nfailed(8),'strain tensor (xz)')
-       call checkvalf(np,xyzh,straintensor(4,:),syy,2.5e-15,nfailed(9),'strain tensor (yy)')
-       call checkvalf(np,xyzh,straintensor(5,:),syz,1.5e-3,nfailed(10),'strain tensor (yz)')
-       call checkvalf(np,xyzh,straintensor(6,:),szz,2.5e-15,nfailed(11),'strain tensor (zz)')
+       call checkvalf(np,xyzh,straintensor(1,:),sxx,1.7e-3,nfailed(6), 'strain tensor (xx)',checkmask)
+       call checkvalf(np,xyzh,straintensor(2,:),sxy,1.e-3,nfailed(7),'strain tensor (xy)',checkmask)
+       call checkvalf(np,xyzh,straintensor(3,:),sxz,2.5e-15,nfailed(8),'strain tensor (xz)',checkmask)
+       call checkvalf(np,xyzh,straintensor(4,:),syy,2.5e-15,nfailed(9),'strain tensor (yy)',checkmask)
+       call checkvalf(np,xyzh,straintensor(5,:),syz,1.5e-3,nfailed(10),'strain tensor (yz)',checkmask)
+       call checkvalf(np,xyzh,straintensor(6,:),szz,2.5e-15,nfailed(11),'strain tensor (zz)',checkmask)
     endif
 
-    call checkvalf(np,xyzh,fxyzu(1,:),forceviscx,4.e-2,nfailed(12),'viscous force(x)')
-    call checkvalf(np,xyzh,fxyzu(2,:),forceviscy,3.e-2,nfailed(13),'viscous force(y)')
-    call checkvalf(np,xyzh,fxyzu(3,:),forceviscz,3.1e-2,nfailed(14),'viscous force(z)')
+    call checkvalf(np,xyzh,fxyzu(1,:),forceviscx,4.e-2,nfailed(12),'viscous force(x)',checkmask)
+    call checkvalf(np,xyzh,fxyzu(2,:),forceviscy,3.e-2,nfailed(13),'viscous force(y)',checkmask)
+    call checkvalf(np,xyzh,fxyzu(3,:),forceviscz,3.1e-2,nfailed(14),'viscous force(z)',checkmask)
     !
     !--also check that the number of neighbours is correct
     !
@@ -751,6 +750,7 @@ subroutine test_derivs(ntests,npass,string)
           call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                    Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
           if (id==master) call printused(t1)
+          call rcut_checkmask(rcut,xyzh,npart,checkmask)
           !
           !--check that various quantities come out as they should do
           !
@@ -759,9 +759,9 @@ subroutine test_derivs(ntests,npass,string)
           !--resistivity test is very approximate
           !  To do a proper test, multiply by h/rij in densityforce
           !
-          call checkvalf(np,xyzh,dBevol(1,:),dBxdtresist,3.7e-2,nfailed(1),'dBx/dt (resist)')
-          call checkvalf(np,xyzh,dBevol(2,:),dBydtresist,3.4e-2,nfailed(2),'dBy/dt (resist)')
-          call checkvalf(np,xyzh,dBevol(3,:),dBzdtresist,2.2e-1,nfailed(3),'dBz/dt (resist)')
+          call checkvalf(np,xyzh,dBevol(1,:),dBxdtresist,3.7e-2,nfailed(1),'dBx/dt (resist)',checkmask)
+          call checkvalf(np,xyzh,dBevol(2,:),dBydtresist,3.4e-2,nfailed(2),'dBy/dt (resist)',checkmask)
+          call checkvalf(np,xyzh,dBevol(3,:),dBzdtresist,2.2e-1,nfailed(3),'dBz/dt (resist)',checkmask)
 
           ntests = ntests + 1
           if (all(nfailed==0)) npass = npass + 1
@@ -2685,5 +2685,29 @@ real function deltavx_func(xyzhi)
  deltavx_func = tsi*gradp/rhogasi
 
 end function deltavx_func
+
+subroutine rcut_checkmask(rcut,xyzh,npart,checkmask)
+ real,    intent(in)  :: rcut
+ real,    intent(in)  :: xyzh(:,:)
+ integer, intent(in)  :: npart
+ logical, intent(out) :: checkmask(:)
+ real                 :: rcut2, xi,yi,zi,r2
+ integer              :: i,ncheck
+
+ ncheck = 0
+ rcut2 = rcut*rcut
+ checkmask(:) = .false.
+ do i=1,npart
+    xi = xyzh(1,i)
+    yi = xyzh(2,i)
+    zi = xyzh(3,i)
+    r2 = xi*xi + yi*yi + zi*zi
+    if (r2 < rcut2) then
+       checkmask(i) = .true.
+       ncheck = ncheck + 1
+    endif
+ enddo
+
+end subroutine rcut_checkmask
 
 end module testderivs

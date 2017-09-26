@@ -108,7 +108,8 @@ subroutine test_lum(ntests,npass)
 #endif
 
  call set_disc(id,master=master,&
-                   npart   = npartoftype(1),&
+                   nparttot= npart, &
+                   npart   = npart,&
                    rmin    = 0.5, &
                    rmax    = 10.,&
                    p_index = 1.5,    &
