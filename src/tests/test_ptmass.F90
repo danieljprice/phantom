@@ -88,11 +88,6 @@ subroutine test_ptmass(ntests,npass)
  integer                :: id_rhomax,ipart_rhomax_global
  character(len=20)      :: dumpfile
 
- if (nprocs > 1) then
-    write(*,"(/,a,/)") '--> PTMASS TESTS DO NOT WORK WITH MPI YET'
-    return
- endif
-
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
 
  test_binary = .true.
