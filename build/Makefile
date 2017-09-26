@@ -1628,6 +1628,12 @@ ifeq ($(MPI), psxe)
     USEMPI=yes
 endif
 
+ifeq ($(MPI), mpifort)
+    FC= mpifort
+    FPPFLAGS += -DMPI
+    USEMPI=yes
+endif
+
 ifeq ($(MPI), apac)
     LDFLAGS= -lmpi
     FPPFLAGS += -DMPI

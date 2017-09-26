@@ -42,13 +42,13 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, energies, extern_binary, externalforces,
-!    io, nicil, options, part, ptmass, units, viscosity
+!    io, nicil, options, part, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module evwrite
  use io,             only: fatal
  use options,        only: iexternalforce
- use externalforces, only: iext_binary
+ use externalforces, only: iext_binary,was_accreted
  use energies,       only: inumev,iquantities,ev_data
  use energies,       only: erot_com,gas_only,track_mass,track_lum
  use energies,       only: iev_sum,iev_max,iev_min,iev_ave
@@ -80,8 +80,7 @@ subroutine init_evfile(iunit,evfile)
  use io,        only: id,master,warning
  use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,use_dustfrac,calc_erot,lightcurve
  use options,   only: ishock_heating,ipdv_heating
- use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,nptmass,npartoftype
- use ptmass,    only: icreate_sinks
+ use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype
  use nicil,     only: use_ohm,use_hall,use_ambi,ion_rays,ion_thermal
  use viscosity, only: irealvisc
  integer,            intent(in) :: iunit
@@ -177,7 +176,7 @@ subroutine init_evfile(iunit,evfile)
        call fill_ev_tag(ev_fmt,iev_maccsink(2),'Macc sink 2', '0',i,j)
     endif
  endif
- if (iexternalforce>0 .or. nptmass > 0 .or. icreate_sinks > 0) then
+ if (was_accreted(iexternalforce,-1.0)) then
     call fill_ev_tag(ev_fmt,iev_macc,     'accretedmas', 's',i,j)
     call fill_ev_tag(ev_fmt,iev_eacc,     'eacc',        '0',i,j)
     track_mass     = .true.

@@ -39,10 +39,13 @@ program phantom
  use evolve,          only:evol
  use test,            only:testsuite
  implicit none
- integer :: nargs,i
+ integer :: nargs,i,ntests,npass,nfail
  character(len=120) :: infile,logfile,evfile,dumpfile
 
  id = 0
+ ntests = 0
+ npass  = 0
+ nfail  = 0
 
  call init_mpi(id,nprocs)
 #ifdef MPI
@@ -69,10 +72,10 @@ program phantom
     if (nargs >= 2) then
        do i=2,nargs
           call get_command_argument(i,infile)
-          call testsuite(trim(infile),(i==2),(i==nargs))
+          call testsuite(trim(infile),(i==2),(i==nargs),ntests,npass,nfail)
        enddo
     else
-       call testsuite('all',.true.,.true.)
+       call testsuite('all',.true.,.true.,ntests,npass,nfail)
     endif
  else
     if (index(infile,'.in')==0) then
@@ -88,5 +91,10 @@ program phantom
  call finish_mpi_memory()
 #endif
  call finalise_mpi()
+
+ !
+ ! stop with an error code if test suite failed
+ !
+ if (ntests > 0 .and. nfail > 0) stop 666
 
 end program phantom

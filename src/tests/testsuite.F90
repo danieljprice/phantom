@@ -33,7 +33,7 @@ module test
 
 contains
 
-subroutine testsuite(string,first,last)
+subroutine testsuite(string,first,last,ntests,npass,nfail)
  use io,           only:iprint,id,master,iverbose
  use testderivs,   only:test_derivs
  use teststep,     only:test_step
@@ -59,9 +59,9 @@ subroutine testsuite(string,first,last)
  use options,      only:set_default_options
  use timing,       only:get_timings,print_time
  use mpiutils,     only:barrier_mpi
- character(len=*), intent(in) :: string
- logical,          intent(in) :: first,last
- integer, save :: ntests,npass,nfail
+ character(len=*), intent(in)    :: string
+ logical,          intent(in)    :: first,last
+ integer,          intent(inout) :: ntests,npass,nfail
  logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity
  logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany

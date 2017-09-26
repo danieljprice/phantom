@@ -83,19 +83,22 @@ contains
 
 subroutine init_mpi_memory
  integer :: idens, iforce ! memory allocation counters
+ integer :: allocstat
 
- allocate(dens_cells(n_dens_cells))
+ allocate(dens_cells(n_dens_cells), stat = allocstat)
+ if (allocstat /= 0) call fatal('stack','fortran memory allocation error')
  idens = 1
  call allocate_stack(dens_stack_1, idens)
  call allocate_stack(dens_stack_2, idens)
  call allocate_stack(dens_stack_3, idens)
- if (idens - 1 > n_dens_cells) call fatal('stack','memory allocation error')
+ if (idens - 1 > n_dens_cells) call fatal('stack','phantom memory allocation error')
 
- allocate(force_cells(n_force_cells))
+ allocate(force_cells(n_force_cells), stat = allocstat)
+ if (allocstat /= 0) call fatal('stack','fortran memory allocation error')
  iforce = 1
  call allocate_stack(force_stack_1,iforce)
  call allocate_stack(force_stack_2,iforce)
- if (iforce - 1 > n_force_cells) call fatal('stack','memory allocation error')
+ if (iforce - 1 > n_force_cells) call fatal('stack','phantom memory allocation error')
 end subroutine init_mpi_memory
 
 subroutine finish_mpi_memory
@@ -164,7 +167,6 @@ subroutine swap_stacks_dens(stack_a, stack_b)
  type(stackdens),   intent(inout) :: stack_a
  type(stackdens),   intent(inout) :: stack_b
 
- type(celldens), pointer :: temp_cells(:)
  integer :: temp_n
  integer :: temp_start
  integer :: temp_end
@@ -176,11 +178,6 @@ subroutine swap_stacks_dens(stack_a, stack_b)
  stack_a%n = stack_b%n
  stack_b%n = temp_n
 
- ! cell pointers
- temp_cells => stack_a%cells
- stack_a%cells => stack_b%cells
- stack_b%cells => temp_cells
-
  ! addresses
  temp_start = stack_a%mem_start
  temp_end   = stack_a%mem_end
@@ -188,6 +185,11 @@ subroutine swap_stacks_dens(stack_a, stack_b)
  stack_a%mem_end   = stack_b%mem_end
  stack_b%mem_start = temp_start
  stack_b%mem_end   = temp_end
+
+ ! change pointers
+ stack_a%cells => dens_cells(stack_a%mem_start:stack_a%mem_end)
+ stack_b%cells => dens_cells(stack_b%mem_start:stack_b%mem_end)
+
 end subroutine swap_stacks_dens
 
 subroutine push_onto_stack_dens(stack,cell)

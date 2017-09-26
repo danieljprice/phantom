@@ -71,12 +71,13 @@ contains
 !  checks a constant
 !+
 !----------------------------------------------------------------
-subroutine checkvalconst(n,x,val,tol,ndiff,label)
+subroutine checkvalconst(n,x,val,tol,ndiff,label,checkmask)
  integer,          intent(in)  :: n
  real(kind=8),     intent(in)  :: x(:)
  real,             intent(in)  :: val,tol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
+ logical, optional,intent(in)  :: checkmask(:)
  integer      :: i
  real         :: erri,errmax
 
@@ -85,6 +86,9 @@ subroutine checkvalconst(n,x,val,tol,ndiff,label)
  ndiff = 0
  errmax = 0.
  do i=1,n
+    if (present(checkmask)) then
+       if (.not. checkmask(i)) cycle
+    endif
     if (.not.isdead(i)) then
        erri = abs(x(i)-val)
        if (abs(val) > epsilon(val)) erri = erri/abs(val)
@@ -108,12 +112,13 @@ end subroutine checkvalconst
 !  checks a constant (real4)
 !+
 !----------------------------------------------------------------
-subroutine checkvalconstr4(n,x,val,tol,ndiff,label)
+subroutine checkvalconstr4(n,x,val,tol,ndiff,label,checkmask)
  integer,          intent(in)  :: n
  real(kind=4),     intent(in)  :: x(:)
  real,             intent(in)  :: val,tol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
+ logical, optional,intent(in)  :: checkmask(:)
  integer :: i
  real    :: erri,errmax
 
@@ -122,6 +127,9 @@ subroutine checkvalconstr4(n,x,val,tol,ndiff,label)
  ndiff = 0
  errmax = 0.
  do i=1,n
+    if (present(checkmask)) then
+       if (.not. checkmask(i)) cycle
+    endif
     if (.not.isdead(i)) then
        erri = abs(x(i)-val)
        if (abs(val) > epsilon(val)) erri = erri/abs(val)
@@ -145,12 +153,13 @@ end subroutine checkvalconstr4
 !  checks an integer*1 array against a constant
 !+
 !----------------------------------------------------------------
-subroutine checkvalconsti1(n,ix,ival,itol,ndiff,label)
+subroutine checkvalconsti1(n,ix,ival,itol,ndiff,label,checkmask)
  integer,          intent(in)  :: n
  integer(kind=1),  intent(in)  :: ix(:)
  integer,          intent(in)  :: ival,itol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
+ logical, optional,intent(in)  :: checkmask(:)
  integer :: i
  integer :: erri,errmax
 
@@ -159,6 +168,9 @@ subroutine checkvalconsti1(n,ix,ival,itol,ndiff,label)
  ndiff = 0
  errmax = 0
  do i=1,n
+    if (present(checkmask)) then
+       if (.not. checkmask(i)) cycle
+    endif
     if (.not.isdead(i)) then
        erri = abs(ix(i)-ival)
        errmax = max(errmax,erri)
@@ -181,7 +193,7 @@ end subroutine checkvalconsti1
 !  checks an array of values against a functional form
 !+
 !----------------------------------------------------------------
-subroutine checkvalfuncr8(n,xyzhi,x,func,tol,ndiff,label)
+subroutine checkvalfuncr8(n,xyzhi,x,func,tol,ndiff,label,checkmask)
  integer,          intent(in)  :: n
  real,             intent(in)  :: xyzhi(:,:)
  real(kind=8),     intent(in)  :: x(:)
@@ -189,6 +201,7 @@ subroutine checkvalfuncr8(n,xyzhi,x,func,tol,ndiff,label)
  real,             intent(in)  :: tol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
+ logical, optional,intent(in)  :: checkmask(:)
  integer :: i
  real(kind=8) :: erri,val,errmax
  real :: errmaxr
@@ -198,6 +211,9 @@ subroutine checkvalfuncr8(n,xyzhi,x,func,tol,ndiff,label)
  ndiff = 0
  errmax = 0.
  do i=1,n
+    if (present(checkmask)) then
+       if (.not. checkmask(i)) cycle
+    endif
     if (.not.isdead(i)) then
        val = func(xyzhi(:,i))
        erri = abs(x(i)-val)
@@ -226,7 +242,7 @@ end subroutine checkvalfuncr8
 !  as above but for a real*4 array
 !+
 !----------------------------------------------------------------
-subroutine checkvalfuncr4(n,xyzhi,x,func,tol,ndiff,label)
+subroutine checkvalfuncr4(n,xyzhi,x,func,tol,ndiff,label,checkmask)
  integer,          intent(in)  :: n
  real,             intent(in)  :: xyzhi(:,:)
  real(kind=4),     intent(in)  :: x(:)
@@ -234,6 +250,7 @@ subroutine checkvalfuncr4(n,xyzhi,x,func,tol,ndiff,label)
  real,             intent(in)  :: tol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
+ logical, optional,intent(in)  :: checkmask(:)
  integer :: i
  real    :: erri,val,errmax
 
@@ -242,6 +259,9 @@ subroutine checkvalfuncr4(n,xyzhi,x,func,tol,ndiff,label)
  ndiff = 0
  errmax = 0.
  do i=1,n
+    if (present(checkmask)) then
+       if (.not. checkmask(i)) cycle
+    endif
     if (.not.isdead(i)) then
        val = func(xyzhi(:,i))
        erri = abs(x(i)-val)
@@ -417,12 +437,13 @@ end subroutine checkval1_int8
 !  checks an array of values against an array of expected answers
 !+
 !----------------------------------------------------------------
-subroutine checkval_r8arr(n,x,xexact,tol,ndiff,label)
+subroutine checkval_r8arr(n,x,xexact,tol,ndiff,label,checkmask)
  integer,          intent(in)  :: n
  real(kind=8),     intent(in)  :: x(:),xexact(:)
  real,             intent(in)  :: tol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
+ logical, optional,intent(in)  :: checkmask(:)
  integer :: i,nval
  real(kind=8) :: erri,val,errmax,valmax,errl2
  real :: errmaxr
@@ -435,6 +456,9 @@ subroutine checkval_r8arr(n,x,xexact,tol,ndiff,label)
  valmax = 0.
  nval = 0
  do i=1,n
+    if (present(checkmask)) then
+       if (.not. checkmask(i)) cycle
+    endif
     if (.not.isdead(i)) then
        val = xexact(i)
        erri = abs(x(i)-val)
@@ -466,12 +490,13 @@ end subroutine checkval_r8arr
 !  checks an array of real*4 values against an array of expected answers
 !+
 !----------------------------------------------------------------
-subroutine checkval_r4arr(n,x,xexact,tol,ndiff,label)
+subroutine checkval_r4arr(n,x,xexact,tol,ndiff,label,checkmask)
  integer,          intent(in)  :: n
  real(kind=4),     intent(in)  :: x(:),xexact(:)
  real,             intent(in)  :: tol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
+ logical, optional,intent(in)  :: checkmask(:)
  integer :: i
  real(kind=4) :: erri,val,errmax
  real :: errmaxr
@@ -481,6 +506,9 @@ subroutine checkval_r4arr(n,x,xexact,tol,ndiff,label)
  ndiff = 0
  errmax = 0.
  do i=1,n
+    if (present(checkmask)) then
+       if (.not. checkmask(i)) cycle
+    endif
     if (.not.isdead(i)) then
        val = xexact(i)
        erri = abs(x(i)-val)
