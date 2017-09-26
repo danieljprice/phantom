@@ -35,14 +35,14 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
- use units,     only:set_units
- use physcon,   only:solarm,au,pi
- use options,   only:iexternalforce
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
+ use units,          only:set_units
+ use physcon,        only:solarm,au,pi
+ use options,        only:iexternalforce
  use externalforces, only:iext_binary
- use extern_binary,  only:binaryreducedmass
- use io,        only:master
- use timestep,  only:dtmax
+ use extern_binary,  only:binarymassr
+ use io,             only:master
+ use timestep,       only:dtmax
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -53,9 +53,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  character(len=120) :: filename
- integer :: ierr
- logical :: iexist
- real :: m1
+ integer            :: ierr
+ logical            :: iexist
+ real               :: m1
 !
 !--units
 !
@@ -88,7 +88,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyz_ptmass(1,1) = 0.489765446
 
  iexternalforce = iext_binary
- binaryreducedmass = 0.5
+ binarymassr = 0.5
  dtmax = 0.1*(9.*pi)
 
 end subroutine setpart
