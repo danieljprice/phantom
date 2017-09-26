@@ -118,17 +118,21 @@ subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi,surface_force)
  rr1 = dx1*dx1 + dy1*dy1 + dz1*dz1
  rr2 = dx2*dx2 + dy2*dy2 + dz2*dz2
 
- r1  = sqrt(rr1)
-
  dr1 = 1./sqrt(rr1 + eps_soft1**2)
  dr2 = 1./sqrt(rr2 + eps_soft2**2)
- 
- if (surface_force .and. r1 < 2.*eps_soft1) then
-    !--add surface force to keep particles outside of r_planet
-    f1 =  binarymassri/(rr1*r1)*(1.-((2.*eps_soft1-r1)/eps_soft1)**4)
+
+ if (surface_force) then
+    r1  = sqrt(rr1)
+    if (r1 < 2.*eps_soft1) then
+       !--add surface force to keep particles outside of r_planet
+       f1 =  binarymassri/(rr1*r1)*(1.-((2.*eps_soft1-r1)/eps_soft1)**4)
+    else
+       !--1/r potential
+       f1 = binarymassri/(rr1*r1)
+    endif
  else
     !--normal softened potential
-    f1 = binarymassri/(rr1*r1)
+    f1 = binarymassri*dr1*dr1*dr1
  endif
  f2  = (1.-binarymassri)*dr2*dr2*dr2
 
