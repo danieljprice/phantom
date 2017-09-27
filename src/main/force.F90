@@ -609,12 +609,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     else
        ipart_rhomax = -1
     endif
-    call bcast_mpi(rhomax_xyzh,id)
-    call bcast_mpi(rhomax_vxyz,id)
-    call bcast_mpi(rhomax_iphase,id)
-    call bcast_mpi(rhomax_divv,id)
+    call bcast_mpi(rhomax_xyzh,id_rhomax)
+    call bcast_mpi(rhomax_vxyz,id_rhomax)
+    call bcast_mpi(rhomax_iphase,id_rhomax)
+    call bcast_mpi(rhomax_divv,id_rhomax)
 #ifdef IND_TIMESTEPS
-    call bcast_mpi(rhomax_ibin,id)
+    call bcast_mpi(rhomax_ibin,id_rhomax)
 #endif
  endif
  if (icreate_sinks > 0 .and. ipart_rhomax > 0 .and. iverbose>=1) then

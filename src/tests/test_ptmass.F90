@@ -52,7 +52,8 @@ subroutine test_ptmass(ntests,npass)
                            ipart_rhomax,icreate_sinks, &
                            idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
                            idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
-                           ndptmass,update_ptmass
+                           ndptmass,update_ptmass, &
+                           rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin
  use physcon,         only:pi
  use setdisc,         only:set_disc
  use spherical,       only:set_sphere
@@ -68,7 +69,7 @@ subroutine test_ptmass(ntests,npass)
 #ifdef IND_TIMESTEPS
  use part,            only:ibin
 #endif
- use mpiutils,        only:bcast_mpi,reduce_in_place_mpi
+ use mpiutils,        only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi
  integer, intent(inout) :: ntests,npass
  integer                :: i,nsteps,nbinary_tests,itest,nerr,nwarn,itestp
  integer                :: nparttot
@@ -84,6 +85,7 @@ subroutine test_ptmass(ntests,npass)
  real                   :: fxyz_sinksink(4,maxptmass)
  integer                :: norbits
  integer                :: nfailed(11),imin(1)
+ integer                :: id_rhomax,ipart_rhomax_global
  character(len=20)      :: dumpfile
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -549,7 +551,16 @@ subroutine test_ptmass(ntests,npass)
        if (itest==2 .and. gravity) then
           imin = minloc(xyzh(4,1:npart))
           itestp = imin(1)
-          call checkval(ipart_rhomax,itestp,0,nfailed(1),'ipart_rhomax')
+          !
+          ! only check on the thread that has rhomax
+          !
+          ipart_rhomax_global = ipart_rhomax
+          call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
+          if (id == id_rhomax) then
+             call checkval(ipart_rhomax,itestp,0,nfailed(1),'ipart_rhomax')
+          else
+             call checkval(ipart_rhomax,-1,0,nfailed(1),'ipart_rhomax')
+          endif
           ntests = ntests + 1
           if (nfailed(1)==0) npass = npass + 1
        endif
@@ -565,8 +576,34 @@ subroutine test_ptmass(ntests,npass)
        ! now create point mass by accreting these particles
        !
        h_acc = 0.15
+
+       !
+       ! if gravity is not enabled, then need to choose a particle to create ptmass from
+       !
+       if (.not. gravity) then
+          ipart_rhomax_global = itestp
+          call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
+          if (id == id_rhomax) then
+             rhomax_xyzh = xyzh(1:4,itestp)
+             rhomax_vxyz = vxyzu(1:3,itestp)
+             rhomax_iphase = iphase(itestp)
+             rhomax_divv = divcurlv(1,itestp)
+#ifdef IND_TIMESTEPS
+             rhomax_ibin = ibin(itestp)
+#endif
+          endif
+          call bcast_mpi(rhomax_xyzh,id_rhomax)
+          call bcast_mpi(rhomax_vxyz,id_rhomax)
+          call bcast_mpi(rhomax_iphase,id_rhomax)
+          call bcast_mpi(rhomax_divv,id_rhomax)
+#ifdef IND_TIMESTEPS
+          call bcast_mpi(rhomax_ibin,id_rhomax)
+#endif
+       endif
+
        call ptmass_create(nptmass,npart,itestp,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype,&
-                          xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,0.)
+                          xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,0.,&
+                          rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin)
        !
        ! check that creation succeeded
        !
