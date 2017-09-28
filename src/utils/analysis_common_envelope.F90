@@ -106,7 +106,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !case 3 variables
  real                         :: encomp(23)
  real                         :: sink_vel(4)=0., r_sink_sink, radvel
- real                         :: part_kin, part_ps_pot
+ real                         :: part_kin, part_ps_pot, part_therm
  real                         :: ponrhoi, spsoundi
  real                         :: e=0, a, mtot, sep, vmag, v_part_com(4)=0, omega_vec(3)=0, omegacrossr(3)
  real                         :: r_part_com(4), rcrossmv(3), jz, boundparts(8,npart+nptmass)
@@ -425,15 +425,17 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
           encomp(ipot_ps) = encomp(ipot_ps) + part_ps_pot
 
+          part_therm = particlemass * vxyzu(4,i)
+
           if (switch(2)) then
              boundparts(1:3,i) = xyzh(1:3,i)
              boundparts(4:6,i) = vxyzu(1:3,i)
           endif
 
           if (switch(3)) then
-             boundparts(7,i) = (part_kin + part_ps_pot + poten(i) + etherm)/particlemass
+             boundparts(7,i) = (part_kin + part_ps_pot + poten(i) + part_therm)/particlemass
 
-             if (part_kin + part_ps_pot + poten(i) + etherm < 0) then
+             if (part_kin + part_ps_pot + poten(i) + part_therm < 0) then
                 encomp(ikin_bound) = encomp(ikin_bound) + part_kin
                 encomp(imass_bound) = encomp(imass_bound) + particlemass
                 encomp(ijz_bound) = encomp(ijz_bound) + jz
