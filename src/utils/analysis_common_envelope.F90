@@ -363,8 +363,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        endif
 
        call prompt('2. Would you like to output bound particle files?', switch(2))
-       
-       if (switch(2)) then 
+
+       if (switch(2)) then
           call prompt('3. Would you like to use thermal energy in the computation of the bound/unbound status?', switch(3),.false.)
        endif
     endif
@@ -480,7 +480,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                 encomp(imass_unbound) = encomp(imass_unbound) + particlemass
                 encomp(ijz_unbound) = encomp(ijz_unbound) + jz
                 boundparts(8,i) = 1
-             endif             
+             endif
           endif
        endif
     enddo
