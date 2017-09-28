@@ -363,6 +363,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        endif
 
        call prompt('2. Would you like to output bound particle files?', switch(2))
+       
+       if (switch(2)) then 
+          call prompt('3. Would you like to use thermal energy in the computation of the bound/unbound status?', switch(3),.false.)
+       endif
     endif
 
     encomp(5:) = 0.
@@ -426,27 +430,56 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              boundparts(4:6,i) = vxyzu(1:3,i)
           endif
 
-          boundparts(7,i) = (part_kin + part_ps_pot + poten(i))/particlemass
+          if (switch(3)) then
+             boundparts(7,i) = (part_kin + part_ps_pot + poten(i) + etherm)/particlemass
 
-          if (part_kin + part_ps_pot + poten(i) < 0) then
-             encomp(ikin_bound) = encomp(ikin_bound) + part_kin
-             encomp(imass_bound) = encomp(imass_bound) + particlemass
-             encomp(ijz_bound) = encomp(ijz_bound) + jz
-             boundparts(8,i) = -1
-             radvel = dot_product(v_part_com(1:3),r_part_com(1:3)) / r_part_com(4)
-             if (inearsink .eqv. .false.) then
-                if (radvel < 0.) then
-                   encomp(fallbackmass) = encomp(fallbackmass) + particlemass
-                   encomp(fallbackmom) = encomp(fallbackmom) + particlemass * radvel
+             if (part_kin + part_ps_pot + poten(i) + etherm < 0) then
+                encomp(ikin_bound) = encomp(ikin_bound) + part_kin
+                encomp(imass_bound) = encomp(imass_bound) + particlemass
+                encomp(ijz_bound) = encomp(ijz_bound) + jz
+                boundparts(8,i) = -1
+                radvel = dot_product(v_part_com(1:3),r_part_com(1:3)) / r_part_com(4)
+
+                if (inearsink .eqv. .false.) then
+
+                   if (radvel < 0.) then
+                      encomp(fallbackmass) = encomp(fallbackmass) + particlemass
+                      encomp(fallbackmom) = encomp(fallbackmom) + particlemass * radvel
+                   endif
                 endif
-             endif
-          else
-             encomp(ikin_unbound) = encomp(ikin_unbound) + part_kin
-             encomp(imass_unbound) = encomp(imass_unbound) + particlemass
-             encomp(ijz_unbound) = encomp(ijz_unbound) + jz
-             boundparts(8,i) = 1
-          endif
 
+             else
+                encomp(ikin_unbound) = encomp(ikin_unbound) + part_kin
+                encomp(imass_unbound) = encomp(imass_unbound) + particlemass
+                encomp(ijz_unbound) = encomp(ijz_unbound) + jz
+                boundparts(8,i) = 1
+             endif
+
+          else
+             boundparts(7,i) = (part_kin + part_ps_pot + poten(i))/particlemass
+
+             if (part_kin + part_ps_pot + poten(i) < 0) then
+                encomp(ikin_bound) = encomp(ikin_bound) + part_kin
+                encomp(imass_bound) = encomp(imass_bound) + particlemass
+                encomp(ijz_bound) = encomp(ijz_bound) + jz
+                boundparts(8,i) = -1
+                radvel = dot_product(v_part_com(1:3),r_part_com(1:3)) / r_part_com(4)
+
+                if (inearsink .eqv. .false.) then
+
+                   if (radvel < 0.) then
+                      encomp(fallbackmass) = encomp(fallbackmass) + particlemass
+                      encomp(fallbackmom) = encomp(fallbackmom) + particlemass * radvel
+                   endif
+                endif
+
+             else
+                encomp(ikin_unbound) = encomp(ikin_unbound) + part_kin
+                encomp(imass_unbound) = encomp(imass_unbound) + particlemass
+                encomp(ijz_unbound) = encomp(ijz_unbound) + jz
+                boundparts(8,i) = 1
+             endif             
+          endif
        endif
     enddo
 
