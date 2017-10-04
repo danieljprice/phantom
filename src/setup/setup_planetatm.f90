@@ -104,7 +104,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real :: a0,Mstar
  real :: vmag,omega0,v_0(3)!,v_subtract(3)
  real :: phipart,r
- real :: udens,rho_core,r_surface,a_planet
+ real :: udens,rho_core,r_surface,a_orbit
  real :: Mplanet,Mearth,Mjupiter
  real :: xyz_orig(3),psep,vol_sphere
 
@@ -127,24 +127,25 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gamma = 1.0
  hfact = 1.2
  time  = 0.
- a0    = 1.
+ a0    = 0.25
  Mstar = 1.
  !binarymassr = 1.e-3
  !-----------------------
  Mearth   = 5.976e27/umass
  Mjupiter = 1.899e30/umass
  !binarymassr = Mjupiter/(Mstar + Mjupiter) ! Jupiter mass
- binarymassr = Mearth/(Mstar + Mearth) ! Earth mass
+ !binarymassr = Mearth/(Mstar + Mearth) ! Earth mass
+ binarymassr = 15.*Mearth/(Mstar + Mearth) ! Earth mass
  !-----------------------
  Mplanet = Mstar*binarymassr/(1. - binarymassr)
  HoverRinput = 0.05
  accradius1 = 0.0
- accradius2 = 0.3
- R_in  = 0.4
- R_out  = 2.5
+ accradius2 = 0.075*a0
+ R_in  = 0.1*a0
+ R_out  = 2.5*a0
  sig0   = 0.002/(pi*a0**2)
  alphaSS = 0.01
- p_indexinput = 0.
+ p_indexinput = 1.
  q_indexinput = 0.5
  ramp = .false.!.true.
 
@@ -156,14 +157,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  rho_core_cgs = 5.
  Ratm_in  = 1.
  Ratm_out = 3.
- npart_planet_frac = 0.9
+ npart_planet_frac = 0.0000001
 
  if (iexternalforce == iext_corot_binary) then
     udens = umass/udist**3
     rho_core  = rho_core_cgs/udens
     r_surface = (3./(4.*pi)*Mplanet/rho_core)**(1./3.)
     eps_soft1 = r_surface
-    print*,eps_soft1
  else
     eps_soft1 = 0.6*HoverRinput*a0
  endif
@@ -247,10 +247,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     Ratm_out  = Ratm_out*r_surface
 
     if (ramp) then
-       xyz_orig(:) = (/1.,0.,0./)
+       xyz_orig(:) = (/a0,0.,0./)
     else
-       a_planet = 1. - binarymassr
-       xyz_orig(:) = (/a_planet,0.,0./)
+       a_orbit = a0 - binarymassr
+       xyz_orig(:) = (/a_orbit,0.,0./)
     endif
     vol_sphere  = 4./3.*pi*Ratm_out**3
     nx          = int(npart_planet_atm**(1./3.))
@@ -278,7 +278,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ! v_phi = v_y at y=0
     ! Obtain the true v_phi at any point (r,phi) via rotation in z axis
 
-    v_0 = (/0.0, vmag,0.0/)
+    v_0 = (/0.0,vmag,0.0/)
 
     print *, 'Transforming to corotating frame: angular velocity ', omega0
 

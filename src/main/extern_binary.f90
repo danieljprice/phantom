@@ -77,15 +77,16 @@ subroutine update_binary(ti,surface_force)
  endif
 
  if (surface_force) then
-    omega = 1. - omega_corotate
+    !omega = 1. - omega_corotate
+    omega = 0. ! fixed position
  else
     omega = 1.
  endif
 
  cost = cos(omega*ti)
  sint = sin(omega*ti)
- x1 = (1.-binarymassri)*cost
- y1 = (1.-binarymassri)*sint
+ x1 = (0.25-binarymassri)*cost
+ y1 = (0.25-binarymassri)*sint
  x2 = -binarymassri*cost
  y2 = -binarymassri*sint
 
