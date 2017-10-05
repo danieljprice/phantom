@@ -112,6 +112,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vol  = 4./3.*pi*rmax**3
  nx   = int(np**(1./3.))
  psep = vol**(1./3.)/real(nx)
+ polyk = 1.
  if(.not.gr) then
     cs2  = mass1/(2.*rc)
     polyk = cs2
@@ -130,8 +131,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  rhozero = totmass/vol
  tff     = sqrt(3.*pi/(32.*rhozero))
 
- tmax = totmass/mdot
- if(gr) tmax = 10.*tff
+ if(gr) then
+    tmax = 10.*tff
+ else
+    tmax = totmass/mdot
+ endif
  dtmax = tmax/500.
 
  print*,''
