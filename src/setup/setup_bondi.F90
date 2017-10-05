@@ -148,7 +148,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  ilattice       = 2
  nfulldump      = 1
- if (.not.gr) iexternalforce = 1
+ iexternalforce = 1
 
 #ifdef GR
  if (imetric /= imet_schwarzschild) then
