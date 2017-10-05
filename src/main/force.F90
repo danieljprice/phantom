@@ -889,7 +889,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: enthi,enthj
  real    :: lorentzi,lorentzj
  real    :: bigvi(1:3),bigvj(1:3),bigv2i,bigv2j,alphagri,alphagrj
- real    :: xi,yi,zi
+ real    :: xi,yi,zi,pos(3),vel(3)
 #endif
  real    :: qrho2i,qrho2j
 
@@ -1279,8 +1279,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           xi = xpartveci(ixi)
           yi = xpartveci(iyi)
           zi = xpartveci(izi)
-          call get_bigv((/xi,yi,zi/),(/vxi,vyi,vzi/),bigvi,bigv2i,alphagri,lorentzi)
-          call get_bigv((/xj,yj,zj/),(/vxj,vyj,vzj/),bigvj,bigv2j,alphagrj,lorentzj)
+          pos = (/xi,yi,zi/)
+          vel = (/vxi,vyi,vzi/)
+          call get_bigv(pos,vel,bigvi,bigv2i,alphagri,lorentzi)
+          pos = (/xj,yj,zj/)
+          vel = (/vxj,vyj,vzj/)
+          call get_bigv(pos,vel,bigvj,bigv2j,alphagrj,lorentzj)
           call get_vsig_gr(vsigi,projbigvi,bigv2i,runix,runiy,runiz,bigvi(1),bigvi(2),bigvi(3),spsoundi)
           call get_vsig_gr(vsigj,projbigvj,bigv2j,runix,runiy,runiz,bigvj(1),bigvj(2),bigvj(3),spsoundj)
           vsigavi = alphai*vsigi

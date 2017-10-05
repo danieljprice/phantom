@@ -104,7 +104,8 @@ subroutine compute_energies(t)
  real    :: erotxi,erotyi,erotzi,fdum(3)
  real    :: ethermi
 #ifdef GR
- real    :: pdotv,bigvi(1:3),alpha_gr,beta_gr(1:3),lorentzi,pxi,pyi,pzi,gammaijdown(1:3,1:3),gammaijUP(1:3,1:3),angi(1:3)
+ real    :: pdotv,bigvi(1:3),alpha_gr,beta_gr(1:3),lorentzi,pxi,pyi,pzi
+ real    :: gammaijdown(1:3,1:3),gammaijUP(1:3,1:3),angi(1:3),fourvel_space(3)
 #endif
  integer :: i,j,itype,ierr
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
@@ -157,7 +158,7 @@ subroutine compute_energies(t)
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 #ifdef GR
-!$omp private(pxi,pyi,pzi,gammaijdown,gammaijUP,alpha_gr,beta_gr,bigvi,lorentzi,pdotv,angi) &
+!$omp private(pxi,pyi,pzi,gammaijdown,gammaijUP,alpha_gr,beta_gr,bigvi,lorentzi,pdotv,angi,fourvel_space) &
 #endif
 !$omp private(ethermi) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
@@ -240,7 +241,8 @@ subroutine compute_energies(t)
        pdotv    = pxi*vxi + pyi*vyi + pzi*vzi
 
        ! angular momentum
-       call cross_product3D(xyzh(1:3,i),(lorentzi/alpha_gr)*vxyzu(1:3,i),angi) ! position cross with four-velocity
+       fourvel_space = (lorentzi/alpha_gr)*vxyzu(1:3,i)
+       call cross_product3D(xyzh(1:3,i),fourvel_space,angi) ! position cross with four-velocity
        angx = angx + pmassi*angi(1)
        angy = angy + pmassi*angi(2)
        angz = angz + pmassi*angi(3)
