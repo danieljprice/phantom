@@ -91,11 +91,11 @@ subroutine check_setup(nerror,nwarn,restart)
     print*,'WARNING! Error in setup: gamma not set (should be set > 0 even if not used)'
     nwarn = nwarn + 1
  endif
- if (hfact < 1.) then
+ if (hfact < 1. .or. hfact /= hfact) then
     print*,'Error in setup: hfact = ',hfact,', should be >= 1'
     nerror = nerror + 1
  endif
- if (polyk < 0.) then
+ if (polyk < 0. .or. polyk /= polyk) then
     print*,'Error in setup: polyk = ',polyk,', should be >= 0'
     nerror = nerror + 1
  elseif (polyk < tiny(0.) .and. ieos /= 2) then
