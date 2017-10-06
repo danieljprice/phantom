@@ -13,7 +13,8 @@
 !               3) piecewise polytrope
 !               4) Evrard
 !               5) Read data from file to make a red giant star
-!
+!               6) Read data from kepler file to make a main sequence star
+!               
 !  REFERENCES: None
 !
 !  OWNER: Daniel Price
@@ -30,7 +31,7 @@ module rho_profile
  implicit none
 
  public  :: rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
-            rho_evrard,read_red_giant_file
+            rho_evrard,read_red_giant_file,read_kepler_file
  public  :: calc_mass_enc
  private :: integrate_rho_profile,get_dPdrho
 
@@ -438,5 +439,116 @@ subroutine read_red_giant_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
     print*, 'rcut = ', rcut
  endif
 end subroutine read_red_giant_file
+
+!-----------------------------------------------------------------------
+!+
+!  Read in the data for KEPLER star
+!+
+!-----------------------------------------------------------------------
+
+subroutine read_kepler_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
+                               enitab,totmass,ierr,mcut,rcut)
+ use units,     only:udist,umass,unit_density,unit_pressure,unit_ergg
+ use datafiles, only:find_phantom_datafile
+ integer,          intent(in)  :: ng_max
+ integer,          intent(out) :: ierr,n
+ real,             intent(out) :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:)
+ real,             intent(out) :: totmass
+ real,             intent(out), optional :: rcut
+ real,             intent(in), optional :: mcut
+ character(len=*), intent(in)  :: filepath
+ character(len=120)            :: fullfilepath
+ integer                       :: i,iread,aloc,iunit
+ integer, parameter            :: maxstardatacols = 9
+ real                          :: stardata(ng_max,maxstardatacols)
+ logical                       :: iexist,n_too_big
+ !
+ !--Get path name
+ !
+ ierr = 0
+ fullfilepath = find_phantom_datafile(filepath,'star_data_files')
+ inquire(file=trim(fullfilepath),exist=iexist)
+ if (.not.iexist) then
+    ierr = 1
+    return
+ endif
+ !
+ !--Read data from file
+ !
+ n = 0
+ stardata(:,:) = 0.
+ n_too_big = .false.
+ do iread=1,2
+    !--open
+    open(newunit=iunit, file=trim(fullfilepath), status='old',iostat=ierr)
+    if (.not. n_too_big) then
+       !--skip 23 header lines
+       do i=1,23
+       	read(iunit,*)
+       enddo
+       if (iread==1) then
+          !--first reading
+          n = 0
+          do while (ierr==0 .and. n < size(stardata(:,1)))
+             n = n + 1
+             read(iunit,*,iostat=ierr)
+             if (ierr /= 0) n = n - 1
+          enddo
+          if (n >= size(stardata(:,1))) n_too_big = .true.
+       else
+          !--Second reading
+          do i=1,n
+             read(iunit,*,iostat=ierr) stardata(i,:)
+          enddo
+          ! fills hole in center of star
+          ! copy first row from second row
+          !stardata(1,:) = stardata(2,:)
+          ! setting mass, radius, velocity to zero
+          !stardata(1,3:5) = 0
+       endif
+    endif
+    close(iunit)
+ enddo
+ if (n < 1) then
+    ierr = 2
+    return
+ endif
+ if (n_too_big) then
+    ierr = 3
+    return
+ endif
+ !
+ !--convert relevant data from CGS to code units
+ !
+ !radius
+ stardata(1:n,4)  = stardata(1:n,4)/udist
+ rtab(1:n)        = stardata(1:n,4)
+
+ !density
+ stardata(1:n,6)  = stardata(1:n,6)/unit_density
+ rhotab(1:n)      = stardata(1:n,6)
+
+ !mass
+ stardata(1:n,3)  = stardata(1:n,3)/umass
+ totmass          = stardata(n,3)
+
+ !pressure
+ stardata(1:n,8)  = stardata(1:n,8)/unit_pressure
+ ptab(1:n)        = stardata(1:n,8)
+
+ !temperature
+ temperature(1:n) = stardata(1:n,7)
+
+ !specific internal energy
+ stardata(1:n,9)  = stardata(1:n,9)/unit_ergg
+ enitab(1:n)      = stardata(1:n,9)
+
+ if (present(rcut) .and. present(mcut)) then
+    aloc = minloc(abs(stardata(1:n,1) - mcut),1)
+    rcut = rtab(aloc)
+    print*, 'rcut = ', rcut
+ endif
+
+end subroutine read_kepler_file
 
 end module rho_profile

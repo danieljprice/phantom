@@ -341,7 +341,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     ! add energies
     !
-
     call init_eos(ieos,ierr)
 
     do i=istart(k),iend(k)
@@ -487,18 +486,21 @@ end subroutine setpart
 subroutine init_ieos9
  real :: pw(numEOS,numparam)
  !
- ! Defining the default options
+ ! Define the default options
+ !
  pw(1,:)  = (/ 10**34.392, 3.166, 3.573, 3.281 /)
  pw(2,:)  = (/ 10**34.384, 3.005, 2.988, 2.851 /)
  pw(3,:)  = (/ 10**34.858, 3.224, 3.033, 1.325 /)
  pw(4,:)  = (/ 10**34.437, 3.514, 3.130, 3.168 /)
+
  !
- ! Choosing the default option
+ ! Choose the default option
+ !   
  p1pwpcgs  = pw(EOSopt,1)
  gamma1pwp = pw(EOSopt,2)
  gamma2pwp = pw(EOSopt,3)
  gamma3pwp = pw(EOSopt,4)
- !
+
 end subroutine init_ieos9
 !-----------------------------------------------------------------------
 !+
@@ -606,6 +608,7 @@ subroutine choose_spheres(polyk,iexist,id,master)
     use_exactN  = .false.
     use_prompt  = .false.
     densityfile = 'P12_Phantom_Profile.data'
+    call prompt('Enter the desired EoS for setup', ieos)
  case(ikepler)
     ! sets up a star from a 1D code output
     !  Original Author: Nicole Rodrigues
@@ -613,6 +616,7 @@ subroutine choose_spheres(polyk,iexist,id,master)
     use_exactN  = .false.
     use_prompt  = .false.
     densityfile = 'kepler_MS.data'
+    call prompt('Enter the desired EoS for setup', ieos)
  case(ibpwpoly)
     ! simulates the merger of a pair of neutron stars
     !  Original Author: Madeline Marshall & Bernard Field
@@ -658,7 +662,7 @@ subroutine write_dist(item_in,dist_in,udist)
  real,             intent(in) :: dist_in
  real(kind=8),     intent(in) :: udist
  character(len=*), intent(in) :: item_in
- !
+
  if ( abs(1.0-solarr/udist) < 1.0d-4) then
     write(*,'(2(a,Es12.5),a)') item_in, dist_in*udist,' cm     = ',dist_in,' R_sun'
  else if ( abs(1.0-km/udist) < 1.0d-4) then
@@ -666,20 +670,20 @@ subroutine write_dist(item_in,dist_in,udist)
  else
     write(*,'(a,Es12.5,a)')    item_in, dist_in*udist,' cm'
  endif
- !
+
 end subroutine write_dist
 
 subroutine write_mass(item_in,mass_in,umass)
  real,             intent(in) :: mass_in
  real(kind=8),     intent(in) :: umass
  character(len=*), intent(in) :: item_in
- !
+
  if ( abs(1.0-solarm/umass) < 1.0d-4) then
     write(*,'(2(a,Es12.5),a)') item_in, mass_in*umass,' g      = ',mass_in,' M_sun'
  else
     write(*,'(a,Es12.5,a)')    item_in, mass_in*umass,' g'
  endif
- !
+
 end subroutine write_mass
 !-----------------------------------------------------------------------
 !+
