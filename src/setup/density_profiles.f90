@@ -14,7 +14,7 @@
 !               4) Evrard
 !               5) Read data from file to make a red giant star
 !               6) Read data from kepler file to make a main sequence star
-!               
+!
 !  REFERENCES: None
 !
 !  OWNER: Daniel Price
