@@ -141,7 +141,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Initialise parameters, including those that will not be included in *.setup
  !
  time         = 0.
- polyk        = 0.35899 
+ polyk        = 1.0
  gamma        = 5./3.
  hfact        = hfact_default
  maxvxyzu     = size(vxyzu(:,1))
@@ -492,7 +492,6 @@ subroutine init_ieos9
  pw(2,:)  = (/ 10**34.384, 3.005, 2.988, 2.851 /)
  pw(3,:)  = (/ 10**34.858, 3.224, 3.033, 1.325 /)
  pw(4,:)  = (/ 10**34.437, 3.514, 3.130, 3.168 /)
-
  !
  ! Choose the default option
  !   
@@ -613,6 +612,7 @@ subroutine choose_spheres(polyk,iexist,id,master)
     ! sets up a star from a 1D code output
     !  Original Author: Nicole Rodrigues
     !  Supervisors: Daniel Price & Alexander Heger
+    polyk       = 0.35899
     use_exactN  = .false.
     use_prompt  = .false.
     densityfile = 'kepler_MS.data'
