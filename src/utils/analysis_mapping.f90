@@ -84,30 +84,30 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  hbins = 0.0
  !
  !--Set bins
-    dr   = rmax/float(nbins)    ! radius of each shell
-    do i = 1,nbins
-       rbins(i) = float(i)*dr   ! radius of each shell from centre of star
-    enddo
+ dr   = rmax/float(nbins)    ! radius of each shell
+ do i = 1,nbins
+    rbins(i) = float(i)*dr   ! radius of each shell from centre of star
+ enddo
  !
  call reset_centreofmass(npart,xyzh,vxyzu)
  !
  !--Loop over particles putting properties into the correct bin/Bin the data
-  do i = 1,npart
+ do i = 1,npart
     !
     !--Calculate properties of the particle
     !-- i refers to particle, ii refers to bin
     if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
-    ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))   ! radius of each particle
-    ui = vxyzu(4,i)                                       ! internal energy of each particle
-    hi = xyzh(4,i)                                       ! smoothing length
-    ii = int((ri-rbins(1))/dr + 1)                    ! binning particles by radius
+       ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))   ! radius of each particle
+       ui = vxyzu(4,i)                                       ! internal energy of each particle
+       hi = xyzh(4,i)                                       ! smoothing length
+       ii = int((ri-rbins(1))/dr + 1)                    ! binning particles by radius
        if (ii > nbins) cycle
        !
        ibins(ii) = ibins(ii) + 1
        ubins(ii) = ubins(ii) + ui
        hbins(ii) = hbins(ii) + hi
     endif
-  enddo
+ enddo
  !
  !--Write results to file
  write(fileout,'(3a)') 'analysisout_',trim(dumpfile),'.dat'

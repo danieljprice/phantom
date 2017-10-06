@@ -484,7 +484,7 @@ subroutine read_kepler_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
     if (.not. n_too_big) then
        !--skip 23 header lines
        do i=1,23
-               read(iunit,*)
+          read(iunit,*)
        enddo
        if (iread==1) then
           !--first reading

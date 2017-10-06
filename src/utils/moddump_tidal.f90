@@ -57,29 +57,29 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer                 :: i
  real                    :: beta, b, rt, rp, r, rs, Ms, Mh
 
-  !--Reset center of mass
-  call reset_centreofmass(npart,xyzh,vxyzu)
+ !--Reset center of mass
+ call reset_centreofmass(npart,xyzh,vxyzu)
 
-  !--Defaults
-  beta = 1.0                   ! penetration factor
-  Mh = 1.e6                    ! BH mass
-  Ms = 1.0                     ! stellar mass
-  rs = 1.0                     ! stellar radius
+ !--Defaults
+ beta = 1.0                   ! penetration factor
+ Mh = 1.e6                    ! BH mass
+ Ms = 1.0                     ! stellar mass
+ rs = 1.0                     ! stellar radius
 
-  !--User enter values
-  call prompt(' Enter a value for the penetration factor (beta): ',beta,0.)
-  call prompt(' Enter a value for blackhole mass (in code units): ',Mh,0.)
-  call prompt(' Enter a value for the stellar mass (in code units): ',Ms,0.)
-  call prompt(' Enter a value for the stellar radius (in code units): ',rs,0.)
+ !--User enter values
+ call prompt(' Enter a value for the penetration factor (beta): ',beta,0.)
+ call prompt(' Enter a value for blackhole mass (in code units): ',Mh,0.)
+ call prompt(' Enter a value for the stellar mass (in code units): ',Ms,0.)
+ call prompt(' Enter a value for the stellar radius (in code units): ',rs,0.)
 
-  rt = (Mh/Ms)**(1./3.) * rs   ! tidal radius
-  rp = rt/beta                 ! pericenter distance
-  b = sqrt(2.)*rp              ! impact parameter (when b=x)
+ rt = (Mh/Ms)**(1./3.) * rs   ! tidal radius
+ rp = rt/beta                 ! pericenter distance
+ b = sqrt(2.)*rp              ! impact parameter (when b=x)
 
-  !--Set input file parameters
-  mass1 = Mh
-  iexternalforce = 1
-  accradius1 = (2*Mh*rs)/((6.8565e2)**2) ! R_sch = 2*G*Mh*rs/c**2
+ !--Set input file parameters
+ mass1 = Mh
+ iexternalforce = 1
+ accradius1 = (2*Mh*rs)/((6.8565e2)**2) ! R_sch = 2*G*Mh*rs/c**2
 
  !--Putting star into orbit
  do i = 1, npart
