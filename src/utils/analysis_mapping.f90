@@ -83,7 +83,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  ubins = 0.0
  hbins = 0.0
  !
- !--Set bins 
+ !--Set bins
     dr   = rmax/float(nbins)    ! radius of each shell
     do i = 1,nbins
        rbins(i) = float(i)*dr   ! radius of each shell from centre of star
@@ -107,7 +107,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        ubins(ii) = ubins(ii) + ui
        hbins(ii) = hbins(ii) + hi
     endif
-  enddo 
+  enddo
  !
  !--Write results to file
  write(fileout,'(3a)') 'analysisout_',trim(dumpfile),'.dat'
@@ -172,10 +172,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     mass = ibins(i)*particlemass                        ! mass in each shell
     total_mass = total_mass + ibins(i)*particlemass     ! cumulative sum of mass in each shell
     !--density in each shell
-    if (mass(i) == 0.) then                             
+    if (mass(i) == 0.) then
        density(i) = 0.
     else
-       !density = (1./(((4.*pi)/3.)*(rbins(i)**3-rbins(i-1)**3)))*(ibins(i)*particlemass)     
+       !density = (1./(((4.*pi)/3.)*(rbins(i)**3-rbins(i-1)**3)))*(ibins(i)*particlemass)
        density = rhoh(hbins(i)/ibins(i),particlemass)*(umass/udist**3)
     endif
     !--internal energy in each shell

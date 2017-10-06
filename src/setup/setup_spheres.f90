@@ -494,7 +494,7 @@ subroutine init_ieos9
  pw(4,:)  = (/ 10**34.437, 3.514, 3.130, 3.168 /)
  !
  ! Choose the default option
- !   
+ !
  p1pwpcgs  = pw(EOSopt,1)
  gamma1pwp = pw(EOSopt,2)
  gamma2pwp = pw(EOSopt,3)
