@@ -36,26 +36,25 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use centreofmass, only: reset_centreofmass
  use physcon,      only: pi,gg,years
  use units,        only: umass,udist,utime
+ use part,         only: rhoh
  character(len=*), intent(in)    :: dumpfile
  integer,          intent(in)    :: num,npart,iunit
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:) ! due to reset center of mass
  real,             intent(in)    :: particlemass,time
- integer, parameter :: nbins = 1000                      ! number of bins
+ integer, parameter :: nbins = 500                       ! number of bins
  real,    parameter :: rmax  =  1.0                      ! radius of star
  real,    parameter :: g = 5./3.
  logical            :: logr  = .true.
- integer            :: i,ii
+ integer            :: i,j,ii
  integer            :: ibins(nbins)
- real               :: dr,total_mass,ri,ui
- real               :: rbins(nbins),mass(nbins),density(nbins),ubins(nbins),u(nbins),temp(nbins)
+ real               :: dr,total_mass,ri,ui,hi
+ real               :: rbins(nbins),mass(nbins),density(nbins),ubins(nbins),u(nbins),temp(nbins),hbins(nbins),np(nbins)
  logical            :: iexist
  character(len=200) :: fileout
  real :: grid(nbins) = (/(i,i=1,nbins,1)/)
  real :: mu(nbins)   = 1/(8.50479435771475778e-01) ! mean molecular weight (1/Ye assuming full ionisation) in cgs
  real :: mh(nbins)   = 1.6737236e-24               ! mass of hydrogen atom in cgs
  real :: kb(nbins)   = 1.380658e-16                ! boltzmann constant in cgs
- real :: Abar(nbins) = 0.
- real :: Ye(nbins)   = 8.50479435771475778e-01
  real :: nt1(nbins)  = 0.
  real :: h1(nbins)   = 7.00873167255713247e-01
  real :: he4(nbins)  = 2.83724159091303385e-01
@@ -82,12 +81,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  rbins = 0.0
  ibins = 0
  ubins = 0.0
+ hbins = 0.0
  !
  !--Set bins 
- dr   = rmax/float(nbins)    ! radius of each shell
- do i = 1,nbins
-    rbins(i) = float(i)*dr   ! radius of each shell from centre of star
- enddo
+    dr   = rmax/float(nbins)    ! radius of each shell
+    do i = 1,nbins
+       rbins(i) = float(i)*dr   ! radius of each shell from centre of star
+    enddo
  !
  call reset_centreofmass(npart,xyzh,vxyzu)
  !
@@ -99,11 +99,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
     ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))   ! radius of each particle
     ui = vxyzu(4,i) 				      ! internal energy of each particle
+    hi = xyzh(4,i) 				      ! smoothing length
     ii = int((ri-rbins(1))/dr + 1)                    ! binning particles by radius
        if (ii > nbins) cycle
        !
        ibins(ii) = ibins(ii) + 1
        ubins(ii) = ubins(ii) + ui
+       hbins(ii) = hbins(ii) + hi
     endif
   enddo 
  !
@@ -111,7 +113,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  write(fileout,'(3a)') 'analysisout_',trim(dumpfile),'.dat'
  fileout=trim(fileout)
  open(iunit,file=fileout)
- write(iunit,"('#',28(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(iunit,"('#',26(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'grid',&
        2,'cell mass',&
        2,'outer mass',&
@@ -119,28 +121,26 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        4,'density',&
        5,'temperature',&
        6,'int energy',&
-       7,'A_bar',&
-       8,'Y_e',&
-       9,'nt1',&
-       10,'h1',&
-       11,'he4',&
-       12,'c12',&
-       13,'n14',&
-       14,'o16',&
-       15,'ne20',&
-       16,'mg24',&
-       17,'si28',&
-       18,'s32',&
-       19,'ar36',&
-       20,'ca40',&
-       21,'ti44',&
-       22,'cr48',&
-       23,'fe52',&
-       24,'fe54',&
-       25,'ni56',&
-       26,'fe56',&
-       27,'fe'
- write(iunit,"('#',28(1x,'[',2x,1x,a11,']',2x))") &
+       7,'nt1',&
+       8,'h1',&
+       9,'he4',&
+       10,'c12',&
+       11,'n14',&
+       12,'o16',&
+       13,'ne20',&
+       14,'mg24',&
+       15,'si28',&
+       16,'s32',&
+       17,'ar36',&
+       18,'ca40',&
+       19,'ti44',&
+       20,'cr48',&
+       21,'fe52',&
+       22,'fe54',&
+       23,'ni56',&
+       24,'fe56',&
+       25,'fe'
+ write(iunit,"('#',26(1x,'[',2x,1x,a11,']',2x))") &
        'unit',&
        'g',&
        'g',&
@@ -148,8 +148,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        'g/cm^3',&
        'K',&
        'erg/g',&
-       'amu',&
-       'mfrac',&
        'mfrac',&
        'mfrac',&
        'mfrac',&
@@ -177,7 +175,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     if (mass(i) == 0.) then                             
        density(i) = 0.
     else
-       density = (1./(((4.*pi)/3.)*(rbins(i)**3-rbins(i-1)**3)))*(ibins(i)*particlemass)     
+       !density = (1./(((4.*pi)/3.)*(rbins(i)**3-rbins(i-1)**3)))*(ibins(i)*particlemass)     
+       density = rhoh(hbins(i)/ibins(i),particlemass)*(umass/udist**3)
     endif
     !--internal energy in each shell
     if (ibins(i) == 0.) then
@@ -191,9 +190,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     else
        temp = (mu*mh/kb)*(g-1.)*u
     endif
-    write(iunit,'(28(1pe18.10,1x))') grid(i),mass(i)*umass,total_mass*umass,rbins(i)*udist,density(i)*(umass/udist**3),&
-                                    temp(i),u(i),Abar(i),Ye(i),nt1(i),h1(i),he4(i),c12(i),n14(i),o16(i),ne20(i),mg24(i),&
-                                    si28(i),s32(i),ar36(i),ca40(i),ti44(i),cr48(i),fe52(i),fe54(i),ni56(i),fe56(i),fe(i)
+    write(iunit,'(26(1pe18.10,1x))') grid(i),mass(i)*umass,total_mass*umass,rbins(i),density(i),&
+                                    temp(i),u(i),nt1(i),h1(i),he4(i),c12(i),n14(i),o16(i),ne20(i),mg24(i),si28(i),&
+                                    s32(i),ar36(i),ca40(i),ti44(i),cr48(i),fe52(i),fe54(i),ni56(i),fe56(i),fe(i)
  enddo
  close(iunit)
  !
