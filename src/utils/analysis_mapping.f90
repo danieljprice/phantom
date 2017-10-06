@@ -98,8 +98,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     !-- i refers to particle, ii refers to bin
     if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
     ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))   ! radius of each particle
-    ui = vxyzu(4,i) 				      ! internal energy of each particle
-    hi = xyzh(4,i) 				      ! smoothing length
+    ui = vxyzu(4,i)                                       ! internal energy of each particle
+    hi = xyzh(4,i)                                       ! smoothing length
     ii = int((ri-rbins(1))/dr + 1)                    ! binning particles by radius
        if (ii > nbins) cycle
        !

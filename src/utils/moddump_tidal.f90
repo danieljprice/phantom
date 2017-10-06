@@ -4,22 +4,22 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
-!+									   !
-!  MODULE: moddump							   !
-!									   !
-!  DESCRIPTION:								   !
-!  Puts star into a parabolic orbit 					   !
-!									   !
-!  REFERENCES: None							   !
-!									   !	
-!  OWNER: Daniel Price							   !
-!									   !
-!  $Id$			   !
-!									   !
-!  RUNTIME PARAMETERS: None						   !
-!									   !
-!  DEPENDENCIES: None							   !
-!+									   !
+!+                                                                           !
+!  MODULE: moddump                                                           !
+!                                                                           !
+!  DESCRIPTION:                                                                   !
+!  Puts star into a parabolic orbit                                            !
+!                                                                           !
+!  REFERENCES: None                                                           !
+!                                                                           !        
+!  OWNER: Daniel Price                                                           !
+!                                                                           !
+!  $Id$                           !
+!                                                                           !
+!  RUNTIME PARAMETERS: None                                                   !
+!                                                                           !
+!  DEPENDENCIES: None                                                           !
+!+                                                                           !
 !--------------------------------------------------------------------------!
 module moddump
  implicit none
