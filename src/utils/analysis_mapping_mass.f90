@@ -12,13 +12,13 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Nicole Rodrigues
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: centreofmass, dim, part, physcon, units, sortutils
+!  DEPENDENCIES: centreofmass, dim, part, physcon, sortutils, units
 !+
 !--------------------------------------------------------------------------
 module analysis
