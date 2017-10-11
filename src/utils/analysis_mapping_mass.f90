@@ -12,13 +12,13 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Nicole Rodrigues
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: centreofmass, dim, part, physcon, units, sortutils
+!  DEPENDENCIES: centreofmass, dim, part, physcon, sortutils, units
 !+
 !--------------------------------------------------------------------------
 module analysis
@@ -43,7 +43,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:) ! due to reset center of mass
  real,             intent(in)    :: particlemass,time
  integer, parameter :: nbins = 1000                      ! number of bins
- real,    parameter :: mmax = 1.0072			 ! total mass
+ real,    parameter :: mmax = 1.0072                         ! total mass
  real,    parameter :: g = 5./3.                         ! adiabatic index
  logical            :: logr  = .true.
  integer            :: i,j,ii
@@ -84,7 +84,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  rbins = 0.0
  ibins = 0
  ubins = 0.0
- hbins = 0.0 
+ hbins = 0.0
  mbins = 0.0
  !
  call reset_centreofmass(npart,xyzh,vxyzu)
@@ -95,19 +95,19 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
  !
  !--Mass of each shell
- dm   = mmax/float(nbins)                                                                                                              
+ dm   = mmax/float(nbins)
  !
  !--Binning data
-  ii = 1
-  parts: do i = 1,npart
+ ii = 1
+ parts: do i = 1,npart
     !
     !--Calculate properties of the particle
     !-- i refers to particle, ii refers to bin
     if (xyzh(4,i)  <  tiny(xyzh)) cycle parts         ! skip dead particles
-    j = iorder(i)				      ! particles in order
+    j = iorder(i)                                      ! particles in order
     ri = sqrt(dot_product(xyzh(1:3,j),xyzh(1:3,j)))   ! radius of each particle in order
-    ui = vxyzu(4,j) 				      ! internal energy of each particle
-    hi = xyzh(4,j)				      ! smoothing length
+    ui = vxyzu(4,j)                                       ! internal energy of each particle
+    hi = xyzh(4,j)                                      ! smoothing length
     !--Adding particles to a bin until they exceed dm
     ibins(ii) = ibins(ii) + 1
     mass(ii)  = mass(ii) + particlemass
@@ -187,8 +187,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        'mfrac',&
        'mfrac'
  do i = 1,ii
-    !--density in each shell   
-    if (mass(i) == 0.) then                             
+    !--density in each shell
+    if (mass(i) == 0.) then
        density(i) = 0.
     else
        density = rhoh(hbins(i)/ibins(i),particlemass)*(umass/udist**3)
