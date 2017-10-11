@@ -84,7 +84,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  rbins = 0.0
  ibins = 0
  ubins = 0.0
- hbins = 0.0 
+ hbins = 0.0
  mbins = 0.0
  !
  call reset_centreofmass(npart,xyzh,vxyzu)
@@ -95,7 +95,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
  !
  !--Mass of each shell
- dm   = mmax/float(nbins)                                                                                                              
+ dm   = mmax/float(nbins)
  !
  !--Binning data
   ii = 1
@@ -187,8 +187,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        'mfrac',&
        'mfrac'
  do i = 1,ii
-    !--density in each shell   
-    if (mass(i) == 0.) then                             
+    !--density in each shell
+    if (mass(i) == 0.) then
        density(i) = 0.
     else
        density = rhoh(hbins(i)/ibins(i),particlemass)*(umass/udist**3)
