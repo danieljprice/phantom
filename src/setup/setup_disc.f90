@@ -12,7 +12,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Daniel Mentiplay
 !
 !  $Id$
 !
@@ -25,20 +25,28 @@
 !    R_indust          -- inner radius in dust
 !    R_out             -- outer radius in gas
 !    R_outdust         -- outer radius in dust
-!    accradius         -- star accretion radius
-!    accretion_radius2 -- accretion radius for secondary
+!    accr1             -- star accretion radius
+!    accr2             -- secondary accretion radius
 !    alphaSS           -- desired alphaSS
-!    binary_set        -- set the binary? (0=no,1=yes)
+!    binary_O          -- Omega, PA of ascending node (deg)
+!    binary_a          -- binary semi-major axis
+!    binary_e          -- binary eccentricity
+!    binary_f          -- f, initial true anomaly (deg,180=apastron)
+!    binary_i          -- i, inclination (deg)
+!    binary_w          -- w, argument of periapsis (deg)
+!    deltat            -- output interval as fraction of binary orbital period
 !    disc_m            -- disc mass in gas
+!    dist_unit         -- distance unit (e.g. au)
 !    dust_to_gas_ratio -- dust to gas ratio
-!    eccentricity      -- eccentricity of the binary
 !    graindensinp      -- intrinsic grain density (in g/cm^3)
 !    grainsizeinp      -- grain size (in cm)
-!    icentralforce     -- central mass force choice (0=sink,1=external force)
-!    inclination       -- disc inclination [deg] with respect to xy plane
+!    icentral          -- central object/potential
 !    iprofiledust      -- set dust surface density profile (0=power-law, 1=tapered power-law)
 !    iprofilegas       -- set gas surface density profile (0=power-law, 1=tapered power-law)
-!    massratio         -- mass ratio of binary
+!    m1                -- star mass
+!    m2                -- secondary mass
+!    mass_unit         -- mass unit (e.g. solarm)
+!    norbits           -- maximum number of binary orbits
 !    np                -- number of gas particles
 !    np_dust           -- number of dust particles
 !    nplanets          -- number of planets
@@ -47,12 +55,8 @@
 !    profile_set_dust  -- how to set dust density profile (0=equal to gas, 1=custom)
 !    qindex            -- q index
 !    qindex_dust       -- q index
-!    semimajoraxis     -- initial separation of binary (code units)
 !    setplanets        -- add planets? (0=no,1=yes)
 !    sigma_naught      -- Sigma0 of the gas profile Sigma = Sigma0*(R/Rc)^-p*Exp(-(R/Rc)^(2-p))
-!    star_m            -- star mass
-!    udist             -- distance unit in cm
-!    umass             -- mass unit in g
 !    xinc              -- inclination angle
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, externalforces,
