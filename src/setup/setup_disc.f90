@@ -600,7 +600,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     period = period_longest
  else if(icentral==2) then
-    period = sqrt(4.*pi**2*binary_a**3/(m1+m2))
+    period = sqrt(4.*pi**2*binary_a**3/mcentral)
  endif
 
  !
@@ -781,6 +781,7 @@ subroutine read_setupfile(filename,ierr)
  case (2)
     call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
     call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
+    mcentral = m1 + m2
     call read_inopt(binary_a,'binary_a',db,errcount=nerr)
     call read_inopt(binary_e,'binary_e',db,min=0.,errcount=nerr)
     call read_inopt(binary_i,'binary_i',db,errcount=nerr)
