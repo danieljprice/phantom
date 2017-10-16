@@ -54,12 +54,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
  real :: angtot,Ltot,tilt,dtwist
  real :: Li(3)
  real :: rad(nr),Lx(nr),Ly(nr),Lz(nr),h_smooth(nr),sigma(nr),cs(nr),H(nr),omega(nr),St(nr)
- real :: zsettlgas(npartoftype(igas),nr),hgas(nr),meanzgas(nr)
- real :: dustfracsum(ndusttypes,nr),dust_fraction(ndusttypes,nr)
+ real :: zsettlgas(nr),zsettlgas2(nr),hgas(nr),meanzgas(nr),dustfracsum(nr),dust_fraction(nr)
  real :: unitlx(nr),unitly(nr),unitlz(nr),tp(nr)
- real :: sigmadust(nr),zsettldust(npartoftype(idust),nr),hdust(nr),meanzdust(nr)
- real :: psi_x,psi_y,psi_z,psi,Mdust,Mgas,Mtot,Macc,pmassi,rho_grain,r_grain
- real :: dustfraci(ndusttypes),dustfracisum
+ real :: sigmadust(nr),zsettldust(nr),zsettldust2(nr),hdust(nr),meanzdust(nr)
+ real :: psi_x,psi_y,psi_z,psi,Mdust,Mgas,Mtot,Macc,pmassi,dustfraci,rho_grain,r_grain
  real, save :: Mtot_in,Mgas_in,Mdust_in
  integer :: itype,lu
  logical, save :: init = .false.
@@ -158,8 +156,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
  hdust(:)=0.0
  meanzgas(:)=0.0
  meanzdust(:)=0.0
- zsettlgas(:,:)=0.0
- zsettldust(:,:)=0.0
+ zsettlgas(:)=0.0
+ zsettldust(:)=0.0
+ zsettlgas2(:)=0.0
+ zsettldust2(:)=0.0
 
 ! Set up cs0: cs = cs0 * R^-q
  cs0 = H_R * sqrt(G*M_star) * R_in**(q_index-0.5)
@@ -241,7 +241,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
           h_smooth(ii) = h_smooth(ii) + xyzh(4,i)
 
           ninbin(ii) = ninbin(ii) + 1
-          zsettlgas(ninbin(ii),ii)=xyzh(3,i)
+          zsettlgas(ii)  = zsettlgas(ii)  + xyzh(3,i)
+          zsettlgas2(ii) = zsettlgas2(ii) + xyzh(3,i)**2
           if (use_dustfrac) then
              dustfracsum(:,ii) = dustfracsum(:,ii) + dustfrac(:,i)
           endif
@@ -250,7 +251,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
           sigmadust(ii) = sigmadust(ii) + massoftype(iphase(i))/area
 
           ninbindust(ii) = ninbindust(ii) + 1
-          zsettldust(ninbindust(ii),ii)=xyzh(3,i)
+          zsettldust(ii)     = zsettldust(ii)  + xyzh(3,i)
+          zsettldust2(ii)    = zsettldust2(ii) + xyzh(3,i)**2
        endif
 
     elseif (xyzh(4,i) < -tiny(xyzh) .and. iphase(i)==igas) then !ACCRETED
@@ -284,14 +286,14 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
 
  ! Computing Hgas and Hdust
  do i=1,nr
-    if(ninbin(i)>1)then
-       meanzgas(i)=sum(zsettlgas(1:ninbin(i),i))/real(ninbin(i))
-       hgas(i)=sqrt(sum(((zsettlgas(1:ninbin(i),i)-meanzgas(i))**2)/(real(ninbin(i)-1))))
-       if (use_dustfrac) dust_fraction(:,i)=dustfracsum(:,i)/real(ninbin(i))
+    if (ninbin(i)>1) then
+       meanzgas(i)=zsettlgas(i)/real(ninbin(i))
+       hgas(i)=sqrt((zsettlgas2(i)-2*meanzgas(i)*zsettlgas(i)+ninbin(i)*meanzgas(i)**2)/(real(ninbin(i)-1)))
+       if (use_dustfrac) dust_fraction(i)=dustfracsum(i)/real(ninbin(i))
     endif
-    if(ninbindust(i)>1)then
-       meanzdust(i)=sum(zsettldust(1:ninbindust(i),i))/real(ninbindust(i))
-       hdust(i)=sqrt(sum(((zsettldust(1:ninbindust(i),i)-meanzdust(i))**2)/(real(ninbindust(i)-1))))
+    if (ninbindust(i)>1) then
+       meanzdust(i)=zsettldust(i)/real(ninbindust(i))
+       hdust(i)=sqrt((zsettldust2(i)-2*meanzdust(i)*zsettldust(i)+ninbindust(i)*meanzdust(i)**2)/(real(ninbindust(i)-1)))
     endif
  enddo
 ! Plotting Hdust/Hgas
