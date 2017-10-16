@@ -1038,6 +1038,10 @@ ifeq ($(MAP),yes)
     LDFLAGS+=-dynamic -L/${ALLINEA_DIR}/allinea -lmap-sampler -Wl,--eh-frame-hdr
     FFLAGS+= -G2
 endif
+ifeq ($(MPI),yes)
+    MPI=cray
+    USEMPI=yes
+endif
 endif
 
 ifeq ($(SYSTEM), msg)
