@@ -1540,7 +1540,13 @@ subroutine write_array_real4(ib,arr,my_tag,len,ikind,ipass,iunit,nums,ierr,func,
  integer, intent(in)    :: ib,len,ikind,ipass,iunit
  integer, intent(inout) :: nums(:,:)
  integer, intent(out)   :: ierr
- real(kind=4), optional :: func
+ interface
+  real(kind=4) pure function func(x)
+   real(kind=4), intent(in) :: x
+  end function
+ end interface
+ optional :: func
+ !real(kind=4), optional :: func
  integer, intent(in), optional :: use_kind
  logical, intent(in), optional :: singleprec
  integer :: i,imatch
@@ -1579,7 +1585,13 @@ subroutine write_array_real8(ib,arr,my_tag,len,ikind,ipass,iunit,nums,ierr,func,
  integer, intent(in)    :: ib,len,ikind,ipass,iunit
  integer, intent(inout) :: nums(:,:)
  integer, intent(out)   :: ierr
- real(kind=8), optional :: func
+ interface
+  real(kind=8) pure function func(x)
+   real(kind=8), intent(in) :: x
+  end function
+ end interface
+ optional :: func
+ !real(kind=8), optional :: func
  integer, intent(in), optional :: use_kind
  logical, intent(in), optional :: singleprec
  integer :: i,imatch
