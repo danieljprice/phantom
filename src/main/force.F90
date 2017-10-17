@@ -2280,7 +2280,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
                         abundance(:,i),nabundances,dt,xyzh(1,i),xyzh(2,i),xyzh(3,i),&
                         divcurlv(1,i),idudtcool,ichem)
                 else
-                   call energ_cooling(icooling,vxyzu(4,i),fxyz4,xyzh(1,i),xyzh(2,i),xyzh(3,i))
+                   !call energ_cooling(icooling,vxyzu(4,i),fxyz4,xyzh(1,i),xyzh(2,i),xyzh(3,i))
+                   call energ_cooling(icooling,vxyzu(4,i),fxyz4,xyzh(1,i),xyzh(2,i),xyzh(3,i),rhoi,vxyzu(:,i))
                 endif
              endif
              ! extra terms in du/dt from one fluid dust
@@ -2335,7 +2336,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
        endif
 
        ! cooling timestep dt < fac*u/(du/dt)
-       if (maxvxyzu >= 4 .and. icooling==1) then
+       if (maxvxyzu >= 4 .and. icooling > 0) then
           dtcool = C_cool*abs(eni/fxyzu(4,i))
        else
           dtcool = bignumber
