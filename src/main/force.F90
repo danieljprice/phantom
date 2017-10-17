@@ -372,6 +372,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp reduction(min:dtcourant,dtforce,dtvisc) &
 !$omp reduction(max:dtmaxi) &
 !$omp reduction(min:dtmini) &
+!$omp reduction(+:ndustres,dustresfacmean) &
+!$omp reduction(max:dustresfacmax) &
 !$omp shared(dustfrac) &
 !$omp shared(ddustfrac) &
 !$omp shared(deltav) &
@@ -441,7 +443,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
                              dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean, &
                              dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax, &
 #endif
-                             check_ibinsink)
+                             ndustres,dustresfacmax,dustresfacmean,check_ibinsink)
 
 #ifdef MPI
     endif
@@ -516,7 +518,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
                                           dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean, &
                                           dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax, &
 #endif
-                                          check_ibinsink)
+                                          ndustres,dustresfacmax,dustresfacmean,check_ibinsink)
 
     enddo over_waiting
 !$omp enddo
@@ -2011,7 +2013,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
                                          dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean, &
                                          dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax, &
 #endif
-                                         check_ibinsink)
+                                         ndustres,dustresfacmax,dustresfacmean,check_ibinsink)
  use io,             only:fatal
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
@@ -2065,6 +2067,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
  real,               intent(inout) :: dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean
  real,               intent(inout) :: dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax
 #endif
+ integer,            intent(inout) :: ndustres
+ real,               intent(inout) :: dustresfacmean,dustresfacmax
  logical,            intent(in)    :: check_ibinsink
 
  real    :: xpartveci(maxxpartveciforce),fsum(maxfsum)
@@ -2072,7 +2076,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
  real    :: Bevoli(maxBevol),curlBi(3),straini(6)
  real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,vcleani
  real    :: ponrhoi,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
- real    :: psii,dtau,dustresfacmean,dustresfacmax
+ real    :: psii,dtau
  real    :: eni,dudtnonideal
  real    :: tstop,dustfraci,dtdustdenom
  real    :: etaambii,etahalli,etaohmi
@@ -2086,7 +2090,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
  real    :: vsigdtc,dtc,dtf,dti,dtcool,dtdiffi
  real    :: dtohmi,dtambii,dthalli,dtvisci,dtdrag,dtdusti,dtclean
 
- integer :: idudtcool,ichem,ndustres,iamtypei
+ integer :: idudtcool,ichem,iamtypei
  logical :: iactivei,iamgasi,iamdusti,realviscosity
 
 #ifdef IND_TIMESTEPS
