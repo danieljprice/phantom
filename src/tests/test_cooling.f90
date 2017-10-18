@@ -44,7 +44,9 @@ subroutine test_cooling(ntests,npass)
 
  !call set_units(mass=solarm,dist=au,G=1.d0)
 
- call test_cooling_rate(ntests,npass)
+ !call test_cooling_rate(ntests,npass)
+
+ call test_coolfunc(ntests,npass)
 
  if (id==master) write(*,"(/,a)") '<-- COOLING TEST COMPLETE'
 
@@ -76,5 +78,47 @@ subroutine test_cooling_rate(ntests,npass)
  enddo
 
 end subroutine test_cooling_rate
+
+!--------------------------------------------
+!+
+!  Check that cooling function is continuous
+!+
+!--------------------------------------------
+subroutine test_coolfunc(ntests,npass)
+ use coolfunc,  only:init_coolfunc,find_in_table
+ use testutils, only:checkvalbuf,checkvalbuf_start
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: nt = 100
+ real :: logtmin,logtmax,logt,dlogt
+ integer :: i,k,ndiff,ncheck
+ real    :: table(nt),val
+ logical :: my_test
+
+ if (id==master) write(*,"(/,a)") '--> testing find_in_table routine'
+ !
+ ! set up table
+ !
+ do i=1,nt
+    table(i) = i
+ enddo
+
+ ndiff = 0
+ ncheck = 0
+ ntests = ntests + 1
+ call checkvalbuf_start('table(i) < val < table(i+1)')
+ do i=1,nt-1
+    val = i+0.5
+    k = find_in_table(nt,table,val)
+    !print*,k,table(k),val,table(k+1)
+    if (k < nt) then
+       my_test = (val > table(k) .and. val < table(k+1))
+       call checkvalbuf(my_test,.true.,'table(i) < val < table(i+1)',ndiff,ncheck)
+    endif
+ enddo
+ if (ndiff==0) npass = npass + 1
+
+ !if (id==master) write(*,"(/,a)") '--> testing cooling tables'
+
+end subroutine test_coolfunc
 
 end module testcooling

@@ -9,7 +9,9 @@
 !
 !  DESCRIPTION:
 !   Implements cooling defined using a tabulated cooling table
-!   produced e.g. by CLOUDY
+!   produced e.g. by CLOUDY. We implement the "exact cooling"
+!   method by Townsend to avoid the timestep constraint due
+!   to cooling
 !
 !  REFERENCES: 
 !   Townsend (2009), ApJS 181, 391-397
@@ -34,7 +36,8 @@ module coolfunc
  !
  ! set default values for input parameters
  !
- real :: habund = 0.7
+ real :: habund     = 0.7
+ real :: temp_floor = 1.e4
  character(len=120) :: cooltable = 'cooltable.dat'
  
  public :: init_coolfunc,write_options_coolfunc,read_options_coolfunc
@@ -107,28 +110,27 @@ subroutine energ_coolfunc(uu,rho,dt)
  real, intent(in)    :: rho,dt
  real, intent(inout) :: uu
  real    :: gam1,density_cgs,dt_cgs,amue,amuh,dtemp,durad
- real    :: sloperef,slopek,temp,temp1,temp_min,tref,yfunx,yinv0
+ real    :: sloperef,slopek,temp,temp1,tref,yfunx,yinv0
  integer :: k
  
  gam1 = gamma - 1.
  temp = gam1*uu/Rg*gmw*unit_ergg
- temp_min = 10. !gam1*thermal/Rg*gmw*unit_ergg
  
- tref = temper(nt)
+ tref     = temper(nt)
  sloperef = slope(nt)
  
- if (temp < temp_min) then
-    temp = temp_min
+ if (temp < temp_floor) then
+    temp1 = temp_floor
  else
     amue = 2.*atomic_mass_unit/(1. + habund)
     amuh = atomic_mass_unit/habund
     density_cgs = rho*unit_density
     dt_cgs      = dt*utime
-    
+
     dtemp = gam1*density_cgs*(atomic_mass_unit*gmw/(amue*amuh*kboltz))* &
             sloperef/tref*dt_cgs
     k = find_in_table(nt,temper,temp)
-    
+
     slopek = slope(k)
     if (abs(slopek - 1.) < tiny(0.)) then
        yfunx = yfunc(k) + lambda(nt)*temper(k)/(lambda(k)*temper(nt))*log(temper(k)/temp)
@@ -139,13 +141,13 @@ subroutine energ_coolfunc(uu,rho,dt)
     yfunx = yfunx + dtemp
 
     if (abs(slopek - 1.) < tiny(0.)) then
-       temp1 = max(temper(k)*exp(-lambda(k)*temper(nt)/(lambda(nt)*temper(k))*(yfunx-yfunc(k))),temp_min)    
+       temp1 = max(temper(k)*exp(-lambda(k)*temper(nt)/(lambda(nt)*temper(k))*(yfunx-yfunc(k))),temp_floor)
     else
        yinv0 = 1. - (1. - slopek)*lambda(k)*temper(nt)/(lambda(nt)*temper(k))*(yfunx-yfunc(k))
        if (yinv0 > 0.) then
-          temp1 = max(temper(k)*yinv0**(1./(1. - slopek)),temp_min)
+          temp1 = max(temper(k)*yinv0**(1./(1. - slopek)),temp_floor)
        else
-          temp1 = temp_min
+          temp1 = temp_floor
        endif
     endif
  endif
@@ -161,31 +163,28 @@ end subroutine energ_coolfunc
 !  utility to find the index of closest value in a table
 !+
 !-----------------------------------------------------------------------
-integer function find_in_table(n,table,val) result(i)
+pure integer function find_in_table(n,table,val) result(i)
  integer, intent(in) :: n
  real,    intent(in) :: table(n), val
  integer :: i0,i1
  
  i0 = 0
  i1 = n + 1
- print*,'val=',val,' table = ',table(1),table(nt),' i0,i1=',i0,i1
  do while (i1 - i0 > 1)
     i = (i0 + i1)/2
-    if ((table(nt) >= table(1)).eqv.(val >= table(i))) then
+    if ((table(n) >= table(1)).eqv.(val >= table(i))) then
        i0 = i
     else
        i1 = i
     endif
-    print*,'lims=',i0,i1,' i = ',i
  enddo
  if (abs(val-table(1)) < tiny(0.)) then
     i = 1
- elseif (abs(val-table(nt)) < tiny(0.)) then
+ elseif (abs(val-table(n)) < tiny(0.)) then
     i = n-1
  else
     i = i0
  endif
- read*
 
 end function find_in_table
 
@@ -200,6 +199,7 @@ subroutine write_options_coolfunc(iunit)
  
  call write_inopt(cooltable,'cooltable','data file containing cooling function',iunit)
  call write_inopt(habund,'habund','Hydrogen abundance assumed in cooling function',iunit)
+ call write_inopt(temp_floor,'temp_floor','Minimum allowed temperature in K',iunit)
 
 end subroutine write_options_coolfunc
 
@@ -224,10 +224,13 @@ subroutine read_options_coolfunc(name,valstring,imatch,igotall,ierr)
  case('habund')
     read(valstring,*,iostat=ierr) habund
     ngot = ngot + 1
+ case('temp_floor')
+    read(valstring,*,iostat=ierr) temp_floor
+    ngot = ngot + 1
  case default
     imatch = .false. 
  end select
- if (ngot >= 1) igotall = .true.
+ if (ngot >= 3) igotall = .true.
 
 end subroutine read_options_coolfunc
 
