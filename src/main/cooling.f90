@@ -141,7 +141,7 @@ subroutine write_options_cooling(iunit)
  endif
  if (h2chemistry) then
     call write_options_h2cooling(iunit)
- elseif (icooling > 0) then
+ elseif (icooling == 1) then
     call write_inopt(beta_cool,'beta_cool','beta factor in Gammie (2001) cooling',iunit)
  endif
 
@@ -186,7 +186,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
 
  if (icooling > 1 .and. ngot >= 2) igotall = .true.
 
- if (.not.h2chemistry .and. icooling > 0 .and. ngot < 3) igotall= .false.
+ if (.not.h2chemistry .and. (icooling == 1 .and. ngot < 3)) igotall= .false.
 
 end subroutine read_options_cooling
 
