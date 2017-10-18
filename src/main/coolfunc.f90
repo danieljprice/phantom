@@ -13,7 +13,7 @@
 !   method by Townsend to avoid the timestep constraint due
 !   to cooling
 !
-!  REFERENCES: 
+!  REFERENCES:
 !   Townsend (2009), ApJS 181, 391-397
 !
 !  OWNER: Daniel Price
@@ -39,14 +39,14 @@ module coolfunc
  real :: habund     = 0.7
  real :: temp_floor = 1.e4
  character(len=120) :: cooltable = 'cooltable.dat'
- 
+
  public :: init_coolfunc,write_options_coolfunc,read_options_coolfunc
  public :: energ_coolfunc
- 
+
  public :: find_in_table
- 
+
  private
- 
+
 contains
 
 !-----------------------------------------------------------------------
@@ -60,7 +60,7 @@ subroutine init_coolfunc()
  integer, parameter :: iu = 127
  integer :: ierr,i
  character(len=120) :: filepath
- 
+
  !
  ! read the cooling table from file
  !
@@ -82,7 +82,7 @@ subroutine init_coolfunc()
     slope(i) = log(lambda(i+1)/lambda(i))/log(temper(i+1)/temper(i))
  enddo
  slope(nt) = slope(nt-1)
- 
+
  !
  ! initialise the functions required for Townsend method
  !
@@ -112,13 +112,13 @@ subroutine energ_coolfunc(uu,rho,dt)
  real    :: gam1,density_cgs,dt_cgs,amue,amuh,dtemp,durad
  real    :: sloperef,slopek,temp,temp1,tref,yfunx,yinv0
  integer :: k
- 
+
  gam1 = gamma - 1.
  temp = gam1*uu/Rg*gmw*unit_ergg
- 
+
  tref     = temper(nt)
  sloperef = slope(nt)
- 
+
  if (temp < temp_floor) then
     temp1 = temp_floor
  else
@@ -151,9 +151,9 @@ subroutine energ_coolfunc(uu,rho,dt)
        endif
     endif
  endif
- 
+
  durad = (temp1 - temp)*Rg/(gam1*gmw*unit_ergg)
- 
+
  uu = uu + durad
 
 end subroutine energ_coolfunc
@@ -167,7 +167,7 @@ pure integer function find_in_table(n,table,val) result(i)
  integer, intent(in) :: n
  real,    intent(in) :: table(n), val
  integer :: i0,i1
- 
+
  i0 = 0
  i1 = n + 1
  do while (i1 - i0 > 1)
@@ -196,7 +196,7 @@ end function find_in_table
 subroutine write_options_coolfunc(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
- 
+
  call write_inopt(cooltable,'cooltable','data file containing cooling function',iunit)
  call write_inopt(habund,'habund','Hydrogen abundance assumed in cooling function',iunit)
  call write_inopt(temp_floor,'temp_floor','Minimum allowed temperature in K',iunit)
@@ -228,7 +228,7 @@ subroutine read_options_coolfunc(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) temp_floor
     ngot = ngot + 1
  case default
-    imatch = .false. 
+    imatch = .false.
  end select
  if (ngot >= 3) igotall = .true.
 

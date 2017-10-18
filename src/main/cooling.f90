@@ -82,7 +82,7 @@ subroutine energ_cooling(icool,ui,dudti,xi,yi,zi,rhoi,vxyzui)
     !crate = cooling_rate_sd93(temp)*unit_ergg/utime
     if(temp > 1.e4) then
        fac = unit_ergg/utime/umass*udist**3
-       crate = cooling_rate_sd93(temp)/atomic_mass_unit**2/fac  
+       crate = cooling_rate_sd93(temp)/atomic_mass_unit**2/fac
 !write(*,*) 'cooling debug: ',vxyzui(4),dudti,crate,dudti+crate
        dudti = dudti + crate*rhoi
     endif
