@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: cooling, io, testutils
+!  DEPENDENCIES: coolfunc, cooling, io, testutils
 !+
 !--------------------------------------------------------------------------
 module testcooling

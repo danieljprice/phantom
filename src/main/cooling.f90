@@ -22,7 +22,8 @@
 !    beta_cool -- beta factor in Gammie (2001) cooling
 !    icooling  -- cooling function (0=off, 1=Gammie cooling 2=SD93)
 !
-!  DEPENDENCIES: h2cooling, infile_utils, io, options, part, timestep
+!  DEPENDENCIES: dim, eos, h2cooling, infile_utils, io, options, part,
+!    physcon, timestep, units
 !+
 !--------------------------------------------------------------------------
 module cooling

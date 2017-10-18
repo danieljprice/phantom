@@ -21,11 +21,11 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    C_cool    -- factor controlling cooling timestep
-!    beta_cool -- beta factor in Gammie (2001) cooling
-!    icooling  -- cooling function (0=off, 1=Gammie cooling 2=SD93)
+!    cooltable  -- data file containing cooling function
+!    habund     -- Hydrogen abundance assumed in cooling function
+!    temp_floor -- Minimum allowed temperature in K
 !
-!  DEPENDENCIES: h2cooling, infile_utils, io, options, part, timestep
+!  DEPENDENCIES: datafiles, eos, infile_utils, io, physcon, units
 !+
 !--------------------------------------------------------------------------
 module coolfunc

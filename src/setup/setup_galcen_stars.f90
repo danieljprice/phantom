@@ -19,6 +19,7 @@
 !
 !  RUNTIME PARAMETERS:
 !    datafile -- filename for star data (m,x,y,z,vx,vy,vz)
+!    h_sink   -- sink particle radii in arcsec at 8kpc
 !    m_gas    -- gas mass resolution in solar masses
 !
 !  DEPENDENCIES: dim, infile_utils, io, part, physcon, prompting, units
