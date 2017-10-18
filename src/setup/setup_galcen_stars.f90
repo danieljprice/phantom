@@ -88,7 +88,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  npart = 0
  npartoftype(:) = 0
- massoftype = 1.e-6*(solarm/umass)  ! mass resolution
+ massoftype = m_gas*(solarm/umass)  ! mass resolution
 
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.
