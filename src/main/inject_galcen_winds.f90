@@ -89,7 +89,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  do while(xyzmh_ptmass(4,nskip) > Mcut)
     nskip = nskip + 1
  enddo
- print*,' skipping ',nskip,' point masses'
+ if (iverbose >= 2) print*,' skipping ',nskip,' point masses'
 !
 ! convert mass loss rate from Msun/yr to code units
 !
@@ -132,7 +132,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     ! divide by mass of gas particles
     !
     ninject = int(Minject/massoftype(igas))
-    if (iverbose>=0) print*,' point mass ',i,j,' injecting ',ninject,Minject,massoftype(igas)
+    if (iverbose >= 2) print*,' point mass ',i,j,' injecting ',ninject,Minject,massoftype(igas)
 
     do k=1,ninject
        !
@@ -149,7 +149,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
        xyzi = rr*dir + xyz_star
        vxyz = vinject*dir + vxyz_star
        !print*,' v = ',vinject,vxyz_star
-       print*,rr,vinject*deltat,100.*rr
+       !print*,rr,vinject*deltat,100.*rr
        h = max(rr,10.*vinject*deltat) !/ninject**(1./3.)
 
        u = uu_inject
@@ -162,7 +162,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     !
     xyzmh_ptmass(i_tlast,i) = time
  enddo
- if (iverbose >= 0) print*,'npart = ',npart
+ if (iverbose >= 2) print*,'npart = ',npart
 
 end subroutine inject_particles
 
