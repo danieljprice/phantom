@@ -728,8 +728,9 @@ subroutine check_conservation_error(val,ref,tol,label,decrease)
     err = abs(err)
  endif
  if (err > tol) then
-    if (trim(label) == 'angular momentum' .and. iexternalforce == iext_corot_binary) then
-       call error('evolve','Angular momentum is not being conserved due to corotating frame',var='err',val=err)
+    if ((trim(label) == 'angular momentum' .or. trim(label) == 'energy') &
+        .and. iexternalforce == iext_corot_binary) then
+       call error('evolve',trim(label)//' is not being conserved due to corotating frame',var='err',val=err)
     else
        call error('evolve','Large error in '//trim(label)//' conservation ',var='err',val=err)
        call get_environment_variable('I_WILL_NOT_PUBLISH_CRAP',string)
