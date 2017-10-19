@@ -347,7 +347,7 @@ ifeq ($(SETUP), planetatm)
 #   disc interaction with fixed planet orbit + atmosphere
     FPPFLAGS= -DSORT_RADIUS_INIT
     SETUPFILE= setup_planetatm.f90
-    ISOTHERMAL=yes
+    ISOTHERMAL=no
     IND_TIMESTEPS=yes
     CURLV=yes
     KNOWN_SETUP=yes
@@ -1038,9 +1038,24 @@ ifeq ($(MAP),yes)
     LDFLAGS+=-dynamic -L/${ALLINEA_DIR}/allinea -lmap-sampler -Wl,--eh-frame-hdr
     FFLAGS+= -G2
 endif
-ifeq ($(MPI),yes)
-    MPI=cray
+endif
+
+ifeq ($(SYSTEM),daint)
+    FC=ftn
+    FFLAGS= -O3 -inline-factor=500 -dynamic -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -debug all
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+    OMPFLAGS = -openmp
+    CC = icc
+    CCFLAGS = -O3 -mcmodel=medium
+    LIBCXX = -cxxlib
+    QSYS = slurm
+ifeq ($(MPI),daint)
     USEMPI=yes
+    FPPFLAGS += -DMPI
 endif
 endif
 
@@ -1686,7 +1701,7 @@ OBJDIR=obj
 # these are the sources common to all compilations
 ifeq (X$(SRCPOTS), X)
 SRCPOTS= extern_corotate.f90 \
- 		 extern_binary.f90 \
+         extern_binary.f90 \
          extern_spiral.f90 \
          extern_lensethirring.f90 \
          extern_gnewton.F90 \
