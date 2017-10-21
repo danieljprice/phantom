@@ -16,6 +16,7 @@
 !    5) red giant (Macquarie)
 !    6) neutron star merger using a piecewise polytrope EOS
 !    7) Evrard sphere
+!    8) KEPLER star from file
 !
 !  REFERENCES: None
 !
@@ -81,7 +82,7 @@ module setup
  !
  ! Index of setup options
  !
- integer, parameter :: nsphere_opts =  7 ! maximum number of initial configurations
+ integer, parameter :: nsphere_opts =  8 ! maximum number of initial configurations
  integer, parameter :: iuniform = 1
  integer, parameter :: ipoly    = 2
  integer, parameter :: ibinpoly = 3
@@ -89,6 +90,7 @@ module setup
  integer, parameter :: ired     = 5
  integer, parameter :: ibpwpoly = 6
  integer, parameter :: ievrard  = 7
+ integer, parameter :: ikepler  = 8
 
  character(len=48)  :: sphere_opt(nsphere_opts)
 
@@ -114,7 +116,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,          only: set_units,select_unit,utime,unit_velocity,unit_density
  use kernel,         only: hfact_default
  use rho_profile,    only: rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
-                           rho_evrard,read_red_giant_file
+                           rho_evrard,read_red_giant_file,read_kepler_file
  use extern_neutronstar, only: write_rhotab,rhotabfile,read_rhotab_wrapper
  use eos,            only: init_eos, finish_eos
  integer,           intent(in)    :: id
@@ -188,7 +190,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        np    = min(np,npmax)
     endif
     call prompt('Enter the approximate number of particles in the sphere ',np,0,npmax)
-    if (isphere==insfile .or. isphere==ired) then
+    if (isphere==insfile .or. isphere==ired .or. isphere==ikepler) then
        call prompt('Enter file name containing density profile ', densityfile)
     endif
     if ( use_prompt ) then
@@ -294,6 +296,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (ierr==3) call fatal('setup','too many data points; increase ng')
        rmin     = r(1)
        Rstar(k) = r(npts)
+    elseif (isphere==ikepler) then
+       call read_kepler_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,Mstar(k),ierr)
+       if (ierr==1) call fatal('setup',trim(densityfile)//' does not exist')
+       if (ierr==2) call fatal('setup','insufficient data points read from file')
+       if (ierr==3) call fatal('setup','too many data points; increase ng')
+       rmin     = r(1)
+       Rstar(k) = r(npts)
     elseif (isphere==ievrard) then
        call rho_evrard(ng,Mstar(k),Rstar(k),r,den)
        npts = ng
@@ -332,12 +341,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     ! add energies
     !
-
     call init_eos(ieos,ierr)
-
-#ifdef SETUPIEOS
-    call prompt('Enter the desired EoS for setup', ieos)
-#endif
 
     do i=istart(k),iend(k)
        if (maxvxyzu==4) then
@@ -353,10 +357,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              ri         = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
              densi      = yinterp(den(1:npts),r(1:npts),ri)
              vxyzu(4,i) = polyk*densi**(gamma-1.)/(gamma-1.)
-             if ((isphere==ired) .and. (ieos==10)) then
+             if ((isphere==ired .or. isphere==ikepler) .and. (ieos==10)) then
                 vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)
                 presi = yinterp(pres(1:npts),r(1:npts),ri)
-             else if ((isphere==ired) .and. (ieos/=10)) then
+             else if ((isphere==ired .or. isphere==ikepler) .and. (ieos/=10)) then
                 presi = yinterp(pres(1:npts),r(1:npts),ri)
                 vxyzu(4,i) = presi / ((gamma - 1.) * densi)
              endif
@@ -482,18 +486,20 @@ end subroutine setpart
 subroutine init_ieos9
  real :: pw(numEOS,numparam)
  !
- ! Defining the default options
+ ! Define the default options
+ !
  pw(1,:)  = (/ 10**34.392, 3.166, 3.573, 3.281 /)
  pw(2,:)  = (/ 10**34.384, 3.005, 2.988, 2.851 /)
  pw(3,:)  = (/ 10**34.858, 3.224, 3.033, 1.325 /)
  pw(4,:)  = (/ 10**34.437, 3.514, 3.130, 3.168 /)
  !
- ! Choosing the default option
+ ! Choose the default option
+ !
  p1pwpcgs  = pw(EOSopt,1)
  gamma1pwp = pw(EOSopt,2)
  gamma2pwp = pw(EOSopt,3)
  gamma3pwp = pw(EOSopt,4)
- !
+
 end subroutine init_ieos9
 !-----------------------------------------------------------------------
 !+
@@ -522,6 +528,7 @@ subroutine set_option_names()
  sphere_opt(ired)     = 'Red giant (Macquarie)'
  sphere_opt(ibpwpoly) = 'Binary NS merger with piecewise polytrope EOS'
  sphere_opt(ievrard)  = 'Evrard collapse'
+ sphere_opt(ikepler)  = 'KEPLER star from file'
 
 end subroutine set_option_names
 !-----------------------------------------------------------------------
@@ -600,6 +607,16 @@ subroutine choose_spheres(polyk,iexist,id,master)
     use_exactN  = .false.
     use_prompt  = .false.
     densityfile = 'P12_Phantom_Profile.data'
+    call prompt('Enter the desired EoS for setup', ieos)
+ case(ikepler)
+    ! sets up a star from a 1D code output
+    !  Original Author: Nicole Rodrigues
+    !  Supervisors: Daniel Price & Alexander Heger
+    polyk       = 0.35899
+    use_exactN  = .false.
+    use_prompt  = .false.
+    densityfile = 'kepler_MS.data'
+    call prompt('Enter the desired EoS for setup', ieos)
  case(ibpwpoly)
     ! simulates the merger of a pair of neutron stars
     !  Original Author: Madeline Marshall & Bernard Field
@@ -645,7 +662,7 @@ subroutine write_dist(item_in,dist_in,udist)
  real,             intent(in) :: dist_in
  real(kind=8),     intent(in) :: udist
  character(len=*), intent(in) :: item_in
- !
+
  if ( abs(1.0-solarr/udist) < 1.0d-4) then
     write(*,'(2(a,Es12.5),a)') item_in, dist_in*udist,' cm     = ',dist_in,' R_sun'
  else if ( abs(1.0-km/udist) < 1.0d-4) then
@@ -653,20 +670,20 @@ subroutine write_dist(item_in,dist_in,udist)
  else
     write(*,'(a,Es12.5,a)')    item_in, dist_in*udist,' cm'
  endif
- !
+
 end subroutine write_dist
 
 subroutine write_mass(item_in,mass_in,umass)
  real,             intent(in) :: mass_in
  real(kind=8),     intent(in) :: umass
  character(len=*), intent(in) :: item_in
- !
+
  if ( abs(1.0-solarm/umass) < 1.0d-4) then
     write(*,'(2(a,Es12.5),a)') item_in, mass_in*umass,' g      = ',mass_in,' M_sun'
  else
     write(*,'(a,Es12.5,a)')    item_in, mass_in*umass,' g'
  endif
- !
+
 end subroutine write_mass
 !-----------------------------------------------------------------------
 !+
@@ -711,7 +728,7 @@ subroutine write_setupfile(filename,gamma,polyk)
  endif
 
  write(iunit,"(/,a)") '# sphere properties'
- if (isphere==insfile .or. isphere==ired) then
+ if (isphere==insfile .or. isphere==ired .or. isphere==ikepler) then
     call write_inopt(densityfile,'densityfile','File containing data for stellar profile',iunit)
  endif
  if (use_prompt) then
@@ -773,14 +790,14 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
  !
  nerr = 0
  call read_inopt(isphere,'isphere',db,errcount=nerr)
- if (isphere==ired) then
+ if (isphere==ired .or. isphere==ikepler) then
     use_prompt     = .false.
     use_exactN     = .false.
     binary         = .false.
  endif
  call read_inopt(mass_unit,'mass_unit',db,ierr)
  call read_inopt(dist_unit,'dist_unit',db,ierr)
- if (isphere==insfile .or. isphere==ired) then
+ if (isphere==insfile .or. isphere==ired .or. isphere==ikepler) then
     call read_inopt(densityfile,'densityfile',db,errcount=nerr)
  endif
  if (use_prompt) then
