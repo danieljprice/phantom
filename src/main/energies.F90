@@ -590,7 +590,11 @@ subroutine compute_energies(t)
 
  if (track_mass) then
     accretedmass = ev_data(iev_sum,iev_macc)
-    ev_data(iev_sum,iev_eacc) = accretedmass/accradius1 ! total accretion energy
+    if (accretedmass > 0.) then
+       ev_data(iev_sum,iev_eacc) = accretedmass/accradius1 ! total accretion energy
+    else
+       ev_data(iev_sum,iev_eacc) = 0.
+    endif
  endif
  if (track_lum) totlum = ev_data(iev_sum,iev_totlum)
 
