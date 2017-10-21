@@ -74,8 +74,8 @@ end function atm_dens
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setdisc,         only:set_disc
- use units,           only:set_units,udist,umass
- use physcon,         only:solarm,au,pi
+ use units,           only:set_units,udist,umass,utime
+ use physcon,         only:solarm,au,pi,gg
  use io,              only:master
  use options,         only:iexternalforce,alpha
  use timestep,        only:dtmax
@@ -99,6 +99,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: i
  integer :: nx,npart_disc,npart_planet_atm
  integer(kind=8) :: nptot
+ integer :: maxvxyzu,itype
+ integer, parameter :: igas=1
 
  !real :: xbinary(10),vbinary(6)
  real :: a0,Mstar
@@ -107,6 +109,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real :: udens,rho_core,r_surface,a_orbit
  real :: Mplanet,Mearth,Mjupiter
  real :: xyz_orig(3),psep,vol_sphere
+ real :: cs0,cs,G
 
  logical :: iexist
  character(len=100) :: filename
@@ -115,6 +118,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--set code units
  !
  call set_units(dist=au,mass=solarm,G=1.d0)
+ G = gg*umass*utime**2/(udist**3)
 
  filename=trim(fileprefix)//'.setup'
  
@@ -124,6 +128,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  np = size(xyzh(1,:))
  npart = np
  npartoftype(1) = npart
+ maxvxyzu = size(vxyzu(:,1))
  gamma = 1.0
  hfact = 1.2
  time  = 0.
@@ -223,7 +228,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     npartoftype(1) = npart
  endif
 
- alpha=alphaSS
+ alpha = alphaSS
+ itype = 1
 
  call set_disc(id,master=master,&
                npart   = npart,&
@@ -239,7 +245,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,polyk=polyk,alpha=alpha, &
                prefix = fileprefix )
  
- if (iexternalforce == iext_corot_binary) then
+ if (iexternalforce == iext_corot_binary .and. npart_planet_frac > 0) then
     !
     ! place particles in sphere
     !
@@ -263,6 +269,24 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     do i = npart_disc+1,npart
        !--set the particle type for the atmosphere particles
        call set_particle_type(i,1)
+       !-----------------------------------------
+       !  Set thermal energy
+
+       !  utherm generally should not be stored
+       !  for an isothermal equation of state
+       if (maxvxyzu >= 4) then
+          if (itype==igas) then
+             cs0 = sqrt(1.0/R_in)*(HoverRinput)*sqrt(G*Mstar)*(1.0/R_in)**(-q_indexinput)
+             cs = cs_func(cs0,a0,q_indexinput)
+             if (gamma > 1.) then
+                vxyzu(4,i) = cs**2/(gamma - 1.)/gamma
+             else
+                vxyzu(4,i) = 1.5*cs**2
+             endif
+          else
+             vxyzu(4,i) = 0.
+          endif
+       endif
     enddo
  endif
 
@@ -403,6 +427,17 @@ subroutine read_gwinputfile(filename)
 
 end subroutine read_gwinputfile
 
+!----------------------------------------------------------------
+!
+! function to return the sound speed given the radius
+!
+!----------------------------------------------------------------
+pure real function cs_func(cs0,r,q_index)
+ real, intent(in) :: cs0,r,q_index
+
+ cs_func = cs0*r**(-q_index)
+
+end function cs_func
 
 !!----------------------------------------------------------------
 !!
