@@ -245,7 +245,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,polyk=polyk,alpha=alpha, &
                prefix = fileprefix )
  
- if (iexternalforce == iext_corot_binary .and. npart_planet_frac > 0) then
+ if (iexternalforce == iext_corot_binary .and. npart_planet_atm > 0) then
     !
     ! place particles in sphere
     !
@@ -262,16 +262,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     nx          = int(npart_planet_atm**(1./3.))
     psep        = vol_sphere**(1./3.)/real(nx)
     nptot       = npart
+
     call set_sphere('closepacked',id,master,Ratm_in,Ratm_out,psep,hfact,npart,xyzh, &
                     rhofunc=atm_dens,nptot=nptot, &
                     np_requested=npart_planet_atm,xyz_origin=xyz_orig)
+
+    npart_planet_atm = npart-npart_disc
     npartoftype(1) = npart
     do i = npart_disc+1,npart
        !--set the particle type for the atmosphere particles
        call set_particle_type(i,1)
        !-----------------------------------------
        !  Set thermal energy
-
        !  utherm generally should not be stored
        !  for an isothermal equation of state
        if (maxvxyzu >= 4) then
