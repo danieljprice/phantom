@@ -175,7 +175,7 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
  logical, intent(out), optional :: remote_export(:)
  real,    intent(in),  optional :: cell_xpos(3),cell_xsizei,cell_rcuti
  real :: xpos(3)
- real :: fgrav(lenfgrav)
+ real :: fgrav(lenfgrav),fgrav_global(lenfgrav)
  real :: xsizei,rcuti
  logical :: get_j
 !
@@ -208,12 +208,12 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
     if (present(remote_export)) then
        remote_export = .false.
        call getneigh(nodeglobal,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
-                cellatid,get_j,fgrav,remote_export=remote_export)
+                cellatid,get_j,fgrav_global,remote_export=remote_export)
     endif
 #endif
     call getneigh(node,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
               ifirstincell,get_j,fgrav)
-    f = fgrav
+    f = fgrav + fgrav_global
  else
 #ifdef MPI
     if (present(remote_export)) then
