@@ -367,7 +367,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
 !--write log every step (NB: must print after dt has been set in order to identify timestep constraint)
 !
+#ifdef INJECT_PARTICLES
+    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,np=npart)
+#else
     if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint)
+#endif
 #endif
 
 !    if (abs(dt) < 1e-8*dtmax) then
@@ -858,24 +862,32 @@ end subroutine print_dtlog_ind
 !  routine to print out the timestep information to the log file
 !+
 !-----------------------------------------------------------------
-subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint)
+subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,np)
  integer, intent(in) :: iprint
  real,    intent(in) :: time,dt,dtforce,dtcourant,dterr,dtmax
  real,    intent(in), optional :: dtprint
+ integer, intent(in), optional :: np
+ character(len=20) :: str
+
+ str = ''
+ if (present(np)) then
+    write(str,"(i12)") np
+    str = ', np = '//trim(adjustl(str))
+ endif
 
  if (abs(dt-dtforce) < tiny(dt)) then
-    write(iprint,10) time,dt,'(force)'
+    write(iprint,10) time,dt,'(force)'//trim(str)
  elseif (abs(dt-dtcourant) < tiny(dt)) then
-    write(iprint,10) time,dt,'(courant)'
+    write(iprint,10) time,dt,'(courant)'//trim(str)
  elseif (abs(dt-dterr) < tiny(dt)) then
-    write(iprint,10) time,dt,'(tolv)'
+    write(iprint,10) time,dt,'(tolv)'//trim(str)
  elseif (abs(dt-dtmax) <= epsilon(dt)) then
-    write(iprint,10) time,dt,'(dtmax)'
+    write(iprint,10) time,dt,'(dtmax)'//trim(str)
  elseif (present(dtprint) .and. abs(dt-dtprint) < tiny(dt)) then
-    write(iprint,10) time,dt,'(dtprint)'
+    write(iprint,10) time,dt,'(dtprint)'//trim(str)
  else
     !print*,dt,dtforce,dtcourant,dterr,dtmax
-    write(iprint,10) time,dt,'(unknown)'
+    write(iprint,10) time,dt,'(unknown)'//trim(str)
  endif
 10 format(' t = ',g12.5,' dt = ',es10.3,1x,a)
 
