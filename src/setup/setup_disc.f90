@@ -23,11 +23,11 @@
 !    R_c               -- characteristic radius of the exponential taper
 !    R_c_dust          -- characteristic radius of the exponential taper
 !    R_in              -- inner radius
-!    R_indust          -- inner radius in dust
-!    R_out             -- outer radius in gas
-!    R_outdust         -- outer radius in dust
-!    accr1             -- star accretion radius
-!    accr2             -- secondary accretion radius
+!    R_indust          -- inner radius
+!    R_out             -- outer radius
+!    R_outdust         -- outer radius
+!    accr1             -- central star accretion radius
+!    accr2             -- perturber accretion radius
 !    alphaSS           -- desired alphaSS
 !    binary_O          -- Omega, PA of ascending node (deg)
 !    binary_a          -- binary semi-major axis
@@ -35,18 +35,22 @@
 !    binary_f          -- f, initial true anomaly (deg,180=apastron)
 !    binary_i          -- i, inclination (deg)
 !    binary_w          -- w, argument of periapsis (deg)
-!    deltat            -- output interval as fraction of binary orbital period
-!    disc_m            -- disc mass in gas
-!    dist_unit         -- distance unit (e.g. au)
+!    deltat            -- output interval as fraction of total time
+!    disc_m            -- disc mass
+!    dist_unit         -- distance unit (e.g. au,pc,kpc,0.1pc)
 !    dust_to_gas_ratio -- dust to gas ratio
+!    flyby_a           -- flyby periastron distance
+!    flyby_d           -- initial distance of flyby (in units of periastron distance)
+!    flyby_r           -- roll angle of flyby
 !    graindensinp      -- intrinsic grain density (in g/cm^3)
 !    grainsizeinp      -- grain size (in cm)
-!    icentral          -- central object/potential
-!    iprofiledust      -- set dust surface density profile (0=power-law, 1=tapered power-law)
-!    iprofilegas       -- set gas surface density profile (0=power-law, 1=tapered power-law)
-!    m1                -- star mass
-!    m2                -- secondary mass
-!    mass_unit         -- mass unit (e.g. solarm)
+!    ismoothdust       -- smooth the inner disc profile
+!    ismoothgas        -- smooth the inner disc profile
+!    itaperdust        -- exponentially taper the outer disc profile
+!    itapergas         -- exponentially taper the outer disc profile
+!    m1                -- central star mass
+!    m2                -- perturber mass
+!    mass_unit         -- mass unit (e.g. solarm,jupiterm,earthm)
 !    norbits           -- maximum number of binary orbits
 !    np                -- number of gas particles
 !    np_dust           -- number of dust particles
@@ -57,12 +61,12 @@
 !    qindex            -- q index
 !    qindex_dust       -- q index
 !    setplanets        -- add planets? (0=no,1=yes)
-!    sigma_naught      -- Sigma0 of the gas profile Sigma = Sigma0*(R/Rc)^-p*Exp(-(R/Rc)^(2-p))
+!    sigma_naught      -- Sigma0 of the disc profile Sigma = Sigma0*(R/Rc)^-p*Exp(-(R/Rc)^(2-p))
 !    xinc              -- inclination angle
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, externalforces,
 !    infile_utils, io, options, part, physcon, prompting, setbinary,
-!    setdisc, timestep, units
+!    setdisc, setflyby, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup

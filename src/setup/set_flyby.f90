@@ -19,13 +19,13 @@
 !   Eggleton (1983) ApJ 268, 368-369 (ref:eggleton83)
 !   Xiang-Gruess (2016) MNRAS, Volume 455, Issue 3, p.3086-3100
 !
-!  OWNER: Nicolas Cuello, Daniel Mentiplay
+!  OWNER: Daniel Mentiplay
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: part, physcon
+!  DEPENDENCIES: part, physcon, setbinary
 !+
 !--------------------------------------------------------------------------
 module setflyby
