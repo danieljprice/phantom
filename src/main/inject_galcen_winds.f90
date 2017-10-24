@@ -134,33 +134,40 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     ninject = int(Minject/massoftype(igas))
     if (iverbose >= 2) print*,' point mass ',i,j,' injecting ',ninject,Minject,massoftype(igas)
 
-    do k=1,ninject
-       !
-       ! get random position on sphere
-       !
-       phi = 2.*pi*(ran2(iseed) - 0.5)
-       theta = acos(2.*ran2(iseed) - 1.)
-       sintheta = sin(theta)
-       costheta = cos(theta)
-       sinphi   = sin(phi)
-       cosphi   = cos(phi)
-       dir  = (/sintheta*cosphi,sintheta*sinphi,costheta/)
-
-       xyzi = rr*dir + xyz_star
-       vxyz = vinject*dir + vxyz_star
-       !print*,' v = ',vinject,vxyz_star
-       !print*,rr,vinject*deltat,100.*rr
-       h = max(rr,10.*vinject*deltat) !/ninject**(1./3.)
-
-       u = uu_inject
-
-       i_part = npart + 1 ! all particles are new
-       call add_or_update_particle(igas, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
-    enddo
     !
-    ! update tlast to current time
+    ! don't update tlast for a particular star unless that star injected
+    !    particles this timestep; this way, fractional particles/timestep can 
+    !    accumulate and eventually inject a particle, making Mdot more accurate
     !
-    xyzmh_ptmass(i_tlast,i) = time
+    if(ninject > 0)
+       do k=1,ninject
+          !
+          ! get random position on sphere
+          !
+          phi = 2.*pi*(ran2(iseed) - 0.5)
+          theta = acos(2.*ran2(iseed) - 1.)
+          sintheta = sin(theta)
+          costheta = cos(theta)
+          sinphi   = sin(phi)
+          cosphi   = cos(phi)
+          dir  = (/sintheta*cosphi,sintheta*sinphi,costheta/)
+
+          xyzi = rr*dir + xyz_star
+          vxyz = vinject*dir + vxyz_star
+          !print*,' v = ',vinject,vxyz_star
+          !print*,rr,vinject*deltat,100.*rr
+          h = max(rr,10.*vinject*deltat) !/ninject**(1./3.)
+
+          u = uu_inject
+
+          i_part = npart + 1 ! all particles are new
+          call add_or_update_particle(igas, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
+       enddo
+       !
+       ! update tlast to current time
+       !
+       xyzmh_ptmass(i_tlast,i) = time
+    endif
  enddo
  if (iverbose >= 2) print*,'npart = ',npart
 
