@@ -139,7 +139,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     !    particles this timestep; this way, fractional particles/timestep can 
     !    accumulate and eventually inject a particle, making Mdot more accurate
     !
-    if(ninject > 0)
+    if(ninject > 0) then
        do k=1,ninject
           !
           ! get random position on sphere
