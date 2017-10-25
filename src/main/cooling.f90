@@ -22,7 +22,8 @@
 !    beta_cool -- beta factor in Gammie (2001) cooling
 !    icooling  -- cooling function (0=off, 1=Gammie cooling 2=SD93)
 !
-!  DEPENDENCIES: h2cooling, infile_utils, io, options, part, timestep
+!  DEPENDENCIES: dim, eos, h2cooling, infile_utils, io, options, part,
+!    physcon, timestep, units
 !+
 !--------------------------------------------------------------------------
 module cooling
@@ -53,23 +54,38 @@ contains
 !  i.e. du/dt = -u/tcool, where tcool = beta/Omega
 !+
 !----------------------------------------------------
-subroutine energ_cooling(icool,ui,dudti,xi,yi,zi)
+!subroutine energ_cooling(icool,ui,dudti,xi,yi,zi)
+subroutine energ_cooling(icool,ui,dudti,xi,yi,zi,rhoi,vxyzui)
+ use units, only:utime,unit_ergg,umass,udist
+ use options, only:ieos
+ use eos, only:get_temperature
+ use dim, only:maxvxyzu
+ use physcon, only:atomic_mass_unit
  integer, intent(in)    :: icool
- real,    intent(in)    :: ui,xi,yi,zi
+ !real,    intent(in)    :: ui,xi,yi,zi
+ real,    intent(in)    :: ui,xi,yi,zi,rhoi
+ real,         intent(in) :: vxyzui(maxvxyzu)
  real,    intent(inout) :: dudti
- real :: r2,Omegai,tcool1,temp,crate
+ real :: r2,Omegai,tcool1,temp,crate,fac
 
  select case(icool)
  case(2)
     !
     ! SD93 cooling
     !
-    temp = 1. !get_temperature(ieos,(/xi,yi,zi/),rhoi,ui)
+    !temp = 1. !get_temperature(ieos,(/xi,yi,zi/),rhoi,ui)
+    temp = get_temperature(ieos,(/xi,yi,zi/),rhoi,vxyzui)
     !
     ! convert cooling rate in cgs units to code units
     !
-    crate = cooling_rate_sd93(temp) !*unit_ergg/utime
-    dudti = dudti + crate
+    !crate = cooling_rate_sd93(temp) !*unit_ergg/utime
+    !crate = cooling_rate_sd93(temp)*unit_ergg/utime
+    if(temp > 1.e4) then
+       fac = unit_ergg/utime/umass*udist**3
+       crate = cooling_rate_sd93(temp)/atomic_mass_unit**2/fac
+!write(*,*) 'cooling debug: ',vxyzui(4),dudti,crate,dudti+crate
+       dudti = dudti + crate*rhoi
+    endif
 
  case default
     !
@@ -126,7 +142,7 @@ subroutine write_options_cooling(iunit)
  endif
  if (h2chemistry) then
     call write_options_h2cooling(iunit)
- elseif (icooling > 0) then
+ elseif (icooling == 1) then
     call write_inopt(beta_cool,'beta_cool','beta factor in Gammie (2001) cooling',iunit)
  endif
 
@@ -171,7 +187,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
 
  if (icooling > 1 .and. ngot >= 2) igotall = .true.
 
- if (.not.h2chemistry .and. icooling > 0 .and. ngot < 3) igotall= .false.
+ if (.not.h2chemistry .and. (icooling == 1 .and. ngot < 3)) igotall= .false.
 
 end subroutine read_options_cooling
 

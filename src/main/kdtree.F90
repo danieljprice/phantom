@@ -989,8 +989,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
           endif
        endif if_leaf
 #ifdef GRAVITY
-    elseif (present(fnode)) then
-
+    elseif (present(fnode) .and. ((.not. present(remote_export)) .or. n < 2*nprocs-1)) then
 !
 !--long range force on node due to distant node, along node centres
 !  along with derivatives in order to perform series expansion
