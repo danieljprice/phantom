@@ -177,8 +177,6 @@ subroutine recv_part(replace)
  call MPI_TEST(irequestrecv(1),igotpart,status,mpierr)
 
  if (igotpart) then
-    jpart = status(MPI_TAG)
-    if (jpart > maxp .or. jpart <= 0) call fatal('balance','error in receive tag',jpart)
 !$omp critical
     nrecv(status(MPI_SOURCE)+1) = nrecv(status(MPI_SOURCE)+1) + 1
 !$omp end critical
@@ -251,7 +249,8 @@ subroutine send_part(i,newproc,replace)
     call fatal('balance','error in ibelong',ival=newproc,var='ibelong')
  else
     call fill_sendbuf(i,xsendbuf)
-    call MPI_ISEND(xsendbuf,size(xsendbuf),MPI_DEFAULT_REAL,newproc,i,comm_balance,irequestsend(1),mpierr)
+    ! tag cannot be i, because some MPI implementations do not support large values for the tag
+    call MPI_ISEND(xsendbuf,size(xsendbuf),MPI_DEFAULT_REAL,newproc,0,comm_balance,irequestsend(1),mpierr)
 
     !--wait for send to complete, receive whilst doing so
     idone = .false.
