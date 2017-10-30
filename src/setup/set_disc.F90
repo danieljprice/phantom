@@ -988,13 +988,13 @@ pure subroutine set_warp(npart_tot,npart_start_count,&
        vzi = vxyzu(3,i)
 
 ! Rotate positions
-       xyzh(1,i)  =  xi*cosi + zi*sini
-       xyzh(2,i)  =  yi
-       xyzh(3,i)  = -xi*sini + zi*cosi
+       xyzh(1,i)  =  xi                  !xi*cosi + zi*sini
+       xyzh(2,i)  =  yi*cosi - zi*sini   !yi
+       xyzh(3,i)  =  yi*sini + zi*cosi   !-xi*sini + zi*cosi
 ! Rotate velocities
-       vxyzu(1,i) =  vxi*cosi + vzi*sini
-       vxyzu(2,i) =  vyi
-       vxyzu(3,i) = -vxi*sini + vzi*cosi
+       vxyzu(1,i) =  vxi                 !vxi*cosi + vzi*sini
+       vxyzu(2,i) =  vyi*cosi - vzi*sini !vyi
+       vxyzu(3,i) =  vyi*sini + vzi*cosi !-vxi*sini + vzi*cosi
     endif
  enddo
 
