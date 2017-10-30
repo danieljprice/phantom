@@ -369,7 +369,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  end select
 
  !--compute the mass of the gas disc if mass_set=1
- if(mass_set==1) call sigma_ref_to_mass(sigma_naught,iprofilegas,pindex,R_in,R_out,R_in,R_c,disc_m)
+ if(mass_set==1) call sigma_ref_to_mass(sigma_naught,sigmaprofilegas,pindex,R_in,R_out,R_in,R_c,disc_m)
 
  !
  !--setup disc(s)
@@ -415,14 +415,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              inclination      = xinc,               &
              twist            = .false.,            &
              prefix           = fileprefix)
-    if (mass_set==0) call mass_to_sigma_ref(disc_m,iprofilegas,pindex,R_in,R_out,R_in,R_c,sigma_naught)
-    call mass_to_sigma_ref(disc_m*dust_to_gas_ratio,iprofiledust,pindex_dust,R_indust,R_outdust,R_indust,R_c_dust,sigma_naughtdust)
+    if (mass_set==0) call mass_to_sigma_ref(disc_m,sigmaprofilegas,pindex,R_in,R_out,R_in,R_c,sigma_naught)
+    call mass_to_sigma_ref(disc_m*dust_to_gas_ratio,sigmaprofiledust,pindex_dust,&
+                           R_indust,R_outdust,R_indust,R_c_dust,sigma_naughtdust)
     do i=1,npart
        Ri = sqrt(dot_product(xyzh(1:2,i),xyzh(1:2,i)))
        if (Ri<R_indust .or. Ri>R_outdust) then
           idust_to_gas_ratio = 0.
        else
-          call get_dust_to_gas_ratio(idust_to_gas_ratio,Ri,iprofilegas,iprofiledust,pindex,pindex_dust,&
+          call get_dust_to_gas_ratio(idust_to_gas_ratio,Ri,sigmaprofilegas,sigmaprofiledust,pindex,pindex_dust,&
                                      sigma_naught,sigma_naughtdust,R_in,R_in,R_c,R_indust,R_indust,R_c_dust)
        endif
        call set_dustfrac(idust_to_gas_ratio,dustfrac(i))
@@ -797,7 +798,12 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(itapergas,'itapergas',db,errcount=nerr)
  call read_inopt(ismoothgas,'ismoothgas',db,errcount=nerr)
  call read_inopt(mass_set,'mass_set',db,min=0,max=2,errcount=nerr)
- if (itapergas) iprofilegas = 1
+ if (itapergas) then
+    iprofilegas = 1
+    sigmaprofilegas = 1
+ endif
+ if (ismoothgas) sigmaprofilegas = 2
+ if (itapergas .and. ismoothgas) sigmaprofilegas = 3
  select case(mass_set)
  case(0)
     call read_inopt(disc_m,'disc_m',db,min=0.,errcount=nerr)
@@ -821,20 +827,26 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(profile_set_dust,'profile_set_dust',db,min=0,max=1,errcount=nerr)
     select case(profile_set_dust)
     case(0)
-       R_indust     = R_in
-       R_outdust    = R_out
-       pindex_dust  = pindex
-       qindex_dust  = qindex
-       H_R_dust     = H_R
-       iprofiledust = iprofilegas
-       itaperdust   = itapergas
-       ismoothdust  = ismoothgas
-       R_c_dust     = R_c
+       R_indust         = R_in
+       R_outdust        = R_out
+       pindex_dust      = pindex
+       qindex_dust      = qindex
+       H_R_dust         = H_R
+       iprofiledust     = iprofilegas
+       itaperdust       = itapergas
+       ismoothdust      = ismoothgas
+       sigmaprofiledust = sigmaprofilegas
+       R_c_dust         = R_c
     case(1)
        call read_inopt(itaperdust,'itaperdust',db,errcount=nerr)
        call read_inopt(ismoothdust,'ismoothdust',db,errcount=nerr)
        call read_inopt(pindex_dust,'pindex_dust',db,errcount=nerr)
-       if (itaperdust) iprofiledust = 1
+       if (itaperdust) then
+          iprofiledust = 1
+          sigmaprofiledust = 1
+       endif
+       if (ismoothdust) sigmaprofiledust = 2
+       if (itaperdust .and. ismoothdust) sigmaprofiledust = 3
        if (.not. use_dustfrac) then
           call read_inopt(qindex_dust,'qindex_dust',db,err=ierr,errcount=nerr)
           if (ierr /= 0) qindex_dust = qindex
@@ -882,13 +894,13 @@ end subroutine read_setupfile
 ! subroutine read_obsolete_setup_options(db)
 ! end subroutine read_obsolete_setup_options
 
-function dimensionless_sigma(R,iprofile,pindex,R_in,R_ref,R_c) result(sigma)
+function dimensionless_sigma(R,sigmaprofile,pindex,R_in,R_ref,R_c) result(sigma)
  real,           intent(in)  :: R,pindex,R_in,R_ref
  real, optional, intent(in)  :: R_c
- integer,        intent(in)  :: iprofile
+ integer,        intent(in)  :: sigmaprofile
  real :: sigma
 
- select case (iprofile)
+ select case (sigmaprofile)
  case (0)
     !--power law
     sigma = (R/R_ref)**(-pindex)
@@ -905,11 +917,11 @@ function dimensionless_sigma(R,iprofile,pindex,R_in,R_ref,R_c) result(sigma)
 
 end function dimensionless_sigma
 
-function dimensionless_mass(iprofile,pindex,R_in,R_out,R_ref,R_c) result(mass)
+function dimensionless_mass(sigmaprofile,pindex,R_in,R_out,R_ref,R_c) result(mass)
  use physcon, only:pi
  real,           intent(in)  :: pindex,R_in,R_out,R_ref
  real, optional, intent(in)  :: R_c
- integer,        intent(in)  :: iprofile
+ integer,        intent(in)  :: sigmaprofile
 
  integer, parameter     :: nbins=100000
  real, dimension(nbins) :: integrand
@@ -918,7 +930,7 @@ function dimensionless_mass(iprofile,pindex,R_in,R_out,R_ref,R_c) result(mass)
 
  do i=1,nbins
     R = R_in + i*(R_out-R_in)/nbins
-    sigma = dimensionless_sigma(R,iprofile,pindex,R_in,R_ref,R_c)
+    sigma = dimensionless_sigma(R,sigmaprofile,pindex,R_in,R_ref,R_c)
     integrand(i) = 2*pi*R*sigma
  enddo
  mass = sum(integrand)*(R_out-R_in)/nbins !--Riemann sum
@@ -926,40 +938,42 @@ function dimensionless_mass(iprofile,pindex,R_in,R_out,R_ref,R_c) result(mass)
 
 end function dimensionless_mass
 
-subroutine mass_to_sigma_ref(disc_m,iprofile,pindex,R_in,R_out,R_ref,R_c,sigma_ref)
+subroutine mass_to_sigma_ref(disc_m,sigmaprofile,pindex,R_in,R_out,R_ref,R_c,sigma_ref)
  real,           intent(in)  :: disc_m,pindex,R_in,R_out,R_ref
  real, optional, intent(in)  :: R_c
- integer,        intent(in)  :: iprofile
+ integer,        intent(in)  :: sigmaprofile
  real,           intent(out) :: sigma_ref
  real :: mass
 
- mass = dimensionless_mass(iprofile,pindex,R_in,R_out,R_ref,R_c)
+ mass = dimensionless_mass(sigmaprofile,pindex,R_in,R_out,R_ref,R_c)
  sigma_ref = (disc_m/R_ref**2)/mass
 
 end subroutine mass_to_sigma_ref
 
-subroutine sigma_ref_to_mass(sigma_ref,iprofile,pindex,R_in,R_out,R_ref,R_c,disc_m)
+subroutine sigma_ref_to_mass(sigma_ref,sigmaprofile,pindex,R_in,R_out,R_ref,R_c,disc_m)
  real,           intent(in)  :: sigma_ref,pindex,R_in,R_out,R_ref
  real, optional, intent(in)  :: R_c
- integer,        intent(in)  :: iprofile
+ integer,        intent(in)  :: sigmaprofile
  real,           intent(out) :: disc_m
  real :: mass
 
- mass = dimensionless_mass(iprofile,pindex,R_in,R_out,R_ref,R_c)
+ mass = dimensionless_mass(sigmaprofile,pindex,R_in,R_out,R_ref,R_c)
  disc_m = (sigma_ref*R_ref**2)*mass
 
 end subroutine sigma_ref_to_mass
 
-subroutine get_dust_to_gas_ratio(dust_to_gas,R,iprofilegas,iprofiledust,pindex,pindex_dust,&
-                                 sigma_ref,sigma_ref_dust,R_in,R_ref,R_c,R_indust,R_ref_dust,R_c_dust)
- real,           intent(in)  :: R,sigma_ref,sigma_ref_dust,pindex,pindex_dust,R_in,R_ref,R_indust,R_ref_dust
+subroutine get_dust_to_gas_ratio(dust_to_gas,R,sigmaprofilegas,sigmaprofiledust,&
+                                 pindex,pindex_dust,sigma_ref,sigma_ref_dust,&
+                                 R_in,R_ref,R_c,R_indust,R_ref_dust,R_c_dust)
+ real,           intent(in)  :: R,sigma_ref,sigma_ref_dust,pindex,pindex_dust
+ real,           intent(in)  :: R_in,R_ref,R_indust,R_ref_dust
  real, optional, intent(in)  :: R_c,R_c_dust
- integer,        intent(in)  :: iprofilegas,iprofiledust
+ integer,        intent(in)  :: sigmaprofilegas,sigmaprofiledust
  real,           intent(out) :: dust_to_gas
  real :: sigma_gas,sigma_dust
 
- sigma_dust = dimensionless_sigma(R,iprofiledust,pindex_dust,R_indust,R_ref_dust,R_c_dust)
- sigma_gas  = dimensionless_sigma(R,iprofilegas,pindex,R_in,R_ref,R_c)
+ sigma_dust = dimensionless_sigma(R,sigmaprofiledust,pindex_dust,R_indust,R_ref_dust,R_c_dust)
+ sigma_gas  = dimensionless_sigma(R,sigmaprofilegas,pindex,R_in,R_ref,R_c)
  dust_to_gas = sigma_dust/sigma_gas * sigma_ref_dust/sigma_ref
 
 end subroutine get_dust_to_gas_ratio
