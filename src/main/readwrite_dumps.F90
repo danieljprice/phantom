@@ -778,7 +778,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 
  overblocks: do iblock=1,nblocks
 ! print*,' thread ',id,' block ',iblock
-
+    nums = 0
     call read_block_header(narraylengths,ilen,nums,idisk1,ierr)
 !
 !--check block header for errors
@@ -996,7 +996,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  nums = 0
 
  overblocks: do iblock=1,nblocks
-
+    nums = 0
     call read_block_header(narraylengths,ilen,nums,idisk1,ierr)
 !
 !--check block header for errors
