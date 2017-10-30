@@ -82,6 +82,7 @@ module setup
  real    :: accr1,accr2,alphaSS,deltat,flyby_a,flyby_d,flyby_r
  integer :: i,nplanets,np,np_dust,icentral,setplanets,norbits
  integer :: itype,npart_inter,mass_set,profile_set_dust,iprofilegas,iprofiledust
+ integer :: sigmaprofilegas,sigmaprofiledust
  logical :: ismoothgas,ismoothdust,itapergas,itaperdust
  character(len=*), dimension(maxplanets), parameter :: planets = &
   (/'1','2','3','4','5','6','7','8','9' /)
@@ -212,26 +213,32 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     !--set gas disc options
     !
-    R_in        = 1.
-    R_out       = 150.
-    R_c         = 0.
-    mass_set    = 0
-    iprofilegas = 0
-    itapergas   = .false.
-    ismoothgas  = .false.
+    R_in            = 1.
+    R_out           = 150.
+    R_c             = 0.
+    mass_set        = 0
+    iprofilegas     = 0
+    itapergas       = .false.
+    ismoothgas      = .false.
+    sigmaprofilegas = 0
     !--todo: add circumprimary & circumsecondary discs
     call prompt('How do you want to set the gas disc mass? (0=disc mass, 1=surface density, 2=Toomre Q (not yet implemented))'&
                 ,mass_set,0,2)
     call prompt('Do you want to exponentially taper the outer gas disc profile?',itapergas)
     call prompt('Do you want to smooth the inner gas disc profile?',ismoothgas)
-    if (itapergas) iprofilegas = 1
-    if (iprofilegas == 1) R_c = R_out
+    if (itapergas) then
+       R_c = R_out
+       iprofilegas = 1
+       sigmaprofilegas = 1
+    endif
+    if (ismoothgas) sigmaprofilegas = 2
+    if (itapergas .and. ismoothgas) sigmaprofilegas = 3
     select case(mass_set)
     case(0)
        disc_m = 0.05
     case(1)
-       !--todo: set sigma_naught and H_R_naught at a reference radius
-       sigma_naught = 1.009E-07
+       !--todo: set sigma and H_R by value at a reference radius
+       sigma_naught = 1.0E-02
     case(2)
        print "(a)",'Toomre Q not yet implemented'
        stop
@@ -255,6 +262,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        iprofiledust      = iprofilegas
        itaperdust        = itapergas
        ismoothdust       = ismoothgas
+       sigmaprofiledust  = sigmaprofilegas
        grainsizeinp      = 0.1
        graindensinp      = 3.
        R_c_dust          = R_c
@@ -262,8 +270,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (profile_set_dust == 1) then
           call prompt('Do you want to exponentially taper the outer dust disc profile?',itaperdust)
           call prompt('Do you want to smooth the inner dust disc profile?',ismoothdust)
-          if (itaperdust) iprofiledust = 1
-          if (iprofiledust == 1) R_c_dust = R_outdust
+          if (itaperdust) then
+             R_c_dust = R_outdust
+             iprofiledust = 1
+             sigmaprofiledust = 1
+          endif
+          if (ismoothdust) sigmaprofiledust = 2
+          if (itaperdust .and. ismoothdust) sigmaprofiledust = 3
        endif
        call prompt('Enter dust to gas ratio',dust_to_gas_ratio,0.)
        call prompt('Enter grain size in cm',grainsizeinp,0.)
@@ -356,7 +369,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  end select
 
  !--compute the mass of the gas disc if mass_set=1
- if(mass_set==1) call sigma_naught2mass(sigma_naught,iprofilegas,pindex,R_in,R_out,R_c,disc_m) !--todo: this needs fixing for smoothed discs
+ if(mass_set==1) call sigma_ref_to_mass(sigma_naught,iprofilegas,pindex,R_in,R_out,R_in,R_c,disc_m)
 
  !
  !--setup disc(s)
@@ -371,9 +384,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart_inter = 1
  itype       = igas
  if(use_dust .and. use_dustfrac) then
-    if(mass_set==0) call mass2sigma_naught(sigma_naught,iprofilegas,pindex,R_in,R_out,R_c,disc_m) !--todo: this needs fixing for smoothed discs
-    call mass2sigma_naught(sigma_naughtdust,iprofiledust,pindex_dust,R_indust,R_outdust,R_c_dust,disc_m*dust_to_gas_ratio) !--todo: this needs fixing for smoothed discs
-    !--gas disc with dustfrac
+    !--gas and dust disc
     call set_disc(id,master   = master,             &
              mixture          = .true.,             &
              npart            = npartoftype(itype), &
@@ -404,13 +415,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              inclination      = xinc,               &
              twist            = .false.,            &
              prefix           = fileprefix)
+    if (mass_set==0) call mass_to_sigma_ref(disc_m,iprofilegas,pindex,R_in,R_out,R_in,R_c,sigma_naught)
+    call mass_to_sigma_ref(disc_m*dust_to_gas_ratio,iprofiledust,pindex_dust,R_indust,R_outdust,R_indust,R_c_dust,sigma_naughtdust)
     do i=1,npart
-       ri = sqrt(dot_product(xyzh(1:2,i),xyzh(1:2,i)))
-       if (ri<R_indust .or. ri>R_outdust) then
+       Ri = sqrt(dot_product(xyzh(1:2,i),xyzh(1:2,i)))
+       if (Ri<R_indust .or. Ri>R_outdust) then
           idust_to_gas_ratio = 0.
        else
-          call get_d2gratio(idust_to_gas_ratio,ri,iprofilegas,iprofiledust,sigma_naught,&
-                            sigma_naughtdust,pindex,pindex_dust,R_c,R_c_dust) !--todo: this needs fixing for smoothed discs
+          call get_dust_to_gas_ratio(idust_to_gas_ratio,Ri,iprofilegas,iprofiledust,pindex,pindex_dust,&
+                                     sigma_naught,sigma_naughtdust,R_in,R_in,R_c,R_indust,R_indust,R_c_dust)
        endif
        call set_dustfrac(idust_to_gas_ratio,dustfrac(i))
     enddo
@@ -642,8 +655,8 @@ subroutine write_setupfile(filename)
     if (iprofilegas==0)then
        call write_inopt(sigma_naught,'sigma_naught','Sigma0 of the disc profile Sigma = Sigma0*R^-p',iunit)
     else
-       call write_inopt(sigma_naught,'sigma_naught','Sigma0 of the disc profile Sigma = Sigma0*(R/Rc)^-p*Exp(-(R/Rc)^(2-p))',iunit)
        call write_inopt(R_c,'R_c','characteristic radius of the exponential taper',iunit)
+       call write_inopt(sigma_naught,'sigma_naught','Sigma0 of the disc profile Sigma = Sigma0*(R/Rc)^-p*Exp(-(R/Rc)^(2-p))',iunit)
     endif
     call write_inopt(pindex,'pindex','p index',iunit)
  case(2)
@@ -869,62 +882,87 @@ end subroutine read_setupfile
 ! subroutine read_obsolete_setup_options(db)
 ! end subroutine read_obsolete_setup_options
 
-subroutine mass2sigma_naught(sigma_naught,iprofile,pindex,R_in,R_out,R_c,disc_m)
- !--todo: this needs fixing for smoothed discs
- use physcon, only:pi
- real,           intent(in)  :: disc_m,pindex,R_in,R_out
+function dimensionless_sigma(R,iprofile,pindex,R_in,R_ref,R_c) result(sigma)
+ real,           intent(in)  :: R,pindex,R_in,R_ref
  real, optional, intent(in)  :: R_c
- real,           intent(out) :: sigma_naught
+ integer,        intent(in)  :: iprofile
+ real :: sigma
+
+ select case (iprofile)
+ case (0)
+    !--power law
+    sigma = (R/R_ref)**(-pindex)
+ case (1)
+    !--exponentially tapered power law
+    sigma = (R/R_c)**(-pindex)*exp(-(R/R_c)**(2-pindex))
+ case (2)
+    !--smoothed power law
+    sigma = (R/R_ref)**(-pindex)*(1-sqrt(R_in/R))
+ case (3)
+    !--both smoothed and tapered
+    sigma = (R/R_c)**(-pindex)*exp(-(R/R_c)**(2-pindex))*(1-sqrt(R_in/R))
+ end select
+
+end function dimensionless_sigma
+
+function dimensionless_mass(iprofile,pindex,R_in,R_out,R_ref,R_c) result(mass)
+ use physcon, only:pi
+ real,           intent(in)  :: pindex,R_in,R_out,R_ref
+ real, optional, intent(in)  :: R_c
  integer,        intent(in)  :: iprofile
 
- if(iprofile==0) then
-    sigma_naught = disc_m/(((2.*pi)/(2.-pindex))*((R_out)**(2.-pindex)-(R_in)**(2.-pindex)))
- else
-    sigma_naught = disc_m/(((2.*pi*(R_c**2))/(2.-pindex))*(exp(-(R_in/R_c)**(2.-pindex))-exp(-(R_out/R_c)**(2.-pindex))))
- endif
+ integer, parameter     :: nbins=100000
+ real, dimension(nbins) :: integrand
+ real    :: R,mass,sigma
+ integer :: i
 
-end subroutine mass2sigma_naught
+ do i=1,nbins
+    R = R_in + i*(R_out-R_in)/nbins
+    sigma = dimensionless_sigma(R,iprofile,pindex,R_in,R_ref,R_c)
+    integrand(i) = 2*pi*R*sigma
+ enddo
+ mass = sum(integrand)*(R_out-R_in)/nbins !--Riemann sum
+ mass = mass/R_ref**2 !--make dimensionless
 
-subroutine sigma_naught2mass(sigma_naught,iprofile,pindex,R_in,R_out,R_c,disc_m)
- !--todo: this needs fixing for smoothed discs
- use physcon, only:pi
- real,           intent(in)  :: sigma_naught,pindex,R_in,R_out
+end function dimensionless_mass
+
+subroutine mass_to_sigma_ref(disc_m,iprofile,pindex,R_in,R_out,R_ref,R_c,sigma_ref)
+ real,           intent(in)  :: disc_m,pindex,R_in,R_out,R_ref
  real, optional, intent(in)  :: R_c
+ integer,        intent(in)  :: iprofile
+ real,           intent(out) :: sigma_ref
+ real :: mass
+
+ mass = dimensionless_mass(iprofile,pindex,R_in,R_out,R_ref,R_c)
+ sigma_ref = (disc_m/R_ref**2)/mass
+
+end subroutine mass_to_sigma_ref
+
+subroutine sigma_ref_to_mass(sigma_ref,iprofile,pindex,R_in,R_out,R_ref,R_c,disc_m)
+ real,           intent(in)  :: sigma_ref,pindex,R_in,R_out,R_ref
+ real, optional, intent(in)  :: R_c
+ integer,        intent(in)  :: iprofile
  real,           intent(out) :: disc_m
- integer,        intent(in)  :: iprofile
+ real :: mass
 
- if(iprofile==0) then
-    disc_m = sigma_naught*((2.*pi)/(2.-pindex))*((R_out)**(2.-pindex)-(R_in)**(2.-pindex))
- else
-    disc_m = sigma_naught*((2.*pi*(R_c**2))/(2.-pindex))*(exp(-(R_in/R_c)**(2.-pindex))-exp(-(R_out/R_c)**(2.-pindex)))
- endif
+ mass = dimensionless_mass(iprofile,pindex,R_in,R_out,R_ref,R_c)
+ disc_m = (sigma_ref*R_ref**2)*mass
 
-end subroutine sigma_naught2mass
+end subroutine sigma_ref_to_mass
 
-subroutine get_d2gratio(id2g,ri,iprofilegas,iprofiledust,sigma_naught,sigma_naughtdust,pindex,pindex_dust,R_c,R_c_dust)
- !--todo: this needs fixing for smoothed discs
- real,           intent(in)  :: sigma_naught,sigma_naughtdust,pindex,pindex_dust,ri
+subroutine get_dust_to_gas_ratio(dust_to_gas,R,iprofilegas,iprofiledust,pindex,pindex_dust,&
+                                 sigma_ref,sigma_ref_dust,R_in,R_ref,R_c,R_indust,R_ref_dust,R_c_dust)
+ real,           intent(in)  :: R,sigma_ref,sigma_ref_dust,pindex,pindex_dust,R_in,R_ref,R_indust,R_ref_dust
  real, optional, intent(in)  :: R_c,R_c_dust
- real,           intent(out) :: id2g
  integer,        intent(in)  :: iprofilegas,iprofiledust
+ real,           intent(out) :: dust_to_gas
+ real :: sigma_gas,sigma_dust
 
- if (iprofilegas==0)then
-    if (iprofiledust==0)then
-       id2g=(sigma_naughtdust/sigma_naught)*(ri**(-pindex_dust))/(ri**(-pindex))
-    else
-       id2g=(sigma_naughtdust/sigma_naught)*&
-             (((ri/R_c_dust)**(-pindex_dust))*exp(-(ri/R_c_dust)**(2.-pindex_dust)))/(ri**(-pindex))
-    endif
- else
-    if (iprofiledust==0)then
-       id2g=(sigma_naughtdust/sigma_naught)*(ri**(-pindex_dust))/(((ri/R_c)**(-pindex))*exp(-(ri/R_c)**(2.-pindex)))
-    else
-       id2g=(sigma_naughtdust/sigma_naught)*(((ri/R_c_dust)**(-pindex_dust))*exp(-(ri/R_c_dust)**(2.-pindex_dust)))/&
-            (((ri/R_c)**(-pindex))*exp(-(ri/R_c)**(2.-pindex)))
-    endif
- endif
+ sigma_dust = dimensionless_sigma(R,iprofiledust,pindex_dust,R_indust,R_ref_dust,R_c_dust)
+ sigma_gas  = dimensionless_sigma(R,iprofilegas,pindex,R_in,R_ref,R_c)
+ dust_to_gas = sigma_dust/sigma_gas * sigma_ref_dust/sigma_ref
 
-end subroutine get_d2gratio
+end subroutine get_dust_to_gas_ratio
 
 pure subroutine rotate(xyz,cosi,sini)
  real, intent(inout) :: xyz(3)
