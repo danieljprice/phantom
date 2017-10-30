@@ -163,7 +163,7 @@ subroutine set_flyby(mprimary,massratio,dma,n0, &
 end subroutine set_flyby
 
 !--------------------------------------------
-! Rotation around the x-axis (roll angle)
+! Rotation around the y-axis (roll angle)
 !--------------------------------------------
 pure subroutine rotate(xyz,cosi,sini)
  real, intent(inout) :: xyz(3)
@@ -173,9 +173,9 @@ pure subroutine rotate(xyz,cosi,sini)
  xi = xyz(1)
  yi = xyz(2)
  zi = xyz(3)
- xyz(1) =  xi
- xyz(2) =  yi*cosi - zi*sini
- xyz(3) =  yi*sini + zi*cosi
+ xyz(1) =  xi*cosi + zi*sini  !xi
+ xyz(2) =  yi                 !yi*cosi - zi*sini
+ xyz(3) =  -xi*sini + zi*cosi !yi*sini + zi*cosi
 
 end subroutine rotate
 
@@ -187,8 +187,8 @@ function get_T_flyby(m1,m2,a,n0) result(T)
  real :: T,m
 
  m = 2*sqrt(n0-1.0)
- T = ( 2*a**2 * (8./3. - m + m**3/12) ) / sqrt(2*(m1+m2)*a)
-
+ T = ( 4*a**2 * (8./3. - m + m**3/12) ) / sqrt(2*(m1+m2)*a)
+ 
 end function get_T_flyby
 
 end module setflyby
