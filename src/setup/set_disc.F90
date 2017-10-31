@@ -292,9 +292,9 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  endif
 
  if (present(sig_ref)) then
-    sig0                             = sig_ref*R_ref**p_index
-    if (do_sigmapringle)        sig0 = sig0*exp((R_ref/rc0)**(2-p_index)-(1/rc0)**(2-p_index))
-    if (smooth_surface_density) sig0 = sig0*(1-sqrt(R_in))/(1-sqrt(R_in/R_ref))
+    !--sig_ref only returns correct mass for power law
+    call warning('set_disc','sig_ref only returns correct mass for power law')
+    sig0 = sig_ref*R_ref**p_index
     call get_disc_mass(sig0,do_sigmapringle,rc0,p_index,smooth_surface_density,cs0,q_index,star_m,G, &
                        r_in,r_out,Q,disc_m,maxbins,enc_m,r_c)
  else

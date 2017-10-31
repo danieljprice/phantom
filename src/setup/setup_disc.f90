@@ -898,6 +898,7 @@ end subroutine read_setupfile
 !
 !------------------------------------------------------------------------
 function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_c) result(sigma)
+ use io, only:fatal
  real,           intent(in)  :: R,R_ref,pindex
  real, optional, intent(in)  :: R_in,R_c
  integer,        intent(in)  :: sigmaprofile
@@ -913,9 +914,13 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_c) result(sigma)
     sigma = (R/R_ref)**(-pindex)*exp((R_ref/R_c)**(2-pindex)-(R/R_c)**(2-pindex))
  case (2)
     !--smoothed power law
+    if (.not.(R_in < R_ref)) call fatal('setup_disc',&
+       'if using smoothed profile AND specifying sigma_ref: R_in must be strictly less than R_ref')
     sigma = (R/R_ref)**(-pindex)*(1-sqrt(R_in/R))/(1-sqrt(R_in/R_ref))
  case (3)
     !--both smoothed and tapered
+    if (.not.(R_in < R_ref)) call fatal('setup_disc',&
+       'if using smoothed profile AND specifying sigma_ref: R_in must be strictly less than R_ref')
     sigma = (R/R_ref)**(-pindex)*exp((R_ref/R_c)**(2-pindex)-(R/R_c)**(2-pindex))*&
             (1-sqrt(R_in/R))/(1-sqrt(R_in/R_ref))
  end select
