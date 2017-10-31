@@ -18,8 +18,8 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    H_R               -- H/R at R=Rin
-!    H_R_dust          -- H/R at R=Rin
+!    H_R               -- H/R at R=Rref
+!    H_R_dust          -- H/R at R=Rref
 !    R_c               -- characteristic radius of the exponential taper
 !    R_c_dust          -- characteristic radius of the exponential taper
 !    R_in              -- inner radius
@@ -61,7 +61,7 @@
 !    qindex            -- q index
 !    qindex_dust       -- q index
 !    setplanets        -- add planets? (0=no,1=yes)
-!    sigma_naught      -- Sigma0 of the disc profile Sigma = Sigma0*(R/Rc)^-p*Exp(-(R/Rc)^(2-p))
+!    sigma_ref         -- sigma at R=Rref
 !    xinc              -- inclination angle
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, externalforces,
@@ -73,8 +73,8 @@ module setup
  use dim,            only:maxp,use_dust,use_dustfrac,maxalpha
  implicit none
  public :: setpart
- real :: R_in,R_out,xinc,disc_m,pindex,qindex,pindex_dust,qindex_dust
- real :: H_R,H_R_dust,sigma_naught,grainsizeinp,graindensinp
+ real :: R_in,R_out,R_ref,xinc,disc_m,pindex,qindex,pindex_dust,qindex_dust
+ real :: H_R,H_R_dust,sigma_ref,grainsizeinp,graindensinp
  real :: disc_mdust,dust_to_gas_ratio,R_outdust,R_indust,R_c,R_c_dust
  integer, parameter :: maxplanets = 9
  real    :: mplanet(maxplanets),rplanet(maxplanets),accrplanet(maxplanets),inclplan(maxplanets)
@@ -124,7 +124,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  character(len=100)               :: filename
  logical :: iexist,questplanets
- real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest,idust_to_gas_ratio,ri,sigma_naughtdust,period
+ real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
+ real    :: idust_to_gas_ratio,ri,sigma_refdust,period
  real    :: sini,cosi,polyk_dust
  integer :: ierr,j
 
@@ -215,6 +216,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     R_in            = 1.
     R_out           = 150.
+    R_ref           = R_in
     R_c             = 0.
     mass_set        = 0
     iprofilegas     = 0
@@ -222,8 +224,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ismoothgas      = .false.
     sigmaprofilegas = 0
     !--todo: add circumprimary & circumsecondary discs
-    call prompt('How do you want to set the gas disc mass? (0=disc mass, 1=surface density, 2=Toomre Q (not yet implemented))'&
-                ,mass_set,0,2)
+    call prompt('How do you want to set the gas disc mass? (0=disc mass, 1=surface density)',mass_set,0,2)
     call prompt('Do you want to exponentially taper the outer gas disc profile?',itapergas)
     call prompt('Do you want to smooth the inner gas disc profile?',ismoothgas)
     if (itapergas) then
@@ -237,11 +238,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     case(0)
        disc_m = 0.05
     case(1)
-       !--todo: set sigma and H_R by value at a reference radius
-       sigma_naught = 1.0E-02
-    case(2)
-       print "(a)",'Toomre Q not yet implemented'
-       stop
+       sigma_ref = 1.0E-02
     end select
     pindex  = 1.
     qindex  = 0.25
@@ -369,7 +366,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  end select
 
  !--compute the mass of the gas disc if mass_set=1
- if(mass_set==1) call sigma_ref_to_mass(sigma_naught,sigmaprofilegas,pindex,R_in,R_out,R_in,R_c,disc_m)
+ if(mass_set==1) call sigma_ref_to_mass(sigma_ref,sigmaprofilegas,pindex,R_in,R_out,R_ref,R_c,disc_m)
 
  !
  !--setup disc(s)
@@ -389,6 +386,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              mixture          = .true.,             &
              npart            = npartoftype(itype), &
              npart_start      = npart_inter,        &
+             rref             = R_ref,              &
              rmin             = R_in,               &
              rmax             = R_out,              &
              rmindust         = R_indust,           &
@@ -415,16 +413,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              inclination      = xinc,               &
              twist            = .false.,            &
              prefix           = fileprefix)
-    if (mass_set==0) call mass_to_sigma_ref(disc_m,sigmaprofilegas,pindex,R_in,R_out,R_in,R_c,sigma_naught)
+    !--set dustfrac
+    if (mass_set==0) call mass_to_sigma_ref(disc_m,sigmaprofilegas,pindex,R_in,R_out,R_ref,R_c,sigma_ref)
     call mass_to_sigma_ref(disc_m*dust_to_gas_ratio,sigmaprofiledust,pindex_dust,&
-                           R_indust,R_outdust,R_indust,R_c_dust,sigma_naughtdust)
+                           R_indust,R_outdust,R_ref,R_c_dust,sigma_refdust)
     do i=1,npart
        Ri = sqrt(dot_product(xyzh(1:2,i),xyzh(1:2,i)))
        if (Ri<R_indust .or. Ri>R_outdust) then
           idust_to_gas_ratio = 0.
        else
           call get_dust_to_gas_ratio(idust_to_gas_ratio,Ri,sigmaprofilegas,sigmaprofiledust,pindex,pindex_dust,&
-                                     sigma_naught,sigma_naughtdust,R_in,R_in,R_c,R_indust,R_indust,R_c_dust)
+                                     sigma_ref,sigma_refdust,R_in,R_ref,R_c,R_indust,R_c_dust)
        endif
        call set_dustfrac(idust_to_gas_ratio,dustfrac(i))
     enddo
@@ -434,6 +433,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              npart           = npartoftype(itype), &
              npart_start     = npart_inter,        &
              particle_type   = itype,              &
+             rref            = R_ref,              &
              rmin            = R_in,               &
              rmax            = R_out,              &
              indexprofile    = iprofilegas,        &
@@ -462,6 +462,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                    npart         = npartoftype(itype), &
                    npart_start   = npart_inter,        &
                    particle_type = itype,              &
+                   rref          = R_ref,              &
                    rmin          = R_indust,           &
                    rmax          = R_outdust,          &
                    indexprofile  = iprofiledust,       &
@@ -582,6 +583,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  return
 end subroutine setpart
 
+!------------------------------------------------------------------------
+!
+! write setup file
+!
+!------------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
@@ -641,33 +647,24 @@ subroutine write_setupfile(filename)
  end select
  !--gas disc
  write(iunit,"(/,a)") '# options for gas accretion disc'
- call write_inopt(mass_set,'mass_set',&
-     'how to set gas density profile (0=disc mass, 1=surface density, 2=Toomre Q (not yet implemented))',iunit)
+ call write_inopt(mass_set,'mass_set','how to set gas density profile (0=disc mass,1=surface density)',iunit)
  call write_inopt(itapergas,'itapergas','exponentially taper the outer disc profile',iunit)
  call write_inopt(ismoothgas,'ismoothgas','smooth the inner disc profile',iunit)
  call write_inopt(R_in,'R_in','inner radius',iunit)
  call write_inopt(R_out,'R_out','outer radius',iunit)
+ call write_inopt(R_ref,'R_ref','reference radius',iunit)
+ if (iprofilegas==1) call write_inopt(R_c,'R_c','characteristic radius of the exponential taper',iunit)
  select case(mass_set)
  case(0)
-    if (iprofilegas==1) call write_inopt(R_c,'R_c','characteristic radius of the exponential taper',iunit)
     call write_inopt(disc_m,'disc_m','disc mass',iunit)
-    call write_inopt(pindex,'pindex','p index',iunit)
  case(1)
-    if (iprofilegas==0)then
-       call write_inopt(sigma_naught,'sigma_naught','Sigma0 of the disc profile Sigma = Sigma0*R^-p',iunit)
-    else
-       call write_inopt(R_c,'R_c','characteristic radius of the exponential taper',iunit)
-       call write_inopt(sigma_naught,'sigma_naught','Sigma0 of the disc profile Sigma = Sigma0*(R/Rc)^-p*Exp(-(R/Rc)^(2-p))',iunit)
-    endif
-    call write_inopt(pindex,'pindex','p index',iunit)
- case(2)
-    print "(a)",'Toomre Q not yet implemented'
-    stop
+    call write_inopt(sigma_ref,'sigma_ref','sigma at R=Rref',iunit)
  end select
+ call write_inopt(pindex,'pindex','p index',iunit)
  call write_inopt(qindex,'qindex','q index',iunit)
  if(maxalpha==0) call write_inopt(alphaSS,'alphaSS','desired alphaSS',iunit)
  call write_inopt(xinc,'xinc','inclination angle',iunit)
- call write_inopt(H_R,'H_R','H/R at R=Rin',iunit)
+ call write_inopt(H_R,'H_R','H/R at R=Rref',iunit)
  !--dust disc
  if (use_dust) then
     write(iunit,"(/,a)") '# options for dust accretion disc'
@@ -683,7 +680,7 @@ subroutine write_setupfile(filename)
        call write_inopt(pindex_dust,'pindex_dust','p index',iunit)
        if (.not. use_dustfrac) then
           call write_inopt(qindex_dust,'qindex_dust','q index',iunit)
-          call write_inopt(H_R_dust,'H_R_dust','H/R at R=Rin',iunit)
+          call write_inopt(H_R_dust,'H_R_dust','H/R at R=Rref',iunit)
        endif
     end select
     call write_inopt(grainsizeinp,'grainsizeinp','grain size (in cm)',iunit)
@@ -718,6 +715,11 @@ subroutine write_setupfile(filename)
 
 end subroutine write_setupfile
 
+!------------------------------------------------------------------------
+!
+! read setup file
+!
+!------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error
@@ -795,28 +797,24 @@ subroutine read_setupfile(filename,ierr)
  !--gas disc
  call read_inopt(R_in,'R_in',db,min=0.,errcount=nerr)
  call read_inopt(R_out,'R_out',db,min=R_in,errcount=nerr)
+ call read_inopt(R_ref,'R_ref',db,min=R_in,errcount=nerr)
  call read_inopt(itapergas,'itapergas',db,errcount=nerr)
  call read_inopt(ismoothgas,'ismoothgas',db,errcount=nerr)
  call read_inopt(mass_set,'mass_set',db,min=0,max=2,errcount=nerr)
  if (itapergas) then
     iprofilegas = 1
     sigmaprofilegas = 1
+    call read_inopt(R_c,'R_c',db,min=0.,errcount=nerr)
  endif
  if (ismoothgas) sigmaprofilegas = 2
  if (itapergas .and. ismoothgas) sigmaprofilegas = 3
  select case(mass_set)
  case(0)
     call read_inopt(disc_m,'disc_m',db,min=0.,errcount=nerr)
-    call read_inopt(pindex,'pindex',db,errcount=nerr)
-    if (iprofilegas==1) call read_inopt(R_c,'R_c',db,min=0.,errcount=nerr)
  case(1)
-    call read_inopt(sigma_naught,'sigma_naught',db,min=0.,errcount=nerr)
-    call read_inopt(pindex,'pindex',db,errcount=nerr)
-    if (iprofilegas==1) call read_inopt(R_c,'R_c',db,min=0.,errcount=nerr)
- case(2)
-    print "(a)",'Toomre Q not yet implemented'
-    stop
+    call read_inopt(sigma_ref,'sigma_ref',db,min=0.,errcount=nerr)
  end select
+ call read_inopt(pindex,'pindex',db,errcount=nerr)
  call read_inopt(qindex,'qindex',db,errcount=nerr)
  if(maxalpha==0) call read_inopt(alphaSS,'alphaSS',db,min=0.,errcount=nerr)
  call read_inopt(xinc,'xinc',db,min=0.,max=180.,errcount=nerr)
@@ -838,12 +836,15 @@ subroutine read_setupfile(filename,ierr)
        sigmaprofiledust = sigmaprofilegas
        R_c_dust         = R_c
     case(1)
+       call read_inopt(R_indust,'R_indust',db,min=R_in,errcount=nerr)
+       call read_inopt(R_outdust,'R_outdust',db,min=R_indust,max=R_out,errcount=nerr)
+       call read_inopt(pindex_dust,'pindex_dust',db,errcount=nerr)
        call read_inopt(itaperdust,'itaperdust',db,errcount=nerr)
        call read_inopt(ismoothdust,'ismoothdust',db,errcount=nerr)
-       call read_inopt(pindex_dust,'pindex_dust',db,errcount=nerr)
        if (itaperdust) then
           iprofiledust = 1
           sigmaprofiledust = 1
+          call read_inopt(R_c_dust,'R_c_dust',db,min=0.,errcount=nerr)
        endif
        if (ismoothdust) sigmaprofiledust = 2
        if (itaperdust .and. ismoothdust) sigmaprofiledust = 3
@@ -852,14 +853,6 @@ subroutine read_setupfile(filename,ierr)
           if (ierr /= 0) qindex_dust = qindex
           call read_inopt(H_R_dust,'H_R_dust',db,min=0.,err=ierr,errcount=nerr)
           if (ierr /= 0) H_R_dust = H_R
-       endif
-       if (iprofiledust==1) call read_inopt(R_c_dust,'R_c_dust',db,min=0.,errcount=nerr)
-       if (use_dustfrac) then
-          call read_inopt(R_indust,'R_indust',db,min=R_in,errcount=nerr)
-          call read_inopt(R_outdust,'R_outdust',db,min=R_indust,max=R_out,errcount=nerr)
-       else
-          call read_inopt(R_indust,'R_indust',db,min=0.,errcount=nerr)
-          call read_inopt(R_outdust,'R_outdust',db,min=R_indust,errcount=nerr)
        endif
     end select
     call read_inopt(grainsizeinp,'grainsizeinp',db,min=0.,errcount=nerr)
@@ -890,13 +883,23 @@ subroutine read_setupfile(filename,ierr)
 
 end subroutine read_setupfile
 
-!--subroutine for reading old options for backwards compatibility
-! subroutine read_obsolete_setup_options(db)
-! end subroutine read_obsolete_setup_options
+!------------------------------------------------------------------------
+!
+! subroutine for reading old options for backwards compatibility
+!
+!------------------------------------------------------------------------
+!subroutine read_obsolete_setup_options(db)
+!end subroutine read_obsolete_setup_options
 
-function dimensionless_sigma(R,sigmaprofile,pindex,R_in,R_ref,R_c) result(sigma)
- real,           intent(in)  :: R,pindex,R_in,R_ref
- real, optional, intent(in)  :: R_c
+!------------------------------------------------------------------------
+!
+! returns surface density (sigma) at any value of R for a given profile
+! (scaled by the value at R=R_ref)
+!
+!------------------------------------------------------------------------
+function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_c) result(sigma)
+ real,           intent(in)  :: R,R_ref,pindex
+ real, optional, intent(in)  :: R_in,R_c
  integer,        intent(in)  :: sigmaprofile
  real :: sigma
 
@@ -906,38 +909,51 @@ function dimensionless_sigma(R,sigmaprofile,pindex,R_in,R_ref,R_c) result(sigma)
     sigma = (R/R_ref)**(-pindex)
  case (1)
     !--exponentially tapered power law
-    sigma = (R/R_c)**(-pindex)*exp(-(R/R_c)**(2-pindex))
+    sigma = (R/R_ref)**(-pindex)*exp((R_ref/R_c)**(2-pindex)-(R/R_c)**(2-pindex))
  case (2)
     !--smoothed power law
-    sigma = (R/R_ref)**(-pindex)*(1-sqrt(R_in/R))
+    sigma = (R/R_ref)**(-pindex)*(1-sqrt(R_in/R))/(1-sqrt(R_in/R_ref))
  case (3)
     !--both smoothed and tapered
-    sigma = (R/R_c)**(-pindex)*exp(-(R/R_c)**(2-pindex))*(1-sqrt(R_in/R))
+    sigma = (R/R_ref)**(-pindex)*exp((R_ref/R_c)**(2-pindex)-(R/R_c)**(2-pindex))*&
+            (1-sqrt(R_in/R))/(1-sqrt(R_in/R_ref))
  end select
 
-end function dimensionless_sigma
+end function scaled_sigma
 
-function dimensionless_mass(sigmaprofile,pindex,R_in,R_out,R_ref,R_c) result(mass)
+!------------------------------------------------------------------------
+!
+! returns integrated surface density (sigma) over R=R_in to R_out
+! (scaled by the value at R=R_ref)
+!
+!------------------------------------------------------------------------
+function integrated_scaled_sigma(sigmaprofile,pindex,R_in,R_out,R_ref,R_c) result(mass)
  use physcon, only:pi
  real,           intent(in)  :: pindex,R_in,R_out,R_ref
  real, optional, intent(in)  :: R_c
  integer,        intent(in)  :: sigmaprofile
 
- integer, parameter     :: nbins=100000
- real, dimension(nbins) :: integrand
- real    :: R,mass,sigma
+ integer, parameter :: nbins=100000
+ real    :: dr,dM,R,mass,sigma
  integer :: i
 
+ mass = 0.
+ dR = (R_out-R_in)/real(nbins-1)
  do i=1,nbins
-    R = R_in + i*(R_out-R_in)/nbins
-    sigma = dimensionless_sigma(R,sigmaprofile,pindex,R_in,R_ref,R_c)
-    integrand(i) = 2*pi*R*sigma
+    R = R_in + (i-1)*dR
+    sigma = scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_c)
+    dM    = 2.*pi*R*sigma*dR
+    mass  = mass + dM
  enddo
- mass = sum(integrand)*(R_out-R_in)/nbins !--Riemann sum
- mass = mass/R_ref**2 !--make dimensionless
 
-end function dimensionless_mass
+end function integrated_scaled_sigma
 
+!------------------------------------------------------------------------
+!
+! converts disc mass to sigma (at R=R_ref) for a given surface density
+! profile and R_in and R_out
+!
+!------------------------------------------------------------------------
 subroutine mass_to_sigma_ref(disc_m,sigmaprofile,pindex,R_in,R_out,R_ref,R_c,sigma_ref)
  real,           intent(in)  :: disc_m,pindex,R_in,R_out,R_ref
  real, optional, intent(in)  :: R_c
@@ -945,11 +961,17 @@ subroutine mass_to_sigma_ref(disc_m,sigmaprofile,pindex,R_in,R_out,R_ref,R_c,sig
  real,           intent(out) :: sigma_ref
  real :: mass
 
- mass = dimensionless_mass(sigmaprofile,pindex,R_in,R_out,R_ref,R_c)
- sigma_ref = (disc_m/R_ref**2)/mass
+ mass = integrated_scaled_sigma(sigmaprofile,pindex,R_in,R_out,R_ref,R_c)
+ sigma_ref = disc_m/mass
 
 end subroutine mass_to_sigma_ref
 
+!------------------------------------------------------------------------
+!
+! converts sigma (at R=R_ref) to disc mass for a given surface density
+! profile and R_in and R_out
+!
+!------------------------------------------------------------------------
 subroutine sigma_ref_to_mass(sigma_ref,sigmaprofile,pindex,R_in,R_out,R_ref,R_c,disc_m)
  real,           intent(in)  :: sigma_ref,pindex,R_in,R_out,R_ref
  real, optional, intent(in)  :: R_c
@@ -957,27 +979,37 @@ subroutine sigma_ref_to_mass(sigma_ref,sigmaprofile,pindex,R_in,R_out,R_ref,R_c,
  real,           intent(out) :: disc_m
  real :: mass
 
- mass = dimensionless_mass(sigmaprofile,pindex,R_in,R_out,R_ref,R_c)
- disc_m = (sigma_ref*R_ref**2)*mass
+ mass = integrated_scaled_sigma(sigmaprofile,pindex,R_in,R_out,R_ref,R_c)
+ disc_m = sigma_ref*mass
 
 end subroutine sigma_ref_to_mass
 
+!------------------------------------------------------------------------
+!
+! calculates dust-to-gas ratio at a particular value of R
+!
+!------------------------------------------------------------------------
 subroutine get_dust_to_gas_ratio(dust_to_gas,R,sigmaprofilegas,sigmaprofiledust,&
                                  pindex,pindex_dust,sigma_ref,sigma_ref_dust,&
-                                 R_in,R_ref,R_c,R_indust,R_ref_dust,R_c_dust)
+                                 R_in,R_ref,R_c,R_indust,R_c_dust)
  real,           intent(in)  :: R,sigma_ref,sigma_ref_dust,pindex,pindex_dust
- real,           intent(in)  :: R_in,R_ref,R_indust,R_ref_dust
+ real,           intent(in)  :: R_ref,R_in,R_indust
  real, optional, intent(in)  :: R_c,R_c_dust
  integer,        intent(in)  :: sigmaprofilegas,sigmaprofiledust
  real,           intent(out) :: dust_to_gas
  real :: sigma_gas,sigma_dust
 
- sigma_dust = dimensionless_sigma(R,sigmaprofiledust,pindex_dust,R_indust,R_ref_dust,R_c_dust)
- sigma_gas  = dimensionless_sigma(R,sigmaprofilegas,pindex,R_in,R_ref,R_c)
- dust_to_gas = sigma_dust/sigma_gas * sigma_ref_dust/sigma_ref
+ sigma_dust  = scaled_sigma(R,sigmaprofiledust,pindex_dust,R_ref,R_indust,R_c_dust)
+ sigma_gas   = scaled_sigma(R,sigmaprofilegas,pindex,R_ref,R_in,R_c)
+ dust_to_gas = (sigma_ref_dust*sigma_dust)/(sigma_gas*sigma_ref)
 
 end subroutine get_dust_to_gas_ratio
 
+!------------------------------------------------------------------------
+!
+! rotate
+!
+!------------------------------------------------------------------------
 pure subroutine rotate(xyz,cosi,sini)
  real, intent(inout) :: xyz(3)
  real, intent(in)    :: cosi,sini

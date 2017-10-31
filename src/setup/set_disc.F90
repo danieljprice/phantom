@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS:
 !    G           -- in code units
-!    H_R         -- disc aspect ratio H/R at R=R_in
+!    H_R         -- disc aspect ratio H/R at R=R_ref
 !    M_disc      -- disc mass
 !    M_star      -- mass of central star
 !    Qmin        -- minimum Toomre Q parameter
@@ -26,7 +26,7 @@
 !    R_in        -- inner disc boundary
 !    R_out       -- outer disc boundary
 !    R_warp      -- position of warp
-!    Rref        -- reference radius
+!    R_ref       -- reference radius
 !    Sig0        -- surface density at R=1
 !    T_in        -- temperature (K) at R=R_in
 !    T_out       -- temperature (K) at R=R_out
@@ -63,7 +63,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
                     indexprofile,indexprofiledust,rc,rcdust,p_index,p_indexdust,q_index,HoverR,gamma,&
                     disc_Q,disc_mass,disc_massdust,sig_naught,star_mass,xyz_origin,vxyz_origin,&
                     particle_type,particle_mass,hfact,xyzh,vxyzu,polyk,inclination,sininclination,&
-                    twist,ismooth,alpha,isink,rwarp,warp_smoothl,bh_spin,R_ref,writefile,ierr,prefix,verbose)
+                    twist,ismooth,alpha,isink,rwarp,warp_smoothl,bh_spin,rref,writefile,ierr,prefix,verbose)
  use domain,  only:i_belong
  use physcon, only:pi,gg,c
  use units,   only:umass,udist,utime
@@ -84,7 +84,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  real, optional,              intent(in)    :: disc_Q,disc_mass,star_mass,sig_naught
  real, optional,              intent(in)    :: xyz_origin(3), vxyz_origin(3)
  integer, optional,           intent(in)    :: particle_type
- real, optional,              intent(in)    :: inclination,sininclination,rwarp,warp_smoothl,bh_spin,R_ref
+ real, optional,              intent(in)    :: inclination,sininclination,rwarp,warp_smoothl,bh_spin,rref
  logical, optional,           intent(in)    :: twist,ismooth,mixture
  real,                        intent(out)   :: xyzh(:,:)
  real,                        intent(out)   :: vxyzu(:,:)
@@ -98,22 +98,19 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  integer :: npart_set
  real    :: Q,Q_tmp,G,cs0,sig0,clight,sig0dust
  real    :: R_in,R_out,phi_min,phi_max,H_R,R_indust,R_outdust,p_inddust,rc0,rc0dust
- real    :: star_M,disc_M,rminav,rmaxav,honHmin,honHmax
+ real    :: star_m,disc_M,rminav,rmaxav,honHmin,honHmax
  real    :: honH,alphaSS_min,alphaSS_max
  real    :: xinclination,rwarpi,hwarp,rsi,rso,psimax,tempmassdust
  real    :: aspin
  real    :: enc_m(maxbins), r_c(maxbins)
- real    :: xorigini(3),vorigini(3),rref
+ real    :: xorigini(3),vorigini(3),R_ref
  logical :: do_twist,smooth_surface_density,do_write,do_sigmapringle,do_sigmapringledust,do_mixture
  logical :: do_verbose
-!
-!  Set problem parameters
-!
-! HoverR is at R=R_in - not at R=1
-! (if you would like it set at R=1 rather than R=R_in you must alter cs0 as described below)
-! HoverR is a function of radius depending on your choice of q_index
-!
- H_R            = HoverR
+
+ !
+ !--Set problem parameters
+ !
+ H_R            = HoverR ! HoverR is at R=R_ref (R_ref=R_in by default)
  R_in           = rmin
  R_out          = rmax
  R_indust       = rmin
@@ -125,9 +122,9 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
     p_inddust   = p_indexdust
  endif
  if (present(star_mass)) then
-    Star_M = star_mass
+    star_m = star_mass
  else
-    Star_M = 1.d0
+    star_m = 1.d0
  endif
  if (present(npart_start)) then
     npart_start_count = npart_start
@@ -193,10 +190,10 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
     aspin = 0.
  endif
  ! reference radius for normalisation of sigma, temperature profiles
- if (present(R_ref)) then
-    Rref = R_ref
+ if (present(rref)) then
+    R_ref = rref
  else
-    Rref = R_in
+    R_ref = R_in
  endif
  do_verbose = .true.
  if (present(verbose)) do_verbose = verbose
@@ -259,15 +256,11 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
        ieos = 3
     endif
  endif
-!
-! Set cs0 to give desired H/R
-!
-! Here is where cs0 is set such that H_R is H/R at R=R_ref
- cs0 = sqrt(1.0/Rref)*(H_R)*sqrt(G*Star_M)*(1.0/Rref)**(-q_index)
-! if you would like this defined at R=1 instead, uncomment this line (and comment out the above)
-! cs0 = (H_R)*sqrt(G*Star_M)
-! if you would like this defined at R=15 instead, uncomment this line (and comment out the above)
-! cs0 = sqrt(1.0/15.0)*(H_R)*sqrt(G*Star_M)*(1.0/15.0)**(-q_index)
+
+ !
+ !--cs0 is sound speed at R=1; H/R is at R=R_ref (R_ref=R_in by default)
+ !
+ cs0 = H_R*sqrt(G*star_m/R_ref)*R_ref**q_index
 
 ! set the surface density profile: default option is the power-law
  do_sigmapringle = .false.
@@ -299,15 +292,15 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  endif
 
  if (present(sig_naught)) then
-    sig0 = sig_naught*(1./Rref)**p_index
-    call get_disc_mass(sig0,do_sigmapringle,rc0,p_index,smooth_surface_density,cs0,q_index,star_M,G, &
+    sig0 = sig_naught*(1./R_ref)**p_index
+    call get_disc_mass(sig0,do_sigmapringle,rc0,p_index,smooth_surface_density,cs0,q_index,star_m,G, &
                        r_in,r_out,Q,disc_m,maxbins,enc_m,r_c)
  else
     sig0 = 1.d0
 !
 ! compute trial disc mass and Toomre Q
 !
-    call get_disc_mass(sig0,do_sigmapringle,rc0,p_index,smooth_surface_density,cs0,q_index,star_M,G, &
+    call get_disc_mass(sig0,do_sigmapringle,rc0,p_index,smooth_surface_density,cs0,q_index,star_m,G, &
                     r_in,r_out,Q_tmp,disc_m,maxbins,enc_m,r_c)
 !
 ! renormalise to give desired value
@@ -320,7 +313,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
 !
 ! recompute actual disc mass and Toomre Q
 !
-    call get_disc_mass(sig0,do_sigmapringle,rc0,p_index,smooth_surface_density,cs0,q_index,star_M,G, &
+    call get_disc_mass(sig0,do_sigmapringle,rc0,p_index,smooth_surface_density,cs0,q_index,star_m,G, &
                        r_in,r_out,Q,disc_m,maxbins,enc_m,r_c)
  endif
 
@@ -332,7 +325,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
     particle_mass = disc_m / dble(npart_set)
  else
     sig0dust = 1.d0
-    call get_disc_mass(sig0dust,do_sigmapringledust,rc0dust,p_inddust,smooth_surface_density,cs0,q_index,star_M,G, &
+    call get_disc_mass(sig0dust,do_sigmapringledust,rc0dust,p_inddust,smooth_surface_density,cs0,q_index,star_m,G, &
                     r_indust,r_outdust,Q_tmp,tempmassdust,maxbins,enc_m,r_c)
     sig0dust = sig0dust*disc_massdust/tempmassdust
 !
@@ -357,11 +350,11 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
 
  call set_disc_positions(npart_tot,npart_start_count,do_mixture,R_in,R_out,R_indust,R_outdust,phi_min,phi_max,&
                          sig0,sig0dust,do_sigmapringle,do_sigmapringledust,rc0,rc0dust,p_index,p_inddust,cs0,&
-                         q_index,star_M,G,particle_mass,hfact,smooth_surface_density,itype,xyzh,honH,do_verbose)
+                         q_index,star_m,G,particle_mass,hfact,smooth_surface_density,itype,xyzh,honH,do_verbose)
 !
 ! set velocities of particles in the disc
 !
- call set_disc_velocities_u(npart_tot,npart_start_count,itype,G,Star_M,aspin,&
+ call set_disc_velocities_u(npart_tot,npart_start_count,itype,G,star_m,aspin,&
                             clight,cs0,do_sigmapringle,p_index,q_index,gamma,r_in, &
                             maxbins,r_c,enc_m,smooth_surface_density,xyzh,vxyzu,ierror)
  if (ierror==1) then
@@ -387,10 +380,10 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  endif
  rmaxav = R_out
  if (present(rwarp)) then
-    call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart_set,H_R,q_index,Star_M,R_in,&
+    call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart_set,cs0,q_index,star_m,R_in,&
                   npart_start_count,npart_tot,do_verbose,rwarp)
  else
-    call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart_set,H_R,q_index,Star_M,R_in,&
+    call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart_set,cs0,q_index,star_m,R_in,&
                   npart_start_count,npart_tot,do_verbose)
  endif
 
@@ -479,23 +472,23 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
        else
           open(1,file=trim(prefix)//'.discparams',status='replace',form='formatted')
        endif
-       call write_discinfo(1,R_in,R_out,Rref,H_R,Q,npart,do_sigmapringle,rc0,p_index,q_index,star_m,disc_m,&
+       call write_discinfo(1,R_in,R_out,R_ref,Q,npart,do_sigmapringle,rc0,p_index,q_index,star_m,disc_m,&
              real(xinclination*180.0/pi),honH,sig0,cs0,alphaSS_min,alphaSS_max,rwarpi,psimax,itype)
        close(1)
        if (do_mixture) then
           open(1,file=trim(prefix)//'-'//trim(labeltype(idust))//'.discparams',status='replace',form='formatted')
-          call write_discinfo(1,R_indust,R_outdust,Rref,H_R,Q,npart,do_sigmapringledust,rc0dust,p_inddust,q_index,&
+          call write_discinfo(1,R_indust,R_outdust,R_ref,Q,npart,do_sigmapringledust,rc0dust,p_inddust,q_index,&
                star_m,disc_massdust,real(xinclination*180.0/pi),honH,sig0dust,cs0,alphaSS_min,alphaSS_max,rwarpi,psimax,idust)
           close(1)
        endif
     endif
     ! write disc parameters to screen
     if (do_verbose) then
-       call write_discinfo(stdout,R_in,R_out,Rref,H_R,Q,npart,do_sigmapringle,rc0,p_index,q_index,star_m,disc_m,&
+       call write_discinfo(stdout,R_in,R_out,R_ref,Q,npart,do_sigmapringle,rc0,p_index,q_index,star_m,disc_m,&
           real(xinclination*180.0/pi),honH,sig0,cs0,alphaSS_min,alphaSS_max,rwarpi,psimax,itype)
     endif
     if (do_mixture) then
-       call write_discinfo(stdout,R_indust,R_outdust,Rref,H_R,Q,npart,do_sigmapringledust,&
+       call write_discinfo(stdout,R_indust,R_outdust,R_ref,Q,npart,do_sigmapringledust,&
                            rc0dust,p_inddust,q_index,star_m,disc_massdust,real(xinclination*180.0/pi),&
                            honH,sig0dust,cs0,alphaSS_min,alphaSS_max,rwarpi,psimax,idust)
     endif
@@ -521,10 +514,10 @@ end function cs_func
 ! also returns table of enclosed mass enc_m(i) within a radius r_c(i)
 !
 !----------------------------------------------------------------
-subroutine get_disc_mass(sig0,do_sigmapringle,rc0,p_index,smooth_sigma,cs0,q_index,star_M,G,&
+subroutine get_disc_mass(sig0,do_sigmapringle,rc0,p_index,smooth_sigma,cs0,q_index,star_m,G,&
                               R_in,R_out,Q,disc_m,maxbins,enc_m,r_c)
  use physcon, only:pi
- real,    intent(in)  :: sig0,p_index,cs0,q_index,star_M,G,R_in,R_out,rc0
+ real,    intent(in)  :: sig0,p_index,cs0,q_index,star_m,G,R_in,R_out,rc0
  real,    intent(out) :: Q,disc_m
  integer, intent(in)  :: maxbins
  logical, intent(in)  :: do_sigmapringle,smooth_sigma
@@ -550,7 +543,7 @@ subroutine get_disc_mass(sig0,do_sigmapringle,rc0,p_index,smooth_sigma,cs0,q_ind
        sigma = sigma*(1.0d0-sqrt(R_in/r))
     endif
 ! -----------------------------------------------------
-    kappa  = sqrt(G*Star_M/r**3) ! epicyclic frequency = orbital freq if Keplerian
+    kappa  = sqrt(G*star_m/r**3) ! epicyclic frequency = orbital freq if Keplerian
     if (sigma > epsilon(sigma)) then
        Q      = min(Q,real(cs*kappa/(pi*G*sigma)))
     endif
@@ -559,7 +552,7 @@ subroutine get_disc_mass(sig0,do_sigmapringle,rc0,p_index,smooth_sigma,cs0,q_ind
     enc_m(i) = disc_m
     r_c(i)   = r+0.5d0*dr
  enddo
- enc_m(:) = enc_m(:) + star_M
+ enc_m(:) = enc_m(:) + star_m
 
 end subroutine get_disc_mass
 
@@ -571,7 +564,7 @@ end subroutine get_disc_mass
 !---------------------------------------------------------
 subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_in,R_out,R_indust,R_outdust,phi_min,phi_max,&
                               sig0,sig0dust,do_sigmapringle,do_sigmapringledust,rc0,rc0dust,p_index,p_inddust,cs0,&
-                              q_index,star_M,G,particle_mass,hfact,smooth_sigma,itype,xyzh,honH,verbose)
+                              q_index,star_m,G,particle_mass,hfact,smooth_sigma,itype,xyzh,honH,verbose)
  use domain,  only:i_belong
  use physcon, only:pi
  use part,    only:igas,set_particle_type
@@ -579,7 +572,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_in,R_out,
  use io,      only:fatal,id,master
  integer, intent(in)    :: npart_start_count,npart_tot
  real,    intent(in)    :: R_in,R_out,phi_min,phi_max
- real,    intent(in)    :: sig0,p_index,cs0,q_index,star_M,G,particle_mass,hfact
+ real,    intent(in)    :: sig0,p_index,cs0,q_index,star_m,G,particle_mass,hfact
  real,    intent(in)    :: R_indust,R_outdust,sig0dust,rc0,rc0dust,p_inddust
  logical, intent(in)    :: do_sigmapringle,smooth_sigma,do_mixture,do_sigmapringledust,verbose
  integer, intent(in)    :: itype
@@ -697,7 +690,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_in,R_out,
     cs = cs_func(cs0,r,q_index)
     ! Then pressure scale-height - multiplied by sqrt(2)
     ! for convenience in rhoz calc.
-    omega   = sqrt(G*Star_M/r**3)
+    omega   = sqrt(G*star_m/r**3)
     HH      = cs/omega
     HHsqrt2 = sqrt(2.0d0)*HH
 ! -----------------------------------------------
@@ -750,7 +743,7 @@ end subroutine set_disc_positions
 ! Set up the particle positions using a Monte Carlo approach
 !
 !----------------------------------------------------------------
-subroutine set_disc_velocities_u(npart_tot,npart_start_count,itype,G,Star_M,aspin,&
+subroutine set_disc_velocities_u(npart_tot,npart_start_count,itype,G,star_m,aspin,&
                                       clight,cs0,do_sigmapringle,p_index,q_index,gamma,r_in,&
                                       maxbins,r_c,enc_m,smooth_sigma,xyzh,vxyzu,ierr)
  use domain,         only:i_belong
@@ -759,7 +752,7 @@ subroutine set_disc_velocities_u(npart_tot,npart_start_count,itype,G,Star_M,aspi
  use externalforces, only:iext_lensethirring,iext_einsteinprec
  use io,             only:fatal
  integer, intent(in)    :: npart_tot,npart_start_count,itype,maxbins
- real,    intent(in)    :: G,Star_M,aspin,clight,cs0,p_index,q_index,gamma,r_in
+ real,    intent(in)    :: G,star_m,aspin,clight,cs0,p_index,q_index,gamma,r_in
  real,    intent(in)    :: r_c(maxbins),enc_m(maxbins)
  logical, intent(in)    :: do_sigmapringle,smooth_sigma
  real,    intent(in)    :: xyzh(:,:)
@@ -781,7 +774,7 @@ subroutine set_disc_velocities_u(npart_tot,npart_start_count,itype,G,Star_M,aspi
        !
        r    = sqrt(xyzh(1,ipart)**2 + xyzh(2,ipart)**2)
        phi  = atan2(xyzh(2,ipart),xyzh(1,ipart))
-       term = G*Star_M/r
+       term = G*star_m/r
        ! Need to declare iexternalforce before calling setdisc
        if (iexternalforce==11) term=term*(1.0 + (6.0/r)) ! assumes Rg=1.
        !
@@ -822,7 +815,7 @@ subroutine set_disc_velocities_u(npart_tot,npart_start_count,itype,G,Star_M,aspi
        if (aspin > tiny(aspin) .and. (iexternalforce==iext_lensethirring &
                                 .or. iexternalforce==iext_einsteinprec)) then
           ! this is Eq. 5.21 in Nealon (2013) multiplied by -r
-          term_bh = -2.*aspin*(G*Star_M/r)**2/clight**3
+          term_bh = -2.*aspin*(G*star_m/r)**2/clight**3
        endif
        !
        !  now solve quadratic equation for vphi
@@ -1021,7 +1014,7 @@ end function get_HonR
 !  Print useful information about the disc to the discparams file
 !
 !-----------------------------------------------------------------------------
-subroutine write_discinfo(iunit,R_in,R_out,Rref,H_R,Q,npart,do_sigmapringle,rc0,p_index,q_index,star_m,&
+subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,do_sigmapringle,rc0,p_index,q_index,star_m,&
                           disc_m,inclination,honH,sig0,cs0,alphaSS_min,alphaSS_max,R_warp,psimax,itype)
  use units,        only:umass,utime,udist
  use infile_utils, only:write_inopt
@@ -1030,22 +1023,21 @@ subroutine write_discinfo(iunit,R_in,R_out,Rref,H_R,Q,npart,do_sigmapringle,rc0,
  use eos,          only:get_temperature,init_eos,ieos
  use dim, only:maxvxyzu
  integer, intent(in) :: iunit,npart,itype
- real,    intent(in) :: R_in,R_out,Rref,H_R,Q,p_index,q_index,star_m,disc_m,inclination,honH,sig0,cs0
+ real,    intent(in) :: R_in,R_out,R_ref,Q,p_index,q_index,star_m,disc_m,inclination,honH,sig0,cs0
  real,    intent(in) :: alphaSS_min,alphaSS_max,R_warp,psimax,rc0
  logical, intent(in) :: do_sigmapringle
  integer :: ierr
- real :: T0
+ real :: T0,T_ref
  real, parameter :: vxyzutmp(maxvxyzu) = 0.
 
  write(iunit,"(/,a)") '# '//trim(labeltype(itype))//' disc parameters'
  call write_inopt(R_in,'R_in','inner disc boundary',iunit)
  call write_inopt(R_out,'R_out','outer disc boundary',iunit)
- call write_inopt(Rref,'Rref','reference radius',iunit)
+ call write_inopt(R_ref,'R_ref','reference radius',iunit)
  if (R_warp > 0.) call write_inopt(R_warp,'R_warp','position of warp',iunit)
  if (psimax > 0.) call write_inopt(psimax,'psi_max','maximum warp amplitude',iunit)
- call write_inopt(H_R,'H_R','disc aspect ratio H/R at R=R_in',iunit)
-! call write_inopt(get_HonR(R_in,cs0,q_index,star_m,1.),'H_R','disc aspect ratio H/R at R=R_in',iunit)
- call write_inopt(get_HonR(Rref,cs0,q_index,star_m,1.),'H/R (R=Rref)','disc aspect ratio H/R at R=Rref',iunit)
+ call write_inopt(get_HonR(R_in,cs0,q_index,star_m,1.),'H/R (R=R_in)','disc aspect ratio H/R at R=R_in',iunit)
+ call write_inopt(get_HonR(R_ref,cs0,q_index,star_m,1.),'H/R (R=R_ref)','disc aspect ratio H/R at R=R_ref',iunit)
  call write_inopt(get_HonR(R_out,cs0,q_index,star_m,1.),'H/R (R=R_out)','disc aspect ratio H/R at R=R_out',iunit)
  if (R_warp > 0.) then
     call write_inopt(get_HonR(R_warp,cs0,q_index,star_m,1.),'H/R (R=R_warp)','disc aspect ratio H/R at R=R_warp',iunit)
@@ -1068,10 +1060,10 @@ subroutine write_discinfo(iunit,R_in,R_out,Rref,H_R,Q,npart,do_sigmapringle,rc0,
  call init_eos(ieos,ierr)
  T0 = get_temperature(ieos,(/R_in,0.,0./),1.,vxyzutmp)
  call write_inopt(T0,'T_in','temperature (K) at R=R_in',iunit)
+ T_ref = get_temperature(ieos,(/R_ref,0.,0./),1.,vxyzutmp)
+ call write_inopt(T_ref,'T_ref','temperature (K) at R=R_ref',iunit)
  T0 = get_temperature(ieos,(/R_out,0.,0./),1.,vxyzutmp)
  call write_inopt(T0,'T_out','temperature (K) at R=R_out',iunit)
- T0 = get_temperature(ieos,(/Rref,0.,0./),1.,vxyzutmp)
-! call write_inopt(T0,'T_ref','temperature (K) at R=R_ref',iunit)
  call write_inopt(inclination,'inc.deg','disc inclination in degrees',iunit)
  call write_inopt(honH,'<h/H>','approx. mean smoothing length over disc scale height',iunit)
  call write_inopt(alphaSS_min,'alphaSS_min','minimum Shakura-Sunyaev alpha viscosity in disc',iunit)
@@ -1084,10 +1076,10 @@ subroutine write_discinfo(iunit,R_in,R_out,Rref,H_R,Q,npart,do_sigmapringle,rc0,
  write(iunit,*)
 
 ! print some of these diagnostics in more useful form
- write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a)") '# Temperature profile  = ',T0,'K (R/',Rref,')^(',-2.*q_index,')'
+ write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
  if (.not.do_sigmapringle) then
     write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,/)") '# Surface density      = ',&
-         sig0*(Rref)**(-p_index)*umass/udist**2,' g/cm^2 (R/',Rref,')^(',-p_index,')'
+         sig0*(R_ref)**(-p_index)*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,')'
  endif
 
  return
@@ -1102,7 +1094,7 @@ end subroutine write_discinfo
 !  Input:
 !   xyzh - positions and smoothing lengths
 !   rminav, rmaxav - rmin and rmax to perform calculation
-!   H_R - aspect ratio of disc at R=R_in
+!   cs0 - sound speed at R=1
 !   q_index - power-law index of temperature profile
 !   M_star - mass of star
 !   R_in - inner edge of disc
@@ -1112,19 +1104,19 @@ end subroutine write_discinfo
 !  Output:
 !   honHmin, honH, honHmax - max mean and min ratio of h/H within range of R
 !-----------------------------------------------------------------------------
-subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart,H_R,q_index,M_star,R_in,i1,i2,verbose,rwarp)
+subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart,cs0,q_index,M_star,R_in,i1,i2,verbose,rwarp)
  use domain,   only:i_belong
  use mpiutils, only:reduceall_mpi
  real,    intent(in)  :: xyzh(:,:)
  real,    intent(out) :: honHmax,honHmin,honH
  integer, intent(in)  :: npart,i1,i2
- real,    intent(in)  :: H_R,q_index,M_star,rminav,rmaxav,R_in
+ real,    intent(in)  :: cs0,q_index,M_star,rminav,rmaxav,R_in
  logical, intent(in)  :: verbose
  real,    intent(in), optional :: rwarp
 
  integer, parameter :: nr = 350
  integer :: i,ii,iwarp
- real :: G,rmin,rmax,dr,cs0,ri
+ real :: G,rmin,rmax,dr,ri
  real :: rad(nr),ninbin(nr),h_smooth(nr),cs(nr),H(nr),omega(nr)
  integer :: ipart
 
@@ -1147,9 +1139,6 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,npart,H_R,q_index,M_
 ! Initialise arrays to zero
  ninbin(:)=0
  h_smooth(:)=0.0
-
-! Set up cs0: cs = cs0 * R^-q
- cs0 = H_R * sqrt(G*M_star) * R_in**(q_index-0.5)
 
 ! And thus the sound speed array
  do i=1,nr
