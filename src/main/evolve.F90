@@ -586,6 +586,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        istepfrac = 0
        nmovedtot = 0
 #endif
+       !  print summary of energies and other useful values to the log file
+       if (id==master) call write_evlog(iprint)
        !
        !--if twallmax > 1s stop the run at the last full dump that will fit into the walltime constraint,
        !  based on the wall time between the last two dumps added to the current total walltime used.
@@ -622,10 +624,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
           tprint        = tzero  + dtmax
           noutput_dtmax = 1
        endif
-
-       !  print summary of energies and other useful values to the log file
-       if (id==master) call write_evlog(iprint)
-
     endif
 
 #ifdef CORRECT_BULK_MOTION
