@@ -903,6 +903,7 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_c) result(sigma)
  integer,        intent(in)  :: sigmaprofile
  real :: sigma
 
+ !--todo: accept any surface density profile
  select case (sigmaprofile)
  case (0)
     !--power law
@@ -925,6 +926,8 @@ end function scaled_sigma
 !
 ! returns integrated surface density (sigma) over R=R_in to R_out
 ! (scaled by the value at R=R_ref)
+!
+! for sigmaprofile see the function "scaled_sigma"
 !
 !------------------------------------------------------------------------
 function integrated_scaled_sigma(sigmaprofile,pindex,R_in,R_out,R_ref,R_c) result(mass)

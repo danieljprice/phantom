@@ -61,7 +61,7 @@ contains
 !----------------------------------------------------------------
 subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmindust,rmaxdust,phimin,phimax,&
                     indexprofile,indexprofiledust,rc,rcdust,p_index,p_indexdust,q_index,HoverR,gamma,&
-                    disc_Q,disc_mass,disc_massdust,sig_naught,star_mass,xyz_origin,vxyz_origin,&
+                    disc_Q,disc_mass,disc_massdust,sig_ref,star_mass,xyz_origin,vxyz_origin,&
                     particle_type,particle_mass,hfact,xyzh,vxyzu,polyk,inclination,sininclination,&
                     twist,ismooth,alpha,isink,rwarp,warp_smoothl,bh_spin,rref,writefile,ierr,prefix,verbose)
  use domain,  only:i_belong
@@ -81,7 +81,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  real, optional,              intent(in)    :: phimin,phimax
  real, optional,              intent(inout) :: alpha
  real,                        intent(in)    :: p_index,q_index,HoverR,gamma,hfact
- real, optional,              intent(in)    :: disc_Q,disc_mass,star_mass,sig_naught
+ real, optional,              intent(in)    :: disc_Q,disc_mass,star_mass,sig_ref
  real, optional,              intent(in)    :: xyz_origin(3), vxyz_origin(3)
  integer, optional,           intent(in)    :: particle_type
  real, optional,              intent(in)    :: inclination,sininclination,rwarp,warp_smoothl,bh_spin,rref
@@ -291,8 +291,10 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
     endif
  endif
 
- if (present(sig_naught)) then
-    sig0 = sig_naught*(1./R_ref)**p_index
+ if (present(sig_ref)) then
+    sig0                             = sig_ref*R_ref**p_index
+    if (do_sigmapringle)        sig0 = sig0*exp((R_ref/rc0)**(2-p_index)-(1/rc0)**(2-p_index))
+    if (smooth_surface_density) sig0 = sig0*(1-sqrt(R_in))/(1-sqrt(R_in/R_ref))
     call get_disc_mass(sig0,do_sigmapringle,rc0,p_index,smooth_surface_density,cs0,q_index,star_m,G, &
                        r_in,r_out,Q,disc_m,maxbins,enc_m,r_c)
  else
@@ -472,23 +474,28 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
        else
           open(1,file=trim(prefix)//'.discparams',status='replace',form='formatted')
        endif
-       call write_discinfo(1,R_in,R_out,R_ref,Q,npart,do_sigmapringle,rc0,p_index,q_index,star_m,disc_m,&
-             real(xinclination*180.0/pi),honH,sig0,cs0,alphaSS_min,alphaSS_max,rwarpi,psimax,itype)
+       call write_discinfo(1,R_in,R_out,R_ref,Q,npart,do_sigmapringle,smooth_surface_density,&
+                           rc0,p_index,q_index,star_m,disc_m,real(xinclination*180.0/pi),&
+                           honH,sig0,cs0,alphaSS_min,alphaSS_max,rwarpi,psimax,itype)
        close(1)
        if (do_mixture) then
           open(1,file=trim(prefix)//'-'//trim(labeltype(idust))//'.discparams',status='replace',form='formatted')
-          call write_discinfo(1,R_indust,R_outdust,R_ref,Q,npart,do_sigmapringledust,rc0dust,p_inddust,q_index,&
-               star_m,disc_massdust,real(xinclination*180.0/pi),honH,sig0dust,cs0,alphaSS_min,alphaSS_max,rwarpi,psimax,idust)
+          call write_discinfo(1,R_indust,R_outdust,R_ref,Q,npart,do_sigmapringledust,&
+                              smooth_surface_density,rc0dust,p_inddust,q_index,&
+                              star_m,disc_massdust,real(xinclination*180.0/pi),honH,&
+                              sig0dust,cs0,alphaSS_min,alphaSS_max,rwarpi,psimax,idust)
           close(1)
        endif
     endif
     ! write disc parameters to screen
     if (do_verbose) then
-       call write_discinfo(stdout,R_in,R_out,R_ref,Q,npart,do_sigmapringle,rc0,p_index,q_index,star_m,disc_m,&
-          real(xinclination*180.0/pi),honH,sig0,cs0,alphaSS_min,alphaSS_max,rwarpi,psimax,itype)
+       call write_discinfo(stdout,R_in,R_out,R_ref,Q,npart,do_sigmapringle,&
+                           smooth_surface_density,rc0,p_index,q_index,star_m,disc_m,&
+                           real(xinclination*180.0/pi),honH,sig0,cs0,alphaSS_min,&
+                           alphaSS_max,rwarpi,psimax,itype)
     endif
     if (do_mixture) then
-       call write_discinfo(stdout,R_indust,R_outdust,R_ref,Q,npart,do_sigmapringledust,&
+       call write_discinfo(stdout,R_indust,R_outdust,R_ref,Q,npart,do_sigmapringledust,smooth_surface_density,&
                            rc0dust,p_inddust,q_index,star_m,disc_massdust,real(xinclination*180.0/pi),&
                            honH,sig0dust,cs0,alphaSS_min,alphaSS_max,rwarpi,psimax,idust)
     endif
@@ -533,7 +540,7 @@ subroutine get_disc_mass(sig0,do_sigmapringle,rc0,p_index,smooth_sigma,cs0,q_ind
     r = R_in + (i-1)*dr
     cs = cs_func(cs0,r,q_index)
     if (do_sigmapringle) then
-       sigma=sig0*((r/rc0)**(-p_index))*exp(-(r/rc0)**(2.-p_index))
+       sigma = sig0*((r/rc0)**(-p_index))*exp(-(r/rc0)**(2.-p_index))
     else
        sigma = sig0*r**(-p_index)
     endif
@@ -547,7 +554,7 @@ subroutine get_disc_mass(sig0,do_sigmapringle,rc0,p_index,smooth_sigma,cs0,q_ind
     if (sigma > epsilon(sigma)) then
        Q      = min(Q,real(cs*kappa/(pi*G*sigma)))
     endif
-    dm     = 2.0d0*pi*r*sigma*dr
+    dm       = 2.0d0*pi*r*sigma*dr
     disc_m   = disc_m + dm
     enc_m(i) = disc_m
     r_c(i)   = r+0.5d0*dr
@@ -1014,8 +1021,9 @@ end function get_HonR
 !  Print useful information about the disc to the discparams file
 !
 !-----------------------------------------------------------------------------
-subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,do_sigmapringle,rc0,p_index,q_index,star_m,&
-                          disc_m,inclination,honH,sig0,cs0,alphaSS_min,alphaSS_max,R_warp,psimax,itype)
+subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,do_sigmapringle,smooth_surface_density,&
+                          rc0,p_index,q_index,star_m,disc_m,inclination,honH,sig0,cs0,&
+                          alphaSS_min,alphaSS_max,R_warp,psimax,itype)
  use units,        only:umass,utime,udist
  use infile_utils, only:write_inopt
  use physcon,      only:gg,c
@@ -1025,7 +1033,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,do_sigmapringle,rc0,p_i
  integer, intent(in) :: iunit,npart,itype
  real,    intent(in) :: R_in,R_out,R_ref,Q,p_index,q_index,star_m,disc_m,inclination,honH,sig0,cs0
  real,    intent(in) :: alphaSS_min,alphaSS_max,R_warp,psimax,rc0
- logical, intent(in) :: do_sigmapringle
+ logical, intent(in) :: do_sigmapringle,smooth_surface_density
  integer :: ierr
  real :: T0,T_ref
  real, parameter :: vxyzutmp(maxvxyzu) = 0.
@@ -1050,11 +1058,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,do_sigmapringle,rc0,p_i
  call write_inopt(star_m,'M_star','mass of central star',iunit)
  call write_inopt(disc_m,'M_disc','disc mass',iunit)
  call write_inopt(disc_m/star_m,'disc m/star m','relative disc mass',iunit)
- if (do_sigmapringle) then
-    call write_inopt(sig0,'Sig0','Sigma0 of the density profile Sigma = Sigma0*(R/Rc)^-p*Exp(-(R/Rc)^(2-p))',iunit)
- else
-    call write_inopt(sig0,'Sig0','surface density at R=1',iunit)
- endif
+ call write_inopt(sig0,'sig0','surface density at R=1',iunit)
  call write_inopt(cs0,'cs0','sound speed at R=1',iunit)
 
  call init_eos(ieos,ierr)
@@ -1077,7 +1081,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,do_sigmapringle,rc0,p_i
 
 ! print some of these diagnostics in more useful form
  write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
- if (.not.do_sigmapringle) then
+ if (.not.do_sigmapringle .and. .not.smooth_surface_density) then
     write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,/)") '# Surface density      = ',&
          sig0*(R_ref)**(-p_index)*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,')'
  endif
