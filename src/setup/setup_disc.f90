@@ -18,8 +18,8 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    H_R               -- H/R at R=Rref
-!    H_R_dust          -- H/R at R=Rref
+!    H_R               -- H/R at R=R_ref
+!    H_R_dust          -- H/R at R=R_ref
 !    R_c               -- characteristic radius of the exponential taper
 !    R_c_dust          -- characteristic radius of the exponential taper
 !    R_in              -- inner radius
@@ -61,7 +61,7 @@
 !    qindex            -- q index
 !    qindex_dust       -- q index
 !    setplanets        -- add planets? (0=no,1=yes)
-!    sigma_ref         -- sigma at R=Rref
+!    sigma_ref         -- sigma at R=R_ref
 !    xinc              -- inclination angle
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, externalforces,
@@ -70,7 +70,7 @@
 !+
 !--------------------------------------------------------------------------
 module setup
- use dim,            only:maxp,use_dust,use_dustfrac,maxalpha
+ use dim, only:maxp,use_dust,use_dustfrac,maxalpha
  implicit none
  public :: setpart
  real :: R_in,R_out,R_ref,xinc,disc_m,pindex,qindex,pindex_dust,qindex_dust
@@ -100,7 +100,7 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use eos,            only:isink,qfacdisc
- use setdisc,        only:set_disc
+ use setdisc,        only:set_disc,sigma_ref_to_mass,mass_to_sigma_ref
  use setbinary,      only:set_binary
  use setflyby,       only:set_flyby,get_T_flyby
  use part,           only:nptmass,xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,igas,idust,dustfrac
@@ -658,13 +658,13 @@ subroutine write_setupfile(filename)
  case(0)
     call write_inopt(disc_m,'disc_m','disc mass',iunit)
  case(1)
-    call write_inopt(sigma_ref,'sigma_ref','sigma at R=Rref',iunit)
+    call write_inopt(sigma_ref,'sigma_ref','sigma at R=R_ref',iunit)
  end select
  call write_inopt(pindex,'pindex','p index',iunit)
  call write_inopt(qindex,'qindex','q index',iunit)
  if(maxalpha==0) call write_inopt(alphaSS,'alphaSS','desired alphaSS',iunit)
  call write_inopt(xinc,'xinc','inclination angle',iunit)
- call write_inopt(H_R,'H_R','H/R at R=Rref',iunit)
+ call write_inopt(H_R,'H_R','H/R at R=R_ref',iunit)
  !--dust disc
  if (use_dust) then
     write(iunit,"(/,a)") '# options for dust accretion disc'
@@ -680,7 +680,7 @@ subroutine write_setupfile(filename)
        call write_inopt(pindex_dust,'pindex_dust','p index',iunit)
        if (.not. use_dustfrac) then
           call write_inopt(qindex_dust,'qindex_dust','q index',iunit)
-          call write_inopt(H_R_dust,'H_R_dust','H/R at R=Rref',iunit)
+          call write_inopt(H_R_dust,'H_R_dust','H/R at R=R_ref',iunit)
        endif
     end select
     call write_inopt(grainsizeinp,'grainsizeinp','grain size (in cm)',iunit)
@@ -893,113 +893,13 @@ end subroutine read_setupfile
 
 !------------------------------------------------------------------------
 !
-! returns surface density (sigma) at any value of R for a given profile
-! (scaled by the value at R=R_ref)
-!
-!------------------------------------------------------------------------
-function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_c) result(sigma)
- use io, only:fatal
- real,           intent(in)  :: R,R_ref,pindex
- real, optional, intent(in)  :: R_in,R_c
- integer,        intent(in)  :: sigmaprofile
- real :: sigma
-
- !--todo: accept any surface density profile
- select case (sigmaprofile)
- case (0)
-    !--power law
-    sigma = (R/R_ref)**(-pindex)
- case (1)
-    !--exponentially tapered power law
-    sigma = (R/R_ref)**(-pindex)*exp((R_ref/R_c)**(2-pindex)-(R/R_c)**(2-pindex))
- case (2)
-    !--smoothed power law
-    if (.not.(R_in < R_ref)) call fatal('setup_disc',&
-       'if using smoothed profile AND specifying sigma_ref: R_in must be strictly less than R_ref')
-    sigma = (R/R_ref)**(-pindex)*(1-sqrt(R_in/R))/(1-sqrt(R_in/R_ref))
- case (3)
-    !--both smoothed and tapered
-    if (.not.(R_in < R_ref)) call fatal('setup_disc',&
-       'if using smoothed profile AND specifying sigma_ref: R_in must be strictly less than R_ref')
-    sigma = (R/R_ref)**(-pindex)*exp((R_ref/R_c)**(2-pindex)-(R/R_c)**(2-pindex))*&
-            (1-sqrt(R_in/R))/(1-sqrt(R_in/R_ref))
- end select
-
-end function scaled_sigma
-
-!------------------------------------------------------------------------
-!
-! returns integrated surface density (sigma) over R=R_in to R_out
-! (scaled by the value at R=R_ref)
-!
-! for sigmaprofile see the function "scaled_sigma"
-!
-!------------------------------------------------------------------------
-function integrated_scaled_sigma(sigmaprofile,pindex,R_in,R_out,R_ref,R_c) result(mass)
- use physcon, only:pi
- real,           intent(in)  :: pindex,R_in,R_out,R_ref
- real, optional, intent(in)  :: R_c
- integer,        intent(in)  :: sigmaprofile
-
- integer, parameter :: nbins=100000
- real    :: dr,dM,R,mass,sigma
- integer :: i
-
- mass = 0.
- dR = (R_out-R_in)/real(nbins-1)
- do i=1,nbins
-    R = R_in + (i-1)*dR
-    sigma = scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_c)
-    dM    = 2.*pi*R*sigma*dR
-    mass  = mass + dM
- enddo
-
-end function integrated_scaled_sigma
-
-!------------------------------------------------------------------------
-!
-! converts disc mass to sigma (at R=R_ref) for a given surface density
-! profile and R_in and R_out
-!
-!------------------------------------------------------------------------
-subroutine mass_to_sigma_ref(disc_m,sigmaprofile,pindex,R_in,R_out,R_ref,R_c,sigma_ref)
- real,           intent(in)  :: disc_m,pindex,R_in,R_out,R_ref
- real, optional, intent(in)  :: R_c
- integer,        intent(in)  :: sigmaprofile
- real,           intent(out) :: sigma_ref
- real :: mass
-
- mass = integrated_scaled_sigma(sigmaprofile,pindex,R_in,R_out,R_ref,R_c)
- sigma_ref = disc_m/mass
-
-end subroutine mass_to_sigma_ref
-
-!------------------------------------------------------------------------
-!
-! converts sigma (at R=R_ref) to disc mass for a given surface density
-! profile and R_in and R_out
-!
-!------------------------------------------------------------------------
-subroutine sigma_ref_to_mass(sigma_ref,sigmaprofile,pindex,R_in,R_out,R_ref,R_c,disc_m)
- real,           intent(in)  :: sigma_ref,pindex,R_in,R_out,R_ref
- real, optional, intent(in)  :: R_c
- integer,        intent(in)  :: sigmaprofile
- real,           intent(out) :: disc_m
- real :: mass
-
- mass = integrated_scaled_sigma(sigmaprofile,pindex,R_in,R_out,R_ref,R_c)
- disc_m = sigma_ref*mass
-
-end subroutine sigma_ref_to_mass
-
-!------------------------------------------------------------------------
-!
 ! calculates dust-to-gas ratio at a particular value of R
 !
 !------------------------------------------------------------------------
 subroutine get_dust_to_gas_ratio(dust_to_gas,R,sigmaprofilegas,sigmaprofiledust,&
                                  pindex,pindex_dust,sigma_ref,sigma_ref_dust,&
                                  R_in,R_ref,R_c,R_indust,R_c_dust)
+ use setdisc, only:scaled_sigma
  real,           intent(in)  :: R,sigma_ref,sigma_ref_dust,pindex,pindex_dust
  real,           intent(in)  :: R_ref,R_in,R_indust
  real, optional, intent(in)  :: R_c,R_c_dust
