@@ -205,6 +205,7 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
  if (present(getj)) get_j = getj
 
  if (present(f)) then
+    fgrav_global = 0.0
 #ifdef MPI
     if (present(remote_export)) then
        remote_export = .false.
