@@ -379,7 +379,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        if (.not. do_export) then
 #endif
           call store_results(cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                              straintensor,vxyzu,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+                             straintensor,vxyzu,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
 #ifdef MPI
           nlocal = nlocal + 1
        endif
@@ -483,7 +483,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              stack_redo%cells(cell%waiting_index) = cell
           else
              call store_results(cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                                 straintensor,vxyzu,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+                                straintensor,vxyzu,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
           endif
 
        enddo over_waiting
@@ -1206,7 +1206,7 @@ subroutine reduce_and_print_neighbour_stats(np)
 end subroutine reduce_and_print_neighbour_stats
 
 pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
-                           xyzcache)
+                             xyzcache)
  use io,          only:id
  use dim,         only:maxvxyzu
  use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,set_boundaries_to_active
@@ -1525,7 +1525,7 @@ pure subroutine finish_rhosum(rhosum,pmassi,hi,iterating,rhoi,rhohi,gradhi,grads
 end subroutine finish_rhosum
 
 subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                        straintensor,vxyzu,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+                         straintensor,vxyzu,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
  use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,&
                        n_R,n_electronT,eta_nimhd,iohm,ihall,iambi
  use io,          only:fatal,real4
@@ -1577,7 +1577,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  real         :: divcurlvi(5),rmatrix(6),straini(6)
  real         :: divcurlBi(ndivcurlB)
  real         :: temperaturei,Bi
- real         :: rho1i,term,denom,rhodusti
+ real         :: rho1i,term,denom,rhogasi,rhodusti
 
  do i = 1,cell%npcell
     lli = inodeparts(cell%arr_index(i))
@@ -1629,7 +1629,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
 
     rho1i     = 1./rhoi
     rhomax = max(rhomax,real(rhoi))
-    if (use_dust .and. .not. use_dustfrac .and. (iamgasi .or. iamdusti)) then
+    if (use_dust .and. .not. use_dustfrac) then
        !
        ! for 2-fluid dust compute dust density on gas particles
        ! and store it in dustfrac as dust-to-gas ratio
@@ -1637,8 +1637,13 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
        ! and similarly compute the gas density on dust particles and
        ! store it in dustfrac as gas-to-dust ratio
        !
-       rhodusti = cnormk*massoftype(idust)*(rhosum(irhodusti))*hi31
-       dustfrac(i) = rhodusti*rho1i ! dust-to-gas or gas-to-dust ratio
+       if (iamgasi) then
+          rhodusti = cnormk*massoftype(idust)*(rhosum(irhodusti))*hi31
+          dustfrac(lli) = rhodusti*rho1i ! dust-to-gas ratio
+       elseif (iamdusti) then
+          rhogasi = cnormk*massoftype(igas)*(rhosum(irhodusti))*hi31
+          dustfrac(lli) = rhogasi*rho1i ! gas-to-dust ratio
+       endif
     endif
     !
     ! store divv and curl v and related quantities
