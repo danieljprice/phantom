@@ -939,23 +939,23 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile,&
  call write_inopt(R_ref,'R_ref','reference radius',iunit)
  if (R_warp > 0.) call write_inopt(R_warp,'R_warp','position of warp',iunit)
  if (psimax > 0.) call write_inopt(psimax,'psi_max','maximum warp amplitude',iunit)
- call write_inopt(get_HonR(R_in,cs0,q_index,star_m,1.),'H/R (R=R_in)','disc aspect ratio H/R at R=R_in',iunit)
- call write_inopt(get_HonR(R_ref,cs0,q_index,star_m,1.),'H/R (R=R_ref)','disc aspect ratio H/R at R=R_ref',iunit)
- call write_inopt(get_HonR(R_out,cs0,q_index,star_m,1.),'H/R (R=R_out)','disc aspect ratio H/R at R=R_out',iunit)
+ call write_inopt(get_HonR(R_in,cs0,q_index,star_m,1.),'H/R_in','disc aspect ratio H/R at R=R_in',iunit)
+ call write_inopt(get_HonR(R_ref,cs0,q_index,star_m,1.),'H/R_ref','disc aspect ratio H/R at R=R_ref',iunit)
+ call write_inopt(get_HonR(R_out,cs0,q_index,star_m,1.),'H/R_out','disc aspect ratio H/R at R=R_out',iunit)
  if (R_warp > 0.) then
-    call write_inopt(get_HonR(R_warp,cs0,q_index,star_m,1.),'H/R (R=R_warp)','disc aspect ratio H/R at R=R_warp',iunit)
+    call write_inopt(get_HonR(R_warp,cs0,q_index,star_m,1.),'H/R_warp','disc aspect ratio H/R at R=R_warp',iunit)
  endif
 
  call mass_to_sigma_ref(disc_m,sigmaprofile,p_index,R_in,R_out,R_ref,R_c,sig_ref)
  sig = sig_ref*scaled_sigma(R_in,sigmaprofile,p_index,R_ref,R_in,R_c)
  sig = sig*umass/udist**2
- call write_inopt(sig,'sig (R=R_in)','surface density (g/cm^2) at R=R_in',iunit)
+ call write_inopt(sig,'sig_in','surface density (g/cm^2) at R=R_in',iunit)
  sig = sig_ref*scaled_sigma(R_ref,sigmaprofile,p_index,R_ref,R_in,R_c)
  sig = sig*umass/udist**2
- call write_inopt(sig,'sig (R=R_ref)','surface density (g/cm^2) at R=R_ref',iunit)
+ call write_inopt(sig,'sig_ref','surface density (g/cm^2) at R=R_ref',iunit)
  sig = sig_ref*scaled_sigma(R_out,sigmaprofile,p_index,R_ref,R_in,R_c)
  sig = sig*umass/udist**2
- call write_inopt(sig,'sig (R=R_out)','surface density (g/cm^2) at R=R_out',iunit)
+ call write_inopt(sig,'sig_out','surface density (g/cm^2) at R=R_out',iunit)
 
  call write_inopt(Q,'Qmin','minimum Toomre Q parameter',iunit)
  call write_inopt(npart,'n','number of particles in the disc',iunit)
@@ -964,7 +964,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile,&
  call write_inopt(q_index,'q_index','power law index of sound speed profile',iunit)
  call write_inopt(star_m,'M_star','mass of central star',iunit)
  call write_inopt(disc_m,'M_disc','disc mass',iunit)
- call write_inopt(disc_m/star_m,'disc m/star m','relative disc mass',iunit)
+ call write_inopt(disc_m/star_m,'M_disc/M_star','relative disc mass',iunit)
  call write_inopt(cs0,'cs0','sound speed at R=1',iunit)
 
  call init_eos(ieos,ierr)
