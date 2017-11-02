@@ -179,6 +179,7 @@ module part
  logical, public    :: all_active = .true.
 
  real(kind=4) :: gradh(ngradh,maxgradh)
+ real         :: tstop(maxan)
 !
 !--storage associated with link list
 !  (used for dead particle list also)

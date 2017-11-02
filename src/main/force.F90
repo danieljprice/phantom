@@ -121,7 +121,7 @@ contains
 subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,&
                  ipart_rhomax,dt,stressmax)
  use dim,          only:maxvxyzu,maxalpha,maxneigh,maxstrain,&
-                    switches_done_in_derivs,mhd,mhd_nonideal,use_dustfrac,lightcurve
+                        switches_done_in_derivs,mhd,mhd_nonideal,use_dustfrac,lightcurve
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,     only:ncells,ifirstincell,get_neighbour_list,get_hmaxcell,get_cell_location
  use options,      only:iresistive_heating
@@ -2018,11 +2018,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
- use dim,            only:mhd,mhd_nonideal,lightcurve,use_dustfrac,maxstrain
+ use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,use_dustfrac,maxstrain
  use eos,            only:use_entropy,gamma
  use options,        only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating
  use part,           only:h2chemistry,rhoanddhdrho,abundance,iboundary,igas,maxphase,maxvxyzu,nabundances, &
-                           massoftype,get_partinfo
+                          massoftype,get_partinfo,tstop
 #ifdef IND_TIMESTEPS
  use part,           only:ibin,ibinsink
  use timestep_ind,   only:get_newbin
@@ -2078,7 +2078,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
  real    :: ponrhoi,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
  real    :: psii,dtau
  real    :: eni,dudtnonideal
- real    :: tstop,dustfraci,dtdustdenom
+ real    :: tstopi,dustfraci,dtdustdenom
  real    :: etaambii,etahalli,etaohmi
  real    :: vsigmax,vwavei,fxyz4
 #ifdef LIGHTCURVE
@@ -2172,7 +2172,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 
        if (use_dustfrac) then
           dustfraci = xpartveci(idustfraci)
-          tstop = xpartveci(itstop)
+          tstopi = xpartveci(itstop)
        endif
 
     endif
@@ -2411,7 +2411,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 
     ! one fluid dust timestep
     if (use_dustfrac .and. iamgasi .and. dustfraci > 0. .and. spsoundi > 0.) then
-       dtdustdenom = dustfraci*tstop*spsoundi**2
+       dtdustdenom = dustfraci*tstopi*spsoundi**2
        if (dtdustdenom > tiny(dtdustdenom)) then
           dtdusti = C_force*hi*hi/dtdustdenom
        else
@@ -2420,6 +2420,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
     else
        dtdusti = bignumber
     endif
+
+    ! stopping time
+    if (use_dust) tstop(i) = dtdrag
 
 #ifdef IND_TIMESTEPS
     !-- The new timestep for particle i

@@ -299,7 +299,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
                  alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
                  nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,&
                  maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,maxvecp,maxBevol,&
-                 divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label
+                 divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
@@ -435,7 +435,8 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(3))
        if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(4))
        if (use_dust)     call write_array(1,dustfrac,'dustfrac',npart,k,ipass,idump,nums,ierrs(5))
-       if (use_dustfrac) call write_array(1,deltav,deltav_label,3,npart,k,ipass,idump,nums,ierrs(6))
+       if (use_dust)     call write_array(1,tstop,'tstop',npart,k,ipass,idump,nums,ierrs(6))
+       if (use_dustfrac) call write_array(1,deltav,deltav_label,3,npart,k,ipass,idump,nums,ierrs(7))
 
        ! write pressure to file
        if ((ieos==8 .or. ieos==9 .or. ieos==10) .and. k==i_real) then
@@ -450,21 +451,21 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
              endif
              temparr(i) = ponrhoi*rhoi
           enddo
-          call write_array(1,temparr,'pressure',npart,k,ipass,idump,nums,ierrs(7))
+          call write_array(1,temparr,'pressure',npart,k,ipass,idump,nums,ierrs(8))
        endif
 
        ! smoothing length written as real*4 to save disk space
-       call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,ierrs(8),use_kind=4,index=4)
-       if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,ierrs(9))
+       call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,ierrs(9),use_kind=4,index=4)
+       if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,ierrs(10))
        !if (maxalpha==maxp) then ! (uncomment this to write alphaloc to the full dumps)
-       !   call write_array(1,alphaind,(/'alpha   ','alphaloc'/),2,npart,k,ipass,idump,nums,ierrs(9))
+       !   call write_array(1,alphaind,(/'alpha ','alphaloc'/),2,npart,k,ipass,idump,nums,ierrs(10))
        !endif
-       if (ndivcurlv >= 1) call write_array(1,divcurlv,divcurlv_label,ndivcurlv,npart,k,ipass,idump,nums,ierrs(10))
+       if (ndivcurlv >= 1) call write_array(1,divcurlv,divcurlv_label,ndivcurlv,npart,k,ipass,idump,nums,ierrs(11))
        if (gravity .and. maxgrav==maxp) then
-          call write_array(1,poten,'poten',npart,k,ipass,idump,nums,ierrs(11))
+          call write_array(1,poten,'poten',npart,k,ipass,idump,nums,ierrs(12))
        endif
 #ifdef IND_TIMESTEPS
-       call write_array(1,dtmax/2**ibin(1:npart),'dt',npart,k,ipass,idump,nums,ierrs(12),use_kind=4)
+       call write_array(1,dtmax/2**ibin(1:npart),'dt',npart,k,ipass,idump,nums,ierrs(13),use_kind=4)
 #endif
 #ifdef PRDRAG
        if (k==i_real) then
@@ -472,15 +473,15 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           do i=1,npart
              temparr(i) = real4(beta(xyzh(1,i), xyzh(2,i), xyzh(3,i)))
           enddo
-          call write_array(1,temparr,'beta_pr',npart,k,ipass,idump,nums,ierrs(13))
+          call write_array(1,temparr,'beta_pr',npart,k,ipass,idump,nums,ierrs(14))
        endif
 #endif
 #ifdef LIGHTCURVE
        if (lightcurve) then
-          call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierrs(14))
+          call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierrs(15))
        endif
 #endif
-       if (any(ierrs(1:14) /= 0)) call error('write_dump','error writing hydro arrays')
+       if (any(ierrs(1:15) /= 0)) call error('write_dump','error writing hydro arrays')
     enddo
 
     do k=1,ndatatypes
