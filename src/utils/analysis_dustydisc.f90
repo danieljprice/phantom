@@ -326,7 +326,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
  rho_grain = graindens*udist**3/umass
  r_grain   = grainsize/udist
  do i=1,nr
-    St(i) = 0.626 * (rho_grain * r_grain)/sigma(i)
+    St(i) = sqrt(pi/8)*(rho_grain*r_grain)/sigma(i)
  enddo
 
  ! Print angular momentum of accreted particles
