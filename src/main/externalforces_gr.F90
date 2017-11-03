@@ -201,30 +201,33 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
  real,    intent(inout) :: hi
  logical, intent(out)   :: accreted
  integer, intent(in), optional :: i
+ integer, save :: ifirst = 0
  real :: r2
 
  accreted = .false.
  select case(imetric)
  case(imet_minkowski)
-    print*,"WARNING: Metric is Minkowski and you're trying to accrete"
+    if(ifirst==0) print*,"WARNING: Accrete particles: but Metric = Minkowski"
 
  case(imet_schwarzschild)
     r2 = xi*xi + yi*yi + zi*zi
     if (r2 < accradius1**2 .and. maxphase==maxp .and. present(i)) then
       call set_particle_type(i,iboundary)
-      !npartoftype(igas) = npartoftype(igas) - 1
-      !npartoftype(iboundary) = npartoftype(iboundary) + 1
+      npartoftype(igas) = npartoftype(igas) - 1
+      npartoftype(iboundary) = npartoftype(iboundary) + 1
     endif
     if (r2 < (accradius1_hard)**2) accreted = .true.
 
  case(imet_kerr)
-    print*,'Accrete particles: no accretion implemented for Kerr metric'
+    if(ifirst==0) print*,'Accrete particles: no accretion implemented for Kerr metric'
 
  end select
 
  if (accreted) then
     hi = -abs(hi)
  endif
+
+ ifirst = ifirst + 1
 
 end subroutine accrete_particles
 
