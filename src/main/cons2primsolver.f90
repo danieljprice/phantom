@@ -6,7 +6,9 @@ module cons2primsolver
 
  private :: get_u,get_enthalpy
 
- integer, parameter :: ierr_notconverged = 1
+ integer, public, parameter :: &
+      ien_etotal  = 1, &
+      ien_entropy = 2
 
  logical, parameter, private :: do_nothing = .false.
 
@@ -67,13 +69,13 @@ end subroutine
 !  conserved variables are (rho,pmom_i,en)
 !+
 !----------------------------------------------------------------
-subroutine primitive2conservative(x,v,dens,u,P,rho,pmom,en,en_type)
+subroutine primitive2conservative(x,v,dens,u,P,rho,pmom,en,ien_type)
  use utils_gr,     only: get_u0
  use metric_tools, only: get_metric
  real, intent(in)  :: x(1:3)
  real, intent(in)  :: dens,v(1:3),u,P
  real, intent(out) :: rho,pmom(1:3),en
- character(len=*), intent(in) :: en_type
+ integer, intent(in) :: ien_type
  real, dimension(0:3,0:3) :: gcov, gcon
  real :: sqrtg, enth, gvv, U0, v4U(0:3)
  integer :: i, mu
@@ -103,12 +105,12 @@ subroutine primitive2conservative(x,v,dens,u,P,rho,pmom,en,en_type)
     enddo
     en = U0*enth*gvv + (1.+u)/U0
 
-    if (en_type == "entropy") en = P/(dens**gamma)
+    if (ien_type == ien_entropy) en = P/(dens**gamma)
  endif
 
 end subroutine primitive2conservative
 
-subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,en_type)
+subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,ien_type)
  use utils_gr,     only: dot_product_gr
  use metric_tools, only: get_metric, get_metric3plus1
  real, intent(in)    :: x(1:3)
@@ -116,7 +118,7 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,en_type)
  real, intent(out)   :: v(1:3),u
  real, intent(in)    :: rho,pmom(1:3),en
  integer, intent(out) :: ierr
- character(len=*), intent(in) :: en_type
+ integer, intent(in)  :: ien_type
  real, dimension(0:3,0:3) :: gcov,gcon
  real, dimension(1:3,1:3) :: gammaijdown, gammaijUP
  real :: sqrtg,enth,lorentz_LEO,pmom2,alpha,beta(1:3),enth_old,v3d(1:3)
@@ -146,7 +148,7 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,en_type)
        dens = rho*alpha/(sqrtg*lorentz_LEO)
 
        p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product_gr(pmom,beta,gammaijUP)),0.)
-       if (en_type == 'entropy') p = en*(rho*alpha/(sqrtg*lorentz_LEO))**gamma
+       if (ien_type == ien_entropy) p = en*(rho*alpha/(sqrtg*lorentz_LEO))**gamma
 
        call get_enthalpy(enth,dens,p)
 
@@ -154,7 +156,7 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,en_type)
 
        !This line is unique to the equation of state - implemented for adiabatic at the moment
        df= -1.+(gamma/(gamma-1.))*(1.-pmom2*p/(enth_old**3*lorentz_LEO**2*dens))
-       if (en_type == 'entropy') df = -1. + (gamma*pmom2*P)/(lorentz_LEO**2 * enth_old**3 * dens)
+       if (ien_type == ien_entropy) df = -1. + (gamma*pmom2*P)/(lorentz_LEO**2 * enth_old**3 * dens)
 
        enth = enth_old - f/df
 
@@ -171,7 +173,7 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,en_type)
        print*,' enthold  =',enth_old
        print*,' enthnew  =',enth
        print*,' error    =',abs(enth-enth_old)/enth
-       ierr = ierr_notconverged
+       ierr = 1
        return
     endif
 
@@ -179,7 +181,7 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,en_type)
     dens = rho*alpha/(sqrtg*lorentz_LEO)
 
     p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product_gr(pmom,beta,gammaijUP)),0.)
-    if (en_type == 'entropy') p = en*(rho*alpha/(sqrtg*lorentz_LEO))**gamma
+    if (ien_type == ien_entropy) p = en*(rho*alpha/(sqrtg*lorentz_LEO))**gamma
 
     v3d(:) = alpha*pmom(:)/(enth*lorentz_LEO)-beta(:)
 

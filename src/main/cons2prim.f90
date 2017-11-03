@@ -1,4 +1,5 @@
 module cons2prim
+ use cons2primsolver, only:ien_entropy
  implicit none
 
  interface primitive_to_conservative
@@ -27,7 +28,7 @@ subroutine prim2cons_i(pos,vel,dens,u,P,rho,pmom,en)
  real, intent(in)  :: dens,vel(1:3),u,P
  real, intent(out) :: rho,pmom(1:3),en
 
- call primitive2conservative(pos,vel,dens,u,P,rho,pmom,en,'entropy')
+ call primitive2conservative(pos,vel,dens,u,P,rho,pmom,en,ien_entropy)
 
 end subroutine prim2cons_i
 
@@ -70,7 +71,7 @@ subroutine prim2consphantom_i(xyzhi,vxyzui,densi,pxyzui)
  call h2dens(densi,xyzhi,vi)
  call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
  pi = pondensi*densi
- call primitive2conservative(xyzi,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4),'entropy')
+ call primitive2conservative(xyzi,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4),ien_entropy)
 
 end subroutine prim2consphantom_i
 
@@ -110,7 +111,7 @@ subroutine cons2prim_i(pos,vel,dens,u,P,rho,pmom,en,ierr)
  real, intent(inout)  :: dens,P      ! Intent=inout because we need their previous values as an initial guess in the solver
  integer, intent(out) :: ierr
 
- call conservative2primitive(pos,vel,dens,u,P,rho,pmom,en,ierr,'entropy')
+ call conservative2primitive(pos,vel,dens,u,P,rho,pmom,en,ierr,ien_entropy)
 
 end subroutine cons2prim_i
 
@@ -163,7 +164,7 @@ subroutine cons2primphantom_i(xyzhi,pxyzui,vxyzui,densi,ierr,pressure)
  u_guess = vxyzui(4)
  call equationofstate(ieos,pondens,spsound,densi,xyzi(1),xyzi(2),xyzi(3),u_guess)
  p_guess = pondens*densi
- call conservative2primitive(xyzi,vxyzui(1:3),densi,vxyzui(4),p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierr,'entropy')
+ call conservative2primitive(xyzi,vxyzui(1:3),densi,vxyzui(4),p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierr,ien_entropy)
  if (present(pressure)) pressure = p_guess
 
 end subroutine cons2primphantom_i
