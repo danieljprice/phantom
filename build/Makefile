@@ -383,6 +383,17 @@ ifeq ($(SETUP), bondi_gr)
     GR=yes
     KERNEL=quintic
 endif
+ifeq ($(SETUP), bondi_inject)
+    SETUPFILE= setup_wind.f90
+    KNOWN_SETUP=yes
+    KERNEL=quintic
+    ISOTHERMAL=yes
+
+    SRCINJECT= icosahedron.f90 inject_bondi.f90
+    IND_TIMESTEPS=no
+    STS_TIMESTEPS=no
+endif
+#-----------------------------------------------
 
 ifeq ($(SETUP), quebec)
     SETUPFILE = setup_quebec.f90
