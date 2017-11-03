@@ -319,6 +319,7 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
  use options,     only:nfulldump,alpha,alphamax,alphaB,alphau
  use timestep,    only:dtmax,tmax
  use prompting,   only:prompt
+ use units,       only:set_units
 #ifdef NONIDEALMHD
  use nicil,       only:use_ohm,use_hall,use_ambi,eta_constant,eta_const_type, &
                        C_OR,C_HE,C_AD,C_nimhd,icnstphys,icnstsemi,icnst
@@ -495,6 +496,7 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
     !--Sod shock
     relativistic_choice = 1
     shocktype = "Mildly-Relativistic Sod shock"
+    call set_units(G=1.d0,c=1.d0)
     gamma      = 5./3.
     alphau     = 0.1
     leftstate  = (/10.0,40./3.,0.,0.,0.,0.,0.,0./)
