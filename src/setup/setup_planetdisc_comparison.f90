@@ -37,7 +37,7 @@ module setup
  implicit none
  public :: setpart
 
- integer :: np
+ integer :: np, norbits
  real :: R_in, R_out, HoverRinput, sig0, alphaSS
  real :: p_indexinput, q_indexinput
 
@@ -56,7 +56,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,       only:solarm,au,pi
  use io,            only:master
  use options,       only:iexternalforce,alpha
- use timestep,      only:dtmax
+ use timestep,      only:dtmax,tmax
  use prompting,     only:prompt
  use extern_binary, only:accradius1,accradius2 !,binary_posvel
  use extern_binary, only:binarymassr,eps_soft1,eps_soft2,ramp
@@ -105,6 +105,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  p_indexinput = 0.
  q_indexinput = 0.5
  ramp = .true.
+ norbits = 100
 
  print "(a,/)",'Phantomsetup: routine to setup planet-disc interaction with fixed planet orbit '
  inquire(file=filename,exist=iexist)
@@ -166,6 +167,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  iexternalforce = iext_binary
 
  dtmax = 2.*pi
+ tmax = norbits*dtmax
 
  !--------------------------------------------------
  ! If you want to translate the disc so it is around the primary uncomment the following lines
@@ -205,6 +207,7 @@ subroutine write_gwinputfile(filename)
  call write_inopt(binarymassr,'mplanet','m1/(m1+m2)',iunit)
  call write_inopt(accradius1,'accradius1','primary accretion radius',iunit)
  call write_inopt(accradius2,'accradius2','secondary accretion radius',iunit)
+ call write_inopt(norbits, 'norbits', 'number of orbits', iunit)
 
  write(iunit,"(/,a)") '# options for accretion disc'
 
@@ -246,6 +249,7 @@ subroutine read_gwinputfile(filename)
  call read_inopt(p_indexinput,'p_indexinput',db,ierr)
  call read_inopt(q_indexinput,'q_indexinput',db,ierr)
  call read_inopt(alphaSS,'alphaSS',db,ierr)
+ call read_inopt(norbits,'norbits',db,ierr,min=1)
 
  call close_db(db)
  close(iunit)
