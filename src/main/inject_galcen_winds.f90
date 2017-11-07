@@ -136,7 +136,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
 
     !
     ! don't update tlast for a particular star unless that star injected
-    !    particles this timestep; this way, fractional particles/timestep can 
+    !    particles this timestep; this way, fractional particles/timestep can
     !    accumulate and eventually inject a particle, making Mdot more accurate
     !
     if(ninject > 0) then
