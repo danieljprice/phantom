@@ -26,6 +26,7 @@
 !    R_indust          -- inner radius
 !    R_out             -- outer radius
 !    R_outdust         -- outer radius
+!    R_ref             -- reference radius
 !    accr1             -- central star accretion radius
 !    accr2             -- perturber accretion radius
 !    alphaSS           -- desired alphaSS
@@ -50,6 +51,7 @@
 !    itapergas         -- exponentially taper the outer disc profile
 !    m1                -- central star mass
 !    m2                -- perturber mass
+!    mass_set          -- how to set gas density profile (0=disc mass,1=surface density)
 !    mass_unit         -- mass unit (e.g. solarm,jupiterm,earthm)
 !    norbits           -- maximum number of binary orbits
 !    np                -- number of gas particles
