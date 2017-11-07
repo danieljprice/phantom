@@ -1,4 +1,4 @@
-# This is a sample build configuration for C++ – Make.
+# Build checks for Phantom, run every time a commit is pushed
 # Check our guides at https://confluence.atlassian.com/x/5Q4SMw for more examples.
 # Only use spaces to indent your .yml configuration.
 # -----
@@ -8,8 +8,41 @@ image: conradchan/phantom
 pipelines:
   default:
     - step:
-        script: # Modify the commands below to build your repository.
+        name: testkd
+        script:
           - make SETUP=testkd
           - ./bin/phantom test
+        name: testkd with MPI
+        script:
           - make SETUP=testkd MPI=yes OPENMP=no
           - mpirun --allow-run-as-root --mca btl self,sm -np 4 bin/phantom test
+  custom:
+    - step:
+        name: test
+        script:
+          - make SETUP=test
+          - ./bin/phantom test
+        name: testkd
+        script:
+          - make SETUP=testkd
+          - ./bin/phantom test
+        name: test2
+        script:
+          - make SETUP=test2
+          - ./bin/phantom test
+        name: testcyl
+        script:
+          - make SETUP=testcyl
+          - ./bin/phantom test
+        name: testgrav
+        script:
+          - make SETUP=testgrav
+          - ./bin/phantom test gravity ptmass
+        name: testdust
+        script:
+          - make SETUP=testdust
+          - ./bin/phantom test dust
+        name: testnimhd
+        script:
+          - make SETUP=testnimhd
+          - ./bin/phantom test nimhd
