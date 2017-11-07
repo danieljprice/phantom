@@ -17,32 +17,33 @@ pipelines:
           - make SETUP=testkd MPI=yes OPENMP=no
           - mpirun --allow-run-as-root --mca btl self,sm -np 4 bin/phantom test
   custom:
-    - step:
-        name: test
-        script:
-          - make SETUP=test
-          - ./bin/phantom test
-        name: testkd
-        script:
-          - make SETUP=testkd
-          - ./bin/phantom test
-        name: test2
-        script:
-          - make SETUP=test2
-          - ./bin/phantom test
-        name: testcyl
-        script:
-          - make SETUP=testcyl
-          - ./bin/phantom test
-        name: testgrav
-        script:
-          - make SETUP=testgrav
-          - ./bin/phantom test gravity ptmass
-        name: testdust
-        script:
-          - make SETUP=testdust
-          - ./bin/phantom test dust
-        name: testnimhd
-        script:
-          - make SETUP=testnimhd
-          - ./bin/phantom test nimhd
+    testbot:
+      - step:
+          name: test
+          script:
+            - make SETUP=test
+            - ./bin/phantom test
+          name: testkd
+          script:
+            - make SETUP=testkd
+            - ./bin/phantom test
+          name: test2
+          script:
+            - make SETUP=test2
+            - ./bin/phantom test
+          name: testcyl
+          script:
+            - make SETUP=testcyl
+            - ./bin/phantom test
+          name: testgrav
+          script:
+            - make SETUP=testgrav
+            - ./bin/phantom test gravity ptmass
+          name: testdust
+          script:
+            - make SETUP=testdust
+            - ./bin/phantom test dust
+          name: testnimhd
+          script:
+            - make SETUP=testnimhd
+            - ./bin/phantom test nimhd
