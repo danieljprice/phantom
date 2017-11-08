@@ -187,13 +187,13 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  else
     smooth_surface_density = .false.
  endif
- if (present(indexprofile)) then
-    if (indexprofile==1) exponential_taper = .true.
+ if (present(indexprofile) .and. indexprofile==1) then
+    exponential_taper = .true.
  else
     exponential_taper = .false.
  endif
- if (present(indexprofiledust)) then
-    if (indexprofiledust==1) exponential_taper_dust = .true.
+ if (present(indexprofiledust) .and. indexprofiledust==1) then
+    exponential_taper_dust = .true.
  else
     exponential_taper_dust = .false.
  endif
@@ -1151,14 +1151,17 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_c) result(sigma)
  case (1)
     sigma = (R/R_ref)**(-pindex)*exp((R_ref/R_c)**(2-pindex)-(R/R_c)**(2-pindex))
  case (2)
-    if (.not.(R_in < R_ref)) call fatal('setup_disc',&
+    if (.not.(R_in < R_ref)) call fatal('set_disc',&
        'if using smoothed profile: R_in must be strictly less than R_ref')
     sigma = (R/R_ref)**(-pindex)*(1-sqrt(R_in/R))/(1-sqrt(R_in/R_ref))
  case (3)
-    if (.not.(R_in < R_ref)) call fatal('setup_disc',&
+    if (.not.(R_in < R_ref)) call fatal('set_disc',&
        'if using smoothed profile: R_in must be strictly less than R_ref')
     sigma = (R/R_ref)**(-pindex)*exp((R_ref/R_c)**(2-pindex)-(R/R_c)**(2-pindex))*&
             (1-sqrt(R_in/R))/(1-sqrt(R_in/R_ref))
+ case default
+    call fatal('set_disc','unavailable sigmaprofile; surface density is set to zero')
+    sigma = 0.
  end select
 
 end function scaled_sigma
