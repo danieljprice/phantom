@@ -82,7 +82,7 @@ module setup
  real    :: mplanet(maxplanets),rplanet(maxplanets),accrplanet(maxplanets),inclplan(maxplanets)
  real    :: m1,m2,mcentral,binary_a,binary_e,binary_i,binary_O,binary_w,binary_f
  real    :: accr1,accr2,alphaSS,deltat,flyby_a,flyby_d,flyby_r
- integer :: i,nplanets,np,np_dust,icentral,setplanets,norbits
+ integer :: i,nplanets,np,np_dust,icentral,ipotential,nsinks,ibinary,setplanets,norbits
  integer :: itype,npart_inter,mass_set,profile_set_dust,iprofilegas,iprofiledust
  integer :: sigmaprofilegas,sigmaprofiledust
  logical :: ismoothgas,ismoothdust,itapergas,itaperdust
@@ -125,7 +125,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  character(len=100)               :: filename
- logical :: iexist,questplanets
+ logical :: iexist,questplanets,seq_exists
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
  real    :: idust_to_gas_ratio,ri,sigma_refdust,period
  real    :: sini,cosi,polyk_dust
@@ -154,6 +154,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (ierr /= 0) then
        stop
     endif
+    inquire(file='orbits.dat',exist=iexist)
+    inquire(file=trim(fileprefix)//'A.setup',exist=seq_exists)
+    if (iexist .and. .not.seq_exists) then
+       open(unit=23,file='orbits.dat',status='old',iostat=ierr)
+       j = 0
+       do while(ierr==0)
+          read(23,*,iostat=ierr) binary_a,binary_e,binary_i,binary_O,binary_w,binary_f
+          if (ierr==0) then
+             j = j + 1
+             write(filename,"(a)") trim(fileprefix)//achar(j+64)//'.setup'
+             if (id==master) call write_setupfile(filename)
+          endif
+       enddo
+       close(unit=23)
+       stop
+    endif
  elseif (id==master) then
     print "(a,/)",trim(filename)//' not found: using interactive setup'
     !
@@ -177,41 +193,70 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !--set defaults for central object(s)
     !
     icentral = 1
-    call prompt('How is the central object(s) defined? (0=external potential, 1=sink particle, 2=binary, 3=flyby)',icentral,0,3)
+    call prompt('Do you want to use sink particles or an external potential? (0=potential,1=sinks)',icentral,0,1)
     select case (icentral)
     case (0)
        !--external potential
-       m1       = 1.
-       mcentral = m1
-       accr1    = 1.
+       ipotential = 1
+       call prompt('Which potential? (1=,2=,...)',ipotential,1,3)
+       select case (ipotential)
+       case (1)
+          !--point mass
+          iexternalforce = 1
+          m1       = 1.
+          mcentral = m1
+          accr1    = 1.
+          print "(a)", 'Central object represented by external force with accretion boundary'
+          print*, ' Accretion Radius: ', accr1
+          accradius1 = accr1
+       case (2)
+          !--fixed binary
+          iexternalforce = 3
+          !--todo: fill in
+       case (3)
+          !--spinning black hole (Lense-Thirring)
+          iexternalforce = 9
+          !--todo: fill in
+       end select
     case (1)
-       !--single star
-       m1       = 1.
-       mcentral = m1
-       accr1    = 1.
-    case (2)
-       !--binary
-       m1       = 1.
-       m2       = 1.
-       mcentral = m1 + m2
-       binary_a = 1.
-       binary_e = 0.
-       binary_i = 0.
-       binary_O = 0.
-       binary_w = 0.
-       binary_f = 180.
-       accr1    = 0.25*binary_a
-       accr2    = 0.25*binary_a
-    case (3)
-       !--flyby
-       m1       = 1.
-       mcentral = m1
-       m2       = 1.
-       accr1    = 1.
-       accr2    = 1.
-       flyby_a  = 200.
-       flyby_d  = 10.
-       flyby_r  = 0.
+       !--sink particle(s)
+       nsinks = 1
+       call prompt('How many sinks? (1=single,2=binary)',nsinks,1,2)
+       select case (nsinks)
+       case (1)
+          !--single star
+          m1       = 1.
+          mcentral = m1
+          accr1    = 1.
+       case (2)
+          ibinary = 0
+          call prompt('Closed binary or flyby? (0=binary,1=flyby)',ibinary,0,1)
+          select case (ibinary)
+          case (0)
+             !--binary
+             m1       = 1.
+             m2       = 1.
+             mcentral = m1 + m2
+             binary_a = 1.
+             binary_e = 0.
+             binary_i = 0.
+             binary_O = 0.
+             binary_w = 0.
+             binary_f = 180.
+             accr1    = 0.25*binary_a
+             accr2    = 0.25*binary_a
+          case (1)
+             !--flyby
+             m1       = 1.
+             mcentral = m1
+             m2       = 1.
+             accr1    = 1.
+             accr2    = 1.
+             flyby_a  = 200.
+             flyby_d  = 10.
+             flyby_r  = 0.
+          end select
+       end select
     end select
     !
     !--set gas disc options
@@ -236,10 +281,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     if (ismoothgas) sigmaprofilegas = 2
     if (itapergas .and. ismoothgas) sigmaprofilegas = 3
-    select case(mass_set)
-    case(0)
+    select case (mass_set)
+    case (0)
        disc_m = 0.05
-    case(1)
+    case (1)
        sigma_ref = 1.0E-02
     end select
     pindex  = 1.
@@ -305,12 +350,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (nplanets > 0) then
        call prompt('Enter time between dumps as fraction of outer planet period',deltat,0.)
        call prompt('Enter number of orbits to simulate',norbits,0)
-    else if (icentral==2) then
-       call prompt('Enter time between dumps as fraction of binary period',deltat,0.)
-       call prompt('Enter number of orbits to simulate',norbits,0)
-    else if (icentral==3) then
-       deltat  = 0.01
-       call prompt('Enter time between dumps as fraction of flyby time',deltat,0.)
+    else if (icentral==1 .and. nsinks==2) then
+       if (ibinary==0) then
+          call prompt('Enter time between dumps as fraction of binary period',deltat,0.)
+          call prompt('Enter number of orbits to simulate',norbits,0)
+       else if (ibinary==1) then
+          deltat  = 0.01
+          call prompt('Enter time between dumps as fraction of flyby time',deltat,0.)
+       endif
     endif
 
     !
@@ -331,41 +378,40 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--set sink particle(s)
  !
- select case (icentral)
- case (0)
-    !--external potential
-    iexternalforce = 1
-    print "(a)", 'Central object represented by external force with accretion boundary'
-    print*, ' Accretion Radius: ', accr1
-    accradius1 = accr1
- case (1)
-    !--single star
-    print*,'Disc around a single star '
-    print "(a)", 'Central object represented by a sink at the system origin'
-    isink                        = 1
-    nptmass                      = 1
-    xyzmh_ptmass(:,:)            = 0.
-    xyzmh_ptmass(1:3,nptmass)    = 0.
-    xyzmh_ptmass(4,nptmass)      = m1
-    xyzmh_ptmass(ihacc,nptmass)  = accr1
-    xyzmh_ptmass(ihsoft,nptmass) = accr1
-    vxyz_ptmass                  = 0.
- case (2)
-    !--binary
-    nptmass  = 0
-    print*,'Setup the binary' !--the stars' barycentre is put on the origin
-    call set_binary(m1,massratio=m2/m1,semimajoraxis=binary_a,eccentricity=binary_e, &
-                    posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i,&
-                    f=binary_f,accretion_radius1=accr1,accretion_radius2=accr2,&
-                    xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass)
- case (3)
-    !--flyby
-    print*,'Disc around a single star with flyby '
-    print "(a)", 'Central object represented by a sink at the system origin'
-    call set_flyby(mprimary=m1,massratio=m2/m1,dma=flyby_a,n0=flyby_d,roll=flyby_r, &
-                   accretion_radius1=accr1,accretion_radius2=accr2, &
-                   xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass)
- end select
+ if (icentral==1) then
+    select case (nsinks)
+    case (1)
+       !--single star
+       print*,'Disc around a single star '
+       print "(a)", 'Central object represented by a sink at the system origin'
+       isink                        = 1
+       nptmass                      = 1
+       xyzmh_ptmass(:,:)            = 0.
+       xyzmh_ptmass(1:3,nptmass)    = 0.
+       xyzmh_ptmass(4,nptmass)      = m1
+       xyzmh_ptmass(ihacc,nptmass)  = accr1
+       xyzmh_ptmass(ihsoft,nptmass) = accr1
+       vxyz_ptmass                  = 0.
+    case (2)
+       select case (ibinary)
+       case (0)
+          !--binary
+          nptmass  = 0
+          print*,'Setup the binary' !--the stars' barycentre is put on the origin
+          call set_binary(m1,massratio=m2/m1,semimajoraxis=binary_a,eccentricity=binary_e, &
+                          posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i,&
+                          f=binary_f,accretion_radius1=accr1,accretion_radius2=accr2,&
+                          xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass)
+       case (1)
+          !--flyby
+          print*,'Disc around a single star with flyby'
+          print "(a)", 'Central object represented by a sink at the system origin'
+          call set_flyby(mprimary=m1,massratio=m2/m1,dma=flyby_a,n0=flyby_d,roll=flyby_r, &
+                         accretion_radius1=accr1,accretion_radius2=accr2, &
+                         xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass)
+       end select
+    end select
+ endif
 
  !--compute the mass of the gas disc if mass_set=1
  if(mass_set==1) call sigma_ref_to_mass(sigma_ref,sigmaprofilegas,pindex,R_in,R_out,R_ref,R_c,disc_m)
@@ -552,9 +598,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     period = period_longest
  endif
 
- if (icentral==2) then
+ !--set period
+ if (icentral==1 .and. nsinks==2 .and. ibinary==0) then
+    !--closed binary
     period = sqrt(4.*pi**2*binary_a**3/mcentral)
- else if (icentral==3) then
+ elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
+    !--flyby
     period = get_T_flyby(m1,m2,flyby_a,flyby_d)
     norbits = 1
  else
@@ -597,7 +646,7 @@ subroutine write_setupfile(filename)
 
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# input file for dustydisc setup routine'
+ write(iunit,"(a)") '# input file for disc setup routine'
  !--resolution
  write(iunit,"(/,a)") '# resolution'
  call write_inopt(np,'np','number of gas particles',iunit)
@@ -611,41 +660,64 @@ subroutine write_setupfile(filename)
  !--central objects(s)/potential
  write(iunit,"(/,a)") '# central object(s)/potential'
  call write_inopt(icentral,'icentral', &
-    'how to define the central object(s) (0=external potential, 1=sink particle, 2=binary, 3=flyby)',iunit)
+    'use sink particles or external potential (0=potential,1=sinks)',iunit)
  select case (icentral)
  case (0)
-    !--potential
-    call write_inopt(accr1,'accr1','star accretion radius',iunit)
+    !--external potential
+    call write_inopt(ipotential,'ipotential','potential (1=,2=,...)',iunit)
+    select case (ipotential)
+    case (1)
+       !--point mass
+       call write_inopt(accr1,'accr1','star accretion radius',iunit)
+       !--todo: fill in
+    case (2)
+       !--fixed binary
+       !--todo: fill in
+    case (3)
+       !--spinning black hole (Lense-Thirring)
+       !--todo: fill in
+    end select
  case (1)
-    !--star
-    write(iunit,"(/,a)") '# options for central star'
-    call write_inopt(m1,'m1','star mass',iunit)
-    call write_inopt(accr1,'accr1','star accretion radius',iunit)
- case (2)
-    !--binary
-    write(iunit,"(/,a)") '# options for binary'
-    call write_inopt(m1,'m1','primary mass',iunit)
-    call write_inopt(m2,'m2','secondary mass',iunit)
-    call write_inopt(binary_a,'binary_a','binary semi-major axis',iunit)
-    call write_inopt(binary_e,'binary_e','binary eccentricity',iunit)
-    call write_inopt(binary_i,'binary_i','i, inclination (deg)',iunit)
-    call write_inopt(binary_O,'binary_O','Omega, PA of ascending node (deg)',iunit)
-    call write_inopt(binary_w,'binary_w','w, argument of periapsis (deg)',iunit)
-    call write_inopt(binary_f,'binary_f','f, initial true anomaly (deg,180=apastron)',iunit)
-    call write_inopt(accr1,'accr1','primary accretion radius',iunit)
-    call write_inopt(accr2,'accr2','secondary accretion radius',iunit)
- case (3)
-    !--central star
-    write(iunit,"(/,a)") '# options for central star'
-    call write_inopt(m1,'m1','central star mass',iunit)
-    call write_inopt(accr1,'accr1','central star accretion radius',iunit)
-    !--perturber
-    write(iunit,"(/,a)") '# options for perturber'
-    call write_inopt(m2,'m2','perturber mass',iunit)
-    call write_inopt(accr2,'accr2','perturber accretion radius',iunit)
-    call write_inopt(flyby_a,'flyby_a','flyby periastron distance',iunit)
-    call write_inopt(flyby_d,'flyby_d','initial distance of flyby (in units of periastron distance)',iunit)
-    call write_inopt(flyby_r,'flyby_r','roll angle of flyby',iunit)
+    !--sink particle(s)
+    call write_inopt(nsinks,'nsinks','number of sinks',iunit)
+    select case (nsinks)
+    case (1)
+       !--single star
+       write(iunit,"(/,a)") '# options for central star'
+       call write_inopt(m1,'m1','star mass',iunit)
+       call write_inopt(accr1,'accr1','star accretion radius',iunit)
+    case (2)
+       !--binary
+       call write_inopt(ibinary,'ibinary','closed binary or flyby (0=binary,1=flyby)',iunit)
+       select case (ibinary)
+       case (0)
+          !--closed binary
+          write(iunit,"(/,a)") '# options for binary'
+          call write_inopt(m1,'m1','primary mass',iunit)
+          call write_inopt(m2,'m2','secondary mass',iunit)
+          call write_inopt(binary_a,'binary_a','binary semi-major axis',iunit)
+          call write_inopt(binary_e,'binary_e','binary eccentricity',iunit)
+          call write_inopt(binary_i,'binary_i','i, inclination (deg)',iunit)
+          call write_inopt(binary_O,'binary_O','Omega, PA of ascending node (deg)',iunit)
+          call write_inopt(binary_w,'binary_w','w, argument of periapsis (deg)',iunit)
+          call write_inopt(binary_f,'binary_f','f, initial true anomaly (deg,180=apastron)',iunit)
+          call write_inopt(accr1,'accr1','primary accretion radius',iunit)
+          call write_inopt(accr2,'accr2','secondary accretion radius',iunit)
+       case (1)
+          !--flyby
+          !--central star
+          write(iunit,"(/,a)") '# options for central star'
+          call write_inopt(m1,'m1','central star mass',iunit)
+          call write_inopt(accr1,'accr1','central star accretion radius',iunit)
+          !--perturber
+          write(iunit,"(/,a)") '# options for perturber'
+          call write_inopt(m2,'m2','perturber mass',iunit)
+          call write_inopt(accr2,'accr2','perturber accretion radius',iunit)
+          call write_inopt(flyby_a,'flyby_a','flyby periastron distance',iunit)
+          call write_inopt(flyby_d,'flyby_d','initial distance of flyby (in units of periastron distance)',iunit)
+          call write_inopt(flyby_r,'flyby_r','roll angle of flyby',iunit)
+       end select
+    end select
  end select
  !--gas disc
  write(iunit,"(/,a)") '# options for gas accretion disc'
@@ -656,10 +728,10 @@ subroutine write_setupfile(filename)
  call write_inopt(R_out,'R_out','outer radius',iunit)
  call write_inopt(R_ref,'R_ref','reference radius',iunit)
  if (iprofilegas==1) call write_inopt(R_c,'R_c','characteristic radius of the exponential taper',iunit)
- select case(mass_set)
- case(0)
+ select case (mass_set)
+ case (0)
     call write_inopt(disc_m,'disc_m','disc mass',iunit)
- case(1)
+ case (1)
     call write_inopt(sigma_ref,'sigma_ref','sigma at R=R_ref',iunit)
  end select
  call write_inopt(pindex,'pindex','p index',iunit)
@@ -672,8 +744,8 @@ subroutine write_setupfile(filename)
     write(iunit,"(/,a)") '# options for dust accretion disc'
     call write_inopt(dust_to_gas_ratio,'dust_to_gas_ratio','dust to gas ratio',iunit)
     call write_inopt(profile_set_dust,'profile_set_dust','how to set dust density profile (0=equal to gas, 1=custom)',iunit)
-    select case(profile_set_dust)
-    case(1)
+    select case (profile_set_dust)
+    case (1)
        call write_inopt(itaperdust,'itaperdust','exponentially taper the outer disc profile',iunit)
        call write_inopt(ismoothdust,'ismoothdust','smooth the inner disc profile',iunit)
        call write_inopt(R_indust,'R_indust','inner radius',iunit)
@@ -705,13 +777,15 @@ subroutine write_setupfile(filename)
     write(iunit,"(/,a)") '# timestepping'
     call write_inopt(norbits,'norbits','maximum number of outer planet orbits',iunit)
     call write_inopt(deltat,'deltat','output interval as fraction of orbital period',iunit)
- else if (icentral==2) then
-    write(iunit,"(/,a)") '# timestepping'
-    call write_inopt(norbits,'norbits','maximum number of binary orbits',iunit)
-    call write_inopt(deltat,'deltat','output interval as fraction of binary orbital period',iunit)
- else if (icentral==3) then
-    write(iunit,"(/,a)") '# timestepping'
-    call write_inopt(deltat,'deltat','output interval as fraction of total time',iunit)
+ else if (icentral==1 .and. nsinks==2) then
+    if (ibinary==0) then
+       write(iunit,"(/,a)") '# timestepping'
+       call write_inopt(norbits,'norbits','maximum number of binary orbits',iunit)
+       call write_inopt(deltat,'deltat','output interval as fraction of binary orbital period',iunit)
+    else if (ibinary==1) then
+       write(iunit,"(/,a)") '# timestepping'
+       call write_inopt(deltat,'deltat','output interval as fraction of total time',iunit)
+    endif
  endif
  close(iunit)
 
@@ -759,42 +833,61 @@ subroutine read_setupfile(filename,ierr)
  endif
  call set_units(dist=udist,mass=umass,G=1.d0)
  !--central objects(s)/potential
- call read_inopt(icentral,'icentral',db,min=0,max=3, errcount=nerr)
+ call read_inopt(icentral,'icentral',db,min=0,max=1, errcount=nerr)
  select case (icentral)
  case (0)
-    !--potential
-    call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
-    call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
-    mcentral = m1
+    !--external potential
+    call read_inopt(ipotential,'ipotential',db,min=1,max=3, errcount=nerr)
+    select case (ipotential)
+    case (1)
+       call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
+       call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
+       mcentral = m1
+    case (2)
+       !--todo
+    case (3)
+       !--todo
+    end select
  case (1)
-    !--single star
-    call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
-    call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
-    mcentral = m1
- case (2)
-    !--binary
-    call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
-    call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
-    mcentral = m1 + m2
-    call read_inopt(binary_a,'binary_a',db,errcount=nerr)
-    call read_inopt(binary_e,'binary_e',db,min=0.,errcount=nerr)
-    call read_inopt(binary_i,'binary_i',db,errcount=nerr)
-    call read_inopt(binary_O,'binary_O',db,errcount=nerr)
-    call read_inopt(binary_w,'binary_w',db,errcount=nerr)
-    call read_inopt(binary_f,'binary_f',db,errcount=nerr)
-    call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
-    call read_inopt(accr2,'accr2',db,min=0.,errcount=nerr)
- case (3)
-    !--central star
-    call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
-    call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
-    mcentral = m1
-    !--perturber
-    call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
-    call read_inopt(accr2,'accr2',db,min=0.,errcount=nerr)
-    call read_inopt(flyby_a,'flyby_a',db,min=0.,errcount=nerr)
-    call read_inopt(flyby_d,'flyby_d',db,min=0.,errcount=nerr)
-    call read_inopt(flyby_r,'flyby_r',db,min=0.,errcount=nerr)
+    !--sink particles
+    call read_inopt(nsinks,'nsinks',db,min=1,max=2, errcount=nerr)
+    select case (nsinks)
+    case (1)
+       !--single star
+       call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
+       call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
+       mcentral = m1
+    case (2)
+       !--two sinks
+       call read_inopt(ibinary,'ibinary',db,min=0,max=1, errcount=nerr)
+       select case (ibinary)
+       case (0)
+          !--binary
+          call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
+          call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
+          mcentral = m1 + m2
+          call read_inopt(binary_a,'binary_a',db,errcount=nerr)
+          call read_inopt(binary_e,'binary_e',db,min=0.,errcount=nerr)
+          call read_inopt(binary_i,'binary_i',db,errcount=nerr)
+          call read_inopt(binary_O,'binary_O',db,errcount=nerr)
+          call read_inopt(binary_w,'binary_w',db,errcount=nerr)
+          call read_inopt(binary_f,'binary_f',db,errcount=nerr)
+          call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
+          call read_inopt(accr2,'accr2',db,min=0.,errcount=nerr)
+       case (1)
+          !--flyby
+          !--central star
+          call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
+          call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
+          mcentral = m1
+          !--perturber
+          call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
+          call read_inopt(accr2,'accr2',db,min=0.,errcount=nerr)
+          call read_inopt(flyby_a,'flyby_a',db,min=0.,errcount=nerr)
+          call read_inopt(flyby_d,'flyby_d',db,min=0.,errcount=nerr)
+          call read_inopt(flyby_r,'flyby_r',db,min=0.,errcount=nerr)
+       end select
+    end select
  end select
  !--gas disc
  call read_inopt(R_in,'R_in',db,min=0.,errcount=nerr)
@@ -810,10 +903,10 @@ subroutine read_setupfile(filename,ierr)
  endif
  if (ismoothgas) sigmaprofilegas = 2
  if (itapergas .and. ismoothgas) sigmaprofilegas = 3
- select case(mass_set)
- case(0)
+ select case (mass_set)
+ case (0)
     call read_inopt(disc_m,'disc_m',db,min=0.,errcount=nerr)
- case(1)
+ case (1)
     call read_inopt(sigma_ref,'sigma_ref',db,min=0.,errcount=nerr)
  end select
  call read_inopt(pindex,'pindex',db,errcount=nerr)
@@ -825,8 +918,8 @@ subroutine read_setupfile(filename,ierr)
  if (use_dust) then
     call read_inopt(dust_to_gas_ratio,'dust_to_gas_ratio',db,min=0.,errcount=nerr)
     call read_inopt(profile_set_dust,'profile_set_dust',db,min=0,max=1,errcount=nerr)
-    select case(profile_set_dust)
-    case(0)
+    select case (profile_set_dust)
+    case (0)
        R_indust         = R_in
        R_outdust        = R_out
        pindex_dust      = pindex
@@ -837,7 +930,7 @@ subroutine read_setupfile(filename,ierr)
        ismoothdust      = ismoothgas
        sigmaprofiledust = sigmaprofilegas
        R_c_dust         = R_c
-    case(1)
+    case (1)
        call read_inopt(R_indust,'R_indust',db,min=R_in,errcount=nerr)
        call read_inopt(R_outdust,'R_outdust',db,min=R_indust,max=R_out,errcount=nerr)
        call read_inopt(pindex_dust,'pindex_dust',db,errcount=nerr)
