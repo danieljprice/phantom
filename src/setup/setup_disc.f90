@@ -80,7 +80,7 @@ module setup
  real :: disc_mdust,dust_to_gas_ratio,R_outdust,R_indust,R_c,R_c_dust
  integer, parameter :: maxplanets = 9
  real    :: mplanet(maxplanets),rplanet(maxplanets),accrplanet(maxplanets),inclplan(maxplanets)
- real    :: m1,m2,mcentral,binary_a,binary_e,binary_i,binary_O,binary_w,binary_f
+ real    :: m1,m2,mcentral,bhspin,bhspinangle,binary_a,binary_e,binary_i,binary_O,binary_w,binary_f
  real    :: accr1,accr2,alphaSS,deltat,flyby_a,flyby_d,flyby_r
  integer :: i,nplanets,np,np_dust,icentral,ipotential,nsinks,ibinary,setplanets,norbits
  integer :: itype,npart_inter,mass_set,profile_set_dust,iprofilegas,iprofiledust
@@ -101,20 +101,22 @@ contains
 !
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use eos,            only:isink,qfacdisc
- use setdisc,        only:set_disc,sigma_ref_to_mass,mass_to_sigma_ref
- use setbinary,      only:set_binary
- use setflyby,       only:set_flyby,get_T_flyby
- use part,           only:nptmass,xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,igas,idust,dustfrac
- use io,             only:master,fatal
- use options,        only:iexternalforce,ieos,alpha,icooling
- use externalforces, only:accradius1
- use units,          only:set_units,select_unit,umass,udist,utime
- use physcon,        only:au,solarm,jupiterm,pi,years
- use prompting,      only:prompt
- use timestep,       only:tmax,dtmax
- use centreofmass,   only:reset_centreofmass
- use dust,           only:set_dustfrac,grainsizecgs,graindenscgs
+ use eos,                  only:isink,qfacdisc
+ use setdisc,              only:set_disc,sigma_ref_to_mass,mass_to_sigma_ref
+ use setbinary,            only:set_binary
+ use setflyby,             only:set_flyby,get_T_flyby
+ use part,                 only:nptmass,xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,igas,idust,dustfrac
+ use io,                   only:master,fatal
+ use options,              only:iexternalforce,ieos,alpha,icooling
+ use externalforces,       only:mass1,accradius1,iext_star,iext_binary,iext_lensethirring
+ use extern_binary,        only:accradius1,accradius2,binarymassr
+ use extern_lensethirring, only:blackhole_spin,blackhole_spin_angle
+ use units,                only:set_units,select_unit,umass,udist,utime
+ use physcon,              only:au,solarm,jupiterm,pi,years
+ use prompting,            only:prompt
+ use timestep,             only:tmax,dtmax
+ use centreofmass,         only:reset_centreofmass
+ use dust,                 only:set_dustfrac,grainsizecgs,graindenscgs
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -197,26 +199,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     select case (icentral)
     case (0)
        !--external potential
+       !--todo: check that potentials are implemented correctly; add more potentials
        ipotential = 1
-       call prompt('Which potential? (1=,2=,...)',ipotential,1,3)
+       call prompt('Which potential? (1=central point mass,2=binary potential,3=spinning black hole)',ipotential,1,3)
        select case (ipotential)
        case (1)
           !--point mass
-          iexternalforce = 1
+          iexternalforce = iext_star
           m1       = 1.
-          mcentral = m1
           accr1    = 1.
-          print "(a)", 'Central object represented by external force with accretion boundary'
-          print*, ' Accretion Radius: ', accr1
-          accradius1 = accr1
        case (2)
           !--fixed binary
-          iexternalforce = 3
-          !--todo: fill in
+          iexternalforce = iext_binary
+          m1       = 1.
+          m2       = 1.
+          accr1    = 1.
+          accr2    = 1.
        case (3)
           !--spinning black hole (Lense-Thirring)
-          iexternalforce = 9
-          !--todo: fill in
+          iexternalforce = iext_lensethirring
+          m1          = 1.
+          accr1       = 1.
+          bhspin      = 1.
+          bhspinangle = 0.
        end select
     case (1)
        !--sink particle(s)
@@ -226,7 +231,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        case (1)
           !--single star
           m1       = 1.
-          mcentral = m1
           accr1    = 1.
        case (2)
           ibinary = 0
@@ -236,7 +240,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              !--binary
              m1       = 1.
              m2       = 1.
-             mcentral = m1 + m2
              binary_a = 1.
              binary_e = 0.
              binary_i = 0.
@@ -248,7 +251,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           case (1)
              !--flyby
              m1       = 1.
-             mcentral = m1
              m2       = 1.
              accr1    = 1.
              accr2    = 1.
@@ -271,7 +273,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ismoothgas      = .false.
     sigmaprofilegas = 0
     !--todo: add circumprimary & circumsecondary discs
-    call prompt('How do you want to set the gas disc mass? (0=disc mass, 1=surface density)',mass_set,0,2)
+    call prompt('How do you want to set the gas disc mass? (0=disc mass,1=surface density)',mass_set,0,1)
     call prompt('Do you want to exponentially taper the outer gas disc profile?',itapergas)
     call prompt('Do you want to smooth the inner gas disc profile?',ismoothgas)
     if (itapergas) then
@@ -290,7 +292,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     pindex  = 1.
     qindex  = 0.25
     alphaSS = 0.005
-    xinc    = 0.
+    xinc    = 0.            !--todo: implement general rotations around a position angle
     H_R     = 0.05
     !
     !--set dust disc options
@@ -310,7 +312,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        grainsizeinp      = 0.1
        graindensinp      = 3.
        R_c_dust          = R_c
-       call prompt('How do you want to set the dust density profile? (0=equal to gas, 1=custom)',profile_set_dust,0,1)
+       call prompt('How do you want to set the dust density profile? (0=equal to gas,1=custom)',profile_set_dust,0,1)
        if (profile_set_dust == 1) then
           call prompt('Do you want to exponentially taper the outer dust disc profile?',itaperdust)
           call prompt('Do you want to smooth the inner dust disc profile?',ismoothdust)
@@ -376,9 +378,42 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (maxalpha==0) alpha = alphaSS
 
  !
- !--set sink particle(s)
+ !--set sink particle(s) or potential
  !
- if (icentral==1) then
+ select case (icentral)
+ case (0)
+    select case (ipotential)
+    case (1)
+       print "(a)", 'Central object represented by external force with accretion boundary'
+       print*, ' Object mass:      ', m1
+       print*, ' Accretion Radius: ', accr1
+       mass1      = m1
+       accradius1 = accr1
+       mcentral   = m1
+    case (2)
+       print "(a)", 'Central binary represented by external force with accretion boundary'
+       print*, ' Primary mass:       ', m1
+       print*, ' Binary mass ratio:  ', m2/m1
+       print*, ' Accretion Radius 1: ', accr1
+       print*, ' Accretion Radius 2: ', accr2
+       mass1       = m1
+       binarymassr = m2/m1
+       accradius1  = accr1
+       accradius2  = accr2
+       mcentral    = m1 + m2
+    case (3)
+       print "(a)", 'Central black hole represented by external force with accretion boundary'
+       print*, ' Black hole mass:        ', m1
+       print*, ' Accretion Radius:       ', accr1
+       print*, ' Black hole spin:        ', bhspin
+       print*, ' Black hole spin angle:  ', bhspinangle
+       mass1                = m1
+       accradius1           = accr1
+       blackhole_spin       = bhspin
+       blackhole_spin_angle = bhspinangle*(pi/180.0)
+       mcentral             = m1
+    end select
+ case (1)
     select case (nsinks)
     case (1)
        !--single star
@@ -392,6 +427,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        xyzmh_ptmass(ihacc,nptmass)  = accr1
        xyzmh_ptmass(ihsoft,nptmass) = accr1
        vxyz_ptmass                  = 0.
+       mcentral                     = m1
     case (2)
        select case (ibinary)
        case (0)
@@ -402,6 +438,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                           posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i,&
                           f=binary_f,accretion_radius1=accr1,accretion_radius2=accr2,&
                           xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass)
+          mcentral = m1 + m2
        case (1)
           !--flyby
           print*,'Disc around a single star with flyby'
@@ -409,9 +446,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           call set_flyby(mprimary=m1,massratio=m2/m1,dma=flyby_a,n0=flyby_d,roll=flyby_r, &
                          accretion_radius1=accr1,accretion_radius2=accr2, &
                          xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass)
+          mcentral = m1
        end select
     end select
- endif
+ end select
 
  !--compute the mass of the gas disc if mass_set=1
  if(mass_set==1) call sigma_ref_to_mass(sigma_ref,sigmaprofilegas,pindex,R_in,R_out,R_ref,R_c,disc_m)
@@ -664,18 +702,24 @@ subroutine write_setupfile(filename)
  select case (icentral)
  case (0)
     !--external potential
-    call write_inopt(ipotential,'ipotential','potential (1=,2=,...)',iunit)
+    call write_inopt(ipotential,'ipotential','potential (1=central point mass,2=binary potential,3=spinning black hole)',iunit)
     select case (ipotential)
     case (1)
        !--point mass
+       call write_inopt(m1,'m1','star mass',iunit)
        call write_inopt(accr1,'accr1','star accretion radius',iunit)
-       !--todo: fill in
     case (2)
        !--fixed binary
-       !--todo: fill in
+       call write_inopt(m1,'m1','primary mass',iunit)
+       call write_inopt(m2,'m2','secondary mass',iunit)
+       call write_inopt(accr1,'accr1','primary accretion radius',iunit)
+       call write_inopt(accr2,'accr2','secondary accretion radius',iunit)
     case (3)
        !--spinning black hole (Lense-Thirring)
-       !--todo: fill in
+       call write_inopt(m1,'m1','black hole mass',iunit)
+       call write_inopt(accr1,'accr1','black hole accretion radius',iunit)
+       call write_inopt(bhspin,'bhspin','black hole spin',iunit)
+       call write_inopt(bhspinangle,'bhspinangle','black hole spin angle',iunit)
     end select
  case (1)
     !--sink particle(s)
@@ -797,9 +841,11 @@ end subroutine write_setupfile
 !
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use io,           only:error
- use units,        only:select_unit,set_units
+ use externalforces, only:iext_star,iext_binary,iext_lensethirring
+ use infile_utils,   only:open_db_from_file,inopts,read_inopt,close_db
+ use io,             only:error
+ use options,        only:iexternalforce
+ use units,          only:select_unit,set_units
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
@@ -840,13 +886,24 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(ipotential,'ipotential',db,min=1,max=3, errcount=nerr)
     select case (ipotential)
     case (1)
+       !--point mass
+       iexternalforce = iext_star
        call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
        call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
-       mcentral = m1
     case (2)
-       !--todo
+       !--fixed binary
+       iexternalforce = iext_binary
+       call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
+       call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
+       call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
+       call read_inopt(accr2,'accr2',db,min=0.,errcount=nerr)
     case (3)
-       !--todo
+       !--spinning black hole (Lense-Thirring)
+       iexternalforce = iext_lensethirring
+       call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
+       call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
+       call read_inopt(bhspin,'bhspin',db,min=0.,errcount=nerr)
+       call read_inopt(bhspinangle,'bhspinangle',db,min=0.,errcount=nerr)
     end select
  case (1)
     !--sink particles
@@ -856,7 +913,6 @@ subroutine read_setupfile(filename,ierr)
        !--single star
        call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
        call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
-       mcentral = m1
     case (2)
        !--two sinks
        call read_inopt(ibinary,'ibinary',db,min=0,max=1, errcount=nerr)
@@ -865,7 +921,6 @@ subroutine read_setupfile(filename,ierr)
           !--binary
           call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
           call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
-          mcentral = m1 + m2
           call read_inopt(binary_a,'binary_a',db,errcount=nerr)
           call read_inopt(binary_e,'binary_e',db,min=0.,errcount=nerr)
           call read_inopt(binary_i,'binary_i',db,errcount=nerr)
@@ -879,7 +934,6 @@ subroutine read_setupfile(filename,ierr)
           !--central star
           call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
           call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
-          mcentral = m1
           !--perturber
           call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
           call read_inopt(accr2,'accr2',db,min=0.,errcount=nerr)
@@ -895,7 +949,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(R_ref,'R_ref',db,min=R_in,errcount=nerr)
  call read_inopt(itapergas,'itapergas',db,errcount=nerr)
  call read_inopt(ismoothgas,'ismoothgas',db,errcount=nerr)
- call read_inopt(mass_set,'mass_set',db,min=0,max=2,errcount=nerr)
+ call read_inopt(mass_set,'mass_set',db,min=0,max=1,errcount=nerr)
  if (itapergas) then
     iprofilegas = 1
     sigmaprofilegas = 1
