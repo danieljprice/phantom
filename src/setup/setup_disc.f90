@@ -30,6 +30,8 @@
 !    accr1             -- central star accretion radius
 !    accr2             -- perturber accretion radius
 !    alphaSS           -- desired alphaSS
+!    bhspin            -- black hole spin
+!    bhspinangle       -- black hole spin angle
 !    binary_O          -- Omega, PA of ascending node (deg)
 !    binary_a          -- binary semi-major axis
 !    binary_e          -- binary eccentricity
@@ -45,6 +47,8 @@
 !    flyby_r           -- roll angle of flyby
 !    graindensinp      -- intrinsic grain density (in g/cm^3)
 !    grainsizeinp      -- grain size (in cm)
+!    ibinary           -- closed binary or flyby (0=binary,1=flyby)
+!    ipotential        -- potential (1=central point mass,2=binary potential,3=spinning black hole)
 !    ismoothdust       -- smooth the inner disc profile
 !    ismoothgas        -- smooth the inner disc profile
 !    itaperdust        -- exponentially taper the outer disc profile
@@ -57,6 +61,7 @@
 !    np                -- number of gas particles
 !    np_dust           -- number of dust particles
 !    nplanets          -- number of planets
+!    nsinks            -- number of sinks
 !    pindex            -- p index
 !    pindex_dust       -- p index
 !    profile_set_dust  -- how to set dust density profile (0=equal to gas, 1=custom)
@@ -66,9 +71,9 @@
 !    sigma_ref         -- sigma at R=R_ref
 !    xinc              -- inclination angle
 !
-!  DEPENDENCIES: centreofmass, dim, dust, eos, externalforces,
-!    infile_utils, io, options, part, physcon, prompting, setbinary,
-!    setdisc, setflyby, timestep, units
+!  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
+!    extern_lensethirring, externalforces, infile_utils, io, options, part,
+!    physcon, prompting, setbinary, setdisc, setflyby, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup

@@ -17,7 +17,7 @@
 !
 !  USAGE: getmathflags [no arguments]
 !
-!  DEPENDENCIES: testmath
+!  DEPENDENCIES: mpiutils, testmath
 !+
 !--------------------------------------------------------------------------
 program getmathflags
