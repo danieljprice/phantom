@@ -39,7 +39,7 @@ module setup
  public :: setpart
 
  integer :: np, norbits
- real :: R_in, R_out, HoverRinput, sig0, alphaSS
+ real :: R_in, R_out, HoverRinput, sig0, sig_in, alphaSS
  real :: p_indexinput, q_indexinput
 
  private
@@ -100,8 +100,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  accradius2 = 0.3
  eps_soft1 = 0.6*HoverRinput*a0
  R_in  = 0.4
- R_out  = 2.5
- sig0   = 0.002/(pi*a0**2)
+ R_out = 2.5
+ sig0  = 0.002/(pi*a0**2)
  alphaSS = 0.01
  p_indexinput = 0.
  q_indexinput = 0.5
@@ -111,7 +111,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  print "(a,/)",'Phantomsetup: routine to setup planet-disc interaction with fixed planet orbit '
  inquire(file=filename,exist=iexist)
  if (iexist) then
-    call read_gwinputfile(filename)
+    call read_setupfile(filename)
  elseif (id==master) then
     print "(a,/)",trim(filename)//' not found: using interactive setup'
     !
@@ -136,7 +136,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     !--write default input file
     !
-    call write_gwinputfile(filename)
+    call write_setupfile(filename)
 
     print "(a)",'>>> rerun phantomsetup using the options set in '//trim(filename)//' <<<'
     stop
@@ -149,19 +149,26 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  alpha=alphaSS
 
- call set_disc(id,master=master,&
-               npart   = np,&
-               rmin    = R_in,   &
-               rmax    = R_out,  &
-               p_index = p_indexinput,    &
-               q_index = q_indexinput,   &
-               HoverR  = HoverRinput,  &
-               sig_naught = sig0, &
-               star_mass = 1.0,  &
-               gamma     = gamma,  &
+ !--set sig_in as required for set_disc (sig_ref at R=Rin)
+ sig_in = sig0*R_in**p_indexinput
+
+ call set_disc(id,master     = master,        &
+               npart         = np,            &
+               rmin          = R_in,          &
+               rmax          = R_out,         &
+               p_index       = p_indexinput,  &
+               q_index       = q_indexinput,  &
+               HoverR        = HoverRinput,   &
+               sig_ref       = sig_in,        &
+               star_mass     = 1.0,           &
+               gamma         = gamma,         &
                particle_mass = massoftype(1), &
-               hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,polyk=polyk,alpha=alpha, &
-               prefix = fileprefix )
+               hfact         = hfact,         &
+               xyzh          = xyzh,          &
+               vxyzu         = vxyzu,         &
+               polyk         = polyk,         &
+               alpha         = alpha,         &
+               prefix        = fileprefix)
  !
  !--set default options for the input file
  !
@@ -187,7 +194,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 end subroutine setpart
 
 
-subroutine write_gwinputfile(filename)
+subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  use extern_binary, only:accradius1,accradius2,binary_posvel
  use extern_binary, only:binarymassr
@@ -220,12 +227,11 @@ subroutine write_gwinputfile(filename)
  call write_inopt(q_indexinput,'q_indexinput','temperature profile',iunit)
  call write_inopt(alphaSS,'alphaSS','desired alpha_SS',iunit)
 
-
  close(iunit)
 
-end subroutine write_gwinputfile
+end subroutine write_setupfile
 
-subroutine read_gwinputfile(filename)
+subroutine read_setupfile(filename)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use extern_binary, only:accradius1,accradius2,binary_posvel
  use extern_binary, only:binarymassr
@@ -255,7 +261,7 @@ subroutine read_gwinputfile(filename)
  call close_db(db)
  close(iunit)
 
-end subroutine read_gwinputfile
+end subroutine read_setupfile
 
 
 end module setup

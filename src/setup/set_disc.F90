@@ -50,7 +50,7 @@
 !--------------------------------------------------------------------------
 module setdisc
  implicit none
- public :: set_disc,sigma_ref_to_mass,mass_to_sigma_ref,scaled_sigma
+ public :: set_disc,set_warp,sigma_ref_to_mass,mass_to_sigma_ref,scaled_sigma
 
  private
 
@@ -105,7 +105,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  real    :: aspin
  real    :: xorigini(3),vorigini(3),R_ref
  real    :: enc_m(maxbins),rad(maxbins),R,dR,dM,sigma
- logical :: do_twist,smooth_surface_density,do_write,do_sigmapringle,do_sigmapringledust,do_mixture
+ logical :: do_twist,smooth_surface_density,do_write,do_mixture
  logical :: do_verbose,exponential_taper,exponential_taper_dust
 
  !
@@ -352,7 +352,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  enddo
  enc_m(:) = enc_m(:) + star_m
  call set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,&
-                          clight,cs0,do_sigmapringle,p_index,q_index,gamma,r_in, &
+                          clight,cs0,exponential_taper,p_index,q_index,gamma,r_in, &
                           maxbins,rad,enc_m,smooth_surface_density,xyzh,vxyzu,ierror)
  if (ierror==1) then
     call fatal('set_disc','error: pressure correction causing -ve sqrt while setting velocities')
