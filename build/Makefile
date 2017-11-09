@@ -1227,17 +1227,17 @@ endif
 
 ifeq ($(SYSTEM), ifort)
     FC= ifort
-    FFLAGS= -O3 -xhost -ipo -mcmodel=medium -shared-intel -warn uninitialized \
-            -warn unused -warn truncated_source
+    FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel \
+			-warn uninitialized -warn unused -warn truncated_source
     DBLFLAG= -r8
-    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+    DEBUGFLAG= -check all -WB -traceback -g -debug all
     KNOWN_SYSTEM=yes
     ENDIANFLAGBIG= -convert big_endian
     ENDIANFLAGLITTLE= -convert little_endian
 # or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
     OMPFLAGS = -qopenmp
     CC = icc
-    CCFLAGS = -O3 -ipo -mcmodel=medium
+    CCFLAGS = -O3 -mcmodel=medium
     LIBCXX = -cxxlib
 endif
 
@@ -1254,22 +1254,6 @@ ifeq ($(SYSTEM), ifortmac)
     OMPFLAGS = -qopenmp
     CC = icc
     CCFLAGS = -O3
-    LIBCXX = -cxxlib
-endif
-
-ifeq ($(SYSTEM), ifort17)
-    # SYSTEM= ifort fails "make test" for ifort 17.0
-    FC= ifort
-    FFLAGS= -O3 -mcmodel=medium -shared-intel \
-            -warn uninitialized -warn unused -warn truncated_source
-    DBLFLAG= -r8
-    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-    OMPFLAGS = -qopenmp
-    CC = icc
-    CCFLAGS = -O3 -mcmodel=medium
     LIBCXX = -cxxlib
 endif
 
