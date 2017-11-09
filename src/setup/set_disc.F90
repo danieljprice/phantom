@@ -67,12 +67,12 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
                     particle_type,particle_mass,hfact,xyzh,vxyzu,polyk,inclination,sininclination,&
                     twist,ismooth,alpha,isink,rwarp,warp_smoothl,bh_spin,rref,writefile,ierr,prefix,verbose)
  use domain,  only:i_belong
- use physcon, only:pi,gg,c
- use units,   only:umass,udist,utime
  use eos,     only:qfacdisc
+ use io,      only:fatal,warning,stdout,error
  use options, only:ieos
  use part,    only:maxp,igas,idust,set_particle_type,labeltype,gravity,maxtypes
- use io,      only:fatal,warning,stdout
+ use physcon, only:pi,gg,c
+ use units,   only:umass,udist,utime
  integer,                     intent(in)    :: id,master
  integer, optional,           intent(in)    :: nparttot
  integer,                     intent(inout) :: npart
@@ -111,15 +111,13 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  !
  !--set problem parameters
  !
-
- !--HoverR is H/R at R=R_ref (R_ref=R_in unless specified)
- H_R            = HoverR
+ H_R            = HoverR       !--HoverR is H/R at R=R_ref (R_ref=R_in unless specified)
  R_in           = rmin
  R_out          = rmax
  R_indust       = rmin
  R_outdust      = rmax
  p_inddust      = p_index
- if (present(rmindust) .and. present(rmaxdust) .and. present(p_indexdust))then
+ if (present(rmindust) .and. present(rmaxdust) .and. present(p_indexdust)) then
     R_indust    = rmindust
     R_outdust   = rmaxdust
     p_inddust   = p_indexdust
@@ -136,8 +134,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  endif
  if (present(disc_Q)) then
     if (present(disc_mass)) then
-       if (id==master) &
-         print*,' ERROR: set_disc: cannot specify both disc mass and Toomre Q parameter (use only one of these)'
+       if (id==master) call error('set_disc','cannot specify both disc mass and Toomre Q parameter')
        if (present(ierr)) ierr = 1
        return
     endif
@@ -146,13 +143,13 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
     Q = 168.d0
  endif
  if (rmax < rmin) then
-    if (id==master) print*,' ERROR: outer radius < inner radius in set_disc, doing nothing'
+    if (id==master) call error('set_disc','outer radius < inner radius')
     if (present(ierr)) ierr = 2
     return
  endif
- if (present(rmindust) .and. present(rmaxdust))then
+ if (present(rmindust) .and. present(rmaxdust)) then
     if (rmaxdust < rmindust) then
-       if (id==master) print*,' ERROR: dust outer radius < dust inner radius in set_disc, doing nothing'
+       if (id==master) call error('set_disc','dust outer radius < dust inner radius')
        if (present(ierr)) ierr = 2
        return
     endif
@@ -163,7 +160,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
     npart_set = npart
  endif
  if (npart_set <= 0) then
-    if (id==master) print*,' ERROR: set_disc: nparttot <= 0 in call to set_disc, doing nothing'
+    if (id==master) call error('set_disc','nparttot <= 0')
     if (present(ierr)) ierr = 3
     return
  endif
@@ -228,7 +225,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  if (present(mixture)) then
     do_mixture = mixture
     if (do_mixture) then
-       if(.not.(present(rmindust) .and. present(rmaxdust) .and. present(p_indexdust) .and. present(disc_massdust)))then
+       if (.not.(present(rmindust) .and. present(rmaxdust) .and. present(p_indexdust) .and. present(disc_massdust))) then
           call fatal('set_disc','setup for dusty disc in the mixture is not specified')
        endif
        disc_mdust = disc_massdust
@@ -280,7 +277,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  sigmaprofile = 0
  if (exponential_taper) then
     sigmaprofile = 1
-    if (present(rc))then
+    if (present(rc)) then
        R_c = rc
     else
        R_c = R_out
@@ -293,7 +290,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
     sigmaprofiledust = 0
     if (exponential_taper_dust) then
        sigmaprofiledust = 1
-       if (present(rcdust))then
+       if (present(rcdust)) then
           R_c_dust = rcdust
        else
           R_c_dust = R_outdust
@@ -347,7 +344,11 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
     R = R_in + (i-1)*dR
     sigma = scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c)
     dM    = 2.*pi*R*sigma*dR
-    enc_m(i) = enc_m(i-1) + dM
+    if (i>1) then
+       enc_m(i) = enc_m(i-1) + dM
+    else
+       enc_m(i) = dM
+    endif
     rad(i)   = R+0.5*dR
  enddo
  enc_m(:) = enc_m(:) + star_m
@@ -390,7 +391,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  !--if disc viscosity is used, set the artificial viscosity parameter
  !  in the input file so as to give the desired alpha_SS
  !
- if(present(alpha)) then
+ if (present(alpha)) then
     if (do_verbose) print*, 'alphaSS requested = ', alpha
     alpha = alpha/(honH/10.0)
     !--and the min and max alphaSS present
@@ -876,7 +877,7 @@ pure subroutine set_warp(npart_tot,npart_start_count,&
              sini = sininclination
           endif
           !--uncomment the following for Nelson-Papaloizou bending waves
-          !if(r < rsi.or.r > rso) then
+          !if (r < rsi.or.r > rso) then
           !  sini=0.
           !else
           !  sini=ampl*sin(pi*(r-rsi)/(rso-rsi))
@@ -923,12 +924,12 @@ end function get_HonR
 subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile,&
                           R_c,p_index,q_index,star_m,disc_m,inclination,honH,cs0,&
                           alphaSS_min,alphaSS_max,R_warp,psimax,itype)
- use units,        only:umass,utime,udist
- use infile_utils, only:write_inopt
- use physcon,      only:gg,c
- use part,         only:labeltype,idust
+ use dim,          only:maxvxyzu
  use eos,          only:get_temperature,init_eos,ieos
- use dim, only:maxvxyzu
+ use infile_utils, only:write_inopt
+ use part,         only:labeltype,idust
+ use physcon,      only:gg,c
+ use units,        only:umass,utime,udist
  integer, intent(in) :: iunit,npart,itype,sigmaprofile
  real,    intent(in) :: R_in,R_out,R_ref,Q,p_index,q_index,star_m,disc_m,inclination,honH,cs0
  real,    intent(in) :: alphaSS_min,alphaSS_max,R_warp,psimax,R_c
