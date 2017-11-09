@@ -84,7 +84,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  real, optional,              intent(inout) :: alpha
  real,                        intent(in)    :: p_index,q_index,HoverR,gamma,hfact
  real, optional,              intent(in)    :: disc_Q,disc_mass,star_mass,sig_ref
- real, optional,              intent(in)    :: xyz_origin(3), vxyz_origin(3)
+ real, optional,              intent(in)    :: xyz_origin(3),vxyz_origin(3)
  integer, optional,           intent(in)    :: particle_type
  real, optional,              intent(in)    :: inclination,sininclination,rwarp,warp_smoothl,bh_spin,rref
  logical, optional,           intent(in)    :: twist,ismooth,mixture
@@ -99,7 +99,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  integer :: sigmaprofile,sigmaprofiledust
  real    :: Q,G,cs0,clight
  real    :: R_in,R_out,phi_min,phi_max,H_R,R_indust,R_outdust,p_inddust,R_c,R_c_dust
- real    :: star_m,disc_m,disc_mdust,rminav,rmaxav,honHmin,honHmax
+ real    :: star_m,disc_m,disc_mdust,rminav,rmaxav,honHmin,honHmax,sigma_ref
  real    :: honH,alphaSS_min,alphaSS_max
  real    :: xinclination,rwarpi,hwarp,rsi,rso,psimax
  real    :: aspin
@@ -307,8 +307,10 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
        call fatal('set_disc','cannot set disc_mass and sig_ref at same time')
     endif
     call sigma_ref_to_mass(sig_ref,sigmaprofile,p_index,R_in,R_out,R_ref,R_c,disc_m)
+    sigma_ref = sig_ref
  else
     disc_m = disc_mass
+    call mass_to_sigma_ref(disc_m,sigmaprofile,p_index,R_in,R_out,R_ref,R_c,sigma_ref)
  endif
  !
  !--set the particle mass
@@ -342,7 +344,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  dR = (R_out-R_in)/real(maxbins-1)
  do i=1,maxbins
     R = R_in + (i-1)*dR
-    sigma = scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c)
+    sigma = sigma_ref*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c)
     dM    = 2.*pi*R*sigma*dR
     if (i>1) then
        enc_m(i) = enc_m(i-1) + dM
@@ -934,7 +936,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile,&
  real,    intent(in) :: R_in,R_out,R_ref,Q,p_index,q_index,star_m,disc_m,inclination,honH,cs0
  real,    intent(in) :: alphaSS_min,alphaSS_max,R_warp,psimax,R_c
  integer :: ierr
- real :: T0,T_ref,sig,sig_ref
+ real :: T0,T_ref,sig,sigma_ref
  real, parameter :: vxyzutmp(maxvxyzu) = 0.
 
  write(iunit,"(/,a)") '# '//trim(labeltype(itype))//' disc parameters'
@@ -950,14 +952,14 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile,&
     call write_inopt(get_HonR(R_warp,cs0,q_index,star_m,1.),'H/R_warp','disc aspect ratio H/R at R=R_warp',iunit)
  endif
 
- call mass_to_sigma_ref(disc_m,sigmaprofile,p_index,R_in,R_out,R_ref,R_c,sig_ref)
- sig = sig_ref*scaled_sigma(R_in,sigmaprofile,p_index,R_ref,R_in,R_c)
+ call mass_to_sigma_ref(disc_m,sigmaprofile,p_index,R_in,R_out,R_ref,R_c,sigma_ref)
+ sig = sigma_ref*scaled_sigma(R_in,sigmaprofile,p_index,R_ref,R_in,R_c)
  sig = sig*umass/udist**2
  call write_inopt(sig,'sig_in','surface density (g/cm^2) at R=R_in',iunit)
- sig = sig_ref*scaled_sigma(R_ref,sigmaprofile,p_index,R_ref,R_in,R_c)
+ sig = sigma_ref*scaled_sigma(R_ref,sigmaprofile,p_index,R_ref,R_in,R_c)
  sig = sig*umass/udist**2
  call write_inopt(sig,'sig_ref','surface density (g/cm^2) at R=R_ref',iunit)
- sig = sig_ref*scaled_sigma(R_out,sigmaprofile,p_index,R_ref,R_in,R_c)
+ sig = sigma_ref*scaled_sigma(R_out,sigmaprofile,p_index,R_ref,R_in,R_c)
  sig = sig*umass/udist**2
  call write_inopt(sig,'sig_out','surface density (g/cm^2) at R=R_out',iunit)
 
@@ -994,7 +996,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile,&
  write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
  if (sigmaprofile==0) then
     write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,/)") '# Surface density      = ',&
-         sig_ref*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,')'
+         sigma_ref*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,')'
  endif
 
  return
