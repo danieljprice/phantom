@@ -1549,10 +1549,12 @@ ifeq ($(HDF5), yes)
     CCFLAGS+= -I$(HDF5ROOT)/include
     FPPFLAGS+= -DHAVE_HDF5
 endif
+
 #
 # MCFOST libraries (if required)
 #
 ifeq ($(MCFOST), yes)
+    FPPFLAGS+= -DMCFOST
     LDFLAGS+= -L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)
 #    LDFLAGS+=  ~/mcfost/src/libtmp/*.o  ~/mcfost/src/*.o  $(LIBCXX)
 endif

@@ -382,6 +382,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     gamma = 5./3.
     icooling = 1
  endif
+#ifdef MCFOST
+ icooling = 0
+#endif
+
  !--sanity check on ieos = 6
  if (ieos==6 .and. isink==0) call fatal('setup_disc','something''s gone wrong with ieos & isink...')
 
