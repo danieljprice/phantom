@@ -165,13 +165,13 @@ subroutine binary_posvel(ti,posmh,vels)
  posmh(1) = x1
  posmh(2) = y1
  posmh(3) = 0.
- posmh(4) = 1.
+ posmh(4) = binarymassri*1./(1.-binarymassri)
  posmh(5) = accradius1
 
  posmh(6)  = x2
  posmh(7)  = y2
  posmh(8)  = 0.
- posmh(9)  = binarymassri
+ posmh(9)  = 1. 
  posmh(10) = accradius2
 
  vels(1) = -(1.-binarymassri)*sin(ti)
