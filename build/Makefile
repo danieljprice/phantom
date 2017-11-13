@@ -99,6 +99,13 @@ ifeq ($(SETUP), dustyHLTau)
     OLDSETUP= dustyHLTau
     override SETUP=dustydisc
 endif
+ifeq ($(SETUP), mcfost)
+    OBSOLETE_SETUP=yes
+    OLDSETUP=mcfost
+    override SETUP=disc
+    MCFOST=yes
+endif
+
 
 ifeq ($(SETUP), empty)
 #   empty setup for external-driver simulation
@@ -863,19 +870,6 @@ ifeq ($(SETUP), tokamak)
     KNOWN_SETUP=yes
 endif
 
-ifeq ($(SETUP), mcfost)
-#   live feedback from mcfost in discs
-    FPPFLAGS= -DDISC_VISCOSITY
-    SETUPFILE= setup_disc.f90
-    ANALYSIS= analysis_mcfost.f90
-    LIVE_ANALYSIS=yes
-    ISOTHERMAL=no
-    KNOWN_SETUP=yes
-    MULTIRUNFILE= multirun.f90
-    IND_TIMESTEPS=yes
-    MCFOST=yes
-endif
-
 ifeq ($(SETUP), sfmcfost)
 #   live feedback from mcfost in star formation calculation
     PERIODIC=yes
@@ -1554,6 +1548,12 @@ endif
 # MCFOST libraries (if required)
 #
 ifeq ($(MCFOST), yes)
+#   live feedback from mcfost
+    ANALYSIS= analysis_mcfost.f90
+    LIVE_ANALYSIS=yes
+    ISOTHERMAL=no
+    MCFOST=yes
+
     FPPFLAGS+= -DMCFOST
     LDFLAGS+= -L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)
 #    LDFLAGS+=  ~/mcfost/src/libtmp/*.o  ~/mcfost/src/*.o  $(LIBCXX)
