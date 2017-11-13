@@ -149,7 +149,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  alpha=alphaSS
 
- !--set sig_in as required for set_disc (sig_ref at R=Rin)
+ !--set sig_in as required for set_disc (sig_norm at R=Rin)
  sig_in = sig0*R_in**p_indexinput
 
  call set_disc(id,master     = master,        &
@@ -159,7 +159,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                p_index       = p_indexinput,  &
                q_index       = q_indexinput,  &
                HoverR        = HoverRinput,   &
-               sig_ref       = sig_in,        &
+               sig_norm      = sig_in,        &
                star_mass     = 1.0,           &
                gamma         = gamma,         &
                particle_mass = massoftype(1), &

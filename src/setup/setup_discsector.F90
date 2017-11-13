@@ -196,7 +196,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--calculate sigma0 of entire disc
  sig0 = sigma0(disc_mass,R_in,R_out,p_index)
 
- !--set sig_in as required for set_disc (sig_ref at R=Rin)
+ !--set sig_in as required for set_disc (sig_norm at R=Rin)
  sig_in = sig0*R_in**p_index
 
  call set_disc(id,master     = master,             &
@@ -208,7 +208,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                p_index       = p_index,            &
                q_index       = q_index,            &
                HoverR        = HoverR,             &
-               sig_ref       = sig_in,             &
+               sig_norm      = sig_in,             &
                star_mass     = object_mass,        &
                gamma         = gamma,              &
                particle_mass = massoftype(1),      &

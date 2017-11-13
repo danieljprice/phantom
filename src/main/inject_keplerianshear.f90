@@ -417,7 +417,7 @@ subroutine replenish_injection_zone(ninject,time,dtlast,injected)
                p_index    = injp%p_index,                 &
                q_index    = injp%q_index,                 &
                HoverR     = injp%HoverR,                  &
-               sig_ref    = sig_in,                       &
+               sig_norm   = sig_in,                       &
                star_mass  = injp%object_mass,             &
                polyk      = polyk,                        &
                gamma      = gamma,                        &

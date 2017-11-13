@@ -84,7 +84,6 @@ subroutine test_setdisc(ntests,npass)
                    npart   = npart,&
                    rmin    = 0.5, &
                    rmax    = 10.,&
-                   rref    = 0.51,&
                    p_index = 1.5,    &
                    q_index = 0.75,   &
                    HoverR  = 0.02, &
