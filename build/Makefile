@@ -1455,6 +1455,18 @@ else
 endif
 endif
 
+ifeq ($(MCFOST), yes)
+#   live feedback from mcfost
+    ANALYSIS= analysis_mcfost.f90
+    LIVE_ANALYSIS=yes
+    ISOTHERMAL=no
+    MCFOST=yes
+
+    FPPFLAGS+= -DMCFOST
+    LDFLAGS+= -L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)
+#    LDFLAGS+=  ~/mcfost/src/libtmp/*.o  ~/mcfost/src/*.o  $(LIBCXX)
+endif
+
 #
 # can turn particle injection off
 # by setting INJECT_PARTICLES=no
@@ -1542,21 +1554,6 @@ ifeq ($(HDF5), yes)
     LDFLAGS+= -L$(HDF5ROOT)/lib -lhdf5
     CCFLAGS+= -I$(HDF5ROOT)/include
     FPPFLAGS+= -DHAVE_HDF5
-endif
-
-#
-# MCFOST libraries (if required)
-#
-ifeq ($(MCFOST), yes)
-#   live feedback from mcfost
-    ANALYSIS= analysis_mcfost.f90
-    LIVE_ANALYSIS=yes
-    ISOTHERMAL=no
-    MCFOST=yes
-
-    FPPFLAGS+= -DMCFOST
-    LDFLAGS+= -L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)
-#    LDFLAGS+=  ~/mcfost/src/libtmp/*.o  ~/mcfost/src/*.o  $(LIBCXX)
 endif
 
 #
