@@ -38,6 +38,7 @@
 !    psi_max     -- maximum warp amplitude
 !    q_index     -- power law index of sound speed profile
 !    sig_in      -- surface density (g/cm^2) at R=R_in
+!    sig_max     -- maximum surface density (g/cm^2)
 !    sig_out     -- surface density (g/cm^2) at R=R_out
 !    sig_ref     -- surface density (g/cm^2) at R=R_ref
 !    udist       -- distance units (cgs)

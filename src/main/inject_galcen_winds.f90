@@ -100,18 +100,18 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
 
 !
 ! If restarting, compute the number of particles already injected from each star.
-!    This overestimates the total number injected by 1 timestep since 'time' 
+!    This overestimates the total number injected by 1 timestep since 'time'
 !    should be the last value before the restart dump was written, which is less
 !    than its current value.  Therefore, the first time through no particles will
-!    be injected.  This error is small though. A better idea is to add 
-!    'total_particles_injected' to the dump file, which will eliminate this 
+!    be injected.  This error is small though. A better idea is to add
+!    'total_particles_injected' to the dump file, which will eliminate this
 !    error altogether.
 ! Note: I imagine there's a better place to put this.  This if statement will
 !    evaluate to false an awfully large number of times.  Needs to be after
 !    dumpfile ('time') and wind data (Mdots) have been read in.
 !
  if(first_iteration) then
-    if(time /= 0) then   ! only if restarting 
+    if(time /= 0) then   ! only if restarting
        do i=nskip+1,nptmass
           j = i - nskip ! position in wind table
           total_particles_injected(i) = int(wind(i_Mdot,j)*Mdot_fac * time / massoftype(igas))
@@ -168,7 +168,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     !    but it should help with setting h since tlast --> deltat is more accurate
     !
     ! don't update tlast for a particular star unless that star injected
-    !    particles this timestep; this way, fractional particles/timestep can 
+    !    particles this timestep; this way, fractional particles/timestep can
     !    accumulate and eventually inject a particle, making Mdot more accurate
     !
     if(ninject > 0) then
