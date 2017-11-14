@@ -908,6 +908,19 @@ ifndef SRCDUST
     SRCDUST = dust.F90
 endif
 
+ifeq ($(MCFOST), yes)
+#   live feedback from mcfost
+    ANALYSIS= analysis_mcfost.f90
+    LIVE_ANALYSIS=yes
+    ISOTHERMAL=no
+    MCFOST=yes
+
+    FPPFLAGS+= -DMCFOST
+    LDFLAGS+= -L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)
+#    LDFLAGS+=  ~/mcfost/src/libtmp/*.o  ~/mcfost/src/*.o  $(LIBCXX)
+endif
+
+
 #----------------------------------------------------------------
 ifeq ($(SYSTEM), zen)
     FC= ifort
@@ -1453,18 +1466,6 @@ ifdef KERNEL
 else
    SRCKERNEL= kernel_cubic.f90
 endif
-endif
-
-ifeq ($(MCFOST), yes)
-#   live feedback from mcfost
-    ANALYSIS= analysis_mcfost.f90
-    LIVE_ANALYSIS=yes
-    ISOTHERMAL=no
-    MCFOST=yes
-
-    FPPFLAGS+= -DMCFOST
-    LDFLAGS+= -L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)
-#    LDFLAGS+=  ~/mcfost/src/libtmp/*.o  ~/mcfost/src/*.o  $(LIBCXX)
 endif
 
 #
