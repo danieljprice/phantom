@@ -393,7 +393,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     icooling = 1
  endif
 #ifdef MCFOST
+ ieos = 2
  icooling = 0
+ ipdv_heating = 0
+ ishock_heating = 0
+ alphau = 0
 #endif
 
  !--sanity check on ieos = 6
