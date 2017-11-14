@@ -23,13 +23,16 @@
 !    R_c               -- characteristic radius of the exponential taper
 !    R_c_dust          -- characteristic radius of the exponential taper
 !    R_in              -- inner radius
+!    R_inann           -- inner annulus radius
 !    R_indust          -- inner radius
 !    R_out             -- outer radius
+!    R_outann          -- outer annulus radius
 !    R_outdust         -- outer radius
 !    R_ref             -- reference radius
 !    accr1             -- central star accretion radius
 !    accr2             -- perturber accretion radius
 !    alphaSS           -- desired alphaSS
+!    annulus_m         -- mass in annulus
 !    bhspin            -- black hole spin
 !    bhspinangle       -- black hole spin angle
 !    binary_O          -- Omega, PA of ascending node (deg)
@@ -38,7 +41,7 @@
 !    binary_f          -- f, initial true anomaly (deg,180=apastron)
 !    binary_i          -- i, inclination (deg)
 !    binary_w          -- w, argument of periapsis (deg)
-!    deltat            -- output interval as fraction of total time
+!    deltat            -- output interval as fraction of orbital period
 !    disc_m            -- disc mass
 !    dist_unit         -- distance unit (e.g. au,pc,kpc,0.1pc)
 !    dust_to_gas_ratio -- dust to gas ratio
@@ -49,15 +52,13 @@
 !    grainsizeinp      -- grain size (in cm)
 !    ibinary           -- closed binary or flyby (0=binary,1=flyby)
 !    ipotential        -- potential (1=central point mass,2=binary potential,3=spinning black hole)
-!    ismoothdust       -- smooth the inner disc profile
-!    ismoothgas        -- smooth the inner disc profile
 !    itaperdust        -- exponentially taper the outer disc profile
 !    itapergas         -- exponentially taper the outer disc profile
 !    m1                -- central star mass
 !    m2                -- perturber mass
-!    mass_set          -- how to set gas density profile (0=disc mass,1=surface density)
+!    mass_set          -- how to set gas density profile 
 !    mass_unit         -- mass unit (e.g. solarm,jupiterm,earthm)
-!    norbits           -- maximum number of binary orbits
+!    norbits           -- maximum number of orbits at outer disc
 !    np                -- number of gas particles
 !    np_dust           -- number of dust particles
 !    nplanets          -- number of planets
@@ -68,12 +69,14 @@
 !    qindex            -- q index
 !    qindex_dust       -- q index
 !    setplanets        -- add planets? (0=no,1=yes)
-!    sigma_ref         -- sigma at R=R_ref
+!    sig_norm          -- sigma = sig_norm (R/R_ref)^-p (1-sqrt(R_in/R))
+!    sig_ref           -- sigma at reference radius
 !    xinc              -- inclination angle
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
-!    extern_lensethirring, externalforces, infile_utils, io, options, part,
-!    physcon, prompting, setbinary, setdisc, setflyby, timestep, units
+!    extern_lensethirring, externalforces, infile_utils, io, kernel,
+!    options, part, physcon, prompting, setbinary, setdisc, setflyby,
+!    timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
