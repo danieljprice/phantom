@@ -81,8 +81,9 @@ module setup
  implicit none
  public  :: setpart
  real    :: R_in,R_out,R_ref,xinc,disc_m,pindex,qindex,pindex_dust,qindex_dust
- real    :: H_R,H_R_dust,sig_norm,sig_normdust,grainsizeinp,graindensinp
+ real    :: H_R,H_R_dust,sig_ref,sig_norm,sig_normdust,grainsizeinp,graindensinp
  real    :: disc_mdust,dust_to_gas_ratio,R_outdust,R_indust,R_c,R_c_dust
+ real    :: annulus_m,R_inann,R_outann
  real    :: m1,m2,mcentral,bhspin,bhspinangle,binary_a,binary_e,binary_i,binary_O,binary_w,binary_f
  real    :: accr1,accr2,alphaSS,deltat,flyby_a,flyby_d,flyby_r
  integer :: i,nplanets,np,np_dust,icentral,ipotential,nsinks,ibinary,setplanets,norbits
@@ -118,7 +119,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,              only:au,solarm,jupiterm,pi,years
  use prompting,            only:prompt
  use setbinary,            only:set_binary
- use setdisc,              only:set_disc,scaled_discmass
+ use setdisc,              only:set_disc,scaled_sigma,scaled_discmass
  use setflyby,             only:set_flyby,get_T_flyby
  use timestep,             only:tmax,dtmax
  use units,                only:set_units,select_unit,umass,udist,utime
@@ -192,13 +193,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !--set defaults for central object(s)
     !
     icentral = 1
-    call prompt('Do you want to use sink particles or an external potential? (0=potential,1=sinks)',icentral,0,1)
+    call prompt('Do you want to use sink particles or an external potential? '// &
+                '(0=potential,1=sinks)',icentral,0,1)
     select case (icentral)
     case (0)
        !--external potential
        !--todo: check that potentials are implemented correctly; add more potentials
        ipotential = 1
-       call prompt('Which potential? (1=central point mass,2=binary potential,3=spinning black hole)',ipotential,1,3)
+       call prompt('Which potential?'//new_line('A')//' 1=central point mass'// &
+                   new_line('A')//' 2=binary potential'//new_line('A')// &
+                   ' 3=spinning black hole'//new_line('A'),ipotential,1,3)
        select case (ipotential)
        case (1)
           !--point mass
@@ -223,7 +227,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     case (1)
        !--sink particle(s)
        nsinks = 1
-       call prompt('How many sinks? (1=single,2=binary)',nsinks,1,2)
+       call prompt('How many sinks?',nsinks,1,2)
        select case (nsinks)
        case (1)
           !--single star
@@ -267,13 +271,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     mass_set        = 0
     itapergas       = .false.
     !--todo: add circumprimary & circumsecondary discs
-    call prompt('How do you want to set the gas disc mass? (0=disc mass,1=surface density)',mass_set,0,1)
+    call prompt('How do you want to set the gas disc mass?'//new_line('A')// &
+       ' 0=total disc mass'//new_line('A')//' 1=mass in annulus'//new_line('A')// &
+       ' 2=surface density normalisation'//new_line('A')// &
+       ' 3=surface density at reference radius'//new_line('A'),mass_set,0,3)
     call prompt('Do you want to exponentially taper the outer gas disc profile?',itapergas)
     select case (mass_set)
     case (0)
        disc_m = 0.05
     case (1)
+       annulus_m = 0.05
+       R_inann   = R_in
+       R_outann  = R_out
+    case (2)
        sig_norm = 1.0E-02
+    case (3)
+       sig_ref = 1.0E-02
     end select
     pindex  = 1.
     qindex  = 0.25
@@ -493,8 +506,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  hfact = hfact_default
  npartoftype(:)    = 0
  npartoftype(igas) = np
- !--compute the disc mass from sig_norm if required
- if (mass_set==1) disc_m = sig_norm*scaled_discmass(sigmaprofilegas,pindex,R_in,R_out,R_ref,R_c)
+ !--compute the disc mass for different mass_set values
+ if (mass_set==1) then
+    sig_norm = annulus_m / scaled_discmass(sigmaprofilegas,pindex,R_inann,R_outann,R_ref,R_c)
+    disc_m   = sig_norm  * scaled_discmass(sigmaprofilegas,pindex,R_in,R_out,R_ref,R_c)
+ endif
+ if (mass_set==2) disc_m = sig_norm*scaled_discmass(sigmaprofilegas,pindex,R_in,R_out,R_ref,R_c)
+ if (mass_set==3) then
+    if (.not.(R_in < R_ref) .and. ismoothgas) call fatal('set_disc', &
+       'if smoothing at inner disc edge and setting disc mass by sigma(R_ref), must have R_in < R_ref')
+    sig_norm = sig_ref  / scaled_sigma(R_ref,sigmaprofilegas,pindex,R_ref,R_in,R_c)
+    disc_m   = sig_norm * scaled_discmass(sigmaprofilegas,pindex,R_in,R_out,R_ref,R_c)
+ endif
  if (use_dust) then
     grainsizecgs = grainsizeinp
     graindenscgs = graindensinp
@@ -794,7 +817,9 @@ subroutine write_setupfile(filename)
  end select
  !--gas disc
  write(iunit,"(/,a)") '# options for gas accretion disc'
- call write_inopt(mass_set,'mass_set','how to set gas density profile (0=disc mass,1=surface density)',iunit)
+ call write_inopt(mass_set,'mass_set','how to set gas density profile ' // &
+    '(0=total disc mass,1=mass in annulus,2=surface density normalisation,' // &
+    '3=surface density at reference radius)',iunit)
  call write_inopt(itapergas,'itapergas','exponentially taper the outer disc profile',iunit)
  call write_inopt(R_in,'R_in','inner radius',iunit)
  call write_inopt(R_ref,'R_ref','reference radius',iunit)
@@ -804,7 +829,17 @@ subroutine write_setupfile(filename)
  case (0)
     call write_inopt(disc_m,'disc_m','disc mass',iunit)
  case (1)
-    call write_inopt(sig_norm,'sig_norm','sigma normalisation',iunit)
+    call write_inopt(annulus_m,'annulus_m','mass in annulus',iunit)
+    call write_inopt(R_inann,'R_inann','inner annulus radius',iunit)
+    call write_inopt(R_outann,'R_outann','outer annulus radius',iunit)
+ case (2)
+    if (itapergas) then
+       call write_inopt(sig_norm,'sig_norm','sigma = sig_norm (R/R_ref)^-p exp[-(R/R_c)^(2-p)] (1-sqrt(R_in/R))',iunit)
+    else
+       call write_inopt(sig_norm,'sig_norm','sigma = sig_norm (R/R_ref)^-p (1-sqrt(R_in/R))',iunit)
+    endif
+ case (3)
+    call write_inopt(sig_ref,'sig_ref','sigma at reference radius',iunit)
  end select
  call write_inopt(pindex,'pindex','p index',iunit)
  call write_inopt(qindex,'qindex','q index',iunit)
@@ -965,7 +1000,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(R_out,'R_out',db,min=R_in,errcount=nerr)
  call read_inopt(R_ref,'R_ref',db,min=R_in,errcount=nerr)
  call read_inopt(itapergas,'itapergas',db,errcount=nerr)
- call read_inopt(mass_set,'mass_set',db,min=0,max=1,errcount=nerr)
+ call read_inopt(mass_set,'mass_set',db,min=0,max=3,errcount=nerr)
  if (itapergas) then
     call read_inopt(R_c,'R_c',db,min=0.,errcount=nerr)
  endif
@@ -973,7 +1008,13 @@ subroutine read_setupfile(filename,ierr)
  case (0)
     call read_inopt(disc_m,'disc_m',db,min=0.,errcount=nerr)
  case (1)
+    call read_inopt(annulus_m,'annulus_m',db,min=0.,errcount=nerr)
+    call read_inopt(R_inann,'R_inann',db,min=R_in,errcount=nerr)
+    call read_inopt(R_outann,'R_outann',db,min=R_in,errcount=nerr)
+ case (2)
     call read_inopt(sig_norm,'sig_norm',db,min=0.,errcount=nerr)
+ case (3)
+    call read_inopt(sig_ref,'sig_ref',db,min=0.,errcount=nerr)
  end select
  call read_inopt(pindex,'pindex',db,errcount=nerr)
  call read_inopt(qindex,'qindex',db,errcount=nerr)
