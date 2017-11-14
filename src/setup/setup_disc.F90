@@ -687,8 +687,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !--flyby
     period = get_T_flyby(m1,m2,flyby_a,flyby_d)
     norbits = 1
+ elseif (setplanets==1) then
+    !--outer planet set above
  else
-    period = 0.
+    !--outer disc
+    period = sqrt(4.*pi**2*R_out**3/mcentral)
  endif
  if (period > 0.) then
     if (deltat > 0.)  dtmax = deltat*period
@@ -853,6 +856,10 @@ subroutine write_setupfile(filename)
        write(iunit,"(/,a)") '# timestepping'
        call write_inopt(deltat,'deltat','output interval as fraction of total time',iunit)
     endif
+ else
+    write(iunit,"(/,a)") '# timestepping'
+    call write_inopt(norbits,'norbits','maximum number of orbits at outer disc',iunit)
+    call write_inopt(deltat,'deltat','output interval as fraction of orbital period',iunit)
  endif
  close(iunit)
 
