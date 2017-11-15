@@ -2162,6 +2162,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 #ifdef LIGHTCURVE
  use part,           only:luminosity
 #endif
+#ifdef GR
+ use metric_tools,   only:get_metric
+ use utils_gr,       only:get_u0
+#endif
 
  integer,            intent(in)    :: icall
  type(cellforce),    intent(inout) :: cell
@@ -2219,7 +2223,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 #endif
 
  integer               :: ip,i
- real                  :: densi, vxi,vyi,vzi,lorentzi
+ real                  :: densi, vxi,vyi,vzi,u0i
+#ifdef GR
+ real                  :: posi(3),veli(3),gcov(0:3,0:3),gcon(0:3,0:3),sqrtg
+#endif
 
  realviscosity = (irealvisc > 0)
 
@@ -2262,8 +2269,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
     vyi = xpartveci(ivyi)
     vzi = xpartveci(ivzi)
 
-    lorentzi = 1.
-    if (gr) lorentzi = 1./sqrt(1.-(vxi*vxi + vyi*vyi + vzi*vzi))
+    u0i = 1.
+#ifdef GR
+    veli = (/vxi,vyi,vzi/)
+    posi = (/xi,yi,zi/)
+    call get_metric(posi,gcov,gcon,sqrtg)
+    call get_u0(gcov,veli,u0i)
+#endif
 
     if (iamgasi) then
        rhoi    = xpartveci(irhoi)
@@ -2377,13 +2389,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
           if (use_entropy .or. gr) then
              densi = xpartveci(idensGRi)
              if (gr .and. ishock_heating > 0) then
-                fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*lorentzi*fsum(idudtdissi)
+                fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*u0i*fsum(idudtdissi)
              else if (ishock_heating > 0) then
                 fxyz4 = fxyz4 + (gamma - 1.)*rhogasi**(1.-gamma)*fsum(idudtdissi)
              endif
              ! add conductivity for GR
              if (gr) then
-                fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*lorentzi*fsum(idendtdissi)
+                fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*u0i*fsum(idendtdissi)
              endif
           else
              fac = rhoi/rhogasi
