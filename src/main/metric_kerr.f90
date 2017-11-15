@@ -171,7 +171,7 @@ subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi
  real, intent(out), dimension(0:3,0:3) :: dgcovdr,dgcovdtheta,dgcovdphi
  real :: r, theta, sintheta, costheta, rho, delta
  real :: rs
- rs = 2*.mass1
+ rs = 2.*mass1
 
  r = position(1)
  theta = position(2)
