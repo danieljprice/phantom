@@ -192,6 +192,20 @@ ifeq ($(SETUP), isodisc)
     IND_TIMESTEPS=yes
 endif
 
+ifeq ($(SETUP), grdisc)
+#   locally isothermal discs
+    FPPFLAGS= -DSORT_RADIUS_INIT
+    SETUPFILE= setup_grdisc.f90
+    ANALYSIS= analysis_disc.f90
+    ISOTHERMAL=no
+    GR=yes
+    METRIC=kerr
+    KNOWN_SETUP=yes
+    MULTIRUNFILE= multirun.f90
+    IND_TIMESTEPS=yes
+    CONST_AV=yes
+endif
+
 ifeq ($(SETUP), Lense-Thirring)
 #   Lense-Thirring setup
     FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
