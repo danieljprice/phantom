@@ -56,7 +56,7 @@
 !    itapergas         -- exponentially taper the outer disc profile
 !    m1                -- central star mass
 !    m2                -- perturber mass
-!    mass_set          -- how to set gas density profile
+!    mass_set          -- how to set gas density profile 
 !    mass_unit         -- mass unit (e.g. solarm,jupiterm,earthm)
 !    norbits           -- maximum number of orbits at outer disc
 !    np                -- number of gas particles
