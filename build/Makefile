@@ -474,7 +474,7 @@ ifeq ($(SETUP), srshock)
     METRIC=minkowski
     ISOTHERMAL=no
     KNOWN_SETUP=yes
-    MAXP=500000
+    MAXP=900000
     CONST_AV=yes
 endif
 
