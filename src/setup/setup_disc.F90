@@ -44,6 +44,7 @@
 !    deltat            -- output interval as fraction of orbital period
 !    disc_m            -- disc mass
 !    dist_unit         -- distance unit (e.g. au,pc,kpc,0.1pc)
+!    dust_method       -- dust method (1=one fluid,2=two fluid)
 !    dust_to_gas_ratio -- dust to gas ratio
 !    flyby_a           -- flyby periastron distance
 !    flyby_d           -- initial distance of flyby (in units of periastron distance)

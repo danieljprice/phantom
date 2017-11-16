@@ -19,7 +19,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, part
+!  DEPENDENCIES: dim, options, part
 !+
 !--------------------------------------------------------------------------
 module analysis

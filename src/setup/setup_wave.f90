@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, centreofmass, dim, io, kernel, mpiutils, part,
-!    physcon, prompting, setup_params, unifdis
+!  DEPENDENCIES: boundary, centreofmass, dim, io, kernel, mpiutils,
+!    options, part, physcon, prompting, setup_params, unifdis
 !+
 !--------------------------------------------------------------------------
 module setup

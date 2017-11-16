@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, dust, io, mpiutils, part, physcon,
+!  DEPENDENCIES: boundary, dim, dust, io, mpiutils, options, part, physcon,
 !    prompting, setup_params, unifdis
 !+
 !--------------------------------------------------------------------------
