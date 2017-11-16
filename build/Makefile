@@ -607,6 +607,18 @@ ifeq ($(SETUP), sedov)
     MAXP=2100000
 endif
 
+ifeq ($(SETUP), srblast)
+#   blast wave test
+    PERIODIC=yes
+    SETUPFILE= setup_srblast.f90
+    IND_TIMESTEPS=yes
+    GR=yes
+    METRIC=minkowski
+    KERNEL=quintic
+    KNOWN_SETUP=yes
+    MAXP=2100000
+endif
+
 ifeq ($(SETUP), blob)
 #   Blob evaporation problem
     FPPFLAGS= -DPERIODIC#-DSORT
