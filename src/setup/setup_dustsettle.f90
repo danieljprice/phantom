@@ -44,10 +44,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpiutils,       only:bcast_mpi
  use part,           only:labeltype,set_particle_type,igas,dustfrac
  use physcon,        only:pi,au,solarm
- use dim,            only:maxvxyzu,use_dust,use_dustfrac,maxp
+ use dim,            only:maxvxyzu,use_dust,maxp
  use prompting,      only:prompt
  use externalforces, only:mass1,Rdisc,iext_discgravity
- use options,        only:iexternalforce
+ use options,        only:iexternalforce,use_dustfrac
  use timestep,       only:dtmax,tmax
  use units,          only:set_units,udist
  use dust,           only:init_drag,grainsizecgs,grainsize,graindens,get_ts
@@ -61,7 +61,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real :: totmass,deltax,dz,length
- integer :: i,iregime,ierr
+ integer :: i,iregime,ierr,dust_method
  integer :: itype,ntypes,npartx
  integer :: npart_previous
  real    :: H0,HonR,omega,ts
@@ -80,6 +80,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (id==master) call prompt('enter '//trim(labeltype(itype))//&
                       ' midplane density (gives particle mass)',rhozero,0.)
  call bcast_mpi(rhozero)
+ dust_method  = 1
+ use_dustfrac = .true.
+ if (id==master) call prompt('choose dust method (1=one fluid,2=two fluid)',dust_method,1,2)
+ if (dust_method==2) use_dustfrac = .false.
  dtg = 0.
  if (use_dustfrac) then
     if (id==master) call prompt('enter dust-to-gas ratio',dtg,0.,1.)

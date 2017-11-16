@@ -40,10 +40,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce
  use evwrite,          only:write_evfile,write_evlog
  use energies,         only:etot,totmom,angtot,mdust,get_erot_com
- use dim,              only:calc_erot,maxvxyzu,mhd,use_dustfrac,periodic
+ use dim,              only:calc_erot,maxvxyzu,mhd,periodic
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,dtwallmax,nmaxdumps,iexternalforce,&
-                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
+                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating,&
+                            use_dustfrac
  use readwrite_infile, only:write_infile
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step

@@ -42,7 +42,8 @@
 !+
 !--------------------------------------------------------------------------
 module setup
- use dim, only:use_dustfrac
+ use dim,     only:use_dust
+ use options, only:use_dustfrac
  implicit none
  public :: setpart
  !--private module variables
@@ -227,6 +228,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     call prompt('Enter time between dumps as fraction of binary period',deltat,0.)
     call prompt('Enter number of binary periods to simulate',norbits,0)
+    use_dustfrac = .false.
+    if (use_dust) use_dustfrac = .true.
     if (use_dustfrac) call prompt('Enter initial dust-to-gas ratio',dust_to_gas,0.)
     !
     !--write default input file

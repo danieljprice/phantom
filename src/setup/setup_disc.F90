@@ -80,7 +80,8 @@
 !+
 !--------------------------------------------------------------------------
 module setup
- use dim, only:maxp,use_dust,use_dustfrac,maxalpha
+ use dim,     only:maxp,use_dust,maxalpha
+ use options, only:use_dustfrac
  implicit none
  public  :: setpart
  real    :: R_in,R_out,R_ref,xinc,disc_m,pindex,qindex,pindex_dust,qindex_dust
@@ -91,7 +92,7 @@ module setup
  real    :: accr1,accr2,alphaSS,deltat,flyby_a,flyby_d,flyby_r
  integer :: i,nplanets,np,np_dust,icentral,ipotential,nsinks,ibinary,setplanets,norbits
  integer :: itype,npart_inter,mass_set,profile_set_dust,iprofilegas,iprofiledust
- integer :: sigmaprofilegas,sigmaprofiledust
+ integer :: sigmaprofilegas,sigmaprofiledust,dust_method
  logical :: ismoothgas,ismoothdust,itapergas,itaperdust
  integer, parameter :: maxplanets = 9
  real    :: mplanet(maxplanets),rplanet(maxplanets),accrplanet(maxplanets),inclplan(maxplanets)
@@ -126,6 +127,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setflyby,             only:set_flyby,get_T_flyby
  use timestep,             only:tmax,dtmax
  use units,                only:set_units,select_unit,umass,udist,utime
+#ifdef MCFOST
+ use options,              only:alphau,ipdv_heating,ishock_heating
+#endif
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -178,6 +182,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  elseif (id==master) then
     !--interactive setup
     print "(a,/)",trim(filename)//' not found: using interactive setup'
+    !
+    !--dust method
+    !
+    if (use_dust) then
+       dust_method  = 2
+       use_dustfrac = .false.
+       call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
+       if (dust_method==1) use_dustfrac = .true.
+    endif
     !
     !--resolution
     !
@@ -387,15 +400,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--equation of state
  !
  if (maxvxyzu==3 .and. qindex > 0.) then
-    !--use locally isothermal equation of state
+    !--locally isothermal
     ieos = 3
     gamma = 1.0
  else
+    !--adiabatic
     ieos = 2
     gamma = 5./3.
     icooling = 1
  endif
 #ifdef MCFOST
+ !--radiative equilibrium
  ieos = 2
  icooling = 0
  ipdv_heating = 0
@@ -824,8 +839,8 @@ subroutine write_setupfile(filename)
  end select
  !--gas disc
  write(iunit,"(/,a)") '# options for gas accretion disc'
- call write_inopt(mass_set,'mass_set','how to set gas density profile ' // &
-    '(0=total disc mass,1=mass in annulus,2=surface density normalisation,' // &
+ call write_inopt(mass_set,'mass_set','how to set gas density profile' // &
+    ' (0=total disc mass,1=mass in annulus,2=surface density normalisation,' // &
     '3=surface density at reference radius)',iunit)
  call write_inopt(itapergas,'itapergas','exponentially taper the outer disc profile',iunit)
  call write_inopt(R_in,'R_in','inner radius',iunit)
@@ -856,6 +871,7 @@ subroutine write_setupfile(filename)
  !--dust disc
  if (use_dust) then
     write(iunit,"(/,a)") '# options for dust accretion disc'
+    call write_inopt(dust_method,'dust_method','dust method (1=one fluid,2=two fluid)',iunit)
     call write_inopt(dust_to_gas_ratio,'dust_to_gas_ratio','dust to gas ratio',iunit)
     call write_inopt(profile_set_dust,'profile_set_dust','how to set dust density profile (0=equal to gas, 1=custom)',iunit)
     if (profile_set_dust==1) then
@@ -929,6 +945,11 @@ subroutine read_setupfile(filename,ierr)
  !--read old options for backwards compatibility
  ! call read_obsolete_setup_options(db)
 
+ !--dust method
+ if (use_dust) then
+    call read_inopt(dust_method,'dust_method',db,min=1,max=2,errcount=nerr)
+    if (dust_method==1) use_dustfrac = .true.
+ endif
  !--resolution
  call read_inopt(np,'np',db,min=0,max=maxp,errcount=nerr)
  if (use_dust .and. .not.use_dustfrac) then

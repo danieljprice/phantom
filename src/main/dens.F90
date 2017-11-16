@@ -1530,9 +1530,9 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
                        n_R,n_electronT,eta_nimhd,iohm,ihall,iambi
  use io,          only:fatal,real4
  use eos,         only:get_temperature,get_spsound
- use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,mhd_nonideal,use_dust,use_dustfrac
+ use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,mhd_nonideal,use_dust
  use part,        only:maxgradh,idust
- use options,     only:ieos,alpha,alphamax
+ use options,     only:ieos,alpha,alphamax,use_dustfrac
  use viscosity,   only:bulkvisc,shearparam
  use nicil,       only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
  use linklist,    only:set_hmaxcell

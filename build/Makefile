@@ -186,7 +186,6 @@ ifeq ($(SETUP), turb)
     ISOTHERMAL=yes
     CURLV=yes
     MHD=yes
-    DUSTFRAC=no
     USE_STRAIN_TENSOR=yes
 endif
 
@@ -288,8 +287,6 @@ ifeq ($(SETUP), dustybinarydisc)
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     DUST=yes
-    DUSTFRAC=yes
-    KERNEL=quintic
 endif
 
 ifeq ($(SETUP), binarydiscMFlow)
@@ -727,7 +724,6 @@ ifeq ($(SETUP), dustsettle)
 #   dust settling test from PL15
     SETUPFILE= setup_dustsettle.f90
     DUST=yes
-    DUSTFRAC=yes
     PERIODIC=yes
     ISOTHERMAL=yes
     MODFILE=moddump_dustadd.f90
@@ -751,7 +747,7 @@ ifeq ($(SETUP), test)
     CONST_ARTRES=yes
     CURLV=yes
     MHD=yes
-    DUSTFRAC=yes
+    DUST=yes
     KERNEL=cubic
 endif
 
@@ -1397,16 +1393,11 @@ ifeq ($(MHD), yes)
     FPPFLAGS += -DMHD
 endif
 
-ifeq ($(DUSTFRAC), yes)
-    FPPFLAGS += -DDUSTFRAC
-    DUST= yes
+ifeq ($(DUST), yes)
+    FPPFLAGS += -DDUST
     ifndef KERNEL
        KERNEL=quintic
     endif
-endif
-
-ifeq ($(DUST), yes)
-    FPPFLAGS += -DDUST
 endif
 
 ifeq ($(NONIDEALMHD), yes)

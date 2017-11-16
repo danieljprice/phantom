@@ -61,7 +61,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine compute_energies(t)
- use dim,  only:maxp,maxvxyzu,maxalpha,maxtypes,use_dustfrac,mhd_nonideal,lightcurve
+ use dim,  only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,lightcurve
  use part, only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,npartoftype, &
                 alphaind,Bxyz,Bevol,divcurlB,iamtype,igas,idust,iboundary,istar,idarkmatter,ibulge, &
                 nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,isdead_or_accreted,epot_sinksink,&
@@ -70,7 +70,7 @@ subroutine compute_energies(t)
  use eos,            only:polyk,utherm,gamma,equationofstate,get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
- use options,        only:iexternalforce,alpha,alphaB,ieos
+ use options,        only:iexternalforce,alpha,alphaB,ieos,use_dustfrac
  use mpiutils,       only:reduceall_mpi
  use ptmass,         only:get_accel_sink_gas
  use viscosity,      only:irealvisc,shearfunc
@@ -137,7 +137,7 @@ subroutine compute_energies(t)
 !$omp shared(xyzh,vxyzu,iexternalforce,npart,t,id,npartoftype) &
 !$omp shared(alphaind,massoftype,irealvisc) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass) &
-!$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac) &
+!$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac,use_dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,nelements,n_R,n_electronT,eta_nimhd) &
 !$omp shared(ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
 !$omp shared(iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha) &

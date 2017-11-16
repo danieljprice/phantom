@@ -38,7 +38,8 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:use_dustfrac
+ use dim,          only:use_dust
+ use options,      only:use_dustfrac
  use setup_params, only:rhozero,npart_total
  use io,           only:master
  use unifdis,      only:set_unifdis
@@ -97,6 +98,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     polykset = 0.
  endif
 
+ if (use_dust) use_dustfrac = .true.
  if (use_dustfrac) then
     dust_to_gas = 1.e-2
     if (id==master) call prompt(' enter dust-to-gas ratio ',dust_to_gas,0.)

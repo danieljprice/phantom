@@ -38,7 +38,6 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:use_dustfrac
  use setup_params, only:npart_total
  use io,           only:master
  use unifdis,      only:set_unifdis
