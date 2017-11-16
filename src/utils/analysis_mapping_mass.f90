@@ -98,8 +98,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  dm   = mmax/float(nbins)
  !
  !--Binning data
-  ii = 1
-  parts: do i = 1,npart
+ ii = 1
+ parts: do i = 1,npart
     !
     !--Calculate properties of the particle
     !-- i refers to particle, ii refers to bin
