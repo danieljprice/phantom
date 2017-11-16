@@ -43,7 +43,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:) ! due to reset center of mass
  real,             intent(in)    :: particlemass,time
  integer, parameter :: nbins = 1000                      ! number of bins
- real,    parameter :: mmax = 1.0072			 ! total mass
+ real,    parameter :: mmax = 1.0072                         ! total mass
  real,    parameter :: g = 5./3.                         ! adiabatic index
  logical            :: logr  = .true.
  integer            :: i,j,ii
@@ -104,10 +104,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     !--Calculate properties of the particle
     !-- i refers to particle, ii refers to bin
     if (xyzh(4,i)  <  tiny(xyzh)) cycle parts         ! skip dead particles
-    j = iorder(i)				      ! particles in order
+    j = iorder(i)                                      ! particles in order
     ri = sqrt(dot_product(xyzh(1:3,j),xyzh(1:3,j)))   ! radius of each particle in order
-    ui = vxyzu(4,j) 				      ! internal energy of each particle
-    hi = xyzh(4,j)				      ! smoothing length
+    ui = vxyzu(4,j)                                       ! internal energy of each particle
+    hi = xyzh(4,j)                                      ! smoothing length
     mnew  = mass(ii) + particlemass
     !--Adding particles to a bin until they exceed dm
     if (mnew<dm .and. ii<=nbins) then
