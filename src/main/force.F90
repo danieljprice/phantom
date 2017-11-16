@@ -1015,21 +1015,21 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        !  Determine if neighbouring particle is hidden by a sink particle;
        !  if so, do not add contribution.
        add_contribution = .true.
-       k = 1
-       do while (k <= nptmass .and. add_contribution)
-          xkpt = xyzmh_ptmass(1,k)
-          ykpt = xyzmh_ptmass(2,k)
-          zkpt = xyzmh_ptmass(3,k)
-          vpos = (xkpt-xpartveci(ixi))*(xkpt-xj) &
-                + (ykpt-xpartveci(iyi))*(ykpt-yj) &
-                + (zkpt-xpartveci(izi))*(zkpt-zj)
-          if (vpos < 0.0) then
-             add_contribution = ptmass_not_obscured(-dx,-dy,-dz,  &
-                                 xkpt-xpartveci(ixi),ykpt-xpartveci(iyi),zkpt-xpartveci(izi), &
-                                 xyzmh_ptmass(ihacc,k))
-          endif
-          k = k + 1
-       enddo
+       !k = 1
+       !do while (k <= nptmass .and. add_contribution)
+       !   xkpt = xyzmh_ptmass(1,k)
+       !   ykpt = xyzmh_ptmass(2,k)
+       !   zkpt = xyzmh_ptmass(3,k)
+       !   vpos = (xkpt-xpartveci(ixi))*(xkpt-xj) &
+       !         + (ykpt-xpartveci(iyi))*(ykpt-yj) &
+       !         + (zkpt-xpartveci(izi))*(zkpt-zj)
+       !   if (vpos < 0.0) then
+       !      add_contribution = ptmass_not_obscured(-dx,-dy,-dz,  &
+       !                          xkpt-xpartveci(ixi),ykpt-xpartveci(iyi),zkpt-xpartveci(izi), &
+       !                          xyzmh_ptmass(ihacc,k))
+       !   endif
+       !   k = k + 1
+       !enddo
 #endif
 
        if (rij2 > epsilon(rij2)) then
