@@ -55,7 +55,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real               :: x0(3)
  integer            :: iorder(npart)
  real :: grid(nbins) = (/(i,i=1,nbins,1)/)
- real :: mu(nbins)   = 0.609                       ! mean molecular weight 
+ real :: mu(nbins)   = 0.609                       ! mean molecular weight
  real :: mh(nbins)   = 1.6737236e-24               ! mass of hydrogen atom in cgs
  real :: kb(nbins)   = 1.380658e-16                ! boltzmann constant in cgs
  real :: nt1(nbins)  = 0.
@@ -84,7 +84,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  rbins = 0.0
  ibins = 0
  ubins = 0.0
- hbins = 0.0 
+ hbins = 0.0
  mbins = 0.0
  !
  call reset_centreofmass(npart,xyzh,vxyzu)
@@ -95,7 +95,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
  !
  !--Mass of each shell
- dm   = mmax/float(nbins)                                                                                                              
+ dm   = mmax/float(nbins)
  !
  !--Binning data
   ii = 1
@@ -123,7 +123,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           mbins(ii) = mbins(ii-1) + mass(ii)
        endif
        !
-    else 
+    else
        ii = ii + 1
     endif
     !
@@ -188,8 +188,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        'mfrac',&
        'mfrac'
  do i = 1,ii
-    !--density in each shell   
-    if (mass(i) == 0.) then                             
+    !--density in each shell
+    if (mass(i) == 0.) then
        density(i) = 0.
     else
        density = rhoh(hbins(i)/ibins(i),particlemass)*(umass/udist**3)
