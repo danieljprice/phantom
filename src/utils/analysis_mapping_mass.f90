@@ -12,13 +12,13 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Nicole Rodrigues
+!  OWNER: Daniel Price
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: centreofmass, dim, part, physcon, sortutils, units
+!  DEPENDENCIES: centreofmass, dim, part, physcon, units, sortutils
 !+
 !--------------------------------------------------------------------------
 module analysis
@@ -43,19 +43,19 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:) ! due to reset center of mass
  real,             intent(in)    :: particlemass,time
  integer, parameter :: nbins = 1000                      ! number of bins
- real,    parameter :: mmax = 1.0072                         ! total mass
+ real,    parameter :: mmax = 1.0072			 ! total mass
  real,    parameter :: g = 5./3.                         ! adiabatic index
  logical            :: logr  = .true.
  integer            :: i,j,ii
  integer            :: ibins(nbins)
- real               :: ri,ui,hi,dm
+ real               :: ri,ui,hi,dm,mnew
  real               :: rbins(nbins),mass(nbins),density(nbins),ubins(nbins),u(nbins),temp(nbins),hbins(nbins),m(nbins),mbins(nbins),mpbins(nbins)
  logical            :: iexist
  character(len=200) :: fileout
  real               :: x0(3)
  integer            :: iorder(npart)
  real :: grid(nbins) = (/(i,i=1,nbins,1)/)
- real :: mu(nbins)   = 1/(8.50479435771475778e-01) ! mean molecular weight (1/Ye assuming full ionisation) in cgs
+ real :: mu(nbins)   = 0.609                       ! mean molecular weight 
  real :: mh(nbins)   = 1.6737236e-24               ! mass of hydrogen atom in cgs
  real :: kb(nbins)   = 1.380658e-16                ! boltzmann constant in cgs
  real :: nt1(nbins)  = 0.
@@ -84,7 +84,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  rbins = 0.0
  ibins = 0
  ubins = 0.0
- hbins = 0.0
+ hbins = 0.0 
  mbins = 0.0
  !
  call reset_centreofmass(npart,xyzh,vxyzu)
@@ -95,34 +95,35 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
  !
  !--Mass of each shell
- dm   = mmax/float(nbins)
+ dm   = mmax/float(nbins)                                                                                                              
  !
  !--Binning data
- ii = 1
- parts: do i = 1,npart
+  ii = 1
+  parts: do i = 1,npart
     !
     !--Calculate properties of the particle
     !-- i refers to particle, ii refers to bin
     if (xyzh(4,i)  <  tiny(xyzh)) cycle parts         ! skip dead particles
-    j = iorder(i)                                      ! particles in order
+    j = iorder(i)				      ! particles in order
     ri = sqrt(dot_product(xyzh(1:3,j),xyzh(1:3,j)))   ! radius of each particle in order
-    ui = vxyzu(4,j)                                       ! internal energy of each particle
-    hi = xyzh(4,j)                                      ! smoothing length
+    ui = vxyzu(4,j) 				      ! internal energy of each particle
+    hi = xyzh(4,j)				      ! smoothing length
+    mnew  = mass(ii) + particlemass
     !--Adding particles to a bin until they exceed dm
-    ibins(ii) = ibins(ii) + 1
-    mass(ii)  = mass(ii) + particlemass
-    rbins(ii) = ri
-    ubins(ii) = ubins(ii) + ui
-    hbins(ii) = hbins(ii) + hi
-    !
-    if (ii==1) then
-       mbins(ii) = mass(ii)
-    else
-       mbins(ii) = mbins(ii-1) + mass(ii)
-    endif
-    !
-    if (mass(ii)>dm .and. ii<nbins) then
-       mass(ii) = mass(ii) - particlemass
+    if (mnew<dm .and. ii<=nbins) then
+       ibins(ii) = ibins(ii) + 1
+       mass(ii)  = mnew
+       rbins(ii) = ri
+       ubins(ii) = ubins(ii) + ui
+       hbins(ii) = hbins(ii) + hi
+       !
+       if (ii==1) then
+          mbins(ii) = mass(ii)
+       else
+          mbins(ii) = mbins(ii-1) + mass(ii)
+       endif
+       !
+    else 
        ii = ii + 1
     endif
     !
@@ -187,8 +188,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        'mfrac',&
        'mfrac'
  do i = 1,ii
-    !--density in each shell
-    if (mass(i) == 0.) then
+    !--density in each shell   
+    if (mass(i) == 0.) then                             
        density(i) = 0.
     else
        density = rhoh(hbins(i)/ibins(i),particlemass)*(umass/udist**3)
