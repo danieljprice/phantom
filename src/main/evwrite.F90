@@ -78,8 +78,8 @@ contains
 !----------------------------------------------------------------
 subroutine init_evfile(iunit,evfile)
  use io,        only: id,master,warning
- use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,use_dustfrac,calc_erot,lightcurve
- use options,   only: ishock_heating,ipdv_heating
+ use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,calc_erot,lightcurve
+ use options,   only: ishock_heating,ipdv_heating,use_dustfrac
  use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype
  use nicil,     only: use_ohm,use_hall,use_ambi,ion_rays,ion_thermal
  use viscosity, only: irealvisc
@@ -378,11 +378,12 @@ end subroutine write_evfile
 !+
 !----------------------------------------------------------------
 subroutine write_evlog(iprint)
- use dim,       only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,use_dustfrac
+ use dim,       only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal
  use energies,  only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas
  use viscosity, only:irealvisc,shearparam
  use boundary,  only:dxbound,dybound,dzbound
  use units,     only:unit_density
+ use options,   only:use_dustfrac
  integer, intent(in) :: iprint
  character(len=120)  :: string
 

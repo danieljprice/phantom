@@ -62,10 +62,10 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 !  icall = 2 (after particle setup)
 !+
 !-----------------------------------------------------------------
- use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,use_dustfrac,nalpha
+ use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha
  use io,               only:iprint
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
- use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax
+ use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac
  use part,             only:hfact,massoftype,mhd,maxBevol,maxvecp,&
                             gravity,h2chemistry,periodic,npartoftype,massoftype,&
                             igas,idust,iboundary,istar,idarkmatter,ibulge

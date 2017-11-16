@@ -19,7 +19,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, part
+!  DEPENDENCIES: dim, options, part
 !+
 !--------------------------------------------------------------------------
 module analysis
@@ -32,9 +32,10 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use dim,  only:maxp,use_dustfrac
- use part, only:maxphase,isdead_or_accreted,dustfrac,massoftype,igas,&
-                iphase,iamtype
+ use dim,     only:maxp
+ use part,    only:maxphase,isdead_or_accreted,dustfrac,massoftype,igas,&
+                   iphase,iamtype
+ use options, only:use_dustfrac
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)

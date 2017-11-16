@@ -48,6 +48,10 @@ module options
  real, public :: alphaB, etamhd, psidecayfac, overcleanfac
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
 
+! dust method
+
+ logical, public :: use_dustfrac
+
  public :: set_default_options
  public :: ieos
 
@@ -122,6 +126,9 @@ subroutine set_default_options
  restartonshortest = .false. ! whether or not to restart with all parts on shortest step
 
  call set_defaults_viscosity
+
+ ! dust method
+ use_dustfrac = .false.
 
 end subroutine set_default_options
 
