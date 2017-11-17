@@ -954,6 +954,25 @@ ifeq ($(MAP),yes)
 endif
 endif
 
+ifeq ($(SYSTEM),daint)
+    FC=ftn
+    FFLAGS= -O3 -inline-factor=500 -dynamic -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -debug all
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+    OMPFLAGS = -openmp
+    CC = icc
+    CCFLAGS = -O3 -mcmodel=medium
+    LIBCXX = -cxxlib
+    QSYS = slurm
+ifeq ($(MPI),daint)
+    USEMPI=yes
+    FPPFLAGS += -DMPI
+endif
+endif
+
 ifeq ($(SYSTEM), msg)
     FC= ifort
     FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
@@ -1814,7 +1833,7 @@ cleanphantom2power:
 # these are the sources for the phantom_moddump utility
 #
 OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_filenames.f90 utils_indtimesteps.F90 \
-          checksetup.f90 prompting.f90 \
+          checksetup.f90  \
           set_Bfield.f90 mpi_domain.F90 ${LINKLIST} \
           partinject.F90 random.f90 set_disc.F90 set_binary.f90 ${SRCINJECT} \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} \
