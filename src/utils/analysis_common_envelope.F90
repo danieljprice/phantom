@@ -215,7 +215,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call prompt('Choose analysis type ',analysis_to_perform,1,14)
 
  endif
- 
+
  if ( ANY((/ 2, 3, 4, 8, 11, 12, 13, 14 /) == analysis_to_perform) .and. dump_number == 0 ) call init_eos(ieos,ierr)
 
  !analysis
@@ -1325,7 +1325,7 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
 
              part_ps_pot = part_ps_pot + psoft*hsoft1*xyzmh_ptmass(4,k)
           enddo
-          
+
           !ray = (/ 1., 0., 0. /)
           !proj_mag = dot_product(r_part_com(1:3),ray)
           !proj = proj_mag * ray
@@ -1553,7 +1553,7 @@ subroutine ionisation_fraction(dens,temp,X,Y,xh0, xh1, xhe0, xhe1, xhe2)
  do i=1,50
     f = xh1g * (xh1g + xhe1g + 2*xhe2g) - A * ((nh/n) - xh1g)
     g = xhe1g * (xh1g + xhe1g + 2*xhe2g) - B * ((nhe/n) - xhe1g - xhe2g)
-    h = xhe2g * (xh1g + xhe1g + 2*xhe2g) - C * xhe1g  
+    h = xhe2g * (xh1g + xhe1g + 2*xhe2g) - C * xhe1g
 
     M(1,:) = (/ 2*xh1g + xhe1g + 2*xhe2g + A, xh1g, 2*xh1g /)
     M(2,:) = (/ xhe1g, xh1g + 2*xhe1g + 2*xhe2g + B, 2*xhe1g + B /)
@@ -1565,7 +1565,7 @@ subroutine ionisation_fraction(dens,temp,X,Y,xh0, xh1, xhe0, xhe1, xhe2)
 
     xh1g = xh1g + dx(1)
     xhe1g = xhe1g + dx(2)
-    xhe2g = xhe2g + dx(3) 
+    xhe2g = xhe2g + dx(3)
  enddo
 
  xh1 = xh1g * n / nh

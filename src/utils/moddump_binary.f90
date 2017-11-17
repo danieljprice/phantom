@@ -83,7 +83,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           nptmass = 2
        endif
     end select
-          
+
  elseif (nptmass == 2) then
     print*, 'Two sinks present. If this is intentional, then choose option below.'
 
