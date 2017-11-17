@@ -755,7 +755,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                                            sig_norm(i),sig_normdust(i),pindex(i),pindex_dust(i), &
                                            R_in(i),R_ref(i),R_c(i),R_indust(i),R_c_dust(i))
              endif
-             call set_dustfrac(jdust_to_gas_ratio,dustfrac(j))
+             call set_dustfrac(jdust_to_gas_ratio,dustfrac(:,j))
           enddo
           nparttot = nparttot + npingasdisc
        else
