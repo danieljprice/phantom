@@ -279,7 +279,7 @@ subroutine test_dustydiffuse(ntests,npass)
  real    :: epstot,epsi(ndusttypes),rc,rc2,r2,A,B,eta
  real    :: erri,exact,errl2,term,tol
  real,allocatable   :: ddustfrac_prev(:,:)
- logical, parameter :: do_output = .false.
+ logical, parameter :: do_output = .true.
  real,    parameter :: t_write(5) = (/0.1,0.3,1.0,3.0,10.0/)
 
  if (use_dustfrac .and. periodic) then
@@ -375,7 +375,10 @@ subroutine test_dustydiffuse(ntests,npass)
 
  if (do_output) call write_file(time,xyzh,dustfrac,npart)
  do i=1,npart
+!--sqrt(rho*epsilon) method
     dustevol(:,i) = sqrt(dustfrac(:,i)*rhoh(xyzh(4,i),massoftype(igas)))
+!--asin(sqrt(epsilon)) method
+!    dustevol(:,i) = asin(sqrt(dustfrac(:,i)))
  enddo
 
  nerr = 0
@@ -387,7 +390,10 @@ subroutine test_dustydiffuse(ntests,npass)
     do i=1,npart
        ddustfrac_prev(:,i) = ddustfrac(:,i)
        dustevol(:,i) = dustevol(:,i) + dt*ddustfrac(:,i)
+!--sqrt(rho*epsilon) method
        dustfrac(:,i) = dustevol(:,i)**2/rhoh(xyzh(4,i),massoftype(igas))
+!--asin(sqrt(epsilon)) method
+!       dustfrac(:,i) = sin(dustevol(:,i))**2
     enddo
     !$omp end parallel do
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
@@ -536,13 +542,13 @@ end subroutine test_epsteinstokes
 !+
 !---------------------------------------------------
 subroutine write_file(time,xyzh,dustfrac,npart)
- use dim, only:ndusttypes
+ use dim, only:ndusttypes,maxp
  real, intent(in)     :: time
  real, intent(in)    :: xyzh(:,:),dustfrac(:,:)
  integer, intent(in) :: npart
  character(len=30)   :: filename,str1,str2,fmt1
  integer :: i,lu
- real    :: r2,dustfracsum(npart)
+ real    :: r2,dustfracsum(maxp)
 
  write(str1,"(f5.1)") time
  if (ndusttypes>1) then
