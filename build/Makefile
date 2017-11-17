@@ -105,6 +105,21 @@ ifeq ($(SETUP), mcfost)
     override SETUP=disc
     MCFOST=yes
 endif
+ifeq ($(SETUP), planets)
+    OBSOLETE_SETUP=yes
+    OLDSETUP= planets
+    override SETUP=disc
+endif
+ifeq ($(SETUP), binarydisc)
+    OBSOLETE_SETUP=yes
+    OLDSETUP= binarydisc
+    override SETUP=disc
+endif
+ifeq ($(SETUP), dustybinarydisc)
+    OBSOLETE_SETUP=yes
+    OLDSETUP= dustybinarydisc
+    override SETUP=dustydisc
+endif
 
 
 ifeq ($(SETUP), empty)
@@ -266,29 +281,6 @@ ifeq ($(SETUP), prtest)
     KNOWN_SETUP=yes
 endif
 
-ifeq ($(SETUP), binarydisc)
-#   binary setup
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
-    SETUPFILE= setup_binarydisc.f90
-    ANALYSIS= analysis_disc.f90
-#    ANALYSIS= analysis_binarydisc.f90
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-    LIVE_ANALYSIS=no
-    IND_TIMESTEPS=yes
-endif
-
-ifeq ($(SETUP), dustybinarydisc)
-#   binary disc setup with dust
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
-    SETUPFILE= setup_binarydisc.f90
-    ANALYSIS= analysis_dustmass.f90
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-    DUST=yes
-endif
-
 ifeq ($(SETUP), binarydiscMFlow)
 #   binarydiscMFlow setup
     FPPFLAGS= -DSORT_RADIUS_INIT -DMFLOW -DUSE_STRAIN_TENSOR #-DVMFLOW  #-DDISC_VISCOSITY# -DBINPOS
@@ -310,18 +302,6 @@ ifeq ($(SETUP), tidal)
     SETUPFILE= setup_tidal.f90
     DOUBLEPRECISION= yes
     KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-endif
-
-ifeq ($(SETUP), planets)
-#   binary setup
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
-    SETUPFILE= set_planets.f90 setup_planets.f90
-#    ANALYSIS= analysis_binarydisc.f90
-    ANALYSIS= analysis_ptmass.f90
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-    LIVE_ANALYSIS=yes
     IND_TIMESTEPS=yes
 endif
 

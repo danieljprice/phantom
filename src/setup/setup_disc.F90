@@ -8,8 +8,16 @@
 !  MODULE: setup
 !
 !  DESCRIPTION:
-!   This module sets up an accretion disc with options for dust, embedded
-!   planets, binaries, and flybys.
+!   This module sets up accretion discs. The central object(s) can be
+!   modelled with sink particles or external potentials. Systems with two
+!   sink particles:
+!     (i)  in a bound binary can have circumbinary, circumprimary, and
+!          circumsecondary discs,
+!     (ii) in an unbound binary (i.e. a fly-by) can have circumprimary and
+!          circumsecondary discs.
+!   In addition to gas, each disc can contain dust, modelled with either the
+!   one fluid or two fluid methods. Embedded planets can be added to single
+!   or circumbinary discs.
 !
 !  REFERENCES: None
 !
@@ -83,35 +91,39 @@
 module setup
  use dim,     only:maxp,use_dust,maxalpha
  use options, only:use_dustfrac
+
  implicit none
  public  :: setpart
- integer :: np,np_dust,i,itype,npart_inter,nparttot,npartdust,norbits
- real    :: m1,m2,mcentral,accr1,accr2,bhspin,bhspinangle
- real    :: binary_a,binary_e,binary_i,binary_O,binary_w,binary_f,Rochelobe
- real    :: alphaSS,deltat,flyby_a,flyby_d,flyby_r
+
+ integer :: np,np_dust,norbits,i
+ !--central objects
+ real    :: m1,m2,accr1,accr2,bhspin,bhspinangle,flyby_a,flyby_d,flyby_r
+ real    :: binary_a,binary_e,binary_i,binary_O,binary_w,binary_f,deltat
  integer :: icentral,ipotential,nsinks,ibinary
+ !--discs
  character(len=20) :: disclabel
  character(len=*), dimension(3), parameter :: disctype = &
     (/'binary   ', &
       'primary  ', &
       'secondary'/)
- logical :: iuse_disc(3),ismoothgas(3),ismoothdust(3),itapergas(3),itaperdust(3),multiple_disc_flag
- integer :: mass_set(3),profile_set_dust,iprofilegas(3),iprofiledust(3)
- integer :: sigmaprofilegas(3),sigmaprofiledust(3)
+ logical :: iuse_disc(3),itapergas(3),itaperdust(3),multiple_disc_flag
+ integer :: mass_set(3),profile_set_dust,dust_method
  real    :: R_in(3),R_out(3),R_ref(3),R_c(3),pindex(3),qindex(3),H_R(3),xinc(3)
- real    :: disc_m(3),disc_mfac(3),sig_ref(3),sig_norm(3),annulus_m(3),R_inann(3),R_outann(3)
- real    :: R_indust(3),R_outdust(3),R_c_dust(3),pindex_dust(3),qindex_dust(3)
- real    :: H_R_dust(3),disc_mdust(3),sig_normdust(3)
+ real    :: disc_m(3),sig_ref(3),sig_norm(3),annulus_m(3),R_inann(3),R_outann(3)
+ real    :: R_indust(3),R_outdust(3),R_c_dust(3),pindex_dust(3),qindex_dust(3),H_R_dust(3)
+ real    :: alphaSS
+ !--dust
  real    :: grainsizeinp,graindensinp,dust_to_gas_ratio
- integer :: dust_method
+ !--planets
  integer, parameter :: maxplanets = 9
  integer :: nplanets,setplanets
  real    :: mplanet(maxplanets),rplanet(maxplanets),accrplanet(maxplanets),inclplan(maxplanets)
  character(len=*), dimension(maxplanets), parameter :: planets = &
     (/'1','2','3','4','5','6','7','8','9' /)
+ !--units
+ character(len=20) :: dist_unit,mass_unit
 
  private
- character(len=20) :: dist_unit,mass_unit
 
 contains
 
@@ -141,6 +153,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 #ifdef MCFOST
  use options,              only:alphau,ipdv_heating,ishock_heating
 #endif
+
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -150,13 +163,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: massoftype(:)
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- character(len=100)               :: filename
+
  logical :: iexist,questplanets,seq_exists
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
- real    :: jdust_to_gas_ratio,Rj,period,Rochesizei
- real    :: totmass_gas,totmass_dust,starmass
+ real    :: jdust_to_gas_ratio,Rj,period,Rochesizei,Rochelobe
+ real    :: totmass_gas,totmass_dust,starmass,mcentral
  real    :: sini,cosi,polyk_dust,xorigini(3),vorigini(3),alpha_returned(3)
- integer :: ierr,j,ndiscs,idisc,npingasdisc,npindustdisc
+ real    :: disc_mfac(3),disc_mdust(3),sig_normdust(3)
+ integer :: ierr,j,ndiscs,idisc,nparttot,npartdust,npingasdisc,npindustdisc
+ integer :: sigmaprofilegas(3),sigmaprofiledust(3),iprofilegas(3),iprofiledust(3)
+ logical :: ismoothgas(3),ismoothdust(3)
+ character(len=100) :: filename
 
  print "(/,65('-'),2(/,a),/,65('-'),/)", &
    ' Welcome to the New Disc Setup'
@@ -436,15 +453,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     norbits = 100
     if (setplanets==1) then
        call prompt('Enter time between dumps as fraction of outer planet period',deltat,0.)
+       call prompt('Enter number of orbits to simulate',norbits,0)
     else if (icentral==1 .and. nsinks==2 .and. ibinary==0) then
        call prompt('Enter time between dumps as fraction of binary period',deltat,0.)
+       call prompt('Enter number of orbits to simulate',norbits,0)
     else if (icentral==1 .and. nsinks==2 .and. ibinary==1) then
        deltat  = 0.01
+       norbits = 1
        call prompt('Enter time between dumps as fraction of flyby time',deltat,0.)
     else
        call prompt('Enter time between dumps as fraction of outer disc orbital time',deltat,0.)
+       call prompt('Enter number of orbits to simulate',norbits,0)
     endif
-    call prompt('Enter number of orbits to simulate',norbits,0)
 
     !
     !--write default input file
@@ -926,7 +946,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
     !--unbound binary (flyby)
     period = get_T_flyby(m1,m2,flyby_a,flyby_d)
-    norbits = 1
  else
     !--outer disc
     period = sqrt(4.*pi**2*R_out(idisc)**3/mcentral)
@@ -1100,7 +1119,7 @@ subroutine write_setupfile(filename)
           call write_inopt(itaperdust(i),'itaperdust'//trim(disclabel),'exponentially taper the outer disc profile',iunit)
           call write_inopt(R_indust(i),'R_indust'//trim(disclabel),'inner radius',iunit)
           call write_inopt(R_outdust(i),'R_outdust'//trim(disclabel),'outer radius',iunit)
-          if (iprofiledust(i)==1) call write_inopt(R_c_dust(i),'R_c_dust'//trim(disclabel),'characteristic radius of the exponential taper',iunit)
+          if (itaperdust(i)) call write_inopt(R_c_dust(i),'R_c_dust'//trim(disclabel),'characteristic radius of the exponential taper',iunit)
           call write_inopt(pindex_dust(i),'pindex_dust'//trim(disclabel),'p index',iunit)
           if (.not. use_dustfrac) then
              call write_inopt(qindex_dust(i),'qindex_dust'//trim(disclabel),'q index',iunit)
