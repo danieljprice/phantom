@@ -34,7 +34,7 @@ module part
           maxalpha,maxptmass,maxstrain, &
           mhd,maxmhd,maxBevol,maxvecp,maxp_h2,periodic, &
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
-          switches_done_in_derivs,maxp_dustfrac,use_dust,use_dustfrac, &
+          switches_done_in_derivs,maxp_dustfrac,use_dust, &
           lightcurve,maxlum,nalpha,maxmhdni,ndusttypes
  implicit none
  character(len=80), parameter, public :: &  ! module version

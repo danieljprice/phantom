@@ -40,10 +40,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce
  use evwrite,          only:write_evfile,write_evlog
  use energies,         only:etot,totmom,angtot,mdust,get_erot_com
- use dim,              only:calc_erot,maxvxyzu,mhd,use_dustfrac,ndusttypes,periodic
+ use dim,              only:calc_erot,maxvxyzu,mhd,periodic,ndusttypes
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,dtwallmax,nmaxdumps,iexternalforce,&
-                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
+                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating,&
+                            use_dustfrac
  use readwrite_infile, only:write_infile
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
@@ -340,8 +341,13 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !--check that time is as it should be, may indicate error in individual timestep routines
     if (abs(tcheck-time) > 1.e-4) call warning('evolve','time out of sync',var='error',val=abs(tcheck-time))
 
+#ifdef INJECT_PARTICLES
+    if (id==master .and. (iverbose >= 1 .or. inbin <= 3)) &
+       call print_dtlog_ind(iprint,istepfrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1,np=npart)
+#else
     if (id==master .and. (iverbose >= 1 .or. inbin <= 3)) &
        call print_dtlog_ind(iprint,istepfrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1)
+#endif
 
     !--if total number of bins has changed, adjust istepfrac and dt accordingly
     !  (ie., decrease or increase the timestep)
@@ -827,12 +833,13 @@ end subroutine print_timer
 !  this version handles individual timesteps
 !+
 !-----------------------------------------------------------------
-subroutine print_dtlog_ind(iprint,ifrac,nfrac,time,dt,nactive,tcpu)
+subroutine print_dtlog_ind(iprint,ifrac,nfrac,time,dt,nactive,tcpu,np)
  use io, only:formatreal,formatint
  integer,         intent(in) :: iprint,ifrac,nfrac
  real,            intent(in) :: time,dt
  integer(kind=8), intent(in) :: nactive
  real(kind=4),    intent(in) :: tcpu
+ integer,         intent(in), optional :: np
  character(len=120) :: string
  character(len=14) :: tmp
 
@@ -848,6 +855,11 @@ subroutine print_dtlog_ind(iprint,ifrac,nfrac,time,dt,nactive,tcpu)
  string = trim(string)//' moved '//tmp
  call formatreal(real(tcpu),tmp)
  string = trim(string)//' in '//trim(tmp)//' cpu-s <'
+
+ if (present(np)) then
+    write(tmp,"(i12)") np
+    string = trim(string)//' | np = '//trim(adjustl(tmp))//' |'
+ endif
 
  write(iprint,"(a)") trim(string)
 ! write(iprint,5) ifrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1

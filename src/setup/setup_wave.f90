@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, centreofmass, dim, io, kernel, mpiutils, part,
-!    physcon, prompting, setup_params, unifdis
+!  DEPENDENCIES: boundary, centreofmass, dim, io, kernel, mpiutils,
+!    options, part, physcon, prompting, setup_params, unifdis
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -45,7 +45,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use centreofmass, only:reset_centreofmass
  use physcon,      only:pi
  use kernel,       only:radkern
- use dim,          only:maxvxyzu,use_dust,use_dustfrac,maxp
+ use dim,          only:maxvxyzu,use_dust,maxp
+ use options,      only:use_dustfrac
  use prompting,    only:prompt
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -59,7 +60,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real :: totmass,fac,deltax,deltay,deltaz
  integer :: i
  integer :: itype,ntypes,npartx
- integer :: npart_previous
+ integer :: npart_previous,dust_method
  logical, parameter :: ishift_box =.true.
  real, parameter    :: dust_shift = 0.
  real    :: xmin_dust,xmax_dust,ymin_dust,ymax_dust,zmin_dust,zmax_dust
@@ -72,12 +73,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  rhozero = 1.
  cs = 1.
  ampl = 1.d-4
+ use_dustfrac = .false.
+ dust_method  = 2
  if (id==master) then
     itype = 1
     print "(/,a,/)",'  >>> Setting up particles for linear wave test <<<'
     call prompt(' enter number of '//trim(labeltype(itype))//' particles in x ',npartx,8,maxp/144)
+    call prompt(' choose dust method (1=one fluid,2=two fluid) ',dust_method,1,2)
  endif
  call bcast_mpi(npartx)
+ if (dust_method==1) use_dustfrac = .true.
 !
 ! boundaries
 !

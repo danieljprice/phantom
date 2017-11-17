@@ -59,32 +59,26 @@ module dim
  integer, parameter :: maxneigh = maxp
 #endif
 
+! maxmimum storage in linklist
+#ifdef NCELLSMAX
+ integer, parameter :: ncellsmax = NCELLSMAX
+#else
+ integer, parameter :: ncellsmax = maxp
+#endif
+
 !------
 ! Dust
 !------
 #ifdef DUST
  logical, parameter :: use_dust = .true.
  integer, parameter :: ndustfluids = 1
+ integer, parameter :: ndusttypes = 1
+ integer, parameter :: maxp_dustfrac = maxp
 #else
  logical, parameter :: use_dust = .false.
  integer, parameter :: ndustfluids = 0
-#endif
-
-#ifdef DUSTFRAC
- logical, parameter :: use_dustfrac = .true.
- integer, parameter :: maxp_dustfrac = maxp
- integer, parameter :: ndusttypes = 1
-#else
- logical, parameter :: use_dustfrac = .false.
- integer, parameter :: maxp_dustfrac = maxp
- integer, parameter :: ndusttypes = 1
-#endif
-
-! maxmimum storage in linklist
-#ifdef NCELLSMAX
- integer, parameter :: ncellsmax = NCELLSMAX
-#else
- integer, parameter :: ncellsmax = maxp
+ integer, parameter :: ndusttypes = 0
+ integer, parameter :: maxp_dustfrac = 0
 #endif
 
  ! kdtree

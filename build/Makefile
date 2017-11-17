@@ -105,6 +105,21 @@ ifeq ($(SETUP), mcfost)
     override SETUP=disc
     MCFOST=yes
 endif
+ifeq ($(SETUP), planets)
+    OBSOLETE_SETUP=yes
+    OLDSETUP= planets
+    override SETUP=disc
+endif
+ifeq ($(SETUP), binarydisc)
+    OBSOLETE_SETUP=yes
+    OLDSETUP= binarydisc
+    override SETUP=disc
+endif
+ifeq ($(SETUP), dustybinarydisc)
+    OBSOLETE_SETUP=yes
+    OLDSETUP= dustybinarydisc
+    override SETUP=dustydisc
+endif
 
 
 ifeq ($(SETUP), empty)
@@ -186,7 +201,6 @@ ifeq ($(SETUP), turb)
     ISOTHERMAL=yes
     CURLV=yes
     MHD=yes
-    DUSTFRAC=no
     USE_STRAIN_TENSOR=yes
 endif
 
@@ -267,31 +281,6 @@ ifeq ($(SETUP), prtest)
     KNOWN_SETUP=yes
 endif
 
-ifeq ($(SETUP), binarydisc)
-#   binary setup
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
-    SETUPFILE= setup_binarydisc.f90
-    ANALYSIS= analysis_disc.f90
-#    ANALYSIS= analysis_binarydisc.f90
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-    LIVE_ANALYSIS=no
-    IND_TIMESTEPS=yes
-endif
-
-ifeq ($(SETUP), dustybinarydisc)
-#   binary disc setup with dust
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
-    SETUPFILE= setup_binarydisc.f90
-    ANALYSIS= analysis_dustmass.f90
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-    DUST=yes
-    DUSTFRAC=yes
-    KERNEL=quintic
-endif
-
 ifeq ($(SETUP), binarydiscMFlow)
 #   binarydiscMFlow setup
     FPPFLAGS= -DSORT_RADIUS_INIT -DMFLOW -DUSE_STRAIN_TENSOR #-DVMFLOW  #-DDISC_VISCOSITY# -DBINPOS
@@ -313,18 +302,6 @@ ifeq ($(SETUP), tidal)
     SETUPFILE= setup_tidal.f90
     DOUBLEPRECISION= yes
     KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-endif
-
-ifeq ($(SETUP), planets)
-#   binary setup
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
-    SETUPFILE= set_planets.f90 setup_planets.f90
-#    ANALYSIS= analysis_binarydisc.f90
-    ANALYSIS= analysis_ptmass.f90
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-    LIVE_ANALYSIS=yes
     IND_TIMESTEPS=yes
 endif
 
@@ -741,7 +718,6 @@ ifeq ($(SETUP), dustsettle)
 #   dust settling test from PL15
     SETUPFILE= setup_dustsettle.f90
     DUST=yes
-    DUSTFRAC=yes
     PERIODIC=yes
     ISOTHERMAL=yes
     MODFILE=moddump_dustadd.f90
@@ -765,7 +741,7 @@ ifeq ($(SETUP), test)
     CONST_ARTRES=yes
     CURLV=yes
     MHD=yes
-    DUSTFRAC=yes
+    DUST=yes
     KERNEL=cubic
 endif
 
@@ -1411,16 +1387,11 @@ ifeq ($(MHD), yes)
     FPPFLAGS += -DMHD
 endif
 
-ifeq ($(DUSTFRAC), yes)
-    FPPFLAGS += -DDUSTFRAC
-    DUST= yes
+ifeq ($(DUST), yes)
+    FPPFLAGS += -DDUST
     ifndef KERNEL
        KERNEL=quintic
     endif
-endif
-
-ifeq ($(DUST), yes)
-    FPPFLAGS += -DDUST
 endif
 
 ifeq ($(NONIDEALMHD), yes)

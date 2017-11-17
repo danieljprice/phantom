@@ -71,7 +71,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis,get_ny_nz_closepacked
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,set_boundary
  use mpiutils,     only:bcast_mpi
- use dim,          only:maxp,maxvxyzu,ndim,mhd,use_dustfrac,ndusttypes
+ use dim,          only:maxp,maxvxyzu,ndim,mhd,ndusttypes
+ use options,      only:use_dustfrac
  use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bevol,mhd,periodic,dustfrac
  use kernel,       only:radkern,hfact_default
  use timestep,     only:tmax
@@ -329,9 +330,9 @@ end subroutine adjust_shock_boundaries
 !-----------------------------------------------------------------------
 subroutine choose_shock (gamma,polyk,dtg,ndim,iexist)
  use io,          only:fatal,id,master
- use dim,         only:mhd,maxvxyzu,use_dustfrac
+ use dim,         only:mhd,maxvxyzu 
  use physcon,     only:pi
- use options,     only:nfulldump,alpha,alphamax,alphaB
+ use options,     only:nfulldump,alpha,alphamax,alphaB,use_dustfrac
  use timestep,    only:dtmax,tmax
  use prompting,   only:prompt
 #ifdef NONIDEALMHD
@@ -534,7 +535,8 @@ end subroutine print_shock_params
 !------------------------------------------
 subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  use infile_utils, only:write_inopt
- use dim,          only:tagline,maxvxyzu,use_dustfrac
+ use dim,          only:tagline,maxvxyzu
+ use options,      only:use_dustfrac
  integer,          intent(in) :: iprint,numstates
  real,             intent(in) :: gamma,polyk,dtg
  character(len=*), intent(in) :: filename
@@ -589,7 +591,8 @@ end subroutine write_setupfile
 !------------------------------------------
 subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
- use dim,          only:maxvxyzu,use_dustfrac
+ use dim,          only:maxvxyzu
+ use options,      only:use_dustfrac
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
  integer,          intent(in)  :: iprint,numstates

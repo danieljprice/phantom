@@ -36,12 +36,12 @@ module testderivs
 contains
 
 subroutine test_derivs(ntests,npass,string)
- use dim,      only:maxp,maxvxyzu,maxalpha,maxstrain,ndivcurlv,use_dustfrac,nalpha,use_dust,ndusttypes
+ use dim,      only:maxp,maxvxyzu,maxalpha,maxstrain,ndivcurlv,nalpha,use_dust,ndusttypes
  use boundary, only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
  use eos,      only:polyk,gamma,use_entropy
  use io,       only:iprint,id,master,fatal,iverbose,nprocs
  use mpiutils, only:reduceall_mpi
- use options,  only:tolh,alpha,alphau,alphaB,beta,ieos,psidecayfac
+ use options,  only:tolh,alpha,alphau,alphaB,beta,ieos,psidecayfac,use_dustfrac
  use kernel,   only:radkern
  use part,     only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,fext,divcurlv,divcurlB,maxgradh, &
                     gradh,divBsymm,Bevol,dBevol,Bxyz,Bextx,Bexty,Bextz,alphaind, &

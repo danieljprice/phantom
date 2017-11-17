@@ -132,10 +132,10 @@ contains
 subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,&
                  ipart_rhomax,dt,stressmax)
  use dim,          only:maxvxyzu,maxalpha,maxneigh,maxstrain,&
-                        switches_done_in_derivs,mhd,mhd_nonideal,use_dustfrac,lightcurve
+                        switches_done_in_derivs,mhd,mhd_nonideal,lightcurve
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,     only:ncells,ifirstincell,get_neighbour_list,get_hmaxcell,get_cell_location
- use options,      only:iresistive_heating
+ use options,      only:iresistive_heating,use_dustfrac
  use part,         only:rhoh,dhdrho,rhoanddhdrho,massoftype,&
                         alphaind,nabundances,&
                         ll,get_partinfo,iactive,gradh,&
@@ -799,7 +799,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:igas,idust,iboundary,iohm,ihall,iambi
  use part,        only:maxphase,iactive,iamtype,iamdust,get_partinfo
  use part,        only:mhd,maxvxyzu,maxBevol,maxstrain
- use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,use_dustfrac
+ use dim,         only:maxalpha,maxp,mhd_nonideal,gravity
  use part,        only:rhoh,maxgradh,straintensor
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
 #ifdef GRAVITY
@@ -818,7 +818,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ibinold
 #endif
  use timestep,    only:bignumber
- use options,     only:overcleanfac
+ use options,     only:overcleanfac,use_dustfrac
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
  real,            intent(in)    :: xpartveci(:)
@@ -1033,21 +1033,21 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        !  Determine if neighbouring particle is hidden by a sink particle;
        !  if so, do not add contribution.
        add_contribution = .true.
-       k = 1
-       do while (k <= nptmass .and. add_contribution)
-          xkpt = xyzmh_ptmass(1,k)
-          ykpt = xyzmh_ptmass(2,k)
-          zkpt = xyzmh_ptmass(3,k)
-          vpos = (xkpt-xpartveci(ixi))*(xkpt-xj) &
-                + (ykpt-xpartveci(iyi))*(ykpt-yj) &
-                + (zkpt-xpartveci(izi))*(zkpt-zj)
-          if (vpos < 0.0) then
-             add_contribution = ptmass_not_obscured(-dx,-dy,-dz,  &
-                                 xkpt-xpartveci(ixi),ykpt-xpartveci(iyi),zkpt-xpartveci(izi), &
-                                 xyzmh_ptmass(ihacc,k))
-          endif
-          k = k + 1
-       enddo
+       !k = 1
+       !do while (k <= nptmass .and. add_contribution)
+       !   xkpt = xyzmh_ptmass(1,k)
+       !   ykpt = xyzmh_ptmass(2,k)
+       !   zkpt = xyzmh_ptmass(3,k)
+       !   vpos = (xkpt-xpartveci(ixi))*(xkpt-xj) &
+       !         + (ykpt-xpartveci(iyi))*(ykpt-yj) &
+       !         + (zkpt-xpartveci(izi))*(zkpt-zj)
+       !   if (vpos < 0.0) then
+       !      add_contribution = ptmass_not_obscured(-dx,-dy,-dz,  &
+       !                          xkpt-xpartveci(ixi),ykpt-xpartveci(iyi),zkpt-xpartveci(izi), &
+       !                          xyzmh_ptmass(ihacc,k))
+       !   endif
+       !   k = k + 1
+       !enddo
 #endif
 
        if (rij2 > epsilon(rij2)) then
@@ -1688,9 +1688,8 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintenso
                      dustfrac,eta_nimhd,alphaind,stressmax)
 
  use io,        only:fatal
- use options,   only:alpha
- use dim,       only:maxp,ndivcurlv,ndivcurlB,maxstrain,maxalpha,maxvxyzu,mhd,mhd_nonideal, &
-                     use_dustfrac
+ use options,   only:alpha,use_dustfrac
+ use dim,       only:maxp,ndivcurlv,ndivcurlB,maxstrain,maxalpha,maxvxyzu,mhd,mhd_nonideal
  use part,      only:iamgas,maxphase,iboundary,rhoanddhdrho,igas,massoftype,get_partinfo,&
                      iohm,ihall,iambi
  use viscosity, only:irealvisc,bulkvisc
@@ -2071,9 +2070,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
- use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,use_dustfrac,maxstrain
+ use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxstrain
  use eos,            only:use_entropy,gamma
- use options,        only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating
+ use options, only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating,use_dustfrac
  use part,           only:h2chemistry,rhoanddhdrho,abundance,iboundary,igas,maxphase,maxvxyzu,nabundances, &
                           massoftype,get_partinfo,tstop
 #ifdef IND_TIMESTEPS

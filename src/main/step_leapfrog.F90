@@ -71,9 +71,9 @@ end subroutine init_step
 !+
 !------------------------------------------------------------
 subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
- use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,use_dustfrac,nalpha,h2chemistry
+ use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry
  use io,             only:iprint,fatal,iverbose,id,master,warning
- use options,        only:damp,tolv,iexternalforce,icooling
+ use options,        only:damp,tolv,iexternalforce,icooling,use_dustfrac
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,mhd,maxBevol,&
@@ -124,7 +124,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
- !$omp shared(Bevol,dBevol,dustevol,ddustfrac) &
+ !$omp shared(Bevol,dBevol,dustevol,ddustfrac,use_dustfrac) &
 #ifdef IND_TIMESTEPS
  !$omp shared(ibin,ibinold,twas,timei) &
 #endif
@@ -173,7 +173,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp parallel do default(none) schedule(guided,1) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype) &
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
-!$omp shared(dustevol,dustfrac,ddustfrac,dustpred) &
+!$omp shared(dustevol,dustfrac,ddustfrac,dustpred,use_dustfrac) &
 !$omp shared(alphaind,ieos,alphamax) &
 #ifdef IND_TIMESTEPS
 !$omp shared(twas,timei) &
@@ -281,7 +281,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,npart,hdtsph,store_itype) &
 !$omp shared(Bevol,dBevol,iphase,its) &
-!$omp shared(dustevol,ddustfrac) &
+!$omp shared(dustevol,ddustfrac,use_dustfrac) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
 #ifdef IND_TIMESTEPS
 !$omp shared(dtmax,dtmaxold,ibin,ibinold,twas,timei,use_sts,dtsph_next) &

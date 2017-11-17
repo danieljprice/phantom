@@ -19,7 +19,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, io, mpiutils, part, physcon, prompting,
+!  DEPENDENCIES: boundary, io, mpiutils, part, physcon, prompting,
 !    setup_params, unifdis
 !+
 !--------------------------------------------------------------------------

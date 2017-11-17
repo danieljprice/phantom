@@ -42,14 +42,14 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,use_dustfrac,ndim,ndusttypes
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,ndusttypes
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,&
                 kill_particle,shuffle_part,iamdust
  use eos,             only:gamma,polyk
  use centreofmass,    only:get_centreofmass
- use options,         only:ieos,icooling,iexternalforce
+ use options,         only:ieos,icooling,iexternalforce,use_dustfrac
  use io,              only:id,master
  use externalforces,  only:accrete_particles,accradius1,iext_star,iext_corotate
  use timestep,        only:time

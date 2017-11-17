@@ -34,12 +34,12 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
- use dim,     only:use_dustfrac,maxp,ndusttypes
+ use dim,     only:maxp,ndusttypes
  use io,      only:fatal
  use physcon, only:pi,jupiterm,years,au
  use part,    only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac,&
                    maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass,isdead_or_accreted
- use options, only:iexternalforce
+ use options, only:iexternalforce,use_dustfrac
  use units,   only:umass,udist,utime
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyz(:,:)
