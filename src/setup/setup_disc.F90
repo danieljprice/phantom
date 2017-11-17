@@ -434,21 +434,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(a)",'================'
     deltat  = 0.1
     norbits = 100
-    if (nplanets > 0) then
+    if (setplanets==1) then
        call prompt('Enter time between dumps as fraction of outer planet period',deltat,0.)
-       call prompt('Enter number of orbits to simulate',norbits,0)
-    else if (icentral==1 .and. nsinks==2) then
-       if (ibinary==0) then
-          call prompt('Enter time between dumps as fraction of binary period',deltat,0.)
-          call prompt('Enter number of orbits to simulate',norbits,0)
-       else if (ibinary==1) then
-          deltat  = 0.01
-          call prompt('Enter time between dumps as fraction of flyby time',deltat,0.)
-       endif
+    else if (icentral==1 .and. nsinks==2 .and. ibinary==0) then
+       call prompt('Enter time between dumps as fraction of binary period',deltat,0.)
+    else if (icentral==1 .and. nsinks==2 .and. ibinary==1) then
+       deltat  = 0.01
+       call prompt('Enter time between dumps as fraction of flyby time',deltat,0.)
     else
        call prompt('Enter time between dumps as fraction of outer disc orbital time',deltat,0.)
-       call prompt('Enter number of orbits to simulate',norbits,0)
     endif
+    call prompt('Enter number of orbits to simulate',norbits,0)
 
     !
     !--write default input file
@@ -911,7 +907,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        print "(a,g10.3,a)",   '             9:1: ',(sqrt(mcentral)/(9.*omega))**(2./3.),' AU'
     enddo
     print "(1x,45('-'))"
-    period = period_longest
  endif
 
  !
@@ -922,15 +917,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--set tmax and dtmax
  !
- if (icentral==1 .and. nsinks==2 .and. ibinary==0) then
+ if (setplanets==1) then
+    !--outer planet set above
+    period = period_longest
+ elseif (icentral==1 .and. nsinks==2 .and. ibinary==0) then
     !--bound binary
     period = sqrt(4.*pi**2*binary_a**3/mcentral)
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
     !--unbound binary (flyby)
     period = get_T_flyby(m1,m2,flyby_a,flyby_d)
     norbits = 1
- elseif (setplanets==1) then
-    !--outer planet set above
  else
     !--outer disc
     period = sqrt(4.*pi**2*R_out(idisc)**3/mcentral)
@@ -1136,24 +1132,15 @@ subroutine write_setupfile(filename)
     enddo
  endif
  !--timestepping
- if (nplanets > 0) then
-    write(iunit,"(/,a)") '# timestepping'
+ write(iunit,"(/,a)") '# timestepping'
+ if (setplanets==1) then
     call write_inopt(norbits,'norbits','maximum number of outer planet orbits',iunit)
-    call write_inopt(deltat,'deltat','output interval as fraction of orbital period',iunit)
- else if (icentral==1 .and. nsinks==2) then
-    if (ibinary==0) then
-       write(iunit,"(/,a)") '# timestepping'
-       call write_inopt(norbits,'norbits','maximum number of binary orbits',iunit)
-       call write_inopt(deltat,'deltat','output interval as fraction of binary orbital period',iunit)
-    else if (ibinary==1) then
-       write(iunit,"(/,a)") '# timestepping'
-       call write_inopt(deltat,'deltat','output interval as fraction of total time',iunit)
-    endif
+ else if (icentral==1 .and. nsinks==2 .and. ibinary==0) then
+    call write_inopt(norbits,'norbits','maximum number of binary orbits',iunit)
  else
-    write(iunit,"(/,a)") '# timestepping'
     call write_inopt(norbits,'norbits','maximum number of orbits at outer disc',iunit)
-    call write_inopt(deltat,'deltat','output interval as fraction of orbital period',iunit)
  endif
+ call write_inopt(deltat,'deltat','output interval as fraction of orbital period',iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -1357,6 +1344,7 @@ subroutine read_setupfile(filename,ierr)
  deltat = 0.
  call read_inopt(norbits,'norbits',db,err=ierr)
  call read_inopt(deltat,'deltat',db,err=ierr)
+
  call close_db(db)
  ierr = nerr
  if (nerr > 0) then
