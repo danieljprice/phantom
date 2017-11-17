@@ -17,8 +17,9 @@
 !
 !  USAGE: moddump dumpfilein dumpfileout [time] [outformat]
 !
-!  DEPENDENCIES: checksetup, dim, eos, io, moddump, options, part,
-!    prompting, readwrite_dumps, readwrite_infile, setBfield, setup_params
+!  DEPENDENCIES: checksetup, dim, eos, initial_params, io, moddump,
+!    options, part, prompting, readwrite_dumps, readwrite_infile,
+!    setBfield, setup_params
 !+
 !--------------------------------------------------------------------------
 program phantommoddump
