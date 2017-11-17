@@ -50,6 +50,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,     only:set_units,umass !,udist
  use physcon,   only:solarm,kpc,pi,au
  use io,        only:fatal,iprint,master
+ use eos,       only:gmw
+ use timestep,  only:dtmax
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -74,6 +76,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  hfact = 1.2
  polyk = 0.
  gamma = 5./3.
+ gmw = 0.6  ! completely ionized, solar abu; eventually needs to be WR abu
+ dtmax = 0.01
  !
  ! read setup parameters from the .setup file
  ! if file does not exist, then ask for user input

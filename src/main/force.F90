@@ -132,7 +132,7 @@ contains
 subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,&
                  ipart_rhomax,dt,stressmax)
  use dim,          only:maxvxyzu,maxalpha,maxneigh,maxstrain,&
-                    switches_done_in_derivs,mhd,mhd_nonideal,use_dustfrac,lightcurve
+                        switches_done_in_derivs,mhd,mhd_nonideal,use_dustfrac,lightcurve
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,     only:ncells,ifirstincell,get_neighbour_list,get_hmaxcell,get_cell_location
  use options,      only:iresistive_heating
@@ -478,7 +478,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
        call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true., &
 #ifdef GRAVITY
-                         f=cell%fgrav, &
+                         f=cell%fgrav, local_gravity=.true., &
 #endif
                          cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 
@@ -2071,11 +2071,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
- use dim,            only:mhd,mhd_nonideal,lightcurve,use_dustfrac,maxstrain
+ use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,use_dustfrac,maxstrain
  use eos,            only:use_entropy,gamma
  use options,        only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating
  use part,           only:h2chemistry,rhoanddhdrho,abundance,iboundary,igas,maxphase,maxvxyzu,nabundances, &
-                           massoftype,get_partinfo
+                          massoftype,get_partinfo,tstop
 #ifdef IND_TIMESTEPS
  use part,           only:ibin,ibinsink
  use timestep_ind,   only:get_newbin
@@ -2132,7 +2132,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
  real    :: psii,dtau
  real    :: eni,dudtnonideal
  real    :: dustfraci(ndusttypes),dustfracisum
- real    :: tstop(ndusttypes),tseff,dtdustdenom
+ real    :: tstopi(ndusttypes),tseff,dtdustdenom
  real    :: etaambii,etahalli,etaohmi
  real    :: vsigmax,vwavei,fxyz4
 #ifdef LIGHTCURVE
@@ -2226,7 +2226,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 
        if (use_dustfrac) then
           dustfraci(:) = xpartveci(idustfraci:idustfraciend)
-          tstop(:)     = xpartveci(itstop:itstopend)
+          tstopi(:)    = xpartveci(itstop:itstopend)
        endif
 
     endif
@@ -2466,7 +2466,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 
     ! one fluid dust timestep
     if (use_dustfrac .and. iamgasi .and. minval(dustfraci) > 0. .and. spsoundi > 0.) then
-       tseff = (1.-dustfracisum)/dustfracisum*sum(dustfraci(:)*tstop(:))
+       tseff = (1.-dustfracisum)/dustfracisum*sum(dustfraci(:)*tstopi(:))
        dtdustdenom = dustfracisum*tseff*spsoundi**2
        if (dtdustdenom > tiny(dtdustdenom)) then
           dtdusti = C_force*hi*hi/dtdustdenom
@@ -2476,6 +2476,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
     else
        dtdusti = bignumber
     endif
+
+    ! stopping time
+    if (use_dust) tstop(:,i) = tstopi(:)!dtdrag
 
 #ifdef IND_TIMESTEPS
     !-- The new timestep for particle i

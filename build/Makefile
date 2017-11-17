@@ -1695,7 +1695,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          utils_mathfunc.f90 part.F90 utils_timing.f90 ${DOMAIN} mpi_balance.F90 commons.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_sphNG.f90 utils_vectors.f90 \
          utils_datafiles.f90 datafiles.f90 ${SRCFASTMATH} random.f90 \
-         checkoptions.F90 ${SRCEOS} set_binary.f90 \
+         checkoptions.F90 ${SRCEOS} set_binary.f90 set_flyby.f90 \
          viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} \
          set_disc.F90 partinject.F90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} directsum.f90 ${SRCDUST} prompting.f90 readwrite_dumps.F90 quitdump.f90 \
@@ -1776,7 +1776,7 @@ physcon.o: .make_mathflags
 # these are the sources for phantom setup utility
 #
 SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_filenames.f90 utils_summary.F90 \
-          utils_tables.f90 random.f90 mpi_balance.F90 ${DOMAIN} set_binary.f90 \
+          utils_tables.f90 random.f90 mpi_balance.F90 ${DOMAIN} set_binary.f90 set_flyby.f90 \
           utils_indtimesteps.F90 partinject.F90 dtype_kdtree.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} \
           ptmass.F90 energies.F90 \

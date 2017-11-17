@@ -93,6 +93,7 @@ module part
 !
  real :: dustfrac(ndusttypes,maxp_dustfrac)
  character(len=*), parameter :: dustfrac_label(ndusttypes) = 'dustfrac'
+ character(len=*), parameter :: tstop_label(ndusttypes) = 'tstop'
  real :: dustevol(ndusttypes,maxp_dustfrac)
  real :: deltav(3,ndusttypes,maxp_dustfrac)
  character(len=*), parameter :: deltav_label(3) = &
@@ -180,6 +181,7 @@ module part
  logical, public    :: all_active = .true.
 
  real(kind=4) :: gradh(ngradh,maxgradh)
+ real         :: tstop(ndusttypes,maxan)
 !
 !--storage associated with link list
 !  (used for dead particle list also)
