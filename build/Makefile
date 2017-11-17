@@ -85,8 +85,27 @@ SRCPHOTO=
 # -DSORT_RADIUS_INIT    ! sort particles by R at t=0
 #
 # -DPHOTO               ! turn on the photoevaporation
-# -DLIGHTCURVE		! lightcurve estimation
+# -DLIGHTCURVE          ! lightcurve estimation
 #----------------------------------------------------------------
+
+# Check for obsolete setups and replace with new setup
+ifeq ($(SETUP), HLTau)
+    OBSOLETE_SETUP=yes
+    OLDSETUP= HLTau
+    override SETUP=disc
+endif
+ifeq ($(SETUP), dustyHLTau)
+    OBSOLETE_SETUP=yes
+    OLDSETUP= dustyHLTau
+    override SETUP=dustydisc
+endif
+ifeq ($(SETUP), mcfost)
+    OBSOLETE_SETUP=yes
+    OLDSETUP=mcfost
+    override SETUP=disc
+    MCFOST=yes
+endif
+
 
 ifeq ($(SETUP), empty)
 #   empty setup for external-driver simulation
@@ -181,9 +200,9 @@ ifeq ($(SETUP), photoevap)
     SRCPHOTO=photoevap.f90
 endif
 
-ifeq ($(SETUP), isodisc)
-#   locally isothermal discs
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
+ifeq ($(SETUP), disc)
+#   locally isothermal gas disc
+    FPPFLAGS= -DDISC_VISCOSITY
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
     ISOTHERMAL=yes
@@ -309,29 +328,6 @@ ifeq ($(SETUP), planets)
     IND_TIMESTEPS=yes
 endif
 
-ifeq ($(SETUP), HLTau)
-    FPPFLAGS= -DSORT_RADIUS_INIT -DDISC_VISCOSITY
-    SETUPFILE= setup_HLTau.F90
-    ISOTHERMAL=yes
-    IND_TIMESTEPS=yes
-    KNOWN_SETUP=yes
-    ANALYSIS=analysis_disc.f90
-    MODFILE=moddump_addplanets.f90
-endif
-
-ifeq ($(SETUP), dustyHLTau)
-    FPPFLAGS= -DSORT_RADIUS_INIT -DDISC_VISCOSITY
-    SETUPFILE= setup_HLTau.F90
-    ISOTHERMAL=yes
-    DUST=yes
-    #DUSTFRAC=yes # also use KERNEL=quintic if using one fluid dust
-    #KERNEL=quintic
-    IND_TIMESTEPS=yes
-    KNOWN_SETUP=yes
-    ANALYSIS=analysis_dustydisc.f90
-    MODFILE=moddump_addplanets.f90
-endif
-
 ifeq ($(SETUP), planetdisc)
 #   planet disc interaction with fixed planet orbit
     FPPFLAGS= -DSORT_RADIUS_INIT
@@ -453,14 +449,12 @@ ifeq ($(SETUP), nimhdshock)
 endif
 
 ifeq ($(SETUP), dustydisc)
-#   locally isothermal discs
+#   locally isothermal dusty discs
     FPPFLAGS= -DDISC_VISCOSITY
-    SETUPFILE= setup_dustydisc.f90
+    SETUPFILE= setup_disc.f90
     MODFILE= moddump_dustadd.f90
     ISOTHERMAL=yes
     DUST=yes
-    DUSTFRAC=yes
-    KERNEL=quintic
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ANALYSIS=analysis_dustydisc.f90
@@ -725,10 +719,9 @@ endif
 
 ifeq ($(SETUP), dustysgdisc)
 #   self-gravitating dustydisc
-    SETUPFILE= setup_dustydisc.f90
+    SETUPFILE= setup_disc.f90
     GRAVITY=yes
     DUST=yes
-    #DUSTFRAC=yes
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ANALYSIS=analysis_dustydisc.f90
@@ -739,7 +732,7 @@ ifeq ($(SETUP), sgdiscsector)
     IND_TIMESTEPS=yes
     GRAVITY=yes
     SETUPFILE= setup_discsector.f90
-    SRCINJECT = inject_keplerianshear.f90
+    SRCINJECT= inject_keplerianshear.f90
     DIMFILE= dim_disc.f90
     KNOWN_SETUP=yes
 endif
@@ -891,19 +884,6 @@ ifeq ($(SETUP), tokamak)
     KNOWN_SETUP=yes
 endif
 
-ifeq ($(SETUP), mcfost)
-#   live feedback from mcfost, derived from isodisc setup
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
-    SETUPFILE= setup_disc.f90
-    ANALYSIS= analysis_mcfost.f90
-    LIVE_ANALYSIS=yes
-    ISOTHERMAL=no
-    KNOWN_SETUP=yes
-    MULTIRUNFILE= multirun.f90
-    IND_TIMESTEPS=yes
-    MCFOST=yes
-endif
-
 ifeq ($(SETUP), sfmcfost)
 #   live feedback from mcfost in star formation calculation
     PERIODIC=yes
@@ -916,50 +896,6 @@ ifeq ($(SETUP), sfmcfost)
     IND_TIMESTEPS=yes
     GRAVITY=yes
     MCFOST=yes
-endif
-
-ifeq ($(SETUP), HLTau_mcfost)
-    # Question : why no -DDISC_VISCOSITY ???
-    FPPFLAGS= -DSORT_RADIUS_INIT -DDISC_VISCOSITY
-    SETUPFILE= setup_HLTau.F90
-    ISOTHERMAL=no
-    IND_TIMESTEPS=yes
-    KNOWN_SETUP=yes
-    ANALYSIS=analysis_mcfost.f90
-    MODFILE=moddump_addplanets.f90
-    MCFOST=yes
-    LIVE_ANALYSIS=yes
-endif
-
-ifeq ($(SETUP), dustyHLTau_mcfost)
-#   live feedback from mcfost, derived from dustyHLTau setup
-    FPPFLAGS= -DSORT_RADIUS_INIT -DDISC_VISCOSITY
-    SETUPFILE= setup_HLTau.F90
-    ISOTHERMAL=no
-    DUST=yes
-    #DUSTFRAC=yes # also use KERNEL=quintic if using one fluid dust
-    #KERNEL=quintic
-    IND_TIMESTEPS=yes
-    KNOWN_SETUP=yes
-    MULTIRUNFILE= multirun.f90
-    ANALYSIS=analysis_mcfost.f90
-    MODFILE=moddump_addplanets.f90
-    MCFOST=yes
-    LIVE_ANALYSIS=yes
-endif
-
-ifeq ($(SETUP), planets_mcfost)
-#   binary setup
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
-    SETUPFILE= set_planets.f90 setup_planets.f90
-#    ANALYSIS= analysis_binarydisc.f90
-    ANALYSIS= analysis_mcfost.f90
-    ISOTHERMAL=no
-    KNOWN_SETUP=yes
-    LIVE_ANALYSIS=yes
-    IND_TIMESTEPS=yes
-    MCFOST=yes
-    LIVE_ANALYSIS=yes
 endif
 
 ifeq ($(SETUP), mcfostcmdline)
@@ -985,6 +921,19 @@ endif
 ifndef SRCDUST
     SRCDUST = dust.F90
 endif
+
+ifeq ($(MCFOST), yes)
+#   live feedback from mcfost
+    ANALYSIS= analysis_mcfost.f90
+    LIVE_ANALYSIS=yes
+    ISOTHERMAL=no
+    MCFOST=yes
+
+    FPPFLAGS+= -DMCFOST
+    LDFLAGS+= -L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)
+#    LDFLAGS+=  ~/mcfost/src/libtmp/*.o  ~/mcfost/src/*.o  $(LIBCXX)
+endif
+
 
 #----------------------------------------------------------------
 ifeq ($(SYSTEM), zen)
@@ -1299,17 +1248,17 @@ endif
 
 ifeq ($(SYSTEM), ifort)
     FC= ifort
-    FFLAGS= -O3 -xhost -ipo -mcmodel=medium -shared-intel -warn uninitialized \
-            -warn unused -warn truncated_source
+    FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel \
+			-warn uninitialized -warn unused -warn truncated_source
     DBLFLAG= -r8
-    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+    DEBUGFLAG= -check all -WB -traceback -g -debug all
     KNOWN_SYSTEM=yes
     ENDIANFLAGBIG= -convert big_endian
     ENDIANFLAGLITTLE= -convert little_endian
 # or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
     OMPFLAGS = -qopenmp
     CC = icc
-    CCFLAGS = -O3 -ipo -mcmodel=medium
+    CCFLAGS = -O3 -mcmodel=medium
     LIBCXX = -cxxlib
 endif
 
@@ -1326,22 +1275,6 @@ ifeq ($(SYSTEM), ifortmac)
     OMPFLAGS = -qopenmp
     CC = icc
     CCFLAGS = -O3
-    LIBCXX = -cxxlib
-endif
-
-ifeq ($(SYSTEM), ifort17)
-    # SYSTEM= ifort fails "make test" for ifort 17.0
-    FC= ifort
-    FFLAGS= -O3 -mcmodel=medium -shared-intel \
-            -warn uninitialized -warn unused -warn truncated_source
-    DBLFLAG= -r8
-    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-    OMPFLAGS = -qopenmp
-    CC = icc
-    CCFLAGS = -O3 -mcmodel=medium
     LIBCXX = -cxxlib
 endif
 
@@ -1636,13 +1569,6 @@ ifeq ($(HDF5), yes)
     LDFLAGS+= -L$(HDF5ROOT)/lib -lhdf5
     CCFLAGS+= -I$(HDF5ROOT)/include
     FPPFLAGS+= -DHAVE_HDF5
-endif
-#
-# MCFOST libraries (if required)
-#
-ifeq ($(MCFOST), yes)
-    LDFLAGS+= -L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)
-#    LDFLAGS+=  ~/mcfost/src/libtmp/*.o  ~/mcfost/src/*.o  $(LIBCXX)
 endif
 
 #
@@ -2706,6 +2632,11 @@ checksys:
    endif
 
 checksetup:
+   ifeq ($(OBSOLETE_SETUP), yes)
+	@echo "make: WARNING: value of SETUP = $(OLDSETUP) is obsolete..."
+	@echo "=> setting SETUP = $(SETUP)"
+	@echo
+   endif
    ifeq ($(KNOWN_SETUP), yes)
 	@echo "Using options for "$(SETUP)" setup"
 	@echo ""

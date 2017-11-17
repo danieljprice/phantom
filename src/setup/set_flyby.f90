@@ -188,7 +188,7 @@ function get_T_flyby(m1,m2,a,n0) result(T)
 
  m = 2*sqrt(n0-1.0)
  T = ( 4*a**2 * (8./3. - m + m**3/12) ) / sqrt(2*(m1+m2)*a)
- 
+
 end function get_T_flyby
 
 end module setflyby
