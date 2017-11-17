@@ -9,7 +9,7 @@
 !
 !  DESCRIPTION:
 !   Wind injection from galactic centre stars
-!   Written by Daniel Price and Jorge Cuadra
+!   Written by Daniel Price, Jorge Cuadra, and Christopher Russell
 !
 !  REFERENCES: Cuadra et al. (2008), MNRAS 383, 458
 !
@@ -44,6 +44,8 @@ module inject
 
  ! array containing properties of the wind from each star
  real,    private :: wind(n_wind_prop,maxptmass)
+ integer, private :: total_particles_injected(maxptmass) = 0
+ logical, private :: first_iteration = .true.
  integer, private :: iseed = -666
 
 contains
@@ -89,12 +91,38 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  do while(xyzmh_ptmass(4,nskip) > Mcut)
     nskip = nskip + 1
  enddo
- print*,' skipping ',nskip,' point masses'
+ if (iverbose >= 2) print*,' skipping ',nskip,' point masses'
 !
 ! convert mass loss rate from Msun/yr to code units
 !
  Mdot_fac = (solarm/umass)*(utime/years)
  vel_fac  = (km/udist)*(utime/seconds)
+
+!
+! If restarting, compute the number of particles already injected from each star.
+!    This overestimates the total number injected by 1 timestep since 'time'
+!    should be the last value before the restart dump was written, which is less
+!    than its current value.  Therefore, the first time through no particles will
+!    be injected.  This error is small though. A better idea is to add
+!    'total_particles_injected' to the dump file, which will eliminate this
+!    error altogether.
+! Note: I imagine there's a better place to put this.  This if statement will
+!    evaluate to false an awfully large number of times.  Needs to be after
+!    dumpfile ('time') and wind data (Mdots) have been read in.
+!
+ if(first_iteration) then
+    if(time /= 0) then   ! only if restarting
+       do i=nskip+1,nptmass
+          j = i - nskip ! position in wind table
+          total_particles_injected(i) = int(wind(i_Mdot,j)*Mdot_fac * time / massoftype(igas))
+       enddo
+       print*
+       print*, 'galcen initialization: wind particles already injected (total_particles_injected) =',&
+               total_particles_injected(1:nptmass)
+       print*
+    endif
+    first_iteration = .false.
+ endif
 
  temp_inject = 1.e4
  gam1 = gamma - 1.
@@ -127,42 +155,60 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     Mdot_code = wind(i_Mdot,j)*Mdot_fac
     vinject   = wind(i_vel,j)*vel_fac
     deltat    = time - tlast
-    Minject   = Mdot_code*deltat
+    Minject   = Mdot_code*time
     !
     ! divide by mass of gas particles
     !
-    ninject = int(Minject/massoftype(igas))
-    if (iverbose>=0) print*,' point mass ',i,j,' injecting ',ninject,Minject,massoftype(igas)
+    ninject = int(Minject/massoftype(igas))-total_particles_injected(i)
+    if (iverbose >= 2) print*,' point mass ',i,j,' injecting ',&
+                       ninject,Minject-total_particles_injected(i)*massoftype(igas),massoftype(igas),time,tlast
 
-    do k=1,ninject
-       !
-       ! get random position on sphere
-       !
-       phi = 2.*pi*(ran2(iseed) - 0.5)
-       theta = acos(2.*ran2(iseed) - 1.)
-       sintheta = sin(theta)
-       costheta = cos(theta)
-       sinphi   = sin(phi)
-       cosphi   = cos(phi)
-       dir  = (/sintheta*cosphi,sintheta*sinphi,costheta/)
-
-       xyzi = rr*dir + xyz_star
-       vxyz = vinject*dir + vxyz_star
-       !print*,' v = ',vinject,vxyz_star
-       print*,rr,vinject*deltat,100.*rr
-       h = max(rr,10.*vinject*deltat) !/ninject**(1./3.)
-
-       u = uu_inject
-
-       i_part = npart + 1 ! all particles are new
-       call add_or_update_particle(igas, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
-    enddo
     !
-    ! update tlast to current time
+    ! this if statement is no longer essential for more accurate mass-loss rates,
+    !    but it should help with setting h since tlast --> deltat is more accurate
     !
-    xyzmh_ptmass(i_tlast,i) = time
+    ! don't update tlast for a particular star unless that star injected
+    !    particles this timestep; this way, fractional particles/timestep can
+    !    accumulate and eventually inject a particle, making Mdot more accurate
+    !
+    if(ninject > 0) then
+       do k=1,ninject
+          !
+          ! get random position on sphere
+          !
+          phi = 2.*pi*(ran2(iseed) - 0.5)
+          theta = acos(2.*ran2(iseed) - 1.)
+          sintheta = sin(theta)
+          costheta = cos(theta)
+          sinphi   = sin(phi)
+          cosphi   = cos(phi)
+          dir  = (/sintheta*cosphi,sintheta*sinphi,costheta/)
+
+          xyzi = rr*dir + xyz_star
+          vxyz = vinject*dir + vxyz_star
+          !print*,' v = ',vinject,vxyz_star
+          !print*,rr,vinject*deltat,100.*rr
+          h = max(rr,10.*vinject*deltat) !/ninject**(1./3.)
+
+          u = uu_inject
+
+          i_part = npart + 1 ! all particles are new
+          call add_or_update_particle(igas, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
+       enddo
+       !
+       ! update tlast to current time
+       !
+       xyzmh_ptmass(i_tlast,i) = time
+       !
+       ! update total particles injected for this star
+       !
+       total_particles_injected(i) = total_particles_injected(i) + ninject
+    endif
  enddo
- if (iverbose >= 0) print*,'npart = ',npart
+ if (iverbose >= 2) then
+    print*,'npart = ',npart
+    print*,'tpi = ',total_particles_injected(1:nptmass)
+ endif
 
 end subroutine inject_particles
 

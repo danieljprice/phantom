@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, part
+!  DEPENDENCIES: dim, options, part
 !+
 !--------------------------------------------------------------------------
 module moddump
@@ -27,9 +27,10 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use dim,   only:use_dust,use_dustfrac,ndusttypes
- use part,  only:dustfrac,igas,idust,set_particle_type
- use dust,  only:set_dustfrac,smincgs,smaxcgs,sindex
+ use dim,     only:use_dust,ndusttypes
+ use part,    only:dustfrac,igas,idust,set_particle_type
+ use dust,    only:set_dustfrac,smincgs,smaxcgs,sindex
+ use options, only:use_dustfrac
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)

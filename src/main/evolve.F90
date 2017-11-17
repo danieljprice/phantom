@@ -40,10 +40,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce
  use evwrite,          only:write_evfile,write_evlog
  use energies,         only:etot,totmom,angtot,mdust,get_erot_com
- use dim,              only:calc_erot,maxvxyzu,mhd,use_dustfrac,ndusttypes,periodic
+ use dim,              only:calc_erot,maxvxyzu,mhd,periodic,ndusttypes
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,dtwallmax,nmaxdumps,iexternalforce,&
-                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
+                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating,&
+                            use_dustfrac
  use readwrite_infile, only:write_infile
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
@@ -340,8 +341,13 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !--check that time is as it should be, may indicate error in individual timestep routines
     if (abs(tcheck-time) > 1.e-4) call warning('evolve','time out of sync',var='error',val=abs(tcheck-time))
 
+#ifdef INJECT_PARTICLES
+    if (id==master .and. (iverbose >= 1 .or. inbin <= 3)) &
+       call print_dtlog_ind(iprint,istepfrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1,np=npart)
+#else
     if (id==master .and. (iverbose >= 1 .or. inbin <= 3)) &
        call print_dtlog_ind(iprint,istepfrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1)
+#endif
 
     !--if total number of bins has changed, adjust istepfrac and dt accordingly
     !  (ie., decrease or increase the timestep)
@@ -367,7 +373,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
 !--write log every step (NB: must print after dt has been set in order to identify timestep constraint)
 !
+#ifdef INJECT_PARTICLES
+    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,np=npart)
+#else
     if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint)
+#endif
 #endif
 
 !    if (abs(dt) < 1e-8*dtmax) then
@@ -586,6 +596,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        istepfrac = 0
        nmovedtot = 0
 #endif
+       !  print summary of energies and other useful values to the log file
+       if (id==master) call write_evlog(iprint)
        !
        !--if twallmax > 1s stop the run at the last full dump that will fit into the walltime constraint,
        !  based on the wall time between the last two dumps added to the current total walltime used.
@@ -622,10 +634,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
           tprint        = tzero  + dtmax
           noutput_dtmax = 1
        endif
-
-       !  print summary of energies and other useful values to the log file
-       if (id==master) call write_evlog(iprint)
-
     endif
 
 #ifdef CORRECT_BULK_MOTION
@@ -825,12 +833,13 @@ end subroutine print_timer
 !  this version handles individual timesteps
 !+
 !-----------------------------------------------------------------
-subroutine print_dtlog_ind(iprint,ifrac,nfrac,time,dt,nactive,tcpu)
+subroutine print_dtlog_ind(iprint,ifrac,nfrac,time,dt,nactive,tcpu,np)
  use io, only:formatreal,formatint
  integer,         intent(in) :: iprint,ifrac,nfrac
  real,            intent(in) :: time,dt
  integer(kind=8), intent(in) :: nactive
  real(kind=4),    intent(in) :: tcpu
+ integer,         intent(in), optional :: np
  character(len=120) :: string
  character(len=14) :: tmp
 
@@ -847,6 +856,11 @@ subroutine print_dtlog_ind(iprint,ifrac,nfrac,time,dt,nactive,tcpu)
  call formatreal(real(tcpu),tmp)
  string = trim(string)//' in '//trim(tmp)//' cpu-s <'
 
+ if (present(np)) then
+    write(tmp,"(i12)") np
+    string = trim(string)//' | np = '//trim(adjustl(tmp))//' |'
+ endif
+
  write(iprint,"(a)") trim(string)
 ! write(iprint,5) ifrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1
 !5   format('> step ',i6,' /',i6,2x,'t = ',es14.7,1x,'dt = ',es10.3,' moved ',i10,' in ',f8.2,' cpu-s <')
@@ -858,24 +872,32 @@ end subroutine print_dtlog_ind
 !  routine to print out the timestep information to the log file
 !+
 !-----------------------------------------------------------------
-subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint)
+subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,np)
  integer, intent(in) :: iprint
  real,    intent(in) :: time,dt,dtforce,dtcourant,dterr,dtmax
  real,    intent(in), optional :: dtprint
+ integer, intent(in), optional :: np
+ character(len=20) :: str
+
+ str = ''
+ if (present(np)) then
+    write(str,"(i12)") np
+    str = ', np = '//trim(adjustl(str))
+ endif
 
  if (abs(dt-dtforce) < tiny(dt)) then
-    write(iprint,10) time,dt,'(force)'
+    write(iprint,10) time,dt,'(force)'//trim(str)
  elseif (abs(dt-dtcourant) < tiny(dt)) then
-    write(iprint,10) time,dt,'(courant)'
+    write(iprint,10) time,dt,'(courant)'//trim(str)
  elseif (abs(dt-dterr) < tiny(dt)) then
-    write(iprint,10) time,dt,'(tolv)'
+    write(iprint,10) time,dt,'(tolv)'//trim(str)
  elseif (abs(dt-dtmax) <= epsilon(dt)) then
-    write(iprint,10) time,dt,'(dtmax)'
+    write(iprint,10) time,dt,'(dtmax)'//trim(str)
  elseif (present(dtprint) .and. abs(dt-dtprint) < tiny(dt)) then
-    write(iprint,10) time,dt,'(dtprint)'
+    write(iprint,10) time,dt,'(dtprint)'//trim(str)
  else
     !print*,dt,dtforce,dtcourant,dterr,dtmax
-    write(iprint,10) time,dt,'(unknown)'
+    write(iprint,10) time,dt,'(unknown)'//trim(str)
  endif
 10 format(' t = ',g12.5,' dt = ',es10.3,1x,a)
 

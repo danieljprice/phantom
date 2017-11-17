@@ -132,14 +132,14 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,calc_erot,use_dustfrac,ndusttypes
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,calc_erot,ndusttypes
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
                             die,fatal,id,master,nprocs,real4,warning
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
                             externalforce_vdependent
- use options,          only:iexternalforce,damp,alpha,icooling
+ use options,          only:iexternalforce,damp,alpha,icooling,use_dustfrac
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&

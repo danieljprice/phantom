@@ -1540,7 +1540,13 @@ subroutine write_array_real4(ib,arr,my_tag,len,ikind,ipass,iunit,nums,ierr,func,
  integer, intent(in)    :: ib,len,ikind,ipass,iunit
  integer, intent(inout) :: nums(:,:)
  integer, intent(out)   :: ierr
- real(kind=4), optional :: func
+ interface
+  real(kind=4) pure function func(x)
+   real(kind=4), intent(in) :: x
+  end function
+ end interface
+ optional :: func
+ !real(kind=4), optional :: func
  integer, intent(in), optional :: use_kind
  logical, intent(in), optional :: singleprec
  integer :: i,imatch
@@ -1579,7 +1585,13 @@ subroutine write_array_real8(ib,arr,my_tag,len,ikind,ipass,iunit,nums,ierr,func,
  integer, intent(in)    :: ib,len,ikind,ipass,iunit
  integer, intent(inout) :: nums(:,:)
  integer, intent(out)   :: ierr
- real(kind=8), optional :: func
+ interface
+  real(kind=8) pure function func(x)
+   real(kind=8), intent(in) :: x
+  end function
+ end interface
+ optional :: func
+ !real(kind=8), optional :: func
  integer, intent(in), optional :: use_kind
  logical, intent(in), optional :: singleprec
  integer :: i,imatch
@@ -1635,7 +1647,7 @@ subroutine write_array_real4arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,i
  integer, intent(out)   :: ierr
  integer, intent(in), optional :: use_kind,index
  logical, intent(in), optional :: singleprec
- integer :: j,imatch,istart,iend
+ integer :: j,i,imatch,istart,iend
 
  ierr = 0
  ! use default real if it matches, unless kind is specified
@@ -1659,7 +1671,7 @@ subroutine write_array_real4arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,i
     elseif (ipass==2) then
        do j=istart,iend
           write(iunit, iostat=ierr) tag(my_tag(j))
-          write(iunit, iostat=ierr) arr(j,1:len2)
+          write(iunit, iostat=ierr) (arr(j,i),i=1,len2)
        enddo
     endif
  endif
@@ -1680,7 +1692,7 @@ subroutine write_array_real8arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,i
  integer, intent(out)   :: ierr
  integer, intent(in), optional :: use_kind,index
  logical, intent(in), optional :: singleprec
- integer :: j,imatch,istart,iend
+ integer :: j,i,imatch,istart,iend
  logical :: use_singleprec
 
  ierr = 0
@@ -1714,9 +1726,9 @@ subroutine write_array_real8arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,i
        do j=istart,iend
           write(iunit, iostat=ierr) tag(my_tag(j))
           if (imatch==i_real4 .or. use_singleprec) then
-             write(iunit, iostat=ierr) real(arr(j,1:len2),kind=4)
+             write(iunit, iostat=ierr) (real(arr(j,i),kind=4),i=1,len2)
           else
-             write(iunit, iostat=ierr) arr(j,1:len2)
+             write(iunit, iostat=ierr) (arr(j,i),i=1,len2)
           endif
        enddo
     endif

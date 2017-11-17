@@ -73,12 +73,12 @@ contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav, &
                        particlemass,npart,time,iunit)
- use dim,          only:use_dustfrac,maxp
+ use dim,          only:maxp
  use io,           only:fatal
  use physcon,      only:pi,jupiterm,years,au
  use part,         only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac, &
                         maxphase,iamtype,xyzmh_ptmass,nptmass
- use options,      only:iexternalforce
+ use options,      only:iexternalforce,use_dustfrac
  use units,        only:umass,udist!,utime
  use dust,         only:graindens,grainsize
  use leastsquares, only:fit_slope

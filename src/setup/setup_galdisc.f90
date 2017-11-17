@@ -53,14 +53,14 @@ contains
 !
 !--------------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,     only:maxp,maxvxyzu,use_dustfrac
+ use dim,     only:maxp,maxvxyzu,use_dust
  use setup_params, only:rhozero
  use physcon, only:Rg,pi,solarm,pc,kpc
  use units,   only:umass,udist,utime,set_units
  use random,  only:ran2
  use part,    only:h2chemistry,abundance,iHI,dustfrac,istar,igas,ibulge,&
               idarkmatter,iunknown,set_particle_type
- use options, only:iexternalforce,icooling,nfulldump
+ use options, only:iexternalforce,icooling,nfulldump,use_dustfrac
  use externalforces, only:externalforce,initialise_externalforces
  use extern_spiral, only:LogDisc
  use io,      only:fatal
@@ -477,6 +477,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call prompt(' Enter velocity for rotation curve [unit distance (cm/s)]',angvel)
        angvel = angvel * utime/udist
     endif
+    if (use_dust) use_dustfrac = .true.
     if (use_dustfrac) then
        print*,'What is dust to gas ratio?'
        read*,dust_to_gas_ratio

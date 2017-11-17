@@ -130,9 +130,9 @@ subroutine test_dustybox(ntests,npass)
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use eos,            only:ieos,polyk,gamma
  use dust,           only:K_code,idrag
- use options,        only:alpha,alphamax
+ use options,        only:alpha,alphamax,use_dustfrac
  use unifdis,        only:set_unifdis
- use dim,            only:periodic,mhd,use_dust,use_dustfrac,ndusttypes
+ use dim,            only:periodic,mhd,use_dust,ndusttypes
  use timestep,       only:dtmax
  use io,             only:iverbose
  use mpiutils,       only:reduceall_mpi
@@ -257,9 +257,10 @@ end subroutine test_dustybox
 !+
 !----------------------------------------------------
 subroutine test_dustydiffuse(ntests,npass)
- use dim,       only:use_dustfrac,maxp,periodic,maxtypes,mhd,ndusttypes
+ use dim,       only:maxp,periodic,maxtypes,mhd,ndusttypes
  use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac,dustevol, &
                      xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,set_particle_type,rhoh
+ use options,   only:use_dustfrac
  use kernel,    only:hfact_default
  use eos,       only:gamma,polyk,ieos
  use dust,      only:K_code,idrag
