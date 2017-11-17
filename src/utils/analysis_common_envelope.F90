@@ -1342,19 +1342,19 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
           !bound_energy(i) = ((part_kin + part_ps_pot + vxyzu(4,i)) * particlemass + poten(i)) * unit_energ
           !if ((bound_energy(i) < 0.) .and. (prev_unbound(i) .eqv. .false.)) then
           !if (criteria) then
-             rhopart = rhoh(xyzh(4,i), particlemass)
-             npart_hist = npart_hist + 1
-             rad_part(npart_hist) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-             !dist_part(npart_hist) = rhopart * unit_density
-             call get_eos_pressure_temp_mesa(X_in,rhopart*unit_density,vxyzu(4,i) * unit_ergg,pres,temperature)
-             call ionisation_fraction(rhopart * unit_density, temperature, X_in, 1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
-             dist_part(1,npart_hist) = xh0
-             dist_part(2,npart_hist) = xh1
-             dist_part(3,npart_hist) = xhe0
-             dist_part(4,npart_hist) = xhe1
-             dist_part(5,npart_hist) = xhe2
-             !dist_part(npart_hist) = 1.
-             !prev_unbound(i) = .true.
+          rhopart = rhoh(xyzh(4,i), particlemass)
+          npart_hist = npart_hist + 1
+          rad_part(npart_hist) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+          !dist_part(npart_hist) = rhopart * unit_density
+          call get_eos_pressure_temp_mesa(X_in,rhopart*unit_density,vxyzu(4,i) * unit_ergg,pres,temperature)
+          call ionisation_fraction(rhopart * unit_density, temperature, X_in, 1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
+          dist_part(1,npart_hist) = xh0
+          dist_part(2,npart_hist) = xh1
+          dist_part(3,npart_hist) = xhe0
+          dist_part(4,npart_hist) = xhe1
+          dist_part(5,npart_hist) = xhe2
+          !dist_part(npart_hist) = 1.
+          !prev_unbound(i) = .true.
           !elseif ((bound_energy(i) < 0.) .and. (prev_unbound(i) .eqv. .true.)) then
           !   prev_unbound(i) = .false.
           !endif
