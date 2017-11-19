@@ -157,7 +157,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use linklist,     only:get_distance_from_centre_of_mass
  use part,         only:xyzmh_ptmass,nptmass
  use ptmass,       only:icreate_sinks,rho_crit,r_crit2,&
-                        rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin
+                        rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ipart,rhomax_ibin
  use units,        only:unit_density
 #endif
 #ifdef DUST
@@ -601,16 +601,18 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  if (reduceall_mpi('max',ipart_rhomax) > 0) then
     call reduceloc_mpi('max',rhomax,id_rhomax)
     if (id == id_rhomax) then
-       rhomax_xyzh = xyzh(1:4,ipart_rhomax)
-       rhomax_vxyz = vxyzu(1:3,ipart_rhomax)
+       rhomax_ipart  = ipart_rhomax
+       rhomax_xyzh   = xyzh(1:4,ipart_rhomax)
+       rhomax_vxyz   = vxyzu(1:3,ipart_rhomax)
        rhomax_iphase = iphase(ipart_rhomax)
-       rhomax_divv = divcurlv(1,ipart_rhomax)
+       rhomax_divv   = divcurlv(1,ipart_rhomax)
 #ifdef IND_TIMESTEPS
        rhomax_ibin = ibin(ipart_rhomax)
 #endif
     else
        ipart_rhomax = -1
     endif
+    call bcast_mpi(rhomax_ipart,id_rhomax)
     call bcast_mpi(rhomax_xyzh,id_rhomax)
     call bcast_mpi(rhomax_vxyz,id_rhomax)
     call bcast_mpi(rhomax_iphase,id_rhomax)

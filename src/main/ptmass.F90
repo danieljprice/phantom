@@ -68,11 +68,11 @@ module ptmass
  integer, public :: ipart_rhomax
  real,    public :: r_crit2,rho_crit
 
+ integer,         public :: rhomax_ipart
+ integer(kind=1), public :: rhomax_iphase,rhomax_ibin
  real,            public :: rhomax_xyzh(4)
  real,            public :: rhomax_vxyz(3)
- integer(kind=1), public :: rhomax_iphase
  real(kind=4),    public :: rhomax_divv
- integer(kind=1), public :: rhomax_ibin
 
  ! calibration of timestep control on sink-sink and sink-gas orbital integration
  ! this is hardwired because can be adjusted by changing C_force
