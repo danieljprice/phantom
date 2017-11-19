@@ -70,8 +70,7 @@ module ptmass
 
  integer,         public :: rhomax_ipart
  integer(kind=1), public :: rhomax_iphase,rhomax_ibin
- real,            public :: rhomax_xyzh(4)
- real,            public :: rhomax_vxyz(3)
+ real,            public :: rhomax_xyzh(4),rhomax_vxyz(3)
  real(kind=4),    public :: rhomax_divv
 
  ! calibration of timestep control on sink-sink and sink-gas orbital integration

@@ -78,7 +78,6 @@ module timestep_sts
  public                     :: sts_initialise,sts_init_step
  public                     :: sts_get_dtau_next,sts_get_dtau_array
  public                     :: sts_initialise_activity,sts_set_active_particles,sts_modify_ibin,sts_get_hdti
- public                     :: sts_check_rhomax
  private                    :: sts_init_nu,sts_get_Ndtdiff,sts_get_dtdiff,sts_get_dtau
  private                    :: sts_update_i_nmega
 
@@ -612,34 +611,5 @@ real function sts_get_hdti(i,dtmax,dtau_next_in,ibini)
  dt_prev(i)   = dt_next
  !
 end function sts_get_hdti
-!----------------------------------------------------------------
-!+
-!  Save rhomax across all supersteps
-!  If rhomax is on different particles on different steps, then
-!  check relative densities.  Since we only care about relative
-!  density, use smoothing length as a proxy.
-!+
-!----------------------------------------------------------------
-subroutine sts_check_rhomax(ipart_rhomax,hi_rhomax)
- integer, intent(in) :: ipart_rhomax
- real,    intent(in) :: hi_rhomax
- !
- if (ipart_rhomax == ipart_rhomax_sts) then
-    ! This is the same particle, so just update the 'density'
-    hi_rhomax_sts = min(hi_rhomax_sts,hi_rhomax)
- else
-    ! The two particles are different
-    if (ipart_rhomax_sts == 0) then
-       ! this is first time through the loop: set values
-       ipart_rhomax_sts = ipart_rhomax
-       hi_rhomax_sts    = hi_rhomax
-    else if (hi_rhomax_sts < hi_rhomax) then
-       ! compare particles; this can only be called on not the first loop
-       ipart_rhomax_sts = ipart_rhomax
-       hi_rhomax_sts    = hi_rhomax
-    endif
- endif
- !
-end subroutine sts_check_rhomax
 !----------------------------------------------------------------
 end module timestep_sts
