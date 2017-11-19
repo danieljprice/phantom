@@ -290,7 +290,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     if (gravity .and. icreate_sinks > 0 .and. ipart_rhomax /= 0) then
        !
        ! creation of new sink particles
-       ! Note: rhomax_ipart if for bookkeeping only
+       ! Note: rhomax_ipart is for bookkeeping only
        !
        call ptmass_create(nptmass,npart,rhomax_ipart,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                           massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time,&
