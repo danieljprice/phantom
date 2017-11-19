@@ -389,7 +389,7 @@ subroutine write_evlog(iprint)
  integer, intent(in) :: iprint
  character(len=120)  :: string
 
- if (ndead.ne.npart) then
+ if (ndead /= npart) then
     write(iprint,"(1x,a,I10,a,I10)") 'n_alive=',npart-ndead,', n_dead_or_accreted=',ndead
  endif
  write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") &
