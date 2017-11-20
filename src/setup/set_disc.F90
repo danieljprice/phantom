@@ -46,7 +46,7 @@
 !    utime       -- time units (cgs)
 !
 !  DEPENDENCIES: dim, domain, eos, externalforces, infile_utils, io,
-!    mpiutils, options, part, physcon, random, units
+!    mpiutils, options, part, physcon, random, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module setdisc

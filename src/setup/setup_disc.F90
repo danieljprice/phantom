@@ -56,13 +56,13 @@
 !    np_dust           -- number of dust particles
 !    nplanets          -- number of planets
 !    nsinks            -- number of sinks
-!    profile_set_dust  -- how to set dust density profile (0=equal to gas, 1=custom)
+!    profile_set_dust  -- how to set dust density profile (0=equal to gas,1=custom)
 !    setplanets        -- add planets? (0=no,1=yes)
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_lensethirring, externalforces, infile_utils, io, kernel,
 !    options, part, physcon, prompting, setbinary, setdisc, setflyby,
-!    timestep, units
+!    timestep, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module setup
