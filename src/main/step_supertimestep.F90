@@ -59,13 +59,14 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
  use timestep_sts,   only: sts_get_dtau_array
 #endif
 #ifdef GRAVITY
- use ptmass,         only: ipart_rhomax
- use part,           only: xyzh
+ use ptmass,         only: ipart_rhomax, &
+                           rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv, &
+                           rhomax_ipart,rhomax_ibin
+ use timestep,       only: bignumber
 #endif
  use timestep,       only: dtdiff
  use timestep_sts,   only: sts_it_n,dtau,Nmegasts_done,bigdt, &
-                           sts_initialise_activity,sts_set_active_particles,sts_check_rhomax, &
-                           nnu,ipart_rhomax_sts
+                           sts_initialise_activity,sts_set_active_particles,nnu
  use io,             only: fatal
  use step_lf_global, only: step
  use evwrite,        only: write_evfile
@@ -79,6 +80,14 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
 #ifndef IND_TIMESTEPS
  integer(kind=1), parameter :: nbinmax = 0  ! The simplest way to keep everything clean
 #endif
+#ifdef GRAVITY
+ real                   :: rhomax_sts_hi
+ integer                :: rhomax_sts_ipart
+ integer(kind=1)        :: rhomax_sts_iphase,rhomax_sts_ibin
+ real                   :: rhomax_sts_xyzh(4),rhomax_sts_vxyz(3)
+ real(kind=4)           :: rhomax_sts_divv
+ logical                :: update_rhomax
+#endif
  real                   :: dtau0,dtdiff_in,dtsum,timei
  real                   :: dttemp3(3),dttemp2(2)
  !
@@ -91,7 +100,10 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
  timei       = time
  dtsum       = 0.0d0
  sts_it_n    = .true.
- ipart_rhomax_sts = 0
+#ifdef GRAVITY
+ rhomax_sts_hi = bignumber
+ update_rhomax = .false.
+#endif
  !
 #ifdef IND_TIMESTEPS
  ! Determine activity of particles
@@ -146,7 +158,18 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
     !  call write_evfile(timei,dtau)
     call summary_counter(iosum_nsts)
 #ifdef GRAVITY
-    if (ipart_rhomax > 0) call sts_check_rhomax(ipart_rhomax,xyzh(4,ipart_rhomax))
+    if (ipart_rhomax /= 0 .and. rhomax_xyzh(4) < rhomax_sts_hi) then
+       update_rhomax     = .true.
+       rhomax_sts_hi     = rhomax_xyzh(4)
+       rhomax_sts_ipart  = rhomax_ipart
+       rhomax_sts_xyzh   = rhomax_xyzh
+       rhomax_sts_vxyz   = rhomax_vxyz
+       rhomax_sts_iphase = rhomax_iphase
+       rhomax_sts_divv   = rhomax_divv
+#ifdef IND_TIMESTEPS
+       rhomax_sts_ibin   = rhomax_ibin
+#endif
+    endif
 #endif
     dtsum      = dtsum + dtau0
     timei      = timei + dtau0
@@ -174,8 +197,17 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
  endif
  !
 #ifdef GRAVITY
- ! replace ipart_rhomax as required
- ipart_rhomax = ipart_rhomax_sts
+ ! replace rhomax* as required
+ if (update_rhomax) then
+    rhomax_ipart  = rhomax_sts_ipart
+    rhomax_xyzh   = rhomax_sts_xyzh
+    rhomax_vxyz   = rhomax_sts_vxyz
+    rhomax_iphase = rhomax_sts_iphase
+    rhomax_divv   = rhomax_sts_divv
+#ifdef IND_TIMESTEPS
+    rhomax_ibin   = rhomax_sts_ibin
+#endif
+ endif
 #endif
  !
 end subroutine step_sts
