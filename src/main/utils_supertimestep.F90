@@ -66,7 +66,6 @@ module timestep_sts
  logical,         private   :: print_nu_to_file = .false.  ! to allow nu to be printed for testing purposes
  !
  !--Variables
- real,            private   :: hi_rhomax_sts
  integer(kind=1), private   :: istsactive(maxsts)
  integer(kind=1), public    :: ibinsts(maxsts),isfirstdtau(ndtau_max)
  real,            public    :: dtau(ndtau_max),nu(nnu,dtcoef_max),dtdiffcoef(dtcoef_max),dt_prev(maxsts)
