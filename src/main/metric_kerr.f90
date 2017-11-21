@@ -341,7 +341,7 @@ subroutine read_options_metric(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
   case('a')
      read(valstring,*,iostat=ierr) mass1
-     if (abs(a) > 0.)  call fatal(tag,'black hole spin: |a| > 0')
+     if (abs(a) > 1.)  call fatal(tag,'black hole spin: |a| > 1')
      if (a == 0.) call warn(tag,'black hole spin: a = 0')
      ngot = ngot + 1
   case default

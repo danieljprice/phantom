@@ -338,6 +338,8 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
        if (accradius1_hard > accradius1) call fatal(tag,'hard accretion boundary must be within soft accretion boundary')
        if (imetric == imet_minkowski) call warn(tag,'Minkowski metric: ignoring accradius1_hard value')
        ngot = ngot + 1
+    case default
+       imatch = .false.
     end select
 
     igotall = (ngot >= 2)
@@ -345,6 +347,7 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
  else
 
     igotall = .true.
+    imatch  = .false.
 
     if (accradius1 > 0.)      call fatal(tag,'accradius1 > 0 when metric = Minkowski')
     if (accradius1_hard > 0.) call fatal(tag,'accradius1_hard > 0 when metric = Minkowski')
