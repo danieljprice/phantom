@@ -66,8 +66,10 @@
 !+
 !--------------------------------------------------------------------------
 module setup
- use dim,     only:maxp,use_dust,maxalpha
- use options, only:use_dustfrac
+ use dim,            only:maxp,use_dust,maxalpha
+ use externalforces, only:iext_star,iext_binary,iext_lensethirring,iext_einsteinprec
+ use options,        only:use_dustfrac,iexternalforce
+ use setdisc,        only:scaled_sigma
 
  implicit none
  public  :: setpart
@@ -77,6 +79,7 @@ module setup
  real    :: m1,m2,accr1,accr2,bhspin,bhspinangle,flyby_a,flyby_d,flyby_O,flyby_i
  real    :: binary_a,binary_e,binary_i,binary_O,binary_w,binary_f,deltat
  integer :: icentral,ipotential,nsinks,ibinary
+ logical :: einst_prec
  !--discs
  character(len=20) :: disclabel
  character(len=*), dimension(3), parameter :: disctype = &
@@ -114,17 +117,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dust,                 only:set_dustfrac,grainsizecgs,graindenscgs
  use eos,                  only:isink,qfacdisc
  use extern_binary,        only:accradius1,accradius2,binarymassr
- use externalforces,       only:mass1,accradius1,iext_star,iext_binary,iext_lensethirring
+ use externalforces,       only:mass1,accradius1
  use extern_lensethirring, only:blackhole_spin,blackhole_spin_angle
  use io,                   only:master,warning,error,fatal
  use kernel,               only:hfact_default
- use options,              only:iexternalforce,ieos,alpha,icooling
+ use options,              only:ieos,alpha,icooling
  use part,                 only:nptmass,xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,&
                                 ihsoft,igas,idust,dustfrac,iamtype,iphase
  use physcon,              only:au,solarm,jupiterm,pi,years
  use prompting,            only:prompt
  use setbinary,            only:set_binary,Rochelobe_estimate
- use setdisc,              only:set_disc,scaled_sigma,scaled_discmass
+ use setdisc,              only:set_disc,scaled_discmass
  use setflyby,             only:set_flyby,get_T_flyby
  use timestep,             only:tmax,dtmax
  use units,                only:set_units,select_unit,umass,udist,utime
@@ -232,8 +235,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        case (3)
           !--spinning black hole (Lense-Thirring)
           iexternalforce = iext_lensethirring
+          call prompt('Include Einstein precession?',einst_prec)
+          if (einst_prec) iexternalforce = iext_einsteinprec
           m1          = 1.
-          accr1       = 1.
+          accr1       = 30.
           bhspin      = 1.
           bhspinangle = 0.
        end select
@@ -313,7 +318,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     !--set gas disc defaults
     !
-    R_in      = 1.
+    R_in      = accr1
     R_out     = 150.
     R_ref     = R_in
     R_c       = R_out
@@ -995,6 +1000,7 @@ subroutine write_setupfile(filename)
        call write_inopt(accr2,'accr2','secondary accretion radius',iunit)
     case (3)
        !--spinning black hole (Lense-Thirring)
+       call write_inopt(einst_prec,'einst_prec','include Einstein precession',iunit)
        call write_inopt(m1,'m1','black hole mass',iunit)
        call write_inopt(accr1,'accr1','black hole accretion radius',iunit)
        call write_inopt(bhspin,'bhspin','black hole spin',iunit)
@@ -1170,9 +1176,7 @@ end subroutine write_setupfile
 !
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use externalforces, only:iext_star,iext_binary,iext_lensethirring
  use infile_utils,   only:open_db_from_file,inopts,read_inopt,close_db
- use options,        only:iexternalforce
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
@@ -1221,6 +1225,8 @@ subroutine read_setupfile(filename,ierr)
     case (3)
        !--spinning black hole (Lense-Thirring)
        iexternalforce = iext_lensethirring
+       call read_inopt(einst_prec,'einst_prec',db,errcount=nerr)
+       if (einst_prec) iexternalforce = iext_einsteinprec
        call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
        call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
        call read_inopt(bhspin,'bhspin',db,min=0.,errcount=nerr)
@@ -1390,7 +1396,6 @@ end subroutine read_setupfile
 subroutine get_dust_to_gas_ratio(dust_to_gas,R,sigmaprofilegas,sigmaprofiledust, &
                                  sig_norm,sig_normdust,pindex,pindex_dust, &
                                  R_in,R_ref,R_c,R_indust,R_c_dust)
- use setdisc, only:scaled_sigma
  real,           intent(in)  :: R,pindex,pindex_dust,sig_norm,sig_normdust
  real,           intent(in)  :: R_ref,R_in,R_indust
  real, optional, intent(in)  :: R_c,R_c_dust

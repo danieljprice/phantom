@@ -225,6 +225,28 @@ ifeq ($(SETUP), disc)
     IND_TIMESTEPS=yes
 endif
 
+ifeq ($(SETUP), adiabaticdisc)
+#   adiabatic disc
+    FPPFLAGS= -DDISC_VISCOSITY
+    SETUPFILE= setup_disc.f90
+    ANALYSIS= analysis_disc.f90
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
+    ISOTHERMAL=no
+    MULTIRUNFILE= multirun.f90
+endif
+
+ifeq ($(SETUP), lightcurvedisc)
+#   adiabatic disc with lightcurve
+    FPPFLAGS= -DDISC_VISCOSITY -DLIGHTCURVE
+    SETUPFILE= setup_disc.f90
+    ANALYSIS= analysis_disc.f90
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
+    ISOTHERMAL=no
+    MULTIRUNFILE= multirun.f90
+endif
+
 ifeq ($(SETUP), Lense-Thirring)
 #   Lense-Thirring setup
     FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
@@ -247,7 +269,6 @@ ifeq ($(SETUP), rndisc)
     MULTIRUNFILE= multirun.f90
     MODFILE=moddump_rndisc.f90
 endif
-
 
 ifeq ($(SETUP), gwdisc)
 #   locally isothermal discs
