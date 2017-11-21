@@ -419,6 +419,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  !--add a warp/twist to the disc
  !
  rwarpi = 0.
+ psimax = 0.
  do_twist = .false.
  if (present(twist)) then
     if (twist) do_twist = .true.
