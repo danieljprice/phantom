@@ -59,10 +59,12 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
  use timestep_sts,   only: sts_get_dtau_array
 #endif
 #ifdef GRAVITY
- use ptmass,         only: ipart_rhomax, &
-                           rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv, &
-                           rhomax_ipart,rhomax_ibin
  use timestep,       only: bignumber
+ use ptmass,         only: ipart_rhomax, &
+                           rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ipart
+#ifdef IND_TIMESTEPS
+ use ptmass,         only: rhomax_ibin
+#endif
 #endif
  use timestep,       only: dtdiff
  use timestep_sts,   only: sts_it_n,dtau,Nmegasts_done,bigdt, &
@@ -83,10 +85,13 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
 #ifdef GRAVITY
  real                   :: rhomax_sts_hi
  integer                :: rhomax_sts_ipart
- integer(kind=1)        :: rhomax_sts_iphase,rhomax_sts_ibin
+ integer(kind=1)        :: rhomax_sts_iphase
  real                   :: rhomax_sts_xyzh(4),rhomax_sts_vxyz(3)
  real(kind=4)           :: rhomax_sts_divv
  logical                :: update_rhomax
+#ifdef IND_TIMESTEPS
+ integer(kind=1)        :: rhomax_sts_ibin
+#endif
 #endif
  real                   :: dtau0,dtdiff_in,dtsum,timei
  real                   :: dttemp3(3),dttemp2(2)
