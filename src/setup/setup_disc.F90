@@ -41,13 +41,15 @@
 !    dist_unit         -- distance unit (e.g. au,pc,kpc,0.1pc)
 !    dust_method       -- dust method (1=one fluid,2=two fluid)
 !    dust_to_gas_ratio -- dust to gas ratio
-!    flyby_a           -- flyby periastron distance
-!    flyby_d           -- initial distance of flyby (in units of periastron distance)
-!    flyby_r           -- roll angle of flyby
+!    einst_prec        -- include Einstein precession
+!    flyby_O           -- position angle of ascending node
+!    flyby_a           -- distance of minimum approach
+!    flyby_d           -- initial distance [units of dist. min. approach]
+!    flyby_i           -- inclination angle
 !    graindensinp      -- intrinsic grain density (in g/cm^3)
 !    grainsizeinp      -- grain size (in cm)
 !    ibinary           -- binary: bound or unbound [flyby] (0=bound,1=unbound)
-!    ipotential        -- potential (1=central point mass,2=binary potential,3=spinning black hole)
+!    ipotential        -- potential (1=central point mass,
 !    m1                -- central star mass
 !    m2                -- perturber mass
 !    mass_unit         -- mass unit (e.g. solarm,jupiterm,earthm)
@@ -56,7 +58,6 @@
 !    np_dust           -- number of dust particles
 !    nplanets          -- number of planets
 !    nsinks            -- number of sinks
-!    profile_set_dust  -- how to set dust density profile (0=equal to gas,1=custom)
 !    setplanets        -- add planets? (0=no,1=yes)
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
