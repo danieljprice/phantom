@@ -70,10 +70,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--disc inner and outer radius
 
  a       = 0.
- R_in    = 4.233
- R_out   = 100.
+ R_in    = 7.0*mass1
+ R_out   = 100.*mass1
  theta   = 0.          ! inclination angle (degrees)
 
+ npart   = 1e5
+ call prompt('Enter number of particles ',npart)
  call prompt('Enter spin of black hole ',a,-1.,1.)
  call prompt('Enter inner radius of disc ',r_in,2.*mass1)
  call prompt('Enter outer radius of disc ',r_out,r_in)
@@ -82,19 +84,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  theta = theta/180. * pi ! convert to radians
 
-! npart   = size(xyzh(1,:))
- npart = 1e5
  npartoftype(:) = 0
  npartoftype(1) = npart
- gamma   = 5./3.          !Unless otherwise specified, 1.0
+ gamma   = 5./3.
  time    = 0.
 
- ! alpha   = 0.!1.0
  alphau  = 0.1
- HonR = 0.01
+ HonR    = 0.02
 
- iexternalforce = 1
- accradius1 = 5.*mass1 !r_in!+2.!4.
+ iexternalforce  = 1
+ accradius1      = 4.*mass1
  accradius1_hard = accradius1 - (0.5*(accradius1-2.*mass1))
 
  call set_disc(id,master=master,&

@@ -204,6 +204,7 @@ ifeq ($(SETUP), grdisc)
     MULTIRUNFILE= multirun.f90
     IND_TIMESTEPS=yes
     CONST_AV=yes
+    NCELLSMAX=2*maxp
 endif
 
 ifeq ($(SETUP), Lense-Thirring)
