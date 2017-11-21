@@ -609,15 +609,16 @@ ifeq ($(SETUP), sedov)
 endif
 
 ifeq ($(SETUP), srblast)
-#   blast wave test
+#   special relativistic blast wave test (spherical)
     PERIODIC=yes
-    SETUPFILE= setup_srblast.f90
-    IND_TIMESTEPS=yes
+    SETUPFILE= setup_sedov.f90
+    IND_TIMESTEPS=no
     GR=yes
     METRIC=minkowski
     KERNEL=quintic
     KNOWN_SETUP=yes
     MAXP=2100000
+    CONST_AV=yes
 endif
 
 ifeq ($(SETUP), blob)

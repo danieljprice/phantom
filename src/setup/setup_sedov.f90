@@ -41,11 +41,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use physcon,      only:pi
  use timestep,     only:tmax,dtmax
- use options,      only:alphau
+ use options,      only:alphau,alpha
  use prompting,    only:prompt
  use kernel,       only:wkern,cnormk,radkern2,hfact_default
- use part,         only:igas
+ use part,         only:igas,gr
  use mpiutils,     only:bcast_mpi,reduceall_mpi
+ use units,        only:set_units
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -58,6 +59,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: deltax,totmass,toten
  real    :: enblast,gam1,uui,hsmooth,q2,r2
  integer :: i,maxp,maxvxyzu,npartx
+ real    :: rblast,rblast2,prblast
+ logical :: withinrblast
+
+ if (gr) call set_units(G=1.d0,c=1.d0)
+
 !
 !--general parameters
 !
@@ -80,12 +86,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  polyk   = 0.
  if (maxvxyzu < 4) call fatal('setup','need to compile with ISOTHERMAL=no for sedov problem')
  enblast = 1.0
-! rblast  = 2.*hfact*deltax
+ rblast  = 2.*(2.*hfact*deltax)
+ rblast2 = rblast*rblast
 
-! prblast = gam1*enblast/(4./3.*pi*rblast**3)
  hsmooth = 2.*hfact*deltax
  gamma   = 5./3.
  gam1    = gamma - 1.
+ prblast = gam1*enblast/(4./3.*pi*rblast**3)
 
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
 
@@ -101,8 +108,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vxyzu(:,i) = 0.
     r2 = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
     q2 = r2/hsmooth**2
-    uui = enblast*cnormk*wkern(q2,sqrt(q2))/hsmooth**3
-    if (q2 < radkern2) then
+    if (gr) then
+       withinrblast = r2 < rblast2
+       uui = prblast*gam1/rhozero
+    else
+       withinrblast = q2 < radkern2
+       uui = enblast*cnormk*wkern(q2,sqrt(q2))/hsmooth**3
+    endif
+    if (withinrblast) then
        vxyzu(4,i) = uui
     else
        vxyzu(4,i) = 0.
@@ -119,8 +132,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  tmax  = 0.1
  dtmax = 0.005
  alphau = 1.
+ if (gr) alpha = 1. ! i.e. CONST_AV for gr
 
 end subroutine setpart
 
 end module setup
-
