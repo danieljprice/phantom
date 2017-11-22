@@ -295,8 +295,8 @@ pull_changes
 run_buildbot
 #pull_wiki
 write_htmlfile_gittag_and_mailfile
-message="build status: $gittag <$url/nightly/|click for full report>"
-post_to_slack $message
+message="status: <$url/nightly/|$gittag>"
+post_to_slack "$message"
 tag_code_and_push_tags
 send_email
 commit_and_push_to_website
