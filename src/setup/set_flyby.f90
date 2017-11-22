@@ -65,7 +65,7 @@ subroutine set_flyby(mprimary,massratio,minimum_approach,initial_dist, &
  integer :: i1,i2,i
  real    :: m1,m2,mtot,Rochelobe,Rochelobe2,n0
  real    :: xp(3),vp(3),reducedmass
- real    :: dma,ecc,eccentricity,m0,pf,c,r0,x0,y0,z0,vx0,vy0,vz0
+ real    :: dma,ecc,eccentricity,m0,pf,r0,x0,y0,z0,vx0,vy0,vz0
  real    :: big_omega,incl,rot_axis(3)
  logical :: do_verbose
 
@@ -124,8 +124,7 @@ subroutine set_flyby(mprimary,massratio,minimum_approach,initial_dist, &
  n0  = initial_dist
 
  !--focal parameter dma = pf/2
- c  = sqrt(2.*mtot*dma)
- pf = c**2/mtot
+ pf = 2*dma
 
  !--define m0 = -x0/dma such that r0 = n0*dma
  !  companion starts at negative x and y
@@ -141,8 +140,8 @@ subroutine set_flyby(mprimary,massratio,minimum_approach,initial_dist, &
 
  !--perturber initial velocity
  r0  = sqrt(x0**2+y0**2+z0**2)
- vx0 = (1. + (y0/r0))*(mtot/c)
- vy0 = -(x0/r0)*(mtot/c)
+ vx0 = (1. + (y0/r0))*sqrt(mtot/pf)
+ vy0 = -(x0/r0)*sqrt(mtot/pf)
  vz0 = 0.0
  vp  = (/vx0,vy0,vz0/)
 
@@ -178,15 +177,33 @@ end subroutine set_flyby
 !
 ! Function to determine the time from initial separation,
 ! n0 [dma], to the equivalent separation past periastron given
-! the distance of minimum approach (dma)
+! the distance of minimum approach (dma) using Barker's equation
 !
 !-------------------------------------------------------------
 function get_T_flyby(m1,m2,dma,n0) result(T)
+ use physcon, only:gg
+ use units,   only:umass,udist,utime
  real, intent(in) :: m1,m2,dma,n0
- real :: T,m
+ real :: T,nu,xi,yi,Di,Df,p,mu,G
 
- m = 2*sqrt(n0-1.0)
- T = (4*dma**2 * (8./3. - m + m**3/12)) / sqrt(2*(m1+m2)*dma)
+ !--semi-latus rectum
+ p = 2*dma
+
+ !--initial position
+ xi = -2*sqrt(n0-1.0)*dma
+ yi = dma*(1.0-(xi/p)**2)
+
+ !--graviational parameter
+ G = gg*umass*utime**2/(udist**3)
+ mu = G*(m1+m2)
+
+ !--true anomaly
+ nu = pi - atan(abs(xi/yi))
+
+ !--Barker's equation
+ Di = tan(-nu/2)
+ Df = tan(nu/2)
+ T = 1./2.*sqrt(p**3/mu) * (Df + 1./3.*Df**3 - Di - 1./3.*Di**3)
 
 end function get_T_flyby
 
