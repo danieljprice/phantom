@@ -402,7 +402,7 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  real,    intent(in)    :: hmin
  integer :: i,j,n
  real :: dx(3)
- real :: r
+ real :: r,hsink
 
  if (nptmass < 0) then
     print*,' Error in setup: nptmass = ',nptmass, ' should be >= 0 '
@@ -453,13 +453,14 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  !  check that accretion radii are positive
  !
  do i=1,nptmass
-    if (xyzmh_ptmass(ihacc,i) <= 0. .and. xyzmh_ptmass(ihsoft,i) <= 0.) then
+    hsink = max(xyzmh_ptmass(ihacc,i),xyzmh_ptmass(ihsoft,i))
+    if (hsink <= 0.) then
        nerror = nerror + 1
        print*,'Error in setup: sink ',i,' has accretion radius ',xyzmh_ptmass(ihacc,i),&
               ' and softening radius ',xyzmh_ptmass(ihsoft,i)
-    elseif (xyzmh_ptmass(ihacc,i) <= 0.5*hmin .and. hmin > 0.) then
+    elseif (hsink <= 0.5*hmin .and. hmin > 0.) then
        nwarn = nwarn + 1
-       print*,'Warning: sink ',i,' has unresolved accretion radius: hmin/racc = ',hmin/xyzmh_ptmass(ihacc,i)
+       print*,'Warning: sink ',i,' has unresolved accretion radius: hmin/racc = ',hmin/hsink
        print*,'         (this makes the code run pointlessly slow)'
     endif
  enddo
