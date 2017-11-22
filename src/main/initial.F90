@@ -548,14 +548,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     angtot_in = angtot
     totmom_in = totmom
     mdust_in  = mdust
-    write(iprint,'(1x,a)') "Setting initial values to verify conservation laws:"
+    write(iprint,'(1x,a)') 'Setting initial values to verify conservation laws:'
  else
-    write(iprint,'(1x,a)') "Reading initial values to verify conservation laws from previous run:"
+    write(iprint,'(1x,a)') 'Reading initial values to verify conservation laws from previous run:'
  endif
- write(iprint,'(2x,a,Es18.6)') "Initial total energy:     ", etot_in
- write(iprint,'(2x,a,Es18.6)') "Initial angular momentum: ", angtot_in
- write(iprint,'(2x,a,Es18.6)') "Initial linear momentum:  ", totmom_in
- write(iprint,'(2x,a,Es18.6)') "Initial dust mass:        ", mdust_in
+ write(iprint,'(2x,a,es18.6)')   'Initial total energy:     ', etot_in
+ write(iprint,'(2x,a,es18.6)')   'Initial angular momentum: ', angtot_in
+ write(iprint,'(2x,a,es18.6)')   'Initial linear momentum:  ', totmom_in
+ write(iprint,'(2x,a,es18.6,/)') 'Initial dust mass:        ', mdust_in
 !
 !--write initial conditions to output file
 !  if the input file ends in .tmp or .init
