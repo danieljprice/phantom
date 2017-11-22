@@ -12,7 +12,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Daniel Mentiplay
 !
 !  $Id$
 !
@@ -45,8 +45,9 @@
 !    umass       -- mass units (cgs)
 !    utime       -- time units (cgs)
 !
-!  DEPENDENCIES: dim, domain, eos, externalforces, infile_utils, io,
-!    mpiutils, options, part, physcon, random, units, vectorutils
+!  DEPENDENCIES: dim, domain, eos, extern_lensethirring, externalforces,
+!    infile_utils, io, mpiutils, options, part, physcon, random, units,
+!    vectorutils
 !+
 !--------------------------------------------------------------------------
 module setdisc
