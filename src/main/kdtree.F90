@@ -257,8 +257,8 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
  endif
  if (maxlevel > maxlevel_indexed .and. .not.already_warned) then
     write(string,"(i10)") 2**(maxlevel-maxlevel_indexed)
-    call warning('maketree','maxlevel > maxlevel_indexed: will run faster if recompiled with '// &
-               'NCELLSMAX='//trim(adjustl(string))//'*maxp,',ival=maxlevel_indexed)
+    if (iverbose > 0) call warning('maketree','maxlevel > max_indexed: will run faster if recompiled with '// &
+               'NCELLSMAX='//trim(adjustl(string))//'*maxp,')
  endif
 
  if (present(refinelevels)) refinelevels = minlevel
