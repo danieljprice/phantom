@@ -106,7 +106,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                 particle_mass = massoftype(1), &
                 hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,polyk=polyk,&
                 ismooth=.true., &
-                sininclination=ampl, &
+                inclination=sin(ampl), &
                 warp_smoothl=dr_warp, &
                 prefix = fileprefix)
  !

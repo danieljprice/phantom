@@ -88,7 +88,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                 vxyzu = vxyzu, &
                 polyk = polyk, &
                 inclination = xinc, &
-                twist = .false., &
                 alpha = alpha, &
                 bh_spin = blackhole_spin, &
                 prefix = fileprefix)
