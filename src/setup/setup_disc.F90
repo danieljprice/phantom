@@ -87,9 +87,10 @@ module setup
     (/'binary   ', &
       'primary  ', &
       'secondary'/)
- logical :: iuse_disc(3),itapergas(3),itaperdust(3),multiple_disc_flag
+ logical :: iuse_disc(3),itapergas(3),itaperdust(3),iwarp(3),multiple_disc_flag
  integer :: mass_set(3),profile_set_dust,dust_method
- real    :: R_in(3),R_out(3),R_ref(3),R_c(3),pindex(3),qindex(3),H_R(3),posangl(3),incl(3)
+ real    :: R_in(3),R_out(3),R_ref(3),R_c(3),R_warp(3),H_warp(3)
+ real    :: pindex(3),qindex(3),H_R(3),posangl(3),incl(3)
  real    :: disc_m(3),sig_ref(3),sig_norm(3),annulus_m(3),R_inann(3),R_outann(3)
  real    :: R_indust(3),R_outdust(3),R_c_dust(3),pindex_dust(3),qindex_dust(3),H_R_dust(3)
  real    :: alphaSS
@@ -322,8 +323,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     R_out     = 150.
     R_ref     = R_in
     R_c       = R_out
+    R_warp    = 0.
+    H_warp    = 0.
     mass_set  = 0
     itapergas = .false.
+    iwarp     = .false.
     pindex    = 1.
     qindex    = 0.25
     if (ndiscs > 1) qindex = 0.
@@ -355,6 +359,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                       ' 2=surface density normalisation'//new_line('A')// &
                       ' 3=surface density at reference radius'//new_line('A'),mass_set(i),0,3)
           call prompt('Do you want to exponentially taper the outer gas disc profile?',itapergas(i))
+          call prompt('Do you want to warp the disc?',iwarp(i))
           select case (mass_set(i))
           case (0)
              disc_m(i)    = 0.05   * disc_mfac(i)
@@ -367,6 +372,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           case (3)
              sig_ref(i)   = 1.E-02 * disc_mfac(i)
           end select
+          if (iwarp(i)) then
+             R_warp = 0.5*(R_in + R_out)
+             H_warp = 20.
+             incl   = 30.
+          endif
        endif
     enddo
     !
@@ -447,6 +457,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        deltat  = 0.01
        norbits = 1
        call prompt('Enter time between dumps as fraction of flyby time',deltat,0.)
+    elseif (any(iwarp)) then
+       call prompt('Enter time between dumps as fraction of orbital time at warp',deltat,0.)
+       call prompt('Enter number of orbits to simulate',norbits,0)
     else
        call prompt('Enter time between dumps as fraction of outer disc orbital time',deltat,0.)
        call prompt('Enter number of orbits to simulate',norbits,0)
@@ -759,6 +772,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                         ismooth          = ismoothgas(i),      &
                         position_angle   = posangl(i),         &
                         inclination      = incl(i),            &
+                        rwarp            = R_warp(i),          &
+                        warp_smoothl     = H_warp(i),          &
                         bh_spin          = bhspin,             &
                         prefix           = fileprefix)
           !--set dustfrac
@@ -810,6 +825,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                         ismooth         = ismoothgas(i),      &
                         position_angle  = posangl(i),         &
                         inclination     = incl(i),            &
+                        rwarp           = R_warp(i),          &
+                        warp_smoothl    = H_warp(i),          &
                         bh_spin         = bhspin,             &
                         prefix          = fileprefix)
           nparttot = nparttot + npingasdisc
@@ -841,6 +858,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                            ismooth        = ismoothdust(i),     &
                            position_angle = posangl(i),         &
                            inclination    = incl(i),            &
+                           rwarp          = R_warp(i),          &
+                           warp_smoothl   = H_warp(i),          &
                            bh_spin        = bhspin,             &
                            prefix         = fileprefix)
              nparttot  = nparttot  + npindustdisc
@@ -946,6 +965,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
     !--unbound binary (flyby)
     period = get_T_flyby(m1,m2,flyby_a,flyby_d)
+ elseif (iwarp(idisc)) then
+    !--warp radius
+    period = sqrt(4.*pi**2*R_warp(idisc)**3/mcentral)
  else
     !--outer disc
     period = sqrt(4.*pi**2*R_out(idisc)**3/mcentral)
@@ -1085,6 +1107,7 @@ subroutine write_setupfile(filename)
           '3=surface density at reference radius)',iunit)
        call write_inopt(itapergas(i),'itapergas'//trim(disclabel), &
           'exponentially taper the outer disc profile',iunit)
+       call write_inopt(iwarp(i),'iwarp'//trim(disclabel),'warp disc',iunit)
        call write_inopt(R_in(i),'R_in'//trim(disclabel),'inner radius',iunit)
        call write_inopt(R_ref(i),'R_ref'//trim(disclabel),'reference radius',iunit)
        call write_inopt(R_out(i),'R_out'//trim(disclabel),'outer radius',iunit)
@@ -1113,6 +1136,10 @@ subroutine write_setupfile(filename)
        call write_inopt(posangl(i),'posangl'//trim(disclabel),'position angle',iunit)
        call write_inopt(incl(i),'incl'//trim(disclabel),'inclination angle',iunit)
        call write_inopt(H_R(i),'H_R'//trim(disclabel),'H/R at R=R_ref',iunit)
+       if (iwarp(i)) then
+          call write_inopt(R_warp(i),'R_warp'//trim(disclabel),'warp radius',iunit)
+          call write_inopt(H_warp(i),'H_warp'//trim(disclabel),'warp smoothing length',iunit)
+       endif
        if (.not.done_alpha) then
           if (maxalpha==0) call write_inopt(alphaSS,'alphaSS','desired alphaSS',iunit)
           done_alpha = .true.
@@ -1323,6 +1350,11 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(posangl(i),'posangl'//trim(disclabel),db,min=0.,max=360.,errcount=nerr)
        call read_inopt(incl(i),'incl'//trim(disclabel),db,min=0.,max=180.,errcount=nerr)
        call read_inopt(H_R(i),'H_R'//trim(disclabel),db,min=0.,errcount=nerr)
+       call read_inopt(iwarp(i),'iwarp'//trim(disclabel),db,errcount=nerr)
+       if (iwarp(i)) then
+          call read_inopt(R_warp(i),'R_warp'//trim(disclabel),db,min=0.,errcount=nerr)
+          call read_inopt(H_warp(i),'H_warp'//trim(disclabel),db,min=0.,errcount=nerr)
+       endif
        !--dust disc
        select case (profile_set_dust)
        case (0)

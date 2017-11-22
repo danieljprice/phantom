@@ -58,7 +58,7 @@ module setdisc
  use physcon,  only:c,gg,pi
  use units,    only:umass,udist,utime
  implicit none
- public :: set_disc,set_warp,scaled_sigma,scaled_discmass
+ public :: set_disc,set_incline_or_warp,scaled_sigma,scaled_discmass
 
  private
 
@@ -72,8 +72,8 @@ contains
 subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmindust,rmaxdust,phimin,phimax,&
                     indexprofile,indexprofiledust,rc,rcdust,p_index,p_indexdust,q_index,HoverR,gamma,&
                     disc_Q,disc_mass,disc_massdust,sig_norm,star_mass,xyz_origin,vxyz_origin,&
-                    particle_type,particle_mass,hfact,xyzh,vxyzu,polyk,position_angle,inclination,sininclination,&
-                    twist,ismooth,alpha,rwarp,warp_smoothl,bh_spin,rref,writefile,ierr,prefix,verbose)
+                    particle_type,particle_mass,hfact,xyzh,vxyzu,polyk,position_angle,inclination,&
+                    ismooth,alpha,rwarp,warp_smoothl,bh_spin,rref,writefile,ierr,prefix,verbose)
  use io,      only:stdout
  use part,    only:maxp,idust,maxtypes
  integer,                     intent(in)    :: id,master
@@ -89,9 +89,9 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  real, optional,              intent(in)    :: disc_Q,disc_mass,star_mass,sig_norm
  real, optional,              intent(in)    :: xyz_origin(3),vxyz_origin(3)
  integer, optional,           intent(in)    :: particle_type
- real, optional,              intent(in)    :: position_angle,inclination,sininclination
+ real, optional,              intent(in)    :: position_angle,inclination
  real, optional,              intent(in)    :: rwarp,warp_smoothl,bh_spin,rref
- logical, optional,           intent(in)    :: twist,ismooth,mixture
+ logical, optional,           intent(in)    :: ismooth,mixture
  real,                        intent(out)   :: xyzh(:,:)
  real,                        intent(out)   :: vxyzu(:,:)
  real,                        intent(out)   :: polyk,particle_mass
@@ -105,11 +105,10 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  real    :: R_in,R_out,phi_min,phi_max,H_R,R_indust,R_outdust,p_inddust,R_c,R_c_dust
  real    :: star_m,disc_m,disc_mdust,rminav,rmaxav,honHmin,honHmax
  real    :: honH,alphaSS_min,alphaSS_max
- real    :: xinclination,rwarpi,hwarp,rsi,rso,psimax
- real    :: aspin,posangl,incl
+ real    :: aspin,posangl,incl,R_warp,H_warp,psimax
  real    :: xorigini(3),vorigini(3),R_ref
  real    :: enc_m(maxbins),rad(maxbins),R,dR,dM,sigma
- logical :: do_twist,smooth_surface_density,do_write,do_mixture
+ logical :: smooth_surface_density,do_write,do_mixture
  logical :: do_verbose,exponential_taper,exponential_taper_dust
 
  !
@@ -178,11 +177,6 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
     vorigini(:) = vxyz_origin(:)
  else
     vorigini(:) = 0.
- endif
- if (present(inclination)) then
-    xinclination = inclination
- else
-    xinclination = 0.
  endif
  if (present(ismooth)) then
     smooth_surface_density = ismooth
@@ -388,50 +382,21 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
 #endif
 
  !
- !--add a warp/twist to the disc
+ !--inclines and warps
  !
- rwarpi = 0.
+ posangl = 0.
+ incl = 0.
+ R_warp = 0.
+ H_warp = 0.
  psimax = 0.
- do_twist = .false.
- if (present(twist)) then
-    if (twist) do_twist = .true.
- endif
- !--also twist disc if rwarp is given as an argument
- !  regardless of whether or not twist=.true.
- if (present(rwarp)) do_twist = .true.
- if (do_twist) then
-    if (present(rwarp)) then
-       rwarpi = rwarp
-    else
-       rwarpi = 0.5*(R_in+R_out)
-    endif
-    if (present(warp_smoothl)) then
-       hwarp = warp_smoothl
-    else
-       hwarp = 1.5
-    endif
-    rsi = rwarpi - hwarp
-    rso = rwarpi + hwarp
- else
-    rwarpi = 0.
-    hwarp  = 0.
-    rsi    = 0.
-    rso    = 0.
- endif
-
- !
- !--incline and warps
- !
- if (present(position_angle) .and. present(inclination)) then
-    !--incline disc at position angle
-    posangl = position_angle
-    incl    = inclination
-    call rotate_disc(xyzh,vxyzu,npart_tot,npart_start_count,posangl,incl)
- else
-    !--call setwarp to calculate the warp
-    call set_warp(npart_tot,npart_start_count,&
-                  xyzh,vxyzu,inclination,sininclination,&
-                  rwarpi,psimax,rsi,rso,do_twist)
+ if (present(position_angle)) posangl = position_angle
+ if (present(rwarp))           R_warp = rwarp
+ if (present(warp_smoothl))    H_warp = warp_smoothl
+ if (present(inclination)) then
+    !--incline disc at position angle and poss. warp disc
+    incl = inclination
+    call set_incline_or_warp(xyzh,vxyzu,npart_tot,npart_start_count,posangl,incl,&
+                             R_warp,H_warp,psimax)
  endif
 
  !
@@ -460,27 +425,27 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
           open(1,file=trim(prefix)//'.discparams',status='replace',form='formatted')
        endif
        call write_discinfo(1,R_in,R_out,R_ref,Q,npart,sigmaprofile,&
-                           R_c,p_index,q_index,star_m,disc_m,real(xinclination*180.0/pi),honH,cs0,&
-                           alphaSS_min,alphaSS_max,rwarpi,psimax,itype)
+                           R_c,p_index,q_index,star_m,disc_m,real(incl*180.0/pi),honH,cs0,&
+                           alphaSS_min,alphaSS_max,R_warp,psimax,itype)
        close(1)
        if (do_mixture) then
           open(1,file=trim(prefix)//'-'//trim(labeltype(idust))//'.discparams',status='replace',form='formatted')
           call write_discinfo(1,R_indust,R_outdust,R_ref,Q,npart,sigmaprofiledust,&
-                              R_c_dust,p_inddust,q_index,star_m,disc_massdust,real(xinclination*180.0/pi),honH,&
-                              cs0,alphaSS_min,alphaSS_max,rwarpi,psimax,idust)
+                              R_c_dust,p_inddust,q_index,star_m,disc_massdust,real(incl*180.0/pi),honH,&
+                              cs0,alphaSS_min,alphaSS_max,R_warp,psimax,idust)
           close(1)
        endif
     endif
     !--write disc parameters to screen
     if (do_verbose) then
        call write_discinfo(stdout,R_in,R_out,R_ref,Q,npart,sigmaprofile,&
-                           R_c,p_index,q_index,star_m,disc_m,real(xinclination*180.0/pi),honH,cs0,&
-                           alphaSS_min,alphaSS_max,rwarpi,psimax,itype)
+                           R_c,p_index,q_index,star_m,disc_m,real(incl*180.0/pi),honH,cs0,&
+                           alphaSS_min,alphaSS_max,R_warp,psimax,itype)
     endif
     if (do_mixture) then
        call write_discinfo(stdout,R_indust,R_outdust,R_ref,Q,npart,sigmaprofiledust,&
-                           R_c_dust,p_inddust,q_index,star_m,disc_massdust,real(xinclination*180.0/pi),honH,&
-                           cs0,alphaSS_min,alphaSS_max,rwarpi,psimax,idust)
+                           R_c_dust,p_inddust,q_index,star_m,disc_massdust,real(incl*180.0/pi),honH,&
+                           cs0,alphaSS_min,alphaSS_max,R_warp,psimax,idust)
     endif
  endif
 
@@ -792,93 +757,42 @@ end subroutine adjust_centre_of_mass
 
 !----------------------------------------------------------------
 !
-! This subroutine is a utility for setting up disc warps
+! This subroutine is a utility for inclining discs and
+! setting up warps
 !
 !----------------------------------------------------------------
-pure subroutine set_warp(npart_tot,npart_start_count,&
-                         xyzh,vxyzu,inclination,sininclination,&
-                         rwarpi,psimax,rsi,rso,do_twist)
- real, optional, intent(in)    :: inclination,sininclination
- real,           intent(inout) :: xyzh(:,:)
- real,           intent(inout) :: vxyzu(:,:)
- integer,        intent(in)    :: npart_start_count,npart_tot
- real,           intent(in)    :: rwarpi,rsi,rso
- logical,        intent(in)    :: do_twist
- real,           intent(out)   :: psimax
+pure subroutine set_incline_or_warp(xyzh,vxyzu,npart_tot,npart_start,posangl,incl,&
+                                    Rwarp,Hwarp,psimax)
+ use vectorutils, only:rotatevec
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
+ real,    intent(out)   :: psimax
+ integer, intent(in)    :: npart_start,npart_tot
+ real,    intent(in)    :: posangl,incl,Rwarp,Hwarp
+ real    :: R,inc,k(3),psi
  integer :: i
- real    :: r,cosi,sini,xi,yi,zi,vxi,vyi,vzi,xinclination,r2
- real    :: psi
 
- psimax = 0.
- do i=npart_start_count, npart_tot
-    !--inclined or warped discs
-    if (present(inclination) .or. present(sininclination)) then
-       !--rotate positions and velocities by required amount
-       xi  = xyzh(1,i)
-       yi  = xyzh(2,i)
-       zi  = xyzh(3,i)
-       r2  = xi*xi + yi*yi + zi*zi
-       !
-       !--these are two different ways of doing the same thing:
-       !  1) specify inclination in radians, with an
-       !  optional unsmoothed twist/warp at a specified radius
-       !  2) specify sine of inclination angle, with an
-       !  optional smoothed twist/warp at rwarp, smoothness
-       !  specified with warp_smoothl
-       !
-       if (present(inclination)) then
-          if (do_twist) then
-             if (r2 < rwarpi**2) then
-                xinclination = 0.0
-             else
-                xinclination = inclination
-             endif
-          else
-             xinclination = inclination
-          endif
-          cosi = cos(xinclination)
-          sini = sin(xinclination)
-       else
-          r = sqrt(r2)
-          if (do_twist) then
-             !--this is Equation 43 in Lodato & Price (2010)
-             psi = 0.
-             if (r < rsi) then
-                sini = 0.
-             elseif (r < rso) then
-                !--sini = sininclination*exp(-abs(r-rwarpi)**2)
-                sini = 0.5*(1.+sin(pi/(rso - rsi)*(r-rwarpi)))*sininclination
-                psi  = pi*rwarpi/(2.*(rso - rsi))*sininclination/sqrt(1. - (0.5*sininclination)**2)
-                psimax = max(psimax,psi)
-             else
-                sini = sininclination
-             endif
-          else
-             sini = sininclination
-          endif
-          !--uncomment the following for Nelson-Papaloizou bending waves
-          !if (r < rsi.or.r > rso) then
-          !  sini=0.
-          !else
-          !  sini=ampl*sin(pi*(r-rsi)/(rso-rsi))
-          !endif
-          cosi = sqrt(1. - sini**2)
-       endif
-       vxi = vxyzu(1,i)
-       vyi = vxyzu(2,i)
-       vzi = vxyzu(3,i)
-       !--rotate positions
-       xyzh(1,i)  =  xi                  !xi*cosi + zi*sini
-       xyzh(2,i)  =  yi*cosi - zi*sini   !yi
-       xyzh(3,i)  =  yi*sini + zi*cosi   !-xi*sini + zi*cosi
-       !--rotate velocities
-       vxyzu(1,i) =  vxi                 !vxi*cosi + vzi*sini
-       vxyzu(2,i) =  vyi*cosi - vzi*sini !vyi
-       vxyzu(3,i) =  vyi*sini + vzi*cosi !-vxi*sini + vzi*cosi
+ !--rotation axis
+ k = (/-sin(posangl), cos(posangl), 0./)
+
+ psi = 0.
+ do i=npart_start,npart_tot
+    R = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+    if (R < Rwarp-Hwarp) then
+       inc = 0.
+    elseif (R < Rwarp+Hwarp) then
+       inc = asin(0.5*(1.+sin(pi/(2.*Hwarp)*(R-Rwarp)))*sin(incl))
+       psi  = pi*Rwarp/(4.*Hwarp)*sin(incl)/sqrt(1. - (0.5*sin(incl))**2)
+       psimax = max(psimax,psi)
+    else
+       inc = incl
     endif
+    !--rotate position and velocity
+    call rotatevec(xyzh(1:3,i),k,inc)
+    call rotatevec(vxyzu(1:3,i),k,inc)
  enddo
 
-end subroutine set_warp
+end subroutine set_incline_or_warp
 
 !------------------------------------
 !
@@ -1185,30 +1099,5 @@ function scaled_discmass(sigmaprofile,pindex,R_in,R_out,R_ref,R_c) result(mass)
  enddo
 
 end function scaled_discmass
-
-!------------------------------------------------------------------------
-!
-! incline disc around rotation axis defined by a position angle
-!
-!------------------------------------------------------------------------
-pure subroutine rotate_disc(xyzh,vxyzu,npart_tot,npart_start,posangl,incl)
- use vectorutils, only:rotatevec
- real,    intent(inout) :: xyzh(:,:)
- real,    intent(inout) :: vxyzu(:,:)
- real,    intent(in)    :: posangl,incl
- integer, intent(in)    :: npart_start,npart_tot
- integer :: i
- real :: k(3)
-
- !--vector in direction of PA
- k = (/-sin(posangl), cos(posangl), 0./)
-
- do i=npart_start,npart_tot
-    !--rotate positions and velocities
-    call rotatevec(xyzh(1:3,i),k,incl)
-    call rotatevec(vxyzu(1:3,i),k,incl)
- enddo
-
-end subroutine rotate_disc
 
 end module setdisc
