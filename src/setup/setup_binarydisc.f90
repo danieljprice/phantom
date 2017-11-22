@@ -361,7 +361,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                   inclination=xinc(i), &
                   ismooth=ismooth_edge(i), &
                   alpha=alpha, &
-                  isink=isink, &
                   prefix = fileprefix)
 
 ! Store requested alpha_AV, and return alpha to original requested alpha_SS for using multiple discs
