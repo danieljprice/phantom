@@ -213,8 +213,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     select case (icentral)
     case (0)
        !--external potential
-       !--todo: check that potentials are implemented correctly
-       !        add more potentials
        ipotential = 1
        call prompt('Which potential?'//new_line('A')// &
                    ' 1=central point mass'//new_line('A')// &
@@ -291,6 +289,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(a)",'================='
     print "(a)",'+++  DISC(S)  +++'
     print "(a)",'================='
+    !--todo: add warps
     iuse_disc = .false.
     if ((icentral==1) .and. (nsinks==2)) then
        !--multiple discs possible
@@ -498,47 +497,52 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--equation of state
  !
- if (ndiscs > 1) then
-    !--multiple discs
-    if (maxvxyzu==3) then
-       !--force globally isothermal
+ if (maxvxyzu==3) then
+    !--isothermal
+    if (ndiscs /= 0) then
+       !--multiple discs
        if (sum(qindex) > maxval(qindex)) then
           call fatal('setup_disc','locally isothermal eos for more than one disc '// &
                      'requested, no ieos to handle this')
        else
-          !--isothermal
+          !--globally isothermal
           ieos = 1
           gamma = 1.0
        endif
     else
-       !--adiabatic
-       ieos = 2
-       gamma = 5./3.
-       icooling = 1
+       !--single disc
+       if (qindex(idisc) > 0.) then
+          do i=1,3
+             !--eos around sink
+             if (iuse_disc(i)) isink = i-1
+          enddo
+          !--locally isothermal
+          if (isink /= 0) then
+             ieos = 6
+             print*, 'setting ieos=6 for locally isothermal disc around sink'
+          else
+             ieos = 3
+             print*, 'setting ieos=3 for locally isothermal disc around origin'
+          endif
+          gamma = 1.0
+          qfacdisc = qindex(idisc)
+       endif
     endif
  else
-    !--single disc
-    if (maxvxyzu==3 .and. qindex(idisc) > 0.) then
-       !--locally isothermal
-       ieos = 3
-       gamma = 1.0
-    else
-       !--adiabatic
-       ieos = 2
-       gamma = 5./3.
-       icooling = 1
-    endif
+    !--adiabatic
+    ieos = 2
+    gamma = 5./3.
+    icooling = 1
  endif
 #ifdef MCFOST
  !--radiative equilibrium
  ieos = 2
+ gamma = 5./3.
  icooling = 0
  ipdv_heating = 0
  ishock_heating = 0
  alphau = 0
 #endif
- !--sanity check on ieos = 6
- if (ieos==6 .and. isink==0) call fatal('setup_disc','something''s gone wrong with ieos & isink...')
 
  !
  !--surface density profile
@@ -610,7 +614,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !--single star
        print*,'Disc around a single star '
        print "(a)", 'Central object represented by a sink at the system origin'
-       isink                        = 1
        nptmass                      = 1
        xyzmh_ptmass(:,:)            = 0.
        xyzmh_ptmass(1:3,nptmass)    = 0.
@@ -756,6 +759,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                         ismooth          = ismoothgas(i),      &
                         position_angle   = posangl(i),         &
                         inclination      = incl(i),            &
+                        bh_spin          = bhspin,             &
                         prefix           = fileprefix)
           !--set dustfrac
           scaled_m     = scaled_discmass(sigmaprofilegas(i),pindex(i), &
@@ -806,6 +810,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                         ismooth         = ismoothgas(i),      &
                         position_angle  = posangl(i),         &
                         inclination     = incl(i),            &
+                        bh_spin         = bhspin,             &
                         prefix          = fileprefix)
           nparttot = nparttot + npingasdisc
           if (use_dust) then
@@ -836,11 +841,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                            ismooth        = ismoothdust(i),     &
                            position_angle = posangl(i),         &
                            inclination    = incl(i),            &
+                           bh_spin        = bhspin,             &
                            prefix         = fileprefix)
              nparttot  = nparttot  + npindustdisc
              npartdust = npartdust + npindustdisc
-             !--reset qfacdisc to gas disc value
-             qfacdisc = qindex(i)
           endif
        endif
        !--reset alpha for each disc
