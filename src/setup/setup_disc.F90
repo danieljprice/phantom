@@ -499,7 +499,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (maxvxyzu==3) then
     !--isothermal
-    if (ndiscs /= 0) then
+    if (ndiscs /= 1) then
        !--multiple discs
        if (sum(qindex) > maxval(qindex)) then
           call fatal('setup_disc','locally isothermal eos for more than one disc '// &
