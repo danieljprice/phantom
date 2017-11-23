@@ -99,7 +99,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                 p_index   = -1.0,   &
                 q_index   = 0.5,    &
                 HoverR    = HonR,   &
-                disc_Q    = 168.,   &
+                disc_mass = 1.,     &
                 star_mass = 1.0,    &
                 gamma     = gamma,  &
                 particle_mass = massoftype(igas), &

@@ -91,7 +91,7 @@ module setup
  integer :: mass_set(3),profile_set_dust,dust_method
  real    :: R_in(3),R_out(3),R_ref(3),R_c(3),R_warp(3),H_warp(3)
  real    :: pindex(3),qindex(3),H_R(3),posangl(3),incl(3)
- real    :: disc_m(3),sig_ref(3),sig_norm(3),annulus_m(3),R_inann(3),R_outann(3)
+ real    :: disc_m(3),sig_ref(3),sig_norm(3),annulus_m(3),R_inann(3),R_outann(3),Q_min(3)
  real    :: R_indust(3),R_outdust(3),R_c_dust(3),pindex_dust(3),qindex_dust(3),H_R_dust(3)
  real    :: alphaSS
  !--dust
@@ -129,7 +129,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,              only:au,solarm,jupiterm,pi,years
  use prompting,            only:prompt
  use setbinary,            only:set_binary,Rochelobe_estimate
- use setdisc,              only:set_disc,scaled_discmass
+ use setdisc,              only:set_disc,get_disc_mass
  use setflyby,             only:set_flyby,get_T_flyby
  use timestep,             only:tmax,dtmax
  use units,                only:set_units,select_unit,umass,udist,utime
@@ -148,13 +148,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
 
+ integer, parameter :: maxbins = 4096
  logical :: iexist,questplanets,seq_exists
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
  real    :: jdust_to_gas_ratio,Rj,period,Rochesizei,Rochelobe
  real    :: totmass_gas,totmass_dust,starmass,mcentral
- real    :: scaled_m,scaled_mdust,scaled_m_ann,scaled_sig
  real    :: polyk_dust,xorigini(3),vorigini(3),alpha_returned(3)
- real    :: disc_mfac(3),disc_mdust(3),sig_normdust(3),u(3)
+ real    :: star_m(3),disc_mfac(3),disc_mdust(3),sig_normdust(3),u(3)
+ real    :: enc_m(maxbins),rad(maxbins),Q_mintmp,disc_mtmp(3),annulus_mtmp(3)
  integer :: ierr,j,ndiscs,idisc,nparttot,npartdust,npingasdisc,npindustdisc,itype
  integer :: sigmaprofilegas(3),sigmaprofiledust(3),iprofilegas(3),iprofiledust(3)
  logical :: ismoothgas(3),ismoothdust(3)
@@ -290,7 +291,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(a)",'================='
     print "(a)",'+++  DISC(S)  +++'
     print "(a)",'================='
-    !--todo: add warps
     iuse_disc = .false.
     if ((icentral==1) .and. (nsinks==2)) then
        !--multiple discs possible
@@ -357,7 +357,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                       ' 0=total disc mass'//new_line('A')// &
                       ' 1=mass within annulus'//new_line('A')// &
                       ' 2=surface density normalisation'//new_line('A')// &
-                      ' 3=surface density at reference radius'//new_line('A'),mass_set(i),0,3)
+                      ' 3=surface density at reference radius'//new_line('A')// &
+                      ' 4=minimum Toomre Q'//new_line('A'),mass_set(i),0,4)
           call prompt('Do you want to exponentially taper the outer gas disc profile?',itapergas(i))
           call prompt('Do you want to warp the disc?',iwarp(i))
           select case (mass_set(i))
@@ -371,6 +372,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              sig_norm(i)  = 1.E-02 * disc_mfac(i)
           case (3)
              sig_ref(i)   = 1.E-02 * disc_mfac(i)
+          case (4)
+             Q_min(i)     = 1.0
           end select
           if (iwarp(i)) then
              R_warp = 0.5*(R_in + R_out)
@@ -426,7 +429,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     nplanets      = 0
     mplanet       = 1.
     rplanet       = (/ (10.*i, i=1,maxplanets) /)
-    accrplanet    = 0.25
+    accrplanet    = 0.25       !--todo: set planetary accretion radius from Hill sphere
     inclplan      = 0.
     print*, ''
     print "(a)",'================='
@@ -662,25 +665,57 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  end select
 
  !
- !--calculate total mass (for multiple discs)
+ !--compute the disc mass for different mass_set values
+ !  and calculate sigma normalisation
  !
  totmass_gas  = 0.
  totmass_dust = 0.
+ star_m = (/mcentral, m1, m2/)
  do i=1,3
     if (iuse_disc(i)) then
-       !--compute the disc mass for different mass_set values
-       scaled_m     = scaled_discmass(sigmaprofilegas(i),pindex(i),R_in(i),R_out(i),R_ref(i),R_c(i))
-       scaled_m_ann = scaled_discmass(sigmaprofilegas(i),pindex(i),R_inann(i),R_outann(i),R_ref(i),R_c(i))
-       scaled_sig   = scaled_sigma(R_ref(i),sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
-       if (mass_set(i)==1) then
-          disc_m(i) = annulus_m(i) / scaled_m_ann * scaled_m
-       elseif (mass_set(i)==2) then
-          disc_m(i) = sig_norm(i) * scaled_m
-       elseif (mass_set(i)==3) then
+       select case(mass_set(i))
+       case (0)
+          !--set sigma normalisation from disc mass
+          sig_norm(i) = 1.d0
+          call get_disc_mass(disc_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofilegas(i),sig_norm(i), &
+                             star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
+                             H_R(i),maxbins)
+          sig_norm(i) = sig_norm(i) * disc_m(i) / disc_mtmp(i)
+       case (1)
+          !--set disc mass from annulus mass
+          sig_norm(i) = 1.d0
+          call get_disc_mass(annulus_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofilegas(i),sig_norm(i), &
+                             star_m(i),pindex(i),qindex(i),R_inann(i),R_outann(i),R_ref(i),R_c(i), &
+                             H_R(i),maxbins)
+          sig_norm(i) = sig_norm(i) * annulus_m(i) / annulus_mtmp(i)
+          call get_disc_mass(disc_m(i),enc_m,rad,Q_min(i),sigmaprofilegas(i),sig_norm(i), &
+                             star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
+                             H_R(i),maxbins)
+       case (2)
+          !--set disc mass from sigma normalisation
+          call get_disc_mass(disc_m(i),enc_m,rad,Q_min(i),sigmaprofilegas(i),sig_norm(i), &
+                             star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
+                             H_R(i),maxbins)
+       case (3)
+          !--set disc mass from sigma at reference radius
           if (.not.(R_in(i) < R_ref(i)) .and. ismoothgas(i)) call fatal('setup_disc', &
              'if smoothing inner disc and setting disc mass by sigma(R_ref), require R_in < R_ref')
-          disc_m(i)   = sig_ref(i)  / scaled_sig * scaled_m
-       endif
+          sig_norm(i) = sig_ref(i) / scaled_sigma(R_ref(i),sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
+          call get_disc_mass(disc_m(i),enc_m,rad,Q_min(i),sigmaprofilegas(i),sig_norm(i), &
+                             star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
+                             H_R(i),maxbins)
+       case (4)
+          !--set disc mass from minimum Toomre Q
+          sig_norm(i) = 1.d0
+          call get_disc_mass(disc_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofilegas(i),sig_norm(i), &
+                             star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
+                             H_R(i),maxbins)
+          sig_norm(i) = sig_norm(i) * Q_mintmp / Q_min(i)
+          !--recompute actual disc mass and Toomre Q
+          call get_disc_mass(disc_m(i),enc_m,rad,Q_min(i),sigmaprofilegas(i),sig_norm(i), &
+                             star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
+                             H_R(i),maxbins)
+       end select
        totmass_gas = totmass_gas + disc_m(i)
        if (use_dust) then
           disc_mdust(i) = disc_m(i) * dust_to_gas_ratio
@@ -777,12 +812,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                         bh_spin          = bhspin,             &
                         prefix           = fileprefix)
           !--set dustfrac
-          scaled_m     = scaled_discmass(sigmaprofilegas(i),pindex(i), &
-                                         R_in(i),R_out(i),R_ref(i),R_c(i))
-          scaled_mdust = scaled_discmass(sigmaprofiledust(i),pindex_dust(i), &
-                                         R_indust(i),R_outdust(i),R_ref(i),R_c_dust(i))
-          sig_norm(i)     = disc_m(i)     / scaled_m
-          sig_normdust(i) = disc_mdust(i) / scaled_mdust
+          sig_normdust(i) = 1.d0
+          call get_disc_mass(disc_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofiledust(i), &
+                             sig_normdust(i),star_m(i),pindex_dust(i),qindex_dust(i), &
+                             R_indust(i),R_outdust(i),R_ref(i),R_c_dust(i),H_R(i),maxbins)
+          sig_normdust(i) = sig_normdust(i) * disc_mdust(i) / disc_mtmp(i)
           do j=nparttot+1,npingasdisc
              Rj = sqrt(dot_product(xyzh(1:2,j)-xorigini(1:2),xyzh(1:2,j)-xorigini(1:2)))
              if (Rj<R_indust(i) .or. Rj>R_outdust(i)) then
@@ -1104,7 +1138,7 @@ subroutine write_setupfile(filename)
        endif
        call write_inopt(mass_set(i),'mass_set'//trim(disclabel),'how to set gas density profile' // &
           ' (0=total disc mass,1=mass within annulus,2=surface density normalisation,' // &
-          '3=surface density at reference radius)',iunit)
+          '3=surface density at reference radius,4=minimum Toomre Q)',iunit)
        call write_inopt(itapergas(i),'itapergas'//trim(disclabel), &
           'exponentially taper the outer disc profile',iunit)
        call write_inopt(iwarp(i),'iwarp'//trim(disclabel),'warp disc',iunit)
@@ -1130,6 +1164,8 @@ subroutine write_setupfile(filename)
           endif
        case (3)
           call write_inopt(sig_ref(i),'sig_ref'//trim(disclabel),'sigma at reference radius',iunit)
+       case (4)
+          call write_inopt(Q_min(i),'Q_min'//trim(disclabel),'minimum Toomre Q',iunit)
        end select
        call write_inopt(pindex(i),'pindex'//trim(disclabel),'p index',iunit)
        call write_inopt(qindex(i),'qindex'//trim(disclabel),'q index',iunit)
@@ -1329,7 +1365,7 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(R_out(i),'R_out'//trim(disclabel),db,min=R_in(i),errcount=nerr)
        call read_inopt(R_ref(i),'R_ref'//trim(disclabel),db,min=R_in(i),errcount=nerr)
        call read_inopt(itapergas(i),'itapergas'//trim(disclabel),db,errcount=nerr)
-       call read_inopt(mass_set(i),'mass_set'//trim(disclabel),db,min=0,max=3,errcount=nerr)
+       call read_inopt(mass_set(i),'mass_set'//trim(disclabel),db,min=0,max=4,errcount=nerr)
        if (itapergas(i)) then
           call read_inopt(R_c(i),'R_c'//trim(disclabel),db,min=0.,errcount=nerr)
        endif
@@ -1344,6 +1380,8 @@ subroutine read_setupfile(filename,ierr)
           call read_inopt(sig_norm(i),'sig_norm'//trim(disclabel),db,min=0.,errcount=nerr)
        case (3)
           call read_inopt(sig_ref(i),'sig_ref'//trim(disclabel),db,min=0.,errcount=nerr)
+       case (4)
+          call read_inopt(Q_min(i),'Q_min'//trim(disclabel),db,min=0.,errcount=nerr)
        end select
        call read_inopt(pindex(i),'pindex'//trim(disclabel),db,errcount=nerr)
        call read_inopt(qindex(i),'qindex'//trim(disclabel),db,errcount=nerr)

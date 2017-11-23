@@ -90,7 +90,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                   polyk         = polyk,             &
                   inclination   = xinc,              &
                   prefix        = fileprefix)
- !                disc_Q        = 168.,              &
 
  !
  !--set default options for the input file
