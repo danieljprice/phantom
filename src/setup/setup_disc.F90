@@ -151,7 +151,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer, parameter :: maxbins = 4096
  logical :: iexist,questplanets,seq_exists
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
- real    :: jdust_to_gas_ratio,Rj,period,Rochesizei,Rochelobe
+ real    :: jdust_to_gas_ratio,Rj,period,Rochesizei,Rochelobe,tol,Hill(maxplanets)
  real    :: totmass_gas,totmass_dust,starmass,mcentral
  real    :: polyk_dust,xorigini(3),vorigini(3),alpha_returned(3)
  real    :: star_m(3),disc_mfac(3),disc_mdust(3),sig_normdust(3),u(3)
@@ -429,7 +429,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     nplanets      = 0
     mplanet       = 1.
     rplanet       = (/ (10.*i, i=1,maxplanets) /)
-    accrplanet    = 0.25       !--todo: set planetary accretion radius from Hill sphere
+    accrplanet    = 0.034 * rplanet
     inclplan      = 0.
     print*, ''
     print "(a)",'================='
@@ -524,6 +524,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           !--globally isothermal
           ieos = 1
           gamma = 1.0
+          call warning('setup_disc','multiple discs: setting eos to globally isothermal'// &
+                                    '---recompile with ISOTHERMAL=no for adiabatic')
        endif
     else
        !--single disc
@@ -919,7 +921,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     enddo
  else
     call warning('setup_disc', &
-       'multiple discs: cannot use alpha for alpha_SS, setting equal to 0.1')
+       'multiple discs: cannot use alpha_AV for alpha_SS, setting equal to 0.1')
     alpha = 0.1
  endif
 
@@ -964,22 +966,34 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           call rotatevec(vxyz_ptmass(1:3,nptmass), u,inclplan(i)*pi/180.)
        endif
        !--print planet information
-       print "(a,i2,a)",             ' planet ',i,':'
-       print "(a,g10.3,a)",          ' radius: ',rplanet(i)*udist/au,' AU'
-       print "(a,g10.3,a,2pf7.3,a)", ' M(<R) : ',(disc_m_within_r + mcentral)*umass/solarm, &
-                                     ' MSun, disc mass correction is ',disc_m_within_r/mcentral,'%'
-       print "(a,2(g10.3,a))",       ' mass  : ',mplanet(i),' MJup, or ',mplanet(i)*jupiterm/solarm,' MSun'
-       print "(a,2(g10.3,a))",       ' period: ',2.*pi*rplanet(i)/vphi*utime/years,' years or ', &
-                                                 2*pi*rplanet(i)/vphi,' in code units'
        omega = vphi/rplanet(i)
-       print "(a,g10.3,a)",   ' resonances: 3:1: ',(sqrt(mcentral)/(3.*omega))**(2./3.)*udist/au,' AU'
-       print "(a,g10.3,a)",   '             4:1: ',(sqrt(mcentral)/(4.*omega))**(2./3.)*udist/au,' AU'
-       print "(a,g10.3,a)",   '             5:1: ',(sqrt(mcentral)/(5.*omega))**(2./3.)*udist/au,' AU'
-       print "(a,g10.3,a)",   '             9:1: ',(sqrt(mcentral)/(9.*omega))**(2./3.)*udist/au,' AU'
+       Hill(i) = (mplanet(i)*jupiterm/solarm/(3.*mcentral))**(1./3.) * rplanet(i)
+       print "(a,i2,a)",             ' >>> planet ',i,' <<<'
+       print "(a,g10.3,a)",          '      radius: ',rplanet(i)*udist/au,' AU'
+       print "(a,g10.3,a,2pf7.3,a)", '       M(<R): ',(disc_m_within_r + mcentral)*umass/solarm, &
+                                     ' MSun, disc mass correction is ',disc_m_within_r/mcentral,'%'
+       print "(a,2(g10.3,a))",       '        mass: ',mplanet(i),' MJup, or ',mplanet(i)*jupiterm/solarm,' MSun'
+       print "(a,2(g10.3,a))",       '      period: ',2.*pi*rplanet(i)/vphi*utime/years,' years or ', &
+                                                 2*pi*rplanet(i)/vphi,' in code units'
+       print "(a,2(g10.3,a))",       ' Hill radius: ',Hill(i),' AU'
+       print "(a,g10.3,a)",          '  resonances:'
+       print "(a,g10.3,a)",   '    3:1 : ',(sqrt(mcentral)/(3.*omega))**(2./3.)*udist/au,' AU'
+       print "(a,g10.3,a)",   '    4:1 : ',(sqrt(mcentral)/(4.*omega))**(2./3.)*udist/au,' AU'
+       print "(a,g10.3,a)",   '    5:1 : ',(sqrt(mcentral)/(5.*omega))**(2./3.)*udist/au,' AU'
+       print "(a,g10.3,a)",   '    9:1 : ',(sqrt(mcentral)/(9.*omega))**(2./3.)*udist/au,' AU'
+       !--check planet accretion radii
+       tol = 0.1*Hill(i)
+       if (accrplanet(i) < Hill(i)/2. - tol) then
+          call warning('setup_disc','accretion radius of planet < half Hill radius: too small')
+       elseif (accrplanet(i) > Hill(i) + tol) then
+          call warning('setup_disc','accretion radius of planet > Hill radius: too large')
+       endif
+       print *, ''
        !--determine longest period
        period_longest = max(period_longest, 2.*pi/omega)
     enddo
     print "(1x,45('-'))"
+    print *, ''
  endif
 
  !
@@ -1010,6 +1024,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (deltat > 0.) dtmax = deltat*period
     if (norbits >= 0) tmax = norbits*period
  endif
+
+ !
+ !--remind user to check for warnings and errors
+ !
+ print*,''
+ print*,'+ ----------------------------------------------------- +'
+ print*,'|                                                       |'
+ print*,'|   please check output above for WARNINGS and ERRORS   |'
+ print*,'|   before starting the calculation                     |'
+ print*,'|                                                       |'
+ print*,'+ ----------------------------------------------------- +'
+ print*,''
 
  return
 end subroutine setpart
