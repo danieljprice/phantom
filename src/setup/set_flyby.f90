@@ -29,7 +29,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, part, physcon, setbinary, units, vectorutils
+!  DEPENDENCIES: io, part, physcon, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module setflyby
