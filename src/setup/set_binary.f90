@@ -47,7 +47,8 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
                       accretion_radius1,accretion_radius2, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,omega_corotate,&
                       posang_ascnode,arg_peri,incl,f,verbose)
- use part,    only:ihacc,ihsoft
+ use io,   only:warning,fatal
+ use part, only:ihacc,ihsoft
  real,    intent(in)    :: mprimary,massratio
  real,    intent(in)    :: semimajoraxis,eccentricity
  real,    intent(in)    :: accretion_radius1,accretion_radius2
@@ -57,7 +58,7 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
  real,    intent(out), optional :: omega_corotate
  logical, intent(in),  optional :: verbose
  integer :: i1,i2,i
- real    :: m1,m2,mtot,dx(3),dv(3),Rochelobe,Rochelobe2,period
+ real    :: m1,m2,mtot,dx(3),dv(3),Rochelobe1,Rochelobe2,period
  real    :: x1(3),x2(3),v1(3),v2(3),omega0,cosi,sini,xangle,reducedmass,angmbin
  real    :: a,E,E_dot,P(3),Q(3),omega,big_omega,inc,ecc,tperi,term1,term2,theta
  logical :: do_verbose
@@ -74,8 +75,8 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
  m2 = mprimary*massratio
  mtot = m1 + m2
 
- Rochelobe = Rochelobe_estimate(m1,m2,semimajoraxis)
- Rochelobe2 = Rochelobe_estimate(m2,m1,semimajoraxis)
+ Rochelobe1 = Rochelobe_estimate(m2,m1,semimajoraxis)
+ Rochelobe2 = Rochelobe_estimate(m1,m2,semimajoraxis)
  period = sqrt(4.*pi**2*semimajoraxis**3/mtot)
  reducedmass = m1*m2/mtot
  angmbin = reducedmass*sqrt(mtot*semimajoraxis*(1. - eccentricity**2))
@@ -94,20 +95,20 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
         'apocentre        :',semimajoraxis*(1. + eccentricity)
  endif
 
- if (accretion_radius1 >  Rochelobe2) then
-    print "(/,a,/)",'*** WARNING: accretion radius of primary > Roche lobe'
+ if (accretion_radius1 > Rochelobe1) then
+    call warning('set_binary','accretion radius of primary > Roche lobe')
  endif
- if (accretion_radius2 >  Rochelobe) then
-    print "(/,a,/)",'*** WARNING: accretion radius of primary > Roche lobe'
+ if (accretion_radius2 > Rochelobe2) then
+    call warning('set_binary','accretion radius of secondary > Roche lobe')
  endif
 !
 !--check for stupid parameter choices
 !
- if (mprimary <= 0.)      stop 'ERROR: primary mass <= 0'
- if (massratio < 0.)      stop 'ERROR: binary mass ratio < 0'
- if (semimajoraxis <= 0.) stop 'ERROR: semi-major axis <= 0'
+ if (mprimary <= 0.) call fatal('set_binary','primary mass <= 0')
+ if (massratio < 0.) call fatal('set_binary','mass ratio < 0')
+ if (semimajoraxis <= 0.) call fatal('set_binary','semi-major axis <= 0')
  if (eccentricity > 1. .or. eccentricity < 0.) &
-    stop 'ERROR: eccentricity must be between 0 and 1'
+    call fatal('set_binary','eccentricity must be between 0 and 1')
 
  dx = 0.
  dv = 0.
@@ -188,8 +189,8 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
         'Omega_0 (second) :',v1(2)/x1(1), &
         'R_accretion (1)  :',accretion_radius1, &
         'R_accretion (2)  :',accretion_radius2, &
-        'Roche lobe  (1)  :',Rochelobe2, &
-        'Roche lobe  (2)  :',Rochelobe
+        'Roche lobe  (1)  :',Rochelobe1, &
+        'Roche lobe  (2)  :',Rochelobe2
  endif
 
  if (present(omega_corotate)) then

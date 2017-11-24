@@ -151,8 +151,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer, parameter :: maxbins = 4096
  logical :: iexist,questplanets,seq_exists
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
- real    :: jdust_to_gas_ratio,Rj,period,Rochesizei,Rochelobe,tol,Hill(maxplanets)
- real    :: totmass_gas,totmass_dust,starmass,mcentral
+ real    :: jdust_to_gas_ratio,Rj,period,Rochelobe,tol,Hill(maxplanets)
+ real    :: totmass_gas,totmass_dust,mcentral
  real    :: polyk_dust,xorigini(3),vorigini(3),alpha_returned(3)
  real    :: star_m(3),disc_mfac(3),disc_mdust(3),sig_normdust(3),u(3)
  real    :: enc_m(maxbins),rad(maxbins),Q_mintmp,disc_mtmp(3),annulus_mtmp(3)
@@ -262,15 +262,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           case (0)
              !--bound
              m1       = 1.
-             m2       = 0.1
+             m2       = 0.2
              binary_a = 10.
              binary_e = 0.
              binary_i = 0.
              binary_O = 0.
              binary_w = 0.
              binary_f = 180.
-             accr1    = 0.25*binary_a
-             accr2    = 0.25*binary_a
+             accr1    = 1.
+             accr2    = 0.5
           case (1)
              !--unbound (flyby)
              m1       = 1.
@@ -338,11 +338,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     disc_mfac = 1.
     if (multiple_disc_flag .and. (ibinary==0)) then
        !--set appropriate disc radii for bound binary
-       Rochelobe = Rochelobe_estimate(m1,m2,binary_a)
-       R_in      = (/binary_a + Rochelobe + accr1, accr1, accr2/)
-       R_out     = (/10.*R_in(1), &
-                     binary_a - Rochelobe - accr1, &
-                     binary_a - Rochelobe - accr2/)
+       R_in      = (/2.5*binary_a, accr1, accr2/)
+       R_out     = (/5.*R_in(1), 5.*accr1, 5.*accr2/)
        R_ref     = R_in
        R_c       = R_out
        disc_mfac = (/1., 0.1, 0.01/)
@@ -507,7 +504,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  idisc = 0
  if (ndiscs==1) then
     do i=1,3
-       if (iuse_disc(i).eqv..true.) idisc = i
+       if (iuse_disc(i)) idisc = i
     enddo
  endif
  !
@@ -564,28 +561,33 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !
  !--surface density profile
+ !  (smoothed at inner edge by default)
  !
- ismoothgas      = .true.       !--smoothed at inner edge by default
- iprofilegas     = 0
+ ismoothgas = .true.
+ if (multiple_disc_flag .and. ibinary==0 .and. iuse_disc(1)) then
+    !--don't smooth circumbinary
+    ismoothgas(1) = .false.
+ endif
+ iprofilegas = 0
  sigmaprofilegas = 0
  do i=1,3
     if (itapergas(i)) then
-       iprofilegas(i)     = 1
+       iprofilegas(i) = 1
        sigmaprofilegas(i) = 1
     endif
-    if (ismoothgas(i))                    sigmaprofilegas(i) = 2
+    if (ismoothgas(i)) sigmaprofilegas(i) = 2
     if (itapergas(i) .and. ismoothgas(i)) sigmaprofilegas(i) = 3
  enddo
  if (use_dust) then
-    ismoothdust      = .true.   !--smoothed at inner edge by default
-    iprofiledust     = iprofilegas
+    ismoothdust = ismoothgas
+    iprofiledust = iprofilegas
     sigmaprofiledust = sigmaprofilegas
     do i=1,3
        if (itaperdust(i)) then
-          iprofiledust(i)     = 1
+          iprofiledust(i) = 1
           sigmaprofiledust(i) = 1
        endif
-       if (ismoothdust(i))                     sigmaprofiledust(i) = 2
+       if (ismoothdust(i)) sigmaprofiledust(i) = 2
        if (itaperdust(i) .and. ismoothdust(i)) sigmaprofiledust(i) = 3
     enddo
  endif
@@ -665,6 +667,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        end select
     end select
  end select
+ !--set array of central object masses
+ star_m = (/mcentral, m1, m2/)
+ do i=1,3
+    if (.not.iuse_disc(i)) star_m(i) = 0.
+ enddo
 
  !
  !--compute the disc mass for different mass_set values
@@ -672,7 +679,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  totmass_gas  = 0.
  totmass_dust = 0.
- star_m = (/mcentral, m1, m2/)
  do i=1,3
     if (iuse_disc(i)) then
        select case(mass_set(i))
@@ -751,26 +757,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           !  centre of mass of binary defined to be zero (see set_binary)
           xorigini(:) = 0.
           vorigini(:) = 0.
-          starmass    = mcentral
-          Rochesizei  = huge(0.)
+          Rochelobe   = huge(0.)
        case(2)
           !--circumprimary
           xorigini(:) = xyzmh_ptmass(1:3,1)
           vorigini(:) = vxyz_ptmass(1:3,1)
-          starmass    = m1
-          Rochesizei  = binary_a - Rochelobe
+          Rochelobe   = Rochelobe_estimate(m2,m1,binary_a)
        case(3)
           !--circumsecondary
           xorigini(:) = xyzmh_ptmass(1:3,2)
           vorigini(:) = vxyz_ptmass(1:3,2)
-          starmass    = m2
-          Rochesizei  = Rochelobe
+          Rochelobe   = Rochelobe_estimate(m1,m2,binary_a)
        end select
        if (multiple_disc_flag .and. ibinary==0) then
-          if (R_out(i) > Rochesizei .and. R_out(i) < binary_a) then
-             call warning('setup_disc','Outer disc radius for circum'//trim(disctype(i))// &
-                                       ' > Roche lobe of '//trim(disctype(i)))
-          endif
+          if (R_out(i) > Rochelobe) call warning('setup_disc', &
+             'Outer disc radius for circum'//trim(disctype(i))//' > Roche lobe of ' &
+             //trim(disctype(i)))
        endif
 
        !--set disc(s)
@@ -796,7 +798,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                         HoverR           = H_R(i),             &
                         disc_mass        = disc_m(i),          &
                         disc_massdust    = disc_mdust(i),      &
-                        star_mass        = starmass,           &
+                        star_mass        = star_m(i),          &
                         gamma            = gamma,              &
                         particle_mass    = massoftype(igas),   &
                         xyz_origin       = xorigini(:),        &
@@ -848,7 +850,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                         q_index         = qindex(i),          &
                         HoverR          = H_R(i),             &
                         disc_mass       = disc_m(i),          &
-                        star_mass       = starmass,           &
+                        star_mass       = star_m(i),          &
                         gamma           = gamma,              &
                         particle_mass   = massoftype(igas),   &
                         xyz_origin      = xorigini(:),        &
@@ -882,7 +884,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                            q_index        = qindex_dust(i),     &
                            HoverR         = H_R_dust(i),        &
                            disc_mass      = disc_mdust(i),      &
-                           star_mass      = starmass,           &
+                           star_mass      = star_m(i),          &
                            gamma          = gamma,              &
                            particle_mass  = massoftype(idust),  &
                            xyz_origin     = xorigini(:),        &

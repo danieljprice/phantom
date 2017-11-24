@@ -334,6 +334,25 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  call set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin, &
                           clight,cs0,exponential_taper,p_index,q_index,gamma,R_in, &
                           maxbins,rad,enc_m,smooth_surface_density,xyzh,vxyzu)
+
+ !
+ !--inclines and warps
+ !
+ posangl = 0.
+ incl = 0.
+ R_warp = 0.
+ H_warp = 0.
+ psimax = 0.
+ if (present(position_angle)) posangl = position_angle
+ if (present(rwarp))           R_warp = rwarp
+ if (present(warp_smoothl))    H_warp = warp_smoothl
+ if (present(inclination)) then
+    !--incline disc at position angle and poss. warp disc
+    incl = inclination
+    call set_incline_or_warp(xyzh,vxyzu,npart_tot,npart_start_count,posangl,incl,&
+                             R_warp,H_warp,psimax)
+ endif
+
  !
  !--work out h/H in order to set the artificial viscosity parameter to match a chosen alpha_SS
  !
@@ -344,13 +363,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
     rminav = R_in
  endif
  rmaxav = R_out
- if (present(rwarp)) then
-    call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,star_m,&
-                  npart_start_count,npart_tot,do_verbose,rwarp)
- else
-    call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,star_m,&
-                  npart_start_count,npart_tot,do_verbose)
- endif
+ call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,star_m,&
+               npart_start_count,npart_tot,do_verbose,R_warp)
 
 #ifdef DISC_VISCOSITY
  !
@@ -376,24 +390,6 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  alphaSS_min = honHmin*(31./525.)
  alphaSS_max = honHmax*(31./525.)
 #endif
-
- !
- !--inclines and warps
- !
- posangl = 0.
- incl = 0.
- R_warp = 0.
- H_warp = 0.
- psimax = 0.
- if (present(position_angle)) posangl = position_angle
- if (present(rwarp))           R_warp = rwarp
- if (present(warp_smoothl))    H_warp = warp_smoothl
- if (present(inclination)) then
-    !--incline disc at position angle and poss. warp disc
-    incl = inclination
-    call set_incline_or_warp(xyzh,vxyzu,npart_tot,npart_start_count,posangl,incl,&
-                             R_warp,H_warp,psimax)
- endif
 
  !
  !--adjust positions and velocities so the centre of mass is at the origin
@@ -928,9 +924,8 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,M_star,i
  real,    intent(in)  :: xyzh(:,:)
  real,    intent(out) :: honHmax,honHmin,honH
  integer, intent(in)  :: i1,i2
- real,    intent(in)  :: cs0,q_index,M_star,rminav,rmaxav
+ real,    intent(in)  :: cs0,q_index,M_star,rminav,rmaxav,rwarp
  logical, intent(in)  :: verbose
- real,    intent(in), optional :: rwarp
 
  integer, parameter :: nr = 350
  integer :: i,ii,iwarp
@@ -949,7 +944,7 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,M_star,i
  iwarp = 0
  do i=1,nr
     rad(i)=rmin + real(i-1)*dr
-    if (present(rwarp)) then
+    if (rwarp > tiny(rwarp)) then
        if (rad(i) > rwarp) iwarp = i - 1
     endif
  enddo
@@ -1018,7 +1013,7 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,M_star,i
     write(*,'(1x,"Actual <h>/H.................. ",f9.4)') honH
     write(*,'(1x,"Actual (<h>/H)_min is approx.: ",f9.4)') honHmin
     write(*,'(1x,"Actual (<h>/H)_max is approx.: ",f9.4)') honHmax
-    if (present(rwarp) .and. iwarp > 0) then
+    if (rwarp > tiny(rwarp) .and. iwarp > 0) then
        write(*,'(1x,"Actual <h>/H at R_warp is    : ",f9.4)') h_smooth(iwarp)
     endif
     ! write(*,'(1x,"alpha_SS/alpha_AV is approx: ",f9.4)') honH/10.0
