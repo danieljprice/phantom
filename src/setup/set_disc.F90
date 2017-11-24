@@ -725,7 +725,7 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
  xcentreofmass = 0.
  vcentreofmass = 0.
  totmass       = 0.
- ipart = 0
+ ipart = i1 - 1
  do i=i1,i2
     if (i_belong(i)) then
        ipart = ipart + 1
@@ -743,7 +743,7 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
  xcentreofmass = reduceall_mpi('+',xcentreofmass)
  vcentreofmass = reduceall_mpi('+',vcentreofmass)
 
- ipart = 0
+ ipart = i1 - 1
  do i=i1,i2
     if (i_belong(i)) then
        ipart = ipart + 1
@@ -970,7 +970,7 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,M_star,i
  enddo
 
  !--loop over particles putting properties into the correct bin
- ipart = 0
+ ipart = i1 - 1
  do i = i1,i2
     if (i_belong(i)) then
        ipart = ipart + 1
