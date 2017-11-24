@@ -152,7 +152,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical :: iexist,questplanets,seq_exists
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
  real    :: jdust_to_gas_ratio,Rj,period,Rochelobe,tol,Hill(maxplanets)
- real    :: totmass_gas,totmass_dust,mcentral
+ real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Stokes
  real    :: polyk_dust,xorigini(3),vorigini(3),alpha_returned(3)
  real    :: star_m(3),disc_mfac(3),disc_mdust(3),sig_normdust(3),u(3)
  real    :: enc_m(maxbins),rad(maxbins),Q_mintmp,disc_mtmp(3),annulus_mtmp(3)
@@ -740,10 +740,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  incl    = incl*(pi/180.0)
  posangl = posangl*(pi/180.0)
  if (maxalpha==0) alpha = alphaSS
- if (use_dust) then
-    grainsizecgs = grainsizeinp
-    graindenscgs = graindensinp
- endif
  nparttot  = 0
  npartdust = 0
  do i=1,3
@@ -925,6 +921,30 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call warning('setup_disc', &
        'multiple discs: cannot use alpha_AV for alpha_SS, setting equal to 0.1')
     alpha = 0.1
+ endif
+
+ !
+ !--dust
+ !
+ if (use_dust) then
+    grainsizecgs = grainsizeinp
+    graindenscgs = graindensinp
+    if (multiple_disc_flag .and. ibinary==1) then
+       !--circumprimary in flyby
+       i = 2
+    else
+       !--single disc or circumbinary
+       i = 1
+    endif
+    R = (R_in(i) + R_out(i))/2
+    Sigma = sig_norm(i)*scaled_sigma(R,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
+    Stokes = sqrt(pi/8)*graindenscgs*grainsizecgs/Sigma * (udist**2/umass)
+    print "(a,i2,a)",' -------------- added dust --------------'
+    print "(a,g10.3,a)", '       grain size: ',grainsizecgs,' cm'
+    print "(a,g10.3,a)", '    grain density: ',graindenscgs,' g/cm^3'
+    print "(a,g10.3,a)", '   approx. Stokes: ',Stokes,''
+    print "(1x,40('-'))"
+    print "(a)", ''
  endif
 
  !
