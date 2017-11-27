@@ -8,7 +8,7 @@
 !  MODULE: moddump
 !
 !  DESCRIPTION:
-!  This will reset the particles to the centre of mass; required for 
+!  This will reset the particles to the centre of mass; required for
 !  some plotting/analysis
 !
 !  REFERENCES: None
