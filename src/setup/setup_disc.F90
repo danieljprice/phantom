@@ -70,12 +70,14 @@ module setup
  use dim,            only:maxp,use_dust,maxalpha
  use externalforces, only:iext_star,iext_binary,iext_lensethirring,iext_einsteinprec
  use options,        only:use_dustfrac,iexternalforce
+ use physcon,        only:au,solarm
  use setdisc,        only:scaled_sigma
 
  implicit none
  public  :: setpart
 
  integer :: np,np_dust,norbits,i
+ logical :: obsolete_flag = .false.
  !--central objects
  real    :: m1,m2,accr1,accr2,bhspin,bhspinangle,flyby_a,flyby_d,flyby_O,flyby_i
  real    :: binary_a,binary_e,binary_i,binary_O,binary_w,binary_f,deltat
@@ -126,7 +128,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use options,              only:ieos,alpha,icooling
  use part,                 only:nptmass,xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,&
                                 ihsoft,igas,idust,dustfrac,iamtype,iphase
- use physcon,              only:au,solarm,jupiterm,pi,years
+ use physcon,              only:jupiterm,pi,years
  use prompting,            only:prompt
  use setbinary,            only:set_binary,Rochelobe_estimate
  use setdisc,              only:set_disc,get_disc_mass
@@ -161,8 +163,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical :: ismoothgas(3),ismoothdust(3)
  character(len=100) :: filename
 
- print "(/,65('-'),2(/,a),/,65('-'),/)", &
-   ' Welcome to the New Disc Setup'
+ print "(/,65('-'),2(/,a),/,65('-'),/)"
+ print "(a)",'     Welcome to the New Disc Setup'
+ print "(/,65('-'),2(/,a),/,65('-'),/)"
 
  !
  !--get disc setup parameters from file or interactive setup
@@ -196,7 +199,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
  elseif (id==master) then
     !--interactive setup
-    print "(a,/)",trim(filename)//' not found: using interactive setup'
+    print "(a,/)",' '//trim(filename)//' not found: using interactive setup'
     !
     !--units
     !
@@ -287,7 +290,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     !--multiple disc options
     !
-    print*, ''
+    print "(a)",''
     print "(a)",'================='
     print "(a)",'+++  DISC(S)  +++'
     print "(a)",'================='
@@ -347,8 +350,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     do i=1,3
        if (iuse_disc(i)) then
           if (multiple_disc_flag) then
-             print*, ''
-             print "(a)",'>>>  circum'//trim(disctype(i))//' disc  <<<'
+             print "(a)",' '
+             print "(a)",' >>>  circum'//trim(disctype(i))//' disc  <<<'
           endif
           call prompt('How do you want to set the gas disc mass?'//new_line('A')// &
                       ' 0=total disc mass'//new_line('A')// &
@@ -394,7 +397,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        grainsizeinp      = 0.1
        graindensinp      = 3.
        R_c_dust          = R_c
-       print*, ''
+       print "(a)",''
        print "(a)",'=============='
        print "(a)",'+++  DUST  +++'
        print "(a)",'=============='
@@ -428,7 +431,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     rplanet       = (/ (10.*i, i=1,maxplanets) /)
     accrplanet    = 0.034 * rplanet
     inclplan      = 0.
-    print*, ''
+    print "(a)",''
     print "(a)",'================='
     print "(a)",'+++  PLANETS  +++'
     print "(a)",'================='
@@ -441,7 +444,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     !--determine simulation time
     !
-    print*, ''
+    print "(a)",''
     print "(a)",'================'
     print "(a)",'+++  OUTPUT  +++'
     print "(a)",'================'
@@ -470,7 +473,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     call write_setupfile(filename)
 
-    print "(a)",'>>> rerun phantomsetup using the options set in '//trim(filename)//' <<<'
+    print "(a)",' >>> rerun phantomsetup using the options set in '//trim(filename)//' <<<'
 
     stop
  else
@@ -534,10 +537,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           !--locally isothermal
           if (isink /= 0) then
              ieos = 6
-             print*, 'setting ieos=6 for locally isothermal disc around sink'
+             print "(a)",' setting ieos=6 for locally isothermal disc around sink'
           else
              ieos = 3
-             print*, 'setting ieos=3 for locally isothermal disc around origin'
+             print "(a)",' setting ieos=3 for locally isothermal disc around origin'
           endif
           gamma = 1.0
           qfacdisc = qindex(idisc)
@@ -599,29 +602,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  case (0)
     select case (ipotential)
     case (1)
-       print "(a)", 'Central object represented by external force with accretion boundary'
-       print*, ' Object mass:      ', m1
-       print*, ' Accretion Radius: ', accr1
+       print "(a)",' Central point mass represented by external force with accretion boundary'
+       print "(a,g10.3,a)",'   Object mass:      ', m1,    trim(mass_unit)
+       print "(a,g10.3,a)",'   Accretion Radius: ', accr1, trim(dist_unit)
        mass1      = m1
        accradius1 = accr1
        mcentral   = m1
     case (2)
-       print "(a)", 'Central binary represented by external force with accretion boundary'
-       print*, ' Primary mass:       ', m1
-       print*, ' Binary mass ratio:  ', m2/m1
-       print*, ' Accretion Radius 1: ', accr1
-       print*, ' Accretion Radius 2: ', accr2
+       print "(a)",' Central binary represented by external force with accretion boundary'
+       print "(a,g10.3,a)",'   Primary mass:       ', m1,    trim(mass_unit)
+       print "(a,g10.3)",  '   Binary mass ratio:  ', m2/m1
+       print "(a,g10.3,a)",'   Accretion Radius 1: ', accr1, trim(dist_unit)
+       print "(a,g10.3,a)",'   Accretion Radius 2: ', accr2, trim(dist_unit)
        mass1       = m1
        binarymassr = m2/m1
        accradius1  = accr1
        accradius2  = accr2
        mcentral    = m1 + m2
     case (3)
-       print "(a)", 'Central black hole represented by external force with accretion boundary'
-       print*, ' Black hole mass:        ', m1
-       print*, ' Accretion Radius:       ', accr1
-       print*, ' Black hole spin:        ', bhspin
-       print*, ' Black hole spin angle:  ', bhspinangle
+       print "(a)",' Central black hole represented by external force with accretion boundary'
+       print "(a,g10.3,a)",'   Black hole mass:        ', m1,    trim(mass_unit)
+       print "(a,g10.3,a)",'   Accretion Radius:       ', accr1, trim(dist_unit)
+       print "(a,g10.3)",  '   Black hole spin:        ', bhspin
+       print "(a,g10.3,a)",'   Black hole spin angle:  ', bhspinangle, 'deg'
        mass1                = m1
        accradius1           = accr1
        blackhole_spin       = bhspin
@@ -632,8 +635,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     select case (nsinks)
     case (1)
        !--single star
-       print*,'Disc around a single star '
-       print "(a)", 'Central object represented by a sink at the system origin'
+       print "(a)",' Central object represented by a sink at the system origin'
+       print "(a,g10.3,a)",'   Object mass:      ', m1,    trim(mass_unit)
+       print "(a,g10.3,a)",'   Accretion Radius: ', accr1, trim(dist_unit)
        nptmass                      = 1
        xyzmh_ptmass(:,:)            = 0.
        xyzmh_ptmass(1:3,nptmass)    = 0.
@@ -648,8 +652,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        case (0)
           !--bound
           nptmass  = 0
-          print*,'Setup the binary' !--the stars' barycentre is put on the origin
-          print "(a)", 'Central objects represented by two sinks'
+          print "(a)",' Central objects represented by two sinks'
+          print "(a,g10.3,a)",'   Primary mass:       ', m1,    trim(mass_unit)
+          print "(a,g10.3)",  '   Binary mass ratio:  ', m2/m1
+          print "(a,g10.3,a)",'   Accretion Radius 1: ', accr1, trim(dist_unit)
+          print "(a,g10.3,a)",'   Accretion Radius 2: ', accr2, trim(dist_unit)
           call set_binary(m1,massratio=m2/m1,semimajoraxis=binary_a,eccentricity=binary_e, &
                           posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
                           f=binary_f,accretion_radius1=accr1,accretion_radius2=accr2, &
@@ -657,8 +664,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           mcentral = m1 + m2
        case (1)
           !--unbound (flyby)
-          print*,'Disc around a single star with flyby'
-          print "(a)", 'Central object represented by a sink at the system origin with a perturber sink'
+          print "(a)",' Central object represented by a sink at the system origin with a perturber sink'
+          print "(a,g10.3,a)",'   Primary mass:       ', m1,    trim(mass_unit)
+          print "(a,g10.3,a)",'   Perturber mass:     ', m2,    trim(mass_unit)
+          print "(a,g10.3,a)",'   Accretion Radius 1: ', accr1, trim(dist_unit)
+          print "(a,g10.3,a)",'   Accretion Radius 2: ', accr2, trim(dist_unit)
           call set_flyby(mprimary=m1,massratio=m2/m1,minimum_approach=flyby_a, &
                          initial_dist=flyby_d,posang_ascnode=flyby_O,inclination=flyby_i, &
                          accretion_radius1=accr1,accretion_radius2=accr2, &
@@ -944,7 +954,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(a,g10.3,a)", '    grain density: ',graindenscgs,' g/cm^3'
     print "(a,g10.3,a)", '   approx. Stokes: ',Stokes,''
     print "(1x,40('-'))"
-    print "(a)", ''
+    print "(a)",' '
  endif
 
  !
@@ -1050,14 +1060,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--remind user to check for warnings and errors
  !
- print*,''
- print*,'+ ----------------------------------------------------- +'
- print*,'|                                                       |'
- print*,'|   please check output above for WARNINGS and ERRORS   |'
- print*,'|   before starting the calculation                     |'
- print*,'|                                                       |'
- print*,'+ ----------------------------------------------------- +'
- print*,''
+ print "(a)",' '
+ print "(a)",' + ----------------------------------------------------- +'
+ print "(a)",' |                                                       |'
+ print "(a)",' |   please check output above for WARNINGS and ERRORS   |'
+ print "(a)",' |   before starting the calculation                     |'
+ print "(a)",' |                                                       |'
+ print "(a)",' + ----------------------------------------------------- +'
+ print "(a)",' '
 
  return
 end subroutine setpart
@@ -1073,7 +1083,13 @@ subroutine write_setupfile(filename)
  integer, parameter :: iunit = 20
  logical :: done_alpha = .false.
 
- print*, ''
+ !--read old options for backwards compatibility
+ if (obsolete_flag) then
+    print "(a)",' >>> re-writing obsolete .setup file: CHECK CAREFULLY <<<'
+    call read_obsolete_setup_options(filename)
+ endif
+
+ print "(a)",' '
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for disc setup routine'
@@ -1229,7 +1245,7 @@ subroutine write_setupfile(filename)
           done_alpha = .true.
        endif
        !--dust disc
-       if (profile_set_dust==1) then
+       if (use_dust .and. profile_set_dust==1) then
           if (multiple_disc_flag) then
              write(iunit,"(/,a)") '# options for circum'//trim(disclabel)//' dust disc'
           else
@@ -1292,19 +1308,27 @@ end subroutine write_setupfile
 !
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils,   only:open_db_from_file,inopts,read_inopt,close_db
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr
  type(inopts), allocatable :: db(:)
 
- print "(a)",'reading setup options from '//trim(filename)
- nerr = 0
- call open_db_from_file(db,filename,iunit,ierr)
+ print "(a)",' reading setup options from '//trim(filename)
 
  !--read old options for backwards compatibility
- ! call read_obsolete_setup_options(db)
+ call open_db_from_file(db,filename,iunit,ierr)
+ call read_inopt(icentral,'icentral',db,err=ierr)
+ call close_db(db)
+ if (ierr /= 0) obsolete_flag = .true.
+ if (obsolete_flag) then
+    print "(a)",' reading obsolete .setup file'
+    call read_obsolete_setup_options(filename)
+ endif
+
+ nerr = 0
+ call open_db_from_file(db,filename,iunit,ierr)
 
  !--dust method
  if (use_dust) then
@@ -1320,11 +1344,11 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(mass_unit,'mass_unit',db,errcount=nerr)
  call read_inopt(dist_unit,'dist_unit',db,errcount=nerr)
  !--central objects(s)/potential
- call read_inopt(icentral,'icentral',db,min=0,max=1, errcount=nerr)
+ call read_inopt(icentral,'icentral',db,min=0,max=1,errcount=nerr)
  select case (icentral)
  case (0)
     !--external potential
-    call read_inopt(ipotential,'ipotential',db,min=1,max=3, errcount=nerr)
+    call read_inopt(ipotential,'ipotential',db,min=1,max=3,errcount=nerr)
     select case (ipotential)
     case (1)
        !--point mass
@@ -1444,13 +1468,13 @@ subroutine read_setupfile(filename,ierr)
        !--dust disc
        select case (profile_set_dust)
        case (0)
-          R_indust(i)         = R_in(i)
-          R_outdust(i)        = R_out(i)
-          pindex_dust(i)      = pindex(i)
-          qindex_dust(i)      = qindex(i)
-          H_R_dust(i)         = H_R(i)
-          itaperdust(i)       = itapergas(i)
-          R_c_dust(i)         = R_c(i)
+          R_indust(i)    = R_in(i)
+          R_outdust(i)   = R_out(i)
+          pindex_dust(i) = pindex(i)
+          qindex_dust(i) = qindex(i)
+          H_R_dust(i)    = H_R(i)
+          itaperdust(i)  = itapergas(i)
+          R_c_dust(i)    = R_c(i)
        case (1)
           call read_inopt(R_indust(i),'R_indust'//trim(disclabel),db,min=R_in(i),errcount=nerr)
           call read_inopt(R_outdust(i),'R_outdust'//trim(disclabel),db,min=R_indust(i),max=R_out(i),errcount=nerr)
@@ -1477,7 +1501,6 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(graindensinp,'graindensinp',db,min=0.,errcount=nerr)
  endif
  !--planets
- setplanets = 0
  call read_inopt(setplanets,'setplanets',db,min=0,max=1,errcount=nerr)
  if (setplanets==1) then
     call read_inopt(nplanets,'nplanets',db,min=0,max=maxplanets,errcount=nerr)
@@ -1490,8 +1513,6 @@ subroutine read_setupfile(filename,ierr)
  endif
  !--timestepping
  !  following two are optional: not an error if not present
- norbits = 0
- deltat = 0.
  call read_inopt(norbits,'norbits',db,err=ierr)
  call read_inopt(deltat,'deltat',db,err=ierr)
 
@@ -1508,8 +1529,111 @@ end subroutine read_setupfile
 ! subroutine for reading old options for backwards compatibility
 !
 !------------------------------------------------------------------------
-!subroutine read_obsolete_setup_options(db)
-!end subroutine read_obsolete_setup_options
+subroutine read_obsolete_setup_options(filename)
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ character(len=*), intent(in)  :: filename
+ type(inopts), allocatable :: db(:)
+ integer, parameter :: iunit = 21
+ real,    parameter :: tol = 0.01
+ integer :: tmp_i,ierr
+ logical :: tmp_l
+ real    :: tmp_r
+
+ ierr = 0
+ tmp_r = 0.
+ tmp_i = -1
+ tmp_l = .false.
+
+ call open_db_from_file(db,filename,iunit,ierr)
+
+ call read_inopt(np,'npart',db,err=ierr)
+ call read_inopt(tmp_i,'np_dust',db,err=ierr)
+ dust_method = 2
+ if (ierr /= 0) dust_method = 1
+ call read_inopt(tmp_r,'udist',db,err=ierr)
+ dist_unit = 'au'
+ if (ierr==0 .and. abs(tmp_r - au) < au*tol) dist_unit = 'au'
+ call read_inopt(tmp_r,'umass',db,err=ierr)
+ mass_unit = 'solarm'
+ if (ierr==0 .and. abs(tmp_r - solarm) < solarm*tol) mass_unit = 'solarm'
+ call read_inopt(tmp_i,'icentralforce',db,err=ierr)
+ icentral = 1
+ nsinks = 1
+ if (ierr==0 .and. tmp_i==1) then
+    icentral = 0
+    ipotential = 1
+ endif
+ call read_inopt(tmp_i,'binary_set',db,err=ierr)
+ if (ierr==0 .and. tmp_i==1) then
+    nsinks = 2
+    ibinary = 0
+    iuse_disc(1) = .true.
+    call read_inopt(disc_m(1),'disc_m',db,err=ierr)
+    call read_inopt(pindex(1),'pindex',db,err=ierr)
+    call read_inopt(qindex(1),'qindex',db,err=ierr)
+    call read_inopt(R_in(1),'R_in',db,err=ierr)
+    call read_inopt(R_out(1),'R_out',db,err=ierr)
+    call read_inopt(pindex_dust(1),'pindex_dust',db,err=ierr)
+    call read_inopt(R_indust(1),'R_indust',db,err=ierr)
+    call read_inopt(R_outdust(1),'R_outdust',db,err=ierr)
+ endif
+ call read_inopt(tmp_l,'use_binarydisc',db,err=ierr)
+ if (ierr==0) then
+    nsinks = 2
+    ibinary = 0
+    iuse_disc(1) = tmp_l
+    call read_inopt(iuse_disc(2),'use_primarydisc',db,err=ierr)
+    call read_inopt(iuse_disc(3),'use_secondardisc',db,err=ierr)
+    do i=1,3
+       if (iuse_disc(i)) then
+          call read_inopt(disc_m(i),'discmass'//trim(disctype(i)),db,err=ierr)
+          call read_inopt(pindex(i),'p_index'//trim(disctype(i)),db,err=ierr)
+          call read_inopt(qindex(i),'q_index'//trim(disctype(i)),db,err=ierr)
+          call read_inopt(H_R(i),'HoverR'//trim(disctype(i)),db,err=ierr)
+       endif
+    enddo
+ endif
+ call read_inopt(m1,'star_m',db,err=ierr)
+ call read_inopt(m1,'object_mass',db,err=ierr)
+ call read_inopt(tmp_r,'massratio',db,err=ierr)
+ if (ierr==0) m2 = tmp_r*m1
+ call read_inopt(accr1,'accradius',db,err=ierr)
+ call read_inopt(accr2,'accretion_radius2',db,err=ierr)
+ call read_inopt(binary_a,'binary_separation',db,err=ierr)
+ call read_inopt(binary_a,'semimajoraxis',db,err=ierr)
+ call read_inopt(binary_e,'ecc',db,err=ierr)
+ call read_inopt(binary_e,'eccentricity',db,err=ierr)
+ call read_inopt(tmp_i,'mass_set',db,err=ierr)
+ mass_set = 0
+ if (ierr==0 .and. tmp_i==1) mass_set(1) = 2
+ call read_inopt(disc_m(1),'discmass',db,err=ierr)
+ call read_inopt(disc_m(1),'disc_mass',db,err=ierr)
+ call read_inopt(incl(1),'xinc',db,err=ierr)
+ call read_inopt(incl(1),'inclination',db,err=ierr)
+ call read_inopt(pindex(1),'p_index',db,err=ierr)
+ call read_inopt(qindex(1),'q_index',db,err=ierr)
+ call read_inopt(H_R(1),'HoverR',db,err=ierr)
+ call read_inopt(tmp_i,'iprofilegas',db,err=ierr)
+ itapergas = .false.
+ if (ierr==0 .and. tmp_i==1) itapergas = .true.
+ call read_inopt(sig_norm(1),'sigma_naught',db,err=ierr)
+ call read_inopt(dust_to_gas_ratio,'dust_to_gas',db,err=ierr)
+ call read_inopt(tmp_i,'profile_set_dust',db,err=ierr)
+ if (ierr /= 0) then
+    profile_set_dust = 1
+    pindex_dust = pindex
+ endif
+ call read_inopt(tmp_r,'graindensinp',db,err=ierr)
+ if (ierr /= 0) graindensinp = 3.
+ nplanets = 0
+ call read_inopt(nplanets,'nplanets',db,err=ierr)
+ if (nplanets > 0) setplanets = 1
+ call read_inopt(R_in(1),'R_in',db,err=ierr)
+ R_ref = R_in(1)
+
+ call close_db(db)
+
+end subroutine read_obsolete_setup_options
 
 !------------------------------------------------------------------------
 !

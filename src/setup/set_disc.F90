@@ -203,7 +203,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  G      = gg*umass*utime**2/(udist**3)
  clight = c*utime/udist
  if (id==master .and. do_verbose) then
-    print*,' Phantom: general disc setup (see .discparams file for details)'
+    print "(a)",' Phantom: general disc setup (see .discparams file for details)'
  endif
  if (present(particle_type)) then
     itype = particle_type
@@ -222,10 +222,10 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  endif
  if (id==master .and. do_verbose) then
     if (do_mixture) then
-       print*,' Setting up disc mixture containing ',npart_set,' '// &
+       print "(a,i8,a)",' Setting up disc mixture containing ',npart_set,' '// &
               trim(labeltype(itype))//'/'//trim(labeltype(itype+1))//' particles'
     else
-       print*,' Setting up disc containing ',npart_set,' '//trim(labeltype(itype))//' particles'
+       print "(a,i8,a)",' Setting up disc containing ',npart_set,' '//trim(labeltype(itype))//' particles'
     endif
  endif
  !
@@ -372,12 +372,12 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  !  in the input file so as to give the desired alpha_SS
  !
  if (present(alpha)) then
-    if (do_verbose) print*, 'alphaSS requested = ', alpha
+    if (do_verbose) print "(a,g10.4)", ' alphaSS requested = ', alpha
     alpha = alpha/(honH/10.0)
     !--and the min and max alphaSS present
     alphaSS_min = alpha*honHmin/10.
     alphaSS_max = alpha*honHmax/10.
-    if (do_verbose) print*, 'Setting alpha_AV = ',alpha,' to give alphaSS as requested'
+    if (do_verbose) print "(a,g10.4,a)", ' Setting alpha_AV = ',alpha,' to give alphaSS as requested'
  else
     alphaSS_min = honHmin/10.
     alphaSS_max = honHmax/10.

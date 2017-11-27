@@ -297,7 +297,7 @@ endif
 ifeq ($(SETUP), binarydiscMFlow)
 #   binarydiscMFlow setup
     FPPFLAGS= -DSORT_RADIUS_INIT -DMFLOW -DUSE_STRAIN_TENSOR #-DVMFLOW  #-DDISC_VISCOSITY# -DBINPOS
-    SETUPFILE= setup_binarydisc.f90
+    SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc_MFlow.f90
 #    ANALYSIS= analysis_binarydisc.f90
     MAXP=1000000
