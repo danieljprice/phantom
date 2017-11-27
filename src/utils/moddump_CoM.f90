@@ -13,13 +13,13 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: James Wurster
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: centreofmass, options, part, physcon, prompting, timestep
+!  DEPENDENCIES: boundary, centreofmass, dim, part
 !+
 !--------------------------------------------------------------------------
 module moddump
