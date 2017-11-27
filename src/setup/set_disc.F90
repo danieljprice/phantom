@@ -62,6 +62,7 @@ module setdisc
  public :: set_disc,set_incline_or_warp,get_disc_mass,scaled_sigma
 
  private
+ integer, parameter :: maxbins = 4096
 
 contains
 
@@ -75,31 +76,31 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
                     disc_mass,disc_massdust,sig_norm,star_mass,xyz_origin,vxyz_origin,&
                     particle_type,particle_mass,hfact,xyzh,vxyzu,polyk,position_angle,inclination,&
                     ismooth,alpha,rwarp,warp_smoothl,bh_spin,rref,writefile,ierr,prefix,verbose)
- use io,      only:stdout
- use part,    only:maxp,idust,maxtypes
- integer,                     intent(in)    :: id,master
- integer, optional,           intent(in)    :: nparttot
- integer,                     intent(inout) :: npart
- integer, optional,           intent(in)    :: npart_start,indexprofile,indexprofiledust
- real,                        intent(in)    :: rmin,rmax
- real, optional,              intent(in)    :: rmindust,rmaxdust,p_indexdust,disc_massdust
- real, optional,              intent(in)    :: rc,rcdust
- real, optional,              intent(in)    :: phimin,phimax
- real, optional,              intent(inout) :: alpha
- real,                        intent(in)    :: p_index,q_index,HoverR,gamma,hfact
- real, optional,              intent(in)    :: disc_mass,star_mass,sig_norm
- real, optional,              intent(in)    :: xyz_origin(3),vxyz_origin(3)
- integer, optional,           intent(in)    :: particle_type
- real, optional,              intent(in)    :: position_angle,inclination
- real, optional,              intent(in)    :: rwarp,warp_smoothl,bh_spin,rref
- logical, optional,           intent(in)    :: ismooth,mixture
- real,                        intent(out)   :: xyzh(:,:)
- real,                        intent(out)   :: vxyzu(:,:)
- real,                        intent(out)   :: polyk,particle_mass
- logical, optional,           intent(in)    :: writefile,verbose
- integer, optional,           intent(out)   :: ierr
- character(len=20), optional, intent(in)    :: prefix
- integer, parameter :: maxbins = 256
+ use dim,  only:maxalpha
+ use io,   only:stdout
+ use part, only:maxp,idust,maxtypes
+ integer,           intent(in)    :: id,master
+ integer, optional, intent(in)    :: nparttot
+ integer,           intent(inout) :: npart
+ integer, optional, intent(in)    :: npart_start,indexprofile,indexprofiledust
+ real,              intent(in)    :: rmin,rmax
+ real, optional,    intent(in)    :: rmindust,rmaxdust,p_indexdust,disc_massdust
+ real, optional,    intent(in)    :: rc,rcdust
+ real, optional,    intent(in)    :: phimin,phimax
+ real, optional,    intent(inout) :: alpha
+ real,              intent(in)    :: p_index,q_index,HoverR,gamma,hfact
+ real, optional,    intent(in)    :: disc_mass,star_mass,sig_norm
+ real, optional,    intent(in)    :: xyz_origin(3),vxyz_origin(3)
+ integer, optional, intent(in)    :: particle_type
+ real, optional,    intent(in)    :: position_angle,inclination
+ real, optional,    intent(in)    :: rwarp,warp_smoothl,bh_spin,rref
+ logical, optional, intent(in)    :: ismooth,mixture
+ real,              intent(out)   :: xyzh(:,:)
+ real,              intent(out)   :: vxyzu(:,:)
+ real,              intent(out)   :: polyk,particle_mass
+ logical, optional, intent(in)    :: writefile,verbose
+ integer, optional, intent(out)   :: ierr
+ character(len=20), optional, intent(in) :: prefix
  integer :: itype,npart_tot,npart_start_count,i,npart_set
  integer :: sigmaprofile,sigmaprofiledust
  real    :: Q,G,cs0,clight
@@ -159,14 +160,14 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
     return
  endif
  if (present(xyz_origin)) then
-    xorigini(:) = xyz_origin(:)
+    xorigini = xyz_origin
  else
-    xorigini(:) = 0.
+    xorigini = 0.
  endif
  if (present(vxyz_origin)) then
-    vorigini(:) = vxyz_origin(:)
+    vorigini = vxyz_origin
  else
-    vorigini(:) = 0.
+    vorigini = 0.
  endif
  if (present(ismooth)) then
     smooth_surface_density = ismooth
@@ -203,6 +204,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  G      = gg*umass*utime**2/(udist**3)
  clight = c*utime/udist
  if (id==master .and. do_verbose) then
+    print "(a)", ''
     print "(a)",' Phantom: general disc setup (see .discparams file for details)'
  endif
  if (present(particle_type)) then
@@ -277,16 +279,16 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
     !--set disc mass from sigma_norm
     sigma_norm = sig_norm
     call get_disc_mass(disc_m,enc_m,rad,Q,sigmaprofile,sigma_norm, &
-                       star_m,p_index,q_index,R_in,R_out,R_ref,R_c,H_R,maxbins)
+                       star_m,p_index,q_index,R_in,R_out,R_ref,R_c,H_R)
  elseif (present(disc_mass)) then
     !--compute trial disc mass and Toomre Q
     sigma_norm = 1.d0
     call get_disc_mass(disc_m,enc_m,rad,Q_tmp,sigmaprofile,sigma_norm, &
-                       star_m,p_index,q_index,R_in,R_out,R_ref,R_c,H_R,maxbins)
+                       star_m,p_index,q_index,R_in,R_out,R_ref,R_c,H_R)
     sigma_norm = sigma_norm * disc_mass / disc_m
     !--recompute actual disc mass, enc_m, rad, and Toomre Q
     call get_disc_mass(disc_m,enc_m,rad,Q,sigmaprofile,sigma_norm, &
-                       star_m,p_index,q_index,R_in,R_out,R_ref,R_c,H_R,maxbins)
+                       star_m,p_index,q_index,R_in,R_out,R_ref,R_c,H_R)
  else
     call fatal('set_disc','need to set disc mass directly or via sigma normalisation')
  endif
@@ -298,7 +300,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
     sigma_normdust = 1.d0
     call get_disc_mass(disc_mdust,enc_m_tmp,rad_tmp,Q_tmp,sigmaprofiledust, &
                        sigma_normdust,star_m,p_indexdust,q_index, &
-                       R_indust,R_outdust,R_ref,R_c,H_R,maxbins)
+                       R_indust,R_outdust,R_ref,R_c,H_R)
     sigma_normdust = sigma_normdust*disc_massdust/disc_mdust
  endif
  !
@@ -314,7 +316,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  !
  if (present(nparttot)) then
     npart = 0
-    do i = 1,npart_set
+    do i=1,npart_set
        if (i_belong(i)) npart = npart + 1
     enddo
  endif
@@ -333,8 +335,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  !
  call set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin, &
                           clight,cs0,exponential_taper,p_index,q_index,gamma,R_in, &
-                          maxbins,rad,enc_m,smooth_surface_density,xyzh,vxyzu)
-
+                          rad,enc_m,smooth_surface_density,xyzh,vxyzu)
  !
  !--inclines and warps
  !
@@ -352,11 +353,10 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
     call set_incline_or_warp(xyzh,vxyzu,npart_tot,npart_start_count,posangl,incl,&
                              R_warp,H_warp,psimax)
  endif
-
  !
  !--work out h/H in order to set the artificial viscosity parameter to match a chosen alpha_SS
  !
- if (do_verbose) write(*,'(/,1x,"Actual <h>/H...per particle... ",f9.4)') honH
+ if (do_verbose) write(*,'(/,1x,"(<h>/H) per particle...: ",f9.4)') honH
  if (smooth_surface_density .and. p_index > 0.) then
     rminav = R_in*((1.+2.*p_index)**2)/(4.*p_index**2)
  else
@@ -365,32 +365,30 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  rmaxav = R_out
  call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,star_m,&
                npart_start_count,npart_tot,do_verbose,R_warp)
-
-#ifdef DISC_VISCOSITY
- !
- !--if disc viscosity is used, set the artificial viscosity parameter
- !  in the input file so as to give the desired alpha_SS
- !
- if (present(alpha)) then
-    if (do_verbose) print "(a,g10.4)", ' alphaSS requested = ', alpha
-    alpha = alpha/(honH/10.0)
-    !--and the min and max alphaSS present
-    alphaSS_min = alpha*honHmin/10.
-    alphaSS_max = alpha*honHmax/10.
-    if (do_verbose) print "(a,g10.4,a)", ' Setting alpha_AV = ',alpha,' to give alphaSS as requested'
+ if (maxalpha==0) then
+    !
+    !--if disc viscosity is used, set the artificial viscosity parameter
+    !  in the input file so as to give the desired alpha_SS
+    !
+    if (present(alpha)) then
+       if (do_verbose) print "(a,g11.4)", ' alphaSS requested = ', alpha
+       alpha = alpha/(honH/10.0)
+       !--and the min and max alphaSS present
+       alphaSS_min = alpha*honHmin/10.
+       alphaSS_max = alpha*honHmax/10.
+       if (do_verbose) print "(a,g11.4,a)", ' Setting alpha_AV  = ',alpha,' to give alphaSS as requested'
+    else
+       alphaSS_min = honHmin/10.
+       alphaSS_max = honHmax/10.
+    endif
  else
-    alphaSS_min = honHmin/10.
-    alphaSS_max = honHmax/10.
+    !
+    !--if disc viscosity is not used, simply return the range of alphaSS
+    !  implied in the disc by the chosen artificial viscosity parameter
+    !
+    alphaSS_min = honHmin*(31./525.)
+    alphaSS_max = honHmax*(31./525.)
  endif
-#else
- !
- !--if disc viscosity is not used, simply return the range of alphaSS
- !  implied in the disc by the chosen artificial viscosity parameter
- !
- alphaSS_min = honHmin*(31./525.)
- alphaSS_max = honHmax*(31./525.)
-#endif
-
  !
  !--adjust positions and velocities so the centre of mass is at the origin
  !  also shift particles to new origin if this is not at (0,0,0)
@@ -400,7 +398,6 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  else
     call adjust_centre_of_mass(xyzh,vxyzu,particle_mass,npart_start_count,npart_tot,xorigini,vorigini)
  endif
-
  !
  !--print out disc parameters, to file and to the screen
  !
@@ -490,8 +487,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  real    :: rhopart,rhoz,hpart
  real    :: xcentreofmass(3)
  real    :: dR,dRmixt
- integer, parameter :: nbins=10000
- real, dimension(nbins) :: f_vals,fmixt_vals
+ real, dimension(maxbins) :: f_vals,fmixt_vals
 
  !--seed for random number generator
  iseed = -34598 + (itype - igas)
@@ -499,30 +495,30 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  ninz = 0
 
  !--set maximum f=R*sigma (scaled) value
- dR = (R_out-R_in)/real(nbins-1)
- do i=1,nbins
+ dR = (R_out-R_in)/real(maxbins-1)
+ do i=1,maxbins
     R = R_in + (i-1)*dR
     f_vals(i) = R*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c)
  enddo
  fr_max = maxval(f_vals)
  if (do_mixture) then
-    dRmixt = (R_outdust-R_indust)/real(nbins-1)
-    do i=1,nbins
+    dRmixt = (R_outdust-R_indust)/real(maxbins-1)
+    do i=1,maxbins
        R = R_indust + (i-1)*dRmixt
        fmixt_vals(i) = R*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_c_dust)
     enddo
     fr_max = fr_max + maxval(fmixt_vals)
  endif
 
- xcentreofmass(:) = 0.
+ xcentreofmass = 0.
  ipart = npart_start_count - 1
 
  !--loop over particles
- do i = npart_start_count,npart_tot
+ do i=npart_start_count,npart_tot
     if (id==master .and. mod(i,npart_tot/10)==0 .and. verbose) print*,i
     !--get a random angle between phi_min and phi_max
     rand_no = ran2(iseed)
-    phi  = phi_min + (phi_max - phi_min)*ran2(iseed)
+    phi = phi_min + (phi_max - phi_min)*ran2(iseed)
     !--now get radius
     f = 0.
     randtest = 1.
@@ -595,14 +591,14 @@ end subroutine set_disc_positions
 !----------------------------------------------------------------
 subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,&
                                clight,cs0,do_sigmapringle,p_index,q_index,gamma,R_in,&
-                               maxbins,rad,enc_m,smooth_sigma,xyzh,vxyzu)
+                               rad,enc_m,smooth_sigma,xyzh,vxyzu)
  use externalforces,       only:iext_lensethirring,iext_einsteinprec
  use extern_lensethirring, only:blackhole_spin_angle
  use options,              only:iexternalforce
  use part,                 only:gravity
- integer, intent(in)    :: npart_tot,npart_start_count,itype,maxbins
+ integer, intent(in)    :: npart_tot,npart_start_count,itype
  real,    intent(in)    :: G,star_m,aspin,clight,cs0,p_index,q_index,gamma,R_in
- real,    intent(in)    :: rad(maxbins),enc_m(maxbins)
+ real,    intent(in)    :: rad(:),enc_m(:)
  logical, intent(in)    :: do_sigmapringle,smooth_sigma
  real,    intent(in)    :: xyzh(:,:)
  real,    intent(inout) :: vxyzu(:,:)
@@ -679,9 +675,9 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        !
        !--set velocities -- move to origin below
        !
-       vxyzu(1,ipart)  = -vphi*sin(phi)+ vr*cos(phi)
-       vxyzu(2,ipart)  = vphi*cos(phi) + vr*sin(phi)
-       vxyzu(3,ipart)  = 0.0d0
+       vxyzu(1,ipart) = -vphi*sin(phi)+ vr*cos(phi)
+       vxyzu(2,ipart) = vphi*cos(phi) + vr*sin(phi)
+       vxyzu(3,ipart) = 0.0d0
        !
        !--set thermal energy
        !  utherm generally should not be stored
@@ -725,16 +721,16 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
  do i=i1,i2
     if (i_belong(i)) then
        ipart = ipart + 1
-       xcentreofmass(:) = xcentreofmass(:) + particle_mass*xyzh(1:3,ipart)
-       vcentreofmass(:) = vcentreofmass(:) + particle_mass*vxyzu(1:3,ipart)
+       xcentreofmass = xcentreofmass + particle_mass*xyzh(1:3,ipart)
+       vcentreofmass = vcentreofmass + particle_mass*vxyzu(1:3,ipart)
        totmass = totmass + particle_mass
     endif
  enddo
 
  totmass = reduceall_mpi('+',totmass)
 
- xcentreofmass(:) = xcentreofmass(:)/totmass
- vcentreofmass(:) = vcentreofmass(:)/totmass
+ xcentreofmass = xcentreofmass/totmass
+ vcentreofmass = vcentreofmass/totmass
 
  xcentreofmass = reduceall_mpi('+',xcentreofmass)
  vcentreofmass = reduceall_mpi('+',vcentreofmass)
@@ -743,8 +739,8 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
  do i=i1,i2
     if (i_belong(i)) then
        ipart = ipart + 1
-       xyzh(1:3,ipart)  = xyzh(1:3,ipart)  - xcentreofmass(:) + x0(:)
-       vxyzu(1:3,ipart) = vxyzu(1:3,ipart) - vcentreofmass(:) + v0(:)
+       xyzh(1:3,ipart)  = xyzh(1:3,ipart)  - xcentreofmass + x0
+       vxyzu(1:3,ipart) = vxyzu(1:3,ipart) - vcentreofmass + v0
     endif
  enddo
 
@@ -777,7 +773,7 @@ pure subroutine set_incline_or_warp(xyzh,vxyzu,npart_tot,npart_start,posangl,inc
        inc = 0.
     elseif (R < Rwarp+Hwarp) then
        inc = asin(0.5*(1.+sin(pi/(2.*Hwarp)*(R-Rwarp)))*sin(incl))
-       psi  = pi*Rwarp/(4.*Hwarp)*sin(incl)/sqrt(1. - (0.5*sin(incl))**2)
+       psi = pi*Rwarp/(4.*Hwarp)*sin(incl)/sqrt(1. - (0.5*sin(incl))**2)
        psimax = max(psimax,psi)
     else
        inc = incl
@@ -821,9 +817,8 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  real,    intent(in) :: alphaSS_min,alphaSS_max,R_warp,psimax,R_c,inclination,honH,cs0
  integer :: ierr,i
  real    :: T0,T_ref,sig,dR,R
- real,    parameter :: vxyzutmp(maxvxyzu) = 0.
- integer, parameter :: nbins=10000
- real, dimension(nbins) :: sig_vals
+ real, parameter :: vxyzutmp(maxvxyzu) = 0.
+ real, dimension(maxbins) :: sig_vals
 
  write(iunit,"(/,a)") '# '//trim(labeltype(itype))//' disc parameters'
  call write_inopt(R_in,'R_in','inner disc boundary',iunit)
@@ -846,8 +841,8 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  sig = sigma_norm*scaled_sigma(R_out,sigmaprofile,p_index,R_ref,R_in,R_c)
  sig = sig*umass/udist**2
  call write_inopt(sig,'sig_out','surface density (g/cm^2) at R=R_out',iunit)
- dR = (R_out-R_in)/real(nbins-1)
- do i=1,nbins
+ dR = (R_out-R_in)/real(maxbins-1)
+ do i=1,maxbins
     R = R_in + (i-1)*dR
     sig_vals(i) = sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c)
  enddo
@@ -881,7 +876,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  call write_inopt(utime,'utime','time units (cgs)',iunit)
  call write_inopt(gg/(udist**3/(utime**2*umass)),'G','in code units',iunit)
  call write_inopt(c/(udist/utime),'c','in code units',iunit)
- write(iunit,*)
+ write(iunit,"(a)")
 
  !--print some of these diagnostics in more useful form
  write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
@@ -927,10 +922,9 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,M_star,i
  real,    intent(in)  :: cs0,q_index,M_star,rminav,rmaxav,rwarp
  logical, intent(in)  :: verbose
 
- integer, parameter :: nr = 350
  integer :: i,ii,iwarp
  real :: G,rmin,rmax,dr,ri
- real :: rad(nr),ninbin(nr),h_smooth(nr),cs(nr),H(nr),omega(nr)
+ real :: rad(maxbins),ninbin(maxbins),h_smooth(maxbins),cs(maxbins),H(maxbins),omega(maxbins)
  integer :: ipart
 
  G = 1.0
@@ -940,9 +934,9 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,M_star,i
  rmax = rmaxav
 
  !--set up the radius array
- dr = (rmax-rmin)/real(nr-1)
+ dr = (rmax-rmin)/real(maxbins-1)
  iwarp = 0
- do i=1,nr
+ do i=1,maxbins
     rad(i)=rmin + real(i-1)*dr
     if (rwarp > tiny(rwarp)) then
        if (rad(i) > rwarp) iwarp = i - 1
@@ -950,31 +944,31 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,M_star,i
  enddo
 
  !--initialise arrays to zero
- ninbin(:)=0
- h_smooth(:)=0.0
+ ninbin = 0
+ h_smooth = 0.0
 
  !--and thus the sound speed array
- do i=1,nr
+ do i=1,maxbins
     cs(i) = cs_func(cs0,rad(i),q_index)
     omega(i) = sqrt(G*M_star/rad(i)**3)
  enddo
 
  !--and thus the disc scale height
- do i=1,nr
+ do i=1,maxbins
     H(i) = cs(i)/omega(i)
  enddo
 
  !--loop over particles putting properties into the correct bin
  ipart = i1 - 1
- do i = i1,i2
+ do i=i1,i2
     if (i_belong(i)) then
        ipart = ipart + 1
-       if (xyzh(4,ipart)  >  tiny(xyzh)) then ! IF ACTIVE
+       if (xyzh(4,ipart) > tiny(xyzh)) then ! IF ACTIVE
           ri = sqrt(dot_product(xyzh(1:3,ipart),xyzh(1:3,ipart)))
           ii = int((ri-rad(1))/dr + 1)
 
-          if (ii > nr) cycle
-          if (ii < 1)  cycle
+          if (ii > maxbins) cycle
+          if (ii < 1) cycle
 
           !--ignoring the large smoothing length particles far from the mid-plane
           if (xyzh(3,ipart)**2 < 4.*H(ii)*H(ii)) then
@@ -989,12 +983,12 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,M_star,i
  ninbin = reduceall_mpi('+', ninbin)
 
  !--average h_smooth
- do i = 1,nr
+ do i=1,maxbins
     if (ninbin(i) > 0) h_smooth(i) = h_smooth(i)/ninbin(i)
  enddo
 
  !--now loop over rings to calculate required quantities
- do i = 1, nr
+ do i=1,maxbins
     if (H(i) > 0.) then
        h_smooth(i) = h_smooth(i)/H(i)
     endif
@@ -1004,19 +998,18 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,M_star,i
  honH = 0.0
  honHmin = minval(h_smooth)
  honHmax = maxval(h_smooth)
- do i=1,nr
+ do i=1,maxbins
     honH = honH + h_smooth(i)
  enddo
- honH = honH/real(nr)
+ honH = honH/real(maxbins)
 
  if (verbose) then
-    write(*,'(1x,"Actual <h>/H.................. ",f9.4)') honH
-    write(*,'(1x,"Actual (<h>/H)_min is approx.: ",f9.4)') honHmin
-    write(*,'(1x,"Actual (<h>/H)_max is approx.: ",f9.4)') honHmax
+    write(*,'(1x,"(<h>/H) mean...........: ",f9.4)') honH
+    write(*,'(1x,"(<h>/H) minimum........: ",f9.4)') honHmin
+    write(*,'(1x,"(<h>/H) maximum........: ",f9.4)') honHmax
     if (rwarp > tiny(rwarp) .and. iwarp > 0) then
-       write(*,'(1x,"Actual <h>/H at R_warp is    : ",f9.4)') h_smooth(iwarp)
+       write(*,'(1x,"(<h>/H) at R_warp......: ",f9.4)') h_smooth(iwarp)
     endif
-    ! write(*,'(1x,"alpha_SS/alpha_AV is approx: ",f9.4)') honH/10.0
     write(*,'(1x,"e.g. for alpha_SS = 0.1,  use alpha_AV = ",f10.5)') 0.1/(honH/10.0)
     write(*,'(1x,"   using alpha_AV = 1.0 gives alpha_SS ~ ",f8.4,"->",f8.4)') honHmin/10.0,honHmax/10.0
  endif
@@ -1072,11 +1065,11 @@ end function scaled_sigma
 !
 !------------------------------------------------------------------------
 subroutine get_disc_mass(disc_m,enc_m,rad,toomre_min,sigmaprofile,sigma_norm, &
-                         star_m,pindex,qindex,R_in,R_out,R_ref,R_c,H_R,maxbins)
+                         star_m,pindex,qindex,R_in,R_out,R_ref,R_c,H_R)
  real,           intent(in)  :: sigma_norm,star_m,pindex,qindex,R_in,R_out,R_ref,H_R
  real, optional, intent(in)  :: R_c
- integer,        intent(in)  :: sigmaprofile,maxbins
- real,           intent(out) :: disc_m,enc_m(maxbins),rad(maxbins),toomre_min
+ integer,        intent(in)  :: sigmaprofile
+ real,           intent(out) :: disc_m,enc_m(:),rad(:),toomre_min
 
  real    :: dr,dM,R,sigma,cs0,cs,kappa,G
  integer :: i

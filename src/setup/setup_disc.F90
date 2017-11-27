@@ -350,7 +350,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     do i=1,3
        if (iuse_disc(i)) then
           if (multiple_disc_flag) then
-             print "(a)",' '
+             print "(a)",''
              print "(a)",' >>>  circum'//trim(disctype(i))//' disc  <<<'
           endif
           call prompt('How do you want to set the gas disc mass?'//new_line('A')// &
@@ -535,6 +535,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              if (iuse_disc(i)) isink = i-1
           enddo
           !--locally isothermal
+          print "(a)",''
           if (isink /= 0) then
              ieos = 6
              print "(a)",' setting ieos=6 for locally isothermal disc around sink'
@@ -598,6 +599,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--set sink particle(s) or potential
  !
+ print "(a)",''
  select case (icentral)
  case (0)
     select case (ipotential)
@@ -697,23 +699,23 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           sig_norm(i) = 1.d0
           call get_disc_mass(disc_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofilegas(i),sig_norm(i), &
                              star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
-                             H_R(i),maxbins)
+                             H_R(i))
           sig_norm(i) = sig_norm(i) * disc_m(i) / disc_mtmp(i)
        case (1)
           !--set disc mass from annulus mass
           sig_norm(i) = 1.d0
           call get_disc_mass(annulus_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofilegas(i),sig_norm(i), &
                              star_m(i),pindex(i),qindex(i),R_inann(i),R_outann(i),R_ref(i),R_c(i), &
-                             H_R(i),maxbins)
+                             H_R(i))
           sig_norm(i) = sig_norm(i) * annulus_m(i) / annulus_mtmp(i)
           call get_disc_mass(disc_m(i),enc_m,rad,Q_min(i),sigmaprofilegas(i),sig_norm(i), &
                              star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
-                             H_R(i),maxbins)
+                             H_R(i))
        case (2)
           !--set disc mass from sigma normalisation
           call get_disc_mass(disc_m(i),enc_m,rad,Q_min(i),sigmaprofilegas(i),sig_norm(i), &
                              star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
-                             H_R(i),maxbins)
+                             H_R(i))
        case (3)
           !--set disc mass from sigma at reference radius
           if (.not.(R_in(i) < R_ref(i)) .and. ismoothgas(i)) call fatal('setup_disc', &
@@ -721,18 +723,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           sig_norm(i) = sig_ref(i) / scaled_sigma(R_ref(i),sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
           call get_disc_mass(disc_m(i),enc_m,rad,Q_min(i),sigmaprofilegas(i),sig_norm(i), &
                              star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
-                             H_R(i),maxbins)
+                             H_R(i))
        case (4)
           !--set disc mass from minimum Toomre Q
           sig_norm(i) = 1.d0
           call get_disc_mass(disc_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofilegas(i),sig_norm(i), &
                              star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
-                             H_R(i),maxbins)
+                             H_R(i))
           sig_norm(i) = sig_norm(i) * Q_mintmp / Q_min(i)
           !--recompute actual disc mass and Toomre Q
           call get_disc_mass(disc_m(i),enc_m,rad,Q_min(i),sigmaprofilegas(i),sig_norm(i), &
                              star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
-                             H_R(i),maxbins)
+                             H_R(i))
        end select
        totmass_gas = totmass_gas + disc_m(i)
        if (use_dust) then
@@ -825,7 +827,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           sig_normdust(i) = 1.d0
           call get_disc_mass(disc_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofiledust(i), &
                              sig_normdust(i),star_m(i),pindex_dust(i),qindex_dust(i), &
-                             R_indust(i),R_outdust(i),R_ref(i),R_c_dust(i),H_R(i),maxbins)
+                             R_indust(i),R_outdust(i),R_ref(i),R_c_dust(i),H_R(i))
           sig_normdust(i) = sig_normdust(i) * disc_mdust(i) / disc_mtmp(i)
           do j=nparttot+1,npingasdisc
              Rj = sqrt(dot_product(xyzh(1:2,j)-xorigini(1:2),xyzh(1:2,j)-xorigini(1:2)))
@@ -954,7 +956,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(a,g10.3,a)", '    grain density: ',graindenscgs,' g/cm^3'
     print "(a,g10.3,a)", '   approx. Stokes: ',Stokes,''
     print "(1x,40('-'))"
-    print "(a)",' '
+    print "(a)",''
  endif
 
  !
@@ -1060,14 +1062,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--remind user to check for warnings and errors
  !
- print "(a)",' '
+ print "(a)",''
  print "(a)",' + ----------------------------------------------------- +'
  print "(a)",' |                                                       |'
  print "(a)",' |   please check output above for WARNINGS and ERRORS   |'
  print "(a)",' |   before starting the calculation                     |'
  print "(a)",' |                                                       |'
  print "(a)",' + ----------------------------------------------------- +'
- print "(a)",' '
+ print "(a)",''
 
  return
 end subroutine setpart
@@ -1089,7 +1091,7 @@ subroutine write_setupfile(filename)
     call read_obsolete_setup_options(filename)
  endif
 
- print "(a)",' '
+ print "(a)",''
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for disc setup routine'
