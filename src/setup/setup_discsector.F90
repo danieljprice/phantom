@@ -216,7 +216,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                xyzh          = xyzh,               &
                vxyzu         = vxyzu,              &
                polyk         = polyk,              &
-               twist         = .false.,            &
                prefix        = fileprefix)
 
  icooling = 1 ! Switches on beta cooling

@@ -47,9 +47,11 @@
 !--------------------------------------------------------------------------
 module evwrite
  use io,             only: fatal
+ use part,           only: npart
  use options,        only: iexternalforce
  use externalforces, only: iext_binary,was_accreted
  use energies,       only: inumev,iquantities,ev_data
+ use energies,       only: ndead
  use energies,       only: erot_com,gas_only,track_mass,track_lum
  use energies,       only: iev_sum,iev_max,iev_min,iev_ave
  use energies,       only: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,&
@@ -387,6 +389,9 @@ subroutine write_evlog(iprint)
  integer, intent(in) :: iprint
  character(len=120)  :: string
 
+ if (ndead > 0) then
+    write(iprint,"(1x,a,I10,a,I10)") 'n_alive=',npart-ndead,', n_dead_or_accreted=',ndead
+ endif
  write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") &
       'tot',etot,'kin',ekin,'therm',etherm,'pot',epot
  if (mhd)        write(iprint,"(1x,('E',a,'=',es10.3))") 'mag',emag

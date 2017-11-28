@@ -96,7 +96,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,npartoftype
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev, &
-                            rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin
+                            rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin,rhomax_ipart
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
  use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in
@@ -290,9 +290,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     if (gravity .and. icreate_sinks > 0 .and. ipart_rhomax /= 0) then
        !
        ! creation of new sink particles
-       ! send itest=-1 for compatibility with old interface
+       ! Note: rhomax_ipart is for bookkeeping only
        !
-       call ptmass_create(nptmass,npart,-1,xyzh,vxyzu,fxyzu,fext,divcurlv,&
+       call ptmass_create(nptmass,npart,rhomax_ipart,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                           massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time,&
                           rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin)
     endif

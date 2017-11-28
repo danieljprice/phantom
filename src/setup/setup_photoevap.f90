@@ -89,9 +89,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                   vxyzu         = vxyzu,             &
                   polyk         = polyk,             &
                   inclination   = xinc,              &
-                  twist         = .false.,           &
                   prefix        = fileprefix)
- !                disc_Q        = 168.,              &
 
  !
  !--set default options for the input file
