@@ -268,7 +268,7 @@ post_to_slack ()
 {
   message=$1;
   webhookurl="https://hooks.slack.com/services/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"
-  channel="#status"
+  channel="#commits"
   username="buildbot"
   json="{\"channel\": \"$channel\", \"username\": \"$username\", \"text\": \"$message\", \"icon_emoji\": \":ghost:\"}"
 
