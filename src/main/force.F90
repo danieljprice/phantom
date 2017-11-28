@@ -2423,7 +2423,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
     endif
 
     ! stopping time
-    if (use_dust) tstop(i) = dtdrag
+    if (use_dust .and. use_dustfrac) then
+       tstop(i) = tstopi
+    elseif (use_dust .and. .not.use_dustfrac) then
+       tstop(i) = dtdrag
+    endif
 
 #ifdef IND_TIMESTEPS
     !-- The new timestep for particle i

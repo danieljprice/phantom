@@ -21,7 +21,6 @@
 !                        posang_ascnode==0 this is a roll angle)
 !
 !  REFERENCES:
-!   Eggleton (1983) ApJ 268, 368-369 (ref:eggleton83)
 !   Xiang-Gruess (2016) MNRAS, Volume 455, Issue 3, p.3086-3100
 !
 !  OWNER: Daniel Mentiplay
@@ -30,7 +29,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, part, physcon, setbinary, units, vectorutils
+!  DEPENDENCIES: io, part, physcon, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module setflyby
@@ -52,7 +51,6 @@ subroutine set_flyby(mprimary,massratio,minimum_approach,initial_dist, &
                      vxyz_ptmass,nptmass,posang_ascnode,inclination,verbose)
  use io,          only:warning,fatal
  use part,        only:ihacc,ihsoft
- use setbinary,   only:Rochelobe_estimate
  use vectorutils, only:rotatevec
  real,    intent(in)    :: mprimary,massratio
  real,    intent(in)    :: minimum_approach,initial_dist
@@ -63,7 +61,7 @@ subroutine set_flyby(mprimary,massratio,minimum_approach,initial_dist, &
  logical, intent(in), optional :: verbose
 
  integer :: i1,i2,i
- real    :: m1,m2,mtot,Rochelobe,Rochelobe2,n0
+ real    :: m1,m2,mtot,n0
  real    :: xp(3),vp(3),reducedmass
  real    :: dma,ecc,eccentricity,m0,pf,r0,x0,y0,z0,vx0,vy0,vz0
  real    :: big_omega,incl,rot_axis(3)
@@ -90,8 +88,6 @@ subroutine set_flyby(mprimary,massratio,minimum_approach,initial_dist, &
  !--eccentricity is set to 1, i.e. parabolic orbit
  eccentricity = 1.0
 
- Rochelobe = Rochelobe_estimate(m1,m2,minimum_approach)
- Rochelobe2 = Rochelobe_estimate(m2,m1,minimum_approach)
  reducedmass = m1*m2/mtot
 
  if (do_verbose) then
@@ -105,13 +101,6 @@ subroutine set_flyby(mprimary,massratio,minimum_approach,initial_dist, &
         'pos. angle ascen. node  :',big_omega, &
         'inclination             :',incl, &
         'eccentricity            :',eccentricity
- endif
-
- if (accretion_radius1 >  Rochelobe2) then
-    call warning('set_flyby','accretion radius of primary > Roche lobe')
- endif
- if (accretion_radius2 >  Rochelobe) then
-    call warning('set_flyby','accretion radius of secondary > Roche lobe')
  endif
 
  !--check for bad parameter choices

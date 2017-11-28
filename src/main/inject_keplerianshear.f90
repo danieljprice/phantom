@@ -425,7 +425,6 @@ subroutine replenish_injection_zone(ninject,time,dtlast,injected)
                hfact      = hfact,                        &
                xyzh       = xyzh_inject,                  &
                vxyzu      = vxyzu_inject,                 &
-               twist      = .false.,                      &
                writefile  = .false.)
 
 ! Rotate components with r < Rmid so that they are in the other injection zone
