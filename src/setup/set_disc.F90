@@ -597,9 +597,9 @@ end subroutine set_disc_positions
 subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin, &
                                aspin_angle,clight,cs0,do_sigmapringle,p_index, &
                                q_index,gamma,R_in,rad,enc_m,smooth_sigma,xyzh,vxyzu)
- use extern_lensethirring, only:blackhole_spin_angle
- use options,              only:iexternalforce
- use part,                 only:gravity
+ use externalforces, only:iext_einsteinprec
+ use options,        only:iexternalforce
+ use part,           only:gravity
  integer, intent(in)    :: npart_tot,npart_start_count,itype
  real,    intent(in)    :: G,star_m,aspin,aspin_angle,clight,cs0,p_index,q_index
  real,    intent(in)    :: rad(:),enc_m(:),gamma,R_in
@@ -621,8 +621,10 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        R    = sqrt(xyzh(1,ipart)**2 + xyzh(2,ipart)**2)
        phi  = atan2(xyzh(2,ipart),xyzh(1,ipart))
        term = G*star_m/R
-       !--need to declare iexternalforce before calling setdisc
-       if (iexternalforce==11) term=term*(1.0 + (6.0/R)) !--assumes Rg=1.
+       !
+       !--correction for Einstein precession (assumes Rg=1)
+       !
+       if (iexternalforce==iext_einsteinprec) term = term*(1.0 + 6.0/R)
        !
        !--correction due to self-gravity
        !
