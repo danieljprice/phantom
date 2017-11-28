@@ -302,6 +302,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
                        sigma_normdust,star_m,p_indexdust,q_index, &
                        R_indust,R_outdust,R_ref,R_c,H_R)
     sigma_normdust = sigma_normdust*disc_massdust/disc_mdust
+    disc_mdust = disc_massdust
  endif
  !
  !--set the particle mass
@@ -486,29 +487,26 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  real    :: HH,HHsqrt2,z_min,z_max
  real    :: rhopart,rhoz,hpart
  real    :: xcentreofmass(3)
- real    :: dR,dRmixt
- real, dimension(maxbins) :: f_vals,fmixt_vals
+ real    :: dR,f_val
 
  !--seed for random number generator
  iseed = -34598 + (itype - igas)
  honH = 0.
  ninz = 0
 
- !--set maximum f=R*sigma (scaled) value
+ !--set maximum f=R*sigma value
  dR = (R_out-R_in)/real(maxbins-1)
+ fr_max = 0.
  do i=1,maxbins
     R = R_in + (i-1)*dR
-    f_vals(i) = R*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c)
+    f_val = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c)
+    if (do_mixture) then
+       if (R>=R_indust .and. R<=R_outdust) then
+          f_val = f_val + R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_c_dust)
+       endif
+    endif
+    fr_max = max(fr_max,f_val)
  enddo
- fr_max = maxval(f_vals)
- if (do_mixture) then
-    dRmixt = (R_outdust-R_indust)/real(maxbins-1)
-    do i=1,maxbins
-       R = R_indust + (i-1)*dRmixt
-       fmixt_vals(i) = R*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_c_dust)
-    enddo
-    fr_max = fr_max + maxval(fmixt_vals)
- endif
 
  xcentreofmass = 0.
  ipart = npart_start_count - 1
@@ -526,13 +524,13 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     do while (randtest > f)
        R = R_in + (R_out - R_in)*ran2(iseed)
        randtest = fr_max*ran2(iseed)
-       f = R*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c)
-       sigma = sigma_norm*f/R
+       f = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c)
+       sigma = f/R
        if (do_mixture) then
           if (R>=R_indust .and. R<=R_outdust) then
-             fmixt = R*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_c_dust)
+             fmixt = R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_c_dust)
              f     = f + fmixt
-             sigma = sigma + sigma_normdust*fmixt/R
+             sigma = sigma + fmixt/R
           endif
        endif
     enddo
