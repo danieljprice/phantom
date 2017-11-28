@@ -763,19 +763,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        case (1)
           !--single disc or circumbinary
           !  centre of mass of binary defined to be zero (see set_binary)
-          xorigini(:) = 0.
-          vorigini(:) = 0.
-          Rochelobe   = huge(0.)
+          xorigini  = 0.
+          vorigini  = 0.
+          Rochelobe = huge(0.)
        case(2)
           !--circumprimary
-          xorigini(:) = xyzmh_ptmass(1:3,1)
-          vorigini(:) = vxyz_ptmass(1:3,1)
-          Rochelobe   = Rochelobe_estimate(m2,m1,binary_a)
+          xorigini  = xyzmh_ptmass(1:3,1)
+          vorigini  = vxyz_ptmass(1:3,1)
+          Rochelobe = Rochelobe_estimate(m2,m1,binary_a)
        case(3)
           !--circumsecondary
-          xorigini(:) = xyzmh_ptmass(1:3,2)
-          vorigini(:) = vxyz_ptmass(1:3,2)
-          Rochelobe   = Rochelobe_estimate(m1,m2,binary_a)
+          xorigini  = xyzmh_ptmass(1:3,2)
+          vorigini  = vxyz_ptmass(1:3,2)
+          Rochelobe = Rochelobe_estimate(m1,m2,binary_a)
        end select
        if (multiple_disc_flag .and. ibinary==0) then
           if (R_out(i) > Rochelobe) call warning('setup_disc', &
@@ -809,8 +809,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                         star_mass        = star_m(i),          &
                         gamma            = gamma,              &
                         particle_mass    = massoftype(igas),   &
-                        xyz_origin       = xorigini(:),        &
-                        vxyz_origin      = vorigini(:),        &
+                        xyz_origin       = xorigini,           &
+                        vxyz_origin      = vorigini,           &
                         hfact            = hfact,              &
                         xyzh             = xyzh,               &
                         vxyzu            = vxyzu,              &
@@ -861,8 +861,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                         star_mass       = star_m(i),          &
                         gamma           = gamma,              &
                         particle_mass   = massoftype(igas),   &
-                        xyz_origin      = xorigini(:),        &
-                        vxyz_origin     = vorigini(:),        &
+                        xyz_origin      = xorigini,           &
+                        vxyz_origin     = vorigini,           &
                         hfact           = hfact,              &
                         xyzh            = xyzh,               &
                         vxyzu           = vxyzu,              &
@@ -895,8 +895,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                            star_mass      = star_m(i),          &
                            gamma          = gamma,              &
                            particle_mass  = massoftype(idust),  &
-                           xyz_origin     = xorigini(:),        &
-                           vxyz_origin    = vorigini(:),        &
+                           xyz_origin     = xorigini,           &
+                           vxyz_origin    = vorigini,           &
                            hfact          = hfact,              &
                            xyzh           = xyzh,               &
                            vxyzu          = vxyzu,              &

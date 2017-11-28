@@ -71,11 +71,13 @@ contains
 ! This subroutine is a utility for setting up discs
 !
 !----------------------------------------------------------------
-subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmindust,rmaxdust,phimin,phimax,&
-                    indexprofile,indexprofiledust,rc,rcdust,p_index,p_indexdust,q_index,HoverR,gamma,&
-                    disc_mass,disc_massdust,sig_norm,star_mass,xyz_origin,vxyz_origin,&
-                    particle_type,particle_mass,hfact,xyzh,vxyzu,polyk,position_angle,inclination,&
-                    ismooth,alpha,rwarp,warp_smoothl,bh_spin,rref,writefile,ierr,prefix,verbose)
+subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
+                    rmindust,rmaxdust,phimin,phimax,indexprofile,indexprofiledust, &
+                    rc,rcdust,p_index,p_indexdust,q_index,HoverR,gamma, &
+                    disc_mass,disc_massdust,sig_norm,star_mass,xyz_origin,vxyz_origin, &
+                    particle_type,particle_mass,hfact,xyzh,vxyzu,polyk, &
+                    position_angle,inclination,ismooth,alpha,rwarp,warp_smoothl, &
+                    bh_spin,bh_spin_angle,rref,writefile,ierr,prefix,verbose)
  use dim,  only:maxalpha
  use io,   only:stdout
  use part, only:maxp,idust,maxtypes
@@ -85,7 +87,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  integer, optional, intent(in)    :: npart_start,indexprofile,indexprofiledust
  real,              intent(in)    :: rmin,rmax
  real, optional,    intent(in)    :: rmindust,rmaxdust,p_indexdust,disc_massdust
- real, optional,    intent(in)    :: rc,rcdust
+ real, optional,    intent(in)    :: rc,rcdust,rref
  real, optional,    intent(in)    :: phimin,phimax
  real, optional,    intent(inout) :: alpha
  real,              intent(in)    :: p_index,q_index,HoverR,gamma,hfact
@@ -93,7 +95,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  real, optional,    intent(in)    :: xyz_origin(3),vxyz_origin(3)
  integer, optional, intent(in)    :: particle_type
  real, optional,    intent(in)    :: position_angle,inclination
- real, optional,    intent(in)    :: rwarp,warp_smoothl,bh_spin,rref
+ real, optional,    intent(in)    :: rwarp,warp_smoothl,bh_spin,bh_spin_angle
  logical, optional, intent(in)    :: ismooth,mixture
  real,              intent(out)   :: xyzh(:,:)
  real,              intent(out)   :: vxyzu(:,:)
@@ -107,7 +109,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  real    :: R_in,R_out,phi_min,phi_max,H_R,R_indust,R_outdust,p_inddust,R_c,R_c_dust
  real    :: star_m,disc_m,disc_mdust,sigma_norm,sigma_normdust,Q_tmp
  real    :: honH,alphaSS_min,alphaSS_max,rminav,rmaxav,honHmin,honHmax
- real    :: aspin,posangl,incl,R_warp,H_warp,psimax
+ real    :: aspin,aspin_angle,posangl,incl,R_warp,H_warp,psimax
  real    :: xorigini(3),vorigini(3),R_ref
  real    :: enc_m(maxbins),rad(maxbins),enc_m_tmp(maxbins),rad_tmp(maxbins)
  logical :: smooth_surface_density,do_write,do_mixture
@@ -188,6 +190,11 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
     aspin = bh_spin
  else
     aspin = 0.
+ endif
+ if (present(bh_spin_angle)) then
+    aspin_angle = bh_spin_angle
+ else
+    aspin_angle = 0.
  endif
  !--reference radius for normalisation of sigma, temperature profiles
  if (present(rref)) then
@@ -302,6 +309,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
                        sigma_normdust,star_m,p_indexdust,q_index, &
                        R_indust,R_outdust,R_ref,R_c,H_R)
     sigma_normdust = sigma_normdust*disc_massdust/disc_mdust
+    disc_mdust = disc_massdust
  endif
  !
  !--set the particle mass
@@ -333,7 +341,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax,rmind
  !
  !--set particle velocities
  !
- call set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin, &
+ call set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,aspin_angle, &
                           clight,cs0,exponential_taper,p_index,q_index,gamma,R_in, &
                           rad,enc_m,smooth_surface_density,xyzh,vxyzu)
  !
@@ -486,29 +494,26 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  real    :: HH,HHsqrt2,z_min,z_max
  real    :: rhopart,rhoz,hpart
  real    :: xcentreofmass(3)
- real    :: dR,dRmixt
- real, dimension(maxbins) :: f_vals,fmixt_vals
+ real    :: dR,f_val
 
  !--seed for random number generator
  iseed = -34598 + (itype - igas)
  honH = 0.
  ninz = 0
 
- !--set maximum f=R*sigma (scaled) value
+ !--set maximum f=R*sigma value
  dR = (R_out-R_in)/real(maxbins-1)
+ fr_max = 0.
  do i=1,maxbins
     R = R_in + (i-1)*dR
-    f_vals(i) = R*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c)
+    f_val = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c)
+    if (do_mixture) then
+       if (R>=R_indust .and. R<=R_outdust) then
+          f_val = f_val + R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_c_dust)
+       endif
+    endif
+    fr_max = max(fr_max,f_val)
  enddo
- fr_max = maxval(f_vals)
- if (do_mixture) then
-    dRmixt = (R_outdust-R_indust)/real(maxbins-1)
-    do i=1,maxbins
-       R = R_indust + (i-1)*dRmixt
-       fmixt_vals(i) = R*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_c_dust)
-    enddo
-    fr_max = fr_max + maxval(fmixt_vals)
- endif
 
  xcentreofmass = 0.
  ipart = npart_start_count - 1
@@ -526,13 +531,13 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     do while (randtest > f)
        R = R_in + (R_out - R_in)*ran2(iseed)
        randtest = fr_max*ran2(iseed)
-       f = R*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c)
-       sigma = sigma_norm*f/R
+       f = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c)
+       sigma = f/R
        if (do_mixture) then
           if (R>=R_indust .and. R<=R_outdust) then
-             fmixt = R*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_c_dust)
+             fmixt = R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_c_dust)
              f     = f + fmixt
-             sigma = sigma + sigma_normdust*fmixt/R
+             sigma = sigma + fmixt/R
           endif
        endif
     enddo
@@ -589,16 +594,15 @@ end subroutine set_disc_positions
 ! set up the particle velocities
 !
 !----------------------------------------------------------------
-subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,&
-                               clight,cs0,do_sigmapringle,p_index,q_index,gamma,R_in,&
-                               rad,enc_m,smooth_sigma,xyzh,vxyzu)
- use externalforces,       only:iext_lensethirring,iext_einsteinprec
- use extern_lensethirring, only:blackhole_spin_angle
- use options,              only:iexternalforce
- use part,                 only:gravity
+subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin, &
+                               aspin_angle,clight,cs0,do_sigmapringle,p_index, &
+                               q_index,gamma,R_in,rad,enc_m,smooth_sigma,xyzh,vxyzu)
+ use externalforces, only:iext_einsteinprec
+ use options,        only:iexternalforce
+ use part,           only:gravity
  integer, intent(in)    :: npart_tot,npart_start_count,itype
- real,    intent(in)    :: G,star_m,aspin,clight,cs0,p_index,q_index,gamma,R_in
- real,    intent(in)    :: rad(:),enc_m(:)
+ real,    intent(in)    :: G,star_m,aspin,aspin_angle,clight,cs0,p_index,q_index
+ real,    intent(in)    :: rad(:),enc_m(:),gamma,R_in
  logical, intent(in)    :: do_sigmapringle,smooth_sigma
  real,    intent(in)    :: xyzh(:,:)
  real,    intent(inout) :: vxyzu(:,:)
@@ -617,8 +621,10 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        R    = sqrt(xyzh(1,ipart)**2 + xyzh(2,ipart)**2)
        phi  = atan2(xyzh(2,ipart),xyzh(1,ipart))
        term = G*star_m/R
-       !--need to declare iexternalforce before calling setdisc
-       if (iexternalforce==11) term=term*(1.0 + (6.0/R)) !--assumes Rg=1.
+       !
+       !--correction for Einstein precession (assumes Rg=1)
+       !
+       if (iexternalforce==iext_einsteinprec) term = term*(1.0 + 6.0/R)
        !
        !--correction due to self-gravity
        !
@@ -654,14 +660,11 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        !
        !--correction due to Lense-Thirring precession:
        !  Nealon, Nixon & Price correction for Nelson & Papaloizou v x h term
+       !  this is Eq. 5.21 in Nealon (2013) multiplied by -R
        !
-       term_bh = 0.
-       if (iexternalforce==iext_lensethirring .or. iexternalforce==iext_einsteinprec) then
-          !--this is Eq. 5.21 in Nealon (2013) multiplied by -R
-          term_bh = -2.*aspin*(G*star_m/R)**2/clight**3
-          if (blackhole_spin_angle > tiny(blackhole_spin_angle)) then
-             ierr = 1
-          endif
+       term_bh = -2.*aspin*(G*star_m/R)**2/clight**3
+       if (aspin_angle > tiny(aspin_angle)) then
+          ierr = 1
        endif
        !
        !--now solve quadratic equation for vphi
