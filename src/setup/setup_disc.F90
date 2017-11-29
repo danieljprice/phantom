@@ -30,7 +30,7 @@
 !    accr2             -- perturber accretion radius
 !    alphaSS           -- desired alphaSS
 !    bhspin            -- black hole spin
-!    bhspinangle       -- black hole spin angle
+!    bhspinangle       -- black hole spin angle (deg)
 !    binary_O          -- Omega, PA of ascending node (deg)
 !    binary_a          -- binary semi-major axis
 !    binary_e          -- binary eccentricity
@@ -42,13 +42,13 @@
 !    dust_method       -- dust method (1=one fluid,2=two fluid)
 !    dust_to_gas_ratio -- dust to gas ratio
 !    einst_prec        -- include Einstein precession
-!    flyby_O           -- position angle of ascending node
+!    flyby_O           -- position angle of ascending node (deg)
 !    flyby_a           -- distance of minimum approach
-!    flyby_d           -- initial distance [units of dist. min. approach]
-!    flyby_i           -- inclination angle
+!    flyby_d           -- initial distance (units of dist. min. approach)
+!    flyby_i           -- inclination (deg)
 !    graindensinp      -- intrinsic grain density (in g/cm^3)
 !    grainsizeinp      -- grain size (in cm)
-!    ibinary           -- binary: bound or unbound [flyby] (0=bound,1=unbound)
+!    ibinary           -- binary orbit (0=bound,1=unbound [flyby])
 !    ipotential        -- potential (1=central point mass,
 !    m1                -- central star mass
 !    m2                -- perturber mass
