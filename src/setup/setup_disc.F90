@@ -156,7 +156,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: jdust_to_gas_ratio,Rj,period,Rochelobe,tol,Hill(maxplanets)
  real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Stokes
  real    :: polyk_dust,xorigini(3),vorigini(3),alpha_returned(3)
- real    :: star_m(3),disc_mfac(3),disc_mdust(3),sig_normdust(3),u(3)
+ real    :: star_m(3),disc_mfac(3),disc_mdust(3),sig_normdust(3),u(3),v(3),w(3)
  real    :: enc_m(maxbins),rad(maxbins),Q_mintmp,disc_mtmp(3),annulus_mtmp(3)
  integer :: ierr,j,ndiscs,idisc,nparttot,npartdust,npingasdisc,npindustdisc,itype
  integer :: sigmaprofilegas(3),sigmaprofiledust(3),iprofilegas(3),iprofiledust(3)
@@ -473,7 +473,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     call write_setupfile(filename)
 
-    print "(a)",' >>> rerun phantomsetup using the options set in '//trim(filename)//' <<<'
+    print "(a)",''
+    print "(a)",' >>> please edit '//trim(filename)//' to set parameters for your problem then rerun phantomsetup <<<'
 
     stop
  else
@@ -994,11 +995,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vphi                         = sqrt((mcentral + disc_m_within_r)/rplanet(i))
        vxyz_ptmass(1:3,nptmass)     = (/-vphi*sinphi,vphi*cosphi,0./)
        !--incline positions and velocities
-       u = (/cos(phi+pi/2),sin(phi+pi/2),0./)
-       if (inclplan(i) /= 0.) then
-          call rotatevec(xyzmh_ptmass(1:3,nptmass),u,inclplan(i)*pi/180.)
-          call rotatevec(vxyz_ptmass(1:3,nptmass), u,inclplan(i)*pi/180.)
-       endif
+       inclplan(i) = inclplan(i)*pi/180.
+       u = (/-sin(phi),cos(phi),0./)
+       v = (/0.,0.,1./)
+       w = (/-sin(posangl(1)),cos(posangl(1)),0./)
+       call rotatevec(u,w,incl(1))
+       call rotatevec(v,w,incl(1))
+       call rotatevec(xyzmh_ptmass(1:3,nptmass),u,-inclplan(i))
+       call rotatevec(vxyz_ptmass(1:3,nptmass), w, incl(1))
        !--print planet information
        omega = vphi/rplanet(i)
        Hill(i) = (mplanet(i)*jupiterm/solarm/(3.*mcentral))**(1./3.) * rplanet(i)
@@ -1144,7 +1148,7 @@ subroutine write_setupfile(filename)
        call write_inopt(accr1,'accr1','star accretion radius',iunit)
     case (2)
        !--binary
-       call write_inopt(ibinary,'ibinary','binary: bound or unbound [flyby] (0=bound,1=unbound)',iunit)
+       call write_inopt(ibinary,'ibinary','binary orbit (0=bound,1=unbound [flyby])',iunit)
        select case (ibinary)
        case (0)
           !--bound
@@ -1170,9 +1174,9 @@ subroutine write_setupfile(filename)
           call write_inopt(m2,'m2','perturber mass',iunit)
           call write_inopt(accr2,'accr2','perturber accretion radius',iunit)
           call write_inopt(flyby_a,'flyby_a','distance of minimum approach',iunit)
-          call write_inopt(flyby_d,'flyby_d','initial distance [units of dist. min. approach]',iunit)
-          call write_inopt(flyby_O,'flyby_O','position angle of ascending node',iunit)
-          call write_inopt(flyby_i,'flyby_i','inclination angle',iunit)
+          call write_inopt(flyby_d,'flyby_d','initial distance (units of dist. min. approach)',iunit)
+          call write_inopt(flyby_O,'flyby_O','position angle of ascending node (deg)',iunit)
+          call write_inopt(flyby_i,'flyby_i','inclination (deg)',iunit)
        end select
     end select
  end select
@@ -1235,8 +1239,8 @@ subroutine write_setupfile(filename)
        end select
        call write_inopt(pindex(i),'pindex'//trim(disclabel),'p index',iunit)
        call write_inopt(qindex(i),'qindex'//trim(disclabel),'q index',iunit)
-       call write_inopt(posangl(i),'posangl'//trim(disclabel),'position angle',iunit)
-       call write_inopt(incl(i),'incl'//trim(disclabel),'inclination angle',iunit)
+       call write_inopt(posangl(i),'posangl'//trim(disclabel),'position angle (deg)',iunit)
+       call write_inopt(incl(i),'incl'//trim(disclabel),'inclination (deg)',iunit)
        call write_inopt(H_R(i),'H_R'//trim(disclabel),'H/R at R=R_ref',iunit)
        if (iwarp(i)) then
           call write_inopt(R_warp(i),'R_warp'//trim(disclabel),'warp radius',iunit)
@@ -1286,7 +1290,7 @@ subroutine write_setupfile(filename)
        write(iunit,"(/,a)") '# planet:'//trim(planets(i))
        call write_inopt(mplanet(i),'mplanet'//trim(planets(i)),'planet mass (in Jupiter mass)',iunit)
        call write_inopt(rplanet(i),'rplanet'//trim(planets(i)),'planet distance from star',iunit)
-       call write_inopt(inclplan(i),'inclplanet'//trim(planets(i)),'planet inclination [deg] with respect to xy plane',iunit)
+       call write_inopt(inclplan(i),'inclplanet'//trim(planets(i)),'planet orbital inclination (deg)',iunit)
        call write_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),'planet radius',iunit)
     enddo
  endif
