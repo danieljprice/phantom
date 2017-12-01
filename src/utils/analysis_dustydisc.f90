@@ -60,10 +60,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
  real :: sigmadust(nr),zsettldust(nr),zsettldust2(nr),hdust(nr),meanzdust(nr)
  real :: psi_x,psi_y,psi_z,psi,Mdust1,Mdust2,Mgas,Mtot,Macc,pmassi,dustfraci,rho_grain,r_grain
  real, save :: Mtot_in,Mgas_in,Mdust1_in,Mdust2_in
+ real :: l_planet(3),bigl_planet,rad_planet,inc,planet_mass
  integer :: itype,lu
  logical, save :: init = .false.
  integer, parameter :: iparams = 10
  integer, parameter :: iprec   = 24
+ integer, parameter :: iplanet = 23
  logical :: do_precession,ifile
  real :: grainsize,graindens
 
@@ -111,6 +113,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
  write(*,*)
 
  inquire(file=trim(discprefix)//'-'//trim(labeltype(idust))//'.discparams', exist=ifile)
+
  if (ifile) then
 
     call read_discparams(trim(discprefix)//'-'//trim(labeltype(idust))//'.discparams',&
@@ -217,7 +220,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
     endif
     Mtot = Mtot + pmassi
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       if (itype==1) then
+       if (itype==1 .and. use_dustfrac) then
           dustfraci = dustfrac(i)
           if (use_dustfrac) then
              Mgas = Mgas + pmassi*(1. - dustfraci)
@@ -483,13 +486,45 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
        close(unit=iprec)
     endif
 
- enddo
+    enddo
 
  close(iunit)
 
  write(*,*)
  write(*,*) '--------------------------------------------------------------------------------'
 
+! Printing the information for the planet as a function of time
+ if(nptmass>nptmassinit)then
+    do i=nptmassinit+1,nptmass
+       write(filename,"(a,i3.3)")"planet_",i-1
+       if (numfile==0) then
+          open(iplanet,file=filename,status="replace")
+          write(iplanet,"('#',9(1x,'[',i2.2,1x,a11,']',2x))") &
+               1,'time', &
+               2,'x', &
+               3,'y', &
+               4,'z', &
+               5,'lx', &
+               6,'ly', &
+               7,'lz', &
+               8,'tilt', &
+               9,'rad_sph'
+       else
+          open(iplanet,file=filename,status="old",position="append")
+       endif
+       planet_mass = xyzmh_ptmass(4,i)
+       rad_planet = sqrt((xyzmh_ptmass(1,i)-xyzmh_ptmass(1,1))**2 + (xyzmh_ptmass(2,i)-xyzmh_ptmass(2,1))**2 + (xyzmh_ptmass(3,i)-xyzmh_ptmass(3,1))**2)
+       l_planet(1) = planet_mass*((xyzmh_ptmass(2,i)*vxyz_ptmass(3,i)) - (xyzmh_ptmass(3,i)*vxyz_ptmass(2,i)))
+       l_planet(2) = planet_mass*((xyzmh_ptmass(3,i)*vxyz_ptmass(1,i)) - (xyzmh_ptmass(1,i)*vxyz_ptmass(3,i)))
+       l_planet(3) = planet_mass*((xyzmh_ptmass(1,i)*vxyz_ptmass(2,i)) - (xyzmh_ptmass(2,i)*vxyz_ptmass(1,i)))
+       bigl_planet = sqrt(dot_product(l_planet,l_planet))
+       l_planet = l_planet/bigl_planet
+       inc = acos(abs(l_planet(3)))*180./pi
+       write(iplanet,'(9(es18.10,1X))') time, xyzmh_ptmass(1,i), xyzmh_ptmass(2,i), xyzmh_ptmass(3,i),&
+            l_planet(1),l_planet(2),l_planet(3),inc,rad_planet
+       close(iplanet)
+    enddo
+ endif
 end subroutine do_analysis
 
 !----------------------------------------------------------------
