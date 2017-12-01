@@ -296,7 +296,7 @@ subroutine sts_get_dtau_next(dtau_next,dt_in,dtmax,dtdiff_in,nbinmax)
     Nms_p1 = Nmegasts_done+1
     dtau_next = dtau(Nms_p1)
     if (isfirstdtau(Nms_p1)==iyes .and. dtau_next > dt_next) then
-       write(*,'(a)') "Supertime-step: sts_get_dtau_next: dtau_next > dt_next thus modifying mid-mega-step"
+       write(*,'(a)') "Super-timestep: sts_get_dtau_next: dtau_next > dt_next thus modifying mid-mega-step"
        dt_remain = 0.
        do i = Nms_p1,Nmegasts_now
           dt_remain = dt_remain + dtau(i)
