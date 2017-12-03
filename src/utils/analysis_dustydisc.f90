@@ -486,7 +486,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
        close(unit=iprec)
     endif
 
-    enddo
+ enddo
 
  close(iunit)
 
