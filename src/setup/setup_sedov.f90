@@ -149,7 +149,6 @@ subroutine write_setupfile(filename)
  use infile_utils, only: write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
- integer                      :: i
 
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
@@ -171,7 +170,7 @@ subroutine read_setupfile(filename,ierr)
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
- integer                       :: i,nerr
+ integer                       :: nerr
  type(inopts), allocatable     :: db(:)
 
  print "(a)",' reading setup options from '//trim(filename)
