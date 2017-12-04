@@ -513,7 +513,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
           open(iplanet,file=filename,status="old",position="append")
        endif
        planet_mass = xyzmh_ptmass(4,i)
-       rad_planet = sqrt((xyzmh_ptmass(1,i)-xyzmh_ptmass(1,1))**2 + (xyzmh_ptmass(2,i)-xyzmh_ptmass(2,1))**2 + (xyzmh_ptmass(3,i)-xyzmh_ptmass(3,1))**2)
+       rad_planet = sqrt((xyzmh_ptmass(1,i)-xyzmh_ptmass(1,1))**2 + &
+                    (xyzmh_ptmass(2,i)-xyzmh_ptmass(2,1))**2 + (xyzmh_ptmass(3,i)-xyzmh_ptmass(3,1))**2)
        l_planet(1) = planet_mass*((xyzmh_ptmass(2,i)*vxyz_ptmass(3,i)) - (xyzmh_ptmass(3,i)*vxyz_ptmass(2,i)))
        l_planet(2) = planet_mass*((xyzmh_ptmass(3,i)*vxyz_ptmass(1,i)) - (xyzmh_ptmass(1,i)*vxyz_ptmass(3,i)))
        l_planet(3) = planet_mass*((xyzmh_ptmass(1,i)*vxyz_ptmass(2,i)) - (xyzmh_ptmass(2,i)*vxyz_ptmass(1,i)))
