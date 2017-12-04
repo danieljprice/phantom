@@ -120,6 +120,21 @@ ifeq ($(SETUP), dustybinarydisc)
     OLDSETUP= dustybinarydisc
     override SETUP=dustydisc
 endif
+ifeq ($(SETUP), Lense-Thirring)
+    OBSOLETE_SETUP=yes
+    OLDSETUP= Lense-Thirring
+    override SETUP=disc
+endif
+ifeq ($(SETUP), warp)
+    OBSOLETE_SETUP=yes
+    OLDSETUP= warp
+    override SETUP=disc
+endif
+ifeq ($(SETUP), rndisc)
+    OBSOLETE_SETUP=yes
+    OLDSETUP= rndisc
+    override SETUP=lightcurvedisc
+endif
 
 
 ifeq ($(SETUP), empty)
@@ -216,7 +231,7 @@ endif
 
 ifeq ($(SETUP), disc)
 #   locally isothermal gas disc
-    FPPFLAGS= -DDISC_VISCOSITY
+    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
     ISOTHERMAL=yes
@@ -225,29 +240,27 @@ ifeq ($(SETUP), disc)
     IND_TIMESTEPS=yes
 endif
 
-ifeq ($(SETUP), Lense-Thirring)
-#   Lense-Thirring setup
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
-    SETUPFILE= setup_ltdisc.f90
-    ANALYSIS= analysis_disc.f90
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-    MULTIRUNFILE= multirun.f90
-    IND_TIMESTEPS=yes
-endif
-
-ifeq ($(SETUP), rndisc)
-#   Lense-Thirring setup
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT -DLIGHTCURVE
-    SETUPFILE= setup_rndisc.f90
+ifeq ($(SETUP), adiabaticdisc)
+#   adiabatic disc
+    FPPFLAGS= -DDISC_VISCOSIT -DSORT_RADIUS_INITY
+    SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ISOTHERMAL=no
     MULTIRUNFILE= multirun.f90
-    MODFILE=moddump_rndisc.f90
 endif
 
+ifeq ($(SETUP), lightcurvedisc)
+#   adiabatic disc with lightcurve
+    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT -DLIGHTCURVE
+    SETUPFILE= setup_disc.f90
+    ANALYSIS= analysis_disc.f90
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
+    ISOTHERMAL=no
+    MULTIRUNFILE= multirun.f90
+endif
 
 ifeq ($(SETUP), gwdisc)
 #   locally isothermal discs
@@ -284,7 +297,7 @@ endif
 ifeq ($(SETUP), binarydiscMFlow)
 #   binarydiscMFlow setup
     FPPFLAGS= -DSORT_RADIUS_INIT -DMFLOW -DUSE_STRAIN_TENSOR #-DVMFLOW  #-DDISC_VISCOSITY# -DBINPOS
-    SETUPFILE= setup_binarydisc.f90
+    SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc_MFlow.f90
 #    ANALYSIS= analysis_binarydisc.f90
     MAXP=1000000
@@ -314,17 +327,6 @@ ifeq ($(SETUP), planetdisc)
     CURLV=yes
     KNOWN_SETUP=yes
     ANALYSIS=analysis_disc.f90
-endif
-
-ifeq ($(SETUP), warp)
-#   warped locally isothermal discs
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
-    SETUPFILE= setup_warp.f90
-    ANALYSIS= analysis_disc.f90
-    KNOWN_SETUP=yes
-    ISOTHERMAL=yes
-    IND_TIMESTEPS=yes
-    MULTIRUNFILE= multirun.f90
 endif
 
 ifeq ($(SETUP), torus)
@@ -427,7 +429,7 @@ endif
 
 ifeq ($(SETUP), dustydisc)
 #   locally isothermal dusty discs
-    FPPFLAGS= -DDISC_VISCOSITY
+    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
     SETUPFILE= setup_disc.f90
     MODFILE= moddump_dustadd.f90
     ISOTHERMAL=yes

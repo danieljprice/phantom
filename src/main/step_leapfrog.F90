@@ -365,7 +365,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp enddo
 !$omp end parallel
 
-    call check_velocity_error(errmax,v2mean,np,its,tolv,dtsph,timei,dterr,errmaxmean,converged)
+    call check_velocity_error(errmax,v2mean,np,its,tolv,dtsph,timei,damp,dterr,errmaxmean,converged)
 
     if (.not.converged .and. npart > 0) then
        !$omp parallel do private(i) schedule(static)
@@ -811,8 +811,8 @@ end subroutine step_extern
 !  within some tolerance we iterate the corrector step
 !+
 !-----------------------------------------------------
-subroutine check_velocity_error(errmax,v2mean,np,its,tolv,dt,timei,dterr,errmaxmean,converged)
- use io,         only:id,master,iprint,iverbose
+subroutine check_velocity_error(errmax,v2mean,np,its,tolv,dt,timei,damp,dterr,errmaxmean,converged)
+ use io,         only:id,master,iprint,iverbose,warning
 #ifndef IND_TIMESTEPS
  use timestep,   only:dtcourant,dtforce,bignumber
 #endif
@@ -820,7 +820,7 @@ subroutine check_velocity_error(errmax,v2mean,np,its,tolv,dt,timei,dterr,errmaxm
  use io_summary, only:summary_variable,iosumtve,iosumtvv
  real,    intent(inout) :: errmax,v2mean,errmaxmean
  integer, intent(in)    :: np,its
- real,    intent(in)    :: tolv,dt,timei
+ real,    intent(in)    :: tolv,dt,timei,damp
  real,    intent(out)   :: dterr
  logical, intent(out)   :: converged
  real            :: errtol,vmean
@@ -839,6 +839,7 @@ subroutine check_velocity_error(errmax,v2mean,np,its,tolv,dt,timei,dterr,errmaxm
  nptot = reduceall_mpi('+',np)
  v2mean = reduceall_mpi('+',v2mean)
  errmax = reduceall_mpi('max',errmax)
+ if (damp > 0.) call warning('step','damping is ON')
 
  if (nptot > 0) then
     v2mean = v2mean/real(nptot)
@@ -852,7 +853,8 @@ subroutine check_velocity_error(errmax,v2mean,np,its,tolv,dt,timei,dterr,errmaxm
  endif
  errmaxmean = errmaxmean + errmax
  errtol = tolv
- if (tolv < 1.e2) then
+ dterr = huge(dterr)
+ if (tolv < 1.e2 .and. damp < tiny(damp)) then
 #ifndef IND_TIMESTEPS
     dtf = min(dtcourant,dtforce)
     !--if errors are controlling the timestep
@@ -870,7 +872,7 @@ subroutine check_velocity_error(errmax,v2mean,np,its,tolv,dt,timei,dterr,errmaxm
 ! if the error in the predicted velocity exceeds the tolerance, take iterations
 !
 ! if (maxits > 1 .and. tolv < 1.e2) then
- if (tolv < 1.e2) then
+ if (tolv < 1.e2 .and. damp < tiny(damp)) then
     converged = (errmax < tolv)
     if (id==master .and. .not.converged) then
        vmean = sqrt(v2mean)

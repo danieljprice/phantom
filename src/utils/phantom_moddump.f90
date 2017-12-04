@@ -118,7 +118,7 @@ program phantommoddump
  endif
 !
  call modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- get_conserv = -1.
+ get_conserv = 1.
 !
 !--perform sanity checks on the output of modify_dump routine
 !
