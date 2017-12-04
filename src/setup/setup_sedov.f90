@@ -170,7 +170,6 @@ subroutine read_setupfile(filename,ierr)
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
- integer                       :: nerr
  type(inopts), allocatable     :: db(:)
 
  print "(a)",' reading setup options from '//trim(filename)
