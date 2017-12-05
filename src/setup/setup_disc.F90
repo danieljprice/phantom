@@ -162,6 +162,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: sigmaprofilegas(3),sigmaprofiledust(3),iprofilegas(3),iprofiledust(3)
  logical :: ismoothgas(3),ismoothdust(3)
  character(len=100) :: filename
+ character(len=100) :: prefix
 
  print "(/,65('-'),2(/,a),/,65('-'),/)"
  print "(a)",'     Welcome to the New Disc Setup'
@@ -290,10 +291,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     !--multiple disc options
     !
-    print "(a)",''
-    print "(a)",'================='
-    print "(a)",'+++  DISC(S)  +++'
-    print "(a)",'================='
+    print "(/,a)",'================='
+    print "(a)",  '+++  DISC(S)  +++'
+    print "(a)",  '================='
     iuse_disc = .false.
     if ((icentral==1) .and. (nsinks==2)) then
        !--multiple discs possible
@@ -346,12 +346,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        R_ref     = R_in
        R_c       = R_out
        disc_mfac = (/1., 0.1, 0.01/)
+       if (ndiscs > 1) then
+          !--set H/R so temperature is globally constant
+          H_R(1) = 0.1
+          H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
+          H_R(3) = sqrt(R_ref(3)/R_ref(1)*(m1+m2)/m2) * H_R(1)
+          H_R(2) = nint(H_R(2)*10000.)/10000.
+          H_R(3) = nint(H_R(3)*10000.)/10000.
+       endif
     endif
     do i=1,3
        if (iuse_disc(i)) then
           if (multiple_disc_flag) then
-             print "(a)",''
-             print "(a)",' >>>  circum'//trim(disctype(i))//' disc  <<<'
+             print "(/,a)",' >>>  circum'//trim(disctype(i))//' disc  <<<'
           endif
           call prompt('How do you want to set the gas disc mass?'//new_line('A')// &
                       ' 0=total disc mass'//new_line('A')// &
@@ -397,10 +404,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        grainsizeinp      = 0.1
        graindensinp      = 3.
        R_c_dust          = R_c
-       print "(a)",''
-       print "(a)",'=============='
-       print "(a)",'+++  DUST  +++'
-       print "(a)",'=============='
+       print "(/,a)",'=============='
+       print "(a)",  '+++  DUST  +++'
+       print "(a)",  '=============='
        !
        !--dust method
        !
@@ -431,10 +437,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     rplanet       = (/ (10.*i, i=1,maxplanets) /)
     accrplanet    = 0.034 * rplanet
     inclplan      = 0.
-    print "(a)",''
-    print "(a)",'================='
-    print "(a)",'+++  PLANETS  +++'
-    print "(a)",'================='
+    print "(/,a)",'================='
+    print "(a)",  '+++  PLANETS  +++'
+    print "(a)",  '================='
     call prompt('Do you want to add planets?',questplanets)
     if (questplanets) then
        setplanets = 1
@@ -444,10 +449,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     !--determine simulation time
     !
-    print "(a)",''
-    print "(a)",'================'
-    print "(a)",'+++  OUTPUT  +++'
-    print "(a)",'================'
+    print "(/,a)",'================'
+    print "(a)",  '+++  OUTPUT  +++'
+    print "(a)",  '================'
     deltat  = 0.1
     norbits = 100
     if (setplanets==1) then
@@ -473,8 +477,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     call write_setupfile(filename)
 
-    print "(a)",''
-    print "(a)",' >>> please edit '//trim(filename)//' to set parameters for your problem then rerun phantomsetup <<<'
+    print "(/,a)",' >>> please edit '//trim(filename)//' to set parameters for your problem then rerun phantomsetup <<<'
 
     stop
  else
@@ -527,6 +530,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           gamma = 1.0
           call warning('setup_disc','multiple discs: setting eos to globally isothermal'// &
                                     '---recompile with ISOTHERMAL=no for adiabatic')
+          if (iuse_disc(1)) then
+             H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
+             H_R(3) = sqrt(R_ref(3)/R_ref(1)*(m1+m2)/m2) * H_R(1)
+             call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
+          elseif (iuse_disc(2)) then
+             H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
+             call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
+          endif
        endif
     else
        !--single disc
@@ -536,13 +547,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              if (iuse_disc(i)) isink = i-1
           enddo
           !--locally isothermal
-          print "(a)",''
           if (isink /= 0) then
              ieos = 6
-             print "(a)",' setting ieos=6 for locally isothermal disc around sink'
+             print "(/,a)",' setting ieos=6 for locally isothermal disc around sink'
           else
              ieos = 3
-             print "(a)",' setting ieos=3 for locally isothermal disc around origin'
+             print "(/,a)",' setting ieos=3 for locally isothermal disc around origin'
           endif
           gamma = 1.0
           qfacdisc = qindex(idisc)
@@ -600,19 +610,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--set sink particle(s) or potential
  !
- print "(a)",''
  select case (icentral)
  case (0)
     select case (ipotential)
     case (1)
-       print "(a)",' Central point mass represented by external force with accretion boundary'
+       print "(/,a)",' Central point mass represented by external force with accretion boundary'
        print "(a,g10.3,a)",'   Object mass:      ', m1,    trim(mass_unit)
        print "(a,g10.3,a)",'   Accretion Radius: ', accr1, trim(dist_unit)
        mass1      = m1
        accradius1 = accr1
        mcentral   = m1
     case (2)
-       print "(a)",' Central binary represented by external force with accretion boundary'
+       print "(/,a)",' Central binary represented by external force with accretion boundary'
        print "(a,g10.3,a)",'   Primary mass:       ', m1,    trim(mass_unit)
        print "(a,g10.3)",  '   Binary mass ratio:  ', m2/m1
        print "(a,g10.3,a)",'   Accretion Radius 1: ', accr1, trim(dist_unit)
@@ -623,7 +632,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        accradius2  = accr2
        mcentral    = m1 + m2
     case (3)
-       print "(a)",' Central black hole represented by external force with accretion boundary'
+       print "(/,a)",' Central black hole represented by external force with accretion boundary'
        print "(a,g10.3,a)",'   Black hole mass:        ', m1,    trim(mass_unit)
        print "(a,g10.3,a)",'   Accretion Radius:       ', accr1, trim(dist_unit)
        print "(a,g10.3)",  '   Black hole spin:        ', bhspin
@@ -638,7 +647,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     select case (nsinks)
     case (1)
        !--single star
-       print "(a)",' Central object represented by a sink at the system origin'
+       print "(/,a)",' Central object represented by a sink at the system origin'
        print "(a,g10.3,a)",'   Object mass:      ', m1,    trim(mass_unit)
        print "(a,g10.3,a)",'   Accretion Radius: ', accr1, trim(dist_unit)
        nptmass                      = 1
@@ -655,7 +664,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        case (0)
           !--bound
           nptmass  = 0
-          print "(a)",' Central objects represented by two sinks'
+          print "(/,a)",' Central objects represented by two sinks'
           print "(a,g10.3,a)",'   Primary mass:       ', m1,    trim(mass_unit)
           print "(a,g10.3)",  '   Binary mass ratio:  ', m2/m1
           print "(a,g10.3,a)",'   Accretion Radius 1: ', accr1, trim(dist_unit)
@@ -667,7 +676,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           mcentral = m1 + m2
        case (1)
           !--unbound (flyby)
-          print "(a)",' Central object represented by a sink at the system origin with a perturber sink'
+          print "(/,a)",' Central object represented by a sink at the system origin with a perturber sink'
           print "(a,g10.3,a)",'   Primary mass:       ', m1,    trim(mass_unit)
           print "(a,g10.3,a)",'   Perturber mass:     ', m2,    trim(mass_unit)
           print "(a,g10.3,a)",'   Accretion Radius 1: ', accr1, trim(dist_unit)
@@ -757,9 +766,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartdust = 0
  do i=1,3
     if (iuse_disc(i)) then
-
        !--set disc origin
-       if (multiple_disc_flag) print "(/,a)",'>>> Setting up circum'//trim(disctype(i))//' disc <<<'
+       if (multiple_disc_flag) then
+          print "(/,a)",'>>> Setting up circum'//trim(disctype(i))//' disc <<<'
+          prefix = trim(fileprefix)//'-'//disctype(i)
+       else
+          prefix = fileprefix
+       endif
        select case(i)
        case (1)
           !--single disc or circumbinary
@@ -823,7 +836,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                         rwarp            = R_warp(i),          &
                         warp_smoothl     = H_warp(i),          &
                         bh_spin          = bhspin,             &
-                        prefix           = fileprefix)
+                        prefix           = prefix)
           !--set dustfrac
           sig_normdust(i) = 1.d0
           call get_disc_mass(disc_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofiledust(i), &
@@ -875,7 +888,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                         rwarp           = R_warp(i),          &
                         warp_smoothl    = H_warp(i),          &
                         bh_spin         = bhspin,             &
-                        prefix          = fileprefix)
+                        prefix          = prefix)
           nparttot = nparttot + npingasdisc
           if (use_dust) then
              !--dust disc
@@ -908,7 +921,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                            rwarp          = R_warp(i),          &
                            warp_smoothl   = H_warp(i),          &
                            bh_spin        = bhspin,             &
-                           prefix         = fileprefix)
+                           prefix         = prefix)
              nparttot  = nparttot  + npindustdisc
              npartdust = npartdust + npindustdisc
           endif
@@ -916,7 +929,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !--reset alpha for each disc
        alpha_returned(i) = alpha
        alpha = alphaSS
-
     endif
  enddo
 
@@ -956,8 +968,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(a,g10.3,a)", '       grain size: ',grainsizecgs,' cm'
     print "(a,g10.3,a)", '    grain density: ',graindenscgs,' g/cm^3'
     print "(a,g10.3,a)", '   approx. Stokes: ',Stokes,''
-    print "(1x,40('-'))"
-    print "(a)",''
+    print "(1x,40('-'),/)"
  endif
 
  !
@@ -1066,14 +1077,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--remind user to check for warnings and errors
  !
- print "(a)",''
- print "(a)",' + ----------------------------------------------------- +'
- print "(a)",' |                                                       |'
- print "(a)",' |   please check output above for WARNINGS and ERRORS   |'
- print "(a)",' |   before starting the calculation                     |'
- print "(a)",' |                                                       |'
- print "(a)",' + ----------------------------------------------------- +'
- print "(a)",''
+ print "(/,a)",' + ----------------------------------------------------- +'
+ print "(a)",  ' |                                                       |'
+ print "(a)",  ' |   please check output above for WARNINGS and ERRORS   |'
+ print "(a)",  ' |   before starting the calculation                     |'
+ print "(a)",  ' |                                                       |'
+ print "(a,/)",' + ----------------------------------------------------- +'
 
  return
 end subroutine setpart
@@ -1095,8 +1104,7 @@ subroutine write_setupfile(filename)
     call read_obsolete_setup_options(filename)
  endif
 
- print "(a)",''
- print "(a)",' writing setup options file '//trim(filename)
+ print "(/,a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for disc setup routine'
  !--resolution
