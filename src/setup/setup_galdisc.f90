@@ -154,7 +154,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !-----------------Setting-positions/velocities-for-live-disc---------------
 !
- if (use_live_stars.eq.1) then
+ if (use_live_stars==1) then
     npartoftype = 0
     massoftype = 0.0
     print*,' Does the system contain the following live components:'
