@@ -148,7 +148,7 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,ien_type)
        dens = rho*alpha/(sqrtg*lorentz_LEO)
 
        p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product_gr(pmom,beta,gammaijUP)),0.)
-       if (ien_type == ien_entropy) p = en*(rho*alpha/(sqrtg*lorentz_LEO))**gamma
+       if (ien_type == ien_entropy) p = en*dens**gamma
 
        call get_enthalpy(enth,dens,p)
 
@@ -181,7 +181,7 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,ien_type)
     dens = rho*alpha/(sqrtg*lorentz_LEO)
 
     p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product_gr(pmom,beta,gammaijUP)),0.)
-    if (ien_type == ien_entropy) p = en*(rho*alpha/(sqrtg*lorentz_LEO))**gamma
+    if (ien_type == ien_entropy) p = en*dens**gamma
 
     v3d(:) = alpha*pmom(:)/(enth*lorentz_LEO)-beta(:)
 
