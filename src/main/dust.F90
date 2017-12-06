@@ -46,7 +46,7 @@ use dim, only: ndusttypes
  real, private    :: grainmass(ndusttypes)
  public           :: write_options_dust,read_options_dust
  public           :: get_ts, init_drag
- public           :: print_dustinfo
+ public           :: print_dustinfo,nduststrings
 
  ! generic interface to set_dustfrac
  interface set_dustfrac
@@ -298,6 +298,38 @@ subroutine set_grainsize(smin,smax,grid)
  grainmass(:) = 4./3.*pi*graindens*grainsize(:)**3
 
 end subroutine set_grainsize
+
+!-----------------------------------------------------------------------------
+!+
+!  utility function to number strings for N dust species
+!+
+!-----------------------------------------------------------------------------
+subroutine nduststrings(pre_string,post_string,complete_string)
+ use dim, only:ndusttypes
+ use io,  only: fatal
+
+ character(len=*), intent(in) :: pre_string,post_string
+ character(len=120), intent(out) :: complete_string(ndusttypes)
+ 
+ integer :: i,total_len
+ character(len=20) :: num_string
+ 
+ total_len = len(pre_string) + (floor(log10(real(ndusttypes))) + 1) + len(post_string)
+ if (len(complete_string) < total_len) then
+    call fatal('dust','N dust string is not long enough!')
+ endif
+ 
+ if (ndusttypes > 1) then
+    do i = 1,ndusttypes 
+       write(num_string,'(I0)') i
+       write(complete_string(i),'(A)') pre_string//trim(adjustl(num_string))//post_string
+    enddo
+ else
+    write(complete_string,'(A)') pre_string//post_string
+ endif
+ 
+ return
+end subroutine nduststrings
 
 !----------------------------------------------------------------------------
 !+
