@@ -441,7 +441,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(4))
        if (use_dust .and. ndusttypes>1 .and. multidustdump) &
           call write_array(1,sum(dustfrac,1),'dustfracsum',npart,k,ipass,idump,nums,ierrs(5))
-       if (use_dust .and. multidustdump) &
+       if (use_dust) &
           call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(6))
        if (use_dust) call write_array(1,tstop,tstop_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(7))
        if (use_dustfrac .and. ndusttypes>1 .and. multidustdump) then 
@@ -641,7 +641,7 @@ subroutine write_smalldump(t,dumpfile)
                      call write_array(1,abundance,abundance_label,1,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (use_dust .and. ndusttypes>1 .and. multidustdump) &
           call write_array(1,sum(dustfrac,1),'dustfracsum',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-       if (use_dust .and. multidustdump) &
+       if (use_dust) &
           call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
 #ifdef LIGHTCURVE
@@ -1178,7 +1178,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              call read_array(iphase,'itype',got_iphase,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(xyzh, xyzh_label, got_xyzh, ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(vxyzu,vxyzu_label,got_vxyzu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             if (use_dustfrac) then
+             if (use_dust) then
                 if (tag == dustfrac_label(dusti+1)) dusti = dusti + 1
                 call read_array(dustfrac(dusti,:),dustfrac_label(dusti),got_dustfrac(dusti),ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif

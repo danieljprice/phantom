@@ -644,7 +644,7 @@ subroutine test_derivs(ntests,npass,string)
        dustfrac(:,:) = 0.
 
     else
-       if (id==master) write(*,"(/,a)") '--> SKIPPING dust evolution terms (need -DDUSTFRAC)'
+       if (id==master) write(*,"(/,a)") '--> SKIPPING dust evolution terms (need -DDUST)'
     endif
  endif testdust
 

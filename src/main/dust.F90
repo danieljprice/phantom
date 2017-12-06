@@ -306,28 +306,30 @@ end subroutine set_grainsize
 !-----------------------------------------------------------------------------
 subroutine nduststrings(pre_string,post_string,complete_string)
  use dim, only:ndusttypes
- use io,  only: fatal
+ use io,  only:fatal
 
  character(len=*), intent(in) :: pre_string,post_string
  character(len=120), intent(out) :: complete_string(ndusttypes)
- 
- integer :: i,total_len
+
+ integer :: i,total_len,int_len
  character(len=20) :: num_string
  
- total_len = len(pre_string) + (floor(log10(real(ndusttypes))) + 1) + len(post_string)
+ int_len = 0
+ if (ndusttypes > 1) int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
+ total_len = len(pre_string) + int_len  + len(post_string)
  if (len(complete_string) < total_len) then
     call fatal('dust','N dust string is not long enough!')
  endif
- 
+
  if (ndusttypes > 1) then
-    do i = 1,ndusttypes 
+    do i = 1,ndusttypes
        write(num_string,'(I0)') i
        write(complete_string(i),'(A)') pre_string//trim(adjustl(num_string))//post_string
     enddo
  else
     write(complete_string,'(A)') pre_string//post_string
  endif
- 
+
  return
 end subroutine nduststrings
 

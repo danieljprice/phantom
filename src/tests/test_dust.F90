@@ -282,11 +282,11 @@ subroutine test_dustydiffuse(ntests,npass)
  real,allocatable   :: ddustfrac_prev(:,:)
  logical, parameter :: do_output = .true.
  real,    parameter :: t_write(5) = (/0.1,0.3,1.0,3.0,10.0/)
-
+ 
  if (use_dustfrac .and. periodic) then
     if (id==master) write(*,"(/,a)") '--> testing DUSTYDIFFUSE'
  else
-    if (id==master) write(*,"(/,a)") '--> skipping DUSTYDIFFUSE (need -DDUSTFRAC and -DPERIODIC)'
+    if (id==master) write(*,"(/,a)") '--> skipping DUSTYDIFFUSE (need -DDUST and -DPERIODIC)'
     return
  endif
  !
