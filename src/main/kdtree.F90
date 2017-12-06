@@ -77,27 +77,27 @@ module kdtree
 contains
 
 function create_invalid_node() result(invalid_node)
-  type(kdbuildstack) :: invalid_node
+ type(kdbuildstack) :: invalid_node
 
-  invalid_node%node   = -1
-  invalid_node%parent = -1
-  invalid_node%level  = -1
-  invalid_node%npnode = -1
+ invalid_node%node   = -1
+ invalid_node%parent = -1
+ invalid_node%level  = -1
+ invalid_node%npnode = -1
 
 end function create_invalid_node
 
 function is_invalid_node(node_in) result(is_invalid)
-  type(kdbuildstack), intent(in) :: node_in
-  logical :: is_invalid
+ type(kdbuildstack), intent(in) :: node_in
+ logical :: is_invalid
 
-  if ((node_in%node == -1) .and. &
+ if ((node_in%node == -1) .and. &
       (node_in%parent == -1) .and. &
       (node_in%level == -1) .and. &
       (node_in%npnode == -1)) then
     is_invalid = .true.
-  else
+ else
     is_invalid = .false.
-  endif
+ endif
 
 end function is_invalid_node
 
@@ -220,26 +220,26 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
 !$omp num_threads(istack)
 !$omp do schedule(static)
     do node_on_level = 1, istack
-      !get the relevant member data
-      call get_node_details(queue(node_on_level), nnode, mymum, level, npnode, xmini, xmaxi, ndim)
+       !get the relevant member data
+       call get_node_details(queue(node_on_level), nnode, mymum, level, npnode, xmini, xmaxi, ndim)
 
-      call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
+       call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
             ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list)
 
-      ! if a node splits, we place the children in their expected positions in the new queue.
-      ! if they don't split, then we place invalid nodes in the queue, and we can squash these out afterwards.
-      if (wassplit) then ! add children to expected position
-         if (2*node_on_level > istacksize) call fatal('maketree',&
+       ! if a node splits, we place the children in their expected positions in the new queue.
+       ! if they don't split, then we place invalid nodes in the queue, and we can squash these out afterwards.
+       if (wassplit) then ! add children to expected position
+          if (2*node_on_level > istacksize) call fatal('maketree',&
                                        'queue size exceeded in tree build, increase istacksize and recompile')
-         ! place child nodes in next_queue
-         call push_onto_stack(next_queue(2*node_on_level-1),il,nnode,level+1,nl,xminl,xmaxl,ndim)
-         call push_onto_stack(next_queue(2*node_on_level),ir,nnode,level+1,nr,xminr,xmaxr,ndim)
-      else
-         ! place invalid nodes in next_queue
-         next_queue(2*node_on_level-1) = create_invalid_node()
-         next_queue(2*node_on_level) =  create_invalid_node()
-      endif
+          ! place child nodes in next_queue
+          call push_onto_stack(next_queue(2*node_on_level-1),il,nnode,level+1,nl,xminl,xmaxl,ndim)
+          call push_onto_stack(next_queue(2*node_on_level),ir,nnode,level+1,nr,xminr,xmaxr,ndim)
+       else
+          ! place invalid nodes in next_queue
+          next_queue(2*node_on_level-1) = create_invalid_node()
+          next_queue(2*node_on_level) =  create_invalid_node()
+       endif
     enddo
     !$omp enddo
     !$omp end parallel
@@ -248,10 +248,10 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
     ! copying next_queue to queue for next loop
     queue_index = 0
     do next_queue_index = 1, 2*istack
-      if (.not.is_invalid_node(next_queue(next_queue_index))) then
-        queue_index = queue_index + 1
-        queue(queue_index) = next_queue(next_queue_index)
-      endif
+       if (.not.is_invalid_node(next_queue(next_queue_index))) then
+          queue_index = queue_index + 1
+          queue(queue_index) = next_queue(next_queue_index)
+       endif
     enddo
     istack = queue_index
  enddo over_queue
@@ -601,10 +601,10 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  ! during initial queue build which is serial, we can parallelise this loop
  ! split the total threads evenly between the estimated number of nodes on this level (2**level)
  ! TODO: this could be improved to make use of all threads, not just rounding down
-  ! (as some may be unused if (2**level) doesn't evenly divide omp_get_max_threads())
+ ! (as some may be unused if (2**level) doesn't evenly divide omp_get_max_threads())
  if (npnode > 1000 .and. doparallel) then
-   nested_team_size = omp_get_max_threads()/(2**level)
-   ! set number of OpenMP threads for each team
+    nested_team_size = omp_get_max_threads()/(2**level)
+    ! set number of OpenMP threads for each team
     call omp_set_num_threads(nested_team_size)
     !$omp parallel do schedule(static) default(none) &
     !$omp shared(npnode,list,xyzh,x0,iphase,massoftype,dfac) &
