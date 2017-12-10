@@ -118,7 +118,7 @@ end function is_invalid_node
 !+
 !-------------------------------------------------------------------------------
 subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
- use io,   only:fatal,warning,iprint,iverbose,id
+ use io,   only:fatal,warning,iprint,iverbose
 !$ use omp_lib
  type(kdnode),    intent(out)   :: node(ncellsmax+1)
  integer,         intent(in)    :: np,ndim
@@ -366,8 +366,8 @@ end subroutine empty_tree
 !---------------------------------
 subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
 #ifdef PERIODIC
- use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax,cross_boundary
- use domain,      only:isperiodic
+ use boundary, only:cross_boundary
+ use domain,   only:isperiodic
 #endif
 #ifdef IND_TIMESTEPS
  use part, only:iphase,iactive
@@ -503,12 +503,11 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
             groupsize)
  !$ use omp_lib
  use dim,       only:maxtypes
- use part,      only:massoftype,igas,iphase,iamtype,maxphase,maxp,npartoftype
+ use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype
  use io,        only:fatal,error
 #ifdef MPI
  use mpiderivs, only:get_group_cofm,reduce_group
 #endif
-!!!$ use omputils, only:ipart_omp_lock,nlockgrp
  type(kdnode),      intent(out)   :: nodeentry
  integer,           intent(in)    :: nnode, mymum, level
  integer,           intent(in)    :: ndim
@@ -534,7 +533,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  integer :: npnodetot
 
  logical :: nodeisactive
- integer :: i,ipart, npcounter, nested_team_size
+ integer :: i,npcounter, nested_team_size
  real    :: xi,yi,zi,hi,dx,dy,dz,dr2
  real    :: r2max, hmax
  real    :: xcofm,ycofm,zcofm,fac,dfac
@@ -611,7 +610,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     !$omp parallel do schedule(static) default(none) &
     !$omp shared(npnode,list,xyzh,x0,iphase,massoftype,dfac) &
     !$omp shared(xyzh_soa,inoderange,nnode,iphase_soa,nested_team_size) &
-    !$omp private(i,ipart,xi,yi,zi,hi,dx,dy,dz,dr2) &
+    !$omp private(i,xi,yi,zi,hi,dx,dy,dz,dr2) &
     !$omp firstprivate(pmassi,fac) &
     !$omp reduction(+:xcofm,ycofm,zcofm,totmass_node) &
     !$omp reduction(max:r2max) &
