@@ -176,7 +176,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
  ! this is counted above to remove dead/accreted particles
  call push_onto_stack(queue(istack),irootnode,0,0,npcounter,xmini,xmaxi,ndim)
 
- call OMP_SET_NESTED(.true.)
+ !$ call omp_set_nested(.true.)
 
  if (.not.done_init_kdtree) then
     ! 1 thread for serial, overwritten when using OpenMP
@@ -546,7 +546,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 #endif
  real    :: pmassi
 
- integer :: counterl, counterr
+ integer :: counterl, counterr, max_threads
 
  nodeisactive = .false.
  if (inoderange(1,nnode) > 0) then
@@ -603,9 +603,11 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  ! TODO: this could be improved to make use of all threads, not just rounding down
  ! (as some may be unused if (2**level) doesn't evenly divide omp_get_max_threads())
  if (npnode > 1000 .and. doparallel) then
-    nested_team_size = omp_get_max_threads()/(2**level)
+    max_threads = 1
+    !$ max_threads = omp_get_max_threads()
+    nested_team_size = max_threads/(2**level)
     ! set number of OpenMP threads for each team
-    call omp_set_num_threads(nested_team_size)
+    !$ call omp_set_num_threads(nested_team_size)
     !$omp parallel do schedule(static) default(none) &
     !$omp shared(npnode,list,xyzh,x0,iphase,massoftype,dfac) &
     !$omp shared(xyzh_soa,inoderange,nnode,iphase_soa,nested_team_size) &
@@ -914,7 +916,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
 #endif
- use io,       only:iprint,fatal,id
+ use io,       only:fatal,id
  use part,     only:maxgrav,gravity
 #ifdef FINVSQRT
  use fastmath, only:finvsqrt
