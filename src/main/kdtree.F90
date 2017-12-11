@@ -208,7 +208,6 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
 !$omp shared(np, ndim) &
 !$omp shared(node, ncells) &
 !$omp shared(numthreads) &
-!$omp shared(id) &
 !$omp shared(istack) &
 !$omp private(nnode, mymum, level, npnode, xmini, xmaxi) &
 !$omp private(ir, il, nl, nr) &
@@ -272,7 +271,6 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
     !$omp shared(node, ncells) &
     !$omp shared(numthreads) &
     !$omp shared(istacksaved) &
-    !$omp shared(id) &
     !$omp private(istack) &
     !$omp private(nnode, mymum, level, npnode, xmini, xmaxi) &
     !$omp private(ir, il, nl, nr) &
@@ -1508,7 +1506,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
 
  integer                       :: nl, nr
  integer                       :: il, ir, iself, parent
- integer                       :: level, ipart
+ integer                       :: level
  integer                       :: nnodestart, nnodeend,locstart,locend
  integer                       :: npcounter
 
