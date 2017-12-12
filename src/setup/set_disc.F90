@@ -186,7 +186,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  else
     exponential_taper_dust = .false.
  endif
- if (present(bh_spin)) then
+ if (present(bh_spin) .and. .not. isnan(bh_spin)) then
     aspin = bh_spin
  else
     aspin = 0.
@@ -1051,11 +1051,11 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_c) result(sigma)
  case (0)
     sigma = (R/R_ref)**(-pindex)
  case (1)
-    sigma = (R/R_ref)**(-pindex)*exp(-(R/R_c)**(2-pindex))
+    sigma = (R/R_ref)**(-pindex)*exp(-(R/R_c)**(2.-pindex))
  case (2)
-    sigma = (R/R_ref)**(-pindex)*(1-sqrt(R_in/R))
+    sigma = (R/R_ref)**(-pindex)*(1.-sqrt(R_in/R))
  case (3)
-    sigma = (R/R_ref)**(-pindex)*exp(-(R/R_c)**(2-pindex))*(1-sqrt(R_in/R))
+    sigma = (R/R_ref)**(-pindex)*exp(-(R/R_c)**(2.-pindex))*(1.-sqrt(R_in/R))
  case default
     call error('set_disc','unavailable sigmaprofile; surface density is set to zero')
     sigma = 0.
