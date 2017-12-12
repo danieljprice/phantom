@@ -1632,7 +1632,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          test_link.F90 test_kdtree.F90 test_ptmass.F90 test_luminosity.F90\
          test_gnewton.F90 test_corotate.f90 \
          test_sedov.F90 testsuite.F90 initial.F90 \
-         leastsquares.f90
+         leastsquares.f90 solvelinearsystem.f90
 
 OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
@@ -1861,7 +1861,8 @@ cleanmoddump:
 OBJAN1 = ${ANALYSIS:.f90=.o}
 OBJAN2 = ${OBJAN1:.F90=.o}
 OBJAN = ${OBJAN2:.f=.o}
-OBJA= utils_filenames.o utils_sort.o ${OBJDUMP} set_binary.o ${OBJAN}
+OBJA= utils_filenames.o utils_sort.o leastsquares.o solvelinearsystem.o \
+	  ${OBJDUMP} set_binary.o ${OBJAN}
 
 ifndef ANALYSISBIN
 ANALYSISBIN=phantomanalysis
