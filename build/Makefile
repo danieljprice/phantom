@@ -1654,7 +1654,7 @@ endif
 #
 utils: phantomsetup phantomanalysis \
        multirun memcheck phantom_moddump \
-       phantom2divv phantom2ndust phantom2divb \
+       phantom2divv phantom2divb \
        diffdumps ev2mdot phantomevcompare acc2ang \
        phantom2sphNG phantom2gadget \
        sfutils phantom2pdf phantom2pdf-amr \
@@ -1662,7 +1662,7 @@ utils: phantomsetup phantomanalysis \
 
 cleanutils: cleansetup cleananalysis \
             cleanmultirun cleanmemcheck cleanmoddump \
-            cleanphantom2divv cleanphantom2ndust cleanphantom2divb \
+            cleanphantom2divv cleanphantom2divb \
             cleandiffdumps cleanev2mdot cleanacc2ang \
             cleanp2s cleanphantom2gadget \
             cleansfutils cleanp2p cleanphantom2pdf-amr \
@@ -1951,19 +1951,6 @@ phantom2divv: checksys checkparams $(OBJECTS) phantom2divv.o
 
 cleanphantom2divv:
 	rm -f $(BINDIR)/phantom2divv
-
-#----------------------------------------------------
-# utility to calculate radial velocities of dust grains from a dump file
-# compile using all phantom files
-#
-phantom2ndust: checksys checkparams $(OBJECTS) phantom2ndust.o
-	@echo ""
-	@echo "phantom2ndust: dust simulations are like a giant sandbox"
-	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJECTS) phantom2ndust.o
-
-cleanphantom2ndust:
-	rm -f $(BINDIR)/phantom2ndust
 
 #----------------------------------------------------
 # utility to calculate divB & curlB from a dump file
