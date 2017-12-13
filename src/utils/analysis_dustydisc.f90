@@ -105,7 +105,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  real :: St_from_tstop(ndusttypes,nr)!,St_from_sigma(ndusttypes,nr)
  real :: rhogmid(nr),rhodmid(ndusttypes,nr)
  real :: rhog(npart),rhod(ndusttypes,npart),rhogbin(npartoftype(igas),nr),rhodbin(ndusttypes,npartoftype(igas),nr)
- real :: vK(nr),eta(nr)
+ real :: vK(nr),etabin(npartoftype(igas),nr),meaneta(nr)
  real :: vrgasbin(npartoftype(igas),nr),vrdustbin(ndusttypes,npartoftype(igas),nr)
  real :: meanvrgas(nr),meanvrdust(ndusttypes,nr)
  real :: meanrhog(nr),meanrhod(ndusttypes,nr)
@@ -346,7 +346,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  dustfracisum_bin(:,:) = 0.
  
 ! sound speed, orbital frequency/velocity, and gas scale-height
- do i=1,nr
+ do i = 1,nr
     cs(i)    = cs0*rad(i)**(-q_index)
     omega(i) = sqrt(G*M_star/rad(i)**3)
     vK(i)    = sqrt(G*M_star/rad(i))
@@ -479,6 +479,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
 
           ninbin(ii) = ninbin(ii) + 1
           zsetgas(ninbin(ii),ii) = xyzh(3,i)
+
+          etabin(ninbin(ii),ii)  = -(H(ii)/ri)**2*(-(p_index-q_index+1.5) - 2.*q_index +  &
+                                   (-q_index + 1.5)*(xyzh(3,i)/H(ii))**2)
           
           if (abs(xyzh(3,i)) < min(cut_fact,H_R_ref*ri**(1.5-q_index))) then
              rhogbin(ninbin(ii),ii)  = rhog(i)
@@ -549,10 +552,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
        ' dMacc  = ',Macc/Mtot_in
  write(lu,*) time,Mtot,Mgas,Mdust,Macc
  close(lu)
-
+ 
  ! Computing Hgas, Hdust, vrgas, vrdust
  do i = 1,nr
-    eta(i)  = 0.5*((1.5 + p_index + q_index))*(cs(i)/vK(i))**2
+    meaneta(i)  = sum(etabin(1:ninbin(i),i))/real(ninbin(i))
     if(ninbin(i) > 1)then
        print*,'The # of particles in bin',i,'is',ninbin(i)-icutgas(i)
        meanzgas(i)  = sum(zsetgas(1:ninbin(i),i))/real(ninbin(i))
@@ -562,10 +565,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
           do j = 1,ndusttypes
              meanvrdust(j,i) = sum(vrdustbin(j,1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
              if (scale_vel) then
-                meanvrdust(j,i) = meanvrdust(j,i)/(eta(i)*vK(i))
+                meanvrdust(j,i) = meanvrdust(j,i)/(meaneta(i)*vK(i))
              endif
              stan_dev(j,i)   = sqrt(sum(((vrdustbin(j,1:ninbin(i),i)-meanvrdust(j,i)) &
-                               /(eta(i)*vK(i)))**2)/(real(ninbin(i)) - icutgas(i) - 1))
+                               /(meaneta(i)*vK(i)))**2)/(real(ninbin(i)) - icutgas(i) - 1))
              meandustfraci(j,i) = sum(dustfraci_bin(j,1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
              meand2g_ratio(j,i) = sum(d2g_ratio_bin(j,1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
              meantstop(j,i) = sum(tstopbin(j,1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
@@ -582,10 +585,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
           if (.not. use_dustfrac) then
              meanvrdust(j,i)    = sum(vrdustbin(j,1:ninbindust(j,i),i))/(real(ninbindust(j,i))-icutdust(j,i))
              if (scale_vel) then
-                meanvrdust(j,i) = meanvrdust(j,i)/(eta(i)*vK(i))
+                meanvrdust(j,i) = meanvrdust(j,i)/(meaneta(i)*vK(i))
              endif
              stan_dev(j,i)   = sqrt(sum(((vrdustbin(j,1:ninbindust(j,i),i)-meanvrdust(j,i)) &
-                               /(eta(i)*vK(i)))**2)/(real(ninbindust(j,i)) - icutdust(j,i) - 1))
+                               /(meaneta(i)*vK(i)))**2)/(real(ninbindust(j,i)) - icutdust(j,i) - 1))
              meand2g_ratio(j,i) = sum(d2g_ratio_bin(j,1:ninbindust(j,i),i))/(real(ninbindust(j,i))-icutdust(j,i))
              meantstop(j,i)     = sum(tstopbin(j,1:ninbindust(j,i),i))/(real(ninbindust(j,i))-icutdust(j,i))
           endif
@@ -803,8 +806,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  if (check_radial_migration) then
     print *,' '
     print *,'Solving the Bai and Stone (2010) analytic solution for radial drift...'
-    !call solve_bai_stone_2010(d2g_ratio,eta,vK,vrsol,scale_vel)
-    call solve_bai_stone_2010(meand2g_ratio,nxn,eta,vK,vrsol,scale_vel)
+    call solve_bai_stone_2010(meand2g_ratio,nxn,meaneta,vK,vrsol,scale_vel)
     print*,'...Done'
     print *,' '
 
