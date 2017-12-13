@@ -38,7 +38,7 @@ program phantomanalysis
  logical            :: iexist
  character(len=120) :: dumpfile,fileprefix,infile
  type(inopts), dimension(:), allocatable :: db
- real, allocatable :: dustfracisum1(:),deltavsum(:,:)
+ real, allocatable :: dustfracisum(:),deltavsum(:,:)
 
  call set_io_unit_numbers
  iprint = 6
@@ -118,13 +118,19 @@ program phantomanalysis
 
     !--allocate memory for deltav calculations (only needed for one-fluid multigrain)
     if (.not. allocated(deltavsum)) allocate(deltavsum(3,npart))
-    if (.not. allocated(dustfracisum1)) allocate(dustfracisum1(npart))
+    if (.not. allocated(dustfracisum)) allocate(dustfracisum(npart))
        
     if (use_dustfrac) then
-       dustfracisum1(:) = 1./sum(dustfrac(:,1:npart),1)
-       deltavsum(1,:)   = dustfracisum1*sum(dustfrac(:,1:npart)*deltav(1,:,1:npart),1)
-       deltavsum(2,:)   = dustfracisum1*sum(dustfrac(:,1:npart)*deltav(2,:,1:npart),1)
-       deltavsum(3,:)   = dustfracisum1*sum(dustfrac(:,1:npart)*deltav(3,:,1:npart),1)
+       dustfracisum(:) = sum(dustfrac(:,1:npart),1)
+       where (dustfracisum > 0.)
+          deltavsum(1,:)   = sum(dustfrac(:,1:npart)*deltav(1,:,1:npart),1)/dustfracisum
+          deltavsum(2,:)   = sum(dustfrac(:,1:npart)*deltav(2,:,1:npart),1)/dustfracisum
+          deltavsum(3,:)   = sum(dustfrac(:,1:npart)*deltav(3,:,1:npart),1)/dustfracisum
+       elsewhere (dustfracisum == 0.)
+          deltavsum(1,:)   = 0.
+          deltavsum(2,:)   = 0.
+          deltavsum(3,:)   = 0.
+       endwhere
     else
        deltavsum = 0.
        deltav    = 0.
