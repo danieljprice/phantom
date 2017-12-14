@@ -80,7 +80,7 @@ function find_datafile(filename,dir,env_var,url) result(filepath)
              else
                 my_url = url
              endif
-             call download_datafile(trim(my_url),trim(mydir),trim(filename),trim(filepath),ierr)
+             call download_datafile(trim(my_url),trim(mydir),trim(filename),filepath,ierr)
              if (ierr == 0) then
                 inquire(file=trim(filepath),exist=iexist)
                 if (.not.iexist) then
