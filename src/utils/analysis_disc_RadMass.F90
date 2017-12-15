@@ -448,7 +448,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     if (isink > 0) then
        call get_mass_and_radius(npart,ndens,rad2,xyzh(3,:),xyzh(4,:),indx,particlemass,mdisc,rdisc)
     else
-        call get_radius(npart,rdisc,msink,(msink+mdisc)*massfrac,rad2,massoftype(igas),indx)
+       call get_radius(npart,rdisc,msink,(msink+mdisc)*massfrac,rad2,massoftype(igas),indx)
     endif
     !
     ! Call analysis to get the (r,phi,z) components of the B & V fields;  this is for gas only!
@@ -1011,8 +1011,8 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bevol,particlemass,
 
     anglei = 0.0
     if (angle > 0.0) then
-      anglei = abs(180./pi*asin(zi/sqrt(rtmp3d2)))
-      if (anglei > angle) anglei = 0.0 ! i.e. define as outside of our range
+       anglei = abs(180./pi*asin(zi/sqrt(rtmp3d2)))
+       if (anglei > angle) anglei = 0.0 ! i.e. define as outside of our range
     endif
     !--Ensure particle is in at least one radius of interest
     if (rtmp3d2 < rthresh2 .or. rtmp2 < rdisc2 .or. map_all_R .or. anglei > 0.0) then
