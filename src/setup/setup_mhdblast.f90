@@ -11,15 +11,16 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: James Wurster
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
 !    npartx -- number of particles in x-direction
 !
-!  DEPENDENCIES: boundary, infile_utils, io, kernel, mpiutils, options,
-!    part, physcon, prompting, setup_params, timestep, unifdis, units
+!  DEPENDENCIES: boundary, dim, eos, infile_utils, io, kernel, mpiutils,
+!    options, part, physcon, prompting, setup_params, timestep, unifdis,
+!    units
 !+
 !--------------------------------------------------------------------------
 module setup
