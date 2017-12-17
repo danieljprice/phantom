@@ -46,7 +46,7 @@ module timestep
  ! dtmax_rat must be a multiple of 2.
  ! The logicals will be automatically adjusted, so do not modify.
  ! To disable, set dtwall_dtthresh=0
- real,    public :: dtwall_dtthresh   = 86400.0  ! = 24h; must be modified here
+ real,    public :: dtwall_dtthresh   = 43200.0  ! = 12h; must be modified here
  real,    public :: rho_dtthresh
  real,    public :: rho_dtthresh_cgs  = 0.0
  integer, public :: dtmax_rat0        = 1

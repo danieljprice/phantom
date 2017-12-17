@@ -565,6 +565,17 @@ ifeq ($(SETUP), mhdsine)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), mhdblast)
+#   MHD blast wave test
+    SETUPFILE= setup_mhdblast.f90
+    PERIODIC=yes
+    MHD=yes
+    ISOTHERMAL=no
+    IND_TIMESTEPS=no
+    KNOWN_SETUP=yes
+    MAXP=3000000
+endif
+
 ifeq ($(SETUP), cluster)
 #   cluster formation (setup)
     FPPFLAGS=
