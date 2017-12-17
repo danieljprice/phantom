@@ -1096,7 +1096,9 @@ subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
- logical :: done_alpha = .false.
+ logical :: done_alpha
+
+ done_alpha = .false. 
 
  !--read old options for backwards compatibility
  if (obsolete_flag) then
