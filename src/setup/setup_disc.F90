@@ -1098,7 +1098,7 @@ subroutine write_setupfile(filename)
  integer, parameter :: iunit = 20
  logical :: done_alpha
 
- done_alpha = .false. 
+ done_alpha = .false.
 
  !--read old options for backwards compatibility
  if (obsolete_flag) then
