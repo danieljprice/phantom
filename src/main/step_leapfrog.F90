@@ -66,10 +66,10 @@ subroutine init_step(npart,time,dtmax)
  !
  ! For each ibin option, calculate dt, dt/2, 1/dt and twas
  do i=0,maxbins
-   ibin_dts(itdt,  i) = get_dt(dtmax,int(i,kind=1))
-   ibin_dts(ithdt, i) = 0.5*ibin_dts(itdt,i)
-   ibin_dts(itdt1, i) = 1.0/ibin_dts(itdt,i)
-   ibin_dts(ittwas,i) = time + 0.5*get_dt(dtmax,int(i,kind=1))
+    ibin_dts(itdt,  i) = get_dt(dtmax,int(i,kind=1))
+    ibin_dts(ithdt, i) = 0.5*ibin_dts(itdt,i)
+    ibin_dts(itdt1, i) = 1.0/ibin_dts(itdt,i)
+    ibin_dts(ittwas,i) = time + 0.5*get_dt(dtmax,int(i,kind=1))
  enddo
 #endif
 
