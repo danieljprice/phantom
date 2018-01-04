@@ -192,11 +192,10 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        endif
     enddo
  endif
+ call init_step(npart,time,dtmax)
  if (use_sts) then
     call sts_get_dtau_next(dtau,dt,dtmax,dtdiff,nbinmax)
-    call sts_init_step(npart,time,dtmax,dtau)
- else
-    call init_step(npart,time,dtmax)
+    call sts_init_step(npart,time,dtmax,dtau)  ! overwrite twas for particles requiring super-timestepping
  endif
 
 #else
@@ -479,17 +478,17 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        !call increment_timer(timer_lastdump,t2-twalllast,tcpu2-tcpulast)
        timer_fromstart%cpu  = reduce_mpi('+',timer_fromstart%cpu)
        timer_lastdump%cpu   = reduce_mpi('+',timer_lastdump%cpu)
-       timer_step%cpu = reduce_mpi('+',timer_step%cpu)
-       timer_ev%cpu   = reduce_mpi('+',timer_ev%cpu)
+       timer_step%cpu       = reduce_mpi('+',timer_step%cpu)
+       timer_ev%cpu         = reduce_mpi('+',timer_ev%cpu)
 
        fulldump = (mod(noutput,nfulldump)==0)
 !
 !--if max wall time is set (> 1 sec) stop the run at the last full dump
 !  that will fit into the walltime constraint, based on the wall time between
 !  the last two dumps added to the current total walltime used.  The factor of three for
-!  chaning to full dumps is to account for the possibility that the next step will take longer.
+!  changing to full dumps is to account for the possibility that the next step will take longer.
 !  If we are about to write a small dump but it looks like we won't make the next dump,
-!  dump a full dump instead and stop the run
+!  write a full dump instead and stop the run
 !
        abortrun = .false.
        if (twallmax > 1.) then
@@ -735,6 +734,12 @@ subroutine check_conservation_error(val,ref,tol,label,decrease)
     if (.not. (trim(string)=='yes')) then
        print "(2(/,a))",' You can ignore this error and continue by setting the ',&
                         ' environment variable I_WILL_NOT_PUBLISH_CRAP=yes to continue'
+!#ifdef IND_TIMESTEPS
+!       print "(4(/,a))",' Note: Please try again setting allow_wake=.false. in step_leapfrog.F90. ',&
+!                        ' If the new simulation successfully runs, please send details to ',&
+!                        ' j.wurster[at]exeter.ac.uk so that the bug can be fixed. ',&
+!                        ' Sorry for any inconvenience.'
+!#endif
        call fatal('evolve',' Conservation errors too large to continue simulation')
     endif
  else

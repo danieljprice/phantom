@@ -30,7 +30,7 @@
 !+
 !--------------------------------------------------------------------------
 module part
- use dim, only:maxp,ndivcurlv,ndivcurlB,maxvxyzu, &
+ use dim, only:maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu, &
           maxalpha,maxptmass,maxstrain, &
           mhd,maxmhd,maxBevol,maxvecp,maxp_h2,periodic, &
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
@@ -164,13 +164,13 @@ module part
  real         :: Bpred(maxBevol,maxmhdan)
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin(maxan)
+ integer(kind=1)    :: ibin_old(maxan)
  integer(kind=1)    :: ibin_wake(maxan)
- integer(kind=1)    :: ibinold(maxan)
- integer(kind=1)    :: ibinsink(maxan)
+ integer(kind=1)    :: ibin_neigh(maxan)
  real(kind=4)       :: dt_in(maxan)
  real               :: twas(maxan)
 #else
- integer(kind=1)    :: ibin_wake(1)
+ integer(kind=1)    :: ibin_wake(1),ibin_neigh(1)
 #endif
  integer, parameter :: maxphase = maxan
  integer, parameter :: maxgradh = maxan
@@ -210,9 +210,9 @@ module part
    +(maxgrav/maxpd)                     &  ! poten
 #ifdef IND_TIMESTEPS
    +1                                   &  ! ibin
+   +1                                   &  ! ibin_old
    +1                                   &  ! ibin_wake
-   +1                                   &  ! ibinold
-   +1                                   &  ! ibinsink
+   +1                                   &  ! ibin_neigh
    +1                                   &  ! dt_in
    +1                                   &  ! twas
 #endif
@@ -596,12 +596,12 @@ subroutine copy_particle(src, dst)
  if (maxphase ==maxp) iphase(dst)   = iphase(src)
  if (maxgrav  ==maxp) poten(dst) = poten(src)
 #ifdef IND_TIMESTEPS
- ibin(dst)      = ibin(src)
- ibin_wake(dst) = ibin_wake(src)
- ibinold(dst)   = ibinold(src)
- ibinsink(dst)  = ibinsink(src)
- dt_in(dst)     = dt_in(src)
- twas(dst)      = twas(src)
+ ibin(dst)       = ibin(src)
+ ibin_old(dst)   = ibin_old(src)
+ ibin_wake(dst)  = ibin_wake(src)
+ ibin_neigh(dst) = ibin_neigh(src)
+ dt_in(dst)      = dt_in(src)
+ twas(dst)       = twas(src)
 #endif
  if (use_dust) then
     dustfrac(dst) = dustfrac(src)
@@ -649,12 +649,12 @@ subroutine copy_particle_all(src,dst)
  if (maxgrav  ==maxp) poten(dst) = poten(src)
  if (maxlum   ==maxp) luminosity(dst) = luminosity(src)
 #ifdef IND_TIMESTEPS
- ibin(dst)      = ibin(src)
- ibin_wake(dst) = ibin_wake(src)
- ibinold(dst)   = ibinold(src)
- ibinsink(dst)  = ibinsink(src)
- dt_in(dst)     = dt_in(src)
- twas(dst)      = twas(src)
+ ibin(dst)       = ibin(src)
+ ibin_old(dst)   = ibin_old(src)
+ ibin_wake(dst)  = ibin_wake(src)
+ ibin_neigh(dst) = ibin_neigh(src)
+ dt_in(dst)      = dt_in(src)
+ twas(dst)       = twas(src)
 #endif
  if (use_dust) then
     dustfrac(dst)  = dustfrac(src)
@@ -854,9 +854,9 @@ subroutine fill_sendbuf(i,xtemp)
     endif
 #ifdef IND_TIMESTEPS
     call fill_buffer(xtemp,ibin(i),nbuf)
+    call fill_buffer(xtemp,ibin_old(i),nbuf)
     call fill_buffer(xtemp,ibin_wake(i),nbuf)
-    call fill_buffer(xtemp,ibinold(i),nbuf)
-    call fill_buffer(xtemp,ibinsink(i),nbuf)
+    call fill_buffer(xtemp,ibin_neigh(i),nbuf)
     call fill_buffer(xtemp,dt_in(i),nbuf)
     call fill_buffer(xtemp,twas(i),nbuf)
 #endif
@@ -912,9 +912,9 @@ subroutine unfill_buffer(ipart,xbuf)
  endif
 #ifdef IND_TIMESTEPS
  ibin(ipart)            = nint(unfill_buf(xbuf,j),kind=1)
+ ibin_old(ipart)        = nint(unfill_buf(xbuf,j),kind=1)
  ibin_wake(ipart)       = nint(unfill_buf(xbuf,j),kind=1)
- ibinold(ipart)         = nint(unfill_buf(xbuf,j),kind=1)
- ibinsink(ipart)        = nint(unfill_buf(xbuf,j),kind=1)
+ ibin_neigh(ipart)      = nint(unfill_buf(xbuf,j),kind=1)
  dt_in(ipart)           = real(unfill_buf(xbuf,j),kind=kind(dt_in))
  twas(ipart)            = unfill_buf(xbuf,j)
 #endif

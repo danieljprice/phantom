@@ -553,27 +553,31 @@ end function ptmass_not_obscured
 !----------------------------------------------------------------
 subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
                           itypei,pmassi,xyzmh_ptmass,vxyz_ptmass,accreted, &
-                          dptmass,time,facc,nfaili)
+                          dptmass,time,facc,nbinmax,ibin_wakei,nfaili)
+
  !$ use omputils, only:ipart_omp_lock
- use part, only:ihacc
- use io,   only:iprint,iverbose,fatal
+ use part,       only: ihacc
+ use kernel,     only: radkern2
+ use io,         only: iprint,iverbose,fatal
  use io_summary, only: iosum_ptmass,maxisink,print_acc
- integer, intent(in)    :: is,nptmass,itypei
- real,    intent(in)    :: xi,yi,zi,pmassi,vxi,vyi,vzi,fxi,fyi,fzi,time,facc
- real,    intent(inout) :: hi
- real,    intent(in)    :: xyzmh_ptmass(nsinkproperties,maxptmass)
- real,    intent(in)    :: vxyz_ptmass(3,maxptmass)
- logical, intent(out)   :: accreted
- real,    intent(inout) :: dptmass(ndptmass,maxptmass)
- integer, optional, intent(out) :: nfaili
- integer :: i,ifail
- real    :: xs,ys,zs,vxs,vys,vzs
- real    :: dx,dy,dz,r2,spinm,dvx,dvy,dvz,v2,hacc
- real    :: oldmass,totmass,newmass1
+ integer,           intent(in)    :: is,nptmass,itypei
+ real,              intent(in)    :: xi,yi,zi,pmassi,vxi,vyi,vzi,fxi,fyi,fzi,time,facc
+ real,              intent(inout) :: hi
+ real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,maxptmass)
+ real,              intent(in)    :: vxyz_ptmass(3,maxptmass)
+ logical,           intent(out)   :: accreted
+ real,              intent(inout) :: dptmass(ndptmass,maxptmass)
+ integer(kind=1),   intent(in)    :: nbinmax
+ integer(kind=1),   intent(inout) :: ibin_wakei
+ integer, optional, intent(out)   :: nfaili
+ integer            :: i,ifail
+ real               :: xs,ys,zs,vxs,vys,vzs
+ real               :: dx,dy,dz,r2,spinm,dvx,dvy,dvz,v2,hacc
+ real               :: oldmass,totmass,newmass1
  logical, parameter :: iofailreason=.false.
- integer :: j
- real    :: mpt,drdv,angmom2,angmomh2,epart,dxj,dyj,dzj,dvxj,dvyj,dvzj,rj2,vj2,epartj
- logical :: mostbound
+ integer            :: j
+ real               :: mpt,drdv,angmom2,angmomh2,epart,dxj,dyj,dzj,dvxj,dvyj,dvzj,rj2,vj2,epartj
+ logical            :: mostbound
 
  accreted = .false.
  ifail    = 0
@@ -605,6 +609,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
        accreted = .true.
        ifail    = -1
     elseif (r2 < hacc**2) then
+       ibin_wakei = nbinmax
        drdv = dx*dvx + dy*dvy + dz*dvz
        ! compare specific angular momentum
        angmom2  = r2*v2 - drdv*drdv
@@ -645,6 +650,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
        endif
     else
        ifail = 1
+       if (r2 < radkern2*hi*hi) ibin_wakei = nbinmax - 1_1
     endif
     if (iverbose >= 1 .and. iofailreason) then
        !--Forced off since output will be unreasonably large
@@ -767,7 +773,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
  use boundary, only:dxbound,dybound,dzbound
 #endif
 #ifdef IND_TIMESTEPS
- use part,     only:ibin,ibinsink
+ use part,     only:ibin,ibin_wake
 #endif
  use linklist, only:ifirstincell,getneigh_pos
  use eos,      only:equationofstate,gamma,gamma_pwp,utherm
@@ -786,9 +792,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
  real, optional,  intent(in)    :: xyzhi(4),vxyzi(3)
  real(kind=4),    optional, intent(in) :: divvi_test
  integer(kind=1), optional, intent(in) :: iphasei_test,ibini
- integer(kind=1) :: iphasei
- integer :: nneigh
- integer :: listneigh(maxneigh)
+ integer(kind=1)    :: iphasei,ibin_wakei
+ integer            :: nneigh
+ integer            :: listneigh(maxneigh)
  integer, parameter :: maxcache      = 12000
  integer, parameter :: nneigh_thresh = 1024 ! approximate epot if neigh>neigh_thresh; (-ve for off)
 #ifdef IND_TIMESTEPS
@@ -908,7 +914,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
 !$omp shared(dxbound,dybound,dzbound) &
 #endif
 #ifdef IND_TIMESTEPS
-!$omp shared(ibinsink,ibin_itest) &
+!$omp shared(ibin_wake,ibin_itest) &
 #endif
 !$omp private(n,j,xj,yj,zj,hj1,hj21,psoftj,rij2,nk,k,xk,yk,zk,hk1,psoftk,rjk2,psofti,rik2) &
 !$omp private(dx,dy,dz,dvx,dvy,dvz,dv2,isdustj,iactivek,isdustk) &
@@ -947,7 +953,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
     if (rij2 < h_acc2) then
 
 #ifdef IND_TIMESTEPS
-       ibinsink(j) = ibin_itest
+       ibin_wake(j) = max(ibin_wake(j),ibin_itest)
        if (.not.iactivej .or. ifail==1) then
           ifail = 1
           cycle over_neigh
@@ -1187,8 +1193,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
     !
     ! accrete neighbours (including self)
     !
-    nacc = 0
-    dptmass = 0.
+    nacc       = 0
+    dptmass    = 0.
+    ibin_wakei = 0 ! dummy argument that has no meaning in this situation
     do n=1,nneigh
        j = listneigh(n)
        if (maxphase==maxp) then
@@ -1201,7 +1208,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
        call ptmass_accrete(nptmass,nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),&
                            vxyzu(1,j),vxyzu(2,j),vxyzu(3,j),fxj,fyj,fzj, &
                            itypej,pmassj,xyzmh_ptmass,vxyz_ptmass,accreted, &
-                           dptmass,time,1.0)
+                           dptmass,time,1.0,ibin_wakei,ibin_wakei)
 
        if (accreted) nacc = nacc + 1
     enddo
@@ -1221,9 +1228,6 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
     !
     call pt_open_sinkev(nptmass)
     call pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass)
-#ifdef IND_TIMESTEPS
-    ibinsink = 0
-#endif
  else
     !
     ! record failure reason for summary
