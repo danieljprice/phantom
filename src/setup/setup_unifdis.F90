@@ -16,10 +16,15 @@
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS: None
+!  RUNTIME PARAMETERS:
+!    cs0         -- initial sound speed in code units
+!    dust_to_gas -- initial dust-to-gas ratio
+!    ilattice    -- lattice type (1=cubic, 2=closepacked)
+!    nx          -- number of particles in x direction
+!    rhozero     -- initial density in code units
 !
-!  DEPENDENCIES: boundary, dim, dust, io, mpiutils, options, part, physcon,
-!    prompting, setup_params, unifdis
+!  DEPENDENCIES: boundary, dim, dust, infile_utils, io, mpiutils, options,
+!    part, physcon, prompting, setup_params, unifdis
 !+
 !--------------------------------------------------------------------------
 module setup
