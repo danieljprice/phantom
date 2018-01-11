@@ -29,8 +29,10 @@ module setup
  implicit none
  public :: setpart
 
- integer, private :: npartx,ilattice
- real,    private :: cs0,dust_to_gas
+ integer :: npartx,ilattice
+ real    :: cs0,dust_to_gas,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi
+ character(len=20) :: dist_unit,mass_unit
+ real(kind=8) :: udist,umass
  private
 
 contains
@@ -41,14 +43,15 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxvxyzu
+ use dim,          only:maxvxyzu,h2chemistry
  use setup_params, only:npart_total
  use io,           only:master
  use unifdis,      only:set_unifdis
- use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:dustfrac
- use physcon,      only:pi
+ use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
+ use part,         only:dustfrac,abundance,iHI
+ use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm
  use dust,         only:set_dustfrac
+ use units,        only:set_units
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -73,7 +76,25 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     gamma = 5./3.
  endif
  !
- !--get disc setup parameters from file or interactive setup
+ ! default units
+ !
+ mass_unit = 'solarm'
+ dist_unit = 'pc'
+ !
+ ! set boundaries to default values
+ !
+ xmini = xmin; xmaxi = xmax
+ ymini = ymin; ymaxi = ymax
+ zmini = zmin; zmaxi = zmax
+ !
+ ! set default values for input parameters
+ !
+ npartx = 64
+ ilattice = 1
+ cs0 = 1.
+ dust_to_gas = 0.01
+ !
+ ! get disc setup parameters from file or interactive setup
  !
  filename=trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
@@ -91,11 +112,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  else
     stop
  endif
-!
-!--setup particles
-!
+ !
+ ! set units and boundaries
+ !
+ call set_units(dist=udist,mass=umass,G=1.d0)
+ call set_boundary(xmini,xmaxi,xmini,xmaxi,xmini,xmaxi)
+ !
+ ! setup particles
+ !
  deltax = dxbound/npartx
-
  npart = 0
  npart_total = 0
  if (use_dust) use_dustfrac = .true.
@@ -117,8 +142,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  totmass = rhozero*dxbound*dybound*dzbound
  massoftype = totmass/npart_total
  if (id==master) print*,' particle mass = ',massoftype(1)
-
  if (id==master) print*,' initial sound speed = ',cs0,' pressure = ',cs0**2/gamma
+
  do i=1,npart
     vxyzu(1:3,i) = 0.
     if (maxvxyzu >= 4) vxyzu(4,i) = cs0**2/(gamma*(gamma-1.))
@@ -127,6 +152,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (use_dustfrac) then
     do i=1,npart
        call set_dustfrac(dust_to_gas,dustfrac(i))
+    enddo
+ endif
+
+ if (h2chemistry) then
+    do i=1,npart
+       abundance(:,i)   = 0.
+       abundance(iHI,i) = 1.  ! assume all atomic hydrogen initially
     enddo
  endif
 
@@ -142,8 +174,32 @@ subroutine setup_interactive(id,polyk)
  use mpiutils,  only:bcast_mpi
  use dim,       only:maxp,maxvxyzu
  use prompting, only:prompt
+ use units,     only:select_unit
  integer, intent(in)  :: id
  real,    intent(out) :: polyk
+ integer :: ierr
+
+ if (id==master) then
+    ierr = 1
+    do while (ierr /= 0)
+       call prompt('Enter mass unit (e.g. solarm,jupiterm,earthm)',mass_unit)
+       call select_unit(mass_unit,umass,ierr)
+       if (ierr /= 0) print "(a)",' ERROR: mass unit not recognised'
+    enddo
+    ierr = 1
+    do while (ierr /= 0)
+       call prompt('Enter distance unit (e.g. au,pc,kpc,0.1pc)',dist_unit)
+       call select_unit(dist_unit,udist,ierr)
+       if (ierr /= 0) print "(a)",' ERROR: length unit not recognised'
+    enddo
+
+    call prompt('enter xmin boundary',xmini)
+    call prompt('enter xmax boundary',xmaxi,xmini)
+    call prompt('enter ymin boundary',ymini)
+    call prompt('enter ymax boundary',ymaxi,ymini)
+    call prompt('enter zmin boundary',zmini)
+    call prompt('enter zmax boundary',zmaxi,zmini)
+ endif
  !
  ! number of particles
  !
@@ -206,6 +262,24 @@ subroutine write_setupfile(filename)
  print "(/,a)",' writing setup options file '//trim(filename)
  open(newunit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for uniform setup routine'
+
+ write(iunit,"(/,a)") '# units'
+ call write_inopt(dist_unit,'dist_unit','distance unit (e.g. au)',iunit)
+ call write_inopt(mass_unit,'mass_unit','mass unit (e.g. solarm)',iunit)
+ !
+ ! boundaries
+ !
+ write(iunit,"(/,a)") '# boundaries'
+ call write_inopt(xmini,'xmin','xmin boundary',iunit)
+ call write_inopt(xmaxi,'xmax','xmax boundary',iunit)
+ call write_inopt(ymini,'ymin','ymin boundary',iunit)
+ call write_inopt(ymaxi,'ymax','ymax boundary',iunit)
+ call write_inopt(zmini,'zmin','zmin boundary',iunit)
+ call write_inopt(zmaxi,'zmax','zmax boundary',iunit)
+ !
+ ! other parameters
+ !
+ write(iunit,"(/,a)") '# setup'
  call write_inopt(npartx,'nx','number of particles in x direction',iunit)
  call write_inopt(rhozero,'rhozero','initial density in code units',iunit)
  call write_inopt(cs0,'cs0','initial sound speed in code units',iunit)
@@ -222,6 +296,8 @@ end subroutine write_setupfile
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use units,        only:select_unit
+ use io,           only:error
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
@@ -232,12 +308,43 @@ subroutine read_setupfile(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
+ !
+ ! units
+ !
+ call read_inopt(mass_unit,'mass_unit',db,errcount=nerr)
+ call read_inopt(dist_unit,'dist_unit',db,errcount=nerr)
+ !
+ ! boundaries
+ !
+ call read_inopt(xmini,'xmin',db,errcount=nerr)
+ call read_inopt(xmaxi,'xmax',db,min=xmini,errcount=nerr)
+ call read_inopt(ymini,'ymin',db,errcount=nerr)
+ call read_inopt(ymaxi,'ymax',db,min=ymini,errcount=nerr)
+ call read_inopt(zmini,'zmin',db,errcount=nerr)
+ call read_inopt(zmaxi,'zmax',db,min=zmini,errcount=nerr)
+ !
+ ! other parameters
+ !
  call read_inopt(npartx,'nx',db,min=8,errcount=nerr)
  call read_inopt(rhozero,'rhozero',db,min=0.,errcount=nerr)
  call read_inopt(cs0,'cs0',db,min=0.,errcount=nerr)
  if (use_dust) call read_inopt(dust_to_gas,'dust_to_gas',db,min=0.,errcount=nerr)
  call read_inopt(ilattice,'ilattice',db,min=1,max=2,errcount=nerr)
  call close_db(db)
+ !
+ ! parse units
+ !
+ call select_unit(mass_unit,umass,nerr)
+ if (nerr /= 0) then
+    call error('setup_unifdis','mass unit not recognised')
+    ierr = ierr + 1
+ endif
+ call select_unit(dist_unit,udist,nerr)
+ if (nerr /= 0) then
+    call error('setup_unifdis','length unit not recognised')
+    ierr = ierr + 1
+ endif
+
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
     ierr = nerr
