@@ -548,6 +548,16 @@ ifeq ($(SETUP), orstang)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), balsarakim)
+#   Balsara-Kim 2004
+    FPPFLAGS= -DPERIODIC
+    SETUPFILE= setup_unifdis.f90
+    MHD=yes
+    KNOWN_SETUP=yes
+    SRCINJECT=inject_sne.f90
+    KERNEL=quintic
+endif
+
 ifeq ($(SETUP), mhdvortex)
 #   Balsara (2004) MHD vortex
     FPPFLAGS= -DPERIODIC
@@ -2608,7 +2618,7 @@ checksetup:
 	@echo ""
 	@echo " e.g.:"
 	@echo " make SETUP=sedov"
-	@echo " make SETUP=isodisc"
+	@echo " make SETUP=disc"
 	@echo " make SETUP=turbdrive"
 	@echo ""
 	@echo " or:"
