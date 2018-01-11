@@ -207,6 +207,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use setup,            only:setpart
  use checksetup,       only:check_setup
  use h2cooling,        only:coolinmo
+ use cooling,          only:init_cooling
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
  use io_summary,       only:summary_initialise
@@ -340,6 +341,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        call init_chem()
        call coolinmo()
     endif
+ elseif (icooling > 0) then
+    call init_cooling(ierr)
+    if (ierr /= 0) call fatal('initial','error initialising cooling')
  endif
 
  if (damp > 0. .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
