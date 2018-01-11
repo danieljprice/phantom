@@ -96,6 +96,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use mpiutils,       only:reduceall_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ibin_wake
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake
+ use coolfunc,       only:energ_coolfunc
 #ifdef IND_TIMESTEPS
  use timestep,       only:dtmax,dtmax_rat,dtdiff,mod_dtmax_in_step
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,ibinnow
@@ -391,7 +392,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           vxyzu(2,i) = vyi
           vxyzu(3,i) = vzi
           !--this is the energy equation if non-isothermal
-          if (maxvxyzu >= 4) vxyzu(4,i) = eni
+          if (maxvxyzu >= 4) then
+             vxyzu(4,i) = eni
+             if (icooling==3) call energ_coolfunc(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph,v2i)
+          endif
 
           if (itype==igas) then
              !
