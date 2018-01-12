@@ -26,8 +26,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: chem, deriv, dim, eos, externalforces, io, io_summary,
-!    mpiutils, options, part, ptmass, timestep, timestep_ind, timestep_sts
+!  DEPENDENCIES: chem, coolfunc, deriv, dim, eos, externalforces, io,
+!    io_summary, mpiutils, options, part, ptmass, timestep, timestep_ind,
+!    timestep_sts
 !+
 !--------------------------------------------------------------------------
 module step_lf_global

@@ -16,16 +16,9 @@
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS:
-!    ihandled_spheres -- handle inner spheres of the wind (integer)
-!    iwind_resolution -- resolution of the wind -- DO NOT CHANGE DURING SIMULATION --
-!    shift_spheres    -- shift the spheres of the wind
-!    wind_gamma       -- polytropic indice of the wind
-!    wind_sphdist     -- distance between spheres / neighbours -- DO NOT CHANGE DURING SIMULATION --
-!    wind_temperature -- initial temperature of the wind (Kelvin)
+!  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: eos, icosahedron, infile_utils, io, part, partinject,
-!    physcon, timestep, units
+!  DEPENDENCIES: eos, infile_utils, io, part, physcon
 !+
 !--------------------------------------------------------------------------
 module inject
