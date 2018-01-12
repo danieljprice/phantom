@@ -133,7 +133,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  if (sts_it_n) then
     time_now = timei + dtsph
     do i=0,maxbins
-       ibin_dts(ittwas,i) = (int(time_now*ibin_dts(itdt1,i)) + 0.5)*ibin_dts(itdt,i)
+       ibin_dts(ittwas,i) = (int(time_now*ibin_dts(itdt1,i),kind=8) + 0.5)*ibin_dts(itdt,i)
     enddo
  endif
 #endif
