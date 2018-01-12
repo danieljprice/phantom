@@ -347,7 +347,7 @@ subroutine get_eos_constants_mesa(ierr)
        return
     endif
  endif
- allocate( mesa_eos_logEs(mesa_eos_ne), mesa_eos_logVs(mesa_eos_nv))
+ allocate(mesa_eos_logEs(mesa_eos_ne), mesa_eos_logVs(mesa_eos_nv))
  allocate(mesa_eos_data_exists(mesa_eos_nz,mesa_eos_nh))
  allocate(mesa_de_data(mesa_eos_ne,mesa_eos_nv,mesa_eos_nvar2))
  allocate(mesa_eos0(mesa_eos_nz,mesa_eos_nh,mesa_eos_ne,mesa_eos_nv))
