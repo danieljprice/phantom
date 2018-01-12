@@ -556,6 +556,8 @@ ifeq ($(SETUP), balsarakim)
     KNOWN_SETUP=yes
     SRCINJECT=inject_sne.f90
     KERNEL=quintic
+    IND_TIMESTEPS=yes
+    H2CHEM=yes
 endif
 
 ifeq ($(SETUP), mhdvortex)
