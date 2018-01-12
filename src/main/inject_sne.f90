@@ -83,7 +83,7 @@ subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,np
  logical :: inject_sn
  !
  ! parameters for supernovae injection, as in Balsara & Kim (2004)
- ! 
+ !
  real, parameter :: dt_sn = 0.00125
  real, parameter :: r_sn  = 0.005
  real, parameter :: pr_sn = 13649.6

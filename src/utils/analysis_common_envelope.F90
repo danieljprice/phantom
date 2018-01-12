@@ -1398,9 +1398,9 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
 
  case(15) !Entropy MESA EoS (diocane)
     !zeroes the entropy variable
-    entropy_bound = 0.0    
+    entropy_bound = 0.0
     entropy_unbound = 0.0
- 
+
     !calling again part of the procedure in case(3) to obtain bound and unbound particles
     !setup
     if (dump_number == 0) then
@@ -1529,7 +1529,7 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
           else !unbound
              entropy_unbound = entropy_unbound + entrop_1(i)
 
-          endif        
+          endif
 
        entropy_array(1) = entropy_bound
        entropy_array(2) = entropy_unbound
@@ -1538,7 +1538,7 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
 
     enddo
 
-    !writes on file    
+    !writes on file
     columns = (/'   b entr',&
                 ' unb entr'/)
     call write_time_file('entropy_vs_time', columns, time, entropy_array, 2, dump_number)
