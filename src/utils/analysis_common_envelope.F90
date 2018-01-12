@@ -1531,8 +1531,8 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
 
           endif
 
-       entropy_array(1) = entropy_bound
-       entropy_array(2) = entropy_unbound
+          entropy_array(1) = entropy_bound
+          entropy_array(2) = entropy_unbound
 
        endif
 

@@ -147,10 +147,10 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  imatch  = .true.
  igotall = .false.
  select case(trim(name))
- !case('dt_sn')
- !   read(valstring,*,iostat=ierr) dt_sn
- !   ngot = ngot + 1
- !   if (dt_sn < 0.)    call fatal(label,'invalid setting for time between supernovae (<0)')
+    !case('dt_sn')
+    !   read(valstring,*,iostat=ierr) dt_sn
+    !   ngot = ngot + 1
+    !   if (dt_sn < 0.)    call fatal(label,'invalid setting for time between supernovae (<0)')
  case default
     imatch = .false.
  end select
