@@ -215,7 +215,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '12) Output .divv', &
             '13) Print sink particle m and h', &
             '14) Another something', &
-	    '15) Entropy MESA EoS'
+            '15) Entropy MESA EoS'
 
     analysis_to_perform = 1
 
@@ -1518,18 +1518,18 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
           endif
 
           !gets entropy for the current particle
-	  call get_eos_various_mesa(X_in,rhopart*unit_density,vxyzu(4,i) * unit_ergg, &
+          call get_eos_various_mesa(X_in,rhopart*unit_density,vxyzu(4,i) * unit_ergg, &
                                     pres_1(i),temp_1(i),proint_1(i),peint_1(i),troint_1(i), &
                                     teint_1(i),entrop_1(i),abad_1(i),gamma1_1(i),gam_1(i))
 
-	  !sums entropy for bound particles and unbound particles
-	  if (boundparts_1(8,i) < 0.0) then !bound
-	     entropy_bound = entropy_bound + entrop_1(i)
+          !sums entropy for bound particles and unbound particles
+          if (boundparts_1(8,i) < 0.0) then !bound
+             entropy_bound = entropy_bound + entrop_1(i)
 
-	  else !unbound
+          else !unbound
              entropy_unbound = entropy_unbound + entrop_1(i)
 
-          endif	
+          endif        
 
        entropy_array(1) = entropy_bound
        entropy_array(2) = entropy_unbound
