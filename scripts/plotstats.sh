@@ -13,7 +13,7 @@ webdir=$PWD/web;
 #
 print_chart_header()
 {
-  echo "  google.charts.load('current', {'packages':['line']});";
+  echo "    google.charts.load('current', {'packages':['line']});";
   echo "    google.charts.setOnLoadCallback(drawChart);";
   echo;
   echo "    function drawChart() {";
@@ -72,6 +72,7 @@ print_chart_footer()
   echo "      var chart = new google.charts.Line(document.getElementById('$3'));";
   echo;
   echo "      chart.draw(data, google.charts.Line.convertOptions(options));";
+  echo "    }";
 }
 #
 #  routines specific to the graphs we want to make
