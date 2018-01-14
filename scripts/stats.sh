@@ -9,6 +9,7 @@
 #
 pwd=$PWD;
 phantomdir="$pwd/../";
+outdir=$1;
 if [ ! -e $phantomdir/scripts/$0 ]; then
    echo "Error: This script needs to be run from the phantom/scripts directory";
    exit;
@@ -27,4 +28,7 @@ get_author_count()
 datetag=`date "+%Y%m%d"`;
 nauthors=$(get_author_count);
 echo "Number of authors: $nauthors";
-echo $datetag $nauthors >> ../logs/author_count.txt;
+if [ "X$outdir" != "X" ]; then
+   echo "Writing to $outdir/author_count.txt";
+   echo $datetag $nauthors >> $outdir/author_count.txt;
+fi

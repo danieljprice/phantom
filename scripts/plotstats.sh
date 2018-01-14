@@ -84,7 +84,7 @@ print_chart_footer()
 #
 graph_author_stats()
 {
-   authordata='../logs/author_count.txt';
+   authordata='author_count.txt';
    if [ -e $authordata ]; then
       print_chart_header;
       print_column_header "Number of authors";
@@ -96,7 +96,7 @@ graph_author_stats()
       print_chart_footer "Number of authors"  "Unique contributors in git" "author_count";
    fi
 }
-outdir=$webdir/stats/
+outdir=$webdir/nightly/stats/;
 if [ -d $outdir ]; then
    graph_author_stats > $outdir/phantomstats.js;
 else

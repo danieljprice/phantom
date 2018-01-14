@@ -52,13 +52,14 @@ run_bots()
   else
      echo "error running bots";
   fi
-  ./stats.sh >& $dir/stats.log;
+  ./stats.sh $dir >& $dir/stats.log;
   if [ $? -eq 0 ]; then
      echo "stats ran OK";
   else
      echo "error running stats";
   fi
-  ./plotstats.sh >>& $dir/stats.log;
+  cd $dir; 
+  ./phantom-bots/scripts/plotstats.sh >>& $dir/stats.log;
   cd $dir;
 }
 cd $dir;
