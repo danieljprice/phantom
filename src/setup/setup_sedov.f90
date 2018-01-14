@@ -132,11 +132,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  vxyzu(4,1:npart) = vxyzu(4,1:npart)*(enblast/toten)
 !
-!--set default runtime options for this setup
+!--set default runtime options for this setup (if .in file does not already exist)
 !
- tmax   = 0.1
- dtmax  = 0.005
- alphau = 1.
+ filename=trim(fileprefix)//'.in'
+ inquire(file=filename,exist=iexist)
+ if (.not. iexist) then
+    tmax   = 0.1
+    dtmax  = 0.005
+    alphau = 1.
+ endif
 
 end subroutine setpart
 
