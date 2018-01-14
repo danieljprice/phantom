@@ -55,6 +55,7 @@ module mpiforce
     integer          :: waiting_index
     logical          :: remote_export(maxprocs)                ! remotes we are waiting for
     integer(kind=1)  :: iphase(minpart)
+    integer(kind=1)  :: ibinneigh(minpart)
     integer(kind=1)  :: pad(8 - mod(4 * (7 + minpart + maxprocs) + minpart, 8))
  endtype
 

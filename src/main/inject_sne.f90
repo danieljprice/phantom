@@ -16,16 +16,9 @@
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS:
-!    ihandled_spheres -- handle inner spheres of the wind (integer)
-!    iwind_resolution -- resolution of the wind -- DO NOT CHANGE DURING SIMULATION --
-!    shift_spheres    -- shift the spheres of the wind
-!    wind_gamma       -- polytropic indice of the wind
-!    wind_sphdist     -- distance between spheres / neighbours -- DO NOT CHANGE DURING SIMULATION --
-!    wind_temperature -- initial temperature of the wind (Kelvin)
+!  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: eos, icosahedron, infile_utils, io, part, partinject,
-!    physcon, timestep, units
+!  DEPENDENCIES: eos, infile_utils, io, part, physcon
 !+
 !--------------------------------------------------------------------------
 module inject
@@ -90,7 +83,7 @@ subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,np
  logical :: inject_sn
  !
  ! parameters for supernovae injection, as in Balsara & Kim (2004)
- ! 
+ !
  real, parameter :: dt_sn = 0.00125
  real, parameter :: r_sn  = 0.005
  real, parameter :: pr_sn = 13649.6
@@ -154,10 +147,10 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  imatch  = .true.
  igotall = .false.
  select case(trim(name))
- !case('dt_sn')
- !   read(valstring,*,iostat=ierr) dt_sn
- !   ngot = ngot + 1
- !   if (dt_sn < 0.)    call fatal(label,'invalid setting for time between supernovae (<0)')
+    !case('dt_sn')
+    !   read(valstring,*,iostat=ierr) dt_sn
+    !   ngot = ngot + 1
+    !   if (dt_sn < 0.)    call fatal(label,'invalid setting for time between supernovae (<0)')
  case default
     imatch = .false.
  end select

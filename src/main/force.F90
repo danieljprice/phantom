@@ -147,7 +147,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #else
  use timestep,     only:C_cour,C_force
 #endif
- use part,         only:divBsymm,isdead_or_accreted,h2chemistry,ngradh,gravity,ibin_wake,ibin_neigh
+ use part,         only:divBsymm,isdead_or_accreted,h2chemistry,ngradh,gravity,ibin_wake
  use mpiutils,     only:reduce_mpi,reduceall_mpi,reduceloc_mpi,bcast_mpi
  use cooling,      only:energ_cooling
  use chem,         only:energ_h2cooling
@@ -234,8 +234,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #endif
 
 #ifdef IND_TIMESTEPS
- nbinmaxnew    = 0
- nbinmaxstsnew = 0
+ nbinmaxnew      = 0
+ nbinmaxstsnew   = 0
  ndtforce        = 0
  ndtforceng      = 0
  ndtcool         = 0
@@ -339,7 +339,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp private(cell) &
 !$omp private(remote_export) &
 !$omp private(nneigh) &
-!$omp shared(ibin_neigh) &
 #ifdef GRAVITY
 !$omp shared(massoftype,npart) &
 !$omp private(hi,pmassi,rhoi) &
@@ -421,7 +420,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                       iphase,divcurlv,divcurlB,alphaind,eta_nimhd, &
-                      dustfrac,gradh,ibinnow_m1,ibin_wake,ibin_neigh,stressmax,xyzcache)
+                      dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache)
 
 #ifdef MPI
     if (do_export) then
@@ -440,7 +439,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
                              dtfrcfacmax  ,dtfrcngfacmax ,dtdragfacmax ,dtdragdfacmax ,dtcoolfacmax, &
                              dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean, &
                              dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax, &
-                             ibin_neigh, &
 #endif
                              ndustres,dustresfacmax,dustresfacmean)
 
@@ -472,7 +470,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
        call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          iphase,divcurlv,divcurlB,alphaind,eta_nimhd, &
-                         dustfrac,gradh,ibinnow_m1,ibin_wake,ibin_neigh,stressmax,xyzcache)
+                         dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache)
 
        cell%remote_export(id+1) = .false.
 
@@ -516,7 +514,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
                                           dtfrcfacmax  ,dtfrcngfacmax ,dtdragfacmax ,dtdragdfacmax ,dtcoolfacmax, &
                                           dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean, &
                                           dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax, &
-                                          ibin_neigh, &
 #endif
                                           ndustres,dustresfacmax,dustresfacmean)
 
@@ -647,45 +644,14 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #endif
 
 #ifdef IND_TIMESTEPS
-
+ nbinmax    = int(reduceall_mpi('max',nbinmaxnew),kind=1)
  nbinmaxsts = int(reduceall_mpi('max',nbinmaxstsnew),kind=1)
- nbinmaxnew = int(reduceall_mpi('max',nbinmaxnew))
  ndtforce   = int(reduce_mpi('+',ndtforce))
  ndtforceng = int(reduce_mpi('+',ndtforceng))
  ndtcool    = int(reduce_mpi('+',ndtcool))
  ndtdrag    = int(reduce_mpi('+',ndtdrag))
  ndtdragd   = int(reduce_mpi('+',ndtdragd))
  ndtdust    = int(reduce_mpi('+',ndtdust))
-
-!  To prevent waking to a larger ibin than currently exists
- if (nbinmaxnew < nbinmax) then
-!$omp parallel default(none) &
-!$omp shared(npart,ibin,ibin_wake,nbinmaxnew) &
-!$omp private(i)
-!$omp do schedule(runtime)
-    do i=1,npart
-       ibin_wake(i) = min(int(nbinmaxnew,kind=1),ibin_wake(i))
-    enddo
-!$omp enddo
-!$omp end parallel
- endif
- nbinmax = int(nbinmaxnew,kind=1)
-
- !  If use_STS, increase ibin as required for ibin_sts > ibin
- if ( use_STS ) then
-!$omp parallel default(none) &
-!$omp shared(npart,ibin,ibin_sts,nbinmax) &
-!$omp private(i)
-!$omp do schedule(runtime)
-    do i=1,npart
-       if (ibin_sts(i) < 0) then
-          ibin_sts(i) = -ibin_sts(i) ! positive now
-          if (ibin(i) < ibin_sts(i)) ibin(i) = min(ibin_sts(i), nbinmax )
-       endif
-    enddo
-!$omp enddo
-!$omp end parallel
- endif
 
  !  Print warning statements, if required
  if (iverbose >= 1 .and. id==master) then
@@ -792,7 +758,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                           divcurlB,eta_nimhd, &
                           dustfrac,gradh,divcurlv,alphaind, &
                           alphau,alphaB,bulkvisc,stressmax,&
-                          ndrag,nstokes,nsuper,ts_min,ibinnow_m1,ibin_wake,ibin_neigh,&
+                          ndrag,nstokes,nsuper,ts_min,ibinnow_m1,ibin_wake,ibin_neighi,&
                           ignoreself)
 #ifdef FINVSQRT
  use fastmath,    only:finvsqrt
@@ -846,7 +812,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real,            intent(in)    :: alphau,alphaB,bulkvisc,stressmax
  integer,         intent(inout) :: ndrag,nstokes,nsuper
  real,            intent(out)   :: ts_min
- integer(kind=1), intent(out)   :: ibin_wake(:),ibin_neigh(:)
+ integer(kind=1), intent(out)   :: ibin_wake(:),ibin_neighi
  integer(kind=1), intent(in)    :: ibinnow_m1
  logical,         intent(in)    :: ignoreself
  integer :: j,n,iamtypej
@@ -931,9 +897,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  iamtypej = igas
  iamgasj  = .true.
  iamdustj = .false.
-#ifdef IND_TIMESTEPS
- ibin_neigh(i) = 0_1
-#endif
+
+ ! to find max ibin of all of i's neighbours
+ ibin_neighi = 0_1
 
  ! dust
  ts_min = bignumber
@@ -1114,8 +1080,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           ! Particle j is a neighbour of an active particle;
           ! flag it to see if it needs to be woken up next step.
           if (iamtypej /= iboundary) then
+#ifndef MPI
              ibin_wake(j)  = max(ibinnow_m1,ibin_wake(j))
-             ibin_neigh(i) = max(ibin_neigh(i),ibin_old(j))
+#endif
+             ibin_neighi = max(ibin_neighi,ibin_old(j))
           endif
 #endif
        endif
@@ -1896,7 +1864,7 @@ end subroutine start_cell
 
 subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                         iphase,divcurlv,divcurlB,alphaind,eta_nimhd, &
-                        dustfrac,gradh,ibinnow_m1,ibin_wake,ibin_neigh,stressmax,xyzcache)
+                        dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache)
  use io,          only:error
 #ifdef MPI
  use io,          only:id
@@ -1924,7 +1892,6 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  real(kind=4),    intent(in)     :: gradh(:,:)
  integer(kind=1), intent(inout)  :: ibin_wake(:)
  integer(kind=1), intent(in)     :: ibinnow_m1
- integer(kind=1), intent(out)    :: ibin_neigh(:)
  real,            intent(in)     :: stressmax
  real,            intent(in)     :: xyzcache(:,:)
 
@@ -2008,7 +1975,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          divcurlB,eta_nimhd, &
                          dustfrac,gradh,divcurlv,alphaind, &
                          alphau,alphaB,bulkvisc,stressmax, &
-                         cell%ndrag,cell%nstokes,cell%nsuper,cell%dtdrag(ip),ibinnow_m1,ibin_wake,ibin_neigh, &
+                         cell%ndrag,cell%nstokes,cell%nsuper,cell%dtdrag(ip),ibinnow_m1,ibin_wake,cell%ibinneigh(ip), &
                          ignoreself)
 
  enddo over_parts
@@ -2027,7 +1994,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
                                          dtfrcfacmax  ,dtfrcngfacmax ,dtdragfacmax ,dtdragdfacmax ,dtcoolfacmax, &
                                          dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean, &
                                          dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax, &
-                                         ibin_neigh, &
 #endif
                                          ndustres,dustresfacmax,dustresfacmean)
  use io,             only:fatal
@@ -2082,7 +2048,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
  real,               intent(inout) :: dtfrcfacmax  ,dtfrcngfacmax ,dtdragfacmax ,dtdragdfacmax ,dtcoolfacmax
  real,               intent(inout) :: dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean
  real,               intent(inout) :: dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax
- integer(kind=1),    intent(in)    :: ibin_neigh(:)
 #endif
  integer,            intent(inout) :: ndustres
  real,               intent(inout) :: dustresfacmean,dustresfacmax
@@ -2105,15 +2070,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 #endif
  real    :: vsigdtc,dtc,dtf,dti,dtcool,dtdiffi
  real    :: dtohmi,dtambii,dthalli,dtvisci,dtdrag,dtdusti,dtclean
-
  integer :: idudtcool,ichem,iamtypei
  logical :: iactivei,iamgasi,iamdusti,realviscosity
-
 #ifdef IND_TIMESTEPS
+ integer(kind=1)       :: ibin_neighi
  logical               :: allow_decrease,dtcheck
  character(len=16)     :: dtchar
 #endif
-
  integer               :: ip,i
 
  realviscosity = (irealvisc > 0)
@@ -2143,6 +2106,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 
     fsum(:)       = cell%fsums(:,ip)
     xpartveci(:)  = cell%xpartvec(:,ip)
+#ifdef IND_TIMESTEPS
+    ibin_neighi   = cell%ibinneigh(ip)
+#endif
 
     xi         = xpartveci(ixi)
     yi         = xpartveci(iyi)
@@ -2475,7 +2441,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
     !
     ! Saitoh-Makino limiter, do not allow timestep to be more than 1 bin away from neighbours
     !
-    ibin(i) = max(ibin(i),ibin_neigh(i)-1_1)
+    ibin(i) = max(ibin(i),ibin_neighi-1_1)
     !
     ! find the new maximum number of bins
     nbinmaxnew = max(nbinmaxnew,int(ibin(i)))
@@ -2486,7 +2452,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
        ibin_sts(i) = 0 ! we actually want dtdiff, and this is just a tracer; should reduce the number of sts active particles for speed
        call get_newbin(dtdiffi,dtmax,ibin_sts(i),allow_decrease,.false.)
        nbinmaxstsnew = max(nbinmaxstsnew,int(ibin_sts(i)))
-       ibin_sts(i) = -ibin_sts(i) ! set as negative to tag as active; will be reset to positive shortly
     endif
 
 #else
@@ -2512,7 +2477,7 @@ pure subroutine combine_cells(cella, cellb)
  type(cellforce),   intent(inout)        :: cella
  type(cellforce),   intent(in)           :: cellb
 
- integer                                :: i
+ integer                                 :: i
 
  do i = 1,cella%npcell
     cella%fsums(:,i) = cella%fsums(:,i) + cellb%fsums(:,i)

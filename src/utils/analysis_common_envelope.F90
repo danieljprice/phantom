@@ -58,7 +58,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use ptmass,       only:get_accel_sink_sink, get_accel_sink_gas
  use kernel,       only:kernel_softening,radkern,wkern,cnormk
  use eos,          only:gamma,equationofstate,ieos,init_eos,finish_eos,X_in,Z_in
- use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa
+ use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa, get_eos_various_mesa
  use setbinary,    only:Rochelobe_estimate
 
  !general variables
@@ -183,7 +183,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real  :: temp_array(4000) = (/ (10**(i/1000.), i=3000,6999) /)
  real  :: kappa_array(10000,4000)
 
- !case 14
+ !case 14 variables
  integer                      :: npart_hist, nbins
  real, dimension(5,npart)     :: dist_part
  real, dimension(npart)       ::rad_part
@@ -194,9 +194,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real                         :: xh0, xh1, xhe0, xhe1, xhe2
  character(len=17), dimension(5) :: grid_file
 
+ !case 15 variables (diocane)
+ real                        :: entropy_bound = 0.0, entropy_unbound = 0.0, entropy_array(2)
+ real                        :: boundparts_1(8,npart)
+ real, dimension(npart)      :: pres_1, temp_1, proint_1, peint_1, troint_1, teint_1, entrop_1, abad_1, gamma1_1, gam_1
+
  !chose analysis type
  if (dump_number==0) then
-    print "(13(/,a,/))", ' 1) Sink separation', &
+    print "(15(/,a,/))", ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
             ' 4) Profile from centre of mass', &
@@ -208,15 +213,17 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '10) Something', &
             '11) Interpolated ray profile', &
             '12) Output .divv', &
-            '13) Print sink particle m and h'
+            '13) Print sink particle m and h', &
+            '14) Another something', &
+            '15) Entropy MESA EoS'
 
     analysis_to_perform = 1
 
-    call prompt('Choose analysis type ',analysis_to_perform,1,14)
+    call prompt('Choose analysis type ',analysis_to_perform,1,15)
 
  endif
 
- if ( ANY((/ 2, 3, 4, 8, 11, 12, 13, 14 /) == analysis_to_perform) .and. dump_number == 0 ) call init_eos(ieos,ierr)
+ if ( ANY((/ 2, 3, 4, 8, 11, 12, 13, 14, 15 /) == analysis_to_perform) .and. dump_number == 0 ) call init_eos(ieos,ierr)
 
  !analysis
  select case(analysis_to_perform)
@@ -1388,6 +1395,158 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
 
        close(unit=unitnum)
     enddo
+
+ case(15) !Entropy MESA EoS (diocane)
+    !zeroes the entropy variable
+    entropy_bound = 0.0
+    entropy_unbound = 0.0
+
+    !calling again part of the procedure in case(3) to obtain bound and unbound particles
+    !setup
+    if (dump_number == 0) then
+       print "(4(/,a))", 'Who would want CE energies', &
+                            'Must answer me', &
+                            'These questions three', &
+                            'Ere the new results he see'
+
+       call prompt('1. Was this in a corotating frame?',switch(1),.false.)
+
+       if (switch(1)) then
+          call prompt('  1a. Enter value of initial eccentricity : ',e)
+          a = xyzmh_ptmass(1,2)-xyzmh_ptmass(1,1)
+          sep = a*(1. + e)
+          mtot = sum(xyzmh_ptmass(4,:)) + npart*particlemass
+          vmag = sqrt(a*(1.-e**2)*mtot)/sep
+          omega_corotate = vmag/a
+          omega_corotate = Dnint(omega_corotate*10000000.0)/10000000.0
+          omega_vec = (/ 0.,0.,omega_corotate /)
+       else
+          omega_vec = (/ 0.,0.,0. /)
+       endif
+
+       call prompt('2. Would you like to use thermal energy in the computation of the bound/unbound status?', switch(2),.false.)
+
+    endif
+
+    encomp(5:) = 0.
+
+    call compute_energies(time)
+
+    ekin = 0.
+
+    call get_centreofmass(com_pos,com_v,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+
+    do i=1,npart
+       if (xyzh(4,i)  >=  0) then
+          !compute energies
+          encomp(ipot_pp) = encomp(ipot_pp) + poten(i)
+          encomp(ipot_env) = encomp(ipot_env) + poten(i)
+
+          call separation_vector(xyzh(1:3,i),com_pos(1:3),r_part_com(1:4))
+
+          rhopart = rhoh(xyzh(4,i), particlemass)
+
+          call equationofstate(ieos,ponrhoi,spsoundi,rhopart,&
+                                  r_part_com(1),r_part_com(2),r_part_com(3),vxyzu(4,i))
+
+          call cross(omega_vec,r_part_com(1:3),omegacrossr)
+
+          call separation_vector(vxyzu(1:3,i) + omegacrossr(1:3),com_v(1:3),v_part_com(1:4))
+
+          part_kin = 0.5 * particlemass * v_part_com(4)**2
+          part_ps_pot = 0.
+
+          call cross(r_part_com(1:3),particlemass * v_part_com(1:3),rcrossmv)
+
+          jz = rcrossmv(3)
+          encomp(ijz_tot) = encomp(ijz_tot) + jz
+
+          do k=1,nptmass
+             r_sink_part = separation(xyzmh_ptmass(1:3,k),xyzh(1:3,i))**2
+
+             hsoftk = max(xyzmh_ptmass(ihsoft,k),xyzh(4,i))
+             hsoft1 = 1.0/hsoftk
+             hsoft21= hsoft1**2
+             q2i    = r_sink_part*hsoft21
+             qi     = sqrt(q2i)
+
+             call kernel_softening(q2i,qi,psoft,fsoft)
+
+             part_ps_pot = part_ps_pot + psoft*hsoft1*xyzmh_ptmass(4,k)*particlemass
+
+             if (k == 1) then
+                encomp(ipot_env) = encomp(ipot_env) + psoft*hsoft1*xyzmh_ptmass(4,k)*particlemass
+             endif
+
+             if (sqrt(r_sink_part) < 80) then
+                inearsink = .true.
+
+             endif
+
+          enddo
+
+          encomp(ipot_ps) = encomp(ipot_ps) + part_ps_pot
+
+          part_therm = particlemass * vxyzu(4,i)
+
+          !compute bound/unbound status
+          boundparts_1(1:3,i) = xyzh(1:3,i)
+          boundparts_1(4:6,i) = vxyzu(1:3,i)
+
+          if (switch(2)) then
+             boundparts_1(7,i) = (part_kin + part_ps_pot + poten(i) + part_therm)/particlemass
+
+             if (part_kin + part_ps_pot + poten(i) + part_therm < 0) then
+                boundparts_1(8,i) = -1
+
+             else
+                boundparts_1(8,i) = 1
+
+             endif
+
+          else
+             boundparts_1(7,i) = (part_kin + part_ps_pot + poten(i))/particlemass
+
+             if (part_kin + part_ps_pot + poten(i) < 0) then
+                boundparts_1(8,i) = -1
+
+             else
+                boundparts_1(8,i) = 1
+
+             endif
+
+          endif
+
+          !gets entropy for the current particle
+          call get_eos_various_mesa(X_in,rhopart*unit_density,vxyzu(4,i) * unit_ergg, &
+                                    pres_1(i),temp_1(i),proint_1(i),peint_1(i),troint_1(i), &
+                                    teint_1(i),entrop_1(i),abad_1(i),gamma1_1(i),gam_1(i))
+
+          !sums entropy for bound particles and unbound particles
+          if (boundparts_1(8,i) < 0.0) then !bound
+             entropy_bound = entropy_bound + entrop_1(i)
+
+          else !unbound
+             entropy_unbound = entropy_unbound + entrop_1(i)
+
+          endif
+
+          entropy_array(1) = entropy_bound
+          entropy_array(2) = entropy_unbound
+
+       endif
+
+    enddo
+
+    !writes on file
+    columns = (/'   b entr',&
+                ' unb entr'/)
+    call write_time_file('entropy_vs_time', columns, time, entropy_array, 2, dump_number)
+
+
+
+
+    unitnum = unitnum + 1
 
  end select
 

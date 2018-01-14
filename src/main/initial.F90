@@ -19,12 +19,13 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: balance, boundary, centreofmass, checkoptions, checksetup,
-!    chem, cpuinfo, densityforce, deriv, dim, domain, dust, energies, eos,
-!    evwrite, externalforces, fastmath, forcing, h2cooling, initial_params,
-!    io, io_summary, linklist, mf_write, mpi, mpiutils, nicil, nicil_sup,
-!    omputils, options, part, photoevap, ptmass, readwrite_dumps,
-!    readwrite_infile, setup, sort_particles, step_lf_global, timestep,
-!    timestep_ind, timestep_sts, timing, units, writegitinfo, writeheader
+!    chem, cooling, cpuinfo, densityforce, deriv, dim, domain, dust,
+!    energies, eos, evwrite, externalforces, fastmath, forcing, h2cooling,
+!    initial_params, io, io_summary, linklist, mf_write, mpi, mpiutils,
+!    nicil, nicil_sup, omputils, options, part, photoevap, ptmass,
+!    readwrite_dumps, readwrite_infile, setup, sort_particles,
+!    step_lf_global, timestep, timestep_ind, timestep_sts, timing, units,
+!    writegitinfo, writeheader
 !+
 !--------------------------------------------------------------------------
 module initial
@@ -170,7 +171,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef IND_TIMESTEPS
  use timestep,         only:dtmax
  use timestep_ind,     only:istepfrac,ibinnow,maxbins,init_ibin
- use part,             only:ibin,ibin_old,ibin_wake,ibin_neigh,alphaind
+ use part,             only:ibin,ibin_old,ibin_wake,alphaind
  use readwrite_dumps,  only:dt_read_in
 #else
  use timestep,         only:dtcourant,dtforce
@@ -373,7 +374,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  ibin(:)       = 0
  ibin_old(:)   = 0
  ibin_wake(:)  = 0
- ibin_neigh(:) = 0
  if (dt_read_in) call init_ibin(npart,dtmax)
  istepfrac     = 0
  ibinnow       = 0
