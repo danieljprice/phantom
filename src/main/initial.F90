@@ -171,7 +171,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef IND_TIMESTEPS
  use timestep,         only:dtmax
  use timestep_ind,     only:istepfrac,ibinnow,maxbins,init_ibin
- use part,             only:ibin,ibin_old,ibin_wake,ibin_neigh,alphaind
+ use part,             only:ibin,ibin_old,ibin_wake,alphaind
  use readwrite_dumps,  only:dt_read_in
 #else
  use timestep,         only:dtcourant,dtforce
@@ -374,7 +374,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  ibin(:)       = 0
  ibin_old(:)   = 0
  ibin_wake(:)  = 0
- ibin_neigh(:) = 0
  if (dt_read_in) call init_ibin(npart,dtmax)
  istepfrac     = 0
  ibinnow       = 0

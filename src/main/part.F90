@@ -166,11 +166,10 @@ module part
  integer(kind=1)    :: ibin(maxan)
  integer(kind=1)    :: ibin_old(maxan)
  integer(kind=1)    :: ibin_wake(maxan)
- integer(kind=1)    :: ibin_neigh(maxan)
  real(kind=4)       :: dt_in(maxan)
  real               :: twas(maxan)
 #else
- integer(kind=1)    :: ibin_wake(1),ibin_neigh(1)
+ integer(kind=1)    :: ibin_wake(1)
 #endif
  integer, parameter :: maxphase = maxan
  integer, parameter :: maxgradh = maxan
@@ -212,7 +211,6 @@ module part
    +1                                   &  ! ibin
    +1                                   &  ! ibin_old
    +1                                   &  ! ibin_wake
-   +1                                   &  ! ibin_neigh
    +1                                   &  ! dt_in
    +1                                   &  ! twas
 #endif
@@ -599,7 +597,6 @@ subroutine copy_particle(src, dst)
  ibin(dst)       = ibin(src)
  ibin_old(dst)   = ibin_old(src)
  ibin_wake(dst)  = ibin_wake(src)
- ibin_neigh(dst) = ibin_neigh(src)
  dt_in(dst)      = dt_in(src)
  twas(dst)       = twas(src)
 #endif
@@ -652,7 +649,6 @@ subroutine copy_particle_all(src,dst)
  ibin(dst)       = ibin(src)
  ibin_old(dst)   = ibin_old(src)
  ibin_wake(dst)  = ibin_wake(src)
- ibin_neigh(dst) = ibin_neigh(src)
  dt_in(dst)      = dt_in(src)
  twas(dst)       = twas(src)
 #endif
@@ -681,19 +677,22 @@ subroutine reorder_particles(iorder,np)
 
  call copy_array(xyzh(:,1:np), iorder(1:np))
  call copy_array(vxyzu(:,1:np),iorder(1:np))
- call copy_array(fext(:,1:np),iorder(1:np))
+ call copy_array(fext(:,1:np), iorder(1:np))
  if (mhd) then
     call copy_array(Bevol(:,1:npart),iorder(1:np))
     !--also copy the Bfield here, as this routine is used in setup routines
-    if (maxvecp        ==maxp) call copy_array(Bxyz(:,1:np),        iorder(1:np))
+    if (maxvecp==maxp)call copy_array(Bxyz(:,1:np),      iorder(1:np))
  endif
- if (ndivcurlv > 0)     call copy_arrayr4(divcurlv(:,1:np),iorder(1:np))
- if (maxalpha ==maxp) call copy_arrayr4(alphaind(:,1:np),  iorder(1:np))
- if (maxgradh ==maxp) call copy_arrayr4(gradh(:,1:np),  iorder(1:np))
- if (maxphase ==maxp) call copy_arrayint1(iphase(1:np),iorder(1:np))
- if (maxgrav  ==maxp) call copy_array1(poten(1:np),  iorder(1:np))
+ if (ndivcurlv > 0)   call copy_arrayr4(divcurlv(:,1:np),iorder(1:np))
+ if (maxalpha ==maxp) call copy_arrayr4(alphaind(:,1:np),iorder(1:np))
+ if (maxgradh ==maxp) call copy_arrayr4(gradh(:,1:np),   iorder(1:np))
+ if (maxphase ==maxp) call copy_arrayint1(iphase(1:np),  iorder(1:np))
+ if (maxgrav  ==maxp) call copy_array1(poten(1:np),      iorder(1:np))
 #ifdef IND_TIMESTEPS
- call copy_arrayint1(ibin(1:np),  iorder(1:np))
+ call copy_arrayint1(ibin(1:np),      iorder(1:np))
+ call copy_arrayint1(ibin_old(1:np),  iorder(1:np))
+ call copy_arrayint1(ibin_wake(1:np), iorder(1:np))
+ !call copy_array1(twas(1:np),          iorder(1:np))
 #endif
 
  return
@@ -856,7 +855,6 @@ subroutine fill_sendbuf(i,xtemp)
     call fill_buffer(xtemp,ibin(i),nbuf)
     call fill_buffer(xtemp,ibin_old(i),nbuf)
     call fill_buffer(xtemp,ibin_wake(i),nbuf)
-    call fill_buffer(xtemp,ibin_neigh(i),nbuf)
     call fill_buffer(xtemp,dt_in(i),nbuf)
     call fill_buffer(xtemp,twas(i),nbuf)
 #endif
@@ -914,7 +912,6 @@ subroutine unfill_buffer(ipart,xbuf)
  ibin(ipart)            = nint(unfill_buf(xbuf,j),kind=1)
  ibin_old(ipart)        = nint(unfill_buf(xbuf,j),kind=1)
  ibin_wake(ipart)       = nint(unfill_buf(xbuf,j),kind=1)
- ibin_neigh(ipart)      = nint(unfill_buf(xbuf,j),kind=1)
  dt_in(ipart)           = real(unfill_buf(xbuf,j),kind=kind(dt_in))
  twas(ipart)            = unfill_buf(xbuf,j)
 #endif

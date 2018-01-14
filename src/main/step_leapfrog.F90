@@ -116,7 +116,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  real               :: v2mean,hdti
 #ifdef IND_TIMESTEPS
  real               :: dtsph_next,dti,time_now
+#ifdef MPI
+ logical, parameter :: allow_waking = .false.
+#else
  logical, parameter :: allow_waking = .true.
+#endif
 #else
  integer(kind=1), parameter :: nbinmax = 0
 #endif
@@ -336,6 +340,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              ibin_wake(i) = 0       ! cannot wake active particles
              hdti = timei - twas(i) ! = 0.5*get_dt(dtmax,ibin_old(i)) if .not.use_sts, dtmax has not changed, particle was not just woken up
              if (use_sts) then
+                if (ibin(i) < ibin_sts(i)) ibin(i) = min(ibin_sts(i), nbinmax ) ! increase ibin if needed for super timestepping
                 if (.not.sts_it_n .or. (sts_it_n .and. ibin_sts(i) > ibin(i))) then
                    dti = hdti + 0.5*dtsph_next
                 else
@@ -366,6 +371,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           !--Wake particles for next step
           !
           if (sts_it_n .and. ibin_wake(i) > ibin(i) .and. allow_waking) then
+             ibin_wake(i) = min(int(nbinmax,kind=1),ibin_wake(i))
              nwake        = nwake + 1
              twas(i)      = ibin_dts(ittwas,ibin_wake(i))
              ibin(i)      = ibin_wake(i)
