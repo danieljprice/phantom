@@ -7,13 +7,7 @@
 #  Written by: Daniel Price Jan. 2018
 #
 #--------------------------------------------------------
-pwd=$PWD;
-phantomdir="$pwd/../";
-if [ ! -e $phantomdir/scripts/$0 ]; then
-   echo "Error: This script needs to be run from the phantom/scripts directory";
-   exit;
-fi
-webdir=$dir/web;
+webdir=$PWD/web;
 #
 # generic routines to write code to print google charts
 #
@@ -75,7 +69,7 @@ print_chart_footer()
   echo "        height: 500";
   echo "      };"
   echo;
-  echo "      var chart = new google.charts.Line(document.getElementById('$tag'));";
+  echo "      var chart = new google.charts.Line(document.getElementById('$3'));";
   echo;
   echo "      chart.draw(data, google.charts.Line.convertOptions(options));";
 }
@@ -94,11 +88,15 @@ graph_author_stats()
       done < $authordata
       print_data_footer;
       print_chart_footer "Number of authors"  "Unique contributors in git" "author_count";
+   else
+      echo "ERROR: could not find data file $authordata";
    fi
 }
 outdir=$webdir/nightly/stats/;
+outfile="$outdir/authorcount.js";
 if [ -d $outdir ]; then
-   graph_author_stats > $outdir/phantomstats.js;
+   graph_author_stats > $outfile;
+   echo "writing to $outfile";
 else
    graph_author_stats;
 fi
