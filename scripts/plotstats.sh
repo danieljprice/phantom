@@ -8,6 +8,7 @@
 #
 #--------------------------------------------------------
 webdir=$PWD/web;
+outdir=$webdir/nightly/stats/;
 #
 # generic routines to write code to print google charts
 #
@@ -38,6 +39,7 @@ parse_datetag()
   tag=$1;
   year=${tag:0:4};
   mon=${tag:4:2};
+  mon=${mon#0};
   mon=$(( mon - 1 ));
   printf -v month "%02d" $mon;
   day=${tag:6:2};
@@ -79,25 +81,44 @@ print_chart_footer()
 #
 graph_author_stats()
 {
-   authordata='author_count.txt';
-   if [ -e $authordata ]; then
+   datafile='author_count.txt';
+   if [ -e $datafile ]; then
       print_chart_header;
       print_column_header "Number of authors";
       print_data_header;
       while read -r datetag val; do
          print_entry $datetag $val;
-      done < $authordata
+      done < $datafile
       print_data_footer;
       print_chart_footer "Number of authors"  "Unique contributors in git" "author_count";
    else
-      echo "ERROR: could not find data file $authordata";
+      echo "ERROR: could not find data file $datafile";
    fi
 }
-outdir=$webdir/nightly/stats/;
-outfile="$outdir/authorcount.js";
+graph_build_status()
+{
+   datafile='build_status.txt';
+   if [ -e $datafile ]; then
+      print_chart_header;
+      print_column_header "Build score";
+      print_data_header;
+      while read -r datetag val; do
+         print_entry $datetag $val;
+      done < $datafile
+      print_data_footer;
+      print_chart_footer "Nightly build status"  "0=buildtestfail, 1=buildfail 2=testfail 3=ok" "build_status";
+   else
+      echo "ERROR: could not find data file $datafile";
+   fi
+}
 if [ -d $outdir ]; then
+   outfile="$outdir/authorcount.js";
    graph_author_stats > $outfile;
    echo "writing to $outfile";
+   outfile="$outdir/buildstatus.js";
+   graph_build_status > $outfile;
 else
    graph_author_stats;
+   echo; echo; echo;
+   graph_build_status;
 fi
