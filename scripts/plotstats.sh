@@ -26,10 +26,6 @@ print_column_header()
 {
   echo "      data.addColumn('number', '$1');";
 }
-print_column_header()
-{
-  echo "      data.addColumn('number', '$1');";
-}
 print_data_header()
 {
   echo "      data.addRows([";
@@ -44,6 +40,22 @@ parse_datetag()
   printf -v month "%02d" $mon;
   day=${tag:6:2};
   echo "new Date($year,$month,$day)";
+}
+parse_dateiso()
+{
+  tag=$1;
+  year=${tag:0:4};
+  mon=${tag:5:2};
+  mon=${mon#0};
+  mon=$(( mon - 1));
+  printf -v month "%02d" $mon;
+  day=${tag:8:2};
+  # time
+  tag=$2;
+  hour=${tag:0:2};
+  min=${tag:3:2};
+  sec=${tag:6:2};
+  echo "new Date($year,$month,$day,$hour,$min,$sec)";
 }
 print_entry()
 {
@@ -138,18 +150,47 @@ graph_timing_data()
       print_chart_footer "Testbot timings" "Walltime used for nightly tests (s)" "testbot_timing" "200";
    fi
 }
+graph_code_count()
+{
+   datafile='code_count.txt'
+   if [ -e $datafile ]; then
+      print_chart_header;
+     # print_column_header "total"
+      print_column_header "main"
+      print_column_header "setup"
+      print_column_header "tests"
+      print_column_header "utils"
+      print_data_header
+      while read -r mydate mytime tz nmain nsetup ntests nutils; do
+          #ntotal=$(( nmain + nsetup + ntests + nutils ));
+          echo "    [$(parse_dateiso $mydate $mytime $tz),$nmain,$nsetup,$ntests,$nutils],";
+      done < $datafile
+      print_data_footer
+      print_chart_footer "Lines of code" "Excluding comment and blank lines" "code_count"
+   else
+      echo "ERROR: could not find data file $datafile";
+   fi
+}
+#
+# main script
+#
 if [ -d $outdir ]; then
-   outfile="$outdir/authorcount.js";
-   graph_author_stats > $outfile;
-   echo "writing to $outfile";
-   outfile="$outdir/buildstatus.js";
-   graph_build_status > $outfile;
-   outfile="$outdir/testbottiming.js";
-   graph_timing_data > $outfile;
+   dir=$outdir;
 else
-   graph_author_stats;
-   echo; echo; echo;
-   graph_build_status;
-   echo; echo; echo;
-   graph_timing_data;
+   dir='.';
 fi
+outfile="$dir/authorcount.js";
+echo "writing to $outfile";
+graph_author_stats > $outfile;
+
+outfile="$dir/buildstatus.js";
+echo "writing to $outfile";
+graph_build_status > $outfile;
+
+outfile="$dir/testbottiming.js";
+echo "writing to $outfile";
+graph_timing_data > $outfile;
+
+outfile="$dir/codecount.js";
+echo "writing to $outfile";
+graph_code_count > $outfile;
