@@ -67,6 +67,18 @@ print_chart_footer()
   echo "         title: '$1',";
   echo "         subtitle: '$2'";
   echo "        },";
+  if [ "X$4" != "X" ]; then
+     echo "   axes: { ";
+     echo "       y: { ";
+     echo "          all: {       ";
+     echo "             range: {  ";
+     echo "                max:$4,";
+     echo "                min: 0 ";
+     echo "             } ";
+     echo "          }";
+     echo "       }";
+     echo "    },";
+  fi
   echo "        width: 900,";
   echo "        height: 500";
   echo "      };"
@@ -111,14 +123,33 @@ graph_build_status()
       echo "ERROR: could not find data file $datafile";
    fi
 }
+graph_timing_data()
+{
+   datafile='testbot_timing.txt'
+   if [ -e $datafile ]; then
+      print_chart_header;
+      print_column_header "test(ifort)";
+      print_column_header "testkd(ifort)";
+      print_column_header "test(gfortran)";
+      print_column_header "testkd(gfortran)";
+      print_data_header
+      cat $datafile;
+      print_data_footer;
+      print_chart_footer "Testbot timings" "Walltime used for nightly tests (s)" "testbot_timing" "200";
+   fi
+}
 if [ -d $outdir ]; then
    outfile="$outdir/authorcount.js";
    graph_author_stats > $outfile;
    echo "writing to $outfile";
    outfile="$outdir/buildstatus.js";
    graph_build_status > $outfile;
+   outfile="$outdir/testbottiming.js";
+   graph_timing_data > $outfile;
 else
    graph_author_stats;
    echo; echo; echo;
    graph_build_status;
+   echo; echo; echo;
+   graph_timing_data;
 fi
