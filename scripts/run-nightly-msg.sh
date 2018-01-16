@@ -3,7 +3,7 @@ dir=~/phantom-nightly
 load_modules()
 {
   source /etc/profile.d/modules.sh
-  source ~/.profile
+  source ~/.bashrc
   module purge
   source ~/.modules_buildbot
   module list
@@ -59,7 +59,8 @@ run_bots()
      echo "error running stats";
   fi
   cd $dir; 
-  ./phantom-bots/scripts/plotstats.sh >>& $dir/stats.log;
+  ./phantom-bots/scripts/parse-timings.pl 20*.html > testbot_timing.txt;
+  ./phantom-bots/scripts/plotstats.sh >> $dir/stats.log;
   cd $dir;
 }
 cd $dir;
