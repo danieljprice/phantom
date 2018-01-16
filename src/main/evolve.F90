@@ -267,7 +267,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !  for global timestepping, this is called in the block where at_dump_time==.true.
     if (istepfrac==2**nbinmax) then
        twallperdump = reduceall_mpi('max', timer_lastdump%wall)
-       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,update_tzero)
+       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,nfulldump,update_tzero)
     endif
 
     !--sanity check on istepfrac...
@@ -527,7 +527,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
 !--Decrease dtmax if requested (this is done in step for individual timesteps)
        twallperdump = timer_lastdump%wall
-       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,update_tzero,.true.)
+       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,nfulldump,update_tzero,.true.)
 #endif
 !
 !--flush any buffered warnings to the log file
@@ -661,22 +661,26 @@ end subroutine evol
 !  whether individual or global timesteps are being used.
 !+
 !----------------------------------------------------------------
-subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,update_tzero,update_dtmax)
+subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,nfulldump,update_tzero,update_dtmax)
  use timestep, only: dtmax_rat,dtmax_rat0,dtwall_dtthresh, &
                      mod_dtmax,mod_dtmax_now,mod_dtmax_in_step
  integer,      intent(in)    :: iprint
+ integer,      intent(inout) :: nfulldump
  real,         intent(inout) :: dtmax
  real(kind=4), intent(in)    :: twallperdump
  logical,      intent(out)   :: update_tzero
  logical,      intent(in), optional :: update_dtmax
+ logical                     :: mod_nfulldump
 
  ! initialise variables
- dtmax_rat    = 0
- update_tzero = .false.
+ dtmax_rat     = 0
+ update_tzero  = .false.
+ mod_nfulldump = .false.
 
  ! modify dtmax based upon wall time constraint, if requested
  if ( dtwall_dtthresh > 0.0 ) then
     if (twallperdump > dtwall_dtthresh) then
+       mod_nfulldump = .true.
        dtmax_rat = int(2**(int(log(real(twallperdump/dtwall_dtthresh))/log(2.0))+1))
        write(iprint,'(1x,a,2(es10.3,a))') &
           "modifying dtmax: ",dtmax," --> ",dtmax/dtmax_rat," due to wall time constraint"
@@ -686,6 +690,7 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,update_tzero,updat
 
  ! modify dtmax based upon density, if requested, and print info to the logfile
  if (mod_dtmax_now .and. dtmax_rat0 > 1) then
+    mod_nfulldump     = .true.
     dtmax_rat         = dtmax_rat0 + dtmax_rat
     mod_dtmax_now     = .false. ! reset variable
     mod_dtmax         = .false. ! prevent any additional modifications of dtmax
@@ -695,11 +700,18 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,update_tzero,updat
 
  ! dtmax will be modified; update all required logicals such that this will happen
  if (dtmax_rat > 1) then
+    mod_nfulldump     = .true.
     update_tzero      = .true.  ! to reset tzero and tlast if individual dt
     mod_dtmax_in_step = .true.  ! to tell step.f to decrease dtmax on its next call for individual dt
     if (present(update_dtmax)) then
        if (update_dtmax) dtmax = dtmax/dtmax_rat
     endif
+ endif
+
+ ! set nfulldump = 1 if we have modified dtmax
+ if (mod_nfulldump .and. nfulldump > 1) then
+    nfulldump = 1
+    write(iprint,'(1x,a)') "modifying dtmax: nfulldump -> 1 to ensure data is not lost due to decreasing dtmax"
  endif
 
 end subroutine check_dtmax_for_decrease
