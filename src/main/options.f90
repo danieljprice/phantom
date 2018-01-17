@@ -77,7 +77,7 @@ subroutine set_default_options
  nout = -1
  nmaxdumps = -1
  twallmax = 0.0  ! maximum wall time for run, in seconds
- dtwallmax = 0.0 ! maximum wall time between full dumps, in seconds
+ dtwallmax = 43200.0 ! maximum wall time between dumps (seconds); default = 12h
  nfulldump = 10  ! frequency of writing full dumps
  hfact = hfact_default     ! smoothing length in units of average particle spacing
  Bextx = 0.      ! external magnetic field
