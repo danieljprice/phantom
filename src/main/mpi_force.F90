@@ -56,7 +56,7 @@ module mpiforce
     logical          :: remote_export(maxprocs)                ! remotes we are waiting for
     integer(kind=1)  :: iphase(minpart)
     integer(kind=1)  :: ibinneigh(minpart)
-    integer(kind=1)  :: pad(8 - mod(4 * (7 + minpart + maxprocs) + minpart, 8))
+    integer(kind=1)  :: pad(8 - mod(4 * (7 + minpart + maxprocs) + 2*minpart, 8)) !padding to maintain alignment of elements
  endtype
 
  type stackforce
