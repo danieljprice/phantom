@@ -21,7 +21,7 @@ datetagiso=`date "+%Y-%m-%d %H:%M:%S %z"`;
 #-------------
 get_author_count()
 {
-  nauth=`cd $phantomdir; git shortlog -s -n | cut -f 2 | wc -l`;
+  nauth=`cd $phantomdir; git shortlog -s -n HEAD | wc -l`;
   echo $nauth;
 }
 count_code()
