@@ -32,7 +32,7 @@
 !    damp               -- artificial damping of velocities (if on, v=0 initially)
 !    dtmax              -- time between dumps
 !    dtmax_rat0         -- dtmax_new = dtmax_old/dtmax_rat0
-!    dtwallmax          -- maximum wall time between full dumps (hhh:mm, 000:00=ignore)
+!    dtwallmax          -- maximum wall time between dumps (hhh:mm, 000:00=ignore)
 !    dumpfile           -- dump file to start from
 !    etamhd             -- fixed physical resistivity value
 !    hfact              -- h in units of particle spacing [h = hfact(m/rho)^(1/3)]
