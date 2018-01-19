@@ -150,6 +150,19 @@ graph_timing_data()
       print_chart_footer "Testbot timings" "Walltime used for nightly tests (s)" "testbot_timing" "200";
    fi
 }
+graph_buildbot_data()
+{
+   datafile='buildbot_timing.txt'
+   if [ -e $datafile ]; then
+      print_chart_header;
+      print_column_header "ifort";
+      print_column_header "gfortran";
+      print_data_header
+      cat $datafile;
+      print_data_footer;
+      print_chart_footer "Buildbot timings" "Time to compile all SETUP=blah options (minutes)" "buildbot_timing" "200";
+   fi
+}
 graph_code_count()
 {
    datafile='code_count.txt'
@@ -190,6 +203,10 @@ graph_build_status > $outfile;
 outfile="$dir/testbottiming.js";
 echo "writing to $outfile";
 graph_timing_data > $outfile;
+
+outfile="$dir/buildbottiming.js";
+echo "writing to $outfile";
+graph_buildbot_data > $outfile;
 
 outfile="$dir/codecount.js";
 echo "writing to $outfile";
