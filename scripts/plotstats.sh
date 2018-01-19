@@ -160,7 +160,7 @@ graph_buildbot_data()
       print_data_header
       cat $datafile;
       print_data_footer;
-      print_chart_footer "Buildbot timings" "Time to compile all SETUP=blah options (minutes)" "buildbot_timing" "200";
+      print_chart_footer "Buildbot timings" "Time to compile all SETUP=blah options (minutes)" "buildbot_timing" "300";
    fi
 }
 graph_code_count()
