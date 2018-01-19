@@ -27,8 +27,8 @@ VPATH = ${RUNDIR} ../src/main ../src/utils ../src/setup ../src/tests ../src/lib/
 BINDIR= ../bin
 UNAME=${shell uname}
 #----------------------------------------------------------------
-# Here are some sensible default files for a phantom setup
-#
+# Sensible defaults for phantom configuration
+#----------------------------------------------------------------
 CONFIG        = config.F90
 SETUPFILE     = setup_unifdis.F90
 MODFILE       = moddump_default.f90
@@ -52,11 +52,11 @@ endif
 ifndef SPLASH_DIR
    SPLASH_DIR=${shell if [ -d $$HOME/splash ]; then echo $$HOME/splash; fi}
 endif
-#MPI             = yes
+# MPI= yes
 #
 # endian can be "BIG", "LITTLE" or anything else which has no effect
 #
-#ENDIAN= default
+# ENDIAN= default
 #
 CC = gcc
 CCFLAGS = -O5
@@ -64,7 +64,6 @@ LIBCXX = -lstdc++
 #FPPFLAGS=
 LDFLAGS=
 SRCPHOTO=
-#----------------------------------------------------------------
 
 #----------------------------------------------------------------
 # here follows specific configuration options used
@@ -87,56 +86,60 @@ SRCPHOTO=
 # -DPHOTO               ! turn on the photoevaporation
 # -DLIGHTCURVE          ! lightcurve estimation
 #----------------------------------------------------------------
-
-# Check for obsolete setups and replace with new setup
-ifeq ($(SETUP), HLTau)
+#
+# Check for obsolete setups and replace with generic version
+#
+#----------------------------------------------------------------
+ifeq ($(SETUP), HLTau) # [buildbot skip]
     OBSOLETE_SETUP=yes
     OLDSETUP= HLTau
     override SETUP=disc
 endif
-ifeq ($(SETUP), dustyHLTau)
+ifeq ($(SETUP), dustyHLTau) # [buildbot skip]
     OBSOLETE_SETUP=yes
     OLDSETUP= dustyHLTau
     override SETUP=dustydisc
 endif
-ifeq ($(SETUP), mcfost)
+ifeq ($(SETUP), mcfost) # [buildbot skip]
     OBSOLETE_SETUP=yes
     OLDSETUP=mcfost
     override SETUP=disc
     MCFOST=yes
 endif
-ifeq ($(SETUP), planets)
+ifeq ($(SETUP), planets) # [buildbot skip]
     OBSOLETE_SETUP=yes
     OLDSETUP= planets
     override SETUP=disc
 endif
-ifeq ($(SETUP), binarydisc)
+ifeq ($(SETUP), binarydisc) # [buildbot skip]
     OBSOLETE_SETUP=yes
     OLDSETUP= binarydisc
     override SETUP=disc
 endif
-ifeq ($(SETUP), dustybinarydisc)
+ifeq ($(SETUP), dustybinarydisc) # [buildbot skip]
     OBSOLETE_SETUP=yes
     OLDSETUP= dustybinarydisc
     override SETUP=dustydisc
 endif
-ifeq ($(SETUP), Lense-Thirring)
+ifeq ($(SETUP), Lense-Thirring) # [buildbot skip]
     OBSOLETE_SETUP=yes
     OLDSETUP= Lense-Thirring
     override SETUP=disc
 endif
-ifeq ($(SETUP), warp)
+ifeq ($(SETUP), warp) # [buildbot skip]
     OBSOLETE_SETUP=yes
     OLDSETUP= warp
     override SETUP=disc
 endif
-ifeq ($(SETUP), rndisc)
+ifeq ($(SETUP), rndisc) # [buildbot skip]
     OBSOLETE_SETUP=yes
     OLDSETUP= rndisc
     override SETUP=lightcurvedisc
 endif
 
-
+#----------------------------------------------------------------
+# Current code setup options
+#----------------------------------------------------------------
 ifeq ($(SETUP), empty)
 #   empty setup for external-driver simulation
     SETUPFILE= setup_empty.f90
@@ -309,15 +312,6 @@ ifeq ($(SETUP), binarydiscMFlow)
     MODFILE= moddump_removeparticles_cylinder.f90 #moddump_addpartfortest.f90
 endif
 
-ifeq ($(SETUP), tidal)
-#   tidal debris setup
-    FPPFLAGS= -DSORT_RADIUS_INIT
-    SETUPFILE= setup_tidal.f90
-    DOUBLEPRECISION= yes
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-endif
-
 ifeq ($(SETUP), planetdisc)
 #   planet disc interaction with fixed planet orbit
     FPPFLAGS= -DSORT_RADIUS_INIT
@@ -469,7 +463,7 @@ ifeq ($(SETUP), wave)
 endif
 
 ifeq ($(SETUP), wavedamp)
-#   Wave dampening test as per Choi et al (2009)
+#   Wave damping test as per Choi et al (2009)
     FPPFLAGS= -DPERIODIC
     SETUPFILE= setup_wavedamp.f90
     ISOTHERMAL=yes
@@ -603,7 +597,7 @@ ifeq ($(SETUP), cluster)
     MAXP=3500000
 endif
 
-ifeq ($(SETUP), tracers)
+ifeq ($(SETUP), tracers) # [buildbot skip]
 #   tracer particle density calculation
     FPPFLAGS= -DPERIODIC #-DNO_ITERATIONS
     SETUPFILE= setup_tracers.f90
@@ -636,7 +630,7 @@ ifeq ($(SETUP), rnbinary)
     KNOWN_SETUP=yes
 endif
 
-ifeq ($(SETUP),star)
+ifeq ($(SETUP), star)
 #   import stellar model from 1D stellar evolution code
 #   use option 5 of setup_spheres
     FPPFLAGS= -DSORT_RADIUS_INIT -DGRAVITY
@@ -825,7 +819,7 @@ ifeq ($(SETUP), default)
     FPPFLAGS= -DPERIODIC
 endif
 
-ifeq ($(SETUP),clumpybox)
+ifeq ($(SETUP), clumpybox)
     KNOWN_SETUP=yes
     ANALYSIS = ${LINKLIST} analysis_velocitydispersion_vs_scale.f90
 #    ANALYSIS = adaptivemesh.f90 interpolate3D_amr.f90 analysis_pdfs_dhf.f90
@@ -871,7 +865,7 @@ ifeq ($(SETUP), tokamak)
     KNOWN_SETUP=yes
 endif
 
-ifeq ($(SETUP), sfmcfost)
+ifeq ($(SETUP), sfmcfost) # [buildbot skip]
 #   live feedback from mcfost in star formation calculation
     PERIODIC=yes
     SETUPFILE= setup_sphereinbox.f90
@@ -885,7 +879,7 @@ ifeq ($(SETUP), sfmcfost)
     MCFOST=yes
 endif
 
-ifeq ($(SETUP), mcfostcmdline)
+ifeq ($(SETUP), mcfostcmdline) # [buildbot skip]
 #   live feedback from mcfost, superseded by mcfost setup
     FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
     SETUPFILE= setup_disc.f90
@@ -938,18 +932,6 @@ ifeq ($(SYSTEM), zen)
     endif
     CC = icc
     CCFLAGS = -O3
-endif
-
-ifeq ($(SYSTEM), ukaff1a)
-    FC= xlf90_r -qnosave
-#    FFLAGS= -O3 -q64 -qextname -qsmp=noauto
-    FFLAGS= -O3 -q64
-    DBLFLAG= -qrealsize=8
-#    DEBUGFLAG= -qflttrap=enable:invalid:zerodivide -g -C -qsigtrap -qfloat=nans
-    DEBUGFLAG= -C
-    KNOWN_SYSTEM=yes
-    FPP_PREFIX=-d -WF,
-    OMPFLAGS=-qsmp=noauto
 endif
 
 ifeq ($(SYSTEM),cray)
@@ -1100,56 +1082,20 @@ ifeq ($(SYSTEM), raijin)
     QNODES='ncpus='$(NPAR)
 endif
 
-ifeq ($(SYSTEM), sunf95)
-    FC= sunf95
-    FFLAGS= -fast
-    DBLFLAG= -xtypemap=real:64,double:64 -ftrap=%none
-    DEBUGFLAG= -g -C -w4 -errtags -erroff=COMMENT_1582,COMMENT_1744 -ftrap=%all
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -xfilebyteorder=big16:%all ##:45
-    ENDIANFLAGLITTLE= -xfilebyteorder=little16:%all
-    OMPFLAGS = -xopenmp
-endif
-
-ifeq ($(SYSTEM), g95)
-    FC= g95
-    FFLAGS= -O3 -Wall -Wextra -Wno=140 -ffast-math -g
-    DBLFLAG= -r8
-    DEBUGFLAG= -ftrace=full -fbounds-check -freal=NaN
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -fendian='BIG'
-    ENDIANFLAGLITTLE= -fendian='LITTLE'
-# or use setenv G95_ENDIAN='BIG' or 'LITTLE' at runtime
-    OPENMP= no
-endif
-
 ifeq ($(SYSTEM), gfortran)
     FC= gfortran
     FFLAGS+= -O3 -Wall -Wno-unused-dummy-argument -frecord-marker=4 -gdwarf-2 \
-            -mcmodel=medium -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize \
+            -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize \
             -std=f2008 -fall-intrinsics
+ifneq ($(UNAME), Darwin)
+    FFLAGS+= -mcmodel=medium
+endif
     DBLFLAG= -fdefault-real-8 -fdefault-double-8
     DEBUGFLAG= -g -fcheck=all -ffpe-trap=invalid -finit-real=nan -finit-integer=nan -fbacktrace
     KNOWN_SYSTEM=yes
     ENDIANFLAGBIG= -fconvert=big-endian
     ENDIANFLAGLITTLE= -fconvert=little-endian
     OMPFLAGS = -fopenmp #-fmax-stack-var-size=10000000
-    CC = gcc
-    CCFLAGS = -O3
-    LIBCXX = -lstdc++
-endif
-
-ifeq ($(SYSTEM), gfortran7)
-    FC= gfortran
-    FFLAGS+= -O3 -Wall -Wno-unused-dummy-argument -frecord-marker=4 -gdwarf-2 \
-            -mcmodel=medium -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize \
-            -std=f2008 -fall-intrinsics -finit-derived
-    DBLFLAG= -fdefault-real-8 -fdefault-double-8
-    DEBUGFLAG= -g -fcheck=all -ffpe-trap=invalid -finit-real=nan -finit-integer=nan -fbacktrace
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -fconvert=big-endian
-    ENDIANFLAGLITTLE= -fconvert=little-endian
-    OMPFLAGS = -fopenmp
     CC = gcc
     CCFLAGS = -O3
     LIBCXX = -lstdc++
@@ -1169,20 +1115,6 @@ ifeq ($(SYSTEM), gfortranOSX)  # for use with macports gfortran (5.3.0 tested)
     CC = gcc
     CCFLAGS = -O3
     LIBCXX = -lc++
-endif
-
-ifeq ($(SYSTEM), gfortran32)  # 32 bit gfortran
-    FC= gfortran
-    FFLAGS= -O3 -Wall -Wno-unused-dummy-argument -frecord-marker=4 -gdwarf-2 \
-            -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize
-    DBLFLAG= -fdefault-real-8 -fdefault-double-8
-    DEBUGFLAG= -g -fcheck=all -ffpe-trap=invalid -finit-real=nan -finit-integer=nan -fbacktrace
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -fconvert=big-endian
-    ENDIANFLAGLITTLE= -fconvert=little-endian
-    OMPFLAGS = -fopenmp
-    CC = gcc
-    CCFLAGS = -O3
 endif
 
 ifeq ($(SYSTEM), gfortran44)
@@ -1277,32 +1209,6 @@ ifeq ($(SYSTEM), ifortgcc)
 # or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
     OMPFLAGS = -openmp
     CC = gcc
-    CCFLAGS = -O3
-endif
-
-ifeq ($(SYSTEM), pathf90)
-    FC= pathf90
-    FFLAGS= -O3 -mcmodel=medium # -fno-underscoring
-    DBLFLAG= -r8
-    DEBUGFLAG= -g  -trapuv -TENV:simd_dmask=OFF
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-    OMPFLAGS = -mp
-    CC = pathcc
-    CCFLAGS = -O3
-endif
-
-ifeq ($(SYSTEM), pgf90) # tested for version 7.2-5
-    FC= pgf90
-    FFLAGS= -fast
-    DBLFLAG= -r8
-    DEBUGFLAG= -g  -Ktrap=fp
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -Mbyteswapio
-    ENDIANFLAGLITTLE=
-    OMPFLAGS = -mp
-    CC = pgcc
     CCFLAGS = -O3
 endif
 
@@ -1534,12 +1440,6 @@ endif
 
 ifeq ($(MPI), mpifort)
     FC= mpifort
-    FPPFLAGS += -DMPI
-    USEMPI=yes
-endif
-
-ifeq ($(MPI), apac)
-    LDFLAGS= -lmpi
     FPPFLAGS += -DMPI
     USEMPI=yes
 endif
@@ -2443,10 +2343,6 @@ qscript:
 	   @echo 'setenv LD_LIBRARY_PATH '${LD_LIBRARY_PATH}
         endif
 	@cat ~/.modules
-    endif
-    ifeq ($(SYSTEM),apac)
-	@echo 'source ~/.profile'
-	@echo 'setenv KMP_STACKSIZE 128m'
     endif
 	@echo
     #--final line is code execution
