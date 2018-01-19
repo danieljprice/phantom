@@ -1427,6 +1427,13 @@ subroutine read_setupfile(filename,ierr)
        end select
     end select
  end select
+ !--dust
+ if (use_dust) then
+    call read_inopt(dust_to_gas_ratio,'dust_to_gas_ratio',db,min=0.,errcount=nerr)
+    call read_inopt(profile_set_dust,'profile_set_dust',db,min=0,max=1,errcount=nerr)
+    call read_inopt(grainsizeinp,'grainsizeinp',db,min=0.,errcount=nerr)
+    call read_inopt(graindensinp,'graindensinp',db,min=0.,errcount=nerr)
+ endif
  !--multiple discs
  multiple_disc_flag = .false.
  iuse_disc = .false.
@@ -1482,40 +1489,35 @@ subroutine read_setupfile(filename,ierr)
           call read_inopt(H_warp(i),'H_warp'//trim(disclabel),db,min=0.,errcount=nerr)
        endif
        !--dust disc
-       select case (profile_set_dust)
-       case (0)
-          R_indust(i)    = R_in(i)
-          R_outdust(i)   = R_out(i)
-          pindex_dust(i) = pindex(i)
-          qindex_dust(i) = qindex(i)
-          H_R_dust(i)    = H_R(i)
-          itaperdust(i)  = itapergas(i)
-          R_c_dust(i)    = R_c(i)
-       case (1)
-          call read_inopt(R_indust(i),'R_indust'//trim(disclabel),db,min=R_in(i),errcount=nerr)
-          call read_inopt(R_outdust(i),'R_outdust'//trim(disclabel),db,min=R_indust(i),max=R_out(i),errcount=nerr)
-          call read_inopt(pindex_dust(i),'pindex_dust'//trim(disclabel),db,errcount=nerr)
-          call read_inopt(itaperdust(i),'itaperdust'//trim(disclabel),db,errcount=nerr)
-          if (itaperdust(i)) then
-             call read_inopt(R_c_dust(i),'R_c_dust'//trim(disclabel),db,min=0.,errcount=nerr)
-          endif
-          if (.not. use_dustfrac) then
-             call read_inopt(qindex_dust(i),'qindex_dust'//trim(disclabel),db,err=ierr,errcount=nerr)
-             if (ierr /= 0) qindex_dust(i) = qindex(i)
-             call read_inopt(H_R_dust(i),'H_R_dust'//trim(disclabel),db,min=0.,err=ierr,errcount=nerr)
-             if (ierr /= 0) H_R_dust(i) = H_R(i)
-          endif
-       end select
+       if (use_dust) then
+          select case (profile_set_dust)
+          case (0)
+             R_indust(i)    = R_in(i)
+             R_outdust(i)   = R_out(i)
+             pindex_dust(i) = pindex(i)
+             qindex_dust(i) = qindex(i)
+             H_R_dust(i)    = H_R(i)
+             itaperdust(i)  = itapergas(i)
+             R_c_dust(i)    = R_c(i)
+          case (1)
+             call read_inopt(R_indust(i),'R_indust'//trim(disclabel),db,min=R_in(i),errcount=nerr)
+             call read_inopt(R_outdust(i),'R_outdust'//trim(disclabel),db,min=R_indust(i),max=R_out(i),errcount=nerr)
+             call read_inopt(pindex_dust(i),'pindex_dust'//trim(disclabel),db,errcount=nerr)
+             call read_inopt(itaperdust(i),'itaperdust'//trim(disclabel),db,errcount=nerr)
+             if (itaperdust(i)) then
+                call read_inopt(R_c_dust(i),'R_c_dust'//trim(disclabel),db,min=0.,errcount=nerr)
+             endif
+             if (.not. use_dustfrac) then
+                call read_inopt(qindex_dust(i),'qindex_dust'//trim(disclabel),db,err=ierr,errcount=nerr)
+                if (ierr /= 0) qindex_dust(i) = qindex(i)
+                call read_inopt(H_R_dust(i),'H_R_dust'//trim(disclabel),db,min=0.,err=ierr,errcount=nerr)
+                if (ierr /= 0) H_R_dust(i) = H_R(i)
+             endif
+          end select
+       endif
     endif
  enddo
  if (maxalpha==0) call read_inopt(alphaSS,'alphaSS',db,min=0.,errcount=nerr)
- !--dust
- if (use_dust) then
-    call read_inopt(dust_to_gas_ratio,'dust_to_gas_ratio',db,min=0.,errcount=nerr)
-    call read_inopt(profile_set_dust,'profile_set_dust',db,min=0,max=1,errcount=nerr)
-    call read_inopt(grainsizeinp,'grainsizeinp',db,min=0.,errcount=nerr)
-    call read_inopt(graindensinp,'graindensinp',db,min=0.,errcount=nerr)
- endif
  !--planets
  call read_inopt(setplanets,'setplanets',db,min=0,max=1,errcount=nerr)
  if (setplanets==1) then

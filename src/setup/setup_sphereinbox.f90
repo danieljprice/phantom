@@ -75,7 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:Bevol,Bextx,Bexty,Bextz,igas,idust,set_particle_type
  use timestep,     only:dtmax,tmax,rho_dtthresh_cgs,dtmax_rat0
  use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
- use options,      only:twallmax, dtwallmax,nfulldump,alphaB
+ use options,      only:nfulldump
  use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -405,9 +405,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     dtmax         = t_ff/100.
     ieos          = 8
-    alphaB        = 1.0
-    twallmax      = 604800
-    dtwallmax     =  21600
     nfulldump     = 1
     calc_erot     = .true.
     calc_erot_com = .false.

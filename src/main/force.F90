@@ -141,7 +141,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use viscosity,    only:irealvisc,shearfunc,dt_viscosity
 #ifdef IND_TIMESTEPS
  use timestep_ind, only:nbinmax,ibinnow,get_newbin
- use timestep_sts, only:use_sts,nbinmaxsts,ibin_sts
+ use timestep_sts, only:nbinmaxsts,ibin_sts
  use part,         only:ibin
  use timestep,     only:nsteps,time
 #else

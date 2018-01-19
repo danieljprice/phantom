@@ -194,8 +194,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real                         :: xh0, xh1, xhe0, xhe1, xhe2
  character(len=17), dimension(5) :: grid_file
 
- !case 15 variables (diocane)
- real                        :: entropy_bound = 0.0, entropy_unbound = 0.0, entropy_array(2)
+ !case 15 variables
+ real                        :: entropy_bound = 0.0, entropy_unbound = 0.0, entropy_array(6)
+ real                        :: avgtemp_bound = 0.0, avgtemp_unbound = 0.0
+ real                        :: avgpres_bound = 0.0, avgpres_unbound = 0.0
  real                        :: boundparts_1(8,npart)
  real, dimension(npart)      :: pres_1, temp_1, proint_1, peint_1, troint_1, teint_1, entrop_1, abad_1, gamma1_1, gam_1
 
@@ -1396,10 +1398,14 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
        close(unit=unitnum)
     enddo
 
- case(15) !Entropy MESA EoS (diocane)
-    !zeroes the entropy variable
+ case(15) !Entropy MESA EoS
+    !zeroes the entropy variable and others
     entropy_bound = 0.0
     entropy_unbound = 0.0
+    avgtemp_bound = 0.0
+    avgtemp_unbound = 0.0
+    avgpres_bound = 0.0
+    avgpres_unbound = 0.0
 
     !calling again part of the procedure in case(3) to obtain bound and unbound particles
     !setup
@@ -1522,26 +1528,38 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
                                     pres_1(i),temp_1(i),proint_1(i),peint_1(i),troint_1(i), &
                                     teint_1(i),entrop_1(i),abad_1(i),gamma1_1(i),gam_1(i))
 
-          !sums entropy for bound particles and unbound particles
+          !sums entropy and other quantities for bound particles and unbound particles
           if (boundparts_1(8,i) < 0.0) then !bound
              entropy_bound = entropy_bound + entrop_1(i)
+             avgtemp_bound = avgtemp_bound + temp_1(i)
+             avgpres_bound = avgpres_bound + pres_1(i)
 
           else !unbound
              entropy_unbound = entropy_unbound + entrop_1(i)
+             avgtemp_unbound = avgtemp_unbound + temp_1(i)
+             avgpres_unbound = avgpres_unbound + pres_1(i)
 
           endif
 
           entropy_array(1) = entropy_bound
           entropy_array(2) = entropy_unbound
+          entropy_array(3) = avgtemp_bound !/ npart !make average
+          entropy_array(4) = avgtemp_unbound !/ npart !make average
+          entropy_array(5) = avgpres_bound !/ npart !make average
+          entropy_array(6) = avgpres_unbound !/ npart !make average
 
        endif
 
     enddo
 
     !writes on file
-    columns = (/'   b entr',&
-                ' unb entr'/)
-    call write_time_file('entropy_vs_time', columns, time, entropy_array, 2, dump_number)
+    columns = (/'       b entr',&
+                '     unb entr',&
+	        '   avg b temp',&
+	        ' avg unb temp',&
+	        '   avg b pres',&
+	        ' avg unb pres'/)
+    call write_time_file('entropy_vs_time', columns, time, entropy_array, 6, dump_number)
 
 
 
