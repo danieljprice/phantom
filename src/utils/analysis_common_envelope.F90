@@ -1555,10 +1555,10 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
     !writes on file
     columns = (/'       b entr',&
                 '     unb entr',&
-	        '   avg b temp',&
-	        ' avg unb temp',&
-	        '   avg b pres',&
-	        ' avg unb pres'/)
+                '   avg b temp',&
+                ' avg unb temp',&
+                '   avg b pres',&
+                ' avg unb pres'/)
     call write_time_file('entropy_vs_time', columns, time, entropy_array, 6, dump_number)
 
 
