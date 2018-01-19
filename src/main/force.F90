@@ -912,7 +912,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  if (use_dustfrac) then
     dustfraci = xpartveci(idustfraci)
     tsi       = xpartveci(itstop)
-    sqrtrhodustfraci = sqrt(rhoi*dustfraci)
+    sqrtrhodustfraci = sqrt(dustfraci/(1.-dustfraci))
  else
     dustfraci = 0.
     tsi       = 0.
@@ -1156,7 +1156,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              endif
              if (use_dustfrac) then
                 dustfracj = dustfrac(j)
-                sqrtrhodustfracj = sqrt(rhoj*dustfracj)
+                sqrtrhodustfracj = sqrt(dustfracj/(1.-dustfracj))
              else
                 dustfracj = 0.
                 sqrtrhodustfracj = 0.
@@ -1365,13 +1365,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 call get_ts(idrag,grainsize,graindens,rhoj*(1. - dustfracj),rhoj*dustfracj,spsoundj,0.,tsj,iregime)
 
                 ! define averages of diffusion coefficient and kernels
-                Dav      = dustfraci*tsi + dustfracj*tsj
+                Dav      = tsi*(1.-dustfraci)+tsj*(1.-dustfracj) !dustfraci*tsi + dustfracj*tsj
                 grkernav = 0.5*(grkerni + grkernj)
 
                 ! these are equations (43) and (45) from Price & Laibe (2015)
                 ! but note there is a sign error in the term in eqn (45) in the paper
                 !dustfracterm  = pmassj*rho1j*Dav*(pri - prj)*grkernav*rij1
-                dustfracterms = pmassj*sqrtrhodustfracj*rho1j*(tsi*rho1i+tsj*rho1j)*(pri - prj)*grkernav*rij1
+                !dustfracterms = pmassj*sqrtrhodustfracj*rho1j*(tsi*rho1i+tsj*rho1j)*(pri - prj)*grkernav*rij1
+                dustfracterms = pmassj*sqrtrhodustfracj*rho1j*Dav*(pri - prj)*grkernav*rij1
 
                 !vsigeps = 0.5*(spsoundi + spsoundj) !abs(projv)
                 !depsdissterm = pmassj*sqrtrhodustfracj*rho1j*grkernav*vsigeps !(auterm*grkerni + autermj*grkernj)*vsigeps
@@ -2307,7 +2308,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
        endif
 
        if (use_dustfrac) then
-          ddustfrac(i) = 0.5*(fsum(iddustfraci)-sqrt(rhoi*dustfraci)*divvi)
+          !ddustfrac(i) = 0.5*(fsum(iddustfraci)-sqrt(rhoi*dustfraci)*divvi)
+          ddustfrac(i) = 0.5*(fsum(iddustfraci)*rho1i/((1.-dustfraci)**2.))
           deltav(1,i)  = fsum(ideltavxi)
           deltav(2,i)  = fsum(ideltavyi)
           deltav(3,i)  = fsum(ideltavzi)
