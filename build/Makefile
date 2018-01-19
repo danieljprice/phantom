@@ -918,14 +918,9 @@ endif
 
 #----------------------------------------------------------------
 ifeq ($(SYSTEM), zen)
-    FC= ifort
+    include Makefile_defaults_ifort
     FFLAGS= -O3 -xT -assume byterecl -mcmodel=medium -i-dynamic -warn uninitialized -warn unused -warn truncated_source
-    DBLFLAG= -r8
     DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fpstkchk
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-# or use setenv F_UFMTENDIAN big:45 at runtime (e.g. for unit 45 only)
     OMPFLAGS = -openmp #-finline-limit=1000 -opt-report #-vec-report3 -opt-report -opt-report-levelmin
     ifeq ($(MPI), yes)
        MPI=zen
@@ -948,16 +943,7 @@ endif
 endif
 
 ifeq ($(SYSTEM), msg)
-    FC= ifort
-    FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
-    DBLFLAG= -r8
-    DEBUGFLAG= -check all -WB -traceback -g -debug all # -fpe0 -fp-stack-check -debug all
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-    OMPFLAGS = -openmp
-    CC = icc
-    CCFLAGS = -O3 -mcmodel=medium
+    include Makefile_defaults_ifort
     QSYS = sge
     QSHELL = tcsh
     ifeq ($(OPENMP),yes)
@@ -981,16 +967,7 @@ endif
 
 ifeq ($(SYSTEM), m2)
 #   MASSIVE facility: massive.org.au
-    FC= ifort
-    FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
-    DBLFLAG= -r8
-    DEBUGFLAG= -check all -WB -traceback -g -debug all # -fpe0 -fp-stack-check -debug all
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-    OMPFLAGS = -openmp
-    CC = icc
-    CCFLAGS = -O3 -mcmodel=medium
+    include Makefile_defaults_ifort
     QSYS = pbs
     ifeq ($(OPENMP),yes)
        NOMP='12'
@@ -1003,17 +980,7 @@ endif
 
 ifeq ($(SYSTEM), g2)
 #   gstar facility
-    FC= ifort
-    FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
-    DBLFLAG= -r8
-    DEBUGFLAG= -check all -WB -traceback -g -debug all
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-    OMPFLAGS = -openmp
-    CC = icc
-    CCFLAGS = -O3 -mcmodel=medium
-    LIBCXX = -cxxlib
+    include Makefile_defaults_ifort
     QSYS = pbs
     ifeq ($(OPENMP),yes)
        NOMP='16'
@@ -1027,47 +994,23 @@ ifeq ($(SYSTEM), g2)
 endif
 
 ifeq ($(SYSTEM), monarch)
-    FC= ifort
-    FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
-    DBLFLAG= -r8
-    DEBUGFLAG= -check all -WB -traceback -g -debug all # -fpe0 -fp-stack-check -debug all
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-    OMPFLAGS = -openmp
-    CC = icc
-    CCFLAGS = -O3 -mcmodel=medium
+    include Makefile_defaults_ifort
     QSYS = slurm
     QPROJECT='p01'
     WALLTIME='100:59:59'
 endif
 
 ifeq ($(SYSTEM), monarchpsxe)
-    FC= ifort
-    FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
-    DBLFLAG= -r8
-    DEBUGFLAG= -check all -WB -traceback -g -debug all # -fpe0 -fp-stack-check -debug all
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-    OMPFLAGS = -qopenmp
-    CC = icc
-    CCFLAGS = -O3 -mcmodel=medium
+    include Makefile_defaults_ifort
     QSYS = slurm
     QPROJECT='p01'
 endif
 
 ifeq ($(SYSTEM), raijin)
 #   raijin (NCI machine)
-    FC= ifort
+    include Makefile_defaults_ifort
     FFLAGS= -O3 -ip -inline-factor=500 -warn uninitialized -warn unused -warn truncated_source
-    DBLFLAG= -r8
     DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fpstkchk
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-    OMPFLAGS= -openmp
-    CC= icc
     CCFLAGS= -O3 -ip
     QSYS= pbs
     #PBSRESUBMIT=yes
@@ -1083,170 +1026,84 @@ ifeq ($(SYSTEM), raijin)
 endif
 
 ifeq ($(SYSTEM), gfortran)
-    FC= gfortran
-    FFLAGS+= -O3 -Wall -Wno-unused-dummy-argument -frecord-marker=4 -gdwarf-2 \
-            -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize \
-            -std=f2008 -fall-intrinsics
+    include Makefile_defaults_gfortran
 ifneq ($(UNAME), Darwin)
     FFLAGS+= -mcmodel=medium
 endif
-    DBLFLAG= -fdefault-real-8 -fdefault-double-8
-    DEBUGFLAG= -g -fcheck=all -ffpe-trap=invalid -finit-real=nan -finit-integer=nan -fbacktrace
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -fconvert=big-endian
-    ENDIANFLAGLITTLE= -fconvert=little-endian
-    OMPFLAGS = -fopenmp #-fmax-stack-var-size=10000000
-    CC = gcc
-    CCFLAGS = -O3
-    LIBCXX = -lstdc++
 endif
 
 ifeq ($(SYSTEM), gfortranOSX)  # for use with macports gfortran (5.3.0 tested)
-    FC= gfortran
+    include Makefile_defaults_gfortran
+    # override these flags
     FFLAGS= -O3 -Wall -Wno-unused-dummy-argument -frecord-marker=4 -gdwarf-2 \
             -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize \
             -std=f2008 -fall-intrinsics
-    DBLFLAG= -fdefault-real-8 -fdefault-double-8
-    DEBUGFLAG= -g -fcheck=all -ffpe-trap=invalid -finit-real=nan -finit-integer=nan -fbacktrace
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -fconvert=big-endian
-    ENDIANFLAGLITTLE= -fconvert=little-endian
-    OMPFLAGS = -fopenmp
-    CC = gcc
-    CCFLAGS = -O3
     LIBCXX = -lc++
 endif
 
 ifeq ($(SYSTEM), gfortran44)
+    include Makefile_defaults_gfortran
     FC= gfortran -gdwarf-2
-    FFLAGS= -O3 -Wall -frecord-marker=4 \
-            -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize
-    DBLFLAG= -fdefault-real-8 -fdefault-double-8
+    FFLAGS= -O3 -Wall -frecord-marker=4 -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize
     DEBUGFLAG= -g -frange-check -ffpe-trap=invalid,denormal -finit-real=nan -finit-integer=nan -fbacktrace
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -fconvert=big-endian
-    ENDIANFLAGLITTLE= -fconvert=little-endian
-    OMPFLAGS = -fopenmp
-    CC = gcc
-    CCFLAGS = -O3
 endif
 
 ifeq ($(SYSTEM), gfortran47)
+    include Makefile_defaults_gfortran
     FC= gfortran-mp-4.7 -gdwarf-2
     FFLAGS= -Wall -m64 -O3 -ffast-math -funroll-loops -ftree-loop-linear \
             -finline-functions-called-once \
             -fomit-frame-pointer -finline-limit=3000 --param min-vect-loop-bound=2
-    DBLFLAG= -fdefault-real-8 -fdefault-double-8
     DEBUGFLAG= -Wextra -g -frange-check -fcheck=all -ffpe-trap=denormal -finit-real=nan -finit-integer=nan -fbacktrace
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -fconvert=big-endian
-    ENDIANFLAGLITTLE= -fconvert=little-endian
-    OMPFLAGS = -fopenmp
-    CC = gcc
-    CCFLAGS = -O3
 endif
 
 ifeq ($(SYSTEM), complexity)
 #   complexity.leicester.dirac.ac.uk
-    FC= ifort
+    include Makefile_defaults_ifort
     FFLAGS= -O3 -xhost -ipo -mcmodel=medium -shared-intel -warn uninitialized \
             -warn unused -warn truncated_source
-    DBLFLAG= -r8
     DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-    OMPFLAGS = -qopenmp
-    CC = icc
     CCFLAGS = -O3 -ipo -mcmodel=medium
-    LIBCXX = -cxxlib
     QSYS=pbs
     QNAME=q64
     WALLTIME='48:00:00'
 endif
 
 ifeq ($(SYSTEM), ifort)
-    FC= ifort
-    FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel \
-			-warn uninitialized -warn unused -warn truncated_source
-    DBLFLAG= -r8
-    DEBUGFLAG= -check all -WB -traceback -g -debug all
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-# or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
-    OMPFLAGS = -qopenmp
-    CC = icc
-    CCFLAGS = -O3 -mcmodel=medium
-    LIBCXX = -cxxlib
+    include Makefile_defaults_ifort
 endif
 
 ifeq ($(SYSTEM), ifortmac)
-    FC= ifort
+    include Makefile_defaults_ifort
     FFLAGS= -O3 -xhost -shared-intel -warn uninitialized \
             -warn unused -warn truncated_source -Wl,-rpath,/opt/intel/lib
-    DBLFLAG= -r8
     DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-# or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
-    OMPFLAGS = -qopenmp
-    CC = icc
-    CCFLAGS = -O3
-    LIBCXX = -cxxlib
 endif
 
 ifeq ($(SYSTEM), ifortgcc)
-    FC= ifort
-#    FFLAGS= -fast -warn all
-    FFLAGS= -O3 -xhost -ipo -mcmodel=medium -warn uninitialized -warn unused -warn truncated_source
-    DBLFLAG= -r8
-    DEBUGFLAG= -check all -WB -traceback -p -g -fpe0 -fpstkchk
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-# or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
-    OMPFLAGS = -openmp
+    include Makefile_defaults_ifort
     CC = gcc
     CCFLAGS = -O3
 endif
 
 ifeq ($(SYSTEM), hydra)
 # this configuration works for the hydra cluster http://www.mpcdf.mpg.de/services/computing/hydra
-    FC= ifort
+    include Makefile_defaults_ifort
     FFLAGS= -O3 -xavx -ip -mcmodel=medium -shared-intel -warn uninitialized \
             -warn unused -warn truncated_source
-    DBLFLAG= -r8
     DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-# or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
-    OMPFLAGS = -openmp
-    CC = icc
     CCFLAGS = -O3 -ipo -mcmodel=medium
-    LIBCXX = -cxxlib
 endif
 
 ifeq ($(SYSTEM), lyoccf)
 # LIO CCF cluster
-    FC= ifort
+    include Makefile_defaults_ifort
     FFLAGS= -O3 -ftz -xavx -cpp -sox -ipo -fno-alias -fno-fnalias \
             -no-prec-div -no-prec-sqrt -align all -warn uninitialized \
             -warn unused -warn truncated_source
-    DBLFLAG= -r8
-    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-# or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
-    OMPFLAGS = -openmp
-    CC = icc
     CCFLAGS = -O3 -ipo -mcmodel=medium
     LIBCXX = -cxxlib
 endif
-
 
 # Set some default files if not defined above
 ifdef MAXP
