@@ -542,7 +542,7 @@ subroutine test_derivs(ntests,npass,string)
 !
 !--check derivative terms for one-fluid dust
 !
-    use_dustfrac=.true.
+    if (use_dust) use_dustfrac=.true.
     if (use_dustfrac) then
        if (id==master) write(*,"(/,a)") '--> testing dust evolution terms'
 #ifdef DUST
