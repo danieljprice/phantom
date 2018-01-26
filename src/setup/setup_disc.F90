@@ -154,9 +154,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical :: iexist,questplanets,seq_exists
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
  real    :: jdust_to_gas_ratio,Rj,period,Rochelobe,tol,Hill(maxplanets)
- real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Stokes
+ real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Sigmadust,Stokes
  real    :: polyk_dust,xorigini(3),vorigini(3),alpha_returned(3)
- real    :: star_m(3),disc_mfac(3),disc_mdust(3),sig_normdust(3),u(3),v(3),w(3)
+ real    :: star_m(3),disc_mfac(3),disc_mdust(3),sig_normdust(3),u(3)!,v(3),w(3)
  real    :: enc_m(maxbins),rad(maxbins),Q_mintmp,disc_mtmp(3),annulus_mtmp(3)
  integer :: ierr,j,ndiscs,idisc,nparttot,npartdust,npingasdisc,npindustdisc,itype
  integer :: sigmaprofilegas(3),sigmaprofiledust(3),iprofilegas(3),iprofiledust(3)
@@ -963,7 +963,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     R = (R_in(i) + R_out(i))/2
     Sigma = sig_norm(i)*scaled_sigma(R,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
-    Stokes = sqrt(pi/8)*graindenscgs*grainsizecgs/Sigma * (udist**2/umass)
+    Sigmadust = sig_normdust(i)*scaled_sigma(R,sigmaprofiledust(i),pindex_dust(i),R_ref(i),R_indust(i),R_c_dust(i))
+    Stokes = 0.5*pi*graindenscgs*grainsizecgs/(Sigma+Sigmadust) * (udist**2/umass)
     print "(a,i2,a)",' -------------- added dust --------------'
     print "(a,g10.3,a)", '       grain size: ',grainsizecgs,' cm'
     print "(a,g10.3,a)", '    grain density: ',graindenscgs,' g/cm^3'
@@ -988,7 +989,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        do j=1,npart
           r2 = xyzh(1,j)**2 + xyzh(2,j)**2 + xyzh(3,j)**2
           if (r2 < rplanet(i)**2) then
-             itype = iamtype(iphase(i))
+             itype = iamtype(iphase(j))
              disc_m_within_r = disc_m_within_r + massoftype(itype)
           endif
        enddo
@@ -1008,12 +1009,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !--incline positions and velocities
        inclplan(i) = inclplan(i)*pi/180.
        u = (/-sin(phi),cos(phi),0./)
-       v = (/0.,0.,1./)
-       w = (/-sin(posangl(1)),cos(posangl(1)),0./)
-       call rotatevec(u,w,incl(1))
-       call rotatevec(v,w,incl(1))
+       !v = (/0.,0.,1./)
+       !w = (/-sin(posangl(1)),cos(posangl(1)),0./)
+       !call rotatevec(u,w,incl(1))
+       !call rotatevec(v,w,incl(1))
        call rotatevec(xyzmh_ptmass(1:3,nptmass),u,-inclplan(i))
-       call rotatevec(vxyz_ptmass(1:3,nptmass), w, incl(1))
+       call rotatevec(vxyz_ptmass(1:3,nptmass), u,-inclplan(i))
        !--print planet information
        omega = vphi/rplanet(i)
        Hill(i) = (mplanet(i)*jupiterm/solarm/(3.*mcentral))**(1./3.) * rplanet(i)

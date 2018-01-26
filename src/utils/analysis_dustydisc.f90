@@ -325,11 +325,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
  ! Plotting Hdust/Hgas
  ! print*,' Hdust = ',hdust,'Hgas = ',hgas, 'Hdust/Hgas = ',hdust/hgas
 
- ! and thus the Stokes Number
+ ! and thus the Stokes Number (2D approximation)
  rho_grain = graindens*udist**3/umass
  r_grain   = grainsize/udist
  do i=1,nr
-    St(i) = sqrt(pi/8)*(rho_grain*r_grain)/sigma(i)
+    St(i) = 0.5*pi*(rho_grain*r_grain)/(sigma(i)+sigmadust(i))
  enddo
 
  ! Print angular momentum of accreted particles
