@@ -421,7 +421,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     !--resolution
     !
-    np = 5e5
+    np = 500000
     if (use_dust .and. .not. use_dustfrac) then
        np_dust = np/5
     else
