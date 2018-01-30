@@ -522,7 +522,7 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu)
  real,    intent(inout) :: xyzh(:,:),dens(:)
  real,    intent(in)    :: pxyzu(:,:)
  real,    intent(out)   :: vxyzu(:,:)
- integer, parameter :: nitermax = 10
+ integer, parameter :: nitermax = 50
  real,    parameter ::     xtol = 1.e-15
  integer :: i,ierr,niter
  real    :: xpred(1:3),vold(1:3),diff
@@ -580,7 +580,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
  real    :: x_err,pmom_err,fstar(3),vxyzu_star(4),accretedmass
  ! real, save :: dmdt = 0.
  logical :: last_step,done,converged,accreted
- integer, parameter :: itsmax = 25
+ integer, parameter :: itsmax = 50
  real, parameter :: ptol = 1.e-15, xtol = 1.e-15
  integer, save :: pitsmax = 0, xitsmax = 0
 !
