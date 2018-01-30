@@ -516,6 +516,7 @@ end subroutine step
 subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu)
  use part,      only:isdead_or_accreted
  use cons2prim, only:conservative_to_primitive
+ use io,        only:warning
  real,    intent(in)    :: dt
  integer, intent(in)    :: npart
  real,    intent(inout) :: xyzh(:,:),dens(:)
@@ -545,10 +546,10 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu)
           niter = niter + 1
           call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
           xyzh(1:3,i) = xpred + 0.5*dt*(vxyzu(1:3,i)-vold)
-          diff = maxval(abs(xyzh(1:3,i)-xpred))
+          diff = maxval(abs(xyzh(1:3,i)-xpred)/xpred)
           if (diff < xtol) converged = .true.
        enddo
-       if (niter > nitermax) print*,'Warning! Not converged. Reached max number of x iterations.'
+       if (niter > nitermax) call warning('step_extern_sph_gr','Reached max number of x iterations. x_err ',val=diff)
 
     endif
  enddo
@@ -649,9 +650,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
              if (pmom_err < ptol) converged = .true.
              fext(1:3,i) = fstar
           enddo pmom_iterations
-          if (its > itsmax ) then
-             print*,'WARNING! Not converged. Reached max number of pmom iterations. pmom_err = ',pmom_err
-          endif
+          if (its > itsmax ) call warning('step_extern_gr','Reached max number of pmom iterations. pmom_err ',val=pmom_err)
 
           pitsmax = max(its,pitsmax)
 
@@ -671,9 +670,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
              if (x_err < xtol) converged = .true.
              vxyzu(:,i)   = vxyzu_star
           enddo xyz_iterations
-          if (its > itsmax ) then
-             print*,'WARNING! Not converged. Reached max number of x iterations. x_err = ',x_err
-          endif
+          if (its > itsmax ) call warning('step_extern_gr','Reached max number of x iterations. x_err ',val=x_err)
           xitsmax = max(its,xitsmax)
 
 
