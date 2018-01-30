@@ -133,7 +133,7 @@ end subroutine get_eos_pressure_temp_mesa
 !  a function of density/internal energy
 !+
 !----------------------------------------------------------------
-subroutine get_eos_various_mesa(x,den,eint,pres,temp,proint,peint,troint,teint,entrop,abad,gamma1,gam)
+subroutine get_eos_various_mesa(x,den,eint,pres,proint,peint,temp,troint,teint,entrop,abad,gamma1,gam)
  real, intent(in) :: den, eint, x
  real, intent(out) :: pres, temp, proint, peint, troint, teint, entrop, abad, gamma1, gam
 
