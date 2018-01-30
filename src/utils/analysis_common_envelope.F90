@@ -1557,7 +1557,7 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
     entropy_array(4) = avgtemp_unbound / npart !make average
     entropy_array(5) = avgpres_bound / npart !make average
     entropy_array(6) = avgpres_unbound / npart !make average
-    entropy_array(7) = avgdens_bound / npart !make average          
+    entropy_array(7) = avgdens_bound / npart !make average
     entropy_array(8) = avgdens_unbound / npart !make average
 
     !writes on file
@@ -1567,7 +1567,7 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
                 ' avg unb temp',&
                 '   avg b pres',&
                 ' avg unb pres',&
-                '   avg b dens',&  
+                '   avg b dens',&
                 ' avg unb dens'/)
     call write_time_file('entropy_vs_time', columns, time, entropy_array, 8, dump_number)
 
