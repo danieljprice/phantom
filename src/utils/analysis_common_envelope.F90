@@ -1580,34 +1580,34 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
 
     do i=1,npart
 
-          !particle radius
-          call separation_vector(xyzh(1:3,i),com_pos(1:3),r_part_com(1:4))
-          radius_1(i) = r_part_com(4) * udist
+       !particle radius
+       call separation_vector(xyzh(1:3,i),com_pos(1:3),r_part_com(1:4))
+       radius_1(i) = r_part_com(4) * udist
 
-          !particles density in code units
-          rhopart = rhoh(xyzh(4,i), particlemass)
-          dens_1(i) = rhopart * unit_density
+       !particles density in code units
+       rhopart = rhoh(xyzh(4,i), particlemass)
+       dens_1(i) = rhopart * unit_density
 
-          !gets entropy for the current particle
-          call get_eos_various_mesa(X_in,rhopart*unit_density,vxyzu(4,i) * unit_ergg, &
+       !gets entropy for the current particle
+       call get_eos_various_mesa(X_in,rhopart*unit_density,vxyzu(4,i) * unit_ergg, &
                                     pres_1(i),proint_1(i),peint_1(i),temp_1(i),troint_1(i), &
                                     teint_1(i),entrop_1(i),abad_1(i),gamma1_1(i),gam_1(i))
 
-          !stores everything in an array
-          thermodynamic_quantities(1,i) = radius_1(i)
-          thermodynamic_quantities(2,i) = dens_1(i)
-          thermodynamic_quantities(3,i) = pres_1(i)
-          thermodynamic_quantities(4,i) = temp_1(i)
-          thermodynamic_quantities(5,i) = entrop_1(i)
+       !stores everything in an array
+       thermodynamic_quantities(1,i) = radius_1(i)
+       thermodynamic_quantities(2,i) = dens_1(i)
+       thermodynamic_quantities(3,i) = pres_1(i)
+       thermodynamic_quantities(4,i) = temp_1(i)
+       thermodynamic_quantities(5,i) = entrop_1(i)
 
     enddo
 
-       columns = (/'      radius', &
+    columns = (/'      radius', &
                    '     density', &
                    '    pressure', &
                    ' temperature', &
                    '     entropy'/)
-       call write_file('td_quantities', 'thermodynamics', columns, thermodynamic_quantities, npart, 5, num)
+    call write_file('td_quantities', 'thermodynamics', columns, thermodynamic_quantities, npart, 5, num)
 
     unitnum = unitnum + 1
 
