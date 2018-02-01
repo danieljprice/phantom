@@ -210,14 +210,14 @@ graph_setup_count()
    datafile='setup_count.txt'
    if [ -e $datafile ]; then
       print_chart_header;
-      print_column_header "number of unique SETUP= options";
-      print_column_header "number of unique SYSTEM= options";
+      print_column_header "SETUP=";
+      print_column_header "SYSTEM=";
       print_data_header;
       while read -r datetag vala valb; do
          print_twocol_entry $datetag $vala $valb;
       done < $datafile
       print_data_footer;
-      print_chart_footer "Number of unique compiler options"  "(fewer is better)" "setup_count";
+      print_chart_footer "Number of unique SETUP= and SYSTEM= options"  "(fewer is better)" "setup_count";
    else
       echo "ERROR: could not find data file $datafile";
    fi
