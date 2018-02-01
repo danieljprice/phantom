@@ -57,6 +57,16 @@ get_lines_of_code()
   done
   echo "$str";
 }
+get_setup_count()
+{
+  nsetup=`cd $phantomdir; grep 'ifeq ($(SETUP)' build/Makefile | grep -v skip | cut -d, -f 2 | cut -d')' -f 1 | wc -l`;
+  echo "$nsetup";
+}
+get_system_count()
+{
+  nsystem=`cd $phantomdir; grep 'ifeq ($(SYSTEM)' build/Makefile | cut -d, -f 2 | cut -d')' -f 1 | wc -l`;
+  echo $nsystem;
+}
 #
 # subroutine below can be used to reconstruct code count
 # from entire git history. Not used by default as
@@ -69,18 +79,15 @@ remake_stats_from_git_history()
   git log --format="%ad %h" --date=iso > git_history;
   while read -r date mytime tz hash; do
      git checkout $hash
-     ncode=$(get_lines_of_code);
-     echo $date $mytime $tz $ncode >> code_count.txt;
-     subcount="$(get_subroutine_count)";
-     echo $date $mytime $tz $subcount >> sub_count.txt;
+     echo $date $mytime $tz "$(get_lines_of_code)" >> code_count.txt;
+     echo $date $mytime $tz "$(get_subroutine_count)" >> sub_count.txt;
      # use simpler date format
      mydate=${date/-/};
      mydate=${mydate/-/};
-     nauthors=$(get_author_count);
-     echo $mydate $nauthors >> author_count.txt;
-     nifdef="$(count_unique_matches '#ifdef')";
-     echo $mydate $nifdef >> ifdef_count.txt;
-  done < git_history
+     echo $mydate "$(get_author_count)" >> author_count.txt;
+     echo $mydate "$(count_unique_matches '#ifdef')" >> ifdef_count.txt;
+     echo $mydate "$(get_setup_count) $(get_system_count)" >> setup_count.txt;
+   done < git_history
   rm git_history;
   git checkout master;
 }
@@ -120,10 +127,14 @@ nauthors=$(get_author_count);
 ncode="$(get_lines_of_code)";
 nifdef="$(count_unique_matches '#ifdef')";
 subcount="$(get_subroutine_count)";
+nsetup="$(get_setup_count)";
+nsystem="$(get_system_count)";
 echo "Lines of code: $ncode";
 echo "Number of modules, subroutines, functions: $subcount";
 echo "Number of #ifdef statements : $nifdef";
 echo "Number of authors           : $nauthors";
+echo "Number of SETUP= options    : $nsetup";
+echo "Number of SYSTEM= options   : $nsystem";
 if [ "X$outdir" != "X" ]; then
    echo "Writing to $outdir/author_count.txt";
    echo $datetag $nauthors >> $outdir/author_count.txt;
@@ -131,6 +142,8 @@ if [ "X$outdir" != "X" ]; then
    echo $datetagiso $ncode >> $outdir/code_count.txt;
    echo "Writing to $outdir/ifdef_count.txt";
    echo $datetag $nifdef >> $outdir/ifdef_count.txt;
+   echo "Writing to $outdir/setup_count.txt";
+   echo $datetag $nsetup $nsystem >> $outdir/setup_count.txt;
    echo "Writing to $outdir/sub_count.txt";
    echo $datetagiso $subcount >> $outdir/sub_count.txt;
    echo "Writing build status to $outdir/build_status.txt";

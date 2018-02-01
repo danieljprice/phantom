@@ -62,6 +62,11 @@ print_entry()
   nDate=$(parse_datetag $1);
   echo "        [$nDate, $2],";
 }
+print_twocol_entry()
+{
+  nDate=$(parse_datetag $1);
+  echo "        [$nDate, $2, $3],";
+}
 print_last_entry()
 {
   nDate=$(parse_datetag $1);
@@ -200,6 +205,23 @@ graph_ifdef_count()
       echo "ERROR: could not find data file $datafile";
    fi
 }
+graph_setup_count()
+{
+   datafile='setup_count.txt'
+   if [ -e $datafile ]; then
+      print_chart_header;
+      print_column_header "number of unique SETUP= options";
+      print_column_header "number of unique SYSTEM= options";
+      print_data_header;
+      while read -r datetag vala valb; do
+         print_twocol_entry $datetag $vala $valb;
+      done < $datafile
+      print_data_footer;
+      print_chart_footer "Number of unique compiler options"  "(fewer is better)" "setup_count";
+   else
+      echo "ERROR: could not find data file $datafile";
+   fi
+}
 graph_sub_count()
 {
    datafile='sub_count.txt'
@@ -242,6 +264,10 @@ graph_timing_data > $outfile;
 outfile="$dir/buildbottiming.js";
 echo "writing to $outfile";
 graph_buildbot_data > $outfile;
+
+outfile="$dir/setupcount.js";
+echo "writing to $outfile";
+graph_setup_count > $outfile;
 
 outfile="$dir/codecount.js";
 echo "writing to $outfile";
