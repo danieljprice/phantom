@@ -184,6 +184,41 @@ graph_code_count()
       echo "ERROR: could not find data file $datafile";
    fi
 }
+graph_ifdef_count()
+{
+   datafile='ifdef_count.txt'
+   if [ -e $datafile ]; then
+      print_chart_header;
+      print_column_header "number of #ifdef options";
+      print_data_header;
+      while read -r datetag val; do
+         print_entry $datetag $val;
+      done < $datafile
+      print_data_footer;
+      print_chart_footer "Number of unique #ifdef options"  "(fewer is better)" "ifdef_count";
+   else
+      echo "ERROR: could not find data file $datafile";
+   fi
+}
+graph_sub_count()
+{
+   datafile='sub_count.txt'
+   if [ -e $datafile ]; then
+      print_chart_header;
+     # print_column_header "total"
+      print_column_header "modules"
+      print_column_header "subroutines"
+      print_column_header "functions"
+      print_data_header
+      while read -r mydate mytime tz nmod nsub nfunc; do
+          echo "    [$(parse_dateiso $mydate $mytime $tz),$nmod,$nsub,$nfunc],";
+      done < $datafile
+      print_data_footer
+      print_chart_footer "Number of modules, subroutines and functions" "more subroutines is good" "sub_count"
+   else
+      echo "ERROR: could not find data file $datafile";
+   fi
+}
 #
 # main script
 #
@@ -211,3 +246,11 @@ graph_buildbot_data > $outfile;
 outfile="$dir/codecount.js";
 echo "writing to $outfile";
 graph_code_count > $outfile;
+
+outfile="$dir/ifdefcount.js";
+echo "writing to $outfile";
+graph_ifdef_count > $outfile;
+
+outfile="$dir/subcount.js";
+echo "writing to $outfile";
+graph_sub_count > $outfile;

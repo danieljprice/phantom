@@ -32,6 +32,23 @@ count_code()
   #ncomments=$(( ntotal - ncode ));
   echo "$ncode";
 }
+count_matches()
+{
+  n=`cd $phantomdir; grep "$1" src/*/*.*90 | cut -d':' -f 2 | wc -l`;
+  echo "$n";
+}
+count_unique_matches()
+{
+  n=`cd $phantomdir; grep "$1" src/*/*.*90 | cut -d':' -f 2 | sort -u | wc -l`;
+  echo "$n";
+}
+get_subroutine_count()
+{
+  nsub=$(count_matches 'end subroutine');
+  nmod=$(count_matches 'end module');
+  nfunc=$(count_matches 'end function');
+  echo "$nmod $nsub $nfunc";
+}
 get_lines_of_code()
 {
   str='';
@@ -46,7 +63,7 @@ get_lines_of_code()
 # we simply append to this file each night (but can
 # be used to reconstruct file if accidentally deleted)
 #
-count_code_in_git_history()
+remake_stats_from_git_history()
 {
   cd $phantomdir;
   git log --format="%ad %h" --date=iso > git_history;
@@ -54,6 +71,15 @@ count_code_in_git_history()
      git checkout $hash
      ncode=$(get_lines_of_code);
      echo $date $mytime $tz $ncode >> code_count.txt;
+     subcount="$(get_subroutine_count)";
+     echo $date $mytime $tz $subcount >> sub_count.txt;
+     # use simpler date format
+     mydate=${date/-/};
+     mydate=${mydate/-/};
+     nauthors=$(get_author_count);
+     echo $mydate $nauthors >> author_count.txt;
+     nifdef="$(count_unique_matches '#ifdef')";
+     echo $mydate $nifdef >> ifdef_count.txt;
   done < git_history
   rm git_history;
   git checkout master;
@@ -83,18 +109,30 @@ get_build_status_from_git_tags()
       fi
   done
 }
+# uncomment the following to recreate stats from entire git history
+# otherwise we just give instant stats
+remake_stats_from_git_history;
+exit;
 #
 # run these in turn
 #
 nauthors=$(get_author_count);
 ncode="$(get_lines_of_code)";
+nifdef="$(count_unique_matches '#ifdef')";
+subcount="$(get_subroutine_count)";
 echo "Lines of code: $ncode";
-echo "Number of authors: $nauthors";
+echo "Number of modules, subroutines, functions: $subcount";
+echo "Number of #ifdef statements : $nifdef";
+echo "Number of authors           : $nauthors";
 if [ "X$outdir" != "X" ]; then
    echo "Writing to $outdir/author_count.txt";
    echo $datetag $nauthors >> $outdir/author_count.txt;
    echo "Writing to $outdir/code_count.txt";
    echo $datetagiso $ncode >> $outdir/code_count.txt;
+   echo "Writing to $outdir/ifdef_count.txt";
+   echo $datetag $nifdef >> $outdir/ifdef_count.txt;
+   echo "Writing to $outdir/sub_count.txt";
+   echo $datetagiso $subcount >> $outdir/sub_count.txt;
    echo "Writing build status to $outdir/build_status.txt";
    get_build_status_from_git_tags | sort > $outdir/build_status.txt;
 fi
