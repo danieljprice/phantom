@@ -917,18 +917,6 @@ endif
 
 
 #----------------------------------------------------------------
-ifeq ($(SYSTEM), zen)
-    include Makefile_defaults_ifort
-    FFLAGS= -O3 -xT -assume byterecl -mcmodel=medium -i-dynamic -warn uninitialized -warn unused -warn truncated_source
-    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fpstkchk
-    OMPFLAGS = -openmp #-finline-limit=1000 -opt-report #-vec-report3 -opt-report -opt-report-levelmin
-    ifeq ($(MPI), yes)
-       MPI=zen
-    endif
-    CC = icc
-    CCFLAGS = -O3
-endif
-
 ifeq ($(SYSTEM),cray)
     FC=ftn
     FFLAGS=-Oaggress -Ovector3 -Oipa4
