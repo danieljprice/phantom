@@ -111,8 +111,8 @@ get_build_status_from_git_tags()
 }
 # uncomment the following to recreate stats from entire git history
 # otherwise we just give instant stats
-remake_stats_from_git_history;
-exit;
+#remake_stats_from_git_history;
+#exit;
 #
 # run these in turn
 #
