@@ -90,6 +90,7 @@ module setup
       'primary  ', &
       'secondary'/)
  logical :: iuse_disc(3),itapergas(3),itaperdust(3),iwarp(3),multiple_disc_flag
+ logical :: ismoothgas(3),ismoothdust(3)
  integer :: mass_set(3),profile_set_dust,dust_method
  real    :: R_in(3),R_out(3),R_ref(3),R_c(3),R_warp(3),H_warp(3)
  real    :: pindex(3),qindex(3),H_R(3),posangl(3),incl(3)
@@ -154,13 +155,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical :: iexist,questplanets,seq_exists
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
  real    :: jdust_to_gas_ratio,Rj,period,Rochelobe,tol,Hill(maxplanets)
- real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Stokes
+ real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Sigmadust,Stokes
  real    :: polyk_dust,xorigini(3),vorigini(3),alpha_returned(3)
- real    :: star_m(3),disc_mfac(3),disc_mdust(3),sig_normdust(3),u(3),v(3),w(3)
+ real    :: star_m(3),disc_mfac(3),disc_mdust(3),sig_normdust(3),u(3)!,v(3),w(3)
  real    :: enc_m(maxbins),rad(maxbins),Q_mintmp,disc_mtmp(3),annulus_mtmp(3)
  integer :: ierr,j,ndiscs,idisc,nparttot,npartdust,npingasdisc,npindustdisc,itype
  integer :: sigmaprofilegas(3),sigmaprofiledust(3),iprofilegas(3),iprofiledust(3)
- logical :: ismoothgas(3),ismoothdust(3)
  character(len=100) :: filename
  character(len=100) :: prefix
 
@@ -322,23 +322,24 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     !--set gas disc defaults
     !
-    R_in      = accr1
-    R_out     = 150.
-    R_ref     = R_in
-    R_c       = R_out
-    R_warp    = 0.
-    H_warp    = 0.
-    mass_set  = 0
-    itapergas = .false.
-    iwarp     = .false.
-    pindex    = 1.
-    qindex    = 0.25
+    R_in       = accr1
+    R_out      = 150.
+    R_ref      = R_in
+    R_c        = R_out
+    R_warp     = 0.
+    H_warp     = 0.
+    mass_set   = 0
+    itapergas  = .false.
+    ismoothgas = .true.
+    iwarp      = .false.
+    pindex     = 1.
+    qindex     = 0.25
     if (ndiscs > 1) qindex = 0.
-    alphaSS   = 0.005
-    posangl   = 0.
-    incl      = 0.
-    H_R       = 0.05
-    disc_mfac = 1.
+    alphaSS    = 0.005
+    posangl    = 0.
+    incl       = 0.
+    H_R        = 0.05
+    disc_mfac  = 1.
     if (multiple_disc_flag .and. (ibinary==0)) then
        !--set appropriate disc radii for bound binary
        R_in      = (/2.5*binary_a, accr1, accr2/)
@@ -401,6 +402,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        qindex_dust       = qindex
        H_R_dust          = H_R
        itaperdust        = itapergas
+       ismoothdust       = ismoothgas
        grainsizeinp      = 0.1
        graindensinp      = 3.
        R_c_dust          = R_c
@@ -421,9 +423,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     !--resolution
     !
-    np = 1e6
+    np = 500000
     if (use_dust .and. .not. use_dustfrac) then
-       np_dust = np/10
+       np_dust = np/5
     else
        np_dust = 0
     endif
@@ -576,9 +578,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !
  !--surface density profile
- !  (smoothed at inner edge by default)
  !
- ismoothgas = .true.
  if (multiple_disc_flag .and. ibinary==0 .and. iuse_disc(1)) then
     !--don't smooth circumbinary
     ismoothgas(1) = .false.
@@ -594,9 +594,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (itapergas(i) .and. ismoothgas(i)) sigmaprofilegas(i) = 3
  enddo
  if (use_dust) then
-    ismoothdust = ismoothgas
-    iprofiledust = iprofilegas
-    sigmaprofiledust = sigmaprofilegas
+    iprofiledust = 0
+    sigmaprofiledust = 0
     do i=1,3
        if (itaperdust(i)) then
           iprofiledust(i) = 1
@@ -963,7 +962,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     R = (R_in(i) + R_out(i))/2
     Sigma = sig_norm(i)*scaled_sigma(R,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
-    Stokes = sqrt(pi/8)*graindenscgs*grainsizecgs/Sigma * (udist**2/umass)
+    Sigmadust = sig_normdust(i)*scaled_sigma(R,sigmaprofiledust(i),pindex_dust(i),R_ref(i),R_indust(i),R_c_dust(i))
+    Stokes = 0.5*pi*graindenscgs*grainsizecgs/(Sigma+Sigmadust) * (udist**2/umass)
     print "(a,i2,a)",' -------------- added dust --------------'
     print "(a,g10.3,a)", '       grain size: ',grainsizecgs,' cm'
     print "(a,g10.3,a)", '    grain density: ',graindenscgs,' g/cm^3'
@@ -988,7 +988,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        do j=1,npart
           r2 = xyzh(1,j)**2 + xyzh(2,j)**2 + xyzh(3,j)**2
           if (r2 < rplanet(i)**2) then
-             itype = iamtype(iphase(i))
+             itype = iamtype(iphase(j))
              disc_m_within_r = disc_m_within_r + massoftype(itype)
           endif
        enddo
@@ -1008,12 +1008,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !--incline positions and velocities
        inclplan(i) = inclplan(i)*pi/180.
        u = (/-sin(phi),cos(phi),0./)
-       v = (/0.,0.,1./)
-       w = (/-sin(posangl(1)),cos(posangl(1)),0./)
-       call rotatevec(u,w,incl(1))
-       call rotatevec(v,w,incl(1))
+       !v = (/0.,0.,1./)
+       !w = (/-sin(posangl(1)),cos(posangl(1)),0./)
+       !call rotatevec(u,w,incl(1))
+       !call rotatevec(v,w,incl(1))
        call rotatevec(xyzmh_ptmass(1:3,nptmass),u,-inclplan(i))
-       call rotatevec(vxyz_ptmass(1:3,nptmass), w, incl(1))
+       call rotatevec(vxyz_ptmass(1:3,nptmass), u,-inclplan(i))
        !--print planet information
        omega = vphi/rplanet(i)
        Hill(i) = (mplanet(i)*jupiterm/solarm/(3.*mcentral))**(1./3.) * rplanet(i)
@@ -1221,6 +1221,7 @@ subroutine write_setupfile(filename)
           '3=surface density at reference radius,4=minimum Toomre Q)',iunit)
        call write_inopt(itapergas(i),'itapergas'//trim(disclabel), &
           'exponentially taper the outer disc profile',iunit)
+       call write_inopt(ismoothgas(i),'ismoothgas'//trim(disclabel),'smooth inner disc',iunit)
        call write_inopt(iwarp(i),'iwarp'//trim(disclabel),'warp disc',iunit)
        call write_inopt(R_in(i),'R_in'//trim(disclabel),'inner radius',iunit)
        call write_inopt(R_ref(i),'R_ref'//trim(disclabel),'reference radius',iunit)
@@ -1269,6 +1270,7 @@ subroutine write_setupfile(filename)
           endif
           call write_inopt(itaperdust(i),'itaperdust'//trim(disclabel), &
              'exponentially taper the outer disc profile',iunit)
+          call write_inopt(ismoothdust(i),'ismoothdust'//trim(disclabel),'smooth inner disc',iunit)
           call write_inopt(R_indust(i),'R_indust'//trim(disclabel),'inner radius',iunit)
           call write_inopt(R_outdust(i),'R_outdust'//trim(disclabel),'outer radius',iunit)
           if (itaperdust(i)) call write_inopt(R_c_dust(i),'R_c_dust'//trim(disclabel), &
@@ -1460,6 +1462,7 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(R_out(i),'R_out'//trim(disclabel),db,min=R_in(i),errcount=nerr)
        call read_inopt(R_ref(i),'R_ref'//trim(disclabel),db,min=R_in(i),errcount=nerr)
        call read_inopt(itapergas(i),'itapergas'//trim(disclabel),db,errcount=nerr)
+       call read_inopt(ismoothgas(i),'ismoothgas'//trim(disclabel),db,errcount=nerr)
        call read_inopt(mass_set(i),'mass_set'//trim(disclabel),db,min=0,max=4,errcount=nerr)
        if (itapergas(i)) then
           call read_inopt(R_c(i),'R_c'//trim(disclabel),db,min=0.,errcount=nerr)
@@ -1498,12 +1501,14 @@ subroutine read_setupfile(filename,ierr)
              qindex_dust(i) = qindex(i)
              H_R_dust(i)    = H_R(i)
              itaperdust(i)  = itapergas(i)
+             ismoothdust(i) = ismoothgas(i)
              R_c_dust(i)    = R_c(i)
           case (1)
              call read_inopt(R_indust(i),'R_indust'//trim(disclabel),db,min=R_in(i),errcount=nerr)
              call read_inopt(R_outdust(i),'R_outdust'//trim(disclabel),db,min=R_indust(i),max=R_out(i),errcount=nerr)
              call read_inopt(pindex_dust(i),'pindex_dust'//trim(disclabel),db,errcount=nerr)
              call read_inopt(itaperdust(i),'itaperdust'//trim(disclabel),db,errcount=nerr)
+             call read_inopt(ismoothdust(i),'ismoothdust'//trim(disclabel),db,errcount=nerr)
              if (itaperdust(i)) then
                 call read_inopt(R_c_dust(i),'R_c_dust'//trim(disclabel),db,min=0.,errcount=nerr)
              endif

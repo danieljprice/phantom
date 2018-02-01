@@ -195,11 +195,16 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  character(len=17), dimension(5) :: grid_file
 
  !case 15 variables
- real                        :: entropy_bound = 0.0, entropy_unbound = 0.0, entropy_array(6)
+ real                        :: entropy_bound = 0.0, entropy_unbound = 0.0, entropy_array(8)
  real                        :: avgtemp_bound = 0.0, avgtemp_unbound = 0.0
  real                        :: avgpres_bound = 0.0, avgpres_unbound = 0.0
+ real                        :: avgdens_bound = 0.0, avgdens_unbound = 0.0
  real                        :: boundparts_1(8,npart)
- real, dimension(npart)      :: pres_1, temp_1, proint_1, peint_1, troint_1, teint_1, entrop_1, abad_1, gamma1_1, gam_1
+ real, dimension(npart)      :: pres_1, proint_1, peint_1, temp_1, troint_1, teint_1, entrop_1, abad_1, gamma1_1, gam_1
+
+ !case 16 variables
+ real                        :: thermodynamic_quantities(5,npart)
+ real, dimension(npart)      :: radius_1, dens_1
 
  !chose analysis type
  if (dump_number==0) then
@@ -217,15 +222,16 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '12) Output .divv', &
             '13) Print sink particle m and h', &
             '14) Another something', &
-            '15) Entropy MESA EoS'
+            '15) MESA EoS compute total entropy and other average td quantities', &
+            '16) MESA EoS save on file thermodynamical quantities for all particles'
 
     analysis_to_perform = 1
 
-    call prompt('Choose analysis type ',analysis_to_perform,1,15)
+    call prompt('Choose analysis type ',analysis_to_perform,1,16)
 
  endif
 
- if ( ANY((/ 2, 3, 4, 8, 11, 12, 13, 14, 15 /) == analysis_to_perform) .and. dump_number == 0 ) call init_eos(ieos,ierr)
+ if ( ANY((/ 2, 3, 4, 8, 11, 12, 13, 14, 15, 16 /) == analysis_to_perform) .and. dump_number == 0 ) call init_eos(ieos,ierr)
 
  !analysis
  select case(analysis_to_perform)
@@ -1398,7 +1404,7 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
        close(unit=unitnum)
     enddo
 
- case(15) !Entropy MESA EoS
+ case(15) !MESA EoS compute total entropy and other average thermodynamical quantities
     !zeroes the entropy variable and others
     entropy_bound = 0.0
     entropy_unbound = 0.0
@@ -1406,6 +1412,8 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
     avgtemp_unbound = 0.0
     avgpres_bound = 0.0
     avgpres_unbound = 0.0
+    avgdens_bound = 0.0
+    avgdens_unbound = 0.0
 
     !calling again part of the procedure in case(3) to obtain bound and unbound particles
     !setup
@@ -1525,7 +1533,7 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
 
           !gets entropy for the current particle
           call get_eos_various_mesa(X_in,rhopart*unit_density,vxyzu(4,i) * unit_ergg, &
-                                    pres_1(i),temp_1(i),proint_1(i),peint_1(i),troint_1(i), &
+                                    pres_1(i),proint_1(i),peint_1(i),temp_1(i),troint_1(i), &
                                     teint_1(i),entrop_1(i),abad_1(i),gamma1_1(i),gam_1(i))
 
           !sums entropy and other quantities for bound particles and unbound particles
@@ -1533,36 +1541,73 @@ distance_from_com(2,i)**2 + distance_from_com(3,i)**2)
              entropy_bound = entropy_bound + entrop_1(i)
              avgtemp_bound = avgtemp_bound + temp_1(i)
              avgpres_bound = avgpres_bound + pres_1(i)
+             avgdens_bound = avgdens_bound + rhopart*unit_density
 
           else !unbound
              entropy_unbound = entropy_unbound + entrop_1(i)
              avgtemp_unbound = avgtemp_unbound + temp_1(i)
              avgpres_unbound = avgpres_unbound + pres_1(i)
+             avgdens_unbound = avgdens_unbound + rhopart*unit_density
 
           endif
-
-          entropy_array(1) = entropy_bound
-          entropy_array(2) = entropy_unbound
-          entropy_array(3) = avgtemp_bound !/ npart !make average
-          entropy_array(4) = avgtemp_unbound !/ npart !make average
-          entropy_array(5) = avgpres_bound !/ npart !make average
-          entropy_array(6) = avgpres_unbound !/ npart !make average
 
        endif
 
     enddo
 
+    !total variables
+    entropy_array(1) = entropy_bound
+    entropy_array(2) = entropy_unbound
+    entropy_array(3) = avgtemp_bound / npart !make average
+    entropy_array(4) = avgtemp_unbound / npart !make average
+    entropy_array(5) = avgpres_bound / npart !make average
+    entropy_array(6) = avgpres_unbound / npart !make average
+    entropy_array(7) = avgdens_bound / npart !make average
+    entropy_array(8) = avgdens_unbound / npart !make average
+
     !writes on file
     columns = (/'       b entr',&
                 '     unb entr',&
-	        '   avg b temp',&
-	        ' avg unb temp',&
-	        '   avg b pres',&
-	        ' avg unb pres'/)
-    call write_time_file('entropy_vs_time', columns, time, entropy_array, 6, dump_number)
+                '   avg b temp',&
+                ' avg unb temp',&
+                '   avg b pres',&
+                ' avg unb pres',&
+                '   avg b dens',&
+                ' avg unb dens'/)
+    call write_time_file('entropy_vs_time', columns, time, entropy_array, 8, dump_number)
 
+ case(16) !MESA EoS save on file thermodynamical quantities for all particles
 
+    do i=1,npart
 
+       !particle radius
+       call separation_vector(xyzh(1:3,i),com_pos(1:3),r_part_com(1:4))
+       radius_1(i) = r_part_com(4) * udist
+
+       !particles density in code units
+       rhopart = rhoh(xyzh(4,i), particlemass)
+       dens_1(i) = rhopart * unit_density
+
+       !gets entropy for the current particle
+       call get_eos_various_mesa(X_in,rhopart*unit_density,vxyzu(4,i) * unit_ergg, &
+                                    pres_1(i),proint_1(i),peint_1(i),temp_1(i),troint_1(i), &
+                                    teint_1(i),entrop_1(i),abad_1(i),gamma1_1(i),gam_1(i))
+
+       !stores everything in an array
+       thermodynamic_quantities(1,i) = radius_1(i)
+       thermodynamic_quantities(2,i) = dens_1(i)
+       thermodynamic_quantities(3,i) = pres_1(i)
+       thermodynamic_quantities(4,i) = temp_1(i)
+       thermodynamic_quantities(5,i) = entrop_1(i)
+
+    enddo
+
+    columns = (/'      radius', &
+                   '     density', &
+                   '    pressure', &
+                   ' temperature', &
+                   '     entropy'/)
+    call write_file('td_quantities', 'thermodynamics', columns, thermodynamic_quantities, npart, 5, num)
 
     unitnum = unitnum + 1
 
