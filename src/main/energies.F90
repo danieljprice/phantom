@@ -62,7 +62,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine compute_energies(t)
- use dim,  only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,lightcurve
+ use dim,  only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,lightcurve,use_dust
  use part, only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,npartoftype, &
                 alphaind,Bxyz,Bevol,divcurlB,iamtype,igas,idust,iboundary,istar,idarkmatter,ibulge, &
                 nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,isdead_or_accreted,epot_sinksink,&
@@ -249,6 +249,11 @@ subroutine compute_energies(t)
           epot = epot + pmassi*epoti
        endif
        if (gravity) epot = epot + poten(i)
+#ifdef DUST
+       if (itype==idust) then
+          mdust = mdust + pmassi
+       endif
+#endif
        !
        ! the following apply ONLY to gas particles
        !
@@ -260,12 +265,12 @@ subroutine compute_energies(t)
              gasfrac     = 1. - dustfraci
              dust_to_gas = dustfraci/gasfrac
              call ev_data_update(ev_data_thread,iev_dtg,dust_to_gas)
-             mgas  = mgas  + pmassi*gasfrac
              mdust = mdust + pmassi*dustfraci
           else
              dustfraci = 0.
              gasfrac   = 1.
           endif
+          mgas  = mgas  + pmassi*gasfrac
 
           ! thermal energy
           if (maxvxyzu >= 4) then
@@ -542,7 +547,7 @@ subroutine compute_energies(t)
                                  +      ev_data(iev_sum,iev_erot(3))**2)
  endif
 
- if (use_dustfrac) then
+ if (use_dust) then
     mgas  = reduce_fn('+',mgas)
     mdust = reduce_fn('+',mdust)
  endif

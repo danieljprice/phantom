@@ -380,7 +380,7 @@ end subroutine write_evfile
 !+
 !----------------------------------------------------------------
 subroutine write_evlog(iprint)
- use dim,       only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal
+ use dim,       only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,use_dust
  use energies,  only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas
  use viscosity, only:irealvisc,shearparam
  use boundary,  only:dxbound,dybound,dzbound
@@ -412,8 +412,8 @@ subroutine write_evlog(iprint)
     write(iprint,"(1x,a,'(max)=',es10.3,1x,'(mean)=',es10.3,1x,'(min)=',es10.3)") &
          'dust2gas ',ev_data(iev_max,iev_dtg),ev_data(iev_ave,iev_dtg)
     write(iprint,"(3x,a,'(mean)=',es10.3,1x,'(min)=',es10.3)") 't_stop ',ev_data(iev_ave,iev_ts),ev_data(iev_min,iev_ts)
-    write(iprint,"(1x,'Mgas = ',es10.3,', Mdust = ',es10.3)") mgas,mdust
  endif
+ if (use_dust) write(iprint,"(1x,'Mgas = ',es10.3,', Mdust = ',es10.3)") mgas,mdust
 
  if (track_mass) write(iprint,"(1x,1(a,'=',es10.3))") 'Accreted mass',accretedmass
 

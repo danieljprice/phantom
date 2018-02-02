@@ -157,7 +157,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: jdust_to_gas_ratio,Rj,period,Rochelobe,tol,Hill(maxplanets)
  real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Sigmadust,Stokes
  real    :: polyk_dust,xorigini(3),vorigini(3),alpha_returned(3)
- real    :: star_m(3),disc_mfac(3),disc_mdust(3),sig_normdust(3),u(3)!,v(3),w(3)
+ real    :: star_m(3),disc_mfac(3),disc_mdust(3),sig_normdust(3),u(3)
  real    :: enc_m(maxbins),rad(maxbins),Q_mintmp,disc_mtmp(3),annulus_mtmp(3)
  integer :: ierr,j,ndiscs,idisc,nparttot,npartdust,npingasdisc,npindustdisc,itype
  integer :: sigmaprofilegas(3),sigmaprofiledust(3),iprofilegas(3),iprofiledust(3)
@@ -1008,10 +1008,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !--incline positions and velocities
        inclplan(i) = inclplan(i)*pi/180.
        u = (/-sin(phi),cos(phi),0./)
-       !v = (/0.,0.,1./)
-       !w = (/-sin(posangl(1)),cos(posangl(1)),0./)
-       !call rotatevec(u,w,incl(1))
-       !call rotatevec(v,w,incl(1))
        call rotatevec(xyzmh_ptmass(1:3,nptmass),u,-inclplan(i))
        call rotatevec(vxyz_ptmass(1:3,nptmass), u,-inclplan(i))
        !--print planet information
