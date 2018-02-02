@@ -151,7 +151,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real                         :: xh0, xh1, xhe0, xhe1, xhe2, temperature
  character(len=17), dimension(5) :: grid_file
  real                         :: sinkcomp(30)
- real                         :: ang_mom(3) 
+ real                         :: ang_mom(3)
  character(len=17)            :: filename
 
  !case 15 variables
@@ -227,7 +227,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
        call cross(xyzh(1:3,i),particlemass * vxyzu(1:3,i),rcrossmv)
 
-       !bound criterion 
+       !bound criterion
        if (epoti + ekini < 0.0) then
           bound_i = 1
        else
@@ -596,7 +596,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     do i=1,nptmass
        write(*,'(A,I2,A,ES10.3,A,ES10.3)') 'Point mass ',i,': M = ',xyzmh_ptmass(4,i),' and h_soft = ',xyzmh_ptmass(ihsoft,i)
     enddo
-    
+
     write(*,'(A,ES10.3,A,ES10.3)') 'Gas particles : ',npart,' particles, each of mass ',particlemass
 
  case(8) !Output .divv
@@ -699,7 +699,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        endif
 
        unitnum=1001+i
-       
+
        open(unit=unitnum, file=trim(adjustl(grid_file(i))), position='append')
 
        write(unitnum,data_formatter) hist_var(:)
@@ -707,7 +707,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        close(unit=unitnum)
     enddo
 
- case(11) !New unbound particle profiles in time 
+ case(11) !New unbound particle profiles in time
     !If you want to use this, remove the "/ real(n)" in the avg_histogram_setup routine
     !This case can be somewhat tidied up
     call compute_energies(time)
@@ -770,7 +770,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  case(12) !sink properties
 
     do i=1,nptmass
-       
+
        write (filename, "(A16,I0)") "sink_properties_", i
        allocate(columns(17))
        columns = (/'            x', &
@@ -810,8 +810,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        sinkcomp(16)    = distance(ang_mom(1:3))
        ! kinetic energy
        sinkcomp(17)    = 0.5*xyzmh_ptmass(4,i)*sinkcomp(8)**2
-       
-       
+
+
        call write_time_file(filename, columns, time, sinkcomp, 17, num)
        deallocate(columns)
 
@@ -1141,7 +1141,7 @@ subroutine ionisation_fraction(dens,temp,X,Y,xh0, xh1, xhe0, xhe1, xhe2)
 end subroutine ionisation_fraction
 
 subroutine avg_histogram_setup(dist_var,avg_var,hist_var,npart,max_value,min_value,nbins)
- !returns a radial histogram of a given distribution variable 
+ !returns a radial histogram of a given distribution variable
  integer, intent(in)                :: npart,nbins
  real, dimension(npart), intent(in) :: dist_var, avg_var
  real, dimension(nbins), intent(out) :: hist_var
@@ -1261,12 +1261,12 @@ end subroutine cross
 real function distance(a)
  !return modulus of an arbitrary vector
  real, intent(in), dimension(:) :: a
- 
+
  distance = sqrt(dot_product(a,a))
 end function distance
 
 subroutine separation_vector(a,b,c)
- !return difference between two vectors 
+ !return difference between two vectors
  real, intent(in), dimension(3) :: a,b
  real, intent(out), dimension(4) :: c
 
