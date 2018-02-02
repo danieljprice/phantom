@@ -12,7 +12,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Thomas Reichardt
 !
 !  $Id$
 !
