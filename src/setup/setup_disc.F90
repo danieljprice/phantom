@@ -341,6 +341,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     H_R        = 0.05
     disc_mfac  = 1.
     if (multiple_disc_flag .and. (ibinary==0)) then
+       !--don't smooth circumbinary, by default
+       ismoothgas(1) = .false.
        !--set appropriate disc radii for bound binary
        R_in      = (/2.5*binary_a, accr1, accr2/)
        R_out     = (/5.*R_in(1), 5.*accr1, 5.*accr2/)
@@ -579,10 +581,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--surface density profile
  !
- if (multiple_disc_flag .and. ibinary==0 .and. iuse_disc(1)) then
-    !--don't smooth circumbinary
-    ismoothgas(1) = .false.
- endif
  iprofilegas = 0
  sigmaprofilegas = 0
  do i=1,3
