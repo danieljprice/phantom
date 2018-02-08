@@ -56,19 +56,35 @@ subroutine prim2cons_all(npart,xyzh,dens,v,u,P,rho,pmom,en)
 end subroutine prim2cons_all
 
 
-subroutine prim2consphantom_i(xyzhi,vxyzui,densi,pxyzui)
+subroutine prim2consphantom_i(xyzhi,vxyzui,dens_i,pxyzui,use_dens)
  use utils_gr,        only:h2dens
  use cons2primsolver, only:primitive2conservative
  use eos,          only:equationofstate,ieos
  real, dimension(4), intent(in)  :: xyzhi, vxyzui
- real, intent(inout)             :: densi
+ real, intent(inout)             :: dens_i
  real, dimension(4), intent(out) :: pxyzui
- real :: rhoi,Pi,ui,xyzi(1:3),vi(1:3),pondensi,spsoundi
+ logical, intent(in), optional   :: use_dens
+ logical :: usedens
+ real :: rhoi,Pi,ui,xyzi(1:3),vi(1:3),pondensi,spsoundi,densi
+
+ !  By default, use the smoothing length to compute primitive density, and then compute the conserved variables.
+ !  (Alternatively, use the provided primitive density to compute conserved variables.
+ !   Depends whether you have prim dens prior or not.)
+  if (present(use_dens)) then
+     usedens = use_dens
+  else
+     usedens = .false.
+  endif
 
  xyzi = xyzhi(1:3)
  vi   = vxyzui(1:3)
  ui   = vxyzui(4)
- call h2dens(densi,xyzhi,vi)
+ if (usedens) then
+    densi = dens_i
+ else
+    call h2dens(densi,xyzhi,vi) ! Compute dens from h
+    dens_i = densi              ! Feed the newly computed dens back out of the routine
+ endif
  call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
  pi = pondensi*densi
  call primitive2conservative(xyzi,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4),ien_entropy)
@@ -76,20 +92,31 @@ subroutine prim2consphantom_i(xyzhi,vxyzui,densi,pxyzui)
 end subroutine prim2consphantom_i
 
 
-subroutine prim2consphantom_all(npart,xyzh,vxyzu,dens,pxyzu)
+subroutine prim2consphantom_all(npart,xyzh,vxyzu,dens,pxyzu,use_dens)
  use part,         only:isdead_or_accreted
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:),vxyzu(:,:)
  real,    intent(inout) :: dens(:)
  real,    intent(out) :: pxyzu(:,:)
+ logical, intent(in), optional :: use_dens
+ logical :: usedens
  integer :: i
 
+!  By default, use the smoothing length to compute primitive density, and then compute the conserved variables.
+!  (Alternatively, use the provided primitive density to compute conserved variables.
+!   Depends whether you have prim dens prior or not.)
+ if (present(use_dens)) then
+    usedens = use_dens
+ else
+    usedens = .false.
+ endif
+
 !$omp parallel do default (none) &
-!$omp shared(xyzh,vxyzu,dens,pxyzu,npart) &
+!$omp shared(xyzh,vxyzu,dens,pxyzu,npart,usedens) &
 !$omp private(i)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call prim2consphantom_i(xyzh(:,i),vxyzu(:,i),dens(i),pxyzu(:,i))
+       call prim2consphantom_i(xyzh(:,i),vxyzu(:,i),dens(i),pxyzu(:,i),usedens)
     endif
  enddo
 !$omp end parallel do

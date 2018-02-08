@@ -255,7 +255,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
     call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype)
 #ifdef GR
-    call primitive_to_conservative(npart,xyzh,vxyzu,dens,pxyzu)
+    call primitive_to_conservative(npart,xyzh,vxyzu,dens,pxyzu,use_dens=.false.)
 #endif
 #ifdef IND_TIMESTEPS
     do iloop=npart_old+1,npart
