@@ -157,6 +157,7 @@ subroutine cons2primphantom_i(xyzhi,pxyzui,vxyzui,densi,ierr,pressure)
  integer, intent(out),  optional      :: ierr
  real,    intent(out),  optional      :: pressure
  real    :: rhoi, p_guess, xyzi(1:3), v_guess(1:3), u_guess, pondens, spsound
+ integer :: ierror
 
  rhoi    = rhoh(xyzhi(4),massoftype(igas))
  xyzi    = xyzhi(1:3)
@@ -164,8 +165,9 @@ subroutine cons2primphantom_i(xyzhi,pxyzui,vxyzui,densi,ierr,pressure)
  u_guess = vxyzui(4)
  call equationofstate(ieos,pondens,spsound,densi,xyzi(1),xyzi(2),xyzi(3),u_guess)
  p_guess = pondens*densi
- call conservative2primitive(xyzi,vxyzui(1:3),densi,vxyzui(4),p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierr,ien_entropy)
+ call conservative2primitive(xyzi,vxyzui(1:3),densi,vxyzui(4),p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierror,ien_entropy)
  if (present(pressure)) pressure = p_guess
+ if (present(ierr)) ierr = ierror
 
 end subroutine cons2primphantom_i
 
