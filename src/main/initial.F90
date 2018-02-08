@@ -149,10 +149,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustfrac,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,iboundary
 #ifdef GR
- use part,             only:pxyzu,dens
+ use part,             only:pxyzu,dens,gradh
  use cons2prim,        only:primitive_to_conservative
  use eos,              only:equationofstate,ieos
  use extern_gr,        only:get_grforce
+ use densityforce,     only:densityiterate
+ use linklist,         only:set_linklist
 #endif
 #ifdef PHOTO
  use photoevap,        only:set_photoevap_grid
@@ -233,7 +235,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  integer :: ncount(maxtypes)
  character(len=len(dumpfile)) :: dumpfileold,fileprefix
 #ifdef GR
- real :: pi,pondensi,spsoundi
+ real :: pi,pondensi,spsoundi,stressmax
 #endif
 
 !
@@ -313,9 +315,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !--Initialise values for summary array
  call summary_initialise
 
-#ifdef GR
- call primitive_to_conservative(npart,xyzh,vxyzu,dens,pxyzu)
-#endif
 !
 !--get total number of particles (on all processors)
 !
@@ -423,6 +422,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  fext(:,:)  = 0.
 
 #ifdef GR
+ ! --- Need rho computed by sum to do primitive to conservative, since dens is not read from file
+ if (npart>0) then
+    call set_linklist(npart,npart,xyzh,vxyzu)
+    fxyzu = 0.
+    call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
+                              fxyzu,fext,alphaind,gradh)
+ endif
+ call primitive_to_conservative(npart,xyzh,vxyzu,dens,pxyzu)
  if (iexternalforce > 0) then
     call initialise_externalforces(iexternalforce,ierr)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
