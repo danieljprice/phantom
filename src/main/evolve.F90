@@ -93,6 +93,10 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,npartoftype
+#ifdef GR
+ use part,             only:pxyzu,dens
+ use cons2prim,        only:primitive_to_conservative
+#endif
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev, &
                             rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin
@@ -250,6 +254,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     npart_old=npart
 #endif
     call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype)
+#ifdef GR
+    call primitive_to_conservative(npart,xyzh,vxyzu,dens,pxyzu)
+#endif
 #ifdef IND_TIMESTEPS
     do iloop=npart_old+1,npart
        ibin(iloop) = nbinmax
