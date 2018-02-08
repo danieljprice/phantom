@@ -1,0 +1,119 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://users.monash.edu.au/~dprice/phantom                               !
+!--------------------------------------------------------------------------!
+!+
+!  MODULE: setup
+!
+!  DESCRIPTION:
+! this module does bondi wind (accretion in reverse)
+!
+!  REFERENCES: None
+!
+!  OWNER: David Liptai
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS: None
+!
+!  DEPENDENCIES: inject, part, physcon, units
+!+
+!--------------------------------------------------------------------------
+module setup
+ implicit none
+ public :: setpart
+
+ private
+
+contains
+
+!----------------------------------------------------------------
+!+
+!  setup for uniform particle distributions
+!+
+!----------------------------------------------------------------
+subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
+ use part,           only: xyzmh_ptmass, vxyz_ptmass, nptmass, gr
+ use units,          only: set_units
+ use options,        only: iexternalforce
+ use timestep,       only: tmax,nmax
+ use io,             only: fatal
+ use prompting,      only: prompt
+ use metric,         only: mass1, imetric
+ use metric_tools,   only: imet_schwarzschild
+ use externalforces, only: accradius1,accradius1_hard
+ use inject,         only: wind_init, inject_particles
+ use inject,         only: rcrit, wind_inject_radius, wind_gamma, mass_of_particles
+ use inject,         only: isol,den0,en0
+ integer,           intent(in)    :: id
+ integer,           intent(inout) :: npart
+ integer,           intent(out)   :: npartoftype(:)
+ real,              intent(out)   :: xyzh(:,:)
+ real,              intent(out)   :: vxyzu(:,:)
+ real,              intent(out)   :: massoftype(:)
+ real,              intent(out)   :: polyk,gamma,hfact
+ real,              intent(inout) :: time
+ character(len=20), intent(in)    :: fileprefix
+
+ if (.not.gr) call fatal('setup_bondiwind','This setup only works with GR on')
+ if (imetric/=imet_schwarzschild) call fatal('setup_bondiwind','This setup is meant for use with the Schwarzschild metric')
+ call set_units(G=1.,c=1.)
+
+ call prompt(' Enter solution type (1 = geodesic flow | 2 = sonic point flow)',isol,1,2)
+
+ select case(isol)
+ case(1)
+    call prompt(' Enter normalisation constant den0:',den0,0.)
+    call prompt(' Enter normalisation constant e0: ',en0,0.)
+ case(2)
+    call prompt(' Enter the critical point rcrit in units of central mass M: ',rcrit,2.+1e-5)
+    rcrit = rcrit*mass1
+ end select
+
+ call prompt(' Enter the injection radius in units of central mass M: ',wind_inject_radius,2.+1e-5)
+ wind_inject_radius = wind_inject_radius*mass1
+
+
+ ! General parameters
+ time  = 0.
+ tmax  = 1000.
+ polyk = 0.
+ gamma = wind_gamma
+ iexternalforce  = 1
+ mass1           = 1.
+ accradius1      = 2.3*mass1
+ accradius1_hard = accradius1*0.9
+ if (accradius1_hard < 2.*mass1*(1.+1.e-3)) accradius1_hard = 2.*mass1*(1. + 1.e-3)
+
+ call wind_init(.true.)
+
+!
+!--space available for injected gas particles
+!
+ npart = 0
+ npartoftype(:) = 0
+
+ massoftype = mass_of_particles
+
+ xyzh(:,:)  = 0.
+ vxyzu(:,:) = 0.
+ xyzmh_ptmass(:,:) = 0.
+ vxyz_ptmass(:,:) = 0.
+
+
+ ! --- Put sink with no mass far away (needed to get around bug where phantom doesn't want to read an empty dumpfile)
+ nptmass = 1
+ xyzmh_ptmass(1,1) = 1000.
+ xyzmh_ptmass(2,1) = 1000.
+ xyzmh_ptmass(3,1) = 1000.
+ xyzmh_ptmass(4,1) = 0.
+ xyzmh_ptmass(5,1) = 3.
+
+ ! call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype)
+ ! nmax = 0
+
+end subroutine setpart
+
+end module setup

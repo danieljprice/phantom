@@ -399,14 +399,15 @@ ifeq ($(SETUP), bondi_gr)
     KERNEL=quintic
 endif
 ifeq ($(SETUP), bondi_inject)
-    SETUPFILE= setup_wind.f90
-    KNOWN_SETUP=yes
-    KERNEL=quintic
-    ISOTHERMAL=yes
-
+    SETUPFILE= setup_bondiwind.F90
     SRCINJECT= icosahedron.f90 inject_bondi.f90
+    KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
+    KERNEL=cubic
+    ISOTHERMAL=no
+    GR=yes
+    METRIC=schwarzschild
 endif
 #-----------------------------------------------
 
