@@ -202,7 +202,7 @@ ifeq ($(SETUP), grdisc)
     METRIC=kerr
     KNOWN_SETUP=yes
     MULTIRUNFILE= multirun.f90
-    IND_TIMESTEPS=yes
+    IND_TIMESTEPS=no
     CONST_AV=yes
     NCELLSMAX=2*maxp
 endif
