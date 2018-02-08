@@ -8,11 +8,11 @@
 !  MODULE: analysis
 !
 !  DESCRIPTION:
-!  Analysis routine comparing time between dumps
+!  Analysis routine to output a single particle as a function of time
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: David Liptai
 !
 !  $Id$
 !
