@@ -96,6 +96,7 @@ module setup
  real    :: pindex(3),qindex(3),H_R(3),posangl(3),incl(3)
  real    :: disc_m(3),sig_ref(3),sig_norm(3),annulus_m(3),R_inann(3),R_outann(3),Q_min(3)
  real    :: R_indust(3),R_outdust(3),R_c_dust(3),pindex_dust(3),qindex_dust(3),H_R_dust(3)
+ real    :: ldisc(3),lcentral(3)
  real    :: alphaSS
  !--dust
  real    :: grainsizeinp,graindensinp,dust_to_gas_ratio
@@ -131,7 +132,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                                 ihsoft,igas,idust,dustfrac,iamtype,iphase
  use physcon,              only:jupiterm,pi,years
  use prompting,            only:prompt
- use setbinary,            only:set_binary,Rochelobe_estimate
+ use setbinary,            only:set_binary,Rochelobe_estimate,get_mean_angmom_vector
  use setdisc,              only:set_disc,get_disc_mass
  use setflyby,             only:set_flyby,get_T_flyby
  use timestep,             only:tmax,dtmax
@@ -935,6 +936,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = nparttot
  npartoftype(igas)  = nparttot - npartdust
  npartoftype(idust) = npartdust
+
+ !
+ ! print information about the angular momenta
+ !
+ ldisc = get_mean_angmom_vector(npart,xyzh,vxyzu)
+ print "(a,'(',3(es10.2,1x),')')",' Disc specific angular momentum = ',ldisc
+ if (nptmass > 1) then
+    lcentral = get_mean_angmom_vector(nptmass,xyzmh_ptmass,vxyz_ptmass)
+    print "(a,'(',3(es10.2,1x),')')",' Binary specific angular momentum = ',lcentral
+    ! make unit vectors
+    lcentral = lcentral/sqrt(dot_product(lcentral,lcentral))
+    ldisc    = ldisc/sqrt(dot_product(ldisc,ldisc))
+    print "(a,f6.1,a)",' Angle between disc and binary = ',acos(dot_product(lcentral,ldisc))*180./pi,' deg'
+ endif
 
  !--alpha viscosity
  if (ndiscs==1) then
