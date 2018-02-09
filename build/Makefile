@@ -393,7 +393,7 @@ ifeq ($(SETUP), bondi)
     ISOTHERMAL=yes
 endif
 ifeq ($(SETUP), bondi_gr)
-    SETUPFILE= setup_bondi.f90
+    SETUPFILE= setup_bondigr.f90
     KNOWN_SETUP=yes
     GR=yes
     KERNEL=quintic
