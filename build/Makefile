@@ -245,7 +245,7 @@ endif
 
 ifeq ($(SETUP), adiabaticdisc)
 #   adiabatic disc
-    FPPFLAGS= -DDISC_VISCOSIT -DSORT_RADIUS_INITY
+    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
     KNOWN_SETUP=yes
@@ -477,14 +477,6 @@ ifeq ($(SETUP), wavedamp)
     DEBUG=no
 endif
 
-ifeq ($(SETUP), potsdam)
-#   Potsdam turbulence comparison project
-    FPPFLAGS= -DPERIODIC
-    SETUPFILE= setup_tipsy.f90
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-endif
-
 ifeq ($(SETUP), sedov)
 #   Sedov blast wave test
     FPPFLAGS= -DPERIODIC
@@ -633,13 +625,14 @@ endif
 ifeq ($(SETUP), star)
 #   import stellar model from 1D stellar evolution code
 #   use option 5 of setup_spheres
-    FPPFLAGS= -DSORT_RADIUS_INIT -DGRAVITY
+    FPPFLAGS= -DSORT_RADIUS_INIT
     SETUPFILE= setup_spheres.f90
     MODFILE= moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} kdtree.o linklist_kdtree.o utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     MAXP=10000000
+    GRAVITY=yes
     MHD=no
 endif
 
