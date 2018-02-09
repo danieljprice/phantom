@@ -62,9 +62,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real                             :: deltax,totmass,toten
  real                             :: enblast,gam1,uui,hsmooth,q2,r2
  real                             :: rblast,rblast2,prblast
- integer                          :: i,maxp,maxvxyzu,ierr
+ integer                          :: i,maxp,maxvxyzu,ierr,ncount
  character(len=100)               :: filename
- logical                          :: iexist
+ logical                          :: iexist,within_blast
+ logical, parameter               :: smoothed_centre = .false.
+
+ if (gr) call set_units(G=1.d0,c=1.d0)
+
 !
 !--general parameters
 !
@@ -99,10 +103,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  polyk   = 0.
  if (maxvxyzu < 4) call fatal('setup','need to compile with ISOTHERMAL=no for sedov problem')
  enblast = 1.0
- rblast  = 2.*(2.*hfact*deltax)
- rblast2 = rblast*rblast
-
+ if (gr) enblast = 100.
  hsmooth = 2.*hfact*deltax
+
+ rblast  = 2.*hsmooth
+ rblast2 = rblast**2
+
  gamma   = 5./3.
  gam1    = gamma - 1.
  prblast = gam1*enblast/(4./3.*pi*rblast**3)
@@ -116,23 +122,44 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  massoftype = totmass/reduceall_mpi('+',npart)
  if (id==master) print*,' particle mass = ',massoftype(igas)
 
- toten = 0.
+print*,'hsmooth = ', hsmooth
+print*,'radkern*hsmooth = ',sqrt(radkern2)*hsmooth
+
+ ncount = 0
+ toten  = 0.
  do i=1,npart
     vxyzu(:,i) = 0.
     r2  = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
     q2  = r2/hsmooth**2
-    uui = enblast*cnormk*wkern(q2,sqrt(q2))/hsmooth**3
-    if (q2 < radkern2) then
+
+    if (smoothed_centre) then
+       within_blast = q2 < radkern2
+       uui = enblast*cnormk*wkern(q2,sqrt(q2))/hsmooth**3
+    else
+       within_blast = r2 < rblast2
+       uui = enblast ! normalise later
+    endif
+
+    if (within_blast) then
        vxyzu(4,i) = uui
+       ncount = ncount + 1
     else
        vxyzu(4,i) = 0.
     endif
-    toten = toten + massoftype(igas)*uui
+
+    toten = toten + massoftype(igas)*vxyzu(4,i)
  enddo
 !
 !--normalise so energy = enblast exactly
 !
  vxyzu(4,1:npart) = vxyzu(4,1:npart)*(enblast/toten)
+ print*,'toten:',toten
+ print*,'ncount:',ncount
+ toten = 0.
+ do i=1,npart
+    toten = toten + massoftype(igas)*vxyzu(4,i)
+ enddo
+ print*,'normalised total en:',toten
 !
 !--set default runtime options for this setup (if .in file does not already exist)
 !
@@ -142,6 +169,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     tmax   = 0.1
     dtmax  = 0.005
     alphau = 1.
+    if (gr) then
+       alpha = 1. ! CONST_AV for gr
+       tmax  = 0.3
+    endif
  endif
 
 end subroutine setpart
