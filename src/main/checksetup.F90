@@ -406,8 +406,8 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
 
 #ifdef GR
  if (nptmass > 0) then
-    print*,' Error in setup: nptmass = ',nptmass, ' should be = 0 for GR'
-    nerror = nerror + 1
+    print*,' Warning! Error in setup: nptmass = ',nptmass, ' should be = 0 for GR'
+    nwarn = nwarn + 1
     return
  endif
 #endif
