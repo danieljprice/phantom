@@ -114,9 +114,6 @@ subroutine test_wavedamp(ntests,npass)
  real, parameter        :: toltime = 1.30d-8
  logical                :: valid_dt
  logical                :: print_output = .false.
-#ifndef STS_TIMESTEPS
- logical                :: use_sts
-#endif
 
 #ifndef ISOTHERMAL
  if (id==master) write(*,"(/,a)") '--> skipping wave dampening test (need -DISOTHERMAL)'

@@ -24,7 +24,7 @@
 !--------------------------------------------------------------------------
 program phantomsetup
  use dim,             only:tagline,maxp,maxvxyzu,maxalpha,maxgrav,&
-                           ndivcurlv,ndivcurlB,use_dustfrac
+                           ndivcurlv,ndivcurlB
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
                            Bevol,Bextx,Bexty,Bextz,rhoh,iphase,maxphase,isetphase,igas,iamtype, &
                            labeltype,xyzmh_ptmass,vxyz_ptmass,maxp_h2,iHI,abundance,&
@@ -34,7 +34,7 @@ program phantomsetup
  use io,              only:set_io_unit_numbers,id,master,nprocs,iwritein,fatal,warning
  use readwrite_dumps, only:write_fulldump
  use readwrite_infile,only:write_infile,read_infile
- use options,         only:set_default_options
+ use options,         only:set_default_options,use_dustfrac
  use setup,           only:setpart
  use setup_params,    only:ihavesetupB,npart_total
  use checksetup,      only:check_setup

@@ -91,16 +91,9 @@ subroutine check_compile_time_settings(ierr)
 #endif
 #endif
 
-#ifdef DUSTFRAC
-#ifndef DUST
- if (id==master) call error(string,'-DDUSTFRAC requires -DDUST')
- ierr = 5
-#endif
-#endif
-
-#ifdef DUSTFRAC
+#ifdef DUST
 #ifdef MHD
- if (id==master) call error(string,'-DDUSTFRAC currently not compatible with magnetic fields (-DMHD)')
+ if (id==master) call error(string,'-DDUST currently not compatible with magnetic fields (-DMHD)')
 #endif
 #endif
 

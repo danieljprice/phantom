@@ -137,7 +137,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  shkfile = trim(fileprefix)//'.setup'
  call read_setupfile(shkfile,iprint,nstates,gamma,polyk,ierr)
  if (ierr /= 0 .and. id==master) then
-    call choose_shock(gamma,polyk,ndim,iexist) ! Choose shock
+    call choose_shock(gamma,polyk,iexist) ! Choose shock
     call write_setupfile(shkfile,iprint,nstates,gamma,polyk)       ! write shock file with defaults
  endif
  dxleft = -xleft/float(nx)
@@ -312,7 +312,7 @@ end subroutine adjust_shock_boundaries
 !  Choose which shock tube problem to set up
 !+
 !-----------------------------------------------------------------------
-subroutine choose_shock (gamma,polyk,ndim,iexist)
+subroutine choose_shock (gamma,polyk,iexist)
  use io,          only:fatal,id,master
  use dim,         only:mhd,maxvxyzu
  use physcon,     only:pi
@@ -324,7 +324,6 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
  use nicil,       only:use_ohm,use_hall,use_ambi,eta_constant,eta_const_type, &
                        C_OR,C_HE,C_AD,C_nimhd,icnstphys,icnstsemi,icnst
 #endif
- integer, intent(in)    :: ndim
  real,    intent(inout) :: gamma,polyk
  logical, intent(in)    :: iexist
  integer, parameter     :: nshocks = 11
@@ -368,7 +367,7 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
  shocks(1) = 'Sod shock'
  shocks(2) = 'Ryu 1a'
  shocks(3) = 'Ryu 1b'
- shocks(4) = 'Ryu 2a'
+ shocks(4) = 'Ryu 2a (w 7 discontinuities)'
  shocks(5) = 'Ryu 2b'
  shocks(6) = 'Brio-Wu (Ryu 5a)'
  shocks(7) = 'C-shock'
@@ -421,7 +420,7 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
     rightstate = (/0.1,10.,0.,0.,0.,5./const,2./const,0./)
  case(4)
     !--Ryu et al. shock 2a
-    shocktype  = "Ryu et al. shock 2a"
+    shocktype  = "Ryu et al. shock 2a (with 7 discontinuities)"
     gamma      = 5./3.
     leftstate  = (/1.08,0.95,1.2,0.01,0.5,2./const,3.6/const,2./const/)
     rightstate = (/1.  ,1.  ,0. ,0.  ,0. ,2./const,4.0/const,2./const/)
@@ -440,6 +439,7 @@ subroutine choose_shock (gamma,polyk,ndim,iexist)
     shocktype = "Brio/Wu (Ryu/Jones shock 5a)"
     if (.not. iexist) then
        tmax    = 0.1
+       dtmax   = 0.005
     endif
     gamma      = 2.0
     leftstate  = (/1.000,1.0,0.,0.,0.,0.75, 1.,0./)

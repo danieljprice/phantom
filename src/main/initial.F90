@@ -19,12 +19,13 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: balance, boundary, centreofmass, checkoptions, checksetup,
-!    chem, cpuinfo, densityforce, deriv, dim, domain, dust, energies, eos,
-!    evwrite, externalforces, fastmath, forcing, h2cooling, initial_params,
-!    io, io_summary, linklist, mf_write, mpi, mpiutils, nicil, nicil_sup,
-!    omputils, options, part, photoevap, ptmass, readwrite_dumps,
-!    readwrite_infile, setup, sort_particles, step_lf_global, timestep,
-!    timestep_ind, timestep_sts, timing, units, writegitinfo, writeheader
+!    chem, cooling, cpuinfo, densityforce, deriv, dim, domain, dust,
+!    energies, eos, evwrite, externalforces, fastmath, forcing, h2cooling,
+!    initial_params, io, io_summary, linklist, mf_write, mpi, mpiutils,
+!    nicil, nicil_sup, omputils, options, part, photoevap, ptmass,
+!    readwrite_dumps, readwrite_infile, setup, sort_particles,
+!    step_lf_global, timestep, timestep_ind, timestep_sts, timing, units,
+!    writegitinfo, writeheader
 !+
 !--------------------------------------------------------------------------
 module initial
@@ -132,14 +133,14 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,calc_erot,use_dustfrac
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,calc_erot
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
                             die,fatal,id,master,nprocs,real4,warning
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
                             externalforce_vdependent
- use options,          only:iexternalforce,damp,alpha,icooling
+ use options,          only:iexternalforce,damp,alpha,icooling,use_dustfrac
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
@@ -178,7 +179,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef IND_TIMESTEPS
  use timestep,         only:dtmax
  use timestep_ind,     only:istepfrac,ibinnow,maxbins,init_ibin
- use part,             only:ibin,ibinold,ibinsink,alphaind
+ use part,             only:ibin,ibin_old,ibin_wake,alphaind
  use readwrite_dumps,  only:dt_read_in
 #else
  use timestep,         only:dtcourant,dtforce
@@ -215,6 +216,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use setup,            only:setpart
  use checksetup,       only:check_setup
  use h2cooling,        only:coolinmo
+ use cooling,          only:init_cooling
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
  use io_summary,       only:summary_initialise
@@ -353,6 +355,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        call init_chem()
        call coolinmo()
     endif
+ elseif (icooling > 0) then
+    call init_cooling(ierr)
+    if (ierr /= 0) call fatal('initial','error initialising cooling')
  endif
 
  if (damp > 0. .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
@@ -379,12 +384,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  endif
 
 #ifdef IND_TIMESTEPS
- ibin(:)      = 0
- ibinold(:)   = 0
+ ibin(:)       = 0
+ ibin_old(:)   = 0
+ ibin_wake(:)  = 0
  if (dt_read_in) call init_ibin(npart,dtmax)
- istepfrac    = 0
- ibinnow      = 0
- ibinsink     = 0
+ istepfrac     = 0
+ ibinnow       = 0
 #else
  dtcourant = huge(dtcourant)
  dtforce   = huge(dtforce)
@@ -533,15 +538,10 @@ endif
     )
 #endif
     if (use_dustfrac) then
-       ! set s = sqrt(rho*eps) from the initial dustfrac setting now we know rho
-       pmassi = massoftype(igas)
-       ntypes = get_ntypes(npartoftype)
+       ! set s = sqrt(eps/(1-eps)) from the initial dustfrac setting now we know rho
        do i=1,npart
           if (.not.isdead_or_accreted(xyzh(4,i))) then
-             if (ntypes > 1 .and. maxphase==maxp) then
-                pmassi = massoftype(iamtype(iphase(i)))
-             endif
-             dustevol(i) = sqrt(rhoh(xyzh(4,i),pmassi)*dustfrac(i))
+             dustevol(i) = sqrt(dustfrac(i)/(1.-dustfrac(i)))
           endif
        enddo
     endif
@@ -607,14 +607,16 @@ endif
     angtot_in = angtot
     totmom_in = totmom
     mdust_in  = mdust
-    write(iprint,'(1x,a)') "Setting initial values to verify conservation laws:"
+    write(iprint,'(1x,a)') 'Setting initial values to verify conservation laws:'
  else
-    write(iprint,'(1x,a)') "Reading initial values to verify conservation laws from previous run:"
+    write(iprint,'(1x,a)') 'Reading initial values to verify conservation laws from previous run:'
  endif
- write(iprint,'(2x,a,Es18.6)') "Initial total energy:     ", etot_in
- write(iprint,'(2x,a,Es18.6)') "Initial angular momentum: ", angtot_in
- write(iprint,'(2x,a,Es18.6)') "Initial linear momentum:  ", totmom_in
- write(iprint,'(2x,a,Es18.6)') "Initial dust mass:        ", mdust_in
+ write(iprint,'(2x,a,es18.6)')   'Initial total energy:     ', etot_in
+ write(iprint,'(2x,a,es18.6)')   'Initial angular momentum: ', angtot_in
+ write(iprint,'(2x,a,es18.6)')   'Initial linear momentum:  ', totmom_in
+#ifdef DUST
+ write(iprint,'(2x,a,es18.6,/)') 'Initial dust mass:        ', mdust_in
+#endif
 !
 !--write initial conditions to output file
 !  if the input file ends in .tmp or .init

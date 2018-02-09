@@ -41,12 +41,7 @@ module timestep
 
  ! When rho_max > rho_dtthresh, then decrease dtmax by dtmax_rat;
  ! this can currently be done only once per simulation.
- ! If it is longer than dtwall_dtthresh between dumps, will decrease dtmax
- ! accordingly; this can be done repeatedly and is independent of dtmax_rat
- ! dtmax_rat must be a multiple of 2.
  ! The logicals will be automatically adjusted, so do not modify.
- ! To disable, set dtwall_dtthresh=0
- real,    public :: dtwall_dtthresh   = 86400.0  ! = 24h; must be modified here
  real,    public :: rho_dtthresh
  real,    public :: rho_dtthresh_cgs  = 0.0
  integer, public :: dtmax_rat0        = 1

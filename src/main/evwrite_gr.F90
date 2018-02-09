@@ -1,8 +1,10 @@
 module evwrite
  use io,             only: fatal
+ use part,           only: npart
  use options,        only: iexternalforce
- use externalforces, only: iext_binary
+ use externalforces, only: iext_binary,was_accreted
  use energies,       only: inumev,iquantities,ev_data
+ use energies,       only: ndead
  use energies,       only: erot_com,gas_only,track_mass,track_lum
  use energies,       only: iev_sum,iev_max,iev_min,iev_ave
  use energies,       only: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,&
@@ -31,10 +33,9 @@ contains
 !----------------------------------------------------------------
 subroutine init_evfile(iunit,evfile)
  use io,        only: id,master,warning
- use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,use_dustfrac,calc_erot,lightcurve
- use options,   only: ishock_heating,ipdv_heating
- use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,nptmass,npartoftype
- use ptmass,    only: icreate_sinks
+ use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,calc_erot,lightcurve
+ use options,   only: ishock_heating,ipdv_heating,use_dustfrac
+ use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype
  use nicil,     only: use_ohm,use_hall,use_ambi,ion_rays,ion_thermal
  use viscosity, only: irealvisc
  integer,            intent(in) :: iunit
@@ -266,14 +267,18 @@ end subroutine write_evfile
 !+
 !----------------------------------------------------------------
 subroutine write_evlog(iprint)
- use dim,       only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,use_dustfrac
+ use dim,       only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,use_dust
  use energies,  only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas
  use viscosity, only:irealvisc,shearparam
  use boundary,  only:dxbound,dybound,dzbound
  use units,     only:unit_density
+ use options,   only:use_dustfrac
  integer, intent(in) :: iprint
  character(len=120)  :: string
 
+ if (ndead > 0) then
+    write(iprint,"(1x,a,I10,a,I10)") 'n_alive=',npart-ndead,', n_dead_or_accreted=',ndead
+ endif
  write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") &
       'tot',etot,'kin',ekin,'therm',etherm,'pot',epot
  if (mhd)        write(iprint,"(1x,('E',a,'=',es10.3))") 'mag',emag
@@ -294,8 +299,8 @@ subroutine write_evlog(iprint)
     write(iprint,"(1x,a,'(max)=',es10.3,1x,'(mean)=',es10.3,1x,'(min)=',es10.3)") &
          'dust2gas ',ev_data(iev_max,iev_dtg),ev_data(iev_ave,iev_dtg)
     write(iprint,"(3x,a,'(mean)=',es10.3,1x,'(min)=',es10.3)") 't_stop ',ev_data(iev_ave,iev_ts),ev_data(iev_min,iev_ts)
-    write(iprint,"(1x,'Mgas = ',es10.3,', Mdust = ',es10.3)") mgas,mdust
  endif
+ if (use_dust) write(iprint,"(1x,'Mgas = ',es10.3,', Mdust = ',es10.3)") mgas,mdust
 
  if (track_mass) write(iprint,"(1x,1(a,'=',es10.3))") 'Accreted mass',accretedmass
 

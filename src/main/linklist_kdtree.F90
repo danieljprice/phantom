@@ -158,7 +158,7 @@ end subroutine set_linklist
 !-----------------------------------------------------------------------
 subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
                               getj,f,remote_export, &
-                              cell_xpos,cell_xsizei,cell_rcuti)
+                              cell_xpos,cell_xsizei,cell_rcuti,local_gravity)
  use kdtree, only:getneigh,lenfgrav
  use kernel, only:radkern
 #ifdef PERIODIC
@@ -174,8 +174,9 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
  real,    intent(out), optional :: f(lenfgrav)
  logical, intent(out), optional :: remote_export(:)
  real,    intent(in),  optional :: cell_xpos(3),cell_xsizei,cell_rcuti
+ logical, intent(in),  optional :: local_gravity
  real :: xpos(3)
- real :: fgrav(lenfgrav)
+ real :: fgrav(lenfgrav),fgrav_global(lenfgrav)
  real :: xsizei,rcuti
  logical :: get_j
 !
@@ -204,16 +205,21 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
  if (present(getj)) get_j = getj
 
  if (present(f)) then
+    fgrav_global = 0.0
 #ifdef MPI
     if (present(remote_export)) then
        remote_export = .false.
        call getneigh(nodeglobal,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
-                cellatid,get_j,fgrav,remote_export=remote_export)
+                cellatid,get_j,fgrav_global,remote_export=remote_export)
     endif
 #endif
     call getneigh(node,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
               ifirstincell,get_j,fgrav)
-    f = fgrav
+    if (present(local_gravity)) then
+       f = fgrav
+    else
+       f = fgrav + fgrav_global
+    endif
  else
 #ifdef MPI
     if (present(remote_export)) then

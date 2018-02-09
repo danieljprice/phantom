@@ -19,7 +19,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, part
+!  DEPENDENCIES: dim, options, part
 !+
 !--------------------------------------------------------------------------
 module analysis
@@ -32,22 +32,24 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use dim,  only:maxp,use_dustfrac
- use part, only:maxphase,isdead_or_accreted,dustfrac,massoftype,igas,&
-                iphase,iamtype
+ use dim,     only:maxp
+ use part,    only:maxphase,isdead_or_accreted,dustfrac,massoftype,igas,&
+                   iphase,iamtype
+ use options, only:use_dustfrac
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
- real    :: Mtot,Mgas,Mdust,Macc,pmassi,dustfraci
- real, save :: Mtot_in,Mgas_in,Mdust_in
- integer :: i,itype,lu
+ real       :: Mtot,Mgas,Mdust1,Mdust2,Macc,pmassi,dustfraci
+ real, save :: Mtot_in,Mgas_in,Mdust1_in,Mdust2_in
+ integer    :: i,itype,lu
  logical, save :: init = .false.
 
- Mtot  = 0.
- Mgas  = 0.
- Mdust = 0.
- Macc  = 0.
+ Mtot   = 0.
+ Mgas   = 0.
+ Mdust1 = 0. !--one-fluid dust mass
+ Mdust2 = 0. !--two-fluid dust mass
+ Macc   = 0.
  pmassi    = massoftype(igas)
  dustfraci = 0.
  do i=1,npart
@@ -57,9 +59,17 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     endif
     Mtot = Mtot + pmassi
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       if (use_dustfrac) dustfraci = dustfrac(i)
-       Mgas  = Mgas  + pmassi*(1. - dustfraci)
-       Mdust = Mdust + pmassi*dustfraci
+       if (itype==1) then
+          dustfraci = dustfrac(i)
+          if (use_dustfrac) then
+             Mgas = Mgas + pmassi*(1. - dustfraci)
+          else
+             Mgas = Mgas + pmassi
+          endif
+          Mdust1 = Mdust1 + pmassi*dustfraci
+       elseif (itype==2) then
+          Mdust2 = Mdust2 + pmassi
+       endif
     else
        Macc  = Macc + pmassi
     endif
@@ -67,21 +77,23 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  if (.not.init) then
     open(newunit=lu,file='dustmass.ev',status='replace')
-    write(lu,"('# ',5('[',i2.2,1x,a12,']',1x))") 1,'time',2,'Mtot',3,'Mgas',4,'Mdust',5,'Macc'
+    write(lu,"('# ',5('[',i2.2,1x,a12,']',1x))") 1,'time',2,'Mtot',3,'Mgas',4,'Mdust1',5,'Mdust2',6,'Macc'
     init = .true.
     Mgas_in  = Mgas
-    Mdust_in = Mdust
+    Mdust1_in = Mdust1
+    Mdust2_in = Mdust2
     Mtot_in  = Mtot
  else
     open(newunit=lu,file='dustmass.ev',status='old',position='append')
  endif
 
- print*,' Mtot = ',Mtot,' Mgas = ',Mgas,' Mdust = ',Mdust,' Macc = ',Macc
+ print*,' Mtot = ',Mtot,' Mgas = ',Mgas,' Mdust1 = ',Mdust1,' Mdust2 = ',Mdust2,' Macc = ',Macc
  print "(4(/,a,2pf6.2,'%'))",' dMtot  = ',(Mtot-Mtot_in)/Mtot_in,&
        ' dMgas  = ',(Mgas-Mgas_in)/Mtot_in,&
-       ' dMdust = ',(Mdust-Mdust_in)/Mtot_in,&
+       ' dMdust1 = ',(Mdust1-Mdust1_in)/Mtot_in,&
+       ' dMdust2 = ',(Mdust2-Mdust2_in)/Mtot_in,&
        ' dMacc  = ',Macc/Mtot_in
- write(lu,*) time,Mtot,Mgas,Mdust,Macc
+ write(lu,*) time,Mtot,Mgas,Mdust1,Mdust2,Macc
  close(lu)
  !print "(a,es10.3,e
 

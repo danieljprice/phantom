@@ -86,6 +86,7 @@ subroutine test_ptmass(ntests,npass)
  integer                :: norbits
  integer                :: nfailed(11),imin(1)
  integer                :: id_rhomax,ipart_rhomax_global
+ integer(kind=1)        :: ibin_wakei
  character(len=20)      :: dumpfile
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -423,6 +424,7 @@ subroutine test_ptmass(ntests,npass)
     etotin   = etot
     totmomin = totmom
     angmomin = angtot
+    ibin_wakei = 0
 
     dptmass(:,1:nptmass) = 0.
     !$omp parallel default(shared) private(i) firstprivate(dptmass_thread)
@@ -432,7 +434,7 @@ subroutine test_ptmass(ntests,npass)
        call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                            vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
                            igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
-                           accreted,dptmass_thread,t,1.0)
+                           accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
     enddo
     !$omp enddo
     !$omp critical(dptmassadd)

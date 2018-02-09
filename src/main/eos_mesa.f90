@@ -127,5 +127,18 @@ subroutine get_eos_pressure_temp_mesa(x,den,eint,pres,temp)
 
 end subroutine get_eos_pressure_temp_mesa
 
+!----------------------------------------------------------------
+!+
+!  subroutine returns various quantities as
+!  a function of density/internal energy
+!+
+!----------------------------------------------------------------
+subroutine get_eos_various_mesa(x,den,eint,pres,proint,peint,temp,troint,teint,entrop,abad,gamma1,gam)
+ real, intent(in) :: den, eint, x
+ real, intent(out) :: pres, temp, proint, peint, troint, teint, entrop, abad, gamma1, gam
+
+ call sloweossc_mesa(x,den,eint,pres,proint,peint,temp,troint,teint,entrop,abad,gamma1,gam)
+
+end subroutine get_eos_various_mesa
 
 end module eos_mesa
