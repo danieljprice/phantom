@@ -1309,7 +1309,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              endif
 #ifdef GR
              denij = alphagri*eni/lorentzi - alphagrj*enj/lorentzj
-             dendissterm = denij*(auterm*vsigavi*grkerni + autermj*vsigavj*grkernj)
+             dendissterm = denij*(auterm*vsigi*grkerni + autermj*vsigj*grkernj)
 #else
              dendissterm = vsigu*denij*(auterm*grkerni + autermj*grkernj)
 #endif
