@@ -366,6 +366,7 @@ ifeq ($(SETUP), bondi_gr)
     KNOWN_SETUP=yes
     GR=yes
     KERNEL=quintic
+    CONST_AV=yes
 endif
 ifeq ($(SETUP), bondi_inject)
     SETUPFILE= setup_bondiwind.F90
@@ -377,6 +378,7 @@ ifeq ($(SETUP), bondi_inject)
     ISOTHERMAL=no
     GR=yes
     METRIC=schwarzschild
+    # CONST_AV=yes
 endif
 #-----------------------------------------------
 
@@ -1255,6 +1257,7 @@ endif
 
 ifeq ($(GR), yes)
     FPPFLAGS += -DGR
+    CONST_AV=yes
 endif
 
 ifeq ($(DUST), yes)

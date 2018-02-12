@@ -113,6 +113,7 @@ subroutine set_default_options
 
  ! artificial thermal conductivity
  alphau = 1.
+ if (gr) alphau = 0.1
 
  ! artificial resistivity (MHD only)
  alphaB            = 1.0

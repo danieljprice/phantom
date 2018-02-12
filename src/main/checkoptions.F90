@@ -139,6 +139,10 @@ subroutine check_compile_time_settings(ierr)
  call error(string,'General relativity not compatible with disc viscosity.')
  ierr = 14
 #endif
+#ifndef CONST_AV
+ call error(string,'General relativity should have CONST_AV=yes.')
+ ierr = 15
+#endif
 #endif
 
  return
