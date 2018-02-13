@@ -1243,6 +1243,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !
           !--artificial viscosity term
           !
+          qrho2i = 0.
+          qrho2j = 0.
+
 #ifdef DISC_VISCOSITY
           !
           !--This is for "physical" disc viscosity
@@ -1257,9 +1260,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              if (usej) qrho2j = - 0.5*rho1j*alphaj*spsoundj*hj*rij1*projv
           endif
 #endif
-
-          qrho2i = 0.
-          qrho2j = 0.
 
 #ifdef GR
           xi = xpartveci(ixi)
