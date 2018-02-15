@@ -591,10 +591,8 @@ subroutine test_derivs(ntests,npass,string)
           do i=1,npart
              dustfraci = dustfrac(i)
              rhoi   = rhoh(xyzh(4,i),massoftype(igas))
-             !sonrhoi    = sqrt(dustfrac(i)/rhoi)
              sonrhoi    = sqrt(dustfrac(i)*(1.-dustfrac(i)))
              drhodti    = -rhoi*divcurlv(1,i)
-             !ddustfraci = 2.*sonrhoi*ddustfrac(i) - sonrhoi**2*drhodti
              ddustfraci = 2.*sonrhoi*(1.-dustfraci)*ddustfrac(i)
              dmdust = dmdust + ddustfraci
              dekin  = dekin  + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
@@ -2567,9 +2565,7 @@ real function ddustfrac_func(xyzhi)
  !         = -1/rho [eps ts \del^2 P + grad(eps ts).grad P]
  !
  !ddustfrac_func = -1./rhoi*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts))
- !si = sqrt(dustfraci*rhoi)
  si = sqrt(dustfraci/(1.-dustfraci))
- !ddustfrac_func = -0.5/si*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts)) - 0.5*si*divvfunc(xyzhi)
  ddustfrac_func = -0.5*((dustfraci*tsi*del2P + dot_product(gradp,gradepsts))/(rhoi*si*(1.-dustfraci)**2.))
 
 end function ddustfrac_func

@@ -479,14 +479,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                               Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtnew_first)
     if (use_dustfrac) then
-       ! set s = sqrt(rho*eps) from the initial dustfrac setting now we know rho
-       pmassi = massoftype(igas)
-       ntypes = get_ntypes(npartoftype)
+       ! set s = sqrt(eps/(1-eps)) from the initial dustfrac setting now we know rho
        do i=1,npart
           if (.not.isdead_or_accreted(xyzh(4,i))) then
-             if (ntypes > 1 .and. maxphase==maxp) then
-                pmassi = massoftype(iamtype(iphase(i)))
-             endif
              dustevol(i) = sqrt(dustfrac(i)/(1.-dustfrac(i)))
           endif
        enddo
@@ -560,7 +555,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  write(iprint,'(2x,a,es18.6)')   'Initial total energy:     ', etot_in
  write(iprint,'(2x,a,es18.6)')   'Initial angular momentum: ', angtot_in
  write(iprint,'(2x,a,es18.6)')   'Initial linear momentum:  ', totmom_in
+#ifdef DUST
  write(iprint,'(2x,a,es18.6,/)') 'Initial dust mass:        ', mdust_in
+#endif
 !
 !--write initial conditions to output file
 !  if the input file ends in .tmp or .init

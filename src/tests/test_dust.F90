@@ -333,7 +333,6 @@ subroutine test_dustydiffuse(ntests,npass)
 
  if (do_output) call write_file(time,xyzh,dustfrac,npart)
  do i=1,npart
-    !dustevol(i) = sqrt(dustfrac(i)*rhoh(xyzh(4,i),massoftype(igas)))
     dustevol(i) = sqrt(dustfrac(i)/(1.-dustfrac(i)))
  enddo
 
@@ -346,7 +345,6 @@ subroutine test_dustydiffuse(ntests,npass)
     do i=1,npart
        ddustfrac_prev(i) = ddustfrac(i)
        dustevol(i) = dustevol(i) + dt*ddustfrac(i)
-       !dustfrac(i) = dustevol(i)**2/rhoh(xyzh(4,i),massoftype(igas))
        dustfrac(i) = dustevol(i)**2/(1.+dustevol(i)**2)
     enddo
     !$omp end parallel do
