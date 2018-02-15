@@ -990,6 +990,7 @@ endif
 ifeq ($(SYSTEM), raijin)
 #   raijin (NCI machine)
     include Makefile_defaults_ifort
+    #MPI=intel
     FFLAGS= -O3 -ip -inline-factor=500 -warn uninitialized -warn unused -warn truncated_source
     DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fpstkchk
     CCFLAGS= -O3 -ip
@@ -999,11 +1000,12 @@ ifeq ($(SYSTEM), raijin)
     ifeq ($(MPI),yes)
        NPAR=32
     endif
-    QPROJECT='w29'
+    QPROJECT='pt4'
     QNAME='normal'
     WALLTIME='48:00:00'
     MPIEXEC='mpiexec -npernode 1'
     QNODES='ncpus='$(NPAR)
+    QEXTRA='-l other=hyperthread'
 endif
 
 ifeq ($(SYSTEM), gfortran)
@@ -1282,6 +1284,11 @@ ifeq ($(MPI), mpifort)
     USEMPI=yes
 endif
 
+ifeq ($(MPI), intel)
+    FC= mpif90
+    FPPFLAGS += -DMPI
+    USEMPI=yes
+endif
 #
 # HDF5 libraries (if required)
 #
