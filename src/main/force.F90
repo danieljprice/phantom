@@ -1199,6 +1199,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           projBj = 0.
           vwavej = 0.
           vsigavj = 0.
+          spsoundj = 0.
           dustfracj = 0.
           sqrtrhodustfracj = 0.
        endif
