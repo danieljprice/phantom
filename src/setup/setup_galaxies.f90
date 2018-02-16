@@ -13,7 +13,7 @@
 !  1e5M_sun, kpc, 1e5yr.  The former two remain the same here, while
 !  the time-unit is modified such that G == 1.
 !
-!  REFERENCES: 
+!  REFERENCES:
 !    Kuijken & Dubinski (1995), MNRAS.
 !    Widrow & Dubinski (2005), ApJ.
 !    Widrow et al. (2008), ApJ.
