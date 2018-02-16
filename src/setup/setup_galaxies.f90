@@ -24,10 +24,11 @@
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS: None
+!  RUNTIME PARAMETERS:
+!    lowres -- Resolution: T = low res (N~3.4e5), F = fiducial res (N~2.5e6)
 !
-!  DEPENDENCIES: boundary, datafiles, dim, io, mpiutils, part, physcon,
-!    timestep, units
+!  DEPENDENCIES: boundary, datafiles, dim, infile_utils, io, mpiutils,
+!    part, physcon, prompting, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
