@@ -961,6 +961,7 @@ endif
 
 ifeq ($(SYSTEM), g2)
 #   gstar facility
+#   Note: gstar has nomp=12; sstar has nomp=16
     include Makefile_defaults_ifort
     QSYS = pbs
     ifeq ($(OPENMP),yes)
