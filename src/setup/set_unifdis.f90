@@ -70,7 +70,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
                                        "' uniform ',a,' lattice ',14('-'))"
  character(len=*), parameter :: fmt2 = "(/,1x,13('-'),' particles set on',i6,2(' x',i6),"// &
                                        "' uniform ',a,' lattice ',14('-'))"
- character(len=*), parameter :: fmtnx = "(1x,'enforcing periodicity: nx, ny, nz = ',i6,2(' x',i6),',  np = ',i7)"
+ character(len=*), parameter :: fmtnx = "(1x,'enforcing periodicity: nx, ny, nz = ',i6,2(' x',i6),',  np = ',i8)"
  character(len=*), parameter :: fmtxx = "(3(2x,a,':',1pg12.3,'->',1pg11.3,' '))"
  character(len=*), parameter :: fmtdx = "(3(1x,a,':',1pg12.3,14x))"
  character(len=*), parameter :: fmtdy = "(28x,a,f8.4,14x,a,f8.4)"
