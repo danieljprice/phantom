@@ -677,6 +677,7 @@ ifeq ($(SETUP), jetnimhd)
     NONIDEALMHD=yes
     IND_TIMESTEPS=yes
     STS_TIMESTEPS=yes
+    MODFILE=moddump_CoM.f90
     KNOWN_SETUP=yes
 endif
 
@@ -825,8 +826,9 @@ ifeq ($(SETUP), galaxies)
     ANALYSIS=analysis_GalMerger.f90
     CONST_AV=no
     ISOTHERMAL=no
-    IND_TIMESTEPS=no
+    IND_TIMESTEPS=yes
     GRAVITY=yes
+    MAXP=2600000
     KNOWN_SETUP=yes
 endif
 
