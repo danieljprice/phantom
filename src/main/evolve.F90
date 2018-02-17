@@ -39,8 +39,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use io,               only:iprint,iwritein,id,master,iverbose,flush_warnings,nprocs,fatal
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce
  use evwrite,          only:write_evfile,write_evlog
- use energies,         only:etot,totmom,angtot,mdust,get_erot_com,xyzcom
- use dim,              only:calc_erot,maxvxyzu,mhd,periodic
+ use energies,         only:etot,totmom,angtot,mdust,xyzcom
+ use dim,              only:maxvxyzu,mhd,periodic
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,iexternalforce,&
                             icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating,&
@@ -421,10 +421,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
     nskipped = nskipped + nskip
     if (nskipped >= nevwrite_threshold .or. at_dump_time .or. dt_changed) then
-       ! update centre of mass for calculation of rotational energy (infrequent for optimisation)
-       if (at_dump_time .and. calc_erot) then
-          call get_erot_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
-       endif
        nskipped = 0
        call get_timings(t1,tcpu1)
        call write_evfile(time,dt)

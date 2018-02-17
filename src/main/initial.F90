@@ -214,7 +214,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use io_summary,       only:summary_initialise
  use units,            only:unit_density
  use centreofmass,     only:get_centreofmass
- use energies,         only:get_erot_com,etot,angtot,totmom,mdust,xyzcom
+ use energies,         only:etot,angtot,totmom,mdust,xyzcom
  use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -516,12 +516,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     mod_dtmax     = .false.
     mod_dtmax_now = .false.
  endif
+!
+!--Calculate current centre of mass (required for rotational energies)
+!
+  call get_centreofmass(xyzcom,dummy,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+!
 !--write second header to logfile/screen
 !
-
  if (id==master) call write_header(2,infile,evfile,logfile,dumpfile,ntot)
-
- if (calc_erot) call get_erot_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  call init_evfile(ievfile,evfile)
  call write_evfile(time,dt)
@@ -545,7 +547,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !  get_conserve=0.5: update centre of mass only; get_conserve=1: update all; get_conserve=-1: update none
 !
  if (get_conserv > 0.0) then
-    call get_centreofmass(xyzcom_in,dummy,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
     xyzcom_in = xyzcom
     if (get_conserv > 0.75) then
        etot_in   = etot

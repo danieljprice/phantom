@@ -27,7 +27,7 @@
 
 #define reduce_fn(a,b) reduceall_mpi(a,b)
 module energies
- use dim, only: calc_erot, calc_erot_com
+ use dim, only: calc_erot
  implicit none
 
  logical,         public    :: gas_only,track_mass,track_lum
@@ -49,7 +49,7 @@ module energies
  integer,         parameter :: iev_min = 3    ! array index of the minimum of the quantity
  integer,         parameter :: iev_ave = 4    ! array index of the average of the quantity
  ! Subroutines
- public  :: compute_energies,get_erot_com,ev_data_update
+ public  :: compute_energies,ev_data_update
  private :: get_erot,initialise_ev_data,collate_ev_data,finalise_ev_data
  ! Arrays
  real,             public :: ev_data(4,0:inumev),erot_com(6)
@@ -141,7 +141,7 @@ subroutine compute_energies(t)
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyzu,iexternalforce,npart,t,id,npartoftype) &
 !$omp shared(alphaind,massoftype,irealvisc) &
-!$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass) &
+!$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &
 !$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac,use_dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,nelements,n_R,n_electronT,eta_nimhd) &
 !$omp shared(ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
@@ -235,9 +235,9 @@ subroutine compute_energies(t)
        call ev_data_update(ev_data_thread,iev_vrms,v2i)        ! vrms = vrms + v2i
 
        ! rotational energy around each axis through the Centre of mass
-       ! note: centre of mass is updated only when dumpfiles are created
+       ! note: for efficiency, centre of mass is from the previous time energies was called
        if (calc_erot) then
-          call get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
+          call get_erot(xi,yi,zi,vxi,vyi,vzi,xyzcom,pmassi,erotxi,erotyi,erotzi)
           call ev_data_update(ev_data_thread,iev_erot(1),erotxi)
           call ev_data_update(ev_data_thread,iev_erot(2),erotyi)
           call ev_data_update(ev_data_thread,iev_erot(3),erotzi)
@@ -487,7 +487,7 @@ subroutine compute_energies(t)
 
        ! rotational energy around each axis through the origin
        if (calc_erot) then
-          call get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
+          call get_erot(xi,yi,zi,vxi,vyi,vzi,xyzcom,pmassi,erotxi,erotyi,erotzi)
           call ev_data_update(ev_data_thread,iev_erot(1),erotxi)
           call ev_data_update(ev_data_thread,iev_erot(2),erotyi)
           call ev_data_update(ev_data_thread,iev_erot(3),erotzi)
@@ -623,29 +623,11 @@ subroutine compute_energies(t)
 end subroutine compute_energies
 !----------------------------------------------------------------
 !+
-!  calculates the centre of mass for use in rotational energy
-!+
-!----------------------------------------------------------------
-subroutine get_erot_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
- use centreofmass, only: get_centreofmass
- integer, intent(in) :: npart,nptmass
- real,    intent(in) :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real :: xcom(3),vcom(3)
-
- if (calc_erot_com) then
-    call get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
-    erot_com(1:3) = real(xcom(1:3))
-    erot_com(4:6) = real(vcom(1:3))
- endif
-
-end subroutine get_erot_com
-!----------------------------------------------------------------
-!+
 !  calculates rotational energy
 !+
 !----------------------------------------------------------------
-subroutine get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
- real, intent(in)  :: xi,yi,zi,vxi,vyi,vzi,pmassi
+subroutine get_erot(xi,yi,zi,vxi,vyi,vzi,xyzcom,pmassi,erotxi,erotyi,erotzi)
+ real, intent(in)  :: xi,yi,zi,vxi,vyi,vzi,pmassi,xyzcom(3)
  real, intent(out) :: erotxi,erotyi,erotzi
  real              :: dx,dy,dz,dvx,dvy,dvz
  real              :: rcrossvx,rcrossvy,rcrossvz,radxy2,radyz2,radxz2
@@ -654,12 +636,12 @@ subroutine get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
  erotyi = 0.0
  erotzi = 0.0
 
- dx  = xi  - erot_com(1)
- dy  = yi  - erot_com(2)
- dz  = zi  - erot_com(3)
- dvx = vxi - erot_com(4)
- dvy = vyi - erot_com(5)
- dvz = vzi - erot_com(6)
+ dx  = xi  - xyzcom(1)
+ dy  = yi  - xyzcom(2)
+ dz  = zi  - xyzcom(3)
+ dvx = vxi              ! results are less reliable if subtracting vcom
+ dvy = vyi
+ dvz = vzi
 
  rcrossvx = (dy*dvz - dz*dvy)
  rcrossvy = (dz*dvx - dx*dvz)

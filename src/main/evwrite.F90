@@ -52,7 +52,7 @@ module evwrite
  use externalforces, only: iext_binary,was_accreted
  use energies,       only: inumev,iquantities,ev_data
  use energies,       only: ndead
- use energies,       only: erot_com,gas_only,track_mass,track_lum
+ use energies,       only: gas_only,track_mass,track_lum
  use energies,       only: iev_sum,iev_max,iev_min,iev_ave
  use energies,       only: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
                            iev_angmom,iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
@@ -92,7 +92,6 @@ subroutine init_evfile(iunit,evfile)
  !
  !--Initialise additional variables
  !
- erot_com  = 0.0
  gas_only  = .true.
  do i = 2,maxtypes
     if (npartoftype(i) > 0) gas_only = .false.

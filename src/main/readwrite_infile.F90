@@ -62,7 +62,7 @@
 !+
 !--------------------------------------------------------------------------
 module readwrite_infile
- use dim,       only:calc_erot,calc_erot_com,incl_erot
+ use dim,       only:calc_erot,incl_erot
  use timestep,  only:rho_dtthresh_cgs,dtmax_rat0
  use options,   only:nfulldump,nmaxdumps,twallmax,dtwallmax,iexternalforce,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,tolv, &
@@ -152,7 +152,6 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     write(iwritein,"(/,a)") '# options controlling run time and input/output: supplementary features'
     if (incl_erot .or. calc_erot) then
        call write_inopt(calc_erot,'calc_erot','include E_rot in the ev_file',iwritein)
-       call write_inopt(calc_erot_com,'calc_erot_com','calculate E_rot about the centre of mass (T) or the origin (F)',iwritein)
     endif
     if (rho_dtthresh_cgs > 0.0) then
        if (rho_dtthresh_cgs > 0.0) then
@@ -343,9 +342,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) iverbose
     case('calc_erot')
        read(valstring,*,iostat=ierr) calc_erot
-       incl_erot = .true.
-    case('calc_erot_com')
-       read(valstring,*,iostat=ierr) calc_erot_com
        incl_erot = .true.
     case('rho_dtthresh')
        read(valstring,*,iostat=ierr) rho_dtthresh_cgs
