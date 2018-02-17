@@ -57,7 +57,7 @@ module evwrite
  use energies,       only: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
                            iev_angmom,iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
                            iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah,&
-                           iev_etaa,iev_vel,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT,&
+                           iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT,&
                            iev_dtg,iev_ts,iev_momall,iev_angall,iev_angall,iev_maccsink,&
                            iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat
 
@@ -143,6 +143,7 @@ subroutine init_evfile(iunit,evfile)
           call fill_ev_tag(ev_fmt,iev_etah(2),'|eta_h|',  'xan',i,j)
           call fill_ev_tag(ev_fmt,iev_etah(3),'eta_h/art','xan',i,j)
           call fill_ev_tag(ev_fmt,iev_etah(4),'|e_h|/art','xan',i,j)
+          call fill_ev_tag(ev_fmt,iev_vhall,  'v_hall',   'xan',i,j)
        endif
        if (use_ambi) then
           call fill_ev_tag(ev_fmt,iev_etaa(1),'eta_a',    'xan',i,j)
