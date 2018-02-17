@@ -254,7 +254,6 @@ ifeq ($(SETUP), grdisc)
     KNOWN_SETUP=yes
     MULTIRUNFILE= multirun.f90
     IND_TIMESTEPS=no
-    CONST_AV=yes
     NCELLSMAX=2*maxp
 endif
 
@@ -366,7 +365,6 @@ ifeq ($(SETUP), bondi_gr)
     KNOWN_SETUP=yes
     GR=yes
     KERNEL=quintic
-    CONST_AV=yes
 endif
 ifeq ($(SETUP), bondi_inject)
     SETUPFILE= setup_bondiwind.F90
@@ -378,7 +376,6 @@ ifeq ($(SETUP), bondi_inject)
     ISOTHERMAL=no
     GR=yes
     METRIC=schwarzschild
-    # CONST_AV=yes
 endif
 #-----------------------------------------------
 
@@ -475,7 +472,6 @@ ifeq ($(SETUP), testparticles)
     ISOTHERMAL=no
     KNOWN_SETUP=yes
     MAXP=500000
-    CONST_AV=yes
     ANALYSIS= analysis_1particle.f90
 endif
 
@@ -489,7 +485,6 @@ ifeq ($(SETUP), gr_testparticles)
     ISOTHERMAL=no
     KNOWN_SETUP=yes
     MAXP=500000
-    CONST_AV=yes
     ANALYSIS= analysis_1particle.f90
 endif
 
