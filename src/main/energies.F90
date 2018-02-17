@@ -31,13 +31,13 @@ module energies
  implicit none
 
  logical,         public    :: gas_only,track_mass,track_lum
- real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot
+ real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot,xyzcom(3)
  real,            public    :: vrms,rmsmach,accretedmass,mdust,mgas
  real,            public    :: xmom,ymom,zmom
  real,            public    :: totlum
  integer,         public    :: iquantities
  integer(kind=8), public    :: ndead
- integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,&
+ integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com(3),&
                                iev_angmom,iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop(6),&
                                iev_alpha,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
                                iev_etaa(2),iev_vel,iev_vion,iev_vdrift,iev_n(4),iev_nR(5),iev_nT(2),&
@@ -88,7 +88,7 @@ subroutine compute_energies(t)
  real, intent(in) :: t
  real    :: ev_data_thread(4,0:inumev)
  real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,rhoi,angx,angy,angz
- real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz
+ real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,xcom,ycom,zcom,mtot
  real    :: epoti,pmassi,dnptot,dnpgas
  real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
  real    :: ponrhoi,spsoundi,B2i,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
@@ -109,6 +109,10 @@ subroutine compute_energies(t)
  epot = 0.
  emag = 0.
  etot = 0.
+ xcom = 0.
+ ycom = 0.
+ zcom = 0.
+ mtot = 0.
  xmom = 0.
  ymom = 0.
  zmom = 0.
@@ -160,7 +164,7 @@ subroutine compute_energies(t)
 #ifdef LIGHTCURVE
 !$omp shared(luminosity,track_lum) &
 #endif
-!$omp reduction(+:np,npgas,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
+!$omp reduction(+:np,npgas,xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
 !$omp reduction(+:ekin,etherm,emag,epot)
  call initialise_ev_data(ev_data_thread)
@@ -209,7 +213,13 @@ subroutine compute_energies(t)
        vyi  = vxyzu(2,i)
        vzi  = vxyzu(3,i)
 
-       !  linear momentum
+       ! centre of mass
+       xcom = xcom + pmassi*xi
+       ycom = ycom + pmassi*yi
+       zcom = zcom + pmassi*zi
+       mtot = mtot + pmassi
+
+       ! linear momentum
        xmom = xmom + pmassi*vxi
        ymom = ymom + pmassi*vyi
        zmom = zmom + pmassi*vzi
@@ -455,6 +465,11 @@ subroutine compute_energies(t)
 
        !phii   = fxyz_ptmass(4,i)
 
+       xcom = xcom + pmassi*xi
+       ycom = ycom + pmassi*yi
+       zcom = zcom + pmassi*zi
+       mtot = mtot + pmassi
+
        xmom   = xmom + pmassi*vxi
        ymom   = ymom + pmassi*vyi
        zmom   = zmom + pmassi*vzi
@@ -518,6 +533,10 @@ subroutine compute_energies(t)
 
  etot = ekin + etherm + emag + epot
 
+ xcom = reduce_fn('+',xcom)
+ ycom = reduce_fn('+',ycom)
+ zcom = reduce_fn('+',zcom)
+
  xmom = reduce_fn('+',xmom)
  ymom = reduce_fn('+',ymom)
  zmom = reduce_fn('+',zmom)
@@ -537,6 +556,12 @@ subroutine compute_energies(t)
  ev_data(iev_sum,iev_etot  ) = etot
  ev_data(iev_sum,iev_totmom) = totmom
  ev_data(iev_sum,iev_angmom) = angtot
+ ev_data(iev_sum,iev_com(1)) = xcom
+ ev_data(iev_sum,iev_com(2)) = ycom
+ ev_data(iev_sum,iev_com(3)) = zcom
+ xyzcom(1) = xcom
+ xyzcom(2) = xcom
+ xyzcom(3) = xcom
 
  if (calc_erot) then
     ev_data(iev_sum,iev_erot(1)) = 0.5*ev_data(iev_sum,iev_erot(1))

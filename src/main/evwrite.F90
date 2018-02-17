@@ -54,7 +54,7 @@ module evwrite
  use energies,       only: ndead
  use energies,       only: erot_com,gas_only,track_mass,track_lum
  use energies,       only: iev_sum,iev_max,iev_min,iev_ave
- use energies,       only: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,&
+ use energies,       only: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
                            iev_angmom,iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
                            iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah,&
                            iev_etaa,iev_vel,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT,&
@@ -116,6 +116,9 @@ subroutine init_evfile(iunit,evfile)
  call fill_ev_tag(ev_fmt,iev_entrop, 'totentrop','s', i,j)
  call fill_ev_tag(ev_fmt,iev_rmsmach,'rmsmach',  's', i,j)
  call fill_ev_tag(ev_fmt,iev_vrms,   'vrms',     's', i,j)
+ call fill_ev_tag(ev_fmt,iev_com(1), 'xcom',     's', i,j)
+ call fill_ev_tag(ev_fmt,iev_com(2), 'ycom',     's', i,j)
+ call fill_ev_tag(ev_fmt,iev_com(3), 'zcom',     's', i,j)
  if (.not. gas_only) then
     if (npartoftype(igas)        > 0) call fill_ev_tag(ev_fmt,iev_rhop(1),'rho gas', 'xa',i,j)
     if (npartoftype(idust)       > 0) call fill_ev_tag(ev_fmt,iev_rhop(2),'rho dust','xa',i,j)
@@ -381,7 +384,7 @@ end subroutine write_evfile
 !----------------------------------------------------------------
 subroutine write_evlog(iprint)
  use dim,       only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,use_dust
- use energies,  only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas
+ use energies,  only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas,xyzcom
  use viscosity, only:irealvisc,shearparam
  use boundary,  only:dxbound,dybound,dzbound
  use units,     only:unit_density
@@ -394,6 +397,7 @@ subroutine write_evlog(iprint)
  endif
  write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") &
       'tot',etot,'kin',ekin,'therm',etherm,'pot',epot
+ write(iprint,"(1x,a,3es10.3)") "Centre of Mass = ",xyzcom
  if (mhd)        write(iprint,"(1x,('E',a,'=',es10.3))") 'mag',emag
  if (track_mass) write(iprint,"(1x,('E',a,'=',es10.3))") 'acc',ev_data(iev_sum,iev_eacc)
  write(iprint,"(1x,1(a,'=',es10.3,', '),(a,'=',es10.3))") &
