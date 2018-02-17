@@ -40,7 +40,7 @@ module energies
  integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com(3),&
                                iev_angmom,iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop(6),&
                                iev_alpha,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
-                               iev_etaa(2),iev_vel,iev_vion,iev_vdrift,iev_n(4),iev_nR(5),iev_nT(2),&
+                               iev_etaa(2),iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n(4),iev_nR(5),iev_nT(2),&
                                iev_dtg,iev_ts,iev_momall,iev_angall,iev_maccsink(2),&
                                iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat
  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
@@ -75,8 +75,8 @@ subroutine compute_energies(t)
  use mpiutils,       only:reduceall_mpi
  use ptmass,         only:get_accel_sink_gas
  use viscosity,      only:irealvisc,shearfunc
- use nicil,          only:nicil_get_eta,nicil_get_vion,use_ohm,use_hall,use_ambi,ion_rays,ion_thermal, &
-                     nelements_max,nelements,nlevels
+ use nicil,          only:nicil_get_eta,nicil_get_halldrift,nicil_get_vion, &
+                     use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_data_out
 #ifdef DUST
  use dust,           only:get_ts,graindens,grainsize,idrag
  integer :: iregime
@@ -94,8 +94,8 @@ subroutine compute_energies(t)
  real    :: ponrhoi,spsoundi,B2i,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
  real    :: n_total,n_total1,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
  real    :: gasfrac,dustfraci,dust_to_gas
- real    :: temperature,etaart,etaart1,etaohm,etahall,etaambi,vion,vdrift
- real    :: curlBi(3),vioni(3),data_out(17+nelements_max*nlevels-3)
+ real    :: temperature,etaart,etaart1,etaohm,etahall,etaambi,vhall,vion,vdrift
+ real    :: curlBi(3),vhalli(3),vioni(3),vdrifti(3),data_out(n_data_out)
  real    :: erotxi,erotyi,erotzi,fdum(3)
  integer :: i,j,itype,ierr
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
@@ -143,17 +143,18 @@ subroutine compute_energies(t)
 !$omp shared(alphaind,massoftype,irealvisc) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &
 !$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac,use_dustfrac) &
-!$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,nelements,n_R,n_electronT,eta_nimhd) &
+!$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_R,n_electronT,eta_nimhd) &
 !$omp shared(ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
 !$omp shared(iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha) &
 !$omp shared(iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah) &
-!$omp shared(iev_etaa,iev_vel,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
+!$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
 !$omp private(gasfrac,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
-!$omp private(ierr,temperature,etaart,etaart1,etaohm,etahall,etaambi,vioni,vion,vdrift,data_out) &
+!$omp private(ierr,temperature,etaart,etaart1,etaohm,etahall,etaambi) &
+!$omp private(vhalli,vhall,vioni,vion,vdrifti,vdrift,data_out) &
 !$omp private(erotxi,erotyi,erotzi,fdum) &
 !$omp private(ev_data_thread,np_rho_thread) &
 !$omp firstprivate(alphai,itype,pmassi) &
@@ -358,16 +359,17 @@ subroutine compute_energies(t)
                 hdivBonBi = 0.
                 betai     = 0.
              endif
-             call ev_data_update(ev_data_thread,iev_divB,   divBi    )
+             call ev_data_update(ev_data_thread,iev_divB, divBi    )
              call ev_data_update(ev_data_thread,iev_hdivB,hdivBonBi)
-             call ev_data_update(ev_data_thread,iev_beta,   betai    )
+             call ev_data_update(ev_data_thread,iev_beta, betai    )
 
              if ( mhd_nonideal ) then
                 temperature = get_temperature_from_ponrho(ponrhoi)
                 call nicil_get_eta(etaohm,etahall,etaambi,sqrt(B2i),rhoi,temperature, &
                                    n_R(:,i),n_electronT(i),ierr,data_out)
                 curlBi = divcurlB(2:4,i)
-                call nicil_get_vion(etaambi,vxi,vyi,vzi,Bxi,Byi,Bzi,curlBi,vioni,ierr)
+                call nicil_get_halldrift(etahall,Bxi,Byi,Bzi,curlBi,vhalli)
+                call nicil_get_vion(etaambi,vxi,vyi,vzi,Bxi,Byi,Bzi,curlBi,vioni,ierr,vdrifti)
                 etaart  = 0.5*hi*vsigi*alphaB
                 if (etaart > 0.) then
                    etaart1 = 1.0/etaart
@@ -381,14 +383,16 @@ subroutine compute_energies(t)
                    call ev_data_update(ev_data_thread,iev_etao(2),etaohm*etaart1      )
                 endif
                 if (use_hall) then
+                   vhall = sqrt( dot_product(vhalli,vhalli) )
                    call ev_data_update(ev_data_thread,iev_etah(1),etahall             )
                    call ev_data_update(ev_data_thread,iev_etah(2),abs(etahall)        )
                    call ev_data_update(ev_data_thread,iev_etah(3),etahall*etaart1     )
                    call ev_data_update(ev_data_thread,iev_etah(4),abs(etahall)*etaart1)
+                   call ev_data_update(ev_data_thread,iev_vhall  ,vhall               )
                 endif
                 if (use_ambi) then
-                   vion   = sqrt( dot_product(vioni,vioni) )
-                   vdrift = sqrt( (vioni(1)-vxi)**2 + (vioni(2)-vyi)**2 + (vioni(3)-vzi)**2)
+                   vion   = sqrt( dot_product(vioni,  vioni  ) )
+                   vdrift = sqrt( dot_product(vdrifti,vdrifti) )
                    call ev_data_update(ev_data_thread,iev_etaa(1),etaambi        )
                    call ev_data_update(ev_data_thread,iev_etaa(2),etaambi*etaart1)
                    call ev_data_update(ev_data_thread,iev_vel,    sqrt(v2i)      )
