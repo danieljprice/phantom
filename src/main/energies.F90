@@ -20,8 +20,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: centreofmass, dim, dust, eos, externalforces, io,
-!    mpiutils, nicil, options, part, ptmass, viscosity
+!  DEPENDENCIES: dim, dust, eos, externalforces, io, mpiutils, nicil,
+!    options, part, ptmass, viscosity
 !+
 !--------------------------------------------------------------------------
 

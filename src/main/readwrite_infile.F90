@@ -28,7 +28,6 @@
 !    beta               -- beta viscosity
 !    bulkvisc           -- magnitude of bulk viscosity
 !    calc_erot          -- include E_rot in the ev_file
-!    calc_erot_com      -- calculate E_rot about the centre of mass (T) or the origin (F)
 !    damp               -- artificial damping of velocities (if on, v=0 initially)
 !    dtmax              -- time between dumps
 !    dtmax_rat0         -- dtmax_new = dtmax_old/dtmax_rat0
