@@ -161,10 +161,10 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
 ! Each injection routine will need to bookeep conserved quantities, but until then...
 #ifdef INJECT_PARTICLES
- should_conserve_energy = .false.
+ should_conserve_energy   = .false.
  should_conserve_momentum = .false.
- should_conserve_angmom = .false.
- should_conserve_cmom = .false.
+ should_conserve_angmom   = .false.
+ should_conserve_com      = .false.
 #endif
 
  noutput          = 1
