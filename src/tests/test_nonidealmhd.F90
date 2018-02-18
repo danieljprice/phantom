@@ -532,9 +532,9 @@ subroutine test_narrays(ntests,npass)
  eta_act(3,1) = 5.2420d17                 ! [cm^2/s] expected eta_ambi
  rho0(2)      = 4.6d-3    /unit_density   ! [g/cm^3]
  Bz0(2)       = 1.92d2    /unit_Bfield    ! [G]
- eta_act(1,2) = 4.5690d8                  ! [cm^2/s] expected eta_ohm
- eta_act(2,2) = 1.5122d4                  ! [cm^2/s] expected eta_hall
- eta_act(3,2) = 8.9639d-3                 ! [cm^2/s] expected eta_ambi
+ eta_act(1,2) = 5.9345d8                  ! [cm^2/s] expected eta_ohm
+ eta_act(2,2) = 1.0663d4                  ! [cm^2/s] expected eta_hall
+ eta_act(3,2) = 4.0699d-3                 ! [cm^2/s] expected eta_ambi
  !
  ! initialise values for grid
  !
@@ -579,7 +579,7 @@ subroutine test_narrays(ntests,npass)
     n_electronT  = 0.0
     !
     print*, ' '
-    print*, ' Initial rho,Bz       (cgs): ',rho0(k)*unit_density,Bz0(k)*unit_Bfield
+    write(*,'(1x,a,3Es18.6)') 'Initial rho,Bz       (cgs): ',rho0(k)*unit_density,Bz0(k)*unit_Bfield
     !
     ! set particles
     !
@@ -606,7 +606,7 @@ subroutine test_narrays(ntests,npass)
     tempi = get_temperature(ieos,xyzh(1:3,1),rhoi,vxyzu(:,1))
     call nicil_get_eta(etaohmi,etahalli,etaambii,Bi,rhoi,tempi,n_R(:,1),n_electronT(1),ierr)
 
-    print*, ' Final   rho,B_z,temp (cgs): ',rhoi*unit_density,Bi*unit_Bfield,tempi
+    write(*,'(1x,a,3Es18.6)') 'Final   rho,B_z,temp (cgs): ',rhoi*unit_density,Bi*unit_Bfield,tempi
 
     call checkval(etaohmi *unit_eta,eta_act(1,k),tol,nerr(3*(k-1)+1),'calculated non-constant eta_ohm')
     call checkval(etahalli*unit_eta,eta_act(2,k),tol,nerr(3*(k-1)+2),'calculated non-constant eta_hall')
