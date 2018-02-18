@@ -519,7 +519,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--Calculate current centre of mass (required for rotational energies)
 !
-  call get_centreofmass(xyzcom,dummy,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+ call get_centreofmass(xyzcom,dummy,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 !
 !--write second header to logfile/screen
 !
