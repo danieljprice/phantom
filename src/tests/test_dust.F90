@@ -240,9 +240,10 @@ end subroutine test_dustybox
 !+
 !----------------------------------------------------
 subroutine test_dustydiffuse(ntests,npass)
- use dim,       only:use_dustfrac,maxp,periodic,maxtypes,mhd
+ use dim,       only:maxp,periodic,maxtypes,mhd
  use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac,dustevol, &
                      xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,set_particle_type,rhoh
+ use options,   only:use_dustfrac
  use kernel,    only:hfact_default
  use eos,       only:gamma,polyk,ieos
  use dust,      only:K_code,idrag
@@ -332,7 +333,7 @@ subroutine test_dustydiffuse(ntests,npass)
 
  if (do_output) call write_file(time,xyzh,dustfrac,npart)
  do i=1,npart
-    dustevol(i) = sqrt(dustfrac(i)*rhoh(xyzh(4,i),massoftype(igas)))
+    dustevol(i) = sqrt(dustfrac(i)/(1.-dustfrac(i)))
  enddo
 
  nerr = 0
@@ -344,7 +345,7 @@ subroutine test_dustydiffuse(ntests,npass)
     do i=1,npart
        ddustfrac_prev(i) = ddustfrac(i)
        dustevol(i) = dustevol(i) + dt*ddustfrac(i)
-       dustfrac(i) = dustevol(i)**2/rhoh(xyzh(4,i),massoftype(igas))
+       dustfrac(i) = dustevol(i)**2/(1.+dustevol(i)**2)
     enddo
     !$omp end parallel do
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&

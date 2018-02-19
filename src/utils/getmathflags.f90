@@ -17,20 +17,23 @@
 !
 !  USAGE: getmathflags [no arguments]
 !
-!  DEPENDENCIES: testmath
+!  DEPENDENCIES: mpiutils, testmath
 !+
 !--------------------------------------------------------------------------
 program getmathflags
  use testmath, only:test_math
+ use mpiutils, only:init_mpi, finalise_mpi
  implicit none
- integer :: ntests,npass
+ integer :: ntests,npass,id,nprocs
  logical :: usefsqrt,usefinvsqrt
 
  ntests = 0
  npass  = 0
+ call init_mpi(id,nprocs)
  call test_math(ntests,npass,usefsqrt,usefinvsqrt)
  if (usefinvsqrt) then
     print "(a)",'yes'
  endif
+ call finalise_mpi()
 
 end program getmathflags

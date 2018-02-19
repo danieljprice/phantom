@@ -20,26 +20,27 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: centreofmass, dim, dust, eos, externalforces, io,
-!    mpiutils, nicil, options, part, ptmass, viscosity
+!  DEPENDENCIES: dim, dust, eos, externalforces, io, mpiutils, nicil,
+!    options, part, ptmass, viscosity
 !+
 !--------------------------------------------------------------------------
 
 #define reduce_fn(a,b) reduceall_mpi(a,b)
 module energies
- use dim, only: calc_erot, calc_erot_com
+ use dim, only: calc_erot
  implicit none
 
  logical,         public    :: gas_only,track_mass,track_lum
- real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot
+ real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot,xyzcom(3)
  real,            public    :: vrms,rmsmach,accretedmass,mdust,mgas
  real,            public    :: xmom,ymom,zmom
  real,            public    :: totlum
  integer,         public    :: iquantities
- integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,&
+ integer(kind=8), public    :: ndead
+ integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com(3),&
                                iev_angmom,iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop(6),&
                                iev_alpha,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
-                               iev_etaa(2),iev_vel,iev_vion,iev_vdrift,iev_n(4),iev_nR(5),iev_nT(2),&
+                               iev_etaa(2),iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n(4),iev_nR(5),iev_nT(2),&
                                iev_dtg,iev_ts,iev_momall,iev_angall,iev_maccsink(2),&
                                iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat
  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
@@ -48,7 +49,7 @@ module energies
  integer,         parameter :: iev_min = 3    ! array index of the minimum of the quantity
  integer,         parameter :: iev_ave = 4    ! array index of the average of the quantity
  ! Subroutines
- public  :: compute_energies,get_erot_com,ev_data_update
+ public  :: compute_energies,ev_data_update
  private :: get_erot,initialise_ev_data,collate_ev_data,finalise_ev_data
  ! Arrays
  real,             public :: ev_data(4,0:inumev),erot_com(6)
@@ -61,7 +62,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine compute_energies(t)
- use dim,  only:maxp,maxvxyzu,maxalpha,maxtypes,use_dustfrac,mhd_nonideal,lightcurve
+ use dim,  only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,lightcurve,use_dust
  use part, only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,npartoftype, &
                 alphaind,Bxyz,Bevol,divcurlB,iamtype,igas,idust,iboundary,istar,idarkmatter,ibulge, &
                 nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,isdead_or_accreted,epot_sinksink,&
@@ -70,12 +71,12 @@ subroutine compute_energies(t)
  use eos,            only:polyk,utherm,gamma,equationofstate,get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
- use options,        only:iexternalforce,alpha,alphaB,ieos
+ use options,        only:iexternalforce,alpha,alphaB,ieos,use_dustfrac
  use mpiutils,       only:reduceall_mpi
  use ptmass,         only:get_accel_sink_gas
  use viscosity,      only:irealvisc,shearfunc
- use nicil,          only:nicil_get_eta,nicil_get_vion,use_ohm,use_hall,use_ambi,ion_rays,ion_thermal, &
-                     nelements_max,nelements,nlevels
+ use nicil,          only:nicil_get_eta,nicil_get_halldrift,nicil_get_vion, &
+                     use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_data_out
 #ifdef DUST
  use dust,           only:get_ts,graindens,grainsize,idrag
  integer :: iregime
@@ -87,14 +88,14 @@ subroutine compute_energies(t)
  real, intent(in) :: t
  real    :: ev_data_thread(4,0:inumev)
  real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,rhoi,angx,angy,angz
- real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz
+ real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,xcom,ycom,zcom,mtot
  real    :: epoti,pmassi,dnptot,dnpgas
  real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
  real    :: ponrhoi,spsoundi,B2i,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
  real    :: n_total,n_total1,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
  real    :: gasfrac,dustfraci,dust_to_gas
- real    :: temperature,etaart,etaart1,etaohm,etahall,etaambi,vion,vdrift
- real    :: curlBi(3),vioni(3),data_out(17+nelements_max*nlevels-3)
+ real    :: temperature,etaart,etaart1,etaohm,etahall,etaambi,vhall,vion,vdrift
+ real    :: curlBi(3),vhalli(3),vioni(3),vdrifti(3),data_out(n_data_out)
  real    :: erotxi,erotyi,erotzi,fdum(3)
  integer :: i,j,itype,ierr
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
@@ -108,6 +109,10 @@ subroutine compute_energies(t)
  epot = 0.
  emag = 0.
  etot = 0.
+ xcom = 0.
+ ycom = 0.
+ zcom = 0.
+ mtot = 0.
  xmom = 0.
  ymom = 0.
  zmom = 0.
@@ -136,19 +141,20 @@ subroutine compute_energies(t)
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyzu,iexternalforce,npart,t,id,npartoftype) &
 !$omp shared(alphaind,massoftype,irealvisc) &
-!$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass) &
-!$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac) &
-!$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,nelements,n_R,n_electronT,eta_nimhd) &
+!$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &
+!$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac,use_dustfrac) &
+!$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_R,n_electronT,eta_nimhd) &
 !$omp shared(ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
 !$omp shared(iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha) &
 !$omp shared(iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah) &
-!$omp shared(iev_etaa,iev_vel,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
+!$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
 !$omp private(gasfrac,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
-!$omp private(ierr,temperature,etaart,etaart1,etaohm,etahall,etaambi,vioni,vion,vdrift,data_out) &
+!$omp private(ierr,temperature,etaart,etaart1,etaohm,etahall,etaambi) &
+!$omp private(vhalli,vhall,vioni,vion,vdrifti,vdrift,data_out) &
 !$omp private(erotxi,erotyi,erotzi,fdum) &
 !$omp private(ev_data_thread,np_rho_thread) &
 !$omp firstprivate(alphai,itype,pmassi) &
@@ -159,7 +165,7 @@ subroutine compute_energies(t)
 #ifdef LIGHTCURVE
 !$omp shared(luminosity,track_lum) &
 #endif
-!$omp reduction(+:np,npgas,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
+!$omp reduction(+:np,npgas,xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
 !$omp reduction(+:ekin,etherm,emag,epot)
  call initialise_ev_data(ev_data_thread)
@@ -208,7 +214,13 @@ subroutine compute_energies(t)
        vyi  = vxyzu(2,i)
        vzi  = vxyzu(3,i)
 
-       !  linear momentum
+       ! centre of mass
+       xcom = xcom + pmassi*xi
+       ycom = ycom + pmassi*yi
+       zcom = zcom + pmassi*zi
+       mtot = mtot + pmassi
+
+       ! linear momentum
        xmom = xmom + pmassi*vxi
        ymom = ymom + pmassi*vyi
        zmom = zmom + pmassi*vzi
@@ -224,9 +236,9 @@ subroutine compute_energies(t)
        call ev_data_update(ev_data_thread,iev_vrms,v2i)        ! vrms = vrms + v2i
 
        ! rotational energy around each axis through the Centre of mass
-       ! note: centre of mass is updated only when dumpfiles are created
+       ! note: for efficiency, centre of mass is from the previous time energies was called
        if (calc_erot) then
-          call get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
+          call get_erot(xi,yi,zi,vxi,vyi,vzi,xyzcom,pmassi,erotxi,erotyi,erotzi)
           call ev_data_update(ev_data_thread,iev_erot(1),erotxi)
           call ev_data_update(ev_data_thread,iev_erot(2),erotyi)
           call ev_data_update(ev_data_thread,iev_erot(3),erotzi)
@@ -248,6 +260,11 @@ subroutine compute_energies(t)
           epot = epot + pmassi*epoti
        endif
        if (gravity) epot = epot + poten(i)
+#ifdef DUST
+       if (itype==idust) then
+          mdust = mdust + pmassi
+       endif
+#endif
        !
        ! the following apply ONLY to gas particles
        !
@@ -259,12 +276,12 @@ subroutine compute_energies(t)
              gasfrac     = 1. - dustfraci
              dust_to_gas = dustfraci/gasfrac
              call ev_data_update(ev_data_thread,iev_dtg,dust_to_gas)
-             mgas  = mgas  + pmassi*gasfrac
              mdust = mdust + pmassi*dustfraci
           else
              dustfraci = 0.
              gasfrac   = 1.
           endif
+          mgas  = mgas  + pmassi*gasfrac
 
           ! thermal energy
           if (maxvxyzu >= 4) then
@@ -342,16 +359,17 @@ subroutine compute_energies(t)
                 hdivBonBi = 0.
                 betai     = 0.
              endif
-             call ev_data_update(ev_data_thread,iev_divB,   divBi    )
+             call ev_data_update(ev_data_thread,iev_divB, divBi    )
              call ev_data_update(ev_data_thread,iev_hdivB,hdivBonBi)
-             call ev_data_update(ev_data_thread,iev_beta,   betai    )
+             call ev_data_update(ev_data_thread,iev_beta, betai    )
 
              if ( mhd_nonideal ) then
                 temperature = get_temperature_from_ponrho(ponrhoi)
                 call nicil_get_eta(etaohm,etahall,etaambi,sqrt(B2i),rhoi,temperature, &
                                    n_R(:,i),n_electronT(i),ierr,data_out)
                 curlBi = divcurlB(2:4,i)
-                call nicil_get_vion(etaambi,vxi,vyi,vzi,Bxi,Byi,Bzi,curlBi,vioni,ierr)
+                call nicil_get_halldrift(etahall,Bxi,Byi,Bzi,curlBi,vhalli)
+                call nicil_get_vion(etaambi,vxi,vyi,vzi,Bxi,Byi,Bzi,curlBi,vioni,ierr,vdrifti)
                 etaart  = 0.5*hi*vsigi*alphaB
                 if (etaart > 0.) then
                    etaart1 = 1.0/etaart
@@ -365,14 +383,16 @@ subroutine compute_energies(t)
                    call ev_data_update(ev_data_thread,iev_etao(2),etaohm*etaart1      )
                 endif
                 if (use_hall) then
+                   vhall = sqrt( dot_product(vhalli,vhalli) )
                    call ev_data_update(ev_data_thread,iev_etah(1),etahall             )
                    call ev_data_update(ev_data_thread,iev_etah(2),abs(etahall)        )
                    call ev_data_update(ev_data_thread,iev_etah(3),etahall*etaart1     )
                    call ev_data_update(ev_data_thread,iev_etah(4),abs(etahall)*etaart1)
+                   call ev_data_update(ev_data_thread,iev_vhall  ,vhall               )
                 endif
                 if (use_ambi) then
-                   vion   = sqrt( dot_product(vioni,vioni) )
-                   vdrift = sqrt( (vioni(1)-vxi)**2 + (vioni(2)-vyi)**2 + (vioni(3)-vzi)**2)
+                   vion   = sqrt( dot_product(vioni,  vioni  ) )
+                   vdrift = sqrt( dot_product(vdrifti,vdrifti) )
                    call ev_data_update(ev_data_thread,iev_etaa(1),etaambi        )
                    call ev_data_update(ev_data_thread,iev_etaa(2),etaambi*etaart1)
                    call ev_data_update(ev_data_thread,iev_vel,    sqrt(v2i)      )
@@ -449,6 +469,11 @@ subroutine compute_energies(t)
 
        !phii   = fxyz_ptmass(4,i)
 
+       xcom = xcom + pmassi*xi
+       ycom = ycom + pmassi*yi
+       zcom = zcom + pmassi*zi
+       mtot = mtot + pmassi
+
        xmom   = xmom + pmassi*vxi
        ymom   = ymom + pmassi*vyi
        zmom   = zmom + pmassi*vzi
@@ -466,7 +491,7 @@ subroutine compute_energies(t)
 
        ! rotational energy around each axis through the origin
        if (calc_erot) then
-          call get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
+          call get_erot(xi,yi,zi,vxi,vyi,vzi,xyzcom,pmassi,erotxi,erotyi,erotzi)
           call ev_data_update(ev_data_thread,iev_erot(1),erotxi)
           call ev_data_update(ev_data_thread,iev_erot(2),erotyi)
           call ev_data_update(ev_data_thread,iev_erot(3),erotzi)
@@ -486,8 +511,9 @@ subroutine compute_energies(t)
 !$omp end parallel
 
  !--Determing the number of active gas particles
- nptot     = reduce_fn('+',np)
- npgas     = reduce_fn('+',npgas)
+ nptot = reduce_fn('+',np)
+ npgas = reduce_fn('+',npgas)
+ ndead = npart - nptot
  if (nptot > 0) then
     dnptot = 1./real(nptot)
  else
@@ -511,6 +537,10 @@ subroutine compute_energies(t)
 
  etot = ekin + etherm + emag + epot
 
+ xcom = reduce_fn('+',xcom)
+ ycom = reduce_fn('+',ycom)
+ zcom = reduce_fn('+',zcom)
+
  xmom = reduce_fn('+',xmom)
  ymom = reduce_fn('+',ymom)
  zmom = reduce_fn('+',zmom)
@@ -530,6 +560,12 @@ subroutine compute_energies(t)
  ev_data(iev_sum,iev_etot  ) = etot
  ev_data(iev_sum,iev_totmom) = totmom
  ev_data(iev_sum,iev_angmom) = angtot
+ ev_data(iev_sum,iev_com(1)) = xcom
+ ev_data(iev_sum,iev_com(2)) = ycom
+ ev_data(iev_sum,iev_com(3)) = zcom
+ xyzcom(1) = xcom
+ xyzcom(2) = xcom
+ xyzcom(3) = xcom
 
  if (calc_erot) then
     ev_data(iev_sum,iev_erot(1)) = 0.5*ev_data(iev_sum,iev_erot(1))
@@ -540,7 +576,7 @@ subroutine compute_energies(t)
                                  +      ev_data(iev_sum,iev_erot(3))**2)
  endif
 
- if (use_dustfrac) then
+ if (use_dust) then
     mgas  = reduce_fn('+',mgas)
     mdust = reduce_fn('+',mdust)
  endif
@@ -591,29 +627,11 @@ subroutine compute_energies(t)
 end subroutine compute_energies
 !----------------------------------------------------------------
 !+
-!  calculates the centre of mass for use in rotational energy
-!+
-!----------------------------------------------------------------
-subroutine get_erot_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
- use centreofmass, only: get_centreofmass
- integer, intent(in) :: npart,nptmass
- real,    intent(in) :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real :: xcom(3),vcom(3)
-
- if (calc_erot_com) then
-    call get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
-    erot_com(1:3) = real(xcom(1:3))
-    erot_com(4:6) = real(vcom(1:3))
- endif
-
-end subroutine get_erot_com
-!----------------------------------------------------------------
-!+
 !  calculates rotational energy
 !+
 !----------------------------------------------------------------
-subroutine get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
- real, intent(in)  :: xi,yi,zi,vxi,vyi,vzi,pmassi
+subroutine get_erot(xi,yi,zi,vxi,vyi,vzi,xyzcom,pmassi,erotxi,erotyi,erotzi)
+ real, intent(in)  :: xi,yi,zi,vxi,vyi,vzi,pmassi,xyzcom(3)
  real, intent(out) :: erotxi,erotyi,erotzi
  real              :: dx,dy,dz,dvx,dvy,dvz
  real              :: rcrossvx,rcrossvy,rcrossvz,radxy2,radyz2,radxz2
@@ -622,12 +640,12 @@ subroutine get_erot(xi,yi,zi,vxi,vyi,vzi,pmassi,erotxi,erotyi,erotzi)
  erotyi = 0.0
  erotzi = 0.0
 
- dx  = xi  - erot_com(1)
- dy  = yi  - erot_com(2)
- dz  = zi  - erot_com(3)
- dvx = vxi - erot_com(4)
- dvy = vyi - erot_com(5)
- dvz = vzi - erot_com(6)
+ dx  = xi  - xyzcom(1)
+ dy  = yi  - xyzcom(2)
+ dz  = zi  - xyzcom(3)
+ dvx = vxi              ! results are less reliable if subtracting vcom
+ dvy = vyi
+ dvz = vzi
 
  rcrossvx = (dy*dvz - dz*dvy)
  rcrossvy = (dz*dvx - dx*dvz)

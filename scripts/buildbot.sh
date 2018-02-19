@@ -150,7 +150,7 @@ check_phantomsetup ()
 #
 # get list of targets, components and setups to check
 #
-allsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile | cut -d, -f 2 | cut -d')' -f 1 | sed '/tracers/d' | sed '/mcfost/d'`
+allsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile | grep -v skip | cut -d, -f 2 | cut -d')' -f 1`
 for component in $listofcomponents; do
 case $component in
  'setup')

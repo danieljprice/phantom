@@ -121,10 +121,10 @@ contains
 subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,&
                  ipart_rhomax,dt,stressmax)
  use dim,          only:maxvxyzu,maxalpha,maxneigh,maxstrain,&
-                    switches_done_in_derivs,mhd,mhd_nonideal,use_dustfrac,lightcurve
+                        switches_done_in_derivs,mhd,mhd_nonideal,lightcurve
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,     only:ncells,ifirstincell,get_neighbour_list,get_hmaxcell,get_cell_location
- use options,      only:iresistive_heating
+ use options,      only:iresistive_heating,use_dustfrac
  use part,         only:rhoh,dhdrho,rhoanddhdrho,massoftype,&
                         alphaind,nabundances,&
                         ll,get_partinfo,iactive,gradh,&
@@ -141,8 +141,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use viscosity,    only:irealvisc,shearfunc,dt_viscosity
 #ifdef IND_TIMESTEPS
  use timestep_ind, only:nbinmax,ibinnow,get_newbin
- use timestep_sts, only:use_sts,nbinmaxsts,sts_modify_ibin,ibinsts
- use part,         only:ibin,ibinsink
+ use timestep_sts, only:nbinmaxsts,ibin_sts
+ use part,         only:ibin
  use timestep,     only:nsteps,time
 #else
  use timestep,     only:C_cour,C_force
@@ -157,7 +157,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use linklist,     only:get_distance_from_centre_of_mass
  use part,         only:xyzmh_ptmass,nptmass
  use ptmass,       only:icreate_sinks,rho_crit,r_crit2,&
-                        rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin
+                        rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ipart,rhomax_ibin
  use units,        only:unit_density
 #endif
 #ifdef DUST
@@ -211,7 +211,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #ifndef IND_TIMESTEPS
  real    :: dtmaxi
 #else
- integer(kind=1) :: ibinnow_m1
  integer :: nbinmaxnew,nbinmaxstsnew,ncheckbin
  integer :: ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd
  integer :: ndtvisc,ndtohm,ndthall,ndtambi,ndtdust
@@ -222,8 +221,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  real    :: dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax, dtdustfacmax
  logical :: allow_decrease,dtcheck
 #endif
+ integer(kind=1)           :: ibinnow_m1
 
- logical                   :: remote_export(nprocs),check_ibinsink
+ logical                   :: remote_export(nprocs)
  type(cellforce)           :: cell
 
 #ifdef MPI
@@ -234,8 +234,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #endif
 
 #ifdef IND_TIMESTEPS
- nbinmaxnew    = 0
- nbinmaxstsnew = 0
+ nbinmaxnew      = 0
+ nbinmaxstsnew   = 0
  ndtforce        = 0
  ndtforceng      = 0
  ndtcool         = 0
@@ -267,24 +267,21 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  dthallfacmax    = 0.0
  dtambifacmax    = 0.0
  dtdustfacmax    = 0.0
- if (all(ibinsink(1:npart)==0)) then
-    check_ibinsink = .false.
- else
-    check_ibinsink = .true.
- endif
+ ibinnow_m1      = ibinnow - 1_1
+#else
+ ibinnow_m1      = 0
 #endif
- dtmaxi = 0.
+ dtmaxi          = 0.
 
  dustresfacmean  = 0.0
  dustresfacmax   = 0.0
- dtcourant   = bignumber
- dtforce     = bignumber
- dtvisc      = bignumber
- dtmini      = bignumber
- dtohm       = bignumber
- dthall      = bignumber
- dtambi      = bignumber
- ibin_wake(:)= 0
+ dtcourant       = bignumber
+ dtforce         = bignumber
+ dtvisc          = bignumber
+ dtmini          = bignumber
+ dtohm           = bignumber
+ dthall          = bignumber
+ dtambi          = bignumber
  if (iverbose >= 3 .and. id==master) write(iprint,*) 'forces: cell cache =',maxcellcache
 
  realviscosity    = (irealvisc > 0)
@@ -336,7 +333,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp shared(divBsymm) &
 !$omp shared(dBevol) &
 !$omp shared(dt) &
-!$omp shared(nprocs,icall,check_ibinsink) &
+!$omp shared(nprocs,icall) &
 !$omp shared(poten) &
 !$omp private(icell,i) &
 !$omp private(cell) &
@@ -359,7 +356,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp shared(xsendbuf,xrecvbuf) &
 #endif
 #ifdef IND_TIMESTEPS
-!$omp shared(ibin,ibinsts,nbinmax,nbinmaxsts) &
+!$omp shared(ibin,ibin_sts,nbinmax,nbinmaxsts) &
 !$omp private(allow_decrease,dtitmp,dtcheck,dtrat) &
 !$omp reduction(+:ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd,ncheckbin,ndtvisc) &
 !$omp reduction(+:ndtohm,ndthall,ndtambi,ndtdust,dtohmfacmean,dthallfacmean,dtambifacmean,dtdustfacmean) &
@@ -372,10 +369,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp reduction(min:dtcourant,dtforce,dtvisc) &
 !$omp reduction(max:dtmaxi) &
 !$omp reduction(min:dtmini) &
+!$omp reduction(+:ndustres,dustresfacmean) &
+!$omp reduction(max:dustresfacmax) &
 !$omp shared(dustfrac) &
 !$omp shared(ddustfrac) &
 !$omp shared(deltav) &
-!$omp shared(ibin_wake)
+!$omp shared(ibin_wake,ibinnow_m1)
 
 !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
@@ -421,7 +420,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                       iphase,divcurlv,divcurlB,alphaind,eta_nimhd, &
-                      dustfrac,gradh,ibin_wake,stressmax,xyzcache)
+                      dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache)
 
 #ifdef MPI
     if (do_export) then
@@ -441,7 +440,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
                              dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean, &
                              dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax, &
 #endif
-                             check_ibinsink)
+                             ndustres,dustresfacmax,dustresfacmean)
 
 #ifdef MPI
     endif
@@ -465,13 +464,13 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
        call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true., &
 #ifdef GRAVITY
-                         f=cell%fgrav, &
+                         f=cell%fgrav, local_gravity=.true., &
 #endif
                          cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 
        call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          iphase,divcurlv,divcurlB,alphaind,eta_nimhd, &
-                         dustfrac,gradh,ibin_wake,stressmax,xyzcache)
+                         dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache)
 
        cell%remote_export(id+1) = .false.
 
@@ -516,7 +515,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
                                           dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean, &
                                           dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax, &
 #endif
-                                          check_ibinsink)
+                                          ndustres,dustresfacmax,dustresfacmean)
 
     enddo over_waiting
 !$omp enddo
@@ -599,16 +598,18 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  if (reduceall_mpi('max',ipart_rhomax) > 0) then
     call reduceloc_mpi('max',rhomax,id_rhomax)
     if (id == id_rhomax) then
-       rhomax_xyzh = xyzh(1:4,ipart_rhomax)
-       rhomax_vxyz = vxyzu(1:3,ipart_rhomax)
+       rhomax_ipart  = ipart_rhomax
+       rhomax_xyzh   = xyzh(1:4,ipart_rhomax)
+       rhomax_vxyz   = vxyzu(1:3,ipart_rhomax)
        rhomax_iphase = iphase(ipart_rhomax)
-       rhomax_divv = divcurlv(1,ipart_rhomax)
+       rhomax_divv   = divcurlv(1,ipart_rhomax)
 #ifdef IND_TIMESTEPS
        rhomax_ibin = ibin(ipart_rhomax)
 #endif
     else
        ipart_rhomax = -1
     endif
+    call bcast_mpi(rhomax_ipart,id_rhomax)
     call bcast_mpi(rhomax_xyzh,id_rhomax)
     call bcast_mpi(rhomax_vxyz,id_rhomax)
     call bcast_mpi(rhomax_iphase,id_rhomax)
@@ -643,34 +644,14 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #endif
 
 #ifdef IND_TIMESTEPS
-
- nbinmaxsts = int(reduceall_mpi('max',nbinmaxstsnew),kind=1)
  nbinmax    = int(reduceall_mpi('max',nbinmaxnew),kind=1)
+ nbinmaxsts = int(reduceall_mpi('max',nbinmaxstsnew),kind=1)
  ndtforce   = int(reduce_mpi('+',ndtforce))
  ndtforceng = int(reduce_mpi('+',ndtforceng))
  ndtcool    = int(reduce_mpi('+',ndtcool))
  ndtdrag    = int(reduce_mpi('+',ndtdrag))
  ndtdragd   = int(reduce_mpi('+',ndtdragd))
  ndtdust    = int(reduce_mpi('+',ndtdust))
-
- !  If use_STS, increase ibin as required for ibinsts > ibin
- if ( use_STS ) call STS_modify_ibin(npart,ibin,nbinmax)
-
- !--Saitoh-Makino limiter
- ibinnow_m1 = min(ibinnow - 1_1,nbinmax) ! min to prevent failures if nbinmax decreases
-!$omp parallel default(none) &
-!$omp shared(npart,ibin,ibin_wake,ibinnow_m1) &
-!$omp private(i)
-!$omp do schedule(runtime)
- do i=1,npart
-    if (ibin_wake(i)==1) then
-       if (ibin(i) < ibinnow_m1) then
-          ibin(i) = ibinnow_m1
-       endif
-    endif
- enddo
-!$omp enddo
-!$omp end parallel
 
  !  Print warning statements, if required
  if (iverbose >= 1 .and. id==master) then
@@ -777,7 +758,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                           divcurlB,eta_nimhd, &
                           dustfrac,gradh,divcurlv,alphaind, &
                           alphau,alphaB,bulkvisc,stressmax,&
-                          ndrag,nstokes,nsuper,ts_min,ibin_wake,ibin_neigh,&
+                          ndrag,nstokes,nsuper,ts_min,ibinnow_m1,ibin_wake,ibin_neighi,&
                           ignoreself)
 #ifdef FINVSQRT
  use fastmath,    only:finvsqrt
@@ -786,7 +767,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:igas,idust,iboundary,iohm,ihall,iambi
  use part,        only:maxphase,iactive,iamtype,iamdust,get_partinfo
  use part,        only:mhd,maxvxyzu,maxBevol,maxstrain
- use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,use_dustfrac
+ use dim,         only:maxalpha,maxp,mhd_nonideal,gravity
  use part,        only:rhoh,maxgradh,straintensor
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
 #ifdef GRAVITY
@@ -802,10 +783,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use kernel,      only:wkern_drag,cnormk_drag
 #endif
 #ifdef IND_TIMESTEPS
- use part,        only:ibinold
+ use part,        only:ibin_old
 #endif
  use timestep,    only:bignumber
- use options,     only:overcleanfac
+ use options,     only:overcleanfac,use_dustfrac
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
  real,            intent(in)    :: xpartveci(:)
@@ -831,7 +812,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real,            intent(in)    :: alphau,alphaB,bulkvisc,stressmax
  integer,         intent(inout) :: ndrag,nstokes,nsuper
  real,            intent(out)   :: ts_min
- integer(kind=1), intent(out)   :: ibin_wake(:),ibin_neigh
+ integer(kind=1), intent(out)   :: ibin_wake(:),ibin_neighi
+ integer(kind=1), intent(in)    :: ibinnow_m1
  logical,         intent(in)    :: ignoreself
  integer :: j,n,iamtypej
  logical :: iactivej,iamgasj,iamdustj
@@ -915,7 +897,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  iamtypej = igas
  iamgasj  = .true.
  iamdustj = .false.
- ibin_neigh = 0_1
+
+ ! to find max ibin of all of i's neighbours
+ ibin_neighi = 0_1
 
  ! dust
  ts_min = bignumber
@@ -928,7 +912,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  if (use_dustfrac) then
     dustfraci = xpartveci(idustfraci)
     tsi       = xpartveci(itstop)
-    sqrtrhodustfraci = sqrt(rhoi*dustfraci)
+    sqrtrhodustfraci = sqrt(dustfraci/(1.-dustfraci))
  else
     dustfraci = 0.
     tsi       = 0.
@@ -1013,21 +997,21 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        !  Determine if neighbouring particle is hidden by a sink particle;
        !  if so, do not add contribution.
        add_contribution = .true.
-       k = 1
-       do while (k <= nptmass .and. add_contribution)
-          xkpt = xyzmh_ptmass(1,k)
-          ykpt = xyzmh_ptmass(2,k)
-          zkpt = xyzmh_ptmass(3,k)
-          vpos = (xkpt-xpartveci(ixi))*(xkpt-xj) &
-                + (ykpt-xpartveci(iyi))*(ykpt-yj) &
-                + (zkpt-xpartveci(izi))*(zkpt-zj)
-          if (vpos < 0.0) then
-             add_contribution = ptmass_not_obscured(-dx,-dy,-dz,  &
-                                 xkpt-xpartveci(ixi),ykpt-xpartveci(iyi),zkpt-xpartveci(izi), &
-                                 xyzmh_ptmass(ihacc,k))
-          endif
-          k = k + 1
-       enddo
+       !k = 1
+       !do while (k <= nptmass .and. add_contribution)
+       !   xkpt = xyzmh_ptmass(1,k)
+       !   ykpt = xyzmh_ptmass(2,k)
+       !   zkpt = xyzmh_ptmass(3,k)
+       !   vpos = (xkpt-xpartveci(ixi))*(xkpt-xj) &
+       !         + (ykpt-xpartveci(iyi))*(ykpt-yj) &
+       !         + (zkpt-xpartveci(izi))*(zkpt-zj)
+       !   if (vpos < 0.0) then
+       !      add_contribution = ptmass_not_obscured(-dx,-dy,-dz,  &
+       !                          xkpt-xpartveci(ixi),ykpt-xpartveci(iyi),zkpt-xpartveci(izi), &
+       !                          xyzmh_ptmass(ihacc,k))
+       !   endif
+       !   k = k + 1
+       !enddo
 #endif
 
        if (rij2 > epsilon(rij2)) then
@@ -1096,8 +1080,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           ! Particle j is a neighbour of an active particle;
           ! flag it to see if it needs to be woken up next step.
           if (iamtypej /= iboundary) then
-             ibin_wake(j) = 1
-             ibin_neigh = max(ibin_neigh,ibinold(j))
+#ifndef MPI
+             ibin_wake(j)  = max(ibinnow_m1,ibin_wake(j))
+#endif
+             ibin_neighi = max(ibin_neighi,ibin_old(j))
           endif
 #endif
        endif
@@ -1170,7 +1156,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              endif
              if (use_dustfrac) then
                 dustfracj = dustfrac(j)
-                sqrtrhodustfracj = sqrt(rhoj*dustfracj)
+                sqrtrhodustfracj = sqrt(dustfracj/(1.-dustfracj))
              else
                 dustfracj = 0.
                 sqrtrhodustfracj = 0.
@@ -1213,6 +1199,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           projBj = 0.
           vwavej = 0.
           vsigavj = 0.
+          spsoundj = 0.
           dustfracj = 0.
           sqrtrhodustfracj = 0.
        endif
@@ -1379,13 +1366,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 call get_ts(idrag,grainsize,graindens,rhoj*(1. - dustfracj),rhoj*dustfracj,spsoundj,0.,tsj,iregime)
 
                 ! define averages of diffusion coefficient and kernels
-                Dav      = dustfraci*tsi + dustfracj*tsj
+                Dav      = tsi*(1.-dustfraci)+tsj*(1.-dustfracj) !dustfraci*tsi + dustfracj*tsj
                 grkernav = 0.5*(grkerni + grkernj)
 
                 ! these are equations (43) and (45) from Price & Laibe (2015)
                 ! but note there is a sign error in the term in eqn (45) in the paper
                 !dustfracterm  = pmassj*rho1j*Dav*(pri - prj)*grkernav*rij1
-                dustfracterms = pmassj*sqrtrhodustfracj*rho1j*(tsi*rho1i+tsj*rho1j)*(pri - prj)*grkernav*rij1
+                !dustfracterms = pmassj*sqrtrhodustfracj*rho1j*(tsi*rho1i+tsj*rho1j)*(pri - prj)*grkernav*rij1
+                dustfracterms = pmassj*sqrtrhodustfracj*rho1j*Dav*(pri - prj)*grkernav*rij1
 
                 !vsigeps = 0.5*(spsoundi + spsoundj) !abs(projv)
                 !depsdissterm = pmassj*sqrtrhodustfracj*rho1j*grkernav*vsigeps !(auterm*grkerni + autermj*grkernj)*vsigeps
@@ -1638,9 +1626,8 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintenso
                      dustfrac,eta_nimhd,alphaind,stressmax)
 
  use io,        only:fatal
- use options,   only:alpha
- use dim,       only:maxp,ndivcurlv,ndivcurlB,maxstrain,maxalpha,maxvxyzu,mhd,mhd_nonideal, &
-                     use_dustfrac
+ use options,   only:alpha,use_dustfrac
+ use dim,       only:maxp,ndivcurlv,ndivcurlB,maxstrain,maxalpha,maxvxyzu,mhd,mhd_nonideal
  use part,      only:iamgas,maxphase,iboundary,rhoanddhdrho,igas,massoftype,get_partinfo,&
                      iohm,ihall,iambi
  use viscosity, only:irealvisc,bulkvisc
@@ -1858,7 +1845,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintenso
        cell%xpartvec(ipro2i,cell%npcell)          = pro2i
 #ifdef DUST
        if (use_dustfrac) then
-          cell%xpartvec(itstop,cell%npcell)          = tstopi
+          cell%xpartvec(itstop,cell%npcell)       = tstopi
        endif
 #endif
     endif
@@ -1879,7 +1866,7 @@ end subroutine start_cell
 
 subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                         iphase,divcurlv,divcurlB,alphaind,eta_nimhd, &
-                        dustfrac,gradh,ibin_wake,stressmax,xyzcache)
+                        dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache)
  use io,          only:error
 #ifdef MPI
  use io,          only:id
@@ -1906,6 +1893,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  real,            intent(in)     :: dustfrac(:)
  real(kind=4),    intent(in)     :: gradh(:,:)
  integer(kind=1), intent(inout)  :: ibin_wake(:)
+ integer(kind=1), intent(in)     :: ibinnow_m1
  real,            intent(in)     :: stressmax
  real,            intent(in)     :: xyzcache(:,:)
 
@@ -1919,8 +1907,6 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  logical                         :: iactivei
  logical                         :: iamgasi
  logical                         :: iamdusti
-
- integer(kind=1)                 :: ibin_neigh
 
  logical                         :: realviscosity
  logical                         :: useresistiveheat
@@ -1991,7 +1977,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          divcurlB,eta_nimhd, &
                          dustfrac,gradh,divcurlv,alphaind, &
                          alphau,alphaB,bulkvisc,stressmax, &
-                         cell%ndrag,cell%nstokes,cell%nsuper,cell%dtdrag(ip),ibin_wake,ibin_neigh, &
+                         cell%ndrag,cell%nstokes,cell%nsuper,cell%dtdrag(ip),ibinnow_m1,ibin_wake,cell%ibinneigh(ip), &
                          ignoreself)
 
  enddo over_parts
@@ -2011,20 +1997,20 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
                                          dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean, &
                                          dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax, &
 #endif
-                                         check_ibinsink)
+                                         ndustres,dustresfacmax,dustresfacmean)
  use io,             only:fatal
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
- use dim,            only:mhd,mhd_nonideal,lightcurve,use_dustfrac,maxstrain
+ use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxstrain
  use eos,            only:use_entropy,gamma
- use options,        only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating
+ use options, only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating,use_dustfrac
  use part,           only:h2chemistry,rhoanddhdrho,abundance,iboundary,igas,maxphase,maxvxyzu,nabundances, &
-                           massoftype,get_partinfo
+                          massoftype,get_partinfo,tstop
 #ifdef IND_TIMESTEPS
- use part,           only:ibin,ibinsink
+ use part,           only:ibin
  use timestep_ind,   only:get_newbin
- use timestep_sts,   only:sts_it_n,ibinsts
+ use timestep_sts,   only:sts_it_n,ibin_sts
 #endif
  use viscosity,      only:bulkvisc,dt_viscosity,irealvisc,shearfunc
  use kernel,         only:kernel_softening
@@ -2065,16 +2051,17 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
  real,               intent(inout) :: dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean
  real,               intent(inout) :: dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax
 #endif
- logical,            intent(in)    :: check_ibinsink
+ integer,            intent(inout) :: ndustres
+ real,               intent(inout) :: dustresfacmean,dustresfacmax
 
  real    :: xpartveci(maxxpartveciforce),fsum(maxfsum)
  real    :: rhoi,rho1i,rhogasi,hi,hi1,pmassi
  real    :: Bevoli(maxBevol),curlBi(3),straini(6)
  real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,vcleani
  real    :: ponrhoi,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
- real    :: psii,dtau,dustresfacmean,dustresfacmax
+ real    :: psii,dtau
  real    :: eni,dudtnonideal
- real    :: tstop,dustfraci,dtdustdenom
+ real    :: tstopi,dustfraci,dtdustdenom
  real    :: etaambii,etahalli,etaohmi
  real    :: vsigmax,vwavei,fxyz4
 #ifdef LIGHTCURVE
@@ -2085,15 +2072,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 #endif
  real    :: vsigdtc,dtc,dtf,dti,dtcool,dtdiffi
  real    :: dtohmi,dtambii,dthalli,dtvisci,dtdrag,dtdusti,dtclean
-
- integer :: idudtcool,ichem,ndustres,iamtypei
+ integer :: idudtcool,ichem,iamtypei
  logical :: iactivei,iamgasi,iamdusti,realviscosity
-
 #ifdef IND_TIMESTEPS
+ integer(kind=1)       :: ibin_neighi
  logical               :: allow_decrease,dtcheck
  character(len=16)     :: dtchar
 #endif
-
  integer               :: ip,i
 
  realviscosity = (irealvisc > 0)
@@ -2123,6 +2108,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 
     fsum(:)       = cell%fsums(:,ip)
     xpartveci(:)  = cell%xpartvec(:,ip)
+#ifdef IND_TIMESTEPS
+    ibin_neighi   = cell%ibinneigh(ip)
+#endif
 
     xi         = xpartveci(ixi)
     yi         = xpartveci(iyi)
@@ -2168,7 +2156,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 
        if (use_dustfrac) then
           dustfraci = xpartveci(idustfraci)
-          tstop = xpartveci(itstop)
+          tstopi = xpartveci(itstop)
        endif
 
     endif
@@ -2280,7 +2268,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
                         abundance(:,i),nabundances,dt,xyzh(1,i),xyzh(2,i),xyzh(3,i),&
                         divcurlv(1,i),idudtcool,ichem)
                 else
-                   call energ_cooling(icooling,vxyzu(4,i),fxyz4,xyzh(1,i),xyzh(2,i),xyzh(3,i))
+                   !call energ_cooling(icooling,vxyzu(4,i),fxyz4,xyzh(1,i),xyzh(2,i),xyzh(3,i))
+                   call energ_cooling(icooling,vxyzu(4,i),fxyz4,xyzh(1,i),xyzh(2,i),xyzh(3,i),rhoi,vxyzu(:,i),dt)
                 endif
              endif
              ! extra terms in du/dt from one fluid dust
@@ -2320,7 +2309,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
        endif
 
        if (use_dustfrac) then
-          ddustfrac(i) = 0.5*(fsum(iddustfraci)-sqrt(rhoi*dustfraci)*divvi)
+          !ddustfrac(i) = 0.5*(fsum(iddustfraci)-sqrt(rhoi*dustfraci)*divvi)
+          ddustfrac(i) = 0.5*(fsum(iddustfraci)*rho1i/((1.-dustfraci)**2.))
           deltav(1,i)  = fsum(ideltavxi)
           deltav(2,i)  = fsum(ideltavyi)
           deltav(3,i)  = fsum(ideltavzi)
@@ -2335,7 +2325,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
        endif
 
        ! cooling timestep dt < fac*u/(du/dt)
-       if (maxvxyzu >= 4 .and. icooling==1) then
+       if (maxvxyzu >= 4 .and. icooling > 0) then
           dtcool = C_cool*abs(eni/fxyzu(4,i))
        else
           dtcool = bignumber
@@ -2406,7 +2396,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 
     ! one fluid dust timestep
     if (use_dustfrac .and. iamgasi .and. dustfraci > 0. .and. spsoundi > 0.) then
-       dtdustdenom = dustfraci*tstop*spsoundi**2
+       dtdustdenom = dustfraci*tstopi*spsoundi**2
        if (dtdustdenom > tiny(dtdustdenom)) then
           dtdusti = C_force*hi*hi/dtdustdenom
        else
@@ -2414,6 +2404,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
        endif
     else
        dtdusti = bignumber
+    endif
+
+    ! stopping time
+    if (use_dust .and. use_dustfrac) then
+       tstop(i) = tstopi
+    elseif (use_dust .and. .not.use_dustfrac) then
+       tstop(i) = dtdrag
     endif
 
 #ifdef IND_TIMESTEPS
@@ -2447,27 +2444,17 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
     !
     ! Saitoh-Makino limiter, do not allow timestep to be more than 1 bin away from neighbours
     !
-    !ibin(i) = max(ibin(i),ibin_neigh-1_1)
-    !
-    ! This will keep particles near sink candidates awake (add 1 to smoothly move the particle)
-    !
-    if (check_ibinsink) then
-       if (ibinsink(i) > ibin(i)) ibin(i) = ibin(i) + 1_1
-       ! This is a more useful way to manage this array in the cases where
-       ! multiple particles are being tested for sink creation
-       ibinsink(i) = max(ibinsink(i) - 1_1, 0_1)
-    endif
+    ibin(i) = max(ibin(i),ibin_neighi-1_1)
     !
     ! find the new maximum number of bins
     nbinmaxnew = max(nbinmaxnew,int(ibin(i)))
     ncheckbin  = ncheckbin + 1
 
-    ! ibinsts: based entirely upon the diffusive timescale
+    ! ibin_sts: based entirely upon the diffusive timescale
     if ( use_sts ) then
-       ibinsts(i) = 0 ! we actually want dtdiff, and this is just a tracer; should reduce the number of sts active particles for speed
-       call get_newbin(dtdiffi,dtmax,ibinsts(i),allow_decrease,.false.)
-       nbinmaxstsnew = max(nbinmaxstsnew,int(ibinsts(i)))
-       ibinsts(i) = -ibinsts(i) ! set as negative to tag as active; will be reset to positive shortly
+       ibin_sts(i) = 0 ! we actually want dtdiff, and this is just a tracer; should reduce the number of sts active particles for speed
+       call get_newbin(dtdiffi,dtmax,ibin_sts(i),allow_decrease,.false.)
+       nbinmaxstsnew = max(nbinmaxstsnew,int(ibin_sts(i)))
     endif
 
 #else
@@ -2493,7 +2480,7 @@ pure subroutine combine_cells(cella, cellb)
  type(cellforce),   intent(inout)        :: cella
  type(cellforce),   intent(in)           :: cellb
 
- integer                                :: i
+ integer                                 :: i
 
  do i = 1,cella%npcell
     cella%fsums(:,i) = cella%fsums(:,i) + cellb%fsums(:,i)

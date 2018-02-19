@@ -1,0 +1,14 @@
+# default settings for ifort compiler
+# override these in the Makefile
+FC= ifort
+FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
+DBLFLAG= -r8
+DEBUGFLAG= -check all -WB -traceback -g -debug all # -fpe0 -fp-stack-check -debug all
+ENDIANFLAGBIG= -convert big_endian
+ENDIANFLAGLITTLE= -convert little_endian
+# or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
+OMPFLAGS = -openmp
+CC = icc
+CCFLAGS = -O3 -mcmodel=medium
+LIBCXX = -cxxlib
+KNOWN_SYSTEM=yes

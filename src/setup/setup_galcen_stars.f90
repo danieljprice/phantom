@@ -19,9 +19,11 @@
 !
 !  RUNTIME PARAMETERS:
 !    datafile -- filename for star data (m,x,y,z,vx,vy,vz)
+!    h_sink   -- sink particle radii in arcsec at 8kpc
 !    m_gas    -- gas mass resolution in solar masses
 !
-!  DEPENDENCIES: dim, infile_utils, io, part, physcon, prompting, units
+!  DEPENDENCIES: dim, eos, infile_utils, io, part, physcon, prompting,
+!    timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -33,6 +35,7 @@ module setup
  !
  character(len=120) :: datafile = 'stars.m.pos.-vel.txt'
  real :: m_gas = 1.e-6 ! gas mass resolution in Msun
+ real :: h_sink = 0.05 ! sink particle radii in arcsec at 8kpc
 
  private
 
@@ -48,6 +51,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,     only:set_units,umass !,udist
  use physcon,   only:solarm,kpc,pi,au
  use io,        only:fatal,iprint,master
+ use eos,       only:gmw
+ use timestep,  only:dtmax
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -72,6 +77,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  hfact = 1.2
  polyk = 0.
  gamma = 5./3.
+ gmw = 0.6  ! completely ionized, solar abu; eventually needs to be WR abu
+ dtmax = 0.01
  !
  ! read setup parameters from the .setup file
  ! if file does not exist, then ask for user input
@@ -87,7 +94,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  npart = 0
  npartoftype(:) = 0
- massoftype = 1.e-6*(solarm/umass)  ! mass resolution
+ massoftype = m_gas*(solarm/umass)  ! mass resolution
 
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.
@@ -105,8 +112,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  do i=2,nptmass
     xyzmh_ptmass(1:3,i)  = xyzmh_ptmass(1:3,i)
     xyzmh_ptmass(4,i)    = xyzmh_ptmass(4,i)
-    xyzmh_ptmass(ihacc,i)  = 0.001
-    xyzmh_ptmass(ihsoft,i) = 0.001
+    xyzmh_ptmass(ihacc,i)  = h_sink
+    xyzmh_ptmass(ihsoft,i) = h_sink
  enddo
 
  if (nptmass == 0) call fatal('setup','no particles setup')
@@ -174,6 +181,7 @@ subroutine write_setupfile(filename,iprint)
 
  write(lu,"(/,a)") '# resolution'
  call write_inopt(m_gas, 'm_gas','gas mass resolution in solar masses',lu,ierr2)
+ call write_inopt(h_sink, 'h_sink','sink particle radii in arcsec at 8kpc',lu,ierr2)
  close(lu)
 
 end subroutine write_setupfile
@@ -200,6 +208,7 @@ subroutine read_setupfile(filename,iprint,ierr)
  nerr = 0
  call read_inopt(datafile,'datafile',db,errcount=nerr)
  call read_inopt(m_gas,'m_gas',db,errcount=nerr)
+ call read_inopt(h_sink,'h_sink',db,errcount=nerr)
 
  if (nerr > 0) then
     print "(1x,a,i2,a)",'Setup_galcen: ',nerr,' error(s) during read of setup file'
@@ -221,6 +230,7 @@ subroutine interactive_setup()
                  '    ...where the black holes are supermassive and the stars are strange ***'
  call prompt('Enter filename for star data',datafile,noblank=.true.)
  call prompt('Enter mass resolution of injected gas particles in Msun',m_gas,1.e-15,1.)
+ call prompt('Enter sink particle radii in arcsec at 8kpc',h_sink,1.e-5,1.)
  print "(a)"
 
 end subroutine interactive_setup

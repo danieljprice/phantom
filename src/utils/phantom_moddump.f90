@@ -17,8 +17,9 @@
 !
 !  USAGE: moddump dumpfilein dumpfileout [time] [outformat]
 !
-!  DEPENDENCIES: checksetup, dim, eos, io, moddump, options, part,
-!    prompting, readwrite_dumps, readwrite_infile, setBfield, setup_params
+!  DEPENDENCIES: checksetup, dim, eos, initial_params, io, moddump,
+!    options, part, prompting, readwrite_dumps, readwrite_infile,
+!    setBfield, setup_params
 !+
 !--------------------------------------------------------------------------
 program phantommoddump
@@ -35,6 +36,7 @@ program phantommoddump
  use setup_params,    only:ihavesetupB
  use prompting,       only:prompt
  use checksetup,      only:check_setup
+ use initial_params,  only:get_conserv
  implicit none
  integer :: nargs
  character(len=120) :: dumpfilein,dumpfileout
@@ -116,6 +118,7 @@ program phantommoddump
  endif
 !
  call modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
+ get_conserv = 1.
 !
 !--perform sanity checks on the output of modify_dump routine
 !
