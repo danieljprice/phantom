@@ -906,7 +906,7 @@ ifeq ($(MCFOST), yes)
     MCFOST=yes
 
     FPPFLAGS+= -DMCFOST
-    LDFLAGS+= -L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)
+    LDFLAGS+= -L$(MCFOST_DIR)/src -lmcfost -lcurl $(LIBCXX)
 #    LDFLAGS+=  ~/mcfost/src/libtmp/*.o  ~/mcfost/src/*.o  $(LIBCXX)
 endif
 
