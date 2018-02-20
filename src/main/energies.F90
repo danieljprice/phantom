@@ -42,7 +42,7 @@ module energies
                                iev_alpha,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
                                iev_etaa(2),iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n(4),iev_nR(5),iev_nT(2),&
                                iev_dtg,iev_ts,iev_momall,iev_angall,iev_maccsink(2),&
-                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat
+                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_ionise
  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
  integer,         parameter :: iev_sum = 1    ! array index of the sum of the quantity
  integer,         parameter :: iev_max = 2    ! array index of the maximum of the quantity
@@ -62,7 +62,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine compute_energies(t)
- use dim,  only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,lightcurve,use_dust
+ use dim,  only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,lightcurve,use_dust,cmac_ionise
  use part, only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,npartoftype, &
                 alphaind,Bxyz,Bevol,divcurlB,iamtype,igas,idust,iboundary,istar,idarkmatter,ibulge, &
                 nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,isdead_or_accreted,epot_sinksink,&
@@ -148,7 +148,7 @@ subroutine compute_energies(t)
 !$omp shared(iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha) &
 !$omp shared(iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah) &
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
-!$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
+!$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat,iev_ionise) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
@@ -424,6 +424,7 @@ subroutine compute_energies(t)
                 endif
              endif
           endif
+          if (cmac_ionise) call ev_data_update(ev_data_thread,iev_ionise,n_electronT(i))
        endif isgas
 
     elseif (was_accreted(iexternalforce,hi)) then
