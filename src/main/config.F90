@@ -251,10 +251,27 @@ module dim
 #endif
 
 !--------------------
+! Electron number densities .or. ionisation fractions
+!--------------------
+#ifdef NONIDEALMHD
+ integer, parameter :: maxne = maxp
+#else
+#ifdef USE_CMAC_IONISE
+ integer, parameter :: maxne = maxp
+#else
+ integer, parameter :: maxne = 0
+#endif
+#endif
+#ifdef USE_CMAC_IONISE
+ logical, parameter :: cmac_ionise = .true.
+#else
+ logical, parameter :: cmac_ionise = .false.
+#endif
+
+!--------------------
 ! Calculate rotational energy in .ev
 !--------------------
- logical, public :: calc_erot     = .false.
- logical, public :: calc_erot_com = .false.
- logical, public :: incl_erot     = .false.
+ logical, public :: calc_erot = .false.
+ logical, public :: incl_erot = .false.
 
 end module dim
