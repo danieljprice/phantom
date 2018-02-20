@@ -607,6 +607,8 @@ subroutine getgamma1_mesa(x,rom,eint,gam1)
  real, intent(out) :: gam1
  real :: loge, logv, de, dv
  integer :: ne, nv, nn
+ real :: dx
+ integer :: nx
 
 !logRho = logV + 0.7*logE - 20
 
