@@ -607,6 +607,8 @@ subroutine getgamma1_mesa(x,rom,eint,gam1)
  real, intent(out) :: gam1
  real :: loge, logv, de, dv
  integer :: ne, nv, nn
+ real :: dx
+ integer :: nx
 
 !logRho = logV + 0.7*logE - 20
 
@@ -627,8 +629,13 @@ subroutine getgamma1_mesa(x,rom,eint,gam1)
 
 
  nn=11
- gam1 = ((1.d0-de)*(1.d0-dv)*mesa_de_data(ne,nv,nn)+de*(1.d0-dv)*mesa_de_data(ne+1,nv,nn)+(1.d0-de)*dv*mesa_de_data(ne,nv+1,nn) &
+ if(ne > 1.and.nv > 1.and.ne < mesa_eos_ne-1.and.nv < mesa_eos_nv-1) then
+    call eos_cubic_spline_mesa(ne,nv,loge,logv,'g',gam1,nx,dx)
+ else
+    gam1 = ((1.d0-de)*(1.d0-dv)*mesa_de_data(ne,nv,nn)+de*(1.d0-dv)*mesa_de_data(ne+1,nv,nn)+(1.d0-de)*dv*mesa_de_data(ne,nv+1,nn) &
         +de*dv*mesa_de_data(ne+1,nv+1,nn))
+ endif
+
  return
 end subroutine getgamma1_mesa
 
@@ -856,11 +863,14 @@ subroutine  eos_cubic_spline_mesa(e1,v1,e,v,varname,z,h1,dh)
  integer :: n_var
  integer :: j
 
- if(varname=='p') then
-    n_var=2
-! elseif(varname=='t') then
+ if (varname == 'p') then
+    n_var = 2
+ elseif (varname == 't') then
+    n_var = 4
+ elseif (varname == 'g') then
+    n_var = 11
  else
-    n_var=4
+    print *, 'Error in call to mesa cubic spline interpolation.'
  endif
 
  x0=mesa_eos_logEs(e1-1)
