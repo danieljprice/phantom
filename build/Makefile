@@ -1194,6 +1194,10 @@ ifeq ($(STS_TIMESTEPS), yes)
     FPPFLAGS += -DSTS_TIMESTEPS
 endif
 
+ifeq ($(USE_CMAC_IONISE), yes)
+    FPPFLAGS += -DUSE_CMAC_IONISE
+endif
+
 ifeq ($(DEBUG), yes)
     FFLAGS += -DDEBUG
 endif
