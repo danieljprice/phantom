@@ -42,18 +42,14 @@ subroutine write_gitinfo(iunit)
  inquire(file="phantom_version",exist=iexist)
  if (iexist) then
     open(unit=igit,file="phantom_version")
-    ! Copy in the four opening lines of information
-    read(igit,'(a)') gitinfo
-    write(iunit,'(1x,a)') trim(gitinfo)
-    do i = 1,4
+    ! Copy in the nine opening lines of information
+    do i = 1,9
        read(igit,'(a)') gitinfo
-       write(iunit,'(4x,a)') trim(gitinfo)
-       if (use_debug .and. i==2) write(iunit,'(4x,a)') "Phantom was compiled with DEBUG=YES"
+       write(iunit,'(1x,a)') trim(gitinfo)
     enddo
-    read(igit,'(a)',iostat=io_local) gitinfo
-    if (io_local==0) write(iunit,'(4x,a)') trim(gitinfo)
     i     = 0
     lfile = 0
+    io_local = 0
     ! Read the list of modified files
     do while (io_local==0 .and. i < nfiles)
        read(igit,'(a)',iostat=io_local) gitinfo
