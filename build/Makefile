@@ -1084,7 +1084,7 @@ endif
 ifeq ($(SYSTEM), lyoccf)
 # LIO CCF cluster
     include Makefile_defaults_ifort
-    FFLAGS= -O3 -ftz -xavx -cpp -sox -ipo -fno-alias -fno-fnalias \
+    FFLAGS= -O3 -ftz -xavx -cpp -sox -fno-alias -fno-fnalias \
             -no-prec-div -no-prec-sqrt -align all -warn uninitialized \
             -warn unused -warn truncated_source
     CCFLAGS = -O3 -ipo -mcmodel=medium
