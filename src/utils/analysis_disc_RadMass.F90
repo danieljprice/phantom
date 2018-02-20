@@ -9,7 +9,7 @@
 !
 !  DESCRIPTION:
 !  Analysis routine calculating the mass and radius of a disc
-!  As per Price & Bate (2007), Wurster, Price & Bate (2015), disc particles
+!  As per Price & Bate (2007), Wurster, Price & Bate (2016), disc particles
 !  are those with rho > 1e-13 g cm^-3 & the radius contains 99% of this mass.
 !  Generalised for gas, dust and stellar discs.
 !
@@ -32,8 +32,7 @@ module analysis
  use part,        only: isdead_or_accreted,iamtype,iphase,igas,massoftype,maxphase,rhoh
  use eos,         only: ieos,init_eos,equationofstate,init_eos, &
                         get_spsound,get_temperature,get_temperature_from_ponrho
- use nicil,       only: nicil_initialise,nicil_get_ion_n,nicil_get_eta,unit_eta, &
-                        nelements_max,nelements,nlevels
+ use nicil,       only: nicil_initialise,nicil_get_ion_n,nicil_get_eta,unit_eta,n_data_out
  use physcon,     only: pi
  implicit none
  character(len=20), parameter, public :: analysistype = 'discRM'
@@ -981,7 +980,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bevol,particlemass,
  real                         :: Bi1,rho1i,etaohm,etahall,etaambi,etaart1,volL
  real                         :: volP(13),Dbins(iD,nbins),Cbins(7,nbins),Hbins(2,iH)
  real                         :: fracrotVol(6),vrat,fracrotDisc(6,nbins),ReyK(7),Rey(7)
- real                         :: data_out(17+nelements_max*nlevels-3)
+ real                         :: data_out(n_data_out)
  character(len=200)           :: fileout4,fileout5
  !
  ! Initialise variables
