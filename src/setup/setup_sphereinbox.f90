@@ -39,7 +39,7 @@
 !--------------------------------------------------------------------------
 module setup
  use part, only:mhd
- use dim,  only:use_dust,calc_erot,calc_erot_com,maxvxyzu
+ use dim,  only:use_dust,calc_erot,maxvxyzu
  implicit none
  public :: setpart
 
@@ -407,7 +407,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ieos          = 8
     nfulldump     = 1
     calc_erot     = .true.
-    calc_erot_com = .false.
     if (modify_dtmax) then
        dtmax_rat0       = 4
        rho_dtthresh_cgs = 5.0d-13

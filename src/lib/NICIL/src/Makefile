@@ -21,12 +21,21 @@ sph: nicil.o  nicil_ex_sph_sup.o nicil_ex_sph.o
 	$(FC) $(FFLAGS) -o nicil_ex_sph nicil.o  nicil_ex_sph_sup.o nicil_ex_sph.o
 	cp nicil_ex_sph ..
 
+zeta: nicil.o  nicil_ex_zeta.o
+	$(FC) $(FFLAGS) -o nicil_ex_zeta nicil.o  nicil_ex_zeta.o
+	cp nicil_ex_zeta ..
+
+one: nicil.o  nicil_get_one_point.o
+	$(FC) $(FFLAGS) -o nicil_get_one_point nicil.o  nicil_get_one_point.o
+	cp nicil_get_one_point ..
+
 clean:   
 	rm -f *.o *.mod
-	rm nicil_ex_eta; rm nicil_ex_sph
+	rm nicil_ex_eta; rm nicil_ex_sph; rm nicil_ex_zeta; rm nicil_get_one_point
 
 allclean:   
 	rm -f *.o *.mod
 	rm -f ../data/*.dat; 	rm -f ../data/*.log
 	rm -f ../Graphs/plot.gnuplot; rm -f ../Graphs/*eps
-	rm ../nicil_ex_eta; rm ../nicil_ex_sph; rm nicil_ex_eta; rm nicil_ex_sph
+	rm ../nicil_ex_eta; rm ../nicil_ex_sph; rm ../nicil_ex_zeta; rm ../nicil_get_one_point
+	rm    nicil_ex_eta; rm    nicil_ex_sph; rm    nicil_ex_zeta; rm    nicil_get_one_point

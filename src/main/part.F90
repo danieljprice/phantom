@@ -232,13 +232,13 @@ module part
 !         initialised (even on restarts where not all arrays, e.g. gradh,
 !         are not saved)
 !
- integer, parameter :: igas  = 1
- integer, parameter :: idust = 2
- integer, parameter :: iboundary = 3
- integer, parameter :: istar = 4
+ integer, parameter :: igas        = 1
+ integer, parameter :: idust       = 2
+ integer, parameter :: iboundary   = 3
+ integer, parameter :: istar       = 4
  integer, parameter :: idarkmatter = 5
- integer, parameter :: ibulge = 6
- integer, parameter :: iunknown = 0
+ integer, parameter :: ibulge      = 6
+ integer, parameter :: iunknown    = 0
  logical            :: set_boundaries_to_active = .true.
  character(len=5), dimension(maxtypes), parameter :: &
     labeltype = (/'gas  ','dust ','bound','star ','darkm','bulge'/)
