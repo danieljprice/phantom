@@ -38,7 +38,7 @@ subroutine test_link(ntests,npass)
  use kernel,   only:radkern2,radkern
  use unifdis,  only:set_unifdis
  use timing,   only:getused
- use random,   only:ran1
+ use random,   only:ran2
  use domain,   only:i_belong
  use part,            only:maxphase,iphase,isetphase,igas,iactive
  use testutils,       only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end
@@ -123,7 +123,7 @@ subroutine test_link(ntests,npass)
     iseed = -24358
     ip = 0
     do i=1,nptot
-       hi = hmin + ran1(iseed)*(hmax - hmin)
+       hi = hmin + ran2(iseed)*(hmax - hmin)
        if (i_belong(i)) then
           ip = ip + 1
           !--give random smoothing lengths

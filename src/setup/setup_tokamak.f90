@@ -41,7 +41,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:master,fatal
  use mpiutils,     only:bcast_mpi
  use physcon,      only:pi
- use random,       only:ran1
+ use random,       only:ran2
  use kernel,       only:hfact_default
  use options,      only:iexternalforce
  use part,         only:igas
@@ -107,7 +107,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           deltaphi = deltaz*Rtorus/rcyl
           nphi     = int(2.*pi/deltaphi)
           deltaphi = 2.*pi/nphi
-          randphi  = ran1(iseed)*deltaphi
+          randphi  = ran2(iseed)*deltaphi
           !--make ring of particles at r=rcyl
           do i=1,nphi
              ipart = ipart + 1
