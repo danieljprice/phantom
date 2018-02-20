@@ -94,7 +94,6 @@ subroutine check_compile_time_settings(ierr)
 #ifdef DUST
 #ifdef MHD
  if (id==master) call error(string,'-DDUST currently not compatible with magnetic fields (-DMHD)')
- ierr = 1
 #endif
 #endif
 
