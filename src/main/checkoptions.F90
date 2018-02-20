@@ -62,6 +62,10 @@ subroutine check_compile_time_settings(ierr)
     if (id==master) call error(string,'-DNONIDEALMHD requires -DMHD')
     ierr = 1
  endif
+#ifdef USE_CMAC_IONISE
+ if (id==master) call error(string,'can not use both -DNONIDEALMHD and -DUSE_CMAC_IONISE')
+ ierr = 1
+#endif
 #endif
 
 #ifdef GRAVITY
@@ -90,6 +94,7 @@ subroutine check_compile_time_settings(ierr)
 #ifdef DUST
 #ifdef MHD
  if (id==master) call error(string,'-DDUST currently not compatible with magnetic fields (-DMHD)')
+ ierr = 1
 #endif
 #endif
 

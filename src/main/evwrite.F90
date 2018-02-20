@@ -59,7 +59,7 @@ module evwrite
                            iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah,&
                            iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT,&
                            iev_dtg,iev_ts,iev_momall,iev_angall,iev_angall,iev_maccsink,&
-                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat
+                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_ionise
 
  implicit none
  public                    :: init_evfile, write_evfile, write_evlog
@@ -80,7 +80,7 @@ contains
 !----------------------------------------------------------------
 subroutine init_evfile(iunit,evfile)
  use io,        only: id,master,warning
- use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,calc_erot,lightcurve
+ use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,calc_erot,lightcurve,cmac_ionise
  use options,   only: ishock_heating,ipdv_heating,use_dustfrac
  use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype
  use nicil,     only: use_ohm,use_hall,use_ambi,ion_rays,ion_thermal
@@ -202,6 +202,9 @@ subroutine init_evfile(iunit,evfile)
  endif
  if (irealvisc /= 0) then
     call fill_ev_tag(ev_fmt,iev_viscrat,'visc_rat','xan',i,j)
+ endif
+ if (cmac_ionise) then
+    call fill_ev_tag(ev_fmt,iev_ionise,'ion_frac','xan',i,j)
  endif
  iquantities = i - 1 ! The number of different quantities to analyse
  ielements   = j - 1 ! The number of values to be calculated (i.e. the number of columns in .ve)
