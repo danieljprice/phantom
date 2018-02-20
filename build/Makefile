@@ -589,15 +589,6 @@ ifeq ($(SETUP), cluster)
     MAXP=3500000
 endif
 
-ifeq ($(SETUP), tracers) # [buildbot skip]
-#   tracer particle density calculation
-    FPPFLAGS= -DPERIODIC #-DNO_ITERATIONS
-    SETUPFILE= setup_tracers.f90
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-    HDF5=yes
-endif
-
 ifeq ($(SETUP), binary)
 #   binary setup
     FPPFLAGS= -DCONST_AV
