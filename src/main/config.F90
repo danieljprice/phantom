@@ -256,16 +256,16 @@ module dim
 #ifdef NONIDEALMHD
  integer, parameter :: maxne = maxp
 #else
-#ifdef USE_CMAC_IONISE
+#ifdef CMACIONIZE
  integer, parameter :: maxne = maxp
 #else
  integer, parameter :: maxne = 0
 #endif
 #endif
-#ifdef USE_CMAC_IONISE
- logical, parameter :: cmac_ionise = .true.
+#ifdef CMACIONIZE
+ logical, parameter :: use_CMacIonize = .true.
 #else
- logical, parameter :: cmac_ionise = .false.
+ logical, parameter :: use_CMacIonize = .false.
 #endif
 
 !--------------------

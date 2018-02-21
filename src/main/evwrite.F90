@@ -80,7 +80,7 @@ contains
 !----------------------------------------------------------------
 subroutine init_evfile(iunit,evfile)
  use io,        only: id,master,warning
- use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,calc_erot,lightcurve,cmac_ionise
+ use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,calc_erot,lightcurve,use_CMacIonize
  use options,   only: ishock_heating,ipdv_heating,use_dustfrac
  use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype
  use nicil,     only: use_ohm,use_hall,use_ambi,ion_rays,ion_thermal
@@ -203,7 +203,7 @@ subroutine init_evfile(iunit,evfile)
  if (irealvisc /= 0) then
     call fill_ev_tag(ev_fmt,iev_viscrat,'visc_rat','xan',i,j)
  endif
- if (cmac_ionise) then
+ if (use_CMacIonize) then
     call fill_ev_tag(ev_fmt,iev_ionise,'ion_frac','xan',i,j)
  endif
  iquantities = i - 1 ! The number of different quantities to analyse

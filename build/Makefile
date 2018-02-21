@@ -1185,8 +1185,8 @@ ifeq ($(STS_TIMESTEPS), yes)
     FPPFLAGS += -DSTS_TIMESTEPS
 endif
 
-ifeq ($(USE_CMAC_IONISE), yes)
-    FPPFLAGS += -DUSE_CMAC_IONISE
+ifeq ($(CMACIONIZE), yes)
+    FPPFLAGS += -DCMACIONIZE
 endif
 
 ifeq ($(DEBUG), yes)
