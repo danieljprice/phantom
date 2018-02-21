@@ -62,7 +62,7 @@ subroutine test_nonidealmhd(ntests,npass)
  !
  ! Test the passage of arrays required for non-constant eta
  !
-!!!!! call test_narrays(ntests,npass)
+ call test_narrays(ntests,npass)
  !
  if (id==master) write(*,"(/,a)") '<-- NON-IDEALMHD TEST COMPLETE'
 #else
