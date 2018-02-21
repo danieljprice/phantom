@@ -23,7 +23,7 @@
 !    m_gas    -- gas mass resolution in solar masses
 !
 !  DEPENDENCIES: dim, eos, infile_utils, io, part, physcon, prompting,
-!    timestep, units
+!    spherical, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
