@@ -446,7 +446,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        call get_timings(t2,tcpu2)
        call increment_timer(timer_ev,t2-t1,tcpu2-tcpu1)
     endif
-!-- Print out the sink particle properties & reset dt_changed. 
+!-- Print out the sink particle properties & reset dt_changed.
 !-- Added total force on sink particles and sink-sink forces to write statement (fxyz_ptmass,fxyz_ptmass_sinksink)
     nskipped_sink = nskipped_sink + nskip
     if (nskipped_sink >= nsinkwrite_threshold .or. at_dump_time .or. dt_changed) then
