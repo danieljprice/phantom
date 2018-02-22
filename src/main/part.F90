@@ -26,7 +26,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, io, mpiutils
+!  DEPENDENCIES: dim, domain, io, mpiutils
 !+
 !--------------------------------------------------------------------------
 module part
