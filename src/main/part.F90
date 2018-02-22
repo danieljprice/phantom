@@ -707,6 +707,7 @@ end subroutine reorder_particles
 !-----------------------------------------------------------------------
 subroutine shuffle_part(np)
  use io, only:fatal
+ use domain, only:ibelong
  integer, intent(inout) :: np
  integer :: newpart
 
@@ -714,8 +715,11 @@ subroutine shuffle_part(np)
     newpart = ideadhead
     if (newpart <= np) then
        if (.not.isdead(np)) then
-          !if (.not.isdead(newpart)) call fatal('shuffle','corrupted dead list',newpart)
+          ! move particle to new position
           call copy_particle_all(np,newpart)
+          ! move ibelong to new position
+          ibelong(newpart) = ibelong(np)
+          ! update deadhead
           ideadhead = ll(newpart)
        endif
        np = np - 1
