@@ -184,6 +184,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
  type(celldens)            :: xrecvbuf(nprocs),xsendbuf
  integer                   :: mpiits,nlocal
+ real                      :: ntotal
  logical                   :: iterations_finished
  logical                   :: do_export
 
@@ -397,7 +398,15 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp end single
 
 !$omp single
- if (iverbose>=6) print*,id,'local ratio = ',real(nlocal)/(real(nlocal) + real(stack_waiting%n))
+ if (iverbose>=6) then
+    ntotal = real(nlocal) + real(stack_waiting%n)
+    if (ntotal > 0) then
+       write(iprint,*) id,'local ratio = ',real(nlocal)/ntotal
+    else
+       write(iprint,*) id,'local ratio = 0'
+    endif
+ endif
+
  mpiits = 0
  iterations_finished = .false.
 !$omp end single
