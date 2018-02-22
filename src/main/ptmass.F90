@@ -1224,8 +1224,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
      ' at (x,y,z,t)=(',xyzmh_ptmass(1:3,nptmass),time,') by accreting ',nacc,' particles: M=',xyzmh_ptmass(4,nptmass)
     if (nacc <= 0) call fatal('ptmass_create',' created ptmass but failed to accrete anything')
     !
-    ! open new file to track new sink particle details & and update all sink-tracking files
-    ! fxyz_ptmass, fxyz_ptmass_sinksink are total force on sinks and sin-sin forces.
+    ! open new file to track new sink particle details & and update all sink-tracking files;
+    ! fxyz_ptmass, fxyz_ptmass_sinksink are total force on sinks and sink-sink forces.
     !
     fxyz_ptmass = 0.0
     fxyz_ptmass_sinksink = 0.0
@@ -1381,8 +1381,8 @@ subroutine pt_open_sinkev(num)
          13,'fx',    &
          14,'fy',    &
          15,'fz',    &
-         16,'fssx',    &
-         17,'fssy',    &
+         16,'fssx',  &
+         17,'fssy',  &
          18,'fssz'
 
 end subroutine pt_open_sinkev
