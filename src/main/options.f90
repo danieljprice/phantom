@@ -52,6 +52,9 @@ module options
 
  logical, public :: use_dustfrac
 
+! mcfost
+ logical, public :: use_mcfost
+
  public :: set_default_options
  public :: ieos
 
@@ -126,6 +129,9 @@ subroutine set_default_options
 
  ! dust method
  use_dustfrac = .false.
+
+ ! mcfost
+ use_mcfost = .false.
 
 end subroutine set_default_options
 
