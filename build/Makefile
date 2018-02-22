@@ -1623,6 +1623,9 @@ libphantom: checksystem checkparams
 cleanlibphantom:
 	rm -f $(BINDIR)/libphantom.so
 
+.PHONY: pyanalysis
+pyanalysis: libphantom
+
 #------------------------------------------------------
 # Various utilities for computing structure functions
 # and manipulating the resulting output
