@@ -109,7 +109,7 @@ module part
  integer, parameter :: i_tlast = 11 ! time of last injection
  real :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real :: vxyz_ptmass(3,maxptmass)
- real :: fxyz_ptmass(4,maxptmass)
+ real :: fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
  character(len=*), parameter :: xyzmh_ptmass_label(11) = &

@@ -59,6 +59,7 @@
 !    nplanets          -- number of planets
 !    nsinks            -- number of sinks
 !    setplanets        -- add planets? (0=no,1=yes)
+!    use_mcfost        -- use the mcfost library to compute the temperature
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_lensethirring, externalforces, infile_utils, io, kernel,
@@ -70,6 +71,9 @@ module setup
  use dim,            only:maxp,use_dust,maxalpha
  use externalforces, only:iext_star,iext_binary,iext_lensethirring,iext_einsteinprec
  use options,        only:use_dustfrac,iexternalforce
+#ifdef MCFOST
+ use options,        only:use_mcfost
+#endif
  use physcon,        only:au,solarm
  use setdisc,        only:scaled_sigma
 
@@ -570,13 +574,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     icooling = 1
  endif
 #ifdef MCFOST
- !--radiative equilibrium
- ieos = 2
- gamma = 5./3.
- icooling = 0
- ipdv_heating = 0
- ishock_heating = 0
- alphau = 0
+ if (use_mcfost) then
+    write(*,*) "MCFOST"
+    !--radiative equilibrium
+    ieos = 2
+    gamma = 5./3.
+    icooling = 0
+    ipdv_heating = 0
+    ishock_heating = 0
+    alphau = 0
+ else ! We use
+    ieos = 3
+    icooling = 0
+    ipdv_heating = 0
+    ishock_heating = 0
+    alphau = 0
+ endif
 #endif
 
  !
@@ -1325,6 +1338,10 @@ subroutine write_setupfile(filename)
     call write_inopt(norbits,'norbits','maximum number of orbits at outer disc',iunit)
  endif
  call write_inopt(deltat,'deltat','output interval as fraction of orbital period',iunit)
+ !--mcfost
+ write(iunit,"(/,a)") '# mcfost'
+ call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iunit)
+
  close(iunit)
 
 end subroutine write_setupfile
@@ -1547,6 +1564,19 @@ subroutine read_setupfile(filename,ierr)
  !  following two are optional: not an error if not present
  call read_inopt(norbits,'norbits',db,err=ierr)
  call read_inopt(deltat,'deltat',db,err=ierr)
+ !--mcfost
+ call read_inopt(use_mcfost,'use_mcfost',db,err=ierr)
+ if (ierr) use_mcfost = .false. ! no mcfost by default
+
+#ifndef MCFOST
+ if (use_mcfost) then
+    write(*,*) "Error: phantom was not compiled with mcfost"
+    write(*,*) "Cannot run with use_mcfost = True"
+    write(*,*) "Exiting"
+    stop
+ endif
+#endif
+
 
  call close_db(db)
  ierr = nerr

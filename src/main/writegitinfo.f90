@@ -64,6 +64,10 @@ subroutine write_gitinfo(iunit)
        endif
     enddo
     close(igit)
+    if (i==0) then
+       i = 1
+       updatedfiles(i) = "none"
+    endif
     if (i==nfiles) updatedfiles(i) = "Plus unlisted files"
     ! Put the files three in a line, and write to iunit
     k = 0
