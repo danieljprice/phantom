@@ -39,7 +39,6 @@ module dust
  integer, public  :: idrag             = 1
  integer, public  :: icut_backreaction = 0
  real, public     :: grainsize,graindens
- real, private    :: grainmass
  public           :: write_options_dust,read_options_dust
  public           :: get_ts, init_drag
  public           :: print_dustinfo
@@ -57,7 +56,7 @@ contains
 
 !-----------------------------------------------------------------------
 !+
-!  initialize the drag: compute the quatities that are used once
+!  initialize the drag: compute the quantities that are used once
 !+
 !-----------------------------------------------------------------------
 subroutine init_drag(ierr)
@@ -83,9 +82,12 @@ subroutine init_drag(ierr)
  !--change this line for fractal grains or grains of different sizes
  grainsize         = grainsizecgs/udist
  graindens         = graindenscgs/unit_density
- grainmass         = 4./3.*pi*graindens*grainsize**3
- if (grainmass <= 0.) then
-    call error('init_drag','grain size/density <= 0',var='grainmass',val=grainmass)
+ if (grainsize <= 0.) then
+    call error('init_drag','grain size <= 0',var='grainsize',val=grainsize)
+    ierr = 2
+ endif
+ if (graindens <= 0.) then
+    call error('init_drag','grain density <= 0',var='graindens',val=graindens)
     ierr = 2
  endif
  !--compute the effective surface density used to calculate the mean free path
@@ -113,18 +115,23 @@ end subroutine init_drag
 subroutine print_dustinfo(iprint)
  use units, only:unit_density,umass,udist
  integer, intent(in) :: iprint
- real :: rhocrit
+ real :: rhocrit, grainmass
 
  select case(idrag)
  case(1)
-    write(iprint,"(a)")              ' Using Epstein/Stokes drag: '
-    write(iprint,"(2(a,1pg10.3),a)") '        Grain size = ',grainsize*udist,        ' cm     = ',grainsize,' (code units)'
-    write(iprint,"(2(a,1pg10.3),a)") '        Grain mass = ',grainmass*umass,        ' g      = ',grainmass,' (code units)'
-    write(iprint,"(2(a,1pg10.3),a)") '     Grain density = ',graindens*unit_density, ' g/cm^3 = ',graindens,' (code units)'
-    write(iprint,"(2(a,1pg10.3),a)") '  Gas mfp at rho=1 = ',seff*udist/unit_density,' cm     = ',seff,' (code units)'
-    rhocrit = 9.*seff/(4.*grainsize)
-    write(iprint,"(/,a)")              ' Density above which Stokes drag is used:'
-    write(iprint,"(2(a,1pg10.3),a)") '           rhocrit = ',rhocrit*unit_density,   ' g/cm^3 = ',rhocrit,' (code units)'
+    if (use_dustgrowth) then
+       write(iprint,"(a)")              ' Using Epstein/Stokes drag with variable grain size. '
+    else
+       grainmass = 4./3.*pi*graindens*grainsize**3
+       write(iprint,"(a)")              ' Using Epstein/Stokes drag with constant grain size: '
+       write(iprint,"(2(a,1pg10.3),a)") '        Grain size = ',grainsize*udist,        ' cm     = ',grainsize,' (code units)'
+       write(iprint,"(2(a,1pg10.3),a)") '        Grain mass = ',grainmass*umass,        ' g      = ',grainmass,' (code units)'
+       write(iprint,"(2(a,1pg10.3),a)") '     Grain density = ',graindens*unit_density, ' g/cm^3 = ',graindens,' (code units)'
+       write(iprint,"(2(a,1pg10.3),a)") '  Gas mfp at rho=1 = ',seff*udist/unit_density,' cm     = ',seff,' (code units)'
+       rhocrit = 9.*seff/(4.*grainsize)
+       write(iprint,"(/,a)")              ' Density above which Stokes drag is used:'
+       write(iprint,"(2(a,1pg10.3),a)") '           rhocrit = ',rhocrit*unit_density,   ' g/cm^3 = ',rhocrit,' (code units)'
+    endif
  case(2)
     write(iprint,"(/,a,1pg12.5)") ' Using K=const drag with K = ',K_code
  case(3)
@@ -305,8 +312,10 @@ subroutine write_options_dust(iunit)
 
  write(iunit,"(/,a)") '# options controlling dust'
  call write_inopt(idrag,'idrag','gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)',iunit)
- call write_inopt(grainsizecgs,'grainsize','Grain size in cm',iunit)
- call write_inopt(graindenscgs,'graindens','Intrinsic grain density in g/cm^3',iunit)
+ if (.not.use_dustgrowth) then
+    call write_inopt(grainsizecgs,'grainsize','Grain size in cm',iunit)
+    call write_inopt(graindenscgs,'graindens','Intrinsic grain density in g/cm^3',iunit)
+ endif
  call write_inopt(K_code,'K_code','drag constant when constant drag is used',iunit)
  call write_inopt(icut_backreaction,'icut_backreaction','cut the drag on the gas phase (0=no, 1=yes)',iunit)
 
