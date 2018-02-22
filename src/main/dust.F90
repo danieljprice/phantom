@@ -114,6 +114,8 @@ end subroutine init_drag
 !--------------------------------------------
 subroutine print_dustinfo(iprint)
  use units, only:unit_density,umass,udist
+ use physcon,  only:pi
+ use dim, only:use_dustgrowth
  integer, intent(in) :: iprint
  real :: rhocrit, grainmass
 
@@ -308,6 +310,7 @@ end subroutine get_ts
 !-----------------------------------------------------------------------
 subroutine write_options_dust(iunit)
  use infile_utils, only:write_inopt
+ use dim, only:use_dustgrowth
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling dust'
