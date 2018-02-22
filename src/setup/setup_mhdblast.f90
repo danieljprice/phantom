@@ -114,7 +114,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(a,/)",trim(filename)//' not found: using interactive setup'
     call prompt(' Enter number of particles in x ',npartx,8,nint((maxp)**(1/3.)))
     call prompt(' Enter the plasma beta in the blast (this will adjust the magnetic field strength) ',plasmaB)
-   call write_setupfile(filename)
+    call write_setupfile(filename)
  endif
  call bcast_mpi(npartx)
  deltax = dxbound/npartx
