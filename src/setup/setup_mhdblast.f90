@@ -30,6 +30,7 @@ module setup
  private
  !--private module variables
  integer                      :: npartx
+ real                         :: plasmaB
 
 contains
 
@@ -63,6 +64,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  real                             :: deltax,totmass,toten
  real                             :: Bx,By,Bz,Pblast,Pmed,Rblast,r2
+ real                             :: plasmaB0,pfrac
  integer                          :: i,ierr
  character(len=100)               :: filename
  logical                          :: iexist
@@ -86,6 +88,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Rblast      = 0.125
  npartx      = 128
  gamma       = 1.4
+ plasmaB0    = 2.0*Pblast/(Bx*Bx + By*By + Bz*Bz)
+ plasmaB     = plasmaB0
  ihavesetupB = .true.
  filename=trim(fileprefix)//'.in'
  inquire(file=filename,exist=iexist)
@@ -108,7 +112,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  elseif (id==master) then
     print "(a,/)",trim(filename)//' not found: using interactive setup'
     call prompt(' Enter number of particles in x ',npartx,8,nint((maxp)**(1/3.)))
-    call write_setupfile(filename)
+    call prompt(' Enter the plasma beta in the blast (this will adjust the magnetic field strength) ',plasmaB) 
+   call write_setupfile(filename)
  endif
  call bcast_mpi(npartx)
  deltax = dxbound/npartx
@@ -122,6 +127,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  totmass           = rhozero*dxbound*dybound*dzbound
  massoftype        = totmass/reduceall_mpi('+',npart)
  if (id==master) print*,' particle mass = ',massoftype(igas)
+ 
+ ! Reset magnetic field to get the requested plasma beta
+ pfrac = sqrt(plasmaB0/plasmaB)
+ Bx = Bx*pfrac
+ By = By*pfrac
+ Bz = Bz*pfrac
 
  toten = 0.
  do i=1,npart
@@ -136,6 +147,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vxyzu(4,i) = Pmed/(rhozero*(gamma - 1.0))
     endif
  enddo
+ 
+ write(*,'(2x,a,3Es11.4)')'Magnetic field (Bx,By,Bz): ',Bx,By,Bz
+ write(*,'(2x,a,2Es11.4)')'Pressure in blast, medium: ',Pblast,Pmed
+ write(*,'(2x,a,2Es11.4)')'Plasma beta in blast, medium: ',plasmaB,2.0*Pmed/(Bx*Bx + By*By + Bz*Bz)
+ write(*,'(2x,a, Es11.4)')'Initial blast radius: ',Rblast
 
 end subroutine setpart
 
@@ -154,6 +170,8 @@ subroutine write_setupfile(filename)
  write(iunit,"(a)") '# input file for MHD Blast Wave setup routine'
  write(iunit,"(/,a)") '# dimensions'
  call write_inopt(npartx,'npartx','number of particles in x-direction',iunit)
+ write(iunit,"(/,a)") '# magnetic field strength'
+ call write_inopt(plasmaB,'plasmaB','plasma beta in the initial blast',iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -173,7 +191,8 @@ subroutine read_setupfile(filename,ierr)
 
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(npartx,'npartx',db,ierr)
+ call read_inopt(npartx, 'npartx', db,ierr)
+ call read_inopt(plasmaB,'plasmaB',db,ierr)
  call close_db(db)
 
 end subroutine read_setupfile
