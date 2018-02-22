@@ -1287,6 +1287,12 @@ ifeq ($(MPI), intel)
     FPPFLAGS += -DMPI
     USEMPI=yes
 endif
+
+ifeq ($(USEMPI), yes)
+    RUNMPI=$(MPIEXEC)
+else
+    RUNMPI=
+endif
 #
 # HDF5 libraries (if required)
 #
@@ -2233,25 +2239,25 @@ test1: checksystem checkparams $(OBJDUMP) test_blocklimits.o
 #
 .PHONY: test test2 testcyl testgrav testall
 test:
-	${MAKE} SETUP=test && $(MPIEXEC) $(BINDIR)/phantom test
+	${MAKE} SETUP=test && $(RUNMPI) $(BINDIR)/phantom test
 
 test2:
-	${MAKE} SETUP=test2 && $(MPIEXEC) $(BINDIR)/phantom test
+	${MAKE} SETUP=test2 && $(RUNMPI) $(BINDIR)/phantom test
 
 testkd:
-	${MAKE} SETUP=testkd && $(MPIEXEC) $(BINDIR)/phantom test
+	${MAKE} SETUP=testkd && $(RUNMPI) $(BINDIR)/phantom test
 
 testcyl:
-	${MAKE} SETUP=testcyl && $(MPIEXEC) $(BINDIR)/phantom test
+	${MAKE} SETUP=testcyl && $(RUNMPI) $(BINDIR)/phantom test
 
 testgrav:
-	${MAKE} SETUP=testgrav && $(MPIEXEC) $(BINDIR)/phantom test gravity
+	${MAKE} SETUP=testgrav && $(RUNMPI) $(BINDIR)/phantom test gravity
 
 testdust:
-	${MAKE} SETUP=testdust && $(MPIEXEC) $(BINDIR)/phantom test dust
+	${MAKE} SETUP=testdust && $(RUNMPI) $(BINDIR)/phantom test dust
 
 testnimhd:
-	${MAKE} SETUP=testnimhd && $(MPIEXEC) $(BINDIR)/phantom test nimhd
+	${MAKE} SETUP=testnimhd && $(RUNMPI) $(BINDIR)/phantom test nimhd
 
 testall: test test2 testcyl testgrav
 
