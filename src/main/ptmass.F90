@@ -764,7 +764,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
                          xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time,&
                          xyzhi,vxyzi,iphasei_test,divvi_test,ibini)
  use part,   only:ihacc,ihsoft,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
-                  ispinx,ispiny,ispinz
+                  ispinx,ispiny,ispinz,fxyz_ptmass_sinksink
  use dim,    only:maxp,maxneigh,maxvxyzu
  use kdtree, only:getneigh
  use kernel, only:kernel_softening
@@ -1225,9 +1225,12 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
     if (nacc <= 0) call fatal('ptmass_create',' created ptmass but failed to accrete anything')
     !
     ! open new file to track new sink particle details & and update all sink-tracking files
+    ! fxyz_ptmass, fxyz_ptmass_sinksink are total force on sinks and sin-sin forces.
     !
+    fxyz_ptmass = 0.0
+    fxyz_ptmass_sinksink = 0.0
     call pt_open_sinkev(nptmass)
-    call pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass)
+    call pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink)
  else
     !
     ! record failure reason for summary
@@ -1362,7 +1365,7 @@ subroutine pt_open_sinkev(num)
  write(filename,'(2a,I4.4,2a)') trim(pt_prefix),"Sink",num,"N",trim(pt_suffix)
  iunit = iskfile+num
  open(unit=iunit,file=trim(filename),form='formatted',status='replace')
- write(iunit,"('#',12(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(iunit,"('#',18(1x,'[',i2.2,1x,a11,']',2x))") &
           1,'time',  &
           2,'x',     &
           3,'y',     &
@@ -1374,7 +1377,13 @@ subroutine pt_open_sinkev(num)
           9,'spinx', &
          10,'spiny', &
          11,'spinz', &
-         12,'macc'
+         12,'macc',  &
+         13,'fx',    &
+         14,'fy',    &
+         15,'fz',    &
+         16,'fssx',    &
+         17,'fssy',    &
+         18,'fssz'
 
 end subroutine pt_open_sinkev
 
@@ -1383,18 +1392,18 @@ end subroutine pt_open_sinkev
 !  write sink data to files
 !+
 !-----------------------------------------------------------------------
-subroutine pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass)
+subroutine pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink)
  use part,        only: ispinx,ispiny,ispinz,imacc
  integer, intent(in) :: nptmass
- real,    intent(in) :: time, xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(in) :: time, xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
  integer             :: i,iunit
 
  do i = 1,nptmass
     iunit = iskfile+i
-    write(iunit,"(12(1pe18.9,1x))") &
+    write(iunit,"(18(1pe18.9,1x))") &
     time, xyzmh_ptmass(1:4,i),vxyz_ptmass(1:3,i), &
     xyzmh_ptmass(ispinx,i),xyzmh_ptmass(ispiny,i),xyzmh_ptmass(ispinz,i), &
-    xyzmh_ptmass(imacc,i)
+    xyzmh_ptmass(imacc,i),fxyz_ptmass(1:3,i),fxyz_ptmass_sinksink(1:3,i)
     call flush(iunit)
  enddo
 

@@ -64,6 +64,9 @@ program nicil_get_one_point
  ! Input units in code units
  rho_in        = rho_in_cgs/unit_density
  B_in          = B_in_cgs  /unit_Bfield
+ ! Initialise variables
+ n_R           = 0.
+ n_electronT   = 0.
  !
  !--Call the NICIL routines
  call nicil_initialise(utime,udist,umass,unit_Bfield,ierr,iprint)
@@ -77,21 +80,21 @@ program nicil_get_one_point
  !--Print out useful quantities
  write(iprint,'(a)')          "--------------------------------------------------------------------------------"
  write(iprint,'(a)')          "The input parameters are "
- write(iprint,'(a,Es11.4,a)') " rho_0 = ",rho_in_cgs," g cm^-3"
- write(iprint,'(a,Es11.4,a)') " B_0   = ",B_in_cgs,  " G"
- write(iprint,'(a,Es11.4,a)') " T_0   = ",T_in,      " K"
+ write(iprint,'(a,Es18.11,a)') " rho_0 = ",rho_in_cgs," g cm^-3"
+ write(iprint,'(a,Es18.11,a)') " B_0   = ",B_in_cgs,  " G"
+ write(iprint,'(a,Es18.11,a)') " T_0   = ",T_in,      " K"
  write(iprint,'(a)')          "The output parameters are "
- write(iprint,'(a,Es11.4,a)') " eta_ohm    = ",eta_ohm    *unit_eta,     " cm^2 s^-1"
- write(iprint,'(a,Es11.4,a)') " eta_hall   = ",eta_hall   *unit_eta,     " cm^2 s^-1"
- write(iprint,'(a,Es11.4,a)') " eta_ambi   = ",eta_ambi   *unit_eta,     " cm^2 s^-1"
- write(iprint,'(a,Es11.4,a)') " n_electron = ",data_out(6)*unit_ndensity," cm^-3"
- write(iprint,'(a,Es11.4,a)') " n_e_therm  = ",n_electronT*unit_ndensity," cm^-3"
- write(iprint,'(a,Es11.4,a)') " n_ions     = ",nions      *unit_ndensity," cm^-3"
- write(iprint,'(a,Es11.4,a)') " n_neutral  = ",data_out(7)*unit_ndensity," cm^-3"
- write(iprint,'(a,Es11.4  )') " negative grain fraction: n_g(Z=-1)/n_g = ",data_out(12)/ngrains
- write(iprint,'(a,Es11.4  )') " neutral  grain fraction: n_g(Z= 0)/n_g = ",data_out(13)/ngrains
- write(iprint,'(a,Es11.4  )') " positive grain fraction: n_g(Z=+1)/n_g = ",data_out(14)/ngrains
- write(iprint,'(a,Es11.4  )') " ionisation fraction:     n_i/(n_i+n_n) = ",nions/(nions+data_out(7))
+ write(iprint,'(a,Es18.11,a)') " eta_ohm    = ",eta_ohm    *unit_eta,     " cm^2 s^-1"
+ write(iprint,'(a,Es18.11,a)') " eta_hall   = ",eta_hall   *unit_eta,     " cm^2 s^-1"
+ write(iprint,'(a,Es18.11,a)') " eta_ambi   = ",eta_ambi   *unit_eta,     " cm^2 s^-1"
+ write(iprint,'(a,Es18.11,a)') " n_electron = ",data_out(6)*unit_ndensity," cm^-3"
+ write(iprint,'(a,Es18.11,a)') " n_e_therm  = ",n_electronT*unit_ndensity," cm^-3"
+ write(iprint,'(a,Es18.11,a)') " n_ions     = ",nions      *unit_ndensity," cm^-3"
+ write(iprint,'(a,Es18.11,a)') " n_neutral  = ",data_out(7)*unit_ndensity," cm^-3"
+ write(iprint,'(a,Es18.11  )') " negative grain fraction: n_g(Z=-1)/n_g = ",data_out(12)/ngrains
+ write(iprint,'(a,Es18.11  )') " neutral  grain fraction: n_g(Z= 0)/n_g = ",data_out(13)/ngrains
+ write(iprint,'(a,Es18.11  )') " positive grain fraction: n_g(Z=+1)/n_g = ",data_out(14)/ngrains
+ write(iprint,'(a,Es18.11  )') " ionisation fraction:     n_i/(n_i+n_n) = ",nions/(nions+data_out(7))
  write(iprint,'(a)')          "--------------------------------------------------------------------------------"
  !
 end program nicil_get_one_point
