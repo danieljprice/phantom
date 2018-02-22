@@ -35,7 +35,7 @@ module part
           mhd,maxmhd,maxBevol,maxvecp,maxp_h2,periodic, &
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
           switches_done_in_derivs,maxp_dustfrac,use_dust, &
-          lightcurve,maxlum,nalpha,maxmhdni,maxne
+          lightcurve,maxlum,nalpha,maxmhdni,maxne,maxp_growth
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -54,6 +54,11 @@ module part
  character(len=*), parameter :: xyzh_label(4) = (/'x','y','z','h'/)
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
  character(len=*), parameter :: Bevol_label(4) = (/'Bx ','By ','Bz ','psi'/)
+!
+!--storage of dust properties
+!
+ real :: dustprop(2,maxp_growth)
+ character(len=*), parameter :: dustprop_label(2) = (/'grainsize','graindens'/)
 !
 !--storage in divcurlv
 !
@@ -156,12 +161,14 @@ module part
  real(kind=4) :: divBsymm(maxmhdan)
  real         :: fext(3,maxan)
  real         :: ddustfrac(maxdustan)
+ real		  :: ddustprop(2,maxp_growth)
 !
 !--storage associated with/dependent on timestepping
 !
  real         :: vpred(maxvxyzu,maxan)
  real         :: dustpred(maxdustan)
  real         :: Bpred(maxBevol,maxmhdan)
+ real		  :: dustproppred(2,maxp_growth)
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin(maxan)
  integer(kind=1)    :: ibin_old(maxan)

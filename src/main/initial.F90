@@ -148,7 +148,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustfrac,&
-                            set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh
+                            set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,dustprop,ddustprop
 #ifdef PHOTO
  use photoevap,        only:set_photoevap_grid
 #endif
@@ -478,7 +478,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                              Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtnew_first)
+                              Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,time,0.,dtnew_first)
     if (use_dustfrac) then
        ! set s = sqrt(eps/(1-eps)) from the initial dustfrac setting now we know rho
        do i=1,npart

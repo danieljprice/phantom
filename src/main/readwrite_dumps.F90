@@ -293,14 +293,15 @@ end subroutine get_dump_size
 !-------------------------------------------------------------------
 subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
-                 lightcurve,maxlum
+                 lightcurve,maxlum,use_dustgrowth
  use eos,   only:utherm,ieos,equationofstate,done_init_eos,init_eos
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,npart,npartoftype,maxtypes, &
                  alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
                  nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,&
                  maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,maxvecp,maxBevol,&
-                 divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop
+                 divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
+				 dustprop,dustprop_label
  use options,    only:use_dustfrac
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
@@ -437,9 +438,9 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(3))
        if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(4))
        if (use_dust)     call write_array(1,dustfrac,'dustfrac',npart,k,ipass,idump,nums,ierrs(5))
-       if (use_dust)     call write_array(1,tstop,'tstop',npart,k,ipass,idump,nums,ierrs(6))
-       if (use_dustfrac) call write_array(1,deltav,deltav_label,3,npart,k,ipass,idump,nums,ierrs(7))
-
+	   if (use_dust)     call write_array(1,tstop,'tstop',npart,k,ipass,idump,nums,ierrs(6))
+       if (use_dustgrowth)	 call write_array(1,dustprop,dustprop_label,2,npart,k,ipass,idump,nums,ierrs(7))
+       if (use_dustfrac) call write_array(1,deltav,deltav_label,3,npart,k,ipass,idump,nums,ierrs(9))
        ! write pressure to file
        if ((ieos==8 .or. ieos==9 .or. ieos==10) .and. k==i_real) then
           if (.not. allocated(temparr)) allocate(temparr(npart))
@@ -1101,10 +1102,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                                massoftype,nptmass,nsinkproperties,phantomdump,tagged,singleprec,&
                                tfile,alphafile,idisk1,iprint,ierr)
  use dump_utils, only:read_array,match_tag
- use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,maxBevol
+ use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,maxBevol,use_dustgrowth
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,abundance,abundance_label,alphaind,poten, &
                       xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,Bevol,Bevol_label,nabundances,&
-                      iphase,idust
+                      iphase,idust,dustprop,dustprop_label
  use options,    only:use_dustfrac
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
@@ -1117,7 +1118,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  integer, intent(out)  :: ierr
  logical               :: got_dustfrac,match
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
- logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bevol(maxBevol)
+ logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bevol(maxBevol),got_dustprop(2)
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik
 !
@@ -1159,6 +1160,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              if (use_dustfrac .or. (use_dust .and. match_tag(tag,'dustfrac'))) then
                 call read_array(dustfrac,'dustfrac',got_dustfrac,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
+			 if (use_dustgrowth) then
+				call read_array(dustprop,dustprop_label,got_dustprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+			 endif
              if (h2chemistry) then
                 call read_array(abundance,abundance_label,got_abund,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif

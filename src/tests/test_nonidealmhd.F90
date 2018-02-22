@@ -88,7 +88,8 @@ subroutine test_wavedamp(ntests,npass)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
-                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,igas,alphaind
+                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,igas,alphaind,&
+						  dustprop,ddustprop
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use testutils,      only:checkval
@@ -197,7 +198,7 @@ subroutine test_wavedamp(ntests,npass)
  ! call derivs the first time around
  use_sts = .true.
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,t,0.,dtext_dum)
  use_sts = .false.  ! Since we only want to run supertimestepping once to verify we get the correct dt
  !
  ! run wave damp problem
@@ -257,7 +258,7 @@ subroutine test_standingshock(ntests,npass)
  use kernel,         only:hfact_default,radkern
  use part,           only:npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,hrho,rhoh,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,igas,iboundary,&
-                          set_boundaries_to_active,alphaind,maxalpha,maxp,iphase
+                          set_boundaries_to_active,alphaind,maxalpha,maxp,iphase,dustprop,ddustprop
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use testutils,      only:checkval
@@ -384,7 +385,7 @@ subroutine test_standingshock(ntests,npass)
  !
  ! call derivs the first time around
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,t,0.,dtext_dum)
  set_boundaries_to_active = .false.
  !
  ! run standing shock problem
@@ -490,7 +491,7 @@ subroutine test_narrays(ntests,npass)
  use kernel,         only:hfact_default
  use part,           only:npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,igas,alphaind,&
-                          n_R,n_electronT,rhoh
+                          n_R,n_electronT,rhoh,dustprop,ddustprop
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use testutils,      only:checkval
@@ -597,7 +598,7 @@ subroutine test_narrays(ntests,npass)
     !
     ! call derivs the first time around & a single step
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,t,0.,dtext_dum)
     call step(npart,npart,0.0,dt,dtext,dtnew)
     !
     ! Calculate eta from NICIL

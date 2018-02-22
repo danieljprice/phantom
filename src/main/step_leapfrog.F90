@@ -82,14 +82,14 @@ end subroutine init_step
 !+
 !------------------------------------------------------------
 subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
- use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry
+ use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,use_dustgrowth
  use io,             only:iprint,fatal,iverbose,id,master,warning
  use options,        only:damp,tolv,iexternalforce,icooling,use_dustfrac
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,mhd,maxBevol,&
                           switches_done_in_derivs,iboundary,get_ntypes,npartoftype,&
-                          dustfrac,dustevol,ddustfrac,alphaind,maxvecp,nptmass
+                          dustfrac,dustevol,ddustfrac,alphaind,maxvecp,nptmass,dustprop,ddustprop,dustproppred
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
@@ -204,7 +204,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp parallel do default(none) schedule(guided,1) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype) &
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
-!$omp shared(dustevol,dustfrac,ddustfrac,dustpred,use_dustfrac) &
+!$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustfrac,dustpred,use_dustfrac) &
 !$omp shared(alphaind,ieos,alphamax) &
 #ifdef IND_TIMESTEPS
 !$omp shared(twas,timei) &
@@ -220,6 +220,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (itype==iboundary) then
              vpred(:,i) = vxyzu(:,i)
              if (mhd)          Bpred(:,i)  = Bevol (:,i)
+			 if (use_dustgrowth) dustproppred(:,:) = dustprop(:,:)
              if (use_dustfrac) dustpred(i) = dustevol(i)
              cycle predict_sph
           endif
@@ -241,6 +242,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        hdti = 0.5*dtsph
 #endif
        vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+	   if (use_dustgrowth) then
+		  dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)	   
+	   endif
        if (itype==igas) then
           if (mhd) Bpred(:,i) = Bevol (:,i) + hdti*dBevol(:,i)
           if (use_dustfrac) then
@@ -282,7 +286,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  if ((iexternalforce /= 0 .or. nptmass > 0) .and. id==master .and. iverbose >= 2) &
    write(iprint,"(a,f14.6,/)") '> full step            : t=',timei
  if (npart > 0) call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
-                     divcurlB,Bpred,dBevol,dustfrac,ddustfrac,timei,dtsph,dtnew)
+                     divcurlB,Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustfrac,timei,dtsph,dtnew)
 !
 ! if using super-timestepping, determine what dt will be used on the next loop
 !
@@ -447,7 +451,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !
 !   get new force using updated velocity: no need to recalculate density etc.
 !
-       call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB,Bpred,dBevol,dustfrac,ddustfrac,timei,dtsph,dtnew)
+       call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB,Bpred,dBevol,dustproppred,ddustprop,&
+	        dustfrac,ddustfrac,timei,dtsph,dtnew)
 
     endif
 

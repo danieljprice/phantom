@@ -77,7 +77,7 @@ module dim
 
  ! xpartveci
  integer, parameter :: maxxpartvecidens = 14
- integer, parameter :: maxxpartveciforce = 45
+ integer, parameter :: maxxpartveciforce = 47
 
  ! cell storage
  integer, parameter :: maxprocs = 32
@@ -196,10 +196,19 @@ module dim
  logical, parameter :: use_dust = .true.
  integer, parameter :: ndusttypes = 1
  integer, parameter :: maxp_dustfrac = maxp
+#ifdef DUSTGROWTH
+ logical, parameter :: use_dustgrowth = .true.
+ integer, parameter :: maxp_growth = maxp
+#else
+ logical, parameter :: use_dustgrowth = .false.
+ integer, parameter :: maxp_growth = 0
+#endif
 #else
  logical, parameter :: use_dust = .false.
  integer, parameter :: ndusttypes = 0
  integer, parameter :: maxp_dustfrac = 0
+ logical, parameter :: use_dustgrowth = .false.
+ integer, parameter :: maxp_growth = 0
 #endif
 
 !--------------------
