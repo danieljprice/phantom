@@ -250,6 +250,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(getdv) &
 !$omp shared(realviscosity) &
 !$omp shared(iverbose) &
+!$omp shared(iprint) &
 #ifdef MPI
 !$omp shared(xrecvbuf) &
 !$omp shared(xsendbuf) &
@@ -261,6 +262,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(iterations_finished) &
 !$omp shared(mpiits) &
 !$omp reduction(+:nlocal) &
+!$omp reduction(+:ntotal) &
 !$omp private(do_export) &
 !$omp private(j) &
 !$omp private(k) &
