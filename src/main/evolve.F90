@@ -122,7 +122,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  integer         :: i,nalive,inbin,iamtypei
  integer(kind=1) :: nbinmaxprev
  integer(kind=8) :: nmovedtot,ntot
- real            :: tlast,fracactive,speedup,tcheck,dtau
+ real            :: tlast,fracactive,speedup,tcheck,dtau,efficiency
  real(kind=4)    :: tall
  real(kind=4)    :: timeperbin(0:maxbins)
  logical         :: dt_changed
@@ -333,10 +333,16 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        elseif (tall > 0.) then
           fracactive = nactivetot/real(ntot)
           speedup = (t2-t1)/tall
-          if (iverbose >= 2) &
+          if (iverbose >= 2) then
+             if (speedup > 0) then
+                efficiency = 100.*fracactive/speedup
+             else
+                efficiency = 0.
+             endif
              write(iprint,"(1x,'(',3(a,f6.2,'%'),')')") &
                   'moved ',100.*fracactive,' of particles in ',100.*speedup, &
-                  ' of time, efficiency = ',100.*fracactive/speedup
+                  ' of time, efficiency = ',efficiency
+          endif
        endif
     endif
     call update_time_per_bin(tcpu2-tcpu1,istepfrac,nbinmaxprev,timeperbin,inbin)
