@@ -113,7 +113,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  elseif (id==master) then
     print "(a,/)",trim(filename)//' not found: using interactive setup'
     call prompt(' Enter number of particles in x ',npartx,8,nint((maxp)**(1/3.)))
-    call prompt(' Enter the plasma beta in the blast (this will adjust the magnetic field strength) ',plasmaB) 
+    call prompt(' Enter the plasma beta in the blast (this will adjust the magnetic field strength) ',plasmaB)
    call write_setupfile(filename)
  endif
  call bcast_mpi(npartx)
@@ -128,7 +128,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  totmass           = rhozero*dxbound*dybound*dzbound
  massoftype        = totmass/reduceall_mpi('+',npart)
  if (id==master) print*,' particle mass = ',massoftype(igas)
- 
+
  ! Reset magnetic field to get the requested plasma beta
  pfrac = sqrt(plasmaB0/plasmaB)
  Bx = Bx*pfrac
@@ -148,7 +148,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vxyzu(4,i) = Pmed/(rhozero*(gamma - 1.0))
     endif
  enddo
- 
+
  write(*,'(2x,a,3Es11.4)')'Magnetic field (Bx,By,Bz): ',Bx,By,Bz
  write(*,'(2x,a,2Es11.4)')'Pressure in blast, medium: ',Pblast,Pmed
  write(*,'(2x,a,2Es11.4)')'Plasma beta in blast, medium: ',plasmaB,2.0*Pmed/(Bx*Bx + By*By + Bz*Bz)
