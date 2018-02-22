@@ -589,15 +589,6 @@ ifeq ($(SETUP), cluster)
     MAXP=3500000
 endif
 
-ifeq ($(SETUP), tracers) # [buildbot skip]
-#   tracer particle density calculation
-    FPPFLAGS= -DPERIODIC #-DNO_ITERATIONS
-    SETUPFILE= setup_tracers.f90
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-    HDF5=yes
-endif
-
 ifeq ($(SETUP), binary)
 #   binary setup
     FPPFLAGS= -DCONST_AV
@@ -1194,6 +1185,10 @@ ifeq ($(STS_TIMESTEPS), yes)
     FPPFLAGS += -DSTS_TIMESTEPS
 endif
 
+ifeq ($(CMACIONIZE), yes)
+    FPPFLAGS += -DCMACIONIZE
+endif
+
 ifeq ($(DEBUG), yes)
     FFLAGS += -DDEBUG
 endif
@@ -1292,6 +1287,12 @@ ifeq ($(MPI), intel)
     FPPFLAGS += -DMPI
     USEMPI=yes
 endif
+
+ifeq ($(USEMPI), yes)
+    RUNMPI=$(MPIEXEC)
+else
+    RUNMPI=
+endif
 #
 # HDF5 libraries (if required)
 #
@@ -1380,7 +1381,7 @@ phantom: checksystem checkparams $(OBJECTS) phantom.o
 ifeq ($(UNAME), Darwin)
 	dsymutil $(BINDIR)/$@
 endif
-	@sh ../scripts/phantom_version_gen.sh
+	@sh ../scripts/phantom_version_gen.sh "$(FPPFLAGS)"
 	@echo ""
 	@echo "The Phantom is here (in $(BINDIR)/phantom)"
 	@echo ""
@@ -1627,6 +1628,9 @@ libphantom: checksystem checkparams
 
 cleanlibphantom:
 	rm -f $(BINDIR)/libphantom.so
+
+.PHONY: pyanalysis
+pyanalysis: libphantom
 
 #------------------------------------------------------
 # Various utilities for computing structure functions
@@ -2235,25 +2239,25 @@ test1: checksystem checkparams $(OBJDUMP) test_blocklimits.o
 #
 .PHONY: test test2 testcyl testgrav testall
 test:
-	${MAKE} SETUP=test && $(MPIEXEC) $(BINDIR)/phantom test
+	${MAKE} SETUP=test && $(RUNMPI) $(BINDIR)/phantom test
 
 test2:
-	${MAKE} SETUP=test2 && $(MPIEXEC) $(BINDIR)/phantom test
+	${MAKE} SETUP=test2 && $(RUNMPI) $(BINDIR)/phantom test
 
 testkd:
-	${MAKE} SETUP=testkd && $(MPIEXEC) $(BINDIR)/phantom test
+	${MAKE} SETUP=testkd && $(RUNMPI) $(BINDIR)/phantom test
 
 testcyl:
-	${MAKE} SETUP=testcyl && $(MPIEXEC) $(BINDIR)/phantom test
+	${MAKE} SETUP=testcyl && $(RUNMPI) $(BINDIR)/phantom test
 
 testgrav:
-	${MAKE} SETUP=testgrav && $(MPIEXEC) $(BINDIR)/phantom test gravity
+	${MAKE} SETUP=testgrav && $(RUNMPI) $(BINDIR)/phantom test gravity
 
 testdust:
-	${MAKE} SETUP=testdust && $(MPIEXEC) $(BINDIR)/phantom test dust
+	${MAKE} SETUP=testdust && $(RUNMPI) $(BINDIR)/phantom test dust
 
 testnimhd:
-	${MAKE} SETUP=testnimhd && $(MPIEXEC) $(BINDIR)/phantom test nimhd
+	${MAKE} SETUP=testnimhd && $(RUNMPI) $(BINDIR)/phantom test nimhd
 
 testall: test test2 testcyl testgrav
 

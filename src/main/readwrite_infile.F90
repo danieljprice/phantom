@@ -54,6 +54,7 @@
 !    tolh               -- tolerance on h-rho iterations
 !    tolv               -- tolerance on v iterations in timestepping
 !    twallmax           -- maximum wall time (hhh:mm, 000:00=ignore)
+!    use_mcfost         -- call mcfost library to compute temperature
 !
 !  DEPENDENCIES: cooling, dim, dust, eos, externalforces, forcing,
 !    infile_utils, inject, io, linklist, nicil_sup, options, part,
@@ -66,7 +67,7 @@ module readwrite_infile
  use options,   only:nfulldump,nmaxdumps,twallmax,dtwallmax,iexternalforce,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,tolv, &
                      ipdv_heating,ishock_heating,iresistive_heating, &
-                     icooling,psidecayfac,overcleanfac,etamhd,alphamax
+                     icooling,psidecayfac,overcleanfac,etamhd,alphamax,use_mcfost
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
  use io,        only:iverbose
@@ -203,6 +204,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  endif
 
  if (maxvxyzu >= 4) call write_options_cooling(iwritein)
+
+#ifdef MCFOST
+ call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iwritein)
+#endif
 
  ! only write sink options if they are used, or if self-gravity is on
  if (nptmass > 0 .or. gravity) call write_options_ptmass(iwritein)
@@ -392,6 +397,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) shearparam
     case('bulkvisc')
        read(valstring,*,iostat=ierr) bulkvisc
+#ifdef MCFOST
+    case('use_mcfost')
+       read(valstring,*,iostat=ierr) use_mcfost
+#endif
     case default
        imatch = .false.
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
@@ -522,7 +531,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     endif
     if (beta < 0.)     call fatal(label,'beta < 0')
     if (beta > 4.)     call warn(label,'very high beta viscosity set')
+#ifndef MCFOST
     if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 10)) call fatal(label,'only ieos=2 makes sense if storing thermal energy')
+#endif
     if (irealvisc < 0 .or. irealvisc > 12)  call fatal(label,'invalid setting for physical viscosity')
     if (shearparam < 0.)                     call fatal(label,'stupid value for shear parameter (< 0)')
     if (irealvisc==2 .and. shearparam > 1) call error(label,'alpha > 1 for shakura-sunyaev viscosity')

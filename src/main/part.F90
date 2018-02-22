@@ -35,7 +35,7 @@ module part
           mhd,maxmhd,maxBevol,maxvecp,maxp_h2,periodic, &
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
           switches_done_in_derivs,maxp_dustfrac,use_dust, &
-          lightcurve,maxlum,nalpha,maxmhdni
+          lightcurve,maxlum,nalpha,maxmhdni,maxne
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -109,7 +109,7 @@ module part
  integer, parameter :: i_tlast = 11 ! time of last injection
  real :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real :: vxyz_ptmass(3,maxptmass)
- real :: fxyz_ptmass(4,maxptmass)
+ real :: fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
  character(len=*), parameter :: xyzmh_ptmass_label(11) = &
@@ -123,7 +123,7 @@ module part
 !
 !--Non-ideal MHD
 !
- real :: n_R(4,maxmhdni),n_electronT(maxmhdni),eta_nimhd(4,maxmhdni)
+ real :: n_R(4,maxmhdni),n_electronT(maxne),eta_nimhd(4,maxmhdni)
  integer, parameter :: iohm  = 1 ! eta_ohm
  integer, parameter :: ihall = 2 ! eta_hall
  integer, parameter :: iambi = 3 ! eta_ambi
