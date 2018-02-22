@@ -48,7 +48,7 @@ contains
 !----------------------------------------------------------------
 subroutine initialise()
  use dim, only:dimid=>modid,maxp
- use io,               only:fatal,die,id,master,nprocs
+ use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
 #endif
@@ -59,6 +59,7 @@ subroutine initialise()
  use boundary,         only:set_boundary
  use writeheader,      only:write_codeinfo
  use writegitinfo,     only:write_gitinfo
+ use evwrite,          only:init_evfile
  use domain,           only:domid=>modid,init_domains
  use densityforce,     only:denid=>modid
  use deriv,            only:derivid=>modid
@@ -107,6 +108,7 @@ subroutine initialise()
  call set_units
  call set_default_options
  call set_boundary
+ call init_evfile(ievfile,'testlog',.false.)
 !
 !--check compile-time settings are OK
 !
@@ -525,7 +527,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
  if (id==master) call write_header(2,infile,evfile,logfile,dumpfile,ntot)
 
- call init_evfile(ievfile,evfile)
+ call init_evfile(ievfile,evfile,.true.)
  call write_evfile(time,dt)
  if (id==master) call write_evlog(iprint)
 #ifdef MFLOW

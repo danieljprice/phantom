@@ -1706,7 +1706,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintenso
     call rhoanddhdrho(hi,hi1,rhoi,rho1i,dhdrhoi,pmassi)
 
     if (iamgasi) then
-       if (ndivcurlv >= 1) divcurlvi(:) = divcurlv(:,i)
+       if (ndivcurlv >= 1) divcurlvi(:) = real(divcurlv(:,i),kind=kind(divcurlvi))
        if (realviscosity .and. maxstrain==maxp) straini(:) = straintensor(:,i)
        if (maxvxyzu >= 4) then
           eni = vxyzu(4,i)

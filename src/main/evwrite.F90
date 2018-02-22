@@ -78,7 +78,7 @@ contains
 !  opens the .ev file for output
 !+
 !----------------------------------------------------------------
-subroutine init_evfile(iunit,evfile)
+subroutine init_evfile(iunit,evfile,open_file)
  use io,        only: id,master,warning
  use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,calc_erot,lightcurve,use_CMacIonize
  use options,   only: ishock_heating,ipdv_heating,use_dustfrac
@@ -87,6 +87,7 @@ subroutine init_evfile(iunit,evfile)
  use viscosity, only: irealvisc
  integer,            intent(in) :: iunit
  character(len=  *), intent(in) :: evfile
+ logical,            intent(in) :: open_file
  character(len= 27)             :: ev_fmt
  integer                        :: i,j
  !
@@ -210,17 +211,18 @@ subroutine init_evfile(iunit,evfile)
  ielements   = j - 1 ! The number of values to be calculated (i.e. the number of columns in .ve)
  !
  !--all threads do above, but only master writes file
+ !  (the open_file is to prevent an .ev file from being made during the test suite)
  !
- if (id == master) then
+ if (open_file .and. id == master) then
     !
     !--open the file for output
     !
-    open(unit=ievfile,file=evfile,form='formatted',status='replace')
+    open(unit=iunit,file=evfile,form='formatted',status='replace')
     !
     !--write a header line
     !
     write(ev_fmt,'(a,I3,a)') '(',ielements+1,'a)'
-    write(ievfile,ev_fmt)'#',ev_label(1:ielements)
+    write(iunit,ev_fmt)'#',ev_label(1:ielements)
  endif
 
 end subroutine init_evfile
