@@ -23,7 +23,7 @@
 !    m_gas    -- gas mass resolution in solar masses
 !
 !  DEPENDENCIES: dim, eos, infile_utils, io, part, physcon, prompting,
-!    timestep, units
+!    spherical, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -53,6 +53,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,        only:fatal,iprint,master
  use eos,       only:gmw
  use timestep,  only:dtmax
+ use spherical, only:set_sphere
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -64,7 +65,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  character(len=len(fileprefix)+6) :: setupfile
  integer :: ierr,i
- real    :: scale
+ real    :: scale,psep
 !
 ! units (mass = mass of black hole, length = 1 arcsec at 8kpc)
 !
@@ -115,6 +116,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzmh_ptmass(ihacc,i)  = h_sink
     xyzmh_ptmass(ihsoft,i) = h_sink
  enddo
+!
+! setup initial sphere of particles to prevent initialisation problems
+!
+ psep = 1.0
+ call set_sphere('cubic',id,master,0.,20.,psep,hfact,npart,xyzh)
+ vxyzu(4,:) = 5.317e-4
 
  if (nptmass == 0) call fatal('setup','no particles setup')
  if (ierr /= 0) call fatal('setup','ERROR during setup')

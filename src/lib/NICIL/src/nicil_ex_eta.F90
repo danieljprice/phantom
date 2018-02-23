@@ -3,7 +3,7 @@
 !           Non-Ideal mhd Coefficient and Ionisation Library           !
 !         Example programme to test various parameters of NICIL        !
 !                                                                      !
-!                 Copyright (c) 2015-2016 James Wurster                !
+!                 Copyright (c) 2015-2017 James Wurster                !
 !        See LICENCE file for usage and distribution conditions        !
 !----------------------------------------------------------------------!
 !+
@@ -38,6 +38,9 @@ program nicil_ex_eta
  real,    parameter  :: fdg             = 0.01            ! must be between 0 & 1
  !--Input parameters (other)
  real,    parameter  :: mu0             =  2.38095236     ! Mean molecular mass; calculated with default values in NICIL
+ logical, parameter  :: test_vs_rho     = .true.          ! Run the test using constant temperature
+ logical, parameter  :: test_vs_T       = .true.          ! Run the test using constant density
+ logical, parameter  :: test_baro       = .true.          ! Run the test using barotropic EOS
  !--Physical Constants
  real,    parameter  :: fourpi          =  12.566370614d0 ! 4pi
  real,    parameter  :: kboltz          = 1.38066d-16     ! Boltzmann constant  [erg/K]
@@ -91,132 +94,145 @@ program nicil_ex_eta
  if (ierr/=0) call fatal(ierr)                            ! Abort programme if there are errors in the setup
  !
  !--Open output files & write header
- open(unit=iprintrho, file="data/eta_density.dat")
- open(unit=iprintbaro,file="data/eta_barotropic.dat")
- open(unit=iprinttemp,file="data/eta_temperature.dat")
+ if (test_vs_rho) then
+    open(unit=iprintrho, file="data/eta_density.dat")
+    call write_data_header(iprintrho)
+ endif
+ if (test_baro) then
+    open(unit=iprintbaro,file="data/eta_barotropic.dat")
+    call write_data_header(iprintbaro)
+ endif
+ if (test_vs_T) then
+    open(unit=iprinttemp,file="data/eta_temperature.dat")
+    call write_data_header(iprinttemp)
+ endif
  open(unit=iprintwarn,file="data/eta_warning.log")
- do i = iprintrho,iprinttemp
-    call write_data_header(i)
- end do
  write(iprintwarn,'(a)') "NICIL: ETA TEST: WARNINGS LOG"
  write(iprint,'(a)')     "NICIL: ETA TEST"
  !
  !--This will calculate the coefficients, grain charge and electron number density
  !  for a range of densities at a fixed temperatures;
  !  magnetic field and sound speed are related to the density by a given prescription
- write(iprintwarn,'(a)') "NICIL: ETA TEST: properties vs number density (with constant T)"
- Btype = which_Bfield(use_input_B,"P")
- call system_clock(c0,count_rate,count_max)
- do i = 1,nlogd
-    rho    = 10**(logrho_min +(i-1)*dlogrho )             ! density to test [CGS]
-    Bfield = get_Bfield_code(rho*mump1,unit_Bfield,Btype) ! Magnetic field [code units]
-    rho    = rho/unit_density                             ! density to test [code units]
-    !
-    ! Call NICIL to get the eta coefficients.
-    ! data_out is an optional out variable that we will pass through to track the values
-    if (use_fdg_in) then
-       call nicil_get_ion_n(rho,temperature,n_R(1:4,i),n_electronT(i),ierr,fdg,fBdust)
-    else
-       call nicil_get_ion_n(rho,temperature,n_R(1:4,i),n_electronT(i),ierr)
-    end if
-    if (ierr/=0) then
-       call nicil_translate_error(ierr)
-       call fatal(ierr,rho*unit_density,temperature)
-    end if
-    if (use_fdg_in) then
-       call nicil_get_eta(eta_ohm,eta_hall,eta_ambi,Bfield,rho,temperature,n_R(1:4,i),n_electronT(i),ierr,data_out,fdg)
-    else
-       call nicil_get_eta(eta_ohm,eta_hall,eta_ambi,Bfield,rho,temperature,n_R(1:4,i),n_electronT(i),ierr,data_out)
-    end if
-    if (ierr/=0) then
-       call nicil_translate_error(ierr)
-       call fatal(ierr,rho*unit_density,temperature)
-    end if
-    !
-    ! Write values to file for testing purposes
-    if (.not. zeta_of_rho) data_out(size(data_out)) = zeta_cgs*utime
-    call write_data_to_file(iprintrho,rho*unit_density,temperature,Bfield,eta_ohm,eta_hall,eta_ambi,fBdust &
-                           ,data_out,unit_eta,unit_Bfield,unit_density,unit_ndensity,utime)
-    !
- end do
- call system_clock(c1,count_rate,count_max)
- write(iprint,'(a)') "NICIL: ETA TEST: properties vs number density (with constant T) written to data/eta_density.dat"
- write(iprint,'(a,F6.3,a)') "NICIL: ETA TEST: Runtime: ",(c1-c0)/float(count_rate)," seconds"
+ if (test_vs_rho) then
+    write(iprintwarn,'(a)') "NICIL: ETA TEST: properties vs number density (with constant T)"
+    Btype = which_Bfield(use_input_B,"P")
+    call system_clock(c0,count_rate,count_max)
+    do i = 1,nlogd
+       rho    = 10**(logrho_min +(i-1)*dlogrho )             ! density to test [CGS]
+       Bfield = get_Bfield_code(rho*mump1,unit_Bfield,Btype) ! Magnetic field [code units]
+       rho    = rho/unit_density                             ! density to test [code units]
+       !
+       ! Call NICIL to get the eta coefficients.
+       ! data_out is an optional out variable that we will pass through to track the values
+       if (use_fdg_in) then
+          call nicil_get_ion_n(rho,temperature,n_R(1:4,i),n_electronT(i),ierr,fdg,fBdust)
+       else
+          call nicil_get_ion_n(rho,temperature,n_R(1:4,i),n_electronT(i),ierr)
+       end if
+       if (ierr/=0) then
+          call nicil_translate_error(ierr)
+          call fatal(ierr,rho*unit_density,temperature)
+       end if
+       if (use_fdg_in) then
+          call nicil_get_eta(eta_ohm,eta_hall,eta_ambi,Bfield,rho,temperature,n_R(1:4,i),n_electronT(i),ierr,data_out,fdg)
+       else
+          call nicil_get_eta(eta_ohm,eta_hall,eta_ambi,Bfield,rho,temperature,n_R(1:4,i),n_electronT(i),ierr,data_out)
+       end if
+       if (ierr/=0) then
+          call nicil_translate_error(ierr)
+          call fatal(ierr,rho*unit_density,temperature)
+       end if
+       !
+       ! Write values to file for testing purposes
+       if (.not. zeta_of_rho) data_out(size(data_out)) = zeta_cgs*utime
+       call write_data_to_file(iprintrho,rho*unit_density,temperature,Bfield,eta_ohm,eta_hall,eta_ambi,fBdust &
+                              ,data_out,unit_eta,unit_Bfield,unit_density,unit_ndensity,utime)
+       !
+    end do
+    call system_clock(c1,count_rate,count_max)
+    write(iprint,'(a)') "NICIL: ETA TEST: properties vs number density (with constant T) written to data/eta_density.dat"
+    write(iprint,'(a,F6.3,a)') "NICIL: ETA TEST: Runtime: ",(c1-c0)/float(count_rate)," seconds"
+ endif
  !
  !--This will calculate the coefficients, grain charge and electron number density
  !  assuming a barotropic equation of state
- write(iprintwarn,'(a)') "NICIL: ETA TEST: properties vs {number density, temperature} using barotropic EOS"
- n_R         = 0.0                                     ! re-initialise the array since this is a new simulation
- n_electronT = 0.0                                     ! re-initialise the array since this is a new simulation
- Btype       = which_Bfield(use_input_B,"U")
- call system_clock(c0,count_rate,count_max)
- do i = 1,nlogd
-    rho    = 10**(logrho_min +(i-1)*dlogrho )             ! density to test [CGS]
-    Bfield = get_Bfield_code(rho*mump1,unit_Bfield,Btype) ! Magnetic field [code units]
-    temp   = get_temperature(rho*mump1)                   ! temperature
-    rho    = rho/unit_density                             ! density to test [code units]
-    !
-    ! Call NICIL to get the eta coefficients.
-    ! data_out is an optional out variable that we will pass through to track the values
-    call nicil_get_ion_n(rho,temp,n_R(1:4,i),n_electronT(i),ierr,fdg,fBdust)
-    if (ierr/=0) then
-       call nicil_translate_error(ierr)
-       call fatal(ierr,rho*unit_density,temperature)
-    end if
-    call nicil_get_eta(eta_ohm,eta_hall,eta_ambi,Bfield,rho,temp,n_R(1:4,i),n_electronT(i),ierr,data_out,fdg)
-    if (ierr/=0) then
-       call nicil_translate_error(ierr)
-       call fatal(ierr,rho*unit_density,temperature)
-    end if
-    !
-    ! Write values to file for testing purposes
-    if (.not. zeta_of_rho) data_out(size(data_out)) = zeta_cgs*utime
-    call write_data_to_file(iprintbaro,rho*unit_density,temp,Bfield,eta_ohm,eta_hall,eta_ambi,fBdust &
-                           ,data_out,unit_eta,unit_Bfield,unit_density,unit_ndensity,utime)
- end do
- call system_clock(c1,count_rate,count_max)
- write(iprint,'(a)') &
-   "NICIL: ETA TEST: properties vs {number density, temperature} using barotropic EOS written to data/eta_barotropic.dat"
- write(iprint,'(a,F6.3,a)') "NICIL: ETA TEST: Runtime: ",(c1-c0)/float(count_rate)," seconds"
+ if (test_baro) then
+    write(iprintwarn,'(a)') "NICIL: ETA TEST: properties vs {number density, temperature} using barotropic EOS"
+    n_R         = 0.0                                     ! re-initialise the array since this is a new simulation
+    n_electronT = 0.0                                     ! re-initialise the array since this is a new simulation
+    Btype       = which_Bfield(use_input_B,"U")
+    call system_clock(c0,count_rate,count_max)
+    do i = 1,nlogd
+       rho    = 10**(logrho_min +(i-1)*dlogrho )             ! density to test [CGS]
+       Bfield = get_Bfield_code(rho*mump1,unit_Bfield,Btype) ! Magnetic field [code units]
+       temp   = get_temperature(rho*mump1)                   ! temperature
+       rho    = rho/unit_density                             ! density to test [code units]
+       !
+       ! Call NICIL to get the eta coefficients.
+       ! data_out is an optional out variable that we will pass through to track the values
+       call nicil_get_ion_n(rho,temp,n_R(1:4,i),n_electronT(i),ierr,fdg,fBdust)
+       if (ierr/=0) then
+          call nicil_translate_error(ierr)
+          call fatal(ierr,rho*unit_density,temperature)
+       end if
+       call nicil_get_eta(eta_ohm,eta_hall,eta_ambi,Bfield,rho,temp,n_R(1:4,i),n_electronT(i),ierr,data_out,fdg)
+       if (ierr/=0) then
+          call nicil_translate_error(ierr)
+          call fatal(ierr,rho*unit_density,temperature)
+       end if
+       !
+       ! Write values to file for testing purposes
+       if (.not. zeta_of_rho) data_out(size(data_out)) = zeta_cgs*utime
+       call write_data_to_file(iprintbaro,rho*unit_density,temp,Bfield,eta_ohm,eta_hall,eta_ambi,fBdust &
+                              ,data_out,unit_eta,unit_Bfield,unit_density,unit_ndensity,utime)
+    end do
+    call system_clock(c1,count_rate,count_max)
+    write(iprint,'(a)') &
+      "NICIL: ETA TEST: properties vs {number density, temperature} using barotropic EOS written to data/eta_barotropic.dat"
+    write(iprint,'(a,F6.3,a)') "NICIL: ETA TEST: Runtime: ",(c1-c0)/float(count_rate)," seconds"
+ endif
  !
  !--This will calculate the coefficients, grain charge and electron number density
  !  for a range of temperatures at a fixed density and magnetic field strength
- write(iprintwarn,'(a)') "NICIL: ETA TEST: properties vs temperature (with constant density)"
- Btype       = which_Bfield(use_input_B,"P")
- Bfield      = get_Bfield_code(rho_in*mump1,unit_Bfield,Btype) ! Magnetic field [code units]
- rho         = rho_in/unit_density                             ! density to test [code units]
- n_R         = 0.0                                             ! re-initialise the array since this is a new simulation
- n_electronT = 0.0                                             ! re-initialise the array since this is a new simulation
- call system_clock(c0,count_rate,count_max)
- do i = 1,nlogT
-    temp = 10**(log10(temp_min) +(i-1)*dlogT )                  ! temperature to test [CGS]
-    !
-    ! Call NICIL to get the eta coefficients.
-    ! data_out is an optional out variable that we will pass through to track the values
-    call nicil_get_ion_n(rho,temp,n_R(1:4,i),n_electronT(i),ierr,fdg,fBdust)
-    if (ierr/=0) then
-       call nicil_translate_error(ierr)
-       call fatal(ierr,rho*unit_density,temp)
-    end if
-    call nicil_get_eta(eta_ohm,eta_hall,eta_ambi,Bfield,rho,temp,n_R(1:4,i),n_electronT(i),ierr,data_out,fdg)
-    if (ierr/=0) then
-       call nicil_translate_error(ierr)
-       call fatal(ierr,rho*unit_density,temp)
-    end if
-    !
-    ! Write values to file for testing purposes
-    if (.not. zeta_of_rho) data_out(size(data_out)) = zeta_cgs*utime
-    call write_data_to_file(iprinttemp,rho_in,temp,Bfield,eta_ohm,eta_hall,eta_ambi,fBdust &
-                           ,data_out,unit_eta,unit_Bfield,unit_density,unit_ndensity,utime)
-    !
- end do
- call system_clock(c1,count_rate,count_max)
- write(iprint,'(a)') "NICIL: ETA TEST: properties vs temperature (with constant density) written to data/eta_temperature.dat"
- write(iprint,'(a,F6.3,a)') "NICIL: ETA TEST: Runtime: ",(c1-c0)/float(count_rate)," seconds"
+ if (test_vs_T) then
+    write(iprintwarn,'(a)') "NICIL: ETA TEST: properties vs temperature (with constant density)"
+    Btype       = which_Bfield(use_input_B,"P")
+    Bfield      = get_Bfield_code(rho_in*mump1,unit_Bfield,Btype) ! Magnetic field [code units]
+    rho         = rho_in/unit_density                             ! density to test [code units]
+    n_R         = 0.0                                             ! re-initialise the array since this is a new simulation
+    n_electronT = 0.0                                             ! re-initialise the array since this is a new simulation
+    call system_clock(c0,count_rate,count_max)
+    do i = 1,nlogT
+       temp = 10**(log10(temp_min) +(i-1)*dlogT )                  ! temperature to test [CGS]
+       !
+       ! Call NICIL to get the eta coefficients.
+       ! data_out is an optional out variable that we will pass through to track the values
+       call nicil_get_ion_n(rho,temp,n_R(1:4,i),n_electronT(i),ierr,fdg,fBdust)
+       if (ierr/=0) then
+          call nicil_translate_error(ierr)
+          call fatal(ierr,rho*unit_density,temp)
+       end if
+       call nicil_get_eta(eta_ohm,eta_hall,eta_ambi,Bfield,rho,temp,n_R(1:4,i),n_electronT(i),ierr,data_out,fdg)
+       if (ierr/=0) then
+          call nicil_translate_error(ierr)
+          call fatal(ierr,rho*unit_density,temp)
+       end if
+       !
+       ! Write values to file for testing purposes
+       if (.not. zeta_of_rho) data_out(size(data_out)) = zeta_cgs*utime
+       call write_data_to_file(iprinttemp,rho_in,temp,Bfield,eta_ohm,eta_hall,eta_ambi,fBdust &
+                              ,data_out,unit_eta,unit_Bfield,unit_density,unit_ndensity,utime)
+       !
+    end do
+    call system_clock(c1,count_rate,count_max)
+    write(iprint,'(a)') "NICIL: ETA TEST: properties vs temperature (with constant density) written to data/eta_temperature.dat"
+    write(iprint,'(a,F6.3,a)') "NICIL: ETA TEST: Runtime: ",(c1-c0)/float(count_rate)," seconds"
+ endif
  !
- do i = iprintrho,iprintwarn
-    close(i)
- end do
+ if (test_vs_rho) close(iprintrho)
+ if (test_baro)   close(iprintbaro)
+ if (test_vs_T)   close(iprinttemp)
+ close(iprintwarn)
  !
 !----------------------------------------------------------------------!
 end program nicil_ex_eta

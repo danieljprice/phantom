@@ -556,6 +556,7 @@ subroutine nicil_initialise(utime,udist,umass,unit_Bfield,ierr,iprint_in,iprintw
  massj_mp(iniMR)   = mass_MionR_mp
  !
  !--Initialise variables (CGS variables)
+ massj_cgs              = 0.0                                                ! Set all masses to zero (required for thermally ionised masses)
  massj_cgs(ine)         = mass_electron_cgs                                  ! Electron mass
  massj_cgs(iniHR:iniMR) = massj_mp(iniHR:iniMR)*mass_proton_cgs              ! Ion mass for cosmic ray ionisation
  mass_neutral_cold_cgs  = meanmolmass          *mass_proton_cgs              ! Cold neutral mass
@@ -619,10 +620,8 @@ subroutine nicil_initialise(utime,udist,umass,unit_Bfield,ierr,iprint_in,iprintw
  n_grain_coef       = n_grain_coef_cgs
  !
  !--Set default values as a fraction of total number density
+ n_R0 = epsilon(small)
  n_R0(1:1+nimass) = 1.0/float(nimass)
- do j = 1,na
-    n_R0(nimass+2*j-1:nimass+2*j) = epsilon(small)
- enddo
  !
  !--Coefficient for the exponential term if density-dependent cosmic ionisation rate
  !  to be multiplied by sqrt (T rho/ m_n); udist converts rho/m_n to cgs, making this term dimensionless
@@ -1187,6 +1186,7 @@ pure subroutine nicil_ion_get_sigma(Bmag,rho_gas,n_electron,n_ionR,n_grainR,n_io
  sigmaOHPpa     = 0.0
  !
  !--Number densities
+ ns               = 0.0
  ns(ine)          = n_electron
  ns(iniHR:iniMR)  = n_ionR
  ns(inisT:inidT)  = n_ionT
@@ -1509,7 +1509,7 @@ pure subroutine nicil_ionR_get_n(n_R,T,rho_gas,n_total,fdg_local,zeta,n_e_out,f_
  real,    intent(out)    :: n_e_out,f_Bdust
  integer                 :: i,j,iter
  integer                 :: feqni(neqn)
- real                    :: n_e,n_rat,n_g_charged,n_g_neutral
+ real                    :: n_e,n_g_charged,n_g_neutral
  real                    :: n_g_tot(na),n_i(nimass),n_g(-zmax:zmax,na)
  real                    :: n_old(neqn),n_new(neqn),dn(neqn)
  real                    :: k_ig(-zmax:zmax,nimass,na),k_eg(-zmax:zmax,na),k_ei(nimass)
@@ -1560,8 +1560,8 @@ pure subroutine nicil_ionR_get_n(n_R,T,rho_gas,n_total,fdg_local,zeta,n_e_out,f_
        iter    = iter + 1
        iterate = .false.
        do i = 1,neqn
-          n_rat = abs( 1.0 - n_new(i)/n_old(i) )
-          if (n_rat > NRtol .or. n_new(i) < 0.0) then
+          ! first term: n_rat > NRtol, where n_rat = abs( 1.0 - n_new(i)/n_old(i) ), where n_old >= 0
+          if ( (abs(n_old(i)-n_new(i)) > n_old(i)*NRtol) .or. n_new(i) < 0.0) then
              n_new(i) = abs(n_new(i))
              iterate = .true.
           endif
@@ -1743,7 +1743,6 @@ pure subroutine nicil_ionT_calc_Jf(feqni,feqn,Jacob,rho_gas,n_g_tot,n_e,n_i,n_g,
     Jacob(p,4+dcol)   = Jacob(p,4+dcol) - k_eg( 1,j)*n_e                                  ! df(n_g+)/dn_g+
     p = p + 1
  enddo
-
 !
 !--Rearrange the Jacobian so that the largest numbers are on the diagonal
  if (reorder_Jacobian) then
@@ -1814,19 +1813,19 @@ pure subroutine get_dn_viaLU(dn,feqni,feqn,Jacob,lerr)
  !--Decompose into Upper & Lower & overwrite the Jacobian at the same time;
  !  this uses the same array since we define diag(L)==1
  LU = Jacob
- do k = 1,neqn                               ! Track the diagonal
+ do k = 1,neqn                                ! Track the diagonal
     do j = k,neqn                             ! Track across the rows to solve for U
        do p = 1,k-1
           LU(k,j) = LU(k,j) - LU(k,p)*LU(p,j)
        enddo
     enddo
+    if (abs(LU(k,k)) < small) lerr = .true.
     do i = k+1,neqn                           ! Track down the columns to solve for L
        do p = 1,k-1
           LU(i,k) = LU(i,k) - LU(i,p)*LU(p,k)
        enddo
-       LU(i,k) = LU(i,k)/LU(k,k)
+       if (.not.lerr) LU(i,k) = LU(i,k)/LU(k,k)
     enddo
-    if (abs(LU(k,k)) <= small) lerr = .true.
  enddo
  if (lerr) then                              ! exit cleanly since dividing by zero
     dn = 0.0
@@ -2044,8 +2043,8 @@ end subroutine nicil_ionR_get_n_via_Zave
 !  This will solve the Saha equation to determine the electron number
 !  density.  The species of interest and thier properties are given
 !  at the beginnig of this module.
-!  This assumes for each element, there are only neutral and singly-
-!  ionised species.
+!  This assumes for each element, there are neutral, singly-ionised and
+!  doubly-ionised species; hydrogen can only be singly ionised.
 !  We will include the electron number density calculated by the cosmic
 !  ray ionisaiton as well.
 !+
@@ -2140,26 +2139,27 @@ pure subroutine nicil_ionT_get_nj_Kjk(nj,Kjk,T,n_total,afrac)
  real,    intent(inout) :: afrac(2)
  integer                :: i,j,k
  real                   :: afrac_total
- !
+
  afrac_total = afrac(1)+afrac(2)
  do i = 3,nelements
     afrac_total = afrac_total + abundancej(i)
  enddo
- !
+
  nj(iH2)         = afrac(1)*n_total
  nj(iH)          = afrac(2)*n_total
  nj(3:nelements) = abundancej(3:nelements)*n_total
  nj              = nj/afrac_total
  afrac           = afrac/afrac_total  ! for correct densities in the output files
- !
- Kjk = Saha_coef(:,1:nelements)*sqrt(T)**3*exp(-chij(:,1:nelements)/T)
- !
+ Kjk             = 0.
+
  do k = 1,nelements
     do j = 1,nlevels
-       if (T < Texp_thresh(j,k) .or. chij(j,k) <= small) Kjk(j,k) = 0.0
+       if (T > Texp_thresh(j,k) .and. chij(j,k) > small) then
+          Kjk(j,k) = Saha_coef(j,k)*sqrt(T)**3*exp(-chij(j,k)/T)
+       endif
     enddo
  enddo
- !
+
 end subroutine nicil_ionT_get_nj_Kjk
 !----------------------------------------------------------------------!
 !+
@@ -2219,17 +2219,21 @@ pure subroutine nicil_get_HH2_ratio(abund,n_cold,T,mass_neutral_mp,afrac,mfrac)
  real                          :: mfrac0(2)
  !
  nH2  = 0.5*abund*n_cold
- KHH2 = Saha_coef_HH2*T**1.5 * exp(-chij_HH2/T)
- if ( T < Texp_thresh0*chij_HH2 ) then
-    frac = 0.0
- else if (8.0d7*nH2 < KHH2) then
-    frac = 1.0
- else
-    frac = ( sqrt(KHH2 * (KHH2 + 4.0*nH2)) - KHH2 )/(2.0*nH2)
+ frac = 0.
+ KHH2 = 0.
+
+ if ( T > Texp_thresh0*chij_HH2 ) then
+    KHH2 = Saha_coef_HH2*T**1.5 * exp(-chij_HH2/T)
+    if (8.0d7*nH2 < KHH2) then
+       frac = 1.0
+    else
+       frac = ( sqrt(KHH2 * (KHH2 + 4.0*nH2)) - KHH2 )/(2.0*nH2)
+    endif
  endif
+
  afrac(1)  = 0.5*(1.0-frac)*abund
  afrac(2)  =          frac *abund
- !
+
  mtotal1   = 1.0/((1.0-frac)*mj_mp(1) + frac*mj_mp(2))
  mfrac0(1) = mj_mp(1)*(1.0-frac)*mtotal1 * mass_frac(iH)
  mfrac0(2) = mj_mp(2)*     frac *mtotal1 * mass_frac(iH)

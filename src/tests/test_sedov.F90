@@ -152,7 +152,7 @@ subroutine test_sedov(ntests,npass)
     evfile   = 'test01.ev'
     dumpfile = 'test001'
 
-    call init_evfile(ievfile,evfile)
+    call init_evfile(ievfile,evfile,.true.)
     call write_evfile(time,dt)
     etotin    = etot
     momtotin  = totmom

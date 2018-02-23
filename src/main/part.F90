@@ -114,7 +114,7 @@ module part
  integer, parameter :: i_tlast = 11 ! time of last injection
  real :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real :: vxyz_ptmass(3,maxptmass)
- real :: fxyz_ptmass(4,maxptmass)
+ real :: fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
  character(len=*), parameter :: xyzmh_ptmass_label(11) = &
@@ -714,6 +714,7 @@ end subroutine reorder_particles
 !-----------------------------------------------------------------------
 subroutine shuffle_part(np)
  use io, only:fatal
+ use domain, only:ibelong
  integer, intent(inout) :: np
  integer :: newpart
 
@@ -721,8 +722,11 @@ subroutine shuffle_part(np)
     newpart = ideadhead
     if (newpart <= np) then
        if (.not.isdead(np)) then
-          !if (.not.isdead(newpart)) call fatal('shuffle','corrupted dead list',newpart)
+          ! move particle to new position
           call copy_particle_all(np,newpart)
+          ! move ibelong to new position
+          ibelong(newpart) = ibelong(np)
+          ! update deadhead
           ideadhead = ll(newpart)
        endif
        np = np - 1

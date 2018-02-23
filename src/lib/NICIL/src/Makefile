@@ -3,7 +3,7 @@
 #
 FC      = gfortran
 FFLAGS  = -fdefault-real-8  -fdefault-double-8 -fopenmp  -std=f2008 -fall-intrinsics
-#FFLAGS  = -fdefault-real-8  -fdefault-double-8 -fopenmp  -std=f2008 -fall-intrinsics -g -fbacktrace -ffpe-trap=invalid,zero,overflow,underflow,inexact,denormal -fcheck=all
+#FFLAGS  = -fdefault-real-8  -fdefault-double-8 -fopenmp  -std=f2008 -fall-intrinsics -g -fbacktrace -ffpe-trap=invalid,zero,overflow,underflow,denormal -fcheck=all -finit-real=nan -finit-integer=nan
 #FFLAGS  = -fdefault-real-8  -fdefault-double-8 -fopenmp  -std=f2008 -fall-intrinsics -g -fbacktrace -fcheck=all
 #FFLAGS = 
 #FC     = ifort
