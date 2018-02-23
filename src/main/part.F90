@@ -43,7 +43,9 @@ module part
 !
 !--basic storage needed for read/write of particle data
 !
- real :: xyzh(4,maxp)
+
+ real, allocatable :: xyzh(:,:)
+ ! real :: xyzh(4,maxp)
  real :: xyzh_soa(maxp,4)
  real :: vxyzu(maxvxyzu,maxp)
  real(kind=4) :: alphaind(nalpha,maxalpha)
