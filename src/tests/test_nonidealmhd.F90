@@ -491,12 +491,7 @@ subroutine test_narrays(ntests,npass)
  use kernel,         only:hfact_default
  use part,           only:npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,igas,alphaind,&
-<<<<<<< HEAD
-                          n_R,n_electronT,rhoh,dustprop,ddustprop
- use step_lf_global, only:step,init_step
-=======
-                          n_R,n_electronT,rhoh,eta_nimhd,iohm,ihall,iambi
->>>>>>> ed4ef94f8577bf4d771fb4a039f24dd679f27c17
+                          n_R,n_electronT,rhoh,dustprop,ddustprop,eta_nimhd,iohm,ihall,iambi
  use deriv,          only:derivs
  use testutils,      only:checkval
  use eos,            only:ieos,init_eos,polyk,polyk2,gamma,get_temperature
