@@ -481,7 +481,7 @@ ifeq ($(SETUP), sedov)
 #   Sedov blast wave test
     FPPFLAGS= -DPERIODIC
     SETUPFILE= setup_sedov.f90
-    IND_TIMESTEPS=no
+    IND_TIMESTEPS=yes
     KNOWN_SETUP=yes
     MAXP=2100000
 endif
