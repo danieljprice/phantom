@@ -59,7 +59,7 @@
 !    nplanets          -- number of planets
 !    nsinks            -- number of sinks
 !    setplanets        -- add planets? (0=no,1=yes)
-!    use_mcfost        -- use the mcfost library to compute the temperature
+!    use_mcfost        -- use the mcfost library
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_lensethirring, externalforces, infile_utils, io, kernel,

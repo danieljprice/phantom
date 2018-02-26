@@ -54,7 +54,7 @@
 !    tolh               -- tolerance on h-rho iterations
 !    tolv               -- tolerance on v iterations in timestepping
 !    twallmax           -- maximum wall time (hhh:mm, 000:00=ignore)
-!    use_mcfost         -- call mcfost library to compute temperature
+!    use_mcfost         -- use the mcfost library
 !
 !  DEPENDENCIES: cooling, dim, dust, eos, externalforces, forcing,
 !    infile_utils, inject, io, linklist, nicil_sup, options, part,

@@ -481,7 +481,7 @@ ifeq ($(SETUP), sedov)
 #   Sedov blast wave test
     FPPFLAGS= -DPERIODIC
     SETUPFILE= setup_sedov.f90
-    IND_TIMESTEPS=no
+    IND_TIMESTEPS=yes
     KNOWN_SETUP=yes
     MAXP=2100000
 endif
@@ -897,7 +897,7 @@ ifeq ($(MCFOST), yes)
     MCFOST=yes
 
     FPPFLAGS+= -DMCFOST
-    LDFLAGS+= -L$(MCFOST_DIR)/src -lmcfost -lcurl $(LIBCXX)
+    LDFLAGS+= -L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)
 #    LDFLAGS+=  ~/mcfost/src/libtmp/*.o  ~/mcfost/src/*.o  $(LIBCXX)
 endif
 

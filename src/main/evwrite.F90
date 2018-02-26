@@ -65,7 +65,7 @@ module evwrite
  public                    :: init_evfile, write_evfile, write_evlog
  private                   :: fill_ev_tag, fill_ev_header
 
- integer,          private :: ievfile,ielements
+ integer,          private :: ielements
  integer,          private :: ev_cmd(inumev)    ! array of the actions to be taken
  character(len=19),private :: ev_label(inumev)  ! to make the header for the .ev file
 
@@ -328,7 +328,7 @@ end subroutine fill_ev_header
 !----------------------------------------------------------------
 subroutine write_evfile(t,dt)
  use energies,      only:compute_energies,ev_data_update
- use io,            only:id,master
+ use io,            only:id,master,ievfile
  use options,       only:iexternalforce
  use extern_binary, only:accretedmass1,accretedmass2
  real, intent(in)  :: t,dt
