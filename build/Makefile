@@ -353,15 +353,24 @@ ifeq ($(SETUP), galcen)
     KNOWN_SETUP=yes
 endif
 
-#--- Bondi accretion ---------------------------
+#--- Bondi accretion/wind ---------------------------
 ifeq ($(SETUP), bondi)
-    SETUPFILE= setup_bondi.f90
+    SRCBONDI=bondi_exact_nonrel.f90
+    SETUPFILE=setup_bondi.f90
     KNOWN_SETUP=yes
     KERNEL=quintic
     ISOTHERMAL=yes
 endif
-ifeq ($(SETUP), bondi_gr)
-    SETUPFILE= setup_bondigr.f90
+ifeq ($(SETUP), bondigr_geodesic)
+    SRCBONDI=bondi_exact_geodesic.f90
+    SETUPFILE= setup_bondi.f90
+    KNOWN_SETUP=yes
+    GR=yes
+    KERNEL=quintic
+endif
+ifeq ($(SETUP), bondigr_sonicpoint)
+    SRCBONDI=bondi_exact_sonicpoint.f90
+    SETUPFILE= setup_bondi.f90
     KNOWN_SETUP=yes
     GR=yes
     KERNEL=quintic
@@ -1489,6 +1498,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} directsum.f90 ${SRCDUST} readwrite_dumps.F90 quitdump.f90 \
          mpi_dens.F90 mpi_force.F90 stack.F90 \
          mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
+         ${SRCBONDI} \
          ${SRCTURB} ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} \
          ptmass.F90 readwrite_infile.F90 \
          dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 \
@@ -1565,6 +1575,7 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_filenames.f90 util
           geometry.f90 stretchmap.f90 prompting.f90 density_profiles.f90 \
           set_unifdis.f90 set_sphere.f90 set_disc.F90 \
           set_vfield.f90 sort_particles.F90 ${SRCINJECT} \
+          ${SRCBONDI} \
           ${SETUPFILE} checksetup.F90 \
           set_Bfield.f90 readwrite_infile.f90
 OBJSETUP1= $(SRCSETUP:.f90=.o)
