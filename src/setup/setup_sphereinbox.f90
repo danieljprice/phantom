@@ -133,8 +133,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     ! prompt user for settings
     !
-    np    = int(2.0/3.0*size(xyzh(1,:))) ! approx max number allowed in sphere given size(xyzh(1,:))
-    npmax = np
+    npmax = int(2.0/3.0*size(xyzh(1,:))) ! approx max number allowed in sphere given size(xyzh(1,:))
+    if (npmax < 300000) then
+       np = npmax
+    else if (npmax < 1000000) then
+       np = 300000
+    else
+       np = 1000000
+    endif
     call prompt('Enter the approximate number of particles in the sphere',np,0,npmax)
     np_in    = np
     r_sphere = 4.
