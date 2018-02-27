@@ -32,7 +32,6 @@ module analysis
  integer                              :: dump_number = 0
  real                                 :: omega_corotate=0, init_radius, rho_surface
  logical, dimension(5)                :: switch = .false.
- logical, allocatable                 :: prev_unbound(:)
 
 
  public                               :: do_analysis
@@ -44,7 +43,7 @@ contains
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !phantom modules
- use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,poten,ihsoft,rhoh
+ use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,poten,ihsoft,rhoh,nsinkproperties,maxvxyzu
  use units,        only:print_units,umass,utime,udist,unit_ergg,unit_density,unit_pressure,unit_velocity,unit_Bfield,unit_energ
  use physcon,      only:gg,pi,c
  use prompting,    only:prompt
@@ -52,16 +51,18 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use energies,     only:compute_energies,ekin,etherm,epot,etot
  use ptmass,       only:get_accel_sink_gas
  use kernel,       only:kernel_softening,radkern,wkern,cnormk
- use eos,          only:equationofstate,ieos,init_eos,finish_eos,X_in,Z_in
+ use eos,          only:equationofstate,ieos,init_eos,finish_eos,X_in,Z_in,get_spsound
  use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa, get_eos_various_mesa
  use setbinary,    only:Rochelobe_estimate
+ use sortutils,    only:set_r2func_origin,r2func_origin,indexxfunc
 
  !general variables
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
- integer                      :: unitnum,i,j,k,ierr
+ integer                      :: unitnum,i,j,k
+ integer                      :: iorder(npart)
 
  !case 1 variables
  real                         :: sink_separation(4,nptmass-1)
@@ -114,17 +115,20 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer                      :: ncols
 
  !case 5 variables
- real                         :: totvol, rhopart
+ real                         :: totvol, rhopart, cs=0., racc
 
  !case 6 variables
  real                         :: RL1,RL2
- real, dimension(6)           :: MRL=0
+ real, dimension(8)           :: MRL
+ real                         :: xyzh_a(4,npart), vxyzu_a(maxvxyzu,npart)
+ real                         :: xyzmh_ptmass_a(nsinkproperties,nptmass), vxyz_ptmass_a(3,nptmass)
 
  !case 7 variables
  character(len=17), dimension(:), allocatable :: columns
 
  !case 8 variables
  real                         :: star_stability(4), total_mass=0.0, densvol
+ real                         :: mach_number(npart)
 
  integer, parameter           :: ivoleqrad    = 1
  integer, parameter           :: idensrad     = 2
@@ -143,13 +147,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real  :: pres_array(1000,1000)
 
  !case 14 variables
- integer                      :: npart_hist, nbins
- real, dimension(5,npart)     :: dist_part
- real, dimension(npart)       :: rad_part
+ integer                      :: npart_hist(5), nbins
+ real, dimension(5,npart)     :: dist_part, rad_part
  real, dimension(:), allocatable :: hist_var
  character(len=40)            :: data_formatter
  real                         :: xh0, xh1, xhe0, xhe1, xhe2, temperature
- character(len=17), dimension(5) :: grid_file
+ character(len=17), dimension(:), allocatable :: grid_file
+ logical, allocatable, save   :: prev_unbound(:,:), prev_bound(:,:)
  real                         :: sinkcomp(30)
  real                         :: ang_mom(3)
  character(len=17)            :: filename
@@ -493,10 +497,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  case(5) !Mass within roche lobes
 
-    MRL(1:6) = 0
+    MRL(1:8) = 0
 
-    RL1 = 10
-    RL2 = 10
+    RL1 = 80
+    RL2 = 80
 
     do i=1,npart
        if (xyzh(4,i)  >=  0) then
@@ -517,9 +521,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                 endif
 
              else
+                call cross(xyzh(1:3,i),particlemass * vxyzu(1:3,i),rcrossmv)
+                jz = rcrossmv(3)
                 MRL(5) = MRL(5) + particlemass
+                MRL(7) = MRL(7) + jz
                 if (etoti < 0) then
                    MRL(6) = MRL(6) + particlemass
+                   MRL(8) = MRL(8) + jz
                 endif
              endif
           enddo
@@ -532,9 +540,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                 ' Mass in RL2',&
                 '  B Mass RL2',&
                 'Mass ejected',&
-                'B Mass eject'/)
+                'B Mass eject',&
+                '  jz ejected',&
+                '  B jz eject'/)
 
-    call write_time_file('MassDist', columns, time, MRL, 6, num)
+    call write_time_file('MassDist', columns, time, MRL, 8, num)
 
  case(6) !Star stabilisation suite
     totvol = 0
@@ -596,8 +606,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     do i=1,nptmass
        write(*,'(A,I2,A,ES10.3,A,ES10.3)') 'Point mass ',i,': M = ',xyzmh_ptmass(4,i),' and h_soft = ',xyzmh_ptmass(ihsoft,i)
     enddo
-
-    write(*,'(A,ES10.3,A,ES10.3)') 'Gas particles : ',npart,' particles, each of mass ',particlemass
+    
+    write(*,'(A,I7,A,ES10.3)') 'Gas particles : ',npart,' particles, each of mass ',particlemass
 
  case(8) !Output .divv
 
@@ -613,11 +623,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
 
           pressure(i) = ponrhoi * rhopart * unit_pressure
+          mach_number(i) = distance(vxyzu(1:3,i)) / spsoundi
           if (ieos==10) then
-             call get_eos_pressure_temp_mesa(X_in,rhopart*unit_density,vxyzu(4,i) * unit_ergg,pres,temp(i))
-             call get_eos_kappa_mesa(X_in,rhopart*unit_density,temp(i),kappa(i),kappat,kappar,ierr)
-             call ionisation_fraction(rhopart * unit_density, temp(i), X_in, 1.-X_in-Z_in, &
-                                      ions(1,i),ions(2,i),ions(3,i),ions(4,i),ions(5,i))
+             call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i) * unit_ergg,pres,temp(i))
+             call get_eos_kappa_mesa(rhopart*unit_density,temp(i),kappa(i),kappat,kappar)
+             !call ionisation_fraction(rhopart * unit_density, temp(i), X_in, 1.-X_in-Z_in, &
+             !                         ions(1,i),ions(2,i),ions(3,i),ions(4,i),ions(5,i))
           else
              kappa(i) = 1
           endif
@@ -628,7 +639,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     write(26) (real(bound_energy(i),kind=4),i=1,npart)
     write(26) (real(pressure(i),kind=4),i=1,npart)
     write(26) (real(temp(i),kind=4),i=1,npart)
-    write(26) (real(ions(2,i),kind=4),i=1,npart)
+    write(26) (real(mach_number(i),kind=4),i=1,npart)
 
     close(26)
 
@@ -637,15 +648,15 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     do i=1,size(rho_array)
        do j=1,size(eni_array)
-          !call get_eos_kappa_mesa(X_in,rho_array(i),temp_array(j),kappa_array(i,j),kappat,kappar,ierr)
-          call get_eos_pressure_temp_mesa(X_in,rho_array(i),eni_array(j),pres_array(i,j),temp(i))
-          pres_array(i,j) = eni_array(j)*rho_array(i)*0.66667 / pres_array(i,j)
+          !call get_eos_kappa_mesa(rho_array(i),temp_array(j),kappa_array(i,j),kappat,kappar)
+          call get_eos_pressure_temp_mesa(rho_array(i),eni_array(j),pres_array(i,j),temp(i))
+          !pres_array(i,j) = eni_array(j)*rho_array(i)*0.66667 / pres_array(i,j)
        enddo
     enddo
 
     unitnum = 1000
 
-    open(unit=unitnum, file='ratio_eos_array.out', status='replace')
+    open(unit=unitnum, file='mesa_eos_pressure.out', status='replace')
 
     !Write data to file
     do i=1,1000
@@ -666,15 +677,15 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     do i=1,npart
        if (xyzh(4,i)  >=  0) then
           rhopart = rhoh(xyzh(4,i), particlemass)
-          npart_hist = npart_hist + 1
-          rad_part(npart_hist) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-          call get_eos_pressure_temp_mesa(X_in,rhopart*unit_density,vxyzu(4,i) * unit_ergg,pres,temperature)
+          npart_hist(1) = npart_hist(1) + 1
+          rad_part(1,npart_hist(1)) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+          call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i) * unit_ergg,pres,temperature)
           call ionisation_fraction(rhopart * unit_density, temperature, X_in, 1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
-          dist_part(1,npart_hist) = xh0
-          dist_part(2,npart_hist) = xh1
-          dist_part(3,npart_hist) = xhe0
-          dist_part(4,npart_hist) = xhe1
-          dist_part(5,npart_hist) = xhe2
+          dist_part(1,npart_hist(1)) = xh0
+          dist_part(2,npart_hist(1)) = xh1
+          dist_part(3,npart_hist(1)) = xhe0
+          dist_part(4,npart_hist(1)) = xhe1
+          dist_part(5,npart_hist(1)) = xhe2
        endif
     enddo
     allocate(hist_var(nbins))
@@ -686,7 +697,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
 
     do i=1,5
-       call avg_histogram_setup(rad_part(1:npart_hist),dist_part(i,1:npart_hist),hist_var,npart_hist,3.,0.5,nbins)
+       call histogram_setup(rad_part(1,1:npart_hist(1)),dist_part(i,1:npart_hist(1)),hist_var,npart_hist(1),3.,0.5,nbins,.true.)
 
        write(data_formatter, "(a,I5,a)") "(", nbins, "(3x,es18.10e3,1x))"
 
@@ -707,8 +718,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        close(unit=unitnum)
     enddo
 
- case(11) !New unbound particle profiles in time
-    !If you want to use this, remove the "/ real(n)" in the avg_histogram_setup routine
+ case(11) !New unbound particle profiles in time 
+    !If you want to use this, remove the "/ real(n)" in the histogram_setup routine
     !This case can be somewhat tidied up
     call compute_energies(time)
 
@@ -718,7 +729,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     dist_part = 0.
 
     if (dump_number == 0) then
-       allocate(prev_unbound(npart))
+       allocate(prev_bound(2,npart))
+       allocate(prev_unbound(2,npart))
+       prev_bound = .false.
        prev_unbound = .false.
     endif
 
@@ -728,51 +741,99 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
           call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
 
-          if ((etoti > 0) .and. (prev_unbound(i) .eqv. .false.)) then
-             rhopart = rhoh(xyzh(4,i), particlemass)
-             npart_hist = npart_hist + 1
-             rad_part(npart_hist) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-             !dist_part(npart_hist) = rhopart * unit_density
-             dist_part(1,npart_hist) = 1.
-             prev_unbound(i) = .true.
-          elseif ((etoti < 0.) .and. (prev_unbound(i) .eqv. .true.)) then
-             prev_unbound(i) = .false.
-          endif
+          if ((etoti > 0.) .and. (prev_unbound(1,i) .eqv. .false.)) then
+             npart_hist(1) = npart_hist(1) + 1
+             rad_part(1,npart_hist(1)) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+             dist_part(1,npart_hist(1)) = 1.
+             prev_unbound(1,i) = .true.
+          elseif (etoti < 0.) then
+             prev_unbound(1,i) = .false.
+          endif 
+
+
+          if ((ekini + epoti > 0.) .and. (prev_unbound(2,i) .eqv. .false.)) then
+             npart_hist(2) = npart_hist(2) + 1
+             rad_part(2,npart_hist(2)) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+             dist_part(2,npart_hist(2)) = 1.
+             prev_unbound(2,i) = .true.
+          elseif (ekini + epoti < 0.) then
+             prev_unbound(2,i) = .false.
+          endif 
+
+          if ((etoti < 0.) .and. (prev_bound(1,i) .eqv. .false.)) then
+             npart_hist(3) = npart_hist(3) + 1
+             rad_part(3,npart_hist(3)) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+             dist_part(3,npart_hist(3)) = 1.
+             prev_bound(1,i) = .true.
+          elseif (etoti > 0.) then
+             prev_bound(1,i) = .false.
+          endif 
+
+          if ((ekini + epoti < 0.) .and. (prev_bound(2,i) .eqv. .false.)) then
+             npart_hist(4) = npart_hist(4) + 1
+             rad_part(4,npart_hist(4)) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+             dist_part(4,npart_hist(4)) = 1.
+             prev_bound(2,i) = .true.
+          elseif (ekini + epoti > 0.) then
+             prev_bound(2,i) = .false.
+          endif 
+
+
+          !if ((epoti + ekini > 0) .and. (prev_unbound(i) .eqv. .false.)) then
+          !   rhopart = rhoh(xyzh(4,i), particlemass)
+          !   npart_hist = npart_hist + 1
+          !   rad_part(npart_hist) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+          !   dist_part(1,npart_hist) = 1.
+          !   prev_unbound(i) = .true.
+          !elseif ((etoti < 0.) .and. (prev_unbound(i) .eqv. .true.)) then
+          !   prev_unbound(i) = .false.
+          !endif
        endif
     enddo
     allocate(hist_var(nbins))
-    grid_file = (/ 'grid_n_unbound.ev', &
-                   '                 ', &
-                   '                 ', &
-                   '                 ', &
-                   '                 ' /)
+    grid_file = (/ 'gridpkiunbound.ev', &
+                   ' gridpkunbound.ev', &
+                   '  gridpkibound.ev', &
+                   '   gridpkbound.ev' /)
 
-    call avg_histogram_setup(rad_part(1:npart_hist),dist_part(1,1:npart_hist),hist_var,npart_hist,3.,0.5,nbins)
+    do i=1,4
+       call histogram_setup(rad_part(i,1:npart_hist(i)),dist_part(i,1:npart_hist(i)),hist_var,npart_hist(i),3.,0.5,nbins,.false.)
 
-    write(data_formatter, "(a,I5,a)") "(", nbins, "(3x,es18.10e3,1x))"
+       write(data_formatter, "(a,I5,a)") "(", nbins, "(3x,es18.10e3,1x))"
 
-    if (num == 0) then
-       unitnum = 1000
+       if (num == 0) then
+          unitnum = 1000
 
-       open(unit=unitnum, file=trim(grid_file(1)), status='replace')
-       write(unitnum, "(a)") '#why isnt this being displayed?'
+          open(unit=unitnum, file=trim(adjustl(grid_file(i))), status='replace')
+          write(unitnum, "(a)") '# Newly bound/unbound particles'
+          close(unit=unitnum)
+       endif
+
+       unitnum=1001+i
+       
+       open(unit=unitnum, file=trim(adjustl(grid_file(i))), position='append')
+
+       write(unitnum,data_formatter) hist_var(:)
+
        close(unit=unitnum)
-    endif
-
-    unitnum=1001+i
-
-    open(unit=unitnum, file=trim(grid_file(1)), position='append')
-
-    write(unitnum,data_formatter) hist_var(:)
-
-    close(unit=unitnum)
+    enddo
 
  case(12) !sink properties
+    xyzh_a(1:4,1:npart) = xyzh(1:4,1:npart)
+    vxyzu_a(1:4,1:npart) = vxyzu(1:4,1:npart)
+    xyzmh_ptmass_a(1:nsinkproperties,1:nptmass) = xyzmh_ptmass(1:nsinkproperties,1:nptmass)
+    vxyz_ptmass_a(1:3,1:nptmass) = vxyz_ptmass(1:3,1:nptmass)
 
+    do i=1,npart
+       xyzh_a(1:3,i) = xyzh_a(1:3,i) - xyzmh_ptmass_a(1:3,1)
+       vxyzu_a(1:3,i) = vxyzu_a(1:3,i) - vxyz_ptmass_a(1:3,1)
+    enddo
+    
     do i=1,nptmass
-
+       sinkcomp = 0.
+       xyzmh_ptmass_a(1:3,i) = xyzmh_ptmass_a(1:3,i) - xyzmh_ptmass_a(1:3,1)
+       vxyz_ptmass_a(1:3,i) = vxyz_ptmass_a(1:3,i) - vxyz_ptmass_a(1:3,1)
        write (filename, "(A16,I0)") "sink_properties_", i
-       allocate(columns(17))
        columns = (/'            x', &
                    '            y', &
                    '            z', &
@@ -789,31 +850,49 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                    '    ang mom y', &
                    '    ang mom z', &
                    '    |ang mom|', &
-                   '       kin en'/)
+                   '       kin en', &
+                   'rho near sink', &
+                   ' vel contrast', &
+                   '   gravo drag'/)
 
        ! position xyz
-       sinkcomp(1:3)   = xyzmh_ptmass(1:3,i)
+       sinkcomp(1:3)   = xyzmh_ptmass_a(1:3,i)
        ! position modulus
-       sinkcomp(4)     = distance(xyzmh_ptmass(1:3,i))
+       sinkcomp(4)     = distance(xyzmh_ptmass_a(1:3,i))
        ! velocity xyz
-       sinkcomp(5:7)   = vxyz_ptmass(1:3,i)
+       sinkcomp(5:7)   = vxyz_ptmass_a(1:3,i)
        ! velocity modulus
-       sinkcomp(8)     = distance(vxyz_ptmass(1:3,i))
+       sinkcomp(8)     = distance(vxyz_ptmass_a(1:3,i))
        ! momentum xyz
-       sinkcomp(9:11)  = xyzmh_ptmass(4,i)*vxyz_ptmass(1:3,i)
+       sinkcomp(9:11)  = xyzmh_ptmass_a(4,i)*vxyz_ptmass_a(1:3,i)
        ! momentum modulus
-       sinkcomp(12)    = xyzmh_ptmass(4,i)*sinkcomp(8)
+       sinkcomp(12)    = xyzmh_ptmass_a(4,i)*sinkcomp(8)
        ! angular momentum xyz
-       call cross(xyzmh_ptmass(1:3,i), xyzmh_ptmass(4,i)*vxyz_ptmass(1:3,i), ang_mom)
+       call cross(xyzmh_ptmass_a(1:3,i), xyzmh_ptmass_a(4,i)*vxyz_ptmass_a(1:3,i), ang_mom)
        sinkcomp(13:15) = ang_mom
        ! angular momentum modulus
        sinkcomp(16)    = distance(ang_mom(1:3))
        ! kinetic energy
-       sinkcomp(17)    = 0.5*xyzmh_ptmass(4,i)*sinkcomp(8)**2
 
+       sinkcomp(17)    = 0.5*xyzmh_ptmass_a(4,i)*sinkcomp(8)**2
+       
+       call set_r2func_origin(xyzmh_ptmass_a(1,i),xyzmh_ptmass_a(2,i),xyzmh_ptmass_a(3,i))
+       call indexxfunc(npart,r2func_origin,xyzh_a,iorder)
+       do j=1,101
+          k = iorder(j)
+          sinkcomp(18) = sinkcomp(18) + rhoh(xyzh_a(4,k), particlemass)
+          sinkcomp(19) = sinkcomp(19) + separation(vxyzu_a(1:3,k),vxyz_ptmass_a(1:3,i))
+          cs = cs + get_spsound(ieos,xyzh_a(1:3,k),rhoh(xyzh_a(4,k), particlemass),vxyzu_a(1:3,k))
+       enddo
 
-       call write_time_file(filename, columns, time, sinkcomp, 17, num)
-       deallocate(columns)
+       sinkcomp(18) = sinkcomp(18) / 100.
+       sinkcomp(19) = sinkcomp(19) / 100.
+       cs = cs / 100.
+       racc = 2. * (gg*umass*utime**2/udist**3) * xyzmh_ptmass_a(4,i) / (sinkcomp(19)**2 + cs**2)
+       sinkcomp(20) = sinkcomp(18) * sinkcomp(19)**2 * pi * racc**2
+       !sinkcomp(20) = 100. * sinkcomp(8) / sinkcomp(20)
+
+       call write_time_file(filename, columns, time, sinkcomp, 20, num)
 
     enddo
 
@@ -866,7 +945,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           rhopart = rhoh(xyzh(4,i), particlemass)
 
           !gets entropy for the current particle
-          call get_eos_various_mesa(X_in,rhopart*unit_density,vxyzu(4,i) * unit_ergg, &
+          call get_eos_various_mesa(rhopart*unit_density,vxyzu(4,i) * unit_ergg, &
                                     pres_1(i),proint_1(i),peint_1(i),temp_1(i),troint_1(i), &
                                     teint_1(i),entrop_1(i),abad_1(i),gamma1_1(i),gam_1(i))
 
@@ -927,7 +1006,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        dens_1(i) = rhopart * unit_density
 
        !gets entropy for the current particle
-       call get_eos_various_mesa(X_in,rhopart*unit_density,vxyzu(4,i) * unit_ergg, &
+       call get_eos_various_mesa(rhopart*unit_density,vxyzu(4,i) * unit_ergg, &
                                     pres_1(i),proint_1(i),peint_1(i),temp_1(i),troint_1(i), &
                                     teint_1(i),entrop_1(i),abad_1(i),gamma1_1(i),gam_1(i))
 
@@ -1047,8 +1126,8 @@ subroutine stellar_profile(time,ncols,particlemass,npart,xyzh,vxyzu,profile,simp
              call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
 
              if (ieos == 10) then
-                call get_eos_pressure_temp_mesa(X_in,rhopart*unit_density,vxyzu(4,i) * unit_ergg,pres,temp)
-                call get_eos_kappa_mesa(X_in,rhopart*unit_density,temp,kappa,kappat,kappar,ierr)
+                call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i) * unit_ergg,pres,temp)
+                call get_eos_kappa_mesa(rhopart*unit_density,temp,kappa,kappat,kappar)
              else
                 temp = (ponrhoi * (unit_pressure/unit_density) * 2.381 * mass_proton_cgs) / kboltz
                 kappa = 1.
@@ -1140,12 +1219,13 @@ subroutine ionisation_fraction(dens,temp,X,Y,xh0, xh1, xhe0, xhe1, xhe2)
  xhe0 = ((nhe/n) - xhe1g - xhe2g) * n / nhe
 end subroutine ionisation_fraction
 
-subroutine avg_histogram_setup(dist_var,avg_var,hist_var,npart,max_value,min_value,nbins)
- !returns a radial histogram of a given distribution variable
+subroutine histogram_setup(dist_var,avg_var,hist_var,npart,max_value,min_value,nbins,average)
+ !returns a radial histogram of a given distribution variable 
  integer, intent(in)                :: npart,nbins
  real, dimension(npart), intent(in) :: dist_var, avg_var
  real, dimension(nbins), intent(out) :: hist_var
  real, intent(in)                   :: max_value, min_value
+ logical, intent(in)                :: average
  real                               :: bins(nbins)
  integer                            :: i,j,n
 
@@ -1162,11 +1242,13 @@ subroutine avg_histogram_setup(dist_var,avg_var,hist_var,npart,max_value,min_val
        endif
     enddo
     if (n>0) then
-       hist_var(i) = hist_var(i) / real(n)
+       if (average) then
+           hist_var(i) = hist_var(i) / real(n)
+       endif
     endif
  enddo
 
-end subroutine avg_histogram_setup
+end subroutine histogram_setup
 
 subroutine write_file(name_in, dir_in, cols, data_in, npart, ncols, num)
  !outputs a file from a single dump
