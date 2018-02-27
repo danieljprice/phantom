@@ -1078,7 +1078,6 @@ ifeq ($(SYSTEM), lyoccf)
     FFLAGS= -O3 -ftz -xavx -cpp -sox -fno-alias -fno-fnalias \
             -no-prec-div -no-prec-sqrt -align all -warn uninitialized \
             -warn unused -warn truncated_source
-    CCFLAGS = -O3 -ipo -mcmodel=medium
     LIBCXX = -cxxlib
 endif
 
