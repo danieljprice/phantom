@@ -1243,7 +1243,7 @@ subroutine histogram_setup(dist_var,avg_var,hist_var,npart,max_value,min_value,n
     enddo
     if (n>0) then
        if (average) then
-           hist_var(i) = hist_var(i) / real(n)
+          hist_var(i) = hist_var(i) / real(n)
        endif
     endif
  enddo
