@@ -606,7 +606,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     do i=1,nptmass
        write(*,'(A,I2,A,ES10.3,A,ES10.3)') 'Point mass ',i,': M = ',xyzmh_ptmass(4,i),' and h_soft = ',xyzmh_ptmass(ihsoft,i)
     enddo
-    
+
     write(*,'(A,I7,A,ES10.3)') 'Gas particles : ',npart,' particles, each of mass ',particlemass
 
  case(8) !Output .divv
@@ -718,7 +718,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        close(unit=unitnum)
     enddo
 
- case(11) !New unbound particle profiles in time 
+ case(11) !New unbound particle profiles in time
     !If you want to use this, remove the "/ real(n)" in the histogram_setup routine
     !This case can be somewhat tidied up
     call compute_energies(time)
@@ -748,7 +748,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              prev_unbound(1,i) = .true.
           elseif (etoti < 0.) then
              prev_unbound(1,i) = .false.
-          endif 
+          endif
 
 
           if ((ekini + epoti > 0.) .and. (prev_unbound(2,i) .eqv. .false.)) then
@@ -758,7 +758,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              prev_unbound(2,i) = .true.
           elseif (ekini + epoti < 0.) then
              prev_unbound(2,i) = .false.
-          endif 
+          endif
 
           if ((etoti < 0.) .and. (prev_bound(1,i) .eqv. .false.)) then
              npart_hist(3) = npart_hist(3) + 1
@@ -767,7 +767,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              prev_bound(1,i) = .true.
           elseif (etoti > 0.) then
              prev_bound(1,i) = .false.
-          endif 
+          endif
 
           if ((ekini + epoti < 0.) .and. (prev_bound(2,i) .eqv. .false.)) then
              npart_hist(4) = npart_hist(4) + 1
@@ -776,7 +776,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              prev_bound(2,i) = .true.
           elseif (ekini + epoti > 0.) then
              prev_bound(2,i) = .false.
-          endif 
+          endif
 
 
           !if ((epoti + ekini > 0) .and. (prev_unbound(i) .eqv. .false.)) then
@@ -810,7 +810,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        endif
 
        unitnum=1001+i
-       
+
        open(unit=unitnum, file=trim(adjustl(grid_file(i))), position='append')
 
        write(unitnum,data_formatter) hist_var(:)
@@ -828,7 +828,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        xyzh_a(1:3,i) = xyzh_a(1:3,i) - xyzmh_ptmass_a(1:3,1)
        vxyzu_a(1:3,i) = vxyzu_a(1:3,i) - vxyz_ptmass_a(1:3,1)
     enddo
-    
+
     do i=1,nptmass
        sinkcomp = 0.
        xyzmh_ptmass_a(1:3,i) = xyzmh_ptmass_a(1:3,i) - xyzmh_ptmass_a(1:3,1)
@@ -875,7 +875,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        ! kinetic energy
 
        sinkcomp(17)    = 0.5*xyzmh_ptmass_a(4,i)*sinkcomp(8)**2
-       
+
        call set_r2func_origin(xyzmh_ptmass_a(1,i),xyzmh_ptmass_a(2,i),xyzmh_ptmass_a(3,i))
        call indexxfunc(npart,r2func_origin,xyzh_a,iorder)
        do j=1,101
@@ -1220,7 +1220,7 @@ subroutine ionisation_fraction(dens,temp,X,Y,xh0, xh1, xhe0, xhe1, xhe2)
 end subroutine ionisation_fraction
 
 subroutine histogram_setup(dist_var,avg_var,hist_var,npart,max_value,min_value,nbins,average)
- !returns a radial histogram of a given distribution variable 
+ !returns a radial histogram of a given distribution variable
  integer, intent(in)                :: npart,nbins
  real, dimension(npart), intent(in) :: dist_var, avg_var
  real, dimension(nbins), intent(out) :: hist_var

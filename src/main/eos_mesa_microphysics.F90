@@ -137,7 +137,7 @@ subroutine read_opacity_mesa(x,z)
     endif
  enddo
 
- ! Finds fraction of input Z distance between two enclosing Z (sorry if confusing, just read the code) 
+ ! Finds fraction of input Z distance between two enclosing Z (sorry if confusing, just read the code)
  dz=(z-mesa_opacs_zs(nz2-1))/(mesa_opacs_zs(nz2)-mesa_opacs_zs(nz2-1))
 
  ! Same for X
@@ -252,7 +252,7 @@ subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
  opac_kd =       dr  * (dt * mesa_opacs_kd(nr+1,nt+1) + (1.d0-dt) * mesa_opacs_kd(nr+1,nt)) + &
            (1.d0-dr) * (dt * mesa_opacs_kd(nr,nt+1)   + (1.d0-dt) * mesa_opacs_kd(nr,nt))
 
- 
+
  kap  = 10.d0**opac_k
  kapt = opac_kt * kap / temp
  kapr = opac_kd * kap / rho
@@ -378,7 +378,7 @@ subroutine read_eos_mesa(x,z,ierr)
     endif
  enddo
 
- ! Chooses Z values below input Z, and then finds fraction of input Z distance between two enclosing Z (sorry if confusing, just read the code) 
+ ! Chooses Z values below input Z, and then finds fraction of input Z distance between two enclosing Z (sorry if confusing, just read the code)
  nz1 = nz2 - 1
  dz=(z-mesa_eos_z(nz1))/(mesa_eos_z(nz2)-mesa_eos_z(nz1))
 

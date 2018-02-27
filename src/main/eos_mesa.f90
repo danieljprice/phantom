@@ -43,9 +43,9 @@ subroutine init_eos_mesa(x,z,ierr)
     return
  endif
 
- call get_environment_variable('MESA_DATA_DIR',mesa_eos_dir) 
+ call get_environment_variable('MESA_DATA_DIR',mesa_eos_dir)
  mesa_eos_prefix="output_DE_"
- call get_environment_variable('MESA_DATA_DIR',mesa_opacs_dir) 
+ call get_environment_variable('MESA_DATA_DIR',mesa_opacs_dir)
  mesa_opacs_suffix=""
  mesa_eos_full_output=.true.
  mesa_binary_data=.true.
