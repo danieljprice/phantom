@@ -17,7 +17,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: None
+!  DEPENDENCIES: mesa_microphysics
 !+
 !--------------------------------------------------------------------------
 module eos_mesa
