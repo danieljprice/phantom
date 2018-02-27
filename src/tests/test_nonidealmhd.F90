@@ -219,7 +219,6 @@ subroutine test_wavedamp(ntests,npass)
     Bzrms_num = sqrt(Bzrms_num/npart)
     Bzrms_ana = h0*abs(sin(omegaR*t))*exp(omegaI*t)
     L2        = L2 + (Bzrms_ana - Bzrms_num)**2
-    !print*, t,dt, Bzrms_ana,Bzrms_num
     if (dtnew < dt) valid_dt = .false.
  enddo
  ! For printing outputs if further debugging is required.
@@ -235,7 +234,7 @@ subroutine test_wavedamp(ntests,npass)
  call checkval(L2,0.0,tol,nerr(1),'L2 error on wave damp test')
  call checkval(valid_dt,.true.,nerr(2),'dt to ensure above valid default')
 #ifdef STS_TIMESTEPS
- call checkval(dtcourant,4.5249944d-3,toltime,nerr(3),'initial courant dt')
+ call checkval(dtcourant,4.5249927d-3,toltime,nerr(3),'initial courant dt')
  call checkval(dtdiff,   2.8995286d-2,toltime,nerr(4),'initial dissipation dt from sts')
 #endif
 
@@ -397,7 +396,6 @@ subroutine test_standingshock(ntests,npass)
     nsteps = nsteps + 1
     dtext  = dt
     call step(npart,npart,t,dt,dtext,dtnew)
-    !print*, t,dt,dtnew,nsteps
     if (dtnew < dt) valid_dt = .false.
  enddo
  !
