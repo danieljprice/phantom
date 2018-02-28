@@ -1307,12 +1307,15 @@ pure subroutine compute_hmax(cell,redo_neighbours)
  real                          :: hmax_old,hmax
 
  redo_neighbours = .false.
- hmax_old = cell%hmax
- hmax     = 1.01*maxval(cell%h(1:cell%npcell))
- if (hmax > hmax_old) redo_neighbours = .true.
- cell%hmax  = hmax
- cell%rcuti = radkern*hmax
-
+ if (cell%npcell > 0) then
+    hmax_old = cell%hmax
+    hmax     = 1.01*maxval(cell%h(1:cell%npcell))
+    if (hmax > hmax_old) redo_neighbours = .true.
+    cell%hmax  = hmax
+    cell%rcuti = radkern*hmax
+ else
+    redo_neighbours = .true.
+ endif
 end subroutine compute_hmax
 
 subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)

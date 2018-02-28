@@ -2183,15 +2183,17 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
        !--for MHD, need to make the force stable when beta < 1.  In this regime,
        !  subtract off the B(div B)/rho term (Borve, Omang & Trulsen 2001, 2005);
        !  outside of this regime, do nothing, but (smoothly) transition between
-       !  regimes
+       !  regimes.  Tests in Feb 2018 suggested that beginning the transition
+       !  too close to beta = 1 lead to some inaccuracies, and that the optimal
+       !  transition range was 2-10 or 2-5, depending on the test.
        !
        divBsymmi  = fsum(idivBsymi)
        if (B2i > 0.0) then
           betai = 2.0*ponrhoi*rhoi/B2i
-          if (betai < 1.0) then
+          if (betai < 2.0) then
              frac_divB = 1.0
-          elseif (betai < 2.0) then
-             frac_divB = 2.0 - betai
+          elseif (betai < 10.0) then
+             frac_divB = (10.0 - betai)*0.125
           else
              frac_divB = 0.0
           endif

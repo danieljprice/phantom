@@ -246,7 +246,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni)
     cgsrhoi = rhoi * unit_density
     cgseni = eni * unit_ergg
 
-    call get_eos_pressure_gamma1_mesa(X_in,cgsrhoi,cgseni,cgspgas,gam1)
+    call get_eos_pressure_gamma1_mesa(cgsrhoi,cgseni,cgspgas,gam1)
     pgas = cgspgas / unit_pressure
 
     ponrhoi = pgas / rhoi
