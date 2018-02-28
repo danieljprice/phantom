@@ -162,9 +162,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
                         rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ipart,rhomax_ibin
  use units,        only:unit_density
 #endif
-#ifdef DUST
- use dust,          only:get_ts,grainsize,graindens,idrag,icut_backreaction
- use kernel,        only:wkern_drag,cnormk_drag
+#ifdef DUST     
+ use dust,         only:get_ts,grainsize,graindens,idrag,icut_backreaction
+ use kernel,       only:wkern_drag,cnormk_drag
 #endif
  use nicil,        only:nimhd_get_jcbcb,nimhd_get_dt,nimhd_get_dBdt,nimhd_get_dudt
 #ifdef LIGHTCURVE
@@ -322,6 +322,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp shared(ncells,ll,ifirstincell) &
 !$omp shared(xyzh) &
 !$omp shared(dustprop) &
+!$omp shared(ddustprop) &
 !$omp shared(vxyzu) &
 !$omp shared(fxyzu) &
 !$omp shared(divcurlv) &

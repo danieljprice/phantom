@@ -1144,7 +1144,9 @@ ifeq ($(DUST), yes)
        KERNEL=quintic
     endif
 endif
-
+ifeq ($(DUSTGROWTH), yes)
+    FPPFLAGS += -DDUSTGROWTH
+endif
 ifeq ($(NONIDEALMHD), yes)
     FPPFLAGS += -DNONIDEALMHD
 endif

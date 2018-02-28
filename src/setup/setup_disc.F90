@@ -16,8 +16,8 @@
 !     (ii) in an unbound binary (i.e. a fly-by) can have circumprimary and
 !          circumsecondary discs.
 !   In addition to gas, each disc can contain dust, modelled with either the
-!   one fluid or two fluid methods. Embedded planets can be added to single
-!   or circumbinary discs.
+!   one fluid or two fluid methods. The dust can only grow in the two-fluid method.
+!   Embedded planets can be added to single or circumbinary discs.
 !
 !  REFERENCES: None
 !
@@ -47,7 +47,7 @@
 !    flyby_d           -- initial distance (units of dist. min. approach)
 !    flyby_i           -- inclination (deg)
 !    graindensinp      -- intrinsic grain density (in g/cm^3)
-!    grainsizeinp      -- grain size (in cm)
+!    grainsizeinp      -- grain size or initial grain size (in cm)
 !    ibinary           -- binary orbit (0=bound,1=unbound [flyby])
 !    ipotential        -- potential (1=central point mass,
 !    m1                -- central star mass
@@ -68,7 +68,7 @@
 !+
 !--------------------------------------------------------------------------
 module setup
- use dim,            only:maxp,use_dust,maxalpha
+ use dim,            only:maxp,use_dust,maxalpha,use_dustgrowth
  use externalforces, only:iext_star,iext_binary,iext_lensethirring,iext_einsteinprec
  use options,        only:use_dustfrac,iexternalforce
 #ifdef MCFOST
@@ -80,7 +80,7 @@ module setup
  implicit none
  public  :: setpart
 
- integer :: np,np_dust,norbits,i
+ integer :: np,np_dust,norbits,i,k
  logical :: obsolete_flag = .false.
  !--central objects
  real    :: m1,m2,accr1,accr2,bhspin,bhspinangle,flyby_a,flyby_d,flyby_O,flyby_i
@@ -133,7 +133,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use kernel,               only:hfact_default
  use options,              only:ieos,alpha,icooling
  use part,                 only:nptmass,xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,&
-                                ihsoft,igas,idust,dustfrac,iamtype,iphase
+                                ihsoft,igas,idust,dustfrac,iamtype,iphase,dustprop
  use physcon,              only:jupiterm,pi,years
  use prompting,            only:prompt
  use setbinary,            only:set_binary,Rochelobe_estimate,get_mean_angmom_vector
@@ -425,16 +425,28 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (dust_method==1) use_dustfrac = .true.
        call prompt('How do you want to set the dust density profile? (0=equal to gas,1=custom)',profile_set_dust,0,1)
        call prompt('Enter dust to gas ratio',dust_to_gas_ratio,0.)
-       call prompt('Enter grain size in cm',grainsizeinp,0.)
-    endif
+	   if (use_dustgrowth) then
+		   print "(/,a)",'--> Dust growth is activated'
+	      call prompt('Enter initial grain size in cm',grainsizeinp,0.)
+	   else
+		  call prompt('Enter grain size in cm',grainsizeinp,0.)
+	   endif
+	endif
     !
     !--resolution
     !
-    np = 500000
-    if (use_dust .and. .not. use_dustfrac) then
+    np = 10000
+    if (use_dust .and. .not.use_dustfrac) then
        np_dust = np/5
     else
        np_dust = 0
+    endif
+	if (use_dustgrowth .and. np_dust /= 0) then
+	   do k=1,np_dust
+	   	  dustprop(1,k) = grainsizeinp
+		  dustprop(2,k) = graindensinp
+		  print*,'size : ',dustprop(1,k),' ,dens : ',dustprop(2,k)
+	   enddo
     endif
     !
     !--add planets
@@ -461,7 +473,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(/,a)",'================'
     print "(a)",  '+++  OUTPUT  +++'
     print "(a)",  '================'
-    deltat  = 0.1
+    deltat  = 0.05
     norbits = 100
     if (setplanets==1) then
        call prompt('Enter time between dumps as fraction of outer planet period',deltat,0.)
@@ -1313,8 +1325,12 @@ subroutine write_setupfile(filename)
     call write_inopt(dust_to_gas_ratio,'dust_to_gas_ratio','dust to gas ratio',iunit)
     call write_inopt(profile_set_dust,'profile_set_dust', &
        'how to set dust density profile (0=equal to gas,1=custom)',iunit)
-    call write_inopt(grainsizeinp,'grainsizeinp','grain size (in cm)',iunit)
-    call write_inopt(graindensinp,'graindensinp','intrinsic grain density (in g/cm^3)',iunit)
+	if (use_dustgrowth) then
+	   call write_inopt(grainsizeinp,'grainsizeinp','initial grain size (in cm)',iunit)
+	else
+	   call write_inopt(grainsizeinp,'grainsizeinp','grain size (in cm)',iunit)
+	endif
+    call write_inopt(graindensinp,'graindensinp','intrinsic grain density (in g/cm^3)',iunit) ! Modify this is graindens becomes variable
  endif
  !--planets
  write(iunit,"(/,a)") '# set planets'
