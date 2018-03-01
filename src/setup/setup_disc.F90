@@ -59,7 +59,7 @@
 !    nplanets          -- number of planets
 !    nsinks            -- number of sinks
 !    setplanets        -- add planets? (0=no,1=yes)
-!    use_mcfost        -- use the mcfost library to compute the temperature
+!    use_mcfost        -- use the mcfost library
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_lensethirring, externalforces, infile_utils, io, kernel,
@@ -157,7 +157,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
 
  integer, parameter :: maxbins = 4096
- logical :: iexist,questplanets,seq_exists
+ logical :: iexist,questplanets,seq_exists,is_isothermal
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
  real    :: jdust_to_gas_ratio,Rj,period,Rochelobe,tol,Hill(maxplanets)
  real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Sigmadust,Stokes
@@ -523,10 +523,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (iuse_disc(i)) idisc = i
     enddo
  endif
+
+ is_isothermal = (maxvxyzu==3)
+#ifdef MCFOST
+ if (use_mcfost) then
+    is_isothermal = .false.
+ else ! We are in the isothermal case
+    is_isothermal = .true.
+ endif
+#endif
+
  !
  !--equation of state
  !
- if (maxvxyzu==3) then
+ if (is_isothermal) then
     !--isothermal
     if (ndiscs /= 1) then
        !--multiple discs
@@ -572,25 +582,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ieos = 2
     gamma = 5./3.
     icooling = 1
- endif
+
 #ifdef MCFOST
- if (use_mcfost) then
-    write(*,*) "MCFOST"
-    !--radiative equilibrium
-    ieos = 2
-    gamma = 5./3.
-    icooling = 0
-    ipdv_heating = 0
-    ishock_heating = 0
-    alphau = 0
- else ! We use
-    ieos = 3
-    icooling = 0
-    ipdv_heating = 0
-    ishock_heating = 0
-    alphau = 0
- endif
+    if (use_mcfost) then
+       icooling = 0
+       ipdv_heating = 0
+       ishock_heating = 0
+       alphau = 0
+    endif
 #endif
+ endif
 
  !
  !--surface density profile
@@ -1338,9 +1339,11 @@ subroutine write_setupfile(filename)
     call write_inopt(norbits,'norbits','maximum number of orbits at outer disc',iunit)
  endif
  call write_inopt(deltat,'deltat','output interval as fraction of orbital period',iunit)
+#ifdef MCFOST
  !--mcfost
  write(iunit,"(/,a)") '# mcfost'
  call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iunit)
+#endif
 
  close(iunit)
 
@@ -1564,17 +1567,10 @@ subroutine read_setupfile(filename,ierr)
  !  following two are optional: not an error if not present
  call read_inopt(norbits,'norbits',db,err=ierr)
  call read_inopt(deltat,'deltat',db,err=ierr)
+#ifdef MCFOST
  !--mcfost
  call read_inopt(use_mcfost,'use_mcfost',db,err=ierr)
  if (ierr) use_mcfost = .false. ! no mcfost by default
-
-#ifndef MCFOST
- if (use_mcfost) then
-    write(*,*) "Error: phantom was not compiled with mcfost"
-    write(*,*) "Cannot run with use_mcfost = True"
-    write(*,*) "Exiting"
-    stop
- endif
 #endif
 
 

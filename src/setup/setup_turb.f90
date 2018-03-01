@@ -45,7 +45,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
- use part,         only:Bevol,maxvecp,mhd,maxBevol,dustfrac
+ use part,         only:Bevol,mhd,maxBevol,dustfrac
  use physcon,      only:pi,solarm,pc,km
  use units,        only:set_units, unit_density
  use prompting,    only:prompt

@@ -34,7 +34,7 @@ contains
 
 subroutine estimate_memusage
  use dim
- use part, only:mhd,maxvecp,maxBevol
+ use part, only:mhd,maxBevol
  integer(kind=8) :: memtot
  integer :: nreal
 
@@ -60,7 +60,7 @@ subroutine estimate_memusage
  if (mhd) then
     print "(a)",' required for MHD: '
     memtot = memtot + memusage('Bevol',4,maxBevol,maxp)
-    memtot = memtot + memusage('Bxyz',4,3,maxvecp)
+    memtot = memtot + memusage('Bxyz',4,3,maxp)
     memtot = memtot + memusage('dBevol',4,maxBevol,maxp)
     memtot = memtot + memusage('div B',4,1,maxp)
     memtot = memtot + memusage('Bevolhalf',4,maxBevol,maxp)

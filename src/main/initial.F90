@@ -48,7 +48,7 @@ contains
 !----------------------------------------------------------------
 subroutine initialise()
  use dim, only:dimid=>modid,maxp
- use io,               only:fatal,die,id,master,nprocs
+ use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
 #endif
@@ -59,6 +59,7 @@ subroutine initialise()
  use boundary,         only:set_boundary
  use writeheader,      only:write_codeinfo
  use writegitinfo,     only:write_gitinfo
+ use evwrite,          only:init_evfile
  use domain,           only:domid=>modid,init_domains
  use densityforce,     only:denid=>modid
  use deriv,            only:derivid=>modid
@@ -107,6 +108,7 @@ subroutine initialise()
  call set_units
  call set_default_options
  call set_boundary
+ call init_evfile(ievfile,'testlog',.false.)
 !
 !--check compile-time settings are OK
 !
@@ -133,7 +135,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -148,7 +150,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustfrac,&
-                            set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh
+                            set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh, &
+                            Bevol,Bxyz
+ use densityforce,     only:densityiterate
+ use linklist,         only:set_linklist
 #ifdef PHOTO
  use photoevap,        only:set_photoevap_grid
 #endif
@@ -221,7 +226,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  integer         :: ierr,i,j,idot,nerr,nwarn
  integer(kind=8) :: npartoftypetot(maxtypes)
  real            :: poti,dtf,hfactfile,fextv(3)
- real            :: pmassi,dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dummy(3)
+ real            :: hi,pmassi,rhoi1
+ real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dummy(3)
+ real            :: stressmax
 #ifdef NONIDEALMHD
  real            :: gmw_old,gmw_new
 #endif
@@ -278,6 +285,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (nwarn > 0) call warning('initial','warnings from particle data in file',var='warnings',ival=nwarn)
     if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
  endif
+
 !
 !--initialise values for non-ideal MHD
 !
@@ -370,6 +378,33 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        call fatal('initial','sum of types in iphase is not equal to npartoftype')
     endif
  endif
+
+!
+!--The code works in B/rho as its conservative variable, but writes B to dumpfile
+!  So we now convert our primitive variable read, B, to the conservative B/rho
+!  This necessitates computing the density sum.
+!
+ if (mhd) then
+    if (npart > 0) then
+       call set_linklist(npart,npart,xyzh,vxyzu)
+       fxyzu = 0.
+       call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
+                              fxyzu,fext,alphaind,gradh)
+    endif
+
+    ! now convert to B/rho
+    do i=1,npart
+       itype      = iamtype(iphase(i))
+       hi         = xyzh(4,i)
+       pmassi     = massoftype(itype)
+       rhoi1      = 1.0/rhoh(hi,pmassi)
+       if (i == 1) print *, rhoi1
+       Bevol(1,i) = Bxyz(1,i) * rhoi1
+       Bevol(2,i) = Bxyz(2,i) * rhoi1
+       Bevol(3,i) = Bxyz(3,i) * rhoi1
+    enddo
+ endif
+
 
 #ifdef IND_TIMESTEPS
  ibin(:)       = 0
@@ -525,7 +560,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
  if (id==master) call write_header(2,infile,evfile,logfile,dumpfile,ntot)
 
- call init_evfile(ievfile,evfile)
+ call init_evfile(ievfile,evfile,.true.)
  call write_evfile(time,dt)
  if (id==master) call write_evlog(iprint)
 #ifdef MFLOW
