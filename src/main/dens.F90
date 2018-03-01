@@ -787,7 +787,7 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,iamdusti,
                 ! we need B instead of B/rho, so used our estimated h here
                 ! either it is close enough to be converged,
                 ! or worst case it runs another iteration and re-calculates
-                rhoi = rhoh(1.0/hi1, massoftype(igas))
+                rhoi = rhoh(real(1.0/hi1), massoftype(igas))
                 rhoj = rhoh(xyzh(4,j), massoftype(igas))
                 dBx = xpartveci(iBevolxi)*rhoi - Bevol(1,j)*rhoj
                 dBy = xpartveci(iBevolyi)*rhoi - Bevol(2,j)*rhoj
