@@ -628,6 +628,10 @@ subroutine test_derivs(ntests,npass,string)
 !--calculate derivatives with MHD forces ON, zero pressure
 !
  testmhd: if (testmhdderivs .or. testall) then
+    ! obtain smoothing lengths
+    call set_linklist(npart,nactive,xyzh,vxyzu)
+    call densityiterate(2,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
+                      Bevol,stressmax,fxyzu,fext,alphaind,gradh)
 #ifdef IND_TIMESTEPS
     do itest=nint(log10(real(nptot))),0,-2
        nactive = 10**itest
@@ -637,7 +641,7 @@ subroutine test_derivs(ntests,npass,string)
        call reset_dissipation_to_zero
        if (mhd) then
           if (id==master) then
-             write(*,"(/,a)") '--> testing MHD derivatives (using B directly)'
+             write(*,"(/,a)") '--> testing MHD derivatives (using B/rho directly)'
              if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
           endif
           Bextx = 2.0e-1
@@ -647,9 +651,13 @@ subroutine test_derivs(ntests,npass,string)
              vxyzu(1,i) = vx(xyzh(:,i))
              vxyzu(2,i) = vy(xyzh(:,i))
              vxyzu(3,i) = vz(xyzh(:,i))
-             Bevol(1,i) = Bx(xyzh(:,i))
-             Bevol(2,i) = By(xyzh(:,i))
-             Bevol(3,i) = Bz(xyzh(:,i))
+             rho1i = 1.0/rhoh(xyzh(4,i),massoftype(igas))
+             Bxyz(1,i) = Bx(xyzh(:,i))
+             Bxyz(2,i) = By(xyzh(:,i))
+             Bxyz(3,i) = Bz(xyzh(:,i))
+             Bevol(1,i) = Bxyz(1,i) * rho1i
+             Bevol(2,i) = Bxyz(2,i) * rho1i
+             Bevol(3,i) = Bxyz(3,i) * rho1i
              if (maxvxyzu==4) vxyzu(4,i) = 0.
           enddo
           call set_active(npart,nactive/nprocs,igas)
@@ -702,10 +710,14 @@ subroutine test_derivs(ntests,npass,string)
           ieos  = 1  ! isothermal eos, so that the PdV term is zero
           do i=1,npart
              vxyzu(:,i) = 0.
+             rho1i   = 1.0/rhoh(xyzh(4,i),massoftype(igas))
              Bevol(:,i) = 0.
-             Bevol(1,i) = Bx(xyzh(:,i))
-             Bevol(2,i) = By(xyzh(:,i))
-             Bevol(3,i) = Bz(xyzh(:,i))
+             Bxyz(1,i) = Bx(xyzh(:,i))
+             Bxyz(2,i) = By(xyzh(:,i))
+             Bxyz(3,i) = Bz(xyzh(:,i))
+             Bevol(1,i) = Bxyz(1,i) * rho1i
+             Bevol(2,i) = Bxyz(2,i) * rho1i
+             Bevol(3,i) = Bxyz(3,i) * rho1i
           enddo
           call set_active(npart,nactive,igas)
           call getused(t1)
@@ -773,11 +785,15 @@ subroutine test_derivs(ntests,npass,string)
              vxyzu(1,i) = vx(xyzh(:,i))
              vxyzu(2,i) = vy(xyzh(:,i))
              vxyzu(3,i) = vz(xyzh(:,i))
-             Bevol(1,i) = Bx(xyzh(:,i))
-             Bevol(2,i) = By(xyzh(:,i))
-             Bevol(3,i) = Bz(xyzh(:,i))
+             rho1i      = 1.0/rhoh(xyzh(4,i),massoftype(igas))
+             Bxyz(1,i) = Bx(xyzh(:,i))
+             Bxyz(2,i) = By(xyzh(:,i))
+             Bxyz(3,i) = Bz(xyzh(:,i))
+             Bevol(1,i) = Bxyz(1,i) * rho1i
+             Bevol(2,i) = Bxyz(2,i) * rho1i
+             Bevol(3,i) = Bxyz(3,i) * rho1i
 
-             vwavei = sqrt(polyk + (Bevol(1,i) * Bevol(1,i) + Bevol(2,i) * Bevol(2,i) + Bevol(3,i) * Bevol(3,i)) &
+             vwavei = sqrt(polyk + (Bxyz(1,i) * Bxyz(1,i) + Bxyz(2,i) * Bxyz(2,i) + Bxyz(3,i) * Bxyz(3,i)) &
                                    / rhoh(xyzh(4,i),massoftype(1)))
              Bevol(4,i) = psi(xyzh(:,i))/vwavei
              if (maxvxyzu==4) vxyzu(4,i) = 0.
@@ -827,9 +843,13 @@ subroutine test_derivs(ntests,npass,string)
              vxyzu(1,i) = vx(xyzh(:,i))
              vxyzu(2,i) = vy(xyzh(:,i))
              vxyzu(3,i) = vz(xyzh(:,i))
-             Bevol(1,i) = Bx(xyzh(:,i))
-             Bevol(2,i) = By(xyzh(:,i))
-             Bevol(3,i) = Bz(xyzh(:,i))
+             rho1i      = 1.0/rhoh(xyzh(4,i),massoftype(igas))
+             Bxyz(1,i) = Bx(xyzh(:,i))
+             Bxyz(2,i) = By(xyzh(:,i))
+             Bxyz(3,i) = Bz(xyzh(:,i))
+             Bevol(1,i) = Bxyz(1,i) * rho1i
+             Bevol(2,i) = Bxyz(2,i) * rho1i
+             Bevol(3,i) = Bxyz(3,i) * rho1i
              if (maxBevol>=4) Bevol(4,i) = 0.
              if (maxvxyzu==4) vxyzu(4,i) = 0.
           enddo
@@ -2123,32 +2143,38 @@ end function dBzdzdz
 
 real function dBxdtresist(xyzhi)
  use options, only:alphaB
+ use part,    only:rhoh,massoftype,igas
  real, intent(in) :: xyzhi(4)
- real :: vsig
+ real :: vsig, rho1i
 
  vsig = 0. !valfven(xyzhi(1))
- dBxdtresist = 0.5*alphaB*xyzhi(4)*(vsig*(dBxdxdx(xyzhi) + dBxdydy(xyzhi) + dBxdzdz(xyzhi)) + &
-   0.*(dvalfvendx(xyzhi)*dBxdx(xyzhi) + dvalfvendy(xyzhi)*dBxdy(xyzhi) + dvalfvendz(xyzhi)*dBxdz(xyzhi)))
+ rho1i = 1.0/rhoh(xyzhi(4),massoftype(igas))
+ dBxdtresist = rho1i * (0.5*alphaB*xyzhi(4)*(vsig*(dBxdxdx(xyzhi) + dBxdydy(xyzhi) + dBxdzdz(xyzhi)) + &
+   0.*(dvalfvendx(xyzhi)*dBxdx(xyzhi) + dvalfvendy(xyzhi)*dBxdy(xyzhi) + dvalfvendz(xyzhi)*dBxdz(xyzhi))))
 
 end function dBxdtresist
 
 real function dBydtresist(xyzhi)
  use options, only:alphaB
+ use part,    only:rhoh,massoftype,igas
  real, intent(in) :: xyzhi(4)
- real :: vsig
+ real :: vsig, rho1i
 
  vsig = 0. !valfven(xyzhi)
- dBydtresist = 0.5*alphaB*xyzhi(4)*(vsig*(dBydxdx(xyzhi) + dBydydy(xyzhi) + dBydzdz(xyzhi)) + &
-   0.*(dvalfvendx(xyzhi)*dBydx(xyzhi) + dvalfvendy(xyzhi)*dBydy(xyzhi) + dvalfvendz(xyzhi)*dBydz(xyzhi)))
+ rho1i = 1.0/rhoh(xyzhi(4),massoftype(igas))
+ dBydtresist = rho1i * (0.5*alphaB*xyzhi(4)*(vsig*(dBydxdx(xyzhi) + dBydydy(xyzhi) + dBydzdz(xyzhi)) + &
+   0.*(dvalfvendx(xyzhi)*dBydx(xyzhi) + dvalfvendy(xyzhi)*dBydy(xyzhi) + dvalfvendz(xyzhi)*dBydz(xyzhi))))
 
 end function dBydtresist
 
 real function dBzdtresist(xyzhi)
  use options, only:alphaB
+ use part,    only:rhoh,massoftype,igas
  real, intent(in) :: xyzhi(4)
- real :: vsig
+ real :: vsig, rho1i
 
  vsig = 0. !valfven(xyzhi)
+ rho1i = 1.0/rhoh(xyzhi(4),massoftype(igas))
  dBzdtresist = 0.5*alphaB*xyzhi(4)*(vsig*(dBzdxdx(xyzhi) + dBzdydy(xyzhi) + dBzdzdz(xyzhi)) + &
    0.*(dvalfvendx(xyzhi)*dBzdx(xyzhi) + dvalfvendy(xyzhi)*dBzdy(xyzhi) + dvalfvendz(xyzhi)*dBzdz(xyzhi)))
 
@@ -2229,26 +2255,35 @@ end function dAzdt
 !+
 !----------------------------------------------------------------
 real function dBxdt(xyzhi)
+ use part,    only:rhoh,massoftype,igas
  real, intent(in) :: xyzhi(4)
+ real :: rho1i
 
- dBxdt = Bx(xyzhi)*dvxdx(xyzhi) + By(xyzhi)*dvxdy(xyzhi) + Bz(xyzhi)*dvxdz(xyzhi) &
-        -Bx(xyzhi)*divvfunc(xyzhi)
+ rho1i = 1.0/rhoh(xyzhi(4),massoftype(igas))
+ dBxdt = rho1i * (Bx(xyzhi)*dvxdx(xyzhi) + By(xyzhi)*dvxdy(xyzhi) & 
+             + Bz(xyzhi)*dvxdz(xyzhi))! - Bx(xyzhi)*divvfunc(xyzhi))
 
 end function dBxdt
 
 real function dBydt(xyzhi)
+ use part,    only:rhoh,massoftype,igas
  real, intent(in) :: xyzhi(4)
+ real :: rho1i
 
- dBydt = Bx(xyzhi)*dvydx(xyzhi) + By(xyzhi)*dvydy(xyzhi) + Bz(xyzhi)*dvydz(xyzhi) &
-        -By(xyzhi)*divvfunc(xyzhi)
+ rho1i = 1.0/rhoh(xyzhi(4),massoftype(igas))
+ dBydt = rho1i * (Bx(xyzhi)*dvydx(xyzhi) + By(xyzhi)*dvydy(xyzhi) &
+             + Bz(xyzhi)*dvydz(xyzhi))! - By(xyzhi)*divvfunc(xyzhi))
 
 end function dBydt
 
 real function dBzdt(xyzhi)
+ use part,    only:rhoh,massoftype,igas
  real, intent(in) :: xyzhi(4)
+ real :: rho1i
 
- dBzdt = Bx(xyzhi)*dvzdx(xyzhi) + By(xyzhi)*dvzdy(xyzhi) + Bz(xyzhi)*dvzdz(xyzhi) &
-        -Bz(xyzhi)*divvfunc(xyzhi)
+ rho1i = 1.0/rhoh(xyzhi(4),massoftype(igas))
+ dBzdt = rho1i * (Bx(xyzhi)*dvzdx(xyzhi) + By(xyzhi)*dvzdy(xyzhi) &
+             + Bz(xyzhi)*dvzdz(xyzhi))! - Bz(xyzhi)*divvfunc(xyzhi))
 
 end function dBzdt
 
@@ -2375,30 +2410,42 @@ end function dpsidt
 real function dpsidx(xyzhi)
  use boundary, only:dxbound,xmin
  use physcon,  only:pi
+ use part,     only:rhoh,massoftype,igas
  real, intent(in) :: xyzhi(4)
+ real :: rho1i
 
  !--minus grad psi
- dpsidx = dBxdt(xyzhi) - cos(2.*pi*(xyzhi(1)-xmin)/dxbound)
+ !  updated to be -1/rho grad psi (for B/rho evolution)
+ rho1i = 1.0/rhoh(xyzhi(4),massoftype(igas))
+ dpsidx = dBxdt(xyzhi) - rho1i * cos(2.*pi*(xyzhi(1)-xmin)/dxbound)
 
 end function dpsidx
 
 real function dpsidy(xyzhi)
  use boundary, only:dybound,ymin
  use physcon,  only:pi
+ use part,     only:rhoh,massoftype,igas
  real, intent(in) :: xyzhi(4)
+ real :: rho1i
 
  !--minus grad psi
- dpsidy = dBydt(xyzhi) - cos(2.*pi*(xyzhi(2)-ymin)/dybound)
+ !  updated to be -1/rho grad psi (for B/rho evolution)
+ rho1i = 1.0/rhoh(xyzhi(4),massoftype(igas))
+ dpsidy = dBydt(xyzhi) - rho1i * cos(2.*pi*(xyzhi(2)-ymin)/dybound)
 
 end function dpsidy
 
 real function dpsidz(xyzhi)
  use boundary, only:dzbound,zmin
  use physcon,  only:pi
+ use part,     only:rhoh,massoftype,igas
  real, intent(in) :: xyzhi(4)
+ real :: rho1i
 
  !--minus grad psi
- dpsidz = dBzdt(xyzhi) - sin(2.*pi*(xyzhi(3)-zmin)/dzbound)
+ !  updated to be -1/rho grad psi (for B/rho evolution)
+ rho1i = 1.0/rhoh(xyzhi(4),massoftype(igas))
+ dpsidz = dBzdt(xyzhi) - rho1i * sin(2.*pi*(xyzhi(3)-zmin)/dzbound)
 
 end function dpsidz
 

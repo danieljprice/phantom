@@ -129,7 +129,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho, &
                      ll,get_partinfo,iactive,maxgradh,&
                      hrho,iphase,maxphase,igas,idust,iboundary,iamgas,periodic,&
-                     all_active,dustfrac
+                     all_active,dustfrac,Bxyz
 #ifdef FINVSQRT
  use fastmath,  only:finvsqrt
 #endif
@@ -243,6 +243,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(divcurlB) &
 !$omp shared(alphaind) &
 !$omp shared(dustfrac) &
+!$omp shared(Bxyz) &
 !$omp shared(straintensor) &
 !$omp shared(id) &
 !$omp shared(nprocs) &
@@ -381,8 +382,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 #ifdef MPI
        if (.not. do_export) then
 #endif
-          call store_results(cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                             straintensor,vxyzu,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+          call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
+                             straintensor,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
 #ifdef MPI
           nlocal = nlocal + 1
        endif
@@ -493,8 +494,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
              stack_redo%cells(cell%waiting_index) = cell
           else
-             call store_results(cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                                straintensor,vxyzu,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+             call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
+                                straintensor,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
           endif
 
        enddo over_waiting
@@ -578,7 +579,7 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,iamdusti,
  use fastmath, only:finvsqrt
 #endif
  use kernel,   only:get_kernel,get_kernel_grav1
- use part,     only:iphase,iamgas,iamtype,maxphase,iboundary,igas,idust
+ use part,     only:iphase,iamgas,iamtype,maxphase,iboundary,igas,idust,rhoh,massoftype
  use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust
  integer,      intent(in)    :: i
  real,         intent(in)    :: xpartveci(:)
@@ -605,6 +606,7 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,iamdusti,
  real                        :: wabi,grkerni,dwdhi,dphidhi
  real                        :: projv,dvx,dvy,dvz,dax,day,daz
  real                        :: projdB,dBx,dBy,dBz,fxi,fyi,fzi,fxj,fyj,fzj
+ real                        :: rhoi, rhoj
  logical                     :: same_type,gas_gas
 
  rhosum(:) = 0.
@@ -782,9 +784,14 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,iamdusti,
              endif
 
              if (getdB .and. gas_gas) then
-                dBx = xpartveci(iBevolxi) - Bevol(1,j)
-                dBy = xpartveci(iBevolyi) - Bevol(2,j)
-                dBz = xpartveci(iBevolzi) - Bevol(3,j)
+                ! we need B instead of B/rho, so used our estimated h here
+                ! either it is close enough to be converged, 
+                ! or worst case it runs another iteration and re-calculates
+                rhoi = rhoh(1.0/hi1, massoftype(igas))
+                rhoj = rhoh(xyzh(4,j), massoftype(igas))
+                dBx = xpartveci(iBevolxi)*rhoi - Bevol(1,j)*rhoj
+                dBy = xpartveci(iBevolyi)*rhoi - Bevol(2,j)*rhoj
+                dBz = xpartveci(iBevolzi)*rhoi - Bevol(3,j)*rhoj
                 projdB = dBx*runix + dBy*runiy + dBz*runiz
 
                 ! difference operator of divB
@@ -1538,8 +1545,8 @@ pure subroutine finish_rhosum(rhosum,pmassi,hi,iterating,rhoi,rhohi,gradhi,grads
 
 end subroutine finish_rhosum
 
-subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                         straintensor,vxyzu,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
+                         straintensor,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
  use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,&
                        n_R,n_electronT,eta_nimhd,iohm,ihall,iambi
  use io,          only:fatal,real4
@@ -1555,6 +1562,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  use part,        only:xyzh_soa
  use kdtree,      only:inoderange,inodeparts
 
+ integer,         intent(in)    :: icall
  type(celldens),  intent(in)    :: cell
  logical,         intent(in)    :: getdv
  logical,         intent(in)    :: getdB
@@ -1568,6 +1576,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  real(kind=4),    intent(inout) :: straintensor(:,:)
  real,            intent(in)    :: vxyzu(:,:)
  real,            intent(out)   :: dustfrac(:)
+ real,            intent(out)   :: Bxyz(:,:)
  real,            intent(inout) :: rhomax
  integer(kind=8), intent(inout) :: nneightry
  integer(kind=8), intent(inout) :: nneighact
@@ -1691,11 +1700,19 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
     ! store div B, curl B and related quantities
     !
     if (mhd .and. iamgasi) then
-       Bxi = cell%xpartvec(iBevolxi,i)
-       Byi = cell%xpartvec(iBevolyi,i)
-       Bzi = cell%xpartvec(iBevolzi,i)
+       ! construct B from B/rho (conservative to primitive)
+       Bxi = cell%xpartvec(iBevolxi,i) * rhoi
+       Byi = cell%xpartvec(iBevolyi,i) * rhoi
+       Bzi = cell%xpartvec(iBevolzi,i) * rhoi
        if (maxBevol >= 4) psii = cell%xpartvec(ipsi,i)
 
+       ! store primitive variables (if icall < 2)
+       if (icall==0 .or. icall==1) then
+          Bxyz(1,lli) = Bxi
+          Bxyz(2,lli) = Byi
+          Bxyz(3,lli) = Bzi
+       endif
+       
        if (getdB) then
           term = cnormk*pmassi*gradhi*rho1i*hi41
           call calculate_divcurlB_from_sums(rhosum,term,divcurlBi,gradBi,ndivcurlB)

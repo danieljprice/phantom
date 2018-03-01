@@ -296,7 +296,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
                  lightcurve,maxlum
  use eos,   only:utherm,ieos,equationofstate,done_init_eos,init_eos
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
- use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,npart,npartoftype,maxtypes, &
+ use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bxyz,Bxyz_label,npart,npartoftype,maxtypes, &
                  alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
                  nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,&
                  maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,maxBevol,&
@@ -504,7 +504,10 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        !
        if (mhd) then
           ilen(4) = int(npart,kind=8)
-          call write_array(4,Bevol,Bevol_label,maxBevol,npart,k,ipass,idump,nums,ierrs(1))
+          call write_array(4,Bxyz,Bxyz_label,3,npart,k,ipass,idump,nums,ierrs(1))
+          if (maxBevol >= 4) then
+             call write_array(4,Bevol(4,:),'psi',npart,k,ipass,idump,nums,ierrs(1))
+          endif
           if (ndivcurlB >= 1) then
              call write_array(4,divcurlB,divcurlB_label,ndivcurlB,npart,k,ipass,idump,nums,ierrs(2))
           else
@@ -544,7 +547,7 @@ end subroutine write_fulldump
 subroutine write_smalldump(t,dumpfile)
  use dim,        only:maxp,maxtypes,use_dust,lightcurve
  use io,         only:idump,iprint,real4,id,master,error,warning,nprocs
- use part,       only:xyzh,xyzh_label,npart,npartoftype,Bevol,Bevol_label,&
+ use part,       only:xyzh,xyzh_label,npart,npartoftype,Bxyz,Bxyz_label,&
                       maxphase,iphase,h2chemistry,nabundances,&
                       nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,abundance, &
                       abundance_label,mhd,dustfrac,iamtype_int11
@@ -641,7 +644,7 @@ subroutine write_smalldump(t,dumpfile)
     !
     if (mhd) then
        ilen(4) = npart
-       call write_array(4,Bevol,Bevol_label,3,npart,i_real4,ipass,idump,nums,ierr)
+       call write_array(4,Bxyz,Bxyz_label,3,npart,i_real4,ipass,idump,nums,ierr)
     endif
 
     if (ipass==1) call write_block_header(narraylengths,ilen,nums,idump,ierr)
@@ -1103,7 +1106,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  use dump_utils, only:read_array,match_tag
  use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,maxBevol
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,abundance,abundance_label,alphaind,poten, &
-                      xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,Bevol,Bevol_label,nabundances,&
+                      xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,Bevol,Bxyz,Bxyz_label,nabundances,&
                       iphase,idust
  use options,    only:use_dustfrac
 #ifdef IND_TIMESTEPS
@@ -1117,7 +1120,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  integer, intent(out)  :: ierr
  logical               :: got_dustfrac,match
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
- logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bevol(maxBevol)
+ logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3),got_psi
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik
 !
@@ -1132,7 +1135,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_poten    = .false.
  got_sink_data = .false.
  got_sink_vels = .false.
- got_Bevol     = .false.
+ got_Bxyz      = .false.
+ got_psi       = .false.
 
  !--set dust method
  if (use_dust .and. (npartoftype(idust)==0)) use_dustfrac = .true.
@@ -1178,7 +1182,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
              call read_array(vxyz_ptmass, vxyz_ptmass_label, got_sink_vels,ik,1,nptmass,0,idisk1,tag,match,ierr)
           case(4)
-             call read_array(Bevol,Bevol_label,got_Bevol,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(Bxyz,Bxyz_label,got_Bxyz,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(Bevol(4,:),'psi',got_psi,ik,i1,i2,noffset,idisk1,tag,match,ierr)
           end select
           if (.not.match) then
              !write(*,*) 'skipping '//trim(tag)
@@ -1193,7 +1198,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  !
  call check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                    alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
-                   got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bevol, &
+                   got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi, &
                    iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 
  return
@@ -1285,7 +1290,7 @@ end subroutine check_block_header
 !---------------------------------------------------------------
 subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
-                        got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bevol, &
+                        got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi, &
                         iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
  use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry
  use eos,  only:polyk,gamma
@@ -1297,7 +1302,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  integer,         intent(in)    :: i1,i2,npartoftype(:),npartread,nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha
- logical,         intent(in)    :: got_abund(:),got_dustfrac,got_sink_data(:),got_sink_vels(:),got_Bevol(:)
+ logical,         intent(in)    :: got_abund(:),got_dustfrac,got_sink_data(:),got_sink_vels(:),got_Bxyz(:),got_psi
  integer(kind=1), intent(inout) :: iphase(:)
  real,            intent(inout) :: vxyzu(:,:), Bevol(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
@@ -1443,10 +1448,10 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  ! MHD arrays
  !
  if (mhd) then
-    if (.not.all(got_Bevol(1:3))) then
+    if (.not.all(got_Bxyz(1:3))) then
        write(*,*) 'WARNING: MHD but magnetic field arrays not found in Phantom dump file'
     endif
-    if (maxBevol==4 .and. .not.got_Bevol(4)) then
+    if (maxBevol==4 .and. .not.got_psi) then
        write(*,*) 'WARNING! div B cleaning field (Psi) not found in Phantom dump file: assuming psi=0'
        Bevol(maxBevol,i1:i2) = 0.
     endif

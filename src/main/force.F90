@@ -905,9 +905,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  ts_min = bignumber
 
  ! various pre-calculated quantities
- Bxi  = xpartveci(iBevolxi)
- Byi  = xpartveci(iBevolyi)
- Bzi  = xpartveci(iBevolzi)
+ Bxi  = xpartveci(iBevolxi)*rhoi
+ Byi  = xpartveci(iBevolyi)*rhoi
+ Bzi  = xpartveci(iBevolzi)*rhoi
  psii = xpartveci(ipsi)
  if (use_dustfrac) then
     dustfraci = xpartveci(idustfraci)
@@ -1119,9 +1119,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (vsigi > vsigmax) vsigmax = vsigi
 
           if (mhd) then
-             Bxj = Bevol(1,j)
-             Byj = Bevol(2,j)
-             Bzj = Bevol(3,j)
+             hj   = xyzh(4,j)
+             rhoj = rhoh(hj,pmassj)
+             Bxj  = Bevol(1,j)*rhoj
+             Byj  = Bevol(2,j)*rhoj
+             Bzj  = Bevol(3,j)*rhoj
 
              if (maxBevol >= 4) psij = Bevol(4,j)
              dBx = Bxi - Bxj
@@ -1727,9 +1729,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintenso
        endif
 
        if (mhd) then
-          Bxi = Bevol(1,i)
-          Byi = Bevol(2,i)
-          Bzi = Bevol(3,i)
+          Bxi = Bevol(1,i) * rhoi ! B/rho -> B (conservative to primitive)
+          Byi = Bevol(2,i) * rhoi
+          Bzi = Bevol(3,i) * rhoi
        endif
 
        !
@@ -2056,7 +2058,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 
  real    :: xpartveci(maxxpartveciforce),fsum(maxfsum)
  real    :: rhoi,rho1i,rhogasi,hi,hi1,pmassi
- real    :: Bevoli(maxBevol),curlBi(3),straini(6)
+ real    :: Bxyzi(maxBevol),curlBi(3),straini(6)
  real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,vcleani
  real    :: ponrhoi,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
  real    :: psii,dtau
@@ -2129,10 +2131,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
        vwavei  = xpartveci(ivwavei)
 
        if (mhd) then
-          Bevoli(1) = xpartveci(iBevolxi)
-          Bevoli(2) = xpartveci(iBevolyi)
-          Bevoli(3) = xpartveci(iBevolzi)
-          B2i       = Bevoli(1)**2 + Bevoli(2)**2 + Bevoli(3)**2
+          Bxyzi(1) = xpartveci(iBevolxi) * rhoi
+          Bxyzi(2) = xpartveci(iBevolyi) * rhoi
+          Bxyzi(3) = xpartveci(iBevolzi) * rhoi
+          B2i      = Bxyzi(1)**2 + Bxyzi(2)**2 + Bxyzi(3)**2
        endif
 
        if (mhd_nonideal) then
@@ -2200,9 +2202,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
        else
           frac_divB = 0.0
        endif
-       fsum(ifxi) = fsum(ifxi) - Bevoli(1)*divBsymmi*frac_divB
-       fsum(ifyi) = fsum(ifyi) - Bevoli(2)*divBsymmi*frac_divB
-       fsum(ifzi) = fsum(ifzi) - Bevoli(3)*divBsymmi*frac_divB
+       fsum(ifxi) = fsum(ifxi) - Bxyzi(1)*divBsymmi*frac_divB
+       fsum(ifyi) = fsum(ifyi) - Bxyzi(2)*divBsymmi*frac_divB
+       fsum(ifzi) = fsum(ifzi) - Bxyzi(3)*divBsymmi*frac_divB
        divBsymm(i) = real(rhoi*divBsymmi,kind=kind(divBsymm)) ! for output store div B as rho*div B
     endif
 
@@ -2257,7 +2259,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
              endif
 #endif
              if (mhd_nonideal) then
-                call nimhd_get_dudt(dudtnonideal,etaohmi,etaambii,rhoi,curlBi,Bevoli(1:3))
+                call nimhd_get_dudt(dudtnonideal,etaohmi,etaambii,rhoi,curlBi,Bxyzi(1:3))
                 fxyz4 = fxyz4 + fac*dudtnonideal
              endif
              !--add conductivity and resistive heating
@@ -2285,11 +2287,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
        dtclean = bignumber
        if (mhd) then
           !
-          ! sum returns d(B/rho)/dt, convert this to dB/dt
+          ! sum returns d(B/rho)/dt, just what we want!
           !
-          dBevol(1,i) = rhoi*fsum(idBevolxi) - Bevoli(1)*divvi
-          dBevol(2,i) = rhoi*fsum(idBevolyi) - Bevoli(2)*divvi
-          dBevol(3,i) = rhoi*fsum(idBevolzi) - Bevoli(3)*divvi
+          dBevol(1,i) = fsum(idBevolxi)
+          dBevol(2,i) = fsum(idBevolyi)
+          dBevol(3,i) = fsum(idBevolzi)
           !
           ! hyperbolic/parabolic cleaning terms (dpsi/dt) from Tricco & Price (2012)
           !

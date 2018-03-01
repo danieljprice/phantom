@@ -169,9 +169,9 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 !
     if (mhd) then
        if (maxBevol==4) then
-          write(iprint,60) 'B with cleaning'
+          write(iprint,60) 'B/rho with cleaning'
        else
-          write(iprint,60) 'B'
+          write(iprint,60) 'B/rho'
        endif
 60     format(/,' Magnetic fields are ON, evolving ',a)
     endif

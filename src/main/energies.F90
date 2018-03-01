@@ -336,12 +336,9 @@ subroutine compute_energies(t)
 
           ! mhd parameters
           if (mhd) then
-             !   Bxi = Bxyz(1,i)
-             !   Byi = Bxyz(2,i)
-             !   Bzi = Bxyz(3,i)
-             Bxi = Bevol(1,i)
-             Byi = Bevol(2,i)
-             Bzi = Bevol(3,i)
+             Bxi = Bevol(1,i)*rhoi
+             Byi = Bevol(2,i)*rhoi
+             Bzi = Bevol(3,i)*rhoi
              B2i       = Bxi*Bxi + Byi*Byi + Bzi*Bzi
              rho1i     = 1./rhoi
              valfven2i = B2i*rho1i
