@@ -785,7 +785,7 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,iamdusti,
 
              if (getdB .and. gas_gas) then
                 ! we need B instead of B/rho, so used our estimated h here
-                ! either it is close enough to be converged, 
+                ! either it is close enough to be converged,
                 ! or worst case it runs another iteration and re-calculates
                 rhoi = rhoh(1.0/hi1, massoftype(igas))
                 rhoj = rhoh(xyzh(4,j), massoftype(igas))
@@ -1710,7 +1710,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gra
           Bxyz(2,lli) = Byi
           Bxyz(3,lli) = Bzi
        endif
-       
+
        if (getdB) then
           term = cnormk*pmassi*gradhi*rho1i*hi41
           call calculate_divcurlB_from_sums(rhosum,term,divcurlBi,gradBi,ndivcurlB)

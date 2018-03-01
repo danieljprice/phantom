@@ -391,7 +391,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
         call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                               fxyzu,fext,alphaind,gradh)
     endif
-   
+
     ! now convert to B/rho
     do i=1,npart
         itype      = iamtype(iphase(i))

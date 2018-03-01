@@ -2260,7 +2260,7 @@ real function dBxdt(xyzhi)
  real :: rho1i
 
  rho1i = 1.0/rhoh(xyzhi(4),massoftype(igas))
- dBxdt = rho1i * (Bx(xyzhi)*dvxdx(xyzhi) + By(xyzhi)*dvxdy(xyzhi) & 
+ dBxdt = rho1i * (Bx(xyzhi)*dvxdx(xyzhi) + By(xyzhi)*dvxdy(xyzhi) &
              + Bz(xyzhi)*dvxdz(xyzhi))! - Bx(xyzhi)*divvfunc(xyzhi))
 
 end function dBxdt
