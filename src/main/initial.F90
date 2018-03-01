@@ -386,22 +386,22 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
  if (mhd) then
     if (npart > 0) then
-        call set_linklist(npart,npart,xyzh,vxyzu)
-        fxyzu = 0.
-        call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
+       call set_linklist(npart,npart,xyzh,vxyzu)
+       fxyzu = 0.
+       call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                               fxyzu,fext,alphaind,gradh)
     endif
 
     ! now convert to B/rho
     do i=1,npart
-        itype      = iamtype(iphase(i))
-        hi         = xyzh(4,i)
-        pmassi     = massoftype(itype)
-        rhoi1      = 1.0/rhoh(hi,pmassi)
-        if (i == 1) print *, rhoi1
-        Bevol(1,i) = Bxyz(1,i) * rhoi1
-        Bevol(2,i) = Bxyz(2,i) * rhoi1
-        Bevol(3,i) = Bxyz(3,i) * rhoi1
+       itype      = iamtype(iphase(i))
+       hi         = xyzh(4,i)
+       pmassi     = massoftype(itype)
+       rhoi1      = 1.0/rhoh(hi,pmassi)
+       if (i == 1) print *, rhoi1
+       Bevol(1,i) = Bxyz(1,i) * rhoi1
+       Bevol(2,i) = Bxyz(2,i) * rhoi1
+       Bevol(3,i) = Bxyz(3,i) * rhoi1
     enddo
  endif
 
