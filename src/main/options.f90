@@ -53,7 +53,8 @@ module options
  logical, public :: use_dustfrac
 
 ! mcfost
- logical, public :: use_mcfost
+ logical, public :: use_mcfost, use_Voronoi_limits_file
+ character(len=80), public :: Voronoi_limits_file
 
  public :: set_default_options
  public :: ieos
