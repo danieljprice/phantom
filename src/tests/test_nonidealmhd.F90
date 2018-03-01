@@ -232,11 +232,11 @@ subroutine test_wavedamp(ntests,npass)
     close(111)
  endif
 
- write(*,'(1x,a,3Es18.11)') 'dtcourant, dtdiff: ',dtcourant,dtdiff
  L2 = sqrt(L2/nsteps)
  call checkval(L2,0.0,tol,nerr(1),'L2 error on wave damp test')
  call checkval(valid_dt,.true.,nerr(2),'dt to ensure above valid default')
 #ifdef STS_TIMESTEPS
+ write(*,'(1x,a,3Es18.11)') 'dtcourant, dtdiff: ',dtcourant,dtdiff
  call checkval(dtcourant,4.51922587536d-3,toltime,nerr(3),'initial courant dt')
  call checkval(dtdiff,   2.88824049903d-2,toltime,nerr(4),'initial dissipation dt from sts')
 #endif
