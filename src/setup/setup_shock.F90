@@ -72,7 +72,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,set_boundary
  use mpiutils,     only:bcast_mpi
  use dim,          only:maxp,maxvxyzu,ndim,mhd
- use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bevol,mhd,periodic
+ use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,periodic
  use kernel,       only:radkern,hfact_default
  use timestep,     only:tmax
 #ifdef NONIDEALMHD
@@ -245,7 +245,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     uuright = 3.*rightstate(ipr)/(2.*rightstate(idens))
  endif
 
- Bevol = 0.
+ Bxyz = 0.
  vxyzu = 0.
  do i=1,npart
     delta = xyzh(1,i) - xshock
@@ -255,14 +255,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vxyzu(2,i) = rightstate(ivy)
        vxyzu(3,i) = rightstate(ivz)
        if (maxvxyzu >= 4) vxyzu(4,i) = uuright
-       if (mhd) Bevol(1:3,i) = rightstate(iBx:iBz)
+       if (mhd) Bxyz(1:3,i) = rightstate(iBx:iBz)
     else
        xyzh(4,i) = hrho(leftstate(idens),massoftype(igas))
        vxyzu(1,i) = leftstate(ivx)
        vxyzu(2,i) = leftstate(ivy)
        vxyzu(3,i) = leftstate(ivz)
        if (maxvxyzu >= 4) vxyzu(4,i) = uuleft
-       if (mhd) Bevol(1:3,i) = leftstate(iBx:iBz)
+       if (mhd) Bxyz(1:3,i) = leftstate(iBx:iBz)
     endif
  enddo
  if (mhd) ihavesetupB = .true.
