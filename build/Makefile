@@ -1457,8 +1457,6 @@ ifeq (X$(SRCPOT), X)
 SRCPOT=${SRCPOTS}
 endif
 
-SRCEVW=evwrite.F90
-
 SRCTESTS=${TEST_FASTMATH} test_kernel.f90 test_dust.F90 test_nonidealmhd.F90 test_gravity.F90 \
          test_derivs.F90 test_cooling.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.F90 test_setdisc.F90 \
@@ -1480,7 +1478,6 @@ endif
 endif
    SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 cons2primsolver.f90 cons2prim.f90
    SRCPOT=extern_gr.f90 externalforces_gr.F90
-   SRCEVW=evwrite_gr.F90
    SRCTEST1 = $(SRCTESTS:test_externf.f90=test_externf_gr.f90)
    SRCTEST2 = $(SRCTEST1:test_gnewton.F90=)
    SRCTEST = $(SRCTEST2:test_corotate.f90=) test_metric.f90 test_cons2prim.f90 test_gr.f90
@@ -1505,7 +1502,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          ${SRCTURB} ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} \
          ptmass.F90 readwrite_infile.F90 \
          dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 \
-         sort_particles.F90 ${SRCEVW} \
+         sort_particles.F90 evwrite.F90 \
          step_leapfrog.F90 writeheader.F90 writegitinfo.f90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90\
          geometry.f90 stretchmap.f90 prompting.f90 density_profiles.f90 set_unifdis.f90 set_sphere.f90 set_vfield.f90 \
          ${SETUPFILE} checksetup.F90 utils_testsuite.f90 \

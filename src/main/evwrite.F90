@@ -329,8 +329,10 @@ end subroutine fill_ev_header
 subroutine write_evfile(t,dt)
  use energies,      only:compute_energies,ev_data_update
  use io,            only:id,master,ievfile
+#ifndef GR
  use options,       only:iexternalforce
  use extern_binary, only:accretedmass1,accretedmass2
+#endif
  real, intent(in)  :: t,dt
  integer           :: i,j
  real              :: ev_data_out(ielements)
@@ -341,10 +343,12 @@ subroutine write_evfile(t,dt)
  if (id==master) then
     !--fill in additional details that are not calculated in energies.f
     ev_data(iev_sum,iev_dt) = dt
+#ifndef GR
     if (iexternalforce==iext_binary) then
        ev_data(iev_sum,iev_maccsink(1)) = accretedmass1
        ev_data(iev_sum,iev_maccsink(2)) = accretedmass2
     endif
+#endif
     ! Fill in the data_out array
     j = 1
     do i = 1,iquantities
