@@ -35,13 +35,13 @@ module setBfield
 contains
 
 subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
-                      Bevol,maxvecp,Bextx,Bexty,Bextz)
+                      Bevol,Bextx,Bexty,Bextz)
  use units,        only:unit_Bfield
  use setup_params, only:rmax,rhozero
  use physcon,      only:pi
  use io,           only:fatal
  use prompting,    only:prompt
- integer,      intent(in)  :: npart,maxvecp
+ integer,      intent(in)  :: npart
  integer,      intent(in)  :: npartoftype(:)
  real,         intent(in)  :: xyzh(:,:), vxyzu(:,:)
  real,         intent(in)  :: massoftype(:)
@@ -283,7 +283,7 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
 !
 !--set cleaning field to zero initially
 !
- if (maxvecp /= maxp .and. maxBevol==4) Bevol(maxBevol,:) = 0.
+ if (maxBevol==4) Bevol(maxBevol,:) = 0.
 
  return
 end subroutine set_Bfield

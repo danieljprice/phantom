@@ -28,7 +28,7 @@ program phantomsetup
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
                            Bevol,Bextx,Bexty,Bextz,rhoh,iphase,maxphase,isetphase,igas,iamtype, &
                            labeltype,xyzmh_ptmass,vxyz_ptmass,maxp_h2,iHI,abundance,&
-                           mhd,maxvecp,alphaind,divcurlv,divcurlB,poten,dustfrac
+                           mhd,alphaind,divcurlv,divcurlB,poten,dustfrac
  use setBfield,       only:set_Bfield
  use eos,             only:polyk,gamma,en_from_utherm
  use io,              only:set_io_unit_numbers,id,master,nprocs,iwritein,fatal,warning
@@ -177,7 +177,7 @@ program phantomsetup
 !--setup magnetic field if code compiled with MHD
 !
        call set_Bfield(npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk, &
-                       Bevol,maxvecp,Bextx,Bexty,Bextz)
+                       Bevol,Bextx,Bexty,Bextz)
     endif
 
     if (nprocsfake > 1) then

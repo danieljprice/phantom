@@ -26,7 +26,7 @@ program phantommoddump
  use dim,             only:maxp,tagline
  use eos,             only:polyk
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart,npartoftype, &
-                           Bevol,Bextx,Bexty,Bextz,mhd,maxvecp
+                           Bevol,Bextx,Bexty,Bextz,mhd
  use io,              only:set_io_unit_numbers,iprint,idisk1,warning,fatal,iwritein,id,master
  use readwrite_dumps, only:read_dump,write_fulldump,is_not_mhd
  use setBfield,       only:set_Bfield
@@ -162,7 +162,7 @@ program phantommoddump
     endif
     if (ians) then
        call set_Bfield(npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk, &
-                       Bevol,maxvecp,Bextx,Bexty,Bextz)
+                       Bevol,Bextx,Bexty,Bextz)
 
     endif
  endif
