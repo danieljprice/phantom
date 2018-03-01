@@ -733,10 +733,6 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
     !$omp enddo
     !$omp end parallel
 
-   !  print*,'max pmom iterations:',pitsmax
-   !  print*,'max x    iterations:',xitsmax
-   !  print*,'==================='
-
     !
     ! corrector step on gas particles (also accrete particles at end of step)
     !
