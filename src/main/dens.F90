@@ -1320,8 +1320,6 @@ pure subroutine compute_hmax(cell,redo_neighbours)
     if (hmax > hmax_old) redo_neighbours = .true.
     cell%hmax  = hmax
     cell%rcuti = radkern*hmax
- else
-    redo_neighbours = .true.
  endif
 end subroutine compute_hmax
 
