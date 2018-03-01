@@ -59,6 +59,7 @@
 !    nplanets          -- number of planets
 !    nsinks            -- number of sinks
 !    setplanets        -- add planets? (0=no,1=yes)
+!    use_mcfost        -- use the mcfost library
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_lensethirring, externalforces, infile_utils, io, kernel,
@@ -70,6 +71,9 @@ module setup
  use dim,            only:maxp,use_dust,maxalpha
  use externalforces, only:iext_star,iext_binary,iext_lensethirring,iext_einsteinprec
  use options,        only:use_dustfrac,iexternalforce
+#ifdef MCFOST
+ use options,        only:use_mcfost
+#endif
  use physcon,        only:au,solarm
  use setdisc,        only:scaled_sigma
 
@@ -96,6 +100,7 @@ module setup
  real    :: pindex(3),qindex(3),H_R(3),posangl(3),incl(3)
  real    :: disc_m(3),sig_ref(3),sig_norm(3),annulus_m(3),R_inann(3),R_outann(3),Q_min(3)
  real    :: R_indust(3),R_outdust(3),R_c_dust(3),pindex_dust(3),qindex_dust(3),H_R_dust(3)
+ real    :: ldisc(3),lcentral(3)
  real    :: alphaSS
  !--dust
  real    :: grainsizeinp,graindensinp,dust_to_gas_ratio
@@ -131,7 +136,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                                 ihsoft,igas,idust,dustfrac,iamtype,iphase
  use physcon,              only:jupiterm,pi,years
  use prompting,            only:prompt
- use setbinary,            only:set_binary,Rochelobe_estimate
+ use setbinary,            only:set_binary,Rochelobe_estimate,get_mean_angmom_vector
  use setdisc,              only:set_disc,get_disc_mass
  use setflyby,             only:set_flyby,get_T_flyby
  use timestep,             only:tmax,dtmax
@@ -152,7 +157,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
 
  integer, parameter :: maxbins = 4096
- logical :: iexist,questplanets,seq_exists
+ logical :: iexist,questplanets,seq_exists,is_isothermal
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
  real    :: jdust_to_gas_ratio,Rj,period,Rochelobe,tol,Hill(maxplanets)
  real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Sigmadust,Stokes
@@ -518,10 +523,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (iuse_disc(i)) idisc = i
     enddo
  endif
+
+ is_isothermal = (maxvxyzu==3)
+#ifdef MCFOST
+ if (use_mcfost) then
+    is_isothermal = .false.
+ else ! We are in the isothermal case
+    is_isothermal = .true.
+ endif
+#endif
+
  !
  !--equation of state
  !
- if (maxvxyzu==3) then
+ if (is_isothermal) then
     !--isothermal
     if (ndiscs /= 1) then
        !--multiple discs
@@ -567,16 +582,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ieos = 2
     gamma = 5./3.
     icooling = 1
- endif
+
 #ifdef MCFOST
- !--radiative equilibrium
- ieos = 2
- gamma = 5./3.
- icooling = 0
- ipdv_heating = 0
- ishock_heating = 0
- alphau = 0
+    if (use_mcfost) then
+       icooling = 0
+       ipdv_heating = 0
+       ishock_heating = 0
+       alphau = 0
+    endif
 #endif
+ endif
 
  !
  !--surface density profile
@@ -933,6 +948,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = nparttot
  npartoftype(igas)  = nparttot - npartdust
  npartoftype(idust) = npartdust
+
+ !
+ ! print information about the angular momenta
+ !
+ ldisc = get_mean_angmom_vector(npart,xyzh,vxyzu)
+ print "(a,'(',3(es10.2,1x),')')",' Disc specific angular momentum = ',ldisc
+ if (nptmass > 1) then
+    lcentral = get_mean_angmom_vector(nptmass,xyzmh_ptmass,vxyz_ptmass)
+    print "(a,'(',3(es10.2,1x),')')",' Binary specific angular momentum = ',lcentral
+    ! make unit vectors
+    lcentral = lcentral/sqrt(dot_product(lcentral,lcentral))
+    ldisc    = ldisc/sqrt(dot_product(ldisc,ldisc))
+    print "(a,f6.1,a)",' Angle between disc and binary = ',acos(dot_product(lcentral,ldisc))*180./pi,' deg'
+ endif
 
  !--alpha viscosity
  if (ndiscs==1) then
@@ -1310,6 +1339,12 @@ subroutine write_setupfile(filename)
     call write_inopt(norbits,'norbits','maximum number of orbits at outer disc',iunit)
  endif
  call write_inopt(deltat,'deltat','output interval as fraction of orbital period',iunit)
+#ifdef MCFOST
+ !--mcfost
+ write(iunit,"(/,a)") '# mcfost'
+ call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iunit)
+#endif
+
  close(iunit)
 
 end subroutine write_setupfile
@@ -1532,6 +1567,12 @@ subroutine read_setupfile(filename,ierr)
  !  following two are optional: not an error if not present
  call read_inopt(norbits,'norbits',db,err=ierr)
  call read_inopt(deltat,'deltat',db,err=ierr)
+#ifdef MCFOST
+ !--mcfost
+ call read_inopt(use_mcfost,'use_mcfost',db,err=ierr)
+ if (ierr) use_mcfost = .false. ! no mcfost by default
+#endif
+
 
  call close_db(db)
  ierr = nerr

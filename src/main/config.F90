@@ -251,11 +251,28 @@ module dim
 #endif
 
 !--------------------
+! Electron number densities .or. ionisation fractions
+!--------------------
+#ifdef NONIDEALMHD
+ integer, parameter :: maxne = maxp
+#else
+#ifdef CMACIONIZE
+ integer, parameter :: maxne = maxp
+#else
+ integer, parameter :: maxne = 0
+#endif
+#endif
+#ifdef CMACIONIZE
+ logical, parameter :: use_CMacIonize = .true.
+#else
+ logical, parameter :: use_CMacIonize = .false.
+#endif
+
+!--------------------
 ! Calculate rotational energy in .ev
 !--------------------
- logical, public :: calc_erot     = .false.
- logical, public :: calc_erot_com = .false.
- logical, public :: incl_erot     = .false.
+ logical, public :: calc_erot = .false.
+ logical, public :: incl_erot = .false.
 
  !--------------------
  ! General relativity

@@ -379,8 +379,12 @@ subroutine choose_shock (gamma,polyk,iexist)
  enddo
 
  choice = 1
+#ifdef MHD
 #ifdef NONIDEALMHD
  choice = 7
+#else
+ choice = 6
+#endif
 #endif
 #ifdef GR
  choice = 9

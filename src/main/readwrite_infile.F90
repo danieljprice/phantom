@@ -28,7 +28,6 @@
 !    beta               -- beta viscosity
 !    bulkvisc           -- magnitude of bulk viscosity
 !    calc_erot          -- include E_rot in the ev_file
-!    calc_erot_com      -- calculate E_rot about the centre of mass (T) or the origin (F)
 !    damp               -- artificial damping of velocities (if on, v=0 initially)
 !    dtmax              -- time between dumps
 !    dtmax_rat0         -- dtmax_new = dtmax_old/dtmax_rat0
@@ -55,6 +54,7 @@
 !    tolh               -- tolerance on h-rho iterations
 !    tolv               -- tolerance on v iterations in timestepping
 !    twallmax           -- maximum wall time (hhh:mm, 000:00=ignore)
+!    use_mcfost         -- use the mcfost library
 !
 !  DEPENDENCIES: cooling, dim, dust, eos, externalforces, forcing,
 !    infile_utils, inject, io, linklist, nicil_sup, options, part,
@@ -62,12 +62,12 @@
 !+
 !--------------------------------------------------------------------------
 module readwrite_infile
- use dim,       only:calc_erot,calc_erot_com,incl_erot
+ use dim,       only:calc_erot,incl_erot
  use timestep,  only:rho_dtthresh_cgs,dtmax_rat0
  use options,   only:nfulldump,nmaxdumps,twallmax,dtwallmax,iexternalforce,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,tolv, &
                      ipdv_heating,ishock_heating,iresistive_heating, &
-                     icooling,psidecayfac,overcleanfac,etamhd,alphamax
+                     icooling,psidecayfac,overcleanfac,etamhd,alphamax,use_mcfost
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
  use io,        only:iverbose
@@ -155,7 +155,6 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     write(iwritein,"(/,a)") '# options controlling run time and input/output: supplementary features'
     if (incl_erot .or. calc_erot) then
        call write_inopt(calc_erot,'calc_erot','include E_rot in the ev_file',iwritein)
-       call write_inopt(calc_erot_com,'calc_erot_com','calculate E_rot about the centre of mass (T) or the origin (F)',iwritein)
     endif
     if (rho_dtthresh_cgs > 0.0) then
        if (rho_dtthresh_cgs > 0.0) then
@@ -208,6 +207,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  endif
 
  if (maxvxyzu >= 4) call write_options_cooling(iwritein)
+
+#ifdef MCFOST
+ call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iwritein)
+#endif
 
  ! only write sink options if they are used, or if self-gravity is on
  if (nptmass > 0 .or. gravity) call write_options_ptmass(iwritein)
@@ -354,9 +357,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     case('calc_erot')
        read(valstring,*,iostat=ierr) calc_erot
        incl_erot = .true.
-    case('calc_erot_com')
-       read(valstring,*,iostat=ierr) calc_erot_com
-       incl_erot = .true.
     case('rho_dtthresh')
        read(valstring,*,iostat=ierr) rho_dtthresh_cgs
     case('dtmax_rat0')
@@ -407,6 +407,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) shearparam
     case('bulkvisc')
        read(valstring,*,iostat=ierr) bulkvisc
+#ifdef MCFOST
+    case('use_mcfost')
+       read(valstring,*,iostat=ierr) use_mcfost
+#endif
     case default
        imatch = .false.
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
@@ -540,8 +544,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     endif
     if (beta < 0.)     call fatal(label,'beta < 0')
     if (beta > 4.)     call warn(label,'very high beta viscosity set')
+#ifndef MCFOST
     if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 10 .and. ieos /= 11)) &
     call fatal(label,'only ieos=2 makes sense if storing thermal energy')
+#endif
     if (irealvisc < 0 .or. irealvisc > 12)  call fatal(label,'invalid setting for physical viscosity')
     if (shearparam < 0.)                     call fatal(label,'stupid value for shear parameter (< 0)')
     if (irealvisc==2 .and. shearparam > 1) call error(label,'alpha > 1 for shakura-sunyaev viscosity')

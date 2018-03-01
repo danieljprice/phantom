@@ -10,4 +10,4 @@ build/.depends
 */*/*~
 *.bindata
 galaxiesP.dat
-runs
+*.pyc

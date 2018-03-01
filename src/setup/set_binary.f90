@@ -33,6 +33,7 @@ module setbinary
  use physcon, only:pi
  implicit none
  public :: set_binary,Rochelobe_estimate,L1_point,get_a_from_period
+ public :: get_mean_angmom_vector
 
  private
 
@@ -333,5 +334,39 @@ function get_a_from_period(m1,m2,period) result(a)
  a = ((m1 + m2)*(period/(2.*pi))**2)**(1./3.)
 
 end function get_a_from_period
+
+!-------------------------------------------------------------
+! Function to find mean angular momentum vector from a list
+! of positions and velocities
+!-------------------------------------------------------------
+function get_mean_angmom_vector(n,xyz,vxyz) result(l)
+ integer, intent(in) :: n
+ real,    intent(in) :: xyz(:,:),vxyz(:,:)
+ real    :: l(3),li(3)
+ integer :: i
+
+ l = 0.
+ do i=1,n
+    call get_cross_product(xyz(:,i),vxyz(:,i),li)
+    l = l + li
+ enddo
+ l = l/real(n)
+
+end function get_mean_angmom_vector
+
+!-------------------------------------------------------------
+!
+! cross product routine
+!
+!-------------------------------------------------------------
+pure subroutine get_cross_product(veca,vecb,vecc)
+ real, intent(in)  :: veca(3),vecb(3)
+ real, intent(out) :: vecc(3)
+
+ vecc(1) = veca(2)*vecb(3) - veca(3)*vecb(2)
+ vecc(2) = veca(3)*vecb(1) - veca(1)*vecb(3)
+ vecc(3) = veca(1)*vecb(2) - veca(2)*vecb(1)
+
+end subroutine get_cross_product
 
 end module setbinary

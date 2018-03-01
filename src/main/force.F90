@@ -1098,9 +1098,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           ! Particle j is a neighbour of an active particle;
           ! flag it to see if it needs to be woken up next step.
           if (iamtypej /= iboundary) then
-#ifndef MPI
+! #ifndef MPI
              ibin_wake(j)  = max(ibinnow_m1,ibin_wake(j))
-#endif
+! #endif
              ibin_neighi = max(ibin_neighi,ibin_old(j))
           endif
 #endif
@@ -1234,6 +1234,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           projBj = 0.
           vwavej = 0.
           vsigavj = 0.
+          spsoundj = 0.
           dustfracj = 0.
           sqrtrhodustfracj = 0.
        endif
@@ -1820,7 +1821,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintenso
     call rhoanddhdrho(hi,hi1,rhoi,rho1i,dhdrhoi,pmassi)
 
     if (iamgasi) then
-       if (ndivcurlv >= 1) divcurlvi(:) = divcurlv(:,i)
+       if (ndivcurlv >= 1) divcurlvi(:) = real(divcurlv(:,i),kind=kind(divcurlvi))
        if (realviscosity .and. maxstrain==maxp) straini(:) = straintensor(:,i)
        if (maxvxyzu >= 4) then
           eni = vxyzu(4,i)
@@ -2326,15 +2327,17 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
        !--for MHD, need to make the force stable when beta < 1.  In this regime,
        !  subtract off the B(div B)/rho term (Borve, Omang & Trulsen 2001, 2005);
        !  outside of this regime, do nothing, but (smoothly) transition between
-       !  regimes
+       !  regimes.  Tests in Feb 2018 suggested that beginning the transition
+       !  too close to beta = 1 lead to some inaccuracies, and that the optimal
+       !  transition range was 2-10 or 2-5, depending on the test.
        !
        divBsymmi  = fsum(idivBsymi)
        if (B2i > 0.0) then
           betai = 2.0*ponrhoi*rhoi/B2i
-          if (betai < 1.0) then
+          if (betai < 2.0) then
              frac_divB = 1.0
-          elseif (betai < 2.0) then
-             frac_divB = 2.0 - betai
+          elseif (betai < 10.0) then
+             frac_divB = (10.0 - betai)*0.125
           else
              frac_divB = 0.0
           endif

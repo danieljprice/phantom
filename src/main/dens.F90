@@ -184,6 +184,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
  type(celldens)            :: xrecvbuf(nprocs),xsendbuf
  integer                   :: mpiits,nlocal
+ real                      :: ntotal
  logical                   :: iterations_finished
  logical                   :: do_export
 
@@ -249,6 +250,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(getdv) &
 !$omp shared(realviscosity) &
 !$omp shared(iverbose) &
+!$omp shared(iprint) &
 #ifdef MPI
 !$omp shared(xrecvbuf) &
 !$omp shared(xsendbuf) &
@@ -260,6 +262,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(iterations_finished) &
 !$omp shared(mpiits) &
 !$omp reduction(+:nlocal) &
+!$omp reduction(+:ntotal) &
 !$omp private(do_export) &
 !$omp private(j) &
 !$omp private(k) &
@@ -397,7 +400,15 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp end single
 
 !$omp single
- if (iverbose>=6) print*,id,'local ratio = ',real(nlocal)/(real(nlocal) + real(stack_waiting%n))
+ if (iverbose>=6) then
+    ntotal = real(nlocal) + real(stack_waiting%n)
+    if (ntotal > 0) then
+       write(iprint,*) id,'local ratio = ',real(nlocal)/ntotal
+    else
+       write(iprint,*) id,'local ratio = 0'
+    endif
+ endif
+
  mpiits = 0
  iterations_finished = .false.
 !$omp end single
@@ -1296,12 +1307,15 @@ pure subroutine compute_hmax(cell,redo_neighbours)
  real                          :: hmax_old,hmax
 
  redo_neighbours = .false.
- hmax_old = cell%hmax
- hmax     = 1.01*maxval(cell%h(1:cell%npcell))
- if (hmax > hmax_old) redo_neighbours = .true.
- cell%hmax  = hmax
- cell%rcuti = radkern*hmax
-
+ if (cell%npcell > 0) then
+    hmax_old = cell%hmax
+    hmax     = 1.01*maxval(cell%h(1:cell%npcell))
+    if (hmax > hmax_old) redo_neighbours = .true.
+    cell%hmax  = hmax
+    cell%rcuti = radkern*hmax
+ else
+    redo_neighbours = .true.
+ endif
 end subroutine compute_hmax
 
 subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)

@@ -1,20 +1,20 @@
 !----------------------------------------------------------------------!
-!                               N I C I L                              !                                  
+!                               N I C I L                              !
 !           Non-Ideal mhd Coefficient and Ionisation Library           !
 !          1D-SPH Example Programme: Supplementary Subroutines         !
 !                                                                      !
-!                 Copyright (c) 2015-2016 James Wurster                !
+!                 Copyright (c) 2015-2017 James Wurster                !
 !        See LICENCE file for usage and distribution conditions        !
 !----------------------------------------------------------------------!
 !
-! This is an example 1D SPH programme to outline the general procedure 
+! This is an example 1D SPH programme to outline the general procedure
 ! of how to implement NICIL into a pre-existing SPH code.
 !
 ! These are supplementary codes required for use in nicil_ex_sph_main.
 ! These should be simplistic versions of subroutines already existing
 ! in the user's code.
 !
-! WARNING! This example code is intented to be an example and not used  
+! WARNING! This example code is intented to be an example and not used
 ! for actual computations.
 ! Comments indicated with '!**' indicate code that is required for NICIL
 !
@@ -60,26 +60,26 @@ subroutine initialise_particles(nmax,npart,ixmin,ixmax,umass,udist,unit_density 
  !--Set positions (CGS)
  npart = 0
  do k = 1,2*nboundary + 1
-   do j = 1,2*nboundary + 1
-     dx = dx0
-     do i=1,8*nboundary
-       call fill_xyzh(npart,nmax,i,j,k,dx,dxrat,dx0,xyzh)
-     end do
-     if (k==nboundary + 1 .and. j==k ) ixmin = npart + 1
-     dx1 = dx*dxrat**2 
-     do while (xyzh(1,npart)-xyzh(1,npart-1) > 0.5*dx1 )
-       call fill_xyzh(npart,nmax,i,j,k,dx,dxrat,dx0,xyzh)
-     end do
-     if (k==nboundary + 1 .and. j==k ) ixmax = npart
-     do i=1,10*nboundary
-       call fill_xyzh(npart,nmax,i,j,k,dx,dxrat,dx0,xyzh)
-     end do
-   end do
- end do
+    do j = 1,2*nboundary + 1
+       dx = dx0
+       do i=1,8*nboundary
+          call fill_xyzh(npart,nmax,i,j,k,dx,dxrat,dx0,xyzh)
+       enddo
+       if (k==nboundary + 1 .and. j==k ) ixmin = npart + 1
+       dx1 = dx*dxrat**2
+       do while (xyzh(1,npart)-xyzh(1,npart-1) > 0.5*dx1 )
+          call fill_xyzh(npart,nmax,i,j,k,dx,dxrat,dx0,xyzh)
+       enddo
+       if (k==nboundary + 1 .and. j==k ) ixmax = npart
+       do i=1,10*nboundary
+          call fill_xyzh(npart,nmax,i,j,k,dx,dxrat,dx0,xyzh)
+       enddo
+    enddo
+ enddo
  if (npart==nmax) then
-   write(*,*) "NICIL: SPH_TEST: nmax < npart. Aborting."
-   call fatal(1)
- end if
+    write(*,*) "NICIL: SPH_TEST: nmax < npart. Aborting."
+    call fatal(1)
+ endif
  mass  = umass/(ixmax-ixmin+1) * 8.17d-10
  !
  !--Set density, smoothing length & magnetic field (CGS)
@@ -91,10 +91,10 @@ subroutine initialise_particles(nmax,npart,ixmin,ixmax,umass,udist,unit_density 
 !$omp private(i)
 !$omp do schedule(runtime)
  do i = 1,npart
-   call calculate_rhoh(nmax,npart,xyzh,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),rho(i),omega(i),mass)
-   B(3,i) = B0 * rho(i)/rho0
- end do
-!$omp end do
+    call calculate_rhoh(nmax,npart,xyzh,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),rho(i),omega(i),mass)
+    B(3,i) = B0 * rho(i)/rho0
+ enddo
+!$omp enddo
 !$omp end parallel
  !
  !--Convert to code units
@@ -106,8 +106,8 @@ subroutine initialise_particles(nmax,npart,ixmin,ixmax,umass,udist,unit_density 
  !
  !--Set internal energy (in code units)
  do i = 1,npart
-   u(i) = cs**2/(gam-1.0)
- end do
+    u(i) = cs**2/(gam-1.0)
+ enddo
  !
 end subroutine initialise_particles
 !----------------------------------------------------------------------!
@@ -125,10 +125,10 @@ subroutine fill_xyzh(npart,nmax,i,j,k,dx,dxrat,dx0,xyzh)
  npart           = min(npart + 1, nmax)
  dx              = dx*dxrat
  if (npart==1) then
-   xyzh(1,npart) = 0.0
+    xyzh(1,npart) = 0.0
  else
-   xyzh(1,npart) = xyzh(1,npart-1) + dx
- end if
+    xyzh(1,npart) = xyzh(1,npart-1) + dx
+ endif
  xyzh(2,npart)   = dx0*(j-1)
  xyzh(3,npart)   = dx0*(k-1)
  xyzh(4,npart)   = 3.6*dx
@@ -155,38 +155,38 @@ subroutine calculate_rhoh(nmax,npart,xyzh,xi,yi,zi,hi,rhoi,omegai,mass)
  hrat    = 2.0*tol
  !
  do while (hrat > tol .and. ctr < ctrmax)
-   ctr      = ctr + 1
-   rhoi     = mass*(hfac/hi)**3 
-   rhosum   = 0.0
-   omegatmp = 0.0
-   do k = 1,npart
-     dx   = xi - xyzh(1,k)
-     dy   = yi - xyzh(2,k)
-     dz   = zi - xyzh(3,k)
-     rik2 = dx*dx + dy*dy + dz*dz
-     if (rik2 < 4.0*hi**2) then
-       rik      = sqrt(rik2)
-       q        = rik/hi
-       rhosum   = rhosum   + mass*kernel(q) /hi**3
-       omegatmp = omegatmp + mass*dwdh(q,hi)/hi**4  
-     end if
-    end do
+    ctr      = ctr + 1
+    rhoi     = mass*(hfac/hi)**3
+    rhosum   = 0.0
+    omegatmp = 0.0
+    do k = 1,npart
+       dx   = xi - xyzh(1,k)
+       dy   = yi - xyzh(2,k)
+       dz   = zi - xyzh(3,k)
+       rik2 = dx*dx + dy*dy + dz*dz
+       if (rik2 < 4.0*hi**2) then
+          rik      = sqrt(rik2)
+          q        = rik/hi
+          rhosum   = rhosum   + mass*kernel(q) /hi**3
+          omegatmp = omegatmp + mass*dwdh(q,hi)/hi**4
+       endif
+    enddo
     omegai = 1.0 + hi/(3.0*rhoi)*omegatmp
     f1     = rhoi - rhosum
     f2     = -3.0*rhoi/hi*omegai
     hnew   = hi - f1/f2
     if (hnew.le.0.0) then
-      write(*,*) "NICIL: SPH_TEST: h < 0. Aborting."
-      call fatal(1)
-    end if
+       write(*,*) "NICIL: SPH_TEST: h < 0. Aborting."
+       call fatal(1)
+    endif
     hrat = abs(hnew-hi)/hi
     hi   = hnew
-  end do
-  if (ctr >= ctrmax) then
+ enddo
+ if (ctr >= ctrmax) then
     write(*,*) "NICIL: SPH_TEST: rho-h failed to converge. Aborting."
     call fatal(1)
-  end if
- ! 
+ endif
+ !
 end subroutine calculate_rhoh
 !----------------------------------------------------------------------!
 !+
@@ -207,33 +207,33 @@ subroutine calculate_jcurrent(nmax,npart,mass,xyzh,rho,B,jcurrent,omega)
 !$omp private(i,k,dx,dy,dz,rik2,rik,r1,dxr1,dyr1,dzr1,q,dB,BcrossDr)
 !$omp do schedule(runtime)
  do i = 1,npart
-   do k = 1,npart
-     if (i/=k) then 
-       dx     = xyzh(1,i) - xyzh(1,k)
-       dy     = xyzh(2,i) - xyzh(2,k)
-       dz     = xyzh(3,i) - xyzh(3,k)
-       rik2   = dx*dx + dy*dy + dz*dz
-       if (rik2 < 4.0*xyzh(4,i)**2) then 
-         rik  = sqrt(rik2)
-         r1   = 1.0/rik
-         dxr1 = dx*r1
-         dyr1 = dy*r1
-         dzr1 = dz*r1
-         q    = rik/xyzh(4,i)
-         dB   = B(:,i) - B(:,k)
-         BcrossDr(1)   = dB(2)*dzr1 - dB(3)*dyr1
-         BcrossDr(2)   = dB(3)*dxr1 - dB(1)*dzr1
-         BcrossDr(3)   = dB(1)*dyr1 - dB(2)*dxr1
-         jcurrent(:,i) = jcurrent(:,i) + BcrossDr(:)*dkernel(q)/xyzh(4,i)**4
-       end if
-     end if
-   end do
-   jcurrent(:,i) = jcurrent(:,i)*mass/(rho(i)*omega(i))
- end do 
-!$omp end do
+    do k = 1,npart
+       if (i/=k) then
+          dx     = xyzh(1,i) - xyzh(1,k)
+          dy     = xyzh(2,i) - xyzh(2,k)
+          dz     = xyzh(3,i) - xyzh(3,k)
+          rik2   = dx*dx + dy*dy + dz*dz
+          if (rik2 < 4.0*xyzh(4,i)**2) then
+             rik  = sqrt(rik2)
+             r1   = 1.0/rik
+             dxr1 = dx*r1
+             dyr1 = dy*r1
+             dzr1 = dz*r1
+             q    = rik/xyzh(4,i)
+             dB   = B(:,i) - B(:,k)
+             BcrossDr(1)   = dB(2)*dzr1 - dB(3)*dyr1
+             BcrossDr(2)   = dB(3)*dxr1 - dB(1)*dzr1
+             BcrossDr(3)   = dB(1)*dyr1 - dB(2)*dxr1
+             jcurrent(:,i) = jcurrent(:,i) + BcrossDr(:)*dkernel(q)/xyzh(4,i)**4
+          endif
+       endif
+    enddo
+    jcurrent(:,i) = jcurrent(:,i)*mass/(rho(i)*omega(i))
+ enddo
+!$omp enddo
 !$omp end parallel
  !
- end subroutine calculate_jcurrent
+end subroutine calculate_jcurrent
 !----------------------------------------------------------------------!
 !+
 ! Smoothing kernel and its derivatives
@@ -241,39 +241,39 @@ subroutine calculate_jcurrent(nmax,npart,mass,xyzh,rho,B,jcurrent,omega)
 !----------------------------------------------------------------------!
 !The M4 cubic spline softening kernel
 real function kernel(q)
- real, parameter   :: fourpi = 12.5663706144d0 
+ real, parameter   :: fourpi = 12.5663706144d0
  real, intent(in)  :: q
- ! 
+ !
  if (q.lt.0.0) then
-   write(*,*) 'invalid kernel'
-   call fatal(1)
- else if (q.lt.1.0) then 
-   kernel = 4.0 - 6.0*q**2 + 3*q**3 
- else if (q.lt.2.0) then 
-   kernel = (2.0 - q)**3
+    write(*,*) 'invalid kernel'
+    call fatal(1)
+ else if (q.lt.1.0) then
+    kernel = 4.0 - 6.0*q**2 + 3*q**3
+ else if (q.lt.2.0) then
+    kernel = (2.0 - q)**3
  else
-   kernel = 0.0
- end if
+    kernel = 0.0
+ endif
  kernel = kernel / fourpi
  !
 end function kernel
 !
 ! The derivative of the M4 Cubic spline softening kernel
 real function dkernel(q)
- real, parameter   :: fourpi = 12.5663706144d0 
+ real, parameter   :: fourpi = 12.5663706144d0
  real, intent(in)  :: q
  !
  if (q.lt.0.0) then
-   print*, 'invalid kernel gradient'
-   call fatal(1)
- else if (q.lt.1.0) then 
-   dkernel = q*(9.0*q - 12.0)
+    print*, 'invalid kernel gradient'
+    call fatal(1)
+ else if (q.lt.1.0) then
+    dkernel = q*(9.0*q - 12.0)
  else if (q.lt.2.0) then
-   dkernel = -3.0*(q - 2.)**2
- else 
-   dkernel = 0.0
- end if
- dkernel = dkernel/fourpi 
+    dkernel = -3.0*(q - 2.)**2
+ else
+    dkernel = 0.0
+ endif
+ dkernel = dkernel/fourpi
 end function dkernel
 !
 ! Derivative of the smoothing kernel with respect to smoothing length
@@ -293,17 +293,17 @@ subroutine fatal(ierr,rho,temperature)
  integer                       :: i
  !
  if (ierr > 0) then
-   ! Fatal error encountered.  Aborting.
-   write(iprint,'(a)') "NICIL: SPH TEST: error encountered in NICIL.  Aborting"
-   close(iprintdat)
-   close(iprintwarn)
-   stop
+    ! Fatal error encountered.  Aborting.
+    write(iprint,'(a)') "NICIL: SPH TEST: error encountered in NICIL.  Aborting"
+    close(iprintdat)
+    close(iprintwarn)
+    stop
  else
-   ! Warning error encountered.  Print and continue.
-   if (present(rho) .and. present(temperature)) then
-     write(iprintwarn,'(2(a,Es10.3),a)') "For the above error, rho = ",rho," g/cm^3 and T = ",temperature," K"
-   end if
- end if
+    ! Warning error encountered.  Print and continue.
+    if (present(rho) .and. present(temperature)) then
+       write(iprintwarn,'(2(a,Es10.3),a)') "For the above error, rho = ",rho," g/cm^3 and T = ",temperature," K"
+    endif
+ endif
  !
 end subroutine
 !----------------------------------------------------------------------!

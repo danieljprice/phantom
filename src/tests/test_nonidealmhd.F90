@@ -219,7 +219,6 @@ subroutine test_wavedamp(ntests,npass)
     Bzrms_num = sqrt(Bzrms_num/npart)
     Bzrms_ana = h0*abs(sin(omegaR*t))*exp(omegaI*t)
     L2        = L2 + (Bzrms_ana - Bzrms_num)**2
-    !print*, t,dt, Bzrms_ana,Bzrms_num
     if (dtnew < dt) valid_dt = .false.
  enddo
  ! For printing outputs if further debugging is required.
@@ -235,7 +234,7 @@ subroutine test_wavedamp(ntests,npass)
  call checkval(L2,0.0,tol,nerr(1),'L2 error on wave damp test')
  call checkval(valid_dt,.true.,nerr(2),'dt to ensure above valid default')
 #ifdef STS_TIMESTEPS
- call checkval(dtcourant,4.5249944d-3,toltime,nerr(3),'initial courant dt')
+ call checkval(dtcourant,4.5249927d-3,toltime,nerr(3),'initial courant dt')
  call checkval(dtdiff,   2.8995286d-2,toltime,nerr(4),'initial dissipation dt from sts')
 #endif
 
@@ -397,7 +396,6 @@ subroutine test_standingshock(ntests,npass)
     nsteps = nsteps + 1
     dtext  = dt
     call step(npart,npart,t,dt,dtext,dtnew)
-    !print*, t,dt,dtnew,nsteps
     if (dtnew < dt) valid_dt = .false.
  enddo
  !
@@ -490,8 +488,7 @@ subroutine test_narrays(ntests,npass)
  use kernel,         only:hfact_default
  use part,           only:npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,igas,alphaind,&
-                          n_R,n_electronT,rhoh
- use step_lf_global, only:step,init_step
+                          n_R,n_electronT,rhoh,eta_nimhd,iohm,ihall,iambi
  use deriv,          only:derivs
  use testutils,      only:checkval
  use eos,            only:ieos,init_eos,polyk,polyk2,gamma,get_temperature
@@ -506,10 +503,9 @@ subroutine test_narrays(ntests,npass)
  integer                :: i,k,nx,ierr
  integer                :: nerr(3*kmax)
  real                   :: deltax,x_min,y_min,z_min,totmass,cs_sphere,cs_medium
- real                   :: t,dt,dtext_dum,dtext,dtnew
- real                   :: Bi,rhoi,tempi,etaohmi,etahalli,etaambii
+ real                   :: t,dtext_dum,Bi,rhoi,tempi
  real                   :: rho0(2),Bz0(2),eta_act(3,kmax)
- real, parameter        :: tol = 3.7d-5
+ real, parameter        :: tol = 1.0e-7
  !
  if (periodic) then
     if (id==master) write(*,"(/,a)") '--> testing calculation of non-constant eta'
@@ -527,14 +523,14 @@ subroutine test_narrays(ntests,npass)
  call set_units(mass=solarm,dist=1.0d16,G=1.d0)
  rho0(1)      = 7.420d-18 /unit_density   ! [g/cm^3]
  Bz0(1)       = 8.130d-5  /unit_Bfield    ! [G]
- eta_act(1,1) = 1.1479d10                 ! [cm^2/s] expected eta_ohm
- eta_act(2,1) = 3.5374d14                 ! [cm^2/s] expected eta_hall
- eta_act(3,1) = 5.2420d17                 ! [cm^2/s] expected eta_ambi
+ eta_act(1,1) = 1.14793940113d10          ! [cm^2/s] expected eta_ohm
+ eta_act(2,1) = 3.53740662206d14          ! [cm^2/s] expected eta_hall
+ eta_act(3,1) = 5.24199083714d17          ! [cm^2/s] expected eta_ambi
  rho0(2)      = 4.6d-3    /unit_density   ! [g/cm^3]
  Bz0(2)       = 1.92d2    /unit_Bfield    ! [G]
- eta_act(1,2) = 4.5690d8                  ! [cm^2/s] expected eta_ohm
- eta_act(2,2) = 1.5122d4                  ! [cm^2/s] expected eta_hall
- eta_act(3,2) = 8.9639d-3                 ! [cm^2/s] expected eta_ambi
+ eta_act(1,2) = 5.93454677137d8           ! [cm^2/s] expected eta_ohm
+ eta_act(2,2) = 1.06634664733d4           ! [cm^2/s] expected eta_hall
+ eta_act(3,2) = 4.06985533992d-3          ! [cm^2/s] expected eta_ambi
  !
  ! initialise values for grid
  !
@@ -545,8 +541,6 @@ subroutine test_narrays(ntests,npass)
  z_min   = x_min*sqrt(6.0)/3.0
  call set_boundary(x_min,-x_min,y_min,-y_min,z_min,-z_min)
  npart   = 0
- dt      = 1.0d-10
- dtext   = dt
  cs_sphere = 0.19       ! = 2.189E+04 cm/s
  cs_medium = 1.04       ! = 1.199E+05 cm/s
  !
@@ -578,9 +572,6 @@ subroutine test_narrays(ntests,npass)
     n_R          = 0.0
     n_electronT  = 0.0
     !
-    print*, ' '
-    print*, ' Initial rho,Bz       (cgs): ',rho0(k)*unit_density,Bz0(k)*unit_Bfield
-    !
     ! set particles
     !
     call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
@@ -598,19 +589,18 @@ subroutine test_narrays(ntests,npass)
     ! call derivs the first time around & a single step
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
-    call step(npart,npart,0.0,dt,dtext,dtnew)
     !
     ! Calculate eta from NICIL
     Bi    = sqrt( dot_product(Bevol(1:3,1),Bevol(1:3,1)) )
     rhoi  = rhoh(xyzh(4,1),massoftype(1))
     tempi = get_temperature(ieos,xyzh(1:3,1),rhoi,vxyzu(:,1))
-    call nicil_get_eta(etaohmi,etahalli,etaambii,Bi,rhoi,tempi,n_R(:,1),n_electronT(1),ierr)
 
-    print*, ' Final   rho,B_z,temp (cgs): ',rhoi*unit_density,Bi*unit_Bfield,tempi
-
-    call checkval(etaohmi *unit_eta,eta_act(1,k),tol,nerr(3*(k-1)+1),'calculated non-constant eta_ohm')
-    call checkval(etahalli*unit_eta,eta_act(2,k),tol,nerr(3*(k-1)+2),'calculated non-constant eta_hall')
-    call checkval(etaambii*unit_eta,eta_act(3,k),tol,nerr(3*(k-1)+3),'calculated non-constant eta_ambi')
+    print*, ' '
+    write(*,'(1x,a,3Es18.11)') 'Used   rho,B_z,temp (cgs): ',rhoi*unit_density,Bi*unit_Bfield,tempi
+    write(*,'(1x,a,3Es18.11)') 'eta_ohm, eta_hall, eta_ambi (cgs): ', eta_nimhd(1:3,1)*unit_eta
+    call checkval(eta_nimhd(iohm, 1)*unit_eta,eta_act(1,k),tol,nerr(3*(k-1)+1),'calculated non-constant eta_ohm')
+    call checkval(eta_nimhd(ihall,1)*unit_eta,eta_act(2,k),tol,nerr(3*(k-1)+2),'calculated non-constant eta_hall')
+    call checkval(eta_nimhd(iambi,1)*unit_eta,eta_act(3,k),tol,nerr(3*(k-1)+3),'calculated non-constant eta_ambi')
 
  enddo
  ntests = ntests + 1

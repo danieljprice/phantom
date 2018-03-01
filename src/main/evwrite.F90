@@ -52,20 +52,20 @@ module evwrite
  use externalforces, only: iext_binary,was_accreted
  use energies,       only: inumev,iquantities,ev_data
  use energies,       only: ndead
- use energies,       only: erot_com,gas_only,track_mass,track_lum
+ use energies,       only: gas_only,track_mass,track_lum
  use energies,       only: iev_sum,iev_max,iev_min,iev_ave
- use energies,       only: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,&
+ use energies,       only: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
                            iev_angmom,iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
                            iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah,&
-                           iev_etaa,iev_vel,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT,&
+                           iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT,&
                            iev_dtg,iev_ts,iev_momall,iev_angall,iev_angall,iev_maccsink,&
-                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat
+                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_ionise
 
  implicit none
  public                    :: init_evfile, write_evfile, write_evlog
  private                   :: fill_ev_tag, fill_ev_header
 
- integer,          private :: ievfile,ielements
+ integer,          private :: ielements
  integer,          private :: ev_cmd(inumev)    ! array of the actions to be taken
  character(len=19),private :: ev_label(inumev)  ! to make the header for the .ev file
 
@@ -78,21 +78,21 @@ contains
 !  opens the .ev file for output
 !+
 !----------------------------------------------------------------
-subroutine init_evfile(iunit,evfile)
+subroutine init_evfile(iunit,evfile,open_file)
  use io,        only: id,master,warning
- use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,calc_erot,lightcurve
+ use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,calc_erot,lightcurve,use_CMacIonize
  use options,   only: ishock_heating,ipdv_heating,use_dustfrac
  use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype
  use nicil,     only: use_ohm,use_hall,use_ambi,ion_rays,ion_thermal
  use viscosity, only: irealvisc
  integer,            intent(in) :: iunit
  character(len=  *), intent(in) :: evfile
+ logical,            intent(in) :: open_file
  character(len= 27)             :: ev_fmt
  integer                        :: i,j
  !
  !--Initialise additional variables
  !
- erot_com  = 0.0
  gas_only  = .true.
  do i = 2,maxtypes
     if (npartoftype(i) > 0) gas_only = .false.
@@ -116,6 +116,9 @@ subroutine init_evfile(iunit,evfile)
  call fill_ev_tag(ev_fmt,iev_entrop, 'totentrop','s', i,j)
  call fill_ev_tag(ev_fmt,iev_rmsmach,'rmsmach',  's', i,j)
  call fill_ev_tag(ev_fmt,iev_vrms,   'vrms',     's', i,j)
+ call fill_ev_tag(ev_fmt,iev_com(1), 'xcom',     's', i,j)
+ call fill_ev_tag(ev_fmt,iev_com(2), 'ycom',     's', i,j)
+ call fill_ev_tag(ev_fmt,iev_com(3), 'zcom',     's', i,j)
  if (.not. gas_only) then
     if (npartoftype(igas)        > 0) call fill_ev_tag(ev_fmt,iev_rhop(1),'rho gas', 'xa',i,j)
     if (npartoftype(idust)       > 0) call fill_ev_tag(ev_fmt,iev_rhop(2),'rho dust','xa',i,j)
@@ -141,6 +144,7 @@ subroutine init_evfile(iunit,evfile)
           call fill_ev_tag(ev_fmt,iev_etah(2),'|eta_h|',  'xan',i,j)
           call fill_ev_tag(ev_fmt,iev_etah(3),'eta_h/art','xan',i,j)
           call fill_ev_tag(ev_fmt,iev_etah(4),'|e_h|/art','xan',i,j)
+          call fill_ev_tag(ev_fmt,iev_vhall,  'v_hall',   'xan',i,j)
        endif
        if (use_ambi) then
           call fill_ev_tag(ev_fmt,iev_etaa(1),'eta_a',    'xan',i,j)
@@ -200,21 +204,25 @@ subroutine init_evfile(iunit,evfile)
  if (irealvisc /= 0) then
     call fill_ev_tag(ev_fmt,iev_viscrat,'visc_rat','xan',i,j)
  endif
+ if (use_CMacIonize) then
+    call fill_ev_tag(ev_fmt,iev_ionise,'ion_frac','xan',i,j)
+ endif
  iquantities = i - 1 ! The number of different quantities to analyse
  ielements   = j - 1 ! The number of values to be calculated (i.e. the number of columns in .ve)
  !
  !--all threads do above, but only master writes file
+ !  (the open_file is to prevent an .ev file from being made during the test suite)
  !
- if (id == master) then
+ if (open_file .and. id == master) then
     !
     !--open the file for output
     !
-    open(unit=ievfile,file=evfile,form='formatted',status='replace')
+    open(unit=iunit,file=evfile,form='formatted',status='replace')
     !
     !--write a header line
     !
     write(ev_fmt,'(a,I3,a)') '(',ielements+1,'a)'
-    write(ievfile,ev_fmt)'#',ev_label(1:ielements)
+    write(iunit,ev_fmt)'#',ev_label(1:ielements)
  endif
 
 end subroutine init_evfile
@@ -320,7 +328,7 @@ end subroutine fill_ev_header
 !----------------------------------------------------------------
 subroutine write_evfile(t,dt)
  use energies,      only:compute_energies,ev_data_update
- use io,            only:id,master
+ use io,            only:id,master,ievfile
  use options,       only:iexternalforce
  use extern_binary, only:accretedmass1,accretedmass2
  real, intent(in)  :: t,dt
@@ -381,7 +389,7 @@ end subroutine write_evfile
 !----------------------------------------------------------------
 subroutine write_evlog(iprint)
  use dim,       only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,use_dust
- use energies,  only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas
+ use energies,  only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas,xyzcom
  use viscosity, only:irealvisc,shearparam
  use boundary,  only:dxbound,dybound,dzbound
  use units,     only:unit_density
@@ -394,6 +402,7 @@ subroutine write_evlog(iprint)
  endif
  write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") &
       'tot',etot,'kin',ekin,'therm',etherm,'pot',epot
+ write(iprint,"(1x,a,3es10.3)") "Centre of Mass = ",xyzcom
  if (mhd)        write(iprint,"(1x,('E',a,'=',es10.3))") 'mag',emag
  if (track_mass) write(iprint,"(1x,('E',a,'=',es10.3))") 'acc',ev_data(iev_sum,iev_eacc)
  write(iprint,"(1x,1(a,'=',es10.3,', '),(a,'=',es10.3))") &
