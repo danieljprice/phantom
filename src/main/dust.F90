@@ -200,7 +200,11 @@ subroutine get_ts(idrag,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
  f          = 0.
  ts1        = 0.
  ts         = 0.
- rhosum     = rhogas + rhodust
+ rhosum     = rhogas ! this is an approx. to allow calculations to proceed
+                     ! efficiently in case of numerical dust trapping
+                     ! should be rhosum =  rhogas + rhodust
+                     ! however, without full dust grain population rhodust is an
+                     ! approx. anyway
 
  ! compute quantities specific to the drag regime
  select case(idrag)
