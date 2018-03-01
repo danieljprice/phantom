@@ -355,25 +355,19 @@ endif
 
 #--- Bondi accretion/wind ---------------------------
 ifeq ($(SETUP), bondi)
-    SRCBONDI=bondiexact_nonrel.f90
+    SRCBONDI=bondiexact.f90
     SETUPFILE=setup_bondi.f90
     KNOWN_SETUP=yes
     KERNEL=quintic
     ISOTHERMAL=yes
 endif
-ifeq ($(SETUP), bondigr_geodesic)
-    SRCBONDI=bondiexact_geodesic.f90
-    SETUPFILE= setup_bondi.f90
+ifeq ($(SETUP), bondigr)
+    SRCBONDI=bondiexact_gr.f90
+    SETUPFILE=setup_bondi.f90
     KNOWN_SETUP=yes
-    GR=yes
     KERNEL=quintic
-endif
-ifeq ($(SETUP), bondigr_sonicpoint)
-    SRCBONDI=bondiexact_sonicpoint.f90
-    SETUPFILE= setup_bondi.f90
-    KNOWN_SETUP=yes
     GR=yes
-    KERNEL=quintic
+    METRIC=schwarzschild
 endif
 ifeq ($(SETUP), bondi_inject)
     SETUPFILE= setup_bondiwind.F90

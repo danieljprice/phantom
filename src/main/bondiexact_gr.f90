@@ -4,10 +4,16 @@ module bondiexact
 
  public :: get_bondi_solution
 
+! Constants for geodesic  solution
+ real, private :: den0 = 1.
+ real, private :: en0  = 1.e-9
+
+! Constants for sonic point flow solution
  real, public  :: rcrit   = 8.
  real, private :: adiabat = 1.
 
  logical, public :: iswind = .true.
+ integer, public :: isol = 1
 
  private
 
@@ -16,6 +22,35 @@ module bondiexact
 contains
 
 subroutine get_bondi_solution(rho,v,u,r,mass,gamma_eos)
+ real, intent(out) :: rho,v,u
+ real, intent(in)  :: r,mass,gamma_eos
+
+ select case(isol)
+ case(1)
+    call bondigr_geodesic(rho,v,u,r,mass,gamma_eos)
+ case(2)
+    call bondigr_sonicpoint(rho,v,u,r,mass,gamma_eos)
+ end select
+
+end subroutine get_bondi_solution
+
+subroutine bondigr_geodesic(rho,v,u,r,mass,gam)
+ real, intent(out) :: rho,v,u
+ real, intent(in)  :: r,mass,gam
+ real :: sqrtg,alpha,dfunc,efunc
+
+ dfunc = den0/(r**2*sqrt(2.*mass/r*(1.- 2.*mass/r)))
+ efunc = en0/((sqrt(2.*mass/r)*r**2)**gam * (1.- 2.*mass/r)**((gam + 1.)/4.))
+
+ sqrtg = 1.
+ alpha = sqrt(1. - 2.*mass/r)
+ rho = sqrtg/alpha*dfunc
+ v   = sqrt(2.*mass/r)*(1. - 2.*mass/r)
+ u   = efunc/dfunc
+
+end subroutine bondigr_geodesic
+
+subroutine bondigr_sonicpoint(rho,v,u,r,mass,gamma_eos)
  real, intent(out) :: rho,v,u
  real, intent(in)  :: r,mass,gamma_eos
  real :: T,uvel,term,u0,dens,sqrtg
@@ -40,7 +75,7 @@ subroutine get_bondi_solution(rho,v,u,r,mass,gamma_eos)
  sqrtg = 1. !???? FIX
  rho = sqrtg*u0*dens
 
-end subroutine get_bondi_solution
+end subroutine bondigr_sonicpoint
 
 subroutine compute_constants(rcrit)
  real, intent(in) :: rcrit
