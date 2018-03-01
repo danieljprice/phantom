@@ -147,7 +147,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real  :: pres_array(1000,1000)
 
  !case 14 variables
- integer                      :: npart_hist(5), nbins
+ integer                      :: npart_hist(5), nbins, ierr
  real, dimension(5,npart)     :: dist_part, rad_part
  real, dimension(:), allocatable :: hist_var
  character(len=40)            :: data_formatter
