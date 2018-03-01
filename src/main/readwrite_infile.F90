@@ -20,6 +20,7 @@
 !  RUNTIME PARAMETERS:
 !    C_cour              -- Courant number
 !    C_force             -- dt_force number
+!    Voronoi_limits_file -- Limit file for the Voronoi tesselation
 !    alpha               -- art. viscosity parameter
 !    alphaB              -- art. resistivity parameter
 !    alphamax            -- MAXIMUM art. viscosity parameter
@@ -55,7 +56,6 @@
 !    tolv                -- tolerance on v iterations in timestepping
 !    twallmax            -- maximum wall time (hhh:mm, 000:00=ignore)
 !    use_mcfost          -- use the mcfost library
-!    Voronoi_limits_file -- ascii file with the limits of the Voronoi domain (mcfost)
 !
 !  DEPENDENCIES: cooling, dim, dust, eos, externalforces, forcing,
 !    infile_utils, inject, io, linklist, nicil_sup, options, part,
