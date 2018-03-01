@@ -42,9 +42,9 @@ module inject
 
 !--- Read from input file--------------------------
  integer, public  :: isol               = 2
- integer, private :: iwind_resolution   = 4 !4
- real,    private :: wind_sphdist       = 4. !0.1 !10.
- integer, private :: ihandled_spheres   = 4 !7 !   100 !4
+ integer, private :: iwind_resolution   = 4
+ real,    private :: wind_sphdist       = 4.
+ integer, private :: ihandled_spheres   = 4
  real, public     :: wind_inject_radius = 5.    ! Injection radius (in units of central mass M)
  real, public     :: wind_gamma         = 5./3.
  !-- Choice of constants for geodesic flow solution
@@ -462,15 +462,21 @@ end subroutine compute_constants
 ! Newton Raphson
 subroutine Tsolve(T,r)
    use io, only: warning
-   real, intent(in) :: r
+   real, intent(in)  :: r
    real, intent(out) :: T
-   real :: Tnew, diff
+   real    :: Tnew,diff
    logical :: converged
    integer :: its
    integer, parameter :: itsmax = 100
-   real, parameter :: tol = 1.e-5
+   real,    parameter :: tol    = 1.e-5
+   logical, parameter :: iswind = .true.
 
-   T = Tc !Guess
+   ! These guess values may need to be adjusted for values of rcrit other than rcrit=8M
+   if ((iswind .and. r>=rcrit) .or. (.not.iswind .and. r<rcrit)) then
+      T = 0.760326*r**(-1.307)/2.   ! This guess is calibrated for rcrit=8M, and works ok up to r ~ 10^7 M
+   elseif ((iswind .and. r<rcrit) .or. (.not.iswind .and. r>=rcrit)) then
+      T = 100.
+   endif
 
    converged = .false.
    its = 0
@@ -482,9 +488,7 @@ subroutine Tsolve(T,r)
       its = its+1
    enddo
 
-   if (.not. converged) call warning('inject bondi','solution not converged for r =',val=r)
-
-   ! print*,'Found T to be:',T,' with ',its,' iterations'
+   if (.not. converged) call warning('inject bondi','exact solution not converged for r =',val=r)
 
 end subroutine Tsolve
 

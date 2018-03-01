@@ -7,6 +7,8 @@ module bondiexact
  real, public  :: rcrit   = 8.
  real, private :: adiabat = 1.
 
+ logical, public :: iswind = .true.
+
  private
 
  real :: c1,c2,Tc,n,mass1,gamma
@@ -56,15 +58,20 @@ end subroutine compute_constants
 
 ! Newton Raphson
 subroutine Tsolve(T,r)
- real, intent(in) :: r
+ real, intent(in)  :: r
  real, intent(out) :: T
- real :: Tnew, diff
+ real    :: Tnew,diff
  logical :: converged
  integer :: its
  integer, parameter :: itsmax = 100
- real, parameter :: tol = 1.e-5
+ real, parameter    :: tol    = 1.e-5
 
- T = Tc !Guess
+ ! These guess values may need to be adjusted for values of rcrit other than rcrit=8M
+ if ((iswind .and. r>=rcrit) .or. (.not.iswind .and. r<rcrit)) then
+    T = 0.760326*r**(-1.307)/2.   ! This guess is calibrated for rcrit=8M, and works ok up to r ~ 10^7 M
+ elseif ((iswind .and. r<rcrit) .or. (.not.iswind .and. r>=rcrit)) then
+    T = 100.
+ endif
 
  converged = .false.
  its = 0
@@ -76,9 +83,7 @@ subroutine Tsolve(T,r)
     its = its+1
  enddo
 
- if (.not. converged) print*,'bondiexact: variable T not converged for r =',r,'. diff = ',diff
-
- ! print*,'Found T to be:',T,' with ',its,' iterations'
+ if(.not.converged) print*,'Bondi exact solution not converged at r = ',r
 
 end subroutine Tsolve
 
