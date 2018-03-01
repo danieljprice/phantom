@@ -70,11 +70,11 @@ subroutine prim2consphantom_i(xyzhi,vxyzui,dens_i,pxyzui,use_dens)
  !  By default, use the smoothing length to compute primitive density, and then compute the conserved variables.
  !  (Alternatively, use the provided primitive density to compute conserved variables.
  !   Depends whether you have prim dens prior or not.)
-  if (present(use_dens)) then
-     usedens = use_dens
-  else
-     usedens = .false.
-  endif
+ if (present(use_dens)) then
+    usedens = use_dens
+ else
+    usedens = .false.
+ endif
 
  xyzi = xyzhi(1:3)
  vi   = vxyzui(1:3)

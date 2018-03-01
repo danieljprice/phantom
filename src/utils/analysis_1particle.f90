@@ -40,14 +40,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  character(len=50), save :: filename
 
  if (ii==0) then
-   call prompt('select which particle you want the position and velocity for',particlei)
-   write(filename,"(a,i5.5,a)") 'particle_',particlei,'.ev'
-   filename=trim(filename)
-   open(unit=1234,file=filename,status='replace')
-   write(1234,"(a1,a26,6a27)") '#','time','x','y','z','vx','vy','vz'
-   ii=1
+    call prompt('select which particle you want the position and velocity for',particlei)
+    write(filename,"(a,i5.5,a)") 'particle_',particlei,'.ev'
+    filename=trim(filename)
+    open(unit=1234,file=filename,status='replace')
+    write(1234,"(a1,a26,6a27)") '#','time','x','y','z','vx','vy','vz'
+    ii=1
  else
-   open(unit=1234,file=filename,position='append')
+    open(unit=1234,file=filename,position='append')
  endif
 
  write(1234,"(7e27.17)") time,xyzh(1:3,particlei),vxyzu(1:3,particlei)

@@ -509,9 +509,9 @@ subroutine choose_shock (gamma,polyk,iexist)
     write(*,"(a5,i2,1x,a20)") 'Case ', 2, 'Ultra relativistic'
     call prompt('Enter relativistic shock choice',relativistic_choice,1,2)
     if (relativistic_choice==2) then
-      shocktype = "Ultra-Relativistic Sod shock"
-      leftstate  = (/1.,1000.,0.,0.,0.,0.,0.,0./)
-      rightstate = (/1.,0.01 ,0.,0.,0.,0.,0.,0./)
+       shocktype = "Ultra-Relativistic Sod shock"
+       leftstate  = (/1.,1000.,0.,0.,0.,0.,0.,0./)
+       rightstate = (/1.,0.01 ,0.,0.,0.,0.,0.,0./)
     endif
     if (maxvxyzu < 4) call fatal('setup','Sod shock tube requires ISOTHERMAL=no')
  end select

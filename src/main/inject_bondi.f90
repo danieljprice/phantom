@@ -149,7 +149,7 @@ subroutine inject_particles(time_u,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
     write(iprint,*) '   time between spheres',time_between_spheres
     write(iprint,*) '   Inner sphere  :', inner_sphere                 ,'Outer sphere:',outer_sphere
     write(iprint,*) '   Loop goes from:', inner_sphere+ihandled_spheres,'to:           ',outer_sphere
-endif
+ endif
  do i=inner_sphere+ihandled_spheres,outer_sphere,-1
     local_time = time - (i-ihandled_spheres) * time_between_spheres
     call compute_sphere_properties(local_time, r, v, u, rho)
@@ -157,7 +157,7 @@ endif
        write(iprint,*) '* Sphere:'
        if (i > inner_sphere) then
           write(iprint,*) 'HANDLED'
-        else
+       else
           write(iprint,*) 'INJECTED'
        endif
        write(iprint,*) '   Number i      : ', i
@@ -387,35 +387,35 @@ end subroutine
 
 !--- Wrapper for the two different solutions
 subroutine get_solution(rho,v,u,r)
-   real, intent(out) :: rho,v,u
-   real, intent(in)  :: r
+ real, intent(out) :: rho,v,u
+ real, intent(in)  :: r
 
-   select case(isol)
-   case(1)
-      call get_solution_geodesic(rho,v,u,r)
-   case(2)
-      call get_solution_sonicpoint(rho,v,u,r)
-   end select
+ select case(isol)
+ case(1)
+    call get_solution_geodesic(rho,v,u,r)
+ case(2)
+    call get_solution_sonicpoint(rho,v,u,r)
+ end select
 
 end subroutine get_solution
 
 !------- Geodesic Flow Solution -----------------
 subroutine get_solution_geodesic(rho,v,u,r)
-   real, intent(out) :: rho,v,u
-   real, intent(in)  :: r
-   real :: Dr,sqrtg,alpha,Er  !,U0,dens
+ real, intent(out) :: rho,v,u
+ real, intent(in)  :: r
+ real :: Dr,sqrtg,alpha,Er  !,U0,dens
 
-   Dr    = den0/(r**2*sqrt(2.*mass1/r*(1.- 2.*mass1/r)))
-   sqrtg = 1.
-   alpha = sqrt(1. - 2.*mass1/r)
-   rho   = sqrtg*Dr/alpha
-   ! U0    = 1./sqrt(1. - 2.*mass1/r - v**2/(1.-2.*mass1/r))
-   ! U0    = 1./(1. - 2.*mass1/r)
-   !dens  = rho/(sqrtg*U0)
+ Dr    = den0/(r**2*sqrt(2.*mass1/r*(1.- 2.*mass1/r)))
+ sqrtg = 1.
+ alpha = sqrt(1. - 2.*mass1/r)
+ rho   = sqrtg*Dr/alpha
+ ! U0    = 1./sqrt(1. - 2.*mass1/r - v**2/(1.-2.*mass1/r))
+ ! U0    = 1./(1. - 2.*mass1/r)
+ !dens  = rho/(sqrtg*U0)
 
-   Er  = en0/((sqrt(2.*mass1/r)*r**2)**wind_gamma * (1.- 2.*mass1/r)**((wind_gamma + 1.)/4.))
-   u   = Er/Dr
-   v   = sqrt(2.*mass1/r)*(1. - 2.*mass1/r)
+ Er  = en0/((sqrt(2.*mass1/r)*r**2)**wind_gamma * (1.- 2.*mass1/r)**((wind_gamma + 1.)/4.))
+ u   = Er/Dr
+ v   = sqrt(2.*mass1/r)*(1. - 2.*mass1/r)
 end subroutine get_solution_geodesic
 
 !------- Sonic Point Flow Solution -----------------
@@ -461,45 +461,45 @@ end subroutine compute_constants
 
 ! Newton Raphson
 subroutine Tsolve(T,r)
-   use io, only: warning
-   real, intent(in)  :: r
-   real, intent(out) :: T
-   real    :: Tnew,diff
-   logical :: converged
-   integer :: its
-   integer, parameter :: itsmax = 100
-   real,    parameter :: tol    = 1.e-5
-   logical, parameter :: iswind = .true.
+ use io, only: warning
+ real, intent(in)  :: r
+ real, intent(out) :: T
+ real    :: Tnew,diff
+ logical :: converged
+ integer :: its
+ integer, parameter :: itsmax = 100
+ real,    parameter :: tol    = 1.e-5
+ logical, parameter :: iswind = .true.
 
-   ! These guess values may need to be adjusted for values of rcrit other than rcrit=8M
-   if ((iswind .and. r>=rcrit) .or. (.not.iswind .and. r<rcrit)) then
-      T = 0.760326*r**(-1.307)/2.   ! This guess is calibrated for rcrit=8M, and works ok up to r ~ 10^7 M
-   elseif ((iswind .and. r<rcrit) .or. (.not.iswind .and. r>=rcrit)) then
-      T = 100.
-   endif
+ ! These guess values may need to be adjusted for values of rcrit other than rcrit=8M
+ if ((iswind .and. r>=rcrit) .or. (.not.iswind .and. r<rcrit)) then
+    T = 0.760326*r**(-1.307)/2.   ! This guess is calibrated for rcrit=8M, and works ok up to r ~ 10^7 M
+ elseif ((iswind .and. r<rcrit) .or. (.not.iswind .and. r>=rcrit)) then
+    T = 100.
+ endif
 
-   converged = .false.
-   its = 0
-   do while (.not.converged .and. its<itsmax)
-      Tnew = T - ffunc(T,r)/df(T,r)
-      diff = abs(Tnew - T)/abs(T)
-      converged = diff < tol
-      T = Tnew
-      its = its+1
-   enddo
+ converged = .false.
+ its = 0
+ do while (.not.converged .and. its<itsmax)
+    Tnew = T - ffunc(T,r)/df(T,r)
+    diff = abs(Tnew - T)/abs(T)
+    converged = diff < tol
+    T = Tnew
+    its = its+1
+ enddo
 
-   if (.not. converged) call warning('inject bondi','exact solution not converged for r =',val=r)
+ if (.not. converged) call warning('inject bondi','exact solution not converged for r =',val=r)
 
 end subroutine Tsolve
 
 real function ffunc(T,r)
-  real, intent(in) :: T,r
-  ffunc = (1. + (1. + n)*T)**2*(1. - (2.*mass1)/r + C1**2/(r**4*T**(2.*n))) - C2
+ real, intent(in) :: T,r
+ ffunc = (1. + (1. + n)*T)**2*(1. - (2.*mass1)/r + C1**2/(r**4*T**(2.*n))) - C2
 end function ffunc
 
 real function df(T,r)
-   real, intent(in) :: T,r
-   df = (2.*(1. + T + n*T)*((1. + n)*r**3*(-2.*mass1 + r) - C1**2*T**(-1. - 2.*n)*(n + (-1. + n**2)*T)))/r**4
+ real, intent(in) :: T,r
+ df = (2.*(1. + T + n*T)*((1. + n)*r**3*(-2.*mass1 + r) - C1**2*T**(-1. - 2.*n)*(n + (-1. + n**2)*T)))/r**4
 end function df
 
 end module inject

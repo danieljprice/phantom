@@ -122,8 +122,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  massoftype = totmass/reduceall_mpi('+',npart)
  if (id==master) print*,' particle mass = ',massoftype(igas)
 
-print*,'hsmooth = ', hsmooth
-print*,'radkern*hsmooth = ',sqrt(radkern2)*hsmooth
+ print*,'hsmooth = ', hsmooth
+ print*,'radkern*hsmooth = ',sqrt(radkern2)*hsmooth
 
  ncount = 0
  toten  = 0.

@@ -483,14 +483,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !-- Set external force to zero on boundary particles
 !
-if (maxphase==maxp) then
+ if (maxphase==maxp) then
 !$omp parallel do default(none) &
 !$omp shared(npart,fext,iphase) private(i)
- do i=1,npart
-    if(iamtype(iphase(i))==iboundary) fext(:,i)=0.
- enddo
+    do i=1,npart
+       if(iamtype(iphase(i))==iboundary) fext(:,i)=0.
+    enddo
 !$omp end parallel do
-endif
+ endif
 !
 !--get timestep and forces for sink particles
 !

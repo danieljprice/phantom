@@ -753,7 +753,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
           if (ntypes > 1 .and. maxphase==maxp) then
              itype = iamtype(iphase(i))
              pmassi = massoftype(itype)
-            !  if (itype==iboundary) cycle accreteloop
+             !  if (itype==iboundary) cycle accreteloop
           endif
 
           call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))

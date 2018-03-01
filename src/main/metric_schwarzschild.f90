@@ -358,12 +358,12 @@ subroutine read_options_metric(name,valstring,imatch,igotall,ierr)
  imatch  = .true.
  igotall = .false.
  select case(trim(name))
-  case('mass1')
+ case('mass1')
     read(valstring,*,iostat=ierr) mass1
     if (mass1 < 0.)  call fatal(tag,'black hole mass: mass1 < 0')
     if (mass1 == 0.) call warn(tag,'black hole mass: mass1 = 0')
     ngot = ngot + 1
-  case default
+ case default
     imatch = .false.
  end select
 

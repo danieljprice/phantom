@@ -212,21 +212,21 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
  case(imet_schwarzschild)
     r2 = xi*xi + yi*yi + zi*zi
     if (r2 < accradius1**2 .and. maxphase==maxp .and. present(i)) then
-      call set_particle_type(i,iboundary)
-      npartoftype(igas) = npartoftype(igas) - 1
-      npartoftype(iboundary) = npartoftype(iboundary) + 1
+       call set_particle_type(i,iboundary)
+       npartoftype(igas) = npartoftype(igas) - 1
+       npartoftype(iboundary) = npartoftype(iboundary) + 1
     endif
     if (r2 < (accradius1_hard)**2) accreted = .true.
 
  case(imet_kerr)
-   !  if(ifirst==0) print*,'Accrete particles: no accretion implemented for Kerr metric'
-   r2 = xi*xi + yi*yi + zi*zi
-   if (r2 < accradius1**2 .and. maxphase==maxp .and. present(i)) then
-     call set_particle_type(i,iboundary)
-     npartoftype(igas) = npartoftype(igas) - 1
-     npartoftype(iboundary) = npartoftype(iboundary) + 1
-   endif
-   if (r2 < (accradius1_hard)**2) accreted = .true.
+    !  if(ifirst==0) print*,'Accrete particles: no accretion implemented for Kerr metric'
+    r2 = xi*xi + yi*yi + zi*zi
+    if (r2 < accradius1**2 .and. maxphase==maxp .and. present(i)) then
+       call set_particle_type(i,iboundary)
+       npartoftype(igas) = npartoftype(igas) - 1
+       npartoftype(iboundary) = npartoftype(iboundary) + 1
+    endif
+    if (r2 < (accradius1_hard)**2) accreted = .true.
 
  end select
 
