@@ -44,9 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use metric,         only: mass1, imetric
  use metric_tools,   only: imet_schwarzschild
  use externalforces, only: accradius1,accradius1_hard
- use inject,         only: wind_init, inject_particles
- use inject,         only: rcrit, wind_inject_radius, wind_gamma, mass_of_particles
- use inject,         only: isol,den0,en0
+ use inject,         only: wind_init,inject_particles,wind_gamma,mass_of_particles
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -60,21 +58,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (.not.gr) call fatal('setup_bondiwind','This setup only works with GR on')
  if (imetric/=imet_schwarzschild) call fatal('setup_bondiwind','This setup is meant for use with the Schwarzschild metric')
  call set_units(G=1.,c=1.)
-
- call prompt(' Enter solution type (1 = geodesic flow | 2 = sonic point flow)',isol,1,2)
-
- select case(isol)
- case(1)
-    call prompt(' Enter normalisation constant den0:',den0,0.)
-    call prompt(' Enter normalisation constant e0: ',en0,0.)
- case(2)
-    call prompt(' Enter the critical point rcrit in units of central mass M: ',rcrit,2.+1e-5)
-    rcrit = rcrit*mass1
- end select
-
- call prompt(' Enter the injection radius in units of central mass M: ',wind_inject_radius,2.+1e-5)
- wind_inject_radius = wind_inject_radius*mass1
-
 
  ! General parameters
  time  = 0.
@@ -103,11 +86,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyz_ptmass(:,:) = 0.
 
 
- ! --- Put sink with no mass far away (needed to get around bug where phantom doesn't want to read an empty dumpfile)
+ ! --- Put sink with no mass (needed to get around bug where phantom doesn't want to read an empty dumpfile)
  nptmass = 1
- xyzmh_ptmass(1,1) = 1000.
- xyzmh_ptmass(2,1) = 1000.
- xyzmh_ptmass(3,1) = 1000.
+ xyzmh_ptmass(1,1) = 0.
+ xyzmh_ptmass(2,1) = 0.
+ xyzmh_ptmass(3,1) = 0.
  xyzmh_ptmass(4,1) = 0.
  xyzmh_ptmass(5,1) = 3.
 

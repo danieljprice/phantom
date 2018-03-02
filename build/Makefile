@@ -370,6 +370,7 @@ ifeq ($(SETUP), bondigr)
     METRIC=schwarzschild
 endif
 ifeq ($(SETUP), bondi_inject)
+    SRCBONDI=bondiexact_gr.f90
     SETUPFILE= setup_bondiwind.F90
     SRCINJECT= icosahedron.f90 inject_bondi.f90
     KNOWN_SETUP=yes

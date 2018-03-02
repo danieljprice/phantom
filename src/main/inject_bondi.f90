@@ -17,8 +17,6 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    isol               -- choice of solution (1 = geodesic flow, 2 = sonic point flow)
-!    rcrit              -- critical point
 !    wind_gamma         -- adiabatic index gamma
 !    iwind_resolution   -- resolution of the wind
 !    wind_sphdist       -- distance between spheres / neighbours
@@ -30,7 +28,8 @@
 !+
 !--------------------------------------------------------------------------
 module inject
- use metric, only: mass1
+ use bondiexact, only:get_bondi_solution
+ use metric,     only:mass1
  implicit none
  character(len=*), parameter, public :: inject_type = 'wind'
 
@@ -41,17 +40,11 @@ module inject
 !
 
 !--- Read from input file--------------------------
- integer, public  :: isol               = 2
  integer, private :: iwind_resolution   = 4
  real,    private :: wind_sphdist       = 4.
  integer, private :: ihandled_spheres   = 4
  real, public     :: wind_inject_radius = 5.    ! Injection radius (in units of central mass M)
  real, public     :: wind_gamma         = 5./3.
- !-- Choice of constants for geodesic flow solution
- real, public     :: den0  = 1.    !  12.
- real, public     :: en0   = 1.e-9 !  0.000297118
- !-- Choice of constant for sonic point flow solution
- real, public     :: rcrit = 8.     !--The critical point (in units of central mass M)
 
 ! Calculated from the previous parameters
  real,    public :: mass_of_particles
@@ -61,12 +54,18 @@ module inject
  logical, parameter :: wind_verbose = .false.
 
  real    :: geodesic_R(0:19,3,3), geodesic_v(0:11,3), u_to_temperature_ratio
- real    :: C1,C2,Tc,n
  real    :: wind_injection_rho, wind_injection_velocity, wind_injection_utherm, wind_mass_rate
  real    :: mass_of_spheres, time_between_spheres, neighbour_distance
  integer :: particles_per_sphere
 
 contains
+
+! Wrapper
+subroutine get_solution(rho,v,u,r)
+ real, intent(out) :: rho,v,u
+ real, intent(in)  :: r
+ call get_bondi_solution(rho,v,u,r,mass1,wind_gamma)
+end subroutine get_solution
 
 !-----------------------------------------------------------------------
 !+
@@ -82,8 +81,7 @@ subroutine wind_init(setup)
  real, parameter :: phi = (sqrt(5.)+1.)/2. ! Golden ratio
  real :: irrational_numbre_close_to_one
 
- if (isol==2) call compute_constants(rcrit)
-
+ wind_inject_radius = wind_inject_radius*mass1
  call get_solution(wind_injection_rho,wind_injection_velocity,wind_injection_utherm,wind_inject_radius)
 
  u_to_temperature_ratio = Rg/(gmw*(wind_gamma-1.))
@@ -319,14 +317,13 @@ subroutine write_options_inject(iunit)
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(isol,'isol','choice of solution (1 = geodesic flow, 2 = sonic point flow) --',iunit)
- call write_inopt(rcrit,'rcrit','critical point -- DO NOT CHANGE DURING SIMULATION --',iunit)
  call write_inopt(wind_gamma,'wind_gamma','polytropic indice of the wind',iunit)
- call write_inopt(iwind_resolution,'iwind_resolution','resolution of the wind -- DO NOT CHANGE DURING SIMULATION --',iunit)
+ call write_inopt(iwind_resolution,'iwind_resolution',&
+      'resolution of the wind (1-6,10,15)-- DO NOT CHANGE DURING SIMULATION --',iunit)
  call write_inopt(wind_sphdist,'wind_sphdist','distance between spheres / neighbours -- DO NOT CHANGE DURING SIMULATION --',iunit)
  call write_inopt(ihandled_spheres,'ihandled_spheres','handle inner spheres of the wind (integer)',iunit)
  call write_inopt(wind_inject_radius,'wind_inject_radius', &
-      'radius of injection of the wind -- DO NOT CHANGE DURING SIMULATION --',iunit)
+      'radius of injection of the wind (in units of the central mass) -- DO NOT CHANGE DURING SIMULATION --',iunit)
 end subroutine
 
 !-----------------------------------------------------------------------
@@ -347,14 +344,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  imatch  = .true.
  igotall = .false.
  select case(trim(name))
- case('isol')
-    read(valstring,*,iostat=ierr) isol
-    ngot = ngot + 1
-    if (isol /= 1 .and. isol /= 2) call fatal(label,'invalid setting for isol')
- case('rcrit')
-    read(valstring,*,iostat=ierr) rcrit
-    ngot = ngot + 1
-    if (rcrit < 0.)    call fatal(label,'invalid setting for rcrit (<0)')
  case('wind_gamma')
     read(valstring,*,iostat=ierr) wind_gamma
     ngot = ngot + 1
@@ -379,127 +368,10 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     imatch = .false.
  end select
 
- noptions = 7
+ noptions = 5
 
  igotall = (ngot >= noptions)
 
 end subroutine
-
-!--- Wrapper for the two different solutions
-subroutine get_solution(rho,v,u,r)
- real, intent(out) :: rho,v,u
- real, intent(in)  :: r
-
- select case(isol)
- case(1)
-    call get_solution_geodesic(rho,v,u,r)
- case(2)
-    call get_solution_sonicpoint(rho,v,u,r)
- end select
-
-end subroutine get_solution
-
-!------- Geodesic Flow Solution -----------------
-subroutine get_solution_geodesic(rho,v,u,r)
- real, intent(out) :: rho,v,u
- real, intent(in)  :: r
- real :: Dr,sqrtg,alpha,Er  !,U0,dens
-
- Dr    = den0/(r**2*sqrt(2.*mass1/r*(1.- 2.*mass1/r)))
- sqrtg = 1.
- alpha = sqrt(1. - 2.*mass1/r)
- rho   = sqrtg*Dr/alpha
- ! U0    = 1./sqrt(1. - 2.*mass1/r - v**2/(1.-2.*mass1/r))
- ! U0    = 1./(1. - 2.*mass1/r)
- !dens  = rho/(sqrtg*U0)
-
- Er  = en0/((sqrt(2.*mass1/r)*r**2)**wind_gamma * (1.- 2.*mass1/r)**((wind_gamma + 1.)/4.))
- u   = Er/Dr
- v   = sqrt(2.*mass1/r)*(1. - 2.*mass1/r)
-end subroutine get_solution_geodesic
-
-!------- Sonic Point Flow Solution -----------------
-subroutine get_solution_sonicpoint(rho,v,u,r)
- real, intent(out) :: rho,v,u
- real, intent(in)  :: r
- real, parameter :: adiabat = 1.
- real :: T,uvel,term,u0,sqrtg,dens
-
- ! Given an r, solve eq 76 for T numerically
- call Tsolve(T,r)
-
- uvel = C1/(r**2 * T**n)
- dens = adiabat*T**n
- u = T*n
-
- !get u0 at r
- term = 1./(1.-2.*mass1/r)
- u0  = sqrt(term*(1.+term*uvel**2))
- v   = uvel/u0
-
- sqrtg = 1. !???? FIX
- rho = sqrtg*u0*dens
-
-end subroutine get_solution_sonicpoint
-
-subroutine compute_constants(rcrit)
- real, intent(in) :: rcrit
- real :: uc2,vc2
-
- n   = 1./(wind_gamma-1.)
- uc2 = mass1/(2.*rcrit)
- vc2 = uc2/(1.-3.*uc2)
- Tc  = vc2*n/(1.+n-vc2*n*(1.+n))
-
- C1  = sqrt(uc2) * Tc**n * rcrit**2
- C2  = (1. + (1.+n)*Tc)**2 * (1. - 2.*mass1/rcrit + C1**2/(rcrit**4*Tc**(2.*n)))
- print*,'Constants have been set'
- print*,'C1 = ',C1
- print*,'C2 = ',C2
-
-end subroutine compute_constants
-
-! Newton Raphson
-subroutine Tsolve(T,r)
- use io, only: warning
- real, intent(in)  :: r
- real, intent(out) :: T
- real    :: Tnew,diff
- logical :: converged
- integer :: its
- integer, parameter :: itsmax = 100
- real,    parameter :: tol    = 1.e-5
- logical, parameter :: iswind = .true.
-
- ! These guess values may need to be adjusted for values of rcrit other than rcrit=8M
- if ((iswind .and. r>=rcrit) .or. (.not.iswind .and. r<rcrit)) then
-    T = 0.760326*r**(-1.307)/2.   ! This guess is calibrated for rcrit=8M, and works ok up to r ~ 10^7 M
- elseif ((iswind .and. r<rcrit) .or. (.not.iswind .and. r>=rcrit)) then
-    T = 100.
- endif
-
- converged = .false.
- its = 0
- do while (.not.converged .and. its<itsmax)
-    Tnew = T - ffunc(T,r)/df(T,r)
-    diff = abs(Tnew - T)/abs(T)
-    converged = diff < tol
-    T = Tnew
-    its = its+1
- enddo
-
- if (.not. converged) call warning('inject bondi','exact solution not converged for r =',val=r)
-
-end subroutine Tsolve
-
-real function ffunc(T,r)
- real, intent(in) :: T,r
- ffunc = (1. + (1. + n)*T)**2*(1. - (2.*mass1)/r + C1**2/(r**4*T**(2.*n))) - C2
-end function ffunc
-
-real function df(T,r)
- real, intent(in) :: T,r
- df = (2.*(1. + T + n*T)*((1. + n)*r**3*(-2.*mass1 + r) - C1**2*T**(-1. - 2.*n)*(n + (-1. + n**2)*T)))/r**4
-end function df
 
 end module inject
