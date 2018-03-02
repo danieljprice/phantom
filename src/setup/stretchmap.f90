@@ -97,7 +97,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
  logical            :: is_r, is_rcyl, bisect
 
  if (present(rhofunc) .or. present(rhotab)) then
-    print "(a)",' >>>>>>  s  t  r  e   t    c     h       m     a    p   p  i  n  g  <<<<<<'
+    if (id==master) print "(a)",' >>>>>>  s  t  r  e   t    c     h       m     a    p   p  i  n  g  <<<<<<'
     !
     ! defaults for optional arguments
     !
@@ -290,7 +290,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
 
     if (allocated(xtable))  deallocate(xtable)
     if (allocated(masstab)) deallocate(masstab)
-    print "(a,/)",' >>>>>> done'
+    if (id==master) print "(a,/)",' >>>>>> done'
  endif
 
 end subroutine set_density_profile

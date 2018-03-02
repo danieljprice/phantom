@@ -45,7 +45,6 @@ subroutine test_ptmass(ntests,npass)
  use testutils,       only:checkval,checkvalf
  use setbinary,       only:set_binary
  use step_lf_global,  only:step,init_step
- use io,              only:iverbose,nprocs
  use energies,        only:compute_energies,etot,totmom,epot,angtot !,accretedmass
  use ptmass,          only:get_accel_sink_sink,ptmass_accrete,h_soft_sinksink, &
                            ptmass_create,h_acc,get_accel_sink_gas,f_acc,finish_ptmass, &
@@ -202,7 +201,7 @@ subroutine test_ptmass(ntests,npass)
        !
        !--take the sink-sink timestep specified by the get_forces routine
        !
-       print*,' dt for sinks = ',C_force*dtsinksink
+       if (id==master) print*,' dt for sinks = ',C_force*dtsinksink
        dt      = C_force*dtsinksink !2.0/(nsteps)
        dtmax   = dt  ! required prior to derivs call, as used to set ibin
        !
@@ -246,7 +245,7 @@ subroutine test_ptmass(ntests,npass)
        else
           norbits = 100
        endif
-       print*,' nsteps per orbit = ',nsteps,' norbits = ',norbits
+       if (id==master) print*,' nsteps per orbit = ',nsteps,' norbits = ',norbits
        nsteps = nsteps*norbits
        errmax = 0.
        dumpfile='test_00000'
@@ -349,13 +348,12 @@ subroutine test_ptmass(ntests,npass)
 
     C_force = 0.25
     dt      = 0.3*C_force*dtsinksink
-    print*,' dt for sinks = ',dt
+    !if (id==master) print*,' dt for sinks = ',dt
     dtmax   = dt
     omega   = omega1
-    print*,omega
     nsteps  = int(2.*pi/omega/dt) + 1
     norbits = 10
-    print*,' nsteps per orbit = ',nsteps,' norbits = ',norbits
+    if (id==master) print*,' nsteps per orbit = ',nsteps,' norbits = ',norbits
     nsteps = nsteps*norbits
     errmax = 0.
     iverbose = 0

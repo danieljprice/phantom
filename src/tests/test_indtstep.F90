@@ -79,7 +79,7 @@ subroutine test_indtstep(ntests,npass)
  errmax2 = 0.
  iverbose = 0
 
- print "(/,a)",' ---> checking change_nbinmax routine'
+ if (id==master) print "(/,a)",' ---> checking change_nbinmax routine'
  ntests = ntests + 2
  !
  !--loop over all possible timestep bins
@@ -87,7 +87,7 @@ subroutine test_indtstep(ntests,npass)
  do i=1,24  ! 29 is maximum possible, but gets slow
     nbinmax = i
     nbinmaxprev = i
-    print "(a,i2)",' checking nbinmax = ',nbinmax
+    if (id==master) print "(a,i2)",' checking nbinmax = ',nbinmax
     !
     !--loop over all possible fractional timesteps for this nbins
     !

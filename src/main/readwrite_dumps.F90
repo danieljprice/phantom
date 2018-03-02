@@ -980,7 +980,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 !
  read (idisk1, end=100) number
  narraylengths = number/nblocks
- if (iverbose >= 2) then
+ if (iverbose >= 2 .and. id==master) then
     write(iprint,"(a,i3)") ' number of array sizes = ',narraylengths
     write(iprint,"(a,i3)") ' number of blocks      = ',nblocks
  endif
@@ -1079,9 +1079,9 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 
  if (sum(npartoftype)==0) npartoftype(1) = npart
  if (narraylengths >= 4) then
-    write(iprint,"(a,/)") ' <<< finished reading (MHD) file '
+    if (id==master) write(iprint,"(a,/)") ' <<< finished reading (MHD) file '
  else
-    write(iprint,"(a,/)") ' <<< finished reading (hydro) file '
+    if (id==master) write(iprint,"(a,/)") ' <<< finished reading (hydro) file '
  endif
  close(idisk1)
  return

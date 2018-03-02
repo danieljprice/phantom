@@ -233,7 +233,6 @@ end subroutine get_accel_sink_gas
 !----------------------------------------------------------------
 subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,&
             iexternalforce,ti)
- use io,       only:id,master
 #ifdef FINVSQRT
  use fastmath, only:finvsqrt
 #endif
@@ -1215,7 +1214,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
 
     ! perform reduction just for this sink
     dptmass(:,nptmass) = reduceall_mpi('+',dptmass(:,nptmass))
-    nacc = reduceall_mpi('+', nacc)
+    nacc = int(reduceall_mpi('+', nacc))
 
     ! update ptmass position, spin, velocity, acceleration, and mass
     call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
