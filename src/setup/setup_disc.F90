@@ -435,18 +435,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     !--resolution
     !
-    np = 10000
+    np = 500000
     if (use_dust .and. .not.use_dustfrac) then
        np_dust = np/5
     else
        np_dust = 0
     endif
 	if (use_dustgrowth .and. np_dust /= 0) then
-	   do k=1,np_dust
-	   	  dustprop(1,k) = grainsizeinp
-		  dustprop(2,k) = graindensinp
-		  print*,'size : ',dustprop(1,k),' ,dens : ',dustprop(2,k)
-	   enddo
+	   	     dustprop(1,:) = grainsizeinp
+		     dustprop(2,:) = graindensinp
     endif
     !
     !--add planets
@@ -473,7 +470,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(/,a)",'================'
     print "(a)",  '+++  OUTPUT  +++'
     print "(a)",  '================'
-    deltat  = 0.05
+    deltat  = 0.1
     norbits = 100
     if (setplanets==1) then
        call prompt('Enter time between dumps as fraction of outer planet period',deltat,0.)
@@ -497,14 +494,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !--write default input file
     !
     call write_setupfile(filename)
-
     print "(/,a)",' >>> please edit '//trim(filename)//' to set parameters for your problem then rerun phantomsetup <<<'
 
     stop
  else
     stop
  endif
-
  !
  !--set units
  !
@@ -990,8 +985,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--dust
  !
  if (use_dust) then
-    grainsizecgs = grainsizeinp
-    graindenscgs = graindensinp
+	if (use_dustgrowth) then
+	   dustprop(1,:) = grainsizeinp
+	   dustprop(2,:) = graindensinp
+    else
+       grainsizecgs = grainsizeinp
+       graindenscgs = graindensinp
+    endif
+ endif
     if (multiple_disc_flag .and. ibinary==1) then
        !--circumprimary in flyby
        i = 2
@@ -1004,11 +1005,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     Sigmadust = sig_normdust(i)*scaled_sigma(R,sigmaprofiledust(i),pindex_dust(i),R_ref(i),R_indust(i),R_c_dust(i))
     Stokes = 0.5*pi*graindenscgs*grainsizecgs/(Sigma+Sigmadust) * (udist**2/umass)
     print "(a,i2,a)",' -------------- added dust --------------'
-    print "(a,g10.3,a)", '       grain size: ',grainsizecgs,' cm'
-    print "(a,g10.3,a)", '    grain density: ',graindenscgs,' g/cm^3'
+	if (use_dustgrowth) then
+       print "(a,g10.3,a)", ' initial grain size: ',grainsizeinp,' cm'
+    else
+	   print "(a,g10.3,a)", '    grain size: ',grainsizeinp,' cm'
+    endif
+    print "(a,g10.3,a)", '    grain density: ',graindensinp,' g/cm^3' ! Modify this is graindens changes
     print "(a,g10.3,a)", '   approx. Stokes: ',Stokes,''
     print "(1x,40('-'),/)"
- endif
 
  !
  !--planets
@@ -1372,8 +1376,9 @@ end subroutine write_setupfile
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
+ use part,         only:dustprop
  integer,          intent(out) :: ierr
+ character(len=*), intent(in)  :: filename
  integer, parameter :: iunit = 21
  integer :: nerr
  type(inopts), allocatable :: db(:)
@@ -1480,6 +1485,10 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(profile_set_dust,'profile_set_dust',db,min=0,max=1,errcount=nerr)
     call read_inopt(grainsizeinp,'grainsizeinp',db,min=0.,errcount=nerr)
     call read_inopt(graindensinp,'graindensinp',db,min=0.,errcount=nerr)
+	if (use_dustgrowth) then
+		   dustprop(1,:) = grainsizeinp
+		   dustprop(2,:) = graindensinp
+    endif
  endif
  !--multiple discs
  multiple_disc_flag = .false.

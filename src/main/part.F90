@@ -39,7 +39,6 @@ module part
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
-
 !
 !--basic storage needed for read/write of particle data
 !
@@ -211,6 +210,10 @@ module part
 #ifdef DUST
    +1                                   &  ! dustfrac
    +1                                   &  ! dustevol
+#ifdef DUSTGROWTH
+   +1									&  ! dustproppred
+   +1									&  ! ddustprop
+#endif
 #endif
    +(maxp_h2/maxpd)*nabundances         &  ! abundance
    +(maxgrav/maxpd)                     &  ! poten

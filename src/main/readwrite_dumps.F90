@@ -196,6 +196,7 @@ end subroutine end_threadwrite
 character(len=lenid) function fileident(firstchar,codestring)
  use part,    only:h2chemistry,mhd,maxBevol,npartoftype,idust,gravity,lightcurve
  use options, only:use_dustfrac
+ use dim,     only:use_dustgrowth
  character(len=2), intent(in) :: firstchar
  character(len=*), intent(in), optional :: codestring
  character(len=10) :: datestring, timestring
@@ -213,6 +214,7 @@ character(len=lenid) function fileident(firstchar,codestring)
  if (use_dustfrac) string = trim(string)//'+1dust'
  if (h2chemistry) string = trim(string)//'+H2chem'
  if (lightcurve) string = trim(string)//'+lightcurve'
+ if (use_dustgrowth) string = trim(string)//'+dustgrowth'
 
  if (present(codestring)) then
     fileident = firstchar//':'//trim(codestring)
@@ -1422,6 +1424,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
 	 write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'
 	 return
  endif
+ print*,'####### in readwrite dumps : ', got_dustprop(1),got_dustprop(2)
  !
  ! sink particle arrays
  !
@@ -1597,7 +1600,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header
  use dust,           only:graindens,grainsize
- use dim,            only:use_dust,maxtypes,ndusttypes
+ use dim,            only:use_dust,maxtypes,ndusttypes,use_dustgrowth
  use units,          only:udist,umass,utime,unit_Bfield
  logical,         intent(in)    :: sphNGdump
  real,            intent(in)    :: t
@@ -1683,9 +1686,13 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(mdust_in,'mdust_in',hdr,ierr)
     if (use_dust) then
        ! write dust information
-       write(*,*) 'writing graindens and grainsize to header'
-       call add_to_rheader(graindens,'graindens',hdr,ierr)
-       call add_to_rheader(grainsize,'grainsize',hdr,ierr)
+	   if (use_dustgrowth) then
+       write(*,*) 'writing dust properties to header'
+       else
+	   write(*,*) 'writing graindens and grainsize to header'
+       endif
+	   call add_to_rheader(graindens,'graindens',hdr,ierr)
+	   call add_to_rheader(grainsize,'grainsize',hdr,ierr)
     endif
  endif
 

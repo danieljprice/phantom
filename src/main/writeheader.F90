@@ -62,7 +62,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 !  icall = 2 (after particle setup)
 !+
 !-----------------------------------------------------------------
- use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha
+ use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dustgrowth
  use io,               only:iprint
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac
@@ -188,6 +188,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (gravity)     write(iprint,"(1x,a)") 'Self-gravity is ON'
     if (h2chemistry) write(iprint,"(1x,a)") 'H2 Chemistry is ON'
     if (use_dustfrac) write(iprint,"(1x,a)") 'One-fluid dust is ON'
+	if (use_dustgrowth) write(iprint,"(1x,a)") 'Dust growth is ON'
 
     call eosinfo(ieos,iprint)
 
