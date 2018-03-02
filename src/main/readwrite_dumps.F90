@@ -926,7 +926,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  if (ierr /= 0) then
     call error('read_smalldump',get_error_text(ierr))
     if (ierr == ierr_realsize) then
-       write(*,*) ' *** this file appears to be a small dump written in double precision ***'
+       if (id==master) write(*,*) ' *** this file appears to be a small dump written in double precision ***'
     endif
     ierr = 1
     return
@@ -937,14 +937,14 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  call get_options_from_fileid(fileidentr,tagged,phantomdump,smalldump,ierr)
 
  if (.not.smalldump) then
-    call error('read_smalldump','this routine only works for small dump files, aborting...')
+    if (id==master) call error('read_smalldump','this routine only works for small dump files, aborting...')
     ierr = 2
     return
  else
-    call warning('read_smalldump','*** VELOCITY WILL BE MISSING FROM SMALL DUMP FILES ***')
+    if (id==master) call warning('read_smalldump','*** VELOCITY WILL BE MISSING FROM SMALL DUMP FILES ***')
  endif
  if (.not.phantomdump) then
-    call error('read_smalldump','this routine only works for phantom small dump files, aborting...')
+    if (id==master) call error('read_smalldump','this routine only works for phantom small dump files, aborting...')
     ierr = 3
     return
  endif
