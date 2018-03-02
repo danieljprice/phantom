@@ -68,7 +68,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
- use part,         only:set_particle_type,igas,Bevol
+ use part,         only:set_particle_type,igas,Bxyz
  use timestep,     only:tmax,dtmax
  use options,      only:nfulldump,alpha,alphamax,alphaB
  use physcon,      only:pi,fourpi,solarm,c,qe
@@ -344,10 +344,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     if (maxvxyzu >= 4) vxyzu(4,i) = uuzero
     if (mhd) then
-       Bevol(:,i) = 0.0
-       Bevol(1,i) = Bxini
-       Bevol(2,i) = Byini
-       Bevol(3,i) = Bzini
+       Bxyz(1,i) = Bxini
+       Bxyz(2,i) = Byini
+       Bxyz(3,i) = Bzini
     endif
  enddo
  if (mhd) ihavesetupB = .true.

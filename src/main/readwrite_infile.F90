@@ -18,43 +18,44 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    C_cour             -- Courant number
-!    C_force            -- dt_force number
-!    alpha              -- art. viscosity parameter
-!    alphaB             -- art. resistivity parameter
-!    alphamax           -- MAXIMUM art. viscosity parameter
-!    alphau             -- art. conductivity parameter
-!    avdecayconst       -- decay time constant for viscosity switches
-!    beta               -- beta viscosity
-!    bulkvisc           -- magnitude of bulk viscosity
-!    calc_erot          -- include E_rot in the ev_file
-!    damp               -- artificial damping of velocities (if on, v=0 initially)
-!    dtmax              -- time between dumps
-!    dtmax_rat0         -- dtmax_new = dtmax_old/dtmax_rat0
-!    dtwallmax          -- maximum wall time between dumps (hhh:mm, 000:00=ignore)
-!    dumpfile           -- dump file to start from
-!    etamhd             -- fixed physical resistivity value
-!    hfact              -- h in units of particle spacing [h = hfact(m/rho)^(1/3)]
-!    ipdv_heating       -- heating from PdV work (0=off, 1=on)
-!    irealvisc          -- physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)
-!    iresistive_heating -- resistive heating (0=off, 1=on)
-!    ishock_heating     -- shock heating (0=off, 1=on)
-!    iverbose           -- verboseness of log (-1=quiet 0=default 1=allsteps 2=debug 5=max)
-!    logfile            -- file to which output is directed
-!    nfulldump          -- full dump every n dumps
-!    nmax               -- maximum number of timesteps (0=just get derivs and stop)
-!    nmaxdumps          -- stop after n full dumps (-ve=ignore)
-!    nout               -- number of steps between dumps (-ve=ignore)
-!    overcleanfac       -- factor to increase cleaning speed (decreases time step)
-!    psidecayfac        -- div B diffusion parameter
-!    restartonshortest  -- restart with all particles on shortest timestep
-!    rho_dtthresh       -- density threshhold (cgs) at which to change dtmax
-!    shearparam         -- magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)
-!    tmax               -- end time
-!    tolh               -- tolerance on h-rho iterations
-!    tolv               -- tolerance on v iterations in timestepping
-!    twallmax           -- maximum wall time (hhh:mm, 000:00=ignore)
-!    use_mcfost         -- use the mcfost library
+!    C_cour              -- Courant number
+!    C_force             -- dt_force number
+!    Voronoi_limits_file -- Limit file for the Voronoi tesselation
+!    alpha               -- art. viscosity parameter
+!    alphaB              -- art. resistivity parameter
+!    alphamax            -- MAXIMUM art. viscosity parameter
+!    alphau              -- art. conductivity parameter
+!    avdecayconst        -- decay time constant for viscosity switches
+!    beta                -- beta viscosity
+!    bulkvisc            -- magnitude of bulk viscosity
+!    calc_erot           -- include E_rot in the ev_file
+!    damp                -- artificial damping of velocities (if on, v=0 initially)
+!    dtmax               -- time between dumps
+!    dtmax_rat0          -- dtmax_new = dtmax_old/dtmax_rat0
+!    dtwallmax           -- maximum wall time between dumps (hhh:mm, 000:00=ignore)
+!    dumpfile            -- dump file to start from
+!    etamhd              -- fixed physical resistivity value
+!    hfact               -- h in units of particle spacing [h = hfact(m/rho)^(1/3)]
+!    ipdv_heating        -- heating from PdV work (0=off, 1=on)
+!    irealvisc           -- physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)
+!    iresistive_heating  -- resistive heating (0=off, 1=on)
+!    ishock_heating      -- shock heating (0=off, 1=on)
+!    iverbose            -- verboseness of log (-1=quiet 0=default 1=allsteps 2=debug 5=max)
+!    logfile             -- file to which output is directed
+!    nfulldump           -- full dump every n dumps
+!    nmax                -- maximum number of timesteps (0=just get derivs and stop)
+!    nmaxdumps           -- stop after n full dumps (-ve=ignore)
+!    nout                -- number of steps between dumps (-ve=ignore)
+!    overcleanfac        -- factor to increase cleaning speed (decreases time step)
+!    psidecayfac         -- div B diffusion parameter
+!    restartonshortest   -- restart with all particles on shortest timestep
+!    rho_dtthresh        -- density threshhold (cgs) at which to change dtmax
+!    shearparam          -- magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)
+!    tmax                -- end time
+!    tolh                -- tolerance on h-rho iterations
+!    tolv                -- tolerance on v iterations in timestepping
+!    twallmax            -- maximum wall time (hhh:mm, 000:00=ignore)
+!    use_mcfost          -- use the mcfost library
 !
 !  DEPENDENCIES: cooling, dim, dust, eos, externalforces, forcing,
 !    infile_utils, inject, io, linklist, nicil_sup, options, part,
@@ -67,7 +68,8 @@ module readwrite_infile
  use options,   only:nfulldump,nmaxdumps,twallmax,dtwallmax,iexternalforce,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,tolv, &
                      ipdv_heating,ishock_heating,iresistive_heating, &
-                     icooling,psidecayfac,overcleanfac,etamhd,alphamax,use_mcfost
+                     icooling,psidecayfac,overcleanfac,etamhd,alphamax,&
+                     use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
  use io,        only:iverbose
@@ -210,6 +212,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
 #ifdef MCFOST
  call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iwritein)
+ call write_inopt(Voronoi_limits_file,'Voronoi_limits_file','Limit file for the Voronoi tesselation',iwritein)
 #endif
 
  ! only write sink options if they are used, or if self-gravity is on
@@ -321,6 +324,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallnonideal = .true.
  igotallbowen    = .true.
  igotallptmass   = .true.
+ use_Voronoi_limits_file = .false.
 
  open(unit=ireadin,err=999,file=infile,status='old',form='formatted')
  do while (ireaderr == 0)
@@ -410,6 +414,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef MCFOST
     case('use_mcfost')
        read(valstring,*,iostat=ierr) use_mcfost
+    case('Voronoi_limits_file')
+       read(valstring,*,iostat=ierr) Voronoi_limits_file
+       use_Voronoi_limits_file = .true.
 #endif
     case default
        imatch = .false.

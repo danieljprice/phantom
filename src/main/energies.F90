@@ -66,7 +66,7 @@ subroutine compute_energies(t)
  use part, only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,npartoftype, &
                 alphaind,Bxyz,Bevol,divcurlB,iamtype,igas,idust,iboundary,istar,idarkmatter,ibulge, &
                 nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,isdead_or_accreted,epot_sinksink,&
-                imacc,ispinx,ispiny,ispinz,mhd,maxvecp,gravity,poten,dustfrac,&
+                imacc,ispinx,ispiny,ispinz,mhd,gravity,poten,dustfrac,&
                 n_R,n_electronT,eta_nimhd,iion
  use part, only:pxyzu
  use eos,            only:polyk,utherm,gamma,equationofstate,get_temperature_from_ponrho,gamma_pwp
@@ -388,15 +388,9 @@ subroutine compute_energies(t)
 
           ! mhd parameters
           if (mhd) then
-             if (maxvecp==maxp) then
-                Bxi = Bxyz(1,i)
-                Byi = Bxyz(2,i)
-                Bzi = Bxyz(3,i)
-             else
-                Bxi = Bevol(1,i)
-                Byi = Bevol(2,i)
-                Bzi = Bevol(3,i)
-             endif
+             Bxi = Bevol(1,i)*rhoi
+             Byi = Bevol(2,i)*rhoi
+             Bzi = Bevol(3,i)*rhoi
              B2i       = Bxi*Bxi + Byi*Byi + Bzi*Bzi
              rho1i     = 1./rhoi
              valfven2i = B2i*rho1i

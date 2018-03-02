@@ -92,7 +92,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,mhd,maxBevol,&
                           switches_done_in_derivs,iboundary,get_ntypes,npartoftype,&
-                          dustfrac,dustevol,ddustfrac,alphaind,maxvecp,nptmass,pxyzu,dens
+                          dustfrac,dustevol,ddustfrac,alphaind,nptmass,pxyzu,dens
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs

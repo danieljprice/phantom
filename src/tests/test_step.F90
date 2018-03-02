@@ -41,7 +41,7 @@ subroutine test_step(ntests,npass)
  use options,  only:tolh,alpha,alphau,alphaB,ieos
  use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,divcurlv,maxgradh, &
                     Bevol,dBevol,Bextx,Bexty,Bextz,alphaind,fext, &
-                    maxphase,mhd,maxvecp,maxBevol,igas
+                    maxphase,mhd,maxBevol,igas
  use unifdis,  only:set_unifdis
  use physcon,  only:pi
  use timing,   only:getused

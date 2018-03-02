@@ -29,7 +29,7 @@ module dim
  public
 
  character(len=80), parameter :: &
-    tagline='PhantomSPH: (c) 2007-2017 The Authors'
+    tagline='PhantomSPH: (c) 2007-2018 The Authors'
 
  ! maximum number of particles
 #ifdef MAXP
@@ -147,13 +147,11 @@ module dim
  logical, parameter :: mhd = .true.
  integer, parameter :: maxmhd = maxp
  integer, parameter :: maxBevol = 4  ! Bx,By,Bz,Psi (latter for div B cleaning)
- integer, parameter :: maxvecp = 0   ! obsolete, used for vector/Euler pots (no longer supported)
  integer, parameter :: ndivcurlB = 4
 #else
  ! if no MHD, do not store any of these
  logical, parameter :: mhd = .false.
  integer, parameter :: maxmhd = 0
- integer, parameter :: maxvecp = 0 ! obsolete
  integer, parameter :: maxBevol = 4 ! irrelevant, but prevents compiler warnings
  integer, parameter :: ndivcurlB = 0
 #endif

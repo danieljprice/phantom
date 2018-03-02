@@ -210,16 +210,17 @@ ifeq ($(SETUP), taylorgreen)
 endif
 
 ifeq ($(SETUP), turb)
-#   driven mhd turbulence
-    FPPFLAGS= -DPERIODIC -DCORRECT_BULK_MOTION -DSTIR_FROM_FILE
-    SETUPFILE= setup_turb.F90
-    SRCTURB= forcing.F90
-    IND_TIMESTEPS=yes
-    KNOWN_SETUP=yes
-    ISOTHERMAL=yes
-    CURLV=yes
-    MHD=yes
-    USE_STRAIN_TENSOR=yes
+#   driven supersonic turbulence (hydro, mhd, dusty)
+    FPPFLAGS      = -DPERIODIC -DCORRECT_BULK_MOTION -DSTIR_FROM_FILE
+    SETUPFILE     = setup_turb.F90
+    SRCTURB       = forcing.F90
+    IND_TIMESTEPS = yes
+    KNOWN_SETUP   = yes
+    ISOTHERMAL    = yes
+    CURLV         = yes
+    MHD           = no
+    DUST          = no
+    USE_STRAIN_TENSOR = yes
 endif
 
 ifeq ($(SETUP), photoevap)
@@ -329,7 +330,7 @@ endif
 ifeq ($(SETUP), planetdisc)
 #   planet disc interaction with fixed planet orbit
     FPPFLAGS= -DSORT_RADIUS_INIT
-    SETUPFILE= setup_planetdisc_comparison.f90
+    SETUPFILE= setup_planetdisc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes
     CURLV=yes
@@ -702,14 +703,6 @@ ifeq ($(SETUP), common)
     KNOWN_SETUP=yes
 endif
 
-ifeq ($(SETUP), rnbinary)
-#   Nealon binary setup
-    FPPFLAGS=
-    SETUPFILE= setup_rnbinary.f90
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-endif
-
 ifeq ($(SETUP), star)
 #   import stellar model from 1D stellar evolution code
 #   use option 5 of setup_spheres
@@ -810,15 +803,6 @@ ifeq ($(SETUP), dustsettle)
     MODFILE=moddump_dustadd.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
-endif
-
-ifeq ($(SETUP), starinbox)
-#   driven turbulence
-    FPPFLAGS= -DPERIODIC
-    SETUPFILE= setup_starinbox.F90
-    MHD=yes
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), test)

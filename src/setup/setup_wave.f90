@@ -211,35 +211,5 @@ end function rhofunc
 
 end subroutine setpart
 
-!----------------------------------------------------------
-!subroutine set_perturbation(xi,xmin,length,kwave,ampl,denom,dxi)
-! use io, only:fatal
-! real, intent(in)  :: xi,xmin,length,kwave,ampl,denom
-! real, intent(out) :: dxi
-! integer, parameter :: itsmax = 20
-! real, parameter    :: tol = 1.d-10
-! integer :: its
-! real    :: dxprev, xmassfrac, func, fderiv
-!
-! dxi = xi-xmin
-! dxprev = length*2.
-! xmassfrac = dxi/length
-
-! its = 0
-! do while ((abs(dxi-dxprev) > tol).and.(its < itsmax))
-!    dxprev = dxi
-!    func = xmassfrac*denom - (dxi - ampl/kwave*(cos(kwave*dxi)-1.0))
-!    fderiv = -1.0 - ampl*sin(kwave*dxi)
-!    dxi = dxi - func/fderiv  ! Newton-Raphson iteration
-!    its = its + 1
-! enddo
-
-! if (its >= itsmax) then
-!    print*,'Error: soundwave - too many iterations'
-!    call fatal('setup_dustywave','Error: soundwave - too many iterations')
-! endif
-
-!end subroutine set_perturbation
-
 end module setup
 
