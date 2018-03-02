@@ -43,7 +43,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:rhozero,ihavesetupB
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:Bevol,mhd
+ use part,         only:Bxyz,mhd
  use io,           only:master,real4
  use prompting,    only:prompt
  use mpiutils,     only:bcast_mpi
@@ -117,11 +117,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vxyzu(3,i) = 0.1*vzero
     if (maxvxyzu >= 4) vxyzu(4,i) = uuzero
     if (mhd) then
-       Bevol(:,i) = 0.
+       Bxyz(:,i) = 0.
        rcyl = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
        if (rcyl < rloop) then
-          Bevol(1,i) = real4(Azero*(-xyzh(2,i)/rcyl))
-          Bevol(2,i) = real4(Azero*(xyzh(1,i)/rcyl))
+          Bxyz(1,i) = Azero*(-xyzh(2,i)/rcyl)
+          Bxyz(2,i) = Azero*(xyzh(1,i)/rcyl)
        endif
     endif
  enddo

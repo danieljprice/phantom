@@ -45,7 +45,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:rhozero,ihavesetupB
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:Bevol,mhd,maxBevol
+ use part,         only:Bxyz,mhd
  use io,           only:master,real4
  use prompting,    only:prompt
  use mpiutils,     only:bcast_mpi
@@ -123,9 +123,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !    vxyzu(2,i) = 1         + k * const * expo * halfsqrt2 * rfact * (xyzh(1,i) -xyzh(3,i))
 !    vxyzu(3,i) = halfsqrt2 + k * const * expo * halfsqrt2 * rfact * xyzh(2,i)
 !
-!    Bevol(1,i) = -u * const * expo * halfsqrt2 * rfact * xyzh(2,i)
-!    Bevol(2,i) =  u * const * expo * halfsqrt2 * rfact * (xyzh(1,i) - xyzh(3,i))
-!    Bevol(3,i) =  u * const * expo * halfsqrt2 * rfact * xyzh(2,i)
+!    Bxyz(1,i) = -u * const * expo * halfsqrt2 * rfact * xyzh(2,i)
+!    Bxyz(2,i) =  u * const * expo * halfsqrt2 * rfact * (xyzh(1,i) - xyzh(3,i))
+!    Bxyz(3,i) =  u * const * expo * halfsqrt2 * rfact * xyzh(2,i)
 !
 !    PplusdeltaP = 1.0 + exp(rsq1) / (32.0 * pi**3) * (u*u*rsq1 - 4*k*k*pi)
 !    vxyzu(4,i) = 1.5 * PplusdeltaP
@@ -141,9 +141,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vxyzu(2,i) = 1.0 + xyzh(1,i) * k * const * exp(0.5*rsq1)
     vxyzu(3,i) = 1.0
 
-    Bevol(1,i) = -xyzh(2,i) * u * const * exp(0.5*rsq1)
-    Bevol(2,i) =  xyzh(1,i) * u * const * exp(0.5*rsq1)
-    Bevol(3,i) = 0.0
+    Bxyz(1,i) = -xyzh(2,i) * u * const * exp(0.5*rsq1)
+    Bxyz(2,i) =  xyzh(1,i) * u * const * exp(0.5*rsq1)
+    Bxyz(3,i) = 0.0
 
     PplusdeltaP = 1.0 + exp(rsq1) / (32.0 * pi**3) * (u*u*rsq1 - 0.5*k*k)
     vxyzu(4,i) = 1.5 * PplusdeltaP
