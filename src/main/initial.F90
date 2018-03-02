@@ -243,7 +243,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  integer :: ncount(maxtypes)
  character(len=len(dumpfile)) :: dumpfileold,fileprefix
 #ifdef GR
- real :: pi,pondensi,spsoundi,stressmax
+ real :: pi,pondensi,spsoundi
 #endif
 
 !
