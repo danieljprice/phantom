@@ -131,11 +131,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print *, ''
     print *, 'Setting up dusty turbulence:'
     print *, ''
- 
+
     dust_to_gas = 1.e-2
     if (id==master) call prompt('Enter dust-to-gas ratio ',dust_to_gas)
     call bcast_mpi(dust_to_gas)
-   
+
     grainsize = 0.1 ! micron
     if (id==master) call prompt('Enter grain size in micron ',grainsize)
     call bcast_mpi(grainsize)
@@ -156,8 +156,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  inquire(file=filename,exist=iexist)
  if (.not. iexist) then
     tmax         = 1.00   ! run for 20 turbulent crossing times
-    dtmax        = 0.0025 
-    nfulldump    = 5      ! output 4 full dumps per crossing time 
+    dtmax        = 0.0025
+    nfulldump    = 5      ! output 4 full dumps per crossing time
     beta         = 4      ! legacy from Price & Federrath (2010), haven't checked recently if still required
     grainsizecgs = grainsize * 1.0e-4
  endif
