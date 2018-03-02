@@ -52,7 +52,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:rhozero,ihavesetupB
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:Bxyz,mhd,maxBevol
+ use part,         only:Bxyz,mhd
  use io,           only:master,real4
  use prompting,    only:prompt
  use mpiutils,     only:bcast_mpi

@@ -51,7 +51,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use options,      only:nfulldump
  use prompting,    only:prompt
  use kernel,       only:wkern,cnormk,radkern2,hfact_default
- use part,         only:Bevol,igas,periodic
+ use part,         only:Bxyz,igas,periodic
  use mpiutils,     only:bcast_mpi,reduceall_mpi
  use eos,          only:ieos
  integer,           intent(in)    :: id
@@ -138,9 +138,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  toten = 0.
  do i=1,npart
     vxyzu(:,i) = 0.
-    Bevol(1,i) = Bx
-    Bevol(2,i) = By
-    Bevol(3,i) = Bz
+    Bxyz(1,i) = Bx
+    Bxyz(2,i) = By
+    Bxyz(3,i) = Bz
     r2         = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
     if (r2 < Rblast**2) then
        vxyzu(4,i) = Pblast/(rhozero*(gamma - 1.0))

@@ -42,7 +42,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound
  use physcon,      only:pi
  use timestep,     only:tmax,dtmax
- use part,         only:mhd,Bevol
+ use part,         only:mhd,Bxyz
  use units,        only:set_units
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
@@ -92,8 +92,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vxyzu(:,i) = 0.
 
     if (mhd) then
-       Bevol(:,i) = 0.
-       Bevol(3,i) = 2.38_4
+       Bxyz(:,i) = 0.
+       Bxyz(3,i) = 2.38_4
     endif
  enddo
  ihavesetupB = .true.
