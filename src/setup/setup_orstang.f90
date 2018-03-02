@@ -53,7 +53,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use part,         only:Bxyz,mhd
- use io,           only:master,real4
+ use io,           only:master
  use prompting,    only:prompt
  use mpiutils,     only:bcast_mpi
  use physcon,      only:pi,fourpi
