@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -12,14 +12,16 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: James Wurster
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS: None
+!  RUNTIME PARAMETERS:
+!    npartx  -- number of particles in x-direction
+!    plasmaB -- plasma beta in the initial blast
 !
-!  DEPENDENCIES: boundary, io, part, physcon, prompting, setup_params,
-!    unifdis
+!  DEPENDENCIES: boundary, infile_utils, io, kernel, mpiutils, options,
+!    part, physcon, prompting, setup_params, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
