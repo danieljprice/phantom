@@ -22,8 +22,8 @@
 !--------------------------------------------------------------------------
 program phantom2divb
  use dim,             only:ndivcurlB,maxp,tagline
- use part,            only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
-                           hfact,rhoh,dhdrho,igas,isetphase,iphase,maxphase,&
+ use part,            only:npart,xyzh,vxyzu,fxyzu,Bxyz,fext,divcurlv,divcurlB,Bevol,dBevol, &
+                           hfact,rhoh,dhdrho,igas,isetphase,iphase,massoftype,maxphase,&
                            dustfrac,ddustfrac
  use io,              only:set_io_unit_numbers,iprint,idisk1,idump
  use initial,         only:initialise
@@ -64,6 +64,8 @@ program phantom2divb
 !
 !--calculate derivatives including the divergence of B
 !
+    Bevol = 0.
+    Bevol(1:3,:) = Bxyz(1:3,:)/rhoh(xyzh(4,:), massoftype(igas))
     if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,dustfrac,ddustfrac,0.,0.,dtdum)

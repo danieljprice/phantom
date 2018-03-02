@@ -45,7 +45,7 @@ contains
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use adaptivemesh,         only:build_mesh,nsub,ndim,ifirstlevel
  use boundary,             only:xmin,ymin,zmin,dxbound,dybound,dzbound
- use part,                 only:hfact,rhoh,mhd,Bevol,isdead_or_accreted
+ use part,                 only:hfact,rhoh,mhd,Bxyz,isdead_or_accreted
  use interpolations3D_amr, only:interpolate3D_amr
  use pdfs,                 only:pdf_write
  use dim,                  only:periodic,tagline
@@ -153,7 +153,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  print*,'built mesh in ',t2-t1,' cpu-s'
 
  maxp = size(xyzh, 2)
- maxmhd = size(Bevol, 2)
+ maxmhd = size(Bxyz, 2)
  ilendat = 4*(maxmhd/maxp)
 
 ! allocate memory for the grid data
@@ -167,7 +167,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  if (maxmhd > 0) then
     call interpolate3D_amr(xyzh,weight,particlemass,vxyzu,npart, &
-                           xminp,datgrid,nmesh,dxmaxp,.true.,ilendat,Bevol)
+                           xminp,datgrid,nmesh,dxmaxp,.true.,ilendat,Bxyz)
  else
     call interpolate3D_amr(xyzh,weight,particlemass,vxyzu,npart, &
                            xminp,datgrid,nmesh,dxmaxp,.true.,0)
