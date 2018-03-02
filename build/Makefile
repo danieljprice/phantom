@@ -716,15 +716,6 @@ ifeq ($(SETUP), dustsettle)
     IND_TIMESTEPS=no
 endif
 
-ifeq ($(SETUP), starinbox)
-#   driven turbulence
-    FPPFLAGS= -DPERIODIC
-    SETUPFILE= setup_starinbox.F90
-    MHD=yes
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-endif
-
 ifeq ($(SETUP), test)
 #   default setup for tests
     FPPFLAGS= -DPERIODIC
