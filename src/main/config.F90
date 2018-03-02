@@ -77,7 +77,7 @@ module dim
 #else
  logical, parameter :: use_dust = .false.
  integer, parameter :: ndustfluids = 0
- integer, parameter :: ndusttypes = 0
+ integer, parameter :: ndusttypes = 1 ! to avoid seg faults
  integer, parameter :: maxp_dustfrac = 0
 #endif
 

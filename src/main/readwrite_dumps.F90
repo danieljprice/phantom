@@ -1161,7 +1161,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3),got_psi
  character(len=lentag) :: tag,tagarr(64)
- integer :: k,i,iarr,ik,dustfraci,tstopi,dustveli
+ integer :: k,i,iarr,ik,ndustfraci,ntstopi,ndustveli
 
 !
 !--read array type 1 arrays
@@ -1185,9 +1185,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
     use_dustfrac = .true.
  endif
 
- dustfraci = 0
- tstopi    = 0
- dustveli  = 0
+ ndustfraci = 0
+ ntstopi    = 0
+ ndustveli  = 0
 
  over_arraylengths: do iarr=1,narraylengths
 
@@ -1210,19 +1210,21 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              call read_array(vxyzu,vxyzu_label,got_vxyzu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              if (use_dust) then
                 if (any(tag == dustfrac_label)) then
-                   dustfraci = dustfraci + 1
-                   call read_array(dustfrac(dustfraci,:),dustfrac_label(dustfraci),got_dustfrac(dustfraci), &
+                   ndustfraci = ndustfraci + 1
+                   call read_array(dustfrac(ndustfraci,:),dustfrac_label(ndustfraci),got_dustfrac(ndustfraci), &
                                    ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 endif
              endif
              if (extradust) then
                 if (any(tag == tstop_label)) then
-                   tstopi = tstopi + 1
-                   call read_array(tstop(tstopi,:),tstop_label(tstopi),got_tstop(tstopi),ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                   ntstopi = ntstopi + 1
+                   call read_array(tstop(ntstopi,:),tstop_label(ntstopi),got_tstop(ntstopi),&
+                                   ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 endif
                 if (tag == deltav_label(1)) then
-                   dustveli = dustveli + 1
-                   call read_array(deltav(:,dustveli,:),deltav_label,got_deltav(:,dustveli),ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                   ndustveli = ndustveli + 1
+                   call read_array(deltav(:,ndustveli,:),deltav_label,got_deltav(:,ndustveli),&
+                                   ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 endif
              endif
              if (h2chemistry) then
