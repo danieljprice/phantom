@@ -29,7 +29,7 @@ module dim
  public
 
  character(len=80), parameter :: &
-    tagline='PhantomSPH: (c) 2007-2017 The Authors'
+    tagline='PhantomSPH: (c) 2007-2018 The Authors'
 
  ! maximum number of particles
 #ifdef MAXP
