@@ -135,7 +135,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,use_dustgrowth
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -361,6 +361,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     ncount(:) = 0
     do i=1,npart
        itype = iamtype(iphase(i))
+	   	if (itype==igas .and. use_dustgrowth) then
+	   		dustprop(:,i) = 0.
+	   	endif
        if (itype < 1 .or. itype > maxtypes) then
           call fatal('initial','unknown value for itype from iphase array',i,var='iphase',ival=int(iphase(i)))
        else
