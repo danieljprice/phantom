@@ -46,7 +46,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use physcon,      only:pi
  use timestep,     only:tmax,dtmax
- use options,      only:nfulldump
+ use options,      only:nfulldump,alphau
  use prompting,    only:prompt
  use kernel,       only:hfact_default
  use part,         only:igas,periodic
@@ -84,6 +84,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  time        = 0.
  hfact       = hfact_default
  rhozero     = 1.0
+ alphau      = 1.0
  Pblast      = 100.0
  Pmed        = 0.0
  Rblast      = 0.125
@@ -92,7 +93,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  filename=trim(fileprefix)//'.in'
  inquire(file=filename,exist=iexist)
  if (.not. iexist) then
-    tmax      = 0.1
+    tmax      = 0.2
     dtmax     = 0.005
     nfulldump = 1
  endif
