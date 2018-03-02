@@ -316,7 +316,7 @@ endif
 ifeq ($(SETUP), planetdisc)
 #   planet disc interaction with fixed planet orbit
     FPPFLAGS= -DSORT_RADIUS_INIT
-    SETUPFILE= setup_planetdisc_comparison.f90
+    SETUPFILE= setup_planetdisc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes
     CURLV=yes
