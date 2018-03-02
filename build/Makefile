@@ -606,14 +606,6 @@ ifeq ($(SETUP), common)
     KNOWN_SETUP=yes
 endif
 
-ifeq ($(SETUP), rnbinary)
-#   Nealon binary setup
-    FPPFLAGS=
-    SETUPFILE= setup_rnbinary.f90
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-endif
-
 ifeq ($(SETUP), star)
 #   import stellar model from 1D stellar evolution code
 #   use option 5 of setup_spheres
