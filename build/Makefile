@@ -210,16 +210,17 @@ ifeq ($(SETUP), taylorgreen)
 endif
 
 ifeq ($(SETUP), turb)
-#   driven mhd turbulence
-    FPPFLAGS= -DPERIODIC -DCORRECT_BULK_MOTION -DSTIR_FROM_FILE
-    SETUPFILE= setup_turb.F90
-    SRCTURB= forcing.F90
-    IND_TIMESTEPS=yes
-    KNOWN_SETUP=yes
-    ISOTHERMAL=yes
-    CURLV=yes
-    MHD=yes
-    USE_STRAIN_TENSOR=yes
+#   driven supersonic turbulence (hydro, mhd, dusty)
+    FPPFLAGS      = -DPERIODIC -DCORRECT_BULK_MOTION -DSTIR_FROM_FILE
+    SETUPFILE     = setup_turb.F90
+    SRCTURB       = forcing.F90
+    IND_TIMESTEPS = yes
+    KNOWN_SETUP   = yes
+    ISOTHERMAL    = yes
+    CURLV         = yes
+    MHD           = no
+    DUST          = no
+    USE_STRAIN_TENSOR = yes
 endif
 
 ifeq ($(SETUP), photoevap)
