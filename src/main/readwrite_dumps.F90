@@ -1361,12 +1361,12 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  ! hydrodynamics arrays
  !
  if (any(.not.got_xyzh)) then
-    write(*,*) 'ERROR: x, y, z or h not found in file'
+    if (id==master .and. i1==1) write(*,*) 'ERROR: x, y, z or h not found in file'
     ierr = 9
     return
  endif
  if (any(.not.got_vxyzu(1:3))) then
-    write(*,*) 'ERROR: missing velocity information from file'
+    if (id==master .and. i1==1) write(*,*) 'ERROR: missing velocity information from file'
  endif
  if (maxvxyzu==4 .and. .not.got_vxyzu(4)) then
     if (gamma < 1.01) then
@@ -1374,17 +1374,17 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
           vxyzu(4,i) = 1.5*polyk
           !print*,'u = ',vxyzu(4,i)
        enddo
-       write(*,*) 'WARNING: u not in file but setting u = 3/2 * cs^2'
+       if (id==master .and. i1==1) write(*,*) 'WARNING: u not in file but setting u = 3/2 * cs^2'
     else
        do i=i1,i2
           vxyzu(4,i) = (1.0/(gamma-1.0))*polyk*rhoh(xyzh(4,i),get_pmass(i,use_gas))**(gamma - 1.)
           !print*,'u = ',vxyzu(4,i)
        enddo
-       write(*,*) 'WARNING: u not in file but setting u = (K*rho**(gamma-1))/(gamma-1)'
+       if (id==master .and. i1==1) write(*,*) 'WARNING: u not in file but setting u = (K*rho**(gamma-1))/(gamma-1)'
     endif
  endif
  if (h2chemistry .and. .not.all(got_abund)) then
-    write(*,*) 'error in rdump: using H2 chemistry, but abundances not found in dump file'
+    if (id==master) write(*,*) 'error in rdump: using H2 chemistry, but abundances not found in dump file'
     ierr = 9
     return
  endif
@@ -1392,23 +1392,23 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     if (got_alpha) then
        if (alphafile < 0.99 .and. tfile > 0.) then
           if (any(alphaind(1,i1:i2) > 1.0 .or. alphaind(1,i1:i2) < 0.)) then
-             write(iprint,*) 'ERROR! AV alpha < 0 or alpha > 1 in dump file: using alpha'
+             if (id==master) write(iprint,*) 'ERROR! AV alpha < 0 or alpha > 1 in dump file: using alpha'
              alphaind(1,i1:i2) = real(alpha,kind=4)
           endif
        endif
     else
-       write(*,*) 'WARNING: alpha not found in file'
+       if (id==master .and. i1==1) write(*,*) 'WARNING: alpha not found in file'
        alphaind(1,i1:i2) = real(alpha,kind=4)
     endif
  endif
  if (any(massoftype <= 0. .and. npartoftype /= 0) .and. npartread > 0) then
-    write(*,*) 'ERROR! mass not set in read_dump (Phantom)'
+    if (id==master .and. i1==1) write(*,*) 'ERROR! mass not set in read_dump (Phantom)'
     ierr = 12
     return
  endif
  if (use_dustfrac .and. .not.got_dustfrac) then
-    write(*,*) 'ERROR! using one-fluid dust, but no dust fraction found in dump file'
-    write(*,*) ' Setting dustfrac = 0'
+    if (id==master .and. i1==1) write(*,*) 'ERROR! using one-fluid dust, but no dust fraction found in dump file'
+    if (id==master .and. i1==1) write(*,*) ' Setting dustfrac = 0'
     dustfrac = 0.
     !ierr = 13
     return
@@ -1422,18 +1422,18 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     do i=1,nsinkproperties
        if (.not.got_sink_data(i)) then
           if (i <= 5) then
-             write(*,*) 'ERROR! sink particle '//trim(xyzmh_ptmass_label(i))//' not found'
+             if (id==master) write(*,*) 'ERROR! sink particle '//trim(xyzmh_ptmass_label(i))//' not found'
              ierr = 10
              return
           else
-             write(*,*) 'WARNING! sink particle '//trim(xyzmh_ptmass_label(i))//' not found'
+             if (id==master) write(*,*) 'WARNING! sink particle '//trim(xyzmh_ptmass_label(i))//' not found'
           endif
        endif
     enddo
     if (.not.all(got_sink_vels(1:3))) then
-       write(*,*) 'WARNING! sink particle velocities not found'
+       if (id==master .and. i1==1) write(*,*) 'WARNING! sink particle velocities not found'
     endif
-    if (id==master) then
+    if (id==master .and. i1==1) then
        print "(2(a,i2),a)",' got ',nsinkproperties,' sink properties from ',nptmass,' sink particles'
        if (nptmass > 0) print "(1x,47('-'),/,1x,a,'|',4(a9,1x,'|'),/,1x,47('-'))",&
                               'ID',' Mass    ',' Racc    ',' Macc    ',' hsoft   '
@@ -1449,10 +1449,10 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  !
  if (mhd) then
     if (.not.all(got_Bxyz(1:3))) then
-       write(*,*) 'WARNING: MHD but magnetic field arrays not found in Phantom dump file'
+       if (id==master .and. i1==1) write(*,*) 'WARNING: MHD but magnetic field arrays not found in Phantom dump file'
     endif
     if (maxBevol==4 .and. .not.got_psi) then
-       write(*,*) 'WARNING! div B cleaning field (Psi) not found in Phantom dump file: assuming psi=0'
+       if (id==master .and. i1==1) write(*,*) 'WARNING! div B cleaning field (Psi) not found in Phantom dump file: assuming psi=0'
        Bevol(maxBevol,i1:i2) = 0.
     endif
  endif
