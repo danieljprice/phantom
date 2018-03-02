@@ -575,6 +575,17 @@ ifeq ($(SETUP), mhdblast)
     MAXP=3000000
 endif
 
+ifeq ($(SETUP), mhdwave)
+#   propagating isolated MHD wave
+    SETUPFILE= setup_mhdwave.f90
+    PERIODIC=yes
+    MHD=yes
+    ISOTHERMAL=no
+    IND_TIMESTEPS=no
+    KNOWN_SETUP=yes
+    MAXP=3000000
+endif
+
 ifeq ($(SETUP), cluster)
 #   cluster formation (setup)
     FPPFLAGS=
