@@ -7,19 +7,20 @@
 !+
 !  MODULE: setup
 !
-!  DESCRIPTION: Setup for the Sedov blast wave problem
+!  DESCRIPTION: Setup for the SR blast wave problem
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: David Liptai
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    npartx -- number of particles in x-direction
+!    npartx  -- number of particles in x-direction
 !
-!  DEPENDENCIES: boundary, infile_utils, io, kernel, mpiutils, options,
-!    part, physcon, prompting, setup_params, timestep, unifdis, units
+!  DEPENDENCIES: boundary, dim, eos, infile_utils, io, kernel, mpiutils,
+!    options, part, physcon, prompting, setup_params, timestep, unifdis,
+!    units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -38,17 +39,19 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
+ use dim,          only:maxp,maxvxyzu,gr
  use setup_params, only:rhozero
  use unifdis,      only:set_unifdis
  use io,           only:master,fatal
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use physcon,      only:pi
  use timestep,     only:tmax,dtmax
- use options,      only:alphau
+ use options,      only:nfulldump
  use prompting,    only:prompt
- use kernel,       only:wkern,cnormk,radkern2,hfact_default
- use part,         only:igas
+ use kernel,       only:hfact_default
+ use part,         only:igas,periodic
  use mpiutils,     only:bcast_mpi,reduceall_mpi
+ use units,        only:set_units
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -59,25 +62,44 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  real                             :: deltax,totmass,toten
- real                             :: enblast,gam1,uui,hsmooth,q2,r2
- integer                          :: i,maxp,maxvxyzu,ierr
+ real                             :: Pblast,Pmed,Rblast,r2
+ integer                          :: i,ierr
  character(len=100)               :: filename
  logical                          :: iexist
-!
-!--general parameters
-!
- time  = 0.
- hfact = hfact_default
-!
-!--setup particles
-!
- maxp     = size(xyzh(1,:))
- maxvxyzu = size(vxyzu(:,1))
- npartx   = 50
+ !
+ ! quit if not properly compiled
+ !
+ if (.not.periodic) call fatal('setup','require PERIODIC=yes')
+ if (.not.gr)       call fatal('setup','require GR=yes')
+ if (maxvxyzu < 4)  call fatal('setup','require ISOTHERMAL=no')
+
+ !
+ ! must have G=c=1 in relativity
+ !
+ call set_units(G=1.,c=1.)
+
+ !
+ !--general parameters
+ !
+ time        = 0.
+ hfact       = hfact_default
+ rhozero     = 1.0
+ Pblast      = 100.0
+ Pmed        = 0.0
+ Rblast      = 0.125
+ npartx      = 128
+ gamma       = 5./3.
+ filename=trim(fileprefix)//'.in'
+ inquire(file=filename,exist=iexist)
+ if (.not. iexist) then
+    tmax      = 0.1
+    dtmax     = 0.005
+    nfulldump = 1
+ endif
 
  ! Read npartx from file if it exists
  filename=trim(fileprefix)//'.setup'
- print "(/,1x,63('-'),1(/,1x,a),/,1x,63('-'),/)", 'Sedov Blast Wave.'
+ print "(/,1x,63('-'),1(/,1x,a),/,1x,63('-'),/)", 'SR Blast Wave.'
  inquire(file=filename,exist=iexist)
  if (iexist) then
     call read_setupfile(filename,ierr)
@@ -92,55 +114,32 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  call bcast_mpi(npartx)
  deltax = dxbound/npartx
+ !
+ ! Put particles on grid
+ call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
 
- rhozero = 1.0
- polyk   = 0.
- if (maxvxyzu < 4) call fatal('setup','need to compile with ISOTHERMAL=no for sedov problem')
- enblast = 1.0
-! rblast  = 2.*hfact*deltax
-
-
-! prblast = gam1*enblast/(4./3.*pi*rblast**3)
- hsmooth = 2.*hfact*deltax
- gamma   = 5./3.
- gam1    = gamma - 1.
-
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
-
- npartoftype(:) = 0
+ ! Finalise particle properties
+ npartoftype(:)    = 0
  npartoftype(igas) = npart
-
- totmass = rhozero*dxbound*dybound*dzbound
- massoftype = totmass/reduceall_mpi('+',npart)
+ totmass           = rhozero*dxbound*dybound*dzbound
+ massoftype        = totmass/reduceall_mpi('+',npart)
  if (id==master) print*,' particle mass = ',massoftype(igas)
 
  toten = 0.
  do i=1,npart
     vxyzu(:,i) = 0.
-    r2  = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
-    q2  = r2/hsmooth**2
-    uui = enblast*cnormk*wkern(q2,sqrt(q2))/hsmooth**3
-    if (q2 < radkern2) then
-       vxyzu(4,i) = uui
+    r2         = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
+    if (r2 < Rblast**2) then
+       vxyzu(4,i) = Pblast/(rhozero*(gamma - 1.0))
+       toten = toten + vxyzu(4,i)
     else
-       vxyzu(4,i) = 0.
+       vxyzu(4,i) = Pmed/(rhozero*(gamma - 1.0))
     endif
-    toten = toten + massoftype(igas)*uui
  enddo
-!
-!--normalise so energy = enblast exactly
-!
- vxyzu(4,1:npart) = vxyzu(4,1:npart)*(enblast/toten)
-!
-!--set default runtime options for this setup (if .in file does not already exist)
-!
- filename=trim(fileprefix)//'.in'
- inquire(file=filename,exist=iexist)
- if (.not. iexist) then
-    tmax   = 0.1
-    dtmax  = 0.005
-    alphau = 1.
- endif
+
+ write(*,'(2x,a,2Es11.4)')'Pressure in blast, medium: ',Pblast,Pmed
+ write(*,'(2x,a, Es11.4)')'Initial blast radius: ',Rblast
+ write(*,'(2x,a, Es11.4)')'Initial blast energy: ',toten
 
 end subroutine setpart
 
@@ -156,7 +155,7 @@ subroutine write_setupfile(filename)
 
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# input file for Sedov Blast Wave setup routine'
+ write(iunit,"(a)") '# input file for SR Blast Wave setup routine'
  write(iunit,"(/,a)") '# dimensions'
  call write_inopt(npartx,'npartx','number of particles in x-direction',iunit)
  close(iunit)
@@ -178,10 +177,9 @@ subroutine read_setupfile(filename,ierr)
 
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(npartx,'npartx',db,ierr)
+ call read_inopt(npartx, 'npartx', db,ierr)
  call close_db(db)
 
 end subroutine read_setupfile
 !----------------------------------------------------------------
 end module setup
-
