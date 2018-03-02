@@ -110,6 +110,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #ifdef GR
  use metric,         only:imetric
  use metric_tools,   only:imet_minkowski
+ use cons2prim,      only:conservative_to_primitive
 #endif
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -560,6 +561,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call summary_printout(iprint,nptmass)
     call fatal('step','VELOCITY ITERATIONS NOT CONVERGED!!')
  endif
+
+#ifdef GR
+ call conservative_to_primitive(npart,xyzh,pxyzu,vxyzu,dens)
+#endif
 
  return
 end subroutine step
