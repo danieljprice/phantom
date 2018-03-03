@@ -782,9 +782,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef PERIODIC
  use boundary,    only:dxbound,dybound,dzbound
 #endif
-#ifdef DUST
- use dust,        only:get_ts,grainsize,graindens,idrag,icut_backreaction
  use dim,		  only:use_dust,use_dustgrowth
+ use dust,		  only:grainsize,graindens
+#ifdef DUST
+ use dust,        only:get_ts,idrag,icut_backreaction
  use part,		  only:dustprop
  use kernel,      only:wkern_drag,cnormk_drag
 #endif
