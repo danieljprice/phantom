@@ -988,6 +988,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 	if (use_dustgrowth) then
 	   dustprop(1,:) = grainsizeinp
 	   dustprop(2,:) = graindensinp
+       grainsizecgs = grainsizeinp
+       graindenscgs = graindensinp
     else
        grainsizecgs = grainsizeinp
        graindenscgs = graindensinp
@@ -1488,6 +1490,7 @@ subroutine read_setupfile(filename,ierr)
 	if (use_dustgrowth) then
 		   dustprop(1,:) = grainsizeinp
 		   dustprop(2,:) = graindensinp
+		   dustprop(3,:) = 0.
     endif
  endif
  !--multiple discs

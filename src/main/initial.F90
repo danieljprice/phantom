@@ -148,7 +148,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
                             npartoftype,maxtypes,alphaind,ntot, &
                             maxphase,iphase,isetphase,iamtype, &
-                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,massoftype,&
+                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustfrac,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,dustprop,ddustprop
 #ifdef PHOTO
@@ -214,7 +214,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
  use io_summary,       only:summary_initialise
- use units,            only:unit_density
+ use units,            only:unit_density,udist,unit_velocity
  use centreofmass,     only:get_centreofmass
  use energies,         only:etot,angtot,totmom,mdust,xyzcom
  use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in
@@ -361,8 +361,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     ncount(:) = 0
     do i=1,npart
        itype = iamtype(iphase(i))
+	   !-- Initialise dust properties in code units for dust
+	   !-- Initialise to none dust properties for gas particles
 	   	if (itype==igas .and. use_dustgrowth) then
 	   		dustprop(:,i) = 0.
+		elseif (itype==idust) then ! cgs --> code units
+			dustprop(1,i) = dustprop(1,i) / udist
+			dustprop(2,i) = dustprop(2,i) / unit_density
+			dustprop(3,i) = dustprop(3,i) / unit_velocity
 	   	endif
        if (itype < 1 .or. itype > maxtypes) then
           call fatal('initial','unknown value for itype from iphase array',i,var='iphase',ival=int(iphase(i)))

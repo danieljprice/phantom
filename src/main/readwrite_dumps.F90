@@ -441,7 +441,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(4))
        if (use_dust)     call write_array(1,dustfrac,'dustfrac',npart,k,ipass,idump,nums,ierrs(5))
 	   if (use_dust)     call write_array(1,tstop,'tstop',npart,k,ipass,idump,nums,ierrs(6))
-       if (use_dustgrowth)	 call write_array(1,dustprop,dustprop_label,2,npart,k,ipass,idump,nums,ierrs(7))
+       if (use_dustgrowth)	 call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierrs(7))
        if (use_dustfrac) call write_array(1,deltav,deltav_label,3,npart,k,ipass,idump,nums,ierrs(8))
        ! write pressure to file
        if ((ieos==8 .or. ieos==9 .or. ieos==10) .and. k==i_real) then
@@ -627,7 +627,7 @@ subroutine write_smalldump(t,dumpfile)
        if (h2chemistry .and. nabundances >= 1) &
                      call write_array(1,abundance,abundance_label,1,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (use_dust) call write_array(1,dustfrac,'dustfrac',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-	   if (use_dustgrowth) call write_array(1,dustprop,dustprop_label,2,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+	   if (use_dustgrowth) call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
 #ifdef LIGHTCURVE
        if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr)
@@ -1121,7 +1121,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  integer, intent(out)  :: ierr
  logical               :: got_dustfrac,match
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
- logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bevol(maxBevol),got_dustprop(2)
+ logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bevol(maxBevol),got_dustprop(3)
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik
 !
@@ -1424,7 +1424,10 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
 	 write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'
 	 return
  endif
- print*,'####### in readwrite dumps : ', got_dustprop(1),got_dustprop(2)
+ if (use_dustgrowth .and. .not.got_dustprop(3)) then
+	write(*,*) 'ERROR! using dustgrowth, but no ratio vrel/vfrag found in dump file'
+    return	 
+ endif
  !
  ! sink particle arrays
  !

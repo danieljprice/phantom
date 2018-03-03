@@ -1376,7 +1376,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (use_dustfrac) then
              if (dustfraci > 0. .or. dustfracj > 0.) then
                 ! get stopping time - for one fluid dust we do not know deltav, but it is small by definition`
-				! use dustprop(1,:) and dustprop (2,:) for size and density every time get_ts is called
 				call get_ts(idrag,grainsize,graindens,rhoj*(1. - dustfracj),rhoj*dustfracj,spsoundj,0.,tsj,iregime)
                 ! define averages of diffusion coefficient and kernels
                 Dav      = tsi*(1.-dustfraci)+tsj*(1.-dustfracj) !dustfraci*tsi + dustfracj*tsj
@@ -1879,7 +1878,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintenso
     endif
 	if (use_dustgrowth) then
 		cell%xpartvec(igrainsizei,cell%npcell)	  = dustprop(1,i)
-		cell%xpartvec(igraindensi,cell%npcell)	  = dustprop(2,i)
+		cell%xpartvec(igraindensi,cell%npcell)	  = dustprop(2,i) !--Add dustprop(3and4)
 	endif
  enddo over_parts
 
