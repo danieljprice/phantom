@@ -108,7 +108,7 @@ subroutine wind_init(setup)
     dtmax = (.5 * irrational_numbre_close_to_one * time_between_spheres)
  endif
 
- print*,'============================================'
+ print*,'========= GR Bondi Wind Injection =========='
  print*,'Particles per sphere :',particles_per_sphere
  print*,'Nieghbour distance   :',neighbour_distance
  print*,'Mass of particles    :',mass_of_particles
