@@ -34,7 +34,7 @@ contains
 
 subroutine test_ptmass(ntests,npass)
  use dim,      only:maxp,mhd,periodic,gravity,maxptmass
- use io,       only:id,master,iverbose
+ use io,       only:id,master,iverbose,iskfile
  use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,&
                     xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,epot_sinksink,&
                     ihacc,isdead_or_accreted,igas,divcurlv,iphase,isetphase,maxphase,&
@@ -82,11 +82,11 @@ subroutine test_ptmass(ntests,npass)
  real                   :: dptmass(ndptmass,maxptmass)
  real                   :: dptmass_thread(ndptmass,maxptmass)
  real                   :: fxyz_sinksink(4,maxptmass)
- integer                :: norbits
+ integer                :: norbits,itmp,ierr
  integer                :: nfailed(11),imin(1)
  integer                :: id_rhomax,ipart_rhomax_global
  integer(kind=1)        :: ibin_wakei
- character(len=20)      :: dumpfile
+ character(len=20)      :: dumpfile,filename
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
 
@@ -627,9 +627,21 @@ subroutine test_ptmass(ntests,npass)
        call finish_ptmass(nptmass)
     enddo
  endif testcreatesink
-
+ 
  !--reset stuff
  nptmass = 0
+
+ ! clean up temporary files
+ itmp = 201
+ do i=iskfile+1,iskfile+2    ! we used 2 point masses in tests above
+    close(i,iostat=ierr)     ! close file unit numbers if they are already open
+    write(filename,"(i3)") i
+    filename = 'fort.'//trim(adjustl(filename))
+    open(unit=itmp,file=filename,status='old',iostat=ierr)
+    close(itmp,status='delete',iostat=ierr)
+ enddo
+ open(unit=itmp,file='SinkSink0001N00.ev',status='old',iostat=ierr)
+ close(itmp,status='delete',iostat=ierr)
 
  if (id==master) write(*,"(/,a)") '<-- PTMASS TEST COMPLETE'
 
