@@ -108,6 +108,7 @@ subroutine wind_init(setup)
     dtmax = (.5 * irrational_numbre_close_to_one * time_between_spheres)
  endif
 
+ print*,'============================================'
  print*,'Particles per sphere :',particles_per_sphere
  print*,'Nieghbour distance   :',neighbour_distance
  print*,'Mass of particles    :',mass_of_particles
@@ -146,9 +147,9 @@ subroutine inject_particles(time_u,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
  if (wind_verbose) then
     write(iprint,*) '   time between spheres',time_between_spheres
     write(iprint,*) '   Inner sphere  :', inner_sphere                 ,'Outer sphere:',outer_sphere
-    write(iprint,*) '   Loop goes from:', inner_sphere+ihandled_spheres,'to:           ',outer_sphere
+    write(iprint,*) '   Loop goes from:', inner_handled_sphere         ,'to:           ',outer_sphere
  endif
- do i=inner_sphere+ihandled_spheres,outer_sphere,-1
+ do i=inner_handled_sphere,outer_sphere,-1
     local_time = time - (i-ihandled_spheres) * time_between_spheres
     call compute_sphere_properties(local_time, r, v, u, rho)
     if (wind_verbose) then
@@ -166,7 +167,7 @@ subroutine inject_particles(time_u,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
        write(iprint,*) '   Density (rho) : ', rho
     endif
     if (i > inner_sphere) then
-       call inject_geodesic_sphere(i, (ihandled_spheres-i+inner_sphere)*particles_per_sphere+1, r, v, u, rho, &
+       call inject_geodesic_sphere(i, (inner_handled_sphere-i)*particles_per_sphere+1, r, v, u, rho, &
         npart, npartoftype, xyzh, vxyzu) ! handled sphere
     else
        call inject_geodesic_sphere(i, npart+1, r, v, u, rho, npart, npartoftype, xyzh, vxyzu) ! injected sphere
