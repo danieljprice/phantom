@@ -41,9 +41,9 @@ module h2cooling
  implicit none
 !
 ! only publicly visible entries are the
-! cool_func and coolinmo subroutines
+! cool_func and init_h2cooling subroutines
 !
- public :: cool_func, coolinmo, write_options_h2cooling, read_options_h2cooling
+ public :: cool_func, init_h2cooling, write_options_h2cooling, read_options_h2cooling
  public :: hchem
 !
 ! required constants and parameters
@@ -64,7 +64,7 @@ module h2cooling
 ! Number of different quantities stored in cooling look-up table
  integer, parameter :: ncltab = 54
 
-! These varables are initialised in coolinmo
+! These varables are initialised in init_h2cooling
  real :: temptab(nmd)
  real :: cltab(ncltab, nmd),dtcltab(ncltab, nmd)
  real :: dtlog, tmax, tmin
@@ -505,7 +505,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
  endif
 !
 ! (R1) -- gas-grain cooling-heating -- dust:gas ratio already incorporated
-!         into rate coefficient in coolinmo
+!         into rate coefficient in init_h2cooling
 !
  rates(1) = cl14 * (temp - tdust) * yn**2
 !
@@ -648,7 +648,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 ! (R9) --  SiI fine-structure cooling
 !
 ! Proton rates (from HM89) are constant and so there's no point
-! tabulating them in coolinmo.
+! tabulating them in init_h2cooling
 !
  siIc10 = cl42 * ynh + 7.2d-9 * ynhp
  siIc20 = cl43 * ynh + 7.2d-9 * ynhp
@@ -809,7 +809,7 @@ end subroutine three_level_pops
 !
 !=======================================================================
 !
-subroutine coolinmo
+subroutine init_h2cooling
 !
 !    Based on an original routine by G. Suttner (University Wuerzburg, 1995)
 !    OI, CI cooling added by M. D. Smith (Armagh Observatory, 2000-2001)
@@ -1669,11 +1669,11 @@ subroutine coolinmo
  enddo
 !
  return
-end subroutine coolinmo
+end subroutine init_h2cooling
 !=======================================================================
 !
 !    \\\\\\\\\\        E N D   S U B R O U T I N E        //////////
-!    //////////             C O O L I N M O               \\\\\\\\\\
+!    //////////        I N I T _ H 2 C O O L I N G        \\\\\\\\\\
 !
 !=======================================================================
 

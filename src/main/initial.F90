@@ -212,7 +212,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use part,             only:hfact,h2chemistry
  use setup,            only:setpart
  use checksetup,       only:check_setup
- use h2cooling,        only:coolinmo
+ use h2cooling,        only:init_h2cooling
  use cooling,          only:init_cooling
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
@@ -349,7 +349,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (icooling > 0) then
        if (id==master) write(iprint,*) 'initialising cooling function...'
        call init_chem()
-       call coolinmo()
+       call init_h2cooling()
     endif
  elseif (icooling > 0) then
     call init_cooling(ierr)
