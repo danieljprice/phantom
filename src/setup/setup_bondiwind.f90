@@ -66,9 +66,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gamma = wind_gamma
  iexternalforce  = 1
  mass1           = 1.
- accradius1      = 2.3*mass1
- accradius1_hard = accradius1*0.9
- if (accradius1_hard < 2.*mass1*(1.+1.e-3)) accradius1_hard = 2.*mass1*(1. + 1.e-3)
+ accradius1      = 2.*mass1
+ accradius1_hard = accradius1
 
  call wind_init(.true.)
 
