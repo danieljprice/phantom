@@ -81,7 +81,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  use part,         only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac, &
                         rhoh,maxphase,iamtype,xyzmh_ptmass,nptmass
  use options,      only:use_dustfrac,iexternalforce
- use units,        only:umass,udist
+ use units,        only:umass,udist,utime
  use dust,         only:graindens,grainsize
  use leastsquares, only:fit_slope
  character(len=*), intent(in) :: dumpfile
@@ -102,7 +102,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  real :: vrsol(nxn,nr)
  real :: cut_fact,eps_dust_cut
  real :: stan_dev(ndusttypes,nr)
- real :: St_from_tstop(ndusttypes,nr)!,St_from_sigma(ndusttypes,nr)
+ real :: St_from_tstop(ndusttypes,nr),St_from_sigma(ndusttypes,nr)
  real :: rhogmid(nr),rhodmid(ndusttypes,nr)
  real :: rhog(npart),rhod(ndusttypes,npart),rhogbin(npartoftype(igas),nr),rhodbin(ndusttypes,npartoftype(igas),nr)
  real :: vK(nr),etabin(npartoftype(igas),nr),meaneta(nr)
@@ -114,7 +114,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  real :: H_R_in,H_R_out,H_R_ref,p_index,q_index,M_star,M_disc,R_c,R_cdust
  real :: R_in_dust,R_out_dust,R_ref_dust,R_warp_dust
  real :: H_R_in_dust,H_R_out_dust,H_R_ref_dust,p_index_dust,M_star_dust,M_disc_dust
- real :: G,rmin,rmax,cs0,angx,angy,angz,ri,area
+ real :: G,rmin,rmax,cs0,angx,angy,angz,ri,Hi_part,area
  real :: dreven,log_dr,drlog(nr),log_grid(nr+1),grid(nr+1)
  real :: angtot,Ltot,tilt,dtwist,Li(3)
  real :: rad(nr),Lx(nr),Ly(nr),Lz(nr),h_smooth(nr),sigmagas(nr),sigmadust(ndusttypes,nr),cs(nr),H(nr),omega(nr)
@@ -154,7 +154,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
     scale_vel   = .true.
     check_radial_migration = .true.
 
-    cut_fact = 0.3
+    cut_fact = 1.
     eps_dust_cut = 1.e-5
  else
     cut_fact     = huge(cut_fact)
@@ -210,7 +210,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  write(*,*) 'H_R_out = ',H_R_out
  write(*,*) 'H_R_ref = ',H_R_ref
  write(*,*) 'Sig0    = ',Sig0
- write(*,*) 'cs0     = ',cs0
+ write(*,*) 'cs0     = ',cs0*udist/utime
  if(R_warp /= 0.) &
  write(*,*) 'Rwarp   = ',R_warp
  write(*,*) 'p_index = ',p_index
@@ -382,6 +382,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  rhoeff = graindens*sqrt(pi/8.)
  dustfracisum = 0.
  dustfraci(:) = 0.
+ 
  do i = 1,npart
     hi = xyzh(4,i)
     if (maxphase==maxp) then
@@ -446,6 +447,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
 
     if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
        ri = sqrt(dot_product(xyzh(1:iwarp,i),xyzh(1:iwarp,i)))
+       !Hi_part = cs0*ri**(-q_index)/(sqrt(G*M_star/ri**3))
        if (use_log_r) then
           find_ii = minloc(ri-rad(:),ri-rad(:) > 0.)
           ii = find_ii(1)
@@ -480,9 +482,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
           ninbin(ii) = ninbin(ii) + 1
           zsetgas(ninbin(ii),ii) = xyzh(3,i)
 
-          etabin(ninbin(ii),ii)  = -(H(ii)/ri)**2*(-(p_index-q_index+1.5) - 2.*q_index +  &
-                                   (-q_index + 1.5)*(xyzh(3,i)/H(ii))**2)
-          
+          etabin(ninbin(ii),ii)  = 0.5*(cs(ii)/vK(ii))**2*(p_index + q_index + 1.5 - &
+                                   (1.5 - q_index)*(xyzh(3,i)/H(ii))**2)
+          !etabin(ninbin(ii),ii)  = 0.5*(Hi_part/ri)**2*(p_index + q_index + 1.5 - &
+          !                         (1.5 - q_index)*(xyzh(3,i)/Hi_part)**2)
+
           if (abs(xyzh(3,i)) < min(cut_fact,H_R_ref*ri**(1.5-q_index))) then
              rhogbin(ninbin(ii),ii)  = rhog(i)
              vrgasbin(ninbin(ii),ii) = vrgas(i)
@@ -561,6 +565,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
        meanzgas(i)  = sum(zsetgas(1:ninbin(i),i))/real(ninbin(i))
        meanrhog(i)  = sum(rhogbin(1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
        meanvrgas(i) = sum(vrgasbin(1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
+       if (scale_vel) then
+          meanvrgas(i) = meanvrgas(i)/(meaneta(i)*vK(i))
+       endif
        if (use_dustfrac) then
           do j = 1,ndusttypes
              meanvrdust(j,i) = sum(vrdustbin(j,1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
@@ -611,7 +618,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
     call fit_slope(nr,rad,sigmagas,slope,Sig0,err,errslope,erryint,R_in_dust,R_out_dust,logdata,fixslope)
     if (logdata) Sig0 = 10.**Sig0
     rho0 = Sig0/(sqrt(2.*pi)*H_R_ref)
-    print*,'   Corrected value for Sig0 = ',Sig0
+    print*,'   Corrected value for Sig0 = ',Sig0*umass/udist**2
     print*,'   Corrected value for rho0 = ',rho0
     print*,'...Done'
     print*,' '
@@ -636,8 +643,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
     St_from_tstop(:,i) = meantstop(:,i)*omega(i)
     St_mid(:,i) = St_from_tstop(:,i)
     
-    !St_from_sigma(:,i) = rhoeff*grainsize(:)*(sqrt(2.*pi)/sigmagas(i))
-    !St_mid(:,i) = St_from_sigma(:,i)
+    St_from_sigma(:,i) = rhoeff*grainsize(:)*(sqrt(2.*pi)/sigmagas(i))
+    meantstop(:,i) = St_from_sigma(:,i)/omega(i)
+    St_mid(:,i) = St_from_sigma(:,i)
  enddo
 
 ! Print angular momentum of accreted particles
@@ -999,7 +1007,7 @@ subroutine read_setup(filename,d2g_ratio,grainsize_set,grainsize,dustfracsum,dus
  if (ierr /= 0) return
  if (use_dustfrac) dustfracsum = d2g_ratio/(1. + d2g_ratio)
  
- if (use_dustfrac) then
+ if (use_dustfrac .and. ndusttypes>1) then
     call read_inopt(grainsize_set,'grainsize_set',db,ierr)
  else
     grainsize_set = 1
@@ -1012,7 +1020,6 @@ subroutine read_setup(filename,d2g_ratio,grainsize_set,grainsize,dustfracsum,dus
     call set_grainsize(smincgs,smaxcgs)
  case(1)
     call read_inopt(grainsizecgs(1),'grainsizeinp',db,ierr)
-    grainsizecgs(:) = grainsize(1)
  case(2)
     call nduststrings('grainsizeinp','',varlabel)
     do i = 1,ndusttypes
