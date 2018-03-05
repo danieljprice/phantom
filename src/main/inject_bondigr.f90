@@ -94,11 +94,6 @@ subroutine wind_init(setup)
  mass_of_spheres        = mass_of_particles * particles_per_sphere
  time_between_spheres   = mass_of_spheres / wind_mass_rate
 
-! Dave's alternate attempt
- ! mass_of_particles      = wind_injection_rho*4./3.*pi*neighbour_distance**3 !??? No idea....
- ! mass_of_spheres        = mass_of_particles * particles_per_sphere
- ! time_between_spheres   = wind_inject_radius/wind_injection_velocity  !??? No idea....
-
  call compute_matrices(geodesic_R)
  call compute_corners(geodesic_v)
 
