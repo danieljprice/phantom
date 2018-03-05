@@ -472,11 +472,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--get timestep and forces for sink particles
 !
- dtsinkgas    = huge(dtsinkgas)
- r_crit2      = r_crit*r_crit
- rho_crit     = rho_crit_cgs/unit_density
- rho_dtthresh = rho_dtthresh_cgs/unit_density
- mod_dtmax_now = .false. ! reset since this would have improperly been tripped if mhd=.true.
+ dtsinkgas = huge(dtsinkgas)
+ r_crit2   = r_crit*r_crit
+ rho_crit  = rho_crit_cgs/unit_density
  if (nptmass > 0) then
     write(iprint,"(a,i12)") ' nptmass       = ',nptmass
 
@@ -507,8 +505,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--calculate (all) derivatives the first time around
 !
- dtnew_first = dtmax  ! necessary in case ntot = 0
- nderivinit = 1
+ dtnew_first   = dtmax  ! necessary in case ntot = 0
+ nderivinit    = 1
+ rho_dtthresh  = rho_dtthresh_cgs/unit_density
+ mod_dtmax_now = .false. ! reset since this would have improperly been tripped if mhd=.true.
  ! call derivs twice with Cullen-Dehnen switch to update accelerations
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  do j=1,nderivinit
