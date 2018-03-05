@@ -1661,6 +1661,7 @@ subroutine read_setupfile(filename,ierr)
           else
               grainsizeinp(:) = grainsizeinp(1)
           endif
+          grainsizecgs = grainsizeinp
        case(2)
           !--Make N grain size labels
           call nduststrings('grainsizeinp','',varlabel)
@@ -1685,8 +1686,8 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(grainsizeinp(1),'grainsizeinp',db,min=0.,err=ierr,errcount=nerr)
        if (ierr /= 0) then
            grainsizeinp = 0.1
-           grainsizecgs = grainsizeinp
        endif
+       grainsizecgs = grainsizeinp
     endif
     call read_inopt(graindensinp,'graindensinp',db,min=0.,errcount=nerr)
  endif
