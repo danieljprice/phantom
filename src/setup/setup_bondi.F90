@@ -17,6 +17,7 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
+!     For GR only: isol -- solution type: 1 = geodesic flow  |  2 = sonic point flow
 !
 !  DEPENDENCIES:
 !+
@@ -44,6 +45,9 @@ module setup
  use kernel,         only:radkern
  use prompting,      only:prompt
  use bondiexact,     only:get_bondi_solution,rcrit
+#ifdef GR
+ use bondiexact,     only:isol
+#endif
 
  implicit none
 
@@ -70,9 +74,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real    :: vol,rmax,rmin,psep,tff,gcode,rhor,vr,ur
- real    :: r,pos(3),cs2,totmass,approx_m,approx_h
- integer :: i,np,nx,maxvxyzu,nbound
+ real               :: vol,rmax,rmin,psep,tff,gcode,rhor,vr,ur
+ real               :: r,pos(3),cs2,totmass,approx_m,approx_h
+ integer            :: i,ierr,np,nx,maxvxyzu,nbound
+ character(len=100) :: filename
+ logical            :: iexist
 
 !-- Set code units
  call set_units(G=1.d0,c=1.d0)
@@ -87,6 +93,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 #ifdef GR
  if (imetric/=imet_schwarzschild) call fatal('setup_bondi','You are not using the Schwarzschild metric.')
+ ! Read isol from file if it exists
+ filename=trim(fileprefix)//'.setup'
+ print "(/,1x,63('-'),1(/,1x,a),/,1x,63('-'),/)", 'GR Bondi Flow.'
+ inquire(file=filename,exist=iexist)
+ if (iexist) then
+    call read_setupfile(filename,ierr)
+    if (ierr /= 0) then
+      if (id==master) call write_setupfile(filename)
+      call fatal('setup','failed to read in all the data from .setup.  Aborting')
+    endif
+ elseif (id==master) then
+    print "(a,/)",trim(filename)//' not found: using interactive setup'
+    call prompt(' Enter solution type isol (1 = geodesic | 2 = sonic point flow) ',isol,1,2)
+    call write_setupfile(filename)
+ endif
 #endif
 
  if (gr) then
@@ -178,4 +199,45 @@ real function rhofunc(r)
  rhofunc = rho
 end function rhofunc
 
+#ifdef GR
+!----------------------------------------------------------------
+!+
+!  write parameters to setup file
+!+
+!----------------------------------------------------------------
+subroutine write_setupfile(filename)
+ use infile_utils, only: write_inopt
+ character(len=*), intent(in) :: filename
+ integer, parameter           :: iunit = 20
+
+ print "(a)",' writing setup options file '//trim(filename)
+ open(unit=iunit,file=filename,status='replace',form='formatted')
+ write(iunit,"(a)") '# input file for bondiwind setup routine'
+ write(iunit,"(/,a)") '# solution type'
+ call write_inopt(isol,'isol','(1 = geodesic flow  |  2 = sonic point flow)',iunit)
+ close(iunit)
+
+end subroutine write_setupfile
+!----------------------------------------------------------------
+!+
+!  Read parameters from setup file
+!+
+!----------------------------------------------------------------
+subroutine read_setupfile(filename,ierr)
+ use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
+ use io,           only: error
+ use units,        only: select_unit
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
+ integer, parameter            :: iunit = 21
+ type(inopts), allocatable     :: db(:)
+
+ print "(a)",' reading setup options from '//trim(filename)
+ call open_db_from_file(db,filename,iunit,ierr)
+ call read_inopt(isol, 'isol', db,ierr)
+ call close_db(db)
+
+end subroutine read_setupfile
+!----------------------------------------------------------------
+#endif
 end module setup
