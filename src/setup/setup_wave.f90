@@ -45,7 +45,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use centreofmass, only:reset_centreofmass
  use physcon,      only:pi
  use kernel,       only:radkern
- use dim,          only:maxvxyzu,use_dust,maxp
+ use dim,          only:maxvxyzu,use_dust,maxp,ndusttypes
  use options,      only:use_dustfrac
  use prompting,    only:prompt
  integer,           intent(in)    :: id
