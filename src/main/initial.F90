@@ -285,7 +285,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (nwarn > 0) call warning('initial','warnings from particle data in file',var='warnings',ival=nwarn)
     if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
  endif
-
 !
 !--initialise values for non-ideal MHD
 !
@@ -477,6 +476,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  r_crit2      = r_crit*r_crit
  rho_crit     = rho_crit_cgs/unit_density
  rho_dtthresh = rho_dtthresh_cgs/unit_density
+ mod_dtmax_now = .false. ! reset since this would have improperly been tripped if mhd=.true.
  if (nptmass > 0) then
     write(iprint,"(a,i12)") ' nptmass       = ',nptmass
 
@@ -552,7 +552,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     mod_dtmax_now = .false.
  endif
 !
-!--Calculate current centre of mass (required for rotational energies)
+!--Calculate current centre of mass
 !
  call get_centreofmass(xyzcom,dummy,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 !
