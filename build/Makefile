@@ -958,7 +958,7 @@ endif
 
 ifeq ($(SYSTEM),daint)
     FC=ftn
-    FFLAGS= -O3 -inline-factor=500 -dynamic -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
+    FFLAGS= -O3 -inline-factor=500 -dynamic -mcmodel=medium -heap-arrays -shared-intel -warn uninitialized -warn unused -warn truncated_source
     DBLFLAG= -r8
     DEBUGFLAG= -check all -WB -traceback -g -debug all
     KNOWN_SYSTEM=yes
