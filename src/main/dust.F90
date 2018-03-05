@@ -88,7 +88,7 @@ subroutine init_drag(ierr)
  !--compute the grain mass (spherical compact grains of radius s)
  call set_grainsize(smincgs,smaxcgs)
  do i = 1,ndusttypes
-    if (grainmass(i) <= 0.) then
+    if (grainmass(i) <= 0. .and. idrag == 1) then
        call error('init_drag','grain size/density <= 0',var='grainmass',val=grainmass(i))
        ierr = 2 
     endif
