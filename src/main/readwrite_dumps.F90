@@ -1775,7 +1775,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  use externalforces,only:read_headeropts_extern
  use boundary,      only:xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
  use dump_utils,    only:extract
- use dust,          only:smincgs,smaxcgs,sindex
+ use dust,          only:idrag,smincgs,smaxcgs,sindex
  use prompting,     only:prompt
  type(dump_h), intent(in) :: hdr
  logical,      intent(in) :: phantomdump
@@ -1923,7 +1923,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
     call extract('smincgs',smin,hdr,ierrs(1))
     call extract('smaxcgs',smax,hdr,ierrs(2))
     call extract('sindex' ,sind,hdr,ierrs(3))
-    if (any(ierrs(1:3) /= 0)) then
+    if (any(ierrs(1:3) /= 0) .and. idrag == 1) then
        if (ierrs(1) /= 0) call prompt('Enter the value for smincgs',smincgs,1.e-6,9.999)
        if (ierrs(2) /= 0) call prompt('Enter the value for smaxcgs',smaxcgs,smincgs,10.)
        if (ierrs(3) /= 0) call prompt('Enter the value for sindex' ,sindex ,0.,10.)
