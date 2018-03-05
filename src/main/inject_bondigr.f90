@@ -147,7 +147,7 @@ subroutine inject_particles(time_u,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
  if (wind_verbose) then
     write(iprint,*) '   time between spheres',time_between_spheres
     write(iprint,*) '   Inner sphere  :', inner_sphere                 ,'Outer sphere:',outer_sphere
-    write(iprint,*) '   Loop goes from:', inner_handled_sphere         ,'to:           ',outer_sphere
+    write(iprint,*) '   Loop goes from:', inner_handled_sphere         ,'to:          ',outer_sphere
  endif
  do i=inner_handled_sphere,outer_sphere,-1
     local_time = time - (i-ihandled_spheres) * time_between_spheres
