@@ -28,7 +28,7 @@
 !+
 !--------------------------------------------------------------------------
 module inject
- use bondiexact, only:get_bondi_solution
+ use bondiexact, only:get_bondi_solution,isol
  use metric,     only:mass1
  implicit none
  character(len=*), parameter, public :: inject_type = 'wind'
@@ -324,6 +324,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(ihandled_spheres,'ihandled_spheres','handle inner spheres of the wind (integer)',iunit)
  call write_inopt(wind_inject_radius,'wind_inject_radius', &
       'radius of injection of the wind (in units of the central mass) -- DO NOT CHANGE DURING SIMULATION --',iunit)
+ call write_inopt(isol,'isol','solution type (1 = geodesic flow  |  2 = sonic point flow)',iunit)
 end subroutine
 
 !-----------------------------------------------------------------------
@@ -364,11 +365,15 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) wind_inject_radius
     ngot = ngot + 1
     if (wind_inject_radius < 2.*mass1) call fatal(label,'invalid setting for wind_inject_radius (<2M)')
+ case('isol')
+    read(valstring,*,iostat=ierr) isol
+    ngot = ngot + 1
+    if (isol /= 1 .and. isol /= 2) call fatal(label,'invalid setting for isol')
  case default
     imatch = .false.
  end select
 
- noptions = 5
+ noptions = 6
 
  igotall = (ngot >= noptions)
 

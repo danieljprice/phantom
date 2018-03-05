@@ -373,7 +373,7 @@ endif
 ifeq ($(SETUP), bondigr-inject)
     SRCBONDI=bondiexact_gr.f90
     SETUPFILE= setup_bondiwind.F90
-    SRCINJECT= icosahedron.f90 inject_bondi.f90
+    SRCINJECT= icosahedron.f90 inject_bondigr.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
