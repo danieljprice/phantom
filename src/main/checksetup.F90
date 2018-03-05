@@ -336,10 +336,13 @@ subroutine check_setup(nerror,nwarn,restart)
        print*,'WARNING: ',nunity,' of ',npart,' PARTICLES ARE PURE DUST (dustfrac=1.0)'
        nwarn = nwarn + 1
     endif
-    ! warn if compiled for one fluid dust but not used
+    ! warn if compiled for one-fluid dust but not used
     if (all(dustfrac(:,1:npart) < tiny(dustfrac))) then
        print*,'WARNING: one fluid dust is used but dust fraction is zero everywhere'
-       multidustdump = .false.
+       if (ndusttypes>1) then
+          print*,'WARNING about the previous WARNING: ndusttypes > 1 so dust arrays are unnecessarily large!'
+          print*,'                                    Recompile with ndusttypes = 1 for better efficiency.'
+       endif
        nwarn = nwarn + 1
     endif
     if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas/real(npart-nbad-nunity)
