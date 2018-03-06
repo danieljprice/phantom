@@ -168,7 +168,7 @@ subroutine test_sedov(ntests,npass)
     nfailed(:) = 0
     call checkval(etotend,etotin,4.7e-4,nfailed(1),'total energy')
     call checkval(momtotend,momtotin,7.e-15,nfailed(2),'linear momentum')
-    
+
     ! delete temporary files
     close(unit=ievfile,status='delete',iostat=ierr)
 

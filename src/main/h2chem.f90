@@ -14,7 +14,7 @@
 !   Translated to Fortran 90 and adapted
 !   for use in Phantom by Daniel Price (2011)
 !
-!  REFERENCES: 
+!  REFERENCES:
 !   Nelson (1997)
 !   Glover (2010)
 !   Bergin et. al. (2004)

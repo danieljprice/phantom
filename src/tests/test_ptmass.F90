@@ -631,7 +631,7 @@ subroutine test_ptmass(ntests,npass)
        call finish_ptmass(nptmass)
     enddo
  endif testcreatesink
- 
+
  !--reset stuff
  nptmass = 0
 
