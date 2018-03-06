@@ -115,6 +115,12 @@ subroutine test_ptmass(ntests,npass)
 
     xyzh(:,:)  = 0.
     vxyzu(:,:) = 0.
+    xyzh(:,:)  = 0.
+    vxyzu(:,:) = 0.
+    fxyzu(:,:) = 0.
+    fext(:,:)  = 0.
+    Bevol(:,:) = 0.
+
 #ifdef IND_TIMESTEPS
     ibin(:) = 0_1
 #endif
@@ -502,9 +508,9 @@ subroutine test_ptmass(ntests,npass)
        xyzh(:,:)  = 0.
        vxyzu(:,:) = 0.
        fxyzu(:,:) = 0.
-       fext(:,:) = 0.
-       if (mhd) Bevol = 0.
-       iverbose = 1
+       fext(:,:)  = 0.
+       Bevol(:,:) = 0.
+       iverbose   = 1
        call set_boundary(-1.,1.,-1.,1.,-1.,1.)
        !
        ! set up gas particles in a uniform sphere with radius R=0.2
