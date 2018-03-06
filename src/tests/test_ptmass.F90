@@ -115,8 +115,6 @@ subroutine test_ptmass(ntests,npass)
 
     xyzh(:,:)  = 0.
     vxyzu(:,:) = 0.
-    xyzh(:,:)  = 0.
-    vxyzu(:,:) = 0.
     fxyzu(:,:) = 0.
     fext(:,:)  = 0.
     Bevol(:,:) = 0.
