@@ -157,7 +157,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  should_conserve_angmom   = (npartoftype(iboundary)==0 .and. .not.periodic)
  should_conserve_com      = should_conserve_momentum
  should_conserve_dustmass = use_dustfrac
- rcom_in = dot_product(xyzcom_in,xyzcom_in)
+ rcom_in = sqrt(dot_product(xyzcom_in,xyzcom_in))
 
 
 ! Each injection routine will need to bookeep conserved quantities, but until then...
