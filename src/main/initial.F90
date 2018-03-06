@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -212,7 +212,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use part,             only:hfact,h2chemistry
  use setup,            only:setpart
  use checksetup,       only:check_setup
- use h2cooling,        only:coolinmo
+ use h2cooling,        only:init_h2cooling
  use cooling,          only:init_cooling
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
@@ -285,7 +285,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (nwarn > 0) call warning('initial','warnings from particle data in file',var='warnings',ival=nwarn)
     if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
  endif
-
 !
 !--initialise values for non-ideal MHD
 !
@@ -349,7 +348,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (icooling > 0) then
        if (id==master) write(iprint,*) 'initialising cooling function...'
        call init_chem()
-       call coolinmo()
+       call init_h2cooling()
     endif
  elseif (icooling > 0) then
     call init_cooling(ierr)
@@ -473,10 +472,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--get timestep and forces for sink particles
 !
- dtsinkgas    = huge(dtsinkgas)
- r_crit2      = r_crit*r_crit
- rho_crit     = rho_crit_cgs/unit_density
- rho_dtthresh = rho_dtthresh_cgs/unit_density
+ dtsinkgas = huge(dtsinkgas)
+ r_crit2   = r_crit*r_crit
+ rho_crit  = rho_crit_cgs/unit_density
  if (nptmass > 0) then
     write(iprint,"(a,i12)") ' nptmass       = ',nptmass
 
@@ -507,8 +505,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--calculate (all) derivatives the first time around
 !
- dtnew_first = dtmax  ! necessary in case ntot = 0
- nderivinit = 1
+ dtnew_first   = dtmax  ! necessary in case ntot = 0
+ nderivinit    = 1
+ rho_dtthresh  = rho_dtthresh_cgs/unit_density
+ mod_dtmax_now = .false. ! reset since this would have improperly been tripped if mhd=.true.
  ! call derivs twice with Cullen-Dehnen switch to update accelerations
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  do j=1,nderivinit
@@ -552,7 +552,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     mod_dtmax_now = .false.
  endif
 !
-!--Calculate current centre of mass (required for rotational energies)
+!--Calculate current centre of mass
 !
  call get_centreofmass(xyzcom,dummy,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 !

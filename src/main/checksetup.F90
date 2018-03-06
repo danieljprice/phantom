@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -42,11 +42,11 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,&
-                kill_particle,shuffle_part,iamdust
+                kill_particle,shuffle_part,iamdust,Bxyz
  use eos,            only:gamma,polyk
  use centreofmass,   only:get_centreofmass
  use options,        only:ieos,icooling,iexternalforce,use_dustfrac
@@ -164,7 +164,13 @@ subroutine check_setup(nerror,nwarn,restart)
        endif
        nerror = nerror + 1
     endif
-
+    !--check for NaNs in B field
+    if (mhd) then
+       if (any(Bxyz(:,i) /= Bxyz(:,i))) then
+          print*,'NaN in magnetic field (Bxyz array) : ', i
+          nerror = nerror + 1
+       endif
+    endif
     hi = xyzh(4,i)
     if ((.not.dorestart .and. hi <= 0.) .or. hi > 1.e20) then
        nbad = nbad + 1
@@ -276,6 +282,15 @@ subroutine check_setup(nerror,nwarn,restart)
           print*,gcode,gcode-1.,epsilon(gcode)
        endif
        nerror = nerror + 1
+    endif
+ endif
+!
+!--sanity checks on magnetic field
+!
+ if (mhd) then
+    if (all(abs(Bxyz(:,1:npart)) < tiny(0.))) then
+       print*,'WARNING: MHD is ON but magnetic field is zero everywhere'
+       nwarn = nwarn + 1
     endif
  endif
 !

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -29,7 +29,7 @@ module dim
  public
 
  character(len=80), parameter :: &
-    tagline='PhantomSPH: (c) 2007-2017 The Authors'
+    tagline='PhantomSPH: (c) 2007-2018 The Authors'
 
  ! maximum number of particles
 #ifdef MAXP

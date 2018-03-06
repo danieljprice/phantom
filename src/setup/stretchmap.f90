@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -97,7 +97,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
  logical            :: is_r, is_rcyl, bisect
 
  if (present(rhofunc) .or. present(rhotab)) then
-    print "(a)",' >>>>>>  s  t  r  e   t    c     h       m     a    p   p  i  n  g  <<<<<<'
+    if (id==master) print "(a)",' >>>>>>  s  t  r  e   t    c     h       m     a    p   p  i  n  g  <<<<<<'
     !
     ! defaults for optional arguments
     !
@@ -290,7 +290,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
 
     if (allocated(xtable))  deallocate(xtable)
     if (allocated(masstab)) deallocate(masstab)
-    print "(a,/)",' >>>>>> done'
+    if (id==master) print "(a,/)",' >>>>>> done'
  endif
 
 end subroutine set_density_profile

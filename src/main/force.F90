@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -905,10 +905,17 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  ts_min = bignumber
 
  ! various pre-calculated quantities
- Bxi  = xpartveci(iBevolxi)*rhoi
- Byi  = xpartveci(iBevolyi)*rhoi
- Bzi  = xpartveci(iBevolzi)*rhoi
- psii = xpartveci(ipsi)
+ if (mhd) then
+    Bxi  = xpartveci(iBevolxi)*rhoi
+    Byi  = xpartveci(iBevolyi)*rhoi
+    Bzi  = xpartveci(iBevolzi)*rhoi
+    psii = xpartveci(ipsi)
+ else
+    Bxi  = 0.0
+    Byi  = 0.0
+    Bzi  = 0.0
+    psii = 0.0
+ endif
  if (use_dustfrac) then
     dustfraci = xpartveci(idustfraci)
     tsi       = xpartveci(itstop)

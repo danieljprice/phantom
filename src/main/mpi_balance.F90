@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -108,7 +108,7 @@ subroutine balancedomains(npart)
  use mpiutils, only:barrier_mpi
  implicit none
  integer, intent(inout) :: npart
- integer :: i,newproc,ndead
+ integer :: i,newproc
  integer(kind=8) :: ntot
  real(kind=4) :: tstart
 
@@ -171,7 +171,7 @@ subroutine recv_part(replace)
  implicit none
  logical, intent(in), optional :: replace
  logical :: igotpart
- integer :: jpart,inew
+ integer :: inew
 
  igotpart = .false.
  call MPI_TEST(irequestrecv(1),igotpart,status,mpierr)

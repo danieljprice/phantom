@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -64,7 +64,7 @@ contains
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,      only:fatal
  use dim,     only:maxp
- use part,    only:gravity,mhd,Bevol,rhoh,igas,&
+ use part,    only:gravity,mhd,Bxyz,rhoh,igas,&
               get_partinfo,maxphase,maxp,iphase,massoftype,poten
  use eos,     only: utherm
  use physcon, only:pi
@@ -233,7 +233,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
           ekin(ipart) = ekin(ipart) + 0.5*pmassi*dot_product(vxyzu(:,jpart), vxyzu(:,jpart))
           etherm(ipart) = etherm(ipart) + pmassi*utherm(vxyzu(4,jpart),rhoj)
           if(gravity) egrav(ipart) = egrav(ipart) + pmassi*poten(jpart)
-          if(mhd) emag(ipart) = emag(ipart) + pmassi*dot_product(Bevol(:,jpart), Bevol(:,jpart))*rhoj1
+          if(mhd) emag(ipart) = emag(ipart) + pmassi*dot_product(Bxyz(:,jpart), Bxyz(:,jpart))*rhoj1
 
        enddo
 
