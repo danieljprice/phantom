@@ -125,6 +125,7 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use centreofmass,         only:reset_centreofmass
  use dust,                 only:set_dustfrac,grainsizecgs,graindenscgs
+ use growth,	   		   only:ifrag,isnow,rsnow,Tsnow,vfrag,vfragin,vfragout,grainsizemin
  use eos,                  only:isink,qfacdisc
  use extern_binary,        only:accradius1,accradius2,binarymassr
  use externalforces,       only:mass1,accradius1
@@ -426,16 +427,64 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call prompt('How do you want to set the dust density profile? (0=equal to gas,1=custom)',profile_set_dust,0,1)
        call prompt('Enter dust to gas ratio',dust_to_gas_ratio,0.)
 	   if (use_dustgrowth) then
-		   print "(/,a)",'--> Dust growth is activated'
 	      call prompt('Enter initial grain size in cm',grainsizeinp,0.)
 	   else
 		  call prompt('Enter grain size in cm',grainsizeinp,0.)
 	   endif
-	endif
+	   if (use_dustgrowth .and. dust_method == 2) then
+	      print "(/,a)",'================================'
+		  print "(a)",  '+++  GROWTH & FRAGMENTATION  +++'
+		  print "(a)",  '================================'
+		  !
+		  !--set growth parameters default
+		  !
+		  ifrag = 1
+		  isnow = 0
+		  rsnow = 100.
+		  Tsnow = 20.
+		  vfrag = 15.
+		  vfragin = 5.
+		  vfragout = 15.
+		  grainsizemin = 1.e-3
+		  !
+		  !--growth parameters from user
+		  !
+		  call prompt('Enter fragmentation model (0=off,1=on,2=Kobayashi)',ifrag,0,2)
+  	      select case(ifrag)
+		  case(0)
+		 	 print "(a)",'-----------'
+		 	 print "(a)",'Pure growth'
+			 print "(a)",'-----------'
+	  	  case(1)
+		  	 print "(a)",'----------------------'
+		     print "(a)",'Growth + fragmentation'
+			 print "(a)",'----------------------'
+	  	  case(2)
+		  	 print "(a)",'----------------------------------------'
+			 print "(a)",'Growth + Kobayashi`s fragmentation model'
+			 print "(a)",'----------------------------------------'
+		  case default
+		     end select
+		  if (ifrag > 0) then
+			 call prompt('Enter minimum allowed grain size in cm',grainsizemin)
+			 call prompt('Do you want a snow line ? (0=no,1=position based,2=temperature based)',isnow,0,2)
+			 if (isnow == 0) then
+				call prompt('Enter uniform vfrag in m/s',vfrag,1.,15.)
+		     else
+				if (isnow == 1) call prompt('How far from the star in AU ?',rsnow)
+				if (isnow == 2) call prompt('Enter snow line condensation temperature in K',Tsnow)
+				call prompt('Enter inward vfragin in m/s',vfragin,1.,15.)
+				call prompt('Enter outward vfragout in m/s',vfragout,1.,15.)
+		  	 endif
+		  endif
+	   elseif (use_dustgrowth .and. dust_method == 1) then
+		  print "(a)",'growth and fragmentation not available for one fluid method'
+	   endif
+   endif
     !
     !--resolution
     !
-    np = 500000
+    np = 50000
     if (use_dust .and. .not.use_dustfrac) then
        np_dust = np/5
     else
@@ -988,12 +1037,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 	if (use_dustgrowth) then
 	   dustprop(1,:) = grainsizeinp
 	   dustprop(2,:) = graindensinp
-       grainsizecgs = grainsizeinp
-       graindenscgs = graindensinp
-    else
-       grainsizecgs = grainsizeinp
-       graindenscgs = graindensinp
     endif
+       grainsizecgs = grainsizeinp
+       graindenscgs = graindensinp
  endif
     if (multiple_disc_flag .and. ibinary==1) then
        !--circumprimary in flyby
@@ -1135,6 +1181,7 @@ end subroutine setpart
 !------------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
+ use growth,	   only:ifrag,isnow,rsnow,Tsnow,vfrag,vfragin,vfragout,grainsizemin
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
  logical :: done_alpha
@@ -1337,6 +1384,18 @@ subroutine write_setupfile(filename)
 	   call write_inopt(grainsizeinp,'grainsizeinp','grain size (in cm)',iunit)
 	endif
     call write_inopt(graindensinp,'graindensinp','intrinsic grain density (in g/cm^3)',iunit) ! Modify this is graindens becomes variable
+	  	 !--growth/fragmentation parameters
+	if (use_dustgrowth .and. .not.use_dustfrac) then
+       write(iunit,"(/,a)") '# options for growth and fragmentation of dust'
+       call write_inopt(ifrag,'ifrag','fragmentation of dust (0=off,1=on,2=Kobayashi)',iunit)
+	   call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
+	   call write_inopt(rsnow,'rsnow','snow line position in AU',iunit)
+	   call write_inopt(Tsnow,'Tsnow','snow line condensation temperature in K',iunit)
+	   call write_inopt(vfrag,'vfrag','uniform fragmentation threshold in m/s',iunit)
+	   call write_inopt(vfragin,'vfragin','inward fragmentation threshold in m/s',iunit)
+	   call write_inopt(vfragout,'vfragout','inward fragmentation threshold in m/s',iunit)
+	   call write_inopt(grainsizemin,'grainsizemin','minimum allowed grain size in cm',iunit)
+    endif
  endif
  !--planets
  write(iunit,"(/,a)") '# set planets'
@@ -1378,6 +1437,7 @@ end subroutine write_setupfile
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use growth,	   only:ifrag,isnow,rsnow,Tsnow,vfrag,vfragin,vfragout,grainsizemin
  use part,         only:dustprop
  integer,          intent(out) :: ierr
  character(len=*), intent(in)  :: filename
@@ -1490,8 +1550,28 @@ subroutine read_setupfile(filename,ierr)
 	if (use_dustgrowth) then
 		   dustprop(1,:) = grainsizeinp
 		   dustprop(2,:) = graindensinp
-		   dustprop(3,:) = 0.
     endif
+ 	!--growth/fragmentation of dust
+ 	if (use_dustgrowth .and. .not.use_dustfrac) then
+	   call read_inopt(ifrag,'ifrag',db,min=0,max=2,errcount=nerr)
+	   if (ifrag > 0) then
+		  call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
+	      call read_inopt(grainsizemin,'grainsizemin',db,min=1.e-5,errcount=nerr)
+	  endif
+	   select case(isnow)
+	   case(0)
+	      call read_inopt(vfrag,'vfrag',db,min=0.,errcount=nerr)
+	   case(1)
+	   	  call read_inopt(rsnow,'rsnow',db,min=0.,errcount=nerr)
+		  call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
+		  call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
+	   case(2)
+   	  	  call read_inopt(Tsnow,'Tsnow',db,min=0.,errcount=nerr)
+	  	  call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
+	 	  call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
+	   case default
+   	   end select
+	endif
  endif
  !--multiple discs
  multiple_disc_flag = .false.

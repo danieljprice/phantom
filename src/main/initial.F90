@@ -186,7 +186,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use forcing,          only:init_forcing
 #endif
 #ifdef DUST
- use dust,             only:init_drag
+ use dust,             only:init_drag,grainsize,graindens
+#ifdef DUSTGROWTH
+ use growth,		   only:init_growth
+ use growth,		   only:ifrag,isnow,grainsizemin,vfrag,vfragin,vfragout,rsnow,Tsnow
+#endif
 #endif
 #ifdef MFLOW
  use mf_write,         only:mflow_write,mflow_init
@@ -334,6 +338,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef DUST
  call init_drag(ierr)
  if (ierr /= 0) call fatal('initial','error initialising drag coefficients')
+#ifdef DUSTGROWTH
+ call init_growth(ierr)
+ if (ierr /= 0) call fatal('initial','error initialising growth variables')
+#endif
 #endif
 
 !
@@ -361,15 +369,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     ncount(:) = 0
     do i=1,npart
        itype = iamtype(iphase(i))
-	   !-- Initialise dust properties in code units for dust
-	   !-- Initialise to none dust properties for gas particles
-	   	if (itype==igas .and. use_dustgrowth) then
-	   		dustprop(:,i) = 0.
-		elseif (itype==idust) then ! cgs --> code units
-			dustprop(1,i) = dustprop(1,i) / udist
-			dustprop(2,i) = dustprop(2,i) / unit_density
-			dustprop(3,i) = dustprop(3,i) / unit_velocity
-	   	endif
+	   !-- Initialise dust properties to none for gas particles
+#ifdef DUSTGROWTH
+	   if (itype==igas .and. use_dustgrowth) dustprop(:,i) = 0.
+#endif
        if (itype < 1 .or. itype > maxtypes) then
           call fatal('initial','unknown value for itype from iphase array',i,var='iphase',ival=int(iphase(i)))
        else

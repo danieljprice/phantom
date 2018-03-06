@@ -77,6 +77,9 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use units,            only:print_units
 #ifdef DUST
  use dust,             only:print_dustinfo
+#ifdef DUSTGROWTH
+ use growth,		   only:print_growthinfo
+#endif
 #endif
  integer                      :: Nneigh,i
  integer,          intent(in) :: icall
@@ -216,6 +219,9 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 
 #ifdef DUST
     call print_dustinfo(iprint)
+#ifdef DUSTGROWTH
+	call print_growthinfo(iprint)
+#endif
 #endif
 !
 !  print units information
