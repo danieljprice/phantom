@@ -412,7 +412,7 @@ subroutine write_evlog(iprint)
        'Linm',ev_data(iev_sum,iev_momall),'Angm',ev_data(iev_sum,iev_angall),' [including accreted particles]'
     endif
  endif
- write(iprint,"(1x,a,3es10.3)") "Centre of Mass = ",xyzcom
+ write(iprint,"(1x,3(a,es10.3))") "Centre of Mass = ",xyzcom(1),", ",xyzcom(2),", ",xyzcom(3)
 
  write(iprint,"(1x,a,'(max)=',es10.3,' (mean)=',es10.3,' (max)=',es10.3,a)") &
       'density  ',ev_data(iev_max,iev_rho),ev_data(iev_ave,iev_rho),ev_data(iev_max,iev_rho)*unit_density,' g/cm^3'
