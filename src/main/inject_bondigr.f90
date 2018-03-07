@@ -52,6 +52,7 @@ module inject
  private
 
  logical, parameter :: wind_verbose = .false.
+ logical, parameter :: inflow = .false.
 
  real    :: geodesic_R(0:19,3,3), geodesic_v(0:11,3), u_to_temperature_ratio
  real    :: wind_injection_rho, wind_injection_velocity, wind_injection_utherm, wind_mass_rate
@@ -66,6 +67,8 @@ subroutine get_solution(rho,v,u,r)
  real, intent(out) :: rho,v,u
  real, intent(in)  :: r
  call get_bondi_solution(rho,v,u,r,mass1,wind_gamma)
+ ! Direction of wind
+ if (inflow) v = -v
 end subroutine get_solution
 
 !-----------------------------------------------------------------------
