@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: centreofmass, part, prompting, units
+!  DEPENDENCIES: centreofmass, initial_params, part, prompting, units
 !+
 !--------------------------------------------------------------------------
 module moddump
