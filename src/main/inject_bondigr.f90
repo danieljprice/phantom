@@ -55,6 +55,7 @@ module inject
 
  real    :: geodesic_R(0:19,3,3), geodesic_v(0:11,3), u_to_temperature_ratio
  real    :: wind_injection_rho, wind_injection_velocity, wind_injection_utherm, wind_mass_rate
+ real    :: wind_injection_speed
  real    :: mass_of_spheres, time_between_spheres, neighbour_distance
  integer :: particles_per_sphere
 
@@ -83,14 +84,15 @@ subroutine wind_init(setup)
 
  wind_inject_radius = wind_inject_radius*mass1
  call get_solution(wind_injection_rho,wind_injection_velocity,wind_injection_utherm,wind_inject_radius)
+ wind_injection_speed = abs(wind_injection_velocity)
 
  u_to_temperature_ratio = Rg/(gmw*(wind_gamma-1.))
  particles_per_sphere   = 20 * (2*iwind_resolution*(iwind_resolution-1)) + 12
  neighbour_distance     = 2./((2.*iwind_resolution-1.)*sqrt(sqrt(5.)*phi))
 
- wind_mass_rate         = 4.*pi*wind_inject_radius**2*wind_injection_rho*wind_injection_velocity
+ wind_mass_rate         = 4.*pi*wind_inject_radius**2*wind_injection_rho*wind_injection_speed
  mass_of_particles      = wind_sphdist * neighbour_distance * wind_inject_radius * wind_mass_rate &
-                           / (particles_per_sphere * wind_injection_velocity)
+                           / (particles_per_sphere * wind_injection_speed)
  mass_of_spheres        = mass_of_particles * particles_per_sphere
  time_between_spheres   = mass_of_spheres / wind_mass_rate
 
