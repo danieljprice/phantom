@@ -155,19 +155,19 @@ module part
 !
 !--derivatives (only needed if derivs is called)
 !
- real         :: fxyzu(maxvxyzu,maxan)
- real         :: dBevol(maxBevol,maxmhdan)
- real(kind=4) :: divBsymm(maxmhdan)
- real         :: fext(3,maxan)
- real         :: ddustfrac(maxdustan)
- real		  :: ddustprop(3,maxp_growth)
+ real				:: fxyzu(maxvxyzu,maxan)
+ real				:: dBevol(maxBevol,maxmhdan)
+ real(kind=4)		:: divBsymm(maxmhdan)
+ real				:: fext(3,maxan)
+ real				:: ddustfrac(maxdustan)
+ real				:: ddustprop(3,maxp_growth)
 !
 !--storage associated with/dependent on timestepping
 !
- real         :: vpred(maxvxyzu,maxan)
- real         :: dustpred(maxdustan)
- real         :: Bpred(maxBevol,maxmhdan)
- real		  :: dustproppred(3,maxp_growth)
+ real				:: vpred(maxvxyzu,maxan)
+ real				:: dustpred(maxdustan)
+ real				:: Bpred(maxBevol,maxmhdan)
+ real				:: dustproppred(3,maxp_growth)
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin(maxan)
  integer(kind=1)    :: ibin_old(maxan)
@@ -183,8 +183,8 @@ module part
  integer(kind=1)    :: iphase_soa(maxphase)
  logical, public    :: all_active = .true.
 
- real(kind=4) :: gradh(ngradh,maxgradh)
- real         :: tstop(maxan)
+ real(kind=4) 		:: gradh(ngradh,maxgradh)
+ real         		:: tstop(maxan)
 !
 !--storage associated with link list
 !  (used for dead particle list also)
