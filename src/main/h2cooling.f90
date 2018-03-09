@@ -502,6 +502,11 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
     endif
 !
     call co_cool(temp_co, N_co_eff, co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n05)
+ else
+    co_rot_L0 = 0.
+    co_rot_lte = 0.
+    co_rot_n05 = 0.
+    co_rot_alpha = 0.
  endif
 !
 ! (R1) -- gas-grain cooling-heating -- dust:gas ratio already incorporated
