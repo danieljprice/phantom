@@ -172,33 +172,30 @@ end subroutine print_growthinfo
 !  two-fluid dust method.
 !+
 !-----------------------------------------------------------------------
-subroutine evolve_grainsize(x,y,z,T,isnow,rsnow,Tsnow,vfragin,vfragout,vfrag,spsound,St &
-	,vrelonvfrag,ifrag,grainsize,graindens,rhod,dt) 
- integer, intent(in) :: ifrag,isnow
- real, intent(out)	 :: vrelonvfrag
- real, intent(inout) :: grainsize
- real, intent(in)    :: vfrag,vfragin,vfragout,graindens
- real, intent(in)    :: rhod,spsound,St,dt
- real, intent(in)    :: rsnow,Tsnow,x,y,z,T
+subroutine evolve_grainsize(xyzh,dustprop,rhod,spsound,T,St,dt) 
+ real, intent(inout) :: dustprop(3)
+ real, intent(in)    :: rhod,spsound,St,dt,T
+ real, intent(in)    :: xyzh(4)
  
  !--compute vrel and vrel/vfrag from get_vrelonvfrag subroutine
- call get_vrelonvfrag(x,y,z,isnow,rsnow,Tsnow,vfragin,vfragout,vfrag,vrel,vrelonvfrag,spsound,T,St)
+ call get_vrelonvfrag(xyzh,dustprop(3),spsound,T,St)
  !
  !--If statements to evolve grainsize
+ !--dustprop(1)= size, dustprop(2) = intrinsic density, dustprop(3) = local vrel/vfrag
  !
- if (vrelonvfrag >= 1.) then ! vrel/vfrag < 1 --> growth
-	grainsize = grainsize + rhod/graindens*vrel*dt
- elseif (vrelonvfrag < 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation 
+ if (dustprop(3) >= 1.) then ! vrel/vfrag < 1 --> growth
+	dustprop(1) = dustprop(1) + rhod/dustprop(2)*vrel*dt
+ elseif (dustprop(3) < 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation 
 	select case(ifrag)
 	case(1)
-		grainsize = grainsize - rhod/graindens*vrel*dt ! Symmetrical of Stepinski & Valageas
+		dustprop(1) = dustprop(1) - rhod/dustprop(2)*vrel*dt ! Symmetrical of Stepinski & Valageas
 	case(2)
-	    grainsize = grainsize - rhod/graindens*vrel*(vrelonvfrag**2)/(1+vrelonvfrag**2) ! Kobayashi model
+	    dustprop(1) = dustprop(1) - rhod/dustprop(2)*vrel*(dustprop(3)**2)/(1+dustprop(3)**2) ! Kobayashi model
 	case default
     end select
 	
-	if (grainsize < grainsizemin) then
-	   grainsize = grainsizemin ! Prevent dust from becoming too small
+	if (dustprop(1) < grainsizemin) then
+	   dustprop(1) = grainsizemin ! Prevent dust from becoming too small
 	endif
  endif
 end subroutine evolve_grainsize
@@ -208,21 +205,15 @@ end subroutine evolve_grainsize
 !  Compute the local ratio vrel/vfrag and vrel
 !+
 !-----------------------------------------------------------------------
-subroutine get_vrelonvfrag(x,y,z,isnow,rsnow,Tsnow,vfragin,vfragout,vfrag,vrel,vrelonvfrag,spsound,T,St) 
- use eos,		only:ieos	
- use options,	only:alpha
- integer, intent(in) :: isnow
- real, intent(in)    :: x,y,z
- real, intent(in)	 :: rsnow,Tsnow,T
- real, intent(in)    :: vfragin,vfragout,vfrag
- real, intent(out)   :: vrelonvfrag,vrel
- real, intent(in)    :: spsound,St
- 
- real, parameter     :: Ro = 3 ! Rossby number
+subroutine get_vrelonvfrag(xyzh,vrelonvfrag,spsound,T,St) 
+ use eos,			only:ieos	
+ use options,		only:alpha
+ real, intent(in)    :: xyzh(4)
+ real, intent(in)    :: spsound,St,T
+ real, intent(out)   :: vrelonvfrag
  
  !--Compute relative velocity of the dust particle
  vrel = vrelative(spsound,St,alpha)
- 
  !
  !--If statements to compute local ratio vrel/vfrag 
  !
@@ -230,7 +221,7 @@ subroutine get_vrelonvfrag(x,y,z,isnow,rsnow,Tsnow,vfragin,vfragout,vfrag,vrel,v
  case(0) !--uniform vfrag
  	vrelonvfrag = vrel / vfrag
  case(1) !--position based snow line in cylindrical geometry
- 	r = sqrt(x**2+y**2)
+ 	r = sqrt(xyzh(1)**2+xyzh(2)**2)
 	if (r < rsnow) vrelonvfrag = vrel / vfragin
 	if (r > rsnow) vrelonvfrag = vrel / vfragout
  case(2) !--temperature based snow line wrt eos
@@ -254,14 +245,16 @@ subroutine write_options_growth(iunit)
 
  write(iunit,"(/,a)") '# options controlling growth'
  call write_inopt(ifrag,'ifrag','dust fragmentation (0=off,1=on,2=Kobayashi)',iunit)
- call write_inopt(grainsizemin,'grainsizemin','minimum grain size in cm',iunit)
- call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
- if (isnow == 1) call write_inopt(rsnow,'rsnow','position of the snow line in AU',iunit)
- if (isnow == 2) call write_inopt(rsnow,'Tsnow','snow line condensation temperature in K',iunit)
- if (isnow == 0) call write_inopt(vfrag,'vfrag','uniform fragmentation threshold in m/s',iunit)
- if (isnow > 0) then
- 	call write_inopt(vfragin,'vfragin','inward fragmentation threshold in m/s',iunit)
- 	call write_inopt(vfragout,'vfragout','outward fragmentation threshold in m/s',iunit)
+ if (ifrag /= 0) then
+ 	call write_inopt(grainsizemin,'grainsizemin','minimum grain size in cm',iunit)
+ 	call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
+ 	if (isnow == 1) call write_inopt(rsnow,'rsnow','position of the snow line in AU',iunit)
+ 	if (isnow == 2) call write_inopt(rsnow,'Tsnow','snow line condensation temperature in K',iunit)
+ 	if (isnow == 0) call write_inopt(vfrag,'vfrag','uniform fragmentation threshold in m/s',iunit)
+ 	if (isnow > 0) then
+ 		call write_inopt(vfragin,'vfragin','inward fragmentation threshold in m/s',iunit)
+ 		call write_inopt(vfragout,'vfragout','outward fragmentation threshold in m/s',iunit)
+	endif
  endif
 
 end subroutine write_options_growth

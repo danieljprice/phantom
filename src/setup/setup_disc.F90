@@ -469,12 +469,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 			 call prompt('Enter minimum allowed grain size in cm',grainsizemin)
 			 call prompt('Do you want a snow line ? (0=no,1=position based,2=temperature based)',isnow,0,2)
 			 if (isnow == 0) then
-				call prompt('Enter uniform vfrag in m/s',vfrag,1.,15.)
+				call prompt('Enter uniform vfrag in m/s',vfrag,1.)
 		     else
-				if (isnow == 1) call prompt('How far from the star in AU ?',rsnow)
-				if (isnow == 2) call prompt('Enter snow line condensation temperature in K',Tsnow)
-				call prompt('Enter inward vfragin in m/s',vfragin,1.,15.)
-				call prompt('Enter outward vfragout in m/s',vfragout,1.,15.)
+				if (isnow == 1) call prompt('How far from the star in AU ?',rsnow,0.)
+				if (isnow == 2) call prompt('Enter snow line condensation temperature in K',Tsnow,0.)
+				call prompt('Enter inward vfragin in m/s',vfragin,1.)
+				call prompt('Enter outward vfragout in m/s',vfragout,1.)
 		  	 endif
 		  endif
 	   elseif (use_dustgrowth .and. dust_method == 1) then
