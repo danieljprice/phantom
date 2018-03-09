@@ -15,9 +15,9 @@
 !   for use in Phantom by Daniel Price (2011)
 !
 !  REFERENCES:
-!   Nelson (1997)
-!   Glover (2010)
-!   Bergin et. al. (2004)
+!   Nelson & Langer (1997)
+!   Glover et al. (2010)
+!   Bergin et al. (2004)
 !
 !  OWNER: Daniel Price
 !
@@ -33,12 +33,12 @@ module chem
  implicit none
  public :: init_chem,energ_h2cooling,update_abundances
 !
-!--some variables needed for CO chemistry, Nelson97
+!--some variables needed for CO chemistry, Nelson+Langer97
 !
  real, parameter :: k0=5.0d-16
  real, parameter :: k1=5.0d-10
 
- ! parameter for CO dissociation, Nelson97 has 1.0d-10
+ ! parameter for CO dissociation, Nelson+Langer97 has 1.0d-10
  real, parameter :: phrates=1.56d-10
 !
 !--some variables needed for H2 chemistry
@@ -212,7 +212,7 @@ subroutine update_abundances(ui,rhoi,chemarrays,nchem,abund,tempiso,np1,dt,xi,yi
     np1tempRconst = np1*sqrttempiso*Rconst
 
 
-!--Calc the rates needed for CO generation/loss, Nelson97/Glover10
+!--Calc the rates needed for CO generation/loss, Nelson+Langer97/Glover10
 !--Go=1.0 simplifies things:
 !  Gamma_CO  =phrate*Go*exp[-2.5*AVconvfac*N_tot],   was -0.267*
 !  Gamma_CHx =5*Gamma_CO
@@ -228,7 +228,7 @@ subroutine update_abundances(ui,rhoi,chemarrays,nchem,abund,tempiso,np1,dt,xi,yi
     th2=10000.d0    !Timestep for H2 initially
     nstep = 5000
     totH2rate = 0.d0
-    !--From Bergin et. al. 2004, d(n(h2))/dt=(formation-destruction)
+    !--From Bergin et al. 2004, d(n(h2))/dt=(formation-destruction)
     call H2fd_rate(np1,h2ratio,dphot,third,exprate,rate_diss0,np1tempRconst,cosmic_ray_ion_rate,totH2rate,nh1)
     !--Here we are looking to dt such that n(H2) goes to zero, i.e dt=0-n(H2)/(formation-destruction)
     !--First just check that dt is not 0. - but actually this should not occur anyway.
