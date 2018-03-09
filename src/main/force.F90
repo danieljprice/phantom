@@ -124,10 +124,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
                         switches_done_in_derivs,mhd,mhd_nonideal,lightcurve
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,     only:ncells,ifirstincell,get_neighbour_list,get_hmaxcell,get_cell_location
- use options,      only:iresistive_heating,use_dustfrac
- use part,         only:rhoh,dhdrho,rhoanddhdrho,massoftype,&
-                        alphaind,nabundances,&
-                        ll,get_partinfo,iactive,gradh,&
+ use options,      only:iresistive_heating
+ use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,nabundances,ll,get_partinfo,iactive,gradh,&
                         hrho,iphase,maxphase,igas,iboundary,maxgradh,straintensor, &
                         eta_nimhd,deltav,poten
  use timestep,     only:dtcourant,dtforce,bignumber,dtdiff
@@ -161,19 +159,19 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use units,        only:unit_density
 #endif
 #ifdef DUST
- use dust,          only:get_ts,grainsize,graindens,idrag,icut_backreaction
- use kernel,        only:wkern_drag,cnormk_drag
+ use dust,         only:get_ts,grainsize,graindens,idrag,icut_backreaction
+ use kernel,       only:wkern_drag,cnormk_drag
 #endif
  use nicil,        only:nimhd_get_jcbcb,nimhd_get_dt,nimhd_get_dBdt,nimhd_get_dudt
 #ifdef LIGHTCURVE
  use part,         only:luminosity
 #endif
 #ifdef MPI
- use mpiderivs,   only:send_cell,recv_cells,check_send_finished,init_cell_exchange,finish_cell_exchange, &
+ use mpiderivs,    only:send_cell,recv_cells,check_send_finished,init_cell_exchange,finish_cell_exchange, &
                        recv_while_wait,reset_cell_counters
- use stack,       only:reserve_stack
- use stack,       only:stack_remote => force_stack_1
- use stack,       only:stack_waiting => force_stack_2
+ use stack,        only:reserve_stack
+ use stack,        only:stack_remote => force_stack_1
+ use stack,        only:stack_waiting => force_stack_2
 #endif
 
  integer,      intent(in)    :: icall,npart
@@ -2090,6 +2088,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 #endif
  integer               :: ip,i
 
+ eni = 0.
  realviscosity = (irealvisc > 0)
 
  over_parts: do ip = 1,cell%npcell
@@ -2158,14 +2157,15 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
           if (maxstrain == maxp .and. realviscosity) then
              straini(:) = straintensor(:,i)
           endif
-          if (icooling > 0) then
-             eni = xpartveci(ieni)
-          endif
+          eni = xpartveci(ieni)
        endif
 
        if (use_dustfrac) then
           dustfraci = xpartveci(idustfraci)
           tstopi = xpartveci(itstop)
+       else
+          dustfraci = 0.
+          tstopi = 0.
        endif
 
     endif

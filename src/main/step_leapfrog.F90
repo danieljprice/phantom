@@ -807,8 +807,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     !
     call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
 
-    naccreted = reduceall_mpi('+',naccreted)
-    nfail = reduceall_mpi('+',nfail)
+    naccreted = int(reduceall_mpi('+',naccreted))
+    nfail = int(reduceall_mpi('+',nfail))
 
     if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 

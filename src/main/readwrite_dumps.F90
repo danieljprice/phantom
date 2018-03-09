@@ -563,7 +563,7 @@ subroutine write_smalldump(t,dumpfile)
  integer         :: nums(ndatatypes,4)
  integer         :: ierr,ipass,k
  integer         :: nblocks,nblockarrays,narraylengths
- integer(kind=8) :: nparttot,npartoftypetot(maxtypes),npartoftypetotact(maxtypes)
+ integer(kind=8) :: nparttot,npartoftypetot(maxtypes)
  logical         :: write_itype
  type(dump_h)    :: hdr
 

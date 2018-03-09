@@ -31,7 +31,7 @@ module teststep
 contains
 
 subroutine test_step(ntests,npass)
- use io,       only:id,master,nprocs
+ use io,       only:id,master
 #ifdef PERIODIC
  use io,       only:iverbose
  use dim,      only:maxp,maxvxyzu,maxalpha,maxstrain

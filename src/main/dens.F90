@@ -1225,7 +1225,6 @@ end subroutine reduce_and_print_neighbour_stats
 
 pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
                              xyzcache)
- use io,          only:id
  use dim,         only:maxvxyzu
  use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,set_boundaries_to_active
  use viscosity,   only:irealvisc
@@ -1558,7 +1557,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gra
  use kernel,      only:radkern
 
  use part,        only:xyzh_soa
- use kdtree,      only:inoderange,inodeparts
+ use kdtree,      only:inodeparts
 
  integer,         intent(in)    :: icall
  type(celldens),  intent(in)    :: cell

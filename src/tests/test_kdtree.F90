@@ -36,7 +36,7 @@ subroutine test_kdtree(ntests,npass)
  use dim,       only:ncellsmax,maxp
  use io,        only:id,master,iverbose
  use linklist,  only:ifirstincell,ncells,node
- use part,      only:npart,xyzh,hfact,vxyzu,massoftype,igas,maxphase,iphase,isetphase
+ use part,      only:npart,xyzh,hfact,massoftype,igas,maxphase,iphase,isetphase
  use kernel,    only:hfact_default
  use kdtree,    only:maketree,revtree,kdnode,empty_tree
  use unifdis,   only:set_unifdis
