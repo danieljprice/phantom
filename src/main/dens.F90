@@ -263,11 +263,11 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(iterations_finished) &
 !$omp shared(mpiits) &
 !$omp reduction(+:nlocal) &
-!$omp reduction(+:ntotal) &
 !$omp private(do_export) &
 !$omp private(j) &
 !$omp private(k) &
 !$omp private(l) &
+!$omp private(ntotal) &
 #endif
 !$omp private(remote_export) &
 !$omp private(nneigh) &
@@ -1229,6 +1229,9 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,set_boundaries_to_active
  use viscosity,   only:irealvisc
  use kdtree,      only:inodeparts
+#ifdef MPI
+ use io,          only:id
+#endif
 
  type(celldens),  intent(inout)  :: cell
 
