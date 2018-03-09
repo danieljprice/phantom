@@ -159,7 +159,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use units,        only:unit_density
 #endif
 #ifdef DUST
- use dust,         only:get_ts,grainsize,graindens,idrag,icut_backreaction
  use kernel,       only:wkern_drag,cnormk_drag
 #endif
  use nicil,        only:nimhd_get_jcbcb,nimhd_get_dt,nimhd_get_dBdt,nimhd_get_dudt
@@ -203,7 +202,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #endif
 #ifdef DUST
  real    :: frac_stokes, frac_super
- integer :: iregime
 #endif
  logical :: realviscosity,useresistiveheat
 #ifndef IND_TIMESTEPS
@@ -622,10 +620,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #endif
 
 #ifdef DUST
- ndrag = reduceall_mpi('+',ndrag)
+ ndrag = int(reduceall_mpi('+',ndrag))
  if (ndrag > 0) then
-    nstokes = reduce_mpi('+',nstokes)
-    nsuper =  reduce_mpi('+',nsuper)
+    nstokes = int(reduce_mpi('+',nstokes))
+    nsuper =  int(reduce_mpi('+',nsuper))
     frac_stokes = nstokes/real(ndrag)
     frac_super  = nsuper/real(ndrag)
     if (iverbose >= 1 .and. id==master) then
@@ -839,7 +837,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef DUST
  integer :: iregime
  real    :: dragterm,dragheating,wdrag,tsij,dv2
- real    :: dustfracterm,Dav,grkernav,tsj,dustfracterms,term
+ real    :: Dav,grkernav,tsj,dustfracterms,term
 #endif
  real    :: dBevolx,dBevoly,dBevolz,divBsymmterm,divBdiffterm
  real    :: rho21i,rho21j,Bxi,Byi,Bzi,psii,pmjrho21grkerni,pmjrho21grkernj
@@ -956,6 +954,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  Bxj = 0.
  Byj = 0.
  Bzj = 0.
+ psij = 0.
  visctermisoj = 0.
  visctermanisoj = 0.
  loop_over_neighbours2: do n = 1,nneigh
@@ -1144,6 +1143,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !-- v_sig for pairs of particles that are not gas-gas
           vsigi = max(-projv,0.0)
           if (vsigi > vsigmax) vsigmax = vsigi
+          vsigavi = 0.
+          dBx = 0.; dBy = 0.; dBz = 0.; dB2 = 0.
+          projBi = 0.; projBj = 0.; divBdiffterm = 0.
        endif
 
        !--get terms required for particle j
@@ -1188,7 +1190,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           else
              vsigj = max(-projv,0.)
              if (vsigj > vsigmax) vsigmax = vsigj
-             vsigavj = 0.
+             vsigavj = 0.; vwavej = 0.; avBtermj = 0.; autermj = 0. ! avoid compiler warnings
+             sxxj = 0.; sxyj = 0.; sxzj = 0.; syyj = 0.; syzj = 0.; szzj = 0.; pro2j = 0.; prj = 0.
+             dustfracj = 0.; sqrtrhodustfracj = 0.
           endif
        else ! set to zero terms which are used below without an if (usej)
           rhoj      = 0.
@@ -1198,6 +1202,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           mrhoj5    = 0.
           autermj   = 0.
           avBtermj  = 0.
+          psij = 0.
 
           gradpj    = 0.
           projsxj   = 0.
@@ -1257,7 +1262,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
           if (mhd) then
              !
-             !--artificial resistivity
+             ! artificial resistivity
              !
              vsigB = sqrt((dvx - projv*runix)**2 + (dvy - projv*runiy)**2 + (dvz - projv*runiz)**2)
              dBdissterm = (avBterm*grkerni + avBtermj*grkernj)*vsigB
@@ -1271,14 +1276,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              termi        = pmjrho21grkerni*projBi
              divBsymmterm =  termi + pmjrho21grkernj*projBj
              dBrhoterm    = -termi
-             !--grad psi term for divergence cleaning
-             ! original cleaning as in Tricco & Price (2012)
-             !if (maxBevol >= 4) dpsiterm = pmjrho21grkerni*psii + pmjrho21grkernj*psij
-
+             !
+             ! grad psi term for divergence cleaning
              ! new cleaning evolving d/dt (psi/c_h) as in Tricco, Price & Bate (2016)
+             !
              if (maxBevol >= 4) dpsiterm = overcleanfac*(pmjrho21grkerni*psii*vwavei + pmjrho21grkernj*psij*vwavej)
              !
              ! non-ideal MHD terms
+             !
              if (mhd_nonideal) then
                 call nimhd_get_dBdt(dBnonideal,etaohmi,etahalli,etaambii,curlBi, &
                                   jcbi,jcbcbi,runix,runiy,runiz)
@@ -1299,6 +1304,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              endif
              !
              ! dB/dt evolution equation
+             !
              dBevolx = dBrhoterm*dvx + dBdissterm*dBx - dpsiterm*runix - dBnonideal(1)
              dBevoly = dBrhoterm*dvy + dBdissterm*dBy - dpsiterm*runiy - dBnonideal(2)
              dBevolz = dBrhoterm*dvz + dBdissterm*dBz - dpsiterm*runiz - dBnonideal(3)
@@ -2128,6 +2134,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
     spsoundi   = xpartveci(ispsoundi)
     vsigmax    = cell%vsigmax(ip)
     dtdrag     = cell%dtdrag(ip)
+    tstopi     = 0.
 
     if (iamgasi) then
        rhoi    = xpartveci(irhoi)
@@ -2165,7 +2172,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
           tstopi = xpartveci(itstop)
        else
           dustfraci = 0.
-          tstopi = 0.
        endif
 
     endif
