@@ -153,7 +153,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use kernel,       only:kernel_softening
  use kdtree,       only:expand_fgrav_in_taylor_series
  use linklist,     only:get_distance_from_centre_of_mass
- use part,         only:xyzmh_ptmass,nptmass
+ use part,         only:xyzmh_ptmass,nptmass,massoftype
  use ptmass,       only:icreate_sinks,rho_crit,r_crit2,&
                         rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ipart,rhomax_ibin
  use units,        only:unit_density
@@ -768,7 +768,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
- use part,        only:xyzmh_ptmass,nptmass,ihacc
  use ptmass,      only:ptmass_not_obscured
 #endif
 #ifdef PERIODIC
@@ -826,9 +825,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: hj1,hj21,q2j,qj,vwavej,divvj
  real    :: strainj(6)
 #ifdef GRAVITY
- integer :: k
  real    :: fmi,fmj,dsofti,dsoftj
- real    :: xkpt,ykpt,zkpt,vpos
  logical :: add_contribution
 #else
  logical, parameter :: add_contribution = .true.
