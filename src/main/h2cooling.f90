@@ -13,7 +13,8 @@
 !  Translated to Fortran 90 and adapted
 !  for use in Phantom by Daniel Price (2011)
 !
-!  REFERENCES: None
+!  REFERENCES:
+!   Sembach et al. (2000) ApJ 528, 310
 !
 !  OWNER: Daniel Price
 !
@@ -86,10 +87,10 @@ module h2cooling
 ! (in Phantom these appear in the input file when cooling is set,
 !  here we give them sensible default values)
 !
-! Total abundances of C, O, Si:
- real, public :: abundc  = 2.d-4
- real, public :: abundo  = 4.5d-4
- real, public :: abundsi = 3.d-5
+! Total abundances of C, O, Si: Sembach et al. (2000)
+ real, public :: abundc  = 1.4d-4
+ real, public :: abundo  = 3.2d-4
+ real, public :: abundsi = 1.5d-5
  real, public :: abunde  = 2.d-4
 
 ! Strength of UV field (in Habing units)
