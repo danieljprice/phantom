@@ -1138,18 +1138,18 @@ subroutine test_derivs(ntests,npass,string)
 
 contains
 
+#ifdef IND_TIMESTEPS
 subroutine reset_allactive
  !
  !--reset all particles to active for subsequent tests
  !
-#ifdef IND_TIMESTEPS
  do i=1,npart
     iphase(i) = isetphase(igas,iactive=.true.)
  enddo
  nactive = npart
-#endif
 
 end subroutine reset_allactive
+#endif
 
 subroutine set_active(npart,nactive,itype)
  integer, intent(in) :: npart, nactive, itype
