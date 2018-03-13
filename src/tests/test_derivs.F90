@@ -518,10 +518,8 @@ subroutine test_derivs(ntests,npass,string)
           deint = deint + fxyzu(4,i)
           dekin = dekin + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
        enddo
-#ifdef MPI
        deint = reduceall_mpi('+',deint)
        dekin = reduceall_mpi('+',dekin)
-#endif
        nfailed(:) = 0
        if (maxstrain==maxp) then
           tol = 1.52e-6
@@ -599,13 +597,10 @@ subroutine test_derivs(ntests,npass,string)
              deint  = deint  + (1. - dustfraci)*fxyzu(4,i)
              dedust = dedust - vxyzu(4,i)*ddustfraci
           enddo
-
-#ifdef MPI
           dmdust  = reduceall_mpi('+',dmdust)
           dekin   = reduceall_mpi('+',dekin)
           deint   = reduceall_mpi('+',deint)
           dedust  = reduceall_mpi('+',dedust)
-#endif
 
           nfailed(:) = 0
           !print "(3(a,es17.10))",' dE_kin = ',dekin,' dE_therm = ',deint,' dE_dust = ',dedust
