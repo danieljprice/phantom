@@ -34,7 +34,7 @@ subroutine write_codeinfo(iunit)
 !
 !--write out code name, version and time
 !
- write(iunit,10) '0.9, released 14th Feb 2017'
+ write(iunit,10) '1.0, released 13th March 2018'
 
 10 format(/, &
    "  _ \  |                 |                    ___|   _ \  |   |",/, &
