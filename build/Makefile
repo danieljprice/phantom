@@ -379,7 +379,6 @@ ifeq ($(SETUP), shock)
     DOUBLEPRECISION=yes
     KERNEL=quintic
     ISOTHERMAL=no
-    MAXP=6000000
     KNOWN_SETUP=yes
 endif
 
@@ -390,7 +389,6 @@ ifeq ($(SETUP), mhdshock)
     DOUBLEPRECISION=yes
     MHD=yes
     KERNEL=quintic
-    MAXP=6000000
     KNOWN_SETUP=yes
 endif
 
