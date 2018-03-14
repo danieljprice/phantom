@@ -105,7 +105,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
  integer :: i,npnode,il,ir,istack,nl,nr,mymum
  integer :: nnode,minlevel,level
  real :: xmini(ndim),xmaxi(ndim),xminl(ndim),xmaxl(ndim),xminr(ndim),xmaxr(ndim)
- integer, parameter :: istacksize = 200
+ integer, parameter :: istacksize = 512 
  type(kdbuildstack), save :: stack(istacksize)
  integer, save :: list(maxp)
 !$omp threadprivate(stack,list)
