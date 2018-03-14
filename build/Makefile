@@ -978,7 +978,7 @@ ifeq ($(SYSTEM), raijin)
 #   raijin (NCI machine)
     include Makefile_defaults_ifort
     #MPI=intel
-    FFLAGS= -O3 -ip -axSSE2,SSSE3,SSE4.1,SSE4.2,AVX -inline-factor=500 -warn uninitialized -warn unused -warn truncated_source
+    FFLAGS= -O3 -mcmodel=medium -shared-intel -ip -axSSE2,SSSE3,SSE4.1,SSE4.2,AVX -inline-factor=500 -warn uninitialized -warn unused -warn truncated_source
     DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fpstkchk
     CCFLAGS= -O3 -ip
     QSYS= pbs
