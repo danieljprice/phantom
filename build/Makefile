@@ -1,6 +1,6 @@
 #--------------------------------------------------------------------------!
 # The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-# Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+# Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 # See LICENCE file for usage and distribution conditions                   !
 # http://users.monash.edu.au/~dprice/phantom                               !
 #--------------------------------------------------------------------------!
@@ -210,16 +210,17 @@ ifeq ($(SETUP), taylorgreen)
 endif
 
 ifeq ($(SETUP), turb)
-#   driven mhd turbulence
-    FPPFLAGS= -DPERIODIC -DCORRECT_BULK_MOTION -DSTIR_FROM_FILE
-    SETUPFILE= setup_turb.F90
-    SRCTURB= forcing.F90
-    IND_TIMESTEPS=yes
-    KNOWN_SETUP=yes
-    ISOTHERMAL=yes
-    CURLV=yes
-    MHD=yes
-    USE_STRAIN_TENSOR=yes
+#   driven supersonic turbulence (hydro, mhd, dusty)
+    FPPFLAGS      = -DPERIODIC -DCORRECT_BULK_MOTION -DSTIR_FROM_FILE
+    SETUPFILE     = setup_turb.F90
+    SRCTURB       = forcing.F90
+    IND_TIMESTEPS = yes
+    KNOWN_SETUP   = yes
+    ISOTHERMAL    = yes
+    CURLV         = yes
+    MHD           = no
+    DUST          = no
+    USE_STRAIN_TENSOR = yes
 endif
 
 ifeq ($(SETUP), photoevap)
@@ -315,7 +316,7 @@ endif
 ifeq ($(SETUP), planetdisc)
 #   planet disc interaction with fixed planet orbit
     FPPFLAGS= -DSORT_RADIUS_INIT
-    SETUPFILE= setup_planetdisc_comparison.f90
+    SETUPFILE= setup_planetdisc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes
     CURLV=yes
@@ -378,7 +379,6 @@ ifeq ($(SETUP), shock)
     DOUBLEPRECISION=yes
     KERNEL=quintic
     ISOTHERMAL=no
-    MAXP=6000000
     KNOWN_SETUP=yes
 endif
 
@@ -389,7 +389,6 @@ ifeq ($(SETUP), mhdshock)
     DOUBLEPRECISION=yes
     MHD=yes
     KERNEL=quintic
-    MAXP=6000000
     KNOWN_SETUP=yes
 endif
 
@@ -481,7 +480,7 @@ ifeq ($(SETUP), sedov)
 #   Sedov blast wave test
     FPPFLAGS= -DPERIODIC
     SETUPFILE= setup_sedov.f90
-    IND_TIMESTEPS=no
+    IND_TIMESTEPS=yes
     KNOWN_SETUP=yes
     MAXP=2100000
 endif
@@ -574,6 +573,17 @@ ifeq ($(SETUP), mhdblast)
     MAXP=3000000
 endif
 
+ifeq ($(SETUP), mhdwave)
+#   propagating isolated MHD wave
+    SETUPFILE= setup_mhdwave.f90
+    PERIODIC=yes
+    MHD=yes
+    ISOTHERMAL=no
+    IND_TIMESTEPS=no
+    KNOWN_SETUP=yes
+    MAXP=3000000
+endif
+
 ifeq ($(SETUP), cluster)
 #   cluster formation (setup)
     FPPFLAGS=
@@ -589,15 +599,6 @@ ifeq ($(SETUP), cluster)
     MAXP=3500000
 endif
 
-ifeq ($(SETUP), tracers) # [buildbot skip]
-#   tracer particle density calculation
-    FPPFLAGS= -DPERIODIC #-DNO_ITERATIONS
-    SETUPFILE= setup_tracers.f90
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-    HDF5=yes
-endif
-
 ifeq ($(SETUP), binary)
 #   binary setup
     FPPFLAGS= -DCONST_AV
@@ -611,14 +612,6 @@ ifeq ($(SETUP), common)
 #   binary setup
     FPPFLAGS=
     SETUPFILE= setup_common.f90
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), rnbinary)
-#   Nealon binary setup
-    FPPFLAGS=
-    SETUPFILE= setup_rnbinary.f90
-    ISOTHERMAL=yes
     KNOWN_SETUP=yes
 endif
 
@@ -677,6 +670,7 @@ ifeq ($(SETUP), jetnimhd)
     NONIDEALMHD=yes
     IND_TIMESTEPS=yes
     STS_TIMESTEPS=yes
+    MODFILE=moddump_CoM.f90
     KNOWN_SETUP=yes
 endif
 
@@ -721,15 +715,6 @@ ifeq ($(SETUP), dustsettle)
     MODFILE=moddump_dustadd.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
-endif
-
-ifeq ($(SETUP), starinbox)
-#   driven turbulence
-    FPPFLAGS= -DPERIODIC
-    SETUPFILE= setup_starinbox.F90
-    MHD=yes
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), test)
@@ -825,8 +810,9 @@ ifeq ($(SETUP), galaxies)
     ANALYSIS=analysis_GalMerger.f90
     CONST_AV=no
     ISOTHERMAL=no
-    IND_TIMESTEPS=no
+    IND_TIMESTEPS=yes
     GRAVITY=yes
+    MAXP=2600000
     KNOWN_SETUP=yes
 endif
 
@@ -961,6 +947,7 @@ endif
 
 ifeq ($(SYSTEM), g2)
 #   gstar facility
+#   Note: gstar has nomp=12; sstar has nomp=16
     include Makefile_defaults_ifort
     QSYS = pbs
     ifeq ($(OPENMP),yes)
@@ -1081,10 +1068,9 @@ endif
 ifeq ($(SYSTEM), lyoccf)
 # LIO CCF cluster
     include Makefile_defaults_ifort
-    FFLAGS= -O3 -ftz -xavx -cpp -sox -ipo -fno-alias -fno-fnalias \
+    FFLAGS= -O3 -ftz -xavx -cpp -sox -fno-alias -fno-fnalias \
             -no-prec-div -no-prec-sqrt -align all -warn uninitialized \
             -warn unused -warn truncated_source
-    CCFLAGS = -O3 -ipo -mcmodel=medium
     LIBCXX = -cxxlib
 endif
 
@@ -1191,6 +1177,10 @@ ifeq ($(STS_TIMESTEPS), yes)
     FPPFLAGS += -DSTS_TIMESTEPS
 endif
 
+ifeq ($(CMACIONIZE), yes)
+    FPPFLAGS += -DCMACIONIZE
+endif
+
 ifeq ($(DEBUG), yes)
     FFLAGS += -DDEBUG
 endif
@@ -1289,6 +1279,12 @@ ifeq ($(MPI), intel)
     FPPFLAGS += -DMPI
     USEMPI=yes
 endif
+
+ifeq ($(USEMPI), yes)
+    RUNMPI=$(MPIEXEC)
+else
+    RUNMPI=
+endif
 #
 # HDF5 libraries (if required)
 #
@@ -1345,7 +1341,7 @@ SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
 SRCEOS = ${SRCMESA} eos.F90
 
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
-         utils_mathfunc.f90 part.F90 utils_timing.f90 ${DOMAIN} mpi_balance.F90 commons.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
+         utils_mathfunc.f90 ${DOMAIN} part.F90 utils_timing.f90 mpi_balance.F90 commons.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_sphNG.f90 utils_vectors.f90 \
          utils_datafiles.f90 datafiles.f90 ${SRCFASTMATH} random.f90 \
          checkoptions.F90 ${SRCEOS} set_binary.f90 set_flyby.f90 \
@@ -1377,7 +1373,7 @@ phantom: checksystem checkparams $(OBJECTS) phantom.o
 ifeq ($(UNAME), Darwin)
 	dsymutil $(BINDIR)/$@
 endif
-	@sh ../scripts/phantom_version_gen.sh
+	@sh ../scripts/phantom_version_gen.sh "$(FPPFLAGS)"
 	@echo ""
 	@echo "The Phantom is here (in $(BINDIR)/phantom)"
 	@echo ""
@@ -1413,7 +1409,7 @@ edit: checksetup
 #
 SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 \
          utils_dumpfiles.f90 utils_mathfunc.f90 utils_infiles.f90 utils_vectors.f90 \
-         utils_datafiles.f90 datafiles.f90 part.F90 utils_sphNG.f90 \
+         utils_datafiles.f90 datafiles.f90 ${DOMAIN} part.F90 utils_sphNG.f90 \
          commons.f90 ${SRCFASTMATH} ${SRCEOS} centreofmass.f90 ${SRCPOT} checkoptions.F90 \
          viscosity.f90 options.f90 ${SRCDUST} \
          readwrite_dumps.F90
@@ -1428,7 +1424,7 @@ physcon.o: .make_mathflags
 # these are the sources for phantom setup utility
 #
 SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_filenames.f90 utils_summary.F90 \
-          utils_tables.f90 random.f90 mpi_balance.F90 ${DOMAIN} set_binary.f90 set_flyby.f90 \
+          utils_tables.f90 random.f90 mpi_balance.F90 set_binary.f90 set_flyby.f90 \
           utils_indtimesteps.F90 partinject.F90 dtype_kdtree.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} \
           ptmass.F90 energies.F90 \
@@ -1570,7 +1566,7 @@ cleanphantom2power:
 #
 OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_filenames.f90 utils_indtimesteps.F90 \
           checksetup.f90 prompting.f90 \
-          set_Bfield.f90 mpi_domain.F90 ${LINKLIST} \
+          set_Bfield.f90 ${LINKLIST} \
           partinject.F90 random.f90 set_disc.F90 set_binary.f90 ${SRCINJECT} \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} \
           density_profiles.f90 ptmass.F90 readwrite_infile.f90 ${MODFILE:.f90=.o}
@@ -1624,6 +1620,9 @@ libphantom: checksystem checkparams
 
 cleanlibphantom:
 	rm -f $(BINDIR)/libphantom.so
+
+.PHONY: pyanalysis
+pyanalysis: libphantom
 
 #------------------------------------------------------
 # Various utilities for computing structure functions
@@ -2232,25 +2231,25 @@ test1: checksystem checkparams $(OBJDUMP) test_blocklimits.o
 #
 .PHONY: test test2 testcyl testgrav testall
 test:
-	${MAKE} SETUP=test && $(MPIEXEC) $(BINDIR)/phantom test
+	${MAKE} SETUP=test && $(RUNMPI) $(BINDIR)/phantom test
 
 test2:
-	${MAKE} SETUP=test2 && $(MPIEXEC) $(BINDIR)/phantom test
+	${MAKE} SETUP=test2 && $(RUNMPI) $(BINDIR)/phantom test
 
 testkd:
-	${MAKE} SETUP=testkd && $(MPIEXEC) $(BINDIR)/phantom test
+	${MAKE} SETUP=testkd && $(RUNMPI) $(BINDIR)/phantom test
 
 testcyl:
-	${MAKE} SETUP=testcyl && $(MPIEXEC) $(BINDIR)/phantom test
+	${MAKE} SETUP=testcyl && $(RUNMPI) $(BINDIR)/phantom test
 
 testgrav:
-	${MAKE} SETUP=testgrav && $(MPIEXEC) $(BINDIR)/phantom test gravity
+	${MAKE} SETUP=testgrav && $(RUNMPI) $(BINDIR)/phantom test gravity
 
 testdust:
-	${MAKE} SETUP=testdust && $(MPIEXEC) $(BINDIR)/phantom test dust
+	${MAKE} SETUP=testdust && $(RUNMPI) $(BINDIR)/phantom test dust
 
 testnimhd:
-	${MAKE} SETUP=testnimhd && $(MPIEXEC) $(BINDIR)/phantom test nimhd
+	${MAKE} SETUP=testnimhd && $(RUNMPI) $(BINDIR)/phantom test nimhd
 
 testall: test test2 testcyl testgrav
 

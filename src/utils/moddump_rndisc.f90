@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -29,7 +29,7 @@ contains
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use setdisc, only:set_incline_or_warp
  use physcon, only:pi
- use part, only:Bevol,mhd,maxBevol,rhoh,igas
+ use part, only:Bxyz,mhd,rhoh,igas
  use setup_params, only:ihavesetupB
  integer, intent(in)    :: npartoftype(:)
  real,    intent(in)    :: massoftype(:)
@@ -85,8 +85,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        pmassii = massoftype(igas)
        pressure = cs**2*rhoh(xyzh(4,ii),pmassii)
        Bzero = sqrt(2.*pressure/beta)
-       Bevol(1,ii) = -Bzero*sin(phi)
-       Bevol(2,ii) = Bzero*cos(phi)
+       Bxyz(1,ii) = -Bzero*sin(phi)
+       Bxyz(2,ii) = Bzero*cos(phi)
 
        ! Calculate correction in v_phi due to B
        vphiold = (-xyzh(2,ii)*vxyzu(1,ii) + xyzh(1,ii)*vxyzu(2,ii))/r
@@ -99,7 +99,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
     enddo
 
-    Bevol(3,:) = 0.0
+    Bxyz(3,:) = 0.0
 
     print*,'Magnetic field added.'
 
@@ -108,9 +108,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 !!    do ii=1,npart
 !!      if (abs(xyzh(3,ii)) < HonR) then  ! to only set the field up in a section of the disc
 !!       theta=atan2(xyzh(2,ii),xyzh(1,ii))
-!!       Bevol(1,ii) = 0. !real(Bzero*sin(theta),kind=4)
-!!       Bevol(2,ii) = 0. !real(-Bzero*cos(theta),kind=4)
-!!       Bevol(3,ii) = 0.
+!!       Bxyz(1,ii) = 0. !real(Bzero*sin(theta),kind=4)
+!!       Bxyz(2,ii) = 0. !real(-Bzero*cos(theta),kind=4)
+!!       Bxyz(3,ii) = 0.
 !!      endif
 !!    enddo
  endif

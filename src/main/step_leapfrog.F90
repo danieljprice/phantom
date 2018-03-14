@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -89,7 +89,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,mhd,maxBevol,&
                           switches_done_in_derivs,iboundary,get_ntypes,npartoftype,&
-                          dustfrac,dustevol,ddustfrac,alphaind,maxvecp,nptmass
+                          dustfrac,dustevol,ddustfrac,alphaind,nptmass
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
@@ -517,7 +517,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
  use options,        only:iexternalforce
  use part,           only:maxphase,abundance,nabundances,h2chemistry,epot_sinksink,&
                           isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
-                          imacc,ispinx,ispiny,ispinz
+                          imacc,ispinx,ispiny,ispinz,fxyz_ptmass_sinksink
  use options,        only:icooling
  use chem,           only:energ_h2cooling
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
@@ -592,8 +592,10 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
           call ptmass_predictor(nptmass,dt,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
           !
           ! get sink-sink forces (and a new sink-sink timestep.  Note: fxyz_ptmass is zeroed in this subroutine)
+          ! pass sink-sink forces to variable fxyz_ptmass_sinksink for later writing.
           !
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtf,iexternalforce,timei)
+          fxyz_ptmass_sinksink=fxyz_ptmass
           if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
        else
           fxyz_ptmass(:,:) = 0.
@@ -805,8 +807,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     !
     call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
 
-    naccreted = reduceall_mpi('+',naccreted)
-    nfail = reduceall_mpi('+',nfail)
+    naccreted = int(reduceall_mpi('+',naccreted))
+    nfail = int(reduceall_mpi('+',nfail))
 
     if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 
@@ -821,7 +823,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
        call summary_accrete_fail(nfail)
        call summary_accrete(nptmass)
        ! only write to .ev during substeps if no gas particles present
-       if (npart==0) call pt_write_sinkev(nptmass,timei,xyzmh_ptmass,vxyz_ptmass)
+       if (npart==0) call pt_write_sinkev(nptmass,timei,xyzmh_ptmass,vxyz_ptmass, &
+                                          fxyz_ptmass,fxyz_ptmass_sinksink)
     endif
     !
     ! check if timestep criterion was violated during substeps

@@ -1,16 +1,16 @@
 !----------------------------------------------------------------------!
-!                               N I C I L                              !                                  
+!                               N I C I L                              !
 !           Non-Ideal mhd Coefficient and Ionisation Library           !
 !         Example programme to test various parameters of NICIL        !
 !                       (supplementary routines)                       !
 !                                                                      !
-!                 Copyright (c) 2015-2016 James Wurster                !
+!                 Copyright (c) 2015-2017 James Wurster                !
 !        See LICENCE file for usage and distribution conditions        !
 !----------------------------------------------------------------------!
 !+
-! This is a test programme to calculate grain charge, electron number 
-! densities and the non-ideal MHD coefficients for a given range of 
-! densities.  Results from this programme can be directly compared to 
+! This is a test programme to calculate grain charge, electron number
+! densities and the non-ideal MHD coefficients for a given range of
+! densities.  Results from this programme can be directly compared to
 ! the author's output found in the data folder.
 !+
 !----------------------------------------------------------------------!
@@ -18,7 +18,7 @@ module etasup
  implicit none
  !
  ! unit number for writing to the file/screen
- integer, public, parameter  :: iprint          =  6              ! Unit to write to the screen 
+ integer, public, parameter  :: iprint          =  6              ! Unit to write to the screen
  integer, public, parameter  :: iprintrho       = 17              ! Unit to write evolving density (with constant T) to file
  integer, public, parameter  :: iprintbaro      = iprintrho+1     ! Unit to write evolving values using barotropic EOS to file
  integer, public, parameter  :: iprinttemp      = iprintbaro+1    ! Unit to write evolving temperature (with constant n) to file
@@ -43,10 +43,10 @@ character(len=1) function which_Bfield(use_input_B,Bopt)
  character(len=*)    :: Bopt
  !
  if (use_input_B) then
-   which_Bfield = "I"
+    which_Bfield = "I"
  else
-   which_Bfield = Bopt
- end if
+    which_Bfield = Bopt
+ endif
  !
 end function which_Bfield
 !----------------------------------------------------------------------!
@@ -63,20 +63,20 @@ real function get_Bfield_code(n_total,unit_Bfield,version)
  real                         :: Bfield
  !
  if (version=="P") then
-   if (n_total < 1.0d6) then
-     Bfield = (n_total*1.0d-6)**0.50                  ! Magnetic field [mG] for low density
-   else
-     Bfield = (n_total*1.0d-6)**0.25                  ! Magnetic field [mG] for high density
-   end if
-   Bfield = Bfield * 1.0d-3                           ! Magnetic field [G]
+    if (n_total < 1.0d6) then
+       Bfield = (n_total*1.0d-6)**0.50                ! Magnetic field [mG] for low density
+    else
+       Bfield = (n_total*1.0d-6)**0.25                ! Magnetic field [mG] for high density
+    endif
+    Bfield = Bfield * 1.0d-3                          ! Magnetic field [G]
  else if (version=="U") then
-   Bfield = 1.43d-7*sqrt(n_total)                     ! Magnetic field [G]
+    Bfield = 1.43d-7*sqrt(n_total)                    ! Magnetic field [G]
  else if (version=="I") then
-   Bfield = Bconst                                    ! Magnetic field [G] (user's constant value)
+    Bfield = Bconst                                   ! Magnetic field [G] (user's constant value)
  else
-   write(iprint,'(a)') "That is an invalid magnetic field function"
-   call fatal(1)
- end if
+    write(iprint,'(a)') "That is an invalid magnetic field function"
+    call fatal(1)
+ endif
  get_Bfield_code = Bfield / unit_Bfield               ! Magnetic field [code units]
  !
 end function get_Bfield_code
@@ -109,7 +109,7 @@ end function get_temperature
 subroutine write_data_header(i)
  integer, intent (in) :: i
  !
- write(i,"('#',32(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(i,"('#',34(1x,'[',i2.2,1x,a11,']',2x))") &
         1,'density',    &
         2,'temp',       &
         3,'B',          &
@@ -141,7 +141,9 @@ subroutine write_data_header(i)
        29,'n_He++',     &
        30,'n_Na++',     &
        31,'n_Mg++',     &
-       32,'n_K++'
+       32,'n_K++',      &
+       33,'zeta',       &
+       34,'ng(-,+)/ng'
  !
 end subroutine write_data_header
 !----------------------------------------------------------------------!
@@ -149,11 +151,11 @@ end subroutine write_data_header
 ! Subroutine to write data to file
 !+
 !----------------------------------------------------------------------!
-subroutine write_data_to_file(iunit,rho,T,Bfield,eta_ohm,eta_hall,eta_ambi, &
-                              data_out,unit_eta,unit_Bfield,unit_density,unit_ndensity)
+subroutine write_data_to_file(iunit,rho,T,Bfield,eta_ohm,eta_hall,eta_ambi,fBdust, &
+                              data_out,unit_eta,unit_Bfield,unit_density,unit_ndensity,utime)
  integer, intent(in)    :: iunit
- real,    intent(in)    :: rho,T,Bfield,eta_ohm,eta_hall,eta_ambi
- real,    intent(in)    :: unit_eta,unit_Bfield,unit_density,unit_ndensity
+ real,    intent(in)    :: rho,T,Bfield,eta_ohm,eta_hall,eta_ambi,fBdust
+ real,    intent(in)    :: unit_eta,unit_Bfield,unit_density,unit_ndensity,utime
  real,    intent(inout) :: data_out(:)
  integer                :: j,idata
  real,    parameter     :: density_thresh  = 1.0d-60   ! parameter to prevent overflow errors when writing mass densities
@@ -161,24 +163,25 @@ subroutine write_data_to_file(iunit,rho,T,Bfield,eta_ohm,eta_hall,eta_ambi, &
  !
  !--Convert mass & number density to cgs units here; done to prevent numerical underflow
  do j = 4,5
-   if (data_out(j) < density_thresh) then
-     data_out(j) = 0.0
-   else
-     data_out(j) = data_out(j)*unit_density
-   end if
- end do
+    if (data_out(j) < density_thresh) then
+       data_out(j) = 0.0
+    else
+       data_out(j) = data_out(j)*unit_density
+    endif
+ enddo
  idata = size(data_out)
- do j = 6,idata
-   if (data_out(j) < ndensity_thresh) then
-     data_out(j) = 0.0
-   else
-     data_out(j) = data_out(j)*unit_ndensity
-   end if
- end do
+ do j = 6,idata-1
+    if (data_out(j) < ndensity_thresh) then
+       data_out(j) = 0.0
+    else
+       data_out(j) = data_out(j)*unit_ndensity
+    endif
+ enddo
+ data_out(idata) = data_out(idata)/utime
  !
  !-- Write values to file for testing purposes; note: sigma = data_out(1:3) is already in cgs
- write(iunit,'(32(1pe18.3,1x))')rho,T,Bfield*unit_Bfield                             &
-                                ,eta_ohm*unit_eta,eta_hall*unit_eta,eta_ambi*unit_eta,data_out
+ write(iunit,'(34(1pe18.3,1x))')rho,T,Bfield*unit_Bfield &
+                               ,eta_ohm*unit_eta,eta_hall*unit_eta,eta_ambi*unit_eta,data_out,fBdust
  !
 end subroutine write_data_to_file
 !----------------------------------------------------------------------!
@@ -193,19 +196,17 @@ subroutine fatal(ierr,rho,temperature)
  !
  ! Warning or fatal error encountered.  Print to file.
  if (present(rho) .and. present(temperature)) then
-   write(iprintwarn,'(2(a,Es10.3),a)') "For the above error, rho = ",rho," g/cm^3 and T = ",temperature," K"
- end if
+    write(iprintwarn,'(2(a,Es10.3),a)') "For the above error, rho = ",rho," g/cm^3 and T = ",temperature," K"
+ endif
  !
  if (ierr > 0) then
-   ! Fatal error encountered.  Aborting.
-   write(iprint,'(a)') "NICIL: ETA TEST: fatal error encountered in NICIL.  Aborting!"
-   !
-   do i = iprintrho,iprintwarn
-     close(i)
-   end do
-   !
-   stop
- end if
+    ! Fatal error encountered.  Aborting.
+    write(iprint,'(a)') "NICIL: ETA TEST: fatal error encountered in NICIL.  Aborting!"
+    do i = iprintrho,iprintwarn
+       close(i)
+    enddo
+    stop
+ endif
  !
 end subroutine
 !----------------------------------------------------------------------!

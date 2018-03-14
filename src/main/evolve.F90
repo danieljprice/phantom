@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -39,8 +39,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use io,               only:iprint,iwritein,id,master,iverbose,flush_warnings,nprocs,fatal
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce
  use evwrite,          only:write_evfile,write_evlog
- use energies,         only:etot,totmom,angtot,mdust,get_erot_com
- use dim,              only:calc_erot,maxvxyzu,mhd,periodic
+ use energies,         only:etot,totmom,angtot,mdust,xyzcom
+ use dim,              only:maxvxyzu,mhd,periodic
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,iexternalforce,&
                             icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating,&
@@ -93,13 +93,14 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use io,               only:ianalysis
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
-                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,npartoftype
+                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,npartoftype, &
+                            fxyz_ptmass_sinksink,ntot
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev, &
                             rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin,rhomax_ipart
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
- use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in
+ use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in
 #ifdef MFLOW
  use mf_write,         only:mflow_write
 #endif
@@ -114,14 +115,14 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: noutput,noutput_dtmax,nsteplast,ncount_fulldumps
  real            :: dtnew,dtlast,timecheck
- real            :: tprint,tzero,dtmaxold
+ real            :: tprint,tzero,dtmaxold,rcom,rcom_in
  real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
  real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
 #ifdef IND_TIMESTEPS
  integer         :: i,nalive,inbin,iamtypei
  integer(kind=1) :: nbinmaxprev
- integer(kind=8) :: nmovedtot,ntot
- real            :: tlast,fracactive,speedup,tcheck,dtau
+ integer(kind=8) :: nmovedtot,nalivetot
+ real            :: tlast,fracactive,speedup,tcheck,dtau,efficiency
  real(kind=4)    :: tall
  real(kind=4)    :: timeperbin(0:maxbins)
  logical         :: dt_changed
@@ -135,7 +136,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
  logical         :: fulldump,abortrun,at_dump_time,update_tzero
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
- logical         :: should_conserve_dustmass
+ logical         :: should_conserve_com,should_conserve_dustmass
  integer         :: nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  type(timer)     :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io
 
@@ -154,13 +155,17 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     should_conserve_momentum = (npartoftype(iboundary)==0)
  endif
  should_conserve_angmom   = (npartoftype(iboundary)==0 .and. .not.periodic)
+ should_conserve_com      = should_conserve_momentum
  should_conserve_dustmass = use_dustfrac
+ rcom_in = sqrt(dot_product(xyzcom_in,xyzcom_in))
+
 
 ! Each injection routine will need to bookeep conserved quantities, but until then...
 #ifdef INJECT_PARTICLES
- should_conserve_energy = .false.
+ should_conserve_energy   = .false.
  should_conserve_momentum = .false.
- should_conserve_angmom = .false.
+ should_conserve_angmom   = .false.
+ should_conserve_com      = .false.
 #endif
 
  noutput          = 1
@@ -209,12 +214,12 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
  nskipped = 0
  if (iexternalforce==iext_spiral) then
-    nevwrite_threshold = int(4.99*npart) ! every 5 full steps
+    nevwrite_threshold = int(4.99*ntot) ! every 5 full steps
  else
-    nevwrite_threshold = int(1.99*npart) ! every 2 full steps
+    nevwrite_threshold = int(1.99*ntot) ! every 2 full steps
  endif
  nskipped_sink = 0
- nsinkwrite_threshold  = int(0.99*npart)
+ nsinkwrite_threshold  = int(0.99*ntot)
 !
 ! timing between dumps
 !
@@ -278,8 +283,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
     !--flag particles as active or not for this timestep
     call set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
-    nactivetot = nactive
-    ntot = nalive
+    nactivetot = reduceall_mpi('+', nactive)
+    nalivetot = reduceall_mpi('+', nalive)
     nskip = int(nactivetot)
 
     !--print summary of timestep bins
@@ -322,16 +327,22 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     time = tlast + istepfrac/real(2**nbinmaxprev)*dtmaxold
 
     !--print efficiency of partial timestep
-    if (id==master .and. iverbose >= 0 .and. ntot > 0) then
-       if (nactivetot==ntot) then
+    if (id==master .and. iverbose >= 0 .and. nalivetot > 0) then
+       if (nactivetot==nalivetot) then
           tall = t2-t1
        elseif (tall > 0.) then
-          fracactive = nactivetot/real(ntot)
+          fracactive = nactivetot/real(nalivetot)
           speedup = (t2-t1)/tall
-          if (iverbose >= 2) &
+          if (iverbose >= 2) then
+             if (speedup > 0) then
+                efficiency = 100.*fracactive/speedup
+             else
+                efficiency = 0.
+             endif
              write(iprint,"(1x,'(',3(a,f6.2,'%'),')')") &
                   'moved ',100.*fracactive,' of particles in ',100.*speedup, &
-                  ' of time, efficiency = ',100.*fracactive/speedup
+                  ' of time, efficiency = ',efficiency
+          endif
        endif
     endif
     call update_time_per_bin(tcpu2-tcpu1,istepfrac,nbinmaxprev,timeperbin,inbin)
@@ -417,16 +428,14 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
     nskipped = nskipped + nskip
     if (nskipped >= nevwrite_threshold .or. at_dump_time .or. dt_changed) then
-       ! update centre of mass for calculation of rotational energy (infrequent for optimisation)(
-       if (at_dump_time .and. calc_erot) then
-          call get_erot_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
-       endif
        nskipped = 0
        call get_timings(t1,tcpu1)
        call write_evfile(time,dt)
+       rcom = sqrt(dot_product(xyzcom,xyzcom))
        if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
        if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
        if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
+       if (should_conserve_com)      call check_conservation_error(rcom,rcom_in,1.e-1,'centre of mass')
        if (should_conserve_dustmass) call check_conservation_error(mdust,mdust_in,1.e-1,'dust mass',decrease=.true.)
 
        !--write with the same ev file frequency also mass flux and binary position
@@ -443,11 +452,12 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        call get_timings(t2,tcpu2)
        call increment_timer(timer_ev,t2-t1,tcpu2-tcpu1)
     endif
-!-- Print out the sink particle properties & reset dt_changed
+!-- Print out the sink particle properties & reset dt_changed.
+!-- Added total force on sink particles and sink-sink forces to write statement (fxyz_ptmass,fxyz_ptmass_sinksink)
     nskipped_sink = nskipped_sink + nskip
     if (nskipped_sink >= nsinkwrite_threshold .or. at_dump_time .or. dt_changed) then
        nskipped_sink = 0
-       call pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass)
+       call pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink)
 #ifdef IND_TIMESTEPS
        dt_changed = .false.
 #endif
@@ -562,12 +572,12 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        endif
 #ifdef IND_TIMESTEPS
        !--print summary of timestep bins
-       if (iverbose >= 0 .and. id==master .and. abs(tall) > tiny(tall) .and. ntot > 0) then
-          fracactive = nmovedtot/real(ntot)
+       if (iverbose >= 0 .and. id==master .and. abs(tall) > tiny(tall) .and. nalivetot > 0) then
+          fracactive = nmovedtot/real(nalivetot)
           speedup = timer_lastdump%wall/(tall + tiny(tall))
           write(iprint,"(/,a,f6.2,'%')") ' IND TIMESTEPS efficiency = ',100.*fracactive/speedup
           if (iverbose >= 1) then
-             write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (last full step) : ',tall/real(ntot)
+             write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (last full step) : ',tall/real(nalivetot)
              write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (ave. all steps) : ',timer_lastdump%wall/real(nmovedtot)
           endif
        endif

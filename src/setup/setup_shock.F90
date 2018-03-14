@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -72,7 +72,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,set_boundary
  use mpiutils,     only:bcast_mpi
  use dim,          only:maxp,maxvxyzu,ndim,mhd
- use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bevol,mhd,periodic
+ use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,periodic
  use kernel,       only:radkern,hfact_default
  use timestep,     only:tmax
 #ifdef NONIDEALMHD
@@ -245,7 +245,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     uuright = 3.*rightstate(ipr)/(2.*rightstate(idens))
  endif
 
- Bevol = 0.
+ Bxyz = 0.
  vxyzu = 0.
  do i=1,npart
     delta = xyzh(1,i) - xshock
@@ -255,14 +255,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vxyzu(2,i) = rightstate(ivy)
        vxyzu(3,i) = rightstate(ivz)
        if (maxvxyzu >= 4) vxyzu(4,i) = uuright
-       if (mhd) Bevol(1:3,i) = rightstate(iBx:iBz)
+       if (mhd) Bxyz(1:3,i) = rightstate(iBx:iBz)
     else
        xyzh(4,i) = hrho(leftstate(idens),massoftype(igas))
        vxyzu(1,i) = leftstate(ivx)
        vxyzu(2,i) = leftstate(ivy)
        vxyzu(3,i) = leftstate(ivz)
        if (maxvxyzu >= 4) vxyzu(4,i) = uuleft
-       if (mhd) Bevol(1:3,i) = leftstate(iBx:iBz)
+       if (mhd) Bxyz(1:3,i) = leftstate(iBx:iBz)
     endif
  enddo
  if (mhd) ihavesetupB = .true.
@@ -376,8 +376,12 @@ subroutine choose_shock (gamma,polyk,iexist)
  enddo
 
  choice = 1
+#ifdef MHD
 #ifdef NONIDEALMHD
  choice = 7
+#else
+ choice = 6
+#endif
 #endif
  call prompt('Enter shock choice',choice,1,nshocks)
  icase = choice
@@ -386,14 +390,14 @@ subroutine choose_shock (gamma,polyk,iexist)
  select case (choice)
  case(1)
     !--Sod shock
-    shocktype = "Sod shock"
+    shocktype = 'Sod shock'
     gamma      = 5./3.
     leftstate  = (/1.000,1.0,0.,0.,0.,0.,0.,0./)
     rightstate = (/0.125,0.1,0.,0.,0.,0.,0.,0./)
     if (maxvxyzu < 4) call fatal('setup','Sod shock tube requires ISOTHERMAL=no')
  case(2)
     !--Ryu et al. shock 1a
-    shocktype = "Ryu et al. shock 1a"
+    shocktype = 'Ryu et al. shock 1a'
     nx          = 128
     if (.not. iexist) then
        tmax      =   0.08
@@ -404,7 +408,7 @@ subroutine choose_shock (gamma,polyk,iexist)
     rightstate = (/1.,1.,-10.,0.,0.,5./const,5./const,0./)
  case(3)
     !--Ryu et al. shock 1b
-    shocktype = "Ryu et al. shock 1b"
+    shocktype = 'Ryu et al. shock 1b'
     if (.not. iexist) then
        tmax      =   0.03
        dtmax     =   0.0015
@@ -420,7 +424,7 @@ subroutine choose_shock (gamma,polyk,iexist)
     rightstate = (/1.  ,1.  ,0. ,0.  ,0. ,2./const,4.0/const,2./const/)
  case(5)
     !--Ryu et al. shock 2b
-    shocktype = "Ryu et al. shock 2b"
+    shocktype = 'Ryu et al. shock 2b'
     if (.not. iexist) then
        tmax     =   0.035
        dtmax    =   0.00175
@@ -430,7 +434,7 @@ subroutine choose_shock (gamma,polyk,iexist)
     rightstate = (/0.1,10.,0.,2.,1.,3./const,1./const,0./)
  case(6)
     !--Brio-Wu shock
-    shocktype = "Brio/Wu (Ryu/Jones shock 5a)"
+    shocktype = 'Brio/Wu (Ryu/Jones shock 5a)'
     if (.not. iexist) then
        tmax    = 0.1
        dtmax   = 0.005
@@ -440,7 +444,7 @@ subroutine choose_shock (gamma,polyk,iexist)
     rightstate = (/0.125,0.1,0.,0.,0.,0.75,-1.,0./)
  case(7)
     !--C-shock
-    shocktype = "C-shock"
+    shocktype = 'C-shock'
     if (.not. iexist) then
        tmax       = 4.0e6
        dtmax      = 1.0e4
@@ -462,7 +466,7 @@ subroutine choose_shock (gamma,polyk,iexist)
  case(8)
     !--Steady shock (Falle 2003)
 #ifdef NONIDEALMHD
-    shocktype = "Steady shock with large Hall Effect (Falle 2003; fig 3)"
+    shocktype = 'Steady shock with large Hall Effect (Falle 2003; fig 3)'
     if (.not. iexist) then
        use_ohm      = .true.
        use_hall     = .true.
@@ -472,7 +476,7 @@ subroutine choose_shock (gamma,polyk,iexist)
        C_AD         =  7.83d-3
     endif
 #else
-    shocktype = "Steady shock (Falle 2003)"
+    shocktype = 'Steady shock (Falle 2003)'
 #endif
     if (.not. iexist) then
        tmax     = 1.0
@@ -504,8 +508,8 @@ subroutine print_shock_params(nstates)
  integer, intent(in) :: nstates
  integer             :: i
 
- write(*,"(/,1x,'Setup_shock: ',a,/,8(11x,a4,' L: ',f8.3,' R:',f8.3,/))") &
-    trim(shocktype),(trim(var_label(i)),leftstate(i),rightstate(i),i=1,nstates)
+ write(*,"(/,1x,'Setup_shock: ',/,8(11x,a4,' L: ',f8.3,' R:',f8.3,/))") &
+    (trim(var_label(i)),leftstate(i),rightstate(i),i=1,nstates)
 
 end subroutine print_shock_params
 
@@ -527,9 +531,6 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk)
  open(unit=lu,file=filename,status='replace',form='formatted')
  write(lu,"(a)") '# '//trim(tagline)
  write(lu,"(a)") '# input file for Phantom shock tube setup'
-
- write(lu,"(/,a)") '# shock tube name'
- call write_inopt(trim(shocktype),'name','',lu,ierr1)
 
  write(lu,"(/,a)") '# shock tube'
  do i=1,numstates
@@ -579,7 +580,6 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,ierr)
  write(iprint, '(1x,2a)') 'Setup_shock: Reading setup options from ',trim(filename)
 
  nerr = 0
- call read_inopt(shocktype,'name',db,errcount=nerr)
  do i=1,numstates
     call read_inopt(leftstate(i), trim(var_label(i))//'left',db,errcount=nerr)
     call read_inopt(rightstate(i),trim(var_label(i))//'right',db,errcount=nerr)

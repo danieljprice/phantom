@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -35,20 +35,20 @@ module setBfield
 contains
 
 subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
-                      Bevol,maxvecp,Bextx,Bexty,Bextz)
+                      Bxyz,Bextx,Bexty,Bextz)
  use units,        only:unit_Bfield
  use setup_params, only:rmax,rhozero
  use physcon,      only:pi
  use io,           only:fatal
  use prompting,    only:prompt
- integer,      intent(in)  :: npart,maxvecp
+ integer,      intent(in)  :: npart
  integer,      intent(in)  :: npartoftype(:)
  real,         intent(in)  :: xyzh(:,:), vxyzu(:,:)
  real,         intent(in)  :: massoftype(:)
  real,         intent(in)  :: polyk
- real,         intent(out) :: Bevol(:,:)
+ real,         intent(out) :: Bxyz(:,:)
  real,         intent(out) :: Bextx,Bexty,Bextz
- integer :: maxp,maxBevol
+ integer :: maxp
  integer :: igeom,i
  character(len=1)  :: isetB
  character(len=10) :: string
@@ -59,18 +59,10 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
  logical :: reverse_field_dir,ians
 
  maxp = size(xyzh(1,:))
- maxBevol = size(Bevol(:,1))
 !
 ! print general starting info
 !
  print "(/,a,/)",' --- MAGNETIC FIELD SETUP --- '
- if (maxBevol==4) then
-    print "(a)",' (on B + cleaning)'
- elseif (maxBevol==3) then
-    print "(a)",' (on B)'
- else
-    call fatal('set_Bfield','bad maxBevol setting')
- endif
 !
 ! choose field geometry
 !
@@ -207,9 +199,9 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
 !--B
 !
     do i=1,npart
-       Bevol(1,i) = Bxzero
-       Bevol(2,i) = Byzero
-       Bevol(3,i) = Bzzero
+       Bxyz(1,i) = Bxzero
+       Bxyz(2,i) = Byzero
+       Bxyz(3,i) = Bzzero
     enddo
 
  case(2)
@@ -232,9 +224,9 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
     if (reverse_field_dir) Bzero = -Bzero
     do i=1,npart
        theta=atan2(xyzh(2,i),xyzh(1,i))
-       Bevol(1,i) = Bzero*sin(theta)
-       Bevol(2,i) = -Bzero*cos(theta)
-       Bevol(3,i) = 0.
+       Bxyz(1,i) = Bzero*sin(theta)
+       Bxyz(2,i) = -Bzero*cos(theta)
+       Bxyz(3,i) = 0.
     enddo
 
  case default
@@ -279,11 +271,6 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
  Bexty = Byzero
  Bextz = Bzzero
  print "(' Setting external B field = ',3(es12.4,2x),//)",Bextx,Bexty,Bextz
-
-!
-!--set cleaning field to zero initially
-!
- if (maxvecp /= maxp .and. maxBevol==4) Bevol(maxBevol,:) = 0.
 
  return
 end subroutine set_Bfield

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -339,7 +339,7 @@ subroutine sts_get_dtau_array(Nmegasts,dt_next,dtdiff_in,Nmega_in)
 
  ! set cases
  if ( Nmegasts > ndtau_max) then
-    call fatal('sts_get_dtau_array','dtau array is too small, with ',var="Nmegasts",ival=Nmegasts)
+    call fatal('sts_get_dtau_array','dtau array is too small',var="Nmegasts",ival=Nmegasts)
  endif
  if (icase_sts==iNosts) then
     dtau(1)        = dt_next

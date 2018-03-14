@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -62,7 +62,7 @@ module setup
  use timestep,       only: tmax,dtmax
  use eos,            only: ieos, p1pwpcgs,gamma1pwp,gamma2pwp,gamma3pwp
  use externalforces, only: iext_neutronstar,iext_gwinspiral
- use dim,            only: calc_erot,calc_erot_com
+ use dim,            only: calc_erot
 
  implicit none
  !
@@ -633,7 +633,6 @@ subroutine choose_spheres(polyk,iexist,id,master)
     Mstar        =  1.35
     polyk        = 144.
     calc_erot    = .true.
-    calc_erot_com= .true.
  case(ievrard)
     ! Evrard Collapse
     if (.not. iexist) then
