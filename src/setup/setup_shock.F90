@@ -532,8 +532,8 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk)
  write(lu,"(a)") '# '//trim(tagline)
  write(lu,"(a)") '# input file for Phantom shock tube setup'
 
-write(lu,"(/,a)") '# shock tube name'
-call write_inopt(trim(shocktype),'name','',lu,ierr1)
+ write(lu,"(/,a)") '# shock tube name'
+ call write_inopt(trim(shocktype),'name','',lu,ierr1)
 
  write(lu,"(/,a)") '# shock tube'
  do i=1,numstates
