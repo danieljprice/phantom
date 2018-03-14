@@ -508,8 +508,8 @@ subroutine print_shock_params(nstates)
  integer, intent(in) :: nstates
  integer             :: i
 
- write(*,"(/,1x,'Setup_shock: ',/,8(11x,a4,' L: ',f8.3,' R:',f8.3,/))") &
-    (trim(var_label(i)),leftstate(i),rightstate(i),i=1,nstates)
+ write(*,"(/,1x,'Setup_shock: ',a,/,8(11x,a4,' L: ',f8.3,' R:',f8.3,/))") &
+    trim(shocktype),(trim(var_label(i)),leftstate(i),rightstate(i),i=1,nstates)
 
 end subroutine print_shock_params
 
@@ -531,6 +531,9 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk)
  open(unit=lu,file=filename,status='replace',form='formatted')
  write(lu,"(a)") '# '//trim(tagline)
  write(lu,"(a)") '# input file for Phantom shock tube setup'
+
+write(lu,"(/,a)") '# shock tube name'
+call write_inopt(trim(shocktype),'name','',lu,ierr1)
 
  write(lu,"(/,a)") '# shock tube'
  do i=1,numstates
@@ -580,6 +583,8 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,ierr)
  write(iprint, '(1x,2a)') 'Setup_shock: Reading setup options from ',trim(filename)
 
  nerr = 0
+ shocktype = "Name not read from .setup"
+ call read_inopt(shocktype,'name',db)
  do i=1,numstates
     call read_inopt(leftstate(i), trim(var_label(i))//'left',db,errcount=nerr)
     call read_inopt(rightstate(i),trim(var_label(i))//'right',db,errcount=nerr)
