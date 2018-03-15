@@ -946,7 +946,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  if (use_dustfrac) then
     dustfraci(:) = xpartveci(idustfraci:idustfraciend)
     dustfracisum = sum(dustfraci(:))
-    tsi(:)       = xpartveci(itstop:itstopend)
+    tsi(:)       = min(xpartveci(itstop:itstopend),hi/spsoundi) ! flux limiter from Ballabio et al. (2018)
     epstsi       = sum(dustfraci(:)*tsi(:))
 !--sqrt(rho*epsilon) method
     sqrtrhodustfraci(:) = sqrt(rhoi*dustfraci(:))
@@ -1412,6 +1412,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    ! get stopping time - for one fluid dust we do not know deltav, but it is small by definition
                    call get_ts(idrag,grainsize(l),graindens,rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
              enddo
+             tsj(:)   = min(tsj(:),hj/spsoundj) ! flux limiter from Ballabio et al. (2018)
              epstsj   = sum(dustfracj(:)*tsj(:))
              rhogas1i = rho1i/(1.-dustfracisum)
              rhogas1j = 1./rhogasj
