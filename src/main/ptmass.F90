@@ -649,7 +649,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
        endif
     else
        ifail = 1
-       if (r2 < radkern2*hi*hi) ibin_wakei = nbinmax - 1_1
+       if (r2 < radkern2*hi*hi) ibin_wakei = nbinmax
     endif
     if (iverbose >= 1 .and. iofailreason) then
        !--Forced off since output will be unreasonably large
