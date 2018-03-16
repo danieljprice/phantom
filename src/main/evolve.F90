@@ -100,7 +100,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
                             rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin,rhomax_ipart
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
- use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in
+ use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in,dxi_in
 #ifdef MFLOW
  use mf_write,         only:mflow_write
 #endif
@@ -435,7 +435,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
        if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
        if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
-       if (should_conserve_com)      call check_conservation_error(rcom,rcom_in,1.e-1,'centre of mass')
+       if (should_conserve_com)      call check_conservation_error(rcom,rcom_in,1.e-2*dxi_in,'centre of mass')
        if (should_conserve_dustmass) call check_conservation_error(mdust,mdust_in,1.e-1,'dust mass',decrease=.true.)
 
        !--write with the same ev file frequency also mass flux and binary position
