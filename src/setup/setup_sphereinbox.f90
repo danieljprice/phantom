@@ -32,9 +32,9 @@
 !    rho_pert_amp     -- amplitude of density perturbation
 !    totmass_sphere   -- mass of sphere in code units
 !
-!  DEPENDENCIES: boundary, dim, eos, infile_utils, io, kernel, options,
-!    part, physcon, prompting, ptmass, setup_params, spherical, timestep,
-!    unifdis, units
+!  DEPENDENCIES: boundary, centreofmass, dim, eos, infile_utils, io,
+!    kernel, options, part, physcon, prompting, ptmass, setup_params,
+!    spherical, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
