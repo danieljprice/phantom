@@ -1398,7 +1398,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
     cell%xpartvec(ifzi,cell%npcell)           = fxyzu(3,i) + fext(3,i)
 
     if (mhd) then
-       iamgasi = iamgas(iphase(i))
        if (iamgasi) then
           cell%xpartvec(iBevolxi,cell%npcell) = Bevol(1,i)
           cell%xpartvec(iBevolyi,cell%npcell) = Bevol(2,i)
