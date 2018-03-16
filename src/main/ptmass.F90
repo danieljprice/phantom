@@ -710,6 +710,10 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
        dptmass(idmsi,i) = dptmass(idmsi,i) + pmassi
 
 ! Set new spin angular momentum
+! WARNING: the spin calculation is only correct if one particle is accreted per timestep
+!          since spinm depends on both the old and the new sink mass; the former
+!          is updated at the end of the step rather than with each accretion event.
+!          However, the error should be small and not significantly affect the results.
        dptmass(idspinxsi,i) = dptmass(idspinxsi,i) + spinm*(dy*dvz - dz*dvy)
        dptmass(idspinysi,i) = dptmass(idspinysi,i) + spinm*(dz*dvx - dx*dvz)
        dptmass(idspinzsi,i) = dptmass(idspinzsi,i) + spinm*(dx*dvy - dy*dvx)
