@@ -77,7 +77,7 @@ module setup
 #endif
  use physcon,        only:au,solarm
  use setdisc,        only:scaled_sigma
- use dust,           only:smincgs,smaxcgs,sindex
+ use dust,           only:smincgs,smaxcgs,sindex,ilimitdustflux
 
  implicit none
  public  :: setpart
@@ -413,6 +413,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !--set dust disc defaults
     !
     if (use_dust) then
+       ilimitdustflux    = .false.
        profile_set_dust  = 0
        dust_to_gas_ratio = 0.01
        R_indust          = R_in
@@ -439,6 +440,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        use_dustfrac = .false.
        call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
        if (dust_method==1) use_dustfrac = .true.
+       if (use_dustfrac) call prompt('Do you want to limit the dust flux?',ilimitdustflux)
        call prompt('How do you want to set the dust density profile?'//new_line('A')// &
                    ' 0=equal to the gas'//new_line('A')// &
                    ' 1=custom'//new_line('A')// &
@@ -1420,6 +1422,8 @@ subroutine write_setupfile(filename)
  if (use_dust) then
     write(iunit,"(/,a)") '# options for dust'
     call write_inopt(dust_method,'dust_method','dust method (1=one fluid,2=two fluid)',iunit)
+    if (use_dustfrac) call write_inopt(ilimitdustflux,'ilimitdustflux', &
+                                       'limit dust diffusion using Ballabio et al. (2018)',iunit)
     call write_inopt(dust_to_gas_ratio,'dust_to_gas_ratio','dust to gas ratio',iunit)
     call write_inopt(profile_set_dust,'profile_set_dust', &
        'how to set dust density profile (0=equal to gas,1=custom,2=equal to gas with cutoffs)',iunit)
@@ -1605,6 +1609,7 @@ subroutine read_setupfile(filename,ierr)
  end select
  !--dust
  if (use_dust) then
+    if (use_dustfrac) call read_inopt(ilimitdustflux,'ilimitdustflux',db,errcount=nerr)
     call read_inopt(dust_to_gas_ratio,'dust_to_gas_ratio',db,min=0.,errcount=nerr)
     if (use_dustfrac .and. ndusttypes > 1) then
        call read_inopt(grainsize_set,'grainsize_set',db,min=0,max=2,errcount=nerr)

@@ -42,6 +42,7 @@ use dim, only: ndusttypes
 
  integer, public  :: idrag             = 1
  integer, public  :: icut_backreaction = 0
+ logical, public  :: ilimitdustflux    = .false.
  real, public     :: grainsize(ndusttypes),graindens
  real, private    :: grainmass(ndusttypes)
  public           :: write_options_dust,read_options_dust
@@ -483,6 +484,7 @@ subroutine write_options_dust(iunit)
  call write_inopt(graindenscgs,'graindens','Intrinsic grain density in g/cm^3',iunit)
  call write_inopt(K_code,'K_code','drag constant when constant drag is used',iunit)
  call write_inopt(icut_backreaction,'icut_backreaction','cut the drag on the gas phase (0=no, 1=yes)',iunit)
+ call write_inopt(ilimitdustflux,'ilimitdustflux','limit the dust flux using Ballabio et al. (2018)',iunit)
 
 end subroutine write_options_dust
 
@@ -530,6 +532,8 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('icut_backreaction')
     read(valstring,*,iostat=ierr) icut_backreaction
+ case('ilimitdustflux')
+    read(valstring,*,iostat=ierr) ilimitdustflux
  case default
     imatch = .false.
  end select
