@@ -278,7 +278,7 @@ subroutine test_standingshock(ntests,npass)
  real                   :: t,dt,dtext_dum,dtext,dtnew
  real                   :: dexact,bexact,vexact,L2d,L2v,L2b,dx
  real                   :: leftstate(8),rightstate(8),exact_x(51),exact_d(51),exact_vx(51),exact_by(51)
- real, parameter        :: told = 2.1d-2, tolv=3.0d-2, tolb=1.2d-1
+ real, parameter        :: told = 2.1d-2, tolv=3.05d-2, tolb=1.1d-1
  logical                :: valid_dt
  logical                :: print_output = .false.
  logical                :: valid_bdy
