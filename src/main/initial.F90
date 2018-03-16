@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -48,7 +48,7 @@ contains
 !----------------------------------------------------------------
 subroutine initialise()
  use dim, only:dimid=>modid,maxp
- use io,               only:fatal,die,id,master,nprocs
+ use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
 #endif
@@ -59,6 +59,7 @@ subroutine initialise()
  use boundary,         only:set_boundary
  use writeheader,      only:write_codeinfo
  use writegitinfo,     only:write_gitinfo
+ use evwrite,          only:init_evfile
  use domain,           only:domid=>modid,init_domains
  use densityforce,     only:denid=>modid
  use deriv,            only:derivid=>modid
@@ -107,6 +108,7 @@ subroutine initialise()
  call set_units
  call set_default_options
  call set_boundary
+ call init_evfile(ievfile,'testlog',.false.)
 !
 !--check compile-time settings are OK
 !
@@ -133,7 +135,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,ndusttypes
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,ndusttypes
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -148,7 +150,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustfrac,&
-                            set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh
+                            set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh, &
+                            Bevol,Bxyz
+ use densityforce,     only:densityiterate
+ use linklist,         only:set_linklist
 #ifdef PHOTO
  use photoevap,        only:set_photoevap_grid
 #endif
@@ -207,7 +212,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use part,             only:hfact,h2chemistry
  use setup,            only:setpart
  use checksetup,       only:check_setup
- use h2cooling,        only:coolinmo
+ use h2cooling,        only:init_h2cooling
  use cooling,          only:init_cooling
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
@@ -221,7 +226,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  integer         :: ierr,i,j,idot,nerr,nwarn
  integer(kind=8) :: npartoftypetot(maxtypes)
  real            :: poti,dtf,hfactfile,fextv(3)
- real            :: pmassi,dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dummy(3)
+ real            :: hi,pmassi,rhoi1
+ real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dummy(3)
+ real            :: stressmax
 #ifdef NONIDEALMHD
  real            :: gmw_old,gmw_new
 #endif
@@ -341,7 +348,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (icooling > 0) then
        if (id==master) write(iprint,*) 'initialising cooling function...'
        call init_chem()
-       call coolinmo()
+       call init_h2cooling()
     endif
  elseif (icooling > 0) then
     call init_cooling(ierr)
@@ -370,6 +377,33 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        call fatal('initial','sum of types in iphase is not equal to npartoftype')
     endif
  endif
+
+!
+!--The code works in B/rho as its conservative variable, but writes B to dumpfile
+!  So we now convert our primitive variable read, B, to the conservative B/rho
+!  This necessitates computing the density sum.
+!
+ if (mhd) then
+    if (npart > 0) then
+       call set_linklist(npart,npart,xyzh,vxyzu)
+       fxyzu = 0.
+       call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
+                              fxyzu,fext,alphaind,gradh)
+    endif
+
+    ! now convert to B/rho
+    do i=1,npart
+       itype      = iamtype(iphase(i))
+       hi         = xyzh(4,i)
+       pmassi     = massoftype(itype)
+       rhoi1      = 1.0/rhoh(hi,pmassi)
+       if (i == 1) print *, rhoi1
+       Bevol(1,i) = Bxyz(1,i) * rhoi1
+       Bevol(2,i) = Bxyz(2,i) * rhoi1
+       Bevol(3,i) = Bxyz(3,i) * rhoi1
+    enddo
+ endif
+
 
 #ifdef IND_TIMESTEPS
  ibin(:)       = 0
@@ -438,10 +472,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--get timestep and forces for sink particles
 !
- dtsinkgas    = huge(dtsinkgas)
- r_crit2      = r_crit*r_crit
- rho_crit     = rho_crit_cgs/unit_density
- rho_dtthresh = rho_dtthresh_cgs/unit_density
+ dtsinkgas = huge(dtsinkgas)
+ r_crit2   = r_crit*r_crit
+ rho_crit  = rho_crit_cgs/unit_density
  if (nptmass > 0) then
     write(iprint,"(a,i12)") ' nptmass       = ',nptmass
 
@@ -472,8 +505,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--calculate (all) derivatives the first time around
 !
- dtnew_first = dtmax  ! necessary in case ntot = 0
- nderivinit = 1
+ dtnew_first   = dtmax  ! necessary in case ntot = 0
+ nderivinit    = 1
+ rho_dtthresh  = rho_dtthresh_cgs/unit_density
+ mod_dtmax_now = .false. ! reset since this would have improperly been tripped if mhd=.true.
  ! call derivs twice with Cullen-Dehnen switch to update accelerations
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  do j=1,nderivinit
@@ -520,7 +555,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     mod_dtmax_now = .false.
  endif
 !
-!--Calculate current centre of mass (required for rotational energies)
+!--Calculate current centre of mass
 !
  call get_centreofmass(xyzcom,dummy,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 !
@@ -528,7 +563,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
  if (id==master) call write_header(2,infile,evfile,logfile,dumpfile,ntot)
 
- call init_evfile(ievfile,evfile)
+ call init_evfile(ievfile,evfile,.true.)
  call write_evfile(time,dt)
  if (id==master) call write_evlog(iprint)
 #ifdef MFLOW

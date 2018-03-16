@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -59,13 +59,13 @@ module evwrite
                            iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah,&
                            iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT,&
                            iev_dtg,iev_ts,iev_momall,iev_angall,iev_angall,iev_maccsink,&
-                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat
+                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_ionise
 
  implicit none
  public                    :: init_evfile, write_evfile, write_evlog
  private                   :: fill_ev_tag, fill_ev_header
 
- integer,          private :: ievfile,ielements
+ integer,          private :: ielements
  integer,          private :: ev_cmd(inumev)    ! array of the actions to be taken
  character(len=19),private :: ev_label(inumev)  ! to make the header for the .ev file
 
@@ -78,15 +78,16 @@ contains
 !  opens the .ev file for output
 !+
 !----------------------------------------------------------------
-subroutine init_evfile(iunit,evfile)
+subroutine init_evfile(iunit,evfile,open_file)
  use io,        only: id,master,warning
- use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,calc_erot,lightcurve
+ use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,calc_erot,lightcurve,use_CMacIonize
  use options,   only: ishock_heating,ipdv_heating,use_dustfrac
  use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype
  use nicil,     only: use_ohm,use_hall,use_ambi,ion_rays,ion_thermal
  use viscosity, only: irealvisc
  integer,            intent(in) :: iunit
  character(len=  *), intent(in) :: evfile
+ logical,            intent(in) :: open_file
  character(len= 27)             :: ev_fmt
  integer                        :: i,j
  !
@@ -203,21 +204,25 @@ subroutine init_evfile(iunit,evfile)
  if (irealvisc /= 0) then
     call fill_ev_tag(ev_fmt,iev_viscrat,'visc_rat','xan',i,j)
  endif
+ if (use_CMacIonize) then
+    call fill_ev_tag(ev_fmt,iev_ionise,'ion_frac','xan',i,j)
+ endif
  iquantities = i - 1 ! The number of different quantities to analyse
  ielements   = j - 1 ! The number of values to be calculated (i.e. the number of columns in .ve)
  !
  !--all threads do above, but only master writes file
+ !  (the open_file is to prevent an .ev file from being made during the test suite)
  !
- if (id == master) then
+ if (open_file .and. id == master) then
     !
     !--open the file for output
     !
-    open(unit=ievfile,file=evfile,form='formatted',status='replace')
+    open(unit=iunit,file=evfile,form='formatted',status='replace')
     !
     !--write a header line
     !
     write(ev_fmt,'(a,I3,a)') '(',ielements+1,'a)'
-    write(ievfile,ev_fmt)'#',ev_label(1:ielements)
+    write(iunit,ev_fmt)'#',ev_label(1:ielements)
  endif
 
 end subroutine init_evfile
@@ -323,7 +328,7 @@ end subroutine fill_ev_header
 !----------------------------------------------------------------
 subroutine write_evfile(t,dt)
  use energies,      only:compute_energies,ev_data_update
- use io,            only:id,master
+ use io,            only:id,master,ievfile
  use options,       only:iexternalforce
  use extern_binary, only:accretedmass1,accretedmass2
  real, intent(in)  :: t,dt
@@ -397,7 +402,6 @@ subroutine write_evlog(iprint)
  endif
  write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") &
       'tot',etot,'kin',ekin,'therm',etherm,'pot',epot
- write(iprint,"(1x,a,3es10.3)") "Centre of Mass = ",xyzcom
  if (mhd)        write(iprint,"(1x,('E',a,'=',es10.3))") 'mag',emag
  if (track_mass) write(iprint,"(1x,('E',a,'=',es10.3))") 'acc',ev_data(iev_sum,iev_eacc)
  write(iprint,"(1x,1(a,'=',es10.3,', '),(a,'=',es10.3))") &
@@ -408,6 +412,7 @@ subroutine write_evlog(iprint)
        'Linm',ev_data(iev_sum,iev_momall),'Angm',ev_data(iev_sum,iev_angall),' [including accreted particles]'
     endif
  endif
+ write(iprint,"(1x,3(a,es10.3))") "Centre of Mass = ",xyzcom(1),", ",xyzcom(2),", ",xyzcom(3)
 
  write(iprint,"(1x,a,'(max)=',es10.3,' (mean)=',es10.3,' (max)=',es10.3,a)") &
       'density  ',ev_data(iev_max,iev_rho),ev_data(iev_ave,iev_rho),ev_data(iev_max,iev_rho)*unit_density,' g/cm^3'

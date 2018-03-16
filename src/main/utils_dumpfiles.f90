@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -1867,7 +1867,7 @@ subroutine read_array_real4arr(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag
           read(iunit,iostat=ierr) (dum,i=1,noffset),arr(j,i1:i2)
        elseif (ikind==i_real4) then
           got_arr(j) = .true.
-          print*,'WARNING: converting '//trim(tag)//' from real*8->real*4'
+          !print*,'WARNING: converting '//trim(tag)//' from real*8->real*4'
           nread = i2-i1+1
           allocate(dummyr8(nread))
           read(iunit,iostat=ierr) (dumr8,i=1,noffset),dummyr8(1:nread)
@@ -1910,7 +1910,7 @@ subroutine read_array_real8(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag,ma
        read(iunit,iostat=ierr) (dum,i=1,noffset),arr(i1:i2)
     elseif (ikind==i_real4) then
        got_arr = .true.
-       print*,'WARNING: converting '//trim(tag)//' from real*4'
+       !print*,'WARNING: converting '//trim(tag)//' from real*4'
        nread = i2-i1+1
        allocate(dummyr4(nread))
        read(iunit,iostat=ierr) (dumr4,i=1,noffset),dummyr4(1:nread)
@@ -1960,7 +1960,7 @@ subroutine read_array_real8arr(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag
           deallocate(dummyr8)
        elseif (ikind==i_real4) then
           got_arr(j) = .true.
-          print*,'WARNING: converting '//trim(tag)//' from real*4'
+          !print*,'WARNING: converting '//trim(tag)//' from real*4'
           nread = i2-i1+1
           allocate(dummyr4(nread))
           read(iunit,iostat=ierr) (dumr4,i=1,noffset),dummyr4(1:nread)

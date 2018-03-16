@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -247,7 +247,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni)
     cgsrhoi = rhoi * unit_density
     cgseni = eni * unit_ergg
 
-    call get_eos_pressure_gamma1_mesa(X_in,cgsrhoi,cgseni,cgspgas,gam1)
+    call get_eos_pressure_gamma1_mesa(cgsrhoi,cgseni,cgspgas,gam1)
     pgas = cgspgas / unit_pressure
 
     ponrhoi = pgas / rhoi

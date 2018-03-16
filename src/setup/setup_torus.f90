@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -30,7 +30,7 @@ module setup
 contains
 
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,         only:Bevol,rhoh,hrho,mhd,maxvecp,maxBevol
+ use part,         only:Bxyz,rhoh,hrho,mhd
  use part,         only:iphase,iamtype,igas,maxphase,get_partinfo
  use dim,          only:maxp,maxvxyzu
  use setup_params, only:ihavesetupB
@@ -285,18 +285,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 ! Poloidal Field
     if (mhd .and. iamtypei==igas) then
-       if (maxvecp==maxp) then
-          stop 'vecp setup not implemented'
-       else
-          Bevol(3,i) = dbeta*(densi**2/rcyl &
+       Bxyz(3,i) = dbeta*(densi**2/rcyl &
                       + 2.*Mstar/(polyk*gamma)*densi**(3.-gamma) &
                       *(Rtorus/rcyl**3 - rcyl/rsph**3))
-          Bevol(1,i) = dbeta*((2.*Mstar/(polyk*gamma))*densi**(3.-gamma) &
+       Bxyz(1,i) = dbeta*((2.*Mstar/(polyk*gamma))*densi**(3.-gamma) &
                        *(xyzh(3,i)/rsph**3))*xyzh(1,i)/rcyl
-          Bevol(2,i) = dbeta*((2.*Mstar/(polyk*gamma))*densi**(3.-gamma) &
+       Bxyz(2,i) = dbeta*((2.*Mstar/(polyk*gamma))*densi**(3.-gamma) &
                        *(xyzh(3,i)/rsph**3))*xyzh(2,i)/rcyl
-       endif
-       !     print*,'B ',i,' = ',Bevol(:,i)
+       !     print*,'B ',i,' = ',Bxyz(:,i)
     endif
  enddo
 

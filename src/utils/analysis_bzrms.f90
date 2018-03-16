@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -42,7 +42,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use io,      only: id,master,fatal
- use part,    only: Bevol,rhoh,mhd
+ use part,    only: Bxyz,rhoh,mhd
  use physcon, only: pi,fourpi,qe,c,mass_proton_cgs
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
@@ -114,8 +114,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  vmax  = 0.0
  vaave = 0.0
  do i = 1,npart
-    B2        = dot_product(Bevol(1:3,i),Bevol(1:3,i))
-    Bave(1:3) = Bave(1:3) + Bevol(1:3,i)
+    B2        = dot_product(Bxyz(1:3,i),Bxyz(1:3,i))
+    Bave(1:3) = Bave(1:3) + Bxyz(1:3,i)
     vaave     = vaave     + sqrt( B2 / rhoh(xyzh(4,i),particlemass) )
     vmax(1)   = max(vmax(1),abs(vxyzu(1,i)))
     vmax(2)   = max(vmax(2),abs(vxyzu(2,i)))
@@ -130,8 +130,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  Bzrmsnoa = 0.0 ! not subtracting average
  vrms     = 0.0
  do i = 1,npart
-    Bzrms     = Bzrms     + (Bevol(3,i)-Bave(3))**2
-    Bzrmsnoa  = Bzrmsnoa  + Bevol(3,i)**2
+    Bzrms     = Bzrms     + (Bxyz(3,i)-Bave(3))**2
+    Bzrmsnoa  = Bzrmsnoa  + Bxyz(3,i)**2
     vrms(1:3) = vrms(1:3) + vxyzu(1:3,i)**2
  enddo
  Bzrms    = sqrt(Bzrms   *npart1)

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -34,7 +34,7 @@ subroutine write_codeinfo(iunit)
 !
 !--write out code name, version and time
 !
- write(iunit,10) '0.9, released 14th Feb 2017'
+ write(iunit,10) '1.0, released 13th March 2018'
 
 10 format(/, &
    "  _ \  |                 |                    ___|   _ \  |   |",/, &
@@ -66,7 +66,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use io,               only:iprint
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac
- use part,             only:hfact,massoftype,mhd,maxBevol,maxvecp,&
+ use part,             only:hfact,massoftype,mhd,maxBevol,&
                             gravity,h2chemistry,periodic,npartoftype,massoftype,&
                             igas,idust,iboundary,istar,idarkmatter,ibulge
  use eos,              only:eosinfo
@@ -168,20 +168,10 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 !--MHD compile time options
 !
     if (mhd) then
-       if (maxvecp==maxp) then
-          if (maxBevol==2) then
-             write(iprint,60) 'Euler potentials'
-          elseif (maxBevol==3) then
-             write(iprint,60) 'vector potential'
-          else
-             write(iprint,60) 'SOMETHING STRANGE'
-          endif
+       if (maxBevol==4) then
+          write(iprint,60) 'B/rho with cleaning'
        else
-          if (maxBevol==4) then
-             write(iprint,60) 'B with cleaning'
-          else
-             write(iprint,60) 'B'
-          endif
+          write(iprint,60) 'B/rho'
        endif
 60     format(/,' Magnetic fields are ON, evolving ',a)
     endif

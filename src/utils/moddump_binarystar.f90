@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: centreofmass, part, prompting, units
+!  DEPENDENCIES: centreofmass, initial_params, part, prompting, units
 !+
 !--------------------------------------------------------------------------
 module moddump
@@ -27,10 +27,11 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas
- use units,        only: set_units,udist,unit_velocity
- use prompting,    only: prompt
- use centreofmass, only: reset_centreofmass
+ use part,           only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas
+ use units,          only: set_units,udist,unit_velocity
+ use prompting,      only: prompt
+ use centreofmass,   only: reset_centreofmass
+ use initial_params, only: get_conserv
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -71,6 +72,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  ! reset centre of mass of the binary system
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+
+ get_conserv = 1.
 
 end subroutine modify_dump
 

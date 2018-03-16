@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -22,7 +22,7 @@
 !+
 !--------------------------------------------------------------------------
 program phantom2grid
- use part,             only:rhoh,xyzh,massoftype,hfact,vxyzu,npart,Bevol,Bxyz
+ use part,             only:rhoh,xyzh,massoftype,hfact,vxyzu,npart,Bxyz
  use io,               only:set_io_unit_numbers,iprint,idisk1,iverbose,real4,formatreal,cstring
  use boundary,         only:xmin,ymin,zmin,xmax,ymax,zmax
  use readwrite_dumps,  only:read_dump,write_gadgetdump
@@ -45,7 +45,7 @@ program phantom2grid
  character(len=120) :: filenameout
  integer            :: inum,n
 #endif
- integer            :: maxp,maxmhd,maxvecp
+ integer            :: maxp,maxmhd
  integer            :: npixx,npixy,npixz
  integer            :: nargs,iarg
  integer            :: ifile,k,j,i,ierr,mx,my,mz,mv,irec
@@ -146,8 +146,7 @@ program phantom2grid
     if (.not.allocated(datgrid)) then
        write(*,"(a,i5,2(' x',i5),a)",advance='no') ' >>> allocating memory for ',npixx,npixy,npixz,' grid ...'
        maxp = size(xyzh,2)   ! do this to avoid clash with namelist
-       maxmhd = size(Bevol,2)
-       maxvecp = size(Bxyz,2)
+       maxmhd = size(Bxyz,2)
        ilendat = 4 + 4*(maxmhd/maxp)
        allocate(datgrid(ilendat,npixx,npixy,npixz),stat=ierr)
        if (ierr /= 0) then
@@ -168,13 +167,8 @@ program phantom2grid
     print*,' zmin,zmax = ',zmin,zmax
     if (maxmhd==maxp) then
        print "(a)",' interpolating hydro + MHD quantities to grid...'
-       if (maxvecp==maxp) then
-          call interpolate3D(xyzh,weight,massoftype(1),vxyzu,npart,xmin,ymin,zmin,datgrid,npixx,npixy,npixz,&
-                          pixwidth,.true.,0,Bxyz)
-       else
-          call interpolate3D(xyzh,weight,massoftype(1),vxyzu,npart,xmin,ymin,zmin,datgrid,npixx,npixy,npixz,&
-                          pixwidth,.true.,4,Bevol)
-       endif
+       call interpolate3D(xyzh,weight,massoftype(1),vxyzu,npart,xmin,ymin,zmin,datgrid,npixx,npixy,npixz,&
+                          pixwidth,.true.,4,Bxyz)
     else
        print "(a)",' interpolating hydro quantities to grid...'
        call interpolate3D(xyzh,weight,massoftype(1),vxyzu,npart,xmin,ymin,zmin,datgrid,npixx,npixy,npixz,&
@@ -229,15 +223,9 @@ program phantom2grid
        partval(3) = vxyzu(2,i)
        partval(4) = vxyzu(3,i)
        if (maxmhd==maxp) then
-          if (maxvecp==maxp) then
-             partval(5) = Bxyz(1,i)
-             partval(6) = Bxyz(2,i)
-             partval(7) = Bxyz(3,i)
-          else
-             partval(5) = Bevol(1,i)
-             partval(6) = Bevol(2,i)
-             partval(7) = Bevol(3,i)
-          endif
+          partval(5) = Bxyz(1,i)
+          partval(6) = Bxyz(2,i)
+          partval(7) = Bxyz(3,i)
        endif
        do j=1,ilendat
           partmin(j) = min(partmin(j),partval(j))

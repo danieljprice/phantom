@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -42,7 +42,7 @@ module energies
                                iev_alpha,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
                                iev_etaa(2),iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n(4),iev_nR(5),iev_nT(2),&
                                iev_dtg,iev_ts,iev_momall,iev_angall,iev_maccsink(2),&
-                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat
+                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_ionise
  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
  integer,         parameter :: iev_sum = 1    ! array index of the sum of the quantity
  integer,         parameter :: iev_max = 2    ! array index of the maximum of the quantity
@@ -62,11 +62,11 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine compute_energies(t)
- use dim,  only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,lightcurve,use_dust
+ use dim,  only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,lightcurve,use_dust,use_CMacIonize
  use part, only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,npartoftype, &
                 alphaind,Bxyz,Bevol,divcurlB,iamtype,igas,idust,iboundary,istar,idarkmatter,ibulge, &
                 nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,isdead_or_accreted,epot_sinksink,&
-                imacc,ispinx,ispiny,ispinz,mhd,maxvecp,gravity,poten,dustfrac,&
+                imacc,ispinx,ispiny,ispinz,mhd,gravity,poten,dustfrac,&
                 n_R,n_electronT,eta_nimhd,iion
  use eos,            only:polyk,utherm,gamma,equationofstate,get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
@@ -88,7 +88,7 @@ subroutine compute_energies(t)
  real, intent(in) :: t
  real    :: ev_data_thread(4,0:inumev)
  real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,rhoi,angx,angy,angz
- real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,xcom,ycom,zcom,mtot
+ real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,xcom,ycom,zcom,mtot,dm
  real    :: epoti,pmassi,dnptot,dnpgas
  real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
  real    :: ponrhoi,spsoundi,B2i,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
@@ -113,6 +113,7 @@ subroutine compute_energies(t)
  ycom = 0.
  zcom = 0.
  mtot = 0.
+ dm   = 0.
  xmom = 0.
  ymom = 0.
  zmom = 0.
@@ -148,7 +149,7 @@ subroutine compute_energies(t)
 !$omp shared(iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha) &
 !$omp shared(iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah) &
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
-!$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
+!$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat,iev_ionise) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
@@ -344,15 +345,9 @@ subroutine compute_energies(t)
 
           ! mhd parameters
           if (mhd) then
-             if (maxvecp==maxp) then
-                Bxi = Bxyz(1,i)
-                Byi = Bxyz(2,i)
-                Bzi = Bxyz(3,i)
-             else
-                Bxi = Bevol(1,i)
-                Byi = Bevol(2,i)
-                Bzi = Bevol(3,i)
-             endif
+             Bxi = Bevol(1,i)*rhoi
+             Byi = Bevol(2,i)*rhoi
+             Bzi = Bevol(3,i)*rhoi
              B2i       = Bxi*Bxi + Byi*Byi + Bzi*Bzi
              rho1i     = 1./rhoi
              valfven2i = B2i*rho1i
@@ -432,6 +427,7 @@ subroutine compute_energies(t)
                 endif
              endif
           endif
+          if (use_CMacIonize) call ev_data_update(ev_data_thread,iev_ionise,n_electronT(i))
        endif isgas
 
     elseif (was_accreted(iexternalforce,hi)) then
@@ -549,6 +545,12 @@ subroutine compute_energies(t)
  ycom = reduce_fn('+',ycom)
  zcom = reduce_fn('+',zcom)
 
+ mtot = reduce_fn('+',mtot)
+ dm = 1.0 / mtot
+ xcom = xcom * dm
+ ycom = ycom * dm
+ zcom = zcom * dm
+
  xmom = reduce_fn('+',xmom)
  ymom = reduce_fn('+',ymom)
  zmom = reduce_fn('+',zmom)
@@ -572,8 +574,8 @@ subroutine compute_energies(t)
  ev_data(iev_sum,iev_com(2)) = ycom
  ev_data(iev_sum,iev_com(3)) = zcom
  xyzcom(1) = xcom
- xyzcom(2) = xcom
- xyzcom(3) = xcom
+ xyzcom(2) = ycom
+ xyzcom(3) = zcom
 
  if (calc_erot) then
     ev_data(iev_sum,iev_erot(1)) = 0.5*ev_data(iev_sum,iev_erot(1))

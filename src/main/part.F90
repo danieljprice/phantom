@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -26,16 +26,16 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, io, mpiutils
+!  DEPENDENCIES: dim, domain, io, mpiutils
 !+
 !--------------------------------------------------------------------------
 module part
  use dim, only:maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu, &
           maxalpha,maxptmass,maxstrain, &
-          mhd,maxmhd,maxBevol,maxvecp,maxp_h2,periodic, &
+          mhd,maxmhd,maxBevol,maxp_h2,periodic, &
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
           switches_done_in_derivs,maxp_dustfrac,use_dust, &
-          lightcurve,maxlum,nalpha,maxmhdni,ndusttypes
+          lightcurve,maxlum,nalpha,maxmhdni,maxne,ndusttypes
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -50,10 +50,10 @@ module part
  real(kind=4) :: divcurlv(ndivcurlv,maxp)
  real(kind=4) :: divcurlB(ndivcurlB,maxp)
  real :: Bevol(maxBevol,maxmhd)
- real :: Bxyz(3,maxvecp)
+ real :: Bxyz(3,maxmhd)
  character(len=*), parameter :: xyzh_label(4) = (/'x','y','z','h'/)
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
- character(len=*), parameter :: Bevol_label(4) = (/'Bx ','By ','Bz ','psi'/)
+ character(len=*), parameter :: Bxyz_label(3) = (/'Bx','By','Bz'/)
 !
 !--storage in divcurlv
 !
@@ -111,7 +111,7 @@ module part
  integer, parameter :: i_tlast = 11 ! time of last injection
  real :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real :: vxyz_ptmass(3,maxptmass)
- real :: fxyz_ptmass(4,maxptmass)
+ real :: fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
  character(len=*), parameter :: xyzmh_ptmass_label(11) = &
@@ -125,7 +125,7 @@ module part
 !
 !--Non-ideal MHD
 !
- real :: n_R(4,maxmhdni),n_electronT(maxmhdni),eta_nimhd(4,maxmhdni)
+ real :: n_R(4,maxmhdni),n_electronT(maxne),eta_nimhd(4,maxmhdni)
  integer, parameter :: iohm  = 1 ! eta_ohm
  integer, parameter :: ihall = 2 ! eta_hall
  integer, parameter :: iambi = 3 ! eta_ambi
@@ -589,6 +589,7 @@ subroutine copy_particle(src, dst)
  fext(:,dst)  = fext(:,src)
  if (mhd) then
     Bevol(:,dst) = Bevol(:,src)
+    Bxyz(:,dst)  = Bxyz(:,dst)
  endif
  if (ndivcurlv  > 0) divcurlv(:,dst)  = divcurlv(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
@@ -632,7 +633,7 @@ subroutine copy_particle_all(src,dst)
     Bevol(:,dst)  = Bevol(:,src)
     Bpred(:,dst)  = Bpred(:,src)
     dBevol(:,dst) = dBevol(:,src)
-    if (maxvecp==maxp) Bxyz(:,dst)   = Bxyz(:,src)
+    Bxyz(:,dst)   = Bxyz(:,src)
     divBsymm(dst) = divBsymm(src)
     if (maxmhdni==maxp) then
        n_R(:,dst)       = n_R(:,src)
@@ -681,9 +682,9 @@ subroutine reorder_particles(iorder,np)
  call copy_array(vxyzu(:,1:np),iorder(1:np))
  call copy_array(fext(:,1:np), iorder(1:np))
  if (mhd) then
-    call copy_array(Bevol(:,1:npart),iorder(1:np))
+    call copy_array(Bevol(:,1:np),iorder(1:np))
     !--also copy the Bfield here, as this routine is used in setup routines
-    if (maxvecp==maxp)call copy_array(Bxyz(:,1:np),      iorder(1:np))
+    call copy_array(Bxyz(:,1:np), iorder(1:np))
  endif
  if (ndivcurlv > 0)   call copy_arrayr4(divcurlv(:,1:np),iorder(1:np))
  if (maxalpha ==maxp) call copy_arrayr4(alphaind(:,1:np),iorder(1:np))
@@ -709,6 +710,7 @@ end subroutine reorder_particles
 !-----------------------------------------------------------------------
 subroutine shuffle_part(np)
  use io, only:fatal
+ use domain, only:ibelong
  integer, intent(inout) :: np
  integer :: newpart
 
@@ -716,8 +718,11 @@ subroutine shuffle_part(np)
     newpart = ideadhead
     if (newpart <= np) then
        if (.not.isdead(np)) then
-          !if (.not.isdead(newpart)) call fatal('shuffle','corrupted dead list',newpart)
+          ! move particle to new position
           call copy_particle_all(np,newpart)
+          ! move ibelong to new position
+          ibelong(newpart) = ibelong(np)
+          ! update deadhead
           ideadhead = ll(newpart)
        endif
        np = np - 1

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -62,8 +62,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:rhozero,ihavesetupB
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:Bevol,mhd
- use io,           only:master,real4
+ use part,         only:Bxyz,mhd
+ use io,           only:master
  use prompting,    only:prompt
  use mpiutils,     only:bcast_mpi
  use physcon,      only:pi
@@ -226,7 +226,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call transform_vec(Bvec,Bnew,sina,sinb,cosa,cosb)
 
     if (maxvxyzu >= 4) vxyzu(4,i) = uui
-    if (mhd) Bevol(1:3,i) = Bnew
+    if (mhd) Bxyz(1:3,i) = Bnew
  enddo
 
  if (mhd) ihavesetupB = .true.

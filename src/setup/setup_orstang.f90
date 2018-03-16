@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -52,8 +52,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:rhozero,ihavesetupB
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:Bevol,maxvecp,mhd,maxBevol
- use io,           only:master,real4
+ use part,         only:Bxyz,mhd
+ use io,           only:master
  use prompting,    only:prompt
  use mpiutils,     only:bcast_mpi
  use physcon,      only:pi,fourpi
@@ -173,18 +173,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vxyzu(3,i) = 0.
     vxyzu(4,i) = uuzero
     if (mhd) then
-       Bevol(:,i) = 0.
-       if (maxvecp==maxp) then
-          if (maxBevol /= 3) stop 'euler potentials + orstang not implemented'
-          Bevol(3,i) = real4(0.5/pi*Bzero*(cos(2.*pi*(xyzh(2,i)-ymin)) &
-                                  + 0.5*cos(4.*pi*(xyzh(1,i)-xmin))))
-       else
-          Bevol(1,i) = real4(-Bzero*sin(2.*pi*(xyzh(2,i)-ymin)))
-          Bevol(2,i) = real4(Bzero*sin(4.*pi*(xyzh(1,i)-xmin)))
+       Bxyz(:,i) = 0.
+       Bxyz(1,i) = -Bzero*sin(2.*pi*(xyzh(2,i)-ymin))
+       Bxyz(2,i) = Bzero*sin(4.*pi*(xyzh(1,i)-xmin))
 
-          !--non-zero divB test
-          !Bevol(1,i) = 0.5/pi*sin(2.*pi*(xyzh(1,i)-xmin))
-       endif
+       !--non-zero divB test
+       !Bxyz(1,i) = 0.5/pi*sin(2.*pi*(xyzh(1,i)-xmin))
     endif
  enddo
 

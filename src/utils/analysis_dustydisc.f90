@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -126,7 +126,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  real :: unitlx(nr),unitly(nr),unitlz(nr),tp(nr)
  real :: zsetdust(ndusttypes,max(npartoftype(idust),npartoftype(igas)),nr)
  real :: hdust(ndusttypes,nr),meanzdust(ndusttypes,nr)
- real :: psi_x,psi_y,psi_z,psi,Mdust1,Mdust2,Mdust,Mgas,Mtot,Macc,pmassi,pgasmass,pdustmass(ndusttypes)
+ real :: psi_x,psi_y,psi_z,psi,Mdust,Mgas,Mtot,Macc,pmassi,pgasmass,pdustmass(ndusttypes)
  real :: dustfraci(ndusttypes),dustfracisum,rhoeff
  real :: ri_mid,d2g_ratio,dustfracsuminit,dustfracinit(ndusttypes)
  real :: l_planet(3),bigl_planet,rad_planet,inc,planet_mass
