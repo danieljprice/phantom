@@ -95,17 +95,17 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  character(len=20)  :: discprefix
  integer, parameter :: nxn = 2*ndusttypes
  integer :: i,j,k,ir,ii,ierr,iline,ninbin(nr),ninbindust(ndusttypes,nr),iwarp,nptmassinit
- integer :: icutgas(nr),icutdust(ndusttypes,nr),find_ii(1),grainsize_set
- integer :: itype,lu
+ integer :: icutgas(nr),icutdust(ndusttypes,nr),find_ii(1),grainsize_set,irealvisc
+ integer :: itype,lu,nondustcols,dustcols,numcols
  real :: err,errslope,erryint,slope
  real :: Sig0,rho0,hi,rhoi
- real :: vrsol(nxn,nr)
+ real :: vgassol(2,nr),vdustsol(2,ndusttypes,nr)
  real :: cut_fact,eps_dust_cut
  real :: stan_dev(ndusttypes,nr)
  real :: St_from_tstop(ndusttypes,nr),St_from_sigma(ndusttypes,nr)
  real :: rhogmid(nr),rhodmid(ndusttypes,nr)
  real :: rhog(npart),rhod(ndusttypes,npart),rhogbin(npartoftype(igas),nr),rhodbin(ndusttypes,npartoftype(igas),nr)
- real :: vK(nr),etabin(npartoftype(igas),nr),meaneta(nr)
+ real :: vK(nr),etabin(npartoftype(igas),nr),meaneta(nr),nuvisc(nr),shearvisc
  real :: vrgasbin(npartoftype(igas),nr),vrdustbin(ndusttypes,npartoftype(igas),nr)
  real :: meanvrgas(nr),meanvrdust(ndusttypes,nr)
  real :: meanrhog(nr),meanrhod(ndusttypes,nr)
@@ -143,7 +143,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  integer, parameter :: iprec   = 24
  integer, parameter :: isplash = 33
  integer, parameter :: isol    = 34
- logical :: do_precession,ifile,isetupfile
+ logical :: do_precession,ifile
 
  if (use_dustfrac .and. ndusttypes > 1) then
     fit_sigma   = .false.
@@ -193,11 +193,27 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  iline = index(dumpfile,'_')
  discprefix = dumpfile(1:iline-1)
  write(filename,"(a)") trim(discprefix)//'.setup'
- inquire(file=filename, exist=isetupfile)
- if (isetupfile) then
+ inquire(file=filename, exist=ifile)
+ if (ifile) then
     call read_setup(filename,d2g_ratio,grainsize_set,grainsize(:),dustfracsuminit, &
                     dustfracinit(:),graindens,isetupparams,ierr)
     if (ierr /= 0) call fatal('analysis','could not open/read .setup file')
+ endif
+
+ iline = index(dumpfile,'_')
+ discprefix = dumpfile(1:iline-1)
+ write(filename,"(a)") trim(discprefix)//'.in'
+ inquire(file=filename, exist=ifile)
+ if (ifile) then
+    call read_in(filename,irealvisc,shearvisc,iunit,ierr)
+    if (ierr /= 0) call fatal('analysis','could not open/read .in file')
+
+    if (irealvisc == 0 ) then
+       write(output,"(a)") 'baistone'//trim(adjustl(basename))//'.analysis'
+    else
+       if (irealvisc == 1) print*,'WARNING!!! Dipierro solution for irealvisc == 1 needs to be corrected'
+       write(output,"(a)") 'dipierro'//trim(adjustl(basename))//'.analysis'
+    endif
  endif
 
 ! Print out the parameters of gas disc
@@ -302,10 +318,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  angy  = 0.
  angz  = 0.
 
- H(:)     = 0.
- cs(:)    = 0.
- vK(:)    = 0.
- omega(:) = 0.
+ H(:)      = 0.
+ cs(:)     = 0.
+ vK(:)     = 0.
+ omega(:)  = 0.
+ nuvisc(:) = 0.
  
  hgas(:)     = 0.
  hdust(:,:)  = 0.
@@ -351,6 +368,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
     omega(i) = sqrt(G*M_star/rad(i)**3)
     vK(i)    = sqrt(G*M_star/rad(i))
     H(i)     = cs(i)/omega(i)
+    if (irealvisc == 1) then
+       nuvisc(i) = shearvisc
+    elseif (irealvisc == 2) then
+       nuvisc(i) = shearvisc*cs(i)*H(i)
+    endif
  enddo
 
  if (R_warp/=0.)then
@@ -538,9 +560,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  write(*,*)"Massa della polvere: ",Mdust
  write(*,*)"Massa del gas: ",Mgas
 
+ numcols = 5 ! # of total columns
  if (.not.init) then
     open(newunit=lu,file='dustmass.ev',status='replace')
-    write(lu,"('# ',5('[',i2.2,1x,a12,']',1x))") 1,'time',2,'Mtot',3,'Mgas',4,'Mdust',5,'Macc'
+    write(labelfmt,'(I10)') numcols
+    write(labelfmt,'(A)') '(''#'','//trim(adjustl(labelfmt))//'(1x,''['',i2.2,1x,a12,'']'',1x))'
+    write(lu,labelfmt) 1,'time',2,'Mtot',3,'Mgas',4,'Mdust',5,'Macc'
     init = .true.
     Mgas_in  = Mgas
     Mdust_in = Mdust
@@ -554,7 +579,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
        ' dMgas  = ',(Mgas-Mgas_in)/Mtot_in,&
        ' dMdust = ',(Mdust-Mdust_in)/Mtot_in,&
        ' dMacc  = ',Macc/Mtot_in
- write(lu,*) time,Mtot,Mgas,Mdust,Macc
+ write(datafmt,'(I10)') numcols
+ write(datafmt,'(A)') '('//trim(adjustl(datafmt))//'(es18.10,1X))'
+ write(lu,datafmt) time,Mtot,Mgas,Mdust,Macc
  close(lu)
  
  ! Computing Hgas, Hdust, vrgas, vrdust
@@ -640,12 +667,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
 !                   = rhoeff*s*sqrt(2*pi)/(sigma*exp(-0.5*(z/Hg)**2)))
 !                   = rhoeff*s*sqrt(2*pi)/sigma    ! if z = 0
  do i = 1,nr
-    St_from_tstop(:,i) = meantstop(:,i)*omega(i)
-    St_mid(:,i) = St_from_tstop(:,i)
+    !St_from_tstop(:,i) = meantstop(:,i)*omega(i)
+    !St_mid(:,i) = St_from_tstop(:,i)
     
-    St_from_sigma(:,i) = rhoeff*grainsize(:)*(sqrt(2.*pi)/sigmagas(i))
+    St_mid(:,i) = rhoeff*grainsize(:)*(sqrt(2.*pi)/sigmagas(i)) ! St_mid = Lambda_k
     meantstop(:,i) = St_from_sigma(:,i)/omega(i)
-    St_mid(:,i) = St_from_sigma(:,i)
  enddo
 
 ! Print angular momentum of accreted particles
@@ -813,26 +839,48 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  
  if (check_radial_migration) then
     print *,' '
-    print *,'Solving the Bai and Stone (2010) analytic solution for radial drift...'
-    call solve_bai_stone_2010(meand2g_ratio,nxn,meaneta,vK,vrsol,scale_vel)
+    if (irealvisc == 0) then
+       print *,'Solving the Bai and Stone (2010) analytic solution for radial drift...'
+       call solve_bai_stone_2010(meand2g_ratio,nxn,meaneta,vK,vgassol,vdustsol)
+    else
+       print *,'Solving the Dipierro et al. (2018) analytic solution for radial drift...'
+       call solve_dipierro_2018(irealvisc,vgassol,vdustsol,meand2g_ratio,rad,cs,vK, &
+                                 nuvisc,p_index,q_index)
+    endif
+    if (scale_vel) then
+       do i = 1,nr
+          vgassol(:,i) = vgassol(:,i)/(meaneta(i)*vK(i))
+          vdustsol(:,:,i) = vdustsol(:,:,i)/(meaneta(i)*vK(i))
+       enddo
+    endif
     print*,'...Done'
     print *,' '
 
     ! Print solution to file
     write(filename,"(a)") trim(output)//'.sol'
     open(unit=isol,file=filename,status="replace")
-    write(labelfmt,'(I10)') iStend-ivrdust+3
+    nondustcols = 3                  ! # of non-dust columns
+    dustcols = iStend - ivrdust + 1  ! # of dust columns
+    numcols = nondustcols + dustcols ! # of total columns
+    write(labelfmt,'(I10)') numcols
     write(labelfmt,'(A)') '(''#'','//trim(adjustl(labelfmt))//'(1x,''['',i2.2,1x,a11,'']'',2x))'
-    write(datafmt,'(I10)') iStend-ivrdust+3
+    write(datafmt,'(I10)') numcols
     write(datafmt,'(A)') '('//trim(adjustl(datafmt))//'(es18.10,1X))'
     write(isol,labelfmt) 1,trim(adjustl(label(iradius))), &
                          2,trim(adjustl(label(isigmagas))), &
-                         (j-ivrdust+3,trim(adjustl(label(j))),j=ivrdust,iStend)
+                         3,trim(adjustl(label(ivrgas))), &
+                        (4 + j-ivrdust,trim(adjustl(label(j))),j=ivrdust,iStend)
     do ir = 1,nr
+       if (sigmagas(ir) == 0.) then
+          vgassol(1,ir) = 0.
+          vdustsol(1,:,ir) = 0.
+          St_mid(:,ir) = 0.
+       endif
        write(isol,datafmt)  &
              rad(ir),       &
              sigmagas(ir),  &
-             (vrsol(j,ir), j=1,ndusttypes), &
+             vgassol(1,ir), &
+             (vdustsol(1,j,ir), j=1,ndusttypes), &
              (St_mid(j,ir),j=1,ndusttypes)
     enddo
     close(unit=isol)
@@ -859,13 +907,12 @@ end subroutine do_analysis
 !  Solve for the radial velocities in Bai & Stone 2010b test
 !+
 !----------------------------------------------------------------
-subroutine solve_bai_stone_2010(d2g_ratio,nxn,eta,vK,vrsol,scale_vel)
+subroutine solve_bai_stone_2010(d2g_ratio,nxn,eta,vK,vgassol,vdustsol)
  use dim,               only:ndusttypes
  use solvelinearsystem, only:rowk,dple
  integer, intent(in)  :: nxn
  real,    intent(in)  :: d2g_ratio(:,:),eta(:),vK(:)
- real,    intent(out) :: vrsol(:,:)
- logical, intent(in)  :: scale_vel
+ real,    intent(out) :: vgassol(:,:),vdustsol(:,:,:)
  integer, parameter   :: dp = selected_real_kind(14, 60)
  integer  :: i,ir,ierr
  real(dp) :: soln(nxn)
@@ -874,7 +921,7 @@ subroutine solve_bai_stone_2010(d2g_ratio,nxn,eta,vK,vrsol,scale_vel)
  real :: Gamma(ndusttypes,ndusttypes)
  real :: Amat(nxn,nxn),Bmat(nxn)
 
- vrsol(:,:) = 0.
+ vdustsol(:,:,:) = 0.
  do ir = 1,nr
     Bmat(1:ndusttypes) = 0.
     Bmat(ndusttypes+1:nxn) = 1.
@@ -902,14 +949,62 @@ subroutine solve_bai_stone_2010(d2g_ratio,nxn,eta,vK,vrsol,scale_vel)
     end if
 
     ! Save the solution to an array
-    vrsol(:,ir) = -eta(ir)*vK(ir)*soln(:)
-    if (scale_vel) then
-       vrsol(:,ir) = vrsol(:,ir)/(eta(ir)*vK(ir))
-    endif
+    vdustsol(1,:,ir) = -eta(ir)*vK(ir)*soln(1:ndusttypes)
+    vdustsol(2,:,ir) = -eta(ir)*vK(ir)*soln(ndusttypes+1:nxn)
+
+    vgassol(1,ir) = -sum(d2g_ratio(:,ir)*vdustsol(1,:,ir))
+    vgassol(2,ir) = -sum(d2g_ratio(:,ir)*vdustsol(2,:,ir)) - eta(ir)*vK(ir)
  enddo
 
  return
 end subroutine solve_bai_stone_2010
+
+
+!----------------------------------------------------------------
+!+
+!  Solve for the radial velocities in Dipierro et al. 2018 test
+!+
+!----------------------------------------------------------------
+subroutine solve_dipierro_2018(ivisc,vgassol,vdustsol,d2g_ratio,r,cs,vK,nu,p,q)
+ use dim,               only:ndusttypes
+
+ integer, intent(in)  :: ivisc
+ real,    intent(out) :: vgassol(:,:)
+ real,    intent(out) :: vdustsol(:,:,:)
+ real,    intent(in)  :: d2g_ratio(:,:)
+ real,    intent(in)  :: r(:),cs(:),vK(:),nu(:)
+ real,    intent(in)  :: p,q
+
+ integer :: i
+ real    :: St_k(ndusttypes),Lambda_k(ndusttypes),denom2(ndusttypes)
+ real    :: lambda0,lambda1,v_P,v_nu
+ real    :: denom1
+
+ do i = 1,nr
+    Lambda_k(:) = St_mid(:,i)
+    St_k(:) = Lambda_k(:)/(1. + d2g_ratio(:,i))
+    lambda0 = sum(d2g_ratio(:,i)/(1. + St_mid(:,i)**2))
+    lambda1 = sum(d2g_ratio(:,i)*St_mid(:,i)/(1. + St_mid(:,i)**2))
+    v_P = -(p + q + 1.5)*cs(i)**2/vK(i)
+    if (ivisc == 1) then
+       v_nu = 3*nu(i)*(p - q + 1)/r(i)
+    elseif (ivisc == 2) then
+       v_nu = 3*nu(i)*(p + q - 0.5)/r(i)
+    endif
+
+    denom1          = (1. + lambda0)**2 + lambda1**2
+    denom2(:)       = denom1*(1. + Lambda_k(:)**2)
+    vgassol(1,i)    = (-lambda1*v_P + (1. + lambda0)*v_nu)/denom1
+    vdustsol(1,:,i) = (v_P*((1. + lambda0)*Lambda_k(:) - lambda1) +  &
+                       v_nu*(1. + lambda0 + Lambda_k(:)*lambda1))/denom2(:)
+    vgassol(2,i)    = 0.5*(v_P*(1. + lambda0) + v_nu*lambda1)/denom1
+    vdustsol(2,:,i) = 0.5*(v_P*(1. + lambda0 + Lambda_k(:)*lambda1) -  &
+                       v_nu*((1. + lambda0)*Lambda_k(:) - lambda1))/denom2(:)
+ enddo
+
+ return
+end subroutine solve_dipierro_2018
+
 
 
 !----------------------------------------------------------------
@@ -982,7 +1077,7 @@ end subroutine read_discparams
 
 !----------------------------------------------------------------
 !+
-!  read disc information from discparams.list file
+!  read disc information from .setup file
 !+
 !----------------------------------------------------------------
 subroutine read_setup(filename,d2g_ratio,grainsize_set,grainsize,dustfracsum,dustfrac,graindens,iunit,ierr)
@@ -1041,6 +1136,33 @@ subroutine read_setup(filename,d2g_ratio,grainsize_set,grainsize,dustfracsum,dus
  call close_db(db)
 
 end subroutine read_setup
+
+
+
+!----------------------------------------------------------------
+!+
+!  read disc information from .in file
+!+
+!----------------------------------------------------------------
+subroutine read_in(filename,irealvisc,shearvisc,iunit,ierr)
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ character(len=*), intent(in)  :: filename
+ real,             intent(out) :: shearvisc
+ integer,          intent(in)  :: iunit
+ integer,          intent(out) :: ierr,irealvisc
+ type(inopts), allocatable :: db(:)
+
+! read in parameters from the .setup file
+ call open_db_from_file(db,filename,iunit,ierr)
+ call read_inopt(irealvisc,'irealvisc',db,ierr)
+ if (ierr /= 0) return
+ call read_inopt(shearvisc,'shearparam',db,ierr)
+ if (ierr /= 0) return
+ call close_db(db)
+
+end subroutine read_in
+
+
 
 
 !----------------------------------------------------------------
