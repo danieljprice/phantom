@@ -435,7 +435,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
        if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
        if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
-       if (should_conserve_com)      call check_conservation_error(rcom,rcom_in,1.e-2*dxi_in,'centre of mass')
+       if (should_conserve_com)      call check_conservation_error(rcom,rcom_in,1.e-2*dxi_in,'centre of mass',is_CoM=.true.)
        if (should_conserve_dustmass) call check_conservation_error(mdust,mdust_in,1.e-1,'dust mass',decrease=.true.)
 
        !--write with the same ev file frequency also mass flux and binary position
@@ -720,11 +720,11 @@ end subroutine check_dtmax_for_decrease
 !  and stop if it is too large
 !+
 !----------------------------------------------------------------
-subroutine check_conservation_error(val,ref,tol,label,decrease)
+subroutine check_conservation_error(val,ref,tol,label,decrease,is_CoM)
  use io, only:error,fatal,iverbose
  real, intent(in) :: val,ref,tol
  character(len=*), intent(in) :: label
- logical, intent(in), optional :: decrease
+ logical, intent(in), optional :: decrease,is_CoM
  real :: err
  character(len=20) :: string
 
@@ -733,6 +733,7 @@ subroutine check_conservation_error(val,ref,tol,label,decrease)
  else
     err = (val - ref)
  endif
+ if (present(is_CoM)) err = (val - ref)  ! This conserved value should always be absolute and not relative
  if (present(decrease)) then
     err = max(err,0.) ! allow decrease but not increase
  else
