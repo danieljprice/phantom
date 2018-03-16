@@ -45,9 +45,8 @@
 !    umass       -- mass units (cgs)
 !    utime       -- time units (cgs)
 !
-!  DEPENDENCIES: dim, domain, eos, extern_lensethirring, externalforces,
-!    infile_utils, io, mpiutils, options, part, physcon, random, units,
-!    vectorutils
+!  DEPENDENCIES: dim, domain, eos, externalforces, infile_utils, io,
+!    mpiutils, options, part, physcon, random, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module setdisc
@@ -211,8 +210,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  G      = gg*umass*utime**2/(udist**3)
  clight = c*utime/udist
  if (id==master .and. do_verbose) then
-    print "(a)", ''
-    print "(a)",' Phantom: general disc setup (see .discparams file for details)'
+    print "(/,a)",' Phantom: general disc setup (see .discparams file for details)'
  endif
  if (present(particle_type)) then
     itype = particle_type

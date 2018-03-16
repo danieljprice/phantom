@@ -115,9 +115,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  write(*,*) ''
 
  ! set thermal energy
-
  do i=1,npart
-    if (Tdust(i) > 0.) then
+    if (Tdust(i) > 1.) then
        vxyzu(4,i) = Tdust(i) * factor
     else
        ! if mcfost doesn't return a temperature set it to Tdefault
@@ -127,6 +126,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  if (allocated(dudt)) deallocate(dudt)
  if (allocated(Frad)) deallocate(Frad)
+
+ write(*,*) "End of analysis mcfost"
 
  return
 

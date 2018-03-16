@@ -39,10 +39,10 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use io,               only:iprint,iwritein,id,master,iverbose,flush_warnings,nprocs,fatal
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce
  use evwrite,          only:write_evfile,write_evlog
- use energies,         only:etot,totmom,angtot,mdust,get_erot_com
- use dim,              only:calc_erot,maxvxyzu,mhd,periodic,ndusttypes
+ use energies,         only:etot,totmom,angtot,mdust,xyzcom
+ use dim,              only:maxvxyzu,mhd,periodic,ndusttypes
  use fileutils,        only:getnextfilename
- use options,          only:nfulldump,twallmax,dtwallmax,nmaxdumps,iexternalforce,&
+ use options,          only:nfulldump,twallmax,nmaxdumps,iexternalforce,&
                             icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating,&
                             use_dustfrac
  use readwrite_infile, only:write_infile
@@ -99,7 +99,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
                             rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin,rhomax_ipart
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
- use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in
+ use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in
 #ifdef MFLOW
  use mf_write,         only:mflow_write
 #endif
@@ -114,7 +114,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: noutput,noutput_dtmax,nsteplast,ncount_fulldumps
  real            :: dtnew,dtlast,timecheck
- real            :: tprint,tzero,dtmaxold
+ real            :: tprint,tzero,dtmaxold,rcom,rcom_in
  real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
  real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
 #ifdef IND_TIMESTEPS
@@ -135,7 +135,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
  logical         :: fulldump,abortrun,at_dump_time,update_tzero
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
- logical         :: should_conserve_dustmass
+ logical         :: should_conserve_com,should_conserve_dustmass
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  type(timer)     :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io
 
@@ -154,13 +154,17 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     should_conserve_momentum = (npartoftype(iboundary)==0)
  endif
  should_conserve_angmom   = (npartoftype(iboundary)==0 .and. .not.periodic)
+ should_conserve_com      = should_conserve_momentum
  should_conserve_dustmass = use_dustfrac
+ rcom_in = dot_product(xyzcom_in,xyzcom_in)
+
 
 ! Each injection routine will need to bookeep conserved quantities, but until then...
 #ifdef INJECT_PARTICLES
- should_conserve_energy = .false.
+ should_conserve_energy   = .false.
  should_conserve_momentum = .false.
- should_conserve_angmom = .false.
+ should_conserve_angmom   = .false.
+ should_conserve_com      = .false.
 #endif
 
  noutput          = 1
@@ -192,11 +196,10 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        endif
     enddo
  endif
+ call init_step(npart,time,dtmax)
  if (use_sts) then
     call sts_get_dtau_next(dtau,dt,dtmax,dtdiff,nbinmax)
-    call sts_init_step(npart,time,dtmax,dtau)
- else
-    call init_step(npart,time,dtmax)
+    call sts_init_step(npart,time,dtmax,dtau)  ! overwrite twas for particles requiring super-timestepping
  endif
 
 #else
@@ -268,7 +271,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !  for global timestepping, this is called in the block where at_dump_time==.true.
     if (istepfrac==2**nbinmax) then
        twallperdump = reduceall_mpi('max', timer_lastdump%wall)
-       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,update_tzero)
+       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,nfulldump,update_tzero)
     endif
 
     !--sanity check on istepfrac...
@@ -418,16 +421,14 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
     nskipped = nskipped + nskip
     if (nskipped >= nevwrite_threshold .or. at_dump_time .or. dt_changed) then
-       ! update centre of mass for calculation of rotational energy (infrequent for optimisation)(
-       if (at_dump_time .and. calc_erot) then
-          call get_erot_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
-       endif
        nskipped = 0
        call get_timings(t1,tcpu1)
        call write_evfile(time,dt)
+       rcom = sqrt(dot_product(xyzcom,xyzcom))
        if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
        if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
        if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
+       if (should_conserve_com)      call check_conservation_error(rcom,rcom_in,1.e-1,'centre of mass')
        if (should_conserve_dustmass) then
           do j = 1,ndusttypes
              call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)
@@ -472,6 +473,12 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        !--do not dump dead particles into dump files
        if (ideadhead > 0) call shuffle_part(npart)
 #endif
+#ifndef IND_TIMESTEPS
+!
+!--Global timesteps: Decrease dtmax if requested (done in step for individual timesteps)
+       twallperdump = timer_lastdump%wall
+       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,nfulldump,update_tzero,.true.)
+#endif
 !
 !--get timings since last dump and overall code scaling
 !  (get these before writing the dump so we can check whether or not we
@@ -483,17 +490,17 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        !call increment_timer(timer_lastdump,t2-twalllast,tcpu2-tcpulast)
        timer_fromstart%cpu  = reduce_mpi('+',timer_fromstart%cpu)
        timer_lastdump%cpu   = reduce_mpi('+',timer_lastdump%cpu)
-       timer_step%cpu = reduce_mpi('+',timer_step%cpu)
-       timer_ev%cpu   = reduce_mpi('+',timer_ev%cpu)
+       timer_step%cpu       = reduce_mpi('+',timer_step%cpu)
+       timer_ev%cpu         = reduce_mpi('+',timer_ev%cpu)
 
        fulldump = (mod(noutput,nfulldump)==0)
 !
 !--if max wall time is set (> 1 sec) stop the run at the last full dump
 !  that will fit into the walltime constraint, based on the wall time between
 !  the last two dumps added to the current total walltime used.  The factor of three for
-!  chaning to full dumps is to account for the possibility that the next step will take longer.
+!  changing to full dumps is to account for the possibility that the next step will take longer.
 !  If we are about to write a small dump but it looks like we won't make the next dump,
-!  dump a full dump instead and stop the run
+!  write a full dump instead and stop the run
 !
        abortrun = .false.
        if (twallmax > 1.) then
@@ -513,27 +520,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
           endif
        endif
 !
-!--if max wall time between dumps is set (> 1 sec), switch to writing full dumps for all subsequent dumps
-!
-       if (dtwallmax > 1.0 .and. .not.fulldump) then
-          twallperdump = timer_lastdump%wall
-          if (twallperdump > dtwallmax) then
-             fulldump = .true.
-             write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON DT WALL TIME CONSTRAINTS... '
-             nfulldump = 1  !  also set all future dumps to be full dumps (otherwise gets confusing)
-          endif
-       endif
-!
 !--Promote to full dump if this is the final dump
 !
        if ( (time >= tmax) .or. ( (nmax > 0) .and. (nsteps >= nmax) ) ) fulldump = .true.
-
-#ifndef IND_TIMESTEPS
-!
-!--Decrease dtmax if requested (this is done in step for individual timesteps)
-       twallperdump = timer_lastdump%wall
-       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,update_tzero,.true.)
-#endif
 !
 !--flush any buffered warnings to the log file
 !
@@ -666,23 +655,27 @@ end subroutine evol
 !  whether individual or global timesteps are being used.
 !+
 !----------------------------------------------------------------
-subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,update_tzero,update_dtmax)
- use timestep, only: dtmax_rat,dtmax_rat0,dtwall_dtthresh, &
-                     mod_dtmax,mod_dtmax_now,mod_dtmax_in_step
+subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,nfulldump,update_tzero,update_dtmax)
+ use options,  only: dtwallmax
+ use timestep, only: dtmax_rat,dtmax_rat0,mod_dtmax,mod_dtmax_now,mod_dtmax_in_step
  integer,      intent(in)    :: iprint
+ integer,      intent(inout) :: nfulldump
  real,         intent(inout) :: dtmax
  real(kind=4), intent(in)    :: twallperdump
  logical,      intent(out)   :: update_tzero
  logical,      intent(in), optional :: update_dtmax
+ logical                     :: mod_nfulldump
 
  ! initialise variables
- dtmax_rat    = 0
- update_tzero = .false.
+ dtmax_rat     = 0
+ update_tzero  = .false.
+ mod_nfulldump = .false.
 
  ! modify dtmax based upon wall time constraint, if requested
- if ( dtwall_dtthresh > 0.0 ) then
-    if (twallperdump > dtwall_dtthresh) then
-       dtmax_rat = int(2**(int(log(real(twallperdump/dtwall_dtthresh))/log(2.0))+1))
+ if ( dtwallmax > 0.0 ) then
+    if (twallperdump > dtwallmax) then
+       mod_nfulldump = (nfulldump > 1)
+       dtmax_rat = int(2**(int(log(real(twallperdump/dtwallmax))/log(2.0))+1))
        write(iprint,'(1x,a,2(es10.3,a))') &
           "modifying dtmax: ",dtmax," --> ",dtmax/dtmax_rat," due to wall time constraint"
        dtmax_rat0 = max(0,dtmax_rat0-dtmax_rat)
@@ -691,6 +684,7 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,update_tzero,updat
 
  ! modify dtmax based upon density, if requested, and print info to the logfile
  if (mod_dtmax_now .and. dtmax_rat0 > 1) then
+    mod_nfulldump     = (nfulldump > 1)
     dtmax_rat         = dtmax_rat0 + dtmax_rat
     mod_dtmax_now     = .false. ! reset variable
     mod_dtmax         = .false. ! prevent any additional modifications of dtmax
@@ -700,11 +694,18 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,update_tzero,updat
 
  ! dtmax will be modified; update all required logicals such that this will happen
  if (dtmax_rat > 1) then
+    mod_nfulldump     = (nfulldump > 1)
     update_tzero      = .true.  ! to reset tzero and tlast if individual dt
     mod_dtmax_in_step = .true.  ! to tell step.f to decrease dtmax on its next call for individual dt
     if (present(update_dtmax)) then
        if (update_dtmax) dtmax = dtmax/dtmax_rat
     endif
+ endif
+
+ ! set nfulldump = 1 if we have modified dtmax
+ if (mod_nfulldump) then
+    nfulldump = 1
+    write(iprint,'(1x,a)') "modifying dtmax: nfulldump -> 1 to ensure data is not lost due to decreasing dtmax"
  endif
 
 end subroutine check_dtmax_for_decrease
@@ -739,6 +740,12 @@ subroutine check_conservation_error(val,ref,tol,label,decrease)
     if (.not. (trim(string)=='yes')) then
        print "(2(/,a))",' You can ignore this error and continue by setting the ',&
                         ' environment variable I_WILL_NOT_PUBLISH_CRAP=yes to continue'
+!#ifdef IND_TIMESTEPS
+!       print "(4(/,a))",' Note: Please try again setting allow_wake=.false. in step_leapfrog.F90. ',&
+!                        ' If the new simulation successfully runs, please send details to ',&
+!                        ' j.wurster[at]exeter.ac.uk so that the bug can be fixed. ',&
+!                        ' Sorry for any inconvenience.'
+!#endif
        call fatal('evolve',' Conservation errors too large to continue simulation')
     endif
  else

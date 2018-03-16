@@ -4,15 +4,14 @@
 #            A script to generate new source code with most            !
 #                     logical if-statements removed                    !
 #                                                                      !
-#                 Copyright (c) 2015-2016 James Wurster                !
+#                 Copyright (c) 2015-2017 James Wurster                !
 #        See LICENCE file for usage and distribution conditions        !
 #----------------------------------------------------------------------!
 # The primary function of this script is to make a new copy of
-# nicil.F90 from nicil_source.F90, where the if-statements of selected
-# input parameters have been removed (except in the initialisation
-# subroutines).
-# The interior commands will be included or deleted based upon the 
-# logical in nicil_source.F90.
+# nicil.F90, where the if-statements of selected input parameters have
+# been removed (except in the initialisation subroutines). The interior
+# commands will be included or deleted based upon the choices of the
+# logicals.  The original file will be saved as nicil_source.F90.
 # In production runs, it is not necessary to be continually calling the
 # if-statements for values that are always true or false.
 # Secondary functions are to copy nicil_source.F90 back onto nicil.F90,
@@ -21,24 +20,35 @@
 import os
 import sys
 #
+print "Welcome to Nicil's hardcode_ifs.py script"
+#--Filenames; make nicil_source.F90 if it does not yet exist
+srcname = "nicil_source.F90"
+outname = "nicil.F90"
+tmpname = "nicil_tmp.F90"
+difname = "nicilsrc_nicil.diff"
+if (not os.path.isfile(srcname)):
+  print "Created  "+srcname+" by copying "+outname
+  os.system("cp "+outname+" "+srcname)
+  # sanity check
+  if (not os.path.isfile(srcname)):
+    print "Failed to create "+srcname+".  Aborting"
+    sys.exit()
+#
 #--List the options and ask the user which task they would like performed
-print "Welcome to Nicil's hardcode_ifs.py.  Please choose from one of the following options:"
+print "Please choose from one of the following options:"
 print "  1) Remove hardcoded if's from nicil.F90"
 print "  2) List the hard coded options and their status in nicil.F90"
 print "  3) Replace nicil.F90 with nicil_source.F90"
 print "  4) diff nicil.F90 and nicil_source.F90"
+print "  5) Developer: remove 'pure' statements"
+print "  6) Developer: re-add 'pure' statements"
 opt = str(raw_input("Please enter option now: "))
 ask = True
 while ( ask ):
-  if (opt=="1" or opt=="2" or opt=="3" or opt=="4" or opt[0:1]=="q" or opt[0:1]=="Q"):
+  if (opt=="1" or opt=="2" or opt=="3" or opt=="4" or opt=="5" or opt=="6" or opt[0:1]=="q" or opt[0:1]=="Q"):
     ask = False
   else:
     opt = str(raw_input("That is not a valid input.  Please enter option now:"))
-#
-#--Filenames
-srcname = "nicil_source.F90"
-outname = "nicil.F90"
-difname = "nicilsrc_nicil.diff"
 #
 #----------------------------------------------------------------------!
 #+
@@ -48,29 +58,48 @@ difname = "nicilsrc_nicil.diff"
 if (opt=="1"):
   #
   #--The list of logicals to remove
-  clogical = [];                     llogical = []
-  clogical.append('use_ohm');        llogical.append('')
-  clogical.append('use_hall');       llogical.append('')
-  clogical.append('use_ambi');       llogical.append('')
-  clogical.append('ion_rays');       llogical.append('')
-  clogical.append('ion_thermal');    llogical.append('')
-  clogical.append('eta_constant');   llogical.append('')
-  clogical.append('mod_beta');       llogical.append('')
-  clogical.append('eta_const_calc'); llogical.append('')
-  clogical.append('warn_verbose');   llogical.append('')
+  clogical = [];                       llogical = []
+  clogical.append('use_ohm');          llogical.append('')
+  clogical.append('use_hall');         llogical.append('')
+  clogical.append('use_ambi');         llogical.append('')
+  clogical.append('ion_rays');         llogical.append('')
+  clogical.append('ion_thermal');      llogical.append('')
+  clogical.append('zeta_of_rho');      llogical.append('')
+  clogical.append('use_fdg_in');       llogical.append('')
+  clogical.append('rho_is_rhogas');    llogical.append('')
+  clogical.append('eta_constant');     llogical.append('')
+  clogical.append('mod_beta');         llogical.append('')
+  clogical.append('warn_verbose');     llogical.append('')
+  clogical.append('reorder_Jacobian'); llogical.append('')
   #
   #--Determine the value of the required logicals
   a=open(srcname,'r')
+  g_cnst       = 0
+  use_massfrac = 0
   for line in a:
-    if ("logical" in line and "public" in line):
+    if ("logical" in line and ("public" in line or "private" in line)):
       for i in range(0,len(clogical)):
         if (clogical[i] in line):
           if ("True" in line or "true" in line or "TRUE" in line):
             llogical[i]=True
           else:
             llogical[i] = False
-    if ("END OF INPUT PARAMETERS" in line): break
+    if ("g_cnst" in line and "= .true."  in line):
+       g_cnst =  1
+    elif ("g_cnst" in line and "= .false." in line):
+       g_cnst = -1
+    elif ("use_massfrac" in line and "= .true."  in line):
+       use_massfrac =  1
+    elif ("use_massfrac" in line and "= .false." in line):
+       use_massfrac = -1
+    elif ("END OF INPUT PARAMETERS" in line): break
   a.close
+  if (g_cnst==0):
+    print "There has been a problem determining the value of < g_cnst >.  Aborting."
+    sys.exit()
+  if (use_massfrac==0):
+    print "There has been a problem determining the value of < use_massfrac >.  Aborting."
+    sys.exit()
   print " "
   print "The following logicals will be hard-coded as defined:"
   for i in range(0,len(clogical)):
@@ -82,8 +111,8 @@ if (opt=="1"):
   print " "
   #
   #--Open files and write the modified output file
-  a = open(srcname,'r')
-  b = open(outname,'w')
+  a = open(srcname,"r")
+  b = open(outname,"w")
   #
   if_level  = 0
   keep_text = True
@@ -104,6 +133,7 @@ if (opt=="1"):
     #
     # Add statements such that hard coded variable will be defined in the output log
     elif ("end subroutine nicil_print_summary" in line):
+      b.write(" write(iprint,'(a)') 'NICIL: This version has been modified by hardcodeifs.py' \n")
       for i in range(0,len(clogical)):
         b.write(" write(iprint,'(a)') 'NICIL: HARDCODED PARAMETER: "+clogical[i]+"="+str(llogical[i])+"'\n")
       b.write(" !\n")
@@ -148,7 +178,36 @@ if (opt=="1"):
         write_line = False
         keep_text  = True
       if_level = if_level - 1
-    elif ("Version 1.0: 8 Dec 2015:" in line):
+    # Replace loops over nelements with the number since nelements is a variable and not a parameter
+    elif ("do" in line and "1,nelements" in line):
+      write_line = False
+      where = line.find("1,nelements")
+      if (use_massfrac==1):
+        b.write(line[:where]+"1,3\n")
+      elif(use_massfrac==-1):
+        b.write(line[:where]+"1,6\n")
+      else:
+        b.write(line+"\n")
+    elif ("do" in line and "3,nelements" in line):
+      write_line = False
+      where = line.find("3,nelements")
+      if (use_massfrac==1):
+        b.write(line[:where]+"3,3\n")
+      elif (use_massfrac==-1):
+        b.write(line[:where]+"3,6\n")
+      else:
+        b.write(line+"\n")
+    # Replace loops over na with the number since na is a variable and not a parameter
+    elif ("do" in line and "1,na" in line):
+      write_line = False
+      where = line.find("1,na")
+      if (g_cnst==1):
+        b.write(line[:where]+"1,1\n")
+      elif (g_cnst==-1):
+        b.write(line[:where]+"1,na_max\n")
+      else:
+        b.write(line+"\n")
+    elif ("end subroutine nicil_print_summary" in line):
       allow_mod = True
     #
     # No action required: copy line verbatim
@@ -200,6 +259,47 @@ elif (opt=="4"):
   #--The command
   os.system("diff "+srcname+" "+outname+sidebyside+tofile)
   print "diffed  "+srcname+" and "+outname+comment
+#----------------------------------------------------------------------!
+#+
+# Re-write nicil.F90 without pure subroutines/functions
+#+
+#----------------------------------------------------------------------!
+elif (opt=="5"):
+  ictr = 0
+  a = open(outname,"r")
+  b = open(tmpname,"w")
+  #
+  for line in a:
+    if ("pure " in line):
+       b.write(line[5:-1]+"  !pure!\n")
+       ictr = ictr + 1
+    else:
+       b.write(line)
+  a.close()
+  b.close()
+  os.system("mv "+tmpname+" "+outname)
+  print "'Pure' was removed "+str(ictr)+" times."
+#----------------------------------------------------------------------!
+#+
+# Re-write nicil.F90 replacing pure subroutines/functions
+# This will only work to undo opt=5
+#+
+#----------------------------------------------------------------------!
+elif (opt=="6"):
+  ictr = 0
+  a = open(outname,"r")
+  b = open(tmpname,"w")
+  #
+  for line in a:
+    if ("!pure!" in line):
+       b.write("pure "+line[:-9]+"\n")
+       ictr = ictr + 1
+    else:
+       b.write(line)
+  a.close()
+  b.close()
+  os.system("mv "+tmpname+" "+outname)
+  print "'Pure' was re-added "+str(ictr)+" times."
 #----------------------------------------------------------------------!
 #+
 # none of the above: exit

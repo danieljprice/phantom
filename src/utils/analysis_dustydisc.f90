@@ -79,7 +79,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  use io,           only:fatal
  use physcon,      only:pi,jupiterm,years,au
  use part,         only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac, &
-                        rhoh,maxphase,iamtype,xyzmh_ptmass,nptmass
+                        rhoh,maxphase,iamtype,xyzmh_ptmass,nptmass,isdead_or_accreted
  use options,      only:use_dustfrac,iexternalforce
  use units,        only:umass,udist,utime
  use dust,         only:graindens,grainsize
@@ -126,9 +126,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  real :: unitlx(nr),unitly(nr),unitlz(nr),tp(nr)
  real :: zsetdust(ndusttypes,max(npartoftype(idust),npartoftype(igas)),nr)
  real :: hdust(ndusttypes,nr),meanzdust(ndusttypes,nr)
- real :: psi_x,psi_y,psi_z,psi,Mdust,Mgas,Mtot,Macc,pmassi,pgasmass,pdustmass(ndusttypes)
+ real :: psi_x,psi_y,psi_z,psi,Mdust1,Mdust2,Mdust,Mgas,Mtot,Macc,pmassi,pgasmass,pdustmass(ndusttypes)
  real :: dustfraci(ndusttypes),dustfracisum,rhoeff
  real :: ri_mid,d2g_ratio,dustfracsuminit,dustfracinit(ndusttypes)
+ real :: l_planet(3),bigl_planet,rad_planet,inc,planet_mass
  real, save :: Mtot_in,Mgas_in,Mdust_in
  logical, save :: init  = .false.
  logical :: fit_sigma   = .false.
@@ -140,6 +141,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  logical :: check_radial_migration = .false.
  integer, parameter :: isetupparams = 2
  integer, parameter :: iparams = 10
+ integer, parameter :: iplanet = 23
  integer, parameter :: iprec   = 24
  integer, parameter :: isplash = 33
  integer, parameter :: isol    = 34
@@ -412,22 +414,26 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
        pmassi = massoftype(itype)
     endif
     Mtot = Mtot + pmassi
-    if (xyzh(4,i)  >  tiny(xyzh)) then
-       if (use_dustfrac) then
-          dustfraci(:) = dustfrac(:,i)
-          pdustmass(:) = pmassi*dustfraci(:)
-       else
-          dustfraci(:) = 0.
-          pdustmass(:) = pmassi
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       if (itype==igas) then
+          if (use_dustfrac) then
+             dustfraci = dustfrac(:,i)
+             pdustmass = pmassi*dustfraci
+          else
+             dustfraci = 0.
+             pdustmass = 0.
+          endif
+          dustfracisum = sum(dustfraci)
+          pgasmass     = pmassi*(1. - dustfracisum)
+          Mgas  = Mgas  + pgasmass
+          Mdust = Mdust + pmassi*dustfracisum
+       elseif (itype==idust) then
+          Mdust = Mdust + pmassi
        endif
-       dustfracisum = sum(dustfraci)
-       pgasmass     = pmassi*(1. - dustfracisum)
-       Mgas  = Mgas  + pgasmass
-       Mdust = Mdust + pmassi*dustfracisum
     else
        Macc  = Macc + pmassi
     endif
-    
+   
     !--Calculate vr for the gas and the N dust phases
     ri_mid = sqrt(dot_product(xyzh(1:2,i),xyzh(1:2,i)))
     do j = 1,ndusttypes
@@ -899,6 +905,42 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
     close(unit=isplash)
  endif
 
+ write(*,*)
+ write(*,*) '--------------------------------------------------------------------------------'
+
+! Printing the information for the planet as a function of time
+ if(nptmass>nptmassinit)then
+    do i=nptmassinit+1,nptmass
+       write(filename,"(a,i3.3)")"planet_",i-1
+       if (numfile==0) then
+          open(iplanet,file=filename,status="replace")
+          write(iplanet,"('#',9(1x,'[',i2.2,1x,a11,']',2x))") &
+               1,'time', &
+               2,'x', &
+               3,'y', &
+               4,'z', &
+               5,'lx', &
+               6,'ly', &
+               7,'lz', &
+               8,'tilt', &
+               9,'rad_sph'
+       else
+          open(iplanet,file=filename,status="old",position="append")
+       endif
+       planet_mass = xyzmh_ptmass(4,i)
+       rad_planet = sqrt((xyzmh_ptmass(1,i)-xyzmh_ptmass(1,1))**2 + &
+                    (xyzmh_ptmass(2,i)-xyzmh_ptmass(2,1))**2 + (xyzmh_ptmass(3,i)-xyzmh_ptmass(3,1))**2)
+       l_planet(1) = planet_mass*((xyzmh_ptmass(2,i)*vxyz_ptmass(3,i)) - (xyzmh_ptmass(3,i)*vxyz_ptmass(2,i)))
+       l_planet(2) = planet_mass*((xyzmh_ptmass(3,i)*vxyz_ptmass(1,i)) - (xyzmh_ptmass(1,i)*vxyz_ptmass(3,i)))
+       l_planet(3) = planet_mass*((xyzmh_ptmass(1,i)*vxyz_ptmass(2,i)) - (xyzmh_ptmass(2,i)*vxyz_ptmass(1,i)))
+       bigl_planet = sqrt(dot_product(l_planet,l_planet))
+       l_planet = l_planet/bigl_planet
+       inc = acos(abs(l_planet(3)))*180./pi
+       write(iplanet,'(9(es18.10,1X))') time, xyzmh_ptmass(1,i), xyzmh_ptmass(2,i), xyzmh_ptmass(3,i),&
+            l_planet(1),l_planet(2),l_planet(3),inc,rad_planet
+       close(iplanet)
+    enddo
+ endif
  return
 end subroutine do_analysis
 

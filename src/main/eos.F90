@@ -284,17 +284,17 @@ end subroutine equationofstate
 !  (called from step for decay timescale in alpha switches)
 !+
 !----------------------------------------------------------------
-real function get_spsound(ieos,xyzi,rhoi,vxyzui)
+real function get_spsound(eos_type,xyzi,rhoi,vxyzui)
  use dim, only:maxvxyzu
- integer,      intent(in) :: ieos
+ integer,      intent(in) :: eos_type
  real,         intent(in) :: xyzi(:),rhoi
  real,         intent(in) :: vxyzui(maxvxyzu)
  real :: spsoundi,ponrhoi
 
  if (maxvxyzu==4) then
-    call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
+    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
  else
-    call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3))
+    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3))
  endif
  get_spsound = spsoundi
 
@@ -306,17 +306,17 @@ end function get_spsound
 !  (currently only required for non-ideal MHD)
 !+
 !-----------------------------------------------------------------------
-real function get_temperature(ieos,xyzi,rhoi,vxyzui)
+real function get_temperature(eos_type,xyzi,rhoi,vxyzui)
  use dim, only:maxvxyzu
- integer,      intent(in) :: ieos
+ integer,      intent(in) :: eos_type
  real,         intent(in) :: xyzi(:),rhoi
  real,         intent(in) :: vxyzui(maxvxyzu)
  real                     :: spsoundi,ponrhoi
  !
  if (maxvxyzu==4) then
-    call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
+    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
  else
-    call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3))
+    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3))
  endif
  get_temperature = temperature_coef*gmw*ponrhoi
  !
