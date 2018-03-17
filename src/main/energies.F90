@@ -273,21 +273,20 @@ subroutine compute_energies(t)
 
           npgas = npgas + 1
           if (use_dustfrac) then
-             dustfraci(:)   = dustfrac(:,i)
-             dustfracisum   = sum(dustfraci)
-             gasfrac        = 1. - dustfracisum
-             dust_to_gas(:) = dustfraci(:)/gasfrac
+             dustfraci    = dustfrac(:,i)
+             dustfracisum = sum(dustfraci)
+             gasfrac      = 1. - dustfracisum
+             dust_to_gas  = dustfraci(:)/gasfrac
              do j = 1,ndusttypes
                 call ev_data_update(ev_data_thread,iev_dtg,dust_to_gas(j))
              enddo
-             mgas     = mgas     + pmassi*gasfrac
-             mdust(:) = mdust(:) + pmassi*dustfraci(:)
+             mdust = mdust + pmassi*dustfraci
           else
-             dustfraci(:) = 0.
+             dustfraci    = 0.
              dustfracisum = 0.
              gasfrac      = 1.
           endif
-          mgas  = mgas  + pmassi*gasfrac
+          mgas = mgas + pmassi*gasfrac
 
           ! thermal energy
           if (maxvxyzu >= 4) then
