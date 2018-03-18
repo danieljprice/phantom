@@ -57,6 +57,8 @@ module setup
 
  real :: gamma_eos
 
+ logical, parameter :: set_boundary_particles = .false.
+
 contains
 
 !----------------------------------------------------------------
@@ -173,11 +175,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vxyzu(1:3,i) = vr*pos/r
     vxyzu(4,i)   = ur
 
-    if (r + radkern*xyzh(4,i)>rmax .or. r - radkern*xyzh(4,i)<rmin) then
-       call set_particle_type(i,iboundary)
-       nbound = nbound + 1
-    else
-       call set_particle_type(i,igas)
+    if (set_boundary_particles) then
+       if (r + radkern*xyzh(4,i)>rmax .or. r - radkern*xyzh(4,i)<rmin) then
+          call set_particle_type(i,iboundary)
+          nbound = nbound + 1
+       else
+          call set_particle_type(i,igas)
+       endif
     endif
 
  enddo
