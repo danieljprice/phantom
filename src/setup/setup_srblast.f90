@@ -30,6 +30,7 @@ module setup
  private
  !--private module variables
  integer                      :: npartx
+ real                         :: Pblast,Pmed,boxsize,Rblast
 
 contains
 
@@ -43,7 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:rhozero
  use unifdis,      only:set_unifdis
  use io,           only:master,fatal
- use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
+ use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
  use physcon,      only:pi
  use timestep,     only:tmax,dtmax
  use options,      only:nfulldump,alphau
@@ -62,34 +63,44 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  real                             :: deltax,totmass,toten
- real                             :: Pblast,Pmed,Rblast,r2
+ real                             :: r2
  integer                          :: i,ierr
  character(len=100)               :: filename
  logical                          :: iexist
+
  !
- ! quit if not properly compiled
+ ! Quit if not properly compiled
  !
  if (.not.periodic) call fatal('setup','require PERIODIC=yes')
  if (.not.gr)       call fatal('setup','require GR=yes')
  if (maxvxyzu < 4)  call fatal('setup','require ISOTHERMAL=no')
 
  !
- ! must have G=c=1 in relativity
+ ! Must have G=c=1 in relativity
  !
  call set_units(G=1.,c=1.)
 
  !
- !--general parameters
+ ! General parameters
  !
  time        = 0.
  hfact       = hfact_default
  rhozero     = 1.0
  alphau      = 1.0
+ gamma       = 5./3.
+
+ !
+ ! Default setup parameters
+ !
  Pblast      = 100.0
  Pmed        = 0.0
  Rblast      = 0.125
+ boxsize     = 1.
  npartx      = 128
- gamma       = 5./3.
+
+ !
+ ! Infile
+ !
  filename=trim(fileprefix)//'.in'
  inquire(file=filename,exist=iexist)
  if (.not. iexist) then
@@ -98,7 +109,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     nfulldump = 1
  endif
 
- ! Read npartx from file if it exists
+ !
+ ! Read setup parameters from setup file if it exists
+ !
  filename=trim(fileprefix)//'.setup'
  print "(/,1x,63('-'),1(/,1x,a),/,1x,63('-'),/)", 'SR Blast Wave.'
  inquire(file=filename,exist=iexist)
@@ -111,15 +124,34 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  elseif (id==master) then
     print "(a,/)",trim(filename)//' not found: using interactive setup'
     call prompt(' Enter number of particles in x ',npartx,8,nint((maxp)**(1/3.)))
+    call prompt(' Enter pressure in blast ',Pblast,0.)
+    call prompt(' Enter pressure in medium ',Pmed,0.)
+    call prompt(' Enter size of box ',boxsize,0.)
+    call prompt(' Enter radius of blast ',Rblast,0.,boxsize/2.)
     call write_setupfile(filename)
  endif
  call bcast_mpi(npartx)
+
+ !
+ ! Set boundaries
+ !
+ xmax = boxsize/2.
+ xmin = -xmax
+ ymax = boxsize/2.
+ ymin = -ymax
+ zmax = boxsize/2.
+ zmin = -zmax
+ call set_boundary(xmin,xmax,ymin,ymax,zmin,zmax)
  deltax = dxbound/npartx
+
  !
  ! Put particles on grid
+ !
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
 
+ !
  ! Finalise particle properties
+ !
  npartoftype(:)    = 0
  npartoftype(igas) = npart
  totmass           = rhozero*dxbound*dybound*dzbound
@@ -158,7 +190,11 @@ subroutine write_setupfile(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for SR Blast Wave setup routine'
  write(iunit,"(/,a)") '# dimensions'
- call write_inopt(npartx,'npartx','number of particles in x-direction',iunit)
+ call write_inopt(npartx, 'npartx' ,'number of particles in x-direction',iunit)
+ call write_inopt(Pblast, 'Pblast' ,'pressure in blast' ,iunit)
+ call write_inopt(Pmed,   'Pmed'   ,'pressure in medium',iunit)
+ call write_inopt(boxsize,'boxsize','size of the box'   ,iunit)
+ call write_inopt(Rblast, 'Rblast' ,'radius of blast'   ,iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -178,7 +214,11 @@ subroutine read_setupfile(filename,ierr)
 
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(npartx, 'npartx', db,ierr)
+ call read_inopt(npartx ,'npartx' ,db,ierr)
+ call read_inopt(Pblast ,'Pblast' ,db,ierr)
+ call read_inopt(Pmed   ,'Pmed'   ,db,ierr)
+ call read_inopt(boxsize,'boxsize',db,ierr)
+ call read_inopt(Rblast ,'Rblast' ,db,ierr)
  call close_db(db)
 
 end subroutine read_setupfile
