@@ -135,15 +135,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! Set boundaries
  !
- xmax = boxsize/2.
- xmin = -xmax
- ymax = boxsize/2.
- ymin = -ymax
- zmax = boxsize/2.
- zmin = -zmax
- call set_boundary(xmin,xmax,ymin,ymax,zmin,zmax)
+ call set_boundary(-boxsize/2.,boxsize/2.,-boxsize/2.,boxsize/2.,-boxsize/2.,boxsize/2.)
  deltax = dxbound/npartx
-
  !
  ! Put particles on grid
  !
