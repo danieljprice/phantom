@@ -32,6 +32,8 @@ subroutine get_bondi_solution(rho,v,u,r,mass,gamma_eos)
     call bondigr_sonicpoint(rho,v,u,r,mass,gamma_eos)
  end select
 
+ if (.not.iswind) v = -v
+
 end subroutine get_bondi_solution
 
 subroutine bondigr_geodesic(rho,v,u,r,mass,gam)
