@@ -209,7 +209,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
 #ifdef MCFOST
  call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iwritein)
- call write_inopt(Voronoi_limits_file,'Voronoi_limits_file','Limit file for the Voronoi tesselation',iwritein)
+ if (use_Voronoi_limits_file) call write_inopt(Voronoi_limits_file,'Voronoi_limits_file','Limit file for the Voronoi tesselation',iwritein)
 #endif
 
  ! only write sink options if they are used, or if self-gravity is on
