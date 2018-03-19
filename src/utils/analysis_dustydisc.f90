@@ -79,7 +79,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  use io,           only:fatal
  use physcon,      only:pi,jupiterm,years,au
  use part,         only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac, &
-                        rhoh,maxphase,iamtype,xyzmh_ptmass,nptmass,isdead_or_accreted
+                        rhoh,maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass,isdead_or_accreted
  use options,      only:use_dustfrac,iexternalforce
  use units,        only:umass,udist,utime
  use dust,         only:graindens,grainsize
