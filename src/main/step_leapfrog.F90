@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -89,7 +89,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,mhd,maxBevol,&
                           switches_done_in_derivs,iboundary,get_ntypes,npartoftype,&
-                          dustfrac,dustevol,ddustfrac,alphaind,maxvecp,nptmass,dustprop,ddustprop,dustproppred
+                          dustfrac,dustevol,ddustfrac,alphaind,nptmass,dustprop,ddustprop,dustproppred
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
@@ -372,7 +372,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (use_dustfrac) dustevol(i) = dustevol(i) + hdti*ddustfrac(i)
           endif
           !
-          !--Wake particles for next step
+          !--Wake inactive particles for next step, if required
           !
           if (sts_it_n .and. ibin_wake(i) > ibin(i) .and. allow_waking) then
              ibin_wake(i) = min(int(nbinmax,kind=1),ibin_wake(i))
@@ -812,8 +812,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     !
     call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
 
-    naccreted = reduceall_mpi('+',naccreted)
-    nfail = reduceall_mpi('+',nfail)
+    naccreted = int(reduceall_mpi('+',naccreted))
+    nfail = int(reduceall_mpi('+',nfail))
 
     if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 

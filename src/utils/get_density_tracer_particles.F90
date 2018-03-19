@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -59,6 +59,7 @@ program get_density_tracer_particles
  endif
 
  print "(/,a,/)",' get_density_tracer_particles: SPH is great you know.'
+ print "(/,a,/)",' get_density_tracer_particles: WARNING! May not work with magnetic fields after 2 Mar 2018!'
 !
 !--initialise default code options, units etc.
 !

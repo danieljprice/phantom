@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -210,6 +210,11 @@ subroutine get_ts(idrag,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
  ts1        = 0.
  ts         = 0.
  rhosum     = rhogas + rhodust
+ ! rhosum     = rhogas ! this is an approx. to allow calculations to proceed
+ ! efficiently in case of numerical dust trapping
+ ! should be rhosum =  rhogas + rhodust
+ ! however, without full dust grain population rhodust is an
+ ! approx. anyway
 
  ! compute quantities specific to the drag regime
  select case(idrag)

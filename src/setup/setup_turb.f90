@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -9,8 +9,12 @@
 !
 !  DESCRIPTION:
 !  Sets up a calculation of supersonic turbulence in a periodic box.
+!  Works for hydro, mhd, and dusty turbulence.
 !
-!  REFERENCES: None
+!  REFERENCES:
+!    Price & Federrath (2010), MNRAS
+!    Tricco, Price & Federrath (2016), MNRAS
+!    Tricco, Price & Laibe (2017), MNRAS Letters
 !
 !  OWNER: Daniel Price
 !
@@ -19,7 +23,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, dust, io, mpiutils, options, part, physcon,
-!    prompting, setup_params, unifdis, units
+!    prompting, setup_params, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -27,7 +31,7 @@ module setup
  public :: setpart
 
  integer, private :: npartx,ilattice
- real,    private :: deltax,rhozero,polykset
+ real,    private :: polykset
  private
 
 contains
@@ -39,17 +43,18 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use dim,          only:use_dust
- use options,      only:use_dustfrac
+ use options,      only:use_dustfrac,nfulldump,beta
  use setup_params, only:rhozero,npart_total,ihavesetupB
  use io,           only:master
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
- use part,         only:Bevol,maxvecp,mhd,maxBevol,dustfrac
+ use part,         only:Bxyz,mhd,dustfrac
  use physcon,      only:pi,solarm,pc,km
- use units,        only:set_units, unit_density
+ use units,        only:set_units
  use prompting,    only:prompt
- use dust,         only:set_dustfrac
+ use dust,         only:set_dustfrac,grainsizecgs
+ use timestep,     only:dtmax,tmax
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -59,9 +64,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real :: totmass,deltax
+ character(len=26)                :: filename
  integer :: ipart,i,maxp,maxvxyzu
- real :: dust_to_gas
+ logical :: iexist
+ real :: totmass,deltax
+ real :: Bz_0, dust_to_gas, grainsize
+
+ print *, ''
+ print *, 'Setup for turbulence in a periodic box'
+ print *, ''
 !
 !--boundaries
 !
@@ -85,22 +96,27 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  maxvxyzu = size(vxyzu(:,1))
  if (id==master) then
     npartx = 64
-    print*,' uniform cubic setup...'
-    call prompt('enter number of particles in x ',npartx,16,nint((maxp)**(1/3.)))
+    call prompt('Enter number of particles in x ',npartx,16,nint((maxp)**(1/3.)))
  endif
  call bcast_mpi(npartx)
  deltax = dxbound/npartx
 
  if (id==master) then
+    ilattice = 1
+    call prompt('Select lattice type (1=cubic, 2=closepacked)',ilattice,1,2)
+ endif
+
+ call bcast_mpi(ilattice)
+ if (id==master) then
     rhozero = 1.
-    call prompt('enter density (gives particle mass)',rhozero,0.)
+    call prompt('Enter density (gives particle mass)',rhozero,0.)
  endif
  call bcast_mpi(rhozero)
 
  if (maxvxyzu < 4) then
     if (id==master) then
        polykset = 1.
-       call prompt(' enter sound speed in code units (sets polyk)',polykset,0.)
+       call prompt('Enter sound speed in code units (sets polyk)',polykset,0.)
     endif
     call bcast_mpi(polykset)
     polyk = polykset**2
@@ -112,19 +128,42 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (use_dust) use_dustfrac = .true.
  if (use_dustfrac) then
+    print *, ''
+    print *, 'Setting up dusty turbulence:'
+    print *, ''
+
     dust_to_gas = 1.e-2
-    if (id==master) call prompt(' enter dust-to-gas ratio ',dust_to_gas)
+    if (id==master) call prompt('Enter dust-to-gas ratio ',dust_to_gas)
     call bcast_mpi(dust_to_gas)
+
+    grainsize = 0.1 ! micron
+    if (id==master) call prompt('Enter grain size in micron ',grainsize)
+    call bcast_mpi(grainsize)
+    grainsizecgs = grainsize * 1.0e-4
  endif
 
- if (id==master) then
-    ilattice = 1
-    call prompt(' select lattice type (1=cubic, 2=closepacked)',ilattice,1,2)
+ if (mhd) then
+    Bz_0 = 1.4142e-5
+    print *, ''
+    print *, 'Setting up MHD turbulence: (with uniform intial magnetic field in z-direction)'
+    print *, ''
+    if (id==master) call prompt('Enter initial magnetic field strength ',Bz_0)
  endif
- call bcast_mpi(ilattice)
 
+
+ ! setup preferred values of .in file
+ filename= trim(fileprefix)//'.in'
+ inquire(file=filename,exist=iexist)
+ if (.not. iexist) then
+    tmax         = 1.00   ! run for 20 turbulent crossing times
+    dtmax        = 0.0025
+    nfulldump    = 5      ! output 4 full dumps per crossing time
+    beta         = 4      ! legacy from Price & Federrath (2010), haven't checked recently if still required
+    grainsizecgs = grainsize * 1.0e-4
+ endif
  npart = 0
  npart_total = 0
+
 
  select case(ilattice)
  case(1)
@@ -138,17 +177,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  npartoftype(:) = 0
  npartoftype(1) = npart
- print*,' npart = ',ipart,npart,npart_total
+ print *, ' npart = ',ipart,npart,npart_total
 
  totmass = rhozero*dxbound*dybound*dzbound
  massoftype = totmass/npart_total
- print*,' particle mass = ',massoftype(1)
+ print *, ' particle mass = ',massoftype(1)
 
  do i=1,npart
     vxyzu(1:3,i) = 0.
     if (mhd) then
-       Bevol(:,i) = 0.
-       Bevol(3,i) = 1.4142e-5
+       Bxyz(:,i) = 0.
+       Bxyz(3,i) = Bz_0
     endif
     if (use_dustfrac) then
        call set_dustfrac(dust_to_gas,dustfrac(i))

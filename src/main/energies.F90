@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -66,7 +66,7 @@ subroutine compute_energies(t)
  use part, only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,npartoftype, &
                 alphaind,Bxyz,Bevol,divcurlB,iamtype,igas,idust,iboundary,istar,idarkmatter,ibulge, &
                 nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,isdead_or_accreted,epot_sinksink,&
-                imacc,ispinx,ispiny,ispinz,mhd,maxvecp,gravity,poten,dustfrac,&
+                imacc,ispinx,ispiny,ispinz,mhd,gravity,poten,dustfrac,&
                 n_R,n_electronT,eta_nimhd,iion
  use eos,            only:polyk,utherm,gamma,equationofstate,get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
@@ -88,7 +88,7 @@ subroutine compute_energies(t)
  real, intent(in) :: t
  real    :: ev_data_thread(4,0:inumev)
  real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,rhoi,angx,angy,angz
- real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,xcom,ycom,zcom,mtot
+ real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,xcom,ycom,zcom,mtot,dm
  real    :: epoti,pmassi,dnptot,dnpgas
  real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
  real    :: ponrhoi,spsoundi,B2i,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
@@ -113,6 +113,7 @@ subroutine compute_energies(t)
  ycom = 0.
  zcom = 0.
  mtot = 0.
+ dm   = 0.
  xmom = 0.
  ymom = 0.
  zmom = 0.
@@ -336,15 +337,9 @@ subroutine compute_energies(t)
 
           ! mhd parameters
           if (mhd) then
-             if (maxvecp==maxp) then
-                Bxi = Bxyz(1,i)
-                Byi = Bxyz(2,i)
-                Bzi = Bxyz(3,i)
-             else
-                Bxi = Bevol(1,i)
-                Byi = Bevol(2,i)
-                Bzi = Bevol(3,i)
-             endif
+             Bxi = Bevol(1,i)*rhoi
+             Byi = Bevol(2,i)*rhoi
+             Bzi = Bevol(3,i)*rhoi
              B2i       = Bxi*Bxi + Byi*Byi + Bzi*Bzi
              rho1i     = 1./rhoi
              valfven2i = B2i*rho1i
@@ -542,6 +537,12 @@ subroutine compute_energies(t)
  ycom = reduce_fn('+',ycom)
  zcom = reduce_fn('+',zcom)
 
+ mtot = reduce_fn('+',mtot)
+ dm = 1.0 / mtot
+ xcom = xcom * dm
+ ycom = ycom * dm
+ zcom = zcom * dm
+
  xmom = reduce_fn('+',xmom)
  ymom = reduce_fn('+',ymom)
  zmom = reduce_fn('+',zmom)
@@ -565,8 +566,8 @@ subroutine compute_energies(t)
  ev_data(iev_sum,iev_com(2)) = ycom
  ev_data(iev_sum,iev_com(3)) = zcom
  xyzcom(1) = xcom
- xyzcom(2) = xcom
- xyzcom(3) = xcom
+ xyzcom(2) = ycom
+ xyzcom(3) = zcom
 
  if (calc_erot) then
     ev_data(iev_sum,iev_erot(1)) = 0.5*ev_data(iev_sum,iev_erot(1))

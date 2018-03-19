@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -43,7 +43,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use dust,           only:grainsize,graindens
  use eos, only : temperature_coef, gmw, gamma
  use timestep,       only:dtmax
- use options, only: use_mcfost
+ use options, only: use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file
 
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
@@ -58,7 +58,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer(kind=1) :: itype(maxp)
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
  logical :: compute_Frad
- real,dimension(6) :: SPH_limits
+ real(kind=8), dimension(6), save :: SPH_limits
  real(kind=4),dimension(:,:,:),allocatable :: Frad
  real,dimension(:),allocatable :: dudt
  real :: T_to_u
@@ -69,9 +69,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  if (use_mcfost) then
     write(*,*) "Calling mcfost"
     if (.not.init_mcfost) then
-       ilen = index(dumpfile,'_')
+       ilen = index(dumpfile,'_',back=.true.) ! last position of the '_' character
        mcfost_para_filename = dumpfile(1:ilen-1)//'.para'
-       call init_mcfost_phantom(mcfost_para_filename, ierr) !,  np, nptmass, ntypes, ndusttypes, npoftype)
+       call init_mcfost_phantom(mcfost_para_filename, use_Voronoi_limits_file, Voronoi_limits_file, SPH_limits, ierr)
        if (ierr /= 0) call fatal('mcfost-phantom','error in init_mcfost_phantom')
        init_mcfost = .true.
     endif
@@ -93,7 +93,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        dustfluidtype = 1
     endif
     grain_size(:) = grainsize
-    SPH_limits = 0.
+
     nlum = npart
     allocate(dudt(nlum))
     if (lightcurve) then

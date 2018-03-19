@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -32,7 +32,7 @@ contains
 
 subroutine test_rwdump(ntests,npass)
  use part,      only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu, &
-                    Bevol,Bextx,Bexty,Bextz,alphaind,maxalpha,periodic, &
+                    Bevol,Bxyz,Bextx,Bexty,Bextz,alphaind,maxalpha,periodic, &
                     maxphase,mhd,maxvxyzu,maxBevol,igas,idust,maxp,&
                     poten,gravity,use_dust,dustfrac,xyzmh_ptmass,nptmass,&
                     nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
@@ -98,9 +98,9 @@ subroutine test_rwdump(ntests,npass)
           alphaind(1,i) = real(alphawas,kind=kind(alphaind)) ! 0->1
        endif
        if (mhd) then
-          Bevol(1,i) = 10.
-          Bevol(2,i) = 11.
-          Bevol(3,i) = 12.
+          Bxyz(1,i) = 10.
+          Bxyz(2,i) = 11.
+          Bxyz(3,i) = 12.
           if (maxBevol >= 4) Bevol(4,i) = 13.
        endif
        if (gravity) then
@@ -162,6 +162,7 @@ subroutine test_rwdump(ntests,npass)
     if (maxalpha==maxp) alphaind = 0.
     if (mhd) then
        Bevol = 0.
+       Bxyz  = 0.
     endif
     if (gravity) then
        poten = 0.
@@ -245,9 +246,9 @@ subroutine test_rwdump(ntests,npass)
           call checkval(npart,alphaind(1,:),alphawas,tol,nfailed(9),'alpha')
        endif
        if (mhd) then
-          call checkval(npart,Bevol(1,:),10.,tol,nfailed(10),'Bevolx')
-          call checkval(npart,Bevol(2,:),11.,tol,nfailed(11),'Bevoly')
-          call checkval(npart,Bevol(3,:),12.,tol,nfailed(12),'Bevolz')
+          call checkval(npart,Bxyz(1,:),10.,tol,nfailed(10),'Bx')
+          call checkval(npart,Bxyz(2,:),11.,tol,nfailed(11),'By')
+          call checkval(npart,Bxyz(3,:),12.,tol,nfailed(12),'Bz')
           if (maxBevol >= 4) call checkval(npart,Bevol(4,:),13.,tol,nfailed(13),'psi')
        endif
        if (gravity) then
