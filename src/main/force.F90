@@ -1879,7 +1879,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintenso
     endif
 	if (use_dustgrowth) then
 		cell%xpartvec(igrainsizei,cell%npcell)	  = dustprop(1,i)
-		cell%xpartvec(igraindensi,cell%npcell)	  = dustprop(2,i) !--Add dustprop(3and4)
+		cell%xpartvec(igraindensi,cell%npcell)	  = dustprop(2,i) !--Add dustprop(3,i) for vrelonvfrag
 	endif
  enddo over_parts
 

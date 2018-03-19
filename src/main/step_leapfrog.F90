@@ -220,7 +220,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (itype==iboundary) then
              vpred(:,i) = vxyzu(:,i)
              if (mhd)          Bpred(:,i)  = Bevol (:,i)
-			 if (use_dustgrowth) dustproppred(:,:) = dustprop(:,:)
+			 if (use_dustgrowth) dustproppred(1,:) = dustprop(1,:)
              if (use_dustfrac) dustpred(i) = dustevol(i)
              cycle predict_sph
           endif
@@ -243,7 +243,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #endif
        vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
 	   if (use_dustgrowth) then
-		  dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)	   
+		  dustproppred(1,i) = dustprop(1,i) + hdti*ddustprop(1,i)	   
 	   endif
        if (itype==igas) then
           if (mhd) Bpred(:,i) = Bevol (:,i) + hdti*dBevol(:,i)
