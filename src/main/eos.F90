@@ -109,7 +109,7 @@ contains
 !  (and position in the case of the isothermal disc)
 !+
 !----------------------------------------------------------------
-subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni)
+subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
  use io,    only:fatal,error
  use part,  only:xyzmh_ptmass
  use units,   only:unit_density,unit_pressure,unit_ergg
@@ -118,7 +118,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni)
  integer, intent(in)  :: eos_type
  real,    intent(in)  :: rhoi,xi,yi,zi
  real,    intent(out) :: ponrhoi,spsoundi
- real,    intent(in), optional :: eni
+ real,    intent(inout), optional :: eni
+ real,    intent(inout), optional :: tempi
  real :: r,omega,bigH,polyk_new,r1,r2
  real :: gammai
  real :: cgsrhoi, cgseni, cgspgas, pgas, gam1
@@ -283,15 +284,20 @@ end subroutine equationofstate
 !  (called from step for decay timescale in alpha switches)
 !+
 !----------------------------------------------------------------
-real function get_spsound(eos_type,xyzi,rhoi,vxyzui)
+real function get_spsound(eos_type,xyzi,rhoi,vxyzui,tempi)
  use dim, only:maxvxyzu
  integer,      intent(in) :: eos_type
  real,         intent(in) :: xyzi(:),rhoi
- real,         intent(in) :: vxyzui(maxvxyzu)
+ real,         intent(inout) :: vxyzui(maxvxyzu)
+ real, intent(inout), optional :: tempi
  real :: spsoundi,ponrhoi
 
  if (maxvxyzu==4) then
-    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
+    if (present(tempi)) then
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),tempi)
+    else
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
+    endif
  else
     call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3))
  endif
@@ -309,7 +315,7 @@ real function get_temperature(eos_type,xyzi,rhoi,vxyzui)
  use dim, only:maxvxyzu
  integer,      intent(in) :: eos_type
  real,         intent(in) :: xyzi(:),rhoi
- real,         intent(in) :: vxyzui(maxvxyzu)
+ real,         intent(inout) :: vxyzui(maxvxyzu)
  real                     :: spsoundi,ponrhoi
  !
  if (maxvxyzu==4) then
