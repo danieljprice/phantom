@@ -608,7 +608,7 @@ end subroutine write_options_eos
 !-----------------------------------------------------------------------
 subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
  use io,            only:fatal
- use eos_helmholtz, only:eos_helmholtz_set_eosflag
+ use eos_helmholtz, only:eos_helmholtz_set_relaxflag
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -700,11 +700,11 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) Z_in
     if (Z_in <= 0.) call fatal(label,'Z <= 0.0')
     ngot = ngot + 1
- case('eosflag')
+ case('relaxflag')
     ! ideally would like this to be self-contained within eos_helmholtz,
     ! but it's a bit of a pain and this is easy
     read(valstring,*,iostat=ierr) tmp
-    call eos_helmholtz_set_eosflag(tmp)
+    call eos_helmholtz_set_relaxflag(tmp)
     ngot = ngot + 1
  case default
     imatch = .false.

@@ -28,7 +28,7 @@ module eos_helmholtz
 ! subroutines to read/initialise tables, and get pressure/sound speed
  public :: eos_helmholtz_init
  public :: eos_helmholtz_write_inopt
- public :: eos_helmholtz_set_eosflag
+ public :: eos_helmholtz_set_relaxflag
  public :: eos_helmholtz_pres_sound          ! performs iterations, called by eos.F90
  public :: eos_helmholtz_compute_pres_sound  ! the actual eos calculation
  public :: eos_helmholtz_cv_dpresdt
@@ -40,7 +40,7 @@ module eos_helmholtz
  private :: xpsi1, xdpsi1
  private :: h3, h5
 
- integer, public :: eosflag
+ integer, public :: relaxflag = 1
 
  integer, parameter :: imax = 271
  integer, parameter :: jmax = 101
@@ -113,10 +113,9 @@ module eos_helmholtz
                        dd, dd2, ddi, dd2i, dd3i
    real    :: thi, tstp, dhi, dstp
 
-   ! check that the eosflag is sensible
-   if (eosflag /= 1 .and. eosflag /= 2) then
-      call eos_helmholtz_set_eosflag(1)
-      !call fatal('eos_helmholtz', 'eosflag not set to something sensible, try 1 for relaxation, 2 for dynamical evolution')
+   ! check that the relaxflag is sensible, set to relax if not
+   if (relaxflag /= 0 .and. relaxflag /= 1) then
+      call eos_helmholtz_set_relaxflag(1)
    endif
 
    ! find the table datafile
@@ -205,35 +204,35 @@ module eos_helmholtz
 
 !----------------------------------------------------------------
 !+
-!  write options to the input file (currently only eosflag)
+!  write options to the input file (currently only relaxflag)
 !+
 !----------------------------------------------------------------
  subroutine eos_helmholtz_write_inopt(iunit)
    use infile_utils, only:write_inopt
    integer, intent(in) :: iunit
 
-   call write_inopt(eosflag, 'eosflag', 'eosflag: 1=relaxation (T const), 2=evolve', iunit)
+   call write_inopt(relaxflag, 'relaxflag', '0=evolve, 1=relaxation on (keep T const)', iunit)
 
  end subroutine eos_helmholtz_write_inopt
 
  
 !----------------------------------------------------------------
 !+
-!  set the eosflag based on input file read
+!  set the relaxflag based on input file read
 !  
 !  called by eos_read_inopt in eos.F90
 !+
 !----------------------------------------------------------------
- subroutine eos_helmholtz_set_eosflag(tmp)
+ subroutine eos_helmholtz_set_relaxflag(tmp)
    use io, only:fatal
    integer, intent(in) :: tmp
    character(len=30), parameter  :: label = 'read_options_eos_helmholtz'
 
-   eosflag = tmp
+   relaxflag = tmp
 
-   if (eosflag /= 1 .and. eosflag /= 2) call fatal(label, 'eos flag incorrect, try using 1 (relaxation) or 2 (evolve)')
+   if (relaxflag /= 0 .and. relaxflag /= 1) call fatal(label, 'relax flag incorrect, try using 0 (evolve) or 1 (relaxation)')
 
- end subroutine eos_helmholtz_set_eosflag
+ end subroutine eos_helmholtz_set_relaxflag
 
 
 
@@ -266,12 +265,12 @@ module eos_helmholtz
 
    ! relaxation: 
    ! constant temperature, set internal energy of particles to result from eos
-   if (eosflag == 1) then
+   if (relaxflag == 1) then
        eni = cgseni_eos / unit_ergg
   
    ! dynamical evolution:
    ! ue is evolved in time, iterate eos to solve for temperature when eos ue converges with particle ue
-   elseif (eosflag == 2) then
+   elseif (relaxflag == 0) then
        
        cgseni = eni * unit_ergg
 
@@ -342,7 +341,7 @@ module eos_helmholtz
            print *, 'Helmholtz eos fail to converge'
        endif
    else
-       print *, 'error in eosflag in Helmholtz equation of state'
+       print *, 'error in relaxflag in Helmholtz equation of state'
    endif
  
    ! convert cgs values to code units and return these values 
