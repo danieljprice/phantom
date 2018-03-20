@@ -1126,6 +1126,10 @@ ifeq ($(ISOTHERMAL), yes)
     FPPFLAGS += -DISOTHERMAL
 endif
 
+ifeq ($(STORE_TEMP), yes)
+    FPPFLAGS += -DSTORE_TEMPERATURE
+endif
+
 ifeq ($(MHD), yes)
     FPPFLAGS += -DMHD
 endif

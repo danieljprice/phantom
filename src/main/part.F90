@@ -32,10 +32,10 @@
 module part
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu, &
           maxalpha,maxptmass,maxstrain, &
-          mhd,maxmhd,maxBevol,maxp_h2,periodic, &
+          mhd,maxmhd,maxBevol,maxp_h2,maxtemp,periodic, &
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
           switches_done_in_derivs,maxp_dustfrac,use_dust, &
-          lightcurve,maxlum,nalpha,maxmhdni,maxne
+          store_temperature,lightcurve,maxlum,nalpha,maxmhdni,maxne
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -88,6 +88,10 @@ module part
  real :: abundance(nabundances,maxp_h2)
  character(len=*), parameter :: abundance_label(5) = &
    (/'h2ratio','abHIq  ','abhpq  ','abeq   ','abco   '/)
+!
+!--storage of temperature
+!
+ real :: temperature(maxtemp)
 !
 !--one-fluid dust (small grains)
 !
@@ -208,6 +212,7 @@ module part
 #endif
    +(maxp_h2/maxpd)*nabundances         &  ! abundance
    +(maxgrav/maxpd)                     &  ! poten
+   +(maxtemp/maxpd)                     &  ! temperature
 #ifdef IND_TIMESTEPS
    +1                                   &  ! ibin
    +1                                   &  ! ibin_old
@@ -607,6 +612,7 @@ subroutine copy_particle(src, dst)
     dustevol(dst) = dustevol(src)
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
+ if (store_temperature) temperature(dst) = temperature(src)
 
  return
 end subroutine copy_particle
@@ -662,6 +668,7 @@ subroutine copy_particle_all(src,dst)
     deltav(:,dst)  = deltav(:,src)
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
+ if (store_temperature) temperature(dst) = temperature(src)
 
  return
 end subroutine copy_particle_all
@@ -854,6 +861,9 @@ subroutine fill_sendbuf(i,xtemp)
     if (maxp_h2==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)
     endif
+    if (store_temperature) then
+       call fill_buffer(xtemp, temperature(i),nbuf)
+    endif
     if (maxgrav==maxp) then
        call fill_buffer(xtemp, poten(i),nbuf)
     endif
@@ -910,6 +920,9 @@ subroutine unfill_buffer(ipart,xbuf)
  endif
  if (maxp_h2==maxp) then
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
+ endif
+ if (store_temperature) then
+    temperature(ipart)  = unfill_buf(xbuf,j)
  endif
  if (maxgrav==maxp) then
     poten(ipart)        = real(unfill_buf(xbuf,j),kind=kind(poten))
