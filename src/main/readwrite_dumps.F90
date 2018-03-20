@@ -442,13 +442,18 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (store_temperature) call write_array(1,temperature,'T',npart,k,ipass,idump,nums,ierrs(8))
 
        ! write pressure to file
-       if ((ieos==8 .or. ieos==9 .or. ieos==10) .and. k==i_real) then
+       if ((ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15) .and. k==i_real) then
           if (.not. allocated(temparr)) allocate(temparr(npart))
           if (.not.done_init_eos) call init_eos(ieos,ierr)
           do i=1,npart
              rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
              if (maxvxyzu >=4 ) then
-                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+                if (store_temperature) then
+                   ! cases where the eos stores temperature (ie Helmholtz)
+                   call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),temperature(i))
+                else
+                   call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+                endif
              else
                 call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i))
              endif
