@@ -154,7 +154,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  else
     should_conserve_momentum = (npartoftype(iboundary)==0)
  endif
- should_conserve_angmom   = (npartoftype(iboundary)==0 .and. .not.periodic)
+ should_conserve_angmom   = (npartoftype(iboundary)==0 .and. .not.periodic &
+                            .and. iexternalforce <= 1)
  should_conserve_com      = should_conserve_momentum
  should_conserve_dustmass = use_dustfrac
  rcom_in = sqrt(dot_product(xyzcom_in,xyzcom_in))
