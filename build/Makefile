@@ -223,6 +223,16 @@ ifeq ($(SETUP), turb)
     USE_STRAIN_TENSOR = yes
 endif
 
+ifeq ($(SETUP), wd)
+    SETUPFILE     = setup_spheres.f90
+    IND_TIMESTEPS = no 
+    MHD           = no
+    GRAVITY       = yes
+    ISOTHERMAL    = no
+    KNOWN_SETUP   = yes
+    STORE_TEMP    = yes
+endif
+
 ifeq ($(SETUP), photoevap)
 # Mark Hutchison
     FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT -DPHOTO
