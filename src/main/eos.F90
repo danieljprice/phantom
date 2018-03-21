@@ -276,7 +276,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
 !--helmholtz free energy eos
 !
     if (present(tempi)) then
-       call eos_helmholtz_pres_sound(tempi, rhoi, ponrhoi, spsoundi, eni)     
+       call eos_helmholtz_pres_sound(tempi, rhoi, ponrhoi, spsoundi, eni)
     else
        call fatal('eos','tried to call Helmholtz free energy eos without passing temperature')
     endif

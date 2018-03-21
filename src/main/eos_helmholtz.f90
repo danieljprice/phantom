@@ -8,7 +8,7 @@
 !  MODULE: eos_helmholtz
 !
 !  DESCRIPTION:
-!   The equation state based on the Helmholtz free energy. 
+!   The equation state based on the Helmholtz free energy.
 !   "Perfect thermodynamic consistency."
 !   Primarily used to model degenerate matter in white dwarfs.
 !
@@ -218,11 +218,11 @@ module eos_helmholtz
 
  end subroutine eos_helmholtz_write_inopt
 
- 
+
 !----------------------------------------------------------------
 !+
 !  set the relaxflag based on input file read
-!  
+!
 !  called by eos_read_inopt in eos.F90
 !+
 !----------------------------------------------------------------
@@ -243,7 +243,7 @@ module eos_helmholtz
 !+
 !  This is called by eos.F90 to get P/rho and sound speed,
 !  performing iterations until ue and T converge.
-!  
+!
 !  The density passed in is in code units, and it returns values
 !  also in code units.
 !+
@@ -263,24 +263,24 @@ module eos_helmholtz
    real :: tnew, tprev
 
    cgsrhoi = rhoi * unit_density
-   
+
    call eos_helmholtz_compute_pres_sound(tempi, cgsrhoi, cgspresi, cgsspsoundi, cgseni_eos, cgsdendti)
 
-   ! relaxation: 
+   ! relaxation:
    ! constant temperature, set internal energy of particles to result from eos
    if (relaxflag == 1) then
        eni = cgseni_eos / unit_ergg
-  
+
    ! dynamical evolution:
    ! ue is evolved in time, iterate eos to solve for temperature when eos ue converges with particle ue
    elseif (relaxflag == 0) then
-       
+
        cgseni = eni * unit_ergg
 
        ! Newton-Raphson iterations
        tnew = tempi - (cgseni_eos - cgseni) / cgsdendti
 
-       ! disallow large temperature changes 
+       ! disallow large temperature changes
        if (tnew > 2.0 * tempi) then
            tnew = 2.0 * tempi
        endif
@@ -303,14 +303,14 @@ module eos_helmholtz
 
            ! get new pressure, sound speed, energy for this temperature and density
            call eos_helmholtz_compute_pres_sound(tnew, cgsrhoi, cgspresi, cgsspsoundi, cgseni_eos, cgsdendti)
-  
+
            ! store temperature of previous iteration
            tprev = tnew
 
            ! iterate to new temperature
            tnew = tnew - (cgseni_eos - cgseni) / cgsdendti
 
-           ! disallow large temperature changes 
+           ! disallow large temperature changes
            if (tnew > 2.0 * tprev) then
                tnew = 2.0 * tprev
            endif
@@ -346,11 +346,11 @@ module eos_helmholtz
    else
        print *, 'error in relaxflag in Helmholtz equation of state'
    endif
- 
-   ! convert cgs values to code units and return these values 
+
+   ! convert cgs values to code units and return these values
    ponrhoi  = cgspresi / (unit_pressure * rhoi)
    spsoundi = cgsspsoundi / unit_velocity
- 
+
  end subroutine eos_helmholtz_pres_sound
 
 
@@ -475,7 +475,7 @@ real function h5(i,j,fi,w0t,w1t,w2t,w0mt,w1mt,w2mt,w0d,w1d,w2d,w0md,w1md,w2md)
        + fi(31) *w1d*w2mt  + fi(32) *w1md*w2mt &
        + fi(33) *w2d*w2t   + fi(34) *w2md*w2t &
        + fi(35) *w2d*w2mt  + fi(36) *w2md*w2mt
- 
+
 end function h5
 
 
@@ -497,17 +497,17 @@ end function h5
 ! all other derivatives are analytic.
 !
 ! references: cox & giuli chapter 24 ; timmes & swesty apj 1999
- 
+
  subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
   use physcon, only:mass_proton_cgs,kboltz,c,planckh,steboltz,qe,avogadro,pi,fourpi,atomic_mass_unit
 
   real, intent(in)  :: temp, den
   real, intent(out) :: pres, sound, ener, denerdt
-  
+
   real, parameter :: sioncon = (2.0d0 * pi * atomic_mass_unit * kboltz)/(planckh * planckh)
   real, parameter :: forth   = 4.0d0/3.0d0
   real, parameter :: kergavo = kboltz * avogadro
-  real, parameter :: asol    = steboltz*4.0/c    
+  real, parameter :: asol    = steboltz*4.0/c
   real, parameter :: asoli3  = asol/3.0d0
   real, parameter :: light2  = c * c
 
@@ -981,7 +981,7 @@ end function h5
 ! bomb proof
     x   = prad + pion + pele + pcoul
     y   = erad + eion + eele + ecoul
-    z   = srad + sion + sele 
+    z   = srad + sion + sele
 
 !        write(6,*) x,y,z
     if (x  <=  0.0 .or. y  <=  0.0 .or. z  <=  0.0) then
@@ -1022,7 +1022,7 @@ end function h5
 
 
    dpresdd = dpraddd + dpgasdd
-   
+
    dpresdt = dpraddt + dpgasdt
 !    print *, deraddt, degasdt
    denerdt = deraddt + degasdt
@@ -1042,7 +1042,7 @@ end function h5
    z     = 1.0d0 + (ener + light2)*zzi
 
    sound = c * sqrt(gam1/z)
-   
+
 
 
 ! end of pipeline loop
@@ -1067,12 +1067,12 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
              deiondt, &
              kt,ktinv,prad,erad,srad,pion,eion, &
              pele,eele,sele, &
-             denerdt,s 
+             denerdt,s
   real    :: dpgasdt, degasdt
 
   real, parameter :: sioncon = (2.0d0 * pi * atomic_mass_unit * kboltz)/(planckh * planckh)
   real, parameter :: forth   = 4.0d0/3.0d0
-  real, parameter :: asol    = steboltz*4.0/c    
+  real, parameter :: asol    = steboltz*4.0/c
   real, parameter :: asoli3  = asol/3.0d0
   real, parameter :: light2  = c * c
 
@@ -1419,11 +1419,11 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
 
     end if
 
-   
+
     ! bomb proof
     x   = prad + pion + pele + pcoul
     y   = erad + eion + eele + ecoul
-    z   = srad + sele 
+    z   = srad + sele
 
 !        write(6,*) x,y,z
     if (x  <=  0.0 .or. y  <=  0.0 .or. z  <=  0.0) then
@@ -1438,7 +1438,7 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
      ecoul    = 0.0d0
      decouldt = 0.0d0
     end if
-  
+
     ! sum all the gas components
     dpgasdt = dpiondt + dpepdt + dpcouldt
     degasdt = deiondt + deepdt + decouldt
