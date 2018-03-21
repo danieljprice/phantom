@@ -1689,9 +1689,9 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gra
           vxyzui(4) = cell%xpartvec(ieni,i)
 
           if (store_temperature) then
-              spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:),temperature(lli))
+             spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:),temperature(lli))
           else
-              spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:))
+             spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:))
           endif
           alphaind(2,lli) = real4(get_alphaloc(divcurlvi(5),spsoundi,hi,xi_limiter,alpha,alphamax))
        endif

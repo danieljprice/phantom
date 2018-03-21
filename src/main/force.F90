@@ -1116,7 +1116,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           enj   = vxyzu(4,j)
           tempj = 0.0
           if (store_temperature) then
-              tempj = temperature(j)
+             tempj = temperature(j)
           endif
           denij = xpartveci(ieni) - enj
        else
@@ -1188,8 +1188,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                         realviscosity,divvj,bulkvisc,strainj,stressmax)
 
              if (store_temperature) then
-                 vxyzu(4,j)     = enj
-                 temperature(j) = tempj
+                vxyzu(4,j)     = enj
+                temperature(j) = tempj
              endif
 
              mrhoj5   = 0.5*pmassj*rho1j
