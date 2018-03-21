@@ -350,6 +350,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ! add energies
     !
     call init_eos(ieos,ierr)
+    if (ierr /= 0) call fatal('setup_spheres','error initialising equation of state')
 
     do i=istart(k),iend(k)
        if (maxvxyzu==4) then

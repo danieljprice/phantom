@@ -106,15 +106,17 @@ contains
 !  initialise the tables used by the Helmholtz equation of state
 !+
 !----------------------------------------------------------------
-subroutine eos_helmholtz_init()
- use io, only:fatal
+subroutine eos_helmholtz_init(ierr)
+ use io,        only:error
  use datafiles, only:find_phantom_datafile
+ integer, intent(out) :: ierr
  character(len=80) :: filename
  integer :: i, j
- integer :: ierr
  real    :: tsav, dsav, dth, dt2, dti, dt2i, dt3i, &
                        dd, dd2, ddi, dd2i, dd3i
  real    :: thi, tstp, dhi, dstp
+
+ ierr = 0
 
  ! check that the relaxflag is sensible, set to relax if not
  if (relaxflag /= 0 .and. relaxflag /= 1) then
@@ -123,9 +125,13 @@ subroutine eos_helmholtz_init()
 
  ! find the table datafile
  filename = find_phantom_datafile('helm_table.dat', 'eos/helmholtz')
+
+ ! open the table datafile
  open(unit=19,file=trim(filename),status='old',iostat=ierr)
  if (ierr /= 0) then
-    call fatal('eos_helmholtz', 'could not find helm_table.dat')
+    call error('eos_helmholtz','could not find helm_table.dat to initialise eos')
+    ierr = 1
+    return
  endif
 
  ! for standard table limits

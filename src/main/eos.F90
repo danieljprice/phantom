@@ -472,7 +472,7 @@ subroutine init_eos(eos_type,ierr)
 
  case(15)
 
-    call eos_helmholtz_init()
+    call eos_helmholtz_init(ierr)
 
  end select
  done_init_eos = .true.
