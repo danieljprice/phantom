@@ -936,43 +936,35 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  plasgdd  = z * lamidd
  plasgdt  = -plasg*ktinv * kboltz
 
-
-! yakovlev & shalybkov 1989 equations 82, 85, 86, 87
+ ! yakovlev & shalybkov 1989 equations 82, 85, 86, 87
  if (plasg  >=  1.0) then
     x        = plasg**(0.25d0)
     y        = avogadro * ytot1 * kboltz
     ecoul    = y * temp * (a1*plasg + b1*x + c1/x + d1)
     pcoul    = third * den * ecoul
 
-
     y        = avogadro*ytot1*kt*(a1 + 0.25d0/plasg*(b1*x - c1/x))
     decouldd = y * plasgdd
     decouldt = y * plasgdt + ecoul/temp
-
 
     y        = third * den
     dpcouldd = third * ecoul + y*decouldd
     dpcouldt = y * decouldt
 
-
-
-! yakovlev & shalybkov 1989 equations 102, 103, 104
- else if (plasg  <  1.0) then
+ ! yakovlev & shalybkov 1989 equations 102, 103, 104
+ else ! plasg < 1
     x        = plasg*sqrt(plasg)
     y        = plasg**b2
     z        = c2 * x - third * a2 * y
     pcoul    = -pion * z
     ecoul    = 3.0d0 * pcoul/den
 
-
     s        = 1.5d0*c2*x/plasg - third*a2*b2*y/plasg
     dpcouldd = -dpiondd*z - pion*s*plasgdd
     dpcouldt = -dpiondt*z - pion*s*plasgdt
 
-
     s        = 3.0d0/den
     decouldt = s * dpcouldt
-
  endif
 
 
@@ -1390,7 +1382,7 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
     x        = plasg**(0.25d0)
     y        = avogadro * ytot1 * kboltz
     ecoul    = y * temp * (a1*plasg + b1*x + c1/x + d1)
-
+    pcoul    = third * den * ecoul   
 
     y        = avogadro*ytot1*kt*(a1 + 0.25d0/plasg*(b1*x - c1/x))
     decouldt = y * plasgdt + ecoul/temp
@@ -1398,11 +1390,9 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
     y        = third * den
     dpcouldt = y * decouldt
 
-
-    ! yakovlev & shalybkov 1989 equations 102, 103, 104
- else if (plasg  <  1.0) then
+ ! yakovlev & shalybkov 1989 equations 102, 103, 104
+ else ! plasg < 1
     x        = plasg*sqrt(plasg)
-
     y        = plasg**b2
     z        = c2 * x - third * a2 * y
     pcoul    = -pion * z
