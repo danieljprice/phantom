@@ -511,7 +511,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  real, parameter :: asoli3  = asol/3.0d0
  real, parameter :: light2  = c * c
 
- integer :: i, j
  real    :: ytot1,ye, &
                    x,y,zz,zzi,deni,tempi,xni,dxnidd, &
                    dpepdt,dpepdd,deepdt,dsepdt, &
@@ -528,14 +527,13 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 
 ! for the interpolations
  integer :: iat,jat
- real :: free,df_d,df_t,df_dd,df_tt,df_dt
+ real :: free,df_d,df_t,df_tt,df_dt
  real :: xt,xd,mxt,mxd, &
                    si0t,si1t,si2t,si0mt,si1mt,si2mt, &
                    si0d,si1d,si2d,si0md,si1md,si2md, &
                    dsi0t,dsi1t,dsi2t,dsi0mt,dsi1mt,dsi2mt, &
                    dsi0d,dsi1d,dsi2d,dsi0md,dsi1md,dsi2md, &
                    ddsi0t,ddsi1t,ddsi2t,ddsi0mt,ddsi1mt,ddsi2mt, &
-                   ddsi0d,ddsi1d,ddsi2d,ddsi0md,ddsi1md,ddsi2md, &
                    z, din
  real :: fi(36)
 
@@ -1059,9 +1057,8 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
  use physcon, only:mass_proton_cgs,kboltz,c,planckh,steboltz,qe,avogadro,pi,fourpi,atomic_mass_unit
  real, intent(in)  :: temp, den
  real, intent(out) :: cv, dpresdt
- integer :: i,j
  real    :: ytot1,ye, &
-             x,y,zz,zzi,deni,tempi,xni, &
+             x,y,deni,tempi,xni, &
              dpepdt,deepdt,dsepdt, &
              dpraddt,deraddt,dpiondt, &
              deiondt, &
@@ -1077,14 +1074,13 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
  real, parameter :: light2  = c * c
 
  integer :: iat, jat
- real    :: free,df_d,df_t,df_dd,df_tt,df_dt
+ real    :: free,df_d,df_t,df_tt,df_dt
  real    :: xt,xd,mxt,mxd, &
                      si0t,si1t,si2t,si0mt,si1mt,si2mt, &
                      si0d,si1d,si2d,si0md,si1md,si2md, &
                      dsi0t,dsi1t,dsi2t,dsi0mt,dsi1mt,dsi2mt, &
                      dsi0d,dsi1d,dsi2d,dsi0md,dsi1md,dsi2md, &
                      ddsi0t,ddsi1t,ddsi2t,ddsi0mt,ddsi1mt,ddsi2mt, &
-                     ddsi0d,ddsi1d,ddsi2d,ddsi0md,ddsi1md,ddsi2md, &
                      z,din
  real    :: fi(36)
 
