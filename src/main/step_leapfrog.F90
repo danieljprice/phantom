@@ -371,7 +371,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdti*ddustfrac(:,i)
           endif
           !
-          !--Wake particles for next step
+          !--Wake inactive particles for next step, if required
           !
           if (sts_it_n .and. ibin_wake(i) > ibin(i) .and. allow_waking) then
              ibin_wake(i) = min(int(nbinmax,kind=1),ibin_wake(i))

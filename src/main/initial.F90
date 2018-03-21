@@ -146,7 +146,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                            npartoftype,maxtypes,alphaind,ntot, &
+                            npartoftype,maxtypes,alphaind,ntot,ndim, &
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustfrac,&
@@ -209,7 +209,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:gamma,polyk,ieos,init_eos
- use part,             only:hfact,h2chemistry
+ use part,             only:hfact,h2chemistry,dxi
  use setup,            only:setpart
  use checksetup,       only:check_setup
  use h2cooling,        only:init_h2cooling
@@ -220,7 +220,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use units,            only:unit_density
  use centreofmass,     only:get_centreofmass
  use energies,         only:etot,angtot,totmom,mdust,xyzcom
- use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in
+ use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in,dxi_in
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  integer         :: ierr,i,j,idot,nerr,nwarn
@@ -397,7 +397,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        hi         = xyzh(4,i)
        pmassi     = massoftype(itype)
        rhoi1      = 1.0/rhoh(hi,pmassi)
-       if (i == 1) print *, rhoi1
        Bevol(1,i) = Bxyz(1,i) * rhoi1
        Bevol(2,i) = Bxyz(2,i) * rhoi1
        Bevol(3,i) = Bxyz(3,i) * rhoi1
@@ -586,6 +585,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
  if (get_conserv > 0.0) then
     xyzcom_in = xyzcom
+    dxi_in    = min(dxi(1),dxi(2),dxi(ndim))
     if (get_conserv > 0.75) then
        etot_in   = etot
        angtot_in = angtot

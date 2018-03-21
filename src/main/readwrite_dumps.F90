@@ -1646,7 +1646,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use eos,            only:polyk,gamma,polyk2,qfacdisc,isink
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,ieos
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz
- use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in
+ use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in,dxi_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use externalforces, only:write_headeropts_extern
@@ -1738,6 +1738,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(xyzcom_in(2),'ycom_in',hdr,ierr)
     call add_to_rheader(xyzcom_in(3),'zcom_in',hdr,ierr)
     call add_to_rheader(mdust_in,'mdust_in',hdr,ierr)
+    call add_to_rheader(dxi_in,'dxi_in',hdr,ierr)
     if (use_dust) then
        write(*,*) 'writing grain properties to header'
        if (multidustdump) then
@@ -1779,7 +1780,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  use eos,           only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
  use options,       only:ieos,tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
  use part,          only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,maxtypes
- use initial_params,only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in
+ use initial_params,only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in,dxi_in
  use setup_params,  only:rhozero
  use timestep,      only:dtmax,C_cour,C_force
  use externalforces,only:read_headeropts_extern
@@ -1917,7 +1918,8 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  call extract('xcom_in',xyzcom_in(1), hdr,ierrs(1))
  call extract('ycom_in',xyzcom_in(2), hdr,ierrs(2))
  call extract('zcom_in',xyzcom_in(3), hdr,ierrs(3))
- if (any(ierrs(1:5) /= 0)) then
+ call extract('dxi_in', dxi_in,       hdr,ierrs(4))
+ if (any(ierrs(1:4) /= 0)) then
     write(*,*) 'ERROR reading values to verify non-movement of centre of mass.  Resetting initial values.'
     get_conserv = 0.5
  endif

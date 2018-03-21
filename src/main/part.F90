@@ -30,7 +30,7 @@
 !+
 !--------------------------------------------------------------------------
 module part
- use dim, only:maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu, &
+ use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu, &
           maxalpha,maxptmass,maxstrain, &
           mhd,maxmhd,maxBevol,maxp_h2,periodic, &
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
@@ -186,6 +186,7 @@ module part
 !  (used for dead particle list also)
 !
  integer :: ll(maxan)
+ real    :: dxi(ndim) ! to track the extent of the particles
 !
 !--size of the buffer required for transferring particle
 !  information between MPI threads
