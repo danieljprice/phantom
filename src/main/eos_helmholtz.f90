@@ -569,8 +569,8 @@ end function h5
         print *, 'WARNING: eos_helmholtz: density exceeds range available (10-^6 - 10^11 g/cm^3)'
     endif
 
-    if (temp .le. 0.0) stop 'temp less than 0 in helmeos'
-    if (den  .le. 0.0) then
+    if (temp  <=  0.0) stop 'temp less than 0 in helmeos'
+    if (den   <=  0.0) then
         print*, 'den less than 0 in helmeos'
         stop
     end if
@@ -937,7 +937,7 @@ end function h5
 
 
 ! yakovlev & shalybkov 1989 equations 82, 85, 86, 87
-    if (plasg .ge. 1.0) then
+    if (plasg  >=  1.0) then
      x        = plasg**(0.25d0)
      y        = avogadro * ytot1 * kboltz
      ecoul    = y * temp * (a1*plasg + b1*x + c1/x + d1)
@@ -956,7 +956,7 @@ end function h5
 
 
 ! yakovlev & shalybkov 1989 equations 102, 103, 104
-    else if (plasg .lt. 1.0) then
+    else if (plasg  <  1.0) then
      x        = plasg*sqrt(plasg)
      y        = plasg**b2
      z        = c2 * x - third * a2 * y
@@ -981,9 +981,9 @@ end function h5
     z   = srad + sion + sele 
 
 !        write(6,*) x,y,z
-    if (x .le. 0.0 .or. y .le. 0.0 .or. z .le. 0.0) then
-!        if (x .le. 0.0 .or. y .le. 0.0) then
-!        if (x .le. 0.0) then
+    if (x  <=  0.0 .or. y  <=  0.0 .or. z  <=  0.0) then
+!        if (x  <=  0.0 .or. y  <=  0.0) then
+!        if (x  <=  0.0) then
 
 !         write(6,*)
 !         write(6,*) 'coulomb corrections are causing a negative pressure'
@@ -1105,8 +1105,8 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
 
     ! start of pipeline loop, normal execution starts here
 
-    if (temp .le. 0.0) stop 'temp less than 0 in helmeos'
-    if (den  .le. 0.0) then
+    if (temp  <=  0.0) stop 'temp less than 0 in helmeos'
+    if (den   <=  0.0) then
         print*, 'den less than 0 in helmeos'
         stop
     end if
@@ -1387,7 +1387,7 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
 
 
     ! yakovlev & shalybkov 1989 equations 82, 85, 86, 87
-    if (plasg .ge. 1.0) then
+    if (plasg  >=  1.0) then
         x        = plasg**(0.25d0)
         y        = avogadro * ytot1 * kboltz
         ecoul    = y * temp * (a1*plasg + b1*x + c1/x + d1)
@@ -1401,7 +1401,7 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
 
 
     ! yakovlev & shalybkov 1989 equations 102, 103, 104
-    else if (plasg .lt. 1.0) then
+    else if (plasg  <  1.0) then
         x        = plasg*sqrt(plasg)
 
         y        = plasg**b2
@@ -1423,9 +1423,9 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
     z   = srad + sele 
 
 !        write(6,*) x,y,z
-    if (x .le. 0.0 .or. y .le. 0.0 .or. z .le. 0.0) then
-!        if (x .le. 0.0 .or. y .le. 0.0) then
-!        if (x .le. 0.0) then
+    if (x  <=  0.0 .or. y  <=  0.0 .or. z  <=  0.0) then
+!        if (x  <=  0.0 .or. y  <=  0.0) then
+!        if (x  <=  0.0) then
 
 !         write(6,*)
 !         write(6,*) 'coulomb corrections are causing a negative pressure'
