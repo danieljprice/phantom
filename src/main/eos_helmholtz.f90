@@ -187,7 +187,7 @@ module eos_helmholtz
       dti_sav(j)  = dti
       dt2i_sav(j) = dt2i
       dt3i_sav(j) = dt3i
-   end do
+   enddo
    do i=1,imax-1
       dd          = d(i+1) - d(i)
       dd2         = dd * dd
@@ -576,7 +576,7 @@ end function h5
     if (den   <=  0.0) then
         print*, 'den less than 0 in helmeos'
         stop
-    end if
+    endif
 
     ytot1 = 1.0d0/abar
     ye    = max(1.0d-16,ytot1 * zbar)
@@ -975,7 +975,7 @@ end function h5
      s        = 3.0d0/den
      decouldt = s * dpcouldt
 
-    end if
+    endif
 
 
 ! bomb proof
@@ -999,7 +999,7 @@ end function h5
      ecoul    = 0.0d0
      decouldd = 0.0d0
      decouldt = 0.0d0
-    end if
+    endif
 
 
 ! sum all the gas components
@@ -1112,7 +1112,7 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
     if (den   <=  0.0) then
         print*, 'den less than 0 in helmeos'
         stop
-    end if
+    endif
 
     ytot1 = 1.0d0/abar
     ye    = max(1.0d-16,ytot1 * zbar)
@@ -1417,7 +1417,7 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
         s        = 3.0d0/den
         decouldt = s * dpcouldt
 
-    end if
+    endif
 
 
     ! bomb proof
@@ -1437,7 +1437,7 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
      dpcouldt = 0.0d0
      ecoul    = 0.0d0
      decouldt = 0.0d0
-    end if
+    endif
 
     ! sum all the gas components
     dpgasdt = dpiondt + dpepdt + dpcouldt
