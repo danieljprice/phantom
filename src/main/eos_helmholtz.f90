@@ -256,10 +256,10 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
  real, intent(out)   :: spsoundi
  real, intent(inout) :: eni
  integer, parameter  :: maxiter = 10
- real,    parameter  :: tol = 0.05  ! temperature convergence
+ real,    parameter  :: tol = 1.0e-4  ! temperature convergence
+ logical :: done
  integer :: itercount
  real :: cgsrhoi, cgspresi, cgsspsoundi, cgseni, cgseni_eos, cgsdendti
- real :: errorp, rel
  real :: tnew, tprev
 
  cgsrhoi = rhoi * unit_density
@@ -278,7 +278,8 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     cgseni = eni * unit_ergg
 
     ! Newton-Raphson iterations
-    tnew = tempi - (cgseni_eos - cgseni) / cgsdendti
+    tprev = tempi
+    tnew  = tempi - (cgseni_eos - cgseni) / cgsdendti
 
     ! disallow large temperature changes
     if (tnew > 2.0 * tempi) then
@@ -297,15 +298,16 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     endif
 
     itercount = 0
-    iterations: do while ((errorp > tol) .and. (itercount < maxiter))
+    done = .false.
+    iterations: do while (.not. done)
 
        itercount = itercount + 1
 
-       ! get new pressure, sound speed, energy for this temperature and density
-       call eos_helmholtz_compute_pres_sound(tnew, cgsrhoi, cgspresi, cgsspsoundi, cgseni_eos, cgsdendti)
-
        ! store temperature of previous iteration
        tprev = tnew
+
+       ! get new pressure, sound speed, energy for this temperature and density
+       call eos_helmholtz_compute_pres_sound(tnew, cgsrhoi, cgspresi, cgsspsoundi, cgseni_eos, cgsdendti)
 
        ! iterate to new temperature
        tnew = tnew - (cgseni_eos - cgseni) / cgsdendti
@@ -318,31 +320,48 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
           tnew = 0.5 * tprev
        endif
 
+       ! exit if tolerance criterion satisfied
+       if (abs(tnew - tprev) < tempi * tol) then
+          done = .true.
+       endif
+
        ! exit if gas is too cold or too hot
        ! temperature and density limits are given in section 2.3 of Timmes & Swesty (2000)
        if (tnew > 1.0e11) then
           tnew = 1.0e11
-          errorp = 1.0
+          done = .true.
        endif
        if (tnew < 1.0e4) then
           tnew = 1.0e4
-          errorp = 1.0
+          done = .true.
        endif
+
+       ! exit if reached max number of iterations (convergence failed)
+       if (itercount >= maxiter) then
+          print *, 'Helmholtz eos fail to converge'
+          done = .true.
+       endif
+
     enddo iterations
 
-    rel = abs(tnew - tempi) / tempi
-
-    ! store new temperature, or energy if iterations fail
-    ! TODO: currently we just use the final temperature from the eos and assume we have converged
-!       if ((itercount > maxiter) .or. (rel > 0.05)) then
-!           eni = cgseni_eos / unit_ergg
-!       else
+    ! store new temperature
     tempi = tnew
+
+
+    ! TODO: currently we just use the final temperature from the eos and assume we have converged
+    !
+    !    Loren-Aguilar, Isern, Garcia-Berro (2010) time integrate the temperature as well as internal energy,
+    !    and if temperature is not converged here, then they use the eos internal energy overwriting
+    !    the value stored on the particles.
+    !    This does not conserve energy, but is one approach to deal with non-convergence of the temperature.
+    
+!       if ((itercount > maxiter) .or. (abs(tnew - tempi) < tempi * tol)) then
+!           eni = cgseni_eos / unit_ergg   ! not converged, modify energy
+!       else
+!           tempi = tnew
 !       endif
 
-    if (itercount > maxiter) then
-       print *, 'Helmholtz eos fail to converge'
-    endif
+
  else
     print *, 'error in relaxflag in Helmholtz equation of state'
  endif
