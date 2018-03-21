@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -17,9 +17,12 @@
 !
 !  OWNER: Terrence Tricco
 !
+!  $Id$
 !
-!  RUNTIME PARAMETERS: None
+!  RUNTIME PARAMETERS:
+!    relaxflag -- 0=evolve, 1=relaxation on (keep T const)
 !
+!  DEPENDENCIES: datafiles, infile_utils, io, physcon, units
 !+
 !--------------------------------------------------------------------------
 module eos_helmholtz

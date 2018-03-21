@@ -37,6 +37,7 @@
 !    densityfile       -- File containing data for stellar profile
 !    dist_unit         -- distance unit (e.g. au)
 !    gamma             -- Adiabatic index
+!    initialtemp       -- initial temperature of the star (K)
 !    mass_unit         -- mass unit (e.g. solarm)
 !    np                -- approx number of particles (in box of size 2R)
 !    polyk             -- sound speed .or. constant in EOS
