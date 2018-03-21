@@ -129,22 +129,22 @@ subroutine eos_helmholtz_init()
  endif
 
  ! for standard table limits
- tlo   = 3.0d0
- thi   = 13.0d0
+ tlo   = 3.0
+ thi   = 13.0
  tstp  = (thi - tlo)/float(jmax-1)
- tstpi = 1.0d0/tstp
- dlo   = -12.0d0
- dhi   = 15.0d0
+ tstpi = 1.0/tstp
+ dlo   = -12.0
+ dhi   = 15.0
  dstp  = (dhi - dlo)/float(imax-1)
- dstpi = 1.0d0/dstp
+ dstpi = 1.0/dstp
 
  ! read the helmholtz free energy and its derivatives
  do j=1,jmax
     tsav = tlo + (j-1)*tstp
-    t(j) = 10.0d0**(tsav)
+    t(j) = 10.0**(tsav)
     do i=1,imax
        dsav = dlo + (i-1)*dstp
-       d(i) = 10.0d0**(dsav)
+       d(i) = 10.0**(dsav)
        read(19,*) f(i,j),fd(i,j),ft(i,j),fdd(i,j),ftt(i,j),fdt(i,j), &
                   fddt(i,j),fdtt(i,j),fddtt(i,j)
     enddo
@@ -179,8 +179,8 @@ subroutine eos_helmholtz_init()
  do j=1,jmax-1
     dth          = t(j+1) - t(j)
     dt2         = dth * dth
-    dti         = 1.0d0/dth
-    dt2i        = 1.0d0/dt2
+    dti         = 1.0/dth
+    dt2i        = 1.0/dt2
     dt3i        = dt2i*dti
     dt_sav(j)   = dth
     dt2_sav(j)  = dt2
@@ -191,8 +191,8 @@ subroutine eos_helmholtz_init()
  do i=1,imax-1
     dd          = d(i+1) - d(i)
     dd2         = dd * dd
-    ddi         = 1.0d0/dd
-    dd2i        = 1.0d0/dd2
+    ddi         = 1.0/dd
+    dd2i        = 1.0/dd2
     dd3i        = dd2i*ddi
     dd_sav(i)   = dd
     dd2_sav(i)  = dd2
@@ -376,51 +376,51 @@ end subroutine eos_helmholtz_pres_sound
 ! psi0 and its derivatives
 real function psi0(z)
  real, intent(in) :: z
- psi0   = z**3 * ( z * (-6.0d0*z + 15.0d0) -10.0d0) + 1.0d0
+ psi0   = z**3 * ( z * (-6.0*z + 15.0) -10.0) + 1.0
 end function psi0
 
 real function dpsi0(z)
  real, intent(in) :: z
- dpsi0  = z**2 * ( z * (-30.0d0*z + 60.0d0) - 30.0d0)
+ dpsi0  = z**2 * ( z * (-30.0*z + 60.0) - 30.0)
 end function dpsi0
 
 real function ddpsi0(z)
  real, intent(in) :: z
- ddpsi0 = z* ( z*( -120.0d0*z + 180.0d0) -60.0d0)
+ ddpsi0 = z* ( z*( -120.0*z + 180.0) -60.0)
 end function ddpsi0
 
 
 ! psi1 and its derivatives
 real function psi1(z)
  real, intent(in) :: z
- psi1   = z* ( z**2 * ( z * (-3.0d0*z + 8.0d0) - 6.0d0) + 1.0d0)
+ psi1   = z* ( z**2 * ( z * (-3.0*z + 8.0) - 6.0) + 1.0)
 end function psi1
 
 real function dpsi1(z)
  real, intent(in) :: z
- dpsi1  = z*z * ( z * (-15.0d0*z + 32.0d0) - 18.0d0) +1.0d0
+ dpsi1  = z*z * ( z * (-15.0*z + 32.0) - 18.0) +1.0
 end function dpsi1
 
 real function ddpsi1(z)
  real, intent(in) :: z
- ddpsi1 = z * (z * (-60.0d0*z + 96.0d0) -36.0d0)
+ ddpsi1 = z * (z * (-60.0*z + 96.0) -36.0)
 end function ddpsi1
 
 
 ! psi2  and its derivatives
 real function psi2(z)
  real, intent(in) :: z
- psi2   = 0.5d0*z*z*( z* ( z * (-z + 3.0d0) - 3.0d0) + 1.0d0)
+ psi2   = 0.5*z*z*( z* ( z * (-z + 3.0) - 3.0) + 1.0)
 end function psi2
 
 real function dpsi2(z)
  real, intent(in) :: z
- dpsi2  = 0.5d0*z*( z*(z*(-5.0d0*z + 12.0d0) - 9.0d0) + 2.0d0)
+ dpsi2  = 0.5*z*( z*(z*(-5.0*z + 12.0) - 9.0) + 2.0)
 end function dpsi2
 
 real function ddpsi2(z)
  real, intent(in) :: z
- ddpsi2 = 0.5d0*(z*( z * (-20.0d0*z + 36.0d0) - 18.0d0) + 2.0d0)
+ ddpsi2 = 0.5*(z*( z * (-20.0*z + 36.0) - 18.0) + 2.0)
 end function ddpsi2
 
 
@@ -428,24 +428,24 @@ end function ddpsi2
 ! psi0 & derivatives
 real function xpsi0(z)
  real, intent(in) :: z
- xpsi0  = z * z * (2.0d0*z - 3.0d0) + 1.0
+ xpsi0  = z * z * (2.0*z - 3.0) + 1.0
 end function xpsi0
 
 real function xdpsi0(z)
  real, intent(in) :: z
- xdpsi0 = z * (6.0d0*z - 6.0d0)
+ xdpsi0 = z * (6.0*z - 6.0)
 end function xdpsi0
 
 
 ! psi1 & derivatives
 real function xpsi1(z)
  real, intent(in) :: z
- xpsi1  = z * ( z * (z - 2.0d0) + 1.0d0)
+ xpsi1  = z * ( z * (z - 2.0) + 1.0)
 end function xpsi1
 
 real function xdpsi1(z)
  real, intent(in) :: z
- xdpsi1 = z * (3.0d0*z - 4.0d0) + 1.0d0
+ xdpsi1 = z * (3.0*z - 4.0) + 1.0
 end function xdpsi1
 
 
@@ -523,11 +523,11 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  real, intent(in)  :: temp, den
  real, intent(out) :: pres, sound, ener, denerdt
 
- real, parameter :: sioncon = (2.0d0 * pi * atomic_mass_unit * kboltz)/(planckh * planckh)
- real, parameter :: forth   = 4.0d0/3.0d0
+ real, parameter :: sioncon = (2.0 * pi * atomic_mass_unit * kboltz)/(planckh * planckh)
+ real, parameter :: forth   = 4.0/3.0
  real, parameter :: kergavo = kboltz * avogadro
  real, parameter :: asol    = steboltz*4.0/c
- real, parameter :: asoli3  = asol/3.0d0
+ real, parameter :: asoli3  = asol/3.0
  real, parameter :: light2  = c * c
 
  real    :: ytot1,ye, &
@@ -561,15 +561,15 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
                    plasg,plasgdd,plasgdt, &
                    ecoul,decouldd,decouldt, &
                    pcoul,dpcouldd,dpcouldt
- real, parameter :: a1    = -0.898004d0
- real, parameter :: b1    =  0.96786d0
- real, parameter :: c1    =  0.220703d0
- real, parameter :: d1    = -0.86097d0
- real, parameter :: e1    =  2.5269d0
- real, parameter :: a2    =  0.29561d0
- real, parameter :: b2    =  1.9885d0
- real, parameter :: c2    =  0.288675d0
- real, parameter :: third =  1.0d0/3.0d0
+ real, parameter :: a1    = -0.898004
+ real, parameter :: b1    =  0.96786
+ real, parameter :: c1    =  0.220703
+ real, parameter :: d1    = -0.86097
+ real, parameter :: e1    =  2.5269
+ real, parameter :: a2    =  0.29561
+ real, parameter :: b2    =  1.9885
+ real, parameter :: c2    =  0.288675
+ real, parameter :: third =  1.0/3.0
  real, parameter :: esqu  =  qe * qe
 
 
@@ -595,25 +595,25 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
     stop
  endif
 
- ytot1 = 1.0d0/abar
- ye    = max(1.0d-16,ytot1 * zbar)
+ ytot1 = 1.0/abar
+ ye    = max(1.0e-16,ytot1 * zbar)
 
 
 ! initialize
- deni    = 1.0d0/den
- tempi   = 1.0d0/temp
+ deni    = 1.0/den
+ tempi   = 1.0/temp
  kt      = kboltz * temp
- ktinv   = 1.0d0/kt
+ ktinv   = 1.0/kt
 
 
 ! radiation section:
  prad    = asoli3 * temp * temp * temp * temp
- dpraddd = 0.0d0
- dpraddt = 4.0d0 * prad*tempi
+ dpraddd = 0.0
+ dpraddt = 4.0 * prad*tempi
 
- erad    = 3.0d0 * prad*deni
+ erad    = 3.0 * prad*deni
 
- deraddt = 3.0d0 * dpraddt*deni
+ deraddt = 3.0 * dpraddt*deni
 
  srad    = (prad*deni + erad)*tempi
 
@@ -627,9 +627,9 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  dpiondd = dxnidd * kt
  dpiondt = xni * kboltz
 
- eion    = 1.5d0 * pion*deni
+ eion    = 1.5 * pion*deni
 
- deiondt = 1.5d0 * dpiondt*deni
+ deiondt = 1.5 * dpiondt*deni
 
 
 ! sackur-tetrode equation for the ion entropy of
@@ -639,7 +639,7 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  z       = x * s * sqrt(s)
  y       = log(z)
 
-!        y       = 1.0d0/(abar*kt)
+!        y       = 1.0/(abar*kt)
 !        yy      = y * sqrt(y)
 !        z       = xni * sifac * yy
 !        etaion  = log(z)
@@ -705,10 +705,10 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 
 
 ! various differences
- xt  = max( (temp - t(jat))*dti_sav(jat), 0.0d0)
- xd  = max( (din - d(iat))*ddi_sav(iat), 0.0d0)
- mxt = 1.0d0 - xt
- mxd = 1.0d0 - xd
+ xt  = max( (temp - t(jat))*dti_sav(jat), 0.0)
+ xd  = max( (din - d(iat))*ddi_sav(iat), 0.0)
+ mxt = 1.0 - xt
+ mxd = 1.0 - xd
 
 ! the six density and six temperature basis functions
  si0t =   psi0(xt)
@@ -848,7 +848,7 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  dpepdd  = h3(iat,jat,fi, &
                    si0t,   si1t,   si0mt,   si1mt, &
                    si0d,   si1d,   si0md,   si1md)
- dpepdd  = max(ye * dpepdd,1.0d-30)
+ dpepdd  = max(ye * dpepdd,1.0e-30)
 
 
 
@@ -921,7 +921,7 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  x       = din * din
  pele    = x * df_d
  dpepdt  = x * df_dt
-!        dpepdd  = ye * (x * df_dd + 2.0d0 * din * df_d)
+!        dpepdd  = ye * (x * df_dd + 2.0 * din * df_d)
 
 
  x       = ye * ye
@@ -945,8 +945,8 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  dsdd     = z * dxnidd
 
 
- lami     = 1.0d0/s**third
- inv_lami = 1.0d0/lami
+ lami     = 1.0/s**third
+ inv_lami = 1.0/lami
  z        = -third * lami
  lamidd   = z * dsdd/s
 
@@ -957,12 +957,12 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 
  ! yakovlev & shalybkov 1989 equations 82, 85, 86, 87
  if (plasg  >=  1.0) then
-    x        = plasg**(0.25d0)
+    x        = plasg**(0.25)
     y        = avogadro * ytot1 * kboltz
     ecoul    = y * temp * (a1*plasg + b1*x + c1/x + d1)
     pcoul    = third * den * ecoul
 
-    y        = avogadro*ytot1*kt*(a1 + 0.25d0/plasg*(b1*x - c1/x))
+    y        = avogadro*ytot1*kt*(a1 + 0.25/plasg*(b1*x - c1/x))
     decouldd = y * plasgdd
     decouldt = y * plasgdt + ecoul/temp
 
@@ -976,13 +976,13 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
     y        = plasg**b2
     z        = c2 * x - third * a2 * y
     pcoul    = -pion * z
-    ecoul    = 3.0d0 * pcoul/den
+    ecoul    = 3.0 * pcoul/den
 
-    s        = 1.5d0*c2*x/plasg - third*a2*b2*y/plasg
+    s        = 1.5*c2*x/plasg - third*a2*b2*y/plasg
     dpcouldd = -dpiondd*z - pion*s*plasgdd
     dpcouldt = -dpiondt*z - pion*s*plasgdt
 
-    s        = 3.0d0/den
+    s        = 3.0/den
     decouldt = s * dpcouldt
  endif
 
@@ -1002,12 +1002,12 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 !         write(6,*) 'setting all coulomb corrections to zero'
 !         write(6,*)
 
-    pcoul    = 0.0d0
-    dpcouldd = 0.0d0
-    dpcouldt = 0.0d0
-    ecoul    = 0.0d0
-    decouldd = 0.0d0
-    decouldt = 0.0d0
+    pcoul    = 0.0
+    dpcouldd = 0.0
+    dpcouldt = 0.0
+    ecoul    = 0.0
+    decouldd = 0.0
+    decouldt = 0.0
  endif
 
 
@@ -1048,7 +1048,7 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  gam1  = chit*x + chid
 
 
- z     = 1.0d0 + (ener + light2)*zzi
+ z     = 1.0 + (ener + light2)*zzi
 
  sound = c * sqrt(gam1/z)
 
@@ -1078,10 +1078,10 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
              denerdt,s
  real    :: dpgasdt, degasdt
 
- real, parameter :: sioncon = (2.0d0 * pi * atomic_mass_unit * kboltz)/(planckh * planckh)
- real, parameter :: forth   = 4.0d0/3.0d0
+ real, parameter :: sioncon = (2.0 * pi * atomic_mass_unit * kboltz)/(planckh * planckh)
+ real, parameter :: forth   = 4.0/3.0
  real, parameter :: asol    = steboltz*4.0/c
- real, parameter :: asoli3  = asol/3.0d0
+ real, parameter :: asoli3  = asol/3.0
  real, parameter :: light2  = c * c
 
  integer :: iat, jat
@@ -1101,15 +1101,15 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
              ecoul,decouldt, &
              pcoul,dpcouldt
 
- real, parameter :: a1    = -0.898004d0
- real, parameter :: b1    =  0.96786d0
- real, parameter :: c1    =  0.220703d0
- real, parameter :: d1    = -0.86097d0
- real, parameter :: e1    =  2.5269d0
- real, parameter :: a2    =  0.29561d0
- real, parameter :: b2    =  1.9885d0
- real, parameter :: c2    =  0.288675d0
- real, parameter :: third =  1.0d0/3.0d0
+ real, parameter :: a1    = -0.898004
+ real, parameter :: b1    =  0.96786
+ real, parameter :: c1    =  0.220703
+ real, parameter :: d1    = -0.86097
+ real, parameter :: e1    =  2.5269
+ real, parameter :: a2    =  0.29561
+ real, parameter :: b2    =  1.9885
+ real, parameter :: c2    =  0.288675
+ real, parameter :: third =  1.0/3.0
  real, parameter :: esqu  =  qe * qe
 
 
@@ -1121,22 +1121,22 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
     stop
  endif
 
- ytot1 = 1.0d0/abar
- ye    = max(1.0d-16,ytot1 * zbar)
+ ytot1 = 1.0/abar
+ ye    = max(1.0e-16,ytot1 * zbar)
 
  ! initialize
- deni    = 1.0d0/den
- tempi   = 1.0d0/temp
+ deni    = 1.0/den
+ tempi   = 1.0/temp
 
  kt      = kboltz * temp
- ktinv   = 1.0d0/kt
+ ktinv   = 1.0/kt
 
  ! radiation section:
  prad    = asoli3 * temp * temp * temp * temp
- dpraddt = 4.0d0 * prad*tempi
+ dpraddt = 4.0 * prad*tempi
 
- erad    = 3.0d0 * prad*deni
- deraddt = 3.0d0 * dpraddt*deni
+ erad    = 3.0 * prad*deni
+ deraddt = 3.0 * dpraddt*deni
 
  srad    = (prad*deni + erad)*tempi
 
@@ -1144,9 +1144,9 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
  xni     = avogadro * ytot1 * den
  pion    = xni * kt
  dpiondt = xni * kboltz
- deiondt = 1.5d0 * dpiondt*deni
+ deiondt = 1.5 * dpiondt*deni
 
- eion    = 1.5d0 * pion*deni
+ eion    = 1.5 * pion*deni
 
 
  ! assume complete ionization
@@ -1202,10 +1202,10 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
 
 
 ! various differences
- xt  = max( (temp - t(jat))*dti_sav(jat), 0.0d0)
- xd  = max( (din - d(iat))*ddi_sav(iat), 0.0d0)
- mxt = 1.0d0 - xt
- mxd = 1.0d0 - xd
+ xt  = max( (temp - t(jat))*dti_sav(jat), 0.0)
+ xd  = max( (din - d(iat))*ddi_sav(iat), 0.0)
+ mxt = 1.0 - xt
+ mxd = 1.0 - xd
 
 ! the six density and six temperature basis functions
  si0t =   psi0(xt)
@@ -1383,8 +1383,8 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
  z        = forth * pi
  s        = z * xni
 
- lami     = 1.0d0/s**third
- inv_lami = 1.0d0/lami
+ lami     = 1.0/s**third
+ inv_lami = 1.0/lami
 
  plasg    = zbar*zbar*esqu*ktinv*inv_lami
  plasgdt  = -plasg*ktinv * kboltz
@@ -1398,12 +1398,12 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
 
  ! yakovlev & shalybkov 1989 equations 82, 85, 86, 87
  if (plasg  >=  1.0) then
-    x        = plasg**(0.25d0)
+    x        = plasg**(0.25)
     y        = avogadro * ytot1 * kboltz
     ecoul    = y * temp * (a1*plasg + b1*x + c1/x + d1)
     pcoul    = third * den * ecoul   
 
-    y        = avogadro*ytot1*kt*(a1 + 0.25d0/plasg*(b1*x - c1/x))
+    y        = avogadro*ytot1*kt*(a1 + 0.25/plasg*(b1*x - c1/x))
     decouldt = y * plasgdt + ecoul/temp
 
     y        = third * den
@@ -1415,11 +1415,11 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
     y        = plasg**b2
     z        = c2 * x - third * a2 * y
     pcoul    = -pion * z
-    ecoul    = 3.0d0 * pcoul/den
-    s        = 1.5d0*c2*x/plasg - third*a2*b2*y/plasg
+    ecoul    = 3.0 * pcoul/den
+    s        = 1.5*c2*x/plasg - third*a2*b2*y/plasg
     dpcouldt = -dpiondt*z - pion*s*plasgdt
 
-    s        = 3.0d0/den
+    s        = 3.0/den
     decouldt = s * dpcouldt
 
  endif
@@ -1439,9 +1439,9 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
 !         write(6,*) 'coulomb corrections are causing a negative pressure'
 !         write(6,*) 'setting all coulomb corrections to zero'
 !         write(6,*)
-    dpcouldt = 0.0d0
-    ecoul    = 0.0d0
-    decouldt = 0.0d0
+    dpcouldt = 0.0
+    ecoul    = 0.0
+    decouldt = 0.0
  endif
 
  ! sum all the gas components
