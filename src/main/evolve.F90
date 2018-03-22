@@ -246,7 +246,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 ! --------------------- main loop ----------------------------------------
 !
  timestepping: do while ((time < tmax).and.((nsteps < nmax) .or.  (nmax < 0)))
-
+ 
 #ifdef INJECT_PARTICLES
     !
     ! injection of new particles into simulation
@@ -274,7 +274,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        twallperdump = reduceall_mpi('max', timer_lastdump%wall)
        call check_dtmax_for_decrease(iprint,dtmax,twallperdump,nfulldump,update_tzero)
     endif
-
+	
     !--sanity check on istepfrac...
     if (istepfrac > 2**nbinmax) then
        write(iprint,*) 'ERROR: istepfrac = ',istepfrac,' / ',2**nbinmax
@@ -307,7 +307,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !  for individual timesteps this is the shortest timestep
 !
     call get_timings(t1,tcpu1)
-!
     if ( use_sts ) then
        call step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
     else
@@ -316,6 +315,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     dtlast = dt
 
     !--timings for step call
+	
     call get_timings(t2,tcpu2)
     call increment_timer(timer_step,t2-t1,tcpu2-tcpu1)
     call summary_counter(iosum_nreal,t2-t1)

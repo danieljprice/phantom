@@ -64,6 +64,7 @@ subroutine init_growth(ierr)
  use io,	only:error
  use part,	only:dustprop
  use dim,	only:maxp_growth
+ use dust,	only:grainsize,graindens
  integer, intent(out) :: ierr
  
  integer			  :: i
@@ -71,17 +72,12 @@ subroutine init_growth(ierr)
  i = 0
  ierr = 0
  
- !--Convert in code units
- dustprop(1,:)	= dustprop(1,:) / udist
- dustprop(2,:)	= dustprop(2,:) / unit_density
- grainsizemin	= grainsizemin / udist
- vfrag			= vfrag * 100 / unit_velocity
- vfragin		= vfragin * 100 / unit_velocity
- vfragout		= vfragout * 100 / unit_velocity
- rsnow			= rsnow * au / udist
+ dustprop(1,:) = grainsize
+ dustprop(2,:) = graindens
  
  !-- Check that all the parameters are > 0 when needed
  do i=1,maxp_growth
+	!print*,'INIT GROWTH',dustprop(1,i),dustprop(2,i)
  	if (dustprop(1,i) < 0) then
 		call error('init_growth','grainsize < 0',var='dustprop',val=dustprop(1,i))
  		ierr = 1 
@@ -294,24 +290,29 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('grainsizemin')
     read(valstring,*,iostat=ierr) grainsizemin
+	grainsizemin = grainsizemin / udist
     ngot = ngot + 1
  case('isnow')
     read(valstring,*,iostat=ierr) isnow
 	ngot = ngot + 1
  case('rsnow')
     read(valstring,*,iostat=ierr) rsnow
+	rsnow = rsnow * au / udist
     ngot = ngot + 1
  case('Tsnow')
     read(valstring,*,iostat=ierr) Tsnow
     ngot = ngot + 1
  case('vfrag')
     read(valstring,*,iostat=ierr) vfrag
+	vfrag = vfrag * 100 / unit_velocity
 	ngot = ngot + 1
  case('vfragin')
     read(valstring,*,iostat=ierr) vfragin
+	vfragin = vfragin * 100 / unit_velocity
 	ngot = ngot + 1
  case('vfragout')
     read(valstring,*,iostat=ierr) vfragout
+	vfragout = vfragout * 100 / unit_velocity
 	ngot = ngot + 1
     case default
     imatch = .false.

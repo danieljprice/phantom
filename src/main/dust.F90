@@ -322,8 +322,10 @@ subroutine write_options_dust(iunit)
  call write_inopt(idrag,'idrag','gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)',iunit)
  if (.not.use_dustgrowth) then
     call write_inopt(grainsizecgs,'grainsize','Grain size in cm',iunit)
-    call write_inopt(graindenscgs,'graindens','Intrinsic grain density in g/cm^3',iunit)
+ else
+    call write_inopt(grainsizecgs,'grainsize','Initial grain size in cm',iunit)
  endif
+ call write_inopt(graindenscgs,'graindens','Intrinsic grain density in g/cm^3',iunit)
  call write_inopt(K_code,'K_code','drag constant when constant drag is used',iunit)
  call write_inopt(icut_backreaction,'icut_backreaction','cut the drag on the gas phase (0=no, 1=yes)',iunit)
 

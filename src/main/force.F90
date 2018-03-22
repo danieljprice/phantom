@@ -782,8 +782,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use dust,		  only:grainsize,graindens
 #ifdef DUST
  use dust,        only:get_ts,idrag,icut_backreaction
- use part,		  only:dustprop
  use kernel,      only:wkern_drag,cnormk_drag
+#ifdef DUSTGROWTH
+ use part,		  only:dustprop
+#endif
 #endif
 #ifdef IND_TIMESTEPS
  use part,        only:ibin_old
@@ -1888,10 +1890,10 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintenso
        cell%xpartvec(ijcbyi,cell%npcell)          = jcbi(2)
        cell%xpartvec(ijcbzi,cell%npcell)          = jcbi(3)
     endif
-	if (use_dustgrowth) then
-		cell%xpartvec(igrainsizei,cell%npcell)	  = dustprop(1,i)
-		cell%xpartvec(igraindensi,cell%npcell)	  = dustprop(2,i) !--Add dustprop(3,i) for vrelonvfrag
-	endif
+#ifdef DUSTGROWTH
+	cell%xpartvec(igrainsizei,cell%npcell)	  = dustprop(1,i)
+	cell%xpartvec(igraindensi,cell%npcell)	  = dustprop(2,i) !--Add dustprop(3,i) for vrelonvfrag
+#endif
  enddo over_parts
 
 end subroutine start_cell

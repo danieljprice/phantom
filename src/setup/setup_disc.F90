@@ -484,15 +484,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     !--resolution
     !
-    np = 50000
+    np = 500000
     if (use_dust .and. .not.use_dustfrac) then
        np_dust = np/5
     else
        np_dust = 0
-    endif
-	if (use_dustgrowth .and. np_dust /= 0) then
-		dustprop(1,:) = grainsizeinp
-		dustprop(2,:) = graindensinp
     endif
     !
     !--add planets
@@ -1438,7 +1434,6 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use growth,	   only:ifrag,isnow,rsnow,Tsnow,vfrag,vfragin,vfragout,grainsizemin
- use part,         only:dustprop
  integer,          intent(out) :: ierr
  character(len=*), intent(in)  :: filename
  integer, parameter :: iunit = 21
@@ -1547,10 +1542,6 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(profile_set_dust,'profile_set_dust',db,min=0,max=1,errcount=nerr)
     call read_inopt(grainsizeinp,'grainsizeinp',db,min=0.,errcount=nerr)
     call read_inopt(graindensinp,'graindensinp',db,min=0.,errcount=nerr)
-	if (use_dustgrowth) then
-		   dustprop(1,:) = grainsizeinp
-		   dustprop(2,:) = graindensinp
-    endif
  	!--growth/fragmentation of dust
  	if (use_dustgrowth .and. .not.use_dustfrac) then
 		call read_inopt(ifrag,'ifrag',db,min=0,max=2,errcount=nerr)

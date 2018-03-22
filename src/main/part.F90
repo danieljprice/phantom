@@ -160,14 +160,14 @@ module part
  real(kind=4)		:: divBsymm(maxmhdan)
  real				:: fext(3,maxan)
  real				:: ddustfrac(maxdustan)
- real				:: ddustprop(1,maxp_growth) !--grainsize is the only prop that evolves for now
+ real				:: ddustprop(4,maxp_growth) !--grainsize is the only prop that evolves for now
 !
 !--storage associated with/dependent on timestepping
 !
  real				:: vpred(maxvxyzu,maxan)
  real				:: dustpred(maxdustan)
  real				:: Bpred(maxBevol,maxmhdan)
- real				:: dustproppred(1,maxp_growth)
+ real				:: dustproppred(4,maxp_growth)
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin(maxan)
  integer(kind=1)    :: ibin_old(maxan)
