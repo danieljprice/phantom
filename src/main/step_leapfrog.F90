@@ -523,7 +523,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
  use options,        only:iexternalforce
  use part,           only:maxphase,abundance,nabundances,h2chemistry,temperature,store_temperature,epot_sinksink,&
                           isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
-                          imacc,ispinx,ispiny,ispinz,fxyz_ptmass_sinksink
+                          fxyz_ptmass_sinksink
  use options,        only:icooling
  use chem,           only:energ_h2cooling
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
