@@ -360,7 +360,7 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     !    and if temperature is not converged here, then they use the eos internal energy overwriting
     !    the value stored on the particles.
     !    This does not conserve energy, but is one approach to deal with non-convergence of the temperature.
-    
+
 !       if ((itercount > maxiter) .or. (abs(tnew - tempi) < tempi * tol)) then
 !           eni = cgseni_eos / unit_ergg   ! not converged, modify energy
 !       else
@@ -1407,7 +1407,7 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
     x        = plasg**(0.25)
     y        = avogadro * ytot1 * kboltz
     ecoul    = y * temp * (a1*plasg + b1*x + c1/x + d1)
-    pcoul    = third * den * ecoul   
+    pcoul    = third * den * ecoul
 
     y        = avogadro*ytot1*kt*(a1 + 0.25/plasg*(b1*x - c1/x))
     decouldt = y * plasgdt + ecoul/temp
