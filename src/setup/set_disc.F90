@@ -818,7 +818,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  real,    intent(in) :: alphaSS_min,alphaSS_max,R_warp,psimax,R_c,inclination,honH,cs0
  integer :: ierr,i
  real    :: T0,T_ref,sig,dR,R
- real, parameter :: vxyzutmp(maxvxyzu) = 0.
+ real :: vxyzutmp(maxvxyzu)
  real, dimension(maxbins) :: sig_vals
 
  write(iunit,"(/,a)") '# '//trim(labeltype(itype))//' disc parameters'
@@ -861,6 +861,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  call write_inopt(cs0,'cs0','sound speed at R=1',iunit)
 
  call init_eos(ieos,ierr)
+ vxyzutmp = 0.
  T0 = get_temperature(ieos,(/R_in,0.,0./),1.,vxyzutmp)
  call write_inopt(T0,'T_in','temperature (K) at R=R_in',iunit)
  T_ref = get_temperature(ieos,(/R_ref,0.,0./),1.,vxyzutmp)

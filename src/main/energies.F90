@@ -62,11 +62,11 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine compute_energies(t)
- use dim,  only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,lightcurve,use_dust,use_CMacIonize
+ use dim,  only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,lightcurve,use_dust,use_CMacIonize,store_temperature
  use part, only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,npartoftype, &
                 alphaind,Bxyz,Bevol,divcurlB,iamtype,igas,idust,iboundary,istar,idarkmatter,ibulge, &
                 nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,isdead_or_accreted,epot_sinksink,&
-                imacc,ispinx,ispiny,ispinz,mhd,gravity,poten,dustfrac,&
+                imacc,ispinx,ispiny,ispinz,mhd,gravity,poten,dustfrac,temperature,&
                 n_R,n_electronT,eta_nimhd,iion
  use eos,            only:polyk,utherm,gamma,equationofstate,get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
@@ -94,7 +94,7 @@ subroutine compute_energies(t)
  real    :: ponrhoi,spsoundi,B2i,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
  real    :: n_total,n_total1,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
  real    :: gasfrac,dustfraci,dust_to_gas
- real    :: temperature,etaart,etaart1,etaohm,etahall,etaambi,vhall,vion,vdrift
+ real    :: tempi,etaart,etaart1,etaohm,etahall,etaambi,vhall,vion,vdrift
  real    :: curlBi(3),vhalli(3),vioni(3),vdrifti(3),data_out(n_data_out)
  real    :: erotxi,erotyi,erotzi,fdum(3)
  integer :: i,j,itype,ierr
@@ -150,11 +150,12 @@ subroutine compute_energies(t)
 !$omp shared(iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah) &
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat,iev_ionise) &
+!$omp shared(temperature) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
 !$omp private(gasfrac,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
-!$omp private(ierr,temperature,etaart,etaart1,etaohm,etahall,etaambi) &
+!$omp private(ierr,tempi,etaart,etaart1,etaohm,etahall,etaambi) &
 !$omp private(vhalli,vhall,vioni,vion,vdrifti,vdrift,data_out) &
 !$omp private(erotxi,erotyi,erotzi,fdum) &
 !$omp private(ev_data_thread,np_rho_thread) &
@@ -287,7 +288,11 @@ subroutine compute_energies(t)
           ! thermal energy
           if (maxvxyzu >= 4) then
              etherm = etherm + pmassi*utherm(vxyzu(4,i),rhoi)*gasfrac
-             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(4,i))
+             if (store_temperature) then
+                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(4,i),temperature(i))
+             else
+                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(4,i))
+             endif
           else
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi)
              if (ieos==2 .and. gamma > 1.001) then
@@ -359,8 +364,8 @@ subroutine compute_energies(t)
              call ev_data_update(ev_data_thread,iev_beta, betai    )
 
              if ( mhd_nonideal ) then
-                temperature = get_temperature_from_ponrho(ponrhoi)
-                call nicil_get_eta(etaohm,etahall,etaambi,sqrt(B2i),rhoi,temperature, &
+                tempi = get_temperature_from_ponrho(ponrhoi)
+                call nicil_get_eta(etaohm,etahall,etaambi,sqrt(B2i),rhoi,tempi, &
                                    n_R(:,i),n_electronT(i),ierr,data_out)
                 curlBi = divcurlB(2:4,i)
                 call nicil_get_halldrift(etahall,Bxi,Byi,Bzi,curlBi,vhalli)
@@ -371,7 +376,7 @@ subroutine compute_energies(t)
                 else
                    etaart1 = 0.0
                 endif
-                call ev_data_update(ev_data_thread,iev_temp, temperature)
+                call ev_data_update(ev_data_thread,iev_temp, tempi)
                 call ev_data_update(ev_data_thread,iev_etaar,etaart     )
                 if (use_ohm) then
                    call ev_data_update(ev_data_thread,iev_etao(1),etaohm              )

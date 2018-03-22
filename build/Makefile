@@ -223,6 +223,16 @@ ifeq ($(SETUP), turb)
     USE_STRAIN_TENSOR = yes
 endif
 
+ifeq ($(SETUP), wd)
+    SETUPFILE     = setup_spheres.f90
+    IND_TIMESTEPS = no 
+    MHD           = no
+    GRAVITY       = yes
+    ISOTHERMAL    = no
+    KNOWN_SETUP   = yes
+    STORE_TEMP    = yes
+endif
+
 ifeq ($(SETUP), photoevap)
 # Mark Hutchison
     FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT -DPHOTO
@@ -621,7 +631,7 @@ ifeq ($(SETUP), star)
     FPPFLAGS= -DSORT_RADIUS_INIT
     SETUPFILE= setup_spheres.f90
     MODFILE= moddump_binary.f90
-    ANALYSIS= ${SRCNIMHD} kdtree.o linklist_kdtree.o utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
+    ANALYSIS= ${SRCNIMHD} dtype_kdtree.o kdtree.o linklist_kdtree.o utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     MAXP=10000000
@@ -1130,6 +1140,10 @@ ifeq ($(ISOTHERMAL), yes)
     FPPFLAGS += -DISOTHERMAL
 endif
 
+ifeq ($(STORE_TEMP), yes)
+    FPPFLAGS += -DSTORE_TEMPERATURE
+endif
+
 ifeq ($(MHD), yes)
     FPPFLAGS += -DMHD
 endif
@@ -1344,7 +1358,7 @@ endif
 SRCCHEM= coolfunc.f90 fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.f90
 
 SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
-SRCEOS = ${SRCMESA} eos.F90
+SRCEOS = ${SRCMESA} eos_helmholtz.f90 eos.F90
 
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
          utils_mathfunc.f90 ${DOMAIN} part.F90 utils_timing.f90 mpi_balance.F90 commons.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \

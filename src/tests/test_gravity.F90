@@ -38,7 +38,7 @@ subroutine test_gravity(ntests,npass,string)
  use part,      only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,Bevol,mhd, &
                      alphaind,maxalpha, &
                      divcurlv,divcurlB,dBevol,gradh,poten,&
-                     iphase,isetphase,maxphase,dustfrac,ddustfrac,labeltype
+                     iphase,isetphase,maxphase,dustfrac,ddustfrac,temperature,labeltype
  use eos,       only:polyk,gamma
  use options,   only:ieos,alpha,alphau,alphaB,tolh
  use testutils, only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end
@@ -297,7 +297,7 @@ subroutine test_gravity(ntests,npass,string)
 !
           call getused(t1)
           call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                      Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+                      Bevol,dBevol,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
           call getused(t2)
           if (id==master) call printused(t1)
 !

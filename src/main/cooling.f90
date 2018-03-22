@@ -80,7 +80,8 @@ subroutine energ_cooling(icool,ui,dudti,xi,yi,zi,rhoi,vxyzui,dt)
  integer, intent(in)    :: icool
  !real,    intent(in)    :: ui,xi,yi,zi
  real,    intent(in)    :: ui,xi,yi,zi,rhoi
- real,    intent(in)    :: vxyzui(maxvxyzu),dt
+ real,    intent(inout) :: vxyzui(maxvxyzu)
+ real,    intent(in)    :: dt
  real,    intent(inout) :: dudti
  real :: r2,Omegai,tcool1,temp,crate,fac
 

@@ -877,12 +877,14 @@ end subroutine get_mu
 subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,dthreshg &
                         ,au,udist,umass,solarm,unit_velocity,unit_Bfield &
                         ,rdisc2,time,mhd,rthresh2,dmassp)
- character(len=*), intent(in) :: dumpfile,csink
- integer,          intent(in) :: npart,num
- real,             intent(in) :: xyzh(:,:),vxyzu(:,:),rdisc2,time,rthresh2,dmassp
- real,             intent(in) :: Bxyz(:,:)
- real,             intent(in) :: particlemass,dthreshg,au,udist,umass,solarm,unit_velocity,unit_Bfield
- logical,          intent(in) :: mhd
+ character(len=*), intent(in)    :: dumpfile,csink
+ integer,          intent(in)    :: npart,num
+ real,             intent(in)    :: xyzh(:,:)
+ real,             intent(inout) :: vxyzu(:,:)
+ real,             intent(in)    :: rdisc2,time,rthresh2,dmassp
+ real,             intent(in)    :: Bxyz(:,:)
+ real,             intent(in)    :: particlemass,dthreshg,au,udist,umass,solarm,unit_velocity,unit_Bfield
+ logical,          intent(in)    :: mhd
  !
  ! Indicies of the disc bins (Dbins): TIME AVERAGED
  !  Note: Cbins is similar, but different radial cutoff; currently left with hardcoded indicies
