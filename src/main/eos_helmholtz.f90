@@ -976,7 +976,7 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
     dpcouldd = third * ecoul + y*decouldd
     dpcouldt = y * decouldt
 
- ! yakovlev & shalybkov 1989 equations 102, 103, 104
+    ! yakovlev & shalybkov 1989 equations 102, 103, 104
  else ! plasg < 1
     x        = plasg*sqrt(plasg)
     y        = plasg**b2
@@ -1415,7 +1415,7 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
     y        = third * den
     dpcouldt = y * decouldt
 
- ! yakovlev & shalybkov 1989 equations 102, 103, 104
+    ! yakovlev & shalybkov 1989 equations 102, 103, 104
  else ! plasg < 1
     x        = plasg*sqrt(plasg)
     y        = plasg**b2
