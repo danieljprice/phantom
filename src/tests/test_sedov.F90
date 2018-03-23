@@ -36,7 +36,7 @@ subroutine test_sedov(ntests,npass)
  use unifdis,  only:set_unifdis
  use part,     only:mhd,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,fxyzu,fext,ntot, &
                     divcurlv,divcurlB,Bevol,dBevol,Bextx,Bexty,Bextz,alphaind,&
-                    dustfrac,ddustfrac,dustevol,,dustprop,ddustprop,temperature
+                    dustfrac,ddustfrac,dustevol,dustprop,ddustprop,temperature
  use part,     only:iphase,maxphase,igas,isetphase
  use eos,      only:gamma,polyk
  use options,  only:ieos,tolh,alpha,alphau,alphaB,beta,tolv

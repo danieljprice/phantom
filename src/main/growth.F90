@@ -214,7 +214,7 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrelonvfrag,dv,rhod,vrel,ts)
  real				:: St,Vt,cs,T,r
  
  !--compute sound speed & terminal velocity
- cs = get_spsound(ieos,xyzh,rhod,vxyzu)
+ !cs = get_spsound(ieos,xyzh,rhod,vxyzu)
  Vt = sqrt((2**0.5)*Ro*alpha)*cs
  
  !--compute the Stokes number
@@ -234,7 +234,7 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrelonvfrag,dv,rhod,vrel,ts)
 	if (r < rsnow) vrelonvfrag = vrel / vfragin
 	if (r > rsnow) vrelonvfrag = vrel / vfragout
  case(2) !--temperature based snow line wrt eos
- 	T = get_temperature(ieos,xyzh,rhod,vxyzu)
+ 	!T = get_temperature(ieos,xyzh,rhod,vxyzu)
 	if (T > Tsnow) vrelonvfrag = vrel / vfragin
 	if (T < Tsnow) vrelonvfrag = vrel / vfragout
  case default
