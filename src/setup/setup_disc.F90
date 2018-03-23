@@ -461,7 +461,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                    case(0)
                            print "(a)",'-----------'
                         print "(a)",'Pure growth'
-                        print "(a)",'-----------'        
+                        print "(a)",'-----------'
                    case(1)
                            print "(a)",'----------------------'
                         print "(a)",'Growth + fragmentation'

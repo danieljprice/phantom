@@ -38,24 +38,24 @@ module growth
  use physcon,        only:au,Ro
  use part,                only:xyzmh_ptmass
  implicit none
- 
+
  !--Default values for the growth and fragmentation of dust in the input file
- integer, public        :: ifrag        = 1         
- integer, public        :: isnow        = 0         
- 
+ integer, public        :: ifrag        = 1
+ integer, public        :: isnow        = 0
+
  real, public                :: grainsizemin        = 1.e-3
  real, public                :: rsnow        = 100.
  real, public                :: Tsnow        = 20.
- real, public                :: vfrag        = 15.   
- real, public                :: vfragin        = 5.       
- real, public                :: vfragout        = 15.    
- 
+ real, public                :: vfrag        = 15.
+ real, public                :: vfragin        = 5.
+ real, public                :: vfragout        = 15.
+
  public                        :: growth_rate,get_vrelonvfrag
  public                        :: write_options_growth,read_options_growth,print_growthinfo,init_growth
  public                        :: vrelative
- 
+
 contains
-        
+
 !------------------------------------------------
 !+
 !  Initialise variables for computing growth rate
@@ -67,12 +67,12 @@ subroutine init_growth(ierr)
  use dim,        only:maxp_growth
  use dust,        only:grainsize,graindens
  integer, intent(out) :: ierr
- 
+
  integer                          :: i
- 
+
  i = 0
  ierr = 0
- 
+
  !--initialise variables in code units
  dustprop(1,:) = grainsize
  dustprop(2,:) = graindens
@@ -81,24 +81,24 @@ subroutine init_growth(ierr)
  vfragout = vfragout * 100 / unit_velocity
  rsnow = rsnow * au / udist
  grainsizemin = grainsizemin / udist
- 
+
  !-- Check that all the parameters are > 0 when needed
  do i=1,maxp_growth
         !print*,'INIT GROWTH',dustprop(1,i),dustprop(2,i)
          if (dustprop(1,i) < 0) then
                 call error('init_growth','grainsize < 0',var='dustprop',val=dustprop(1,i))
-                 ierr = 1 
+                 ierr = 1
          endif
          if (dustprop(2,i) < 0) then
                 call error('init_growth','graindens < 0',var='dustprop',val=dustprop(2,i))
-            ierr = 1 
+            ierr = 1
     endif
          if (dustprop(3,i) < 0) then
                 call error('init_growth','vrel/vfrag < 0',var='dustprop',val=dustprop(3,i))
-            ierr = 1 
+            ierr = 1
     endif
  enddo
- 
+
  if (ifrag > 0) then
         if (grainsizemin < 0) then
                 call error('init_growth','grainsizemin < 0',var='grainsizemin',val=grainsizemin)
@@ -114,17 +114,17 @@ subroutine init_growth(ierr)
             if (rsnow <= 0) then
                            call error('init_growth','rsnow <= 0',var='rsnow',val=rsnow)
                            ierr = 2
-            endif 
+            endif
          case(2) !-- temperature based snow line
                  if (Tsnow <= 0) then
                        call error('init_growth','Tsnow <= 0',var='Tsnow',val=Tsnow)
                              ierr = 2
                  endif
-         case default 
+         case default
                  ierr = 0
          end select
  endif
- 
+
  if (isnow > 0) then
          if (vfragin <= 0) then
                  call error('init_growth','vfragin <= 0',var='vfragin',val=vfragin)
@@ -135,9 +135,9 @@ subroutine init_growth(ierr)
                  ierr = 3
          endif
  endif
- 
-end subroutine init_growth        
-                
+
+end subroutine init_growth
+
 !----------------------------------------------------------
 !+
 !  print information about growth and fragmentation of dust
@@ -145,7 +145,7 @@ end subroutine init_growth
 !----------------------------------------------------------
 subroutine print_growthinfo(iprint)
  integer, intent(in) :: iprint
- 
+
  if (ifrag == 0) write(iprint,"(a)")    ' Using pure growth model where ds = + vrel*rhod/graindens*dt    '
  if (ifrag == 1) write(iprint,"(a)")    ' Using growth/frag where ds = (+ or -) vrel*rhod/graindens*dt   '
  if (ifrag == 2) write(iprint,"(a)")    ' Using growth with Kobayashi fragmentation model                        '
@@ -153,7 +153,7 @@ subroutine print_growthinfo(iprint)
          write(iprint,"(2(a,1pg10.3),a)")' grainsizemin = ',grainsizemin*udist,' cm = ',grainsizemin,' (code units)'
          if (isnow == 1) then
                  write(iprint,"(a)")              ' ===> Using position based snow line <===                                                               '
-                write(iprint,"(2(a,1pg10.3),a)") ' rsnow = ',rsnow*udist/au,'    AU = ',rsnow, ' (code units)'    
+                write(iprint,"(2(a,1pg10.3),a)") ' rsnow = ',rsnow*udist/au,'    AU = ',rsnow, ' (code units)'
     endif
         if (isnow == 2) then
                   write(iprint,"(a)")              ' ===> Using temperature based snow line <===                                                            '
@@ -166,25 +166,25 @@ subroutine print_growthinfo(iprint)
                 write(iprint,"(2(a,1pg10.3),a)") ' vfragin = ',vfragout*unit_velocity/100,' m/s = ',vfragout,' (code units)'
     endif
  endif
-        
+
 end subroutine print_growthinfo
 
 !-----------------------------------------------------------------------
 !+
 !  Main routine that make the dust grow and shatter.
-!  It is currently available only for the 
+!  It is currently available only for the
 !  two-fluid dust method.
 !+
 !-----------------------------------------------------------------------
-subroutine growth_rate(xyzh,vxyzu,dustprop,rhod,ts,dsdt) 
+subroutine growth_rate(xyzh,vxyzu,dustprop,rhod,ts,dsdt)
  use dim,                        only:maxvxyzu
  real, intent(inout)        :: dustprop(:),vxyzu(maxvxyzu)
  real, intent(out)                :: dsdt
  real, intent(in)                :: rhod,ts
  real, intent(in)                :: xyzh(:)
- 
+
  real                                        :: vrel
- 
+
  !--compute vrel and vrel/vfrag from get_vrelonvfrag subroutine
  call get_vrelonvfrag(xyzh,vxyzu,dustprop(3),dustprop(4),rhod,vrel,ts)
  !
@@ -193,7 +193,7 @@ subroutine growth_rate(xyzh,vxyzu,dustprop,rhod,ts,dsdt)
  !
  if (dustprop(3) >= 1.) then ! vrel/vfrag < 1 --> growth
          dsdt = rhod/dustprop(2)*vrel
- elseif (dustprop(3) < 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation 
+ elseif (dustprop(3) < 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
         select case(ifrag)
         case(1)
                 dsdt = -rhod/dustprop(2)*vrel ! Symmetrical of Stepinski & Valageas
@@ -201,40 +201,40 @@ subroutine growth_rate(xyzh,vxyzu,dustprop,rhod,ts,dsdt)
             dsdt = -rhod/dustprop(2)*vrel*(dustprop(3)**2)/(1+dustprop(3)**2) ! Kobayashi model
         case default
     end select
-        
+
         if (dustprop(1) < grainsizemin) then
                 dustprop(1) = grainsizemin ! Prevent dust from becoming too small
         endif
  endif
 end subroutine growth_rate
- 
+
 !-----------------------------------------------------------------------
 !+
 !  Compute the local ratio vrel/vfrag and vrel
 !+
 !-----------------------------------------------------------------------
-subroutine get_vrelonvfrag(xyzh,vxyzu,vrelonvfrag,dv2,rhod,vrel,ts) 
+subroutine get_vrelonvfrag(xyzh,vxyzu,vrelonvfrag,dv2,rhod,vrel,ts)
  use eos,                        only:ieos,get_spsound
  use options,                only:alpha
  real, intent(in)        :: xyzh(:),rhod,dv2,ts
  real, intent(out)        :: vrelonvfrag,vrel
  real, intent(inout):: vxyzu(:)
- 
+
  real                                :: St,Vt,cs,T,r
- 
+
  !--compute sound speed & terminal velocity
  cs = get_spsound(ieos,xyzh,rhod,vxyzu,T)
  Vt = sqrt((2**0.5)*Ro*alpha)*cs
- 
+
  !--compute the Stokes number
  r = sqrt(xyzh(1)**2+xyzh(2)**2)
  St = sqrt(xyzmh_ptmass(4,1)/r**3)*ts !G=1 in code units
- 
+
  !--compute vrel
  vrel = vrelative(cs,St,dv2,Vt,alpha)
- 
+
  !
- !--If statements to compute local ratio vrel/vfrag 
+ !--If statements to compute local ratio vrel/vfrag
  !
  select case(isnow)
  case(0) !--uniform vfrag
@@ -249,7 +249,7 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrelonvfrag,dv2,rhod,vrel,ts)
          vrelonvfrag = 0.
         vrel = 0.
  end select
- 
+
 end subroutine get_vrelonvfrag
 
 !-----------------------------------------------------------------------
@@ -286,12 +286,12 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
  character(len=*), intent(in)        :: name,valstring
  logical,intent(out)                        :: imatch,igotall
  integer,intent(out)                        :: ierr
- 
+
  integer,save                                        :: ngot = 0
-  
+
  imatch  = .true.
  igotall = .false.
- 
+
  select case(trim(name))
  case('ifrag')
     read(valstring,*,iostat=ierr) ifrag
@@ -320,7 +320,7 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     case default
     imatch = .false.
  end select
- 
+
  if (ifrag == 0 .and. ngot == 1) igotall = .true.
  if (isnow == 0) then
          if (ngot == 4) igotall = .true.
@@ -341,7 +341,7 @@ real function vrelative(spsound,St,dv2,Vt,alpha)
 
  !--then compute vrel
  vrelative = sqrt(2**(1.5)*Ro*alpha)*spsound*sqrt(Sc-1)/(Sc)
- 
+
  return
 end function vrelative
 

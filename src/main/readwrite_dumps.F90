@@ -1446,7 +1446,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  endif
  if (use_dustgrowth .and. .not.got_dustprop(3)) then
         write(*,*) 'ERROR! using dustgrowth, but no ratio vrel/vfrag found in dump file'
-    return         
+    return
  endif
  !
  ! sink particle arrays
