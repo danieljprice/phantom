@@ -46,6 +46,7 @@ subroutine test_eos(ntests,npass)
 
  call test_init(ntests, npass)
  call test_barotropic(ntests, npass)
+ !call test_helmholtz(ntests, npass)
 
  if (id==master) write(*,"(/,a)") '<-- EQUATION OF STATE TEST COMPLETE'
 
@@ -151,5 +152,79 @@ subroutine test_barotropic(ntests, npass)
  if (nfailed(1)==0) npass = npass + 1
 
 end subroutine test_barotropic
+
+
+!----------------------------------------------------------------------------
+!+
+!  test helmholtz eos has continuous pressure
+!+
+!----------------------------------------------------------------------------
+subroutine test_helmholtz(ntests, npass)
+ use eos,           only:maxeos,equationofstate,eosinfo,init_eos
+ use eos_helmholtz, only:eos_helmholtz_get_minrho, eos_helmholtz_get_maxrho, &
+                         eos_helmholtz_get_mintemp, eos_helmholtz_get_maxtemp, eos_helmholtz_set_relaxflag
+ use io,            only:id,master,stdout
+ use testutils,     only:checkval,checkvalbuf,checkvalbuf_start,checkvalbuf_end
+ use units,         only:unit_density
+ integer, intent(inout) :: ntests,npass
+ integer :: nfailed(2),ncheck(2)
+ integer :: i,j,ierr,maxpts,ierrmax,ieos
+ real    :: rhoi,eni,tempi,xi,yi,zi,ponrhoi,spsoundi,ponrhoprev,spsoundprev
+ real    :: errmax
+ real    :: rhomin, rhomax, tempmin, tempmax, logdtemp, logdrho, logrhomin
+
+ if (id==master) write(*,"(/,a)") '--> testing Helmholtz free energy equation of state'
+
+ ieos = 15
+
+ call init_eos(ieos, ierr)
+ if (ierr /= 0) then
+    write(*,"(/,a)") '--> skipping Helmholtz eos test due to init_eos() fail'
+    return
+ endif
+
+ ntests  = ntests + 1
+ nfailed = 0
+ ncheck  = 0
+
+ call eosinfo(ieos,stdout)
+ call checkvalbuf_start('equation of state is continuous')
+
+ rhomin  = eos_helmholtz_get_minrho()
+ rhomax  = eos_helmholtz_get_maxrho()
+ tempmin = eos_helmholtz_get_mintemp()
+ tempmax = eos_helmholtz_get_maxtemp()
+
+ maxpts = 7500
+ errmax = 0.
+ rhoi   = rhomin
+ tempi  = tempmin
+ 
+ logdtemp = log10(tempmax - tempmin) / (maxpts)
+ logdrho  = (log10(rhomax) - log10(rhomin)) / (maxpts)
+ logrhomin = log10(rhomin)
+
+ ! run through temperature from 10^n with n=[5,13]
+ do i=3,13
+    tempi = 10.0**(i)
+    ! run through density in log space
+    do j=1,maxpts
+       rhoi = 10**(logrhomin + j * logdrho)
+       call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
+       write(1,*) rhoi*unit_density,ponrhoi,ponrhoi*rhoi,spsoundi
+       if (j > 1) call checkvalbuf(ponrhoi, ponrhoprev, 5.e-2,'p/rho is continuous',nfailed(1),ncheck(1),errmax)
+       !if (j > 1) call checkvalbuf(spsoundi,spsoundprev,1.e-2,'cs is continuous',   nfailed(2),ncheck(2),errmax)
+       ponrhoprev  = ponrhoi
+       spsoundprev = spsoundi
+    enddo
+ enddo
+
+ ierrmax = 0
+ call checkvalbuf_end('p/rho is continuous',ncheck(1),nfailed(1),ierrmax,0,maxpts)
+ !call checkvalbuf_end('cs is continuous',   ncheck(2),nfailed(2),ierrmax,0,maxpts)
+
+ if (nfailed(1)==0) npass = npass + 1
+
+end subroutine test_helmholtz
 
 end module testeos
