@@ -72,8 +72,14 @@ subroutine init_growth(ierr)
  i = 0
  ierr = 0
  
+ !--initialise variables in code units
  dustprop(1,:) = grainsize
  dustprop(2,:) = graindens
+ vfrag = vfrag * 100 / unit_velocity
+ vfragin = vfragin * 100 / unit_velocity
+ vfragout = vfragout * 100 / unit_velocity
+ rsnow = rsnow * au / udist
+ grainsizemin = grainsizemin / udist
  
  !-- Check that all the parameters are > 0 when needed
  do i=1,maxp_growth
@@ -146,17 +152,17 @@ subroutine print_growthinfo(iprint)
  	write(iprint,"(2(a,1pg10.3),a)")' grainsizemin = ',grainsizemin*udist,' cm = ',grainsizemin,' (code units)'
  	if (isnow == 1) then
  		write(iprint,"(a)")              ' ===> Using position based snow line <===	           					    '
-		write(iprint,"(2(a,1pg10.3),a)") '   rsnow = ',rsnow*udist/au            ,'    AU = ',rsnow   ,' (code units)'    
+		write(iprint,"(2(a,1pg10.3),a)") ' rsnow = ',rsnow*udist/au,'    AU = ',rsnow, ' (code units)'    
     endif
 	if (isnow == 2) then
   		write(iprint,"(a)")              ' ===> Using temperature based snow line <===							    '
- 		write(iprint,"(2(a,1pg10.3),a)") '   Tsnow = ',Tsnow				        ,'     K = ',Tsnow   ,' (code units)'
+ 		write(iprint,"(2(a,1pg10.3),a)") ' Tsnow = ',Tsnow,' K = ',Tsnow,' (code units)'
  	endif
 	if (isnow == 0) then
-		write(iprint,"(2(a,1pg10.3),a)") '   vfrag = ',vfrag*unit_velocity/100   ,'   m/s = ',vfrag   ,' (code units)'
+		write(iprint,"(2(a,1pg10.3),a)") ' vfrag = ',vfrag*unit_velocity/100,' m/s = ',vfrag ,' (code units)'
     else
-		write(iprint,"(2(a,1pg10.3),a)") ' vfragin = ',vfragin*unit_velocity/100 ,'   m/s = ',vfragin ,' (code units)'
-		write(iprint,"(2(a,1pg10.3),a)") ' vfragin = ',vfragout*unit_velocity/100,'   m/s = ',vfragout,' (code units)'
+		write(iprint,"(2(a,1pg10.3),a)") ' vfragin = ',vfragin*unit_velocity/100,' m/s = ',vfragin,' (code units)'
+		write(iprint,"(2(a,1pg10.3),a)") ' vfragin = ',vfragout*unit_velocity/100,' m/s = ',vfragout,' (code units)'
     endif
  endif
 	
@@ -290,29 +296,24 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('grainsizemin')
     read(valstring,*,iostat=ierr) grainsizemin
-	grainsizemin = grainsizemin / udist
     ngot = ngot + 1
  case('isnow')
     read(valstring,*,iostat=ierr) isnow
 	ngot = ngot + 1
  case('rsnow')
     read(valstring,*,iostat=ierr) rsnow
-	rsnow = rsnow * au / udist
     ngot = ngot + 1
  case('Tsnow')
     read(valstring,*,iostat=ierr) Tsnow
     ngot = ngot + 1
  case('vfrag')
     read(valstring,*,iostat=ierr) vfrag
-	vfrag = vfrag * 100 / unit_velocity
 	ngot = ngot + 1
  case('vfragin')
     read(valstring,*,iostat=ierr) vfragin
-	vfragin = vfragin * 100 / unit_velocity
 	ngot = ngot + 1
  case('vfragout')
     read(valstring,*,iostat=ierr) vfragout
-	vfragout = vfragout * 100 / unit_velocity
 	ngot = ngot + 1
     case default
     imatch = .false.
