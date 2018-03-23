@@ -176,10 +176,11 @@ end subroutine print_growthinfo
 !+
 !-----------------------------------------------------------------------
 subroutine growth_rate(xyzh,vxyzu,dustprop,rhod,ts,dsdt) 
- real, intent(inout)	:: dustprop(:)
+ use dim,			only:maxvxyzu
+ real, intent(inout)	:: dustprop(:),vxyzu(maxvxyzu)
  real, intent(out)		:: dsdt
  real, intent(in)		:: rhod,ts
- real, intent(in)		:: xyzh(:),vxyzu(:)
+ real, intent(in)		:: xyzh(:)
  
  real					:: vrel
  
@@ -211,16 +212,17 @@ end subroutine growth_rate
 !  Compute the local ratio vrel/vfrag and vrel
 !+
 !-----------------------------------------------------------------------
-subroutine get_vrelonvfrag(xyzh,vxyzu,vrelonvfrag,dv,rhod,vrel,ts) 
+subroutine get_vrelonvfrag(xyzh,vxyzu,vrelonvfrag,dv2,rhod,vrel,ts) 
  use eos,			only:ieos,get_spsound,get_temperature	
  use options,		only:alpha
- real, intent(in)	:: xyzh(4),vxyzu(4),rhod,dv,ts
+ real, intent(in)	:: xyzh(:),rhod,dv2,ts
  real, intent(out)	:: vrelonvfrag,vrel
+ real, intent(inout):: vxyzu(:)
  
  real				:: St,Vt,cs,T,r
  
  !--compute sound speed & terminal velocity
- !cs = get_spsound(ieos,xyzh,rhod,vxyzu)
+ cs = get_spsound(ieos,xyzh,rhod,vxyzu)
  Vt = sqrt((2**0.5)*Ro*alpha)*cs
  
  !--compute the Stokes number
@@ -228,7 +230,7 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrelonvfrag,dv,rhod,vrel,ts)
  St = sqrt(xyzmh_ptmass(4,1)/r**3)*ts !G=1 in code units
  
  !--compute vrel
- vrel = vrelative(cs,St,dv,Vt,alpha)
+ vrel = vrelative(cs,St,dv2,Vt,alpha)
  
  !
  !--If statements to compute local ratio vrel/vfrag 
@@ -240,7 +242,7 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrelonvfrag,dv,rhod,vrel,ts)
 	if (r < rsnow) vrelonvfrag = vrel / vfragin
 	if (r > rsnow) vrelonvfrag = vrel / vfragout
  case(2) !--temperature based snow line wrt eos
- 	!T = get_temperature(ieos,xyzh,rhod,vxyzu)
+ 	T = get_temperature(ieos,xyzh,rhod,vxyzu)
 	if (T > Tsnow) vrelonvfrag = vrel / vfragin
 	if (T < Tsnow) vrelonvfrag = vrel / vfragout
  case default
@@ -330,12 +332,12 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
 end subroutine read_options_growth
 
 !--Compute the relative velocity following Stepinski & Valageas (1997)
-real function vrelative(spsound,St,dv,Vt,alpha)
- real, intent(in) :: spsound,St,alpha,dv,Vt
+real function vrelative(spsound,St,dv2,Vt,alpha)
+ real, intent(in) :: spsound,St,alpha,dv2,Vt
  real			  :: Sc
 
  !--compute Schmidt number Sc
- Sc = (1+St)*sqrt(1+dv**2/Vt**2)
+ Sc = (1+St)*sqrt(1+dv2/Vt**2)
 
  !--then compute vrel
  vrelative = sqrt(2**(1.5)*Ro*alpha)*spsound*sqrt(Sc-1)/(Sc)
