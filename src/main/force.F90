@@ -88,8 +88,8 @@ module forces
        icurlBxi    = 43, &
        icurlByi    = 44, &
        icurlBzi    = 45, &
-	   igrainsizei = 46, &
-	   igraindensi = 47
+           igrainsizei = 46, &
+           igraindensi = 47
 
  !--indexing for fsum array
  integer, parameter :: &
@@ -781,13 +781,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef PERIODIC
  use boundary,    only:dxbound,dybound,dzbound
 #endif
- use dim,		  only:use_dust,use_dustgrowth
- use dust,		  only:grainsize,graindens
+ use dim,                  only:use_dust,use_dustgrowth
+ use dust,                  only:grainsize,graindens
 #ifdef DUST
  use dust,        only:get_ts,idrag,icut_backreaction
  use kernel,      only:wkern_drag,cnormk_drag
 #ifdef DUSTGROWTH
- use part,		  only:dustprop
+ use part,                  only:dustprop
 #endif
 #endif
 #ifdef IND_TIMESTEPS
@@ -895,11 +895,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  curlBi(2)     = xpartveci(icurlByi)
  curlBi(3)     = xpartveci(icurlBzi)
  if (use_dustgrowth) then
-	 grainsizei = xpartveci(igrainsizei)
-	 graindensi = xpartveci(igraindensi)
+         grainsizei = xpartveci(igrainsizei)
+         graindensi = xpartveci(igraindensi)
  elseif (use_dust) then
-	 grainsizei = grainsize
-	 graindensi = graindens
+         grainsizei = grainsize
+         graindensi = graindens
  endif
 
  fsum(:) = 0.
@@ -1405,7 +1405,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (use_dustfrac) then
              if (dustfraci > 0. .or. dustfracj > 0.) then
                 ! get stopping time - for one fluid dust we do not know deltav, but it is small by definition`
-				call get_ts(idrag,grainsize,graindens,rhoj*(1. - dustfracj),rhoj*dustfracj,spsoundj,0.,tsj,iregime)
+                                call get_ts(idrag,grainsize,graindens,rhoj*(1. - dustfracj),rhoj*dustfracj,spsoundj,0.,tsj,iregime)
                 ! define averages of diffusion coefficient and kernels
                 Dav      = tsi*(1.-dustfraci)+tsj*(1.-dustfracj) !dustfraci*tsi + dustfracj*tsj
                 grkernav = 0.5*(grkerni + grkernj)
@@ -1448,17 +1448,17 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (idrag>0) then
              if (iamgasi .and. iamdustj .and. icut_backreaction==0) then
                 dv2 = dvx*dvx + dvy*dvy + dvz*dvz
-				dustprop(4,j) = dv2
+                                dustprop(4,j) = dv2
                 if (q2i < q2j) then
                    wdrag = wkern_drag(q2i,qi)*hi21*hi1*cnormk_drag
                 else
                    wdrag = wkern_drag(q2j,qj)*hj21*hj1*cnormk_drag
                 endif
-				if (use_dustgrowth) then
-				   call get_ts(idrag,dustprop(1,j),dustprop(2,j),rhoi,rhoj,spsoundi,dv2,tsij,iregime)
-			    else
-				   call get_ts(idrag,grainsize,graindens,rhoi,rhoj,spsoundi,dv2,tsij,iregime)
-			    endif
+                                if (use_dustgrowth) then
+                                   call get_ts(idrag,dustprop(1,j),dustprop(2,j),rhoi,rhoj,spsoundi,dv2,tsij,iregime)
+                            else
+                                   call get_ts(idrag,grainsize,graindens,rhoi,rhoj,spsoundi,dv2,tsij,iregime)
+                            endif
                 ndrag = ndrag + 1
                 if (iregime > 2)  nstokes = nstokes + 1
                 if (iregime == 2) nsuper = nsuper + 1
@@ -1474,7 +1474,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 endif
              elseif (iamdusti .and. iamgasj) then
                 dv2 = dvx*dvx + dvy*dvy + dvz*dvz
-				dustprop(4,i) = dv2
+                                dustprop(4,i) = dv2
                 if (q2i < q2j) then
                    wdrag = wkern_drag(q2i,qi)*hi21*hi1*cnormk_drag
                 else
@@ -1680,7 +1680,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintenso
  use io,        only:fatal
  use options,   only:alpha,use_dustfrac
  use dim,       only:maxp,ndivcurlv,ndivcurlB,maxstrain,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
- 				use_dustgrowth,store_temperature
+                                 use_dustgrowth,store_temperature
  use part,      only:iamgas,maxphase,iboundary,rhoanddhdrho,igas,massoftype,get_partinfo,&
                      iohm,ihall,iambi
  use viscosity, only:irealvisc,bulkvisc
@@ -1925,8 +1925,8 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintenso
        cell%xpartvec(ijcbzi,cell%npcell)          = jcbi(3)
     endif
 #ifdef DUSTGROWTH
-	cell%xpartvec(igrainsizei,cell%npcell)	  = dustprop(1,i)
-	cell%xpartvec(igraindensi,cell%npcell)	  = dustprop(2,i) !--Add dustprop(3,i) for vrelonvfrag
+        cell%xpartvec(igrainsizei,cell%npcell)          = dustprop(1,i)
+        cell%xpartvec(igraindensi,cell%npcell)          = dustprop(2,i) !--Add dustprop(3,i) for vrelonvfrag
 #endif
  enddo over_parts
 

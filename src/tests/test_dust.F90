@@ -39,7 +39,7 @@ contains
 
 subroutine test_dust(ntests,npass)
 #ifdef DUST
- use part,		only:dustprop,ddustprop 
+ use part,                only:dustprop,ddustprop 
  use dust,      only:idrag,init_drag,get_ts,grainsize,graindens
  use physcon,   only:solarm,au
  use units,     only:set_units,unit_density
@@ -244,7 +244,7 @@ subroutine test_dustydiffuse(ntests,npass)
  use dim,       only:maxp,periodic,maxtypes,mhd
  use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac,dustevol, &
                      xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,set_particle_type,rhoh,temperature,&
-					 dustprop,ddustprop
+                                         dustprop,ddustprop
  use options,   only:use_dustfrac
  use kernel,    only:hfact_default
  use eos,       only:gamma,polyk,ieos

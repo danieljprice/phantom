@@ -275,7 +275,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        twallperdump = reduceall_mpi('max', timer_lastdump%wall)
        call check_dtmax_for_decrease(iprint,dtmax,twallperdump,nfulldump,update_tzero)
     endif
-	
+        
     !--sanity check on istepfrac...
     if (istepfrac > 2**nbinmax) then
        write(iprint,*) 'ERROR: istepfrac = ',istepfrac,' / ',2**nbinmax
@@ -316,7 +316,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     dtlast = dt
 
     !--timings for step call
-	
+        
     call get_timings(t2,tcpu2)
     call increment_timer(timer_step,t2-t1,tcpu2-tcpu1)
     call summary_counter(iosum_nreal,t2-t1)

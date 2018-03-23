@@ -303,7 +303,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
                  nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,&
                  maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,maxBevol,&
                  divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,temperature,&
-				 dustprop,dustprop_label
+                                 dustprop,dustprop_label
  use options,    only:use_dustfrac
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
@@ -442,7 +442,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (use_dust)     call write_array(1,dustfrac,'dustfrac',npart,k,ipass,idump,nums,ierrs(5))
        if (use_dust)     call write_array(1,tstop,'tstop',npart,k,ipass,idump,nums,ierrs(6))
        if (use_dustfrac) call write_array(1,deltav,deltav_label,3,npart,k,ipass,idump,nums,ierrs(7))
-	   if (use_dustgrowth)	 call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierrs(8))
+           if (use_dustgrowth)         call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierrs(8))
        if (store_temperature) call write_array(1,temperature,'T',npart,k,ipass,idump,nums,ierrs(9))
 
        ! write pressure to file
@@ -637,7 +637,7 @@ subroutine write_smalldump(t,dumpfile)
        if (h2chemistry .and. nabundances >= 1) &
                      call write_array(1,abundance,abundance_label,1,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (use_dust) call write_array(1,dustfrac,'dustfrac',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-	   if (use_dustgrowth) call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+           if (use_dustgrowth) call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
 #ifdef LIGHTCURVE
        if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr)
@@ -1176,9 +1176,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              if (use_dustfrac .or. (use_dust .and. match_tag(tag,'dustfrac'))) then
                 call read_array(dustfrac,'dustfrac',got_dustfrac,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
-			 if (use_dustgrowth) then
-				call read_array(dustprop,dustprop_label,got_dustprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-			 endif
+                         if (use_dustgrowth) then
+                                call read_array(dustprop,dustprop_label,got_dustprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                         endif
              if (h2chemistry) then
                 call read_array(abundance,abundance_label,got_abund,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
@@ -1437,16 +1437,16 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     return
  endif
  if (use_dustgrowth .and. .not.got_dustprop(1)) then
-	 write(*,*) 'ERROR! using dustgrowth, but no grain size found in dump file'
-	 return
+         write(*,*) 'ERROR! using dustgrowth, but no grain size found in dump file'
+         return
  endif
  if (use_dustgrowth .and. .not.got_dustprop(2)) then
-	 write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'
-	 return
+         write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'
+         return
  endif
  if (use_dustgrowth .and. .not.got_dustprop(3)) then
-	write(*,*) 'ERROR! using dustgrowth, but no ratio vrel/vfrag found in dump file'
-    return	 
+        write(*,*) 'ERROR! using dustgrowth, but no ratio vrel/vfrag found in dump file'
+    return         
  endif
  !
  ! sink particle arrays
@@ -1710,13 +1710,13 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(dxi_in,'dxi_in',hdr,ierr)
     if (use_dust) then
        ! write dust information
-	   if (use_dustgrowth) then
+           if (use_dustgrowth) then
        write(*,*) 'writing dust properties to header'
        else
-	   write(*,*) 'writing graindens and grainsize to header'
+           write(*,*) 'writing graindens and grainsize to header'
        endif
-	   call add_to_rheader(graindens,'graindens',hdr,ierr)
-	   call add_to_rheader(grainsize,'grainsize',hdr,ierr)
+           call add_to_rheader(graindens,'graindens',hdr,ierr)
+           call add_to_rheader(grainsize,'grainsize',hdr,ierr)
     endif
  endif
 

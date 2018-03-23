@@ -159,19 +159,19 @@ module part
 !
 !--derivatives (only needed if derivs is called)
 !
- real				:: fxyzu(maxvxyzu,maxan)
- real				:: dBevol(maxBevol,maxmhdan)
- real(kind=4)		:: divBsymm(maxmhdan)
- real				:: fext(3,maxan)
- real				:: ddustfrac(maxdustan)
- real				:: ddustprop(4,maxp_growth) !--grainsize is the only prop that evolves for now
+ real                                :: fxyzu(maxvxyzu,maxan)
+ real                                :: dBevol(maxBevol,maxmhdan)
+ real(kind=4)                :: divBsymm(maxmhdan)
+ real                                :: fext(3,maxan)
+ real                                :: ddustfrac(maxdustan)
+ real                                :: ddustprop(4,maxp_growth) !--grainsize is the only prop that evolves for now
 !
 !--storage associated with/dependent on timestepping
 !
- real				:: vpred(maxvxyzu,maxan)
- real				:: dustpred(maxdustan)
- real				:: Bpred(maxBevol,maxmhdan)
- real				:: dustproppred(4,maxp_growth)
+ real                                :: vpred(maxvxyzu,maxan)
+ real                                :: dustpred(maxdustan)
+ real                                :: Bpred(maxBevol,maxmhdan)
+ real                                :: dustproppred(4,maxp_growth)
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin(maxan)
  integer(kind=1)    :: ibin_old(maxan)
@@ -187,8 +187,8 @@ module part
  integer(kind=1)    :: iphase_soa(maxphase)
  logical, public    :: all_active = .true.
 
- real(kind=4) 		:: gradh(ngradh,maxgradh)
- real         		:: tstop(maxan)
+ real(kind=4)                 :: gradh(ngradh,maxgradh)
+ real                         :: tstop(maxan)
 !
 !--storage associated with link list
 !  (used for dead particle list also)
@@ -216,8 +216,8 @@ module part
    +1                                   &  ! dustfrac
    +1                                   &  ! dustevol
 #ifdef DUSTGROWTH
-   +1									&  ! dustproppred
-   +1									&  ! ddustprop
+   +1                                                                        &  ! dustproppred
+   +1                                                                        &  ! ddustprop
 #endif
 #endif
    +(maxp_h2/maxpd)*nabundances         &  ! abundance

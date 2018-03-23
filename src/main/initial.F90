@@ -191,8 +191,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef DUST
  use dust,             only:init_drag,grainsize,graindens
 #ifdef DUSTGROWTH
- use growth,		   only:init_growth
- use growth,		   only:ifrag,isnow,grainsizemin,vfrag,vfragin,vfragout,rsnow,Tsnow
+ use growth,                   only:init_growth
+ use growth,                   only:ifrag,isnow,grainsizemin,vfrag,vfragin,vfragout,rsnow,Tsnow
 #endif
 #endif
 #ifdef MFLOW
@@ -374,9 +374,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     ncount(:) = 0
     do i=1,npart
        itype = iamtype(iphase(i))
-	   !-- Initialise dust properties to none for gas particles
+           !-- Initialise dust properties to none for gas particles
 #ifdef DUSTGROWTH
-	   if (itype==igas .and. use_dustgrowth) dustprop(:,i) = 0.
+           if (itype==igas .and. use_dustgrowth) dustprop(:,i) = 0.
 #endif
        if (itype < 1 .or. itype > maxtypes) then
           call fatal('initial','unknown value for itype from iphase array',i,var='iphase',ival=int(iphase(i)))
