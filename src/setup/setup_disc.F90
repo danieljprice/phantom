@@ -26,6 +26,7 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
+!    Tsnow             -- snow line condensation temperature in K
 !    accr1             -- central star accretion radius
 !    accr2             -- perturber accretion radius
 !    alphaSS           -- desired alphaSS
@@ -46,10 +47,12 @@
 !    flyby_a           -- distance of minimum approach
 !    flyby_d           -- initial distance (units of dist. min. approach)
 !    flyby_i           -- inclination (deg)
-!    graindensinp      -- intrinsic grain density (in g/cm^3)
-!    grainsizeinp      -- grain size or initial grain size (in cm)
+!    grainsizeinp      -- grain size (in cm)
+!    grainsizemin      -- minimum allowed grain size in cm
 !    ibinary           -- binary orbit (0=bound,1=unbound [flyby])
+!    ifrag             -- fragmentation of dust (0=off,1=on,2=Kobayashi)
 !    ipotential        -- potential (1=central point mass,
+!    isnow             -- snow line (0=off,1=position based,2=temperature based)
 !    m1                -- central star mass
 !    m2                -- perturber mass
 !    mass_unit         -- mass unit (e.g. solarm,jupiterm,earthm)
@@ -58,13 +61,17 @@
 !    np_dust           -- number of dust particles
 !    nplanets          -- number of planets
 !    nsinks            -- number of sinks
+!    rsnow             -- snow line position in AU
 !    setplanets        -- add planets? (0=no,1=yes)
 !    use_mcfost        -- use the mcfost library
+!    vfrag             -- uniform fragmentation threshold in m/s
+!    vfragin           -- inward fragmentation threshold in m/s
+!    vfragout          -- inward fragmentation threshold in m/s
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
-!    extern_lensethirring, externalforces, infile_utils, io, kernel,
-!    options, part, physcon, prompting, setbinary, setdisc, setflyby,
-!    timestep, units, vectorutils
+!    extern_lensethirring, externalforces, growth, infile_utils, io,
+!    kernel, options, part, physcon, prompting, setbinary, setdisc,
+!    setflyby, timestep, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module setup

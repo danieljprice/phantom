@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -19,16 +19,17 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    ifrag             -- fragmentation of dust (0=off, 1=on, 2=Kobayashi)
-!    grainsizemin      -- minimum grain size in cm
-!    isnow             -- snow line (0=off, 1=position based, 2=temperature based)
-!    rsnow             -- snow line position in AU
-!         Tsnow                           -- snow line condensation temperature in K
-!    vfragin           -- inward fragmentation threshold in m/s
-!    vfragout          -- outward fragmentation threshold in m/s
-!    vfrag                           -- uniform fragmentation threshold in m/s
+!    Tsnow        -- snow line condensation temperature in K
+!    grainsizemin -- minimum grain size in cm
+!    ifrag        -- dust fragmentation (0=off,1=on,2=Kobayashi)
+!    isnow        -- snow line (0=off,1=position based,2=temperature based)
+!    rsnow        -- position of the snow line in AU
+!    vfrag        -- uniform fragmentation threshold in m/s
+!    vfragin      -- inward fragmentation threshold in m/s
+!    vfragout     -- outward fragmentation threshold in m/s
 !
-!  DEPENDENCIES: part,physcon,units,eos,infile_utiles,io,dim,options
+!  DEPENDENCIES: dim, dust, eos, infile_utils, io, options, part, physcon,
+!    units
 !+
 !--------------------------------------------------------------------------
 
