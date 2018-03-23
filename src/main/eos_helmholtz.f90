@@ -35,6 +35,10 @@ module eos_helmholtz
  public :: eos_helmholtz_pres_sound          ! performs iterations, called by eos.F90
  public :: eos_helmholtz_compute_pres_sound  ! the actual eos calculation
  public :: eos_helmholtz_cv_dpresdt
+ public :: eos_helmholtz_get_minrho
+ public :: eos_helmholtz_get_maxrho
+ public :: eos_helmholtz_get_mintemp
+ public :: eos_helmholtz_get_maxtemp
 
  private :: psi0, dpsi0, ddpsi0
  private :: psi1, dpsi1, ddpsi1
@@ -71,6 +75,15 @@ module eos_helmholtz
 ! half as dense
 !      parameter        (imax = 136, jmax = 51)
 
+
+ ! limits of the table, set by reading the limits of the table directly
+ ! this should be:
+ !    1.0e-12 < dens < 1e15 g/cm^3
+ !     1.0e3  < temp < 1e13 K
+ real :: rhomincgs
+ real :: rhomaxcgs
+ real :: tempmin
+ real :: tempmax
 
 
 ! for the electrons
@@ -207,6 +220,16 @@ subroutine eos_helmholtz_init(ierr)
     dd3i_sav(i) = dd3i
  enddo
 
+ ! set min/max density and temperature based on limits of temperature
+ ! this should be around:
+ !    1.0e-12 < dens < 1e15 g/cm^3
+ !     1.0e3  < temp < 1e13 K
+
+ rhomincgs = d(1)
+ rhomaxcgs = d(imax)
+ tempmin   = t(1)
+ tempmax   = t(jmax)
+
 end subroutine eos_helmholtz_init
 
 
@@ -243,6 +266,31 @@ subroutine eos_helmholtz_set_relaxflag(tmp)
 
 end subroutine eos_helmholtz_set_relaxflag
 
+
+! return min density from table limits in code units
+real function eos_helmholtz_get_minrho()
+ use units, only:unit_density
+ eos_helmholtz_get_minrho = rhomincgs / unit_density
+end function eos_helmholtz_get_minrho
+
+
+! return max density from table limits in code units
+real function eos_helmholtz_get_maxrho()
+ use units, only:unit_density
+ eos_helmholtz_get_maxrho = rhomaxcgs / unit_density
+end function eos_helmholtz_get_maxrho
+
+
+! return min temperature from table limits in code units
+real function eos_helmholtz_get_mintemp()
+ eos_helmholtz_get_mintemp = tempmin
+end function eos_helmholtz_get_mintemp
+
+
+! return max temperature from table limits in code units
+real function eos_helmholtz_get_maxtemp()
+ eos_helmholtz_get_maxtemp = tempmax
+end function eos_helmholtz_get_maxtemp
 
 
 !----------------------------------------------------------------
@@ -296,11 +344,11 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     endif
 
     ! temperature and density limits are given in section 2.3 of Timmes & Swesty (2000)
-    if (tnew > 1.0e11) then
-       tnew = 1.0e11
+    if (tnew > tempmax) then
+       tnew = tempmax
     endif
-    if (tnew < 1.0e4) then
-       tnew = 1.0e4
+    if (tnew < tempmin) then
+       tnew = tempmin
     endif
 
     itercount = 0
@@ -333,12 +381,12 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
 
        ! exit if gas is too cold or too hot
        ! temperature and density limits are given in section 2.3 of Timmes & Swesty (2000)
-       if (tnew > 1.0e11) then
-          tnew = 1.0e11
+       if (tnew > tempmax) then
+          tnew = tempmax
           done = .true.
        endif
-       if (tnew < 1.0e4) then
-          tnew = 1.0e4
+       if (tnew < tempmin) then
+          tnew = tempmin
           done = .true.
        endif
 
@@ -581,18 +629,18 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 
 ! start of pipeline loop, normal execution starts here
 
- if (temp < 1.0e4) then
-    print *, 'WARNING: ', temp, ' eos_helmholtz: temperature below range available (10^4 K - 10^11 K)'
+ if (temp < tempmin) then
+    print *, 'WARNING: ', temp, ' eos_helmholtz: temperature below range available (min temp = 10^3 K)'
  endif
- if (temp > 1.0e11) then
-    print *, 'WARNING: eos_helmholtz: temperature exceeds range available (10^4 - 10^11 K)'
+ if (temp > tempmax) then
+    print *, 'WARNING: eos_helmholtz: temperature exceeds range available (max temp = 10^13 K)'
  endif
 
- if (den < 1.0e-6) then
-    print *, 'WARNING: eos_helmholtz: density below range available (10-^6 - 10^11 g/cm^3)'
+ if (den < rhomincgs) then
+    print *, 'WARNING: eos_helmholtz: density below range available (min rho = 10^-13 g/cm^3)'
  endif
- if (den > 1.0e11) then
-    print *, 'WARNING: eos_helmholtz: density exceeds range available (10-^6 - 10^11 g/cm^3)'
+ if (den > rhomaxcgs) then
+    print *, 'WARNING: eos_helmholtz: density exceeds range available (max rho = 10^15 g/cm^3)'
  endif
 
  if (temp  <=  0.0) stop 'temp less than 0 in helmeos'
