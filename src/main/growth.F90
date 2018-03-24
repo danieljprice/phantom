@@ -63,8 +63,7 @@ contains
 !------------------------------------------------
 subroutine init_growth(ierr)
  use io,        only:error
- use part,        only:dustprop
- use dim,        only:maxp_growth
+ use part,        only:dustprop,npart
  use dust,        only:grainsize,graindens
  integer, intent(out) :: ierr
 
@@ -83,7 +82,7 @@ subroutine init_growth(ierr)
  grainsizemin = grainsizemin / udist
 
  !-- Check that all the parameters are > 0 when needed
- do i=1,maxp_growth
+ do i=1,npart
     !print*,'INIT GROWTH',dustprop(1,i),dustprop(2,i)
     if (dustprop(1,i) < 0) then
        call error('init_growth','grainsize < 0',var='dustprop',val=dustprop(1,i))
@@ -148,15 +147,15 @@ subroutine print_growthinfo(iprint)
 
  if (ifrag == 0) write(iprint,"(a)")    ' Using pure growth model where ds = + vrel*rhod/graindens*dt    '
  if (ifrag == 1) write(iprint,"(a)")    ' Using growth/frag where ds = (+ or -) vrel*rhod/graindens*dt   '
- if (ifrag == 2) write(iprint,"(a)")    ' Using growth with Kobayashi fragmentation model                        '
+ if (ifrag == 2) write(iprint,"(a)")    ' Using growth with Kobayashi fragmentation model '
  if (ifrag > 0) then
     write(iprint,"(2(a,1pg10.3),a)")' grainsizemin = ',grainsizemin*udist,' cm = ',grainsizemin,' (code units)'
     if (isnow == 1) then
-       write(iprint,"(a)")              ' ===> Using position based snow line <===                                                               '
+       write(iprint,"(a)")              ' ===> Using position based snow line <=== '
        write(iprint,"(2(a,1pg10.3),a)") ' rsnow = ',rsnow*udist/au,'    AU = ',rsnow, ' (code units)'
     endif
     if (isnow == 2) then
-       write(iprint,"(a)")              ' ===> Using temperature based snow line <===                                                            '
+       write(iprint,"(a)")              ' ===> Using temperature based snow line <=== '
        write(iprint,"(2(a,1pg10.3),a)") ' Tsnow = ',Tsnow,' K = ',Tsnow,' (code units)'
     endif
     if (isnow == 0) then
