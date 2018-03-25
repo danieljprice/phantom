@@ -69,7 +69,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer                          :: i,ro,ndark,nstar,ngas,itype,ctrd,ctrs,ctrg,ierr,lu
  real                             :: massdark,massstar,massgas
  real                             :: polykset
- real                             :: utmp(maxp)
+ real, allocatable                :: utmp(:)
  logical                          :: iexist
  !
  ! Open setup file (if it exists) to determine resolution
@@ -96,6 +96,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  else
     filename = find_phantom_datafile('galaxiesP25e5.dat','galaxy_merger')
  endif
+ allocate(utmp(maxp),stat=ierr)
+ if (ierr /= 0) call fatal('setup','not enough memory for utmp array')
  !
  !--Open file and read data
  !
@@ -172,6 +174,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  print*,' polyk = ',polyk
  call bcast_mpi(polykset)
+ deallocate(utmp)
  !
  ! set general parameters (only if not already done so)
  !
@@ -234,4 +237,3 @@ subroutine read_setupfile(filename,ierr)
 end subroutine read_setupfile
 !----------------------------------------------------------------
 end module setup
-
