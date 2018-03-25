@@ -12,13 +12,13 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Terrence Tricco
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: eos, io, physcon, testutils, units
+!  DEPENDENCIES: eos, eos_helmholtz, io, physcon, testutils, units
 !+
 !--------------------------------------------------------------------------
 module testeos
