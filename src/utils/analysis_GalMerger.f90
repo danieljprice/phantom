@@ -36,7 +36,7 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,iphase,istar,idarkmatter,igas, &
+ use part,         only: iphase,istar,idarkmatter,igas, &
                          massoftype,maxp,maxphase,isdead_or_accreted,iamtype,rhoh
  use units,        only: utime,udist,unit_density
  use physcon,      only: years,mpc

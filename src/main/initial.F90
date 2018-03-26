@@ -221,7 +221,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
  use io_summary,       only:summary_initialise
- use units,            only:unit_density,udist,unit_velocity
+ use units,            only:unit_density
  use centreofmass,     only:get_centreofmass
  use energies,         only:etot,angtot,totmom,mdust,xyzcom
  use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in,dxi_in

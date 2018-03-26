@@ -31,8 +31,8 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use part, only:iphase,npartoftype,iamtype,isdead_or_accreted,nptmass,&
-                xyzmh_ptmass,igas,rhoh,hfact
+ use part, only:npartoftype,iamtype,isdead_or_accreted,nptmass,&
+                xyzmh_ptmass,igas,rhoh
  use physcon,      only:gg,solarm,au,pi,years
  use setup_params, only:rhozero
  character(len=*), intent(in) :: dumpfile
