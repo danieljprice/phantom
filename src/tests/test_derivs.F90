@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -45,8 +45,8 @@ subroutine test_derivs(ntests,npass,string)
  use part,     only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,fext,divcurlv,divcurlB,maxgradh, &
                     gradh,divBsymm,Bevol,dBevol,Bxyz,Bextx,Bexty,Bextz,alphaind, &
                     maxphase,rhoh,mhd,maxBevol,ndivcurlB,straintensor, &
-                    dustfrac,ddustfrac,idivv,icurlvx,icurlvy,icurlvz, &
-                    idivB,icurlBx,icurlBy,icurlBz,deltav
+                    dustfrac,ddustfrac,temperature,idivv,icurlvx,icurlvy,icurlvz, &
+                    idivB,icurlBx,icurlBy,icurlBz,deltav,dustprop,ddustprop
  use unifdis,  only:set_unifdis
  use physcon,  only:pi,au,solarm
  use deriv,           only:derivs
@@ -201,7 +201,7 @@ subroutine test_derivs(ntests,npass,string)
     !
     call getused(t1)
     call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
     call getused(t2)
     if (id==master) call printused(t1)
     call rcut_checkmask(rcut,xyzh,npart,checkmask)
@@ -280,7 +280,7 @@ subroutine test_derivs(ntests,npass,string)
        !
        call getused(t1)
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
        call getused(t2)
        if (id==master) then
           fracactive = nactive/real(npart)
@@ -368,7 +368,7 @@ subroutine test_derivs(ntests,npass,string)
 
        call getused(t1)
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
        if (id==master) call printused(t1)
        call rcut_checkmask(rcut,xyzh,npart,checkmask)
        nfailed(:) = 0
@@ -466,7 +466,7 @@ subroutine test_derivs(ntests,npass,string)
 
     call getused(t1)
     call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
     if (id==master) call printused(t1)
     call rcut_checkmask(rcut,xyzh,npart,checkmask)
 
@@ -518,10 +518,8 @@ subroutine test_derivs(ntests,npass,string)
           deint = deint + fxyzu(4,i)
           dekin = dekin + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
        enddo
-#ifdef MPI
        deint = reduceall_mpi('+',deint)
        dekin = reduceall_mpi('+',dekin)
-#endif
        nfailed(:) = 0
        if (maxstrain==maxp) then
           tol = 1.52e-6
@@ -566,7 +564,7 @@ subroutine test_derivs(ntests,npass,string)
 
        call getused(t1)
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
        if (id==master) call printused(t1)
 
        nfailed(:) = 0
@@ -599,13 +597,10 @@ subroutine test_derivs(ntests,npass,string)
              deint  = deint  + (1. - dustfraci)*fxyzu(4,i)
              dedust = dedust - vxyzu(4,i)*ddustfraci
           enddo
-
-#ifdef MPI
           dmdust  = reduceall_mpi('+',dmdust)
           dekin   = reduceall_mpi('+',dekin)
           deint   = reduceall_mpi('+',deint)
           dedust  = reduceall_mpi('+',dedust)
-#endif
 
           nfailed(:) = 0
           !print "(3(a,es17.10))",' dE_kin = ',dekin,' dE_therm = ',deint,' dE_dust = ',dedust
@@ -663,7 +658,7 @@ subroutine test_derivs(ntests,npass,string)
           call set_active(npart,nactive/nprocs,igas)
           call getused(t1)
           call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
           if (id==master) call printused(t1)
           !
           !--check that various quantities come out as they should do
@@ -722,7 +717,7 @@ subroutine test_derivs(ntests,npass,string)
           call set_active(npart,nactive,igas)
           call getused(t1)
           call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
           if (id==master) call printused(t1)
           call rcut_checkmask(rcut,xyzh,npart,checkmask)
           !
@@ -801,7 +796,7 @@ subroutine test_derivs(ntests,npass,string)
           call set_active(npart,nactive,igas)
           call getused(t1)
           call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
           if (id==master) call printused(t1)
           !
           !--check that various quantities come out as they should do
@@ -856,7 +851,7 @@ subroutine test_derivs(ntests,npass,string)
           call set_active(npart,nactive,igas)
           call getused(t1)
           call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
           if (id==master) call printused(t1)
           !
           !--check that various quantities come out as they should do
@@ -935,7 +930,7 @@ subroutine test_derivs(ntests,npass,string)
     call set_active(npart,nactive,igas)
     call getused(t1)
     call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
     call getused(t2)
     if (id==master) call printused(t1)
     !
@@ -994,7 +989,7 @@ subroutine test_derivs(ntests,npass,string)
        call set_active(npart,nactive,igas)
        call getused(t1)
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                    Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+                    Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
        call getused(t2)
        if (id==master) then
           fracactive = nactive/real(npart)
@@ -1064,7 +1059,7 @@ subroutine test_derivs(ntests,npass,string)
     nactive = npart
     call set_active(npart,nactive,igas)
     call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                 Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+                 Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
 #endif
     !
     !--first do the calculation with all particles active, then
@@ -1099,7 +1094,7 @@ subroutine test_derivs(ntests,npass,string)
           enddo
           call set_active(npart,nactive,igas)
           call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                       Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+                       Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
           if (itest==1) then
              fxyzstore(:,1:nptest) = fxyzu(:,1:nptest)
              if (mhd) then
@@ -1138,18 +1133,18 @@ subroutine test_derivs(ntests,npass,string)
 
 contains
 
+#ifdef IND_TIMESTEPS
 subroutine reset_allactive
  !
  !--reset all particles to active for subsequent tests
  !
-#ifdef IND_TIMESTEPS
  do i=1,npart
     iphase(i) = isetphase(igas,iactive=.true.)
  enddo
  nactive = npart
-#endif
 
 end subroutine reset_allactive
+#endif
 
 subroutine set_active(npart,nactive,itype)
  integer, intent(in) :: npart, nactive, itype

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -55,6 +55,8 @@ module physcon
  real(kind=8), parameter :: thomcs     = 6.6525d-25             !Thomson cross section     cm^2
  real(kind=8), parameter :: finestr    = 7.2974d-3              !Fine structure constant   unitless
  real(kind=8), parameter :: steboltz   = 5.67051d-5             !Stefan-Boltzmann constant erg cm^-2K^-4 s^-1
+ real(kind=8), parameter :: avogadro   = 6.0221408577d23        !Avogadro's number         mole^-1
+ real(kind=8), parameter :: Ro                   = 3.00000000                                !Rossby number without dimension
 !
 !--Astronomical constants (cgs units)
 !

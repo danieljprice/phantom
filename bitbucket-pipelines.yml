@@ -14,6 +14,12 @@ pipelines:
           - ./bin/phantom test
           - make SETUP=testkd MPI=yes OPENMP=no
           - mpirun --allow-run-as-root --mca btl self,sm -np 4 bin/phantom test
+    - step:
+        name: deploy to staging
+        deployment: staging
+        trigger: manual
+        script:
+          - cd ../; ./phantom/scripts/phantom-release.sh
   custom:
     testbot: # this is scheduled to run nightly
       - step:

@@ -134,7 +134,8 @@ subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui
  real,    intent(in)  :: xyzi(3),veli(3)
  real,    intent(out) :: fexti(3)
  real,    intent(inout) :: poti
- real,    intent(in), optional :: densi,ui
+ real,    intent(in),    optional :: densi
+ real,    intent(inout), optional :: ui
  real :: pi,pondensi,spsoundi,dtf
 
  if (.not. present(densi) .or. .not. present(ui)) call fatal('externalforce_vdependent','densi and ui not present')
@@ -162,7 +163,8 @@ subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
  real,    intent(in)    :: vhalfx,vhalfy,vhalfz
  real,    intent(inout) :: fxi,fyi,fzi
  real,    intent(out)   :: fexti(3)
- real,    intent(in), optional    :: densi,ui
+ real,    intent(in),    optional :: densi
+ real,    intent(inout), optional :: ui
  real :: pi,pondensi,spsoundi
 
  if (.not. present(densi) .or. .not. present(ui)) call fatal('update_vdependent_extforce_leapfrog','densi and ui not present')

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -17,8 +17,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, dust, eos, io, kernel, options, part,
-!    physcon, readwrite_infile, units, viscosity
+!  DEPENDENCIES: boundary, dim, dust, eos, growth, io, kernel, options,
+!    part, physcon, readwrite_infile, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module writeheader
@@ -34,7 +34,7 @@ subroutine write_codeinfo(iunit)
 !
 !--write out code name, version and time
 !
- write(iunit,10) '0.9, released 14th Feb 2017'
+ write(iunit,10) '1.0, released 13th March 2018'
 
 10 format(/, &
    "  _ \  |                 |                    ___|   _ \  |   |",/, &
@@ -62,7 +62,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 !  icall = 2 (after particle setup)
 !+
 !-----------------------------------------------------------------
- use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha
+ use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dustgrowth
  use io,               only:iprint
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac
@@ -77,6 +77,9 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use units,            only:print_units
 #ifdef DUST
  use dust,             only:print_dustinfo
+#ifdef DUSTGROWTH
+ use growth,                   only:print_growthinfo
+#endif
 #endif
 #ifdef GR
  use metric_tools,     only:print_metricinfo
@@ -181,6 +184,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (gravity)     write(iprint,"(1x,a)") 'Self-gravity is ON'
     if (h2chemistry) write(iprint,"(1x,a)") 'H2 Chemistry is ON'
     if (use_dustfrac) write(iprint,"(1x,a)") 'One-fluid dust is ON'
+    if (use_dustgrowth) write(iprint,"(1x,a)") 'Dust growth is ON'
 
     call eosinfo(ieos,iprint)
 
@@ -208,6 +212,9 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 
 #ifdef DUST
     call print_dustinfo(iprint)
+#ifdef DUSTGROWTH
+    call print_growthinfo(iprint)
+#endif
 #endif
 
 #ifdef GR

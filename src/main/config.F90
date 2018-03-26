@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -52,6 +52,15 @@ module dim
  integer, parameter :: maxvxyzu = 4
 #endif
 
+ ! storage of temperature
+#ifdef STORE_TEMPERATURE
+ logical, parameter :: store_temperature = .true.
+ integer, parameter :: maxtemp = maxp
+#else
+ logical, parameter :: store_temperature = .false.
+ integer, parameter :: maxtemp = 0
+#endif
+
  ! maximum allowable number of neighbours (safest=maxp)
 #ifdef MAXNEIGH
  integer, parameter :: maxneigh = MAXNEIGH
@@ -77,7 +86,7 @@ module dim
 
  ! xpartveci
  integer, parameter :: maxxpartvecidens = 14
- integer, parameter :: maxxpartveciforce = 46
+ integer, parameter :: maxxpartveciforce = 48
 
  ! cell storage
  integer, parameter :: maxprocs = 32
@@ -194,10 +203,19 @@ module dim
  logical, parameter :: use_dust = .true.
  integer, parameter :: ndusttypes = 1
  integer, parameter :: maxp_dustfrac = maxp
+#ifdef DUSTGROWTH
+ logical, parameter :: use_dustgrowth = .true.
+ integer, parameter :: maxp_growth = maxp
+#else
+ logical, parameter :: use_dustgrowth = .false.
+ integer, parameter :: maxp_growth = 0
+#endif
 #else
  logical, parameter :: use_dust = .false.
  integer, parameter :: ndusttypes = 0
  integer, parameter :: maxp_dustfrac = 0
+ logical, parameter :: use_dustgrowth = .false.
+ integer, parameter :: maxp_growth = 0
 #endif
 
 !--------------------

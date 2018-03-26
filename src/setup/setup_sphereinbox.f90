@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -32,9 +32,9 @@
 !    rho_pert_amp     -- amplitude of density perturbation
 !    totmass_sphere   -- mass of sphere in code units
 !
-!  DEPENDENCIES: boundary, dim, eos, infile_utils, io, kernel, options,
-!    part, physcon, prompting, ptmass, setup_params, spherical, timestep,
-!    unifdis, units
+!  DEPENDENCIES: boundary, centreofmass, dim, eos, infile_utils, io,
+!    kernel, options, part, physcon, prompting, ptmass, setup_params,
+!    spherical, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -75,6 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type
  use timestep,     only:dtmax,tmax,rho_dtthresh_cgs,dtmax_rat0
  use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
+ use centreofmass, only: reset_centreofmass
  use options,      only:nfulldump
  use kernel,       only:hfact_default
  integer,           intent(in)    :: id
@@ -332,6 +333,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  do i = 1,npartoftype(igas)
     call set_particle_type(i,igas)
  enddo
+ !
+ ! reset to centre of mas
+ !
+ call reset_centreofmass(npart,xyzh,vxyzu)
  !
  ! Set dust
  if (use_dust) then

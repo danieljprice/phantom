@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -20,10 +20,10 @@
 !
 !  DEPENDENCIES: balance, boundary, centreofmass, checkoptions, checksetup,
 !    chem, cooling, cpuinfo, densityforce, deriv, dim, domain, dust,
-!    energies, eos, evwrite, externalforces, fastmath, forcing, h2cooling,
-!    initial_params, io, io_summary, linklist, mf_write, mpi, mpiutils,
-!    nicil, nicil_sup, omputils, options, part, photoevap, ptmass,
-!    readwrite_dumps, readwrite_infile, setup, sort_particles,
+!    energies, eos, evwrite, externalforces, fastmath, forcing, growth,
+!    h2cooling, initial_params, io, io_summary, linklist, mf_write, mpi,
+!    mpiutils, nicil, nicil_sup, omputils, options, part, photoevap,
+!    ptmass, readwrite_dumps, readwrite_infile, setup, sort_particles,
 !    step_lf_global, timestep, timestep_ind, timestep_sts, timing, units,
 !    writegitinfo, writeheader
 !+
@@ -135,7 +135,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,use_dustgrowth
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -146,12 +146,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                            npartoftype,maxtypes,alphaind,ntot, &
+                            npartoftype,maxtypes,alphaind,ntot,ndim, &
                             maxphase,iphase,isetphase,iamtype, &
-                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,massoftype,&
+                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustfrac,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh,iboundary, &
-                            Bevol,Bxyz
+                            Bevol,Bxyz,temperature,dustprop,ddustprop
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef GR
@@ -195,7 +195,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use forcing,          only:init_forcing
 #endif
 #ifdef DUST
- use dust,             only:init_drag
+ use dust,             only:init_drag,grainsize,graindens
+#ifdef DUSTGROWTH
+ use growth,                   only:init_growth
+ use growth,                   only:ifrag,isnow,grainsizemin,vfrag,vfragin,vfragout,rsnow,Tsnow
+#endif
 #endif
 #ifdef MFLOW
  use mf_write,         only:mflow_write,mflow_init
@@ -215,18 +219,18 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:gamma,polyk,ieos,init_eos
- use part,             only:hfact,h2chemistry
+ use part,             only:hfact,h2chemistry,dxi
  use setup,            only:setpart
  use checksetup,       only:check_setup
- use h2cooling,        only:coolinmo
+ use h2cooling,        only:init_h2cooling
  use cooling,          only:init_cooling
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
  use io_summary,       only:summary_initialise
- use units,            only:unit_density
+ use units,            only:unit_density,udist,unit_velocity
  use centreofmass,     only:get_centreofmass
  use energies,         only:etot,angtot,totmom,mdust,xyzcom
- use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in
+ use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in,dxi_in
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  integer         :: ierr,i,j,idot,nerr,nwarn
@@ -295,7 +299,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (nwarn > 0) call warning('initial','warnings from particle data in file',var='warnings',ival=nwarn)
     if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
  endif
-
 !
 !--initialise values for non-ideal MHD
 !
@@ -351,6 +354,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef DUST
  call init_drag(ierr)
  if (ierr /= 0) call fatal('initial','error initialising drag coefficients')
+#ifdef DUSTGROWTH
+ call init_growth(ierr)
+ if (ierr /= 0) call fatal('initial','error initialising growth variables')
+#endif
 #endif
 
 !
@@ -360,7 +367,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (icooling > 0) then
        if (id==master) write(iprint,*) 'initialising cooling function...'
        call init_chem()
-       call coolinmo()
+       call init_h2cooling()
     endif
  elseif (icooling > 0) then
     call init_cooling(ierr)
@@ -378,6 +385,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     ncount(:) = 0
     do i=1,npart
        itype = iamtype(iphase(i))
+       !-- Initialise dust properties to none for gas particles
+#ifdef DUSTGROWTH
+       if (itype==igas .and. use_dustgrowth) dustprop(:,i) = 0.
+#endif
        if (itype < 1 .or. itype > maxtypes) then
           call fatal('initial','unknown value for itype from iphase array',i,var='iphase',ival=int(iphase(i)))
        else
@@ -409,7 +420,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        hi         = xyzh(4,i)
        pmassi     = massoftype(itype)
        rhoi1      = 1.0/rhoh(hi,pmassi)
-       if (i == 1) print *, rhoi1
        Bevol(1,i) = Bxyz(1,i) * rhoi1
        Bevol(2,i) = Bxyz(2,i) * rhoi1
        Bevol(3,i) = Bxyz(3,i) * rhoi1
@@ -525,10 +535,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--get timestep and forces for sink particles
 !
- dtsinkgas    = huge(dtsinkgas)
- r_crit2      = r_crit*r_crit
- rho_crit     = rho_crit_cgs/unit_density
- rho_dtthresh = rho_dtthresh_cgs/unit_density
+ dtsinkgas = huge(dtsinkgas)
+ r_crit2   = r_crit*r_crit
+ rho_crit  = rho_crit_cgs/unit_density
  if (nptmass > 0) then
     write(iprint,"(a,i12)") ' nptmass       = ',nptmass
 
@@ -559,13 +568,15 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--calculate (all) derivatives the first time around
 !
- dtnew_first = dtmax  ! necessary in case ntot = 0
- nderivinit = 1
+ dtnew_first   = dtmax  ! necessary in case ntot = 0
+ nderivinit    = 1
+ rho_dtthresh  = rho_dtthresh_cgs/unit_density
+ mod_dtmax_now = .false. ! reset since this would have improperly been tripped if mhd=.true.
  ! call derivs twice with Cullen-Dehnen switch to update accelerations
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                              Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtnew_first&
+                              Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtnew_first&
 #ifdef GR
                               ,pxyzu,dens)
 #else
@@ -609,7 +620,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     mod_dtmax_now = .false.
  endif
 !
-!--Calculate current centre of mass (required for rotational energies)
+!--Calculate current centre of mass
 !
  call get_centreofmass(xyzcom,dummy,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 !
@@ -640,6 +651,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
  if (get_conserv > 0.0) then
     xyzcom_in = xyzcom
+    dxi_in    = min(dxi(1),dxi(2),dxi(ndim))
     if (get_conserv > 0.75) then
        etot_in   = etot
        angtot_in = angtot

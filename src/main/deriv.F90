@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -40,8 +40,8 @@ contains
 !  (wrapper for call to density and rates, calls neighbours etc first)
 !+
 !-------------------------------------------------------------
-subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                  dustfrac,ddustfrac,time,dt,dtnew,pxyzu,dens)
+subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
+                  dustfrac,ddustfrac,temperature,time,dt,dtnew,pxyzu,dens)
  use dim,            only:maxp,maxvxyzu
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
@@ -74,8 +74,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real(kind=4), intent(out)   :: divcurlB(:,:)
  real,         intent(in)    :: Bevol(:,:)
  real,         intent(out)   :: dBevol(:,:)
- real,         intent(in)    :: dustfrac(:)
- real,         intent(out)   :: ddustfrac(:)
+ real,         intent(in)    :: dustfrac(:),dustprop(:,:)
+ real,         intent(out)   :: ddustfrac(:),ddustprop(:,:)
+ real,         intent(inout) :: temperature(:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
  real,         intent(inout), optional :: pxyzu(:,:), dens(:)
@@ -142,8 +143,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 #endif
 
  stressmax = 0.
- call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
-            dustfrac,ddustfrac,ipart_rhomax,dt,stressmax,dens)
+ call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
+            dustfrac,ddustfrac,ipart_rhomax,dt,stressmax,temperature,dens)
  call do_timing('force',tlast,tcpulast)
 !
 ! set new timestep from Courant/forces condition

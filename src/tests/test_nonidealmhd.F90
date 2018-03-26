@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -88,7 +88,8 @@ subroutine test_wavedamp(ntests,npass)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:npart,xyzh,vxyzu,Bxyz,npartoftype,massoftype,set_particle_type,&
-                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,igas,alphaind
+                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,temperature,igas,alphaind,&
+                                                  dustprop,ddustprop
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use testutils,      only:checkval
@@ -199,7 +200,7 @@ subroutine test_wavedamp(ntests,npass)
  ! call derivs the first time around
  use_sts = .true.
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
  use_sts = .false.  ! Since we only want to run supertimestepping once to verify we get the correct dt
  !
  ! run wave damp problem
@@ -259,7 +260,7 @@ subroutine test_standingshock(ntests,npass)
  use kernel,         only:hfact_default,radkern
  use part,           only:npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,hrho,rhoh,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,igas,iboundary,&
-                          set_boundaries_to_active,alphaind,maxalpha,maxp,iphase,Bxyz
+                          set_boundaries_to_active,alphaind,maxalpha,maxp,iphase,Bxyz,dustprop,ddustprop,temperature
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use testutils,      only:checkval
@@ -278,7 +279,7 @@ subroutine test_standingshock(ntests,npass)
  real                   :: t,dt,dtext_dum,dtext,dtnew
  real                   :: dexact,bexact,vexact,L2d,L2v,L2b,dx
  real                   :: leftstate(8),rightstate(8),exact_x(51),exact_d(51),exact_vx(51),exact_by(51)
- real, parameter        :: told = 2.1d-2, tolv=3.0d-2, tolb=1.2d-1
+ real, parameter        :: told = 2.1d-2, tolv=3.05d-2, tolb=1.1d-1
  logical                :: valid_dt
  logical                :: print_output = .false.
  logical                :: valid_bdy
@@ -389,7 +390,7 @@ subroutine test_standingshock(ntests,npass)
  !
  ! call derivs the first time around
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
  set_boundaries_to_active = .false.
  !
  ! run standing shock problem
@@ -494,7 +495,7 @@ subroutine test_narrays(ntests,npass)
  use kernel,         only:hfact_default
  use part,           only:npart,xyzh,vxyzu,Bxyz,npartoftype,massoftype,set_particle_type,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,igas,alphaind,&
-                          n_R,n_electronT,rhoh,eta_nimhd,iohm,ihall,iambi
+                          n_R,n_electronT,rhoh,dustprop,ddustprop,eta_nimhd,iohm,ihall,iambi,temperature
  use deriv,          only:derivs
  use testutils,      only:checkval
  use eos,            only:ieos,init_eos,polyk,polyk2,gamma,get_temperature
@@ -596,7 +597,7 @@ subroutine test_narrays(ntests,npass)
     !
     ! call derivs, which will also calculate eta
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
     !
     ! Calculate eta from NICIL
     rhoi  = rhoh(xyzh(4,1),massoftype(1))

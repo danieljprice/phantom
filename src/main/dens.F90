@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -263,11 +263,11 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(iterations_finished) &
 !$omp shared(mpiits) &
 !$omp reduction(+:nlocal) &
-!$omp reduction(+:ntotal) &
 !$omp private(do_export) &
 !$omp private(j) &
 !$omp private(k) &
 !$omp private(l) &
+!$omp private(ntotal) &
 #endif
 !$omp private(remote_export) &
 !$omp private(nneigh) &
@@ -1225,11 +1225,13 @@ end subroutine reduce_and_print_neighbour_stats
 
 pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
                              xyzcache)
- use io,          only:id
  use dim,         only:maxvxyzu
  use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,set_boundaries_to_active
  use viscosity,   only:irealvisc
  use kdtree,      only:inodeparts
+#ifdef MPI
+ use io,          only:id
+#endif
 
  type(celldens),  intent(inout)  :: cell
 
@@ -1396,7 +1398,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
     cell%xpartvec(ifzi,cell%npcell)           = fxyzu(3,i) + fext(3,i)
 
     if (mhd) then
-       iamgasi = iamgas(iphase(i))
        if (iamgasi) then
           cell%xpartvec(iBevolxi,cell%npcell) = Bevol(1,i)
           cell%xpartvec(iBevolyi,cell%npcell) = Bevol(2,i)
@@ -1557,8 +1558,8 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gra
  use linklist,    only:set_hmaxcell
  use kernel,      only:radkern
 
- use part,        only:xyzh_soa
- use kdtree,      only:inoderange,inodeparts
+ use part,        only:xyzh_soa,store_temperature,temperature
+ use kdtree,      only:inodeparts
 
  integer,         intent(in)    :: icall
  type(celldens),  intent(in)    :: cell
@@ -1687,7 +1688,11 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gra
           vxyzui(3) = cell%xpartvec(ivzi,i)
           vxyzui(4) = cell%xpartvec(ieni,i)
 
-          spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:))
+          if (store_temperature) then
+             spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:),temperature(lli))
+          else
+             spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:))
+          endif
           alphaind(2,lli) = real4(get_alphaloc(divcurlvi(5),spsoundi,hi,xi_limiter,alpha,alphamax))
        endif
     else ! we always need div v for h prediction

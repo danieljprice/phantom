@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -31,7 +31,7 @@ module teststep
 contains
 
 subroutine test_step(ntests,npass)
- use io,       only:id,master,nprocs
+ use io,       only:id,master
 #ifdef PERIODIC
  use io,       only:iverbose
  use dim,      only:maxp,maxvxyzu,maxalpha,maxstrain

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -35,7 +35,7 @@ subroutine test_setdisc(ntests,npass)
  use io,         only:id,master
  use part,       only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,Bevol,mhd, &
                       alphaind,maxalpha, &
-                      divcurlv,divcurlB,dBevol,periodic,maxvxyzu,dustfrac,ddustfrac
+                      divcurlv,divcurlB,dBevol,periodic,maxvxyzu,dustfrac,ddustfrac,dustprop,ddustprop,temperature
  use eos,        only:polyk,gamma
  use options,    only:ieos,alpha,alphau,alphaB
  use testutils,  only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end
@@ -118,7 +118,7 @@ subroutine test_setdisc(ntests,npass)
 !
     call getused(t1)
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
     call getused(t2)
     if (id==master) call printused(t1)
 !

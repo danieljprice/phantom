@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, part
+!  DEPENDENCIES: dim, io, part
 !+
 !--------------------------------------------------------------------------
 module checkoptions
@@ -37,6 +37,7 @@ contains
 !-------------------------------------------------------------------
 subroutine check_compile_time_settings(ierr)
  use part,  only:mhd,maxBevol,gravity,ngradh,h2chemistry,maxvxyzu,use_dust,gr
+ use dim,   only:use_dustgrowth
  use io,    only:error,id,master,fatal
  use dim,   only:maxsts,maxstrain
 #ifdef GR
@@ -147,6 +148,10 @@ subroutine check_compile_time_settings(ierr)
  call error(string,'General relativity should have CONST_AV=yes.')
  ierr = 15
 #endif
+#endif
+
+#ifdef DUSTGROWTH
+ if (.not. use_dustgrowth) call error(string,'-DDUSTGROWTH but use_dustgrowth = .false.')
 #endif
 
  return
