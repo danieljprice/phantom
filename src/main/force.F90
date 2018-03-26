@@ -1446,7 +1446,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (idrag>0) then
              if (iamgasi .and. iamdustj .and. icut_backreaction==0) then
                 dv2 = dvx*dvx + dvy*dvy + dvz*dvz
-                !dustprop(4,j) = dv2
+                dustprop(4,j) = dv2
                 if (q2i < q2j) then
                    wdrag = wkern_drag(q2i,qi)*hi21*hi1*cnormk_drag
                 else
@@ -1472,8 +1472,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 endif
              elseif (iamdusti .and. iamgasj) then
                 dv2 = dvx*dvx + dvy*dvy + dvz*dvz
-                !dustprop(4,i) = dv2
-                if (q2i < q2j) then
+                dustprop(4,i) = dv2
+				if (q2i < q2j) then
                    wdrag = wkern_drag(q2i,qi)*hi21*hi1*cnormk_drag
                 else
                    wdrag = wkern_drag(q2j,qj)*hj21*hj1*cnormk_drag

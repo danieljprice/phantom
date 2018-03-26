@@ -87,10 +87,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use options,        only:damp,tolv,iexternalforce,icooling,use_dustfrac
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           isdead_or_accreted,rhoh,dhdrho,&
-                          iphase,iamtype,massoftype,maxphase,igas,mhd,maxBevol,&
+                          iphase,iamtype,massoftype,maxphase,igas,idust,mhd,maxBevol,&
                           switches_done_in_derivs,iboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustfrac,temperature,alphaind,nptmass,store_temperature,&
-                                                  dustprop,ddustprop,dustproppred
+                                                  dustprop,ddustprop,dustproppred,tstop
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
@@ -105,6 +105,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
  use part,           only:ibin,ibin_old,twas,iactive
 #endif
+ use growth,		only:growth_rate
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
  real,    intent(in)    :: t,dtsph
@@ -207,7 +208,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustfrac,dustpred,use_dustfrac) &
 !$omp shared(alphaind,ieos,alphamax) &
-!$omp shared(temperature) &
+!$omp shared(temperature,tstop) &
 #ifdef IND_TIMESTEPS
 !$omp shared(twas,timei) &
 #endif
@@ -243,9 +244,14 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #else
        hdti = 0.5*dtsph
 #endif
+		if (use_dustgrowth .and. itype==idust) then
+			!call growth_rate(xyzh(:,i),vxyzu(:,i),dustprop(:,i),tstop(i),ddustprop(1,i))
+			!ddustprop(1,i) = 1.d-13 !--ds/ds test
+		endif
        vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
-       if (use_dustgrowth) then
+       if (use_dustgrowth .and. itype==idust) then
           dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
+		  dustprop(:,i) = dustproppred(:,i)
        endif
        if (itype==igas) then
           if (mhd) Bpred(:,i) = Bevol (:,i) + hdti*dBevol(:,i)
