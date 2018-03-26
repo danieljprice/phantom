@@ -39,6 +39,7 @@ module eos_helmholtz
  public :: eos_helmholtz_get_maxrho
  public :: eos_helmholtz_get_mintemp
  public :: eos_helmholtz_get_maxtemp
+ public :: eos_helmholtz_eosinfo
 
  integer, public :: relaxflag = 1
 
@@ -49,10 +50,10 @@ module eos_helmholtz
  ! currently hard-coded to 50/50 carbon-oxygen
 
  integer, parameter :: speciesmax = 15
+ character(len=10) :: speciesname(speciesmax)
  real :: xmass(speciesmax) ! mass fraction of species
  real :: Aion(speciesmax)  ! number of nucleons
  real :: Zion(speciesmax)  ! number of protons
-
  real :: abar, zbar
 
  integer, parameter :: imax = 271
@@ -137,6 +138,22 @@ subroutine eos_helmholtz_init(ierr)
 
 
  ! set the species information
+ speciesname(1) = "hydrogen"
+ speciesname(2) = "helium"
+ speciesname(3) = "carbon"
+ speciesname(4) = "oxygen"
+ speciesname(5) = "neon"
+ speciesname(6) = "magnesium"
+ speciesname(7) = "silicon"
+ speciesname(8) = "sulphur"
+ speciesname(9) = "argon"
+ speciesname(10) = "calcium"
+ speciesname(11) = "titanium"
+ speciesname(12) = "chromium"
+ speciesname(13) = "iron"
+ speciesname(14) = "nickel"
+ speciesname(15) = "zinc"
+
  Aion(1) = 1.0    ;  Zion(1) = 1.0   ! hydrogen
  Aion(2) = 4.0    ;  Zion(2) = 2.0   ! helium
  Aion(3) = 12.0   ;  Zion(3) = 6.0   ! carbon
@@ -159,6 +176,12 @@ subroutine eos_helmholtz_init(ierr)
  xmass(:) = 0.0
  xmass(3) = 0.5
  xmass(4) = 0.5
+
+ if (sum(xmass(:)) > 1.0+tiny(xmass) .or. sum(xmass(:)) < 1.0-tiny(xmass)) then 
+    call warning('eos_helmholtz', 'mass fractions total != 1')
+    ierr = 1
+    return
+ endif
 
  call eos_helmholtz_calc_AbarZbar()
 
@@ -332,6 +355,26 @@ real function eos_helmholtz_get_maxtemp()
  eos_helmholtz_get_maxtemp = tempmax
 end function eos_helmholtz_get_maxtemp
 
+
+!----------------------------------------------------------------
+!+
+!  print eos information
+!+
+!----------------------------------------------------------------
+subroutine eos_helmholtz_eosinfo(iprint)
+ integer, intent(in) :: iprint 
+ integer :: i
+
+ write(iprint,"(/,a)") ' Helmholtz free energy equation of state'
+ write(iprint,"(a)") '   mass fractions of each species:'
+ do i=1,speciesmax
+    if (xmass(i) > 0.0) then
+       write(iprint,"(a,a,a,f5.3)") '     ', speciesname(i), ': ', xmass(i)
+    endif
+ enddo
+
+end subroutine eos_helmholtz_eosinfo
+       
 
 !----------------------------------------------------------------
 !+
