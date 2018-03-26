@@ -56,7 +56,7 @@ module eos_helmholtz
  ! zbar = [sum (mass fraction / # protons) ]^(-1)
  real, parameter :: zbar   = 6.857142857
 
- private 
+ private
 
  integer, parameter :: imax = 271
  integer, parameter :: jmax = 101

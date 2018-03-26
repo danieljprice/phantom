@@ -68,7 +68,8 @@ program phantom2divv
 !
     if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,0.,0.,dtdum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,&
+                temperature,0.,0.,dtdum)
 !
 !--dump to .divv file
 !

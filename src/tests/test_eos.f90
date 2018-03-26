@@ -12,13 +12,13 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Terrence Tricco
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: eos, io, physcon, testutils, units
+!  DEPENDENCIES: eos, eos_helmholtz, io, physcon, testutils, units
 !+
 !--------------------------------------------------------------------------
 module testeos
@@ -74,7 +74,7 @@ subroutine test_init(ntests, npass)
  ntests  = ntests + 1
 
  ! ieos=6 is for an isothermal disc around a sink particle, use isink=1
- isink = 1 
+ isink = 1
 
  ! ieos=8, barotropic eos, requires polyk to be set to avoid undefined
  polyk = 0.1
@@ -199,7 +199,7 @@ subroutine test_helmholtz(ntests, npass)
  errmax = 0.
  rhoi   = rhomin
  tempi  = tempmin
- 
+
  logdtemp = log10(tempmax - tempmin) / (maxpts)
  logdrho  = (log10(rhomax) - log10(rhomin)) / (maxpts)
  logrhomin = log10(rhomin)
