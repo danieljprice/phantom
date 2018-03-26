@@ -583,7 +583,7 @@ subroutine choose_spheres(polyk,iexist,id,master)
  ui_coef     = 1.0
  need_grav   = 1       !  1 = yes; -1 = no
  need_iso    = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
- need_temp   = -1      ! -1 = no; 1 = yes
+ need_temp   = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
  binary_sep  = 0.0
  v_binary    = 0.0
  EOSopt      = 1
@@ -607,7 +607,7 @@ subroutine choose_spheres(polyk,iexist,id,master)
     input_polyk = .true.
  case(ipoly)
     ! Polytrope
-    need_iso = 1
+    need_iso = 0 ! can be done either with du/dt=P/rho^2 drho/dt or with P=K*rho**gamma
  case(ibinpoly)
     ! Binary Polytrope
     binary     = .true.
@@ -680,13 +680,14 @@ subroutine choose_spheres(polyk,iexist,id,master)
  isphere = choice
  !
  ! Verify correct pre-processor commands
+ !
  if (      gravity .and. need_grav==-1) call fatal('setup','require GRAVITY=no')
  if (.not. gravity .and. need_grav== 1) call fatal('setup','require GRAVITY=yes')
  if (maxvxyzu > 3  .and. need_iso == 1) call fatal('setup','require ISOTHERMAL=yes')
  if (maxvxyzu < 4  .and. need_iso ==-1) call fatal('setup','require ISOTHERMAL=no')
  if (maxvxyzu < 4  .and. need_temp==-1) call fatal('setup','require ISOTHERMAL=no')
  if (need_temp==1 .and. .not. store_temperature) call fatal('setup','require TEMPERATURE=yes')
- !
+
 end subroutine choose_spheres
 !-----------------------------------------------------------------------
 !+
