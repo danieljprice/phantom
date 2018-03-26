@@ -89,7 +89,6 @@ subroutine test_coolfunc(ntests,npass)
  use testutils, only:checkvalbuf,checkvalbuf_start
  integer, intent(inout) :: ntests,npass
  integer, parameter :: nt = 100
- real :: logtmin,logtmax,logt,dlogt
  integer :: i,k,ndiff,ncheck
  real    :: table(nt),val
  logical :: my_test

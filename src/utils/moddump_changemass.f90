@@ -33,7 +33,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer :: i
 
  massoftype(igas) = 10.*massoftype(igas)
  print*,'Particle mass is now ', massoftype(igas)*umass, ' g'

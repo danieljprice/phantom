@@ -32,7 +32,7 @@ contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use io,   only:fatal
- use part, only:iphase,iamtype,massoftype,igas,idust
+ use part, only:iphase,iamtype,igas,idust
 
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
