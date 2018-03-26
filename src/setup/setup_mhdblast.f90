@@ -53,7 +53,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use kernel,       only:wkern,cnormk,radkern2,hfact_default
  use part,         only:Bxyz,igas,periodic
  use mpiutils,     only:bcast_mpi,reduceall_mpi
- use eos,          only:ieos
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -87,7 +86,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Pblast      = 100.0
  Pmed        = 1.0
  Rblast      = 0.125
- npartx      = 128
+ npartx      = 64
  gamma       = 1.4
  plasmaB0    = 2.0*Pblast/(Bx*Bx + By*By + Bz*Bz)
  plasmaB     = plasmaB0
@@ -199,4 +198,3 @@ subroutine read_setupfile(filename,ierr)
 end subroutine read_setupfile
 !----------------------------------------------------------------
 end module setup
-
