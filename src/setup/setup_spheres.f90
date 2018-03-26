@@ -581,7 +581,7 @@ subroutine choose_spheres(polyk,iexist,id,master)
  Rstar       = 1.0
  Mstar       = 1.0
  ui_coef     = 1.0
- need_grav   = 1       !  1 = yes; -1 = no
+ need_grav   = 0       !  1 = yes; 0 = doesn't matter; -1 = no
  need_iso    = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
  need_temp   = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
  binary_sep  = 0.0
