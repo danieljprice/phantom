@@ -135,7 +135,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,use_dustgrowth
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -189,10 +189,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use forcing,          only:init_forcing
 #endif
 #ifdef DUST
- use dust,             only:init_drag,grainsize,graindens
+ use dust,             only:init_drag
 #ifdef DUSTGROWTH
- use growth,                   only:init_growth
- use growth,                   only:ifrag,isnow,grainsizemin,vfrag,vfragin,vfragout,rsnow,Tsnow
+ use growth,           only:init_growth
 #endif
 #endif
 #ifdef MFLOW
@@ -221,7 +220,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
  use io_summary,       only:summary_initialise
- use units,            only:unit_density,udist,unit_velocity
+ use units,            only:unit_density
  use centreofmass,     only:get_centreofmass
  use energies,         only:etot,angtot,totmom,mdust,xyzcom
  use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in,dxi_in
@@ -376,7 +375,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        itype = iamtype(iphase(i))
        !-- Initialise dust properties to none for gas particles
 #ifdef DUSTGROWTH
-       if (itype==igas .and. use_dustgrowth) dustprop(:,i) = 0.
+       if (itype==igas) dustprop(:,i) = 0.
 #endif
        if (itype < 1 .or. itype > maxtypes) then
           call fatal('initial','unknown value for itype from iphase array',i,var='iphase',ival=int(iphase(i)))

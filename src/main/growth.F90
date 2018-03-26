@@ -175,20 +175,23 @@ end subroutine print_growthinfo
 !  two-fluid dust method.
 !+
 !-----------------------------------------------------------------------
-subroutine growth_rate(xyzh,vxyzu,dustprop,rhod,ts,dsdt)
+subroutine growth_rate(xyzh,vxyzu,dustprop,ts,dsdt)
  use dim,                        only:maxvxyzu
+ use part,						only:massoftype,rhoh
  real, intent(inout)        :: dustprop(:),vxyzu(maxvxyzu)
  real, intent(out)                :: dsdt
- real, intent(in)                :: rhod,ts
+ real, intent(in)                :: ts
  real, intent(in)                :: xyzh(:)
 
- real                                        :: vrel
+ real                                        :: vrel,rhod
 
  !--compute vrel and vrel/vfrag from get_vrelonvfrag subroutine
- call get_vrelonvfrag(xyzh,vxyzu,dustprop(3),dustprop(4),rhod,vrel,ts)
+ call get_vrelonvfrag(xyzh,vxyzu,dustprop,rhod,vrel,ts)
+ 
+ rhod = rhoh(xyzh(4),massoftype(2)) !--idust = 2
  !
  !--If statements to compute ds
- !--dustprop(1)= size, dustprop(2) = intrinsic density, dustprop(3) = local vrel/vfrag, dustprop(4) = vd - vg
+ !--dustprop(1)= size, dustprop(2) = intrinsic density, dustprop(3) = local vrel/vfrag, dustprop(4) = vd - vg, dustprop(5) = rhod
  !
  if (dustprop(3) >= 1.) then ! vrel/vfrag < 1 --> growth
     dsdt = rhod/dustprop(2)*vrel
@@ -212,11 +215,12 @@ end subroutine growth_rate
 !  Compute the local ratio vrel/vfrag and vrel
 !+
 !-----------------------------------------------------------------------
-subroutine get_vrelonvfrag(xyzh,vxyzu,vrelonvfrag,dv2,rhod,vrel,ts)
+subroutine get_vrelonvfrag(xyzh,vxyzu,dustprop,rhod,vrel,ts)
  use eos,                        only:ieos,get_spsound
  use options,                only:alpha
- real, intent(in)        :: xyzh(:),rhod,dv2,ts
- real, intent(out)        :: vrelonvfrag,vrel
+ real, intent(in)        :: xyzh(:),ts,rhod
+ real, intent(out)        :: vrel
+ real, intent(inout)		:: dustprop(:)
  real, intent(inout):: vxyzu(:)
 
  real                                :: St,Vt,cs,T,r
@@ -230,22 +234,22 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrelonvfrag,dv2,rhod,vrel,ts)
  St = sqrt(xyzmh_ptmass(4,1)/r**3)*ts !G=1 in code units
 
  !--compute vrel
- vrel = vrelative(cs,St,dv2,Vt,alpha)
+ vrel = vrelative(cs,St,dustprop(4),Vt,alpha)
 
  !
  !--If statements to compute local ratio vrel/vfrag
  !
  select case(isnow)
  case(0) !--uniform vfrag
-    vrelonvfrag = vrel / vfrag
+    dustprop(3) = vrel / vfrag
  case(1) !--position based snow line in cylindrical geometry
-    if (r < rsnow) vrelonvfrag = vrel / vfragin
-    if (r > rsnow) vrelonvfrag = vrel / vfragout
+    if (r < rsnow) dustprop(3) = vrel / vfragin
+    if (r > rsnow) dustprop(3) = vrel / vfragout
  case(2) !--temperature based snow line wrt eos
-    if (T > Tsnow) vrelonvfrag = vrel / vfragin
-    if (T < Tsnow) vrelonvfrag = vrel / vfragout
+    if (T > Tsnow) dustprop(3) = vrel / vfragin
+    if (T < Tsnow) dustprop(3) = vrel / vfragout
  case default
-    vrelonvfrag = 0.
+    dustprop(3) = 0.
     vrel = 0.
  end select
 
