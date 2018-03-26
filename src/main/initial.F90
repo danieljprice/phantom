@@ -191,7 +191,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef DUST
  use dust,             only:init_drag
 #ifdef DUSTGROWTH
- use growth,                   only:init_growth
+ use growth,           only:init_growth
 #endif
 #endif
 #ifdef MFLOW
