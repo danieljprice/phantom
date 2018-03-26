@@ -786,7 +786,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef DUST
  use dust,        only:get_ts,idrag,icut_backreaction
  use kernel,      only:wkern_drag,cnormk_drag
- use part,                  only:dustprop
+ use part,        only:dustprop
 #endif
 #ifdef IND_TIMESTEPS
  use part,        only:ibin_old
