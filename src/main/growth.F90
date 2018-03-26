@@ -186,7 +186,7 @@ subroutine growth_rate(xyzh,vxyzu,dustprop,ts,dsdt)
  real                                        :: vrel,rhod
 
  !--compute vrel and vrel/vfrag from get_vrelonvfrag subroutine
- call get_vrelonvfrag(xyzh,vxyzu,dustprop,vrel,ts)
+ call get_vrelonvfrag(xyzh,vxyzu,dustprop,rhod,vrel,ts)
  
  rhod = rhoh(xyzh(4),massoftype(2)) !--idust = 2
  !
@@ -215,10 +215,10 @@ end subroutine growth_rate
 !  Compute the local ratio vrel/vfrag and vrel
 !+
 !-----------------------------------------------------------------------
-subroutine get_vrelonvfrag(xyzh,vxyzu,dustprop,vrel,ts)
+subroutine get_vrelonvfrag(xyzh,vxyzu,dustprop,rhod,vrel,ts)
  use eos,                        only:ieos,get_spsound
  use options,                only:alpha
- real, intent(in)        :: xyzh(:),ts
+ real, intent(in)        :: xyzh(:),ts,rhod
  real, intent(out)        :: vrel
  real, intent(inout)		:: dustprop(:)
  real, intent(inout):: vxyzu(:)
@@ -226,7 +226,7 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,dustprop,vrel,ts)
  real                                :: St,Vt,cs,T,r
 
  !--compute sound speed & terminal velocity
- cs = get_spsound(ieos,xyzh,dustprop(5),vxyzu,T)
+ cs = get_spsound(ieos,xyzh,rhod,vxyzu,T)
  Vt = sqrt((2**0.5)*Ro*alpha)*cs
 
  !--compute the Stokes number
