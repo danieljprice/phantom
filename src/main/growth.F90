@@ -191,29 +191,29 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
  !--get ds/dt over all dust particles
  do i=1,npart
 
-        iam = iamtype(iphase(i))
-        rhod = rhoh(xyzh(4,i),massoftype(2)) !--idust = 2
+    iam = iamtype(iphase(i))
+    rhod = rhoh(xyzh(4,i),massoftype(2)) !--idust = 2
 
-        if (iam==idust) then
-                 !--compute vrel and vrel/vfrag from get_vrelonvfrag subroutine
-                 call get_vrelonvfrag(xyzh(:,i),vxyzu(:,i),dustprop(:,i),rhod,vrel,tstop(i))
-                 !
-                 !--dustprop(1)= size, dustprop(2) = intrinsic density, dustprop(3) = local vrel/vfrag, dustprop(4) = vd - vg
-                !--if statements to compute ds/dt
-                 !
-                 if (dustprop(3,i) >= 1.) then ! vrel/vfrag < 1 --> growth
-                            dsdt(i) = rhod/dustprop(2,i)*vrel
-                 elseif (dustprop(3,i) < 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
-                                select case(ifrag)
-                       case(1)
-                                   dsdt(i) = -rhod/dustprop(2,i)*vrel ! Symmetrical of Stepinski & Valageas
-                       case(2)
-                        dsdt(i) = -rhod/dustprop(2,i)*vrel*(dustprop(3,i)**2)/(1+dustprop(3,i)**2) ! Kobayashi model
-                       case default
-                            dsdt(i) = 0.
-                       end select
-                endif
-        endif
+    if (iam==idust) then
+       !--compute vrel and vrel/vfrag from get_vrelonvfrag subroutine
+       call get_vrelonvfrag(xyzh(:,i),vxyzu(:,i),dustprop(:,i),rhod,vrel,tstop(i))
+       !
+       !--dustprop(1)= size, dustprop(2) = intrinsic density, dustprop(3) = local vrel/vfrag, dustprop(4) = vd - vg
+       !--if statements to compute ds/dt
+       !
+       if (dustprop(3,i) >= 1.) then ! vrel/vfrag < 1 --> growth
+          dsdt(i) = rhod/dustprop(2,i)*vrel
+       elseif (dustprop(3,i) < 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
+          select case(ifrag)
+          case(1)
+             dsdt(i) = -rhod/dustprop(2,i)*vrel ! Symmetrical of Stepinski & Valageas
+          case(2)
+             dsdt(i) = -rhod/dustprop(2,i)*vrel*(dustprop(3,i)**2)/(1+dustprop(3,i)**2) ! Kobayashi model
+          case default
+             dsdt(i) = 0.
+          end select
+       endif
+    endif
  enddo
 end subroutine get_growth_rate
 

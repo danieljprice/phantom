@@ -365,9 +365,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 if (mhd)          Bevol(:,i)  = Bevol(:,i)  + dti*dBevol(:,i)
                 if (use_dustfrac) dustevol(i) = dustevol(i) + dti*ddustfrac(i)
              endif
-                         if (itype==idust) then
-                                 if (use_dustgrowth) dustproppred(:,i) = dustproppred(:,i) + dti*ddustprop(:,i)
-                         endif
+             if (itype==idust) then
+                if (use_dustgrowth) dustproppred(:,i) = dustproppred(:,i) + dti*ddustprop(:,i)
+             endif
              twas(i) = twas(i) + dti
           endif
           !
