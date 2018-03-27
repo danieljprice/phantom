@@ -39,7 +39,6 @@ contains
 
 subroutine test_dust(ntests,npass)
 #ifdef DUST
- use part,                only:dustprop,ddustprop
  use dust,      only:idrag,init_drag,get_ts,grainsize,graindens
  use physcon,   only:solarm,au
  use units,     only:set_units,unit_density

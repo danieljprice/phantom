@@ -50,7 +50,7 @@ module growth
  real, public                :: vfragin        = 5.
  real, public                :: vfragout        = 15.
 
- public                        :: growth_rate,get_vrelonvfrag
+ public                        :: get_growth_rate,get_vrelonvfrag
  public                        :: write_options_growth,read_options_growth,print_growthinfo,init_growth
  public                        :: vrelative
 
@@ -63,7 +63,7 @@ contains
 !------------------------------------------------
 subroutine init_growth(ierr)
  use io,        only:error
- use part,        only:dustprop,npart
+ use part,        only:dustprop,ddustprop,npart
  use dust,        only:grainsize,graindens
  integer, intent(out) :: ierr
 
@@ -75,6 +75,7 @@ subroutine init_growth(ierr)
  !--initialise variables in code units
  dustprop(1,:) = grainsize
  dustprop(2,:) = graindens
+ ddustprop(:,:) = 0.
  vfrag = vfrag * 100 / unit_velocity
  vfragin = vfragin * 100 / unit_velocity
  vfragout = vfragout * 100 / unit_velocity
@@ -175,40 +176,46 @@ end subroutine print_growthinfo
 !  two-fluid dust method.
 !+
 !-----------------------------------------------------------------------
-subroutine growth_rate(xyzh,vxyzu,dustprop,ts,dsdt)
+subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
  use dim,                        only:maxvxyzu
- use part,						only:massoftype,rhoh
- real, intent(inout)        :: dustprop(:),vxyzu(maxvxyzu)
- real, intent(out)                :: dsdt
- real, intent(in)                :: ts
- real, intent(in)                :: xyzh(:)
+ use part,                                                only:massoftype,rhoh,idust,iamtype,iphase,tstop
+
+ real, intent(inout)        :: dustprop(:,:),vxyzu(:,:)
+ real, intent(out)                :: dsdt(:)
+ integer, intent(in)                :: npart
+ real, intent(in)                :: xyzh(:,:)
 
  real                                        :: vrel,rhod
+ integer                                                                        :: i,iam
 
- !--compute vrel and vrel/vfrag from get_vrelonvfrag subroutine
- call get_vrelonvfrag(xyzh,vxyzu,dustprop,rhod,vrel,ts)
- 
- rhod = rhoh(xyzh(4),massoftype(2)) !--idust = 2
- !
- !--If statements to compute ds
- !--dustprop(1)= size, dustprop(2) = intrinsic density, dustprop(3) = local vrel/vfrag, dustprop(4) = vd - vg, dustprop(5) = rhod
- !
- if (dustprop(3) >= 1.) then ! vrel/vfrag < 1 --> growth
-    dsdt = rhod/dustprop(2)*vrel
- elseif (dustprop(3) < 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
-    select case(ifrag)
-    case(1)
-       dsdt = -rhod/dustprop(2)*vrel ! Symmetrical of Stepinski & Valageas
-    case(2)
-       dsdt = -rhod/dustprop(2)*vrel*(dustprop(3)**2)/(1+dustprop(3)**2) ! Kobayashi model
-    case default
-    end select
+ !--get ds/dt over all dust particles
+ do i=1,npart
 
-    if (dustprop(1) < grainsizemin) then
-       dustprop(1) = grainsizemin ! Prevent dust from becoming too small
+    iam = iamtype(iphase(i))
+    rhod = rhoh(xyzh(4,i),massoftype(2)) !--idust = 2
+
+    if (iam==idust) then
+       !--compute vrel and vrel/vfrag from get_vrelonvfrag subroutine
+       call get_vrelonvfrag(xyzh(:,i),vxyzu(:,i),dustprop(:,i),rhod,vrel,tstop(i))
+       !
+       !--dustprop(1)= size, dustprop(2) = intrinsic density, dustprop(3) = local vrel/vfrag, dustprop(4) = vd - vg
+       !--if statements to compute ds/dt
+       !
+       if (dustprop(3,i) >= 1.) then ! vrel/vfrag < 1 --> growth
+          dsdt(i) = rhod/dustprop(2,i)*vrel
+       elseif (dustprop(3,i) < 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
+          select case(ifrag)
+          case(1)
+             dsdt(i) = -rhod/dustprop(2,i)*vrel ! Symmetrical of Stepinski & Valageas
+          case(2)
+             dsdt(i) = -rhod/dustprop(2,i)*vrel*(dustprop(3,i)**2)/(1+dustprop(3,i)**2) ! Kobayashi model
+          case default
+             dsdt(i) = 0.
+          end select
+       endif
     endif
- endif
-end subroutine growth_rate
+ enddo
+end subroutine get_growth_rate
 
 !-----------------------------------------------------------------------
 !+
@@ -220,7 +227,7 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,dustprop,rhod,vrel,ts)
  use options,                only:alpha
  real, intent(in)        :: xyzh(:),ts,rhod
  real, intent(out)        :: vrel
- real, intent(inout)		:: dustprop(:)
+ real, intent(inout)                :: dustprop(:)
  real, intent(inout):: vxyzu(:)
 
  real                                :: St,Vt,cs,T,r

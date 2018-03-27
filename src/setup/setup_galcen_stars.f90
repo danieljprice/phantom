@@ -22,8 +22,8 @@
 !    h_sink   -- sink particle radii in arcsec at 8kpc
 !    m_gas    -- gas mass resolution in solar masses
 !
-!  DEPENDENCIES: dim, eos, infile_utils, io, part, physcon, prompting,
-!    spherical, timestep, units
+!  DEPENDENCIES: datafiles, dim, eos, infile_utils, io, part, physcon,
+!    prompting, spherical, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup

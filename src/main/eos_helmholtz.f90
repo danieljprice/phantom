@@ -169,7 +169,7 @@ subroutine eos_helmholtz_init(ierr)
  Aion(13) = 52.0  ;  Zion(13) = 26.0  ! iron
  Aion(14) = 56.0  ;  Zion(14) = 28.0  ! nickel
  Aion(15) = 60.0  ;  Zion(15) = 30.0  ! zinc
- 
+
  ! set the mass weightings of each species
  ! currently hard-coded to 50/50 carbon-oxygen
  ! TODO: update this be set by user at runtime
@@ -177,7 +177,7 @@ subroutine eos_helmholtz_init(ierr)
  xmass(3) = 0.5
  xmass(4) = 0.5
 
- if (sum(xmass(:)) > 1.0+tiny(xmass) .or. sum(xmass(:)) < 1.0-tiny(xmass)) then 
+ if (sum(xmass(:)) > 1.0+tiny(xmass) .or. sum(xmass(:)) < 1.0-tiny(xmass)) then
     call warning('eos_helmholtz', 'mass fractions total != 1')
     ierr = 1
     return
@@ -290,7 +290,7 @@ end subroutine eos_helmholtz_init
 !+
 !----------------------------------------------------------------------------------------
 subroutine eos_helmholtz_calc_AbarZbar()
- 
+
  abar = 1.0 / sum(xmass(:) / aion(:))
  zbar = abar * sum(xmass(:) * zion(:) / aion(:))
 
@@ -362,7 +362,7 @@ end function eos_helmholtz_get_maxtemp
 !+
 !----------------------------------------------------------------
 subroutine eos_helmholtz_eosinfo(iprint)
- integer, intent(in) :: iprint 
+ integer, intent(in) :: iprint
  integer :: i
 
  write(iprint,"(/,a)") ' Helmholtz free energy equation of state'
@@ -374,7 +374,7 @@ subroutine eos_helmholtz_eosinfo(iprint)
  enddo
 
 end subroutine eos_helmholtz_eosinfo
-       
+
 
 !----------------------------------------------------------------
 !+

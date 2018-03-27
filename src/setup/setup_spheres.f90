@@ -58,6 +58,7 @@
 !--------------------------------------------------------------------------
 module setup
  use io,             only: fatal
+ use part,           only: gravity
  use physcon,        only: solarm,solarr,km,pi,c
  use options,        only: nfulldump,iexternalforce
  use timestep,       only: tmax,dtmax
@@ -492,7 +493,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     write(*,'(a,3Es13.5,a)')      '(vx vy vz) star 1   = (', v_binary(:,1)*unit_velocity, ') cm/s'
     write(*,'(a,3Es13.5,a)')      '(vx vy vz) star 2   = (', v_binary(:,2)*unit_velocity, ') cm/s'
  endif
- if (isphere==insfile) write(*,'(a)') 'WARNING! This setup may not be stable'
+ if ( (isphere==iuniform .and. .not.gravity) .or. isphere==insfile) then
+    write(*,'(a)') 'WARNING! This setup may not be stable'
+ endif
  write(*,'(a)') "======================================================================"
 end subroutine setpart
 !-----------------------------------------------------------------------
@@ -560,7 +563,7 @@ end subroutine set_option_names
 !-----------------------------------------------------------------------
 subroutine choose_spheres(polyk,iexist,id,master)
  use prompting,   only: prompt
- use part,        only: gravity, store_temperature
+ use part,        only: store_temperature
  integer, intent(in)  :: id, master
  logical, intent(in)  :: iexist
  real,    intent(out) :: polyk
@@ -581,7 +584,7 @@ subroutine choose_spheres(polyk,iexist,id,master)
  Rstar       = 1.0
  Mstar       = 1.0
  ui_coef     = 1.0
- need_grav   = 0       !  1 = yes; 0 = doesn't matter; -1 = no
+ need_grav   = 1       ! -1 = no; 0 = doesn't matter; 1 = yes
  need_iso    = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
  need_temp   = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
  binary_sep  = 0.0
@@ -605,6 +608,7 @@ subroutine choose_spheres(polyk,iexist,id,master)
     ! Uniform density sphere
     polyk       = 0.5
     input_polyk = .true.
+    need_grav   = 0 ! to prevent setupfail
  case(ipoly)
     ! Polytrope
     need_iso = 0 ! can be done either with du/dt=P/rho^2 drho/dt or with P=K*rho**gamma

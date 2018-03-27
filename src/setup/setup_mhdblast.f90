@@ -19,7 +19,7 @@
 !    npartx  -- number of particles in x-direction
 !    plasmaB -- plasma beta in the initial blast
 !
-!  DEPENDENCIES: boundary, dim, eos, infile_utils, io, kernel, mpiutils,
+!  DEPENDENCIES: boundary, dim, infile_utils, io, kernel, mpiutils,
 !    options, part, physcon, prompting, setup_params, timestep, unifdis,
 !    units
 !+
