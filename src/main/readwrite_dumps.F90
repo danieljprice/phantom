@@ -640,7 +640,7 @@ subroutine write_smalldump(t,dumpfile)
        if (use_dustgrowth) call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
 #ifdef LIGHTCURVE
-       if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr)
+       if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
 #endif
     enddo
     !
@@ -655,7 +655,9 @@ subroutine write_smalldump(t,dumpfile)
     !
     if (mhd) then
        ilen(4) = npart
-       call write_array(4,Bxyz,Bxyz_label,3,npart,i_real4,ipass,idump,nums,ierr)
+       do k=1,ndatatypes
+          call write_array(4,Bxyz,Bxyz_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+      enddo
     endif
 
     if (ipass==1) call write_block_header(narraylengths,ilen,nums,idump,ierr)
