@@ -179,7 +179,7 @@ end subroutine print_growthinfo
 subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
  use dim,                        only:maxvxyzu
  use part,                                                only:massoftype,rhoh,idust,iamtype,iphase,tstop
- 
+
  real, intent(inout)        :: dustprop(:,:),vxyzu(:,:)
  real, intent(out)                :: dsdt(:)
  integer, intent(in)                :: npart
@@ -190,11 +190,11 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
 
  !--get ds/dt over all dust particles
  do i=1,npart
-         
+
         iam = iamtype(iphase(i))
         rhod = rhoh(xyzh(4,i),massoftype(2)) !--idust = 2
-         
-        if (iam==idust) then 
+
+        if (iam==idust) then
                  !--compute vrel and vrel/vfrag from get_vrelonvfrag subroutine
                  call get_vrelonvfrag(xyzh(:,i),vxyzu(:,i),dustprop(:,i),rhod,vrel,tstop(i))
                  !
@@ -211,7 +211,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
                         dsdt(i) = -rhod/dustprop(2,i)*vrel*(dustprop(3,i)**2)/(1+dustprop(3,i)**2) ! Kobayashi model
                        case default
                             dsdt(i) = 0.
-                       end select        
+                       end select
                 endif
         endif
  enddo
