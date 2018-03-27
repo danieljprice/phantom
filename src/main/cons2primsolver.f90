@@ -169,10 +169,7 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,ien_type)
     enddo
 
     if (.not.converged) then
-       print*,' Warning: cons2prim did not converge, reached max number of iterations',niter
-       print*,' enthold  =',enth_old
-       print*,' enthnew  =',enth
-       print*,' error    =',abs(enth-enth_old)/enth
+       call warning('cons2primsolver','enthalpy did not converge. delta enth / enth = ',val=abs(enth-enth_old)/enth)
        ierr = 1
        return
     endif
