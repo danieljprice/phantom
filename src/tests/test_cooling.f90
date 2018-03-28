@@ -18,7 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: coolfunc, cooling, io, testutils
+!  DEPENDENCIES: chem, coolfunc, cooling, h2cooling, io, part, physcon,
+!    testutils, units
 !+
 !--------------------------------------------------------------------------
 module testcooling
