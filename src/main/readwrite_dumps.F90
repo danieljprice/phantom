@@ -657,7 +657,7 @@ subroutine write_smalldump(t,dumpfile)
        ilen(4) = npart
        do k=1,ndatatypes
           call write_array(4,Bxyz,Bxyz_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-      enddo
+       enddo
     endif
 
     if (ipass==1) call write_block_header(narraylengths,ilen,nums,idump,ierr)
