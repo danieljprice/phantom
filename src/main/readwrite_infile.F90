@@ -276,7 +276,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use dust,          only:read_options_dust
 #ifdef DUSTGROWTH
  use growth,                only:read_options_growth
- use options,				only:use_dustfrac
+ use options,                                only:use_dustfrac
 #endif
 #endif
 #ifdef PHOTO

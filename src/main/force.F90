@@ -1453,7 +1453,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 endif
                 if (use_dustgrowth) then
                    call get_ts(idrag,dustprop(1,j),dustprop(2,j),rhoi,rhoj,spsoundi,dv2,tsij,iregime)
-				   dustprop(4,j) = dv2
+                                   dustprop(4,j) = dv2
                 else
                    call get_ts(idrag,grainsize,graindens,rhoi,rhoj,spsoundi,dv2,tsij,iregime)
                 endif
@@ -1478,7 +1478,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    wdrag = wkern_drag(q2j,qj)*hj21*hj1*cnormk_drag
                 endif
                 call get_ts(idrag,grainsizei,graindensi,rhoj,rhoi,spsoundj,dv2,tsij,iregime)
-				if (use_dustgrowth) dustprop(4,i) = dv2
+                                if (use_dustgrowth) dustprop(4,i) = dv2
                 dragterm = 3.*pmassj/((rhoi + rhoj)*tsij)*projv*wdrag
                 ts_min = min(ts_min,tsij)
                 ndrag = ndrag + 1
