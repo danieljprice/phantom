@@ -1452,7 +1452,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    wdrag = wkern_drag(q2j,qj)*hj21*hj1*cnormk_drag
                 endif
                 if (use_dustgrowth) then
-					dustprop(4,j) = dustprop(4,j) + 3*pmassi/rhoi*projv*wdrag !--interpolate dv at dust particle location with gas neighbours
+                   dustprop(4,j) = dustprop(4,j) + 3*pmassi/rhoi*projv*wdrag !--interpolate dv at dust particle location with gas neighbours
                    call get_ts(idrag,dustprop(1,j),dustprop(2,j),rhoi,rhoj,spsoundi,dv2,tsij,iregime)
                 else
                    call get_ts(idrag,grainsize,graindens,rhoi,rhoj,spsoundi,dv2,tsij,iregime)
@@ -1478,7 +1478,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    wdrag = wkern_drag(q2j,qj)*hj21*hj1*cnormk_drag
                 endif
                 call get_ts(idrag,grainsizei,graindensi,rhoj,rhoi,spsoundj,dv2,tsij,iregime)
-				if (use_dustgrowth) dustprop(4,i) = dustprop(4,i) + 3*pmassj/rhoj*projv*wdrag
+                if (use_dustgrowth) dustprop(4,i) = dustprop(4,i) + 3*pmassj/rhoj*projv*wdrag
                 dragterm = 3.*pmassj/((rhoi + rhoj)*tsij)*projv*wdrag
                 ts_min = min(ts_min,tsij)
                 ndrag = ndrag + 1
