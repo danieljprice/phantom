@@ -167,9 +167,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use timestep,         only:time,dt,dtextforce,C_force,dtmax, &
                             rho_dtthresh,rho_dtthresh_cgs,dtmax_rat0,mod_dtmax,mod_dtmax_now
  use timing,           only:get_timings
-#ifdef RESET_COFM
- use centreofmass,     only:reset_centreofmass
-#endif
 #ifdef SORT
  use sort_particles,   only:sort_part
 #endif
