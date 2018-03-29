@@ -232,14 +232,13 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,dustprop,rhod,vrel,ts)
 
  real                                :: St,Vt,cs,T,r
 
- !--compute sound speed & terminal velocity
+ !--compute sound speed (and T) & terminal velocity
  cs = get_spsound(ieos,xyzh,rhod,vxyzu,T)
  Vt = sqrt((2**0.5)*Ro*alpha)*cs
 
  !--compute the Stokes number
  r = sqrt(xyzh(1)**2+xyzh(2)**2)
- St = sqrt(xyzmh_ptmass(4,1)/r**3)*ts !G=1 in code units
-
+ St = 0. !-to compute
  !--compute vrel
  vrel = vrelative(cs,St,dustprop(4),Vt,alpha)
 
@@ -342,12 +341,12 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
 end subroutine read_options_growth
 
 !--Compute the relative velocity following Stepinski & Valageas (1997)
-real function vrelative(spsound,St,dv2,Vt,alpha)
- real, intent(in) :: spsound,St,alpha,dv2,Vt
+real function vrelative(spsound,St,dv,Vt,alpha)
+ real, intent(in) :: spsound,St,alpha,dv,Vt
  real                          :: Sc
 
  !--compute Schmidt number Sc
- Sc = (1+St)*sqrt(1+dv2/Vt**2)
+ Sc = (1+St)*sqrt(1+dv**2/Vt**2)
 
  !--then compute vrel
  vrelative = sqrt(2**(1.5)*Ro*alpha)*spsound*sqrt(Sc-1)/(Sc)
