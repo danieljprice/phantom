@@ -807,12 +807,12 @@ ifeq ($(SETUP), default)
     FPPFLAGS= -DPERIODIC
 endif
 
-ifeq ($(SETUP), clumpybox)
-    KNOWN_SETUP=yes
-    ANALYSIS = ${LINKLIST} analysis_velocitydispersion_vs_scale.f90
+#ifeq ($(SETUP), clumpybox) # [buildbot skip]
+#    KNOWN_SETUP=yes
+#    ANALYSIS = ${LINKLIST} analysis_velocitydispersion_vs_scale.f90
 #    ANALYSIS = adaptivemesh.f90 interpolate3D_amr.f90 analysis_pdfs_dhf.f90
-    SETUPFILE= setup_fromgrid.f90
-endif
+#    SETUPFILE= setup_fromgrid.f90
+#endif
 
 ifeq ($(SETUP), galaxies)
 #   Read in data created from Wurster&Thacker(2013a,b)
