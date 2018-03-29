@@ -276,6 +276,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use dust,          only:read_options_dust
 #ifdef DUSTGROWTH
  use growth,                only:read_options_growth
+ use options,                                only:use_dustfrac
 #endif
 #endif
 #ifdef PHOTO
@@ -429,7 +430,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef DUST
        if (.not.imatch) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
 #ifdef DUSTGROWTH
-       if (.not.imatch) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
+       if (.not.imatch .and. .not.use_dustfrac) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
 #endif
 #endif
 #ifdef PHOTO

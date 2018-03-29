@@ -212,7 +212,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:gamma,polyk,ieos,init_eos
- use part,             only:hfact,h2chemistry,dxi
+ use part,             only:hfact,h2chemistry
  use setup,            only:setpart
  use checksetup,       only:check_setup
  use h2cooling,        only:init_h2cooling
@@ -223,7 +223,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use units,            only:unit_density
  use centreofmass,     only:get_centreofmass
  use energies,         only:etot,angtot,totmom,mdust,xyzcom
- use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in,dxi_in
+ use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  integer         :: ierr,i,j,idot,nerr,nwarn
@@ -592,25 +592,18 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !  get_conserve=0.5: update centre of mass only; get_conserve=1: update all; get_conserve=-1: update none
 !
  if (get_conserv > 0.0) then
-    xyzcom_in = xyzcom
-    dxi_in    = min(dxi(1),dxi(2),dxi(ndim))
-    if (get_conserv > 0.75) then
-       etot_in   = etot
-       angtot_in = angtot
-       totmom_in = totmom
-       mdust_in  = mdust
-       write(iprint,'(1x,a)') 'Setting initial values to verify conservation laws:'
-    else
-       write(iprint,'(1x,a)') 'Reading initial values to verify conservation laws from previous run; resetting centre of mass:'
-    endif
+    etot_in   = etot
+    angtot_in = angtot
+    totmom_in = totmom
+    mdust_in  = mdust
     get_conserv = -1.
+    write(iprint,'(1x,a)') 'Setting initial values to verify conservation laws:'
  else
     write(iprint,'(1x,a)') 'Reading initial values to verify conservation laws from previous run:'
  endif
  write(iprint,'(2x,a,es18.6)')   'Initial total energy:     ', etot_in
  write(iprint,'(2x,a,es18.6)')   'Initial angular momentum: ', angtot_in
  write(iprint,'(2x,a,es18.6)')   'Initial linear momentum:  ', totmom_in
- write(iprint,'(2x,a,3es18.6)')  'Initial centre of mass:   ', xyzcom_in
 #ifdef DUST
  write(iprint,'(2x,a,es18.6,/)') 'Initial dust mass:        ', mdust_in
 #endif

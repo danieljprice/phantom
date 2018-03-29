@@ -74,7 +74,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real(kind=4), intent(out)   :: divcurlB(:,:)
  real,         intent(in)    :: Bevol(:,:)
  real,         intent(out)   :: dBevol(:,:)
- real,         intent(in)    :: dustfrac(:),dustprop(:,:)
+ real,         intent(in)    :: dustfrac(:)
+ real,                   intent(inout) :: dustprop(:,:)
  real,         intent(out)   :: ddustfrac(:),ddustprop(:,:)
  real,         intent(inout) :: temperature(:)
  real,         intent(in)    :: time,dt
