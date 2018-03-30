@@ -1222,7 +1222,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              dustfracj = 0.; sqrtrhodustfracj = 0.
           endif
        else ! set to zero terms which are used below without an if (usej)
-          rhoj      = 0.
+          !rhoj      = 0.
           rho1j     = 0.
           rho21j    = 0.
 
@@ -1477,7 +1477,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    wdrag = wkern_drag(q2j,qj)*hj21*hj1*cnormk_drag
                 endif
                 call get_ts(idrag,grainsizei,graindensi,rhoj,rhoi,spsoundj,dv2,tsij,iregime)
-                if (use_dustgrowth) dustprop(4,i) = dustprop(4,i) + 3*pmassj/rhoj*projv*wdrag
+                if (use_dustgrowth .and. usej) dustprop(4,i) = dustprop(4,i) + 3*pmassj/rhoj*projv*wdrag !--interpolate vd-vg for the dust particle i
                 dragterm = 3.*pmassj/((rhoi + rhoj)*tsij)*projv*wdrag
                 ts_min = min(ts_min,tsij)
                 ndrag = ndrag + 1

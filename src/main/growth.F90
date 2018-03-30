@@ -50,7 +50,7 @@ module growth
  real, public                :: vfragin        = 5.
  real, public                :: vfragout        = 15.
 
- public                        :: get_growth_rate,get_vrelonvfrag
+ public                        :: get_growth_rate,get_vrelonvfrag,update_dustprop
  public                        :: write_options_growth,read_options_growth,print_growthinfo,init_growth
  public                        :: vrelative
 
@@ -75,6 +75,8 @@ subroutine init_growth(ierr)
  !--initialise variables in code units
  dustprop(1,:) = grainsize
  dustprop(2,:) = graindens
+ dustprop(3,:) = 0.
+ dustprop(4,:) = 0.
  ddustprop(:,:) = 0.
  vfrag = vfrag * 100 / unit_velocity
  vfragin = vfragin * 100 / unit_velocity
@@ -198,7 +200,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
        !--compute vrel and vrel/vfrag from get_vrelonvfrag subroutine
        call get_vrelonvfrag(xyzh(:,i),vxyzu(:,i),dustprop(:,i),rhod,vrel,tstop(i))
        !
-       !--dustprop(1)= size, dustprop(2) = intrinsic density, dustprop(3) = local vrel/vfrag, dustprop(4) = vd - vg
+       !--dustprop(1)= size, dustprop(2) = intrinsic density, dustprop(3) = vrel/vfrag, dustprop(4) = vd - vg
        !--if statements to compute ds/dt
        !
        if (dustprop(3,i) >= 1.) then ! vrel/vfrag < 1 --> growth
@@ -225,12 +227,13 @@ end subroutine get_growth_rate
 subroutine get_vrelonvfrag(xyzh,vxyzu,dustprop,rhod,vrel,ts)
  use eos,                        only:ieos,get_spsound
  use options,                only:alpha
+ use part,					only:xyzmh_ptmass
  real, intent(in)        :: xyzh(:),ts,rhod
  real, intent(out)        :: vrel
  real, intent(inout)                :: dustprop(:)
  real, intent(inout):: vxyzu(:)
 
- real                                :: St,Vt,cs,T,r
+ real                                :: St,Vt,cs,T,r,omegak
 
  !--compute sound speed (and T) & terminal velocity
  cs = get_spsound(ieos,xyzh,rhod,vxyzu,T)
@@ -238,10 +241,10 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,dustprop,rhod,vrel,ts)
 
  !--compute the Stokes number
  r = sqrt(xyzh(1)**2+xyzh(2)**2)
- St = 0. !-to compute
+ omegak = sqrt(xyzmh_ptmass(4,1)/r**3) !--G=1 in code units
+ St = omegak*ts
  !--compute vrel
  vrel = vrelative(cs,St,dustprop(4),Vt,alpha)
-
  !
  !--If statements to compute local ratio vrel/vfrag
  !
@@ -339,6 +342,23 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     igotall = .false.
  endif
 end subroutine read_options_growth
+
+!
+!  Update dustprop and make sure grainsize is not to small
+!
+subroutine update_dustprop(npart,dustproppred)
+	use part,		only:iamtype,iphase,idust,dustprop
+	real,intent(in)		:: dustproppred(:,:)
+	integer,intent(in)	:: npart
+	integer				:: i
+	
+	do i=1,npart
+		if (iamtype(iphase(i))==idust) then
+			dustprop(:,i) = dustproppred(:,i)
+			if (ifrag > 0 .and. dustprop(1,i) < grainsizemin) dustprop(1,i) = grainsizemin
+		endif
+	enddo
+end subroutine update_dustprop
 
 !--Compute the relative velocity following Stepinski & Valageas (1997)
 real function vrelative(spsound,St,dv,Vt,alpha)
