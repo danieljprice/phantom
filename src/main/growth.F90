@@ -227,7 +227,7 @@ end subroutine get_growth_rate
 subroutine get_vrelonvfrag(xyzh,vxyzu,dustprop,rhod,vrel,ts)
  use eos,                        only:ieos,get_spsound
  use options,                only:alpha
- use part,					only:xyzmh_ptmass
+ use part,                                        only:xyzmh_ptmass
  real, intent(in)        :: xyzh(:),ts,rhod
  real, intent(out)        :: vrel
  real, intent(inout)                :: dustprop(:)
@@ -347,17 +347,17 @@ end subroutine read_options_growth
 !  Update dustprop and make sure grainsize is not to small
 !
 subroutine update_dustprop(npart,dustproppred)
-	use part,		only:iamtype,iphase,idust,dustprop
-	real,intent(in)		:: dustproppred(:,:)
-	integer,intent(in)	:: npart
-	integer				:: i
-	
-	do i=1,npart
-		if (iamtype(iphase(i))==idust) then
-			dustprop(:,i) = dustproppred(:,i)
-			if (ifrag > 0 .and. dustprop(1,i) < grainsizemin) dustprop(1,i) = grainsizemin
-		endif
-	enddo
+        use part,                only:iamtype,iphase,idust,dustprop
+        real,intent(in)                :: dustproppred(:,:)
+        integer,intent(in)        :: npart
+        integer                                :: i
+        
+        do i=1,npart
+                if (iamtype(iphase(i))==idust) then
+                        dustprop(:,i) = dustproppred(:,i)
+                        if (ifrag > 0 .and. dustprop(1,i) < grainsizemin) dustprop(1,i) = grainsizemin
+                endif
+        enddo
 end subroutine update_dustprop
 
 !--Compute the relative velocity following Stepinski & Valageas (1997)
