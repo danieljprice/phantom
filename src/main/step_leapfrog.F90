@@ -365,7 +365,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              endif
 
              vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
-                         if (use_dustgrowth .and. itype==idust) dustproppred(:,i) = dustproppred(:,i) + dti*ddustprop(:,i)
+             if (use_dustgrowth .and. itype==idust) dustproppred(:,i) = dustproppred(:,i) + dti*ddustprop(:,i)
              if (itype==igas) then
                 if (mhd)          Bevol(:,i)  = Bevol(:,i)  + dti*dBevol(:,i)
                 if (use_dustfrac) dustevol(i) = dustevol(i) + dti*ddustfrac(i)
@@ -467,7 +467,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                                          temperature,timei,dtsph,dtnew)
     endif
 #ifdef DUSTGROWTH
-        call update_dustprop(npart,dustproppred) !--update dustprop values
+    call update_dustprop(npart,dustproppred) !--update dustprop values
 #endif
  enddo iterations
  ! Summary statements & crash if velocity is not converged
