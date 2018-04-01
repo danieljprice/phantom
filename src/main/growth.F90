@@ -351,7 +351,7 @@ subroutine update_dustprop(npart,dustproppred)
         real,intent(in)                :: dustproppred(:,:)
         integer,intent(in)        :: npart
         integer                                :: i
-        
+
         do i=1,npart
                 if (iamtype(iphase(i))==idust) then
                         dustprop(:,i) = dustproppred(:,i)
