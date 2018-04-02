@@ -276,7 +276,7 @@ subroutine test_ptmass(ntests,npass)
           call checkval(totmom,totmomin,5.e-6,nfailed(2),'linear momentum')
 #else
           call checkval(angtot,angmomin,1.1e-6,nfailed(3),'angular momentum')
-          call checkval(totmom,totmomin,3.e-14,nfailed(2),'linear momentum')
+          call checkval(totmom,totmomin,4.e-14,nfailed(2),'linear momentum')
 #endif
           call checkval(etotin+errmax,etotin,1.2e-2,nfailed(1),'total energy')
        case(2)

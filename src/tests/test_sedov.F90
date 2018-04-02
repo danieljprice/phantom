@@ -52,7 +52,7 @@ subroutine test_sedov(ntests,npass)
  use evolve,    only:evol
  use viscosity, only:irealvisc
  use io_summary,only:summary_reset
- use initial_params, only:etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in,dxi_in
+ use initial_params, only:etot_in,angtot_in,totmom_in,mdust_in
  use mpiutils,  only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2)
@@ -160,8 +160,6 @@ subroutine test_sedov(ntests,npass)
     angtot_in = angtot
     totmom_in = totmom
     mdust_in  = mdust
-    xyzcom_in = 0.0
-    dxi_in    = 1.0
     call evol('test.in',logfile,evfile,dumpfile)
     call write_evfile(time,dt)
     etotend   = etot

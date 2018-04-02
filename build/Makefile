@@ -913,12 +913,12 @@ ifeq ($(SETUP), default)
     FPPFLAGS= -DPERIODIC
 endif
 
-ifeq ($(SETUP), clumpybox)
-    KNOWN_SETUP=yes
-    ANALYSIS = ${LINKLIST} analysis_velocitydispersion_vs_scale.f90
+#ifeq ($(SETUP), clumpybox) # [buildbot skip]
+#    KNOWN_SETUP=yes
+#    ANALYSIS = ${LINKLIST} analysis_velocitydispersion_vs_scale.f90
 #    ANALYSIS = adaptivemesh.f90 interpolate3D_amr.f90 analysis_pdfs_dhf.f90
-    SETUPFILE= setup_fromgrid.f90
-endif
+#    SETUPFILE= setup_fromgrid.f90
+#endif
 
 ifeq ($(SETUP), galaxies)
 #   Read in data created from Wurster&Thacker(2013a,b)
@@ -1513,7 +1513,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 \
          sort_particles.F90 evwrite.F90 \
          step_leapfrog.F90 writeheader.F90 writegitinfo.f90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90\
-         geometry.f90 stretchmap.f90 prompting.f90 density_profiles.f90 set_unifdis.f90 set_sphere.f90 set_vfield.f90 \
+         geometry.f90 stretchmap.f90 prompting.f90 density_profiles.f90 set_unifdis.f90 set_slab.f90 set_sphere.f90 set_vfield.f90 \
          ${SETUPFILE} checksetup.F90 utils_testsuite.f90 \
          ${SRCTEST} testsuite.F90 initial.F90
 
@@ -1582,7 +1582,7 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_filenames.f90 util
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} \
           ptmass.F90 energies.F90 \
           geometry.f90 stretchmap.f90 prompting.f90 density_profiles.f90 \
-          set_unifdis.f90 set_sphere.f90 set_disc.F90 \
+          set_unifdis.f90 set_slab.f90 set_sphere.f90 set_disc.F90 \
           set_vfield.f90 sort_particles.F90 ${SRCINJECT} \
           ${SRCBONDI} \
           ${SETUPFILE} checksetup.F90 \

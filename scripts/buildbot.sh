@@ -31,7 +31,7 @@ else
 fi
 pwd=$PWD;
 phantomdir="$pwd/../";
-listofcomponents='main utils';
+listofcomponents='main utils setup';
 #listofcomponents='setup';
 #
 # change the line below to exclude things that depend on external libraries from the build
@@ -259,9 +259,9 @@ for setup in $listofsetups; do
       fi
       if [ $err -gt 0 ]; then
          echo "<td><a href=\"$href\">error log</a></td><td>$errors</td>" >> $htmlfile;
-      else 
+      else
          if [ $err -lt 0 ]; then
-            echo "<td></td><td></td>" >> $htmlfile;   
+            echo "<td></td><td></td>" >> $htmlfile;
          else
             echo "<td><a href=\"$href\">warnings</a></td><td></td>" >> $htmlfile;
          fi

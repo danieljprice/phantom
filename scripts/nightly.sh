@@ -84,6 +84,7 @@ run_buildbot ()
    for sys in $systems; do
       export SYSTEM=$sys;
       echo "SYSTEM=$SYSTEM";
+      export PHANTOM_DIR=$codedir; # so setup tests can find data files
       ./testbot.sh "$url/nightly/logs/";
       ./buildbot.sh 17000000 "$url/nightly/logs/";
    done

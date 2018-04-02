@@ -39,24 +39,22 @@ module eos_helmholtz
  public :: eos_helmholtz_get_maxrho
  public :: eos_helmholtz_get_mintemp
  public :: eos_helmholtz_get_maxtemp
-
- private :: psi0, dpsi0, ddpsi0
- private :: psi1, dpsi1, ddpsi1
- private :: psi2, dpsi2, ddpsi2
- private :: xpsi0, xdpsi0
- private :: xpsi1, xdpsi1
- private :: h3, h5
+ public :: eos_helmholtz_eosinfo
 
  integer, public :: relaxflag = 1
 
- ! these set the mixture of species
- ! currently hard-coded to 50/50 carbon-oxygen
- ! abar = [sum (mass fraction / # nucleons) ]^(-1)
- real, parameter :: abar   = 13.7142857
- ! zbar = [sum (mass fraction / # protons) ]^(-1)
- real, parameter :: zbar   = 6.857142857
 
  private
+
+ ! these set the mixture of species
+ ! currently hard-coded to 50/50 carbon-oxygen
+
+ integer, parameter :: speciesmax = 15
+ character(len=10) :: speciesname(speciesmax)
+ real :: xmass(speciesmax) ! mass fraction of species
+ real :: Aion(speciesmax)  ! number of nucleons
+ real :: Zion(speciesmax)  ! number of protons
+ real :: abar, zbar
 
  integer, parameter :: imax = 271
  integer, parameter :: jmax = 101
@@ -137,6 +135,56 @@ subroutine eos_helmholtz_init(ierr)
  if (relaxflag /= 0 .and. relaxflag /= 1) then
     call eos_helmholtz_set_relaxflag(1)
  endif
+
+
+ ! set the species information
+ speciesname(1) = "hydrogen"
+ speciesname(2) = "helium"
+ speciesname(3) = "carbon"
+ speciesname(4) = "oxygen"
+ speciesname(5) = "neon"
+ speciesname(6) = "magnesium"
+ speciesname(7) = "silicon"
+ speciesname(8) = "sulphur"
+ speciesname(9) = "argon"
+ speciesname(10) = "calcium"
+ speciesname(11) = "titanium"
+ speciesname(12) = "chromium"
+ speciesname(13) = "iron"
+ speciesname(14) = "nickel"
+ speciesname(15) = "zinc"
+
+ Aion(1) = 1.0    ;  Zion(1) = 1.0   ! hydrogen
+ Aion(2) = 4.0    ;  Zion(2) = 2.0   ! helium
+ Aion(3) = 12.0   ;  Zion(3) = 6.0   ! carbon
+ Aion(4) = 16.0   ;  Zion(4) = 8.0   ! oxygen
+ Aion(5) = 20.0   ;  Zion(5) = 10.0  ! neon
+ Aion(6) = 24.0   ;  Zion(6) = 12.0  ! magnesium
+ Aion(7) = 28.0   ;  Zion(7) = 14.0  ! silicon
+ Aion(8) = 32.0   ;  Zion(8) = 16.0  ! sulphur
+ Aion(9) = 36.0   ;  Zion(9) = 18.0  ! argon
+ Aion(10) = 40.0  ;  Zion(10) = 20.0  ! calcium
+ Aion(11) = 44.0  ;  Zion(11) = 22.0  ! titanium
+ Aion(12) = 48.0  ;  Zion(12) = 24.0  ! chromium
+ Aion(13) = 52.0  ;  Zion(13) = 26.0  ! iron
+ Aion(14) = 56.0  ;  Zion(14) = 28.0  ! nickel
+ Aion(15) = 60.0  ;  Zion(15) = 30.0  ! zinc
+
+ ! set the mass weightings of each species
+ ! currently hard-coded to 50/50 carbon-oxygen
+ ! TODO: update this be set by user at runtime
+ xmass(:) = 0.0
+ xmass(3) = 0.5
+ xmass(4) = 0.5
+
+ if (sum(xmass(:)) > 1.0+tiny(xmass) .or. sum(xmass(:)) < 1.0-tiny(xmass)) then
+    call warning('eos_helmholtz', 'mass fractions total != 1')
+    ierr = 1
+    return
+ endif
+
+ call eos_helmholtz_calc_AbarZbar()
+
 
  ! find the table datafile
  filename = find_phantom_datafile('helm_table.dat', 'eos/helmholtz')
@@ -235,6 +283,19 @@ subroutine eos_helmholtz_init(ierr)
 end subroutine eos_helmholtz_init
 
 
+!----------------------------------------------------------------------------------------
+!+
+!  Calculates average atomic weight (Abar) and charge (Zbar) from the element abundances
+!  See Section 2.1 of Timmes & Swesty (2000)
+!+
+!----------------------------------------------------------------------------------------
+subroutine eos_helmholtz_calc_AbarZbar()
+
+ abar = 1.0 / sum(xmass(:) / aion(:))
+ zbar = abar * sum(xmass(:) * zion(:) / aion(:))
+
+end subroutine eos_helmholtz_calc_AbarZbar
+
 
 !----------------------------------------------------------------
 !+
@@ -293,6 +354,26 @@ end function eos_helmholtz_get_mintemp
 real function eos_helmholtz_get_maxtemp()
  eos_helmholtz_get_maxtemp = tempmax
 end function eos_helmholtz_get_maxtemp
+
+
+!----------------------------------------------------------------
+!+
+!  print eos information
+!+
+!----------------------------------------------------------------
+subroutine eos_helmholtz_eosinfo(iprint)
+ integer, intent(in) :: iprint
+ integer :: i
+
+ write(iprint,"(/,a)") ' Helmholtz free energy equation of state'
+ write(iprint,"(a)") '   mass fractions of each species:'
+ do i=1,speciesmax
+    if (xmass(i) > 0.0) then
+       write(iprint,"(a,a,a,f5.3)") '     ', speciesname(i), ': ', xmass(i)
+    endif
+ enddo
+
+end subroutine eos_helmholtz_eosinfo
 
 
 !----------------------------------------------------------------

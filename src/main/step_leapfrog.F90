@@ -26,9 +26,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: chem, coolfunc, deriv, dim, eos, externalforces, io,
-!    io_summary, mpiutils, options, part, ptmass, timestep, timestep_ind,
-!    timestep_sts
+!  DEPENDENCIES: chem, coolfunc, deriv, dim, eos, externalforces, growth,
+!    io, io_summary, mpiutils, options, part, ptmass, timestep,
+!    timestep_ind, timestep_sts
 !+
 !--------------------------------------------------------------------------
 module step_lf_global
@@ -90,7 +90,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use options,        only:damp,tolv,iexternalforce,icooling,use_dustfrac
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           isdead_or_accreted,rhoh,dhdrho,&
-                          iphase,iamtype,massoftype,maxphase,igas,mhd,maxBevol,&
+                          iphase,iamtype,massoftype,maxphase,igas,idust,mhd,maxBevol,&
                           switches_done_in_derivs,iboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustfrac,temperature,alphaind,nptmass,store_temperature,&
                                                   dustprop,ddustprop,dustproppred,pxyzu,dens
@@ -112,6 +112,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use metric,         only:imetric
  use metric_tools,   only:imet_minkowski
  use cons2prim,      only:conservative_to_primitive
+#endif
+#ifdef DUSTGROWTH
+ use growth,         only:update_dustprop
 #endif
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -279,9 +282,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #else
        vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
 #endif
-if (use_dustgrowth) then
-   dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
-endif
+       if (use_dustgrowth .and. itype==idust) then
+          dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
+       endif
        if (itype==igas) then
           if (mhd) Bpred(:,i) = Bevol (:,i) + hdti*dBevol(:,i)
           if (use_dustfrac) then
@@ -373,6 +376,7 @@ endif
 #endif
 !$omp shared(Bevol,dBevol,iphase,its) &
 !$omp shared(dustevol,ddustfrac,use_dustfrac) &
+!$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
 !$omp shared(dtsph,icooling) &
 #ifdef IND_TIMESTEPS
@@ -413,6 +417,7 @@ endif
 #else
              vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
 #endif
+             if (use_dustgrowth .and. itype==idust) dustproppred(:,i) = dustproppred(:,i) + dti*ddustprop(:,i)
              if (itype==igas) then
                 if (mhd)          Bevol(:,i)  = Bevol(:,i)  + dti*dBevol(:,i)
                 if (use_dustfrac) dustevol(i) = dustevol(i) + dti*ddustfrac(i)
@@ -564,9 +569,10 @@ endif
                                          temperature,timei,dtsph,dtnew)
 #endif
     endif
-
+#ifdef DUSTGROWTH
+    call update_dustprop(npart,dustproppred) !--update dustprop values
+#endif
  enddo iterations
-
  ! Summary statements & crash if velocity is not converged
  if (nwake > 1) call summary_variable('wake',iowake,  0,real(nwake))
  if (its   > 1) call summary_variable('tolv',iosumtvi,0,real(its)  )

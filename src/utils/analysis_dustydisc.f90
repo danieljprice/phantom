@@ -40,7 +40,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
  use part,    only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac,&
                    maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass,isdead_or_accreted
  use options, only:iexternalforce,use_dustfrac
- use units,   only:umass,udist,utime
+ use units,   only:umass,udist
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyz(:,:)
  real,             intent(in) :: pgasmass,time

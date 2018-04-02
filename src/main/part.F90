@@ -57,7 +57,7 @@ module part
 !--storage of dust properties
 !
  real :: dustprop(4,maxp_growth)
- character(len=*), parameter :: dustprop_label(4) = (/'grainsize ','graindens ','vrel/vfrag','    dv2   '/)
+ character(len=*), parameter :: dustprop_label(4) = (/'grainsize ','graindens ','vrel/vfrag','    dv    '/)
 !
 !--storage in divcurlv
 !

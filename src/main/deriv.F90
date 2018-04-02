@@ -18,8 +18,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: densityforce, dim, externalforces, forces, forcing, io,
-!    linklist, mpiutils, part, photoevap, ptmass, timestep, timing
+!  DEPENDENCIES: densityforce, dim, externalforces, forces, forcing,
+!    growth, io, linklist, mpiutils, part, photoevap, ptmass, timestep,
+!    timing
 !+
 !--------------------------------------------------------------------------
 module deriv
@@ -56,6 +57,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  use photoevap,      only:find_ionfront,photo_ionize
  use part,           only:massoftype
 #endif
+#ifdef DUSTGROWTH
+ use growth,                only:get_growth_rate
+#endif
  use part,         only:mhd,gradh,alphaind,igas
  use timing,       only:get_timings
  use forces,       only:force
@@ -74,7 +78,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real(kind=4), intent(out)   :: divcurlB(:,:)
  real,         intent(in)    :: Bevol(:,:)
  real,         intent(out)   :: dBevol(:,:)
- real,         intent(in)    :: dustfrac(:),dustprop(:,:)
+ real,         intent(in)    :: dustfrac(:)
+ real,                   intent(inout) :: dustprop(:,:)
  real,         intent(out)   :: ddustfrac(:),ddustprop(:,:)
  real,         intent(inout) :: temperature(:)
  real,         intent(in)    :: time,dt
@@ -115,6 +120,14 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  ! update the temperatures of the particles depending on whether ionized or not
  !
  call photo_ionize(vxyzu,npart)
+#endif
+
+#ifdef DUSTGROWTH
+ !
+ ! compute growth rate of dust particles with respect to their positions
+ !
+ call get_growth_rate(npart,xyzh,vxyzu,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
+
 #endif
 !
 ! calculate density by direct summation

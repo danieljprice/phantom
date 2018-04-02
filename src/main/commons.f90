@@ -62,7 +62,7 @@ end module timestep
 module initial_params
  implicit none
  real,    public :: get_conserv = 1.0 ! to track when we have initial values for conservation laws
- real,    public :: etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in(3),dxi_in
+ real,    public :: etot_in,angtot_in,totmom_in,mdust_in
 
 end module initial_params
 

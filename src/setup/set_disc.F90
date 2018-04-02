@@ -818,8 +818,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  real,    intent(in) :: alphaSS_min,alphaSS_max,R_warp,psimax,R_c,inclination,honH,cs0
  integer :: ierr,i
  real    :: T0,T_ref,sig,dR,R
- real :: vxyzutmp(maxvxyzu)
- real, dimension(maxbins) :: sig_vals
+ real    :: vxyzutmp(maxvxyzu)
 
  write(iunit,"(/,a)") '# '//trim(labeltype(itype))//' disc parameters'
  call write_inopt(R_in,'R_in','inner disc boundary',iunit)
@@ -843,11 +842,11 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  sig = sig*umass/udist**2
  call write_inopt(sig,'sig_out','surface density (g/cm^2) at R=R_out',iunit)
  dR = (R_out-R_in)/real(maxbins-1)
+ sig = 0.
  do i=1,maxbins
     R = R_in + (i-1)*dR
-    sig_vals(i) = sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c)
+    sig = max(sig,sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c))
  enddo
- sig = maxval(sig_vals)
  sig = sig*umass/udist**2
  call write_inopt(sig,'sig_max','maximum surface density (g/cm^2)',iunit)
  call write_inopt(Q,'Qmin','minimum Toomre Q parameter',iunit)
