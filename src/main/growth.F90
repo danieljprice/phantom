@@ -203,9 +203,9 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
        !--dustprop(1)= size, dustprop(2) = intrinsic density, dustprop(3) = vrel/vfrag, dustprop(4) = vd - vg
        !--if statements to compute ds/dt
        !
-       if (dustprop(3,i) >= 1.) then ! vrel/vfrag < 1 --> growth
+       if (dustprop(3,i) < 1. .or. ifrag==0) then ! vrel/vfrag < 1 --> growth
           dsdt(i) = rhod/dustprop(2,i)*vrel
-       elseif (dustprop(3,i) < 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
+       elseif (dustprop(3,i) >= 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
           select case(ifrag)
           case(1)
              dsdt(i) = -rhod/dustprop(2,i)*vrel ! Symmetrical of Stepinski & Valageas
@@ -225,7 +225,7 @@ end subroutine get_growth_rate
 !+
 !-----------------------------------------------------------------------
 subroutine get_vrelonvfrag(xyzh,vxyzu,dustprop,rhod,vrel,ts)
- use eos,                        only:ieos,get_spsound
+ use eos,                        only:ieos,get_spsound,get_temperature
  use options,                only:alpha
  use part,                                        only:xyzmh_ptmass
  real, intent(in)        :: xyzh(:),ts,rhod
@@ -236,7 +236,8 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,dustprop,rhod,vrel,ts)
  real                                :: St,Vt,cs,T,r,omegak
 
  !--compute sound speed (and T) & terminal velocity
- cs = get_spsound(ieos,xyzh,rhod,vxyzu,T)
+ cs = get_spsound(ieos,xyzh,rhod,vxyzu)
+ T = get_temperature(ieos,xyzh,rhod,vxyzu)
  Vt = sqrt((2**0.5)*Ro*alpha)*cs
 
  !--compute the Stokes number
@@ -261,7 +262,6 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,dustprop,rhod,vrel,ts)
     dustprop(3) = 0.
     vrel = 0.
  end select
-
 end subroutine get_vrelonvfrag
 
 !-----------------------------------------------------------------------
@@ -279,7 +279,7 @@ subroutine write_options_growth(iunit)
     call write_inopt(grainsizemin,'grainsizemin','minimum grain size in cm',iunit)
     call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
     if (isnow == 1) call write_inopt(rsnow,'rsnow','position of the snow line in AU',iunit)
-    if (isnow == 2) call write_inopt(rsnow,'Tsnow','snow line condensation temperature in K',iunit)
+    if (isnow == 2) call write_inopt(Tsnow,'Tsnow','snow line condensation temperature in K',iunit)
     if (isnow == 0) call write_inopt(vfrag,'vfrag','uniform fragmentation threshold in m/s',iunit)
     if (isnow > 0) then
        call write_inopt(vfragin,'vfragin','inward fragmentation threshold in m/s',iunit)
