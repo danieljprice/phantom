@@ -123,7 +123,7 @@ subroutine eos_helmholtz_init(ierr)
  use io,        only:warning
  use datafiles, only:find_phantom_datafile
  integer, intent(out) :: ierr
- character(len=80) :: filename
+ character(len=120) :: filename
  integer :: i, j
  real    :: tsav, dsav, dth, dt2, dti, dt2i, dt3i, &
                        dd, dd2, ddi, dd2i, dd3i
