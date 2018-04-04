@@ -125,7 +125,7 @@ subroutine eos_helmholtz_init(ierr)
  integer, intent(out) :: ierr
  character(len=120) :: filename
  character(len=120) :: line
- integer :: i, j
+ integer :: i, j, iunit
  real    :: tsav, dsav, dth, dt2, dti, dt2i, dt3i, &
                        dd, dd2, ddi, dd2i, dd3i
  real    :: thi, tstp, dhi, dstp
@@ -191,7 +191,7 @@ subroutine eos_helmholtz_init(ierr)
  filename = find_phantom_datafile('helm_table.dat', 'eos/helmholtz')
 
  ! open the table datafile
- open(unit=19,file=trim(filename),status='old',iostat=ierr)
+ open(newunit=iunit,file=trim(filename),status='old',iostat=ierr)
  if (ierr /= 0) then
     call warning('eos_helmholtz','could not find helm_table.dat to initialise eos')
     ierr = 1
@@ -199,11 +199,14 @@ subroutine eos_helmholtz_init(ierr)
  endif
 
  ! check that the full datafile is there, not just the text git-lfs pointer
- read(19,*,iostat=ierr) line
+ read(iunit,*,iostat=ierr) line
  if (line(1:7) == 'version') then
     call warning('eos_helmoltz','full datafile not present. Download using git-lfs')
     ierr = 1
     return
+ else
+    rewind(iunit)
+    ierr = 0
  endif
 
  ! for standard table limits
@@ -223,10 +226,10 @@ subroutine eos_helmholtz_init(ierr)
     do i=1,imax
        dsav = dlo + (i-1)*dstp
        d(i) = 10.0**(dsav)
-       read(19,*,iostat=ierr) f(i,j),fd(i,j),ft(i,j),fdd(i,j),ftt(i,j),fdt(i,j), &
+       read(iunit,*,iostat=ierr) f(i,j),fd(i,j),ft(i,j),fdd(i,j),ftt(i,j),fdt(i,j), &
                   fddt(i,j),fdtt(i,j),fddtt(i,j)
        if (ierr /= 0) then
-          call warning('eos_helmholtz','error reading from helm_table.dat')
+          call warning('eos_helmholtz','error reading helmholtz free energy from helm_table.dat')
           ierr = 1
           return
        endif
@@ -237,9 +240,9 @@ subroutine eos_helmholtz_init(ierr)
  ! read the pressure derivative with density table
  do j=1,jmax
     do i=1,imax
-       read(19,*,iostat=ierr) dpdf(i,j),dpdfd(i,j),dpdft(i,j),dpdfdt(i,j)
+       read(iunit,*,iostat=ierr) dpdf(i,j),dpdfd(i,j),dpdft(i,j),dpdfdt(i,j)
        if (ierr /= 0) then
-          call warning('eos_helmholtz','error reading from helm_table.dat')
+          call warning('eos_helmholtz','error reading pressure derivative from helm_table.dat')
           ierr = 1
           return
        endif
@@ -249,9 +252,9 @@ subroutine eos_helmholtz_init(ierr)
  ! read the electron chemical potential table
  do j=1,jmax
     do i=1,imax
-       read(19,*,iostat=ierr) ef(i,j),efd(i,j),eft(i,j),efdt(i,j)
+       read(iunit,*,iostat=ierr) ef(i,j),efd(i,j),eft(i,j),efdt(i,j)
        if (ierr /= 0) then
-          call warning('eos_helmholtz','error reading from helm_table.dat')
+          call warning('eos_helmholtz','error reading electron potential from helm_table.dat')
           ierr = 1
           return
        endif
@@ -261,9 +264,9 @@ subroutine eos_helmholtz_init(ierr)
  ! read the number density table
  do j=1,jmax
     do i=1,imax
-       read(19,*,iostat=ierr) xf(i,j),xfd(i,j),xft(i,j),xfdt(i,j)
+       read(iunit,*,iostat=ierr) xf(i,j),xfd(i,j),xft(i,j),xfdt(i,j)
        if (ierr /= 0) then
-          call warning('eos_helmholtz','error reading from helm_table.dat')
+          call warning('eos_helmholtz','error reading number density from helm_table.dat')
           ierr = 1
           return
        endif
@@ -271,7 +274,7 @@ subroutine eos_helmholtz_init(ierr)
  enddo
 
  ! close the file and write a summary message
- close(unit=19)
+ close(unit=iunit)
 
  ! construct the temperature and density deltas and their inverses
  do j=1,jmax-1
@@ -311,7 +314,7 @@ subroutine eos_helmholtz_init(ierr)
 
 end subroutine eos_helmholtz_init
 
- 
+
 !----------------------------------------------------------------------------------------
 !+
 !  Calculates average atomic weight (Abar) and charge (Zbar) from the element abundances
