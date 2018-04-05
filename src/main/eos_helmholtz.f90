@@ -188,7 +188,7 @@ subroutine eos_helmholtz_init(ierr)
 
 
  ! find the table datafile
- filename = find_phantom_datafile('helm_table.dat', 'eos/helmholtz')
+ filename = find_phantom_datafile('helm_data.tab', 'eos/helmholtz')
 
  ! open the table datafile
  open(newunit=iunit,file=trim(filename),status='old',iostat=ierr)
