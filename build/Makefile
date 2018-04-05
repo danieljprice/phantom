@@ -975,6 +975,16 @@ ifeq ($(SYSTEM), g2)
     MPIEXEC='mpiexec -npernode 1'
 endif
 
+ifeq ($(SYSTEM), ozstar)
+#   ozstar facility
+    include Makefile_defaults_ifort
+    OMPFLAGS=-qopenmp
+    NOMP=32
+    #QNAME='skylake'
+    QSYS = slurm
+    WALLTIME='168:00:00'
+endif
+
 ifeq ($(SYSTEM), monarch)
     include Makefile_defaults_ifort
     QSYS = slurm
