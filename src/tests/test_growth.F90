@@ -58,8 +58,8 @@ subroutine test_growth(ntests,npass)
  ntests = ntests + 1
  do ifrag=0,2
     do isnow=0,2
-        call init_growth(ierr)
-        call checkval(ierr,0,0,nfailed(ifrag+isnow+1),'growth initialisation')
+       call init_growth(ierr)
+       call checkval(ierr,0,0,nfailed(ifrag+isnow+1),'growth initialisation')
     enddo
  enddo
  if (all(nfailed==0)) npass = npass + 1
@@ -187,7 +187,7 @@ subroutine test_growingbox(ntests,npass)
  enddo
  call checkvalbuf_end('size integration match exact solution',ncheck(1),nerr(1),errmax(1),tols)
 
-ntests = ntests + 1
+ ntests = ntests + 1
  if (all(nerr(1:1)==0)) npass = npass + 1
 
 end subroutine test_growingbox
