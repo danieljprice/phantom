@@ -1,5 +1,5 @@
 module cons2primsolver
- use eos, only: gamma
+ use eos, only: gamma,ieos,polyk
  implicit none
 
  public :: conservative2primitive,primitive2conservative
@@ -35,6 +35,7 @@ contains
 subroutine get_u(u,P,dens)
  real, intent(in)  :: dens,P
  real, intent(out) :: u
+ real :: uthermconst
 
  ! Needed in dust case when dens = 0 causes P/dens = NaN and therefore enth = NaN
  ! or gamma=1 gives divide-by-zero
@@ -44,6 +45,9 @@ subroutine get_u(u,P,dens)
  else
     u = (P/dens)/(gamma-1.)
  endif
+
+ uthermconst = polyk
+ if (ieos==4) u=uthermconst
 
 end subroutine
 
@@ -150,6 +154,7 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,ien_type)
 
        p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product_gr(pmom,beta,gammaijUP)),0.)
        if (ien_type == ien_entropy) p = en*dens**gamma
+       if (ieos==4) p = (gamma-1.)*dens*polyk
 
        call get_enthalpy(enth,dens,p)
 
@@ -158,6 +163,7 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,ien_type)
        !This line is unique to the equation of state - implemented for adiabatic at the moment
        df= -1.+(gamma/(gamma-1.))*(1.-pmom2*p/(enth_old**3*lorentz_LEO**2*dens))
        if (ien_type == ien_entropy) df = -1. + (gamma*pmom2*P)/(lorentz_LEO**2 * enth_old**3 * dens)
+       if (ieos==4) df = -1. ! Isothermal, I think...
 
        enth = enth_old - f/df
 

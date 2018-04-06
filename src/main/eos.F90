@@ -125,10 +125,11 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
  real :: r,omega,bigH,polyk_new,r1,r2
  real :: gammai
  real :: cgsrhoi, cgseni, cgspgas, pgas, gam1
+ real :: uthermconst
 #ifdef GR
  real :: enthi,pondensi
 ! Check to see if adiabatic equation of state is being used.
- if (eos_type /= 2 .and. eos_type /= 11) &
+ if (eos_type /= 2 .and. eos_type /= 4 .and. eos_type /= 11) &
  call fatal('eos','GR is only compatible with an adiabatic equation of state (ieos=2), for the time being.',&
  var='eos_type',val=real(eos_type))
 #endif
@@ -184,6 +185,14 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
 !
     ponrhoi = polyk*(xi**2 + yi**2 + zi**2)**(-qfacdisc)
     spsoundi = sqrt(ponrhoi)
+
+!
+!--GR isothermal
+!
+ case(4)
+    uthermconst = polyk
+    ponrhoi = (gamma-1.)*uthermconst
+    spsoundi = sqrt(ponrhoi/(1.+uthermconst))
 
  case(6)
 !
