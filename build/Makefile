@@ -255,7 +255,6 @@ ifeq ($(SETUP), disc)
 endif
 
 ifeq ($(SETUP), grdisc)
-#   locally isothermal discs
     FPPFLAGS= -DSORT_RADIUS_INIT
     SETUPFILE= setup_grdisc.f90
     ANALYSIS= analysis_disc.f90
@@ -264,7 +263,7 @@ ifeq ($(SETUP), grdisc)
     METRIC=kerr
     KNOWN_SETUP=yes
     MULTIRUNFILE= multirun.f90
-    IND_TIMESTEPS=no
+    IND_TIMESTEPS=yes
     NCELLSMAX=2*maxp
 endif
 
