@@ -34,20 +34,20 @@
 !--------------------------------------------------------------------------
 module growth
  use units,        only:udist,unit_density,unit_velocity
- use physcon,        only:au,Ro
- use part,                only:xyzmh_ptmass
+ use physcon,      only:au,Ro
+ use part,         only:xyzmh_ptmass
  implicit none
 
  !--Default values for the growth and fragmentation of dust in the input file
  integer, public        :: ifrag        = 1
  integer, public        :: isnow        = 0
 
- real, public                :: grainsizemin        = 1.e-3
- real, public                :: rsnow        = 100.
- real, public                :: Tsnow        = 20.
- real, public                :: vfrag        = 15.
- real, public                :: vfragin        = 5.
- real, public                :: vfragout        = 15.
+ real, public           :: grainsizemin = 1.e-3
+ real, public           :: rsnow        = 100.
+ real, public           :: Tsnow        = 20.
+ real, public           :: vfrag        = 15.
+ real, public           :: vfragin      = 5.
+ real, public           :: vfragout     = 15.
 
  public                        :: get_growth_rate,get_vrelonvfrag,update_dustprop
  public                        :: write_options_growth,read_options_growth,print_growthinfo,init_growth
@@ -218,11 +218,11 @@ end subroutine get_growth_rate
 !  Compute the local ratio vrel/vfrag and vrel
 !+
 !-----------------------------------------------------------------------
-subroutine get_vrelonvfrag(xyzh,dustprop,rhod,cs,St,T)
+subroutine get_vrelonvfrag(xyzh,dustprop,cs,St,T)
  use options,         only:alpha
  use physcon,         only:Ro
  real, intent(in)     :: xyzh(:)
- real, intent(in)     :: rhod,cs,St,T
+ real, intent(in)     :: cs,St,T
  real, intent(inout)  :: dustprop(:)
  real                 :: Vt,r
 
@@ -231,23 +231,26 @@ subroutine get_vrelonvfrag(xyzh,dustprop,rhod,cs,St,T)
 
  !--compute vrel
  dustprop(3) = vrelative(cs,St,dustprop(5),Vt,alpha)
+ !print*,'in get_vrelonvfrag ',cs,St,dustprop(5),Vt,alpha
  !
  !--If statements to compute local ratio vrel/vfrag
  !
- select case(isnow)
- case(0) !--uniform vfrag
-    dustprop(4) = dustprop(3) / vfrag
- case(1) !--position based snow line in cylindrical geometry
-    r = sqrt(xyzh(1)**2 + xyzh(2)**2)
-    if (r < rsnow) dustprop(4) = dustprop(3) / vfragin
-    if (r > rsnow) dustprop(4) = dustprop(3) / vfragout
- case(2) !--temperature based snow line wrt eos
-    if (T > Tsnow) dustprop(4) = dustprop(3) / vfragin
-    if (T < Tsnow) dustprop(4) = dustprop(3) / vfragout
- case default
-    dustprop(4) = 0.
-    dustprop(3) = 0.
- end select
+ if (ifrag > 0) then
+    select case(isnow)
+    case(0) !--uniform vfrag
+       dustprop(4) = dustprop(3) / vfrag
+    case(1) !--position based snow line in cylindrical geometry
+       r = sqrt(xyzh(1)**2 + xyzh(2)**2)
+       if (r < rsnow) dustprop(4) = dustprop(3) / vfragin
+       if (r > rsnow) dustprop(4) = dustprop(3) / vfragout
+    case(2) !--temperature based snow line wrt eos
+       if (T > Tsnow) dustprop(4) = dustprop(3) / vfragin
+       if (T < Tsnow) dustprop(4) = dustprop(3) / vfragout
+    case default
+       dustprop(4) = 0.
+       dustprop(3) = 0.
+    end select
+endif
 end subroutine get_vrelonvfrag
 
 !-----------------------------------------------------------------------

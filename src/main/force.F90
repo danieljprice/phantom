@@ -1491,7 +1491,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    ri = sqrt(xyzh(1,i)**2+xyzh(2,i)**2)
                    Sti = tstop(i)*sqrt(xyzmh_ptmass(4,1)/ri**3) !--G=1 in code units
                    Ti = get_temperature(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
-                   call get_vrelonvfrag(xyzh(:,i),dustprop(:,i),rhoi,spsoundi,Sti,Ti) !--store vrel and vrel/vfrag
+                   call get_vrelonvfrag(xyzh(:,i),dustprop(:,i),spsoundi,Sti,Ti) !--store vrel and vrel/vfrag
                 endif
 #endif
                 dragterm = 3.*pmassj/((rhoi + rhoj)*tsij)*projv*wdrag
