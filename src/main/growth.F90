@@ -28,8 +28,7 @@
 !    vfragin      -- inward fragmentation threshold in m/s
 !    vfragout     -- outward fragmentation threshold in m/s
 !
-!  DEPENDENCIES: dim, dust, eos, infile_utils, io, options, part, physcon,
-!    units
+!  DEPENDENCIES: dust, infile_utils, io, options, part, physcon, units
 !+
 !--------------------------------------------------------------------------
 module growth

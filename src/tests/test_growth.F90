@@ -18,8 +18,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: testutils,io,dustgrowth,physcon,units,mpiutils
-!
+!  DEPENDENCIES: boundary, deriv, dim, eos, growth, io, kernel, mpiutils,
+!    options, part, physcon, step_lf_global, testutils, timestep, unifdis,
+!    units
 !+
 !--------------------------------------------------------------------------
 module testgrowth
