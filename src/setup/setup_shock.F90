@@ -72,9 +72,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,set_boundary
  use mpiutils,     only:bcast_mpi
  use dim,          only:maxp,maxvxyzu,ndim,mhd
- use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,periodic
+ use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,periodic,gr
  use kernel,       only:radkern,hfact_default
  use timestep,     only:tmax
+ use units,        only:set_units
 #ifdef NONIDEALMHD
  use nicil,        only:rho_i_cnst
 #endif
@@ -94,6 +95,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer                          :: i,ierr,nbpts,ny,nz
  character(len=120)               :: shkfile, filename
  logical                          :: iexist
+
+ if (gr) call set_units(G=1.,c=1.)
+
  !
  ! quit if not periodic
  !
@@ -319,7 +323,6 @@ subroutine choose_shock (gamma,polyk,iexist)
  use options,     only:nfulldump,alpha,alphamax,alphaB,alphau
  use timestep,    only:dtmax,tmax
  use prompting,   only:prompt
- use units,       only:set_units
 #ifdef NONIDEALMHD
  use nicil,       only:use_ohm,use_hall,use_ambi,eta_constant,eta_const_type, &
                        C_OR,C_HE,C_AD,C_nimhd,icnstphys,icnstsemi,icnst
@@ -500,7 +503,6 @@ subroutine choose_shock (gamma,polyk,iexist)
     !--Sod shock
     relativistic_choice = 1
     shocktype = "Mildly-Relativistic Sod shock"
-    call set_units(G=1.d0,c=1.d0)
     gamma      = 5./3.
     alphau     = 0.1
     leftstate  = (/10.0,40./3.,0.,0.,0.,0.,0.,0./)
