@@ -1403,15 +1403,15 @@ endif
 # this is used in the nightly build checks
 #
 utils: phantomsetup phantomanalysis \
-       multirun memcheck phantom_moddump \
+       multirun phantom_moddump \
        phantom2divv phantom2divb \
        diffdumps ev2mdot phantomevcompare acc2ang \
-       phantom2sphNG phantom2gadget \
+       phantom2sphNG phantom2gadget testbinary \
        sfutils phantom2pdf phantom2pdf-amr \
        phantom2struct phantom2power libphantom
 
 cleanutils: cleansetup cleananalysis \
-            cleanmultirun cleanmemcheck cleanmoddump \
+            cleanmultirun cleantestbinary cleanmoddump \
             cleanphantom2divv cleanphantom2divb \
             cleandiffdumps cleanev2mdot cleanacc2ang \
             cleanp2s cleanphantom2gadget \
@@ -1812,49 +1812,29 @@ cleanmultirun:
 	rm -f $(BINDIR)/multirun
 
 #----------------------------------------------------
-# utility to estimate memory usage for code
+# utility to plot orbits based on orbital elements (a,e,i,o,w,f)
 #
-SRCMEM = physcon.f90 ${CONFIG} phantommemcheck.F90
-OBJMEM1 = ${SRCMEM:.f90=.o}
-OBJMEM = ${OBJMEM1:.F90=.o}
+SRCBIN = prompting.f90 utils_datafiles.f90 datafiles.f90 ${CONFIG} physcon.f90 io.F90 \
+         mpi_utils.F90 mpi_domain.F90 part.F90 set_binary.f90 test_binary.f90 testbinary.f90
+OBJBIN1 = ${SRCBIN:.f90=.o}
+OBJBIN = ${OBJBIN1:.F90=.o}
 
-.PHONY: phantommemcheck
-memusage: memcheck
+.PHONY: testbinary
 
-memcheck: phantommemcheck
-	$(BINDIR)/phantommemcheck
+testbin: testbinary
 
-phantommemcheck: checksystem checkparams $(OBJMEM)
+testbinary: checksys checkparams $(OBJBIN)
 	@echo ""
-	@echo "phantommemcheck: your hope is our desire"
+	@echo "test_binary: may your orbits orbit"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/phantommemcheck $(OBJMEM)
+	$(FC) $(FFLAGS) -o $(BINDIR)/testbinary $(OBJBIN)
 
-cleanmemcheck:
-	rm -f $(BINDIR)/phantommemcheck
+cleantestbinary:
+	rm -f $(BINDIR)/testbinary
 
 #----------------------------------------------------
-# these are the sources for the get_tracer_particle_density utility
+# check for anything that depends on HDF5
 #
-get_density_tracer_particles: tracers
-
-tracers:
-	${MAKE} SETUP=tracers dotracers
-
-OBJTRACE= $(OBJECTS) read_data_flash_hdf5_utils.o get_density_tracer_particles.o
-
-dotracers: checksystem checkparams checksplash $(OBJTRACE)
-	@echo ""
-	@echo "get_density_tracer_particles: why don't you just use SPH?"
-	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/get_density_tracer_particles $(OBJTRACE) $(LDFLAGS)
-
-cleanget_density_tracer_particles:
-	rm -f $(BINDIR)/get_density_tracer_particles
-
-read_data_flash_hdf5_utils.o: checkhdf5 checksplash ${SPLASH_DIR}/src/read_data_flash_hdf5_utils.c
-	$(CC) $(CCFLAGS) -o $@ -c ${SPLASH_DIR}/src/read_data_flash_hdf5_utils.c
-
 checkhdf5:
    ifeq (X${HDF5ROOT}, X)
 	@echo; echo "ERROR: HDF5ROOT should be set before compiling with HDF5 utilities"; echo; ${MAKE} err;
