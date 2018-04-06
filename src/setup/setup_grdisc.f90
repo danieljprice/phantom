@@ -48,6 +48,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use metric,         only:a
  use prompting,      only:prompt
  use timestep,       only:tmax,dtmax
+ use eos,            only:ieos
+ use kernel,         only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -59,7 +61,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real    :: R_in,R_out,HonR,theta
 
- call set_units(mass=1.*solarm,c=1.)
+ ieos = 4
+ call set_units(G=1.,c=1.)
+ hfact = hfact_default
 
  tmax = 1000.
  dtmax = 10.
@@ -89,35 +93,35 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gamma   = 5./3.
  time    = 0.
 
- alphau  = 0.1
+ alphau  = 0.0
  HonR    = 0.02
 
  iexternalforce  = 1
- accradius1      = 4.*mass1
- accradius1_hard = accradius1 - (0.5*(accradius1-2.*mass1))
+ accradius1      = 5.!4.*mass1
+ accradius1_hard = 5.!accradius1 - (0.5*(accradius1-2.*mass1))
 
- call set_disc(id,master=master,&
-                nparttot  = npart,                &
-                npart     = npart,                &
-                rmin      = R_in,                 &
-                rmax      = R_out,                &
-                p_index   = -1.0,                 &
-                q_index   = 0.5,                  &
-                HoverR    = HonR,                 &
-                disc_Q    = 168.,                 &
-                star_mass = 1.0,                  &
-                gamma     = gamma,                &
-                particle_mass = massoftype(igas), &
-                hfact     = 1.0,                  &
-                xyzh      = xyzh,                 &
-                vxyzu     = vxyzu,                &
-                polyk     = polyk,                &
-                twist     = .false.,              &
-                ismooth   = .true.,               &
-                inclination = theta,              &
-                warp_smoothl = 0.,                &
-                bh_spin = 0.,                     &
-                prefix = fileprefix)
+ call set_disc(id,master,&
+               npart         = npart,                &
+               rmin          = R_in,                 &
+               rmax          = R_out,                &
+               p_index       = -1.0,                 &
+               q_index       = 0.0,                  &
+               HoverR        = HonR,                 &
+               gamma         = gamma,                &
+               hfact         = hfact_default,        &
+               xyzh          = xyzh,                 &
+               vxyzu         = vxyzu,                &
+               polyk         = polyk,                &
+               particle_mass = massoftype(igas),     &
+               ! star_mass     = 1.0,                  &
+               disc_mass     = 1.e-6,                &
+               ! ismooth       = .true.,               &
+               ! inclination   = theta,                &
+               ! warp_smoothl  = 0.,                   &
+               ! bh_spin       = 0.,                   &
+               ! alpha         = alpha,                &
+               prefix        = fileprefix)
+ polyk = vxyzu(4,1)
 
  return
 end subroutine setpart
