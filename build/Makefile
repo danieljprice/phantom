@@ -2268,7 +2268,7 @@ testdust:
 	${MAKE} SETUP=testdust && $(RUNMPI) $(BINDIR)/phantom test dust
 
 testgrowth:
-        ${MAKE} SETUP=testgrowth && $(RUNMPI) $(BINDIR)/phantom test growth
+	${MAKE} SETUP=testgrowth && $(RUNMPI) $(BINDIR)/phantom test growth
 
 testnimhd:
 	${MAKE} SETUP=testnimhd && $(RUNMPI) $(BINDIR)/phantom test nimhd
