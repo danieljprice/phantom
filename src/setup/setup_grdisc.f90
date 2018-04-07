@@ -77,9 +77,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  R_in    = 7.0*mass1
  R_out   = 100.*mass1
  theta   = 0.          ! inclination angle (degrees)
-
+ HonR    = 0.02
  npart   = 1e5
+
  call prompt('Enter number of particles ',npart)
+ call prompt('Enter H on R ',HonR)
  call prompt('Enter spin of black hole ',a,-1.,1.)
  call prompt('Enter inner radius of disc ',r_in,2.*mass1)
  call prompt('Enter outer radius of disc ',r_out,r_in)
@@ -94,7 +96,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  time    = 0.
 
  alphau  = 0.0
- HonR    = 0.02
 
  iexternalforce  = 1
  accradius1      = 5.!4.*mass1
