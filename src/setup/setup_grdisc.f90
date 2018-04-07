@@ -98,8 +98,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  alphau  = 0.0
 
  iexternalforce  = 1
- accradius1      = 5.!4.*mass1
- accradius1_hard = 5.!accradius1 - (0.5*(accradius1-2.*mass1))
+ accradius1      = 2.5 !4.*mass1
+ accradius1_hard = accradius1 !- (0.5*(accradius1-2.*mass1))
 
  call set_disc(id,master,&
                npart         = npart,                &
