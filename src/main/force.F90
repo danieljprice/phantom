@@ -23,10 +23,10 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, chem, cooling, dim, dust, eos, fastmath, io,
-!    io_summary, kdtree, kernel, linklist, mpiderivs, mpiforce, mpiutils,
-!    nicil, options, part, physcon, ptmass, stack, timestep, timestep_ind,
-!    timestep_sts, units, viscosity
+!  DEPENDENCIES: boundary, chem, cooling, dim, dust, eos, fastmath, growth,
+!    io, io_summary, kdtree, kernel, linklist, mpiderivs, mpiforce,
+!    mpiutils, nicil, options, part, physcon, ptmass, stack, timestep,
+!    timestep_ind, timestep_sts, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module forces
@@ -788,6 +788,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use kernel,      only:wkern_drag,cnormk_drag
  use part,        only:dustprop
 #endif
+#ifdef DUSTGROWTH
+ use growth,  only:get_vrelonvfrag
+ use eos,         only:get_temperature,ieos
+ use part,        only:xyzmh_ptmass,tstop
+#endif
 #ifdef IND_TIMESTEPS
  use part,        only:ibin_old
 #endif
@@ -848,6 +853,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer :: iregime
  real    :: dragterm,dragheating,wdrag,tsij,dv2
  real    :: Dav,grkernav,tsj,dustfracterms,term
+#ifdef DUSTGROWTH
+ real    :: Sti, Ti, ri
+#endif
 #endif
  real    :: dBevolx,dBevoly,dBevolz,divBsymmterm,divBdiffterm
  real    :: rho21i,rho21j,Bxi,Byi,Bzi,psii,pmjrho21grkerni,pmjrho21grkernj
@@ -1477,7 +1485,15 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    wdrag = wkern_drag(q2j,qj)*hj21*hj1*cnormk_drag
                 endif
                 call get_ts(idrag,grainsizei,graindensi,rhoj,rhoi,spsoundj,dv2,tsij,iregime)
-                if (use_dustgrowth .and. usej) dustprop(4,i) = dustprop(4,i) + 3*pmassj/rhoj*projv*wdrag !--interpolate vd-vg for the dust particle i
+#ifdef DUSTGROWTH
+                if (usej) then
+                   dustprop(5,i) = dustprop(5,i) + 3*pmassj/rhoj*projv*wdrag !--interpolate vd-vg for the dust particle i
+                   ri = sqrt(xyzh(1,i)**2+xyzh(2,i)**2)
+                   Sti = tstop(i)*sqrt(xyzmh_ptmass(4,1)/ri**3) !--G=1 in code units
+                   Ti = get_temperature(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
+                   call get_vrelonvfrag(xyzh(:,i),dustprop(:,i),spsoundi,Sti,Ti) !--store vrel and vrel/vfrag
+                endif
+#endif
                 dragterm = 3.*pmassj/((rhoi + rhoj)*tsij)*projv*wdrag
                 ts_min = min(ts_min,tsij)
                 ndrag = ndrag + 1
