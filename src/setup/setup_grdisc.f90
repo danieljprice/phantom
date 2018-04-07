@@ -116,7 +116,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                ! star_mass     = 1.0,                  &
                disc_mass     = 1.e-6,                &
                ! ismooth       = .true.,               &
-               ! inclination   = theta,                &
+               inclination   = theta,                &
                ! warp_smoothl  = 0.,                   &
                ! bh_spin       = 0.,                   &
                ! alpha         = alpha,                &
