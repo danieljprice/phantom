@@ -62,7 +62,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: R_in,R_out,HonR,theta
 
  ieos = 4
- call set_units(G=1.,c=1.)
+ call set_units(G=1.,c=1.,mass=200.*solarm)
  hfact = hfact_default
 
  tmax = 1000.
