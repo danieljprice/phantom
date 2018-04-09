@@ -1010,7 +1010,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
     rij2 = dx*dx + dy*dy + dz*dz
     q2i = rij2*hi21
-
     !--hj is in the cell cache but not in the neighbour cache
     !  as not accessed during the density summation
     if (ifilledcellcache .and. n <= maxcellcache) then
@@ -1020,7 +1019,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     endif
     hj21 = hj1*hj1
     q2j = rij2*hj21
-
     is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
 #ifdef GRAVITY
        !  Determine if neighbouring particle is hidden by a sink particle;

@@ -225,11 +225,11 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
 !--test of dust growth module
 !
-!if (dogrowth.or.testall) then
-!   call test_growth(ntests,npass)
-!   call set_default_options ! restore defaults
-!   call barrier_mpi()
-!endif
+if (dogrowth.or.testall) then
+   call test_growth(ntests,npass)
+   call set_default_options ! restore defaults
+   call barrier_mpi()
+endif
 !
 !--test of non-ideal MHD
 !

@@ -158,6 +158,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
  !$omp shared(Bevol,dBevol,dustevol,ddustfrac,use_dustfrac) &
+ !$omp shared(dustprop,ddustprop,dustproppred) &
 #ifdef IND_TIMESTEPS
  !$omp shared(ibin,ibin_old,twas,timei) &
 #endif
@@ -180,7 +181,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        ! predict v and u to the half step with "slow" forces
        !
        vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
-
+       if (itype==idust .and. use_dustgrowth) then
+          dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i) 
+       endif
        if (itype==igas) then
           if (mhd)          Bevol(:,i)  = Bevol(:,i)      + hdti*dBevol(:,i)
           if (use_dustfrac) dustevol(i) = abs(dustevol(i) + hdti*ddustfrac(i))
@@ -248,7 +251,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #endif
        vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
        if (use_dustgrowth .and. itype==idust) then
-          dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
+          dustproppred(:,i) = dustproppred(:,i) + hdti*ddustprop(:,i)
        endif
        if (itype==igas) then
           if (mhd) Bpred(:,i) = Bevol (:,i) + hdti*dBevol(:,i)

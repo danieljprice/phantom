@@ -66,9 +66,9 @@ subroutine init_growth(ierr)
  integer, intent(out) :: ierr
 
  integer                          :: i
-
+ 
  i = 0
- ierr = 0
+ ierr = 0 
 
  !--initialise variables in code units
  dustprop(1,:) = grainsize
@@ -229,8 +229,7 @@ subroutine get_vrelonvfrag(xyzh,dustprop,cs,St,T)
  Vt = sqrt((2**0.5)*Ro*alpha)*cs
 
  !--compute vrel
- dustprop(3) = vrelative(cs,St,dustprop(5),Vt,alpha)
- !print*,'in get_vrelonvfrag ',cs,St,dustprop(5),Vt,alpha
+ dustprop(3) = vrelative(St,dustprop(5),Vt,alpha)
  !
  !--If statements to compute local ratio vrel/vfrag
  !
@@ -349,15 +348,14 @@ subroutine update_dustprop(npart,dustproppred)
 end subroutine update_dustprop
 
 !--Compute the relative velocity following Stepinski & Valageas (1997)
-real function vrelative(cs,St,dv,Vt,alpha)
- real, intent(in) :: cs,St,alpha,dv,Vt
+real function vrelative(St,dv,Vt,alpha)
+ real, intent(in) :: St,alpha,dv,Vt
  real             :: Sc
 
  !--compute Schmidt number Sc
  Sc = (1+St)*sqrt(1+dv**2/Vt**2)
-
  !--then compute vrel
- vrelative = sqrt(2**(1.5)*Ro*alpha)*cs*sqrt(Sc-1)/(Sc)
+ vrelative = sqrt(2.)*Vt*sqrt(Sc-1)/(Sc)
 
  return
 end function vrelative
