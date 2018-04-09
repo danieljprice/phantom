@@ -56,8 +56,8 @@ module part
 !
 !--storage of dust properties
 !
- real :: dustprop(4,maxp_growth)
- character(len=*), parameter :: dustprop_label(4) = (/'grainsize ','graindens ','vrel/vfrag','    dv    '/)
+ real :: dustprop(5,maxp_growth)
+ character(len=*), parameter :: dustprop_label(5) = (/'grainsize ','graindens ','   vrel   ','vrel/vfrag','    dv    '/)
 !
 !--storage in divcurlv
 !
@@ -172,7 +172,7 @@ module part
  real(kind=4)                :: divBsymm(maxmhdan)
  real                                :: fext(3,maxan)
  real                                :: ddustfrac(maxdustan)
- real                                :: ddustprop(4,maxp_growth) !--grainsize is the only prop that evolves for now
+ real                                :: ddustprop(5,maxp_growth) !--grainsize is the only prop that evolves for now
 !
 !--storage associated with/dependent on timestepping
 !
@@ -180,7 +180,7 @@ module part
  real                                :: ppred(maxvxyzu,maxan)
  real                                :: dustpred(maxdustan)
  real                                :: Bpred(maxBevol,maxmhdan)
- real                                :: dustproppred(4,maxp_growth)
+ real                                :: dustproppred(5,maxp_growth)
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin(maxan)
  integer(kind=1)    :: ibin_old(maxan)

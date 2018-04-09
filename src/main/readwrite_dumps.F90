@@ -437,16 +437,16 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        ilen(1) = int(npart,kind=8)
        if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierrs(1),func=iamtype_int11)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierrs(2))
-       call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(3))
-       if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(4))
-       if (use_dust)     call write_array(1,dustfrac,'dustfrac',npart,k,ipass,idump,nums,ierrs(5))
-       if (use_dust)     call write_array(1,tstop,'tstop',npart,k,ipass,idump,nums,ierrs(6))
-       if (use_dustfrac) call write_array(1,deltav,deltav_label,3,npart,k,ipass,idump,nums,ierrs(7))
+       if (use_dustgrowth)        call write_array(1,dustprop,dustprop_label,4,npart,k,ipass,idump,nums,ierrs(3))
+       call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
+       if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(5))
+       if (use_dust)     call write_array(1,dustfrac,'dustfrac',npart,k,ipass,idump,nums,ierrs(6))
+       if (use_dust)     call write_array(1,tstop,'tstop',npart,k,ipass,idump,nums,ierrs(7))
+       if (use_dustfrac) call write_array(1,deltav,deltav_label,3,npart,k,ipass,idump,nums,ierrs(8))
        if (gr) then
           call write_array(1,pxyzu,pxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(8))
           call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,ierrs(8))
        endif
-       if (use_dustgrowth)    call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierrs(8))
        if (store_temperature) call write_array(1,temperature,'T',npart,k,ipass,idump,nums,ierrs(9))
 
        ! write pressure to file
@@ -638,10 +638,10 @@ subroutine write_smalldump(t,dumpfile)
        ilen(1) = npart
        if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierr,func=iamtype_int11)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+       if (use_dustgrowth) call write_array(1,dustprop,dustprop_label,4,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (h2chemistry .and. nabundances >= 1) &
                      call write_array(1,abundance,abundance_label,1,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (use_dust) call write_array(1,dustfrac,'dustfrac',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-       if (use_dustgrowth) call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
 #ifdef LIGHTCURVE
        if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
@@ -1137,7 +1137,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  integer, intent(out)  :: ierr
  logical               :: got_dustfrac,match
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
- logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3),got_psi,got_temp,got_dustprop(3),&
+ logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3),got_psi,got_temp,got_dustprop(4),&
                           got_pxyzu(4)
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik
