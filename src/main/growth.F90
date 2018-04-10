@@ -66,9 +66,9 @@ subroutine init_growth(ierr)
  integer, intent(out) :: ierr
 
  integer                          :: i
- 
+
  i = 0
- ierr = 0 
+ ierr = 0
 
  !--initialise variables in code units
  dustprop(1,:) = grainsize

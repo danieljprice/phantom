@@ -182,7 +182,7 @@ subroutine test_growingbox(ntests,npass)
  Vt = sqrt(2**(0.5)*alpha*Ro)*csj
 
  call init_step(npart,t,dtmax)
- 
+
  do i=1,nsteps
     do j=1,npart
        call get_vrelonvfrag(xyzh(:,j),dustprop(:,j),csj,Stj,0.)
@@ -190,7 +190,7 @@ subroutine test_growingbox(ntests,npass)
     t = t + dt
     dtext = dt
     call step(npart,npart,t,dt,dtext,dtnew)
- 
+
     do j=1,npart
        rhod = rhoh(xyzh(4,j),massoftype(2))
        s = sinit + rhod/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
@@ -200,7 +200,7 @@ subroutine test_growingbox(ntests,npass)
  enddo
 
  call checkvalbuf_end('size match exact solution',ncheck(1),nerr(1),errmax(1),tols)
- 
+
  ntests = ntests + 1
  if (all(nerr(1:1)==0)) npass = npass + 1
 
