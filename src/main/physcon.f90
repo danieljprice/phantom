@@ -71,6 +71,7 @@ module physcon
  real(kind=8), parameter :: earthm = 5.979d27                   !Mass of the Earth         g
  real(kind=8), parameter :: earthr = 6.371315d8                 !Radius of the Earth       cm
  real(kind=8), parameter :: jupiterm = 1.89813d30               !Mass of Jupiter           g
+ real(kind=8), parameter :: ceresm = 8.958d23                   !Mass of Ceres             g
 !
 !--Distance scale
 !

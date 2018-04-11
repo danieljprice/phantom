@@ -147,6 +147,13 @@ ifeq ($(SETUP), empty)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), wddisc)
+    ISOTHERMAL=yes
+    SETUPFILE=setup_wddisc.f90
+    KNOWN_SETUP=yes
+    DUST=yes
+endif
+
 ifeq ($(SETUP), galdisc)
 #   galactic disc simulations
     IND_TIMESTEPS=yes
