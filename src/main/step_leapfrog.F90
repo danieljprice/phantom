@@ -182,7 +182,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        !
        vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
        if (itype==idust .and. use_dustgrowth) then
-          dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i) 
+          dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
        endif
        if (itype==igas) then
           if (mhd)          Bevol(:,i)  = Bevol(:,i)      + hdti*dBevol(:,i)
