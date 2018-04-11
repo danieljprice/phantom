@@ -568,7 +568,7 @@ end subroutine densityiterate
 !  MAKE SURE THIS ROUTINE IS INLINED BY THE COMPILER
 !+
 !----------------------------------------------------------------
-pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,iamdusti,&
+pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
                                  listneigh,nneigh,nneighi,dxcache,xyzcache,rhosum,&
                                  ifilledcellcache,ifilledneighcache,getdv,getdB,&
                                  realviscosity,xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself)
@@ -583,7 +583,7 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,iamdusti,
  use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust
  integer,      intent(in)    :: i
  real,         intent(in)    :: xpartveci(:)
- real(kind=8), intent(in)    :: hi1,hi21
+ real(kind=8), intent(in)    :: hi,hi1,hi21
  integer,      intent(in)    :: iamtypei
  logical,      intent(in)    :: iamgasi,iamdusti
  integer,      intent(in)    :: listneigh(:)
@@ -787,7 +787,7 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,iamdusti,
                 ! we need B instead of B/rho, so used our estimated h here
                 ! either it is close enough to be converged,
                 ! or worst case it runs another iteration and re-calculates
-                rhoi = rhoh(real(1.0/hi1), massoftype(igas))
+                rhoi = rhoh(real(hi), massoftype(igas))
                 rhoj = rhoh(xyzh(4,j), massoftype(igas))
                 dBx = xpartveci(iBevolxi)*rhoi - Bevol(1,j)*rhoj
                 dBy = xpartveci(iBevolyi)*rhoi - Bevol(2,j)*rhoj
@@ -1222,7 +1222,9 @@ subroutine reduce_and_print_neighbour_stats(np)
  endif
 
 end subroutine reduce_and_print_neighbour_stats
-
+!--------------------------------------------------------------------------
+!+
+!--------------------------------------------------------------------------
 pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
                              xyzcache)
  use dim,         only:maxvxyzu
@@ -1280,8 +1282,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
        endif
     endif
 
-    hi      = cell%h(i)
-
+    hi    = cell%h(i)
     hi1   = 1./hi
     hi21  = hi1*hi1
     hi31  = hi1*hi21
@@ -1297,7 +1298,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
     ignoreself = .true.
 #endif
 
-    call get_density_sums(lli,cell%xpartvec(:,i),hi1,hi21,iamtypei,iamgasi,iamdusti,&
+    call get_density_sums(lli,cell%xpartvec(:,i),hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
                           listneigh,nneigh,nneighi,dxcache,xyzcache,cell%rhosums(:,i),&
                           .true.,.false.,getdv,getdB,realviscosity,&
                           xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself)
@@ -1308,7 +1309,9 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  enddo over_parts
 
 end subroutine compute_cell
-
+!--------------------------------------------------------------------------
+!+
+!--------------------------------------------------------------------------
 pure subroutine compute_hmax(cell,redo_neighbours)
  use kernel, only:radkern
  type(celldens), intent(inout) :: cell
@@ -1324,7 +1327,9 @@ pure subroutine compute_hmax(cell,redo_neighbours)
     cell%rcuti = radkern*hmax
  endif
 end subroutine compute_hmax
-
+!--------------------------------------------------------------------------
+!+
+!--------------------------------------------------------------------------
 subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
  use io,          only:fatal
  use dim,         only:maxp,maxvxyzu
@@ -1415,8 +1420,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
  enddo over_parts
 
 end subroutine start_cell
-
-
+!--------------------------------------------------------------------------
+!+
+!--------------------------------------------------------------------------
 subroutine finish_cell(cell,cell_converged)
  use io,       only:iprint,fatal
  use part,     only:get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,hrho
@@ -1504,7 +1510,9 @@ subroutine finish_cell(cell,cell_converged)
  enddo over_parts
 
 end subroutine finish_cell
-
+!--------------------------------------------------------------------------
+!+
+!--------------------------------------------------------------------------
 pure subroutine finish_rhosum(rhosum,pmassi,hi,iterating,rhoi,rhohi,gradhi,gradsofti,dhdrhoi_out,omegai_out)
  use part,  only:rhoh,dhdrho
  real,          intent(in)              :: rhosum(maxrhosum)
@@ -1543,7 +1551,9 @@ pure subroutine finish_rhosum(rhosum,pmassi,hi,iterating,rhoi,rhohi,gradhi,grads
  endif
 
 end subroutine finish_rhosum
-
+!--------------------------------------------------------------------------
+!+
+!--------------------------------------------------------------------------
 subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
                          straintensor,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
  use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,&
@@ -1770,5 +1780,5 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gra
  ncalc = ncalc + cell%npcell * cell%nits
 
 end subroutine store_results
-
+!--------------------------------------------------------------------------
 end module densityforce
