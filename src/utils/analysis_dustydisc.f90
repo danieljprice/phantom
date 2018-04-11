@@ -28,7 +28,7 @@ module analysis
  character(len=20), parameter, public :: analysistype = 'dustydisc'
  public :: do_analysis
 
- integer, parameter :: nr = 100
+ integer, parameter :: nr = 50
  integer, parameter :: numlabels = 23
  integer, parameter :: numarrays = 7
  integer, parameter :: maxlabels = numlabels + numarrays*(ndusttypes-1)
@@ -66,7 +66,6 @@ module analysis
           isigmadustend = iHdust_R-1,   &
           iHdust_R_end  = maxlabels
 
- real :: St_mid(ndusttypes,nr)
  real :: twist(nr),twistprev(nr)
  character(len=80) :: label(maxlabels),labelfmt,datafmt
 
@@ -100,12 +99,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  real :: err,errslope,erryint,slope
  real :: Sig0,rho0,hi,rhoi
  real :: vgassol(2,nr),vdustsol(2,ndusttypes,nr)
- real :: cut_fact,eps_dust_cut
+ real :: flat_cut,scale_cut,eps_dust_cut
  real :: stan_dev(ndusttypes,nr)
- real :: St_from_tstop(ndusttypes,nr),St_from_sigma(ndusttypes,nr)
+ real :: zeta(nr+2),dzetadr(nr),Pr(nr+1),dPrdr(nr)
+ real :: St_mid(ndusttypes,nr),St_from_tstop(ndusttypes,nr),St_from_sigma(ndusttypes,nr)
  real :: rhogmid(nr),rhodmid(ndusttypes,nr)
  real :: rhog(npart),rhod(ndusttypes,npart),rhogbin(npartoftype(igas),nr),rhodbin(ndusttypes,npartoftype(igas),nr)
- real :: vK(nr),etabin(npartoftype(igas),nr),meaneta(nr),nuvisc(nr),shearvisc
+ real :: vK(nr),etabin(npartoftype(igas),nr),meaneta(nr),nuvisc(nr),shearvisc,alphaAV
  real :: vrgasbin(npartoftype(igas),nr),vrdustbin(ndusttypes,npartoftype(igas),nr)
  real :: meanvrgas(nr),meanvrdust(ndusttypes,nr)
  real :: meanrhog(nr),meanrhod(ndusttypes,nr)
@@ -132,13 +132,16 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  real :: l_planet(3),bigl_planet,rad_planet,inc,planet_mass
  real, save :: Mtot_in,Mgas_in,Mdust_in
  logical, save :: init  = .false.
+
+ integer :: scale_vel   = 0
  logical :: fit_sigma   = .false.
  logical :: fixslope    = .false.
  logical :: use_log_r   = .false.
- logical :: scale_vel   = .false.
  logical :: logdata     = .false.
  logical :: comparedata = .false.
+ logical :: solve_baistone = .false.
  logical :: check_radial_migration = .false.
+
  integer, parameter :: isetupparams = 2
  integer, parameter :: iparams = 10
  integer, parameter :: iplanet = 23
@@ -152,14 +155,16 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
     fixslope    = .true.
     comparedata = .true.
     logdata     = .true.
-    use_log_r   = .true.
-    scale_vel   = .true.
+    !use_log_r   = .true.
+    scale_vel   = 2 ! 0=no scaling, 1=scale with meaneta, 2=scale with v_P
     check_radial_migration = .true.
 
-    cut_fact = 1.
+    flat_cut     = 100.
+    scale_cut    = 1.
     eps_dust_cut = 1.e-5
  else
-    cut_fact     = huge(cut_fact)
+    flat_cut     = huge(flat_cut)
+    scale_cut    = huge(scale_cut)
     eps_dust_cut = tiny(eps_dust_cut)
  endif
 
@@ -176,7 +181,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
     write(output,"(a4,i5.5)") 'angm',numfile
     write(*,'("Output file name is ",A)') output
  endif
- 
+
  if (use_dustfrac) then
     write(*,'("one-fluid model")')
  else
@@ -207,11 +212,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  write(filename,"(a)") trim(discprefix)//'.in'
  inquire(file=filename, exist=ifile)
  if (ifile) then
-    call read_in(filename,irealvisc,shearvisc,iunit,ierr)
+    call read_in(filename,irealvisc,alphaAV,shearvisc,iunit,ierr)
     if (ierr /= 0) call fatal('analysis','could not open/read .in file')
 
-    if (irealvisc == 0 ) then
-       write(output,"(a)") 'baistone'//trim(adjustl(basename))//'.analysis'
+    if (alphaAV == 0. .or. solve_baistone) then
+      write(output,"(a)") 'baistone'//trim(adjustl(basename))//'.analysis'
     else
        if (irealvisc == 1) print*,'WARNING!!! Dipierro solution for irealvisc == 1 needs to be corrected'
        write(output,"(a)") 'dipierro'//trim(adjustl(basename))//'.analysis'
@@ -325,7 +330,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  vK(:)     = 0.
  omega(:)  = 0.
  nuvisc(:) = 0.
- 
+
  hgas(:)     = 0.
  hdust(:,:)  = 0.
  h_smooth(:) = 0.
@@ -344,7 +349,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
 
  zsetgas(:,:)    = 0.
  zsetdust(:,:,:) = 0.
- 
+
  vrgasbin(:,:)    = 0.
  vrdustbin(:,:,:) = 0.
 
@@ -359,22 +364,17 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  meandustfraci(:,:)  = 0.
  meandustfracisum(:) = 0.
  meand2g_ratio(:,:)  = 0.
- 
+
  d2g_ratio_bin(:,:,:)  = 0.
  dustfraci_bin(:,:,:)  = 0.
  dustfracisum_bin(:,:) = 0.
- 
+
 ! sound speed, orbital frequency/velocity, and gas scale-height
  do i = 1,nr
     cs(i)    = cs0*rad(i)**(-q_index)
     omega(i) = sqrt(G*M_star/rad(i)**3)
     vK(i)    = sqrt(G*M_star/rad(i))
     H(i)     = cs(i)/omega(i)
-    if (irealvisc == 1) then
-       nuvisc(i) = shearvisc
-    elseif (irealvisc == 2) then
-       nuvisc(i) = shearvisc*cs(i)*H(i)
-    endif
  enddo
 
  if (R_warp/=0.)then
@@ -382,7 +382,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  else
     iwarp=2
  endif
- 
+
 ! if the central star is represented by a sink (change to 2 if you set a binary)
  nptmassinit = 1
 
@@ -406,7 +406,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  rhoeff = graindens*sqrt(pi/8.)
  dustfracisum = 0.
  dustfraci(:) = 0.
- 
+
  do i = 1,npart
     hi = xyzh(4,i)
     if (maxphase==maxp) then
@@ -433,7 +433,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
     else
        Macc  = Macc + pmassi
     endif
-   
+
     !--Calculate vr for the gas and the N dust phases
     ri_mid = sqrt(dot_product(xyzh(1:2,i),xyzh(1:2,i)))
     do j = 1,ndusttypes
@@ -485,7 +485,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
 
        if (ii > nr) cycle
        if (ii < 1)  cycle
-       
+
        if (use_log_r) then
           area = (pi*(grid(ii+1)**2-grid(ii)**2))
        else
@@ -515,7 +515,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
           !etabin(ninbin(ii),ii)  = 0.5*(Hi_part/ri)**2*(p_index + q_index + 1.5 - &
           !                         (1.5 - q_index)*(xyzh(3,i)/Hi_part)**2)
 
-          if (abs(xyzh(3,i)) < min(cut_fact,H_R_ref*ri**(1.5-q_index))) then
+          if (abs(xyzh(3,i)) < min(flat_cut,scale_cut*H(ii))) then
              rhogbin(ninbin(ii),ii)  = rhog(i)
              vrgasbin(ninbin(ii),ii) = vrgas(i)
              if (use_dustfrac) then
@@ -543,7 +543,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
              sigmadust(j,ii) = sigmadust(j,ii) + pdustmass(j)/area
 
              ninbindust(j,ii) = ninbindust(j,ii) + 1
-             if (abs(xyzh(3,i)) < min(cut_fact,H_R_ref*ri**(1.5-q_index))) then
+             if (abs(xyzh(3,i)) < min(flat_cut,scale_cut*H(ii))) then
                 ! Important for two-fluid method:
                 !  <>  dustfrac = dust-to-gas ratio for iphase = igas
                 !  <>  dustfrac = gas-to-dust ratio for iphase = idust
@@ -589,7 +589,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  write(datafmt,'(A)') '('//trim(adjustl(datafmt))//'(es18.10,1X))'
  write(lu,datafmt) time,Mtot,Mgas,Mdust,Macc
  close(lu)
- 
+
  ! Computing Hgas, Hdust, vrgas, vrdust
  do i = 1,nr
     meaneta(i)  = sum(etabin(1:ninbin(i),i))/real(ninbin(i))
@@ -598,17 +598,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
        meanzgas(i)  = sum(zsetgas(1:ninbin(i),i))/real(ninbin(i))
        meanrhog(i)  = sum(rhogbin(1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
        meanvrgas(i) = sum(vrgasbin(1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
-       if (scale_vel) then
-          meanvrgas(i) = meanvrgas(i)/(meaneta(i)*vK(i))
-       endif
        if (use_dustfrac) then
           do j = 1,ndusttypes
              meanvrdust(j,i) = sum(vrdustbin(j,1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
-             if (scale_vel) then
-                meanvrdust(j,i) = meanvrdust(j,i)/(meaneta(i)*vK(i))
-             endif
-             stan_dev(j,i)   = sqrt(sum(((vrdustbin(j,1:ninbin(i),i)-meanvrdust(j,i)) &
-                               /(meaneta(i)*vK(i)))**2)/(real(ninbin(i)) - icutgas(i) - 1))
+             stan_dev(j,i)   = sqrt(sum((vrdustbin(j,1:ninbin(i),i)-meanvrdust(j,i))**2) &
+                               /(real(ninbin(i)) - icutgas(i) - 1))
              meandustfraci(j,i) = sum(dustfraci_bin(j,1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
              meand2g_ratio(j,i) = sum(d2g_ratio_bin(j,1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
              meantstop(j,i) = sum(tstopbin(j,1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
@@ -624,11 +618,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
           hdust(j,i)      = sqrt(sum(((zsetdust(j,1:ninbindust(j,i),i)-meanzdust(j,i))**2)/(real(ninbindust(j,i)-1))))
           if (.not. use_dustfrac) then
              meanvrdust(j,i)    = sum(vrdustbin(j,1:ninbindust(j,i),i))/(real(ninbindust(j,i))-icutdust(j,i))
-             if (scale_vel) then
-                meanvrdust(j,i) = meanvrdust(j,i)/(meaneta(i)*vK(i))
-             endif
-             stan_dev(j,i)   = sqrt(sum(((vrdustbin(j,1:ninbindust(j,i),i)-meanvrdust(j,i)) &
-                               /(meaneta(i)*vK(i)))**2)/(real(ninbindust(j,i)) - icutdust(j,i) - 1))
+             stan_dev(j,i)   = sqrt(sum((vrdustbin(j,1:ninbindust(j,i),i)-meanvrdust(j,i))**2) &
+                               /(real(ninbindust(j,i)) - icutdust(j,i) - 1))
              meand2g_ratio(j,i) = sum(d2g_ratio_bin(j,1:ninbindust(j,i),i))/(real(ninbindust(j,i))-icutdust(j,i))
              meantstop(j,i)     = sum(tstopbin(j,1:ninbindust(j,i),i))/(real(ninbindust(j,i))-icutdust(j,i))
           endif
@@ -636,51 +627,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
     enddo
  enddo
 
- print*,' '
- print*,'Warning: removed a total of',sum(icutgas(:)),'gas particles from the velocity'
- do j = 1,ndusttypes
- print*,'             and a total of',sum(icutdust(j,:)),'dust particles from the velocity'
- enddo
- print*,' '
-
- !--if Sig0 does not match the binned sigma calculated above so we can do a least squares
- if (fit_sigma) then
-    print*,' '
-    print*,'Fitting the power-law surface density profile for the analytic solution...'
-    slope = -p_index
-    call fit_slope(nr,rad,sigmagas,slope,Sig0,err,errslope,erryint,R_in_dust,R_out_dust,logdata,fixslope)
-    if (logdata) Sig0 = 10.**Sig0
-    rho0 = Sig0/(sqrt(2.*pi)*H_R_ref)
-    print*,'   Corrected value for Sig0 = ',Sig0*umass/udist**2
-    print*,'   Corrected value for rho0 = ',rho0
-    print*,'...Done'
-    print*,' '
-    
-    rhogmid(:) = rho0*rad(:)**(-(p_index-q_index+1.5))
-    do j = 1,ndusttypes
-       rhodmid(j,:) = rhogmid(:)*meandustfraci(j,:)
-    enddo
-    !sigmagas(i) = Sig0*rad(i)**(-p_index)
-    sigmagas(:) = Sig0*(rad(:)/R_ref)**(-p_index)*(1.-sqrt(R_in/rad(:)))
- else
-    rhogmid  = meanrhog 
-    rhodmid  = meanrhod
-    sigmagas = sigmagas(:)
- endif
-
-! and thus the Stokes Number
-! St = tstop*omegaK = rhoeff*s/(cs*rhogmid)*omegaK
-!                   = rhoeff*s*sqrt(2*pi)/(sigma*exp(-0.5*(z/Hg)**2)))
-!                   = rhoeff*s*sqrt(2*pi)/sigma    ! if z = 0
- do i = 1,nr
-    !St_from_tstop(:,i) = meantstop(:,i)*omega(i)
-    !St_mid(:,i) = St_from_tstop(:,i)
-    
-    St_mid(:,i) = rhoeff*grainsize(:)*(sqrt(2.*pi)/sigmagas(i)) ! St_mid = Lambda_k
-    meantstop(:,i) = St_from_sigma(:,i)/omega(i)
- enddo
-
-! Print angular momentum of accreted particles
+ ! Print angular momentum of accreted particles
  angtot = sqrt(angx*angx + angy*angy + angz*angz)
  print*,' angular momentum of accreted particles = ',angtot
 
@@ -707,6 +654,93 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
        h_smooth(i) = h_smooth(i)/H(i)
     endif
  enddo
+
+ print*,' '
+ print*,'Warning: removed a total of',sum(icutgas(:)),'gas particles from the velocity'
+ do j = 1,ndusttypes
+ print*,'             and a total of',sum(icutdust(j,:)),'dust particles from the velocity'
+ enddo
+ print*,' '
+
+ !--if Sig0 does not match the binned sigma calculated above so we can do a least squares
+ if (fit_sigma) then
+    print*,' '
+    print*,'Fitting the power-law surface density profile for the analytic solution...'
+    slope = -p_index
+    call fit_slope(nr,rad,sigmagas,slope,Sig0,err,errslope,erryint,R_in_dust,R_out_dust,logdata,fixslope)
+    if (logdata) Sig0 = 10.**Sig0
+    rho0 = Sig0/(sqrt(2.*pi)*H_R_ref)
+    print*,'   Corrected value for Sig0 = ',Sig0*umass/udist**2
+    print*,'   Corrected value for rho0 = ',rho0
+    print*,'...Done'
+    print*,' '
+
+    rhogmid(:) = rho0*rad(:)**(-(p_index-q_index+1.5))
+    do j = 1,ndusttypes
+       rhodmid(j,:) = rhogmid(:)*meandustfraci(j,:)
+    enddo
+    !sigmagas(i) = Sig0*rad(i)**(-p_index)
+    sigmagas(:) = Sig0*(rad(:)/R_ref)**(-p_index)*(1.-sqrt(R_in/rad(:)))
+ else
+    rhogmid  = meanrhog
+    rhodmid  = meanrhod
+    sigmagas = sigmagas(:)
+ endif
+
+! and thus the Stokes Number
+! St = tstop*omegaK = rhoeff*s/(cs*rhogmid)*omegaK
+!                   = rhoeff*s*sqrt(2*pi)/(sigma*exp(-0.5*(z/Hg)**2)))
+!                   = rhoeff*s*sqrt(2*pi)/sigma    ! if z = 0
+ do i = 1,nr
+    ! Note that for the Dipierro et al. (2018) solution we ended up scaling St to represent
+    ! the values that were closer to the mid-plane. However, we did not need this for the
+    ! Bai & Stone (2010) test. This could indicate that there is a bug somewhere in this analysis
+    ! tool or in the code itself.
+    St_from_tstop(:,i) = meantstop(:,i)*omega(i)
+    St_mid(:,i) = St_from_tstop(:,i)
+
+!    St_mid(:,i) = rhoeff*grainsize(:)*(sqrt(2.*pi)/sigmagas(i)) ! St_mid = Lambda_k
+!    meantstop(:,i) = St_mid(:,i)/omega(i)
+    if (irealvisc == 0) then
+       nuvisc(i) = (0.1*alphaAV*h_smooth(i))*cs(i)*H(i)
+    elseif (irealvisc == 1) then
+       nuvisc(i) = shearvisc
+    elseif (irealvisc == 2) then
+       nuvisc(i) = shearvisc*cs(i)*H(i)
+    endif
+
+    ! Variables needed to calculate v_nu and v_P in an evolving disc
+    zeta(i+1) = nuvisc(i)*rad(i)*rhogmid(i)*vK(i)
+    Pr(i+1) = cs(i)**2*rhogmid(i)
+ enddo
+
+ ! Extrapolate out to populate the ghost cells
+ zeta(1) = 3.*zeta(2) -3.*zeta(3) + zeta(4)
+ zeta(nr+2) = zeta(nr-1) - 3.*zeta(nr)  + 3.*zeta(nr+1)
+ Pr(1) = 3.*Pr(2) -3.*Pr(3) + Pr(4)
+ Pr(nr+2) = Pr(nr-1) - 3.*Pr(nr)  + 3.*Pr(nr+1)
+
+ ! Calculate the derivatives
+ do i = 2,nr+1
+    dzetadr(i-1) = (zeta(i+1) - zeta(i-1))/(2.*dreven)
+    dPrdr(i-1) = (Pr(i+1) - Pr(i-1))/(2.*dreven)
+    dPrdr(i-1) = dPrdr(i-1)/(rhogmid(i-1)*omega(i-1))
+ enddo
+
+ ! Scale the velocities
+ if (scale_vel == 1) then
+    do i = 1,nr
+       meanvrgas(i)    = meanvrgas(i)/(meaneta(i)*vK(i))
+       meanvrdust(:,i) = meanvrdust(:,i)/(meaneta(i)*vK(i))
+       stan_dev(:,i)   = stan_dev(:,i)/(meaneta(i)*vK(i))
+    enddo
+ elseif (scale_vel == 2) then
+    do i = 1,nr
+       meanvrgas(i)    = meanvrgas(i)/abs(dPrdr(i))
+       meanvrdust(:,i) = meanvrdust(:,i)/abs(dPrdr(i))
+       stan_dev(:,i)   = stan_dev(:,i)/abs(dPrdr(i))
+    enddo
+ endif
 
  ! Make labels for header of output file
  label(iradius)    = 'radius'
@@ -753,7 +787,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
 
  ! Write the header to the file
  open(iunit,file=output)
- write(iunit,'("# Analysis data at t = ",es20.12)') time
+ write(iunit,'("# time:             time unit ( yrs)")')
+ write(iunit,'("# ",es20.12,es20.12)') time,utime
  write(iunit,labelfmt) (j,trim(adjustl(label(j))),j=1,maxlabels)
 
  do_precession = .false.
@@ -793,7 +828,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
     else
        tp(i) = 0.
     endif
-    
+
     write(iunit,datafmt)  &
           rad(i),         &
           rhogmid(i),     &
@@ -842,23 +877,30 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  enddo
 
  close(iunit)
- 
+
  if (check_radial_migration) then
     print *,' '
-    if (irealvisc == 0) then
+    if (alphaAV == 0. .or. solve_baistone) then
        print *,'Solving the Bai and Stone (2010) analytic solution for radial drift...'
-       call solve_bai_stone_2010(meand2g_ratio,nxn,meaneta,vK,vgassol,vdustsol)
+          call solve_bai_stone_2010(meand2g_ratio,nxn,meaneta,vK,vgassol,vdustsol)
     else
        print *,'Solving the Dipierro et al. (2018) analytic solution for radial drift...'
        call solve_dipierro_2018(irealvisc,vgassol,vdustsol,meand2g_ratio,rad,cs,vK, &
-                                 nuvisc,p_index,q_index)
+                                 nuvisc,p_index,q_index,St_mid,zeta,dzetadr,dPrdr)
     endif
-    if (scale_vel) then
+
+    if (scale_vel == 1) then
        do i = 1,nr
-          vgassol(:,i) = vgassol(:,i)/(meaneta(i)*vK(i))
+          vgassol(:,i)    = vgassol(:,i)/(meaneta(i)*vK(i))
           vdustsol(:,:,i) = vdustsol(:,:,i)/(meaneta(i)*vK(i))
        enddo
+    elseif (scale_vel == 2) then
+       do i = 1,nr
+          vgassol(:,i)    = vgassol(:,i)/abs(dPrdr(i))
+          vdustsol(:,:,i) = vdustsol(:,:,i)/abs(dPrdr(i))
+       enddo
     endif
+
     print*,'...Done'
     print *,' '
 
@@ -949,11 +991,11 @@ end subroutine do_analysis
 !  Solve for the radial velocities in Bai & Stone 2010b test
 !+
 !----------------------------------------------------------------
-subroutine solve_bai_stone_2010(d2g_ratio,nxn,eta,vK,vgassol,vdustsol)
+subroutine solve_bai_stone_2010(d2g_ratio,nxn,eta,vK,vgassol,vdustsol,St_mid)
  use dim,               only:ndusttypes
  use solvelinearsystem, only:rowk,dple
  integer, intent(in)  :: nxn
- real,    intent(in)  :: d2g_ratio(:,:),eta(:),vK(:)
+ real,    intent(in)  :: d2g_ratio(:,:),eta(:),vK(:),St_mid(:,:)
  real,    intent(out) :: vgassol(:,:),vdustsol(:,:,:)
  integer, parameter   :: dp = selected_real_kind(14, 60)
  integer  :: i,ir,ierr
@@ -967,7 +1009,7 @@ subroutine solve_bai_stone_2010(d2g_ratio,nxn,eta,vK,vgassol,vdustsol)
  do ir = 1,nr
     Bmat(1:ndusttypes) = 0.
     Bmat(ndusttypes+1:nxn) = 1.
-    
+
     Imat(:,:) = 0.
     do i = 1,ndusttypes
        Imat(i,i) = 1.
@@ -1007,41 +1049,47 @@ end subroutine solve_bai_stone_2010
 !  Solve for the radial velocities in Dipierro et al. 2018 test
 !+
 !----------------------------------------------------------------
-subroutine solve_dipierro_2018(ivisc,vgassol,vdustsol,d2g_ratio,r,cs,vK,nu,p,q)
+subroutine solve_dipierro_2018(irealvisc,vgassol,vdustsol,d2g_ratio,r,cs,vK,nu,p,q, &
+                               St_mid,zeta,dzetadr,dPrdr)
  use dim,               only:ndusttypes
 
- integer, intent(in)  :: ivisc
+ integer, intent(in)  :: irealvisc
  real,    intent(out) :: vgassol(:,:)
  real,    intent(out) :: vdustsol(:,:,:)
  real,    intent(in)  :: d2g_ratio(:,:)
  real,    intent(in)  :: r(:),cs(:),vK(:),nu(:)
  real,    intent(in)  :: p,q
+ real,    intent(in)  :: St_mid(:,:),zeta(:),dzetadr(:),dPrdr(:)
 
  integer :: i
- real    :: St_k(ndusttypes),Lambda_k(ndusttypes),denom2(ndusttypes)
+ real    :: denom2(ndusttypes)
  real    :: lambda0,lambda1,v_P,v_nu
  real    :: denom1
 
  do i = 1,nr
-    Lambda_k(:) = St_mid(:,i)
-    St_k(:) = Lambda_k(:)/(1. + d2g_ratio(:,i))
     lambda0 = sum(d2g_ratio(:,i)/(1. + St_mid(:,i)**2))
     lambda1 = sum(d2g_ratio(:,i)*St_mid(:,i)/(1. + St_mid(:,i)**2))
-    v_P = -(p + q + 1.5)*cs(i)**2/vK(i)
-    if (ivisc == 1) then
-       v_nu = 3*nu(i)*(p - q + 1)/r(i)
-    elseif (ivisc == 2) then
-       v_nu = 3*nu(i)*(p + q - 0.5)/r(i)
+
+    if (irealvisc == 0) then
+       v_P = dPrdr(i)
+       v_nu = -3.*nu(i)*dzetadr(i)/zeta(i+1)
+       !v_nu = nu(i)*(2.*p + q + 1.5)/r(i)
+    elseif (irealvisc == 1) then
+       v_P = -(p + q + 1.5)*cs(i)**2/vK(i)
+       v_nu = 3.*nu(i)*(p - q + 1.)/r(i)
+    elseif (irealvisc == 2) then
+       v_P = -(p + q + 1.5)*cs(i)**2/vK(i)
+       v_nu = 3.*nu(i)*(p + q - 0.5)/r(i)
     endif
 
     denom1          = (1. + lambda0)**2 + lambda1**2
-    denom2(:)       = denom1*(1. + Lambda_k(:)**2)
+    denom2(:)       = denom1*(1. + St_mid(:,i)**2)
     vgassol(1,i)    = (-lambda1*v_P + (1. + lambda0)*v_nu)/denom1
-    vdustsol(1,:,i) = (v_P*((1. + lambda0)*Lambda_k(:) - lambda1) +  &
-                       v_nu*(1. + lambda0 + Lambda_k(:)*lambda1))/denom2(:)
+    vdustsol(1,:,i) = (v_P*((1. + lambda0)*St_mid(:,i) - lambda1) +  &
+                       v_nu*(1. + lambda0 + St_mid(:,i)*lambda1))/denom2(:)
     vgassol(2,i)    = 0.5*(v_P*(1. + lambda0) + v_nu*lambda1)/denom1
-    vdustsol(2,:,i) = 0.5*(v_P*(1. + lambda0 + Lambda_k(:)*lambda1) -  &
-                       v_nu*((1. + lambda0)*Lambda_k(:) - lambda1))/denom2(:)
+    vdustsol(2,:,i) = 0.5*(v_P*(1. + lambda0 + St_mid(:,i)*lambda1) -  &
+                       v_nu*((1. + lambda0)*St_mid(:,i) - lambda1))/denom2(:)
  enddo
 
  return
@@ -1111,7 +1159,7 @@ subroutine read_discparams(filename,R_in,R_out,R_ref,R_warp,H_R_in,H_R_out,H_R_r
  endif
 
  call close_db(db)
- 
+
  return
 end subroutine read_discparams
 
@@ -1123,7 +1171,7 @@ end subroutine read_discparams
 !+
 !----------------------------------------------------------------
 subroutine read_setup(filename,d2g_ratio,grainsize_set,grainsize,dustfracsum,dustfrac,graindens,iunit,ierr)
- use dim,          only:ndusttypes 
+ use dim,          only:ndusttypes
  use options,      only:use_dustfrac
  use units,        only:udist,umass
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
@@ -1136,14 +1184,14 @@ subroutine read_setup(filename,d2g_ratio,grainsize_set,grainsize,dustfracsum,dus
  integer :: i
  type(inopts), allocatable :: db(:)
  character(len=120) :: varlabel(ndusttypes)
- 
+
 ! read in parameters from the .setup file
  call open_db_from_file(db,filename,iunit,ierr)
- 
+
  call read_inopt(d2g_ratio,'dust_to_gas_ratio',db,ierr)
  if (ierr /= 0) return
  if (use_dustfrac) dustfracsum = d2g_ratio/(1. + d2g_ratio)
- 
+
  if (use_dustfrac .and. ndusttypes>1) then
     call read_inopt(grainsize_set,'grainsize_set',db,ierr)
  else
@@ -1171,7 +1219,7 @@ subroutine read_setup(filename,d2g_ratio,grainsize_set,grainsize,dustfracsum,dus
     dustfrac(:) = (dustfrac(:)/100.)*dustfracsum
  end select
  grainsize(:) = grainsizecgs(:)/udist
- 
+
  call read_inopt(graindens,'graindensinp',db,ierr)
  if (ierr /= 0) return
  graindens = graindens*udist**3/umass
@@ -1186,16 +1234,18 @@ end subroutine read_setup
 !  read disc information from .in file
 !+
 !----------------------------------------------------------------
-subroutine read_in(filename,irealvisc,shearvisc,iunit,ierr)
+subroutine read_in(filename,irealvisc,alphaAV,shearvisc,iunit,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  character(len=*), intent(in)  :: filename
- real,             intent(out) :: shearvisc
+ real,             intent(out) :: alphaAV,shearvisc
  integer,          intent(in)  :: iunit
  integer,          intent(out) :: ierr,irealvisc
  type(inopts), allocatable :: db(:)
 
 ! read in parameters from the .setup file
  call open_db_from_file(db,filename,iunit,ierr)
+ call read_inopt(alphaAV,'alpha',db,ierr)
+ if (ierr /= 0) return
  call read_inopt(irealvisc,'irealvisc',db,ierr)
  if (ierr /= 0) return
  call read_inopt(shearvisc,'shearparam',db,ierr)
@@ -1223,7 +1273,7 @@ subroutine make_output_labels(istart,iend,prestring,poststring)
     write(istring,'(a)') prestring//trim(adjustl(istring))//poststring
     label(i) = istring
  enddo
- 
+
  return
 end subroutine make_output_labels
 
