@@ -16,16 +16,16 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    m1            --- mass of white dwarf
-!    m2            --- mass of asteroid
-!    rp            --- pericentre distance
-!    ecc           --- eccentricity
-!    hacc1         --- white dwarf (sink) accretion radius
-!    norbits       --- number of orbits
-!    dumpsperorbit --- number of dumps per orbit
+!    dumpsperorbit -- number of dumps per orbit
+!    eccentricity  -- eccentricity
+!    hacc1         -- white dwarf (sink) accretion radius
+!    m1            -- mass of white dwarf
+!    m2            -- mass of asteroid
+!    norbits       -- number of orbits
+!    rp            -- pericentre distance
 !
-!  DEPENDENCIES: part, setbinary, spherical, units, physcon, io,
-!    timestep, infile_utils
+!  DEPENDENCIES: infile_utils, io, part, physcon, setbinary, spherical,
+!    timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
