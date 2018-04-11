@@ -1760,7 +1760,7 @@ subroutine read_setupfile(filename,ierr)
 #ifdef MCFOST
  !--mcfost
  call read_inopt(use_mcfost,'use_mcfost',db,err=ierr)
- if (ierr) use_mcfost = .false. ! no mcfost by default
+ if (ierr /= 0) use_mcfost = .false. ! no mcfost by default
 #endif
 
 
