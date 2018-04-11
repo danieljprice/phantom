@@ -1062,10 +1062,10 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,xyzmh_ptmass,phii,epo
  etoti = epoti + ekini + einti
 end subroutine calc_gas_energies
 
+! returns a profile from the centre of mass
+! profile can either use all particles or can find particles within 2h of a given ray
+! if simple flag is set to true, it will only produce a limited subset
 subroutine stellar_profile(time,ncols,particlemass,npart,xyzh,vxyzu,profile,simple,ray)
- !returns a profile from the centre of mass
- !profile can either use all particles or can find particles within 2h of a given ray
- !if simple flag is set to true, it will only produce a limited subset
  use eos,          only:ieos,equationofstate,X_in, Z_in
  use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa
  use physcon,      only:kboltz,mass_proton_cgs
@@ -1076,18 +1076,21 @@ subroutine stellar_profile(time,ncols,particlemass,npart,xyzh,vxyzu,profile,simp
  use kernel,       only:kernel_softening,radkern
  use ptmass,       only:get_accel_sink_gas
 
+ real,    intent(in)    :: time
+ integer, intent(in)    :: ncols
+ real,    intent(in)    :: particlemass
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
+ real, intent(out), allocatable :: profile(:,:)
+ logical, intent(in)    :: simple
+ real, intent(in), optional :: ray(3)
  integer           :: i,iprofile
  real              :: proj(3),orth(3),proj_mag,orth_dist,orth_ratio
  real              :: rhopart,ponrhoi,spsoundi
  real              :: temp,kappa,kappat,kappar,pres
  real              :: ekini,epoti,einti,etoti,phii
  real              :: xh0, xh1, xhe0, xhe1, xhe2
- real, intent(in), optional :: ray(3)
- logical, intent(in) :: simple
- real, intent(in)  :: xyzh(:,:),vxyzu(:,:)
- real, intent(in)  :: particlemass,time
- integer, intent(in) :: npart,ncols
- real, intent(out), allocatable :: profile(:,:)
  real              :: temp_profile(ncols,npart)
  logical           :: criteria
 

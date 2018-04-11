@@ -88,7 +88,7 @@ subroutine test_wavedamp(ntests,npass)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:npart,xyzh,vxyzu,Bxyz,npartoftype,massoftype,set_particle_type,&
-                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,igas,alphaind
+                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,temperature,igas,alphaind
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use testutils,      only:checkval
@@ -199,7 +199,7 @@ subroutine test_wavedamp(ntests,npass)
  ! call derivs the first time around
  use_sts = .true.
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
+             Bevol,dBevol,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
  use_sts = .false.  ! Since we only want to run supertimestepping once to verify we get the correct dt
  !
  ! run wave damp problem
@@ -259,7 +259,7 @@ subroutine test_standingshock(ntests,npass)
  use kernel,         only:hfact_default,radkern
  use part,           only:npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,hrho,rhoh,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,igas,iboundary,&
-                          set_boundaries_to_active,alphaind,maxalpha,maxp,iphase,Bxyz
+                          set_boundaries_to_active,alphaind,maxalpha,maxp,iphase,Bxyz,temperature
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use testutils,      only:checkval
@@ -389,7 +389,7 @@ subroutine test_standingshock(ntests,npass)
  !
  ! call derivs the first time around
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
+             Bevol,dBevol,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
  set_boundaries_to_active = .false.
  !
  ! run standing shock problem
@@ -494,7 +494,7 @@ subroutine test_narrays(ntests,npass)
  use kernel,         only:hfact_default
  use part,           only:npart,xyzh,vxyzu,Bxyz,npartoftype,massoftype,set_particle_type,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,igas,alphaind,&
-                          n_R,n_electronT,rhoh,eta_nimhd,iohm,ihall,iambi
+                          n_R,n_electronT,rhoh,eta_nimhd,iohm,ihall,iambi,temperature
  use deriv,          only:derivs
  use testutils,      only:checkval
  use eos,            only:ieos,init_eos,polyk,polyk2,gamma,get_temperature
@@ -596,7 +596,7 @@ subroutine test_narrays(ntests,npass)
     !
     ! call derivs, which will also calculate eta
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
+                Bevol,dBevol,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
     !
     ! Calculate eta from NICIL
     rhoi  = rhoh(xyzh(4,1),massoftype(1))

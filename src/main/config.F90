@@ -52,6 +52,15 @@ module dim
  integer, parameter :: maxvxyzu = 4
 #endif
 
+ ! storage of temperature
+#ifdef STORE_TEMPERATURE
+ logical, parameter :: store_temperature = .true.
+ integer, parameter :: maxtemp = maxp
+#else
+ logical, parameter :: store_temperature = .false.
+ integer, parameter :: maxtemp = 0
+#endif
+
  ! maximum allowable number of neighbours (safest=maxp)
 #ifdef MAXNEIGH
  integer, parameter :: maxneigh = MAXNEIGH
