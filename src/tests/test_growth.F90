@@ -104,16 +104,17 @@ subroutine test_growingbox(ntests,npass)
  use io,             only:iverbose
  use units,          only:set_units,udist,unit_density
  use mpiutils,       only:reduceall_mpi
- use growth,         only:ifrag,get_vrelonvfrag
+ use growth,         only:ifrag,get_vrelonvfrag,vfrag,isnow
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
- integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(1), nerr(1)
- real :: deltax, dz, hfact, totmass, rhozero, errmax(1), dtext_dum
+ integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(4), nerr(4)
+ real :: deltax, dz, hfact, totmass, rhozero, errmax(4), dtext_dum
  real :: t, dt, dtext, dtnew
- real :: csj, Stj, rhod, r, s, Vt
- real :: scor(1000000)
+ real :: csj, Stj, s, Vt,vrelonvfrag = 10.
+ real :: slast = 0., s2 = 0.
  real :: sinit = 1.e-2, dens = 1.
- real, parameter :: tols = 1.e-8
+ integer :: switch
+ real, parameter :: tols = 2.e-5
 
  if (periodic) then
     if (id==master) write(*,"(/,a)") '--> testing GROWINGBOX'
@@ -147,8 +148,6 @@ subroutine test_growingbox(ntests,npass)
     dustprop(3,i) = 0.
     dustprop(4,i) = 0.
     dustprop(5,i) = 0.
-    scor(:) = 0.
-    if (mhd) Bevol(:,i) = 0.
  enddo
  npartoftype(idust) = npart - npart_previous
  npartoftypetot(idust) = reduceall_mpi('+',npartoftype(idust))
@@ -157,6 +156,7 @@ subroutine test_growingbox(ntests,npass)
  ! runtime parameters
  !
  ifrag = 0
+ isnow = 0
  alpha = 1.
  iverbose = 0
  ieos = 1
@@ -181,28 +181,138 @@ subroutine test_growingbox(ntests,npass)
  errmax(:) = 0.
  Vt = sqrt(2**(0.5)*alpha*Ro)*csj
 
+ !
+ ! ifrag = 0 : pure growth
+ !
+ write(*,"(/,a)")'------------------ pure growth (ifrag = 0) ------------------'
+
  call init_step(npart,t,dtmax)
 
  do i=1,nsteps
     do j=1,npart
-       call get_vrelonvfrag(xyzh(:,j),dustprop(:,j),csj,Stj,0.)
+       call get_vrelonvfrag(xyzh(:,j),dustprop(:,j),csj,Stj,0.) !--get vrel
     enddo
     t = t + dt
     dtext = dt
+    
     call step(npart,npart,t,dt,dtext,dtnew)
 
     do j=1,npart
-       rhod = rhoh(xyzh(4,j),massoftype(2))
-       s = sinit + rhod/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
-       if (i==1) scor(j) = rhod/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*dt
-       call checkvalbuf(dustprop(1,j),s-scor(j),tols,'size',nerr(1),ncheck(1),errmax(1))
+       s = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*(t-dt) !- scor
+       call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(1),ncheck(1),errmax(1))
     enddo
  enddo
 
  call checkvalbuf_end('size match exact solution',ncheck(1),nerr(1),errmax(1),tols)
 
  ntests = ntests + 1
- if (all(nerr(1:1)==0)) npass = npass + 1
+ 
+ write(*,"(/,a)")'------------------ pure fragmentation (ifrag = 1) ------------------'
+ !
+ ! initialise again
+ !
+ dustprop(1,:) = 100*sinit
+ dustprop(2,:) = dens
+ dustprop(3,:) = 0.
+ dustprop(4,:) = 0.
+ dustprop(5,:) = 0.
+ vfrag = 1/vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! 0.01*vrel to assure fragmentation
+ ifrag = 1
+ 
+ t = 0
+
+ call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+
+ call init_step(npart,t,dtmax)
+
+ do i=1,nsteps
+    do j=1,npart
+       call get_vrelonvfrag(xyzh(:,j),dustprop(:,j),csj,Stj,0.) !--get vrel, vrel/vfrag
+    enddo
+    t = t + dt
+    dtext = dt
+    call step(npart,npart,t,dt,dtext,dtnew) !--integrate dust size
+ 
+    do j=1,npart
+       s = 100*sinit - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*(t-dt)
+       call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(2),ncheck(2),errmax(2))
+    enddo
+ enddo
+ 
+ call checkvalbuf_end('size match exact solution',ncheck(2),nerr(2),errmax(2),tols)
+
+ write(*,"(/,a)")'------------------ pure fragmentation (ifrag = 2) ------------------'
+ !
+ ! initialise again
+ !
+ dustprop(1,:) = 100*sinit
+ dustprop(2,:) = dens
+ dustprop(3,:) = 0.
+ dustprop(4,:) = 0.
+ dustprop(5,:) = 0.
+ ifrag = 2
+ 
+ t = 0
+
+ call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+
+ call init_step(npart,t,dtmax)
+
+ do i=1,nsteps
+    do j=1,npart
+       call get_vrelonvfrag(xyzh(:,j),dustprop(:,j),csj,Stj,0.) !--get vrel, vrel/vfrag
+    enddo
+    t = t + dt
+    dtext = dt
+    call step(npart,npart,t,dt,dtext,dtnew) !--integrate dust size
+ 
+    do j=1,npart
+       s = 100*sinit - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*vrelonvfrag**2/(vrelonvfrag**2+1)*(t-dt)
+       call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(3),ncheck(3),errmax(3))
+    enddo
+ enddo
+ 
+ call checkvalbuf_end('size match exact solution',ncheck(3),nerr(3),errmax(3),tols)
+
+ ! write(*,"(/,a)")'------------------ growth and fragmentation switch ------------------'
+ ! !
+ ! ! initialise again
+ ! !
+ ! dustprop(1,:) = 100*sinit
+ ! dustprop(2,:) = dens
+ ! dustprop(3,:) = 0.
+ ! dustprop(4,:) = 0.
+ ! dustprop(5,:) = 0.
+ ! s2 = 0.
+ ! vfrag = vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! we assure growth
+ ! ifrag = 1
+ 
+ ! t = 0
+ ! switch = abs(nsteps/2)
+
+ ! call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+ !             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+
+ ! call init_step(npart,t,dtmax)
+
+ ! do i=1,nsteps
+ !    if (i==switch) vfrag = bla ! we switch to fragmentation at half the steps
+ !    do j=1,npart
+ !       call get_vrelonvfrag(xyzh(:,j),dustprop(:,j),csj,Stj,0.) !--get vrel, vrel/vfrag
+ !    enddo
+ !    t = t + dt
+ !    dtext = dt
+ !    call step(npart,npart,t,dt,dtext,dtnew)
+ !    do j=1,npart
+ !       call checkvalbuf(dustprop(1,j),'''''',tols,'size',nerr(4),ncheck(4),errmax(4))
+ !    enddo
+ ! enddo
+ 
+ ! call checkvalbuf_end('size match exact solution',ncheck(4),nerr(4),errmax(4),tols)
+
+ if (all(nerr(1:4)==0)) npass = npass + 1
 
 end subroutine test_growingbox
 

@@ -229,7 +229,7 @@ subroutine get_vrelonvfrag(xyzh,dustprop,cs,St,T)
  Vt = sqrt((2**0.5)*Ro*alpha)*cs
 
  !--compute vrel
- dustprop(3) = vrelative(St,dustprop(5),Vt,alpha)
+ dustprop(3) = vrelative(St,dustprop(5),Vt)
  !
  !--If statements to compute local ratio vrel/vfrag
  !
@@ -348,8 +348,8 @@ subroutine update_dustprop(npart,dustproppred)
 end subroutine update_dustprop
 
 !--Compute the relative velocity following Stepinski & Valageas (1997)
-real function vrelative(St,dv,Vt,alpha)
- real, intent(in) :: St,alpha,dv,Vt
+real function vrelative(St,dv,Vt)
+ real, intent(in) :: St,dv,Vt
  real             :: Sc
 
  !--compute Schmidt number Sc

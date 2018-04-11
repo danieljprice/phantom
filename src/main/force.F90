@@ -161,7 +161,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use units,        only:unit_density
 #endif
 #ifdef DUST
- use dust,         only:get_ts,grainsize,graindens,idrag,icut_backreaction
+ !use dust,         only:get_ts
  use kernel,       only:wkern_drag,cnormk_drag
 #endif
  use nicil,        only:nimhd_get_jcbcb,nimhd_get_dt,nimhd_get_dBdt,nimhd_get_dudt
@@ -791,7 +791,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef DUSTGROWTH
  use growth,  only:get_vrelonvfrag
  use eos,         only:get_temperature,ieos
- use part,        only:xyzmh_ptmass,tstop
+ use part,        only:xyzmh_ptmass
 #endif
 #ifdef IND_TIMESTEPS
  use part,        only:ibin_old
@@ -1487,7 +1487,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 if (usej) then
                    dustprop(5,i) = dustprop(5,i) + 3*pmassj/rhoj*projv*wdrag !--interpolate vd-vg for the dust particle i
                    ri = sqrt(xyzh(1,i)**2+xyzh(2,i)**2)
-                   Sti = tstop(i)*sqrt(xyzmh_ptmass(4,1)/ri**3) !--G=1 in code units
+                   Sti = tsij*sqrt(xyzmh_ptmass(4,1)/ri**3) !--G=1 in code units
                    Ti = get_temperature(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
                    call get_vrelonvfrag(xyzh(:,i),dustprop(:,i),spsoundi,Sti,Ti) !--store vrel and vrel/vfrag
                 endif
