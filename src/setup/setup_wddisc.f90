@@ -64,7 +64,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120) :: filename
  integer :: ierr,i
  logical :: iexist
- real    :: m2,vbody(3),xyzbody(3),massbody,psep,rbody,period,hacc2,a,massr,ra
+ real    :: vbody(3),xyzbody(3),massbody,psep,rbody,period,hacc2,a,massr,ra
 
  call set_units(mass=solarm/1000.,dist=solarr,G=1.d0)
 
