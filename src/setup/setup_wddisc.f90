@@ -71,9 +71,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--Default runtime parameters
 !
- m1      = 1.*solarm/umass
- m2      = ceresm/umass
- rp      = 0.7*solarr/udist
+ m1      = 0.6*solarm/umass
+ m2      = 0.1*ceresm/umass
+ rp      = 1.2*solarr/udist
  ecc     = 0.95
  hacc1   = 0.5*solarr/udist
  norbits = 1
