@@ -358,7 +358,7 @@ write(*,"(/,a)")'------------------ box with a position based snow line --------
  call checkvalbuf_end('size match exact solution (in)',ncheck(5),nerr(5),errmax(5),tols)
  call checkvalbuf_end('size match exact solution (out)',ncheck(6),nerr(6),errmax(6),tols)
 
- if (all(nerr(1:4)==0)) npass = npass + 1
+ if (all(nerr(1:6)==0)) npass = npass + 1
 
 end subroutine test_growingbox
 
