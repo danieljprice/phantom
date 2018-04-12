@@ -377,10 +377,13 @@ subroutine test_dustydiffuse(ntests,npass)
 
  if (do_output) call write_file(time,xyzh,dustfrac,npart)
  do i=1,npart
+!------------------------------------------------
 !--sqrt(rho*epsilon) method
-    dustevol(:,i) = sqrt(dustfrac(:,i)*rhoh(xyzh(4,i),massoftype(igas)))
+!    dustevol(:,i) = sqrt(dustfrac(:,i)*rhoh(xyzh(4,i),massoftype(igas)))
+!------------------------------------------------
 !--asin(sqrt(epsilon)) method
-!    dustevol(:,i) = asin(sqrt(dustfrac(:,i)))
+    dustevol(:,i) = asin(sqrt(dustfrac(:,i)))
+!------------------------------------------------
  enddo
 
  nerr = 0
@@ -392,10 +395,13 @@ subroutine test_dustydiffuse(ntests,npass)
     do i=1,npart
        ddustfrac_prev(:,i) = ddustfrac(:,i)
        dustevol(:,i) = dustevol(:,i) + dt*ddustfrac(:,i)
+!------------------------------------------------
 !--sqrt(rho*epsilon) method
-       dustfrac(:,i) = dustevol(:,i)**2/rhoh(xyzh(4,i),massoftype(igas))
+!       dustfrac(:,i) = dustevol(:,i)**2/rhoh(xyzh(4,i),massoftype(igas))
+!------------------------------------------------
 !--asin(sqrt(epsilon)) method
-!       dustfrac(:,i) = sin(dustevol(:,i))**2
+       dustfrac(:,i) = sin(dustevol(:,i))**2
+!------------------------------------------------
     enddo
     !$omp end parallel do
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&

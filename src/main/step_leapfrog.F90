@@ -258,10 +258,13 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (use_dustfrac) then
              rhoi          = rhoh(xyzh(4,i),pmassi)
              dustpred(:,i) = dustevol(:,i) + hdti*ddustfrac(:,i)
+!------------------------------------------------
 !--sqrt(rho*epsilon) method
-             dustfrac(:,i) = min(dustpred(:,i)**2/rhoi,1.) ! dustevol = sqrt(rho*eps)
+!             dustfrac(:,i) = min(dustpred(:,i)**2/rhoi,1.) ! dustevol = sqrt(rho*eps)
+!------------------------------------------------
 !--asin(sqrt(epsilon)) method
-!             dustfrac(:,i) = sin(dustpred(:,i))**2
+             dustfrac(:,i) = sin(dustpred(:,i))**2
+!------------------------------------------------
           endif
        endif
        !

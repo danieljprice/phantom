@@ -606,15 +606,16 @@ subroutine test_derivs(ntests,npass,string)
           do i=1,npart
              dustfraci(:)  = dustfrac(:,i)
              rhoi          = rhoh(xyzh(4,i),massoftype(igas))
-!--sqrt(rho*epsilon) method
-             sonrhoi(:)    = sqrt(dustfrac(:,i)/rhoi)
-!--asin(sqrt(epsilon)) method
-!             sonrhoi(:)    = asin(sqrt(dustfrac(:,i)))
              drhodti       = -rhoi*divcurlv(1,i)
+!------------------------------------------------
 !--sqrt(rho*epsilon) method
-             ddustfraci(:) = 2.*sonrhoi(:)*ddustfrac(:,i) - sonrhoi(:)**2*drhodti
+!             sonrhoi(:)    = sqrt(dustfrac(:,i)/rhoi)
+!             ddustfraci(:) = 2.*sonrhoi(:)*ddustfrac(:,i) - sonrhoi(:)**2*drhodti
+!------------------------------------------------
 !--asin(sqrt(epsilon)) method
-!             ddustfraci(:) = 2.*cos(sonrhoi(:))*sin(sonrhoi(:))*ddustfrac(:,i)
+             sonrhoi(:)    = asin(sqrt(dustfrac(:,i)))
+             ddustfraci(:) = 2.*cos(sonrhoi(:))*sin(sonrhoi(:))*ddustfrac(:,i)
+!------------------------------------------------
              dmdust(:)     = dmdust(:) + ddustfraci(:)
              dekin  = dekin  + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
              deint  = deint  + (1. - sum(dustfraci))*fxyzu(4,i)
@@ -2616,14 +2617,15 @@ real function ddustfrac_func(xyzhi)
  
  !ddustfrac_func = -1./rhoi*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts))
 
+!------------------------------------------------
 !--sqrt(rho*epsilon) method
- si = sqrt(dustfraci*rhoi)
+! si = sqrt(dustfraci*rhoi)
+! ddustfrac_func = -0.5/si*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts)) - 0.5*si*divvfunc(xyzhi)
+!------------------------------------------------
 !--asin(sqrt(epsilon)) method
-! si = asin(sqrt(dustfraci))
-!--sqrt(rho*epsilon) method
- ddustfrac_func = -0.5/si*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts)) - 0.5*si*divvfunc(xyzhi)
-!--asin(sqrt(epsilon)) method
-! ddustfrac_func = -0.5/(rhoi*sin(si)*cos(si))*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts))
+ si = asin(sqrt(dustfraci))
+ ddustfrac_func = -0.5/(rhoi*sin(si)*cos(si))*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts))
+!------------------------------------------------
 
 end function ddustfrac_func
 

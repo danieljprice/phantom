@@ -525,10 +525,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        ! set grainsize parameterisation from the initial dustfrac setting now we know rho
        do i=1,npart
           if (.not.isdead_or_accreted(xyzh(4,i))) then
+!------------------------------------------------
 !--sqrt(rho*epsilon) method
-             dustevol(:,i) = sqrt(rhoh(xyzh(4,i),pmassi)*dustfrac(:,i))
+!             dustevol(:,i) = sqrt(rhoh(xyzh(4,i),pmassi)*dustfrac(:,i))
+!------------------------------------------------
 !--asin(sqrt(epsilon)) method
-!             dustevol(:,i) = asin(sqrt(dustfrac(:,i)))
+             dustevol(:,i) = asin(sqrt(dustfrac(:,i)))
+!------------------------------------------------
           endif
        enddo
     endif
