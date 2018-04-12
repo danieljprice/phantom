@@ -17,7 +17,7 @@
 !
 !  RUNTIME PARAMETERS:
 !    dumpsperorbit -- number of dumps per orbit
-!    eccentricity  -- eccentricity
+!    semia         -- semi-major axis
 !    hacc1         -- white dwarf (sink) accretion radius
 !    m1            -- mass of white dwarf
 !    m2            -- mass of asteroid
@@ -32,7 +32,7 @@ module setup
  implicit none
  public :: setpart
 
- real :: m1,hacc1,m2,rp,ecc,norbits
+ real :: m1,m2,rp,semia,hacc1,norbits
  integer :: dumpsperorbit
 
  private
@@ -64,7 +64,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120) :: filename
  integer :: ierr,i
  logical :: iexist
- real    :: vbody(3),xyzbody(3),massbody,psep,rbody,period,hacc2,a,massr,ra
+ real    :: vbody(3),xyzbody(3),massbody,psep,rbody,period,hacc2,ecc,massr
 
  call set_units(mass=solarm/1000.,dist=solarr,G=1.d0)
 
@@ -74,7 +74,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  m1      = 0.6*solarm/umass
  m2      = 0.1*ceresm/umass
  rp      = 1.2*solarr/udist
- ecc     = 0.95
+ semia   = 24.*solarr/udist
  hacc1   = 0.5*solarr/udist
  norbits = 1
  dumpsperorbit = 100
@@ -111,18 +111,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  nptmass = 0
 
  massr  = m2/m1
-!ra     = (1.+ecc)/(1.-ecc)*rp
- a      = rp/(1.-ecc)
- ra     = a*(1.+ecc)
- period = sqrt(4.*pi**2*a**3/(m1+m2))
- hacc2  = hacc1
+ ecc    = 1.-rp/semia
+ period = sqrt(4.*pi**2*semia**3/(m1+m2))
+ hacc2  = hacc1/1.e10
  tmax   = norbits*period
  dtmax  = period/dumpsperorbit
 
 !
 !--Set a binary orbit given the desired orbital parameters
 !
- call set_binary(m1,massr,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
+ call set_binary(m1,massr,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
  vbody  = vxyz_ptmass(1:3,2)
  xyzbody = xyzmh_ptmass(1:3,2)
  massbody = xyzmh_ptmass(4,2)
@@ -142,8 +140,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  enddo
 
  if (nptmass == 0) call fatal('setup','no sink particles setup')
- if (npart == 0) call fatal('setup','no hydro particles setup')
- if (ierr /= 0) call fatal('setup','ERROR during setup')
+ if (npart == 0)   call fatal('setup','no hydro particles setup')
+ if (ierr /= 0)    call fatal('setup','ERROR during setup')
 
 end subroutine setpart
 
@@ -162,7 +160,7 @@ subroutine write_setupfile(filename)
  call write_inopt(m1,'m1','mass of white dwarf',iunit)
  call write_inopt(m2,'m2','mass of asteroid',iunit)
  call write_inopt(rp,'rp','pericentre distance',iunit)
- call write_inopt(ecc,'ecc','eccentricity',iunit)
+ call write_inopt(semia,'semia','semi-major axis',iunit)
  call write_inopt(hacc1,'hacc1','white dwarf (sink) accretion radius',iunit)
  call write_inopt(norbits,'norbits','number of orbits',iunit)
  call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',iunit)
@@ -186,7 +184,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
  call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
  call read_inopt(rp,'rp',db,errcount=nerr)
- call read_inopt(ecc,'ecc',db,min=0.,errcount=nerr)
+ call read_inopt(semia,'semia',db,min=0.,errcount=nerr)
  call read_inopt(hacc1,'hacc1',db,min=0.,errcount=nerr)
  call read_inopt(norbits,'norbits',db,min=0.,errcount=nerr)
  call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=0,errcount=nerr)
