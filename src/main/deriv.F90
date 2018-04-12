@@ -40,7 +40,7 @@ contains
 !  (wrapper for call to density and rates, calls neighbours etc first)
 !+
 !-------------------------------------------------------------
-subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
+subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
                   dustfrac,ddustfrac,temperature,time,dt,dtnew)
  use dim,            only:maxp,maxvxyzu
  use io,             only:iprint,fatal
@@ -70,8 +70,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real(kind=4), intent(out)   :: divcurlB(:,:)
  real,         intent(in)    :: Bevol(:,:)
  real,         intent(out)   :: dBevol(:,:)
- real,         intent(in)    :: dustfrac(:,:)
- real,         intent(out)   :: ddustfrac(:,:)
+ real,         intent(in)    :: dustfrac(:,:),dustprop(:,:)
+ real,         intent(out)   :: ddustfrac(:,:),ddustprop(:,:)
  real,         intent(inout) :: temperature(:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
@@ -130,7 +130,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 #endif
 
  stressmax = 0.
- call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
+ call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
             dustfrac,ddustfrac,ipart_rhomax,dt,stressmax,temperature)
  call do_timing('force',tlast,tcpulast)
 !

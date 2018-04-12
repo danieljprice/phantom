@@ -95,6 +95,9 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use linklist,        only:write_inopts_link
 #ifdef DUST
  use dust,            only:write_options_dust
+#ifdef DUSTGROWTH
+ use growth,		  only:write_options_growth
+#endif
 #endif
 #ifdef PHOTO
  use photoevap,       only:write_options_photoevap
@@ -229,6 +232,9 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
 #ifdef DUST
  call write_options_dust(iwritein)
+#ifdef DUSTGROWTH
+ call write_options_growth(iwritein)
+#endif
 #endif
 
 #ifdef PHOTO
@@ -268,6 +274,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use linklist,      only:read_inopts_link
 #ifdef DUST
  use dust,          only:read_options_dust
+#ifdef DUSTGROWTH
+ use growth,		only:read_options_growth
+#endif
 #endif
 #ifdef PHOTO
  use photoevap,     only:read_options_photoevap
@@ -290,7 +299,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  character(len=120) :: valstring
  integer :: ierr,ireaderr,line,idot,ngot,nlinesread
  logical :: imatch,igotallrequired,igotallturb,igotalllink,igotloops
- logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject
+ logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotallphoto
  integer, parameter :: nrequired = 1
 
@@ -304,6 +313,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  ngot            = 0
  igotallturb     = .true.
  igotalldust     = .true.
+ igotallgrowth	 = .true.
  igotallphoto    = .true.
  igotalllink     = .true.
  igotallextern   = .true.
@@ -418,6 +428,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (.not.imatch) call read_inopts_link(name,valstring,imatch,igotalllink,ierr)
 #ifdef DUST
        if (.not.imatch) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
+#ifdef DUSTGROWTH
+	   if (.not.imatch) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
+#endif
 #endif
 #ifdef PHOTO
        if (.not.imatch) call read_options_photoevap(name,valstring,imatch,igotallphoto,ierr)
@@ -452,7 +465,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallrequired = (ngot  >=  nrequired) .and. igotalllink .and. igotallbowen .and. igotalldust &
                    .and. igotalleos .and. igotallcooling .and. igotallextern .and. igotallturb &
                    .and. igotallptmass .and. igotallinject .and. igotallionise .and. igotallnonideal &
-                   .and. igotallphoto
+                   .and. igotallphoto .and. igotallgrowth
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1
@@ -468,6 +481,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotalllink) write(*,*) 'missing link options'
           if (.not.igotallbowen) write(*,*) 'missing Bowen dust options'
           if (.not.igotalldust) write(*,*) 'missing dust options'
+		  if (.not.igotallgrowth) write(*,*) 'missing growth options'
           if (.not.igotallphoto) write(*,*) 'missing photoevaporation options'
           if (.not.igotallextern) write(*,*) 'missing external force options'
           if (.not.igotallinject) write(*,*) 'missing inject-particle options'

@@ -37,6 +37,7 @@ contains
 !-------------------------------------------------------------------
 subroutine check_compile_time_settings(ierr)
  use part,  only:mhd,maxBevol,gravity,ngradh,h2chemistry,maxvxyzu
+ use dim,   only:use_dustgrowth
  use io,    only:error,id,master
  integer, intent(out) :: ierr
  character(len=16), parameter :: string = 'compile settings'
@@ -95,6 +96,10 @@ subroutine check_compile_time_settings(ierr)
 #ifdef MHD
  if (id==master) call error(string,'-DDUST currently not compatible with magnetic fields (-DMHD)')
 #endif
+#endif
+
+#ifdef DUSTGROWTH
+ if (.not. use_dustgrowth) call error(string,'-DDUSTGROWTH but use_dustgrowth = .false.')
 #endif
 
  return

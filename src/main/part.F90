@@ -36,11 +36,10 @@ module part
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
           switches_done_in_derivs,maxp_dustfrac,use_dust, &
           store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
-          maxne,ndusttypes
+          maxne,maxp_growth,ndusttypes
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
-
 !
 !--basic storage needed for read/write of particle data
 !
@@ -55,6 +54,11 @@ module part
  character(len=*), parameter :: xyzh_label(4) = (/'x','y','z','h'/)
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
  character(len=*), parameter :: Bxyz_label(3) = (/'Bx','By','Bz'/)
+!
+!--storage of dust properties
+!
+ real :: dustprop(4,maxp_growth)
+ character(len=*), parameter :: dustprop_label(4) = (/'grainsize ','graindens ','vrel/vfrag','    dv    '/)
 !
 !--storage in divcurlv
 !
@@ -158,17 +162,19 @@ module part
 !
 !--derivatives (only needed if derivs is called)
 !
- real         :: fxyzu(maxvxyzu,maxan)
- real         :: dBevol(maxBevol,maxmhdan)
- real(kind=4) :: divBsymm(maxmhdan)
- real         :: fext(3,maxan)
- real         :: ddustfrac(ndusttypes,maxdustan)
+ real               :: fxyzu(maxvxyzu,maxan)
+ real               :: dBevol(maxBevol,maxmhdan)
+ real(kind=4)       :: divBsymm(maxmhdan)
+ real               :: fext(3,maxan)
+ real               :: ddustfrac(ndusttypes,maxdustan)
+ real               :: ddustprop(4,maxp_growth) !--grainsize is the only prop that evolves for now
 !
 !--storage associated with/dependent on timestepping
 !
- real         :: vpred(maxvxyzu,maxan)
- real         :: dustpred(ndusttypes,maxdustan)
- real         :: Bpred(maxBevol,maxmhdan)
+ real               :: vpred(maxvxyzu,maxan)
+ real               :: dustpred(ndusttypes,maxdustan)
+ real               :: Bpred(maxBevol,maxmhdan)
+ real               :: dustproppred(4,maxp_growth)
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin(maxan)
  integer(kind=1)    :: ibin_old(maxan)
@@ -184,8 +190,8 @@ module part
  integer(kind=1)    :: iphase_soa(maxphase)
  logical, public    :: all_active = .true.
 
- real(kind=4) :: gradh(ngradh,maxgradh)
- real         :: tstop(ndusttypes,maxan)
+ real(kind=4)       :: gradh(ngradh,maxgradh)
+ real               :: tstop(ndusttypes,maxan)
 !
 !--storage associated with link list
 !  (used for dead particle list also)
@@ -212,6 +218,10 @@ module part
 #ifdef DUST
    +ndusttypes                          &  ! dustfrac
    +ndusttypes                          &  ! dustevol
+#ifdef DUSTGROWTH
+   +1                                   &  ! dustproppred
+   +1                                   &  ! ddustprop
+#endif
 #endif
    +(maxp_h2/maxpd)*nabundances         &  ! abundance
    +(maxgrav/maxpd)                     &  ! poten

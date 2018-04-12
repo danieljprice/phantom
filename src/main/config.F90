@@ -83,11 +83,20 @@ module dim
  integer, parameter :: ndustfluids = 1
  integer, parameter :: ndusttypes = 1
  integer, parameter :: maxp_dustfrac = maxp
+#ifdef DUSTGROWTH
+ logical, parameter :: use_dustgrowth = .true.
+ integer, parameter :: maxp_growth = maxp
+#else
+ logical, parameter :: use_dustgrowth = .false.
+ integer, parameter :: maxp_growth = 0
+#endif
 #else
  logical, parameter :: use_dust = .false.
  integer, parameter :: ndustfluids = 0
  integer, parameter :: ndusttypes = 1 ! to avoid seg faults
  integer, parameter :: maxp_dustfrac = 0
+ logical, parameter :: use_dustgrowth = .false.
+ integer, parameter :: maxp_growth = 0
 #endif
 
  ! kdtree
@@ -104,7 +113,7 @@ module dim
  ! xpartveci
  integer, parameter :: maxxpartvecidens = 14
  
- integer, parameter :: xpartvecvars = 45 ! Number of scalars in xpartvec
+ integer, parameter :: xpartvecvars = 47 ! Number of scalars in xpartvec
  integer, parameter :: xpartvecarrs = 2  ! Number of arrays in xpartvec
  integer, parameter :: maxxpartveciforce = xpartvecvars + xpartvecarrs*(ndusttypes-1) ! Total number of values
 

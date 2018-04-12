@@ -906,6 +906,10 @@ ifndef SRCDUST
     SRCDUST = dust.F90
 endif
 
+ifndef SRCGROWTH
+    SRCGROWTH = growth.F90
+endif
+
 ifeq ($(MCFOST), yes)
 #   live feedback from mcfost
     ANALYSIS= analysis_mcfost.f90
@@ -1183,7 +1187,9 @@ ifeq ($(DUST), yes)
        KERNEL=quintic
     endif
 endif
-
+ifeq ($(DUSTGROWTH), yes)
+    FPPFLAGS += -DDUSTGROWTH
+endif
 ifeq ($(NONIDEALMHD), yes)
     FPPFLAGS += -DNONIDEALMHD
 endif
@@ -1394,7 +1400,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          checkoptions.F90 ${SRCEOS} set_binary.f90 set_flyby.f90 \
          viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} \
          set_disc.F90 partinject.F90 \
-         utils_filenames.f90 utils_summary.F90 ${SRCCHEM} directsum.f90 ${SRCDUST} prompting.f90 readwrite_dumps.F90 quitdump.f90 \
+         utils_filenames.f90 utils_summary.F90 ${SRCCHEM} directsum.f90 ${SRCDUST} ${SRCGROWTH} prompting.f90 readwrite_dumps.F90 quitdump.f90 \
          mpi_dens.F90 mpi_force.F90 stack.F90 \
          mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
          ${SRCTURB} ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} \
@@ -1459,7 +1465,7 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          utils_dumpfiles.f90 utils_mathfunc.f90 utils_infiles.f90 utils_vectors.f90 \
          utils_datafiles.f90 datafiles.f90 ${DOMAIN} part.F90 utils_sphNG.f90 \
          commons.f90 ${SRCFASTMATH} ${SRCEOS} centreofmass.f90 ${SRCPOT} checkoptions.F90 \
-         viscosity.f90 options.f90 ${SRCDUST} \
+         viscosity.f90 options.f90 ${SRCDUST} ${SRCGROWTH} \
          prompting.f90 readwrite_dumps.F90
 OBJDUMP1= $(SRCDUMP:.f90=.o)
 OBJDUMP= $(OBJDUMP1:.F90=.o)
@@ -1827,7 +1833,7 @@ SRCMULT = physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 mpi_utils.F90 ${SRCFASTMATH}
           viscosity.f90 options.f90 ${SRCEOS} \
           utils_infiles.f90 utils_dumpfiles.f90 utils_summary.f90 centreofmass.f90 \
           ${SRCCHEM} ${DOMAIN} ${SRCPOT} ptmass.F90 ${LINKLIST} ${SRCTURB} \
-          ${SRCDUST} ${SRCNIMHD} readwrite_infile.f90 ${MULTIRUNFILE}
+          ${SRCDUST} ${SRCGROWTH} ${SRCNIMHD} readwrite_infile.f90 ${MULTIRUNFILE}
 OBJM1 = ${SRCMULT:.f90=.o}
 OBJMULT = ${OBJM1:.F90=.o}
 

@@ -63,7 +63,7 @@ contains
 
 !-----------------------------------------------------------------------
 !+
-!  initialize the drag: compute the quatities that are used once
+!  initialize the drag: compute the quantities that are used once
 !+
 !-----------------------------------------------------------------------
 subroutine init_drag(ierr)
@@ -93,8 +93,15 @@ subroutine init_drag(ierr)
        call error('init_drag','grain size/density <= 0',var='grainmass',val=grainmass(i))
        ierr = 2 
     endif
+    if (grainsize(i) <= 0.) then
+       call error('init_drag','grain size <= 0',var='grainsize',val=grainsize(i))
+       ierr = 2
+    endif
  enddo
- 
+ if (graindens <= 0.) then
+    call error('init_drag','grain density <= 0',var='graindens',val=graindens)
+    ierr = 2
+ endif
  !--compute the effective surface density used to calculate the mean free path
  cste_seff         = pi/sqrt(2.)*5./64.
  mass_mol_gas      = (2.*mass_proton_cgs)/umass
@@ -119,22 +126,28 @@ end subroutine init_drag
 !--------------------------------------------
 subroutine print_dustinfo(iprint)
  use units, only:unit_density,umass,udist
+ use physcon,  only:pi
+ use dim, only:use_dustgrowth
  integer, intent(in) :: iprint
  integer :: i
  real    :: rhocrit
 
  select case(idrag)
  case(1)
-    write(iprint,"(a)")              ' Using Epstein/Stokes drag: '
-    do i = 1,ndusttypes
-       write(iprint,"(2(a,1pg10.3),a)") '        Grain size = ',grainsize(i)*udist,        ' cm     = ',grainsize(i),' (code units)'
-       write(iprint,"(2(a,1pg10.3),a)") '        Grain mass = ',grainmass(i)*umass,        ' g      = ',grainmass(i),' (code units)'
-       write(iprint,"(2(a,1pg10.3),a)") '     Grain density = ',graindens*unit_density, ' g/cm^3 = ',graindens,' (code units)'
-       write(iprint,"(2(a,1pg10.3),a)") '  Gas mfp at rho=1 = ',seff*udist/unit_density,' cm     = ',seff,' (code units)'
-       rhocrit = 9.*seff/(4.*grainsize(i))
-    enddo
-    write(iprint,"(/,a)")              ' Density above which Stokes drag is used:'
-    write(iprint,"(2(a,1pg10.3),a)") '           rhocrit = ',rhocrit*unit_density,   ' g/cm^3 = ',rhocrit,' (code units)'
+    if (use_dustgrowth) then
+       write(iprint,"(a)")              ' Using Epstein/Stokes drag with variable grain size. '
+    else
+       write(iprint,"(a)")              ' Using Epstein/Stokes drag with constant grain size: '
+       do i = 1,ndusttypes
+          write(iprint,"(2(a,1pg10.3),a)") '        Grain size = ',grainsize(i)*udist,        ' cm     = ',grainsize(i),' (code units)'
+          write(iprint,"(2(a,1pg10.3),a)") '        Grain mass = ',grainmass(i)*umass,        ' g      = ',grainmass(i),' (code units)'
+          write(iprint,"(2(a,1pg10.3),a)") '     Grain density = ',graindens*unit_density, ' g/cm^3 = ',graindens,' (code units)'
+          write(iprint,"(2(a,1pg10.3),a)") '  Gas mfp at rho=1 = ',seff*udist/unit_density,' cm     = ',seff,' (code units)'
+          rhocrit = 9.*seff/(4.*grainsize(i))
+       enddo
+       write(iprint,"(/,a)")              ' Density above which Stokes drag is used:'
+       write(iprint,"(2(a,1pg10.3),a)") '           rhocrit = ',rhocrit*unit_density,   ' g/cm^3 = ',rhocrit,' (code units)'
+    endif
  case(2)
     write(iprint,"(/,a,1pg12.5)") ' Using K=const drag with K = ',K_code
  case(3)
@@ -469,7 +482,7 @@ end subroutine get_ts
 !-----------------------------------------------------------------------
 subroutine write_options_dust(iunit)
  use infile_utils, only:write_inopt
- use dim,          only:ndusttypes
+ use dim,          only:ndusttypes,use_dustgrowth
  integer, intent(in) :: iunit
  character(len=10)   :: numdust
 
@@ -478,6 +491,8 @@ subroutine write_options_dust(iunit)
  call write_inopt(idrag,'idrag','gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)',iunit)
  if (ndusttypes>1) then
     !--the grainsize (and powerlaw index) should be set in the setup file
+ elseif (use_dustgrowth) then
+    call write_inopt(grainsizecgs(ndusttypes),'grainsize','Initial grain size in cm',iunit)
  else
     call write_inopt(grainsizecgs(ndusttypes),'grainsize','Grain size in cm',iunit)
  endif

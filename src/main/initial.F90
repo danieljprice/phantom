@@ -135,7 +135,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,ndusttypes
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,use_dustgrowth,ndusttypes
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -148,10 +148,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
                             npartoftype,maxtypes,alphaind,ntot,ndim, &
                             maxphase,iphase,isetphase,iamtype, &
-                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,massoftype,&
+                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustfrac,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh, &
-                            Bevol,Bxyz,temperature
+                            Bevol,Bxyz,temperature,dustprop,ddustprop
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef PHOTO
@@ -189,7 +189,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use forcing,          only:init_forcing
 #endif
 #ifdef DUST
- use dust,             only:init_drag
+ use dust,             only:init_drag,grainsize,graindens
+#ifdef DUSTGROWTH
+ use growth,		   only:init_growth
+ use growth,		   only:ifrag,isnow,grainsizemin,vfrag,vfragin,vfragout,rsnow,Tsnow
+#endif
 #endif
 #ifdef MFLOW
  use mf_write,         only:mflow_write,mflow_init
@@ -217,7 +221,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
  use io_summary,       only:summary_initialise
- use units,            only:unit_density
+ use units,            only:unit_density,udist,unit_velocity
  use centreofmass,     only:get_centreofmass
  use energies,         only:etot,angtot,totmom,mdust,xyzcom
  use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in,dxi_in
@@ -339,6 +343,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef DUST
  call init_drag(ierr)
  if (ierr /= 0) call fatal('initial','error initialising drag coefficients')
+#ifdef DUSTGROWTH
+ call init_growth(ierr)
+ if (ierr /= 0) call fatal('initial','error initialising growth variables')
+#endif
 #endif
 
 !
@@ -366,6 +374,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     ncount(:) = 0
     do i=1,npart
        itype = iamtype(iphase(i))
+	   !-- Initialise dust properties to none for gas particles
+#ifdef DUSTGROWTH
+	   if (itype==igas .and. use_dustgrowth) dustprop(:,i) = 0.
+#endif
        if (itype < 1 .or. itype > maxtypes) then
           call fatal('initial','unknown value for itype from iphase array',i,var='iphase',ival=int(iphase(i)))
        else
@@ -512,7 +524,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                              Bevol,dBevol,dustfrac,ddustfrac,temperature,time,0.,dtnew_first)
+                              Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtnew_first)
     if (use_dustfrac) then
        ! set grainsize parameterisation from the initial dustfrac setting now we know rho
        do i=1,npart
