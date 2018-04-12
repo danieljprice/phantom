@@ -71,12 +71,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--Default runtime parameters
 !
- m1      = 0.6*solarm/umass
- m2      = 0.1*ceresm/umass
- rp      = 1.2*solarr/udist
- semia   = 24.*solarr/udist
- hacc1   = 0.5*solarr/udist
- norbits = 1
+ m1      = 0.6 ! (solar masses)
+ m2      = 0.1 ! (ceres masses)
+ rp      = 1.2 ! (solar radii)
+ semia   = 24. ! (solar radii)
+ hacc1   = 0.5 ! (solar radii)
+ norbits = 1.
  dumpsperorbit = 100
 
 !
@@ -93,6 +93,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     stop
  endif
+
+ !
+ !--Convert to code units
+ !
+ m1    = m1*solarm/umass
+ m2    = m2*ceresm/umass
+ rp    = rp*solarr/udist
+ semia = semia*solarr/udist
+ hacc1 = hacc1*solarr/udist
 
 !
 !--general parameters
@@ -157,11 +166,11 @@ subroutine write_setupfile(filename)
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for binary setup routines'
- call write_inopt(m1,'m1','mass of white dwarf',iunit)
- call write_inopt(m2,'m2','mass of asteroid',iunit)
- call write_inopt(rp,'rp','pericentre distance',iunit)
- call write_inopt(semia,'semia','semi-major axis',iunit)
- call write_inopt(hacc1,'hacc1','white dwarf (sink) accretion radius',iunit)
+ call write_inopt(m1,'m1','mass of white dwarf (solar mass)',iunit)
+ call write_inopt(m2,'m2','mass of asteroid (ceres mass)',iunit)
+ call write_inopt(rp,'rp','pericentre distance (solar radii)',iunit)
+ call write_inopt(semia,'semia','semi-major axis (solar radii)',iunit)
+ call write_inopt(hacc1,'hacc1','white dwarf (sink) accretion radius (solar radii)',iunit)
  call write_inopt(norbits,'norbits','number of orbits',iunit)
  call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',iunit)
  close(iunit)
