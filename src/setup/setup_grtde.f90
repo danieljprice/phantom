@@ -45,7 +45,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,   only:solarm,au,pi,solarr,km
  use io,        only:master,fatal
  use timestep,  only:tmax,dtmax
- use metric,    only:mass1,a
  use eos,       only:ieos
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -102,7 +101,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  nr            = 20
  psep          = rstar/nr
 
- period        = 2.*pi*sqrt(a**3/mass1)
+ period        = 2.*pi*sqrt(semia**3/mass1)
  tmax          = norbits*period
  dtmax         = period/dumpsperorbit
 
