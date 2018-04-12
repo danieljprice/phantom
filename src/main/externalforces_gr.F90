@@ -213,7 +213,7 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
 
  case(imet_schwarzschild,imet_kerr)
     r2 = xi*xi + yi*yi + zi*zi
-    if (r2 < accradius1**2 .and. maxphase==maxp .and. present(i)) then
+    if (accradius1>accradius1_hard .and. r2 < accradius1**2 .and. maxphase==maxp .and. present(i)) then
        call set_particle_type(i,iboundary)
        npartoftype(igas) = npartoftype(igas) - 1
        npartoftype(iboundary) = npartoftype(iboundary) + 1
