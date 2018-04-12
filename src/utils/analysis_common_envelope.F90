@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -147,7 +147,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real  :: pres_array(1000,1000)
 
  !case 14 variables
- integer                      :: npart_hist(5), nbins
+ integer                      :: npart_hist(5), nbins, ierr
  real, dimension(5,npart)     :: dist_part, rad_part
  real, dimension(:), allocatable :: hist_var
  character(len=40)            :: data_formatter
@@ -882,7 +882,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           k = iorder(j)
           sinkcomp(18) = sinkcomp(18) + rhoh(xyzh_a(4,k), particlemass)
           sinkcomp(19) = sinkcomp(19) + separation(vxyzu_a(1:3,k),vxyz_ptmass_a(1:3,i))
-          cs = cs + get_spsound(ieos,xyzh_a(1:3,k),rhoh(xyzh_a(4,k), particlemass),vxyzu_a(1:3,k))
+          if (maxvxyzu>=4) then
+             cs = cs + get_spsound(ieos,xyzh_a(1:3,k),rhoh(xyzh_a(4,k), particlemass),vxyzu_a(4,k))
+          else
+             ! in this case, the vxyzu_(1,k) is a dummy variable that will not be used
+             cs = cs + get_spsound(ieos,xyzh_a(1:3,k),rhoh(xyzh_a(4,k), particlemass),vxyzu_a(1,k))
+          endif
        enddo
 
        sinkcomp(18) = sinkcomp(18) / 100.
@@ -1057,10 +1062,10 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,xyzmh_ptmass,phii,epo
  etoti = epoti + ekini + einti
 end subroutine calc_gas_energies
 
+! returns a profile from the centre of mass
+! profile can either use all particles or can find particles within 2h of a given ray
+! if simple flag is set to true, it will only produce a limited subset
 subroutine stellar_profile(time,ncols,particlemass,npart,xyzh,vxyzu,profile,simple,ray)
- !returns a profile from the centre of mass
- !profile can either use all particles or can find particles within 2h of a given ray
- !if simple flag is set to true, it will only produce a limited subset
  use eos,          only:ieos,equationofstate,X_in, Z_in
  use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa
  use physcon,      only:kboltz,mass_proton_cgs
@@ -1071,18 +1076,21 @@ subroutine stellar_profile(time,ncols,particlemass,npart,xyzh,vxyzu,profile,simp
  use kernel,       only:kernel_softening,radkern
  use ptmass,       only:get_accel_sink_gas
 
- integer           :: i,iprofile,ierr
+ real,    intent(in)    :: time
+ integer, intent(in)    :: ncols
+ real,    intent(in)    :: particlemass
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
+ real, intent(out), allocatable :: profile(:,:)
+ logical, intent(in)    :: simple
+ real, intent(in), optional :: ray(3)
+ integer           :: i,iprofile
  real              :: proj(3),orth(3),proj_mag,orth_dist,orth_ratio
  real              :: rhopart,ponrhoi,spsoundi
  real              :: temp,kappa,kappat,kappar,pres
  real              :: ekini,epoti,einti,etoti,phii
  real              :: xh0, xh1, xhe0, xhe1, xhe2
- real, intent(in), optional :: ray(3)
- logical, intent(in) :: simple
- real, intent(in)  :: xyzh(:,:),vxyzu(:,:)
- real, intent(in)  :: particlemass,time
- integer, intent(in) :: npart,ncols
- real, intent(out), allocatable :: profile(:,:)
  real              :: temp_profile(ncols,npart)
  logical           :: criteria
 

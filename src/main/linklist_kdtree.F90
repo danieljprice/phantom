@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -317,7 +317,7 @@ end subroutine get_cell_location
 
 subroutine sync_hmax_mpi
  use mpiutils,  only:reduceall_mpi
- use io,        only:nprocs,id
+ use io,        only:nprocs
  integer :: i, n
  real    :: hmax(2**(globallevel+refinelevels+1)-1)
 

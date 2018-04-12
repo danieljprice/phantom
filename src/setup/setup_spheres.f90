@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -37,6 +37,7 @@
 !    densityfile       -- File containing data for stellar profile
 !    dist_unit         -- distance unit (e.g. au)
 !    gamma             -- Adiabatic index
+!    initialtemp       -- initial temperature of the star (K)
 !    mass_unit         -- mass unit (e.g. solarm)
 !    np                -- approx number of particles (in box of size 2R)
 !    polyk             -- sound speed .or. constant in EOS
@@ -57,6 +58,7 @@
 !--------------------------------------------------------------------------
 module setup
  use io,             only: fatal
+ use part,           only: gravity
  use physcon,        only: solarm,solarr,km,pi,c
  use options,        only: nfulldump,iexternalforce
  use timestep,       only: tmax,dtmax
@@ -74,6 +76,7 @@ module setup
  integer            :: nstar(2),nstar_in(2)
  real(kind=8)       :: udist,umass
  real               :: Rstar(2),Mstar(2),rhocentre(2),binary_sep,v_binary(3,2),maxvxyzu,ui_coef
+ real               :: initialtemp
  logical            :: binary,set_vcirc,iexist,input_polyk
  logical            :: use_exactN,use_prompt
  character(len=120) :: densityfile
@@ -82,15 +85,16 @@ module setup
  !
  ! Index of setup options
  !
- integer, parameter :: nsphere_opts =  8 ! maximum number of initial configurations
- integer, parameter :: iuniform = 1
- integer, parameter :: ipoly    = 2
- integer, parameter :: ibinpoly = 3
- integer, parameter :: insfile  = 4
- integer, parameter :: ired     = 5
- integer, parameter :: ibpwpoly = 6
- integer, parameter :: ievrard  = 7
- integer, parameter :: ikepler  = 8
+ integer, parameter :: nsphere_opts =  9 ! maximum number of initial configurations
+ integer, parameter :: iuniform   = 1
+ integer, parameter :: ipoly      = 2
+ integer, parameter :: ibinpoly   = 3
+ integer, parameter :: insfile    = 4
+ integer, parameter :: ired       = 5
+ integer, parameter :: ibpwpoly   = 6
+ integer, parameter :: ievrard    = 7
+ integer, parameter :: ikepler    = 8
+ integer, parameter :: ihelmholtz = 9
 
  character(len=48)  :: sphere_opt(nsphere_opts)
 
@@ -118,7 +122,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use rho_profile,    only: rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
                            rho_evrard,read_red_giant_file,read_kepler_file
  use extern_neutronstar, only: write_rhotab,rhotabfile,read_rhotab_wrapper
- use eos,            only: init_eos, finish_eos
+ use eos,            only: init_eos, finish_eos, equationofstate
+ use part,           only: rhoh, temperature, store_temperature
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -134,6 +139,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real                             :: vol_sphere,psep,rmin,densi,ri,polyk_in,presi,tmax0
  real                             :: xoffset(2)
  real                             :: r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),enitab(ng_max)
+ real                             :: xi, yi, zi, rhoi, spsoundi, p_on_rhogas, eni, tempi
  logical                          :: calc_polyk,write_setup,print_tmerge
  character(len=120)               :: setupfile,inname
  !
@@ -183,7 +189,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (use_prompt) then
        call prompt('Set up a binary system?',binary)
     endif
-    np    = min(10000000,int(2.0/3.0*size(xyzh(1,:)))) ! approx max number allowed in sphere given size(xyzh(1,:))
+    np    = min(100000,int(2.0/3.0*size(xyzh(1,:)))) ! approx max number allowed in sphere given size(xyzh(1,:))
     npmax = np
     if ( binary ) then
        npmax = npmax/2
@@ -229,6 +235,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        endif
        if (input_polyk) then
           call prompt('Enter polyk (sound speed .or. constant in EOS calculation)',polyk,0.)
+       endif
+       if (isphere==ihelmholtz) then
+          call prompt('Enter temperature',initialtemp,1.0e4,1.0e11)
        endif
     endif
     write_setup = .true.
@@ -276,7 +285,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (isphere==iuniform) then
        call rho_uniform(ng,Mstar(k),Rstar(k),r,den) ! use this array for continuity of call to set_sphere
        npts = ng
-    elseif (isphere==ipoly .or. isphere==ibinpoly) then
+    elseif (isphere==ipoly .or. isphere==ibinpoly .or. isphere==ihelmholtz) then
        call rho_polytrope(gamma,polyk,Mstar(k),r,den,npts,rhocentre(k),calc_polyk,Rstar(k))
     elseif (isphere==insfile) then
        call read_rhotab_wrapper(trim(densityfile),ng_max,r,den,npts,&
@@ -342,6 +351,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ! add energies
     !
     call init_eos(ieos,ierr)
+    if (ierr /= 0) call fatal('setup_spheres','error initialising equation of state')
 
     do i=istart(k),iend(k)
        if (maxvxyzu==4) then
@@ -363,6 +373,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              else if ((isphere==ired .or. isphere==ikepler) .and. (ieos/=10)) then
                 presi = yinterp(pres(1:npts),r(1:npts),ri)
                 vxyzu(4,i) = presi / ((gamma - 1.) * densi)
+             else if (isphere==ihelmholtz .and. ieos==15) then
+                ! set internal energy according to Helmholtz eos
+                xi    = xyzh(1,i)
+                yi    = xyzh(2,i)
+                zi    = xyzh(3,i)
+                rhoi  = rhoh(xyzh(4,i),massoftype(igas))
+                tempi = initialtemp
+
+                call equationofstate(ieos,p_on_rhogas,spsoundi,rhoi,xi,yi,zi,eni,tempi)
+
+                vxyzu(4,i) = eni
+                temperature(i) = initialtemp
              endif
           endif
        endif
@@ -453,7 +475,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  else
     call write_dist('Radius              = ',Rstar(1),udist)
     call write_mass('Mass                = ',Mstar(1),umass)
-    if (isphere==ipoly .or. isphere==ibinpoly) then
+    if (isphere==ipoly .or. isphere==ibinpoly .or. isphere==ihelmholtz) then
        write(*,'(a,Es12.5,a)') 'rho_central         = ', rhocentre(1)*unit_density,' g/cm^3'
     endif
     write(*,'(a,I12)')         'N                   = ', nstar(1)
@@ -471,7 +493,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     write(*,'(a,3Es13.5,a)')      '(vx vy vz) star 1   = (', v_binary(:,1)*unit_velocity, ') cm/s'
     write(*,'(a,3Es13.5,a)')      '(vx vy vz) star 2   = (', v_binary(:,2)*unit_velocity, ') cm/s'
  endif
- if (isphere==insfile) write(*,'(a)') 'WARNING! This setup may not be stable'
+ if ( (isphere==iuniform .and. .not.gravity) .or. isphere==insfile) then
+    write(*,'(a)') 'WARNING! This setup may not be stable'
+ endif
  write(*,'(a)') "======================================================================"
 end subroutine setpart
 !-----------------------------------------------------------------------
@@ -520,15 +544,16 @@ end subroutine save_nstar
 !-----------------------------------------------------------------------
 subroutine set_option_names()
 
- sphere_opt(:)        = 'none'
- sphere_opt(iuniform) = 'Uniform density sphere'
- sphere_opt(ipoly)    = 'Polytrope'
- sphere_opt(ibinpoly) = 'Binary polytrope'
- sphere_opt(insfile)  = 'neutron star from file'
- sphere_opt(ired)     = 'Red giant (Macquarie)'
- sphere_opt(ibpwpoly) = 'Binary NS merger with piecewise polytrope EOS'
- sphere_opt(ievrard)  = 'Evrard collapse'
- sphere_opt(ikepler)  = 'KEPLER star from file'
+ sphere_opt(:)          = 'none'
+ sphere_opt(iuniform)   = 'Uniform density sphere'
+ sphere_opt(ipoly)      = 'Polytrope'
+ sphere_opt(ibinpoly)   = 'Binary polytrope'
+ sphere_opt(insfile)    = 'neutron star from file'
+ sphere_opt(ired)       = 'Red giant (Macquarie)'
+ sphere_opt(ibpwpoly)   = 'Binary NS merger with piecewise polytrope EOS'
+ sphere_opt(ievrard)    = 'Evrard collapse'
+ sphere_opt(ikepler)    = 'KEPLER star from file'
+ sphere_opt(ihelmholtz) = 'Helmholtz free energy eos star'
 
 end subroutine set_option_names
 !-----------------------------------------------------------------------
@@ -538,11 +563,11 @@ end subroutine set_option_names
 !-----------------------------------------------------------------------
 subroutine choose_spheres(polyk,iexist,id,master)
  use prompting,   only: prompt
- use part,        only: gravity
+ use part,        only: store_temperature
  integer, intent(in)  :: id, master
  logical, intent(in)  :: iexist
  real,    intent(out) :: polyk
- integer              :: i,choice,need_grav,need_iso
+ integer              :: i,choice,need_grav,need_iso,need_temp
 
  write(*,*)
  do i = 1, nsphere_opts
@@ -559,8 +584,9 @@ subroutine choose_spheres(polyk,iexist,id,master)
  Rstar       = 1.0
  Mstar       = 1.0
  ui_coef     = 1.0
- need_grav   = 1       !  1 = yes; -1 = no
+ need_grav   = 1       ! -1 = no; 0 = doesn't matter; 1 = yes
  need_iso    = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
+ need_temp   = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
  binary_sep  = 0.0
  v_binary    = 0.0
  EOSopt      = 1
@@ -582,9 +608,10 @@ subroutine choose_spheres(polyk,iexist,id,master)
     ! Uniform density sphere
     polyk       = 0.5
     input_polyk = .true.
+    need_grav   = 0 ! to prevent setupfail
  case(ipoly)
     ! Polytrope
-    need_iso = 1
+    need_iso = 0 ! can be done either with du/dt=P/rho^2 drho/dt or with P=K*rho**gamma
  case(ibinpoly)
     ! Binary Polytrope
     binary     = .true.
@@ -642,15 +669,29 @@ subroutine choose_spheres(polyk,iexist,id,master)
     endif
     ui_coef     = 0.05
     need_iso    = -1
+ case(ihelmholtz)
+    ! set up initial polytrope but use Helmholtz free energy eos
+    tmax        = 1.0
+    dtmax       = 2.0e-4
+    nfulldump   = 10
+    need_iso    = -1
+    ieos        = 15
+    initialtemp = 1.0e7
+    Rstar       = 0.01
+    Mstar       = 0.6
+    need_temp   = 1
  end select
  isphere = choice
  !
  ! Verify correct pre-processor commands
+ !
  if (      gravity .and. need_grav==-1) call fatal('setup','require GRAVITY=no')
  if (.not. gravity .and. need_grav== 1) call fatal('setup','require GRAVITY=yes')
  if (maxvxyzu > 3  .and. need_iso == 1) call fatal('setup','require ISOTHERMAL=yes')
  if (maxvxyzu < 4  .and. need_iso ==-1) call fatal('setup','require ISOTHERMAL=no')
- !
+ if (maxvxyzu < 4  .and. need_temp==-1) call fatal('setup','require ISOTHERMAL=no')
+ if (need_temp==1 .and. .not. store_temperature) call fatal('setup','require TEMPERATURE=yes')
+
 end subroutine choose_spheres
 !-----------------------------------------------------------------------
 !+
@@ -750,6 +791,9 @@ subroutine write_setupfile(filename,gamma,polyk)
     if (isphere==ievrard) then
        call write_inopt(ui_coef,'ui_coef','specific internal energy (units of GM/R)',iunit)
     endif
+    if (isphere==ihelmholtz) then
+       call write_inopt(initialtemp,'initialtemp','initial temperature of the star (K)',iunit)
+    endif
     if ( binary ) then
        call write_inopt(binary_sep,'Binary_separation','initial separation of the binary',iunit)
        call write_inopt(set_vcirc,'set_vcirc','initialise circular velocity',iunit)
@@ -826,6 +870,9 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
     endif
     if (isphere==ievrard) then
        call read_inopt(ui_coef,'ui_coef',db,errcount=nerr)
+    endif
+    if (isphere==ihelmholtz) then
+       call read_inopt(initialtemp,'initialtemp',db,errcount=nerr)
     endif
     if ( binary ) then
        if (isphere/=ibpwpoly) then

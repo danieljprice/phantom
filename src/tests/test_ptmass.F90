@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -34,18 +34,17 @@ contains
 
 subroutine test_ptmass(ntests,npass)
  use dim,      only:maxp,mhd,periodic,gravity,maxptmass
- use io,       only:id,master,iverbose
+ use io,       only:id,master,iverbose,iskfile
  use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,&
                     xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,epot_sinksink,&
                     ihacc,isdead_or_accreted,igas,divcurlv,iphase,isetphase,maxphase,&
-                    Bevol,dBevol,dustfrac,ddustfrac,divcurlB,fxyzu,set_particle_type,&
-                    ispinx,ispiny,ispinz
+                    Bevol,dBevol,dustfrac,ddustfrac,temperature,divcurlB,fxyzu,set_particle_type,&
+                    ispinx,ispiny,ispinz,dustprop,ddustprop
  use eos,             only:gamma,polyk
  use timestep,        only:dtmax,C_force
  use testutils,       only:checkval,checkvalf
  use setbinary,       only:set_binary
  use step_lf_global,  only:step,init_step
- use io,              only:iverbose,nprocs
  use energies,        only:compute_energies,etot,totmom,epot,angtot !,accretedmass
  use ptmass,          only:get_accel_sink_sink,ptmass_accrete,h_soft_sinksink, &
                            ptmass_create,h_acc,get_accel_sink_gas,f_acc,finish_ptmass, &
@@ -83,11 +82,11 @@ subroutine test_ptmass(ntests,npass)
  real                   :: dptmass(ndptmass,maxptmass)
  real                   :: dptmass_thread(ndptmass,maxptmass)
  real                   :: fxyz_sinksink(4,maxptmass)
- integer                :: norbits
+ integer                :: norbits,itmp,ierr
  integer                :: nfailed(11),imin(1)
  integer                :: id_rhomax,ipart_rhomax_global
  integer(kind=1)        :: ibin_wakei
- character(len=20)      :: dumpfile
+ character(len=20)      :: dumpfile,filename
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
 
@@ -116,6 +115,10 @@ subroutine test_ptmass(ntests,npass)
 
     xyzh(:,:)  = 0.
     vxyzu(:,:) = 0.
+    fxyzu(:,:) = 0.
+    fext(:,:)  = 0.
+    Bevol(:,:) = 0.
+
 #ifdef IND_TIMESTEPS
     ibin(:) = 0_1
 #endif
@@ -202,7 +205,7 @@ subroutine test_ptmass(ntests,npass)
        !
        !--take the sink-sink timestep specified by the get_forces routine
        !
-       print*,' dt for sinks = ',C_force*dtsinksink
+       if (id==master) print*,' dt for sinks = ',C_force*dtsinksink
        dt      = C_force*dtsinksink !2.0/(nsteps)
        dtmax   = dt  ! required prior to derivs call, as used to set ibin
        !
@@ -211,7 +214,7 @@ subroutine test_ptmass(ntests,npass)
        if (itest==2 .or. itest==3) then
           fxyzu(:,:) = 0.
           call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                      Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
+                      Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
        endif
        !
        !--evolve this for a number of orbits
@@ -246,7 +249,7 @@ subroutine test_ptmass(ntests,npass)
        else
           norbits = 100
        endif
-       print*,' nsteps per orbit = ',nsteps,' norbits = ',norbits
+       if (id==master) print*,' nsteps per orbit = ',nsteps,' norbits = ',norbits
        nsteps = nsteps*norbits
        errmax = 0.
        dumpfile='test_00000'
@@ -273,7 +276,7 @@ subroutine test_ptmass(ntests,npass)
           call checkval(totmom,totmomin,5.e-6,nfailed(2),'linear momentum')
 #else
           call checkval(angtot,angmomin,1.1e-6,nfailed(3),'angular momentum')
-          call checkval(totmom,totmomin,3.e-14,nfailed(2),'linear momentum')
+          call checkval(totmom,totmomin,4.e-14,nfailed(2),'linear momentum')
 #endif
           call checkval(etotin+errmax,etotin,1.2e-2,nfailed(1),'total energy')
        case(2)
@@ -349,13 +352,12 @@ subroutine test_ptmass(ntests,npass)
 
     C_force = 0.25
     dt      = 0.3*C_force*dtsinksink
-    print*,' dt for sinks = ',dt
+    !if (id==master) print*,' dt for sinks = ',dt
     dtmax   = dt
     omega   = omega1
-    print*,omega
     nsteps  = int(2.*pi/omega/dt) + 1
     norbits = 10
-    print*,' nsteps per orbit = ',nsteps,' norbits = ',norbits
+    if (id==master) print*,' nsteps per orbit = ',nsteps,' norbits = ',norbits
     nsteps = nsteps*norbits
     errmax = 0.
     iverbose = 0
@@ -504,9 +506,9 @@ subroutine test_ptmass(ntests,npass)
        xyzh(:,:)  = 0.
        vxyzu(:,:) = 0.
        fxyzu(:,:) = 0.
-       fext(:,:) = 0.
-       if (mhd) Bevol = 0.
-       iverbose = 1
+       fext(:,:)  = 0.
+       Bevol(:,:) = 0.
+       iverbose   = 1
        call set_boundary(-1.,1.,-1.,1.,-1.,1.)
        !
        ! set up gas particles in a uniform sphere with radius R=0.2
@@ -546,7 +548,7 @@ subroutine test_ptmass(ntests,npass)
        icreate_sinks = 1
        iverbose = 1
        call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustfrac,ddustfrac,0.,0.,dtext_dum)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,0.,0.,dtext_dum)
        !
        ! check that maximum density gives correct particle for itest=2
        !
@@ -632,6 +634,18 @@ subroutine test_ptmass(ntests,npass)
 
  !--reset stuff
  nptmass = 0
+
+ ! clean up temporary files
+ itmp = 201
+ do i=iskfile+1,iskfile+2    ! we used 2 point masses in tests above
+    close(i,iostat=ierr)     ! close file unit numbers if they are already open
+    write(filename,"(i3)") i
+    filename = 'fort.'//trim(adjustl(filename))
+    open(unit=itmp,file=filename,status='old',iostat=ierr)
+    close(itmp,status='delete',iostat=ierr)
+ enddo
+ open(unit=itmp,file='SinkSink0001N00.ev',status='old',iostat=ierr)
+ close(itmp,status='delete',iostat=ierr)
 
  if (id==master) write(*,"(/,a)") '<-- PTMASS TEST COMPLETE'
 

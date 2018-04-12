@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -818,8 +818,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  real,    intent(in) :: alphaSS_min,alphaSS_max,R_warp,psimax,R_c,inclination,honH,cs0
  integer :: ierr,i
  real    :: T0,T_ref,sig,dR,R
- real, parameter :: vxyzutmp(maxvxyzu) = 0.
- real, dimension(maxbins) :: sig_vals
+ real    :: vxyzutmp(maxvxyzu)
 
  write(iunit,"(/,a)") '# '//trim(labeltype(itype))//' disc parameters'
  call write_inopt(R_in,'R_in','inner disc boundary',iunit)
@@ -843,11 +842,11 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  sig = sig*umass/udist**2
  call write_inopt(sig,'sig_out','surface density (g/cm^2) at R=R_out',iunit)
  dR = (R_out-R_in)/real(maxbins-1)
+ sig = 0.
  do i=1,maxbins
     R = R_in + (i-1)*dR
-    sig_vals(i) = sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c)
+    sig = max(sig,sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c))
  enddo
- sig = maxval(sig_vals)
  sig = sig*umass/udist**2
  call write_inopt(sig,'sig_max','maximum surface density (g/cm^2)',iunit)
  call write_inopt(Q,'Qmin','minimum Toomre Q parameter',iunit)
@@ -861,6 +860,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  call write_inopt(cs0,'cs0','sound speed at R=1',iunit)
 
  call init_eos(ieos,ierr)
+ vxyzutmp = 0.
  T0 = get_temperature(ieos,(/R_in,0.,0./),1.,vxyzutmp)
  call write_inopt(T0,'T_in','temperature (K) at R=R_in',iunit)
  T_ref = get_temperature(ieos,(/R_ref,0.,0./),1.,vxyzutmp)

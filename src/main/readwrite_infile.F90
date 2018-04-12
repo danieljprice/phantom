@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -56,7 +56,7 @@
 !    twallmax           -- maximum wall time (hhh:mm, 000:00=ignore)
 !    use_mcfost         -- use the mcfost library
 !
-!  DEPENDENCIES: cooling, dim, dust, eos, externalforces, forcing,
+!  DEPENDENCIES: cooling, dim, dust, eos, externalforces, forcing, growth,
 !    infile_utils, inject, io, linklist, nicil_sup, options, part,
 !    photoevap, ptmass, timestep, viscosity
 !+
@@ -67,7 +67,8 @@ module readwrite_infile
  use options,   only:nfulldump,nmaxdumps,twallmax,dtwallmax,iexternalforce,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,tolv, &
                      ipdv_heating,ishock_heating,iresistive_heating, &
-                     icooling,psidecayfac,overcleanfac,etamhd,alphamax,use_mcfost
+                     icooling,psidecayfac,overcleanfac,etamhd,alphamax,&
+                     use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
  use io,        only:iverbose
@@ -93,6 +94,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use linklist,        only:write_inopts_link
 #ifdef DUST
  use dust,            only:write_options_dust
+#ifdef DUSTGROWTH
+ use growth,                  only:write_options_growth
+ use options,                  only:use_dustfrac
+#endif
 #endif
 #ifdef PHOTO
  use photoevap,       only:write_options_photoevap
@@ -207,6 +212,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
 #ifdef MCFOST
  call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iwritein)
+ if (use_Voronoi_limits_file) call write_inopt(Voronoi_limits_file,'Voronoi_limits_file',&
+      'Limit file for the Voronoi tesselation',iwritein)
 #endif
 
  ! only write sink options if they are used, or if self-gravity is on
@@ -225,6 +232,9 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
 #ifdef DUST
  call write_options_dust(iwritein)
+#ifdef DUSTGROWTH
+ if(.not.use_dustfrac) call write_options_growth(iwritein)
+#endif
 #endif
 
 #ifdef PHOTO
@@ -264,6 +274,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use linklist,      only:read_inopts_link
 #ifdef DUST
  use dust,          only:read_options_dust
+#ifdef DUSTGROWTH
+ use growth,                only:read_options_growth
+ use options,                                only:use_dustfrac
+#endif
 #endif
 #ifdef PHOTO
  use photoevap,     only:read_options_photoevap
@@ -286,7 +300,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  character(len=120) :: valstring
  integer :: ierr,ireaderr,line,idot,ngot,nlinesread
  logical :: imatch,igotallrequired,igotallturb,igotalllink,igotloops
- logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject
+ logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotallphoto
  integer, parameter :: nrequired = 1
 
@@ -300,6 +314,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  ngot            = 0
  igotallturb     = .true.
  igotalldust     = .true.
+ igotallgrowth         = .true.
  igotallphoto    = .true.
  igotalllink     = .true.
  igotallextern   = .true.
@@ -311,6 +326,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallnonideal = .true.
  igotallbowen    = .true.
  igotallptmass   = .true.
+ use_Voronoi_limits_file = .false.
 
  open(unit=ireadin,err=999,file=infile,status='old',form='formatted')
  do while (ireaderr == 0)
@@ -400,6 +416,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef MCFOST
     case('use_mcfost')
        read(valstring,*,iostat=ierr) use_mcfost
+    case('Voronoi_limits_file')
+       read(valstring,*,iostat=ierr) Voronoi_limits_file
+       use_Voronoi_limits_file = .true.
 #endif
     case default
        imatch = .false.
@@ -410,6 +429,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (.not.imatch) call read_inopts_link(name,valstring,imatch,igotalllink,ierr)
 #ifdef DUST
        if (.not.imatch) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
+#ifdef DUSTGROWTH
+       if (.not.imatch .and. .not.use_dustfrac) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
+#endif
 #endif
 #ifdef PHOTO
        if (.not.imatch) call read_options_photoevap(name,valstring,imatch,igotallphoto,ierr)
@@ -444,7 +466,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallrequired = (ngot  >=  nrequired) .and. igotalllink .and. igotallbowen .and. igotalldust &
                    .and. igotalleos .and. igotallcooling .and. igotallextern .and. igotallturb &
                    .and. igotallptmass .and. igotallinject .and. igotallionise .and. igotallnonideal &
-                   .and. igotallphoto
+                   .and. igotallphoto .and. igotallgrowth
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1
@@ -460,6 +482,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotalllink) write(*,*) 'missing link options'
           if (.not.igotallbowen) write(*,*) 'missing Bowen dust options'
           if (.not.igotalldust) write(*,*) 'missing dust options'
+          if (.not.igotallgrowth) write(*,*) 'missing growth options'
           if (.not.igotallphoto) write(*,*) 'missing photoevaporation options'
           if (.not.igotallextern) write(*,*) 'missing external force options'
           if (.not.igotallinject) write(*,*) 'missing inject-particle options'
@@ -532,7 +555,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (beta < 0.)     call fatal(label,'beta < 0')
     if (beta > 4.)     call warn(label,'very high beta viscosity set')
 #ifndef MCFOST
-    if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 10)) call fatal(label,'only ieos=2 makes sense if storing thermal energy')
+    if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 10 .and. ieos /= 15)) &
+       call fatal(label,'only ieos=2 makes sense if storing thermal energy')
 #endif
     if (irealvisc < 0 .or. irealvisc > 12)  call fatal(label,'invalid setting for physical viscosity')
     if (shearparam < 0.)                     call fatal(label,'stupid value for shear parameter (< 0)')

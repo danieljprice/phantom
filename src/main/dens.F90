@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -129,7 +129,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho, &
                      ll,get_partinfo,iactive,maxgradh,&
                      hrho,iphase,maxphase,igas,idust,iboundary,iamgas,periodic,&
-                     all_active,dustfrac
+                     all_active,dustfrac,Bxyz
 #ifdef FINVSQRT
  use fastmath,  only:finvsqrt
 #endif
@@ -243,6 +243,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(divcurlB) &
 !$omp shared(alphaind) &
 !$omp shared(dustfrac) &
+!$omp shared(Bxyz) &
 !$omp shared(straintensor) &
 !$omp shared(id) &
 !$omp shared(nprocs) &
@@ -262,11 +263,11 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(iterations_finished) &
 !$omp shared(mpiits) &
 !$omp reduction(+:nlocal) &
-!$omp reduction(+:ntotal) &
 !$omp private(do_export) &
 !$omp private(j) &
 !$omp private(k) &
 !$omp private(l) &
+!$omp private(ntotal) &
 #endif
 !$omp private(remote_export) &
 !$omp private(nneigh) &
@@ -381,8 +382,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 #ifdef MPI
        if (.not. do_export) then
 #endif
-          call store_results(cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                             straintensor,vxyzu,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+          call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
+                             straintensor,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
 #ifdef MPI
           nlocal = nlocal + 1
        endif
@@ -493,8 +494,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
              stack_redo%cells(cell%waiting_index) = cell
           else
-             call store_results(cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                                straintensor,vxyzu,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+             call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
+                                straintensor,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
           endif
 
        enddo over_waiting
@@ -578,7 +579,7 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,iamdusti,
  use fastmath, only:finvsqrt
 #endif
  use kernel,   only:get_kernel,get_kernel_grav1
- use part,     only:iphase,iamgas,iamtype,maxphase,iboundary,igas,idust
+ use part,     only:iphase,iamgas,iamtype,maxphase,iboundary,igas,idust,rhoh,massoftype
  use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust
  integer,      intent(in)    :: i
  real,         intent(in)    :: xpartveci(:)
@@ -605,6 +606,7 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,iamdusti,
  real                        :: wabi,grkerni,dwdhi,dphidhi
  real                        :: projv,dvx,dvy,dvz,dax,day,daz
  real                        :: projdB,dBx,dBy,dBz,fxi,fyi,fzi,fxj,fyj,fzj
+ real                        :: rhoi, rhoj
  logical                     :: same_type,gas_gas
 
  rhosum(:) = 0.
@@ -782,9 +784,14 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,iamdusti,
              endif
 
              if (getdB .and. gas_gas) then
-                dBx = xpartveci(iBevolxi) - Bevol(1,j)
-                dBy = xpartveci(iBevolyi) - Bevol(2,j)
-                dBz = xpartveci(iBevolzi) - Bevol(3,j)
+                ! we need B instead of B/rho, so used our estimated h here
+                ! either it is close enough to be converged,
+                ! or worst case it runs another iteration and re-calculates
+                rhoi = rhoh(real(1.0/hi1), massoftype(igas))
+                rhoj = rhoh(xyzh(4,j), massoftype(igas))
+                dBx = xpartveci(iBevolxi)*rhoi - Bevol(1,j)*rhoj
+                dBy = xpartveci(iBevolyi)*rhoi - Bevol(2,j)*rhoj
+                dBz = xpartveci(iBevolzi)*rhoi - Bevol(3,j)*rhoj
                 projdB = dBx*runix + dBy*runiy + dBz*runiz
 
                 ! difference operator of divB
@@ -1218,11 +1225,13 @@ end subroutine reduce_and_print_neighbour_stats
 
 pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
                              xyzcache)
- use io,          only:id
  use dim,         only:maxvxyzu
  use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,set_boundaries_to_active
  use viscosity,   only:irealvisc
  use kdtree,      only:inodeparts
+#ifdef MPI
+ use io,          only:id
+#endif
 
  type(celldens),  intent(inout)  :: cell
 
@@ -1313,8 +1322,6 @@ pure subroutine compute_hmax(cell,redo_neighbours)
     if (hmax > hmax_old) redo_neighbours = .true.
     cell%hmax  = hmax
     cell%rcuti = radkern*hmax
- else
-    redo_neighbours = .true.
  endif
 end subroutine compute_hmax
 
@@ -1391,7 +1398,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
     cell%xpartvec(ifzi,cell%npcell)           = fxyzu(3,i) + fext(3,i)
 
     if (mhd) then
-       iamgasi = iamgas(iphase(i))
        if (iamgasi) then
           cell%xpartvec(iBevolxi,cell%npcell) = Bevol(1,i)
           cell%xpartvec(iBevolyi,cell%npcell) = Bevol(2,i)
@@ -1538,8 +1544,8 @@ pure subroutine finish_rhosum(rhosum,pmassi,hi,iterating,rhoi,rhohi,gradhi,grads
 
 end subroutine finish_rhosum
 
-subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                         straintensor,vxyzu,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
+                         straintensor,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
  use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,&
                        n_R,n_electronT,eta_nimhd,iohm,ihall,iambi
  use io,          only:fatal,real4
@@ -1552,9 +1558,10 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  use linklist,    only:set_hmaxcell
  use kernel,      only:radkern
 
- use part,        only:xyzh_soa
- use kdtree,      only:inoderange,inodeparts
+ use part,        only:xyzh_soa,store_temperature,temperature
+ use kdtree,      only:inodeparts
 
+ integer,         intent(in)    :: icall
  type(celldens),  intent(in)    :: cell
  logical,         intent(in)    :: getdv
  logical,         intent(in)    :: getdB
@@ -1568,6 +1575,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  real(kind=4),    intent(inout) :: straintensor(:,:)
  real,            intent(in)    :: vxyzu(:,:)
  real,            intent(out)   :: dustfrac(:)
+ real,            intent(out)   :: Bxyz(:,:)
  real,            intent(inout) :: rhomax
  integer(kind=8), intent(inout) :: nneightry
  integer(kind=8), intent(inout) :: nneighact
@@ -1680,7 +1688,11 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
           vxyzui(3) = cell%xpartvec(ivzi,i)
           vxyzui(4) = cell%xpartvec(ieni,i)
 
-          spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:))
+          if (store_temperature) then
+             spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:),temperature(lli))
+          else
+             spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:))
+          endif
           alphaind(2,lli) = real4(get_alphaloc(divcurlvi(5),spsoundi,hi,xi_limiter,alpha,alphamax))
        endif
     else ! we always need div v for h prediction
@@ -1691,10 +1703,18 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
     ! store div B, curl B and related quantities
     !
     if (mhd .and. iamgasi) then
-       Bxi = cell%xpartvec(iBevolxi,i)
-       Byi = cell%xpartvec(iBevolyi,i)
-       Bzi = cell%xpartvec(iBevolzi,i)
+       ! construct B from B/rho (conservative to primitive)
+       Bxi = cell%xpartvec(iBevolxi,i) * rhoi
+       Byi = cell%xpartvec(iBevolyi,i) * rhoi
+       Bzi = cell%xpartvec(iBevolzi,i) * rhoi
        if (maxBevol >= 4) psii = cell%xpartvec(ipsi,i)
+
+       ! store primitive variables (if icall < 2)
+       if (icall==0 .or. icall==1) then
+          Bxyz(1,lli) = Bxi
+          Bxyz(2,lli) = Byi
+          Bxyz(3,lli) = Bzi
+       endif
 
        if (getdB) then
           term = cnormk*pmassi*gradhi*rho1i*hi41

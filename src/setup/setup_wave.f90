@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, centreofmass, dim, io, kernel, mpiutils,
-!    options, part, physcon, prompting, setup_params, unifdis
+!  DEPENDENCIES: boundary, dim, io, kernel, mpiutils, options, part,
+!    physcon, prompting, setup_params, unifdis
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -42,7 +42,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
  use part,         only:labeltype,set_particle_type,igas,dustfrac
- use centreofmass, only:reset_centreofmass
  use physcon,      only:pi
  use kernel,       only:radkern
  use dim,          only:maxvxyzu,use_dust,maxp
@@ -79,7 +78,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     itype = 1
     print "(/,a,/)",'  >>> Setting up particles for linear wave test <<<'
     call prompt(' enter number of '//trim(labeltype(itype))//' particles in x ',npartx,8,maxp/144)
-    call prompt(' choose dust method (1=one fluid,2=two fluid) ',dust_method,1,2)
+    if (use_dust) call prompt(' choose dust method (1=one fluid,2=two fluid) ',dust_method,1,2)
  endif
  call bcast_mpi(npartx)
  if (dust_method==1) use_dustfrac = .true.
@@ -116,7 +115,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  ntypes = 1
  if (use_dust .and. .not.use_dustfrac) ntypes = 2
- dtg = 0.
+ if (use_dustfrac) dtg = 1.
 
  overtypes: do itype=1,ntypes
     if (id==master) call prompt('enter '//trim(labeltype(itype))//&
@@ -211,35 +210,4 @@ end function rhofunc
 
 end subroutine setpart
 
-!----------------------------------------------------------
-!subroutine set_perturbation(xi,xmin,length,kwave,ampl,denom,dxi)
-! use io, only:fatal
-! real, intent(in)  :: xi,xmin,length,kwave,ampl,denom
-! real, intent(out) :: dxi
-! integer, parameter :: itsmax = 20
-! real, parameter    :: tol = 1.d-10
-! integer :: its
-! real    :: dxprev, xmassfrac, func, fderiv
-!
-! dxi = xi-xmin
-! dxprev = length*2.
-! xmassfrac = dxi/length
-
-! its = 0
-! do while ((abs(dxi-dxprev) > tol).and.(its < itsmax))
-!    dxprev = dxi
-!    func = xmassfrac*denom - (dxi - ampl/kwave*(cos(kwave*dxi)-1.0))
-!    fderiv = -1.0 - ampl*sin(kwave*dxi)
-!    dxi = dxi - func/fderiv  ! Newton-Raphson iteration
-!    its = its + 1
-! enddo
-
-! if (its >= itsmax) then
-!    print*,'Error: soundwave - too many iterations'
-!    call fatal('setup_dustywave','Error: soundwave - too many iterations')
-! endif
-
-!end subroutine set_perturbation
-
 end module setup
-

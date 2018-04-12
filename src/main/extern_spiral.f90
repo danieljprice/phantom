@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -242,6 +242,7 @@ end subroutine read_options_spiral
 subroutine initialise_spiral(ierr)
  use physcon, only:pc,solarm,pi,gg,kpc,km
  use units,   only:udist,umass,utime
+ use io,      only:id,master
  integer, intent(out) :: ierr
 
  ierr = 0
@@ -370,10 +371,10 @@ subroutine initialise_spiral(ierr)
 
  select case(iarms)
  case(2,3,4)
-    print*,'Setting up spiral arm spheroids...'
+    if (id==master) print*,'Setting up spiral arm spheroids...'
     Nt=INT((Rf-Ri)/d_0)
     NNi=int(NN)
-    print*,'There are ',Nt,' spheroids in each arm'
+    if (id==master) print*,'There are ',Nt,' spheroids in each arm'
     !-Build the arrays for the radii and angle of the S.Shperoids.
     allocate(Rspheroids(NNi,Nt),shapefn(NNi,Nt),den0(NNi,Nt),&
   spiralsum(NNi))
@@ -408,23 +409,25 @@ subroutine initialise_spiral(ierr)
     enddo
  end select
 
- select case(iarms)
- case(2)
-    print*,'linear density inside spheroids(a)  linear density from galactic centre(r)'
- case(3)
-    print*,'linear density inside spheroids(a)  log density from galactic centre(r)'
- case(4)
-    print*,'inverse density inside spheroids(a)  linear density from galactic centre(r)'
- case default
-    print*,"No spiral arm spheroids set."
- end select
+ if (id==master) then
+    select case(iarms)
+    case(2)
+       print*,'linear density inside spheroids(a)  linear density from galactic centre(r)'
+    case(3)
+       print*,'linear density inside spheroids(a)  log density from galactic centre(r)'
+    case(4)
+       print*,'inverse density inside spheroids(a)  linear density from galactic centre(r)'
+    case default
+       print*,"No spiral arm spheroids set."
+    end select
+ endif
 
  select case(iread)
  case(1)
     potfilename = 'pot3D.bin'
-    print*,'Reading in potential from an external file (BINARY): ',potfilename
+    if (id==master) print*,'Reading in potential from an external file (BINARY): ',potfilename
     open (unit =1, file = TRIM(potfilename), status='old', form='UNFORMATTED', access='SEQUENTIAL', iostat=ios)
-    if (ios /= 0) then
+    if (ios /= 0 .and. id==master) then
        print*, 'Error opening file:', TRIM(potfilename)
     endif
     !Read in the grid lengths if they exist in the header.
@@ -441,14 +444,16 @@ subroutine initialise_spiral(ierr)
     allocate(newpot3D(potlenz,potlenx,potleny))
     read (1) newpot3D
     close(1)
-    print*,'Potential file read in successfully.'
-    print*,'Grid lengths [z:x:y],'
-    print*, potlenz,potlenx,potleny
-    print*,'Grid physical size, in kpc [z:x:y],'
-    print*, potzmax*udist/kpc,potxmax*udist/kpc,potymax*udist/kpc
+    if (id==master) then
+       print*,'Potential file read in successfully.'
+       print*,'Grid lengths [z:x:y],'
+       print*, potlenz,potlenx,potleny
+       print*,'Grid physical size, in kpc [z:x:y],'
+       print*, potzmax*udist/kpc,potxmax*udist/kpc,potymax*udist/kpc
+    endif
 
  case default
-    print*,'No potential to be read in.'
+    if (id==master) print*,'No potential to be read in.'
  end select
 
 end subroutine initialise_spiral

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -40,7 +40,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
  use part,    only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac,&
                    maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass,isdead_or_accreted
  use options, only:iexternalforce,use_dustfrac
- use units,   only:umass,udist,utime
+ use units,   only:umass,udist
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyz(:,:)
  real,             intent(in) :: pgasmass,time
@@ -220,14 +220,14 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pgasmass,npart,time,iunit)
     endif
     Mtot = Mtot + pmassi
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       if (itype==1 .and. use_dustfrac) then
-          dustfraci = dustfrac(i)
+       if (itype==1) then
           if (use_dustfrac) then
+             dustfraci = dustfrac(i)
              Mgas = Mgas + pmassi*(1. - dustfraci)
+             Mdust1 = Mdust1 + pmassi*dustfraci
           else
              Mgas = Mgas + pmassi
           endif
-          Mdust1 = Mdust1 + pmassi*dustfraci
        elseif (itype==2) then
           Mdust2 = Mdust2 + pmassi
        endif

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -29,7 +29,7 @@ module dim
  public
 
  character(len=80), parameter :: &
-    tagline='PhantomSPH: (c) 2007-2017 The Authors'
+    tagline='PhantomSPH: (c) 2007-2018 The Authors'
 
  ! maximum number of particles
 #ifdef MAXP
@@ -50,6 +50,15 @@ module dim
  integer, parameter :: maxvxyzu = 3
 #else
  integer, parameter :: maxvxyzu = 4
+#endif
+
+ ! storage of temperature
+#ifdef STORE_TEMPERATURE
+ logical, parameter :: store_temperature = .true.
+ integer, parameter :: maxtemp = maxp
+#else
+ logical, parameter :: store_temperature = .false.
+ integer, parameter :: maxtemp = 0
 #endif
 
  ! maximum allowable number of neighbours (safest=maxp)
@@ -77,7 +86,7 @@ module dim
 
  ! xpartveci
  integer, parameter :: maxxpartvecidens = 14
- integer, parameter :: maxxpartveciforce = 45
+ integer, parameter :: maxxpartveciforce = 47
 
  ! cell storage
  integer, parameter :: maxprocs = 32
@@ -147,13 +156,11 @@ module dim
  logical, parameter :: mhd = .true.
  integer, parameter :: maxmhd = maxp
  integer, parameter :: maxBevol = 4  ! Bx,By,Bz,Psi (latter for div B cleaning)
- integer, parameter :: maxvecp = 0   ! obsolete, used for vector/Euler pots (no longer supported)
  integer, parameter :: ndivcurlB = 4
 #else
  ! if no MHD, do not store any of these
  logical, parameter :: mhd = .false.
  integer, parameter :: maxmhd = 0
- integer, parameter :: maxvecp = 0 ! obsolete
  integer, parameter :: maxBevol = 4 ! irrelevant, but prevents compiler warnings
  integer, parameter :: ndivcurlB = 0
 #endif
@@ -196,10 +203,19 @@ module dim
  logical, parameter :: use_dust = .true.
  integer, parameter :: ndusttypes = 1
  integer, parameter :: maxp_dustfrac = maxp
+#ifdef DUSTGROWTH
+ logical, parameter :: use_dustgrowth = .true.
+ integer, parameter :: maxp_growth = maxp
+#else
+ logical, parameter :: use_dustgrowth = .false.
+ integer, parameter :: maxp_growth = 0
+#endif
 #else
  logical, parameter :: use_dust = .false.
  integer, parameter :: ndusttypes = 0
  integer, parameter :: maxp_dustfrac = 0
+ logical, parameter :: use_dustgrowth = .false.
+ integer, parameter :: maxp_growth = 0
 #endif
 
 !--------------------

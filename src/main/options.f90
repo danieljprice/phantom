@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -53,7 +53,8 @@ module options
  logical, public :: use_dustfrac
 
 ! mcfost
- logical, public :: use_mcfost
+ logical, public :: use_mcfost, use_Voronoi_limits_file
+ character(len=80), public :: Voronoi_limits_file
 
  public :: set_default_options
  public :: ieos

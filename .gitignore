@@ -9,5 +9,4 @@ build/.depends
 */*~
 */*/*~
 *.bindata
-galaxiesP.dat
 *.pyc

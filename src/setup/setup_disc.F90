@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -16,8 +16,8 @@
 !     (ii) in an unbound binary (i.e. a fly-by) can have circumprimary and
 !          circumsecondary discs.
 !   In addition to gas, each disc can contain dust, modelled with either the
-!   one fluid or two fluid methods. Embedded planets can be added to single
-!   or circumbinary discs.
+!   one fluid or two fluid methods. The dust can only grow in the two-fluid method.
+!   Embedded planets can be added to single or circumbinary discs.
 !
 !  REFERENCES: None
 !
@@ -26,6 +26,7 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
+!    Tsnow             -- snow line condensation temperature in K
 !    accr1             -- central star accretion radius
 !    accr2             -- perturber accretion radius
 !    alphaSS           -- desired alphaSS
@@ -46,10 +47,12 @@
 !    flyby_a           -- distance of minimum approach
 !    flyby_d           -- initial distance (units of dist. min. approach)
 !    flyby_i           -- inclination (deg)
-!    graindensinp      -- intrinsic grain density (in g/cm^3)
 !    grainsizeinp      -- grain size (in cm)
+!    grainsizemin      -- minimum allowed grain size in cm
 !    ibinary           -- binary orbit (0=bound,1=unbound [flyby])
+!    ifrag             -- fragmentation of dust (0=off,1=on,2=Kobayashi)
 !    ipotential        -- potential (1=central point mass,
+!    isnow             -- snow line (0=off,1=position based,2=temperature based)
 !    m1                -- central star mass
 !    m2                -- perturber mass
 !    mass_unit         -- mass unit (e.g. solarm,jupiterm,earthm)
@@ -58,17 +61,21 @@
 !    np_dust           -- number of dust particles
 !    nplanets          -- number of planets
 !    nsinks            -- number of sinks
+!    rsnow             -- snow line position in AU
 !    setplanets        -- add planets? (0=no,1=yes)
 !    use_mcfost        -- use the mcfost library
+!    vfrag             -- uniform fragmentation threshold in m/s
+!    vfragin           -- inward fragmentation threshold in m/s
+!    vfragout          -- inward fragmentation threshold in m/s
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
-!    extern_lensethirring, externalforces, infile_utils, io, kernel,
-!    options, part, physcon, prompting, setbinary, setdisc, setflyby,
-!    timestep, units, vectorutils
+!    extern_lensethirring, externalforces, growth, infile_utils, io,
+!    kernel, options, part, physcon, prompting, setbinary, setdisc,
+!    setflyby, timestep, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module setup
- use dim,            only:maxp,use_dust,maxalpha
+ use dim,            only:maxp,use_dust,maxalpha,use_dustgrowth
  use externalforces, only:iext_star,iext_binary,iext_lensethirring,iext_einsteinprec
  use options,        only:use_dustfrac,iexternalforce
 #ifdef MCFOST
@@ -80,7 +87,7 @@ module setup
  implicit none
  public  :: setpart
 
- integer :: np,np_dust,norbits,i
+ integer :: np,np_dust,norbits,i,k
  logical :: obsolete_flag = .false.
  !--central objects
  real    :: m1,m2,accr1,accr2,bhspin,bhspinangle,flyby_a,flyby_d,flyby_O,flyby_i
@@ -125,6 +132,7 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use centreofmass,         only:reset_centreofmass
  use dust,                 only:set_dustfrac,grainsizecgs,graindenscgs
+ use growth,                              only:ifrag,isnow,rsnow,Tsnow,vfrag,vfragin,vfragout,grainsizemin
  use eos,                  only:isink,qfacdisc
  use extern_binary,        only:accradius1,accradius2,binarymassr
  use externalforces,       only:mass1,accradius1
@@ -133,7 +141,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use kernel,               only:hfact_default
  use options,              only:ieos,alpha,icooling
  use part,                 only:nptmass,xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,&
-                                ihsoft,igas,idust,dustfrac,iamtype,iphase
+                                ihsoft,igas,idust,dustfrac,iamtype,iphase,dustprop
  use physcon,              only:jupiterm,pi,years
  use prompting,            only:prompt
  use setbinary,            only:set_binary,Rochelobe_estimate,get_mean_angmom_vector
@@ -425,13 +433,66 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (dust_method==1) use_dustfrac = .true.
        call prompt('How do you want to set the dust density profile? (0=equal to gas,1=custom)',profile_set_dust,0,1)
        call prompt('Enter dust to gas ratio',dust_to_gas_ratio,0.)
-       call prompt('Enter grain size in cm',grainsizeinp,0.)
+       if (use_dustgrowth) then
+          call prompt('Enter initial grain size in cm',grainsizeinp,0.)
+       else
+          call prompt('Enter grain size in cm',grainsizeinp,0.)
+       endif
+       if (use_dustgrowth .and. dust_method == 2) then
+          print "(/,a)",'================================'
+          print "(a)",  '+++  GROWTH & FRAGMENTATION  +++'
+          print "(a)",  '================================'
+          !
+          !--set growth parameters default
+          !
+          ifrag = 1
+          isnow = 0
+          rsnow = 100.
+          Tsnow = 20.
+          vfrag = 15.
+          vfragin = 5.
+          vfragout = 15.
+          grainsizemin = 1.e-3
+          !
+          !--growth parameters from user
+          !
+          call prompt('Enter fragmentation model (0=off,1=on,2=Kobayashi)',ifrag,0,2)
+          select case(ifrag)
+          case(0)
+             print "(a)",'-----------'
+             print "(a)",'Pure growth'
+             print "(a)",'-----------'
+          case(1)
+             print "(a)",'----------------------'
+             print "(a)",'Growth + fragmentation'
+             print "(a)",'----------------------'
+          case(2)
+             print "(a)",'----------------------------------------'
+             print "(a)",'Growth + Kobayashi`s fragmentation model'
+             print "(a)",'----------------------------------------'
+          case default
+          end select
+          if (ifrag > 0) then
+             call prompt('Enter minimum allowed grain size in cm',grainsizemin)
+             call prompt('Do you want a snow line ? (0=no,1=position based,2=temperature based)',isnow,0,2)
+             if (isnow == 0) then
+                call prompt('Enter uniform vfrag in m/s',vfrag,1.)
+             else
+                if (isnow == 1) call prompt('How far from the star in AU ?',rsnow,0.)
+                if (isnow == 2) call prompt('Enter snow line condensation temperature in K',Tsnow,0.)
+                call prompt('Enter inward vfragin in m/s',vfragin,1.)
+                call prompt('Enter outward vfragout in m/s',vfragout,1.)
+             endif
+          endif
+       elseif (use_dustgrowth .and. dust_method == 1) then
+          print "(a)",'growth and fragmentation not available for one fluid method'
+       endif
     endif
     !
     !--resolution
     !
     np = 500000
-    if (use_dust .and. .not. use_dustfrac) then
+    if (use_dust .and. .not.use_dustfrac) then
        np_dust = np/5
     else
        np_dust = 0
@@ -485,14 +546,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !--write default input file
     !
     call write_setupfile(filename)
-
     print "(/,a)",' >>> please edit '//trim(filename)//' to set parameters for your problem then rerun phantomsetup <<<'
 
     stop
  else
     stop
  endif
-
  !
  !--set units
  !
@@ -978,25 +1037,33 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--dust
  !
  if (use_dust) then
+    if (use_dustgrowth) then
+       dustprop(1,:) = grainsizeinp
+       dustprop(2,:) = graindensinp
+    endif
     grainsizecgs = grainsizeinp
     graindenscgs = graindensinp
-    if (multiple_disc_flag .and. ibinary==1) then
-       !--circumprimary in flyby
-       i = 2
-    else
-       !--single disc or circumbinary
-       i = 1
-    endif
-    R = (R_in(i) + R_out(i))/2
-    Sigma = sig_norm(i)*scaled_sigma(R,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
-    Sigmadust = sig_normdust(i)*scaled_sigma(R,sigmaprofiledust(i),pindex_dust(i),R_ref(i),R_indust(i),R_c_dust(i))
-    Stokes = 0.5*pi*graindenscgs*grainsizecgs/(Sigma+Sigmadust) * (udist**2/umass)
-    print "(a,i2,a)",' -------------- added dust --------------'
-    print "(a,g10.3,a)", '       grain size: ',grainsizecgs,' cm'
-    print "(a,g10.3,a)", '    grain density: ',graindenscgs,' g/cm^3'
-    print "(a,g10.3,a)", '   approx. Stokes: ',Stokes,''
-    print "(1x,40('-'),/)"
  endif
+ if (multiple_disc_flag .and. ibinary==1) then
+    !--circumprimary in flyby
+    i = 2
+ else
+    !--single disc or circumbinary
+    i = 1
+ endif
+ R = (R_in(i) + R_out(i))/2
+ Sigma = sig_norm(i)*scaled_sigma(R,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
+ Sigmadust = sig_normdust(i)*scaled_sigma(R,sigmaprofiledust(i),pindex_dust(i),R_ref(i),R_indust(i),R_c_dust(i))
+ Stokes = 0.5*pi*graindenscgs*grainsizecgs/(Sigma+Sigmadust) * (udist**2/umass)
+ print "(a,i2,a)",' -------------- added dust --------------'
+ if (use_dustgrowth) then
+    print "(a,g10.3,a)", ' initial grain size: ',grainsizeinp,' cm'
+ else
+    print "(a,g10.3,a)", '    grain size: ',grainsizeinp,' cm'
+ endif
+ print "(a,g10.3,a)", '    grain density: ',graindensinp,' g/cm^3' ! Modify this is graindens changes
+ print "(a,g10.3,a)", '   approx. Stokes: ',Stokes,''
+ print "(1x,40('-'),/)"
 
  !
  !--planets
@@ -1117,6 +1184,7 @@ end subroutine setpart
 !------------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
+ use growth,           only:ifrag,isnow,rsnow,Tsnow,vfrag,vfragin,vfragout,grainsizemin
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
  logical :: done_alpha
@@ -1313,8 +1381,24 @@ subroutine write_setupfile(filename)
     call write_inopt(dust_to_gas_ratio,'dust_to_gas_ratio','dust to gas ratio',iunit)
     call write_inopt(profile_set_dust,'profile_set_dust', &
        'how to set dust density profile (0=equal to gas,1=custom)',iunit)
-    call write_inopt(grainsizeinp,'grainsizeinp','grain size (in cm)',iunit)
-    call write_inopt(graindensinp,'graindensinp','intrinsic grain density (in g/cm^3)',iunit)
+    if (use_dustgrowth) then
+       call write_inopt(grainsizeinp,'grainsizeinp','initial grain size (in cm)',iunit)
+    else
+       call write_inopt(grainsizeinp,'grainsizeinp','grain size (in cm)',iunit)
+    endif
+    call write_inopt(graindensinp,'graindensinp','intrinsic grain density (in g/cm^3)',iunit) ! Modify this is graindens becomes variable
+    !--growth/fragmentation parameters
+    if (use_dustgrowth .and. .not.use_dustfrac) then
+       write(iunit,"(/,a)") '# options for growth and fragmentation of dust'
+       call write_inopt(ifrag,'ifrag','fragmentation of dust (0=off,1=on,2=Kobayashi)',iunit)
+       call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
+       call write_inopt(rsnow,'rsnow','snow line position in AU',iunit)
+       call write_inopt(Tsnow,'Tsnow','snow line condensation temperature in K',iunit)
+       call write_inopt(vfrag,'vfrag','uniform fragmentation threshold in m/s',iunit)
+       call write_inopt(vfragin,'vfragin','inward fragmentation threshold in m/s',iunit)
+       call write_inopt(vfragout,'vfragout','inward fragmentation threshold in m/s',iunit)
+       call write_inopt(grainsizemin,'grainsizemin','minimum allowed grain size in cm',iunit)
+    endif
  endif
  !--planets
  write(iunit,"(/,a)") '# set planets'
@@ -1356,8 +1440,9 @@ end subroutine write_setupfile
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
+ use growth,           only:ifrag,isnow,rsnow,Tsnow,vfrag,vfragin,vfragout,grainsizemin
  integer,          intent(out) :: ierr
+ character(len=*), intent(in)  :: filename
  integer, parameter :: iunit = 21
  integer :: nerr
  type(inopts), allocatable :: db(:)
@@ -1464,6 +1549,27 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(profile_set_dust,'profile_set_dust',db,min=0,max=1,errcount=nerr)
     call read_inopt(grainsizeinp,'grainsizeinp',db,min=0.,errcount=nerr)
     call read_inopt(graindensinp,'graindensinp',db,min=0.,errcount=nerr)
+    !--growth/fragmentation of dust
+    if (use_dustgrowth .and. .not.use_dustfrac) then
+       call read_inopt(ifrag,'ifrag',db,min=0,max=2,errcount=nerr)
+       if (ifrag > 0) then
+          call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
+          call read_inopt(grainsizemin,'grainsizemin',db,min=1.e-5,errcount=nerr)
+       endif
+       select case(isnow)
+       case(0)
+          call read_inopt(vfrag,'vfrag',db,min=0.,errcount=nerr)
+       case(1)
+          call read_inopt(rsnow,'rsnow',db,min=0.,errcount=nerr)
+          call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
+          call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
+       case(2)
+          call read_inopt(Tsnow,'Tsnow',db,min=0.,errcount=nerr)
+          call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
+          call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
+       case default
+       end select
+    endif
  endif
  !--multiple discs
  multiple_disc_flag = .false.
@@ -1570,7 +1676,7 @@ subroutine read_setupfile(filename,ierr)
 #ifdef MCFOST
  !--mcfost
  call read_inopt(use_mcfost,'use_mcfost',db,err=ierr)
- if (ierr) use_mcfost = .false. ! no mcfost by default
+ if (ierr /= 0) use_mcfost = .false. ! no mcfost by default
 #endif
 
 

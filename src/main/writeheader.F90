@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -17,8 +17,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, dust, eos, io, kernel, options, part,
-!    physcon, readwrite_infile, units, viscosity
+!  DEPENDENCIES: boundary, dim, dust, eos, growth, io, kernel, options,
+!    part, physcon, readwrite_infile, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module writeheader
@@ -34,7 +34,7 @@ subroutine write_codeinfo(iunit)
 !
 !--write out code name, version and time
 !
- write(iunit,10) '0.9, released 14th Feb 2017'
+ write(iunit,10) '1.0, released 13th March 2018'
 
 10 format(/, &
    "  _ \  |                 |                    ___|   _ \  |   |",/, &
@@ -62,11 +62,11 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 !  icall = 2 (after particle setup)
 !+
 !-----------------------------------------------------------------
- use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha
+ use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dustgrowth
  use io,               only:iprint
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac
- use part,             only:hfact,massoftype,mhd,maxBevol,maxvecp,&
+ use part,             only:hfact,massoftype,mhd,maxBevol,&
                             gravity,h2chemistry,periodic,npartoftype,massoftype,&
                             igas,idust,iboundary,istar,idarkmatter,ibulge
  use eos,              only:eosinfo
@@ -77,6 +77,9 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use units,            only:print_units
 #ifdef DUST
  use dust,             only:print_dustinfo
+#ifdef DUSTGROWTH
+ use growth,                   only:print_growthinfo
+#endif
 #endif
  integer                      :: Nneigh,i
  integer,          intent(in) :: icall
@@ -168,26 +171,17 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 !--MHD compile time options
 !
     if (mhd) then
-       if (maxvecp==maxp) then
-          if (maxBevol==2) then
-             write(iprint,60) 'Euler potentials'
-          elseif (maxBevol==3) then
-             write(iprint,60) 'vector potential'
-          else
-             write(iprint,60) 'SOMETHING STRANGE'
-          endif
+       if (maxBevol==4) then
+          write(iprint,60) 'B/rho with cleaning'
        else
-          if (maxBevol==4) then
-             write(iprint,60) 'B with cleaning'
-          else
-             write(iprint,60) 'B'
-          endif
+          write(iprint,60) 'B/rho'
        endif
 60     format(/,' Magnetic fields are ON, evolving ',a)
     endif
     if (gravity)     write(iprint,"(1x,a)") 'Self-gravity is ON'
     if (h2chemistry) write(iprint,"(1x,a)") 'H2 Chemistry is ON'
     if (use_dustfrac) write(iprint,"(1x,a)") 'One-fluid dust is ON'
+    if (use_dustgrowth) write(iprint,"(1x,a)") 'Dust growth is ON'
 
     call eosinfo(ieos,iprint)
 
@@ -215,6 +209,9 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 
 #ifdef DUST
     call print_dustinfo(iprint)
+#ifdef DUSTGROWTH
+    call print_growthinfo(iprint)
+#endif
 #endif
 !
 !  print units information

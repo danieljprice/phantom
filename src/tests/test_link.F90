@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -34,7 +34,7 @@ subroutine test_link(ntests,npass)
  use dim,      only:maxp,maxneigh
  use io,       only:id,master,nprocs!,iverbose
  use mpiutils, only:reduceall_mpi
- use part,     only:npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ll,igas,kill_particle
+ use part,     only:npart,npartoftype,massoftype,xyzh,vxyzu,hfact,igas,kill_particle
  use kernel,   only:radkern2,radkern
  use unifdis,  only:set_unifdis
  use timing,   only:getused
@@ -48,7 +48,10 @@ subroutine test_link(ntests,npass)
  use linklist, only:dcellx,dcelly,dcellz
 #endif
  use boundary, only:dxbound
- use part,            only:isdead_or_accreted,iphase_soa
+ use part,     only:isdead_or_accreted
+#ifdef IND_TIMESTEPS
+ use part,     only:iphase_soa
+#endif
  use kdtree,   only:inodeparts,inoderange
  integer, intent(inout) :: ntests,npass
  real                   :: psep,hzero,totmass,dxboundp,dyboundp,dzboundp
@@ -122,7 +125,7 @@ subroutine test_link(ntests,npass)
 
     iseed = -24358
     ip = 0
-    do i=1,nptot
+    do i=1,int(nptot)
        hi = hmin + ran2(iseed)*(hmax - hmin)
        if (i_belong(i)) then
           ip = ip + 1

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -56,7 +56,7 @@ contains
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,      only:fatal
  use dim,     only:maxp
- use part,    only:gravity,mhd,Bevol
+ use part,    only:gravity,mhd,Bxyz
 
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -301,7 +301,7 @@ end subroutine calc_gravitational_forces
 !---------------------------------------------------
 subroutine transform_to_cylindrical(npart,xyzh,vxyzu)
 
- use part, only: mhd,gravity,Bevol
+ use part, only: mhd,gravity,Bxyz
  implicit none
 
  integer, intent(in) :: npart
@@ -352,10 +352,10 @@ subroutine transform_to_cylindrical(npart,xyzh,vxyzu)
 
     ! Finally, B-Fields
     if(mhd) then
-       Br(ipart) = Bevol(1,ipart)*cos(phipart(ipart)) + &
-           Bevol(2,ipart)*sin(phipart(ipart))
-       Bphi(ipart) = Bevol(2,ipart)*cos(phipart(ipart)) - &
-           Bevol(1,ipart)*sin(phipart(ipart))
+       Br(ipart) = Bxyz(1,ipart)*cos(phipart(ipart)) + &
+           Bxyz(2,ipart)*sin(phipart(ipart))
+       Bphi(ipart) = Bxyz(2,ipart)*cos(phipart(ipart)) - &
+           Bxyz(1,ipart)*sin(phipart(ipart))
     endif
 
  enddo

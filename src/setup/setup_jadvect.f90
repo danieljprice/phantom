@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -22,7 +22,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, io, mpiutils, part, physcon, prompting,
-!    setup_params, unifdis
+!    setup_params, slab
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -41,10 +41,10 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use dim,          only:maxp,maxvxyzu
  use setup_params, only:rhozero,ihavesetupB
- use unifdis,      only:set_unifdis
- use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:Bevol,mhd
- use io,           only:master,real4
+ use slab,         only:set_slab
+ use boundary,     only:dxbound,dybound,dzbound
+ use part,         only:Bxyz,mhd
+ use io,           only:master
  use prompting,    only:prompt
  use mpiutils,     only:bcast_mpi
  use physcon,      only:pi
@@ -58,7 +58,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(in)    :: hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real :: deltax,totmass,dz,rcyl
+ real :: deltax,totmass,rcyl
  integer :: i,nx
  real :: vzero,przero,uuzero
  real :: Azero,rloop,gam1,costheta,sintheta
@@ -94,16 +94,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (id==master) call prompt('Enter resolution (number of particles in x)',nx,8)
  call bcast_mpi(nx)
 !
-!--boundaries
+!--setup particles and boundaries for slab geometry
 !
- dz = 4.*sqrt(6.)/nx
- call set_boundary(-1.,1.,-0.5,0.5,-dz,dz)
- deltax = dxbound/nx
-
- costheta = dxbound/sqrt(dxbound**2 + dybound**2)
- sintheta = dybound/sqrt(dxbound**2 + dybound**2)
-
- call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
+ call set_slab(id,master,nx,-1.,1.,-0.5,0.5,deltax,hfact,npart,xyzh)
  npartoftype(:) = 0
  npartoftype(1) = npart
 
@@ -111,17 +104,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  massoftype = totmass/npart
  print*,'npart = ',npart,' particle mass = ',massoftype(1)
 
+ costheta = dxbound/sqrt(dxbound**2 + dybound**2)
+ sintheta = dybound/sqrt(dxbound**2 + dybound**2)
+
  do i=1,npart
     vxyzu(1,i) = vzero*costheta
     vxyzu(2,i) = vzero*sintheta
     vxyzu(3,i) = 0.1*vzero
     if (maxvxyzu >= 4) vxyzu(4,i) = uuzero
     if (mhd) then
-       Bevol(:,i) = 0.
+       Bxyz(:,i) = 0.
        rcyl = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
        if (rcyl < rloop) then
-          Bevol(1,i) = real4(Azero*(-xyzh(2,i)/rcyl))
-          Bevol(2,i) = real4(Azero*(xyzh(1,i)/rcyl))
+          Bxyz(1,i) = Azero*(-xyzh(2,i)/rcyl)
+          Bxyz(2,i) = Azero*(xyzh(1,i)/rcyl)
        endif
     endif
  enddo
@@ -131,4 +127,3 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 end subroutine setpart
 
 end module setup
-

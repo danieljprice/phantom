@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -44,11 +44,10 @@ module setup
  public :: setpart
 
 !--private module variables
- integer  :: idiscread,idiscreaderr, ierr, nlinesread
- integer :: np, icentralforce
- real    :: R_in,R_out,R_mid,Rsect_in, Rsect_out,phimax
- real    :: p_index,q_index,HoverR,disc_mass, dr_bound, phi_inject
- real    :: object_mass, accradius, v_0(3)
+ integer :: np
+ real    :: R_in,R_out,R_mid,Rsect_in,Rsect_out,phimax
+ real    :: p_index,q_index,HoverR,disc_mass,dr_bound,phi_inject
+ real    :: object_mass,accradius
 
  private
  real(kind=8) :: udist,umass

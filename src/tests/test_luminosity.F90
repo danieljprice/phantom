@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -36,8 +36,8 @@ subroutine test_lum(ntests,npass)
 #ifdef LIGHTCURVE
  use io,       only:iverbose
  use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,&
-                    igas,divcurlv,iphase,isetphase,maxphase,mhd,&
-                    Bevol,dBevol,dustfrac,ddustfrac,divcurlB
+                    igas,divcurlv,iphase,isetphase,maxphase,mhd,dustprop,ddustprop,&
+                    Bevol,dBevol,dustfrac,ddustfrac,temperature,divcurlB
  use eos,             only:gamma,polyk
  use testutils,       only:checkval,checkvalf
  use energies,        only:compute_energies,ekin,etherm,totlum !etot,eacc,accretedmass
@@ -162,7 +162,7 @@ subroutine test_lum(ntests,npass)
        call getused(t1)
        fext = 0.
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
        call getused(t2)
 
        !print*,maxalpha,maxp,alphaind(1)
@@ -192,7 +192,7 @@ subroutine test_lum(ntests,npass)
 !-- Check with regular viscosity
  call getused(t1)
  call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
  call getused(t2)
  totlum_saved(2) = totlum
  diff = (totlum_saved(1) - totlum_saved(2))/totlum_saved(1)
