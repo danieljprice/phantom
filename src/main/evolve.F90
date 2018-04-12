@@ -39,7 +39,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use io,               only:iprint,iwritein,id,master,iverbose,flush_warnings,nprocs,fatal
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce
  use evwrite,          only:write_evfile,write_evlog
- use energies,         only:etot,totmom,angtot,mdust,xyzcom
+ use energies,         only:etot,totmom,angtot,mdust
  use dim,              only:maxvxyzu,mhd,periodic,ndusttypes
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,iexternalforce,&
@@ -100,7 +100,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
                             rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin,rhomax_ipart
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
- use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in,dxi_in
+ use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in
 #ifdef MFLOW
  use mf_write,         only:mflow_write
 #endif
@@ -115,7 +115,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: noutput,noutput_dtmax,nsteplast,ncount_fulldumps
  real            :: dtnew,dtlast,timecheck
- real            :: tprint,tzero,dtmaxold,rcom,rcom_in
+ real            :: tprint,tzero,dtmaxold
  real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
  real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
 #ifdef IND_TIMESTEPS
@@ -136,7 +136,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
  logical         :: fulldump,abortrun,at_dump_time,update_tzero
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
- logical         :: should_conserve_com,should_conserve_dustmass
+ logical         :: should_conserve_dustmass
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  type(timer)     :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io
 
@@ -156,17 +156,13 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  endif
  should_conserve_angmom   = (npartoftype(iboundary)==0 .and. .not.periodic &
                             .and. iexternalforce <= 1)
- should_conserve_com      = should_conserve_momentum
  should_conserve_dustmass = use_dustfrac
- rcom_in = sqrt(dot_product(xyzcom_in,xyzcom_in))
-
 
 ! Each injection routine will need to bookeep conserved quantities, but until then...
 #ifdef INJECT_PARTICLES
  should_conserve_energy   = .false.
  should_conserve_momentum = .false.
  should_conserve_angmom   = .false.
- should_conserve_com      = .false.
 #endif
 
  noutput          = 1
@@ -247,7 +243,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 ! --------------------- main loop ----------------------------------------
 !
  timestepping: do while ((time < tmax).and.((nsteps < nmax) .or.  (nmax < 0)))
- 
+
 #ifdef INJECT_PARTICLES
     !
     ! injection of new particles into simulation
@@ -275,7 +271,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        twallperdump = reduceall_mpi('max', timer_lastdump%wall)
        call check_dtmax_for_decrease(iprint,dtmax,twallperdump,nfulldump,update_tzero)
     endif
-	
+
     !--sanity check on istepfrac...
     if (istepfrac > 2**nbinmax) then
        write(iprint,*) 'ERROR: istepfrac = ',istepfrac,' / ',2**nbinmax
@@ -316,7 +312,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     dtlast = dt
 
     !--timings for step call
-	
+
     call get_timings(t2,tcpu2)
     call increment_timer(timer_step,t2-t1,tcpu2-tcpu1)
     call summary_counter(iosum_nreal,t2-t1)
@@ -432,11 +428,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        nskipped = 0
        call get_timings(t1,tcpu1)
        call write_evfile(time,dt)
-       rcom = sqrt(dot_product(xyzcom,xyzcom))
        if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
        if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
        if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
-       if (should_conserve_com)      call check_conservation_error(rcom,rcom_in,1.e-2*dxi_in,'centre of mass',is_CoM=.true.)
        if (should_conserve_dustmass) then
           do j = 1,ndusttypes
              call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)
@@ -725,11 +719,11 @@ end subroutine check_dtmax_for_decrease
 !  and stop if it is too large
 !+
 !----------------------------------------------------------------
-subroutine check_conservation_error(val,ref,tol,label,decrease,is_CoM)
+subroutine check_conservation_error(val,ref,tol,label,decrease)
  use io, only:error,fatal,iverbose
  real, intent(in) :: val,ref,tol
  character(len=*), intent(in) :: label
- logical, intent(in), optional :: decrease,is_CoM
+ logical, intent(in), optional :: decrease
  real :: err
  character(len=20) :: string
 
@@ -738,7 +732,6 @@ subroutine check_conservation_error(val,ref,tol,label,decrease,is_CoM)
  else
     err = (val - ref)
  endif
- if (present(is_CoM)) err = (val - ref)  ! This conserved value should always be absolute and not relative
  if (present(decrease)) then
     err = max(err,0.) ! allow decrease but not increase
  else

@@ -439,26 +439,27 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        ilen(1) = int(npart,kind=8)
        if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierrs(1),func=iamtype_int11)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierrs(2))
-       call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(3))
-       if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(4))
+       if (use_dustgrowth) call write_array(1,dustprop,dustprop_label,4,npart,k,ipass,idump,nums,ierrs(3))
+       call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
+       if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(5))
        if (use_dust .and. ndusttypes>1 .and. multidustdump) &
-          call write_array(1,sum(dustfrac(:,1:npart),1),'dustfracsum',npart,k,ipass,idump,nums,ierrs(5))
+          call write_array(1,sum(dustfrac(:,1:npart),1),'dustfracsum',npart,k,ipass,idump,nums,ierrs(6))
        if (use_dust) &
-          call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(6))
-       if (use_dust) call write_array(1,tstop,tstop_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(7))
+          call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(7))
+       if (use_dust) call write_array(1,tstop,tstop_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(8))
        if (use_dustfrac .and. ndusttypes>1 .and. multidustdump) then 
           dustfracisum1(:) = 1./sum(dustfrac(:,1:npart),1)
           deltavsum(1,:)   = dustfracisum1(:)*sum(dustfrac(:,1:npart)*deltav(1,:,1:npart),1)
           deltavsum(2,:)   = dustfracisum1(:)*sum(dustfrac(:,1:npart)*deltav(2,:,1:npart),1)
           deltavsum(3,:)   = dustfracisum1(:)*sum(dustfrac(:,1:npart)*deltav(3,:,1:npart),1)
-          call write_array(1,deltavsum,(/'deltavsumx','deltavsumy','deltavsumz'/),3,npart,k,ipass,idump,nums,ierrs(8))
+          call write_array(1,deltavsum,(/'deltavsumx','deltavsumy','deltavsumz'/),3,npart,k,ipass,idump,nums,ierrs(9))
        endif
        do l = 1,ndusttypes
           if (use_dustfrac .and. multidustdump) &
-             call write_array(1,deltav(:,l,:),deltav_label,3,npart,k,ipass,idump,nums,ierrs(9))
+             call write_array(1,deltav(:,l,:),deltav_label,3,npart,k,ipass,idump,nums,ierrs(10))
        enddo
-       if (use_dustgrowth)    call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierrs(10))
-       if (store_temperature) call write_array(1,temperature,'T',npart,k,ipass,idump,nums,ierrs(11))
+       if (use_dustgrowth)    call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierrs(11))
+       if (store_temperature) call write_array(1,temperature,'T',npart,k,ipass,idump,nums,ierrs(12))
 
        ! write pressure to file
        if ((ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15) .and. k==i_real) then
@@ -478,21 +479,21 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
              endif
              temparr(i) = ponrhoi*rhoi
           enddo
-          call write_array(1,temparr,'pressure',npart,k,ipass,idump,nums,ierrs(12))
+          call write_array(1,temparr,'pressure',npart,k,ipass,idump,nums,ierrs(13))
        endif
 
        ! smoothing length written as real*4 to save disk space
-       call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,ierrs(13),use_kind=4,index=4)
-       if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,ierrs(14))
+       call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,ierrs(14),use_kind=4,index=4)
+       if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,ierrs(15))
        !if (maxalpha==maxp) then ! (uncomment this to write alphaloc to the full dumps)
        !   call write_array(1,alphaind,(/'alpha ','alphaloc'/),2,npart,k,ipass,idump,nums,ierrs(10))
        !endif
-       if (ndivcurlv >= 1) call write_array(1,divcurlv,divcurlv_label,ndivcurlv,npart,k,ipass,idump,nums,ierrs(15))
+       if (ndivcurlv >= 1) call write_array(1,divcurlv,divcurlv_label,ndivcurlv,npart,k,ipass,idump,nums,ierrs(16))
        if (gravity .and. maxgrav==maxp) then
-          call write_array(1,poten,'poten',npart,k,ipass,idump,nums,ierrs(16))
+          call write_array(1,poten,'poten',npart,k,ipass,idump,nums,ierrs(17))
        endif
 #ifdef IND_TIMESTEPS
-       call write_array(1,dtmax/2**ibin(1:npart),'dt',npart,k,ipass,idump,nums,ierrs(17),use_kind=4)
+       call write_array(1,dtmax/2**ibin(1:npart),'dt',npart,k,ipass,idump,nums,ierrs(18),use_kind=4)
 #endif
 #ifdef PRDRAG
        if (k==i_real) then
@@ -500,15 +501,15 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           do i=1,npart
              temparr(i) = real4(beta(xyzh(1,i), xyzh(2,i), xyzh(3,i)))
           enddo
-          call write_array(1,temparr,'beta_pr',npart,k,ipass,idump,nums,ierrs(18))
+          call write_array(1,temparr,'beta_pr',npart,k,ipass,idump,nums,ierrs(19))
        endif
 #endif
 #ifdef LIGHTCURVE
        if (lightcurve) then
-          call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierrs(19))
+          call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierrs(20))
        endif
 #endif
-       if (any(ierrs(1:19) /= 0)) call error('write_dump','error writing hydro arrays')
+       if (any(ierrs(1:20) /= 0)) call error('write_dump','error writing hydro arrays')
     enddo
 
     do k=1,ndatatypes
@@ -649,16 +650,16 @@ subroutine write_smalldump(t,dumpfile)
        ilen(1) = npart
        if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierr,func=iamtype_int11)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+       if (use_dustgrowth) call write_array(1,dustprop,dustprop_label,4,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (h2chemistry .and. nabundances >= 1) &
                      call write_array(1,abundance,abundance_label,1,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (use_dust .and. ndusttypes>1 .and. multidustdump) &
           call write_array(1,sum(dustfrac(:,1:npart),1),'dustfracsum',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (use_dust) &
           call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-       if (use_dustgrowth) call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
 #ifdef LIGHTCURVE
-       if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr)
+       if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
 #endif
     enddo
     !
@@ -673,7 +674,9 @@ subroutine write_smalldump(t,dumpfile)
     !
     if (mhd) then
        ilen(4) = npart
-       call write_array(4,Bxyz,Bxyz_label,3,npart,i_real4,ipass,idump,nums,ierr)
+       do k=1,ndatatypes
+          call write_array(4,Bxyz,Bxyz_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+       enddo
     endif
 
     if (ipass==1) call write_block_header(narraylengths,ilen,nums,idump,ierr)
@@ -1170,7 +1173,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_dustfrac(ndusttypes),got_tstop(ndusttypes),got_deltav(3,ndusttypes)
  logical               :: match
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
- logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3),got_psi,got_temp,got_dustprop(3)
+ logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3),got_psi,got_temp,got_dustprop(4)
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci,ntstopi,ndustveli
 
@@ -1239,6 +1242,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                    call read_array(deltav(:,ndustveli,:),deltav_label,got_deltav(:,ndustveli),&
                                    ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 endif
+             endif
+             if (use_dustgrowth) then
+                call read_array(dustprop,dustprop_label,got_dustprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (use_dustgrowth) then
                 call read_array(dustprop,dustprop_label,got_dustprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
@@ -1501,16 +1507,16 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     return
  endif
  if (use_dustgrowth .and. .not.got_dustprop(1)) then
-     write(*,*) 'ERROR! using dustgrowth, but no grain size found in dump file'
-     return
+    write(*,*) 'ERROR! using dustgrowth, but no grain size found in dump file'
+    return
  endif
  if (use_dustgrowth .and. .not.got_dustprop(2)) then
-     write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'
-     return
+    write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'
+    return
  endif
  if (use_dustgrowth .and. .not.got_dustprop(3)) then
     write(*,*) 'ERROR! using dustgrowth, but no ratio vrel/vfrag found in dump file'
-    return   
+    return
  endif
  !
  ! sink particle arrays
@@ -1680,7 +1686,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use eos,            only:polyk,gamma,polyk2,qfacdisc,isink
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,ieos
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz
- use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in,dxi_in
+ use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use externalforces, only:write_headeropts_extern
@@ -1768,11 +1774,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(etot_in,'etot_in',hdr,ierr)
     call add_to_rheader(angtot_in,'angtot_in',hdr,ierr)
     call add_to_rheader(totmom_in,'totmom_in',hdr,ierr)
-    call add_to_rheader(xyzcom_in(1),'xcom_in',hdr,ierr)
-    call add_to_rheader(xyzcom_in(2),'ycom_in',hdr,ierr)
-    call add_to_rheader(xyzcom_in(3),'zcom_in',hdr,ierr)
     call add_to_rheader(mdust_in,'mdust_in',hdr,ierr)
-    call add_to_rheader(dxi_in,'dxi_in',hdr,ierr)
     if (use_dust) then
        ! write dust information
        if (use_dustgrowth) then
@@ -1821,7 +1823,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  use eos,           only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
  use options,       only:ieos,tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
  use part,          only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,maxtypes
- use initial_params,only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in,dxi_in
+ use initial_params,only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,  only:rhozero
  use timestep,      only:dtmax,C_cour,C_force
  use externalforces,only:read_headeropts_extern
@@ -1955,15 +1957,6 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
     endif
  endif
 
- ! Centre of mass tracking; treated separately from below for backwards compatibility
- call extract('xcom_in',xyzcom_in(1), hdr,ierrs(1))
- call extract('ycom_in',xyzcom_in(2), hdr,ierrs(2))
- call extract('zcom_in',xyzcom_in(3), hdr,ierrs(3))
- call extract('dxi_in', dxi_in,       hdr,ierrs(4))
- if (any(ierrs(1:4) /= 0)) then
-    write(*,*) 'ERROR reading values to verify non-movement of centre of mass.  Resetting initial values.'
-    get_conserv = 0.5
- endif
  ! values to track that conserved values remain conserved
  call extract('get_conserv',get_conserv,hdr,ierrs(1))
  call extract('etot_in',    etot_in,    hdr,ierrs(2))

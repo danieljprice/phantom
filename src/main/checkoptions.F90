@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, part
+!  DEPENDENCIES: dim, io, part
 !+
 !--------------------------------------------------------------------------
 module checkoptions

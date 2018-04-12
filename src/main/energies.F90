@@ -548,9 +548,8 @@ subroutine compute_energies(t)
  xcom = reduce_fn('+',xcom)
  ycom = reduce_fn('+',ycom)
  zcom = reduce_fn('+',zcom)
-
  mtot = reduce_fn('+',mtot)
- dm = 1.0 / mtot
+ if (mtot > 0.0) dm = 1.0 / mtot
  xcom = xcom * dm
  ycom = ycom * dm
  zcom = zcom * dm

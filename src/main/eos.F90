@@ -828,9 +828,10 @@ end function diff
 !----------------------------------------------------------------
 
 subroutine eosinfo(eos_type,iprint)
- use dim,   only:maxvxyzu
- use io,    only:fatal
- use units, only:unit_density, unit_velocity
+ use dim,           only:maxvxyzu
+ use io,            only:fatal
+ use units,         only:unit_density, unit_velocity
+ use eos_helmholtz, only:eos_helmholtz_eosinfo
  integer, intent(in) :: eos_type,iprint
  real, parameter :: uthermcheck = 3.14159, rhocheck = 23.456
 
@@ -910,6 +911,9 @@ subroutine eosinfo(eos_type,iprint)
                                                  ,rhocrit0pwp,rhocrit1pwp,rhocrit2pwp, '; K = ',k0pwp,k1pwp,k2pwp,k3pwp
     write(iprint,"(  a,3(es10.3)            )") ' Piecewise polytropic eq of state (g/cm^3)     : rhocrit = '&
                                                  ,rhocrit0pwp*unit_density,rhocrit1pwp*unit_density,rhocrit2pwp*unit_density
+ case(15)
+    call eos_helmholtz_eosinfo(iprint)
+
  end select
  write(iprint,*)
 

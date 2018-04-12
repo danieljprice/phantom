@@ -17,8 +17,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, dust, eos, io, kernel, options, part,
-!    physcon, readwrite_infile, units, viscosity
+!  DEPENDENCIES: boundary, dim, dust, eos, growth, io, kernel, options,
+!    part, physcon, readwrite_infile, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module writeheader
@@ -78,7 +78,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 #ifdef DUST
  use dust,             only:print_dustinfo
 #ifdef DUSTGROWTH
- use growth,		   only:print_growthinfo
+ use growth,                   only:print_growthinfo
 #endif
 #endif
  integer                      :: Nneigh,i
@@ -181,7 +181,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (gravity)     write(iprint,"(1x,a)") 'Self-gravity is ON'
     if (h2chemistry) write(iprint,"(1x,a)") 'H2 Chemistry is ON'
     if (use_dustfrac) write(iprint,"(1x,a)") 'One-fluid dust is ON'
-	if (use_dustgrowth) write(iprint,"(1x,a)") 'Dust growth is ON'
+    if (use_dustgrowth) write(iprint,"(1x,a)") 'Dust growth is ON'
 
     call eosinfo(ieos,iprint)
 
@@ -210,7 +210,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 #ifdef DUST
     call print_dustinfo(iprint)
 #ifdef DUSTGROWTH
-	call print_growthinfo(iprint)
+    call print_growthinfo(iprint)
 #endif
 #endif
 !

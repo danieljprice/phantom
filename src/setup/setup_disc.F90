@@ -26,6 +26,7 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
+!    Tsnow             -- snow line condensation temperature in K
 !    accr1             -- central star accretion radius
 !    accr2             -- perturber accretion radius
 !    alphaSS           -- desired alphaSS
@@ -47,10 +48,12 @@
 !    flyby_a           -- distance of minimum approach
 !    flyby_d           -- initial distance (units of dist. min. approach)
 !    flyby_i           -- inclination (deg)
-!    graindensinp      -- intrinsic grain density (in g/cm^3)
-!    grainsizeinp      -- grain size or initial grain size (in cm)
+!    grainsizeinp      -- grain size (in cm)
+!    grainsizemin      -- minimum allowed grain size in cm
 !    ibinary           -- binary orbit (0=bound,1=unbound [flyby])
+!    ifrag             -- fragmentation of dust (0=off,1=on,2=Kobayashi)
 !    ipotential        -- potential (1=central point mass,
+!    isnow             -- snow line (0=off,1=position based,2=temperature based)
 !    m1                -- central star mass
 !    m2                -- perturber mass
 !    mass_unit         -- mass unit (e.g. solarm,jupiterm,earthm)
@@ -59,13 +62,17 @@
 !    np_dust           -- number of dust particles
 !    nplanets          -- number of planets
 !    nsinks            -- number of sinks
+!    rsnow             -- snow line position in AU
 !    setplanets        -- add planets? (0=no,1=yes)
 !    use_mcfost        -- use the mcfost library
+!    vfrag             -- uniform fragmentation threshold in m/s
+!    vfragin           -- inward fragmentation threshold in m/s
+!    vfragout          -- inward fragmentation threshold in m/s
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
-!    extern_lensethirring, externalforces, infile_utils, io, kernel,
-!    options, part, physcon, prompting, setbinary, setdisc, setflyby,
-!    timestep, units, vectorutils
+!    extern_lensethirring, externalforces, growth, infile_utils, io,
+!    kernel, options, part, physcon, prompting, setbinary, setdisc,
+!    setflyby, timestep, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -441,8 +448,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        use_dustfrac = .false.
        call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
        if (dust_method==1) use_dustfrac = .true.
-
-
        if (use_dustfrac) call prompt('Do you want to limit the dust flux?',ilimitdustflux)
        call prompt('How do you want to set the dust density profile?'//new_line('A')// &
                    ' 0=equal to the gas'//new_line('A')// &
@@ -501,37 +506,37 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           grainsize_set = 1
        endif
        if (use_dustgrowth .and. dust_method == 2) then
-           print "(/,a)",'================================'
-           print "(a)",  '+++  GROWTH & FRAGMENTATION  +++'
-           print "(a)",  '================================'
-           !
-           !--set growth parameters default
-           !
-           ifrag = 1
-           isnow = 0
-           rsnow = 100.
-           Tsnow = 20.
-           vfrag = 15.
-           vfragin = 5.
-           vfragout = 15.
-           grainsizemin = 1.e-3
-           !
-           !--growth parameters from user
-           !
-           call prompt('Enter fragmentation model (0=off,1=on,2=Kobayashi)',ifrag,0,2)
-           select case(ifrag)
-           case(0)
-            print "(a)",'-----------'
-            print "(a)",'Pure growth'
-            print "(a)",'-----------'
-           case(1)
-            print "(a)",'----------------------'
-            print "(a)",'Growth + fragmentation'
-            print "(a)",'----------------------'
+          print "(/,a)",'================================'
+          print "(a)",  '+++  GROWTH & FRAGMENTATION  +++'
+          print "(a)",  '================================'
+          !
+          !--set growth parameters default
+          !
+          ifrag = 1
+          isnow = 0
+          rsnow = 100.
+          Tsnow = 20.
+          vfrag = 15.
+          vfragin = 5.
+          vfragout = 15.
+          grainsizemin = 1.e-3
+          !
+          !--growth parameters from user
+          !
+          call prompt('Enter fragmentation model (0=off,1=on,2=Kobayashi)',ifrag,0,2)
+          select case(ifrag)
+          case(0)
+           print "(a)",'-----------'
+           print "(a)",'Pure growth'
+           print "(a)",'-----------'
+          case(1)
+           print "(a)",'----------------------'
+           print "(a)",'Growth + fragmentation'
+           print "(a)",'----------------------'
           case(2)
-            print "(a)",'----------------------------------------'
-            print "(a)",'Growth + Kobayashi`s fragmentation model'
-            print "(a)",'----------------------------------------'
+           print "(a)",'----------------------------------------'
+           print "(a)",'Growth + Kobayashi`s fragmentation model'
+           print "(a)",'----------------------------------------'
           case default
           end select
           if (ifrag > 0) then
@@ -545,9 +550,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                 call prompt('Enter inward vfragin in m/s',vfragin,1.)
                 call prompt('Enter outward vfragout in m/s',vfragout,1.)
              endif
-          elseif (use_dustgrowth .and. dust_method == 1) then
-             print "(a)",'growth and fragmentation not available for one fluid method'
           endif
+       elseif (use_dustgrowth .and. dust_method == 1) then
+          print "(a)",'growth and fragmentation not available for one fluid method'
        endif
     endif
     !
@@ -1120,8 +1125,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (use_dust) then
     if (use_dustgrowth) then
-      dustprop(1,:) = grainsizeinp
-      dustprop(2,:) = graindensinp
+       dustprop(1,:) = grainsizeinp
+       dustprop(2,:) = graindensinp
     endif
     if (grainsize_set == 0) then
        grainsizeinp(:) = grainsizecgs(:)
@@ -1130,42 +1135,42 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     graindenscgs    = graindensinp
  endif
-    if (multiple_disc_flag .and. ibinary==1) then
-       !--circumprimary in flyby
-       i = 2
-    else
-       !--single disc or circumbinary
-       i = 1
-    endif
-    R = (R_in(i) + R_out(i))/2
-    Sigma = sig_norm(i)*scaled_sigma(R,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
-    Sigmadust = sig_normdust(i)*scaled_sigma(R,sigmaprofiledust(i),pindex_dust(i),R_ref(i),R_indust(i),R_c_dust(i))
-    Stokes = 0.5*pi*graindenscgs*grainsizecgs/(Sigma+Sigmadust) * (udist**2/umass)
-    print "(a,i2,a)",' -------------- added dust --------------'
-    if (use_dustgrowth) then
-       print "(a,g10.3,a)", ' initial grain size: ',grainsizeinp,' cm'
-    elseif (ndusttypes > 1) then
-       int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
-       write(fmt_space,'(a,I0,a)') '(a',9-(int_len+1),',a,g10.3,a)'
-       call nduststrings('grain size ',': ',varstring)
-       do i = 1,ndusttypes
-          print(fmt_space),'',trim(varstring(i)),grainsizecgs(i),' cm'
-       enddo
-    else
-       print "(a,g10.3,a)", '       grain size: ',grainsizecgs(1),' cm'
-    endif
-    print "(a,g10.3,a)", '      grain density: ',graindenscgs,' g/cm^3'
-    if (ndusttypes > 1) then
-       int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
-       write(fmt_space,'(a,I0,a)') '(a',5-(int_len+1),',a,g10.3,a)'
-       call nduststrings('approx. Stokes ',': ',varstring)
-       do i = 1,ndusttypes
-          print(fmt_space),'',trim(varstring(i)),Stokes(i),''
-       enddo
-    else
-       print "(a,g10.3,a)", '   approx. Stokes: ',Stokes,''
-    endif
-    print "(1x,40('-'),/)"
+ if (multiple_disc_flag .and. ibinary==1) then
+    !--circumprimary in flyby
+    i = 2
+ else
+    !--single disc or circumbinary
+    i = 1
+ endif
+ R = (R_in(i) + R_out(i))/2
+ Sigma = sig_norm(i)*scaled_sigma(R,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
+ Sigmadust = sig_normdust(i)*scaled_sigma(R,sigmaprofiledust(i),pindex_dust(i),R_ref(i),R_indust(i),R_c_dust(i))
+ Stokes = 0.5*pi*graindenscgs*grainsizecgs/(Sigma+Sigmadust) * (udist**2/umass)
+ print "(a,i2,a)",' -------------- added dust --------------'
+ if (use_dustgrowth) then
+    print "(a,g10.3,a)", ' initial grain size: ',grainsizeinp,' cm'
+ elseif (ndusttypes > 1) then
+    int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
+    write(fmt_space,'(a,I0,a)') '(a',9-(int_len+1),',a,g10.3,a)'
+    call nduststrings('grain size ',': ',varstring)
+    do i = 1,ndusttypes
+       print(fmt_space),'',trim(varstring(i)),grainsizecgs(i),' cm'
+    enddo
+ else
+    print "(a,g10.3,a)", '       grain size: ',grainsizecgs(1),' cm'
+ endif
+ print "(a,g10.3,a)", '      grain density: ',graindenscgs,' g/cm^3'
+ if (ndusttypes > 1) then
+    int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
+    write(fmt_space,'(a,I0,a)') '(a',5-(int_len+1),',a,g10.3,a)'
+    call nduststrings('approx. Stokes ',': ',varstring)
+    do i = 1,ndusttypes
+       print(fmt_space),'',trim(varstring(i)),Stokes(i),''
+    enddo
+ else
+    print "(a,g10.3,a)", '   approx. Stokes: ',Stokes,''
+ endif
+ print "(1x,40('-'),/)"
 
  !
  !--planets
@@ -1730,28 +1735,28 @@ subroutine read_setupfile(filename,ierr)
        grainsizecgs = grainsizeinp
     endif
     call read_inopt(graindensinp,'graindensinp',db,min=0.,errcount=nerr)
- 	!--growth/fragmentation of dust
- 	if (use_dustgrowth .and. .not.use_dustfrac) then
-		call read_inopt(ifrag,'ifrag',db,min=0,max=2,errcount=nerr)
-		if (ifrag > 0) then
-			call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
-			call read_inopt(grainsizemin,'grainsizemin',db,min=1.e-5,errcount=nerr)
-			endif
-		select case(isnow)
-	    case(0)
-		call read_inopt(vfrag,'vfrag',db,min=0.,errcount=nerr)
-		case(1)
-		call read_inopt(rsnow,'rsnow',db,min=0.,errcount=nerr)
-		call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
-		call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
-		case(2)
-		call read_inopt(Tsnow,'Tsnow',db,min=0.,errcount=nerr)
-		call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
-		call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
-		case default
-		end select
-		endif
-	endif
+    !--growth/fragmentation of dust
+    if (use_dustgrowth .and. .not.use_dustfrac) then
+       call read_inopt(ifrag,'ifrag',db,min=0,max=2,errcount=nerr)
+       if (ifrag > 0) then
+          call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
+          call read_inopt(grainsizemin,'grainsizemin',db,min=1.e-5,errcount=nerr)
+       endif
+       select case(isnow)
+       case(0)
+          call read_inopt(vfrag,'vfrag',db,min=0.,errcount=nerr)
+       case(1)
+          call read_inopt(rsnow,'rsnow',db,min=0.,errcount=nerr)
+          call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
+          call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
+       case(2)
+          call read_inopt(Tsnow,'Tsnow',db,min=0.,errcount=nerr)
+          call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
+          call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
+       case default
+       end select
+    endif
+ endif
  !--multiple discs
  multiple_disc_flag = .false.
  iuse_disc = .false.

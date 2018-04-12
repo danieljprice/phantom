@@ -8,9 +8,11 @@
 !  MODULE: setup
 !
 !  DESCRIPTION:
-! this module does setup for the Sedov blast wave problem with dust
+!   Sedov blast wave problem with dust
 !
-!  REFERENCES: None
+!  REFERENCES:
+!   Laibe & Price (2012a), MNRAS 420, 2345
+!   Laibe & Price (2012b), MNRAS 420, 2365
 !
 !  OWNER: Daniel Price
 !
@@ -18,7 +20,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, io, part, physcon, setup_params, unifdis, units
+!  DEPENDENCIES: boundary, io, part, physcon, prompting, setup_params,
+!    unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -36,12 +39,13 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,npart_total
- use unifdis, only:set_unifdis
- use io, only:master
- use boundary, only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
+ use unifdis,      only:set_unifdis
+ use io,           only:master
+ use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use part,         only:labeltype,set_particle_type,igas,idust
  use units,        only:umass,utime,unit_density,udist,set_units
  use physcon,      only:pc,solarm,pi
+ use prompting,    only:prompt
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -51,10 +55,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real :: deltax,totmass,dust_to_gas_ratio
  integer :: i,maxp,maxvxyzu,itype,npartx,npart_previous,ifluid,nfluid
- real :: rblast,prblast,enblast,gam1,spsoundzero
- real(kind=8) :: uenergy
+ real    :: deltax,totmass,dust_to_gas_ratio
+ real    :: rblast,prblast,enblast,gam1,spsoundzero
+ real(8) :: uenergy
 
  call set_units(dist=pc,mass=solarm,G=1.)
 !
@@ -84,10 +88,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        itype = idust
     end select
     if (id==master) then
+       if (ifluid==1) npartx = 64
        if (nfluid > 1) print "(/,a,/)",'  >>> Setting up '//trim(labeltype(itype))//' particles <<<'
-       print*,' uniform cubic setup...'
-       print*,' enter number of particles in x (max = ',nint((0.5*maxp)**(1/3.)),')'
-       read*,npartx
+       call prompt('enter number of particles in x direction ',npartx,1)
     endif
     deltax = dxbound/npartx
 
@@ -114,8 +117,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     spsoundzero = 2.d4/(udist/utime)
     print*,' speed of sound = ',2.d4,' cm/s, in code units = ',spsoundzero
-!    print*,' intrinsic dust density = 1 g.cm-3, in code units = ', 1./udens
-!    print*, 's = 10^-22 in code units, in cm =', 1.d-22*udist
 
     npart_previous = npart
 
@@ -156,4 +157,3 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 end subroutine setpart
 
 end module setup
-

@@ -63,7 +63,7 @@ module initial_params
 use dim, only:ndusttypes
  implicit none
  real,    public :: get_conserv = 1.0 ! to track when we have initial values for conservation laws
- real,    public :: etot_in,angtot_in,totmom_in,mdust_in(ndusttypes),xyzcom_in(3),dxi_in
+ real,    public :: etot_in,angtot_in,totmom_in,mdust_in(ndusttypes)
 
 end module initial_params
 

@@ -8,9 +8,9 @@
 !  MODULE: setup
 !
 !  DESCRIPTION:
-! this module does setup
+!   Setup for the dustybox problem in dust-gas mixtures
 !
-!  REFERENCES: None
+!  REFERENCES: Laibe & Price (2011), MNRAS 418, 1491
 !
 !  OWNER: Daniel Price
 !
@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, io, mpiutils, part, physcon, setup_params,
-!    unifdis, units
+!  DEPENDENCIES: boundary, io, mpiutils, part, physcon, prompting,
+!    setup_params, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -27,7 +27,7 @@ module setup
  public :: setpart
 
  integer, private :: npartx,ilattice
- real,    private :: deltax,rhozero,polykset
+ real,    private :: deltax,polykset
  private
 
 contains
@@ -46,6 +46,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:labeltype,set_particle_type,igas
  use physcon,      only:pi,solarm,au
  use units,        only:set_units
+ use prompting,    only:prompt
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -55,7 +56,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real :: totmass,deltax
+ real    :: totmass
  integer :: i,maxp,maxvxyzu
  integer :: itype,ntypes
  integer :: npart_previous
@@ -70,6 +71,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  time = 0.
  hfact = 1.2
  gamma = 1.
+ rhozero = 1.
 !
 !--setup particles
 !
@@ -82,27 +84,23 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ntypes = 2
  overtypes: do itype=1,ntypes
     if (id==master) then
+       if (itype==1) npartx = 64
        if (ntypes > 1) then
           print "(/,a,/)",'  >>> Setting up '//trim(labeltype(itype))//' particles <<<'
        endif
-       print*,' uniform cubic setup...'
-       print*,' enter number of particles in x (max = ',nint((maxp)**(1/3.))/real(ntypes),')'
-       read*,npartx
+       call prompt('enter number of particles in x direction ',npartx,1)
     endif
     call bcast_mpi(npartx)
     deltax = dxbound/npartx
 
-    if (id==master) then
-       print*,' enter density (gives particle mass)'
-       read*,rhozero
-    endif
+    if (id==master) call prompt(' enter density (gives particle mass)',rhozero,0.)
     call bcast_mpi(rhozero)
 
     if (itype==1) then
        if (maxvxyzu < 4) then
           if (id==master) then
-             print*,' enter sound speed in code units (sets polyk)'
-             read*,polykset
+             polykset = 1.
+             call prompt(' enter sound speed in code units (sets polyk)',polykset,0.)
           endif
           call bcast_mpi(polykset)
           polyk = polykset**2
@@ -114,8 +112,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
 
     if (id==master) then
-       print*,' select lattice type (1=cubic, 2=closepacked)'
-       read*,ilattice
+       ilattice = 1
+       call prompt(' select lattice type (1=cubic, 2=closepacked)',ilattice,1)
     endif
     call bcast_mpi(ilattice)
 
@@ -176,4 +174,3 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 end subroutine setpart
 
 end module setup
-

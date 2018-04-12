@@ -35,25 +35,29 @@ module eos_helmholtz
  public :: eos_helmholtz_pres_sound          ! performs iterations, called by eos.F90
  public :: eos_helmholtz_compute_pres_sound  ! the actual eos calculation
  public :: eos_helmholtz_cv_dpresdt
-
- private :: psi0, dpsi0, ddpsi0
- private :: psi1, dpsi1, ddpsi1
- private :: psi2, dpsi2, ddpsi2
- private :: xpsi0, xdpsi0
- private :: xpsi1, xdpsi1
- private :: h3, h5
+ public :: eos_helmholtz_get_minrho
+ public :: eos_helmholtz_get_maxrho
+ public :: eos_helmholtz_get_mintemp
+ public :: eos_helmholtz_get_maxtemp
+ public :: eos_helmholtz_eosinfo
 
  integer, public :: relaxflag = 1
 
- integer, parameter :: imax = 271
- integer, parameter :: jmax = 101
+
+ private
 
  ! these set the mixture of species
  ! currently hard-coded to 50/50 carbon-oxygen
- ! abar = [sum (mass fraction / # nucleons) ]^(-1)
- real, parameter :: abar   = 13.7142857
- ! zbar = [sum (mass fraction / # protons) ]^(-1)
- real, parameter :: zbar   = 6.857142857
+
+ integer, parameter :: speciesmax = 15
+ character(len=10) :: speciesname(speciesmax)
+ real :: xmass(speciesmax) ! mass fraction of species
+ real :: Aion(speciesmax)  ! number of nucleons
+ real :: Zion(speciesmax)  ! number of protons
+ real :: abar, zbar
+
+ integer, parameter :: imax = 271
+ integer, parameter :: jmax = 101
 
 ! sizes of the tables
 ! normal table, big table, bigger table, denser bigger table
@@ -71,6 +75,15 @@ module eos_helmholtz
 ! half as dense
 !      parameter        (imax = 136, jmax = 51)
 
+
+ ! limits of the table, set by reading the limits of the table directly
+ ! this should be:
+ !    1.0e-12 < dens < 1e15 g/cm^3
+ !     1.0e3  < temp < 1e13 K
+ real :: rhomincgs
+ real :: rhomaxcgs
+ real :: tempmin
+ real :: tempmax
 
 
 ! for the electrons
@@ -107,11 +120,12 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine eos_helmholtz_init(ierr)
- use io,        only:error
+ use io,        only:warning
  use datafiles, only:find_phantom_datafile
  integer, intent(out) :: ierr
- character(len=80) :: filename
- integer :: i, j
+ character(len=120) :: filename
+ character(len=120) :: line
+ integer :: i, j, iunit
  real    :: tsav, dsav, dth, dt2, dti, dt2i, dt3i, &
                        dd, dd2, ddi, dd2i, dd3i
  real    :: thi, tstp, dhi, dstp
@@ -123,15 +137,76 @@ subroutine eos_helmholtz_init(ierr)
     call eos_helmholtz_set_relaxflag(1)
  endif
 
- ! find the table datafile
- filename = find_phantom_datafile('helm_table.dat', 'eos/helmholtz')
 
- ! open the table datafile
- open(unit=19,file=trim(filename),status='old',iostat=ierr)
- if (ierr /= 0) then
-    call error('eos_helmholtz','could not find helm_table.dat to initialise eos')
+ ! set the species information
+ speciesname(1) = "hydrogen"
+ speciesname(2) = "helium"
+ speciesname(3) = "carbon"
+ speciesname(4) = "oxygen"
+ speciesname(5) = "neon"
+ speciesname(6) = "magnesium"
+ speciesname(7) = "silicon"
+ speciesname(8) = "sulphur"
+ speciesname(9) = "argon"
+ speciesname(10) = "calcium"
+ speciesname(11) = "titanium"
+ speciesname(12) = "chromium"
+ speciesname(13) = "iron"
+ speciesname(14) = "nickel"
+ speciesname(15) = "zinc"
+
+ Aion(1) = 1.0    ;  Zion(1) = 1.0   ! hydrogen
+ Aion(2) = 4.0    ;  Zion(2) = 2.0   ! helium
+ Aion(3) = 12.0   ;  Zion(3) = 6.0   ! carbon
+ Aion(4) = 16.0   ;  Zion(4) = 8.0   ! oxygen
+ Aion(5) = 20.0   ;  Zion(5) = 10.0  ! neon
+ Aion(6) = 24.0   ;  Zion(6) = 12.0  ! magnesium
+ Aion(7) = 28.0   ;  Zion(7) = 14.0  ! silicon
+ Aion(8) = 32.0   ;  Zion(8) = 16.0  ! sulphur
+ Aion(9) = 36.0   ;  Zion(9) = 18.0  ! argon
+ Aion(10) = 40.0  ;  Zion(10) = 20.0  ! calcium
+ Aion(11) = 44.0  ;  Zion(11) = 22.0  ! titanium
+ Aion(12) = 48.0  ;  Zion(12) = 24.0  ! chromium
+ Aion(13) = 52.0  ;  Zion(13) = 26.0  ! iron
+ Aion(14) = 56.0  ;  Zion(14) = 28.0  ! nickel
+ Aion(15) = 60.0  ;  Zion(15) = 30.0  ! zinc
+
+ ! set the mass weightings of each species
+ ! currently hard-coded to 50/50 carbon-oxygen
+ ! TODO: update this be set by user at runtime
+ xmass(:) = 0.0
+ xmass(3) = 0.5
+ xmass(4) = 0.5
+
+ if (sum(xmass(:)) > 1.0+tiny(xmass) .or. sum(xmass(:)) < 1.0-tiny(xmass)) then
+    call warning('eos_helmholtz', 'mass fractions total != 1')
     ierr = 1
     return
+ endif
+
+ call eos_helmholtz_calc_AbarZbar()
+
+
+ ! find the table datafile
+ filename = find_phantom_datafile('helm_data.tab', 'eos/helmholtz')
+
+ ! open the table datafile
+ open(newunit=iunit,file=trim(filename),status='old',iostat=ierr)
+ if (ierr /= 0) then
+    call warning('eos_helmholtz','could not find helm_table.dat to initialise eos')
+    ierr = 1
+    return
+ endif
+
+ ! check that the full datafile is there, not just the text git-lfs pointer
+ read(iunit,*,iostat=ierr) line
+ if (line(1:7) == 'version') then
+    call warning('eos_helmoltz','full datafile not present. Download using git-lfs')
+    ierr = 1
+    return
+ else
+    rewind(iunit)
+    ierr = 0
  endif
 
  ! for standard table limits
@@ -151,8 +226,13 @@ subroutine eos_helmholtz_init(ierr)
     do i=1,imax
        dsav = dlo + (i-1)*dstp
        d(i) = 10.0**(dsav)
-       read(19,*) f(i,j),fd(i,j),ft(i,j),fdd(i,j),ftt(i,j),fdt(i,j), &
+       read(iunit,*,iostat=ierr) f(i,j),fd(i,j),ft(i,j),fdd(i,j),ftt(i,j),fdt(i,j), &
                   fddt(i,j),fdtt(i,j),fddtt(i,j)
+       if (ierr /= 0) then
+          call warning('eos_helmholtz','error reading helmholtz free energy from helm_table.dat')
+          ierr = 1
+          return
+       endif
     enddo
  enddo
 
@@ -160,26 +240,41 @@ subroutine eos_helmholtz_init(ierr)
  ! read the pressure derivative with density table
  do j=1,jmax
     do i=1,imax
-       read(19,*) dpdf(i,j),dpdfd(i,j),dpdft(i,j),dpdfdt(i,j)
+       read(iunit,*,iostat=ierr) dpdf(i,j),dpdfd(i,j),dpdft(i,j),dpdfdt(i,j)
+       if (ierr /= 0) then
+          call warning('eos_helmholtz','error reading pressure derivative from helm_table.dat')
+          ierr = 1
+          return
+       endif
     enddo
  enddo
 
  ! read the electron chemical potential table
  do j=1,jmax
     do i=1,imax
-       read(19,*) ef(i,j),efd(i,j),eft(i,j),efdt(i,j)
+       read(iunit,*,iostat=ierr) ef(i,j),efd(i,j),eft(i,j),efdt(i,j)
+       if (ierr /= 0) then
+          call warning('eos_helmholtz','error reading electron potential from helm_table.dat')
+          ierr = 1
+          return
+       endif
     enddo
  enddo
 
  ! read the number density table
  do j=1,jmax
     do i=1,imax
-       read(19,*) xf(i,j),xfd(i,j),xft(i,j),xfdt(i,j)
+       read(iunit,*,iostat=ierr) xf(i,j),xfd(i,j),xft(i,j),xfdt(i,j)
+       if (ierr /= 0) then
+          call warning('eos_helmholtz','error reading number density from helm_table.dat')
+          ierr = 1
+          return
+       endif
     enddo
  enddo
 
  ! close the file and write a summary message
- close(unit=19)
+ close(unit=iunit)
 
  ! construct the temperature and density deltas and their inverses
  do j=1,jmax-1
@@ -207,8 +302,31 @@ subroutine eos_helmholtz_init(ierr)
     dd3i_sav(i) = dd3i
  enddo
 
+ ! set min/max density and temperature based on limits of temperature
+ ! this should be around:
+ !    1.0e-12 < dens < 1e15 g/cm^3
+ !     1.0e3  < temp < 1e13 K
+
+ rhomincgs = d(1)
+ rhomaxcgs = d(imax)
+ tempmin   = t(1)
+ tempmax   = t(jmax)
+
 end subroutine eos_helmholtz_init
 
+
+!----------------------------------------------------------------------------------------
+!+
+!  Calculates average atomic weight (Abar) and charge (Zbar) from the element abundances
+!  See Section 2.1 of Timmes & Swesty (2000)
+!+
+!----------------------------------------------------------------------------------------
+subroutine eos_helmholtz_calc_AbarZbar()
+
+ abar = 1.0 / sum(xmass(:) / aion(:))
+ zbar = abar * sum(xmass(:) * zion(:) / aion(:))
+
+end subroutine eos_helmholtz_calc_AbarZbar
 
 
 !----------------------------------------------------------------
@@ -243,6 +361,51 @@ subroutine eos_helmholtz_set_relaxflag(tmp)
 
 end subroutine eos_helmholtz_set_relaxflag
 
+
+! return min density from table limits in code units
+real function eos_helmholtz_get_minrho()
+ use units, only:unit_density
+ eos_helmholtz_get_minrho = rhomincgs / unit_density
+end function eos_helmholtz_get_minrho
+
+
+! return max density from table limits in code units
+real function eos_helmholtz_get_maxrho()
+ use units, only:unit_density
+ eos_helmholtz_get_maxrho = rhomaxcgs / unit_density
+end function eos_helmholtz_get_maxrho
+
+
+! return min temperature from table limits in code units
+real function eos_helmholtz_get_mintemp()
+ eos_helmholtz_get_mintemp = tempmin
+end function eos_helmholtz_get_mintemp
+
+
+! return max temperature from table limits in code units
+real function eos_helmholtz_get_maxtemp()
+ eos_helmholtz_get_maxtemp = tempmax
+end function eos_helmholtz_get_maxtemp
+
+
+!----------------------------------------------------------------
+!+
+!  print eos information
+!+
+!----------------------------------------------------------------
+subroutine eos_helmholtz_eosinfo(iprint)
+ integer, intent(in) :: iprint
+ integer :: i
+
+ write(iprint,"(/,a)") ' Helmholtz free energy equation of state'
+ write(iprint,"(a)") '   mass fractions of each species:'
+ do i=1,speciesmax
+    if (xmass(i) > 0.0) then
+       write(iprint,"(a,a,a,f5.3)") '     ', speciesname(i), ': ', xmass(i)
+    endif
+ enddo
+
+end subroutine eos_helmholtz_eosinfo
 
 
 !----------------------------------------------------------------
@@ -296,11 +459,11 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     endif
 
     ! temperature and density limits are given in section 2.3 of Timmes & Swesty (2000)
-    if (tnew > 1.0e11) then
-       tnew = 1.0e11
+    if (tnew > tempmax) then
+       tnew = tempmax
     endif
-    if (tnew < 1.0e4) then
-       tnew = 1.0e4
+    if (tnew < tempmin) then
+       tnew = tempmin
     endif
 
     itercount = 0
@@ -333,12 +496,12 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
 
        ! exit if gas is too cold or too hot
        ! temperature and density limits are given in section 2.3 of Timmes & Swesty (2000)
-       if (tnew > 1.0e11) then
-          tnew = 1.0e11
+       if (tnew > tempmax) then
+          tnew = tempmax
           done = .true.
        endif
-       if (tnew < 1.0e4) then
-          tnew = 1.0e4
+       if (tnew < tempmin) then
+          tnew = tempmin
           done = .true.
        endif
 
@@ -462,13 +625,13 @@ real function h3(i,j,fi,w0t,w1t,w0mt,w1mt,w0d,w1d,w0md,w1md)
  real, intent(in)    :: w0t, w1t, w0mt, w1mt, w0d, w1d, w0md, w1md
 
  h3 =   fi(1)  *w0d*w0t   +  fi(2)  *w0md*w0t &
-       + fi(3)  *w0d*w0mt  +  fi(4)  *w0md*w0mt &
-       + fi(5)  *w0d*w1t   +  fi(6)  *w0md*w1t &
-       + fi(7)  *w0d*w1mt  +  fi(8)  *w0md*w1mt &
-       + fi(9)  *w1d*w0t   +  fi(10) *w1md*w0t &
-       + fi(11) *w1d*w0mt  +  fi(12) *w1md*w0mt &
-       + fi(13) *w1d*w1t   +  fi(14) *w1md*w1t &
-       + fi(15) *w1d*w1mt  +  fi(16) *w1md*w1mt
+      + fi(3)  *w0d*w0mt  +  fi(4)  *w0md*w0mt &
+      + fi(5)  *w0d*w1t   +  fi(6)  *w0md*w1t &
+      + fi(7)  *w0d*w1mt  +  fi(8)  *w0md*w1mt &
+      + fi(9)  *w1d*w0t   +  fi(10) *w1md*w0t &
+      + fi(11) *w1d*w0mt  +  fi(12) *w1md*w0mt &
+      + fi(13) *w1d*w1t   +  fi(14) *w1md*w1t &
+      + fi(15) *w1d*w1mt  +  fi(16) *w1md*w1mt
 
 end function h3
 
@@ -482,24 +645,24 @@ real function h5(i,j,fi,w0t,w1t,w2t,w0mt,w1mt,w2mt,w0d,w1d,w2d,w0md,w1md,w2md)
  real, intent(in)    :: w0d, w1d, w2d
  real, intent(in)    :: w0md, w1md, w2md
 
- h5 =  fi(1)  *w0d*w0t   + fi(2)  *w0md*w0t &
-       + fi(3)  *w0d*w0mt  + fi(4)  *w0md*w0mt &
-       + fi(5)  *w0d*w1t   + fi(6)  *w0md*w1t &
-       + fi(7)  *w0d*w1mt  + fi(8)  *w0md*w1mt &
-       + fi(9)  *w0d*w2t   + fi(10) *w0md*w2t &
-       + fi(11) *w0d*w2mt  + fi(12) *w0md*w2mt &
-       + fi(13) *w1d*w0t   + fi(14) *w1md*w0t &
-       + fi(15) *w1d*w0mt  + fi(16) *w1md*w0mt &
-       + fi(17) *w2d*w0t   + fi(18) *w2md*w0t &
-       + fi(19) *w2d*w0mt  + fi(20) *w2md*w0mt &
-       + fi(21) *w1d*w1t   + fi(22) *w1md*w1t &
-       + fi(23) *w1d*w1mt  + fi(24) *w1md*w1mt &
-       + fi(25) *w2d*w1t   + fi(26) *w2md*w1t &
-       + fi(27) *w2d*w1mt  + fi(28) *w2md*w1mt &
-       + fi(29) *w1d*w2t   + fi(30) *w1md*w2t &
-       + fi(31) *w1d*w2mt  + fi(32) *w1md*w2mt &
-       + fi(33) *w2d*w2t   + fi(34) *w2md*w2t &
-       + fi(35) *w2d*w2mt  + fi(36) *w2md*w2mt
+ h5 =   fi(1)  *w0d*w0t   + fi(2)  *w0md*w0t &
+      + fi(3)  *w0d*w0mt  + fi(4)  *w0md*w0mt &
+      + fi(5)  *w0d*w1t   + fi(6)  *w0md*w1t &
+      + fi(7)  *w0d*w1mt  + fi(8)  *w0md*w1mt &
+      + fi(9)  *w0d*w2t   + fi(10) *w0md*w2t &
+      + fi(11) *w0d*w2mt  + fi(12) *w0md*w2mt &
+      + fi(13) *w1d*w0t   + fi(14) *w1md*w0t &
+      + fi(15) *w1d*w0mt  + fi(16) *w1md*w0mt &
+      + fi(17) *w2d*w0t   + fi(18) *w2md*w0t &
+      + fi(19) *w2d*w0mt  + fi(20) *w2md*w0mt &
+      + fi(21) *w1d*w1t   + fi(22) *w1md*w1t &
+      + fi(23) *w1d*w1mt  + fi(24) *w1md*w1mt &
+      + fi(25) *w2d*w1t   + fi(26) *w2md*w1t &
+      + fi(27) *w2d*w1mt  + fi(28) *w2md*w1mt &
+      + fi(29) *w1d*w2t   + fi(30) *w1md*w2t &
+      + fi(31) *w1d*w2mt  + fi(32) *w1md*w2mt &
+      + fi(33) *w2d*w2t   + fi(34) *w2md*w2t &
+      + fi(35) *w2d*w2mt  + fi(36) *w2md*w2mt
 
 end function h5
 
@@ -566,7 +729,8 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  real :: dsdd,lami,inv_lami,lamidd, &
                    plasg,plasgdd,plasgdt, &
                    ecoul,decouldd,decouldt, &
-                   pcoul,dpcouldd,dpcouldt
+                   pcoul,dpcouldd,dpcouldt, &
+                   scoul
  real, parameter :: a1    = -0.898004
  real, parameter :: b1    =  0.96786
  real, parameter :: c1    =  0.220703
@@ -581,18 +745,18 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 
 ! start of pipeline loop, normal execution starts here
 
- if (temp < 1.0e4) then
-    print *, 'WARNING: ', temp, ' eos_helmholtz: temperature below range available (10^4 K - 10^11 K)'
+ if (temp < tempmin) then
+    print *, 'WARNING: ', temp, ' eos_helmholtz: temperature below range available (min temp = 10^3 K)'
  endif
- if (temp > 1.0e11) then
-    print *, 'WARNING: eos_helmholtz: temperature exceeds range available (10^4 - 10^11 K)'
+ if (temp > tempmax) then
+    print *, 'WARNING: eos_helmholtz: temperature exceeds range available (max temp = 10^13 K)'
  endif
 
- if (den < 1.0e-6) then
-    print *, 'WARNING: eos_helmholtz: density below range available (10-^6 - 10^11 g/cm^3)'
+ if (den < rhomincgs) then
+    print *, 'WARNING: eos_helmholtz: density below range available (min rho = 10^-13 g/cm^3)'
  endif
- if (den > 1.0e11) then
-    print *, 'WARNING: eos_helmholtz: density exceeds range available (10-^6 - 10^11 g/cm^3)'
+ if (den > rhomaxcgs) then
+    print *, 'WARNING: eos_helmholtz: density exceeds range available (max rho = 10^15 g/cm^3)'
  endif
 
  if (temp  <=  0.0) stop 'temp less than 0 in helmeos'
@@ -618,7 +782,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  dpraddt = 4.0 * prad*tempi
 
  erad    = 3.0 * prad*deni
-
  deraddt = 3.0 * dpraddt*deni
 
  srad    = (prad*deni + erad)*tempi
@@ -626,7 +789,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 
 ! ion section:
  xni     = avogadro * ytot1 * den
-
  dxnidd  = avogadro * ytot1
 
  pion    = xni * kt
@@ -634,7 +796,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  dpiondt = xni * kboltz
 
  eion    = 1.5 * pion*deni
-
  deiondt = 1.5 * dpiondt*deni
 
 
@@ -819,17 +980,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 
 
 ! derivatives of weight functions
- dsi0t  = xdpsi0(xt)*dti_sav(jat)
- dsi1t  = xdpsi1(xt)
-
- dsi0mt = -xdpsi0(mxt)*dti_sav(jat)
- dsi1mt = xdpsi1(mxt)
-
- dsi0d  = xdpsi0(xd)*ddi_sav(iat)
- dsi1d  = xdpsi1(xd)
-
- dsi0md = -xdpsi0(mxd)*ddi_sav(iat)
- dsi1md = xdpsi1(mxd)
 
 
 ! look in the pressure derivative only once
@@ -859,22 +1009,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 
 
 ! look in the electron chemical potential table only once
- fi(1)  = ef(iat,jat)
- fi(2)  = ef(iat+1,jat)
- fi(3)  = ef(iat,jat+1)
- fi(4)  = ef(iat+1,jat+1)
- fi(5)  = eft(iat,jat)
- fi(6)  = eft(iat+1,jat)
- fi(7)  = eft(iat,jat+1)
- fi(8)  = eft(iat+1,jat+1)
- fi(9)  = efd(iat,jat)
- fi(10) = efd(iat+1,jat)
- fi(11) = efd(iat,jat+1)
- fi(12) = efd(iat+1,jat+1)
- fi(13) = efdt(iat,jat)
- fi(14) = efdt(iat+1,jat)
- fi(15) = efdt(iat,jat+1)
- fi(16) = efdt(iat+1,jat+1)
 
 
 ! electron chemical potential etaele
@@ -883,28 +1017,12 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 ! derivative with respect to density
 
 
-
 ! derivative with respect to temperature
 
 
 
 ! look in the number density table only once
- fi(1)  = xf(iat,jat)
- fi(2)  = xf(iat+1,jat)
- fi(3)  = xf(iat,jat+1)
- fi(4)  = xf(iat+1,jat+1)
- fi(5)  = xft(iat,jat)
- fi(6)  = xft(iat+1,jat)
- fi(7)  = xft(iat,jat+1)
- fi(8)  = xft(iat+1,jat+1)
- fi(9)  = xfd(iat,jat)
- fi(10) = xfd(iat+1,jat)
- fi(11) = xfd(iat,jat+1)
- fi(12) = xfd(iat+1,jat+1)
- fi(13) = xfdt(iat,jat)
- fi(14) = xfdt(iat+1,jat)
- fi(15) = xfdt(iat,jat+1)
- fi(16) = xfdt(iat+1,jat+1)
+
 
 ! electron + positron number densities
 
@@ -916,6 +1034,7 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 
 
 ! derivative with respect to abar and zbar
+
 
 
 ! the desired electron-positron thermodynamic quantities
@@ -930,7 +1049,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 !        dpepdd  = ye * (x * df_dd + 2.0 * din * df_d)
 
 
- x       = ye * ye
  sele    = -df_t * ye
 
  dsepdt  = -df_tt * ye
@@ -950,7 +1068,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  s        = z * xni
  dsdd     = z * dxnidd
 
-
  lami     = 1.0/s**third
  inv_lami = 1.0/lami
  z        = -third * lami
@@ -967,6 +1084,7 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
     y        = avogadro * ytot1 * kboltz
     ecoul    = y * temp * (a1*plasg + b1*x + c1/x + d1)
     pcoul    = third * den * ecoul
+    scoul    = -y * (3.0*b1*x - 5.0*c1/x + d1 * (log(plasg) - 1.0) - e1)
 
     y        = avogadro*ytot1*kt*(a1 + 0.25/plasg*(b1*x - c1/x))
     decouldd = y * plasgdd
@@ -983,6 +1101,7 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
     z        = c2 * x - third * a2 * y
     pcoul    = -pion * z
     ecoul    = 3.0 * pcoul/den
+    scoul    = -avogadro/abar*kboltz*(c2*x - a2*(b2-1.0)/b2*y)
 
     s        = 1.5*c2*x/plasg - third*a2*b2*y/plasg
     dpcouldd = -dpiondd*z - pion*s*plasgdd
@@ -996,7 +1115,7 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 ! bomb proof
  x   = prad + pion + pele + pcoul
  y   = erad + eion + eele + ecoul
- z   = srad + sion + sele
+ z   = srad + sion + sele + scoul
 
 !        write(6,*) x,y,z
  if (x  <=  0.0 .or. y  <=  0.0 .or. z  <=  0.0) then
@@ -1019,43 +1138,31 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 
 ! sum all the gas components
  pgas    = pion + pele + pcoul
-
  egas    = eion + eele + ecoul
 
- !print *, dpiondt,dpepdt,dpcouldt
  dpgasdd = dpiondd + dpepdd + dpcouldd
  dpgasdt = dpiondt + dpepdt + dpcouldt
 
-
  degasdt = deiondt + deepdt + decouldt
-
 
 
 ! add in radiation to get the total
  pres    = prad + pgas
  ener    = erad + egas
 
-
  dpresdd = dpraddd + dpgasdd
-
  dpresdt = dpraddt + dpgasdt
-!    print *, deraddt, degasdt
  denerdt = deraddt + degasdt
 
 ! for the totals
  zz    = pres*deni
  zzi   = den/pres
-
  chit  = temp/pres * dpresdt
  chid  = dpresdd*zzi
  cv    = denerdt
  x     = zz * chit/(temp * cv)
-
  gam1  = chit*x + chid
-
-
  z     = 1.0 + (ener + light2)*zzi
-
  sound = c * sqrt(gam1/z)
 
 

@@ -23,10 +23,10 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, chem, cooling, dim, dust, eos, fastmath, io,
-!    io_summary, kdtree, kernel, linklist, mpiderivs, mpiforce, mpiutils,
-!    nicil, options, part, physcon, ptmass, stack, timestep, timestep_ind,
-!    timestep_sts, units, viscosity
+!  DEPENDENCIES: boundary, chem, cooling, dim, dust, eos, fastmath, growth,
+!    io, io_summary, kdtree, kernel, linklist, mpiderivs, mpiforce,
+!    mpiutils, nicil, options, part, physcon, ptmass, stack, timestep,
+!    timestep_ind, timestep_sts, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module forces
@@ -172,7 +172,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use units,        only:unit_density
 #endif
 #ifdef DUST
- use dust,         only:get_ts,grainsize,graindens,idrag,icut_backreaction
+ !use dust,         only:get_ts
  use kernel,       only:wkern_drag,cnormk_drag
 #endif
  use nicil,        only:nimhd_get_jcbcb,nimhd_get_dt,nimhd_get_dBdt,nimhd_get_dudt
@@ -799,6 +799,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use kernel,      only:wkern_drag,cnormk_drag
  use part,        only:dustprop
 #endif
+#ifdef DUSTGROWTH
+ use growth,  only:get_vrelonvfrag
+ use eos,         only:get_temperature,ieos
+ use part,        only:xyzmh_ptmass
+#endif
 #ifdef IND_TIMESTEPS
  use part,        only:ibin_old
 #endif
@@ -860,6 +865,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: dragterm,dragheating,wdrag,tsij(ndusttypes),dv2
  real    :: grkernav,tsj(ndusttypes),dustfracterms(ndusttypes),term
  !real    :: Dav(ndusttypes),vsigeps,depsdissterm(ndusttypes)
+#ifdef DUSTGROWTH
+ real    :: Sti, Ti, ri
+#endif
 #endif
  real    :: dBevolx,dBevoly,dBevolz,divBsymmterm,divBdiffterm
  real    :: rho21i,rho21j,Bxi,Byi,Bzi,psii,pmjrho21grkerni,pmjrho21grkernj
@@ -907,8 +915,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  curlBi(2)     = xpartveci(icurlByi)
  curlBi(3)     = xpartveci(icurlBzi)
  if (use_dustgrowth) then
-     grainsizei = xpartveci(igrainsizei)
-     graindensi = xpartveci(igraindensi)
+    grainsizei = xpartveci(igrainsizei)
+    graindensi = xpartveci(igraindensi)
  endif
 
  fsum(:) = 0.
@@ -1024,7 +1032,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
     rij2 = dx*dx + dy*dy + dz*dz
     q2i = rij2*hi21
-
     !--hj is in the cell cache but not in the neighbour cache
     !  as not accessed during the density summation
     if (ifilledcellcache .and. n <= maxcellcache) then
@@ -1034,7 +1041,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     endif
     hj21 = hj1*hj1
     q2j = rij2*hj21
-
     is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
 #ifdef GRAVITY
        !  Determine if neighbouring particle is hidden by a sink particle;
@@ -1252,7 +1258,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              dustfracj = 0.; sqrtrhodustfracj = 0.
           endif
        else ! set to zero terms which are used below without an if (usej)
-          rhoj      = 0.
+          !rhoj      = 0.
           rho1j     = 0.
           rho21j    = 0.
 
@@ -1554,6 +1560,15 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                       call get_ts(idrag,grainsize(l),graindens,rhoj,rhoi,spsoundj,dv2,tsij(l),iregime)
                    enddo
                 endif
+#ifdef DUSTGROWTH
+                if (usej) then
+                   dustprop(5,i) = dustprop(5,i) + 3*pmassj/rhoj*projv*wdrag !--interpolate vd-vg for the dust particle i
+                   ri = sqrt(xyzh(1,i)**2+xyzh(2,i)**2)
+                   Sti = tsij*sqrt(xyzmh_ptmass(4,1)/ri**3) !--G=1 in code units
+                   Ti = get_temperature(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
+                   call get_vrelonvfrag(xyzh(:,i),dustprop(:,i),spsoundi,Sti,Ti) !--store vrel and vrel/vfrag
+                endif
+#endif
                 dragterm = sum(3.*pmassj/((rhoi + rhoj)*tsij(:))*projv*wdrag)
                 ts_min = min(ts_min,minval(tsij(:)))
                 ndrag = ndrag + 1
@@ -2003,8 +2018,8 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintenso
        cell%xpartvec(ijcbzi,cell%npcell)          = jcbi(3)
     endif
 #ifdef DUSTGROWTH
-    cell%xpartvec(igrainsizei,cell%npcell)    = dustprop(1,i)
-    cell%xpartvec(igraindensi,cell%npcell)    = dustprop(2,i) !--Add dustprop(3,i) for vrelonvfrag
+    cell%xpartvec(igrainsizei,cell%npcell)        = dustprop(1,i)
+    cell%xpartvec(igraindensi,cell%npcell)        = dustprop(2,i) !--Add dustprop(3,i) for vrelonvfrag
 #endif
  enddo over_parts
 

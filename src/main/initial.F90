@@ -20,10 +20,10 @@
 !
 !  DEPENDENCIES: balance, boundary, centreofmass, checkoptions, checksetup,
 !    chem, cooling, cpuinfo, densityforce, deriv, dim, domain, dust,
-!    energies, eos, evwrite, externalforces, fastmath, forcing, h2cooling,
-!    initial_params, io, io_summary, linklist, mf_write, mpi, mpiutils,
-!    nicil, nicil_sup, omputils, options, part, photoevap, ptmass,
-!    readwrite_dumps, readwrite_infile, setup, sort_particles,
+!    energies, eos, evwrite, externalforces, fastmath, forcing, growth,
+!    h2cooling, initial_params, io, io_summary, linklist, mf_write, mpi,
+!    mpiutils, nicil, nicil_sup, omputils, options, part, photoevap,
+!    ptmass, readwrite_dumps, readwrite_infile, setup, sort_particles,
 !    step_lf_global, timestep, timestep_ind, timestep_sts, timing, units,
 !    writegitinfo, writeheader
 !+
@@ -135,7 +135,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,use_dustgrowth,ndusttypes
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,ndusttypes
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -167,9 +167,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use timestep,         only:time,dt,dtextforce,C_force,dtmax, &
                             rho_dtthresh,rho_dtthresh_cgs,dtmax_rat0,mod_dtmax,mod_dtmax_now
  use timing,           only:get_timings
-#ifdef RESET_COFM
- use centreofmass,     only:reset_centreofmass
-#endif
 #ifdef SORT
  use sort_particles,   only:sort_part
 #endif
@@ -189,10 +186,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use forcing,          only:init_forcing
 #endif
 #ifdef DUST
- use dust,             only:init_drag,grainsize,graindens
+ use dust,             only:init_drag
 #ifdef DUSTGROWTH
- use growth,		   only:init_growth
- use growth,		   only:ifrag,isnow,grainsizemin,vfrag,vfragin,vfragout,rsnow,Tsnow
+ use growth,           only:init_growth
 #endif
 #endif
 #ifdef MFLOW
@@ -213,7 +209,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:gamma,polyk,ieos,init_eos
- use part,             only:hfact,h2chemistry,dxi
+ use part,             only:hfact,h2chemistry
  use setup,            only:setpart
  use checksetup,       only:check_setup
  use h2cooling,        only:init_h2cooling
@@ -221,10 +217,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
  use io_summary,       only:summary_initialise
- use units,            only:unit_density,udist,unit_velocity
+ use units,            only:unit_density
  use centreofmass,     only:get_centreofmass
  use energies,         only:etot,angtot,totmom,mdust,xyzcom
- use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in,dxi_in
+ use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  integer         :: ierr,i,j,idot,nerr,nwarn
@@ -374,9 +370,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     ncount(:) = 0
     do i=1,npart
        itype = iamtype(iphase(i))
-	   !-- Initialise dust properties to none for gas particles
+       !-- Initialise dust properties to none for gas particles
 #ifdef DUSTGROWTH
-	   if (itype==igas .and. use_dustgrowth) dustprop(:,i) = 0.
+       if (itype==igas) dustprop(:,i) = 0.
 #endif
        if (itype < 1 .or. itype > maxtypes) then
           call fatal('initial','unknown value for itype from iphase array',i,var='iphase',ival=int(iphase(i)))
@@ -596,18 +592,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !  get_conserve=0.5: update centre of mass only; get_conserve=1: update all; get_conserve=-1: update none
 !
  if (get_conserv > 0.0) then
-    xyzcom_in = xyzcom
-    dxi_in    = min(dxi(1),dxi(2),dxi(ndim))
-    if (get_conserv > 0.75) then
-       etot_in   = etot
-       angtot_in = angtot
-       totmom_in = totmom
-       mdust_in  = mdust
-       write(iprint,'(1x,a)') 'Setting initial values to verify conservation laws:'
-    else
-       write(iprint,'(1x,a)') 'Reading initial values to verify conservation laws from previous run; resetting centre of mass:'
-    endif
+    etot_in   = etot
+    angtot_in = angtot
+    totmom_in = totmom
+    mdust_in  = mdust
     get_conserv = -1.
+    write(iprint,'(1x,a)') 'Setting initial values to verify conservation laws:'
  else
     write(iprint,'(1x,a)') 'Reading initial values to verify conservation laws from previous run:'
  endif
@@ -619,7 +609,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     write(iprint,'(2x,a,i3,es18.6)') 'Initial dust mass: i = ',i, mdust_in(i)
  enddo
 #endif
- write(iprint,'(2x,a,3es18.6,/)')  'Initial centre of mass:   ', xyzcom_in
 !
 !--write initial conditions to output file
 !  if the input file ends in .tmp or .init
