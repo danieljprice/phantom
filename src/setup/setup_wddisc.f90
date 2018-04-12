@@ -17,12 +17,14 @@
 !
 !  RUNTIME PARAMETERS:
 !    dumpsperorbit -- number of dumps per orbit
-!    eccentricity  -- eccentricity
+!    semia         -- semi-major axis
 !    hacc1         -- white dwarf (sink) accretion radius
 !    m1            -- mass of white dwarf
 !    m2            -- mass of asteroid
 !    norbits       -- number of orbits
 !    rp            -- pericentre distance
+!    rasteroid     -- radius of asteroid
+!    nr            -- particles per asteroid radius (i.e. resolution)
 !
 !  DEPENDENCIES: infile_utils, io, part, physcon, setbinary, spherical,
 !    timestep, units
@@ -32,8 +34,8 @@ module setup
  implicit none
  public :: setpart
 
- real :: m1,hacc1,m2,rp,ecc,norbits
- integer :: dumpsperorbit
+ real :: m1,m2,rp,semia,hacc1,rasteroid,norbits
+ integer :: dumpsperorbit,nr
 
  private
 
@@ -64,20 +66,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120) :: filename
  integer :: ierr,i
  logical :: iexist
- real    :: vbody(3),xyzbody(3),massbody,psep,rbody,period,hacc2,a,massr,ra
+ real    :: vbody(3),xyzbody(3),massbody,psep,period,hacc2,ecc,massr
 
- call set_units(mass=solarm/1000.,dist=solarr,G=1.d0)
+ call set_units(mass=solarm,dist=solarr,G=1.d0)
 
 !
 !--Default runtime parameters
 !
- m1      = 0.6*solarm/umass
- m2      = 0.1*ceresm/umass
- rp      = 1.2*solarr/udist
- ecc     = 0.95
- hacc1   = 0.5*solarr/udist
- norbits = 1
+ m1            = 0.6  ! (solar masses)
+ m2            = 0.1  ! (ceres masses)
+ rp            = 1.2  ! (solar radii)
+ semia         = 24.  ! (solar radii)
+ hacc1         = 0.5  ! (solar radii)
+ rasteroid     = 100. ! (km)
+ norbits       = 1.
  dumpsperorbit = 100
+ nr            = 50
 
 !
 !--Read runtime parameters from setup file
@@ -93,6 +97,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     stop
  endif
+
+ !
+ !--Convert to code units
+ !
+ m1    = m1*solarm/umass
+ m2    = m2*ceresm/umass
+ rp    = rp*solarr/udist
+ semia = semia*solarr/udist
+ hacc1 = hacc1*solarr/udist
+ rasteroid = rasteroid*km/udist
 
 !
 !--general parameters
@@ -111,29 +125,27 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  nptmass = 0
 
  massr  = m2/m1
-!ra     = (1.+ecc)/(1.-ecc)*rp
- a      = rp/(1.-ecc)
- ra     = a*(1.+ecc)
- period = sqrt(4.*pi**2*a**3/(m1+m2))
- hacc2  = hacc1
+ ecc    = 1.-rp/semia
+ period = sqrt(4.*pi**2*semia**3/(m1+m2))
+ hacc2  = hacc1/1.e10
  tmax   = norbits*period
  dtmax  = period/dumpsperorbit
 
 !
 !--Set a binary orbit given the desired orbital parameters
 !
- call set_binary(m1,massr,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
- vbody  = vxyz_ptmass(1:3,2)
- xyzbody = xyzmh_ptmass(1:3,2)
+ call set_binary(m1,massr,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
+ vbody    = vxyz_ptmass(1:3,2)
+ xyzbody  = xyzmh_ptmass(1:3,2)
  massbody = xyzmh_ptmass(4,2)
 
 !
 !--Delete second sink and replace with collection of dust particles
 !
  nptmass = 1
- rbody = 100.*km/udist
- psep  = rbody/50.
- call set_sphere('cubic',id,master,0.,rbody,psep,hfact,npart,xyzh,xyz_origin=xyzbody)
+ psep  = rasteroid/nr
+ call set_sphere('cubic',id,master,0.,rasteroid,psep,hfact,npart,xyzh,xyz_origin=xyzbody)
+ if (id==master) print "(1(/,a,i10,a,/))",' Replaced second sink with ',npart,' dust particles'
  npartoftype(idust) = npart
  massoftype(idust)  = massbody/npart
  do i=1,npart
@@ -142,8 +154,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  enddo
 
  if (nptmass == 0) call fatal('setup','no sink particles setup')
- if (npart == 0) call fatal('setup','no hydro particles setup')
- if (ierr /= 0) call fatal('setup','ERROR during setup')
+ if (npart == 0)   call fatal('setup','no hydro particles setup')
+ if (ierr /= 0)    call fatal('setup','ERROR during setup')
 
 end subroutine setpart
 
@@ -159,13 +171,15 @@ subroutine write_setupfile(filename)
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for binary setup routines'
- call write_inopt(m1,'m1','mass of white dwarf',iunit)
- call write_inopt(m2,'m2','mass of asteroid',iunit)
- call write_inopt(rp,'rp','pericentre distance',iunit)
- call write_inopt(ecc,'ecc','eccentricity',iunit)
- call write_inopt(hacc1,'hacc1','white dwarf (sink) accretion radius',iunit)
- call write_inopt(norbits,'norbits','number of orbits',iunit)
- call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',iunit)
+ call write_inopt(m1,           'm1',           'mass of white dwarf (solar mass)',                 iunit)
+ call write_inopt(m2,           'm2',           'mass of asteroid (ceres mass)',                    iunit)
+ call write_inopt(rp,           'rp',           'pericentre distance (solar radii)',                iunit)
+ call write_inopt(semia,        'semia',        'semi-major axis (solar radii)',                    iunit)
+ call write_inopt(hacc1,        'hacc1',        'white dwarf (sink) accretion radius (solar radii)',iunit)
+ call write_inopt(rasteroid,    'rasteroid',    'radius of asteroid (km)',                          iunit)
+ call write_inopt(norbits,      'norbits',      'number of orbits',                                 iunit)
+ call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',                        iunit)
+ call write_inopt(nr           ,'nr'           ,'particles per asteroid radius (i.e. resolution)',  iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -183,13 +197,15 @@ subroutine read_setupfile(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
- call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
- call read_inopt(rp,'rp',db,errcount=nerr)
- call read_inopt(ecc,'ecc',db,min=0.,errcount=nerr)
- call read_inopt(hacc1,'hacc1',db,min=0.,errcount=nerr)
- call read_inopt(norbits,'norbits',db,min=0.,errcount=nerr)
- call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=0,errcount=nerr)
+ call read_inopt(m1,           'm1',           db,min=0.,errcount=nerr)
+ call read_inopt(m2,           'm2',           db,min=0.,errcount=nerr)
+ call read_inopt(rp,           'rp',           db,min=0.,errcount=nerr)
+ call read_inopt(semia,        'semia',        db,min=0.,errcount=nerr)
+ call read_inopt(hacc1,        'hacc1',        db,min=0.,errcount=nerr)
+ call read_inopt(rasteroid,    'rasteroid',    db,min=0.,errcount=nerr)
+ call read_inopt(norbits,      'norbits',      db,min=0.,errcount=nerr)
+ call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=0 ,errcount=nerr)
+ call read_inopt(nr,           'nr',           db,min=0 ,errcount=nerr)
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
