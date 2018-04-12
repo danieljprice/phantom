@@ -1240,9 +1240,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                                    ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 endif
              endif
-			 if (use_dustgrowth) then
-				call read_array(dustprop,dustprop_label,got_dustprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-			 endif
+             if (use_dustgrowth) then
+                call read_array(dustprop,dustprop_label,got_dustprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             endif
              if (h2chemistry) then
                 call read_array(abundance,abundance_label,got_abund,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
@@ -1501,16 +1501,16 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     return
  endif
  if (use_dustgrowth .and. .not.got_dustprop(1)) then
-	 write(*,*) 'ERROR! using dustgrowth, but no grain size found in dump file'
-	 return
+     write(*,*) 'ERROR! using dustgrowth, but no grain size found in dump file'
+     return
  endif
  if (use_dustgrowth .and. .not.got_dustprop(2)) then
-	 write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'
-	 return
+     write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'
+     return
  endif
  if (use_dustgrowth .and. .not.got_dustprop(3)) then
-	write(*,*) 'ERROR! using dustgrowth, but no ratio vrel/vfrag found in dump file'
-    return	 
+    write(*,*) 'ERROR! using dustgrowth, but no ratio vrel/vfrag found in dump file'
+    return   
  endif
  !
  ! sink particle arrays

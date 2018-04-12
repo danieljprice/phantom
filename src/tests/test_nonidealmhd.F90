@@ -89,7 +89,7 @@ subroutine test_wavedamp(ntests,npass)
  use kernel,         only:hfact_default
  use part,           only:npart,xyzh,vxyzu,Bxyz,npartoftype,massoftype,set_particle_type,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,temperature,igas,alphaind,&
-						  dustprop,ddustprop
+                          dustprop,ddustprop
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use testutils,      only:checkval

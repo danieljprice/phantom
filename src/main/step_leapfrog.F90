@@ -90,7 +90,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iphase,iamtype,massoftype,maxphase,igas,mhd,maxBevol,&
                           switches_done_in_derivs,iboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustfrac,temperature,alphaind,nptmass,store_temperature,&
-						  dustprop,ddustprop,dustproppred
+                          dustprop,ddustprop,dustproppred
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
@@ -244,9 +244,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        hdti = 0.5*dtsph
 #endif
        vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
-	   if (use_dustgrowth) then
-		  dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)	   
-	   endif
+       if (use_dustgrowth) then
+          dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
+       endif
        if (itype==igas) then
           if (mhd) Bpred(:,i) = Bevol (:,i) + hdti*dBevol(:,i)
           if (use_dustfrac) then
@@ -462,7 +462,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
                      Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustfrac,&
-					 temperature,timei,dtsph,dtnew)
+                     temperature,timei,dtsph,dtnew)
     endif
 
  enddo iterations

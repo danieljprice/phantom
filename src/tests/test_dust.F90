@@ -261,7 +261,7 @@ subroutine test_dustydiffuse(ntests,npass)
  use dim,       only:maxp,periodic,maxtypes,mhd,ndusttypes
  use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac,dustevol, &
                      xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,set_particle_type,rhoh,temperature,&
-					 dustprop,ddustprop
+                     dustprop,ddustprop
  use options,   only:use_dustfrac
  use kernel,    only:hfact_default
  use eos,       only:gamma,polyk,ieos

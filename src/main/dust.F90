@@ -135,18 +135,23 @@ subroutine print_dustinfo(iprint)
  select case(idrag)
  case(1)
     if (use_dustgrowth) then
-       write(iprint,"(a)")              ' Using Epstein/Stokes drag with variable grain size. '
+       write(iprint,"(a)") ' Using Epstein/Stokes drag with variable grain size. '
     else
-       write(iprint,"(a)")              ' Using Epstein/Stokes drag with constant grain size: '
+       write(iprint,"(a)") ' Using Epstein/Stokes drag with constant grain size: '
        do i = 1,ndusttypes
-          write(iprint,"(2(a,1pg10.3),a)") '        Grain size = ',grainsize(i)*udist,        ' cm     = ',grainsize(i),' (code units)'
-          write(iprint,"(2(a,1pg10.3),a)") '        Grain mass = ',grainmass(i)*umass,        ' g      = ',grainmass(i),' (code units)'
-          write(iprint,"(2(a,1pg10.3),a)") '     Grain density = ',graindens*unit_density, ' g/cm^3 = ',graindens,' (code units)'
-          write(iprint,"(2(a,1pg10.3),a)") '  Gas mfp at rho=1 = ',seff*udist/unit_density,' cm     = ',seff,' (code units)'
+          write(iprint,"(2(a,1pg10.3),a)") '        Grain size = ',grainsize(i)*udist,      &
+                                           ' cm     = ',grainsize(i),' (code units)'
+          write(iprint,"(2(a,1pg10.3),a)") '        Grain mass = ',grainmass(i)*umass,      &
+                                           ' g      = ',grainmass(i),' (code units)'
+          write(iprint,"(2(a,1pg10.3),a)") '     Grain density = ',graindens*unit_density,  &
+                                           ' g/cm^3 = ',graindens,' (code units)'
+          write(iprint,"(2(a,1pg10.3),a)") '  Gas mfp at rho=1 = ',seff*udist/unit_density, &
+                                           ' cm     = ',seff,' (code units)'
           rhocrit = 9.*seff/(4.*grainsize(i))
        enddo
-       write(iprint,"(/,a)")              ' Density above which Stokes drag is used:'
-       write(iprint,"(2(a,1pg10.3),a)") '           rhocrit = ',rhocrit*unit_density,   ' g/cm^3 = ',rhocrit,' (code units)'
+       write(iprint,"(/,a)") ' Density above which Stokes drag is used:'
+       write(iprint,"(2(a,1pg10.3),a)")    '           rhocrit = ',rhocrit*unit_density,    &
+                                           ' g/cm^3 = ',rhocrit,' (code units)'
     endif
  case(2)
     write(iprint,"(/,a,1pg12.5)") ' Using K=const drag with K = ',K_code

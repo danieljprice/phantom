@@ -96,7 +96,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef DUST
  use dust,            only:write_options_dust
 #ifdef DUSTGROWTH
- use growth,		  only:write_options_growth
+ use growth,          only:write_options_growth
 #endif
 #endif
 #ifdef PHOTO
@@ -275,7 +275,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef DUST
  use dust,          only:read_options_dust
 #ifdef DUSTGROWTH
- use growth,		only:read_options_growth
+ use growth,        only:read_options_growth
 #endif
 #endif
 #ifdef PHOTO
@@ -313,7 +313,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  ngot            = 0
  igotallturb     = .true.
  igotalldust     = .true.
- igotallgrowth	 = .true.
+ igotallgrowth   = .true.
  igotallphoto    = .true.
  igotalllink     = .true.
  igotallextern   = .true.
@@ -429,7 +429,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef DUST
        if (.not.imatch) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
 #ifdef DUSTGROWTH
-	   if (.not.imatch) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
+       if (.not.imatch) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
 #endif
 #endif
 #ifdef PHOTO
@@ -481,7 +481,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotalllink) write(*,*) 'missing link options'
           if (.not.igotallbowen) write(*,*) 'missing Bowen dust options'
           if (.not.igotalldust) write(*,*) 'missing dust options'
-		  if (.not.igotallgrowth) write(*,*) 'missing growth options'
+          if (.not.igotallgrowth) write(*,*) 'missing growth options'
           if (.not.igotallphoto) write(*,*) 'missing photoevaporation options'
           if (.not.igotallextern) write(*,*) 'missing external force options'
           if (.not.igotallinject) write(*,*) 'missing inject-particle options'
