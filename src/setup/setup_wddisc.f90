@@ -24,6 +24,7 @@
 !    norbits       -- number of orbits
 !    rp            -- pericentre distance
 !    rasteroid     -- radius of asteroid
+!    nr            -- particles per asteroid radius (i.e. resolution)
 !
 !  DEPENDENCIES: infile_utils, io, part, physcon, setbinary, spherical,
 !    timestep, units
@@ -34,7 +35,7 @@ module setup
  public :: setpart
 
  real :: m1,m2,rp,semia,hacc1,rasteroid,norbits
- integer :: dumpsperorbit
+ integer :: dumpsperorbit,nr
 
  private
 
@@ -80,6 +81,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  rasteroid     = 100. ! (km)
  norbits       = 1.
  dumpsperorbit = 100
+ nr            = 50
 
 !
 !--Read runtime parameters from setup file
@@ -141,7 +143,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--Delete second sink and replace with collection of dust particles
 !
  nptmass = 1
- psep  = rasteroid/50.
+ psep  = rasteroid/nr
  call set_sphere('cubic',id,master,0.,rasteroid,psep,hfact,npart,xyzh,xyz_origin=xyzbody)
  npartoftype(idust) = npart
  massoftype(idust)  = massbody/npart
@@ -176,6 +178,7 @@ subroutine write_setupfile(filename)
  call write_inopt(rasteroid,    'rasteroid',    'radius of asteroid',                               iunit)
  call write_inopt(norbits,      'norbits',      'number of orbits',                                 iunit)
  call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',                        iunit)
+ call write_inopt(nr           ,'nr'           ,'particles per asteroid radius (i.e. resolution)',  iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -201,6 +204,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(rasteroid,    'rasteroid',    db,min=0.,errcount=nerr)
  call read_inopt(norbits,      'norbits',      db,min=0.,errcount=nerr)
  call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=0 ,errcount=nerr)
+ call read_inopt(nr,           'nr',           db,min=0 ,errcount=nerr)
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
