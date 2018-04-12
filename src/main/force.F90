@@ -949,6 +949,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     psii = 0.0
  endif
  if (use_dustfrac) then
+#ifdef DUST
     dustfraci(:) = xpartveci(idustfraci:idustfraciend)
     dustfracisum = sum(dustfraci(:))
     if (ilimitdustflux) then
@@ -961,6 +962,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     sqrtrhodustfraci(:) = sqrt(rhoi*dustfraci(:))
 !--asin(sqrt(epsilon)) method
 !    sqrtrhodustfraci(:) = asin(sqrt(dustfraci(:)))
+#endif
  else
     dustfraci(:) = 0.
     dustfracisum = 0.
