@@ -17,14 +17,14 @@
 !
 !  RUNTIME PARAMETERS:
 !    dumpsperorbit -- number of dumps per orbit
-!    semia         -- semi-major axis
-!    hacc1         -- white dwarf (sink) accretion radius
-!    m1            -- mass of white dwarf
-!    m2            -- mass of asteroid
+!    hacc1         -- white dwarf (sink) accretion radius (solar radii)
+!    m1            -- mass of white dwarf (solar mass)
+!    m2            -- mass of asteroid (ceres mass)
 !    norbits       -- number of orbits
-!    rp            -- pericentre distance
-!    rasteroid     -- radius of asteroid
 !    nr            -- particles per asteroid radius (i.e. resolution)
+!    rasteroid     -- radius of asteroid (km)
+!    rp            -- pericentre distance (solar radii)
+!    semia         -- semi-major axis (solar radii)
 !
 !  DEPENDENCIES: infile_utils, io, part, physcon, setbinary, spherical,
 !    timestep, units
