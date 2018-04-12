@@ -254,6 +254,15 @@ ifeq ($(SETUP), disc)
     IND_TIMESTEPS=yes
 endif
 
+ifeq ($(SETUP), grtde)
+    FPPFLAGS= -DSORT_RADIUS_INIT
+    SETUPFILE= setup_grtde.f90
+    GR=yes
+    METRIC=kerr
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
+endif
+
 ifeq ($(SETUP), grdisc)
     FPPFLAGS= -DSORT_RADIUS_INIT
     SETUPFILE= setup_grdisc.f90
