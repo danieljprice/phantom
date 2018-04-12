@@ -68,7 +68,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical :: iexist
  real    :: vbody(3),xyzbody(3),massbody,psep,period,hacc2,ecc,massr
 
- call set_units(mass=solarm/1000.,dist=solarr,G=1.d0)
+ call set_units(mass=solarm,dist=solarr,G=1.d0)
 
 !
 !--Default runtime parameters
@@ -145,6 +145,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  nptmass = 1
  psep  = rasteroid/nr
  call set_sphere('cubic',id,master,0.,rasteroid,psep,hfact,npart,xyzh,xyz_origin=xyzbody)
+ if (id==master) print "(1(/,a,i10,a,/))",' Replaced second sink with ',npart,' dust particles'
  npartoftype(idust) = npart
  massoftype(idust)  = massbody/npart
  do i=1,npart
