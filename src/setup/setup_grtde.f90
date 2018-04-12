@@ -45,6 +45,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,   only:solarm,au,pi,solarr,km
  use io,        only:master,fatal
  use timestep,  only:tmax,dtmax
+ use metric,    only:mass1
  use eos,       only:ieos
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
