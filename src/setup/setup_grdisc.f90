@@ -42,7 +42,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,             only:master
  use externalforces, only:accradius1,accradius1_hard
  use options,        only:iexternalforce,alpha,alphau,icooling
- use units,          only:set_units
+ use units,          only:set_units,umass
  use physcon,        only:solarm,pi
  use metric,         only:mass1
  use metric,         only:a
@@ -59,10 +59,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: massoftype(:)
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real    :: R_in,R_out,HonR,theta
+ real    :: R_in,R_out,HonR,theta,mhole
 
  ieos = 4
- call set_units(G=1.,c=1.,mass=200.*solarm)
+ mhole = 1.e6*solarm
+ call set_units(G=1.,c=1.,mass=mhole)
+ mdisc = 10.*solarm/umass
  hfact = hfact_default
 
  tmax = 1000.
@@ -74,8 +76,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--disc inner and outer radius
 
  a       = 0.
- R_in    = 7.0*mass1
- R_out   = 100.*mass1
+ R_in    = 40.
+ R_out   = 160.
  theta   = 0.          ! inclination angle (degrees)
  HonR    = 0.02
  npart   = 1e5
@@ -115,7 +117,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                polyk         = polyk,                &
                particle_mass = massoftype(igas),     &
                ! star_mass     = 1.0,                  &
-               disc_mass     = 1.e-6,                &
+               disc_mass     = mdisc,                &
                ! ismooth       = .true.,               &
                inclination   = theta,                &
                ! warp_smoothl  = 0.,                   &
