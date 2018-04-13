@@ -41,11 +41,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,           only:igas
  use io,             only:master
  use externalforces, only:accradius1,accradius1_hard
- use options,        only:iexternalforce,alpha,alphau,icooling
+ use options,        only:iexternalforce,alpha,alphau,icooling,iexternalforce
  use units,          only:set_units,umass
  use physcon,        only:solarm,pi
- use metric,         only:mass1
- use metric,         only:a
+#ifdef GR
+ use metric,         only:mass1,a
+#else
+ use externalforces, only:mass1,iext_einsteinprec
+ use extern_lensethirring, only:blackhole_spin
+#endif
  use prompting,      only:prompt
  use timestep,       only:tmax,dtmax
  use eos,            only:ieos
@@ -59,12 +63,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: massoftype(:)
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real    :: R_in,R_out,HonR,theta,mhole
+ real    :: R_in,R_out,HonR,theta,mhole,mdisc,spin
 
- ieos = 4
- mhole = 1.e6*solarm
+#ifdef GR
+ ieos  = 4
+ gamma = 5./3.
+#else
+ ieos  = 2
+ gamma = 1.
+ iexternalforce = iext_einsteinprec
+#endif
+
+ mhole = 200.*solarm!1.e6*solarm
  call set_units(G=1.,c=1.,mass=mhole)
- mdisc = 10.*solarm/umass
+ mdisc = 1.e-6 !10.*solarm/umass
  hfact = hfact_default
 
  tmax = 1000.
@@ -75,7 +87,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--disc inner and outer radius
 
- a       = 0.
+ spin    = 0.
  R_in    = 40.
  R_out   = 160.
  theta   = 0.          ! inclination angle (degrees)
@@ -84,17 +96,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  call prompt('Enter number of particles ',npart)
  call prompt('Enter H on R ',HonR)
- call prompt('Enter spin of black hole ',a,-1.,1.)
+ call prompt('Enter spin of black hole ',spin,-1.,1.)
  call prompt('Enter inner radius of disc ',r_in,2.*mass1)
  call prompt('Enter outer radius of disc ',r_out,r_in)
  call prompt('Enter inclination angle (degrees) ',theta,0.,90.)
  call prompt('Cooling ',icooling)
 
+#ifdef GR
+ a = spin
+#else
+ blackhole_spin = spin
+#endif
+
  theta = theta/180. * pi ! convert to radians
 
  npartoftype(:) = 0
  npartoftype(1) = npart
- gamma   = 5./3.
  time    = 0.
 
  alphau  = 0.0
@@ -116,15 +133,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                vxyzu         = vxyzu,                &
                polyk         = polyk,                &
                particle_mass = massoftype(igas),     &
-               ! star_mass     = 1.0,                  &
+               ! star_mass     = 1.0,                 &
                disc_mass     = mdisc,                &
-               ! ismooth       = .true.,               &
                inclination   = theta,                &
-               ! warp_smoothl  = 0.,                   &
-               ! bh_spin       = 0.,                   &
-               ! alpha         = alpha,                &
+               bh_spin       = spin,                 &
+               ! alpha         = alpha,               &
                prefix        = fileprefix)
+#ifdef GR
  polyk = vxyzu(4,1)
+#endif
 
  return
 end subroutine setpart
