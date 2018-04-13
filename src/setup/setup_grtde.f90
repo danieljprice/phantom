@@ -45,8 +45,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,   only:solarm,au,pi,solarr,km
  use io,        only:master,fatal
  use timestep,  only:tmax,dtmax
- use metric,    only:mass1
+ use metric,    only:mass1,a
  use eos,       only:ieos
+ use externalforces,only:accradius1,accradius1_hard
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -66,7 +67,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--general parameters
  !
   time  = 0.
-  polyk = 1.e-3    ! <== uconst
+  polyk = 1.e-10    ! <== uconst
   gamma = 5./3.
   ieos  = 4
 
@@ -97,10 +98,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  rtidal        = rstar*(mass1/mstar)**(1./3.)
  rp            = rtidal/beta
  semia         = rp/(1.-ecc)
- norbits       = 1.
+ norbits       = 5.
  dumpsperorbit = 100
- nr            = 20
+ nr            = 50
  psep          = rstar/nr
+ accradius1_hard = 2.5*mass1
+ accradius1    = accradius1_hard
+ a             = 0.
 
  period        = 2.*pi*sqrt(semia**3/mass1)
  tmax          = norbits*period
