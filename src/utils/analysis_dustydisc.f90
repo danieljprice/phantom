@@ -12,13 +12,14 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Mark Hutchison
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, infile_utils, io, options, part, physcon, units
+!  DEPENDENCIES: dim, dust, infile_utils, io, leastsquares, options, part,
+!    physcon, solvelinearsystem, units
 !+
 !--------------------------------------------------------------------------
 module analysis

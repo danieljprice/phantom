@@ -19,7 +19,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, centreofmass, dim, eos, externalforces, io,
-!    options, part, physcon, timestep, units
+!    options, part, physcon, readwrite_dumps, timestep, units
 !+
 !--------------------------------------------------------------------------
 module checksetup

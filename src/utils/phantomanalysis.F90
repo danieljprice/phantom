@@ -17,8 +17,8 @@
 !
 !  USAGE: phantomanalysis dumpfile(s)
 !
-!  DEPENDENCIES: analysis, dim, eos, fileutils, infile_utils, io, part,
-!    readwrite_dumps
+!  DEPENDENCIES: analysis, dim, dust, eos, fileutils, infile_utils, io,
+!    options, part, readwrite_dumps
 !+
 !--------------------------------------------------------------------------
 program phantomanalysis

@@ -1,11 +1,11 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
 !+
-!  MODULE: solvelinearsystem 
+!  MODULE: solvelinearsystem
 !
 !  DESCRIPTION:
 !  module containing routine(s) to solve AX = B

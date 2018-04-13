@@ -17,6 +17,7 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
+!    dtg    -- Dust to gas ratio
 !    gamma  -- Adiabatic index
 !    nx     -- resolution (number of particles in x) for -xleft < x < xshock
 !    polyk  -- square of the isothermal sound speed

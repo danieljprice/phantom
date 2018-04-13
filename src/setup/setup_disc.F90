@@ -42,7 +42,6 @@
 !    dist_unit         -- distance unit (e.g. au,pc,kpc,0.1pc)
 !    dust_method       -- dust method (1=one fluid,2=two fluid)
 !    dust_to_gas_ratio -- dust to gas ratio
-!    grainsize_set     -- set the grainsize (1=power-law,2=equal,3=manually)
 !    einst_prec        -- include Einstein precession
 !    flyby_O           -- position angle of ascending node (deg)
 !    flyby_a           -- distance of minimum approach
@@ -64,6 +63,9 @@
 !    nsinks            -- number of sinks
 !    rsnow             -- snow line position in AU
 !    setplanets        -- add planets? (0=no,1=yes)
+!    sindex            -- grain size power-law index (e.g. MRN = 3.5)
+!    smaxcgs           -- max grain size (in cm)
+!    smincgs           -- min grain size (in cm)
 !    use_mcfost        -- use the mcfost library
 !    vfrag             -- uniform fragmentation threshold in m/s
 !    vfragin           -- inward fragmentation threshold in m/s

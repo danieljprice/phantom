@@ -24,7 +24,7 @@
 !
 !  DEPENDENCIES: boundary, dim, dump_utils, dust, eos, externalforces,
 !    initial_params, io, lumin_nsdisc, mpi, mpiutils, options, part,
-!    setup_params, sphNGutils, timestep, units
+!    prompting, setup_params, sphNGutils, timestep, units
 !+
 !--------------------------------------------------------------------------
 module readwrite_dumps
