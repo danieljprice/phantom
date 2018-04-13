@@ -309,7 +309,7 @@ subroutine test_growingbox(ntests,npass)
 
  call checkvalbuf_end('size match exact solution',ncheck(4),nerr(4),errmax(4),tols)
 
-write(*,"(/,a)")'------------------ position based snow line ------------------'
+ write(*,"(/,a)")'------------------ position based snow line ------------------'
  !
  ! initialise again
  !

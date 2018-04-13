@@ -31,7 +31,7 @@
 !--------------------------------------------------------------------------
 
 module dust
-use dim, only: ndusttypes
+ use dim, only: ndusttypes
  implicit none
  !--Default values for the dust in the infile
  real, public     :: K_code                   = 1.

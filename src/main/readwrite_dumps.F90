@@ -837,11 +837,11 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 !
 !--determine if extra dust quantites should be read
 !
- if (present(dustydisc)) then
-    extradust = .true.
- else
-    extradust = .false.
- endif
+    if (present(dustydisc)) then
+       extradust = .true.
+    else
+       extradust = .false.
+    endif
 !
 !--determine whether or not to read this particular block
 !  onto this particular thread, either in whole or in part
@@ -1064,11 +1064,11 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 !
 !--determine if extra dust quantites should be read
 !
- if (present(dustydisc)) then
-    extradust = .true.
- else
-    extradust = .false.
- endif
+    if (present(dustydisc)) then
+       extradust = .true.
+    else
+       extradust = .false.
+    endif
 !
 !--determine whether or not to read this particular block
 !  onto this particular thread, either in whole or in part

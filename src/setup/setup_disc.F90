@@ -528,17 +528,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           call prompt('Enter fragmentation model (0=off,1=on,2=Kobayashi)',ifrag,0,2)
           select case(ifrag)
           case(0)
-           print "(a)",'-----------'
-           print "(a)",'Pure growth'
-           print "(a)",'-----------'
+             print "(a)",'-----------'
+             print "(a)",'Pure growth'
+             print "(a)",'-----------'
           case(1)
-           print "(a)",'----------------------'
-           print "(a)",'Growth + fragmentation'
-           print "(a)",'----------------------'
+             print "(a)",'----------------------'
+             print "(a)",'Growth + fragmentation'
+             print "(a)",'----------------------'
           case(2)
-           print "(a)",'----------------------------------------'
-           print "(a)",'Growth + Kobayashi`s fragmentation model'
-           print "(a)",'----------------------------------------'
+             print "(a)",'----------------------------------------'
+             print "(a)",'Growth + Kobayashi`s fragmentation model'
+             print "(a)",'----------------------------------------'
           case default
           end select
           if (ifrag > 0) then
@@ -1704,9 +1704,9 @@ subroutine read_setupfile(filename,ierr)
        case(1)
           call read_inopt(grainsizeinp(1),'grainsizeinp',db,min=0.,err=ierr,errcount=nerr)
           if (ierr /= 0) then
-              grainsizeinp(:) = 0.1
+             grainsizeinp(:) = 0.1
           else
-              grainsizeinp(:) = grainsizeinp(1)
+             grainsizeinp(:) = grainsizeinp(1)
           endif
           grainsizecgs = grainsizeinp
        case(2)
@@ -1725,14 +1725,14 @@ subroutine read_setupfile(filename,ierr)
              call read_inopt(dustfrac_percent(i),trim(varlabel(i)),db,min=0.,max=100.,err=ierr,errcount=nerr)
           enddo
           if (sum(dustfrac_percent(:)) /= 100.) then
-              print*,'ERROR: dust fraction percentages need to add up to 100!'
-              nerr = nerr+1
+             print*,'ERROR: dust fraction percentages need to add up to 100!'
+             nerr = nerr+1
           endif
        end select
     else
        call read_inopt(grainsizeinp(1),'grainsizeinp',db,min=0.,err=ierr,errcount=nerr)
        if (ierr /= 0) then
-           grainsizeinp = 0.1
+          grainsizeinp = 0.1
        endif
        grainsizecgs = grainsizeinp
     endif

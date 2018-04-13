@@ -217,7 +217,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
     if (ierr /= 0) call fatal('analysis','could not open/read .in file')
 
     if (alphaAV == 0. .or. solve_baistone) then
-      write(output,"(a)") 'baistone'//trim(adjustl(basename))//'.analysis'
+       write(output,"(a)") 'baistone'//trim(adjustl(basename))//'.analysis'
     else
        if (irealvisc == 1) print*,'WARNING!!! Dipierro solution for irealvisc == 1 needs to be corrected'
        write(output,"(a)") 'dipierro'//trim(adjustl(basename))//'.analysis'
@@ -455,7 +455,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
              vgas(:)    = vxyz(:,i) - dustfraci(j)*deltav(:,j,i)
              vdust(:,j) = vxyz(:,i) + (1. - dustfraci(j))*deltav(:,j,i)
           endif
-      else
+       else
           select case(itype)
           case(igas)
              rhog(i)    = rhog(i)   + rhoh(hi,pmassi)
@@ -659,7 +659,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  print*,' '
  print*,'Warning: removed a total of',sum(icutgas(:)),'gas particles from the velocity'
  do j = 1,ndusttypes
- print*,'             and a total of',sum(icutdust(j,:)),'dust particles from the velocity'
+    print*,'             and a total of',sum(icutdust(j,:)),'dust particles from the velocity'
  enddo
  print*,' '
 
@@ -883,7 +883,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
     print *,' '
     if (alphaAV == 0. .or. solve_baistone) then
        print *,'Solving the Bai and Stone (2010) analytic solution for radial drift...'
-          call solve_bai_stone_2010(meand2g_ratio,nxn,meaneta,vK,vgassol,vdustsol)
+       call solve_bai_stone_2010(meand2g_ratio,nxn,meaneta,vK,vgassol,vdustsol)
     else
        print *,'Solving the Dipierro et al. (2018) analytic solution for radial drift...'
        call solve_dipierro_2018(irealvisc,vgassol,vdustsol,meand2g_ratio,rad,cs,vK, &

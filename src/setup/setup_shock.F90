@@ -236,12 +236,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     !--one fluid dust: set dust fraction on gas particles
     !
-     if (use_dustfrac) then
-        dustfrac(:,i) = dtg/(1. + dtg)
-        if (ndusttypes>1) dustfrac(:,i) = dustfrac(:,i)/real(ndusttypes)
-     else
-        dustfrac(:,i) = 0.
-     endif
+    if (use_dustfrac) then
+       dustfrac(:,i) = dtg/(1. + dtg)
+       if (ndusttypes>1) dustfrac(:,i) = dustfrac(:,i)/real(ndusttypes)
+    else
+       dustfrac(:,i) = 0.
+    endif
  enddo
  massoftype(iboundary)  = massoftype(igas)
  npartoftype(iboundary) = nbpts

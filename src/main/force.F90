@@ -1445,8 +1445,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef DUST
           if (use_dustfrac) then
              do l = 1,ndusttypes
-                   ! get stopping time - for one fluid dust we do not know deltav, but it is small by definition
-                   call get_ts(idrag,grainsize(l),graindens,rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
+                ! get stopping time - for one fluid dust we do not know deltav, but it is small by definition
+                call get_ts(idrag,grainsize(l),graindens,rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
              enddo
              if (ilimitdustflux) tsj(:)   = min(tsj(:),hj/spsoundj) ! flux limiter from Ballabio et al. (2018)
              epstsj   = sum(dustfracj(:)*tsj(:))
@@ -1518,14 +1518,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           endif
 #endif
 
-        else !ifgas
-        !
-        !  gravity between particles of different types, or between gas pairs that are hidden by a sink
-        !
-           fsum(ifxi) = fsum(ifxi) - fgrav*runix
-           fsum(ifyi) = fsum(ifyi) - fgrav*runiy
-           fsum(ifzi) = fsum(ifzi) - fgrav*runiz
-           fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
+       else !ifgas
+          !
+          !  gravity between particles of different types, or between gas pairs that are hidden by a sink
+          !
+          fsum(ifxi) = fsum(ifxi) - fgrav*runix
+          fsum(ifyi) = fsum(ifyi) - fgrav*runiy
+          fsum(ifzi) = fsum(ifzi) - fgrav*runiz
+          fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
 #ifdef DUST
           !
           ! gas-dust: compute drag terms
