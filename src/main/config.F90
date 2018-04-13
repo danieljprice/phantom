@@ -112,7 +112,7 @@ module dim
 
  ! xpartveci
  integer, parameter :: maxxpartvecidens = 14
- 
+
  integer, parameter :: xpartvecvars = 47 ! Number of scalars in xpartvec
  integer, parameter :: xpartvecarrs = 2  ! Number of arrays in xpartvec
  integer, parameter :: maxxpartveciforce = xpartvecvars + xpartvecarrs*(ndusttypes-1) ! Total number of values

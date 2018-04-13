@@ -283,7 +283,7 @@ subroutine test_dustydiffuse(ntests,npass)
  real,allocatable   :: ddustfrac_prev(:,:)
  logical, parameter :: do_output = .true.
  real,    parameter :: t_write(5) = (/0.1,0.3,1.0,3.0,10.0/)
- 
+
  if (use_dustfrac .and. periodic) then
     if (id==master) write(*,"(/,a)") '--> testing DUSTYDIFFUSE'
  else
@@ -326,12 +326,12 @@ subroutine test_dustydiffuse(ntests,npass)
  !
  epstot = 0.1
 
- eps_type = 2 
+ eps_type = 2
  select case(eps_type)
  case(1)
     !--Equal dust fractions
     epsi(:) = epstot/real(ndusttypes)
- case(2) 
+ case(2)
     !--Unequal dust fractions
     do i=1,ndusttypes
        epsi(i) = 1./real(i)
@@ -341,7 +341,7 @@ subroutine test_dustydiffuse(ntests,npass)
     stop 'eps_type not valid!'
  end select
 
- !--check that individual dust fractions add up to the total dust fraction 
+ !--check that individual dust fractions add up to the total dust fraction
  if (abs(sum(epsi)-epstot)/epstot>1.e-14) then
     write(*,"(/,a)") 'ERROR! SUM(epsilon_k) /= epsilon'
     print*,'SUM(epsilon_k) = ',sum(epsi)

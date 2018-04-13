@@ -331,7 +331,7 @@ end subroutine adjust_shock_boundaries
 !-----------------------------------------------------------------------
 subroutine choose_shock (gamma,polyk,dtg,ndim,iexist)
  use io,          only:fatal,id,master
- use dim,         only:mhd,maxvxyzu 
+ use dim,         only:mhd,maxvxyzu
  use physcon,     only:pi
  use options,     only:nfulldump,alpha,alphamax,alphaB,use_dustfrac
  use timestep,    only:dtmax,tmax
@@ -509,7 +509,7 @@ subroutine choose_shock (gamma,polyk,dtg,ndim,iexist)
     rightstate = (/1.    ,0.01    ,-1.7510, 0.    ,0.,1.,0.6    ,0./)
     xleft      = -2.0
  end select
- 
+
  if (use_dustfrac .and. id==master) call prompt('enter dust-to-gas ratio',dtg,0.,1.)
 
  call prompt('Enter resolution (number of particles in x) for left half (x<0)',nx,8)

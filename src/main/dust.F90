@@ -37,8 +37,8 @@ use dim, only: ndusttypes
  real, public     :: K_code                   = 1.
  real, public     :: grainsizecgs(ndusttypes) = 0.1
  real, public     :: smincgs                  = 1.e-5
- real, public     :: smaxcgs                  = 0.1 
- real, public     :: sindex                   = 3.5 
+ real, public     :: smaxcgs                  = 0.1
+ real, public     :: sindex                   = 3.5
  real, public     :: graindenscgs             = 3.
 
  integer, public  :: idrag             = 1
@@ -92,7 +92,7 @@ subroutine init_drag(ierr)
  do i = 1,ndusttypes
     if (grainmass(i) <= 0. .and. idrag == 1) then
        call error('init_drag','grain size/density <= 0',var='grainmass',val=grainmass(i))
-       ierr = 2 
+       ierr = 2
     endif
     if (grainsize(i) <= 0.) then
        call error('init_drag','grain size <= 0',var='grainsize',val=grainsize(i))
@@ -333,7 +333,7 @@ subroutine nduststrings(pre_string,post_string,complete_string)
 
  integer :: i,total_len,int_len
  character(len=20) :: num_string
- 
+
  int_len = 0
  if (ndusttypes > 1) int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
  total_len = len(pre_string) + int_len  + len(post_string)

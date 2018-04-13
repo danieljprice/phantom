@@ -550,7 +550,7 @@ subroutine test_derivs(ntests,npass,string)
        gamma   = 5./3.
        !--Warning, K_code is not well defined when using multiple dust grains
        !  and ONLY makes sense IFF all dust grains are identical (although
-       !  potentially binned with unequal densities). 
+       !  potentially binned with unequal densities).
        !  K_code and K_k are related via: K_k = eps_k/eps*K_code)
        K_code  = 10.
        smaxcgs = 0.01 ! value doesn't matter as long as smaxcgs=smincgs=grainsizecgs
@@ -2614,7 +2614,7 @@ real function ddustfrac_func(xyzhi)
  !            = -1/rho [eps_k ts \del^2 P + (eps_k*grad(ts) + ts*grad(eps_k)).grad P]
  !
  gradepsts(:) = dustfraci*gradts(:) + tsi*gradeps(:)
- 
+
  !ddustfrac_func = -1./rhoi*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts))
 
 !------------------------------------------------

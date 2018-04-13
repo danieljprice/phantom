@@ -57,7 +57,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- 
+
  integer(kind=8) :: npartoftypetot(maxtypes)
  integer :: npartx,i
  integer :: eps_type
@@ -89,7 +89,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gamma = 1.
  iverbose = 0
  rhozero = 3.
- 
+
 ! if (maxvxyzu < 4) call fatal('setup','only evolve dustfrac so no need to bother with energy')
 
  npart = 0
@@ -102,7 +102,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  totmass = rhozero*dxbound*dybound*dzbound
  massoftype(igas)  = totmass/npartoftypetot(igas)
  if (id==master) print*,' particle mass = ',massoftype(igas)
- 
+
  vxyzu = 0.
  if (mhd) Bevol = 0.
 
@@ -110,12 +110,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! setup dust fraction in the box
  !
  epstot = 0.1
- eps_type = 2 
+ eps_type = 2
  select case(eps_type)
  case(1)
     !--Equal dust fractions
     epsi(:) = epstot/real(ndusttypes)
- case(2) 
+ case(2)
     !--Unequal dust fractions
     do i=1,ndusttypes
        epsi(i) = 1./real(i)
@@ -125,7 +125,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     stop 'eps_type not valid!'
  end select
 
- !--check that individual dust fractions add up to the total dust fraction 
+ !--check that individual dust fractions add up to the total dust fraction
  if (abs(sum(epsi)-epstot)/epstot>1.e-14) then
     write(*,"(/,a)") 'ERROR! SUM(epsilon_k) /= epsilon'
     print*,'SUM(epsilon_k) = ',sum(epsi)

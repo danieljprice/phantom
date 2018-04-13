@@ -447,7 +447,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (use_dust) &
           call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(7))
        if (use_dust) call write_array(1,tstop,tstop_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(8))
-       if (use_dustfrac .and. ndusttypes>1 .and. multidustdump) then 
+       if (use_dustfrac .and. ndusttypes>1 .and. multidustdump) then
           dustfracisum1(:) = 1./sum(dustfrac(:,1:npart),1)
           deltavsum(1,:)   = dustfracisum1(:)*sum(dustfrac(:,1:npart)*deltav(1,:,1:npart),1)
           deltavsum(2,:)   = dustfracisum1(:)*sum(dustfrac(:,1:npart)*deltav(2,:,1:npart),1)

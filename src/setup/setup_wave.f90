@@ -188,7 +188,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           endif
        endif
     enddo
-    
+
     npartoftype(itype) = npart - npart_previous
     if (id==master) print*,' npart = ',npart,npart_total
 

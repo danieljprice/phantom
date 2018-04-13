@@ -119,7 +119,7 @@ program phantomanalysis
     !--allocate memory for deltav calculations (only needed for one-fluid multigrain)
     if (.not. allocated(deltavsum)) allocate(deltavsum(3,npart))
     if (.not. allocated(dustfracisum)) allocate(dustfracisum(npart))
-       
+
     if (use_dustfrac) then
        dustfracisum(:) = sum(dustfrac(:,1:npart),1)
        where (dustfracisum > 0.)

@@ -113,7 +113,7 @@ subroutine test_growingbox(ntests,npass)
  real :: csj = 1., Stj = 1., s, Vt,vrelonvfrag = 10.
  real :: slast = 0., si = 0., so = 0., r = 0.
  real :: sinit = 1., dens = 1.
- integer :: switch 
+ integer :: switch
  real, parameter :: tols = 2.e-5
  logical :: do_output = .false.
 
@@ -185,7 +185,7 @@ subroutine test_growingbox(ntests,npass)
  !
  ! ifrag = 0 : pure growth
  !
- 
+
  write(*,"(/,a)")'------------------ pure growth (ifrag = 0) ------------------'
 
  call init_step(npart,t,dtmax)
@@ -323,9 +323,9 @@ write(*,"(/,a)")'------------------ position based snow line ------------------'
  ifrag = 1
  isnow = 1
  rsnow = 0.2
- 
+
  t = 0
- 
+
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
              Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
@@ -355,7 +355,7 @@ end subroutine test_growingbox
 
 !---------------------------------------------------
 !+
-!  write an output file with x, y, z , 
+!  write an output file with x, y, z ,
 !  dustprop(1) (size) and dustprop(4) (vrel/vfrag)
 !+
 !---------------------------------------------------

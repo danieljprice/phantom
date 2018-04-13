@@ -196,7 +196,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
        rhod = rhoh(xyzh(4,i),massoftype(2)) !--idust = 2
        T    = get_temperature(ieos,xyzh(:,i),rhod,vxyzu(:,i))
        cs   = get_spsound(ieos,xyzh(:,i),rhod,vxyzu(:,i))
-      
+
        !print*,'growth :',cs,rhod
        call get_vrelonvfrag(xyzh(:,i),dustprop(:,i),cs,St(i),T)
        !
