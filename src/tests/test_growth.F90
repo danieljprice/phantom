@@ -185,7 +185,7 @@ subroutine test_growingbox(ntests,npass)
  !
  ! ifrag = 0 : pure growth
  !
- print*, get_temperature(ieos,xyzh(:,142),rhozero,vxyzu(:,142))
+ 
  write(*,"(/,a)")'------------------ pure growth (ifrag = 0) ------------------'
 
  call init_step(npart,t,dtmax)

@@ -1574,7 +1574,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 endif
 #ifdef DUSTGROWTH
                 ri = sqrt(xyzh(1,i)**2+xyzh(2,i)**2)
-                St(i) = tsij*sqrt(xyzmh_ptmass(4,1)/ri**3)
+                St(i) = tsij(1)*sqrt(xyzmh_ptmass(4,1)/ri**3)
                 if (usej) dustprop(5,i) = dustprop(5,i) + 3*pmassj/rhoj*projv*wdrag !--interpolate vd-vg for the dust particle i
 #endif
                 dragterm = sum(3.*pmassj/((rhoi + rhoj)*tsij(:))*projv*wdrag)
