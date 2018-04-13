@@ -44,6 +44,7 @@ module dim
 #else
  integer, parameter :: maxptmass = 100
 #endif
+ integer, parameter :: nsinkproperties = 11
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
@@ -228,6 +229,7 @@ module dim
  logical, parameter :: h2chemistry = .false.
  integer, parameter :: maxp_h2 = 0
 #endif
+ integer, parameter :: nabundances = 5
 
 !--------------------
 ! Self-gravity

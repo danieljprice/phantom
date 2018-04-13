@@ -31,8 +31,8 @@
 !--------------------------------------------------------------------------
 module part
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu, &
-          maxalpha,maxptmass,maxstrain, &
-          mhd,maxmhd,maxBevol,maxp_h2,maxtemp,periodic, &
+          maxalpha,maxptmass,nsinkproperties,maxstrain, &
+          mhd,maxmhd,maxBevol,maxp_h2,nabundances,maxtemp,periodic, &
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
           switches_done_in_derivs,maxp_dustfrac,use_dust, &
           store_temperature,lightcurve,maxlum,nalpha,maxmhdni,maxne,maxp_growth
@@ -57,7 +57,7 @@ module part
 !
 !--storage of dust properties
 !
- real :: dustprop(5,maxp_growth)
+ real, allocatable :: dustprop(:,:)
  character(len=*), parameter :: dustprop_label(5) = (/'grainsize ','graindens ','   vrel   ','vrel/vfrag','    dv    '/)
 !
 !--storage in divcurlv
@@ -80,35 +80,33 @@ module part
 !
 !--physical viscosity
 !
- real(kind=4) :: straintensor(6,maxstrain)
+ real(kind=4), allocatable :: straintensor(:,:)
 !
 !--H2 chemistry
 !
- integer, parameter :: nabundances = 5
  integer, parameter :: ih2ratio  = 1 ! ratio of H2 to H
  integer, parameter :: iHI       = 2 ! HI abundance
  integer, parameter :: iproton   = 3 ! proton abundance
  integer, parameter :: ielectron = 4 ! electron abundance
  integer, parameter :: iCO       = 5 ! CO abundance
- real :: abundance(nabundances,maxp_h2)
+ real, allocatable :: abundance(:,:)
  character(len=*), parameter :: abundance_label(5) = &
    (/'h2ratio','abHIq  ','abhpq  ','abeq   ','abco   '/)
 !
 !--storage of temperature
 !
- real :: temperature(maxtemp)
+ real, allocatable :: temperature(:)
 !
 !--one-fluid dust (small grains)
 !
- real :: dustfrac(maxp_dustfrac)
- real :: dustevol(maxp_dustfrac)
- real :: deltav(3,maxp_dustfrac)
+ real, allocatable :: dustfrac(:)
+ real, allocatable :: dustevol(:)
+ real, allocatable :: deltav(:,:)
  character(len=*), parameter :: deltav_label(3) = &
    (/'deltavx','deltavy','deltavz'/)
 !
 !--sink particles
 !
- integer, parameter :: nsinkproperties = 11
  integer, parameter :: ihacc  = 5 ! accretion radius
  integer, parameter :: ihsoft = 6 ! softening radius
  integer, parameter :: imacc  = 7 ! accreted mass
@@ -116,9 +114,9 @@ module part
  integer, parameter :: ispiny = 9  ! spin angular momentum y
  integer, parameter :: ispinz = 10 ! spin angular momentum z
  integer, parameter :: i_tlast = 11 ! time of last injection
- real :: xyzmh_ptmass(nsinkproperties,maxptmass)
- real :: vxyz_ptmass(3,maxptmass)
- real :: fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
+ real, allocatable :: xyzmh_ptmass(:,:)
+ real, allocatable :: vxyz_ptmass(:,:)
+ real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
  character(len=*), parameter :: xyzmh_ptmass_label(11) = &
@@ -128,11 +126,13 @@ module part
 !
 !--self-gravity
 !
- real(kind=4) :: poten(maxgrav)
+ real(kind=4), allocatable :: poten(:)
 !
 !--Non-ideal MHD
 !
- real :: n_R(4,maxmhdni),n_electronT(maxne),eta_nimhd(4,maxmhdni)
+ real, allocatable :: n_R(:,:)
+ real, allocatable :: n_electronT(:)
+ real, allocatable :: eta_nimhd(:,:)
  integer, parameter :: iohm  = 1 ! eta_ohm
  integer, parameter :: ihall = 2 ! eta_hall
  integer, parameter :: iambi = 3 ! eta_ambi
@@ -156,45 +156,45 @@ module part
 !
 !--lightcurves
 !
- real(kind=4) :: luminosity(maxlum)
+ real(kind=4), allocatable :: luminosity(:)
 !
 !--derivatives (only needed if derivs is called)
 !
- real                                :: fxyzu(maxvxyzu,maxan)
- real                                :: dBevol(maxBevol,maxmhdan)
- real(kind=4)                :: divBsymm(maxmhdan)
- real                                :: fext(3,maxan)
- real                                :: ddustfrac(maxdustan)
- real                                :: ddustprop(5,maxp_growth) !--grainsize is the only prop that evolves for now
+ real, allocatable         :: fxyzu(:,:)
+ real, allocatable         :: dBevol(:,:)
+ real(kind=4), allocatable :: divBsymm(:)
+ real, allocatable         :: fext(:,:)
+ real, allocatable         :: ddustfrac(:)
+ real, allocatable         :: ddustprop(:,:) !--grainsize is the only prop that evolves for now
 !
 !--storage associated with/dependent on timestepping
 !
- real                                :: vpred(maxvxyzu,maxan)
- real                                :: dustpred(maxdustan)
- real                                :: Bpred(maxBevol,maxmhdan)
- real                                :: dustproppred(5,maxp_growth)
+ real, allocatable   :: vpred(:,:)
+ real, allocatable   :: dustpred(:)
+ real, allocatable   :: Bpred(:,:)
+ real, allocatable   :: dustproppred(:,:)
 #ifdef IND_TIMESTEPS
- integer(kind=1)    :: ibin(maxan)
- integer(kind=1)    :: ibin_old(maxan)
- integer(kind=1)    :: ibin_wake(maxan)
- real(kind=4)       :: dt_in(maxan)
- real               :: twas(maxan)
+ integer(kind=1), allocatable :: ibin(:)
+ integer(kind=1), allocatable :: ibin_old(:)
+ integer(kind=1), allocatable :: ibin_wake(:)
+ real(kind=4),    allocatable :: dt_in(:)
+ real,            allocatable :: twas(:)
 #else
  integer(kind=1)    :: ibin_wake(1)
 #endif
  integer, parameter :: maxphase = maxan
  integer, parameter :: maxgradh = maxan
- integer(kind=1)    :: iphase(maxphase)
- integer(kind=1)    :: iphase_soa(maxphase)
+ integer(kind=1), allocatable    :: iphase(:)
+ integer(kind=1), allocatable    :: iphase_soa(:)
  logical, public    :: all_active = .true.
 
- real(kind=4)                 :: gradh(ngradh,maxgradh)
- real                         :: tstop(maxan)
+ real(kind=4), allocatable :: gradh(:,:)
+ real, allocatable         :: tstop(:)
 !
 !--storage associated with link list
 !  (used for dead particle list also)
 !
- integer :: ll(maxan)
+ integer, allocatable :: ll(:)
  real    :: dxi(ndim) ! to track the extent of the particles
 !
 !--size of the buffer required for transferring particle
