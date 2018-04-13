@@ -141,6 +141,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                prefix        = fileprefix)
 #ifdef GR
  polyk = vxyzu(4,1)
+#else
+ polyk = (5./3. -1.)*7.2e-6
 #endif
 
  return
