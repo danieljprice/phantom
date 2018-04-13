@@ -1031,7 +1031,7 @@ subroutine solve_bai_stone_2010(d2g_ratio,nxn,eta,vK,vgassol,vdustsol,St_mid)
     call dple(rowk,nxn,Amat,Bmat,soln,ierr)
     if (ierr /= 0) then
        write(*, *) ' Error = ', ierr
-    end if
+    endif
 
     ! Save the solution to an array
     vdustsol(1,:,ir) = -eta(ir)*vK(ir)*soln(1:ndusttypes)

@@ -115,13 +115,13 @@ if (n <= 1) then
   if (c(1) == zero) GO TO 130
   c(1) = bk / c(1)
   return
-end if
+endif
 
 ! Find the pivot for column 1
 m = 1
 do  i = 2, n
   if (abs(c(m)) < abs(c(i))) m = i
-end do
+enddo
 
 iwk(1) = m
 c1 = c(m)
@@ -132,7 +132,7 @@ if (c(1) /= zero) then
 ! Find the first elementary matrix and store it in d
   do  i = 2, n
     wk(i-1) = -c(i) / c(1)
-  end do
+  enddo
   wk(n) = bk / c(1)
 
 ! k loop - each k for a new column of the transposed system
@@ -147,7 +147,7 @@ if (c(1) /= zero) then
       cj = c(j)
       c(j) = c(m)
       c(m) = cj
-    end do
+    enddo
     bk = b(k)
 
     iflag = -iflag
@@ -160,7 +160,7 @@ if (c(1) /= zero) then
       lastm1 = maxwk - n + km1
       if (iflag < 0) last = last - n + k - 2
       if (iflag > 0) lastm1 = lastm1 - n + k - 3
-    end if
+    endif
 
 ! j loop - effect of columns 1 to k-1 of l-inverse
     do  j = 1, km1
@@ -172,9 +172,9 @@ if (c(1) /= zero) then
       do  i = k, n
         ij = ij + 1
         c(i) = c(i) + wk(ij) * cj
-      end do
+      enddo
       bk = bk - wk(ij+1) * cj
-    end do
+    enddo
 
 ! k=n case
     m = k
@@ -186,7 +186,7 @@ if (c(1) /= zero) then
 ! Find the pivot
       do  i = kp1, n
         if (abs(c(m)) < abs(c(i))) m = i
-      end do
+      enddo
 
       iwk(k) = m
       ck = c(m)
@@ -199,9 +199,9 @@ if (c(1) /= zero) then
       do  i = kp1, n
         wk(ik) = -c(i) / c(k)
         ik = ik + 1
-      end do
+      enddo
       wk(ik) = bk / c(k)
-    end if
+    endif
 
 ! Form the product of the elementary matrices
     do  j = 1, km1
@@ -214,7 +214,7 @@ if (c(1) /= zero) then
         kjold = lastm1
         mjold = lastm1 + m - k
         ijold = lastm1
-      end if
+      endif
 
       ik = last - 1
       dkj = wk(mjold)
@@ -224,9 +224,9 @@ if (c(1) /= zero) then
         ijold = ijold + 1
         ik = ik + 1
         wk(ij) = wk(ijold) + wk(ik) * dkj
-      end do
-    end do
-  end do
+      enddo
+    enddo
+  enddo
 
   last = maxwk
   if (iflag < 0) last = maxwk - 2
@@ -243,9 +243,9 @@ if (c(1) /= zero) then
     ck = c(k)
     c(k) = c(m)
     c(m) = ck
-  end do
+  enddo
   return
-end if
+endif
 
 ! The system is singular
 130 ierr = k
