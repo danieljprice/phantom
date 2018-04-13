@@ -537,7 +537,7 @@ subroutine test_narrays(ntests,npass)
  Bz0(2)       = 1.92d2    /unit_Bfield    ! [G]
  eta_act(1,2) = 5.93454638765d8           ! [cm^2/s] expected eta_ohm
  eta_act(2,2) = 1.08059808926d4           ! [cm^2/s] expected eta_hall
- eta_act(3,2) = 4.17936034968d-3          ! [cm^2/s] expected eta_ambi
+ eta_act(3,2) = 4.17918319187d-3          ! [cm^2/s] expected eta_ambi
  !
  ! initialise values for grid
  !
