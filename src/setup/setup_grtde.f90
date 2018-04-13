@@ -56,6 +56,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use metric,    only:mass1,a
  use eos,       only:ieos
  use externalforces,only:accradius1,accradius1_hard
+ use rho_profile,   only:rho_polytrope
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -66,10 +67,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  character(len=120) :: filename
- integer :: ierr,i
+ integer, parameter :: ntab=5000
+ integer :: ierr,i,npts
  logical :: iexist
  real    :: rtidal,rp,semia,psep,period,hacc1,hacc2,massr
- real    :: vxyzstar(3),xyzstar(3)
+ real    :: vxyzstar(3),xyzstar(3),rtab(ntab),rhotab(ntab)
 
 !
 !-- general parameters
@@ -149,7 +151,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !-- Delete sinks, replace central sink with Kerr metric and a collection of gas particles
 !
  nptmass = 0
- call set_sphere('cubic',id,master,0.,rstar,psep,hfact,npart,xyzh,xyz_origin=xyzstar)
+ call rho_polytrope(gamma,polyk,mstar,rtab,rhotab,npts,set_polyk=.true.,Rstar=rstar)
+ polyk = 1.e-10
+ call set_sphere('cubic',id,master,0.,rstar,psep,hfact,npart,xyzh,xyz_origin=xyzstar,rhotab=rhotab(1:npts),rtab=rtab(1:npts))
+
  npartoftype(igas) = npart
  massoftype(igas)  = mstar/npart
  do i=1,npart
