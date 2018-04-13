@@ -798,11 +798,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use dust,        only:get_ts,grainsize,graindens,idrag,icut_backreaction,ilimitdustflux
  use kernel,      only:wkern_drag,cnormk_drag
  use part,        only:dustprop
-#endif
 #ifdef DUSTGROWTH
- use growth,  only:get_vrelonvfrag
- use eos,         only:get_temperature,ieos
- use part,        only:xyzmh_ptmass
+ use part,        only:St,xyzmh_ptmass
+#endif
 #endif
 #ifdef IND_TIMESTEPS
  use part,        only:ibin_old
@@ -866,7 +864,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: grkernav,tsj(ndusttypes),dustfracterms(ndusttypes),term
  !real    :: Dav(ndusttypes),vsigeps,depsdissterm(ndusttypes)
 #ifdef DUSTGROWTH
- real    :: Sti, Ti, ri
+ real    :: ri
 #endif
 #endif
  real    :: dBevolx,dBevoly,dBevolz,divBsymmterm,divBdiffterm
@@ -1575,13 +1573,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    enddo
                 endif
 #ifdef DUSTGROWTH
-                if (usej) then
-                   dustprop(5,i) = dustprop(5,i) + 3*pmassj/rhoj*projv*wdrag !--interpolate vd-vg for the dust particle i
-                   ri = sqrt(xyzh(1,i)**2+xyzh(2,i)**2)
-                   Sti = tsij*sqrt(xyzmh_ptmass(4,1)/ri**3) !--G=1 in code units
-                   Ti = get_temperature(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
-                   call get_vrelonvfrag(xyzh(:,i),dustprop(:,i),spsoundi,Sti,Ti) !--store vrel and vrel/vfrag
-                endif
+                ri = sqrt(xyzh(1,i)**2+xyzh(2,i)**2)
+                St(i) = tsij*sqrt(xyzmh_ptmass(4,1)/ri**3)
+                if (usej) dustprop(5,i) = dustprop(5,i) + 3*pmassj/rhoj*projv*wdrag !--interpolate vd-vg for the dust particle i
 #endif
                 dragterm = sum(3.*pmassj/((rhoi + rhoj)*tsij(:))*projv*wdrag)
                 ts_min = min(ts_min,minval(tsij(:)))
