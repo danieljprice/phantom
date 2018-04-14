@@ -170,31 +170,27 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  else
     vorigini = 0.
  endif
- if (present(ismooth)) then
-    smooth_surface_density = ismooth
- else
-    smooth_surface_density = .false.
+ smooth_surface_density = .false.
+ if (present(ismooth)) smooth_surface_density = ismooth
+
+ exponential_taper = .false.
+ if (present(indexprofile)) then
+    if (indexprofile==1) exponential_taper = .true.
  endif
- if (present(indexprofile) .and. indexprofile==1) then
-    exponential_taper = .true.
- else
-    exponential_taper = .false.
+
+ exponential_taper_dust = .false.
+ if (present(indexprofiledust)) then
+    if (indexprofiledust==1) exponential_taper_dust = .true.
  endif
- if (present(indexprofiledust) .and. indexprofiledust==1) then
-    exponential_taper_dust = .true.
- else
-    exponential_taper_dust = .false.
+
+ aspin = 0.
+ if (present(bh_spin)) then
+    if (.not.isnan(bh_spin)) aspin = bh_spin
  endif
- if (present(bh_spin) .and. .not. isnan(bh_spin)) then
-    aspin = bh_spin
- else
-    aspin = 0.
- endif
- if (present(bh_spin_angle)) then
-    aspin_angle = bh_spin_angle
- else
-    aspin_angle = 0.
- endif
+
+ aspin_angle = 0.
+ if (present(bh_spin_angle)) aspin_angle = bh_spin_angle
+
  !--reference radius for normalisation of sigma, temperature profiles
  if (present(rref)) then
     R_ref = rref
