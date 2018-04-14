@@ -1830,7 +1830,6 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  use boundary,      only:xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
  use dump_utils,    only:extract
  use dust,          only:idrag,smincgs,smaxcgs,sindex
- use prompting,     only:prompt
  type(dump_h), intent(in) :: hdr
  logical,      intent(in) :: phantomdump
  integer,      intent(in) :: iprint,ntypesinfile
@@ -1978,9 +1977,20 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
     call extract('smaxcgs',smax,hdr,ierrs(2))
     call extract('sindex' ,sind,hdr,ierrs(3))
     if (any(ierrs(1:3) /= 0) .and. idrag == 1) then
-       if (ierrs(1) /= 0) call prompt('Enter the value for smincgs',smincgs,1.e-6,9.999)
-       if (ierrs(2) /= 0) call prompt('Enter the value for smaxcgs',smaxcgs,smincgs,10.)
-       if (ierrs(3) /= 0) call prompt('Enter the value for sindex' ,sindex ,0.,10.)
+       write(*,"(2(/,a))") ' ERROR: Using multigrain but min,max grain sizes not found in file'
+       inquire(file='grains.tmp',exist=iexist)
+       if (iexist) then
+          open(unit=lu,file='grains.tmp')
+          read(lu,*) smincgs,smaxcgs,sindex
+          close(lu)
+          write(*,"(a,3(es10.3,1x))") ' READ from grains.tmp ',smincgs,smaxcgs,sindex
+       else
+          write(*,"(3(/,a),/,/,a)") ' To silence this error and restart from an older dump file ', &
+                           ' create an ascii file called "grains.tmp" in the current directory', &
+                           ' with smincgs,smaxcgs and sindex in it, e.g.: ', &
+                           ' 1e-6 10. 0.'
+          ierr = 5  ! spit fatal error
+       endif
     else
        smincgs = smin
        smaxcgs = smax
