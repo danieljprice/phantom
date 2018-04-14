@@ -23,22 +23,19 @@
 !--------------------------------------------------------------------------
 program phantomanalysis
  use dim,             only:tagline
- use part,            only:xyzh,hfact,massoftype,vxyzu,deltav,tstop,npart,dustfrac !,npartoftype
+ use part,            only:xyzh,hfact,massoftype,vxyzu,npart !,npartoftype
  use io,              only:set_io_unit_numbers,iprint,idisk1,ievfile,ianalysis
  use readwrite_dumps, only:read_dump,read_smalldump,is_small_dump
  use infile_utils,    only:open_db_from_file,inopts,read_inopt,close_db
  use fileutils,       only:numfromfile,basename
  use analysis,        only:do_analysis,analysistype
- use eos,             only:ieos,init_eos,finish_eos
- use options,         only:use_dustfrac
- use dust,            only:init_drag
+ use eos,             only:ieos
  implicit none
  integer            :: nargs,iloc,ierr,iarg,i
  real               :: time
  logical            :: iexist
  character(len=120) :: dumpfile,fileprefix,infile
  type(inopts), dimension(:), allocatable :: db
- real, allocatable :: dustfracisum(:),deltavsum(:,:)
 
  call set_io_unit_numbers
  iprint = 6
@@ -116,27 +113,7 @@ program phantomanalysis
        hfact = 1.2
     endif
 
-    !--allocate memory for deltav calculations (only needed for one-fluid multigrain)
-    if (.not. allocated(deltavsum)) allocate(deltavsum(3,npart))
-    if (.not. allocated(dustfracisum)) allocate(dustfracisum(npart))
-
-    if (use_dustfrac) then
-       dustfracisum(:) = sum(dustfrac(:,1:npart),1)
-       where (dustfracisum > 0.)
-          deltavsum(1,:)   = sum(dustfrac(:,1:npart)*deltav(1,:,1:npart),1)/dustfracisum
-          deltavsum(2,:)   = sum(dustfrac(:,1:npart)*deltav(2,:,1:npart),1)/dustfracisum
-          deltavsum(3,:)   = sum(dustfrac(:,1:npart)*deltav(3,:,1:npart),1)/dustfracisum
-       elsewhere (dustfracisum == 0.)
-          deltavsum(1,:)   = 0.
-          deltavsum(2,:)   = 0.
-          deltavsum(3,:)   = 0.
-       endwhere
-    else
-       deltavsum = 0.
-       deltav    = 0.
-    endif
-
-    call do_analysis(trim(dumpfile),numfromfile(dumpfile),xyzh,vxyzu,deltavsum,deltav,tstop, &
+    call do_analysis(trim(dumpfile),numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(1),npart,time,ievfile)
  enddo over_args
 

@@ -74,12 +74,13 @@ module analysis
 
 contains
 
-subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,npart,time,iunit)
+subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use dim,          only:maxp
  use io,           only:fatal
  use physcon,      only:pi,jupiterm,years,au
- use part,         only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac, &
-                        rhoh,maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass,isdead_or_accreted
+ use part,         only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac,tstop, &
+                        rhoh,maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass,isdead_or_accreted,&
+                        deltav
  use options,      only:use_dustfrac,iexternalforce
  use units,        only:umass,udist,utime
  use dust,         only:graindens,grainsize
@@ -87,7 +88,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyz(:,:)
  real,             intent(in) :: pmass,time
- real,             intent(inout) :: deltavsum(:,:),deltav(:,:,:),tstop(:,:)
  integer,          intent(in) :: npart,iunit,numfile
  character(len=80)  :: basename
  character(len=80)  :: output
@@ -97,6 +97,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
  integer :: i,j,k,ir,ii,ierr,iline,ninbin(nr),ninbindust(ndusttypes,nr),iwarp,nptmassinit
  integer :: icutgas(nr),icutdust(ndusttypes,nr),find_ii(1),grainsize_set,irealvisc
  integer :: itype,lu,nondustcols,dustcols,numcols
+ real, allocatable :: deltavsum(:,:),dustfracisuma(:)
  real :: err,errslope,erryint,slope
  real :: Sig0,rho0,hi,rhoi
  real :: vgassol(2,nr),vdustsol(2,ndusttypes,nr)
@@ -168,6 +169,28 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
     scale_cut    = huge(scale_cut)
     eps_dust_cut = tiny(eps_dust_cut)
  endif
+
+ !--allocate memory for deltav calculations (only needed for one-fluid multigrain)
+ if (.not. allocated(deltavsum)) allocate(deltavsum(3,npart))
+
+ if (use_dustfrac) then
+    allocate(dustfracisuma(npart))
+    dustfracisuma(:) = sum(dustfrac(:,1:npart),1)
+    where (dustfracisuma > 0.)
+       deltavsum(1,:)   = sum(dustfrac(:,1:npart)*deltav(1,:,1:npart),1)/dustfracisuma
+       deltavsum(2,:)   = sum(dustfrac(:,1:npart)*deltav(2,:,1:npart),1)/dustfracisuma
+       deltavsum(3,:)   = sum(dustfrac(:,1:npart)*deltav(3,:,1:npart),1)/dustfracisuma
+    elsewhere (dustfracisuma == 0.)
+       deltavsum(1,:)   = 0.
+       deltavsum(2,:)   = 0.
+       deltavsum(3,:)   = 0.
+    endwhere
+    deallocate(dustfracisuma)
+ else
+    deltavsum = 0.
+    deltav    = 0.
+ endif
+
 
 ! Print the analysis being done
  write(*,'("Performing analysis type ",A)') analysistype
@@ -883,7 +906,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
     print *,' '
     if (alphaAV == 0. .or. solve_baistone) then
        print *,'Solving the Bai and Stone (2010) analytic solution for radial drift...'
-       call solve_bai_stone_2010(meand2g_ratio,nxn,meaneta,vK,vgassol,vdustsol)
+       call solve_bai_stone_2010(meand2g_ratio,nxn,meaneta,vK,vgassol,vdustsol,St_mid)
     else
        print *,'Solving the Dipierro et al. (2018) analytic solution for radial drift...'
        call solve_dipierro_2018(irealvisc,vgassol,vdustsol,meand2g_ratio,rad,cs,vK, &
@@ -984,6 +1007,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,deltavsum,deltav,tstop,pmass,n
        close(iplanet)
     enddo
  endif
+
+ if (allocated(deltavsum)) deallocate(deltavsum)
+
  return
 end subroutine do_analysis
 
