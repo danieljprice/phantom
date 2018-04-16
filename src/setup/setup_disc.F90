@@ -91,7 +91,7 @@ module setup
  implicit none
  public  :: setpart
 
- integer :: np,np_dust,norbits,i,k
+ integer :: np,np_dust,norbits,i
  logical :: obsolete_flag = .false.
  !--central objects
  real    :: m1,m2,accr1,accr2,bhspin,bhspinangle,flyby_a,flyby_d,flyby_O,flyby_i
@@ -1127,7 +1127,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (use_dust) then
     if (use_dustgrowth) then
-       dustprop(1,:) = grainsizeinp
+       dustprop(1,:) = grainsizeinp(1)
        dustprop(2,:) = graindensinp
     endif
     if (grainsize_set == 0) then
@@ -1495,10 +1495,10 @@ subroutine write_setupfile(filename)
     call write_inopt(profile_set_dust,'profile_set_dust', &
        'how to set dust density profile (0=equal to gas,1=custom,2=equal to gas with cutoffs)',iunit)
     if (use_dustgrowth) then
-       call write_inopt(grainsizeinp,'grainsizeinp','initial grain size (in cm)',iunit)
+       call write_inopt(grainsizeinp(1),'grainsizeinp','initial grain size (in cm)',iunit)
     elseif (use_dustfrac .and. ndusttypes > 1) then
        call write_inopt(grainsize_set,'grainsize_set', &
-          'how to set grain size (0=power-law,1=equal,2=manually)',iunit)
+          'grain size distribution (0=power-law,1=equal,2=manually)',iunit)
        select case(grainsize_set)
        case(0)
           call write_inopt(smincgs,'smincgs','min grain size (in cm)',iunit)
@@ -1583,7 +1583,6 @@ subroutine read_setupfile(filename,ierr)
  use io,           only:fatal
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
- character(len=*), intent(in)  :: filename
  integer, parameter :: iunit = 21
  integer :: nerr
  type(inopts), allocatable :: db(:)
