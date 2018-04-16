@@ -117,14 +117,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  !
  call photo_ionize(vxyzu,npart)
 #endif
-
-#ifdef DUSTGROWTH
- !
- ! compute growth rate of dust particles with respect to their positions
- !
- call get_growth_rate(npart,xyzh,vxyzu,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
-
-#endif
 !
 ! calculate density by direct summation
 !
@@ -146,6 +138,12 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
             dustfrac,ddustfrac,ipart_rhomax,dt,stressmax,temperature)
  call do_timing('force',tlast,tcpulast)
+#ifdef DUSTGROWTH
+ !
+ ! compute growth rate of dust particles with respect to their positions
+ !
+ call get_growth_rate(npart,xyzh,vxyzu,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
+#endif
 !
 ! set new timestep from Courant/forces condition
 !

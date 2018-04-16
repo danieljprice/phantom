@@ -408,7 +408,6 @@ ifeq ($(SETUP), dustyshock)
     DOUBLEPRECISION=yes
     KERNEL=quintic
     ISOTHERMAL=no
-    MAXP=6000000
     KNOWN_SETUP=yes
 endif
 

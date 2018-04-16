@@ -96,22 +96,23 @@ subroutine test_growingbox(ntests,npass)
  use deriv,          only:derivs
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use unifdis,        only:set_unifdis
- use eos,            only:ieos,polyk,gamma,get_temperature
+ use eos,            only:ieos,polyk,gamma
  use options,        only:alpha,alphamax
  use physcon,        only:au,solarm,Ro
- use dim,            only:periodic,mhd
+ use dim,            only:periodic
  use timestep,       only:dtmax
  use io,             only:iverbose
- use units,          only:set_units,udist,unit_density
+ use units,          only:set_units
  use mpiutils,       only:reduceall_mpi
  use growth,         only:ifrag,get_vrelonvfrag,vfrag,isnow,vfragin,vfragout,rsnow
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
- integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(6), nerr(6)
- real :: deltax, dz, hfact, totmass, rhozero, errmax(6), dtext_dum
+ integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(7), nerr(7)
+ real :: deltax, dz, hfact, totmass, rhozero, errmax(7), dtext_dum
  real :: t, dt, dtext, dtnew
  real :: csj = 1., Stj = 1., s, Vt,vrelonvfrag = 10.
  real :: slast = 0., si = 0., so = 0., r = 0.
+ real :: T08,tau
  real :: sinit = 1., dens = 1.
  integer :: switch
  real, parameter :: tols = 2.e-5
@@ -165,28 +166,36 @@ subroutine test_growingbox(ntests,npass)
  polyk = 1.
  gamma = 1.
  !
- ! call deriv the first time around
+ !
  !
  dt = 1.e-3
  nsteps = 100
  t = 0
  dtmax = nsteps*dt
- call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-            Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
- call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-            Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
  !
  ! run growingbox problem
  !
  ncheck(:) = 0
  nerr(:) = 0
  errmax(:) = 0.
+ !
+ ! usefull variables used along the tests
+ !
  Vt = sqrt(2**(0.5)*alpha*Ro)*csj
+ vfrag = 1/vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! vfrag < vrel : fragmentation
+ tau = 1/(sqrt(2**1.5*Ro*alpha))
+ switch = abs(nsteps/2)
+ slast = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*(switch*dt)
  !
- ! ifrag = 0 : pure growth
+ ! testing pure growth with St=cst & St=f(size)
  !
-
  write(*,"(/,a)")'------------------ pure growth (ifrag = 0) ------------------'
+ write(*,"(/,a)")'------------------      St = constant      ------------------'
+ !
+ ! call deriv the first time around
+ !
+ call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+            Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
 
  call init_step(npart,t,dtmax)
  do i=1,nsteps
@@ -201,24 +210,50 @@ subroutine test_growingbox(ntests,npass)
 
  call checkvalbuf_end('size match exact solution',ncheck(1),nerr(1),errmax(1),tols)
 
- ntests = ntests + 1
-
- write(*,"(/,a)")'------------------ pure fragmentation (ifrag = 1) ------------------'
+ write(*,"(/,a)")'------------------ St = f(size) (Laibe et al. 2008) ------------------'
  !
  ! initialise again
  !
  dustprop(1,:) = sinit
- dustprop(2,:) = dens
  dustprop(3,:) = 0.
  dustprop(4,:) = 0.
- dustprop(5,:) = 0.
- vfrag = 1/vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! 0.01*vrel to assure fragmentation
- ifrag = 1
+ St(:) = Stj
 
  t = 0
 
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
              Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+
+ call init_step(npart,t,dtmax)
+
+ do i=1,nsteps
+    t = t + dt
+    dtext = dt
+    T08 = t/tau+2*sqrt(sinit)*(1+sinit/3)
+    call step(npart,npart,t,dt,dtext,dtnew) !--integrate dust size
+    s = (8+9*T08**2+3*T08*sqrt(16+9*T08**2))**(1./3.)/2 + 2/(8+9*T08**2+3*T08*sqrt(16+9*T08**2))**(1./3.) - 2
+    St(:) = Stj*s
+    do j=1,npart
+       call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(2),ncheck(2),errmax(2))
+    enddo
+ enddo
+
+ call checkvalbuf_end('size match exact solution',ncheck(2),nerr(2),errmax(2),tols)
+ !
+ ! testing pure fragmentation (ifrag = 1 & ifrag = 2)
+ !
+ write(*,"(/,a)")'------------------ pure fragmentation (ifrag = 1) ------------------'
+ !
+ ! initialise again
+ !
+ dustprop(1,:) = sinit
+ dustprop(3,:) = 0.
+ dustprop(4,:) = 0.
+ St(:)         = Stj
+ ifrag         = 1
+
+ t = 0
+
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
              Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
 
@@ -230,27 +265,23 @@ subroutine test_growingbox(ntests,npass)
     call step(npart,npart,t,dt,dtext,dtnew) !--integrate dust size
     s = sinit - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
     do j=1,npart
-       call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(2),ncheck(2),errmax(2))
+       call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(3),ncheck(3),errmax(3))
     enddo
  enddo
 
- call checkvalbuf_end('size match exact solution',ncheck(2),nerr(2),errmax(2),tols)
+ call checkvalbuf_end('size match exact solution',ncheck(3),nerr(3),errmax(3),tols)
 
  write(*,"(/,a)")'------------------ pure fragmentation (ifrag = 2) ------------------'
  !
  ! initialise again
  !
  dustprop(1,:) = sinit
- dustprop(2,:) = dens
  dustprop(3,:) = 0.
  dustprop(4,:) = 0.
- dustprop(5,:) = 0.
- ifrag = 2
+ ifrag         = 2
 
  t = 0
 
- call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
              Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
 
@@ -262,30 +293,26 @@ subroutine test_growingbox(ntests,npass)
     call step(npart,npart,t,dt,dtext,dtnew) !--integrate dust size
     s = sinit - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*vrelonvfrag**2/(vrelonvfrag**2+1)*t
     do j=1,npart
-       call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(3),ncheck(3),errmax(3))
+       call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(4),ncheck(4),errmax(4))
     enddo
  enddo
 
- call checkvalbuf_end('size match exact solution',ncheck(3),nerr(3),errmax(3),tols)
-
+ call checkvalbuf_end('size match exact solution',ncheck(4),nerr(4),errmax(4),tols)
+ !
+ ! testing pure growth then at half steps switch to pure fragmentation
+ !
  write(*,"(/,a)")'------------------ growth-fragmentation switch ------------------'
  !
  ! initialise again
  !
  dustprop(1,:) = sinit
- dustprop(2,:) = dens
  dustprop(3,:) = 0.
  dustprop(4,:) = 0.
- dustprop(5,:) = 0.
  vfrag = vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! vrel < vfrag : growth
  ifrag = 1
 
  t = 0
- switch = abs(nsteps/2)
- slast = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*(switch*dt)
 
- call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
              Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
 
@@ -294,7 +321,7 @@ subroutine test_growingbox(ntests,npass)
  do i=1,nsteps
     t = t + dt
     dtext = dt
-    if (i==switch) vfrag = 1/vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)  ! at nsteps/2-1, vrel > vfrag : fragmentation
+    if (i==switch) vfrag = 1/vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)  ! vrel > vfrag : fragmentation
     if (i<=switch) then
        s = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
     else
@@ -303,31 +330,28 @@ subroutine test_growingbox(ntests,npass)
     call step(npart,npart,t,dt,dtext,dtnew)
     if (do_output) call write_file(i,dt,xyzh,dustprop/sinit,npart,'switch_')
     do j=1,npart
-       call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(4),ncheck(4),errmax(4))
+       call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(5),ncheck(5),errmax(5))
     enddo
  enddo
 
- call checkvalbuf_end('size match exact solution',ncheck(4),nerr(4),errmax(4),tols)
-
+ call checkvalbuf_end('size match exact solution',ncheck(5),nerr(5),errmax(5),tols)
+ !
+ ! testing growth inside the snow line and fragmentation outside of it
+ !
  write(*,"(/,a)")'------------------ position based snow line ------------------'
  !
  ! initialise again
  !
  dustprop(1,:) = sinit
- dustprop(2,:) = dens
  dustprop(3,:) = 0.
  dustprop(4,:) = 0.
- dustprop(5,:) = 0.
  vfragin = vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! vrel < vfrag : growth
  vfragout = 1/vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! vrel > vfrag : fragmentation
- ifrag = 1
  isnow = 1
  rsnow = 0.2
 
  t = 0
 
- call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
              Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
 
@@ -342,14 +366,15 @@ subroutine test_growingbox(ntests,npass)
     if (do_output) call write_file(i,dt,xyzh,dustprop/sinit,npart,'snowline_')
     do j=1,npart
        r = sqrt(xyzh(1,j)**2+xyzh(2,j)**2)
-       if (r < rsnow) call checkvalbuf(dustprop(1,j),si,tols,'size',nerr(5),ncheck(5),errmax(5))
-       if (r > rsnow) call checkvalbuf(dustprop(1,j),so,tols,'size',nerr(6),ncheck(6),errmax(6))
+       if (r < rsnow) call checkvalbuf(dustprop(1,j),si,tols,'size',nerr(6),ncheck(6),errmax(6))
+       if (r > rsnow) call checkvalbuf(dustprop(1,j),so,tols,'size',nerr(7),ncheck(7),errmax(7))
     enddo
  enddo
- call checkvalbuf_end('size match exact solution (in)',ncheck(5),nerr(5),errmax(5),tols)
- call checkvalbuf_end('size match exact solution (out)',ncheck(6),nerr(6),errmax(6),tols)
+ call checkvalbuf_end('size match exact solution (in)',ncheck(6),nerr(6),errmax(6),tols)
+ call checkvalbuf_end('size match exact solution (out)',ncheck(7),nerr(7),errmax(7 ),tols)
 
- if (all(nerr(1:6)==0)) npass = npass + 1
+ if (all(nerr(1:7)==0)) npass = npass + 1
+ ntests = ntests + 1
 
 end subroutine test_growingbox
 
