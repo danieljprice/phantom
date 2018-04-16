@@ -23,6 +23,7 @@
 !+
 !--------------------------------------------------------------------------
 program phantomsetup
+ use memory,          only:allocate_memory
  use dim,             only:tagline,maxp,maxvxyzu,maxalpha,maxgrav,&
                            ndivcurlv,ndivcurlB
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
@@ -63,6 +64,8 @@ program phantomsetup
  real                     :: x0(3),v0(3)
 #endif
  logical                  :: iexist
+
+ call allocate_memory
 
  call set_io_unit_numbers
  call set_units
