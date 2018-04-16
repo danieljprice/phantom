@@ -51,8 +51,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
 
- call set_units(dist=100.*au,mass=solarm,G=1.)
-
+ call set_units(dist=au,mass=solarm,G=1.)
 !
 !--general parameters
 !
