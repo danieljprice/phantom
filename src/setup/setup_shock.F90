@@ -144,7 +144,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  shkfile = trim(fileprefix)//'.setup'
  call read_setupfile(shkfile,iprint,nstates,gamma,polyk,dtg,ierr)
  if (ierr /= 0 .and. id==master) then
-    call choose_shock(gamma,polyk,dtg,ndim,iexist) ! Choose shock
+    call choose_shock(gamma,polyk,dtg,iexist) ! Choose shock
     call write_setupfile(shkfile,iprint,nstates,gamma,polyk,dtg)       ! write shock file with defaults
  endif
  dxleft = -xleft/float(nx)
@@ -329,7 +329,7 @@ end subroutine adjust_shock_boundaries
 !  Choose which shock tube problem to set up
 !+
 !-----------------------------------------------------------------------
-subroutine choose_shock (gamma,polyk,dtg,ndim,iexist)
+subroutine choose_shock (gamma,polyk,dtg,iexist)
  use io,          only:fatal,id,master
  use dim,         only:mhd,maxvxyzu
  use physcon,     only:pi
