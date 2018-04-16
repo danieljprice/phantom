@@ -331,7 +331,7 @@ end subroutine adjust_shock_boundaries
 !-----------------------------------------------------------------------
 subroutine choose_shock (gamma,polyk,dtg,iexist)
  use io,          only:fatal,id,master
- use dim,         only:mhd,maxvxyzu
+ use dim,         only:mhd,maxvxyzu,use_dust,ndusttypes
  use physcon,     only:pi
  use options,     only:nfulldump,alpha,alphamax,alphaB,use_dustfrac
  use timestep,    only:dtmax,tmax
@@ -345,7 +345,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  logical, intent(in)    :: iexist
  integer, parameter     :: nshocks = 10
  character(len=30)      :: shocks(nshocks)
- integer                :: i, choice
+ integer                :: i, choice,dust_method
  real                   :: const !, dxright
 #ifdef NONIDEALMHD
  real                   :: gamma_AD,rho_i_cnst
@@ -510,11 +510,22 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     xleft      = -2.0
  end select
 
- if (use_dustfrac .and. id==master) call prompt('enter dust-to-gas ratio',dtg,0.,1.)
-
  call prompt('Enter resolution (number of particles in x) for left half (x<0)',nx,8)
 
  if (abs(xright)  < epsilon(xright))  xright  = -xleft
+
+ if (ndusttypes>1) then
+    dust_method = 1
+    print*,'Warning: ndusttypes>1 so dust method forced to be one fluid'
+ else
+    if (use_dust .and. id==master) call prompt(' choose dust method (1=one fluid,2=two fluid) ',dust_method,1,2)
+ endif
+ if (dust_method==1) then
+    use_dustfrac = .true.
+ elseif (dust_method==2) then
+    call fatal('setup','two-fluid method not yet implemented')
+ endif
+ if (use_dustfrac .and. id==master) call prompt('enter dust-to-gas ratio',dtg,0.,1.)
 
  return
 end subroutine choose_shock
