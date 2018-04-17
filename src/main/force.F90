@@ -2327,10 +2327,12 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
 
        if (use_dustfrac) then
           dustfraci(:) = xpartveci(idustfraci:idustfraciend)
+          dustfracisum = sum(dustfraci(:))
           tstopi(:)    = xpartveci(itstop:itstopend)
        else
-          dustfraci = 0.
-          tstopi    = 0.
+          dustfraci    = 0.
+          dustfracisum = 0.
+          tstopi       = 0.
        endif
 
     endif
