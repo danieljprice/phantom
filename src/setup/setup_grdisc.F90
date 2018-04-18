@@ -174,7 +174,7 @@ subroutine write_setupfile(filename)
 
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# input file for binary setup routines'
+ write(iunit,"(a)") '# input file for grdisc setup'
  call write_inopt(mhole ,'mhole' ,'mass of black hole (solar mass)'        , iunit)
  call write_inopt(mdisc ,'mdisc' ,'mass of disc       (solar mass)'        , iunit)
  call write_inopt(r_in  ,'r_in'  ,'inner edge of disc (GM/c^2, code units)', iunit)
