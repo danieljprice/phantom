@@ -42,7 +42,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  integer :: i,dumpsperorbit,orbtype
- real    :: x0,y0,z0,vx0,vy0,vz0,dr,h0,xyz0(3),rhat(3),r2,vcirc,rtan(3),norbits,period,r0
+ real    :: x0,y0,z0,vx0,vy0,vz0,dr,h0,xyz0(3),rhat(3),r2,vcirc,rtan(3),norbits,period,r0,fac
 
  call set_units(mass=solarm,G=1.d0,c=1.d0)
 
@@ -84,7 +84,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dumpsperorbit = 100
  period        = 0.
 
- call prompt('select orbit type (1=cirlce, 2=precession, 0=custom)',orbtype,1,3)
+ call prompt('select orbit type (1=cirlce, 2=precession, 3=epicycle, 4=vertical-oscillation, 0=custom)',orbtype,0,4)
  select case(orbtype)
 
  case(1) ! circular
@@ -97,6 +97,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     x0     = 90.
     vy0    = 0.0521157
     period = 2.*pi*sqrt((0.5*x0)**3/1.) ! approximate
+
+ case(3) ! epicycle
+    x0  = 10.
+    fac = 1.00001
+    call prompt('initial radius r0',x0)
+    vy0 = fac*sqrt(1./x0)
+    period = 2.*pi*sqrt(x0**3/1.)
+
+ case(4) ! vertical oscillation
+    x0  = 10.
+    fac = 1.00001
+    z0  = fac-1.
+    call prompt('initial radius r0',x0)
+    vy0 = sqrt(1./x0)
+    period = 2.*pi*sqrt(x0**3/1.)
 
  case(0) ! custom : if you just press enter a lot it gives you a circular orbit
     x0  = 10.
