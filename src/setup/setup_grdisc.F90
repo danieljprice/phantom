@@ -41,7 +41,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,           only:igas
  use io,             only:master
  use externalforces, only:accradius1,accradius1_hard
- use options,        only:iexternalforce,alpha,alphau,icooling,iexternalforce
+ use options,        only:iexternalforce,alpha,alphau,iexternalforce
  use units,          only:set_units,umass
  use physcon,        only:solarm,pi
 #ifdef GR
@@ -63,8 +63,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: massoftype(:)
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real    :: R_in,R_out,HonR,theta,mhole,mdisc,spin
+ real    :: r_in,r_out,honr,theta,mhole,mdisc,spin
 
+ time            = 0.
+ alphau          = 0.0
+ npartoftype(:)  = 0
+ iexternalforce  = 1
+ hfact           = hfact_default
 #ifdef GR
  ieos  = 4
  gamma = 5./3.
@@ -74,33 +79,34 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  iexternalforce = iext_einsteinprec
 #endif
 
- mhole = 200.*solarm!1.e6*solarm
- call set_units(G=1.,c=1.,mass=mhole)
- mdisc = 1.e-6 !10.*solarm/umass
- hfact = hfact_default
-
- tmax = 1000.
+ tmax  = 1000.
  dtmax = 10.
 
- !
- !  Set problem parameters
- !
- !--disc inner and outer radius
+ mhole = 1.e6*solarm
+ call set_units(G=1.,c=1.,mass=mhole)
 
- spin    = 0.
- R_in    = 40.
- R_out   = 160.
- theta   = 0.          ! inclination angle (degrees)
- HonR    = 0.02
+ mdisc           = 10.*solarm/umass
+ accradius1      = 4.
+ accradius1_hard = accradius1
+
+!
+! Set problem parameters (defaults)
+!
  npart   = 1e5
+ r_in    = 40.
+ r_out   = 160.
+ spin    = 0.
+ theta   = 0.      ! inclination angle (degrees)
+ honr    = 0.02
 
  call prompt('Enter number of particles ',npart)
- call prompt('Enter H on R ',HonR)
+ call prompt('Enter H on R ',honr)
  call prompt('Enter spin of black hole ',spin,-1.,1.)
- call prompt('Enter inner radius of disc ',r_in,2.*mass1)
+ call prompt('Enter inner radius of disc ',r_in,2.)
  call prompt('Enter outer radius of disc ',r_out,r_in)
  call prompt('Enter inclination angle (degrees) ',theta,0.,90.)
- call prompt('Cooling ',icooling)
+
+ npartoftype(1)  = npart
 
 #ifdef GR
  a = spin
@@ -110,34 +116,24 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  theta = theta/180. * pi ! convert to radians
 
- npartoftype(:) = 0
- npartoftype(1) = npart
- time    = 0.
-
- alphau  = 0.0
-
- iexternalforce  = 1
- accradius1      = 2.5 !4.*mass1
- accradius1_hard = accradius1 !- (0.5*(accradius1-2.*mass1))
-
  call set_disc(id,master,&
                npart         = npart,                &
-               rmin          = R_in,                 &
-               rmax          = R_out,                &
+               rmin          = r_in,                 &
+               rmax          = r_out,                &
                p_index       = -1.0,                 &
                q_index       = 0.0,                  &
-               HoverR        = HonR,                 &
+               HoverR        = honr,                 &
                gamma         = gamma,                &
-               hfact         = hfact_default,        &
+               hfact         = hfact,                &
                xyzh          = xyzh,                 &
                vxyzu         = vxyzu,                &
                polyk         = polyk,                &
                particle_mass = massoftype(igas),     &
-               ! star_mass     = 1.0,                 &
+               ! star_mass     = 1.0,                &
                disc_mass     = mdisc,                &
                inclination   = theta,                &
-               ! bh_spin       = spin,                 &
-               ! alpha         = alpha,               &
+               ! bh_spin       = spin,               &
+               ! alpha         = alpha,              &
                prefix        = fileprefix)
 #ifdef GR
  polyk = vxyzu(4,1)
