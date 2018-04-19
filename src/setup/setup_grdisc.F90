@@ -8,19 +8,28 @@
 !  MODULE: setup
 !
 !  DESCRIPTION:
-!  this module does general accretion disc setups
-!  Modified from an original routine by Giuseppe Lodato
+!  this module does an accretion disc setup in general relativity
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: David Liptai
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS: None
+!  RUNTIME PARAMETERS:
+!     mhole  : mass of the black hole             (solarm)
+!     mdisc  : mass of the accretion disc         (solarm)
+!     r_in   : inner radius of the disc           (GM/c^2 code units)
+!     r_out  : outer radius of the disc           (GM/c^2 code units)
+!     spin   : spin parameter of the black hole   (|a| < 1)
+!     honr   : scale height H/R of disc           (at inner edge)
+!     theta  : inclination angle of the disc      (degrees)
+!     accrad : accretion radius of black hole     (GM/c^2 code units)
+!     np     : number of particles
 !
-!  DEPENDENCIES: dim, extern_lensethirring, externalforces, io, options,
-!    part, physcon, setdisc, setup_params, units
+!  DEPENDENCIES: setdisc, part, io, externalforces, options, units, physcon,
+!                metric, externalforces, extern_lensethirrin, prompting,
+!                timestep, eos, kernel, infile_utils
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -175,15 +184,15 @@ subroutine write_setupfile(filename)
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for grdisc setup'
- call write_inopt(mhole ,'mhole' ,'mass of black hole (solar mass)'        , iunit)
- call write_inopt(mdisc ,'mdisc' ,'mass of disc       (solar mass)'        , iunit)
- call write_inopt(r_in  ,'r_in'  ,'inner edge of disc (GM/c^2, code units)', iunit)
- call write_inopt(r_out ,'r_out' ,'outer edge of disc (GM/c^2, code units)', iunit)
- call write_inopt(spin  ,'spin'  ,'spin parameter of black hole |a|<1'     , iunit)
- call write_inopt(honr  ,'honr'  ,'scale height H/R for disc'              , iunit)
- call write_inopt(theta ,'theta' ,'inclination of disc (degrees)'          , iunit)
- call write_inopt(accrad,'accrad','accretion radius   (GM/c^2, code units)', iunit)
- call write_inopt(np    ,'np'    ,'number of particles in disc'            , iunit)
+ call write_inopt(mhole ,'mhole' ,'mass of black hole (solar mass)'         , iunit)
+ call write_inopt(mdisc ,'mdisc' ,'mass of disc       (solar mass)'         , iunit)
+ call write_inopt(r_in  ,'r_in'  ,'inner edge of disc (GM/c^2, code units)' , iunit)
+ call write_inopt(r_out ,'r_out' ,'outer edge of disc (GM/c^2, code units)' , iunit)
+ call write_inopt(spin  ,'spin'  ,'spin parameter of black hole |a|<1'      , iunit)
+ call write_inopt(honr  ,'honr'  ,'scale height H/R of disc (at inner edge)', iunit)
+ call write_inopt(theta ,'theta' ,'inclination of disc (degrees)'           , iunit)
+ call write_inopt(accrad,'accrad','accretion radius   (GM/c^2, code units)' , iunit)
+ call write_inopt(np    ,'np'    ,'number of particles in disc'             , iunit)
  close(iunit)
 
 end subroutine write_setupfile
