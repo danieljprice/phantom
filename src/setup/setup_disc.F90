@@ -365,6 +365,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--set sink particle(s) or potential
  !
+ mcentral = m1
  select case (icentral)
  case (0)
     select case (ipotential)
@@ -529,22 +530,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           prefix = fileprefix
        endif
        select case(i)
-       case (1)
-          !--single disc or circumbinary
-          !  centre of mass of binary defined to be zero (see set_binary)
-          xorigini  = 0.
-          vorigini  = 0.
-          Rochelobe = huge(0.)
-       case(2)
-          !--circumprimary
-          xorigini  = xyzmh_ptmass(1:3,1)
-          vorigini  = vxyz_ptmass(1:3,1)
-          Rochelobe = Rochelobe_estimate(m2,m1,binary_a)
        case(3)
           !--circumsecondary
           xorigini  = xyzmh_ptmass(1:3,2)
           vorigini  = vxyz_ptmass(1:3,2)
           Rochelobe = Rochelobe_estimate(m1,m2,binary_a)
+       case(2)
+          !--circumprimary
+          xorigini  = xyzmh_ptmass(1:3,1)
+          vorigini  = vxyz_ptmass(1:3,1)
+          Rochelobe = Rochelobe_estimate(m2,m1,binary_a)
+       case default
+          !--single disc or circumbinary
+          !  centre of mass of binary defined to be zero (see set_binary)
+          xorigini  = 0.
+          vorigini  = 0.
+          Rochelobe = huge(0.)
        end select
        if (maxdiscs > 1 .and. ibinary==0) then
           if (R_out(i) > Rochelobe) call warning('setup_disc', &
@@ -792,9 +793,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--planets
  !
+ period_longest = 0.
  if (setplanets==1) then
     print "(a,i2,a)",' --------- added ',nplanets,' planets ------------'
-    period_longest = 0.
     do i=1,nplanets
        nptmass = nptmass + 1
        phi = 0.
@@ -823,7 +824,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        xyzmh_ptmass(ihsoft,nptmass) = accrplanet(i)
        vphi                         = sqrt((mcentral + disc_m_within_r)/rplanet(i))
        vxyz_ptmass(1:3,nptmass)     = (/-vphi*sinphi,vphi*cosphi,0./)
-       !--incline positions and velocities
        !--incline positions and velocities
        inclplan(i) = inclplan(i)*pi/180.
        u = (/-sin(phi),cos(phi),0./)
@@ -868,15 +868,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--set tmax and dtmax
  !
- if (setplanets==1) then
-    !--outer planet set above
-    period = period_longest
- elseif (icentral==1 .and. nsinks==2 .and. ibinary==0) then
+ if (icentral==1 .and. nsinks==2 .and. ibinary==0) then
     !--bound binary
     period = sqrt(4.*pi**2*binary_a**3/mcentral)
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
     !--unbound binary (flyby)
     period = get_T_flyby(m1,m2,flyby_a,flyby_d)
+ elseif (setplanets==1) then
+    !--outer planet set above
+    period = period_longest
  elseif (iwarp(idisc)) then
     !--warp radius
     period = sqrt(4.*pi**2*R_warp(idisc)**3/mcentral)
