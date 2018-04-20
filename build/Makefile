@@ -261,6 +261,7 @@ ifeq ($(SETUP), grtde)
     METRIC=kerr
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
+    MAXP=5000000
 endif
 
 ifeq ($(SETUP), grdisc)
