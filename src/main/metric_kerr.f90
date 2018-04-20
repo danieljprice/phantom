@@ -324,7 +324,7 @@ end subroutine write_options_metric
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_metric(name,valstring,imatch,igotall,ierr)
- use io, only:fatal,warn
+ use io, only:fatal,warning
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -337,12 +337,12 @@ subroutine read_options_metric(name,valstring,imatch,igotall,ierr)
  case('mass1')
     read(valstring,*,iostat=ierr) mass1
     if (mass1 < 0.)  call fatal(tag,'black hole mass: mass1 < 0')
-    if (mass1 == 0.) call warn(tag,'black hole mass: mass1 = 0')
+    if (mass1 == 0.) call warning(tag,'black hole mass: mass1 = 0')
     ngot = ngot + 1
  case('a')
     read(valstring,*,iostat=ierr) a
     if (abs(a) > 1.)  call fatal(tag,'black hole spin: |a| > 1')
-    if (a == 0.) call warn(tag,'black hole spin: a = 0')
+    if (a == 0.) call warning(tag,'black hole spin: a = 0')
     ngot = ngot + 1
  case default
     imatch = .false.
