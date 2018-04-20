@@ -49,10 +49,8 @@ subroutine test_rwdump(ntests,npass)
  use dump_utils,      only:read_array_from_file
  use timing,          only:getused,printused
  use dust,            only:set_grainsize
- real :: grainsizecgs(ndusttypes) = 0.1
  real :: smincgs                  = 1.e-5
  real :: smaxcgs                  = 0.1
- real :: sindex                   = 3.5
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(64)
  integer :: i,j,ierr,itest,ngas,ndust,ntot

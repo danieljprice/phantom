@@ -239,8 +239,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (use_dustfrac) then
        dustfrac(:,i) = dtg/(1. + dtg)
        if (ndusttypes>1) dustfrac(:,i) = dustfrac(:,i)/real(ndusttypes)
-    else
-       dustfrac(:,i) = 0.
     endif
  enddo
  massoftype(iboundary)  = massoftype(igas)
@@ -514,18 +512,20 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
 
  if (abs(xright)  < epsilon(xright))  xright  = -xleft
 
- if (ndusttypes>1) then
-    dust_method = 1
-    print*,'Warning: ndusttypes>1 so dust method forced to be one fluid'
- else
-    if (use_dust .and. id==master) call prompt(' choose dust method (1=one fluid,2=two fluid) ',dust_method,1,2)
+ if (use_dust) then
+    if (ndusttypes>1) then
+       dust_method = 1
+       print*,'Warning: ndusttypes>1 so dust method forced to be one fluid'
+    else
+       if (id==master) call prompt(' choose dust method (1=one fluid,2=two fluid) ',dust_method,1,2)
+    endif
+    if (dust_method==1) then
+       use_dustfrac = .true.
+    elseif (dust_method==2) then
+       call fatal('setup','two-fluid method not yet implemented')
+    endif
+    if (use_dustfrac .and. id==master) call prompt('enter dust-to-gas ratio',dtg,0.,1.)
  endif
- if (dust_method==1) then
-    use_dustfrac = .true.
- elseif (dust_method==2) then
-    call fatal('setup','two-fluid method not yet implemented')
- endif
- if (use_dustfrac .and. id==master) call prompt('enter dust-to-gas ratio',dtg,0.,1.)
 
  return
 end subroutine choose_shock
