@@ -10,12 +10,16 @@ module memory
     module procedure &
       allocate_array_real8_1d, &
       allocate_array_real8_2d, &
+      allocate_array_real8_3d, &
       allocate_array_real4_1d, &
       allocate_array_real4_2d, &
+      allocate_array_real4_3d, &
       allocate_array_integer4_1d, &
       allocate_array_integer4_2d, &
+      allocate_array_integer4_3d, &
       allocate_array_integer1_1d, &
-      allocate_array_integer1_2d
+      allocate_array_integer1_2d, &
+      allocate_array_integer1_3d
  end interface
 
 contains
@@ -33,7 +37,7 @@ contains
 
  subroutine allocate_array_real8_2d(name, x, n1, n2)
     character(len=*),            intent(in)     :: name
-    real(kind=8), allocatable,   intent(inout)  :: x(:, :)
+    real(kind=8), allocatable,   intent(inout)  :: x(:,:)
     integer,                     intent(in)     :: n1, n2
     integer                                     :: allocstat
 
@@ -41,6 +45,17 @@ contains
     call check_allocate(name, allocstat)
     call print_allocation_stats(name, (/n1, n2/), 'real(8)')
  end subroutine allocate_array_real8_2d
+
+ subroutine allocate_array_real8_3d(name, x, n1, n2, n3)
+    character(len=*),            intent(in)     :: name
+    real(kind=8), allocatable,   intent(inout)  :: x(:, :, :)
+    integer,                     intent(in)     :: n1, n2, n3
+    integer                                     :: allocstat
+
+    allocate(x(n1, n2, n3), stat = allocstat)
+    call check_allocate(name, allocstat)
+    call print_allocation_stats(name, (/n1, n2, n3/), 'real(8)')
+ end subroutine allocate_array_real8_3d
 
  subroutine allocate_array_real4_1d(name, x, n1)
     character(len=*),            intent(in)     :: name
@@ -55,7 +70,7 @@ contains
 
  subroutine allocate_array_real4_2d(name, x, n1, n2)
     character(len=*),            intent(in)     :: name
-    real(kind=4), allocatable,   intent(inout)  :: x(:, :)
+    real(kind=4), allocatable,   intent(inout)  :: x(:,:)
     integer,                     intent(in)     :: n1, n2
     integer                                     :: allocstat
 
@@ -63,6 +78,17 @@ contains
     call check_allocate(name, allocstat)
     call print_allocation_stats(name, (/n1, n2/), 'real(4)')
  end subroutine allocate_array_real4_2d
+
+ subroutine allocate_array_real4_3d(name, x, n1, n2, n3)
+    character(len=*),            intent(in)     :: name
+    real(kind=4), allocatable,   intent(inout)  :: x(:, :, :)
+    integer,                     intent(in)     :: n1, n2, n3
+    integer                                     :: allocstat
+
+    allocate(x(n1, n2, n3), stat = allocstat)
+    call check_allocate(name, allocstat)
+    call print_allocation_stats(name, (/n1, n2, n3/), 'real(4)')
+ end subroutine allocate_array_real4_3d
 
  subroutine allocate_array_integer4_1d(name, x, n1)
     character(len=*),               intent(in)     :: name
@@ -77,7 +103,7 @@ contains
 
  subroutine allocate_array_integer4_2d(name, x, n1, n2)
     character(len=*),               intent(in)     :: name
-    integer(kind=4), allocatable,   intent(inout)  :: x(:, :)
+    integer(kind=4), allocatable,   intent(inout)  :: x(:,:)
     integer,                        intent(in)     :: n1, n2
     integer                                        :: allocstat
 
@@ -85,6 +111,17 @@ contains
     call check_allocate(name, allocstat)
     call print_allocation_stats(name, (/n1, n2/), 'integer(4)')
  end subroutine allocate_array_integer4_2d
+
+ subroutine allocate_array_integer4_3d(name, x, n1, n2, n3)
+    character(len=*),               intent(in)     :: name
+    integer(kind=4), allocatable,   intent(inout)  :: x(:, :, :)
+    integer,                        intent(in)     :: n1, n2, n3
+    integer                                        :: allocstat
+
+    allocate(x(n1, n2, n3), stat = allocstat)
+    call check_allocate(name, allocstat)
+    call print_allocation_stats(name, (/n1, n2, n3/), 'integer(4)')
+ end subroutine allocate_array_integer4_3d
 
  subroutine allocate_array_integer1_1d(name, x, n1)
     character(len=*),               intent(in)     :: name
@@ -99,7 +136,7 @@ contains
 
  subroutine allocate_array_integer1_2d(name, x, n1, n2)
     character(len=*),               intent(in)     :: name
-    integer(kind=1), allocatable,   intent(inout)  :: x(:, :)
+    integer(kind=1), allocatable,   intent(inout)  :: x(:,:)
     integer,                        intent(in)     :: n1, n2
     integer                                        :: allocstat
 
@@ -107,6 +144,17 @@ contains
     call check_allocate(name, allocstat)
     call print_allocation_stats(name, (/n1, n2/), 'integer(1)')
  end subroutine allocate_array_integer1_2d
+
+ subroutine allocate_array_integer1_3d(name, x, n1, n2, n3)
+    character(len=*),               intent(in)     :: name
+    integer(kind=1), allocatable,   intent(inout)  :: x(:, :, :)
+    integer,                        intent(in)     :: n1, n2, n3
+    integer                                        :: allocstat
+
+    allocate(x(n1, n2, n3), stat = allocstat)
+    call check_allocate(name, allocstat)
+    call print_allocation_stats(name, (/n1, n2, n3/), 'integer(1)')
+ end subroutine allocate_array_integer1_3d
 
  subroutine check_allocate(name, allocstat)
     character(len=*),   intent(in) :: name
