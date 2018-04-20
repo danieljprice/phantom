@@ -31,15 +31,16 @@ module readwrite_dumps
  use dump_utils, only:lenid,ndatatypes,i_int,i_int1,i_int2,i_int4,i_int8,&
                       i_real,i_real4,i_real8,int1,int2,int1o,int2o,dump_h,lentag
  implicit none
- character(len=80), parameter, public :: &  ! module version
+ character(len=80), parameter, public :: &    ! module version
     modid="$Id$"
 
  public :: write_smalldump,write_fulldump,read_smalldump,read_dump,write_gadgetdump
  public :: get_blocklimits
- logical, public    :: opened_full_dump     ! for use in analysis files if user wishes to skip small dumps
- logical, public    :: dt_read_in           ! to determine if dt has been read in so that ibin & ibinold can be set on restarts
+ logical, public    :: opened_full_dump       ! for use in analysis files if user wishes to skip small dumps
+ logical, public    :: dt_read_in             ! to determine if dt has been read in so that ibin & ibinold can be set on restarts
+ logical, public    :: multidustdump = .true. ! determine whether to dump dust arrays
 
- integer, parameter :: maxphead = 256       ! max items in header
+ integer, parameter :: maxphead = 256         ! max items in header
  integer, parameter, public :: is_small_dump = 1978
  integer, parameter, public :: is_not_mhd = 1979
 
@@ -295,15 +296,15 @@ end subroutine get_dump_size
 !-------------------------------------------------------------------
 subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
-                 lightcurve,maxlum,store_temperature,use_dustgrowth
+                 lightcurve,maxlum,store_temperature,use_dustgrowth,ndusttypes
  use eos,   only:utherm,ieos,equationofstate,done_init_eos,init_eos
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bxyz,Bxyz_label,npart,npartoftype,maxtypes, &
                  alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
                  nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,&
                  maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,maxBevol,&
-                 divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,temperature,&
-                                 dustprop,dustprop_label
+                 divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
+                 dustfrac_label,tstop_label,dustprop,dustprop_label,temperature
  use options,    only:use_dustfrac
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
@@ -331,7 +332,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  integer, parameter :: isteps_sphNG = 0, iphase0 = 0
  integer(kind=8)    :: ilen(4)
  integer            :: nums(ndatatypes,4)
- integer            :: i,ipass,k
+ integer            :: i,ipass,k,l
  integer            :: ierr,ierrs(20)
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
@@ -340,6 +341,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  type(dump_h)          :: hdr
  real, allocatable :: temparr(:)
  real :: ponrhoi,rhoi,spsoundi
+ real :: dustfracisum1(npart),deltavsum(3,npart)
 
 !
 !--collect global information from MPI threads
@@ -437,13 +439,27 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        ilen(1) = int(npart,kind=8)
        if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierrs(1),func=iamtype_int11)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierrs(2))
-       if (use_dustgrowth)        call write_array(1,dustprop,dustprop_label,4,npart,k,ipass,idump,nums,ierrs(3))
+       if (use_dustgrowth) call write_array(1,dustprop,dustprop_label,4,npart,k,ipass,idump,nums,ierrs(3))
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
        if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(5))
-       if (use_dust)     call write_array(1,dustfrac,'dustfrac',npart,k,ipass,idump,nums,ierrs(6))
-       if (use_dust)     call write_array(1,tstop,'tstop',npart,k,ipass,idump,nums,ierrs(7))
-       if (use_dustfrac) call write_array(1,deltav,deltav_label,3,npart,k,ipass,idump,nums,ierrs(8))
-       if (store_temperature) call write_array(1,temperature,'T',npart,k,ipass,idump,nums,ierrs(9))
+       if (use_dust .and. ndusttypes>1 .and. multidustdump) &
+          call write_array(1,sum(dustfrac(:,1:npart),1),'dustfracsum',npart,k,ipass,idump,nums,ierrs(6))
+       if (use_dust) &
+          call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(7))
+       if (use_dust) call write_array(1,tstop,tstop_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(8))
+       if (use_dustfrac .and. ndusttypes>1 .and. multidustdump) then
+          dustfracisum1(:) = 1./sum(dustfrac(:,1:npart),1)
+          deltavsum(1,:)   = dustfracisum1(:)*sum(dustfrac(:,1:npart)*deltav(1,:,1:npart),1)
+          deltavsum(2,:)   = dustfracisum1(:)*sum(dustfrac(:,1:npart)*deltav(2,:,1:npart),1)
+          deltavsum(3,:)   = dustfracisum1(:)*sum(dustfrac(:,1:npart)*deltav(3,:,1:npart),1)
+          call write_array(1,deltavsum,(/'deltavsumx','deltavsumy','deltavsumz'/),3,npart,k,ipass,idump,nums,ierrs(9))
+       endif
+       do l = 1,ndusttypes
+          if (use_dustfrac .and. multidustdump) &
+             call write_array(1,deltav(:,l,:),deltav_label,3,npart,k,ipass,idump,nums,ierrs(10))
+       enddo
+       if (use_dustgrowth)    call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierrs(11))
+       if (store_temperature) call write_array(1,temperature,'T',npart,k,ipass,idump,nums,ierrs(12))
 
        ! write pressure to file
        if ((ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15) .and. k==i_real) then
@@ -463,21 +479,21 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
              endif
              temparr(i) = ponrhoi*rhoi
           enddo
-          call write_array(1,temparr,'pressure',npart,k,ipass,idump,nums,ierrs(9))
+          call write_array(1,temparr,'pressure',npart,k,ipass,idump,nums,ierrs(13))
        endif
 
        ! smoothing length written as real*4 to save disk space
-       call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,ierrs(10),use_kind=4,index=4)
-       if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,ierrs(11))
+       call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,ierrs(14),use_kind=4,index=4)
+       if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,ierrs(15))
        !if (maxalpha==maxp) then ! (uncomment this to write alphaloc to the full dumps)
        !   call write_array(1,alphaind,(/'alpha ','alphaloc'/),2,npart,k,ipass,idump,nums,ierrs(10))
        !endif
-       if (ndivcurlv >= 1) call write_array(1,divcurlv,divcurlv_label,ndivcurlv,npart,k,ipass,idump,nums,ierrs(12))
+       if (ndivcurlv >= 1) call write_array(1,divcurlv,divcurlv_label,ndivcurlv,npart,k,ipass,idump,nums,ierrs(16))
        if (gravity .and. maxgrav==maxp) then
-          call write_array(1,poten,'poten',npart,k,ipass,idump,nums,ierrs(13))
+          call write_array(1,poten,'poten',npart,k,ipass,idump,nums,ierrs(17))
        endif
 #ifdef IND_TIMESTEPS
-       call write_array(1,dtmax/2**ibin(1:npart),'dt',npart,k,ipass,idump,nums,ierrs(14),use_kind=4)
+       call write_array(1,dtmax/2**ibin(1:npart),'dt',npart,k,ipass,idump,nums,ierrs(18),use_kind=4)
 #endif
 #ifdef PRDRAG
        if (k==i_real) then
@@ -485,15 +501,15 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           do i=1,npart
              temparr(i) = real4(beta(xyzh(1,i), xyzh(2,i), xyzh(3,i)))
           enddo
-          call write_array(1,temparr,'beta_pr',npart,k,ipass,idump,nums,ierrs(15))
+          call write_array(1,temparr,'beta_pr',npart,k,ipass,idump,nums,ierrs(19))
        endif
 #endif
 #ifdef LIGHTCURVE
        if (lightcurve) then
-          call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierrs(16))
+          call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierrs(20))
        endif
 #endif
-       if (any(ierrs(1:16) /= 0)) call error('write_dump','error writing hydro arrays')
+       if (any(ierrs(1:20) /= 0)) call error('write_dump','error writing hydro arrays')
     enddo
 
     do k=1,ndatatypes
@@ -555,12 +571,12 @@ end subroutine write_fulldump
 !-------------------------------------------------------------------
 
 subroutine write_smalldump(t,dumpfile)
- use dim,        only:maxp,maxtypes,use_dust,lightcurve,use_dustgrowth
+ use dim,        only:maxp,maxtypes,use_dust,lightcurve,use_dustgrowth,ndusttypes
  use io,         only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,       only:xyzh,xyzh_label,npart,npartoftype,Bxyz,Bxyz_label,&
                       maxphase,iphase,h2chemistry,nabundances,&
                       nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,abundance, &
-                      abundance_label,mhd,dustfrac,iamtype_int11,dustprop,dustprop_label
+                      abundance_label,mhd,dustfrac,iamtype_int11,dustprop,dustprop_label,dustfrac_label
  use dump_utils, only:open_dumpfile_w,dump_h,allocate_header,free_header,&
                       write_header,write_array,write_block_header
  use mpiutils,   only:reduceall_mpi
@@ -637,7 +653,10 @@ subroutine write_smalldump(t,dumpfile)
        if (use_dustgrowth) call write_array(1,dustprop,dustprop_label,4,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (h2chemistry .and. nabundances >= 1) &
                      call write_array(1,abundance,abundance_label,1,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-       if (use_dust) call write_array(1,dustfrac,'dustfrac',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+       if (use_dust .and. ndusttypes>1 .and. multidustdump) &
+          call write_array(1,sum(dustfrac(:,1:npart),1),'dustfracsum',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+       if (use_dust) &
+          call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
 #ifdef LIGHTCURVE
        if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
@@ -677,7 +696,7 @@ end subroutine write_smalldump
 !+
 !-------------------------------------------------------------------
 
-subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly)
+subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use dim,      only:maxp,maxvxyzu,maxalpha,maxgrav,gravity,lightcurve,maxlum,mhd
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &
@@ -687,18 +706,19 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
                       open_dumpfile_r,get_error_text,ierr_realsize,free_header,read_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
  use sphNGutils, only:convert_sinks_sphNG
- character(len=*), intent(in)  :: dumpfile
- real,             intent(out) :: tfile,hfactfile
- integer,          intent(in)  :: idisk1,iprint,id,nprocs
- integer,          intent(out) :: ierr
- logical,          intent(in), optional :: headeronly
+ character(len=*),  intent(in)  :: dumpfile
+ real,              intent(out) :: tfile,hfactfile
+ integer,           intent(in)  :: idisk1,iprint,id,nprocs
+ integer,           intent(out) :: ierr
+ logical, optional, intent(in)  :: headeronly
+ logical, optional, intent(in)  :: dustydisc
 
  integer               :: number
  integer               :: iblock,nblocks,i1,i2,noffset,npartread,narraylengths
  integer(kind=8)       :: ilen(4)
  integer               :: nums(ndatatypes,4)
  integer(kind=8)       :: nparttot,nhydrothisblock,npartoftypetot(maxtypes),npartoftypetotact(maxtypes)
- logical               :: tagged,phantomdump,smalldump
+ logical               :: tagged,phantomdump,smalldump,extradust
  real                  :: dumr,alphafile
  character(len=lenid)  :: fileidentr
  type(dump_h)          :: hdr
@@ -815,6 +835,14 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
        if (headeronly) return
     endif
 !
+!--determine if extra dust quantites should be read
+!
+    if (present(dustydisc)) then
+       extradust = .true.
+    else
+       extradust = .false.
+    endif
+!
 !--determine whether or not to read this particular block
 !  onto this particular thread, either in whole or in part
 !  Also handles MPI -> non-MPI dump conversion and vice-versa.
@@ -853,7 +881,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 
     call read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,npartoftype,&
                           massoftype,nptmass,nsinkproperties,phantomdump,tagged,.false.,&
-                          tfile,alphafile,idisk1,iprint,ierr)
+                          extradust,tfile,alphafile,idisk1,iprint,ierr)
 
     if (ierr /= 0) call warning('read_dump','error reading arrays from file')
 
@@ -905,7 +933,7 @@ end subroutine read_dump
 !+
 !-------------------------------------------------------------------
 
-subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly)
+subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use dim,      only:maxp,maxvxyzu,mhd,maxBevol
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:npart,npartoftype,maxtypes,nptmass,nsinkproperties,maxptmass, &
@@ -913,18 +941,19 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  use dump_utils, only:skipblock,skip_arrays,check_tag,open_dumpfile_r,get_error_text,&
                       ierr_realsize,read_header,extract,free_header,read_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
- character(len=*), intent(in)  :: dumpfile
- real,             intent(out) :: tfile,hfactfile
- integer,          intent(in)  :: idisk1,iprint,id,nprocs
- integer,          intent(out) :: ierr
- logical,          intent(in), optional :: headeronly
+ character(len=*),  intent(in)  :: dumpfile
+ real,              intent(out) :: tfile,hfactfile
+ integer,           intent(in)  :: idisk1,iprint,id,nprocs
+ integer,           intent(out) :: ierr
+ logical, optional, intent(in)  :: headeronly
+ logical, optional, intent(in)  :: dustydisc
 
  integer               :: number
  integer               :: iblock,nblocks,i1,i2,noffset,npartread,narraylengths
  integer(kind=8)       :: ilen(4)
  integer               :: nums(ndatatypes,4)
  integer(kind=8)       :: nparttot,nhydrothisblock,npartoftypetot(maxtypes),npartoftypetotact(maxtypes)
- logical               :: tagged,phantomdump,smalldump
+ logical               :: tagged,phantomdump,smalldump,extradust
  real                  :: alphafile
  character(len=lenid)  :: fileidentr
  type(dump_h)          :: hdr
@@ -1033,6 +1062,14 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
        if (headeronly) return
     endif
 !
+!--determine if extra dust quantites should be read
+!
+    if (present(dustydisc)) then
+       extradust = .true.
+    else
+       extradust = .false.
+    endif
+!
 !--determine whether or not to read this particular block
 !  onto this particular thread, either in whole or in part
 !  Also handles MPI -> non-MPI dump conversion and vice-versa.
@@ -1070,7 +1107,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 
     call read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,npartoftype,&
                           massoftype,nptmass,nsinkproperties,phantomdump,tagged,smalldump,&
-                          tfile,alphafile,idisk1,iprint,ierr)
+                          extradust,tfile,alphafile,idisk1,iprint,ierr)
 
     if (ierr /= 0) call warning('read_dump','error reading arrays from file')
 
@@ -1115,12 +1152,13 @@ end subroutine read_smalldump
 !-------------------------------------------------------------------
 subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,npartoftype,&
                                massoftype,nptmass,nsinkproperties,phantomdump,tagged,singleprec,&
-                               tfile,alphafile,idisk1,iprint,ierr)
+                               extradust,tfile,alphafile,idisk1,iprint,ierr)
  use dump_utils, only:read_array,match_tag
- use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,maxBevol,store_temperature,use_dustgrowth
+ use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,maxBevol,store_temperature, &
+                      use_dustgrowth,ndusttypes
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,abundance,abundance_label,alphaind,poten, &
                       xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,Bevol,Bxyz,Bxyz_label,nabundances,&
-                      iphase,idust,temperature,dustprop,dustprop_label
+                      iphase,idust,tstop,deltav,dustfrac_label,tstop_label,deltav_label,temperature,dustprop,dustprop_label
  use options,    only:use_dustfrac
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
@@ -1129,13 +1167,16 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  real,    intent(in)   :: massoftype(:)
  integer, intent(in)   :: nptmass,nsinkproperties
  logical, intent(in)   :: phantomdump,singleprec,tagged
+ logical, intent(in)   :: extradust
  real,    intent(in)   :: tfile,alphafile
  integer, intent(out)  :: ierr
- logical               :: got_dustfrac,match
+ logical               :: got_dustfrac(ndusttypes),got_tstop(ndusttypes),got_deltav(3,ndusttypes)
+ logical               :: match
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3),got_psi,got_temp,got_dustprop(4)
  character(len=lentag) :: tag,tagarr(64)
- integer :: k,i,iarr,ik
+ integer :: k,i,iarr,ik,ndustfraci,ntstopi,ndustveli
+
 !
 !--read array type 1 arrays
 !
@@ -1143,6 +1184,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_xyzh      = .false.
  got_vxyzu     = .false.
  got_dustfrac  = .false.
+ got_tstop     = .false.
+ got_deltav    = .false.
  got_abund     = .false.
  got_alpha     = .false.
  got_poten     = .false.
@@ -1154,7 +1197,13 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_dustprop  = .false.
 
  !--set dust method
- if (use_dust .and. (npartoftype(idust)==0)) use_dustfrac = .true.
+ if (use_dust .and. ((npartoftype(idust) == 0) .or. (ndusttypes > 1))) then
+    use_dustfrac = .true.
+ endif
+
+ ndustfraci = 0
+ ntstopi    = 0
+ ndustveli  = 0
 
  over_arraylengths: do iarr=1,narraylengths
 
@@ -1175,8 +1224,27 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              call read_array(iphase,'itype',got_iphase,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(xyzh, xyzh_label, got_xyzh, ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(vxyzu,vxyzu_label,got_vxyzu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             if (use_dustfrac .or. (use_dust .and. match_tag(tag,'dustfrac'))) then
-                call read_array(dustfrac,'dustfrac',got_dustfrac,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             if (use_dust) then
+                if (any(tag == dustfrac_label)) then
+                   ndustfraci = ndustfraci + 1
+                   call read_array(dustfrac(ndustfraci,:),dustfrac_label(ndustfraci),got_dustfrac(ndustfraci), &
+                                   ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                endif
+             endif
+             if (extradust) then
+                if (any(tag == tstop_label)) then
+                   ntstopi = ntstopi + 1
+                   call read_array(tstop(ntstopi,:),tstop_label(ntstopi),got_tstop(ntstopi),&
+                                   ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                endif
+                if (tag == deltav_label(1)) then
+                   ndustveli = ndustveli + 1
+                   call read_array(deltav(:,ndustveli,:),deltav_label,got_deltav(:,ndustveli),&
+                                   ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                endif
+             endif
+             if (use_dustgrowth) then
+                call read_array(dustprop,dustprop_label,got_dustprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (use_dustgrowth) then
                 call read_array(dustprop,dustprop_label,got_dustprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
@@ -1323,7 +1391,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  integer,         intent(in)    :: i1,i2,npartoftype(:),npartread,nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha,got_dustprop(:)
- logical,         intent(in)    :: got_abund(:),got_dustfrac,got_sink_data(:),got_sink_vels(:),got_Bxyz(:)
+ logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_Bxyz(:)
  logical,         intent(in)    :: got_psi, got_temp
  integer(kind=1), intent(inout) :: iphase(:)
  real,            intent(inout) :: vxyzu(:,:), Bevol(:,:)
@@ -1431,7 +1499,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     ierr = 12
     return
  endif
- if (use_dustfrac .and. .not.got_dustfrac) then
+ if (use_dustfrac .and. .not. all(got_dustfrac)) then
     if (id==master .and. i1==1) write(*,*) 'ERROR! using one-fluid dust, but no dust fraction found in dump file'
     if (id==master .and. i1==1) write(*,*) ' Setting dustfrac = 0'
     dustfrac = 0.
@@ -1624,8 +1692,8 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use externalforces, only:write_headeropts_extern
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header
- use dust,           only:graindens,grainsize
- use dim,            only:use_dust,maxtypes,ndusttypes,use_dustgrowth
+ use dust,           only:graindens,grainsize,smincgs,smaxcgs,sindex
+ use dim,            only:use_dust,maxtypes,ndustfluids,ndusttypes,use_dustgrowth
  use units,          only:udist,umass,utime,unit_Bfield
  logical,         intent(in)    :: sphNGdump
  real,            intent(in)    :: t
@@ -1643,7 +1711,8 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  call add_to_iheader(nblocks,'nblocks',hdr,ierr)
  call add_to_iheader(isink,'isink',hdr,ierr)
  call add_to_iheader(nptmass,'nptmass',hdr,ierr)
- call add_to_iheader(ndusttypes,'ndusttypes',hdr,ierr)
+ call add_to_iheader(ndustfluids,'ndustfluids',hdr,ierr)
+ if (multidustdump) call add_to_iheader(ndusttypes,'ndusttypes',hdr,ierr)
 
  ! int*8
  call add_to_header(nparttot,'nparttot',hdr,ierr)
@@ -1709,12 +1778,21 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     if (use_dust) then
        ! write dust information
        if (use_dustgrowth) then
-          write(*,*) 'writing dust properties to header'
+          write(*,*) 'writing dust growth properties to header'
+       elseif (multidustdump) then
+          write(*,*) 'writing multi-grain properties to header'
        else
           write(*,*) 'writing graindens and grainsize to header'
        endif
+       if (multidustdump) then
+          !--grainsize needs to be reconstructed from these three quantities
+          call add_to_rheader(smincgs,'smincgs',hdr,ierr)
+          call add_to_rheader(smaxcgs,'smaxcgs',hdr,ierr)
+          call add_to_rheader(sindex,'sindex',hdr,ierr)
+       else
+          call add_to_rheader(grainsize,'grainsize',hdr,ierr)
+       endif
        call add_to_rheader(graindens,'graindens',hdr,ierr)
-       call add_to_rheader(grainsize,'grainsize',hdr,ierr)
     endif
  endif
 
@@ -1741,9 +1819,9 @@ end subroutine fill_header
 subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
                           tfile,hfactfile,alphafile,iprint,ierr)
  use io,            only:id,master
- use dim,           only:maxp,maxvxyzu
- use eos,           only:polyk,gamma,polyk2,qfacdisc
- use options,       only:ieos,tolh,alpha,alphau,alphaB,iexternalforce
+ use dim,           only:maxp,maxvxyzu,ndusttypes
+ use eos,           only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
+ use options,       only:ieos,tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
  use part,          only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,maxtypes
  use initial_params,only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,  only:rhozero
@@ -1751,6 +1829,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  use externalforces,only:read_headeropts_extern
  use boundary,      only:xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
  use dump_utils,    only:extract
+ use dust,          only:idrag,smincgs,smaxcgs,sindex
  type(dump_h), intent(in) :: hdr
  logical,      intent(in) :: phantomdump
  integer,      intent(in) :: iprint,ntypesinfile
@@ -1760,6 +1839,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  integer :: ierrs(10),iextern_in_file
  real    :: rk2,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi,dtmaxi
  real    :: alphaufile,alphaBfile,C_courfile,C_forcefile,tolhfile
+ real    :: smin,smax,sind
  logical :: iexist
 
  ierr  = 0
@@ -1808,6 +1888,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
     endif
     call extract('polyk2',polyk2,hdr,ierr)
     call extract('qfacdisc',qfacdisc,hdr,ierr)
+    if (extract_eos_from_hdr) call extract('ieos',ieos,hdr,ierr)
     if (ieos==3) then
        if (qfacdisc <= tiny(qfacdisc)) then
           write(iprint,*) 'ERROR: qfacdisc <= 0'
@@ -1888,6 +1969,35 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
 
  if (abs(gamma-1.) > tiny(gamma) .and. maxvxyzu < 4) then
     write(*,*) 'WARNING! compiled for isothermal equation of state but gamma /= 1, gamma=',gamma
+ endif
+
+ !--pull grain-size distribution values to preserve grain properties
+ if (use_dustfrac .and. ndusttypes>1 .and. multidustdump) then
+    call extract('smincgs',smin,hdr,ierrs(1))
+    call extract('smaxcgs',smax,hdr,ierrs(2))
+    call extract('sindex' ,sind,hdr,ierrs(3))
+    if (any(ierrs(1:3) /= 0) .and. idrag == 1) then
+       write(*,"(2(/,a))") ' ERROR: Using multigrain but min,max grain sizes not found in file'
+       inquire(file='grains.tmp',exist=iexist)
+       if (iexist) then
+          open(unit=lu,file='grains.tmp')
+          read(lu,*) smincgs,smaxcgs,sindex
+          close(lu)
+          write(*,"(a,3(es10.3,1x))") ' READ from grains.tmp ',smincgs,smaxcgs,sindex
+       else
+          write(*,"(3(/,a),/,/,a)") ' To silence this error and restart from an older dump file ', &
+                           ' create an ascii file called "grains.tmp" in the current directory', &
+                           ' with smincgs,smaxcgs and sindex in it, e.g.: ', &
+                           ' 1e-6 10. 0.'
+          ierr = 5  ! spit fatal error
+       endif
+    else
+       smincgs = smin
+       smaxcgs = smax
+       sindex  = sind
+    endif
+    write(*,*) 'Grain-size distribution properties, [smin,smax,sindex] = ', &
+               smincgs,smaxcgs,sindex
  endif
 
  return

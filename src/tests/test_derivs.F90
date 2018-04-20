@@ -28,6 +28,7 @@ module testderivs
  implicit none
 
  public :: test_derivs
+ real, public :: grainsizek
  real, parameter, private :: rhozero = 5.0
 
  private
@@ -35,7 +36,7 @@ module testderivs
 contains
 
 subroutine test_derivs(ntests,npass,string)
- use dim,      only:maxp,maxvxyzu,maxalpha,maxstrain,ndivcurlv,nalpha,use_dust
+ use dim,      only:maxp,maxvxyzu,maxalpha,maxstrain,ndivcurlv,nalpha,use_dust,ndusttypes
  use boundary, only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
  use eos,      only:polyk,gamma,use_entropy
  use io,       only:iprint,id,master,fatal,iverbose,nprocs
@@ -61,7 +62,8 @@ subroutine test_derivs(ntests,npass,string)
  use part,            only:ibin
 #endif
 #ifdef DUST
- use dust,            only:init_drag,idrag,K_code
+ use dust,            only:init_drag,idrag,K_code,grainsize, &
+                           grainsizecgs,smincgs,smaxcgs,sindex
 #endif
  use units,           only:set_units
  use testutils,       only:checkval,checkvalf
@@ -83,13 +85,13 @@ subroutine test_derivs(ntests,npass,string)
  real                   :: trialmean,actualmean,realneigh
 #endif
  real                   :: rcut
- real                   :: dtext_dum,rho1i,deint,demag,dekin,dedust,dmdust,dustfraci,tol
+ real                   :: dtext_dum,rho1i,deint,demag,dekin,dedust,dmdust(ndusttypes),dustfraci(ndusttypes),tol
  real(kind=4)           :: t1,t2
- integer                :: nfailed(21),i,npartblob,nparttest
+ integer                :: nfailed(21),i,j,npartblob,nparttest
  integer                :: np,ieosprev
  logical                :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs
  logical                :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testall
- real                   :: vwavei,stressmax,rhoi,sonrhoi,drhodti,ddustfraci
+ real                   :: vwavei,stressmax,rhoi,sonrhoi(ndusttypes),drhodti,ddustfraci(ndusttypes)
  integer(kind=8)        :: nptot
  real,allocatable       :: dummy(:)
 #ifdef IND_TIMESTEPS
@@ -544,9 +546,17 @@ subroutine test_derivs(ntests,npass,string)
     if (use_dustfrac) then
        if (id==master) write(*,"(/,a)") '--> testing dust evolution terms'
 #ifdef DUST
-       idrag = 2
-       gamma = 5./3.
-       K_code = 10.0
+       idrag   = 2
+       gamma   = 5./3.
+       !--Warning, K_code is not well defined when using multiple dust grains
+       !  and ONLY makes sense IFF all dust grains are identical (although
+       !  potentially binned with unequal densities).
+       !  K_code and K_k are related via: K_k = eps_k/eps*K_code)
+       K_code  = 10.
+       smaxcgs = 0.01 ! value doesn't matter as long as smaxcgs=smincgs=grainsizecgs
+       smincgs = smaxcgs
+       grainsizecgs = smaxcgs
+       sindex  = 1.
        !need to set units if testing with physical drag
        !call set_units(dist=au,mass=solarm,G=1.d0)
        call init_drag(nfailed(1))
@@ -559,7 +569,9 @@ subroutine test_derivs(ntests,npass,string)
           vxyzu(2,i) = vy(xyzh(:,i))
           vxyzu(3,i) = vz(xyzh(:,i))
           if (maxvxyzu>=4) vxyzu(4,i) = utherm(xyzh(:,i))
-          dustfrac(i) = real(dustfrac_func(xyzh(:,i)),kind=kind(dustfrac))
+          do j = 1,ndusttypes
+             dustfrac(j,i) = real(dustfrac_func(xyzh(:,i)),kind=kind(dustfrac))
+          enddo
        enddo
 
        call getused(t1)
@@ -570,9 +582,14 @@ subroutine test_derivs(ntests,npass,string)
        nfailed(:) = 0
        call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
        call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
-       call checkvalf(np,xyzh,ddustfrac,ddustfrac_func,4.e-4,nfailed(4),'deps/dt')
-       if (maxvxyzu>=4) call checkvalf(np,xyzh,fxyzu(4,:),dudtdust_func,5.e-4,nfailed(5),'du/dt')
-       call checkvalf(np,xyzh,deltav(1,:),deltavx_func,2.3e-5,nfailed(6),'deltavx')
+       do j = 1,1 !ndusttypes !--Only need one because all dust species are identical
+#ifdef DUST
+          grainsizek = grainsize(j)
+#endif
+          call checkvalf(np,xyzh,ddustfrac(j,:),ddustfrac_func,4.e-4,nfailed(3),'deps/dt')
+          if (maxvxyzu>=4) call checkvalf(np,xyzh,fxyzu(4,:),dudtdust_func,5.e-4,nfailed(4),'du/dt')
+          call checkvalf(np,xyzh,deltav(1,j,:),deltavx_func,2.3e-5,nfailed(5),'deltavx')
+       enddo
 
        ntests = ntests + 1
        if (all(nfailed==0)) npass = npass + 1
@@ -585,17 +602,24 @@ subroutine test_derivs(ntests,npass,string)
           dekin  = 0.
           deint  = 0.
           dedust = 0.
-          dmdust = 0.
+          dmdust(:) = 0.
           do i=1,npart
-             dustfraci = dustfrac(i)
-             rhoi   = rhoh(xyzh(4,i),massoftype(igas))
-             sonrhoi    = sqrt(dustfrac(i)*(1.-dustfrac(i)))
-             drhodti    = -rhoi*divcurlv(1,i)
-             ddustfraci = 2.*sonrhoi*(1.-dustfraci)*ddustfrac(i)
-             dmdust = dmdust + ddustfraci
+             dustfraci(:)  = dustfrac(:,i)
+             rhoi          = rhoh(xyzh(4,i),massoftype(igas))
+             drhodti       = -rhoi*divcurlv(1,i)
+!------------------------------------------------
+!--sqrt(rho*epsilon) method
+!             sonrhoi(:)    = sqrt(dustfrac(:,i)/rhoi)
+!             ddustfraci(:) = 2.*sonrhoi(:)*ddustfrac(:,i) - sonrhoi(:)**2*drhodti
+!------------------------------------------------
+!--asin(sqrt(epsilon)) method
+             sonrhoi(:)    = asin(sqrt(dustfrac(:,i)))
+             ddustfraci(:) = 2.*cos(sonrhoi(:))*sin(sonrhoi(:))*ddustfrac(:,i)
+!------------------------------------------------
+             dmdust(:)     = dmdust(:) + ddustfraci(:)
              dekin  = dekin  + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
-             deint  = deint  + (1. - dustfraci)*fxyzu(4,i)
-             dedust = dedust - vxyzu(4,i)*ddustfraci
+             deint  = deint  + (1. - sum(dustfraci))*fxyzu(4,i)
+             dedust = dedust - vxyzu(4,i)*sum(ddustfraci)
           enddo
           dmdust  = reduceall_mpi('+',dmdust)
           dekin   = reduceall_mpi('+',dekin)
@@ -605,17 +629,19 @@ subroutine test_derivs(ntests,npass,string)
           nfailed(:) = 0
           !print "(3(a,es17.10))",' dE_kin = ',dekin,' dE_therm = ',deint,' dE_dust = ',dedust
           call checkval(massoftype(1)*(dekin + deint + dedust),0.,3.e-12,nfailed(1),'energy conservation (dE=0)')
-          call checkval(massoftype(1)*(dmdust),0.,5.e-12,nfailed(2),'dust mass conservation')
+          do i = 1,ndusttypes
+             call checkval(massoftype(1)*(dmdust(i)),0.,5.e-12,nfailed(2),'dust mass conservation')
+          enddo
           ntests = ntests + 1
           if (nfailed(1)==0) npass = npass + 1
        endif
        !
        ! reset dustfrac to zero for subsequent tests
        !
-       dustfrac(:) = 0.
+       dustfrac(:,:) = 0.
 
     else
-       if (id==master) write(*,"(/,a)") '--> SKIPPING dust evolution terms (need -DDUSTFRAC)'
+       if (id==master) write(*,"(/,a)") '--> SKIPPING dust evolution terms (need -DDUST)'
     endif
  endif testdust
 
@@ -1190,7 +1216,7 @@ subroutine reset_mhd_to_zero
     Bxyz(:,:)  = 0.
  endif
  if (use_dust) then
-    dustfrac(:) = 0.
+    dustfrac(:,:) = 0.
  endif
 
 end subroutine reset_mhd_to_zero
@@ -2477,170 +2503,207 @@ end function dBambiz
 !----------------------------------------------------------------
 real function dustfrac_func(xyzhi)
  use physcon,  only:pi
+ use dim,      only:ndusttypes
  use boundary, only:dxbound,dybound,dzbound,xmin,ymin,zmin
  real, intent(in) :: xyzhi(4)
 
- dustfrac_func = 0.5/pi*(0.5 + 0.01*sin(4.*pi*(xyzhi(1)-xmin)/dxbound) &
-                     + 0.02*sin(2.*pi*(xyzhi(2)-ymin)/dybound) &
-                     + 0.05*cos(4.*pi*(xyzhi(3)-zmin)/dzbound))
+ dustfrac_func = 0.5/pi*(0.5 + 0.01*sin(4.*pi*(xyzhi(1)-xmin)/dxbound)  &
+                             + 0.02*sin(2.*pi*(xyzhi(2)-ymin)/dybound)  &
+                             + 0.05*cos(4.*pi*(xyzhi(3)-zmin)/dzbound)) &
+                 *1./real(ndusttypes)
 
 end function dustfrac_func
 
 real function ddustfracdx(xyzhi)
  use physcon,  only:pi
+ use dim,      only:ndusttypes
  use boundary, only:dxbound,xmin
  real, intent(in) :: xyzhi(4)
 
- ddustfracdx = 2.*0.01/dxbound*cos(4.*pi*(xyzhi(1)-xmin)/dxbound)
+ ddustfracdx = 2.*0.01/dxbound*cos(4.*pi*(xyzhi(1)-xmin)/dxbound) &
+               *1./real(ndusttypes)
 
 end function ddustfracdx
 
 real function ddustfracdy(xyzhi)
  use physcon,  only:pi
+ use dim,      only:ndusttypes
  use boundary, only:dybound,ymin
  real, intent(in) :: xyzhi(4)
 
- ddustfracdy = 0.02/dybound*cos(2.*pi*(xyzhi(2)-ymin)/dybound)
+ ddustfracdy = 0.02/dybound*cos(2.*pi*(xyzhi(2)-ymin)/dybound) &
+               *1./real(ndusttypes)
 
 end function ddustfracdy
 
 real function ddustfracdz(xyzhi)
  use physcon,  only:pi
+ use dim,      only:ndusttypes
  use boundary, only:dzbound,zmin
  real, intent(in) :: xyzhi(4)
 
- ddustfracdz = -2.*0.05/dzbound*sin(4.*pi*(xyzhi(3)-zmin)/dzbound)
+ ddustfracdz = -2.*0.05/dzbound*sin(4.*pi*(xyzhi(3)-zmin)/dzbound) &
+               *1./real(ndusttypes)
 
 end function ddustfracdz
 
 real function del2dustfrac(xyzhi)
  use physcon,  only:pi
+ use dim,      only:ndusttypes
  use boundary, only:dxbound,dybound,dzbound,xmin,ymin,zmin
  real, intent(in) :: xyzhi(4)
 
- del2dustfrac = -8.*pi/dxbound**2*0.01*sin(4.*pi*(xyzhi(1)-xmin)/dxbound) &
-                -2.*pi/dybound**2*0.02*sin(2.*pi*(xyzhi(2)-ymin)/dybound) &
-                -8.*pi/dzbound**2*0.05*cos(4.*pi*(xyzhi(3)-zmin)/dzbound)
+ del2dustfrac = (-8.*pi/dxbound**2*0.01*sin(4.*pi*(xyzhi(1)-xmin)/dxbound)  &
+                 -2.*pi/dybound**2*0.02*sin(2.*pi*(xyzhi(2)-ymin)/dybound)  &
+                 -8.*pi/dzbound**2*0.05*cos(4.*pi*(xyzhi(3)-zmin)/dzbound)) &
+                *1./real(ndusttypes)
 
 end function del2dustfrac
 
 real function ddustfrac_func(xyzhi)
  use eos, only:gamma
+ use dim, only:ndusttypes
 #ifdef DUST
- use dust, only:get_ts,idrag,grainsize,graindens,K_code
+ use dust, only:get_ts,idrag,graindens,K_code
 #endif
  use part, only:rhoh
  real, intent(in) :: xyzhi(4)
  real :: dustfraci,uui,pri,tsi
- real :: gradu(3),gradeps(3),gradp(3),gradts(3),gradepsts(3)
+ real :: gradu(3),gradeps(3),gradsumeps(3),gradp(3),gradts(3),gradepsts(3)
  real :: rhoi,rhogasi,rhodusti,spsoundi,del2P,du_dot_de,si
+ real :: dustfracisum,del2dustfracsum
 #ifdef DUST
  integer :: iregime
 #endif
 
- dustfraci = dustfrac_func(xyzhi)
- rhoi      = rhoh(xyzhi(4),massoftype(1))
- dustfraci = dustfrac_func(xyzhi)
- rhogasi   = (1. - dustfraci)*rhoi
- rhodusti  = dustfraci*rhoi
- uui       = utherm(xyzhi)
- pri       = (gamma - 1)*rhogasi*uui
- spsoundi  = gamma*pri/rhogasi
+ rhoi       = rhoh(xyzhi(4),massoftype(1))
+ dustfraci  = dustfrac_func(xyzhi)
+ dustfracisum = real(ndusttypes)*dustfraci
+ rhogasi    = (1. - dustfracisum)*rhoi
+ rhodusti   = dustfracisum*rhoi
+ uui        = utherm(xyzhi)
+ pri        = (gamma-1.)*rhogasi*uui
+ spsoundi   = gamma*pri/rhogasi
 
- gradu(1) = dudx(xyzhi)
- gradu(2) = dudy(xyzhi)
- gradu(3) = dudz(xyzhi)
+ gradu(1)   = dudx(xyzhi)
+ gradu(2)   = dudy(xyzhi)
+ gradu(3)   = dudz(xyzhi)
  gradeps(1) = ddustfracdx(xyzhi)
  gradeps(2) = ddustfracdy(xyzhi)
  gradeps(3) = ddustfracdz(xyzhi)
- du_dot_de  = dot_product(gradu,gradeps)
- gradp(:)  = (gamma-1.)*(rhogasi*gradu(:) - rhoi*uui*gradeps(:))
- del2P = (gamma-1.)*rhoi*((1. - dustfraci)*del2u(xyzhi) - 2.*du_dot_de - uui*del2dustfrac(xyzhi))
+ gradsumeps = gradeps*real(ndusttypes)
+ du_dot_de  = dot_product(gradu,gradsumeps)
+ gradp(:)   = (gamma-1.)*(rhogasi*gradu - rhoi*uui*gradsumeps)
+ del2dustfracsum = real(ndusttypes)*del2dustfrac(xyzhi)
+ del2P = (gamma-1.)*rhoi*((1. - dustfracisum)*del2u(xyzhi) - 2.*du_dot_de - uui*del2dustfracsum)
 
- tsi       = 0.
+ tsi   = 0.
 #ifdef DUST
- call get_ts(idrag,grainsize,graindens,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
- ! here we assume ts = rhog*rhod/(rho*K) where K=const
- gradts(:) = rhoi/K_code*(1. - 2.*dustfraci)*gradeps(:)
+ call get_ts(idrag,grainsizek,graindens,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
+ !
+ ! grad(ts) = grad((1-eps)*eps*rho/K_code)
+ !          = rho/K_code*(1-2*eps)*grad(eps)          ! note the absence of eps_k
+ !
+ gradts(:) = rhoi/K_code*(1. - 2.*dustfracisum)*gradsumeps(:)
 #else
  gradts(:) = 0.
 #endif
+ !
+ ! deps_k/dt  = -1/rho \nabla.(eps_k ts (grad P))     ! note the presence of eps_k
+ !            = -1/rho [eps_k ts \del^2 P + grad(eps_k ts).grad P]
+ !            = -1/rho [eps_k ts \del^2 P + (eps_k*grad(ts) + ts*grad(eps_k)).grad P]
+ !
  gradepsts(:) = dustfraci*gradts(:) + tsi*gradeps(:)
- !
- ! deps/dt = -1/rho \nabla.(eps ts (grad P))
- !         = -1/rho [eps ts \del^2 P + grad(eps ts).grad P]
- !
+
  !ddustfrac_func = -1./rhoi*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts))
- si = sqrt(dustfraci/(1.-dustfraci))
- ddustfrac_func = -0.5*((dustfraci*tsi*del2P + dot_product(gradp,gradepsts))/(rhoi*si*(1.-dustfraci)**2.))
+
+!------------------------------------------------
+!--sqrt(rho*epsilon) method
+! si = sqrt(dustfraci*rhoi)
+! ddustfrac_func = -0.5/si*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts)) - 0.5*si*divvfunc(xyzhi)
+!------------------------------------------------
+!--asin(sqrt(epsilon)) method
+ si = asin(sqrt(dustfraci))
+ ddustfrac_func = -0.5/(rhoi*sin(si)*cos(si))*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts))
+!------------------------------------------------
 
 end function ddustfrac_func
 
 real function dudtdust_func(xyzhi)
  use eos,  only:gamma
+ use dim,  only:ndusttypes
 #ifdef DUST
- use dust, only:get_ts,idrag,grainsize,graindens
+ use dust, only:get_ts,idrag,graindens
 #endif
  use part, only:rhoh
  real, intent(in) :: xyzhi(4)
  real :: dustfraci,uui,pri,tsi
- real :: gradp(3),gradu(3)
+ real :: gradp(3),gradu(3),gradeps(3),gradsumeps(3)
  real :: rhoi,rhogasi,rhodusti,spsoundi
+ real :: dustfracisum
 #ifdef DUST
  integer :: iregime
 #endif
 
- rhoi      = rhoh(xyzhi(4),massoftype(1))
- dustfraci = dustfrac_func(xyzhi)
- rhogasi   = (1. - dustfraci)*rhoi
- rhodusti  = dustfraci*rhoi
- uui       = utherm(xyzhi)
- gradu(1)  = dudx(xyzhi)
- gradu(2)  = dudy(xyzhi)
- gradu(3)  = dudz(xyzhi)
- pri       = (gamma - 1)*rhogasi*uui
- spsoundi  = gamma*pri/rhogasi
- gradp(1)  = (gamma-1.)*(rhogasi*gradu(1) - rhoi*uui*ddustfracdx(xyzhi))
- gradp(2)  = (gamma-1.)*(rhogasi*gradu(2) - rhoi*uui*ddustfracdy(xyzhi))
- gradp(3)  = (gamma-1.)*(rhogasi*gradu(3) - rhoi*uui*ddustfracdz(xyzhi))
+ rhoi       = rhoh(xyzhi(4),massoftype(1))
+ dustfraci  = dustfrac_func(xyzhi)
+ dustfracisum = real(ndusttypes)*dustfraci
+ rhogasi    = (1. - dustfracisum)*rhoi
+ rhodusti   = dustfracisum*rhoi
+ uui        = utherm(xyzhi)
+ gradu(1)   = dudx(xyzhi)
+ gradu(2)   = dudy(xyzhi)
+ gradu(3)   = dudz(xyzhi)
+ gradeps(1) = ddustfracdx(xyzhi)
+ gradeps(2) = ddustfracdy(xyzhi)
+ gradeps(3) = ddustfracdz(xyzhi)
+ gradsumeps = real(ndusttypes)*gradeps
+ pri        = (gamma-1.)*rhogasi*uui
+ spsoundi   = gamma*pri/rhogasi
+ gradp(:)   = (gamma-1.)*(rhogasi*gradu - rhoi*uui*gradsumeps)
  tsi = 0.
 
 #ifdef DUST
- call get_ts(idrag,grainsize,graindens,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
+ call get_ts(idrag,grainsizek,graindens,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
  if (iregime /= 0) stop 'iregime /= 0'
 #endif
  ! this is equation (13) of Price & Laibe (2015) except
  ! that the sign on the second term is wrong in that paper
  ! (it is correct in Laibe & Price 2014a,b)
  dudtdust_func = -pri/rhogasi*divvfunc(xyzhi) &
-                 +dustfraci*tsi/rhogasi*dot_product(gradp,gradu)
+                 +dustfracisum*tsi/rhogasi*dot_product(gradp,gradu)
 
 end function dudtdust_func
 
 real function deltavx_func(xyzhi)
  use eos, only:gamma
+ use dim, only:ndusttypes
 #ifdef DUST
- use dust, only:get_ts,idrag,grainsize,graindens
+ use dust, only:get_ts,idrag,graindens
 #endif
  use part, only:rhoh
  real, intent(in) :: xyzhi(4)
  real :: rhoi,dustfraci,rhogasi,rhodusti,uui,pri,spsoundi,tsi,gradp
+ real :: dustfracisum,gradsumeps,gradu
 #ifdef DUST
  integer :: iregime
 #endif
 
- rhoi      = rhoh(xyzhi(4),massoftype(1))
- dustfraci = dustfrac_func(xyzhi)
- rhogasi   = (1.-dustfraci)*rhoi
- rhodusti  = dustfraci*rhoi
- uui       = utherm(xyzhi)
- pri       = (gamma - 1)*rhogasi*uui
- spsoundi  = gamma*pri/rhogasi
+ rhoi       = rhoh(xyzhi(4),massoftype(1))
+ dustfraci  = dustfrac_func(xyzhi)
+ dustfracisum = real(ndusttypes)*dustfraci
+ rhogasi    = (1.-dustfracisum)*rhoi
+ rhodusti   = dustfracisum*rhoi
+ gradsumeps = real(ndusttypes)*ddustfracdx(xyzhi)
+ gradu      = dudx(xyzhi)
+ uui        = utherm(xyzhi)
+ pri        = (gamma-1.)*rhogasi*uui
+ spsoundi   = gamma*pri/rhogasi
  tsi = 0.
 #ifdef DUST
- call get_ts(idrag,grainsize,graindens,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
+ call get_ts(idrag,grainsizek,graindens,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
 #endif
- gradp = (gamma-1.)*(rhogasi*dudx(xyzhi) - rhoi*uui*ddustfracdx(xyzhi))
+ gradp = (gamma-1.)*(rhogasi*gradu - rhoi*uui*gradsumeps)
  deltavx_func = tsi*gradp/rhogasi
 
 end function deltavx_func

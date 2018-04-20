@@ -32,7 +32,7 @@
 !+
 !--------------------------------------------------------------------------
 module step_lf_global
- use dim,  only:maxp,maxvxyzu,maxBevol
+ use dim,  only:maxp,maxvxyzu,maxBevol,ndusttypes
  use part, only:vpred,Bpred,dustpred
  use timestep_ind, only:maxbins,itdt,ithdt,itdt1,ittwas
  implicit none
@@ -90,7 +90,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,maxBevol,&
                           switches_done_in_derivs,iboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustfrac,temperature,alphaind,nptmass,store_temperature,&
-                                                  dustprop,ddustprop,dustproppred
+                          dustprop,ddustprop,dustproppred
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
@@ -185,8 +185,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
        endif
        if (itype==igas) then
-          if (mhd)          Bevol(:,i)  = Bevol(:,i)      + hdti*dBevol(:,i)
-          if (use_dustfrac) dustevol(i) = abs(dustevol(i) + hdti*ddustfrac(i))
+          if (mhd)          Bevol(:,i)    = Bevol(:,i)        + hdti*dBevol(:,i)
+          if (use_dustfrac) dustevol(:,i) = abs(dustevol(:,i) + hdti*ddustfrac(:,i))
        endif
     endif
  enddo predictor
@@ -229,7 +229,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              vpred(:,i) = vxyzu(:,i)
              if (mhd)          Bpred(:,i)  = Bevol (:,i)
              if (use_dustgrowth) dustproppred(:,:) = dustprop(:,:)
-             if (use_dustfrac) dustpred(i) = dustevol(i)
+             if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
              cycle predict_sph
           endif
        endif
@@ -256,9 +256,15 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (itype==igas) then
           if (mhd) Bpred(:,i) = Bevol (:,i) + hdti*dBevol(:,i)
           if (use_dustfrac) then
-             rhoi        = rhoh(xyzh(4,i),pmassi)
-             dustpred(i) = dustevol(i) + hdti*ddustfrac(i)
-             dustfrac(i) = dustpred(i)**2/(1.+dustpred(i)**2) ! dustevol = sqrt(eps/1-eps)
+             rhoi          = rhoh(xyzh(4,i),pmassi)
+             dustpred(:,i) = dustevol(:,i) + hdti*ddustfrac(:,i)
+!------------------------------------------------
+!--sqrt(rho*epsilon) method
+!             dustfrac(:,i) = min(dustpred(:,i)**2/rhoi,1.) ! dustevol = sqrt(rho*eps)
+!------------------------------------------------
+!--asin(sqrt(epsilon)) method
+             dustfrac(:,i) = sin(dustpred(:,i))**2
+!------------------------------------------------
           endif
        endif
        !
@@ -370,8 +376,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
              if (use_dustgrowth .and. itype==idust) dustproppred(:,i) = dustproppred(:,i) + dti*ddustprop(:,i)
              if (itype==igas) then
-                if (mhd)          Bevol(:,i)  = Bevol(:,i)  + dti*dBevol(:,i)
-                if (use_dustfrac) dustevol(i) = dustevol(i) + dti*ddustfrac(i)
+                if (mhd)          Bevol(:,i)    = Bevol(:,i)    + dti*dBevol(:,i)
+                if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + dti*ddustfrac(:,i)
              endif
              twas(i) = twas(i) + dti
           endif
@@ -383,7 +389,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdti*dBevol(:,i)
-             if (use_dustfrac) dustevol(i) = dustevol(i) + hdti*ddustfrac(i)
+             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdti*ddustfrac(:,i)
           endif
           !
           !--Wake inactive particles for next step, if required
@@ -428,7 +434,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              ! corrector step for magnetic field and dust
              !
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdtsph*dBevol(:,i)
-             if (use_dustfrac) dustevol(i) = dustevol(i) + hdtsph*ddustfrac(i)
+             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdtsph*ddustfrac(:,i)
           endif
 #endif
        endif
@@ -445,19 +451,19 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (iactive(iphase(i))) then
              vpred(:,i) = vxyzu(:,i)
              if (mhd)          Bpred(:,i)  = Bevol(:,i)
-             if (use_dustfrac) dustpred(i) = dustevol(i)
+             if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
           endif
 #else
           vpred(:,i) = vxyzu(:,i)
           if (mhd)          Bpred(:,i)  = Bevol(:,i)
-          if (use_dustfrac) dustpred(i) = dustevol(i)
+          if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
 !
 ! shift v back to the half step
 !
           vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  - hdtsph*dBevol(:,i)
-             if (use_dustfrac) dustevol(i) = dustevol(i) - hdtsph*ddustfrac(i)
+             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) - hdtsph*ddustfrac(:,i)
           endif
 #endif
        enddo
@@ -467,7 +473,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
                      Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustfrac,&
-                                         temperature,timei,dtsph,dtnew)
+                     temperature,timei,dtsph,dtnew)
     endif
 #ifdef DUSTGROWTH
     call update_dustprop(npart,dustproppred) !--update dustprop values

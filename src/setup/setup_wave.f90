@@ -44,7 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:labeltype,set_particle_type,igas,dustfrac
  use physcon,      only:pi
  use kernel,       only:radkern
- use dim,          only:maxvxyzu,use_dust,maxp
+ use dim,          only:maxvxyzu,use_dust,maxp,ndusttypes
  use options,      only:use_dustfrac
  use prompting,    only:prompt
  integer,           intent(in)    :: id
@@ -181,9 +181,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
        if (use_dustfrac) then
           if (itype==igas) then
-             dustfrac(i) = dtg/(1. + dtg)
+             dustfrac(:,i) = dtg/(1. + dtg)
+             if (ndusttypes>1) dustfrac(:,i) = dustfrac(:,i)/real(ndusttypes)
           else
-             dustfrac(i) = 0.
+             dustfrac(:,i) = 0.
           endif
        endif
     enddo

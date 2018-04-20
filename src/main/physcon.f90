@@ -56,7 +56,7 @@ module physcon
  real(kind=8), parameter :: finestr    = 7.2974d-3              !Fine structure constant   unitless
  real(kind=8), parameter :: steboltz   = 5.67051d-5             !Stefan-Boltzmann constant erg cm^-2K^-4 s^-1
  real(kind=8), parameter :: avogadro   = 6.0221408577d23        !Avogadro's number         mole^-1
- real(kind=8), parameter :: Ro                   = 3.00000000                                !Rossby number without dimension
+ real(kind=8), parameter :: Ro         = 3.00000000             !Rossby number without dimension
 !
 !--Astronomical constants (cgs units)
 !
@@ -71,6 +71,7 @@ module physcon
  real(kind=8), parameter :: earthm = 5.979d27                   !Mass of the Earth         g
  real(kind=8), parameter :: earthr = 6.371315d8                 !Radius of the Earth       cm
  real(kind=8), parameter :: jupiterm = 1.89813d30               !Mass of Jupiter           g
+ real(kind=8), parameter :: ceresm = 8.958d23                   !Mass of Ceres             g
 !
 !--Distance scale
 !

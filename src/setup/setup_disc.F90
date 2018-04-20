@@ -63,6 +63,9 @@
 !    nsinks            -- number of sinks
 !    rsnow             -- snow line position in AU
 !    setplanets        -- add planets? (0=no,1=yes)
+!    sindex            -- grain size power-law index (e.g. MRN = 3.5)
+!    smaxcgs           -- max grain size (in cm)
+!    smincgs           -- min grain size (in cm)
 !    use_mcfost        -- use the mcfost library
 !    vfrag             -- uniform fragmentation threshold in m/s
 !    vfragin           -- inward fragmentation threshold in m/s
@@ -75,7 +78,7 @@
 !+
 !--------------------------------------------------------------------------
 module setup
- use dim,            only:maxp,use_dust,maxalpha,use_dustgrowth
+ use dim,            only:maxp,use_dust,maxalpha,use_dustgrowth,ndusttypes
  use externalforces, only:iext_star,iext_binary,iext_lensethirring,iext_einsteinprec
  use options,        only:use_dustfrac,iexternalforce
 #ifdef MCFOST
@@ -83,11 +86,12 @@ module setup
 #endif
  use physcon,        only:au,solarm
  use setdisc,        only:scaled_sigma
+ use dust,           only:smincgs,smaxcgs,sindex,ilimitdustflux
 
  implicit none
  public  :: setpart
 
- integer :: np,np_dust,norbits,i,k
+ integer :: np,np_dust,norbits,i
  logical :: obsolete_flag = .false.
  !--central objects
  real    :: m1,m2,accr1,accr2,bhspin,bhspinangle,flyby_a,flyby_d,flyby_O,flyby_i
@@ -106,11 +110,15 @@ module setup
  real    :: R_in(3),R_out(3),R_ref(3),R_c(3),R_warp(3),H_warp(3)
  real    :: pindex(3),qindex(3),H_R(3),posangl(3),incl(3)
  real    :: disc_m(3),sig_ref(3),sig_norm(3),annulus_m(3),R_inann(3),R_outann(3),Q_min(3)
- real    :: R_indust(3),R_outdust(3),R_c_dust(3),pindex_dust(3),qindex_dust(3),H_R_dust(3)
+ real    :: R_indust(3),R_indust_swap(3),R_outdust(3),R_outdust_swap(3),R_c_dust(3)
+ real    :: pindex_dust(3),qindex_dust(3),H_R_dust(3)
  real    :: ldisc(3),lcentral(3)
  real    :: alphaSS
  !--dust
- real    :: grainsizeinp,graindensinp,dust_to_gas_ratio
+ integer :: grainsize_set
+ real    :: dustfrac_percent(ndusttypes) = 0.
+ real    :: grainsizeinp(ndusttypes),graindensinp,dust_to_gas_ratio
+ character(len=120) :: varlabel(ndusttypes),varstring(ndusttypes)
  !--planets
  integer, parameter :: maxplanets = 9
  integer :: nplanets,setplanets
@@ -131,8 +139,9 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use centreofmass,         only:reset_centreofmass
- use dust,                 only:set_dustfrac,grainsizecgs,graindenscgs
- use growth,                              only:ifrag,isnow,rsnow,Tsnow,vfrag,vfragin,vfragout,grainsizemin
+ use dust,                 only:set_dustfrac,set_grainsize,grainsizecgs,graindenscgs, &
+                                nduststrings
+ use growth,               only:ifrag,isnow,rsnow,Tsnow,vfrag,vfragin,vfragout,grainsizemin
  use eos,                  only:isink,qfacdisc
  use extern_binary,        only:accradius1,accradius2,binarymassr
  use externalforces,       only:mass1,accradius1
@@ -166,15 +175,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  integer, parameter :: maxbins = 4096
  logical :: iexist,questplanets,seq_exists,is_isothermal
+ logical :: switch_to_simple = .false.
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
  real    :: jdust_to_gas_ratio,Rj,period,Rochelobe,tol,Hill(maxplanets)
- real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Sigmadust,Stokes
+ real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Sigmadust,Stokes(ndusttypes)
  real    :: polyk_dust,xorigini(3),vorigini(3),alpha_returned(3)
  real    :: star_m(3),disc_mfac(3),disc_mdust(3),sig_normdust(3),u(3)
  real    :: enc_m(maxbins),rad(maxbins),Q_mintmp,disc_mtmp(3),annulus_mtmp(3)
+ real    :: dustfrac_multiplier(ndusttypes) = 1.
+ real    :: dustfrac_temp(ndusttypes)
+ integer :: int_len
  integer :: ierr,j,ndiscs,idisc,nparttot,npartdust,npingasdisc,npindustdisc,itype
  integer :: sigmaprofilegas(3),sigmaprofiledust(3),iprofilegas(3),iprofiledust(3)
  character(len=100) :: filename
+ character(len=20)  :: fmt_space
  character(len=100) :: prefix
 
  print "(/,65('-'),2(/,a),/,65('-'),/)"
@@ -409,6 +423,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !--set dust disc defaults
     !
     if (use_dust) then
+       ilimitdustflux    = .false.
        profile_set_dust  = 0
        dust_to_gas_ratio = 0.01
        R_indust          = R_in
@@ -427,16 +442,70 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !
        !--dust method
        !
-       dust_method  = 2
+       if (ndusttypes > 1) then
+          dust_method  = 1
+       else
+          dust_method  = 2
+       endif
        use_dustfrac = .false.
        call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
        if (dust_method==1) use_dustfrac = .true.
-       call prompt('How do you want to set the dust density profile? (0=equal to gas,1=custom)',profile_set_dust,0,1)
-       call prompt('Enter dust to gas ratio',dust_to_gas_ratio,0.)
-       if (use_dustgrowth) then
-          call prompt('Enter initial grain size in cm',grainsizeinp,0.)
+       if (use_dustfrac) call prompt('Do you want to limit the dust flux?',ilimitdustflux)
+       call prompt('How do you want to set the dust density profile?'//new_line('A')// &
+                   ' 0=equal to the gas'//new_line('A')// &
+                   ' 1=custom'//new_line('A')// &
+                   ' 2=equal to the gas, but with unique cutoffs'//new_line('A'),profile_set_dust,0,2)
+       if (ndusttypes > 1 .and. .not.use_dustgrowth) then
+          call prompt('Enter total dust to gas ratio',dust_to_gas_ratio,0.)
+          call prompt('How do you want to set the grain sizes?'//new_line('A')// &
+                      ' 0=power-law'//new_line('A')// &
+                      ' 1=equal'//new_line('A')// &
+                      ' 2=manually'//new_line('A'),grainsize_set,0,2)
+          select case(grainsize_set)
+          case(0)
+             call prompt('Enter minimum grain size',smincgs,0.)
+             call prompt('Enter maximum grain size',smaxcgs,smincgs)
+             call prompt('Enter power-law index, e.g. MRN',sindex)
+             call set_grainsize(smincgs,smaxcgs)
+             grainsizeinp(:) = grainsizecgs(:)
+          case(1)
+             call prompt('Enter grain size for all grains in cm',grainsizeinp(1),0.)
+             grainsizeinp(:) = grainsizeinp(1)
+          case(2)
+             call nduststrings('Enter grain size ',' (in cm)',varstring)
+             call nduststrings('Enter dust fraction ',' (in % of total dust)',varstring)
+             dustfrac_percent(:) = 100./ndusttypes
+             switch_to_simple = .true.
+             do i = 1,ndusttypes
+                call prompt(trim(varstring(i)),grainsizeinp(i),0.)
+                if (i == 1 .or. ndusttypes == 1) then
+                   call prompt(trim(varstring(i)),dustfrac_percent(i),0.,100.)
+                elseif (i == ndusttypes .and. ndusttypes > 1) then
+                   dustfrac_percent(i) = 100. - sum(dustfrac_percent(1:i-1))
+                   print*,trim(varstring(i))//'...based on previous choices :', &
+                          dustfrac_percent(i)
+                else
+                   call prompt(trim(varstring(i)),dustfrac_percent(i),0., &
+                               100. - sum(dustfrac_percent(1:i-1)))
+                endif
+                if (i > 1 .and. ((grainsizeinp(i) /= grainsizeinp(i-1)) .or. &
+                                 (dustfrac_percent(i) /= dustfrac_percent(i-1)))) then
+                   switch_to_simple = .false.
+                endif
+             enddo
+          end select
        else
-          call prompt('Enter grain size in cm',grainsizeinp,0.)
+          call prompt('Enter dust to gas ratio',dust_to_gas_ratio,0.)
+          if (use_dustgrowth) then
+             call prompt('Enter initial grain size in cm',grainsizeinp(1),0.)
+          else
+             call prompt('Enter grain size in cm',grainsizeinp(1),0.)
+          endif
+       endif
+       if (switch_to_simple) then
+          print*,'Values chosen are equivalent to the ''equal'' case'
+          print*,'   ...switching for a simpler setup file'
+          grainsize_set = 1
        endif
        if (use_dustgrowth .and. dust_method == 2) then
           print "(/,a)",'================================'
@@ -908,11 +977,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                         warp_smoothl     = H_warp(i),          &
                         bh_spin          = bhspin,             &
                         prefix           = prefix)
+          !--swap radii to keep dust profile the same as gas within [R_indust,R_outdust]
+          if (profile_set_dust == 2) then
+             R_indust_swap(i)  = R_in(i)
+             R_outdust_swap(i) = R_out(i)
+          else
+             R_indust_swap(i)  = R_indust(i)
+             R_outdust_swap(i) = R_outdust(i)
+          endif
+
           !--set dustfrac
           sig_normdust(i) = 1.d0
           call get_disc_mass(disc_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofiledust(i), &
                              sig_normdust(i),star_m(i),pindex_dust(i),qindex_dust(i), &
-                             R_indust(i),R_outdust(i),R_ref(i),R_c_dust(i),H_R(i))
+                             R_indust_swap(i),R_outdust_swap(i),R_ref(i),R_c_dust(i),H_R(i))
           sig_normdust(i) = sig_normdust(i) * disc_mdust(i) / disc_mtmp(i)
           do j=nparttot+1,npingasdisc
              Rj = sqrt(dot_product(xyzh(1:2,j)-xorigini(1:2),xyzh(1:2,j)-xorigini(1:2)))
@@ -922,9 +1000,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                 call get_dust_to_gas_ratio(jdust_to_gas_ratio,Rj,sigmaprofilegas(i), &
                                            sigmaprofiledust(i),sig_norm(i),sig_normdust(i), &
                                            pindex(i),pindex_dust(i),R_in(i),R_ref(i), &
-                                           R_c(i),R_indust(i),R_c_dust(i))
+                                           R_c(i),R_indust_swap(i),R_c_dust(i))
              endif
-             call set_dustfrac(jdust_to_gas_ratio,dustfrac(j))
+
+             select case(grainsize_set)
+             case(0)
+                call set_dustfrac(jdust_to_gas_ratio,dustfrac_temp(:),smincgs,smaxcgs,sindex)
+             case(1)
+                call set_dustfrac(jdust_to_gas_ratio,dustfrac_temp(:))
+                dustfrac_multiplier(:) = 1./real(ndusttypes)
+             case(2)
+                call set_dustfrac(jdust_to_gas_ratio,dustfrac_temp(:))
+                dustfrac_multiplier(:) = 1.e-2*dustfrac_percent(:)
+             end select
+             dustfrac(:,j) = dustfrac_multiplier(:)*dustfrac_temp(:)
           enddo
           nparttot = nparttot + npingasdisc
        else
@@ -1038,11 +1127,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (use_dust) then
     if (use_dustgrowth) then
-       dustprop(1,:) = grainsizeinp
+       dustprop(1,:) = grainsizeinp(1)
        dustprop(2,:) = graindensinp
     endif
-    grainsizecgs = grainsizeinp
-    graindenscgs = graindensinp
+    if (grainsize_set == 0) then
+       grainsizeinp(:) = grainsizecgs(:)
+    else
+       grainsizecgs(:) = grainsizeinp(:)
+    endif
+    graindenscgs    = graindensinp
  endif
  if (multiple_disc_flag .and. ibinary==1) then
     !--circumprimary in flyby
@@ -1058,11 +1151,27 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  print "(a,i2,a)",' -------------- added dust --------------'
  if (use_dustgrowth) then
     print "(a,g10.3,a)", ' initial grain size: ',grainsizeinp,' cm'
+ elseif (ndusttypes > 1) then
+    int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
+    write(fmt_space,'(a,I0,a)') '(a',9-(int_len+1),',a,g10.3,a)'
+    call nduststrings('grain size ',': ',varstring)
+    do i = 1,ndusttypes
+       print(fmt_space),'',trim(varstring(i)),grainsizecgs(i),' cm'
+    enddo
  else
-    print "(a,g10.3,a)", '    grain size: ',grainsizeinp,' cm'
+    print "(a,g10.3,a)", '       grain size: ',grainsizecgs(1),' cm'
  endif
- print "(a,g10.3,a)", '    grain density: ',graindensinp,' g/cm^3' ! Modify this is graindens changes
- print "(a,g10.3,a)", '   approx. Stokes: ',Stokes,''
+ print "(a,g10.3,a)", '      grain density: ',graindenscgs,' g/cm^3'
+ if (ndusttypes > 1) then
+    int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
+    write(fmt_space,'(a,I0,a)') '(a',5-(int_len+1),',a,g10.3,a)'
+    call nduststrings('approx. Stokes ',': ',varstring)
+    do i = 1,ndusttypes
+       print(fmt_space),'',trim(varstring(i)),Stokes(i),''
+    enddo
+ else
+    print "(a,g10.3,a)", '   approx. Stokes: ',Stokes,''
+ endif
  print "(1x,40('-'),/)"
 
  !
@@ -1099,6 +1208,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        xyzmh_ptmass(ihsoft,nptmass) = accrplanet(i)
        vphi                         = sqrt((mcentral + disc_m_within_r)/rplanet(i))
        vxyz_ptmass(1:3,nptmass)     = (/-vphi*sinphi,vphi*cosphi,0./)
+       !--incline positions and velocities
        !--incline positions and velocities
        inclplan(i) = inclplan(i)*pi/180.
        u = (/-sin(phi),cos(phi),0./)
@@ -1184,7 +1294,8 @@ end subroutine setpart
 !------------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
- use growth,           only:ifrag,isnow,rsnow,Tsnow,vfrag,vfragin,vfragout,grainsizemin
+ use dust,         only:nduststrings
+ use growth,       only:ifrag,isnow,rsnow,Tsnow,vfrag,vfragin,vfragout,grainsizemin
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
  logical :: done_alpha
@@ -1353,7 +1464,7 @@ subroutine write_setupfile(filename)
           done_alpha = .true.
        endif
        !--dust disc
-       if (use_dust .and. profile_set_dust==1) then
+       if (use_dust .and. (profile_set_dust == 1 .or. profile_set_dust == 2)) then
           if (multiple_disc_flag) then
              write(iunit,"(/,a)") '# options for circum'//trim(disclabel)//' dust disc'
           else
@@ -1378,13 +1489,40 @@ subroutine write_setupfile(filename)
  if (use_dust) then
     write(iunit,"(/,a)") '# options for dust'
     call write_inopt(dust_method,'dust_method','dust method (1=one fluid,2=two fluid)',iunit)
+    if (use_dustfrac) call write_inopt(ilimitdustflux,'ilimitdustflux', &
+                                       'limit dust diffusion using Ballabio et al. (2018)',iunit)
     call write_inopt(dust_to_gas_ratio,'dust_to_gas_ratio','dust to gas ratio',iunit)
     call write_inopt(profile_set_dust,'profile_set_dust', &
-       'how to set dust density profile (0=equal to gas,1=custom)',iunit)
+       'how to set dust density profile (0=equal to gas,1=custom,2=equal to gas with cutoffs)',iunit)
     if (use_dustgrowth) then
-       call write_inopt(grainsizeinp,'grainsizeinp','initial grain size (in cm)',iunit)
+       call write_inopt(grainsizeinp(1),'grainsizeinp','initial grain size (in cm)',iunit)
+    elseif (use_dustfrac .and. ndusttypes > 1) then
+       call write_inopt(grainsize_set,'grainsize_set', &
+          'grain size distribution (0=power-law,1=equal,2=manually)',iunit)
+       select case(grainsize_set)
+       case(0)
+          call write_inopt(smincgs,'smincgs','min grain size (in cm)',iunit)
+          call write_inopt(smaxcgs,'smaxcgs','max grain size (in cm)',iunit)
+          call write_inopt(sindex ,'sindex' ,'grain size power-law index (e.g. MRN = 3.5)',iunit)
+       case(1)
+          call write_inopt(grainsizeinp(1),'grainsizeinp','grain size (in cm)',iunit)
+       case(2)
+          !--Make N grain size labels
+          call nduststrings('grainsizeinp','',varlabel)
+          call nduststrings('grain size ',' (in cm)',varstring)
+          do i = 1,ndusttypes
+             call write_inopt(grainsizeinp(i),trim(varlabel(i)),trim(varstring(i)),iunit)
+          enddo
+          !--Make N dust fraction labels
+          call nduststrings('dustfrac','',varlabel)
+          call nduststrings('dust fraction ',' (in % of total dust)',varstring)
+          if (all(dustfrac_percent == 0.) .or. sum(dustfrac_percent) /= 100.) dustfrac_percent(:) = 100./ndusttypes
+          do i = 1,ndusttypes
+             call write_inopt(dustfrac_percent(i),trim(varlabel(i)),trim(varstring(i)),iunit)
+          enddo
+       end select
     else
-       call write_inopt(grainsizeinp,'grainsizeinp','grain size (in cm)',iunit)
+       call write_inopt(grainsizeinp(1),'grainsizeinp','grain size (in cm)',iunit)
     endif
     call write_inopt(graindensinp,'graindensinp','intrinsic grain density (in g/cm^3)',iunit) ! Modify this is graindens becomes variable
     !--growth/fragmentation parameters
@@ -1440,9 +1578,11 @@ end subroutine write_setupfile
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use growth,           only:ifrag,isnow,rsnow,Tsnow,vfrag,vfragin,vfragout,grainsizemin
- integer,          intent(out) :: ierr
+ use growth,       only:ifrag,isnow,rsnow,Tsnow,vfrag,vfragin,vfragout,grainsizemin
+ use dust,         only:set_grainsize,grainsizecgs,nduststrings
+ use io,           only:fatal
  character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr
  type(inopts), allocatable :: db(:)
@@ -1465,7 +1605,13 @@ subroutine read_setupfile(filename,ierr)
  !--dust method
  if (use_dust) then
     call read_inopt(dust_method,'dust_method',db,min=1,max=2,errcount=nerr)
-    if (dust_method==1) use_dustfrac = .true.
+    select case(dust_method)
+    case(1)
+       use_dustfrac = .true.
+    case(2)
+       use_dustfrac = .false.
+       if (ndusttypes > 1) call fatal('setup','dust_method=2 is currently only compatible with ndusttypes=1!')
+    end select
  endif
  !--resolution
  call read_inopt(np,'np',db,min=0,max=maxp,errcount=nerr)
@@ -1545,9 +1691,50 @@ subroutine read_setupfile(filename,ierr)
  end select
  !--dust
  if (use_dust) then
+    if (use_dustfrac) call read_inopt(ilimitdustflux,'ilimitdustflux',db,errcount=nerr)
     call read_inopt(dust_to_gas_ratio,'dust_to_gas_ratio',db,min=0.,errcount=nerr)
-    call read_inopt(profile_set_dust,'profile_set_dust',db,min=0,max=1,errcount=nerr)
-    call read_inopt(grainsizeinp,'grainsizeinp',db,min=0.,errcount=nerr)
+    if (use_dustfrac .and. ndusttypes > 1) then
+       call read_inopt(grainsize_set,'grainsize_set',db,min=0,max=2,errcount=nerr)
+       select case(grainsize_set)
+       case(0)
+          call read_inopt(smincgs,'smincgs',db,min=0.,errcount=nerr)
+          call read_inopt(smaxcgs,'smaxcgs',db,min=smincgs,errcount=nerr)
+          call read_inopt(sindex ,'sindex' ,db,errcount=nerr)
+       case(1)
+          call read_inopt(grainsizeinp(1),'grainsizeinp',db,min=0.,err=ierr,errcount=nerr)
+          if (ierr /= 0) then
+             grainsizeinp(:) = 0.1
+          else
+             grainsizeinp(:) = grainsizeinp(1)
+          endif
+          grainsizecgs = grainsizeinp
+       case(2)
+          !--Make N grain size labels
+          call nduststrings('grainsizeinp','',varlabel)
+          do i = 1,ndusttypes
+             call read_inopt(grainsizeinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
+             if (ierr /= 0) then
+                call set_grainsize(smincgs,smaxcgs)
+                grainsizeinp(:) = grainsizecgs(:)
+             endif
+          enddo
+          !--Make N dust fraction labels
+          call nduststrings('dustfrac','',varlabel)
+          do i = 1,ndusttypes
+             call read_inopt(dustfrac_percent(i),trim(varlabel(i)),db,min=0.,max=100.,err=ierr,errcount=nerr)
+          enddo
+          if (sum(dustfrac_percent(:)) /= 100.) then
+             print*,'ERROR: dust fraction percentages need to add up to 100!'
+             nerr = nerr+1
+          endif
+       end select
+    else
+       call read_inopt(grainsizeinp(1),'grainsizeinp',db,min=0.,err=ierr,errcount=nerr)
+       if (ierr /= 0) then
+          grainsizeinp = 0.1
+       endif
+       grainsizecgs = grainsizeinp
+    endif
     call read_inopt(graindensinp,'graindensinp',db,min=0.,errcount=nerr)
     !--growth/fragmentation of dust
     if (use_dustgrowth .and. .not.use_dustfrac) then

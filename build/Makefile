@@ -147,6 +147,13 @@ ifeq ($(SETUP), empty)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), wddisc)
+    ISOTHERMAL=yes
+    SETUPFILE=setup_wddisc.f90
+    KNOWN_SETUP=yes
+    DUST=yes
+endif
+
 ifeq ($(SETUP), galdisc)
 #   galactic disc simulations
     IND_TIMESTEPS=yes
@@ -392,6 +399,18 @@ ifeq ($(SETUP), shock)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), dustyshock)
+#   sod shock tube test
+    FPPFLAGS= -DPERIODIC
+    SETUPFILE= setup_shock.F90
+    DUST=yes
+    DUSTFRAC=yes
+    DOUBLEPRECISION=yes
+    KERNEL=quintic
+    ISOTHERMAL=no
+    KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), mhdshock)
 #   Ryu & Brio-Wu shock tube tests
     FPPFLAGS= -DPERIODIC
@@ -457,6 +476,7 @@ ifeq ($(SETUP), dustywave)
     SETUPFILE= setup_wave.f90
     MODFILE= moddump_dustadd.f90
     DUST=yes
+    DUSTFRAC=no
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     ANALYSIS= analysis_trackbox.f90
@@ -932,6 +952,25 @@ ifeq ($(MAP),yes)
 endif
 endif
 
+ifeq ($(SYSTEM),daint)
+    FC=ftn
+    FFLAGS= -O3 -inline-factor=500 -dynamic -mcmodel=medium -heap-arrays -shared-intel -warn uninitialized -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -debug all
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+    OMPFLAGS = -openmp
+    CC = icc
+    CCFLAGS = -O3 -mcmodel=medium
+    LIBCXX = -cxxlib
+    QSYS = slurm
+ifeq ($(MPI),daint)
+    USEMPI=yes
+    FPPFLAGS += -DMPI
+endif
+endif
+
 ifeq ($(SYSTEM), msg)
     include Makefile_defaults_ifort
     QSYS = sge
@@ -1401,7 +1440,8 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          test_step.F90 test_indtstep.F90 test_setdisc.F90 \
          test_link.F90 test_kdtree.F90 test_ptmass.F90 test_luminosity.F90\
          test_gnewton.F90 test_corotate.f90 \
-         test_sedov.F90 testsuite.F90 initial.F90
+         test_sedov.F90 testsuite.F90 initial.F90 \
+         leastsquares.f90 solvelinearsystem.f90
 
 OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
@@ -1630,7 +1670,8 @@ cleanmoddump:
 OBJAN1 = ${ANALYSIS:.f90=.o}
 OBJAN2 = ${OBJAN1:.F90=.o}
 OBJAN = ${OBJAN2:.f=.o}
-OBJA= utils_filenames.o utils_sort.o ${OBJDUMP} set_binary.o prompting.o ${OBJAN}
+OBJA= utils_filenames.o utils_sort.o leastsquares.o solvelinearsystem.o \
+	  ${OBJDUMP} set_binary.o prompting.o ${OBJAN}
 
 ifndef ANALYSISBIN
 ANALYSISBIN=phantomanalysis

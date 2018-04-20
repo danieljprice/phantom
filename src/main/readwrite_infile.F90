@@ -95,8 +95,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef DUST
  use dust,            only:write_options_dust
 #ifdef DUSTGROWTH
- use growth,                  only:write_options_growth
- use options,                  only:use_dustfrac
+ use growth,          only:write_options_growth
+ use options,         only:use_dustfrac
 #endif
 #endif
 #ifdef PHOTO
@@ -275,8 +275,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef DUST
  use dust,          only:read_options_dust
 #ifdef DUSTGROWTH
- use growth,                only:read_options_growth
- use options,                                only:use_dustfrac
+ use growth,        only:read_options_growth
+ use options,       only:use_dustfrac
 #endif
 #endif
 #ifdef PHOTO
@@ -314,7 +314,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  ngot            = 0
  igotallturb     = .true.
  igotalldust     = .true.
- igotallgrowth         = .true.
+ igotallgrowth   = .true.
  igotallphoto    = .true.
  igotalllink     = .true.
  igotallextern   = .true.

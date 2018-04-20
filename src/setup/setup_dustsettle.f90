@@ -44,13 +44,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpiutils,       only:bcast_mpi
  use part,           only:labeltype,set_particle_type,igas,dustfrac
  use physcon,        only:pi,au,solarm
- use dim,            only:maxvxyzu,use_dust,maxp
+ use dim,            only:maxvxyzu,use_dust,maxp,ndusttypes
  use prompting,      only:prompt
  use externalforces, only:mass1,Rdisc,iext_discgravity
  use options,        only:iexternalforce,use_dustfrac
  use timestep,       only:dtmax,tmax
  use units,          only:set_units,udist
- use dust,           only:init_drag,grainsizecgs,grainsize,graindens,get_ts
+ use dust,           only:init_drag,grainsizecgs,grainsize,graindens,get_ts, &
+                          set_dustfrac
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -66,6 +67,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: npart_previous
  real    :: H0,HonR,omega,ts
  real    :: xmini,xmaxi,ymaxdisc,cs,dtg,t_orb
+ real    :: smin,smax,sind
 !
 ! default options
 !
@@ -119,7 +121,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  grainsizecgs = 0.1
  print*,' grain size in cgs = ',0.1
  call init_drag(ierr)
- call get_ts(1,grainsize,graindens,rhozero,0.0*rhozero,cs,0.,ts,iregime)
+ call get_ts(1,grainsize(1),graindens,rhozero,0.0*rhozero,cs,0.,ts,iregime)
  print*,' ts * Omega for 1mm grains = ',ts*omega
 !
 ! boundaries
@@ -170,10 +172,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--one fluid dust: set dust fraction on gas particles
 !
        if (use_dustfrac) then
-          if (itype==igas) then
-             dustfrac(i) = dtg/(1. + dtg)
+          if (ndusttypes==1 .and. itype==igas) then
+             call set_dustfrac(dtg,dustfrac(:,i))
           else
-             dustfrac(i) = 0.
+             smin = 1.e-5
+             smax = 0.1
+             sind = 3.5
+             call set_dustfrac(dtg,dustfrac(:,i),smin,smax,sind)
           endif
        endif
     enddo

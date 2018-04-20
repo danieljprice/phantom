@@ -56,7 +56,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxvxyzu,h2chemistry
+ use dim,          only:maxvxyzu,h2chemistry,ndusttypes
  use setup_params, only:npart_total
  use io,           only:master
  use unifdis,      only:set_unifdis
@@ -76,7 +76,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  character(len=40) :: filename
- real    :: totmass,deltax
+ real    :: totmass,deltax,dust_to_gas
+ real    :: smin,smax,sind
  integer :: i,ierr
  logical :: iexist
  !
@@ -164,7 +165,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (use_dustfrac) then
     do i=1,npart
-       call set_dustfrac(dust_to_gas,dustfrac(i))
+       if (ndusttypes==1) then
+          call set_dustfrac(dust_to_gas,dustfrac(:,i))
+       else
+          smin = 1.e-5
+          smax = 0.1
+          sind = 3.5
+          call set_dustfrac(dust_to_gas,dustfrac(:,i),smin,smax,sind)
+       endif
     enddo
  endif
 

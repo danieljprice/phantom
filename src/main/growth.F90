@@ -28,7 +28,7 @@
 !    vfragin      -- inward fragmentation threshold in m/s
 !    vfragout     -- outward fragmentation threshold in m/s
 !
-!  DEPENDENCIES: dust, infile_utils, io, options, part, physcon, units
+!  DEPENDENCIES: dust, eos, infile_utils, io, options, part, physcon, units
 !+
 !--------------------------------------------------------------------------
 module growth
@@ -71,7 +71,7 @@ subroutine init_growth(ierr)
  ierr = 0
 
  !--initialise variables in code units
- dustprop(1,:) = grainsize
+ dustprop(1,:) = grainsize(1)
  dustprop(2,:) = graindens
  dustprop(3,:) = 0.
  dustprop(4,:) = 0.
@@ -175,21 +175,30 @@ end subroutine print_growthinfo
 !  two-fluid dust method.
 !+
 !-----------------------------------------------------------------------
-subroutine get_growth_rate(npart,xyzh,dustprop,dsdt)
- use part,            only:massoftype,rhoh,idust,iamtype,iphase
- real, intent(in)     :: dustprop(:,:),xyzh(:,:)
+subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
+ use part,            only:massoftype,rhoh,idust,iamtype,iphase,St,maxvxyzu
+ use eos,             only:get_temperature,get_spsound,ieos
+ real, intent(inout)  :: dustprop(:,:),vxyzu(:,:)
+ real, intent(in)     :: xyzh(:,:)
  real, intent(out)    :: dsdt(:)
  integer, intent(in)  :: npart
- real                 :: rhod
+ !
+ real                 :: rhod,T,cs
  integer              :: i,iam
 
  !--get ds/dt over all dust particles
  do i=1,npart
 
     iam = iamtype(iphase(i))
-    rhod = rhoh(xyzh(4,i),massoftype(2)) !--idust = 2
 
     if (iam==idust) then
+
+       rhod = rhoh(xyzh(4,i),massoftype(2)) !--idust = 2
+       T    = get_temperature(ieos,xyzh(:,i),rhod,vxyzu(:,i))
+       cs   = get_spsound(ieos,xyzh(:,i),rhod,vxyzu(:,i))
+
+       !print*,'growth :',cs,rhod
+       call get_vrelonvfrag(xyzh(:,i),dustprop(:,i),cs,St(i),T)
        !
        !--dustprop(1)= size, dustprop(2) = intrinsic density, dustprop(3) = vrel,
        !  dustprop(4) = vrel/vfrag, dustprop(5) = vd - vg
@@ -229,7 +238,7 @@ subroutine get_vrelonvfrag(xyzh,dustprop,cs,St,T)
  Vt = sqrt((2**0.5)*Ro*alpha)*cs
 
  !--compute vrel
- dustprop(3) = vrelative(St,dustprop(5),Vt,alpha)
+ dustprop(3) = vrelative(St,dustprop(5),Vt)
  !
  !--If statements to compute local ratio vrel/vfrag
  !
@@ -246,7 +255,6 @@ subroutine get_vrelonvfrag(xyzh,dustprop,cs,St,T)
        if (T < Tsnow) dustprop(4) = dustprop(3) / vfragout
     case default
        dustprop(4) = 0.
-       dustprop(3) = 0.
     end select
  endif
 end subroutine get_vrelonvfrag
@@ -348,8 +356,8 @@ subroutine update_dustprop(npart,dustproppred)
 end subroutine update_dustprop
 
 !--Compute the relative velocity following Stepinski & Valageas (1997)
-real function vrelative(St,dv,Vt,alpha)
- real, intent(in) :: St,alpha,dv,Vt
+real function vrelative(St,dv,Vt)
+ real, intent(in) :: St,dv,Vt
  real             :: Sc
 
  !--compute Schmidt number Sc

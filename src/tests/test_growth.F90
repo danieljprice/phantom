@@ -91,7 +91,7 @@ subroutine test_growingbox(ntests,npass)
  use kernel,         only:hfact_default
  use part,           only:idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,rhoh,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-                          dustfrac,dustevol,ddustfrac,temperature,iphase,iamdust,maxtypes
+                          dustfrac,dustevol,ddustfrac,temperature,iphase,iamdust,maxtypes,St
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use testutils,      only:checkvalbuf,checkvalbuf_end
@@ -99,21 +99,24 @@ subroutine test_growingbox(ntests,npass)
  use eos,            only:ieos,polyk,gamma
  use options,        only:alpha,alphamax
  use physcon,        only:au,solarm,Ro
- use dim,            only:periodic,mhd
+ use dim,            only:periodic
  use timestep,       only:dtmax
  use io,             only:iverbose
- use units,          only:set_units,udist,unit_density
+ use units,          only:set_units
  use mpiutils,       only:reduceall_mpi
- use growth,         only:ifrag,get_vrelonvfrag
+ use growth,         only:ifrag,get_vrelonvfrag,vfrag,isnow,vfragin,vfragout,rsnow
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
- integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(1), nerr(1)
- real :: deltax, dz, hfact, totmass, rhozero, errmax(1), dtext_dum
+ integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(7), nerr(7)
+ real :: deltax, dz, hfact, totmass, rhozero, errmax(7), dtext_dum
  real :: t, dt, dtext, dtnew
- real :: csj, Stj, rhod, r, s, Vt
- real :: scor(1000000)
- real :: sinit = 1.e-2, dens = 1.
- real, parameter :: tols = 1.e-8
+ real :: csj = 1., Stj = 1., s, Vt,vrelonvfrag = 10.
+ real :: slast = 0., si = 0., so = 0., r = 0.
+ real :: T08,tau
+ real :: sinit = 1., dens = 1.
+ integer :: switch
+ real, parameter :: tols = 2.e-5
+ logical :: do_output = .false.
 
  if (periodic) then
     if (id==master) write(*,"(/,a)") '--> testing GROWINGBOX'
@@ -147,8 +150,7 @@ subroutine test_growingbox(ntests,npass)
     dustprop(3,i) = 0.
     dustprop(4,i) = 0.
     dustprop(5,i) = 0.
-    scor(:) = 0.
-    if (mhd) Bevol(:,i) = 0.
+    St(i)         = Stj
  enddo
  npartoftype(idust) = npart - npart_previous
  npartoftypetot(idust) = reduceall_mpi('+',npartoftype(idust))
@@ -157,55 +159,250 @@ subroutine test_growingbox(ntests,npass)
  ! runtime parameters
  !
  ifrag = 0
+ isnow = 0
  alpha = 1.
  iverbose = 0
  ieos = 1
  polyk = 1.
  gamma = 1.
  !
- ! call deriv the first time around
+ !
  !
  dt = 1.e-3
  nsteps = 100
  t = 0
  dtmax = nsteps*dt
- call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
  !
  ! run growingbox problem
  !
- csj = 1.
- Stj = 1.
  ncheck(:) = 0
  nerr(:) = 0
  errmax(:) = 0.
+ !
+ ! usefull variables used along the tests
+ !
  Vt = sqrt(2**(0.5)*alpha*Ro)*csj
+ vfrag = 1/vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! vfrag < vrel : fragmentation
+ tau = 1/(sqrt(2**1.5*Ro*alpha))
+ switch = abs(nsteps/2)
+ slast = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*(switch*dt)
+ !
+ ! testing pure growth with St=cst & St=f(size)
+ !
+ write(*,"(/,a)")'------------------ pure growth (ifrag = 0) ------------------'
+ write(*,"(/,a)")'------------------      St = constant      ------------------'
+ !
+ ! call deriv the first time around
+ !
+ call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+            Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
 
  call init_step(npart,t,dtmax)
-
  do i=1,nsteps
-    do j=1,npart
-       call get_vrelonvfrag(xyzh(:,j),dustprop(:,j),csj,Stj,0.)
-    enddo
     t = t + dt
     dtext = dt
     call step(npart,npart,t,dt,dtext,dtnew)
-
+    s = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
     do j=1,npart
-       rhod = rhoh(xyzh(4,j),massoftype(2))
-       s = sinit + rhod/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
-       if (i==1) scor(j) = rhod/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*dt
-       call checkvalbuf(dustprop(1,j),s-scor(j),tols,'size',nerr(1),ncheck(1),errmax(1))
+       call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(1),ncheck(1),errmax(1))
     enddo
  enddo
 
  call checkvalbuf_end('size match exact solution',ncheck(1),nerr(1),errmax(1),tols)
 
+ write(*,"(/,a)")'------------------ St = f(size) (Laibe et al. 2008) ------------------'
+ !
+ ! initialise again
+ !
+ dustprop(1,:) = sinit
+ dustprop(3,:) = 0.
+ dustprop(4,:) = 0.
+ St(:) = Stj
+
+ t = 0
+
+ call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+
+ call init_step(npart,t,dtmax)
+
+ do i=1,nsteps
+    t = t + dt
+    dtext = dt
+    T08 = t/tau+2*sqrt(sinit)*(1+sinit/3)
+    call step(npart,npart,t,dt,dtext,dtnew) !--integrate dust size
+    s = (8+9*T08**2+3*T08*sqrt(16+9*T08**2))**(1./3.)/2 + 2/(8+9*T08**2+3*T08*sqrt(16+9*T08**2))**(1./3.) - 2
+    St(:) = Stj*s
+    do j=1,npart
+       call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(2),ncheck(2),errmax(2))
+    enddo
+ enddo
+
+ call checkvalbuf_end('size match exact solution',ncheck(2),nerr(2),errmax(2),tols)
+ !
+ ! testing pure fragmentation (ifrag = 1 & ifrag = 2)
+ !
+ write(*,"(/,a)")'------------------ pure fragmentation (ifrag = 1) ------------------'
+ !
+ ! initialise again
+ !
+ dustprop(1,:) = sinit
+ dustprop(3,:) = 0.
+ dustprop(4,:) = 0.
+ St(:)         = Stj
+ ifrag         = 1
+
+ t = 0
+
+ call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+
+ call init_step(npart,t,dtmax)
+
+ do i=1,nsteps
+    t = t + dt
+    dtext = dt
+    call step(npart,npart,t,dt,dtext,dtnew) !--integrate dust size
+    s = sinit - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
+    do j=1,npart
+       call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(3),ncheck(3),errmax(3))
+    enddo
+ enddo
+
+ call checkvalbuf_end('size match exact solution',ncheck(3),nerr(3),errmax(3),tols)
+
+ write(*,"(/,a)")'------------------ pure fragmentation (ifrag = 2) ------------------'
+ !
+ ! initialise again
+ !
+ dustprop(1,:) = sinit
+ dustprop(3,:) = 0.
+ dustprop(4,:) = 0.
+ ifrag         = 2
+
+ t = 0
+
+ call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+
+ call init_step(npart,t,dtmax)
+
+ do i=1,nsteps
+    t = t + dt
+    dtext = dt
+    call step(npart,npart,t,dt,dtext,dtnew) !--integrate dust size
+    s = sinit - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*vrelonvfrag**2/(vrelonvfrag**2+1)*t
+    do j=1,npart
+       call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(4),ncheck(4),errmax(4))
+    enddo
+ enddo
+
+ call checkvalbuf_end('size match exact solution',ncheck(4),nerr(4),errmax(4),tols)
+ !
+ ! testing pure growth then at half steps switch to pure fragmentation
+ !
+ write(*,"(/,a)")'------------------ growth-fragmentation switch ------------------'
+ !
+ ! initialise again
+ !
+ dustprop(1,:) = sinit
+ dustprop(3,:) = 0.
+ dustprop(4,:) = 0.
+ vfrag = vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! vrel < vfrag : growth
+ ifrag = 1
+
+ t = 0
+
+ call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+
+ call init_step(npart,t,dtmax)
+
+ do i=1,nsteps
+    t = t + dt
+    dtext = dt
+    if (i==switch) vfrag = 1/vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)  ! vrel > vfrag : fragmentation
+    if (i<=switch) then
+       s = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
+    else
+       s = slast - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*(t-switch*dt)
+    endif
+    call step(npart,npart,t,dt,dtext,dtnew)
+    if (do_output) call write_file(i,dt,xyzh,dustprop/sinit,npart,'switch_')
+    do j=1,npart
+       call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(5),ncheck(5),errmax(5))
+    enddo
+ enddo
+
+ call checkvalbuf_end('size match exact solution',ncheck(5),nerr(5),errmax(5),tols)
+ !
+ ! testing growth inside the snow line and fragmentation outside of it
+ !
+ write(*,"(/,a)")'------------------ position based snow line ------------------'
+ !
+ ! initialise again
+ !
+ dustprop(1,:) = sinit
+ dustprop(3,:) = 0.
+ dustprop(4,:) = 0.
+ vfragin = vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! vrel < vfrag : growth
+ vfragout = 1/vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! vrel > vfrag : fragmentation
+ isnow = 1
+ rsnow = 0.2
+
+ t = 0
+
+ call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+
+ call init_step(npart,t,dtmax)
+
+ do i=1,nsteps
+    t = t + dt
+    dtext = dt
+    call step(npart,npart,t,dt,dtext,dtnew)
+    si = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
+    so = sinit - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
+    if (do_output) call write_file(i,dt,xyzh,dustprop/sinit,npart,'snowline_')
+    do j=1,npart
+       r = sqrt(xyzh(1,j)**2+xyzh(2,j)**2)
+       if (r < rsnow) call checkvalbuf(dustprop(1,j),si,tols,'size',nerr(6),ncheck(6),errmax(6))
+       if (r > rsnow) call checkvalbuf(dustprop(1,j),so,tols,'size',nerr(7),ncheck(7),errmax(7))
+    enddo
+ enddo
+ call checkvalbuf_end('size match exact solution (in)',ncheck(6),nerr(6),errmax(6),tols)
+ call checkvalbuf_end('size match exact solution (out)',ncheck(7),nerr(7),errmax(7 ),tols)
+
+ if (all(nerr(1:7)==0)) npass = npass + 1
  ntests = ntests + 1
- if (all(nerr(1:1)==0)) npass = npass + 1
 
 end subroutine test_growingbox
 
+!---------------------------------------------------
+!+
+!  write an output file with x, y, z ,
+!  dustprop(1) (size) and dustprop(4) (vrel/vfrag)
+!+
+!---------------------------------------------------
+subroutine write_file(step,dt,xyzh,dustprop,npart,prefix)
+ real, intent(in)              :: dt
+ real, intent(in)              :: xyzh(:,:),dustprop(:,:)
+ character(len=*), intent(in)  :: prefix
+ integer, intent(in)           :: npart,step
+ character(len=30)             :: filename,str
+ integer                       :: i,lu
+ real                          :: r2
+
+ write(str,"(i000.4)") step
+ filename = prefix//trim(adjustl(str))//'.txt'
+ open(newunit=lu,file=filename,status='replace')
+ write(lu,*) step*dt
+ do i=1,npart
+    write(lu,*) xyzh(1,i),xyzh(2,i),dustprop(1,i),dustprop(4,i)
+ enddo
+ close(lu)
+
+end subroutine write_file
 #endif
 #endif
 

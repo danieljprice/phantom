@@ -311,6 +311,7 @@ pure subroutine nicil_version(version)
            !               general cleanup
            !  4 July 2017: added subroutines to calculate the ion and hall drift velocities; augmented the current v_ion routine
  version = "Version 1.2.3: 5 July 2017"
+           ! 10 Apr  2018: Ambipolar diffusion now uses a subtraction rather than a double loop
 
 end subroutine nicil_version
 !----------------------------------------------------------------------!
@@ -788,13 +789,13 @@ subroutine nicil_print_summary(a01_grain,mass_HionR_mp,mass_grain_mp,meanmolmass
     write(iprint,'(2a)')                       "NICIL: Non-ideal terms used: ",trim(ni_terms)
     write(iprint,'(a)' )                       "NICIL: All resistivity coefficients are constant."
     if (eta_const_type==icnst) then
-       if (use_ohm ) write(iprint,'(a,Es10.3,a)') "NICIL: Eta_ohm  = ", eta_ohm_cnst*unit_eta,  " cm^2 s^{-1}"
-       if (use_hall) write(iprint,'(a,Es10.3,a)') "NICIL: Eta_Hall = ", eta_hall_cnst*unit_eta, " cm^2 s^{-1}"
-       if (use_ambi) write(iprint,'(a,Es10.3,a)') "NICIL: Eta_ambi = ", eta_ambi_cnst*unit_eta, " cm^2 s^{-1}"
+       if (use_ohm ) write(iprint,'(a,Es10.3,a)') "NICIL: eta_ohm  = ", eta_ohm_cnst*unit_eta,  " cm^2 s^{-1}"
+       if (use_hall) write(iprint,'(a,Es10.3,a)') "NICIL: eta_Hall = ", eta_hall_cnst*unit_eta, " cm^2 s^{-1}"
+       if (use_ambi) write(iprint,'(a,Es10.3,a)') "NICIL: eta_ambi = ", eta_ambi_cnst*unit_eta, " cm^2 s^{-1}"
     else
-       if (use_ohm ) write(iprint,'(a,Es10.3,a)') "NICIL: Eta_ohm  = ", eta_ohm_cnst*unit_eta, " cm^2 s^{-1}"
-       if (use_hall) write(iprint,'(a,Es10.3,a)') "NICIL: Eta_Hall = ", eta_hall_cnst*unit_eta,"*|B|       cm^2 s^{-1}"
-       if (use_ambi) write(iprint,'(a,Es10.3,a)') "NICIL: Eta_ambi = ", eta_ambi_cnst*unit_eta,"*|B|^2/rho cm^2 s^{-1}"
+       if (use_ohm ) write(iprint,'(a,Es10.3,a)') "NICIL: eta_ohm  = ", eta_ohm_cnst*unit_eta, "           cm^2 s^{-1}"
+       if (use_hall) write(iprint,'(a,Es10.3,a)') "NICIL: eta_Hall = ", eta_hall_cnst*unit_eta,"*|B|       cm^2 s^{-1}"
+       if (use_ambi) write(iprint,'(a,Es10.3,a)') "NICIL: eta_ambi = ", eta_ambi_cnst*unit_eta,"*|B|^2/rho cm^2 s^{-1}"
     endif
     write(iprint,'(a,Es10.3,a)') "NICIL: Mean molecular mass:             ",meanmolmass," m_proton"
  else
@@ -1017,134 +1018,136 @@ pure subroutine nicil_get_eta(eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,n_R,n_elect
  real                          :: zeta,fdg_local,n_gasdust,f_Bdust
  real                          :: n_R_complete(nimass+2*na)
  real                          :: n_ionR(nimass),n_grainR(2*na),n_ionT(nlevels),mass_ionT(nlevels)
- real                          :: sigmaOHPpa(5),n_densities(7),afrac(2),mfrac(2)
+ real                          :: sigmas(8),n_densities(7),afrac(2),mfrac(2)
  real                          :: njk(nlevels,nelements)
  logical                       :: get_data_out
  !
  ierr = 0                                  ! initialise error code
  !
- !--Return constant coefficient version and exit
- if (eta_constant) then
+ if (.not.eta_constant) then
+    if (T > small .and. Bfield > small) then
+       !--Determine if we will be returning bookkeeping data
+       if (present(data_out)) then
+          get_data_out = .true.
+       else
+          get_data_out = .false.
+       endif
+       !--Determine actual gas density
+       if (.not.use_fdg_in) then
+          fdg_local = fdg
+       else
+          if (.not. present(fdg_in)) then
+             ierr = ierr + ierr_fdg_in
+             return
+          endif
+          fdg_local = min(fdg_in,   fdg_max)
+          fdg_local = max(fdg_local,fdg_min)
+       endif
+       if (rho_is_rhogas) then
+          rho_gas = rho
+       else
+          if (use_fdg_in) then
+             rho_gas = rho*(1.0-fdg_local)
+          else
+             rho_gas = rho*one_minus_fdg
+          endif
+       endif
+       !
+       !--Determine the fractions of molecular and atomic Hydrogen
+       n_cold    = rho_gas*mass_neutral_cold1
+       n_gasdust = rho*mass_neutral_cold1
+       call nicil_get_HH2_ratio(abundancej(iH),n_cold,T,mass_neutral_mp,afrac,mfrac)
+       n_total = rho_gas*mass_proton1/mass_neutral_mp
+       !
+       !--Calculate electron number densities from cosmic rays
+       if (ion_rays) then
+          if (zeta_of_rho) then
+             zeta = zeta0
+          else
+             zeta = zetaCR*exp(-zetaCRcoef*sqrt(T*rho_gas/mass_neutral_mp)) + zetaR
+          endif
+          if (size(n_R)==nimass+2*na .and. coef2_epsilonR*max(n_R(1+nimass),n_R(2+nimass)) < min(n_R(1),n_R(2))) then
+             n_grainR    = n_R(1+nimass:nimass+2*na)
+             n_electronR = nicil_ionR_get_ne(n_R)
+             n_ionR      = n_R(1:nimass)
+          else
+             ! must re-calculate grain densities since they were not stored
+             call nicil_ionR_predict_ng(n_R_complete,n_R(1:nimass+2))
+             call nicil_ionR_get_n(n_R_complete,T,rho_gas,n_gasdust,fdg_local,zeta,n_electronR,f_Bdust,ierr)
+             n_ionR      = n_R(1:nimass)
+             do j = 1,na
+                n_grainR(2*j-1) = n_R_complete(nimass+2*j-1)
+                n_grainR(2*j  ) = n_R_complete(nimass+2*j  )
+             enddo
+          endif
+       else
+          n_electronR = 0.0
+          n_ionR      = 0.0
+          n_grainR    = 0.0
+       endif
+       !
+       !--Calculate ion number densities from thermal ionisation
+       if (ion_thermal) then
+          call nicil_ionT_get_n(n_ionT,mass_ionT,njk,n_electronT,T,n_total,afrac)
+       else
+          n_ionT      = 0.0
+          mass_ionT   = 0.0
+          njk         = 0.0
+       endif
+       n_electron    = n_electronR + n_electronT
+       if (warn_verbose) then
+          ! ensure that these two processes are sufficiently decoupled
+          if (warn_ratio_m1*n_electronR < n_electronT .and. n_electronT < warn_ratio_p1*n_electronR) then
+             ierr = ierr + ierr_nedec
+          endif
+       endif
+       !
+       !--Calculate the conductivities
+       call nicil_ion_get_sigma(Bfield,rho_gas,n_electron,n_ionR,n_grainR,n_ionT,mass_ionT, &
+                                mass_neutral_mp,T,sigmas,mfrac,get_data_out,n_densities,ierr)
+       !
+       !--Calculate the coefficients
+       call nicil_nimhd_get_eta(eta_ohm,eta_hall,eta_ambi,sigmas)
+       !
+       !--Copy optional arrays to output, if requested
+       if (present(data_out)) then
+          data_out        = 0.0
+          data_out(    1) = sigmas(1)                                             ! Ohmic conductivities
+          data_out(    2) = sigmas(5)                                             ! Hall conductivities
+          data_out(    3) = sigmas(2)                                             ! Pedersen conductivities
+          data_out( 4: 5) = n_densities(1:2)                                      ! rho_neutral, rho_ion (total)
+          data_out(    6) = n_electron
+          data_out( 7:11) = n_densities(3:7)                                      ! n_neutral, n_ionR (light,metallic), n_ionT(singly,doubly)
+          do j = 1,na
+             data_out(12)  = data_out(12) + n_grainR(2*j-1)                       ! negatively charged grains
+             if (.not.use_fdg_in) then
+                data_out(13) = data_out(13) + n_grain_coef(j)*n_gasdust           ! total grains
+             else
+                data_out(13) = data_out(13) + n_grain_coef(j)*n_gasdust*fdg_local ! total grains
+             endif
+             data_out(14)    = data_out(14) + n_grainR(2*j  )                     ! positively  charged grains
+          enddo
+          data_out(13)    = data_out(13) - data_out(12) - data_out(14)            ! convert total grains to neutral grains
+          data_out(15:16) = afrac*n_total                                         ! molecular & atomic hydrogen
+          data_out(17:17+nelements-1) = njk(1,:)                                  ! singly ionised elements
+          data_out(17+nelements:17+nelements*nlevels-3) = njk(2,iHe:nelements)    ! doubly ionised elements
+          if (ion_rays .and. zeta_of_rho) data_out(17+nelements*nlevels-2) = zeta ! density dependent cosmic ray ionisation rate
+       endif
+   else
+       !--Exit with error message if T = 0 or B = 0
+       if ( T      <=small ) ierr = ierr + ierr_T
+       if ( Bfield <=small ) ierr = ierr + ierr_B
+       eta_ohm  = 0.0
+       eta_hall = 0.0
+       eta_ambi = 0.0
+       if (present(data_out)) data_out = 0.0
+       return
+    endif
+ else
+    !--Return constant coefficient version and exit
     call nicil_nimhd_get_eta_cnst(eta_ohm,eta_hall,eta_ambi,Bfield,rho)
     if (present(data_out)) data_out = 0.0  ! bookkeeping has no meaning here
     return
- endif
- !
- !--Exit with error message if T = 0 or B = 0
- if (T <= small .or. Bfield <= small) then
-    if ( T      <=small ) ierr = ierr + ierr_T
-    if ( Bfield <=small ) ierr = ierr + ierr_B
-    eta_ohm  = 0.0
-    eta_hall = 0.0
-    eta_ambi = 0.0
-    if (present(data_out)) data_out = 0.0
-    return
- endif
- !--Determine if we will be returning bookkeeping data
- if (present(data_out)) then
-    get_data_out = .true.
- else
-    get_data_out = .false.
- endif
- !--Determine actual gas density
- if (use_fdg_in) then
-    if (.not. present(fdg_in)) then
-       ierr = ierr + ierr_fdg_in
-       return
-    endif
-    fdg_local = min(fdg_in,   fdg_max)
-    fdg_local = max(fdg_local,fdg_min)
- else
-    fdg_local = fdg
- endif
- if (rho_is_rhogas) then
-    rho_gas = rho
- else
-    if (use_fdg_in) then
-       rho_gas = rho*(1.0-fdg_local)
-    else
-       rho_gas = rho*one_minus_fdg
-    endif
- endif
- !
- !--Determine the fractions of molecular and atomic Hydrogen
- n_cold    = rho_gas*mass_neutral_cold1
- n_gasdust = rho*mass_neutral_cold1
- call nicil_get_HH2_ratio(abundancej(iH),n_cold,T,mass_neutral_mp,afrac,mfrac)
- n_total = rho_gas*mass_proton1/mass_neutral_mp
- !
- !--Calculate electron number densities from cosmic rays
- if (ion_rays) then
-    if (zeta_of_rho) then
-       zeta = zetaCR*exp(-zetaCRcoef*sqrt(T*rho_gas/mass_neutral_mp)) + zetaR
-    else
-       zeta = zeta0
-    endif
-    if (size(n_R)==nimass+2*na .and. coef2_epsilonR*max(n_R(1+nimass),n_R(2+nimass)) < min(n_R(1),n_R(2))) then
-       n_grainR    = n_R(1+nimass:nimass+2*na)
-       n_electronR = nicil_ionR_get_ne(n_R)
-       n_ionR      = n_R(1:nimass)
-    else
-       ! must re-calculate grain densities since they were not stored
-       call nicil_ionR_predict_ng(n_R_complete,n_R(1:nimass+2))
-       call nicil_ionR_get_n(n_R_complete,T,rho_gas,n_gasdust,fdg_local,zeta,n_electronR,f_Bdust,ierr)
-       n_ionR      = n_R(1:nimass)
-       do j = 1,na
-          n_grainR(2*j-1) = n_R_complete(nimass+2*j-1)
-          n_grainR(2*j  ) = n_R_complete(nimass+2*j  )
-       enddo
-    endif
- else
-    n_electronR = 0.0
-    n_ionR      = 0.0
-    n_grainR    = 0.0
- endif
- !
- !--Calculate ion number densities from thermal ionisation
- if (ion_thermal) then
-    call nicil_ionT_get_n(n_ionT,mass_ionT,njk,n_electronT,T,n_total,afrac)
- else
-    n_ionT      = 0.0
-    mass_ionT   = 0.0
-    njk         = 0.0
- endif
- n_electron    = n_electronR + n_electronT
- if (warn_verbose) then
-    ! ensure that these two processes are sufficiently decoupled
-    if (warn_ratio_m1*n_electronR < n_electronT .and. n_electronT < warn_ratio_p1*n_electronR) then
-       ierr = ierr + ierr_nedec
-    endif
- endif
- !
- !--Calculate the conductivities
- call nicil_ion_get_sigma(Bfield,rho_gas,n_electron,n_ionR,n_grainR,n_ionT,mass_ionT, &
-                          mass_neutral_mp,T,sigmaOHPpa,mfrac,get_data_out,n_densities,ierr)
- !
- !--Calculate the coefficients
- call nicil_nimhd_get_eta(eta_ohm,eta_hall,eta_ambi,sigmaOHPpa)
- !
- !--Copy optional arrays to output, if requested
- if (present(data_out)) then
-    if (sigmaOHPpa(1) < 0.0) sigmaOHPpa = 0.0                               ! Zero unused conductivities, currently == -1
-    data_out        = 0.0
-    data_out( 1: 3) = sigmaOHPpa(1:3)                                       ! Ohmic, Hall & Pedersen conductivities
-    data_out( 4: 5) = n_densities(1:2)                                      ! rho_neutral, rho_ion (total)
-    data_out(    6) = n_electron
-    data_out( 7:11) = n_densities(3:7)                                      ! n_neutral, n_ionR (light,metallic), n_ionT(singly,doubly)
-    do j = 1,na
-       data_out(12)  = data_out(12) + n_grainR(2*j-1)                       ! negatively charged grains
-       if (use_fdg_in) then
-          data_out(13) = data_out(13) + n_grain_coef(j)*n_gasdust*fdg_local ! total grains
-       else
-          data_out(13) = data_out(13) + n_grain_coef(j)*n_gasdust           ! total grains
-       endif
-       data_out(14)    = data_out(14) + n_grainR(2*j  )                     ! positively  charged grains
-    enddo
-    data_out(13)    = data_out(13) - data_out(12) - data_out(14)            ! convert total grains to neutral grains
-    data_out(15:16) = afrac*n_total                                         ! molecular & atomic hydrogen
-    data_out(17:17+nelements-1) = njk(1,:)                                  ! singly ionised elements
-    data_out(17+nelements:17+nelements*nlevels-3) = njk(2,iHe:nelements)    ! doubly ionised elements
-    if (ion_rays .and. zeta_of_rho) data_out(17+nelements*nlevels-2) = zeta ! density dependent cosmic ray ionisation rate
  endif
  !
 end subroutine nicil_get_eta
@@ -1153,27 +1156,32 @@ end subroutine nicil_get_eta
 !  calculates the condictivities
 !  Terms have been modified such that they require input of sound speed
 !  rather than temperature.
-!  sigmaOHPpa(1): Ohmic conductivity
-!  sigmaOHPpa(2): Hall conductivity
-!  sigmaOHPpa(3): Pedersen conductivity
-!  sigmaOHPpa(4): inverse square of the perpendicular conductivity:
-!                 1.0/(sigmaOHPpa(2)**2+sigmaOHPpa(3)**2)
-!  sigmaOHPpa(5): rearrangement for the coefficient to Ambipolar
-!                 diffusion (see notes in nimhd_get_eta)
+!  sigmas(1): Ohmic conductivity: sigma_O
+!  sigmas(2): Pedersen conductivity: sigma_P
+!  sigmas(3): positive component of Hall conductivity: sigma_H > 0
+!  sigmas(4): negative component of Hall conductivity: sigma_H < 0
+!  sigmas(5): total Hall conductivity: sigma_H
+!  sigmas(6): inverse Ohmic conductivity: 1/sigma_O
+!  sigmas(7): inverse square of the perpendicular conductivity:
+!             1.0/(sigma_P**2 + sigma_H**2)
+!  sigmas(8): rearrangement for the coefficient to Ambipolar:
+!             sigma_O*sigma_P - sigma_P*sigma_P - sigma_H*sigma_H
+!  if sigmas(8) < 0, then sigmas(8) == 0; commented-out code can be used
+!  to calculate this using other methods
 !  The n_densities arrays is for bookkeeping only, and has no real
 !  computational value.
 !+
 !----------------------------------------------------------------------!
 pure subroutine nicil_ion_get_sigma(Bmag,rho_gas,n_electron,n_ionR,n_grainR,n_ionT,mass_ionT, &
-                                    mass_neutral_mp,T,sigmaOHPpa,mfrac,get_data_out,n_densities,ierr)
+                                    mass_neutral_mp,T,sigmas,mfrac,get_data_out,n_densities,ierr)
  integer,intent(inout) :: ierr
- real,   intent(out)   :: sigmaOHPpa(5),n_densities(7)
+ real,   intent(out)   :: sigmas(8),n_densities(7)
  real,   intent(in)    :: Bmag,rho_gas,T,n_electron,mass_neutral_mp
  real,   intent(in)    :: n_ionR(:),n_grainR(:),n_ionT(:),mass_ionT(:),mfrac(2)
  logical,intent(in)    :: get_data_out
  integer               :: j,k,p
  real                  :: sqrtT,logT,sigmavenXH2,sigmavenXH,sigmavenY,sigma_coef_onB
- real                  :: rho_n,rho_i,nu_ei,sigmaHp,sigmaHn,sigmaviTn
+ real                  :: rho_n,rho_i,nu_ei,sigmaviTn
  real                  :: mu_iXH21,mu_iXH1,mu_iY1
  real                  :: sigmaviRntot(nimass),mass_ionT_mp(nlevels)
  real                  :: nu_jn(nspecies_max),ns(nspecies_max),rho_j(nspecies_max)
@@ -1183,7 +1191,7 @@ pure subroutine nicil_ion_get_sigma(Bmag,rho_gas,n_electron,n_ionR,n_grainR,n_io
  sqrtT          = sqrt(T)
  logT           = log10(T)
  sigma_coef_onB = sigma_coef/Bmag
- sigmaOHPpa     = 0.0
+ sigmas         = 0.0
  !
  !--Number densities
  ns               = 0.0
@@ -1219,13 +1227,7 @@ pure subroutine nicil_ion_get_sigma(Bmag,rho_gas,n_electron,n_ionR,n_grainR,n_io
     if (warn_ratio2*rho_i > rho_gas) ierr = ierr + ierr_scN
  endif
  !
- if ( rho_n < 0.0 ) then
-    ! This is the Ideal MHD regieme.  Turn off non-ideal terms.
-    if (warn_verbose) ierr = ierr + ierr_alion
-    sigmaOHPpa  = -1.0
-    rho_n       =  0.0
- else
-    !
+ if ( rho_n > 0.0 ) then
     !--Rate Coefficients; use Langevin rate if high temperature
     sigmavenXH2 = sigmavenX_coef*sqrtT*(0.535 + (0.203 - (0.163 - 0.050*logT)*logT)*logT)
     sigmavenXH  = sigmavenX_coef*sqrtT*(2.841 + (0.093 - (0.245 - 0.089*logT)*logT)*logT)
@@ -1270,10 +1272,10 @@ pure subroutine nicil_ion_get_sigma(Bmag,rho_gas,n_electron,n_ionR,n_grainR,n_io
     !--Hall parameters
     betaj        = 0.0
     beta2p11     = 0.0
-    if (mod_beta) then
-       betaj(ine) = beta_coef(ine) * Bmag/(nu_jn(ine)  + nu_ei)
-    else
+    if (.not. mod_beta) then
        betaj(ine) = beta_coef(ine) * Bmag/nu_jn(ine)
+    else
+       betaj(ine) = beta_coef(ine) * Bmag/(nu_jn(ine)  + nu_ei)
     endif
     betaj(iniHR) = betaIj(beta_coef(iniHR),rho_j(iniHR),rho_j(ine),nu_jn(iniHR),nu_ei,Bmag,ion_rays)
     betaj(iniMR) = betaIj(beta_coef(iniMR),rho_j(iniMR),rho_j(ine),nu_jn(iniMR),nu_ei,Bmag,ion_rays)
@@ -1283,31 +1285,41 @@ pure subroutine nicil_ion_get_sigma(Bmag,rho_gas,n_electron,n_ionR,n_grainR,n_io
     beta2p11     = 1.0/( 1.0+betaj**2 )
     !
     !--Conductivities
-    sigmaHp    = 0.0
-    sigmaHn    = 0.0
     do j = 1,nspecies
-       sigmaOHPpa(1) = sigmaOHPpa(1) + ns(j)*aZj(j)*betaj(j)
-       sigmaOHPpa(3) = sigmaOHPpa(3) + ns(j)*aZj(j)*betaj(j)*beta2p11(j)
+       sigmas(1) =    sigmas(1) + ns(j)*aZj(j)*betaj(j)              ! sigma_O
+       sigmas(2) =    sigmas(2) + ns(j)*aZj(j)*betaj(j)*beta2p11(j)  ! sigma_P
        if (Zj(j) > 0.0) then
-          sigmaHp     = sigmaHp       + ns(j)* Zj(j)         *beta2p11(j)
+          sigmas(3) = sigmas(3) + ns(j)* Zj(j)         *beta2p11(j)  ! sigma_H > 0
        else
-          sigmaHn     = sigmaHn       + ns(j)* Zj(j)         *beta2p11(j)
+          sigmas(4) = sigmas(4) + ns(j)* Zj(j)         *beta2p11(j)  ! sigma_H < 0
        endif
-       do k = j+1,nspecies
-          sigmaOHPpa(5) = sigmaOHPpa(5) + ns(j)*aZj(j)*betaj(j)*beta2p11(j) &
-                                        * ns(k)*aZj(k)*betaj(k)*beta2p11(k) &
-                                        * (sZj(j)*betaj(j) - sZj(k)*betaj(k))**2
-       enddo
     enddo
-    if ( abs(sigmaHp+sigmaHn) > coef_epsilonR*max(sigmaHp,-sigmaHn)) then
-       sigmaOHPpa(2) = sigmaHp + sigmaHn
-    else
+    sigmas(5) = sigmas(3)+sigmas(4)                                  ! sigma_H
+    if ( abs(sigmas(5)) < coef_epsilonR*max(sigmas(3),-sigmas(4))) then
+       sigmas(5) = 0.0                                               ! sigma_H (alternative)
        if (warn_verbose) ierr = ierr + ierr_sigH
     endif
-    sigmaOHPpa(1:3) = sigmaOHPpa(1:3)*sigma_coef_onB
-    sigmaOHPpa(5)   = sigmaOHPpa(  5)*sigma_coef_onB**2
-    sigmaOHPpa(4)   = sigmaOHPpa(2)*sigmaOHPpa(2) + sigmaOHPpa(3)*sigmaOHPpa(3)
-    if ( sigmaOHPpa(4) > 0.0 ) sigmaOHPpa(4) = 1.0/sigmaOHPpa(4)
+    sigmas = sigmas*sigma_coef_onB                                   ! scale sigma
+    if (sigmas(1) > 0.0) sigmas(6) = 1.0/sigmas(1)                   ! 1/sigma_O
+    sigmas(7)   = sigmas(2)*sigmas(2) + sigmas(5)*sigmas(5)          ! perp^2 = P^2 + H^2
+    sigmas(8)   = max(0.0,sigmas(1)*sigmas(2) - sigmas(7))           ! OP - perp^2
+    if ( sigmas(7) > 0.0 ) sigmas(7) = 1.0/sigmas(7)                 ! perp^2 -> 1/perp^2
+    !Note: This will yield sigmas(8) << 1, which will not affect the results, thus has been removed
+    !if ( sigmas(8) < 0.0 ) then
+    !   do j = 1,nspecies
+    !      do k = j+1,nspecies
+    !         sigmas(8) = sigmas(8) + ns(j)*aZj(j)*betaj(j)*beta2p11(j) &
+    !                               * ns(k)*aZj(k)*betaj(k)*beta2p11(k) &
+    !                               * (sZj(j)*betaj(j) - sZj(k)*betaj(k))**2
+    !      enddo
+    !   enddo
+    !   sigmas(8) = sigmas(8)*sigma_coef_onB**2
+    !endif
+ else
+    ! This is the Ideal MHD regime.  Turn off non-ideal terms.
+    if (warn_verbose) ierr = ierr + ierr_alion
+    sigmas = -1.0
+    rho_n  =  0.0
  endif
  !
  !--Number densities (for bookkeeping)
@@ -1334,10 +1346,10 @@ pure real function betaIj(betaj_coef,rhoj,rhoe,nu_jn,nu_ei,Bmag,calc_beta,mass)
  !
  betaIj = 0.0
  if ( calc_beta .and. rhoj > 0.0 .and. nu_jn > 0.0) then
-    if (mod_beta) then
-       betaIj = betaj_coef*Bmag/(nu_jn + nu_ei*rhoe/rhoj)
-    else
+    if (.not.mod_beta) then
        betaIj = betaj_coef*Bmag/ nu_jn
+    else
+       betaIj = betaj_coef*Bmag/(nu_jn + nu_ei*rhoe/rhoj)
     endif
     if (present(mass)) then
        if (mass > 0.0) betaIj = betaIj/mass
@@ -1365,33 +1377,34 @@ pure subroutine nicil_get_ion_n(rho,T,n_R,n_electronT,ierr,fdg_in,f_Bdust_out)
  ierr = 0
  !--Exit if using constant resistivities
  if (eta_constant) return
- !--Exit with error message if T = 0
- if (T <= small) then
+
+ if (T > small) then
+    !--If requesting dust mass density, ensure it has been properly passed
+    if (.not. use_fdg_in) then
+       fdg_local = fdg
+    else
+       if (.not. present(fdg_in)) then
+          ierr = ierr + ierr_fdg_in
+          return
+       endif
+       fdg_local = min(fdg_in,   fdg_max)
+       fdg_local = max(fdg_local,fdg_min)
+    endif
+    if (rho_is_rhogas) then
+       rho_gas = rho
+    else
+       if (.not.use_fdg_in) then
+          rho_gas = rho*one_minus_fdg
+       else
+          rho_gas = rho*(1.0-fdg_local)
+       endif
+    endif
+ else
+    !--Exit with error message if T = 0
     ierr        = ierr + ierr_T
     n_R         = 0.0
     n_electronT = 0.0
     return
- endif
- !
- !--If requesting dust mass density, ensure it has been properly passed
- if (use_fdg_in) then
-    if (.not. present(fdg_in)) then
-       ierr = ierr + ierr_fdg_in
-       return
-    endif
-    fdg_local = min(fdg_in,   fdg_max)
-    fdg_local = max(fdg_local,fdg_min)
- else
-    fdg_local = fdg
- endif
- if (rho_is_rhogas) then
-    rho_gas = rho
- else
-    if (use_fdg_in) then
-       rho_gas = rho*(1.0-fdg_local)
-    else
-       rho_gas = rho*one_minus_fdg
-    endif
  endif
  !
  !--Determine the ratio of H and H2
@@ -1402,10 +1415,10 @@ pure subroutine nicil_get_ion_n(rho,T,n_R,n_electronT,ierr,fdg_in,f_Bdust_out)
  !
  !--Calculate the number densities from cosmic rays
  if (ion_rays) then
-    if (zeta_of_rho) then
-       zeta = zetaCR*exp(-zetaCRcoef*sqrt(T*rho_gas/mass_neutral_mp)) + zetaR
-    else
+    if (.not.zeta_of_rho) then
        zeta = zeta0
+    else
+       zeta = zetaCR*exp(-zetaCRcoef*sqrt(T*rho_gas/mass_neutral_mp)) + zetaR
     endif
     call nicil_fill_nRcomplete(n_R_complete,n_R,n_total)
     n_R_complete = epsilon(n_R_complete(1))
@@ -1520,10 +1533,10 @@ pure subroutine nicil_ionR_get_n(n_R,T,rho_gas,n_total,fdg_local,zeta,n_e_out,f_
  call nicil_ionT_calc_k(T,k_ig,k_eg,k_ei)
  !
  !--Set initial conditions & define the nold array
- if (use_fdg_in) then
-    n_g_tot  = n_grain_coef(1:na)*n_total*fdg_local
- else
+ if (.not.use_fdg_in) then
     n_g_tot  = n_grain_coef(1:na)*n_total
+ else
+    n_g_tot  = n_grain_coef(1:na)*n_total*fdg_local
  endif
  iter       = 0
  iterate    = .true.
@@ -1550,9 +1563,7 @@ pure subroutine nicil_ionR_get_n(n_R,T,rho_gas,n_total,fdg_local,zeta,n_e_out,f_
     call nicil_ionT_calc_Jf(feqni,feqn,Jacob,rho_gas,n_g_tot,n_e,n_i,n_g,k_ig,k_eg,k_ei,zeta)
     ! determine dn by solving Jacob*dn = feqn
     call get_dn_viaLU(dn,feqni,feqn,Jacob,lerr)
-    if (lerr) then
-       iterate = .false.
-    else
+    if (.not.lerr) then
        ! calculate the new number densities
        n_new = n_old - dn
        !
@@ -1583,6 +1594,8 @@ pure subroutine nicil_ionR_get_n(n_R,T,rho_gas,n_total,fdg_local,zeta,n_e_out,f_
        !
        ! Failsafe to prevent an infinite loop
        if (iter > NRctrmax) iterate = .false.
+    else
+       iterate = .false.
     endif
     ! Iterations unsuccessful; take appropriate actions
     if (iter > NRctrmax .or. lerr) then
@@ -2248,26 +2261,20 @@ end subroutine nicil_get_HH2_ratio
 !----------------------------------------------------------------------!
 !+
 !  Calculates the coefficients for the non-ideal MHD terms:
-!    Ohmic Resistivity
-!    Hall effect
-!    Ambipolar diffusion
-!  Note: eta_ambi = csqbyfourpi * sigmaP * sigmaPerp21 - eta_ohm
-!                 = eta_ohm*(sigmaO*sigmaP - sigmaPerp2)*sigmaPerp21
-!                 = eta_ohm*sigma2A*sigmaPerp21
+!    Ohmic Resistivity, Hall effect, Ambipolar diffusion
 !+
 !----------------------------------------------------------------------!
-pure subroutine nicil_nimhd_get_eta(eta_ohm,eta_hall,eta_ambi,sigmaOHPpa)
+pure subroutine nicil_nimhd_get_eta(eta_ohm,eta_hall,eta_ambi,sigmas)
  real, intent(out) :: eta_ohm,eta_hall,eta_ambi
- real, intent(in)  :: sigmaOHPpa(5)
+ real, intent(in)  :: sigmas(8)
  !
  eta_ohm  = 0.0
  eta_hall = 0.0
  eta_ambi = 0.0
- if ( sigmaOHPpa(1) > 0.0 ) then
-    eta_ohm  = csqbyfourpi / sigmaOHPpa(1)
-    if (use_hall) eta_hall = csqbyfourpi * sigmaOHPpa(2) * sigmaOHPpa(4)
-    if (use_ambi) eta_ambi = eta_ohm     * sigmaOHPpa(5) * sigmaOHPpa(4)
-    if (.not. use_ohm ) eta_ohm = 0.0
+ if (sigmas(6) > 0.0) then ! a verification that we have not entered the ideal regime
+    if (use_ohm)  eta_ohm  = csqbyfourpi * sigmas(6)
+    if (use_hall) eta_hall = csqbyfourpi * sigmas(5) * sigmas(7)
+    if (use_ambi) eta_ambi = csqbyfourpi * sigmas(8) * sigmas(6) * sigmas(7)
  endif
  !
 end subroutine nicil_nimhd_get_eta

@@ -35,7 +35,8 @@ module part
           mhd,maxmhd,maxBevol,maxp_h2,nabundances,maxtemp,periodic, &
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
           switches_done_in_derivs,maxp_dustfrac,use_dust, &
-          store_temperature,lightcurve,maxlum,nalpha,maxmhdni,maxne,maxp_growth
+          store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
+          maxne,maxp_growth,ndusttypes
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -58,6 +59,7 @@ module part
 !--storage of dust properties
 !
  real, allocatable :: dustprop(:,:)
+ real, allocatable :: St(:)
  character(len=*), parameter :: dustprop_label(5) = (/'grainsize ','graindens ','   vrel   ','vrel/vfrag','    dv    '/)
 !
 !--storage in divcurlv
@@ -102,6 +104,8 @@ module part
  real, allocatable :: dustfrac(:)
  real, allocatable :: dustevol(:)
  real, allocatable :: deltav(:,:)
+ character(len=*), parameter :: dustfrac_label(ndusttypes) = 'dustfrac'
+ character(len=*), parameter :: tstop_label(ndusttypes) = 'tstop'
  character(len=*), parameter :: deltav_label(3) = &
    (/'deltavx','deltavy','deltavz'/)
 !
@@ -214,11 +218,11 @@ module part
    +(maxmhd/maxpd)*maxBevol             &  ! Bpred
    +maxphase/maxpd                      &  ! iphase
 #ifdef DUST
-   +1                                   &  ! dustfrac
-   +1                                   &  ! dustevol
+   +ndusttypes                          &  ! dustfrac
+   +ndusttypes                          &  ! dustevol
 #ifdef DUSTGROWTH
-   +1                                                                        &  ! dustproppred
-   +1                                                                        &  ! ddustprop
+   +1                                   &  ! dustproppred
+   +1                                   &  ! ddustprop
 #endif
 #endif
    +(maxp_h2/maxpd)*nabundances         &  ! abundance
@@ -619,8 +623,8 @@ subroutine copy_particle(src, dst)
  twas(dst)       = twas(src)
 #endif
  if (use_dust) then
-    dustfrac(dst) = dustfrac(src)
-    dustevol(dst) = dustevol(src)
+    dustfrac(:,dst) = dustfrac(:,src)
+    dustevol(:,dst) = dustevol(:,src)
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
  if (store_temperature) temperature(dst) = temperature(src)
@@ -672,11 +676,11 @@ subroutine copy_particle_all(src,dst)
  twas(dst)       = twas(src)
 #endif
  if (use_dust) then
-    dustfrac(dst)  = dustfrac(src)
-    dustevol(dst)  = dustevol(src)
-    dustpred(dst)  = dustpred(src)
-    ddustfrac(dst) = ddustfrac(src)
-    deltav(:,dst)  = deltav(:,src)
+    dustfrac(:,dst)  = dustfrac(:,src)
+    dustevol(:,dst)  = dustevol(:,src)
+    dustpred(:,dst)  = dustpred(:,src)
+    ddustfrac(:,dst) = ddustfrac(:,src)
+    deltav(:,:,dst)  = deltav(:,:,src)
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
  if (store_temperature) temperature(dst) = temperature(src)
@@ -866,8 +870,8 @@ subroutine fill_sendbuf(i,xtemp)
        call fill_buffer(xtemp,iphase(i),nbuf)
     endif
     if (use_dust) then
-       call fill_buffer(xtemp, dustfrac(i),nbuf)
-       call fill_buffer(xtemp, dustevol(i),nbuf)
+       call fill_buffer(xtemp, dustfrac(:,i),nbuf)
+       call fill_buffer(xtemp, dustevol(:,i),nbuf)
     endif
     if (maxp_h2==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)
@@ -926,8 +930,8 @@ subroutine unfill_buffer(ipart,xbuf)
     iphase(ipart)       = nint(unfill_buf(xbuf,j),kind=1)
  endif
  if (use_dust) then
-    dustfrac(ipart)     = unfill_buf(xbuf,j)
-    dustevol(ipart)     = unfill_buf(xbuf,j)
+    dustfrac(:,ipart)   = unfill_buf(xbuf,j,ndusttypes)
+    dustevol(:,ipart)   = unfill_buf(xbuf,j,ndusttypes)
  endif
  if (maxp_h2==maxp) then
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
