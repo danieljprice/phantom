@@ -1,10 +1,179 @@
 module memory
-   use io,  only:fatal
+   use io,  only:fatal,iprint
  implicit none
 
  public :: allocate_memory
 
+ real :: nbytes_allocated
+
+ interface allocate_array
+    module procedure &
+      allocate_array_real8_1d, &
+      allocate_array_real8_2d, &
+      allocate_array_real4_1d, &
+      allocate_array_real4_2d, &
+      allocate_array_integer4_1d, &
+      allocate_array_integer4_2d, &
+      allocate_array_integer1_1d, &
+      allocate_array_integer1_2d
+ end interface
+
 contains
+
+ subroutine allocate_array_real8_1d(name, x, n1)
+    character(*),                intent(in)     :: name
+    real(kind=8), allocatable,   intent(inout)  :: x(:)
+    integer,                     intent(in)     :: n1
+    integer                                     :: allocstat
+
+    allocate(x(n1), stat = allocstat)
+    call check_allocate(name, allocstat)
+    call print_allocation_stats(name, (/n1/), 'real(4)')
+ end subroutine allocate_array_real8_1d
+
+ subroutine allocate_array_real8_2d(name, x, n1, n2)
+    character(len=*),            intent(in)     :: name
+    real(kind=8), allocatable,   intent(inout)  :: x(:, :)
+    integer,                     intent(in)     :: n1, n2
+    integer                                     :: allocstat
+
+    allocate(x(n1, n2), stat = allocstat)
+    call check_allocate(name, allocstat)
+    call print_allocation_stats(name, (/n1, n2/), 'real(8)')
+ end subroutine allocate_array_real8_2d
+
+ subroutine allocate_array_real4_1d(name, x, n1)
+    character(len=*),            intent(in)     :: name
+    real(kind=4), allocatable,   intent(inout)  :: x(:)
+    integer,                     intent(in)     :: n1
+    integer                                     :: allocstat
+
+    allocate(x(n1), stat = allocstat)
+    call check_allocate(name, allocstat)
+    call print_allocation_stats(name, (/n1/), 'real(4)')
+ end subroutine allocate_array_real4_1d
+
+ subroutine allocate_array_real4_2d(name, x, n1, n2)
+    character(len=*),            intent(in)     :: name
+    real(kind=4), allocatable,   intent(inout)  :: x(:, :)
+    integer,                     intent(in)     :: n1, n2
+    integer                                     :: allocstat
+
+    allocate(x(n1, n2), stat = allocstat)
+    call check_allocate(name, allocstat)
+    call print_allocation_stats(name, (/n1, n2/), 'real(4)')
+ end subroutine allocate_array_real4_2d
+
+ subroutine allocate_array_integer4_1d(name, x, n1)
+    character(len=*),               intent(in)     :: name
+    integer(kind=4), allocatable,   intent(inout)  :: x(:)
+    integer,                        intent(in)     :: n1
+    integer                                        :: allocstat
+
+    allocate(x(n1), stat = allocstat)
+    call check_allocate(name, allocstat)
+    call print_allocation_stats(name, (/n1/), 'integer(4)')
+ end subroutine allocate_array_integer4_1d
+
+ subroutine allocate_array_integer4_2d(name, x, n1, n2)
+    character(len=*),               intent(in)     :: name
+    integer(kind=4), allocatable,   intent(inout)  :: x(:, :)
+    integer,                        intent(in)     :: n1, n2
+    integer                                        :: allocstat
+
+    allocate(x(n1, n2), stat = allocstat)
+    call check_allocate(name, allocstat)
+    call print_allocation_stats(name, (/n1, n2/), 'integer(4)')
+ end subroutine allocate_array_integer4_2d
+
+ subroutine allocate_array_integer1_1d(name, x, n1)
+    character(len=*),               intent(in)     :: name
+    integer(kind=1), allocatable,   intent(inout)  :: x(:)
+    integer,                        intent(in)     :: n1
+    integer                                        :: allocstat
+
+    allocate(x(n1), stat = allocstat)
+    call check_allocate(name, allocstat)
+    call print_allocation_stats(name, (/n1/), 'integer(1)')
+ end subroutine allocate_array_integer1_1d
+
+ subroutine allocate_array_integer1_2d(name, x, n1, n2)
+    character(len=*),               intent(in)     :: name
+    integer(kind=1), allocatable,   intent(inout)  :: x(:, :)
+    integer,                        intent(in)     :: n1, n2
+    integer                                        :: allocstat
+
+    allocate(x(n1, n2), stat = allocstat)
+    call check_allocate(name, allocstat)
+    call print_allocation_stats(name, (/n1, n2/), 'integer(1)')
+ end subroutine allocate_array_integer1_2d
+
+ subroutine check_allocate(name, allocstat)
+    character(len=*),   intent(in) :: name
+    integer,            intent(in) :: allocstat
+
+    if (allocstat /= 0) call fatal('memory', name // ' allocation error')
+ end subroutine check_allocate
+
+ subroutine print_allocation_stats(name, xdim, type)
+    character(len=*),   intent(in) :: name
+    integer,            intent(in) :: xdim(:)
+    character(len=*),   intent(in) :: type
+    character(len=10)              :: number
+    character(len=14)              :: dimstring
+    character(len=10)               :: sizestring
+    integer                        :: i
+    real                           :: nbytes
+    integer                        :: databytes
+
+    if (type == 'real(8)') then
+       databytes = 8
+    else if (type == 'real(4)') then
+       databytes = 4
+    else if (type == 'integer(4)') then
+       databytes = 4
+    else if (type == 'integer(1)') then
+       databytes = 1
+    endif
+
+    nbytes = real(databytes)
+
+    dimstring = '('
+    do i = 1, size(xdim)
+      ! Calculate size of array
+      nbytes = nbytes * real(xdim(i))
+
+      ! Make pretty string
+       write(number, '(i0)') xdim(i)
+       dimstring = trim(dimstring) // number
+       if (i < size(xdim)) then
+          dimstring = trim(dimstring) // ':'
+       endif
+    enddo
+    dimstring = trim(dimstring) // ')'
+
+    nbytes_allocated = nbytes_allocated + nbytes
+
+    call bytes2human(nbytes, sizestring)
+
+    write(iprint, '(a10, a22, a14, a10)') type, name, dimstring, sizestring
+ end subroutine print_allocation_stats
+
+subroutine bytes2human(bytes, sizestring)
+   real,                intent(in)  :: bytes
+   character(len=10),   intent(out) :: sizestring
+
+   if (bytes > 1073741824.0) then
+      write(sizestring, '(f7.3, a3)') bytes / 1073741824.0, ' GB'
+   else if (bytes > 1048576.0) then
+      write(sizestring, '(f7.3, a3)') bytes / 1048576.0, ' MB'
+   else if (bytes > 1024.0) then
+      write(sizestring, '(f7.3, a3)') bytes / 1024.0, ' KB'
+   else
+      write(sizestring, '(f7.3, a3)') bytes, ' B '
+   endif
+end subroutine bytes2human
+
 
 subroutine allocate_memory
  use dim,   only:maxp
@@ -120,141 +289,65 @@ subroutine allocate_memory
  integer, parameter :: maxphase = maxan
  integer, parameter :: maxgradh = maxan
 
- integer :: allocstat
+ character(len=10) :: sizestring
 
- allocate(xyzh(4, maxp), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','xyzh allocation error')
+ write(iprint, *)
+ write(iprint, '(a)') '--> ALLOCATING ARRAYS'
+ write(iprint, '(a)') '--------------------------------------------------------'
 
- allocate(xyzh_soa(maxp, 4), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','xyzh_soa allocation error')
+ nbytes_allocated = 0.0
 
- allocate(vxyzu(maxvxyzu,maxp), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','vxyzu allocation error')
-
- allocate(alphaind(nalpha,maxalpha), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','alphaind allocation error')
-
- allocate(divcurlv(ndivcurlv,maxp), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','divcurlv allocation error')
-
- allocate(divcurlB(ndivcurlB,maxp), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','divcurlB allocation error')
-
- allocate(Bevol(maxBevol,maxmhd), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','Bevol allocation error')
-
- allocate(Bxyz(3,maxmhd), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','Bxyz allocation error')
-
- allocate(dustprop(5,maxp_growth), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','dustprop allocation error')
-
- allocate(straintensor(6,maxstrain), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','straintensor allocation error')
-
- allocate(abundance(nabundances,maxp_h2), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','abundance allocation error')
-
- allocate(temperature(maxtemp), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','temperature allocation error')
-
- allocate(dustfrac(maxp_dustfrac), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','dustfrac allocation error')
-
- allocate(dustevol(maxp_dustfrac), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','dustevol allocation error')
-
- allocate(deltav(3,maxp_dustfrac), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','deltav allocation error')
-
- allocate(xyzmh_ptmass(nsinkproperties,maxptmass), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','xyzmh_ptmass allocation error')
-
- allocate(vxyz_ptmass(3,maxptmass), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','xyzmh_ptmass allocation error')
-
- allocate(fxyz_ptmass(4,maxptmass), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','fxyz_ptmass allocation error')
-
- allocate(fxyz_ptmass_sinksink(4,maxptmass), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','fxyz_ptmass_sinksink allocation error')
-
- allocate(poten(maxgrav), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','poten allocation error')
-
- allocate(n_R(4,maxmhdni), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','n_R allocation error')
-
- allocate(n_electronT(maxne), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','maxne allocation error')
-
- allocate(eta_nimhd(4,maxmhdni), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','eta_nimhd allocation error')
-
- allocate(luminosity(maxlum), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','luminosity allocation error')
-
- allocate(fxyzu(maxvxyzu,maxan), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','fxyzu allocation error')
-
- allocate(dBevol(maxBevol,maxmhdan), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','dBevol allocation error')
-
- allocate(divBsymm(maxmhdan), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','divBsymm allocation error')
-
- allocate(fext(3,maxan), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','fext allocation error')
-
- allocate(ddustfrac(maxdustan), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','ddustfrac allocation error')
-
- allocate(ddustprop(5,maxp_growth), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','ddustprop allocation error')
-
- allocate(vpred(maxvxyzu,maxan), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','vpred allocation error')
-
- allocate(dustpred(maxdustan), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','dustpred allocation error')
-
- allocate(Bpred(maxBevol,maxmhdan), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','Bpred allocation error')
-
- allocate(dustproppred(5,maxp_growth), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','dustproppred allocation error')
-
+ call allocate_array('xyzh', xyzh, 4, maxp)
+ call allocate_array('xyzh_soa', xyzh_soa, maxp, 4)
+ call allocate_array('vxyzu', vxyzu, maxvxyzu, maxp)
+ call allocate_array('alphaind', alphaind, nalpha, maxalpha)
+ call allocate_array('divcurlv', divcurlv, ndivcurlv, maxp)
+ call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
+ call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
+ call allocate_array('Bxyz', Bxyz, 3, maxmhd)
+ call allocate_array('dustprop', dustprop, 5, maxp_growth)
+ call allocate_array('straintensor', straintensor, 6, maxstrain)
+ call allocate_array('abundance', abundance, nabundances, maxp_h2)
+ call allocate_array('temperature', temperature, maxtemp)
+ call allocate_array('dustfrac', dustfrac, maxp_dustfrac)
+ call allocate_array('dustevol', dustevol, maxp_dustfrac)
+ call allocate_array('deltav', deltav, 3, maxp_dustfrac)
+ call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
+ call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
+ call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
+ call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
+ call allocate_array('poten', poten, maxgrav)
+ call allocate_array('n_R', n_R, 4, maxmhdni)
+ call allocate_array('n_electronT', n_electronT, maxne)
+ call allocate_array('eta_nimhd', eta_nimhd, 4, maxmhdni)
+ call allocate_array('luminosity', luminosity, maxlum)
+ call allocate_array('fxyzu', fxyzu, maxvxyzu, maxan)
+ call allocate_array('dBevol', dBevol, maxBevol, maxmhdan)
+ call allocate_array('divBsumm', divBsymm, maxmhdan)
+ call allocate_array('fext', fext, 3, maxan)
+ call allocate_array('ddustfrac', ddustfrac, maxdustan)
+ call allocate_array('ddustprop', ddustprop, 5, maxp_growth)
+ call allocate_array('vpred', vpred, maxvxyzu, maxan)
+ call allocate_array('dustpred', dustpred, maxdustan)
+ call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
+ call allocate_array('dustproppred', dustproppred, 5, maxp_growth)
 #ifdef IND_TIMESTEPS
- allocate(ibin(maxan), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','ibin allocation error')
-
- allocate(ibin_old(maxan), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','ibin_old allocation error')
-
- allocate(ibin_wake(maxan), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','ibin_wake allocation error')
-
- allocate(dt_in(maxan), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','dt_in allocation error')
-
- allocate(twas(maxan), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','twas allocation error')
+ call allocate_array('ibin', ibin, maxan)
+ call allocate_array('ibin_old', ibin_old, maxan)
+ call allocate_array('ibin_wake', ibin_wake, maxan)
+ call allocate_array('dt_in', dt_in, maxan)
+ call allocate_array('twas', twas, maxan)
 #endif
+ call allocate_array('iphase', iphase, maxphase)
+ call allocate_array('iphase_soa', iphase_soa, maxphase)
+ call allocate_array('gradh', gradh, ngradh, maxgradh)
+ call allocate_array('tstop', tstop, maxan)
+ call allocate_array('ll', ll, maxan)
 
- allocate(iphase(maxphase), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','iphase allocation error')
-
- allocate(iphase_soa(maxphase), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','iphase_soa allocation error')
-
- allocate(gradh(ngradh,maxgradh), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','gradh allocation error')
-
- allocate(tstop(maxan), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','tstop allocation error')
-
- allocate(ll(maxan), stat = allocstat)
- if (allocstat /= 0) call fatal('memory','ll allocation error')
+ call bytes2human(nbytes_allocated, sizestring)
+ write(iprint, '(a)') '--------------------------------------------------------'
+ write(iprint, *) 'Total memory allocated to arrays: ', sizestring
+ write(iprint, '(a)') '--------------------------------------------------------'
 
 end subroutine allocate_memory
 
