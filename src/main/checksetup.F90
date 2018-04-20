@@ -412,20 +412,18 @@ end function in_range
 
 subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use dim,  only:maxptmass
- use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft
+ use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr
  integer, intent(inout) :: nerror,nwarn
  real,    intent(in)    :: hmin
  integer :: i,j,n
  real :: dx(3)
  real :: r,hsink
 
-#ifdef GR
- if (nptmass > 0) then
+ if (gr .and. nptmass > 0) then
     print*,' Warning! Error in setup: nptmass = ',nptmass, ' should be = 0 for GR'
     nwarn = nwarn + 1
     return
  endif
-#endif
 
  if (nptmass < 0) then
     print*,' Error in setup: nptmass = ',nptmass, ' should be >= 0 '
