@@ -260,7 +260,7 @@ subroutine allocate_memory
  use dim,   only:maxtemp
  use part,  only:temperature
 
- use dim,   only:maxp_dustfrac
+ use dim,   only:maxp_dustfrac,ndusttypes
  use part,  only:dustfrac,dustevol,deltav
 
  use dim,   only:nsinkproperties,maxptmass
@@ -360,9 +360,9 @@ subroutine allocate_memory
  call allocate_array('straintensor', straintensor, 6, maxstrain)
  call allocate_array('abundance', abundance, nabundances, maxp_h2)
  call allocate_array('temperature', temperature, maxtemp)
- call allocate_array('dustfrac', dustfrac, maxp_dustfrac)
- call allocate_array('dustevol', dustevol, maxp_dustfrac)
- call allocate_array('deltav', deltav, 3, maxp_dustfrac)
+ call allocate_array('dustfrac', dustfrac, ndusttypes, maxp_dustfrac)
+ call allocate_array('dustevol', dustevol,ndusttypes, maxp_dustfrac)
+ call allocate_array('deltav', deltav, 3, ndusttypes, maxp_dustfrac)
  call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
  call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
@@ -376,10 +376,10 @@ subroutine allocate_memory
  call allocate_array('dBevol', dBevol, maxBevol, maxmhdan)
  call allocate_array('divBsumm', divBsymm, maxmhdan)
  call allocate_array('fext', fext, 3, maxan)
- call allocate_array('ddustfrac', ddustfrac, maxdustan)
+ call allocate_array('ddustfrac', ddustfrac, ndusttypes, maxdustan)
  call allocate_array('ddustprop', ddustprop, 5, maxp_growth)
  call allocate_array('vpred', vpred, maxvxyzu, maxan)
- call allocate_array('dustpred', dustpred, maxdustan)
+ call allocate_array('dustpred', dustpred, ndusttypes, maxdustan)
  call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
  call allocate_array('dustproppred', dustproppred, 5, maxp_growth)
 #ifdef IND_TIMESTEPS
@@ -392,7 +392,7 @@ subroutine allocate_memory
  call allocate_array('iphase', iphase, maxphase)
  call allocate_array('iphase_soa', iphase_soa, maxphase)
  call allocate_array('gradh', gradh, ngradh, maxgradh)
- call allocate_array('tstop', tstop, maxan)
+ call allocate_array('tstop', tstop, ndusttypes, maxan)
  call allocate_array('ll', ll, maxan)
 
  call bytes2human(nbytes_allocated, sizestring)

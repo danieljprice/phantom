@@ -101,9 +101,9 @@ module part
 !
 !--one-fluid dust (small grains)
 !
- real, allocatable :: dustfrac(:)
- real, allocatable :: dustevol(:)
- real, allocatable :: deltav(:,:)
+ real, allocatable :: dustfrac(:,:)
+ real, allocatable :: dustevol(:,:)
+ real, allocatable :: deltav(:,:,:)
  character(len=*), parameter :: dustfrac_label(ndusttypes) = 'dustfrac'
  character(len=*), parameter :: tstop_label(ndusttypes) = 'tstop'
  character(len=*), parameter :: deltav_label(3) = &
@@ -168,13 +168,13 @@ module part
  real, allocatable         :: dBevol(:,:)
  real(kind=4), allocatable :: divBsymm(:)
  real, allocatable         :: fext(:,:)
- real, allocatable         :: ddustfrac(:)
+ real, allocatable         :: ddustfrac(:,:)
  real, allocatable         :: ddustprop(:,:) !--grainsize is the only prop that evolves for now
 !
 !--storage associated with/dependent on timestepping
 !
  real, allocatable   :: vpred(:,:)
- real, allocatable   :: dustpred(:)
+ real, allocatable   :: dustpred(:,:)
  real, allocatable   :: Bpred(:,:)
  real, allocatable   :: dustproppred(:,:)
 #ifdef IND_TIMESTEPS
@@ -193,7 +193,7 @@ module part
  logical, public    :: all_active = .true.
 
  real(kind=4), allocatable :: gradh(:,:)
- real, allocatable         :: tstop(:)
+ real, allocatable         :: tstop(:,:)
 !
 !--storage associated with link list
 !  (used for dead particle list also)
