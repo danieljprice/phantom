@@ -23,7 +23,7 @@
 !+
 !--------------------------------------------------------------------------
 program phantomsetup
- use memory,          only:allocate_memory
+ use memory,          only:allocate_memory, deallocate_memory
  use dim,             only:tagline,maxp,maxvxyzu,maxalpha,maxgrav,&
                            ndivcurlv,ndivcurlB
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
@@ -219,5 +219,7 @@ program phantomsetup
  enddo
 
  call finalise_mpi()
+
+ call deallocate_memory
 
 end program phantomsetup

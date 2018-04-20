@@ -1,8 +1,107 @@
 module memory
-   use io,  only:fatal,iprint
+use io,  only:fatal,iprint
+
+use dim,   only:maxp
+
+use part,  only:xyzh
+use part,  only:xyzh_soa
+
+use dim,   only:maxvxyzu
+use part,  only:vxyzu
+
+use dim,   only:nalpha, maxalpha
+use part,  only:alphaind
+
+use dim,   only:ndivcurlv
+use part,  only:divcurlv
+
+use dim,   only:ndivcurlB
+use part,  only:divcurlB
+
+use dim,   only:maxBevol,maxmhd
+use part,  only:Bevol
+
+use part,  only:Bxyz
+
+use dim,   only:maxp_growth
+use part,  only:dustprop
+
+use part,  only:St
+
+use dim,   only:maxstrain
+use part,  only:straintensor
+
+use dim,   only:nabundances,maxp_h2
+use part,  only:abundance
+
+use dim,   only:maxtemp
+use part,  only:temperature
+
+use dim,   only:maxp_dustfrac,ndusttypes
+use part,  only:dustfrac,dustevol,deltav
+
+use dim,   only:nsinkproperties,maxptmass
+use part,  only:xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink
+
+use dim,   only:maxgrav
+use part,  only:poten
+
+use dim,   only:maxmhdni
+use part,  only:n_R
+
+use dim,   only:maxne
+use part,  only:n_electronT
+
+use part,  only:eta_nimhd
+
+use dim,   only:maxlum
+use part,  only:luminosity
+
+use part,  only:fxyzu
+
+use part,  only:dBevol
+
+use part, only:divBsymm
+
+use part, only:fext
+
+use part, only:ddustfrac
+
+use part, only:ddustprop
+
+use part, only:vpred
+
+use part, only:dustpred
+
+use part, only:Bpred
+
+use part, only:dustproppred
+
+#ifdef IND_TIMESTEPS
+use part, only:ibin
+
+use part, only:ibin_old
+
+use part, only:ibin_wake
+
+use part, only:dt_in
+
+use part, only:twas
+#endif
+
+use part, only:iphase, iphase_soa
+
+use dim,  only:ngradh
+use part, only:gradh
+
+use part, only:tstop
+
+use part, only:ll
+
  implicit none
 
  public :: allocate_memory
+ public :: deallocate_memory
 
  real :: nbytes_allocated
 
@@ -222,105 +321,7 @@ subroutine bytes2human(bytes, sizestring)
    endif
 end subroutine bytes2human
 
-
 subroutine allocate_memory
- use dim,   only:maxp
-
- use part,  only:xyzh
- use part,  only:xyzh_soa
-
- use dim,   only:maxvxyzu
- use part,  only:vxyzu
-
- use dim,   only:nalpha, maxalpha
- use part,  only:alphaind
-
- use dim,   only:ndivcurlv
- use part,  only:divcurlv
-
- use dim,   only:ndivcurlB
- use part,  only:divcurlB
-
- use dim,   only:maxBevol,maxmhd
- use part,  only:Bevol
-
- use part,  only:Bxyz
-
- use dim,   only:maxp_growth
- use part,  only:dustprop
-
- use part,  only:St
-
- use dim,   only:maxstrain
- use part,  only:straintensor
-
- use dim,   only:nabundances,maxp_h2
- use part,  only:abundance
-
- use dim,   only:maxtemp
- use part,  only:temperature
-
- use dim,   only:maxp_dustfrac,ndusttypes
- use part,  only:dustfrac,dustevol,deltav
-
- use dim,   only:nsinkproperties,maxptmass
- use part,  only:xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink
-
- use dim,   only:maxgrav
- use part,  only:poten
-
- use dim,   only:maxmhdni
- use part,  only:n_R
-
- use dim,   only:maxne
- use part,  only:n_electronT
-
- use part,  only:eta_nimhd
-
- use dim,   only:maxlum
- use part,  only:luminosity
-
- use part,  only:fxyzu
-
- use part,  only:dBevol
-
- use part, only:divBsymm
-
- use part, only:fext
-
- use part, only:ddustfrac
-
- use part, only:ddustprop
-
- use part, only:vpred
-
- use part, only:dustpred
-
- use part, only:Bpred
-
- use part, only:dustproppred
-
-#ifdef IND_TIMESTEPS
- use part, only:ibin
-
- use part, only:ibin_old
-
- use part, only:ibin_wake
-
- use part, only:dt_in
-
- use part, only:twas
-#endif
-
- use part, only:iphase, iphase_soa
-
- use dim,  only:ngradh
- use part, only:gradh
-
- use part, only:tstop
-
- use part, only:ll
-
  !
  !--for analysis routines, do not allocate any more storage
  !  than is strictly necessary. This will eventually be deprecated by the
@@ -401,5 +402,56 @@ subroutine allocate_memory
  write(iprint, '(a)') '--------------------------------------------------------'
 
 end subroutine allocate_memory
+
+subroutine deallocate_memory
+deallocate(xyzh)
+deallocate(xyzh_soa)
+deallocate(vxyzu)
+deallocate(alphaind)
+deallocate(divcurlv)
+deallocate(divcurlB)
+deallocate(Bevol)
+deallocate(Bxyz)
+deallocate(dustprop)
+deallocate(St)
+deallocate(straintensor)
+deallocate(abundance)
+deallocate(temperature)
+deallocate(dustfrac)
+deallocate(dustevol)
+deallocate(deltav)
+deallocate(xyzmh_ptmass)
+deallocate(vxyz_ptmass)
+deallocate(fxyz_ptmass)
+deallocate(fxyz_ptmass_sinksink)
+deallocate(poten)
+deallocate(n_R)
+deallocate(n_electronT)
+deallocate(eta_nimhd)
+deallocate(luminosity)
+deallocate(fxyzu)
+deallocate(dBevol)
+deallocate(divBsymm)
+deallocate(fext)
+deallocate(ddustfrac)
+deallocate(ddustprop)
+deallocate(vpred)
+deallocate(dustpred)
+deallocate(Bpred)
+deallocate(dustproppred)
+#ifdef IND_TIMESTEPS
+deallocate(ibin)
+deallocate(ibin_old)
+deallocate(ibin_wake)
+deallocate(dt_in)
+deallocate(twas)
+#endif
+deallocate(iphase)
+deallocate(iphase_soa)
+deallocate(gradh)
+deallocate(tstop)
+deallocate(ll)
+
+end subroutine deallocate_memory
 
 end module memory
