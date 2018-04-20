@@ -38,7 +38,7 @@ contains
 subroutine check_compile_time_settings(ierr)
  use part,  only:mhd,maxBevol,gravity,ngradh,h2chemistry,maxvxyzu,use_dust,gr
  use dim,   only:use_dustgrowth
- use io,    only:error,id,master,fatal
+ use io,    only:error,id,master,fatal,warning
  use dim,   only:maxsts,maxstrain
 #ifdef GR
  use metric_tools, only:icoordinate,icoord_cartesian
@@ -112,8 +112,7 @@ subroutine check_compile_time_settings(ierr)
     ierr = 7
  endif
  if (gravity) then
-    call error(string,'General relativity not compatible with self gravity.')
-    ierr = 7
+    call warning(string,'You are using SELF GRAVITY in GENERAL RELATIVITY. Proceed with caution...!')
  endif
  if (h2chemistry) then
     call error(string,'General relativity not compatible with chemistry.')
