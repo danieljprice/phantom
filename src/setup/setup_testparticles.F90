@@ -25,6 +25,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,        only:solarm
 #ifdef GR
  use externalforces, only:iext_gr
+ use metric,         only:a
 #else
  use externalforces, only:iext_star
 #endif
@@ -32,6 +33,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,        only:pi
  use prompting,      only:prompt
  use vectorutils,    only:cross_product3D
+ use part,           only:gr
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -42,7 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  integer :: i,dumpsperorbit,orbtype
- real    :: x0,y0,z0,vx0,vy0,vz0,dr,h0,xyz0(3),rhat(3),r2,vcirc,rtan(3),norbits,period,r0,fac
+ real    :: x0,y0,z0,vx0,vy0,vz0,dr,h0,xyz0(3),rhat(3),r2,vcirc,rtan(3),norbits,period,r0,fac,r,omega,spin
 
  call set_units(mass=solarm,G=1.d0,c=1.d0)
 
@@ -62,12 +64,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  massoftype     = 1.e-10
  npartoftype(:) = 0
  npartoftype(1) = npart
-
-#ifdef GR
- iexternalforce = iext_gr
-#else
- iexternalforce = iext_star
-#endif
+ spin = 0.
 
  xyzh  = 0.
  vxyzu = 0.
@@ -84,14 +81,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dumpsperorbit = 100
  period        = 0.
 
+ if (gr) call prompt('black hole spin',spin,-1.,1.)
  call prompt('select orbit type (1=cirlce, 2=precession, 3=epicycle, 4=vertical-oscillation, 0=custom)',orbtype,0,4)
  select case(orbtype)
 
  case(1) ! circular
-    x0  = 10.
-    call prompt('initial radius r0',x0)
-    vy0 = sqrt(1./x0)
-    period = 2.*pi*sqrt(x0**3/1.)
+    r  = 10.
+    call prompt('initial radius r in spherical (this is not that same as radius (x0,0,0) in Cartesian)',r)
+    omega = 1./(r**(1.5)+spin)
+    x0 = sqrt(r**2 + spin**2)
+    vy0 = x0*omega
+    period = 2.*pi/omega
 
  case(2) ! precession
     x0     = 90.
@@ -99,19 +99,23 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     period = 2.*pi*sqrt((0.5*x0)**3/1.) ! approximate
 
  case(3) ! epicycle
-    x0  = 10.
+    r  = 10.
+    call prompt('initial radius r in spherical (this is not that same as radius (x0,0,0) in Cartesian)',r)
+    omega = 1./(r**(1.5)+spin)
+    x0 = sqrt(r**2 + spin**2)
     fac = 1.00001
-    call prompt('initial radius r0',x0)
-    vy0 = fac*sqrt(1./x0)
-    period = 2.*pi*sqrt(x0**3/1.)
+    vy0 = fac*x0*omega
+    period = 2.*pi/omega
 
  case(4) ! vertical oscillation
-    x0  = 10.
+    r  = 10.
+    call prompt('initial radius r in spherical (this is not that same as radius (x0,0,0) in Cartesian)',r)
+    omega = 1./(r**(1.5)+spin)
+    x0 = sqrt(r**2 + spin**2)
+    vy0 = x0*omega
+    period = 2.*pi/omega
     fac = 1.00001
     z0  = fac-1.
-    call prompt('initial radius r0',x0)
-    vy0 = sqrt(1./x0)
-    period = 2.*pi*sqrt(x0**3/1.)
 
  case(0) ! custom : if you just press enter a lot it gives you a circular orbit
     x0  = 10.
@@ -165,6 +169,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vcirc = sqrt(1./sqrt(r2))
     vxyzu(1:3,i) = rtan*vcirc
  enddo
+
+#ifdef GR
+ iexternalforce = iext_gr
+ a              = spin
+#else
+ iexternalforce = iext_star
+#endif
 
 end subroutine setpart
 
