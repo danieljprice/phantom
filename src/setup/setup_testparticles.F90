@@ -44,7 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  integer :: i,dumpsperorbit,orbtype
- real    :: x0,y0,z0,vx0,vy0,vz0,dr,h0,xyz0(3),rhat(3),r2,vcirc,rtan(3),norbits,period,r0,fac,r,omega,spin
+ real    :: x0,y0,z0,vx0,vy0,vz0,dr,h0,xyz0(3),rhat(3),r2,vcirc,rtan(3),norbits,period,r0,fac,r,omega,spin,rkerr,z
 
  call set_units(mass=solarm,G=1.d0,c=1.d0)
 
@@ -152,9 +152,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !
  ! Put all other particles in a radial line outwards from the origin, with their circular velocity,
- ! set smoothing lengths, and set thermal energies
+ ! but only in the x-y plane. Also set smoothing lengths, and thermal energies.
  !
- xyz0          = xyzh(1:3,1)
+ xyz0          = (/xyzh(1,1),xyzh(2,1),0./)
  r0            = sqrt(dot_product(xyz0,xyz0))
  rhat          = xyz0/r0
  dr            = 0.25
@@ -163,10 +163,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(4,:)    = 0.
  do i=2,npart
     xyzh(1:3,i) = xyz0 + (i-1)*dr*rhat
-    call cross_product3D((/0.,0.,1./),xyzh(1:3,i),rtan)          ! Unit vector tangential to motion
-    rtan  = rtan/sqrt(dot_product(rtan,rtan))
+    call cross_product3D((/0.,0.,1./),xyzh(1:3,i),rtan)          ! Vector tangential to motion
+    rtan  = rtan/sqrt(dot_product(rtan,rtan))                    ! Unit vector tangential to motion
     r2    = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
-    vcirc = sqrt(1./sqrt(r2))
+    z     = xyzh(3,i)
+    rkerr = sqrt((r2-spin**2)/2. + sqrt((r2-spin**2)**2 + 4.*spin**2*z**2)/2.)
+    omega = 1./(rkerr**(1.5)+spin)
+    x0    = sqrt(rkerr**2 + spin**2)
+    vcirc = x0*omega
     vxyzu(1:3,i) = rtan*vcirc
  enddo
 
