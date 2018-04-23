@@ -502,10 +502,10 @@ ifeq ($(SETUP), gr_testparticles)
     SETUPFILE= setup_testparticles.f90
     DOUBLEPRECISION=yes
     GR=yes
-    METRIC=schwarzschild
+    METRIC=kerr
     ISOTHERMAL=no
     KNOWN_SETUP=yes
-    MAXP=500000
+    MAXP=1000
     ANALYSIS= analysis_1particle.f90
 endif
 
