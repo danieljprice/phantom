@@ -69,6 +69,11 @@ subroutine test_growth(ntests,npass)
  !
  call test_growingbox(ntests,npass)
  call barrier_mpi()
+ !
+ ! check stokes number interpolation
+ !
+ call check_stokes_number(ntests,npass)
+ call barrier_mpi()
 
  if (id==master) write(*,"(/,a)") '<-- DUSTGROWTH TEST COMPLETE'
 #else
@@ -104,7 +109,7 @@ subroutine test_growingbox(ntests,npass)
  use io,             only:iverbose
  use units,          only:set_units
  use mpiutils,       only:reduceall_mpi
- use growth,         only:ifrag,get_vrelonvfrag,vfrag,isnow,vfragin,vfragout,rsnow
+ use growth,         only:ifrag,get_vrelonvfrag,vfrag,isnow,vfragin,vfragout,rsnow,iinterpol
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
  integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(7), nerr(7)
@@ -165,6 +170,7 @@ subroutine test_growingbox(ntests,npass)
  ieos = 1
  polyk = 1.
  gamma = 1.
+ iinterpol = .false.
  !
  !
  !
@@ -189,8 +195,7 @@ subroutine test_growingbox(ntests,npass)
  !
  ! testing pure growth with St=cst & St=f(size)
  !
- write(*,"(/,a)")'------------------ pure growth (ifrag = 0) ------------------'
- write(*,"(/,a)")'------------------      St = constant      ------------------'
+ write(*,"(/,a)")'------------------ pure growth (ifrag = 0, St = const) ------------------'
  !
  ! call deriv the first time around
  !
@@ -204,13 +209,13 @@ subroutine test_growingbox(ntests,npass)
     call step(npart,npart,t,dt,dtext,dtnew)
     s = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
     do j=1,npart
+    !print*,dustprop(1,142),s
        call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(1),ncheck(1),errmax(1))
     enddo
  enddo
 
  call checkvalbuf_end('size match exact solution',ncheck(1),nerr(1),errmax(1),tols)
-
- write(*,"(/,a)")'------------------ St = f(size) (Laibe et al. 2008) ------------------'
+ write(*,"(/,a)")'------------------ ifrag = 0, St=f(size) inspired from Laibe et al. (2008) ------------------'
  !
  ! initialise again
  !
@@ -242,7 +247,7 @@ subroutine test_growingbox(ntests,npass)
  !
  ! testing pure fragmentation (ifrag = 1 & ifrag = 2)
  !
- write(*,"(/,a)")'------------------ pure fragmentation (ifrag = 1) ------------------'
+ write(*,"(/,a)")'------------------ pure fragmentation (ifrag = 1, St = const) ------------------'
  !
  ! initialise again
  !
@@ -271,7 +276,7 @@ subroutine test_growingbox(ntests,npass)
 
  call checkvalbuf_end('size match exact solution',ncheck(3),nerr(3),errmax(3),tols)
 
- write(*,"(/,a)")'------------------ pure fragmentation (ifrag = 2) ------------------'
+ write(*,"(/,a)")'------------------ pure fragmentation (ifrag = 2, St = const) ------------------'
  !
  ! initialise again
  !
@@ -338,7 +343,7 @@ subroutine test_growingbox(ntests,npass)
  !
  ! testing growth inside the snow line and fragmentation outside of it
  !
- write(*,"(/,a)")'------------------ position based snow line ------------------'
+ write(*,"(/,a)")'------------------ position based snow line (ifrag = (in:0, out:1)) ------------------'
  !
  ! initialise again
  !
@@ -378,6 +383,123 @@ subroutine test_growingbox(ntests,npass)
 
 end subroutine test_growingbox
 
+subroutine check_stokes_number(ntests,npass) 
+ use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
+ use kernel,         only:hfact_default
+ use part,           only:igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
+                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
+                          dustfrac,dustevol,ddustfrac,temperature,iphase,iamdust,maxtypes,St,xyzmh_ptmass
+ use step_lf_global, only:step,init_step
+ use deriv,          only:derivs
+ use energies,       only:compute_energies,ekin
+ use testutils,      only:checkvalbuf,checkvalbuf_end
+ use eos,            only:ieos,polyk,gamma
+ use dust,           only:K_code,idrag
+ use growth,         only:ifrag,iinterpol
+ use options,        only:alpha,alphamax,use_dustfrac
+ use unifdis,        only:set_unifdis
+ use dim,            only:periodic,mhd,use_dust,ndusttypes
+ use timestep,       only:dtmax
+ use io,             only:iverbose
+ use mpiutils,       only:reduceall_mpi
+ integer, intent(inout) :: ntests,npass
+ integer(kind=8) :: npartoftypetot(maxtypes)
+ integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(1), nerr(1)
+ real :: deltax, dz, hfact, totmass, rhozero, errmax(1), dtext_dum
+ real :: Stcomp, r, sinit = 1., dens = 1.,s
+ real :: t, dt, dtext, dtnew
+ real, parameter :: tolst = 2.e-4
+ 
+ write(*,"(/,a)")'--> testing STOKES NUMBER INTERPOLATION'
+ write(*,"(/,a)")'------------------ ts = const ------------------'
+
+ !
+ ! initialise
+ !
+ dustprop(1,:) = sinit
+ dustprop(2,:) = dens
+ dustprop(3,:) = 0.
+ dustprop(4,:) = 0.
+ xyzmh_ptmass(4,1) = 1.
+ !
+ ! setup for dustybox problem
+ !
+ nx = 32
+ deltax = 1./nx
+ dz = 2.*sqrt(6.)/nx
+ call set_boundary(-0.5,0.5,-0.25,0.25,-dz,dz)
+ hfact = hfact_default
+ rhozero = 1.
+ totmass = rhozero*dxbound*dybound*dzbound
+ npart = 0
+
+ do itype=1,2
+    npart_previous = npart
+    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                     deltax,hfact,npart,xyzh,verbose=.false.)
+    do i=npart_previous+1,npart
+       call set_particle_type(i,itype)
+       vxyzu(:,i) = 0.
+       fext(:,i) = 0.
+       if (mhd) Bevol(:,i) = 0.
+       if (use_dust) then
+          dustevol(:,i) = 0.
+          dustfrac(:,i) = 0.
+       endif
+    enddo
+    npartoftype(itype) = npart - npart_previous
+    npartoftypetot(itype) = reduceall_mpi('+',npartoftype(itype))
+    massoftype(itype) = totmass/npartoftypetot(itype)
+ enddo
+ !
+ ! runtime parameters
+ !
+ K_code = 1.
+ ieos = 1
+ idrag = 2
+ ifrag = 0
+ polyk = 1.
+ gamma = 1.
+ alpha = 0.
+ alphamax = 0.
+ iverbose = 0
+ iinterpol = .true.
+ !
+ ! call derivs the first time around
+ !
+ dt = 1.e-3
+ nsteps = 100
+ t = 0
+ dtmax = nsteps*dt
+ call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+ !
+ ! run dustybox problem
+ !
+ ncheck(:) = 0
+ nerr(:) = 0
+ errmax(:) = 0.
+ call init_step(npart,t,dtmax)
+ do i=1,nsteps
+    t = t + dt
+    dtext = dt
+    call step(npart,npart,t,dt,dtext,dtnew)
+
+    do j=1,npart
+       if (iamdust(iphase(j))) then
+          r      = sqrt(xyzh(1,j)**2+xyzh(2,j)**2)
+          Stcomp = 1/(2*K_code*r**(1.5))
+          call checkvalbuf(St(j),Stcomp,tolst,'St',nerr(1),ncheck(1),errmax(1))
+       endif
+    enddo
+ enddo
+
+ call checkvalbuf_end('Stokes number interpolation match exact solution',ncheck(1),nerr(1),errmax(1),tolst)
+
+ ntests = ntests + 1
+ if (all(nerr(1:1)==0)) npass = npass + 1
+
+ end subroutine check_stokes_number
 !---------------------------------------------------
 !+
 !  write an output file with x, y, z ,

@@ -140,7 +140,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use options,      only:iresistive_heating
  use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,nabundances,ll,get_partinfo,iactive,gradh,&
                         hrho,iphase,maxphase,igas,iboundary,maxgradh,straintensor, &
-                        eta_nimhd,deltav,poten
+                        eta_nimhd,deltav,poten,St
  use timestep,     only:dtcourant,dtforce,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
                         iosumdtf,iosumdtd,iosumdtv,iosumdtc,iosumdto,iosumdth,iosumdta, &
@@ -174,6 +174,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #ifdef DUST
  !use dust,         only:get_ts
  use kernel,       only:wkern_drag,cnormk_drag
+#ifdef DUSTGROWTH
+ use growth,       only:iinterpol
+#endif
 #endif
  use nicil,        only:nimhd_get_jcbcb,nimhd_get_dt,nimhd_get_dBdt,nimhd_get_dudt
 #ifdef LIGHTCURVE
@@ -189,8 +192,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
  integer,      intent(in)    :: icall,npart
  real,         intent(in)    :: xyzh(:,:)
- real,         intent(inout) :: vxyzu(:,:)
- real,         intent(in)    :: dustfrac(:,:),dustprop(:,:)
+ real,         intent(inout) :: vxyzu(:,:),dustprop(:,:)
+ real,         intent(in)    :: dustfrac(:,:)
  real,         intent(inout) :: temperature(:)
  real,         intent(out)   :: fxyzu(:,:),ddustfrac(:,:),ddustprop(:,:)
  real,         intent(in)    :: Bevol(:,:)
@@ -306,6 +309,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  nstokes       = 0
  nsuper        = 0
  ndustres      = 0
+#ifdef DUSTGROWTH
+ if (iinterpol) then
+    St(:)         = 0.
+    dustprop(5,:) = 0.
+ endif
+#endif
 
  ! sink particle creation
  ipart_rhomax  = 0
@@ -1567,16 +1576,18 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 endif
                 if (use_dustgrowth) then
                    call get_ts(idrag,grainsizei,graindensi,rhoj,rhoi,spsoundj,dv2,tsij(1),iregime)
+#ifdef DUSTGROWTH
+                   if (usej) then
+                   dustprop(5,i) = dustprop(5,i) + 3*pmassj/rhoj*projv*wdrag !--interpolate dv for dust particle i
+                   ri            = sqrt(xyzh(1,i)**2+xyzh(2,i)**2)
+                   St(i)         = St(i) + pmassj/rhoj*tsij(1)*wdrag*sqrt(xyzmh_ptmass(4,1)/ri**3) !--interpolate Stokes number
+                   endif
+#endif
                 else
                    do l = 1,ndusttypes
                       call get_ts(idrag,grainsize(l),graindens,rhoj,rhoi,spsoundj,dv2,tsij(l),iregime)
                    enddo
                 endif
-#ifdef DUSTGROWTH
-                ri = sqrt(xyzh(1,i)**2+xyzh(2,i)**2)
-                St(i) = tsij(1)*sqrt(xyzmh_ptmass(4,1)/ri**3)
-                if (usej) dustprop(5,i) = dustprop(5,i) + 3*pmassj/rhoj*projv*wdrag !--interpolate vd-vg for the dust particle i
-#endif
                 dragterm = sum(3.*pmassj/((rhoi + rhoj)*tsij(:))*projv*wdrag)
                 ts_min = min(ts_min,minval(tsij(:)))
                 ndrag = ndrag + 1
