@@ -209,7 +209,7 @@ subroutine test_growingbox(ntests,npass)
     call step(npart,npart,t,dt,dtext,dtnew)
     s = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
     do j=1,npart
-    !print*,dustprop(1,142),s
+       !print*,dustprop(1,142),s
        call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(1),ncheck(1),errmax(1))
     enddo
  enddo
@@ -499,7 +499,7 @@ subroutine check_stokes_number(ntests,npass)
  ntests = ntests + 1
  if (all(nerr(1:1)==0)) npass = npass + 1
 
- end subroutine check_stokes_number
+end subroutine check_stokes_number
 !---------------------------------------------------
 !+
 !  write an output file with x, y, z ,

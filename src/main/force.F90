@@ -1578,9 +1578,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    call get_ts(idrag,grainsizei,graindensi,rhoj,rhoi,spsoundj,dv2,tsij(1),iregime)
 #ifdef DUSTGROWTH
                    if (usej) then
-                   dustprop(5,i) = dustprop(5,i) + 3*pmassj/rhoj*projv*wdrag !--interpolate dv for dust particle i
-                   ri            = sqrt(xyzh(1,i)**2+xyzh(2,i)**2)
-                   St(i)         = St(i) + pmassj/rhoj*tsij(1)*wdrag*sqrt(xyzmh_ptmass(4,1)/ri**3) !--interpolate Stokes number
+                      dustprop(5,i) = dustprop(5,i) + 3*pmassj/rhoj*projv*wdrag !--interpolate dv for dust particle i
+                      ri            = sqrt(xyzh(1,i)**2+xyzh(2,i)**2)
+                      St(i)         = St(i) + pmassj/rhoj*tsij(1)*wdrag*sqrt(xyzmh_ptmass(4,1)/ri**3) !--interpolate Stokes number
                    endif
 #endif
                 else
