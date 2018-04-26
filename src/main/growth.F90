@@ -360,7 +360,7 @@ end subroutine update_dustprop
 real function vrelative(St,dv,Vt)
  real, intent(in) :: St,dv,Vt
  real             :: Sc
- 
+
  !--compute Schmidt number Sc
  Sc = (1+St)*sqrt(1+dv**2/Vt**2)
  !--then compute vrel

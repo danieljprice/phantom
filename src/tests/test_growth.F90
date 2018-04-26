@@ -383,7 +383,7 @@ subroutine test_growingbox(ntests,npass)
 
 end subroutine test_growingbox
 
-subroutine check_stokes_number(ntests,npass) 
+subroutine check_stokes_number(ntests,npass)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
@@ -409,7 +409,7 @@ subroutine check_stokes_number(ntests,npass)
  real :: Stcomp, r, sinit = 1., dens = 1.,s
  real :: t, dt, dtext, dtnew
  real, parameter :: tolst = 2.e-4
- 
+
  write(*,"(/,a)")'--> testing STOKES NUMBER INTERPOLATION'
  write(*,"(/,a)")'------------------ ts = const ------------------'
 
