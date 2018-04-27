@@ -570,7 +570,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     call set_r2func_origin(com_xyz(1),com_xyz(2),com_xyz(3))
     call indexxfunc(npart,r2func_origin,xyzh,iorder)
-    
+
     sep = separation(xyzmh_ptmass(1:3,1),com_xyz(1:3))
 
     do i=1,npart
@@ -1177,7 +1177,7 @@ subroutine print_simulation_parameters(num, npart, particlemass)
     do i=1,nptmass
        write(*,'(A,I2,A,ES10.3,A,ES10.3)') 'Point mass ',i,': M = ',xyzmh_ptmass(4,i),' and h_soft = ',xyzmh_ptmass(ihsoft,i)
     enddo
-    
+
     write(*,'(A,I7,A,ES10.3)') 'Gas particles : ',npart,' particles, each of mass ',particlemass
 
 end subroutine print_simulation_parameters
