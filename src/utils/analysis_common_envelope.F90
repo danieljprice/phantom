@@ -980,101 +980,101 @@ subroutine roche_lobe_values(time, num, npart, particlemass, xyzh, vxyzu)
  real                           :: rhovol, rhomass, rhopart, R1
  real, dimension(3)             :: rcrossmv
 
-    MRL(iRL1:ijzMF) = 0
-    rhovol = 0.
-    rhomass = 0.
+ MRL(iRL1:ijzMF) = 0
+ rhovol = 0.
+ rhomass = 0.
 
-    if (dump_number == 0) then
-       m1 = npart * particlemass + xyzmh_ptmass(4,1)
-       m2 = xyzmh_ptmass(4,2)
-       allocate(transferred(npart))
-       transferred(1:npart) = .false.
+ if (dump_number == 0) then
+    m1 = npart * particlemass + xyzmh_ptmass(4,1)
+    m2 = xyzmh_ptmass(4,2)
+    allocate(transferred(npart))
+    transferred(1:npart) = .false.
 
-       rho_surface = rhoh(xyzh(4,1), particlemass)
-       do i=1,npart
-          rhopart = rhoh(xyzh(4,i), particlemass)
-          if (rhopart < rho_surface) then
-             rho_surface = rhopart
-          endif
-       enddo
-    endif
-
+    rho_surface = rhoh(xyzh(4,1), particlemass)
     do i=1,npart
        rhopart = rhoh(xyzh(4,i), particlemass)
-       if (rhopart > rho_surface) then
-          if (separation(xyzh(1:3,i), xyzmh_ptmass(1:3,1)) / 2. < &
+       if (rhopart < rho_surface) then
+          rho_surface = rhopart
+       endif
+    enddo
+ endif
+
+ do i=1,npart
+    rhopart = rhoh(xyzh(4,i), particlemass)
+    if (rhopart > rho_surface) then
+       if (separation(xyzh(1:3,i), xyzmh_ptmass(1:3,1)) / 2. < &
               separation(xyzmh_ptmass(1:3,2), xyzmh_ptmass(1:3,1))) then
-             rhomass = rhomass + particlemass
-             rhovol = rhovol + particlemass / rhopart
+          rhomass = rhomass + particlemass
+          rhovol = rhovol + particlemass / rhopart
+       endif
+    endif
+ enddo
+
+ sep = separation(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,2))
+ MRL(iRL1) = Rochelobe_estimate(m2,m1,sep)
+ MRL(iRL2) = Rochelobe_estimate(m1,m2,sep)
+
+ do i=1,npart
+    if (xyzh(4,i)  >=  0) then
+       call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
+
+       sep1 = separation(xyzmh_ptmass(1:3,1),xyzh(1:3,i))
+       sep2 = separation(xyzmh_ptmass(1:3,2),xyzh(1:3,i))
+
+       call cross(xyzh(1:3,i),particlemass * vxyzu(1:3,i),rcrossmv)
+       jz = rcrossmv(3)
+
+       if (sep1 < MRL(iRL1)) then
+          MRL(iMRL1) = MRL(iMRL1) + particlemass
+          MRL(ijzRL1) = MRL(ijzRL1) + jz
+          if (etoti < 0) then
+             MRL(iBMRL1) = MRL(iBMRL1) + particlemass
           endif
        endif
-    enddo
 
-    sep = separation(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,2))
-    MRL(iRL1) = Rochelobe_estimate(m2,m1,sep)
-    MRL(iRL2) = Rochelobe_estimate(m1,m2,sep)
+       if (sep2 < MRL(iRL2)) then
+          MRL(iMRL2) = MRL(iMRL2) + particlemass
+          MRL(ijzRL2) = MRL(ijzRL2) + jz
 
-    do i=1,npart
-       if (xyzh(4,i)  >=  0) then
-          call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
-
-          sep1 = separation(xyzmh_ptmass(1:3,1),xyzh(1:3,i))
-          sep2 = separation(xyzmh_ptmass(1:3,2),xyzh(1:3,i))
-
-          call cross(xyzh(1:3,i),particlemass * vxyzu(1:3,i),rcrossmv)
-          jz = rcrossmv(3)
-
-          if (sep1 < MRL(iRL1)) then
-             MRL(iMRL1) = MRL(iMRL1) + particlemass
-             MRL(ijzRL1) = MRL(ijzRL1) + jz
-             if (etoti < 0) then
-                MRL(iBMRL1) = MRL(iBMRL1) + particlemass
-             endif
+          if (transferred(i) .eqv. .false.) then
+             MRL(iMF) = MRL(iMF) + particlemass
+             MRL(ijzMF) = MRL(ijzMF) + jz
+             transferred(i) = .true.
           endif
 
-          if (sep2 < MRL(iRL2)) then
-             MRL(iMRL2) = MRL(iMRL2) + particlemass
-             MRL(ijzRL2) = MRL(ijzRL2) + jz
-
-             if (transferred(i) .eqv. .false.) then
-                MRL(iMF) = MRL(iMF) + particlemass
-                MRL(ijzMF) = MRL(ijzMF) + jz
-                transferred(i) = .true.
-             endif
-
-             if (etoti < 0) then
-                MRL(iBMRL2) = MRL(iBMRL2) + particlemass
-             endif
-          endif
-
-          if (sep1 > MRL(iRL1) .and. sep2 > MRL(iRL2)) then
-             MRL(iMej) = MRL(iMej) + particlemass
-             MRL(ijzej) = MRL(ijzej) + jz
-
-             if (etoti < 0) then
-                MRL(iBMej) = MRL(iBMej) + particlemass
-                MRL(iBjzej) = MRL(iBjzej) + jz
-             endif
+          if (etoti < 0) then
+             MRL(iBMRL2) = MRL(iBMRL2) + particlemass
           endif
        endif
-    enddo
 
-    MRL(iMRL1) = MRL(iMRL1) + xyzmh_ptmass(4,1)
-    MRL(iMRL2) = MRL(iMRL2) + xyzmh_ptmass(4,2)
+       if (sep1 > MRL(iRL1) .and. sep2 > MRL(iRL2)) then
+          MRL(iMej) = MRL(iMej) + particlemass
+          MRL(ijzej) = MRL(ijzej) + jz
 
-    R1 = (3. * rhovol/(4. * pi))**(1./3.)
-    MRL(iDR) = (R1 - MRL(iRL1)) / R1
+          if (etoti < 0) then
+             MRL(iBMej) = MRL(iBMej) + particlemass
+             MRL(iBjzej) = MRL(iBjzej) + jz
+          endif
+       endif
+    endif
+ enddo
 
-    call cross(xyzmh_ptmass(1:3,1),xyzmh_ptmass(4,1) * vxyz_ptmass(1:3,1),rcrossmv)
-    MRL(ijzRL1) = MRL(ijzRL1) + rcrossmv(3)
+ MRL(iMRL1) = MRL(iMRL1) + xyzmh_ptmass(4,1)
+ MRL(iMRL2) = MRL(iMRL2) + xyzmh_ptmass(4,2)
 
-    call cross(xyzmh_ptmass(1:3,2),xyzmh_ptmass(4,2) * vxyz_ptmass(1:3,2),rcrossmv)
-    MRL(ijzRL2) = MRL(ijzRL2) + rcrossmv(3)
+ R1 = (3. * rhovol/(4. * pi))**(1./3.)
+ MRL(iDR) = (R1 - MRL(iRL1)) / R1
 
-    m1 = rhomass + xyzmh_ptmass(4,1)
-    m2 = MRL(iMRL2)
+ call cross(xyzmh_ptmass(1:3,1),xyzmh_ptmass(4,1) * vxyz_ptmass(1:3,1),rcrossmv)
+ MRL(ijzRL1) = MRL(ijzRL1) + rcrossmv(3)
 
-    columns = (/'         RL1',&
+ call cross(xyzmh_ptmass(1:3,2),xyzmh_ptmass(4,2) * vxyz_ptmass(1:3,2),rcrossmv)
+ MRL(ijzRL2) = MRL(ijzRL2) + rcrossmv(3)
+
+ m1 = rhomass + xyzmh_ptmass(4,1)
+ m2 = MRL(iMRL2)
+
+ columns = (/'         RL1',&
                 ' Mass in RL1',&
                 '  B Mass RL1',&
                 '   jz in RL1',&
@@ -1090,7 +1090,7 @@ subroutine roche_lobe_values(time, num, npart, particlemass, xyzh, vxyzu)
                 'Mass flow jz',&
                 '   R1-RL1/R1'/)
 
-    call write_time_file('MassDist', columns, time, MRL, 15, num)
+ call write_time_file('MassDist', columns, time, MRL, 15, num)
 end subroutine roche_lobe_values
 
 !!!!! Star stabilisation suite !!!!!
@@ -1168,17 +1168,17 @@ subroutine print_simulation_parameters(num, npart, particlemass)
  real, intent(in)               :: particlemass
  integer                        :: i
 
-    write(*,"(/,3(a,es10.3,1x),a)") '     Mass: ',umass,    'g       Length: ',udist,  'cm     Time: ',utime,'s'
-    write(*,"(3(a,es10.3,1x),a)") '  Density: ',unit_density, 'g/cm^3  Energy: ',unit_energ,'erg    En/m: ',unit_ergg,'erg/g'
-    write(*,"(3(a,es10.3,1x),a)") ' Velocity: ',unit_velocity,'cm/s    Bfield: ',unit_Bfield,'G  Pressure: ',&
+ write(*,"(/,3(a,es10.3,1x),a)") '     Mass: ',umass,    'g       Length: ',udist,  'cm     Time: ',utime,'s'
+ write(*,"(3(a,es10.3,1x),a)") '  Density: ',unit_density, 'g/cm^3  Energy: ',unit_energ,'erg    En/m: ',unit_ergg,'erg/g'
+ write(*,"(3(a,es10.3,1x),a)") ' Velocity: ',unit_velocity,'cm/s    Bfield: ',unit_Bfield,'G  Pressure: ',&
                                      unit_pressure,'g/cm s^2'
-    write(*,"(2(a,es10.3,1x),/)")   '        G: ', gg*umass*utime**2/udist**3,'             c: ',c*utime/udist
+ write(*,"(2(a,es10.3,1x),/)")   '        G: ', gg*umass*utime**2/udist**3,'             c: ',c*utime/udist
 
-    do i=1,nptmass
-       write(*,'(A,I2,A,ES10.3,A,ES10.3)') 'Point mass ',i,': M = ',xyzmh_ptmass(4,i),' and h_soft = ',xyzmh_ptmass(ihsoft,i)
-    enddo
+ do i=1,nptmass
+    write(*,'(A,I2,A,ES10.3,A,ES10.3)') 'Point mass ',i,': M = ',xyzmh_ptmass(4,i),' and h_soft = ',xyzmh_ptmass(ihsoft,i)
+ enddo
 
-    write(*,'(A,I7,A,ES10.3)') 'Gas particles : ',npart,' particles, each of mass ',particlemass
+ write(*,'(A,I7,A,ES10.3)') 'Gas particles : ',npart,' particles, each of mass ',particlemass
 
 end subroutine print_simulation_parameters
 
@@ -1244,7 +1244,7 @@ subroutine eos_surfaces
  do i=1,size(rho_array)
     do j=1,size(eni_array)
        if (j < size(temp_array) + 1) then
-           call get_eos_kappa_mesa(rho_array(i),temp_array(j),kappa_array(i,j),kappat,kappar)
+          call get_eos_kappa_mesa(rho_array(i),temp_array(j),kappa_array(i,j),kappat,kappar)
        endif
        call get_eos_pressure_temp_mesa(rho_array(i),eni_array(j),pres_array(i,j),temp)
        !pres_array(i,j) = eni_array(j)*rho_array(i)*0.66667 / pres_array(i,j)
