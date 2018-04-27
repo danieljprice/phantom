@@ -461,7 +461,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           if (use_dustfrac .and. multidustdump) &
              call write_array(1,deltav(:,l,:),deltav_label,3,npart,k,ipass,idump,nums,ierrs(10))
        enddo
-       if (use_dustgrowth)    call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierrs(11))
        if (store_temperature) call write_array(1,temperature,'T',npart,k,ipass,idump,nums,ierrs(12))
 
        ! write pressure to file

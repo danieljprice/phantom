@@ -101,7 +101,7 @@ subroutine test_growingbox(ntests,npass)
  use deriv,          only:derivs
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use unifdis,        only:set_unifdis
- use eos,            only:ieos,polyk,gamma
+ use eos,            only:ieos,polyk,gamma,get_spsound
  use options,        only:alpha,alphamax
  use physcon,        only:au,solarm,Ro
  use dim,            only:periodic
