@@ -79,7 +79,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  character(len=17), dimension(:), allocatable :: columns
 
  !case 12 variables
- real, dimension(5,npart)     :: ions
+! real, dimension(5,npart)     :: ions
  real                         :: phitot, dtsinksink, fonrmax
  real, dimension(4,maxptmass) :: fssxyz_ptmass
  real, dimension(4,maxptmass) :: fxyz_ptmass
@@ -89,7 +89,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
 
  !case 14 variables
- integer                      :: npart_hist(5), nbins, ierr
+ integer                      :: npart_hist(5), nbins
  real, dimension(5,npart)     :: dist_part, rad_part
  real, dimension(:), allocatable :: hist_var
  character(len=40)            :: data_formatter
