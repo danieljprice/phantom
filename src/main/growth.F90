@@ -180,13 +180,13 @@ end subroutine print_growthinfo
 !-----------------------------------------------------------------------
 subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
  use part,            only:massoftype,rhoh,idust,iamtype,iphase,St,maxvxyzu
- use eos,             only:get_temperature,get_spsound,ieos
+ use eos,             only:get_spsound,ieos
  real, intent(inout)  :: dustprop(:,:),vxyzu(:,:)
  real, intent(in)     :: xyzh(:,:)
  real, intent(out)    :: dsdt(:)
  integer, intent(in)  :: npart
  !
- real                 :: rhod,T,cs
+ real                 :: rhod,cs
  integer              :: i,iam
 
  !--get ds/dt over all dust particles
@@ -197,9 +197,8 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
     if (iam==idust) then
 
        rhod = rhoh(xyzh(4,i),massoftype(2)) !--idust = 2
-       T    = get_temperature(ieos,xyzh(:,i),rhod,vxyzu(:,i))
        cs   = get_spsound(ieos,xyzh(:,i),rhod,vxyzu(:,i))
-       call get_vrelonvfrag(xyzh(:,i),dustprop(:,i),cs,St(i),T)
+       call get_vrelonvfrag(xyzh(:,i),dustprop(:,i),cs,St(i))
        !
        !--dustprop(1)= size, dustprop(2) = intrinsic density, dustprop(3) = vrel,
        !  dustprop(4) = vrel/vfrag, dustprop(5) = vd - vg
@@ -227,13 +226,17 @@ end subroutine get_growth_rate
 !  Compute the local ratio vrel/vfrag and vrel
 !+
 !-----------------------------------------------------------------------
-subroutine get_vrelonvfrag(xyzh,dustprop,cs,St,T)
+subroutine get_vrelonvfrag(xyzh,dustprop,cs,St)
  use options,         only:alpha
  use physcon,         only:Ro
+ use eos,             only:temperature_coef,gmw
  real, intent(in)     :: xyzh(:)
- real, intent(in)     :: cs,St,T
+ real, intent(in)     :: cs,St
  real, intent(inout)  :: dustprop(:)
- real                 :: Vt,r
+ real                 :: Vt,r,cs_snow
+
+ !--transform Tsnow in cs_snow
+ cs_snow = sqrt(Tsnow/(temperature_coef*gmw))
 
  !--compute terminal velocity
  Vt = sqrt((2**0.5)*Ro*alpha)*cs
@@ -251,9 +254,9 @@ subroutine get_vrelonvfrag(xyzh,dustprop,cs,St,T)
        r = sqrt(xyzh(1)**2 + xyzh(2)**2)
        if (r < rsnow) dustprop(4) = dustprop(3) / vfragin
        if (r > rsnow) dustprop(4) = dustprop(3) / vfragout
-    case(2) !--temperature based snow line wrt eos
-       if (T > Tsnow) dustprop(4) = dustprop(3) / vfragin
-       if (T < Tsnow) dustprop(4) = dustprop(3) / vfragout
+    case(2) !--temperature based snow line
+       if (cs > cs_snow) dustprop(4) = dustprop(3) / vfragin
+       if (cs < cs_snow) dustprop(4) = dustprop(3) / vfragout
     case default
        dustprop(4) = 0.
     end select
