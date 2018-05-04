@@ -40,6 +40,7 @@ module growth
  !--Default values for the growth and fragmentation of dust in the input file
  integer, public        :: ifrag        = 1
  integer, public        :: isnow        = 0
+ logical, public        :: iinterpol    = .true.
 
  real, public           :: grainsizemin = 1.e-3
  real, public           :: rsnow        = 100.
@@ -61,7 +62,7 @@ contains
 !------------------------------------------------
 subroutine init_growth(ierr)
  use io,        only:error
- use part,        only:dustprop,ddustprop,npart
+ use part,        only:dustprop,ddustprop,npart,St
  use dust,        only:grainsize,graindens
  integer, intent(out) :: ierr
 
@@ -71,16 +72,18 @@ subroutine init_growth(ierr)
  ierr = 0
 
  !--initialise variables in code units
- dustprop(1,:) = grainsize(1)
- dustprop(2,:) = graindens
- dustprop(3,:) = 0.
- dustprop(4,:) = 0.
+ dustprop(1,:)  = grainsize(1)
+ dustprop(2,:)  = graindens
+ dustprop(3,:)  = 0.
+ dustprop(4,:)  = 0.
+ dustprop(5,:)  = 0.
  ddustprop(:,:) = 0.
- vfrag = vfrag * 100 / unit_velocity
- vfragin = vfragin * 100 / unit_velocity
- vfragout = vfragout * 100 / unit_velocity
- rsnow = rsnow * au / udist
- grainsizemin = grainsizemin / udist
+ St(:)          = 0.
+ vfrag          = vfrag * 100 / unit_velocity
+ vfragin        = vfragin * 100 / unit_velocity
+ vfragout       = vfragout * 100 / unit_velocity
+ rsnow          = rsnow * au / udist
+ grainsizemin   = grainsizemin / udist
 
  !-- Check that all the parameters are > 0 when needed
  do i=1,npart
@@ -196,8 +199,6 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
        rhod = rhoh(xyzh(4,i),massoftype(2)) !--idust = 2
        T    = get_temperature(ieos,xyzh(:,i),rhod,vxyzu(:,i))
        cs   = get_spsound(ieos,xyzh(:,i),rhod,vxyzu(:,i))
-
-       !print*,'growth :',cs,rhod
        call get_vrelonvfrag(xyzh(:,i),dustprop(:,i),cs,St(i),T)
        !
        !--dustprop(1)= size, dustprop(2) = intrinsic density, dustprop(3) = vrel,

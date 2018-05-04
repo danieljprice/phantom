@@ -1111,6 +1111,19 @@ ifeq ($(SYSTEM), complexity)
     WALLTIME='48:00:00'
 endif
 
+ifeq ($(SYSTEM), isca)
+    # local cluster at the University of Exeter
+    include Makefile_defaults_ifort
+    FFLAGS= -O3 -axAVX -mcmodel=medium \
+            -warn uninitialized -warn truncated_source\
+            -warn interfaces -nogen-interfaces
+    OMPFLAGS= -qopenmp
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -traceback -g -fpe0 -fp-stack-check -heap-arrays -O0
+    QNAME=pq
+    WALLTIME='168:00:00'
+endif
+
 ifeq ($(SYSTEM), ifort)
     include Makefile_defaults_ifort
 endif
