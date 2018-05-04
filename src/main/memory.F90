@@ -347,8 +347,8 @@ subroutine allocate_memory
  write(iprint, '(a)') '--------------------------------------------------------'
 
  if (nbytes_allocated > 0.0) then
-    call error('memory', 'Attempting to allocate memory, but memory is already allocated. Using existing allocation.')
-    return
+    call error('memory', 'Attempting to allocate memory, but memory is already allocated. Deallocating and then allocating again.')
+    call deallocate_memory
  endif
 
  call allocate_array('xyzh', xyzh, 4, maxp)
