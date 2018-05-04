@@ -1,5 +1,5 @@
 module memory
-use io,  only:fatal,iprint
+use io,  only:fatal,error,iprint
 
 use dim,   only:maxp
 
@@ -103,7 +103,7 @@ use part, only:ll
  public :: allocate_memory
  public :: deallocate_memory
 
- real :: nbytes_allocated
+ real :: nbytes_allocated = 0.0
 
  interface allocate_array
     module procedure &
@@ -346,7 +346,10 @@ subroutine allocate_memory
  write(iprint, '(a)') '--> ALLOCATING ARRAYS'
  write(iprint, '(a)') '--------------------------------------------------------'
 
- nbytes_allocated = 0.0
+ if (nbytes_allocated > 0.0) then
+    call error('memory', 'Attempting to allocate memory, but memory is already allocated. Using existing allocation.')
+    return
+ endif
 
  call allocate_array('xyzh', xyzh, 4, maxp)
  call allocate_array('xyzh_soa', xyzh_soa, maxp, 4)

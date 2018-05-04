@@ -30,7 +30,6 @@
 program phantom
  use dim,             only:tagline
  use mpiutils,        only:init_mpi, finalise_mpi
- use memory,          only:allocate_memory, deallocate_memory
 #ifdef MPI
  use mpiderivs,       only:init_tree_comms,finish_tree_comms
  use stack,           only:init_mpi_memory,finish_mpi_memory
@@ -49,7 +48,6 @@ program phantom
  nfail  = 0
 
  call init_mpi(id,nprocs)
- call allocate_memory()
 #ifdef MPI
  call init_tree_comms()
  call init_mpi_memory()
@@ -92,7 +90,6 @@ program phantom
  call finish_tree_comms()
  call finish_mpi_memory()
 #endif
- call deallocate_memory()
  call finalise_mpi()
 
  !

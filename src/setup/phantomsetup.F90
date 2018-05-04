@@ -65,8 +65,6 @@ program phantomsetup
 #endif
  logical                  :: iexist
 
- call allocate_memory
-
  call set_io_unit_numbers
  call set_units
  call set_boundary
@@ -219,7 +217,5 @@ program phantomsetup
  enddo
 
  call finalise_mpi()
-
- call deallocate_memory
 
 end program phantomsetup

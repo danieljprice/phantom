@@ -703,6 +703,7 @@ end subroutine write_smalldump
 !-------------------------------------------------------------------
 
 subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
+ use memory,   only:allocate_memory
  use dim,      only:maxp,maxvxyzu,maxalpha,maxgrav,gravity,lightcurve,maxlum,mhd
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &
@@ -821,9 +822,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  npart = 0
  i2 = 0
 
- overblocks: do iblock=1,nblocks
-! print*,' thread ',id,' block ',iblock
-    nums = 0
+ determine_npart: do iblock=1, nblocks
     call read_block_header(narraylengths,ilen,nums,idisk1,ierr)
 !
 !--check block header for errors
@@ -840,6 +839,20 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     if (present(headeronly)) then
        if (headeronly) return
     endif
+
+    call get_blocklimits(nhydrothisblock,nblocks,nprocs,id,iblock,noffset,npartread)
+    npart = npart + npartread
+ enddo determine_npart
+
+ !
+ !--Allocate main arrays
+ !
+ call allocate_memory()
+
+ overblocks: do iblock=1,nblocks
+! print*,' thread ',id,' block ',iblock
+    nums = 0
+    call read_block_header(narraylengths,ilen,nums,idisk1,ierr)
 !
 !--determine if extra dust quantites should be read
 !
@@ -857,14 +870,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     call get_blocklimits(nhydrothisblock,nblocks,nprocs,id,iblock,noffset,npartread)
     i1 = i2 + 1
     i2 = i1 + (npartread - 1)
-    npart = npart + npartread
-#ifdef MPI
-    if (npart > maxp) then
-       write(*,*) 'npart > maxp in readwrite_dumps'
-       ierr = 1
-       return
-    endif
-#endif
+
     if (npartread <= 0 .and. nptmass <= 0) then
        print*,' SKIPPING BLOCK npartread = ',npartread
        call skipblock(idisk1,nums(:,1),nums(:,2),nums(:,3),nums(:,4),tagged,ierr)
