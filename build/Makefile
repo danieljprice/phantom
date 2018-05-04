@@ -1452,7 +1452,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          test_derivs.F90 test_cooling.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.F90 test_setdisc.F90 \
          test_link.F90 test_kdtree.F90 test_ptmass.F90 test_luminosity.F90\
-         test_gnewton.F90 test_corotate.f90 \
+         test_gnewton.F90 test_corotate.f90 test_geometry.f90 \
          test_sedov.F90 testsuite.F90 initial.F90 \
          leastsquares.f90 solvelinearsystem.f90
 
