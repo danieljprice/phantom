@@ -825,7 +825,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  !
  !--Allocate main arrays
  !
- call allocate_memory(maxp)
+ call allocate_memory()
 
  overblocks: do iblock=1,nblocks
 ! print*,' thread ',id,' block ',iblock

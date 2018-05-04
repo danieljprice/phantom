@@ -1,6 +1,8 @@
 module memory
 use io,  only:fatal,error,iprint
 
+use dim,   only:maxp
+
 use part,  only:xyzh
 use part,  only:xyzh_soa
 
@@ -319,28 +321,26 @@ subroutine bytes2human(bytes, sizestring)
    endif
 end subroutine bytes2human
 
-subroutine allocate_memory(maxp)
-   integer, intent(in)              :: maxp
-   logical :: do_run = .true.
-   logical :: do_mhd = .false.
-   logical :: do_mhdni = .false.
-   logical :: do_Dust = .false.
-   character(len=10) :: sizestring
-
+subroutine allocate_memory
+ !
+ !--for analysis routines, do not allocate any more storage
+ !  than is strictly necessary. This will eventually be deprecated by the
+ !  memory manager.
+ !
 #ifdef ANALYSIS
-   do_run = .false.
+ integer, parameter :: maxan = 0
+ integer, parameter :: maxmhdan = 0
+ integer, parameter :: maxdustan = 0
+#else
+ integer, parameter :: maxan = maxp
+ integer, parameter :: maxmhdan = maxmhd
+ integer, parameter :: maxdustan = maxp_dustfrac
 #endif
 
-#ifdef MHD
-   do_mhd = .true.
-#ifdef NONIDEALMHD
-   do_mhdni = .true.
-#endif
-#endif
+ integer, parameter :: maxphase = maxan
+ integer, parameter :: maxgradh = maxan
 
-#ifdef DUST
-   do_dust = .true.
-#endif
+ character(len=10) :: sizestring
 
  write(iprint, *)
  write(iprint, '(a)') '--> ALLOCATING ARRAYS'
@@ -357,47 +357,47 @@ subroutine allocate_memory(maxp)
  call allocate_array('alphaind', alphaind, nalpha, maxalpha)
  call allocate_array('divcurlv', divcurlv, ndivcurlv, maxp)
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
- if (do_mhd) call allocate_array('Bevol', Bevol, maxBevol, maxp)
- if (do_mhd) call allocate_array('Bxyz', Bxyz, 3, maxp)
+ call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
+ call allocate_array('Bxyz', Bxyz, 3, maxmhd)
  call allocate_array('dustprop', dustprop, 5, maxp_growth)
  call allocate_array('St', St, maxp_growth)
  call allocate_array('straintensor', straintensor, 6, maxstrain)
  call allocate_array('abundance', abundance, nabundances, maxp_h2)
  call allocate_array('temperature', temperature, maxtemp)
- if (do_dust .and. do_run) call allocate_array('dustfrac', dustfrac, ndusttypes, maxp)
- if (do_dust .and. do_run) call allocate_array('dustevol', dustevol,ndusttypes, maxp)
- if (do_dust .and. do_run) call allocate_array('deltav', deltav, 3, ndusttypes, maxp)
+ call allocate_array('dustfrac', dustfrac, ndusttypes, maxp_dustfrac)
+ call allocate_array('dustevol', dustevol,ndusttypes, maxp_dustfrac)
+ call allocate_array('deltav', deltav, 3, ndusttypes, maxp_dustfrac)
  call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
  call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
  call allocate_array('poten', poten, maxgrav)
- if (do_mhdni) call allocate_array('n_R', n_R, 4, maxp)
+ call allocate_array('n_R', n_R, 4, maxmhdni)
  call allocate_array('n_electronT', n_electronT, maxne)
- if (do_mhdni) call allocate_array('eta_nimhd', eta_nimhd, 4, maxp)
+ call allocate_array('eta_nimhd', eta_nimhd, 4, maxmhdni)
  call allocate_array('luminosity', luminosity, maxlum)
- if (do_run) call allocate_array('fxyzu', fxyzu, maxvxyzu, maxp)
- if (do_mhd .and. do_run) call allocate_array('dBevol', dBevol, maxBevol, maxp)
- if (do_mhd .and. do_run) call allocate_array('divBsumm', divBsymm, maxp)
- if (do_run) call allocate_array('fext', fext, 3, maxp)
- if (do_dust .and. do_run) call allocate_array('ddustfrac', ddustfrac, ndusttypes, maxp)
+ call allocate_array('fxyzu', fxyzu, maxvxyzu, maxan)
+ call allocate_array('dBevol', dBevol, maxBevol, maxmhdan)
+ call allocate_array('divBsumm', divBsymm, maxmhdan)
+ call allocate_array('fext', fext, 3, maxan)
+ call allocate_array('ddustfrac', ddustfrac, ndusttypes, maxdustan)
  call allocate_array('ddustprop', ddustprop, 5, maxp_growth)
- if (do_run) call allocate_array('vpred', vpred, maxvxyzu, maxp)
- if (do_dust .and. do_run) call allocate_array('dustpred', dustpred, ndusttypes, maxp)
- if (do_mhd .and. do_run) call allocate_array('Bpred', Bpred, maxBevol, maxp)
+ call allocate_array('vpred', vpred, maxvxyzu, maxan)
+ call allocate_array('dustpred', dustpred, ndusttypes, maxdustan)
+ call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
  call allocate_array('dustproppred', dustproppred, 5, maxp_growth)
 #ifdef IND_TIMESTEPS
- if (do_run) call allocate_array('ibin', ibin, maxp)
- if (do_run) call allocate_array('ibin_old', ibin_old, maxp)
- if (do_run) call allocate_array('ibin_wake', ibin_wake, maxp)
- if (do_run) call allocate_array('dt_in', dt_in, maxp)
- if (do_run) call allocate_array('twas', twas, maxp)
+ call allocate_array('ibin', ibin, maxan)
+ call allocate_array('ibin_old', ibin_old, maxan)
+ call allocate_array('ibin_wake', ibin_wake, maxan)
+ call allocate_array('dt_in', dt_in, maxan)
+ call allocate_array('twas', twas, maxan)
 #endif
- if (do_run) call allocate_array('iphase', iphase, maxp)
- if (do_run) call allocate_array('iphase_soa', iphase_soa, maxp)
- if (do_run) call allocate_array('gradh', gradh, ngradh, maxp)
- if (do_run) call allocate_array('tstop', tstop, ndusttypes, maxp)
- if (do_run) call allocate_array('ll', ll, maxp)
+ call allocate_array('iphase', iphase, maxphase)
+ call allocate_array('iphase_soa', iphase_soa, maxphase)
+ call allocate_array('gradh', gradh, ngradh, maxgradh)
+ call allocate_array('tstop', tstop, ndusttypes, maxan)
+ call allocate_array('ll', ll, maxan)
 
  call bytes2human(nbytes_allocated, sizestring)
  write(iprint, '(a)') '--------------------------------------------------------'

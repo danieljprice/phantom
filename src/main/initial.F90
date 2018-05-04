@@ -129,7 +129,7 @@ subroutine initialise()
 !
 !--Allocate memory
 !
-call allocate_memory(maxp)
+call allocate_memory
 
  return
 end subroutine initialise
