@@ -250,8 +250,8 @@ subroutine get_vrelonvfrag(xyzh,dustprop,cs,St)
     select case(isnow)
     case(0) !--uniform vfrag
        dustprop(4) = dustprop(3) / vfrag
-    case(1) !--position based snow line in cylindrical geometry
-       r = sqrt(xyzh(1)**2 + xyzh(2)**2)
+    case(1) !--position based snow line in spherical geometry
+       r = sqrt(xyzh(1)**2 + xyzh(2)**2 + xyzh(3)**2)
        if (r < rsnow) dustprop(4) = dustprop(3) / vfragin
        if (r > rsnow) dustprop(4) = dustprop(3) / vfragout
     case(2) !--temperature based snow line
