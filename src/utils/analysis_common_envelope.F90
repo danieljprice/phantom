@@ -520,7 +520,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        call indexxfunc(npart,r2func_origin,xyzh,iorder)
 
        !k = iorder(1)
-       !cs = get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k), particlemass),vxyzu(1:3,k))
+       !cs = get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k), particlemass),vxyzu(:,k))
        !rhopart = rhoh(xyzh(4,k), particlemass)
        do j=1,npart
           k = iorder(j)
@@ -528,7 +528,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           if (sep > 20.) exit
           avg_vel(1:3) = avg_vel(1:3) + vxyzu(1:3,k)
           !vel_contrast = vel_contrast + distance(vxyz_ptmass(1:3,i)) - dot_product(vxyzu(1:3,k), unit_vel)
-          cs = cs + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k), particlemass),vxyzu(1:3,k))
+          cs = cs + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k), particlemass),vxyzu(:,k))
           rhopart = rhopart + rhoh(xyzh(4,k), particlemass)
        enddo
 
