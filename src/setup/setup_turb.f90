@@ -132,7 +132,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print *, ''
     print *, 'Setting up dusty turbulence:'
     print *, ''
-    
+
     dust_method = 1
     dust_to_gas = 1.e-2
     call interactively_set_dust(dust_to_gas,dustfrac_percent,grainsizecgs,graindenscgs, &

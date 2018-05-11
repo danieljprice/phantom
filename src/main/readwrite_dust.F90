@@ -78,7 +78,7 @@ subroutine get_onefluiddust(dumpfile,use_onefluiddust)
  logical,              intent(out) :: use_onefluiddust
  integer               :: ierr
  character(len=lenid)  :: fileid
- 
+
  call open_dumpfile_r(idisk1,dumpfile,fileid,ierr)
  close(idisk1)
 
@@ -198,7 +198,7 @@ subroutine interactively_set_dust_simple(dust_to_gas,imethod,Kdrag,units)
     call get_units_factor(units,units_to_cgs)
     abbrev = units
  endif
- 
+
  !--initialise the size/density to the default values
  grainsizeinp = grainsizecgs
  graindensinp = graindenscgs
@@ -224,26 +224,26 @@ subroutine interactively_set_dust_simple(dust_to_gas,imethod,Kdrag,units)
  endif
 
  if (use_dustfrac) ilimitdustflux = .false.
- 
+
  if (dust_to_gas <= 0.) dust_to_gas = 1. ! for a more sensible better option
  call prompt('Enter dust to gas ratio',dust_to_gas,0.)
- 
+
  io_grainsize = 1
  io_graindens = 0
 
  select case(idrag)
  case(1)
     if (use_dustgrowth) then
-       message = 'Enter initial grain size in' 
+       message = 'Enter initial grain size in'
     else
-       message = 'Enter grain size in' 
+       message = 'Enter grain size in'
     endif
     message = trim(message)//' '//trim(abbrev)
     grainsizeinp(1) = grainsizeinp(1)/units_to_cgs
     call prompt(trim(message),grainsizeinp(1),0.)
     grainsizecgs(:) = units_to_cgs*grainsizeinp(1)
 
-    call prompt('Enter the intrinsic grain density in g/cm^3',graindensinp(1),0.)    
+    call prompt('Enter the intrinsic grain density in g/cm^3',graindensinp(1),0.)
     graindenscgs(:) = graindensinp(1)
  case(2,3)
     if (use_dustfrac) K_code = 1000. ! for a more sensible better option
@@ -296,7 +296,7 @@ subroutine interactively_set_dust_full(dust_to_gas,dustfrac_percent,grainsizeinp
     call get_units_factor(units,units_to_cgs)
     abbrev = units
  endif
- 
+
  !--initialise the size/density to the default values
  grainsizeinp = grainsizecgs
  graindensinp = graindenscgs
@@ -339,12 +339,12 @@ subroutine interactively_set_dust_full(dust_to_gas,dustfrac_percent,grainsizeinp
                   ' 2=manually'//new_line('A'),io_grainsize,0,2)
        select case(io_grainsize)
        case(0)
-          
+
           message = 'Enter minimum grain size in '//trim(abbrev)
           smincgs = smincgs/units_to_cgs
           call prompt(trim(message),smincgs,0.)
           smincgs = units_to_cgs*smincgs
-          
+
           message = 'Enter maximum grain size in '//trim(abbrev)
           smaxcgs = smaxcgs/units_to_cgs
           call prompt(trim(message),smaxcgs,smincgs)
@@ -400,9 +400,9 @@ subroutine interactively_set_dust_full(dust_to_gas,dustfrac_percent,grainsizeinp
     else
        call prompt('Enter dust to gas ratio',dust_to_gas,0.)
        if (use_dustgrowth) then
-          message = 'Enter initial grain size in' 
+          message = 'Enter initial grain size in'
        else
-          message = 'Enter grain size in' 
+          message = 'Enter grain size in'
        endif
        message = trim(message)//' '//trim(abbrev)
        grainsizeinp(1) = grainsizeinp(1)/units_to_cgs
@@ -481,8 +481,8 @@ subroutine read_dust_setup_options(nerr,dust_to_gas,df,gs,gd,isimple,filename,db
  logical,                   intent(in),    optional :: isimple
  character(len=*),          intent(in),    optional :: filename
  type(inopts), allocatable, intent(inout), optional :: db(:)
- 
- integer, parameter :: iunit = 20 
+
+ integer, parameter :: iunit = 20
  integer            :: i,ierr
  real               :: grainsizeinp(ndusttypes)
  real               :: graindensinp(ndusttypes)
@@ -492,7 +492,7 @@ subroutine read_dust_setup_options(nerr,dust_to_gas,df,gs,gd,isimple,filename,db
  logical            :: simple_output    = .false.
  character(len=120) :: varlabel(ndusttypes)
  type(inopts), allocatable :: db2(:)
- 
+
  if (present(filename) .and. present(db)) then
     stop 'filename and db cannot both be passed into read_dust_setup_options!'
  elseif (present(filename)) then
@@ -500,7 +500,7 @@ subroutine read_dust_setup_options(nerr,dust_to_gas,df,gs,gd,isimple,filename,db
  elseif (present(db)) then
     db2 = db
  endif
- 
+
  if (use_dustfrac) call read_inopt(ilimitdustflux,'ilimitdustflux',db2,errcount=nerr)
  call read_inopt(dust_to_gas,'dust_to_gas_ratio',db2,min=0.,errcount=nerr)
 
@@ -595,7 +595,7 @@ subroutine read_dust_setup_options(nerr,dust_to_gas,df,gs,gd,isimple,filename,db
  elseif (present(db)) then
     db = db2
  endif
-    
+
  if (io_grainsize == 0) then
     grainsizeinp(:) = grainsizecgs(:)
  else
@@ -646,7 +646,7 @@ subroutine read_dust_infile_options(name,valstring,imatch,igotall,ierr)
                        igraindensend = nvars
  integer, save :: igot(nvalues)  = 0
  integer       :: ineed(nvalues)
- 
+
  imatch  = .true.
  igotall = .false.
  select case(trim(name))
@@ -685,7 +685,7 @@ subroutine read_dust_infile_options(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
  end select
- 
+
  ineed = 0
 
  !--Parameters needed by all combinations
@@ -698,13 +698,13 @@ subroutine read_dust_infile_options(name,valstring,imatch,igotall,ierr)
     if ((ndusttypes == 1) .or. (io_grainsize == 1 .and. io_graindens == 0)) then
        ineed(igrainsize) = 1
        ineed(igraindens) = 1
-    endif 
+    endif
  case(2,3)
     ineed(iKcode) = 1
  case default
     stop 'Error! Invalid idrag option passed to read_dust_infile_options'
  end select
- 
+
  if (use_dustfrac) ineed(ilimitflux) = 1
 
  !--Check that we have just the *necessary* parameters
@@ -727,7 +727,7 @@ subroutine extract_dust_header(multidustdump,hdr,ierr)
  integer,      intent(inout) :: ierr
  logical,      intent(in)    :: multidustdump
  type(dump_h), intent(in)    :: hdr
- 
+
  integer :: i,ierr1,ierrs(max(10,ndusttypes)),nerr
  integer :: dust_method,io_old
  real    :: smin,smax,sind,grainsizeinp(ndusttypes),graindensinp(ndusttypes)
@@ -758,21 +758,21 @@ subroutine extract_dust_header(multidustdump,hdr,ierr)
     sind = sindex
     grainsizeinp = grainsizecgs
     graindensinp = graindenscgs
- 
+
     !--extract all possible dust options from the dump file and compare them with
     !  new values calculated from the temporary dust file
     nerr = 0
-    
+
     print*,'Checking grain sizes...'
     call extract('smincgs',smincgs,hdr,ierrs(1))
     call check_dust_value(ierrs(1),nerr,'smincgs',smin,smincgs)
-       
+
     call extract('smaxcgs',smaxcgs,hdr,ierrs(2))
     call check_dust_value(ierrs(2),nerr,'smaxcgs',smax,smaxcgs)
 
     call extract('sindex' ,sindex,hdr,ierrs(3))
     call check_dust_value(ierrs(3),nerr,'sindex',sind,sindex)
-    
+
     io_old = io_grainsize
     if (all(ierrs(1:3) == 0)) then
        print*,'   ...smincgs, smaxcgs, and sindex found'
@@ -803,7 +803,7 @@ subroutine extract_dust_header(multidustdump,hdr,ierr)
        print*,'Warning! No grain density information found in dump file!'
        print*,'         Carefully check your grain density by hand....'
     endif
-    
+
     if (io_old /= io_graindens) nerr = nerr + 1
 
     call write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod=dust_method,ireadwrite=2)
@@ -870,7 +870,7 @@ subroutine extract_dust_header(multidustdump,hdr,ierr)
        enddo
     endif
  endif
- 
+
 end subroutine extract_dust_header
 
 
@@ -910,7 +910,7 @@ subroutine write_dust_to_header(multidustdump,hdr,ierr)
  integer,      intent(inout) :: ierr
  type(dump_h), intent(inout) :: hdr
  logical,      intent(in)    :: multidustdump
- 
+
  integer :: i
  character(len=120) :: varlabel(ndusttypes)
 
@@ -978,7 +978,7 @@ subroutine write_dust_setup_options(iunit,dust_to_gas,df,gs,gd,imethod,iprofile,
  logical, intent(in), optional :: isimple
  integer, intent(in)    :: iunit
  real,    intent(in)    :: dust_to_gas
- 
+
  integer :: i
  integer :: dust_method = -1
  integer :: profile_set_dust = -1
@@ -987,7 +987,7 @@ subroutine write_dust_setup_options(iunit,dust_to_gas,df,gs,gd,imethod,iprofile,
  real    :: dustfrac_percent(ndusttypes) = 0.
  logical :: simple_output = .false.
  character(len=120) :: varlabel(ndusttypes),varstring(ndusttypes)
- 
+
  grainsizeinp = grainsizecgs
  graindensinp = graindenscgs
 
@@ -997,7 +997,7 @@ subroutine write_dust_setup_options(iunit,dust_to_gas,df,gs,gd,imethod,iprofile,
  if (present(imethod)) dust_method = imethod
  if (present(iprofile)) profile_set_dust = iprofile
  if (present(isimple)) simple_output = isimple
- 
+
  write(iunit,"(/,a)") '# options for dust'
  if (dust_method /= -1) then
     call write_inopt(dust_method,'dust_method','dust method (1=one fluid,2=two fluid)',iunit)
@@ -1054,7 +1054,7 @@ subroutine write_dust_setup_options(iunit,dust_to_gas,df,gs,gd,imethod,iprofile,
        call write_inopt(graindensinp(1),'graindensinp','intrinsic grain density (in g/cm^3)',iunit) ! Modify this is graindens becomes variable
     endif
  endif
- 
+
 end subroutine write_dust_setup_options
 
 
@@ -1073,7 +1073,7 @@ subroutine write_dust_infile_options(iunit)
 
  write(numdust,'(I10)') ndusttypes
  write(iunit,"(/,a)") '# options controlling dust ('//trim(adjustl(numdust))//' dust species)'
- 
+
  call write_inopt(idrag,'idrag','gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)',iunit)
 
  if (ndusttypes > 1) then
@@ -1091,7 +1091,7 @@ subroutine write_dust_infile_options(iunit)
     case(2,3)
        call write_inopt(K_code,'K_code','drag constant when constant drag is used',iunit)
     end select
- 
+
  else
     select case(idrag)
     case(1)
@@ -1107,7 +1107,7 @@ subroutine write_dust_infile_options(iunit)
  endif
 
  call write_inopt(icut_backreaction,'icut_backreaction','cut the drag on the gas phase (0=no, 1=yes)',iunit)
- 
+
  if (use_dustfrac) then
     call write_inopt(ilimitdustflux,'ilimitdustflux','limit the dust flux using Ballabio et al. (2018)',iunit)
  endif
@@ -1123,14 +1123,14 @@ end subroutine write_dust_infile_options
 !-----------------------------------------------------------------------
 subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,ireadwrite)
  use dim,          only:ndusttypes
- use io,           only:id,master 
+ use io,           only:id,master
  real,    intent(out) :: dust_to_gas
  real,    intent(out) :: dustfrac_percent(:)
  integer, intent(in),  optional :: iprofile
  integer, intent(in),  optional :: ireadwrite
  integer, intent(out), optional :: imethod
 
- integer, parameter :: iunit = 20 
+ integer, parameter :: iunit = 20
  integer            :: nerr = 0
  integer            :: dust_method = -1
  integer            :: profile_set_dust = -1
@@ -1138,9 +1138,9 @@ subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,
  real               :: grainsizeinp(ndusttypes),graindensinp(ndusttypes)
  logical            :: iexist
  character(len=10)  :: grainsfile = 'grains.tmp'
- 
+
  print "(/,a)",' Warning: missing essential dust options. Checking if '//trim(grainsfile)//' exists...'
- 
+
  inquire(file=grainsfile,exist=iexist)
  if (present(imethod)) dust_method = imethod
  if (present(iprofile)) profile_set_dust = iprofile

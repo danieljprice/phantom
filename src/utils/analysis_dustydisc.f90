@@ -197,7 +197,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 ! Print the analysis being done
  write(*,'("Performing analysis type ",A)') analysistype
  write(*,'("Input file name is ",A)') dumpfile
- 
+
 if (comparedata) then
    iline = index(dumpfile,'_')
    discprefix = dumpfile(1:iline-1)
@@ -241,7 +241,7 @@ if (comparedata) then
  if (ifile) then
     call read_in(filename,irealvisc,alphaAV,shearvisc,iunit,ierr)
     if (ierr /= 0) call fatal('analysis','could not open/read .in file')
-    
+
     if (comparedata) then
        if (alphaAV == 0. .or. solve_baistone) then
           write(output,"(a)") 'baistone'//trim(adjustl(basename))//'.analysis'
