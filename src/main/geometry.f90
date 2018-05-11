@@ -1,24 +1,25 @@
-!-----------------------------------------------------------------
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://users.monash.edu.au/~dprice/phantom                               !
+!--------------------------------------------------------------------------!
+!+
+!  MODULE: geometry
 !
-!  This file is (or was) part of SPLASH, a visualisation tool
-!  for Smoothed Particle Hydrodynamics written by Daniel Price:
+!  DESCRIPTION: None
 !
-!  http://users.monash.edu.au/~dprice/splash
+!  REFERENCES: None
 !
-!  SPLASH comes with ABSOLUTELY NO WARRANTY.
-!  This is free software; and you are welcome to redistribute
-!  it under the terms of the GNU General Public License
-!  (see LICENSE file for details) and the provision that
-!  this notice remains intact. If you modify this file, please
-!  note section 2a) of the GPLv2 states that:
+!  OWNER: Daniel Price
 !
-!  a) You must cause the modified files to carry prominent notices
-!     stating that you changed the files and the date of any change.
+!  $Id$
 !
-!  Copyright (C) 2005-2018 Daniel Price. All rights reserved.
-!  Contact: daniel.price@monash.edu
+!  RUNTIME PARAMETERS: None
 !
-!-----------------------------------------------------------------
+!  DEPENDENCIES: None
+!+
+!--------------------------------------------------------------------------
 
 !-----------------------------------------------------------------
 ! Standalone module containing subroutines to transform between

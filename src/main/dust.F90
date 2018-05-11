@@ -18,15 +18,9 @@
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS:
-!    K_code            -- drag constant when constant drag is used
-!    graindens         -- Intrinsic grain density in g/cm^3
-!    grainsize         -- Grain size in cm
-!    icut_backreaction -- cut the drag on the gas phase (0=no, 1=yes)
-!    idrag             -- gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)
-!    ilimitdustflux    -- limit the dust flux using Ballabio et al. (2018)
+!  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, eos, infile_utils, io, physcon, units
+!  DEPENDENCIES: dim, eos, io, physcon, units
 !+
 !--------------------------------------------------------------------------
 

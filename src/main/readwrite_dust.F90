@@ -17,10 +17,22 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    io_grainsize      -- determines how the grain sizes are set and stored
-!    io_graindens      -- determines how the grain densities are set and stored
+!    K_code            -- drag constant when constant drag is used
+!    dust_method       -- dust method (1=one fluid,2=two fluid)
+!    dust_to_gas_ratio -- dust to gas ratio
+!    graindens         -- Intrinsic grain density in g/cm^3
+!    graindensinp      -- intrinsic grain density (in g/cm^3)
+!    grainsize         -- Grain size in cm
+!    grainsizeinp      -- grain size (in cm)
+!    icut_backreaction -- cut the drag on the gas phase (0=no, 1=yes)
+!    idrag             -- gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)
+!    ilimitdustflux    -- limit the dust flux using Ballabio et al. (2018)
+!    io_graindens      -- grain density input (0=equal,1=manually)
+!    sindex            -- grain size power-law index (e.g. MRN = 3.5)
+!    smaxcgs           -- max grain size (in cm)
+!    smincgs           -- min grain size (in cm)
 !
-!  DEPENDENCIES: dim, dump_utils, dust, infile_utils, io, options,
+!  DEPENDENCIES: dim, dump_utils, dust, infile_utils, io, options, part,
 !    prompting, units
 !+
 !--------------------------------------------------------------------------

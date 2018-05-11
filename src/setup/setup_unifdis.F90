@@ -17,22 +17,21 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    cs0         -- initial sound speed in code units
-!    dist_unit   -- distance unit (e.g. au)
-!    dust_to_gas -- initial dust-to-gas ratio
-!    ilattice    -- lattice type (1=cubic, 2=closepacked)
-!    mass_unit   -- mass unit (e.g. solarm)
-!    nx          -- number of particles in x direction
-!    rhozero     -- initial density in code units
-!    xmax        -- xmax boundary
-!    xmin        -- xmin boundary
-!    ymax        -- ymax boundary
-!    ymin        -- ymin boundary
-!    zmax        -- zmax boundary
-!    zmin        -- zmin boundary
+!    cs0       -- initial sound speed in code units
+!    dist_unit -- distance unit (e.g. au)
+!    ilattice  -- lattice type (1=cubic, 2=closepacked)
+!    mass_unit -- mass unit (e.g. solarm)
+!    nx        -- number of particles in x direction
+!    rhozero   -- initial density in code units
+!    xmax      -- xmax boundary
+!    xmin      -- xmin boundary
+!    ymax      -- ymax boundary
+!    ymin      -- ymin boundary
+!    zmax      -- zmax boundary
+!    zmin      -- zmin boundary
 !
-!  DEPENDENCIES: boundary, dim, dust, infile_utils, io, mpiutils, options,
-!    part, physcon, prompting, setup_params, unifdis, units
+!  DEPENDENCIES: boundary, dim, infile_utils, io, mpiutils, options, part,
+!    physcon, prompting, readwrite_dust, setup_params, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup

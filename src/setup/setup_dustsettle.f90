@@ -19,8 +19,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, dust, externalforces, io, mpiutils,
-!    options, part, physcon, prompting, setup_params, timestep, unifdis,
-!    units
+!    options, part, physcon, prompting, readwrite_dust, setup_params,
+!    timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
