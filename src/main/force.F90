@@ -86,9 +86,9 @@ module forces
        icurlBxi    = 41, &
        icurlByi    = 42, &
        icurlBzi    = 43, &
-       !--dust arrays initial index
        igrainsizei = 44, &
        igraindensi = 45, &
+       !--dust arrays initial index
        idustfraci  = 46, &
        itstop      = 47 + (ndusttypes-1), &
        !--dust arrays final index
@@ -1287,6 +1287,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           projsyj   = 0.
           projszj   = 0.
           projBj = 0.
+          prj   = 0.
+          pro2j = 0.
           vwavej = 0.
           vsigavj = 0.
           spsoundj = 0.
@@ -1455,7 +1457,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (use_dustfrac) then
              do l = 1,ndusttypes
                 ! get stopping time - for one fluid dust we do not know deltav, but it is small by definition
-                call get_ts(idrag,grainsize(l),graindens,rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
+                call get_ts(idrag,grainsize(l),graindens(l),rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
              enddo
              if (ilimitdustflux) tsj(:)   = min(tsj(:),hj/spsoundj) ! flux limiter from Ballabio et al. (2018)
              epstsj   = sum(dustfracj(:)*tsj(:))
@@ -1551,7 +1553,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    call get_ts(idrag,dustprop(1,j),dustprop(2,j),rhoi,rhoj,spsoundi,dv2,tsij(1),iregime)
                 else
                    do l = 1,ndusttypes
-                      call get_ts(idrag,grainsize(l),graindens,rhoi,rhoj,spsoundi,dv2,tsij(l),iregime)
+                      call get_ts(idrag,grainsize(l),graindens(l),rhoi,rhoj,spsoundi,dv2,tsij(l),iregime)
                    enddo
                 endif
                 ndrag = ndrag + 1
@@ -1585,7 +1587,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
                 else
                    do l = 1,ndusttypes
-                      call get_ts(idrag,grainsize(l),graindens,rhoj,rhoi,spsoundj,dv2,tsij(l),iregime)
+                      call get_ts(idrag,grainsize(l),graindens(l),rhoj,rhoi,spsoundj,dv2,tsij(l),iregime)
                    enddo
                 endif
                 dragterm = sum(3.*pmassj/((rhoi + rhoj)*tsij(:))*projv*wdrag)
@@ -1892,6 +1894,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintenso
           enddo
        else
           dustfraci(:) = 0.
+          dustfracisum = 0.
           rhogasi      = rhoi
        endif
 
@@ -1919,7 +1922,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintenso
        !
        if (use_dustfrac .and. iamgasi) then
           do j = 1,ndusttypes
-             call get_ts(idrag,grainsize(j),graindens,rhogasi,rhoi*dustfracisum,spsoundi,0.,tstopi(j),iregime)
+             call get_ts(idrag,grainsize(j),graindens(j),rhogasi,rhoi*dustfracisum,spsoundi,0.,tstopi(j),iregime)
           enddo
        endif
 #endif
@@ -2304,6 +2307,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
     vsigmax    = cell%vsigmax(ip)
     dtdrag     = cell%dtdrag(ip)
     tstopi     = 0.
+    dustfraci  = 0.
 
     if (iamgasi) then
        rhoi    = xpartveci(irhoi)

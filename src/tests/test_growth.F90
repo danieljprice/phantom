@@ -371,7 +371,7 @@ subroutine test_growingbox(ntests,npass)
     so = sinit - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
     if (do_output) call write_file(i,dt,xyzh,dustprop/sinit,cs,npart,'snowline_pos_')
     do j=1,npart
-       r = sqrt(xyzh(1,j)**2+xyzh(2,j)**2)
+       r = sqrt(xyzh(1,j)**2+xyzh(2,j)**2+xyzh(3,j)**2)
        if (r < rsnow) call checkvalbuf(dustprop(1,j),si,tols,'size',nerr(6),ncheck(6),errmax(6))
        if (r > rsnow) call checkvalbuf(dustprop(1,j),so,tols,'size',nerr(7),ncheck(7),errmax(7))
     enddo

@@ -32,7 +32,7 @@ program phantommoddump
  use setBfield,       only:set_Bfield
  use moddump,         only:modify_dump
  use readwrite_infile,only:write_infile,read_infile
- use options,         only:set_default_options
+ use options,         only:set_default_options,use_moddump
  use setup_params,    only:ihavesetupB
  use prompting,       only:prompt
  use checksetup,      only:check_setup
@@ -47,6 +47,8 @@ program phantommoddump
  integer, parameter          :: lenprefix = 120
  character(len=lenprefix)    :: fileprefix
  character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile
+
+ use_moddump = .true.
 
  call set_io_unit_numbers
  iprint = 6
