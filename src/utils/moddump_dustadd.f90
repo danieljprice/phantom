@@ -27,31 +27,24 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use dim,     only:use_dust,ndusttypes
- use part,    only:dustfrac,igas,idust,set_particle_type
- use dust,    only:set_dustfrac,smincgs,smaxcgs,sindex
- use options, only:use_dustfrac
+ use dim,            only:use_dust,ndusttypes
+ use part,           only:igas,idust,set_particle_type
+ use readwrite_dust, only:write_temp_grains_file,set_dustfrac_from_inopts
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer :: i
- real    :: dust_to_gas,dustfrac_temp(ndusttypes)
+ integer :: i,dust_method
+ real    :: dust_to_gas
+ real    :: dustfrac_percent(ndusttypes) = 0.
 
  if (use_dust) then
-    dust_to_gas = 0.01
-    print*,' SETTING DUST-TO-GAS RATIO = ',dust_to_gas
-    if (use_dustfrac) then
-       if (ndusttypes>1) then
-          call set_dustfrac(dust_to_gas,dustfrac_temp,smincgs,smaxcgs,sindex)
-       else
-          call set_dustfrac(dust_to_gas,dustfrac_temp)
-       endif
-       do i=1,ndusttypes
-          dustfrac(i,:) = dustfrac_temp(i)
-       enddo
+    call write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod=dust_method)
+    if (dust_method == 1) then
+       call set_dustfrac_from_inopts(dust_to_gas,percent=dustfrac_percent)
+
        massoftype(igas) = massoftype(igas)*(1. + dust_to_gas)
-    else
+    elseif (dust_method == 2) then
        npart = npartoftype(igas)
        npartoftype(idust) = npart
        massoftype(idust)  = massoftype(igas)*dust_to_gas
