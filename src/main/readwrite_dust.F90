@@ -736,7 +736,7 @@ subroutine extract_dust_header(multidustdump,hdr,ierr)
  logical :: missingdust = .false.
  character(len=120) :: varlabel(ndusttypes)
 
-  if (use_dustfrac .and. multidustdump) then
+ if (use_dustfrac .and. multidustdump) then
     call extract('io_grainsize',io_grainsize,hdr,ierr1)
     if (ierr1 /= 0) then
        io_grainsize = 0
@@ -888,11 +888,11 @@ subroutine check_dust_value(ierr,nerr,tag,newval,oldval)
  real :: tol = 1.e-5
 
  if (ierr == 0) then
-     if (abs((newval-oldval)/oldval) > tol) then
-        print*,'ERROR: '//tag//' is not the same as in dump file'
-        print*,'Change ',newval,'to ',oldval,'in temparary dust file'
-        nerr = nerr + 1
-     endif
+    if (abs((newval-oldval)/oldval) > tol) then
+       print*,'ERROR: '//tag//' is not the same as in dump file'
+       print*,'Change ',newval,'to ',oldval,'in temparary dust file'
+       nerr = nerr + 1
+    endif
  endif
 
 end subroutine check_dust_value

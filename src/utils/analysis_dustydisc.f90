@@ -198,11 +198,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  write(*,'("Performing analysis type ",A)') analysistype
  write(*,'("Input file name is ",A)') dumpfile
 
-if (comparedata) then
-   iline = index(dumpfile,'_')
-   discprefix = dumpfile(1:iline-1)
-   write(basename,"(a,i5.5)") trim(discprefix)//'_',numfile
-   write(output,"(a)") trim(basename)//'.analysis'
+ if (comparedata) then
+    iline = index(dumpfile,'_')
+    discprefix = dumpfile(1:iline-1)
+    write(basename,"(a,i5.5)") trim(discprefix)//'_',numfile
+    write(output,"(a)") trim(basename)//'.analysis'
  else
     write(output,"(a4,i5.5)") 'angm',numfile
  endif
@@ -623,7 +623,7 @@ if (comparedata) then
  do i = 1,nr
     meaneta(i)  = sum(etabin(1:ninbin(i),i))/real(ninbin(i))
     if(ninbin(i) > 1)then
-        if (print_part_in_bin) print*,'The # of particles in bin',i,'is',ninbin(i)-icutgas(i)
+       if (print_part_in_bin) print*,'The # of particles in bin',i,'is',ninbin(i)-icutgas(i)
        meanzgas(i)  = sum(zsetgas(1:ninbin(i),i))/real(ninbin(i))
        meanrhog(i)  = sum(rhogbin(1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
        meanvrgas(i) = sum(vrgasbin(1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
