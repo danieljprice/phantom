@@ -80,7 +80,7 @@ subroutine test_dust(ntests,npass)
  dustfracisum = sum(dustfraci)
  rhogasi = rhoi*(1. - dustfracisum)
  do i = 1,ndusttypes
-    call get_ts(idrag,grainsize(i),graindens,rhogasi,rhoi*dustfracisum,spsoundi,0.,tsi(i),iregime)
+    call get_ts(idrag,grainsize(i),graindens(i),rhogasi,rhoi*dustfracisum,spsoundi,0.,tsi(i),iregime)
  enddo
  call checkval(iregime,1,0,nfailed(1),'deltav=0 gives Epstein drag')
  ntests = ntests + 1
@@ -495,7 +495,7 @@ subroutine test_epsteinstokes(ntests,npass)
        grainsizecgs  = smin*10**((i-1)*ds)
        call init_drag(ierr)
        !--no need to test drag transition 'ndusttypes' times...once is enough
-       call get_ts(idrag,grainsize(1),graindens,rhogas,0.,spsoundi,deltav**2,tsi,iregime)
+       call get_ts(idrag,grainsize(1),graindens(1),rhogas,0.,spsoundi,deltav**2,tsi,iregime)
        !print*,'s = ',grainsizecgs,' ts = ',tsi*utime/years,',yr ',iregime
 
        if (i > 1) call checkvalbuf((tsi-ts1)/abs(tsi),0.,tol,'ts is continuous into Stokes regime',nfailed,ncheck,errmax)
@@ -521,7 +521,7 @@ subroutine test_epsteinstokes(ntests,npass)
  if (write_output) open(unit=lu,file='ts-deltav.out',status='replace')
  do i=1,npts
     deltav = (smin + (i-1)*ds)*spsoundi
-    call get_ts(idrag,grainsize(1),graindens,rhogas,0.,spsoundi,deltav**2,tsi,iregime)
+    call get_ts(idrag,grainsize(1),graindens(1),rhogas,0.,spsoundi,deltav**2,tsi,iregime)
     psi = sqrt(0.5)*deltav/spsoundi
     if (i==1) then
        ts1 = tsi

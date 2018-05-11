@@ -28,7 +28,7 @@ module testderivs
  implicit none
 
  public :: test_derivs
- real, public :: grainsizek
+ real, public :: grainsizek,graindensk
  real, parameter, private :: rhozero = 5.0
 
  private
@@ -62,7 +62,7 @@ subroutine test_derivs(ntests,npass,string)
  use part,            only:ibin
 #endif
 #ifdef DUST
- use dust,            only:init_drag,idrag,K_code,grainsize, &
+ use dust,            only:init_drag,idrag,K_code,grainsize,graindens, &
                            grainsizecgs,smincgs,smaxcgs,sindex
 #endif
  use units,           only:set_units
@@ -585,6 +585,7 @@ subroutine test_derivs(ntests,npass,string)
        do j = 1,1 !ndusttypes !--Only need one because all dust species are identical
 #ifdef DUST
           grainsizek = grainsize(j)
+          graindensk = graindens(j)
 #endif
           call checkvalf(np,xyzh,ddustfrac(j,:),ddustfrac_func,4.e-4,nfailed(3),'deps/dt')
           if (maxvxyzu>=4) call checkvalf(np,xyzh,fxyzu(4,:),dudtdust_func,5.e-4,nfailed(4),'du/dt')
@@ -2564,7 +2565,7 @@ real function ddustfrac_func(xyzhi)
  use eos, only:gamma
  use dim, only:ndusttypes
 #ifdef DUST
- use dust, only:get_ts,idrag,graindens,K_code
+ use dust, only:get_ts,idrag,K_code
 #endif
  use part, only:rhoh
  real, intent(in) :: xyzhi(4)
@@ -2599,7 +2600,7 @@ real function ddustfrac_func(xyzhi)
 
  tsi   = 0.
 #ifdef DUST
- call get_ts(idrag,grainsizek,graindens,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
+ call get_ts(idrag,grainsizek,graindensk,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
  !
  ! grad(ts) = grad((1-eps)*eps*rho/K_code)
  !          = rho/K_code*(1-2*eps)*grad(eps)          ! note the absence of eps_k
@@ -2633,7 +2634,7 @@ real function dudtdust_func(xyzhi)
  use eos,  only:gamma
  use dim,  only:ndusttypes
 #ifdef DUST
- use dust, only:get_ts,idrag,graindens
+ use dust, only:get_ts,idrag
 #endif
  use part, only:rhoh
  real, intent(in) :: xyzhi(4)
@@ -2664,7 +2665,7 @@ real function dudtdust_func(xyzhi)
  tsi = 0.
 
 #ifdef DUST
- call get_ts(idrag,grainsizek,graindens,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
+ call get_ts(idrag,grainsizek,graindensk,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
  if (iregime /= 0) stop 'iregime /= 0'
 #endif
  ! this is equation (13) of Price & Laibe (2015) except
@@ -2679,7 +2680,7 @@ real function deltavx_func(xyzhi)
  use eos, only:gamma
  use dim, only:ndusttypes
 #ifdef DUST
- use dust, only:get_ts,idrag,graindens
+ use dust, only:get_ts,idrag
 #endif
  use part, only:rhoh
  real, intent(in) :: xyzhi(4)
@@ -2701,7 +2702,7 @@ real function deltavx_func(xyzhi)
  spsoundi   = gamma*pri/rhogasi
  tsi = 0.
 #ifdef DUST
- call get_ts(idrag,grainsizek,graindens,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
+ call get_ts(idrag,grainsizek,graindensk,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
 #endif
  gradp = (gamma-1.)*(rhogasi*gradu - rhoi*uui*gradsumeps)
  deltavx_func = tsi*gradp/rhogasi

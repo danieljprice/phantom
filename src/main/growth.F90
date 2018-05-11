@@ -73,7 +73,7 @@ subroutine init_growth(ierr)
 
  !--initialise variables in code units
  dustprop(1,:)  = grainsize(1)
- dustprop(2,:)  = graindens
+ dustprop(2,:)  = graindens(1)
  dustprop(3,:)  = 0.
  dustprop(4,:)  = 0.
  dustprop(5,:)  = 0.

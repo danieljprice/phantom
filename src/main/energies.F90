@@ -316,7 +316,7 @@ subroutine compute_energies(t)
           if (use_dustfrac) then
              rhogasi = rhoi*gasfrac
              do j = 1,ndusttypes
-                call get_ts(idrag,grainsize(j),graindens,rhogasi,rhoi*dustfracisum,spsoundi,0.,tsi(j),iregime)
+                call get_ts(idrag,grainsize(j),graindens(j),rhogasi,rhoi*dustfracisum,spsoundi,0.,tsi(j),iregime)
                 call ev_data_update(ev_data_thread,iev_ts,tsi(j))
              enddo
           endif
