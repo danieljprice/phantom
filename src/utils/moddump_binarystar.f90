@@ -39,6 +39,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: i
  integer :: opt
  real :: sep,mtot,velocity,corot_vel
+ real :: x1com(3), v1com(3), x2com(3), v2com(3)
 
  print *, 'Running moddump_binarystar: set up binary star systems in close contact'
  print *, ''
@@ -60,15 +61,28 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call prompt('Enter radial separation between stars (in code unit)', sep, 0.)
  print *, ''
 
+ ! duplicate star if chosen
  if (opt == 1) then
     call duplicate_star(npart, npartoftype, massoftype, xyzh, vxyzu)
  endif
+
+
+ ! add a uniform low density background fluid
+! if (opt == 3) then
+!    call add_background(npart, npartoftype, massoftype, xyzh, vxyzu)
+! endif
+
 
  mtot = npart*massoftype(igas)
  velocity  = 0.5 * sqrt(1.0 * mtot) / sqrt(sep) ! in code units
  corot_vel = 2.0 * velocity / sep 
 
- call adjust_sep(npart, npartoftype, massoftype, xyzh, vxyzu, sep)
+ ! find the centre of mass position and velocity for each star
+ call calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,x1com,v1com,x2com,v2com)
+ ! adjust seperation of binary
+ call adjust_sep(npart, npartoftype, massoftype, xyzh, vxyzu, sep, x1com, v1com, x2com, v2com)
+
+ ! set orbital velocity
  call set_velocity(npart, npartoftype, massoftype, xyzh, vxyzu, velocity)
  !call set_corotate_velocity(corot_vel)
 
@@ -118,7 +132,7 @@ subroutine duplicate_star(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine duplicate_star
 
-subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep)
+subroutine calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,x1com,v1com,x2com,v2com)
  use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas,iamtype,iphase,maxphase,maxp
  use units,        only: set_units,udist,unit_velocity
  use prompting,    only: prompt
@@ -127,22 +141,15 @@ subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real,    intent(in)    :: sep
+ real,    intent(out)   :: x1com(:),v1com(:),x2com(:),v2com(:)
  integer :: i, itype
  real    :: xi, yi, zi, vxi, vyi, vzi
- real    :: x1com, y1com, z1com, x2com, y2com, z2com
- real    :: vx1com, vy1com, vz1com, vx2com, vy2com, vz2com
  real    :: totmass, pmassi, dm
  ! calc centre of mass of each star to form the reference points to adjust the position of the second star
 
-
  ! first star
  x1com = 0.
- y1com = 0.
- z1com = 0.
- vx1com = 0.
- vy1com = 0.
- vz1com = 0.
+ v1com = 0.
  totmass = 0.
  do i = 1, npart/2
     xi = xyzh(1,i)
@@ -163,12 +170,12 @@ subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep)
     endif
 
     totmass = totmass + pmassi
-    x1com = x1com + pmassi * xi
-    y1com = y1com + pmassi * yi
-    z1com = z1com + pmassi * zi
-    vx1com = vx1com + pmassi * vxi
-    vy1com = vy1com + pmassi * vyi
-    vz1com = vz1com + pmassi * vzi
+    x1com(1) = x1com(1) + pmassi * xi
+    x1com(2) = x1com(2) + pmassi * yi
+    x1com(3) = x1com(3) + pmassi * zi
+    v1com(1) = v1com(1) + pmassi * vxi
+    v1com(2) = v1com(2) + pmassi * vyi
+    v1com(3) = v1com(3) + pmassi * vzi
  enddo
 
  if (totmass > tiny(totmass)) then
@@ -177,19 +184,11 @@ subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep)
     dm = 0.d0
  endif
  x1com = dm * x1com
- y1com = dm * y1com
- z1com = dm * z1com
- vx1com = dm * vx1com
- vy1com = dm * vy1com
- vz1com = dm * vz1com
+ v1com = dm * v1com
 
  ! second star
  x2com = 0.
- y2com = 0.
- z2com = 0.
- vx2com = 0.
- vy2com = 0.
- vz2com = 0.
+ v2com = 0.
  totmass = 0.
  do i = npart/2 + 1, npart
     xi = xyzh(1,i)
@@ -210,12 +209,12 @@ subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep)
     endif
 
     totmass = totmass + pmassi
-    x2com = x2com + pmassi * xi
-    y2com = y2com + pmassi * yi
-    z2com = z2com + pmassi * zi
-    vx2com = vx2com + pmassi * vxi
-    vy2com = vy2com + pmassi * vyi
-    vz2com = vz2com + pmassi * vzi
+    x2com(1) = x2com(1) + pmassi * xi
+    x2com(2) = x2com(2) + pmassi * yi
+    x2com(3) = x2com(3) + pmassi * zi
+    v2com(1) = v2com(1) + pmassi * vxi
+    v2com(2) = v2com(2) + pmassi * vyi
+    v2com(3) = v2com(3) + pmassi * vzi
  enddo
 
  if (totmass > tiny(totmass)) then
@@ -224,30 +223,36 @@ subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep)
     dm = 0.d0
  endif
  x2com = dm * x2com
- y2com = dm * y2com
- z2com = dm * z2com
- vx2com = dm * vx2com
- vy2com = dm * vy2com
- vz2com = dm * vz2com
+ v2com = dm * v2com
 
+end subroutine calc_coms
+
+subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep,x1com,v1com,x2com,v2com)
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: massoftype(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(in)    :: x1com(:),v1com(:),x2com(:),v2com(:)
+ real,    intent(in)    :: sep
+ integer :: i
 
  ! now we now the centre point of each star, we can set star 1 to origin, star 2 sep away on x axis, then reset com
  do i = 1, npart/2
-    xyzh(1,i) = xyzh(1,i) - x1com
-    xyzh(2,i) = xyzh(2,i) - y1com
-    xyzh(3,i) = xyzh(3,i) - z1com
-    vxyzu(1,i) = vxyzu(1,i) - vx1com
-    vxyzu(2,i) = vxyzu(2,i) - vy1com
-    vxyzu(3,i) = vxyzu(3,i) - vz1com
+    xyzh(1,i) = xyzh(1,i) - x1com(1)
+    xyzh(2,i) = xyzh(2,i) - x1com(2)
+    xyzh(3,i) = xyzh(3,i) - x1com(3)
+    vxyzu(1,i) = vxyzu(1,i) - v1com(1)
+    vxyzu(2,i) = vxyzu(2,i) - v1com(2)
+    vxyzu(3,i) = vxyzu(3,i) - v1com(3)
  enddo
 
  do i = npart/2 + 1, npart
-    xyzh(1,i) = xyzh(1,i) - x2com + sep
-    xyzh(2,i) = xyzh(2,i) - y2com
-    xyzh(3,i) = xyzh(3,i) - z2com
-    vxyzu(1,i) = vxyzu(1,i) - vx2com
-    vxyzu(2,i) = vxyzu(2,i) - vy2com
-    vxyzu(3,i) = vxyzu(3,i) - vz2com
+    xyzh(1,i) = xyzh(1,i) - x2com(1) + sep
+    xyzh(2,i) = xyzh(2,i) - x2com(2)
+    xyzh(3,i) = xyzh(3,i) - x2com(3)
+    vxyzu(1,i) = vxyzu(1,i) - v2com(1)
+    vxyzu(2,i) = vxyzu(2,i) - v2com(2)
+    vxyzu(3,i) = vxyzu(3,i) - v2com(3)
  enddo
 
 end subroutine adjust_sep
