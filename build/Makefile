@@ -238,6 +238,7 @@ ifeq ($(SETUP), wd)
     ISOTHERMAL    = no
     KNOWN_SETUP   = yes
     STORE_TEMP    = yes
+    MODFILE       = moddump_binarystar.f90
 endif
 
 ifeq ($(SETUP), photoevap)
