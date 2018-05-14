@@ -38,7 +38,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer :: i
  integer :: opt
- real :: sep,mtot,velocity
+ real :: sep,mtot,velocity,corot_vel
 
  print *, 'Running moddump_binarystar: set up binary star systems in close contact'
  print *, ''
@@ -65,10 +65,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  endif
 
  mtot = npart*massoftype(igas)
- velocity = 0.5 * sqrt(1.0 * mtot) / sqrt(sep) ! in code units
+ velocity  = 0.5 * sqrt(1.0 * mtot) / sqrt(sep) ! in code units
+ corot_vel = 2.0 * velocity / sep 
 
  call adjust_sep(npart, npartoftype, massoftype, xyzh, vxyzu, sep)
  call set_velocity(npart, npartoftype, massoftype, xyzh, vxyzu, velocity)
+ !call set_corotate_velocity(corot_vel)
 
  ! reset centre of mass of the binary system
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
@@ -249,6 +251,20 @@ subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep)
  enddo
 
 end subroutine adjust_sep
+
+
+subroutine set_corotate_velocity(corot_vel)
+ use options,        only:iexternalforce
+ use externalforces, only: omega_corotate,iext_corotate
+ real,    intent(in)    :: corot_vel
+ integer :: i
+
+ !turns on corotation
+ iexternalforce = iext_corotate
+ omega_corotate = corot_vel
+
+ print "(/,a,es18.10,/)", ' The angular velocity in the corotating frame is: ', omega_corotate
+end subroutine
 
 
 subroutine set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,velocity)
