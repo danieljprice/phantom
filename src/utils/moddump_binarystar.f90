@@ -78,10 +78,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 end subroutine modify_dump
 
 subroutine duplicate_star(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas
+ use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas,temperature
  use units,        only: set_units,udist,unit_velocity
  use prompting,    only: prompt
  use centreofmass, only: reset_centreofmass
+ use dim,          only: store_temperature
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -104,6 +105,9 @@ subroutine duplicate_star(npart,npartoftype,massoftype,xyzh,vxyzu)
     vxyzu(2,i) = vxyzu(2,i-npart)
     vxyzu(3,i) = vxyzu(3,i-npart)
     vxyzu(4,i) = vxyzu(4,i-npart)
+    if (store_temperature) then
+       temperature(i) = temperature(i-npart)
+    endif
     call set_particle_type(i,igas)
  enddo
 
