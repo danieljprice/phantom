@@ -93,6 +93,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine modify_dump
 
+
+!
+! Take the star from the input file and duplicate it some distance apart.
+! This assumes the dump file only has one star.
+!
 subroutine duplicate_star(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas,temperature
  use units,        only: set_units,udist,unit_velocity
@@ -132,6 +137,10 @@ subroutine duplicate_star(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine duplicate_star
 
+
+!
+! Calculate com position and velocity for the two stars
+!
 subroutine calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,x1com,v1com,x2com,v2com)
  use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas,iamtype,iphase,maxphase,maxp
  use units,        only: set_units,udist,unit_velocity
@@ -145,7 +154,6 @@ subroutine calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,x1com,v1com,x2com,v
  integer :: i, itype
  real    :: xi, yi, zi, vxi, vyi, vzi
  real    :: totmass, pmassi, dm
- ! calc centre of mass of each star to form the reference points to adjust the position of the second star
 
  ! first star
  x1com = 0.
@@ -227,6 +235,11 @@ subroutine calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,x1com,v1com,x2com,v
 
 end subroutine calc_coms
 
+
+!
+! Adjust the separation of the two stars.
+! First star is placed at the origin, second star is placed sep away in x
+!
 subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep,x1com,v1com,x2com,v2com)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
@@ -236,7 +249,6 @@ subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep,x1com,v1com,x2
  real,    intent(in)    :: sep
  integer :: i
 
- ! now we now the centre point of each star, we can set star 1 to origin, star 2 sep away on x axis, then reset com
  do i = 1, npart/2
     xyzh(1,i) = xyzh(1,i) - x1com(1)
     xyzh(2,i) = xyzh(2,i) - x1com(2)
@@ -258,6 +270,9 @@ subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep,x1com,v1com,x2
 end subroutine adjust_sep
 
 
+! 
+! Set corotation external force on using angular velocity
+!
 subroutine set_corotate_velocity(corot_vel)
  use options,        only:iexternalforce
  use externalforces, only: omega_corotate,iext_corotate
@@ -272,6 +287,9 @@ subroutine set_corotate_velocity(corot_vel)
 end subroutine
 
 
+! 
+! Set orbital velocity in normal space
+!
 subroutine set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,velocity)
  use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas
  use units,        only: set_units,udist,unit_velocity
