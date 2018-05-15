@@ -122,7 +122,7 @@ subroutine test_growingbox(ntests,npass)
  real :: s_in(10000),s_out(10000)
  integer :: switch,ierr=0
  real, parameter :: tols = 2.e-5
- logical :: do_output = .true.
+ logical :: do_output = .false.
 
  if (periodic) then
     if (id==master) write(*,"(/,a)") '--> testing GROWINGBOX'

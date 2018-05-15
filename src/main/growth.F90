@@ -41,6 +41,7 @@ module growth
  integer, public        :: ifrag        = 1
  integer, public        :: isnow        = 0
  logical, public        :: iinterpol    = .true.
+ logical, public        :: zerotime     = .true.
 
  real, public           :: grainsizemin = 1.e-3
  real, public           :: rsnow        = 100.
@@ -66,19 +67,21 @@ subroutine init_growth(ierr)
  use dust,        only:grainsize,graindens
  integer, intent(out) :: ierr
 
- integer                          :: i
+ integer              :: i
 
  i = 0
  ierr = 0
 
  !--initialise variables in code units
- dustprop(1,:)  = grainsize(1)
- dustprop(2,:)  = graindens(1)
- dustprop(3,:)  = 0.
- dustprop(4,:)  = 0.
- dustprop(5,:)  = 0.
- ddustprop(:,:) = 0.
- St(:)          = 0.
+ if (zerotime) then !-- dont initialise dustprop and St if the simulation restarts
+    dustprop(1,:)  = grainsize(1)
+    dustprop(2,:)  = graindens(1)
+    dustprop(3,:)  = 0.
+    dustprop(4,:)  = 0.
+    dustprop(5,:)  = 0.
+    ddustprop(:,:) = 0.
+    St(:)          = 0.
+ endif
  vfrag          = vfrag * 100 / unit_velocity
  vfragin        = vfragin * 100 / unit_velocity
  vfragout       = vfragout * 100 / unit_velocity
@@ -96,7 +99,11 @@ subroutine init_growth(ierr)
        ierr = 1
     endif
     if (dustprop(3,i) < 0) then
-       call error('init_growth','vrel/vfrag < 0',var='dustprop',val=dustprop(3,i))
+       call error('init_growth','vrel < 0',var='dustprop',val=dustprop(3,i))
+       ierr = 1
+    endif
+    if (dustprop(4,i) < 0) then
+       call error('init_growth','vrel/vfrag < 0',var='dustprop',val=dustprop(4,i))
        ierr = 1
     endif
  enddo

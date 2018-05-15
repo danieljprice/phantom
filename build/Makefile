@@ -449,6 +449,19 @@ ifeq ($(SETUP), dustydisc)
     ANALYSIS=analysis_dustydisc.f90
 endif
 
+ifeq ($(SETUP), growingdisc)
+#   locally isothermal dusty discs with growth and fragmentation
+    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
+    SETUPFILE= setup_disc.f90
+    MODFILE= moddump_dustadd.f90
+    ISOTHERMAL=yes
+    DUST=yes
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
+    DUSTGROWTH = yes
+    ANALYSIS=analysis_dustydisc.f90
+endif
+
 ifeq ($(SETUP), dustybox)
 #   dust in a box
     FPPFLAGS= -DPERIODIC

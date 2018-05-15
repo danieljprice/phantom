@@ -440,7 +440,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierrs(1),func=iamtype_int11)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierrs(2))
        if (use_dustgrowth) then
-          call write_array(1,dustprop,dustprop_label,5,npart,k,ipass,idump,nums,ierrs(3))
+          call write_array(1,dustprop,dustprop_label,4,npart,k,ipass,idump,nums,ierrs(3))
           call write_array(1,St,'St',npart,k,ipass,idump,nums,ierrs(3))
        endif
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
@@ -653,7 +653,7 @@ subroutine write_smalldump(t,dumpfile)
        if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierr,func=iamtype_int11)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (use_dustgrowth) then
-          call write_array(1,dustprop,dustprop_label,5,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+          call write_array(1,dustprop,dustprop_label,4,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
           call write_array(1,St,'St',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        endif
        if (h2chemistry .and. nabundances >= 1) &
@@ -1298,7 +1298,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  !
  call check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                    alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
-                   got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop, &
+                   got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_St, &
                    got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 
  return
@@ -1390,7 +1390,7 @@ end subroutine check_block_header
 !---------------------------------------------------------------
 subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
-                        got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop, &
+                        got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_St, &
                         got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
  use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,store_temperature,use_dustgrowth
  use eos,  only:polyk,gamma
@@ -1401,7 +1401,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  use sphNGutils, only:itype_from_sphNG_iphase,isphNG_accreted
  integer,         intent(in)    :: i1,i2,npartoftype(:),npartread,nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
- logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha,got_dustprop(:)
+ logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha,got_dustprop(:),got_St
  logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_Bxyz(:)
  logical,         intent(in)    :: got_psi, got_temp
  integer(kind=1), intent(inout) :: iphase(:)
@@ -1526,7 +1526,15 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     return
  endif
  if (use_dustgrowth .and. .not.got_dustprop(3)) then
+    write(*,*) 'ERROR! using dustgrowth, but no relative velocity found in dump file'
+    return
+ endif
+ if (use_dustgrowth .and. .not.got_dustprop(4)) then
     write(*,*) 'ERROR! using dustgrowth, but no ratio vrel/vfrag found in dump file'
+    return
+ endif
+ if (use_dustgrowth .and. .not.got_St) then
+    write(*,*) 'ERROR! using dustgrowth, but no Stokes number found in dump file'
     return
  endif
  !
