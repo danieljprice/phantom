@@ -58,7 +58,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  use part,           only:massoftype
 #endif
 #ifdef DUSTGROWTH
- use growth,                only:get_growth_rate
+ use growth,                only:get_growth_rate,zerotime
 #endif
  use part,         only:mhd,gradh,alphaind,igas
  use timing,       only:get_timings
@@ -143,6 +143,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  ! compute growth rate of dust particles with respect to their positions
  !
  call get_growth_rate(npart,xyzh,vxyzu,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
+ zerotime = .false.
 #endif
 !
 ! set new timestep from Courant/forces condition
