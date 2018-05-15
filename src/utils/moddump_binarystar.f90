@@ -18,7 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: centreofmass, dim, initial_params, part, prompting, units
+!  DEPENDENCIES: centreofmass, dim, externalforces, initial_params,
+!    options, part, prompting, units
 !+
 !--------------------------------------------------------------------------
 module moddump
