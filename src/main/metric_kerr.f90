@@ -38,7 +38,7 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  z2 = z**2
  a2 = a**2
  r2spherical = x2+y2+z2
- r2        = 0.5*(r2spherical-a2+sqrt((r2spherical-a2))**2 + 4.*a2*z2)
+ r2        = 0.5*(r2spherical-a2)+0.5*sqrt( (r2spherical-a2)**2 + 4.*a2*z2 )
  r         = sqrt(r2)
  rho2      = r2 + a2*(z2/r2)
 
@@ -230,7 +230,7 @@ subroutine get_jacobian(position,dxdx)
  z2 = z**2
  a2 = a**2
  r2spherical = x2+y2+z2
- r2        = 0.5*(r2spherical-a2+sqrt((r2spherical-a2))**2 + 4.*a2*z2)
+ r2        = 0.5*(r2spherical-a2)+0.5*sqrt( (r2spherical-a2)**2 + 4.*a2*z2 )
  r         = sqrt(r2)
  rho2      = r2 + a2*(z2/r2)
  delta     = r2 - rs*r + a2
@@ -276,7 +276,7 @@ subroutine cartesian2spherical(xcart,xspher)
  z2 = z**2
  a2 = a**2
  r2spherical = x2+y2+z2
- r2        = 0.5*(r2spherical-a2+sqrt((r2spherical-a2))**2 + 4.*a2*z2)
+ r2        = 0.5*(r2spherical-a2)+0.5*sqrt( (r2spherical-a2)**2 + 4.*a2*z2 )
  r         = sqrt(r2)
  theta     = acos(z/r)
  phi       = atan2(y,x)
