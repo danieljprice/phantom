@@ -190,7 +190,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call prompt('Set up a binary system?',binary)
     endif
     npmax = int(2.0/3.0*size(xyzh(1,:))) ! approx max number allowed in sphere given size(xyzh(1,:))
-    np    = min(100000,npmax) ! default number of particles
+    np    = min(10000,npmax) ! default number of particles
     if ( binary ) then
        npmax = npmax/2
        np    = min(np,npmax)
