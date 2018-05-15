@@ -101,7 +101,7 @@ subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
  theta = position(2)
  phi   = position(3)
  r2    = r**2
- rho2  = r2 + a2*cos(theta)
+ rho2  = r2 + a2*cos(theta)**2
  delta = r2 - rs*r + a2
  sintheta2 = sin(theta)**2
 
