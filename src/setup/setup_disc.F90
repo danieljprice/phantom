@@ -722,8 +722,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (use_dust) then
     if (use_dustgrowth) then
-       dustprop(1,:) = grainsizeinp(1)
-       dustprop(2,:) = graindensinp(1)
+       dustprop(1,:) = grainsizeinp(1)/udist
+       dustprop(2,:) = graindensinp(1)/umass*udist**3
     endif
 
     if (io_grainsize == 0) then
