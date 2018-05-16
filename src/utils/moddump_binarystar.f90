@@ -38,9 +38,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer :: i
- integer :: opt
- real :: sep,mtot,velocity,corot_vel
+ integer :: opt, Nstar1, Nstar2
+ real :: sep,mtot,corot_vel,vel1,vel2
  real :: x1com(3), v1com(3), x2com(3), v2com(3)
+ real :: m1,m2
 
  print *, 'Running moddump_binarystar: set up binary star systems in close contact'
  print *, ''
@@ -58,13 +59,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  sep = 10.0
  print *, ''
- print *, 'Distance unit is: ', udist
  call prompt('Enter radial separation between stars (in code unit)', sep, 0.)
  print *, ''
 
  ! duplicate star if chosen
  if (opt == 1) then
-    call duplicate_star(npart, npartoftype, massoftype, xyzh, vxyzu)
+    call duplicate_star(npart, npartoftype, massoftype, xyzh, vxyzu, Nstar1, Nstar2)
  endif
 
 
@@ -74,18 +74,28 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 ! endif
 
 
- mtot = npart*massoftype(igas)
- velocity  = 0.5 * sqrt(1.0 * mtot) / sqrt(sep) ! in code units
- corot_vel = 2.0 * velocity / sep
 
  ! find the centre of mass position and velocity for each star
- call calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,x1com,v1com,x2com,v2com)
- ! adjust seperation of binary
- call adjust_sep(npart, npartoftype, massoftype, xyzh, vxyzu, sep, x1com, v1com, x2com, v2com)
+ call calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,v1com,x2com,v2com,m1,m2)
+
+ ! adjust separation of binary
+ call adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,sep,x1com,v1com,x2com,v2com)
+
+
+ mtot = npart*massoftype(igas)
+ corot_vel = sqrt(1.0 * mtot / sep**3)   ! angular velocity
+ vel1   = m1 * sep / mtot * corot_vel
+ vel2   = m2 * sep / mtot * corot_vel
+
+ ! find the centre of mass position and velocity for each star
+ call calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,v1com,x2com,v2com,m1,m2)
 
  ! set orbital velocity
- call set_velocity(npart, npartoftype, massoftype, xyzh, vxyzu, velocity)
- !call set_corotate_velocity(corot_vel)
+ call set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,x2com,corot_vel,vel1,vel2)
+ !call set_corotate_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,corot_vel)
+
+
+
 
  ! reset centre of mass of the binary system
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
@@ -99,7 +109,7 @@ end subroutine modify_dump
 ! Take the star from the input file and duplicate it some distance apart.
 ! This assumes the dump file only has one star.
 !
-subroutine duplicate_star(npart,npartoftype,massoftype,xyzh,vxyzu)
+subroutine duplicate_star(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2)
  use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas,temperature
  use units,        only: set_units,udist,unit_velocity
  use prompting,    only: prompt
@@ -109,6 +119,7 @@ subroutine duplicate_star(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(out)   :: Nstar1, Nstar2
  integer :: i
  real :: sep,mtot,velocity
 
@@ -133,6 +144,9 @@ subroutine duplicate_star(npart,npartoftype,massoftype,xyzh,vxyzu)
     call set_particle_type(i,igas)
  enddo
 
+ Nstar1 = npart
+ Nstar2 = npart
+
  npart = 2 * npart
  npartoftype(igas) = npart
 
@@ -142,7 +156,7 @@ end subroutine duplicate_star
 !
 ! Calculate com position and velocity for the two stars
 !
-subroutine calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,x1com,v1com,x2com,v2com)
+subroutine calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,v1com,x2com,v2com,m1,m2)
  use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas,iamtype,iphase,maxphase,maxp
  use units,        only: set_units,udist,unit_velocity
  use prompting,    only: prompt
@@ -151,7 +165,9 @@ subroutine calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,x1com,v1com,x2com,v
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: Nstar1, Nstar2
  real,    intent(out)   :: x1com(:),v1com(:),x2com(:),v2com(:)
+ real,    intent(out)   :: m1,m2
  integer :: i, itype
  real    :: xi, yi, zi, vxi, vyi, vzi
  real    :: totmass, pmassi, dm
@@ -160,7 +176,7 @@ subroutine calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,x1com,v1com,x2com,v
  x1com = 0.
  v1com = 0.
  totmass = 0.
- do i = 1, npart/2
+ do i = 1, Nstar1
     xi = xyzh(1,i)
     yi = xyzh(2,i)
     zi = xyzh(3,i)
@@ -194,12 +210,13 @@ subroutine calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,x1com,v1com,x2com,v
  endif
  x1com = dm * x1com
  v1com = dm * v1com
+ m1    = totmass
 
  ! second star
  x2com = 0.
  v2com = 0.
  totmass = 0.
- do i = npart/2 + 1, npart
+ do i = Nstar1+1, npart
     xi = xyzh(1,i)
     yi = xyzh(2,i)
     zi = xyzh(3,i)
@@ -233,6 +250,7 @@ subroutine calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,x1com,v1com,x2com,v
  endif
  x2com = dm * x2com
  v2com = dm * v2com
+ m2    = totmass
 
 end subroutine calc_coms
 
@@ -241,16 +259,18 @@ end subroutine calc_coms
 ! Adjust the separation of the two stars.
 ! First star is placed at the origin, second star is placed sep away in x
 !
-subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep,x1com,v1com,x2com,v2com)
+subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,sep,x1com,v1com,x2com,v2com)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: Nstar1, Nstar2
  real,    intent(in)    :: x1com(:),v1com(:),x2com(:),v2com(:)
  real,    intent(in)    :: sep
  integer :: i
 
- do i = 1, npart/2
+ print *, sep
+ do i = 1, Nstar1
     xyzh(1,i) = xyzh(1,i) - x1com(1)
     xyzh(2,i) = xyzh(2,i) - x1com(2)
     xyzh(3,i) = xyzh(3,i) - x1com(3)
@@ -259,7 +279,7 @@ subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep,x1com,v1com,x2
     vxyzu(3,i) = vxyzu(3,i) - v1com(3)
  enddo
 
- do i = npart/2 + 1, npart
+ do i = Nstar1+1, npart
     xyzh(1,i) = xyzh(1,i) - x2com(1) + sep
     xyzh(2,i) = xyzh(2,i) - x2com(2)
     xyzh(3,i) = xyzh(3,i) - x2com(3)
@@ -278,20 +298,20 @@ subroutine set_corotate_velocity(corot_vel)
  use options,        only:iexternalforce
  use externalforces, only: omega_corotate,iext_corotate
  real,    intent(in)    :: corot_vel
- integer :: i
 
- !turns on corotation
+ print "(/,a,es18.10,/)", ' The angular velocity in the corotating frame is: ', corot_vel
+
+ ! Turns on corotation
  iexternalforce = iext_corotate
  omega_corotate = corot_vel
 
- print "(/,a,es18.10,/)", ' The angular velocity in the corotating frame is: ', omega_corotate
 end subroutine
 
 
 !
 ! Set orbital velocity in normal space
 !
-subroutine set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,velocity)
+subroutine set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,x2com,corot_vel,vel1,vel2)
  use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas
  use units,        only: set_units,udist,unit_velocity
  use prompting,    only: prompt
@@ -300,20 +320,30 @@ subroutine set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,velocity)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real,    intent(in)    :: velocity
+ integer, intent(in)    :: Nstar1, Nstar2
+ real,    intent(in)    :: x1com(:), x2com(:)
+ real,    intent(in)    :: corot_vel
+ real,    intent(in)    :: vel1,vel2
  integer :: i
  real :: mtot
 
- print *, "Adding a bulk velocity |V| = ", velocity, "( = ", (velocity*unit_velocity), &
-                  " physical units) to set stars in mutual orbit"
- print *, ''
+ print *, "Setting stars in mutual orbit with angular velocity ", corot_vel
+ print *, "  Adding bulk velocity |v| = ", vel1, "( = ", (vel1*unit_velocity), &
+                  " physical units) to first star"
+ print *, "                       |v| = ", vel2, "( = ", (vel2*unit_velocity), &
+                  " physical units) to second star"
+ print *, ""
+
  ! Adjust bulk velocity of relaxed star towards second star
- do i = 1, npart/2
-    vxyzu(2,i) = vxyzu(2,i) + velocity
+ vxyzu(1,:) = 0.
+ vxyzu(2,:) = 0.
+ vxyzu(3,:) = 0.
+ do i = 1, Nstar1
+    vxyzu(2,i) = vxyzu(2,i) + vel1
  enddo
 
- do i = npart/2 + 1, npart
-    vxyzu(2,i) = vxyzu(2,i) - velocity
+ do i = Nstar1+1, npart
+    vxyzu(2,i) = vxyzu(2,i) - vel2
  enddo
 
 end subroutine set_velocity
