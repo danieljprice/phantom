@@ -43,16 +43,19 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real :: x1com(3), v1com(3), x2com(3), v2com(3)
  real :: m1,m2
 
- print *, 'Running moddump_binarystar: set up binary star systems in close contact'
+ print *, 'Running moddump_binarystar:'
+ print *, ''
+ print *, 'This utility sets two stars in binary orbit around each other, or modifies an existing binary.'
  print *, ''
  print *, 'Options:'
  print *, '   1) Duplicate a relaxed star'
- print *, '   2) Adjust separation of existing binary'
+ print *, '   2) Add a star from another dumpfile'
+ print *, '   3) Adjust separation of existing binary'
 
  opt = 1
- call prompt('Choice',opt, 1, 2)
+ call prompt('Choice',opt, 1, 3)
 
- if (opt  /=  1 .and. opt  /=  2) then
+ if (opt  /=  1 .and. opt  /=  2 .and. opt /= 3) then
     print *, 'Incorrect option selected. Doing nothing.'
     return
  endif
@@ -67,6 +70,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call duplicate_star(npart, npartoftype, massoftype, xyzh, vxyzu, Nstar1, Nstar2)
  endif
 
+ ! add a new star from another dumpfile
+ if (opt == 2) then
+    call add_star(npart, npartoftype, massoftype, xyzh, vxyzu, Nstar1, Nstar2)
+ endif
 
  ! add a uniform low density background fluid
 ! if (opt == 3) then
@@ -151,6 +158,99 @@ subroutine duplicate_star(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2)
  npartoftype(igas) = npart
 
 end subroutine duplicate_star
+
+
+!
+! Place a star that is read from another dumpfile
+!
+subroutine add_star(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2)
+ use part,            only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas,temperature,alphaind
+ use units,           only: set_units,udist,unit_velocity
+ use prompting,       only: prompt
+ use centreofmass,    only: reset_centreofmass
+ use dim,             only: maxp,maxvxyzu,nalpha,maxalpha,store_temperature
+ use readwrite_dumps, only: read_dump
+ use io,              only: idisk1,iprint
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: massoftype(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(out)   :: Nstar1, Nstar2
+ character(len=120) :: fn
+ real, allocatable :: xyzh2(:,:)
+ real, allocatable :: vxyzu2(:,:)
+ real, allocatable :: temperature2(:)
+ real, allocatable :: alphaind2(:,:)
+ integer :: i,ierr
+ real    :: time2,hfact2,sep
+
+
+ print *, ''
+ print *, 'Adding a new star read from another dumpfile'
+ print *, ''
+
+ fn = ''
+ call prompt('Name of second dumpfile',fn)
+
+ ! read_dump will overwrite the current particles, so store them in a temporary array
+ allocate(xyzh2(4,maxp),stat=ierr)  ! positions + smoothing length
+ if (ierr /= 0) stop ' error allocating memory to store positions'
+ allocate(vxyzu2(maxvxyzu,maxp),stat=ierr)  ! velocity + thermal energy
+ if (ierr /= 0) stop ' error allocating memory to store velocity'
+ if (store_temperature) then        ! temperature
+    allocate(temperature2(maxp),stat=ierr)
+    if (ierr /= 0) stop ' error allocating memory to store temperature'
+ endif
+ if (maxalpha == maxp) then         ! artificial viscosity alpha
+    allocate(alphaind2(nalpha,maxp),stat=ierr)
+    if (ierr /= 0) stop ' error allocating memory to store alphaind'
+ endif
+
+ Nstar2 = npart
+ xyzh2  = xyzh
+ vxyzu2 = vxyzu
+ if (store_temperature) then
+    temperature2 = temperature
+ endif
+ if (maxalpha == maxp) then
+    alphaind2 = alphaind
+ endif 
+ 
+
+ ! read second dump file
+ call read_dump(trim(fn),time2,hfact2,idisk1+1,iprint,0,1,ierr)
+ if (ierr /= 0) stop 'error reading second dumpfile'
+
+
+ Nstar1 = npart
+ sep = 10.0
+
+ ! insert saved star (from original dump file)
+ do i = npart+1, npart+Nstar2
+    ! place star a distance rad away
+    xyzh(1,i) = xyzh2(1,i-npart) + sep
+    xyzh(2,i) = xyzh2(2,i-npart)
+    xyzh(3,i) = xyzh2(3,i-npart)
+    xyzh(4,i) = xyzh2(4,i-npart)
+    vxyzu(1,i) = vxyzu2(1,i-npart)
+    vxyzu(2,i) = vxyzu2(2,i-npart)
+    vxyzu(3,i) = vxyzu2(3,i-npart)
+    vxyzu(4,i) = vxyzu2(4,i-npart)
+    if (store_temperature) then
+       temperature(i) = temperature2(i-npart)
+    endif
+    if (maxalpha == maxp) then
+       alphaind(1,i) = alphaind2(1,i-npart)
+       alphaind(2,i) = alphaind2(2,i-npart)
+    endif
+    call set_particle_type(i,igas)
+ enddo
+
+ npart = npart + Nstar2
+ npartoftype(igas) = npart
+
+ print *, npart
+end subroutine add_star
 
 
 !
