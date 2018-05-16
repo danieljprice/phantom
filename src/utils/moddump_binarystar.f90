@@ -18,7 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: centreofmass, dim, initial_params, part, prompting, units
+!  DEPENDENCIES: centreofmass, dim, externalforces, initial_params,
+!    options, part, prompting, units
 !+
 !--------------------------------------------------------------------------
 module moddump
@@ -75,7 +76,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  mtot = npart*massoftype(igas)
  velocity  = 0.5 * sqrt(1.0 * mtot) / sqrt(sep) ! in code units
- corot_vel = 2.0 * velocity / sep 
+ corot_vel = 2.0 * velocity / sep
 
  ! find the centre of mass position and velocity for each star
  call calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,x1com,v1com,x2com,v2com)
@@ -270,7 +271,7 @@ subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,sep,x1com,v1com,x2
 end subroutine adjust_sep
 
 
-! 
+!
 ! Set corotation external force on using angular velocity
 !
 subroutine set_corotate_velocity(corot_vel)
@@ -287,7 +288,7 @@ subroutine set_corotate_velocity(corot_vel)
 end subroutine
 
 
-! 
+!
 ! Set orbital velocity in normal space
 !
 subroutine set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,velocity)
