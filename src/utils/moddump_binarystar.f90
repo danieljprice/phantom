@@ -39,7 +39,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer :: i
  integer :: opt, Nstar1, Nstar2
- real :: sep,mtot,corot_vel,vel1,vel2
+ real :: sep,mtot,angvel,vel1,vel2
  real :: x1com(3), v1com(3), x2com(3), v2com(3)
  real :: m1,m2
 
@@ -90,16 +90,16 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 
  mtot = npart*massoftype(igas)
- corot_vel = sqrt(1.0 * mtot / sep**3)   ! angular velocity
- vel1   = m1 * sep / mtot * corot_vel
- vel2   = m2 * sep / mtot * corot_vel
+ angvel = sqrt(1.0 * mtot / sep**3)   ! angular velocity
+ vel1   = m1 * sep / mtot * angvel
+ vel2   = m2 * sep / mtot * angvel
 
  ! find the centre of mass position and velocity for each star
  call calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,v1com,x2com,v2com,m1,m2)
 
  ! set orbital velocity
- call set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,x2com,corot_vel,vel1,vel2)
- !call set_corotate_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,corot_vel)
+ call set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,x2com,angvel,vel1,vel2)
+ !call set_corotate_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,angvel)
 
 
 
@@ -394,16 +394,16 @@ end subroutine adjust_sep
 !
 ! Set corotation external force on using angular velocity
 !
-subroutine set_corotate_velocity(corot_vel)
+subroutine set_corotate_velocity(angvel)
  use options,        only:iexternalforce
  use externalforces, only: omega_corotate,iext_corotate
- real,    intent(in)    :: corot_vel
+ real,    intent(in)    :: angvel
 
- print "(/,a,es18.10,/)", ' The angular velocity in the corotating frame is: ', corot_vel
+ print "(/,a,es18.10,/)", ' The angular velocity in the corotating frame is: ', angvel
 
  ! Turns on corotation
  iexternalforce = iext_corotate
- omega_corotate = corot_vel
+ omega_corotate = angvel
 
 end subroutine
 
@@ -411,7 +411,7 @@ end subroutine
 !
 ! Set orbital velocity in normal space
 !
-subroutine set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,x2com,corot_vel,vel1,vel2)
+subroutine set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,x2com,angvel,vel1,vel2)
  use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas
  use units,        only: set_units,udist,unit_velocity
  use prompting,    only: prompt
@@ -422,12 +422,12 @@ subroutine set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer, intent(in)    :: Nstar1, Nstar2
  real,    intent(in)    :: x1com(:), x2com(:)
- real,    intent(in)    :: corot_vel
+ real,    intent(in)    :: angvel
  real,    intent(in)    :: vel1,vel2
  integer :: i
  real :: mtot
 
- print *, "Setting stars in mutual orbit with angular velocity ", corot_vel
+ print *, "Setting stars in mutual orbit with angular velocity ", angvel
  print *, "  Adding bulk velocity |v| = ", vel1, "( = ", (vel1*unit_velocity), &
                   " physical units) to first star"
  print *, "                       |v| = ", vel2, "( = ", (vel2*unit_velocity), &
