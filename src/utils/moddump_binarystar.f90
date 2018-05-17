@@ -31,7 +31,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,           only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas
  use units,          only: set_units,udist,unit_velocity
  use prompting,      only: prompt
- use centreofmass,   only: reset_centreofmass
+ use centreofmass,   only: reset_centreofmass,get_centreofmass
  use initial_params, only: get_conserv
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
@@ -40,8 +40,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: i
  integer :: opt, Nstar1, Nstar2
  real :: sep,mtot,angvel,vel1,vel2
- real :: x1com(3), v1com(3), x2com(3), v2com(3)
- real :: m1,m2
+ real :: xcom(3), vcom(3), x1com(3), v1com(3), x2com(3), v2com(3)
+ real :: pmassi,m1,m2
 
  print *, 'Running moddump_binarystar:'
  print *, ''
@@ -80,26 +80,38 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 !    call add_background(npart, npartoftype, massoftype, xyzh, vxyzu)
 ! endif
 
+ ! get centre of mass of total system, and each star individually
 
+ call get_centreofmass(xcom,  vcom,  npart,  xyzh,                   vxyzu)
+ call get_centreofmass(x1com, v1com, Nstar1, xyzh(:,1:Nstar1),       vxyzu(:,1:Nstar1))
+ call get_centreofmass(x2com, v2com, Nstar2, xyzh(:,Nstar1+1:npart), vxyzu(:,Nstar1+1:npart))
+
+ ! we only work with gas, so this is ok
+ pmassi = massoftype(igas)
+ mtot   = npart  * pmassi
+ m1     = Nstar1 * pmassi
+ m2     = Nstar2 * pmassi
 
  ! find the centre of mass position and velocity for each star
- call calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,v1com,x2com,v2com,m1,m2)
+! call calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,v1com,x2com,v2com,m1,m2)
 
  ! adjust separation of binary
  call adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,sep,x1com,v1com,x2com,v2com)
 
 
- mtot = npart*massoftype(igas)
+! mtot = npart*massoftype(igas)
  angvel = sqrt(1.0 * mtot / sep**3)   ! angular velocity
  vel1   = m1 * sep / mtot * angvel
  vel2   = m2 * sep / mtot * angvel
 
  ! find the centre of mass position and velocity for each star
- call calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,v1com,x2com,v2com,m1,m2)
+! call calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,v1com,x2com,v2com,m1,m2)
+ call get_centreofmass(x1com, v1com, Nstar1, xyzh(:,1:Nstar1),       vxyzu(:,1:Nstar1))
+ call get_centreofmass(x2com, v2com, Nstar2, xyzh(:,Nstar1+1:npart), vxyzu(:,Nstar1+1:npart))
 
  ! set orbital velocity
  call set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,x2com,angvel,vel1,vel2)
- !call set_corotate_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,angvel)
+! call set_corotate_velocity(angvel)
 
 
 
@@ -251,108 +263,6 @@ subroutine add_star(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2)
 
  print *, npart
 end subroutine add_star
-
-
-!
-! Calculate com position and velocity for the two stars
-!
-subroutine calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,v1com,x2com,v2com,m1,m2)
- use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas,iamtype,iphase,maxphase,maxp
- use units,        only: set_units,udist,unit_velocity
- use prompting,    only: prompt
- use centreofmass, only: reset_centreofmass
- integer, intent(inout) :: npart
- integer, intent(inout) :: npartoftype(:)
- real,    intent(inout) :: massoftype(:)
- real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer, intent(in)    :: Nstar1, Nstar2
- real,    intent(out)   :: x1com(:),v1com(:),x2com(:),v2com(:)
- real,    intent(out)   :: m1,m2
- integer :: i, itype
- real    :: xi, yi, zi, vxi, vyi, vzi
- real    :: totmass, pmassi, dm
-
- ! first star
- x1com = 0.
- v1com = 0.
- totmass = 0.
- do i = 1, Nstar1
-    xi = xyzh(1,i)
-    yi = xyzh(2,i)
-    zi = xyzh(3,i)
-    vxi = vxyzu(1,i)
-    vyi = vxyzu(2,i)
-    vzi = vxyzu(3,i)
-    if (maxphase == maxp) then
-       itype = iamtype(iphase(i))
-       if (itype > 0) then
-          pmassi = massoftype(itype)
-       else
-          pmassi = massoftype(igas)
-       endif
-    else
-       pmassi = massoftype(igas)
-    endif
-
-    totmass = totmass + pmassi
-    x1com(1) = x1com(1) + pmassi * xi
-    x1com(2) = x1com(2) + pmassi * yi
-    x1com(3) = x1com(3) + pmassi * zi
-    v1com(1) = v1com(1) + pmassi * vxi
-    v1com(2) = v1com(2) + pmassi * vyi
-    v1com(3) = v1com(3) + pmassi * vzi
- enddo
-
- if (totmass > tiny(totmass)) then
-    dm = 1.d0/totmass
- else
-    dm = 0.d0
- endif
- x1com = dm * x1com
- v1com = dm * v1com
- m1    = totmass
-
- ! second star
- x2com = 0.
- v2com = 0.
- totmass = 0.
- do i = Nstar1+1, npart
-    xi = xyzh(1,i)
-    yi = xyzh(2,i)
-    zi = xyzh(3,i)
-    vxi = vxyzu(1,i)
-    vyi = vxyzu(2,i)
-    vzi = vxyzu(3,i)
-    if (maxphase == maxp) then
-       itype = iamtype(iphase(i))
-       if (itype > 0) then
-          pmassi = massoftype(itype)
-       else
-          pmassi = massoftype(igas)
-       endif
-    else
-       pmassi = massoftype(igas)
-    endif
-
-    totmass = totmass + pmassi
-    x2com(1) = x2com(1) + pmassi * xi
-    x2com(2) = x2com(2) + pmassi * yi
-    x2com(3) = x2com(3) + pmassi * zi
-    v2com(1) = v2com(1) + pmassi * vxi
-    v2com(2) = v2com(2) + pmassi * vyi
-    v2com(3) = v2com(3) + pmassi * vzi
- enddo
-
- if (totmass > tiny(totmass)) then
-    dm = 1.d0/totmass
- else
-    dm = 0.d0
- endif
- x2com = dm * x2com
- v2com = dm * v2com
- m2    = totmass
-
-end subroutine calc_coms
 
 
 !
