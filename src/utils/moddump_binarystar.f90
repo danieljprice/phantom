@@ -214,8 +214,8 @@ subroutine add_star(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2)
  endif
  if (maxalpha == maxp) then
     alphaind2 = alphaind
- endif 
- 
+ endif
+
 
  ! read second dump file
  call read_dump(trim(fn),time2,hfact2,idisk1+1,iprint,0,1,ierr)
