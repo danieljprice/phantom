@@ -101,7 +101,7 @@ subroutine test_growingbox(ntests,npass)
  use deriv,          only:derivs
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use unifdis,        only:set_unifdis
- use eos,            only:ieos,polyk,gamma
+ use eos,            only:ieos,polyk,gamma,get_spsound,init_eos,temperature_coef,gmw
  use options,        only:alpha,alphamax
  use physcon,        only:au,solarm,Ro
  use dim,            only:periodic
@@ -109,19 +109,20 @@ subroutine test_growingbox(ntests,npass)
  use io,             only:iverbose
  use units,          only:set_units
  use mpiutils,       only:reduceall_mpi
- use growth,         only:ifrag,get_vrelonvfrag,vfrag,isnow,vfragin,vfragout,rsnow,iinterpol
+ use growth,         only:ifrag,get_vrelonvfrag,vfrag,isnow,vfragin,vfragout,rsnow,iinterpol,Tsnow
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
- integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(7), nerr(7)
- real :: deltax, dz, hfact, totmass, rhozero, errmax(7), dtext_dum
+ integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(9), nerr(9)
+ real :: deltax, dz, hfact, totmass, rhozero, errmax(9), dtext_dum
  real :: t, dt, dtext, dtnew
- real :: csj = 1., Stj = 1., s, Vt,vrelonvfrag = 10.
+ real :: csj = 1., Stj = 1., s, Vt,vrelonvfrag = 10., cs(10000), cs_snow
  real :: slast = 0., si = 0., so = 0., r = 0.
  real :: T08,tau
  real :: sinit = 1., dens = 1.
- integer :: switch
+ real :: s_in(10000),s_out(10000)
+ integer :: switch,ierr=0
  real, parameter :: tols = 2.e-5
- logical :: do_output = .false.
+ logical :: do_output = .true.
 
  if (periodic) then
     if (id==master) write(*,"(/,a)") '--> testing GROWINGBOX'
@@ -333,7 +334,7 @@ subroutine test_growingbox(ntests,npass)
        s = slast - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*(t-switch*dt)
     endif
     call step(npart,npart,t,dt,dtext,dtnew)
-    if (do_output) call write_file(i,dt,xyzh,dustprop/sinit,npart,'switch_')
+    if (do_output) call write_file(i,dt,xyzh,dustprop/sinit,cs,npart,'switch_')
     do j=1,npart
        call checkvalbuf(dustprop(1,j),s,tols,'size',nerr(5),ncheck(5),errmax(5))
     enddo
@@ -343,7 +344,7 @@ subroutine test_growingbox(ntests,npass)
  !
  ! testing growth inside the snow line and fragmentation outside of it
  !
- write(*,"(/,a)")'------------------ position based snow line (ifrag = (in:0, out:1)) ------------------'
+ write(*,"(/,a)")'------------------ position based snow line ------------------'
  !
  ! initialise again
  !
@@ -368,17 +369,64 @@ subroutine test_growingbox(ntests,npass)
     call step(npart,npart,t,dt,dtext,dtnew)
     si = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
     so = sinit - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
-    if (do_output) call write_file(i,dt,xyzh,dustprop/sinit,npart,'snowline_')
+    if (do_output) call write_file(i,dt,xyzh,dustprop/sinit,cs,npart,'snowline_pos_')
     do j=1,npart
-       r = sqrt(xyzh(1,j)**2+xyzh(2,j)**2)
+       r = sqrt(xyzh(1,j)**2+xyzh(2,j)**2+xyzh(3,j)**2)
        if (r < rsnow) call checkvalbuf(dustprop(1,j),si,tols,'size',nerr(6),ncheck(6),errmax(6))
        if (r > rsnow) call checkvalbuf(dustprop(1,j),so,tols,'size',nerr(7),ncheck(7),errmax(7))
     enddo
  enddo
  call checkvalbuf_end('size match exact solution (in)',ncheck(6),nerr(6),errmax(6),tols)
  call checkvalbuf_end('size match exact solution (out)',ncheck(7),nerr(7),errmax(7 ),tols)
+ !
+ ! testing growth inside the snow line and fragmentation outside of it
+ !
+ write(*,"(/,a)")'------------------ temperature based snow line ------------------'
+ !
+ ! initialise again
+ !
+ dustprop(1,:) = sinit
+ dustprop(3,:) = 0.
+ dustprop(4,:) = 0.
+ vfragin = vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! vrel < vfrag : growth
+ vfragout = 1/vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! vrel > vfrag : fragmentation
+ isnow = 2
+ Tsnow = 300000.
+ ieos = 3
+ polyk = 0.1
 
- if (all(nerr(1:7)==0)) npass = npass + 1
+ call init_eos(ieos,ierr)
+ cs_snow = sqrt(Tsnow/(temperature_coef*gmw))
+
+ t = 0
+
+ call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+
+ call init_step(npart,t,dtmax)
+
+ do i=1,nsteps
+    t = t + dt
+    dtext = dt
+    call step(npart,npart,t,dt,dtext,dtnew)
+    do j=1,npart
+       cs(j) = get_spsound(ieos,xyzh(:,j),rhozero,vxyzu(:,j))
+       Vt = sqrt(2**(0.5)*alpha*Ro)*cs(j)
+       s_in(j)  = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
+       s_out(j) = sinit - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
+       if (cs(j) > cs_snow) then
+          call checkvalbuf(dustprop(1,j),s_in(j),3*tols,'size',nerr(8),ncheck(8),errmax(8))
+       endif
+       if (cs(j) < cs_snow) then
+          call checkvalbuf(dustprop(1,j),s_out(j),3*tols,'size',nerr(9),ncheck(9),errmax(9))
+       endif
+    enddo
+    if (do_output) call write_file(i,dt,xyzh,dustprop/sinit,cs/cs_snow,npart,'snowline_temp_')
+ enddo
+ call checkvalbuf_end('size match exact solution (in)',ncheck(8),nerr(8),errmax(8),3*tols)
+ call checkvalbuf_end('size match exact solution (out)',ncheck(9),nerr(9),errmax(9),3*tols)
+
+ if (all(nerr(1:9)==0)) npass = npass + 1
  ntests = ntests + 1
 
 end subroutine test_growingbox
@@ -506,9 +554,9 @@ end subroutine check_stokes_number
 !  dustprop(1) (size) and dustprop(4) (vrel/vfrag)
 !+
 !---------------------------------------------------
-subroutine write_file(step,dt,xyzh,dustprop,npart,prefix)
+subroutine write_file(step,dt,xyzh,dustprop,cs,npart,prefix)
  real, intent(in)              :: dt
- real, intent(in)              :: xyzh(:,:),dustprop(:,:)
+ real, intent(in)              :: xyzh(:,:),dustprop(:,:),cs(:)
  character(len=*), intent(in)  :: prefix
  integer, intent(in)           :: npart,step
  character(len=30)             :: filename,str
@@ -520,7 +568,7 @@ subroutine write_file(step,dt,xyzh,dustprop,npart,prefix)
  open(newunit=lu,file=filename,status='replace')
  write(lu,*) step*dt
  do i=1,npart
-    write(lu,*) xyzh(1,i),xyzh(2,i),dustprop(1,i),dustprop(4,i)
+    write(lu,*) xyzh(1,i),xyzh(2,i),xyzh(3,i),dustprop(1,i),dustprop(4,i),cs(i)
  enddo
  close(lu)
 
