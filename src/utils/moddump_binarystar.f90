@@ -29,7 +29,7 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,           only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas
- use units,          only: set_units,udist,unit_velocity
+ use units,          only: set_units
  use prompting,      only: prompt
  use centreofmass,   only: reset_centreofmass,get_centreofmass
  use initial_params, only: get_conserv
@@ -37,7 +37,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer :: i
  integer :: opt, Nstar1, Nstar2
  real :: sep,mtot,angvel,vel1,vel2
  real :: xcom(3), vcom(3), x1com(3), v1com(3), x2com(3), v2com(3)
@@ -81,7 +80,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 ! endif
 
  ! get centre of mass of total system, and each star individually
-
  call get_centreofmass(xcom,  vcom,  npart,  xyzh,                   vxyzu)
  call get_centreofmass(x1com, v1com, Nstar1, xyzh(:,1:Nstar1),       vxyzu(:,1:Nstar1))
  call get_centreofmass(x2com, v2com, Nstar2, xyzh(:,Nstar1+1:npart), vxyzu(:,Nstar1+1:npart))
@@ -91,9 +89,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  mtot   = npart  * pmassi
  m1     = Nstar1 * pmassi
  m2     = Nstar2 * pmassi
-
- ! find the centre of mass position and velocity for each star
-! call calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,v1com,x2com,v2com,m1,m2)
 
  ! adjust separation of binary
  call adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,sep,x1com,v1com,x2com,v2com)
@@ -105,12 +100,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  vel2   = m2 * sep / mtot * angvel
 
  ! find the centre of mass position and velocity for each star
-! call calc_coms(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,v1com,x2com,v2com,m1,m2)
  call get_centreofmass(x1com, v1com, Nstar1, xyzh(:,1:Nstar1),       vxyzu(:,1:Nstar1))
  call get_centreofmass(x2com, v2com, Nstar2, xyzh(:,Nstar1+1:npart), vxyzu(:,Nstar1+1:npart))
 
  ! set orbital velocity
- call set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,x2com,angvel,vel1,vel2)
+ call set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,angvel,vel1,vel2)
 ! call set_corotate_velocity(angvel)
 
 
@@ -129,8 +123,7 @@ end subroutine modify_dump
 ! This assumes the dump file only has one star.
 !
 subroutine duplicate_star(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2)
- use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas,temperature
- use units,        only: set_units,udist,unit_velocity
+ use part,         only: igas,set_particle_type,igas,temperature
  use prompting,    only: prompt
  use centreofmass, only: reset_centreofmass
  use dim,          only: store_temperature
@@ -140,7 +133,7 @@ subroutine duplicate_star(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer, intent(out)   :: Nstar1, Nstar2
  integer :: i
- real :: sep,mtot,velocity
+ real :: sep
 
  npart = npartoftype(igas)
 
@@ -176,8 +169,7 @@ end subroutine duplicate_star
 ! Place a star that is read from another dumpfile
 !
 subroutine add_star(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2)
- use part,            only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas,temperature,alphaind
- use units,           only: set_units,udist,unit_velocity
+ use part,            only: igas,set_particle_type,igas,temperature,alphaind
  use prompting,       only: prompt
  use centreofmass,    only: reset_centreofmass
  use dim,             only: maxp,maxvxyzu,nalpha,maxalpha,store_temperature
@@ -252,8 +244,8 @@ subroutine add_star(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2)
        temperature(i) = temperature2(i-npart)
     endif
     if (maxalpha == maxp) then
-       alphaind(1,i) = alphaind2(1,i-npart)
-       alphaind(2,i) = alphaind2(2,i-npart)
+       alphaind(1,i) = real(alphaind2(1,i-npart),kind=4)
+       alphaind(2,i) = real(alphaind2(2,i-npart),kind=4)
     endif
     call set_particle_type(i,igas)
  enddo
@@ -321,21 +313,16 @@ end subroutine
 !
 ! Set orbital velocity in normal space
 !
-subroutine set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,x2com,angvel,vel1,vel2)
- use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas
- use units,        only: set_units,udist,unit_velocity
- use prompting,    only: prompt
- use centreofmass, only: reset_centreofmass
+subroutine set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,angvel,vel1,vel2)
+ use units,        only: unit_velocity
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer, intent(in)    :: Nstar1, Nstar2
- real,    intent(in)    :: x1com(:), x2com(:)
  real,    intent(in)    :: angvel
  real,    intent(in)    :: vel1,vel2
  integer :: i
- real :: mtot
 
  print *, "Setting stars in mutual orbit with angular velocity ", angvel
  print *, "  Adding bulk velocity |v| = ", vel1, "( = ", (vel1*unit_velocity), &
