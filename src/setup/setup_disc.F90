@@ -892,7 +892,7 @@ end subroutine setpart
 !
 !------------------------------------------------------------------------
 subroutine setup_interactive(id)
- use growth,         only:ifrag,isnow,rsnow,Tsnow,vfrag,vfragin,vfragout,grainsizemin
+ use growth,         only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
  use dust,           only:ilimitdustflux
  use readwrite_dust, only:interactively_set_dust
  use prompting,      only:prompt
@@ -1120,10 +1120,10 @@ subroutine setup_interactive(id)
        isnow = 0
        rsnow = 100.
        Tsnow = 20.
-       vfrag = 15.
-       vfragin = 5.
-       vfragout = 15.
-       grainsizemin = 1.e-3
+       vfragSI = 15.
+       vfraginSI = 5.
+       vfragoutSI = 15.
+       gsizemincgs = 1.e-3
        !
        !--growth parameters from user
        !
@@ -1144,15 +1144,15 @@ subroutine setup_interactive(id)
        case default
        end select
        if (ifrag > 0) then
-          call prompt('Enter minimum allowed grain size in cm',grainsizemin)
+          call prompt('Enter minimum allowed grain size in cm',gsizemincgs)
           call prompt('Do you want a snow line ? (0=no,1=position based,2=temperature based)',isnow,0,2)
           if (isnow == 0) then
-             call prompt('Enter uniform vfrag in m/s',vfrag,1.)
+             call prompt('Enter uniform vfrag in m/s',vfragSI,1.)
           else
              if (isnow == 1) call prompt('How far from the star in AU ?',rsnow,0.)
              if (isnow == 2) call prompt('Enter snow line condensation temperature in K',Tsnow,0.)
-             call prompt('Enter inward vfragin in m/s',vfragin,1.)
-             call prompt('Enter outward vfragout in m/s',vfragout,1.)
+             call prompt('Enter inward vfragin in m/s',vfraginSI,1.)
+             call prompt('Enter outward vfragout in m/s',vfragoutSI,1.)
           endif
        endif
     elseif (use_dustgrowth .and. dust_method == 1) then
@@ -1223,7 +1223,7 @@ end subroutine setup_interactive
 subroutine write_setupfile(filename)
  use infile_utils,   only:write_inopt
  use readwrite_dust, only:write_dust_setup_options
- use growth,         only:ifrag,isnow,rsnow,Tsnow,vfrag,vfragin,vfragout,grainsizemin
+ use growth,         only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
  logical :: done_alpha
@@ -1423,10 +1423,10 @@ subroutine write_setupfile(filename)
        call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
        call write_inopt(rsnow,'rsnow','snow line position in AU',iunit)
        call write_inopt(Tsnow,'Tsnow','snow line condensation temperature in K',iunit)
-       call write_inopt(vfrag,'vfrag','uniform fragmentation threshold in m/s',iunit)
-       call write_inopt(vfragin,'vfragin','inward fragmentation threshold in m/s',iunit)
-       call write_inopt(vfragout,'vfragout','inward fragmentation threshold in m/s',iunit)
-       call write_inopt(grainsizemin,'grainsizemin','minimum allowed grain size in cm',iunit)
+       call write_inopt(vfragSI,'vfrag','uniform fragmentation threshold in m/s',iunit)
+       call write_inopt(vfraginSI,'vfragin','inward fragmentation threshold in m/s',iunit)
+       call write_inopt(vfragoutSI,'vfragout','inward fragmentation threshold in m/s',iunit)
+       call write_inopt(gsizemincgs,'grainsizemin','minimum allowed grain size in cm',iunit)
     endif
  endif
  !--planets

@@ -1012,6 +1012,7 @@ subroutine write_dust_setup_options(iunit,dust_to_gas,df,gs,gd,imethod,iprofile,
  if (.not.simple_output) then
     if (use_dustgrowth) then
        call write_inopt(grainsizeinp(1),'grainsizeinp','initial grain size (in cm)',iunit)
+       call write_inopt(graindensinp(1),'graindensinp','intrinsic grain density (in g/cm^3)',iunit) ! Modify this is graindens becomes variable
     elseif (use_dustfrac .and. ndusttypes > 1) then
        call write_inopt(io_grainsize,'io_grainsize', &
           'grain size distribution (0=power-law,1=equal,2=manually)',iunit)
