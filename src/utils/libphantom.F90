@@ -559,7 +559,7 @@ subroutine get_part_u(npart_in, part_u, nodisabled, ierr)
  logical, intent(in)  :: nodisabled
  integer, intent(out) :: ierr
  integer :: i, n
- 
+
  if (maxvxyzu == 4) then
     if (nodisabled) then
        n = 0
