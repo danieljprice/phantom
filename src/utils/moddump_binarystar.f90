@@ -107,6 +107,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,angvel,vel1,vel2)
 ! call set_corotate_velocity(angvel)
 
+ ! synchronise rotation
+ print *, ''
+ opt = 1
+ call prompt('Synchronise binaries? [0 false; 1 true]',opt, 0, 1)
+
+ if (opt == 1) then 
+    call synchronise(npart,xyzh,vxyzu,Nstar1,Nstar2,angvel,x1com,x2com)
+ endif
 
 
 
@@ -345,6 +353,34 @@ subroutine set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,an
 
 end subroutine set_velocity
 
+
+!
+! Set binaries in synchronised orbit
+!
+subroutine synchronise(npart,xyzh,vxyzu,Nstar1,Nstar2,angvel,x1com,x2com)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
+ integer, intent(in)    :: Nstar1, Nstar2
+ real,    intent(in)    :: angvel
+ real,    intent(in)    :: x1com(:), x2com(:)
+ integer :: i
+
+ print *, ""
+ print *, "Synchronising rotation to orbital period"
+ print *, ""
+
+ do i = 1, Nstar1
+    vxyzu(1,i) = vxyzu(1,i) + angvel * (xyzh(2,i) - x1com(2))
+    vxyzu(2,i) = vxyzu(2,i) - angvel * (xyzh(1,i) - x1com(1))
+ enddo
+
+ do i = Nstar1+1, npart
+    vxyzu(1,i) = vxyzu(1,i) + angvel * (xyzh(2,i) - x2com(2))
+    vxyzu(2,i) = vxyzu(2,i) - angvel * (xyzh(1,i) - x2com(1))
+ enddo
+
+end subroutine synchronise
 
 end module moddump
 
