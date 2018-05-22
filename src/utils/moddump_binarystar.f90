@@ -112,7 +112,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  opt = 1
  call prompt('Synchronise binaries? [0 false; 1 true]',opt, 0, 1)
 
- if (opt == 1) then 
+ if (opt == 1) then
     call synchronise(npart,xyzh,vxyzu,Nstar1,Nstar2,angvel,x1com,x2com)
  endif
 
