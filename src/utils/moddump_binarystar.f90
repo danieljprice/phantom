@@ -42,6 +42,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real :: xcom(3), vcom(3), x1com(3), v1com(3), x2com(3), v2com(3)
  real :: pmassi,m1,m2
 
+ !
+ ! Option selection
+ !
  print *, 'Running moddump_binarystar:'
  print *, ''
  print *, 'This utility sets two stars in binary orbit around each other, or modifies an existing binary.'
@@ -64,12 +67,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call prompt('Enter radial separation between stars (in code unit)', sep, 0.)
  print *, ''
 
- ! duplicate star if chosen
+
+ !
+ ! Create binary
+ !
  if (opt == 1) then
     call duplicate_star(npart, npartoftype, massoftype, xyzh, vxyzu, Nstar1, Nstar2)
  endif
 
- ! add a new star from another dumpfile
  if (opt == 2) then
     call add_star(npart, npartoftype, massoftype, xyzh, vxyzu, Nstar1, Nstar2)
  endif
@@ -79,37 +84,37 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 !    call add_background(npart, npartoftype, massoftype, xyzh, vxyzu)
 ! endif
 
- ! get centre of mass of total system, and each star individually
+
+ !
+ ! Set binary at specified separation with corresponding orbital velocity
+ !
  call get_centreofmass(xcom,  vcom,  npart,  xyzh,                   vxyzu)
  call get_centreofmass(x1com, v1com, Nstar1, xyzh(:,1:Nstar1),       vxyzu(:,1:Nstar1))
  call get_centreofmass(x2com, v2com, Nstar2, xyzh(:,Nstar1+1:npart), vxyzu(:,Nstar1+1:npart))
 
- ! we only work with gas, so this is ok
  pmassi = massoftype(igas)
  mtot   = npart  * pmassi
  m1     = Nstar1 * pmassi
  m2     = Nstar2 * pmassi
 
- ! adjust separation of binary
  call adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,sep,x1com,v1com,x2com,v2com)
 
-
-! mtot = npart*massoftype(igas)
- angvel = sqrt(1.0 * mtot / sep**3)   ! angular velocity
- vel1   = m1 * sep / mtot * angvel
+ angvel = sqrt(1.0 * mtot / sep**3) ! angular velocity
+ vel1   = m1 * sep / mtot * angvel    
  vel2   = m2 * sep / mtot * angvel
 
- ! find the centre of mass position and velocity for each star
  call get_centreofmass(x1com, v1com, Nstar1, xyzh(:,1:Nstar1),       vxyzu(:,1:Nstar1))
  call get_centreofmass(x2com, v2com, Nstar2, xyzh(:,Nstar1+1:npart), vxyzu(:,Nstar1+1:npart))
 
  call reset_velocity(npart,vxyzu)
 
- ! set orbital velocity
  call set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,angvel,vel1,vel2)
 ! call set_corotate_velocity(angvel)
 
+
+ !
  ! synchronise rotation
+ !
  print *, ''
  opt = 1
  call prompt('Synchronise binaries? [0 false; 1 true]',opt, 0, 1)
@@ -119,8 +124,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  endif
 
 
-
- ! reset centre of mass of the binary system
+ !
+ ! reset centre of mass to origin
+ !
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  get_conserv = 1.
