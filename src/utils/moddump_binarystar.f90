@@ -80,9 +80,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call add_star(npart, npartoftype, xyzh, vxyzu, Nstar1, Nstar2)
  endif
 
- ! add a uniform low density background fluid
+ if (opt == 3) then
+    call determine_Nstar(npart,xyzh,Nstar1,Nstar2)
+ endif
+
+ ! add magnetic field with low density ambient fluid
 ! if (opt == 3) then
 !    call add_background(npart, npartoftype, massoftype, xyzh, vxyzu)
+!     call add_magneticfield(npart,xyzh,Nstar1,Nstar2,x1com,x2com)
 ! endif
 
 
@@ -269,6 +274,157 @@ subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
 end subroutine add_star
 
 
+!
+! If editing an existing binary, determine number of particles in each star based on their position
+!
+subroutine determine_Nstar(npart,xyzh,Nstar1,Nstar2)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: xyzh(:,:)
+ integer, intent(out)   :: Nstar1, Nstar2
+ integer :: i
+ logical :: xcut,x1left,x2left,x1right,x2right
+ integer :: Nstar1xcut,Nstar2xcut,Nstar1ycut,Nstar2ycut
+ logical :: done, xcutneg, xcutpos
+ integer :: Nstar1xneg, Nstar1xpos, Nstar1yneg, Nstar1ypos
+ integer :: Nstar2xneg, Nstar2xpos, Nstar2yneg, Nstar2ypos
+
+ print *, 'Auto-Determining which particles belong in each star'
+ print *, '  (warning: assumes stars are separated, in x-y plane, and com is at x=y=0)'
+ print *, '        (and does not work if ambient background already present)'
+ print *, ''
+
+ !
+ ! We do this in a brute force simple way.
+ !
+ ! There exists a cut along x=0 or y=0 that separates the two stars.
+ ! So try both and take the one that works.
+ !
+ ! We also need to know which star is ordered first in memory.
+ ! Means we try 4 cuts in total (left/right and right/left for x=0, etc)
+ !
+ ! Strategy: Try looping from i=1 onwards for 4 cuts to find Nstar1
+ !    then loop from i=npart downwards to find Nstar2
+ !
+ ! Solution exists when Nstar1 + Nstar2 = npart
+ ! (If they don't, then cut is going through the stars or is backwards.)
+ !
+
+ Nstar1xneg = 0
+ Nstar1xpos = 0
+ Nstar1yneg = 0
+ Nstar1ypos = 0
+
+ i = 1
+ done = .false.
+ do while (.not.done)
+    if (xyzh(1,i) < 0.0) then
+       Nstar1xneg = NStar1xneg + 1
+    else
+       done = .true.
+    endif
+    i = i + 1
+ enddo
+ i = 1
+ done = .false.
+ do while (.not.done)
+    if (xyzh(1,i) > 0.0) then
+       Nstar1xpos = NStar1xpos + 1
+    else
+       done = .true.
+    endif
+    i = i + 1
+ enddo
+ i = 1
+ done = .false.
+ do while (.not.done)
+    if (xyzh(2,i) < 0.0) then
+       Nstar1yneg = NStar1yneg + 1
+    else
+       done = .true.
+    endif
+    i = i + 1
+ enddo
+ i = 1
+ done = .false.
+ do while (.not.done)
+    if (xyzh(2,i) > 0.0) then
+       Nstar1ypos = NStar1ypos + 1
+    else
+       done = .true.
+    endif
+    i = i + 1
+ enddo
+
+ 
+ Nstar2xneg = 0
+ Nstar2xpos = 0
+ Nstar2yneg = 0
+ Nstar2ypos = 0
+
+ i = npart
+ done = .false.
+ do while (.not.done)
+    if (xyzh(1,i) < 0.0) then
+       Nstar2xneg = NStar2xneg + 1
+    else
+       done = .true.
+    endif
+    i = i - 1
+ enddo
+ i = npart
+ done = .false.
+ do while (.not.done)
+    if (xyzh(1,i) > 0.0) then
+       Nstar2xpos = NStar2xpos + 1
+    else
+       done = .true.
+    endif
+    i = i - 1
+ enddo
+ i = npart
+ done = .false.
+ do while (.not.done)
+    if (xyzh(2,i) < 0.0) then
+       Nstar2yneg = NStar2yneg + 1
+    else
+       done = .true.
+    endif
+    i = i - 1
+ enddo
+ i = npart
+ done = .false.
+ do while (.not.done)
+    if (xyzh(2,i) > 0.0) then
+       Nstar2ypos = NStar2ypos + 1
+    else
+       done = .true.
+    endif
+    i = i - 1
+ enddo
+
+ if (Nstar1xneg + Nstar2xpos == npart) then
+    Nstar1 = Nstar1xneg
+    Nstar2 = Nstar2xpos
+ endif
+ if (Nstar1xpos + Nstar2xneg == npart) then
+    Nstar1 = Nstar1xpos
+    Nstar2 = Nstar2xneg
+ endif
+ if (Nstar1yneg + Nstar2ypos == npart) then
+    Nstar1 = Nstar1yneg
+    Nstar2 = Nstar2ypos
+ endif
+ if (Nstar1ypos + Nstar2yneg == npart) then
+    Nstar1 = Nstar1ypos
+    Nstar2 = Nstar2yneg
+ endif
+ print *, 'Nstar1 = ', Nstar1
+ print *, 'Nstar2 = ', Nstar2
+ print *, ''
+
+end subroutine determine_Nstar
+
+!
 !
 ! Adjust the separation of the two stars.
 ! First star is placed at the origin, second star is placed sep away in x
