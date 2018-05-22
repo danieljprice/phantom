@@ -123,7 +123,8 @@ check_phantomsetup ()
    myinput="\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
    prefix="myrun";
    echo -e "$myinput" > myinput.txt;
-   ./phantomsetup $prefix < myinput.txt > /dev/null; err=$?;
+   sed '/-e/d' myinput.txt > mycleanin.txt
+   ./phantomsetup $prefix < mycleanin.txt > /dev/null; err=$?;
    if [ $err -eq 0 ]; then
       print_result "runs" $pass;
    else
