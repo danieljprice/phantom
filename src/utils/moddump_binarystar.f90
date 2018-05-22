@@ -29,7 +29,6 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,           only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas
- use units,          only: set_units
  use prompting,      only: prompt
  use centreofmass,   only: reset_centreofmass,get_centreofmass
  use initial_params, only: get_conserv
@@ -72,11 +71,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! Create binary
  !
  if (opt == 1) then
-    call duplicate_star(npart, npartoftype, massoftype, xyzh, vxyzu, Nstar1, Nstar2)
+    call duplicate_star(npart, npartoftype, xyzh, vxyzu, Nstar1, Nstar2)
  endif
 
  if (opt == 2) then
-    call add_star(npart, npartoftype, massoftype, xyzh, vxyzu, Nstar1, Nstar2)
+    call add_star(npart, npartoftype, xyzh, vxyzu, Nstar1, Nstar2)
  endif
 
  ! add a uniform low density background fluid
@@ -97,7 +96,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  m1     = Nstar1 * pmassi
  m2     = Nstar2 * pmassi
 
- call adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,sep,x1com,v1com,x2com,v2com)
+ call adjust_sep(npart,xyzh,vxyzu,Nstar1,Nstar2,sep,x1com,v1com,x2com,v2com)
 
  angvel = sqrt(1.0 * mtot / sep**3) ! angular velocity
  vel1   = m1 * sep / mtot * angvel    
@@ -108,7 +107,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  call reset_velocity(npart,vxyzu)
 
- call set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,angvel,vel1,vel2)
+ call set_velocity(npart,vxyzu,Nstar1,Nstar2,angvel,vel1,vel2)
 ! call set_corotate_velocity(angvel)
 
 
@@ -138,14 +137,11 @@ end subroutine modify_dump
 ! Take the star from the input file and duplicate it some distance apart.
 ! This assumes the dump file only has one star.
 !
-subroutine duplicate_star(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2)
- use part,         only: igas,set_particle_type,igas,temperature
- use prompting,    only: prompt
- use centreofmass, only: reset_centreofmass
+subroutine duplicate_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
+ use part,         only: igas,set_particle_type,temperature
  use dim,          only: store_temperature
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
- real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer, intent(out)   :: Nstar1, Nstar2
  integer :: i
@@ -184,16 +180,14 @@ end subroutine duplicate_star
 !
 ! Place a star that is read from another dumpfile
 !
-subroutine add_star(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2)
- use part,            only: igas,set_particle_type,igas,temperature,alphaind
+subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
+ use part,            only: igas,set_particle_type,temperature,alphaind
  use prompting,       only: prompt
- use centreofmass,    only: reset_centreofmass
  use dim,             only: maxp,maxvxyzu,nalpha,maxalpha,store_temperature
  use readwrite_dumps, only: read_dump
  use io,              only: idisk1,iprint
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
- real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer, intent(out)   :: Nstar1, Nstar2
  character(len=120) :: fn
@@ -269,7 +263,6 @@ subroutine add_star(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2)
  npart = npart + Nstar2
  npartoftype(igas) = npart
 
- print *, npart
 end subroutine add_star
 
 
@@ -277,17 +270,14 @@ end subroutine add_star
 ! Adjust the separation of the two stars.
 ! First star is placed at the origin, second star is placed sep away in x
 !
-subroutine adjust_sep(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,sep,x1com,v1com,x2com,v2com)
- integer, intent(inout) :: npart
- integer, intent(inout) :: npartoftype(:)
- real,    intent(inout) :: massoftype(:)
+subroutine adjust_sep(npart,xyzh,vxyzu,Nstar1,Nstar2,sep,x1com,v1com,x2com,v2com)
+ integer, intent(in)    :: npart
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer, intent(in)    :: Nstar1, Nstar2
  real,    intent(in)    :: x1com(:),v1com(:),x2com(:),v2com(:)
  real,    intent(in)    :: sep
  integer :: i
 
- print *, sep
  do i = 1, Nstar1
     xyzh(1,i) = xyzh(1,i) - x1com(1)
     xyzh(2,i) = xyzh(2,i) - x1com(2)
@@ -315,7 +305,6 @@ end subroutine adjust_sep
 subroutine reset_velocity(npart,vxyzu)
  integer, intent(in)    :: npart
  real,    intent(inout) :: vxyzu(:,:)
- integer :: i
 
  vxyzu(1:3,:) = 0.0
 
@@ -342,12 +331,10 @@ end subroutine
 !
 ! Set orbital velocity in normal space
 !
-subroutine set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,angvel,vel1,vel2)
+subroutine set_velocity(npart,vxyzu,Nstar1,Nstar2,angvel,vel1,vel2)
  use units,        only: unit_velocity
- integer, intent(inout) :: npart
- integer, intent(inout) :: npartoftype(:)
- real,    intent(inout) :: massoftype(:)
- real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(inout) :: vxyzu(:,:)
  integer, intent(in)    :: Nstar1, Nstar2
  real,    intent(in)    :: angvel
  real,    intent(in)    :: vel1,vel2
