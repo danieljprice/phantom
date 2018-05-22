@@ -103,6 +103,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call get_centreofmass(x1com, v1com, Nstar1, xyzh(:,1:Nstar1),       vxyzu(:,1:Nstar1))
  call get_centreofmass(x2com, v2com, Nstar2, xyzh(:,Nstar1+1:npart), vxyzu(:,Nstar1+1:npart))
 
+ call reset_velocity(npart,vxyzu)
+
  ! set orbital velocity
  call set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,angvel,vel1,vel2)
 ! call set_corotate_velocity(angvel)
@@ -302,6 +304,19 @@ end subroutine adjust_sep
 
 
 !
+! reset velocities
+!
+subroutine reset_velocity(npart,vxyzu)
+ integer, intent(in)    :: npart
+ real,    intent(inout) :: vxyzu(:,:)
+ integer :: i
+
+ vxyzu(1:3,:) = 0.0
+
+end subroutine reset_velocity
+
+
+!
 ! Set corotation external force on using angular velocity
 !
 subroutine set_corotate_velocity(angvel)
@@ -340,9 +355,6 @@ subroutine set_velocity(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,an
  print *, ""
 
  ! Adjust bulk velocity of relaxed star towards second star
- vxyzu(1,:) = 0.
- vxyzu(2,:) = 0.
- vxyzu(3,:) = 0.
  do i = 1, Nstar1
     vxyzu(2,i) = vxyzu(2,i) + vel1
  enddo
