@@ -36,7 +36,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer :: opt, Nstar1, Nstar2
+ integer :: opt, synchro, Nstar1, Nstar2
  real :: sep,mtot,angvel,vel1,vel2
  real :: xcom(3), vcom(3), x1com(3), v1com(3), x2com(3), v2com(3)
  real :: pmassi,m1,m2
@@ -61,11 +61,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     return
  endif
 
- sep = 10.0
+ sep = 1.0
  print *, ''
- call prompt('Enter radial separation between stars (in code unit)', sep, 0.)
- print *, ''
+ call prompt('Enter radial separation between stars (code unit)', sep, 0.)
 
+ synchro = 1
+ call prompt('Synchronise binaries? [0 false; 1 true]',synchro, 0, 1)
+ print *, ''
 
  !
  ! Create binary
@@ -96,6 +98,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  m1     = Nstar1 * pmassi
  m2     = Nstar2 * pmassi
 
+ print *, ' Mass of first star: ', m1
+ print *, 'Mass of second star: ', m2
+ print *, ''
+
  call adjust_sep(npart,xyzh,vxyzu,Nstar1,Nstar2,sep,x1com,v1com,x2com,v2com)
 
  angvel = sqrt(1.0 * mtot / sep**3) ! angular velocity
@@ -114,11 +120,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !
  ! synchronise rotation
  !
- print *, ''
- opt = 1
- call prompt('Synchronise binaries? [0 false; 1 true]',opt, 0, 1)
-
- if (opt == 1) then
+ if (synchro == 1) then
     call synchronise(npart,xyzh,vxyzu,Nstar1,Nstar2,angvel,x1com,x2com)
  endif
 
@@ -146,6 +148,9 @@ subroutine duplicate_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
  integer, intent(out)   :: Nstar1, Nstar2
  integer :: i
  real :: sep
+
+ print *, 'Duplicating star'
+ print *, ''
 
  npart = npartoftype(igas)
 
@@ -198,8 +203,6 @@ subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
  integer :: i,ierr
  real    :: time2,hfact2,sep
 
-
- print *, ''
  print *, 'Adding a new star read from another dumpfile'
  print *, ''
 
@@ -278,6 +281,9 @@ subroutine adjust_sep(npart,xyzh,vxyzu,Nstar1,Nstar2,sep,x1com,v1com,x2com,v2com
  real,    intent(in)    :: sep
  integer :: i
 
+ print *, 'Placing stars apart at a distance: ', sep
+ print *, ''
+
  do i = 1, Nstar1
     xyzh(1,i) = xyzh(1,i) - x1com(1)
     xyzh(2,i) = xyzh(2,i) - x1com(2)
@@ -332,7 +338,6 @@ end subroutine
 ! Set orbital velocity in normal space
 !
 subroutine set_velocity(npart,vxyzu,Nstar1,Nstar2,angvel,vel1,vel2)
- use units,        only: unit_velocity
  integer, intent(in)    :: npart
  real,    intent(inout) :: vxyzu(:,:)
  integer, intent(in)    :: Nstar1, Nstar2
@@ -340,11 +345,9 @@ subroutine set_velocity(npart,vxyzu,Nstar1,Nstar2,angvel,vel1,vel2)
  real,    intent(in)    :: vel1,vel2
  integer :: i
 
- print *, "Setting stars in mutual orbit with angular velocity ", angvel
- print *, "  Adding bulk velocity |v| = ", vel1, "( = ", (vel1*unit_velocity), &
-                  " physical units) to first star"
- print *, "                       |v| = ", vel2, "( = ", (vel2*unit_velocity), &
-                  " physical units) to second star"
+ print *, "Setting stars in mutual orbit with angular velocity: ", angvel
+ print *, "  Adding bulk velocity |v| = ", vel1, " to first star"
+ print *, "                       |v| = ", vel2, " to second star"
  print *, ""
 
  ! Adjust bulk velocity of relaxed star towards second star
@@ -371,7 +374,6 @@ subroutine synchronise(npart,xyzh,vxyzu,Nstar1,Nstar2,angvel,x1com,x2com)
  real,    intent(in)    :: x1com(:), x2com(:)
  integer :: i
 
- print *, ""
  print *, "Synchronising rotation to orbital period"
  print *, ""
 
