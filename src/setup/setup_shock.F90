@@ -226,6 +226,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  fac       = nint(2.01*radkern*hfact)
  xbdyleft  = fac*dxleft
  xbdyright = fac*dxright
+ dustfrac  = 0.
  do i=1,npart
     if ( (xyzh(1,i) < (xminleft (1) + xbdyleft ) ) .or. &
          (xyzh(1,i) > (xmaxright(1) - xbdyright) ) ) then
@@ -235,13 +236,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call set_particle_type(i,igas)
     endif
     !
-    !--one fluid dust: set dust fraction on gas particles
-    !
-    if (use_dustfrac) then
-       call set_dustfrac_from_inopts(dtg,ipart=i)
-    else
-       dustfrac(:,i) = 0.
-    endif
+    ! one fluid dust: set dust fraction on gas particles
+    if (use_dustfrac) call set_dustfrac_from_inopts(dtg,ipart=i)
  enddo
  massoftype(iboundary)  = massoftype(igas)
  npartoftype(iboundary) = nbpts
@@ -267,14 +263,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  do i=1,npart
     delta = xyzh(1,i) - xshock
     if (delta > 0.) then
-       xyzh(4,i) = hrho(rightstate(idens),massoftype(igas))
+       xyzh(4,i)  = hrho(rightstate(idens),massoftype(igas))
        vxyzu(1,i) = rightstate(ivx)
        vxyzu(2,i) = rightstate(ivy)
        vxyzu(3,i) = rightstate(ivz)
        if (maxvxyzu >= 4) vxyzu(4,i) = uuright
        if (mhd) Bxyz(1:3,i) = rightstate(iBx:iBz)
     else
-       xyzh(4,i) = hrho(leftstate(idens),massoftype(igas))
+       xyzh(4,i)  = hrho(leftstate(idens),massoftype(igas))
        vxyzu(1,i) = leftstate(ivx)
        vxyzu(2,i) = leftstate(ivy)
        vxyzu(3,i) = leftstate(ivz)
