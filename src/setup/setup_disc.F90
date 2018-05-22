@@ -1622,7 +1622,7 @@ subroutine read_setupfile(filename,ierr)
 
  do i=1,3
     if (iuse_disc(i)) then
-       if (ndiscs > 1) then
+       if (ndiscs >= 1) then
           disclabel = disctype(i)
        else
           disclabel = ''
