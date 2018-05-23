@@ -281,12 +281,10 @@ subroutine determine_Nstar(npart,xyzh,Nstar1,Nstar2)
  integer, intent(in)    :: npart
  real,    intent(in)    :: xyzh(:,:)
  integer, intent(out)   :: Nstar1, Nstar2
- integer :: i
- logical :: xcut,x1left,x2left,x1right,x2right
- integer :: Nstar1xcut,Nstar2xcut,Nstar1ycut,Nstar2ycut
- logical :: done, xcutneg, xcutpos
  integer :: Nstar1xneg, Nstar1xpos, Nstar1yneg, Nstar1ypos
  integer :: Nstar2xneg, Nstar2xpos, Nstar2yneg, Nstar2ypos
+ integer :: i
+ logical :: done
 
  print *, 'Auto-Determining which particles belong in each star'
  print *, '  (warning: assumes stars are separated, in x-y plane, and com is at x=y=0)'
