@@ -169,7 +169,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(4,:) = polyk
 #else
  blackhole_spin = spin
- polyk          = (5./3. -1.)*7.2e-6
 #endif
 
  npartoftype(1) = npart
