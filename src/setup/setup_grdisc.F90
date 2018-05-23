@@ -33,6 +33,7 @@
 !+
 !--------------------------------------------------------------------------
 module setup
+ use options, only:alpha
  implicit none
  public :: setpart
 
@@ -53,7 +54,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,           only:igas
  use io,             only:master
  use externalforces, only:accradius1,accradius1_hard
- use options,        only:iexternalforce,alpha,alphau,iexternalforce
+ use options,        only:iexternalforce,alphau,iexternalforce
  use units,          only:set_units,umass
  use physcon,        only:solarm,pi
 #ifdef GR
@@ -105,6 +106,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  r_out  = 160.    ! (GM/c^2)
  spin   = 0.
  honr   = 0.02
+ alpha  = 0.001
  theta  = 0.      ! inclination angle (degrees)
  np     = 1e5
  accrad = 4.      ! (GM/c^2)
@@ -150,18 +152,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                hfact         = hfact,                &
                xyzh          = xyzh,                 &
                vxyzu         = vxyzu,                &
-               polyk         = polyk,                &
+               polyk         = cs2,                  &
                particle_mass = massoftype(igas),     &
                ! star_mass     = 1.0,                &
                disc_mass     = mdisc,                &
                inclination   = theta,                &
                bh_spin       = spin,                 &
-               ! alpha         = alpha,              &
+               alpha         = alpha,                &
                prefix        = fileprefix)
 
 #ifdef GR
  a     = spin
- polyk = vxyzu(4,1)
+ ! Overwrite thermal energies to be correct for GR
+ ! And use polyk to store the constant thermal energy
+ polyk = cs2/(gamma-1.-cs2)
+ vxyzu(4,:) = polyk
 #else
  blackhole_spin = spin
  polyk          = (5./3. -1.)*7.2e-6
@@ -184,15 +189,16 @@ subroutine write_setupfile(filename)
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for grdisc setup'
- call write_inopt(mhole ,'mhole' ,'mass of black hole (solar mass)'         , iunit)
- call write_inopt(mdisc ,'mdisc' ,'mass of disc       (solar mass)'         , iunit)
- call write_inopt(r_in  ,'r_in'  ,'inner edge of disc (GM/c^2, code units)' , iunit)
- call write_inopt(r_out ,'r_out' ,'outer edge of disc (GM/c^2, code units)' , iunit)
- call write_inopt(spin  ,'spin'  ,'spin parameter of black hole |a|<1'      , iunit)
- call write_inopt(honr  ,'honr'  ,'scale height H/R of disc (at inner edge)', iunit)
- call write_inopt(theta ,'theta' ,'inclination of disc (degrees)'           , iunit)
- call write_inopt(accrad,'accrad','accretion radius   (GM/c^2, code units)' , iunit)
- call write_inopt(np    ,'np'    ,'number of particles in disc'             , iunit)
+ call write_inopt(mhole  ,'mhole'  ,'mass of black hole (solar mass)'         , iunit)
+ call write_inopt(mdisc  ,'mdisc'  ,'mass of disc       (solar mass)'         , iunit)
+ call write_inopt(r_in   ,'r_in'   ,'inner edge of disc (GM/c^2, code units)' , iunit)
+ call write_inopt(r_out  ,'r_out'  ,'outer edge of disc (GM/c^2, code units)' , iunit)
+ call write_inopt(spin   ,'spin'   ,'spin parameter of black hole |a|<1'      , iunit)
+ call write_inopt(honr   ,'honr'   ,'scale height H/R of disc (at inner edge)', iunit)
+ call write_inopt(alpha  ,'alpha'  ,'Shakura-Sunyaev alpha disc viscosity'    , iunit)
+ call write_inopt(theta  ,'theta'  ,'inclination of disc (degrees)'           , iunit)
+ call write_inopt(accrad ,'accrad' ,'accretion radius   (GM/c^2, code units)' , iunit)
+ call write_inopt(np     ,'np'     ,'number of particles in disc'             , iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -210,15 +216,16 @@ subroutine read_setupfile(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(mhole ,'mhole' ,db,min=0.,errcount=nerr)
- call read_inopt(mdisc ,'mdisc' ,db,min=0.,errcount=nerr)
- call read_inopt(r_in  ,'r_in'  ,db,min=0.,errcount=nerr)
- call read_inopt(r_out ,'r_out' ,db,min=0.,errcount=nerr)
- call read_inopt(spin  ,'spin'  ,db,min=0.,errcount=nerr)
- call read_inopt(honr  ,'honr'  ,db,min=0.,errcount=nerr)
- call read_inopt(theta ,'theta' ,db,min=0.,errcount=nerr)
- call read_inopt(accrad,'accrad',db,min=0.,errcount=nerr)
- call read_inopt(np    ,'np   ' ,db,min=0 ,errcount=nerr)
+ call read_inopt(mhole  ,'mhole'  ,db,min=0.,errcount=nerr)
+ call read_inopt(mdisc  ,'mdisc'  ,db,min=0.,errcount=nerr)
+ call read_inopt(r_in   ,'r_in'   ,db,min=0.,errcount=nerr)
+ call read_inopt(r_out  ,'r_out'  ,db,min=0.,errcount=nerr)
+ call read_inopt(spin   ,'spin'   ,db,min=0.,errcount=nerr)
+ call read_inopt(honr   ,'honr'   ,db,min=0.,errcount=nerr)
+ call read_inopt(alpha  ,'alpha'  ,db,min=0.,errcount=nerr)
+ call read_inopt(theta  ,'theta'  ,db,min=0.,errcount=nerr)
+ call read_inopt(accrad ,'accrad' ,db,min=0.,errcount=nerr)
+ call read_inopt(np     ,'np   '  ,db,min=0 ,errcount=nerr)
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
