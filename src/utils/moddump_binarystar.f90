@@ -39,7 +39,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: opt, synchro, Nstar1, Nstar2, nx
  real :: sep,mtot,angvel,vel1,vel2
  real :: xcom(3), vcom(3), x1com(3), v1com(3), x2com(3), v2com(3)
- real :: pmassi,m1,m2
+ real :: pmassi,m1,m2,rad1,rad2
 
  !
  ! Option selection
@@ -100,6 +100,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call get_centreofmass(x1com, v1com, Nstar1, xyzh(:,1:Nstar1),       vxyzu(:,1:Nstar1))
  call get_centreofmass(x2com, v2com, Nstar2, xyzh(:,Nstar1+1:npart), vxyzu(:,Nstar1+1:npart))
 
+ call get_radii(npart,xyzh,Nstar1,Nstar2,x1com,x2com,rad1,rad2)
+
  pmassi = massoftype(igas)
  mtot   = npart  * pmassi
  m1     = Nstar1 * pmassi
@@ -107,6 +109,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  print *, '   Mass of first star:  ', m1
  print *, '   Mass of second star: ', m2
+ print *, ''
+ print *, '   Radius of first star:  ', rad1
+ print *, '   Radius of second star: ', rad2
  print *, ''
 
  call adjust_sep(npart,xyzh,vxyzu,Nstar1,Nstar2,sep,x1com,v1com,x2com,v2com)
@@ -426,9 +431,42 @@ end subroutine determine_Nstar
 
 
 !
+! Determine radius of each star based on particles
+!
+subroutine get_radii(npart,xyzh,Nstar1,Nstar2,x1com,x2com,rad1,rad2)
+ integer, intent(in)    :: npart
+ real,    intent(inout) :: xyzh(:,:)
+ integer, intent(in)    :: Nstar1, Nstar2
+ real,    intent(in)    :: x1com(:),x2com(:)
+ real,    intent(out)   :: rad1, rad2
+ integer :: i
+ real :: dx, dy, dz, dr
+
+ rad1 = 0.0
+ do i = 1, Nstar1
+    dx   = xyzh(1,i) - x1com(1)
+    dy   = xyzh(2,i) - x1com(2)
+    dz   = xyzh(3,i) - x1com(3)
+    dr   = sqrt(dx*dx + dy*dy + dz*dz)
+    rad1 = max(dr, rad1)
+ enddo
+
+ rad2 = 0.0
+ do i = Nstar1+1, npart
+    dx   = xyzh(1,i) - x2com(1)
+    dy   = xyzh(2,i) - x2com(2)
+    dz   = xyzh(3,i) - x2com(3)
+    dr   = sqrt(dx*dx + dy*dy + dz*dz)
+    rad2 = max(dr, rad2)
+ enddo
+
+end subroutine get_radii
+
+
+!
 ! Add an ambient background fluid
 !
-!subroutine add_background(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,x2com,nx)
+!subroutine add_background(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,x2com,rad1,rad2,nx)
 ! use part,     only: hfact,igas,set_particle_type
 ! use unifdis,  only: set_unifdis
 ! use io,       only: master
@@ -440,37 +478,15 @@ end subroutine determine_Nstar
 ! real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
 ! integer, intent(in)    :: Nstar1, Nstar2
 ! real,    intent(in)    :: x1com(:),x2com(:)
+! real,    intent(in)    :: rad1, rad2
 ! integer, intent(in)    :: nx
 ! integer :: id
 ! integer :: i
-! real :: dx, dy, dz, dr
-! real :: rad1, rad2
 ! real :: xlen, deltax, bgdens
 ! integer(kind=8) :: npart_total
 !
 ! print *, 'Adding uniform low-density background fluid'
 ! print *, ''
-!
-! rad1 = 0.0
-! do i = 1, Nstar1
-!    dx   = xyzh(1,i) - x1com(1)
-!    dy   = xyzh(2,i) - x1com(2)
-!    dz   = xyzh(3,i) - x1com(3)
-!    dr   = sqrt(dx*dx + dy*dy + dz*dz)
-!    rad1 = max(dr, rad1)
-! enddo
-!
-! rad2 = 0.0
-! do i = Nstar1+1, npart
-!    dx   = xyzh(1,i) - x2com(1)
-!    dy   = xyzh(2,i) - x2com(2)
-!    dz   = xyzh(3,i) - x2com(3)
-!    dr   = sqrt(dx*dx + dy*dy + dz*dz)
-!    rad2 = max(dr, rad2)
-! enddo
-!
-! print *, "radius of star 1: ", rad1
-! print *, "radius of star 2: ", rad2
 !
 ! xlen = 0.437 * 0.5  ! 10^10 cm
 ! call set_boundary(-xlen,xlen,-xlen,xlen,-xlen,xlen)
