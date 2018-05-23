@@ -37,7 +37,7 @@ module setup
  implicit none
  public :: setpart
 
- real,    private :: mhole,mdisc,r_in,r_out,spin,honr,theta,accrad
+ real,    private :: mhole,mdisc,r_in,r_out,spin,honr,theta,p_index,accrad
  integer, private :: np
 
  private
@@ -58,9 +58,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,          only:set_units,umass
  use physcon,        only:solarm,pi
 #ifdef GR
- use metric,         only:mass1,a
+ use metric,         only:a
 #else
- use externalforces, only:mass1,iext_einsteinprec
+ use externalforces,       only:iext_einsteinprec
  use extern_lensethirring, only:blackhole_spin
 #endif
  use prompting,      only:prompt
@@ -109,6 +109,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  honr   = 0.02
  alpha  = 0.001
  theta  = 0.      ! inclination angle (degrees)
+ p_index= -1.0
  np     = 1e5
  accrad = 4.      ! (GM/c^2)
 
@@ -146,7 +147,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                npart         = npart,                &
                rmin          = r_in,                 &
                rmax          = r_out,                &
-               p_index       = -1.0,                 &
+               p_index       = p_index,              &
                q_index       = 0.0,                  &
                HoverR        = honr,                 &
                gamma         = gamma,                &
@@ -190,16 +191,17 @@ subroutine write_setupfile(filename)
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for grdisc setup'
- call write_inopt(mhole  ,'mhole'  ,'mass of black hole (solar mass)'         , iunit)
- call write_inopt(mdisc  ,'mdisc'  ,'mass of disc       (solar mass)'         , iunit)
- call write_inopt(r_in   ,'r_in'   ,'inner edge of disc (GM/c^2, code units)' , iunit)
- call write_inopt(r_out  ,'r_out'  ,'outer edge of disc (GM/c^2, code units)' , iunit)
- call write_inopt(spin   ,'spin'   ,'spin parameter of black hole |a|<1'      , iunit)
- call write_inopt(honr   ,'honr'   ,'scale height H/R of disc (at inner edge)', iunit)
- call write_inopt(alpha  ,'alpha'  ,'Shakura-Sunyaev alpha disc viscosity'    , iunit)
- call write_inopt(theta  ,'theta'  ,'inclination of disc (degrees)'           , iunit)
- call write_inopt(accrad ,'accrad' ,'accretion radius   (GM/c^2, code units)' , iunit)
- call write_inopt(np     ,'np'     ,'number of particles in disc'             , iunit)
+ call write_inopt(mhole  ,'mhole'  ,'mass of black hole (solar mass)'           , iunit)
+ call write_inopt(mdisc  ,'mdisc'  ,'mass of disc       (solar mass)'           , iunit)
+ call write_inopt(r_in   ,'r_in'   ,'inner edge of disc (GM/c^2, code units)'   , iunit)
+ call write_inopt(r_out  ,'r_out'  ,'outer edge of disc (GM/c^2, code units)'   , iunit)
+ call write_inopt(spin   ,'spin'   ,'spin parameter of black hole |a|<1'        , iunit)
+ call write_inopt(honr   ,'honr'   ,'scale height H/R of disc (at inner edge)'  , iunit)
+ call write_inopt(alpha  ,'alpha'  ,'Shakura-Sunyaev alpha disc viscosity'      , iunit)
+ call write_inopt(theta  ,'theta'  ,'inclination of disc (degrees)'             , iunit)
+ call write_inopt(p_index,'p_index','power law index of surface density profile', iunit)
+ call write_inopt(accrad ,'accrad' ,'accretion radius   (GM/c^2, code units)'   , iunit)
+ call write_inopt(np     ,'np'     ,'number of particles in disc'               , iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -221,10 +223,11 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(mdisc  ,'mdisc'  ,db,min=0.,errcount=nerr)
  call read_inopt(r_in   ,'r_in'   ,db,min=0.,errcount=nerr)
  call read_inopt(r_out  ,'r_out'  ,db,min=0.,errcount=nerr)
- call read_inopt(spin   ,'spin'   ,db,min=0.,errcount=nerr)
+ call read_inopt(spin   ,'spin'   ,db,min=-1.,max=1.,errcount=nerr)
  call read_inopt(honr   ,'honr'   ,db,min=0.,errcount=nerr)
  call read_inopt(alpha  ,'alpha'  ,db,min=0.,errcount=nerr)
- call read_inopt(theta  ,'theta'  ,db,min=0.,errcount=nerr)
+ call read_inopt(theta  ,'theta'  ,db,min=0.,max=90.,errcount=nerr)
+ call read_inopt(p_index,'p_index',db,errcount=nerr)
  call read_inopt(accrad ,'accrad' ,db,min=0.,errcount=nerr)
  call read_inopt(np     ,'np   '  ,db,min=0 ,errcount=nerr)
  call close_db(db)
