@@ -79,6 +79,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120) :: filename
  integer :: ierr
  logical :: iexist
+ real    :: cs2
 
  time            = 0.
  alphau          = 0.0
@@ -169,6 +170,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(4,:) = polyk
 #else
  blackhole_spin = spin
+ polyk = cs2
 #endif
 
  npartoftype(1) = npart
