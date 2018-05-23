@@ -36,7 +36,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer :: opt, synchro, Nstar1, Nstar2
+ integer :: opt, synchro, Nstar1, Nstar2, nx
  real :: sep,mtot,angvel,vel1,vel2
  real :: xcom(3), vcom(3), x1com(3), v1com(3), x2com(3), v2com(3)
  real :: pmassi,m1,m2
@@ -52,14 +52,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print *, '   1) Duplicate a relaxed star'
  print *, '   2) Add a star from another dumpfile'
  print *, '   3) Adjust separation of existing binary'
+! print *, '   4) Add low-density background fluid'
 
  opt = 1
  call prompt('Choice',opt, 1, 3)
-
- if (opt  /=  1 .and. opt  /=  2 .and. opt /= 3) then
-    print *, 'Incorrect option selected. Doing nothing.'
-    return
- endif
 
  sep = 1.0
  print *, ''
@@ -84,11 +80,17 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call determine_Nstar(npart,xyzh,Nstar1,Nstar2)
  endif
 
- ! add magnetic field with low density ambient fluid
-! if (opt == 3) then
-!    call add_background(npart, npartoftype, massoftype, xyzh, vxyzu)
+ if (opt == 4) then
+    nx = 128
+    call prompt('Specify number of particles in x-direction for low-density background',nx,0)
+    print *, ''
+    call determine_Nstar(npart,xyzh,Nstar1,Nstar2)
+    call get_centreofmass(xcom,  vcom,  npart,  xyzh,                   vxyzu)
+    call get_centreofmass(x1com, v1com, Nstar1, xyzh(:,1:Nstar1),       vxyzu(:,1:Nstar1))
+    call get_centreofmass(x2com, v2com, Nstar2, xyzh(:,Nstar1+1:npart), vxyzu(:,Nstar1+1:npart))
+!    call add_background(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,x2com,nx)
 !     call add_magneticfield(npart,xyzh,Nstar1,Nstar2,x1com,x2com)
-! endif
+ endif
 
 
  !
@@ -103,8 +105,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  m1     = Nstar1 * pmassi
  m2     = Nstar2 * pmassi
 
- print *, ' Mass of first star: ', m1
- print *, 'Mass of second star: ', m2
+ print *, '   Mass of first star:  ', m1
+ print *, '   Mass of second star: ', m2
  print *, ''
 
  call adjust_sep(npart,xyzh,vxyzu,Nstar1,Nstar2,sep,x1com,v1com,x2com,v2com)
@@ -416,13 +418,89 @@ subroutine determine_Nstar(npart,xyzh,Nstar1,Nstar2)
     Nstar1 = Nstar1ypos
     Nstar2 = Nstar2yneg
  endif
- print *, 'Nstar1 = ', Nstar1
- print *, 'Nstar2 = ', Nstar2
+ print *, '   Nstar1 = ', Nstar1
+ print *, '   Nstar2 = ', Nstar2
  print *, ''
 
 end subroutine determine_Nstar
 
+
 !
+! Add an ambient background fluid
+!
+!subroutine add_background(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,x2com,nx)
+! use part,     only: hfact,igas,set_particle_type
+! use unifdis,  only: set_unifdis
+! use io,       only: master
+! use boundary, only: set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,totvol
+! use units,    only: unit_density
+! integer, intent(inout) :: npart
+! integer, intent(inout) :: npartoftype(:)
+! real,    intent(in)    :: massoftype(:)
+! real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+! integer, intent(in)    :: Nstar1, Nstar2
+! real,    intent(in)    :: x1com(:),x2com(:)
+! integer, intent(in)    :: nx
+! integer :: id
+! integer :: i
+! real :: dx, dy, dz, dr
+! real :: rad1, rad2
+! real :: xlen, deltax, bgdens
+! integer(kind=8) :: npart_total
+!
+! print *, 'Adding uniform low-density background fluid'
+! print *, ''
+!
+! rad1 = 0.0
+! do i = 1, Nstar1
+!    dx   = xyzh(1,i) - x1com(1)
+!    dy   = xyzh(2,i) - x1com(2)
+!    dz   = xyzh(3,i) - x1com(3)
+!    dr   = sqrt(dx*dx + dy*dy + dz*dz)
+!    rad1 = max(dr, rad1)
+! enddo
+!
+! rad2 = 0.0
+! do i = Nstar1+1, npart
+!    dx   = xyzh(1,i) - x2com(1)
+!    dy   = xyzh(2,i) - x2com(2)
+!    dz   = xyzh(3,i) - x2com(3)
+!    dr   = sqrt(dx*dx + dy*dy + dz*dz)
+!    rad2 = max(dr, rad2)
+! enddo
+!
+! print *, "radius of star 1: ", rad1
+! print *, "radius of star 2: ", rad2
+!
+! xlen = 0.437 * 0.5  ! 10^10 cm
+! call set_boundary(-xlen,xlen,-xlen,xlen,-xlen,xlen)
+!
+! deltax = (2.0 * xlen) / nx
+!
+! if (deltax > rad1 .or. deltax > rad2) then
+!    print *, 'WARNING: particle separation greater than star radius'
+!    print *, '        suggest using nx=', int(2.0 * xlen / rad1)
+!    print *, ''
+! endif
+!
+! id = 1
+! npart_total = int(npart,kind=4)
+! call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,nptot=npart_total) 
+!
+! npart = npart_total
+! do i = Nstar1 + Nstar2 + 1, npart
+!    call set_particle_type(i,igas)
+! enddo
+! 
+! npartoftype(igas) = npart
+!
+! bgdens = (npart-Nstar1-Nstar2) * massoftype(igas) / totvol 
+! print *, '   Added background fluid of density: ', (bgdens*unit_density), ' g/cm^3'
+! print *, ''
+!
+!end subroutine add_background
+
+
 !
 ! Adjust the separation of the two stars.
 ! First star is placed at the origin, second star is placed sep away in x
