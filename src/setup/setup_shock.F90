@@ -323,6 +323,7 @@ subroutine choose_shock (gamma,polyk,iexist)
  use options,     only:nfulldump,alpha,alphamax,alphaB,alphau
  use timestep,    only:dtmax,tmax
  use prompting,   only:prompt
+ use eos,         only:equationofstate,ieos
 #ifdef NONIDEALMHD
  use nicil,       only:use_ohm,use_hall,use_ambi,eta_constant,eta_const_type, &
                        C_OR,C_HE,C_AD,C_nimhd,icnstphys,icnstsemi,icnst
@@ -337,6 +338,7 @@ subroutine choose_shock (gamma,polyk,iexist)
  real                   :: gamma_AD,rho_i_cnst
 #endif
  integer                :: relativistic_choice
+ real                   :: uthermconst,densleft,densright,pondens,spsound,soundspeed
 !
 !--set default file output parameters
 !
@@ -509,12 +511,30 @@ subroutine choose_shock (gamma,polyk,iexist)
     rightstate = (/1.00,1.e-6 ,0.,0.,0.,0.,0.,0./)
     write(*,"(a5,i2,1x,a20)") 'Case ', 1, 'Mildly relativistic'
     write(*,"(a5,i2,1x,a20)") 'Case ', 2, 'Ultra relativistic'
-    call prompt('Enter relativistic shock choice',relativistic_choice,1,2)
-    if (relativistic_choice==2) then
+    write(*,"(a5,i2,1x,a20)") 'Case ', 3, 'Isothermal'
+    call prompt('Enter relativistic shock choice',relativistic_choice,1,3)
+    select case(relativistic_choice)
+    case(2)
        shocktype = "Ultra-Relativistic Sod shock"
        leftstate  = (/1.,1000.,0.,0.,0.,0.,0.,0./)
        rightstate = (/1.,0.01 ,0.,0.,0.,0.,0.,0./)
-    endif
+    case(3)
+       shocktype = "Isothermal relativistic shock"
+       ieos        = 4
+       soundspeed  = 0.1
+       call prompt('Enter sound speed',soundspeed,0.,1.)
+       uthermconst = soundspeed**2/(gamma-1.-soundspeed**2)
+       polyk       = uthermconst
+       densleft    = 10.
+       densright   = 1.
+       call equationofstate(ieos,pondens,spsound,densleft,0.,0.,0.)
+       if (abs(spsound/soundspeed)-1.>1.e-10) call fatal('setup','eos soundspeed does not match chosen sound speed')
+       leftstate  = (/densleft,pondens*densleft,0.,0.,0.,0.,0.,0./)
+       call equationofstate(ieos,pondens,spsound,densright,0.,0.,0.)
+       rightstate = (/densright,pondens*densright,0.,0.,0.,0.,0.,0./)
+       if (abs(spsound/soundspeed)-1.>1.e-10) call fatal('setup','eos soundspeed does not match chosen sound speed')
+    case default
+    end select
     if (maxvxyzu < 4) call fatal('setup','Sod shock tube requires ISOTHERMAL=no')
  end select
 
