@@ -105,7 +105,7 @@ subroutine compute_energies(t)
  real    :: erotxi,erotyi,erotzi,fdum(3)
  real    :: ethermi
 #ifdef GR
- real    :: pdotv,bigvi(1:3),alpha_gr,beta_gr(1:3),lorentzi,pxi,pyi,pzi
+ real    :: pdotv,bigvi(1:3),alpha_gr,beta_gr_down(1:3),beta_gr_UP(1:3),lorentzi,pxi,pyi,pzi
  real    :: gammaijdown(1:3,1:3),gammaijUP(1:3,1:3),angi(1:3),fourvel_space(3)
 #endif
  integer :: i,j,itype,ierr
@@ -165,7 +165,7 @@ subroutine compute_energies(t)
 !$omp shared(temperature) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 #ifdef GR
-!$omp private(pxi,pyi,pzi,gammaijdown,gammaijUP,alpha_gr,beta_gr,bigvi,lorentzi,pdotv,angi,fourvel_space) &
+!$omp private(pxi,pyi,pzi,gammaijdown,gammaijUP,alpha_gr,beta_gr_down,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
 #endif
 !$omp private(ethermi) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
@@ -242,8 +242,8 @@ subroutine compute_energies(t)
        ymom = ymom + pmassi*pyi
        zmom = zmom + pmassi*pzi
 
-       call get_metric3plus1(xyzh(1:3,i),alpha_gr,beta_gr,gammaijdown,gammaijUP)
-       bigvi    = (vxyzu(1:3,i)+beta_gr)/alpha_gr
+       call get_metric3plus1(xyzh(1:3,i),alpha_gr,beta_gr_down,beta_gr_UP,gammaijdown,gammaijUP)
+       bigvi    = (vxyzu(1:3,i)+beta_gr_UP)/alpha_gr
        v2i      = dot_product_gr(bigvi,bigvi,gammaijdown)
        lorentzi = 1./sqrt(1.-v2i)
        pdotv    = pxi*vxi + pyi*vyi + pzi*vzi

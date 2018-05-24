@@ -126,7 +126,7 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,ien_type)
  integer, intent(in)  :: ien_type
  real, dimension(0:3,0:3) :: gcov,gcon
  real, dimension(1:3,1:3) :: gammaijdown, gammaijUP
- real :: sqrtg,enth,lorentz_LEO,pmom2,alpha,beta(1:3),enth_old,v3d(1:3)
+ real :: sqrtg,enth,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
  real :: f,df
  integer :: niter, i,j
  real, parameter :: tol = 1.e-12
@@ -139,7 +139,7 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,ien_type)
     dens = rho
     u = en
  else
-    call get_metric3plus1(x,alpha,beta,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
+    call get_metric3plus1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
     pmom2 = dot_product_gr(pmom,pmom,gammaijUP)
 
     ! Guess enthalpy (using previous values of dens and pressure)
@@ -152,7 +152,7 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,ien_type)
        lorentz_LEO = sqrt(1.+pmom2/enth_old**2)
        dens = rho*alpha/(sqrtg*lorentz_LEO)
 
-       p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product_gr(pmom,beta,gammaijUP)),0.)
+       p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product_gr(pmom,betadown,gammaijUP)),0.)
        if (ien_type == ien_entropy) p = en*dens**gamma
        if (ieos==4) p = (gamma-1.)*dens*polyk
 
@@ -184,10 +184,10 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,ien_type)
     lorentz_LEO = sqrt(1.+pmom2/enth**2)
     dens = rho*alpha/(sqrtg*lorentz_LEO)
 
-    p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product_gr(pmom,beta,gammaijUP)),0.)
+    p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product_gr(pmom,betadown,gammaijUP)),0.)
     if (ien_type == ien_entropy) p = en*dens**gamma
 
-    v3d(:) = alpha*pmom(:)/(enth*lorentz_LEO)-beta(:)
+    v3d(:) = alpha*pmom(:)/(enth*lorentz_LEO)-betadown(:)
 
     v = 0.
     do i=1,3

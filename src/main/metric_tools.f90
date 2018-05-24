@@ -129,29 +129,28 @@ subroutine numerical_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
 end subroutine numerical_metric_derivs
 
 !-------------------------------------------------------------------------------
-subroutine get_metric3plus1_only(x,alpha,beta,gammaijdown,gammaijUP)
+subroutine get_metric3plus1_only(x,alpha,betadown,betaUP,gammaijdown,gammaijUP)
  real, intent(in)  :: x(1:3)
- real, intent(out) :: alpha, beta(1:3), gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
+ real, intent(out) :: alpha,betadown(1:3),betaUP(1:3),gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
  real              :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
- call metric3p1(x,alpha,beta,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
+ call metric3p1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
 end subroutine get_metric3plus1_only
 
-subroutine get_metric3plus1_both(x,alpha,beta,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
+subroutine get_metric3plus1_both(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
  real, intent(in)  :: x(1:3)
- real, intent(out) :: alpha,beta(1:3), gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
+ real, intent(out) :: alpha,betadown(1:3),betaUP(1:3),gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
  real, intent(out) :: gcov(0:3,0:3),gcon(0:3,0:3),sqrtg
- call metric3p1(x,alpha,beta,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
+ call metric3p1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
 end subroutine get_metric3plus1_both
 
-subroutine metric3p1(x,alpha,beta,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
+subroutine metric3p1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
  real, intent(in)  :: x(1:3)
- real, intent(out) :: alpha,beta(1:3), gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
+ real, intent(out) :: alpha,betadown(1:3),betaUP(1:3), gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
  real, intent(out) :: gcov(0:3,0:3),gcon(0:3,0:3),sqrtg
- real :: betaUP(1:3)
  integer :: i,j
 
  call get_metric(x,gcov,gcon,sqrtg)
- beta        = gcov(0,1:3)
+ betadown    = gcov(0,1:3)
  gammaijdown = gcov(1:3,1:3)
  alpha       = sqrt(-1./gcon(0,0))
  betaUP      = gcon(0,1:3)*alpha**2
