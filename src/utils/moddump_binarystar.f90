@@ -501,16 +501,16 @@ end subroutine get_radii
 !
 ! id = 1
 ! npart_total = int(npart,kind=4)
-! call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,nptot=npart_total) 
+! call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,nptot=npart_total)
 !
 ! npart = npart_total
 ! do i = Nstar1 + Nstar2 + 1, npart
 !    call set_particle_type(i,igas)
 ! enddo
-! 
+!
 ! npartoftype(igas) = npart
 !
-! bgdens = (npart-Nstar1-Nstar2) * massoftype(igas) / totvol 
+! bgdens = (npart-Nstar1-Nstar2) * massoftype(igas) / totvol
 ! print *, '   Added background fluid of density: ', (bgdens*unit_density), ' g/cm^3'
 ! print *, ''
 !
