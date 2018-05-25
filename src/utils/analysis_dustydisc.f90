@@ -86,6 +86,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use dust,           only:graindens,grainsize
  use readwrite_dust, only:read_dust_setup_options
  use leastsquares,   only:fit_slope
+ use infile_utils,   only:open_db_from_file,close_db,inopts
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyz(:,:)
  real,             intent(in) :: pmass,time
@@ -105,7 +106,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: flat_cut,scale_cut,eps_dust_cut
  real :: stan_dev(ndusttypes,nr)
  real :: zeta(nr+2),dzetadr(nr),Pr(nr+1),dPrdr(nr)
- real :: St_mid(ndusttypes,nr),St_from_tstop(ndusttypes,nr),St_from_sigma(ndusttypes,nr)
+ real :: St_mid(ndusttypes,nr),St_from_tstop(ndusttypes,nr)
  real :: rhogmid(nr),rhodmid(ndusttypes,nr)
  real :: rhog(npart),rhod(ndusttypes,npart),rhogbin(npartoftype(igas),nr),rhodbin(ndusttypes,npartoftype(igas),nr)
  real :: vK(nr),etabin(npartoftype(igas),nr),meaneta(nr),nuvisc(nr),shearvisc,alphaAV
@@ -117,7 +118,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: H_R_in,H_R_out,H_R_ref,p_index,q_index,M_star,M_disc,R_c,R_cdust
  real :: R_in_dust,R_out_dust,R_ref_dust,R_warp_dust
  real :: H_R_in_dust,H_R_out_dust,H_R_ref_dust,p_index_dust,M_star_dust,M_disc_dust
- real :: G,rmin,rmax,cs0,angx,angy,angz,ri,Hi_part,area
+ real :: G,rmin,rmax,cs0,angx,angy,angz,ri,area !Hi_part
  real :: dreven,log_dr,drlog(nr),log_grid(nr+1),grid(nr+1)
  real :: angtot,Ltot,tilt,dtwist,Li(3)
  real :: rad(nr),Lx(nr),Ly(nr),Lz(nr),h_smooth(nr),sigmagas(nr),sigmadust(ndusttypes,nr),cs(nr),H(nr),omega(nr)
@@ -131,7 +132,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: hdust(ndusttypes,nr),meanzdust(ndusttypes,nr)
  real :: psi_x,psi_y,psi_z,psi,Mdust,Mgas,Mtot,Macc,pmassi,pgasmass,pdustmass(ndusttypes)
  real :: dustfraci(ndusttypes),dustfracisum,rhoeff(ndusttypes)
- real :: dustfrac_percent(ndusttypes) = 0.
  real :: ri_mid,d2g_ratio
  real :: l_planet(3),bigl_planet,rad_planet,inc,planet_mass
  real, save :: Mtot_in,Mgas_in,Mdust_in
@@ -152,7 +152,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  integer, parameter :: iprec   = 24
  integer, parameter :: isplash = 33
  integer, parameter :: isol    = 34
+ integer, parameter :: iunit1  = 22
  logical :: do_precession,ifile
+
+ type(inopts), allocatable :: db(:)
 
  if (use_dustfrac .and. ndusttypes > 1) then
     fit_sigma   = .false.
@@ -230,7 +233,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  if (ifile) then
 !    call read_setup(filename,d2g_ratio,io_grainsize,grainsize(:),dustfracsuminit, &
 !                    dustfracinit(:),graindens(:),isetupparams,ierr)
-    call read_dust_setup_options(ierr,d2g_ratio,filename=filename)
+    call open_db_from_file(db,filename,iunit1,ierr)
+    call read_dust_setup_options(db,ierr,d2g_ratio)
+    call close_db(db)
     if (ierr /= 0) call fatal('analysis','could not open/read .setup file')
  endif
 

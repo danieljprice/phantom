@@ -470,19 +470,17 @@ end subroutine get_units_factor
 !  (originally written for setup_disc, but also needed for moddump/old setups)
 !+
 !-----------------------------------------------------------------------
-subroutine read_dust_setup_options(nerr,dust_to_gas,df,gs,gd,isimple,filename,db)
+subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple)
  use options,      only:use_dustfrac
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use dust,         only:set_grainsize,grainsize,graindens
  use units,        only:udist,umass
+ type(inopts), allocatable, intent(inout) :: db(:)
  integer, intent(inout) :: nerr
  real,    intent(out)   :: dust_to_gas
  real,                      intent(out),   optional :: df(:),gs(:),gd(:)
  logical,                   intent(in),    optional :: isimple
- character(len=*),          intent(in),    optional :: filename
- type(inopts), allocatable, intent(inout), optional :: db(:)
 
- integer, parameter :: iunit = 20
  integer            :: i,ierr
  real               :: grainsizeinp(ndusttypes)
  real               :: graindensinp(ndusttypes)
@@ -491,30 +489,21 @@ subroutine read_dust_setup_options(nerr,dust_to_gas,df,gs,gd,isimple,filename,db
  logical            :: simple_graindens = .false.
  logical            :: simple_output    = .false.
  character(len=120) :: varlabel(ndusttypes)
- type(inopts), allocatable :: db2(:)
 
- if (present(filename) .and. present(db)) then
-    stop 'filename and db cannot both be passed into read_dust_setup_options!'
- elseif (present(filename)) then
-    call open_db_from_file(db2,filename,iunit,ierr)
- elseif (present(db)) then
-    db2 = db
- endif
-
- if (use_dustfrac) call read_inopt(ilimitdustflux,'ilimitdustflux',db2,errcount=nerr)
- call read_inopt(dust_to_gas,'dust_to_gas_ratio',db2,min=0.,errcount=nerr)
+ if (use_dustfrac) call read_inopt(ilimitdustflux,'ilimitdustflux',db,errcount=nerr)
+ call read_inopt(dust_to_gas,'dust_to_gas_ratio',db,min=0.,errcount=nerr)
 
  if (present(isimple)) simple_output = isimple
  if (.not.simple_output) then
     if (use_dustfrac .and. ndusttypes > 1) then
-       call read_inopt(io_grainsize,'io_grainsize',db2,min=0,max=2,errcount=nerr)
+       call read_inopt(io_grainsize,'io_grainsize',db,min=0,max=2,errcount=nerr)
        select case(io_grainsize)
        case(0)
-          call read_inopt(smincgs,'smincgs',db2,min=0.,errcount=nerr)
-          call read_inopt(smaxcgs,'smaxcgs',db2,min=smincgs,errcount=nerr)
-          call read_inopt(sindex ,'sindex' ,db2,errcount=nerr)
+          call read_inopt(smincgs,'smincgs',db,min=0.,errcount=nerr)
+          call read_inopt(smaxcgs,'smaxcgs',db,min=smincgs,errcount=nerr)
+          call read_inopt(sindex ,'sindex' ,db,errcount=nerr)
        case(1)
-          call read_inopt(grainsizeinp(1),'grainsizeinp',db2,min=0.,err=ierr,errcount=nerr)
+          call read_inopt(grainsizeinp(1),'grainsizeinp',db,min=0.,err=ierr,errcount=nerr)
           if (ierr /= 0) then
              grainsizeinp(:) = 0.1
           else
@@ -525,7 +514,7 @@ subroutine read_dust_setup_options(nerr,dust_to_gas,df,gs,gd,isimple,filename,db
           !--Make N grain size labels
           call nduststrings('grainsizeinp','',varlabel)
           do i = 1,ndusttypes
-             call read_inopt(grainsizeinp(i),trim(varlabel(i)),db2,min=0.,err=ierr,errcount=nerr)
+             call read_inopt(grainsizeinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
              if (ierr /= 0) then
                 call set_grainsize(smincgs,smaxcgs)
                 grainsizeinp(:) = grainsizecgs(:)
@@ -534,7 +523,7 @@ subroutine read_dust_setup_options(nerr,dust_to_gas,df,gs,gd,isimple,filename,db
           !--Make N dust fraction labels
           call nduststrings('dustfrac','',varlabel)
           do i = 1,ndusttypes
-             call read_inopt(dustfrac_percent(i),trim(varlabel(i)),db2,min=0.,max=100.,err=ierr,errcount=nerr)
+             call read_inopt(dustfrac_percent(i),trim(varlabel(i)),db,min=0.,max=100.,err=ierr,errcount=nerr)
           enddo
           if (sum(dustfrac_percent(:)) /= 100.) then
              print*,'ERROR: dust fraction percentages need to add up to 100!'
@@ -549,10 +538,10 @@ subroutine read_dust_setup_options(nerr,dust_to_gas,df,gs,gd,isimple,filename,db
              io_grainsize = 1
           endif
        end select
-       call read_inopt(io_graindens,'io_graindens',db2,min=0,errcount=nerr)
+       call read_inopt(io_graindens,'io_graindens',db,min=0,errcount=nerr)
        select case(io_graindens)
        case(0)
-          call read_inopt(graindensinp(1),'graindensinp',db2,min=0.,err=ierr,errcount=nerr)
+          call read_inopt(graindensinp(1),'graindensinp',db,min=0.,err=ierr,errcount=nerr)
           if (ierr /= 0) then
              graindensinp(:) = 3.
           else
@@ -563,7 +552,7 @@ subroutine read_dust_setup_options(nerr,dust_to_gas,df,gs,gd,isimple,filename,db
           !--Make N grain size labels
           call nduststrings('graindensinp','',varlabel)
           do i = 1,ndusttypes
-             call read_inopt(graindensinp(i),trim(varlabel(i)),db2,min=0.,err=ierr,errcount=nerr)
+             call read_inopt(graindensinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
              if (ierr /= 0) then
                 graindensinp(i) = 2. + (i-1)*2./real(ndusttypes-1)
              endif
@@ -577,23 +566,17 @@ subroutine read_dust_setup_options(nerr,dust_to_gas,df,gs,gd,isimple,filename,db
           endif
        end select
     else
-       call read_inopt(grainsizeinp(1),'grainsizeinp',db2,min=0.,err=ierr,errcount=nerr)
+       call read_inopt(grainsizeinp(1),'grainsizeinp',db,min=0.,err=ierr,errcount=nerr)
        if (ierr /= 0) then
           grainsizeinp = 0.1
        endif
        grainsizecgs = grainsizeinp
-       call read_inopt(graindensinp(1),'graindensinp',db2,min=0.,errcount=nerr)
+       call read_inopt(graindensinp(1),'graindensinp',db,min=0.,errcount=nerr)
        if (ierr /= 0) then
           graindensinp = 3.
        endif
        graindenscgs = graindensinp
     endif
- endif
-
- if (present(filename)) then
-    call close_db(db2)
- elseif (present(db)) then
-    db = db2
  endif
 
  if (io_grainsize == 0) then
@@ -1125,6 +1108,7 @@ end subroutine write_dust_infile_options
 subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,ireadwrite)
  use dim,          only:ndusttypes
  use io,           only:id,master
+ use infile_utils, only:open_db_from_file,close_db,inopts
  real,    intent(out) :: dust_to_gas
  real,    intent(out) :: dustfrac_percent(:)
  integer, intent(in),  optional :: iprofile
@@ -1139,6 +1123,7 @@ subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,
  real               :: grainsizeinp(ndusttypes),graindensinp(ndusttypes)
  logical            :: iexist
  character(len=10)  :: grainsfile = 'grains.tmp'
+ type(inopts), allocatable :: db(:)
 
  print "(/,a)",' Warning: missing essential dust options. Checking if '//trim(grainsfile)//' exists...'
 
@@ -1157,8 +1142,10 @@ subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,
     if (iexist) then
        print*,trim(grainsfile)//' found...opening file and reading dust parameters...'
        !--read from grains.tmp file
-       call read_dust_setup_options(nerr,dust_to_gas,df=dustfrac_percent,gs=grainsizeinp, &
-                                    gd=graindensinp,filename=grainsfile)
+       call open_db_from_file(db,grainsfile,iunit,nerr)
+       call read_dust_setup_options(db,nerr,dust_to_gas,df=dustfrac_percent,gs=grainsizeinp, &
+                                    gd=graindensinp)
+       call close_db(db)
        if (id==master) then
           open(unit=iunit,file=grainsfile,status='replace',form='formatted')
           call write_dust_setup_options(iunit,dust_to_gas,df=dustfrac_percent,gs=grainsizeinp, &
@@ -1196,8 +1183,10 @@ subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,
     !
     !--Read the dust file and check for errors
     !
-    call read_dust_setup_options(nerr,dust_to_gas,df=dustfrac_percent,gs=grainsizeinp, &
-                                 gd=graindensinp,filename=grainsfile)
+    call open_db_from_file(db,grainsfile,iunit,nerr)
+    call read_dust_setup_options(db,nerr,dust_to_gas,df=dustfrac_percent,gs=grainsizeinp, &
+                                 gd=graindensinp)
+    call close_db(db)
  case(2)
     !
     !--Write the dust file

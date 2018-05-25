@@ -628,7 +628,7 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  if (maxvxyzu==3) call read_inopt(polyk,'polyk',db,min=0.,errcount=nerr)
 
  if (use_dustfrac) then
-    call read_dust_setup_options(nerr,dtg,isimple=.true.,db=db)
+    call read_dust_setup_options(db,nerr,dtg,isimple=.true.)
  endif
 
  if (nerr > 0) then

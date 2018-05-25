@@ -1582,8 +1582,8 @@ subroutine read_setupfile(filename,ierr)
  end select
  !--dust
  if (use_dust) then
-    call read_dust_setup_options(nerr,dust_to_gas_ratio,df=dustfrac_percent,gs=grainsizeinp, &
-                                 gd=graindensinp,db=db)
+    call read_dust_setup_options(db,nerr,dust_to_gas_ratio,df=dustfrac_percent,gs=grainsizeinp, &
+                                 gd=graindensinp)
     !--growth/fragmentation of dust
     if (use_dustgrowth .and. .not.use_dustfrac) then
        call read_inopt(ifrag,'ifrag',db,min=0,max=2,errcount=nerr)

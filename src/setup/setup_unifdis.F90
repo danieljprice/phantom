@@ -358,8 +358,8 @@ subroutine read_setupfile(filename,ierr)
     !
     ! dust
     !
-    call read_dust_setup_options(nerr,dust_to_gas,df=dustfrac_percent,gs=grainsizeinp, &
-                             gd=graindensinp,db=db)
+    call read_dust_setup_options(db,nerr,dust_to_gas,df=dustfrac_percent,gs=grainsizeinp, &
+                             gd=graindensinp)
  endif
  call read_inopt(ilattice,'ilattice',db,min=1,max=2,errcount=nerr)
  call close_db(db)
