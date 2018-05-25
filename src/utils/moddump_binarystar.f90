@@ -424,18 +424,21 @@ subroutine determine_Nstar(npart,xyzh,Nstar1,Nstar2)
  if (Nstar1xneg + Nstar2xpos == npart) then
     Nstar1 = Nstar1xneg
     Nstar2 = Nstar2xpos
- endif
- if (Nstar1xpos + Nstar2xneg == npart) then
+ elseif (Nstar1xpos + Nstar2xneg == npart) then
     Nstar1 = Nstar1xpos
     Nstar2 = Nstar2xneg
- endif
- if (Nstar1yneg + Nstar2ypos == npart) then
+ elseif (Nstar1yneg + Nstar2ypos == npart) then
     Nstar1 = Nstar1yneg
     Nstar2 = Nstar2ypos
- endif
- if (Nstar1ypos + Nstar2yneg == npart) then
+ elseif (Nstar1ypos + Nstar2yneg == npart) then
     Nstar1 = Nstar1ypos
     Nstar2 = Nstar2yneg
+ else
+    Nstar1 = npart
+    Nstar2 = 0
+    print *, 'ERROR: could not determine number of particles in each star'
+    print *, '    either this is not a binary, the stars are not separated, or there is extra material outside the stars'
+    print *, ''
  endif
  print *, '   Nstar1 = ', Nstar1
  print *, '   Nstar2 = ', Nstar2
