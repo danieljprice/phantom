@@ -28,7 +28,7 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part,           only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas
+ use part,           only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas,mhd
  use prompting,      only: prompt
  use centreofmass,   only: reset_centreofmass,get_centreofmass
  use initial_params, only: get_conserv
@@ -52,18 +52,20 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print *, '   1) Duplicate a relaxed star'
  print *, '   2) Add a star from another dumpfile'
  print *, '   3) Adjust separation of existing binary'
-! print *, '   4) Add low-density background fluid'
+ print *, '   4) Add magnetic field'
 
  opt = 1
- call prompt('Choice',opt, 1, 3)
-
- sep = 1.0
- print *, ''
- call prompt('Enter radial separation between stars (code unit)', sep, 0.)
-
  synchro = 1
- call prompt('Synchronise binaries? [0 false; 1 true]',synchro, 0, 1)
- print *, ''
+ call prompt('Choice',opt, 1, 4)
+
+ if (opt == 1 .or. opt == 2 .or. opt == 3) then
+    sep = 1.0
+    print *, ''
+    call prompt('Enter radial separation between stars (code unit)', sep, 0.)
+
+    call prompt('Synchronise binaries? [0 false; 1 true]',synchro, 0, 1)
+    print *, ''
+ endif
 
  !
  ! Create binary
@@ -81,6 +83,19 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  endif
 
  if (opt == 4) then
+    print *, ''
+    if (mhd) then
+       print *, 'Adding/resetting magnetic fields'
+    else
+       print *, 'ERROR: To add magnetic field, compile with MHD=yes.'
+    endif
+    print *, ''
+ endif
+
+
+ ! This is turned off (there is no option 5).
+ ! To get a sufficiently low resolution background requires ~10^9 particles in each star. Not realistic.
+ if (opt == 5) then
     nx = 128
     call prompt('Specify number of particles in x-direction for low-density background',nx,0)
     print *, ''
@@ -89,60 +104,59 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call get_centreofmass(x1com, v1com, Nstar1, xyzh(:,1:Nstar1),       vxyzu(:,1:Nstar1))
     call get_centreofmass(x2com, v2com, Nstar2, xyzh(:,Nstar1+1:npart), vxyzu(:,Nstar1+1:npart))
 !    call add_background(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,x2com,nx)
-!     call add_magneticfield(npart,xyzh,Nstar1,Nstar2,x1com,x2com)
  endif
 
 
- !
- ! Set binary at specified separation with corresponding orbital velocity
- !
- call get_centreofmass(xcom,  vcom,  npart,  xyzh,                   vxyzu)
- call get_centreofmass(x1com, v1com, Nstar1, xyzh(:,1:Nstar1),       vxyzu(:,1:Nstar1))
- call get_centreofmass(x2com, v2com, Nstar2, xyzh(:,Nstar1+1:npart), vxyzu(:,Nstar1+1:npart))
+ ! Only if duplicating, adding, or adjusting separation
+ if (opt == 1 .or. opt == 2 .or. opt == 3) then
 
- call get_radii(npart,xyzh,Nstar1,Nstar2,x1com,x2com,rad1,rad2)
+    ! get com of each star
+    call get_centreofmass(xcom,  vcom,  npart,  xyzh,                   vxyzu)
+    call get_centreofmass(x1com, v1com, Nstar1, xyzh(:,1:Nstar1),       vxyzu(:,1:Nstar1))
+    call get_centreofmass(x2com, v2com, Nstar2, xyzh(:,Nstar1+1:npart), vxyzu(:,Nstar1+1:npart))
 
- pmassi = massoftype(igas)
- mtot   = npart  * pmassi
- m1     = Nstar1 * pmassi
- m2     = Nstar2 * pmassi
+    ! calculate radii of each star
+    call get_radii(npart,xyzh,Nstar1,Nstar2,x1com,x2com,rad1,rad2)
 
- print *, '   Mass of first star:  ', m1
- print *, '   Mass of second star: ', m2
- print *, ''
- print *, '   Radius of first star:  ', rad1
- print *, '   Radius of second star: ', rad2
- print *, ''
+    pmassi = massoftype(igas)
+    mtot   = npart  * pmassi
+    m1     = Nstar1 * pmassi
+    m2     = Nstar2 * pmassi
 
- call adjust_sep(npart,xyzh,vxyzu,Nstar1,Nstar2,sep,x1com,v1com,x2com,v2com)
+    print *, '   Mass of first star:  ', m1
+    print *, '   Mass of second star: ', m2
+    print *, ''
+    print *, '   Radius of first star:  ', rad1
+    print *, '   Radius of second star: ', rad2
+    print *, ''
 
- angvel = sqrt(1.0 * mtot / sep**3) ! angular velocity
- vel1   = m1 * sep / mtot * angvel
- vel2   = m2 * sep / mtot * angvel
+    ! adjust the separation of the binary
+    call adjust_sep(npart,xyzh,vxyzu,Nstar1,Nstar2,sep,x1com,v1com,x2com,v2com)
 
- call get_centreofmass(x1com, v1com, Nstar1, xyzh(:,1:Nstar1),       vxyzu(:,1:Nstar1))
- call get_centreofmass(x2com, v2com, Nstar2, xyzh(:,Nstar1+1:npart), vxyzu(:,Nstar1+1:npart))
+    angvel = sqrt(1.0 * mtot / sep**3) ! angular velocity
+    vel1   = m1 * sep / mtot * angvel
+    vel2   = m2 * sep / mtot * angvel
 
- call reset_velocity(npart,vxyzu)
+    ! find new com's
+    call get_centreofmass(x1com, v1com, Nstar1, xyzh(:,1:Nstar1),       vxyzu(:,1:Nstar1))
+    call get_centreofmass(x2com, v2com, Nstar2, xyzh(:,Nstar1+1:npart), vxyzu(:,Nstar1+1:npart))
 
- call set_velocity(npart,vxyzu,Nstar1,Nstar2,angvel,vel1,vel2)
-! call set_corotate_velocity(angvel)
+    ! set orbital velocity of the binary
+    call reset_velocity(npart,vxyzu)
+    call set_velocity(npart,vxyzu,Nstar1,Nstar2,angvel,vel1,vel2)
+    !call set_corotate_velocity(angvel)
 
+    ! synchronise rotation
+    if (synchro == 1) then
+       call synchronise(npart,xyzh,vxyzu,Nstar1,Nstar2,angvel,x1com,x2com)
+    endif
 
- !
- ! synchronise rotation
- !
- if (synchro == 1) then
-    call synchronise(npart,xyzh,vxyzu,Nstar1,Nstar2,angvel,x1com,x2com)
+    ! reset centre of mass to origin
+    call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+
+    ! reset tracked conservation properties
+    get_conserv = 1.
  endif
-
-
- !
- ! reset centre of mass to origin
- !
- call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
-
- get_conserv = 1.
 
 end subroutine modify_dump
 
