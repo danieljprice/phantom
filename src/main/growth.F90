@@ -54,9 +54,9 @@ module growth
  real, public           :: vfragout
  real, public           :: grainsizemin
 
- public                        :: get_growth_rate,get_vrelonvfrag,update_dustprop
- public                        :: write_options_growth,read_options_growth,print_growthinfo,init_growth
- public                        :: vrelative
+ public                 :: get_growth_rate,get_vrelonvfrag,update_dustprop
+ public                 :: write_options_growth,read_options_growth,print_growthinfo,init_growth
+ public                 :: vrelative,read_growth_setup_options,write_growth_setup_options
 
 contains
 
@@ -67,8 +67,7 @@ contains
 !------------------------------------------------
 subroutine init_growth(ierr)
  use io,        only:error
- use part,        only:dustprop,ddustprop,npart,St
- use dust,        only:grainsize,graindens
+ use part,        only:dustprop,npart
  integer, intent(out) :: ierr
 
  integer              :: i
@@ -344,14 +343,69 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
  endif
 end subroutine read_options_growth
 
-!
-!  Update dustprop and make sure grainsize is not to small
-!
+!-----------------------------------------------------------------------
+!+
+!  Write growth options to the .setup file
+!+
+!-----------------------------------------------------------------------
+subroutine write_growth_setup_options(iunit)
+use infile_utils,      only:write_inopt
+integer, intent(in) :: iunit
+
+write(iunit,"(/,a)") '# options for growth and fragmentation of dust'
+
+call write_inopt(ifrag,'ifrag','fragmentation of dust (0=off,1=on,2=Kobayashi)',iunit)
+call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
+call write_inopt(rsnow,'rsnow','snow line position in AU',iunit)
+call write_inopt(Tsnow,'Tsnow','snow line condensation temperature in K',iunit)
+call write_inopt(vfragSI,'vfrag','uniform fragmentation threshold in m/s',iunit)
+call write_inopt(vfraginSI,'vfragin','inward fragmentation threshold in m/s',iunit)
+call write_inopt(vfragoutSI,'vfragout','inward fragmentation threshold in m/s',iunit)
+call write_inopt(gsizemincgs,'grainsizemin','minimum allowed grain size in cm',iunit)
+
+end subroutine write_growth_setup_options
+
+!-----------------------------------------------------------------------
+!+
+!  Read growth options from the .setup file
+!+
+!-----------------------------------------------------------------------
+subroutine read_growth_setup_options(db,nerr)
+use infile_utils,    only:read_inopt,inopts
+type(inopts), allocatable, intent(inout) :: db(:)
+integer, intent(inout)                   :: nerr
+
+call read_inopt(ifrag,'ifrag',db,min=0,max=2,errcount=nerr)
+if (ifrag > 0) then
+   call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
+   call read_inopt(grainsizemin,'grainsizemin',db,min=1.e-5,errcount=nerr)
+endif
+select case(isnow)
+case(0)
+    call read_inopt(vfrag,'vfrag',db,min=0.,errcount=nerr)
+case(1)
+    call read_inopt(rsnow,'rsnow',db,min=0.,errcount=nerr)
+    call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
+    call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
+case(2)
+    call read_inopt(Tsnow,'Tsnow',db,min=0.,errcount=nerr)
+    call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
+    call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
+case default
+end select
+
+end subroutine read_growth_setup_options
+
+!-----------------------------------------------------------------------
+!+
+!  Update dustprop and make sure dustprop(1,:) isn't too small
+!+
+!-----------------------------------------------------------------------
 subroutine update_dustprop(npart,dustproppred)
  use part,                only:iamtype,iphase,idust,dustprop
- real,intent(in)                :: dustproppred(:,:)
+ real,intent(in)           :: dustproppred(:,:)
  integer,intent(in)        :: npart
- integer                                :: i
+ integer                   :: i
 
  do i=1,npart
     if (iamtype(iphase(i))==idust) then
@@ -360,6 +414,24 @@ subroutine update_dustprop(npart,dustproppred)
     endif
  enddo
 end subroutine update_dustprop
+
+!-----------------------------------------------------------------------
+!+
+!  Set dustprop (used by moddump)
+!+
+!-----------------------------------------------------------------------
+subroutine set_dustprop(npart)
+use dust, only:grainsizecgs,graindenscgs
+use part, only:dustprop
+integer,intent(in) :: npart
+integer            :: i
+
+do i=1,npart
+   dustprop(1,i) = grainsizecgs(1) / udist
+   dustprop(2,i) = graindenscgs(1) / unit_density
+enddo
+
+end subroutine set_dustprop
 
 !--Compute the relative velocity following Stepinski & Valageas (1997)
 real function vrelative(St,dv,Vt)
