@@ -26,44 +26,36 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    Tsnow        -- snow line condensation temperature in K
-!    accr1        -- central star accretion radius
-!    accr2        -- perturber accretion radius
-!    alphaSS      -- desired alphaSS
-!    bhspin       -- black hole spin
-!    bhspinangle  -- black hole spin angle (deg)
-!    binary_O     -- Omega, PA of ascending node (deg)
-!    binary_a     -- binary semi-major axis
-!    binary_e     -- binary eccentricity
-!    binary_f     -- f, initial true anomaly (deg,180=apastron)
-!    binary_i     -- i, inclination (deg)
-!    binary_w     -- w, argument of periapsis (deg)
-!    deltat       -- output interval as fraction of orbital period
-!    dist_unit    -- distance unit (e.g. au,pc,kpc,0.1pc)
-!    einst_prec   -- include Einstein precession
-!    flyby_O      -- position angle of ascending node (deg)
-!    flyby_a      -- distance of minimum approach
-!    flyby_d      -- initial distance (units of dist. min. approach)
-!    flyby_i      -- inclination (deg)
-!    grainsizemin -- minimum allowed grain size in cm
-!    ibinary      -- binary orbit (0=bound,1=unbound [flyby])
-!    ifrag        -- fragmentation of dust (0=off,1=on,2=Kobayashi)
-!    ipotential   -- potential (1=central point mass,
-!    isnow        -- snow line (0=off,1=position based,2=temperature based)
-!    m1           -- central star mass
-!    m2           -- perturber mass
-!    mass_unit    -- mass unit (e.g. solarm,jupiterm,earthm)
-!    norbits      -- maximum number of orbits at outer disc
-!    np           -- number of gas particles
-!    np_dust      -- number of dust particles
-!    nplanets     -- number of planets
-!    nsinks       -- number of sinks
-!    rsnow        -- snow line position in AU
-!    setplanets   -- add planets? (0=no,1=yes)
-!    use_mcfost   -- use the mcfost library
-!    vfrag        -- uniform fragmentation threshold in m/s
-!    vfragin      -- inward fragmentation threshold in m/s
-!    vfragout     -- inward fragmentation threshold in m/s
+!    accr1       -- central star accretion radius
+!    accr2       -- perturber accretion radius
+!    alphaSS     -- desired alphaSS
+!    bhspin      -- black hole spin
+!    bhspinangle -- black hole spin angle (deg)
+!    binary_O    -- Omega, PA of ascending node (deg)
+!    binary_a    -- binary semi-major axis
+!    binary_e    -- binary eccentricity
+!    binary_f    -- f, initial true anomaly (deg,180=apastron)
+!    binary_i    -- i, inclination (deg)
+!    binary_w    -- w, argument of periapsis (deg)
+!    deltat      -- output interval as fraction of orbital period
+!    dist_unit   -- distance unit (e.g. au,pc,kpc,0.1pc)
+!    einst_prec  -- include Einstein precession
+!    flyby_O     -- position angle of ascending node (deg)
+!    flyby_a     -- distance of minimum approach
+!    flyby_d     -- initial distance (units of dist. min. approach)
+!    flyby_i     -- inclination (deg)
+!    ibinary     -- binary orbit (0=bound,1=unbound [flyby])
+!    ipotential  -- potential (1=central point mass,
+!    m1          -- central star mass
+!    m2          -- perturber mass
+!    mass_unit   -- mass unit (e.g. solarm,jupiterm,earthm)
+!    norbits     -- maximum number of orbits at outer disc
+!    np          -- number of gas particles
+!    np_dust     -- number of dust particles
+!    nplanets    -- number of planets
+!    nsinks      -- number of sinks
+!    setplanets  -- add planets? (0=no,1=yes)
+!    use_mcfost  -- use the mcfost library
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_lensethirring, externalforces, growth, infile_utils, io,

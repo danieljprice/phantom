@@ -20,13 +20,13 @@
 !
 !  RUNTIME PARAMETERS:
 !    Tsnow        -- snow line condensation temperature in K
-!    grainsizemin -- minimum grain size in cm
-!    ifrag        -- dust fragmentation (0=off,1=on,2=Kobayashi)
+!    grainsizemin -- minimum allowed grain size in cm
+!    ifrag        -- fragmentation of dust (0=off,1=on,2=Kobayashi)
 !    isnow        -- snow line (0=off,1=position based,2=temperature based)
-!    rsnow        -- position of the snow line in AU
+!    rsnow        -- snow line position in AU
 !    vfrag        -- uniform fragmentation threshold in m/s
 !    vfragin      -- inward fragmentation threshold in m/s
-!    vfragout     -- outward fragmentation threshold in m/s
+!    vfragout     -- inward fragmentation threshold in m/s
 !
 !  DEPENDENCIES: dust, eos, infile_utils, io, options, part, physcon, units
 !+
