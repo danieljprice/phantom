@@ -42,12 +42,17 @@ module growth
  integer, public        :: isnow        = 0
  logical, public        :: iinterpol    = .true.
 
- real, public           :: grainsizemin = 1.e-3
+ real, public           :: gsizemincgs  = 1.e-3
  real, public           :: rsnow        = 100.
  real, public           :: Tsnow        = 20.
- real, public           :: vfrag        = 15.
- real, public           :: vfragin      = 5.
- real, public           :: vfragout     = 15.
+ real, public           :: vfragSI      = 15.
+ real, public           :: vfraginSI    = 5.
+ real, public           :: vfragoutSI   = 15.
+
+ real, public           :: vfrag
+ real, public           :: vfragin
+ real, public           :: vfragout
+ real, public           :: grainsizemin
 
  public                        :: get_growth_rate,get_vrelonvfrag,update_dustprop
  public                        :: write_options_growth,read_options_growth,print_growthinfo,init_growth
@@ -66,24 +71,17 @@ subroutine init_growth(ierr)
  use dust,        only:grainsize,graindens
  integer, intent(out) :: ierr
 
- integer                          :: i
+ integer              :: i
 
  i = 0
  ierr = 0
 
  !--initialise variables in code units
- dustprop(1,:)  = grainsize(1)
- dustprop(2,:)  = graindens
- dustprop(3,:)  = 0.
- dustprop(4,:)  = 0.
- dustprop(5,:)  = 0.
- ddustprop(:,:) = 0.
- St(:)          = 0.
- vfrag          = vfrag * 100 / unit_velocity
- vfragin        = vfragin * 100 / unit_velocity
- vfragout       = vfragout * 100 / unit_velocity
+ vfrag          = vfragSI * 100 / unit_velocity
+ vfragin        = vfraginSI * 100 / unit_velocity
+ vfragout       = vfragoutSI * 100 / unit_velocity
  rsnow          = rsnow * au / udist
- grainsizemin   = grainsizemin / udist
+ grainsizemin   = gsizemincgs / udist
 
  !-- Check that all the parameters are > 0 when needed
  do i=1,npart
@@ -96,7 +94,11 @@ subroutine init_growth(ierr)
        ierr = 1
     endif
     if (dustprop(3,i) < 0) then
-       call error('init_growth','vrel/vfrag < 0',var='dustprop',val=dustprop(3,i))
+       call error('init_growth','vrel < 0',var='dustprop',val=dustprop(3,i))
+       ierr = 1
+    endif
+    if (dustprop(4,i) < 0) then
+       call error('init_growth','vrel/vfrag < 0',var='dustprop',val=dustprop(4,i))
        ierr = 1
     endif
  enddo
@@ -152,7 +154,7 @@ subroutine print_growthinfo(iprint)
  if (ifrag == 1) write(iprint,"(a)")    ' Using growth/frag where ds = (+ or -) vrel*rhod/graindens*dt   '
  if (ifrag == 2) write(iprint,"(a)")    ' Using growth with Kobayashi fragmentation model '
  if (ifrag > 0) then
-    write(iprint,"(2(a,1pg10.3),a)")' grainsizemin = ',grainsizemin*udist,' cm = ',grainsizemin,' (code units)'
+    write(iprint,"(2(a,1pg10.3),a)")' grainsizemin = ',gsizemincgs,' cm = ',grainsizemin,' (code units)'
     if (isnow == 1) then
        write(iprint,"(a)")              ' ===> Using position based snow line <=== '
        write(iprint,"(2(a,1pg10.3),a)") ' rsnow = ',rsnow*udist/au,'    AU = ',rsnow, ' (code units)'
@@ -162,10 +164,10 @@ subroutine print_growthinfo(iprint)
        write(iprint,"(2(a,1pg10.3),a)") ' Tsnow = ',Tsnow,' K = ',Tsnow,' (code units)'
     endif
     if (isnow == 0) then
-       write(iprint,"(2(a,1pg10.3),a)") ' vfrag = ',vfrag*unit_velocity/100,' m/s = ',vfrag ,' (code units)'
+       write(iprint,"(2(a,1pg10.3),a)") ' vfrag = ',vfragSI,' m/s = ',vfrag ,' (code units)'
     else
-       write(iprint,"(2(a,1pg10.3),a)") ' vfragin = ',vfragin*unit_velocity/100,' m/s = ',vfragin,' (code units)'
-       write(iprint,"(2(a,1pg10.3),a)") ' vfragin = ',vfragout*unit_velocity/100,' m/s = ',vfragout,' (code units)'
+       write(iprint,"(2(a,1pg10.3),a)") ' vfragin = ',vfraginSI,' m/s = ',vfragin,' (code units)'
+       write(iprint,"(2(a,1pg10.3),a)") ' vfragin = ',vfragoutSI,' m/s = ',vfragout,' (code units)'
     endif
  endif
 
@@ -275,14 +277,14 @@ subroutine write_options_growth(iunit)
  write(iunit,"(/,a)") '# options controlling growth'
  call write_inopt(ifrag,'ifrag','dust fragmentation (0=off,1=on,2=Kobayashi)',iunit)
  if (ifrag /= 0) then
-    call write_inopt(grainsizemin,'grainsizemin','minimum grain size in cm',iunit)
+    call write_inopt(gsizemincgs,'grainsizemin','minimum grain size in cm',iunit)
     call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
     if (isnow == 1) call write_inopt(rsnow,'rsnow','position of the snow line in AU',iunit)
     if (isnow == 2) call write_inopt(Tsnow,'Tsnow','snow line condensation temperature in K',iunit)
-    if (isnow == 0) call write_inopt(vfrag,'vfrag','uniform fragmentation threshold in m/s',iunit)
+    if (isnow == 0) call write_inopt(vfragSI,'vfrag','uniform fragmentation threshold in m/s',iunit)
     if (isnow > 0) then
-       call write_inopt(vfragin,'vfragin','inward fragmentation threshold in m/s',iunit)
-       call write_inopt(vfragout,'vfragout','outward fragmentation threshold in m/s',iunit)
+       call write_inopt(vfraginSI,'vfragin','inward fragmentation threshold in m/s',iunit)
+       call write_inopt(vfragoutSI,'vfragout','outward fragmentation threshold in m/s',iunit)
     endif
  endif
 
@@ -308,7 +310,7 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) ifrag
     ngot = ngot + 1
  case('grainsizemin')
-    read(valstring,*,iostat=ierr) grainsizemin
+    read(valstring,*,iostat=ierr) gsizemincgs
     ngot = ngot + 1
  case('isnow')
     read(valstring,*,iostat=ierr) isnow
@@ -320,13 +322,13 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) Tsnow
     ngot = ngot + 1
  case('vfrag')
-    read(valstring,*,iostat=ierr) vfrag
+    read(valstring,*,iostat=ierr) vfragSI
     ngot = ngot + 1
  case('vfragin')
-    read(valstring,*,iostat=ierr) vfragin
+    read(valstring,*,iostat=ierr) vfraginSI
     ngot = ngot + 1
  case('vfragout')
-    read(valstring,*,iostat=ierr) vfragout
+    read(valstring,*,iostat=ierr) vfragoutSI
     ngot = ngot + 1
  case default
     imatch = .false.

@@ -19,7 +19,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: dim, dust, infile_utils, io, leastsquares, options, part,
-!    physcon, solvelinearsystem, units
+!    physcon, readwrite_dust, solvelinearsystem, units
 !+
 !--------------------------------------------------------------------------
 module analysis
@@ -75,16 +75,18 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
- use dim,          only:maxp
- use io,           only:fatal
- use physcon,      only:pi,jupiterm,years,au
- use part,         only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac,tstop, &
-                        rhoh,maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass,isdead_or_accreted,&
-                        deltav
- use options,      only:use_dustfrac,iexternalforce
- use units,        only:umass,udist,utime
- use dust,         only:graindens,grainsize
- use leastsquares, only:fit_slope
+ use dim,            only:maxp
+ use io,             only:fatal
+ use physcon,        only:pi,jupiterm,years,au
+ use part,           only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac,tstop, &
+                          rhoh,maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass,deltav, &
+                          isdead_or_accreted
+ use options,        only:use_dustfrac,iexternalforce
+ use units,          only:umass,udist,utime
+ use dust,           only:graindens,grainsize
+ use readwrite_dust, only:read_dust_setup_options
+ use leastsquares,   only:fit_slope
+ use infile_utils,   only:open_db_from_file,close_db,inopts
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyz(:,:)
  real,             intent(in) :: pmass,time
@@ -95,7 +97,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  character(len=20)  :: discprefix
  integer, parameter :: nxn = 2*ndusttypes
  integer :: i,j,k,ir,ii,ierr,iline,ninbin(nr),ninbindust(ndusttypes,nr),iwarp,nptmassinit
- integer :: icutgas(nr),icutdust(ndusttypes,nr),find_ii(1),grainsize_set,irealvisc
+ integer :: icutgas(nr),icutdust(ndusttypes,nr),find_ii(1),irealvisc
  integer :: itype,lu,nondustcols,dustcols,numcols
  real, allocatable :: deltavsum(:,:),dustfracisuma(:)
  real :: err,errslope,erryint,slope
@@ -104,7 +106,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: flat_cut,scale_cut,eps_dust_cut
  real :: stan_dev(ndusttypes,nr)
  real :: zeta(nr+2),dzetadr(nr),Pr(nr+1),dPrdr(nr)
- real :: St_mid(ndusttypes,nr),St_from_tstop(ndusttypes,nr),St_from_sigma(ndusttypes,nr)
+ real :: St_mid(ndusttypes,nr),St_from_tstop(ndusttypes,nr)
  real :: rhogmid(nr),rhodmid(ndusttypes,nr)
  real :: rhog(npart),rhod(ndusttypes,npart),rhogbin(npartoftype(igas),nr),rhodbin(ndusttypes,npartoftype(igas),nr)
  real :: vK(nr),etabin(npartoftype(igas),nr),meaneta(nr),nuvisc(nr),shearvisc,alphaAV
@@ -116,7 +118,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: H_R_in,H_R_out,H_R_ref,p_index,q_index,M_star,M_disc,R_c,R_cdust
  real :: R_in_dust,R_out_dust,R_ref_dust,R_warp_dust
  real :: H_R_in_dust,H_R_out_dust,H_R_ref_dust,p_index_dust,M_star_dust,M_disc_dust
- real :: G,rmin,rmax,cs0,angx,angy,angz,ri,Hi_part,area
+ real :: G,rmin,rmax,cs0,angx,angy,angz,ri,area !Hi_part
  real :: dreven,log_dr,drlog(nr),log_grid(nr+1),grid(nr+1)
  real :: angtot,Ltot,tilt,dtwist,Li(3)
  real :: rad(nr),Lx(nr),Ly(nr),Lz(nr),h_smooth(nr),sigmagas(nr),sigmadust(ndusttypes,nr),cs(nr),H(nr),omega(nr)
@@ -129,8 +131,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: zsetdust(ndusttypes,max(npartoftype(idust),npartoftype(igas)),nr)
  real :: hdust(ndusttypes,nr),meanzdust(ndusttypes,nr)
  real :: psi_x,psi_y,psi_z,psi,Mdust,Mgas,Mtot,Macc,pmassi,pgasmass,pdustmass(ndusttypes)
- real :: dustfraci(ndusttypes),dustfracisum,rhoeff
- real :: ri_mid,d2g_ratio,dustfracsuminit,dustfracinit(ndusttypes)
+ real :: dustfraci(ndusttypes),dustfracisum,rhoeff(ndusttypes)
+ real :: ri_mid,d2g_ratio
  real :: l_planet(3),bigl_planet,rad_planet,inc,planet_mass
  real, save :: Mtot_in,Mgas_in,Mdust_in
  logical, save :: init  = .false.
@@ -142,15 +144,18 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  logical :: logdata     = .false.
  logical :: comparedata = .false.
  logical :: solve_baistone = .false.
+ logical :: print_part_in_bin = .false.
  logical :: check_radial_migration = .false.
 
- integer, parameter :: isetupparams = 2
  integer, parameter :: iparams = 10
  integer, parameter :: iplanet = 23
  integer, parameter :: iprec   = 24
  integer, parameter :: isplash = 33
  integer, parameter :: isol    = 34
+ integer, parameter :: iunit1  = 22
  logical :: do_precession,ifile
+
+ type(inopts), allocatable :: db(:)
 
  if (use_dustfrac .and. ndusttypes > 1) then
     fit_sigma   = .false.
@@ -160,6 +165,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     !use_log_r   = .true.
     scale_vel   = 2 ! 0=no scaling, 1=scale with meaneta, 2=scale with v_P
     check_radial_migration = .true.
+    print_part_in_bin = .true.
 
     flat_cut     = 100.
     scale_cut    = 1.
@@ -191,7 +197,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     deltav    = 0.
  endif
 
-
 ! Print the analysis being done
  write(*,'("Performing analysis type ",A)') analysistype
  write(*,'("Input file name is ",A)') dumpfile
@@ -203,8 +208,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     write(output,"(a)") trim(basename)//'.analysis'
  else
     write(output,"(a4,i5.5)") 'angm',numfile
-    write(*,'("Output file name is ",A)') output
  endif
+ write(*,'("Output file name is ",A)') output
 
  if (use_dustfrac) then
     write(*,'("one-fluid model")')
@@ -226,8 +231,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  write(filename,"(a)") trim(discprefix)//'.setup'
  inquire(file=filename, exist=ifile)
  if (ifile) then
-    call read_setup(filename,d2g_ratio,grainsize_set,grainsize(:),dustfracsuminit, &
-                    dustfracinit(:),graindens,isetupparams,ierr)
+!    call read_setup(filename,d2g_ratio,io_grainsize,grainsize(:),dustfracsuminit, &
+!                    dustfracinit(:),graindens(:),isetupparams,ierr)
+    call open_db_from_file(db,filename,iunit1,ierr)
+    call read_dust_setup_options(db,ierr,d2g_ratio)
+    call close_db(db)
     if (ierr /= 0) call fatal('analysis','could not open/read .setup file')
  endif
 
@@ -239,11 +247,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     call read_in(filename,irealvisc,alphaAV,shearvisc,iunit,ierr)
     if (ierr /= 0) call fatal('analysis','could not open/read .in file')
 
-    if (alphaAV == 0. .or. solve_baistone) then
-       write(output,"(a)") 'baistone'//trim(adjustl(basename))//'.analysis'
-    else
-       if (irealvisc == 1) print*,'WARNING!!! Dipierro solution for irealvisc == 1 needs to be corrected'
-       write(output,"(a)") 'dipierro'//trim(adjustl(basename))//'.analysis'
+    if (comparedata) then
+       if (alphaAV == 0. .or. solve_baistone) then
+          write(output,"(a)") 'baistone'//trim(adjustl(basename))//'.analysis'
+       else
+          if (irealvisc == 1) print*,'WARNING!!! Dipierro solution for irealvisc == 1 needs to be corrected'
+          write(output,"(a)") 'dipierro'//trim(adjustl(basename))//'.analysis'
+       endif
     endif
  endif
 
@@ -618,7 +628,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  do i = 1,nr
     meaneta(i)  = sum(etabin(1:ninbin(i),i))/real(ninbin(i))
     if(ninbin(i) > 1)then
-       print*,'The # of particles in bin',i,'is',ninbin(i)-icutgas(i)
+       if (print_part_in_bin) print*,'The # of particles in bin',i,'is',ninbin(i)-icutgas(i)
        meanzgas(i)  = sum(zsetgas(1:ninbin(i),i))/real(ninbin(i))
        meanrhog(i)  = sum(rhogbin(1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
        meanvrgas(i) = sum(vrgasbin(1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
@@ -723,7 +733,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     St_from_tstop(:,i) = meantstop(:,i)*omega(i)
     St_mid(:,i) = St_from_tstop(:,i)
 
-!    St_mid(:,i) = rhoeff*grainsize(:)*(sqrt(2.*pi)/sigmagas(i)) ! St_mid = Lambda_k
+!    St_mid(:,i) = rhoeff(:)*grainsize(:)*(sqrt(2.*pi)/sigmagas(i)) ! St_mid = Lambda_k
 !    meantstop(:,i) = St_mid(:,i)/omega(i)
     if (irealvisc == 0) then
        nuvisc(i) = (0.1*alphaAV*h_smooth(i))*cs(i)*H(i)
@@ -1013,6 +1023,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  return
 end subroutine do_analysis
 
+
 !----------------------------------------------------------------
 !+
 !  Solve for the radial velocities in Bai & Stone 2010b test
@@ -1123,7 +1134,6 @@ subroutine solve_dipierro_2018(irealvisc,vgassol,vdustsol,d2g_ratio,r,cs,vK,nu,p
 end subroutine solve_dipierro_2018
 
 
-
 !----------------------------------------------------------------
 !+
 !  Read disc information from discparams.list file
@@ -1191,71 +1201,6 @@ subroutine read_discparams(filename,R_in,R_out,R_ref,R_warp,H_R_in,H_R_out,H_R_r
 end subroutine read_discparams
 
 
-
-!----------------------------------------------------------------
-!+
-!  read disc information from .setup file
-!+
-!----------------------------------------------------------------
-subroutine read_setup(filename,d2g_ratio,grainsize_set,grainsize,dustfracsum,dustfrac,graindens,iunit,ierr)
- use dim,          only:ndusttypes
- use options,      only:use_dustfrac
- use units,        only:udist,umass
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use dust,         only:set_grainsize,nduststrings,grainsizecgs,smincgs,smaxcgs,sindex
- character(len=*), intent(in)  :: filename
- real,             intent(out) :: d2g_ratio,dustfracsum,dustfrac(:)
- real,             intent(out) :: grainsize(:),graindens
- integer,          intent(in)  :: iunit
- integer,          intent(out) :: ierr,grainsize_set
- integer :: i
- type(inopts), allocatable :: db(:)
- character(len=120) :: varlabel(ndusttypes)
-
-! read in parameters from the .setup file
- call open_db_from_file(db,filename,iunit,ierr)
-
- call read_inopt(d2g_ratio,'dust_to_gas_ratio',db,ierr)
- if (ierr /= 0) return
- if (use_dustfrac) dustfracsum = d2g_ratio/(1. + d2g_ratio)
-
- if (use_dustfrac .and. ndusttypes>1) then
-    call read_inopt(grainsize_set,'grainsize_set',db,ierr)
- else
-    grainsize_set = 1
- endif
- select case(grainsize_set)
- case(0)
-    call read_inopt(smincgs,'smincgs',db,ierr)
-    call read_inopt(smaxcgs,'smaxcgs',db,ierr)
-    call read_inopt(sindex, 'sindex', db,ierr)
-    call set_grainsize(smincgs,smaxcgs)
- case(1)
-    call read_inopt(grainsizecgs(1),'grainsizeinp',db,ierr)
- case(2)
-    call nduststrings('grainsizeinp','',varlabel)
-    do i = 1,ndusttypes
-       call read_inopt(grainsizecgs(i),varlabel(i),db,ierr)
-       if (ierr /= 0) return
-    enddo
-    call nduststrings('dustfrac','',varlabel)
-    do i = 1,ndusttypes
-       call read_inopt(dustfrac(i),varlabel(i),db,ierr)
-       if (ierr /= 0) return
-    enddo
-    dustfrac(:) = (dustfrac(:)/100.)*dustfracsum
- end select
- grainsize(:) = grainsizecgs(:)/udist
-
- call read_inopt(graindens,'graindensinp',db,ierr)
- if (ierr /= 0) return
- graindens = graindens*udist**3/umass
- call close_db(db)
-
-end subroutine read_setup
-
-
-
 !----------------------------------------------------------------
 !+
 !  read disc information from .in file
@@ -1282,8 +1227,6 @@ subroutine read_in(filename,irealvisc,alphaAV,shearvisc,iunit,ierr)
 end subroutine read_in
 
 
-
-
 !----------------------------------------------------------------
 !+
 !  make tags for the dump file
@@ -1303,6 +1246,5 @@ subroutine make_output_labels(istart,iend,prestring,poststring)
 
  return
 end subroutine make_output_labels
-
 
 end module analysis

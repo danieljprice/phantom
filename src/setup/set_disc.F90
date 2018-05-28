@@ -301,7 +301,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     sigma_normdust = 1.d0
     call get_disc_mass(disc_mdust,enc_m_tmp,rad_tmp,Q_tmp,sigmaprofiledust, &
                        sigma_normdust,star_m,p_indexdust,q_index, &
-                       R_indust,R_outdust,R_ref,R_c,H_R)
+                       R_indust,R_outdust,R_ref,R_c_dust,H_R)
     sigma_normdust = sigma_normdust*disc_massdust/disc_mdust
     disc_mdust = disc_massdust
  endif

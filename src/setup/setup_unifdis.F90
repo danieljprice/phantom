@@ -17,35 +17,37 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    cs0         -- initial sound speed in code units
-!    dist_unit   -- distance unit (e.g. au)
-!    dust_to_gas -- initial dust-to-gas ratio
-!    ilattice    -- lattice type (1=cubic, 2=closepacked)
-!    mass_unit   -- mass unit (e.g. solarm)
-!    nx          -- number of particles in x direction
-!    rhozero     -- initial density in code units
-!    xmax        -- xmax boundary
-!    xmin        -- xmin boundary
-!    ymax        -- ymax boundary
-!    ymin        -- ymin boundary
-!    zmax        -- zmax boundary
-!    zmin        -- zmin boundary
+!    cs0       -- initial sound speed in code units
+!    dist_unit -- distance unit (e.g. au)
+!    ilattice  -- lattice type (1=cubic, 2=closepacked)
+!    mass_unit -- mass unit (e.g. solarm)
+!    nx        -- number of particles in x direction
+!    rhozero   -- initial density in code units
+!    xmax      -- xmax boundary
+!    xmin      -- xmin boundary
+!    ymax      -- ymax boundary
+!    ymin      -- ymin boundary
+!    zmax      -- zmax boundary
+!    zmin      -- zmin boundary
 !
-!  DEPENDENCIES: boundary, dim, dust, infile_utils, io, mpiutils, options,
-!    part, physcon, prompting, setup_params, unifdis, units
+!  DEPENDENCIES: boundary, dim, infile_utils, io, mpiutils, options, part,
+!    physcon, prompting, readwrite_dust, setup_params, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
  use setup_params, only:rhozero
- use dim,          only:use_dust
+ use dim,          only:use_dust,ndusttypes
  use options,      only:use_dustfrac
  implicit none
  public :: setpart
 
- integer :: npartx,ilattice
- real    :: cs0,dust_to_gas,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi
+ integer :: npartx,ilattice,dust_method
+ real    :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi
  character(len=20) :: dist_unit,mass_unit
  real(kind=8) :: udist,umass
+ !--dust
+ real    :: dustfrac_percent(ndusttypes) = 0.
+ real    :: grainsizeinp(ndusttypes),graindensinp(ndusttypes),dust_to_gas
  private
 
 contains
@@ -56,15 +58,15 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxvxyzu,h2chemistry,ndusttypes
- use setup_params, only:npart_total
- use io,           only:master
- use unifdis,      only:set_unifdis
- use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
- use part,         only:dustfrac,abundance,iHI
- use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm
- use dust,         only:set_dustfrac
- use units,        only:set_units
+ use dim,            only:maxvxyzu,h2chemistry,ndusttypes
+ use setup_params,   only:npart_total
+ use io,             only:master
+ use unifdis,        only:set_unifdis
+ use boundary,       only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
+ use part,           only:abundance,iHI
+ use physcon,        only:pi,mass_proton_cgs,kboltz,years,pc,solarm
+ use readwrite_dust, only:set_dustfrac_from_inopts
+ use units,          only:set_units
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -76,8 +78,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  character(len=40) :: filename
- real    :: totmass,deltax,dust_to_gas
- real    :: smin,smax,sind
+ real    :: totmass,deltax
  integer :: i,ierr
  logical :: iexist
  !
@@ -137,7 +138,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  deltax = dxbound/npartx
  npart = 0
  npart_total = 0
- if (use_dust) use_dustfrac = .true.
 
  select case(ilattice)
  case(1)
@@ -164,15 +164,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  enddo
 
  if (use_dustfrac) then
-    do i=1,npart
-       if (ndusttypes==1) then
-          call set_dustfrac(dust_to_gas,dustfrac(:,i))
-       else
-          smin = 1.e-5
-          smax = 0.1
-          sind = 3.5
-          call set_dustfrac(dust_to_gas,dustfrac(:,i),smin,smax,sind)
-       endif
+    do i = 1,npart
+       call set_dustfrac_from_inopts(dust_to_gas,percent=dustfrac_percent,ipart=i)
     enddo
  endif
 
@@ -191,14 +184,16 @@ end subroutine setpart
 !
 !------------------------------------------------------------------------
 subroutine setup_interactive(id,polyk)
- use io,        only:master
- use mpiutils,  only:bcast_mpi
- use dim,       only:maxp,maxvxyzu
- use prompting, only:prompt
- use units,     only:select_unit
+ use io,             only:master
+ use mpiutils,       only:bcast_mpi
+ use dim,            only:maxp,maxvxyzu,ndusttypes
+ use prompting,      only:prompt
+ use units,          only:select_unit
+ use readwrite_dust, only:interactively_set_dust
  integer, intent(in)  :: id
  real,    intent(out) :: polyk
  integer :: ierr
+ real    :: dustfrac_percent(ndusttypes)
 
  if (id==master) then
     ierr = 1
@@ -253,10 +248,11 @@ subroutine setup_interactive(id,polyk)
  !
  ! dust to gas ratio
  !
- if (use_dust) use_dustfrac = .true.
- if (use_dustfrac) then
+ if (use_dust) then
+    dust_method = 1
     dust_to_gas = 1.e-2
-    if (id==master) call prompt(' enter dust-to-gas ratio ',dust_to_gas,0.)
+    call interactively_set_dust(dust_to_gas,dustfrac_percent,grainsizeinp,graindensinp, &
+                                imethod=dust_method)
     call bcast_mpi(dust_to_gas)
  endif
  !
@@ -276,7 +272,8 @@ end subroutine setup_interactive
 !
 !------------------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only:write_inopt
+ use infile_utils,   only:write_inopt
+ use readwrite_dust, only:write_dust_setup_options
  character(len=*), intent(in) :: filename
  integer :: iunit
 
@@ -304,8 +301,14 @@ subroutine write_setupfile(filename)
  call write_inopt(npartx,'nx','number of particles in x direction',iunit)
  call write_inopt(rhozero,'rhozero','initial density in code units',iunit)
  call write_inopt(cs0,'cs0','initial sound speed in code units',iunit)
- if (use_dust) call write_inopt(dust_to_gas,'dust_to_gas','initial dust-to-gas ratio',iunit)
  call write_inopt(ilattice,'ilattice','lattice type (1=cubic, 2=closepacked)',iunit)
+ if (use_dust) then
+    !
+    ! dust
+    !
+    call write_dust_setup_options(iunit,dust_to_gas,df=dustfrac_percent,gs=grainsizeinp, &
+                                  gd=graindensinp,imethod=dust_method)
+ endif
  close(iunit)
 
 end subroutine write_setupfile
@@ -316,9 +319,10 @@ end subroutine write_setupfile
 !
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use units,        only:select_unit
- use io,           only:error
+ use infile_utils,   only:open_db_from_file,inopts,read_inopt,close_db
+ use units,          only:select_unit
+ use io,             only:error
+ use readwrite_dust, only:read_dust_setup_options
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
@@ -349,7 +353,14 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(npartx,'nx',db,min=8,errcount=nerr)
  call read_inopt(rhozero,'rhozero',db,min=0.,errcount=nerr)
  call read_inopt(cs0,'cs0',db,min=0.,errcount=nerr)
- if (use_dust) call read_inopt(dust_to_gas,'dust_to_gas',db,min=0.,errcount=nerr)
+
+ if (use_dust) then
+    !
+    ! dust
+    !
+    call read_dust_setup_options(db,nerr,dust_to_gas,df=dustfrac_percent,gs=grainsizeinp, &
+                             gd=graindensinp)
+ endif
  call read_inopt(ilattice,'ilattice',db,min=1,max=2,errcount=nerr)
  call close_db(db)
  !

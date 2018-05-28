@@ -19,8 +19,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, dust, externalforces, io, mpiutils,
-!    options, part, physcon, prompting, setup_params, timestep, unifdis,
-!    units
+!    options, part, physcon, prompting, readwrite_dust, setup_params,
+!    timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -49,9 +49,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use externalforces, only:mass1,Rdisc,iext_discgravity
  use options,        only:iexternalforce,use_dustfrac
  use timestep,       only:dtmax,tmax
- use units,          only:set_units,udist
- use dust,           only:init_drag,grainsizecgs,grainsize,graindens,get_ts, &
+ use units,          only:set_units
+ use dust,           only:init_drag,idrag,grainsizecgs,graindenscgs,grainsize,graindens,get_ts, &
                           set_dustfrac
+ use readwrite_dust, only:interactively_set_dust,set_dustfrac_from_inopts
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -65,9 +66,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: i,iregime,ierr,dust_method
  integer :: itype,ntypes,npartx
  integer :: npart_previous
- real    :: H0,HonR,omega,ts
- real    :: xmini,xmaxi,ymaxdisc,cs,dtg,t_orb
- real    :: smin,smax,sind
+ real    :: H0,HonR,omega,ts(ndusttypes)
+ real    :: xmini,xmaxi,ymaxdisc,cs,t_orb
+ real    :: dustfrac_percent(ndusttypes) = 0.
+ real    :: dtg = 0.01
 !
 ! default options
 !
@@ -82,15 +84,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (id==master) call prompt('enter '//trim(labeltype(itype))//&
                       ' midplane density (gives particle mass)',rhozero,0.)
  call bcast_mpi(rhozero)
- dust_method  = 1
- use_dustfrac = .true.
- if (id==master) call prompt('choose dust method (1=one fluid,2=two fluid)',dust_method,1,2)
- if (dust_method==2) use_dustfrac = .false.
- dtg = 0.
- if (use_dustfrac) then
-    if (id==master) call prompt('enter dust-to-gas ratio',dtg,0.,1.)
-    call bcast_mpi(dtg)
+ if (use_dust) then
+    dust_method  = 1
+    grainsizecgs = 0.1
+    call interactively_set_dust(dtg,dustfrac_percent,grainsizecgs,graindenscgs,imethod=dust_method)
  endif
+ call bcast_mpi(dtg)
  call set_units(dist=10.*au,mass=solarm,G=1.)
 !
 ! general parameters
@@ -118,11 +117,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 ! get stopping time information
 !
- grainsizecgs = 0.1
- print*,' grain size in cgs = ',0.1
  call init_drag(ierr)
- call get_ts(1,grainsize(1),graindens,rhozero,0.0*rhozero,cs,0.,ts,iregime)
- print*,' ts * Omega for 1mm grains = ',ts*omega
+ do i = 1,ndusttypes
+    call get_ts(idrag,grainsize(i),graindens(i),rhozero,0.0*rhozero,cs,0.,ts(i),iregime)
+    print*,'s (cm) =',grainsizecgs(i),'   ','St = ts * Omega =',ts(i)*omega
+ enddo
 !
 ! boundaries
 !
@@ -172,14 +171,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--one fluid dust: set dust fraction on gas particles
 !
        if (use_dustfrac) then
-          if (ndusttypes==1 .and. itype==igas) then
-             call set_dustfrac(dtg,dustfrac(:,i))
-          else
-             smin = 1.e-5
-             smax = 0.1
-             sind = 3.5
-             call set_dustfrac(dtg,dustfrac(:,i),smin,smax,sind)
-          endif
+          call set_dustfrac_from_inopts(dtg,ipart=i)
+       else
+          dustfrac(:,i) = 0.
        endif
     enddo
 

@@ -50,6 +50,7 @@ module options
 
 ! dust method
 
+ logical, public :: use_moddump = .false.
  logical, public :: use_dustfrac
 
 ! mcfost
