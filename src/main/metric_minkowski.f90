@@ -15,7 +15,7 @@ subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  real,    intent(in)  :: position(3)
  real,    intent(out) :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
 
- gcov = 0.*position(1)
+ gcov = 0.
  gcon = 0.
 
  gcov(0,0) = -1.
@@ -55,7 +55,7 @@ end subroutine get_metric_spherical
 subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
  real,    intent(in)  :: position(3)
  real,    intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
- dgcovdx = 0.*position(1)
+ dgcovdx = 0.
  dgcovdy = 0.
  dgcovdz = 0.
 end subroutine metric_cartesian_derivatives
