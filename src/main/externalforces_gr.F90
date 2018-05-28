@@ -236,6 +236,8 @@ end subroutine accrete_particles
 !+
 !-----------------------------------------------------------------------
 pure logical function was_accreted(iexternalforce,hi)
+ use metric,       only:imetric
+ use metric_tools, only:imet_minkowski
  integer, intent(in) :: iexternalforce
  real,    intent(in) :: hi
 
@@ -243,6 +245,8 @@ pure logical function was_accreted(iexternalforce,hi)
  ! Note less than, but not equal.
  ! (h=0 indicates dead MPI particle)
  was_accreted = (hi < 0.)
+
+ if(imetric==imet_minkowski) was_accreted = .false.
 
 end function was_accreted
 
