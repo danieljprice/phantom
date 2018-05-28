@@ -82,27 +82,27 @@ subroutine primitive2conservative(x,v,dens,u,P,rho,pmom,en,ien_type)
  real :: sqrtg, enth, gvv, U0, v4U(0:3)
  integer :: i, mu
 
-    v4U(0) = 1.
-    v4U(1:3) = v(:)
+ v4U(0) = 1.
+ v4U(1:3) = v(:)
 
-    call get_enthalpy(enth,dens,p) !enth = 1.+ u + P/dens
+ call get_enthalpy(enth,dens,p) !enth = 1.+ u + P/dens
 
-    call get_metric(x,gcov,gcon,sqrtg)
-    call get_u0(gcov,v,U0)
-    rho = sqrtg*dens*U0
+ call get_metric(x,gcov,gcon,sqrtg)
+ call get_u0(gcov,v,U0)
+ rho = sqrtg*dens*U0
+ do i=1,3
+    pmom(i) = U0*enth*dot_product(gcov(i,:),v4U(:))
+ enddo
+
+ gvv = 0.
+ do mu=0,3
     do i=1,3
-       pmom(i) = U0*enth*dot_product(gcov(i,:),v4U(:))
+       gvv = gvv + gcov(i,mu)*v4U(mu)*v4U(i)
     enddo
+ enddo
+ en = U0*enth*gvv + (1.+u)/U0
 
-    gvv = 0.
-    do mu=0,3
-       do i=1,3
-          gvv = gvv + gcov(i,mu)*v4U(mu)*v4U(i)
-       enddo
-    enddo
-    en = U0*enth*gvv + (1.+u)/U0
-
-    if (ien_type == ien_entropy) en = P/(dens**gamma)
+ if (ien_type == ien_entropy) en = P/(dens**gamma)
 
 end subroutine primitive2conservative
 
@@ -126,64 +126,64 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,ien_type)
  logical :: converged
  ierr = 0
 
-    call get_metric3plus1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
-    pmom2 = dot_product_gr(pmom,pmom,gammaijUP)
+ call get_metric3plus1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
+ pmom2 = dot_product_gr(pmom,pmom,gammaijUP)
 
-    ! Guess enthalpy (using previous values of dens and pressure)
-    call get_enthalpy(enth,dens,p)
+ ! Guess enthalpy (using previous values of dens and pressure)
+ call get_enthalpy(enth,dens,p)
 
-    niter = 0
-    converged = .false.
-    do while (.not. converged .and. niter < nitermax)
-       enth_old = enth
-       lorentz_LEO = sqrt(1.+pmom2/enth_old**2)
-       dens = rho*alpha/(sqrtg*lorentz_LEO)
-
-       p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product_gr(pmom,betadown,gammaijUP)),0.)
-       if (ien_type == ien_entropy) p = en*dens**gamma
-       if (ieos==4) p = (gamma-1.)*dens*polyk
-
-       call get_enthalpy(enth,dens,p)
-
-       f = enth-enth_old
-
-       !This line is unique to the equation of state - implemented for adiabatic at the moment
-       df= -1.+(gamma/(gamma-1.))*(1.-pmom2*p/(enth_old**3*lorentz_LEO**2*dens))
-       if (ien_type == ien_entropy) df = -1. + (gamma*pmom2*P)/(lorentz_LEO**2 * enth_old**3 * dens)
-       if (ieos==4) df = -1. ! Isothermal, I think...
-
-       enth = enth_old - f/df
-
-       ! Needed in dust case when f/df = NaN casuses enth = NaN
-       if (abs(enth_old-1.)<tiny(enth_old)) enth=1.
-
-       niter = niter + 1
-
-       if (abs(enth-enth_old)/enth < tol) converged = .true.
-    enddo
-
-    if (.not.converged) then
-       call warning('cons2primsolver','enthalpy did not converge. delta enth / enth = ',val=abs(enth-enth_old)/enth)
-       ierr = 1
-       return
-    endif
-
-    lorentz_LEO = sqrt(1.+pmom2/enth**2)
+ niter = 0
+ converged = .false.
+ do while (.not. converged .and. niter < nitermax)
+    enth_old = enth
+    lorentz_LEO = sqrt(1.+pmom2/enth_old**2)
     dens = rho*alpha/(sqrtg*lorentz_LEO)
 
     p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product_gr(pmom,betadown,gammaijUP)),0.)
     if (ien_type == ien_entropy) p = en*dens**gamma
+    if (ieos==4) p = (gamma-1.)*dens*polyk
 
-    v3d(:) = alpha*pmom(:)/(enth*lorentz_LEO)-betadown(:)
+    call get_enthalpy(enth,dens,p)
 
-    v = 0.
-    do i=1,3
-       do j=1,3
-          v(i) = v(i) + gammaijUP(i,j)*v3d(j) ! Raise index from down to up
-       enddo
+    f = enth-enth_old
+
+    !This line is unique to the equation of state - implemented for adiabatic at the moment
+    df= -1.+(gamma/(gamma-1.))*(1.-pmom2*p/(enth_old**3*lorentz_LEO**2*dens))
+    if (ien_type == ien_entropy) df = -1. + (gamma*pmom2*P)/(lorentz_LEO**2 * enth_old**3 * dens)
+    if (ieos==4) df = -1. ! Isothermal, I think...
+
+    enth = enth_old - f/df
+
+    ! Needed in dust case when f/df = NaN casuses enth = NaN
+    if (abs(enth_old-1.)<tiny(enth_old)) enth=1.
+
+    niter = niter + 1
+
+    if (abs(enth-enth_old)/enth < tol) converged = .true.
+ enddo
+
+ if (.not.converged) then
+    call warning('cons2primsolver','enthalpy did not converge. delta enth / enth = ',val=abs(enth-enth_old)/enth)
+    ierr = 1
+    return
+ endif
+
+ lorentz_LEO = sqrt(1.+pmom2/enth**2)
+ dens = rho*alpha/(sqrtg*lorentz_LEO)
+
+ p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product_gr(pmom,betadown,gammaijUP)),0.)
+ if (ien_type == ien_entropy) p = en*dens**gamma
+
+ v3d(:) = alpha*pmom(:)/(enth*lorentz_LEO)-betadown(:)
+
+ v = 0.
+ do i=1,3
+    do j=1,3
+       v(i) = v(i) + gammaijUP(i,j)*v3d(j) ! Raise index from down to up
     enddo
+ enddo
 
-    call get_u(u,P,dens)
+ call get_u(u,P,dens)
 
 end subroutine conservative2primitive
 
