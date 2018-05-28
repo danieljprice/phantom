@@ -10,8 +10,6 @@ module cons2primsolver
       ien_etotal  = 1, &
       ien_entropy = 2
 
- logical, parameter, private :: do_nothing = .false.
-
 
 !!!!!!====================================================
 !
@@ -84,11 +82,6 @@ subroutine primitive2conservative(x,v,dens,u,P,rho,pmom,en,ien_type)
  real :: sqrtg, enth, gvv, U0, v4U(0:3)
  integer :: i, mu
 
- if (do_nothing) then
-    pmom = v
-    rho = dens
-    en = u
- else
     v4U(0) = 1.
     v4U(1:3) = v(:)
 
@@ -110,7 +103,6 @@ subroutine primitive2conservative(x,v,dens,u,P,rho,pmom,en,ien_type)
     en = U0*enth*gvv + (1.+u)/U0
 
     if (ien_type == ien_entropy) en = P/(dens**gamma)
- endif
 
 end subroutine primitive2conservative
 
@@ -134,11 +126,6 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,ien_type)
  logical :: converged
  ierr = 0
 
- if (do_nothing) then
-    v = pmom
-    dens = rho
-    u = en
- else
     call get_metric3plus1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
     pmom2 = dot_product_gr(pmom,pmom,gammaijUP)
 
@@ -197,7 +184,6 @@ subroutine conservative2primitive(x,v,dens,u,P,rho,pmom,en,ierr,ien_type)
     enddo
 
     call get_u(u,P,dens)
- endif
 
 end subroutine conservative2primitive
 
