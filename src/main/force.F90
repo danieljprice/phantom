@@ -926,6 +926,18 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     graindensi = graindens
  endif
 
+ vxi = xpartveci(ivxi)
+ vyi = xpartveci(ivyi)
+ vzi = xpartveci(ivzi)
+#ifdef GR
+ xi = xpartveci(ixi)
+ yi = xpartveci(iyi)
+ zi = xpartveci(izi)
+ pos = (/xi,yi,zi/)
+ vel = (/vxi,vyi,vzi/)
+ call get_bigv(pos,vel,bigvi,bigv2i,alphagri,lorentzi)
+#endif
+
  fsum(:) = 0.
  vsigmax = 0.
  pmassonrhoi = pmassi*rho1i
@@ -1147,9 +1159,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        endif
 
        !--get dv : needed for timestep and av term
-       vxi = xpartveci(ivxi)
-       vyi = xpartveci(ivyi)
-       vzi = xpartveci(ivzi)
        vxj = vxyzu(1,j)
        vyj = vxyzu(2,j)
        vzj = vxyzu(3,j)
@@ -1310,12 +1319,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
 
 #ifdef GR
-          xi = xpartveci(ixi)
-          yi = xpartveci(iyi)
-          zi = xpartveci(izi)
-          pos = (/xi,yi,zi/)
-          vel = (/vxi,vyi,vzi/)
-          call get_bigv(pos,vel,bigvi,bigv2i,alphagri,lorentzi)
           pos = (/xj,yj,zj/)
           vel = (/vxj,vyj,vzj/)
           call get_bigv(pos,vel,bigvj,bigv2j,alphagrj,lorentzj)
