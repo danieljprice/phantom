@@ -62,8 +62,7 @@ end subroutine get_bigv
 !-------------------------------------------------------------------------------
 
 subroutine h2dens(dens,xyzh,v)
- use metric_tools, only: get_metric
- use part,         only: rhoh,massoftype,igas
+ use part, only: rhoh,massoftype,igas
  real, intent(in) :: xyzh(1:4),v(1:3)
  real, intent(out):: dens
  real :: rho, h, xyz(1:3)
@@ -88,18 +87,18 @@ subroutine rho2dens(dens,rho,position,v)
 end subroutine rho2dens
 
 ! This is not being used at the moment.
-subroutine dens2rho(rho,dens,position,v)
- use metric_tools, only: get_metric
- real, intent(in) :: dens,position(1:3),v(1:3)
- real, intent(out):: rho
- real :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg, U0
-
- call get_metric(position,gcov,gcon,sqrtg)
- call get_u0(gcov,v,U0)
-
- rho = sqrtg*U0*dens
-
-end subroutine dens2rho
+! subroutine dens2rho(rho,dens,position,v)
+!  use metric_tools, only: get_metric
+!  real, intent(in) :: dens,position(1:3),v(1:3)
+!  real, intent(out):: rho
+!  real :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg, U0
+!
+!  call get_metric(position,gcov,gcon,sqrtg)
+!  call get_u0(gcov,v,U0)
+!
+!  rho = sqrtg*U0*dens
+!
+! end subroutine dens2rho
 
 !-------------------------------------------------------------------------------
 
