@@ -25,10 +25,11 @@
 !+
 !--------------------------------------------------------------------------
 module kdtree
- use dim,         only:maxp,ncellsmax,minpart
+ use dim,         only:maxp_omp,ncellsmax,minpart
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
- use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi
+ use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi, &
+                       inoderange,inodeparts,xyzh_swap,inodeparts_swap,iphase_swap
 
  implicit none
 
@@ -66,12 +67,6 @@ module kdtree
     real    :: xmax(ndimtree)
  end type
 
- integer, public  :: inoderange(2,ncellsmax+1)
- integer, public  :: inodeparts(maxp)
- real             :: xyzh_swap(maxp,4)
- integer          :: inodeparts_swap(maxp)
- integer(kind=1)  :: iphase_swap(maxphase)
-
  private
 
 contains
@@ -107,7 +102,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
  real :: xmini(ndim),xmaxi(ndim),xminl(ndim),xmaxl(ndim),xminr(ndim),xmaxr(ndim)
  integer, parameter :: istacksize = 512
  type(kdbuildstack), save :: stack(istacksize)
- integer, save :: list(maxp)
+ integer, save :: list(maxp_omp)
 !$omp threadprivate(stack,list)
  type(kdbuildstack) :: queue(istacksize)
 !$ integer :: threadid
@@ -1430,7 +1425,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  integer                       :: inode
  integer                       :: npnode
 
- integer, save                 :: list(maxp)
+ integer, save                 :: list(maxp_omp)
 
  logical                       :: wassplit
 

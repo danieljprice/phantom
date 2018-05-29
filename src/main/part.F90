@@ -195,6 +195,15 @@ module part
  integer, allocatable :: ibelong(:)
 
 !
+!--kdtree building arrays
+!
+integer,          allocatable :: inoderange(:,:)
+integer,          allocatable :: inodeparts(:)
+real,             allocatable :: xyzh_swap(:,:)
+integer,          allocatable :: inodeparts_swap(:)
+integer(kind=1),  allocatable :: iphase_swap(:)
+
+!
 !--super time stepping
 !
  integer(kind=1), allocatable :: istsactive(:)
@@ -435,6 +444,11 @@ end subroutine update_array_sizes
     call allocate_array('tstop', tstop, ndusttypes, maxan)
     call allocate_array('ll', ll, maxan)
     call allocate_array('ibelong', ibelong, maxp)
+    call allocate_array('inoderange', inoderange, 2, ncellsmax+1)
+    call allocate_array('inodeparts', inodeparts, maxp)
+    call allocate_array('xyzh_swap', xyzh_swap, maxp, 4)
+    call allocate_array('inodeparts_swap', inodeparts_swap, maxp)
+    call allocate_array('iphase_swap', iphase_swap, maxphase)
     call allocate_array('istsactive', istsactive, maxsts)
     call allocate_array('ibin_sts', ibin_sts, maxsts)
 
@@ -494,6 +508,11 @@ end subroutine update_array_sizes
    deallocate(tstop)
    deallocate(ll)
    deallocate(ibelong)
+   deallocate(inoderange)
+   deallocate(inodeparts)
+   deallocate(xyzh_swap)
+   deallocate(inodeparts_swap)
+   deallocate(iphase_swap)
    deallocate(istsactive)
    deallocate(ibin_sts)
 
