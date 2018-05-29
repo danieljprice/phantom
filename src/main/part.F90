@@ -958,7 +958,6 @@ end subroutine reorder_particles
 !-----------------------------------------------------------------------
 subroutine shuffle_part(np)
  use io, only:fatal
- use domain, only:ibelong
  integer, intent(inout) :: np
  integer :: newpart
 
