@@ -32,11 +32,8 @@ module dim
     tagline='PhantomSPH: (c) 2007-2018 The Authors'
 
  ! maximum number of particles
-#ifdef MAXP
- integer, parameter :: maxp = MAXP
-#else
- integer, parameter :: maxp=1000000
-#endif
+ integer :: maxp
+ integer, parameter :: maxp_omp = 1000000
 
  ! maximum number of point masses
 #ifdef MAXPTMASS

@@ -22,9 +22,9 @@
 !+
 !--------------------------------------------------------------------------
 module omputils
-!$ use dim, only:maxp,maxptmass
+!$ use dim, only:maxp_omp,maxptmass
 !$ integer, parameter :: nlockgrp = 10
-!$ integer, parameter :: nlocks = max(maxp/nlockgrp,maxptmass)
+!$ integer, parameter :: nlocks = max(maxp_omp/nlockgrp,maxptmass)
 !$ integer(kind=8), dimension(0:nlocks) :: ipart_omp_lock
 
 contains
