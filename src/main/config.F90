@@ -59,7 +59,7 @@ module dim
 #endif
 
  ! maximum allowable number of neighbours (safest=maxp)
- integer :: maxneigh
+ integer, parameter :: maxneigh = maxp_omp
 
 ! maxmimum storage in linklist
  integer :: ncellsmax
