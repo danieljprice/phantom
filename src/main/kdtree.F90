@@ -824,7 +824,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
  use boundary, only:dxbound,dybound,dzbound
 #endif
  use io,       only:fatal,id
- use part,     only:maxgrav,gravity
+ use part,     only:gravity
 #ifdef FINVSQRT
  use fastmath, only:finvsqrt
 #endif
