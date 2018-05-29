@@ -126,6 +126,7 @@ end function is_velocity_dependent
 !  This routine returns an explicit evaluation
 !+
 !-----------------------------------------------------------------------
+! This doesn't doesn't actually get used in gr...
 subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui)
  use extern_gr, only:get_grforce
  use eos,       only:equationofstate,ieos
@@ -136,13 +137,13 @@ subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui
  real,    intent(inout) :: poti
  real,    intent(in),    optional :: densi
  real,    intent(inout), optional :: ui
- real :: pi,pondensi,spsoundi,dtf
-
- if (.not. present(densi) .or. .not. present(ui)) call fatal('externalforce_vdependent','densi and ui not present')
- call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
- pi = pondensi*densi
-
- call get_grforce(xyzi,veli,densi,ui,pi,fexti,dtf)
+ ! real :: pi,pondensi,spsoundi,dtf
+ !
+ ! if (.not. present(densi) .or. .not. present(ui)) call fatal('externalforce_vdependent','densi and ui not present')
+ ! call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
+ ! pi = pondensi*densi
+ !
+ ! call get_grforce(xyzi,veli,densi,ui,pi,fexti,dtf)
 
 end subroutine externalforce_vdependent
 
@@ -153,6 +154,7 @@ end subroutine externalforce_vdependent
 !  necessary for using v-dependent forces in leapfrog
 !+
 !-----------------------------------------------------------------------
+! This doesn't doesn't actually get used in gr...
 subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
            vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui)
  use extern_gr, only:update_grforce_leapfrog
@@ -165,13 +167,13 @@ subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
  real,    intent(out)   :: fexti(3)
  real,    intent(in),    optional :: densi
  real,    intent(inout), optional :: ui
- real :: pi,pondensi,spsoundi
-
- if (.not. present(densi) .or. .not. present(ui)) call fatal('update_vdependent_extforce_leapfrog','densi and ui not present')
- call equationofstate(ieos,pondensi,spsoundi,densi,xi,yi,zi,ui)
- pi = pondensi*densi
-
- call update_grforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui,pi)
+ ! real :: pi,pondensi,spsoundi
+ !
+ ! if (.not. present(densi) .or. .not. present(ui)) call fatal('update_vdependent_extforce_leapfrog','densi and ui not present')
+ ! call equationofstate(ieos,pondensi,spsoundi,densi,xi,yi,zi,ui)
+ ! pi = pondensi*densi
+ !
+ ! call update_grforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui,pi)
 
 end subroutine update_vdependent_extforce_leapfrog
 
