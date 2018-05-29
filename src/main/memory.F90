@@ -273,6 +273,7 @@ contains
     real                           :: nbytes
     integer                        :: databytes
 
+    databytes = 0
     if (type == 'real(8)') then
        databytes = 8
     else if (type == 'real(4)') then
@@ -281,6 +282,8 @@ contains
        databytes = 4
     else if (type == 'integer(1)') then
        databytes = 1
+    else
+       call fatal('memory', 'invalid data type chosen for memory allocation')
     endif
 
     nbytes = real(databytes)
