@@ -583,17 +583,17 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,grpack)
  real,    intent(out)   :: vxyzu(:,:)
  integer, parameter :: nitermax = 50
  real,    parameter ::     xtol = 1.e-15
- integer :: i,ierr,niter
+ integer :: i,niter
  real    :: xpred(1:3),vold(1:3),diff
  logical :: converged
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,dens,dt) &
- !$omp shared(pxyzu,grpack,ierr) &
+ !$omp shared(pxyzu,grpack) &
  !$omp private(i,niter,diff,xpred,vold,converged)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
+       call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i))
        !
        ! main position update
        !
@@ -603,7 +603,7 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,grpack)
        niter = 0
        do while (.not. converged .and. niter<=nitermax)
           niter = niter + 1
-          call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
+          call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i))
           xyzh(1:3,i) = xpred + 0.5*dt*(vxyzu(1:3,i)-vold)
           diff = maxval(abs(xyzh(1:3,i)-xpred)/xpred)
           if (diff < xtol) converged = .true.
@@ -635,7 +635,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
  real,    intent(in)    :: dtsph,time,damp
  real,    intent(inout) :: dtextforce
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:),grpack(:,:,:,:)
- integer :: i,itype,nsubsteps,naccreted,its,ierr
+ integer :: i,itype,nsubsteps,naccreted,its
  real    :: timei,t_end_step,hdt,pmassi
  real    :: dt,dtf,dtextforcenew,dtextforce_min
  real    :: pi,pprev(3),xyz_prev(3),spsoundi,pondensi
@@ -685,7 +685,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
     !$omp shared(dt,hdt) &
     !$omp shared(its,pxyzu,dens,grpack) &
     !$omp private(i,dtf,vxyzu_star,fstar) &
-    !$omp private(converged,ierr,pprev,pmom_err,xyz_prev,x_err,pi) &
+    !$omp private(converged,pprev,pmom_err,xyz_prev,x_err,pi) &
     !$omp firstprivate(pmassi,itype) &
     !$omp reduction(max:xitsmax,pitsmax) &
     !$omp reduction(min:dtextforcenew)
@@ -705,7 +705,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
           pmom_iterations: do while (its <= itsmax .and. .not. converged)
              its   = its + 1
              pprev = pxyzu(1:3,i)
-             call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr,pi)
+             call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
              call get_grforce(xyzh(1:3,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fstar,dtf)
              pxyzu(1:3,i) = pprev + hdt*(fstar - fext(1:3,i))
              pmom_err = maxval( abs( (pxyzu(1:3,i) - pprev)/pprev ) )
@@ -716,7 +716,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
 
           pitsmax = max(its,pitsmax)
 
-          call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr,pi)
+          call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
           xyzh(1:3,i) = xyzh(1:3,i) + dt*vxyzu(1:3,i)
 
 
@@ -726,7 +726,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
           xyz_iterations: do while (its <= itsmax .and. .not. converged)
              its         = its+1
              xyz_prev    = xyzh(1:3,i)
-             call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu_star,dens(i),ierr)
+             call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu_star,dens(i))
              xyzh(1:3,i)  = xyz_prev + hdt*(vxyzu_star(1:3) - vxyzu(1:3,i))
              x_err = maxval( abs( (xyzh(1:3,i)-xyz_prev)/xyz_prev ) )
              if (x_err < xtol) converged = .true.

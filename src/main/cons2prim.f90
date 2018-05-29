@@ -117,7 +117,7 @@ subroutine cons2primphantom_all(npart,xyzh,pxyzu,vxyzu,dens)
 !$omp private(i,ierr)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call cons2primphantom_i(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
+       call cons2primphantom_i(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr=ierr)
        if (ierr > 0) then
           print*,' pmom =',pxyzu(1:3,i)
           print*,' rho* =',rhoh(xyzh(4,i),massoftype(igas))
@@ -130,7 +130,7 @@ subroutine cons2primphantom_all(npart,xyzh,pxyzu,vxyzu,dens)
 
 end subroutine cons2primphantom_all
 
-subroutine cons2primphantom_i(xyzhi,pxyzui,vxyzui,densi,ierr,pressure)
+subroutine cons2primphantom_i(xyzhi,pxyzui,vxyzui,densi,pressure,ierr)
  use part,            only:massoftype, igas, rhoh
  use cons2primsolver, only:conservative2primitive
  use utils_gr,        only:rho2dens
@@ -138,8 +138,8 @@ subroutine cons2primphantom_i(xyzhi,pxyzui,vxyzui,densi,ierr,pressure)
  real,    dimension(4), intent(in)    :: xyzhi,pxyzui
  real,    dimension(4), intent(inout) :: vxyzui
  real, intent(inout)                  :: densi
- integer, intent(out),  optional      :: ierr
  real,    intent(out),  optional      :: pressure
+ integer, intent(out),  optional      :: ierr
  real    :: rhoi, p_guess, xyzi(1:3), v_guess(1:3), u_guess, pondens, spsound
  integer :: ierror
 
