@@ -92,7 +92,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
 !$ use omp_lib
  type(kdnode),    intent(out)   :: node(ncellsmax+1)
  integer,         intent(in)    :: np,ndim
- real,            intent(inout) :: xyzh(4,maxp)  ! inout because of boundary crossing
+ real,            intent(inout) :: xyzh(:,:)  ! inout because of boundary crossing
  integer,         intent(out)   :: ifirstincell(ncellsmax+1)
  integer(kind=8), intent(out)   :: ncells
  integer, optional, intent(out)  :: refinelevels
@@ -309,7 +309,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  integer,         intent(out) :: nproot
  real,            intent(out) :: xmini(ndim), xmaxi(ndim)
  integer,         intent(inout) :: ifirstincell(ncellsmax+1)
- real,            intent(inout) :: xyzh(4,maxp)
+ real,            intent(inout) :: xyzh(:,:)
  integer :: i,ncross
  real    :: xminpart,yminpart,zminpart,xmaxpart,ymaxpart,zmaxpart
  real    :: xi, yi, zi
@@ -516,6 +516,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  ! during initial queue build which is serial, we can parallelise this loop
  if (npnode > 1000 .and. doparallel) then
     !$omp parallel do schedule(static) default(none) &
+    !$omp shared(maxp,maxphase) &
     !$omp shared(npnode,list,xyzh,x0,iphase,massoftype,dfac) &
     !$omp shared(xyzh_soa,inoderange,nnode,iphase_soa) &
     !$omp private(i,xi,yi,zi,hi,dx,dy,dz,dr2) &
@@ -835,7 +836,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
  real,    intent(in)                :: xsizei,rcuti
  integer, intent(out)               :: listneigh(maxneigh)
  integer, intent(out)               :: nneigh
- real,    intent(in)                :: xyzh(4,maxp)
+ real,    intent(in)                :: xyzh(:,:)
  real,    intent(out)               :: xyzcache(:,:)
  integer, intent(in)                :: ifirstincell(ncellsmax+1)
  logical, intent(in)                :: get_hj
@@ -1160,7 +1161,7 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
  use part, only:maxphase,iphase,igas,massoftype,iamtype
  use io,   only:fatal
  type(kdnode), intent(inout) :: node(ncellsmax+1)
- real,    intent(in)  :: xyzh(4,maxp)
+ real,    intent(in)  :: xyzh(:,:)
  integer, intent(in)  :: ifirstincell(ncellsmax+1)
  integer(kind=8), intent(in) :: ncells
  real :: hmax, r2max
@@ -1190,6 +1191,7 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
  enddo
 
 !$omp parallel default(none) &
+!$omp shared(maxp,maxphase) &
 !$omp shared(xyzh, ifirstincell, ncells) &
 !$omp shared(node, ll, iphase, massoftype, maxlevel) &
 !$omp private(hmax, r2max, xi, yi, zi, hi, il, ir, nodel, noder) &
