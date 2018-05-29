@@ -23,7 +23,7 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  real, intent(out) :: gcov(0:3,0:3),gcon(0:3,0:3), sqrtg
  real :: x,y,z,x2,y2,z2,a2
  real :: r2spherical,r2,r
- real :: rho2,delta,r2a2,term,sintheta2
+ real :: rho2,delta,sintheta2
  real :: gphiphi,gtphi,gtt
  real :: rs
  rs = 2.*mass1
