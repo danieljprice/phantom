@@ -139,7 +139,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  endif
 
 #ifdef GR
- call conservative_to_primitive(npart,xyzh,pxyzu,vxyzu,dens)
+ call conservative_to_primitive(npart,xyzh,grpack,pxyzu,vxyzu,dens)
 #endif
 
 !

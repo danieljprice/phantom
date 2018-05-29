@@ -564,7 +564,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  endif
 
 #ifdef GR
- call conservative_to_primitive(npart,xyzh,pxyzu,vxyzu,dens)
+ call conservative_to_primitive(npart,xyzh,grpack,pxyzu,vxyzu,dens)
 #endif
 
  return
@@ -593,7 +593,7 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,grpack)
  !$omp private(i,niter,diff,xpred,vold,converged)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i))
+       call conservative_to_primitive(xyzh(:,i),grpack(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i))
        !
        ! main position update
        !
@@ -603,7 +603,7 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,grpack)
        niter = 0
        do while (.not. converged .and. niter<=nitermax)
           niter = niter + 1
-          call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i))
+          call conservative_to_primitive(xyzh(:,i),grpack(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i))
           xyzh(1:3,i) = xpred + 0.5*dt*(vxyzu(1:3,i)-vold)
           diff = maxval(abs(xyzh(1:3,i)-xpred)/xpred)
           if (diff < xtol) converged = .true.
@@ -705,7 +705,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
           pmom_iterations: do while (its <= itsmax .and. .not. converged)
              its   = its + 1
              pprev = pxyzu(1:3,i)
-             call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
+             call conservative_to_primitive(xyzh(:,i),grpack(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
              call get_grforce(xyzh(1:3,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fstar,dtf)
              pxyzu(1:3,i) = pprev + hdt*(fstar - fext(1:3,i))
              pmom_err = maxval( abs( (pxyzu(1:3,i) - pprev)/pprev ) )
@@ -716,7 +716,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
 
           pitsmax = max(its,pitsmax)
 
-          call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
+          call conservative_to_primitive(xyzh(:,i),grpack(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
           xyzh(1:3,i) = xyzh(1:3,i) + dt*vxyzu(1:3,i)
 
 
@@ -726,7 +726,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
           xyz_iterations: do while (its <= itsmax .and. .not. converged)
              its         = its+1
              xyz_prev    = xyzh(1:3,i)
-             call conservative_to_primitive(xyzh(:,i),pxyzu(:,i),vxyzu_star,dens(i))
+             call conservative_to_primitive(xyzh(:,i),grpack(:,:,:,i),pxyzu(:,i),vxyzu_star,dens(i))
              xyzh(1:3,i)  = xyz_prev + hdt*(vxyzu_star(1:3) - vxyzu(1:3,i))
              x_err = maxval( abs( (xyzh(1:3,i)-xyz_prev)/xyz_prev ) )
              if (x_err < xtol) converged = .true.

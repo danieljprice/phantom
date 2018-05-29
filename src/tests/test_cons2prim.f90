@@ -3,11 +3,13 @@ module testcons2prim
 contains
 
 subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
- use cons2prim, only: conservative_to_primitive,primitive_to_conservative
- use testutils, only: checkval,checkvalbuf
- use testmetric, only: test_metric_i
+ use cons2prim,    only:conservative_to_primitive,primitive_to_conservative
+ use testutils,    only:checkval,checkvalbuf
+ use testmetric,   only:test_metric_i
+ use metric_tools, only:get_grpacki
  real, intent(in) :: x(1:3),v(1:3),dens,u,p
  integer, intent(inout) :: ntests,npass
+ real :: grpacki(0:3,0:3,5)
  real :: rho,pmom(1:3),en
  real :: v_out(1:3),dens_out,u_out,p_out
  real, parameter :: tol = 4.e-12
@@ -25,7 +27,8 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
  p_out    = p
 
  call primitive_to_conservative(x,v,dens,u,P,rho,pmom,en)
- call conservative_to_primitive(x,v_out,dens_out,u_out,p_out,rho,pmom,en,ierr)
+ call get_grpacki(x,grpacki)
+ call conservative_to_primitive(x,grpacki,v_out,dens_out,u_out,p_out,rho,pmom,en,ierr)
 
  ! call checkval(ierr,0,0,n_error,'ierr = 0 for convergence')
  call checkvalbuf(ierr,0,0,'[F]: ierr (convergence)',nerrors,ncheck)
