@@ -155,10 +155,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef GR
- use part,             only:pxyzu,dens
+ use part,             only:pxyzu,dens,grpack
  use cons2prim,        only:primitive_to_conservative
  use eos,              only:equationofstate,ieos
  use extern_gr,        only:get_grforce
+ use metric_tools,     only:init_metric
 #endif
 #ifdef PHOTO
  use photoevap,        only:set_photoevap_grid
@@ -467,6 +468,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  fext(:,:)  = 0.
 
 #ifdef GR
+! COMPUTE METRIC HERE
+ call init_metric(npart,xyzh,grpack)
  ! --- Need rho computed by sum to do primitive to conservative, since dens is not read from file
  if (npart>0) then
     call set_linklist(npart,npart,xyzh,vxyzu)

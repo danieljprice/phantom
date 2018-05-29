@@ -35,7 +35,7 @@ module metric_tools
 
 !-------------------------------------------------------------------------------
 
- public :: get_metric, get_metric_derivs, get_metric3plus1, print_metricinfo
+ public :: get_metric, get_metric_derivs, get_metric3plus1, print_metricinfo, init_metric, get_grpacki
 
  interface get_metric3plus1
   module procedure get_metric3plus1_only, get_metric3plus1_both
@@ -191,5 +191,39 @@ subroutine print_metricinfo(iprint)
  write(iprint,*) 'Metric = ',trim(metric_type)
 
 end subroutine print_metricinfo
+
+subroutine init_metric(npart,xyzh,grpack)
+ integer, intent(in) :: npart
+ real, intent(in)  :: xyzh(:,:)
+ real, intent(out) :: grpack(:,:,:,:)
+ integer :: i
+
+ !$omp parallel do default(none) &
+ !$omp shared(npart,xyzh,grpack) &
+ !$omp private(i)
+ do i=1,npart
+    call get_grpacki(xyzh(1:3,i),grpack(:,:,:,i))
+ enddo
+ !omp end parallel do
+
+end subroutine init_metric
+
+subroutine get_grpacki(xyz,grpacki)
+ real, intent(in)  :: xyz(:)
+ real, intent(out) :: grpacki(:,:,:)
+ real, dimension(0:3,0:3) :: gcov,gcon,dgx,dgy,dgz
+ real :: sqrtg
+
+ call get_metric(xyz,gcov,gcon,sqrtg)
+ call get_metric_derivs(xyz,dgx,dgy,dgz)
+
+! Pack
+ grpacki(:,:,1) = gcov
+ grpacki(:,:,2) = gcon
+ grpacki(:,:,3) = dgx
+ grpacki(:,:,4) = dgy
+ grpacki(:,:,5) = dgz
+
+end subroutine
 
 end module metric_tools

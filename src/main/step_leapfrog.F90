@@ -93,7 +93,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,maxBevol,&
                           switches_done_in_derivs,iboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustfrac,temperature,alphaind,nptmass,store_temperature,&
-                                                  dustprop,ddustprop,dustproppred,pxyzu,dens
+                                                  dustprop,ddustprop,dustproppred,pxyzu,dens,grpack
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
@@ -210,9 +210,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !----------------------------------------------------------------------
 #ifdef GR
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
-    call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fext,t,damp)
+    call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,grpack,fext,t,damp)
  else
-    call step_extern_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu)
+    call step_extern_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,grpack)
  endif
 
 #else
@@ -589,13 +589,14 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 end subroutine step
 
 #ifdef GR
-subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu)
- use part,      only:isdead_or_accreted
- use cons2prim, only:conservative_to_primitive
- use io,        only:warning
+subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,grpack)
+ use part,         only:isdead_or_accreted
+ use cons2prim,    only:conservative_to_primitive
+ use io,           only:warning
+ use metric_tools, only:get_grpacki
  real,    intent(in)    :: dt
  integer, intent(in)    :: npart
- real,    intent(inout) :: xyzh(:,:),dens(:)
+ real,    intent(inout) :: xyzh(:,:),dens(:),grpack(:,:,:,:)
  real,    intent(in)    :: pxyzu(:,:)
  real,    intent(out)   :: vxyzu(:,:)
  integer, parameter :: nitermax = 50
@@ -606,7 +607,7 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,dens,dt) &
- !$omp shared(pxyzu,ierr) &
+ !$omp shared(pxyzu,grpack,ierr) &
  !$omp private(i,niter,diff,xpred,vold,converged)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -624,6 +625,8 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu)
           xyzh(1:3,i) = xpred + 0.5*dt*(vxyzu(1:3,i)-vold)
           diff = maxval(abs(xyzh(1:3,i)-xpred)/xpred)
           if (diff < xtol) converged = .true.
+          ! UPDATE METRIC HERE
+          call get_grpacki(xyzh(1:3,i),grpack(:,:,:,i))
        enddo
        if (niter > nitermax) call warning('step_extern_sph_gr','Reached max number of x iterations. x_err ',val=diff)
 
@@ -633,7 +636,7 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu)
 
 end subroutine step_extern_sph_gr
 
-subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fext,time,damp)
+subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,grpack,fext,time,damp)
  use dim,            only:maxptmass,maxp,maxvxyzu
  use io,             only:iverbose,id,master,iprint,warning
  use externalforces, only:externalforce,accrete_particles,update_externalforce
@@ -642,13 +645,14 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
                           summary_accrete,summary_accrete_fail
  use timestep,       only:bignumber
+ use eos,            only:equationofstate,ieos
  use cons2prim,      only:conservative_to_primitive
  use extern_gr,      only:get_grforce
- use eos,            only:equationofstate,ieos
+ use metric_tools,   only:get_grpacki
  integer, intent(in)    :: npart,ntypes
  real,    intent(in)    :: dtsph,time,damp
  real,    intent(inout) :: dtextforce
- real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:),grpack(:,:,:,:)
  integer :: i,itype,nsubsteps,naccreted,its,ierr
  real    :: timei,t_end_step,hdt,pmassi
  real    :: dt,dtf,dtextforcenew,dtextforce_min
@@ -697,7 +701,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
     !$omp parallel default(none) &
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype) &
     !$omp shared(dt,hdt) &
-    !$omp shared(its,pxyzu,dens) &
+    !$omp shared(its,pxyzu,dens,grpack) &
     !$omp private(i,dtf,vxyzu_star,fstar) &
     !$omp private(converged,ierr,pprev,pmom_err,xyz_prev,x_err,pi) &
     !$omp firstprivate(pmassi,itype) &
@@ -745,6 +749,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,fe
              x_err = maxval( abs( (xyzh(1:3,i)-xyz_prev)/xyz_prev ) )
              if (x_err < xtol) converged = .true.
              vxyzu(:,i)   = vxyzu_star
+             ! UPDATE METRIC HERE
+             call get_grpacki(xyzh(1:3,i),grpack(:,:,:,i))
           enddo xyz_iterations
           if (its > itsmax ) call warning('step_extern_gr','Reached max number of x iterations. x_err ',val=x_err)
           xitsmax = max(its,xitsmax)
