@@ -43,10 +43,10 @@ contains
 !-----------------------------------------------------------------------
 ! This doesn't doesn't actually get used in gr...
 subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,dtf,ii)
-#ifdef FINVSQRT
- use fastmath,         only:finvsqrt
-#endif
- use io,                 only:fatal
+! #ifdef FINVSQRT
+!  use fastmath,         only:finvsqrt
+! #endif
+!  use io,                 only:fatal
  !use part,               only:rhoh,massoftype,igas
  ! use force_gr,           only:get_forcegr
  integer, intent(in)  :: iexternalforce
@@ -129,9 +129,9 @@ end function is_velocity_dependent
 !-----------------------------------------------------------------------
 ! This doesn't doesn't actually get used in gr...
 subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui)
- use extern_gr, only:get_grforce
- use eos,       only:equationofstate,ieos
- use io,        only:fatal
+ ! use extern_gr, only:get_grforce
+ ! use eos,       only:equationofstate,ieos
+ ! use io,        only:fatal
  integer, intent(in)  :: iexternalforce
  real,    intent(in)  :: xyzi(3),veli(3)
  real,    intent(out) :: fexti(3)
@@ -158,9 +158,9 @@ end subroutine externalforce_vdependent
 ! This doesn't doesn't actually get used in gr...
 subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
            vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui)
- use extern_gr, only:update_grforce_leapfrog
- use eos,       only:equationofstate,ieos
- use io,        only:fatal
+ ! use extern_gr, only:update_grforce_leapfrog
+ ! use eos,       only:equationofstate,ieos
+ ! use io,        only:fatal
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: dt,xi,yi,zi
  real,    intent(in)    :: vhalfx,vhalfy,vhalfz
