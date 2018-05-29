@@ -3,7 +3,7 @@ module cons2prim
  implicit none
 
  interface primitive_to_conservative
-  module procedure prim2cons_i,prim2cons_all, prim2consphantom_i,prim2consphantom_all
+  module procedure prim2cons_i, prim2consphantom_i,prim2consphantom_all
  end interface primitive_to_conservative
 
  interface conservative_to_primitive
@@ -21,76 +21,6 @@ contains
 !  Primitive to conservative routines
 !
 !-------------------------------------
-
-subroutine prim2cons_i(pos,vel,dens,u,P,rho,pmom,en)
- use cons2primsolver, only:primitive2conservative
- real, intent(in)  :: pos(1:3)
- real, intent(in)  :: dens,vel(1:3),u,P
- real, intent(out) :: rho,pmom(1:3),en
-
- call primitive2conservative(pos,vel,dens,u,P,rho,pmom,en,ien_entropy)
-
-end subroutine prim2cons_i
-
-
-subroutine prim2cons_all(npart,xyzh,dens,v,u,P,rho,pmom,en)
- use part,            only:isdead_or_accreted
- use cons2primsolver, only:primitive2conservative
- integer, intent(in) :: npart
- real, intent(in) :: xyzh(:,:), v(:,:)
- real, intent(in) :: dens(:),u(:),P(:)
- real, intent(out) :: pmom(:,:)
- real, intent(out) :: rho(:), en(:)
- integer :: i
-
-!$omp parallel do default (none) &
-!$omp shared(xyzh,v,dens,u,p,rho,pmom,en,npart) &
-!$omp private(i)
- do i=1,npart
-    if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call prim2cons_i(xyzh(1:3,i),v(1:3,i),dens(i),u(i),P(i),rho(i),pmom(1:3,i),en(i))
-    endif
- enddo
-!$omp end parallel do
-
-end subroutine prim2cons_all
-
-
-subroutine prim2consphantom_i(xyzhi,vxyzui,dens_i,pxyzui,use_dens)
- use utils_gr,        only:h2dens
- use cons2primsolver, only:primitive2conservative
- use eos,          only:equationofstate,ieos
- real, dimension(4), intent(in)  :: xyzhi, vxyzui
- real, intent(inout)             :: dens_i
- real, dimension(4), intent(out) :: pxyzui
- logical, intent(in), optional   :: use_dens
- logical :: usedens
- real :: rhoi,Pi,ui,xyzi(1:3),vi(1:3),pondensi,spsoundi,densi
-
- !  By default, use the smoothing length to compute primitive density, and then compute the conserved variables.
- !  (Alternatively, use the provided primitive density to compute conserved variables.
- !   Depends whether you have prim dens prior or not.)
- if (present(use_dens)) then
-    usedens = use_dens
- else
-    usedens = .false.
- endif
-
- xyzi = xyzhi(1:3)
- vi   = vxyzui(1:3)
- ui   = vxyzui(4)
- if (usedens) then
-    densi = dens_i
- else
-    call h2dens(densi,xyzhi,vi) ! Compute dens from h
-    dens_i = densi              ! Feed the newly computed dens back out of the routine
- endif
- call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
- pi = pondensi*densi
- call primitive2conservative(xyzi,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4),ien_entropy)
-
-end subroutine prim2consphantom_i
-
 
 subroutine prim2consphantom_all(npart,xyzh,vxyzu,dens,pxyzu,use_dens)
  use part,         only:isdead_or_accreted
@@ -123,6 +53,49 @@ subroutine prim2consphantom_all(npart,xyzh,vxyzu,dens,pxyzu,use_dens)
 
 end subroutine prim2consphantom_all
 
+subroutine prim2consphantom_i(xyzhi,vxyzui,dens_i,pxyzui,use_dens)
+ use utils_gr,     only:h2dens
+ use eos,          only:equationofstate,ieos
+ real, dimension(4), intent(in)  :: xyzhi, vxyzui
+ real, intent(inout)             :: dens_i
+ real, dimension(4), intent(out) :: pxyzui
+ logical, intent(in), optional   :: use_dens
+ logical :: usedens
+ real :: rhoi,Pi,ui,xyzi(1:3),vi(1:3),pondensi,spsoundi,densi
+
+ !  By default, use the smoothing length to compute primitive density, and then compute the conserved variables.
+ !  (Alternatively, use the provided primitive density to compute conserved variables.
+ !   Depends whether you have prim dens prior or not.)
+ if (present(use_dens)) then
+    usedens = use_dens
+ else
+    usedens = .false.
+ endif
+
+ xyzi = xyzhi(1:3)
+ vi   = vxyzui(1:3)
+ ui   = vxyzui(4)
+ if (usedens) then
+    densi = dens_i
+ else
+    call h2dens(densi,xyzhi,vi) ! Compute dens from h
+    dens_i = densi              ! Feed the newly computed dens back out of the routine
+ endif
+ call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
+ pi = pondensi*densi
+ call prim2cons_i(xyzi,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4))
+
+end subroutine prim2consphantom_i
+
+subroutine prim2cons_i(pos,vel,dens,u,P,rho,pmom,en)
+ use cons2primsolver, only:primitive2conservative
+ real, intent(in)  :: pos(1:3)
+ real, intent(in)  :: dens,vel(1:3),u,P
+ real, intent(out) :: rho,pmom(1:3),en
+
+ call primitive2conservative(pos,vel,dens,u,P,rho,pmom,en,ien_entropy)
+
+end subroutine prim2cons_i
 
 !-------------------------------------
 !
