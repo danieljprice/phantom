@@ -49,6 +49,7 @@ integer, parameter :: kdnode_bytes = &
  private
  public :: ndimtree
  public :: kdnode
+ public :: kdnode_bytes
 #ifdef MPI
  public :: get_mpitype_of_kdnode
 #endif
