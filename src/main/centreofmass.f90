@@ -79,7 +79,8 @@ end subroutine reset_centreofmass
 !----------------------------------------------------------------
 subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,mass)
  use io,       only:id,master
- use part,     only:massoftype,iamtype,iphase,igas,maxphase,maxp,isdead_or_accreted
+ use dim,      only:maxphase,maxp
+ use part,     only:massoftype,iamtype,iphase,igas,isdead_or_accreted
  use mpiutils, only:reduceall_mpi
  real,         intent(out) :: xcom(3),vcom(3)
  integer,      intent(in)  :: npart
@@ -100,6 +101,7 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
  vzpos = 0.d0
  totmass = 0.d0
 !$omp parallel default(none) &
+!$omp shared(maxphase,maxp) &
 !$omp shared(npart,xyzh,vxyzu,iphase,massoftype) &
 !$omp private(i,itype,xi,yi,zi,hi,pmassi) &
 !$omp reduction(+:xpos,ypos,zpos,vxpos,vypos,vzpos,totmass)
@@ -171,8 +173,8 @@ end subroutine get_centreofmass
 !+
 !----------------------------------------------------------------
 subroutine correct_bulk_motion()
- use dim,      only:maxp
- use part,     only:npart,xyzh,vxyzu,fxyzu,iamtype,maxphase,igas,iphase,&
+ use dim,      only:maxp,maxphase
+ use part,     only:npart,xyzh,vxyzu,fxyzu,iamtype,igas,iphase,&
                     nptmass,xyzmh_ptmass,vxyz_ptmass,isdead_or_accreted,&
                     massoftype
  use mpiutils, only:reduceall_mpi
@@ -190,6 +192,7 @@ subroutine correct_bulk_motion()
  totmass = 0.
 
 !$omp parallel default(none) &
+!$omp shared(maxphase,maxp) &
 !$omp shared(xyzh,vxyzu,fxyzu,npart) &
 !$omp shared(massoftype,iphase) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,nptmass) &
