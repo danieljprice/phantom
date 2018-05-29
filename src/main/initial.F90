@@ -55,7 +55,7 @@ subroutine initialise()
 #endif
  use omputils,         only:init_omp,info_omp
  use options,          only:optid=>modid,set_default_options
- use part,             only:partid=>modid,maxBevol
+ use part,             only:partid=>modid,maxBevol,maxp_omp
  use units,            only:set_units
  use boundary,         only:set_boundary
  use writeheader,      only:write_codeinfo
@@ -129,7 +129,7 @@ subroutine initialise()
 !
 !--Allocate memory
 !
-call allocate_memory
+call allocate_memory(maxp_omp)
 
  return
 end subroutine initialise
