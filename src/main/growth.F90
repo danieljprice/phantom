@@ -20,13 +20,13 @@
 !
 !  RUNTIME PARAMETERS:
 !    Tsnow        -- snow line condensation temperature in K
-!    grainsizemin -- minimum grain size in cm
-!    ifrag        -- dust fragmentation (0=off,1=on,2=Kobayashi)
+!    grainsizemin -- minimum allowed grain size in cm
+!    ifrag        -- fragmentation of dust (0=off,1=on,2=Kobayashi)
 !    isnow        -- snow line (0=off,1=position based,2=temperature based)
-!    rsnow        -- position of the snow line in AU
+!    rsnow        -- snow line position in AU
 !    vfrag        -- uniform fragmentation threshold in m/s
 !    vfragin      -- inward fragmentation threshold in m/s
-!    vfragout     -- outward fragmentation threshold in m/s
+!    vfragout     -- inward fragmentation threshold in m/s
 !
 !  DEPENDENCIES: dust, eos, infile_utils, io, options, part, physcon, units
 !+
@@ -349,19 +349,19 @@ end subroutine read_options_growth
 !+
 !-----------------------------------------------------------------------
 subroutine write_growth_setup_options(iunit)
-use infile_utils,      only:write_inopt
-integer, intent(in) :: iunit
+ use infile_utils,      only:write_inopt
+ integer, intent(in) :: iunit
 
-write(iunit,"(/,a)") '# options for growth and fragmentation of dust'
+ write(iunit,"(/,a)") '# options for growth and fragmentation of dust'
 
-call write_inopt(ifrag,'ifrag','fragmentation of dust (0=off,1=on,2=Kobayashi)',iunit)
-call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
-call write_inopt(rsnow,'rsnow','snow line position in AU',iunit)
-call write_inopt(Tsnow,'Tsnow','snow line condensation temperature in K',iunit)
-call write_inopt(vfragSI,'vfrag','uniform fragmentation threshold in m/s',iunit)
-call write_inopt(vfraginSI,'vfragin','inward fragmentation threshold in m/s',iunit)
-call write_inopt(vfragoutSI,'vfragout','inward fragmentation threshold in m/s',iunit)
-call write_inopt(gsizemincgs,'grainsizemin','minimum allowed grain size in cm',iunit)
+ call write_inopt(ifrag,'ifrag','fragmentation of dust (0=off,1=on,2=Kobayashi)',iunit)
+ call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
+ call write_inopt(rsnow,'rsnow','snow line position in AU',iunit)
+ call write_inopt(Tsnow,'Tsnow','snow line condensation temperature in K',iunit)
+ call write_inopt(vfragSI,'vfrag','uniform fragmentation threshold in m/s',iunit)
+ call write_inopt(vfraginSI,'vfragin','inward fragmentation threshold in m/s',iunit)
+ call write_inopt(vfragoutSI,'vfragout','inward fragmentation threshold in m/s',iunit)
+ call write_inopt(gsizemincgs,'grainsizemin','minimum allowed grain size in cm',iunit)
 
 end subroutine write_growth_setup_options
 
@@ -371,28 +371,28 @@ end subroutine write_growth_setup_options
 !+
 !-----------------------------------------------------------------------
 subroutine read_growth_setup_options(db,nerr)
-use infile_utils,    only:read_inopt,inopts
-type(inopts), allocatable, intent(inout) :: db(:)
-integer, intent(inout)                   :: nerr
+ use infile_utils,    only:read_inopt,inopts
+ type(inopts), allocatable, intent(inout) :: db(:)
+ integer, intent(inout)                   :: nerr
 
-call read_inopt(ifrag,'ifrag',db,min=0,max=2,errcount=nerr)
-if (ifrag > 0) then
-   call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
-   call read_inopt(grainsizemin,'grainsizemin',db,min=1.e-5,errcount=nerr)
-endif
-select case(isnow)
-case(0)
+ call read_inopt(ifrag,'ifrag',db,min=0,max=2,errcount=nerr)
+ if (ifrag > 0) then
+    call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
+    call read_inopt(grainsizemin,'grainsizemin',db,min=1.e-5,errcount=nerr)
+ endif
+ select case(isnow)
+ case(0)
     call read_inopt(vfrag,'vfrag',db,min=0.,errcount=nerr)
-case(1)
+ case(1)
     call read_inopt(rsnow,'rsnow',db,min=0.,errcount=nerr)
     call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
     call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
-case(2)
+ case(2)
     call read_inopt(Tsnow,'Tsnow',db,min=0.,errcount=nerr)
     call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
     call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
-case default
-end select
+ case default
+ end select
 
 end subroutine read_growth_setup_options
 
@@ -421,15 +421,15 @@ end subroutine update_dustprop
 !+
 !-----------------------------------------------------------------------
 subroutine set_dustprop(npart)
-use dust, only:grainsizecgs,graindenscgs
-use part, only:dustprop
-integer,intent(in) :: npart
-integer            :: i
+ use dust, only:grainsizecgs,graindenscgs
+ use part, only:dustprop
+ integer,intent(in) :: npart
+ integer            :: i
 
-do i=1,npart
-   dustprop(1,i) = grainsizecgs(1) / udist
-   dustprop(2,i) = graindenscgs(1) / unit_density
-enddo
+ do i=1,npart
+    dustprop(1,i) = grainsizecgs(1) / udist
+    dustprop(2,i) = graindenscgs(1) / unit_density
+ enddo
 
 end subroutine set_dustprop
 
