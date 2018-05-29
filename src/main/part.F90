@@ -38,6 +38,7 @@ module part
           store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
           maxne,maxp_growth,ndusttypes, &
           maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,ncellsmax
+ use dtypekdtree, only:kdnode
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -208,6 +209,16 @@ integer(kind=1),  allocatable :: iphase_swap(:)
 !
  integer(kind=1), allocatable :: istsactive(:)
  integer(kind=1), allocatable :: ibin_sts(:)
+
+ !
+ !--linklist structures
+ !
+ integer,         allocatable :: cellatid(:)
+ integer,         allocatable :: ifirstincell(:)
+ type(kdnode),    allocatable :: nodeglobal(:)
+ type(kdnode),    allocatable :: node(:)
+ integer,         allocatable :: nodemap(:)
+
 
 !
 !--size of the buffer required for transferring particle
@@ -451,6 +462,11 @@ end subroutine update_array_sizes
     call allocate_array('iphase_swap', iphase_swap, maxphase)
     call allocate_array('istsactive', istsactive, maxsts)
     call allocate_array('ibin_sts', ibin_sts, maxsts)
+    call allocate_array('cellatid', cellatid, ncellsmax+1)
+    call allocate_array('ifirstincell', ifirstincell, ncellsmax+1)
+    call allocate_array('nodeglobal', nodeglobal, ncellsmax+1)
+    call allocate_array('node', node, ncellsmax+1)
+    call allocate_array('nodemap', nodemap, ncellsmax+1)
 
     call bytes2human(nbytes_allocated, sizestring)
     write(iprint, '(a)') '--------------------------------------------------------'
@@ -515,6 +531,12 @@ end subroutine update_array_sizes
    deallocate(iphase_swap)
    deallocate(istsactive)
    deallocate(ibin_sts)
+   deallocate(cellatid)
+   deallocate(ifirstincell)
+   deallocate(nodeglobal)
+   deallocate(node)
+   deallocate(nodemap)
+
 
    end subroutine deallocate_memory
 

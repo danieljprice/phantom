@@ -28,21 +28,16 @@
 !--------------------------------------------------------------------------
 module linklist
  use dim,          only:maxp,ncellsmax
- use part,         only:ll
+ use part,         only:ll,cellatid,ifirstincell,nodeglobal,node,nodemap
  use dtypekdtree,  only:kdnode
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
 
- integer, public :: cellatid(ncellsmax+1)
- integer, public :: ifirstincell(ncellsmax+1)
  integer(kind=8), public :: ncells
  real, public            :: dxcell
  real, public :: dcellx = 0.,dcelly = 0.,dcellz = 0.
 
- type(kdnode), public :: nodeglobal(ncellsmax+1)
- type(kdnode), public :: node(ncellsmax+1)
- integer              :: nodemap(ncellsmax+1)
  integer              :: globallevel,refinelevels
 
  public :: set_linklist, get_neighbour_list, write_inopts_link, read_inopts_link
