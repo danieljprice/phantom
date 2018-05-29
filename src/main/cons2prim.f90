@@ -130,6 +130,9 @@ subroutine cons2primphantom_all(npart,xyzh,pxyzu,vxyzu,dens)
 
 end subroutine cons2primphantom_all
 
+! Note: this subroutine needs to be able to return pressure when called before
+!       call to getting gr forces, since that requires pressure. Could maybe
+!       get around this by calling eos somewhere along the way instead.
 subroutine cons2primphantom_i(xyzhi,pxyzui,vxyzui,densi,pressure,ierr)
  use part,            only:massoftype, igas, rhoh
  use cons2primsolver, only:conservative2primitive
