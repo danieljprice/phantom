@@ -41,6 +41,7 @@ contains
 !  Computes external (body) forces on a particle given its co-ordinates
 !+
 !-----------------------------------------------------------------------
+! This doesn't doesn't actually get used in gr...
 subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,dtf,ii)
 #ifdef FINVSQRT
  use fastmath,         only:finvsqrt
@@ -53,54 +54,54 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
  real,    intent(out) :: fextxi,fextyi,fextzi,phi
  real,    intent(out), optional :: dtf
  integer, intent(in),  optional :: ii ! NOTE: index-base physics can be dangerous;
- real :: f2i, dtf1, dtf2
-
-!-----------------------------------------------------------------------
+ ! real :: f2i, dtf1, dtf2
 !
-!--set external force to zero
+! !-----------------------------------------------------------------------
+! !
+! !--set external force to zero
+! !
+!  fextxi = 0.
+!  fextyi = 0.
+!  fextzi = 0.
+!  phi    = 0.
 !
- fextxi = 0.
- fextyi = 0.
- fextzi = 0.
- phi    = 0.
-
- ! call get_forcegr(x,v,dens,u,p,fterm)
-
+!  ! call get_forcegr(x,v,dens,u,p,fterm)
 !
-!--return a timestep based only on the external force
-!  so that we can do substeps with only the external force call
+! !
+! !--return a timestep based only on the external force
+! !  so that we can do substeps with only the external force call
+! !
+!  if (present(dtf)) then
+!     f2i = fextxi*fextxi + fextyi*fextyi + fextzi*fextzi
+!     if (abs(f2i) > epsilon(f2i)) then
+!        !
+!        !--external force timestep based on sqrt(h/accel)
+!        !
+!        if (hi > epsilon(hi)) then
+! #ifdef FINVSQSRT
+!           dtf1 = sqrt(hi*finvsqrt(f2i))
+! #else
+!           dtf1 = sqrt(hi/sqrt(f2i))
+! #endif
+!        else
+!           dtf1 = huge(dtf1)
+!        endif
+!        !
+!        !--external force timestep based on sqrt(phi)/accel
+!        !
+!        if (abs(phi) > epsilon(phi)) then
+!           dtf2 = sqrt(abs(phi)/f2i)
+!        else
+!           dtf2 = huge(dtf2)
+!        endif
+!        dtf  = min(dtf1,dtf2)
+!        !if (dtf2 < dtf1) print*,' phi timestep = ',dtf2,' h/a = ',dtf1, ' ratio = ',dtf2/dtf1
+!     else
+!        dtf = huge(dtf)
+!     endif
+!  endif
 !
- if (present(dtf)) then
-    f2i = fextxi*fextxi + fextyi*fextyi + fextzi*fextzi
-    if (abs(f2i) > epsilon(f2i)) then
-       !
-       !--external force timestep based on sqrt(h/accel)
-       !
-       if (hi > epsilon(hi)) then
-#ifdef FINVSQSRT
-          dtf1 = sqrt(hi*finvsqrt(f2i))
-#else
-          dtf1 = sqrt(hi/sqrt(f2i))
-#endif
-       else
-          dtf1 = huge(dtf1)
-       endif
-       !
-       !--external force timestep based on sqrt(phi)/accel
-       !
-       if (abs(phi) > epsilon(phi)) then
-          dtf2 = sqrt(abs(phi)/f2i)
-       else
-          dtf2 = huge(dtf2)
-       endif
-       dtf  = min(dtf1,dtf2)
-       !if (dtf2 < dtf1) print*,' phi timestep = ',dtf2,' h/a = ',dtf1, ' ratio = ',dtf2/dtf1
-    else
-       dtf = huge(dtf)
-    endif
- endif
-
- return
+!  return
 end subroutine externalforce
 
 !-----------------------------------------------------------------------
