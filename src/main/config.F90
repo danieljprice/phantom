@@ -51,50 +51,38 @@ module dim
 #endif
 
  ! storage of temperature
+ integer :: maxtemp = 0
 #ifdef STORE_TEMPERATURE
  logical, parameter :: store_temperature = .true.
- integer, parameter :: maxtemp = maxp
 #else
  logical, parameter :: store_temperature = .false.
- integer, parameter :: maxtemp = 0
 #endif
 
  ! maximum allowable number of neighbours (safest=maxp)
-#ifdef MAXNEIGH
- integer, parameter :: maxneigh = MAXNEIGH
-#else
- integer, parameter :: maxneigh = maxp
-#endif
+ integer :: maxneigh
 
 ! maxmimum storage in linklist
-#ifdef NCELLSMAX
- integer, parameter :: ncellsmax = NCELLSMAX
-#else
- integer, parameter :: ncellsmax = maxp
-#endif
+ integer :: ncellsmax
 
 !------
 ! Dust
 !------
+ integer :: maxp_dustfrac = 0
+ integer :: maxp_growth = 0
 #ifdef DUST
  logical, parameter :: use_dust = .true.
  integer, parameter :: ndustfluids = 1
  integer, parameter :: ndusttypes = 1
- integer, parameter :: maxp_dustfrac = maxp
 #ifdef DUSTGROWTH
  logical, parameter :: use_dustgrowth = .true.
- integer, parameter :: maxp_growth = maxp
 #else
  logical, parameter :: use_dustgrowth = .false.
- integer, parameter :: maxp_growth = 0
 #endif
 #else
  logical, parameter :: use_dust = .false.
  integer, parameter :: ndustfluids = 0
  integer, parameter :: ndusttypes = 1 ! to avoid seg faults
- integer, parameter :: maxp_dustfrac = 0
  logical, parameter :: use_dustgrowth = .false.
- integer, parameter :: maxp_growth = 0
 #endif
 
  ! kdtree
@@ -120,19 +108,17 @@ module dim
 #ifdef STACKSIZE
  integer, parameter :: stacksize = STACKSIZE
 #else
- integer, parameter :: stacksize = int(0.2 * maxp)
+ integer, parameter :: stacksize = 200000
 #endif
 
  ! storage for artificial viscosity switch
+ integer :: maxalpha = 0
 #ifdef DISC_VISCOSITY
- integer, parameter :: maxalpha = 0
  integer, parameter :: nalpha = 0
 #else
 #ifdef CONST_AV
- integer, parameter :: maxalpha = 0
  integer, parameter :: nalpha = 0
 #else
- integer, parameter :: maxalpha = maxp
 #ifdef USE_MORRIS_MONAGHAN
  integer, parameter :: nalpha = 1
 #else
@@ -179,31 +165,28 @@ module dim
 !-----------------
 ! Magnetic fields
 !-----------------
+integer :: maxmhd = 0
 #ifdef MHD
  logical, parameter :: mhd = .true.
- integer, parameter :: maxmhd = maxp
  integer, parameter :: maxBevol = 4  ! Bx,By,Bz,Psi (latter for div B cleaning)
  integer, parameter :: ndivcurlB = 4
 #else
  ! if no MHD, do not store any of these
  logical, parameter :: mhd = .false.
- integer, parameter :: maxmhd = 0
  integer, parameter :: maxBevol = 4 ! irrelevant, but prevents compiler warnings
  integer, parameter :: ndivcurlB = 0
 #endif
 
 ! non-ideal MHD
+integer :: maxmhdni = 0
 #ifdef MHD
 #ifdef NONIDEALMHD
  logical, parameter :: mhd_nonideal = .true.
- integer, parameter :: maxmhdni     = maxp
 #else
  logical, parameter :: mhd_nonideal = .false.
- integer, parameter :: maxmhdni     = 0
 #endif
 #else
  logical, parameter :: mhd_nonideal = .false.
- integer, parameter :: maxmhdni     = 0
 #endif
 
 !--------------------
@@ -214,11 +197,7 @@ module dim
 ! physical viscosity is done with two
 ! first derivatives
 !
-#ifdef USE_STRAIN_TENSOR
- integer, parameter :: maxstrain = maxp
-#else
- integer, parameter :: maxstrain = 0
-#endif
+integer :: maxstrain = 0
 
 ! viscosity switches, whether done in step or during derivs call
  logical, parameter :: switches_done_in_derivs = .false.
@@ -226,64 +205,46 @@ module dim
 !--------------------
 ! H2 Chemistry
 !--------------------
+integer :: maxp_h2 = 0
 #ifdef H2CHEM
  logical, parameter :: h2chemistry = .true.
- integer, parameter :: maxp_h2 = maxp
 #else
  logical, parameter :: h2chemistry = .false.
- integer, parameter :: maxp_h2 = 0
 #endif
  integer, parameter :: nabundances = 5
 
 !--------------------
 ! Self-gravity
 !--------------------
+integer :: maxgrav = 0
 #ifdef GRAVITY
  logical, parameter :: gravity = .true.
- integer, parameter :: maxgrav = maxp
  integer, parameter :: ngradh = 2
 #else
  logical, parameter :: gravity = .false.
- integer, parameter :: maxgrav = 0
  integer, parameter :: ngradh = 1
 #endif
 
 !--------------------
 ! Supertimestepping
 !--------------------
-#ifdef STS_TIMESTEPS
-#ifdef IND_TIMESTEPS
- integer, parameter  :: maxsts = maxp
-#else
- integer, parameter  :: maxsts = 1
-#endif
-#else
- integer, parameter  :: maxsts = 1
-#endif
+integer :: maxsts = 1
 
 !--------------------
 ! Light curve stuff
 !--------------------
+integer :: maxlum = 0
 #ifdef LIGHTCURVE
- integer, parameter :: maxlum = maxp
  logical, parameter :: lightcurve = .true.
 #else
- integer, parameter :: maxlum = 0
  logical, parameter :: lightcurve = .false.
 #endif
 
 !--------------------
 ! Electron number densities .or. ionisation fractions
 !--------------------
-#ifdef NONIDEALMHD
- integer, parameter :: maxne = maxp
-#else
-#ifdef CMACIONIZE
- integer, parameter :: maxne = maxp
-#else
- integer, parameter :: maxne = 0
-#endif
-#endif
+integer :: maxne = 0
+
 #ifdef CMACIONIZE
  logical, parameter :: use_CMacIonize = .true.
 #else
@@ -295,5 +256,18 @@ module dim
 !--------------------
  logical, public :: calc_erot = .false.
  logical, public :: incl_erot = .false.
+
+ !--------------------
+ ! Analysis array sizes
+ !--------------------
+ integer :: maxan = 0
+ integer :: maxmhdan = 0
+ integer :: maxdustan = 0
+
+ !--------------------
+ ! Phase and gradh sizes - inconsistent with everything else, but keeping to original logic
+ !--------------------
+ integer :: maxphase = 0
+ integer :: maxgradh = 0
 
 end module dim
