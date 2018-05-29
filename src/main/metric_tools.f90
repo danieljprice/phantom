@@ -163,26 +163,27 @@ subroutine metric3p1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqr
 end subroutine metric3p1
 !-------------------------------------------------------------------------------
 
+! This is not being used at the moment...
 !-- Do a coordinate transformation of a 4x4 rank-2 tensor with both indices down
-subroutine tensortransform_dd(position,T_old,T_new)
- use metric, only: get_jacobian
- real, intent(in), dimension(3) :: position
- real, intent(in), dimension(0:3,0:3) :: T_old
- real, intent(out), dimension(0:3,0:3) :: T_new
- real, dimension(0:3,0:3) :: dxdx
- integer :: i,j,k,l
- call get_jacobian(position,dxdx)
- T_new = 0.
- do i=0,3
-    do j=0,3
-       do k=0,3
-          do l=0,3
-             T_new(i,j) = T_new(i,j)+dxdx(k,i)*dxdx(l,j)*T_old(k,l)
-          enddo
-       enddo
-    enddo
- enddo
-end subroutine tensortransform_dd
+! subroutine tensortransform_dd(position,T_old,T_new)
+!  use metric, only: get_jacobian
+!  real, intent(in), dimension(3) :: position
+!  real, intent(in), dimension(0:3,0:3) :: T_old
+!  real, intent(out), dimension(0:3,0:3) :: T_new
+!  real, dimension(0:3,0:3) :: dxdx
+!  integer :: i,j,k,l
+!  call get_jacobian(position,dxdx)
+!  T_new = 0.
+!  do i=0,3
+!     do j=0,3
+!        do k=0,3
+!           do l=0,3
+!              T_new(i,j) = T_new(i,j)+dxdx(k,i)*dxdx(l,j)*T_old(k,l)
+!           enddo
+!        enddo
+!     enddo
+!  enddo
+! end subroutine tensortransform_dd
 
 subroutine print_metricinfo(iprint)
  use metric, only:metric_type
