@@ -26,44 +26,36 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    Tsnow        -- snow line condensation temperature in K
-!    accr1        -- central star accretion radius
-!    accr2        -- perturber accretion radius
-!    alphaSS      -- desired alphaSS
-!    bhspin       -- black hole spin
-!    bhspinangle  -- black hole spin angle (deg)
-!    binary_O     -- Omega, PA of ascending node (deg)
-!    binary_a     -- binary semi-major axis
-!    binary_e     -- binary eccentricity
-!    binary_f     -- f, initial true anomaly (deg,180=apastron)
-!    binary_i     -- i, inclination (deg)
-!    binary_w     -- w, argument of periapsis (deg)
-!    deltat       -- output interval as fraction of orbital period
-!    dist_unit    -- distance unit (e.g. au,pc,kpc,0.1pc)
-!    einst_prec   -- include Einstein precession
-!    flyby_O      -- position angle of ascending node (deg)
-!    flyby_a      -- distance of minimum approach
-!    flyby_d      -- initial distance (units of dist. min. approach)
-!    flyby_i      -- inclination (deg)
-!    grainsizemin -- minimum allowed grain size in cm
-!    ibinary      -- binary orbit (0=bound,1=unbound [flyby])
-!    ifrag        -- fragmentation of dust (0=off,1=on,2=Kobayashi)
-!    ipotential   -- potential (1=central point mass,
-!    isnow        -- snow line (0=off,1=position based,2=temperature based)
-!    m1           -- central star mass
-!    m2           -- perturber mass
-!    mass_unit    -- mass unit (e.g. solarm,jupiterm,earthm)
-!    norbits      -- maximum number of orbits at outer disc
-!    np           -- number of gas particles
-!    np_dust      -- number of dust particles
-!    nplanets     -- number of planets
-!    nsinks       -- number of sinks
-!    rsnow        -- snow line position in AU
-!    setplanets   -- add planets? (0=no,1=yes)
-!    use_mcfost   -- use the mcfost library
-!    vfrag        -- uniform fragmentation threshold in m/s
-!    vfragin      -- inward fragmentation threshold in m/s
-!    vfragout     -- inward fragmentation threshold in m/s
+!    accr1       -- central star accretion radius
+!    accr2       -- perturber accretion radius
+!    alphaSS     -- desired alphaSS
+!    bhspin      -- black hole spin
+!    bhspinangle -- black hole spin angle (deg)
+!    binary_O    -- Omega, PA of ascending node (deg)
+!    binary_a    -- binary semi-major axis
+!    binary_e    -- binary eccentricity
+!    binary_f    -- f, initial true anomaly (deg,180=apastron)
+!    binary_i    -- i, inclination (deg)
+!    binary_w    -- w, argument of periapsis (deg)
+!    deltat      -- output interval as fraction of orbital period
+!    dist_unit   -- distance unit (e.g. au,pc,kpc,0.1pc)
+!    einst_prec  -- include Einstein precession
+!    flyby_O     -- position angle of ascending node (deg)
+!    flyby_a     -- distance of minimum approach
+!    flyby_d     -- initial distance (units of dist. min. approach)
+!    flyby_i     -- inclination (deg)
+!    ibinary     -- binary orbit (0=bound,1=unbound [flyby])
+!    ipotential  -- potential (1=central point mass,
+!    m1          -- central star mass
+!    m2          -- perturber mass
+!    mass_unit   -- mass unit (e.g. solarm,jupiterm,earthm)
+!    norbits     -- maximum number of orbits at outer disc
+!    np          -- number of gas particles
+!    np_dust     -- number of dust particles
+!    nplanets    -- number of planets
+!    nsinks      -- number of sinks
+!    setplanets  -- add planets? (0=no,1=yes)
+!    use_mcfost  -- use the mcfost library
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_lensethirring, externalforces, growth, infile_utils, io,
@@ -1223,7 +1215,7 @@ end subroutine setup_interactive
 subroutine write_setupfile(filename)
  use infile_utils,   only:write_inopt
  use readwrite_dust, only:write_dust_setup_options
- use growth,         only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
+ use growth,         only:write_growth_setup_options
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
  logical :: done_alpha
@@ -1417,17 +1409,7 @@ subroutine write_setupfile(filename)
     call write_dust_setup_options(iunit,dust_to_gas_ratio,df=dustfrac_percent,gs=grainsizeinp, &
                                   gd=graindensinp,imethod=dust_method,iprofile=profile_set_dust)
     !--growth/fragmentation parameters
-    if (use_dustgrowth .and. .not.use_dustfrac) then
-       write(iunit,"(/,a)") '# options for growth and fragmentation of dust'
-       call write_inopt(ifrag,'ifrag','fragmentation of dust (0=off,1=on,2=Kobayashi)',iunit)
-       call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
-       call write_inopt(rsnow,'rsnow','snow line position in AU',iunit)
-       call write_inopt(Tsnow,'Tsnow','snow line condensation temperature in K',iunit)
-       call write_inopt(vfragSI,'vfrag','uniform fragmentation threshold in m/s',iunit)
-       call write_inopt(vfraginSI,'vfragin','inward fragmentation threshold in m/s',iunit)
-       call write_inopt(vfragoutSI,'vfragout','inward fragmentation threshold in m/s',iunit)
-       call write_inopt(gsizemincgs,'grainsizemin','minimum allowed grain size in cm',iunit)
-    endif
+    if (use_dustgrowth .and. .not.use_dustfrac) call write_growth_setup_options(iunit)
  endif
  !--planets
  write(iunit,"(/,a)") '# set planets'
@@ -1469,7 +1451,7 @@ end subroutine write_setupfile
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils,   only:open_db_from_file,inopts,read_inopt,close_db
- use growth,         only:ifrag,isnow,rsnow,Tsnow,vfrag,vfragin,vfragout,grainsizemin
+ use growth,         only:read_growth_setup_options
  use readwrite_dust, only:read_dust_setup_options
  use io,             only:fatal
  character(len=*), intent(in)  :: filename
@@ -1585,26 +1567,7 @@ subroutine read_setupfile(filename,ierr)
     call read_dust_setup_options(db,nerr,dust_to_gas_ratio,df=dustfrac_percent,gs=grainsizeinp, &
                                  gd=graindensinp)
     !--growth/fragmentation of dust
-    if (use_dustgrowth .and. .not.use_dustfrac) then
-       call read_inopt(ifrag,'ifrag',db,min=0,max=2,errcount=nerr)
-       if (ifrag > 0) then
-          call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
-          call read_inopt(grainsizemin,'grainsizemin',db,min=1.e-5,errcount=nerr)
-       endif
-       select case(isnow)
-       case(0)
-          call read_inopt(vfrag,'vfrag',db,min=0.,errcount=nerr)
-       case(1)
-          call read_inopt(rsnow,'rsnow',db,min=0.,errcount=nerr)
-          call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
-          call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
-       case(2)
-          call read_inopt(Tsnow,'Tsnow',db,min=0.,errcount=nerr)
-          call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
-          call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
-       case default
-       end select
-    endif
+    if (use_dustgrowth .and. .not.use_dustfrac) call read_growth_setup_options(db,nerr)
  endif
  !--multiple discs
  iuse_disc = .false.

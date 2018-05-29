@@ -121,7 +121,7 @@ subroutine test_growingbox(ntests,npass)
  real :: sinit = 1., dens = 1.
  real :: s_in(10000),s_out(10000)
  integer :: switch,ierr=0
- real, parameter :: tols = 2.e-5
+ real, parameter :: tols = 5.e-4
  logical :: do_output = .false.
 
  if (periodic) then
@@ -456,7 +456,7 @@ subroutine check_stokes_number(ntests,npass)
  real :: deltax, dz, hfact, totmass, rhozero, errmax(1), dtext_dum
  real :: Stcomp, r, sinit = 1., dens = 1.,s
  real :: t, dt, dtext, dtnew
- real, parameter :: tolst = 2.e-4
+ real, parameter :: tolst = 5.e-3
 
  write(*,"(/,a)")'--> testing STOKES NUMBER INTERPOLATION'
  write(*,"(/,a)")'------------------ ts = const ------------------'
