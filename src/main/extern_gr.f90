@@ -92,62 +92,62 @@ subroutine update_grforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,
  real, intent(inout) :: fxi,fyi,fzi
  real, intent(inout) :: fexti(3)
  real, intent(in)    :: densi,ui,pi
- real                :: fextv(3)
- real                :: v1x, v1y, v1z, v1xold, v1yold, v1zold, vhalf2, erri, dton2
- logical             :: converged
- integer             :: its, itsmax
- integer, parameter  :: maxitsext = 50 ! maximum number of iterations on external force
- real, parameter :: tolv = 1.e-2
- real, parameter :: tolv2 = tolv*tolv
- real,dimension(3) :: pos,vel
- real :: dtf
-
- itsmax = maxitsext
- its = 0
- converged = .false.
- dton2 = 0.5*dt
-
- v1x = vhalfx
- v1y = vhalfy
- v1z = vhalfz
- vhalf2 = vhalfx*vhalfx + vhalfy*vhalfy + vhalfz*vhalfz
- fextv = 0. ! to avoid compiler warning
-
- iterations : do while (its < itsmax .and. .not.converged)
-    its = its + 1
-    erri = 0.
-    v1xold = v1x
-    v1yold = v1y
-    v1zold = v1z
-    pos = (/xi,yi,zi/)
-    vel = (/v1x,v1y,v1z/)
-    call get_grforce(pos,vel,densi,ui,pi,fextv,dtf)
-!    xi = pos(1)
-!    yi = pos(2)
-!    zi = pos(3)
-    v1x = vel(1)
-    v1y = vel(2)
-    v1z = vel(3)
-
-    v1x = vhalfx + dton2*(fxi + fextv(1))
-    v1y = vhalfy + dton2*(fyi + fextv(2))
-    v1z = vhalfz + dton2*(fzi + fextv(3))
-
-    erri = (v1x - v1xold)**2 + (v1y - v1yold)**2 + (v1z - v1zold)**2
-    erri = erri / vhalf2
-    converged = (erri < tolv2)
-
- enddo iterations
-
- if (its >= maxitsext) call fatal('update_grforce_leapfrog','VELOCITY ITERATIONS ON EXTERNAL FORCE NOT CONVERGED!!')
-
- fexti(1) = fextv(1)
- fexti(2) = fextv(2)
- fexti(3) = fextv(3)
-
- fxi = fxi + fexti(1)
- fyi = fyi + fexti(2)
- fzi = fzi + fexti(3)
+!  real                :: fextv(3)
+!  real                :: v1x, v1y, v1z, v1xold, v1yold, v1zold, vhalf2, erri, dton2
+!  logical             :: converged
+!  integer             :: its, itsmax
+!  integer, parameter  :: maxitsext = 50 ! maximum number of iterations on external force
+!  real, parameter :: tolv = 1.e-2
+!  real, parameter :: tolv2 = tolv*tolv
+!  real,dimension(3) :: pos,vel
+!  real :: dtf
+!
+!  itsmax = maxitsext
+!  its = 0
+!  converged = .false.
+!  dton2 = 0.5*dt
+!
+!  v1x = vhalfx
+!  v1y = vhalfy
+!  v1z = vhalfz
+!  vhalf2 = vhalfx*vhalfx + vhalfy*vhalfy + vhalfz*vhalfz
+!  fextv = 0. ! to avoid compiler warning
+!
+!  iterations : do while (its < itsmax .and. .not.converged)
+!     its = its + 1
+!     erri = 0.
+!     v1xold = v1x
+!     v1yold = v1y
+!     v1zold = v1z
+!     pos = (/xi,yi,zi/)
+!     vel = (/v1x,v1y,v1z/)
+!     call get_grforce(pos,vel,densi,ui,pi,fextv,dtf)
+! !    xi = pos(1)
+! !    yi = pos(2)
+! !    zi = pos(3)
+!     v1x = vel(1)
+!     v1y = vel(2)
+!     v1z = vel(3)
+!
+!     v1x = vhalfx + dton2*(fxi + fextv(1))
+!     v1y = vhalfy + dton2*(fyi + fextv(2))
+!     v1z = vhalfz + dton2*(fzi + fextv(3))
+!
+!     erri = (v1x - v1xold)**2 + (v1y - v1yold)**2 + (v1z - v1zold)**2
+!     erri = erri / vhalf2
+!     converged = (erri < tolv2)
+!
+!  enddo iterations
+!
+!  if (its >= maxitsext) call fatal('update_grforce_leapfrog','VELOCITY ITERATIONS ON EXTERNAL FORCE NOT CONVERGED!!')
+!
+!  fexti(1) = fextv(1)
+!  fexti(2) = fextv(2)
+!  fexti(3) = fextv(3)
+!
+!  fxi = fxi + fexti(1)
+!  fyi = fyi + fexti(2)
+!  fzi = fzi + fexti(3)
 
 end subroutine update_grforce_leapfrog
 
