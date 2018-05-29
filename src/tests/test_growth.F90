@@ -415,16 +415,16 @@ subroutine test_growingbox(ntests,npass)
        s_in(j)  = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
        s_out(j) = sinit - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
        if (cs(j) > cs_snow) then
-          call checkvalbuf(dustprop(1,j),s_in(j),3*tols,'size',nerr(8),ncheck(8),errmax(8))
+          call checkvalbuf(dustprop(1,j),s_in(j),tols,'size',nerr(8),ncheck(8),errmax(8))
        endif
        if (cs(j) < cs_snow) then
-          call checkvalbuf(dustprop(1,j),s_out(j),3*tols,'size',nerr(9),ncheck(9),errmax(9))
+          call checkvalbuf(dustprop(1,j),s_out(j),tols,'size',nerr(9),ncheck(9),errmax(9))
        endif
     enddo
     if (do_output) call write_file(i,dt,xyzh,dustprop/sinit,cs/cs_snow,npart,'snowline_temp_')
  enddo
- call checkvalbuf_end('size match exact solution (in)',ncheck(8),nerr(8),errmax(8),3*tols)
- call checkvalbuf_end('size match exact solution (out)',ncheck(9),nerr(9),errmax(9),3*tols)
+ call checkvalbuf_end('size match exact solution (in)',ncheck(8),nerr(8),errmax(8),tols)
+ call checkvalbuf_end('size match exact solution (out)',ncheck(9),nerr(9),errmax(9),tols)
 
  if (all(nerr(1:9)==0)) npass = npass + 1
  ntests = ntests + 1
