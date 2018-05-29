@@ -39,7 +39,7 @@ subroutine test_ptmass(ntests,npass)
                     xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,epot_sinksink,&
                     ihacc,isdead_or_accreted,igas,divcurlv,iphase,isetphase,maxphase,&
                     Bevol,dBevol,dustfrac,ddustfrac,temperature,divcurlB,fxyzu,set_particle_type,&
-                    ispinx,ispiny,ispinz,dustprop,ddustprop
+                    ispinx,ispiny,ispinz,dustprop,ddustprop,pxyzu,dens,grpack
  use eos,             only:gamma,polyk
  use timestep,        only:dtmax,C_force
  use testutils,       only:checkval,checkvalf
@@ -214,7 +214,7 @@ subroutine test_ptmass(ntests,npass)
        if (itest==2 .or. itest==3) then
           fxyzu(:,:) = 0.
           call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                      Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+                      Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum,pxyzu,dens,grpack)
        endif
        !
        !--evolve this for a number of orbits
@@ -548,7 +548,7 @@ subroutine test_ptmass(ntests,npass)
        icreate_sinks = 1
        iverbose = 1
        call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,0.,0.,dtext_dum)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,0.,0.,dtext_dum,pxyzu,dens,grpack)
        !
        ! check that maximum density gives correct particle for itest=2
        !

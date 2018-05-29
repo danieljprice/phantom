@@ -33,10 +33,7 @@
 !--------------------------------------------------------------------------
 module step_lf_global
  use dim,  only:maxp,maxvxyzu,maxBevol
- use part, only:vpred,Bpred,dustpred
-#ifdef GR
- use part, only:ppred
-#endif
+ use part, only:vpred,Bpred,dustpred,ppred
  use timestep_ind, only:maxbins,itdt,ithdt,itdt1,ittwas
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -231,9 +228,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !----------------------------------------------------
 !$omp parallel do default(none) schedule(guided,1) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype) &
-#ifdef GR
 !$omp shared(pxyzu,ppred) &
-#endif
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustfrac,dustpred,use_dustfrac) &
 !$omp shared(alphaind,ieos,alphamax) &
@@ -331,14 +326,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
    write(iprint,"(a,f14.6,/)") '> full step            : t=',timei
 
  if (npart > 0) then
-#ifdef GR
     call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustfrac,temperature,timei,dtsph,dtnew,&
-                ppred,dens)
-#else
-    call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
-                divcurlB,Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustfrac,temperature,timei,dtsph,dtnew)
-#endif
+                ppred,dens,grpack)
  endif
 !
 ! if using super-timestepping, determine what dt will be used on the next loop
@@ -371,9 +361,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     nwake   = 0
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,npart,hdtsph,store_itype) &
-#ifdef GR
 !$omp shared(pxyzu,ppred) &
-#endif
 !$omp shared(Bevol,dBevol,iphase,its) &
 !$omp shared(dustevol,ddustfrac,use_dustfrac) &
 !$omp shared(dustprop,ddustprop,dustproppred) &
@@ -559,15 +547,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !   get new force using updated velocity: no need to recalculate density etc.
 !
 
-#ifdef GR
        call derivs(2,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB, &
                      Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustfrac,&
-                                         temperature,timei,dtsph,dtnew,ppred,dens)
-#else
-       call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
-                     Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustfrac,&
-                                         temperature,timei,dtsph,dtnew)
-#endif
+                                         temperature,timei,dtsph,dtnew,ppred,dens,grpack)
     endif
 #ifdef DUSTGROWTH
     call update_dustprop(npart,dustproppred) !--update dustprop values

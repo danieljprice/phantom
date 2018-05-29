@@ -156,10 +156,12 @@ module part
  integer, parameter, private :: maxan = 0
  integer, parameter, private :: maxmhdan = 0
  integer, parameter, private :: maxdustan = 0
+ integer, parameter, private :: maxgran = 0
 #else
  integer, parameter, private :: maxan = maxp
  integer, parameter, private :: maxmhdan = maxmhd
  integer, parameter, private :: maxdustan = maxp_dustfrac
+ integer, parameter, private :: maxgran = maxgr
 #endif
 !
 !--lightcurves
@@ -178,7 +180,7 @@ module part
 !--storage associated with/dependent on timestepping
 !
  real                                :: vpred(maxvxyzu,maxan)
- real                                :: ppred(maxvxyzu,maxan)
+ real                                :: ppred(maxvxyzu,maxgran)
  real                                :: dustpred(maxdustan)
  real                                :: Bpred(maxBevol,maxmhdan)
  real                                :: dustproppred(5,maxp_growth)

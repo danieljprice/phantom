@@ -122,7 +122,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,&
-                 ipart_rhomax,dt,stressmax,temperature,dens)
+                 ipart_rhomax,dt,stressmax,temperature,dens,grpack)
  use dim,          only:maxvxyzu,maxalpha,maxneigh,maxstrain,&
                         switches_done_in_derivs,mhd,mhd_nonideal,lightcurve
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
@@ -189,7 +189,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  real(kind=4), intent(in)    :: divcurlB(:,:)
  real,         intent(in)    :: dt,stressmax
  integer,      intent(out)   :: ipart_rhomax ! test this particle for point mass creation
- real,         intent(in)    :: dens(:)
+ real,         intent(in)    :: dens(:), grpack(:,:,:,:)
 
  real, save :: xyzcache(maxcellcache,4)
  integer, save :: listneigh(maxneigh)

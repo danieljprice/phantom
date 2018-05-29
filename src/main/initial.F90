@@ -151,11 +151,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustfrac,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh,iboundary, &
-                            Bevol,Bxyz,temperature,dustprop,ddustprop
+                            Bevol,Bxyz,temperature,dustprop,ddustprop,pxyzu,dens,grpack
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef GR
- use part,             only:pxyzu,dens,grpack
  use cons2prim,        only:primitive_to_conservative
  use eos,              only:equationofstate,ieos
  use extern_gr,        only:get_grforce
@@ -574,13 +573,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  ! call derivs twice with Cullen-Dehnen switch to update accelerations
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  do j=1,nderivinit
-    if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                              Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtnew_first&
-#ifdef GR
-                              ,pxyzu,dens)
-#else
-    )
-#endif
+    if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
+                              dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtnew_first,pxyzu,dens,grpack)
     if (use_dustfrac) then
        ! set s = sqrt(eps/(1-eps)) from the initial dustfrac setting now we know rho
        do i=1,npart

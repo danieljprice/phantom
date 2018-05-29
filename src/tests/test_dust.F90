@@ -111,7 +111,7 @@ subroutine test_dustybox(ntests,npass)
  use kernel,         only:hfact_default
  use part,           only:igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-                          dustfrac,dustevol,ddustfrac,temperature,iphase,iamdust,maxtypes
+                          dustfrac,dustevol,ddustfrac,temperature,iphase,iamdust,maxtypes,pxyzu,dens,grpack
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use energies,       only:compute_energies,ekin
@@ -190,7 +190,7 @@ subroutine test_dustybox(ntests,npass)
  t = 0
  dtmax = nsteps*dt
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum,pxyzu,dens,grpack)
  !
  ! run dustybox problem
  !
@@ -243,7 +243,7 @@ subroutine test_dustydiffuse(ntests,npass)
  use dim,       only:maxp,periodic,maxtypes,mhd
  use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac,dustevol, &
                      xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,set_particle_type,rhoh,temperature,&
-                                         dustprop,ddustprop
+                                         dustprop,ddustprop,pxyzu,dens,grpack
  use options,   only:use_dustfrac
  use kernel,    only:hfact_default
  use eos,       only:gamma,polyk,ieos
@@ -330,7 +330,7 @@ subroutine test_dustydiffuse(ntests,npass)
  nsteps = nint(tmax/dt)
  dt = tmax/nsteps
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-             dustfrac,ddustfrac,temperature,time,dt,dtnew)
+             dustfrac,ddustfrac,temperature,time,dt,dtnew,pxyzu,dens,grpack)
 
  if (do_output) call write_file(time,xyzh,dustfrac,npart)
  do i=1,npart
@@ -350,7 +350,7 @@ subroutine test_dustydiffuse(ntests,npass)
     enddo
     !$omp end parallel do
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,dt,dtnew)
+                dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,dt,dtnew,pxyzu,dens,grpack)
     !$omp parallel do private(i)
     do i=1,npart
        dustevol(i) = dustevol(i) + 0.5*dt*(ddustfrac(i) - ddustfrac_prev(i))

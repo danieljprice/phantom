@@ -42,7 +42,7 @@ contains
 !+
 !-------------------------------------------------------------
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-                  dustfrac,ddustfrac,temperature,time,dt,dtnew,pxyzu,dens)
+                  dustfrac,ddustfrac,temperature,time,dt,dtnew,pxyzu,dens,grpack)
  use dim,            only:maxp,maxvxyzu
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
@@ -84,7 +84,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real,         intent(inout) :: temperature(:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
- real,         intent(inout), optional :: pxyzu(:,:), dens(:)
+ real,         intent(inout) :: pxyzu(:,:), dens(:), grpack(:,:,:,:)
  real(kind=4)       :: t1,tcpu1,tlast,tcpulast
 
  t1 = 0.
@@ -139,11 +139,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  endif
 
 #ifdef GR
- if (present(pxyzu) .and. present(dens)) then
-    call conservative_to_primitive(npart,xyzh,pxyzu,vxyzu,dens)
- else
-    call fatal('deriv','(GR) pxyzu or dens not present in call to derivs')
- endif
+ call conservative_to_primitive(npart,xyzh,pxyzu,vxyzu,dens)
 #endif
 
 !
@@ -157,7 +153,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 
  stressmax = 0.
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-            dustfrac,ddustfrac,ipart_rhomax,dt,stressmax,temperature,dens)
+            dustfrac,ddustfrac,ipart_rhomax,dt,stressmax,temperature,dens,grpack)
  call do_timing('force',tlast,tcpulast)
 !
 ! set new timestep from Courant/forces condition
