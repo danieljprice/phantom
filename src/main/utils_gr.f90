@@ -87,6 +87,7 @@ subroutine rho2dens(dens,rho,position,v)
 
 end subroutine rho2dens
 
+! This is not being used at the moment.
 subroutine dens2rho(rho,dens,position,v)
  use metric_tools, only: get_metric
  real, intent(in) :: dens,position(1:3),v(1:3)
