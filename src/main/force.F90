@@ -32,6 +32,7 @@
 module forces
  use dim,      only:maxfsum,maxxpartveciforce,maxBevol,maxp,ndivcurlB,ndivcurlv,ndusttypes
  use mpiforce, only:cellforce,stackforce
+ use part,     only:ifirstincell,inodeparts,inoderange
 
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -136,7 +137,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use dim,          only:maxvxyzu,maxalpha,maxneigh,maxstrain,&
                         switches_done_in_derivs,mhd,mhd_nonideal,lightcurve
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
- use linklist,     only:ncells,ifirstincell,get_neighbour_list,get_hmaxcell,get_cell_location
+ use linklist,     only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location
  use options,      only:iresistive_heating
  use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,nabundances,ll,get_partinfo,iactive,gradh,&
                         hrho,iphase,maxphase,igas,iboundary,maxgradh,straintensor, &
@@ -1797,7 +1798,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintenso
  use dust,      only:get_ts,grainsize,graindens,idrag
 #endif
  use nicil,     only:nimhd_get_dt,nimhd_get_jcbcb
- use kdtree,    only:inodeparts,inoderange
  type(cellforce),    intent(inout) :: cell
  integer(kind=1),    intent(in)    :: iphase(:)
  real,               intent(in)    :: xyzh(:,:)
@@ -2058,7 +2058,6 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  use options,     only:beta,alphau,alphaB,iresistive_heating
  use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,massoftype
  use viscosity,   only:irealvisc,bulkvisc
- use kdtree,      only:inodeparts
 
  type(cellforce), intent(inout)  :: cell
 
@@ -2199,7 +2198,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
  use viscosity,      only:bulkvisc,dt_viscosity,irealvisc,shearfunc
  use kernel,         only:kernel_softening
  use linklist,       only:get_distance_from_centre_of_mass
- use kdtree,         only:expand_fgrav_in_taylor_series,inodeparts
+ use kdtree,         only:expand_fgrav_in_taylor_series
  use nicil,          only:nimhd_get_dudt,nimhd_get_dt
  use cooling,        only:energ_cooling
  use chem,           only:energ_h2cooling
