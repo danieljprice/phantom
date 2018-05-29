@@ -36,7 +36,8 @@ module part
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
           switches_done_in_derivs,maxp_dustfrac,use_dust, &
           store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
-          maxne,maxp_growth,ndusttypes
+          maxne,maxp_growth,ndusttypes, &
+          maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,ncellsmax
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -144,19 +145,7 @@ module part
 #ifdef NONIDEALMHD
  character(len=*), parameter :: eta_nimhd_label(4) = (/'eta_{OR}','eta_{HE}','eta_{AD}','ne/n    '/)
 #endif
-!
-!--for analysis routines, do not allocate any more storage
-!  than is strictly necessary
-!
-#ifdef ANALYSIS
- integer, parameter, private :: maxan = 0
- integer, parameter, private :: maxmhdan = 0
- integer, parameter, private :: maxdustan = 0
-#else
- integer, parameter, private :: maxan = maxp
- integer, parameter, private :: maxmhdan = maxmhd
- integer, parameter, private :: maxdustan = maxp_dustfrac
-#endif
+
 !
 !--lightcurves
 !
@@ -186,8 +175,7 @@ module part
 #else
  integer(kind=1)    :: ibin_wake(1)
 #endif
- integer, parameter :: maxphase = maxan
- integer, parameter :: maxgradh = maxan
+
  integer(kind=1), allocatable    :: iphase(:)
  integer(kind=1), allocatable    :: iphase_soa(:)
  logical, public    :: all_active = .true.
@@ -200,11 +188,22 @@ module part
 !
  integer, allocatable :: ll(:)
  real    :: dxi(ndim) ! to track the extent of the particles
+
+!
+!--particle belong
+!
+ integer, allocatable :: ibelong(:)
+
+!
+!--super time stepping
+!
+ integer(kind=1), allocatable :: istsactive(:)
+ integer(kind=1), allocatable :: ibin_sts(:)
+
 !
 !--size of the buffer required for transferring particle
 !  information between MPI threads
 !
- integer, parameter, private :: maxpd =  max(maxp,1) ! avoid divide by zero
  integer, parameter, private :: usedivcurlv = min(ndivcurlv,1)
  integer, parameter :: ipartbufsize = 4 &  ! xyzh
    +maxvxyzu                            &  ! vxyzu
@@ -212,11 +211,19 @@ module part
    +maxvxyzu                            &  ! fxyzu
    +3                                   &  ! fext
    +usedivcurlv                         &  ! divcurlv
-   +nalpha*maxalpha/maxpd               &  ! alphaind
-   +ngradh*maxgradh/maxpd               &  ! gradh
-   +(maxmhd/maxpd)*maxBevol             &  ! Bevol
-   +(maxmhd/maxpd)*maxBevol             &  ! Bpred
-   +maxphase/maxpd                      &  ! iphase
+#ifndef CONST_AV
+   +nalpha                              &  ! alphaind
+#endif
+#ifndef ANALYSIS
+   +ngradh                              &  ! gradh
+#endif
+#ifdef MHD
+   +maxBevol                            &  ! Bevol
+   +maxBevol                            &  ! Bpred
+#endif
+#ifndef ANALYSIS
+   +1                                   &  ! iphase
+#endif
 #ifdef DUST
    +ndusttypes                          &  ! dustfrac
    +ndusttypes                          &  ! dustevol
@@ -225,9 +232,15 @@ module part
    +1                                   &  ! ddustprop
 #endif
 #endif
-   +(maxp_h2/maxpd)*nabundances         &  ! abundance
-   +(maxgrav/maxpd)                     &  ! poten
-   +(maxtemp/maxpd)                     &  ! temperature
+#ifdef H2CHEM
+   +nabundances                         &  ! abundance
+#endif
+#ifdef GRAVITY
+   +1                                   &  ! poten
+#endif
+#ifdef STORE_TEMPERATURE
+   +1                                   &  ! temperature
+#endif
 #ifdef IND_TIMESTEPS
    +1                                   &  ! ibin
    +1                                   &  ! ibin_old
@@ -273,6 +286,220 @@ module part
  private :: hrho4,hrho8,hrho4_pmass,hrho8_pmass,hrhomixed_pmass
 
 contains
+
+   subroutine update_array_sizes(n)
+      integer, intent(in) :: n
+
+      maxp = n
+
+#ifdef STORE_TEMPERATURE
+      maxtemp = maxp
+#endif
+
+#ifdef MAXNEIGH
+      maxneigh = MAXNEIGH
+#else
+      maxneigh = maxp
+#endif
+
+#ifdef NCELLSMAX
+      ncellsmax = NCELLSMAX
+#else
+      ncellsmax = maxp
+#endif
+
+#ifdef DUST
+      maxp_dustfrac = maxp
+#ifdef DUSTGROWTH
+      maxp_growth = maxp
+#endif
+#endif
+
+#ifndef CONST_AV
+      maxalpha = maxp
+#endif
+
+#ifdef MHD
+      maxmhd = maxp
+#ifdef NONIDEALMHD
+      maxmhdni = maxp
+#endif
+#endif
+
+#ifdef USE_STRAIN_TENSOR
+      maxstrain = maxp
+#endif
+
+#ifdef H2CHEM
+      maxp_h2 = maxp
+#endif
+
+#ifdef GRAVITY
+      maxgrav = maxp
+#endif
+
+#ifdef STS_TIMESTEPS
+#ifdef IND_TIMESTEPS
+      maxsts = maxp
+#endif
+#endif
+
+#if LIGHTCURVE
+      maxlum = maxp
+#endif
+
+#ifdef NONIDEALMHD
+      maxne = maxp
+#else
+#ifdef CMACIONIZE
+      maxne = maxp
+#endif
+#endif
+
+#ifndef ANALYSIS
+      maxan = maxp
+      maxmhdan = maxmhd
+      maxdustan = maxp_dustfrac
+#endif
+
+! Very convoluted, but follows original logic...
+      maxphase = maxan
+      maxgradh = maxan
+
+end subroutine update_array_sizes
+
+   subroutine allocate_memory(n)
+      use io, only:iprint
+      use memory, only:allocate_array,nbytes_allocated
+      integer, intent(in) :: n
+
+    character(len=10) :: sizestring
+
+    call update_array_sizes(n)
+
+    write(iprint, *)
+    write(iprint, '(a)') '--> ALLOCATING ARRAYS'
+    write(iprint, '(a)') '--------------------------------------------------------'
+
+    if (nbytes_allocated > 0.0) then
+       call error('memory', 'Attempting to allocate memory, but memory is already allocated. &
+       & Deallocating and then allocating again.')
+       call deallocate_memory
+    endif
+
+    call allocate_array('xyzh', xyzh, 4, maxp)
+    call allocate_array('xyzh_soa', xyzh_soa, maxp, 4)
+    call allocate_array('vxyzu', vxyzu, maxvxyzu, maxp)
+    call allocate_array('alphaind', alphaind, nalpha, maxalpha)
+    call allocate_array('divcurlv', divcurlv, ndivcurlv, maxp)
+    call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
+    call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
+    call allocate_array('Bxyz', Bxyz, 3, maxmhd)
+    call allocate_array('dustprop', dustprop, 5, maxp_growth)
+    call allocate_array('St', St, maxp_growth)
+    call allocate_array('straintensor', straintensor, 6, maxstrain)
+    call allocate_array('abundance', abundance, nabundances, maxp_h2)
+    call allocate_array('temperature', temperature, maxtemp)
+    call allocate_array('dustfrac', dustfrac, ndusttypes, maxp_dustfrac)
+    call allocate_array('dustevol', dustevol,ndusttypes, maxp_dustfrac)
+    call allocate_array('deltav', deltav, 3, ndusttypes, maxp_dustfrac)
+    call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
+    call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
+    call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
+    call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
+    call allocate_array('poten', poten, maxgrav)
+    call allocate_array('n_R', n_R, 4, maxmhdni)
+    call allocate_array('n_electronT', n_electronT, maxne)
+    call allocate_array('eta_nimhd', eta_nimhd, 4, maxmhdni)
+    call allocate_array('luminosity', luminosity, maxlum)
+    call allocate_array('fxyzu', fxyzu, maxvxyzu, maxan)
+    call allocate_array('dBevol', dBevol, maxBevol, maxmhdan)
+    call allocate_array('divBsumm', divBsymm, maxmhdan)
+    call allocate_array('fext', fext, 3, maxan)
+    call allocate_array('ddustfrac', ddustfrac, ndusttypes, maxdustan)
+    call allocate_array('ddustprop', ddustprop, 5, maxp_growth)
+    call allocate_array('vpred', vpred, maxvxyzu, maxan)
+    call allocate_array('dustpred', dustpred, ndusttypes, maxdustan)
+    call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
+    call allocate_array('dustproppred', dustproppred, 5, maxp_growth)
+#ifdef IND_TIMESTEPS
+    call allocate_array('ibin', ibin, maxan)
+    call allocate_array('ibin_old', ibin_old, maxan)
+    call allocate_array('ibin_wake', ibin_wake, maxan)
+    call allocate_array('dt_in', dt_in, maxan)
+    call allocate_array('twas', twas, maxan)
+#endif
+    call allocate_array('iphase', iphase, maxphase)
+    call allocate_array('iphase_soa', iphase_soa, maxphase)
+    call allocate_array('gradh', gradh, ngradh, maxgradh)
+    call allocate_array('tstop', tstop, ndusttypes, maxan)
+    call allocate_array('ll', ll, maxan)
+    call allocate_array('ibelong', ibelong, maxp)
+    call allocate_array('istsactive', istsactive, maxsts)
+    call allocate_array('ibin_sts', ibin_sts, maxsts)
+
+    call bytes2human(nbytes_allocated, sizestring)
+    write(iprint, '(a)') '--------------------------------------------------------'
+    write(iprint, *) 'Total memory allocated to arrays: ', sizestring
+    write(iprint, '(a)') '--------------------------------------------------------'
+
+   end subroutine allocate_memory
+
+   subroutine deallocate_memory
+   deallocate(xyzh)
+   deallocate(xyzh_soa)
+   deallocate(vxyzu)
+   deallocate(alphaind)
+   deallocate(divcurlv)
+   deallocate(divcurlB)
+   deallocate(Bevol)
+   deallocate(Bxyz)
+   deallocate(dustprop)
+   deallocate(St)
+   deallocate(straintensor)
+   deallocate(abundance)
+   deallocate(temperature)
+   deallocate(dustfrac)
+   deallocate(dustevol)
+   deallocate(deltav)
+   deallocate(xyzmh_ptmass)
+   deallocate(vxyz_ptmass)
+   deallocate(fxyz_ptmass)
+   deallocate(fxyz_ptmass_sinksink)
+   deallocate(poten)
+   deallocate(n_R)
+   deallocate(n_electronT)
+   deallocate(eta_nimhd)
+   deallocate(luminosity)
+   deallocate(fxyzu)
+   deallocate(dBevol)
+   deallocate(divBsymm)
+   deallocate(fext)
+   deallocate(ddustfrac)
+   deallocate(ddustprop)
+   deallocate(vpred)
+   deallocate(dustpred)
+   deallocate(Bpred)
+   deallocate(dustproppred)
+#ifdef IND_TIMESTEPS
+   deallocate(ibin)
+   deallocate(ibin_old)
+   deallocate(ibin_wake)
+   deallocate(dt_in)
+   deallocate(twas)
+#endif
+   deallocate(iphase)
+   deallocate(iphase_soa)
+   deallocate(gradh)
+   deallocate(tstop)
+   deallocate(ll)
+   deallocate(ibelong)
+   deallocate(istsactive)
+   deallocate(ibin_sts)
+
+   end subroutine deallocate_memory
+
+
 !----------------------------------------------------------------
 !+
 !  this function determines the mass of the particle
