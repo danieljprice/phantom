@@ -16,10 +16,10 @@ subroutine test_gr(ntests,npass)
  use metric_tools,    only:get_metric
  use metric,          only:metric_type
  integer, intent(inout) :: ntests,npass
- real :: radii(5),theta(5),phi(5),vx(5),vy(5),vz(5)
- real :: utherm(4),density(4)
- real :: position(3),v(3),v4(0:3),sqrtg,gcov(0:3,0:3),gcon(0:3,0:3)
- real :: pi,ri,thetai,phii,vxi,vyi,vzi,x,y,z,p,dens,u,pondens,spsound
+ real    :: radii(5),theta(5),phi(5),vx(5),vy(5),vz(5)
+ real    :: utherm(4),density(4)
+ real    :: position(3),v(3),v4(0:3),sqrtg,gcov(0:3,0:3),gcon(0:3,0:3)
+ real    :: pi,ri,thetai,phii,vxi,vyi,vzi,x,y,z,p,dens,u,pondens,spsound
  integer :: i,j,k,l,m,n,ii,jj,count
  integer :: ncomb_metric,npass_metric,ncomb_cons2prim,npass_cons2prim
 
@@ -72,10 +72,10 @@ subroutine test_gr(ntests,npass)
                    v4(1:3) = v(:)
 
                    ! Only allow valid combinations of position and velocity to be tested.
-                   ! i.e. Not faster than the speed of light locally.
+                   ! i.e. Not faster than the speed of light locally (U0 real, not imaginary).
                    if (dot_product_gr(v4,v4,gcov) < 0.) then
                       count = npass_metric
-                      call test_metric_i(position,gcov,gcon,v,ncomb_metric,npass_metric,checkxv=.false.)
+                      call test_metric_i(gcov,gcon,ncomb_metric,npass_metric)
                       if (npass_metric/=count+1) print*,'Warning: Metric test failed so cons2prim may also fail...'
                       do ii=1,size(utherm)
                          u = utherm(ii)
