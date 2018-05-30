@@ -214,7 +214,7 @@ contains
        write(number, '(i0)') xdim(i)
        dimstring = trim(dimstring) // number
        if (i < size(xdim)) then
-          dimstring = trim(dimstring) // ':'
+          dimstring = trim(dimstring) // ','
        endif
     enddo
     dimstring = trim(dimstring) // ')'
