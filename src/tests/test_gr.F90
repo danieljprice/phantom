@@ -180,7 +180,6 @@ end subroutine test_u0
 subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
  use cons2prim,    only:conservative_to_primitive,primitive_to_conservative
  use testutils,    only:checkval,checkvalbuf
- use testmetric,   only:test_metric_i
  use metric_tools, only:get_grpacki
  real, intent(in) :: x(1:3),v(1:3),dens,u,p
  integer, intent(inout) :: ntests,npass
