@@ -75,7 +75,7 @@ subroutine test_gr(ntests,npass)
                    ! i.e. Not faster than the speed of light locally.
                    if (dot_product_gr(v4,v4,gcov) < 0.) then
                       count = npass_metric
-                      call test_metric_i(position,v,ncomb_metric,npass_metric,checkxv=.false.)
+                      call test_metric_i(position,gcov,gcon,v,ncomb_metric,npass_metric,checkxv=.false.)
                       if (npass_metric/=count+1) print*,'Warning: Metric test failed so cons2prim may also fail...'
                       do ii=1,size(utherm)
                          u = utherm(ii)

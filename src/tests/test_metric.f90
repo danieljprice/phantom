@@ -7,19 +7,16 @@ contains
 !  Tests of the metric
 !+
 !----------------------------------------------------------------
-subroutine test_metric_i(x,v,ntests,npass,checkxv)
- use testutils, only: checkvalbuf
- use metric_tools, only: get_metric
- use utils_gr, only: dot_product_gr
- integer, intent(inout) :: ntests,npass
- real, intent(in) :: x(1:3), v(1:3)
- real, dimension(0:3,0:3) :: gcov,gcon,gg
- real :: sqrtg, v4(0:3), sum
- real, parameter :: tol=6.e-11
- ! real, parameter :: tol=4.e-13
- integer :: i,j, nerrors,ncheck,n_error
- real :: errmax
+subroutine test_metric_i(x,gcov,gcon,v,ntests,npass,checkxv)
+ use testutils,    only: checkvalbuf
+ use utils_gr,     only: dot_product_gr
+ integer, intent(inout)   :: ntests,npass
+ real,    intent(in)      :: x(3),gcov(0:3,0:3),gcon(0:3,0:3),v(3)
  logical, intent(in), optional :: checkxv
+ real, dimension(0:3,0:3) :: gg
+ real, parameter          :: tol=6.e-11
+ real                     :: v4(0:3),sum,errmax
+ integer :: i,j, nerrors,ncheck,n_error
  logical :: do_checkxv
 
  do_checkxv = .true.
@@ -28,7 +25,6 @@ subroutine test_metric_i(x,v,ntests,npass,checkxv)
  ntests=ntests+1
  nerrors = 0
 
- call get_metric(x,gcov,gcon,sqrtg)
  gg = 0.
  gg = matmul(gcov,gcon)
  sum = 0
