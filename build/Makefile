@@ -1466,15 +1466,17 @@ SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
 SRCEOS = ${SRCMESA} eos_helmholtz.f90 eos.F90
 
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
-         utils_mathfunc.f90 memory.F90 part.F90 ${DOMAIN} utils_timing.f90 mpi_balance.F90 commons.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
+         utils_mathfunc.f90 utils_allocate.f90 part.F90 ${DOMAIN} utils_timing.f90 mpi_balance.F90 commons.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_sphNG.f90 utils_vectors.f90 \
          utils_datafiles.f90 datafiles.f90 ${SRCFASTMATH} random.f90 \
          checkoptions.F90 ${SRCEOS} set_binary.f90 set_flyby.f90 \
          viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} \
          set_disc.F90 partinject.F90 \
-         utils_filenames.f90 utils_summary.F90 ${SRCCHEM} directsum.f90 prompting.f90 ${SRCDUST} readwrite_dumps.F90 quitdump.f90 \
+         utils_filenames.f90 utils_summary.F90 ${SRCCHEM} directsum.f90 prompting.f90 ${SRCDUST} \
          mpi_dens.F90 mpi_force.F90 stack.F90 \
          mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
+         memory.f90 \
+         readwrite_dumps.F90 quitdump.f90 \
          ${SRCTURB} ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} \
          ptmass.F90 readwrite_infile.F90 \
          dens.F90 force.F90 deriv.F90 energies.F90 \
@@ -1535,7 +1537,7 @@ edit: checksetup
 #
 SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 \
          utils_dumpfiles.f90 utils_mathfunc.f90 utils_infiles.f90 utils_vectors.f90 \
-         utils_datafiles.f90 datafiles.f90 ${DOMAIN} part.F90 memory.F90 utils_sphNG.f90 \
+         utils_datafiles.f90 datafiles.f90 ${DOMAIN} part.F90 utils_allocate.f90 utils_sphNG.f90 \
          commons.f90 ${SRCFASTMATH} ${SRCEOS} centreofmass.f90 ${SRCPOT} checkoptions.F90 \
          viscosity.f90 options.f90 prompting.f90 ${SRCDUST} \
          readwrite_dumps.F90

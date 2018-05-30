@@ -60,6 +60,11 @@ module dim
 
  ! maximum allowable number of neighbours (safest=maxp)
  integer, parameter :: maxneigh = maxp_omp
+ ! #ifdef MAXNEIGH
+ !     integer, parameter :: maxneigh = MAXNEIGH
+ ! #else
+ !     integer, parameter :: maxneigh = maxp_omp
+ ! #endif
 
 ! maxmimum storage in linklist
  integer :: ncellsmax
@@ -269,5 +274,81 @@ integer :: maxne = 0
  !--------------------
  integer :: maxphase = 0
  integer :: maxgradh = 0
+
+contains
+  subroutine update_max_sizes(n)
+    integer, intent(in) :: n
+
+    maxp = n
+
+#ifdef STORE_TEMPERATURE
+    maxtemp = maxp
+#endif
+
+#ifdef NCELLSMAX
+    ncellsmax = NCELLSMAX
+#else
+    ncellsmax = maxp
+#endif
+
+#ifdef DUST
+    maxp_dustfrac = maxp
+#ifdef DUSTGROWTH
+    maxp_growth = maxp
+#endif
+#endif
+
+#ifndef CONST_AV
+    maxalpha = maxp
+#endif
+
+#ifdef MHD
+    maxmhd = maxp
+#ifdef NONIDEALMHD
+    maxmhdni = maxp
+#endif
+#endif
+
+#ifdef USE_STRAIN_TENSOR
+    maxstrain = maxp
+#endif
+
+#ifdef H2CHEM
+    maxp_h2 = maxp
+#endif
+
+#ifdef GRAVITY
+    maxgrav = maxp
+#endif
+
+#ifdef STS_TIMESTEPS
+#ifdef IND_TIMESTEPS
+    maxsts = maxp
+#endif
+#endif
+
+#if LIGHTCURVE
+    maxlum = maxp
+#endif
+
+#ifdef NONIDEALMHD
+    maxne = maxp
+#else
+#ifdef CMACIONIZE
+    maxne = maxp
+#endif
+#endif
+
+#ifndef ANALYSIS
+    maxan = maxp
+    maxmhdan = maxmhd
+    maxdustan = maxp_dustfrac
+#endif
+
+! Very convoluted, but follows original logic...
+    maxphase = maxan
+    maxgradh = maxan
+
+ end subroutine update_max_sizes
 
 end module dim

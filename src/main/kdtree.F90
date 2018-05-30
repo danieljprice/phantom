@@ -25,13 +25,18 @@
 !+
 !--------------------------------------------------------------------------
 module kdtree
- use dim,         only:maxp_omp,ncellsmax,minpart
+ use dim,         only:maxp,maxp_omp,ncellsmax,minpart
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
- use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi, &
-                       inoderange,inodeparts,xyzh_swap,inodeparts_swap,iphase_swap
+ use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi
 
  implicit none
+
+ integer, public,  allocatable :: inoderange(:,:)
+ integer, public,  allocatable :: inodeparts(:)
+ real,             allocatable :: xyzh_swap(:,:)
+ integer,          allocatable :: inodeparts_swap(:)
+ integer(kind=1),  allocatable :: iphase_swap(:)
 
 !
 !--tree parameters
@@ -47,6 +52,7 @@ module kdtree
  logical, private :: already_warned = .false.
  integer, private :: numthreads
 
+ public :: allocate_kdtree, deallocate_kdtree
  public :: maketree, revtree, getneigh, kdnode
 #ifdef MPI
  public :: maketreeglobal
@@ -70,6 +76,25 @@ module kdtree
  private
 
 contains
+
+ subroutine allocate_kdtree
+    use allocutils, only:allocate_array,nbytes_allocated
+
+    call allocate_array('inoderange', inoderange, 2, ncellsmax+1)
+    call allocate_array('inodeparts', inodeparts, maxp)
+    call allocate_array('xyzh_swap', xyzh_swap, maxp, 4)
+    call allocate_array('inodeparts_swap', inodeparts_swap, maxp)
+    call allocate_array('iphase_swap', iphase_swap, maxphase)
+ end subroutine allocate_kdtree
+
+ subroutine deallocate_kdtree
+    deallocate(inoderange)
+    deallocate(inodeparts)
+    deallocate(xyzh_swap)
+    deallocate(inodeparts_swap)
+    deallocate(iphase_swap)
+ end subroutine deallocate_kdtree
+
 
 !--------------------------------------------------------------------------------
 !+

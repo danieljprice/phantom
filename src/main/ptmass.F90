@@ -810,7 +810,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
                          xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time,&
                          xyzhi,vxyzi,iphasei_test,divvi_test,ibini)
  use part,   only:ihacc,ihsoft,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
-                  ispinx,ispiny,ispinz,fxyz_ptmass_sinksink,ifirstincell
+                  ispinx,ispiny,ispinz,fxyz_ptmass_sinksink
  use dim,    only:maxp,maxneigh,maxvxyzu
  use kdtree, only:getneigh
  use kernel, only:kernel_softening
@@ -821,7 +821,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
 #ifdef IND_TIMESTEPS
  use part,     only:ibin,ibin_wake
 #endif
- use linklist, only:getneigh_pos
+ use linklist, only:getneigh_pos,ifirstincell
  use eos,      only:equationofstate,gamma,gamma_pwp,utherm
  use options,  only:ieos
  use units,    only:unit_density

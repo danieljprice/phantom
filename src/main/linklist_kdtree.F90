@@ -28,11 +28,17 @@
 !--------------------------------------------------------------------------
 module linklist
  use dim,          only:maxp,ncellsmax
- use part,         only:ll,cellatid,ifirstincell,nodeglobal,node,nodemap
+ use part,         only:ll
  use dtypekdtree,  only:kdnode
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
+
+ integer,               allocatable :: cellatid(:)
+ integer,     public,   allocatable :: ifirstincell(:)
+ type(kdnode),          allocatable :: nodeglobal(:)
+ type(kdnode), public,  allocatable :: node(:)
+ integer,               allocatable :: nodemap(:)
 
  integer(kind=8), public :: ncells
  real, public            :: dxcell
@@ -40,6 +46,7 @@ module linklist
 
  integer              :: globallevel,refinelevels
 
+ public :: allocate_linklist, deallocate_linklist
  public :: set_linklist, get_neighbour_list, write_inopts_link, read_inopts_link
  public :: get_distance_from_centre_of_mass, getneigh_pos
  public :: set_hmaxcell,get_hmaxcell,update_hmax_remote
@@ -49,6 +56,24 @@ module linklist
  private
 
 contains
+
+ subroutine allocate_linklist
+    use allocutils, only:allocate_array,nbytes_allocated
+
+    call allocate_array('cellatid', cellatid, ncellsmax+1)
+    call allocate_array('ifirstincell', ifirstincell, ncellsmax+1)
+    call allocate_array('nodeglobal', nodeglobal, ncellsmax+1)
+    call allocate_array('node', node, ncellsmax+1)
+    call allocate_array('nodemap', nodemap, ncellsmax+1)
+ end subroutine allocate_linklist
+
+ subroutine deallocate_linklist
+   deallocate(cellatid)
+   deallocate(ifirstincell)
+   deallocate(nodeglobal)
+   deallocate(node)
+   deallocate(nodemap)
+ end subroutine deallocate_linklist
 
 subroutine get_hmaxcell(inode,hmaxcell)
  integer, intent(in)  :: inode

@@ -702,7 +702,7 @@ end subroutine write_smalldump
 !-------------------------------------------------------------------
 
 subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
- use part,   only:allocate_memory
+ use memory,   only:allocate_memory
  use dim,      only:maxp,maxvxyzu,maxalpha,maxgrav,gravity,lightcurve,maxlum,mhd
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &

@@ -1,4 +1,4 @@
-module memory
+module allocutils
 use io,           only:fatal,error,iprint
 use dtypekdtree,  only:kdnode,kdnode_bytes
 
@@ -241,4 +241,4 @@ subroutine bytes2human(bytes, sizestring)
    endif
 end subroutine bytes2human
 
-end module memory
+end module allocutils

@@ -32,7 +32,8 @@
 module forces
  use dim,      only:maxfsum,maxxpartveciforce,maxBevol,maxp,ndivcurlB,ndivcurlv,ndusttypes
  use mpiforce, only:cellforce,stackforce
- use part,     only:ifirstincell,inodeparts,inoderange
+ use linklist, only:ifirstincell
+ use kdtree,   only:inodeparts,inoderange
 
  implicit none
  character(len=80), parameter, public :: &  ! module version

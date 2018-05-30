@@ -28,7 +28,7 @@ module densityforce
  use dim,         only:maxstrain,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum
  use part,        only:maxBevol,mhd
  use part,        only:straintensor
- use part,        only:inodeparts,inoderange
+ use kdtree,      only:inodeparts,inoderange
  use kernel,      only:cnormk,wab0,gradh0,dphidh0,radkern2
  use mpidens,     only:celldens,stackdens
  use timing,      only:getused,printused,print_time
@@ -125,13 +125,12 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                      mhd_nonideal,nalpha
  use eos,       only:get_spsound,get_temperature
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
- use linklist,  only:ncells,get_neighbour_list,get_hmaxcell,&
+ use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
                      get_cell_location,set_hmaxcell,sync_hmax_mpi
  use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho,&
                      ll,get_partinfo,iactive,maxgradh,&
                      hrho,iphase,maxphase,igas,idust,iboundary,iamgas,periodic,&
-                     all_active,dustfrac,Bxyz,&
-                     ifirstincell
+                     all_active,dustfrac,Bxyz
 #ifdef FINVSQRT
  use fastmath,  only:finvsqrt
 #endif

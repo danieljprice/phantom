@@ -48,14 +48,14 @@ contains
 !----------------------------------------------------------------
 subroutine initialise()
  use memory,           only:allocate_memory
- use dim, only:dimid=>modid,maxp
+ use dim, only:dimid=>modid,maxp,maxp_omp
  use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
 #endif
  use omputils,         only:init_omp,info_omp
  use options,          only:optid=>modid,set_default_options
- use part,             only:partid=>modid,maxBevol,maxp_omp
+ use part,             only:partid=>modid,maxBevol
  use units,            only:set_units
  use boundary,         only:set_boundary
  use writeheader,      only:write_codeinfo

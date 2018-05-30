@@ -37,7 +37,7 @@ module part
           switches_done_in_derivs,maxp_dustfrac,use_dust, &
           store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
           maxne,maxp_growth,ndusttypes, &
-          maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,ncellsmax
+          maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh
  use dtypekdtree, only:kdnode
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -196,29 +196,10 @@ module part
  integer, allocatable :: ibelong(:)
 
 !
-!--kdtree building arrays
-!
-integer,          allocatable :: inoderange(:,:)
-integer,          allocatable :: inodeparts(:)
-real,             allocatable :: xyzh_swap(:,:)
-integer,          allocatable :: inodeparts_swap(:)
-integer(kind=1),  allocatable :: iphase_swap(:)
-
-!
 !--super time stepping
 !
  integer(kind=1), allocatable :: istsactive(:)
  integer(kind=1), allocatable :: ibin_sts(:)
-
- !
- !--linklist structures
- !
- integer,         allocatable :: cellatid(:)
- integer,         allocatable :: ifirstincell(:)
- type(kdnode),    allocatable :: nodeglobal(:)
- type(kdnode),    allocatable :: node(:)
- integer,         allocatable :: nodemap(:)
-
 
 !
 !--size of the buffer required for transferring particle
@@ -307,105 +288,8 @@ integer(kind=1),  allocatable :: iphase_swap(:)
 
 contains
 
-   subroutine update_array_sizes(n)
-      integer, intent(in) :: n
-
-      maxp = n
-
-#ifdef STORE_TEMPERATURE
-      maxtemp = maxp
-#endif
-
-#ifdef MAXNEIGH
-      maxneigh = MAXNEIGH
-#else
-      maxneigh = maxp
-#endif
-
-#ifdef NCELLSMAX
-      ncellsmax = NCELLSMAX
-#else
-      ncellsmax = maxp
-#endif
-
-#ifdef DUST
-      maxp_dustfrac = maxp
-#ifdef DUSTGROWTH
-      maxp_growth = maxp
-#endif
-#endif
-
-#ifndef CONST_AV
-      maxalpha = maxp
-#endif
-
-#ifdef MHD
-      maxmhd = maxp
-#ifdef NONIDEALMHD
-      maxmhdni = maxp
-#endif
-#endif
-
-#ifdef USE_STRAIN_TENSOR
-      maxstrain = maxp
-#endif
-
-#ifdef H2CHEM
-      maxp_h2 = maxp
-#endif
-
-#ifdef GRAVITY
-      maxgrav = maxp
-#endif
-
-#ifdef STS_TIMESTEPS
-#ifdef IND_TIMESTEPS
-      maxsts = maxp
-#endif
-#endif
-
-#if LIGHTCURVE
-      maxlum = maxp
-#endif
-
-#ifdef NONIDEALMHD
-      maxne = maxp
-#else
-#ifdef CMACIONIZE
-      maxne = maxp
-#endif
-#endif
-
-#ifndef ANALYSIS
-      maxan = maxp
-      maxmhdan = maxmhd
-      maxdustan = maxp_dustfrac
-#endif
-
-! Very convoluted, but follows original logic...
-      maxphase = maxan
-      maxgradh = maxan
-
-end subroutine update_array_sizes
-
-   subroutine allocate_memory(n)
-      use io, only:iprint
-      use memory, only:allocate_array,nbytes_allocated
-      integer, intent(in) :: n
-
-    character(len=10) :: sizestring
-
-    call update_array_sizes(n)
-
-    write(iprint, *)
-    write(iprint, '(a)') '--> ALLOCATING ARRAYS'
-    write(iprint, '(a)') '--------------------------------------------------------'
-
-    if (nbytes_allocated > 0.0) then
-       call error('memory', 'Attempting to allocate memory, but memory is already allocated. &
-       & Deallocating and then allocating again.')
-       call deallocate_memory
-    endif
+   subroutine allocate_part
+      use allocutils, only:allocate_array
 
     call allocate_array('xyzh', xyzh, 4, maxp)
     call allocate_array('xyzh_soa', xyzh_soa, maxp, 4)
@@ -455,27 +339,12 @@ end subroutine update_array_sizes
     call allocate_array('tstop', tstop, ndusttypes, maxan)
     call allocate_array('ll', ll, maxan)
     call allocate_array('ibelong', ibelong, maxp)
-    call allocate_array('inoderange', inoderange, 2, ncellsmax+1)
-    call allocate_array('inodeparts', inodeparts, maxp)
-    call allocate_array('xyzh_swap', xyzh_swap, maxp, 4)
-    call allocate_array('inodeparts_swap', inodeparts_swap, maxp)
-    call allocate_array('iphase_swap', iphase_swap, maxphase)
     call allocate_array('istsactive', istsactive, maxsts)
     call allocate_array('ibin_sts', ibin_sts, maxsts)
-    call allocate_array('cellatid', cellatid, ncellsmax+1)
-    call allocate_array('ifirstincell', ifirstincell, ncellsmax+1)
-    call allocate_array('nodeglobal', nodeglobal, ncellsmax+1)
-    call allocate_array('node', node, ncellsmax+1)
-    call allocate_array('nodemap', nodemap, ncellsmax+1)
 
-    call bytes2human(nbytes_allocated, sizestring)
-    write(iprint, '(a)') '--------------------------------------------------------'
-    write(iprint, *) 'Total memory allocated to arrays: ', sizestring
-    write(iprint, '(a)') '--------------------------------------------------------'
+   end subroutine allocate_part
 
-   end subroutine allocate_memory
-
-   subroutine deallocate_memory
+   subroutine deallocate_part
    deallocate(xyzh)
    deallocate(xyzh_soa)
    deallocate(vxyzu)
@@ -524,21 +393,10 @@ end subroutine update_array_sizes
    deallocate(tstop)
    deallocate(ll)
    deallocate(ibelong)
-   deallocate(inoderange)
-   deallocate(inodeparts)
-   deallocate(xyzh_swap)
-   deallocate(inodeparts_swap)
-   deallocate(iphase_swap)
    deallocate(istsactive)
    deallocate(ibin_sts)
-   deallocate(cellatid)
-   deallocate(ifirstincell)
-   deallocate(nodeglobal)
-   deallocate(node)
-   deallocate(nodemap)
 
-
-   end subroutine deallocate_memory
+   end subroutine deallocate_part
 
 
 !----------------------------------------------------------------
