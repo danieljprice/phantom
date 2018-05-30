@@ -106,19 +106,18 @@ subroutine primitive2conservative(x,v,dens,u,P,rho,pmom,en,ien_type)
 
 end subroutine primitive2conservative
 
-subroutine conservative2primitive(x,metrics,v,dens,u,P,rho,pmom,en,ierr,ien_type)
+subroutine conservative2primitive(x,grpacki,v,dens,u,P,rho,pmom,en,ierr,ien_type)
  use utils_gr,     only: dot_product_gr
- use metric_tools, only: get_metric, get_metric3plus1
+ use metric_tools, only: unpack_grpacki
  use io,           only: warning
- real, intent(in)    :: x(1:3),metrics(0:3,0:3,2)
+ real, intent(in)    :: x(1:3),grpacki(:,:,:)
  real, intent(inout) :: dens,P
  real, intent(out)   :: v(1:3),u
  real, intent(in)    :: rho,pmom(1:3),en
  integer, intent(out) :: ierr
  integer, intent(in)  :: ien_type
- real, dimension(0:3,0:3) :: gcov,gcon
- real, dimension(1:3,1:3) :: gammaijdown, gammaijUP
- real :: sqrtg,enth,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
+ real, dimension(1:3,1:3) :: gammaijUP
+ real :: sqrtg,enth,lorentz_LEO,pmom2,alpha,betadown(1:3),enth_old,v3d(1:3)
  real :: f,df
  integer :: niter, i,j
  real, parameter :: tol = 1.e-12
@@ -126,7 +125,12 @@ subroutine conservative2primitive(x,metrics,v,dens,u,P,rho,pmom,en,ierr,ien_type
  logical :: converged
  ierr = 0
 
- call get_metric3plus1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
+ ! Hard coding sqrgt=1 since phantom is always in cartesian coordinates
+ sqrtg = 1.
+
+ ! Get metric components from grpack
+ call unpack_grpacki(grpacki,gammaijUP=gammaijUP,alpha=alpha,betadown=betadown)
+
  pmom2 = dot_product_gr(pmom,pmom,gammaijUP)
 
  ! Guess enthalpy (using previous values of dens and pressure)

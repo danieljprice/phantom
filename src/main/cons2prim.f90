@@ -167,7 +167,7 @@ subroutine cons2prim_i(pos,grpacki,vel,dens,u,P,rho,pmom,en,ierr)
  real, intent(inout)  :: dens,P      ! Intent=inout because we need their previous values as an initial guess in the solver
  integer, intent(out) :: ierr
 
- call conservative2primitive(pos,grpacki(:,:,1:2),vel,dens,u,P,rho,pmom,en,ierr,ien_entropy)
+ call conservative2primitive(pos,grpacki,vel,dens,u,P,rho,pmom,en,ierr,ien_entropy)
 
 end subroutine cons2prim_i
 

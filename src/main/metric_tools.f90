@@ -35,7 +35,7 @@ module metric_tools
 
 !-------------------------------------------------------------------------------
 
- public :: get_metric, get_metric_derivs, get_metric3plus1, print_metricinfo, init_metric, get_grpacki
+ public :: get_metric, get_metric_derivs, get_metric3plus1, print_metricinfo, init_metric, get_grpacki, unpack_grpacki
 
  interface get_metric3plus1
   module procedure get_metric3plus1_only, get_metric3plus1_both
@@ -209,6 +209,9 @@ subroutine init_metric(npart,xyzh,grpack)
 
 end subroutine init_metric
 
+!
+!--- Subroutine to pack the metric (cov and con) + its derivatives into a single array
+!
 subroutine get_grpacki(xyz,grpacki)
  real, intent(in)  :: xyz(:)
  real, intent(out) :: grpacki(:,:,:)
@@ -225,6 +228,45 @@ subroutine get_grpacki(xyz,grpacki)
  grpacki(:,:,4) = dgy
  grpacki(:,:,5) = dgz
 
-end subroutine
+end subroutine get_grpacki
+
+!
+!--- Subroutine to return metric/components from grpack
+!
+subroutine unpack_grpacki(grpacki,gcov,gcon,gammaijdown,gammaijUP,dg1,dg2,dg3,alpha,betadown,betaUP)
+ real, intent(in),  dimension(0:3,0:3,5)         :: grpacki
+ real, intent(out), dimension(0:3,0:3), optional :: gcov,gcon,dg1,dg2,dg3
+ real, intent(out), dimension(1:3,1:3), optional :: gammaijdown,gammaijUP
+ real, intent(out),                     optional :: alpha,betadown(3),betaUP(3)
+ real, allocatable, dimension(:,:) :: gammaijUP_  ! <-- Only allocate when needed (expensive?)
+ real :: alpha_,betaUP_(3)                        ! <-- These are cheap to allocate ?
+ integer :: i,j
+
+ if (present(alpha).or.present(betaUP).or.present(gammaijUP)) alpha_  = sqrt(-1./grpacki(0,0,2))
+ if (present(betaUP).or.present(gammaijUP))                   betaUP_ = grpacki(0,1:3,2) * (alpha_**2)
+ !                                                                     |^ gcon_(0,1:3) ^|
+ if (present(gammaijUP)) then
+    allocate(gammaijUP_(1:3,1:3))
+    gammaijUP_   = 0.
+    do j=1,3
+      do i=1,3
+         gammaijUP_(i,j) = grpacki(i,j,2) + betaUP_(i)*betaUP_(j)/alpha_**2
+         !                |^ gcon_(i,j) ^|
+      enddo
+    enddo
+    gammaijUP   = gammaijUP_
+ endif
+
+ if (present(gcov))        gcov        = grpacki(:,:,1)
+ if (present(gcon))        gcon        = grpacki(:,:,2)
+ if (present(gammaijdown)) gammaijdown = grpacki(1:3,1:3,1)
+ if (present(alpha))       alpha       = alpha_
+ if (present(betadown))    betadown    = grpacki(0,1:3,1)
+ if (present(betaUP))      betaUP      = betaUP_
+ if (present(dg1))         dg1         = grpacki(:,:,3)
+ if (present(dg2))         dg2         = grpacki(:,:,4)
+ if (present(dg3))         dg3         = grpacki(:,:,5)
+
+end subroutine unpack_grpacki
 
 end module metric_tools
