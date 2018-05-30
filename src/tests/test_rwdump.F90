@@ -267,7 +267,7 @@ subroutine test_rwdump(ntests,npass)
     endif
     if (maxphase==maxp) then
        call checkval(ngas,iphase,igas,0,nfailed(17),'particle type 1')
-       call checkval(ndust,iphase(npart-ndust+1:npart+ndust),idust,0,nfailed(18),'particle type 2')
+       call checkval(ndust,iphase(npart-ndust+1:npart),idust,0,nfailed(18),'particle type 2')
     endif
     ntests = ntests + 1
     if (all(nfailed==0)) npass = npass + 1
