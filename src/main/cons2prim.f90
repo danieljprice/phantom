@@ -79,8 +79,8 @@ subroutine prim2consphantom_i(xyzhi,grpacki,vxyzui,dens_i,pxyzui,use_dens)
  if (usedens) then
     densi = dens_i
  else
-    call h2dens(densi,xyzhi,vi) ! Compute dens from h
-    dens_i = densi              ! Feed the newly computed dens back out of the routine
+    call h2dens(densi,xyzhi,grpacki,vi) ! Compute dens from h
+    dens_i = densi                      ! Feed the newly computed dens back out of the routine
  endif
  call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
  pi = pondensi*densi
