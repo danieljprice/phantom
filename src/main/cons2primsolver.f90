@@ -71,14 +71,14 @@ end subroutine
 !  conserved variables are (rho,pmom_i,en)
 !+
 !----------------------------------------------------------------
-subroutine primitive2conservative(x,v,dens,u,P,rho,pmom,en,ien_type)
- use utils_gr,     only: get_u0
- use metric_tools, only: get_metric
- real, intent(in)  :: x(1:3)
+subroutine primitive2conservative(x,grpacki,v,dens,u,P,rho,pmom,en,ien_type)
+ use utils_gr,     only:get_u0
+ use metric_tools, only:unpack_grpacki
+ real, intent(in)  :: x(1:3),grpacki(0:3,0:3,5)
  real, intent(in)  :: dens,v(1:3),u,P
  real, intent(out) :: rho,pmom(1:3),en
  integer, intent(in) :: ien_type
- real, dimension(0:3,0:3) :: gcov, gcon
+ real, dimension(0:3,0:3) :: gcov
  real :: sqrtg, enth, gvv, U0, v4U(0:3)
  integer :: i, mu
 
@@ -87,7 +87,10 @@ subroutine primitive2conservative(x,v,dens,u,P,rho,pmom,en,ien_type)
 
  call get_enthalpy(enth,dens,p) !enth = 1.+ u + P/dens
 
- call get_metric(x,gcov,gcon,sqrtg)
+ ! Hard coded sqrtg=1 since phantom is always in cartesian coordinates
+ sqrtg = 1.
+ call unpack_grpacki(grpacki,gcov=gcov)
+
  call get_u0(gcov,v,U0)
  rho = sqrtg*dens*U0
  do i=1,3

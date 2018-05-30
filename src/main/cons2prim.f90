@@ -94,7 +94,7 @@ subroutine prim2cons_i(pos,grpacki,vel,dens,u,P,rho,pmom,en)
  real, intent(in)  :: dens,vel(1:3),u,P
  real, intent(out) :: rho,pmom(1:3),en
 
- call primitive2conservative(pos,vel,dens,u,P,rho,pmom,en,ien_entropy)
+ call primitive2conservative(pos,grpacki,vel,dens,u,P,rho,pmom,en,ien_entropy)
 
 end subroutine prim2cons_i
 

@@ -75,7 +75,7 @@ subroutine h2dens(dens,xyzh,grpacki,v)
 end subroutine h2dens
 
 subroutine rho2dens(dens,rho,position,grpacki,v)
- use metric_tools, only: get_metric, unpack_grpacki
+ use metric_tools, only:unpack_grpacki
  real, intent(in) :: rho,position(1:3),grpacki(0:3,0:3,5),v(1:3)
  real, intent(out):: dens
  real :: gcov(0:3,0:3), sqrtg, U0
