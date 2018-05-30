@@ -481,14 +481,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call initialise_externalforces(iexternalforce,ierr)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
     !$omp parallel do default(none) &
-    !$omp shared(npart,xyzh,vxyzu,dens,fext,iexternalforce,ieos,C_force) &
+    !$omp shared(npart,xyzh,grpack,vxyzu,dens,fext,iexternalforce,ieos,C_force) &
     !$omp private(i,dtf,spsoundi,pondensi,pi) &
     !$omp reduction(min:dtextforce)
     do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
           pi = pondensi*dens(i)
-          call get_grforce(xyzh(1:3,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
+          call get_grforce(xyzh(1:3,i),grpack(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
           dtextforce = min(dtextforce,C_force*dtf)
        endif
     enddo

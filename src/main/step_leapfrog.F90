@@ -706,7 +706,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
              its   = its + 1
              pprev = pxyzu(1:3,i)
              call conservative_to_primitive(xyzh(:,i),grpack(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
-             call get_grforce(xyzh(1:3,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fstar,dtf)
+             call get_grforce(xyzh(1:3,i),grpack(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fstar,dtf)
              pxyzu(1:3,i) = pprev + hdt*(fstar - fext(1:3,i))
              pmom_err = maxval( abs( (pxyzu(1:3,i) - pprev)/pprev ) )
              if (pmom_err < ptol) converged = .true.
@@ -753,7 +753,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
     dtextforce_min = bignumber
 
     !$omp parallel do default(none) &
-    !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei) &
+    !$omp shared(npart,xyzh,grpack,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei) &
     !$omp private(i,accreted) &
     !$omp shared(ieos,dens,pxyzu,iexternalforce) &
     !$omp private(pi,pondensi,spsoundi,dtf) &
@@ -770,7 +770,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
 
           call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
           pi = pondensi*dens(i)
-          call get_grforce(xyzh(1:3,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
+          call get_grforce(xyzh(1:3,i),grpack(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
           dtextforce_min = min(dtf,dtextforce_min)
           !
           ! correct v to the full step using only the external force

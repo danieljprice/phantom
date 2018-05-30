@@ -14,8 +14,8 @@ contains
 !   whether a particle is gas or test particle.)
 !+
 !---------------------------------------------------------------
-subroutine get_grforce(xyzi,veli,densi,ui,pi,fexti,dtf)
- real, intent(in)  :: xyzi(3),veli(3),densi,ui,pi
+subroutine get_grforce(xyzi,grpacki,veli,densi,ui,pi,fexti,dtf)
+ real, intent(in)  :: xyzi(3),grpacki(0:3,0:3,5),veli(3),densi,ui,pi
  real, intent(out) :: fexti(3),dtf
  real :: x,y,z,r2,r
 
