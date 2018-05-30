@@ -26,8 +26,8 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
  u_out    = u
  p_out    = p
 
- call primitive_to_conservative(x,v,dens,u,P,rho,pmom,en)
  call get_grpacki(x,grpacki)
+ call primitive_to_conservative(x,grpacki,v,dens,u,P,rho,pmom,en)
  call conservative_to_primitive(x,grpacki,v_out,dens_out,u_out,p_out,rho,pmom,en,ierr)
 
  ! call checkval(ierr,0,0,n_error,'ierr = 0 for convergence')
