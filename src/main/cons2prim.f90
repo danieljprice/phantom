@@ -22,10 +22,10 @@ contains
 !
 !-------------------------------------
 
-subroutine prim2consphantom_all(npart,xyzh,vxyzu,dens,pxyzu,use_dens)
+subroutine prim2consphantom_all(npart,xyzh,grpack,vxyzu,dens,pxyzu,use_dens)
  use part,         only:isdead_or_accreted
  integer, intent(in)  :: npart
- real,    intent(in)  :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(in)  :: xyzh(:,:),grpack(:,:,:,:),vxyzu(:,:)
  real,    intent(inout) :: dens(:)
  real,    intent(out) :: pxyzu(:,:)
  logical, intent(in), optional :: use_dens
@@ -42,21 +42,22 @@ subroutine prim2consphantom_all(npart,xyzh,vxyzu,dens,pxyzu,use_dens)
  endif
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,vxyzu,dens,pxyzu,npart,usedens) &
+!$omp shared(xyzh,grpack,vxyzu,dens,pxyzu,npart,usedens) &
 !$omp private(i)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call prim2consphantom_i(xyzh(:,i),vxyzu(:,i),dens(i),pxyzu(:,i),usedens)
+       call prim2consphantom_i(xyzh(:,i),grpack(:,:,:,i),vxyzu(:,i),dens(i),pxyzu(:,i),usedens)
     endif
  enddo
 !$omp end parallel do
 
 end subroutine prim2consphantom_all
 
-subroutine prim2consphantom_i(xyzhi,vxyzui,dens_i,pxyzui,use_dens)
+subroutine prim2consphantom_i(xyzhi,grpacki,vxyzui,dens_i,pxyzui,use_dens)
  use utils_gr,     only:h2dens
  use eos,          only:equationofstate,ieos
  real, dimension(4), intent(in)  :: xyzhi, vxyzui
+ real,               intent(in)  :: grpacki(0:3,0:3,5)
  real, intent(inout)             :: dens_i
  real, dimension(4), intent(out) :: pxyzui
  logical, intent(in), optional   :: use_dens
@@ -83,13 +84,13 @@ subroutine prim2consphantom_i(xyzhi,vxyzui,dens_i,pxyzui,use_dens)
  endif
  call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
  pi = pondensi*densi
- call prim2cons_i(xyzi,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4))
+ call prim2cons_i(xyzi,grpacki,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4))
 
 end subroutine prim2consphantom_i
 
-subroutine prim2cons_i(pos,vel,dens,u,P,rho,pmom,en)
+subroutine prim2cons_i(pos,grpacki,vel,dens,u,P,rho,pmom,en)
  use cons2primsolver, only:primitive2conservative
- real, intent(in)  :: pos(1:3)
+ real, intent(in)  :: pos(1:3),grpacki(0:3,0:3,5)
  real, intent(in)  :: dens,vel(1:3),u,P
  real, intent(out) :: rho,pmom(1:3),en
 

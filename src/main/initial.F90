@@ -476,7 +476,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                               fxyzu,fext,alphaind,gradh)
  endif
- call primitive_to_conservative(npart,xyzh,vxyzu,dens,pxyzu,use_dens=.false.)
+ call primitive_to_conservative(npart,xyzh,grpack,vxyzu,dens,pxyzu,use_dens=.false.)
  if (iexternalforce > 0) then
     call initialise_externalforces(iexternalforce,ierr)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')

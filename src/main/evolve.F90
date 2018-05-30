@@ -85,6 +85,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use part,             only:twas
  use timestep_ind,     only:get_dt
 #endif
+#ifdef GR
+ use part,             only:pxyzu,dens,grpack
+ use cons2prim,        only:primitive_to_conservative
+ use metric_tools,     only:init_metric
+#endif
 #endif
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
@@ -95,10 +100,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,npartoftype, &
                             fxyz_ptmass_sinksink,ntot
-#ifdef GR
- use part,             only:pxyzu,dens
- use cons2prim,        only:primitive_to_conservative
-#endif
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev, &
                             rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin,rhomax_ipart
@@ -257,7 +258,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
     call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype)
 #ifdef GR
-    call primitive_to_conservative(npart,xyzh,vxyzu,dens,pxyzu,use_dens=.false.)
+    call init_metric(npart,xyzh,grpack)
+    call primitive_to_conservative(npart,xyzh,grpack,vxyzu,dens,pxyzu,use_dens=.false.)
 #endif
 #ifdef IND_TIMESTEPS
     do iloop=npart_old+1,npart
