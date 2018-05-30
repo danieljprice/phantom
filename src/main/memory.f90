@@ -6,7 +6,7 @@ contains
  !
  !--Allocate all allocatable arrays: mostly part arrays, and tree structures
  !
- subroutine allocate_memory(n)
+ subroutine allocate_memory(n, part_only)
   use io, only:iprint,error,fatal
   use dim, only:update_max_sizes,maxp_hard
   use allocutils, only:nbytes_allocated,bytes2human
@@ -14,7 +14,8 @@ contains
   use kdtree, only:allocate_kdtree
   use linklist, only:allocate_linklist
 
-   integer, intent(in) :: n
+   integer,           intent(in) :: n
+   logical, optional, intent(in) :: part_only
 
    character(len=11) :: sizestring
 
@@ -33,8 +34,12 @@ contains
    endif
 
    call allocate_part
-   call allocate_kdtree
-   call allocate_linklist
+   if (present(part_only)) then
+     if (part_only) then
+       call allocate_kdtree
+       call allocate_linklist
+     endif
+   endif
 
    call bytes2human(nbytes_allocated, sizestring)
    write(iprint, '(a)') '---------------------------------------------------------'

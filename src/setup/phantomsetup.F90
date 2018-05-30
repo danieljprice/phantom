@@ -23,7 +23,7 @@
 !+
 !--------------------------------------------------------------------------
 program phantomsetup
- use memory,          only:allocate_memory, deallocate_memory
+ use memory,            only:allocate_memory,deallocate_memory
  use dim,             only:tagline,maxp,maxvxyzu,maxalpha,maxgrav,&
                            ndivcurlv,ndivcurlB,maxp_hard
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
@@ -67,8 +67,9 @@ program phantomsetup
 
  ! In general, setup routines do not know the number of particles until they
  ! are written. Need to allocate up to the hard limit. Legacy setup routines may
- ! also rely on maxp being set to the number of desired particles.
- call allocate_memory(maxp_hard)
+ ! also rely on maxp being set to the number of desired particles. Allocate only
+ ! part, not kdtree or linklist
+ call allocate_memory(maxp_hard, part_only=.true.)
 
  call set_io_unit_numbers
  call set_units
