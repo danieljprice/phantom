@@ -37,7 +37,8 @@ subroutine test_rwdump(ntests,npass)
                     poten,gravity,use_dust,dustfrac,xyzmh_ptmass,nptmass,&
                     nsinkproperties,xyzh_label,xyzmh_ptmass_label,dustfrac_label,&
                     vxyz_ptmass,vxyz_ptmass_label,vxyzu_label,set_particle_type,iphase
- use dim,             only:ndusttypes
+ use dim,             only:ndusttypes,maxp
+ use memory,          only:allocate_memory
  use testutils,       only:checkval
  use io,              only:idisk1,id,master,iprint,nprocs
  use readwrite_dumps, only:read_dump,write_fulldump,write_smalldump,read_smalldump,is_small_dump
@@ -53,7 +54,7 @@ subroutine test_rwdump(ntests,npass)
  real :: smaxcgs                  = 0.1
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(64)
- integer :: i,j,ierr,itest,ngas,ndust,ntot
+ integer :: i,j,ierr,itest,ngas,ndust,ntot,maxp_old
  real    :: tfile,hfactfile,time,tol,toldp
  real    :: alphawas,Bextxwas,Bextywas,Bextzwas,polykwas
  real    :: xminwas,xmaxwas,yminwas,ymaxwas,zminwas,zmaxwas
@@ -62,6 +63,9 @@ subroutine test_rwdump(ntests,npass)
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING READ/WRITE from dump file'
  test_speed = .false.
+
+ ! This test will reallocate memory, so reset at the end
+ maxp_old = maxp
 
  over_tests: do itest = 1,2
 
@@ -318,6 +322,8 @@ subroutine test_rwdump(ntests,npass)
  enddo over_tests
 
  if (id==master) write(*,"(/,a)") '<-- READ/WRITE TEST COMPLETE'
+
+ call allocate_memory(maxp_old)
 
 end subroutine test_rwdump
 
