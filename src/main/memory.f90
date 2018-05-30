@@ -16,7 +16,7 @@ contains
 
    integer, intent(in) :: n
 
-   character(len=10) :: sizestring
+   character(len=11) :: sizestring
 
    write(iprint, *)
    write(iprint, '(a)') '--> ALLOCATING ARRAYS'

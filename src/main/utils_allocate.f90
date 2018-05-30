@@ -183,7 +183,7 @@ contains
     character(len=*),   intent(in) :: type
     character(len=10)              :: number
     character(len=14)              :: dimstring
-    character(len=10)              :: sizestring
+    character(len=11)              :: sizestring
     integer                        :: i
     real                           :: nbytes
     integer                        :: databytes
@@ -223,21 +223,21 @@ contains
 
     call bytes2human(nbytes, sizestring)
 
-    write(iprint, '(a10, a22, a14, a10)') type, name, dimstring, sizestring
+    write(iprint, '(a10, a22, a14, a11)') type, name, dimstring, sizestring
  end subroutine print_allocation_stats
 
 subroutine bytes2human(bytes, sizestring)
    real,                intent(in)  :: bytes
-   character(len=10),   intent(out) :: sizestring
+   character(len=11),   intent(out) :: sizestring
 
    if (bytes > 1073741824.0) then
-      write(sizestring, '(f7.3, a3)') bytes / 1073741824.0, ' GB'
+      write(sizestring, '(f8.3, a3)') bytes / 1073741824.0, ' GB'
    else if (bytes > 1048576.0) then
-      write(sizestring, '(f7.3, a3)') bytes / 1048576.0, ' MB'
+      write(sizestring, '(f8.3, a3)') bytes / 1048576.0, ' MB'
    else if (bytes > 1024.0) then
-      write(sizestring, '(f7.3, a3)') bytes / 1024.0, ' KB'
+      write(sizestring, '(f8.3, a3)') bytes / 1024.0, ' KB'
    else
-      write(sizestring, '(f7.3, a3)') bytes, ' B '
+      write(sizestring, '(f8.3, a3)') bytes, ' B '
    endif
 end subroutine bytes2human
 
