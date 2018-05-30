@@ -25,7 +25,7 @@
 program phantomsetup
  use memory,          only:allocate_memory, deallocate_memory
  use dim,             only:tagline,maxp,maxvxyzu,maxalpha,maxgrav,&
-                           ndivcurlv,ndivcurlB
+                           ndivcurlv,ndivcurlB,maxp_hard
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
                            Bevol,Bxyz,Bextx,Bexty,Bextz,rhoh,iphase,maxphase,isetphase,igas,iamtype, &
                            labeltype,xyzmh_ptmass,vxyz_ptmass,maxp_h2,iHI,abundance,&
@@ -64,6 +64,11 @@ program phantomsetup
  real                     :: x0(3),v0(3)
 #endif
  logical                  :: iexist
+
+ ! In general, setup routines do not know the number of particles until they
+ ! are written. Need to allocate up to the hard limit. Legacy setup routines may
+ ! also rely on maxp being set to the number of desired particles.
+ call allocate_memory(maxp_hard)
 
  call set_io_unit_numbers
  call set_units
@@ -218,6 +223,7 @@ program phantomsetup
     endif
  enddo
 
- call finalise_mpi()
+ call finalise_mpi
+ call deallocate_memory
 
 end program phantomsetup
