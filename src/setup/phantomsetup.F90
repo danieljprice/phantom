@@ -60,7 +60,7 @@ program phantomsetup
  character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile,string
  real                        :: time,pmassi
 #ifdef SORT_RADIUS_INIT
- integer :: iorder(maxp)
+ integer, allocatable :: iorder(:)
  real                     :: x0(3),v0(3)
 #endif
  logical                  :: iexist
@@ -201,9 +201,11 @@ program phantomsetup
     call get_centreofmass(x0,v0,npart,xyzh,vxyzu)
     if (id==master) print*,' setting origin for sort to ',x0
     call set_r2func_origin(x0(1),x0(2),x0(3))
+    allocate(iorder(maxp))
     call indexxfunc(npart,r2func_origin,xyzh,iorder)
     if (id==master) write(*,"(a)") ' done'
     call write_fulldump(time,dumpfile,ntotal,iorder)
+    deallocate(iorder)
 #else
     call write_fulldump(time,dumpfile,ntotal)
 #endif
