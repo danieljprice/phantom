@@ -7,8 +7,8 @@ contains
  !--Allocate all allocatable arrays: mostly part arrays, and tree structures
  !
  subroutine allocate_memory(n)
-  use io, only:iprint,error
-  use dim, only:update_max_sizes
+  use io, only:iprint,error,fatal
+  use dim, only:update_max_sizes,maxp_hard
   use allocutils, only:nbytes_allocated,bytes2human
   use part, only:allocate_part
   use kdtree, only:allocate_kdtree
@@ -17,6 +17,10 @@ contains
    integer, intent(in) :: n
 
    character(len=11) :: sizestring
+
+   if (n > maxp_hard) call fatal('memory', 'Trying to allocate above maxp hard limit.')
+
+   call update_max_sizes(n)
 
    write(iprint, *)
    write(iprint, '(a)') '--> ALLOCATING ARRAYS'
@@ -28,7 +32,6 @@ contains
       call deallocate_memory
    endif
 
-   call update_max_sizes(n)
    call allocate_part
    call allocate_kdtree
    call allocate_linklist

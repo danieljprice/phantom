@@ -48,7 +48,7 @@ contains
 !----------------------------------------------------------------
 subroutine initialise()
  use memory,           only:allocate_memory
- use dim, only:dimid=>modid,maxp,maxp_omp
+ use dim, only:dimid=>modid,maxp,maxp_hard
  use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
@@ -129,7 +129,7 @@ subroutine initialise()
 !
 !--Allocate memory
 !
-call allocate_memory(maxp_omp)
+call allocate_memory(maxp_hard)
 
  return
 end subroutine initialise

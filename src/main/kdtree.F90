@@ -25,7 +25,7 @@
 !+
 !--------------------------------------------------------------------------
 module kdtree
- use dim,         only:maxp,maxp_omp,ncellsmax,minpart
+ use dim,         only:maxp,maxp_hard,ncellsmax,minpart
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
  use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi
@@ -127,7 +127,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
  real :: xmini(ndim),xmaxi(ndim),xminl(ndim),xmaxl(ndim),xminr(ndim),xmaxr(ndim)
  integer, parameter :: istacksize = 512
  type(kdbuildstack), save :: stack(istacksize)
- integer, save :: list(maxp_omp)
+ integer, save :: list(maxp_hard)
 !$omp threadprivate(stack,list)
  type(kdbuildstack) :: queue(istacksize)
 !$ integer :: threadid
@@ -1452,7 +1452,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  integer                       :: inode
  integer                       :: npnode
 
- integer, save                 :: list(maxp_omp)
+ integer, save                 :: list(maxp_hard)
 
  logical                       :: wassplit
 

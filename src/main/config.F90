@@ -33,7 +33,11 @@ module dim
 
  ! maximum number of particles
  integer :: maxp
- integer, parameter :: maxp_omp = 1000000
+#ifdef MAXP
+ integer, parameter :: maxp_hard = MAXP
+#else
+ integer, parameter :: maxp_hard = 1000000
+#endif
 
  ! maximum number of point masses
 #ifdef MAXPTMASS
@@ -59,12 +63,11 @@ module dim
 #endif
 
  ! maximum allowable number of neighbours (safest=maxp)
- integer, parameter :: maxneigh = maxp_omp
- ! #ifdef MAXNEIGH
- !     integer, parameter :: maxneigh = MAXNEIGH
- ! #else
- !     integer, parameter :: maxneigh = maxp_omp
- ! #endif
+#ifdef MAXNEIGH
+ integer, parameter :: maxneigh = MAXNEIGH
+#else
+ integer, parameter :: maxneigh = maxp_hard
+#endif
 
 ! maxmimum storage in linklist
  integer :: ncellsmax
