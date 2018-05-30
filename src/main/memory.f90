@@ -20,7 +20,7 @@ contains
 
    write(iprint, *)
    write(iprint, '(a)') '--> ALLOCATING ARRAYS'
-   write(iprint, '(a)') '--------------------------------------------------------'
+   write(iprint, '(a)') '---------------------------------------------------------'
 
    if (nbytes_allocated > 0.0) then
       call error('part', 'Attempting to allocate memory, but memory is already allocated. &
@@ -34,9 +34,9 @@ contains
    call allocate_linklist
 
    call bytes2human(nbytes_allocated, sizestring)
-   write(iprint, '(a)') '--------------------------------------------------------'
+   write(iprint, '(a)') '---------------------------------------------------------'
    write(iprint, *) 'Total memory allocated to arrays: ', sizestring
-   write(iprint, '(a)') '--------------------------------------------------------'
+   write(iprint, '(a)') '---------------------------------------------------------'
 
  end subroutine allocate_memory
 
