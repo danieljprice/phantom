@@ -17,20 +17,24 @@ contains
 subroutine get_grforce(xyzi,grpacki,veli,densi,ui,pi,fexti,dtf)
  real, intent(in)  :: xyzi(3),grpacki(0:3,0:3,5),veli(3),densi,ui,pi
  real, intent(out) :: fexti(3),dtf
- real :: x,y,z,r2,r
 
  call forcegr(xyzi,veli,densi,ui,pi,fexti)
-
- x = xyzi(1)
- y = xyzi(2)
- z = xyzi(3)
-
- r2 = x*x + y*y + z*z
- r  = sqrt(r2)
-
- dtf = 0.25*sqrt(r*r2)*1.e-2
+ call dt_grforce(xyzi,dtf)
 
 end subroutine get_grforce
+
+!--- Subroutine to calculate the timestep constraint from the 'external force'
+subroutine dt_grforce(xyz,dtf)
+ real, intent(in)  :: xyz(3)
+ real, intent(out) :: dtf
+ real :: r,r2
+
+ r2 = xyz(1)*xyz(1) + xyz(2)*xyz(2) + xyz(3)*xyz(3)
+ r  = sqrt(r2)
+ dtf = 0.25*sqrt(r*r2)*1.e-2 ! Should change this to steps per orbit ?? Or something better perhaps
+
+end subroutine dt_grforce
+
 
 !----------------------------------------------------------------
 !+
