@@ -18,7 +18,7 @@ subroutine get_grforce(xyzi,grpacki,veli,densi,ui,pi,fexti,dtf)
  real, intent(in)  :: xyzi(3),grpacki(0:3,0:3,5),veli(3),densi,ui,pi
  real, intent(out) :: fexti(3),dtf
 
- call forcegr(xyzi,veli,densi,ui,pi,fexti)
+ call forcegr(xyzi,grpacki,veli,densi,ui,pi,fexti)
  call dt_grforce(xyzi,dtf)
 
 end subroutine get_grforce
@@ -43,20 +43,18 @@ end subroutine dt_grforce
 !   T^\mu\nu dg_\mu\nu/dx^i
 !+
 !----------------------------------------------------------------
-subroutine forcegr(x,v,dens,u,p,fterm)
- use metric_tools, only: get_metric, get_metric_derivs
- use utils_gr,     only: get_u0
- real,    intent(in)  :: x(3),v(3),dens,u,p
- real,    intent(out) :: fterm(3)
- real    :: gcov(0:3,0:3), gcon(0:3,0:3)
- real    :: sqrtg
- real    :: dgcovdx1(0:3,0:3), dgcovdx2(0:3,0:3), dgcovdx3(0:3,0:3)
+subroutine forcegr(x,grpacki,v,dens,u,p,fterm)
+ use metric_tools, only:unpack_grpacki
+ use utils_gr,     only:get_u0
+ real, intent(in)  :: x(3),grpacki(0:3,0:3,5),v(3),dens,u,p
+ real, intent(out) :: fterm(3)
+ real    :: gcov(0:3,0:3), gcon(0:3,0:3), dgcovdx1(0:3,0:3), dgcovdx2(0:3,0:3), dgcovdx3(0:3,0:3)
  real    :: v4(0:3), term(0:3,0:3)
  real    :: enth, uzero
  integer :: i,j
 
- call get_metric(x,gcov,gcon,sqrtg)
- call get_metric_derivs(x,dgcovdx1, dgcovdx2, dgcovdx3)
+ call unpack_grpacki(grpacki,gcov=gcov,gcon=gcon,dg1=dgcovdx1,dg2=dgcovdx2,dg3=dgcovdx3)
+
  enth = 1. + u + p/dens
 
  ! lower-case 4-velocity
