@@ -68,7 +68,7 @@ subroutine compute_energies(t)
                 nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,isdead_or_accreted,epot_sinksink,&
                 imacc,ispinx,ispiny,ispinz,mhd,gravity,poten,dustfrac,temperature,&
                 n_R,n_electronT,eta_nimhd,iion
- use part, only:pxyzu
+ use part, only:pxyzu,grpack
  use eos,            only:polyk,utherm,gamma,equationofstate,get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
@@ -79,7 +79,7 @@ subroutine compute_energies(t)
  use nicil,          only:nicil_get_eta,nicil_get_halldrift,nicil_get_vion, &
                      use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_data_out
 #ifdef GR
- use metric_tools,   only:get_metric3plus1
+ use metric_tools,   only:unpack_grpacki
  use utils_gr,       only:dot_product_gr
  use vectorutils,    only:cross_product3D
 #endif
@@ -105,8 +105,8 @@ subroutine compute_energies(t)
  real    :: erotxi,erotyi,erotzi,fdum(3)
  real    :: ethermi
 #ifdef GR
- real    :: pdotv,bigvi(1:3),alpha_gr,beta_gr_down(1:3),beta_gr_UP(1:3),lorentzi,pxi,pyi,pzi
- real    :: gammaijdown(1:3,1:3),gammaijUP(1:3,1:3),angi(1:3),fourvel_space(3)
+ real    :: pdotv,bigvi(1:3),alpha_gr,beta_gr_UP(1:3),lorentzi,pxi,pyi,pzi
+ real    :: gammaijdown(1:3,1:3),angi(1:3),fourvel_space(3)
 #endif
  integer :: i,j,itype,ierr
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
@@ -165,7 +165,8 @@ subroutine compute_energies(t)
 !$omp shared(temperature) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 #ifdef GR
-!$omp private(pxi,pyi,pzi,gammaijdown,gammaijUP,alpha_gr,beta_gr_down,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
+!$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
+!$omp shared(grpack) &
 #endif
 !$omp private(ethermi) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
@@ -242,7 +243,7 @@ subroutine compute_energies(t)
        ymom = ymom + pmassi*pyi
        zmom = zmom + pmassi*pzi
 
-       call get_metric3plus1(xyzh(1:3,i),alpha_gr,beta_gr_down,beta_gr_UP,gammaijdown,gammaijUP)
+       call unpack_grpacki(grpack(:,:,:,i),betaUP=beta_gr_UP,alpha=alpha_gr,gammaijdown=gammaijdown)
        bigvi    = (vxyzu(1:3,i)+beta_gr_UP)/alpha_gr
        v2i      = dot_product_gr(bigvi,bigvi,gammaijdown)
        lorentzi = 1./sqrt(1.-v2i)
