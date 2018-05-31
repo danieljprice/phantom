@@ -17,15 +17,11 @@ pure real function dot_product_gr(vec1,vec2,gcov)
  real, intent(in) :: vec1(:)
  real, intent(in) :: vec2(size(vec1))
  real, intent(in) :: gcov(size(vec1),size(vec2))
- real :: vec1i
- integer :: i,j
+ integer :: i
 
  dot_product_gr = 0.
  do i=1,size(vec1)
-    vec1i = vec1(i)
-    do j=1,size(vec2)
-       dot_product_gr = dot_product_gr + gcov(j,i)*vec1i*vec2(j)
-    enddo
+    dot_product_gr = dot_product_gr + dot_product(gcov(:,i),vec1(i)*vec2(:))
  enddo
 
  return
