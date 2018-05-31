@@ -1513,7 +1513,7 @@ else
 endif
 endif
    SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 cons2primsolver.f90 cons2prim.f90
-   SRCPOT=extern_gr.f90 externalforces_gr.F90
+   SRCPOT=extern_gr.F90 externalforces_gr.F90
    SRCTEST1 = $(SRCTESTS:test_externf.f90=test_externf_gr.f90)
    SRCTEST2 = $(SRCTEST1:test_gnewton.F90=)
    SRCTEST = $(SRCTEST2:test_corotate.f90=) test_gr.f90
