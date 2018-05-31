@@ -110,7 +110,6 @@ subroutine primitive2conservative(x,grpacki,v,dens,u,P,rho,pmom,en,ien_type)
 end subroutine primitive2conservative
 
 subroutine conservative2primitive(x,grpacki,v,dens,u,P,rho,pmom,en,ierr,ien_type)
- use utils_gr,     only: dot_product_gr
  use metric_tools, only: unpack_grpacki
  use io,           only: warning
  real, intent(in)    :: x(1:3),grpacki(:,:,:)
@@ -122,7 +121,7 @@ subroutine conservative2primitive(x,grpacki,v,dens,u,P,rho,pmom,en,ierr,ien_type
  real, dimension(1:3,1:3) :: gammaijUP
  real :: sqrtg,enth,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
  real :: f,df
- integer :: niter, i,j
+ integer :: niter, i
  real, parameter :: tol = 1.e-12
  integer, parameter :: nitermax = 100
  logical :: converged
@@ -134,7 +133,10 @@ subroutine conservative2primitive(x,grpacki,v,dens,u,P,rho,pmom,en,ierr,ien_type
  ! Get metric components from grpack
  call unpack_grpacki(grpacki,gammaijUP=gammaijUP,alpha=alpha,betadown=betadown,betaUP=betaUP)
 
- pmom2 = dot_product_gr(pmom,pmom,gammaijUP)
+ pmom2 = 0.
+ do i=1,3
+    pmom2 = pmom2 + dot_product(gammaijUP(:,i),pmom(:)*pmom(i))
+ enddo
 
  ! Guess enthalpy (using previous values of dens and pressure)
  call get_enthalpy(enth,dens,p)
@@ -183,11 +185,9 @@ subroutine conservative2primitive(x,grpacki,v,dens,u,P,rho,pmom,en,ierr,ien_type
 
  v3d(:) = alpha*pmom(:)/(enth*lorentz_LEO)-betadown(:)
 
- v = 0.
+! Raise index from down to up
  do i=1,3
-    do j=1,3
-       v(i) = v(i) + gammaijUP(i,j)*v3d(j) ! Raise index from down to up
-    enddo
+    v(i) = dot_product(gammaijUP(i,:),v3d(:))
  enddo
 
  call get_u(u,P,dens)
