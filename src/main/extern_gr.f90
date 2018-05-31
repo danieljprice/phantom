@@ -14,12 +14,12 @@ contains
 !   whether a particle is gas or test particle.)
 !+
 !---------------------------------------------------------------
-subroutine get_grforce(xyzi,grpacki,metricderivsi,veli,densi,ui,pi,fexti,dtf)
- real, intent(in)  :: xyzi(3),grpacki(:,:,:),metricderivsi(0:3,0:3,3),veli(3),densi,ui,pi
+subroutine get_grforce(xyzhi,grpacki,metricderivsi,veli,densi,ui,pi,fexti,dtf)
+ real, intent(in)  :: xyzhi(4),grpacki(:,:,:),metricderivsi(0:3,0:3,3),veli(3),densi,ui,pi
  real, intent(out) :: fexti(3),dtf
 
- call forcegr(xyzi,grpacki,metricderivsi,veli,densi,ui,pi,fexti)
- call dt_grforce(xyzi,dtf)
+ call forcegr(xyzhi(1:3),grpacki,metricderivsi,veli,densi,ui,pi,fexti)
+ call dt_grforce(xyzhi,fexti,dtf)
 
 end subroutine get_grforce
 
@@ -42,7 +42,7 @@ subroutine get_grforce_all(npart,xyzh,grpack,metricderivs,vxyzu,dens,fext,dtexte
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
        pi = pondensi*dens(i)
-       call get_grforce(xyzh(1:3,i),grpack(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
+       call get_grforce(xyzh(:,i),grpack(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
        dtexternal = min(dtexternal,C_force*dtf)
     endif
  enddo
@@ -51,16 +51,29 @@ subroutine get_grforce_all(npart,xyzh,grpack,metricderivs,vxyzu,dens,fext,dtexte
 end subroutine get_grforce_all
 
 !--- Subroutine to calculate the timestep constraint from the 'external force'
-subroutine dt_grforce(xyz,dtf)
- use physcon, only:pi
- real, intent(in)  :: xyz(3)
+!    this is multiplied by the safety factor C_force elsewhere
+subroutine dt_grforce(xyzh,fext,dtf)
+! #ifdef FINVSQRT
+!  use fastmath, only:finvsqrt
+! #endif
+ use physcon,  only:pi
+ real, intent(in)  :: xyzh(4),fext(3)
  real, intent(out) :: dtf
- real :: r,r2
- integer, parameter :: steps_per_orbit = 500
+ real :: r,r2,dtf1,dtf2,f2i
+ integer, parameter :: steps_per_orbit = 100
 
- r2    = xyz(1)*xyz(1) + xyz(2)*xyz(2) + xyz(3)*xyz(3)
- r     = sqrt(r2)
- dtf   = (2.*pi*sqrt(r*r2))/steps_per_orbit
+ f2i = fext(1)*fext(1) + fext(2)*fext(2) + fext(3)*fext(3)
+! #ifdef FINVSQSRT
+!  dtf1 = sqrt(hi*finvsqrt(f2i))
+! #else
+ dtf1 = sqrt(xyzh(4)/sqrt(f2i))
+! #endif
+
+ r2   = xyzh(1)*xyzh(1) + xyzh(2)*xyzh(2) + xyzh(3)*xyzh(3)
+ r    = sqrt(r2)
+ dtf2 = (2.*pi*sqrt(r*r2))/steps_per_orbit
+
+ dtf = min(dtf1,dtf2)
 
 end subroutine dt_grforce
 
