@@ -47,7 +47,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine initialise()
- use dim, only:dimid=>modid,maxp_hard
+ use dim, only:dimid=>modid
  use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
@@ -280,7 +280,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (nwarn > 0) call warning('initial','warnings from particle data in file',var='warnings',ival=nwarn)
     if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
  endif
- 
+
  !
  !--initialise alpha's (after the infile has been read)
  !
