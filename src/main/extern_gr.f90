@@ -66,7 +66,7 @@ subroutine dt_grforce(xyzh,fext,dtf)
 ! #ifdef FINVSQSRT
 !  dtf1 = sqrt(hi*finvsqrt(f2i))
 ! #else
- dtf1 = sqrt(xyzh(4)/sqrt(f2i))
+ dtf1 = sqrt(xyzh(4)/sqrt(f2i)) ! This is not really accurate since fi is a component of dp/dt, not da/dt
 ! #endif
 
  r2   = xyzh(1)*xyzh(1) + xyzh(2)*xyzh(2) + xyzh(3)*xyzh(3)
