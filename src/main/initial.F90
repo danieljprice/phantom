@@ -47,7 +47,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine initialise()
- use dim, only:dimid=>modid,maxp,maxp_hard
+ use dim, only:dimid=>modid,maxp_hard
  use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
