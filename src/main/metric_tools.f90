@@ -36,6 +36,7 @@ module metric_tools
 !-------------------------------------------------------------------------------
 
  public :: get_metric, get_metric_derivs, get_metric3plus1, print_metricinfo, init_metric, get_grpacki, unpack_grpacki
+ public :: pack_metricderivs
 
  interface get_metric3plus1
   module procedure get_metric3plus1_only, get_metric3plus1_both

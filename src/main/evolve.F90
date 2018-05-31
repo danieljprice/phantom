@@ -261,7 +261,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #ifdef GR
     call init_metric(npart,xyzh,grpack,metricderivs)
     call primitive_to_conservative(npart,xyzh,grpack,vxyzu,dens,pxyzu,use_dens=.false.)
-    call get_grforce_all(npart,xyzh,grpack,vxyzu,dens,fext,dtextforce) ! Not 100% sure if this is needed here
+    call get_grforce_all(npart,xyzh,grpack,metricderivs,vxyzu,dens,fext,dtextforce) ! Not 100% sure if this is needed here
 #endif
 #ifdef IND_TIMESTEPS
     do iloop=npart_old+1,npart

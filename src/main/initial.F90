@@ -477,7 +477,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  if (iexternalforce > 0) then
     call initialise_externalforces(iexternalforce,ierr)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
-    call get_grforce_all(npart,xyzh,grpack,vxyzu,dens,fext,dtextforce)
+    call get_grforce_all(npart,xyzh,grpack,metricderivs,vxyzu,dens,fext,dtextforce)
     write(iprint,*) 'dt(extforce)  = ',dtextforce
  endif
 #else

@@ -90,7 +90,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,maxBevol,&
                           switches_done_in_derivs,iboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustfrac,temperature,alphaind,nptmass,store_temperature,&
-                                                  dustprop,ddustprop,dustproppred,pxyzu,dens,grpack
+                                                  dustprop,ddustprop,dustproppred,pxyzu,dens,grpack,metricderivs
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
@@ -207,7 +207,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !----------------------------------------------------------------------
 #ifdef GR
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
-    call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,grpack,fext,t,damp)
+    call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,grpack,metricderivs,fext,t,damp)
  else
     call step_extern_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,grpack)
  endif
@@ -618,7 +618,7 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,grpack)
 
 end subroutine step_extern_sph_gr
 
-subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,grpack,fext,time,damp)
+subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,grpack,metricderivs,fext,time,damp)
  use dim,            only:maxptmass,maxp,maxvxyzu
  use io,             only:iverbose,id,master,iprint,warning
  use externalforces, only:externalforce,accrete_particles,update_externalforce
@@ -630,11 +630,11 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
  use eos,            only:equationofstate,ieos
  use cons2prim,      only:conservative_to_primitive
  use extern_gr,      only:get_grforce
- use metric_tools,   only:get_grpacki
+ use metric_tools,   only:get_grpacki,pack_metricderivs
  integer, intent(in)    :: npart,ntypes
  real,    intent(in)    :: dtsph,time,damp
  real,    intent(inout) :: dtextforce
- real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:),grpack(:,:,:,:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:),grpack(:,:,:,:),metricderivs(:,:,:,:)
  integer :: i,itype,nsubsteps,naccreted,its
  real    :: timei,t_end_step,hdt,pmassi
  real    :: dt,dtf,dtextforcenew,dtextforce_min
@@ -683,7 +683,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
     !$omp parallel default(none) &
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype) &
     !$omp shared(dt,hdt) &
-    !$omp shared(its,pxyzu,dens,grpack) &
+    !$omp shared(its,pxyzu,dens,grpack,metricderivs) &
     !$omp private(i,dtf,vxyzu_star,fstar) &
     !$omp private(converged,pprev,pmom_err,xyz_prev,x_err,pi) &
     !$omp firstprivate(pmassi,itype) &
@@ -702,11 +702,12 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
 
           pxyzu(1:3,i) = pxyzu(1:3,i) + hdt*fext(1:3,i)
 
+! Note: grforce needs derivatives of the metric, which do not change between pmom iterations
           pmom_iterations: do while (its <= itsmax .and. .not. converged)
              its   = its + 1
              pprev = pxyzu(1:3,i)
              call conservative_to_primitive(xyzh(:,i),grpack(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
-             call get_grforce(xyzh(1:3,i),grpack(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fstar,dtf)
+             call get_grforce(xyzh(1:3,i),grpack(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fstar,dtf)
              pxyzu(1:3,i) = pprev + hdt*(fstar - fext(1:3,i))
              pmom_err = maxval( abs( (pxyzu(1:3,i) - pprev)/pprev ) )
              if (pmom_err < ptol) converged = .true.
@@ -723,6 +724,9 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
           its        = 0
           converged  = .false.
           vxyzu_star = vxyzu(:,i)
+! Note: since particle positions change between iterations the metric and its derivatives need to be updated.
+!       conservative_to_primitive does not require derivatives of the metric, so those can updated once the iterations
+!       are complete, in order to reduce the number of computations.
           xyz_iterations: do while (its <= itsmax .and. .not. converged)
              its         = its+1
              xyz_prev    = xyzh(1:3,i)
@@ -734,6 +738,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
              ! UPDATE METRIC HERE
              call get_grpacki(xyzh(1:3,i),grpack(:,:,:,i))
           enddo xyz_iterations
+          call pack_metricderivs(xyzh(1:3,i),metricderivs(:,:,:,i))
           if (its > itsmax ) call warning('step_extern_gr','Reached max number of x iterations. x_err ',val=x_err)
           xitsmax = max(its,xitsmax)
 
@@ -753,7 +758,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
     dtextforce_min = bignumber
 
     !$omp parallel do default(none) &
-    !$omp shared(npart,xyzh,grpack,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei) &
+    !$omp shared(npart,xyzh,grpack,metricderivs,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei) &
     !$omp private(i,accreted) &
     !$omp shared(ieos,dens,pxyzu,iexternalforce) &
     !$omp private(pi,pondensi,spsoundi,dtf) &
@@ -770,7 +775,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
 
           call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
           pi = pondensi*dens(i)
-          call get_grforce(xyzh(1:3,i),grpack(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
+          call get_grforce(xyzh(1:3,i),grpack(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
           dtextforce_min = min(dtf,dtextforce_min)
           !
           ! correct v to the full step using only the external force
