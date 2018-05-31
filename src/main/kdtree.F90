@@ -37,7 +37,9 @@ module kdtree
  real,             allocatable :: xyzh_swap(:,:)
  integer,          allocatable :: inodeparts_swap(:)
  integer(kind=1),  allocatable :: iphase_swap(:)
+#ifdef MPI
  type(kdnode),     allocatable :: refinementnode(:)
+#endif
  integer,          allocatable :: list(:)
  !$omp threadprivate(list)
 
