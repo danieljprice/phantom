@@ -47,7 +47,6 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine initialise()
- use memory,           only:allocate_memory
  use dim, only:dimid=>modid,maxp,maxp_hard
  use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
@@ -125,11 +124,6 @@ subroutine initialise()
 !--initialise MPI domains
 !
  call init_domains(nprocs)
-
-!
-!--Allocate memory
-!
-call allocate_memory(maxp_hard)
 
  return
 end subroutine initialise
