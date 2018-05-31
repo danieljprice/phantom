@@ -112,6 +112,7 @@ module part
   (/'px     ','py     ','pz     ','entropy'/)
  real :: dens(maxgr)
  real :: grpack(0:3,0:3,5,maxgr)
+ real :: metricderivs(0:3,0:3,3,maxgr)
 
 !
 !--sink particles

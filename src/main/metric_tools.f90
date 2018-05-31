@@ -193,17 +193,18 @@ subroutine print_metricinfo(iprint)
 
 end subroutine print_metricinfo
 
-subroutine init_metric(npart,xyzh,grpack)
- integer, intent(in) :: npart
- real, intent(in)  :: xyzh(:,:)
- real, intent(out) :: grpack(:,:,:,:)
+subroutine init_metric(npart,xyzh,grpack,metricderivs)
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:)
+ real,    intent(out) :: grpack(:,:,:,:), metricderivs(:,:,:,:)
  integer :: i
 
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,grpack) &
+ !$omp shared(npart,xyzh,grpack,metricderivs) &
  !$omp private(i)
  do i=1,npart
     call get_grpacki(xyzh(1:3,i),grpack(:,:,:,i))
+    call pack_metricderivs(xyzh(1:3,i),metricderivs(:,:,:,i))
  enddo
  !omp end parallel do
 
@@ -213,22 +214,22 @@ end subroutine init_metric
 !--- Subroutine to pack the metric (cov and con) + its derivatives into a single array
 !
 subroutine get_grpacki(xyz,grpacki)
- real, intent(in)  :: xyz(:)
+ real, intent(in)  :: xyz(3)
  real, intent(out) :: grpacki(:,:,:)
- real, dimension(0:3,0:3) :: gcov,gcon,dgx,dgy,dgz
  real :: sqrtg
 
- call get_metric(xyz,gcov,gcon,sqrtg)
- call get_metric_derivs(xyz,dgx,dgy,dgz)
-
-! Pack
- grpacki(:,:,1) = gcov
- grpacki(:,:,2) = gcon
- grpacki(:,:,3) = dgx
- grpacki(:,:,4) = dgy
- grpacki(:,:,5) = dgz
+ call get_metric(xyz,gcov=grpacki(:,:,1),gcon=grpacki(:,:,2),sqrtg=sqrtg)
+ call get_metric_derivs(xyz,dgcovdx1=grpacki(:,:,3),dgcovdx2=grpacki(:,:,4),dgcovdx3=grpacki(:,:,5))
 
 end subroutine get_grpacki
+
+subroutine pack_metricderivs(xyzi,metricderivsi)
+ real, intent(in)  :: xyzi(3)
+ real, intent(out) :: metricderivsi(0:3,0:3,3)
+
+ call get_metric_derivs(xyzi,metricderivsi(:,:,1),metricderivsi(:,:,2),metricderivsi(:,:,3))
+
+end subroutine pack_metricderivs
 
 !
 !--- Subroutine to return metric/components from grpack

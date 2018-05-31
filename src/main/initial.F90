@@ -151,7 +151,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustfrac,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh,iboundary, &
-                            Bevol,Bxyz,temperature,dustprop,ddustprop,pxyzu,dens,grpack
+                            Bevol,Bxyz,temperature,dustprop,ddustprop,pxyzu,dens,grpack,metricderivs
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef GR
@@ -468,7 +468,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 
 #ifdef GR
 ! COMPUTE METRIC HERE
- call init_metric(npart,xyzh,grpack)
+ call init_metric(npart,xyzh,grpack,metricderivs)
  ! --- Need rho computed by sum to do primitive to conservative, since dens is not read from file
  if (npart>0) then
     call set_linklist(npart,npart,xyzh,vxyzu)
