@@ -37,6 +37,8 @@ module kdtree
  real,             allocatable :: xyzh_swap(:,:)
  integer,          allocatable :: inodeparts_swap(:)
  integer(kind=1),  allocatable :: iphase_swap(:)
+ integer,          allocatable :: list(:)
+ !$omp threadprivate(list)
 
 !
 !--tree parameters
@@ -85,6 +87,10 @@ contains
     call allocate_array('xyzh_swap', xyzh_swap, maxp, 4)
     call allocate_array('inodeparts_swap', inodeparts_swap, maxp)
     call allocate_array('iphase_swap', iphase_swap, maxphase)
+    !$omp parallel
+    call allocate_array('list', list, maxp)
+    !$omp end parallel
+
  end subroutine allocate_kdtree
 
  subroutine deallocate_kdtree
@@ -93,6 +99,7 @@ contains
     deallocate(xyzh_swap)
     deallocate(inodeparts_swap)
     deallocate(iphase_swap)
+    deallocate(list)
  end subroutine deallocate_kdtree
 
 
@@ -127,8 +134,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
  real :: xmini(ndim),xmaxi(ndim),xminl(ndim),xmaxl(ndim),xminr(ndim),xmaxr(ndim)
  integer, parameter :: istacksize = 512
  type(kdbuildstack), save :: stack(istacksize)
- integer, save :: list(maxp_hard)
-!$omp threadprivate(stack,list)
+ !$omp threadprivate(stack)
  type(kdbuildstack) :: queue(istacksize)
 !$ integer :: threadid
  integer :: npcounter
@@ -1451,8 +1457,6 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  integer                       :: i, k, offset, roffset, roffset_prev, coffset
  integer                       :: inode
  integer                       :: npnode
-
- integer, save                 :: list(maxp_hard)
 
  logical                       :: wassplit
 
