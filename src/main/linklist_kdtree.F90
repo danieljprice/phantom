@@ -58,7 +58,7 @@ module linklist
 contains
 
  subroutine allocate_linklist
-    use allocutils, only:allocate_array,nbytes_allocated
+    use allocutils, only:allocate_array
 
     call allocate_array('cellatid', cellatid, ncellsmax+1)
     call allocate_array('ifirstincell', ifirstincell, ncellsmax+1)
