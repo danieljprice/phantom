@@ -37,6 +37,7 @@ module kdtree
  real,             allocatable :: xyzh_swap(:,:)
  integer,          allocatable :: inodeparts_swap(:)
  integer(kind=1),  allocatable :: iphase_swap(:)
+ type(kdnode),     allocatable :: refinementnode(:)
  integer,          allocatable :: list(:)
  !$omp threadprivate(list)
 
@@ -87,6 +88,9 @@ contains
     call allocate_array('xyzh_swap', xyzh_swap, maxp, 4)
     call allocate_array('inodeparts_swap', inodeparts_swap, maxp)
     call allocate_array('iphase_swap', iphase_swap, maxphase)
+#ifdef MPI
+    call allocate_array('refinementnode', refinementnode, ncellsmax+1)
+#endif
     !$omp parallel
     call allocate_array('list', list, maxp)
     !$omp end parallel
@@ -99,6 +103,7 @@ contains
     deallocate(xyzh_swap)
     deallocate(inodeparts_swap)
     deallocate(iphase_swap)
+    deallocate(refinementnode)
     !$omp parallel
     deallocate(list)
     !$omp end parallel
@@ -1448,7 +1453,6 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  integer(kind=8), intent(out)  :: ncells
 
  type(kdnode)                  :: mynode(1)
- type(kdnode), save            :: refinementnode(ncellsmax+1)
 
  integer                       :: nl, nr
  integer                       :: il, ir, iself, parent
