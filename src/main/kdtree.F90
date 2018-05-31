@@ -99,7 +99,9 @@ contains
     deallocate(xyzh_swap)
     deallocate(inodeparts_swap)
     deallocate(iphase_swap)
+    !$omp parallel
     deallocate(list)
+    !$omp end parallel
  end subroutine deallocate_kdtree
 
 
