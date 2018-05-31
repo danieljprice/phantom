@@ -63,7 +63,7 @@ end subroutine get_bigv
 
 subroutine h2dens(dens,xyzh,grpacki,v)
  use part, only: rhoh,massoftype,igas
- real, intent(in) :: xyzh(1:4),grpacki(0:3,0:3,5),v(1:3)
+ real, intent(in) :: xyzh(1:4),grpacki(:,:,:),v(1:3)
  real, intent(out):: dens
  real :: rho, h, xyz(1:3)
 
@@ -76,7 +76,7 @@ end subroutine h2dens
 
 subroutine rho2dens(dens,rho,position,grpacki,v)
  use metric_tools, only:unpack_grpacki
- real, intent(in) :: rho,position(1:3),grpacki(0:3,0:3,5),v(1:3)
+ real, intent(in) :: rho,position(1:3),grpacki(:,:,:),v(1:3)
  real, intent(out):: dens
  real :: gcov(0:3,0:3), sqrtg, U0
 

@@ -74,7 +74,7 @@ end subroutine
 subroutine primitive2conservative(x,grpacki,v,dens,u,P,rho,pmom,en,ien_type)
  use utils_gr,     only:get_u0
  use metric_tools, only:unpack_grpacki
- real, intent(in)  :: x(1:3),grpacki(0:3,0:3,5)
+ real, intent(in)  :: x(1:3),grpacki(:,:,:)
  real, intent(in)  :: dens,v(1:3),u,P
  real, intent(out) :: rho,pmom(1:3),en
  integer, intent(in) :: ien_type

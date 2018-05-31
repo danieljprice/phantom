@@ -15,7 +15,7 @@ contains
 !+
 !---------------------------------------------------------------
 subroutine get_grforce(xyzi,grpacki,metricderivsi,veli,densi,ui,pi,fexti,dtf)
- real, intent(in)  :: xyzi(3),grpacki(0:3,0:3,5),metricderivsi(0:3,0:3,3),veli(3),densi,ui,pi
+ real, intent(in)  :: xyzi(3),grpacki(:,:,:),metricderivsi(0:3,0:3,3),veli(3),densi,ui,pi
  real, intent(out) :: fexti(3),dtf
 
  call forcegr(xyzi,grpacki,metricderivsi,veli,densi,ui,pi,fexti)
@@ -73,7 +73,7 @@ end subroutine dt_grforce
 subroutine forcegr(x,grpacki,metricderivsi,v,dens,u,p,fterm)
  use metric_tools, only:unpack_grpacki
  use utils_gr,     only:get_u0
- real, intent(in)  :: x(3),grpacki(0:3,0:3,5),metricderivsi(0:3,0:3,3),v(3),dens,u,p
+ real, intent(in)  :: x(3),grpacki(:,:,:),metricderivsi(0:3,0:3,3),v(3),dens,u,p
  real, intent(out) :: fterm(3)
  real    :: gcov(0:3,0:3), gcon(0:3,0:3), dgcovdx1(0:3,0:3), dgcovdx2(0:3,0:3), dgcovdx3(0:3,0:3)
  real    :: v4(0:3), term(0:3,0:3)

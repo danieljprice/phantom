@@ -183,7 +183,7 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
  use metric_tools, only:get_grpacki
  real, intent(in) :: x(1:3),v(1:3),dens,u,p
  integer, intent(inout) :: ntests,npass
- real :: grpacki(0:3,0:3,5)
+ real :: grpacki(0:3,0:3,2)
  real :: rho,pmom(1:3),en
  real :: v_out(1:3),dens_out,u_out,p_out
  real, parameter :: tol = 4.e-12

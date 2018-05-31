@@ -57,7 +57,7 @@ subroutine prim2consphantom_i(xyzhi,grpacki,vxyzui,dens_i,pxyzui,use_dens)
  use utils_gr,     only:h2dens
  use eos,          only:equationofstate,ieos
  real, dimension(4), intent(in)  :: xyzhi, vxyzui
- real,               intent(in)  :: grpacki(0:3,0:3,5)
+ real,               intent(in)  :: grpacki(:,:,:)
  real, intent(inout)             :: dens_i
  real, dimension(4), intent(out) :: pxyzui
  logical, intent(in), optional   :: use_dens
@@ -90,7 +90,7 @@ end subroutine prim2consphantom_i
 
 subroutine prim2cons_i(pos,grpacki,vel,dens,u,P,rho,pmom,en)
  use cons2primsolver, only:primitive2conservative
- real, intent(in)  :: pos(1:3),grpacki(0:3,0:3,5)
+ real, intent(in)  :: pos(1:3),grpacki(:,:,:)
  real, intent(in)  :: dens,vel(1:3),u,P
  real, intent(out) :: rho,pmom(1:3),en
 
@@ -140,7 +140,7 @@ subroutine cons2primphantom_i(xyzhi,grpacki,pxyzui,vxyzui,densi,pressure,ierr)
  use utils_gr,        only:rho2dens
  use eos,             only:equationofstate,ieos
  real, dimension(4),         intent(in)    :: xyzhi,pxyzui
- real, dimension(0:3,0:3,5), intent(in)    :: grpacki
+ real, dimension(:,:,:),     intent(in)    :: grpacki
  real, dimension(4),         intent(inout) :: vxyzui
  real,    intent(inout)                    :: densi
  real,    intent(out),  optional      :: pressure
@@ -162,7 +162,7 @@ end subroutine cons2primphantom_i
 
 subroutine cons2prim_i(pos,grpacki,vel,dens,u,P,rho,pmom,en,ierr)
  use cons2primsolver, only:conservative2primitive
- real, intent(in)     :: pos(1:3), grpacki(0:3,0:3,5)
+ real, intent(in)     :: pos(1:3), grpacki(:,:,:)
  real, intent(in)     :: rho,pmom(1:3),en
  real, intent(out)    :: vel(1:3),u
  real, intent(inout)  :: dens,P      ! Intent=inout because we need their previous values as an initial guess in the solver

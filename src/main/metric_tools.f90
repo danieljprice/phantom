@@ -220,7 +220,6 @@ subroutine get_grpacki(xyz,grpacki)
  real :: sqrtg
 
  call get_metric(xyz,gcov=grpacki(:,:,1),gcon=grpacki(:,:,2),sqrtg=sqrtg)
- call get_metric_derivs(xyz,dgcovdx1=grpacki(:,:,3),dgcovdx2=grpacki(:,:,4),dgcovdx3=grpacki(:,:,5))
 
 end subroutine get_grpacki
 
@@ -235,9 +234,9 @@ end subroutine pack_metricderivs
 !
 !--- Subroutine to return metric/components from grpack
 !
-subroutine unpack_grpacki(grpacki,gcov,gcon,gammaijdown,gammaijUP,dg1,dg2,dg3,alpha,betadown,betaUP)
- real, intent(in),  dimension(0:3,0:3,5)         :: grpacki
- real, intent(out), dimension(0:3,0:3), optional :: gcov,gcon,dg1,dg2,dg3
+subroutine unpack_grpacki(grpacki,gcov,gcon,gammaijdown,gammaijUP,alpha,betadown,betaUP)
+ real, intent(in), dimension(0:3,0:3,2) :: grpacki
+ real, intent(out), dimension(0:3,0:3), optional :: gcov,gcon
  real, intent(out), dimension(1:3,1:3), optional :: gammaijdown,gammaijUP
  real, intent(out),                     optional :: alpha,betadown(3),betaUP(3)
  real, allocatable, dimension(:,:) :: gammaijUP_  ! <-- Only allocate when needed (expensive?)
@@ -259,15 +258,12 @@ subroutine unpack_grpacki(grpacki,gcov,gcon,gammaijdown,gammaijUP,dg1,dg2,dg3,al
     gammaijUP   = gammaijUP_
  endif
 
- if (present(gcov))        gcov        = grpacki(:,:,1)
- if (present(gcon))        gcon        = grpacki(:,:,2)
+ if (present(gcov))        gcov        = grpacki(0:3,0:3,1)
+ if (present(gcon))        gcon        = grpacki(0:3,0:3,2)
  if (present(gammaijdown)) gammaijdown = grpacki(1:3,1:3,1)
  if (present(alpha))       alpha       = alpha_
  if (present(betadown))    betadown    = grpacki(0,1:3,1)
  if (present(betaUP))      betaUP      = betaUP_
- if (present(dg1))         dg1         = grpacki(:,:,3)
- if (present(dg2))         dg2         = grpacki(:,:,4)
- if (present(dg3))         dg3         = grpacki(:,:,5)
 
 end subroutine unpack_grpacki
 
