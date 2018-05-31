@@ -17,28 +17,37 @@ contains
    integer,           intent(in) :: n
    logical, optional, intent(in) :: part_only
 
+   logical :: part_only_
    character(len=11) :: sizestring
 
    if (n > maxp_hard) call fatal('memory', 'Trying to allocate above maxp hard limit.')
 
+   if (present(part_only)) then
+     part_only_ = part_only
+   else
+     part_only_ = .false.
+   endif
+
    call update_max_sizes(n)
 
    write(iprint, *)
-   write(iprint, '(a)') '--> ALLOCATING ARRAYS'
+   if (part_only_) then
+     write(iprint, '(a)') '--> ALLOCATING PART ARRAYS'
+   else
+     write(iprint, '(a)') '--> ALLOCATING ALL ARRAYS'
+   endif
    write(iprint, '(a)') '---------------------------------------------------------'
 
    if (nbytes_allocated > 0.0) then
       call error('part', 'Attempting to allocate memory, but memory is already allocated. &
       & Deallocating and then allocating again.')
-      call deallocate_memory
+      call deallocate_memory(part_only=part_only_)
    endif
 
    call allocate_part
-   if (present(part_only)) then
-     if (part_only) then
-       call allocate_kdtree
-       call allocate_linklist
-     endif
+   if (.not. part_only_) then
+     call allocate_kdtree
+     call allocate_linklist
    endif
 
    call bytes2human(nbytes_allocated, sizestring)
@@ -48,14 +57,25 @@ contains
 
  end subroutine allocate_memory
 
- subroutine deallocate_memory
+ subroutine deallocate_memory(part_only)
     use part, only:deallocate_part
     use kdtree, only:deallocate_kdtree
     use linklist, only:deallocate_linklist
 
+    logical, optional, intent(in) :: part_only
+    logical :: part_only_
+
+    if (present(part_only)) then
+      part_only_ = part_only
+    else
+      part_only_ = .false.
+    endif
+
     call deallocate_part
-    call deallocate_kdtree
-    call deallocate_linklist
+    if (.not. part_only_) then
+      call deallocate_kdtree
+      call deallocate_linklist
+    endif
  end subroutine deallocate_memory
 
 end module memory

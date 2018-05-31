@@ -65,12 +65,6 @@ program phantomsetup
 #endif
  logical                  :: iexist
 
- ! In general, setup routines do not know the number of particles until they
- ! are written. Need to allocate up to the hard limit. Legacy setup routines may
- ! also rely on maxp being set to the number of desired particles. Allocate only
- ! part, not kdtree or linklist
- call allocate_memory(maxp_hard, part_only=.true.)
-
  call set_io_unit_numbers
  call set_units
  call set_boundary
@@ -104,6 +98,15 @@ program phantomsetup
 !--if input file exists, read it
 !
  if (iexist) call read_infile(infile,logfile,evfile,dumpfile)
+
+!
+!--In general, setup routines do not know the number of particles until they
+!  are written. Need to allocate up to the hard limit. Legacy setup routines may
+!  also rely on maxp being set to the number of desired particles. Allocate only
+!  part, not kdtree or linklist
+!
+ call allocate_memory(maxp_hard, part_only=.true.)
+
 !
 !--reset logfile name
 !
@@ -225,6 +228,6 @@ program phantomsetup
  enddo
 
  call finalise_mpi
- call deallocate_memory
+ call deallocate_memory(part_only=.true.)
 
 end program phantomsetup
