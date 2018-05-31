@@ -301,9 +301,11 @@ contains
 #endif
 #endif
 
-#ifndef CONST_AV
-    maxalpha = maxp
-#endif
+    if (nalpha > 0) then
+       maxalpha = maxp
+    else
+       maxalpha = 0
+    endif
 
 #ifdef MHD
     maxmhd = maxp
