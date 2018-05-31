@@ -53,9 +53,9 @@ end subroutine get_grforce_all
 !--- Subroutine to calculate the timestep constraint from the 'external force'
 !    this is multiplied by the safety factor C_force elsewhere
 subroutine dt_grforce(xyzh,fext,dtf)
-! #ifdef FINVSQRT
-!  use fastmath, only:finvsqrt
-! #endif
+#ifdef FINVSQRT
+ use fastmath, only:finvsqrt
+#endif
  use physcon,  only:pi
  real, intent(in)  :: xyzh(4),fext(3)
  real, intent(out) :: dtf
@@ -63,11 +63,11 @@ subroutine dt_grforce(xyzh,fext,dtf)
  integer, parameter :: steps_per_orbit = 100
 
  f2i = fext(1)*fext(1) + fext(2)*fext(2) + fext(3)*fext(3)
-! #ifdef FINVSQSRT
-!  dtf1 = sqrt(hi*finvsqrt(f2i))
-! #else
+#ifdef FINVSQSRT
+ dtf1 = sqrt(hi*finvsqrt(f2i))
+#else
  dtf1 = sqrt(xyzh(4)/sqrt(f2i)) ! This is not really accurate since fi is a component of dp/dt, not da/dt
-! #endif
+#endif
 
  r2   = xyzh(1)*xyzh(1) + xyzh(2)*xyzh(2) + xyzh(3)*xyzh(3)
  r    = sqrt(r2)
