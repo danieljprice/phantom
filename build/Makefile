@@ -1536,8 +1536,9 @@ edit: checksetup
 # these are the sources for anything which uses the readwrite_dumps module
 #
 SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 \
-         utils_dumpfiles.f90 utils_mathfunc.f90 utils_infiles.f90 utils_vectors.f90 \
-         utils_datafiles.f90 datafiles.f90 ${DOMAIN} part.F90 utils_sphNG.f90 \
+         utils_infiles.f90 utils_allocate.f90 part.F90 dtype_kdtree.f90 kdtree.F90 linklist_kdtree.F90 memory.f90 \
+         utils_dumpfiles.f90 utils_mathfunc.f90 utils_vectors.f90 \
+         utils_datafiles.f90 datafiles.f90 ${DOMAIN} utils_sphNG.f90 \
          commons.f90 ${SRCFASTMATH} ${SRCEOS} centreofmass.f90 ${SRCPOT} checkoptions.F90 \
          viscosity.f90 options.f90 prompting.f90 ${SRCDUST} \
          readwrite_dumps.F90
@@ -1551,10 +1552,9 @@ physcon.o: .make_mathflags
 #----------------------------------------------------
 # these are the sources for phantom setup utility
 #
-SRCSETUP= utils_allocate.f90 utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_filenames.f90 utils_summary.F90 \
+SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_filenames.f90 utils_summary.F90 \
           utils_tables.f90 random.f90 mpi_balance.F90 set_binary.f90 set_flyby.f90 \
-          utils_indtimesteps.F90 partinject.F90 dtype_kdtree.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
-          memory.f90 \
+          utils_indtimesteps.F90 partinject.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} \
           ptmass.F90 energies.F90 \
           geometry.f90 stretchmap.f90 density_profiles.f90 \
@@ -1695,7 +1695,7 @@ cleanphantom2power:
 #
 OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_filenames.f90 utils_indtimesteps.F90 \
           checksetup.f90 \
-          set_Bfield.f90 ${LINKLIST} \
+          set_Bfield.f90 \
           partinject.F90 random.f90 set_disc.F90 set_binary.f90 ${SRCINJECT} \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} \
           density_profiles.f90 ptmass.F90 readwrite_infile.f90 ${MODFILE:.f90=.o}
