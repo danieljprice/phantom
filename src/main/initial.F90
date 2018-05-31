@@ -205,7 +205,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef MPI
  use balance,          only:balancedomains
- use domain,           only:ibelong
+ use part,             only:ibelong
 #endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:gamma,polyk,ieos,init_eos

@@ -1430,10 +1430,9 @@ end subroutine add_child_nodes
 subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,np,ndim,cellatid,ifirstincell,ncells)
  use io,           only:fatal,warning,id,nprocs
  use mpiutils,     only:reduceall_mpi
- use domain,       only:ibelong
  use balance,      only:balancedomains
  use mpiderivs,    only:tree_sync,tree_bcast
- use part,         only:isdead_or_accreted,iactive
+ use part,         only:isdead_or_accreted,iactive,ibelong
 
  type(kdnode), intent(out)     :: nodeglobal(ncellsmax+1)
  type(kdnode), intent(out)     :: node(ncellsmax+1)
