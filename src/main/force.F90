@@ -340,6 +340,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  if (maxgradh /= maxp) call fatal('force','need storage of gradh (maxgradh=maxp)')
 
 !$omp parallel default(none) &
+!$omp shared(maxp,maxphase) &
 !$omp shared(ncells,ll,ifirstincell) &
 !$omp shared(xyzh) &
 !$omp shared(dustprop) &
