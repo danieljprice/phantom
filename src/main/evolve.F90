@@ -89,6 +89,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use part,             only:pxyzu,dens,grpack,metricderivs
  use cons2prim,        only:primitive_to_conservative
  use metric_tools,     only:init_metric
+ use extern_gr,        only:get_grforce_all
 #endif
 #endif
 #ifdef LIVE_ANALYSIS
@@ -260,6 +261,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #ifdef GR
     call init_metric(npart,xyzh,grpack,metricderivs)
     call primitive_to_conservative(npart,xyzh,grpack,vxyzu,dens,pxyzu,use_dens=.false.)
+    call get_grforce_all(npart,xyzh,grpack,vxyzu,dens,fext,dtextforce)
 #endif
 #ifdef IND_TIMESTEPS
     do iloop=npart_old+1,npart

@@ -157,7 +157,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef GR
  use cons2prim,        only:primitive_to_conservative
  use eos,              only:equationofstate,ieos
- use extern_gr,        only:get_grforce
+ use extern_gr,        only:get_grforce_all
  use metric_tools,     only:init_metric
 #endif
 #ifdef PHOTO
@@ -242,9 +242,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  logical         :: iexist
  integer :: ncount(maxtypes)
  character(len=len(dumpfile)) :: dumpfileold,fileprefix
-#ifdef GR
- real :: pi,pondensi,spsoundi
-#endif
 
 !
 !--do preliminary initialisation
@@ -480,19 +477,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  if (iexternalforce > 0) then
     call initialise_externalforces(iexternalforce,ierr)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
-    !$omp parallel do default(none) &
-    !$omp shared(npart,xyzh,grpack,vxyzu,dens,fext,iexternalforce,ieos,C_force) &
-    !$omp private(i,dtf,spsoundi,pondensi,pi) &
-    !$omp reduction(min:dtextforce)
-    do i=1,npart
-       if (.not.isdead_or_accreted(xyzh(4,i))) then
-          call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
-          pi = pondensi*dens(i)
-          call get_grforce(xyzh(1:3,i),grpack(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
-          dtextforce = min(dtextforce,C_force*dtf)
-       endif
-    enddo
-    !$omp end parallel do
+    call get_grforce_all(npart,xyzh,grpack,vxyzu,dens,fext,dtextforce)
     write(iprint,*) 'dt(extforce)  = ',dtextforce
  endif
 #else

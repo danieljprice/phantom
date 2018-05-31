@@ -1,7 +1,7 @@
 module extern_gr
  implicit none
 
- public :: get_grforce, update_grforce_leapfrog
+ public :: get_grforce, get_grforce_all, update_grforce_leapfrog
 
  private
 
@@ -22,6 +22,33 @@ subroutine get_grforce(xyzi,grpacki,veli,densi,ui,pi,fexti,dtf)
  call dt_grforce(xyzi,dtf)
 
 end subroutine get_grforce
+
+subroutine get_grforce_all(npart,xyzh,grpack,vxyzu,dens,fext,dtexternal)
+ use timestep, only:C_force
+ use eos,      only:equationofstate,ieos
+ use part,     only:isdead_or_accreted
+ integer, intent(in) :: npart
+ real, intent(in)    :: xyzh(:,:), grpack(:,:,:,:), dens(:)
+ real, intent(inout) :: vxyzu(:,:)
+ real, intent(out)   :: fext(:,:), dtexternal
+ integer :: i
+ real    :: dtf,pi,pondensi,spsoundi
+
+ !$omp parallel do default(none) &
+ !$omp shared(npart,xyzh,grpack,vxyzu,dens,fext,ieos,C_force) &
+ !$omp private(i,dtf,spsoundi,pondensi,pi) &
+ !$omp reduction(min:dtexternal)
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+       pi = pondensi*dens(i)
+       call get_grforce(xyzh(1:3,i),grpack(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
+       dtexternal = min(dtexternal,C_force*dtf)
+    endif
+ enddo
+ !$omp end parallel do
+
+end subroutine get_grforce_all
 
 !--- Subroutine to calculate the timestep constraint from the 'external force'
 subroutine dt_grforce(xyz,dtf)
