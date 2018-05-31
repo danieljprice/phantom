@@ -83,7 +83,7 @@ module kdtree
 contains
 
  subroutine allocate_kdtree
-    use allocutils, only:allocate_array,nbytes_allocated
+    use allocutils, only:allocate_array
 
     call allocate_array('inoderange', inoderange, 2, ncellsmax+1)
     call allocate_array('inodeparts', inodeparts, maxp)
