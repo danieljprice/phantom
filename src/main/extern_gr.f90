@@ -52,13 +52,16 @@ end subroutine get_grforce_all
 
 !--- Subroutine to calculate the timestep constraint from the 'external force'
 subroutine dt_grforce(xyz,dtf)
+ use physcon, only:pi
  real, intent(in)  :: xyz(3)
  real, intent(out) :: dtf
- real :: r,r2
+ real :: r,r2,omega
+ integer, parameter :: steps_per_orbit = 500
 
- r2 = xyz(1)*xyz(1) + xyz(2)*xyz(2) + xyz(3)*xyz(3)
- r  = sqrt(r2)
- dtf = 0.25*sqrt(r*r2)*1.e-2 ! Should change this to steps per orbit ?? Or something better perhaps
+ r2    = xyz(1)*xyz(1) + xyz(2)*xyz(2) + xyz(3)*xyz(3)
+ r     = sqrt(r2)
+ omega = 1./sqrt(r*r2)
+ dtf   = (2.*pi/omega)/steps_per_orbit
 
 end subroutine dt_grforce
 
