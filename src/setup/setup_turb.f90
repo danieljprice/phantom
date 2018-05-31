@@ -42,7 +42,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,            only:use_dust,ndusttypes
+ use dim,            only:use_dust,ndusttypes,maxp,maxp_dustfrac
  use options,        only:use_dustfrac,nfulldump,beta
  use setup_params,   only:rhozero,npart_total,ihavesetupB
  use io,             only:master
@@ -66,7 +66,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  character(len=26)                :: filename
- integer :: ipart,i,maxp,maxvxyzu,dust_method
+ integer :: ipart,i,maxp_setup,maxvxyzu,dust_method
  logical :: iexist
  real :: totmass,deltax
  real :: Bz_0, dust_to_gas
@@ -94,11 +94,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--setup particles
 !
- maxp = size(xyzh(1,:))
+ maxp_setup = size(xyzh(1,:))
  maxvxyzu = size(vxyzu(:,1))
  if (id==master) then
     npartx = 64
-    call prompt('Enter number of particles in x ',npartx,16,nint((maxp)**(1/3.)))
+    call prompt('Enter number of particles in x ',npartx,16,nint((maxp_setup)**(1/3.)))
  endif
  call bcast_mpi(npartx)
  deltax = dxbound/npartx
@@ -191,7 +191,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (use_dustfrac) then
        call set_dustfrac_from_inopts(dust_to_gas,percent=dustfrac_percent,ipart=i)
     else
-       dustfrac(:,i) = 0.
+       if (maxp_dustfrac == maxp) then
+          dustfrac(:,i) = 0.
+       endif
     endif
  enddo
 
@@ -200,4 +202,3 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 end subroutine setpart
 
 end module setup
-
