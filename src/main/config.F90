@@ -291,7 +291,7 @@ contains
 #ifdef NCELLSMAX
     ncellsmax = NCELLSMAX
 #else
-    ncellsmax = maxp
+    ncellsmax = min(2*maxp,maxp_hard)
 #endif
 
 #ifdef DUST
