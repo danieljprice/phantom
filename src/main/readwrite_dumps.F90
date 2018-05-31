@@ -1592,7 +1592,7 @@ end subroutine check_arrays
 subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
                          nblocks,npart,npartoftype, &
                          tfile,hfactfile,alphafile,iprint,id,nprocs,ierr)
- use dim,        only:maxp
+ use dim,        only:maxp_hard
  use io,         only:master ! check this
  use eos,        only:isink
  use part,       only:maxtypes,igas,idust
@@ -1652,7 +1652,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
 
 !--non-MPI dumps
  if (nprocs==1) then
-    if (nparttoti > maxp) then
+    if (nparttoti > maxp_hard) then
        write (*,*) 'ERROR in readdump: number of particles exceeds MAXP: recompile with MAXP=',nparttoti
        ierr = 4
        return
