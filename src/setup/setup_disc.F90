@@ -1465,8 +1465,8 @@ subroutine read_setupfile(filename,ierr)
  !--read old options for backwards compatibility
  call open_db_from_file(db,filename,iunit,ierr)
  call read_inopt(icentral,'icentral',db,err=ierr)
- call close_db(db)
  if (ierr /= 0) obsolete_flag = .true.
+ call close_db(db)
  if (obsolete_flag) then
     print "(a)",' reading obsolete .setup file'
     call read_obsolete_setup_options(filename)
@@ -1485,6 +1485,7 @@ subroutine read_setupfile(filename,ierr)
        use_dustfrac = .false.
        if (ndusttypes > 1) call fatal('setup','dust_method=2 is currently only compatible with ndusttypes=1!')
     end select
+    call read_inopt(profile_set_dust,'profile_set_dust',db,err=ierr)
  endif
  !--resolution
  call read_inopt(np,'np',db,min=0,max=maxp,errcount=nerr)
@@ -1636,14 +1637,19 @@ subroutine read_setupfile(filename,ierr)
              itaperdust(i)  = itapergas(i)
              ismoothdust(i) = ismoothgas(i)
              R_c_dust(i)    = R_c(i)
-          case (1)
-             call read_inopt(R_indust(i),'R_indust'//trim(disclabel),db,min=R_in(i),errcount=nerr)
-             call read_inopt(R_outdust(i),'R_outdust'//trim(disclabel),db,min=R_indust(i),max=R_out(i),errcount=nerr)
-             call read_inopt(pindex_dust(i),'pindex_dust'//trim(disclabel),db,errcount=nerr)
-             call read_inopt(itaperdust(i),'itaperdust'//trim(disclabel),db,errcount=nerr)
-             call read_inopt(ismoothdust(i),'ismoothdust'//trim(disclabel),db,errcount=nerr)
+          case (1,2)
+             call read_inopt(R_indust(i),'R_indust'//trim(disclabel),db,min=R_in(i),err=ierr,errcount=nerr)
+             if (ierr /= 0) R_indust(i) = R_in(i)
+
+             call read_inopt(R_outdust(i),'R_outdust'//trim(disclabel),db,min=R_indust(i),max=R_out(i),err=ierr,errcount=nerr)
+             if (ierr /= 0) R_outdust(i) = R_out(i)
+             call read_inopt(pindex_dust(i),'pindex_dust'//trim(disclabel),db,err=ierr,errcount=nerr)
+             if (ierr /= 0) pindex_dust(i) = pindex(i)
+             call read_inopt(itaperdust(i),'itaperdust'//trim(disclabel),db,err=ierr,errcount=nerr)
+             call read_inopt(ismoothdust(i),'ismoothdust'//trim(disclabel),db,err=ierr,errcount=nerr)
              if (itaperdust(i)) then
-                call read_inopt(R_c_dust(i),'R_c_dust'//trim(disclabel),db,min=0.,errcount=nerr)
+                call read_inopt(R_c_dust(i),'R_c_dust'//trim(disclabel),db,min=0.,err=ierr,errcount=nerr)
+                if (ierr /= 0) R_c_dust(i) = R_c(i)
              endif
              if (.not. use_dustfrac) then
                 call read_inopt(qindex_dust(i),'qindex_dust'//trim(disclabel),db,err=ierr,errcount=nerr)
