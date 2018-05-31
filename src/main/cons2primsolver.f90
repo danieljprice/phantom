@@ -120,7 +120,7 @@ subroutine conservative2primitive(x,grpacki,v,dens,u,P,rho,pmom,en,ierr,ien_type
  integer, intent(out) :: ierr
  integer, intent(in)  :: ien_type
  real, dimension(1:3,1:3) :: gammaijUP
- real :: sqrtg,enth,lorentz_LEO,pmom2,alpha,betadown(1:3),enth_old,v3d(1:3)
+ real :: sqrtg,enth,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
  real :: f,df
  integer :: niter, i,j
  real, parameter :: tol = 1.e-12
@@ -132,7 +132,7 @@ subroutine conservative2primitive(x,grpacki,v,dens,u,P,rho,pmom,en,ierr,ien_type
  sqrtg = 1.
 
  ! Get metric components from grpack
- call unpack_grpacki(grpacki,gammaijUP=gammaijUP,alpha=alpha,betadown=betadown)
+ call unpack_grpacki(grpacki,gammaijUP=gammaijUP,alpha=alpha,betadown=betadown,betaUP=betaUP)
 
  pmom2 = dot_product_gr(pmom,pmom,gammaijUP)
 
@@ -146,7 +146,7 @@ subroutine conservative2primitive(x,grpacki,v,dens,u,P,rho,pmom,en,ierr,ien_type
     lorentz_LEO = sqrt(1.+pmom2/enth_old**2)
     dens = rho*alpha/(sqrtg*lorentz_LEO)
 
-    p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product_gr(pmom,betadown,gammaijUP)),0.)
+    p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product(pmom,betaUP)),0.)
     if (ien_type == ien_entropy) p = en*dens**gamma
     if (ieos==4) p = (gamma-1.)*dens*polyk
 
@@ -178,7 +178,7 @@ subroutine conservative2primitive(x,grpacki,v,dens,u,P,rho,pmom,en,ierr,ien_type
  lorentz_LEO = sqrt(1.+pmom2/enth**2)
  dens = rho*alpha/(sqrtg*lorentz_LEO)
 
- p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product_gr(pmom,betadown,gammaijUP)),0.)
+ p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product(pmom,betaUP)),0.)
  if (ien_type == ien_entropy) p = en*dens**gamma
 
  v3d(:) = alpha*pmom(:)/(enth*lorentz_LEO)-betadown(:)
