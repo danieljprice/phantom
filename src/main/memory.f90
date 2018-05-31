@@ -13,6 +13,9 @@ contains
   use part, only:allocate_part
   use kdtree, only:allocate_kdtree
   use linklist, only:allocate_linklist
+#ifdef PHOTO
+  use photoevap, only:allocate_photoevap
+#endif
 
    integer,           intent(in) :: n
    logical, optional, intent(in) :: part_only
@@ -48,6 +51,9 @@ contains
    if (.not. part_only_) then
      call allocate_kdtree
      call allocate_linklist
+#ifdef PHOTO
+     call allocate_photoevap
+#endif
    endif
 
    call bytes2human(nbytes_allocated, sizestring)
@@ -61,6 +67,9 @@ contains
     use part, only:deallocate_part
     use kdtree, only:deallocate_kdtree
     use linklist, only:deallocate_linklist
+#ifdef PHOTO
+    use photoevap, only:deallocate_photoevap
+#endif
 
     logical, optional, intent(in) :: part_only
     logical :: part_only_
@@ -75,6 +84,9 @@ contains
     if (.not. part_only_) then
       call deallocate_kdtree
       call deallocate_linklist
+#ifdef PHOTO
+      call deallocate_photoevap
+#endif
     endif
  end subroutine deallocate_memory
 
