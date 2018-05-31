@@ -78,15 +78,12 @@ subroutine forcegr(x,grpacki,metricderivsi,v,dens,u,p,fterm)
  use utils_gr,     only:get_u0
  real, intent(in)  :: x(3),grpacki(:,:,:),metricderivsi(0:3,0:3,3),v(3),dens,u,p
  real, intent(out) :: fterm(3)
- real    :: gcov(0:3,0:3), gcon(0:3,0:3), dgcovdx1(0:3,0:3), dgcovdx2(0:3,0:3), dgcovdx3(0:3,0:3)
+ real    :: gcov(0:3,0:3), gcon(0:3,0:3)
  real    :: v4(0:3), term(0:3,0:3)
  real    :: enth, uzero
- integer :: i,j
+ integer :: i
 
  call unpack_grpacki(grpacki,gcov=gcov,gcon=gcon)
- dgcovdx1 = metricderivsi(:,:,1)
- dgcovdx2 = metricderivsi(:,:,2)
- dgcovdx3 = metricderivsi(:,:,3)
 
  enth = 1. + u + p/dens
 
@@ -98,22 +95,16 @@ subroutine forcegr(x,grpacki,metricderivsi,v,dens,u,p,fterm)
  call get_u0(gcov,v,uzero)
 
  ! energy-momentum tensor times sqrtg on 2rho*
- do j=0,3
-    do i=0,3
-       term(i,j) = 0.5*(enth*uzero*v4(i)*v4(j) + P*gcon(i,j)/(dens*uzero))
-    enddo
+ do i=0,3
+    term(0:3,i) =  0.5*(enth*uzero*v4(0:3)*v4(i) + P*gcon(0:3,i)/(dens*uzero))
  enddo
 
  ! source term
- fterm(1) = 0.
- fterm(2) = 0.
- fterm(3) = 0.
- do j=0,3
-    do i=0,3
-       fterm(1) = fterm(1) + term(i,j)*dgcovdx1(i,j)
-       fterm(2) = fterm(2) + term(i,j)*dgcovdx2(i,j)
-       fterm(3) = fterm(3) + term(i,j)*dgcovdx3(i,j)
-    enddo
+ fterm = 0.
+ do i=0,3
+   fterm(1) =  fterm(1) + dot_product(term(i,:),metricderivsi(i,:,1))
+   fterm(2) =  fterm(2) + dot_product(term(i,:),metricderivsi(i,:,2))
+   fterm(3) =  fterm(3) + dot_product(term(i,:),metricderivsi(i,:,3))
  enddo
 
 end subroutine forcegr
