@@ -103,7 +103,9 @@ contains
     deallocate(xyzh_swap)
     deallocate(inodeparts_swap)
     deallocate(iphase_swap)
+#ifdef MPI
     deallocate(refinementnode)
+#endif
     !$omp parallel
     deallocate(list)
     !$omp end parallel
