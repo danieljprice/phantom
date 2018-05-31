@@ -239,23 +239,20 @@ subroutine unpack_grpacki(grpacki,gcov,gcon,gammaijdown,gammaijUP,alpha,betadown
  real, intent(out), dimension(0:3,0:3), optional :: gcov,gcon
  real, intent(out), dimension(1:3,1:3), optional :: gammaijdown,gammaijUP
  real, intent(out),                     optional :: alpha,betadown(3),betaUP(3)
- real, allocatable, dimension(:,:) :: gammaijUP_  ! <-- Only allocate when needed (expensive?)
- real :: alpha_,betaUP_(3)                        ! <-- These are cheap to allocate ?
+ real :: alpha_,betaUP_(3)
  integer :: i,j
 
  if (present(alpha).or.present(betaUP).or.present(gammaijUP)) alpha_  = sqrt(-1./grpacki(0,0,2))
  if (present(betaUP).or.present(gammaijUP))                   betaUP_ = grpacki(0,1:3,2) * (alpha_**2)
  !                                                                     |^ gcon_(0,1:3) ^|
  if (present(gammaijUP)) then
-    allocate(gammaijUP_(1:3,1:3))
-    gammaijUP_   = 0.
+    gammaijUP = 0.
     do j=1,3
       do i=1,3
-         gammaijUP_(i,j) = grpacki(i,j,2) + betaUP_(i)*betaUP_(j)/alpha_**2
+         gammaijUP(i,j) = grpacki(i,j,2) + betaUP_(i)*betaUP_(j)/alpha_**2
          !                |^ gcon_(i,j) ^|
       enddo
     enddo
-    gammaijUP   = gammaijUP_
  endif
 
  if (present(gcov))        gcov        = grpacki(0:3,0:3,1)
