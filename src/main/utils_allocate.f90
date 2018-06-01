@@ -1,5 +1,5 @@
 module allocutils
-use io,           only:fatal,error,iprint
+use io,           only:fatal,error,iprint,nprocs
 use dtypekdtree,  only:kdnode,kdnode_bytes
 
  implicit none
@@ -223,7 +223,7 @@ contains
 
     call bytes2human(nbytes, sizestring)
 
-    write(iprint, '(a10, a22, a14, a11)') type, name, dimstring, sizestring
+    if (nprocs == 1) write(iprint, '(a10, a22, a14, a11)') type, name, dimstring, sizestring
  end subroutine print_allocation_stats
 
 subroutine bytes2human(bytes, sizestring)

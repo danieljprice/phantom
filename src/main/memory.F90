@@ -7,7 +7,7 @@ contains
  !--Allocate all allocatable arrays: mostly part arrays, and tree structures
  !
  subroutine allocate_memory(n, part_only)
-  use io, only:iprint,error,fatal
+  use io, only:iprint,error,fatal,nprocs,id
   use dim, only:update_max_sizes,maxp_hard
   use allocutils, only:nbytes_allocated,bytes2human
   use part, only:allocate_part
@@ -33,13 +33,15 @@ contains
 
    call update_max_sizes(n)
 
-   write(iprint, *)
-   if (part_only_) then
-     write(iprint, '(a)') '--> ALLOCATING PART ARRAYS'
-   else
-     write(iprint, '(a)') '--> ALLOCATING ALL ARRAYS'
+   if (nprocs == 1) then
+     write(iprint, *)
+     if (part_only_) then
+       write(iprint, '(a)') '--> ALLOCATING PART ARRAYS'
+     else
+       write(iprint, '(a)') '--> ALLOCATING ALL ARRAYS'
+     endif
+     write(iprint, '(a)') '---------------------------------------------------------'
    endif
-   write(iprint, '(a)') '---------------------------------------------------------'
 
    if (nbytes_allocated > 0.0) then
       call error('part', 'Attempting to allocate memory, but memory is already allocated. &
@@ -57,9 +59,13 @@ contains
    endif
 
    call bytes2human(nbytes_allocated, sizestring)
-   write(iprint, '(a)') '---------------------------------------------------------'
-   write(iprint, *) 'Total memory allocated to arrays: ', sizestring
-   write(iprint, '(a)') '---------------------------------------------------------'
+   if (nprocs == 1) then
+     write(iprint, '(a)') '---------------------------------------------------------'
+     write(iprint, *) 'Total memory allocated to arrays: ', sizestring
+     write(iprint, '(a)') '---------------------------------------------------------'
+   else
+     write(iprint, *) id, 'allocated ', sizestring
+   endif
 
  end subroutine allocate_memory
 
