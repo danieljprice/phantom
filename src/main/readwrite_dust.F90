@@ -470,18 +470,19 @@ end subroutine get_units_factor
 !  (originally written for setup_disc, but also needed for moddump/old setups)
 !+
 !-----------------------------------------------------------------------
-subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple)
+subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple,imethod)
  use options,      only:use_dustfrac
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use dust,         only:set_grainsize,grainsize,graindens
  use units,        only:udist,umass
  type(inopts), allocatable, intent(inout) :: db(:)
- integer, intent(inout) :: nerr
- real,    intent(out)   :: dust_to_gas
- real,                      intent(out),   optional :: df(:),gs(:),gd(:)
- logical,                   intent(in),    optional :: isimple
-
+ integer, intent(out), optional :: imethod
+ real,    intent(out), optional :: df(:),gs(:),gd(:)
+ logical, intent(in),  optional :: isimple
+ integer, intent(inout)         :: nerr
+ real,    intent(out)           :: dust_to_gas
  integer            :: i,ierr
+ integer            :: dust_method = -1
  real               :: grainsizeinp(ndusttypes)
  real               :: graindensinp(ndusttypes)
  real               :: dustfrac_percent(ndusttypes)
@@ -490,7 +491,20 @@ subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple)
  logical            :: simple_output    = .false.
  character(len=120) :: varlabel(ndusttypes)
 
- if (use_dustfrac) call read_inopt(ilimitdustflux,'ilimitdustflux',db,errcount=nerr)
+ call read_inopt(dust_method,'dust_method',db,min=1,max=2,errcount=nerr)
+ if (present(imethod)) imethod = dust_method
+
+ if (use_dustfrac) then
+    if (dust_method == 2) then
+       print*,'Warning! use_dustfrac = .true. AND two-fluid dust are incompatible'
+       print*,'   ...resetting use_dustfrac = .false.'
+       use_dustfrac = .false.
+    else
+       call read_inopt(ilimitdustflux,'ilimitdustflux',db,err=ierr,errcount=nerr)
+       if (ierr /= 0) nerr = nerr + 1
+    endif
+ endif
+
  call read_inopt(dust_to_gas,'dust_to_gas_ratio',db,min=0.,errcount=nerr)
 
  if (present(isimple)) simple_output = isimple
@@ -1109,6 +1123,7 @@ subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,
  use dim,          only:ndusttypes
  use io,           only:id,master
  use infile_utils, only:open_db_from_file,close_db,inopts
+ use options,      only:use_dustfrac
  real,    intent(out) :: dust_to_gas
  real,    intent(out) :: dustfrac_percent(:)
  integer, intent(in),  optional :: iprofile
@@ -1144,8 +1159,9 @@ subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,
        !--read from grains.tmp file
        call open_db_from_file(db,grainsfile,iunit,nerr)
        call read_dust_setup_options(db,nerr,dust_to_gas,df=dustfrac_percent,gs=grainsizeinp, &
-                                    gd=graindensinp)
+                                    gd=graindensinp,imethod=dust_method)
        call close_db(db)
+       if (dust_method == 2 .and. use_dustfrac) use_dustfrac = .false.
        if (id==master) then
           open(unit=iunit,file=grainsfile,status='replace',form='formatted')
           call write_dust_setup_options(iunit,dust_to_gas,df=dustfrac_percent,gs=grainsizeinp, &
@@ -1153,7 +1169,7 @@ subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,
           close(iunit)
        endif
        if (nerr /= 0) then
-          print*,'ERROR: inconsistent dust options! Rewriting '//trim(grainsfile)//'...'
+          print*,'ERROR: inconsistent dust options! Will try to rewrite '//trim(grainsfile)//'...'
           print "(/,a)",' >>> Try re-running the executable <<<'
           stop
        else
@@ -1200,6 +1216,7 @@ subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,
  case default
     stop 'Invalid ireadwrite option in write_temp_grains_file'
  end select
+ if (present(imethod)) imethod = dust_method
 
 end subroutine write_temp_grains_file
 

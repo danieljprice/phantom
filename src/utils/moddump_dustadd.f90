@@ -30,6 +30,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use dim,            only:use_dust,ndusttypes
  use part,           only:igas,idust,set_particle_type
  use readwrite_dust, only:write_temp_grains_file,set_dustfrac_from_inopts
+ use options,        only:use_dustfrac
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -41,10 +42,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (use_dust) then
     call write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod=dust_method)
     if (dust_method == 1) then
+       use_dustfrac = .true.
        call set_dustfrac_from_inopts(dust_to_gas,percent=dustfrac_percent)
 
        massoftype(igas) = massoftype(igas)*(1. + dust_to_gas)
     elseif (dust_method == 2) then
+       use_dustfrac = .false.
        npart = npartoftype(igas)
        npartoftype(idust) = npart
        massoftype(idust)  = massoftype(igas)*dust_to_gas
