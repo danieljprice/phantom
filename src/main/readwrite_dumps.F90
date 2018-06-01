@@ -941,6 +941,7 @@ end subroutine read_dump
 !-------------------------------------------------------------------
 
 subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
+ use memory,   only:allocate_memory
  use dim,      only:maxp,maxvxyzu,mhd,maxBevol
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:npart,npartoftype,maxtypes,nptmass,nsinkproperties,maxptmass, &
@@ -1022,6 +1023,11 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  endif
 
  call free_header(hdr,ierr)
+ !
+ !--Allocate main arrays
+ !
+ call allocate_memory(int(nparttot / nprocs))
+
 !
 !--arrays
 !
