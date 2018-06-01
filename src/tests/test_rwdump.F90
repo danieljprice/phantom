@@ -38,7 +38,7 @@ subroutine test_rwdump(ntests,npass)
                     nsinkproperties,xyzh_label,xyzmh_ptmass_label,dustfrac_label,&
                     vxyz_ptmass,vxyz_ptmass_label,vxyzu_label,set_particle_type,iphase
  use dim,             only:ndusttypes,maxp
- use memory,          only:allocate_memory
+ use memory,          only:allocate_memory,deallocate_memory
  use testutils,       only:checkval
  use io,              only:idisk1,id,master,iprint,nprocs
  use readwrite_dumps, only:read_dump,write_fulldump,write_smalldump,read_smalldump,is_small_dump
@@ -194,6 +194,7 @@ subroutine test_rwdump(ntests,npass)
        if (id==master) write(*,"(/,a)") '--> checking read_dump'
        ntests = ntests + 1
        nfailed = 0
+       call deallocate_memory
        call read_dump('test.dump',tfile,hfactfile,idisk1,iprint,id,nprocs,ierr)
        call checkval(ierr,is_small_dump,0,nfailed(1),'read_dump returns is_small_dump error code')
        if (all(nfailed==0)) npass = npass + 1
@@ -202,6 +203,7 @@ subroutine test_rwdump(ntests,npass)
        call read_smalldump('test.dump',tfile,hfactfile,idisk1,iprint,id,nprocs,ierr)
        toldp = epsilon(0._4)
     else
+       call deallocate_memory
        call read_dump('test.dump',tfile,hfactfile,idisk1,iprint,id,nprocs,ierr)
        toldp = tiny(toldp)
     endif
@@ -318,11 +320,10 @@ subroutine test_rwdump(ntests,npass)
        open(unit=idisk1,file='test.dump',status='old')
        close(unit=idisk1,status='delete')
     endif
-
  enddo over_tests
 
  if (id==master) write(*,"(/,a)") '<-- READ/WRITE TEST COMPLETE'
-
+ call deallocate_memory
  call allocate_memory(maxp_old)
 
 end subroutine test_rwdump
