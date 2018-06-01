@@ -77,6 +77,7 @@ contains
 #ifdef PHOTO
     use photoevap, only:deallocate_photoevap
 #endif
+    use allocutils, only:nbytes_allocated
 
     logical, optional, intent(in) :: part_only
     logical :: part_only_
@@ -96,6 +97,7 @@ contains
 #endif
     endif
 
+    nbytes_allocated = 0
     call update_max_sizes(0)
 
  end subroutine deallocate_memory
