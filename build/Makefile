@@ -665,7 +665,7 @@ ifeq ($(SETUP), star)
     FPPFLAGS= -DSORT_RADIUS_INIT -DSETUPIEOS
     SETUPFILE= setup_spheres.f90
     MODFILE= moddump_binary.f90
-    ANALYSIS= ${SRCNIMHD} dtype_kdtree.o kdtree.o linklist_kdtree.o utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     MAXP=10000000
@@ -1701,7 +1701,7 @@ OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_filenames.f90 utils_indtimesteps
           checksetup.f90 \
           set_Bfield.f90 \
           partinject.F90 random.f90 set_disc.F90 set_binary.f90 ${SRCINJECT} \
-          ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} \
+          ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           density_profiles.f90 ptmass.F90 readwrite_infile.f90 ${MODFILE:.f90=.o}
 OBJMOD2 = ${OBJMOD1:.F90=.o}
 OBJMOD = ${OBJMOD2:.f90=.o}
