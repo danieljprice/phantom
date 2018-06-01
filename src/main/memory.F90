@@ -44,7 +44,7 @@ contains
    endif
 
    if (nbytes_allocated > 0.0) then
-      call error('part', 'Attempting to allocate memory, but memory is already allocated. &
+      call error('memory', 'Attempting to allocate memory, but memory is already allocated. &
       & Deallocating and then allocating again.')
       call deallocate_memory(part_only=part_only_)
    endif
@@ -70,6 +70,7 @@ contains
  end subroutine allocate_memory
 
  subroutine deallocate_memory(part_only)
+    use dim, only:update_max_sizes
     use part, only:deallocate_part
     use kdtree, only:deallocate_kdtree
     use linklist, only:deallocate_linklist
@@ -94,6 +95,9 @@ contains
       call deallocate_photoevap
 #endif
     endif
+
+    call update_max_sizes(0)
+
  end subroutine deallocate_memory
 
 end module memory
