@@ -724,7 +724,7 @@ ifeq ($(SETUP), sgdisc)
     GRAVITY=yes
     SETUPFILE= setup_disc.f90
 #   ANALYSIS = ${LINKLIST} utils_omp.F90 utils_summary.F90 ptmass.F90 analysis_clumpfind.F90
-    ANALYSIS = ${LINKLIST} analysis_disc_stresses.f90
+    ANALYSIS = analysis_disc_stresses.f90
 #    ANALYSIS = ${LINKLIST} analysis_getneighbours.f90
     DIMFILE= dim_disc.f90
     KNOWN_SETUP=yes
