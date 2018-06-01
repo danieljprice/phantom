@@ -79,7 +79,8 @@ module analysis
  logical, private            :: firstlog    = .true.  ! this is a magical term: do not modify
  logical, private            :: adjustcom   = .false. ! this will reset the origin to the com within Rcom of the sink
  real,    private            :: rthresh,rmerge2,h_acc2,dr,rcom2,rbin2max,rbin2maxish
- real,    private            :: rbins2(nbins),etaart(maxp)
+ real,    private            :: rbins2(nbins)
+ real,    private, allocatable :: etaart(:)
  real,    private            :: rmu_global(nmu_global),rmu_sink(nmu_sink+1)
  logical, private            :: no_file(0:maxptmass+1)
  !
@@ -240,10 +241,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !
  ! Calculate artificial resistivity
  !
+ allocate(etaart(maxp))
  etaart = 0.
  if (use_etaart_old) then
     print*, "THIS IS NOT A TRUE REPRESENTATION OF ETA_art since it uses a different vsig!"
 !$omp parallel default(none) &
+!$omp shared(maxp,maxphase) &
 !$omp shared(npart,xyzh,alphaB,iphase,massoftype,etaart,Bxyz,dthresh) &
 !$omp private(i,hi,itype,rhoi)
 !$omp do
@@ -263,6 +266,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     print*, "THIS IS LIKELY NOT A TRUE REPRESENTATION OF ETA-art since the algorithm is only the same in spirit!"
     print*, "starting to calculate etaart"
 !$omp parallel default(none) &
+!$omp shared(maxp,maxphase) &
 !$omp shared(npart,xyzh,vxyzu,iphase,massoftype,etaart,Bxyz,dthresh) &
 !$omp private(i,hi,itype,rhoi)
 !$omp do
@@ -384,6 +388,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     endif
     ! Determines disc mass and properties
 !$omp parallel default(none) &
+!$omp shared(maxp,maxphase) &
 !$omp shared(npart,isink,isink0,isinkN,xyzh,Bxyz,n_R,n_electronT,etaart,iphase) &
 !$omp shared(calc_eta,particlemass,dthresh,rsepmin2,rad2,dr,calc_rad_prof,rbins2,log_rbin) &
 !$omp private(i,xi,yi,hi,rhoi,rtmp2,ibin,etaohm,etahall,etaambi) &
@@ -1217,6 +1222,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
        endif
     endif
  enddo parts
+ deallocate(etaart)
  !
  angx = 0.0
  angy = 0.0
