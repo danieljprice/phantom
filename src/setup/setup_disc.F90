@@ -1215,7 +1215,6 @@ end subroutine setup_interactive
 subroutine write_setupfile(filename)
  use infile_utils,   only:write_inopt
  use readwrite_dust, only:write_dust_setup_options
- use growth,         only:write_growth_setup_options
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
  logical :: done_alpha
@@ -1404,12 +1403,10 @@ subroutine write_setupfile(filename)
        endif
     endif
  enddo
- !--dust options
+ !--dust & growth options
  if (use_dust) then
     call write_dust_setup_options(iunit,dust_to_gas_ratio,df=dustfrac_percent,gs=grainsizeinp, &
                                   gd=graindensinp,imethod=dust_method,iprofile=profile_set_dust)
-    !--growth/fragmentation parameters
-    if (use_dustgrowth .and. .not.use_dustfrac) call write_growth_setup_options(iunit)
  endif
  !--planets
  write(iunit,"(/,a)") '# set planets'
@@ -1451,7 +1448,6 @@ end subroutine write_setupfile
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils,   only:open_db_from_file,inopts,read_inopt,close_db
- use growth,         only:read_growth_setup_options
  use readwrite_dust, only:read_dust_setup_options
  use io,             only:fatal
  character(len=*), intent(in)  :: filename
@@ -1563,12 +1559,10 @@ subroutine read_setupfile(filename,ierr)
        end select
     end select
  end select
- !--dust
+ !--dust & growth
  if (use_dust) then
     call read_dust_setup_options(db,nerr,dust_to_gas_ratio,df=dustfrac_percent,gs=grainsizeinp, &
                                  gd=graindensinp)
-    !--growth/fragmentation of dust
-    if (use_dustgrowth .and. .not.use_dustfrac) call read_growth_setup_options(db,nerr)
  endif
  !--multiple discs
  iuse_disc = .false.

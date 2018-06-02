@@ -472,6 +472,8 @@ end subroutine get_units_factor
 !-----------------------------------------------------------------------
 subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple,imethod)
  use options,      only:use_dustfrac
+ use dim,          only:use_dustgrowth
+ use growth,       only:read_growth_setup_options
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use dust,         only:set_grainsize,grainsize,graindens
  use units,        only:udist,umass
@@ -591,6 +593,7 @@ subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple,imethod)
        endif
        graindenscgs = graindensinp
     endif
+    if (use_dustgrowth) call read_growth_setup_options(db,nerr)
  endif
 
  if (io_grainsize == 0) then
@@ -967,6 +970,7 @@ end subroutine write_dust_to_header
 !-----------------------------------------------------------------------
 subroutine write_dust_setup_options(iunit,dust_to_gas,df,gs,gd,imethod,iprofile,isimple)
  use dim,          only:use_dustgrowth
+ use growth,       only:write_growth_setup_options
  use options,      only:use_dustfrac
  use infile_utils, only:write_inopt
  use dust,         only:grainsizecgs,graindenscgs
@@ -1051,6 +1055,7 @@ subroutine write_dust_setup_options(iunit,dust_to_gas,df,gs,gd,imethod,iprofile,
        call write_inopt(grainsizeinp(1),'grainsizeinp','grain size (in cm)',iunit)
        call write_inopt(graindensinp(1),'graindensinp','intrinsic grain density (in g/cm^3)',iunit) ! Modify this is graindens becomes variable
     endif
+    if (use_dustgrowth) call write_growth_setup_options(iunit)
  endif
 
 end subroutine write_dust_setup_options
@@ -1120,7 +1125,7 @@ end subroutine write_dust_infile_options
 !+
 !-----------------------------------------------------------------------
 subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,ireadwrite)
- use dim,          only:ndusttypes
+ use dim,          only:ndusttypes,use_dustgrowth
  use io,           only:id,master
  use infile_utils, only:open_db_from_file,close_db,inopts
  use options,      only:use_dustfrac
@@ -1184,11 +1189,12 @@ subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,
        call interactively_set_dust(dust_to_gas,dustfrac_percent,grainsizeinp,graindensinp, &
                                    imethod=dust_method,iprofile=profile_set_dust)
        !
-       !--write default input file
+       !--write default input file 
        !
        open(unit=iunit,file=grainsfile,status='replace',form='formatted')
        call write_dust_setup_options(iunit,dust_to_gas,df=dustfrac_percent,gs=grainsizeinp, &
                                      gd=graindensinp,imethod=dust_method,iprofile=profile_set_dust)
+       if (use_dustgrowth) print*,'--> Setting default growth values'
        close(iunit)
        print "(/,a)",' >>> please edit '//trim(grainsfile)//' to set parameters for your problem then rerun <<<'
        stop
