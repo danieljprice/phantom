@@ -90,7 +90,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,maxBevol,&
                           switches_done_in_derivs,iboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustfrac,temperature,alphaind,nptmass,store_temperature,&
-                                                  dustprop,ddustprop,dustproppred,pxyzu,dens,grpack,metricderivs
+                                                  dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,metricderivs
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
@@ -207,9 +207,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !----------------------------------------------------------------------
 #ifdef GR
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
-    call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,grpack,metricderivs,fext,t,damp)
+    call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t,damp)
  else
-    call step_extern_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,grpack)
+    call step_extern_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  endif
 
 #else
@@ -328,7 +328,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  if (npart > 0) then
     call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustfrac,temperature,timei,dtsph,dtnew,&
-                ppred,dens,grpack)
+                ppred,dens,metrics)
  endif
 !
 ! if using super-timestepping, determine what dt will be used on the next loop
@@ -549,7 +549,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
        call derivs(2,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB, &
                      Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustfrac,&
-                                         temperature,timei,dtsph,dtnew,ppred,dens,grpack)
+                                         temperature,timei,dtsph,dtnew,ppred,dens,metrics)
     endif
 #ifdef DUSTGROWTH
     call update_dustprop(npart,dustproppred) !--update dustprop values
@@ -564,21 +564,21 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  endif
 
 #ifdef GR
- call conservative_to_primitive(npart,xyzh,grpack,pxyzu,vxyzu,dens)
+ call conservative_to_primitive(npart,xyzh,metrics,pxyzu,vxyzu,dens)
 #endif
 
  return
 end subroutine step
 
 #ifdef GR
-subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,grpack)
+subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  use part,         only:isdead_or_accreted
  use cons2prim,    only:conservative_to_primitive
  use io,           only:warning
- use metric_tools, only:get_grpacki
+ use metric_tools, only:pack_metric
  real,    intent(in)    :: dt
  integer, intent(in)    :: npart
- real,    intent(inout) :: xyzh(:,:),dens(:),grpack(:,:,:,:)
+ real,    intent(inout) :: xyzh(:,:),dens(:),metrics(:,:,:,:)
  real,    intent(in)    :: pxyzu(:,:)
  real,    intent(out)   :: vxyzu(:,:)
  integer, parameter :: nitermax = 50
@@ -589,11 +589,11 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,grpack)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,dens,dt) &
- !$omp shared(pxyzu,grpack) &
+ !$omp shared(pxyzu,metrics) &
  !$omp private(i,niter,diff,xpred,vold,converged)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call conservative_to_primitive(xyzh(:,i),grpack(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i))
+       call conservative_to_primitive(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i))
        !
        ! main position update
        !
@@ -603,12 +603,12 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,grpack)
        niter = 0
        do while (.not. converged .and. niter<=nitermax)
           niter = niter + 1
-          call conservative_to_primitive(xyzh(:,i),grpack(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i))
+          call conservative_to_primitive(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i))
           xyzh(1:3,i) = xpred + 0.5*dt*(vxyzu(1:3,i)-vold)
           diff = maxval(abs(xyzh(1:3,i)-xpred)/xpred)
           if (diff < xtol) converged = .true.
           ! UPDATE METRIC HERE
-          call get_grpacki(xyzh(1:3,i),grpack(:,:,:,i))
+          call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
        enddo
        if (niter > nitermax) call warning('step_extern_sph_gr','Reached max number of x iterations. x_err ',val=diff)
 
@@ -618,7 +618,7 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,grpack)
 
 end subroutine step_extern_sph_gr
 
-subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,grpack,metricderivs,fext,time,damp)
+subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,time,damp)
  use dim,            only:maxptmass,maxp,maxvxyzu
  use io,             only:iverbose,id,master,iprint,warning
  use externalforces, only:externalforce,accrete_particles,update_externalforce
@@ -630,11 +630,11 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
  use eos,            only:equationofstate,ieos
  use cons2prim,      only:conservative_to_primitive
  use extern_gr,      only:get_grforce
- use metric_tools,   only:get_grpacki,pack_metricderivs
+ use metric_tools,   only:pack_metric,pack_metricderivs
  integer, intent(in)    :: npart,ntypes
  real,    intent(in)    :: dtsph,time,damp
  real,    intent(inout) :: dtextforce
- real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:),grpack(:,:,:,:),metricderivs(:,:,:,:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:),metrics(:,:,:,:),metricderivs(:,:,:,:)
  integer :: i,itype,nsubsteps,naccreted,its
  real    :: timei,t_end_step,hdt,pmassi
  real    :: dt,dtf,dtextforcenew,dtextforce_min
@@ -683,7 +683,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
     !$omp parallel default(none) &
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype) &
     !$omp shared(dt,hdt) &
-    !$omp shared(its,pxyzu,dens,grpack,metricderivs) &
+    !$omp shared(its,pxyzu,dens,metrics,metricderivs) &
     !$omp private(i,dtf,vxyzu_star,fstar) &
     !$omp private(converged,pprev,pmom_err,xyz_prev,x_err,pi) &
     !$omp firstprivate(pmassi,itype) &
@@ -706,8 +706,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
           pmom_iterations: do while (its <= itsmax .and. .not. converged)
              its   = its + 1
              pprev = pxyzu(1:3,i)
-             call conservative_to_primitive(xyzh(:,i),grpack(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
-             call get_grforce(xyzh(:,i),grpack(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fstar,dtf)
+             call conservative_to_primitive(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
+             call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fstar,dtf)
              pxyzu(1:3,i) = pprev + hdt*(fstar - fext(1:3,i))
              pmom_err = maxval( abs( (pxyzu(1:3,i) - pprev)/pprev ) )
              if (pmom_err < ptol) converged = .true.
@@ -717,7 +717,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
 
           pitsmax = max(its,pitsmax)
 
-          call conservative_to_primitive(xyzh(:,i),grpack(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
+          call conservative_to_primitive(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
           xyzh(1:3,i) = xyzh(1:3,i) + dt*vxyzu(1:3,i)
 
 
@@ -730,13 +730,13 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
           xyz_iterations: do while (its <= itsmax .and. .not. converged)
              its         = its+1
              xyz_prev    = xyzh(1:3,i)
-             call conservative_to_primitive(xyzh(:,i),grpack(:,:,:,i),pxyzu(:,i),vxyzu_star,dens(i))
+             call conservative_to_primitive(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu_star,dens(i))
              xyzh(1:3,i)  = xyz_prev + hdt*(vxyzu_star(1:3) - vxyzu(1:3,i))
              x_err = maxval( abs( (xyzh(1:3,i)-xyz_prev)/xyz_prev ) )
              if (x_err < xtol) converged = .true.
              vxyzu(:,i)   = vxyzu_star
              ! UPDATE METRIC HERE
-             call get_grpacki(xyzh(1:3,i),grpack(:,:,:,i))
+             call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
           enddo xyz_iterations
           call pack_metricderivs(xyzh(1:3,i),metricderivs(:,:,:,i))
           if (its > itsmax ) call warning('step_extern_gr','Reached max number of x iterations. x_err ',val=x_err)
@@ -758,7 +758,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
     dtextforce_min = bignumber
 
     !$omp parallel do default(none) &
-    !$omp shared(npart,xyzh,grpack,metricderivs,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei) &
+    !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei) &
     !$omp private(i,accreted) &
     !$omp shared(ieos,dens,pxyzu,iexternalforce) &
     !$omp private(pi,pondensi,spsoundi,dtf) &
@@ -775,7 +775,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,gr
 
           call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
           pi = pondensi*dens(i)
-          call get_grforce(xyzh(:,i),grpack(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
+          call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
           dtextforce_min = min(dtf,dtextforce_min)
           !
           ! correct v to the full step using only the external force

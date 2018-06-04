@@ -57,28 +57,28 @@ end subroutine get_bigv
 
 !-------------------------------------------------------------------------------
 
-subroutine h2dens(dens,xyzh,grpacki,v)
+subroutine h2dens(dens,xyzh,metrici,v)
  use part, only: rhoh,massoftype,igas
- real, intent(in) :: xyzh(1:4),grpacki(:,:,:),v(1:3)
+ real, intent(in) :: xyzh(1:4),metrici(:,:,:),v(1:3)
  real, intent(out):: dens
  real :: rho, h, xyz(1:3)
 
  xyz = xyzh(1:3)
  h   = xyzh(4)
  rho = rhoh(h,massoftype(igas))
- call rho2dens(dens,rho,xyz,grpacki,v)
+ call rho2dens(dens,rho,xyz,metrici,v)
 
 end subroutine h2dens
 
-subroutine rho2dens(dens,rho,position,grpacki,v)
- use metric_tools, only:unpack_grpacki
- real, intent(in) :: rho,position(1:3),grpacki(:,:,:),v(1:3)
+subroutine rho2dens(dens,rho,position,metrici,v)
+ use metric_tools, only:unpack_metric
+ real, intent(in) :: rho,position(1:3),metrici(:,:,:),v(1:3)
  real, intent(out):: dens
  real :: gcov(0:3,0:3), sqrtg, U0
 
  ! Hard coded sqrtg=1 since phantom is always in cartesian coordinates
  sqrtg = 1.
- call unpack_grpacki(grpacki,gcov=gcov)
+ call unpack_metric(metrici,gcov=gcov)
  call get_u0(gcov,v,U0)
  dens = rho/(sqrtg*U0)
 

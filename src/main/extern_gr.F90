@@ -14,35 +14,35 @@ contains
 !   whether a particle is gas or test particle.)
 !+
 !---------------------------------------------------------------
-subroutine get_grforce(xyzhi,grpacki,metricderivsi,veli,densi,ui,pi,fexti,dtf)
- real, intent(in)  :: xyzhi(4),grpacki(:,:,:),metricderivsi(0:3,0:3,3),veli(3),densi,ui,pi
+subroutine get_grforce(xyzhi,metrici,metricderivsi,veli,densi,ui,pi,fexti,dtf)
+ real, intent(in)  :: xyzhi(4),metrici(:,:,:),metricderivsi(0:3,0:3,3),veli(3),densi,ui,pi
  real, intent(out) :: fexti(3),dtf
 
- call forcegr(xyzhi(1:3),grpacki,metricderivsi,veli,densi,ui,pi,fexti)
+ call forcegr(xyzhi(1:3),metrici,metricderivsi,veli,densi,ui,pi,fexti)
  call dt_grforce(xyzhi,fexti,dtf)
 
 end subroutine get_grforce
 
-subroutine get_grforce_all(npart,xyzh,grpack,metricderivs,vxyzu,dens,fext,dtexternal)
+subroutine get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtexternal)
  use timestep, only:C_force
  use eos,      only:equationofstate,ieos
  use part,     only:isdead_or_accreted
  integer, intent(in) :: npart
- real, intent(in)    :: xyzh(:,:), grpack(:,:,:,:), metricderivs(:,:,:,:), dens(:)
+ real, intent(in)    :: xyzh(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:), dens(:)
  real, intent(inout) :: vxyzu(:,:)
  real, intent(out)   :: fext(:,:), dtexternal
  integer :: i
  real    :: dtf,pi,pondensi,spsoundi
 
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,grpack,metricderivs,vxyzu,dens,fext,ieos,C_force) &
+ !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,ieos,C_force) &
  !$omp private(i,dtf,spsoundi,pondensi,pi) &
  !$omp reduction(min:dtexternal)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
        pi = pondensi*dens(i)
-       call get_grforce(xyzh(:,i),grpack(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
+       call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
        dtexternal = min(dtexternal,C_force*dtf)
     endif
  enddo
@@ -85,17 +85,17 @@ end subroutine dt_grforce
 !   T^\mu\nu dg_\mu\nu/dx^i
 !+
 !----------------------------------------------------------------
-subroutine forcegr(x,grpacki,metricderivsi,v,dens,u,p,fterm)
- use metric_tools, only:unpack_grpacki
+subroutine forcegr(x,metrici,metricderivsi,v,dens,u,p,fterm)
+ use metric_tools, only:unpack_metric
  use utils_gr,     only:get_u0
- real, intent(in)  :: x(3),grpacki(:,:,:),metricderivsi(0:3,0:3,3),v(3),dens,u,p
+ real, intent(in)  :: x(3),metrici(:,:,:),metricderivsi(0:3,0:3,3),v(3),dens,u,p
  real, intent(out) :: fterm(3)
  real    :: gcov(0:3,0:3), gcon(0:3,0:3)
  real    :: v4(0:3), term(0:3,0:3)
  real    :: enth, uzero
  integer :: i
 
- call unpack_grpacki(grpacki,gcov=gcov,gcon=gcon)
+ call unpack_metric(metrici,gcov=gcov,gcon=gcon)
 
  enth = 1. + u + p/dens
 

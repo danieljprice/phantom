@@ -86,7 +86,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use timestep_ind,     only:get_dt
 #endif
 #ifdef GR
- use part,             only:pxyzu,dens,grpack,metricderivs
+ use part,             only:pxyzu,dens,metrics,metricderivs
  use cons2prim,        only:primitive_to_conservative
  use metric_tools,     only:init_metric
  use extern_gr,        only:get_grforce_all
@@ -259,9 +259,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
     call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype)
 #ifdef GR
-    call init_metric(npart,xyzh,grpack,metricderivs)
-    call primitive_to_conservative(npart,xyzh,grpack,vxyzu,dens,pxyzu,use_dens=.false.)
-    call get_grforce_all(npart,xyzh,grpack,metricderivs,vxyzu,dens,fext,dtextforce) ! Not 100% sure if this is needed here
+    call init_metric(npart,xyzh,metrics,metricderivs)
+    call primitive_to_conservative(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce) ! Not 100% sure if this is needed here
 #endif
 #ifdef IND_TIMESTEPS
     do iloop=npart_old+1,npart

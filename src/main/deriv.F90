@@ -42,7 +42,7 @@ contains
 !+
 !-------------------------------------------------------------
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-                  dustfrac,ddustfrac,temperature,time,dt,dtnew,pxyzu,dens,grpack)
+                  dustfrac,ddustfrac,temperature,time,dt,dtnew,pxyzu,dens,metrics)
  use dim,            only:maxp,maxvxyzu
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
@@ -84,7 +84,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real,         intent(inout) :: temperature(:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
- real,         intent(inout) :: pxyzu(:,:), dens(:), grpack(:,:,:,:)
+ real,         intent(inout) :: pxyzu(:,:), dens(:), metrics(:,:,:,:)
  real(kind=4)       :: t1,tcpu1,tlast,tcpulast
 
  t1 = 0.
@@ -139,7 +139,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  endif
 
 #ifdef GR
- call conservative_to_primitive(npart,xyzh,grpack,pxyzu,vxyzu,dens)
+ call conservative_to_primitive(npart,xyzh,metrics,pxyzu,vxyzu,dens)
 #endif
 
 !
@@ -153,7 +153,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 
  stressmax = 0.
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-            dustfrac,ddustfrac,ipart_rhomax,dt,stressmax,temperature,dens,grpack)
+            dustfrac,ddustfrac,ipart_rhomax,dt,stressmax,temperature,dens,metrics)
  call do_timing('force',tlast,tcpulast)
 !
 ! set new timestep from Courant/forces condition

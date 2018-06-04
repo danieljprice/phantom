@@ -151,7 +151,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustfrac,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh,iboundary, &
-                            Bevol,Bxyz,temperature,dustprop,ddustprop,pxyzu,dens,grpack,metricderivs
+                            Bevol,Bxyz,temperature,dustprop,ddustprop,pxyzu,dens,metrics,metricderivs
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef GR
@@ -465,7 +465,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 
 #ifdef GR
 ! COMPUTE METRIC HERE
- call init_metric(npart,xyzh,grpack,metricderivs)
+ call init_metric(npart,xyzh,metrics,metricderivs)
  ! --- Need rho computed by sum to do primitive to conservative, since dens is not read from file
  if (npart>0) then
     call set_linklist(npart,npart,xyzh,vxyzu)
@@ -473,11 +473,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                               fxyzu,fext,alphaind,gradh)
  endif
- call primitive_to_conservative(npart,xyzh,grpack,vxyzu,dens,pxyzu,use_dens=.false.)
+ call primitive_to_conservative(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
  if (iexternalforce > 0) then
     call initialise_externalforces(iexternalforce,ierr)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
-    call get_grforce_all(npart,xyzh,grpack,metricderivs,vxyzu,dens,fext,dtextforce)
+    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
     write(iprint,*) 'dt(extforce)  = ',dtextforce
  endif
 #else
@@ -559,7 +559,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                              dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtnew_first,pxyzu,dens,grpack)
+                              dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtnew_first,pxyzu,dens,metrics)
     if (use_dustfrac) then
        ! set s = sqrt(eps/(1-eps)) from the initial dustfrac setting now we know rho
        do i=1,npart

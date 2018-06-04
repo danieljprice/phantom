@@ -71,10 +71,10 @@ end subroutine
 !  conserved variables are (rho,pmom_i,en)
 !+
 !----------------------------------------------------------------
-subroutine primitive2conservative(x,grpacki,v,dens,u,P,rho,pmom,en,ien_type)
+subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
  use utils_gr,     only:get_u0
- use metric_tools, only:unpack_grpacki
- real, intent(in)  :: x(1:3),grpacki(:,:,:)
+ use metric_tools, only:unpack_metric
+ real, intent(in)  :: x(1:3),metrici(:,:,:)
  real, intent(in)  :: dens,v(1:3),u,P
  real, intent(out) :: rho,pmom(1:3),en
  integer, intent(in) :: ien_type
@@ -89,7 +89,7 @@ subroutine primitive2conservative(x,grpacki,v,dens,u,P,rho,pmom,en,ien_type)
 
  ! Hard coded sqrtg=1 since phantom is always in cartesian coordinates
  sqrtg = 1.
- call unpack_grpacki(grpacki,gcov=gcov)
+ call unpack_metric(metrici,gcov=gcov)
 
  call get_u0(gcov,v,U0)
  rho = sqrtg*dens*U0
@@ -109,10 +109,10 @@ subroutine primitive2conservative(x,grpacki,v,dens,u,P,rho,pmom,en,ien_type)
 
 end subroutine primitive2conservative
 
-subroutine conservative2primitive(x,grpacki,v,dens,u,P,rho,pmom,en,ierr,ien_type)
- use metric_tools, only: unpack_grpacki
+subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type)
+ use metric_tools, only: unpack_metric
  use io,           only: warning
- real, intent(in)    :: x(1:3),grpacki(:,:,:)
+ real, intent(in)    :: x(1:3),metrici(:,:,:)
  real, intent(inout) :: dens,P
  real, intent(out)   :: v(1:3),u
  real, intent(in)    :: rho,pmom(1:3),en
@@ -130,8 +130,8 @@ subroutine conservative2primitive(x,grpacki,v,dens,u,P,rho,pmom,en,ierr,ien_type
  ! Hard coding sqrgt=1 since phantom is always in cartesian coordinates
  sqrtg = 1.
 
- ! Get metric components from grpack
- call unpack_grpacki(grpacki,gcon=gcon,alpha=alpha,betadown=betadown,betaUP=betaUP)
+ ! Get metric components from metric array
+ call unpack_metric(metrici,gcon=gcon,alpha=alpha,betadown=betadown,betaUP=betaUP)
 
 !--- Note: gcon(i,j) + betaUP(i)betaUP(j)/alpha**2 = gammaijUP
 !          gammaijUP is expensive to construct

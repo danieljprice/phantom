@@ -35,7 +35,7 @@ module metric_tools
 
 !-------------------------------------------------------------------------------
 
- public :: get_metric, get_metric_derivs, get_metric3plus1, print_metricinfo, init_metric, get_grpacki, unpack_grpacki
+ public :: get_metric, get_metric_derivs, get_metric3plus1, print_metricinfo, init_metric, pack_metric, unpack_metric
  public :: pack_metricderivs
 
  interface get_metric3plus1
@@ -194,17 +194,17 @@ subroutine print_metricinfo(iprint)
 
 end subroutine print_metricinfo
 
-subroutine init_metric(npart,xyzh,grpack,metricderivs)
+subroutine init_metric(npart,xyzh,metrics,metricderivs)
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
- real,    intent(out) :: grpack(:,:,:,:), metricderivs(:,:,:,:)
+ real,    intent(out) :: metrics(:,:,:,:), metricderivs(:,:,:,:)
  integer :: i
 
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,grpack,metricderivs) &
+ !$omp shared(npart,xyzh,metrics,metricderivs) &
  !$omp private(i)
  do i=1,npart
-    call get_grpacki(xyzh(1:3,i),grpack(:,:,:,i))
+    call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
     call pack_metricderivs(xyzh(1:3,i),metricderivs(:,:,:,i))
  enddo
  !omp end parallel do
@@ -212,16 +212,16 @@ subroutine init_metric(npart,xyzh,grpack,metricderivs)
 end subroutine init_metric
 
 !
-!--- Subroutine to pack the metric (cov and con) + its derivatives into a single array
+!--- Subroutine to pack the metric (cov and con) into a single array
 !
-subroutine get_grpacki(xyz,grpacki)
+subroutine pack_metric(xyz,metrici)
  real, intent(in)  :: xyz(3)
- real, intent(out) :: grpacki(:,:,:)
+ real, intent(out) :: metrici(:,:,:)
  real :: sqrtg
 
- call get_metric(xyz,gcov=grpacki(:,:,1),gcon=grpacki(:,:,2),sqrtg=sqrtg)
+ call get_metric(xyz,gcov=metrici(:,:,1),gcon=metrici(:,:,2),sqrtg=sqrtg)
 
-end subroutine get_grpacki
+end subroutine pack_metric
 
 subroutine pack_metricderivs(xyzi,metricderivsi)
  real, intent(in)  :: xyzi(3)
@@ -232,36 +232,36 @@ subroutine pack_metricderivs(xyzi,metricderivsi)
 end subroutine pack_metricderivs
 
 !
-!--- Subroutine to return metric/components from grpack
+!--- Subroutine to return metric/components from metrici array
 !
-subroutine unpack_grpacki(grpacki,gcov,gcon,gammaijdown,gammaijUP,alpha,betadown,betaUP)
- real, intent(in), dimension(0:3,0:3,2) :: grpacki
+subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,betadown,betaUP)
+ real, intent(in), dimension(0:3,0:3,2) :: metrici
  real, intent(out), dimension(0:3,0:3), optional :: gcov,gcon
  real, intent(out), dimension(1:3,1:3), optional :: gammaijdown,gammaijUP
  real, intent(out),                     optional :: alpha,betadown(3),betaUP(3)
  real :: alpha_,betaUP_(3)
  integer :: i,j
 
- if (present(alpha).or.present(betaUP).or.present(gammaijUP)) alpha_  = sqrt(-1./grpacki(0,0,2))
- if (present(betaUP).or.present(gammaijUP))                   betaUP_ = grpacki(0,1:3,2) * (alpha_**2)
+ if (present(alpha).or.present(betaUP).or.present(gammaijUP)) alpha_  = sqrt(-1./metrici(0,0,2))
+ if (present(betaUP).or.present(gammaijUP))                   betaUP_ = metrici(0,1:3,2) * (alpha_**2)
  !                                                                     |^ gcon_(0,1:3) ^|
  if (present(gammaijUP)) then
     gammaijUP = 0.
     do j=1,3
       do i=1,3
-         gammaijUP(i,j) = grpacki(i,j,2) + betaUP_(i)*betaUP_(j)/alpha_**2
+         gammaijUP(i,j) = metrici(i,j,2) + betaUP_(i)*betaUP_(j)/alpha_**2
          !                |^ gcon_(i,j) ^|
       enddo
     enddo
  endif
 
- if (present(gcov))        gcov        = grpacki(0:3,0:3,1)
- if (present(gcon))        gcon        = grpacki(0:3,0:3,2)
- if (present(gammaijdown)) gammaijdown = grpacki(1:3,1:3,1)
+ if (present(gcov))        gcov        = metrici(0:3,0:3,1)
+ if (present(gcon))        gcon        = metrici(0:3,0:3,2)
+ if (present(gammaijdown)) gammaijdown = metrici(1:3,1:3,1)
  if (present(alpha))       alpha       = alpha_
- if (present(betadown))    betadown    = grpacki(0,1:3,1)
+ if (present(betadown))    betadown    = metrici(0,1:3,1)
  if (present(betaUP))      betaUP      = betaUP_
 
-end subroutine unpack_grpacki
+end subroutine unpack_metric
 
 end module metric_tools

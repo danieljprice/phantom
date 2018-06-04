@@ -111,7 +111,7 @@ module part
  character(len=*), parameter :: pxyzu_label(4) = &
   (/'px     ','py     ','pz     ','entropy'/)
  real :: dens(maxgr)
- real :: grpack(0:3,0:3,2,maxgr)
+ real :: metrics(0:3,0:3,2,maxgr)
  real :: metricderivs(0:3,0:3,3,maxgr)
 
 !

@@ -22,10 +22,10 @@ contains
 !
 !-------------------------------------
 
-subroutine prim2consphantom_all(npart,xyzh,grpack,vxyzu,dens,pxyzu,use_dens)
+subroutine prim2consphantom_all(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
  use part,         only:isdead_or_accreted
  integer, intent(in)  :: npart
- real,    intent(in)  :: xyzh(:,:),grpack(:,:,:,:),vxyzu(:,:)
+ real,    intent(in)  :: xyzh(:,:),metrics(:,:,:,:),vxyzu(:,:)
  real,    intent(inout) :: dens(:)
  real,    intent(out) :: pxyzu(:,:)
  logical, intent(in), optional :: use_dens
@@ -42,22 +42,22 @@ subroutine prim2consphantom_all(npart,xyzh,grpack,vxyzu,dens,pxyzu,use_dens)
  endif
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,grpack,vxyzu,dens,pxyzu,npart,usedens) &
+!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,usedens) &
 !$omp private(i)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call prim2consphantom_i(xyzh(:,i),grpack(:,:,:,i),vxyzu(:,i),dens(i),pxyzu(:,i),usedens)
+       call prim2consphantom_i(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),dens(i),pxyzu(:,i),usedens)
     endif
  enddo
 !$omp end parallel do
 
 end subroutine prim2consphantom_all
 
-subroutine prim2consphantom_i(xyzhi,grpacki,vxyzui,dens_i,pxyzui,use_dens)
+subroutine prim2consphantom_i(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens)
  use utils_gr,     only:h2dens
  use eos,          only:equationofstate,ieos
  real, dimension(4), intent(in)  :: xyzhi, vxyzui
- real,               intent(in)  :: grpacki(:,:,:)
+ real,               intent(in)  :: metrici(:,:,:)
  real, intent(inout)             :: dens_i
  real, dimension(4), intent(out) :: pxyzui
  logical, intent(in), optional   :: use_dens
@@ -79,22 +79,22 @@ subroutine prim2consphantom_i(xyzhi,grpacki,vxyzui,dens_i,pxyzui,use_dens)
  if (usedens) then
     densi = dens_i
  else
-    call h2dens(densi,xyzhi,grpacki,vi) ! Compute dens from h
+    call h2dens(densi,xyzhi,metrici,vi) ! Compute dens from h
     dens_i = densi                      ! Feed the newly computed dens back out of the routine
  endif
  call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
  pi = pondensi*densi
- call prim2cons_i(xyzi,grpacki,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4))
+ call prim2cons_i(xyzi,metrici,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4))
 
 end subroutine prim2consphantom_i
 
-subroutine prim2cons_i(pos,grpacki,vel,dens,u,P,rho,pmom,en)
+subroutine prim2cons_i(pos,metrici,vel,dens,u,P,rho,pmom,en)
  use cons2primsolver, only:primitive2conservative
- real, intent(in)  :: pos(1:3),grpacki(:,:,:)
+ real, intent(in)  :: pos(1:3),metrici(:,:,:)
  real, intent(in)  :: dens,vel(1:3),u,P
  real, intent(out) :: rho,pmom(1:3),en
 
- call primitive2conservative(pos,grpacki,vel,dens,u,P,rho,pmom,en,ien_entropy)
+ call primitive2conservative(pos,metrici,vel,dens,u,P,rho,pmom,en,ien_entropy)
 
 end subroutine prim2cons_i
 
@@ -105,20 +105,20 @@ end subroutine prim2cons_i
 !
 !-------------------------------------
 
-subroutine cons2primphantom_all(npart,xyzh,grpack,pxyzu,vxyzu,dens)
+subroutine cons2primphantom_all(npart,xyzh,metrics,pxyzu,vxyzu,dens)
  use part, only:isdead_or_accreted, massoftype, igas, rhoh
  use io,   only:fatal
  integer, intent(in)    :: npart
- real,    intent(in)    :: pxyzu(:,:),xyzh(:,:),grpack(:,:,:,:)
+ real,    intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
  real,    intent(inout) :: vxyzu(:,:),dens(:)
  integer :: i, ierr
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,grpack,vxyzu,dens,pxyzu,npart,massoftype) &
+!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype) &
 !$omp private(i,ierr)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call cons2primphantom_i(xyzh(:,i),grpack(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr=ierr)
+       call cons2primphantom_i(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr=ierr)
        if (ierr > 0) then
           print*,' pmom =',pxyzu(1:3,i)
           print*,' rho* =',rhoh(xyzh(4,i),massoftype(igas))
@@ -134,13 +134,13 @@ end subroutine cons2primphantom_all
 ! Note: this subroutine needs to be able to return pressure when called before
 !       call to getting gr forces, since that requires pressure. Could maybe
 !       get around this by calling eos somewhere along the way instead.
-subroutine cons2primphantom_i(xyzhi,grpacki,pxyzui,vxyzui,densi,pressure,ierr)
+subroutine cons2primphantom_i(xyzhi,metrici,pxyzui,vxyzui,densi,pressure,ierr)
  use part,            only:massoftype, igas, rhoh
  use cons2primsolver, only:conservative2primitive
  use utils_gr,        only:rho2dens
  use eos,             only:equationofstate,ieos
  real, dimension(4),         intent(in)    :: xyzhi,pxyzui
- real, dimension(:,:,:),     intent(in)    :: grpacki
+ real, dimension(:,:,:),     intent(in)    :: metrici
  real, dimension(4),         intent(inout) :: vxyzui
  real,    intent(inout)                    :: densi
  real,    intent(out),  optional      :: pressure
@@ -154,21 +154,21 @@ subroutine cons2primphantom_i(xyzhi,grpacki,pxyzui,vxyzui,densi,pressure,ierr)
  u_guess = vxyzui(4)
  call equationofstate(ieos,pondens,spsound,densi,xyzi(1),xyzi(2),xyzi(3),u_guess)
  p_guess = pondens*densi
- call cons2prim_i(xyzi,grpacki,vxyzui(1:3),densi,vxyzui(4),p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierror)
+ call cons2prim_i(xyzi,metrici,vxyzui(1:3),densi,vxyzui(4),p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierror)
  if (present(pressure)) pressure = p_guess
  if (present(ierr)) ierr = ierror
 
 end subroutine cons2primphantom_i
 
-subroutine cons2prim_i(pos,grpacki,vel,dens,u,P,rho,pmom,en,ierr)
+subroutine cons2prim_i(pos,metrici,vel,dens,u,P,rho,pmom,en,ierr)
  use cons2primsolver, only:conservative2primitive
- real, intent(in)     :: pos(1:3), grpacki(:,:,:)
+ real, intent(in)     :: pos(1:3), metrici(:,:,:)
  real, intent(in)     :: rho,pmom(1:3),en
  real, intent(out)    :: vel(1:3),u
  real, intent(inout)  :: dens,P      ! Intent=inout because we need their previous values as an initial guess in the solver
  integer, intent(out) :: ierr
 
- call conservative2primitive(pos,grpacki,vel,dens,u,P,rho,pmom,en,ierr,ien_entropy)
+ call conservative2primitive(pos,metrici,vel,dens,u,P,rho,pmom,en,ierr,ien_entropy)
 
 end subroutine cons2prim_i
 
