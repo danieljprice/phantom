@@ -32,8 +32,8 @@
 !    smaxcgs           -- max grain size (in cm)
 !    smincgs           -- min grain size (in cm)
 !
-!  DEPENDENCIES: dim, dump_utils, dust, infile_utils, io, options, part,
-!    prompting, units
+!  DEPENDENCIES: dim, dump_utils, dust, growth, infile_utils, io, options,
+!    part, prompting, units
 !+
 !--------------------------------------------------------------------------
 
@@ -1189,7 +1189,7 @@ subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,
        call interactively_set_dust(dust_to_gas,dustfrac_percent,grainsizeinp,graindensinp, &
                                    imethod=dust_method,iprofile=profile_set_dust)
        !
-       !--write default input file 
+       !--write default input file
        !
        open(unit=iunit,file=grainsfile,status='replace',form='formatted')
        call write_dust_setup_options(iunit,dust_to_gas,df=dustfrac_percent,gs=grainsizeinp, &
