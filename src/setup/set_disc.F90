@@ -597,7 +597,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
                                q_index,gamma,R_in,rad,enc_m,smooth_sigma,xyzh,vxyzu)
  use externalforces, only:iext_einsteinprec
  use options,        only:iexternalforce
- use part,           only:gravity
+ use part,           only:gravity,gr
  integer, intent(in)    :: npart_tot,npart_start_count,itype
  real,    intent(in)    :: G,star_m,aspin,aspin_angle,clight,cs0,p_index,q_index
  real,    intent(in)    :: rad(:),enc_m(:),gamma,R_in
@@ -617,6 +617,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        !  v_phi^2 = GM/R - term_pr - 2*vphi*term_bh
        !
        R    = sqrt(xyzh(1,ipart)**2 + xyzh(2,ipart)**2)
+       if (gr) R = sqrt(R**2-aspin**2)
        phi  = atan2(xyzh(2,ipart),xyzh(1,ipart))
        term = G*star_m/R
        !
