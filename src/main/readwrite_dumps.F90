@@ -1173,7 +1173,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,tstop,deltav,dustfrac_label, &
                       tstop_label,deltav_label,temperature,dustprop,dustprop_label,St
- use options,    only:use_dustfrac
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
 #endif
@@ -1211,16 +1210,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_temp      = .false.
  got_dustprop  = .false.
  got_St        = .false.
-
- !--use_dustfrac used to be set here when the dumpfile was first read, however
- !  it is now set earlier before the infile is read so that it can be used to
- !  parse some useful if statements. Below is still needed for moddumps.
- if (use_dust .and. ((npartoftype(idust) == 0) .or. (ndusttypes > 1))) then
-    if (.not.use_dustfrac) then
-       print*,'WARNING: use_dustfrac needs to be .true.!'
-       use_dustfrac = .true.
-    endif
- endif
 
  ndustfraci = 0
  ntstopi    = 0
