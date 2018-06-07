@@ -1502,10 +1502,16 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
        alphaind(1,i1:i2) = real(alpha,kind=4)
     endif
  endif
- if (any(massoftype <= 0. .and. npartoftype /= 0) .and. npartread > 0) then
-    if (id==master .and. i1==1) write(*,*) 'ERROR! mass not set in read_dump (Phantom)'
-    ierr = 12
-    return
+ if (npartread > 0) then
+   do i = 1, size(massoftype)
+     if (npartoftype(i) > 0) then
+       if (massoftype(i) <= 0.0) then
+         if (id==master .and. i1==1) write(*,*) 'ERROR! mass not set in read_dump (Phantom)'
+         ierr = 12
+         return
+       endif
+     endif
+   enddo
  endif
  if (use_dustfrac .and. .not. all(got_dustfrac)) then
     if (id==master .and. i1==1) write(*,*) 'ERROR! using one-fluid dust, but no dust fraction found in dump file'
