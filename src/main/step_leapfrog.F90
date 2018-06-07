@@ -462,46 +462,46 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           ! Determine whether or not we need to iterate.
           !
 
-#ifdef GR
-          pxi = pxyzu(1,i) + hdtsph*fxyzu(1,i)
-          pyi = pxyzu(2,i) + hdtsph*fxyzu(2,i)
-          pzi = pxyzu(3,i) + hdtsph*fxyzu(3,i)
-          eni = pxyzu(4,i) + hdtsph*fxyzu(4,i)
+          if (gr) then
+             pxi = pxyzu(1,i) + hdtsph*fxyzu(1,i)
+             pyi = pxyzu(2,i) + hdtsph*fxyzu(2,i)
+             pzi = pxyzu(3,i) + hdtsph*fxyzu(3,i)
+             eni = pxyzu(4,i) + hdtsph*fxyzu(4,i)
 
-          erri = (pxi - ppred(1,i))**2 + (pyi - ppred(2,i))**2 + (pzi - ppred(3,i))**2
-          errmax = max(errmax,erri)
+             erri = (pxi - ppred(1,i))**2 + (pyi - ppred(2,i))**2 + (pzi - ppred(3,i))**2
+             errmax = max(errmax,erri)
 
-          p2i = pxi*pxi + pyi*pyi + pzi*pzi
-          p2mean = p2mean + p2i
-          np = np + 1
+             p2i = pxi*pxi + pyi*pyi + pzi*pzi
+             p2mean = p2mean + p2i
+             np = np + 1
 
-          pxyzu(1,i) = pxi
-          pxyzu(2,i) = pyi
-          pxyzu(3,i) = pzi
-          pxyzu(4,i) = eni
-#else
-          vxi = vxyzu(1,i) + hdtsph*fxyzu(1,i)
-          vyi = vxyzu(2,i) + hdtsph*fxyzu(2,i)
-          vzi = vxyzu(3,i) + hdtsph*fxyzu(3,i)
-          if (maxvxyzu >= 4) eni = vxyzu(4,i) + hdtsph*fxyzu(4,i)
+             pxyzu(1,i) = pxi
+             pxyzu(2,i) = pyi
+             pxyzu(3,i) = pzi
+             pxyzu(4,i) = eni
+          else
+             vxi = vxyzu(1,i) + hdtsph*fxyzu(1,i)
+             vyi = vxyzu(2,i) + hdtsph*fxyzu(2,i)
+             vzi = vxyzu(3,i) + hdtsph*fxyzu(3,i)
+             if (maxvxyzu >= 4) eni = vxyzu(4,i) + hdtsph*fxyzu(4,i)
 
-          erri = (vxi - vpred(1,i))**2 + (vyi - vpred(2,i))**2 + (vzi - vpred(3,i))**2
-          !if (erri > errmax) print*,id,' errmax = ',erri,' part ',i,vxi,vxoldi,vyi,vyoldi,vzi,vzoldi
-          errmax = max(errmax,erri)
+             erri = (vxi - vpred(1,i))**2 + (vyi - vpred(2,i))**2 + (vzi - vpred(3,i))**2
+             !if (erri > errmax) print*,id,' errmax = ',erri,' part ',i,vxi,vxoldi,vyi,vyoldi,vzi,vzoldi
+             errmax = max(errmax,erri)
 
-          v2i    = vxi*vxi + vyi*vyi + vzi*vzi
-          v2mean = v2mean + v2i
-          np     = np + 1
+             v2i    = vxi*vxi + vyi*vyi + vzi*vzi
+             v2mean = v2mean + v2i
+             np     = np + 1
 
-          vxyzu(1,i) = vxi
-          vxyzu(2,i) = vyi
-          vxyzu(3,i) = vzi
-          !--this is the energy equation if non-isothermal
-          if (maxvxyzu >= 4) then
-             vxyzu(4,i) = eni
-             if (icooling==3) call energ_coolfunc(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph,v2i)
+             vxyzu(1,i) = vxi
+             vxyzu(2,i) = vyi
+             vxyzu(3,i) = vzi
+             !--this is the energy equation if non-isothermal
+             if (maxvxyzu >= 4) then
+                vxyzu(4,i) = eni
+                if (icooling==3) call energ_coolfunc(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph,v2i)
+             endif
           endif
-#endif
 
           if (itype==igas) then
              !
