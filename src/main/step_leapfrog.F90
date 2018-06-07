@@ -82,7 +82,7 @@ end subroutine init_step
 !+
 !------------------------------------------------------------
 subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
- use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,use_dustgrowth
+ use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,use_dustgrowth,gr
  use io,             only:iprint,fatal,iverbose,id,master,warning
  use options,        only:damp,tolv,iexternalforce,icooling,use_dustfrac
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
@@ -336,7 +336,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
    write(iprint,"(a,f14.6,/)") '> full step            : t=',timei
 
  if (npart > 0) then
-    call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,&
+    if (gr) vpred = vxyzu
+    call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustfrac,temperature,timei,dtsph,dtnew,&
                 ppred,dens,metrics)
  endif
@@ -557,7 +558,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !   get new force using updated velocity: no need to recalculate density etc.
 !
 
-       call derivs(2,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB, &
+       if (gr) vpred = vxyzu
+       call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
                      Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustfrac,&
                      temperature,timei,dtsph,dtnew,ppred,dens,metrics)
     endif
