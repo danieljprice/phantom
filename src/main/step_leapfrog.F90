@@ -336,10 +336,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
    write(iprint,"(a,f14.6,/)") '> full step            : t=',timei
 
  if (npart > 0) then
-    if (gr) vpred = vxyzu
+    if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustfrac,temperature,timei,dtsph,dtnew,&
                 ppred,dens,metrics)
+    if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
  endif
 !
 ! if using super-timestepping, determine what dt will be used on the next loop
@@ -558,10 +559,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !   get new force using updated velocity: no need to recalculate density etc.
 !
 
-       if (gr) vpred = vxyzu
+       if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
                      Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustfrac,&
                      temperature,timei,dtsph,dtnew,ppred,dens,metrics)
+       if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
     endif
 #ifdef DUSTGROWTH
     call update_dustprop(npart,dustproppred) !--update dustprop values
