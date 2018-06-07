@@ -36,7 +36,7 @@ subroutine test_rwdump(ntests,npass)
                     maxphase,mhd,maxvxyzu,maxBevol,igas,idust,maxp,&
                     poten,gravity,use_dust,dustfrac,xyzmh_ptmass,nptmass,&
                     nsinkproperties,xyzh_label,xyzmh_ptmass_label,dustfrac_label,&
-                    vxyz_ptmass,vxyz_ptmass_label,vxyzu_label,set_particle_type,iphase,ibelong
+                    vxyz_ptmass,vxyz_ptmass_label,vxyzu_label,set_particle_type,iphase,ibelong,ibin
  use dim,             only:ndusttypes,maxp
  use memory,          only:allocate_memory,deallocate_memory
  use testutils,       only:checkval
@@ -326,6 +326,7 @@ subroutine test_rwdump(ntests,npass)
  call deallocate_memory
  call allocate_memory(maxp_old)
  ibelong(:) = id
+ ibin(:) = 0
 
 end subroutine test_rwdump
 
