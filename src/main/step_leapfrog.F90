@@ -163,9 +163,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
-#ifdef GR
  !$omp shared(pxyzu) &
-#endif
  !$omp shared(Bevol,dBevol,dustevol,ddustfrac,use_dustfrac) &
  !$omp shared(dustprop,ddustprop,dustproppred) &
 #ifdef IND_TIMESTEPS
@@ -186,14 +184,16 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #endif
        if (store_itype) itype = iamtype(iphase(i))
        if (itype==iboundary) cycle predictor
+
        !
        ! predict v and u to the half step with "slow" forces
        !
-#ifdef GR
-       pxyzu(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
-#else
-       vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
-#endif
+       if (gr) then
+          pxyzu(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
+       else
+          vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+       endif
+
        if (itype==idust .and. use_dustgrowth) then
           dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
        endif
@@ -249,11 +249,13 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           itype = iamtype(iphase(i))
           pmassi = massoftype(itype)
           if (itype==iboundary) then
-#ifdef GR
-             ppred(:,i) = pxyzu(:,i)
-#else
-             vpred(:,i) = vxyzu(:,i)
-#endif
+
+             if (gr) then
+                ppred(:,i) = pxyzu(:,i)
+             else
+                vpred(:,i) = vxyzu(:,i)
+             endif
+
              if (mhd)          Bpred(:,i)  = Bevol (:,i)
              if (use_dustgrowth) dustproppred(:,:) = dustprop(:,:)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
@@ -276,11 +278,13 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #else
        hdti = 0.5*dtsph
 #endif
-#ifdef GR
-       ppred(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
-#else
-       vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
-#endif
+
+       if (gr) then
+          ppred(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
+       else
+          vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+       endif
+
        if (use_dustgrowth .and. itype==idust) then
           dustproppred(:,i) = dustproppred(:,i) + hdti*ddustprop(:,i)
        endif
@@ -412,11 +416,13 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              else
                 dti = hdti + ibin_dts(ithdt,ibin(i))
              endif
-#ifdef GR
-             pxyzu(:,i) = pxyzu(:,i) + dti*fxyzu(:,i)
-#else
-             vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
-#endif
+
+             if (gr) then
+                pxyzu(:,i) = pxyzu(:,i) + dti*fxyzu(:,i)
+             else
+                vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
+             endif
+
              if (use_dustgrowth .and. itype==idust) dustproppred(:,i) = dustproppred(:,i) + dti*ddustprop(:,i)
              if (itype==igas) then
                 if (mhd)          Bevol(:,i)    = Bevol(:,i)    + dti*dBevol(:,i)
@@ -429,11 +435,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           !
           hdti = timei - twas(i)
 
-#ifdef GR
-          pxyzu(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
-#else
-          vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
-#endif
+          if (gr) then
+             pxyzu(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
+          else
+             vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+          endif
 
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdti*dBevol(:,i)
@@ -463,7 +469,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           eni = pxyzu(4,i) + hdtsph*fxyzu(4,i)
 
           erri = (pxi - ppred(1,i))**2 + (pyi - ppred(2,i))**2 + (pzi - ppred(3,i))**2
-          !if (erri > errmax) print*,id,' errmax = ',erri,' part ',i,vxi,vxoldi,vyi,vyoldi,vzi,vzoldi
           errmax = max(errmax,erri)
 
           p2i = pxi*pxi + pyi*pyi + pzi*pzi
@@ -473,7 +478,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           pxyzu(1,i) = pxi
           pxyzu(2,i) = pyi
           pxyzu(3,i) = pzi
-          !--this is the energy equation if non-isothermal
           pxyzu(4,i) = eni
 #else
           vxi = vxyzu(1,i) + hdtsph*fxyzu(1,i)
@@ -512,11 +516,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp enddo
 !$omp end parallel
 
-#ifdef GR
-    call check_velocity_error(errmax,p2mean,np,its,tolv,dtsph,timei,damp,dterr,errmaxmean,converged)
-#else
-    call check_velocity_error(errmax,v2mean,np,its,tolv,dtsph,timei,damp,dterr,errmaxmean,converged)
-#endif
+    if (gr) then
+       call check_velocity_error(errmax,p2mean,np,its,tolv,dtsph,timei,damp,dterr,errmaxmean,converged)
+    else
+       call check_velocity_error(errmax,v2mean,np,its,tolv,dtsph,timei,damp,dterr,errmaxmean,converged)
+    endif
 
     if (.not.converged .and. npart > 0) then
        !$omp parallel do private(i) schedule(static)
@@ -524,30 +528,34 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (store_itype) itype = iamtype(iphase(i))
 #ifdef IND_TIMESTEPS
           if (iactive(iphase(i))) then
-#ifdef GR
-             ppred(:,i) = pxyzu(:,i)
-#else
-             vpred(:,i) = vxyzu(:,i)
-#endif
+
+             if (gr) then
+                ppred(:,i) = pxyzu(:,i)
+             else
+                vpred(:,i) = vxyzu(:,i)
+             endif
+
              if (mhd)          Bpred(:,i)  = Bevol(:,i)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
           endif
 #else
-#ifdef GR
-          ppred(:,i) = pxyzu(:,i)
-#else
-          vpred(:,i) = vxyzu(:,i)
-#endif
+          if (gr) then
+             ppred(:,i) = pxyzu(:,i)
+          else
+             vpred(:,i) = vxyzu(:,i)
+          endif
+
           if (mhd)          Bpred(:,i)  = Bevol(:,i)
           if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
 !
 ! shift v back to the half step
 !
-#ifdef GR
-          pxyzu(:,i) = pxyzu(:,i) - hdtsph*fxyzu(:,i)
-#else
-          vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
-#endif
+          if (gr) then
+             pxyzu(:,i) = pxyzu(:,i) - hdtsph*fxyzu(:,i)
+          else
+             vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
+          endif
+
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  - hdtsph*dBevol(:,i)
              if (use_dustfrac) dustevol(:,i) = dustevol(:,i) - hdtsph*ddustfrac(:,i)
