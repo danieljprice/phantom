@@ -13,6 +13,10 @@ class IncorrectNumberOfParticles(Exception):
   pass
 class SpecificEnergyNotStored(Exception):
   pass
+class TemperatureNotStored(Exception):
+  pass
+class MagneticFieldNotStored(Exception):
+  pass
 class IncorrectNumberOfPointMasses(Exception):
   pass
 class TryingToChangeMassInNonEmptySimulation(Exception):
@@ -275,6 +279,17 @@ class Simulation():
     if ierr == 1: raise IncorrectNumberOfParticles
     # Returning output
     return part_vxyz
+   
+  def get_part_bxyz(self, npart, nodisabled=False):
+    npart_c      = c_int(npart)
+    nodisabled_c = c_int(npart) 
+    part_bxyz    = zeros(npart, dtype=float)
+    ierr_c       = c_int()
+    self.libph.get_part_bxyz_(byref(npart_c), c_void_p(part_bxyz.ctypes.data), byref(nodisabled_c), byref(ierr_c))
+    ierr = ierr_c.value
+    if ierr == 1: raise IncorrectNumberOfParticles
+    if ierr == 2: raise MagneticFieldNotStored
+    return part_bxyz
     
   def get_part_u(self, npart, nodisabled=False):
     # Input
@@ -291,6 +306,22 @@ class Simulation():
     if ierr == 2: raise SpecificEnergyNotStored
     # Returning output
     return part_u
+
+  def get_part_temp(self, npart, nodisabled=False):
+    # Input
+    npart_c = c_int(npart)
+    nodisabled_c = c_int(npart)
+    # Output
+    part_temp = zeros(npart, dtype=float)
+    ierr_c = c_int()
+    # Calling subroutine
+    self.libph.get_part_temp_(byref(npart_c), c_void_p(part_temp.ctypes.data), byref(nodisabled_c), byref(ierr_c))
+    ierr = ierr_c.value
+    # Handling errors
+    if ierr == 1: raise IncorrectNumberOfParticles
+    if ierr == 2: raise TemperatureNotStored
+    # Returning output
+    return part_temp
 
   def get_nptmass(self):
     # Output

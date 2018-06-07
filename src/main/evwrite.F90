@@ -116,9 +116,9 @@ subroutine init_evfile(iunit,evfile,open_file)
  call fill_ev_tag(ev_fmt,iev_entrop, 'totentrop','s', i,j)
  call fill_ev_tag(ev_fmt,iev_rmsmach,'rmsmach',  's', i,j)
  call fill_ev_tag(ev_fmt,iev_vrms,   'vrms',     's', i,j)
- call fill_ev_tag(ev_fmt,iev_com(1), 'xcom',     's', i,j)
- call fill_ev_tag(ev_fmt,iev_com(2), 'ycom',     's', i,j)
- call fill_ev_tag(ev_fmt,iev_com(3), 'zcom',     's', i,j)
+ call fill_ev_tag(ev_fmt,iev_com(1), 'xcom',     '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_com(2), 'ycom',     '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_com(3), 'zcom',     '0', i,j)
  if (.not. gas_only) then
     if (npartoftype(igas)        > 0) call fill_ev_tag(ev_fmt,iev_rhop(1),'rho gas', 'xa',i,j)
     if (npartoftype(idust)       > 0) call fill_ev_tag(ev_fmt,iev_rhop(2),'rho dust','xa',i,j)
@@ -190,7 +190,7 @@ subroutine init_evfile(iunit,evfile,open_file)
     track_mass     = .false.
  endif
  if (ishock_heating==0 .or. ipdv_heating==0 .or. lightcurve) then
-    call fill_ev_tag(ev_fmt,iev_totlum,'tot lum', 's',i,j)
+    call fill_ev_tag(ev_fmt,iev_totlum,'tot lum', '0',i,j)
     track_lum      = .true.
  else
     track_lum      = .false.

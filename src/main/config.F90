@@ -68,11 +68,35 @@ module dim
  integer, parameter :: maxneigh = maxp
 #endif
 
- ! maxmimum storage in linklist
+! maxmimum storage in linklist
 #ifdef NCELLSMAX
  integer, parameter :: ncellsmax = NCELLSMAX
 #else
  integer, parameter :: ncellsmax = maxp
+#endif
+
+!------
+! Dust
+!------
+#ifdef DUST
+ logical, parameter :: use_dust = .true.
+ integer, parameter :: ndustfluids = 1
+ integer, parameter :: ndusttypes = 1
+ integer, parameter :: maxp_dustfrac = maxp
+#ifdef DUSTGROWTH
+ logical, parameter :: use_dustgrowth = .true.
+ integer, parameter :: maxp_growth = maxp
+#else
+ logical, parameter :: use_dustgrowth = .false.
+ integer, parameter :: maxp_growth = 0
+#endif
+#else
+ logical, parameter :: use_dust = .false.
+ integer, parameter :: ndustfluids = 0
+ integer, parameter :: ndusttypes = 1 ! to avoid seg faults
+ integer, parameter :: maxp_dustfrac = 0
+ logical, parameter :: use_dustgrowth = .false.
+ integer, parameter :: maxp_growth = 0
 #endif
 
  ! kdtree
@@ -82,11 +106,16 @@ module dim
  integer, parameter :: maxrhosum = 39
 
  ! fsum
- integer, parameter :: maxfsum = 17
+ integer, parameter :: fsumvars = 17 ! Number of scalars in fsum
+ integer, parameter :: fsumarrs = 5  ! Number of arrays in fsum
+ integer, parameter :: maxfsum  = fsumvars + fsumarrs*(ndusttypes-1) ! Total number of values
 
  ! xpartveci
  integer, parameter :: maxxpartvecidens = 14
- integer, parameter :: maxxpartveciforce = 48
+
+ integer, parameter :: xpartvecvars = 48 ! Number of scalars in xpartvec
+ integer, parameter :: xpartvecarrs = 2  ! Number of arrays in xpartvec
+ integer, parameter :: maxxpartveciforce = xpartvecvars + xpartvecarrs*(ndusttypes-1) ! Total number of values
 
  ! cell storage
  integer, parameter :: maxprocs = 32
@@ -195,28 +224,6 @@ module dim
 
 ! viscosity switches, whether done in step or during derivs call
  logical, parameter :: switches_done_in_derivs = .false.
-
-!------
-! Dust
-!------
-#ifdef DUST
- logical, parameter :: use_dust = .true.
- integer, parameter :: ndusttypes = 1
- integer, parameter :: maxp_dustfrac = maxp
-#ifdef DUSTGROWTH
- logical, parameter :: use_dustgrowth = .true.
- integer, parameter :: maxp_growth = maxp
-#else
- logical, parameter :: use_dustgrowth = .false.
- integer, parameter :: maxp_growth = 0
-#endif
-#else
- logical, parameter :: use_dust = .false.
- integer, parameter :: ndusttypes = 0
- integer, parameter :: maxp_dustfrac = 0
- logical, parameter :: use_dustgrowth = .false.
- integer, parameter :: maxp_growth = 0
-#endif
 
 !--------------------
 ! H2 Chemistry

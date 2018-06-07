@@ -35,7 +35,8 @@ module part
           mhd,maxmhd,maxBevol,maxp_h2,maxtemp,periodic, &
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
           switches_done_in_derivs,maxp_dustfrac,use_dust, &
-          store_temperature,lightcurve,maxlum,nalpha,maxmhdni,maxne,maxp_growth,gr,maxgr
+          store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
+          maxne,maxp_growth,ndusttypes,gr,maxgr
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -57,6 +58,7 @@ module part
 !--storage of dust properties
 !
  real :: dustprop(5,maxp_growth)
+ real :: St(maxp_growth)
  character(len=*), parameter :: dustprop_label(5) = (/'grainsize ','graindens ','   vrel   ','vrel/vfrag','    dv    '/)
 !
 !--storage in divcurlv
@@ -99,9 +101,11 @@ module part
 !
 !--one-fluid dust (small grains)
 !
- real :: dustfrac(maxp_dustfrac)
- real :: dustevol(maxp_dustfrac)
- real :: deltav(3,maxp_dustfrac)
+ real :: dustfrac(ndusttypes,maxp_dustfrac)
+ character(len=*), parameter :: dustfrac_label(ndusttypes) = 'dustfrac'
+ character(len=*), parameter :: tstop_label(ndusttypes) = 'tstop'
+ real :: dustevol(ndusttypes,maxp_dustfrac)
+ real :: deltav(3,ndusttypes,maxp_dustfrac)
  character(len=*), parameter :: deltav_label(3) = &
    (/'deltavx','deltavy','deltavz'/)
 !
@@ -171,20 +175,20 @@ module part
 !
 !--derivatives (only needed if derivs is called)
 !
- real                                :: fxyzu(maxvxyzu,maxan)
- real                                :: dBevol(maxBevol,maxmhdan)
- real(kind=4)                :: divBsymm(maxmhdan)
- real                                :: fext(3,maxan)
- real                                :: ddustfrac(maxdustan)
- real                                :: ddustprop(5,maxp_growth) !--grainsize is the only prop that evolves for now
+ real               :: fxyzu(maxvxyzu,maxan)
+ real               :: dBevol(maxBevol,maxmhdan)
+ real(kind=4)       :: divBsymm(maxmhdan)
+ real               :: fext(3,maxan)
+ real               :: ddustfrac(ndusttypes,maxdustan)
+ real               :: ddustprop(5,maxp_growth) !--grainsize is the only prop that evolves for now
 !
 !--storage associated with/dependent on timestepping
 !
- real                                :: vpred(maxvxyzu,maxan)
- real                                :: ppred(maxvxyzu,maxgran)
- real                                :: dustpred(maxdustan)
- real                                :: Bpred(maxBevol,maxmhdan)
- real                                :: dustproppred(5,maxp_growth)
+ real               :: vpred(maxvxyzu,maxan)
+ real               :: ppred(maxvxyzu,maxgran)
+ real               :: dustpred(ndusttypes,maxdustan)
+ real               :: Bpred(maxBevol,maxmhdan)
+ real               :: dustproppred(5,maxp_growth)
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin(maxan)
  integer(kind=1)    :: ibin_old(maxan)
@@ -200,8 +204,8 @@ module part
  integer(kind=1)    :: iphase_soa(maxphase)
  logical, public    :: all_active = .true.
 
- real(kind=4)                 :: gradh(ngradh,maxgradh)
- real                         :: tstop(maxan)
+ real(kind=4)       :: gradh(ngradh,maxgradh)
+ real               :: tstop(ndusttypes,maxan)
 !
 !--storage associated with link list
 !  (used for dead particle list also)
@@ -226,11 +230,11 @@ module part
    +(maxmhd/maxpd)*maxBevol             &  ! Bpred
    +maxphase/maxpd                      &  ! iphase
 #ifdef DUST
-   +1                                   &  ! dustfrac
-   +1                                   &  ! dustevol
+   +ndusttypes                          &  ! dustfrac
+   +ndusttypes                          &  ! dustevol
 #ifdef DUSTGROWTH
-   +1                                                                        &  ! dustproppred
-   +1                                                                        &  ! ddustprop
+   +1                                   &  ! dustproppred
+   +1                                   &  ! ddustprop
 #endif
 #endif
    +(maxp_h2/maxpd)*nabundances         &  ! abundance
@@ -632,8 +636,8 @@ subroutine copy_particle(src, dst)
  twas(dst)       = twas(src)
 #endif
  if (use_dust) then
-    dustfrac(dst) = dustfrac(src)
-    dustevol(dst) = dustevol(src)
+    dustfrac(:,dst) = dustfrac(:,src)
+    dustevol(:,dst) = dustevol(:,src)
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
  if (store_temperature) temperature(dst) = temperature(src)
@@ -686,11 +690,11 @@ subroutine copy_particle_all(src,dst)
  twas(dst)       = twas(src)
 #endif
  if (use_dust) then
-    dustfrac(dst)  = dustfrac(src)
-    dustevol(dst)  = dustevol(src)
-    dustpred(dst)  = dustpred(src)
-    ddustfrac(dst) = ddustfrac(src)
-    deltav(:,dst)  = deltav(:,src)
+    dustfrac(:,dst)  = dustfrac(:,src)
+    dustevol(:,dst)  = dustevol(:,src)
+    dustpred(:,dst)  = dustpred(:,src)
+    ddustfrac(:,dst) = ddustfrac(:,src)
+    deltav(:,:,dst)  = deltav(:,:,src)
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
  if (store_temperature) temperature(dst) = temperature(src)
@@ -880,8 +884,8 @@ subroutine fill_sendbuf(i,xtemp)
        call fill_buffer(xtemp,iphase(i),nbuf)
     endif
     if (use_dust) then
-       call fill_buffer(xtemp, dustfrac(i),nbuf)
-       call fill_buffer(xtemp, dustevol(i),nbuf)
+       call fill_buffer(xtemp, dustfrac(:,i),nbuf)
+       call fill_buffer(xtemp, dustevol(:,i),nbuf)
     endif
     if (maxp_h2==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)
@@ -940,8 +944,8 @@ subroutine unfill_buffer(ipart,xbuf)
     iphase(ipart)       = nint(unfill_buf(xbuf,j),kind=1)
  endif
  if (use_dust) then
-    dustfrac(ipart)     = unfill_buf(xbuf,j)
-    dustevol(ipart)     = unfill_buf(xbuf,j)
+    dustfrac(:,ipart)   = unfill_buf(xbuf,j,ndusttypes)
+    dustevol(:,ipart)   = unfill_buf(xbuf,j,ndusttypes)
  endif
  if (maxp_h2==maxp) then
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)

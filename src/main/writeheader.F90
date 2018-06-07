@@ -190,18 +190,22 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 
     if (maxalpha==maxp) then
        if (nalpha >= 2) then
-          write(iprint,"(2(a,f10.6))") ' Art. visc. w/Cullen & Dehnen switch   : alpha  = ',alpha,' ->',alphamax
+          write(iprint,"(2(a,f10.6))") ' Art. viscosity w/Cullen & Dehnen switch    : alpha  = ',alpha,' ->',alphamax
        else
-          write(iprint,"(2(a,f10.6))") ' Art. visc. w/Morris & Monaghan switch : alphaB = ',alpha,' ->',alphamax
+          write(iprint,"(2(a,f10.6))") ' Art. visc. w/Morris & Monaghan switch      : alpha  = ',alpha,' ->',alphamax
        endif
     else
-       write(iprint,"(a,f10.6)") ' Artificial viscosity                     : alpha  = ',alpha
+       write(iprint,"(a,f10.6)") ' Artificial viscosity                       : alpha  = ',alpha
     endif
     if (mhd) then
-       write(iprint,"(a,f10.6)") ' Artificial resistivity, vsig=|vab x rab| : alphaB = ',alphaB
+       write(iprint,"(a,f10.6)") ' Artificial resistivity, vsig=|vab x rab|   : alphaB = ',alphaB
     endif
     if (maxvxyzu >= 4) then
-       write(iprint,"(a,f10.6)") ' Art. conductivity w/Price 2008 switch    : alphau = ',alphau
+       if (gravity) then
+          write(iprint,"(a,f10.6)") ' Art. conductivity w/divv switch (gravity)  : alphau = ',alphau
+       else
+          write(iprint,"(a,f10.6)") ' Art. conductivity w/Price 2008 switch      : alphau = ',alphau
+       endif
     endif
     write(iprint,*)
 

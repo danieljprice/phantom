@@ -23,7 +23,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, dust, io, mpiutils, options, part, physcon,
-!    prompting, setup_params, timestep, unifdis, units
+!    prompting, readwrite_dust, setup_params, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -42,19 +42,20 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:use_dust
- use options,      only:use_dustfrac,nfulldump,beta
- use setup_params, only:rhozero,npart_total,ihavesetupB
- use io,           only:master
- use unifdis,      only:set_unifdis
- use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use mpiutils,     only:bcast_mpi
- use part,         only:Bxyz,mhd,dustfrac
- use physcon,      only:pi,solarm,pc,km
- use units,        only:set_units
- use prompting,    only:prompt
- use dust,         only:set_dustfrac,grainsizecgs
- use timestep,     only:dtmax,tmax
+ use dim,            only:use_dust,ndusttypes
+ use options,        only:use_dustfrac,nfulldump,beta
+ use setup_params,   only:rhozero,npart_total,ihavesetupB
+ use io,             only:master
+ use unifdis,        only:set_unifdis
+ use boundary,       only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
+ use mpiutils,       only:bcast_mpi
+ use part,           only:Bxyz,mhd,dustfrac
+ use physcon,        only:pi,solarm,pc,km
+ use units,          only:set_units
+ use prompting,      only:prompt
+ use dust,           only:grainsizecgs,graindenscgs
+ use readwrite_dust, only:interactively_set_dust,set_dustfrac_from_inopts
+ use timestep,       only:dtmax,tmax
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -65,10 +66,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  character(len=26)                :: filename
- integer :: ipart,i,maxp,maxvxyzu
+ integer :: ipart,i,maxp,maxvxyzu,dust_method
  logical :: iexist
  real :: totmass,deltax
- real :: Bz_0, dust_to_gas, grainsize
+ real :: Bz_0, dust_to_gas
+ real :: dustfrac_percent(ndusttypes)
 
  print *, ''
  print *, 'Setup for turbulence in a periodic box'
@@ -126,20 +128,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     polykset = 0.
  endif
 
- if (use_dust) use_dustfrac = .true.
- if (use_dustfrac) then
+ if (use_dust) then
     print *, ''
     print *, 'Setting up dusty turbulence:'
     print *, ''
 
+    dust_method = 1
     dust_to_gas = 1.e-2
-    if (id==master) call prompt('Enter dust-to-gas ratio ',dust_to_gas)
-    call bcast_mpi(dust_to_gas)
-
-    grainsize = 0.1 ! micron
-    if (id==master) call prompt('Enter grain size in micron ',grainsize)
-    call bcast_mpi(grainsize)
-    grainsizecgs = grainsize * 1.0e-4
+    call interactively_set_dust(dust_to_gas,dustfrac_percent,grainsizecgs,graindenscgs, &
+                                imethod=dust_method,units='micron')
  endif
 
  if (mhd) then
@@ -159,7 +156,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     dtmax        = 0.0025
     nfulldump    = 5      ! output 4 full dumps per crossing time
     beta         = 4      ! legacy from Price & Federrath (2010), haven't checked recently if still required
-    grainsizecgs = grainsize * 1.0e-4
  endif
  npart = 0
  npart_total = 0
@@ -189,8 +185,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        Bxyz(:,i) = 0.
        Bxyz(3,i) = Bz_0
     endif
+    !
+    !--one fluid dust: set dust fraction on gas particles
+    !
     if (use_dustfrac) then
-       call set_dustfrac(dust_to_gas,dustfrac(i))
+       call set_dustfrac_from_inopts(dust_to_gas,percent=dustfrac_percent,ipart=i)
+    else
+       dustfrac(:,i) = 0.
     endif
  enddo
 

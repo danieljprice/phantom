@@ -135,7 +135,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,ndusttypes
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -561,10 +561,16 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
                               dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtnew_first,pxyzu,dens,metrics)
     if (use_dustfrac) then
-       ! set s = sqrt(eps/(1-eps)) from the initial dustfrac setting now we know rho
+       ! set grainsize parameterisation from the initial dustfrac setting now we know rho
        do i=1,npart
           if (.not.isdead_or_accreted(xyzh(4,i))) then
-             dustevol(i) = sqrt(dustfrac(i)/(1.-dustfrac(i)))
+!------------------------------------------------
+!--sqrt(rho*epsilon) method
+!             dustevol(:,i) = sqrt(rhoh(xyzh(4,i),pmassi)*dustfrac(:,i))
+!------------------------------------------------
+!--asin(sqrt(epsilon)) method
+             dustevol(:,i) = asin(sqrt(dustfrac(:,i)))
+!------------------------------------------------
           endif
        enddo
     endif
@@ -641,7 +647,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  write(iprint,'(2x,a,es18.6)')   'Initial angular momentum: ', angtot_in
  write(iprint,'(2x,a,es18.6)')   'Initial linear momentum:  ', totmom_in
 #ifdef DUST
- write(iprint,'(2x,a,es18.6,/)') 'Initial dust mass:        ', mdust_in
+ do i=1,ndusttypes
+    write(iprint,'(2x,a,i3,es18.6)') 'Initial dust mass: i = ',i, mdust_in(i)
+ enddo
 #endif
 !
 !--write initial conditions to output file

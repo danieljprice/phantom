@@ -56,9 +56,9 @@
 !    twallmax           -- maximum wall time (hhh:mm, 000:00=ignore)
 !    use_mcfost         -- use the mcfost library
 !
-!  DEPENDENCIES: cooling, dim, dust, eos, externalforces, forcing, growth,
+!  DEPENDENCIES: cooling, dim, eos, externalforces, forcing, growth,
 !    infile_utils, inject, io, linklist, nicil_sup, options, part,
-!    photoevap, ptmass, timestep, viscosity
+!    photoevap, ptmass, readwrite_dust, timestep, viscosity
 !+
 !--------------------------------------------------------------------------
 module readwrite_infile
@@ -93,10 +93,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use externalforces,  only:write_options_externalforces
  use linklist,        only:write_inopts_link
 #ifdef DUST
- use dust,            only:write_options_dust
+ use readwrite_dust,  only:write_dust_infile_options
 #ifdef DUSTGROWTH
- use growth,                  only:write_options_growth
- use options,                  only:use_dustfrac
+ use growth,          only:write_options_growth
+ use options,         only:use_dustfrac
 #endif
 #endif
 #ifdef PHOTO
@@ -203,7 +203,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  ! thermodynamics
  !
  call write_options_eos(iwritein)
- if (maxvxyzu >= 4 .and. (ieos==2 .or. ieos==10) ) then
+ if (maxvxyzu >= 4 .and. (ieos==2 .or. ieos==10 .or. ieos==15) ) then
     call write_inopt(ipdv_heating,'ipdv_heating','heating from PdV work (0=off, 1=on)',iwritein)
     call write_inopt(ishock_heating,'ishock_heating','shock heating (0=off, 1=on)',iwritein)
     if (mhd) then
@@ -234,7 +234,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #endif
 
 #ifdef DUST
- call write_options_dust(iwritein)
+ call write_dust_infile_options(iwritein)
 #ifdef DUSTGROWTH
  if(.not.use_dustfrac) call write_options_growth(iwritein)
 #endif
@@ -269,38 +269,39 @@ end subroutine write_infile
 !+
 !-----------------------------------------------------------------
 subroutine read_infile(infile,logfile,evfile,dumpfile)
- use dim,           only:maxvxyzu,maxptmass,maxp,gravity
- use timestep,      only:tmax,dtmax,nmax,nout,C_cour,C_force,restartonshortest
- use eos,           only:use_entropy,read_options_eos,ieos
- use io,            only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master
- use infile_utils,  only:read_next_inopt,contains_loop,write_infile_series
+ use dim,             only:maxvxyzu,maxptmass,maxp,gravity
+ use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force,restartonshortest
+ use eos,             only:use_entropy,read_options_eos,ieos
+ use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master
+ use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
 #ifdef DRIVING
- use forcing,       only:read_options_forcing,write_options_forcing
+ use forcing,         only:read_options_forcing,write_options_forcing
 #endif
- use externalforces,only:read_options_externalforces
- use linklist,      only:read_inopts_link
+ use externalforces,  only:read_options_externalforces
+ use linklist,        only:read_inopts_link
+ use readwrite_dust,  only:get_onefluiddust
 #ifdef DUST
- use dust,          only:read_options_dust
+ use options,         only:use_dustfrac
+ use readwrite_dust,  only:read_dust_infile_options
 #ifdef DUSTGROWTH
- use growth,                only:read_options_growth
- use options,                                only:use_dustfrac
+ use growth,          only:read_options_growth
 #endif
 #endif
 #ifdef GR
  use metric,        only:read_options_metric
 #endif
 #ifdef PHOTO
- use photoevap,     only:read_options_photoevap
+ use photoevap,       only:read_options_photoevap
 #endif
 #ifdef INJECT_PARTICLES
- use inject,        only:read_options_inject
+ use inject,          only:read_options_inject
 #endif
 #ifdef NONIDEALMHD
- use nicil_sup,     only:read_options_nicil
+ use nicil_sup,       only:read_options_nicil
 #endif
- use part,          only:mhd,nptmass
- use cooling,       only:read_options_cooling
- use ptmass,        only:read_options_ptmass
+ use part,            only:mhd,nptmass
+ use cooling,         only:read_options_cooling
+ use ptmass,          only:read_options_ptmass
  character(len=*), parameter   :: label = 'read_infile'
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -324,7 +325,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  ngot            = 0
  igotallturb     = .true.
  igotalldust     = .true.
- igotallgrowth         = .true.
+ igotallgrowth   = .true.
  igotallphoto    = .true.
  igotalllink     = .true.
  igotallextern   = .true.
@@ -438,7 +439,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #endif
        if (.not.imatch) call read_inopts_link(name,valstring,imatch,igotalllink,ierr)
 #ifdef DUST
-       if (.not.imatch) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
+       !--Extract if one-fluid dust is used from the fileid
+       call get_onefluiddust(dumpfile,use_dustfrac)
+       if (.not.imatch) call read_dust_infile_options(name,valstring,imatch,igotalldust,ierr)
 #ifdef DUSTGROWTH
        if (.not.imatch .and. .not.use_dustfrac) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
 #endif

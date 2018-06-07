@@ -20,10 +20,10 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: io, mpiutils, options, testcooling, testcorotate,
-!    testderivs, testdust, testeos, testexternf, testgnewton, testgravity,
-!    testgrowth, testindtstep, testkdtree, testkernel, testlink, testmath,
-!    testnimhd, testptmass, testrwdump, testsedov, testsetdisc, teststep,
-!    timing
+!    testderivs, testdust, testeos, testexternf, testgeometry, testgnewton,
+!    testgravity, testgrowth, testindtstep, testkdtree, testkernel,
+!    testlink, testmath, testnimhd, testptmass, testrwdump, testsedov,
+!    testsetdisc, teststep, timing
 !+
 !--------------------------------------------------------------------------
 module test
@@ -62,6 +62,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testsetdisc,  only:test_setdisc
  use testeos,      only:test_eos
  use testcooling,  only:test_cooling
+ use testgeometry, only:test_geometry
  use options,      only:set_default_options
  use timing,       only:get_timings,print_time
  use mpiutils,     only:barrier_mpi
@@ -69,7 +70,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
  logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump
- logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity
+ logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth,dogr
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
@@ -81,7 +82,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (first) then
     if (id==master) then
        write(*,"(/,a,/)") '--> RUNNING PHANTOM TEST SUITE'
-       write(*,"(2x,a)") '"Because nobody cares how fast you can calculate the wrong answer."'
+       write(*,"(2x,a)") '"Nobody cares how fast you can calculate the wrong answer."'
        write(*,"(14x,a,/)") '-- Richard West (former UKAFF manager)'
     endif
     ntests = 0
@@ -109,6 +110,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  dogrowth   = .false.
  donimhd    = .false.
  docooling  = .false.
+ dogeom     = .false.
  dogr       = .false.
  if (index(string,'deriv')     /= 0) doderivs  = .true.
  if (index(string,'grav')      /= 0) dogravity = .true.
@@ -120,8 +122,9 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'dump')      /= 0) dorwdump  = .true.
  if (index(string,'sink')      /= 0) doptmass  = .true.
  if (index(string,'cool')      /= 0) docooling = .true.
+ if (index(string,'geom')      /= 0) dogeom    = .true.
  if (index(string,'gr')        /= 0) dogr      = .true.
- doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,doptmass,docooling,dogr/))
+ doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,doptmass,docooling,dogeom,dogr/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -233,11 +236,11 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
 !--test of dust growth module
 !
-!if (dogrowth.or.testall) then
-!   call test_growth(ntests,npass)
-!   call set_default_options ! restore defaults
-!   call barrier_mpi()
-!endif
+ if (dogrowth.or.testall) then
+    call test_growth(ntests,npass)
+    call set_default_options ! restore defaults
+    call barrier_mpi()
+ endif
 !
 !--test of non-ideal MHD
 !
@@ -317,6 +320,14 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
  if (dosetdisc.or.testall) then
     call test_setdisc(ntests,npass)
+    call set_default_options ! restore defaults
+    call barrier_mpi()
+ endif
+!
+!--test of geometry module
+!
+ if (dogeom.or.testall) then
+    call test_geometry(ntests,npass)
     call set_default_options ! restore defaults
     call barrier_mpi()
  endif
