@@ -162,6 +162,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vxyzu(1:3,i) = vxyzstar(1:3)
  enddo
 
+
+ if (id==master) print "(/,a,i10,/)",' Number of particles setup = ',npart
+
  if (npart == 0)   call fatal('setup','no particles setup')
  if (ierr /= 0)    call fatal('setup','ERROR during setup')
 
