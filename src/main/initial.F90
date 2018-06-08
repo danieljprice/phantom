@@ -158,7 +158,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use cons2prim,        only:primitive_to_conservative
  use eos,              only:equationofstate,ieos
  use extern_gr,        only:get_grforce_all
- use metric_tools,     only:init_metric
+ use metric_tools,     only:init_metric,imet_minkowski
+ use metric,           only:imetric
 #endif
 #ifdef PHOTO
  use photoevap,        only:set_photoevap_grid
@@ -474,7 +475,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                               fxyzu,fext,alphaind,gradh)
  endif
  call primitive_to_conservative(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
- if (iexternalforce > 0) then
+ if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
     call initialise_externalforces(iexternalforce,ierr)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)

@@ -88,7 +88,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #ifdef GR
  use part,             only:pxyzu,dens,metrics,metricderivs
  use cons2prim,        only:primitive_to_conservative
- use metric_tools,     only:init_metric
+ use metric_tools,     only:init_metric,imet_minkowski
+ use metric,           only:imetric
  use extern_gr,        only:get_grforce_all
 #endif
 #endif
@@ -261,7 +262,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #ifdef GR
     call init_metric(npart,xyzh,metrics,metricderivs)
     call primitive_to_conservative(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
-    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce) ! Not 100% sure if this is needed here
+    if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
+       call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce) ! Not 100% sure if this is needed here
+    endif
 #endif
 #ifdef IND_TIMESTEPS
     do iloop=npart_old+1,npart
