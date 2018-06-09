@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, part, readwrite_dust
+!  DEPENDENCIES: dim, growth, options, part, readwrite_dust
 !+
 !--------------------------------------------------------------------------
 module moddump
@@ -27,9 +27,11 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use dim,            only:use_dust,ndusttypes
+ use dim,            only:use_dust,ndusttypes,use_dustgrowth
  use part,           only:igas,idust,set_particle_type
  use readwrite_dust, only:write_temp_grains_file,set_dustfrac_from_inopts
+ use options,        only:use_dustfrac
+ use growth,         only:set_dustprop
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -41,14 +43,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (use_dust) then
     call write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod=dust_method)
     if (dust_method == 1) then
+       use_dustfrac = .true.
        call set_dustfrac_from_inopts(dust_to_gas,percent=dustfrac_percent)
 
        massoftype(igas) = massoftype(igas)*(1. + dust_to_gas)
     elseif (dust_method == 2) then
+       use_dustfrac = .false.
        npart = npartoftype(igas)
        npartoftype(idust) = npart
        massoftype(idust)  = massoftype(igas)*dust_to_gas
-
        do i=npart+1,2*npart
           xyzh(1,i) = xyzh(1,i-npart)
           xyzh(2,i) = xyzh(2,i-npart)
@@ -61,6 +64,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           call set_particle_type(i,idust)
        enddo
        npart=2*npart
+       if (use_dustgrowth) then
+          call set_dustprop(npart)
+       endif
     endif
  else
     print*,' DOING NOTHING: COMPILE WITH DUST=yes'

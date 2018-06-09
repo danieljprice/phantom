@@ -121,7 +121,7 @@ subroutine test_growingbox(ntests,npass)
  real :: sinit = 1., dens = 1.
  real :: s_in(10000),s_out(10000)
  integer :: switch,ierr=0
- real, parameter :: tols = 2.e-5
+ real, parameter :: tols = 5.e-4
  logical :: do_output = .false.
 
  if (periodic) then
@@ -415,16 +415,16 @@ subroutine test_growingbox(ntests,npass)
        s_in(j)  = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
        s_out(j) = sinit - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
        if (cs(j) > cs_snow) then
-          call checkvalbuf(dustprop(1,j),s_in(j),3*tols,'size',nerr(8),ncheck(8),errmax(8))
+          call checkvalbuf(dustprop(1,j),s_in(j),tols,'size',nerr(8),ncheck(8),errmax(8))
        endif
        if (cs(j) < cs_snow) then
-          call checkvalbuf(dustprop(1,j),s_out(j),3*tols,'size',nerr(9),ncheck(9),errmax(9))
+          call checkvalbuf(dustprop(1,j),s_out(j),tols,'size',nerr(9),ncheck(9),errmax(9))
        endif
     enddo
     if (do_output) call write_file(i,dt,xyzh,dustprop/sinit,cs/cs_snow,npart,'snowline_temp_')
  enddo
- call checkvalbuf_end('size match exact solution (in)',ncheck(8),nerr(8),errmax(8),3*tols)
- call checkvalbuf_end('size match exact solution (out)',ncheck(9),nerr(9),errmax(9),3*tols)
+ call checkvalbuf_end('size match exact solution (in)',ncheck(8),nerr(8),errmax(8),tols)
+ call checkvalbuf_end('size match exact solution (out)',ncheck(9),nerr(9),errmax(9),tols)
 
  if (all(nerr(1:9)==0)) npass = npass + 1
  ntests = ntests + 1
@@ -456,7 +456,7 @@ subroutine check_stokes_number(ntests,npass)
  real :: deltax, dz, hfact, totmass, rhozero, errmax(1), dtext_dum
  real :: Stcomp, r, sinit = 1., dens = 1.,s
  real :: t, dt, dtext, dtnew
- real, parameter :: tolst = 2.e-4
+ real, parameter :: tolst = 5.e-3
 
  write(*,"(/,a)")'--> testing STOKES NUMBER INTERPOLATION'
  write(*,"(/,a)")'------------------ ts = const ------------------'
