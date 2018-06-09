@@ -88,16 +88,15 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
- use part,             only:xyzh,vxyzu,massoftype,igas
+ use part,             only:igas
  use fileutils,        only:numfromfile
  use io,               only:ianalysis
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,npartoftype, &
-                            fxyz_ptmass_sinksink,ntot
+                            fxyz_ptmass_sinksink,ntot,poten
  use quitdump,         only:quit
- use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev, &
-                            rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin,rhomax_ipart
+ use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
  use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in
@@ -291,11 +290,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     if (gravity .and. icreate_sinks > 0 .and. ipart_rhomax /= 0) then
        !
        ! creation of new sink particles
-       ! Note: rhomax_ipart is for bookkeeping only
        !
-       call ptmass_create(nptmass,npart,rhomax_ipart,xyzh,vxyzu,fxyzu,fext,divcurlv,&
-                          massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time,&
-                          rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin)
+       call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
+                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
     endif
 
     nsteps = nsteps + 1
