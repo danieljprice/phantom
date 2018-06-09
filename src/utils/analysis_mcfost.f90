@@ -66,6 +66,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  logical, parameter :: write_T_files = .false. ! ask mcfost to write fits files with temperature structure
  integer, parameter :: ISM = 2 ! ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto
 
+
  if (use_mcfost) then
     write(*,*) "Calling mcfost"
     if (.not.init_mcfost) then

@@ -116,8 +116,8 @@ subroutine test_sedov(ntests,npass)
        if (maxphase==maxp) iphase(i) = isetphase(igas,iactive=.true.)
        vxyzu(:,i) = 0.
        if (use_dust) then
-          dustfrac(i) = 0.
-          dustevol(i) = 0.
+          dustfrac(:,i) = 0.
+          dustevol(:,i) = 0.
        endif
 
        if ((xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2) < rblast*rblast) then

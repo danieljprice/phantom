@@ -20,9 +20,10 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: io, mpiutils, options, testcooling, testcorotate,
-!    testderivs, testdust, testeos, testexternf, testgnewton, testgravity,
-!    testindtstep, testkdtree, testkernel, testlink, testmath, testnimhd,
-!    testptmass, testrwdump, testsedov, testsetdisc, teststep, timing
+!    testderivs, testdust, testeos, testexternf, testgeometry, testgnewton,
+!    testgravity, testgrowth, testindtstep, testkdtree, testkernel,
+!    testlink, testmath, testnimhd, testptmass, testrwdump, testsedov,
+!    testsetdisc, teststep, timing
 !+
 !--------------------------------------------------------------------------
 module test
@@ -42,6 +43,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testsedov,    only:test_sedov
  use testgravity,  only:test_gravity
  use testdust,     only:test_dust
+ use testgrowth,   only:test_growth
  use testnimhd,    only:test_nonidealmhd
 #ifdef FINVSQRT
  use testmath,     only:test_math
@@ -56,6 +58,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testsetdisc,  only:test_setdisc
  use testeos,      only:test_eos
  use testcooling,  only:test_cooling
+ use testgeometry, only:test_geometry
  use options,      only:set_default_options
  use timing,       only:get_timings,print_time
  use mpiutils,     only:barrier_mpi
@@ -63,8 +66,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
  logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump
- logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity
- logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany
+ logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
+ logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
 #endif
@@ -75,7 +78,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (first) then
     if (id==master) then
        write(*,"(/,a,/)") '--> RUNNING PHANTOM TEST SUITE'
-       write(*,"(2x,a)") '"Because nobody cares how fast you can calculate the wrong answer."'
+       write(*,"(2x,a)") '"Nobody cares how fast you can calculate the wrong answer."'
        write(*,"(14x,a,/)") '-- Richard West (former UKAFF manager)'
     endif
     ntests = 0
@@ -100,18 +103,22 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  dosetdisc  = .false.
  doeos      = .false.
  dodust     = .false.
+ dogrowth   = .false.
  donimhd    = .false.
  docooling  = .false.
+ dogeom     = .false.
  if (index(string,'deriv')     /= 0) doderivs  = .true.
  if (index(string,'grav')      /= 0) dogravity = .true.
  if (index(string,'polytrope') /= 0) dogravity = .true.
  if (index(string,'directsum') /= 0) dogravity = .true.
  if (index(string,'dust')      /= 0) dodust    = .true.
+ if (index(string,'growth')    /= 0) dogrowth  = .true.
  if (index(string,'nimhd')     /= 0) donimhd   = .true.
  if (index(string,'dump')      /= 0) dorwdump  = .true.
  if (index(string,'sink')      /= 0) doptmass  = .true.
  if (index(string,'cool')      /= 0) docooling = .true.
- doany = any((/doderivs,dogravity,dodust,donimhd,dorwdump,doptmass,docooling/))
+ if (index(string,'geom')      /= 0) dogeom    = .true.
+ doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,doptmass,docooling,dogeom/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -144,12 +151,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     doeos = .true.
  case('dust')
     dodust = .true.
+ case('growth')
+    dogrowth = .true.
  case('nimhd')
     donimhd = .true.
  case default
     if (.not.doany) testall = .true.
  end select
-
 #ifdef FINVSQRT
  call test_math(ntests,npass,usefsqrt,usefinvsqrt)
  call barrier_mpi()
@@ -214,6 +222,14 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
  if (dodust.or.testall) then
     call test_dust(ntests,npass)
+    call set_default_options ! restore defaults
+    call barrier_mpi()
+ endif
+!
+!--test of dust growth module
+!
+ if (dogrowth.or.testall) then
+    call test_growth(ntests,npass)
     call set_default_options ! restore defaults
     call barrier_mpi()
  endif
@@ -286,6 +302,14 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
  if (dosetdisc.or.testall) then
     call test_setdisc(ntests,npass)
+    call set_default_options ! restore defaults
+    call barrier_mpi()
+ endif
+!
+!--test of geometry module
+!
+ if (dogeom.or.testall) then
+    call test_geometry(ntests,npass)
     call set_default_options ! restore defaults
     call barrier_mpi()
  endif

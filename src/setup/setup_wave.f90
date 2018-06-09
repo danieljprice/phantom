@@ -19,7 +19,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, io, kernel, mpiutils, options, part,
-!    physcon, prompting, setup_params, unifdis
+!    physcon, prompting, readwrite_dust, setup_params, unifdis
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -36,17 +36,18 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use setup_params, only:rhozero,npart_total
- use io,           only:master
- use unifdis,      only:set_unifdis
- use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use mpiutils,     only:bcast_mpi
- use part,         only:labeltype,set_particle_type,igas,dustfrac
- use physcon,      only:pi
- use kernel,       only:radkern
- use dim,          only:maxvxyzu,use_dust,maxp
- use options,      only:use_dustfrac
- use prompting,    only:prompt
+ use setup_params,   only:rhozero,npart_total
+ use io,             only:master
+ use unifdis,        only:set_unifdis
+ use boundary,       only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
+ use mpiutils,       only:bcast_mpi
+ use part,           only:labeltype,set_particle_type,igas,dustfrac
+ use physcon,        only:pi
+ use kernel,         only:radkern
+ use dim,            only:maxvxyzu,use_dust,maxp,ndusttypes
+ use options,        only:use_dustfrac
+ use prompting,      only:prompt
+ use readwrite_dust, only:interactively_set_dust,set_dustfrac_from_inopts
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -73,15 +74,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  cs = 1.
  ampl = 1.d-4
  use_dustfrac = .false.
- dust_method  = 2
  if (id==master) then
     itype = 1
     print "(/,a,/)",'  >>> Setting up particles for linear wave test <<<'
     call prompt(' enter number of '//trim(labeltype(itype))//' particles in x ',npartx,8,maxp/144)
-    if (use_dust) call prompt(' choose dust method (1=one fluid,2=two fluid) ',dust_method,1,2)
+    if (use_dust) then
+       dust_method  = 2
+       call interactively_set_dust(dtg,imethod=dust_method,Kdrag=.true.)
+    endif
  endif
  call bcast_mpi(npartx)
- if (dust_method==1) use_dustfrac = .true.
 !
 ! boundaries
 !
@@ -134,7 +136,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (id==master) call prompt('enter perturbation amplitude',ampl)
        call bcast_mpi(ampl)
        if (use_dustfrac) then
-          if (id==master) call prompt('enter dust-to-gas ratio',dtg,0.,1.)
           call bcast_mpi(dtg)
        endif
     endif
@@ -181,9 +182,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
        if (use_dustfrac) then
           if (itype==igas) then
-             dustfrac(i) = dtg/(1. + dtg)
+             call set_dustfrac_from_inopts(dtg,ipart=i)
           else
-             dustfrac(i) = 0.
+             dustfrac(:,i) = 0.
           endif
        endif
     enddo

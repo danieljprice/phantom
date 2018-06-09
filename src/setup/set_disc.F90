@@ -170,31 +170,27 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  else
     vorigini = 0.
  endif
- if (present(ismooth)) then
-    smooth_surface_density = ismooth
- else
-    smooth_surface_density = .false.
+ smooth_surface_density = .false.
+ if (present(ismooth)) smooth_surface_density = ismooth
+
+ exponential_taper = .false.
+ if (present(indexprofile)) then
+    if (indexprofile==1) exponential_taper = .true.
  endif
- if (present(indexprofile) .and. indexprofile==1) then
-    exponential_taper = .true.
- else
-    exponential_taper = .false.
+
+ exponential_taper_dust = .false.
+ if (present(indexprofiledust)) then
+    if (indexprofiledust==1) exponential_taper_dust = .true.
  endif
- if (present(indexprofiledust) .and. indexprofiledust==1) then
-    exponential_taper_dust = .true.
- else
-    exponential_taper_dust = .false.
- endif
+
+ aspin = 0.
  if (present(bh_spin)) then
-    aspin = bh_spin
- else
-    aspin = 0.
+    if (.not.isnan(bh_spin)) aspin = bh_spin
  endif
- if (present(bh_spin_angle)) then
-    aspin_angle = bh_spin_angle
- else
-    aspin_angle = 0.
- endif
+
+ aspin_angle = 0.
+ if (present(bh_spin_angle)) aspin_angle = bh_spin_angle
+
  !--reference radius for normalisation of sigma, temperature profiles
  if (present(rref)) then
     R_ref = rref
@@ -305,7 +301,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     sigma_normdust = 1.d0
     call get_disc_mass(disc_mdust,enc_m_tmp,rad_tmp,Q_tmp,sigmaprofiledust, &
                        sigma_normdust,star_m,p_indexdust,q_index, &
-                       R_indust,R_outdust,R_ref,R_c,H_R)
+                       R_indust,R_outdust,R_ref,R_c_dust,H_R)
     sigma_normdust = sigma_normdust*disc_massdust/disc_mdust
     disc_mdust = disc_massdust
  endif
@@ -1049,11 +1045,11 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_c) result(sigma)
  case (0)
     sigma = (R/R_ref)**(-pindex)
  case (1)
-    sigma = (R/R_ref)**(-pindex)*exp(-(R/R_c)**(2-pindex))
+    sigma = (R/R_ref)**(-pindex)*exp(-(R/R_c)**(2.-pindex))
  case (2)
-    sigma = (R/R_ref)**(-pindex)*(1-sqrt(R_in/R))
+    sigma = (R/R_ref)**(-pindex)*(1.-sqrt(R_in/R))
  case (3)
-    sigma = (R/R_ref)**(-pindex)*exp(-(R/R_c)**(2-pindex))*(1-sqrt(R_in/R))
+    sigma = (R/R_ref)**(-pindex)*exp(-(R/R_c)**(2.-pindex))*(1.-sqrt(R_in/R))
  case default
     call error('set_disc','unavailable sigmaprofile; surface density is set to zero')
     sigma = 0.
