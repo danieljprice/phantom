@@ -46,7 +46,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,set_particle_type
+ use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,set_particle_type,rhoh
  use setbinary, only:set_binary,get_a_from_period
  use spherical, only:set_sphere
  use units,     only:set_units,umass,udist
@@ -72,6 +72,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical :: iexist
  real    :: rtidal,rp,semia,psep,period,hacc1,hacc2,massr
  real    :: vxyzstar(3),xyzstar(3),rtab(ntab),rhotab(ntab)
+ real    :: densi
 
 !
 !-- general parameters
@@ -79,7 +80,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  time  = 0.
  polyk = 1.e-10    ! <== uconst
  gamma = 5./3.
- ieos  = 4
+ ieos  = 2
 
 !
 !-- space available for injected gas particles
@@ -152,13 +153,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  nptmass = 0
  call rho_polytrope(gamma,polyk,mstar,rtab,rhotab,npts,set_polyk=.true.,Rstar=rstar)
- polyk = 1.e-10
  call set_sphere('cubic',id,master,0.,rstar,psep,hfact,npart,xyzh,xyz_origin=xyzstar,rhotab=rhotab(1:npts),rtab=rtab(1:npts))
 
  npartoftype(igas) = npart
  massoftype(igas)  = mstar/npart
  do i=1,npart
     call set_particle_type(i,igas)
+    densi        = rhoh(xyzh(4,i),massoftype(igas))
+    vxyzu(4,i)   = polyk*densi**(gamma-1.) / (gamma-1.)
     vxyzu(1:3,i) = vxyzstar(1:3)
  enddo
 
