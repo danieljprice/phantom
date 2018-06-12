@@ -97,7 +97,7 @@ module mpiutils
  !--generic interface reduceloc_mpi
  !
  interface reduceloc_mpi
-  module procedure reduceloc_mpi_real,reduceloc_mpi_int
+  module procedure reduceloc_mpi_real4,reduceloc_mpi_real8,reduceloc_mpi_int
  end interface
 !
 !  generic interface reduce_in_place
@@ -917,7 +917,7 @@ end subroutine reduce_in_place_mpi_real4arr2
 !  min/max reduction identifying which proc has the maximum (real*8)
 !+
 !--------------------------------------------------------------------------
-subroutine reduceloc_mpi_real(string,xproc,loc)
+subroutine reduceloc_mpi_real8(string,xproc,loc)
  use io, only:fatal,id
  character(len=*), intent(in)    :: string
  real(kind=8),     intent(inout) :: xproc
@@ -942,7 +942,39 @@ subroutine reduceloc_mpi_real(string,xproc,loc)
  loc = id
 #endif
 
-end subroutine reduceloc_mpi_real
+end subroutine reduceloc_mpi_real8
+
+!--------------------------------------------------------------------------
+!+
+!  min/max reduction identifying which proc has the maximum (real*4)
+!+
+!--------------------------------------------------------------------------
+subroutine reduceloc_mpi_real4(string,xproc,loc)
+ use io, only:fatal,id
+ character(len=*), intent(in)    :: string
+ real(kind=4),     intent(inout) :: xproc
+ integer,          intent(out)   :: loc
+#ifdef MPI
+ real(kind=4) :: xred(2),xsend(2)
+
+ xsend(1) = xproc
+ xsend(2) = float(id)
+ select case(trim(string))
+ case('max')
+    call MPI_ALLREDUCE(xsend,xred,1,MPI_2REAL,MPI_MAXLOC,MPI_COMM_WORLD,mpierr)
+ case('min')
+    call MPI_ALLREDUCE(xsend,xred,1,MPI_2REAL,MPI_MINLOC,MPI_COMM_WORLD,mpierr)
+ case default
+    call fatal('reduceall (mpi)','unknown reduction operation')
+ end select
+ if (mpierr /= 0) call fatal('reduceall','error in mpi_reduce call')
+ xproc = xred(1)
+ loc = int(xred(2))
+#else
+ loc = id
+#endif
+
+end subroutine reduceloc_mpi_real4
 
 !--------------------------------------------------------------------------
 !+
