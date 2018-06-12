@@ -277,9 +277,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  do i=1,nr
     !if H=0 does not divide
     if(.not. Hperc(i)==0.) then
-         honH=h_smooth(i)/Hperc(i)
+       honH=h_smooth(i)/Hperc(i)
     else
-         honH=0.
+       honH=0.
     endif
 
     write(iunit,'(10(es18.10,1X))') a(i),discfrac(i),honH,Lx(i),Ly(i),Lz(i),&
