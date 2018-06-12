@@ -24,7 +24,7 @@
 !--------------------------------------------------------------------------
 
 !--------------------------- N.B. ------------------------------ !
-! discfrac is not the density, to compute the density one should ! 
+! discfrac is not the density, to compute the density one should !
 ! compute the surface of an eccentric semimajor axis bin.        !
 ! One should also keep in mind that the eccentricity equations   !
 ! used here are for purely keplerian orbits. Pressure            !
@@ -114,7 +114,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
  timesRout=2.
  call createbins(a,nr,R_out*timesRout,R_in,dr)
- 
+
 ! Initialise arrays to zero
  ninbin(:)=1
  lx(:)=0.0
@@ -154,7 +154,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
        Entoti=1./2.*vcil2i-M_star/ri
        ai=-M_star/(2.*Entoti)
-       phasei=atan2(-(ji/M_star*vv(1)+xx(2)/ri),(ji/M_star*vv(2)-xx(1)/ri))  
+       phasei=atan2(-(ji/M_star*vv(1)+xx(2)/ri),(ji/M_star*vv(2)-xx(1)/ri))
        ecci=sqrt(1.-ji**2/(M_star*ai))
        ii = int((ai-a(1))/dr + 1)
 
@@ -171,12 +171,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        Lx(ii)=Lx(ii)+Li(1)
        Ly(ii)=Ly(ii)+Li(2)
        Lz(ii)=Lz(ii)+Li(3)
-       
+
        !Eccentricity related quantities
        ecc(ii)=ecc(ii)+ecci
        phase(ii)=phase(ii)+phasei
        RR(ii)=RR(ii)+ri
-       
+
 
        h_smooth(ii) = h_smooth(ii) + xyzh(4,i)
 
@@ -264,7 +264,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  write(iunit,'("# Analysis data at t = ",es20.12)') time
  write(iunit,"('#',10(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'a', &
-       2,'discfrac', & 
+       2,'discfrac', &
        3,'<h>/H', &
        4,'Lx', &
        5,'Ly', &
@@ -273,7 +273,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        8,'ecc',&
        9,'phase',&
        10,'R'
-        
+
  do i=1,nr
     !if H=0 does not divide
     if(.not. Hperc(i)==0.) then
