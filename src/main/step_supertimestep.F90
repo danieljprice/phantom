@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -32,8 +32,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: evwrite, io, io_summary, part, ptmass, step_lf_global,
-!    timestep, timestep_ind, timestep_sts
+!  DEPENDENCIES: evwrite, io, io_summary, part, step_lf_global, timestep,
+!    timestep_ind, timestep_sts
 !+
 !--------------------------------------------------------------------------
 module supertimestep
@@ -58,14 +58,9 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
  use timestep,       only: dtcourant,dtforce,dterr
  use timestep_sts,   only: sts_get_dtau_array
 #endif
-#ifdef GRAVITY
- use ptmass,         only: ipart_rhomax
- use part,           only: xyzh
-#endif
  use timestep,       only: dtdiff
  use timestep_sts,   only: sts_it_n,dtau,Nmegasts_done,bigdt, &
-                           sts_initialise_activity,sts_set_active_particles,sts_check_rhomax, &
-                           nnu,ipart_rhomax_sts
+                           sts_initialise_activity,sts_set_active_particles,nnu
  use io,             only: fatal
  use step_lf_global, only: step
  use evwrite,        only: write_evfile
@@ -91,8 +86,6 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
  timei       = time
  dtsum       = 0.0d0
  sts_it_n    = .true.
- ipart_rhomax_sts = 0
- !
 #ifdef IND_TIMESTEPS
  ! Determine activity of particles
  ! This is required even if sts is not being used since
@@ -145,12 +138,9 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
     call step(npart,nactive,timei,dtau0,dtextforce,dtnew)
     !  call write_evfile(timei,dtau)
     call summary_counter(iosum_nsts)
-#ifdef GRAVITY
-    if (ipart_rhomax > 0) call sts_check_rhomax(ipart_rhomax,xyzh(4,ipart_rhomax))
-#endif
     dtsum      = dtsum + dtau0
     timei      = timei + dtau0
-    !
+
     dttemp2(1) = min(dttemp2(1),dtnew     )
     dttemp2(2) = min(dttemp2(2),dtextforce)
 #ifndef IND_TIMESTEPS
@@ -159,7 +149,7 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
     dttemp3(3) = min(dttemp3(3),dterr     )
 #endif
  enddo
- !
+
  dtnew      = dttemp2(1)
  dtextforce = dttemp2(2)
 #ifndef IND_TIMESTEPS
@@ -172,12 +162,7 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
     ,Nmegasts_now,dt,dtsum,abs(1.0-dtsum/dt)
     call fatal ('step','Super-timestepping: superstep not reaching the correct time')
  endif
- !
-#ifdef GRAVITY
- ! replace ipart_rhomax as required
- ipart_rhomax = ipart_rhomax_sts
-#endif
- !
+
 end subroutine step_sts
 !--------------------------------------------------------------------------
 !+
@@ -211,7 +196,7 @@ subroutine sts_print_output(nactive_sts,time,nbinmax,iprint)
  endif
 10 format(a,I4,a,Es16.7,a,I4)
 20 format(a,I4,a,Es16.7)
- !
+
  Nviaibin = 2**(nbinmaxsts-nbinmax)
  ! Update summary
  if (icase_sts==iNsts) then
@@ -235,8 +220,7 @@ subroutine sts_print_output(nactive_sts,time,nbinmax,iprint)
  else
     call fatal('Super-timestepping', 'BROKEN.  Illegal case')
  endif
- !
+
 end subroutine sts_print_output
 !--------------------------------------------------------------------------
 end module supertimestep
-

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -17,24 +17,26 @@
 !
 !  USAGE: moddump dumpfilein dumpfileout [time] [outformat]
 !
-!  DEPENDENCIES: checksetup, dim, eos, io, moddump, options, part,
-!    prompting, readwrite_dumps, readwrite_infile, setBfield, setup_params
+!  DEPENDENCIES: checksetup, dim, eos, initial_params, io, moddump,
+!    options, part, prompting, readwrite_dumps, readwrite_infile,
+!    setBfield, setup_params
 !+
 !--------------------------------------------------------------------------
 program phantommoddump
  use dim,             only:maxp,tagline
  use eos,             only:polyk
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart,npartoftype, &
-                           Bevol,Bextx,Bexty,Bextz,mhd,maxvecp
+                           Bxyz,Bextx,Bexty,Bextz,mhd
  use io,              only:set_io_unit_numbers,iprint,idisk1,warning,fatal,iwritein,id,master
  use readwrite_dumps, only:read_dump,write_fulldump,is_not_mhd
  use setBfield,       only:set_Bfield
  use moddump,         only:modify_dump
  use readwrite_infile,only:write_infile,read_infile
- use options,         only:set_default_options
+ use options,         only:set_default_options,use_moddump
  use setup_params,    only:ihavesetupB
  use prompting,       only:prompt
  use checksetup,      only:check_setup
+ use initial_params,  only:get_conserv
  implicit none
  integer :: nargs
  character(len=120) :: dumpfilein,dumpfileout
@@ -45,6 +47,8 @@ program phantommoddump
  integer, parameter          :: lenprefix = 120
  character(len=lenprefix)    :: fileprefix
  character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile
+
+ use_moddump = .true.
 
  call set_io_unit_numbers
  iprint = 6
@@ -77,6 +81,9 @@ program phantommoddump
  if (iexist) then
     print "(/,2a,/)",' Reading default values from ', trim(infile)
     call read_infile(infile,logfile,evfile,dumpfile)
+ else
+    print "(/,64('*'),/,a,/,64('*'))",&
+      ' *** WARNING: '//trim(infile)//' NOT FOUND, USING DEFAULT OPTIONS ***'
  endif
 !
 !--look for an existing input file with name corresponding to the OUTPUT dump file
@@ -116,6 +123,7 @@ program phantommoddump
  endif
 !
  call modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
+ get_conserv = 1.
 !
 !--perform sanity checks on the output of modify_dump routine
 !
@@ -159,7 +167,7 @@ program phantommoddump
     endif
     if (ians) then
        call set_Bfield(npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk, &
-                       Bevol,maxvecp,Bextx,Bexty,Bextz)
+                       Bxyz,Bextx,Bexty,Bextz)
 
     endif
  endif
@@ -176,4 +184,3 @@ program phantommoddump
  print "(/,a,/)",' Phantom moddump: another happy customer'
 
 end program phantommoddump
-

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -68,7 +68,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use prompting,    only:prompt
  use units,        only:set_units,utime,unit_density,unit_Bfield
  use eos,          only:polyk2,ieos
- use part,         only:Bevol,Bextx,Bexty,Bextz,igas,idust,set_particle_type,kill_particle,shuffle_part
+ use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type,kill_particle,shuffle_part
  use timestep,     only:dtmax,tmax
  use ptmass,       only:icreate_sinks,r_crit,h_acc
  use options,      only:twallmax, dtwallmax,nfulldump, iexternalforce

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -64,9 +64,8 @@ subroutine update_binary(ti,surface_force)
  use physcon,         only:pi
  use extern_corotate, only: omega_corotate
  logical, intent(in) :: surface_force
- real, intent(in) :: ti
+ real,    intent(in) :: ti
  real :: cost,sint
- real :: oldvec(3)
  real :: omega
 
  if (ramp .and. ti < 10.*pi) then
@@ -85,8 +84,8 @@ subroutine update_binary(ti,surface_force)
 
  cost = cos(omega*ti)
  sint = sin(omega*ti)
- x1 = (0.25-binarymassri)*cost
- y1 = (0.25-binarymassri)*sint
+ x1 = (1.-binarymassri)*cost
+ y1 = (1.-binarymassri)*sint
  x2 = -binarymassri*cost
  y2 = -binarymassri*sint
 
@@ -140,7 +139,7 @@ subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi,surface_force)
  fxi = -dx1*f1 - dx2*f2
  fyi = -dy1*f1 - dy2*f2
  fzi = -dz1*f1 - dz2*f2
- 
+
  ! Note: phi1 is the Newtonian potential and does not include then surface force above;
  !       however, this is not critical since phi is only used for timestep control
  phi1 = -binarymassri*dr1
@@ -171,7 +170,7 @@ subroutine binary_posvel(ti,posmh,vels)
  posmh(6)  = x2
  posmh(7)  = y2
  posmh(8)  = 0.
- posmh(9)  = 1. 
+ posmh(9)  = 1.
  posmh(10) = accradius2
 
  vels(1) = -(1.-binarymassri)*sin(ti)

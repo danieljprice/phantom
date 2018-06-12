@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -24,17 +24,17 @@
 !--------------------------------------------------------------------------
 program phantomsetup
  use dim,             only:tagline,maxp,maxvxyzu,maxalpha,maxgrav,&
-                           ndivcurlv,ndivcurlB,use_dustfrac
+                           ndivcurlv,ndivcurlB
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
-                           Bevol,Bextx,Bexty,Bextz,rhoh,iphase,maxphase,isetphase,igas,iamtype, &
+                           Bevol,Bxyz,Bextx,Bexty,Bextz,rhoh,iphase,maxphase,isetphase,igas,iamtype, &
                            labeltype,xyzmh_ptmass,vxyz_ptmass,maxp_h2,iHI,abundance,&
-                           mhd,maxvecp,alphaind,divcurlv,divcurlB,poten,dustfrac
+                           mhd,alphaind,divcurlv,divcurlB,poten,dustfrac
  use setBfield,       only:set_Bfield
  use eos,             only:polyk,gamma,en_from_utherm
  use io,              only:set_io_unit_numbers,id,master,nprocs,iwritein,fatal,warning
  use readwrite_dumps, only:write_fulldump
  use readwrite_infile,only:write_infile,read_infile
- use options,         only:set_default_options
+ use options,         only:set_default_options,use_dustfrac
  use setup,           only:setpart
  use setup_params,    only:ihavesetupB,npart_total
  use checksetup,      only:check_setup
@@ -113,6 +113,7 @@ program phantomsetup
  vxyz_ptmass  = 0.
 
  ! initialise arrays not passed to setup routine to zero
+ if (mhd) Bevol = 0.
  if (maxphase > 0) iphase = 0 ! phases not set
  if (maxalpha==maxp)  alphaind = 0.
  if (ndivcurlv > 0) divcurlv = 0.
@@ -154,6 +155,13 @@ program phantomsetup
     if (use_mpi) myid1 = id
     call setpart(myid1,npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk,gamma,hfact,time,fileprefix)
 !
+!--setup magnetic field if code compiled with MHD
+!
+    if (mhd .and. .not.ihavesetupB) then
+       call set_Bfield(npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk, &
+                       Bxyz,Bextx,Bexty,Bextz)
+    endif
+!
 !--perform sanity checks on the output of setpart routine
 !
     call check_setup(nerr,nwarn)
@@ -170,14 +178,6 @@ program phantomsetup
           if (maxphase==maxp) pmassi = massoftype(iamtype(iphase(i)))
           vxyzu(maxvxyzu,i) = en_from_utherm(vxyzu(maxvxyzu,i),rhoh(xyzh(4,i),pmassi))
        enddo
-    endif
-
-    if (mhd .and. .not.ihavesetupB) then
-!
-!--setup magnetic field if code compiled with MHD
-!
-       call set_Bfield(npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk, &
-                       Bevol,maxvecp,Bextx,Bexty,Bextz)
     endif
 
     if (nprocsfake > 1) then

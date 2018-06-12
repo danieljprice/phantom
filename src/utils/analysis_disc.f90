@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -85,7 +85,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  write(*,'("Parameters are:")')
  write(*,*) 'R_in    = ',R_in
  write(*,*) 'R_out   = ',R_out
- write(*,*) 'H_R     = ',H_R
+ write(*,*) 'H/R_ref = ',H_R
  write(*,*) 'p_index = ',p_index
  write(*,*) 'q_index = ',q_index
  write(*,*) 'M_star  = ',M_star
@@ -171,7 +171,7 @@ subroutine read_discparams(filename,R_in,R_out,H_R,p_index,q_index,M_star,iunit,
  if (ierr /= 0) return
  call read_inopt(R_out,'R_out',db,ierr)
  if (ierr /= 0) return
- call read_inopt(H_R,'H_R',db,ierr)
+ call read_inopt(H_R,'H/R_ref',db,ierr)
  if (ierr /= 0) return
  call read_inopt(p_index,'p_index',db,ierr)
  if (ierr /= 0) return

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -42,21 +42,20 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,use_dustfrac,ndim,ndusttypes
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,ndusttypes
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,&
-                kill_particle,shuffle_part,iamdust
+                kill_particle,shuffle_part,iamdust,Bxyz
  use eos,             only:gamma,polyk
  use centreofmass,    only:get_centreofmass
- use options,         only:ieos,icooling,iexternalforce
+ use options,         only:ieos,icooling,iexternalforce,use_dustfrac
  use io,              only:id,master
  use externalforces,  only:accrete_particles,accradius1,iext_star,iext_corotate
  use timestep,        only:time
  use units,           only:umass,udist,utime
  use physcon,         only:gg
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
- use readwrite_dumps, only:multidustdump
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,j,nbad,itype,nunity
@@ -165,7 +164,13 @@ subroutine check_setup(nerror,nwarn,restart)
        endif
        nerror = nerror + 1
     endif
-
+    !--check for NaNs in B field
+    if (mhd) then
+       if (any(Bxyz(:,i) /= Bxyz(:,i))) then
+          print*,'NaN in magnetic field (Bxyz array) : ', i
+          nerror = nerror + 1
+       endif
+    endif
     hi = xyzh(4,i)
     if ((.not.dorestart .and. hi <= 0.) .or. hi > 1.e20) then
        nbad = nbad + 1
@@ -280,6 +285,15 @@ subroutine check_setup(nerror,nwarn,restart)
     endif
  endif
 !
+!--sanity checks on magnetic field
+!
+ if (mhd) then
+    if (all(abs(Bxyz(:,1:npart)) < tiny(0.))) then
+       print*,'WARNING: MHD is ON but magnetic field is zero everywhere'
+       nwarn = nwarn + 1
+    endif
+ endif
+!
 !--check -DDUST is set if dust particles are used
 !
  if (npartoftype(idust) > 0) then
@@ -336,10 +350,13 @@ subroutine check_setup(nerror,nwarn,restart)
        print*,'WARNING: ',nunity,' of ',npart,' PARTICLES ARE PURE DUST (dustfrac=1.0)'
        nwarn = nwarn + 1
     endif
-    ! warn if compiled for one fluid dust but not used
+    ! warn if compiled for one-fluid dust but not used
     if (all(dustfrac(:,1:npart) < tiny(dustfrac))) then
        print*,'WARNING: one fluid dust is used but dust fraction is zero everywhere'
-       multidustdump = .false.
+       if (ndusttypes>1) then
+          print*,'WARNING about the previous WARNING: ndusttypes > 1 so dust arrays are unnecessarily large!'
+          print*,'                                    Recompile with ndusttypes = 1 for better efficiency.'
+       endif
        nwarn = nwarn + 1
     endif
     if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas/real(npart-nbad-nunity)
@@ -406,7 +423,7 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  real,    intent(in)    :: hmin
  integer :: i,j,n
  real :: dx(3)
- real :: r
+ real :: r,hsink
 
  if (nptmass < 0) then
     print*,' Error in setup: nptmass = ',nptmass, ' should be >= 0 '
@@ -457,13 +474,14 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  !  check that accretion radii are positive
  !
  do i=1,nptmass
-    if (xyzmh_ptmass(ihacc,i) <= 0. .and. xyzmh_ptmass(ihsoft,i) <= 0.) then
+    hsink = max(xyzmh_ptmass(ihacc,i),xyzmh_ptmass(ihsoft,i))
+    if (hsink <= 0.) then
        nerror = nerror + 1
        print*,'Error in setup: sink ',i,' has accretion radius ',xyzmh_ptmass(ihacc,i),&
               ' and softening radius ',xyzmh_ptmass(ihsoft,i)
-    elseif (xyzmh_ptmass(ihacc,i) <= 0.5*hmin .and. hmin > 0.) then
+    elseif (hsink <= 0.5*hmin .and. hmin > 0.) then
        nwarn = nwarn + 1
-       print*,'Warning: sink ',i,' has unresolved accretion radius: hmin/racc = ',hmin/xyzmh_ptmass(ihacc,i)
+       print*,'Warning: sink ',i,' has unresolved accretion radius: hmin/racc = ',hmin/hsink
        print*,'         (this makes the code run pointlessly slow)'
     endif
  enddo

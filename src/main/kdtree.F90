@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -28,7 +28,7 @@ module kdtree
  use dim,         only:maxp,ncellsmax,minpart
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
- use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase
+ use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi
 
  implicit none
 
@@ -93,7 +93,7 @@ contains
 !+
 !-------------------------------------------------------------------------------
 subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
- use io,   only:fatal,warning,iprint,iverbose,id
+ use io,   only:fatal,warning,iprint,iverbose
 !$ use omp_lib
  type(kdnode),    intent(out)   :: node(ncellsmax+1)
  integer,         intent(in)    :: np,ndim
@@ -105,7 +105,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
  integer :: i,npnode,il,ir,istack,nl,nr,mymum
  integer :: nnode,minlevel,level
  real :: xmini(ndim),xmaxi(ndim),xminl(ndim),xmaxl(ndim),xminr(ndim),xmaxr(ndim)
- integer, parameter :: istacksize = 200
+ integer, parameter :: istacksize = 512
  type(kdbuildstack), save :: stack(istacksize)
  integer, save :: list(maxp)
 !$omp threadprivate(stack,list)
@@ -127,6 +127,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
 
  ! construct root node, i.e. find bounds of all particles
  call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
+ dxi = xmaxi-xmini
 
  if (inoderange(1,irootnode)==0 .or. inoderange(2,irootnode)==0 ) then
     call fatal('maketree','no particles or all particles dead/accreted')
@@ -202,23 +203,22 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
     ! build using a stack which builds depth first
     ! each thread grabs a node from the queue and builds its own subtree
 
-!$omp parallel default(none) &
-!$omp shared(queue) &
-!$omp shared(ll, ifirstincell) &
-!$omp shared(xyzh) &
-!$omp shared(np, ndim) &
-!$omp shared(node, ncells) &
-!$omp shared(numthreads) &
-!$omp shared(id) &
-!$omp private(istack) &
-!$omp private(nnode, mymum, level, npnode, xmini, xmaxi) &
-!$omp private(ir, il, nl, nr) &
-!$omp private(xminr, xmaxr, xminl, xmaxl) &
-!$omp private(threadid) &
-!$omp private(wassplit) &
-!$omp reduction(min:minlevel) &
-!$omp reduction(max:maxlevel)
-!$omp do schedule(static)
+    !$omp parallel default(none) &
+    !$omp shared(queue) &
+    !$omp shared(ll, ifirstincell) &
+    !$omp shared(xyzh) &
+    !$omp shared(np, ndim) &
+    !$omp shared(node, ncells) &
+    !$omp shared(numthreads) &
+    !$omp private(istack) &
+    !$omp private(nnode, mymum, level, npnode, xmini, xmaxi) &
+    !$omp private(ir, il, nl, nr) &
+    !$omp private(xminr, xmaxr, xminl, xmaxl) &
+    !$omp private(threadid) &
+    !$omp private(wassplit) &
+    !$omp reduction(min:minlevel) &
+    !$omp reduction(max:maxlevel)
+    !$omp do schedule(static)
     do i = 1, numthreads
 
        stack(1) = queue(i)
@@ -257,8 +257,8 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
  endif
  if (maxlevel > maxlevel_indexed .and. .not.already_warned) then
     write(string,"(i10)") 2**(maxlevel-maxlevel_indexed)
-    call warning('maketree','maxlevel > maxlevel_indexed: will run faster if recompiled with '// &
-               'NCELLSMAX='//trim(adjustl(string))//'*maxp,',ival=maxlevel_indexed)
+    if (iverbose > 0) call warning('maketree','maxlevel > max_indexed: will run faster if recompiled with '// &
+               'NCELLSMAX='//trim(adjustl(string))//'*maxp,')
  endif
 
  if (present(refinelevels)) refinelevels = minlevel
@@ -303,8 +303,8 @@ end subroutine empty_tree
 !---------------------------------
 subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
 #ifdef PERIODIC
- use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax,cross_boundary
- use domain,      only:isperiodic
+ use boundary, only:cross_boundary
+ use domain,   only:isperiodic
 #endif
 #ifdef IND_TIMESTEPS
  use part, only:iphase,iactive
@@ -424,12 +424,11 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
             ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list, &
             groupsize)
  use dim,       only:maxtypes
- use part,      only:massoftype,igas,iphase,iamtype,maxphase,maxp,npartoftype
+ use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype
  use io,        only:fatal,error
 #ifdef MPI
  use mpiderivs, only:get_group_cofm,reduce_group
 #endif
-!!!$ use omputils, only:ipart_omp_lock,nlockgrp
  type(kdnode),      intent(out)   :: nodeentry
  integer,           intent(in)    :: nnode, mymum, level
  integer,           intent(in)    :: ndim
@@ -455,7 +454,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  integer :: npnodetot
 
  logical :: nodeisactive
- integer :: i,ipart, npcounter
+ integer :: i,npcounter
  real    :: xi,yi,zi,hi,dx,dy,dz,dr2
  real    :: r2max, hmax
  real    :: xcofm,ycofm,zcofm,fac,dfac
@@ -524,7 +523,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     !$omp parallel do schedule(static) default(none) &
     !$omp shared(npnode,list,xyzh,x0,iphase,massoftype,dfac) &
     !$omp shared(xyzh_soa,inoderange,nnode,iphase_soa) &
-    !$omp private(i,ipart,xi,yi,zi,hi,dx,dy,dz,dr2) &
+    !$omp private(i,xi,yi,zi,hi,dx,dy,dz,dr2) &
     !$omp firstprivate(pmassi,fac) &
     !$omp reduction(+:xcofm,ycofm,zcofm,totmass_node) &
     !$omp reduction(max:r2max) &
@@ -632,12 +631,12 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     if (maxphase==maxp) then
        pmassi = massoftype(iamtype(iphase_soa(inoderange(1,nnode)+i-1)))
     endif
-    quads(1) = quads(1) + pmassi*(3.*dx*dx - dr2)
-    quads(2) = quads(2) + pmassi*(3.*dx*dy)
-    quads(3) = quads(3) + pmassi*(3.*dx*dz)
-    quads(4) = quads(4) + pmassi*(3.*dy*dy - dr2)
-    quads(5) = quads(5) + pmassi*(3.*dy*dz)
-    quads(6) = quads(6) + pmassi*(3.*dz*dz - dr2)
+    quads(1) = quads(1) + pmassi*(3.*dx*dx - dr2)  ! Q_xx
+    quads(2) = quads(2) + pmassi*(3.*dx*dy)        ! Q_xy = Q_yx
+    quads(3) = quads(3) + pmassi*(3.*dx*dz)        ! Q_xz = Q_zx
+    quads(4) = quads(4) + pmassi*(3.*dy*dy - dr2)  ! Q_yy
+    quads(5) = quads(5) + pmassi*(3.*dy*dz)        ! Q_yz = Q_zy
+    quads(6) = quads(6) + pmassi*(3.*dz*dz - dr2)  ! Q_zz
 #endif
  enddo
 
@@ -781,7 +780,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        endif
 
        ! see if all the particles ended up in one node, if so, arbitrarily build 2 cells
-       if ((nl==npnode) .or. (nr==npnode)) then
+       if ( (.not. present(groupsize)) .and. ((nl==npnode) .or. (nr==npnode)) ) then
           ! no need to move particles because if they all ended up in one node,
           ! then they are still in the original order
           nl = npnode / 2
@@ -829,7 +828,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
 #endif
- use io,       only:iprint,fatal,id
+ use io,       only:fatal,id
  use part,     only:maxgrav,gravity
 #ifdef FINVSQRT
  use fastmath, only:finvsqrt
@@ -1023,6 +1022,7 @@ pure subroutine compute_fnode(dx,dy,dz,dr,totmass,quads,fnode)
  real :: d2fxxxq,d2fxxyq,d2fxxzq,d2fxyyq,d2fxyzq
  real :: d2fxzzq,d2fyyyq,d2fyyzq,d2fyzzq,d2fzzzq
 
+ ! note: dr == 1/sqrt(r2)
  dr3  = dr*dr*dr
  dr4  = dr*dr3
  dr5  = dr*dr4
@@ -1038,8 +1038,7 @@ pure subroutine compute_fnode(dx,dy,dz,dr,totmass,quads,fnode)
  qyy = quads(4)
  qyz = quads(5)
  qzz = quads(6)
- rijQij = (rx*rx*qxx + ry*ry*qyy + rz*rz*qzz + &
-        2.*(rx*ry*qxy + rx*rz*qxz + ry*rz*qyz))
+ rijQij = (rx*rx*qxx + ry*ry*qyy + rz*rz*qzz + 2.*(rx*ry*qxy + rx*rz*qxz + ry*rz*qyz))
  riQix = (rx*qxx + ry*qxy + rz*qxz)
  riQiy = (rx*qxy + ry*qyy + rz*qyz)
  riQiz = (rx*qxz + ry*qyz + rz*qzz)
@@ -1053,32 +1052,33 @@ pure subroutine compute_fnode(dx,dy,dz,dr,totmass,quads,fnode)
  dfydzq = dr5*(qyz -  5.*ry*riQiz - 5.0*rz*riQiy + 17.5*ry*rz*rijQij)
  dfzdzq = dr5*(qzz - 10.*rz*riQiz - 2.5*rijQij   + 17.5*rz*rz*rijQij)
  d2fxxxq = dr6*(-15.*qxx*rx + 105.*rx*rx*riQix - 15.*riQix - 157.5*rx*rx*rx*rijQij + 52.5*rx*rijQij)
- d2fxxyq = dr6*(35.*rx*rx*riQiy - 10.*qxy*rx - 5.*qxx*ry - 5.*riQiy &
-              + 70.*rx*ry*riQix - 157.5*rx*rx*ry*rijQij + 17.5*ry*rijQij)
- d2fxxzq = dr6*(35.*rx*rx*riQiz - 10.*qxz*rx - 5.*qxx*rz - 5.*riQiz &
-              + 70.*rx*rz*riQix - 157.5*rx*rx*rz*rijQij + 17.5*rz*rijQij)
- d2fxyyq = dr6*(35.*ry*ry*riQix - 10.*qxy*ry - 5.*qyy*rx - 5.*riQix &
-              + 70.*rx*ry*riQiy - 157.5*rx*ry*ry*rijQij + 17.5*rx*rijQij)
- d2fxyzq = dr6*(35.*rx*ry*riQiz - 5.*qyz*rx - 5.*qxz*ry - 5.*qxy*rz &
-              + 35.*ry*rz*riQix + 35.*rx*rz*riQiy - 157.5*rx*ry*rz*rijQij)
- d2fxzzq = dr6*(35.*rz*rz*riQix - 10.*qxz*rz - 5.*qzz*rx - 5.*riQix &
-              + 70.*rx*rz*riQiz - 157.5*rx*rz*rz*rijQij + 17.5*rx*rijQij)
+ d2fxxyq = dr6*(35.*rx*rx*riQiy -  5.*qxx*ry - 5.*riQiy + 17.5*ry*rijQij - 157.5*rx*rx*ry*rijQij &
+              + 70.*rx*ry*riQix - 10.*qxy*rx)
+ d2fxxzq = dr6*(35.*rx*rx*riQiz -  5.*qxx*rz - 5.*riQiz + 17.5*rz*rijQij - 157.5*rx*rx*rz*rijQij &
+              + 70.*rx*rz*riQix - 10.*qxz*rx)
+ d2fxyyq = dr6*(70.*rx*ry*riQiy - 10.*qxy*ry - 5.*riQix + 17.5*rx*rijQij - 157.5*rx*ry*ry*rijQij &
+              + 35.*ry*ry*riQix -  5.*qyy*rx)
+ d2fxyzq = dr6*(35.*rx*ry*riQiz -  5.*qyz*rx  &
+              + 35.*ry*rz*riQix -  5.*qxz*ry  &
+              + 35.*rx*rz*riQiy -  5.*qxy*rz                             - 157.5*rx*ry*rz*rijQij)
+ d2fxzzq = dr6*(70.*rx*rz*riQiz - 10.*qxz*rz - 5.*riQix + 17.5*rx*rijQij - 157.5*rx*rz*rz*rijQij &
+              + 35.*rz*rz*riQix -  5.*qzz*rx)
  d2fyyyq = dr6*(-15.*qyy*ry + 105.*ry*ry*riQiy - 15.*riQiy - 157.5*ry*ry*ry*rijQij + 52.5*ry*rijQij)
- d2fyyzq = dr6*(35.*ry*ry*riQiz - 10.*qyz*ry - 5.*qyy*rz - 5.*riQiz &
-              + 70.*ry*rz*riQiy - 157.5*ry*ry*rz*rijQij + 17.5*rz*rijQij)
- d2fyzzq = dr6*(35.*rz*rz*riQiy - 10.*qyz*rz - 5.*qzz*ry - 5.*riQiy &
-              + 70.*ry*rz*riQiz - 157.5*ry*rz*rz*rijQij + 17.5*ry*rijQij)
+ d2fyyzq = dr6*(35.*ry*ry*riQiz -  5.*qyy*rz - 5.*riQiz + 17.5*rz*rijQij - 157.5*ry*ry*rz*rijQij &
+              + 70.*ry*rz*riQiy - 10.*qyz*ry)
+ d2fyzzq = dr6*(70.*ry*rz*riQiz - 10.*qyz*rz - 5.*riQiy + 17.5*ry*rijQij - 157.5*ry*rz*rz*rijQij &
+              + 35.*rz*rz*riQiy -  5.*qzz*ry)
  d2fzzzq = dr6*(-15.*qzz*rz + 105.*rz*rz*riQiz - 15.*riQiz - 157.5*rz*rz*rz*rijQij + 52.5*rz*rijQij)
 
- fnode(1) = fnode(1) - dx*dr3m + fqx ! fx
- fnode(2) = fnode(2) - dy*dr3m + fqy ! fy
- fnode(3) = fnode(3) - dz*dr3m + fqz ! fz
- fnode(4) = fnode(4) + dr3m*(3.*rx*rx - 1.) + dfxdxq ! dfx/dx
- fnode(5) = fnode(5) + dr3m*(3.*rx*ry)      + dfxdyq ! dfx/dy, same as dfy/dx
- fnode(6) = fnode(6) + dr3m*(3.*rx*rz)      + dfxdzq ! dfx/dz, same as dfz/dx
- fnode(7) = fnode(7) + dr3m*(3.*ry*ry - 1.) + dfydyq ! dfy/dy
- fnode(8) = fnode(8) + dr3m*(3.*ry*rz)      + dfydzq ! dfy/dz, same as dfz/dy
- fnode(9) = fnode(9) + dr3m*(3.*rz*rz - 1.) + dfzdzq ! dfz/dz
+ fnode( 1) = fnode( 1) - dx*dr3m + fqx ! fx
+ fnode( 2) = fnode( 2) - dy*dr3m + fqy ! fy
+ fnode( 3) = fnode( 3) - dz*dr3m + fqz ! fz
+ fnode( 4) = fnode( 4) + dr3m*(3.*rx*rx - 1.) + dfxdxq ! dfx/dx
+ fnode( 5) = fnode( 5) + dr3m*(3.*rx*ry)      + dfxdyq ! dfx/dy = dfy/dx
+ fnode( 6) = fnode( 6) + dr3m*(3.*rx*rz)      + dfxdzq ! dfx/dz = dfz/dx
+ fnode( 7) = fnode( 7) + dr3m*(3.*ry*ry - 1.) + dfydyq ! dfy/dy
+ fnode( 8) = fnode( 8) + dr3m*(3.*ry*rz)      + dfydzq ! dfy/dz = dfz/dy
+ fnode( 9) = fnode( 9) + dr3m*(3.*rz*rz - 1.) + dfzdzq ! dfz/dz
  fnode(10) = fnode(10) - dr4m3*(5.*rx*rx*rx - 3.*rx) + d2fxxxq ! d2fxdxdx
  fnode(11) = fnode(11) - dr4m3*(5.*rx*rx*ry - ry)    + d2fxxyq ! d2fxdxdy
  fnode(12) = fnode(12) - dr4m3*(5.*rx*rx*rz - rz)    + d2fxxzq ! d2fxdxdz
@@ -1089,7 +1089,7 @@ pure subroutine compute_fnode(dx,dy,dz,dr,totmass,quads,fnode)
  fnode(17) = fnode(17) - dr4m3*(5.*ry*ry*rz - rz)    + d2fyyzq ! d2fydydz
  fnode(18) = fnode(18) - dr4m3*(5.*ry*rz*rz - ry)    + d2fyzzq ! d2fydzdz
  fnode(19) = fnode(19) - dr4m3*(5.*rz*rz*rz - 3.*rz) + d2fzzzq ! d2fzdzdz
- fnode(20) = fnode(20) - totmass*dr - 0.5*rijQij*dr3 ! potential
+ fnode(20) = fnode(20) - totmass*dr - 0.5*rijQij*dr3   ! potential
 
 end subroutine compute_fnode
 
@@ -1422,7 +1422,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
 
  integer                       :: nl, nr
  integer                       :: il, ir, iself, parent
- integer                       :: level, ipart
+ integer                       :: level
  integer                       :: nnodestart, nnodeend,locstart,locend
  integer                       :: npcounter
 
@@ -1450,6 +1450,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     ifirstingroup = (id / groupsize) * groupsize
     if (level == 0) then
        call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
+       dxi = xmaxi-xmini
     else
        npcounter = np
     endif

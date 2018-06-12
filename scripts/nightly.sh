@@ -84,6 +84,7 @@ run_buildbot ()
    for sys in $systems; do
       export SYSTEM=$sys;
       echo "SYSTEM=$SYSTEM";
+      export PHANTOM_DIR=$codedir; # so setup tests can find data files
       ./testbot.sh "$url/nightly/logs/";
       ./buildbot.sh 17000000 "$url/nightly/logs/";
    done
@@ -264,12 +265,22 @@ send_email ()
      cat $mailfile | /usr/sbin/sendmail -t;
   fi
 }
+post_to_slack ()
+{
+  message=$1;
+  webhookurl="https://hooks.slack.com/services/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"
+  channel="#commits"
+  username="buildbot"
+  json="{\"channel\": \"$channel\", \"username\": \"$username\", \"text\": \"$message\", \"icon_emoji\": \":ghost:\"}"
+
+  curl -X POST --data-urlencode "payload=$json" $webhookurl
+}
 commit_and_push_to_website ()
 {
    echo "--- commit and push to web server / git repo ---";
    # commit and push changes to web server
-   cp $htmlfile $webdir/nightly/;
-   cd $webdir/nightly;
+   cp $htmlfile $webdir/nightly/build;
+   cd $webdir/nightly/build;
    cp $htmlfile index.html;
    cd $webdir;
    rsync -avz nightly/ $webserver/nightly/;
@@ -285,6 +296,8 @@ pull_changes
 run_buildbot
 #pull_wiki
 write_htmlfile_gittag_and_mailfile
+message="status: <$url/nightly/build/$datetag.html|$gittag>"
+post_to_slack "$message"
 tag_code_and_push_tags
 send_email
 commit_and_push_to_website

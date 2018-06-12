@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -35,7 +35,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,maxp,maxphase,isetphase,iphase
+ use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
  use physcon,    only:pi,au,solarm
  use units,      only:udist,umass,utime,set_units
  use inject,     only:BHL_init,BHL_r_star,BHL_m_star,BHL_pmass
@@ -48,7 +48,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real :: m,hacc
+ real            :: m,hacc
  real, parameter :: irrational_number_close_to_one = 3./pi
 
  call set_units(dist=1.,time=1.,G=1.)
@@ -56,7 +56,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--general parameters
 !
- time = 0.
+ time  = 0.
  polyk = 0.
  gamma = 5./3.
 

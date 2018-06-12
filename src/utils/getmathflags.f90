@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -17,20 +17,23 @@
 !
 !  USAGE: getmathflags [no arguments]
 !
-!  DEPENDENCIES: testmath
+!  DEPENDENCIES: mpiutils, testmath
 !+
 !--------------------------------------------------------------------------
 program getmathflags
  use testmath, only:test_math
+ use mpiutils, only:init_mpi, finalise_mpi
  implicit none
- integer :: ntests,npass
+ integer :: ntests,npass,id,nprocs
  logical :: usefsqrt,usefinvsqrt
 
  ntests = 0
  npass  = 0
+ call init_mpi(id,nprocs)
  call test_math(ntests,npass,usefsqrt,usefinvsqrt)
  if (usefinvsqrt) then
     print "(a)",'yes'
  endif
+ call finalise_mpi()
 
 end program getmathflags

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -38,7 +38,7 @@ contains
 subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
                        zmin,zmax,delta,hfact,np,xyzh,rmin,rmax,rcylmin,rcylmax,&
                        nptot,npy,npz,rhofunc,inputiseed,verbose,dir,geom)
- use random,     only:ran1
+ use random,     only:ran2
  use part,       only:periodic
  use stretchmap, only:set_density_profile
  use domain,     only:i_belong
@@ -70,7 +70,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
                                        "' uniform ',a,' lattice ',14('-'))"
  character(len=*), parameter :: fmt2 = "(/,1x,13('-'),' particles set on',i6,2(' x',i6),"// &
                                        "' uniform ',a,' lattice ',14('-'))"
- character(len=*), parameter :: fmtnx = "(1x,'enforcing periodicity: nx, ny, nz = ',i6,2(' x',i6),',  np = ',i7)"
+ character(len=*), parameter :: fmtnx = "(1x,'enforcing periodicity: nx, ny, nz = ',i6,2(' x',i6),',  np = ',i8)"
  character(len=*), parameter :: fmtxx = "(3(2x,a,':',1pg12.3,'->',1pg11.3,' '))"
  character(len=*), parameter :: fmtdx = "(3(1x,a,':',1pg12.3,14x))"
  character(len=*), parameter :: fmtdy = "(28x,a,f8.4,14x,a,f8.4)"
@@ -482,9 +482,9 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
     npnew = nx*ny*nz
 
     do i=1,npnew
-       xi = xmin + ran1(iseed)*dxbound
-       yi = ymin + ran1(iseed)*dybound
-       zi = zmin + ran1(iseed)*dzbound
+       xi = xmin + ran2(iseed)*dxbound
+       yi = ymin + ran2(iseed)*dybound
+       zi = zmin + ran2(iseed)*dzbound
 !--do not use if not within radial cuts
        rcyl2 = xi*xi + yi*yi
        rr2   = rcyl2 + zi*zi

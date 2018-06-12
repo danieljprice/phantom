@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -372,34 +372,34 @@ end subroutine determine_particle_status
 ! Subroutine fills the injection zones with boundary particles
 !---
 
-subroutine replenish_injection_zone(ninject, time,dtlast, injected)
- use io, only : id,master
- use part, only : igas, iboundary, npart, npartoftype, xyzh,vxyzu,massoftype
- use physcon, only: pi
-
- use partinject, only: add_or_update_particle
- use setdisc, only : set_disc
- use eos, only : polyk,gamma
+subroutine replenish_injection_zone(ninject,time,dtlast,injected)
+ use eos,        only:polyk,gamma
+ use io,         only:id,master
+ use part,       only:igas,iboundary,npart,npartoftype,xyzh,vxyzu,massoftype
+ use partinject, only:add_or_update_particle
+ use physcon,    only:pi
+ use setdisc,    only:set_disc
 
 
  integer, intent(inout) :: ninject, injected
  integer :: i, npart_initial, i_part, part_type
 
  real :: hfact = 1.2
- real :: v0(3), v_subtract(3)
- real :: sig0, cs0,vmag,omega0,vmax, time,dtlast
- real :: phi1,phi2, rpart,phipart, phi_rot, omega,tcross
+ real :: v0(3),v_subtract(3)
+ real :: sig0,sig_in,cs0,vmag,omega0,vmax,time,dtlast
+ real :: phi1,phi2,rpart,phipart,phi_rot,omega,tcross
  real :: xyzh_inject(4,ninject)
  real :: vxyzu_inject(4,ninject)
 
 
  npart_initial = npart
- vmag = sqrt(injp%object_mass/injp%R_mid)
+ vmag   = sqrt(injp%object_mass/injp%R_mid)
  omega0 = sqrt(injp%object_mass/(injp%R_mid*injp%R_mid*injp%R_mid))
- vmax = sqrt(injp%object_mass/injp%Rsect_in) - vmag
+ vmax   = sqrt(injp%object_mass/injp%Rsect_in) - vmag
 
- cs0 = injp%HoverR*sqrt(injp%object_mass)*injp%R_in**(injp%q_index-0.5)
- sig0 = sigma0(injp%disc_mass, injp%R_in, injp%R_out,injp%p_index)
+ cs0    = injp%HoverR*sqrt(injp%object_mass)*injp%R_in**(injp%q_index-0.5)
+ sig0   = sigma0(injp%disc_mass,injp%R_in,injp%R_out,injp%p_index)
+ sig_in = sig0*injp%R_in**injp%p_index
 
 
 ! Set up both injection zones in the upper phi domain initially
@@ -408,25 +408,24 @@ subroutine replenish_injection_zone(ninject, time,dtlast, injected)
 
 ! call set_disc to establish new particle set
 
- call set_disc(id,master=master,&
-npart   = ninject,&
-rmin    = injp%Rsect_in-injp%dr_bound, &
-rmax    = injp%Rsect_out+injp%dr_bound,&
-phimin = phi1,&
-phimax = phi2, &
-p_index = injp%p_index,    &
-q_index = injp%q_index,   &
-HoverR  = injp%HoverR,   &
-sig_naught = sig0,   &
-star_mass = injp%object_mass,    &
-polyk = polyk, &
-gamma   = gamma,  &
-particle_mass = massoftype(1), &
-hfact=hfact, &
-xyzh=xyzh_inject, &
-vxyzu=vxyzu_inject, &
-twist=.false., &
-writefile=.false.)
+ call set_disc(id,master  = master,                       &
+               npart      = ninject,                      &
+               rmin       = injp%Rsect_in-injp%dr_bound,  &
+               rmax       = injp%Rsect_out+injp%dr_bound, &
+               phimin     = phi1,                         &
+               phimax     = phi2,                         &
+               p_index    = injp%p_index,                 &
+               q_index    = injp%q_index,                 &
+               HoverR     = injp%HoverR,                  &
+               sig_norm   = sig_in,                       &
+               star_mass  = injp%object_mass,             &
+               polyk      = polyk,                        &
+               gamma      = gamma,                        &
+               particle_mass = massoftype(1),             &
+               hfact      = hfact,                        &
+               xyzh       = xyzh_inject,                  &
+               vxyzu      = vxyzu_inject,                 &
+               writefile  = .false.)
 
 ! Rotate components with r < Rmid so that they are in the other injection zone
 

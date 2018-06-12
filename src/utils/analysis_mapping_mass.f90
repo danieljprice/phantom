@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -48,14 +48,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  logical            :: logr  = .true.
  integer            :: i,j,ii
  integer            :: ibins(nbins)
- real               :: ri,ui,hi,dm
+ real               :: ri,ui,hi,dm,mnew
  real               :: rbins(nbins),mass(nbins),density(nbins),ubins(nbins),u(nbins),temp(nbins),hbins(nbins),m(nbins),mbins(nbins),mpbins(nbins)
  logical            :: iexist
  character(len=200) :: fileout
  real               :: x0(3)
  integer            :: iorder(npart)
  real :: grid(nbins) = (/(i,i=1,nbins,1)/)
- real :: mu(nbins)   = 1/(8.50479435771475778e-01) ! mean molecular weight (1/Ye assuming full ionisation) in cgs
+ real :: mu(nbins)   = 0.609                       ! mean molecular weight
  real :: mh(nbins)   = 1.6737236e-24               ! mass of hydrogen atom in cgs
  real :: kb(nbins)   = 1.380658e-16                ! boltzmann constant in cgs
  real :: nt1(nbins)  = 0.
@@ -108,21 +108,22 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     ri = sqrt(dot_product(xyzh(1:3,j),xyzh(1:3,j)))   ! radius of each particle in order
     ui = vxyzu(4,j)                                       ! internal energy of each particle
     hi = xyzh(4,j)                                      ! smoothing length
+    mnew  = mass(ii) + particlemass
     !--Adding particles to a bin until they exceed dm
-    ibins(ii) = ibins(ii) + 1
-    mass(ii)  = mass(ii) + particlemass
-    rbins(ii) = ri
-    ubins(ii) = ubins(ii) + ui
-    hbins(ii) = hbins(ii) + hi
-    !
-    if (ii==1) then
-       mbins(ii) = mass(ii)
+    if (mnew<dm .and. ii<=nbins) then
+       ibins(ii) = ibins(ii) + 1
+       mass(ii)  = mnew
+       rbins(ii) = ri
+       ubins(ii) = ubins(ii) + ui
+       hbins(ii) = hbins(ii) + hi
+       !
+       if (ii==1) then
+          mbins(ii) = mass(ii)
+       else
+          mbins(ii) = mbins(ii-1) + mass(ii)
+       endif
+       !
     else
-       mbins(ii) = mbins(ii-1) + mass(ii)
-    endif
-    !
-    if (mass(ii)>dm .and. ii<nbins) then
-       mass(ii) = mass(ii) - particlemass
        ii = ii + 1
     endif
     !

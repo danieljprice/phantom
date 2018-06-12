@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: None
+!  DEPENDENCIES: dim
 !+
 !--------------------------------------------------------------------------
 
@@ -41,12 +41,7 @@ module timestep
 
  ! When rho_max > rho_dtthresh, then decrease dtmax by dtmax_rat;
  ! this can currently be done only once per simulation.
- ! If it is longer than dtwall_dtthresh between dumps, will decrease dtmax
- ! accordingly; this can be done repeatedly and is independent of dtmax_rat
- ! dtmax_rat must be a multiple of 2.
  ! The logicals will be automatically adjusted, so do not modify.
- ! To disable, set dtwall_dtthresh=0
- real,    public :: dtwall_dtthresh   = 86400.0  ! = 24h; must be modified here
  real,    public :: rho_dtthresh
  real,    public :: rho_dtthresh_cgs  = 0.0
  integer, public :: dtmax_rat0        = 1
@@ -65,7 +60,7 @@ end module timestep
 !+
 !---------------------------------------------------------------
 module initial_params
-use dim, only:ndusttypes
+ use dim, only:ndusttypes
  implicit none
  real,    public :: get_conserv = 1.0 ! to track when we have initial values for conservation laws
  real,    public :: etot_in,angtot_in,totmom_in,mdust_in(ndusttypes)

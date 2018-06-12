@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -18,8 +18,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: densityforce, dim, externalforces, forces, forcing, io,
-!    linklist, mpiutils, part, photoevap, ptmass, timestep, timing
+!  DEPENDENCIES: densityforce, dim, externalforces, forces, forcing,
+!    growth, io, linklist, mpiutils, part, photoevap, ptmass, timestep,
+!    timing
 !+
 !--------------------------------------------------------------------------
 module deriv
@@ -40,8 +41,8 @@ contains
 !  (wrapper for call to density and rates, calls neighbours etc first)
 !+
 !-------------------------------------------------------------
-subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                  dustfrac,ddustfrac,time,dt,dtnew)
+subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
+                  dustfrac,ddustfrac,temperature,time,dt,dtnew)
  use dim,            only:maxp,maxvxyzu
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
@@ -55,6 +56,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 #ifdef PHOTO
  use photoevap,      only:find_ionfront,photo_ionize
  use part,           only:massoftype
+#endif
+#ifdef DUSTGROWTH
+ use growth,                only:get_growth_rate
 #endif
  use part,         only:mhd,gradh,alphaind,igas
  use timing,       only:get_timings
@@ -71,7 +75,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real,         intent(in)    :: Bevol(:,:)
  real,         intent(out)   :: dBevol(:,:)
  real,         intent(in)    :: dustfrac(:,:)
- real,         intent(out)   :: ddustfrac(:,:)
+ real,         intent(inout) :: dustprop(:,:)
+ real,         intent(out)   :: ddustfrac(:,:),ddustprop(:,:)
+ real,         intent(inout) :: temperature(:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
  logical, parameter :: itiming = .true.
@@ -129,9 +135,15 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 #endif
 
  stressmax = 0.
- call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
-            dustfrac,ddustfrac,ipart_rhomax,dt,stressmax)
+ call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
+            dustfrac,ddustfrac,ipart_rhomax,dt,stressmax,temperature)
  call do_timing('force',tlast,tcpulast)
+#ifdef DUSTGROWTH
+ !
+ ! compute growth rate of dust particles with respect to their positions
+ !
+ call get_growth_rate(npart,xyzh,vxyzu,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
+#endif
 !
 ! set new timestep from Courant/forces condition
 !

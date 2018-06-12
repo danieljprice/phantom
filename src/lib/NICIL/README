@@ -30,7 +30,7 @@ to compile nicil_ex_eta and nicil_ex_sph, respectively.
 
 9) It is suggested that the user experiment with various parameters, as defined at the top of src/nicil.F90 between the lines marked 'Input Parameters' and 'End of Input Parameters', to determine their impact on the non-ideal MHD coefficients and their constituent components.  These can be plotted as in step 4.
 
-10) Once the user has determined which parameters to use, the if-statements can (optionally) be stripped out by calling hardcode_ifs.py; this will prevent useless checks on the logical statements.  This script will determine the true/false status of selected logicals, and removed the if-statement around the commands if true, and removed the if-statement and commands if false.  This script will overwrite nicil.F90 with a new version created from nicil_source.F90.
+10) Once the user has determined which parameters to use, the if-statements can (optionally) be stripped out by calling hardcode_ifs.py; this will prevent useless checks on the logical statements.  This script will determine the true/false status of selected logicals, and removed the if-statement around the commands if true, and removed the if-statement and commands if false.  This script will overwrite nicil.F90 and create a backup version called nicil_source.F90.
 
 Note: NICIL has been tested using GNU Fortran (GCC) 4.4.7, GNU Fortran (GCC) 5.1.0, and ifort (IFORT) 12.1.0.
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -30,7 +30,7 @@
 !--------------------------------------------------------------------------
 module coolfunc
  implicit none
- integer, parameter :: maxt = 256
+ integer, parameter :: maxt = 1000
  real    :: temper(maxt),lambda(maxt),slope(maxt),yfunc(maxt)
  integer :: nt
  !
@@ -54,11 +54,12 @@ contains
 !  read cooling table from file and initialise arrays
 !+
 !-----------------------------------------------------------------------
-subroutine init_coolfunc()
+subroutine init_coolfunc(ierr)
  use io,        only:fatal
  use datafiles, only:find_phantom_datafile
+ integer, intent(out) :: ierr
  integer, parameter :: iu = 127
- integer :: ierr,i
+ integer :: i
  character(len=120) :: filepath
 
  !
@@ -72,8 +73,8 @@ subroutine init_coolfunc()
     i = i + 1
     read(iu,*,iostat=ierr) temper(i),lambda(i)
  enddo
- if (i==maxt) call fatal('coolfunc','size of cooling table exceeds array size')
  nt = i-1
+ if (nt==maxt) call fatal('coolfunc','size of cooling table exceeds array size')
  if (nt < 2) call fatal('coolfunc','size of cooling table is too small',ival=nt,var='nt')
  !
  ! calculate the slope of the cooling function
@@ -103,12 +104,12 @@ end subroutine init_coolfunc
 !  implement du/dt equation
 !+
 !-----------------------------------------------------------------------
-subroutine energ_coolfunc(uu,rho,dt)
+subroutine energ_coolfunc(uu,rho,dt,dudt)
  use eos,     only:gamma,gmw
  use physcon, only:atomic_mass_unit,kboltz,Rg
  use units,   only:unit_density,unit_ergg,utime
  real, intent(in)    :: rho,dt
- real, intent(inout) :: uu
+ real, intent(inout) :: uu,dudt
  real    :: gam1,density_cgs,dt_cgs,amue,amuh,dtemp,durad
  real    :: sloperef,slopek,temp,temp1,tref,yfunx,yinv0
  integer :: k
@@ -153,7 +154,7 @@ subroutine energ_coolfunc(uu,rho,dt)
  endif
 
  durad = (temp1 - temp)*Rg/(gam1*gmw*unit_ergg)
-
+ !dudt = dudt + durad/dt
  uu = uu + durad
 
 end subroutine energ_coolfunc

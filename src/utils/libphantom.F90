@@ -509,6 +509,45 @@ subroutine get_part_vxyz(npart_in, part_vxyz, nodisabled, ierr)
 end subroutine
 
 !
+! Get magnetic field, if possible
+!
+subroutine get_part_bxyz(npart_in, part_bxyz, nodisabled, ierr)
+ use part,  only:npart,xyzh,Bxyz,mhd
+ use units, only:unit_Bfield
+ implicit none
+ integer, intent(in) :: npart_in
+ double precision, dimension(3,npart_in), intent(out) :: part_bxyz
+ logical, intent(in)  :: nodisabled
+ integer, intent(out) :: ierr
+ integer :: i, n
+
+ if (mhd) then
+    if (nodisabled) then
+       n = 0
+       do i=1,npart
+          if (xyzh(4,i)  >  0.) then
+             n = n + 1
+             if (n  >  npart_in) then
+                ierr = 1
+                exit
+             endif
+             part_bxyz(1:3,n) = dble(Bxyz(1:3,i)*unit_Bfield)
+          endif
+       enddo
+    else
+       if (npart_in == npart) then
+          part_bxyz(1:3,1:npart) = dble(Bxyz(1:3,1:npart)*unit_Bfield)
+          ierr = 0
+       else
+          ierr = 1
+       endif
+    endif
+ else
+    ierr = 2
+ endif
+end subroutine
+
+!
 ! Get u, if possible
 !
 subroutine get_part_u(npart_in, part_u, nodisabled, ierr)
@@ -528,7 +567,7 @@ subroutine get_part_u(npart_in, part_u, nodisabled, ierr)
           if (xyzh(4,i)  >  0.) then
              n = n + 1
              if (n  >  npart_in) then
-                ierr = 2
+                ierr = 1
                 exit
              endif
              part_u(n) = vxyzu(4,i)
@@ -538,11 +577,48 @@ subroutine get_part_u(npart_in, part_u, nodisabled, ierr)
        if (npart_in == npart) then
           part_u(1:npart) = dble(vxyzu(4,1:npart)*udist**2/utime**2)
        else
-          ierr = 2
+          ierr = 1
        endif
     endif
  else
-    ierr = 1
+    ierr = 2
+ endif
+end subroutine
+
+!
+! Get temperature, if stored
+!
+subroutine get_part_temp(npart_in, part_temp, nodisabled, ierr)
+ use part,  only:npart,xyzh,temperature,store_temperature
+ implicit none
+ integer, intent(in) :: npart_in
+ double precision, dimension(npart_in), intent(out) :: part_temp
+ logical, intent(in)  :: nodisabled
+ integer, intent(out) :: ierr
+ integer :: i, n
+
+ if (store_temperature) then
+    if (nodisabled) then
+       n = 0
+       do i = 1, npart
+          if (xyzh(4,i) > 0.) then
+             n = n + 1
+             if (n > npart_in) then
+                ierr = 1
+                exit
+             endif
+             part_temp(n) = temperature(i)
+          endif
+       enddo
+    else
+       if (npart_in == npart) then
+          part_temp(1:npart) = dble(temperature(1:npart))
+       else
+          ierr = 1
+       endif
+    endif
+ else
+    ierr = 2
  endif
 end subroutine
 

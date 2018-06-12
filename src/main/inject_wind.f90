@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -53,7 +53,7 @@ module inject
  real, public ::    central_star_radius = 1. * au
  integer, public ::    icompanion_star = 0
  real, public ::    companion_star_mass
- real, public ::    companion_star_radius
+ real, public ::    companion_star_r
  real, public ::    semi_major_axis
  real, public ::    eccentricity
 
@@ -361,7 +361,7 @@ subroutine write_options_inject(iunit)
  if (icompanion_star > 0) then
     call write_inopt(companion_star_mass/solarm,'companion_star_mass', &
       'mass of the companion star (Msun)',iunit)
-    call write_inopt(companion_star_radius/au,'companion_star_radius', &
+    call write_inopt(companion_star_r/au,'companion_star_r', &
       'radius of the companion star (au)',iunit)
     call write_inopt(semi_major_axis/au,'semi_major_axis', &
       'semi-major axis of the binary system (au)',iunit)
@@ -445,11 +445,11 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     companion_star_mass = companion_star_mass * solarm
     ngot = ngot + 1
     if (companion_star_mass <= 0.) call fatal(label,'invalid setting for companion_star_mass (<=0)')
- case('companion_star_radius')
-    read(valstring,*,iostat=ierr) companion_star_radius
-    companion_star_radius = companion_star_radius * au
+ case('companion_star_r')
+    read(valstring,*,iostat=ierr) companion_star_r
+    companion_star_r = companion_star_r * au
     ngot = ngot + 1
-    if (companion_star_radius < 0.) call fatal(label,'invalid setting for companion_star_radius (<0)')
+    if (companion_star_r < 0.) call fatal(label,'invalid setting for companion_star_radius (<0)')
  case('semi_major_axis')
     read(valstring,*,iostat=ierr) semi_major_axis
     semi_major_axis = semi_major_axis * au

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -29,7 +29,7 @@ module dim
  public
 
  character(len=80), parameter :: &
-    tagline='PhantomSPH: (c) 2007-2017 The Authors'
+    tagline='PhantomSPH: (c) 2007-2018 The Authors'
 
  ! maximum number of particles
 #ifdef MAXP
@@ -52,11 +52,27 @@ module dim
  integer, parameter :: maxvxyzu = 4
 #endif
 
+ ! storage of temperature
+#ifdef STORE_TEMPERATURE
+ logical, parameter :: store_temperature = .true.
+ integer, parameter :: maxtemp = maxp
+#else
+ logical, parameter :: store_temperature = .false.
+ integer, parameter :: maxtemp = 0
+#endif
+
  ! maximum allowable number of neighbours (safest=maxp)
 #ifdef MAXNEIGH
  integer, parameter :: maxneigh = MAXNEIGH
 #else
  integer, parameter :: maxneigh = maxp
+#endif
+
+! maxmimum storage in linklist
+#ifdef NCELLSMAX
+ integer, parameter :: ncellsmax = NCELLSMAX
+#else
+ integer, parameter :: ncellsmax = maxp
 #endif
 
 !------
@@ -65,26 +81,22 @@ module dim
 #ifdef DUST
  logical, parameter :: use_dust = .true.
  integer, parameter :: ndustfluids = 1
+ integer, parameter :: ndusttypes = 1
+ integer, parameter :: maxp_dustfrac = maxp
+#ifdef DUSTGROWTH
+ logical, parameter :: use_dustgrowth = .true.
+ integer, parameter :: maxp_growth = maxp
+#else
+ logical, parameter :: use_dustgrowth = .false.
+ integer, parameter :: maxp_growth = 0
+#endif
 #else
  logical, parameter :: use_dust = .false.
  integer, parameter :: ndustfluids = 0
-#endif
-
-#ifdef DUSTFRAC
- logical, parameter :: use_dustfrac = .true.
- integer, parameter :: maxp_dustfrac = maxp
- integer, parameter :: ndusttypes = 1
-#else
- logical, parameter :: use_dustfrac = .false.
- integer, parameter :: maxp_dustfrac = maxp
- integer, parameter :: ndusttypes = 1
-#endif
-
-! maxmimum storage in linklist
-#ifdef NCELLSMAX
- integer, parameter :: ncellsmax = NCELLSMAX
-#else
- integer, parameter :: ncellsmax = maxp
+ integer, parameter :: ndusttypes = 1 ! to avoid seg faults
+ integer, parameter :: maxp_dustfrac = 0
+ logical, parameter :: use_dustgrowth = .false.
+ integer, parameter :: maxp_growth = 0
 #endif
 
  ! kdtree
@@ -100,8 +112,8 @@ module dim
 
  ! xpartveci
  integer, parameter :: maxxpartvecidens = 14
- 
- integer, parameter :: xpartvecvars = 45 ! Number of scalars in xpartvec
+
+ integer, parameter :: xpartvecvars = 47 ! Number of scalars in xpartvec
  integer, parameter :: xpartvecarrs = 2  ! Number of arrays in xpartvec
  integer, parameter :: maxxpartveciforce = xpartvecvars + xpartvecarrs*(ndusttypes-1) ! Total number of values
 
@@ -173,13 +185,11 @@ module dim
  logical, parameter :: mhd = .true.
  integer, parameter :: maxmhd = maxp
  integer, parameter :: maxBevol = 4  ! Bx,By,Bz,Psi (latter for div B cleaning)
- integer, parameter :: maxvecp = 0   ! obsolete, used for vector/Euler pots (no longer supported)
  integer, parameter :: ndivcurlB = 4
 #else
  ! if no MHD, do not store any of these
  logical, parameter :: mhd = .false.
  integer, parameter :: maxmhd = 0
- integer, parameter :: maxvecp = 0 ! obsolete
  integer, parameter :: maxBevol = 4 ! irrelevant, but prevents compiler warnings
  integer, parameter :: ndivcurlB = 0
 #endif
@@ -264,10 +274,27 @@ module dim
 #endif
 
 !--------------------
+! Electron number densities .or. ionisation fractions
+!--------------------
+#ifdef NONIDEALMHD
+ integer, parameter :: maxne = maxp
+#else
+#ifdef CMACIONIZE
+ integer, parameter :: maxne = maxp
+#else
+ integer, parameter :: maxne = 0
+#endif
+#endif
+#ifdef CMACIONIZE
+ logical, parameter :: use_CMacIonize = .true.
+#else
+ logical, parameter :: use_CMacIonize = .false.
+#endif
+
+!--------------------
 ! Calculate rotational energy in .ev
 !--------------------
- logical, public :: calc_erot     = .false.
- logical, public :: calc_erot_com = .false.
- logical, public :: incl_erot     = .false.
+ logical, public :: calc_erot = .false.
+ logical, public :: incl_erot = .false.
 
 end module dim

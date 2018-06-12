@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -20,10 +20,10 @@
 !  RUNTIME PARAMETERS:
 !    C_cool    -- factor controlling cooling timestep
 !    beta_cool -- beta factor in Gammie (2001) cooling
-!    icooling  -- cooling function (0=off, 1=Gammie cooling 2=SD93)
+!    icooling  -- cooling function (0=off, 1=Gammie cooling 2=SD93 3=cooling function)
 !
-!  DEPENDENCIES: dim, eos, h2cooling, infile_utils, io, options, part,
-!    physcon, timestep, units
+!  DEPENDENCIES: coolfunc, dim, eos, h2cooling, infile_utils, io, options,
+!    part, physcon, timestep, units
 !+
 !--------------------------------------------------------------------------
 module cooling
@@ -33,13 +33,28 @@ module cooling
  implicit none
  real :: beta_cool = 3.
 
- public :: energ_cooling
+ public :: init_cooling,energ_cooling
  public :: write_options_cooling, read_options_cooling
  public :: cooling_rate_sd93
 
  private
 
 contains
+
+!----------------------------------------------------
+!+
+!  Initialise cooling routines
+!+
+!----------------------------------------------------
+subroutine init_cooling(ierr)
+ use coolfunc, only:init_coolfunc
+ integer, intent(out) :: ierr
+
+ ierr = 0
+ if (icooling==3) call init_coolfunc(ierr)
+
+end subroutine init_cooling
+
 !----------------------------------------------------
 !+
 !  Implementation of various cooling prescriptions
@@ -55,20 +70,24 @@ contains
 !+
 !----------------------------------------------------
 !subroutine energ_cooling(icool,ui,dudti,xi,yi,zi)
-subroutine energ_cooling(icool,ui,dudti,xi,yi,zi,rhoi,vxyzui)
- use units, only:utime,unit_ergg,umass,udist
- use options, only:ieos
- use eos, only:get_temperature
- use dim, only:maxvxyzu
- use physcon, only:atomic_mass_unit
+subroutine energ_cooling(icool,ui,dudti,xi,yi,zi,rhoi,vxyzui,dt)
+ use units,    only:utime,unit_ergg,umass,udist
+ use options,  only:ieos
+ use eos,      only:get_temperature
+ use dim,      only:maxvxyzu
+ use physcon,  only:atomic_mass_unit
+ use coolfunc, only:energ_coolfunc
  integer, intent(in)    :: icool
  !real,    intent(in)    :: ui,xi,yi,zi
  real,    intent(in)    :: ui,xi,yi,zi,rhoi
- real,         intent(in) :: vxyzui(maxvxyzu)
+ real,    intent(inout) :: vxyzui(maxvxyzu)
+ real,    intent(in)    :: dt
  real,    intent(inout) :: dudti
  real :: r2,Omegai,tcool1,temp,crate,fac
 
  select case(icool)
+ case(3)
+    !call energ_coolfunc(ui,rhoi,dt,dudti)
  case(2)
     !
     ! SD93 cooling
@@ -129,13 +148,14 @@ end function cooling_rate_sd93
 subroutine write_options_cooling(iunit)
  use infile_utils, only:write_inopt
  use h2cooling,    only:write_options_h2cooling
+ use coolfunc,     only:write_options_coolfunc
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling cooling'
  if (h2chemistry) then
     call write_inopt(icooling,'icooling','cooling function (0=off, 1=on)',iunit)
  else
-    call write_inopt(icooling,'icooling','cooling function (0=off, 1=Gammie cooling 2=SD93)',iunit)
+    call write_inopt(icooling,'icooling','cooling function (0=off, 1=Gammie cooling 2=SD93 3=cooling function)',iunit)
  endif
  if (icooling > 0) then
     call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
@@ -144,6 +164,8 @@ subroutine write_options_cooling(iunit)
     call write_options_h2cooling(iunit)
  elseif (icooling == 1) then
     call write_inopt(beta_cool,'beta_cool','beta factor in Gammie (2001) cooling',iunit)
+ elseif (icooling == 3) then
+    call write_options_coolfunc(iunit)
  endif
 
 end subroutine write_options_cooling
@@ -155,16 +177,18 @@ end subroutine write_options_cooling
 !-----------------------------------------------------------------------
 subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  use h2cooling, only:read_options_h2cooling
+ use coolfunc,  only:read_options_coolfunc
  use io,        only:fatal
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
  integer, save :: ngot = 0
- logical :: igotallh2
+ logical :: igotallh2,igotallcf
 
  imatch  = .true.
  igotall = .false.  ! cooling options are compulsory
  igotallh2 = .true.
+ igotallcf = .true.
  if (maxvxyzu < 4) igotall = .true. ! options unnecessary if isothermal
 
  select case(trim(name))
@@ -181,11 +205,14 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
     if (h2chemistry) call read_options_h2cooling(name,valstring,imatch,igotallh2,ierr)
+    if (icooling==3) call read_options_coolfunc(name,valstring,imatch,igotallcf,ierr)
  end select
 
  if (igotallh2 .and. ngot >= 1) igotall = .true.
 
  if (icooling > 1 .and. ngot >= 2) igotall = .true.
+
+ if (.not.igotallcf) igotall = .false.
 
  if (.not.h2chemistry .and. (icooling == 1 .and. ngot < 3)) igotall= .false.
 

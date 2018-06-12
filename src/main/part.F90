@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -26,20 +26,20 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, io, mpiutils
+!  DEPENDENCIES: dim, domain, io, mpiutils
 !+
 !--------------------------------------------------------------------------
 module part
- use dim, only:maxp,ndivcurlv,ndivcurlB,maxvxyzu, &
+ use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu, &
           maxalpha,maxptmass,maxstrain, &
-          mhd,maxmhd,maxBevol,maxvecp,maxp_h2,periodic, &
+          mhd,maxmhd,maxBevol,maxp_h2,maxtemp,periodic, &
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
-          switches_done_in_derivs,maxp_dustfrac,use_dust,use_dustfrac, &
-          lightcurve,maxlum,nalpha,maxmhdni,ndusttypes
+          switches_done_in_derivs,maxp_dustfrac,use_dust, &
+          store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
+          maxne,maxp_growth,ndusttypes
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
-
 !
 !--basic storage needed for read/write of particle data
 !
@@ -50,10 +50,16 @@ module part
  real(kind=4) :: divcurlv(ndivcurlv,maxp)
  real(kind=4) :: divcurlB(ndivcurlB,maxp)
  real :: Bevol(maxBevol,maxmhd)
- real :: Bxyz(3,maxvecp)
+ real :: Bxyz(3,maxmhd)
  character(len=*), parameter :: xyzh_label(4) = (/'x','y','z','h'/)
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
- character(len=*), parameter :: Bevol_label(4) = (/'Bx ','By ','Bz ','psi'/)
+ character(len=*), parameter :: Bxyz_label(3) = (/'Bx','By','Bz'/)
+!
+!--storage of dust properties
+!
+ real :: dustprop(5,maxp_growth)
+ real :: St(maxp_growth)
+ character(len=*), parameter :: dustprop_label(5) = (/'grainsize ','graindens ','   vrel   ','vrel/vfrag','    dv    '/)
 !
 !--storage in divcurlv
 !
@@ -89,10 +95,15 @@ module part
  character(len=*), parameter :: abundance_label(5) = &
    (/'h2ratio','abHIq  ','abhpq  ','abeq   ','abco   '/)
 !
+!--storage of temperature
+!
+ real :: temperature(maxtemp)
+!
 !--one-fluid dust (small grains)
 !
  real :: dustfrac(ndusttypes,maxp_dustfrac)
  character(len=*), parameter :: dustfrac_label(ndusttypes) = 'dustfrac'
+ character(len=*), parameter :: tstop_label(ndusttypes) = 'tstop'
  real :: dustevol(ndusttypes,maxp_dustfrac)
  real :: deltav(3,ndusttypes,maxp_dustfrac)
  character(len=*), parameter :: deltav_label(3) = &
@@ -110,7 +121,7 @@ module part
  integer, parameter :: i_tlast = 11 ! time of last injection
  real :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real :: vxyz_ptmass(3,maxptmass)
- real :: fxyz_ptmass(4,maxptmass)
+ real :: fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
  character(len=*), parameter :: xyzmh_ptmass_label(11) = &
@@ -124,7 +135,7 @@ module part
 !
 !--Non-ideal MHD
 !
- real :: n_R(4,maxmhdni),n_electronT(maxmhdni),eta_nimhd(4,maxmhdni)
+ real :: n_R(4,maxmhdni),n_electronT(maxne),eta_nimhd(4,maxmhdni)
  integer, parameter :: iohm  = 1 ! eta_ohm
  integer, parameter :: ihall = 2 ! eta_hall
  integer, parameter :: iambi = 3 ! eta_ambi
@@ -152,22 +163,23 @@ module part
 !
 !--derivatives (only needed if derivs is called)
 !
- real         :: fxyzu(maxvxyzu,maxan)
- real         :: dBevol(maxBevol,maxmhdan)
- real(kind=4) :: divBsymm(maxmhdan)
- real         :: fext(3,maxan)
- real         :: ddustfrac(ndusttypes,maxdustan)
+ real               :: fxyzu(maxvxyzu,maxan)
+ real               :: dBevol(maxBevol,maxmhdan)
+ real(kind=4)       :: divBsymm(maxmhdan)
+ real               :: fext(3,maxan)
+ real               :: ddustfrac(ndusttypes,maxdustan)
+ real               :: ddustprop(5,maxp_growth) !--grainsize is the only prop that evolves for now
 !
 !--storage associated with/dependent on timestepping
 !
- real         :: vpred(maxvxyzu,maxan)
- real         :: dustpred(ndusttypes,maxdustan)
- real         :: Bpred(maxBevol,maxmhdan)
+ real               :: vpred(maxvxyzu,maxan)
+ real               :: dustpred(ndusttypes,maxdustan)
+ real               :: Bpred(maxBevol,maxmhdan)
+ real               :: dustproppred(5,maxp_growth)
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin(maxan)
+ integer(kind=1)    :: ibin_old(maxan)
  integer(kind=1)    :: ibin_wake(maxan)
- integer(kind=1)    :: ibinold(maxan)
- integer(kind=1)    :: ibinsink(maxan)
  real(kind=4)       :: dt_in(maxan)
  real               :: twas(maxan)
 #else
@@ -179,12 +191,14 @@ module part
  integer(kind=1)    :: iphase_soa(maxphase)
  logical, public    :: all_active = .true.
 
- real(kind=4) :: gradh(ngradh,maxgradh)
+ real(kind=4)       :: gradh(ngradh,maxgradh)
+ real               :: tstop(ndusttypes,maxan)
 !
 !--storage associated with link list
 !  (used for dead particle list also)
 !
  integer :: ll(maxan)
+ real    :: dxi(ndim) ! to track the extent of the particles
 !
 !--size of the buffer required for transferring particle
 !  information between MPI threads
@@ -205,14 +219,18 @@ module part
 #ifdef DUST
    +ndusttypes                          &  ! dustfrac
    +ndusttypes                          &  ! dustevol
+#ifdef DUSTGROWTH
+   +1                                   &  ! dustproppred
+   +1                                   &  ! ddustprop
+#endif
 #endif
    +(maxp_h2/maxpd)*nabundances         &  ! abundance
    +(maxgrav/maxpd)                     &  ! poten
+   +(maxtemp/maxpd)                     &  ! temperature
 #ifdef IND_TIMESTEPS
    +1                                   &  ! ibin
+   +1                                   &  ! ibin_old
    +1                                   &  ! ibin_wake
-   +1                                   &  ! ibinold
-   +1                                   &  ! ibinsink
    +1                                   &  ! dt_in
    +1                                   &  ! twas
 #endif
@@ -234,13 +252,13 @@ module part
 !         initialised (even on restarts where not all arrays, e.g. gradh,
 !         are not saved)
 !
- integer, parameter :: igas  = 1
- integer, parameter :: idust = 2
- integer, parameter :: iboundary = 3
- integer, parameter :: istar = 4
+ integer, parameter :: igas        = 1
+ integer, parameter :: idust       = 2
+ integer, parameter :: iboundary   = 3
+ integer, parameter :: istar       = 4
  integer, parameter :: idarkmatter = 5
- integer, parameter :: ibulge = 6
- integer, parameter :: iunknown = 0
+ integer, parameter :: ibulge      = 6
+ integer, parameter :: iunknown    = 0
  logical            :: set_boundaries_to_active = .true.
  character(len=5), dimension(maxtypes), parameter :: &
     labeltype = (/'gas  ','dust ','bound','star ','darkm','bulge'/)
@@ -589,6 +607,7 @@ subroutine copy_particle(src, dst)
  fext(:,dst)  = fext(:,src)
  if (mhd) then
     Bevol(:,dst) = Bevol(:,src)
+    Bxyz(:,dst)  = Bxyz(:,dst)
  endif
  if (ndivcurlv  > 0) divcurlv(:,dst)  = divcurlv(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
@@ -596,18 +615,18 @@ subroutine copy_particle(src, dst)
  if (maxphase ==maxp) iphase(dst)   = iphase(src)
  if (maxgrav  ==maxp) poten(dst) = poten(src)
 #ifdef IND_TIMESTEPS
- ibin(dst)      = ibin(src)
- ibin_wake(dst) = ibin_wake(src)
- ibinold(dst)   = ibinold(src)
- ibinsink(dst)  = ibinsink(src)
- dt_in(dst)     = dt_in(src)
- twas(dst)      = twas(src)
+ ibin(dst)       = ibin(src)
+ ibin_old(dst)   = ibin_old(src)
+ ibin_wake(dst)  = ibin_wake(src)
+ dt_in(dst)      = dt_in(src)
+ twas(dst)       = twas(src)
 #endif
  if (use_dust) then
     dustfrac(:,dst) = dustfrac(:,src)
     dustevol(:,dst) = dustevol(:,src)
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
+ if (store_temperature) temperature(dst) = temperature(src)
 
  return
 end subroutine copy_particle
@@ -633,7 +652,7 @@ subroutine copy_particle_all(src,dst)
     Bevol(:,dst)  = Bevol(:,src)
     Bpred(:,dst)  = Bpred(:,src)
     dBevol(:,dst) = dBevol(:,src)
-    if (maxvecp==maxp) Bxyz(:,dst)   = Bxyz(:,src)
+    Bxyz(:,dst)   = Bxyz(:,src)
     divBsymm(dst) = divBsymm(src)
     if (maxmhdni==maxp) then
        n_R(:,dst)       = n_R(:,src)
@@ -649,12 +668,11 @@ subroutine copy_particle_all(src,dst)
  if (maxgrav  ==maxp) poten(dst) = poten(src)
  if (maxlum   ==maxp) luminosity(dst) = luminosity(src)
 #ifdef IND_TIMESTEPS
- ibin(dst)      = ibin(src)
- ibin_wake(dst) = ibin_wake(src)
- ibinold(dst)   = ibinold(src)
- ibinsink(dst)  = ibinsink(src)
- dt_in(dst)     = dt_in(src)
- twas(dst)      = twas(src)
+ ibin(dst)       = ibin(src)
+ ibin_old(dst)   = ibin_old(src)
+ ibin_wake(dst)  = ibin_wake(src)
+ dt_in(dst)      = dt_in(src)
+ twas(dst)       = twas(src)
 #endif
  if (use_dust) then
     dustfrac(:,dst)  = dustfrac(:,src)
@@ -664,6 +682,7 @@ subroutine copy_particle_all(src,dst)
     deltav(:,:,dst)  = deltav(:,:,src)
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
+ if (store_temperature) temperature(dst) = temperature(src)
 
  return
 end subroutine copy_particle_all
@@ -681,19 +700,22 @@ subroutine reorder_particles(iorder,np)
 
  call copy_array(xyzh(:,1:np), iorder(1:np))
  call copy_array(vxyzu(:,1:np),iorder(1:np))
- call copy_array(fext(:,1:np),iorder(1:np))
+ call copy_array(fext(:,1:np), iorder(1:np))
  if (mhd) then
-    call copy_array(Bevol(:,1:npart),iorder(1:np))
+    call copy_array(Bevol(:,1:np),iorder(1:np))
     !--also copy the Bfield here, as this routine is used in setup routines
-    if (maxvecp        ==maxp) call copy_array(Bxyz(:,1:np),        iorder(1:np))
+    call copy_array(Bxyz(:,1:np), iorder(1:np))
  endif
- if (ndivcurlv > 0)     call copy_arrayr4(divcurlv(:,1:np),iorder(1:np))
- if (maxalpha ==maxp) call copy_arrayr4(alphaind(:,1:np),  iorder(1:np))
- if (maxgradh ==maxp) call copy_arrayr4(gradh(:,1:np),  iorder(1:np))
- if (maxphase ==maxp) call copy_arrayint1(iphase(1:np),iorder(1:np))
- if (maxgrav  ==maxp) call copy_array1(poten(1:np),  iorder(1:np))
+ if (ndivcurlv > 0)   call copy_arrayr4(divcurlv(:,1:np),iorder(1:np))
+ if (maxalpha ==maxp) call copy_arrayr4(alphaind(:,1:np),iorder(1:np))
+ if (maxgradh ==maxp) call copy_arrayr4(gradh(:,1:np),   iorder(1:np))
+ if (maxphase ==maxp) call copy_arrayint1(iphase(1:np),  iorder(1:np))
+ if (maxgrav  ==maxp) call copy_array1(poten(1:np),      iorder(1:np))
 #ifdef IND_TIMESTEPS
- call copy_arrayint1(ibin(1:np),  iorder(1:np))
+ call copy_arrayint1(ibin(1:np),      iorder(1:np))
+ call copy_arrayint1(ibin_old(1:np),  iorder(1:np))
+ call copy_arrayint1(ibin_wake(1:np), iorder(1:np))
+ !call copy_array1(twas(1:np),          iorder(1:np))
 #endif
 
  return
@@ -708,6 +730,7 @@ end subroutine reorder_particles
 !-----------------------------------------------------------------------
 subroutine shuffle_part(np)
  use io, only:fatal
+ use domain, only:ibelong
  integer, intent(inout) :: np
  integer :: newpart
 
@@ -715,8 +738,11 @@ subroutine shuffle_part(np)
     newpart = ideadhead
     if (newpart <= np) then
        if (.not.isdead(np)) then
-          !if (.not.isdead(newpart)) call fatal('shuffle','corrupted dead list',newpart)
+          ! move particle to new position
           call copy_particle_all(np,newpart)
+          ! move ibelong to new position
+          ibelong(newpart) = ibelong(np)
+          ! update deadhead
           ideadhead = ll(newpart)
        endif
        np = np - 1
@@ -849,14 +875,16 @@ subroutine fill_sendbuf(i,xtemp)
     if (maxp_h2==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)
     endif
+    if (store_temperature) then
+       call fill_buffer(xtemp, temperature(i),nbuf)
+    endif
     if (maxgrav==maxp) then
        call fill_buffer(xtemp, poten(i),nbuf)
     endif
 #ifdef IND_TIMESTEPS
     call fill_buffer(xtemp,ibin(i),nbuf)
+    call fill_buffer(xtemp,ibin_old(i),nbuf)
     call fill_buffer(xtemp,ibin_wake(i),nbuf)
-    call fill_buffer(xtemp,ibinold(i),nbuf)
-    call fill_buffer(xtemp,ibinsink(i),nbuf)
     call fill_buffer(xtemp,dt_in(i),nbuf)
     call fill_buffer(xtemp,twas(i),nbuf)
 #endif
@@ -907,14 +935,16 @@ subroutine unfill_buffer(ipart,xbuf)
  if (maxp_h2==maxp) then
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
  endif
+ if (store_temperature) then
+    temperature(ipart)  = unfill_buf(xbuf,j)
+ endif
  if (maxgrav==maxp) then
     poten(ipart)        = real(unfill_buf(xbuf,j),kind=kind(poten))
  endif
 #ifdef IND_TIMESTEPS
  ibin(ipart)            = nint(unfill_buf(xbuf,j),kind=1)
+ ibin_old(ipart)        = nint(unfill_buf(xbuf,j),kind=1)
  ibin_wake(ipart)       = nint(unfill_buf(xbuf,j),kind=1)
- ibinold(ipart)         = nint(unfill_buf(xbuf,j),kind=1)
- ibinsink(ipart)        = nint(unfill_buf(xbuf,j),kind=1)
  dt_in(ipart)           = real(unfill_buf(xbuf,j),kind=kind(dt_in))
  twas(ipart)            = unfill_buf(xbuf,j)
 #endif

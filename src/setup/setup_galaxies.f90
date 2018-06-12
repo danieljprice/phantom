@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -13,16 +13,22 @@
 !  1e5M_sun, kpc, 1e5yr.  The former two remain the same here, while
 !  the time-unit is modified such that G == 1.
 !
-!  REFERENCES: None
+!  REFERENCES:
+!    Kuijken & Dubinski (1995), MNRAS.
+!    Widrow & Dubinski (2005), ApJ.
+!    Widrow et al. (2008), ApJ.
+!    Wurster & Thacker (2013a), MNRAS.
+!    Wurster & Thacker (2013b), MNRAS.
 !
 !  OWNER: Daniel Price
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS: None
+!  RUNTIME PARAMETERS:
+!    lowres -- Resolution: T = low res (N~3.4e5), F = fiducial res (N~2.5e6)
 !
-!  DEPENDENCIES: boundary, datafiles, dim, io, mpiutils, part, physcon,
-!    timestep, units
+!  DEPENDENCIES: boundary, datafiles, dim, infile_utils, io, mpiutils,
+!    part, physcon, prompting, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -30,7 +36,7 @@ module setup
  public :: setpart
 
  private
-
+ logical :: lowres
 contains
 
 !----------------------------------------------------------------
@@ -47,6 +53,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,        only:set_units,udist,utime
  use part,         only:set_particle_type,igas,istar,idarkmatter,iamtype,iphase
  use boundary,     only:set_boundary
+ use prompting,    only:prompt
  use datafiles,    only:find_phantom_datafile
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -59,36 +66,74 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  character(len=120)               :: filename
- integer                          :: i,ndark,nstar,ngas,itype,ctrd,ctrs,ctrg,ierr,lu
+ integer                          :: i,ro,ndark,nstar,ngas,itype,ctrd,ctrs,ctrg,ierr,lu
  real                             :: massdark,massstar,massgas
  real                             :: polykset
- real                             :: utmp(maxp)
+ real, allocatable                :: utmp(:)
  logical                          :: iexist
  !
- ! Open file and read data
+ ! Open setup file (if it exists) to determine resolution
  !
- filename = find_phantom_datafile('galaxiesP.dat','galaxy_merger')
+ filename=trim(fileprefix)//'.setup'
+ inquire(file=filename,exist=iexist)
+ if (iexist) then
+    call read_setupfile(filename,ierr)
+    if (ierr /= 0) then
+       if (id==master) call write_setupfile(filename)
+       call fatal('setup','failed to read in all the data from .setup.  Aborting')
+    endif
+ elseif (id==master) then
+    print "(a,/)",trim(filename)//' not found: using interactive setup'
+    lowres = .true.
+    call prompt('Use the low resolution model (N~3.4e5; yes) or fiducial resolution model (N~2.5e6; no)?',lowres)
+    call write_setupfile(filename)
+ else
+    stop
+ endif
 
+ if (lowres) then
+    filename = find_phantom_datafile('galaxiesP.dat','galaxy_merger')
+ else
+    filename = find_phantom_datafile('galaxiesP25e5.dat','galaxy_merger')
+ endif
+ allocate(utmp(maxp),stat=ierr)
+ if (ierr /= 0) call fatal('setup','not enough memory for utmp array')
+ !
+ !--Open file and read data
+ !
  open(newunit=lu,file=filename,status='old',action='read',iostat=ierr)
  if (ierr /= 0) call fatal('setup','unable to open '//trim(filename))
  read(lu,*) npart,ndark,nstar,ngas,massdark,massstar,massgas,time
  ctrd = 0
  ctrs = 0
  ctrg = 0
- do i = 1,npart
-    read(lu,*) itype,xyzh(1:3,i),vxyzu(1:3,i),utmp(i),xyzh(4,i)
-    if (itype== 0) then
-       call set_particle_type(i,idarkmatter)
-       ctrd = ctrd + 1
-    else if (itype==-1) then
-       call set_particle_type(i,istar)
-       ctrs = ctrs + 1
-    else if (itype== 1) then
-       call set_particle_type(i,igas)
-       ctrg = ctrg + 1
+ if (npart > maxp) then
+    close(lu)
+    call fatal('setup','maxp too small.  Make bigger than ',ival=npart)
+ endif
+ i  = 1
+ ro = 0
+ do while (ro==0)
+    read(lu,*,iostat=ro) itype,xyzh(1:3,i),vxyzu(1:3,i),utmp(i),xyzh(4,i)
+    if (ro==0) then
+       if (itype== 0) then
+          call set_particle_type(i,idarkmatter)
+          ctrd = ctrd + 1
+       else if (itype==-1) then
+          call set_particle_type(i,istar)
+          ctrs = ctrs + 1
+       else if (itype== 1) then
+          call set_particle_type(i,igas)
+          ctrg = ctrg + 1
+       else
+          i = i - 1  ! read in an unknown particle type, so undo the next addition
+       endif
+       i = i + 1
     endif
  enddo
  close(lu)
+ npart = i - 1
+ print "(1x,a,/)",'setup: done reading file'
  if (ctrd/=ndark) call fatal('setup','read in incorrect number of dark matter particles')
  if (ctrs/=nstar) call fatal('setup','read in incorrect number of star particles')
  if (ctrg/=ngas ) call fatal('setup','read in incorrect number of gas particles')
@@ -129,6 +174,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  print*,' polyk = ',polyk
  call bcast_mpi(polykset)
+ deallocate(utmp)
  !
  ! set general parameters (only if not already done so)
  !
@@ -140,9 +186,54 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     dtmax     = (0.0005d10*years)/utime
  endif
 
- print*, 'n_total,n_dark,n_star,n_gas: ',npart,ndark,nstar,ngas
- print*, 'm_dark,m_star,m_gas: ',massoftype(idarkmatter), massoftype(istar), massoftype(igas)
+ write(*,'(1x,a,I10)')     'n_total:             ',npart
+ write(*,'(1x,a,3I10)')    'n_dark,n_star,n_gas: ',ndark,nstar,ngas
+ write(*,'(1x,a,3Es10.2)') 'm_dark,m_star,m_gas: ',massoftype(idarkmatter),massoftype(istar),massoftype(igas)
 
 end subroutine setpart
 
+!----------------------------------------------------------------
+!+
+!  write parameters to setup file
+!+
+!----------------------------------------------------------------
+subroutine write_setupfile(filename)
+ use infile_utils, only: write_inopt
+ character(len=*), intent(in) :: filename
+ integer, parameter           :: iunit = 20
+
+ print "(a)",' writing setup options file '//trim(filename)
+ open(unit=iunit,file=filename,status='replace',form='formatted')
+ write(iunit,"(a)") '# input file for galaxy merger setup routines'
+ write(iunit,"(/,a)") '# resolution'
+ call write_inopt(lowres,'lowres','Resolution: T = low res (N~3.4e5), F = fiducial res (N~2.5e6)',iunit)
+ close(iunit)
+
+end subroutine write_setupfile
+
+!----------------------------------------------------------------
+!+
+!  Read parameters from setup file
+!+
+!----------------------------------------------------------------
+subroutine read_setupfile(filename,ierr)
+ use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
+ use io,           only: error
+ use units,        only: select_unit
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
+ integer, parameter            :: iunit = 21
+ integer                       :: nerr
+ type(inopts), allocatable     :: db(:)
+
+ print "(a)",' reading setup options from '//trim(filename)
+ call open_db_from_file(db,filename,iunit,ierr)
+ call read_inopt(lowres,'lowres',db,ierr)
+ call close_db(db)
+ if (ierr > 0) then
+    print "(1x,a,i2,a)",'Setup_galaxies: ',nerr,' error(s) during read of setup file.  Re-writing.'
+ endif
+
+end subroutine read_setupfile
+!----------------------------------------------------------------
 end module setup

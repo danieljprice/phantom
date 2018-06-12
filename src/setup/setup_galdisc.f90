@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: datafiles, dim, dust, extern_spiral, externalforces, io,
-!    options, part, physcon, prompting, random, setup_params, units
+!    mpiutils, options, part, physcon, prompting, random, setup_params,
+!    units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -53,14 +54,15 @@ contains
 !
 !--------------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,     only:maxp,maxvxyzu,use_dustfrac
+ use dim,     only:maxp,maxvxyzu,use_dust
  use setup_params, only:rhozero
  use physcon, only:Rg,pi,solarm,pc,kpc
  use units,   only:umass,udist,utime,set_units
+ use mpiutils,only:bcast_mpi
  use random,  only:ran2
  use part,    only:h2chemistry,abundance,iHI,dustfrac,istar,igas,ibulge,&
               idarkmatter,iunknown,set_particle_type
- use options, only:iexternalforce,icooling,nfulldump
+ use options, only:iexternalforce,icooling,nfulldump,use_dustfrac
  use externalforces, only:externalforce,initialise_externalforces
  use extern_spiral, only:LogDisc
  use io,      only:fatal
@@ -97,9 +99,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real:: totmassD,totmassG,totmassB,totmassH,totvolB,totvolH
  real:: rhozero1,rhozero2,rhozero3,rhozero4,h2,h3,h4
  real:: xis,yis,zis,mis,vxis,vyis,vzis,phaseis
- character(20) :: yn_gas,yn_star,yn_bulge,yn_halo
  character(30) :: sometext
- logical       :: use_live_stars
+ integer       :: use_live_stars,yn_gas,yn_star,yn_bulge,yn_halo
 
 !
 !--initialising units and flags
@@ -130,6 +131,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !thermal default at 10000K, 1K min and 1000000K max:
  thermal = 10000.
  call prompt('Enter initial temperature in Kelvin',thermal,1.,1000000.)
+ call bcast_mpi(thermal)
  tempinput=thermal
  uergg = udist**2/utime**2
  h2ratio = 0.
@@ -143,25 +145,30 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--------------------------Determine setup method--------------------------
 !
- use_live_stars = .false.
- call prompt('Using live star particles?',use_live_stars)
+ use_live_stars = 0
+ yn_gas  =0
+ yn_star =0
+ yn_bulge=0
+ yn_halo =0
+ call prompt('Using live star particles [1/0]?',use_live_stars)
+ call bcast_mpi(use_live_stars)
 !
 !-----------------Setting-positions/velocities-for-live-disc---------------
 !
- if (use_live_stars) then
+ if (use_live_stars==1) then
     npartoftype = 0
     massoftype = 0.0
     print*,' Does the system contain the following live components:'
     print*,' [NOTE: this will overide the read in,'
     print*,'   e.g. if you want to turn off gas]'
-    print*,' -gas?[y/n]'
-    read*,yn_gas
-    print*,' -stars?[y/n]'
-    read*,yn_star
-    print*,' -bulge?[y/n]'
-    read*,yn_bulge
-    print*,' -halo?[y/n]'
-    read*,yn_halo
+    call prompt('Gas? [1/0]',yn_gas)
+    call bcast_mpi(yn_gas)
+    call prompt('Stars? [1/0]',yn_star)
+    call bcast_mpi(yn_star)
+    call prompt('Bulge? [1/0]',yn_bulge)
+    call bcast_mpi(yn_bulge)
+    call prompt('Halo? [1/0]',yn_halo)
+    call bcast_mpi(yn_halo)
 
     !Remember : igas=1, istar=4, idm=5, ibulge=6
     !Values for initial guesstimate of smoothing lentgths
@@ -194,18 +201,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 
     !--Checks:
-    if ((yn_gas=='y').and.(npartoftype(igas) <= 0)) then
+    if ((yn_gas==1).and.(npartoftype(igas) <= 0)) then
        call fatal('setup_isogal','IC file and setup parameters inconsistent (gas)')
-    elseif ((yn_star=='y').and.(npartoftype(istar) <= 0)) then
+    elseif ((yn_star==1).and.(npartoftype(istar) <= 0)) then
        call fatal('setup_isogal','IC file and setup parameters inconsistent (star)')
-    elseif ((yn_bulge=='y').and.(npartoftype(ibulge) <= 0)) then
+    elseif ((yn_bulge==1).and.(npartoftype(ibulge) <= 0)) then
        call fatal('setup_isogal','IC file and setup parameters inconsistent (bulge)')
     endif
 
 
     !--Gas loop
     totmassG=0.
-    if (yn_gas=='y') then
+    if (yn_gas==1) then
        OPEN(24,file='asciifile_G',form='formatted')
        i=1
        over_npartG: do while(i <= npartoftype(igas))
@@ -242,7 +249,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     !--Disc loop
     totmassD=0.
-    if (yn_star=='y') then
+    if (yn_star==1) then
        OPEN(22,file='asciifile_D',form='formatted')
        i= npartoftype(igas) + 1
        over_npartS: do while(i <= npartoftype(igas) + npartoftype(istar))
@@ -279,7 +286,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     !--Bulge loop
     totmassB=0.
-    if (yn_bulge=='y') then
+    if (yn_bulge==1) then
        OPEN(23,file='asciifile_B',form='formatted')
        i=npartoftype(istar)+npartoftype(igas) + 1
        over_npartB: do while(i <=npartoftype(igas)+npartoftype(istar)+npartoftype(ibulge))
@@ -316,7 +323,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     !--Halo loop
     totmassH=0.
-    if (yn_halo=='y') then
+    if (yn_halo==1) then
        OPEN(23,file='asciifile_H',form='formatted')
        i=npartoftype(ibulge)+npartoftype(istar)+npartoftype(igas) + 1
        over_npartH: do while(i <=npartoftype(igas)+npartoftype(istar)+npartoftype(ibulge)+npartoftype(idarkmatter))
@@ -379,7 +386,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !read*,partdist
     if (partdist=='r') then
        call prompt('Enter inner radius for particle setup [kpc]',rcylin,0.)
+       call bcast_mpi(rcylin)
        call prompt('Enter outer radius for particle setup [kpc]',rcyl,0.)
+       call bcast_mpi(rcyl)
     endif
     rcylin = rcylin*kpc/udist
     rcyl   = rcyl*kpc/udist
@@ -402,12 +411,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xi = ran2(iseed)
     npart = maxp
     call prompt('Enter number of particles ',npart,1,maxp)
+    call bcast_mpi(npart)
     if (npart > maxp) call fatal('setup','npart > maxp')
     npartoftype(1) = npart
 
     print "(a,es10.3,a,1pg10.3,a)",'Mass is in units of ',umass,' g (',umass/solarm,' solar masses)'
     totmass = 1.e4
     call prompt('Enter total mass ',totmass,0.)
+    call bcast_mpi(totmass)
     massoftype(igas) = totmass/real(npart)
 
     totvol = pi*(zmax-zmin)*(rcyl2 - rcylin2)
@@ -475,11 +486,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !  e.g. angvel = -2.20e+07 is a standard value
        angvel = 2.20e7
        call prompt(' Enter velocity for rotation curve [unit distance (cm/s)]',angvel)
+       call bcast_mpi(angvel)
        angvel = angvel * utime/udist
     endif
+    if (use_dust) use_dustfrac = .true.
     if (use_dustfrac) then
        print*,'What is dust to gas ratio?'
        read*,dust_to_gas_ratio
+       call bcast_mpi(dust_to_gas_ratio)
     endif
     ierr=0
     timei=0.

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -17,13 +17,12 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: None
+!  DEPENDENCIES: mesa_microphysics
 !+
 !--------------------------------------------------------------------------
 module eos_mesa
 
- use mesa_microphysics!, only: get_eos_constants_mesa, getpressure_mesa, getgamma1_mesa, &
- !mesa, deallocate_arrays_mesa
+ use mesa_microphysics
 
  implicit none
 
@@ -44,9 +43,9 @@ subroutine init_eos_mesa(x,z,ierr)
     return
  endif
 
- call get_environment_variable('MESA_DATA_DIR',mesa_eos_dir) !mesa_eos_dir="/media/3TB/runs/music/mesa_data5"
+ call get_environment_variable('MESA_DATA_DIR',mesa_eos_dir)
  mesa_eos_prefix="output_DE_"
- call get_environment_variable('MESA_DATA_DIR',mesa_opacs_dir) !mesa_opacs_dir="/media/3TB/runs/music/mesa_data5"
+ call get_environment_variable('MESA_DATA_DIR',mesa_opacs_dir)
  mesa_opacs_suffix=""
  mesa_eos_full_output=.true.
  mesa_binary_data=.true.
@@ -62,7 +61,7 @@ subroutine init_eos_mesa(x,z,ierr)
 
  call read_eos_mesa(x,z,ierr)
  call get_opacity_constants_mesa
- call read_opacity_simple_mesa(x,z)
+ call read_opacity_mesa(x,z)
 
 end subroutine init_eos_mesa
 
@@ -83,18 +82,12 @@ end subroutine finish_eos_mesa
 !  density/internal energy
 !+
 !----------------------------------------------------------------
-subroutine get_eos_pressure_gamma1_mesa(x,den,eint,pres,gam1)
- real, intent(in) :: den, eint, x
+subroutine get_eos_pressure_gamma1_mesa(den,eint,pres,gam1)
+ real, intent(in) :: den, eint
  real, intent(out) :: pres, gam1
 
- call getpressure_mesa(x,den,eint,pres)
-
- call getgamma1_mesa(x,den,eint,gam1)
-
- !write(*,'(A,e12.4,A)') 'Density  = ',den,' g cm-3'
- !write(*,'(A,e12.4,A)') 'Energy   = ',eint,' erg g-1'
- !write(*,'(A,e12.4,A)') 'Pressure = ',pres,' g cm-1 s-2'
- !write(*,'(A,e12.4)') 'Gamma1   = ',gam1
+ call getvalue_mesa(den,eint,2,pres)
+ call getvalue_mesa(den,eint,11,gam1)
 
 end subroutine get_eos_pressure_gamma1_mesa
 
@@ -104,28 +97,50 @@ end subroutine get_eos_pressure_gamma1_mesa
 !  density, temperature and composition
 !+
 !----------------------------------------------------------------
-subroutine get_eos_kappa_mesa(x,den,temp,kappa,kappat,kappar,ierr)
- real, intent(in)  :: den, temp, x
+subroutine get_eos_kappa_mesa(den,temp,kappa,kappat,kappar)
+ real, intent(in)  :: den, temp
  real, intent(out) :: kappa, kappat, kappar
- integer           :: ierr
 
- call get_kappa_mesa(x,den,temp,kappa,kappat,kappar,ierr)
+ call get_kappa_mesa(den,temp,kappa,kappat,kappar)
 
 end subroutine get_eos_kappa_mesa
 
 !----------------------------------------------------------------
 !+
-!  subroutine returns pressure/temperature/gamma1 as
+!  subroutine returns pressure/temperature as
 !  a function of density/internal energy
 !+
 !----------------------------------------------------------------
-subroutine get_eos_pressure_temp_mesa(x,den,eint,pres,temp)
- real, intent(in) :: den, eint, x
+subroutine get_eos_pressure_temp_mesa(den,eint,pres,temp)
+ real, intent(in) :: den, eint
  real, intent(out) :: pres, temp
 
- call fasteossc_mesa(x,den,eint,pres,temp)
+ call getvalue_mesa(den,eint,2,pres)
+ call getvalue_mesa(den,eint,4,temp)
 
 end subroutine get_eos_pressure_temp_mesa
 
+!----------------------------------------------------------------
+!+
+!  subroutine returns various quantities as
+!  a function of density/internal energy
+!+
+!----------------------------------------------------------------
+subroutine get_eos_various_mesa(den,eint,pres,proint,peint,temp,troint,teint,entrop,abad,gamma1,gam)
+ real, intent(in) :: den, eint
+ real, intent(out) :: pres, temp, proint, peint, troint, teint, entrop, abad, gamma1, gam
+
+ call getvalue_mesa(den,eint,2,pres)
+ call getvalue_mesa(den,eint,4,temp)
+ call getvalue_mesa(den,eint,5,proint)
+ call getvalue_mesa(den,eint,6,peint)
+ call getvalue_mesa(den,eint,7,troint)
+ call getvalue_mesa(den,eint,8,teint)
+ call getvalue_mesa(den,eint,9,entrop)
+ call getvalue_mesa(den,eint,10,abad)
+ call getvalue_mesa(den,eint,11,gamma1)
+ call getvalue_mesa(den,eint,12,gam)
+
+end subroutine get_eos_various_mesa
 
 end module eos_mesa

@@ -4,16 +4,16 @@
 #         A Control script to allow the user to generate graphs        !
 #                         of the relevant data.                        !
 #                                                                      !
-#                 Copyright (c) 2015-2016 James Wurster                !
+#                 Copyright (c) 2015-2017 James Wurster                !
 #        See LICENCE file for usage and distribution conditions        !
 #----------------------------------------------------------------------!
 import os
 import sys
 #
 # Defaults (these are useful values that may be temporarily altered for more useful graphing)
-open_eps = ""      # Program used to open the .eps files; leave blank to prevent auto-opening (e.g. open_eps="open")
-setxr    = True    # Use the default x-range as per Wurster (2016); else, gnuplot will automatically select the range
-setyr    = True    # Use the default y-range as per Wurster (2016); else, gnuplot will automatically select the range
+open_eps = "open"  # Program used to open the .eps files; leave blank to prevent auto-opening (e.g. open_eps="open")
+setxr    = True    # Use the updated default x-range; else, gnuplot will automatically select the range
+setyr    = True    # Use the updated default y-range; else, gnuplot will automatically select the range
 incl_H12 = False   # Include H2 on plots
 #
 # Verify that Gnuplot exists.  If it does not, ask the user if they wish to contine
@@ -223,7 +223,7 @@ for i in range(imin,imax):
     a.write("#Plot conductivities \n")
     a.write("set log y \n")
     a.write("set yl 'log {/Symbol s} (s^{-1})' \n")
-    if (setyr): a.write("set yr [5e-8:1e16] \n")
+    if (setyr): a.write("set yr [5e-8:1e22] \n")
     a.write("set key top left \n")
     a.write("set format y ' %3L' \n")
     a.write("plot '"+datafile+"' u "+x+":   7  ti '{/Symbol s}_O'     w l ls 21 ,\\\n")
@@ -259,7 +259,7 @@ for i in range(imin,imax):
     xmin   = "1.8"
     a.write("set multiplot layout 2,3 \n")
     if (setxr): a.write("set xr [1.8:15.5] \n")
-    a.write("set xl 'density (10^{-19} g cm^{-3})' \n")
+    a.write("set xl '{/Symbol r} (10^{-19} g cm^{-3})' \n")
     a.write(" \n")
     a.write("#Plot magnetic density \n")
     a.write("set yl 'J_y (10^{-52} G cm^{-3})' \n")
@@ -281,14 +281,8 @@ for i in range(imin,imax):
     a.write("plot '"+datafile+"' u ($1/1.0e-19):4 ti '' w l ls 9 ,\\\n")
     a.write("     '"+datafile+"' u ("+xmin+"):(1) ti '' w d         \n") # To avoid crashing if no data
     a.write(" \n")
-    a.write("#Plot ion velocity \n")
-    a.write("set yl '-v_{ion,x} (cm s^{-1})' \n")
-    a.write("set key top left \n")
-    if (setyr): a.write("set yr [1e1:1e3] \n")
-    a.write("plot '"+datafile+"' u ($1/1.0e-19):(-$9) ti '' w l ls 9 ,\\\n")
-    a.write("     '"+datafile+"' u ("+xmin+"):(1)     ti '' w d         \n") # To avoid crashing if no data
-    a.write(" \n")
     a.write("#Plot resistivities \n")
+    a.write("set log y \n")
     a.write("set yl '{/Symbol h} (cm^2 s^{-1})' \n")
     a.write("set key top left \n")
     if (setyr): a.write("set yr [1e7:1e20] \n")
@@ -297,7 +291,20 @@ for i in range(imin,imax):
     a.write("     '"+datafile+"' u ($1/1.0e-19):(-$6) ti '{/Symbol h}_{HE} < 0' w l ls  4 ,\\\n")
     a.write("     '"+datafile+"' u ($1/1.0e-19):7     ti '{/Symbol h}_{AD}'     w l ls  5 ,\\\n")
     a.write("     '"+datafile+"' u ("+xmin+"):(1)     ti ''                     w d          \n") # To avoid crashing if no data
-  a.write(" \n")
+    a.write(" \n")
+    a.write("#Plot Hall & ion drift velocities (2 plots) \n")
+    a.write("unset log y \n")
+    a.write("set format y '%g' \n")
+    a.write("set yl 'v_{drift} (cm s^{-1})' \n")
+    a.write("set key top left \n")
+    a.write("set yr [0:3] \n")
+    a.write("plot '"+datafile+"' u ($1/1.0e-19):10  ti 'v_{hall,y} ' w l ls 3 ,\\\n")
+    a.write("     '"+datafile+"' u ("+xmin+")  :(1) ti ''            w d         \n") # To avoid crashing if no data
+    a.write(" \n")
+    a.write("set yr [-800:0] \n")
+    a.write("plot '"+datafile+"' u ($1/1.0e-19): 9  ti 'v_{ion,x}'   w l ls 5 ,\\\n")
+    a.write("     '"+datafile+"' u ("+xmin+")  :(1) ti ''            w d         \n") # To avoid crashing if no data
+    a.write(" \n")
   a.write("unset multiplot \n")
 a.close()
 #

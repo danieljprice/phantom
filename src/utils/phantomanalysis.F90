@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -29,7 +29,7 @@ program phantomanalysis
  use infile_utils,    only:open_db_from_file,inopts,read_inopt,close_db
  use fileutils,       only:numfromfile,basename
  use analysis,        only:do_analysis,analysistype
- use eos,             only:ieos,init_eos,finish_eos
+ use eos,             only:ieos
  implicit none
  integer            :: nargs,iloc,ierr,iarg,i
  real               :: time
@@ -60,7 +60,7 @@ program phantomanalysis
 !--If the first dumpfile, then read the .in file (if it exists) to obtain the equation of state
 !
     if (iarg==1) then
-       iloc = index(dumpfile,'_0')
+       iloc = index(dumpfile,'_')
        if (iloc > 1) then
           fileprefix = trim(dumpfile(1:iloc-1))
        else
@@ -83,7 +83,7 @@ program phantomanalysis
        call read_dump(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr,headeronly=.true.)
        if (ierr==0) print "(a,/)",' (finished reading file -- this analysis reads the header only)'
     else
-       call read_dump(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr)
+       call read_dump(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr,dustydisc=.true.)
     endif
 
     if (ierr==is_small_dump) then
@@ -112,9 +112,9 @@ program phantomanalysis
        print "(a,f6.2,a)",' WARNING! hfact = ',hfact,' from dump file, resetting to 1.2'
        hfact = 1.2
     endif
-!
-    call do_analysis(trim(dumpfile),numfromfile(dumpfile),xyzh,vxyzu,massoftype(1),npart,time,ievfile)
 
+    call do_analysis(trim(dumpfile),numfromfile(dumpfile),xyzh,vxyzu, &
+                     massoftype(1),npart,time,ievfile)
  enddo over_args
 
  print "(/,a,/)",' Phantom analysis: may your paper be a happy one'

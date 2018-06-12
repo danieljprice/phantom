@@ -1,4 +1,4 @@
-# This is a sample build configuration for C++ – Make.
+# Build checks for Phantom, run every time a commit is pushed
 # Check our guides at https://confluence.atlassian.com/x/5Q4SMw for more examples.
 # Only use spaces to indent your .yml configuration.
 # -----
@@ -6,10 +6,50 @@
 image: conradchan/phantom
 
 pipelines:
-  default:
+  default:  # this is run on every commit on every branch
     - step:
-        script: # Modify the commands below to build your repository.
+        name: testkd
+        script:
           - make SETUP=testkd
           - ./bin/phantom test
           - make SETUP=testkd MPI=yes OPENMP=no
           - mpirun --allow-run-as-root --mca btl self,sm -np 4 bin/phantom test
+    - step:
+        name: deploy to staging
+        deployment: staging
+        trigger: manual
+        script:
+          - cd ../; ./phantom/scripts/phantom-release.sh
+  custom:
+    testbot: # this is scheduled to run nightly
+      - step:
+          name: testbot nightly
+          script: # equivalent to what is done in testbot.sh
+            - make SETUP=test
+            - ./bin/phantom test
+            - make SETUP=testkd
+            - ./bin/phantom test
+            - make SETUP=test2
+            - ./bin/phantom test
+            - make SETUP=testcyl
+            - ./bin/phantom test
+            - make SETUP=testgrav
+            - ./bin/phantom test gravity ptmass
+            - make SETUP=testdust
+            - ./bin/phantom test dust
+            - make SETUP=testnimhd
+            - ./bin/phantom test nimhd
+            - make SETUP=test DEBUG=yes
+            - ./bin/phantom test
+            - make SETUP=testkd DEBUG=yes
+            - ./bin/phantom test
+            - make SETUP=test2 DEBUG=yes
+            - ./bin/phantom test
+            - make SETUP=testcyl DEBUG=yes
+            - ./bin/phantom test
+            - make SETUP=testgrav DEBUG=yes
+            - ./bin/phantom test gravity ptmass
+            - make SETUP=testdust DEBUG=yes
+            - ./bin/phantom test dust
+            - make SETUP=testnimhd DEBUG=yes
+            - ./bin/phantom test nimhd

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -36,7 +36,7 @@ subroutine test_sedov(ntests,npass)
  use unifdis,  only:set_unifdis
  use part,     only:mhd,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,fxyzu,fext,ntot, &
                     divcurlv,divcurlB,Bevol,dBevol,Bextx,Bexty,Bextz,alphaind,&
-                    dustfrac,ddustfrac,dustevol
+                    dustfrac,ddustfrac,dustevol,dustprop,ddustprop,temperature
  use part,     only:iphase,maxphase,igas,isetphase
  use eos,      only:gamma,polyk
  use options,  only:ieos,tolh,alpha,alphau,alphaB,beta,tolv
@@ -56,7 +56,7 @@ subroutine test_sedov(ntests,npass)
  use mpiutils,  only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2)
- integer :: i
+ integer :: i,itmp,ierr
  real    :: psep,denszero,enblast,rblast,prblast,gam1,dtext_dum
  real    :: totmass,etotin,momtotin,etotend,momtotend
  character(len=20) :: logfile,evfile,dumpfile
@@ -138,7 +138,7 @@ subroutine test_sedov(ntests,npass)
 !--call derivs the first time around
 !
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustfrac,ddustfrac,time,0.,dtext_dum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
 !
 !--now call evolve
 !
@@ -152,7 +152,7 @@ subroutine test_sedov(ntests,npass)
     evfile   = 'test01.ev'
     dumpfile = 'test001'
 
-    call init_evfile(ievfile,evfile)
+    call init_evfile(ievfile,evfile,.true.)
     call write_evfile(time,dt)
     etotin    = etot
     momtotin  = totmom
@@ -168,6 +168,17 @@ subroutine test_sedov(ntests,npass)
     nfailed(:) = 0
     call checkval(etotend,etotin,4.7e-4,nfailed(1),'total energy')
     call checkval(momtotend,momtotin,7.e-15,nfailed(2),'linear momentum')
+
+    ! delete temporary files
+    close(unit=ievfile,status='delete',iostat=ierr)
+
+    itmp = 201
+    open(unit=itmp,file='test002',status='old',iostat=ierr)
+    close(unit=itmp,status='delete',iostat=ierr)
+
+    open(unit=itmp,file='test.in',status='old',iostat=ierr)
+    close(unit=itmp,status='delete',iostat=ierr)
+
     ntests = ntests + 1
     if (all(nfailed(:)==0)) npass = npass + 1
  else

@@ -54,7 +54,7 @@ contains
 real function atm_dens(r)
  use eos, only:gamma
  real, intent(in) :: r
- 
+
  select case(atm_type)
   case(0)
      !atm_dens = exp(-(r-r_planet)/scaleheight)
@@ -117,11 +117,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--set code units
  !
- call set_units(dist=au,mass=solarm,G=1.d0)
+ call set_units(dist=0.25*au,mass=solarm,G=1.d0)
  G = gg*umass*utime**2/(udist**3)
 
  filename=trim(fileprefix)//'.setup'
- 
+
  !
  !--set default options for the input file
  !
@@ -132,7 +132,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gamma = 1.0
  hfact = 1.2
  time  = 0.
- a0    = 0.25
+ a0    = 1.
  Mstar = 1.
  !binarymassr = 1.e-3
  !-----------------------
@@ -172,8 +172,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  else
     eps_soft1 = 0.6*HoverRinput*a0
  endif
- 
- 
+
+
  print "(a,/)",'Phantomsetup: routine to setup planet-disc interaction with fixed planet orbit '
  inquire(file=filename,exist=iexist)
  if (iexist) then
@@ -218,7 +218,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  else
     stop
  endif
- 
+
  if (iexternalforce == iext_corot_binary) then
     npart_planet_atm = floor(npart_planet_frac*np)
     npart_disc = np - npart_planet_atm
@@ -238,13 +238,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                p_index = p_indexinput,    &
                q_index = q_indexinput,   &
                HoverR  = HoverRinput,  &
-               sig_naught = sig0, &
+               sig_norm = sig0, &
                star_mass = Mstar,  &
                gamma     = gamma,  &
                particle_mass = massoftype(1), &
                hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,polyk=polyk,alpha=alpha, &
                prefix = fileprefix )
- 
+
  if (iexternalforce == iext_corot_binary .and. npart_planet_atm > 0) then
     !
     ! place particles in sphere
@@ -321,7 +321,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     omega_corotate = omega0
  endif
 
- dtmax = 2.*pi/1000.
+ dtmax = 2.*pi/100.
 
  !--------------------------------------------------
  ! If you want to translate the disc so it is around the primary uncomment the following lines
@@ -373,7 +373,7 @@ subroutine write_gwinputfile(filename)
  call write_inopt(p_indexinput,'p_indexinput','surface density profile',iunit)
  call write_inopt(q_indexinput,'q_indexinput','temperature profile',iunit)
  call write_inopt(alphaSS,'alphaSS','desired alpha_SS',iunit)
- 
+
  if (iexternalforce == iext_corot_binary) then
     write(iunit,"(/,a)") '# options for planet atmosphere'
 
@@ -383,7 +383,7 @@ subroutine write_gwinputfile(filename)
     call write_inopt(atm_type,'atm_type','Enter atmosphere type (0:isothermal; 1:adiabatic)',iunit)
     call write_inopt(npart_planet_frac,'Natm/Npart','fraction of particles for planet atmosphere',iunit)
  endif
- 
+
  close(iunit)
 
 end subroutine write_gwinputfile

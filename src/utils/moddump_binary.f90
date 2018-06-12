@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -46,7 +46,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer                :: i, ierr, setup_case, two_sink_case = 1, npts, rhomaxi, n
+ integer                :: i, ierr, setup_case, two_sink_case = 1, three_sink_case = 1, npts, rhomaxi, n
+ integer                :: iremove = 2
  real                   :: primary_mass, companion_mass_1, companion_mass_2, mass_ratio
  real                   :: a1, a2, e, omega_vec(3), omegacrossr(3), vr = 0.0, hsoft_default = 3
  real                   :: hacc1,hacc2,hacc3,mcore,comp_shift=100, sink_dist, vel_shift
@@ -59,13 +60,35 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  type(inopts), allocatable :: db(:)
 
 !control: more than one sink particle already in the code could cause problems
- if (nptmass > 2) then
+ if (nptmass > 3) then
     stop 'ERROR: Number of sink particles > 1'
+ elseif (nptmass == 3) then
+    print "(1(/,a))",'1) Remove a sink from the simulation'
+    call prompt('Select option above : ',three_sink_case)
+    select case(three_sink_case)
+
+    case(1)
+       do i=1,nptmass
+          write(*,'(A,I2,A,ES10.3,A,ES10.3)') 'Point mass ',i,': M = ',xyzmh_ptmass(4,i),&
+                                              ' and radial position = ',sqrt(dot_product(xyzmh_ptmass(1:3,i),xyzmh_ptmass(1:3,i)))
+       enddo
+       call prompt('Which sink would you like to remove : ',iremove)
+       if (iremove == 3) then
+          xyzmh_ptmass(:,iremove) = 0.
+          vxyz_ptmass(:,iremove) = 0.
+          nptmass = 2
+       elseif (iremove == 2) then
+          xyzmh_ptmass(:,2) = xyzmh_ptmass(:,3)
+          vxyz_ptmass(:,2) = vxyz_ptmass(:,3)
+          nptmass = 2
+       endif
+    end select
+
  elseif (nptmass == 2) then
     print*, 'Two sinks present. If this is intentional, then choose option below.'
 
     print "(2(/,a))",'1) Switch from corotating frame to normal frame', &
-                  '2) Change the position of the companion'
+                     '2) Change the position of the companion'
     call prompt('Select option above : ',two_sink_case)
     select case(two_sink_case)
 

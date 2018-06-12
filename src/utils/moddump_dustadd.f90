@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, part
+!  DEPENDENCIES: dim, growth, options, part, readwrite_dust
 !+
 !--------------------------------------------------------------------------
 module moddump
@@ -27,34 +27,31 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use dim,   only:use_dust,use_dustfrac,ndusttypes
- use part,  only:dustfrac,igas,idust,set_particle_type
- use dust,  only:set_dustfrac,smincgs,smaxcgs,sindex
+ use dim,            only:use_dust,ndusttypes,use_dustgrowth
+ use part,           only:igas,idust,set_particle_type
+ use readwrite_dust, only:write_temp_grains_file,set_dustfrac_from_inopts
+ use options,        only:use_dustfrac
+ use growth,         only:set_dustprop
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer :: i
- real    :: dust_to_gas,dustfrac_temp(ndusttypes)
+ integer :: i,dust_method
+ real    :: dust_to_gas
+ real    :: dustfrac_percent(ndusttypes) = 0.
 
  if (use_dust) then
-    dust_to_gas = 0.01
-    print*,' SETTING DUST-TO-GAS RATIO = ',dust_to_gas
-    if (use_dustfrac) then
-       if (ndusttypes>1) then
-          call set_dustfrac(dust_to_gas,dustfrac_temp,smincgs,smaxcgs,sindex)
-       else
-          call set_dustfrac(dust_to_gas,dustfrac_temp)
-       endif
-       do i=1,ndusttypes
-          dustfrac(i,:) = dustfrac_temp(i)
-       enddo
+    call write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod=dust_method)
+    if (dust_method == 1) then
+       use_dustfrac = .true.
+       call set_dustfrac_from_inopts(dust_to_gas,percent=dustfrac_percent)
+
        massoftype(igas) = massoftype(igas)*(1. + dust_to_gas)
-    else
+    elseif (dust_method == 2) then
+       use_dustfrac = .false.
        npart = npartoftype(igas)
        npartoftype(idust) = npart
        massoftype(idust)  = massoftype(igas)*dust_to_gas
-
        do i=npart+1,2*npart
           xyzh(1,i) = xyzh(1,i-npart)
           xyzh(2,i) = xyzh(2,i-npart)
@@ -67,6 +64,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           call set_particle_type(i,idust)
        enddo
        npart=2*npart
+       if (use_dustgrowth) then
+          call set_dustprop(npart)
+       endif
     endif
  else
     print*,' DOING NOTHING: COMPILE WITH DUST=yes'

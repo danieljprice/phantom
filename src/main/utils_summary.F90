@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -23,7 +23,7 @@
 !--------------------------------------------------------------------------
 module io_summary
  implicit none
- integer, parameter :: maxiosum = 38         ! Number of values to summarise
+ integer, parameter :: maxiosum = 39         ! Number of values to summarise
  integer, parameter :: maxrhomx = 16         ! Number of maximum possible rhomax' per set
  integer, parameter :: maxisink =  5         ! Maximum number of sink particles's accretion details to track
  !--Array indicies for various parameters
@@ -72,6 +72,8 @@ module io_summary
  integer, parameter :: iosumtvi   = 36       ! number of iterations
  integer, parameter :: iosumtve   = 37       ! errmax
  integer, parameter :: iosumtvv   = 38       ! vmean
+ !  particle waking
+ integer, parameter :: iowake     = 39       ! number of woken particles
  !  Number of steps
  integer, parameter :: iosum_nreal = maxiosum+1  ! number of 'real' steps taken
  integer, parameter :: iosum_nsts  = maxiosum+2  ! number of 'actual' steps (including STS) taken
@@ -89,7 +91,7 @@ module io_summary
  integer,           private :: iosum_rxi  (maxrhomx  ), iosum_rxp  (maxrhomx), iosum_rxf(7,maxrhomx)
  real,              private :: iosum_rxa  (maxrhomx  ), iosum_rxx  (maxrhomx)
  integer,           private :: accretefail(3)
- logical,           private :: print_dt,print_sts,print_ext,print_dust,print_tolv,print_h
+ logical,           private :: print_dt,print_sts,print_ext,print_dust,print_tolv,print_h,print_wake
  logical,           private :: print_afail,print_early
  real(kind=4),      private :: dtsum_wall
  character(len=19), private :: freason(8)
@@ -157,6 +159,7 @@ subroutine summary_reset
  print_acc    = .false.
  print_afail  = .false.
  print_early  = .false.
+ print_wake   = .false.
  !
 end subroutine summary_reset
 !----------------------------------------------------------------
@@ -208,6 +211,7 @@ subroutine summary_variable(cval,ival,nval,meanvalue,maxvalue,addnval)
  if (trim(cval)=='dust' ) print_dust = .true.
  if (trim(cval)=='tolv' ) print_tolv = .true.
  if (trim(cval)=='hupdn') print_h    = .true.
+ if (trim(cval)=='wake' ) print_wake = .true.
  !
 end subroutine summary_variable
 !----------------------------------------------------------------
@@ -339,7 +343,7 @@ subroutine summary_printout(iprint,nptmass)
  !
  !--summarise logicals for cleanliness
  !
- if (print_dt .or. print_dust .or. print_sts .or. print_ext .or. print_tolv .or. print_h) then
+ if (print_dt .or. print_dust .or. print_sts .or. print_ext .or. print_tolv .or. print_h .or. print_wake) then
     get_averages = .true.
  else
     get_averages = .false.
@@ -527,6 +531,15 @@ subroutine summary_printout(iprint,nptmass)
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif
 110 format(a,i5,a,f7.2,a,i7,a,4(Es11.3,a))
+ !
+ !--Summary woken particles
+ if ( print_wake ) then
+    write(iprint,'(a)') '|* particles woken                                                          *|'
+    write(iprint,'(a)') '| #steps  | mean # part/step |  max # part/step                              |'
+    write(iprint,115) '|',iosum_nstep(iowake),'|',iosum_ave(iowake),'|',int(iosum_max(iowake)),'|'
+    write(iprint,'(a)') '------------------------------------------------------------------------------'
+ endif
+115 format(a,i9,a,f18.2,a,i17,30x,a)
  !
  !--Summary of Restricted h jumps
  if ( print_h ) then

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -9,7 +9,7 @@
 !
 !  DESCRIPTION:
 !   Wind injection from galactic centre stars
-!   Written by Daniel Price and Jorge Cuadra
+!   Written by Daniel Price, Jorge Cuadra, and Christopher Russell
 !
 !  REFERENCES: Cuadra et al. (2008), MNRAS 383, 458
 !
@@ -44,6 +44,8 @@ module inject
 
  ! array containing properties of the wind from each star
  real,    private :: wind(n_wind_prop,maxptmass)
+ integer, private :: total_particles_injected(maxptmass) = 0
+ logical, private :: first_iteration = .true.
  integer, private :: iseed = -666
 
 contains
@@ -96,6 +98,32 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  Mdot_fac = (solarm/umass)*(utime/years)
  vel_fac  = (km/udist)*(utime/seconds)
 
+!
+! If restarting, compute the number of particles already injected from each star.
+!    This overestimates the total number injected by 1 timestep since 'time'
+!    should be the last value before the restart dump was written, which is less
+!    than its current value.  Therefore, the first time through no particles will
+!    be injected.  This error is small though. A better idea is to add
+!    'total_particles_injected' to the dump file, which will eliminate this
+!    error altogether.
+! Note: I imagine there's a better place to put this.  This if statement will
+!    evaluate to false an awfully large number of times.  Needs to be after
+!    dumpfile ('time') and wind data (Mdots) have been read in.
+!
+ if(first_iteration) then
+    if(time /= 0) then   ! only if restarting
+       do i=nskip+1,nptmass
+          j = i - nskip ! position in wind table
+          total_particles_injected(i) = int(wind(i_Mdot,j)*Mdot_fac * time / massoftype(igas))
+       enddo
+       print*
+       print*, 'galcen initialization: wind particles already injected (total_particles_injected) =',&
+               total_particles_injected(1:nptmass)
+       print*
+    endif
+    first_iteration = .false.
+ endif
+
  temp_inject = 1.e4
  gam1 = gamma - 1.
  if (gam1 <= 0) call fatal('inject','require gamma > 1 for wind injection')
@@ -127,16 +155,20 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     Mdot_code = wind(i_Mdot,j)*Mdot_fac
     vinject   = wind(i_vel,j)*vel_fac
     deltat    = time - tlast
-    Minject   = Mdot_code*deltat
+    Minject   = Mdot_code*time
     !
     ! divide by mass of gas particles
     !
-    ninject = int(Minject/massoftype(igas))
-    if (iverbose >= 2) print*,' point mass ',i,j,' injecting ',ninject,Minject,massoftype(igas)
+    ninject = int(Minject/massoftype(igas))-total_particles_injected(i)
+    if (iverbose >= 2) print*,' point mass ',i,j,' injecting ',&
+                       ninject,Minject-total_particles_injected(i)*massoftype(igas),massoftype(igas),time,tlast
 
     !
+    ! this if statement is no longer essential for more accurate mass-loss rates,
+    !    but it should help with setting h since tlast --> deltat is more accurate
+    !
     ! don't update tlast for a particular star unless that star injected
-    !    particles this timestep; this way, fractional particles/timestep can 
+    !    particles this timestep; this way, fractional particles/timestep can
     !    accumulate and eventually inject a particle, making Mdot more accurate
     !
     if(ninject > 0) then
@@ -167,9 +199,16 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
        ! update tlast to current time
        !
        xyzmh_ptmass(i_tlast,i) = time
+       !
+       ! update total particles injected for this star
+       !
+       total_particles_injected(i) = total_particles_injected(i) + ninject
     endif
  enddo
- if (iverbose >= 2) print*,'npart = ',npart
+ if (iverbose >= 2) then
+    print*,'npart = ',npart
+    print*,'tpi = ',total_particles_injected(1:nptmass)
+ endif
 
 end subroutine inject_particles
 

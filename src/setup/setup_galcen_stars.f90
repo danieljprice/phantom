@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -22,7 +22,8 @@
 !    h_sink   -- sink particle radii in arcsec at 8kpc
 !    m_gas    -- gas mass resolution in solar masses
 !
-!  DEPENDENCIES: dim, infile_utils, io, part, physcon, prompting, units
+!  DEPENDENCIES: datafiles, dim, eos, infile_utils, io, part, physcon,
+!    prompting, spherical, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -52,6 +53,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,        only:fatal,iprint,master
  use eos,       only:gmw
  use timestep,  only:dtmax
+ use spherical, only:set_sphere
+ use datafiles, only:find_phantom_datafile
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -62,8 +65,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  character(len=len(fileprefix)+6) :: setupfile
+ character(len=len(datafile)) :: filename
  integer :: ierr,i
- real    :: scale
+ real    :: scale,psep
 !
 ! units (mass = mass of black hole, length = 1 arcsec at 8kpc)
 !
@@ -107,13 +111,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 ! Read positions, masses and velocities of stars from file
 !
- call read_ptmass_data(datafile,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
+ filename=find_phantom_datafile(datafile,'galcen')
+ call read_ptmass_data(filename,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
  do i=2,nptmass
     xyzmh_ptmass(1:3,i)  = xyzmh_ptmass(1:3,i)
     xyzmh_ptmass(4,i)    = xyzmh_ptmass(4,i)
     xyzmh_ptmass(ihacc,i)  = h_sink
     xyzmh_ptmass(ihsoft,i) = h_sink
  enddo
+!
+! setup initial sphere of particles to prevent initialisation problems
+!
+ psep = 1.0
+ call set_sphere('cubic',id,master,0.,20.,psep,hfact,npart,xyzh)
+ vxyzu(4,:) = 5.317e-4
 
  if (nptmass == 0) call fatal('setup','no particles setup')
  if (ierr /= 0) call fatal('setup','ERROR during setup')

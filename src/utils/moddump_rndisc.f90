@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -27,18 +27,17 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use setdisc, only:set_warp
+ use setdisc, only:set_incline_or_warp
  use physcon, only:pi
- use part, only:Bevol,mhd,maxBevol,rhoh,igas
+ use part, only:Bxyz,mhd,rhoh,igas
  use setup_params, only:ihavesetupB
  integer, intent(in)    :: npartoftype(:)
  real,    intent(in)    :: massoftype(:)
  integer, intent(inout) :: npart
- real :: sininclination,rwarp,warp_smoothl,rsi,rso
+ real :: R_warp,H_warp
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer :: npart_start_count,npart_tot,ii,i
- logical :: do_twist
- real    :: beta,rhosum,Bzero,pmassii,phi,inclination
+ real    :: beta,rhosum,Bzero,pmassii,phi,incl,posangl
  real    :: rhoc,r2,r2cyl,r,omega,cs,HonR,pressure,psimax
  real    :: vphiold2,vphiold,vadd,vphicorr2
 
@@ -46,23 +45,19 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  HonR = 0.02       ! Must check that this is the same as in setup_rndisc
 
 ! Set warp parameters
- rwarp = 2.321!80.
- warp_smoothl = 0.0!20.
- inclination = 0.5 ! sine of inclination angle, 0->1
-
- rsi = rwarp - warp_smoothl
- rso = rwarp + warp_smoothl
+ R_warp = 2.321!80.
+ H_warp = 0.0!20.
+ incl = 0.5 ! sine of inclination angle, 0->1
+ posangl = 0.
 
 ! Similar to that in set_disc
- do_twist=.true.
  npart_start_count=1
  npart_tot=npart
 !
 !---------------------------------------------
 ! Call setwarp to actually calculate the warp
- call set_warp(npart_tot,npart_start_count,&
-               xyzh,vxyzu,inclination,sininclination,&
-               rwarp,psimax,rsi,rso,do_twist)
+ call set_incline_or_warp(xyzh,vxyzu,npart_tot,npart_start_count,posangl,incl,&
+                          R_warp,H_warp,psimax)
 !---------------------------------------------
  do i=npart_start_count,npart_tot
     xyzh(1,i)=xyzh(1,i)
@@ -90,8 +85,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        pmassii = massoftype(igas)
        pressure = cs**2*rhoh(xyzh(4,ii),pmassii)
        Bzero = sqrt(2.*pressure/beta)
-       Bevol(1,ii) = -Bzero*sin(phi)
-       Bevol(2,ii) = Bzero*cos(phi)
+       Bxyz(1,ii) = -Bzero*sin(phi)
+       Bxyz(2,ii) = Bzero*cos(phi)
 
        ! Calculate correction in v_phi due to B
        vphiold = (-xyzh(2,ii)*vxyzu(1,ii) + xyzh(1,ii)*vxyzu(2,ii))/r
@@ -104,7 +99,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
     enddo
 
-    Bevol(3,:) = 0.0
+    Bxyz(3,:) = 0.0
 
     print*,'Magnetic field added.'
 
@@ -113,9 +108,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 !!    do ii=1,npart
 !!      if (abs(xyzh(3,ii)) < HonR) then  ! to only set the field up in a section of the disc
 !!       theta=atan2(xyzh(2,ii),xyzh(1,ii))
-!!       Bevol(1,ii) = 0. !real(Bzero*sin(theta),kind=4)
-!!       Bevol(2,ii) = 0. !real(-Bzero*cos(theta),kind=4)
-!!       Bevol(3,ii) = 0.
+!!       Bxyz(1,ii) = 0. !real(Bzero*sin(theta),kind=4)
+!!       Bxyz(2,ii) = 0. !real(-Bzero*cos(theta),kind=4)
+!!       Bxyz(3,ii) = 0.
 !!      endif
 !!    enddo
  endif

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -8,13 +8,16 @@
 !  MODULE: chem
 !
 !  DESCRIPTION:
-!  Contains routines for Hydrogen Chemistry
-!  Routines are originally by Clare Dobbs
-!  Modified extensively by Alex Pettitt
-!  Translated to Fortran 90 and adapted
-!  for use in Phantom by Daniel Price (2011)
+!   Contains routines for Hydrogen Chemistry
+!   Routines are originally by Clare Dobbs
+!   Modified extensively by Alex Pettitt
+!   Translated to Fortran 90 and adapted
+!   for use in Phantom by Daniel Price (2011)
 !
-!  REFERENCES: None
+!  REFERENCES:
+!   Nelson & Langer (1997)
+!   Glover et al. (2010)
+!   Bergin et al. (2004)
 !
 !  OWNER: Daniel Price
 !
@@ -28,14 +31,14 @@
 
 module chem
  implicit none
- public :: init_chem,energ_h2cooling
+ public :: init_chem,energ_h2cooling,update_abundances
 !
-!--some variables needed for CO chemistry, Nelson97
+!--some variables needed for CO chemistry, Nelson+Langer97
 !
  real, parameter :: k0=5.0d-16
  real, parameter :: k1=5.0d-10
 
- ! parameter for CO dissociation, Nelson97 has 1.0d-10
+ ! parameter for CO dissociation, Nelson+Langer97 has 1.0d-10
  real, parameter :: phrates=1.56d-10
 !
 !--some variables needed for H2 chemistry
@@ -52,11 +55,9 @@ module chem
 contains
 
 !----------------------------------------------------------------
-!----------------------------------------------------------------
 !+
 !  Routine to initialise a few variables at code startup
 !+
-!----------------------------------------------------------------
 !----------------------------------------------------------------
 subroutine init_chem()
  use units, only:utime,udist,umass
@@ -69,12 +70,10 @@ subroutine init_chem()
 end subroutine init_chem
 
 !----------------------------------------------------------------
-!----------------------------------------------------------------
 !+
 !  Compute cooling term in energy equation (du/dt)
 !  Also updates abundances of various species
 !+
-!----------------------------------------------------------------
 !----------------------------------------------------------------
 subroutine energ_h2cooling(ui,dudti,rhoi,chemarrays,nchem,dt,xi,yi,zi,divv,idudtcool,ichem)
  use h2cooling, only:nabn,nrates,cool_func,dlq
@@ -118,11 +117,9 @@ subroutine energ_h2cooling(ui,dudti,rhoi,chemarrays,nchem,dt,xi,yi,zi,divv,idudt
 end subroutine energ_h2cooling
 
 !----------------------------------------------------------------
-!----------------------------------------------------------------
 !+
 !  Internal routine to update abundances of various species
 !+
-!----------------------------------------------------------------
 !----------------------------------------------------------------
 subroutine update_abundances(ui,rhoi,chemarrays,nchem,abund,tempiso,np1,dt,xi,yi,zi,ichem)
  use part,    only:ih2ratio,iHI,iproton,ielectron,iCO
@@ -215,7 +212,7 @@ subroutine update_abundances(ui,rhoi,chemarrays,nchem,abund,tempiso,np1,dt,xi,yi
     np1tempRconst = np1*sqrttempiso*Rconst
 
 
-!--Calc the rates needed for CO generation/loss, Nelson97/Glover10
+!--Calc the rates needed for CO generation/loss, Nelson+Langer97/Glover10
 !--Go=1.0 simplifies things:
 !  Gamma_CO  =phrate*Go*exp[-2.5*AVconvfac*N_tot],   was -0.267*
 !  Gamma_CHx =5*Gamma_CO
@@ -231,7 +228,7 @@ subroutine update_abundances(ui,rhoi,chemarrays,nchem,abund,tempiso,np1,dt,xi,yi
     th2=10000.d0    !Timestep for H2 initially
     nstep = 5000
     totH2rate = 0.d0
-    !--From Bergin et. al. 2004, d(n(h2))/dt=(formation-destruction)
+    !--From Bergin et al. 2004, d(n(h2))/dt=(formation-destruction)
     call H2fd_rate(np1,h2ratio,dphot,third,exprate,rate_diss0,np1tempRconst,cosmic_ray_ion_rate,totH2rate,nh1)
     !--Here we are looking to dt such that n(H2) goes to zero, i.e dt=0-n(H2)/(formation-destruction)
     !--First just check that dt is not 0. - but actually this should not occur anyway.
@@ -423,22 +420,17 @@ subroutine update_abundances(ui,rhoi,chemarrays,nchem,abund,tempiso,np1,dt,xi,yi
 
  else
     !--nothing is done
-    print*,"WARNING: Why call the h2chem routine if you don't want cooling or chemistry?"
+    print*,'WARNING: Why call the h2chem routine if you don''t want cooling or chemistry?'
  endif
 
 end subroutine update_abundances
 
-
-
-
-!----------------------------------------------------------------
 !----------------------------------------------------------------
 !+
-!Calc the rate for destruction/formation rate of H2 used above
-!--Bergin et al. 2004 formation/destruction equation.
-!--Uses Draine & Bertoldi 1996 photodissociation rate.
+!  Calc the rate for destruction/formation rate of H2 used above
+!   --Bergin et al. 2004 formation/destruction equation.
+!   --Uses Draine & Bertoldi 1996 photodissociation rate.
 !+
-!----------------------------------------------------------------
 !----------------------------------------------------------------
 pure subroutine H2fd_rate(np1,h2ratio,dphot,third,exprate,rate_diss0,grainform,cr,totrate,nh1)
  real              :: nh21,cdensH2,cdens2,sqrtcdens2,nH2,rate_diss
@@ -472,11 +464,4 @@ pure subroutine H2fd_rate(np1,h2ratio,dphot,third,exprate,rate_diss0,grainform,c
 
 end subroutine H2fd_rate
 
-
-!----------------------------------------------------------------
-!----------------------------------------------------------------
-!----------------------------------------------------------------
 end module chem
-!----------------------------------------------------------------
-!----------------------------------------------------------------
-!----------------------------------------------------------------

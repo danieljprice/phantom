@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -80,7 +80,7 @@ function find_datafile(filename,dir,env_var,url) result(filepath)
              else
                 my_url = url
              endif
-             call download_datafile(trim(my_url),trim(mydir),filename,filepath,ierr)
+             call download_datafile(trim(my_url),trim(mydir),trim(filename),filepath,ierr)
              if (ierr == 0) then
                 inquire(file=trim(filepath),exist=iexist)
                 if (.not.iexist) then
@@ -126,7 +126,7 @@ subroutine download_datafile(url,dir,filename,filepath,ierr)
     call retrieve_remote_file(url,trim(adjustl(filename)),trim(dir),filepath,ierr)
  elseif (has_write_permission('')) then  ! download to current directory
     print*,'ERROR: cannot write to '//trim(dir)//', writing to current directory'
-    call retrieve_remote_file(url,filename,'',filepath,ierr)
+    call retrieve_remote_file(url,trim(adjustl(filename)),'',filepath,ierr)
  else  ! return an error
     filepath = trim(filename)
     print*,'ERROR: cannot write to '//trim(dir)//' or current directory'

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -32,6 +32,10 @@ module timestep_ind
  integer            :: nactive
  integer(kind=8)    :: nactivetot
  integer, parameter :: maxbins = 30 ! limit of 2**(n+1) with reals
+ integer, parameter :: itdt    = 1
+ integer, parameter :: ithdt   = 2
+ integer, parameter :: itdt1   = 3
+ integer, parameter :: ittwas  = 4
 
 contains
 
@@ -51,7 +55,7 @@ end function get_dt
 #ifdef IND_TIMESTEPS
 !----------------------------------------------------------------
 !+
-!  If dt is read in from a dump file, then initialise ibin & ibinold.
+!  If dt is read in from a dump file, then initialise ibin & ibin_old.
 !  Although always called if dt is read in, it is only necessary
 !  for restarts.  This is necessary to prevent nearby particles from
 !  being initialised with an ibin that is very different than that of
@@ -59,7 +63,7 @@ end function get_dt
 !+
 !----------------------------------------------------------------
 subroutine init_ibin(npart,dtmax)
- use part, only: ibin,ibinold,dt_in
+ use part, only: ibin,ibin_old,dt_in
  integer, intent(in) :: npart
  real,    intent(in) :: dtmax
  real(kind=4)        :: twoepsilon,dt_ini
@@ -68,7 +72,7 @@ subroutine init_ibin(npart,dtmax)
 
  twoepsilon = 2.0*epsilon(dt_in(1))
 !$omp parallel default(none) &
-!$omp shared(npart,dtmax,twoepsilon,dt_in,ibin,ibinold) &
+!$omp shared(npart,dtmax,twoepsilon,dt_in,ibin,ibin_old) &
 !$omp private(i,j,dt_ini,find_bin)
 !$omp do
  do i = 1,npart
@@ -81,8 +85,8 @@ subroutine init_ibin(npart,dtmax)
     endif
     do while (find_bin .and. j < maxbins)
        if ( dtmax/2**j + twoepsilon > dt_ini) then
-          ibin(i)    = int(j,kind=1)
-          ibinold(i) = int(j,kind=1)
+          ibin(i)     = int(j,kind=1)
+          ibin_old(i) = int(j,kind=1)
        else
           find_bin   = .false.
        endif
@@ -140,14 +144,13 @@ subroutine set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
 !$omp enddo
 !$omp end parallel
  !
-! !--Determine the current minimum ibin that is active
-! !  Commented out since required for the (unimplemented) Saitoh-Makino limiter
-! i       = 0
-! ibinnow = nbinmax
-! do while (ibinnow == nbinmax .and. i < nbinmax)
-!    if (mod(istepfrac,2**(nbinmax-i))==0) ibinnow = int(i,kind=1)
-!    i = i + 1
-! enddo
+ !--Determine the current maximum ibin that is active
+ i       = 0
+ ibinnow = nbinmax
+ do while (ibinnow == nbinmax .and. i < nbinmax)
+    if (mod(istepfrac,2**(nbinmax-i))==0) ibinnow = int(i,kind=1)
+    i = i + 1
+ enddo
  !
  !--Determine activity to determine if stressmax needs to be reset
  if (nactive==nalive) then
@@ -215,8 +218,8 @@ subroutine get_newbin(dti,dtmax,ibini,allow_decrease,limit_maxbin,dtchar)
  integer(kind=1), intent(inout) :: ibini
  logical,         intent(in), optional :: allow_decrease,limit_maxbin
  character(len=*),intent(in), optional :: dtchar
- integer(kind=1) :: ibinold
- integer         :: ibinnew
+ integer(kind=1) :: ibin_oldi
+ integer         :: ibin_newi
  logical         :: iallow_decrease,ilimit_maxbin
  real, parameter :: vsmall = epsilon(vsmall)
  real, parameter :: dlog2 = 1.4426950408889634d0 ! dlog2 = 1./log(2.)
@@ -234,15 +237,15 @@ subroutine get_newbin(dti,dtmax,ibini,allow_decrease,limit_maxbin,dtchar)
     ilimit_maxbin = .true.
  endif
 
- ibinold = ibini
+ ibin_oldi = ibini
  if (dti > dtmax) then
-    ibinnew = 0
+    ibin_newi = 0
  elseif (dti < tiny(dti)) then
-    ibinnew = maxbins
+    ibin_newi = maxbins
  else
-    ibinnew = max(int(log(2.*dtmax/dti)*dlog2-vsmall),0)
+    ibin_newi = max(int(log(2.*dtmax/dti)*dlog2-vsmall),0)
  endif
- if (ibinnew > maxbins .and. ilimit_maxbin) then
+ if (ibin_newi > maxbins .and. ilimit_maxbin) then
     if (present(dtchar)) then
        write(*,'(a,Es16.7)') 'get_newbin: dt_ibin(0)   = ', dtmax
        write(*,'(a,Es16.7)') 'get_newbin: dt_ibin(max) = ', dtmax/2**(maxbins-1)
@@ -251,16 +254,16 @@ subroutine get_newbin(dti,dtmax,ibini,allow_decrease,limit_maxbin,dtchar)
     call fatal('get_newbin','step too small: bin would exceed maximum',var='dt',val=dti)
  endif
 
- if (ibinnew > ibinold) then
+ if (ibin_newi > ibin_oldi) then
     !--timestep can go down at any time
-    ibini = int(ibinnew,kind=1)
- elseif (ibinnew < ibinold .and. ibinold <= nbinmax .and. iallow_decrease) then
+    ibini = int(ibin_newi,kind=1)
+ elseif (ibin_newi < ibin_oldi .and. ibin_oldi <= nbinmax .and. iallow_decrease) then
     !--timestep can only go up if bins are synchronised (ie. new bin is active)
     !  move up only one bin at a time
-    if (mod(istepfrac,2**(nbinmax-(ibinold-1)))==0) then
+    if (mod(istepfrac,2**(nbinmax-(ibin_oldi-1)))==0) then
        ibini = ibini - 1_1
     endif
-    !print*,i,' changing from ',ibinold,' to ',ibini, ' istepfrac = ',istepfrac,' time = ',time
+    !print*,i,' changing from ',ibin_oldi,' to ',ibini, ' istepfrac = ',istepfrac,' time = ',time
  endif
  !print*,'dti = ',dtmax/2**ibini,dti,'dtmax = ',dtmax,' istep = ',2**ibini
 
@@ -273,34 +276,51 @@ end subroutine get_newbin
 !  This can only occur at full dumps, thus particles are synchronised
 !+
 !----------------------------------------------------------------
-subroutine decrease_dtmax(npart,dtmax_rat,dtmax,ibin,ibinsts,mod_dtmax_in_step)
- integer,         intent(in)    :: npart,dtmax_rat
- integer(kind=1), intent(inout) :: ibin(:),ibinsts(:)
- real,            intent(inout) :: dtmax
+subroutine decrease_dtmax(npart,nbins,time,dtmax_rat,dtmax,ibin,ibin_wake,ibin_sts,&
+                          ibin_dts,mod_dtmax_in_step)
+ integer,         intent(in)    :: npart,nbins,dtmax_rat
+ integer(kind=1), intent(inout) :: ibin(:),ibin_wake(:),ibin_sts(:)
+ real,            intent(in)    :: time
+ real,            intent(inout) :: dtmax,ibin_dts(4,0:nbins)
  logical,         intent(inout) :: mod_dtmax_in_step
  integer                        :: i
  integer(kind=1)                :: ibin_rat
 
  dtmax    = dtmax/dtmax_rat
  ibin_rat = int((log10(real(dtmax_rat)-1.0)/log10(2.0))+1,kind=1)
-
+ !
+ !--Modify the ibins
+ !
 !$omp parallel default(none) &
-!$omp shared(npart,ibin,ibin_rat) &
+!$omp shared(npart,ibin,ibin_wake,ibin_rat) &
 #ifdef STS_TIMESTEPS
-!$omp shared(ibinsts) &
+!$omp shared(ibin_sts) &
 #endif
 !$omp private(i)
 !$omp do
  do i=1,npart
-    ibin(i)    = max(0_1,ibin(i)   -ibin_rat)
+    ibin(i)      = max(0_1,ibin(i)     -ibin_rat)
+    ibin_wake(i) = max(0_1,ibin_wake(i)-ibin_rat)
 #ifdef STS_TIMESTEPS
-    ibinsts(i) = max(0_1,ibinsts(i)-ibin_rat)
+    ibin_sts(i)  = max(0_1,ibin_sts(i) -ibin_rat)
 #endif
  enddo
 !$omp enddo
 !$omp end parallel
  nbinmax = max(0_1,nbinmax-ibin_rat)
  mod_dtmax_in_step = .false.
+ !
+ !--Correct ibin_dts for particle waking
+ !
+ do i = 0,nbins-ibin_rat
+    ibin_dts(:,i) = ibin_dts(:,i+ibin_rat)
+ enddo
+ do i = nbins-ibin_rat+1,nbins
+    ibin_dts(itdt,  i) = get_dt(dtmax,int(i,kind=1))
+    ibin_dts(ithdt, i) = 0.5*ibin_dts(itdt,i)
+    ibin_dts(itdt1, i) = 1.0/ibin_dts(itdt,i)
+    ibin_dts(ittwas,i) = time + 0.5*get_dt(dtmax,int(i,kind=1))
+ enddo
 
 end subroutine decrease_dtmax
 !----------------------------------------------------------------

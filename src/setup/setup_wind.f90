@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -39,7 +39,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,   only: au, solarm
  use units,     only: udist, umass, utime, set_units
  use inject,    only: wind_init, wind_gamma, mass_of_particles, central_star_mass, companion_star_mass, semi_major_axis
- use inject,    only: icompanion_star, eccentricity, central_star_radius, companion_star_radius
+ use inject,    only: icompanion_star, eccentricity, central_star_radius, companion_star_r
  use setbinary, only: set_binary
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -51,8 +51,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
 
- call set_units(dist=100.*au,mass=solarm,G=1.)
-
+ call set_units(dist=au,mass=solarm,G=1.)
 !
 !--general parameters
 !
@@ -81,7 +80,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                     semi_major_axis / udist, &
                     eccentricity, &
                     central_star_radius / udist, &
-                    companion_star_radius / udist, &
+                    companion_star_r / udist, &
                     xyzmh_ptmass, vxyz_ptmass, nptmass)
  else
     nptmass = 1

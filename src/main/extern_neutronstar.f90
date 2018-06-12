@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -125,7 +125,7 @@ end subroutine load_extern_neutronstar
 
 ! Read tabulated r, rho from file
 subroutine read_rhotab(filename, rsize, rtab, rhotab, nread, polyk, gamma, rhoc, ierr)
- use io, only: error
+ use io, only:error,id,master
  character(len=*), intent(in)  :: filename
  integer,          intent(in)  :: rsize
  integer,          intent(out) :: nread
@@ -140,7 +140,7 @@ subroutine read_rhotab(filename, rsize, rtab, rhotab, nread, polyk, gamma, rhoc,
  ierr = 0
  open(iunit,file=filename,access='sequential',action='read',status='old',iostat=ierr)
  if (ierr /= 0) then
-    call error('extern_neutronstar','Error opening '//trim(filename))
+    if (id==master) call error('extern_neutronstar','Error opening '//trim(filename))
     return
  endif
 
@@ -172,7 +172,7 @@ subroutine read_rhotab(filename, rsize, rtab, rhotab, nread, polyk, gamma, rhoc,
 
  close(iunit)
 
- print *, 'Read density profile...  ierr = ', ierr
+ if (id==master) print *, 'Read density profile...  ierr = ', ierr
 
 end subroutine read_rhotab
 

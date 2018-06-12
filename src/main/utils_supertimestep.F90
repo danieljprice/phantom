@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -66,10 +66,9 @@ module timestep_sts
  logical,         private   :: print_nu_to_file = .false.  ! to allow nu to be printed for testing purposes
  !
  !--Variables
- real,            private   :: hi_rhomax_sts
  integer(kind=1), private   :: istsactive(maxsts)
- integer(kind=1), public    :: ibinsts(maxsts),isfirstdtau(ndtau_max)
- real,            public    :: dtau(ndtau_max),nu(nnu,dtcoef_max),dtdiffcoef(dtcoef_max),dt_prev(maxsts)
+ integer(kind=1), public    :: ibin_sts(maxsts),isfirstdtau(ndtau_max)
+ real,            public    :: dtau(ndtau_max),nu(nnu,dtcoef_max),dtdiffcoef(dtcoef_max)
  integer,         public    :: ipart_rhomax_sts,nbinmaxsts,Nmegasts_done,Nmegasts_now,Nmegasts_next
  integer,         public    :: Nreal,Nsts,icase_sts
  !
@@ -77,8 +76,7 @@ module timestep_sts
 
  public                     :: sts_initialise,sts_init_step
  public                     :: sts_get_dtau_next,sts_get_dtau_array
- public                     :: sts_initialise_activity,sts_set_active_particles,sts_modify_ibin,sts_get_hdti
- public                     :: sts_check_rhomax
+ public                     :: sts_initialise_activity,sts_set_active_particles
  private                    :: sts_init_nu,sts_get_Ndtdiff,sts_get_dtdiff,sts_get_dtau
  private                    :: sts_update_i_nmega
 
@@ -100,15 +98,15 @@ subroutine sts_initialise(ierr,dtdiff)
  sts_it_n      = .true.
  dtdiff        = bigdt
  nbinmaxsts    = 0
- ibinsts(:)    = 0
+ ibin_sts(:)   = 0
  istsactive(:) = isactive_yes
- !
+
  do i = 1,dtcoef_max
     dtdiffcoef(i) = 0.9 - (i-1)*0.05
     call sts_init_nu(nu(1:nnu,i),dtdiffcoef(i),ierr)
     if (ierr > 0) return
  enddo
- !
+
  ! Print N-nu tables to file, if requested
  if (print_nu_to_file) then
     open(unit=iuniteos,file="Nnu.dat",form='formatted',status='replace')
@@ -141,7 +139,7 @@ subroutine sts_initialise(ierr,dtdiff)
     enddo
     close(iuniteos)
  endif
- !
+
 end subroutine sts_initialise
 !----------------------------------------------------------------
 !+
@@ -173,11 +171,11 @@ pure subroutine sts_init_nu(nu_col,dtdiffcoef_in,ierr)
  real                 :: f,A,B,dfdnu,dAdnu,dBdnu
  real                 :: nuold,nunew,nurat,tol,realN
  logical              :: getnu
- !
+
  ! Initialise global values
  nu_col   = 1.0
  ierr     = 0
- !
+
  ! Iterate to obtain the remaining nu-values
  do i = 2,nnu
     iter_tol = 0
@@ -231,42 +229,37 @@ pure subroutine sts_init_nu(nu_col,dtdiffcoef_in,ierr)
        nu_col(i) = 0.0                ! solution is outside of 0 < nu < 1; set to 0 to be ignored
     endif
  enddo
- !
+
 end subroutine sts_init_nu
 !------------------------------------------------------------
 !+
-!  Initialisation routine necessary for individual timesteps
-!  when using super timestepping.  This is the sts-counterpart
-!  to init_step in step_leapfrog.F90
+!  After twas is initialised from init_step in step_leapfrog.F90,
+!  overwrite twas for the particle what will undergo super-timestepping
 !+
 !------------------------------------------------------------
-subroutine sts_init_step(npart,timei,dtmax,dtau)
+subroutine sts_init_step(npart,timei,dtmax,dtau_in)
 #ifdef IND_TIMESTEPS
  use timestep_ind, only: get_dt
  use part,         only: ibin,twas
 #endif
  integer,         intent(in)  :: npart
- real,            intent(in)  :: timei,dtau,dtmax
+ real,            intent(in)  :: timei,dtau_in,dtmax
 #ifdef IND_TIMESTEPS
  integer                      :: i
- !
+
 !$omp parallel default(none) &
-!$omp shared(npart,ibin,ibinsts,twas,timei,dtau,dtmax,dt_prev) &
+!$omp shared(npart,ibin,ibin_sts,twas,timei,dtau_in,dtmax) &
 !$omp private(i)
 !$omp do schedule(runtime)
  do i=1,npart
-    if (ibinsts(i) > ibin(i)) then
-       twas(i)    = timei + 0.5*dtau
-       dt_prev(i) = dtau
-    else
-       twas(i)    = timei + 0.5*get_dt(dtmax,ibin(i))
-       dt_prev(i) = get_dt(dtmax,ibin(i))
+    if (ibin_sts(i) > ibin(i)) then
+       twas(i) = timei + 0.5*dtau_in
     endif
  enddo
 !$omp enddo
 !$omp end parallel
 #endif
- !
+
 end subroutine sts_init_step
 !----------------------------------------------------------------
 !+
@@ -279,7 +272,7 @@ subroutine sts_get_dtau_next(dtau_next,dt_in,dtmax,dtdiff_in,nbinmax)
  real,            intent(in)            :: dt_in,dtmax,dtdiff_in
  real                                   :: dt_next,dt_remain
  integer                                :: i,Nmega_tmp,Nms_p1
- !
+
  ! For individual dt, nbinmax may change during our superstepping, thus
  ! always compare against this.
  if (present(nbinmax)) then
@@ -287,7 +280,7 @@ subroutine sts_get_dtau_next(dtau_next,dt_in,dtmax,dtdiff_in,nbinmax)
  else
     dt_next = dt_in               ! global timesteps
  endif
- !
+
  if ( sts_it_n ) then
     ! We are currently on the final super-timestep, thus need to predict
     ! what will happen next loop so that we can calculate its dtau_next
@@ -298,7 +291,7 @@ subroutine sts_get_dtau_next(dtau_next,dt_in,dtmax,dtdiff_in,nbinmax)
     Nms_p1 = Nmegasts_done+1
     dtau_next = dtau(Nms_p1)
     if (isfirstdtau(Nms_p1)==iyes .and. dtau_next > dt_next) then
-       write(*,'(a)') "Supertime-step: sts_get_dtau_next: dtau_next > dt_next thus modifying mid-mega-step"
+       write(*,'(a)') "Super-timestep: sts_get_dtau_next: dtau_next > dt_next thus modifying mid-mega-step"
        dt_remain = 0.
        do i = Nms_p1,Nmegasts_now
           dt_remain = dt_remain + dtau(i)
@@ -311,7 +304,7 @@ subroutine sts_get_dtau_next(dtau_next,dt_in,dtmax,dtdiff_in,nbinmax)
        enddo
     endif
  endif
- !
+
 end subroutine sts_get_dtau_next
 !----------------------------------------------------------------
 !+
@@ -327,14 +320,14 @@ subroutine sts_get_dtau_array(Nmegasts,dt_next,dtdiff_in,Nmega_in)
  real                          :: dtdiff_used,nu
  integer                       :: i,j,k,Nmega
  logical                       :: calc_dtau
- !
+
  nu          = 0.2       ! to avoid compiler warnings
  dtdiff_used = dtdiff_in ! to avoid compiler warnings
- !
+
  ! Determine the number of real steps required;
  ! if Nmegasts_done > 0, then this is the real steps remaining
  Nreal = int(dt_next/dtdiff_in) + 1
- !
+
  ! Calculate the number of super and mega steps
  if (present(Nmega_in)) then
     call sts_get_Ndtdiff(dt_next/float(Nmega_in),dtdiff_in,dtdiff_used,Nsts,Nmega,nu,Nreal,icase_sts)
@@ -343,10 +336,10 @@ subroutine sts_get_dtau_array(Nmegasts,dt_next,dtdiff_in,Nmega_in)
     call sts_get_Ndtdiff(dt_next,dtdiff_in,dtdiff_used,Nsts,Nmega,nu,Nreal,icase_sts)
  endif
  Nmegasts = Nmegasts_done + Nsts*Nmega
- !
+
  ! set cases
  if ( Nmegasts > ndtau_max) then
-    call fatal('sts_get_dtau_array','dtau array is too small, with ',var="Nmegasts",ival=Nmegasts)
+    call fatal('sts_get_dtau_array','dtau array is too small',var="Nmegasts",ival=Nmegasts)
  endif
  if (icase_sts==iNosts) then
     dtau(1)        = dt_next
@@ -357,7 +350,7 @@ subroutine sts_get_dtau_array(Nmegasts,dt_next,dtdiff_in,Nmega_in)
  else ! includes iNostsSml, iNostsBig & iNosts (where Nreal = 1)
     calc_dtau = .false.
  endif
- !
+
  ! set the time array and note which times are the first in the set of supersteps
  k = Nmegasts_done
  do j = 1,Nmega
@@ -376,7 +369,7 @@ subroutine sts_get_dtau_array(Nmegasts,dt_next,dtdiff_in,Nmega_in)
        endif
     enddo
  enddo
- !
+
 end subroutine sts_get_dtau_array
 !----------------------------------------------------------------
 !+
@@ -392,7 +385,7 @@ subroutine sts_get_Ndtdiff(dt,dtdiff_in,dtdiff_out,Nsts,Nmega,nu_local,Nreal,ica
  integer                :: i
  real                   :: dtau_local
  logical                :: find_dtdiff
- !
+
  ! Determine values for super-timestepping
  if (dt > dtdiff_in .and. dtdiff_in > tiny(dtdiff_in) .and. dtdiff_in < bigdt) then
     find_dtdiff = .true.
@@ -417,7 +410,7 @@ subroutine sts_get_Ndtdiff(dt,dtdiff_in,dtdiff_out,Nsts,Nmega,nu_local,Nreal,ica
           endif
        endif
     enddo
-    !
+
     ! Set the icase number & modify Nsts & Nmega as required
     if (Nmega==1) then
        if (Nsts == 1) then
@@ -445,7 +438,7 @@ subroutine sts_get_Ndtdiff(dt,dtdiff_in,dtdiff_out,Nsts,Nmega,nu_local,Nreal,ica
     dtdiff_out = bigdt
     icase      = iNosts
  endif
- !
+
 end subroutine sts_get_Ndtdiff
 !
 subroutine sts_update_i_nmega(i,Nmega)
@@ -465,9 +458,9 @@ pure function sts_get_dtdiff(i,dt,N)
  real,    intent(in)  :: dt
  integer, intent(in)  :: i,N
  real                 :: sts_get_dtdiff
- !
+
  sts_get_dtdiff =  dt/(dtdiffcoef(i)*real(N)**2)
- !
+
 end function sts_get_dtdiff
 !----------------------------------------------------------------
 !+
@@ -478,10 +471,10 @@ pure function sts_get_dtau(j,N,nu0,dtdiff_in)
  integer, intent(in)  :: j,N
  real,    intent(in)  :: nu0,dtdiff_in
  real                 :: sts_get_dtau,pibytwo
- !
+
  pibytwo      = 1.5707963268d0
  sts_get_dtau = dtdiff_in /((nu0-1.0d0)*cos(pibytwo*real(2*j-1)/real(N)) + 1.0d0+nu0)
- !
+
 end function sts_get_dtau
 !----------------------------------------------------------------
 !+
@@ -496,17 +489,17 @@ subroutine sts_initialise_activity(nactive_sts,npart,ibin,iphase)
  integer(kind=1), intent(in)  :: ibin(:),iphase(:)
  integer        , intent(out) :: nactive_sts
  integer                      :: i
- !
+
  nactive_sts = 0
 !$omp parallel default(none) &
-!$omp shared(npart,ibin,ibinsts,iphase,istsactive) &
+!$omp shared(npart,ibin,ibin_sts,iphase,istsactive) &
 !$omp private(i) &
 !$omp reduction(+:nactive_sts)
 !$omp do
  do i = 1,npart
     if (iphase(i) > 0) then
        ! particle is active
-       if (ibinsts(i) > ibin(i)) then
+       if (ibin_sts(i) > ibin(i)) then
           istsactive(i) = isactive_sts
           nactive_sts   = nactive_sts + 1
        else
@@ -518,7 +511,7 @@ subroutine sts_initialise_activity(nactive_sts,npart,ibin,iphase)
  enddo
 !$omp enddo
 !$omp end parallel
- !
+
 end subroutine sts_initialise_activity
 !----------------------------------------------------------------
 !+
@@ -535,7 +528,7 @@ subroutine sts_set_active_particles(npart,nactive,all_active)
  integer                        :: i,itype
  integer(kind=1)                :: isactive_opt2
  logical                        :: iactivei
- !
+
  nactive = 0
  if (all_active) then
     isactive_opt2 = isactive_yes
@@ -561,85 +554,7 @@ subroutine sts_set_active_particles(npart,nactive,all_active)
  enddo
 !$omp enddo
 !$omp end parallel
- !
+
 end subroutine sts_set_active_particles
-!----------------------------------------------------------------
-!+
-!  Modify ibin for the particles where ibinsts > ibin
-!+
-!----------------------------------------------------------------
-subroutine sts_modify_ibin(npart,ibin,nbinmax)
- integer,         intent(in)    :: npart
- integer(kind=1), intent(in)    :: nbinmax
- integer(kind=1), intent(inout) :: ibin(:)
- integer                        :: i
- !
-!$omp parallel default(none) &
-!$omp shared(npart,ibin,ibinsts,nbinmax) &
-!$omp private(i)
-!$omp do schedule(runtime)
- do i=1,npart
-    if (ibinsts(i) < 0) then
-       ibinsts(i) = -ibinsts(i) ! positive now
-       if (ibin(i) < ibinsts(i)) ibin(i) = min(ibinsts(i), nbinmax )
-    endif
- enddo
-!$omp enddo
-!$omp end parallel
- !
-end subroutine sts_modify_ibin
-!----------------------------------------------------------------
-!+
-!  Save the old dti, and determine the new dti
-!+
-!----------------------------------------------------------------
-real function sts_get_hdti(i,dtmax,dtau_next_in,ibini)
- integer,         intent(in) :: i
- integer(kind=1), intent(in) :: ibini
- real,            intent(in) :: dtmax,dtau_next_in
- real                        :: dt_next
- !
- ! Determine the new dti:
- ! use dtau if particle i will be sts-active on the next step
- ! use ibin if particle will be active, but not sts-active, on the next step
- if (.not.sts_it_n .or. (sts_it_n .and. ibinsts(i) > ibini)) then
-    !if (ibinsts(i) > ibini .and. .not.sts_it_n) then
-    dt_next = dtau_next_in
- else
-    dt_next = dtmax/2**ibini
- endif
- sts_get_hdti = 0.5*dt_prev(i) + 0.5*dt_next
- dt_prev(i)   = dt_next
- !
-end function sts_get_hdti
-!----------------------------------------------------------------
-!+
-!  Save rhomax across all supersteps
-!  If rhomax is on different particles on different steps, then
-!  check relative densities.  Since we only care about relative
-!  density, use smoothing length as a proxy.
-!+
-!----------------------------------------------------------------
-subroutine sts_check_rhomax(ipart_rhomax,hi_rhomax)
- integer, intent(in) :: ipart_rhomax
- real,    intent(in) :: hi_rhomax
- !
- if (ipart_rhomax == ipart_rhomax_sts) then
-    ! This is the same particle, so just update the 'density'
-    hi_rhomax_sts = min(hi_rhomax_sts,hi_rhomax)
- else
-    ! The two particles are different
-    if (ipart_rhomax_sts == 0) then
-       ! this is first time through the loop: set values
-       ipart_rhomax_sts = ipart_rhomax
-       hi_rhomax_sts    = hi_rhomax
-    else if (hi_rhomax_sts < hi_rhomax) then
-       ! compare particles; this can only be called on not the first loop
-       ipart_rhomax_sts = ipart_rhomax
-       hi_rhomax_sts    = hi_rhomax
-    endif
- endif
- !
-end subroutine sts_check_rhomax
 !----------------------------------------------------------------
 end module timestep_sts

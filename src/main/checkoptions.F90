@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, part
+!  DEPENDENCIES: dim, io, part
 !+
 !--------------------------------------------------------------------------
 module checkoptions
@@ -37,6 +37,7 @@ contains
 !-------------------------------------------------------------------
 subroutine check_compile_time_settings(ierr)
  use part,  only:mhd,maxBevol,gravity,ngradh,h2chemistry,maxvxyzu
+ use dim,   only:use_dustgrowth
  use io,    only:error,id,master
  integer, intent(out) :: ierr
  character(len=16), parameter :: string = 'compile settings'
@@ -62,6 +63,10 @@ subroutine check_compile_time_settings(ierr)
     if (id==master) call error(string,'-DNONIDEALMHD requires -DMHD')
     ierr = 1
  endif
+#ifdef USE_CMAC_IONISE
+ if (id==master) call error(string,'can not use both -DNONIDEALMHD and -DUSE_CMAC_IONISE')
+ ierr = 1
+#endif
 #endif
 
 #ifdef GRAVITY
@@ -87,17 +92,14 @@ subroutine check_compile_time_settings(ierr)
 #endif
 #endif
 
-#ifdef DUSTFRAC
-#ifndef DUST
- if (id==master) call error(string,'-DDUSTFRAC requires -DDUST')
- ierr = 5
+#ifdef DUST
+#ifdef MHD
+ if (id==master) call error(string,'-DDUST currently not compatible with magnetic fields (-DMHD)')
 #endif
 #endif
 
-#ifdef DUSTFRAC
-#ifdef MHD
- if (id==master) call error(string,'-DDUSTFRAC currently not compatible with magnetic fields (-DMHD)')
-#endif
+#ifdef DUSTGROWTH
+ if (.not. use_dustgrowth) call error(string,'-DDUSTGROWTH but use_dustgrowth = .false.')
 #endif
 
  return

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -26,13 +26,14 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: part, physcon
+!  DEPENDENCIES: io, part, physcon
 !+
 !--------------------------------------------------------------------------
 module setbinary
  use physcon, only:pi
  implicit none
  public :: set_binary,Rochelobe_estimate,L1_point,get_a_from_period
+ public :: get_mean_angmom_vector
 
  private
 
@@ -47,7 +48,8 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
                       accretion_radius1,accretion_radius2, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,omega_corotate,&
                       posang_ascnode,arg_peri,incl,f,verbose)
- use part,    only:ihacc,ihsoft
+ use io,   only:warning,fatal
+ use part, only:ihacc,ihsoft
  real,    intent(in)    :: mprimary,massratio
  real,    intent(in)    :: semimajoraxis,eccentricity
  real,    intent(in)    :: accretion_radius1,accretion_radius2
@@ -57,7 +59,7 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
  real,    intent(out), optional :: omega_corotate
  logical, intent(in),  optional :: verbose
  integer :: i1,i2,i
- real    :: m1,m2,mtot,dx(3),dv(3),Rochelobe,Rochelobe2,period
+ real    :: m1,m2,mtot,dx(3),dv(3),Rochelobe1,Rochelobe2,period
  real    :: x1(3),x2(3),v1(3),v2(3),omega0,cosi,sini,xangle,reducedmass,angmbin
  real    :: a,E,E_dot,P(3),Q(3),omega,big_omega,inc,ecc,tperi,term1,term2,theta
  logical :: do_verbose
@@ -74,8 +76,8 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
  m2 = mprimary*massratio
  mtot = m1 + m2
 
- Rochelobe = Rochelobe_estimate(m1,m2,semimajoraxis)
- Rochelobe2 = Rochelobe_estimate(m2,m1,semimajoraxis)
+ Rochelobe1 = Rochelobe_estimate(m2,m1,semimajoraxis)
+ Rochelobe2 = Rochelobe_estimate(m1,m2,semimajoraxis)
  period = sqrt(4.*pi**2*semimajoraxis**3/mtot)
  reducedmass = m1*m2/mtot
  angmbin = reducedmass*sqrt(mtot*semimajoraxis*(1. - eccentricity**2))
@@ -94,20 +96,20 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
         'apocentre        :',semimajoraxis*(1. + eccentricity)
  endif
 
- if (accretion_radius1 >  Rochelobe2) then
-    print "(/,a,/)",'*** WARNING: accretion radius of primary > Roche lobe'
+ if (accretion_radius1 > Rochelobe1) then
+    call warning('set_binary','accretion radius of primary > Roche lobe')
  endif
- if (accretion_radius2 >  Rochelobe) then
-    print "(/,a,/)",'*** WARNING: accretion radius of primary > Roche lobe'
+ if (accretion_radius2 > Rochelobe2) then
+    call warning('set_binary','accretion radius of secondary > Roche lobe')
  endif
 !
 !--check for stupid parameter choices
 !
- if (mprimary <= 0.)      stop 'ERROR: primary mass <= 0'
- if (massratio < 0.)      stop 'ERROR: binary mass ratio < 0'
- if (semimajoraxis <= 0.) stop 'ERROR: semi-major axis <= 0'
+ if (mprimary <= 0.) call fatal('set_binary','primary mass <= 0')
+ if (massratio < 0.) call fatal('set_binary','mass ratio < 0')
+ if (semimajoraxis <= 0.) call fatal('set_binary','semi-major axis <= 0')
  if (eccentricity > 1. .or. eccentricity < 0.) &
-    stop 'ERROR: eccentricity must be between 0 and 1'
+    call fatal('set_binary','eccentricity must be between 0 and 1')
 
  dx = 0.
  dv = 0.
@@ -188,8 +190,8 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
         'Omega_0 (second) :',v1(2)/x1(1), &
         'R_accretion (1)  :',accretion_radius1, &
         'R_accretion (2)  :',accretion_radius2, &
-        'Roche lobe  (1)  :',Rochelobe2, &
-        'Roche lobe  (2)  :',Rochelobe
+        'Roche lobe  (1)  :',Rochelobe1, &
+        'Roche lobe  (2)  :',Rochelobe2
  endif
 
  if (present(omega_corotate)) then
@@ -332,5 +334,66 @@ function get_a_from_period(m1,m2,period) result(a)
  a = ((m1 + m2)*(period/(2.*pi))**2)**(1./3.)
 
 end function get_a_from_period
+
+!----------------------------------------------------
+! Eccentricity vector, for second body
+! https://en.wikipedia.org/wiki/Eccentricity_vector
+!----------------------------------------------------
+function get_eccentricity_vector(m1,m2,x1,x2,v1,v2)
+ real, intent(in) :: m1,m2
+ real, intent(in) :: x1(3),x2(3),v1(3),v2(3)
+ real :: x0(3),v0(3),r(3),v(3),dr,mu
+ real :: get_eccentricity_vector(3)
+
+ ! centre of mass position and velocity
+ x0 = (m1*x1 + m2*x2)/(m1 + m2)
+ v0 = (m1*v1 + m2*v2)/(m1 + m2)
+
+ ! position and velocity vectors relative to centre of mass
+ r = x2 - x0
+ v = v2 - v0
+
+ ! intermediate quantities
+ dr = 1./sqrt(dot_product(r,r))
+ mu = m1 + m2  ! "standard gravitational parameter"
+
+ ! formula for eccentricity vector
+ get_eccentricity_vector = (dot_product(v,v)/mu - dr)*r - dot_product(r,v)/mu*v
+
+end function get_eccentricity_vector
+
+!-------------------------------------------------------------
+! Function to find mean angular momentum vector from a list
+! of positions and velocities
+!-------------------------------------------------------------
+function get_mean_angmom_vector(n,xyz,vxyz) result(l)
+ integer, intent(in) :: n
+ real,    intent(in) :: xyz(:,:),vxyz(:,:)
+ real    :: l(3),li(3)
+ integer :: i
+
+ l = 0.
+ do i=1,n
+    call get_cross_product(xyz(:,i),vxyz(:,i),li)
+    l = l + li
+ enddo
+ l = l/real(n)
+
+end function get_mean_angmom_vector
+
+!-------------------------------------------------------------
+!
+! cross product routine
+!
+!-------------------------------------------------------------
+pure subroutine get_cross_product(veca,vecb,vecc)
+ real, intent(in)  :: veca(3),vecb(3)
+ real, intent(out) :: vecc(3)
+
+ vecc(1) = veca(2)*vecb(3) - veca(3)*vecb(2)
+ vecc(2) = veca(3)*vecb(1) - veca(1)*vecb(3)
+ vecc(3) = veca(1)*vecb(2) - veca(2)*vecb(1)
+
+end subroutine get_cross_product
 
 end module setbinary

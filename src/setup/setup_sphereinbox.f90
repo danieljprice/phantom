@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -32,14 +32,14 @@
 !    rho_pert_amp     -- amplitude of density perturbation
 !    totmass_sphere   -- mass of sphere in code units
 !
-!  DEPENDENCIES: boundary, dim, eos, infile_utils, io, kernel, options,
-!    part, physcon, prompting, ptmass, setup_params, spherical, timestep,
-!    unifdis, units
+!  DEPENDENCIES: boundary, centreofmass, dim, eos, infile_utils, io,
+!    kernel, options, part, physcon, prompting, ptmass, setup_params,
+!    spherical, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
  use part, only:mhd
- use dim,  only:use_dust,calc_erot,calc_erot_com,maxvxyzu
+ use dim,  only:use_dust,calc_erot,maxvxyzu
  implicit none
  public :: setpart
 
@@ -72,10 +72,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use prompting,    only:prompt
  use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield
  use eos,          only:polyk2,ieos
- use part,         only:Bevol,Bextx,Bexty,Bextz,igas,idust,set_particle_type
+ use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type
  use timestep,     only:dtmax,tmax,rho_dtthresh_cgs,dtmax_rat0
  use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
- use options,      only:twallmax, dtwallmax,nfulldump,alphaB
+ use centreofmass, only: reset_centreofmass
+ use options,      only:nfulldump
  use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -133,8 +134,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     ! prompt user for settings
     !
-    np    = int(2.0/3.0*size(xyzh(1,:))) ! approx max number allowed in sphere given size(xyzh(1,:))
-    npmax = np
+    npmax = int(2.0/3.0*size(xyzh(1,:))) ! approx max number allowed in sphere given size(xyzh(1,:))
+    if (npmax < 300000) then
+       np = npmax
+    else if (npmax < 1000000) then
+       np = 300000
+    else
+       np = 1000000
+    endif
     call prompt('Enter the approximate number of particles in the sphere',np,0,npmax)
     np_in    = np
     r_sphere = 4.
@@ -327,6 +334,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call set_particle_type(i,igas)
  enddo
  !
+ ! reset to centre of mas
+ !
+ call reset_centreofmass(npart,xyzh,vxyzu)
+ !
  ! Set dust
  if (use_dust) then
     ! particle separation in dust sphere & sdjust for close-packed lattice
@@ -387,9 +398,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (maxvxyzu >= 4) vxyzu(4,i) = 1.5*polyk2
     endif
     if (mhd) then
-       Bevol(:,i) = 0.
-       Bevol(1,i) = Bzero*sin(ang_Bomega*pi/180.0)
-       Bevol(3,i) = Bzero*cos(ang_Bomega*pi/180.0)
+       Bxyz(:,i) = 0.
+       Bxyz(1,i) = Bzero*sin(ang_Bomega*pi/180.0)
+       Bxyz(3,i) = Bzero*cos(ang_Bomega*pi/180.0)
     endif
  enddo
  !
@@ -405,12 +416,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     dtmax         = t_ff/100.
     ieos          = 8
-    alphaB        = 1.0
-    twallmax      = 604800
-    dtwallmax     =  21600
     nfulldump     = 1
     calc_erot     = .true.
-    calc_erot_com = .false.
     if (modify_dtmax) then
        dtmax_rat0       = 4
        rho_dtthresh_cgs = 5.0d-13

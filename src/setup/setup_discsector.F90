@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -44,11 +44,10 @@ module setup
  public :: setpart
 
 !--private module variables
- integer  :: idiscread,idiscreaderr, ierr, nlinesread
- integer :: np, icentralforce
- real    :: R_in,R_out,R_mid,Rsect_in, Rsect_out,phimax
- real    :: p_index,q_index,HoverR,disc_mass, dr_bound, phi_inject
- real    :: object_mass, accradius, v_0(3)
+ integer :: np
+ real    :: R_in,R_out,R_mid,Rsect_in,Rsect_out,phimax
+ real    :: p_index,q_index,HoverR,disc_mass,dr_bound,phi_inject
+ real    :: object_mass,accradius
 
  private
  real(kind=8) :: udist,umass
@@ -61,21 +60,21 @@ contains
 !
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use setdisc,   only:set_disc
- use io,             only:master
- use infile_utils, only: read_next_inopt
- use externalforces, only:accradius1, iext_star, iext_corotate
- use extern_corotate, only: omega_corotate
+ use setdisc,         only:set_disc
+ use io,              only:master
+ use infile_utils,    only:read_next_inopt
+ use externalforces,  only:accradius1,iext_star,iext_corotate
+ use extern_corotate, only:omega_corotate
 #ifdef INJECT_PARTICLES
- use inject,         only: set_injection_parameters
+ use inject,          only:set_injection_parameters
 #endif
- use options,        only:iexternalforce,icooling
- use part,           only: set_particle_type, iboundary
- use physcon,        only: au,solarm,pi
- use prompting,      only:prompt
- use units,          only:set_units
- use physcon,        only:au,solarm
- use setup_params, only: rhozero
+ use options,         only:iexternalforce,icooling
+ use part,            only:set_particle_type,iboundary
+ use physcon,         only:au,solarm,pi
+ use prompting,       only:prompt
+ use units,           only:set_units
+ use physcon,         only:au,solarm
+ use setup_params,    only:rhozero
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -89,8 +88,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: ierr, i, nboundary
  character(len=100) :: filename
  logical :: iexist
- real ::  phipart, sig0, rpart,omega0,vmag, phimaxrad
- real :: v_0(3), v_subtract(3)
+ real ::  phipart,sig0,sig_in,rpart,omega0,vmag,phimaxrad
+ real :: v_0(3),v_subtract(3)
  real :: annulus_halfwidth, midsep
 
  filename=trim(fileprefix)//".setup"
@@ -106,11 +105,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (iexist) then
 
     ! Read disc parameters from file
-    call read_discinputfile(filename,ierr)
+    call read_setupfile(filename,ierr)
     call set_units(dist=udist,mass=umass,G=1.)
 
     if(ierr/=0) then
-       if(id==master) call write_discinputfile(filename)
+       if(id==master) call write_setupfile(filename)
        stop
     endif
 
@@ -173,7 +172,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     !--Write these inputs to a new parameters file
     !
-    call write_discinputfile(filename)
+    call write_setupfile(filename)
 
     print "(a)", '>>> rerun phantomsetup using the options set in '//trim(filename)//' <<<'
     stop
@@ -193,28 +192,30 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  time    = 0.
 
-! Calculate sigma0 of entire disc
+ !--calculate sigma0 of entire disc
  sig0 = sigma0(disc_mass,R_in,R_out,p_index)
 
- call set_disc(id,master=master,&
-                npart   = npartoftype(1),&
-                rmin    = Rsect_in-dr_bound, &
-                rmax    = Rsect_out+dr_bound,&
-                phimin = -phimaxrad,&
-                phimax = phimaxrad, &
-                p_index = p_index,    &
-                q_index = q_index,   &
-                HoverR  = HoverR,   &
-                sig_naught = sig0,   &
-                star_mass = object_mass,    &
-                gamma   = gamma,  &
-                particle_mass = massoftype(1), &
-                hfact=hfact, &
-                xyzh=xyzh, &
-                vxyzu=vxyzu, &
-                polyk=polyk, &
-                twist=.false., &
-                prefix = fileprefix)
+ !--set sig_in as required for set_disc (sig_norm at R=Rin)
+ sig_in = sig0*R_in**p_index
+
+ call set_disc(id,master     = master,             &
+               npart         = npartoftype(1),     &
+               rmin          = Rsect_in-dr_bound,  &
+               rmax          = Rsect_out+dr_bound, &
+               phimin        = -phimaxrad,         &
+               phimax        = phimaxrad,          &
+               p_index       = p_index,            &
+               q_index       = q_index,            &
+               HoverR        = HoverR,             &
+               sig_norm      = sig_in,             &
+               star_mass     = object_mass,        &
+               gamma         = gamma,              &
+               particle_mass = massoftype(1),      &
+               hfact         = hfact,              &
+               xyzh          = xyzh,               &
+               vxyzu         = vxyzu,              &
+               polyk         = polyk,              &
+               prefix        = fileprefix)
 
  icooling = 1 ! Switches on beta cooling
 
@@ -273,13 +274,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 #ifdef INJECT_PARTICLES
 ! call function to set injection parameters
  call set_injection_parameters(R_in, R_out, Rsect_in,Rsect_out,dr_bound,&
-phimax,phi_inject, p_index,q_index,HoverR,disc_mass,object_mass)
+                               phimax,phi_inject, p_index,q_index,HoverR,&
+                               disc_mass,object_mass)
 #endif
 
  return
 end subroutine setpart
 
-subroutine read_discinputfile(filename, ierr)
+subroutine read_setupfile(filename, ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use dim, only: maxp
  character(len=*), intent(in) :: filename
@@ -324,9 +326,9 @@ subroutine read_discinputfile(filename, ierr)
 
  return
 
-end subroutine read_discinputfile
+end subroutine read_setupfile
 
-subroutine write_discinputfile(filename)
+subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
@@ -372,7 +374,7 @@ subroutine write_discinputfile(filename)
 
  close(iunit)
 
-end subroutine write_discinputfile
+end subroutine write_setupfile
 
 ! Rotates a vector in the z axis
 subroutine rotate_z(oldvec,newvec,phi)

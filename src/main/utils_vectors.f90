@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -25,7 +25,7 @@
 module vectorutils
  implicit none
  public :: minmaxave,cross_product3D,curl3D_epsijk,det
- public :: matrixinvert3D
+ public :: matrixinvert3D,rotatevec
 
  private
 
@@ -124,5 +124,26 @@ real function det(A)
 
  return
 end function det
+
+!------------------------------------------------------------------------
+!
+! rotate a vector (u) around an axis defined by another vector (v)
+! by an angle (theta) using the Rodrigues rotation formula
+!
+!------------------------------------------------------------------------
+pure subroutine rotatevec(u,v,theta)
+ real, dimension(3), intent(inout) :: u
+ real, dimension(3), intent(in)    :: v
+ real, intent(in)   :: theta
+ real, dimension(3) :: k,w
+
+ !--normalise v
+ k = v/sqrt(dot_product(v,v))
+
+ !--Rodrigues rotation formula
+ call cross_product3D(k,u,w)
+ u = u*cos(theta) + w*sin(theta) + k*dot_product(k,u)*(1-cos(theta))
+
+end subroutine rotatevec
 
 end module vectorutils

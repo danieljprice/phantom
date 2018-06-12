@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -9,7 +9,7 @@
 !
 !  DESCRIPTION:
 !  Analysis routine calculating the mass and radius of a disc
-!  As per Price & Bate (2007), Wurster, Price & Bate (2015), disc particles
+!  As per Price & Bate (2007), Wurster, Price & Bate (2016), disc particles
 !  are those with rho > 1e-13 g cm^-3 & the radius contains 99% of this mass.
 !  Generalised for gas, dust and stellar discs.
 !
@@ -32,8 +32,7 @@ module analysis
  use part,        only: isdead_or_accreted,iamtype,iphase,igas,massoftype,maxphase,rhoh
  use eos,         only: ieos,init_eos,equationofstate,init_eos, &
                         get_spsound,get_temperature,get_temperature_from_ponrho
- use nicil,       only: nicil_initialise,nicil_get_ion_n,nicil_get_eta,unit_eta, &
-                        nelements_max,nelements,nlevels
+ use nicil,       only: nicil_initialise,nicil_get_ion_n,nicil_get_eta,unit_eta,n_data_out
  use physcon,     only: pi
  implicit none
  character(len=20), parameter, public :: analysistype = 'discRM'
@@ -41,8 +40,10 @@ module analysis
  !--Free parameters
  real,    private, parameter :: dthreshcgs  = 1.0e-13 ! density (g cm^-3) above which gas particles are considered 'in' the disc
  real,    private, parameter :: massfrac    = 0.99    ! disc radius which contains massfrac percent of the mass
+ real,    private, parameter :: angle       = 20.0    ! Use all gas within angle of the midplane; if <=0, then use dthreshcgs
  real,    private, parameter :: dringthresh = 0.1     ! density threshold relative to the max density in the disc to define its radius
  real,    private            :: rmax_au     = 128.0   ! Maximum radial distance of interest
+ real,    private            :: rmin_au     = 0.01    ! Minimum radial distance of interest (only for log r
  real,    private, parameter :: rmergeAU    =  12.0   ! if sink separation is smaller, sinks are treated as one
  integer, private, parameter :: rthreshAU   = 128     ! radius (AU) of sphere in which to gather statistics (is integer since it used in filenames)
  integer,          parameter :: nbins       = 256     ! number of bins use to calculate disc properties
@@ -61,6 +62,7 @@ module analysis
  logical, private            :: calc_mu_verb= .true.  ! If the above is true, output M(R) & <B> data to file
  logical, private            :: calc_eta    = .true.  ! Calculate global eta values on rho > rhocrit (independent of discRM_only)
  logical, private            :: use_etaart_old = .true. ! Use the original artificial resistivity as used in WPB2016
+ logical, private            :: log_rbin    = .true.  ! use logarithmic radial bins
  ! parameters to control the mu-evolution calculation; set the radii below
  integer, private, parameter :: nmu_global  = 5       ! number of gloabl mu-values to calculate (i.e. at which radii)
  integer, private, parameter :: nmu_sink    = 6       ! number of mu-values to calculate around first two sinks (i.e. at which radii)
@@ -90,7 +92,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use sortutils,    only: indexx
  use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
  use centreofmass, only: reset_centreofmass
- use part,         only: igas,idust,istar,xyzmh_ptmass,vxyz_ptmass,nptmass,Bevol
+ use part,         only: igas,idust,istar,xyzmh_ptmass,vxyz_ptmass,nptmass,Bxyz
  use units,        only: udist,umass,unit_density,unit_velocity,unit_Bfield
  use physcon,      only: au,solarm
 #ifdef NONIDEALMHD
@@ -108,7 +110,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in) :: particlemass,time
  integer                      :: i,j,isink,isink0,isinkN,itype,ibin,ierr,ndens
  real                         :: dthresh,mdisc,rdisc,msink, &
-                                 xi,yi,hi,rhoi,rmax,rtmp2,m_low_dens
+                                 xi,yi,hi,rhoi,rmax,rmin,rtmp2,m_low_dens,logr_min,dlogr
  integer                      :: indx(maxp),imerged(nptmass)
  real                         :: rad2(maxp),xyz_tmp(3),vxyz_tmp(3)
  real                         :: eta(6),eta1,eta_1,eta_2,eta_3,eta_4,eta_5,eta_6,rsepmin2
@@ -180,10 +182,20 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     rcom2 = (rcom_au*au/udist)**2
     ! Initialise the radial bins for calculation of disc mass
     rmax = rmax_au*au/udist ! Maximum radial distance of interest (code units)
-    dr   = rmax/float(nbins)
-    do i = 1,nbins
-       rbins2(i) = (float(i)*dr)**2
-    enddo
+    rmin = rmin_au*au/udist ! Minimum radial distance of interest (code units)
+    if (log_rbin) then
+       logr_min = log10(rmin)
+       dlogr    = (log10(rmax) - logr_min )/nbins
+       do i = 1,nbins
+          rbins2(i) = (10**(logr_min +(i-1)*dlogr ))**2
+       enddo
+    else
+       dr   = rmax/float(nbins)
+       do i = 1,nbins
+          rbins2(i) = (float(i)*dr)**2
+       enddo
+    endif
+    print*, rbins2
     rbin2max = 2.0*rbins2(nbins)
     rbin2maxish = 0.9*rbin2max
 #ifdef NONIDEALMHD
@@ -232,7 +244,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  if (use_etaart_old) then
     print*, "THIS IS NOT A TRUE REPRESENTATION OF ETA_art since it uses a different vsig!"
 !$omp parallel default(none) &
-!$omp shared(npart,xyzh,alphaB,iphase,massoftype,etaart,Bevol,dthresh) &
+!$omp shared(npart,xyzh,alphaB,iphase,massoftype,etaart,Bxyz,dthresh) &
 !$omp private(i,hi,itype,rhoi)
 !$omp do
     do i = 1,npart
@@ -241,7 +253,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           if (maxphase==maxp) itype = iamtype(iphase(i))
           rhoi = rhoh(hi,massoftype(itype))
           if (rhoi > dthresh .and. itype==igas) then ! to save time since we never care about low density material
-             etaart(i) = etaart_old(hi,rhoi,alphaB,Bevol(1:3,i))
+             etaart(i) = etaart_old(hi,rhoi,alphaB,Bxyz(1:3,i))
           endif
        endif
     enddo
@@ -251,7 +263,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     print*, "THIS IS LIKELY NOT A TRUE REPRESENTATION OF ETA-art since the algorithm is only the same in spirit!"
     print*, "starting to calculate etaart"
 !$omp parallel default(none) &
-!$omp shared(npart,xyzh,vxyzu,iphase,massoftype,etaart,Bevol,dthresh) &
+!$omp shared(npart,xyzh,vxyzu,iphase,massoftype,etaart,Bxyz,dthresh) &
 !$omp private(i,hi,itype,rhoi)
 !$omp do
     do i = 1,npart
@@ -372,8 +384,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     endif
     ! Determines disc mass and properties
 !$omp parallel default(none) &
-!$omp shared(npart,isink,isink0,isinkN,xyzh,Bevol,n_R,n_electronT,etaart,iphase) &
-!$omp shared(calc_eta,particlemass,dthresh,rsepmin2,rad2,dr,calc_rad_prof) &
+!$omp shared(npart,isink,isink0,isinkN,xyzh,Bxyz,n_R,n_electronT,etaart,iphase) &
+!$omp shared(calc_eta,particlemass,dthresh,rsepmin2,rad2,dr,calc_rad_prof,rbins2,log_rbin) &
 !$omp private(i,xi,yi,hi,rhoi,rtmp2,ibin,etaohm,etahall,etaambi) &
 !$omp firstprivate(itype) &
 !$omp reduction(+:ndens,mdisc,m_low_dens,eta_1,eta_2,eta_3,eta_4,eta_5,eta_6)
@@ -389,14 +401,21 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              if (rhoi > dthresh) then
                 calc_rad_prof = .true.
                 rtmp2  = xi*xi + yi*yi
-                ibin   = min(int(sqrt(rtmp2)/dr)+1,nbins)
+                if (log_rbin) then
+                   ibin = 1
+                   do while(rbins2(ibin) < rtmp2 .and. ibin < nbins)
+                      ibin = ibin + 1
+                   enddo
+                else
+                   ibin = min(int(sqrt(rtmp2)/dr)+1,nbins)
+                endif
                 if (rtmp2 < rsepmin2*0.25 .and. ibin < nbins) then
                    ndens   = ndens + 1
                    mdisc   = mdisc + particlemass
                    rad2(i) = rtmp2
                 endif
                 if (isink==isink0 .and. calc_eta) then
-                   call get_eta_global(etaohm,etahall,etaambi,rhoi,n_R(:,i),n_electronT(i),Bevol(1:3,i))
+                   call get_eta_global(etaohm,etahall,etaambi,rhoi,n_R(:,i),n_electronT(i),Bxyz(1:3,i))
                    eta_1 = eta_1 + etaart(i)
                    eta_2 = eta_2 + etaohm
                    eta_3 = eta_3 + etahall
@@ -432,8 +451,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     endif
     !
     ! Call analysis to get the (r,phi,z) components of the B & V fields;  this is for gas only!
-    if (.not. discRM_only .and. calc_rad_prof) then
-       call doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bevol,particlemass,dthresh &
+    if ( (.not. discRM_only .and. calc_rad_prof) .or. angle > 0.0 ) then
+       call doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,dthresh &
                          ,au,udist,umass,solarm,unit_velocity,unit_Bfield,rdisc**2,time,mhd,rthresh**2,msink)
     endif
     !
@@ -443,7 +462,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           if (isink==1) rmu_sink(nmu_sink+1) = rdisc
           rmu_sink(nmu_sink) = rdisc
           call get_mu(npart,nptmass,nmu_sink,rmu_sink(1:nmu_sink),mu_sink(isink,:),mass_mu_sink(isink,:), &
-                         B_mu_sink(isink,:),xyzh,xyzmh_ptmass,Bevol,particlemass)
+                         B_mu_sink(isink,:),xyzh,xyzmh_ptmass,Bxyz,particlemass)
        endif
     endif
     !
@@ -490,7 +509,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        rmu_global(nmu_global) = 0.
     endif
     call get_mu(npart,nptmass,nmu_global,rmu_global,mu_global,mass_mu_global,B_mu_global, &
-                xyzh,xyzmh_ptmass,Bevol,particlemass)
+                xyzh,xyzmh_ptmass,Bxyz,particlemass)
     !
     write(fileout7,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_mu.dat'
     write(fileout8,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_mu_mass.dat'
@@ -774,15 +793,15 @@ end function etaart_new
 !  Calculates the evolution of the mass-to-flux ratio
 !+
 !----------------------------------------------------------------
-subroutine get_mu(npart,nptmass,nrad,rad_mu,mu,mass,B,xyzh,xyzmh_ptmass,Bevol,pmassi)
- integer,      intent(in)  :: npart,nptmass,nrad
- real,         intent(in)  :: pmassi,rad_mu(:),xyzh(:,:),xyzmh_ptmass(:,:)
- real,         intent(in)  :: Bevol(:,:)
- real,         intent(out) :: mu(nrad),mass(nrad),B(nrad)
- integer                   :: i,j
- real                      :: rmasstoflux_crit
- real                      :: xi,yi,zi,hi,hi3,mi,Bxi,Byi,Bzi,Bi,rad2,rad2_mu(nrad)
- real                      :: mass_thread(nrad),vol(nrad),vol_thread(nrad),B_thread(nrad)
+subroutine get_mu(npart,nptmass,nrad,rad_mu,mu,mass,B,xyzh,xyzmh_ptmass,Bxyz,pmassi)
+ integer, intent(in)  :: npart,nptmass,nrad
+ real,    intent(in)  :: pmassi,rad_mu(:),xyzh(:,:),xyzmh_ptmass(:,:)
+ real,    intent(in)  :: Bxyz(:,:)
+ real,    intent(out) :: mu(nrad),mass(nrad),B(nrad)
+ integer              :: i,j
+ real                 :: rmasstoflux_crit
+ real                 :: xi,yi,zi,hi,hi3,mi,Bxi,Byi,Bzi,Bi,rad2,rad2_mu(nrad)
+ real                 :: mass_thread(nrad),vol(nrad),vol_thread(nrad),B_thread(nrad)
  !
  rad2_mu = rad_mu*rad_mu
  mass    = 0.0
@@ -790,7 +809,7 @@ subroutine get_mu(npart,nptmass,nrad,rad_mu,mu,mass,B,xyzh,xyzmh_ptmass,Bevol,pm
  B       = 0.0
  mu      = 0.0
 !$omp parallel default(none) &
-!$omp shared(npart,nrad,xyzh,Bevol,iphase,pmassi,rad2_mu) &
+!$omp shared(npart,nrad,xyzh,Bxyz,iphase,pmassi,rad2_mu) &
 !$omp shared(mass,vol,B) &
 !$omp private(i,j,xi,yi,zi,hi,hi3,Bxi,Byi,Bzi,Bi,rad2) &
 !$omp private(mass_thread,vol_thread,B_thread)
@@ -805,9 +824,9 @@ subroutine get_mu(npart,nptmass,nrad,rad_mu,mu,mass,B,xyzh,xyzmh_ptmass,Bevol,pm
     hi = xyzh(4,i)
     if (hi > 0.0) then
        hi3 = hi*hi*hi
-       Bxi = Bevol(1,i)
-       Byi = Bevol(2,i)
-       Bzi = Bevol(3,i)
+       Bxi = Bxyz(1,i)
+       Byi = Bxyz(2,i)
+       Bzi = Bxyz(3,i)
        rad2 = xi*xi + yi*yi + zi*zi  ! Note that we are already centred on the point of interest
        Bi   = sqrt(Bxi*Bxi + Byi*Byi + Bzi*Bzi)
        do j = 1,nrad
@@ -855,15 +874,17 @@ end subroutine get_mu
 !  Calculate radial profiles at the given time
 !+
 !----------------------------------------------------------------
-subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bevol,particlemass,dthreshg &
+subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,dthreshg &
                         ,au,udist,umass,solarm,unit_velocity,unit_Bfield &
                         ,rdisc2,time,mhd,rthresh2,dmassp)
- character(len=*), intent(in) :: dumpfile,csink
- integer,          intent(in) :: npart,num
- real,             intent(in) :: xyzh(:,:),vxyzu(:,:),rdisc2,time,rthresh2,dmassp
- real,             intent(in) :: Bevol(:,:)
- real,             intent(in) :: particlemass,dthreshg,au,udist,umass,solarm,unit_velocity,unit_Bfield
- logical,          intent(in) :: mhd
+ character(len=*), intent(in)    :: dumpfile,csink
+ integer,          intent(in)    :: npart,num
+ real,             intent(in)    :: xyzh(:,:)
+ real,             intent(inout) :: vxyzu(:,:)
+ real,             intent(in)    :: rdisc2,time,rthresh2,dmassp
+ real,             intent(in)    :: Bxyz(:,:)
+ real,             intent(in)    :: particlemass,dthreshg,au,udist,umass,solarm,unit_velocity,unit_Bfield
+ logical,          intent(in)    :: mhd
  !
  ! Indicies of the disc bins (Dbins): TIME AVERAGED
  !  Note: Cbins is similar, but different radial cutoff; currently left with hardcoded indicies
@@ -872,33 +893,35 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bevol,particlemass,
  integer, parameter           :: iDvz      =  3 ! vz
  integer, parameter           :: iDbr      =  4 ! Br
  integer, parameter           :: iDbphi    =  5 ! Bphi
- integer, parameter           :: iDbz      =  6 ! Bz
- integer, parameter           :: iDby      =  7 ! By
- integer, parameter           :: iDbx      =  8 ! Bx
- integer, parameter           :: iDb       =  9 ! B
- integer, parameter           :: iDbeta    = 10 ! plasma beta
- integer, parameter           :: iDLx      = 11 ! x-angular momentum
- integer, parameter           :: iDLy      = 12 ! y-angular momentum
- integer, parameter           :: iDLz      = 13 ! z-angular momentum
- integer, parameter           :: iDetaF    = 14 ! eta_art
- integer, parameter           :: iDetaO    = 15 ! eta_ohm
- integer, parameter           :: iDetaH    = 16 ! eta_hall
- integer, parameter           :: iDetaHb   = 17 ! abs(eta_hall)
- integer, parameter           :: iDetaA    = 18 ! eta_ambi
- integer, parameter           :: iDetaHp   = 19 ! eta_hall > 0
- integer, parameter           :: iDetaHn   = 20 ! eta_hall < 0
- integer, parameter           :: iDetaOA   = 21 ! eta_ohm/eta_art
- integer, parameter           :: iDetaHA   = 22 ! eta_hall/eta_art
- integer, parameter           :: iDetaAA   = 23 ! eta_ambi/eta_art
- integer, parameter           :: iDtemA    = 24 ! temperature (mean)
- integer, parameter           :: iDtemX    = 25 ! temperature (maximum)
- integer, parameter           :: iDnn      = 26 ! n_neutral
- integer, parameter           :: iDngm     = 27 ! n_grain(Z=-1)
- integer, parameter           :: iDngz     = 28 ! n_grain(Z= 0)
- integer, parameter           :: iDngp     = 29 ! n_grain(Z=+1)
- integer, parameter           :: iDnhion   = 30 ! n_{hydrogen-helium ion species}
- integer, parameter           :: iDnmion   = 31 ! n_{metallic ion species}
- integer, parameter           :: iD        = 31 ! the number of bins in this array
+ integer, parameter           :: iDbp      =  6 ! Bp = sqrt(Bz**2+Br**2)
+ integer, parameter           :: iDbz      =  7 ! Bz
+ integer, parameter           :: iDby      =  8 ! By
+ integer, parameter           :: iDbx      =  9 ! Bx
+ integer, parameter           :: iDb       = 10 ! B
+ integer, parameter           :: iDbrat    = 11 ! Bphi/Bp
+ integer, parameter           :: iDbeta    = 12 ! plasma beta
+ integer, parameter           :: iDLx      = 13 ! x-angular momentum
+ integer, parameter           :: iDLy      = 14 ! y-angular momentum
+ integer, parameter           :: iDLz      = 15 ! z-angular momentum
+ integer, parameter           :: iDetaF    = 16 ! eta_art
+ integer, parameter           :: iDetaO    = 17 ! eta_ohm
+ integer, parameter           :: iDetaH    = 18 ! eta_hall
+ integer, parameter           :: iDetaHb   = 19 ! abs(eta_hall)
+ integer, parameter           :: iDetaA    = 20 ! eta_ambi
+ integer, parameter           :: iDetaHp   = 21 ! eta_hall > 0
+ integer, parameter           :: iDetaHn   = 22 ! eta_hall < 0
+ integer, parameter           :: iDetaOA   = 23 ! eta_ohm/eta_art
+ integer, parameter           :: iDetaHA   = 24 ! eta_hall/eta_art
+ integer, parameter           :: iDetaAA   = 25 ! eta_ambi/eta_art
+ integer, parameter           :: iDtemA    = 26 ! temperature (mean)
+ integer, parameter           :: iDtemX    = 27 ! temperature (maximum)
+ integer, parameter           :: iDnn      = 28 ! n_neutral
+ integer, parameter           :: iDngm     = 29 ! n_grain(Z=-1)
+ integer, parameter           :: iDngz     = 30 ! n_grain(Z= 0)
+ integer, parameter           :: iDngp     = 31 ! n_grain(Z=+1)
+ integer, parameter           :: iDnhion   = 32 ! n_{hydrogen-helium ion species}
+ integer, parameter           :: iDnmion   = 33 ! n_{metallic ion species}
+ integer, parameter           :: iD        = 33 ! the number of bins in this array
  ! Indicies of values within the disc and with rho > rhocrit: RADIAL PROFILE
  integer, parameter           :: iHn       =  1 ! total number of particles
  integer, parameter           :: iHv       =  2 ! velocity
@@ -952,14 +975,14 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bevol,particlemass,
  ! Local variables
  integer                      :: i,j,k,p,nobj,ierr
  integer                      :: volN(5),ibins(4,nbins)
- real                         :: hi,rhoi,rtmp2,rtmp3d2,B2i,Bi
+ real                         :: hi,rhoi,rtmp2,rtmp3d2,B2i,Bi,anglei
  real                         :: vr,vphi,Br,Bphi,plasmab,temperature,rr1
  real                         :: spsoundi,ponrhoi,angx,angy,angz,ang,massint
  real                         :: xi,yi,zi,vxi,vyi,vzi,Bxi,Byi,Bzi
  real                         :: Bi1,rho1i,etaohm,etahall,etaambi,etaart1,volL
  real                         :: volP(13),Dbins(iD,nbins),Cbins(7,nbins),Hbins(2,iH)
  real                         :: fracrotVol(6),vrat,fracrotDisc(6,nbins),ReyK(7),Rey(7)
- real                         :: data_out(17+nelements_max*nlevels-3)
+ real                         :: data_out(n_data_out)
  character(len=200)           :: fileout4,fileout5
  !
  ! Initialise variables
@@ -986,16 +1009,22 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bevol,particlemass,
     if (hi < tiny (hi)) cycle parts      ! dead (or gas) particle
     rtmp2   = xi*xi + yi*yi
     rtmp3d2 = rtmp2 + zi*zi
+
+    anglei = 0.0
+    if (angle > 0.0) then
+       anglei = abs(180./pi*asin(zi/sqrt(rtmp3d2)))
+       if (anglei > angle) anglei = 0.0 ! i.e. define as outside of our range
+    endif
     !--Ensure particle is in at least one radius of interest
-    if (rtmp3d2 < rthresh2 .or. rtmp2 < rdisc2 .or. map_all_R) then
+    if (rtmp3d2 < rthresh2 .or. rtmp2 < rdisc2 .or. map_all_R .or. anglei > 0.0) then
        !--Properties of the particle
        vxi = vxyzu(1,i)
        vzi = vxyzu(2,i)
        vyi = vxyzu(3,i)
        if (mhd) then
-          Bxi = Bevol(1,i)
-          Byi = Bevol(2,i)
-          Bzi = Bevol(3,i)
+          Bxi = Bxyz(1,i)
+          Byi = Bxyz(2,i)
+          Bzi = Bxyz(3,i)
        else
           Bxi = 0.0
           Byi = 0.0
@@ -1006,7 +1035,14 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bevol,particlemass,
        else
           rr1  = 0.0
        endif
-       j    = int(sqrt(rtmp2)/dr)+1
+       if (log_rbin) then
+          j = 1
+          do while (rbins2(j) < rtmp2 .and. j < nbins)
+             j = j + 1
+          enddo
+       else
+          j = int(sqrt(rtmp2)/dr)+1
+       endif
        B2i  = Bxi*Bxi + Byi*Byi + Bzi*Bzi
        Bi   = sqrt(B2i)
        vr   = ( xi*vxi + yi*vyi )*rr1
@@ -1099,7 +1135,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bevol,particlemass,
        endif
        !
        !--If the particle is in the disc (or at least has a high enough density this could be)
-       if (rhoi > dthreshg .and. (rtmp2 < rdisc2 .or. map_all_R) ) then
+       if ( (rhoi > dthreshg .and. (rtmp2 < rdisc2 .or. map_all_R)) .or. anglei > 0.0 ) then
           if (j < nbins) then
              ibins(1,j) = ibins(1,j) + 1
              Br         = ( xi*Bxi + yi*Byi )*rr1
@@ -1110,10 +1146,12 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bevol,particlemass,
              Dbins(iDvz,   j) = Dbins(iDvz,   j) + vzi
              Dbins(iDbr,   j) = Dbins(iDbr,   j) + Br
              Dbins(iDbphi, j) = Dbins(iDbphi, j) + Bphi
+             Dbins(iDbp  , j) = Dbins(iDbp,   j) + sqrt(Br**2 + Bzi**2)
              Dbins(iDbz,   j) = Dbins(iDbz,   j) + Bzi
              Dbins(iDby,   j) = Dbins(iDby,   j) + Byi
              Dbins(iDbx,   j) = Dbins(iDbx,   j) + Bxi
              Dbins(iDb,    j) = Dbins(iDb,    j) + Bi
+             Dbins(iDbrat, j) = Dbins(iDbrat, j) + Bphi/sqrt(Br**2 + Bzi**2)
              Dbins(iDbeta, j) = Dbins(iDbeta, j) + plasmab
              Dbins(iDLx,   j) = Dbins(iDLx,   j) + angx
              Dbins(iDLy,   j) = Dbins(iDLy,   j) + angy
@@ -1187,7 +1225,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bevol,particlemass,
     if (ibins(1,i) > 0) then
        Dbins(iDvr:  iDvz,  i) = Dbins(iDvr:  iDvz,  i)/float(ibins(1,i))
        Dbins(iDbr:  iDb,   i) = Dbins(iDbr:  iDb,   i)/float(ibins(1,i))
-       Dbins(iDbeta,       i) = Dbins(iDbeta,       i)/float(ibins(1,i))
+       Dbins(iDbrat:iDbeta,i) = Dbins(iDbrat:iDbeta,i)/float(ibins(1,i))
        Dbins(iDetaF:iDtemA,i) = Dbins(iDetaF:iDtemA,i)/float(ibins(1,i))
        Dbins(iDnn  :iD,    i) = Dbins(iDnn  :iD,    i)/float(ibins(1,i))
        if (ibins(3,i) > 0)      Dbins(iDetaHp,i) = Dbins(iDetaHp,i)/float(ibins(3,i))
@@ -1272,15 +1310,15 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bevol,particlemass,
        ReyK(7) = ReyK(7) + ibins(1,i)*particlemass
        if (rbins2(i) < rdisc2) Rey(7) = Rey(7) + ibins(1,i)
        ! Radial data at a given time
-       write(punit,'(45(1pe18.10,1x))') sqrt(rbins2(i))*udist/au,Dbins(iDvr:iDvz,i)*unit_velocity &
-                                 , Dbins(iDbr:iDbz,i)*unit_Bfield,Dbins(iDbeta,i) &
+       write(punit,'(47(1pe18.10,1x))') sqrt(rbins2(i))*udist/au,Dbins(iDvr:iDvz,i)*unit_velocity &
+                                 , Dbins(iDbr:iDbz,i)*unit_Bfield,Dbins(iDbrat:iDbeta,i) &
                                  , Dbins(iDLx:iDLz,i)*udist*unit_velocity,ibins(1,i)*particlemass*umass/solarm &
                                  , ibins(2,i)*particlemass*umass/solarm,Cbins(2,i)*unit_Bfield &
                                  , Cbins(3,i),Cbins(7,i)*udist*unit_velocity &
                                  , fracrotDisc(2,i),fracrotDisc(4:6,i),Dbins(iDetaF:iDetaHn,i)*unit_eta,ReyK(1:6) &
                                  , Dbins(iDtemA:iDtemX,i),massint,Dbins(iDetaOA:iDetaAA,i) &
                                  , Dbins(iDnn:iDnmion,i)/udist**3
-       write(bunit,'(7(1pe18.10,1x))') sqrt(rbins2(i))*udist/au,Dbins(iDbr:iDb,i)*unit_Bfield
+       write(bunit,'(9(1pe18.10,1x))') sqrt(rbins2(i))*udist/au,Dbins(iDbr:iDb,i)*unit_Bfield,Dbins(iDbrat,i)*unit_Bfield
     enddo
     close(punit)
     close(bunit)
@@ -1462,65 +1500,69 @@ end subroutine write_header_file3
 ! Write header for fileout4 = rhosurf_*.dat
 subroutine write_header_file4(inunit)
  integer, intent(in)  :: inunit
- write(inunit,"('#',45(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(inunit,"('#',47(1x,'[',i2.2,1x,a11,']',2x))") &
         1,'r',          &
         2,'v_r',        &
         3,'v_phi',      &
         4,'v_z',        &
         5,'B_r',        &
         6,'B_phi',      &
-        7,'B_z',        &
-        8,'beta_P',     &
-        9,'angmomX',    &
-       10,'angmomY',    &
-       11,'angmomZ',    &
-       12,'mass',       &
-       13,'mass (r<X)', &
-       14,'B (r<X)',    &
-       15,'b_P(r<X)',   &
-       16,'L (r<X)',    &
-       17,'f high rho', &
-       18,'f v_phi > 0',&
-       19,'f_hd v_p>0', &
-       20,'f_ld v_p>0', &
-       21,'eta_art',    &
-       22,'eta_ohm',    &
-       23,'eta_hall',   &
-       24,'|eta_hall|', &
-       25,'eta_ambi',   &
-       26,'eta_h>0',    &
-       27,'eta_h<0',    &
-       28,'R_art',      &
-       29,'R_ohm',      &
-       30,'R_hall',     &
-       31,'R_ambi',     &
-       32,'R_hall>0',   &
-       33,'R_hall<0',   &
-       34,'T (max)',    &
-       35,'T (ave)',    &
-       36,'M(r)',       &
-       37,'e_O/e_a',    &
-       38,'|e_H|/e_a',  &
-       39,'e_A/e_a',    &
-       40,'n_n',        &
-       41,'n_g(Z=-1)',  &
-       42,'n_g(Z=0)',   &
-       43,'n_g(Z=+1)',  &
-       44,'n_{h-ion}',  &
-       45,'n_{m-ionm}'
+        7,'B_p',        &
+        8,'B_z',        &
+        9,'B_phi/B_p',  &
+       10,'beta_P',     &
+       11,'angmomX',    &
+       12,'angmomY',    &
+       13,'angmomZ',    &
+       14,'mass',       &
+       15,'mass (r<X)', &
+       16,'B (r<X)',    &
+       17,'b_P(r<X)',   &
+       18,'L (r<X)',    &
+       19,'f high rho', &
+       20,'f v_phi > 0',&
+       21,'f_hd v_p>0', &
+       22,'f_ld v_p>0', &
+       23,'eta_art',    &
+       24,'eta_ohm',    &
+       25,'eta_hall',   &
+       26,'|eta_hall|', &
+       27,'eta_ambi',   &
+       28,'eta_h>0',    &
+       29,'eta_h<0',    &
+       30,'R_art',      &
+       31,'R_ohm',      &
+       32,'R_hall',     &
+       33,'R_ambi',     &
+       34,'R_hall>0',   &
+       35,'R_hall<0',   &
+       36,'T (max)',    &
+       37,'T (ave)',    &
+       38,'M(r)',       &
+       39,'e_O/e_a',    &
+       40,'|e_H|/e_a',  &
+       41,'e_A/e_a',    &
+       42,'n_n',        &
+       43,'n_g(Z=-1)',  &
+       44,'n_g(Z=0)',   &
+       45,'n_g(Z=+1)',  &
+       46,'n_{h-ion}',  &
+       47,'n_{m-ionm}'
 end subroutine write_header_file4
 !
 ! Write header for fileout5 = rhosurfM_*.dat
 subroutine write_header_file5(inunit)
  integer, intent(in)  :: inunit
- write(inunit,"('#',7(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(inunit,"('#',9(1x,'[',i2.2,1x,a11,']',2x))") &
         1,'r',    &
         2,'B_r',  &
         3,'B_phi',&
-        4,'B_z',  &
-        5,'B_y',  &
-        6,'B_x',  &
-        7,'B'
+        4,'B_p',  &
+        5,'B_z',  &
+        6,'B_y',  &
+        7,'B_x',  &
+        8,'B',    &
+        9,'Bphi/Bp'
 end subroutine write_header_file5
 !
 ! Write header for fileout6 = analysisout_*_eta.dat

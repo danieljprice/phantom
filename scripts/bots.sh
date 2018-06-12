@@ -142,7 +142,7 @@ for edittype in $bots_to_run; do
                      echo '#                                                       #' >> $out;
                      echo '# Edit .mailmap if your name or email are wrong         #' >> $out;
                      echo '#-------------------------------------------------------#' >> $out;
-                     git shortlog -s -n -e | grep -v global | cut -f 2 >> $out;
+                     git shortlog -s -n -e HEAD | grep -v global | cut -f 2 >> $out;
                   else
                      cat $file > $out;
                   fi;;

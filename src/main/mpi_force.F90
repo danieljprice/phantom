@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -55,7 +55,8 @@ module mpiforce
     integer          :: waiting_index
     logical          :: remote_export(maxprocs)                ! remotes we are waiting for
     integer(kind=1)  :: iphase(minpart)
-    integer(kind=1)  :: pad(8 - mod(4 * (7 + minpart + maxprocs) + minpart, 8))
+    integer(kind=1)  :: ibinneigh(minpart)
+    integer(kind=1)  :: pad(8 - mod(4 * (7 + minpart + maxprocs) + 2*minpart, 8)) !padding to maintain alignment of elements
  endtype
 
  type stackforce

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -129,7 +129,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho, &
                      ll,get_partinfo,iactive,maxgradh,&
                      hrho,iphase,maxphase,igas,idust,iboundary,iamgas,periodic,&
-                     all_active,dustfrac
+                     all_active,dustfrac,Bxyz
 #ifdef FINVSQRT
  use fastmath,  only:finvsqrt
 #endif
@@ -184,6 +184,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
  type(celldens)            :: xrecvbuf(nprocs),xsendbuf
  integer                   :: mpiits,nlocal
+ real                      :: ntotal
  logical                   :: iterations_finished
  logical                   :: do_export
 
@@ -242,6 +243,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(divcurlB) &
 !$omp shared(alphaind) &
 !$omp shared(dustfrac) &
+!$omp shared(Bxyz) &
 !$omp shared(straintensor) &
 !$omp shared(id) &
 !$omp shared(nprocs) &
@@ -249,6 +251,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(getdv) &
 !$omp shared(realviscosity) &
 !$omp shared(iverbose) &
+!$omp shared(iprint) &
 #ifdef MPI
 !$omp shared(xrecvbuf) &
 !$omp shared(xsendbuf) &
@@ -264,6 +267,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp private(j) &
 !$omp private(k) &
 !$omp private(l) &
+!$omp private(ntotal) &
 #endif
 !$omp private(remote_export) &
 !$omp private(nneigh) &
@@ -378,8 +382,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 #ifdef MPI
        if (.not. do_export) then
 #endif
-          call store_results(cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                              straintensor,vxyzu,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+          call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
+                             straintensor,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
 #ifdef MPI
           nlocal = nlocal + 1
        endif
@@ -397,7 +401,15 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp end single
 
 !$omp single
- if (iverbose>=6) print*,id,'local ratio = ',real(nlocal)/(real(nlocal) + real(stack_waiting%n))
+ if (iverbose>=6) then
+    ntotal = real(nlocal) + real(stack_waiting%n)
+    if (ntotal > 0) then
+       write(iprint,*) id,'local ratio = ',real(nlocal)/ntotal
+    else
+       write(iprint,*) id,'local ratio = 0'
+    endif
+ endif
+
  mpiits = 0
  iterations_finished = .false.
 !$omp end single
@@ -482,8 +494,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
              stack_redo%cells(cell%waiting_index) = cell
           else
-             call store_results(cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                                 straintensor,vxyzu,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+             call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
+                                straintensor,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
           endif
 
        enddo over_waiting
@@ -556,7 +568,7 @@ end subroutine densityiterate
 !  MAKE SURE THIS ROUTINE IS INLINED BY THE COMPILER
 !+
 !----------------------------------------------------------------
-pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,iamdusti,&
+pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
                                  listneigh,nneigh,nneighi,dxcache,xyzcache,rhosum,&
                                  ifilledcellcache,ifilledneighcache,getdv,getdB,&
                                  realviscosity,xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself)
@@ -567,11 +579,11 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,iamdusti,
  use fastmath, only:finvsqrt
 #endif
  use kernel,   only:get_kernel,get_kernel_grav1
- use part,     only:iphase,iamgas,iamtype,maxphase,iboundary,igas,idust
+ use part,     only:iphase,iamgas,iamtype,maxphase,iboundary,igas,idust,rhoh,massoftype
  use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust
  integer,      intent(in)    :: i
  real,         intent(in)    :: xpartveci(:)
- real(kind=8), intent(in)    :: hi1,hi21
+ real(kind=8), intent(in)    :: hi,hi1,hi21
  integer,      intent(in)    :: iamtypei
  logical,      intent(in)    :: iamgasi,iamdusti
  integer,      intent(in)    :: listneigh(:)
@@ -594,6 +606,7 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,iamdusti,
  real                        :: wabi,grkerni,dwdhi,dphidhi
  real                        :: projv,dvx,dvy,dvz,dax,day,daz
  real                        :: projdB,dBx,dBy,dBz,fxi,fyi,fzi,fxj,fyj,fzj
+ real                        :: rhoi, rhoj
  logical                     :: same_type,gas_gas
 
  rhosum(:) = 0.
@@ -771,9 +784,14 @@ pure subroutine get_density_sums(i,xpartveci,hi1,hi21,iamtypei,iamgasi,iamdusti,
              endif
 
              if (getdB .and. gas_gas) then
-                dBx = xpartveci(iBevolxi) - Bevol(1,j)
-                dBy = xpartveci(iBevolyi) - Bevol(2,j)
-                dBz = xpartveci(iBevolzi) - Bevol(3,j)
+                ! we need B instead of B/rho, so used our estimated h here
+                ! either it is close enough to be converged,
+                ! or worst case it runs another iteration and re-calculates
+                rhoi = rhoh(real(hi), massoftype(igas))
+                rhoj = rhoh(xyzh(4,j), massoftype(igas))
+                dBx = xpartveci(iBevolxi)*rhoi - Bevol(1,j)*rhoj
+                dBy = xpartveci(iBevolyi)*rhoi - Bevol(2,j)*rhoj
+                dBz = xpartveci(iBevolzi)*rhoi - Bevol(3,j)*rhoj
                 projdB = dBx*runix + dBy*runiy + dBz*runiz
 
                 ! difference operator of divB
@@ -1204,14 +1222,18 @@ subroutine reduce_and_print_neighbour_stats(np)
  endif
 
 end subroutine reduce_and_print_neighbour_stats
-
+!--------------------------------------------------------------------------
+!+
+!--------------------------------------------------------------------------
 pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
-                           xyzcache)
- use io,          only:id
+                             xyzcache)
  use dim,         only:maxvxyzu
  use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,set_boundaries_to_active
  use viscosity,   only:irealvisc
  use kdtree,      only:inodeparts
+#ifdef MPI
+ use io,          only:id
+#endif
 
  type(celldens),  intent(inout)  :: cell
 
@@ -1260,8 +1282,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
        endif
     endif
 
-    hi      = cell%h(i)
-
+    hi    = cell%h(i)
     hi1   = 1./hi
     hi21  = hi1*hi1
     hi31  = hi1*hi21
@@ -1277,7 +1298,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
     ignoreself = .true.
 #endif
 
-    call get_density_sums(lli,cell%xpartvec(:,i),hi1,hi21,iamtypei,iamgasi,iamdusti,&
+    call get_density_sums(lli,cell%xpartvec(:,i),hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
                           listneigh,nneigh,nneighi,dxcache,xyzcache,cell%rhosums(:,i),&
                           .true.,.false.,getdv,getdB,realviscosity,&
                           xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself)
@@ -1288,7 +1309,9 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  enddo over_parts
 
 end subroutine compute_cell
-
+!--------------------------------------------------------------------------
+!+
+!--------------------------------------------------------------------------
 pure subroutine compute_hmax(cell,redo_neighbours)
  use kernel, only:radkern
  type(celldens), intent(inout) :: cell
@@ -1296,14 +1319,17 @@ pure subroutine compute_hmax(cell,redo_neighbours)
  real                          :: hmax_old,hmax
 
  redo_neighbours = .false.
- hmax_old = cell%hmax
- hmax     = 1.01*maxval(cell%h(1:cell%npcell))
- if (hmax > hmax_old) redo_neighbours = .true.
- cell%hmax  = hmax
- cell%rcuti = radkern*hmax
-
+ if (cell%npcell > 0) then
+    hmax_old = cell%hmax
+    hmax     = 1.01*maxval(cell%h(1:cell%npcell))
+    if (hmax > hmax_old) redo_neighbours = .true.
+    cell%hmax  = hmax
+    cell%rcuti = radkern*hmax
+ endif
 end subroutine compute_hmax
-
+!--------------------------------------------------------------------------
+!+
+!--------------------------------------------------------------------------
 subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
  use io,          only:fatal
  use dim,         only:maxp,maxvxyzu
@@ -1377,7 +1403,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
     cell%xpartvec(ifzi,cell%npcell)           = fxyzu(3,i) + fext(3,i)
 
     if (mhd) then
-       iamgasi = iamgas(iphase(i))
        if (iamgasi) then
           cell%xpartvec(iBevolxi,cell%npcell) = Bevol(1,i)
           cell%xpartvec(iBevolyi,cell%npcell) = Bevol(2,i)
@@ -1395,8 +1420,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
  enddo over_parts
 
 end subroutine start_cell
-
-
+!--------------------------------------------------------------------------
+!+
+!--------------------------------------------------------------------------
 subroutine finish_cell(cell,cell_converged)
  use io,       only:iprint,fatal
  use part,     only:get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,hrho
@@ -1484,7 +1510,9 @@ subroutine finish_cell(cell,cell_converged)
  enddo over_parts
 
 end subroutine finish_cell
-
+!--------------------------------------------------------------------------
+!+
+!--------------------------------------------------------------------------
 pure subroutine finish_rhosum(rhosum,pmassi,hi,iterating,rhoi,rhohi,gradhi,gradsofti,dhdrhoi_out,omegai_out)
  use part,  only:rhoh,dhdrho
  real,          intent(in)              :: rhosum(maxrhosum)
@@ -1523,24 +1551,27 @@ pure subroutine finish_rhosum(rhosum,pmassi,hi,iterating,rhoi,rhohi,gradhi,grads
  endif
 
 end subroutine finish_rhosum
-
-subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                        straintensor,vxyzu,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+!--------------------------------------------------------------------------
+!+
+!--------------------------------------------------------------------------
+subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
+                         straintensor,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
  use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,&
                        n_R,n_electronT,eta_nimhd,iohm,ihall,iambi
  use io,          only:fatal,real4
  use eos,         only:get_temperature,get_spsound
- use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,mhd_nonideal,use_dust,use_dustfrac,ndusttypes
+ use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,mhd_nonideal,use_dust,ndusttypes
  use part,        only:maxgradh,idust
- use options,     only:ieos,alpha,alphamax
+ use options,     only:ieos,alpha,alphamax,use_dustfrac
  use viscosity,   only:bulkvisc,shearparam
  use nicil,       only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
  use linklist,    only:set_hmaxcell
  use kernel,      only:radkern
 
- use part,        only:xyzh_soa
- use kdtree,      only:inoderange,inodeparts
+ use part,        only:xyzh_soa,store_temperature,temperature
+ use kdtree,      only:inodeparts
 
+ integer,         intent(in)    :: icall
  type(celldens),  intent(in)    :: cell
  logical,         intent(in)    :: getdv
  logical,         intent(in)    :: getdB
@@ -1554,6 +1585,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  real(kind=4),    intent(inout) :: straintensor(:,:)
  real,            intent(in)    :: vxyzu(:,:)
  real,            intent(out)   :: dustfrac(:,:)
+ real,            intent(out)   :: Bxyz(:,:)
  real,            intent(inout) :: rhomax
  integer(kind=8), intent(inout) :: nneightry
  integer(kind=8), intent(inout) :: nneighact
@@ -1577,7 +1609,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  real         :: divcurlvi(5),rmatrix(6),straini(6)
  real         :: divcurlBi(ndivcurlB)
  real         :: temperaturei,Bi
- real         :: rho1i,term,denom,rhodusti(ndusttypes)
+ real         :: rho1i,term,denom,rhogasi,rhodusti(ndusttypes)
 
  do i = 1,cell%npcell
     lli = inodeparts(cell%arr_index(i))
@@ -1629,7 +1661,7 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
 
     rho1i  = 1./rhoi
     rhomax = max(rhomax,real(rhoi))
-    if (use_dust .and. .not. use_dustfrac .and. (iamgasi .or. iamdusti)) then
+    if (use_dust .and. .not. use_dustfrac) then
        !
        ! for 2-fluid dust compute dust density on gas particles
        ! and store it in dustfrac as dust-to-gas ratio
@@ -1637,8 +1669,13 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
        ! and similarly compute the gas density on dust particles and
        ! store it in dustfrac as gas-to-dust ratio
        !
-       rhodusti(:)   = cnormk*massoftype(idust)*(rhosum(irhodusti))*hi31
-       dustfrac(:,i) = rhodusti(:)*rho1i ! dust-to-gas or gas-to-dust ratio
+       if (iamgasi) then
+          rhodusti(:) = cnormk*massoftype(idust)*(rhosum(irhodusti))*hi31
+          dustfrac(:,lli) = rhodusti(:)*rho1i ! dust-to-gas ratio
+       elseif (iamdusti) then
+          rhogasi = cnormk*massoftype(igas)*(rhosum(irhodusti))*hi31
+          dustfrac(:,lli) = rhogasi*rho1i ! gas-to-dust ratio
+       endif
        if (ndusttypes>1) call fatal('dens','2-fluid not compatible with ndusttypes > 1')
     endif
     !
@@ -1662,7 +1699,11 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
           vxyzui(3) = cell%xpartvec(ivzi,i)
           vxyzui(4) = cell%xpartvec(ieni,i)
 
-          spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:))
+          if (store_temperature) then
+             spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:),temperature(lli))
+          else
+             spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:))
+          endif
           alphaind(2,lli) = real4(get_alphaloc(divcurlvi(5),spsoundi,hi,xi_limiter,alpha,alphamax))
        endif
     else ! we always need div v for h prediction
@@ -1673,10 +1714,18 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
     ! store div B, curl B and related quantities
     !
     if (mhd .and. iamgasi) then
-       Bxi = cell%xpartvec(iBevolxi,i)
-       Byi = cell%xpartvec(iBevolyi,i)
-       Bzi = cell%xpartvec(iBevolzi,i)
+       ! construct B from B/rho (conservative to primitive)
+       Bxi = cell%xpartvec(iBevolxi,i) * rhoi
+       Byi = cell%xpartvec(iBevolyi,i) * rhoi
+       Bzi = cell%xpartvec(iBevolzi,i) * rhoi
        if (maxBevol >= 4) psii = cell%xpartvec(ipsi,i)
+
+       ! store primitive variables (if icall < 2)
+       if (icall==0 .or. icall==1) then
+          Bxyz(1,lli) = Bxi
+          Bxyz(2,lli) = Byi
+          Bxyz(3,lli) = Bzi
+       endif
 
        if (getdB) then
           term = cnormk*pmassi*gradhi*rho1i*hi41
@@ -1732,5 +1781,5 @@ subroutine store_results(cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,div
  ncalc = ncalc + cell%npcell * cell%nits
 
 end subroutine store_results
-
+!--------------------------------------------------------------------------
 end module densityforce

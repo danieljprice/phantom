@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -205,6 +205,7 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
  if (present(getj)) get_j = getj
 
  if (present(f)) then
+    fgrav_global = 0.0
 #ifdef MPI
     if (present(remote_export)) then
        remote_export = .false.
@@ -316,7 +317,7 @@ end subroutine get_cell_location
 
 subroutine sync_hmax_mpi
  use mpiutils,  only:reduceall_mpi
- use io,        only:nprocs,id
+ use io,        only:nprocs
  integer :: i, n
  real    :: hmax(2**(globallevel+refinelevels+1)-1)
 
