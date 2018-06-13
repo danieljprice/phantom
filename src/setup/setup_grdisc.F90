@@ -150,7 +150,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                p_index       = p_index,              &
                q_index       = 0.0,                  &
                HoverR        = honr,                 &
-               ismooth       = .true.                &
+               ismooth       = .true.,               &
                gamma         = gamma,                &
                hfact         = hfact,                &
                xyzh          = xyzh,                 &
