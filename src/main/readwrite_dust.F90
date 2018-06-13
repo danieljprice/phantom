@@ -71,16 +71,18 @@ contains
 !  extract whether one-fluid dust used in Phantom from the fileid
 !+
 !--------------------------------------------------------------------
-subroutine get_onefluiddust(dumpfile,use_onefluiddust)
+subroutine get_onefluiddust(dumpfile,use_onefluiddust,fileid)
  use io,         only:idisk1
  use dump_utils, only:open_dumpfile_r,lenid
- character(len=*),     intent(in)  :: dumpfile
- logical,              intent(out) :: use_onefluiddust
- integer               :: ierr
- character(len=lenid)  :: fileid
+ character(len=*), optional, intent(inout)  :: fileid
+ character(len=*), intent(in)  :: dumpfile
+ logical,          intent(out) :: use_onefluiddust
+ integer :: ierr
 
- call open_dumpfile_r(idisk1,dumpfile,fileid,ierr)
- close(idisk1)
+ if (.not.present(fileid)) then
+    call open_dumpfile_r(idisk1,dumpfile,fileid,ierr)
+    close(idisk1)
+ endif
 
  if (index(fileid,'+1dust') /= 0) then
     use_onefluiddust = .true.
