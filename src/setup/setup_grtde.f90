@@ -46,12 +46,12 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,set_particle_type,rhoh
- use setbinary, only:set_binary,get_a_from_period
+ use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,set_particle_type,rhoh,gravity
+ use setbinary, only:set_binary
  use spherical, only:set_sphere
  use units,     only:set_units,umass,udist
- use physcon,   only:solarm,au,pi,solarr,km
- use io,        only:master,fatal
+ use physcon,   only:solarm,pi,solarr
+ use io,        only:master,fatal,warning
  use timestep,  only:tmax,dtmax
  use metric,    only:mass1,a
  use eos,       only:ieos
@@ -81,6 +81,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  polyk = 1.e-10    ! <== uconst
  gamma = 5./3.
  ieos  = 2
+ if (.not.gravity) call fatal('setup','recompile with GRAVITY=yes')
 
 !
 !-- space available for injected gas particles

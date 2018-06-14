@@ -269,6 +269,7 @@ ifeq ($(SETUP), grtde)
     METRIC=kerr
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
+    GRAVITY=yes
 endif
 
 ifeq ($(SETUP), grdisc)
