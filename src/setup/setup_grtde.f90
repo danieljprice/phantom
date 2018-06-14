@@ -72,7 +72,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical :: iexist
  real    :: rtidal,rp,semia,psep,period,hacc1,hacc2,massr
  real    :: vxyzstar(3),xyzstar(3),rtab(ntab),rhotab(ntab)
- real    :: densi
+ real    :: densi,b,r0,vel,lorentz
 
 !
 !-- general parameters
@@ -130,29 +130,57 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  rtidal          = rstar*(mass1/mstar)**(1./3.)
  rp              = rtidal/beta
- semia           = rp/(1.-ecc)
  psep            = rstar/nr
  accradius1_hard = 5.*mass1
  accradius1      = accradius1_hard
  a               = 0.
- period          = 2.*pi*sqrt(semia**3/mass1)
- tmax            = norbits*period
- dtmax           = period/dumpsperorbit
 
-!
-!-- Set a binary orbit given the desired orbital parameters
-!
- hacc1    = rstar/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
- hacc2    = hacc1
- massr    = mstar/mass1
- call set_binary(mass1,massr,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
- vxyzstar = vxyz_ptmass(1:3,2)
- xyzstar  = xyzmh_ptmass(1:3,2)
+ xyzstar  = 0.
+ vxyzstar = 0.
+ period   = 0.
 
-!
-!-- Delete sinks, replace central sink with Kerr metric and a collection of gas particles
-!
- nptmass = 0
+ if (ecc<1.) then
+ !
+ !-- Set a binary orbit given the desired orbital parameters to get the position and velocity of the star
+ !
+    semia    = rp/(1.-ecc)
+    period   = 2.*pi*sqrt(semia**3/mass1)
+    hacc1    = rstar/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
+    hacc2    = hacc1
+    massr    = mstar/mass1
+    call set_binary(mass1,massr,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
+    vxyzstar = vxyz_ptmass(1:3,2)
+    xyzstar  = xyzmh_ptmass(1:3,2)
+    nptmass  = 0
+
+ !
+ !-- Setup a parabolic orbit
+ !
+elseif (ecc==1.) then
+    b        = sqrt(2.)*rp              ! impact parameter (when b=x)
+    r0       = 2.*rp                    ! this is sqrt(2.)*b (Pythagoras for Isosceles triangle)
+    period   = 2.*pi*sqrt(r0**3/mass1)
+    xyzstar  = (/-b,b,0./)
+    vel      = sqrt(2.*mass1/r0)
+    vxyzstar = (/vel,0.,0./)
+
+ else
+    call fatal('setup','please choose a valid eccentricity (0<ecc<=1)',var='ecc',val=ecc)
+
+ endif
+
+ lorentz = 1./sqrt(1.-dot_product(vxyzstar,vxyzstar))
+ if (lorentz>1.1) call warning('setup','Lorentz factor of star greater than 1.1, density may not be correct')
+ if (id==master) then
+    print "(/,a)",       ' STAR SETUP:'
+    print "(a,3f10.3)"  ,'         Position = ',xyzstar
+    print "(a,3f10.3)"  ,'         Velocity = ',vxyzstar
+    print "(a,1f10.3)"  ,' Lorentz factor   = ',lorentz
+    print "(a,1f10.3,/)",' Polytropic gamma = ',gamma
+ endif
+
+ tmax      = norbits*period
+ dtmax     = period/dumpsperorbit
  call rho_polytrope(gamma,polyk,mstar,rtab,rhotab,npts,set_polyk=.true.,Rstar=rstar)
  call set_sphere('cubic',id,master,0.,rstar,psep,hfact,npart,xyzh,xyz_origin=xyzstar,rhotab=rhotab(1:npts),rtab=rtab(1:npts))
 
@@ -188,7 +216,7 @@ subroutine write_setupfile(filename)
  call write_inopt(mstar,        'mstar',        'mass of star       (solar mass)',            iunit)
  call write_inopt(rstar,        'rstar',        'radius of star     (solar radii)',           iunit)
  call write_inopt(beta,         'beta',         'penetration factor',                         iunit)
- call write_inopt(ecc,          'ecc',          'eccentricity',                               iunit)
+ call write_inopt(ecc,          'ecc',          'eccentricity (1 for parabolic)',             iunit)
  call write_inopt(norbits,      'norbits',      'number of orbits',                           iunit)
  call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',                  iunit)
  call write_inopt(nr           ,'nr'           ,'particles per star radius (i.e. resolution)',iunit)
@@ -213,7 +241,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(mstar,        'mstar',        db,min=0.,errcount=nerr)
  call read_inopt(rstar,        'rstar',        db,min=0.,errcount=nerr)
  call read_inopt(beta,         'beta',         db,min=0.,errcount=nerr)
- call read_inopt(ecc,          'ecc',          db,min=0.,errcount=nerr)
+ call read_inopt(ecc,          'ecc',          db,min=0.,max=1.,errcount=nerr)
  call read_inopt(norbits,      'norbits',      db,min=0.,errcount=nerr)
  call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=0 ,errcount=nerr)
  call read_inopt(nr,           'nr',           db,min=0 ,errcount=nerr)
@@ -222,6 +250,7 @@ subroutine read_setupfile(filename,ierr)
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
     ierr = nerr
  endif
+
 
 end subroutine read_setupfile
 
