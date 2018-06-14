@@ -272,6 +272,16 @@ ifeq ($(SETUP), grtde)
     GRAVITY=yes
 endif
 
+ifeq ($(SETUP), srpolytrope)
+    FPPFLAGS= -DSORT_RADIUS_INIT
+    SETUPFILE= setup_srpolytrope.f90
+    GR=yes
+    METRIC=minkowski
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
+    GRAVITY=yes
+endif
+
 ifeq ($(SETUP), grdisc)
     FPPFLAGS= -DSORT_RADIUS_INIT
     SETUPFILE= setup_grdisc.f90
