@@ -711,6 +711,8 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
                       open_dumpfile_r,get_error_text,ierr_realsize,free_header,read_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
  use sphNGutils, only:convert_sinks_sphNG
+ use options,    only:use_dustfrac
+ use readwrite_dust, only:get_onefluiddust
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -736,6 +738,9 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  ! open dump file
  !
  call open_dumpfile_r(idisk1,dumpfile,fileidentr,ierr)
+
+ !--Extract use_dustfrac from the fileid if not read in infile
+ call get_onefluiddust(dumpfile,use_dustfrac,fileid=fileidentr)
 
  !
  ! exit with error if file not readable by current routine

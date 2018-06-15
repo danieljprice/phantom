@@ -207,8 +207,23 @@ if __name__=="__main__":
         if(drawdirect):
             plt.draw()
             plt.pause(1)
+
+            eccen_name = raw_input("Enter file name to save eccen vs time plot (blank = don't save): ")
+            if (eccen_name.strip() != ''):
+                plt.figure(1)
+                plt.savefig(eccen_name.strip())
+
+            semi_name = raw_input("Enter file name to save a vs time plot (blank = don't save): ")
+            if (semi_name.strip() != ''):
+                plt.figure(2)
+                plt.savefig(semi_name.strip())
+
+            phi_name = raw_input("Enter file name to save phi vs time plot (blank = don't save): ")
+            if (phi_name.strip() != ''):
+                plt.figure(3)
+                plt.savefig(phi_name.strip())
+
             raw_input("<Hit enter to close the plots>")
             plt.close('all')
-
 
 

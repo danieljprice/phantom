@@ -112,7 +112,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
- use io,    only:fatal,error
+ use io,    only:fatal,error,warning
  use part,  only:xyzmh_ptmass
  use units,   only:unit_density,unit_pressure,unit_ergg
  use eos_mesa, only:get_eos_pressure_gamma1_mesa
@@ -126,6 +126,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
  real :: r,omega,bigH,polyk_new,r1,r2
  real :: gammai
  real :: cgsrhoi, cgseni, cgspgas, pgas, gam1
+ integer :: ierr
 
  select case(eos_type)
  case(1)
@@ -250,11 +251,12 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
     cgsrhoi = rhoi * unit_density
     cgseni = eni * unit_ergg
 
-    call get_eos_pressure_gamma1_mesa(cgsrhoi,cgseni,cgspgas,gam1)
+    call get_eos_pressure_gamma1_mesa(cgsrhoi,cgseni,cgspgas,gam1,ierr)
     pgas = cgspgas / unit_pressure
 
     ponrhoi = pgas / rhoi
     spsoundi = sqrt(gam1*ponrhoi)
+    if (ierr /= 0) call warning('eos_mesa','extrapolating off tables')
 
  case(11)
 !
