@@ -345,7 +345,7 @@ endif
 ifeq ($(SETUP), planetatm)
 #   disc interaction with fixed planet orbit + atmosphere
     FPPFLAGS= -DSORT_RADIUS_INIT
-    SETUPFILE= setup_planetatm.f90
+    SETUPFILE= setup_disc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes
     CURLV=yes

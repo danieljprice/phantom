@@ -56,6 +56,14 @@
 !    nsinks      -- number of sinks
 !    setplanets  -- add planets? (0=no,1=yes)
 !    use_mcfost  -- use the mcfost library
+!    isurface    -- model a surface on m1 in binary potential
+!    rho_core    -- planet core density
+!    Ratm_in     -- inner atmosphere radius (in planet radii)
+!    Ratm_out    -- outer atmosphere radius (in planet radii)
+!    atm_type    -- Atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))
+!    Natmfrac    -- fraction of particles used to make planet atmosphere
+!    ramp        -- Do you want to ramp up the planet mass slowly?
+!
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_lensethirring, externalforces, growth, infile_utils, io,
@@ -65,13 +73,15 @@
 !--------------------------------------------------------------------------
 module setup
  use dim,            only:maxp,use_dust,maxalpha,use_dustgrowth,ndusttypes
- use externalforces, only:iext_star,iext_binary,iext_lensethirring,iext_einsteinprec
+ use externalforces, only:iext_star,iext_binary,iext_lensethirring,iext_einsteinprec, &
+                          iext_corot_binary,iext_corotate
  use options,        only:use_dustfrac,iexternalforce
 #ifdef MCFOST
  use options,        only:use_mcfost
 #endif
  use physcon,        only:au,solarm
  use setdisc,        only:scaled_sigma
+ use extern_binary,  only:ramp
 
  implicit none
  public  :: setpart
@@ -82,7 +92,7 @@ module setup
  real    :: m1,m2,accr1,accr2,bhspin,bhspinangle,flyby_a,flyby_d,flyby_O,flyby_i
  real    :: binary_a,binary_e,binary_i,binary_O,binary_w,binary_f,deltat
  integer :: icentral,ipotential,nsinks,ibinary
- logical :: einst_prec
+ logical :: einst_prec,isurface
  !--discs
  character(len=20) :: disclabel
  character(len=*), dimension(3), parameter :: disctype = &
@@ -108,12 +118,17 @@ module setup
  real    :: mplanet(maxplanets),rplanet(maxplanets),accrplanet(maxplanets),inclplan(maxplanets)
  character(len=*), dimension(maxplanets), parameter :: planets = &
     (/'1','2','3','4','5','6','7','8','9' /)
+ !--planet atmosphere defaults
+ integer :: atm_type     = 1
+ real    :: rho_core_cgs = 5.
+ real    :: Ratm_in      = 1.
+ real    :: Ratm_out     = 3.
+ real    :: Natmfrac     = 0.
+
  !--units
  character(len=20) :: dist_unit,mass_unit
 
- private
-
-contains
+ contains
 
 !----------------------------------------------------------------
 !
@@ -125,7 +140,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dust,                 only:grainsizecgs,graindenscgs
  use readwrite_dust,       only:io_grainsize,nduststrings,set_dustfrac_from_inopts
  use eos,                  only:isink,qfacdisc
- use extern_binary,        only:accradius1,accradius2,binarymassr
+ use extern_binary,        only:accradius1,accradius2,binarymassr,eps_soft1
  use externalforces,       only:mass1,accradius1
  use extern_lensethirring, only:blackhole_spin,blackhole_spin_angle
  use io,                   only:master,warning,error,fatal
@@ -169,6 +184,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20)  :: fmt_space
  character(len=100) :: prefix
  character(len=120) :: varstring(ndusttypes)
+
+ integer :: npart_planet_atm,npart_recentre
+ integer :: npart_disc
+ real, parameter :: a0 = 1.
+ real    :: r_surface
+ real    :: udens,rho_core
+
 
  print "(/,65('-'),2(/,a),/,65('-'),/)"
  print "(a)",'     Welcome to the New Disc Setup'
@@ -360,15 +382,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        mcentral   = m1
     case (2)
        print "(/,a)",' Central binary represented by external force with accretion boundary'
-       print "(a,g10.3,a)",'   Primary mass:       ', m1,    trim(mass_unit)
-       print "(a,g10.3)",  '   Binary mass ratio:  ', m2/m1
+       print "(a,g10.3,a)",'   Primary mass:       ', m2,    trim(mass_unit)
+       print "(a,g10.3)",  '   Binary mass ratio:  ', m1/m2
        print "(a,g10.3,a)",'   Accretion Radius 1: ', accr1, trim(dist_unit)
        print "(a,g10.3,a)",'   Accretion Radius 2: ', accr2, trim(dist_unit)
        mass1       = m1
-       binarymassr = m2/m1
+       binarymassr = m1/m2
        accradius1  = accr1
        accradius2  = accr2
-       mcentral    = m1 + m2
+       if (iexternalforce == iext_corot_binary) then
+          mcentral = m2
+       else
+          mcentral = m1 + m2
+       endif
     case (3)
        print "(/,a)",' Central black hole represented by external force with accretion boundary'
        print "(a,g10.3,a)",'   Black hole mass:        ', m1,    trim(mass_unit)
@@ -679,6 +705,34 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
  enddo
 
+ if (isurface) then
+    npart_planet_atm = floor(Natmfrac*np)
+    npart_disc = nparttot - npart_planet_atm
+
+    udens = umass/udist**3
+    rho_core  = rho_core_cgs/udens
+    r_surface = (3./(4.*pi)*m1/rho_core)**(1./3.)
+    !--Note the surface of the planet is located at the Plumber softening length
+    eps_soft1 = r_surface
+    if (eps_soft1 <= 0.) then
+       print*,'Something wrong in the surface radius: eps_soft1 =',eps_soft1
+    endif
+ else
+    npart_disc = nparttot
+ endif
+
+ !--set up an atmosphere around one of the binary masses (i.e. planet)
+ if (isurface .and. npart_planet_atm > 0) then
+    call set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in(1), &
+                        H_R(1),m2,qindex(1),gamma,Ratm_in,Ratm_out,r_surface, &
+                        nparttot,npart_planet_atm,npart_disc,hfact)
+ endif
+
+ !--move into the corotating frame with the planet
+ if (isurface .or. iexternalforce == iext_corotate) then
+    call make_corotate(xyzh,vxyzu,a0,m2,npart,npart_disc)
+ endif
+
  !--number of particles
  npart = nparttot
  npartoftype(igas)  = nparttot - npartdust
@@ -839,7 +893,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--reset centre of mass to the origin
  !
- call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+ if (iexternalforce == iext_corot_binary) then
+    npart_recentre = npart-npart_planet_atm
+ else
+    npart_recentre = npart
+ endif
+
+ call reset_centreofmass(npart_recentre,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  !
  !--set tmax and dtmax
@@ -924,11 +984,30 @@ subroutine setup_interactive(id)
        accr1    = 1.
     case (2)
        !--fixed binary
-       iexternalforce = iext_binary
-       m1       = 1.
-       m2       = 1.
-       accr1    = 1.
-       accr2    = 1.
+       isurface = .false.
+       call prompt('Do you want model a surface on one mass (i.e. planet)?',isurface)
+       if (isurface) then
+          iexternalforce = iext_corot_binary
+          !--binary
+          m1       = 0.001 ! Planet
+          m2       = 1.    ! Central star
+          accr1    = 0.    ! Surface force, so we don't need an accretion radius
+          accr2    = 0.1
+
+          call prompt('Enter orbital radius of the planet (e.g. 5.2au)',dist_unit)
+          call prompt('Enter average core density for the planet (g/cm^3)',rho_core_cgs,0.)
+          call prompt('Enter inner atmosphere radius in planet radii',Ratm_in,1.,10.)
+          call prompt('Enter outer atmosphere radius in planet radii',Ratm_out,Ratm_in,10.)
+          call prompt('Enter atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))',atm_type,1,2)
+          call prompt('Enter fraction of particles to be used in planet atmosphere',Natmfrac,0.,1.)
+          call prompt('Do you want to ramp up the planet mass slowly?',ramp)
+       else
+          iexternalforce = iext_binary
+          m1       = 1.
+          m2       = 1.
+          accr1    = 1.
+          accr2    = 1.
+       endif
     case (3)
        !--spinning black hole (Lense-Thirring)
        iexternalforce = iext_lensethirring
@@ -1029,6 +1108,11 @@ subroutine setup_interactive(id)
  incl       = 0.
  H_R        = 0.05
  disc_mfac  = 1.
+ if (isurface) then
+    R_in       = 0.1
+    R_out      = 3.
+    R_ref      = 1.
+ endif
  if ((icentral==1 .and. nsinks>=2) .and. (ibinary==0)) then
     !--don't smooth circumbinary, by default
     ismoothgas(1) = .false.
@@ -1263,6 +1347,26 @@ subroutine write_setupfile(filename)
        call write_inopt(m2,'m2','secondary mass',iunit)
        call write_inopt(accr1,'accr1','primary accretion radius',iunit)
        call write_inopt(accr2,'accr2','secondary accretion radius',iunit)
+
+       !--options of planet surface/atmosphere
+       write(iunit,"(/,a)") '# options for planet surface/atmosphere'
+       call write_inopt(isurface,'isurface','model m1 as planet with surface',iunit)
+       if (isurface) then
+          call write_inopt(rho_core_cgs,'rho_core','planet core density (cgs units)',iunit)
+          call write_inopt(Ratm_in,'Ratm_in','inner atmosphere radius (planet radii)',iunit)
+          call write_inopt(Ratm_out,'Ratm_out','outer atmosphere radius (planet radii)',iunit)
+          call write_inopt(atm_type,'atm_type','Enter atmosphere type (1:r**(-3); '// &
+                                    '2:r**(-1./(gamma-1.)))',iunit)
+          call write_inopt(Natmfrac,'Natm/Npart','fraction of particles for planet atmosphere',iunit)
+          call write_inopt(ramp,'ramp','Do you want to ramp up the planet mass slowly?',iunit)
+          if (.not.ramp .and. Natmfrac == 0.) then
+              print*,'Warning! Not ramping the mass or initialising an atmosphere will'// &
+                     'likely cause explosive collisions between particles'
+          elseif (ramp .and. Natmfrac /= 0.) then
+              print*,'Warning! The atmosphere will be lost while ramping up the planet mass...'
+              print*,'         ...try using one or the other'
+          endif
+       endif
     case (3)
        !--spinning black hole: Lense-Thirring (+ Einstein precession)
        call write_inopt(einst_prec,'einst_prec','include Einstein precession',iunit)
@@ -1510,6 +1614,18 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
        call read_inopt(accr1,'accr1',db,min=0.,errcount=nerr)
        call read_inopt(accr2,'accr2',db,min=0.,errcount=nerr)
+
+       !--options of planet surface/atmosphere
+       call read_inopt(isurface,'isurface',db,errcount=nerr)
+       if (isurface) then
+          iexternalforce = iext_corot_binary
+          call read_inopt(rho_core_cgs,'rho_core',db,min=0.,errcount=nerr)
+          call read_inopt(Ratm_in,'Ratm_in',db,min=1.,errcount=nerr)
+          call read_inopt(Ratm_out,'Ratm_out',db,min=1.,max=10.,errcount=nerr)
+          call read_inopt(atm_type,'atm_type',db,min=1,max=2,errcount=nerr)
+          call read_inopt(Natmfrac,'Natm/Npart',db,min=0.,max=1.,errcount=nerr)
+          call read_inopt(ramp,'ramp',db,errcount=nerr)
+       endif
     case (3)
        !--spinning black hole (Lense-Thirring)
        iexternalforce = iext_lensethirring
@@ -1817,5 +1933,152 @@ subroutine get_dust_to_gas_ratio(dust_to_gas,R,sigmaprofilegas,sigmaprofiledust,
  dust_to_gas = sigma_dust / sigma_gas
 
 end subroutine get_dust_to_gas_ratio
+
+!----------------------------------------------------------------
+!
+! spherical density profile as a function of radius
+!
+!----------------------------------------------------------------
+real function atm_dens(r)
+ use eos, only:gamma
+ real, intent(in) :: r
+
+ select case(atm_type)
+  case(1)
+     atm_dens = r**(-3)
+  case(2)
+     atm_dens = r**(-1./(gamma - 1.))
+  case default
+     !atm_dens = exp(-(r-r_planet)/scaleheight)
+     stop 'atmosphere not yet implemented...stopping!'
+ end select
+
+end function atm_dens
+
+!----------------------------------------------------------------
+!
+! function to return the sound speed given the radius
+!
+!----------------------------------------------------------------
+pure real function cs_func(cs0,r,q_index)
+ real, intent(in) :: cs0,r,q_index
+
+ cs_func = cs0*r**(-q_index)
+
+end function cs_func
+
+!------------------------------------------------------------------------
+!
+! Set sphere of particles around one of the binary masses (i.e. planet)
+!
+!------------------------------------------------------------------------
+subroutine set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in, &
+                          HoverR,Mstar,q_index,gamma,Ratm_in,Ratm_out,r_surface, &
+                          npart,npart_planet_atm,npart_disc,hfact)
+ use extern_binary, only:binarymassr,ramp
+ use io,            only:master
+ use part,          only:set_particle_type
+ use spherical,     only:set_sphere
+ use physcon,       only:pi
+ integer, intent(in)    :: id,maxvxyzu,itype
+ integer, intent(inout) :: npart,npart_planet_atm,npart_disc
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: Ratm_in,Ratm_out
+ real,    intent(in)    :: a0,R_in,HoverR,Mstar,q_index,gamma,r_surface,hfact
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer, parameter :: igas = 1
+ integer(kind=8)    :: nptot
+ integer            :: i,nx
+ real :: xyz_orig(3)
+ real :: a_orbit
+ real :: psep,vol_sphere
+ real :: cs0,cs
+ !
+ ! place particles in sphere
+ !
+ Ratm_in   = Ratm_in*r_surface
+ Ratm_out  = Ratm_out*r_surface
+
+ if (ramp) then
+    xyz_orig(:) = (/a0,0.,0./)
+ else
+    a_orbit = a0 - binarymassr
+    xyz_orig(:) = (/a_orbit,0.,0./)
+ endif
+
+ vol_sphere  = 4./3.*pi*Ratm_out**3
+ nx          = int(npart_planet_atm**(1./3.))
+ psep        = vol_sphere**(1./3.)/real(nx)
+ nptot       = npart
+
+ call set_sphere('closepacked',id,master,Ratm_in,Ratm_out,psep,hfact,npart,xyzh, &
+                 rhofunc=atm_dens,nptot=nptot, &
+                 np_requested=npart_planet_atm,xyz_origin=xyz_orig)
+
+ npart_planet_atm = npart-npart_disc
+ npartoftype(1) = npart
+ do i = npart_disc+1,npart
+    !--set the particle type for the atmosphere particles
+    call set_particle_type(i,1)
+    !-----------------------------------------
+    !  Set thermal energy
+    !  utherm generally should not be stored
+    !  for an isothermal equation of state
+    if (maxvxyzu >= 4) then
+       if (itype==igas) then
+          cs0 = sqrt(1.0/R_in)*(HoverR)*sqrt(Mstar)*(1.0/R_in)**(-q_index)
+          cs = cs_func(cs0,a0,q_index)
+          if (gamma > 1.) then
+             vxyzu(4,i) = cs**2/(gamma - 1.)/gamma
+          else
+             vxyzu(4,i) = 1.5*cs**2
+          endif
+       else
+          vxyzu(4,i) = 0.
+       endif
+    endif
+ enddo
+
+end subroutine set_planet_atm
+
+!------------------------------------------------------------------------
+!
+! Convert to a corotating frame around one of the binary masses
+!
+!------------------------------------------------------------------------
+subroutine make_corotate(xyzh,vxyzu,a0,Mstar,npart,npart_disc)
+ use extern_corotate, only:omega_corotate
+ integer, intent(inout) :: npart,npart_disc
+ real,    intent(inout) :: vxyzu(:,:)
+ real,    intent(in)    :: xyzh(:,:),a0,Mstar
+ integer :: i
+ real    :: phipart,r
+ real    :: v_0(3),vmag,omega0
+
+ !
+ !--Change to corotating frame
+ !
+ ! Calculate velocity at planet
+ vmag   = sqrt(Mstar/a0)
+ omega0 = sqrt(Mstar/a0**3)
+
+ ! v_phi = v_y at y=0
+ ! Obtain the true v_phi at any point (r,phi) via rotation in z axis
+
+ v_0 = (/0.0,vmag,0.0/)
+
+ print *, 'Transforming to corotating frame: angular velocity ', omega0
+
+ do i=1,npart_disc
+    r          = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
+    phipart    = atan2(xyzh(2,i),xyzh(1,i))
+    vxyzu(1,i) = vxyzu(1,i) - r*(-omega0)*sin(phipart)
+    vxyzu(2,i) = vxyzu(2,i) + r*(-omega0)*cos(phipart)
+ enddo
+ vxyzu(1:3,npart_disc+1:npart) = 0.
+
+ omega_corotate = omega0
+
+end subroutine make_corotate
 
 end module setup

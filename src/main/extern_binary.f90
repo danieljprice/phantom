@@ -21,7 +21,7 @@
 !  RUNTIME PARAMETERS:
 !    accradius1  -- accretion radius of primary
 !    accradius2  -- accretion radius of secondary (if iexternalforce=binary)
-!    binarymassr -- m2/(m1+m2) of central binary system (if iexternalforce=binary)
+!    binarymassr -- m1/(m1+m2) of central binary system (if iexternalforce=binary)
 !    eps_soft1   -- Plummer softening of primary
 !    eps_soft2   -- Plummer softening of secondary
 !    ramp        -- ramp up mass of secondary over first 5 orbits?
@@ -62,7 +62,6 @@ contains
 !----------------------------------------------
 subroutine update_binary(ti,surface_force)
  use physcon,         only:pi
- use extern_corotate, only: omega_corotate
  logical, intent(in) :: surface_force
  real,    intent(in) :: ti
  real :: cost,sint
@@ -76,7 +75,6 @@ subroutine update_binary(ti,surface_force)
  endif
 
  if (surface_force) then
-    !omega = 1. - omega_corotate
     omega = 0. ! fixed position
  else
     omega = 1.
@@ -226,7 +224,7 @@ subroutine write_options_externbinary(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(binarymassr,'binarymassr','m2/(m1+m2) of central binary system (if iexternalforce=binary)',iunit)
+ call write_inopt(binarymassr,'binarymassr','m1/(m1+m2) of central binary system (if iexternalforce=binary)',iunit)
  call write_inopt(accradius1,'accradius1','accretion radius of primary',iunit)
  call write_inopt(accradius2,'accradius2','accretion radius of secondary (if iexternalforce=binary)',iunit)
  call write_inopt(eps_soft1,'eps_soft1','Plummer softening of primary',iunit)
