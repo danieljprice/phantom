@@ -26,9 +26,12 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
+!    Ratm_in     -- inner atmosphere radius (planet radii)
+!    Ratm_out    -- outer atmosphere radius (planet radii)
 !    accr1       -- central star accretion radius
 !    accr2       -- perturber accretion radius
 !    alphaSS     -- desired alphaSS
+!    atm_type    -- Enter atmosphere type (1:r**(-3); 
 !    bhspin      -- black hole spin
 !    bhspinangle -- black hole spin angle (deg)
 !    binary_O    -- Omega, PA of ascending node (deg)
@@ -46,6 +49,7 @@
 !    flyby_i     -- inclination (deg)
 !    ibinary     -- binary orbit (0=bound,1=unbound [flyby])
 !    ipotential  -- potential (1=central point mass,
+!    isurface    -- model m1 as planet with surface
 !    m1          -- central star mass
 !    m2          -- perturber mass
 !    mass_unit   -- mass unit (e.g. solarm,jupiterm,earthm)
@@ -54,21 +58,16 @@
 !    np_dust     -- number of dust particles
 !    nplanets    -- number of planets
 !    nsinks      -- number of sinks
+!    ramp        -- Do you want to ramp up the planet mass slowly?
+!    rho_core    -- planet core density (cgs units)
 !    setplanets  -- add planets? (0=no,1=yes)
 !    use_mcfost  -- use the mcfost library
-!    isurface    -- model a surface on m1 in binary potential
-!    rho_core    -- planet core density
-!    Ratm_in     -- inner atmosphere radius (in planet radii)
-!    Ratm_out    -- outer atmosphere radius (in planet radii)
-!    atm_type    -- Atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))
-!    Natmfrac    -- fraction of particles used to make planet atmosphere
-!    ramp        -- Do you want to ramp up the planet mass slowly?
-!
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
-!    extern_lensethirring, externalforces, growth, infile_utils, io,
-!    kernel, options, part, physcon, prompting, readwrite_dust, setbinary,
-!    setdisc, setflyby, timestep, units, vectorutils
+!    extern_corotate, extern_lensethirring, externalforces, growth,
+!    infile_utils, io, kernel, options, part, physcon, prompting,
+!    readwrite_dust, setbinary, setdisc, setflyby, spherical, timestep,
+!    units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module setup
