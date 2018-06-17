@@ -127,7 +127,7 @@ module setup
  !--units
  character(len=20) :: dist_unit,mass_unit
 
- contains
+contains
 
 !----------------------------------------------------------------
 !
@@ -1359,11 +1359,11 @@ subroutine write_setupfile(filename)
           call write_inopt(Natmfrac,'Natm/Npart','fraction of particles for planet atmosphere',iunit)
           call write_inopt(ramp,'ramp','Do you want to ramp up the planet mass slowly?',iunit)
           if (.not.ramp .and. Natmfrac == 0.) then
-              print*,'Warning! Not ramping the mass or initialising an atmosphere will'// &
+             print*,'Warning! Not ramping the mass or initialising an atmosphere will'// &
                      'likely cause explosive collisions between particles'
           elseif (ramp .and. Natmfrac /= 0.) then
-              print*,'Warning! The atmosphere will be lost while ramping up the planet mass...'
-              print*,'         ...try using one or the other'
+             print*,'Warning! The atmosphere will be lost while ramping up the planet mass...'
+             print*,'         ...try using one or the other'
           endif
        endif
     case (3)
@@ -1943,13 +1943,13 @@ real function atm_dens(r)
  real, intent(in) :: r
 
  select case(atm_type)
-  case(1)
-     atm_dens = r**(-3)
-  case(2)
-     atm_dens = r**(-1./(gamma - 1.))
-  case default
-     !atm_dens = exp(-(r-r_planet)/scaleheight)
-     stop 'atmosphere not yet implemented...stopping!'
+ case(1)
+    atm_dens = r**(-3)
+ case(2)
+    atm_dens = r**(-1./(gamma - 1.))
+ case default
+    !atm_dens = exp(-(r-r_planet)/scaleheight)
+    stop 'atmosphere not yet implemented...stopping!'
  end select
 
 end function atm_dens
