@@ -56,7 +56,8 @@ contains
 !  only do this ONCE as sin/cos expensive
 !+
 !----------------------------------------------
-subroutine update_binary(ti)
+subroutine update_binary(ti,surface_force)
+ logical, optional, intent(in) :: surface_force
  real, intent(in) :: ti
 
  call compute_binary_pos(ti)
@@ -91,7 +92,8 @@ end subroutine compute_binary_pos
 !  the binary system
 !+
 !----------------------------------------------
-subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi)
+subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi,surface_force)
+ logical, optional, intent(in) :: surface_force
  real, intent(in)  :: xi,yi,zi,ti
  real, intent(out) :: fxi,fyi,fzi,phi
  real :: x1,y1
