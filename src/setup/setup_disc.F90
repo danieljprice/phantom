@@ -99,7 +99,7 @@ module setup
       'primary  ', &
       'secondary'/)
  logical :: iuse_disc(3),itapergas(3),itaperdust(3),iwarp(3)
- logical :: ismoothgas(3),ismoothdust(3)
+ logical :: ismoothgas(3),ismoothdust(3),use_global_iso
  integer :: mass_set(3),profile_set_dust,dust_method,ndiscs
  real    :: R_in(3),R_out(3),R_ref(3),R_c(3),R_warp(3),H_warp(3)
  real    :: pindex(3),qindex(3),H_R(3),posangl(3),incl(3)
@@ -284,23 +284,35 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (is_isothermal) then
     !--isothermal
+    gamma = 1.0
     if (ndiscs /= 1) then
        !--multiple discs
-       if (sum(qindex) > maxval(qindex)) then
-          call fatal('setup_disc','locally isothermal eos for more than one disc '// &
-                     'requested, no ieos to handle this')
-       else
+       if (use_global_iso) then
           !--globally isothermal
           ieos = 1
-          gamma = 1.0
-          call warning('setup_disc','multiple discs: setting eos to globally isothermal'// &
-                                    '---recompile with ISOTHERMAL=no for adiabatic')
+          qindex = 0.
+          print "(/,a)",' setting ieos=1 for globally isothermal disc'
           if (iuse_disc(1)) then
              H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
              H_R(3) = sqrt(R_ref(3)/R_ref(1)*(m1+m2)/m2) * H_R(1)
              call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
           elseif (iuse_disc(2)) then
              H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
+             call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
+          endif
+       else
+          !--locally isothermal prescription from Farris et al. (2014) for binary system
+          ieos = 14
+          print "(/,a)",' setting ieos=14 for locally isothermal from Farris et al. (2014)'
+          if (iuse_disc(1)) then
+             H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
+             H_R(3) = sqrt(R_ref(3)/R_ref(1)*(m1+m2)/m2) * H_R(1)
+             qindex(2) = qindex(1)
+             qindex(3) = qindex(1)
+             call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
+          elseif (iuse_disc(2)) then
+             H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
+             qindex(3) = qindex(2)
              call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
           endif
        endif
@@ -319,7 +331,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              ieos = 3
              print "(/,a)",' setting ieos=3 for locally isothermal disc around origin'
           endif
-          gamma = 1.0
           qfacdisc = qindex(idisc)
        endif
     endif
@@ -1085,6 +1096,9 @@ subroutine setup_interactive(id)
     if (.not.any(iuse_disc)) iuse_disc(1) = .true.
     !--set number of discs
     ndiscs = count(iuse_disc)
+    if (ndiscs > 1) then
+       use_global_iso = .false.
+    endif
  endif
 !
 !--set gas disc defaults
@@ -1424,6 +1438,8 @@ subroutine write_setupfile(filename)
        call write_inopt(iuse_disc(i),'use_'//trim(disctype(i))//'disc','setup circum' &
                                      //trim(disctype(i))//' disc',iunit)
     enddo
+    call write_inopt(use_global_iso,'use_global_iso',&
+                     'globally isothermal or Farris et al. (2014)',iunit)
  endif
  !--individual disc(s)
  do i=1,3
@@ -1692,6 +1708,9 @@ subroutine read_setupfile(filename,ierr)
     iuse_disc(1) = .true.
  endif
  ndiscs = count(iuse_disc)
+ if (ndiscs > 1) then
+    call read_inopt(use_global_iso,'use_global_iso',db,errcount=nerr)
+ endif
 
  do i=1,3
     if (iuse_disc(i)) then
