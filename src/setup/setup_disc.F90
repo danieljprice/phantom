@@ -171,7 +171,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer, parameter :: maxbins = 4096
  logical :: iexist,seq_exists,is_isothermal
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
- real    :: jdust_to_gas_ratio,Rj,period,Rochelobe,tol,Hill(maxplanets)
+ real    :: jdust_to_gas_ratio,Rj,period,Rochelobe,Hill(maxplanets)
  real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Sigmadust,Stokes(ndusttypes)
  real    :: polyk_dust,xorigini(3),vorigini(3),alpha_returned(3)
  real    :: star_m(3),disc_mdust(3),sig_normdust(3),u(3)
@@ -858,10 +858,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           enddo
        endif
        !--set sink particles
+       Hill(i) = (mplanet(i)*jupiterm/solarm/(3.*mcentral))**(1./3.) * rplanet(i)
        xyzmh_ptmass(1:3,nptmass)    = (/rplanet(i)*cosphi,rplanet(i)*sinphi,0./)
        xyzmh_ptmass(4,nptmass)      = mplanet(i)*jupiterm/umass
-       xyzmh_ptmass(ihacc,nptmass)  = accrplanet(i)
-       xyzmh_ptmass(ihsoft,nptmass) = accrplanet(i)
+       xyzmh_ptmass(ihacc,nptmass)  = accrplanet(i)*Hill(i)
+       xyzmh_ptmass(ihsoft,nptmass) = accrplanet(i)*Hill(i)
        vphi                         = sqrt((mcentral + disc_m_within_r)/rplanet(i))
        vxyz_ptmass(1:3,nptmass)     = (/-vphi*sinphi,vphi*cosphi,0./)
        !--incline positions and velocities
@@ -871,7 +872,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call rotatevec(vxyz_ptmass(1:3,nptmass), u,-inclplan(i))
        !--print planet information
        omega = vphi/rplanet(i)
-       Hill(i) = (mplanet(i)*jupiterm/solarm/(3.*mcentral))**(1./3.) * rplanet(i)
        print "(a,i2,a)",             ' >>> planet ',i,' <<<'
        print "(a,g10.3,a)",          '      radius: ',rplanet(i)*udist/au,' AU'
        print "(a,g10.3,a,2pf7.3,a)", '       M(<R): ',(disc_m_within_r + mcentral)*umass/solarm, &
@@ -886,10 +886,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        print "(a,g10.3,a)",   '    5:1 : ',(sqrt(mcentral)/(5.*omega))**(2./3.)*udist/au,' AU'
        print "(a,g10.3,a)",   '    9:1 : ',(sqrt(mcentral)/(9.*omega))**(2./3.)*udist/au,' AU'
        !--check planet accretion radii
-       tol = 0.1*Hill(i)
-       if (accrplanet(i) < Hill(i)/2. - tol) then
-          call warning('setup_disc','accretion radius of planet < half Hill radius: too small')
-       elseif (accrplanet(i) > Hill(i) + tol) then
+       if (accrplanet(i) < 0.12) then
+          call warning('setup_disc','accretion radius of planet < 1/8 Hill radius: too small')
+       elseif (accrplanet(i) > 1.05) then
           call warning('setup_disc','accretion radius of planet > Hill radius: too large')
        endif
        print *, ''
@@ -1265,7 +1264,7 @@ subroutine setup_interactive(id)
  nplanets      = 0
  mplanet       = 1.
  rplanet       = (/ (10.*i, i=1,maxplanets) /)
- accrplanet    = 0.034 * rplanet
+ accrplanet    = 0.5
  inclplan      = 0.
  print "(/,a)",'================='
  print "(a)",  '+++  PLANETS  +++'
@@ -1537,7 +1536,7 @@ subroutine write_setupfile(filename)
        call write_inopt(mplanet(i),'mplanet'//trim(planets(i)),'planet mass (in Jupiter mass)',iunit)
        call write_inopt(rplanet(i),'rplanet'//trim(planets(i)),'planet distance from star',iunit)
        call write_inopt(inclplan(i),'inclplanet'//trim(planets(i)),'planet orbital inclination (deg)',iunit)
-       call write_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),'planet radius',iunit)
+       call write_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),'planet accretion radius (in Hill radius)',iunit)
     enddo
  endif
  !--timestepping
