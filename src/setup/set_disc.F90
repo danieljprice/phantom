@@ -109,7 +109,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  real    :: star_m,disc_m,disc_mdust,sigma_norm,sigma_normdust,Q_tmp
  real    :: honH,alphaSS_min,alphaSS_max,rminav,rmaxav,honHmin,honHmax
  real    :: aspin,aspin_angle,posangl,incl,R_warp,H_warp,psimax
- real    :: xorigini(3),vorigini(3),R_ref
+ real    :: xorigini(3),vorigini(3),R_ref,L_tot(3),L_tot_mag
  real    :: enc_m(maxbins),rad(maxbins),enc_m_tmp(maxbins),rad_tmp(maxbins)
  logical :: smooth_surface_density,do_write,do_mixture
  logical :: do_verbose,exponential_taper,exponential_taper_dust
@@ -400,6 +400,9 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  else
     call adjust_centre_of_mass(xyzh,vxyzu,particle_mass,npart_start_count,npart_tot,xorigini,vorigini)
  endif
+ ! Calculate the total angular momentum of the disc only
+ call get_total_angular_momentum(xyzh,vxyzu,npart,L_tot)
+ L_tot_mag = sqrt(dot_product(L_tot,L_tot))*umass*udist**2/utime
  !
  !--print out disc parameters, to file and to the screen
  !
@@ -418,7 +421,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
        endif
        call write_discinfo(1,R_in,R_out,R_ref,Q,npart,sigmaprofile,R_c,p_index,q_index, &
                            star_m,disc_m,sigma_norm,real(incl*180.0/pi),honH,cs0, &
-                           alphaSS_min,alphaSS_max,R_warp,psimax,itype)
+                           alphaSS_min,alphaSS_max,R_warp,psimax,L_tot_mag,itype)
        close(1)
        if (do_mixture) then
           open(1,file=trim(prefix)//'-'//trim(labeltype(idust))//'.discparams', &
@@ -426,7 +429,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
           call write_discinfo(1,R_indust,R_outdust,R_ref,Q,npart,sigmaprofiledust, &
                               R_c_dust,p_inddust,q_index,star_m,disc_massdust, &
                               sigma_normdust,real(incl*180.0/pi),honH,cs0, &
-                              alphaSS_min,alphaSS_max,R_warp,psimax,idust)
+                              alphaSS_min,alphaSS_max,R_warp,psimax,L_tot_mag,idust)
           close(1)
        endif
     endif
@@ -435,13 +438,13 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
        call write_discinfo(stdout,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
                            R_c,p_index,q_index,star_m,disc_m,sigma_norm, &
                            real(incl*180.0/pi),honH,cs0,alphaSS_min,alphaSS_max, &
-                           R_warp,psimax,itype)
+                           R_warp,psimax,L_tot_mag,itype)
     endif
     if (do_mixture) then
        call write_discinfo(stdout,R_indust,R_outdust,R_ref,Q,npart,sigmaprofiledust, &
                            R_c_dust,p_inddust,q_index,star_m,disc_massdust, &
                            sigma_normdust,real(incl*180.0/pi),honH,cs0, &
-                           alphaSS_min,alphaSS_max,R_warp,psimax,idust)
+                           alphaSS_min,alphaSS_max,R_warp,psimax,L_tot_mag,idust)
     endif
  endif
 
@@ -806,11 +809,11 @@ end function get_HonR
 subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
                           R_c,p_index,q_index,star_m,disc_m,sigma_norm, &
                           inclination,honH,cs0,alphaSS_min,alphaSS_max, &
-                          R_warp,psimax,itype)
+                          R_warp,psimax,L_tot_mag,itype)
  use eos,          only:get_temperature,init_eos,ieos
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit,npart,itype,sigmaprofile
- real,    intent(in) :: R_in,R_out,R_ref,Q,p_index,q_index,star_m,disc_m,sigma_norm
+ real,    intent(in) :: R_in,R_out,R_ref,Q,p_index,q_index,star_m,disc_m,sigma_norm,L_tot_mag
  real,    intent(in) :: alphaSS_min,alphaSS_max,R_warp,psimax,R_c,inclination,honH,cs0
  integer :: ierr,i
  real    :: T0,T_ref,sig,dR,R
@@ -876,12 +879,12 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  write(iunit,"(a)")
 
  !--print some of these diagnostics in more useful form
- write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
+ write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a,/)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
  if (sigmaprofile==0) then
     write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,/)") '# Surface density      = ',&
          sigma_norm*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,')'
  elseif (sigmaprofile==1) then
-    write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,f5.1,a,f4.1,a/)") '# Surface density      = ',&
+    write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,f5.1,a,f4.1,a,/)") '# Surface density      = ',&
          sigma_norm*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,') exp[-(R/',R_c,')^(2-',p_index,')]'
  elseif (sigmaprofile==2) then
     write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,f4.1,a,/)") '# Surface density      = ',&
@@ -890,6 +893,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
     write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,f5.1,a,f4.1,a,f4.1,a,/)") '# Surface density      = ',&
          sigma_norm*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,') exp[-(R/',R_c,')^(2-',p_index,')] (1 - sqrt(',R_in,'/R))'
  endif
+ write(iunit,"(a,es9.2,a)") '# Disc total angular momentum = ',L_tot_mag,' g*cm^2/sec'
 
  return
 end subroutine write_discinfo
@@ -1095,5 +1099,43 @@ subroutine get_disc_mass(disc_m,enc_m,rad,toomre_min,sigmaprofile,sigma_norm, &
  enc_m = enc_m + star_m
 
 end subroutine get_disc_mass
+
+!------------------------------------------------------------------------
+!
+! Small routine to calculate the total angular momentum vector of
+! the whole system (particles + sinks)
+!
+!------------------------------------------------------------------------
+subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_ptmass,npart_ptmass)
+ use vectorutils, only:cross_product3D
+ use options,     only:use_dustfrac
+ use part,        only:iphase,iamtype,massoftype
+ real, intent(in)  :: xyzh(:,:),vxyz(:,:)
+ real, optional, intent(in):: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, intent(in) :: npart
+ integer, optional, intent(in) :: npart_ptmass
+ real, intent(out) :: L_tot(3)
+ integer           :: ii,itype
+ real              :: temp(3),pmassi
+
+ L_tot(:) = 0.
+
+ ! Calculate the angular momentum from all the particles
+ do ii = 1,npart
+    itype = iamtype(iphase(ii))
+    pmassi = massoftype(itype)
+    call cross_product3D(xyzh(1:3,ii),vxyz(1:3,ii),temp)
+    L_tot = L_tot + temp*pmassi
+ enddo 
+ 
+ ! Calculate from the sinks
+ if (present(npart_ptmass)) then
+    do ii = 1,npart_ptmass
+       call cross_product3D(xyzmh_ptmass(1:3,ii),vxyz_ptmass(1:3,ii),temp)
+       L_tot = L_tot + temp*xyzmh_ptmass(4,ii)
+    enddo
+ endif
+
+end subroutine get_total_angular_momentum
 
 end module setdisc
