@@ -93,6 +93,12 @@ subroutine test_dust(ntests,npass)
  call barrier_mpi()
 
  !
+ ! Test that drag conserves momentum and energy
+ !
+ call test_drag(ntests,npass)
+ call barrier_mpi()
+
+ !
  ! DUSTYBOX test
  !
  call test_dustybox(ntests,npass)
@@ -581,6 +587,28 @@ subroutine write_file(time,xyzh,dustfrac,npart)
  close(lu)
 
 end subroutine write_file
+
+!----------------------------------------------------
+!+
+!  check that drag implementation conserves momentum
+!+
+!----------------------------------------------------
+subroutine test_drag(ntests,npass)
+ integer, intent(inout) :: ntests,npass
+
+ !if (id==master) write(*,"(/,a)") '--> testing DUST DRAG'
+!
+! set up particles in random distribution
+!
+
+!
+! call derivatives
+!
+
+!
+! check that momentum and energy are conserved
+!
+end subroutine test_drag
 
 #endif
 
