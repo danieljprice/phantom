@@ -18,8 +18,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: centreofmass, dim, externalforces, initial_params, io,
-!    options, part, prompting, readwrite_dumps
+!  DEPENDENCIES: centreofmass, dim, extern_gwinspiral, externalforces,
+!    initial_params, io, options, part, physcon, prompting,
+!    readwrite_dumps, timestep, units
 !+
 !--------------------------------------------------------------------------
 module moddump

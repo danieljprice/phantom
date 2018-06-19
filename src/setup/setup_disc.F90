@@ -291,30 +291,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           !--globally isothermal
           ieos = 1
           qindex = 0.
+          qfacdisc = qindex(1)
           print "(/,a)",' setting ieos=1 for globally isothermal disc'
           if (iuse_disc(1)) then
              H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
              H_R(3) = sqrt(R_ref(3)/R_ref(1)*(m1+m2)/m2) * H_R(1)
              call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
           elseif (iuse_disc(2)) then
-             H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
-             call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
+                H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
+                call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
           endif
        else
           !--locally isothermal prescription from Farris et al. (2014) for binary system
           ieos = 14
           print "(/,a)",' setting ieos=14 for locally isothermal from Farris et al. (2014)'
-          if (iuse_disc(1)) then
-             H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
-             H_R(3) = sqrt(R_ref(3)/R_ref(1)*(m1+m2)/m2) * H_R(1)
-             qindex(2) = qindex(1)
-             qindex(3) = qindex(1)
+          if(iuse_disc(1)) then 
+             H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
+             H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
              call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
-          elseif (iuse_disc(2)) then
-             H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
-             qindex(3) = qindex(2)
+          elseif(iuse_disc(2))then
+             H_R(3) = (R_ref(3)/R_ref(2)*m2/m1)**(0.5-qindex(2)) * H_R(2)
              call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
           endif
+          qfacdisc = qindex(3)
        endif
     else
        !--single disc
@@ -963,6 +962,7 @@ subroutine setup_interactive(id)
  use dust,           only:ilimitdustflux
  use readwrite_dust, only:interactively_set_dust
  use prompting,      only:prompt
+ use io, only: warning
  integer, intent(in) :: id
  integer :: maxdiscs
  real    :: disc_mfac(3)
@@ -1142,11 +1142,50 @@ subroutine setup_interactive(id)
     disc_mfac = (/1., 0.1, 0.01/)
     if (ndiscs > 1) then
        !--set H/R so temperature is globally constant
-       H_R(1) = 0.1
-       H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
-       H_R(3) = sqrt(R_ref(3)/R_ref(1)*(m1+m2)/m2) * H_R(1)
-       H_R(2) = nint(H_R(2)*10000.)/10000.
-       H_R(3) = nint(H_R(3)*10000.)/10000.
+       call prompt('Do you want a globally istothermal disc (if not Farris et al. 2014)?',use_global_iso)
+       !--------------------------------
+       ! N.B. The initializations of multiple discs is not done using the implementation of the eos
+       ! a radial profile centred on CM, primary and secondary is used.
+       ! The value of H_R used in setpart to set cs0 is the one of the circumbinary if cb disc is present,  
+       ! otherwise it uses the circumprimary. 
+       ! The values of H_R used for the other discs are set using the equations below, however changing them here
+       ! is not enough. THey need to be changed also in the the setpart function.
+       !--------------------------------
+       if(.not. use_global_iso) then
+         call prompt('Enter q_index',qindex(1))
+         qindex=qindex(1)
+         if(iuse_disc(1)) then 
+            call prompt('Enter H/R of circumbinary at R_ref',H_R(1))
+            H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
+            H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
+         else
+            if(iuse_disc(2))then
+                call prompt('Enter H/R of circumprimary at R_ref',H_R(2))
+                H_R(1) = (R_ref(1)/R_ref(2)*m1/(m1+m2))**(0.5-qindex(2)) * H_R(2)
+                H_R(3) = (R_ref(3)/R_ref(2)*m2/m1)**(0.5-qindex(2)) * H_R(2)
+            else 
+                call prompt('Enter H/R of circumsecondary at R_ref',H_R(3))
+                H_R(1) = sqrt(R_ref(1)/R_ref(3)*m2/(m1+m2))**(0.5-qindex(3)) * H_R(3)
+                H_R(2) = sqrt(R_ref(2)/R_ref(3)*m2/m1)**(0.5-qindex(3)) * H_R(3)
+           endif
+         endif
+         H_R(2) = nint(H_R(2)*10000.)/10000.
+         H_R(3) = nint(H_R(3)*10000.)/10000.
+       else
+          if (iuse_disc(1)) then
+             H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
+             H_R(3) = sqrt(R_ref(3)/R_ref(1)*(m1+m2)/m2) * H_R(1)
+             qindex(2) = qindex(1)
+             qindex(3) = qindex(1)
+             call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
+          elseif (iuse_disc(2)) then
+             H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
+             qindex(3) = qindex(2)
+             call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
+          endif
+          H_R(2) = nint(H_R(2)*10000.)/10000.
+          H_R(3) = nint(H_R(3)*10000.)/10000.
+        endif
     endif
  endif
  do i=1,3

@@ -678,7 +678,7 @@ endif
 ifeq ($(SETUP), star)
 #   import stellar model from 1D stellar evolution code
 #   use option 5 of setup_star
-    FPPFLAGS= -DSORT_RADIUS_INIT -DSETUPIEOS
+    FPPFLAGS= -DSORT_RADIUS_INIT
     SETUPFILE= setup_star.f90
     MODFILE= moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} dtype_kdtree.o kdtree.o linklist_kdtree.o utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90

@@ -11,13 +11,13 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: James Wurster
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, io
+!  DEPENDENCIES: io
 !+
 !--------------------------------------------------------------------------
 module gitinfo

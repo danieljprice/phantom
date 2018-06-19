@@ -4,9 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
-!+                                                                         !
-!  MODULE: moddump                                                         !
-!                                                                          !
+!+
+!  MODULE: moddump
+!
 !  DESCRIPTION:                                                            !
 !  Tilts and puts a (rotating) star in a parabolic orbit around a BH       !
 !                                                                          !
@@ -21,8 +21,26 @@
 !  RUNTIME PARAMETERS: None                                                !
 !                                                                          !
 !  DEPENDENCIES: centreofmass, externalforces, options, prompting, physcon !
-!+                                                                         !
-!--------------------------------------------------------------------------!
+!
+!  REFERENCES: None                                                        !
+!                                                                          !
+!  OWNER: Daniel Price                                                     !
+!                                                                          !
+!  $Id$                         !
+!                                                                          !
+!  RUNTIME PARAMETERS: None                                                !
+!                                                                          !
+!  DEPENDENCIES: centreofmass, externalforces, options, prompting, physcon !
+!
+!  OWNER: David Liptai
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS: None
+!
+!  DEPENDENCIES: centreofmass, externalforces, options, physcon, prompting
+!+
+!--------------------------------------------------------------------------
 module moddump
  implicit none
 
@@ -75,9 +93,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  Lp=sqrt(Lx**2.0+Lz**2.0)
 
  if (Lx > 0.) then
-     phi=acos(Lz/Lp)
+    phi=acos(Lz/Lp)
  elseif (Lx < 0.) then
-     phi=-acos(Lz/Lp)
+    phi=-acos(Lz/Lp)
  endif
 
  print*,'tilting along y axis: ',(phi*180/pi),'degrees'
@@ -122,9 +140,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 
  if (Ly < 0.) then
-     theta=acos(Lz/L)
+    theta=acos(Lz/L)
  elseif (Ly > 0.) then
-     theta=-acos(Lz/L)
+    theta=-acos(Lz/L)
  endif
 
  print*, 'tilting along x axis: ',(theta*180/pi),'degrees'
@@ -204,7 +222,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  theta=theta*pi/180.0
  phi=phi*pi/180.0
 
- if (theta .ne. 0.0) then
+ if (theta  /=  0.0) then
     do i=1,npart
        y=xyzh(2,i)
        z=xyzh(3,i)
@@ -216,7 +234,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        vxyzu(3,i)=vy*sin(theta)+vz*cos(theta)
     enddo
  endif
- if (phi .ne. 0.0) then
+ if (phi  /=  0.0) then
     do i=1,npart
        x=xyzh(1,i)
        z=xyzh(3,i)
@@ -226,7 +244,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        vz=vxyzu(3,i)
        vxyzu(1,i)=vx*cos(phi)+vz*sin(phi)
        vxyzu(3,i)=-vx*sin(phi)+vz*cos(phi)
-     enddo
+    enddo
  endif
 
  !--Putting star into orbit

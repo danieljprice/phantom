@@ -320,10 +320,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 
     do i=1,ngrid
-    if (ninbin(i)/=0) then
-       meanzgas(i)=zgas(i)/real(ninbin(i))
-       hgas(i)=sqrt((zgas2(i)-2*meanzgas(i)*zgas(i)+ninbin(i)*meanzgas(i)**2)/(real(ninbin(i)-1)))
-    endif
+       if (ninbin(i)/=0) then
+          meanzgas(i)=zgas(i)/real(ninbin(i))
+          hgas(i)=sqrt((zgas2(i)-2*meanzgas(i)*zgas(i)+ninbin(i)*meanzgas(i)**2)/(real(ninbin(i)-1)))
+       endif
     enddo
 
     if (j == ipri) then
