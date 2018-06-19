@@ -40,13 +40,17 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,     intent(inout) :: massoftype(:)
  real,     intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer                 :: i
- real                    :: beta, b, rt, rp, r, rs, Ms, Mh
+ real                    :: beta, rt, rp, rs, Ms, Mh
  real                    :: Lx,Ly,Lz,L,Lp
  real                    :: phi,theta
  real                    :: x,y,z,vx,vy,vz
+ real                    :: x0,y0,vx0,vy0,alpha,r0
 
  !--Reset center of mass
  call reset_centreofmass(npart,xyzh,vxyzu)
+
+ phi   = 0.
+ theta = 0.
 
  !--Calculating anuglar momentum (blame on Andrea Sacchi)
 
@@ -70,9 +74,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  Lp=sqrt(Lx**2.0+Lz**2.0)
 
- if (Lx .ge. 0.0) then
+ if (Lx > 0.) then
      phi=acos(Lz/Lp)
- else
+ elseif (Lx < 0.) then
      phi=-acos(Lz/Lp)
  endif
 
@@ -117,9 +121,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 ! print*,'Angular momentum modulus is L=',L
 
 
- if (Ly .le. 0.0) then
+ if (Ly < 0.) then
      theta=acos(Lz/L)
- else
+ elseif (Ly > 0.) then
      theta=-acos(Lz/L)
  endif
 
@@ -162,9 +166,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print*,'Angular momentum is L=(',Lx,Ly,Lz,')'
  print*,'Angular momentum modulus is L=',L
 
-
-
-
  !--Defaults
  beta = 1.0                   ! penetration factor
  Mh = 1.e6                    ! BH mass
@@ -184,7 +185,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  rt = (Mh/Ms)**(1./3.) * rs   ! tidal radius
  rp = rt/beta                 ! pericenter distance
- b = sqrt(2.)*rp              ! impact parameter (when b=x)
+
+ alpha = 3./4.*pi  ! Starting angle from x-axis (anti-clockwise)
+ ! alpha = 2.2      ! Most time efficient (Elen)
+ r0    = 2.*rt/beta*1./(1.+cos(alpha)) ! Starting radius
+
+ x0    = r0*cos(alpha)
+ y0    = r0*sin(alpha)
+ vx0   = sqrt(mh*beta/(2.*rt)) * sin(alpha)
+ vy0   = -sqrt(mh*beta/(2.*rt)) * (cos(alpha)+1.)
 
  !--Set input file parameters
  mass1 = Mh
@@ -222,34 +231,20 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  !--Putting star into orbit
  do i = 1, npart
-    !--translate star by x=-b, y=b
-    !
-    xyzh(1,i) = xyzh(1,i) + b
-    xyzh(2,i) = xyzh(2,i) + b
-    xyzh(3,i) = xyzh(3,i)
-    xyzh(4,i) = xyzh(4,i)
-    !
-    r = sqrt(2.)*b ! when b=x
-    !--giving star a velocity
-    !--velocity of star in parabolic orbit is sqrt(2GM/r)
-    !
-    vxyzu(1,i) = vxyzu(1,i)-sqrt(2.*Mh/r)
-    vxyzu(2,i) = vxyzu(2,i)
-    vxyzu(3,i) = vxyzu(3,i)
-    !
+    xyzh(1,i)  = xyzh(1,i)  + x0
+    xyzh(2,i)  = xyzh(2,i)  + y0
+    vxyzu(1,i) = vxyzu(1,i) + vx0
+    vxyzu(2,i) = vxyzu(2,i) + vy0
  enddo
 
  theta=theta*pi/180.0
  phi=phi*pi/180.0
 
-
-
-
  write(*,'(a)') "======================================================================"
  write(*,'(a,Es12.5,a)') ' Pericenter distance = ',rp,' R_sun'
  write(*,'(a,Es12.5,a)') ' Tidal radius        = ',rt,' R_sun'
- write(*,'(a,Es12.5,a)') ' Impact parameter    = ',b,' R_sun'
  write(*,'(a,Es12.5,a)') ' Radius of star      = ',rs,' R_sun'
+ write(*,'(a,Es12.5,a)') ' Starting distance   = ',r0,' R_sun'
  write(*,'(a,Es12.5,a)') ' Stellar mass        = ',Ms,' M_sun'
  write(*,'(a,Es12.5,a)') ' Tilting along x     = ',theta,' degrees'
  write(*,'(a,Es12.5,a)') ' Tilting along y     = ',phi,' degrees'
