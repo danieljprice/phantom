@@ -1996,6 +1996,17 @@ cleanplotkernel:
 	rm -f $(BINDIR)/plotkernel
 
 #----------------------------------------------------
+# these are the sources for the showheader utility
+#
+SRCSHOWHEADER= utils_dumpfiles.f90 showheader.f90
+OBJSHOWHEADER= $(SRCSHOWHEADER:.f90=.o)
+showheader: checksys $(OBJSHOWHEADER)
+	@echo ""
+	@echo "showheader: show me the header!"
+	@echo ""
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJSHOWHEADER)
+
+#----------------------------------------------------
 # these are the sources for the evol_dustywaves utility
 #
 SRCDUSTEVOL= cubicsolve.f90 dustywaves.f90 evol_dustywaves.f90
