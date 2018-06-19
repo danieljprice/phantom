@@ -1266,7 +1266,7 @@ subroutine setup_interactive(id)
  nplanets      = 0
  mplanet       = 1.
  rplanet       = (/ (10.*i, i=1,maxplanets) /)
- accrplanet    = 0.5
+ accrplanet    = 0.25
  inclplan      = 0.
  print "(/,a)",'================='
  print "(a)",  '+++  PLANETS  +++'
