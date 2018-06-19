@@ -382,7 +382,7 @@ ifeq ($(SETUP), polytrope)
     ANALYSIS= density_profiles.o analysis_polytropes.f90
     GRAVITY=yes
     ISOTHERMAL=yes
-    MODFILE=moddump_spheres.f90
+    MODFILE=moddump_binarystar.f90
     KNOWN_SETUP=yes
 endif
 
@@ -706,7 +706,8 @@ ifeq ($(SETUP), jet)
 #   Jet simulation from Price, Tricco & Bate (2012)
     FPPFLAGS= -DPERIODIC -DGRAVITY
     SETUPFILE= setup_sphereinbox.f90
-    ANALYSIS= analysis_jet.f90
+    #ANALYSIS= analysis_jet.f90
+    ANALYSIS= ${SRCNIMHD} analysis_disc_RadMass.f90
     ISOTHERMAL=yes
     MHD=yes
     IND_TIMESTEPS=yes
@@ -887,7 +888,7 @@ ifeq ($(SETUP), nsmerger)
     ISOTHERMAL=yes
     IND_TIMESTEPS=no
     GRAVITY=yes
-    MODFILE=moddump_nsmerger.f90
+    MODFILE=moddump_binarystar.f90
     ANALYSIS=analysis_NSmerger.f90
     KNOWN_SETUP=yes
 endif
@@ -1146,6 +1147,9 @@ ifeq ($(SYSTEM), isca)
     OMPFLAGS= -qopenmp
     DBLFLAG= -r8
     DEBUGFLAG= -check all -traceback -g -fpe0 -fp-stack-check -heap-arrays -O0
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
     QNAME=pq
     WALLTIME='168:00:00'
 endif
