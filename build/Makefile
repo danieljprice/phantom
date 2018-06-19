@@ -1531,7 +1531,7 @@ endif
 utils: phantomsetup phantomanalysis \
        multirun phantom_moddump \
        phantom2divv phantom2divb \
-       diffdumps ev2mdot phantomevcompare acc2ang \
+       diffdumps showheader ev2mdot phantomevcompare acc2ang \
        phantom2sphNG phantom2gadget testbinary \
        sfutils phantom2pdf phantom2pdf-amr \
        phantom2struct phantom2power libphantom
