@@ -26,30 +26,23 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    EOSopt            -- EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)
-!    Mstar_1           -- mass of primary star
-!    Nstar_1           -- particle number in primary sphere
-!    Rstar_1           -- radius of primary star
-!    densityfile       -- File containing data for stellar profile
-!    dist_unit         -- distance unit (e.g. au)
-!    gamma             -- Adiabatic index
-!    initialtemp       -- initial temperature of the star (K)
-!    mass_unit         -- mass unit (e.g. solarm)
-!    np                -- approx number of particles (in box of size 2R)
-!    polyk             -- sound speed .or. constant in EOS
-!    set_vcirc         -- initialise circular velocity
-!    ui_coef           -- specific internal energy (units of GM/R)
-!    vx1               -- x-velocity of star 1
-!    vx2               -- x-velocity of star 2
-!    vy1               -- y-velocity of star 1
-!    vy2               -- y-velocity of star 2
-!    vz1               -- z-velocity of star 1
-!    vz2               -- z-velocity of star 2
+!    EOSopt      -- EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)
+!    Mstar_1     -- mass of star
+!    Nstar_1     -- particle number in the star
+!    Rstar_1     -- radius of star
+!    densityfile -- File containing data for stellar profile
+!    dist_unit   -- distance unit (e.g. au)
+!    gamma       -- Adiabatic index
+!    initialtemp -- initial temperature of the star
+!    mass_unit   -- mass unit (e.g. solarm)
+!    np          -- approx number of particles (in box of size 2R)
+!    polyk       -- sound speed .or. constant in EOS
+!    ui_coef     -- specific internal energy (units of GM/R)
 !
-!  DEPENDENCIES: centreofmass, dim, eos, extern_gwinspiral,
-!    extern_neutronstar, externalforces, infile_utils, io, kernel, options,
-!    part, physcon, prompting, rho_profile, setup_params, spherical,
-!    table_utils, timestep, units
+!  DEPENDENCIES: centreofmass, dim, eos, extern_neutronstar,
+!    externalforces, infile_utils, io, kernel, options, part, physcon,
+!    prompting, rho_profile, setup_params, spherical, table_utils,
+!    timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -233,7 +226,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! setup tabulated density profile
  !
-  calc_polyk = .true.
+ calc_polyk = .true.
  if (isphere==iuniform) then
     call rho_uniform(ng,Mstar,Rstar,r,den) ! use this array for continuity of call to set_sphere
     npts = ng
