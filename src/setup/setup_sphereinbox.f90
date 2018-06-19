@@ -75,7 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type
  use timestep,     only:dtmax,tmax,rho_dtthresh_cgs,dtmax_rat0
  use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
- use centreofmass, only: reset_centreofmass
+ use centreofmass, only:reset_centreofmass
  use options,      only:nfulldump
  use kernel,       only:hfact_default
  integer,           intent(in)    :: id

@@ -22,7 +22,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, dump_utils, eos, externalforces,
+!  DEPENDENCIES: boundary, dim, dump_utils, eos, externalforces, gitinfo,
 !    initial_params, io, lumin_nsdisc, mpi, mpiutils, options, part,
 !    readwrite_dust, setup_params, sphNGutils, timestep, units
 !+
@@ -196,7 +196,8 @@ end subroutine end_threadwrite
 character(len=lenid) function fileident(firstchar,codestring)
  use part,    only:h2chemistry,mhd,maxBevol,npartoftype,idust,gravity,lightcurve
  use options, only:use_dustfrac
- use dim,     only:use_dustgrowth
+ use dim,     only:use_dustgrowth,phantom_version_string
+ use gitinfo, only:gitsha
  character(len=2), intent(in) :: firstchar
  character(len=*), intent(in), optional :: codestring
  character(len=10) :: datestring, timestring
@@ -217,9 +218,9 @@ character(len=lenid) function fileident(firstchar,codestring)
  if (use_dustgrowth) string = trim(string)//'+dustgrowth'
 
  if (present(codestring)) then
-    fileident = firstchar//':'//trim(codestring)
+    fileident = firstchar//':'//trim(codestring)//':'//trim(phantom_version_string)//':'//gitsha
  else
-    fileident = firstchar//':Phantom'
+    fileident = firstchar//':Phantom'//':'//trim(phantom_version_string)//':'//gitsha
  endif
 
  if (mhd) then
@@ -1706,7 +1707,8 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header
  use readwrite_dust, only:write_dust_to_header
- use dim,            only:use_dust,maxtypes,ndustfluids,ndusttypes,use_dustgrowth
+ use dim,            only:use_dust,maxtypes,ndustfluids,ndusttypes,use_dustgrowth, &
+                          phantom_version_major,phantom_version_minor,phantom_version_micro
  use units,          only:udist,umass,utime,unit_Bfield
  logical,         intent(in)    :: sphNGdump
  real,            intent(in)    :: t
@@ -1725,6 +1727,9 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  call add_to_iheader(isink,'isink',hdr,ierr)
  call add_to_iheader(nptmass,'nptmass',hdr,ierr)
  call add_to_iheader(ndustfluids,'ndustfluids',hdr,ierr)
+ call add_to_iheader(phantom_version_major,'majorv',hdr,ierr)
+ call add_to_iheader(phantom_version_minor,'minorv',hdr,ierr)
+ call add_to_iheader(phantom_version_micro,'microv',hdr,ierr)
 
  ! int*8
  call add_to_header(nparttot,'nparttot',hdr,ierr)

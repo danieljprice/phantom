@@ -21,6 +21,11 @@
 
 .KEEP_STATE:
 
+PHANTOM_VERSION_MAJOR=1
+PHANTOM_VERSION_MINOR=2
+PHANTOM_VERSION_MICRO=0
+VERSION=$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICRO)
+
 KNOWN_SYSTEM=no
 SHELL = /bin/bash
 VPATH = ${RUNDIR} ../src/main ../src/utils ../src/setup ../src/tests ../src/lib/NICIL/src
@@ -1483,7 +1488,7 @@ SRCEOS = ${SRCMESA} eos_helmholtz.f90 eos.F90
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
          utils_mathfunc.f90 ${DOMAIN} part.F90 utils_timing.f90 mpi_balance.F90 commons.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_sphNG.f90 utils_vectors.f90 \
-         utils_datafiles.f90 datafiles.f90 ${SRCFASTMATH} random.f90 \
+         utils_datafiles.f90 datafiles.f90 gitinfo.f90 ${SRCFASTMATH} random.f90 \
          checkoptions.F90 ${SRCEOS} set_binary.f90 set_flyby.f90 \
          viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} \
          set_disc.F90 partinject.F90 \
@@ -1494,7 +1499,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          ptmass.F90 readwrite_infile.F90 \
          dens.F90 force.F90 deriv.F90 energies.F90 \
          sort_particles.F90 evwrite.F90 \
-         step_leapfrog.F90 writeheader.F90 writegitinfo.f90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90\
+         step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90\
          geometry.f90 stretchmap.f90 density_profiles.f90 set_unifdis.f90 set_slab.f90 set_sphere.f90 set_vfield.f90 \
          ${SETUPFILE} checksetup.F90 utils_testsuite.f90 \
          ${TEST_FASTMATH} test_kernel.f90 test_dust.F90 test_growth.F90 test_nonidealmhd.F90 test_gravity.F90 \
@@ -1509,7 +1514,7 @@ OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
 
 .PHONY: phantom
-phantom: checksystem checkparams $(OBJECTS) phantom.o
+phantom: checksystem checkparams phantom-version.h $(OBJECTS) phantom.o
 	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJECTS) phantom.o $(LDFLAGS)
 ifeq ($(UNAME), Darwin)
 	dsymutil $(BINDIR)/$@
@@ -1550,7 +1555,7 @@ edit: checksetup
 #
 SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 \
          utils_dumpfiles.f90 utils_mathfunc.f90 utils_infiles.f90 utils_vectors.f90 \
-         utils_datafiles.f90 datafiles.f90 ${DOMAIN} part.F90 utils_sphNG.f90 \
+         utils_datafiles.f90 datafiles.f90 gitinfo.f90 ${DOMAIN} part.F90 utils_sphNG.f90 \
          commons.f90 ${SRCFASTMATH} ${SRCEOS} centreofmass.f90 ${SRCPOT} checkoptions.F90 \
          viscosity.f90 options.f90 prompting.f90 ${SRCDUST} \
          readwrite_dumps.F90
@@ -1588,6 +1593,13 @@ setup: checksystem checkparams $(OBJSETUP)
 
 cleansetup:
 	rm -f $(BINDIR)/phantomsetup
+
+phantom-version.h:
+	@echo "creating $@"
+	@echo "#define PHANTOM_VERSION_MAJOR $(PHANTOM_VERSION_MAJOR)" > $@
+	@echo "#define PHANTOM_VERSION_MINOR $(PHANTOM_VERSION_MINOR)" >> $@
+	@echo "#define PHANTOM_VERSION_MICRO $(PHANTOM_VERSION_MICRO)" >> $@
+	@echo "#define PHANTOM_VERSION_STRING \"$(VERSION)\"" >> $@
 
 #----------------------------------------------------
 # these are the sources for the phantom2grid utility
