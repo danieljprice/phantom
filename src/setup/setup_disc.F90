@@ -886,10 +886,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        print "(a,g10.3,a)",   '    5:1 : ',(sqrt(mcentral)/(5.*omega))**(2./3.)*udist/au,' AU'
        print "(a,g10.3,a)",   '    9:1 : ',(sqrt(mcentral)/(9.*omega))**(2./3.)*udist/au,' AU'
        !--check planet accretion radii
-       if (accrplanet(i) < 0.12) then
-          call warning('setup_disc','accretion radius of planet < 1/8 Hill radius: too small')
-       elseif (accrplanet(i) > 1.05) then
+       if (accrplanet(i) < 0.05) then
+          call warning('setup_disc','accretion radius of planet < 1/20 Hill radius: unnecessarily small')
+       elseif (accrplanet(i) > 0.5) then
           call warning('setup_disc','accretion radius of planet > Hill radius: too large')
+       elseif(accrplanet(i)*Hill(i) > accr1) then
+          call warning('setup_disc','accretion radius of planet > accretion radius of primary star: this is unphysical')
        endif
        print *, ''
        !--determine longest period
