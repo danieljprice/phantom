@@ -291,6 +291,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           !--globally isothermal
           ieos = 1
           qindex = 0.
+          qfacdisc = qindex(1)
           print "(/,a)",' setting ieos=1 for globally isothermal disc'
           if (iuse_disc(1)) then
              H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
@@ -315,6 +316,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              qindex(3) = qindex(2)
              call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
           endif
+          qfacdisc = qindex(3)
        endif
     else
        !--single disc
