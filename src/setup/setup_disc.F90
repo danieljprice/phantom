@@ -81,6 +81,7 @@ module setup
  use physcon,        only:au,solarm
  use setdisc,        only:scaled_sigma
  use extern_binary,  only:ramp
+ use readwrite_dust, only:dust_method
 
  implicit none
  public  :: setpart
@@ -100,7 +101,7 @@ module setup
       'secondary'/)
  logical :: iuse_disc(3),itapergas(3),itaperdust(3),iwarp(3)
  logical :: ismoothgas(3),ismoothdust(3),use_global_iso
- integer :: mass_set(3),profile_set_dust,dust_method,ndiscs
+ integer :: mass_set(3),profile_set_dust,ndiscs
  real    :: R_in(3),R_out(3),R_ref(3),R_c(3),R_warp(3),H_warp(3)
  real    :: pindex(3),qindex(3),H_R(3),posangl(3),incl(3)
  real    :: disc_m(3),sig_ref(3),sig_norm(3),annulus_m(3),R_inann(3),R_outann(3),Q_min(3)
@@ -137,7 +138,7 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use centreofmass,         only:reset_centreofmass
  use dust,                 only:grainsizecgs,graindenscgs
- use readwrite_dust,       only:io_grainsize,nduststrings,set_dustfrac_from_inopts
+ use readwrite_dust,       only:io_grainsize,nduststrings,set_dustfrac_from_inopts,check_dust_method
  use eos,                  only:isink,qfacdisc
  use extern_binary,        only:accradius1,accradius2,binarymassr,eps_soft1
  use externalforces,       only:mass1,accradius1
@@ -169,7 +170,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
 
  integer, parameter :: maxbins = 4096
- logical :: iexist,seq_exists,is_isothermal
+ logical :: iexist,seq_exists,is_isothermal,ichange_method
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
  real    :: jdust_to_gas_ratio,Rj,period,Rochelobe,Hill(maxplanets)
  real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Sigmadust,Stokes(ndusttypes)
@@ -190,10 +191,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: r_surface
  real    :: udens,rho_core
 
-
  print "(/,65('-'),2(/,a),/,65('-'),/)"
  print "(a)",'     Welcome to the New Disc Setup'
  print "(/,65('-'),2(/,a),/,65('-'),/)"
+
+ !--The default value for dust method in dustydisc setup is one-fluid dust
+ if (use_dust) use_dustfrac = .true.
 
  !
  !--get disc setup parameters from file or interactive setup
@@ -746,6 +749,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = nparttot
  npartoftype(igas)  = nparttot - npartdust
  npartoftype(idust) = npartdust
+
+ call check_dust_method(id,filename,ichange_method)
+ if (ichange_method .and. id==master) then
+    np_dust = npart/5
+    call write_setupfile(filename)
+    print "(/,a)",' >>> please rerun the setup routine <<<'
+    stop
+ endif
 
  !
  ! print information about the angular momenta
@@ -1888,7 +1899,6 @@ subroutine read_obsolete_setup_options(filename)
 
  call read_inopt(np,'npart',db,err=ierr)
  call read_inopt(tmp_i,'np_dust',db,err=ierr)
- dust_method = 2
  if (ierr /= 0) dust_method = 1
  call read_inopt(tmp_r,'udist',db,err=ierr)
  dist_unit = 'au'

@@ -45,6 +45,8 @@ module readwrite_dust
  !--Default values for the dust in the infile
  integer, public :: io_grainsize = 0
  integer, public :: io_graindens = 0
+ integer, public :: dust_method = 1
+ logical, public :: ichange_method = .false.
 
  public :: get_onefluiddust
  public :: set_dustfrac_from_inopts
@@ -61,6 +63,7 @@ module readwrite_dust
  public :: write_dust_setup_options
  public :: write_dust_infile_options
  public :: write_temp_grains_file
+ public :: check_dust_method
 
  private
 
@@ -74,17 +77,20 @@ contains
 subroutine get_onefluiddust(dumpfile,use_onefluiddust,fileid)
  use io,         only:idisk1
  use dump_utils, only:open_dumpfile_r,lenid
- character(len=*), optional, intent(inout)  :: fileid
+ character(len=lenid), optional, intent(inout)  :: fileid
  character(len=*), intent(in)  :: dumpfile
  logical,          intent(out) :: use_onefluiddust
  integer :: ierr
+ character(len=lenid) :: fileident
 
  if (.not.present(fileid)) then
-    call open_dumpfile_r(idisk1,dumpfile,fileid,ierr)
+    call open_dumpfile_r(idisk1,dumpfile,fileident,ierr)
     close(idisk1)
+ else
+    fileident = fileid
  endif
 
- if (index(fileid,'+1dust') /= 0) then
+ if (index(fileident,'+1dust') /= 0) then
     use_onefluiddust = .true.
  else
     use_onefluiddust = .false.
@@ -186,7 +192,6 @@ subroutine interactively_set_dust_simple(dust_to_gas,imethod,Kdrag,units)
  integer, intent(out), optional :: imethod
  character(len=*), intent(in), optional :: units
 
- integer :: dust_method = -1
  real    :: units_to_cgs = 1.
  real    :: grainsizeinp(ndusttypes),graindensinp(ndusttypes)
  character(len=120) :: message
@@ -204,26 +209,6 @@ subroutine interactively_set_dust_simple(dust_to_gas,imethod,Kdrag,units)
  !--initialise the size/density to the default values
  grainsizeinp = grainsizecgs
  graindensinp = graindenscgs
-
- if (dust_method /= -1) then
-    !
-    !--dust method
-    !
-    if (ndusttypes > 1) then
-       dust_method  = 1
-    else
-       dust_method  = 2
-    endif
-
-    call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
-    if (dust_method == 1) then
-       use_dustfrac = .true.
-    else
-       use_dustfrac = .false.
-       if (ndusttypes > 1) call fatal('setup','dust_method=2 is currently only compatible with ndusttypes=1!')
-    endif
-    if (present(imethod)) imethod = dust_method
- endif
 
  if (use_dustfrac) ilimitdustflux = .false.
 
@@ -278,7 +263,6 @@ subroutine interactively_set_dust_full(dust_to_gas,dustfrac_percent,grainsizeinp
  character(len=*), intent(in), optional :: units
 
  integer :: i
- integer :: dust_method = -1
  integer :: profile_set_dust = -1
  real    :: units_to_cgs = 1.
  logical :: simple_grainsize = .false.
@@ -302,26 +286,6 @@ subroutine interactively_set_dust_full(dust_to_gas,dustfrac_percent,grainsizeinp
  !--initialise the size/density to the default values
  grainsizeinp = grainsizecgs
  graindensinp = graindenscgs
-
- if (dust_method /= -1) then
-    !
-    !--dust method
-    !
-    if (ndusttypes > 1) then
-       dust_method  = 1
-    else
-       dust_method  = 2
-    endif
-
-    call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
-    if (dust_method == 1) then
-       use_dustfrac = .true.
-    else
-       use_dustfrac = .false.
-       if (ndusttypes > 1) call fatal('setup','dust_method=2 is currently only compatible with ndusttypes=1!')
-    endif
-    if (present(imethod)) imethod = dust_method
- endif
 
  if (use_dustfrac) call prompt('Do you want to limit the dust flux?',ilimitdustflux)
  select case(idrag)
@@ -486,7 +450,6 @@ subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple,imethod)
  integer, intent(inout)         :: nerr
  real,    intent(out)           :: dust_to_gas
  integer            :: i,ierr
- integer            :: dust_method = -1
  real               :: grainsizeinp(ndusttypes)
  real               :: graindensinp(ndusttypes)
  real               :: dustfrac_percent(ndusttypes)
@@ -731,7 +694,7 @@ subroutine extract_dust_header(multidustdump,hdr,ierr)
  type(dump_h), intent(in)    :: hdr
 
  integer :: i,ierr1,ierrs(max(10,ndusttypes)),nerr
- integer :: dust_method,io_old
+ integer :: io_old
  real    :: smin,smax,sind,grainsizeinp(ndusttypes),graindensinp(ndusttypes)
  real    :: dust_to_gas
  real    :: dustfrac_percent(ndusttypes) = 0.
@@ -963,6 +926,76 @@ subroutine write_dust_to_header(multidustdump,hdr,ierr)
 
 end subroutine write_dust_to_header
 
+!-----------------------------------------------------------------------
+!+
+!  Subroutine for deciding wheather to use one-fluid or two-fluid dust
+!+
+!-----------------------------------------------------------------------
+subroutine check_dust_method(id,filename,ichange_method)
+ use options, only:use_dustfrac
+ use dust,    only:init_drag,get_ts,grainsize,graindens,idrag,ilimitdustflux
+ use part,    only:npart,massoftype,xyzh,vxyzu,rhoh,igas,dustfrac
+ use eos,     only:ieos,get_spsound
+ use io,      only:master
+ character(len=*), intent(in)  :: filename
+ integer,          intent(in)  :: id
+ logical,          intent(out) :: ichange_method
+ integer :: i,l,iregime,ierr,icheckdust
+ real    :: r,rhogasi,rhodusti,rhoi,dustfracisum,spsoundi
+ real    :: dustfraci(ndusttypes),tsi(ndusttypes)
+ character(len=120) :: string
+ logical :: iforce_dust_method = .false.
+
+ call init_drag(ierr)
+
+ icheckdust = 0
+ do i = 1,npart
+    r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
+    if (use_dustfrac) then
+       rhoi = rhoh(xyzh(4,i),massoftype(igas))
+       dustfraci(:) = dustfrac(:,i)
+       dustfracisum = sum(dustfraci(:))
+       rhogasi      = rhoi*(1.-dustfracisum)
+       spsoundi = get_spsound(ieos,xyzh(:,i),rhogasi,vxyzu(:,i))
+       do l = 1,ndusttypes
+          rhodusti = rhoi*dustfraci(l)
+          call get_ts(idrag,grainsize(l),graindens(l),rhogasi,rhodusti,spsoundi,0.,tsi(l),iregime)
+       enddo
+       if (any(tsi(:) > xyzh(4,i)/spsoundi)) icheckdust = icheckdust + 1
+    endif
+ enddo
+
+ call get_environment_variable('IFORCE_DUST_METHOD',string)
+ if (trim(string)=='yes') iforce_dust_method = .true.
+
+ ichange_method = .false.
+ if (real(icheckdust)/real(npart) > 0.1 .and. .not.iforce_dust_method) then
+    if (dust_method == 1) then
+       use_dustfrac = .false.
+       ichange_method = .true.
+       dust_method = 2
+    endif
+
+    print*,''
+    print*,'*******************************************************************************'
+    print*,'WARNING! More than 10% of the particles have a Stokes Number larger than the'
+    print*,'threshold under which the terminal velocity approximation is valid. We suggest'
+    print*,'you switch to using two-fluid. If you absolutely insist on using the one-fluid,'
+    print*,'you can set the environment variable IFORCE_DUST_METHOD=yes and rerun the setup.'
+    print*,'*******************************************************************************'
+    print*,''
+ elseif (iforce_dust_method) then
+    print*,''
+    print*,'*******************************************************************************'
+    print*,'WARNING! You have chosen to manually select the dust method. Care should be taken'
+    print*,'to ensure that you do not violate the terminal velocity approximation.'
+    print*,'*******************************************************************************'
+    print*,''
+ endif
+
+end subroutine check_dust_method
+
+
 
 !-----------------------------------------------------------------------
 !+
@@ -983,7 +1016,6 @@ subroutine write_dust_setup_options(iunit,dust_to_gas,df,gs,gd,imethod,iprofile,
  real,    intent(in)    :: dust_to_gas
 
  integer :: i
- integer :: dust_method = -1
  integer :: profile_set_dust = -1
  real    :: grainsizeinp(ndusttypes)
  real    :: graindensinp(ndusttypes)
@@ -1002,9 +1034,7 @@ subroutine write_dust_setup_options(iunit,dust_to_gas,df,gs,gd,imethod,iprofile,
  if (present(isimple)) simple_output = isimple
 
  write(iunit,"(/,a)") '# options for dust'
- if (dust_method /= -1) then
-    call write_inopt(dust_method,'dust_method','dust method (1=one fluid,2=two fluid)',iunit)
- endif
+ call write_inopt(dust_method,'dust_method','dust method (1=one fluid,2=two fluid)',iunit)
  if (use_dustfrac) call write_inopt(ilimitdustflux,'ilimitdustflux', &
                                     'limit dust diffusion using Ballabio et al. (2018)',iunit)
  call write_inopt(dust_to_gas,'dust_to_gas_ratio','dust to gas ratio',iunit)
@@ -1139,7 +1169,7 @@ subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,
 
  integer, parameter :: iunit = 20
  integer            :: nerr = 0
- integer            :: dust_method = -1
+ !integer            :: dust_method = -1
  integer            :: profile_set_dust = -1
  integer            :: ioselect = 0
  real               :: grainsizeinp(ndusttypes),graindensinp(ndusttypes)
