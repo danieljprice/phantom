@@ -204,7 +204,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  theta=theta*pi/180.0
  phi=phi*pi/180.0
 
- if (theta .ne. 0.0) then
+ if (theta  /=  0.0) then
     do i=1,npart
        y=xyzh(2,i)
        z=xyzh(3,i)
@@ -216,7 +216,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        vxyzu(3,i)=vy*sin(theta)+vz*cos(theta)
     enddo
  endif
- if (phi .ne. 0.0) then
+ if (phi  /=  0.0) then
     do i=1,npart
        x=xyzh(1,i)
        z=xyzh(3,i)
