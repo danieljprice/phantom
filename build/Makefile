@@ -21,6 +21,11 @@
 
 .KEEP_STATE:
 
+PHANTOM_VERSION_MAJOR=1
+PHANTOM_VERSION_MINOR=2
+PHANTOM_VERSION_MICRO=0
+VERSION=$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICRO)
+
 KNOWN_SYSTEM=no
 SHELL = /bin/bash
 VPATH = ${RUNDIR} ../src/main ../src/utils ../src/setup ../src/tests ../src/lib/NICIL/src
@@ -1509,7 +1514,7 @@ OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
 
 .PHONY: phantom
-phantom: checksystem checkparams $(OBJECTS) phantom.o
+phantom: checksystem checkparams phantom-version.h $(OBJECTS) phantom.o
 	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJECTS) phantom.o $(LDFLAGS)
 ifeq ($(UNAME), Darwin)
 	dsymutil $(BINDIR)/$@
@@ -1588,6 +1593,13 @@ setup: checksystem checkparams $(OBJSETUP)
 
 cleansetup:
 	rm -f $(BINDIR)/phantomsetup
+
+phantom-version.h:
+	@echo "creating $@"
+	@echo "#define PHANTOM_VERSION_MAJOR $(PHANTOM_VERSION_MAJOR)" > $@
+	@echo "#define PHANTOM_VERSION_MINOR $(PHANTOM_VERSION_MINOR)" >> $@
+	@echo "#define PHANTOM_VERSION_MICRO $(PHANTOM_VERSION_MICRO)" >> $@
+	@echo "#define PHANTOM_VERSION_STRING \"$(VERSION)\"" >> $@
 
 #----------------------------------------------------
 # these are the sources for the phantom2grid utility
