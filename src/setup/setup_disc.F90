@@ -147,7 +147,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use options,              only:ieos,alpha,icooling
  use part,                 only:nptmass,xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,&
                                 ihsoft,igas,idust,iamtype,iphase,dustprop
- use physcon,              only:jupiterm,pi,years
+ use physcon,              only:jupiterm,earthm,pi,years
  use setbinary,            only:set_binary,Rochelobe_estimate,get_mean_angmom_vector
  use setdisc,              only:set_disc,get_disc_mass
  use setflyby,             only:set_flyby,get_T_flyby
@@ -873,14 +873,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !--print planet information
        omega = vphi/rplanet(i)
        print "(a,i2,a)",             ' >>> planet ',i,' <<<'
-       print "(a,g10.3,a)",          '      radius: ',rplanet(i)*udist/au,' AU'
-       print "(a,g10.3,a,2pf7.3,a)", '       M(<R): ',(disc_m_within_r + mcentral)*umass/solarm, &
+       print "(a,g10.3,a)",          ' orbital radius: ',rplanet(i)*udist/au,' AU'
+       print "(a,g10.3,a,2pf7.3,a)", '          M(<R): ',(disc_m_within_r + mcentral)*umass/solarm, &
                                      ' MSun, disc mass correction is ',disc_m_within_r/mcentral,'%'
-       print "(a,2(g10.3,a))",       '        mass: ',mplanet(i),' MJup, or ',mplanet(i)*jupiterm/solarm,' MSun'
-       print "(a,2(g10.3,a))",       '      period: ',2.*pi*rplanet(i)/vphi*utime/years,' years or ', &
+       print "(a,g10.3,a)",          '    planet mass: ',mplanet(i),' MJup'
+       print "(a,g10.3,a)",          '    planet mass: ',mplanet(i)*jupiterm/earthm,' MEarth'
+       print "(a,g10.3,a)",          '    planet mass: ',mplanet(i)*jupiterm/solarm,' MSun'
+       print "(a,2(g10.3,a))",       ' orbital period: ',2.*pi*rplanet(i)/vphi*utime/years,' years or ', &
                                                  2*pi*rplanet(i)/vphi,' in code units'
-       print "(a,2(g10.3,a))",       ' Hill radius: ',Hill(i),' AU'
-       print "(a,g10.3,a)",          '  resonances:'
+       print "(a,g10.3,a)",          '    Hill radius: ',Hill(i),' AU'
+       print "(a,g10.3,a,i3,a)",     '   accr. radius: ',xyzmh_ptmass(ihacc,nptmass),' AU or ', &
+                                                 int(100*xyzmh_ptmass(ihacc,nptmass)/Hill(i)), ' % of Hill radius'
+       print "(a,g10.3,a)",          '     resonances:'
        print "(a,g10.3,a)",   '    3:1 : ',(sqrt(mcentral)/(3.*omega))**(2./3.)*udist/au,' AU'
        print "(a,g10.3,a)",   '    4:1 : ',(sqrt(mcentral)/(4.*omega))**(2./3.)*udist/au,' AU'
        print "(a,g10.3,a)",   '    5:1 : ',(sqrt(mcentral)/(5.*omega))**(2./3.)*udist/au,' AU'
