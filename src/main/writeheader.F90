@@ -30,11 +30,12 @@ module writeheader
 contains
 
 subroutine write_codeinfo(iunit)
+ use dim, only: phantom_version_string
  integer, intent(in) :: iunit
 !
 !--write out code name, version and time
 !
- write(iunit,10) '1.0, released 13th March 2018'
+ write(iunit,10) trim(phantom_version_string)
 
 10 format(/, &
    "  _ \  |                 |                    ___|   _ \  |   |",/, &

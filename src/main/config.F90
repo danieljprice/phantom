@@ -23,13 +23,18 @@
 !--------------------------------------------------------------------------
 module dim
  implicit none
+#include "../../build/phantom-version.h"
+ integer, parameter, public :: phantom_version_major = PHANTOM_VERSION_MAJOR
+ integer, parameter, public :: phantom_version_minor = PHANTOM_VERSION_MINOR
+ integer, parameter, public :: phantom_version_micro = PHANTOM_VERSION_MICRO
+ character(len=*), parameter, public :: phantom_version_string = PHANTOM_VERSION_STRING
  character(len=80), parameter :: &  ! module version
     modid="$Id$"
 
  public
 
  character(len=80), parameter :: &
-    tagline='PhantomSPH: (c) 2007-2018 The Authors'
+    tagline='PhantomSPH: '//phantom_version_string//': (c) 2007-2018 The Authors'
 
  ! maximum number of particles
 #ifdef MAXP

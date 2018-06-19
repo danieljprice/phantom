@@ -58,7 +58,7 @@ subroutine initialise()
  use units,            only:set_units
  use boundary,         only:set_boundary
  use writeheader,      only:write_codeinfo
- use writegitinfo,     only:write_gitinfo
+ use gitinfo,          only:get_and_print_gitinfo
  use evwrite,          only:init_evfile
  use domain,           only:domid=>modid,init_domains
  use densityforce,     only:denid=>modid
@@ -88,7 +88,7 @@ subroutine initialise()
 !
 !--write info on latest git commit
 !
- if (id==master) call write_gitinfo(6)
+ if (id==master) call get_and_print_gitinfo(6)
 !
 !--check that it is OK to use fast sqrt functions
 !  on this architecture
