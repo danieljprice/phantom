@@ -99,7 +99,7 @@ module setup
       'primary  ', &
       'secondary'/)
  logical :: iuse_disc(3),itapergas(3),itaperdust(3),iwarp(3)
- logical :: ismoothgas(3),ismoothdust(3)
+ logical :: ismoothgas(3),ismoothdust(3),use_global_iso
  integer :: mass_set(3),profile_set_dust,dust_method,ndiscs
  real    :: R_in(3),R_out(3),R_ref(3),R_c(3),R_warp(3),H_warp(3)
  real    :: pindex(3),qindex(3),H_R(3),posangl(3),incl(3)
@@ -171,7 +171,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer, parameter :: maxbins = 4096
  logical :: iexist,seq_exists,is_isothermal
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
- real    :: jdust_to_gas_ratio,Rj,period,Rochelobe,tol,Hill(maxplanets)
+ real    :: jdust_to_gas_ratio,Rj,period,Rochelobe,Hill(maxplanets)
  real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Sigmadust,Stokes(ndusttypes)
  real    :: polyk_dust,xorigini(3),vorigini(3),alpha_returned(3)
  real    :: star_m(3),disc_mdust(3),sig_normdust(3),u(3)
@@ -284,23 +284,35 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (is_isothermal) then
     !--isothermal
+    gamma = 1.0
     if (ndiscs /= 1) then
        !--multiple discs
-       if (sum(qindex) > maxval(qindex)) then
-          call fatal('setup_disc','locally isothermal eos for more than one disc '// &
-                     'requested, no ieos to handle this')
-       else
+       if (use_global_iso) then
           !--globally isothermal
           ieos = 1
-          gamma = 1.0
-          call warning('setup_disc','multiple discs: setting eos to globally isothermal'// &
-                                    '---recompile with ISOTHERMAL=no for adiabatic')
+          qindex = 0.
+          print "(/,a)",' setting ieos=1 for globally isothermal disc'
           if (iuse_disc(1)) then
              H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
              H_R(3) = sqrt(R_ref(3)/R_ref(1)*(m1+m2)/m2) * H_R(1)
              call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
           elseif (iuse_disc(2)) then
              H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
+             call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
+          endif
+       else
+          !--locally isothermal prescription from Farris et al. (2014) for binary system
+          ieos = 14
+          print "(/,a)",' setting ieos=14 for locally isothermal from Farris et al. (2014)'
+          if (iuse_disc(1)) then
+             H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
+             H_R(3) = sqrt(R_ref(3)/R_ref(1)*(m1+m2)/m2) * H_R(1)
+             qindex(2) = qindex(1)
+             qindex(3) = qindex(1)
+             call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
+          elseif (iuse_disc(2)) then
+             H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
+             qindex(3) = qindex(2)
              call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
           endif
        endif
@@ -319,7 +331,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              ieos = 3
              print "(/,a)",' setting ieos=3 for locally isothermal disc around origin'
           endif
-          gamma = 1.0
           qfacdisc = qindex(idisc)
        endif
     endif
@@ -847,10 +858,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           enddo
        endif
        !--set sink particles
+       Hill(i) = (mplanet(i)*jupiterm/solarm/(3.*mcentral))**(1./3.) * rplanet(i)
        xyzmh_ptmass(1:3,nptmass)    = (/rplanet(i)*cosphi,rplanet(i)*sinphi,0./)
        xyzmh_ptmass(4,nptmass)      = mplanet(i)*jupiterm/umass
-       xyzmh_ptmass(ihacc,nptmass)  = accrplanet(i)
-       xyzmh_ptmass(ihsoft,nptmass) = accrplanet(i)
+       xyzmh_ptmass(ihacc,nptmass)  = accrplanet(i)*Hill(i)
+       xyzmh_ptmass(ihsoft,nptmass) = accrplanet(i)*Hill(i)
        vphi                         = sqrt((mcentral + disc_m_within_r)/rplanet(i))
        vxyz_ptmass(1:3,nptmass)     = (/-vphi*sinphi,vphi*cosphi,0./)
        !--incline positions and velocities
@@ -860,7 +872,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call rotatevec(vxyz_ptmass(1:3,nptmass), u,-inclplan(i))
        !--print planet information
        omega = vphi/rplanet(i)
-       Hill(i) = (mplanet(i)*jupiterm/solarm/(3.*mcentral))**(1./3.) * rplanet(i)
        print "(a,i2,a)",             ' >>> planet ',i,' <<<'
        print "(a,g10.3,a)",          '      radius: ',rplanet(i)*udist/au,' AU'
        print "(a,g10.3,a,2pf7.3,a)", '       M(<R): ',(disc_m_within_r + mcentral)*umass/solarm, &
@@ -875,10 +886,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        print "(a,g10.3,a)",   '    5:1 : ',(sqrt(mcentral)/(5.*omega))**(2./3.)*udist/au,' AU'
        print "(a,g10.3,a)",   '    9:1 : ',(sqrt(mcentral)/(9.*omega))**(2./3.)*udist/au,' AU'
        !--check planet accretion radii
-       tol = 0.1*Hill(i)
-       if (accrplanet(i) < Hill(i)/2. - tol) then
-          call warning('setup_disc','accretion radius of planet < half Hill radius: too small')
-       elseif (accrplanet(i) > Hill(i) + tol) then
+       if (accrplanet(i) < 0.12) then
+          call warning('setup_disc','accretion radius of planet < 1/8 Hill radius: too small')
+       elseif (accrplanet(i) > 1.05) then
           call warning('setup_disc','accretion radius of planet > Hill radius: too large')
        endif
        print *, ''
@@ -1085,6 +1095,9 @@ subroutine setup_interactive(id)
     if (.not.any(iuse_disc)) iuse_disc(1) = .true.
     !--set number of discs
     ndiscs = count(iuse_disc)
+    if (ndiscs > 1) then
+       use_global_iso = .false.
+    endif
  endif
 !
 !--set gas disc defaults
@@ -1251,7 +1264,7 @@ subroutine setup_interactive(id)
  nplanets      = 0
  mplanet       = 1.
  rplanet       = (/ (10.*i, i=1,maxplanets) /)
- accrplanet    = 0.034 * rplanet
+ accrplanet    = 0.5
  inclplan      = 0.
  print "(/,a)",'================='
  print "(a)",  '+++  PLANETS  +++'
@@ -1424,6 +1437,8 @@ subroutine write_setupfile(filename)
        call write_inopt(iuse_disc(i),'use_'//trim(disctype(i))//'disc','setup circum' &
                                      //trim(disctype(i))//' disc',iunit)
     enddo
+    call write_inopt(use_global_iso,'use_global_iso',&
+                     'globally isothermal or Farris et al. (2014)',iunit)
  endif
  !--individual disc(s)
  do i=1,3
@@ -1521,7 +1536,7 @@ subroutine write_setupfile(filename)
        call write_inopt(mplanet(i),'mplanet'//trim(planets(i)),'planet mass (in Jupiter mass)',iunit)
        call write_inopt(rplanet(i),'rplanet'//trim(planets(i)),'planet distance from star',iunit)
        call write_inopt(inclplan(i),'inclplanet'//trim(planets(i)),'planet orbital inclination (deg)',iunit)
-       call write_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),'planet radius',iunit)
+       call write_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),'planet accretion radius (in Hill radius)',iunit)
     enddo
  endif
  !--timestepping
@@ -1692,6 +1707,9 @@ subroutine read_setupfile(filename,ierr)
     iuse_disc(1) = .true.
  endif
  ndiscs = count(iuse_disc)
+ if (ndiscs > 1) then
+    call read_inopt(use_global_iso,'use_global_iso',db,errcount=nerr)
+ endif
 
  do i=1,3
     if (iuse_disc(i)) then

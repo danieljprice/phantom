@@ -59,12 +59,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real, intent(in) :: pmass,time
  integer, intent(in) :: npart,iunit,numfile
 
- character(len=50) :: output, timeoutput
+ character(len=50) :: output, timeoutput, filename
  character(len=15),dimension(3) :: disc_type
 
  logical :: use_a = .false.
  logical :: exists
 
+ integer :: idot
  integer :: nsinks,i,j,ipri,isec,ibin,nunbound,icell,ierr
  integer,dimension(3) :: n
  integer,dimension(npart) :: imysink
@@ -76,7 +77,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real :: psi_x,psi_y,psi_z,psi,rmax,rmin,tilt,twist,Lmagi,ai_cell
  real,dimension(3) :: xi,vi,Li,mptmass,xcom,xpricom,xseccom,rtest
  real,dimension(ngrid) :: rad,sigma,h_smooth,ecc_cell,ecc2_cell
- real,dimension(ngrid) :: ninbin,cs_cell,omega_cell,H_cell,area,E_cell
+ real,dimension(ngrid) :: ninbin,cs_cell,omega_cell,H_cell,area,E_cell,zgas,zgas2,meanzgas,hgas
  real,dimension(3,ngrid) :: L_cell,unitL_cell
  real,dimension(3,3) :: xptmass,vptmass
  real :: ecc1,ecc2,ecc3
@@ -85,9 +86,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 ! Use two variables solely to remove compiler warnings...
  write(*,'("Performing analysis on ",a,"... which is unit ",i5,"...")') trim(dumpfile),iunit
+ idot = index(dumpfile,'_') - 1
+ filename = dumpfile(1:idot)  !create filename
 
 ! read the .in file
- call read_dotin('disc.in',ieos,iparams,ierr)
+ call read_dotin(''//trim(filename)//'.in',ieos,iparams,ierr)
  if (ierr /= 0) call fatal('analysis','could not open/read disc.in')
 
  if (gamma < tiny(gamma)) call fatal(analysistype,'gamma not set...',var='gamma',val=gamma)
@@ -121,6 +124,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  xptmass(:,ipri) = xyzmh_ptmass(1:3,ipri)
  xptmass(:,isec) = xyzmh_ptmass(1:3,isec)
  xptmass(:,ibin) = (mptmass(ipri)*xptmass(:,ipri) + mptmass(isec)*xptmass(:,isec))/mptmass(ibin)
+ a=sqrt(dot_product((xptmass(:,ipri)-xptmass(:,isec)),(xptmass(:,ipri)-xptmass(:,isec))))
 
  vptmass(:,ipri) = vxyz_ptmass(1:3,ipri)
  vptmass(:,isec) = vxyz_ptmass(1:3,isec)
@@ -138,6 +142,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  rtest(isec) = Rochelobe_estimate(mptmass(ipri),mptmass(isec),a) ! max radius of circumsecondary disc
  rtest(ibin) = max(a,xprir+rtest(ipri),xsecr+rtest(isec)) ! this is an underestimate of the circumbinary inner edge...
 
+
+ write(*,'("Using ieos: ",i2.1)') ieos
  write(*,'("Roche-lobe of primary is: ",es17.10)') Rochelobe_estimate(mptmass(isec),mptmass(ipri),a)
  write(*,'("Roche-lobe of secondary is: ",es17.10)') Rochelobe_estimate(mptmass(ipri),mptmass(isec),a)
 
@@ -160,7 +166,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     H_cell(:)     = 0.0
     ecc_cell(:)   = 0.0
     E_cell(:)     = 0.0
-
+    zgas(:)       = 0.0
+    zgas2(:)      = 0.0
+    meanzgas(:)   = 0.0
     ninbin(:) = 0
 
     rmin = huge(rmin)
@@ -288,6 +296,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        H_cell(icell)     = H_cell(icell)     + Hi
        ecc_cell(icell)   = ecc_cell(icell)   + ecci
        E_cell(icell)     = E_cell(icell)     + Ei
+       zgas(icell)       = zgas(icell)       + xi(3)
+       zgas2(icell)      = zgas2(icell)      + xi(3)**2
 
        ninbin(icell) = ninbin(icell) + 1
     enddo
@@ -304,6 +314,18 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        endif
     enddo
 
+!-------------------------------------
+! Compute disc thickness using std dev
+!-------------------------------------
+
+
+    do i=1,ngrid
+    if (ninbin(i)/=0) then
+       meanzgas(i)=zgas(i)/real(ninbin(i))
+       hgas(i)=sqrt((zgas2(i)-2*meanzgas(i)*zgas(i)+ninbin(i)*meanzgas(i)**2)/(real(ninbin(i)-1)))
+    endif
+    enddo
+
     if (j == ipri) then
        write(output,'(a13,"_",i5.5,".dat")') disc_type(j),numfile
     elseif (j == isec) then
@@ -316,7 +338,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
     open(iout,file=trim(output))
     write(iout,'("# Analysis data at t = ",es20.12)') time
-    write(iout,"('#',12(1x,'[',i2.2,1x,a11,']',2x))") &
+    write(iout,"('#',13(1x,'[',i2.2,1x,a11,']',2x))") &
          1,'radius', &
          2,'sigma', &
          3,'<h>/H', &
@@ -328,7 +350,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
          9,'psi', &
          10,'ecc', &
          11,'ecc2', &
-         12,'ninbin'
+         12,'H_R', &
+         13,'ninbin'
 
 ! Work out unitL array
     do i=1,ngrid
@@ -384,9 +407,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 ! PUT A CHECK HERE THAT ai_cell is consistent with rad(i)...
 
        if (ninbin(i) > 0) then
-          write(iout,'(12(es18.10,1X))') rad(i),sigma(i),h_smooth(i)/H_cell(i), &
+          write(iout,'(13(es18.10,1X))') rad(i),sigma(i),h_smooth(i)/H_cell(i), &
                unitL_cell(1,i),unitL_cell(2,i),unitL_cell(3,i), &
-               tilt,twist,psi,ecc_cell(i),ecc2_cell(i),real(ninbin(i))
+               tilt,twist,psi,ecc_cell(i),ecc2_cell(i),hgas(i)/rad(i),real(ninbin(i))
        endif
 
        if (j == ipri .and. i1 /= huge(i1)) then

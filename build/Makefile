@@ -231,7 +231,7 @@ ifeq ($(SETUP), turb)
 endif
 
 ifeq ($(SETUP), wd)
-    SETUPFILE     = setup_spheres.f90
+    SETUPFILE     = setup_star.f90
     IND_TIMESTEPS = no
     MHD           = no
     GRAVITY       = yes
@@ -378,17 +378,17 @@ endif
 
 ifeq ($(SETUP), polytrope)
 #   single (option 2) or binary (option 3) polytrope test
-    SETUPFILE= setup_spheres.f90
+    SETUPFILE= setup_star.f90
     ANALYSIS= density_profiles.o analysis_polytropes.f90
     GRAVITY=yes
     ISOTHERMAL=yes
-    MODFILE=moddump_spheres.f90
+    MODFILE=moddump_binarystar.f90
     KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), neutronstar)
 #   neutron star (use option 4)
-    SETUPFILE= setup_spheres.f90
+    SETUPFILE= setup_star.f90
     ISOTHERMAL=yes
     GRAVITY=no     #since external force being used
     KNOWN_SETUP=yes
@@ -672,9 +672,9 @@ endif
 
 ifeq ($(SETUP), star)
 #   import stellar model from 1D stellar evolution code
-#   use option 5 of setup_spheres
+#   use option 5 of setup_star
     FPPFLAGS= -DSORT_RADIUS_INIT -DSETUPIEOS
-    SETUPFILE= setup_spheres.f90
+    SETUPFILE= setup_star.f90
     MODFILE= moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} dtype_kdtree.o kdtree.o linklist_kdtree.o utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
     KNOWN_SETUP=yes
@@ -706,7 +706,8 @@ ifeq ($(SETUP), jet)
 #   Jet simulation from Price, Tricco & Bate (2012)
     FPPFLAGS= -DPERIODIC -DGRAVITY
     SETUPFILE= setup_sphereinbox.f90
-    ANALYSIS= analysis_jet.f90
+    #ANALYSIS= analysis_jet.f90
+    ANALYSIS= ${SRCNIMHD} analysis_disc_RadMass.f90
     ISOTHERMAL=yes
     MHD=yes
     IND_TIMESTEPS=yes
@@ -883,18 +884,18 @@ endif
 
 ifeq ($(SETUP), nsmerger)
 #   Model a neutron star merger; use option 6
-    SETUPFILE= setup_spheres.f90
+    SETUPFILE= setup_star.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=no
     GRAVITY=yes
-    MODFILE=moddump_nsmerger.f90
+    MODFILE=moddump_binarystar.f90
     ANALYSIS=analysis_NSmerger.f90
     KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), evrard)
 #   models the Evrard collapse; use option 7
-    SETUPFILE= setup_spheres.f90
+    SETUPFILE= setup_star.f90
     ISOTHERMAL=no
     GRAVITY=yes
     ANALYSIS=analysis_sphere.f90
@@ -1146,6 +1147,9 @@ ifeq ($(SYSTEM), isca)
     OMPFLAGS= -qopenmp
     DBLFLAG= -r8
     DEBUGFLAG= -check all -traceback -g -fpe0 -fp-stack-check -heap-arrays -O0
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
     QNAME=pq
     WALLTIME='168:00:00'
 endif
