@@ -147,7 +147,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use options,              only:ieos,alpha,icooling
  use part,                 only:nptmass,xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,&
                                 ihsoft,igas,idust,iamtype,iphase,dustprop
- use physcon,              only:jupiterm,pi,years
+ use physcon,              only:jupiterm,earthm,pi,years
  use setbinary,            only:set_binary,Rochelobe_estimate,get_mean_angmom_vector
  use setdisc,              only:set_disc,get_disc_mass
  use setflyby,             only:set_flyby,get_T_flyby
@@ -873,23 +873,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !--print planet information
        omega = vphi/rplanet(i)
        print "(a,i2,a)",             ' >>> planet ',i,' <<<'
-       print "(a,g10.3,a)",          '      radius: ',rplanet(i)*udist/au,' AU'
-       print "(a,g10.3,a,2pf7.3,a)", '       M(<R): ',(disc_m_within_r + mcentral)*umass/solarm, &
+       print "(a,g10.3,a)",          ' orbital radius: ',rplanet(i)*udist/au,' AU'
+       print "(a,g10.3,a,2pf7.3,a)", '          M(<R): ',(disc_m_within_r + mcentral)*umass/solarm, &
                                      ' MSun, disc mass correction is ',disc_m_within_r/mcentral,'%'
-       print "(a,2(g10.3,a))",       '        mass: ',mplanet(i),' MJup, or ',mplanet(i)*jupiterm/solarm,' MSun'
-       print "(a,2(g10.3,a))",       '      period: ',2.*pi*rplanet(i)/vphi*utime/years,' years or ', &
+       print "(a,g10.3,a)",          '    planet mass: ',mplanet(i),' MJup'
+       print "(a,g10.3,a)",          '    planet mass: ',mplanet(i)*jupiterm/earthm,' MEarth'
+       print "(a,g10.3,a)",          '    planet mass: ',mplanet(i)*jupiterm/solarm,' MSun'
+       print "(a,2(g10.3,a))",       ' orbital period: ',2.*pi*rplanet(i)/vphi*utime/years,' years or ', &
                                                  2*pi*rplanet(i)/vphi,' in code units'
-       print "(a,2(g10.3,a))",       ' Hill radius: ',Hill(i),' AU'
-       print "(a,g10.3,a)",          '  resonances:'
+       print "(a,g10.3,a)",          '    Hill radius: ',Hill(i),' AU'
+       print "(a,g10.3,a,i3,a)",     '   accr. radius: ',xyzmh_ptmass(ihacc,nptmass),' AU or ', &
+                                                 int(100*xyzmh_ptmass(ihacc,nptmass)/Hill(i)), ' % of Hill radius'
+       print "(a,g10.3,a)",          '     resonances:'
        print "(a,g10.3,a)",   '    3:1 : ',(sqrt(mcentral)/(3.*omega))**(2./3.)*udist/au,' AU'
        print "(a,g10.3,a)",   '    4:1 : ',(sqrt(mcentral)/(4.*omega))**(2./3.)*udist/au,' AU'
        print "(a,g10.3,a)",   '    5:1 : ',(sqrt(mcentral)/(5.*omega))**(2./3.)*udist/au,' AU'
        print "(a,g10.3,a)",   '    9:1 : ',(sqrt(mcentral)/(9.*omega))**(2./3.)*udist/au,' AU'
        !--check planet accretion radii
-       if (accrplanet(i) < 0.12) then
-          call warning('setup_disc','accretion radius of planet < 1/8 Hill radius: too small')
-       elseif (accrplanet(i) > 1.05) then
+       if (accrplanet(i) < 0.05) then
+          call warning('setup_disc','accretion radius of planet < 1/20 Hill radius: unnecessarily small')
+       elseif (accrplanet(i) > 0.5) then
           call warning('setup_disc','accretion radius of planet > Hill radius: too large')
+       elseif(accrplanet(i)*Hill(i) > accr1) then
+          call warning('setup_disc','accretion radius of planet > accretion radius of primary star: this is unphysical')
        endif
        print *, ''
        !--determine longest period
@@ -1264,7 +1270,7 @@ subroutine setup_interactive(id)
  nplanets      = 0
  mplanet       = 1.
  rplanet       = (/ (10.*i, i=1,maxplanets) /)
- accrplanet    = 0.5
+ accrplanet    = 0.25
  inclplan      = 0.
  print "(/,a)",'================='
  print "(a)",  '+++  PLANETS  +++'
