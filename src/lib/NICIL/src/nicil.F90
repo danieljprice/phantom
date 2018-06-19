@@ -312,6 +312,7 @@ pure subroutine nicil_version(version)
            !  4 July 2017: added subroutines to calculate the ion and hall drift velocities; augmented the current v_ion routine
  version = "Version 1.2.3: 5 July 2017"
            ! 10 Apr  2018: Ambipolar diffusion now uses a subtraction rather than a double loop
+ version = "Version 1.2.4: 11 April 2018"
 
 end subroutine nicil_version
 !----------------------------------------------------------------------!
@@ -1759,6 +1760,8 @@ pure subroutine nicil_ionT_calc_Jf(feqni,feqn,Jacob,rho_gas,n_g_tot,n_e,n_i,n_g,
 !
 !--Rearrange the Jacobian so that the largest numbers are on the diagonal
  if (reorder_Jacobian) then
+    imax = 1
+    jmax = 1
     do i = 1,neqn
        feqni(i) = i
     enddo
