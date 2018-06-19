@@ -4,9 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
-!+                                                                         !
-!  MODULE: moddump                                                         !
-!                                                                          !
+!+
+!  MODULE: moddump
+!
 !  DESCRIPTION:                                                            !
 !  Tilts and puts a (rotating) star in a parabolic orbit around a BH       !
 !                                                                          !
@@ -21,8 +21,26 @@
 !  RUNTIME PARAMETERS: None                                                !
 !                                                                          !
 !  DEPENDENCIES: centreofmass, externalforces, options, prompting, physcon !
-!+                                                                         !
-!--------------------------------------------------------------------------!
+!
+!  REFERENCES: None                                                        !
+!                                                                          !
+!  OWNER: Daniel Price                                                     !
+!                                                                          !
+!  $Id$                         !
+!                                                                          !
+!  RUNTIME PARAMETERS: None                                                !
+!                                                                          !
+!  DEPENDENCIES: centreofmass, externalforces, options, prompting, physcon !
+!
+!  OWNER: David Liptai
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS: None
+!
+!  DEPENDENCIES: centreofmass, externalforces, options, physcon, prompting
+!+
+!--------------------------------------------------------------------------
 module moddump
  implicit none
 
