@@ -93,9 +93,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  Lp=sqrt(Lx**2.0+Lz**2.0)
 
  if (Lx > 0.) then
-     phi=acos(Lz/Lp)
+    phi=acos(Lz/Lp)
  elseif (Lx < 0.) then
-     phi=-acos(Lz/Lp)
+    phi=-acos(Lz/Lp)
  endif
 
  print*,'tilting along y axis: ',(phi*180/pi),'degrees'
@@ -140,9 +140,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 
  if (Ly < 0.) then
-     theta=acos(Lz/L)
+    theta=acos(Lz/L)
  elseif (Ly > 0.) then
-     theta=-acos(Lz/L)
+    theta=-acos(Lz/L)
  endif
 
  print*, 'tilting along x axis: ',(theta*180/pi),'degrees'
@@ -244,7 +244,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        vz=vxyzu(3,i)
        vxyzu(1,i)=vx*cos(phi)+vz*sin(phi)
        vxyzu(3,i)=-vx*sin(phi)+vz*cos(phi)
-     enddo
+    enddo
  endif
 
  !--Putting star into orbit

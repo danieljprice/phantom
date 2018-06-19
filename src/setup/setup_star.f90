@@ -226,7 +226,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! setup tabulated density profile
  !
-  calc_polyk = .true.
+ calc_polyk = .true.
  if (isphere==iuniform) then
     call rho_uniform(ng,Mstar,Rstar,r,den) ! use this array for continuity of call to set_sphere
     npts = ng
