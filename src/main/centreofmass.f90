@@ -285,7 +285,6 @@ end subroutine correct_bulk_motion
 !------------------------------------------------------------------------
 subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_ptmass,npart_ptmass)
  use vectorutils, only:cross_product3D
- use options,     only:use_dustfrac
  use part,        only:iphase,iamtype,massoftype
  real, intent(in)  :: xyzh(:,:),vxyz(:,:)
  real, optional, intent(in):: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
