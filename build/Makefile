@@ -381,6 +381,16 @@ ifeq ($(SETUP), quebec)
     MODFILE = moddump_binarystar.f90
 endif
 
+ifeq ($(SETUP), tde)
+#   tidal disruption simulations
+    SETUPFILE= setup_star.f90
+    ANALYSIS=
+    GRAVITY=yes
+    ISOTHERMAL=yes
+    MODFILE=moddump_tidal.f90
+    KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), polytrope)
 #   single (option 2) or binary (option 3) polytrope test
     SETUPFILE= setup_star.f90
