@@ -1509,7 +1509,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          ptmass.F90 readwrite_infile.F90 \
          dens.F90 force.F90 deriv.F90 energies.F90 \
          sort_particles.F90 evwrite.F90 \
-         step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90\
+         step_leapfrog.F90 writeheader.F90 utils_disc.f90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90\
          geometry.f90 stretchmap.f90 density_profiles.f90 set_unifdis.f90 set_slab.f90 set_sphere.f90 set_vfield.f90 \
          ${SETUPFILE} checksetup.F90 utils_testsuite.f90 \
          ${TEST_FASTMATH} test_kernel.f90 test_dust.F90 test_growth.F90 test_nonidealmhd.F90 test_gravity.F90 \
@@ -1756,7 +1756,7 @@ cleanmoddump:
 OBJAN1 = ${ANALYSIS:.f90=.o}
 OBJAN2 = ${OBJAN1:.F90=.o}
 OBJAN = ${OBJAN2:.f=.o}
-OBJA= utils_filenames.o utils_sort.o leastsquares.o solvelinearsystem.o \
+OBJA= utils_disc.o utils_filenames.o utils_sort.o leastsquares.o solvelinearsystem.o \
 	  ${OBJDUMP} set_binary.o ${OBJAN}
 
 ifndef ANALYSISBIN
