@@ -301,8 +301,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              H_R(3) = sqrt(R_ref(3)/R_ref(1)*(m1+m2)/m2) * H_R(1)
              call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
           elseif (iuse_disc(2)) then
-                H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
-                call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
+             H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
+             call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
           endif
        else
           !--locally isothermal prescription from Farris et al. (2014) for binary system
@@ -1161,25 +1161,25 @@ subroutine setup_interactive(id)
        ! is not enough. THey need to be changed also in the the setpart function.
        !--------------------------------
        if(.not. use_global_iso) then
-         call prompt('Enter q_index',qindex(1))
-         qindex=qindex(1)
-         if(iuse_disc(1)) then
-            call prompt('Enter H/R of circumbinary at R_ref',H_R(1))
-            H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
-            H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
-         else
-            if(iuse_disc(2))then
+          call prompt('Enter q_index',qindex(1))
+          qindex=qindex(1)
+          if(iuse_disc(1)) then
+             call prompt('Enter H/R of circumbinary at R_ref',H_R(1))
+             H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
+             H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
+          else
+             if(iuse_disc(2))then
                 call prompt('Enter H/R of circumprimary at R_ref',H_R(2))
                 H_R(1) = (R_ref(1)/R_ref(2)*m1/(m1+m2))**(0.5-qindex(2)) * H_R(2)
                 H_R(3) = (R_ref(3)/R_ref(2)*m2/m1)**(0.5-qindex(2)) * H_R(2)
-            else
+             else
                 call prompt('Enter H/R of circumsecondary at R_ref',H_R(3))
                 H_R(1) = sqrt(R_ref(1)/R_ref(3)*m2/(m1+m2))**(0.5-qindex(3)) * H_R(3)
                 H_R(2) = sqrt(R_ref(2)/R_ref(3)*m2/m1)**(0.5-qindex(3)) * H_R(3)
-           endif
-         endif
-         H_R(2) = nint(H_R(2)*10000.)/10000.
-         H_R(3) = nint(H_R(3)*10000.)/10000.
+             endif
+          endif
+          H_R(2) = nint(H_R(2)*10000.)/10000.
+          H_R(3) = nint(H_R(3)*10000.)/10000.
        else
           if (iuse_disc(1)) then
              H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
@@ -1194,7 +1194,7 @@ subroutine setup_interactive(id)
           endif
           H_R(2) = nint(H_R(2)*10000.)/10000.
           H_R(3) = nint(H_R(3)*10000.)/10000.
-        endif
+       endif
     endif
  endif
  do i=1,3
