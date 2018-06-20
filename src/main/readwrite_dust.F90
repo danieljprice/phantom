@@ -287,7 +287,7 @@ subroutine interactively_set_dust_full(dust_to_gas,dustfrac_percent,grainsizeinp
  !--initialise the size/density to the default values
  grainsizeinp = grainsizecgs
  graindensinp = graindenscgs
- 
+
  if (dust_method /= -1) then
     !
     !--dust method
@@ -307,7 +307,7 @@ subroutine interactively_set_dust_full(dust_to_gas,dustfrac_percent,grainsizeinp
     endif
     if (present(imethod)) imethod = dust_method
  endif
- 
+
  if (use_dustfrac) call prompt('Do you want to limit the dust flux?',ilimitdustflux)
  select case(idrag)
  case(1)

@@ -31,7 +31,7 @@
 !    accr1       -- central star accretion radius
 !    accr2       -- perturber accretion radius
 !    alphaSS     -- desired alphaSS
-!    atm_type    -- Enter atmosphere type (1:r**(-3); 
+!    atm_type    -- Enter atmosphere type (1:r**(-3);
 !    bhspin      -- black hole spin
 !    bhspinangle -- black hole spin angle (deg)
 !    binary_O    -- Omega, PA of ascending node (deg)
@@ -308,7 +308,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           !--locally isothermal prescription from Farris et al. (2014) for binary system
           ieos = 14
           print "(/,a)",' setting ieos=14 for locally isothermal from Farris et al. (2014)'
-          if(iuse_disc(1)) then 
+          if(iuse_disc(1)) then
              qfacdisc = qindex(1)
              call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
           elseif(iuse_disc(2))then
@@ -1155,15 +1155,15 @@ subroutine setup_interactive(id)
        !--------------------------------
        ! N.B. The initializations of multiple discs is not done using the implementation of the eos
        ! a radial profile centred on CM, primary and secondary is used.
-       ! The value of H_R used in setpart to set cs0 is the one of the circumbinary if cb disc is present,  
-       ! otherwise it uses the circumprimary. 
+       ! The value of H_R used in setpart to set cs0 is the one of the circumbinary if cb disc is present,
+       ! otherwise it uses the circumprimary.
        ! The values of H_R used for the other discs are set using the equations below, however changing them here
        ! is not enough. THey need to be changed also in the the setpart function.
        !--------------------------------
        if(.not. use_global_iso) then
          call prompt('Enter q_index',qindex(1))
          qindex=qindex(1)
-         if(iuse_disc(1)) then 
+         if(iuse_disc(1)) then
             call prompt('Enter H/R of circumbinary at R_ref',H_R(1))
             H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
             H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
@@ -1172,7 +1172,7 @@ subroutine setup_interactive(id)
                 call prompt('Enter H/R of circumprimary at R_ref',H_R(2))
                 H_R(1) = (R_ref(1)/R_ref(2)*m1/(m1+m2))**(0.5-qindex(2)) * H_R(2)
                 H_R(3) = (R_ref(3)/R_ref(2)*m2/m1)**(0.5-qindex(2)) * H_R(2)
-            else 
+            else
                 call prompt('Enter H/R of circumsecondary at R_ref',H_R(3))
                 H_R(1) = sqrt(R_ref(1)/R_ref(3)*m2/(m1+m2))**(0.5-qindex(3)) * H_R(3)
                 H_R(2) = sqrt(R_ref(2)/R_ref(3)*m2/m1)**(0.5-qindex(3)) * H_R(3)

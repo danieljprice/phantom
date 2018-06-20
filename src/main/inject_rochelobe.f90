@@ -73,7 +73,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  A  = mu / abs(radL1 - 1 + mu)**3 + (1 - mu)/abs(radL1 + mu)  !See Lubow & Shu 1975
  theta_s = -acos( -4./(3.*A)+(1-8./(9.*A))**0.5)/2.
  xyzL1(1:3) = xyzmh_ptmass(1:3,1) + radL1*dr(:)   ! set as vector position
- vxyzL1 = 1.000*v1*sqrt( dot_product(xyzL1-x0,xyzL1-x0)/dot_product(x1-x0,x1-x0) ) 
+ vxyzL1 = 1.000*v1*sqrt( dot_product(xyzL1-x0,xyzL1-x0)/dot_product(x1-x0,x1-x0) )
  vinject = 0.010  ! injection velocity. eventually want this to be a user specified parameter
  chi = 1.0e-3    ! stream width. eventually want this to be a user specified parameter
 
@@ -86,10 +86,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     theta_rand = ran2(s1)*2*pi    !this is still kludgey. fix later
     r_rand = rayleigh_deviate(s1)*chi   !also kludgey. also want to draw from gaussian distribution
     dxyz=(/0.0, cos(theta_rand), sin(theta_rand)/)*r_rand
- 
+
     ! prepare to add a particle
     part_type = igas
-    
+
     vxyz = (/ cos(theta_s), sin(theta_s), 0.0 /)*vinject
     h = hfact
     u = 0.0    ! what is this and what should its value be ???
@@ -108,7 +108,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
 !print*, "White Dwarf is at ", x1
 !print*, "Companion is at   ", x2
 !print*, "Theta_s was ", theta_s*180/pi
-!print*, "A was", A  
+!print*, "A was", A
 !print*, "Mu was", mu
 
 end subroutine inject_particles
