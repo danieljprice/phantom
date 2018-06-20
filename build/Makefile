@@ -381,6 +381,16 @@ ifeq ($(SETUP), quebec)
     MODFILE = moddump_binarystar.f90
 endif
 
+ifeq ($(SETUP), tde)
+#   tidal disruption simulations
+    SETUPFILE= setup_star.f90
+    ANALYSIS=
+    GRAVITY=yes
+    ISOTHERMAL=yes
+    MODFILE=moddump_tidal.f90
+    KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), polytrope)
 #   single (option 2) or binary (option 3) polytrope test
     SETUPFILE= setup_star.f90
@@ -712,7 +722,7 @@ ifeq ($(SETUP), jet)
     FPPFLAGS= -DPERIODIC -DGRAVITY
     SETUPFILE= setup_sphereinbox.f90
     #ANALYSIS= analysis_jet.f90
-    ANALYSIS= ${SRCNIMHD} analysis_disc_RadMass.f90
+    ANALYSIS= ${SRCNIMHD} analysis_protostar_environ.F90
     ISOTHERMAL=yes
     MHD=yes
     IND_TIMESTEPS=yes
@@ -721,9 +731,9 @@ ifeq ($(SETUP), jet)
 endif
 
 ifeq ($(SETUP), jetnimhd)
-#   Simulation from Wurster, Price & Bate (2016,2017)
+#   Simulation from Wurster, Price & Bate (2016,2017) et seq
     SETUPFILE= setup_sphereinbox.f90
-    ANALYSIS= ${SRCNIMHD} analysis_disc_RadMass.f90
+    ANALYSIS= ${SRCNIMHD} analysis_protostar_environ.F90
     PERIODIC=yes
     GRAVITY=yes
     ISOTHERMAL=yes
@@ -1585,7 +1595,7 @@ OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 .PHONY: phantomsetup
 phantomsetup: setup
 
-setup: checksystem checkparams $(OBJSETUP)
+setup: checksystem checkparams phantom-version.h $(OBJSETUP)
 	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS)
 	@echo ""
 	@echo "Phantom setup built"

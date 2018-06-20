@@ -50,7 +50,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use centreofmass
  use externalforces, only:mass1
  use externalforces, only:accradius1
- use options,        only:iexternalforce
+ use options,        only:iexternalforce,damp
  use prompting,      only:prompt
  use physcon,        only:pi
  integer,  intent(inout) :: npart
@@ -197,26 +197,24 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call prompt(' Enter a value for blackhole mass (in code units): ',Mh,0.)
  call prompt(' Enter a value for the stellar mass (in code units): ',Ms,0.)
  call prompt(' Enter a value for the stellar radius (in code units): ',rs,0.)
+ rt = (Mh/Ms)**(1./3.) * rs         ! tidal radius
+ rp = rt/beta                       ! pericenter distance
+ r0 = 4.9*rt                        ! starting radius
  call prompt(' Enter a value for the stellar rotation with respect to x-axis (in degrees): ',theta,0.)
  call prompt(' Enter a value for the stellar rotation with respect to y-axis (in degrees): ',phi,0.)
+ call prompt(' Enter a value for the starting distance (in code unites): ',r0,0.)
 
-
- rt = (Mh/Ms)**(1./3.) * rs   ! tidal radius
- rp = rt/beta                 ! pericenter distance
-
- alpha = 3./4.*pi  ! Starting angle from x-axis (anti-clockwise)
- ! alpha = 2.2      ! Most time efficient (Elen)
- r0    = 2.*rt/beta*1./(1.+cos(alpha)) ! Starting radius
-
+ alpha = acos(2.*rt/(r0*beta)-1.)         ! starting angle anti-clockwise from pos x-axis
  x0    = r0*cos(alpha)
  y0    = r0*sin(alpha)
  vx0   = sqrt(mh*beta/(2.*rt)) * sin(alpha)
  vy0   = -sqrt(mh*beta/(2.*rt)) * (cos(alpha)+1.)
 
  !--Set input file parameters
- mass1 = Mh
+ mass1          = Mh
  iexternalforce = 1
- accradius1 = (2*Mh*rs)/((6.8565e2)**2) ! R_sch = 2*G*Mh*rs/c**2
+ damp           = 0.
+ accradius1     = (2*Mh*rs)/((6.8565e2)**2) ! R_sch = 2*G*Mh*rs/c**2
 
  !--Tilting the star
  theta=theta*pi/180.0

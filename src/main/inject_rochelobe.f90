@@ -46,15 +46,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  use partinject,only:add_or_update_particle
  use setbinary, only:L1_point
  use physcon,   only:pi
+ use random,    only:ran2, rayleigh_deviate
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
- real :: m1,m2,q,radL1
- real :: xyzi(3),xyzL1(3),vxyz(3),dr(3),dir(3),x1(3),x2(3),x0(3),v1(3),v2(3),dv(3)
- real :: delta,h,u,Minject,vinject,time_between_walls,local_time,ymin,zmin,rcyl,rcyl2
- integer :: N,i,iy,iz,i_part,part_type,handled_walls
- integer :: outer_wall, inner_wall, inner_handled_wall, particles_per_wall
+ real :: m1,m2,q,radL1,h,u,theta_s,A,mu,vinject,theta_rand,r_rand,chi
+ real :: xyzL1(3),xyzi(3),vxyz(3),dr(3),x1(3),x2(3),x0(3),dxyz(3),vxyzL1(3),v1(3),v2(3)
+ integer :: i_part,part_type,s1,wall_i
 !
 !--find the L1 point
 !
@@ -62,98 +61,55 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  if (nptmass > 2) call fatal('inject_rochelobe','too many point masses for roche lobe injection')
  x1 = xyzmh_ptmass(1:3,1)
  x2 = xyzmh_ptmass(1:3,2)
+ v1 = vxyz_ptmass(1:3,1)
+ v2 = vxyz_ptmass(1:3,1)
  dr = x2 - x1
 
  m1 = xyzmh_ptmass(4,1)
  m2 = xyzmh_ptmass(4,2)
  q  = m2/m1
+ mu = 1./(1 + q)
  radL1      = L1_point(m1/m2)                     ! find L1 point given binary mass ratio
+ A  = mu / abs(radL1 - 1 + mu)**3 + (1 - mu)/abs(radL1 + mu)  !See Lubow & Shu 1975
+ theta_s = -acos( -4./(3.*A)+(1-8./(9.*A))**0.5)/2.
  xyzL1(1:3) = xyzmh_ptmass(1:3,1) + radL1*dr(:)   ! set as vector position
+ vxyzL1 = 1.000*v1*sqrt( dot_product(xyzL1-x0,xyzL1-x0)/dot_product(x1-x0,x1-x0) ) 
+ vinject = 0.010  ! injection velocity. eventually want this to be a user specified parameter
+ chi = 1.0e-3    ! stream width. eventually want this to be a user specified parameter
 
  ! get centre of mass of binary
  x0 = (m1*x1 + m2*x2)/(m1 + m2)
 
- ! get direction vector in which to point the stream
- dir = x2 - xyzL1
+ do wall_i=1,8  ! ew
 
- ! get angular velocity of binary
- !v1 = vxyz_ptmass(1:3,1)
- !v2 = vxyz_ptmass(1:3,2)
- !dv = v2 - v1
- !call get_v_spherical(dir,dv,vr,vphi,vtheta)
- !r = sqrt(dot_product(r,r))
- !omega0 = vphi/r
+    ! calculate particle offset
+    theta_rand = ran2(s1)*2*pi    !this is still kludgey. fix later
+    r_rand = rayleigh_deviate(s1)*chi   !also kludgey. also want to draw from gaussian distribution
+    dxyz=(/0.0, cos(theta_rand), sin(theta_rand)/)*r_rand
+ 
+    ! prepare to add a particle
+    part_type = igas
+    
+    vxyz = (/ cos(theta_s), sin(theta_s), 0.0 /)*vinject
+    h = hfact
+    u = 0.0    ! what is this and what should its value be ???
+    i_part = npart + 1
+    call rotate_into_plane(dxyz,vxyz,x2-xyzL1)
+    vxyz = vxyz + vxyzL1
+    xyzi = xyzL1 + dxyz
 
- N = 4              ! number of particles in x axis of cylinder
- rcyl = 0.01*radL1  ! radius of injection cylinder, as fraction of L1 distance
- rcyl2 = rcyl*rcyl
- delta = 2.*rcyl/N  ! particle separation in cylinder
- ymin = -rcyl   ! to ensure flow is centred around L1 point
- zmin = -rcyl
- h = hfact*delta
+    !add the particle
 
- handled_walls = 4
- vinject = 0.05
-
- print*,'injecting at ',xyzi(1:3)
-!
-!--inject material at the L1 point, with the orbital motion of the secondary
-!
-!  deltat = time - dtlast
-!  Minject = deltat*Mdotcode
-!  ninject = int(Minject/massoftype(igas)) - 1
-!  deltatp = deltat/real(ninject - 1)
-!  vnew(:) = vxyz_ptmass(1:3,2)
-!  vinject = sqrt(dot_product(vnew,vnew))
-
- time_between_walls = delta/vinject
- outer_wall = ceiling((time-dtlast)/time_between_walls)
- inner_wall = ceiling(time/time_between_walls)-1
- inner_handled_wall = inner_wall+handled_walls
- particles_per_wall = int(0.25*pi*N**2)  ! cross section of cylinder
-
- print *, "t = ", time
- print *, "dt last = ", dtlast
- print *, "delta t = ", time_between_walls
- print *, "Injecting wall ", inner_wall, " to ", outer_wall
- print *, "Handling wall ", inner_handled_wall, " to ", inner_wall-1
- print *, ' v = ', vinject
- print *, '*** ', time, dtlast, time_between_walls, inner_wall, outer_wall
-
- do i=inner_handled_wall,outer_wall,-1
-    local_time = time - i*time_between_walls
-    if (i  >  inner_wall) then
-       ! Handled wall
-       i_part = (inner_handled_wall-i)*particles_per_wall
-       part_type = igas
-    else
-       ! Outer wall
-       i_part = npart
-       part_type = igas
-    endif
-    xyzi(1) = local_time * vinject
-    print *, '==== ', i, xyzi(1)
-    do iy = 1,N
-       do iz = 1,N
-          xyzi(2) = ymin + (iy-.5)*delta
-          xyzi(3) = zmin + (iz-.5)*delta
-          ! crop to cylinder
-          if (xyzi(2)**2 + xyzi(3)**2 < rcyl2) then
-             ! rotate direction so that x axis is pointing towards secondary
-             vxyz = (/ vinject, 0., 0. /)
-             call rotate_into_plane(xyzi,vxyz,dir)
-             ! add position offset
-             xyzi = xyzi + xyzL1
-             ! add rotation velocity of primary
-             !vxyz = vxyz + vxyz_ptmass(1:3,1)
-             i_part = i_part + 1
-             ! Another brick in the wall
-             call add_or_update_particle(part_type, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
-          endif
-       enddo
-    enddo
-    !read*
+    call add_or_update_particle(part_type, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
  enddo
+!print*, "Adding particle at ", xyzi
+!print*, "With velocity ", vxyz
+!print*, "L1 point calculated to be at ", xyzL1
+!print*, "White Dwarf is at ", x1
+!print*, "Companion is at   ", x2
+!print*, "Theta_s was ", theta_s*180/pi
+!print*, "A was", A  
+!print*, "Mu was", mu
 
 end subroutine inject_particles
 
