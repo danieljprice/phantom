@@ -1595,7 +1595,7 @@ OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 .PHONY: phantomsetup
 phantomsetup: setup
 
-setup: checksystem checkparams $(OBJSETUP)
+setup: checksystem checkparams phantom-version.h $(OBJSETUP)
 	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS)
 	@echo ""
 	@echo "Phantom setup built"
