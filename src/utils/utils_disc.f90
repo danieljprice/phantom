@@ -13,7 +13,7 @@
 !
 !  REFERENCES:
 !
-!  OWNER: Daniel Price
+!  OWNER: Rebecca Nealon
 !
 !  $Id$
 !
@@ -48,6 +48,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_
  use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass
  use physcon,      only:pi
  use centreofmass, only:get_total_angular_momentum
+ use externalforces, only:iext_einsteinprec
  use options,      only:iexternalforce
  use vectorutils, only:rotatevec
  real, intent(inout) :: xyzh(:,:)
@@ -118,12 +119,17 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_
        Li(3) = pmass*(xyzh(1,i)*vxyz(2,i)-xyzh(2,i)*vxyz(1,i))
 
        Limag = sqrt(dot_product(Li,Li))/pmass
-       ! Energy for standard potential, if using Einstein precession uncomment last bit and change 'term'
+
        ! NB: No internal energy as isothermal
-       Ei = 0.5*dot_product(vi,vi) - G*M_star/ri! -3.*G*M_star/(ri**2)
+
        mu = G*M_star
-       term = 2.*Ei*Limag**2/(mu**2)
-       !term = 2.*Ei*(Limag**2 - 6.*mu*mu)/(mu**2)
+       if (iexternalforce==iext_einsteinprec) then
+          Ei = 0.5*dot_product(vi,vi) - G*M_star/ri -3.*G*M_star/(ri**2)
+          term = 2.*Ei*(Limag**2 - 6.*mu*mu)/(mu**2)
+       else
+          Ei = 0.5*dot_product(vi,vi) - G*M_star/ri
+          term = 2.*Ei*Limag**2/(mu**2)
+       endif
        ecci = sqrt(1. + term)
 
        Lx(ii)=Lx(ii)+Li(1)
