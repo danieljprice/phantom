@@ -192,6 +192,7 @@ end subroutine read_discparams
 
 subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_index,&
                      tilt,tilt_acc,tp,psi,H,rad,h_smooth,sigma,unitlx,unitly,unitlz,ecc,ninbin)
+ use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass
  use physcon,      only:pi
  use centreofmass, only:get_total_angular_momentum
  use options,      only:iexternalforce
@@ -323,7 +324,11 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_
 
  ! Calculate the total angular momentum vector and rotate unitl[x,y,z] if required
  if(iexternalforce == 0) then
-    call get_total_angular_momentum(xyzh,vxyz,npart,L_tot)
+    if (nptmass /= 0) then
+       call get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_ptmass,nptmass)
+    else
+       call get_total_angular_momentum(xyzh,vxyz,npart,L_tot)
+    endif
 
     temp = (/L_tot(1),L_tot(2),0./)
     temp_mag = sqrt(dot_product(temp,temp))
