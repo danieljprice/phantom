@@ -722,7 +722,7 @@ ifeq ($(SETUP), jet)
     FPPFLAGS= -DPERIODIC -DGRAVITY
     SETUPFILE= setup_sphereinbox.f90
     #ANALYSIS= analysis_jet.f90
-    ANALYSIS= ${SRCNIMHD} analysis_disc_RadMass.f90
+    ANALYSIS= ${SRCNIMHD} analysis_protostar_environ.F90
     ISOTHERMAL=yes
     MHD=yes
     IND_TIMESTEPS=yes
@@ -731,9 +731,9 @@ ifeq ($(SETUP), jet)
 endif
 
 ifeq ($(SETUP), jetnimhd)
-#   Simulation from Wurster, Price & Bate (2016,2017)
+#   Simulation from Wurster, Price & Bate (2016,2017) et seq
     SETUPFILE= setup_sphereinbox.f90
-    ANALYSIS= ${SRCNIMHD} analysis_disc_RadMass.f90
+    ANALYSIS= ${SRCNIMHD} analysis_protostar_environ.F90
     PERIODIC=yes
     GRAVITY=yes
     ISOTHERMAL=yes
