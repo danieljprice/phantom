@@ -1524,7 +1524,7 @@ OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
 
 .PHONY: phantom
-phantom: checksystem checkparams phantom-version.h $(OBJECTS) phantom.o
+phantom: checksystem checkparams $(OBJECTS) phantom.o
 	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJECTS) phantom.o $(LDFLAGS)
 ifeq ($(UNAME), Darwin)
 	dsymutil $(BINDIR)/$@
@@ -1595,7 +1595,7 @@ OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 .PHONY: phantomsetup
 phantomsetup: setup
 
-setup: checksystem checkparams phantom-version.h $(OBJSETUP)
+setup: checksystem checkparams $(OBJSETUP)
 	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS)
 	@echo ""
 	@echo "Phantom setup built"
@@ -1603,6 +1603,8 @@ setup: checksystem checkparams phantom-version.h $(OBJSETUP)
 
 cleansetup:
 	rm -f $(BINDIR)/phantomsetup
+
+config.o: phantom-version.h
 
 phantom-version.h:
 	@echo "creating $@"
