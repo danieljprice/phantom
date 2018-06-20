@@ -18,7 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: infile_utils, io, physcon
+!  DEPENDENCIES: centreofmass, infile_utils, io, options, part, physcon,
+!    vectorutils
 !+
 !--------------------------------------------------------------------------
 module analysis

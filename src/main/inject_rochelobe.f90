@@ -19,8 +19,8 @@
 !  RUNTIME PARAMETERS:
 !    Mdot -- mass injection rate at L1, in Msun/yr
 !
-!  DEPENDENCIES: infile_utils, io, part, partinject, physcon, setbinary,
-!    units
+!  DEPENDENCIES: infile_utils, io, part, partinject, physcon, random,
+!    setbinary, units
 !+
 !--------------------------------------------------------------------------
 module inject

@@ -15,9 +15,9 @@
 !
 !  $Id$
 !
-!  USAGE: showheader filename(s)
+!  USAGE: showheader file_00000
 !
-!  DEPENDENCIES: utils_dumpfiles
+!  DEPENDENCIES: dump_utils
 !+
 !--------------------------------------------------------------------------
 program showheader
