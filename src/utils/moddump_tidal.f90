@@ -62,7 +62,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real                    :: Lx,Ly,Lz,L,Lp,Ltot(3)
  real                    :: phi,theta
  real                    :: x,y,z,vx,vy,vz
- real                    :: x0,y0,vx0,vy0,alpha,r0
+ real                    :: x0,y0,vx0,vy0,alpha,r0,ecc
 
  !--Reset center of mass
  call reset_centreofmass(npart,xyzh,vxyzu)
@@ -148,24 +148,26 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  rs = 1.0                     ! stellar radius
  theta = 0.0                  ! stellar tilting along x
  phi = 0.0                    ! stellar tilting along y
+ ecc = 1.                     ! eccentricity
 
  !--User enter values
  call prompt(' Enter a value for the penetration factor (beta): ',beta,0.)
  call prompt(' Enter a value for blackhole mass (in code units): ',Mh,0.)
  call prompt(' Enter a value for the stellar mass (in code units): ',Ms,0.)
  call prompt(' Enter a value for the stellar radius (in code units): ',rs,0.)
+ call prompt(' Enter a value for the eccentricity: ',ecc,0.,1.)
  rt = (Mh/Ms)**(1./3.) * rs         ! tidal radius
  rp = rt/beta                       ! pericenter distance
  r0 = 4.9*rt                        ! starting radius
  call prompt(' Enter a value for the stellar rotation with respect to x-axis (in degrees): ',theta,0.)
  call prompt(' Enter a value for the stellar rotation with respect to y-axis (in degrees): ',phi,0.)
- call prompt(' Enter a value for the starting distance (in code unites): ',r0,0.)
+ call prompt(' Enter a value for the starting distance (in code units): ',r0,0.)
 
- alpha = acos(2.*rt/(r0*beta)-1.)         ! starting angle anti-clockwise from pos x-axis
+ alpha = acos((rt*(1.+ecc)/(r0*beta)-1.)/ecc)         ! starting angle anti-clockwise from positive x-axis
  x0    = r0*cos(alpha)
  y0    = r0*sin(alpha)
- vx0   = sqrt(mh*beta/(2.*rt)) * sin(alpha)
- vy0   = -sqrt(mh*beta/(2.*rt)) * (cos(alpha)+1.)
+ vx0   = sqrt(mh*beta/((1.+ecc)*rt)) * sin(alpha)
+ vy0   = -sqrt(mh*beta/((1.+ecc)*rt)) * (cos(alpha)+ecc)
 
  !--Set input file parameters
  mass1          = Mh
