@@ -263,6 +263,7 @@ subroutine interactively_set_dust_full(dust_to_gas,dustfrac_percent,grainsizeinp
  character(len=*), intent(in), optional :: units
 
  integer :: i
+ integer :: dust_method = -1
  integer :: profile_set_dust = -1
  real    :: units_to_cgs = 1.
  logical :: simple_grainsize = .false.
@@ -286,7 +287,27 @@ subroutine interactively_set_dust_full(dust_to_gas,dustfrac_percent,grainsizeinp
  !--initialise the size/density to the default values
  grainsizeinp = grainsizecgs
  graindensinp = graindenscgs
+ 
+ if (dust_method /= -1) then
+    !
+    !--dust method
+    !
+    if (ndusttypes > 1) then
+       dust_method  = 1
+    else
+       dust_method  = 2
+    endif
 
+    call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
+    if (dust_method == 1) then
+       use_dustfrac = .true.
+    else
+       use_dustfrac = .false.
+       if (ndusttypes > 1) call fatal('setup','dust_method=2 is currently only compatible with ndusttypes=1!')
+    endif
+    if (present(imethod)) imethod = dust_method
+ endif
+ 
  if (use_dustfrac) call prompt('Do you want to limit the dust flux?',ilimitdustflux)
  select case(idrag)
  case(1)
@@ -933,7 +954,7 @@ end subroutine write_dust_to_header
 !-----------------------------------------------------------------------
 subroutine check_dust_method(id,filename,ichange_method)
  use options, only:use_dustfrac
- use dust,    only:init_drag,get_ts,grainsize,graindens,idrag,ilimitdustflux
+ use dust,    only:init_drag,get_ts,grainsize,graindens,idrag
  use part,    only:npart,massoftype,xyzh,vxyzu,rhoh,igas,dustfrac
  use eos,     only:ieos,get_spsound
  use io,      only:master
