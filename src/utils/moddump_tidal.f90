@@ -59,7 +59,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,     intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer                 :: i
  real                    :: beta, rt, rp, rs, Ms, Mh
- real                    :: Lx,Ly,Lz,L,Lp
+ real                    :: Lx,Ly,Lz,L,Lp,Ltot(3)
  real                    :: phi,theta
  real                    :: x,y,z,vx,vy,vz
  real                    :: x0,y0,vx0,vy0,alpha,r0
@@ -70,27 +70,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  phi   = 0.
  theta = 0.
 
- !--Calculating anuglar momentum (blame on Andrea Sacchi)
-
- Lx=0.0
- Ly=0.0
- Lz=0.0
-
- do i = 1, npart
-    !
-    Lx = Lx+xyzh(2,i)*vxyzu(3,i)-xyzh(3,i)*vxyzu(2,i)
-    Ly = Ly+xyzh(3,i)*vxyzu(1,i)-xyzh(1,i)*vxyzu(3,i)
-    Lz = Lz+xyzh(1,i)*vxyzu(2,i)-xyzh(2,i)*vxyzu(1,i)
-    !
- enddo
-
- L=sqrt(Lx**2.0+Ly**2.0+Lz**2.0)
-
- print*,'Checking angular momentum orientation and magnitude...'
- print*,'Angular momentum is L=(',Lx,Ly,Lz,')'
- print*,'Angular momentum modulus is L=',L
-
- Lp=sqrt(Lx**2.0+Lz**2.0)
+ call get_angmom(ltot,npart,xyzh,vxyzu)
+ Lx = ltot(1)
+ Ly = ltot(2)
+ Lz = ltot(3)
+ Lp = sqrt(Lx**2.0+Lz**2.0)
 
  if (Lx > 0.) then
     phi=acos(Lz/Lp)
@@ -105,7 +89,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 !
 
  do i=1,npart
-    !
     x=xyzh(1,i)
     z=xyzh(3,i)
     xyzh(1,i)=x*cos(-phi)+z*sin(-phi)
@@ -114,31 +97,17 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     vz=vxyzu(3,i)
     vxyzu(1,i)=vx*cos(-phi)+vz*sin(-phi)
     vxyzu(3,i)=-vx*sin(-phi)+vz*cos(-phi)
-    !
  enddo
 
 !
 !--Recheck the stellar angular momentum
 !
 
- Lx=0.0
- Ly=0.0
- Lz=0.0
-
- do i = 1, npart
-    !
-    Lx = Lx+xyzh(2,i)*vxyzu(3,i)-xyzh(3,i)*vxyzu(2,i)
-    Ly = Ly+xyzh(3,i)*vxyzu(1,i)-xyzh(1,i)*vxyzu(3,i)
-    Lz = Lz+xyzh(1,i)*vxyzu(2,i)-xyzh(2,i)*vxyzu(1,i)
-    !
- enddo
-
- L=sqrt(Lx**2.0+Ly**2.0+Lz**2.0)
-
-! print*,'Angular momentum is L=(',Lx,Ly,Lz,')'
-! print*,'Angular momentum modulus is L=',L
-
-
+ call get_angmom(ltot,npart,xyzh,vxyzu)
+ lx = ltot(1)
+ ly = ltot(2)
+ lz = ltot(3)
+ L  = sqrt(Lx**2.0+Ly**2.0+Lz**2.0)
  if (Ly < 0.) then
     theta=acos(Lz/L)
  elseif (Ly > 0.) then
@@ -166,23 +135,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 !--Recheck the stellar angular momentum
 !
 
- Lx=0.0
- Ly=0.0
- Lz=0.0
+ call get_angmom(ltot,npart,xyzh,vxyzu)
+ print*,'Stellar spin should now be along the z axis.'
 
- do i = 1, npart
-    !
-    Lx = Lx+xyzh(2,i)*vxyzu(3,i)-xyzh(3,i)*vxyzu(2,i)
-    Ly = Ly+xyzh(3,i)*vxyzu(1,i)-xyzh(1,i)*vxyzu(3,i)
-    Lz = Lz+xyzh(1,i)*vxyzu(2,i)-xyzh(2,i)*vxyzu(1,i)
-    !
- enddo
 
- L=sqrt(Lx**2.0+Ly**2.0+Lz**2.0)
 
- print*,'Stellar spin is now along z axis.'
- print*,'Angular momentum is L=(',Lx,Ly,Lz,')'
- print*,'Angular momentum modulus is L=',L
 
  !--Defaults
  beta = 1.0                   ! penetration factor
@@ -269,5 +226,32 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  return
 end subroutine modify_dump
+
+
+subroutine get_angmom(ltot,npart,xyzh,vxyzu)
+ real, intent(out)   :: ltot(3)
+ integer, intent(in) :: npart
+ real, intent(in)    :: xyzh(:,:), vxyzu(:,:)
+ integer :: i
+ real    :: L
+
+ !--Calculating anuglar momentum (blame on Andrea Sacchi [and David Liptai :P])
+
+ ltot = 0.
+ do i=1,npart
+     ltot(1) = ltot(1)+xyzh(2,i)*vxyzu(3,i)-xyzh(3,i)*vxyzu(2,i)
+     ltot(2) = ltot(2)+xyzh(3,i)*vxyzu(1,i)-xyzh(1,i)*vxyzu(3,i)
+     ltot(3) = ltot(3)+xyzh(1,i)*vxyzu(2,i)-xyzh(2,i)*vxyzu(1,i)
+ enddo
+
+ L = sqrt(dot_product(ltot,ltot))
+
+ print*,''
+ print*,'Checking angular momentum orientation and magnitude...'
+ print*,'Angular momentum is L = (',ltot(1),ltot(2),ltot(3),')'
+ print*,'Angular momentum modulus is |L| = ',L
+ print*,''
+
+end subroutine get_angmom
 
 end module moddump
