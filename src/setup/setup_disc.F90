@@ -81,6 +81,7 @@ module setup
  use physcon,        only:au,solarm
  use setdisc,        only:scaled_sigma
  use extern_binary,  only:ramp
+ use readwrite_dust, only:dust_method
 
  implicit none
  public  :: setpart
@@ -100,7 +101,7 @@ module setup
       'secondary'/)
  logical :: iuse_disc(3),itapergas(3),itaperdust(3),iwarp(3)
  logical :: ismoothgas(3),ismoothdust(3),use_global_iso
- integer :: mass_set(3),profile_set_dust,dust_method,ndiscs
+ integer :: mass_set(3),profile_set_dust,ndiscs
  real    :: R_in(3),R_out(3),R_ref(3),R_c(3),R_warp(3),H_warp(3)
  real    :: pindex(3),qindex(3),H_R(3),posangl(3),incl(3)
  real    :: disc_m(3),sig_ref(3),sig_norm(3),annulus_m(3),R_inann(3),R_outann(3),Q_min(3)
@@ -137,7 +138,7 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use centreofmass,         only:reset_centreofmass
  use dust,                 only:grainsizecgs,graindenscgs
- use readwrite_dust,       only:io_grainsize,nduststrings,set_dustfrac_from_inopts
+ use readwrite_dust,       only:io_grainsize,nduststrings,set_dustfrac_from_inopts,check_dust_method
  use eos,                  only:isink,qfacdisc
  use extern_binary,        only:accradius1,accradius2,binarymassr,eps_soft1
  use externalforces,       only:mass1,accradius1
@@ -169,7 +170,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
 
  integer, parameter :: maxbins = 4096
- logical :: iexist,seq_exists,is_isothermal
+ logical :: iexist,seq_exists,is_isothermal,ichange_method
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
  real    :: jdust_to_gas_ratio,Rj,period,Rochelobe,Hill(maxplanets)
  real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Sigmadust,Stokes(ndusttypes)
@@ -190,10 +191,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: r_surface
  real    :: udens,rho_core
 
-
  print "(/,65('-'),2(/,a),/,65('-'),/)"
  print "(a)",'     Welcome to the New Disc Setup'
  print "(/,65('-'),2(/,a),/,65('-'),/)"
+
+ !--The default value for dust method in dustydisc setup is one-fluid dust
+ if (use_dust) use_dustfrac = .true.
 
  !
  !--get disc setup parameters from file or interactive setup
@@ -291,30 +294,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           !--globally isothermal
           ieos = 1
           qindex = 0.
+          qfacdisc = qindex(1)
           print "(/,a)",' setting ieos=1 for globally isothermal disc'
           if (iuse_disc(1)) then
              H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
              H_R(3) = sqrt(R_ref(3)/R_ref(1)*(m1+m2)/m2) * H_R(1)
              call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
           elseif (iuse_disc(2)) then
-             H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
-             call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
+                H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
+                call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
           endif
        else
           !--locally isothermal prescription from Farris et al. (2014) for binary system
           ieos = 14
           print "(/,a)",' setting ieos=14 for locally isothermal from Farris et al. (2014)'
-          if (iuse_disc(1)) then
-             H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
-             H_R(3) = sqrt(R_ref(3)/R_ref(1)*(m1+m2)/m2) * H_R(1)
-             qindex(2) = qindex(1)
-             qindex(3) = qindex(1)
+          if(iuse_disc(1)) then 
+             H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
+             H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
              call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
-          elseif (iuse_disc(2)) then
-             H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
-             qindex(3) = qindex(2)
+          elseif(iuse_disc(2))then
+             H_R(3) = (R_ref(3)/R_ref(2)*m2/m1)**(0.5-qindex(2)) * H_R(2)
              call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
           endif
+          qfacdisc = qindex(3)
        endif
     else
        !--single disc
@@ -748,6 +750,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(igas)  = nparttot - npartdust
  npartoftype(idust) = npartdust
 
+ call check_dust_method(id,filename,ichange_method)
+ if (ichange_method .and. id==master) then
+    np_dust = npart/5
+    call write_setupfile(filename)
+    print "(/,a)",' >>> please rerun the setup routine <<<'
+    stop
+ endif
+
  !
  ! print information about the angular momenta
  !
@@ -963,6 +973,7 @@ subroutine setup_interactive(id)
  use dust,           only:ilimitdustflux
  use readwrite_dust, only:interactively_set_dust
  use prompting,      only:prompt
+ use io, only: warning
  integer, intent(in) :: id
  integer :: maxdiscs
  real    :: disc_mfac(3)
@@ -1142,11 +1153,50 @@ subroutine setup_interactive(id)
     disc_mfac = (/1., 0.1, 0.01/)
     if (ndiscs > 1) then
        !--set H/R so temperature is globally constant
-       H_R(1) = 0.1
-       H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
-       H_R(3) = sqrt(R_ref(3)/R_ref(1)*(m1+m2)/m2) * H_R(1)
-       H_R(2) = nint(H_R(2)*10000.)/10000.
-       H_R(3) = nint(H_R(3)*10000.)/10000.
+       call prompt('Do you want a globally istothermal disc (if not Farris et al. 2014)?',use_global_iso)
+       !--------------------------------
+       ! N.B. The initializations of multiple discs is not done using the implementation of the eos
+       ! a radial profile centred on CM, primary and secondary is used.
+       ! The value of H_R used in setpart to set cs0 is the one of the circumbinary if cb disc is present,  
+       ! otherwise it uses the circumprimary. 
+       ! The values of H_R used for the other discs are set using the equations below, however changing them here
+       ! is not enough. THey need to be changed also in the the setpart function.
+       !--------------------------------
+       if(.not. use_global_iso) then
+         call prompt('Enter q_index',qindex(1))
+         qindex=qindex(1)
+         if(iuse_disc(1)) then 
+            call prompt('Enter H/R of circumbinary at R_ref',H_R(1))
+            H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
+            H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
+         else
+            if(iuse_disc(2))then
+                call prompt('Enter H/R of circumprimary at R_ref',H_R(2))
+                H_R(1) = (R_ref(1)/R_ref(2)*m1/(m1+m2))**(0.5-qindex(2)) * H_R(2)
+                H_R(3) = (R_ref(3)/R_ref(2)*m2/m1)**(0.5-qindex(2)) * H_R(2)
+            else 
+                call prompt('Enter H/R of circumsecondary at R_ref',H_R(3))
+                H_R(1) = sqrt(R_ref(1)/R_ref(3)*m2/(m1+m2))**(0.5-qindex(3)) * H_R(3)
+                H_R(2) = sqrt(R_ref(2)/R_ref(3)*m2/m1)**(0.5-qindex(3)) * H_R(3)
+           endif
+         endif
+         H_R(2) = nint(H_R(2)*10000.)/10000.
+         H_R(3) = nint(H_R(3)*10000.)/10000.
+       else
+          if (iuse_disc(1)) then
+             H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
+             H_R(3) = sqrt(R_ref(3)/R_ref(1)*(m1+m2)/m2) * H_R(1)
+             qindex(2) = qindex(1)
+             qindex(3) = qindex(1)
+             call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
+          elseif (iuse_disc(2)) then
+             H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
+             qindex(3) = qindex(2)
+             call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
+          endif
+          H_R(2) = nint(H_R(2)*10000.)/10000.
+          H_R(3) = nint(H_R(3)*10000.)/10000.
+        endif
     endif
  endif
  do i=1,3
@@ -1849,7 +1899,6 @@ subroutine read_obsolete_setup_options(filename)
 
  call read_inopt(np,'npart',db,err=ierr)
  call read_inopt(tmp_i,'np_dust',db,err=ierr)
- dust_method = 2
  if (ierr /= 0) dust_method = 1
  call read_inopt(tmp_r,'udist',db,err=ierr)
  dist_unit = 'au'

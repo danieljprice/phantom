@@ -92,6 +92,7 @@ module dump_utils
 
  public :: write_header, read_header
  public :: allocate_header, free_header
+ public :: print_header
 
  ! generic interface to extract quantities from header
  interface extract
@@ -1380,6 +1381,53 @@ subroutine free_header(hdr,ierr)
  if (allocated(hdr%real8vals)) deallocate(hdr%real8vals)
 
 end subroutine free_header
+
+!-------------------------------------------------------
+!+
+!  print contents of header structure
+!+
+!-------------------------------------------------------
+subroutine print_header(hdr)
+ type(dump_h), intent(in) :: hdr
+ integer :: i
+
+ if (allocated(hdr%inttags) .and. allocated(hdr%intvals)) then
+    do i=1,size(hdr%inttags)
+       print*,hdr%inttags(i),hdr%intvals(i)
+    enddo
+ endif
+ if (allocated(hdr%int1tags) .and. allocated(hdr%int1vals)) then
+    do i=1,size(hdr%int1tags)
+       print*,hdr%int1tags(i),hdr%int1vals(i)
+    enddo
+ endif
+ if (allocated(hdr%int2tags) .and. allocated(hdr%int2vals)) then
+    do i=1,size(hdr%int2tags)
+       print*,hdr%int2tags(i),hdr%int2vals(i)
+    enddo
+ endif
+ if (allocated(hdr%int4tags) .and. allocated(hdr%int4vals)) then
+    do i=1,size(hdr%int4tags)
+       print*,hdr%int4tags(i),hdr%int4vals(i)
+    enddo
+ endif
+ if (allocated(hdr%realtags) .and. allocated(hdr%realvals)) then
+    do i=1,size(hdr%realtags)
+       print*,hdr%realtags(i),hdr%realvals(i)
+    enddo
+ endif
+ if (allocated(hdr%real4tags) .and. allocated(hdr%real4vals)) then
+    do i=1,size(hdr%real4tags)
+       print*,hdr%real4tags(i),hdr%real4vals(i)
+    enddo
+ endif
+ if (allocated(hdr%real8tags) .and. allocated(hdr%real8vals)) then
+    do i=1,size(hdr%real8tags)
+       print*,hdr%real8tags(i),hdr%real8vals(i)
+    enddo
+ endif
+
+end subroutine print_header
 
 !-------------------------------------------------------
 !+

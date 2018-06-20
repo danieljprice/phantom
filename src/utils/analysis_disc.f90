@@ -192,7 +192,10 @@ end subroutine read_discparams
 
 subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_index,&
                      tilt,tilt_acc,tp,psi,H,rad,h_smooth,sigma,unitlx,unitly,unitlz,ecc,ninbin)
- use physcon, only:pi
+ use physcon,      only:pi
+ use centreofmass, only:get_total_angular_momentum
+ use options,      only:iexternalforce
+ use vectorutils, only:rotatevec
  real, intent(inout) :: xyzh(:,:)
  real, intent(inout) :: vxyz(:,:)
  real, intent(inout) :: pmass,time
@@ -205,6 +208,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_
  real                :: Li(3),xi(3),vi(3),Limag,dtwist,psi_x,psi_y,psi_z
  real, intent(out)   :: tilt(nr),tilt_acc(nr),tp(nr),psi(nr),H(nr),ecc(nr),rad(nr)
  real, intent(out)   :: sigma(nr),h_smooth(nr),unitlx(nr),unitly(nr),unitlz(nr),ninbin(nr)
+ real :: L_tot(3),L_tot_mag,temp(3),temp_mag,rotate_about_z,rotate_about_y
  integer             :: i,ii
 
 ! Set up the radius array
@@ -316,6 +320,33 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_
        h_smooth(i) = h_smooth(i)/H(i)
     endif
  enddo
+
+ ! Calculate the total angular momentum vector and rotate unitl[x,y,z] if required
+ if(iexternalforce == 0) then
+    call get_total_angular_momentum(xyzh,vxyz,npart,L_tot)
+
+    temp = (/L_tot(1),L_tot(2),0./)
+    temp_mag = sqrt(dot_product(temp,temp))
+    rotate_about_z = acos(dot_product((/1.,0.,0./),temp/temp_mag))
+
+    ! Rotate second about y-axis
+    L_tot_mag = sqrt(dot_product(L_tot,L_tot))
+    rotate_about_y = -acos(dot_product((/0.,0.,1./),L_tot/L_tot_mag))
+
+    call rotatevec(L_tot,(/0.,0.,1.0/),-rotate_about_z)
+    call rotatevec(L_tot,(/0.,1.0,0./),rotate_about_y)
+
+    do i=1,nr
+      temp(1) = unitlx(i)
+      temp(2) = unitly(i)
+      temp(3) = unitlz(i)
+      call rotatevec(temp,(/0.,0.,1.0/),-rotate_about_z)
+      call rotatevec(temp,(/0.,1.0,0./),rotate_about_y)
+      unitlx(i) = temp(1)
+      unitly(i) = temp(2)
+      unitlz(i) = temp(3)
+    enddo
+ endif
 
  do i=1,nr
     if(i /= 1.and.i /= nr) then

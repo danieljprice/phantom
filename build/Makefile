@@ -1531,7 +1531,7 @@ endif
 utils: phantomsetup phantomanalysis \
        multirun phantom_moddump \
        phantom2divv phantom2divb \
-       diffdumps ev2mdot phantomevcompare acc2ang \
+       diffdumps showheader ev2mdot phantomevcompare acc2ang \
        phantom2sphNG phantom2gadget testbinary \
        sfutils phantom2pdf phantom2pdf-amr \
        phantom2struct phantom2power libphantom
@@ -1994,6 +1994,17 @@ plot_kernel.o: ${SRCKERNEL:.f90=.o}
 
 cleanplotkernel:
 	rm -f $(BINDIR)/plotkernel
+
+#----------------------------------------------------
+# these are the sources for the showheader utility
+#
+SRCSHOWHEADER= utils_dumpfiles.f90 showheader.f90
+OBJSHOWHEADER= $(SRCSHOWHEADER:.f90=.o)
+showheader: checksys $(OBJSHOWHEADER)
+	@echo ""
+	@echo "showheader: show me the header!"
+	@echo ""
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJSHOWHEADER)
 
 #----------------------------------------------------
 # these are the sources for the evol_dustywaves utility
