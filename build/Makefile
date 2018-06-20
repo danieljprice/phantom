@@ -384,7 +384,7 @@ endif
 ifeq ($(SETUP), tde)
 #   tidal disruption simulations
     SETUPFILE= setup_star.f90
-    ANALYSIS=
+    ANALYSIS=analysis_tde.f90
     GRAVITY=yes
     ISOTHERMAL=yes
     MODFILE=moddump_tidal.f90
