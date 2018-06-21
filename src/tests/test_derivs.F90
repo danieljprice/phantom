@@ -587,7 +587,7 @@ subroutine test_derivs(ntests,npass,string)
           grainsizek = grainsize(j)
           graindensk = graindens(j)
 #endif
-          call checkvalf(np,xyzh,ddustfrac(j,:),ddustfrac_func,4.e-4,nfailed(3),'deps/dt')
+          call checkvalf(np,xyzh,ddustfrac(j,:),ddustfrac_func,7.e-5,nfailed(3),'deps/dt')
           if (maxvxyzu>=4) call checkvalf(np,xyzh,fxyzu(4,:),dudtdust_func,5.e-4,nfailed(4),'du/dt')
           call checkvalf(np,xyzh,deltav(1,j,:),deltavx_func,2.3e-5,nfailed(5),'deltavx')
        enddo
@@ -629,9 +629,9 @@ subroutine test_derivs(ntests,npass,string)
 
           nfailed(:) = 0
           !print "(3(a,es17.10))",' dE_kin = ',dekin,' dE_therm = ',deint,' dE_dust = ',dedust
-          call checkval(massoftype(1)*(dekin + deint + dedust),0.,3.e-12,nfailed(1),'energy conservation (dE=0)')
+          call checkval(massoftype(1)*(dekin + deint + dedust),0.,7.e-15,nfailed(1),'energy conservation (dE=0)')
           do i = 1,ndusttypes
-             call checkval(massoftype(1)*(dmdust(i)),0.,5.e-12,nfailed(2),'dust mass conservation')
+             call checkval(massoftype(1)*(dmdust(i)),0.,1.5e-14,nfailed(2),'dust mass conservation')
           enddo
           ntests = ntests + 1
           if (nfailed(1)==0) npass = npass + 1

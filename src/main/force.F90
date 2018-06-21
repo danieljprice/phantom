@@ -787,6 +787,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use dust,        only:get_ts,grainsize,graindens,idrag,icut_backreaction,ilimitdustflux
  use kernel,      only:wkern_drag,cnormk_drag
  use part,        only:dustprop
+ use eos,         only:get_spsound
 #ifdef DUSTGROWTH
  use part,        only:St,xyzmh_ptmass
 #endif
@@ -795,7 +796,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ibin_old
 #endif
  use timestep,    only:bignumber
- use options,     only:overcleanfac,use_dustfrac
+ use options,     only:overcleanfac,use_dustfrac,ieos
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
  real,            intent(in)    :: xpartveci(:)
@@ -1191,9 +1192,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        endif
 
        !--get terms required for particle j
+       hj       = 1./hj1
+       rhoj     = rhoh(hj,pmassj)
        if (usej) then
-          hj       = 1./hj1
-          rhoj     = rhoh(hj,pmassj)
           rho1j    = 1./rhoj
           rho21j   = rho1j*rho1j
 
@@ -1550,6 +1551,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    fsum(idudtdissi) = fsum(idudtdissi) + dragheating
                 endif
              elseif (iamdusti .and. iamgasj) then
+                if(.not.usej) spsoundj=get_spsound(ieos,xyzh(:,j),rhoj,vxyzu(:,j))
                 dv2 = dvx*dvx + dvy*dvy + dvz*dvz
                 if (q2i < q2j) then
                    wdrag = wkern_drag(q2i,qi)*hi21*hi1*cnormk_drag
