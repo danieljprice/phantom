@@ -171,7 +171,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
 !
 !--gravitational force from central binary
 !
-    call binary_force(xi,yi,zi,ti,fextxi,fextyi,fextzi,phi,surface_force=.false.)
+    call binary_force(xi,yi,zi,ti,fextxi,fextyi,fextzi,phi)
 
  case(iext_prdrag)
 !
@@ -396,7 +396,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
     !
     !--gravitational force from central binary
     !
-    call binary_force(xi,yi,zi,ti,fextxi,fextyi,fextzi,phi,surface_force=.true.)
+    call binary_force(xi,yi,zi,ti,fextxi,fextyi,fextzi,phi)
 
     !
     !--spatial part of forces in corotating frame, i.e. centrifugal force
@@ -547,10 +547,8 @@ subroutine update_externalforce(iexternalforce,ti,dmdt)
  logical             :: stopped_now
 
  select case(iexternalforce)
- case(iext_binary)
-    call update_binary(ti,surface_force=.false.)
- case(iext_corot_binary)
-    call update_binary(ti,surface_force=.true.)
+ case(iext_binary,iext_corot_binary)
+    call update_binary(ti)
  case(iext_prdrag)
     call make_beta_grids( xyzh, massoftype(igas), npartoftype(igas) )
     call set_Lstar( BurstProfile, ti, dmdt, mass1 )
