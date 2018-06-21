@@ -62,7 +62,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real :: xyzL1(3),xyzi(3),vxyz(3),dr(3),x1(3),x2(3),x0(3),dxyz(3),vxyzL1(3),v1(3),v2(3)
  integer :: i_part,part_type,s1,wall_i,particles_to_place
 
- 
+
 !
 !--find the L1 point
 !
@@ -108,7 +108,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     r_rand = rayleigh_deviate(s1)*chi
     dxyz=(/0.0, cos(theta_rand), sin(theta_rand)/)*r_rand   ! Stream is placed randomly in a cylinder
                                                             ! with a Gaussian density distribution
- 
+
     ! prepare to add a particle
     part_type = igas
     vxyz = (/ cos(theta_s), sin(theta_s), 0.0 /)*spd_inject
@@ -131,7 +131,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
 !print*, "White Dwarf is at ", x1
 !print*, "Companion is at   ", x2
 !print*, "Theta_s was ", theta_s*180/pi
-!print*, "A was", A  
+!print*, "A was", A
 !print*, "Mu was", mu
 !print*, "Mdot is ",Mdot
 !print*, "Mdotcode is ", Mdotcode
@@ -236,7 +236,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 !--convert mass injection rate to code units
 !
     print*,' DEBUG: Mdot is ',Mdot,' Msun/yr, which is ',Mdotcode,' in code units'
-    
+
  case('dNdt')
     read(valstring,*,iostat=ierr) dNdt
     ngot = ngot + 1

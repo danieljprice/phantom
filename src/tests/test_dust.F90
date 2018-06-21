@@ -628,11 +628,11 @@ if (id==master) write(*,"(/,a)") '--> testing DUST DRAG'
  time  = 0.
  npart = 0
  npartoftype(:) = 0
- if (maxvxyzu >= 4)then 
+ if (maxvxyzu >= 4)then
     ieos = 1
     polyk = 1.
  endif
- 
+
  iverbose = 2
  use_dustfrac = .false.
  call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
@@ -645,7 +645,7 @@ if (id==master) write(*,"(/,a)") '--> testing DUST DRAG'
     vxyzu(1:3,i) = (/ran2(iseed),ran2(iseed),ran2(iseed)/)
     if (maxvxyzu >= 4) vxyzu(4,i) = ran2(iseed)
  enddo
- 
+
  call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                       3.*psep,hfact,npart,xyzh,verbose=.false.)
 
@@ -656,17 +656,17 @@ if (id==master) write(*,"(/,a)") '--> testing DUST DRAG'
  npartoftype(idust) = npart - npartoftype(igas)
  npartoftypetot(idust) = reduceall_mpi('+',npartoftype(idust))
  massoftype(idust)  = totmass/npartoftypetot(idust)
- 
- 
+
+
  if (mhd) Bevol = 0.
- 
+
 !
 ! call derivatives
 !
  idrag=1
  !K_code = 100
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-             dustfrac,ddustfrac,temperature,time,0.,dtnew)             
+             dustfrac,ddustfrac,temperature,time,0.,dtnew)
 
 !
 ! check that momentum and energy are conserved
