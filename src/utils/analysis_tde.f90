@@ -31,17 +31,19 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
- use physcon,        only:pi
+ use io, only:fatal
  character(len=*),   intent(in) :: dumpfile
  integer,            intent(in) :: numfile,npart,iunit
  real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,               intent(in) :: pmass,time
  character(len=120) :: output
+ character(len=20)  :: tdeprefix,tdeparams
  integer, parameter :: nmaxbins = 5000
- real,    dimension(nmaxbins) :: ebins,dnde
- real,    dimension(npart)    :: eps,t
- integer :: nbins,i
- real    :: mass1,r,v2
+ real,    dimension(nmaxbins) :: ebins,dnde,tbins,dndt
+ real,    dimension(npart)    :: eps,tr
+ integer :: nbins,i,iline,ierr
+ logical :: ifile
+ real    :: mh,r,v2,trmin
 
 ! Print the analysis being done
  write(*,'("Performing analysis type ",A)') analysistype
@@ -52,37 +54,77 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  ! Assuming G=1
  write(*,*)
- write(*,'("ASSUMING G == 1 and mass1 == 1e6")')
+ write(*,'("ASSUMING G == 1")')
 
- mass1 = 1.e6
+ iline = index(dumpfile,'_')
+ tdeprefix = dumpfile(1:iline-1)
+ tdeparams = trim(tdeprefix)//'.tdeparams'
+ inquire(file=tdeparams, exist=ifile)
+ ierr =1
+ if (ifile) then
+    call read_tdeparams(tdeparams,mh,iunit,ierr)
+    if (ierr /= 0) call fatal('analysis','could not open/read '//trim(tdeparams))
+ else
+    call fatal('analysis','could not open/read '//trim(tdeparams))
+ endif
+
+! Print out the parameters
+ write(*,*)
+ write(*,'("Parameters are:")')
+ write(*,*) 'mh (black hole mass)    = ',mh
+ write(*,*)
+
  nbins = int(sqrt(real(npart)))
 
 !
 !-- Compute the specific energy and return time of each particles, store in an array
 !
- t   = 0.
+ tr  = 0.
  eps = 0.
  do i=1,npart
     r      = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
     v2     = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
-    eps(i) = v2/2. - mass1/r                                     !-- Specific energy
-    if (eps(i)<0.) t(i) = 2.*pi*mass1/(2.*abs(eps(i)))**1.5         !-- Return time
+    eps(i) = v2/2. - mh/r                                     !-- Specific energy
+    if (eps(i)<0.) then
+       tr(i) = treturn(mh,eps(i))                             !-- Return time, only set if energy is negative
+    else
+       tr(i) = 0.
+    endif
  enddo
 
+! Create a histogram of the enegies and return times
  call hist(npart,eps,ebins,dnde,minval(eps),maxval(eps),nbins)
+ trmin = treturn(mh,minval(eps))
+ call hist(npart,tr,tbins,dndt,trmin,trmin*100.,nbins)
 
  open(iunit,file=output)
  write(iunit,'("# Analysis data at t = ",es20.12)') time
- write(iunit,"('#',2(1x,'[',i2.2,1x,a11,']',2x))") &
-       1,'e', &
-       2,'dn/de'
+ write(iunit,"('#',4(1x,'[',i2.2,1x,a11,']',2x))") &
+       1,'e',    &
+       2,'dn/de',&
+       3,'tr',   &
+       4,'dndt'
 
  do i = 1,nbins
-    write(iunit,'(2(es18.10,1X))') ebins(i),dnde(i)
+    write(iunit,'(4(es18.10,1X))') ebins(i),dnde(i),tbins(i),dndt(i)
  enddo
 
 end subroutine do_analysis
 
+!
+!-- Function to calculate return time from energy
+!
+real function treturn(mass,en)
+ use physcon,        only:pi
+ real, intent(in) :: mass,en
+
+  treturn = 2.*pi*mass/(2.*abs(en))**1.5
+
+end function treturn
+
+!
+!-- General function to compute a histogram
+!
 subroutine hist(np,xarray,xhist,yhist,xmin,xmax,nbins)
  use sortutils, only:indexx
  integer, intent(in) :: np,nbins
@@ -128,5 +170,27 @@ subroutine hist(np,xarray,xhist,yhist,xmin,xmax,nbins)
  enddo
 
 end subroutine hist
+
+!----------------------------------------------------------------
+!+
+!  Read tde information from .tdeparams file
+!+
+!----------------------------------------------------------------
+subroutine read_tdeparams(filename,mh,iunit,ierr)
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ character(len=*), intent(in)  :: filename
+ real,             intent(out) :: mh
+ integer,          intent(in)  :: iunit
+ integer,          intent(out) :: ierr
+ type(inopts), allocatable :: db(:)
+
+! Read in parameters from the file .tdeparams
+ call open_db_from_file(db,filename,iunit,ierr)
+ if (ierr /= 0) return
+ call read_inopt(mh,'mh',db,ierr)
+ if (ierr /= 0) return
+ call close_db(db)
+
+end subroutine read_tdeparams
 
 end module
