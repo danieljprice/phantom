@@ -39,7 +39,7 @@ SETUPFILE     = setup_unifdis.F90
 MODFILE       = moddump_default.f90
 ANALYSIS      = analysis_dtheader.f90
 MULTIRUNFILE  = multirun.f90
-LIVE_ANALYSIS = no
+LIVE_ANALYSIS = yes
 LINKLIST      = dtype_kdtree.F90 kdtree.F90 linklist_kdtree.F90
 #
 # can comment out the following lines and instead set
@@ -260,7 +260,10 @@ ifeq ($(SETUP), disc)
 #   locally isothermal gas disc
     FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
     SETUPFILE= setup_disc.f90
-    ANALYSIS= analysis_disc.f90
+    ANALYSIS= analysis_binarydisc_af.f90
+#    ANALYSIS=analysis_dustydisc_g.f90
+#    ANALYSIS=analysis_ptmass.f90
+#    ANALYSIS = analysis_binarydisc.f90
     ISOTHERMAL=yes
     KNOWN_SETUP=yes
     MULTIRUNFILE= multirun.f90
