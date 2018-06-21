@@ -28,6 +28,10 @@ module analysis
 
  private
 
+ integer :: nbins
+ real    :: mh
+ integer, parameter :: nmaxbins = 5000
+
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
@@ -38,12 +42,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real,               intent(in) :: pmass,time
  character(len=120) :: output
  character(len=20)  :: tdeprefix,tdeparams
- integer, parameter :: nmaxbins = 5000
- real,    dimension(nmaxbins) :: ebins,dnde,tbins,dndt
- real,    dimension(npart)    :: eps,tr
- integer :: nbins,i,iline,ierr
+ real, dimension(nmaxbins) :: ebins,dnde,tbins,dndt
+ integer :: i,iline,ierr
  logical :: ifile
- real    :: mh,r,v2,trmin
 
 ! Print the analysis being done
  write(*,'("Performing analysis type ",A)') analysistype
@@ -56,6 +57,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  write(*,*)
  write(*,'("ASSUMING G == 1")')
 
+ ! Read black hole mass from .tdeparams file
  iline = index(dumpfile,'_')
  tdeprefix = dumpfile(1:iline-1)
  tdeparams = trim(tdeprefix)//'.tdeparams'
@@ -75,27 +77,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  write(*,*)
 
  nbins = int(sqrt(real(npart)))
-
-!
-!-- Compute the specific energy and return time of each particles, store in an array
-!
- tr  = 0.
- eps = 0.
- do i=1,npart
-    r      = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    v2     = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
-    eps(i) = v2/2. - mh/r                                     !-- Specific energy
-    if (eps(i)<0.) then
-       tr(i) = treturn(mh,eps(i))                             !-- Return time, only set if energy is negative
-    else
-       tr(i) = 0.
-    endif
- enddo
-
-! Create a histogram of the enegies and return times
- call hist(npart,eps,ebins,dnde,minval(eps),maxval(eps),nbins)
- trmin = treturn(mh,minval(eps))
- call hist(npart,tr,tbins,dndt,trmin,trmin*100.,nbins)
+ call tde_analysis(npart,xyzh,vxyzu,ebins,dnde,tbins,dndt)
 
  open(iunit,file=output)
  write(iunit,'("# Analysis data at t = ",es20.12)') time
@@ -110,6 +92,43 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  enddo
 
 end subroutine do_analysis
+
+!--------------------------------------------------------------------------------------------------------------------
+!
+!-- Actual subroutine where the analysis is done!
+!
+!--------------------------------------------------------------------------------------------------------------------
+subroutine tde_analysis(npart,xyzh,vxyzu,ebins,dnde,tbins,dndt)
+ integer, intent(in) :: npart
+ real, intent(in)    :: xyzh(:,:),vxyzu(:,:)
+ real, intent(out), dimension(nmaxbins) :: ebins,dnde,tbins,dndt
+ integer :: i
+ real    :: eps(npart),tr(npart),r,v2,trmin
+
+ !
+ !-- Compute the specific energy and return time of each particles, store in an array
+ !
+ tr  = 0.
+ eps = 0.
+ do i=1,npart
+    r      = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+    v2     = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
+    eps(i) = v2/2. - mh/r                                     !-- Specific energy
+    if (eps(i)<0.) then
+       tr(i) = treturn(mh,eps(i))                             !-- Return time, only set if energy is negative
+    else
+       tr(i) = 0.
+    endif
+ enddo
+
+ ! Create a histogram of the enegies and return times
+ call hist(npart,eps,ebins,dnde,minval(eps),maxval(eps),nbins)
+ trmin = treturn(mh,minval(eps))
+ call hist(npart,tr,tbins,dndt,trmin,trmin*100.,nbins)
+
+end subroutine tde_analysis
+
+!--------------------------------------------------------------------------------------------------------------------
 
 !
 !-- Function to calculate return time from energy
