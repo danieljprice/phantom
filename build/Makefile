@@ -660,7 +660,7 @@ ifeq ($(SETUP), cluster)
     SETUPFILE= velfield_fromcubes.f90 setup_cluster.f90
     MODFILE= moddump_default.f90
     ANALYSIS= phantom_pdfs.o analysis_MWpdf.f90 #analysis_sinkmass.f90
-    ISOTHERfinject_roMAL=yes
+    ISOTHERMAL=yes
     MHD=no
     GRAVITY=yes
     IND_TIMESTEPS=yes
