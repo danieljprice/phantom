@@ -43,6 +43,7 @@ module extern_binary
  real, public :: eps_soft1 = 0.0
  real, public :: eps_soft2 = 0.0
  logical, public :: ramp = .false.
+ logical, public :: surface_force = .false.
  real,    private :: binarymassri
 
  public :: binary_force, binary_posvel, binary_accreted, update_binary
@@ -60,9 +61,8 @@ contains
 !  only do this ONCE as sin/cos expensive
 !+
 !----------------------------------------------
-subroutine update_binary(ti,surface_force)
- use physcon,         only:pi
- logical, intent(in) :: surface_force
+subroutine update_binary(ti)
+ use physcon, only:pi
  real,    intent(in) :: ti
  real :: cost,sint
  real :: omega
@@ -95,8 +95,7 @@ end subroutine update_binary
 !  the binary system
 !+
 !----------------------------------------------
-subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi,surface_force)
- logical, intent(in) :: surface_force
+subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi)
  real, intent(in)  :: xi,yi,zi,ti
  real, intent(out) :: fxi,fyi,fzi,phi
  real :: dx1,dy1,dz1,rr1,f1,r1
@@ -221,7 +220,7 @@ end function binary_accreted
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_externbinary(iunit)
- use infile_utils, only:write_inopt
+ use infile_utils,   only:write_inopt
  integer, intent(in) :: iunit
 
  call write_inopt(binarymassr,'binarymassr','m1/(m1+m2) of central binary system (if iexternalforce=binary)',iunit)

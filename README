@@ -12,9 +12,13 @@ algorithms (use NDSPMHD instead).
 
 See LICENCE file for usage and distribution conditions.
 
+For CHANGES see the release notes:
+
+https://bitbucket.org/danielprice/phantom/wiki/releasenotes
+
 For DOCUMENTATION see the wiki:
 
-https://bitbucket.org/danielprice/phantom
+https://bitbucket.org/danielprice/phantom/wiki/
 
 Code is organised as follows:
 

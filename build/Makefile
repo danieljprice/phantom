@@ -23,7 +23,7 @@
 
 PHANTOM_VERSION_MAJOR=1
 PHANTOM_VERSION_MINOR=2
-PHANTOM_VERSION_MICRO=0
+PHANTOM_VERSION_MICRO=1
 VERSION=$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICRO)
 
 KNOWN_SYSTEM=no
@@ -672,7 +672,7 @@ endif
 ifeq ($(SETUP), binary)
 #   binary setup
     FPPFLAGS= -DCONST_AV
-    #SRCINJECT= inject_rochelobe.f90
+    SRCINJECT= inject_rochelobe.f90
     SETUPFILE= setup_binary.f90
     #SETUPFILE= setup_chinchen.f90
     KNOWN_SETUP=yes
@@ -722,7 +722,7 @@ ifeq ($(SETUP), jet)
     FPPFLAGS= -DPERIODIC -DGRAVITY
     SETUPFILE= setup_sphereinbox.f90
     #ANALYSIS= analysis_jet.f90
-    ANALYSIS= ${SRCNIMHD} analysis_disc_RadMass.f90
+    ANALYSIS= ${SRCNIMHD} analysis_protostar_environ.F90
     ISOTHERMAL=yes
     MHD=yes
     IND_TIMESTEPS=yes
@@ -731,9 +731,9 @@ ifeq ($(SETUP), jet)
 endif
 
 ifeq ($(SETUP), jetnimhd)
-#   Simulation from Wurster, Price & Bate (2016,2017)
+#   Simulation from Wurster, Price & Bate (2016,2017) et seq
     SETUPFILE= setup_sphereinbox.f90
-    ANALYSIS= ${SRCNIMHD} analysis_disc_RadMass.f90
+    ANALYSIS= ${SRCNIMHD} analysis_protostar_environ.F90
     PERIODIC=yes
     GRAVITY=yes
     ISOTHERMAL=yes
@@ -1509,7 +1509,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          ptmass.F90 readwrite_infile.F90 \
          dens.F90 force.F90 deriv.F90 energies.F90 \
          sort_particles.F90 evwrite.F90 \
-         step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90\
+         step_leapfrog.F90 writeheader.F90 utils_disc.f90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90\
          geometry.f90 stretchmap.f90 density_profiles.f90 set_unifdis.f90 set_slab.f90 set_sphere.f90 set_vfield.f90 \
          ${SETUPFILE} checksetup.F90 utils_testsuite.f90 \
          ${TEST_FASTMATH} test_kernel.f90 test_dust.F90 test_growth.F90 test_nonidealmhd.F90 test_gravity.F90 \
@@ -1524,7 +1524,7 @@ OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
 
 .PHONY: phantom
-phantom: checksystem checkparams phantom-version.h $(OBJECTS) phantom.o
+phantom: checksystem checkparams $(OBJECTS) phantom.o
 	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJECTS) phantom.o $(LDFLAGS)
 ifeq ($(UNAME), Darwin)
 	dsymutil $(BINDIR)/$@
@@ -1595,7 +1595,7 @@ OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 .PHONY: phantomsetup
 phantomsetup: setup
 
-setup: checksystem checkparams phantom-version.h $(OBJSETUP)
+setup: checksystem checkparams $(OBJSETUP)
 	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS)
 	@echo ""
 	@echo "Phantom setup built"
@@ -1603,6 +1603,8 @@ setup: checksystem checkparams phantom-version.h $(OBJSETUP)
 
 cleansetup:
 	rm -f $(BINDIR)/phantomsetup
+
+config.o: phantom-version.h
 
 phantom-version.h:
 	@echo "creating $@"
@@ -1754,7 +1756,7 @@ cleanmoddump:
 OBJAN1 = ${ANALYSIS:.f90=.o}
 OBJAN2 = ${OBJAN1:.F90=.o}
 OBJAN = ${OBJAN2:.f=.o}
-OBJA= utils_filenames.o utils_sort.o leastsquares.o solvelinearsystem.o \
+OBJA= utils_disc.o utils_filenames.o utils_sort.o leastsquares.o solvelinearsystem.o \
 	  ${OBJDUMP} set_binary.o ${OBJAN}
 
 ifndef ANALYSISBIN

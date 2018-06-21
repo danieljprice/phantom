@@ -19,7 +19,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, io, mpiutils, part
+!  DEPENDENCIES: dim, io, mpiutils, part, vectorutils
 !+
 !--------------------------------------------------------------------------
 module centreofmass

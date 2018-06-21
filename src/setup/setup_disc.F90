@@ -26,42 +26,42 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    Ratm_in     -- inner atmosphere radius (planet radii)
-!    Ratm_out    -- outer atmosphere radius (planet radii)
-!    accr1       -- central star accretion radius
-!    accr2       -- perturber accretion radius
-!    alphaSS     -- desired alphaSS
-!    atm_type    -- Enter atmosphere type (1:r**(-3);
-!    bhspin      -- black hole spin
-!    bhspinangle -- black hole spin angle (deg)
-!    binary_O    -- Omega, PA of ascending node (deg)
-!    binary_a    -- binary semi-major axis
-!    binary_e    -- binary eccentricity
-!    binary_f    -- f, initial true anomaly (deg,180=apastron)
-!    binary_i    -- i, inclination (deg)
-!    binary_w    -- w, argument of periapsis (deg)
-!    deltat      -- output interval as fraction of orbital period
-!    dist_unit   -- distance unit (e.g. au,pc,kpc,0.1pc)
-!    einst_prec  -- include Einstein precession
-!    flyby_O     -- position angle of ascending node (deg)
-!    flyby_a     -- distance of minimum approach
-!    flyby_d     -- initial distance (units of dist. min. approach)
-!    flyby_i     -- inclination (deg)
-!    ibinary     -- binary orbit (0=bound,1=unbound [flyby])
-!    ipotential  -- potential (1=central point mass,
-!    isurface    -- model m1 as planet with surface
-!    m1          -- central star mass
-!    m2          -- perturber mass
-!    mass_unit   -- mass unit (e.g. solarm,jupiterm,earthm)
-!    norbits     -- maximum number of orbits at outer disc
-!    np          -- number of gas particles
-!    np_dust     -- number of dust particles
-!    nplanets    -- number of planets
-!    nsinks      -- number of sinks
-!    ramp        -- Do you want to ramp up the planet mass slowly?
-!    rho_core    -- planet core density (cgs units)
-!    setplanets  -- add planets? (0=no,1=yes)
-!    use_mcfost  -- use the mcfost library
+!    Ratm_in       -- inner atmosphere radius (planet radii)
+!    Ratm_out      -- outer atmosphere radius (planet radii)
+!    accr1         -- central star accretion radius
+!    accr2         -- perturber accretion radius
+!    alphaSS       -- desired alphaSS
+!    atm_type      -- Enter atmosphere type (1:r**(-3);
+!    bhspin        -- black hole spin
+!    bhspinangle   -- black hole spin angle (deg)
+!    binary_O      -- Omega, PA of ascending node (deg)
+!    binary_a      -- binary semi-major axis
+!    binary_e      -- binary eccentricity
+!    binary_f      -- f, initial true anomaly (deg,180=apastron)
+!    binary_i      -- i, inclination (deg)
+!    binary_w      -- w, argument of periapsis (deg)
+!    deltat        -- output interval as fraction of orbital period
+!    dist_unit     -- distance unit (e.g. au,pc,kpc,0.1pc)
+!    einst_prec    -- include Einstein precession
+!    flyby_O       -- position angle of ascending node (deg)
+!    flyby_a       -- distance of minimum approach
+!    flyby_d       -- initial distance (units of dist. min. approach)
+!    flyby_i       -- inclination (deg)
+!    ibinary       -- binary orbit (0=bound,1=unbound [flyby])
+!    ipotential    -- potential (1=central point mass,
+!    m1            -- central star mass
+!    m2            -- perturber mass
+!    mass_unit     -- mass unit (e.g. solarm,jupiterm,earthm)
+!    norbits       -- maximum number of orbits at outer disc
+!    np            -- number of gas particles
+!    np_dust       -- number of dust particles
+!    nplanets      -- number of planets
+!    nsinks        -- number of sinks
+!    ramp          -- Do you want to ramp up the planet mass slowly?
+!    rho_core      -- planet core density (cgs units)
+!    setplanets    -- add planets? (0=no,1=yes)
+!    surface_force -- model m1 as planet with surface
+!    use_mcfost    -- use the mcfost library
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_corotate, extern_lensethirring, externalforces, growth,
@@ -80,8 +80,7 @@ module setup
 #endif
  use physcon,        only:au,solarm
  use setdisc,        only:scaled_sigma
- use extern_binary,  only:ramp
- use readwrite_dust, only:dust_method
+ use extern_binary,  only:ramp,surface_force
 
  implicit none
  public  :: setpart
@@ -92,7 +91,7 @@ module setup
  real    :: m1,m2,accr1,accr2,bhspin,bhspinangle,flyby_a,flyby_d,flyby_O,flyby_i
  real    :: binary_a,binary_e,binary_i,binary_O,binary_w,binary_f,deltat
  integer :: icentral,ipotential,nsinks,ibinary
- logical :: einst_prec,isurface
+ logical :: einst_prec
  !--discs
  character(len=20) :: disclabel
  character(len=*), dimension(3), parameter :: disctype = &
@@ -101,7 +100,7 @@ module setup
       'secondary'/)
  logical :: iuse_disc(3),itapergas(3),itaperdust(3),iwarp(3)
  logical :: ismoothgas(3),ismoothdust(3),use_global_iso
- integer :: mass_set(3),profile_set_dust,ndiscs
+ integer :: mass_set(3),profile_set_dust,dust_method,ndiscs
  real    :: R_in(3),R_out(3),R_ref(3),R_c(3),R_warp(3),H_warp(3)
  real    :: pindex(3),qindex(3),H_R(3),posangl(3),incl(3)
  real    :: disc_m(3),sig_ref(3),sig_norm(3),annulus_m(3),R_inann(3),R_outann(3),Q_min(3)
@@ -194,9 +193,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  print "(/,65('-'),2(/,a),/,65('-'),/)"
  print "(a)",'     Welcome to the New Disc Setup'
  print "(/,65('-'),2(/,a),/,65('-'),/)"
-
- !--The default value for dust method in dustydisc setup is one-fluid dust
- if (use_dust) use_dustfrac = .true.
 
  !
  !--get disc setup parameters from file or interactive setup
@@ -301,22 +297,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              H_R(3) = sqrt(R_ref(3)/R_ref(1)*(m1+m2)/m2) * H_R(1)
              call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
           elseif (iuse_disc(2)) then
-                H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
-                call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
+             H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
+             call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
           endif
        else
           !--locally isothermal prescription from Farris et al. (2014) for binary system
           ieos = 14
           print "(/,a)",' setting ieos=14 for locally isothermal from Farris et al. (2014)'
-          if(iuse_disc(1)) then 
-             H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
-             H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
+          if(iuse_disc(1)) then
+             qfacdisc = qindex(1)
              call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
           elseif(iuse_disc(2))then
-             H_R(3) = (R_ref(3)/R_ref(2)*m2/m1)**(0.5-qindex(2)) * H_R(2)
+             qfacdisc = qindex(2)
              call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
           endif
-          qfacdisc = qindex(3)
        endif
     else
        !--single disc
@@ -717,7 +711,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
  enddo
 
- if (isurface) then
+ if (surface_force) then
     npart_planet_atm = floor(Natmfrac*np)
     npart_disc = nparttot - npart_planet_atm
 
@@ -734,14 +728,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  !--set up an atmosphere around one of the binary masses (i.e. planet)
- if (isurface .and. npart_planet_atm > 0) then
+ if (surface_force .and. npart_planet_atm > 0) then
     call set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in(1), &
                         H_R(1),m2,qindex(1),gamma,Ratm_in,Ratm_out,r_surface, &
                         nparttot,npart_planet_atm,npart_disc,hfact)
  endif
 
  !--move into the corotating frame with the planet
- if (isurface .or. iexternalforce == iext_corotate) then
+ if (surface_force .or. iexternalforce == iext_corotate) then
     call make_corotate(xyzh,vxyzu,a0,m2,npart,npart_disc)
  endif
 
@@ -750,7 +744,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(igas)  = nparttot - npartdust
  npartoftype(idust) = npartdust
 
- call check_dust_method(id,filename,ichange_method)
+ call check_dust_method(id,filename,dust_method,ichange_method)
  if (ichange_method .and. id==master) then
     np_dust = npart/5
     call write_setupfile(filename)
@@ -1010,9 +1004,9 @@ subroutine setup_interactive(id)
        accr1    = 1.
     case (2)
        !--fixed binary
-       isurface = .false.
-       call prompt('Do you want model a surface on one mass (i.e. planet)?',isurface)
-       if (isurface) then
+       surface_force = .false.
+       call prompt('Do you want model a surface on one mass (i.e. planet)?',surface_force)
+       if (surface_force) then
           iexternalforce = iext_corot_binary
           !--binary
           m1       = 0.001 ! Planet
@@ -1137,7 +1131,7 @@ subroutine setup_interactive(id)
  incl       = 0.
  H_R        = 0.05
  disc_mfac  = 1.
- if (isurface) then
+ if (surface_force) then
     R_in       = 0.1
     R_out      = 3.
     R_ref      = 1.
@@ -1157,31 +1151,31 @@ subroutine setup_interactive(id)
        !--------------------------------
        ! N.B. The initializations of multiple discs is not done using the implementation of the eos
        ! a radial profile centred on CM, primary and secondary is used.
-       ! The value of H_R used in setpart to set cs0 is the one of the circumbinary if cb disc is present,  
-       ! otherwise it uses the circumprimary. 
+       ! The value of H_R used in setpart to set cs0 is the one of the circumbinary if cb disc is present,
+       ! otherwise it uses the circumprimary.
        ! The values of H_R used for the other discs are set using the equations below, however changing them here
        ! is not enough. THey need to be changed also in the the setpart function.
        !--------------------------------
        if(.not. use_global_iso) then
-         call prompt('Enter q_index',qindex(1))
-         qindex=qindex(1)
-         if(iuse_disc(1)) then 
-            call prompt('Enter H/R of circumbinary at R_ref',H_R(1))
-            H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
-            H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
-         else
-            if(iuse_disc(2))then
+          call prompt('Enter q_index',qindex(1))
+          qindex=qindex(1)
+          if(iuse_disc(1)) then
+             call prompt('Enter H/R of circumbinary at R_ref',H_R(1))
+             H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
+             H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
+          else
+             if(iuse_disc(2))then
                 call prompt('Enter H/R of circumprimary at R_ref',H_R(2))
                 H_R(1) = (R_ref(1)/R_ref(2)*m1/(m1+m2))**(0.5-qindex(2)) * H_R(2)
                 H_R(3) = (R_ref(3)/R_ref(2)*m2/m1)**(0.5-qindex(2)) * H_R(2)
-            else 
+             else
                 call prompt('Enter H/R of circumsecondary at R_ref',H_R(3))
                 H_R(1) = sqrt(R_ref(1)/R_ref(3)*m2/(m1+m2))**(0.5-qindex(3)) * H_R(3)
                 H_R(2) = sqrt(R_ref(2)/R_ref(3)*m2/m1)**(0.5-qindex(3)) * H_R(3)
-           endif
-         endif
-         H_R(2) = nint(H_R(2)*10000.)/10000.
-         H_R(3) = nint(H_R(3)*10000.)/10000.
+             endif
+          endif
+          H_R(2) = nint(H_R(2)*10000.)/10000.
+          H_R(3) = nint(H_R(3)*10000.)/10000.
        else
           if (iuse_disc(1)) then
              H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
@@ -1196,7 +1190,7 @@ subroutine setup_interactive(id)
           endif
           H_R(2) = nint(H_R(2)*10000.)/10000.
           H_R(3) = nint(H_R(3)*10000.)/10000.
-        endif
+       endif
     endif
  endif
  do i=1,3
@@ -1418,8 +1412,8 @@ subroutine write_setupfile(filename)
 
        !--options of planet surface/atmosphere
        write(iunit,"(/,a)") '# options for planet surface/atmosphere'
-       call write_inopt(isurface,'isurface','model m1 as planet with surface',iunit)
-       if (isurface) then
+       call write_inopt(surface_force,'surface_force','model m1 as planet with surface',iunit)
+       if (surface_force) then
           call write_inopt(rho_core_cgs,'rho_core','planet core density (cgs units)',iunit)
           call write_inopt(Ratm_in,'Ratm_in','inner atmosphere radius (planet radii)',iunit)
           call write_inopt(Ratm_out,'Ratm_out','outer atmosphere radius (planet radii)',iunit)
@@ -1686,8 +1680,8 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(accr2,'accr2',db,min=0.,errcount=nerr)
 
        !--options of planet surface/atmosphere
-       call read_inopt(isurface,'isurface',db,errcount=nerr)
-       if (isurface) then
+       call read_inopt(surface_force,'surface_force',db,errcount=nerr)
+       if (surface_force) then
           iexternalforce = iext_corot_binary
           call read_inopt(rho_core_cgs,'rho_core',db,min=0.,errcount=nerr)
           call read_inopt(Ratm_in,'Ratm_in',db,min=1.,errcount=nerr)
@@ -1899,6 +1893,7 @@ subroutine read_obsolete_setup_options(filename)
 
  call read_inopt(np,'npart',db,err=ierr)
  call read_inopt(tmp_i,'np_dust',db,err=ierr)
+ dust_method = 2
  if (ierr /= 0) dust_method = 1
  call read_inopt(tmp_r,'udist',db,err=ierr)
  dist_unit = 'au'
