@@ -903,7 +903,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
     write(iunit, "(a,es9.2,a,f5.1,a,f4.1,a,f5.1,a,f4.1,a,f4.1,a,/)") '# Surface density      = ',&
          sigma_norm*umass/udist**2,' g/cm^2 (R/',R_in,')^(-0.5)(1-exp(R-',R_out,')) (1 - sqrt(',R_in,'/R))'
  endif
- write(iunit,"(a,es9.2,a)") '# Disc total angular momentum = ',L_tot_mag,' g*cm^2/sec'
+ write(iunit,"(a,es9.2,a,/)") '# Disc total angular momentum = ',L_tot_mag,' g*cm^2/sec'
 
  return
 end subroutine write_discinfo
