@@ -660,7 +660,7 @@ ifeq ($(SETUP), cluster)
     SETUPFILE= velfield_fromcubes.f90 setup_cluster.f90
     MODFILE= moddump_default.f90
     ANALYSIS= phantom_pdfs.o analysis_MWpdf.f90 #analysis_sinkmass.f90
-    ISOTHERMAL=yes
+    ISOTHERfinject_roMAL=yes
     MHD=no
     GRAVITY=yes
     IND_TIMESTEPS=yes
@@ -672,7 +672,7 @@ endif
 ifeq ($(SETUP), binary)
 #   binary setup
     FPPFLAGS= -DCONST_AV
-    #SRCINJECT= inject_rochelobe.f90
+    SRCINJECT= inject_rochelobe.f90
     SETUPFILE= setup_binary.f90
     #SETUPFILE= setup_chinchen.f90
     KNOWN_SETUP=yes
