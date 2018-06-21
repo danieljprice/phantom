@@ -614,7 +614,7 @@ subroutine test_drag(ntests,npass)
  real    :: da(3),psep,time
  real    :: rhozero,totmass,dtnew,dekin,deint
 
-if (id==master) write(*,"(/,a)") '--> testing DUST DRAG'
+ if (id==master) write(*,"(/,a)") '--> testing DUST DRAG'
 !
 ! set up particles in random distribution
 !

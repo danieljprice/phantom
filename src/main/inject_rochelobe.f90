@@ -83,8 +83,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  theta_s = -acos( -4./(3.*A)+(1-8./(9.*A))**0.5)/2.             ! See Lubow & Shu 1975
  xyzL1(1:3) = xyzmh_ptmass(1:3,1) + radL1*dr(:)   ! set as vector position
  vxyzL1 = v1*sqrt( dot_product(xyzL1-x0, xyzL1-x0)/dot_product(x1-x0, x1-x0) ) ! orbital motion of L1 point
-    !unclear if this is OK with eccentric orbits, but if you have Roche Lobe overflow, orbits should be
-    !circularised anyway
+ !unclear if this is OK with eccentric orbits, but if you have Roche Lobe overflow, orbits should be
+ !circularised anyway
 
  ! mass of gas particles is set by mass accretion rate and particle injection rate
  Mdotcode  = Mdot*(solarm/years)/(umass/utime)
@@ -107,7 +107,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     theta_rand = ran2(s1)*twopi
     r_rand = rayleigh_deviate(s1)*chi
     dxyz=(/0.0, cos(theta_rand), sin(theta_rand)/)*r_rand   ! Stream is placed randomly in a cylinder
-                                                            ! with a Gaussian density distribution
+    ! with a Gaussian density distribution
 
     ! prepare to add a particle
     part_type = igas

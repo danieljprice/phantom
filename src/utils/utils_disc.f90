@@ -200,14 +200,14 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_
     call rotatevec(L_tot,(/0.,0.,1.0/),-rotate_about_z)
     call rotatevec(L_tot,(/0.,1.0,0./),rotate_about_y)
     do i=1,nr
-      temp(1) = unitlx(i)
-      temp(2) = unitly(i)
-      temp(3) = unitlz(i)
-      call rotatevec(temp,(/0.,0.,1.0/),-rotate_about_z)
-      call rotatevec(temp,(/0.,1.0,0./),rotate_about_y)
-      unitlx(i) = temp(1)
-      unitly(i) = temp(2)
-      unitlz(i) = temp(3)
+       temp(1) = unitlx(i)
+       temp(2) = unitly(i)
+       temp(3) = unitlz(i)
+       call rotatevec(temp,(/0.,0.,1.0/),-rotate_about_z)
+       call rotatevec(temp,(/0.,1.0,0./),rotate_about_y)
+       unitlx(i) = temp(1)
+       unitly(i) = temp(2)
+       unitlz(i) = temp(3)
     enddo
  endif
 
