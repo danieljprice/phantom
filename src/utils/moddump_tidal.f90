@@ -48,9 +48,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  r0 = 4.9*rt                        ! starting radius
 
  !
- !-- Read runtime parameters from moddumpparams file
+ !-- Read runtime parameters from tdeparams file
  !
- filename = 'tde'//'.moddumpparams'                                ! moddump should really know about the output file prefix...
+ filename = 'tde'//'.tdeparams'                                ! moddump should really know about the output file prefix...
  inquire(file=filename,exist=iexist)
  if (iexist) call read_setupfile(filename,ierr)
  if (.not. iexist .or. ierr /= 0) then
