@@ -31,16 +31,19 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
+ use io, only:fatal
  character(len=*),   intent(in) :: dumpfile
  integer,            intent(in) :: numfile,npart,iunit
  real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,               intent(in) :: pmass,time
  character(len=120) :: output
+ character(len=20)  :: tdeprefix,tdeparams
  integer, parameter :: nmaxbins = 5000
  real,    dimension(nmaxbins) :: ebins,dnde,tbins,dndt
  real,    dimension(npart)    :: eps,tr
- integer :: nbins,i
- real    :: mass1,r,v2,trmin
+ integer :: nbins,i,iline,ierr
+ logical :: ifile
+ real    :: mh,r,v2,trmin
 
 ! Print the analysis being done
  write(*,'("Performing analysis type ",A)') analysistype
@@ -51,9 +54,26 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  ! Assuming G=1
  write(*,*)
- write(*,'("ASSUMING G == 1 and mass1 == 1e6")')
+ write(*,'("ASSUMING G == 1")')
 
- mass1 = 1.e6
+ iline = index(dumpfile,'_')
+ tdeprefix = dumpfile(1:iline-1)
+ tdeparams = trim(tdeprefix)//'.tdeparams'
+ inquire(file=tdeparams, exist=ifile)
+ ierr =1
+ if (ifile) then
+    call read_tdeparams(tdeparams,mh,iunit,ierr)
+    if (ierr /= 0) call fatal('analysis','could not open/read '//trim(tdeparams))
+ else
+    call fatal('analysis','could not open/read '//trim(tdeparams))
+ endif
+
+! Print out the parameters
+ write(*,*)
+ write(*,'("Parameters are:")')
+ write(*,*) 'mh (black hole mass)    = ',mh
+ write(*,*)
+
  nbins = int(sqrt(real(npart)))
 
 !
@@ -64,9 +84,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  do i=1,npart
     r      = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
     v2     = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
-    eps(i) = v2/2. - mass1/r                                     !-- Specific energy
+    eps(i) = v2/2. - mh/r                                     !-- Specific energy
     if (eps(i)<0.) then
-       tr(i) = treturn(mass1,eps(i))                !-- Return time, only set if energy is negative
+       tr(i) = treturn(mh,eps(i))                             !-- Return time, only set if energy is negative
     else
        tr(i) = 0.
     endif
@@ -74,7 +94,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 ! Create a histogram of the enegies and return times
  call hist(npart,eps,ebins,dnde,minval(eps),maxval(eps),nbins)
- trmin = treturn(mass1,minval(eps))
+ trmin = treturn(mh,minval(eps))
  call hist(npart,tr,tbins,dndt,trmin,trmin*100.,nbins)
 
  open(iunit,file=output)
@@ -91,6 +111,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 end subroutine do_analysis
 
+!
+!-- Function to calculate return time from energy
+!
 real function treturn(mass,en)
  use physcon,        only:pi
  real, intent(in) :: mass,en
@@ -99,6 +122,9 @@ real function treturn(mass,en)
 
 end function treturn
 
+!
+!-- General function to compute a histogram
+!
 subroutine hist(np,xarray,xhist,yhist,xmin,xmax,nbins)
  use sortutils, only:indexx
  integer, intent(in) :: np,nbins
@@ -144,5 +170,27 @@ subroutine hist(np,xarray,xhist,yhist,xmin,xmax,nbins)
  enddo
 
 end subroutine hist
+
+!----------------------------------------------------------------
+!+
+!  Read tde information from .tdeparams file
+!+
+!----------------------------------------------------------------
+subroutine read_tdeparams(filename,mh,iunit,ierr)
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ character(len=*), intent(in)  :: filename
+ real,             intent(out) :: mh
+ integer,          intent(in)  :: iunit
+ integer,          intent(out) :: ierr
+ type(inopts), allocatable :: db(:)
+
+! Read in parameters from the file .tdeparams
+ call open_db_from_file(db,filename,iunit,ierr)
+ if (ierr /= 0) return
+ call read_inopt(mh,'mh',db,ierr)
+ if (ierr /= 0) return
+ call close_db(db)
+
+end subroutine read_tdeparams
 
 end module
