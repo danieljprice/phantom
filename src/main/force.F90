@@ -312,7 +312,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #ifdef DUSTGROWTH
  if (iinterpol) then
     St(:)         = 0.
-    dustprop(5,:) = 0.
+    dustprop(4,:) = 0.
  endif
 #endif
 
@@ -1580,7 +1580,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    call get_ts(idrag,grainsizei,graindensi,rhoj,rhoi,spsoundj,dv2,tsij(1),iregime)
 #ifdef DUSTGROWTH
                    if (usej) then
-                      dustprop(5,i) = dustprop(5,i) + 3*pmassj/rhoj*projv*wdrag !--interpolate dv for dust particle i
+                      dustprop(4,i) = dustprop(4,i) + 3*pmassj/rhoj*projv*wdrag !--interpolate dv for dust particle i
                       ri            = sqrt(xyzh(1,i)**2+xyzh(2,i)**2)
                       St(i)         = St(i) + pmassj/rhoj*tsij(1)*wdrag*sqrt(xyzmh_ptmass(4,1)/ri**3) !--interpolate Stokes number
                    endif
@@ -2041,7 +2041,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,straintenso
     endif
 #ifdef DUSTGROWTH
     cell%xpartvec(igrainsizei,cell%npcell)        = dustprop(1,i)
-    cell%xpartvec(igraindensi,cell%npcell)        = dustprop(2,i) !--Add dustprop(3,i) for vrelonvfrag
+    cell%xpartvec(igraindensi,cell%npcell)        = dustprop(2,i)
 #endif
  enddo over_parts
 
