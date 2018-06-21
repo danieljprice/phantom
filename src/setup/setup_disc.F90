@@ -107,7 +107,7 @@ module setup
  real    :: R_indust(3),R_indust_swap(3),R_outdust(3),R_outdust_swap(3),R_c_dust(3)
  real    :: pindex_dust(3),qindex_dust(3),H_R_dust(3)
  real    :: ldisc(3),lcentral(3)
- real    :: alphaSS
+ real    :: alphaSS,dist_bt_sinks
  !--dust
  real    :: dustfrac_percent(ndusttypes) = 0.
  real    :: grainsizeinp(ndusttypes),graindensinp(ndusttypes),dust_to_gas_ratio
@@ -863,12 +863,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        endif
        !--set sink particles
        Hill(i) = (mplanet(i)*jupiterm/solarm/(3.*mcentral))**(1./3.) * rplanet(i)
+       if (nsinks == 2) then
+           dist_bt_sinks = sqrt(dot_product(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,2)))
+           if (rplanet(i) > dist_bt_sinks) Hill(i) = (mplanet(i)*jupiterm/solarm/(3.*m1))**(1./3.) * rplanet(i)
+       endif
        xyzmh_ptmass(1:3,nptmass)    = (/rplanet(i)*cosphi,rplanet(i)*sinphi,0./)
        xyzmh_ptmass(4,nptmass)      = mplanet(i)*jupiterm/umass
        xyzmh_ptmass(ihacc,nptmass)  = accrplanet(i)*Hill(i)
        xyzmh_ptmass(ihsoft,nptmass) = accrplanet(i)*Hill(i)
        vphi                         = sqrt((mcentral + disc_m_within_r)/rplanet(i))
+       if (nsinks == 2 .and. rplanet(i) < dist_bt_sinks) vphi = sqrt((m1 + disc_m_within_r)/rplanet(i))
        vxyz_ptmass(1:3,nptmass)     = (/-vphi*sinphi,vphi*cosphi,0./)
+       if (nsinks == 2 .and. rplanet(i) < dist_bt_sinks) then
+          vxyz_ptmass(1:3,nptmass) = vxyz_ptmass(1:3,nptmass) + vxyz_ptmass(1:3,1)
+          xyzmh_ptmass(1:3,nptmass) = xyzmh_ptmass(1:3,nptmass) + xyzmh_ptmass(1:3,1)
+       endif
+
        !--incline positions and velocities
        inclplan(i) = inclplan(i)*pi/180.
        u = (/-sin(phi),cos(phi),0./)
