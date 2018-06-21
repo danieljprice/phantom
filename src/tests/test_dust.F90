@@ -593,11 +593,12 @@ end subroutine write_file
 !+
 !----------------------------------------------------
 subroutine test_drag(ntests,npass)
- use dim,       only:maxp,periodic,maxtypes,mhd,ndusttypes
+ use dim,       only:maxp,periodic,maxtypes,mhd,ndusttypes,maxvxyzu
  use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac, &
                      xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,set_particle_type,rhoh,temperature,&
                      dustprop,ddustprop,idust,iphase,iamtype
  use options,   only:use_dustfrac
+ use eos,       only:polyk,ieos
  use kernel,    only:hfact_default
  use dust,      only:K_code,idrag
  use boundary,  only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
@@ -611,7 +612,7 @@ subroutine test_drag(ntests,npass)
  integer :: nx,i,nfailed
  integer :: itype,iseed
  real    :: da(3),psep,time
- real    :: rhozero,totmass,dtnew
+ real    :: rhozero,totmass,dtnew,dekin,deint
 
 if (id==master) write(*,"(/,a)") '--> testing DUST DRAG'
 !
@@ -627,6 +628,11 @@ if (id==master) write(*,"(/,a)") '--> testing DUST DRAG'
  time  = 0.
  npart = 0
  npartoftype(:) = 0
+ if (maxvxyzu >= 4)then 
+    ieos = 1
+    polyk = 1.
+ endif
+ 
  iverbose = 2
  use_dustfrac = .false.
  call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
@@ -637,15 +643,15 @@ if (id==master) write(*,"(/,a)") '--> testing DUST DRAG'
  do i=1,npart
     call set_particle_type(i,igas)
     vxyzu(1:3,i) = (/ran2(iseed),ran2(iseed),ran2(iseed)/)
-    vxyzu(4,i) = ran2(iseed)
+    if (maxvxyzu >= 4) vxyzu(4,i) = ran2(iseed)
  enddo
  
  call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                      0.5*psep,hfact,npart,xyzh,verbose=.false.)
+                      3.*psep,hfact,npart,xyzh,verbose=.false.)
 
  do i=npartoftype(igas)+1,npart
     call set_particle_type(i,idust)
-    vxyzu(4,i) = 0.
+    if (maxvxyzu >= 4) vxyzu(4,i) = 0.
  enddo
  npartoftype(idust) = npart - npartoftype(igas)
  npartoftypetot(idust) = reduceall_mpi('+',npartoftype(idust))
@@ -666,15 +672,20 @@ if (id==master) write(*,"(/,a)") '--> testing DUST DRAG'
 ! check that momentum and energy are conserved
 !
  da(:) = 0.
+ dekin = 0.
+ deint = 0.
  do i=1,npart
     itype = iamtype(iphase(i))
     da(:) = da(:) + massoftype(itype)*fxyzu(1:3,i)
+    dekin  = dekin  + massoftype(itype)*dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
+    if (maxvxyzu >= 4) deint  = deint  + massoftype(itype)*fxyzu(4,i)
  enddo
 
  nfailed=0
  call checkval(da(1),0.,7.e-7,nfailed,'Acceleration from drag conserves momentum')
  call checkval(da(2),0.,7.e-7,nfailed,'Acceleration from drag conserves momentum')
  call checkval(da(3),0.,7.e-7,nfailed,'Acceleration from drag conserves momentum')
+ if (maxvxyzu >= 4) call checkval(dekin+deint,0.,7.e-7,nfailed,'Acceleration from drag conserves energy')
 
  ntests = ntests + 1
  if (nfailed==0) npass = npass + 1
