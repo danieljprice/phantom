@@ -79,8 +79,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  q  = m2/m1
  mu = 1./(1 + q)
  radL1      = L1_point(m1/m2)                     ! find L1 point given binary mass ratio
- A  = mu / abs(radL1 - 1. + mu)**3 + (1. - mu)/abs(radL1 + mu)  ! See Lubow & Shu 1975
- theta_s = -acos( -4./(3.*A)+(1-8./(9.*A))**0.5)/2.             ! See Lubow & Shu 1975
+ A  = mu / abs(radL1 - 1. + mu)**3 + (1. - mu)/abs(radL1 + mu)**3! See Lubow & Shu 1975
+ theta_s = -acos( -4./(3.*A)+(1-8./(9.*A))**0.5)/2.              ! See Lubow & Shu 1975
  xyzL1(1:3) = xyzmh_ptmass(1:3,1) + radL1*dr(:)   ! set as vector position
  vxyzL1 = v1*sqrt( dot_product(xyzL1-x0, xyzL1-x0)/dot_product(x1-x0, x1-x0) ) ! orbital motion of L1 point
  !unclear if this is OK with eccentric orbits, but if you have Roche Lobe overflow, orbits should be
