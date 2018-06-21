@@ -91,7 +91,7 @@ module setup
  real    :: m1,m2,accr1,accr2,bhspin,bhspinangle,flyby_a,flyby_d,flyby_O,flyby_i
  real    :: binary_a,binary_e,binary_i,binary_O,binary_w,binary_f,deltat
  integer :: icentral,ipotential,nsinks,ibinary
- logical :: einst_prec,isurface
+ logical :: einst_prec
  !--discs
  character(len=20) :: disclabel
  character(len=*), dimension(3), parameter :: disctype = &
@@ -295,14 +295,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           if (iuse_disc(1)) then
              H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
              H_R(3) = sqrt(R_ref(3)/R_ref(1)*(m1+m2)/m2) * H_R(1)
-             qindex(2) = qindex(1)
-             qindex(3) = qindex(1)
-!             qfacdisc = qindex(1)
              call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
           elseif (iuse_disc(2)) then
              H_R(3) = sqrt(R_ref(3)/R_ref(2)*m1/m2) * H_R(2)
-             qindex(3) = qindex(2)
-!             qfacdisc = qindex(2)
              call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
           endif
        else
