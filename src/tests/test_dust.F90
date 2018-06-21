@@ -23,8 +23,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, deriv, dim, dust, energies, eos, io, kernel,
-!    mpiutils, options, part, physcon, step_lf_global, testutils, timestep,
-!    unifdis, units
+!    mpiutils, options, part, physcon, random, step_lf_global, testutils,
+!    timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module testdust

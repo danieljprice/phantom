@@ -13,14 +13,14 @@
 !
 !  REFERENCES:
 !
-!  OWNER: Rebecca Nealon
+!  OWNER: Bec Nealon
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS:
-!  None
+!  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES:
+!  DEPENDENCIES: centreofmass, externalforces, options, part, physcon,
+!    vectorutils
 !+
 !--------------------------------------------------------------------------
 module discanalysisutils
