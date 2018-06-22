@@ -19,7 +19,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: centreofmass, externalforces, options, part, physcon,
+!  DEPENDENCIES: centreofmass, externalforces, options, physcon,
 !    vectorutils
 !+
 !--------------------------------------------------------------------------
@@ -44,8 +44,8 @@ contains
 !----------------------------------------------------------------
 
 subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_index,&
-                     tilt,tilt_acc,tp,psi,H,rad,h_smooth,sigma,unitlx,unitly,unitlz,ecc,ninbin)
- use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass
+                     tilt,tilt_acc,tp,psi,H,rad,h_smooth,sigma,unitlx,unitly,unitlz,ecc,ninbin,&
+                     assume_Ltot_is_same_as_zaxis,xyzmh_ptmass,vxyz_ptmass,nptmass)
  use physcon,      only:pi
  use centreofmass, only:get_total_angular_momentum
  use externalforces, only:iext_einsteinprec
@@ -56,15 +56,29 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_
  real, intent(inout) :: pmass,time
  integer, intent(in) :: nr,npart
  real, intent(in)    :: rmin,rmax,H_R,G,M_star,q_index
+ logical, intent(in) :: assume_Ltot_is_same_as_zaxis
+ real, optional, intent(in) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, optional, intent(in) :: nptmass
  real                :: dr,cs0,angx,angy,angz,unitangz
  real                :: Lx(nr),Ly(nr),Lz(nr)
  real                :: cs(nr),omega(nr),angtot,Ltot
  real                :: ri,area,Ei,mu,term,ecci
  real                :: Li(3),xi(3),vi(3),Limag,dtwist,psi_x,psi_y,psi_z
  real, intent(out)   :: tilt(nr),tilt_acc(nr),tp(nr),psi(nr),H(nr),ecc(nr),rad(nr)
- real, intent(out)   :: sigma(nr),h_smooth(nr),unitlx(nr),unitly(nr),unitlz(nr),ninbin(nr)
- real :: L_tot(3),L_tot_mag,temp(3),temp_mag,rotate_about_z,rotate_about_y
+ real, intent(out)   :: sigma(nr),h_smooth(nr),unitlx(nr),unitly(nr),unitlz(nr)
+ integer, intent(out):: ninbin(nr)
+ real                :: L_tot(3),L_tot_mag,temp(3),temp_mag,rotate_about_z,rotate_about_y
+ real                :: meanzgas(nr),zdash
+ real, allocatable   :: zsetgas(:,:)
  integer             :: i,ii
+ logical             :: rotate
+
+! Options
+ if (assume_Ltot_is_same_as_zaxis) then
+     rotate = .false.
+ else
+     rotate = .true.
+ endif
 
 ! Set up the radius array
  dr = (rmax-rmin)/real(nr-1)
@@ -90,14 +104,11 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_
     omega(i) = sqrt(G*M_star/rad(i)**3)
  enddo
 
-! and thus the disc scale height
- do i=1,nr
-    H(i) = cs(i)/omega(i)
- enddo
-
  angx = 0.0
  angy = 0.0
  angz = 0.0
+
+ allocate(zsetgas(npart,nr))
 
 ! Loop over particles putting properties into the correct bin
  do i = 1,npart
@@ -147,13 +158,6 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_
     endif
  enddo
 
-! Print angular momentum of accreted particles
- angtot = sqrt(angx*angx + angy*angy + angz*angz)
-
-! For unit angular momentum accreted, z component
- unitangz = angz/angtot
- print*,' angular momentum of accreted particles = ',angtot!,angx,angy,angz,unitangz
-
 ! Convert total angular momentum into a unit vector, and average h_smooth
  do i = 1,nr
     Ltot = sqrt(Lx(i)*Lx(i) + Ly(i)*Ly(i) + Lz(i)*Lz(i))
@@ -167,6 +171,37 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_
        ecc(i) = ecc(i)/ninbin(i)
     endif
  enddo
+
+ ninbin = 0
+ do i = 1,npart
+    if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
+       ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+       ii = int((ri-rad(1))/dr + 1)
+
+       if (ii > nr .or. ii < 1) cycle
+       ninbin(ii) = ninbin(ii) + 1
+
+       ! get vertical height above disc midplane == z if disc is not warped
+       zdash = unitlx(ii)*xyzh(1,i) + unitly(ii)*xyzh(2,i) + unitlz(ii)*xyzh(3,i)
+       zsetgas(ninbin(ii),ii) = zdash
+    endif
+ enddo
+
+! Calculate H from the particle positions
+ do i = 1,nr
+    meanzgas(i)  = sum(zsetgas(1:ninbin(i),i))/real(ninbin(i))
+    H(i) = sqrt(sum(((zsetgas(1:ninbin(i),i)-meanzgas(i))**2)/(real(ninbin(i)-1))))
+ enddo
+
+! clean up
+ deallocate(zsetgas)
+
+! Print angular momentum of accreted particles
+ angtot = sqrt(angx*angx + angy*angy + angz*angz)
+
+! For unit angular momentum accreted, z component
+ unitangz = angz/angtot
+ print*,' angular momentum of accreted particles = ',angtot!,angx,angy,angz,unitangz
 
 ! Now loop over rings to calculate required quantities
  do i = 1, nr
@@ -182,7 +217,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_
  enddo
 
  ! Calculate the total angular momentum vector and rotate unitl[x,y,z] if required
- if(iexternalforce == 0) then
+ if(rotate) then
     if (nptmass /= 0) then
        call get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_ptmass,nptmass)
     else

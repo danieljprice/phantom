@@ -802,37 +802,41 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  R = (R_in(i) + R_out(i))/2
  Sigma = sig_norm(i)*scaled_sigma(R,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
- Sigmadust = sig_normdust(i)*scaled_sigma(R,sigmaprofiledust(i),pindex_dust(i),R_ref(i),R_indust(i),R_c_dust(i))
- Stokes = 0.5*pi*graindenscgs*grainsizecgs/(Sigma+Sigmadust) * (udist**2/umass)
- print "(a,i2,a)",' -------------- added dust --------------'
- if (use_dustgrowth) then
-    print "(a,g10.3,a)", ' initial grain size: ',grainsizeinp,' cm'
- elseif (ndusttypes > 1) then
-    int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
-    write(fmt_space,'(a,I0,a)') '(a',9-(int_len+1),',a,g10.3,a)'
-    call nduststrings('grain size ',': ',varstring)
-    do i = 1,ndusttypes
-       print(fmt_space),'',trim(varstring(i)),grainsizecgs(i),' cm'
-    enddo
-    call nduststrings('grain density ',': ',varstring)
-    do i = 1,ndusttypes
-       print(fmt_space),'',trim(varstring(i)),graindenscgs(i),' g/cm^3'
-    enddo
+ if (use_dust) then
+    Sigmadust = sig_normdust(i)*scaled_sigma(R,sigmaprofiledust(i),pindex_dust(i),R_ref(i),R_indust(i),R_c_dust(i))
+    Stokes = 0.5*pi*graindenscgs*grainsizecgs/(Sigma+Sigmadust) * (udist**2/umass)
+    print "(a,i2,a)",' -------------- added dust --------------'
+    if (use_dustgrowth) then
+       print "(a,g10.3,a)", ' initial grain size: ',grainsizeinp,' cm'
+    elseif (ndusttypes > 1) then
+       int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
+       write(fmt_space,'(a,I0,a)') '(a',9-(int_len+1),',a,g10.3,a)'
+       call nduststrings('grain size ',': ',varstring)
+       do i = 1,ndusttypes
+          print(fmt_space),'',trim(varstring(i)),grainsizecgs(i),' cm'
+       enddo
+       call nduststrings('grain density ',': ',varstring)
+       do i = 1,ndusttypes
+          print(fmt_space),'',trim(varstring(i)),graindenscgs(i),' g/cm^3'
+       enddo
+    else
+       print "(a,g10.3,a)", '       grain size: ',grainsizecgs(1),' cm'
+       print "(a,g10.3,a)", '      grain density: ',graindenscgs(1),' g/cm^3'
+    endif
+    if (ndusttypes > 1) then
+       int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
+       write(fmt_space,'(a,I0,a)') '(a',5-(int_len+1),',a,g10.3,a)'
+       call nduststrings('approx. Stokes ',': ',varstring)
+       do i = 1,ndusttypes
+          print(fmt_space),'',trim(varstring(i)),Stokes(i),''
+       enddo
+    else
+       print "(a,g10.3,a)", '   approx. Stokes: ',Stokes,''
+    endif
+    print "(1x,40('-'),/)"
  else
-    print "(a,g10.3,a)", '       grain size: ',grainsizecgs(1),' cm'
-    print "(a,g10.3,a)", '      grain density: ',graindenscgs(1),' g/cm^3'
+    print "(/,a,/)",' There is no dust here!'
  endif
- if (ndusttypes > 1) then
-    int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
-    write(fmt_space,'(a,I0,a)') '(a',5-(int_len+1),',a,g10.3,a)'
-    call nduststrings('approx. Stokes ',': ',varstring)
-    do i = 1,ndusttypes
-       print(fmt_space),'',trim(varstring(i)),Stokes(i),''
-    enddo
- else
-    print "(a,g10.3,a)", '   approx. Stokes: ',Stokes,''
- endif
- print "(1x,40('-'),/)"
 
  !
  !--planets
