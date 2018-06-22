@@ -17,12 +17,14 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: omputils, params
+!  DEPENDENCIES: omputils
 !+
 !--------------------------------------------------------------------------
 
 !***********************************************************************
 module power
+ integer, parameter :: mfile=60,mlabel=60
+ integer, parameter :: power_unit=14
 
 contains
 
@@ -37,7 +39,6 @@ end subroutine
 
 !***********************************************************************
 subroutine open_power (file,origin,mk,xk,nk,n)
- use params, only: mfile,mlabel,power_unit
  implicit none
  character(len=mfile) file,origin
  character(len=mlabel) label
@@ -63,7 +64,6 @@ end subroutine
 
 !***********************************************************************
 subroutine write_power (mk,rho_power,pk,ptot,case)
- use params, only: mlabel,power_unit
  implicit none
  integer mk
  real rho_power,ptot
