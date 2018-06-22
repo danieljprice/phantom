@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, part, readwrite_dust
+!  DEPENDENCIES: dim, growth, options, part, readwrite_dust
 !+
 !--------------------------------------------------------------------------
 module moddump

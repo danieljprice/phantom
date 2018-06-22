@@ -395,27 +395,27 @@ end subroutine write_growth_setup_options
 !+
 !-----------------------------------------------------------------------
 subroutine read_growth_setup_options(db,nerr)
-use infile_utils,    only:read_inopt,inopts
-type(inopts), allocatable, intent(inout) :: db(:)
-integer, intent(inout)                   :: nerr
+ use infile_utils,    only:read_inopt,inopts
+ type(inopts), allocatable, intent(inout) :: db(:)
+ integer, intent(inout)                   :: nerr
 
-call read_inopt(ifrag,'ifrag',db,min=0,max=2,errcount=nerr)
-if (ifrag > 0) then
-   call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
-   call read_inopt(grainsizemin,'grainsizemin',db,min=1.e-5,errcount=nerr)
-   select case(isnow)
-   case(0)
-      call read_inopt(vfrag,'vfrag',db,min=0.,errcount=nerr)
-   case(1)
-      call read_inopt(rsnow,'rsnow',db,min=0.,errcount=nerr)
-      call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
-      call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
-   case(2)
-      call read_inopt(Tsnow,'Tsnow',db,min=0.,errcount=nerr)
-      call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
-      call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
-   end select
-endif
+ call read_inopt(ifrag,'ifrag',db,min=0,max=2,errcount=nerr)
+ if (ifrag > 0) then
+    call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
+    call read_inopt(grainsizemin,'grainsizemin',db,min=1.e-5,errcount=nerr)
+    select case(isnow)
+    case(0)
+       call read_inopt(vfrag,'vfrag',db,min=0.,errcount=nerr)
+    case(1)
+       call read_inopt(rsnow,'rsnow',db,min=0.,errcount=nerr)
+       call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
+       call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
+    case(2)
+       call read_inopt(Tsnow,'Tsnow',db,min=0.,errcount=nerr)
+       call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
+       call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
+    end select
+ endif
 
 end subroutine read_growth_setup_options
 

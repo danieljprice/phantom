@@ -17,10 +17,13 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    Mdot -- mass injection rate at L1, in Msun/yr
+!    Mdot       -- mass injection rate at L1, in Msun/yr
+!    chi        -- width of injection stream in cm
+!    dNdt       -- particle injection rate in particles/binary orbit
+!    spd_inject -- speed of injection at L1 in cm/s
 !
-!  DEPENDENCIES: infile_utils, io, part, partinject, physcon, setbinary,
-!    units
+!  DEPENDENCIES: infile_utils, io, part, partinject, physcon, random,
+!    setbinary, units
 !+
 !--------------------------------------------------------------------------
 module inject
@@ -31,6 +34,9 @@ module inject
 
  real, private :: Mdot = 0.
  real, private :: Mdotcode = 0.
+ real, private :: spd_inject = 0.
+ real, private :: chi = 0.001
+ real, private :: dNdt = 100.
 
 contains
 
@@ -45,16 +51,18 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  use part,      only:nptmass,massoftype,igas,hfact
  use partinject,only:add_or_update_particle
  use setbinary, only:L1_point
- use physcon,   only:pi
+ use physcon,   only:pi,twopi,solarm,years,gg
+ use random,    only:ran2, rayleigh_deviate
+ use units,     only:udist, umass, utime
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
- real :: m1,m2,q,radL1
- real :: xyzi(3),xyzL1(3),vxyz(3),dr(3),dir(3),x1(3),x2(3),x0(3),v1(3),v2(3),dv(3)
- real :: delta,h,u,Minject,vinject,time_between_walls,local_time,ymin,zmin,rcyl,rcyl2
- integer :: N,i,iy,iz,i_part,part_type,handled_walls
- integer :: outer_wall, inner_wall, inner_handled_wall, particles_per_wall
+ real :: m1,m2,q,radL1,h,u,theta_s,A,mu,theta_rand,r_rand,dNdt_code,Porb,r12
+ real :: xyzL1(3),xyzi(3),vxyz(3),dr(3),x1(3),x2(3),x0(3),dxyz(3),vxyzL1(3),v1(3),v2(3)
+ integer :: i_part,part_type,s1,wall_i,particles_to_place
+
+
 !
 !--find the L1 point
 !
@@ -62,98 +70,76 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  if (nptmass > 2) call fatal('inject_rochelobe','too many point masses for roche lobe injection')
  x1 = xyzmh_ptmass(1:3,1)
  x2 = xyzmh_ptmass(1:3,2)
+ v1 = vxyz_ptmass(1:3,1)
+ v2 = vxyz_ptmass(1:3,1)
  dr = x2 - x1
-
+ r12 = sqrt(dot_product(dr,dr))
  m1 = xyzmh_ptmass(4,1)
  m2 = xyzmh_ptmass(4,2)
  q  = m2/m1
+ mu = 1./(1 + q)
  radL1      = L1_point(m1/m2)                     ! find L1 point given binary mass ratio
+ A  = mu / abs(radL1 - 1. + mu)**3 + (1. - mu)/abs(radL1 + mu)**3! See Lubow & Shu 1975
+ theta_s = -acos( -4./(3.*A)+(1-8./(9.*A))**0.5)/2.              ! See Lubow & Shu 1975
  xyzL1(1:3) = xyzmh_ptmass(1:3,1) + radL1*dr(:)   ! set as vector position
+ vxyzL1 = v1*sqrt( dot_product(xyzL1-x0, xyzL1-x0)/dot_product(x1-x0, x1-x0) ) ! orbital motion of L1 point
+ !unclear if this is OK with eccentric orbits, but if you have Roche Lobe overflow, orbits should be
+ !circularised anyway
+
+ ! mass of gas particles is set by mass accretion rate and particle injection rate
+ Mdotcode  = Mdot*(solarm/years)/(umass/utime)
+ Porb      = twopi * sqrt( (r12*udist)**3 / (gg*(m1+m2)*umass) )
+ dNdt_code = dNdt*utime / Porb
+ massoftype(igas) = Mdotcode/dNdt_code
 
  ! get centre of mass of binary
  x0 = (m1*x1 + m2*x2)/(m1 + m2)
 
- ! get direction vector in which to point the stream
- dir = x2 - xyzL1
+ ! how many particles do we need to place?
+ if(npartoftype(igas)<8) then
+    particles_to_place = 8-npartoftype(igas)      ! Seems to need at least eight gas particles to not crash
+ else
+    particles_to_place = max(0, int(0.5 + (time*Mdotcode/massoftype(igas)) - npartoftype(igas) ))
+ endif
+ do wall_i=1,particles_to_place
 
- ! get angular velocity of binary
- !v1 = vxyz_ptmass(1:3,1)
- !v2 = vxyz_ptmass(1:3,2)
- !dv = v2 - v1
- !call get_v_spherical(dir,dv,vr,vphi,vtheta)
- !r = sqrt(dot_product(r,r))
- !omega0 = vphi/r
+    ! calculate particle offset
+    theta_rand = ran2(s1)*twopi
+    r_rand = rayleigh_deviate(s1)*chi
+    dxyz=(/0.0, cos(theta_rand), sin(theta_rand)/)*r_rand   ! Stream is placed randomly in a cylinder
+    ! with a Gaussian density distribution
 
- N = 4              ! number of particles in x axis of cylinder
- rcyl = 0.01*radL1  ! radius of injection cylinder, as fraction of L1 distance
- rcyl2 = rcyl*rcyl
- delta = 2.*rcyl/N  ! particle separation in cylinder
- ymin = -rcyl   ! to ensure flow is centred around L1 point
- zmin = -rcyl
- h = hfact*delta
+    ! prepare to add a particle
+    part_type = igas
+    vxyz = (/ cos(theta_s), sin(theta_s), 0.0 /)*spd_inject
+    h = hfact*chi
+    u = 0.0   !get back to this
+    i_part = npart + 1
+    call rotate_into_plane(dxyz,vxyz,x2-xyzL1)
+    vxyz = vxyz + vxyzL1
+    xyzi = xyzL1 + dxyz
 
- handled_walls = 4
- vinject = 0.05
+    !add the particle
 
- print*,'injecting at ',xyzi(1:3)
-!
-!--inject material at the L1 point, with the orbital motion of the secondary
-!
-!  deltat = time - dtlast
-!  Minject = deltat*Mdotcode
-!  ninject = int(Minject/massoftype(igas)) - 1
-!  deltatp = deltat/real(ninject - 1)
-!  vnew(:) = vxyz_ptmass(1:3,2)
-!  vinject = sqrt(dot_product(vnew,vnew))
+    call add_or_update_particle(part_type, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
+    !print*, "Adding particle at ", xyzi
+    !print*, "With velocity ", vxyz
+    !print*, "L1 point calculated to be at ", xyzL1
 
- time_between_walls = delta/vinject
- outer_wall = ceiling((time-dtlast)/time_between_walls)
- inner_wall = ceiling(time/time_between_walls)-1
- inner_handled_wall = inner_wall+handled_walls
- particles_per_wall = int(0.25*pi*N**2)  ! cross section of cylinder
-
- print *, "t = ", time
- print *, "dt last = ", dtlast
- print *, "delta t = ", time_between_walls
- print *, "Injecting wall ", inner_wall, " to ", outer_wall
- print *, "Handling wall ", inner_handled_wall, " to ", inner_wall-1
- print *, ' v = ', vinject
- print *, '*** ', time, dtlast, time_between_walls, inner_wall, outer_wall
-
- do i=inner_handled_wall,outer_wall,-1
-    local_time = time - i*time_between_walls
-    if (i  >  inner_wall) then
-       ! Handled wall
-       i_part = (inner_handled_wall-i)*particles_per_wall
-       part_type = igas
-    else
-       ! Outer wall
-       i_part = npart
-       part_type = igas
-    endif
-    xyzi(1) = local_time * vinject
-    print *, '==== ', i, xyzi(1)
-    do iy = 1,N
-       do iz = 1,N
-          xyzi(2) = ymin + (iy-.5)*delta
-          xyzi(3) = zmin + (iz-.5)*delta
-          ! crop to cylinder
-          if (xyzi(2)**2 + xyzi(3)**2 < rcyl2) then
-             ! rotate direction so that x axis is pointing towards secondary
-             vxyz = (/ vinject, 0., 0. /)
-             call rotate_into_plane(xyzi,vxyz,dir)
-             ! add position offset
-             xyzi = xyzi + xyzL1
-             ! add rotation velocity of primary
-             !vxyz = vxyz + vxyz_ptmass(1:3,1)
-             i_part = i_part + 1
-             ! Another brick in the wall
-             call add_or_update_particle(part_type, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
-          endif
-       enddo
-    enddo
-    !read*
  enddo
+
+!print*, "White Dwarf is at ", x1
+!print*, "Companion is at   ", x2
+!print*, "Theta_s was ", theta_s*180/pi
+!print*, "A was", A
+!print*, "Mu was", mu
+!print*, "Mdot is ",Mdot
+!print*, "Mdotcode is ", Mdotcode
+!print*, "But Mdotcode should be ", Mdot*(solarm/years)/(umass/utime),"= ",Mdot*(solarm/years)/(umass/utime)*umass/utime," g/s"
+!print*, "Because, now, umass= ",umass," and utime= ",utime
+
+!print*, "Particlemass is ", massoftype(igas), " or ", massoftype(igas)*umass, " g"
+
 
 end subroutine inject_particles
 
@@ -194,7 +180,6 @@ subroutine rotate_into_plane(r1,v1,ref)
  phi   = phi + dphi
  theta = theta + dtheta
 
- !print*,'dtheta = ',acos(ref(3)/dr)
  cosphi = cos(phi)
  sinphi = sin(phi)
  sintheta = sin(theta)
@@ -220,6 +205,9 @@ subroutine write_options_inject(iunit)
  integer, intent(in) :: iunit
 
  call write_inopt(Mdot,'Mdot','mass injection rate at L1, in Msun/yr',iunit)
+ call write_inopt(dNdt,'dNdt','particle injection rate in particles/binary orbit',iunit)
+ call write_inopt(spd_inject,'spd_inject','speed of injection at L1 in cm/s',iunit)
+ call write_inopt(chi,'chi','width of injection stream in cm',iunit)
 
 end subroutine write_options_inject
 
@@ -247,8 +235,19 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 !
 !--convert mass injection rate to code units
 !
-    Mdotcode = Mdot*(umass/solarm)/(utime/years)
     print*,' DEBUG: Mdot is ',Mdot,' Msun/yr, which is ',Mdotcode,' in code units'
+
+ case('dNdt')
+    read(valstring,*,iostat=ierr) dNdt
+    ngot = ngot + 1
+    if (dNdt < 0.) call fatal(label,'dNdt < 0 in input options')
+ case('spd_inject')
+    read(valstring,*,iostat=ierr) spd_inject
+    ngot = ngot + 1
+ case('chi')
+    read(valstring,*,iostat=ierr) chi
+    ngot = ngot + 1
+    if (dNdt <= 0.) call fatal(label,'chi <= 0 in input options')
  case default
     imatch = .false.
  end select

@@ -1,0 +1,26 @@
+The MESA data tables are too large to be stored in the Phantom git repository
+They will be downloaded automatically when you run the code
+
+or can be retrieved manually using wget from the phantom website, e.g.:
+
+wget http://users.monash.edu.au/~dprice/phantom/data/eos/mesa/opacs.bindata
+
+The files are:
+
+opacs.bindata
+output_DE_z0.00x0.00.bindata
+output_DE_z0.00x0.20.bindata
+output_DE_z0.00x0.40.bindata
+output_DE_z0.00x0.60.bindata
+output_DE_z0.00x0.80.bindata
+output_DE_z0.00x1.00.bindata
+output_DE_z0.02x0.00.bindata
+output_DE_z0.02x0.20.bindata
+output_DE_z0.02x0.40.bindata
+output_DE_z0.02x0.60.bindata
+output_DE_z0.02x0.80.bindata
+output_DE_z0.04x0.00.bindata
+output_DE_z0.04x0.20.bindata
+output_DE_z0.04x0.40.bindata
+output_DE_z0.04x0.60.bindata
+output_DE_z0.04x0.80.bindata

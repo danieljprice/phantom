@@ -32,8 +32,8 @@
 !    smaxcgs           -- max grain size (in cm)
 !    smincgs           -- min grain size (in cm)
 !
-!  DEPENDENCIES: dim, dump_utils, dust, infile_utils, io, options, part,
-!    prompting, units
+!  DEPENDENCIES: dim, dump_utils, dust, eos, growth, infile_utils, io,
+!    options, part, prompting, units
 !+
 !--------------------------------------------------------------------------
 
@@ -45,6 +45,7 @@ module readwrite_dust
  !--Default values for the dust in the infile
  integer, public :: io_grainsize = 0
  integer, public :: io_graindens = 0
+ logical, public :: ichange_method = .false.
 
  public :: get_onefluiddust
  public :: set_dustfrac_from_inopts
@@ -61,6 +62,7 @@ module readwrite_dust
  public :: write_dust_setup_options
  public :: write_dust_infile_options
  public :: write_temp_grains_file
+ public :: check_dust_method
 
  private
 
@@ -71,18 +73,23 @@ contains
 !  extract whether one-fluid dust used in Phantom from the fileid
 !+
 !--------------------------------------------------------------------
-subroutine get_onefluiddust(dumpfile,use_onefluiddust)
+subroutine get_onefluiddust(dumpfile,use_onefluiddust,fileid)
  use io,         only:idisk1
  use dump_utils, only:open_dumpfile_r,lenid
- character(len=*),     intent(in)  :: dumpfile
- logical,              intent(out) :: use_onefluiddust
- integer               :: ierr
- character(len=lenid)  :: fileid
+ character(len=lenid), optional, intent(inout)  :: fileid
+ character(len=*), intent(in)  :: dumpfile
+ logical,          intent(out) :: use_onefluiddust
+ integer :: ierr
+ character(len=lenid) :: fileident
 
- call open_dumpfile_r(idisk1,dumpfile,fileid,ierr)
- close(idisk1)
+ if (.not.present(fileid)) then
+    call open_dumpfile_r(idisk1,dumpfile,fileident,ierr)
+    close(idisk1)
+ else
+    fileident = fileid
+ endif
 
- if (index(fileid,'+1dust') /= 0) then
+ if (index(fileident,'+1dust') /= 0) then
     use_onefluiddust = .true.
  else
     use_onefluiddust = .false.
@@ -961,6 +968,77 @@ subroutine write_dust_to_header(multidustdump,hdr,ierr)
 
 end subroutine write_dust_to_header
 
+!-----------------------------------------------------------------------
+!+
+!  Subroutine for deciding wheather to use one-fluid or two-fluid dust
+!+
+!-----------------------------------------------------------------------
+subroutine check_dust_method(id,filename,dust_method,ichange_method)
+ use options, only:use_dustfrac
+ use dust,    only:init_drag,get_ts,grainsize,graindens,idrag
+ use part,    only:npart,massoftype,xyzh,vxyzu,rhoh,igas,dustfrac
+ use eos,     only:ieos,get_spsound
+ use io,      only:master
+ integer,          intent(in)    :: id
+ integer,          intent(inout) :: dust_method
+ logical,          intent(out)   :: ichange_method
+ character(len=*), intent(in)    :: filename
+ integer :: i,l,iregime,ierr,icheckdust
+ real    :: r,rhogasi,rhodusti,rhoi,dustfracisum,spsoundi
+ real    :: dustfraci(ndusttypes),tsi(ndusttypes)
+ character(len=120) :: string
+ logical :: iforce_dust_method = .false.
+
+ call init_drag(ierr)
+
+ icheckdust = 0
+ do i = 1,npart
+    r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
+    if (use_dustfrac) then
+       rhoi = rhoh(xyzh(4,i),massoftype(igas))
+       dustfraci(:) = dustfrac(:,i)
+       dustfracisum = sum(dustfraci(:))
+       rhogasi      = rhoi*(1.-dustfracisum)
+       spsoundi = get_spsound(ieos,xyzh(:,i),rhogasi,vxyzu(:,i))
+       do l = 1,ndusttypes
+          rhodusti = rhoi*dustfraci(l)
+          call get_ts(idrag,grainsize(l),graindens(l),rhogasi,rhodusti,spsoundi,0.,tsi(l),iregime)
+       enddo
+       if (any(tsi(:) > xyzh(4,i)/spsoundi)) icheckdust = icheckdust + 1
+    endif
+ enddo
+
+ call get_environment_variable('IFORCE_DUST_METHOD',string)
+ if (trim(string)=='yes') iforce_dust_method = .true.
+
+ ichange_method = .false.
+ if (real(icheckdust)/real(npart) > 0.1 .and. .not.iforce_dust_method) then
+    if (dust_method == 1) then
+       use_dustfrac = .false.
+       ichange_method = .true.
+       dust_method = 2
+    endif
+
+    print*,''
+    print*,'*******************************************************************************'
+    print*,'WARNING! More than 10% of the particles have a Stokes Number larger than the'
+    print*,'threshold under which the terminal velocity approximation is valid. We suggest'
+    print*,'you switch to using two-fluid. If you absolutely insist on using the one-fluid,'
+    print*,'you can set the environment variable IFORCE_DUST_METHOD=yes and rerun the setup.'
+    print*,'*******************************************************************************'
+    print*,''
+ elseif (iforce_dust_method) then
+    print*,''
+    print*,'*******************************************************************************'
+    print*,'WARNING! You have chosen to manually select the dust method. Care should be taken'
+    print*,'to ensure that you do not violate the terminal velocity approximation.'
+    print*,'*******************************************************************************'
+    print*,''
+ endif
+
+end subroutine check_dust_method
+
+
 
 !-----------------------------------------------------------------------
 !+
@@ -1189,7 +1267,7 @@ subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,
        call interactively_set_dust(dust_to_gas,dustfrac_percent,grainsizeinp,graindensinp, &
                                    imethod=dust_method,iprofile=profile_set_dust)
        !
-       !--write default input file 
+       !--write default input file
        !
        open(unit=iunit,file=grainsfile,status='replace',form='formatted')
        call write_dust_setup_options(iunit,dust_to_gas,df=dustfrac_percent,gs=grainsizeinp, &

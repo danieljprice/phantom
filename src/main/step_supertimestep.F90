@@ -32,8 +32,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: evwrite, io, io_summary, part, ptmass, step_lf_global,
-!    timestep, timestep_ind, timestep_sts
+!  DEPENDENCIES: evwrite, io, io_summary, part, step_lf_global, timestep,
+!    timestep_ind, timestep_sts
 !+
 !--------------------------------------------------------------------------
 module supertimestep
@@ -58,14 +58,6 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
  use timestep,       only: dtcourant,dtforce,dterr
  use timestep_sts,   only: sts_get_dtau_array
 #endif
-#ifdef GRAVITY
- use timestep,       only: bignumber
- use ptmass,         only: ipart_rhomax, &
-                           rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ipart
-#ifdef IND_TIMESTEPS
- use ptmass,         only: rhomax_ibin
-#endif
-#endif
  use timestep,       only: dtdiff
  use timestep_sts,   only: sts_it_n,dtau,Nmegasts_done,bigdt, &
                            sts_initialise_activity,sts_set_active_particles,nnu
@@ -82,17 +74,6 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
 #ifndef IND_TIMESTEPS
  integer(kind=1), parameter :: nbinmax = 0  ! The simplest way to keep everything clean
 #endif
-#ifdef GRAVITY
- real                   :: rhomax_sts_hi
- integer                :: rhomax_sts_ipart
- integer(kind=1)        :: rhomax_sts_iphase
- real                   :: rhomax_sts_xyzh(4),rhomax_sts_vxyz(3)
- real(kind=4)           :: rhomax_sts_divv
- logical                :: update_rhomax
-#ifdef IND_TIMESTEPS
- integer(kind=1)        :: rhomax_sts_ibin
-#endif
-#endif
  real                   :: dtau0,dtdiff_in,dtsum,timei
  real                   :: dttemp3(3),dttemp2(2)
  !
@@ -105,11 +86,6 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
  timei       = time
  dtsum       = 0.0d0
  sts_it_n    = .true.
-#ifdef GRAVITY
- rhomax_sts_hi = bignumber
- update_rhomax = .false.
-#endif
- !
 #ifdef IND_TIMESTEPS
  ! Determine activity of particles
  ! This is required even if sts is not being used since
@@ -162,23 +138,9 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
     call step(npart,nactive,timei,dtau0,dtextforce,dtnew)
     !  call write_evfile(timei,dtau)
     call summary_counter(iosum_nsts)
-#ifdef GRAVITY
-    if (ipart_rhomax /= 0 .and. rhomax_xyzh(4) < rhomax_sts_hi) then
-       update_rhomax     = .true.
-       rhomax_sts_hi     = rhomax_xyzh(4)
-       rhomax_sts_ipart  = rhomax_ipart
-       rhomax_sts_xyzh   = rhomax_xyzh
-       rhomax_sts_vxyz   = rhomax_vxyz
-       rhomax_sts_iphase = rhomax_iphase
-       rhomax_sts_divv   = rhomax_divv
-#ifdef IND_TIMESTEPS
-       rhomax_sts_ibin   = rhomax_ibin
-#endif
-    endif
-#endif
     dtsum      = dtsum + dtau0
     timei      = timei + dtau0
-    !
+
     dttemp2(1) = min(dttemp2(1),dtnew     )
     dttemp2(2) = min(dttemp2(2),dtextforce)
 #ifndef IND_TIMESTEPS
@@ -187,7 +149,7 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
     dttemp3(3) = min(dttemp3(3),dterr     )
 #endif
  enddo
- !
+
  dtnew      = dttemp2(1)
  dtextforce = dttemp2(2)
 #ifndef IND_TIMESTEPS
@@ -200,21 +162,7 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
     ,Nmegasts_now,dt,dtsum,abs(1.0-dtsum/dt)
     call fatal ('step','Super-timestepping: superstep not reaching the correct time')
  endif
- !
-#ifdef GRAVITY
- ! replace rhomax* as required
- if (update_rhomax) then
-    rhomax_ipart  = rhomax_sts_ipart
-    rhomax_xyzh   = rhomax_sts_xyzh
-    rhomax_vxyz   = rhomax_sts_vxyz
-    rhomax_iphase = rhomax_sts_iphase
-    rhomax_divv   = rhomax_sts_divv
-#ifdef IND_TIMESTEPS
-    rhomax_ibin   = rhomax_sts_ibin
-#endif
- endif
-#endif
- !
+
 end subroutine step_sts
 !--------------------------------------------------------------------------
 !+
@@ -248,7 +196,7 @@ subroutine sts_print_output(nactive_sts,time,nbinmax,iprint)
  endif
 10 format(a,I4,a,Es16.7,a,I4)
 20 format(a,I4,a,Es16.7)
- !
+
  Nviaibin = 2**(nbinmaxsts-nbinmax)
  ! Update summary
  if (icase_sts==iNsts) then
@@ -272,8 +220,7 @@ subroutine sts_print_output(nactive_sts,time,nbinmax,iprint)
  else
     call fatal('Super-timestepping', 'BROKEN.  Illegal case')
  endif
- !
+
 end subroutine sts_print_output
 !--------------------------------------------------------------------------
 end module supertimestep
-

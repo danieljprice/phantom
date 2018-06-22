@@ -428,10 +428,11 @@ end subroutine read_eos_mesa
 ! 1. logRho        2. logP          3. logPgas       4. logT
 ! 5. dlnP/dlnrho|e 6. dlnP/dlne|rho 7. dlnT/dlnrho|e 8. dlnT/dlne|rho
 ! 9. logS         10. dlnT/dlnP|S  11. Gamma1       12. gamma
-subroutine getvalue_mesa(rho,eint,ivout,vout)
+subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
  real, intent(in) :: rho, eint
  real, intent(out) :: vout
  integer, intent(in) :: ivout
+ integer, intent(out), optional :: ierr
  real :: loge, logv, de, dv
  integer :: ne, nv
  real :: dx
@@ -461,12 +462,13 @@ subroutine getvalue_mesa(rho,eint,ivout,vout)
  if (ne > 1 .and. nv > 1 .and. ne < mesa_eos_ne-1 .and. nv < mesa_eos_nv-1) then
     call eos_cubic_spline_mesa(ne,nv,loge,logv,ivout,vout,nx,dx)
     vout=10.d0**vout
+    if (present(ierr)) ierr = 0
  else
     vout = 10.d0**((1.d0-de) * (1.d0-dv) * mesa_de_data(ne,nv,ivout)   + &
                          de  * (1.d0-dv) * mesa_de_data(ne+1,nv,ivout) + &
                    (1.d0-de) *       dv  * mesa_de_data(ne,nv+1,ivout) + &
                          de  *       dv  * mesa_de_data(ne+1,nv+1,ivout))
-
+    if (present(ierr)) ierr = 1  ! warn if extrapolating
  endif
 
  return
