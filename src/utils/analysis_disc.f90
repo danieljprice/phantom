@@ -37,6 +37,7 @@ contains
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use io,      only:fatal
  use physcon, only:pi
+ use part,    only:xyzmh_ptmass,vxyz_ptmass,nptmass
  character(len=*), intent(in) :: dumpfile
  real,             intent(inout) :: xyzh(:,:),vxyz(:,:)
  real,             intent(inout) :: pmass,time
@@ -48,9 +49,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: R_in,R_out,H_R,p_index,q_index,M_star
  real :: G,rmin,rmax
  real :: tilt(nr)
- real :: rad(nr),ninbin(nr),h_smooth(nr),sigma(nr),H(nr)
+ real :: rad(nr),h_smooth(nr),sigma(nr),H(nr)
  real :: unitlx(nr),unitly(nr),unitlz(nr),tp(nr),ecc(nr)
  real :: psi(nr),tilt_acc(nr)
+ integer :: ninbin(nr)
+ logical :: assume_Ltot_is_same_as_zaxis
 
  integer, parameter :: iparams = 10
  integer, parameter :: iprec   = 24
@@ -97,8 +100,16 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  rmin = R_in
  rmax = R_out
 
+! This variable should be set to false for any discs that use sink particles to set
+! the potential or any discs that have a warp
+! For any setup that uses iexternalforce and assumes that the vast majority of the angular
+! momentum is held by the central potential, this should be set to true
+
+ assume_Ltot_is_same_as_zaxis = .false.
+
  call disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_index,&
-                     tilt,tilt_acc,tp,psi,H,rad,h_smooth,sigma,unitlx,unitly,unitlz,ecc,ninbin)
+                     tilt,tilt_acc,tp,psi,H,rad,h_smooth,sigma,unitlx,unitly,unitlz,ecc,ninbin,&
+                      assume_Ltot_is_same_as_zaxis,xyzmh_ptmass,vxyz_ptmass,nptmass)
 
  open(iunit,file=output)
  write(iunit,'("# Analysis data at t = ",es20.12)') time
