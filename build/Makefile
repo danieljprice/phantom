@@ -1710,7 +1710,7 @@ interpolate3D_amr.o: adaptivemesh.o
 #----------------------------------------------------
 # these are the sources for the phantom2power utility
 #
-SRCP2P= utils_omp.F90 fft3d.f90 fftpack.f params.f90 \
+SRCP2P= utils_omp.F90 fft3d.f90 fftpack.f \
         power3d.f90 icosahedron.f90 powerspec.f90 \
         interpolate3D.F90 asciiutils.f90 pdfs.f90 phantom2power.f90
 OBJP2P1= $(SRCP2P:.f90=.o)
