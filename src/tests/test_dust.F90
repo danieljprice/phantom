@@ -453,11 +453,11 @@ subroutine test_dustydiffuse(ntests,npass)
 
 end subroutine test_dustydiffuse
 
-!----------------------------------------------------
+!---------------------------------------------------------------------------------
 !+
-!  check that drag implementation conserves momentum
+!  check that drag implementation conserves momentum, angular momentum and energy
 !+
-!----------------------------------------------------
+!---------------------------------------------------------------------------------
 subroutine test_drag(ntests,npass)
  use dim,       only:maxp,periodic,maxtypes,mhd,ndusttypes,maxvxyzu
  use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac, &
@@ -473,12 +473,12 @@ subroutine test_drag(ntests,npass)
  use deriv,     only:derivs
  use mpiutils,  only:reduceall_mpi
  use random,    only:ran2
+ use vectorutils, only:cross_product3D
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
- integer :: nx,i,nfailed
- integer :: itype,iseed
- real    :: da(3),psep,time
- real    :: rhozero,totmass,dtnew,dekin,deint
+ integer :: nx,i,nfailed,itype,iseed
+ real    :: da(3),dl(3),temp(3)
+ real    :: psep,time,rhozero,totmass,dtnew,dekin,deint
 
  if (id==master) write(*,"(/,a)") '--> testing DUST DRAG'
 !
@@ -506,6 +506,7 @@ subroutine test_drag(ntests,npass)
  npartoftype(igas) = npart
  npartoftypetot(igas) = reduceall_mpi('+',npartoftype(igas))
  massoftype(igas)  = totmass/npartoftypetot(igas)
+
  do i=1,npart
     call set_particle_type(i,igas)
     vxyzu(1:3,i) = (/ran2(iseed),ran2(iseed),ran2(iseed)/)
@@ -523,7 +524,6 @@ subroutine test_drag(ntests,npass)
  npartoftypetot(idust) = reduceall_mpi('+',npartoftype(idust))
  massoftype(idust)  = totmass/npartoftypetot(idust)
 
-
  if (mhd) Bevol = 0.
 
 !
@@ -539,22 +539,31 @@ subroutine test_drag(ntests,npass)
 ! check that momentum and energy are conserved
 !
  da(:) = 0.
+ dl(:) = 0.
  dekin = 0.
  deint = 0.
  do i=1,npart
-    if(isnan(fxyzu(1,i))) write(*,*)i,fxyzu(1:3,i),iamtype(iphase(i))
     itype = iamtype(iphase(i))
     da(:) = da(:) + massoftype(itype)*fxyzu(1:3,i)
-    dekin  = dekin  + massoftype(itype)*dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
-    if (maxvxyzu >= 4 .and. .not.periodic) deint  = deint  + massoftype(itype)*fxyzu(4,i)
+    if (.not.periodic) then
+       call cross_product3D(xyzh(1:3,i),fxyzu(1:3,i),temp)
+       dl(:) = dl(:) + massoftype(itype)*temp(:)
+       dekin  = dekin  + massoftype(itype)*dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
+       if (maxvxyzu >= 4) deint  = deint  + massoftype(itype)*fxyzu(4,i)
+    endif
  enddo
 
 
  nfailed=0
- call checkval(da(1),0.,7.e-7,nfailed,'Acceleration from drag conserves momentum')
- call checkval(da(2),0.,7.e-7,nfailed,'Acceleration from drag conserves momentum')
- call checkval(da(3),0.,7.e-7,nfailed,'Acceleration from drag conserves momentum')
- if (maxvxyzu >= 4 .and. .not.periodic) call checkval(dekin+deint,0.,7.e-7,nfailed,'Acceleration from drag conserves energy')
+ call checkval(da(1),0.,7.e-7,nfailed,'Acceleration from drag conserves momentum(x)')
+ call checkval(da(2),0.,7.e-7,nfailed,'Acceleration from drag conserves momentum(y)')
+ call checkval(da(3),0.,7.e-7,nfailed,'Acceleration from drag conserves momentum(z)')
+ if (.not.periodic) then
+    call checkval(dl(1),0.,1.e-8,nfailed,'Acceleration from drag conserves angular momentum(x)')
+    call checkval(dl(2),0.,1.e-8,nfailed,'Acceleration from drag conserves angular momentum(y)')
+    call checkval(dl(3),0.,1.e-8,nfailed,'Acceleration from drag conserves angular momentum(z)')
+    if (maxvxyzu >= 4) call checkval(dekin+deint,0.,7.e-7,nfailed,'Acceleration from drag conserves energy')
+ endif
 
  ntests = ntests + 1
  if (nfailed==0) npass = npass + 1
