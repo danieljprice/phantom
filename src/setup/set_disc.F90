@@ -1065,7 +1065,7 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_c) result(sigma)
  case (3)
     sigma = (R/R_ref)**(-pindex)*exp(-(R/R_c)**(2.-pindex))*(1.-sqrt(R_in/R))
  case (4)
-    sigma = (R/R_in)**(-pindex)*(1-sqrt(R_in/R))*(1-exp(R-20)) !R_out = 20. 
+    sigma = (R/R_in)**(-pindex)*(1-sqrt(R_in/R))*(1-exp(R-20)) !R_out = 20.
  case default
     call error('set_disc','unavailable sigmaprofile; surface density is set to zero')
     sigma = 0.

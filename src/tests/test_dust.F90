@@ -494,7 +494,7 @@ subroutine test_drag(ntests,npass)
  time  = 0.
  npart = 0
  npartoftype(:) = 0
- if (maxvxyzu < 4)then 
+ if (maxvxyzu < 4)then
     ieos = 1
     polyk = 1.
  endif
