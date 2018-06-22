@@ -597,8 +597,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        angz = angz + pgasmass*(xyzh(1,i)*vxyz(2,i) - xyzh(2,i)*vxyz(1,i))
     endif
  enddo
- write(*,*)"Massa della polvere: ",Mdust
- write(*,*)"Massa del gas: ",Mgas
+ write(*,*)"Dust mass: ",Mdust
+ write(*,*)"Gas mass: ",Mgas
 
  numcols = 5 ! # of total columns
  if (.not.init) then

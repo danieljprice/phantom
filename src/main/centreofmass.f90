@@ -286,6 +286,7 @@ end subroutine correct_bulk_motion
 subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_ptmass,npart_ptmass)
  use vectorutils, only:cross_product3D
  use part,        only:iphase,iamtype,massoftype
+ use mpiutils,    only:reduceall_mpi
  real, intent(in)  :: xyzh(:,:),vxyz(:,:)
  real, optional, intent(in):: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(in) :: npart
@@ -297,20 +298,33 @@ subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_pt
  L_tot(:) = 0.
 
  ! Calculate the angular momentum from all the particles
+!$omp parallel default(none) &
+!$omp shared(xyzh,vxyz,npart) &
+!$omp shared(massoftype,iphase) &
+!$omp shared(xyzmh_ptmass,vxyz_ptmass,npart_ptmass) &
+!$omp private(ii,itype,pmassi,temp) &
+!$omp reduction(+:L_tot)
+!$omp do
  do ii = 1,npart
     itype = iamtype(iphase(ii))
     pmassi = massoftype(itype)
     call cross_product3D(xyzh(1:3,ii),vxyz(1:3,ii),temp)
     L_tot = L_tot + temp*pmassi
  enddo
+!$omp enddo
 
  ! Calculate from the sinks
  if (present(npart_ptmass)) then
+    !$omp do
     do ii = 1,npart_ptmass
        call cross_product3D(xyzmh_ptmass(1:3,ii),vxyz_ptmass(1:3,ii),temp)
        L_tot = L_tot + temp*xyzmh_ptmass(4,ii)
     enddo
+    !$omp enddo
  endif
+!$omp end parallel
+
+ L_tot = reduceall_mpi('+',L_tot)
 
 end subroutine get_total_angular_momentum
 
