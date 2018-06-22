@@ -75,9 +75,9 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_
 
 ! Options
  if (assume_Ltot_is_same_as_zaxis) then
-     rotate = .false.
+    rotate = .false.
  else
-     rotate = .true.
+    rotate = .true.
  endif
 
 ! Set up the radius array

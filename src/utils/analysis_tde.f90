@@ -137,7 +137,7 @@ real function treturn(mass,en)
  use physcon,        only:pi
  real, intent(in) :: mass,en
 
-  treturn = 2.*pi*mass/(2.*abs(en))**1.5
+ treturn = 2.*pi*mass/(2.*abs(en))**1.5
 
 end function treturn
 

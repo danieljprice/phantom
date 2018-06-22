@@ -84,9 +84,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  inquire(file=filename,exist=iexist)
  if (iexist) call read_setupfile(filename,ierr)
  if (.not. iexist .or. ierr /= 0) then
-   call write_setupfile(filename)
-   print*,' Edit '//trim(filename)//' and rerun phantommoddump'
-   stop
+    call write_setupfile(filename)
+    print*,' Edit '//trim(filename)//' and rerun phantommoddump'
+    stop
  endif
  rt = (Mh/Ms)**(1./3.) * rs         ! tidal radius
  rp = rt/beta                       ! pericenter distance
@@ -285,9 +285,9 @@ subroutine get_angmom(ltot,npart,xyzh,vxyzu)
 
  ltot = 0.
  do i=1,npart
-     ltot(1) = ltot(1)+xyzh(2,i)*vxyzu(3,i)-xyzh(3,i)*vxyzu(2,i)
-     ltot(2) = ltot(2)+xyzh(3,i)*vxyzu(1,i)-xyzh(1,i)*vxyzu(3,i)
-     ltot(3) = ltot(3)+xyzh(1,i)*vxyzu(2,i)-xyzh(2,i)*vxyzu(1,i)
+    ltot(1) = ltot(1)+xyzh(2,i)*vxyzu(3,i)-xyzh(3,i)*vxyzu(2,i)
+    ltot(2) = ltot(2)+xyzh(3,i)*vxyzu(1,i)-xyzh(1,i)*vxyzu(3,i)
+    ltot(3) = ltot(3)+xyzh(1,i)*vxyzu(2,i)-xyzh(2,i)*vxyzu(1,i)
  enddo
 
  L = sqrt(dot_product(ltot,ltot))

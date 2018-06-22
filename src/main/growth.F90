@@ -266,25 +266,25 @@ end subroutine get_vrelonvfrag
 !+
 !----------------------------------------------------------------------------
 subroutine comp_snow_line(xyzh,cs,izone)
-use eos,    only:temperature_coef,gmw
-integer, intent(out) :: izone
-real, intent(in)     :: xyzh(:),cs
-real                 :: cs_snow,r
+ use eos,    only:temperature_coef,gmw
+ integer, intent(out) :: izone
+ real, intent(in)     :: xyzh(:),cs
+ real                 :: cs_snow,r
 
-select case(isnow)
-case(0)
-   izone = 0
-case(1)
-   r = sqrt(xyzh(1)**2 + xyzh(2)**2 + xyzh(3)**2)
-   if (r<=rsnow) izone = 1
-   if (r>rsnow) izone = 2
-case(2)
-   cs_snow = sqrt(Tsnow/(temperature_coef*gmw))
-   if (cs > cs_snow) izone = 1
-   if (cs < cs_snow) izone = 2
-case default
-   izone = 0
-end select
+ select case(isnow)
+ case(0)
+    izone = 0
+ case(1)
+    r = sqrt(xyzh(1)**2 + xyzh(2)**2 + xyzh(3)**2)
+    if (r<=rsnow) izone = 1
+    if (r>rsnow) izone = 2
+ case(2)
+    cs_snow = sqrt(Tsnow/(temperature_coef*gmw))
+    if (cs > cs_snow) izone = 1
+    if (cs < cs_snow) izone = 2
+ case default
+    izone = 0
+ end select
 
 end subroutine comp_snow_line
 
