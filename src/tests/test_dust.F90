@@ -24,7 +24,7 @@
 !
 !  DEPENDENCIES: boundary, deriv, dim, dust, energies, eos, io, kernel,
 !    mpiutils, options, part, physcon, random, step_lf_global, testutils,
-!    timestep, unifdis, units
+!    timestep, unifdis, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module testdust
