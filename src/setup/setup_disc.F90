@@ -624,8 +624,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           sig_normdust(i) = sig_normdust(i) * disc_mdust(i) / disc_mtmp(i)
           do j=nparttot+1,npingasdisc
              Rj = sqrt(dot_product(xyzh(1:2,j)-xorigini(1:2),xyzh(1:2,j)-xorigini(1:2)))
-             if (Rj<R_indust(i) .or. Rj>R_outdust(i)) then
-                jdust_to_gas_ratio = 0.
+             if (profile_set_dust > 0 .and. (Rj<R_indust(i) .or. Rj>R_outdust(i))) then
+                jdust_to_gas_ratio = tiny(jdust_to_gas_ratio)
              else
                 call get_dust_to_gas_ratio(jdust_to_gas_ratio,Rj,sigmaprofilegas(i), &
                                            sigmaprofiledust(i),sig_norm(i),sig_normdust(i), &
@@ -707,7 +707,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        endif
        !--reset alpha for each disc
        alpha_returned(i) = alpha
-       alpha = alphaSS
     endif
  enddo
 
@@ -768,9 +767,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--alpha viscosity
  if (ndiscs==1) then
-    do i=1,3
-       if (iuse_disc(i)) alpha = alpha_returned(i)
-    enddo
+       alpha = alpha_returned(idisc)
  else
     call warning('setup_disc', &
        'multiple discs: cannot use alpha_AV for alpha_SS, setting equal to 0.1')
@@ -798,7 +795,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     i = 2
  else
     !--single disc or circumbinary
-    i = 1
+    i = idisc
  endif
  R = (R_in(i) + R_out(i))/2
  Sigma = sig_norm(i)*scaled_sigma(R,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
@@ -1140,7 +1137,7 @@ subroutine setup_interactive(id)
  pindex     = 1.
  qindex     = 0.25
  if (ndiscs > 1) qindex = 0.
- alphaSS    = 0.005
+ if (maxalpha==0) alphaSS    = 0.005
  posangl    = 0.
  incl       = 0.
  H_R        = 0.05

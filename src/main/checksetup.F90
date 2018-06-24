@@ -338,7 +338,7 @@ subroutine check_setup(nerror,nwarn,restart)
           elseif (abs(dustfrac(j,i)-1.) < tiny(1.)) then
              nunity = nunity + 1
           else
-             dust_to_gas = dust_to_gas + dustfrac(j,i)/(1. - dustfrac(j,i))
+             dust_to_gas = dust_to_gas + dustfrac(j,i)/(1. - sum(dustfrac(:,i)))
           endif
        enddo
     enddo

@@ -484,10 +484,10 @@ subroutine test_drag(ntests,npass)
 !
 ! set up particles in random distribution
 !
- nx = 32
+ nx = 50
  psep = 1./nx
  iseed= -14255
- call set_boundary(-0.5,0.5,-0.5,0.5,-0.5,0.5)
+ call set_boundary(xmin,xmax,ymin,ymax,zmin)
  hfact = hfact_default
  rhozero = 3.
  totmass = rhozero*dxbound*dybound*dzbound
@@ -545,25 +545,26 @@ subroutine test_drag(ntests,npass)
  do i=1,npart
     itype = iamtype(iphase(i))
     da(:) = da(:) + massoftype(itype)*fxyzu(1:3,i)
-    if (.not.periodic) then
+    if (.not.periodic) then !the angular momentum is not conserved for particle systems with periodic boundary conditions
        call cross_product3D(xyzh(1:3,i),fxyzu(1:3,i),temp)
        dl(:) = dl(:) + massoftype(itype)*temp(:)
+    endif
+    if (maxvxyzu >= 4) then
        dekin  = dekin  + massoftype(itype)*dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
-       if (maxvxyzu >= 4) deint  = deint  + massoftype(itype)*fxyzu(4,i)
+       deint  = deint  + massoftype(itype)*fxyzu(4,i)
     endif
  enddo
-
 
  nfailed=0
  call checkval(da(1),0.,7.e-7,nfailed,'Acceleration from drag conserves momentum(x)')
  call checkval(da(2),0.,7.e-7,nfailed,'Acceleration from drag conserves momentum(y)')
  call checkval(da(3),0.,7.e-7,nfailed,'Acceleration from drag conserves momentum(z)')
  if (.not.periodic) then
-    call checkval(dl(1),0.,1.e-8,nfailed,'Acceleration from drag conserves angular momentum(x)')
-    call checkval(dl(2),0.,1.e-8,nfailed,'Acceleration from drag conserves angular momentum(y)')
-    call checkval(dl(3),0.,1.e-8,nfailed,'Acceleration from drag conserves angular momentum(z)')
-    if (maxvxyzu >= 4) call checkval(dekin+deint,0.,7.e-7,nfailed,'Acceleration from drag conserves energy')
+    call checkval(dl(1),0.,1.e-9,nfailed,'Acceleration from drag conserves angular momentum(x)')
+    call checkval(dl(2),0.,1.e-9,nfailed,'Acceleration from drag conserves angular momentum(y)')
+    call checkval(dl(3),0.,1.e-9,nfailed,'Acceleration from drag conserves angular momentum(z)')
  endif
+ if (maxvxyzu >= 4) call checkval(dekin+deint,0.,7.e-7,nfailed,'Acceleration from drag conserves energy')
 
  ntests = ntests + 1
  if (nfailed==0) npass = npass + 1

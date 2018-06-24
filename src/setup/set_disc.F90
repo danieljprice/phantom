@@ -819,6 +819,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
                           R_warp,psimax,L_tot_mag,itype)
  use eos,          only:get_temperature,init_eos,ieos
  use infile_utils, only:write_inopt
+ use part, only:igas
  integer, intent(in) :: iunit,npart,itype,sigmaprofile
  real,    intent(in) :: R_in,R_out,R_ref,Q,p_index,q_index,star_m,disc_m,sigma_norm,L_tot_mag
  real,    intent(in) :: alphaSS_min,alphaSS_max,R_warp,psimax,R_c,inclination,honH,cs0
@@ -863,16 +864,18 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  call write_inopt(star_m,'M_star','mass of central star',iunit)
  call write_inopt(disc_m,'M_disc','disc mass',iunit)
  call write_inopt(disc_m/star_m,'M_disc/M_star','relative disc mass',iunit)
- call write_inopt(cs0,'cs0','sound speed at R=1',iunit)
+ if(itype == igas) call write_inopt(cs0,'cs0','sound speed at R=1',iunit)
 
  call init_eos(ieos,ierr)
- vxyzutmp = 0.
- T0 = get_temperature(ieos,(/R_in,0.,0./),1.,vxyzutmp)
- call write_inopt(T0,'T_in','temperature (K) at R=R_in',iunit)
- T_ref = get_temperature(ieos,(/R_ref,0.,0./),1.,vxyzutmp)
- call write_inopt(T_ref,'T_ref','temperature (K) at R=R_ref',iunit)
- T0 = get_temperature(ieos,(/R_out,0.,0./),1.,vxyzutmp)
- call write_inopt(T0,'T_out','temperature (K) at R=R_out',iunit)
+ if(itype == igas)then
+    vxyzutmp = 0.
+    T0 = get_temperature(ieos,(/R_in,0.,0./),1.,vxyzutmp)
+    call write_inopt(T0,'T_in','temperature (K) at R=R_in',iunit)
+    T_ref = get_temperature(ieos,(/R_ref,0.,0./),1.,vxyzutmp)
+    call write_inopt(T_ref,'T_ref','temperature (K) at R=R_ref',iunit)
+    T0 = get_temperature(ieos,(/R_out,0.,0./),1.,vxyzutmp)
+    call write_inopt(T0,'T_out','temperature (K) at R=R_out',iunit)
+ endif
 
  call write_inopt(inclination,'inc.deg','disc inclination in degrees',iunit)
  call write_inopt(honH,'<h/H>','approx. mean smoothing length over disc scale height',iunit)
@@ -886,7 +889,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  write(iunit,"(a)")
 
  !--print some of these diagnostics in more useful form
- write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a,/)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
+ if(itype == igas) write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a,/)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
  if (sigmaprofile==0) then
     write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,/)") '# Surface density      = ',&
          sigma_norm*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,')'
@@ -907,7 +910,6 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
 
  return
 end subroutine write_discinfo
-
 !-----------------------------------------------------------------------------
 !
 !  Routine to compute ratio of smoothing length to disc scale height

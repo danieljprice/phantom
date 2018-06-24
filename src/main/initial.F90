@@ -611,6 +611,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  do i=1,ndusttypes
     write(iprint,'(2x,a,i3,es18.6)') 'Initial dust mass: i = ',i, mdust_in(i)
  enddo
+ write(iprint,'(2x,a,es18.6)')   'Initial total dust mass:  ', sum(mdust_in(:))
 #endif
 !
 !--write initial conditions to output file
