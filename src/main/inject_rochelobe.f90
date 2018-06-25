@@ -62,7 +62,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real :: xyzL1(3),xyzi(3),vxyz(3),dr(3),x1(3),x2(3),x0(3),dxyz(3),vxyzL1(3),v1(3),v2(3)
  integer :: i_part,part_type,s1,wall_i,particles_to_place
 
-
 !
 !--find the L1 point
 !
@@ -105,14 +104,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
 
     ! calculate particle offset
     theta_rand = ran2(s1)*twopi
-    r_rand = rayleigh_deviate(s1)*chi
+    r_rand = rayleigh_deviate(s1)*chi/udist
     dxyz=(/0.0, cos(theta_rand), sin(theta_rand)/)*r_rand   ! Stream is placed randomly in a cylinder
     ! with a Gaussian density distribution
 
     ! prepare to add a particle
     part_type = igas
     vxyz = (/ cos(theta_s), sin(theta_s), 0.0 /)*spd_inject
-    h = hfact*chi
+    h = hfact*chi/udist
     u = 0.0   !get back to this
     i_part = npart + 1
     call rotate_into_plane(dxyz,vxyz,x2-xyzL1)
@@ -120,26 +119,9 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     xyzi = xyzL1 + dxyz
 
     !add the particle
-
     call add_or_update_particle(part_type, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
-    !print*, "Adding particle at ", xyzi
-    !print*, "With velocity ", vxyz
-    !print*, "L1 point calculated to be at ", xyzL1
 
  enddo
-
-!print*, "White Dwarf is at ", x1
-!print*, "Companion is at   ", x2
-!print*, "Theta_s was ", theta_s*180/pi
-!print*, "A was", A
-!print*, "Mu was", mu
-!print*, "Mdot is ",Mdot
-!print*, "Mdotcode is ", Mdotcode
-!print*, "But Mdotcode should be ", Mdot*(solarm/years)/(umass/utime),"= ",Mdot*(solarm/years)/(umass/utime)*umass/utime," g/s"
-!print*, "Because, now, umass= ",umass," and utime= ",utime
-
-!print*, "Particlemass is ", massoftype(igas), " or ", massoftype(igas)*umass, " g"
-
 
 end subroutine inject_particles
 
