@@ -31,7 +31,7 @@
 !    accr1         -- central star accretion radius
 !    accr2         -- perturber accretion radius
 !    alphaSS       -- desired alphaSS
-!    atm_type      -- Enter atmosphere type (1:r**(-3);
+!    atm_type      -- Enter atmosphere type (1:r**(-3); 
 !    bhspin        -- black hole spin
 !    bhspinangle   -- black hole spin angle (deg)
 !    binary_O      -- Omega, PA of ascending node (deg)
