@@ -767,7 +767,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--alpha viscosity
  if (ndiscs==1) then
-       alpha = alpha_returned(idisc)
+    alpha = alpha_returned(idisc)
  else
     call warning('setup_disc', &
        'multiple discs: cannot use alpha_AV for alpha_SS, setting equal to 0.1')
