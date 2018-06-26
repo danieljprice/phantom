@@ -1111,7 +1111,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           usej = .false.
        endif
        if (mhd) usej = .true.
-       if (use_dustfrac) usej = .true.
+       if (use_dust) usej = .true.
        if (maxvxyzu >= 4 .and. .not.gravity) usej = .true.
 
        !--get individual timestep/ multiphase information (querying iphase)
@@ -1192,9 +1192,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        endif
 
        !--get terms required for particle j
-       hj       = 1./hj1
-       rhoj     = rhoh(hj,pmassj)
        if (usej) then
+          hj       = 1./hj1
+          rhoj     = rhoh(hj,pmassj)
           rho1j    = 1./rhoj
           rho21j   = rho1j*rho1j
 
@@ -1551,7 +1551,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    fsum(idudtdissi) = fsum(idudtdissi) + dragheating
                 endif
              elseif (iamdusti .and. iamgasj) then
-                if(.not.usej) spsoundj=get_spsound(ieos,xyzh(:,j),rhoj,vxyzu(:,j))
                 dv2 = dvx*dvx + dvy*dvy + dvz*dvz
                 if (q2i < q2j) then
                    wdrag = wkern_drag(q2i,qi)*hi21*hi1*cnormk_drag

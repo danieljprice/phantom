@@ -399,7 +399,7 @@ subroutine get_ts(idrag,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
     else
        ts1 = dragcoeff*f*rhosum
     endif
-    if (ts1 >= 0.) then
+    if (ts1 > 0.) then
        ts  = 1./ts1
     else
        ts = huge(ts)
