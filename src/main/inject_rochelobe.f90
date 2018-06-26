@@ -17,12 +17,12 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    Mdot    -- mass injection rate at L1, in Msun/yr
-!    chi     -- width of injection stream in cm
-!    dNdt    -- particle injection rate in particles/binary orbit
-!    gastemp -- Temperature at injection point in K
+!    Mdot       -- mass injection rate at L1, in Msun/yr
+!    chi        -- width of injection stream in cm
+!    dNdt       -- particle injection rate in particles/binary orbit
+!    spd_inject -- speed of injection at L1 in cm/s
 !
-!  DEPENDENCIES: eos, infile_utils, io, part, partinject, physcon, random,
+!  DEPENDENCIES: infile_utils, io, part, partinject, physcon, random,
 !    setbinary, units
 !+
 !--------------------------------------------------------------------------
@@ -86,17 +86,15 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  theta_s = -acos( -4./(3.*A)+(1-8./(9.*A))**0.5)/2.              ! See Lubow & Shu 1975
  xyzL1(1:3) = xyzmh_ptmass(1:3,1) + radL1*dr(:)   ! set as vector position
  r2L1 = dist(xyzL1, x2)
- xyzinj(1:3) = xyzL1 + (/cos(theta_s),sin(theta_s),0.0/)*r2L1*eps*50.0     !do something about this "magic number"; can wait
+ xyzinj(1:3) = xyzL1 + (/cos(theta_s),sin(theta_s),0.0/)*r2L1*eps*0.0     !do something about this "magic number"; can wait
  vxyzL1 = v1*dist(xyzL1,x0)/dist(x0, x1) ! orbital motion of L1 point
  spd_inject = abs((3.*A)/(4*eps)*dist(xyzinj,xyzL1)*sin(2*theta_s))
  !unclear if this is OK with eccentric orbits, but if you have Roche Lobe overflow, orbits should be
  !circularised anyway
 
- part_type = igas
- vxyz = (/ cos(theta_s), sin(theta_s), 0.0 /)*spd_inject
- h = hfact*chi/udist
- u = 3.*(kboltz*gastemp/(mu*mass_proton_cgs))/2. * (utime/udist)**2
 
+ 
+ 
  ! mass of gas particles is set by mass accretion rate and particle injection rate
  Mdotcode  = Mdot*(solarm/years)/(umass/utime)
 
@@ -119,12 +117,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     r_rand = rayleigh_deviate(s1)*chi/udist
     dxyz=(/0.0, cos(theta_rand), sin(theta_rand)/)*r_rand   ! Stream is placed randomly in a cylinder
     ! with a Gaussian density distribution
-
+    part_type = igas
+    vxyz = (/ cos(theta_s), sin(theta_s), 0.0 /)*spd_inject
+    u = 3.*(kboltz*gastemp/(mu*mass_proton_cgs))/2. * (utime/udist)**2
     i_part = npart + 1
-    call rotate_into_plane(dxyz,vxyz,x2-xyzL1)
+    call rotate_into_plane(dxyz,vxyz,x2-xyzinj)
     vxyz = vxyz + vxyzL1
     xyzi = xyzL1 + dxyz
-
+    h = hfact*chi/udist
     !add the particle
     call add_or_update_particle(part_type, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
 
