@@ -29,8 +29,7 @@ module discanalysisutils
  character(len=20), parameter, public :: analysistype = 'disc'
  public :: disc_analysis
 
- integer, parameter :: nr = 300
- real,dimension(nr) :: twist,twistprev
+ integer, parameter :: nr = 500
 
  private
 
@@ -44,8 +43,8 @@ contains
 !----------------------------------------------------------------
 
 subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_index,&
-                     tilt,tilt_acc,tp,psi,H,rad,h_smooth,sigma,unitlx,unitly,unitlz,ecc,ninbin,&
-                     assume_Ltot_is_same_as_zaxis,xyzmh_ptmass,vxyz_ptmass,nptmass)
+                     tilt,tilt_acc,twistprev,psi,H,rad,h_smooth,sigma,unitlx,unitly,unitlz,Lx,Ly,Lz,&
+                     ecc,ninbin,assume_Ltot_is_same_as_zaxis,xyzmh_ptmass,vxyz_ptmass,nptmass)
  use physcon,      only:pi
  use centreofmass, only:get_total_angular_momentum
  use externalforces, only:iext_einsteinprec
@@ -60,18 +59,20 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_
  real, optional, intent(in) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, optional, intent(in) :: nptmass
  real                :: dr,cs0,angx,angy,angz,unitangz
- real                :: Lx(nr),Ly(nr),Lz(nr)
+ real, intent(out)   :: Lx(nr),Ly(nr),Lz(nr)
  real                :: cs(nr),omega(nr),angtot,Ltot
  real                :: ri,area,Ei,mu,term,ecci
- real                :: Li(3),xi(3),vi(3),Limag,dtwist,psi_x,psi_y,psi_z
- real, intent(out)   :: tilt(nr),tilt_acc(nr),tp(nr),psi(nr),H(nr),ecc(nr),rad(nr)
+ real                :: Li(3),xi(3),vi(3),Limag,dtwist,psi_x,psi_y,psi_z,tp(nr)
+ real, intent(out)   :: tilt(nr),tilt_acc(nr),twistprev(nr),psi(nr),H(nr),ecc(nr),rad(nr)
  real, intent(out)   :: sigma(nr),h_smooth(nr),unitlx(nr),unitly(nr),unitlz(nr)
  integer, intent(out):: ninbin(nr)
  real                :: L_tot(3),L_tot_mag,temp(3),temp_mag,rotate_about_z,rotate_about_y
- real                :: meanzgas(nr),zdash
+ real                :: meanzgas(nr),zdash,twist(nr)
  real, allocatable   :: zsetgas(:,:)
  integer             :: i,ii
  logical             :: rotate
+
+ twist(nr) = 0.
 
 ! Options
  if (assume_Ltot_is_same_as_zaxis) then

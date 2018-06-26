@@ -48,7 +48,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  integer :: i,ierr,iline
  real :: R_in,R_out,H_R,p_index,q_index,M_star
  real :: G,rmin,rmax
- real :: tilt(nr)
+ real :: tilt(nr),Lx(nr),Ly(nr),Lz(nr)
  real :: rad(nr),h_smooth(nr),sigma(nr),H(nr)
  real :: unitlx(nr),unitly(nr),unitlz(nr),tp(nr),ecc(nr)
  real :: psi(nr),tilt_acc(nr)
@@ -108,8 +108,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  assume_Ltot_is_same_as_zaxis = .false.
 
  call disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_index,&
-                     tilt,tilt_acc,tp,psi,H,rad,h_smooth,sigma,unitlx,unitly,unitlz,ecc,ninbin,&
-                      assume_Ltot_is_same_as_zaxis,xyzmh_ptmass,vxyz_ptmass,nptmass)
+                     tilt,tilt_acc,twistprev,psi,H,rad,h_smooth,sigma,unitlx,unitly,unitlz,&
+                     Lx,Ly,Lz,ecc,ninbin,assume_Ltot_is_same_as_zaxis,xyzmh_ptmass,vxyz_ptmass,nptmass)
 
  open(iunit,file=output)
  write(iunit,'("# Analysis data at t = ",es20.12)') time
@@ -129,7 +129,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  do i = 1,nr
     if (ninbin(i) > 0) then
        write(iunit,'(13(es18.10,1X))') rad(i),sigma(i),h_smooth(i),unitlx(i),unitly(i),unitlz(i),&
-                                         tilt(i),twist(i),psi(i),H(i)/rad(i),ecc(i)
+                                         tilt(i),twistprev(i),psi(i),H(i)/rad(i),ecc(i)
     endif
 
 
