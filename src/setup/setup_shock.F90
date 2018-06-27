@@ -79,6 +79,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use timestep,       only:tmax
  use prompting,      only:prompt
  use readwrite_dust, only:set_dustfrac_from_inopts
+ use units,          only:set_units
 #ifdef NONIDEALMHD
  use nicil,          only:rho_i_cnst
 #endif
