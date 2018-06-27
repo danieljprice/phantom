@@ -156,7 +156,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !-- Setup a parabolic orbit
  !
-elseif (ecc==1.) then
+elseif (abs(ecc-1.) < tiny(0.)) then
     b        = sqrt(2.)*rp              ! impact parameter (when b=x)
     r0       = 2.*rp                    ! this is sqrt(2.)*b (Pythagoras for Isosceles triangle)
     period   = 2.*pi*sqrt(r0**3/mass1)
