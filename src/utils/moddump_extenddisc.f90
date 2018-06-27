@@ -131,8 +131,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        n_accreted = n_accreted + 1
     endif
     if (radius > R_match) then
-        xyzh(4,i) = -1.0
-        n_killed = n_killed + 1
+       xyzh(4,i) = -1.0
+       n_killed = n_killed + 1
     endif
  enddo
 
@@ -191,13 +191,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! Now add those new particles to existing disc
  ipart = npart ! The initial particle number
  do ii = 1,n_add
-  call rotatevec(xyzh_add(1:3,ii),(/0.,0.,1.0/),rotate_about_z)
-  call rotatevec(xyzh_add(1:3,ii),(/0.,1.0,0./),rotate_about_y)
-  call rotatevec(vxyzu_add(1:3,ii),(/0.,0.,1.0/),rotate_about_z)
-  call rotatevec(vxyzu_add(1:3,ii),(/0.,1.0,0./),rotate_about_y)
+    call rotatevec(xyzh_add(1:3,ii),(/0.,0.,1.0/),rotate_about_z)
+    call rotatevec(xyzh_add(1:3,ii),(/0.,1.0,0./),rotate_about_y)
+    call rotatevec(vxyzu_add(1:3,ii),(/0.,0.,1.0/),rotate_about_z)
+    call rotatevec(vxyzu_add(1:3,ii),(/0.,1.0,0./),rotate_about_y)
 
-  ipart = ipart + 1
-  call  add_or_update_particle(igas, xyzh_add(1:3,ii), vxyzu_add(1:3,ii), xyzh_add(4,ii), &
+    ipart = ipart + 1
+    call  add_or_update_particle(igas, xyzh_add(1:3,ii), vxyzu_add(1:3,ii), xyzh_add(4,ii), &
              vxyzu_add(4,ii), ipart, npart, npartoftype, xyzh, vxyzu)
  enddo
 

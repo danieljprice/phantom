@@ -166,9 +166,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  close(iunit)
 
  if (iexternalforce /=0) then
-     nptmassinit = 0
+    nptmassinit = 0
  else
-     nptmassinit = 1
+    nptmassinit = 1
  endif
 
  ! Prepare for rotations later on
@@ -276,8 +276,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        ecc_planet = term/mu - pos_planet/rad_planet
 
        if (ecc_planet(1) < -1.0) then
-        print*,'Warning: eccentricity is undefined, returning e=1.'
-        term = 0.
+          print*,'Warning: eccentricity is undefined, returning e=1.'
+          term = 0.
        endif
        e_planet = sqrt(dot_product(ecc_planet,ecc_planet))
 
