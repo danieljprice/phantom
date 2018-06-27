@@ -907,7 +907,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: enthi,enthj
  real    :: lorentzi,lorentzj
  real    :: bigvi(1:3),bigvj(1:3),bigv2i,bigv2j,alphagri,alphagrj
- real    :: xi,yi,zi,pos(3),vel(3)
+ real    :: xi,yi,zi,posi(3),posj(3),veli(3),velj(3),runit(3)
 #endif
  real    :: qrho2i,qrho2j
 
@@ -952,9 +952,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  xi = xpartveci(ixi)
  yi = xpartveci(iyi)
  zi = xpartveci(izi)
- pos = (/xi,yi,zi/)
- vel = (/vxi,vyi,vzi/)
- call get_bigv(pos,vel,bigvi,bigv2i,alphagri,lorentzi)
+ posi = (/xi,yi,zi/)
+ veli = (/vxi,vyi,vzi/)
+ call get_bigv(posi,veli,bigvi,bigv2i,alphagri,lorentzi)
 #endif
 
  fsum(:) = 0.
@@ -1366,11 +1366,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
 
 #ifdef GR
-          pos = (/xj,yj,zj/)
-          vel = (/vxj,vyj,vzj/)
-          call get_bigv(pos,vel,bigvj,bigv2j,alphagrj,lorentzj)
-          call get_vsig_gr(vsigi,projbigvi,bigv2i,runix,runiy,runiz,bigvi(1),bigvi(2),bigvi(3),spsoundi)
-          call get_vsig_gr(vsigj,projbigvj,bigv2j,runix,runiy,runiz,bigvj(1),bigvj(2),bigvj(3),spsoundj)
+          posj  = (/xj,yj,zj/)
+          velj  = (/vxj,vyj,vzj/)
+          runit = (/runix,runiy,runiz/)
+          call get_bigv(posj,velj,bigvj,bigv2j,alphagrj,lorentzj)
+          call get_vsig_gr(vsigi,vsigj,projbigvi,projbigvj,veli,velj,runit,spsoundi,spsoundj)
           vsigavi = alphai*vsigi
           vsigavj = alphaj*vsigj
 #endif
@@ -1846,29 +1846,24 @@ end subroutine get_P
 ! Internal subroutine that computes the signal velocity for GR,
 ! as well as some other quantities also needed for artificial viscosity.
 !
-subroutine get_vsig_gr(vsigi,projvi,v2i,runix,runiy,runiz,vxi,vyi,vzi,spsoundi)
- real, intent(out) :: vsigi,projvi
- real, intent(in)  :: v2i,runix,runiy,runiz,vxi,vyi,vzi,spsoundi
- real :: spsi2,vperpxi,vperpyi,vperpzi,vperp2i,numeratorL,numeratorR,denominator
+subroutine get_vsig_gr(vsigi,vsigj,projvi,projvj,veli,velj,rij,spsoundi,spsoundj)
+ real, intent(out) :: vsigi,vsigj,projvi,projvj
+ real, intent(in)  :: veli(3),velj(3),rij(3),spsoundi,spsoundj
+ real :: vij
 
- projvi = vxi*runix + vyi*runiy + vzi*runiz
+ ! Reduce problem to 1D along the line of sight
+ projvi = dot_product(veli,rij) !vxi*runix + vyi*runiy + vzi*runiz
+ projvj = dot_product(velj,rij)
 
- spsi2 = spsoundi**2
+ ! Relativistic version of vi-vj
+ vij   = abs((projvi-projvj)/(1.-projvi*projvj))
 
- vperpxi = vxi - projvi*runix
- vperpyi = vyi - projvi*runiy
- vperpzi = vzi - projvi*runiz
- vperp2i = vperpxi*vperpxi + vperpyi*vperpyi + vperpzi*vperpzi
-
- numeratorL  = projvi*(1.-spsi2)
- numeratorR  = spsoundi*sqrt((1.-v2i)*(1.-projvi**2-vperp2i*spsi2))
- denominator = 1.-v2i*spsi2
-
- vsigi = max( 0., (numeratorL+numeratorR)/denominator, (-numeratorL+numeratorR)/denominator )
+ ! Relativistic version vij + csi
+ vsigi = (vij+spsoundi)/(1.+vij*spsoundi)
+ vsigj = (vij+spsoundj)/(1.+vij*spsoundj)
 
  return
 end subroutine get_vsig_gr
-! From Rosswog 2010
 #endif
 
 #ifdef IND_TIMESTEPS
