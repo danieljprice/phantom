@@ -175,7 +175,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                rwarp            = R_in,               &
                warp_smoothl     = 0.0)
 
- ! Tilt	and twist the particles	                            
+ ! Tilt        and twist the particles                                    
  ! The tilt could be set by set_warp instead but this way gives tilt AND twist
  ! We also have to rotate velocities (for accurate L)
 
