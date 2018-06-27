@@ -81,7 +81,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  endif
 
  call prompt('Outer radius of new disc?',R_ext)
-    
+
  ! Run a couple of checks
  if (R_out > R_ext) then
     call fatal('moddump_extenddisc','the extended radius is inside the current disc, try again')
@@ -129,7 +129,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        Ltot(3,ii) = Ltot(3,ii) + pmass*(xyzh(1,i)*vxyzu(2,i)-xyzh(2,i)*vxyzu(1,i))
     else
        n_accreted = n_accreted + 1
-    endif  
+    endif
     if (radius > R_match) then
         xyzh(4,i) = -1.0
         n_killed = n_killed + 1
@@ -176,7 +176,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                rwarp            = R_in,               &
                warp_smoothl     = 0.0)
 
- ! Tilt        and twist the particles                                    
+ ! Tilt        and twist the particles
  ! The tilt could be set by set_warp instead but this way gives tilt AND twist
  ! We also have to rotate velocities (for accurate L)
 

@@ -93,8 +93,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  !circularised anyway
 
 
- 
- 
+
+
  ! mass of gas particles is set by mass accretion rate and particle injection rate
  Mdotcode  = Mdot*(solarm/years)/(umass/utime)
 
