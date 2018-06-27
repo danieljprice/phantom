@@ -13,13 +13,14 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Rebecca Nealon
+!  OWNER: Bec Nealon
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: part,partinject,eos,io,setdisc,physcon,vectorutils
+!  DEPENDENCIES: centreofmass, eos, infile_utils, io, part, partinject,
+!    physcon, prompting, setdisc, vectorutils
 !+
 !--------------------------------------------------------------------------
 module moddump

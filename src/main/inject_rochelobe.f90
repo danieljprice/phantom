@@ -17,12 +17,12 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    Mdot       -- mass injection rate at L1, in Msun/yr
-!    chi        -- width of injection stream in cm
-!    dNdt       -- particle injection rate in particles/binary orbit
-!    spd_inject -- speed of injection at L1 in cm/s
+!    Mdot    -- mass injection rate at L1, in Msun/yr
+!    chi     -- width of injection stream in cm
+!    dNdt    -- particle injection rate in particles/binary orbit
+!    gastemp -- Temperature at injection point in K
 !
-!  DEPENDENCIES: infile_utils, io, part, partinject, physcon, random,
+!  DEPENDENCIES: eos, infile_utils, io, part, partinject, physcon, random,
 !    setbinary, units
 !+
 !--------------------------------------------------------------------------
