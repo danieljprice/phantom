@@ -73,7 +73,7 @@ contains
 !----------------------------------------------------------------
 subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
                     rmindust,rmaxdust,phimin,phimax,indexprofile,indexprofiledust, &
-                    rc,rcdust,p_index,p_indexdust,q_index,HoverR,gamma, &
+                    rc,rcdust,p_index,p_indexdust,q_index,q_indexdust,HoverR,HoverRdust,gamma, &
                     disc_mass,disc_massdust,sig_norm,star_mass,xyz_origin,vxyz_origin, &
                     particle_type,particle_mass,hfact,xyzh,vxyzu,polyk, &
                     position_angle,inclination,ismooth,alpha,rwarp,warp_smoothl, &
@@ -87,7 +87,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  integer,           intent(inout) :: npart
  integer, optional, intent(in)    :: npart_start,indexprofile,indexprofiledust
  real,              intent(in)    :: rmin,rmax
- real, optional,    intent(in)    :: rmindust,rmaxdust,p_indexdust,disc_massdust
+ real, optional,    intent(in)    :: rmindust,rmaxdust,p_indexdust,q_indexdust,HoverRdust,disc_massdust
  real, optional,    intent(in)    :: rc,rcdust,rref
  real, optional,    intent(in)    :: phimin,phimax
  real, optional,    intent(inout) :: alpha
@@ -106,8 +106,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  character(len=20), optional, intent(in) :: prefix
  integer :: itype,npart_tot,npart_start_count,i,npart_set
  integer :: sigmaprofile,sigmaprofiledust
- real    :: Q,G,cs0,clight
- real    :: R_in,R_out,phi_min,phi_max,H_R,R_indust,R_outdust,p_inddust,R_c,R_c_dust
+ real    :: Q,G,cs0,cs0dust,clight
+ real    :: R_in,R_out,phi_min,phi_max,H_R,H_Rdust,R_indust,R_outdust,p_inddust,q_inddust,R_c,R_c_dust
  real    :: star_m,disc_m,disc_mdust,sigma_norm,sigma_normdust,Q_tmp
  real    :: honH,alphaSS_min,alphaSS_max,rminav,rmaxav,honHmin,honHmax
  real    :: aspin,aspin_angle,posangl,incl,R_warp,H_warp,psimax
@@ -122,14 +122,6 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  H_R            = HoverR       !--HoverR is H/R at R=R_ref (R_ref=R_in unless specified)
  R_in           = rmin
  R_out          = rmax
- R_indust       = rmin
- R_outdust      = rmax
- p_inddust      = p_index
- if (present(rmindust) .and. present(rmaxdust) .and. present(p_indexdust)) then
-    R_indust    = rmindust
-    R_outdust   = rmaxdust
-    p_inddust   = p_indexdust
- endif
  if (present(star_mass)) then
     star_m = star_mass
  else
@@ -144,13 +136,6 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     if (id==master) call error('set_disc','outer radius < inner radius')
     if (present(ierr)) ierr = 2
     return
- endif
- if (present(rmindust) .and. present(rmaxdust)) then
-    if (rmaxdust < rmindust) then
-       if (id==master) call error('set_disc','dust outer radius < dust inner radius')
-       if (present(ierr)) ierr = 2
-       return
-    endif
  endif
  if (present(nparttot)) then
     npart_set = nparttot
@@ -219,9 +204,25 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  if (present(mixture)) then
     do_mixture = mixture
     if (do_mixture) then
-       if (.not.(present(rmindust) .and. present(rmaxdust) .and. &
-                 present(p_indexdust) .and. present(disc_massdust))) then
+       if (.not.(present(rmindust) .and. present(rmaxdust) .and. present(p_indexdust) &
+           .and. present(q_indexdust) .and. present(HoverRdust) .and. present(disc_massdust))) then
           call fatal('set_disc','setup for dusty disc in the mixture is not specified')
+       else
+          if (rmaxdust < rmindust) then
+             if (id==master) call error('set_disc','dust outer radius < dust inner radius')
+             if (present(ierr)) ierr = 2
+             return
+          endif
+          if (HoverR < HoverRdust .or. q_indexdust < q_index) then
+             if (id==master) call error('set_disc','dust scale height > gas scale height')
+             if (present(ierr)) ierr = 2
+             return
+          endif
+          R_indust  = rmindust
+          R_outdust = rmaxdust
+          p_inddust = p_indexdust
+          q_inddust = q_indexdust
+          H_Rdust   = HoverRdust
        endif
     endif
  endif
@@ -239,6 +240,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !
  cs0 = H_R*sqrt(G*star_m/R_ref)*R_ref**q_index
  polyk = cs0**2
+ if (do_mixture) cs0dust = H_Rdust*sqrt(G*star_m/R_ref)*R_ref**q_inddust   !variable to compute the dust scale height
  !
  !--set surface density profile
  !
@@ -306,8 +308,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     !--sigma_normdust set from dust disc mass
     sigma_normdust = 1.d0
     call get_disc_mass(disc_mdust,enc_m_tmp,rad_tmp,Q_tmp,sigmaprofiledust, &
-                       sigma_normdust,star_m,p_indexdust,q_index, &
-                       R_indust,R_outdust,R_ref,R_c_dust,H_R)
+                       sigma_normdust,star_m,p_indexdust,q_inddust, &
+                       R_indust,R_outdust,R_ref,R_c_dust,H_Rdust)
     sigma_normdust = sigma_normdust*disc_massdust/disc_mdust
     disc_mdust = disc_massdust
  endif
@@ -336,8 +338,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     'number of particles exceeds array dimensions',var='n',ival=npart_tot)
  call set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                          R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
-                         sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,&
-                         q_index,star_m,G,particle_mass,hfact,itype,xyzh,honH,do_verbose)
+                         sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
+                         q_index,q_inddust,star_m,G,particle_mass,hfact,itype,xyzh,honH,do_verbose)
  !
  !--set particle velocities
  !
@@ -433,8 +435,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
           open(1,file=trim(prefix)//'-'//trim(labeltype(idust))//'.discparams', &
              status='replace',form='formatted')
           call write_discinfo(1,R_indust,R_outdust,R_ref,Q,npart,sigmaprofiledust, &
-                              R_c_dust,p_inddust,q_index,star_m,disc_massdust, &
-                              sigma_normdust,real(incl*180.0/pi),honH,cs0, &
+                              R_c_dust,p_inddust,q_inddust,star_m,disc_massdust, &
+                              sigma_normdust,real(incl*180.0/pi),honH,cs0dust, &
                               alphaSS_min,alphaSS_max,R_warp,psimax,L_tot_mag,idust)
           close(1)
        endif
@@ -448,8 +450,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     endif
     if (do_mixture) then
        call write_discinfo(stdout,R_indust,R_outdust,R_ref,Q,npart,sigmaprofiledust, &
-                           R_c_dust,p_inddust,q_index,star_m,disc_massdust, &
-                           sigma_normdust,real(incl*180.0/pi),honH,cs0, &
+                           R_c_dust,p_inddust,q_inddust,star_m,disc_massdust, &
+                           sigma_normdust,real(incl*180.0/pi),honH,cs0dust, &
                            alphaSS_min,alphaSS_max,R_warp,psimax,L_tot_mag,idust)
     endif
  endif
@@ -477,15 +479,15 @@ end function cs_func
 !---------------------------------------------------------
 subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                               R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
-                              sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,&
-                              q_index,star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose)
+                              sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
+                              q_index,q_inddust,star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose)
  use io,      only:id,master
  use part,    only:set_particle_type
  use random,  only:ran2
  integer, intent(in)    :: npart_start_count,npart_tot
  real,    intent(in)    :: R_ref,R_in,R_out,phi_min,phi_max
  real,    intent(in)    :: sigma_norm,p_index,cs0,q_index,star_m,G,particle_mass,hfact
- real,    intent(in)    :: sigma_normdust,R_indust,R_outdust,R_c,R_c_dust,p_inddust
+ real,    intent(in)    :: sigma_normdust,R_indust,R_outdust,R_c,R_c_dust,p_inddust,q_inddust,cs0dust
  logical, intent(in)    :: do_mixture,verbose
  integer, intent(in)    :: itype,sigmaprofile,sigmaprofiledust
  real,    intent(inout) :: xyzh(:,:)
@@ -497,7 +499,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  real    :: HH,HHsqrt2,z_min,z_max
  real    :: rhopart,rhoz,hpart
  real    :: xcentreofmass(3)
- real    :: dR,f_val
+ real    :: dR,f_val,sigmamixt,HHdust,HHsqrt2dust,rhozmixt,csdust
 
  !--seed for random number generator
  iseed = -34598 + (itype - igas)
@@ -518,6 +520,8 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     fr_max = max(fr_max,f_val)
  enddo
 
+ sigmamixt = 0.
+ rhozmixt = 0.
  xcentreofmass = 0.
  ipart = npart_start_count - 1
 
@@ -530,7 +534,6 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     !--now get radius
     f = 0.
     randtest = 1.
-    fmixt = 0.
     do while (randtest > f)
        R = R_in + (R_out - R_in)*ran2(iseed)
        randtest = fr_max*ran2(iseed)
@@ -540,7 +543,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
           if (R>=R_indust .and. R<=R_outdust) then
              fmixt = R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_c_dust)
              f     = f + fmixt
-             sigma = sigma + fmixt/R
+             sigmamixt = fmixt/R
           endif
        endif
     enddo
@@ -553,20 +556,34 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     omega   = sqrt(G*star_m/R**3)
     HH      = cs/omega
     HHsqrt2 = sqrt(2.0d0)*HH
+    if (do_mixture) then
+       !-- get HH of dust at R
+       csdust = cs_func(cs0dust,R,q_inddust)
+       HHdust = csdust/omega
+       HHsqrt2dust = sqrt(2.0d0)*HHdust
+    endif
     z_min = -3.0d0*HHsqrt2
     z_max =  3.0d0*HHsqrt2
-    fz_max = 1.0d0
+
+    fz_max = sigma/(HHsqrt2*sqrt(pi))
+    if (do_mixture) fz_max = fz_max + sigmamixt/(HHsqrt2dust*sqrt(pi))
     f = 0.
     randtest = 1.
     do while(randtest > f)
        zi = z_min + (z_max - z_min)*ran2(iseed)
        randtest = fz_max*ran2(iseed)
-       f = exp(-(zi/(HHsqrt2))**2)
-       rhoz = f/(HHsqrt2*sqrt(pi))
+       f = sigma*exp(-(zi/(HHsqrt2))**2)/(HHsqrt2*sqrt(pi))
+       rhoz = f
+       if (do_mixture) then
+          fmixt = sigmamixt*exp(-(zi/(HHsqrt2dust))**2)/(HHsqrt2dust*sqrt(pi))
+          f    = f + fmixt
+          rhozmixt = fmixt
+       endif
     enddo
 
     !--starting estimate of smoothing length for h-rho iterations
-    rhopart = sigma*rhoz
+    rhopart = rhoz
+    if (do_mixture) rhopart = rhopart + rhozmixt
     hpart = hfact*(particle_mass/rhopart)**(1./3.)
 
     if (i_belong(i)) then
@@ -910,6 +927,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
 
  return
 end subroutine write_discinfo
+
 !-----------------------------------------------------------------------------
 !
 !  Routine to compute ratio of smoothing length to disc scale height
