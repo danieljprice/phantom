@@ -1428,8 +1428,7 @@ subroutine write_setupfile(filename)
           call write_inopt(rho_core_cgs,'rho_core','planet core density (cgs units)',iunit)
           call write_inopt(Ratm_in,'Ratm_in','inner atmosphere radius (planet radii)',iunit)
           call write_inopt(Ratm_out,'Ratm_out','outer atmosphere radius (planet radii)',iunit)
-          call write_inopt(atm_type,'atm_type','Enter atmosphere type (1:r**(-3); '// &
-                                    '2:r**(-1./(gamma-1.)))',iunit)
+          call write_inopt(atm_type,'atm_type','atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))',iunit)
           call write_inopt(Natmfrac,'Natm/Npart','fraction of particles for planet atmosphere',iunit)
           call write_inopt(ramp,'ramp','Do you want to ramp up the planet mass slowly?',iunit)
           if (.not.ramp .and. Natmfrac == 0.) then
