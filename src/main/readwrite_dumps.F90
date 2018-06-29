@@ -1245,9 +1245,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                    call read_array(tstop(ntstopi,:),tstop_label(ntstopi),got_tstop(ntstopi),&
                                    ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 endif
-                if (tag == deltav_label(1)) then
-                   ndustveli = ndustveli + 1
-                   call read_array(deltav(:,ndustveli,:),deltav_label,got_deltav(:,ndustveli),&
+                if (any(tag == deltav_label)) then
+                   !--use deltavx to identify each new dust species
+                   if (tag == deltav_label(1)) ndustveli = ndustveli + 1
+                   call read_array(deltav(:,ndustveli,:),deltav_label,got_deltav(:,ndustveli), &
                                    ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 endif
              endif
