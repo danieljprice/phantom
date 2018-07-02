@@ -44,8 +44,9 @@ subroutine test_dust(ntests,npass)
  use physcon,   only:solarm,au
  use units,     only:set_units,unit_density
  use eos,       only:gamma
- use dim,       only:ndusttypes
+ use dim,       only:ndusttypes,use_dust
  use mpiutils,  only:barrier_mpi
+ use options,   only:use_dustfrac
 #endif
  integer, intent(inout) :: ntests,npass
 #ifdef DUST
@@ -71,7 +72,8 @@ subroutine test_dust(ntests,npass)
  idrag = 1
  rhoi = 1.e-13/unit_density
  spsoundi = 1.
- if (ndusttypes>1) then
+ if (use_dust .and. ndusttypes>1) then
+    use_dustfrac = .true.
     dust_to_gas = 0.01
     call set_dustfrac(dust_to_gas,dustfraci,smincgs,smaxcgs,sindex)
  else
@@ -95,17 +97,21 @@ subroutine test_dust(ntests,npass)
  !
  ! Test that drag conserves momentum and energy
  !
+ use_dustfrac = .false.
  call test_drag(ntests,npass)
  call barrier_mpi()
+
  !
  ! DUSTYBOX test
  !
+ use_dustfrac = .true.
  call test_dustybox(ntests,npass)
  call barrier_mpi()
 
  !
  ! DUSTYDIFFUSE test
  !
+ use_dustfrac = .true.
  call test_dustydiffuse(ntests,npass)
  call barrier_mpi()
 
@@ -147,7 +153,7 @@ subroutine test_dustybox(ntests,npass)
  real :: deltax, dz, hfact, totmass, rhozero, errmax(5), dtext_dum
  real :: t, dt, dtext, dtnew
  real :: vg, vd, deltav, ekin_exact, fd
- real, parameter :: tol = 1.e-4, tolvg = 1.e-4, tolfg = 3.3e-3, tolfd = 3.3e-3
+ real, parameter :: tol = 1.e-5, tolvg = 2.5e-5, tolfg = 3.3e-4, tolfd = 3.3e-4
 
  if (periodic) then
     if (use_dustfrac .and. ndusttypes>1) then
@@ -262,11 +268,10 @@ end subroutine test_dustybox
 !+
 !----------------------------------------------------
 subroutine test_dustydiffuse(ntests,npass)
- use dim,       only:maxp,periodic,maxtypes,mhd,ndusttypes
+ use dim,       only:maxp,periodic,maxtypes,mhd,ndusttypes,use_dust
  use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac,dustevol, &
                      xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,set_particle_type,rhoh,temperature,&
                      dustprop,ddustprop
- use options,   only:use_dustfrac
  use kernel,    only:hfact_default
  use eos,       only:gamma,polyk,ieos
  use dust,      only:K_code,idrag
@@ -286,10 +291,10 @@ subroutine test_dustydiffuse(ntests,npass)
  real    :: epstot,epsi(ndusttypes),rc,rc2,r2,A,B,eta
  real    :: erri,exact,errl2,term,tol
  real,allocatable   :: ddustfrac_prev(:,:)
- logical, parameter :: do_output = .true.
+ logical, parameter :: do_output = .false.
  real,    parameter :: t_write(5) = (/0.1,0.3,1.0,3.0,10.0/)
 
- if (use_dustfrac .and. periodic) then
+ if (use_dust .and. periodic) then
     if (id==master) write(*,"(/,a)") '--> testing DUSTYDIFFUSE'
  else
     if (id==master) write(*,"(/,a)") '--> skipping DUSTYDIFFUSE (need -DDUST and -DPERIODIC)'
@@ -347,11 +352,10 @@ subroutine test_dustydiffuse(ntests,npass)
  end select
 
  !--check that individual dust fractions add up to the total dust fraction
- if (abs(sum(epsi)-epstot)/epstot>1.e-14) then
-    write(*,"(/,a)") 'ERROR! SUM(epsilon_k) /= epsilon'
-    print*,'SUM(epsilon_k) = ',sum(epsi)
-    print*,'       epsilon = ',epstot
- endif
+ nerr = 0
+ call checkval(sum(epsi),epstot,1.e-14,nerr(1),'sum(epsilon_k) = epsilon')
+ ntests = ntests + 1
+ if (nerr(1)==0) npass = npass + 1
 
  rc   = 0.25
  rc2  = rc**2
@@ -435,7 +439,7 @@ subroutine test_dustydiffuse(ntests,npass)
     enddo
     !$omp end parallel do
     errl2 = sqrt(errl2/n)
-    tol = 2.5e-3 !1.5e-3/(1. + time)  ! take tolerance down with time
+    tol = 2.6e-3 !1.5e-3/(1. + time)  ! take tolerance down with time
     call checkvalbuf(errl2,0.,tol,'L2 err',nerr(1),ncheck(1),errmax(1))
     !
     ! write solution to file if necessary
@@ -443,6 +447,8 @@ subroutine test_dustydiffuse(ntests,npass)
     if (do_output .and. any(abs(t_write-time) < 0.01*dt)) call write_file(time,xyzh,dustfrac,npart)
  enddo
  call checkvalbuf_end('dust diffusion matches exact solution',ncheck(1),nerr(1),errmax(1),tol)
+ ntests = ntests + 1
+ if (nerr(1) == 0) npass = npass + 1
 
  !
  ! clean up dog poo
