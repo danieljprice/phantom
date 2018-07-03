@@ -1,3 +1,25 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://users.monash.edu.au/~dprice/phantom                               !
+!--------------------------------------------------------------------------!
+!+
+!  MODULE: moddump
+!
+!  DESCRIPTION: None
+!
+!  REFERENCES: None
+!
+!  OWNER: Enrico Ragusa
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS: None
+!
+!  DEPENDENCIES: part
+!+
+!--------------------------------------------------------------------------
 module moddump
  
  use part, only:xyzmh_ptmass
