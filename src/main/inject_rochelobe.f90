@@ -59,9 +59,9 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
- real :: m1,m2,q,radL1,h,u,theta_s,A,mu,theta_rand,r_rand,dNdt_code,Porb,r12,r2L1
- real :: eps, spd_inject
- real :: xyzL1(3),xyzi(3),vxyz(3),dr(3),x1(3),x2(3),x0(3),dxyz(3),vxyzL1(3),v1(3),v2(3),xyzinj(3)
+ real :: m1,m2,q,radL1,h,u,theta_s,A,mu,theta_rand,r_rand,dNdt_code,Porb,r12,r2L1,smag
+ real :: eps, spd_inject, thetazzs, lm12, lm32
+ real :: xyzL1(3),xyzi(3),vxyz(3),dr(3),x1(3),x2(3),x0(3),dxyz(3),vxyzL1(3),v1(3),v2(3),xyzinj(3),s(3)
  integer :: i_part,part_type,s1,wall_i,particles_to_place
 
 !
@@ -77,34 +77,40 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  r12 = dist(x2,x1)
  m1 = xyzmh_ptmass(4,1)
  m2 = xyzmh_ptmass(4,2)
+ x0 = (m1*x1 + m2*x2)/(m1 + m2)
  q  = m2/m1
  mu = 1./(1 + q)
+ radL1      = L1_point(m1/m2)                     ! find L1 point given binary mass ratio
+
+!
+!--quantities related to the gas injection at/near L1
+!
  Porb      = twopi * sqrt( (r12*udist)**3 / (gg*(m1+m2)*umass) )
  eps = Porb/(twopi*r12) * (gastemp*kboltz/gmw)**0.5*utime/udist
- radL1      = L1_point(m1/m2)                     ! find L1 point given binary mass ratio
- A  = mu / abs(radL1 - 1. + mu)**3 + (1. - mu)/abs(radL1 + mu)**3! See Lubow & Shu 1975
- theta_s = -acos( -4./(3.*A)+(1-8./(9.*A))**0.5)/2.              ! See Lubow & Shu 1975
+ A  = mu / abs(radL1 - 1. + mu)**3 + (1. - mu)/abs(radL1 + mu)**3! See Lubow & Shu 1975, eq 13
+ theta_s = -acos( -4./(3.*A)+(1-8./(9.*A))**0.5)/2.              ! See Lubow & Shu 1975, eq 24
  xyzL1(1:3) = xyzmh_ptmass(1:3,1) + radL1*dr(:)   ! set as vector position
  r2L1 = dist(xyzL1, x2)
- xyzinj(1:3) = xyzL1 + (/cos(theta_s),sin(theta_s),0.0/)*r2L1*eps*0.0     !do something about this "magic number"; can wait
+ s = (/cos(theta_s),sin(theta_s),0.0/)*r2L1*eps*0.5
+ smag = sqrt(dot_product(s,s))
+ xyzinj(1:3) = xyzL1 + s
  vxyzL1 = v1*dist(xyzL1,x0)/dist(x0, x1) ! orbital motion of L1 point
  spd_inject = abs((3.*A)/(4*eps)*dist(xyzinj,xyzL1)*sin(2*theta_s))
- !unclear if this is OK with eccentric orbits, but if you have Roche Lobe overflow, orbits should be
- !circularised anyway
+ lm12 = (A - 2. + sqrt(A*(9.*A - 8.)))/2.                        ! See Heerlein+99, eq A8
+ lm32 = lm12 - A + 2.                                            ! See Heerlein+99, eq A15
+ 
+ chi = A + 2.*A*thetazzs*smag/(lm12 + 2.*A)
 
-
-
-
- ! mass of gas particles is set by mass accretion rate and particle injection rate
+!
+!-- mass of gas particles is set by mass accretion rate and particle injection rate
+! 
  Mdotcode  = Mdot*(solarm/years)/(umass/utime)
-
  dNdt_code = dNdt*utime / Porb
  massoftype(igas) = Mdotcode/dNdt_code
 
- ! get centre of mass of binary
- x0 = (m1*x1 + m2*x2)/(m1 + m2)
-
- ! how many particles do we need to place?
+!
+!-- Place particles
+!
  if(npartoftype(igas)<8) then
     particles_to_place = 8-npartoftype(igas)      ! Seems to need at least eight gas particles to not crash
  else
