@@ -86,7 +86,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
 !--quantities related to the gas injection at/near L1
 !
  Porb      = twopi * sqrt( (r12*udist)**3 / (gg*(m1+m2)*umass) )
- eps = Porb/(twopi*r12) * (gastemp*kboltz/gmw)**0.5*utime/udist  
+ eps = Porb/(twopi*r12) * (gastemp*kboltz/gmw)**0.5*utime/udist
  A  = mu / abs(radL1 - 1. + mu)**3 + (1. - mu)/abs(radL1 + mu)**3! See Lubow & Shu 1975, eq 13
  theta_s = -acos( -4./(3.*A)+(1-8./(9.*A))**0.5)/2.              ! See Lubow & Shu 1975, eq 24
  xyzL1(1:3) = xyzmh_ptmass(1:3,1) + radL1*dr(:)   ! set as vector position
@@ -109,7 +109,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  print*, sw_chi, sw_gamma
  print*, 1/sqrt(sw_chi), 1/sqrt(sw_gamma)
 !-- mass of gas particles is set by mass accretion rate and particle injection rate
-! 
+!
  Mdotcode  = Mdot*(solarm/years)/(umass/utime)
  dNdt_code = dNdt*utime / Porb
  massoftype(igas) = Mdotcode/dNdt_code
@@ -230,7 +230,7 @@ subroutine phi_derivs(phinns,phizzs,xyzL1,theta_s,m1,m2,mu,r12,Porb)
  R = r12*udist
 
  Phi = gg*M1/((X - mu*R)**2+Y**2)**0.5 + gg*M2/((X + (1 - mu)*R)**2+Y**2)**0.5 + gg*(M1+M2)*(X**2+Y**2)/(2*R**3)
- 
+
  phizzs = M1*(Y*st + (X - mu*R)*ct)/((X-mu*R)**2+Y**2)**(5./2)
  phizzs = phizzs + M2*(Y*st + (X + (1 - mu)*R)*ct)/((X+(1-mu)*R)**2+Y**2)**(5./2)
  phizzs = -3.*phizzs*gg*udist*utime**2/R/(Porb/(2*pi*utime))
@@ -240,7 +240,7 @@ subroutine phi_derivs(phinns,phizzs,xyzL1,theta_s,m1,m2,mu,r12,Porb)
  phinns = 5*phinns - M1*(Y*st + (X - mu*R)*ct)/((X - mu*R)**2+Y**2)**(5./2)
  phinns = phinns - M2*(Y*st + ((1 - mu)*R + X)*ct)/(((1 - mu)*R + X)**2 + Y**2)**(5./2)
  phinns = 3*phinns*gg*udist*utime**2/R/(Porb/(2*pi*utime))
- 
+
 end subroutine phi_derivs
 
 
