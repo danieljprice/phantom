@@ -33,7 +33,7 @@ module setup
  implicit none
  public :: setpart
 
- real :: m1,m2,ecc,semia,hacc1,rasteroid,norbits
+ real :: m1,m2,ecc,semia,hacc1,rasteroid,norbits,gastemp
  integer :: dumpsperorbit
 
  private
@@ -75,6 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  semia         = 0.7  ! (solar radii)
  hacc1         = 0.01 ! (solar radii)
  rasteroid     = 100. ! (km)
+ gastemp       = 3000.! (K)
  norbits       = 1.
  dumpsperorbit = 100
 
@@ -108,7 +109,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  time             = 0.
 
- gastemp          = 3000.
  temperature_coef = mass_proton_cgs/kboltz * unit_velocity**2
  polyk            = gastemp/(temperature_coef*gmw)
  gamma            = 1.
@@ -161,6 +161,7 @@ subroutine write_setupfile(filename)
  call write_inopt(semia,        'semia',        'semi-major axis (solar radii)',                    iunit)
  call write_inopt(hacc1,        'hacc1',        'white dwarf (sink) accretion radius (solar radii)',iunit)
  call write_inopt(rasteroid,    'rasteroid',    'radius of asteroid (km)',                          iunit)
+ call write_inopt(gastemp,      'gastemp',      'gas temperature in K',                             iunit)
  call write_inopt(norbits,      'norbits',      'number of orbits',                                 iunit)
  call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',                        iunit)
  close(iunit)
@@ -186,6 +187,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(semia,        'semia',        db,min=0.,errcount=nerr)
  call read_inopt(hacc1,        'hacc1',        db,min=0.,errcount=nerr)
  call read_inopt(rasteroid,    'rasteroid',    db,min=0.,errcount=nerr)
+ call read_inopt(gastemp,      'gastemp',      db,min=0.,errcount=nerr)
  call read_inopt(norbits,      'norbits',      db,min=0.,errcount=nerr)
  call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=0 ,errcount=nerr)
  call close_db(db)

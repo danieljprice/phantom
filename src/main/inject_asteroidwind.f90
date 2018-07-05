@@ -33,7 +33,6 @@ module inject
 
  real :: mdot          = 5.e8       ! mass injection rate in grams/second
  real :: npartperorbit = 100.       ! particle injection rate in particles per orbit
- real :: gastemp       = 3000.      ! gas temperature
 
 contains
 
@@ -117,7 +116,6 @@ subroutine write_options_inject(iunit)
 
  call write_inopt(mdot         ,'mdot'         ,'mass injection rate in grams/second'              ,iunit)
  call write_inopt(npartperorbit,'npartperorbit','particle injection rate in particles/binary orbit',iunit)
- call write_inopt(gastemp      ,'gastemp'      ,'temperature at injection point in K'              ,iunit)
 
 end subroutine write_options_inject
 
@@ -144,10 +142,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) npartperorbit
     ngot = ngot + 1
     if (npartperorbit < 0.) call fatal(label,'npartperorbit < 0 in input options')
- case('gastemp')
-    read(valstring,*,iostat=ierr) gastemp
-    ngot = ngot + 1
-    if (gastemp<= 0.) call fatal(label,'gastemp 0 or negative in input options')
  case default
     imatch = .false.
  end select
