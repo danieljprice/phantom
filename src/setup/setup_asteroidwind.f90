@@ -1,3 +1,34 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://users.monash.edu.au/~dprice/phantom                               !
+!--------------------------------------------------------------------------!
+!+
+!  MODULE: setup
+!
+!  DESCRIPTION: None
+!
+!  REFERENCES: None
+!
+!  OWNER: David Liptai
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS:
+!    dumpsperorbit -- number of dumps per orbit
+!    eccentricity  -- eccentricity
+!    hacc1         -- white dwarf (sink) accretion radius (solar radii)
+!    m1            -- mass of white dwarf (solar mass)
+!    m2            -- mass of asteroid (ceres mass)
+!    norbits       -- number of orbits
+!    rasteroid     -- radius of asteroid (km)
+!    semia         -- semi-major axis (solar radii)
+!
+!  DEPENDENCIES: infile_utils, inject, io, part, physcon, setbinary,
+!    spherical, timestep, units
+!+
+!--------------------------------------------------------------------------
 module setup
  implicit none
  public :: setpart

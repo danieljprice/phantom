@@ -1,3 +1,28 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://users.monash.edu.au/~dprice/phantom                               !
+!--------------------------------------------------------------------------!
+!+
+!  MODULE: inject
+!
+!  DESCRIPTION: None
+!
+!  REFERENCES: None
+!
+!  OWNER: David Liptai
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS:
+!    gastemp       -- temperature at injection point in K
+!    mdot          -- mass injection rate in grams/second
+!    npartperorbit -- particle injection rate in particles/binary orbit
+!
+!  DEPENDENCIES: infile_utils, io, part, partinject, physcon, random, units
+!+
+!--------------------------------------------------------------------------
 module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'asteroidwind'
@@ -115,7 +140,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) mdot
     ngot = ngot + 1
     if (mdot  <  0.) call fatal(label,'mdot < 0 in input options')
-case('npartperorbit')
+ case('npartperorbit')
     read(valstring,*,iostat=ierr) npartperorbit
     ngot = ngot + 1
     if (npartperorbit < 0.) call fatal(label,'npartperorbit < 0 in input options')
