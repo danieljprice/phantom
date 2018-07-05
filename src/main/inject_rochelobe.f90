@@ -32,7 +32,7 @@ module inject
 
  public :: inject_particles, write_options_inject, read_options_inject
 
- real, private :: Mdot = 0.
+ real, private :: Mdot = 1.0e-9
  real, private :: Mdotcode = 0.
  real, private :: chi = 0.001
  real, private :: dNdt = 100.
@@ -47,7 +47,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
            npart,npartoftype)
- use io,        only:fatal,iverbose
+ use io,        only:fatal
  use part,      only:nptmass,massoftype,igas,hfact
  use partinject,only:add_or_update_particle
  use setbinary, only:L1_point
@@ -59,8 +59,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
- real :: m1,m2,q,radL1,h,u,theta_s,A,mu,theta_rand,r_rand,dNdt_code,Porb,r12,r2L1,smag
- real :: eps, spd_inject, thetazzs, lm12, lm32
+ real :: m1,m2,q,radL1,h,u,theta_s,A,mu,theta_rand,r_rand,dNdt_code,Porb,r12,r2L1,r0L1,smag
+ real :: eps, spd_inject, phizzs, phinns, lm12, lm1, lm32, sw_chi, sw_gamma
  real :: xyzL1(3),xyzi(3),vxyz(3),dr(3),x1(3),x2(3),x0(3),dxyz(3),vxyzL1(3),v1(3),v2(3),xyzinj(3),s(3)
  integer :: i_part,part_type,s1,wall_i,particles_to_place
 
@@ -86,22 +86,28 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
 !--quantities related to the gas injection at/near L1
 !
  Porb      = twopi * sqrt( (r12*udist)**3 / (gg*(m1+m2)*umass) )
- eps = Porb/(twopi*r12) * (gastemp*kboltz/gmw)**0.5*utime/udist
+ eps = Porb/(twopi*r12) * (gastemp*kboltz/gmw)**0.5*utime/udist  
  A  = mu / abs(radL1 - 1. + mu)**3 + (1. - mu)/abs(radL1 + mu)**3! See Lubow & Shu 1975, eq 13
  theta_s = -acos( -4./(3.*A)+(1-8./(9.*A))**0.5)/2.              ! See Lubow & Shu 1975, eq 24
  xyzL1(1:3) = xyzmh_ptmass(1:3,1) + radL1*dr(:)   ! set as vector position
- r2L1 = dist(xyzL1, x2)
- s = (/cos(theta_s),sin(theta_s),0.0/)*r2L1*eps*0.5
+ r0L1 = dist(xyzL1, (/0., 0., 0./))               ! distance from L1 to center of mass
+ r2L1 = dist(xyzL1, x2)                           ! ... and from the mass donor's center
+ s = (/cos(theta_s),sin(theta_s),0.0/)*r2L1*eps*0.025   ! last factor still a "magic number". Fix.
  smag = sqrt(dot_product(s,s))
  xyzinj(1:3) = xyzL1 + s
  vxyzL1 = v1*dist(xyzL1,x0)/dist(x0, x1) ! orbital motion of L1 point
- spd_inject = abs((3.*A)/(4*eps)*dist(xyzinj,xyzL1)*sin(2*theta_s))
+ spd_inject = abs((3.*A)/(4*eps)*dist(xyzinj,xyzL1)*sin(2*theta_s))  !L&S75 eq 23b
  lm12 = (A - 2. + sqrt(A*(9.*A - 8.)))/2.                        ! See Heerlein+99, eq A8
  lm32 = lm12 - A + 2.                                            ! See Heerlein+99, eq A15
- 
- chi = A + 2.*A*thetazzs*smag/(lm12 + 2.*A)
+ lm1  = sqrt(A)
 
-!
+ call phi_derivs(phinns,phizzs,xyzL1,theta_s,m1,m2,mu,r12,Porb)
+ sw_chi = (A + 2.*A*phizzs*smag/(lm12 + 2.*A))/r12**2                          !H+99 eq A5
+ sw_chi = A/r12**2
+ sw_gamma = (lm32 + (12.*lm1/r0L1 - phinns)*lm32*smag/(2.*lm32 + lm12))/r12**2 !H+99 eq A13
+ sw_gamma = lm12/r12**2
+ print*, sw_chi, sw_gamma
+ print*, 1/sqrt(sw_chi), 1/sqrt(sw_gamma)
 !-- mass of gas particles is set by mass accretion rate and particle injection rate
 ! 
  Mdotcode  = Mdot*(solarm/years)/(umass/utime)
@@ -202,6 +208,42 @@ subroutine rotate_into_plane(r1,v1,ref)
 
 end subroutine rotate_into_plane
 
+!
+! Routine to get the third derivatives of the Roche potential
+! d^3 Phi/d^2nds and d^3Phi/d^2zds
+! in code units
+! See equations A16 and A9 of Heerlein+99
+!
+subroutine phi_derivs(phinns,phizzs,xyzL1,theta_s,m1,m2,mu,r12,Porb)
+ use physcon,   only:pi,gg,solarm
+ use units,     only:umass,udist,utime
+ real, intent(out)  :: phinns,phizzs
+ real, intent(in)   :: xyzL1(3),theta_s,mu,r12,Porb
+ real               :: X,Y,st,ct,theta_r,M1,M2,R,Phi
+ X=xyzL1(1)*udist
+ Y=xyzL1(2)*udist
+ theta_r=atan2(Y,X)-pi+theta_s
+ st = sin(theta_r)
+ ct = cos(theta_r)
+ M1 = m1*umass
+ M2 = m2*umass
+ R = r12*udist
+
+ Phi = gg*M1/((X - mu*R)**2+Y**2)**0.5 + gg*M2/((X + (1 - mu)*R)**2+Y**2)**0.5 + gg*(M1+M2)*(X**2+Y**2)/(2*R**3)
+ 
+ phizzs = M1*(Y*st + (X - mu*R)*ct)/((X-mu*R)**2+Y**2)**(5./2)
+ phizzs = phizzs + M2*(Y*st + (X + (1 - mu)*R)*ct)/((X+(1-mu)*R)**2+Y**2)**(5./2)
+ phizzs = -3.*phizzs*gg*udist*utime**2/R/(Porb/(2*pi*utime))
+
+ phinns = M1*(Y*st + (X - mu*R)*ct)*(Y*ct - (X - (mu*R))*st)**2/((X - mu*R)**2 + Y**2)**(7./2)
+ phinns = phinns + M2*(Y*st + ((1 - mu)*R + X)*ct)*(Y - ((1 - mu)*R + X)*st)**2/((X - (1 - mu)*R)**2 + Y**2)**(7./2)
+ phinns = 5*phinns - M1*(Y*st + (X - mu*R)*ct)/((X - mu*R)**2+Y**2)**(5./2)
+ phinns = phinns - M2*(Y*st + ((1 - mu)*R + X)*ct)/(((1 - mu)*R + X)**2 + Y**2)**(5./2)
+ phinns = 3*phinns*gg*udist*utime**2/R/(Porb/(2*pi*utime))
+ 
+end subroutine phi_derivs
+
+
 !-----------------------------------------------------------------------
 !+
 !  Writes input options to the input file.
@@ -226,7 +268,6 @@ end subroutine write_options_inject
 subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  use io,      only:fatal,error
  use physcon, only:solarm,years
- use units,   only:umass,utime
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
