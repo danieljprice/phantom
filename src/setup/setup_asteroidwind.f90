@@ -62,7 +62,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120) :: filename
  integer :: ierr
  logical :: iexist
- real    :: period,hacc2,massr,gastemp,temperature_coef
+ real    :: period,hacc2,massr,temperature_coef
 
  call set_units(mass=solarm,dist=solarr,G=1.d0)
 
