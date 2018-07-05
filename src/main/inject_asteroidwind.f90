@@ -140,7 +140,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) mdot
     ngot = ngot + 1
     if (mdot  <  0.) call fatal(label,'mdot < 0 in input options')
-case('npartperorbit')
+ case('npartperorbit')
     read(valstring,*,iostat=ierr) npartperorbit
     ngot = ngot + 1
     if (npartperorbit < 0.) call fatal(label,'npartperorbit < 0 in input options')
