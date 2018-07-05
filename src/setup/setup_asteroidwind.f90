@@ -69,13 +69,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--Default runtime parameters
 !
- m1            = 0.7  ! (solar masses)
- m2            = 0.1  ! (ceres masses)
- ecc           = 0.4  ! (eccentricity)
- semia         = 0.7  ! (solar radii)
- hacc1         = 0.01 ! (solar radii)
- rasteroid     = 100. ! (km)
- gastemp       = 3000.! (K)
+ m1            = 0.7       ! (solar masses)
+ m2            = 0.1       ! (ceres masses)
+ ecc           = 0.4       ! (eccentricity)
+ semia         = 0.7       ! (solar radii)
+ hacc1         = 0.02      ! (solar radii)
+ rasteroid     = 100.      ! (km)
+ gastemp       = 3000.     ! (K)
  norbits       = 1.
  dumpsperorbit = 100
 
