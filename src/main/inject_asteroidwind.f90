@@ -73,7 +73,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npar
     theta     = ran2(seed)*pi
     xyz       = r2 + (/rasteroid*cos(phi)*sin(theta),rasteroid*sin(phi)*sin(theta),rasteroid*cos(theta)/)
     vxyz      = 0.999*speed*vhat
-    u         = 3.*(kboltz*gastemp/(mu*mass_proton_cgs))/2. * (utime/udist)**2
+    u         = 0. ! setup is isothermal so utherm is not stored
     h         = hfact*(rasteroid/2.)
     ipart     = npart + 1
     call add_or_update_particle(igas,xyz,vxyz,h,u,ipart,npart,npartoftype,xyzh,vxyzu)

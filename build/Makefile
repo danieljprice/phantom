@@ -160,11 +160,12 @@ ifeq ($(SETUP), wddisc)
 endif
 
 ifeq ($(SETUP), asteroidwind)
-    ISOTHERMAL=yes
     SETUPFILE=setup_asteroidwind.f90
+    SRCINJECT=inject_asteroidwind.f90
+    IND_TIMESTEPS=yes
+    CONST_AV=yes
+    ISOTHERMAL=yes
     KNOWN_SETUP=yes
-    DUST=no
-    SRCINJECT= inject_asteroidwind.f90
 endif
 
 ifeq ($(SETUP), galdisc)

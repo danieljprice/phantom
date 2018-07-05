@@ -13,11 +13,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,idust,set_particle_type,ihsoft
  use setbinary, only:set_binary,get_a_from_period
  use spherical, only:set_sphere
- use units,     only:set_units,umass,udist
- use physcon,   only:solarm,au,pi,solarr,ceresm,km
+ use units,     only:set_units,umass,udist,unit_velocity
+ use physcon,   only:solarm,au,pi,solarr,ceresm,km,kboltz,mass_proton_cgs
  use io,        only:master,fatal
  use timestep,  only:tmax,dtmax
  use inject,    only:inject_particles
+ use eos,       only:gmw
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -30,7 +31,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120) :: filename
  integer :: ierr
  logical :: iexist
- real    :: period,hacc2,massr
+ real    :: period,hacc2,massr,gastemp,temperature_coef
 
  call set_units(mass=solarm,dist=solarr,G=1.d0)
 
@@ -74,9 +75,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--general parameters
 !
- time = 0.
- polyk = 0.
- gamma = 1.
+ time             = 0.
+
+ gastemp          = 3000.
+ temperature_coef = mass_proton_cgs/kboltz * unit_velocity**2
+ polyk            = gastemp/(temperature_coef*gmw)
+ gamma            = 1.
 
 !
 !--space available for injected gas particles
