@@ -1,3 +1,28 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://users.monash.edu.au/~dprice/phantom                               !
+!--------------------------------------------------------------------------!
+!+
+!  MODULE: inject
+!
+!  DESCRIPTION: None
+!
+!  REFERENCES: None
+!
+!  OWNER: David Liptai
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS:
+!    gastemp       -- temperature at injection point in K
+!    mdot          -- mass injection rate in grams/second
+!    npartperorbit -- particle injection rate in particles/binary orbit
+!
+!  DEPENDENCIES: infile_utils, io, part, partinject, physcon, random, units
+!+
+!--------------------------------------------------------------------------
 module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'asteroidwind'
