@@ -18,6 +18,7 @@
 !  RUNTIME PARAMETERS:
 !    dumpsperorbit -- number of dumps per orbit
 !    eccentricity  -- eccentricity
+!    gastemp       -- gas temperature in K
 !    hacc1         -- white dwarf (sink) accretion radius (solar radii)
 !    m1            -- mass of white dwarf (solar mass)
 !    m2            -- mass of asteroid (ceres mass)
@@ -25,7 +26,7 @@
 !    rasteroid     -- radius of asteroid (km)
 !    semia         -- semi-major axis (solar radii)
 !
-!  DEPENDENCIES: infile_utils, inject, io, part, physcon, setbinary,
+!  DEPENDENCIES: eos, infile_utils, inject, io, part, physcon, setbinary,
 !    spherical, timestep, units
 !+
 !--------------------------------------------------------------------------

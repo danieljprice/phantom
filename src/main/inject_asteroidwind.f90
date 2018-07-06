@@ -16,9 +16,9 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    gastemp       -- temperature at injection point in K
 !    mdot          -- mass injection rate in grams/second
 !    npartperorbit -- particle injection rate in particles/binary orbit
+!    vlag          -- percentage lag in velocity of wind
 !
 !  DEPENDENCIES: infile_utils, io, part, partinject, physcon, random, units
 !+
