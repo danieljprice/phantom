@@ -914,6 +914,7 @@ end subroutine check_dust_value
 subroutine write_dust_to_header(multidustdump,hdr,ierr)
  use dim,             only:ndusttypes,use_dustgrowth
  use dump_utils,      only:add_to_iheader,add_to_rheader,dump_h
+ use dust,            only:grainsize,graindens
  integer,      intent(inout) :: ierr
  type(dump_h), intent(inout) :: hdr
  logical,      intent(in)    :: multidustdump
@@ -965,6 +966,8 @@ subroutine write_dust_to_header(multidustdump,hdr,ierr)
     call add_to_rheader(grainsizecgs(1),'grainsizecgs',hdr,ierr)
     call add_to_rheader(graindenscgs(1),'graindenscgs',hdr,ierr)
  endif
+ call add_to_rheader(grainsize,'grainsize',hdr,ierr)
+ call add_to_rheader(graindens,'graindens',hdr,ierr)
 
 end subroutine write_dust_to_header
 
