@@ -33,6 +33,7 @@ module inject
 
  real :: mdot          = 5.e8       ! mass injection rate in grams/second
  real :: npartperorbit = 100.       ! particle injection rate in particles per orbit
+ real :: vlag          = 0.1        ! percentage lag in velocity of wind
 
 contains
 
@@ -53,8 +54,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npar
  real    :: m1,m2,mu,period,r,q
  real    :: phi,theta
 
- if (nptmass < 2) call fatal('inject_rochelobe','not enough point masses for asteroid wind injection')
- if (nptmass > 2) call fatal('inject_rochelobe','too many point masses for asteroid wind injection')
+ if (nptmass < 2) call fatal('inject_asteroidwind','not enough point masses for asteroid wind injection')
+ if (nptmass > 2) call fatal('inject_asteroidwind','too many point masses for asteroid wind injection')
 
  r1        = xyzmh_ptmass(1:3,1)
  r2        = xyzmh_ptmass(1:3,2)
@@ -96,7 +97,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npar
     phi       = ran2(seed)*twopi
     theta     = ran2(seed)*pi
     xyz       = r2 + (/rasteroid*cos(phi)*sin(theta),rasteroid*sin(phi)*sin(theta),rasteroid*cos(theta)/)
-    vxyz      = 0.999*speed*vhat
+    vxyz      = (1.-vlag/100)*speed*vhat
     u         = 0. ! setup is isothermal so utherm is not stored
     h         = hfact*(rasteroid/2.)
     ipart     = npart + 1
@@ -116,6 +117,7 @@ subroutine write_options_inject(iunit)
 
  call write_inopt(mdot         ,'mdot'         ,'mass injection rate in grams/second'              ,iunit)
  call write_inopt(npartperorbit,'npartperorbit','particle injection rate in particles/binary orbit',iunit)
+ call write_inopt(vlag         ,'vlag'         ,'percentage lag in velocity of wind'               ,iunit)
 
 end subroutine write_options_inject
 
@@ -142,6 +144,9 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) npartperorbit
     ngot = ngot + 1
     if (npartperorbit < 0.) call fatal(label,'npartperorbit < 0 in input options')
+ case('vlag')
+    read(valstring,*,iostat=ierr) vlag
+    ngot = ngot + 1
  case default
     imatch = .false.
  end select
