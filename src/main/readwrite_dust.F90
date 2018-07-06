@@ -965,6 +965,8 @@ subroutine write_dust_to_header(multidustdump,hdr,ierr)
     call add_to_rheader(grainsizecgs(1),'grainsizecgs',hdr,ierr)
     call add_to_rheader(graindenscgs(1),'graindenscgs',hdr,ierr)
  endif
+ call add_to_rheader(grainsize,'grainsize',hdr,ierr)
+ call add_to_rheader(graindens,'graindens',hdr,ierr)
 
 end subroutine write_dust_to_header
 
