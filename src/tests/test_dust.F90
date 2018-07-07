@@ -104,7 +104,7 @@ subroutine test_dust(ntests,npass)
  !
  ! DUSTYBOX test
  !
- use_dustfrac = .true.
+ use_dustfrac = .false.
  call test_dustybox(ntests,npass)
  call barrier_mpi()
 
@@ -147,15 +147,22 @@ subroutine test_dustybox(ntests,npass)
  use timestep,       only:dtmax
  use io,             only:iverbose
  use mpiutils,       only:reduceall_mpi
+ use kernel,         only:kernelname
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
  integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(5), nerr(5)
  real :: deltax, dz, hfact, totmass, rhozero, errmax(5), dtext_dum
  real :: t, dt, dtext, dtnew
  real :: vg, vd, deltav, ekin_exact, fd
- real, parameter :: tol = 1.e-5, tolvg = 2.5e-5, tolfg = 3.3e-4, tolfd = 3.3e-4
+ real :: tol,tolvg,tolfg,tolfd
 
- if (periodic) then
+ if (index(kernelname,'quintic') /= 0) then
+    tol = 1.e-5; tolvg = 2.5e-5; tolfg = 3.3e-4; tolfd = 3.3e-4
+ else
+    tol = 1.e-4; tolvg = 1.e-4; tolfg = 3.e-3; tolfd = 3.e-3
+ endif
+
+ if (periodic .and. use_dust) then
     if (use_dustfrac .and. ndusttypes>1) then
        if (id==master) write(*,"(/,a)") '--> skipping DUSTYBOX because use_dustfrac = yes AND ndusttypes > 1'
        return
@@ -163,7 +170,7 @@ subroutine test_dustybox(ntests,npass)
        if (id==master) write(*,"(/,a)") '--> testing DUSTYBOX'
     endif
  else
-    if (id==master) write(*,"(/,a)") '--> skipping DUSTYBOX (need -DPERIODIC)'
+    if (id==master) write(*,"(/,a)") '--> skipping DUSTYBOX (need -DPERIODIC and -DDUST)'
     return
  endif
  !
@@ -177,6 +184,10 @@ subroutine test_dustybox(ntests,npass)
  rhozero = 1.
  totmass = rhozero*dxbound*dybound*dzbound
  npart = 0
+ fxyzu = 0.
+ ddustprop = 0.
+ ddustfrac = 0.
+ dBevol = 0.
 
  do itype=1,2
     npart_previous = npart
@@ -503,7 +514,10 @@ subroutine test_drag(ntests,npass)
  if (maxvxyzu < 4)then
     ieos = 1
     polyk = 1.
+ else
+    ieos = 2
  endif
+ fxyzu(:,:) = 0.
 
  iverbose = 2
  use_dustfrac = .false.
@@ -562,15 +576,15 @@ subroutine test_drag(ntests,npass)
  enddo
 
  nfailed=0
- call checkval(da(1),0.,7.e-7,nfailed,'Acceleration from drag conserves momentum(x)')
- call checkval(da(2),0.,7.e-7,nfailed,'Acceleration from drag conserves momentum(y)')
- call checkval(da(3),0.,7.e-7,nfailed,'Acceleration from drag conserves momentum(z)')
+ call checkval(da(1),0.,7.e-7,nfailed,'acceleration from drag conserves momentum(x)')
+ call checkval(da(2),0.,7.e-7,nfailed,'acceleration from drag conserves momentum(y)')
+ call checkval(da(3),0.,7.e-7,nfailed,'acceleration from drag conserves momentum(z)')
  if (.not.periodic) then
-    call checkval(dl(1),0.,1.e-9,nfailed,'Acceleration from drag conserves angular momentum(x)')
-    call checkval(dl(2),0.,1.e-9,nfailed,'Acceleration from drag conserves angular momentum(y)')
-    call checkval(dl(3),0.,1.e-9,nfailed,'Acceleration from drag conserves angular momentum(z)')
+    call checkval(dl(1),0.,1.e-9,nfailed,'acceleration from drag conserves angular momentum(x)')
+    call checkval(dl(2),0.,1.e-9,nfailed,'acceleration from drag conserves angular momentum(y)')
+    call checkval(dl(3),0.,1.e-9,nfailed,'acceleration from drag conserves angular momentum(z)')
  endif
- if (maxvxyzu >= 4) call checkval(dekin+deint,0.,7.e-7,nfailed,'Acceleration from drag conserves energy')
+ if (maxvxyzu >= 4) call checkval(dekin+deint,0.,7.e-7,nfailed,'acceleration from drag conserves energy')
 
  ntests = ntests + 1
  if (nfailed==0) npass = npass + 1
