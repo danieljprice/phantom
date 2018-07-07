@@ -2485,7 +2485,7 @@ checksystem: checksys checksetup
 checksys:
    ifeq ($(KNOWN_SYSTEM), yes)
 	@echo ""
-	@echo "Compiling Phantom for $(SYSTEM) system..........."
+	@echo "Compiling Phantom v$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICRO) for $(SYSTEM) system..........."
 	@echo ""
         ifneq ($(SYSTEM),$(LASTSYSTEM))
 	    @echo system changed from ${LASTSYSTEM} to ${SYSTEM}
@@ -2542,6 +2542,7 @@ checksetup:
    endif
 
 checkparams:
+	@echo "Using $(KERNEL) kernel"
    ifeq ($(DEBUG), yes)
 	@echo "Debugging flags are ON"
    endif
