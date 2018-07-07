@@ -31,7 +31,7 @@
 !    accr1         -- central star accretion radius
 !    accr2         -- perturber accretion radius
 !    alphaSS       -- desired alphaSS
-!    atm_type      -- Enter atmosphere type (1:r**(-3);
+!    atm_type      -- atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))
 !    bhspin        -- black hole spin
 !    bhspinangle   -- black hole spin angle (deg)
 !    binary_O      -- Omega, PA of ascending node (deg)
@@ -587,7 +587,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                         p_index          = pindex(i),          &
                         p_indexdust      = pindex_dust(i),     &
                         q_index          = qindex(i),          &
+                        q_indexdust      = qindex_dust(i),     &
                         HoverR           = H_R(i),             &
+                        HoverRdust       = H_R_dust(i),        &
                         disc_mass        = disc_m(i),          &
                         disc_massdust    = disc_mdust(i),      &
                         star_mass        = star_m(i),          &
@@ -620,7 +622,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           sig_normdust(i) = 1.d0
           call get_disc_mass(disc_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofiledust(i), &
                              sig_normdust(i),star_m(i),pindex_dust(i),qindex_dust(i), &
-                             R_indust_swap(i),R_outdust_swap(i),R_ref(i),R_c_dust(i),H_R(i))
+                             R_indust_swap(i),R_outdust_swap(i),R_ref(i),R_c_dust(i),H_R_dust(i))
           sig_normdust(i) = sig_normdust(i) * disc_mdust(i) / disc_mtmp(i)
           do j=nparttot+1,npingasdisc
              Rj = sqrt(dot_product(xyzh(1:2,j)-xorigini(1:2),xyzh(1:2,j)-xorigini(1:2)))
@@ -629,9 +631,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              else
                 call get_dust_to_gas_ratio(jdust_to_gas_ratio,Rj,sigmaprofilegas(i), &
                                            sigmaprofiledust(i),sig_norm(i),sig_normdust(i), &
-                                           pindex(i),pindex_dust(i),R_in(i),R_ref(i), &
-                                           R_c(i),R_indust_swap(i),R_c_dust(i))
+                                           pindex(i),pindex_dust(i),R_in(i),R_indust_swap(i),R_ref(i),&
+                                           xyzh(3,j)-xorigini(3),get_H(H_R(i)*R_ref(i),qindex(i),Rj/R_ref(i)),&
+                                           get_H(H_R_dust(i)*R_ref(i),qindex_dust(i),Rj/R_ref(i)),R_c(i),R_c_dust(i))
              endif
+             jdust_to_gas_ratio = max(jdust_to_gas_ratio,tiny(jdust_to_gas_ratio))
              call set_dustfrac_from_inopts(jdust_to_gas_ratio,percent=dustfrac_percent,ipart=j)
           enddo
           nparttot = nparttot + npingasdisc
@@ -1428,8 +1432,7 @@ subroutine write_setupfile(filename)
           call write_inopt(rho_core_cgs,'rho_core','planet core density (cgs units)',iunit)
           call write_inopt(Ratm_in,'Ratm_in','inner atmosphere radius (planet radii)',iunit)
           call write_inopt(Ratm_out,'Ratm_out','outer atmosphere radius (planet radii)',iunit)
-          call write_inopt(atm_type,'atm_type','Enter atmosphere type (1:r**(-3); '// &
-                                    '2:r**(-1./(gamma-1.)))',iunit)
+          call write_inopt(atm_type,'atm_type','atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))',iunit)
           call write_inopt(Natmfrac,'Natm/Npart','fraction of particles for planet atmosphere',iunit)
           call write_inopt(ramp,'ramp','Do you want to ramp up the planet mass slowly?',iunit)
           if (.not.ramp .and. Natmfrac == 0.) then
@@ -1575,10 +1578,8 @@ subroutine write_setupfile(filename)
           if (itaperdust(i)) call write_inopt(R_c_dust(i),'R_c_dust'//trim(disclabel), &
              'characteristic radius of the exponential taper',iunit)
           call write_inopt(pindex_dust(i),'pindex_dust'//trim(disclabel),'p index',iunit)
-          if (.not. use_dustfrac) then
-             call write_inopt(qindex_dust(i),'qindex_dust'//trim(disclabel),'q index',iunit)
-             call write_inopt(H_R_dust(i),'H_R_dust'//trim(disclabel),'H/R at R=R_ref',iunit)
-          endif
+          call write_inopt(qindex_dust(i),'qindex_dust'//trim(disclabel),'q index',iunit)
+          call write_inopt(H_R_dust(i),'H_R_dust'//trim(disclabel),'H/R at R=R_ref',iunit)
        endif
     endif
  enddo
@@ -1839,12 +1840,10 @@ subroutine read_setupfile(filename,ierr)
                 call read_inopt(R_c_dust(i),'R_c_dust'//trim(disclabel),db,min=0.,err=ierr,errcount=nerr)
                 if (ierr /= 0) R_c_dust(i) = R_c(i)
              endif
-             if (.not. use_dustfrac) then
-                call read_inopt(qindex_dust(i),'qindex_dust'//trim(disclabel),db,err=ierr,errcount=nerr)
-                if (ierr /= 0) qindex_dust(i) = qindex(i)
-                call read_inopt(H_R_dust(i),'H_R_dust'//trim(disclabel),db,min=0.,err=ierr,errcount=nerr)
-                if (ierr /= 0) H_R_dust(i) = H_R(i)
-             endif
+             call read_inopt(qindex_dust(i),'qindex_dust'//trim(disclabel),db,min=qindex(i),err=ierr,errcount=nerr)
+             if (ierr /= 0) qindex_dust(i) = qindex(i)
+             call read_inopt(H_R_dust(i),'H_R_dust'//trim(disclabel),db,min=0.,max=H_R(i),err=ierr,errcount=nerr)
+             if (ierr /= 0) H_R_dust(i) = H_R(i)
           end select
        endif
     endif
@@ -1998,20 +1997,31 @@ end subroutine read_obsolete_setup_options
 !------------------------------------------------------------------------
 subroutine get_dust_to_gas_ratio(dust_to_gas,R,sigmaprofilegas,sigmaprofiledust, &
                                  sig_norm,sig_normdust,pindex,pindex_dust, &
-                                 R_in,R_ref,R_c,R_indust,R_c_dust)
+                                 R_in,R_indust,R_ref,zi,hgas,hdust,R_c,R_c_dust)
  real,           intent(in)  :: R,pindex,pindex_dust,sig_norm,sig_normdust
- real,           intent(in)  :: R_ref,R_in,R_indust
- real, optional, intent(in)  :: R_c,R_c_dust
+ real,           intent(in)  :: R_in,R_indust,R_ref,zi,hgas,hdust
+ real,           intent(in)  :: R_c,R_c_dust
  integer,        intent(in)  :: sigmaprofilegas,sigmaprofiledust
  real,           intent(out) :: dust_to_gas
  real :: sigma_gas,sigma_dust
 
  sigma_gas   = sig_norm     * scaled_sigma(R,sigmaprofilegas,pindex,R_ref,R_in,R_c)
  sigma_dust  = sig_normdust * scaled_sigma(R,sigmaprofiledust,pindex_dust,R_ref,R_indust,R_c_dust)
- dust_to_gas = sigma_dust / sigma_gas
+ dust_to_gas = (sigma_dust/sigma_gas) * (hgas/hdust) * exp(-0.5d0*(((zi/hdust)**2.)*(1.d0-(hdust/hgas)**2.)))
 
 end subroutine get_dust_to_gas_ratio
 
+!----------------------------------------------------------------
+!
+! height scale as a function of radius
+!
+!----------------------------------------------------------------
+real function get_H(h0,qindex,r)
+ real, intent(in) :: h0,qindex,r
+
+ get_H = h0*(r**(-qindex+1.5))
+
+end function get_H
 !----------------------------------------------------------------
 !
 ! spherical density profile as a function of radius

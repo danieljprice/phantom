@@ -90,6 +90,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  R_c = 1.0
  R_match = 2./3.*R_out
 
+ print*,'Disc matched at ',R_match
+
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  ! Old disc parameters
@@ -118,7 +120,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  do i = 1,npart
     ! i for particle number, ii for radial bin
-    radius = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
+    radius = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
     if (xyzh(4,i) > 0.) then
        ii = int((radius-rad(1))/dr + 1)
        if (ii > nr .or. ii < 1) cycle

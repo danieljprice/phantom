@@ -159,6 +159,15 @@ ifeq ($(SETUP), wddisc)
     DUST=yes
 endif
 
+ifeq ($(SETUP), asteroidwind)
+    SETUPFILE=setup_asteroidwind.f90
+    SRCINJECT=inject_asteroidwind.f90
+    IND_TIMESTEPS=yes
+    CONST_AV=yes
+    ISOTHERMAL=yes
+    KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), galdisc)
 #   galactic disc simulations
     IND_TIMESTEPS=yes
