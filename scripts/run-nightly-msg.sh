@@ -1,5 +1,20 @@
 #!/bin/bash
 dir=~/phantom-nightly
+lockfile='LOCKFILE'
+get_lock()
+{
+  if [ -e $lockfile ]; then
+     echo "$lockfile exists";
+     return 1;
+  else
+     date >> $lockfile
+     return 0;
+  fi
+}
+release_lock()
+{
+  rm $lockfile;
+}
 load_modules()
 {
   source /etc/profile.d/modules.sh
@@ -58,18 +73,32 @@ run_bots()
   else
      echo "error running stats";
   fi
-  cd $dir; 
+  cd $dir;
   ./phantom-bots/scripts/get_buildbot_timings.sh 20*.html > buildbot_timing.txt;
   ./phantom-bots/scripts/parse-timings.pl 20*.html > testbot_timing.txt;
   ./phantom-bots/scripts/plotstats.sh >> $dir/stats.log;
   cd $dir;
 }
-cd $dir;
+if [ -d $dir ]; then
+   cd $dir;
+else
+   echo "ERROR: $dir does not exist"
+   exit;
+fi
+get_lock;
+if [ $? -eq 0 ]; then
+   echo "got lock";
+else
+   echo "aborting, previous build not finished...";
+   exit;
+fi
 load_modules;
 check_git;
 if [ $? -eq 0 ]; then
    run_bots;
    run_nightly_build;
+   echo "running";
 else
    echo "aborting...";
 fi
+release_lock;
