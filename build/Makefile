@@ -1173,11 +1173,7 @@ ifeq ($(SYSTEM), isca)
             -warn uninitialized -warn truncated_source\
             -warn interfaces -nogen-interfaces
     OMPFLAGS= -qopenmp
-    DBLFLAG= -r8
     DEBUGFLAG= -check all -traceback -g -fpe0 -fp-stack-check -heap-arrays -O0
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
     QNAME=pq
     WALLTIME='168:00:00'
 endif
@@ -1185,16 +1181,9 @@ endif
 ifeq ($(SYSTEM), skylake)
 # HPCs Skylake cluster at Cambridge
     include Makefile_defaults_ifort
-    FC= ifort
     FFLAGS= -O3 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn \
             truncated_source -xCORE-AVX512 -ipo
-    DBLFLAG= -r8
-    DEBUGFLAG= -check all -WB -traceback -g -debug all # -fpe0 -fp-stack-check -debug all
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
     OMPFLAGS = -qopenmp
-    CC = icc
     CCFLAGS = -O3 -mcmodel=medium -xCORE-AVX512 -ipo
     QSYS = slurm
     QPROJECT='DIRAC-DP005-CPU'
