@@ -1073,7 +1073,7 @@ subroutine setup_interactive(id)
           binary_e = 0.
           binary_i = 0.
           binary_O = 0.
-          binary_w = 0.
+          binary_w = 270.
           binary_f = 180.
           accr1    = 1.
           accr2    = 0.5
@@ -1158,7 +1158,7 @@ subroutine setup_interactive(id)
     disc_mfac = (/1., 0.1, 0.01/)
     if (ndiscs > 1) then
        !--set H/R so temperature is globally constant
-       call prompt('Do you want a globally istothermal disc (if not Farris et al. 2014)?',use_global_iso)
+       call prompt('Do you want a globally isothermal disc (if not Farris et al. 2014)?',use_global_iso)
        !--------------------------------
        ! N.B. The initializations of multiple discs is not done using the implementation of the eos
        ! a radial profile centred on CM, primary and secondary is used.
