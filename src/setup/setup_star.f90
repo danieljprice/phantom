@@ -17,7 +17,7 @@
 !    6) neutron star using a piecewise polytrope EOS
 !    7) Evrard sphere
 !    8) KEPLER star from file
-!    9) Kelvin-Helmholtz Equation of state
+!    9) Helmholtz Equation of state
 !
 !  REFERENCES: None
 !
@@ -406,11 +406,11 @@ subroutine set_option_names()
  sphere_opt(ipoly)      = 'Polytrope'
  sphere_opt(ibinpoly)   = 'Binary polytrope'
  sphere_opt(insfile)    = 'neutron star from file'
- sphere_opt(ired)       = 'Red giant (Macquarie)'
+ sphere_opt(ired)       = 'MESA star from file'
  sphere_opt(ibpwpoly)   = 'neutron star with piecewise polytrope EOS'
  sphere_opt(ievrard)    = 'Evrard collapse'
  sphere_opt(ikepler)    = 'KEPLER star from file'
- sphere_opt(ihelmholtz) = 'Helmholtz free energy eos star'
+ sphere_opt(ihelmholtz) = 'white dwarf with Helmholtz EOS'
 
 end subroutine set_option_names
 !-----------------------------------------------------------------------
