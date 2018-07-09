@@ -311,10 +311,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                     hfact,npart,np,xyzh,r_sphere,vol_sphere,npart_total)
  print "(a,es10.3)",' Particle separation in sphere = ',psep
  npartsphere = npart
- if (np_in/=npartsphere .and. id==master) then
-    np = npartsphere
-    call write_setupfile(filename)
- endif
+ if (np_in/=npartsphere) np = npartsphere
  !
  ! setup surrounding low density medium
  !
@@ -334,7 +331,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call set_particle_type(i,igas)
  enddo
  !
- ! reset to centre of mas
+ ! reset to centre of mass
  !
  call reset_centreofmass(npart,xyzh,vxyzu)
  !
