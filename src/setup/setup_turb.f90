@@ -188,10 +188,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     !--one fluid dust: set dust fraction on gas particles
     !
-    if (use_dustfrac) then
-       call set_dustfrac_from_inopts(dust_to_gas,percent=dustfrac_percent,ipart=i)
-    else
-       dustfrac(:,i) = 0.
+    if (use_dust) then
+       if (use_dustfrac) then
+          call set_dustfrac_from_inopts(dust_to_gas,percent=dustfrac_percent,ipart=i)
+       else
+          dustfrac(:,i) = 0.
+       endif
     endif
  enddo
 
@@ -200,4 +202,3 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 end subroutine setpart
 
 end module setup
-
