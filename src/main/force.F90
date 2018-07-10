@@ -2289,6 +2289,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
     dtdrag     = cell%dtdrag(ip)
     tstopi     = 0.
     dustfraci  = 0.
+    dustfracisum = 0.
 
     if (iamgasi) then
        rhoi    = xpartveci(irhoi)
@@ -2325,10 +2326,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
           dustfraci(:) = xpartveci(idustfraci:idustfraciend)
           dustfracisum = sum(dustfraci(:))
           tstopi(:)    = xpartveci(itstop:itstopend)
-       else
-          dustfraci    = 0.
-          dustfracisum = 0.
-          tstopi       = 0.
        endif
 
     endif
@@ -2575,7 +2572,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,st
     endif
 
     ! one fluid dust timestep
-    if (use_dustfrac .and. iamgasi .and. minval(dustfraci) > 0. .and. spsoundi > 0.) then
+    if (use_dustfrac .and. iamgasi .and. minval(dustfraci) > 0. &
+        .and. spsoundi > 0. .and. dustfracisum > epsilon(0.)) then
        tseff = (1.-dustfracisum)/dustfracisum*sum(dustfraci(:)*tstopi(:))
        dtdustdenom = dustfracisum*tseff*spsoundi**2
        if (dtdustdenom > tiny(dtdustdenom)) then

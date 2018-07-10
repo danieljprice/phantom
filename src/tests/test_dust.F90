@@ -538,6 +538,7 @@ subroutine test_drag(ntests,npass)
 
  do i=npartoftype(igas)+1,npart
     call set_particle_type(i,idust)
+    vxyzu(1:3,i) = (/ran2(iseed),ran2(iseed),ran2(iseed)/)
     if (maxvxyzu >= 4) vxyzu(4,i) = 0.
  enddo
  npartoftype(idust) = npart - npartoftype(igas)
