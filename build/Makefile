@@ -1354,6 +1354,7 @@ ifdef KERNEL
    SRCKERNEL= kernel_${KERNEL}.f90
 else
    SRCKERNEL= kernel_cubic.f90
+   KERNEL=cubic
 endif
 endif
 
