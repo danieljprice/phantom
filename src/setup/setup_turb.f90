@@ -23,7 +23,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, dust, io, mpiutils, options, part, physcon,
-!    prompting, readwrite_dust, setup_params, timestep, unifdis, units
+!    prompting, set_dust, setup_params, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -42,20 +42,20 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,            only:use_dust,ndusttypes
- use options,        only:use_dustfrac,nfulldump,beta
- use setup_params,   only:rhozero,npart_total,ihavesetupB
- use io,             only:master
- use unifdis,        only:set_unifdis
- use boundary,       only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use mpiutils,       only:bcast_mpi
- use part,           only:Bxyz,mhd,dustfrac
- use physcon,        only:pi,solarm,pc,km
- use units,          only:set_units
- use prompting,      only:prompt
- use dust,           only:grainsizecgs,graindenscgs
- use readwrite_dust, only:interactively_set_dust,set_dustfrac_from_inopts
- use timestep,       only:dtmax,tmax
+ use dim,          only:use_dust,ndusttypes
+ use options,      only:use_dustfrac,nfulldump,beta
+ use setup_params, only:rhozero,npart_total,ihavesetupB
+ use io,           only:master
+ use unifdis,      only:set_unifdis
+ use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
+ use mpiutils,     only:bcast_mpi
+ use part,         only:Bxyz,mhd,dustfrac
+ use physcon,      only:pi,solarm,pc,km
+ use units,        only:set_units
+ use prompting,    only:prompt
+ use dust,         only:grainsizecgs,graindenscgs
+ use set_dust,     only:interactively_set_dust,set_dustfrac_from_inopts
+ use timestep,     only:dtmax,tmax
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)

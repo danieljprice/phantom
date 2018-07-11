@@ -1700,13 +1700,13 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use eos,            only:polyk,gamma,polyk2,qfacdisc,isink
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,ieos
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz
+ use dust,           only:grainsize,graindens
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use externalforces, only:write_headeropts_extern
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header
- use readwrite_dust, only:write_dust_to_header
  use dim,            only:use_dust,maxtypes,ndustfluids,ndusttypes,use_dustgrowth, &
                           phantom_version_major,phantom_version_minor,phantom_version_micro
  use units,          only:udist,umass,utime,unit_Bfield
@@ -1792,7 +1792,10 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(angtot_in,'angtot_in',hdr,ierr)
     call add_to_rheader(totmom_in,'totmom_in',hdr,ierr)
     call add_to_rheader(mdust_in,'mdust_in',hdr,ierr)
-    if (use_dust) call write_dust_to_header(multidustdump,hdr,ierr)
+    if (use_dust) then
+       call add_to_rheader(grainsize,'grainsize',hdr,ierr)
+       call add_to_rheader(graindens,'graindens',hdr,ierr)
+    endif
  endif
 
  ! real*8
@@ -1818,17 +1821,17 @@ end subroutine fill_header
 subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
                           tfile,hfactfile,alphafile,iprint,ierr)
  use io,             only:id,master
- use dim,            only:maxp,maxvxyzu,ndusttypes
+ use dim,            only:maxp,maxvxyzu,ndusttypes,use_dust
  use eos,            only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
- use options,        only:ieos,tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac,use_moddump
+ use options,        only:ieos,tolh,alpha,alphau,alphaB,iexternalforce
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,maxtypes
+ use dust,           only:grainsize,graindens
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use externalforces, only:read_headeropts_extern
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
  use dump_utils,     only:extract
- use readwrite_dust, only:extract_dust_header
  type(dump_h), intent(in)  :: hdr
  logical,      intent(in)  :: phantomdump
  integer,      intent(in)  :: iprint,ntypesinfile
@@ -1970,9 +1973,10 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
     write(*,*) 'WARNING! compiled for isothermal equation of state but gamma /= 1, gamma=',gamma
  endif
 
- !--pull grain-size distribution values to preserve grain properties
- if (use_dustfrac .and. ndusttypes>1 .and. multidustdump .and. .not.use_moddump) then
-    call extract_dust_header(multidustdump,hdr,ierr)
+ !--pull grain size and density arrays
+ if (use_dust) then
+    call extract('grainsize',grainsize,hdr,ierrs(5))
+    call extract('graindens',graindens,hdr,ierrs(5))
  endif
 
  return

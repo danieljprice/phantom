@@ -973,7 +973,7 @@ ifndef SRCNIMHD
 endif
 
 ifndef SRCDUST
-    SRCDUST = dust.F90 growth.F90 readwrite_dust.F90
+    SRCDUST = dust.F90 growth.F90
 endif
 
 #ifndef SRCGROWTH
@@ -1502,7 +1502,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          utils_mathfunc.f90 ${DOMAIN} part.F90 utils_timing.f90 mpi_balance.F90 commons.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_sphNG.f90 utils_vectors.f90 \
          utils_datafiles.f90 datafiles.f90 gitinfo.f90 ${SRCFASTMATH} random.f90 \
-         checkoptions.F90 ${SRCEOS} set_binary.f90 set_flyby.f90 \
+         checkoptions.F90 ${SRCEOS} set_dust.F90 set_binary.f90 set_flyby.f90 \
          viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} \
          set_disc.F90 partinject.F90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} directsum.f90 prompting.f90 ${SRCDUST} readwrite_dumps.F90 quitdump.f90 \
@@ -1583,7 +1583,7 @@ physcon.o: .make_mathflags
 # these are the sources for phantom setup utility
 #
 SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_filenames.f90 utils_summary.F90 \
-          utils_tables.f90 random.f90 mpi_balance.F90 set_binary.f90 set_flyby.f90 \
+          utils_tables.f90 random.f90 mpi_balance.F90 set_dust.F90 set_binary.f90 set_flyby.f90 \
           utils_indtimesteps.F90 partinject.F90 dtype_kdtree.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} \
           ptmass.F90 energies.F90 \
@@ -1735,7 +1735,7 @@ cleanphantom2power:
 OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_filenames.f90 utils_indtimesteps.F90 \
           checksetup.f90 \
           set_Bfield.f90 ${LINKLIST} \
-          partinject.F90 random.f90 set_disc.F90 set_binary.f90 ${SRCINJECT} \
+          partinject.F90 random.f90 set_disc.F90 set_dust.F90 set_binary.f90 ${SRCINJECT} \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} \
           density_profiles.f90 ptmass.F90 readwrite_infile.f90 ${MODFILE:.f90=.o}
 OBJMOD2 = ${OBJMOD1:.F90=.o}
@@ -1760,7 +1760,7 @@ OBJAN1 = ${ANALYSIS:.f90=.o}
 OBJAN2 = ${OBJAN1:.F90=.o}
 OBJAN = ${OBJAN2:.f=.o}
 OBJA= utils_disc.o utils_filenames.o utils_sort.o leastsquares.o solvelinearsystem.o \
-	  ${OBJDUMP} set_binary.o ${OBJAN}
+	  ${OBJDUMP} set_dust.o set_binary.o ${OBJAN}
 
 ifndef ANALYSISBIN
 ANALYSISBIN=phantomanalysis

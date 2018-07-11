@@ -19,7 +19,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: dim, dust, infile_utils, io, leastsquares, options, part,
-!    physcon, readwrite_dust, solvelinearsystem, units
+!    physcon, set_dust, solvelinearsystem, units
 !+
 !--------------------------------------------------------------------------
 module analysis
@@ -75,18 +75,18 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
- use dim,            only:maxp
- use io,             only:fatal
- use physcon,        only:pi,jupiterm,years,au
- use part,           only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac,tstop, &
-                          rhoh,maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass,deltav, &
-                          isdead_or_accreted
- use options,        only:use_dustfrac,iexternalforce
- use units,          only:umass,udist,utime
- use dust,           only:graindens,grainsize
- use readwrite_dust, only:read_dust_setup_options
- use leastsquares,   only:fit_slope
- use infile_utils,   only:open_db_from_file,close_db,inopts
+ use dim,          only:maxp
+ use io,           only:fatal
+ use physcon,      only:pi,jupiterm,years,au
+ use part,         only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac,tstop, &
+                        rhoh,maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass,deltav, &
+                        isdead_or_accreted
+ use options,      only:use_dustfrac,iexternalforce
+ use units,        only:umass,udist,utime
+ use dust,         only:graindens,grainsize
+ use set_dust,     only:read_dust_setup_options
+ use leastsquares, only:fit_slope
+ use infile_utils, only:open_db_from_file,close_db,inopts
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyz(:,:)
  real,             intent(in) :: pmass,time

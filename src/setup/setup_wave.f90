@@ -19,7 +19,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, io, kernel, mpiutils, options, part,
-!    physcon, prompting, readwrite_dust, setup_params, unifdis
+!    physcon, prompting, set_dust, setup_params, unifdis
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -36,18 +36,18 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use setup_params,   only:rhozero,npart_total
- use io,             only:master
- use unifdis,        only:set_unifdis
- use boundary,       only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use mpiutils,       only:bcast_mpi
- use part,           only:labeltype,set_particle_type,igas,dustfrac
- use physcon,        only:pi
- use kernel,         only:radkern
- use dim,            only:maxvxyzu,use_dust,maxp,ndusttypes
- use options,        only:use_dustfrac
- use prompting,      only:prompt
- use readwrite_dust, only:interactively_set_dust,set_dustfrac_from_inopts
+ use setup_params, only:rhozero,npart_total
+ use io,           only:master
+ use unifdis,      only:set_unifdis
+ use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
+ use mpiutils,     only:bcast_mpi
+ use part,         only:labeltype,set_particle_type,igas,dustfrac
+ use physcon,      only:pi
+ use kernel,       only:radkern
+ use dim,          only:maxvxyzu,use_dust,maxp,ndusttypes
+ use options,      only:use_dustfrac
+ use prompting,    only:prompt
+ use set_dust,     only:interactively_set_dust,set_dustfrac_from_inopts
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)

@@ -66,7 +66,7 @@
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_corotate, extern_lensethirring, externalforces, growth,
 !    infile_utils, io, kernel, options, part, physcon, prompting,
-!    readwrite_dust, setbinary, setdisc, setflyby, spherical, timestep,
+!    set_dust, setbinary, setdisc, setflyby, spherical, timestep,
 !    units, vectorutils
 !+
 !--------------------------------------------------------------------------
@@ -137,7 +137,7 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use centreofmass,         only:reset_centreofmass
  use dust,                 only:grainsizecgs,graindenscgs
- use readwrite_dust,       only:io_grainsize,nduststrings,set_dustfrac_from_inopts,check_dust_method
+ use set_dust,             only:io_grainsize,nduststrings,set_dustfrac_from_inopts,check_dust_method
  use eos,                  only:isink,qfacdisc
  use extern_binary,        only:accradius1,accradius2,binarymassr,eps_soft1
  use externalforces,       only:mass1,accradius1
@@ -978,10 +978,10 @@ end subroutine setpart
 !
 !------------------------------------------------------------------------
 subroutine setup_interactive(id)
- use growth,         only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
- use dust,           only:ilimitdustflux
- use readwrite_dust, only:interactively_set_dust
- use prompting,      only:prompt
+ use growth,    only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
+ use dust,      only:ilimitdustflux
+ use set_dust,  only:interactively_set_dust
+ use prompting, only:prompt
  use io, only: warning
  integer, intent(in) :: id
  integer :: maxdiscs
@@ -1374,8 +1374,8 @@ end subroutine setup_interactive
 !
 !------------------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils,   only:write_inopt
- use readwrite_dust, only:write_dust_setup_options
+ use infile_utils, only:write_inopt
+ use set_dust,     only:write_dust_setup_options
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
  logical :: done_alpha
@@ -1627,9 +1627,9 @@ end subroutine write_setupfile
 !
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils,   only:open_db_from_file,inopts,read_inopt,close_db
- use readwrite_dust, only:read_dust_setup_options
- use io,             only:fatal
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use set_dust,     only:read_dust_setup_options
+ use io,           only:fatal
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
