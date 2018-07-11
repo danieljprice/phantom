@@ -93,7 +93,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use externalforces,  only:write_options_externalforces
  use linklist,        only:write_inopts_link
 #ifdef DUST
- use readwrite_dust,  only:write_dust_infile_options
+ use dust,            only:write_options_dust
 #ifdef DUSTGROWTH
  use growth,          only:write_options_growth
  use options,         only:use_dustfrac
@@ -231,7 +231,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #endif
 
 #ifdef DUST
- call write_dust_infile_options(iwritein)
+ call write_options_dust(iwritein)
 #ifdef DUSTGROWTH
  if(.not.use_dustfrac) call write_options_growth(iwritein)
 #endif
@@ -272,10 +272,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #endif
  use externalforces,  only:read_options_externalforces
  use linklist,        only:read_inopts_link
- use readwrite_dust,  only:get_onefluiddust
 #ifdef DUST
- use options,         only:use_dustfrac
- use readwrite_dust,  only:read_dust_infile_options
+ use dust,            only:read_options_dust
 #ifdef DUSTGROWTH
  use growth,          only:read_options_growth
 #endif
@@ -430,10 +428,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (.not.imatch) call read_inopts_link(name,valstring,imatch,igotalllink,ierr)
 #ifdef DUST
        !--Extract if one-fluid dust is used from the fileid
-       call get_onefluiddust(dumpfile,use_dustfrac)
-       if (.not.imatch) call read_dust_infile_options(name,valstring,imatch,igotalldust,ierr)
+       if (.not.imatch) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
 #ifdef DUSTGROWTH
-       if (.not.imatch .and. .not.use_dustfrac) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
+       if (.not.imatch) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
 #endif
 #endif
 #ifdef PHOTO

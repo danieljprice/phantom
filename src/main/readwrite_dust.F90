@@ -56,11 +56,9 @@ module readwrite_dust
  end interface interactively_set_dust
  public :: interactively_set_dust
  public :: read_dust_setup_options
- public :: read_dust_infile_options
  public :: extract_dust_header
  public :: write_dust_to_header
  public :: write_dust_setup_options
- public :: write_dust_infile_options
  public :: write_temp_grains_file
  public :: check_dust_method
 
@@ -619,107 +617,6 @@ subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple,imethod)
 
 end subroutine read_dust_setup_options
 
-
-!-----------------------------------------------------------------------
-!+
-!  reads input dust options from the input file
-!+
-!-----------------------------------------------------------------------
-subroutine read_dust_infile_options(name,valstring,imatch,igotall,ierr)
- use units,          only:udist,umass
- use options,        only:use_dustfrac
- use dust,           only:icut_backreaction,grainsize,graindens
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- real(kind=8)  :: udens
- integer, save :: ngrainsize = 0
- integer, save :: ngraindens = 0
- integer, parameter :: nvars = 9
- integer, parameter :: narrs = 2
- integer, parameter :: nvalues = nvars + narrs*(ndusttypes-1)
- integer, parameter :: iidrag        = 1, &
-                       ismin         = 2, &
-                       ismax         = 3, &
-                       isindex       = 4, &
-                       iKcode        = 5, &
-                       ibackreact    = 6, &
-                       ilimitflux    = 7, &
-                       !--dust arrays initial index
-                       igrainsize    = 8, &
-                       igraindens    = 9 + (ndusttypes-1), &
-                       !--dust arrays final index
-                       igrainsizeend = igraindens-1, &
-                       igraindensend = nvars
- integer, save :: igot(nvalues)  = 0
- integer       :: ineed(nvalues)
-
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('idrag')
-    read(valstring,*,iostat=ierr) idrag
-    igot(iidrag) = 1
- case('grainsize')
-    ngrainsize = ngrainsize + 1
-    read(valstring,*,iostat=ierr) grainsizecgs(ngrainsize)
-    grainsize(ngrainsize) = grainsizecgs(ngrainsize)/udist
-    igot(igrainsize + ngrainsize - 1) = 1
- case('smin')
-    read(valstring,*,iostat=ierr) smincgs
-    igot(ismin) = 1
- case('smax')
-    read(valstring,*,iostat=ierr) smaxcgs
-    igot(ismax) = 1
- case('p')
-    read(valstring,*,iostat=ierr) sindex
-    igot(isindex) = 1
- case('graindens')
-    ngraindens = ngraindens + 1
-    read(valstring,*,iostat=ierr) graindenscgs(ngraindens)
-    udens = umass/udist**3
-    graindens(ngraindens) = graindenscgs(ngraindens)/udens
-    igot(igraindens + ngraindens - 1) = 1
- case('K_code')
-    read(valstring,*,iostat=ierr) K_code
-    igot(iKcode) = 1
- case('icut_backreaction')
-    read(valstring,*,iostat=ierr) icut_backreaction
-    igot(ibackreact) = 1
- case('ilimitdustflux')
-    read(valstring,*,iostat=ierr) ilimitdustflux
-    igot(ilimitflux) = 1
- case default
-    imatch = .false.
- end select
-
- ineed = 0
-
- !--Parameters needed by all combinations
- ineed(iidrag)     = 1
- ineed(ibackreact) = 1
-
- !--Parameters specific to particular setups
- select case(idrag)
- case(1)
-    if ((ndusttypes == 1) .or. (io_grainsize == 1 .and. io_graindens == 0)) then
-       ineed(igrainsize) = 1
-       ineed(igraindens) = 1
-    endif
- case(2,3)
-    ineed(iKcode) = 1
- case default
-    stop 'Error! Invalid idrag option passed to read_dust_infile_options'
- end select
-
- if (use_dustfrac) ineed(ilimitflux) = 1
-
- !--Check that we have just the *necessary* parameters
- if (all(ineed == igot)) igotall = .true.
-
-end subroutine read_dust_infile_options
-
-
 !-----------------------------------------------------------------------
 !+
 !  Wrapper for writing dust properties to grains.tmp file
@@ -1041,8 +938,6 @@ subroutine check_dust_method(id,filename,dust_method,ichange_method)
 
 end subroutine check_dust_method
 
-
-
 !-----------------------------------------------------------------------
 !+
 !  Subroutine for writing dust properties to an input file
@@ -1140,64 +1035,6 @@ subroutine write_dust_setup_options(iunit,dust_to_gas,df,gs,gd,imethod,iprofile,
  endif
 
 end subroutine write_dust_setup_options
-
-
-!-----------------------------------------------------------------------
-!+
-!  writes input dust options to the input file
-!+
-!-----------------------------------------------------------------------
-subroutine write_dust_infile_options(iunit)
- use dim,          only:use_dustgrowth
- use infile_utils, only:write_inopt
- use options,      only:use_dustfrac
- use dust,         only:icut_backreaction
- integer, intent(in) :: iunit
- character(len=10) :: numdust
-
- write(numdust,'(I10)') ndusttypes
- write(iunit,"(/,a)") '# options controlling dust ('//trim(adjustl(numdust))//' dust species)'
-
- call write_inopt(idrag,'idrag','gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)',iunit)
-
- if (ndusttypes > 1) then
-    !--the grainsize (and powerlaw index) should be set in the setup file
-    !--the intrinsic grain density should be set in the setup file
-    select case(idrag)
-    case(1)
-       print "(/,a)",'*************************************************************************'
-       print "(a)",  '*************************************************************************'
-       print "(/,a)",'Warning! Grain size/density are now set during setup when ndusttypes > 1 '
-       print "(a)",  '         and only limited setups (e.g. dustydisc) support this ability.  '
-       print "(a)",  '         If not using one of these setups, switch to using idrag = [2,3].'
-       print "(/,a)",'*************************************************************************'
-       print "(a)",  '*************************************************************************'
-    case(2,3)
-       call write_inopt(K_code,'K_code','drag constant when constant drag is used',iunit)
-    end select
-
- else
-    select case(idrag)
-    case(1)
-       if (use_dustgrowth) then
-          call write_inopt(grainsizecgs(ndusttypes),'grainsize','Initial grain size in cm',iunit)
-       else
-          call write_inopt(grainsizecgs(ndusttypes),'grainsize','Grain size in cm',iunit)
-       endif
-       call write_inopt(graindenscgs(ndusttypes),'graindens','Intrinsic grain density in g/cm^3',iunit)
-    case(2,3)
-       call write_inopt(K_code,'K_code','drag constant when constant drag is used',iunit)
-    end select
- endif
-
- call write_inopt(icut_backreaction,'icut_backreaction','cut the drag on the gas phase (0=no, 1=yes)',iunit)
-
- if (use_dustfrac) then
-    call write_inopt(ilimitdustflux,'ilimitdustflux','limit the dust flux using Ballabio et al. (2018)',iunit)
- endif
-
-end subroutine write_dust_infile_options
-
 
 !-----------------------------------------------------------------------
 !+
