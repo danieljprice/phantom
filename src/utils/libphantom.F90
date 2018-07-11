@@ -10,6 +10,41 @@
 !----------------------------------------------------------------
 
 !
+! Add gas or boundary particle
+!
+subroutine inject_or_update_particle(particle_number, mass, position, velocity, h, u, boundary)
+ use partinject, only:add_or_update_particle
+ use part,       only:igas,iboundary,npart,npartoftype,xyzh,vxyzu
+ use units, only: umass, udist, utime
+ implicit none
+ integer, intent(in) :: particle_number
+ double precision, intent(in) :: mass, position(3), velocity(3), h, u
+ logical, intent(in) :: boundary
+ !logical :: nodisabled
+
+ integer :: i, itype, ierr
+
+ if (boundary) then
+    itype = iboundary
+ else
+    itype = igas
+ endif
+
+ !nodisabled = .false.
+
+ !call get_npart(npart, nodisabled)
+ call set_part_mass(mass, ierr)
+ ! npart = npart + 1
+ ! If ierr = 0, it means mass is set successfully.
+ ! If it is 1, it means the mass could not be set, because there were 
+ ! already particles in the simulation.
+
+ call add_or_update_particle(itype,position(:)/udist,velocity(:)/(udist/utime),&
+     h/udist,u/(udist**2/utime**2),particle_number,npart,npartoftype,xyzh,vxyzu)
+ 
+end subroutine
+
+!
 ! Inject gas or boundary particles
 !
 subroutine inject_or_update_particles(ifirst, n, position, velocity, h, u, boundary)
@@ -216,6 +251,27 @@ subroutine get_boundaries(xmin, xmax, ymin, ymax, zmin, zmax)
  zmin = zmin*udist
  zmax = zmax*udist
 end subroutine
+
+!
+! Initialize Phantom
+!
+subroutine code_init()
+ use initial, only:initialise
+ implicit none
+
+ call initialise()
+end subroutine
+
+!
+! Set default parameters
+!
+subroutine set_defaults()
+ use options, only: set_default_options
+ implicit none
+ 
+ call set_default_options() 
+end subroutine
+
 
 !
 ! Initialize a simulation
@@ -431,6 +487,23 @@ subroutine get_npart(npart_out, nodisabled)
 end subroutine
 
 !
+! Get specific xyzh
+!
+subroutine get_specific_xyzh(n, part_xyzh)
+ use part, only:npart,xyzh
+ use units, only:udist
+ implicit none
+ double precision, dimension(4), intent(out) :: part_xyzh
+ integer :: i, n
+
+ do i=1,4
+    part_xyzh(i) = dble(xyzh(i,n)*udist)
+ enddo
+
+end subroutine
+
+
+!
 ! Get xyzh
 !
 subroutine get_part_xyzh(npart_in, part_xyzh, nodisabled, ierr)
@@ -470,6 +543,21 @@ subroutine get_part_xyzh(npart_in, part_xyzh, nodisabled, ierr)
        ierr = 1
     endif
  endif
+end subroutine
+
+!
+! Get specific vxyz
+!
+subroutine get_specific_vxyz(n, part_vxyz)
+ use part, only:npart,vxyzu
+ use units, only:udist,utime
+ implicit none
+ double precision, dimension(4), intent(out) :: part_vxyz
+ integer :: n,i
+
+ do i=1,3
+    part_vxyz(i) = dble(vxyzu(i,n)*udist/utime)
+ enddo
 end subroutine
 
 !
