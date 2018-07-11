@@ -240,9 +240,10 @@ end function fileident
 !  extract various options used in Phantom from the fileid string
 !+
 !--------------------------------------------------------------------
-subroutine get_options_from_fileid(fileid,tagged,phantomdump,smalldump,ierr)
+subroutine get_options_from_fileid(fileid,tagged,phantomdump,smalldump,&
+                                   use_onefluiddust,ierr)
  character(len=lenid), intent(in)  :: fileid
- logical,              intent(out) :: tagged,phantomdump,smalldump
+ logical,              intent(out) :: tagged,phantomdump,smalldump,use_onefluiddust
  integer,              intent(out) :: ierr
 !
 !--if file is a small dump, return an error code but still read what
@@ -267,6 +268,11 @@ subroutine get_options_from_fileid(fileid,tagged,phantomdump,smalldump,ierr)
     write(*,*) 'WARNING: could not determine Phantom/sphNG from fileident'
     write(*,*) '(assuming sphNG...)'
     phantomdump = .false.
+ endif
+ if (index(fileid,'+1dust') /= 0) then
+    use_onefluiddust = .true.
+ else
+    use_onefluiddust = .false.
  endif
 
 end subroutine get_options_from_fileid
@@ -713,7 +719,6 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  use mpiutils,   only:reduce_mpi,reduceall_mpi
  use sphNGutils, only:convert_sinks_sphNG
  use options,    only:use_dustfrac
- use readwrite_dust, only:get_onefluiddust
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -739,9 +744,6 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  ! open dump file
  !
  call open_dumpfile_r(idisk1,dumpfile,fileidentr,ierr)
-
- !--Extract use_dustfrac from the fileid if not read in infile
- call get_onefluiddust(dumpfile,use_dustfrac,fileid=fileidentr)
 
  !
  ! exit with error if file not readable by current routine
@@ -773,7 +775,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  if (id==master) write(iprint,*) trim(fileidentr)
 
  ! extract file type from the fileid string
- call get_options_from_fileid(fileidentr,tagged,phantomdump,smalldump,ierr)
+ call get_options_from_fileid(fileidentr,tagged,phantomdump,smalldump,use_dustfrac,ierr)
 
  !
  ! read header from the dump file
@@ -952,6 +954,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  use dump_utils, only:skipblock,skip_arrays,check_tag,open_dumpfile_r,get_error_text,&
                       ierr_realsize,read_header,extract,free_header,read_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
+ use options,    only:use_dustfrac
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -987,7 +990,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  if (id==master) write(iprint,*) trim(fileidentr)
 
  ! extract file type from the fileid string
- call get_options_from_fileid(fileidentr,tagged,phantomdump,smalldump,ierr)
+ call get_options_from_fileid(fileidentr,tagged,phantomdump,smalldump,use_dustfrac,ierr)
 
  if (.not.smalldump) then
     if (id==master) call error('read_smalldump','this routine only works for small dump files, aborting...')

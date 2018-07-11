@@ -47,7 +47,6 @@ module readwrite_dust
  integer, public :: io_graindens = 0
  logical, public :: ichange_method = .false.
 
- public :: get_onefluiddust
  public :: set_dustfrac_from_inopts
  public :: nduststrings
  ! generic interface to interactively_set_dust
@@ -65,36 +64,6 @@ module readwrite_dust
  private
 
 contains
-
-!--------------------------------------------------------------------
-!+
-!  extract whether one-fluid dust used in Phantom from the fileid
-!+
-!--------------------------------------------------------------------
-subroutine get_onefluiddust(dumpfile,use_onefluiddust,fileid)
- use io,         only:idisk1
- use dump_utils, only:open_dumpfile_r,lenid
- character(len=lenid), optional, intent(inout)  :: fileid
- character(len=*), intent(in)  :: dumpfile
- logical,          intent(out) :: use_onefluiddust
- integer :: ierr
- character(len=lenid) :: fileident
-
- if (.not.present(fileid)) then
-    call open_dumpfile_r(idisk1,dumpfile,fileident,ierr)
-    close(idisk1)
- else
-    fileident = fileid
- endif
-
- if (index(fileident,'+1dust') /= 0) then
-    use_onefluiddust = .true.
- else
-    use_onefluiddust = .false.
- endif
-
-end subroutine get_onefluiddust
-
 
 !----------------------------------------------------------------
 !+
