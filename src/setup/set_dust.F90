@@ -145,7 +145,7 @@ subroutine interactively_set_dust_simple(dust_to_gas,imethod,Kdrag,units)
  use prompting, only:prompt
  use io,        only:fatal
  use dust,      only:set_grainsize,idrag,K_code,grainsizecgs,graindenscgs
- real,    intent(out), optional :: dust_to_gas
+ real,    intent(out)           :: dust_to_gas
  logical, intent(in),  optional :: Kdrag
  integer, intent(out), optional :: imethod
  character(len=*), intent(in), optional :: units
@@ -191,10 +191,8 @@ subroutine interactively_set_dust_simple(dust_to_gas,imethod,Kdrag,units)
 
  if (use_dustfrac) ilimitdustflux = .false.
 
- if (present(dust_to_gas)) then
-    if (dust_to_gas <= 0.) dust_to_gas = 1. ! for a more sensible better option
-    call prompt('Enter dust to gas ratio',dust_to_gas,0.)
- endif
+ if (dust_to_gas <= 0.) dust_to_gas = 1. ! for a more sensible better option
+ call prompt('Enter dust to gas ratio',dust_to_gas,0.)
 
  io_grainsize = 1
  io_graindens = 0
