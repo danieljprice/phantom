@@ -26,8 +26,8 @@
 !    smaxcgs           -- max grain size (in cm)
 !    smincgs           -- min grain size (in cm)
 !
-!  DEPENDENCIES: dim, dump_utils, dust, eos, growth, infile_utils, io,
-!    options, part, prompting, units
+!  DEPENDENCIES: dim, dust, eos, growth, infile_utils, io, options, part,
+!    prompting, units
 !+
 !--------------------------------------------------------------------------
 
