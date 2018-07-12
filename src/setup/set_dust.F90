@@ -5,7 +5,7 @@
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
 !+
-!  MODULE: readwrite_dust
+!  MODULE: set_dust
 !
 !  DESCRIPTION:
 !  Contains most I/O routines for dust
@@ -17,16 +17,10 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    K_code            -- drag constant when constant drag is used
 !    dust_method       -- dust method (1=one fluid,2=two fluid)
 !    dust_to_gas_ratio -- dust to gas ratio
-!    graindens         -- Intrinsic grain density in g/cm^3
 !    graindensinp      -- intrinsic grain density (in g/cm^3)
-!    grainsize         -- Grain size in cm
 !    grainsizeinp      -- grain size (in cm)
-!    icut_backreaction -- cut the drag on the gas phase (0=no, 1=yes)
-!    idrag             -- gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)
-!    ilimitdustflux    -- limit the dust flux using Ballabio et al. (2018)
 !    io_graindens      -- grain density input (0=equal,1=manually)
 !    sindex            -- grain size power-law index (e.g. MRN = 3.5)
 !    smaxcgs           -- max grain size (in cm)
@@ -37,7 +31,7 @@
 !+
 !--------------------------------------------------------------------------
 
-module readwrite_dust
+module set_dust
  use dim,  only:ndusttypes
  use dust, only:smincgs,smaxcgs,sindex,grainsizecgs,graindenscgs,K_code,idrag, &
                 ilimitdustflux
@@ -55,8 +49,6 @@ module readwrite_dust
  end interface interactively_set_dust
  public :: interactively_set_dust
  public :: read_dust_setup_options
- public :: extract_dust_header
- public :: write_dust_to_header
  public :: write_dust_setup_options
  public :: write_temp_grains_file
  public :: check_dust_method
@@ -153,7 +145,7 @@ subroutine interactively_set_dust_simple(dust_to_gas,imethod,Kdrag,units)
  use prompting, only:prompt
  use io,        only:fatal
  use dust,      only:set_grainsize,idrag,K_code,grainsizecgs,graindenscgs
- real,    intent(out) :: dust_to_gas
+ real,    intent(out)           :: dust_to_gas
  logical, intent(in),  optional :: Kdrag
  integer, intent(out), optional :: imethod
  character(len=*), intent(in), optional :: units
@@ -586,166 +578,6 @@ subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple,imethod)
 
 end subroutine read_dust_setup_options
 
-!-----------------------------------------------------------------------
-!+
-!  Wrapper for writing dust properties to grains.tmp file
-!  (needed for moddump and old setups)
-!+
-!-----------------------------------------------------------------------
-subroutine extract_dust_header(multidustdump,hdr,ierr)
- use dim,             only:ndusttypes
- use dump_utils,      only:extract,dump_h
- use units,           only:udist,umass
- use options,         only:use_dustfrac
- integer,      intent(inout) :: ierr
- logical,      intent(in)    :: multidustdump
- type(dump_h), intent(in)    :: hdr
-
- integer :: i,ierr1,ierrs(max(10,ndusttypes)),nerr
- integer :: dust_method,io_old
- real    :: smin,smax,sind,grainsizeinp(ndusttypes),graindensinp(ndusttypes)
- real    :: dust_to_gas
- real    :: dustfrac_percent(ndusttypes) = 0.
- logical :: missingdust = .false.
- character(len=120) :: varlabel(ndusttypes)
-
- if (use_dustfrac .and. multidustdump) then
-    call extract('io_grainsize',io_grainsize,hdr,ierr1)
-    if (ierr1 /= 0) then
-       io_grainsize = 0
-       missingdust  = .true.
-    endif
-    call extract('io_graindens',io_graindens,hdr,ierr1)
-    if (ierr1 /= 0) then
-       io_graindens = 0
-       missingdust  = .true.
-    endif
- endif
-
- if (missingdust) then
-    call write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod=dust_method,ireadwrite=1)
-
-    !--save the input values from the dust file
-    smin = smincgs
-    smax = smaxcgs
-    sind = sindex
-    grainsizeinp = grainsizecgs
-    graindensinp = graindenscgs
-
-    !--extract all possible dust options from the dump file and compare them with
-    !  new values calculated from the temporary dust file
-    nerr = 0
-
-    print*,'Checking grain sizes...'
-    call extract('smincgs',smincgs,hdr,ierrs(1))
-    call check_dust_value(ierrs(1),nerr,'smincgs',smin,smincgs)
-
-    call extract('smaxcgs',smaxcgs,hdr,ierrs(2))
-    call check_dust_value(ierrs(2),nerr,'smaxcgs',smax,smaxcgs)
-
-    call extract('sindex' ,sindex,hdr,ierrs(3))
-    call check_dust_value(ierrs(3),nerr,'sindex',sind,sindex)
-
-    io_old = io_grainsize
-    if (all(ierrs(1:3) == 0)) then
-       print*,'   ...smincgs, smaxcgs, and sindex found'
-       io_grainsize = 0
-    else
-       call extract('grainsize',grainsizecgs(1),hdr,ierrs(1))
-       if (ierrs(1) == 0) then
-          print*,'   ...grain size found'
-          grainsizecgs = grainsizecgs(1)*udist
-          io_grainsize = 1
-          call check_dust_value(ierrs(1),nerr,'grainsize',grainsizeinp(1),grainsizecgs(1))
-       else
-          print*,'Warning! No grain size information found in dump file!'
-          print*,'         Carefully check your grain sizes by hand....'
-       endif
-    endif
-    if (io_old /= io_grainsize) nerr = nerr + 1
-
-    print*,'Checking grain densities...'
-    call extract('graindens',graindenscgs(1),hdr,ierrs(1))
-    io_old = io_graindens
-    if (ierrs(1) == 0) then
-       print*,'   ...grain density found'
-       graindenscgs = graindenscgs(1)*umass/udist**3
-       io_graindens = 0
-       call check_dust_value(ierrs(1),nerr,'graindens',graindensinp(1),graindenscgs(1))
-    else
-       print*,'Warning! No grain density information found in dump file!'
-       print*,'         Carefully check your grain density by hand....'
-    endif
-
-    if (io_old /= io_graindens) nerr = nerr + 1
-
-    call write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod=dust_method,ireadwrite=2)
-    if (nerr /= 0) then
-       print*,'ERROR: inconsistent dust options! Rewriting dust file...'
-       print "(/,a)",' >>> Try re-running the executable <<<'
-       ierr = 5
-    endif
- else
-    if (io_grainsize == 0) then
-       !--grainsize is reconstructed from these three quantities
-       call extract('smincgs',smin,hdr,ierrs(1))
-       call extract('smaxcgs',smax,hdr,ierrs(2))
-       call extract('sindex' ,sind,hdr,ierrs(3))
-       if (any(ierrs(1:3) /= 0) .and. idrag == 1) then
-       else
-          smincgs = smin
-          smaxcgs = smax
-          sindex  = sind
-       endif
-       write(*,*) 'Grain-size distribution properties, [smin,smax,sindex] = ',smincgs,smaxcgs,sindex
-    elseif (io_grainsize == 1) then
-       !--grainsize is the same for each species
-       call extract('grainsizecgs',grainsizeinp(1),hdr,ierrs(1))
-       if (ierrs(1) /= 0) then
-          print*,'Warning: constant grainsize not found...using default values!'
-       else
-          grainsizecgs = grainsizeinp(1)
-       endif
-       write(*,*) 'Grain size (cm; same for all species) =',grainsizecgs(1)
-    elseif (io_grainsize == 2) then
-       write(*,*) 'Using a custom grain-size distribution:'
-       call nduststrings('grainsizecgs','',varlabel)
-       do i = 1,ndusttypes
-          call extract(trim(varlabel(i)),grainsizeinp(i),hdr,ierrs(1))
-          if (ierrs(1) /= 0) then
-             print*,'Warning: user defined grainsize not found...using default value!'
-          else
-             grainsizecgs(i) = grainsizeinp(i)
-          endif
-          write(*,*) '   grain size (cm) =',grainsizecgs(i)
-       enddo
-    endif
-    if (io_graindens == 0) then
-       !--graindens is the same for each species
-       call extract('graindenscgs',graindensinp(1),hdr,ierr)
-       if (ierrs(1) /= 0) then
-          print*,'Warning: constant graindens not found...using default values!'
-       else
-          graindenscgs = graindensinp(1)
-       endif
-       write(*,*) 'Intrinsic grain density (g/cm^3; same for all species) =',graindenscgs(1)
-    elseif (io_graindens == 1) then
-       write(*,*) 'Using a custom intrinsic grain density for the dust:'
-       call nduststrings('graindenscgs','',varlabel)
-       do i = 1,ndusttypes
-          call extract(trim(varlabel(i)),graindensinp(i),hdr,ierrs(1))
-          if (ierrs(1) /= 0) then
-             print*,'Warning: user defined graindens not found...using default value!'
-          else
-             graindenscgs(i) = graindensinp(i)
-          endif
-          write(*,*) '   grain density (g/cm^3) =',graindenscgs(i)
-       enddo
-    endif
- endif
-
-end subroutine extract_dust_header
-
 
 !-----------------------------------------------------------------
 !+
@@ -770,72 +602,6 @@ subroutine check_dust_value(ierr,nerr,tag,newval,oldval)
 
 end subroutine check_dust_value
 
-
-
-!-----------------------------------------------------------------------
-!+
-!  Writing dust properties to dump file header
-!+
-!-----------------------------------------------------------------------
-subroutine write_dust_to_header(multidustdump,hdr,ierr)
- use dim,             only:ndusttypes,use_dustgrowth
- use dump_utils,      only:add_to_iheader,add_to_rheader,dump_h
- use dust,            only:grainsize,graindens
- integer,      intent(inout) :: ierr
- type(dump_h), intent(inout) :: hdr
- logical,      intent(in)    :: multidustdump
-
- integer :: i
- character(len=120) :: varlabel(ndusttypes)
-
- ! write dust information
- if (use_dustgrowth) then
-    write(*,*) 'writing dust growth properties to header'
- elseif (multidustdump) then
-    write(*,*) 'writing multi-grain properties to header'
- else
-    write(*,*) 'writing graindens and grainsize to header'
- endif
- if (multidustdump) then
-    call add_to_iheader(ndusttypes,  'ndusttypes',  hdr,ierr)
-    call add_to_iheader(io_grainsize,'io_grainsize',hdr,ierr)
-    call add_to_iheader(io_graindens,'io_graindens',hdr,ierr)
-
-    !--grain size
-    if (io_grainsize == 0) then
-       !--grainsize is reconstructed from these three quantities
-       call add_to_rheader(smincgs,'smincgs',hdr,ierr)
-       call add_to_rheader(smaxcgs,'smaxcgs',hdr,ierr)
-       call add_to_rheader(sindex, 'sindex', hdr,ierr)
-    elseif (io_grainsize == 1) then
-       !--grainsize is the same for each species
-       call add_to_rheader(grainsizecgs(1),'grainsizecgs',hdr,ierr)
-    elseif (io_grainsize == 2) then
-       !--grainsize is defined by the user at setup
-       call nduststrings('grainsizecgs','',varlabel)
-       do i = 1,ndusttypes
-          call add_to_rheader(grainsizecgs(i),trim(varlabel(i)),hdr,ierr)
-       enddo
-    endif
-    !--grain density
-    if (io_graindens == 0) then
-       !--graindens is the same for each species
-       call add_to_rheader(graindenscgs(1),'graindenscgs',hdr,ierr)
-    elseif (io_graindens == 1) then
-       !--graindens is defined by the user at setup
-       call nduststrings('graindenscgs','',varlabel)
-       do i = 1,ndusttypes
-          call add_to_rheader(graindenscgs(i),trim(varlabel(i)),hdr,ierr)
-       enddo
-    endif
- else
-    call add_to_rheader(grainsizecgs(1),'grainsizecgs',hdr,ierr)
-    call add_to_rheader(graindenscgs(1),'graindenscgs',hdr,ierr)
- endif
- call add_to_rheader(grainsize,'grainsize',hdr,ierr)
- call add_to_rheader(graindens,'graindens',hdr,ierr)
-
-end subroutine write_dust_to_header
 
 !-----------------------------------------------------------------------
 !+
@@ -1113,4 +879,4 @@ subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,
 
 end subroutine write_temp_grains_file
 
-end module readwrite_dust
+end module set_dust
