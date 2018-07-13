@@ -508,7 +508,7 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
  real(kind=8)  :: udens
  integer, save :: ngrainsize = 0
  integer, save :: ngraindens = 0
- integer, parameter :: nvars = 9
+ integer, parameter :: nvars = 8
  integer, parameter :: narrs = 2
  integer, parameter :: nvalues = nvars + narrs*(ndusttypes-1)
  integer, parameter :: iidrag        = 1, &
@@ -517,10 +517,9 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
                        isindex       = 4, &
                        iKcode        = 5, &
                        ibackreact    = 6, &
-                       ilimitflux    = 7, &
                        !--dust arrays initial index
-                       igrainsize    = 8, &
-                       igraindens    = 9 + (ndusttypes-1), &
+                       igrainsize    = 7, &
+                       igraindens    = 8 + (ndusttypes-1), &
                        !--dust arrays final index
                        igrainsizeend = igraindens-1, &
                        igraindensend = nvars
@@ -560,8 +559,8 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) icut_backreaction
     igot(ibackreact) = 1
  case('ilimitdustflux')
+    !--no longer a compulsory parameter
     read(valstring,*,iostat=ierr) ilimitdustflux
-    igot(ilimitflux) = 1
  case default
     imatch = .false.
  end select
@@ -584,8 +583,6 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
  case default
     stop 'Error! Invalid idrag option passed to read_dust_infile_options'
  end select
-
- if (use_dustfrac) ineed(ilimitflux) = 1
 
  !--Check that we have just the *necessary* parameters
  if (all(ineed == igot)) igotall = .true.
