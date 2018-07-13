@@ -32,7 +32,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,           only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas,mhd
  use prompting,      only: prompt
  use centreofmass,   only: reset_centreofmass,get_centreofmass
- use physcon,        only: c,pi
+ use physcon,        only: c
  use units,          only: unit_velocity
  use timestep,       only: tmax,dtmax
  use initial_params, only: get_conserv
@@ -71,22 +71,30 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  add_v  = .false.
  call prompt('Choice',opt, 1, 7)
 
+
+ !
+ ! Add gravitational waves
+ !
  if (opt == 5) then
     add_gw = .true.
     iexternalforce = iext_gwinspiral
     print*, 'This option requires creating a binary system.  How would you like to create the second star?'
     print*, 'Pick option 1 or 2 from above'
     opt = 1
+    ! Then create binary
     call prompt('Choice',opt, 1, 2)
  endif
 
+ !
+ ! Add radial or rotational velocity pulsations
+ !
  if (opt == 6 .or. opt == 7) then
     add_v = .true.
     call reset_velocity(npart,vxyzu)
     if (opt == 6) then
        fac = 0.2
        call prompt('Enter fac, where v_r = fac*r:',fac,0.)
-       call add_vradial(npart,xyzh,vxyzu,fac,pi)
+       call add_vradial(npart,xyzh,vxyzu,fac)
     endif
     if (opt == 7) then
        omega_inner = 0.025
@@ -98,6 +106,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     print*, 'Would you like to create the second star?'
     print*, 'Pick option 1 or 2 from above, or 0 for no additional star'
     opt = 0
+    ! Then create binary
     call prompt('Choice',opt, 0, 2)
  endif
 
@@ -707,11 +716,12 @@ end subroutine synchronise
 !
 ! Add radial pulsation velocity to a single star
 !
-subroutine add_vradial(npart,xyzh,vxyzu,fac,pi)
+subroutine add_vradial(npart,xyzh,vxyzu,fac)
+ use physcon, only: pi
  integer, intent(in)    :: npart
  real,    intent(in)    :: xyzh(:,:)
  real,    intent(inout) :: vxyzu(:,:)
- real,    intent(in)    :: fac,pi
+ real,    intent(in)    :: fac
  integer                :: i
  real                   :: rad,theta,phi,vr
 
