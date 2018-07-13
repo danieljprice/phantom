@@ -512,8 +512,9 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  if (abs(xright)  < epsilon(xright))  xright  = -xleft
 
  if (use_dust) then
-    dust_method  = 2
+    dust_method  = 1
     call interactively_set_dust(dtg,imethod=dust_method,Kdrag=.true.)
+    if (dust_method == 2) call fatal('setup','shock setup currently does not support two-fluid dust')
  endif
 
  return

@@ -173,11 +173,7 @@ subroutine interactively_set_dust_simple(dust_to_gas,imethod,Kdrag,units)
     !
     !--dust method
     !
-    if (ndusttypes > 1) then
-       dust_method  = 1
-    else
-       dust_method  = 2
-    endif
+    if (ndusttypes > 1) dust_method  = 1
 
     call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
     if (dust_method == 1) then
@@ -271,11 +267,7 @@ subroutine interactively_set_dust_full(dust_to_gas,dustfrac_percent,grainsizeinp
     !
     !--dust method
     !
-    if (ndusttypes > 1) then
-       dust_method  = 1
-    else
-       dust_method  = 2
-    endif
+    if (ndusttypes > 1) dust_method  = 1
 
     call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
     if (dust_method == 1) then

@@ -501,7 +501,6 @@ end subroutine write_options_dust
 !-----------------------------------------------------------------------
 subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
  use units,   only:udist,umass
- use options, only:use_dustfrac
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
