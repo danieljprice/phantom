@@ -1975,8 +1975,11 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
 
  !--pull grain size and density arrays
  if (use_dust) then
-    call extract('grainsize',grainsize,hdr,ierrs(5))
-    call extract('graindens',graindens,hdr,ierrs(5))
+    call extract('grainsize',grainsize,hdr,ierrs(1))
+    call extract('graindens',graindens,hdr,ierrs(2))
+    if (any(ierrs(1:2) /= 0)) then
+       write(*,*) 'ERROR reading grain size/density from file header'
+    endif
  endif
 
  return
