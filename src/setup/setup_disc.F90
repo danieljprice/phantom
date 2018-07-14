@@ -99,7 +99,8 @@ module setup
       'secondary'/)
  logical :: iuse_disc(3),itapergas(3),itaperdust(3),iwarp(3)
  logical :: ismoothgas(3),ismoothdust(3),use_global_iso
- integer :: mass_set(3),profile_set_dust,dust_method,ndiscs
+ integer :: dust_method = 2
+ integer :: mass_set(3),profile_set_dust,ndiscs
  real    :: R_in(3),R_out(3),R_ref(3),R_c(3),R_warp(3),H_warp(3)
  real    :: pindex(3),qindex(3),H_R(3),posangl(3),incl(3)
  real    :: disc_m(3),sig_ref(3),sig_norm(3),annulus_m(3),R_inann(3),R_outann(3),Q_min(3)
