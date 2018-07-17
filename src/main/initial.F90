@@ -47,27 +47,19 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine initialise()
- use dim, only:dimid=>modid,maxp
+ use dim,              only:maxp
  use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
 #endif
  use omputils,         only:init_omp,info_omp
- use options,          only:optid=>modid,set_default_options
- use part,             only:partid=>modid,maxBevol
+ use options,          only:set_default_options
+ use part,             only:maxBevol
  use units,            only:set_units
  use boundary,         only:set_boundary
  use writeheader,      only:write_codeinfo
- use gitinfo,          only:get_and_print_gitinfo
  use evwrite,          only:init_evfile
- use domain,           only:domid=>modid,init_domains
- use densityforce,     only:denid=>modid
- use deriv,            only:derivid=>modid
- use externalforces,   only:extid=>modid
- use linklist,         only:linkid=>modid
- use readwrite_infile, only:inid=>modid
- use readwrite_dumps,  only:dumpid=>modid
- use step_lf_global,   only:stepid=>modid
+ use domain,           only:init_domains
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
 
@@ -76,19 +68,6 @@ subroutine initialise()
 !--write 'PHANTOM' and code version
 !
  if (id==master) call write_codeinfo(6)
-!
-!--print info on compile
-!
- if (id==master) then
-    write(*,"(20(/,1x,a),/)") 'Compiled with module versions:', &
-         trim(dimid),trim(denid),trim(stepid),trim(derivid), &
-         trim(partid),trim(extid),trim(dumpid),trim(inid), &
-         trim(optid),trim(linkid),trim(domid)
- endif
-!
-!--write info on latest git commit
-!
- if (id==master) call get_and_print_gitinfo(6)
 !
 !--check that it is OK to use fast sqrt functions
 !  on this architecture

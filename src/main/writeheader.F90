@@ -30,7 +30,8 @@ module writeheader
 contains
 
 subroutine write_codeinfo(iunit)
- use dim, only: phantom_version_string
+ use dim,     only:phantom_version_string
+ use gitinfo, only:get_and_print_gitinfo
  integer, intent(in) :: iunit
 !
 !--write out code name, version and time
@@ -48,6 +49,10 @@ subroutine write_codeinfo(iunit)
    "  \/  \/|/   (\__/ \/|_/ | |_/|/|_/|_/    |      |/|/\__/|_/",/, &
    "       (|                                                   ",//,  &
    " Version: ",a)
+!
+!--write info on latest git commit
+!
+ call get_and_print_gitinfo(iunit)
 
  return
 end subroutine write_codeinfo
@@ -99,7 +104,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     call date_and_time(startdate,starttime)
     startdate = startdate(7:8)//'/'//startdate(5:6)//'/'//startdate(1:4)
     starttime = starttime(1:2)//':'//starttime(3:4)//':'//starttime(5:)
-    write(iprint,"(' Run started on ',a,' at ',a)") startdate,starttime
+    write(iprint,"(' Started on ',a,' at ',a)") startdate,starttime
 
     write(iprint, 20) trim(infile),trim(evfile),trim(logfile)
     if (iprint /= 6) write(*, 20) trim(infile),trim(evfile),trim(logfile)
