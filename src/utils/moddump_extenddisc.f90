@@ -227,13 +227,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! Now add those new particles to existing disc
  ipart = npart ! The initial particle number (post shuffle)
  do ii = 1,n_add
-    call rotatevec(xyzh_add(1:3,ii),(/0.,0.,1.0/),rotate_about_z)
-    call rotatevec(xyzh_add(1:3,ii),(/0.,1.0,0./),rotate_about_y)
-    call rotatevec(vxyzu_add(1:3,ii),(/0.,0.,1.0/),rotate_about_z)
-    call rotatevec(vxyzu_add(1:3,ii),(/0.,1.0,0./),rotate_about_y)
     radius = sqrt(xyzh_add(1,ii)**2 + xyzh_add(2,ii)**2)
     jj = int((radius-rad(1))/dr + 1)
     if (jj > ii_match-1) then
+       call rotatevec(xyzh_add(1:3,ii),(/0.,0.,1.0/),rotate_about_z)
+       call rotatevec(xyzh_add(1:3,ii),(/0.,1.0,0./),rotate_about_y)
+       call rotatevec(vxyzu_add(1:3,ii),(/0.,0.,1.0/),rotate_about_z)
+       call rotatevec(vxyzu_add(1:3,ii),(/0.,1.0,0./),rotate_about_y)
        ipart = ipart + 1
        call  add_or_update_particle(igas, xyzh_add(1:3,ii), vxyzu_add(1:3,ii), xyzh_add(4,ii), &
             vxyzu_add(4,ii), ipart, npart, npartoftype, xyzh, vxyzu)
