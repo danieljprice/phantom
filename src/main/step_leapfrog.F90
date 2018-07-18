@@ -88,7 +88,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,maxBevol,&
-                          switches_done_in_derivs,iboundary,get_ntypes,npartoftype,&
+                          iboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustfrac,temperature,alphaind,nptmass,store_temperature,&
                           dustprop,ddustprop,dustproppred
  use eos,            only:get_spsound

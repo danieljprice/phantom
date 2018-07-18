@@ -8,8 +8,7 @@
 !  MODULE: viscosity
 !
 !  DESCRIPTION:
-! This module contains everything related to
-!  Physical viscosity
+!   Routines related to physical viscosity
 !
 !  REFERENCES: None
 !
@@ -140,7 +139,7 @@ end function dt_viscosity
 !+
 !----------------------------------------------------------------
 subroutine viscinfo(ivisc,iprint)
- use dim, only:maxp,maxstrain
+ use dim, only:maxp,maxdvdx
  integer, intent(in) :: ivisc,iprint
 
  select case(ivisc)
@@ -155,7 +154,7 @@ subroutine viscinfo(ivisc,iprint)
     write(iprint,"(a,es10.3)") ' Unknown setting for physical viscosity, nu = ',shearparam
  end select
  if (ivisc /= 0) then
-    if (maxstrain==maxp) then
+    if (maxdvdx==maxp) then
        write(iprint,"(a,/)") ' (computed using two first derivatives)'
     else
        write(iprint,"(a,/)") ' (computed using direct second derivatives)'

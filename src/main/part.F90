@@ -31,10 +31,10 @@
 !--------------------------------------------------------------------------
 module part
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu, &
-          maxalpha,maxptmass,maxstrain, &
+          maxalpha,maxptmass,maxdvdx, &
           mhd,maxmhd,maxBevol,maxp_h2,maxtemp,periodic, &
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
-          switches_done_in_derivs,maxp_dustfrac,use_dust, &
+          maxp_dustfrac,use_dust, &
           store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
           maxne,maxp_growth,ndusttypes
  implicit none
@@ -79,9 +79,9 @@ module part
  character(len=*), parameter :: divcurlB_label(4) = &
    (/'divB  ','curlBx','curlBy','curlBz'/)
 !
-!--physical viscosity
+!--velocity gradients
 !
- real(kind=4) :: straintensor(6,maxstrain)
+ real(kind=4) :: dvdx(9,maxdvdx)
 !
 !--H2 chemistry
 !
@@ -592,6 +592,24 @@ subroutine set_particle_type(i,itype)
  endif
 
 end subroutine set_particle_type
+
+!----------------------------------------------------------------
+!+
+!  utility function to get strain tensor from dvdx array
+!+
+!----------------------------------------------------------------
+pure function strain_from_dvdx(dvdxi) result(strain)
+ real, intent(in) :: dvdxi(9)
+ real :: strain(6)
+
+ strain(1) = 2.*dvdxi(1)
+ strain(2) = dvdxi(2) + dvdxi(4)
+ strain(3) = dvdxi(3) + dvdxi(7)
+ strain(4) = 2.*dvdxi(5)
+ strain(5) = dvdxi(6) + dvdxi(8)
+ strain(6) = 2.*dvdxi(9)
+
+end function strain_from_dvdx
 
 !----------------------------------------------------------------
 !+

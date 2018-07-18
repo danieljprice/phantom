@@ -25,9 +25,9 @@
 !+
 !--------------------------------------------------------------------------
 module densityforce
- use dim,         only:maxstrain,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum
+ use dim,         only:maxdvdx,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum
  use part,        only:maxBevol,mhd
- use part,        only:straintensor
+ use part,        only:dvdx
  use kernel,      only:cnormk,wab0,gradh0,dphidh0,radkern2
  use mpidens,     only:celldens,stackdens
  use timing,      only:getused,printused,print_time
@@ -121,7 +121,7 @@ contains
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                           fxyzu,fext,alphaind,gradh)
  use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha, &
-                     mhd_nonideal,nalpha
+                     mhd_nonideal,nalpha,use_dust
  use eos,       only:get_spsound,get_temperature
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ncells,ifirstincell,get_neighbour_list,get_hmaxcell, &
@@ -211,7 +211,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  !
  realviscosity = (irealvisc > 0)
  getdv = ((maxalpha==maxp .or. ndivcurlv >= 4) .and. icall <= 1) .or. &
-         (realviscosity .and. maxstrain==maxp)
+         (maxdvdx==maxp .and. (use_dust .or. realviscosity))
  if (getdv .and. ndivcurlv < 1) call fatal('densityiterate','divv not stored but it needs to be')
  getdB = (mhd .and. (ndivcurlB >= 4 .or. mhd_nonideal))
 
@@ -244,7 +244,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(alphaind) &
 !$omp shared(dustfrac) &
 !$omp shared(Bxyz) &
-!$omp shared(straintensor) &
+!$omp shared(dvdx) &
 !$omp shared(id) &
 !$omp shared(nprocs) &
 !$omp shared(getdB) &
@@ -383,7 +383,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        if (.not. do_export) then
 #endif
           call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                             straintensor,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+                             dvdx,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
 #ifdef MPI
           nlocal = nlocal + 1
        endif
@@ -495,7 +495,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              stack_redo%cells(cell%waiting_index) = cell
           else
              call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                                straintensor,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+                                dvdx,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
           endif
 
        enddo over_waiting
@@ -531,14 +531,14 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 #endif
 
  ! reduce max stress across MPI procs
- if (realviscosity .and. maxstrain==maxp) then
+ if (realviscosity .and. maxdvdx==maxp) then
     stressmax = reduceall_mpi('max',stressmax)
  endif
 
  ! reduce rhomax
  rhomax = reduceall_mpi('max',rhomax)
 
- if (realviscosity .and. maxstrain==maxp .and. stressmax > 0. .and. iverbose > 0 .and. id==master) then
+ if (realviscosity .and. maxdvdx==maxp .and. stressmax > 0. .and. iverbose > 0 .and. id==master) then
     call warning('force','applying negative stress correction',var='max',val=-stressmax)
  endif
 !
@@ -743,7 +743,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                 projv = dvx*runix + dvy*runiy + dvz*runiz
                 rhosum(idivvi) = rhosum(idivvi) + projv
 
-                if (realviscosity .or. ndivcurlv > 1 .or. nalpha > 1) then
+                if (maxdvdx > 0 .or. ndivcurlv > 1 .or. nalpha > 1) then
                    rhosum(idvxdxi) = rhosum(idvxdxi) + dvx*runix
                    rhosum(idvxdyi) = rhosum(idvxdyi) + dvx*runiy
                    rhosum(idvxdzi) = rhosum(idvxdzi) + dvx*runiz
@@ -992,22 +992,22 @@ end subroutine calculate_divcurlB_from_sums
 
 !----------------------------------------------------------------
 !+
-!  Internal utility to extract the strain tensor from summations
+!  Internal utility to extract velocity gradients from summations
 !  calculated during the density loop.
 !+
 !----------------------------------------------------------------
-subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,strain)
+subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,dvdx)
  real, intent(in)  :: rhosum(:)
  real, intent(in)  :: termnorm,denom
  real, intent(in)  :: rmatrix(6)
- real, intent(out) :: strain(6)
+ real, intent(out) :: dvdx(9)
 
  real :: ddenom,gradvxdxi,gradvxdyi,gradvxdzi
  real :: gradvydxi,gradvydyi,gradvydzi,gradvzdxi,gradvzdyi,gradvzdzi
  real :: dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi
 
-!  if (abs(denom) > tiny(denom)) then ! do exact linear first derivatives
- if (.false.) then ! do exact linear first derivatives
+ if (abs(denom) > tiny(denom)) then ! do exact linear first derivatives
+! if (.false.) then ! do exact linear first derivatives
     ddenom = 1./denom
     call exactlinear(gradvxdxi,gradvxdyi,gradvxdzi, &
                      rhosum(idvxdxi),rhosum(idvxdyi),rhosum(idvxdzi),rmatrix,ddenom)
@@ -1040,12 +1040,13 @@ subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,strain)
     dvzdzi = -rhosum(idvzdzi)*termnorm
  endif
 
- strain(1) = (dvxdxi + dvxdxi)
- strain(2) = (dvxdyi + dvydxi)
- strain(3) = (dvxdzi + dvzdxi)
- strain(4) = (dvydyi + dvydyi)
- strain(5) = (dvydzi + dvzdyi)
- strain(6) = (dvzdzi + dvzdzi)
+ dvdx(:) = (/dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi/)
+! strain(1) = (dvxdxi + dvxdxi)
+! strain(2) = (dvxdyi + dvydxi)
+! strain(3) = (dvxdzi + dvzdxi)
+! strain(4) = (dvydyi + dvydyi)
+! strain(5) = (dvydzi + dvzdyi)
+! strain(6) = (dvzdzi + dvzdzi)
 
 end subroutine calculate_strain_from_sums
 
@@ -1055,10 +1056,13 @@ end subroutine calculate_strain_from_sums
 !  (to avoid tensile instability)
 !+
 !----------------------------------------------------------------
-pure subroutine get_max_stress(strain,divvi,rho1i,stressmax,shearvisc,bulkvisc)
- real, intent(in)    :: strain(6), divvi, rho1i, shearvisc, bulkvisc
+pure subroutine get_max_stress(dvdx,divvi,rho1i,stressmax,shearvisc,bulkvisc)
+ use part, only:strain_from_dvdx
+ real, intent(in)    :: dvdx(9), divvi, rho1i, shearvisc, bulkvisc
  real, intent(inout) :: stressmax
- real :: strainmax,stressiso
+ real :: strainmax,stressiso,strain(6)
+
+ strain = strain_from_dvdx(dvdx)
 
  ! shearvisc = eta/rho, so this is eta/rho**2
  strainmax = -shearvisc*rho1i*maxval(strain) ! 1/rho*L^2/T*1/L*L/T = 1/rho*L^2/T^2
@@ -1555,7 +1559,7 @@ end subroutine finish_rhosum
 !+
 !--------------------------------------------------------------------------
 subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                         straintensor,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+                         dvdx,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
  use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,&
                        n_R,n_electronT,eta_nimhd,iohm,ihall,iambi
  use io,          only:fatal,real4
@@ -1582,7 +1586,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gra
  real(kind=4),    intent(inout) :: divcurlv(:,:)
  real(kind=4),    intent(inout) :: divcurlB(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
- real(kind=4),    intent(inout) :: straintensor(:,:)
+ real(kind=4),    intent(inout) :: dvdx(:,:)
  real,            intent(in)    :: vxyzu(:,:)
  real,            intent(out)   :: dustfrac(:,:)
  real,            intent(out)   :: Bxyz(:,:)
@@ -1606,7 +1610,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gra
  real         :: Bxi,Byi,Bzi,gradBi
  real         :: vxyzui(4)
  real         :: spsoundi,xi_limiter
- real         :: divcurlvi(5),rmatrix(6),straini(6)
+ real         :: divcurlvi(5),rmatrix(6),dvdxi(9)
  real         :: divcurlBi(ndivcurlB)
  real         :: temperaturei,Bi
  real         :: rho1i,term,denom,rhogasi,rhodusti(ndusttypes)
@@ -1762,14 +1766,14 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gra
     !
     !--get strain tensor from summations
     !
-    realvisc: if (realviscosity .and. maxstrain==maxp .and. iamgasi) then
+    if (maxdvdx==maxp .and. getdv) then
        if (.not.igotrmatrix) call calculate_rmatrix_from_sums(cell%rhosums(:,i),denom,rmatrix,igotrmatrix)
-       call calculate_strain_from_sums(cell%rhosums(:,i),term,denom,rmatrix,straini)
+       call calculate_strain_from_sums(cell%rhosums(:,i),term,denom,rmatrix,dvdxi)
        ! check for negative stresses to prevent tensile instability
-       call get_max_stress(straini,divcurlvi(1),rho1i,stressmax,shearparam,bulkvisc)
+       if (realviscosity) call get_max_stress(dvdxi,divcurlvi(1),rho1i,stressmax,shearparam,bulkvisc)
        ! store strain tensor
-       straintensor(:,lli) = real(straini(:),kind=kind(straintensor))
-    endif realvisc
+       dvdx(:,lli) = real(dvdxi(:),kind=kind(dvdx))
+    endif
 
     ! stats
     nneightry = nneightry + cell%nneightry

@@ -36,7 +36,7 @@ module testderivs
 contains
 
 subroutine test_derivs(ntests,npass,string)
- use dim,      only:maxp,maxvxyzu,maxalpha,maxstrain,ndivcurlv,nalpha,use_dust,ndusttypes
+ use dim,      only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust,ndusttypes
  use boundary, only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
  use eos,      only:polyk,gamma,use_entropy
  use io,       only:iprint,id,master,fatal,iverbose,nprocs
@@ -45,7 +45,7 @@ subroutine test_derivs(ntests,npass,string)
  use kernel,   only:radkern
  use part,     only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,fext,divcurlv,divcurlB,maxgradh, &
                     gradh,divBsymm,Bevol,dBevol,Bxyz,Bextx,Bexty,Bextz,alphaind, &
-                    maxphase,rhoh,mhd,maxBevol,ndivcurlB,straintensor, &
+                    maxphase,rhoh,mhd,maxBevol,ndivcurlB,dvdx, &
                     dustfrac,ddustfrac,temperature,idivv,icurlvx,icurlvy,icurlvz, &
                     idivB,icurlBx,icurlBy,icurlBz,deltav,dustprop,ddustprop
  use unifdis,  only:set_unifdis
@@ -161,7 +161,7 @@ subroutine test_derivs(ntests,npass,string)
  rcut = min(xmax,ymax,zmax) - 2.*radkern*hfact*psep
 #else
  ! include all
- rcut = 2*(max(xmax,ymax,zmax) - min(xmax,ymax,zmax))
+ rcut = sqrt(huge(rcut))
 #endif
 
  print*,'thread ',id,' npart = ',npart
@@ -447,7 +447,7 @@ subroutine test_derivs(ntests,npass,string)
 !--check viscosity terms (no pressure)
 !
     if (id==master) then
-       if (maxstrain==maxp) then
+       if (maxdvdx==maxp) then
           write(*,"(/,a)") '--> testing physical viscosity terms (two first derivatives)'
        else
           write(*,"(/,a)") '--> testing physical viscosity terms (direct second derivatives)'
@@ -480,13 +480,16 @@ subroutine test_derivs(ntests,npass,string)
        call checkvalf(np,xyzh,divcurlv(icurlvy,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
        call checkvalf(np,xyzh,divcurlv(icurlvz,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
     endif
-    if (maxstrain==maxp) then
-       call checkvalf(np,xyzh,straintensor(1,:),sxx,1.7e-3,nfailed(6), 'strain tensor (xx)',checkmask)
-       call checkvalf(np,xyzh,straintensor(2,:),sxy,1.e-3,nfailed(7),'strain tensor (xy)',checkmask)
-       call checkvalf(np,xyzh,straintensor(3,:),sxz,2.5e-15,nfailed(8),'strain tensor (xz)',checkmask)
-       call checkvalf(np,xyzh,straintensor(4,:),syy,2.5e-15,nfailed(9),'strain tensor (yy)',checkmask)
-       call checkvalf(np,xyzh,straintensor(5,:),syz,1.5e-3,nfailed(10),'strain tensor (yz)',checkmask)
-       call checkvalf(np,xyzh,straintensor(6,:),szz,2.5e-15,nfailed(11),'strain tensor (zz)',checkmask)
+    if (maxdvdx==maxp) then
+       call checkvalf(np,xyzh,dvdx(1,:),dvxdx,1.7e-3,nfailed(6),  'dvxdx',checkmask)
+       call checkvalf(np,xyzh,dvdx(2,:),dvxdy,2.5e-15,nfailed(7), 'dvxdy',checkmask)
+       call checkvalf(np,xyzh,dvdx(3,:),dvxdz,2.5e-15,nfailed(8), 'dvxdz',checkmask)
+       call checkvalf(np,xyzh,dvdx(4,:),dvydx,1.e-3,nfailed(9),   'dvydx',checkmask)
+       call checkvalf(np,xyzh,dvdx(5,:),dvydy,2.5e-15,nfailed(10), 'dvydy',checkmask)
+       call checkvalf(np,xyzh,dvdx(6,:),dvydz,1.e-3,nfailed(11),  'dvydz',checkmask)
+       call checkvalf(np,xyzh,dvdx(7,:),dvzdx,2.5e-15,nfailed(9), 'dvzdx',checkmask)
+       call checkvalf(np,xyzh,dvdx(8,:),dvzdy,1.5e-3,nfailed(10), 'dvzdy',checkmask)
+       call checkvalf(np,xyzh,dvdx(9,:),dvzdz,2.5e-15,nfailed(11),'dvzdz',checkmask)
     endif
 
     call checkvalf(np,xyzh,fxyzu(1,:),forceviscx,4.e-2,nfailed(12),'viscous force(x)',checkmask)
@@ -523,7 +526,7 @@ subroutine test_derivs(ntests,npass,string)
        deint = reduceall_mpi('+',deint)
        dekin = reduceall_mpi('+',dekin)
        nfailed(:) = 0
-       if (maxstrain==maxp) then
+       if (maxdvdx==maxp) then
           tol = 1.52e-6
        else
           tol = 5.e-12
