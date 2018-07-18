@@ -111,7 +111,7 @@ module dim
  integer, parameter :: maxrhosum = 39
 
  ! fsum
- integer, parameter :: fsumvars = 17 ! Number of scalars in fsum
+ integer, parameter :: fsumvars = 19 ! Number of scalars in fsum
  integer, parameter :: fsumarrs = 5  ! Number of arrays in fsum
  integer, parameter :: maxfsum  = fsumvars + fsumarrs*(ndusttypes-1) ! Total number of values
 

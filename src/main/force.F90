@@ -117,6 +117,8 @@ module forces
        ideltavxi   = 15 + 2*(ndusttypes-1), &
        ideltavyi   = 16 + 3*(ndusttypes-1), &
        ideltavzi   = 17 + 4*(ndusttypes-1), &
+       idvi        = 18 + 4*(ndusttypes-1), &
+       iSti        = 19 + 4*(ndusttypes-1), &
        !--dust arrays final index
        iddustfraciend = idudtdusti-1, &
        idudtdustiend  = ideltavxi -1, &
@@ -791,6 +793,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use eos,         only:get_spsound
 #ifdef DUSTGROWTH
  use part,        only:St,xyzmh_ptmass
+ use growth,      only:iinterpol
 #endif
 #endif
 #ifdef IND_TIMESTEPS
@@ -1570,10 +1573,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 if (use_dustgrowth) then
                    call get_ts(idrag,grainsizei,graindensi,rhoj,rhoi,spsoundj,dv2,tsij(1),iregime)
 #ifdef DUSTGROWTH
-                   if (usej) then
-                      dustprop(4,i) = dustprop(4,i) + 3*pmassj/rhoj*projv*wdrag !--interpolate dv for dust particle i
-                      ri            = sqrt(xyzh(1,i)**2+xyzh(2,i)**2)
-                      St(i)         = St(i) + pmassj/rhoj*tsij(1)*wdrag*sqrt(xyzmh_ptmass(4,1)/ri**3) !--interpolate Stokes number
+                   if (usej .and. iinterpol) then
+                      fsum(idvi) = fsum(idvi) + 3*pmassj/rhoj*projv*wdrag
+                      ri         = sqrt(xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2)
+                      fsum(iSti) = fsum(iSti) + pmassj/rhoj*tsij(1)*wdrag/(ri**1.5)
                    endif
 #endif
                 else
@@ -2179,7 +2182,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
- use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx
+ use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth
  use eos,            only:use_entropy,gamma
  use options, only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating,use_dustfrac
  use part,           only:h2chemistry,rhoanddhdrho,abundance,iboundary,igas,maxphase,maxvxyzu,nabundances, &
@@ -2200,6 +2203,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use timestep_sts,   only:use_sts
 #ifdef LIGHTCURVE
  use part,           only:luminosity
+#endif
+#ifdef DUSTGROWTH
+ use part,           only: dustprop,St
+ use growth,         only:iinterpol
 #endif
 
  integer,            intent(in)    :: icall
@@ -2505,7 +2512,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           deltav(2,:,i)  = fsum(ideltavyi:ideltavyiend)
           deltav(3,:,i)  = fsum(ideltavzi:ideltavziend)
        endif
-
        ! timestep based on Courant condition
        vsigdtc = max(vsigmax,vwavei)
        if (vsigdtc > tiny(vsigdtc)) then
@@ -2551,6 +2557,12 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        endif
 
     else ! not gas
+#ifdef DUSTGROWTH
+       if (use_dust .and. iamdusti .and. iinterpol) then
+          dustprop(4,i) = fsum(idvi)
+          St(i) = fsum(iSti)
+       endif
+#endif
 
        if (maxvxyzu > 4) fxyzu(4,i) = 0.
        ! timestep based on Courant condition for non-gas particles
