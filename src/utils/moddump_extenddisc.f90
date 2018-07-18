@@ -122,7 +122,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (ii_match < 0) then
     call fatal('moddump_extenddisc','cannot match the discs')
  endif
- 
+
  R_match = rad(ii_match)
 
  do i = 1,npart
@@ -149,7 +149,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  rotate_about_y = -acos(dot_product((/0.,0.,1./),Leverything/L_mag))
 
  do i = 1,npart
-    ! i for particle number, ii for radial bin                                                                                            
+    ! i for particle number, ii for radial bin
     xyz_temp = xyzh(1:3,i)
     call rotatevec(xyz_temp,(/0.,0.,1.0/),rotate_about_z)
     call rotatevec(xyz_temp,(/0.,1.0,0./),rotate_about_y)
