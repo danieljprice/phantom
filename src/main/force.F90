@@ -976,6 +976,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  usej      = .false.
  grkernj   = 0.
  alphaj    = alphai
+ divvj     = 0.
  dvdxj(:)  = 0.
  rhoj      = 0.
  rho1j     = 0.
@@ -1201,15 +1202,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           rhoj     = rhoh(hj,pmassj)
           rho1j    = 1./rhoj
           rho21j   = rho1j*rho1j
+          if (maxdvdx==maxp) dvdxj(:) = dvdx(:,j)
 
           if (iamgasj) then
-             if (maxdvdx==maxp) then
-                divvj = divcurlv(1,j)
-                dvdxj(:) = dvdx(:,j)
-             else
-                divvj = 0.
-                dvdxj(:) = 0.
-             endif
+             if (ndivcurlv >= 1) divvj = divcurlv(1,j)
              if (use_dustfrac) then
                 dustfracj(:) = dustfrac(:,j)
                 dustfracjsum = sum(dustfracj(:))
@@ -1229,7 +1225,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 sqrtrhodustfracj(:) = 0.
              endif
 
-             if (maxalpha==maxp)  alphaj  = alphaind(1,j)
+             if (maxalpha==maxp) alphaj  = alphaind(1,j)
              !
              !--calculate j terms (which were precalculated outside loop for i)
              !
@@ -1256,11 +1252,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              vsigavj = 0.; vwavej = 0.; avBtermj = 0.; autermj = 0. ! avoid compiler warnings
              sxxj = 0.; sxyj = 0.; sxzj = 0.; syyj = 0.; syzj = 0.; szzj = 0.; pro2j = 0.; prj = 0.
              dustfracj = 0.; sqrtrhodustfracj = 0.
-             if (maxdvdx==maxp) then
-                dvdxj(:) = dvdx(:,j)
-             else
-                dvdxj(:) = 0.
-             endif
           endif
        else ! set to zero terms which are used below without an if (usej)
           !rhoj      = 0.
@@ -1861,10 +1852,13 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     !--compute density and related quantities from the smoothing length
     !
     call rhoanddhdrho(hi,hi1,rhoi,rho1i,dhdrhoi,pmassi)
+    !
+    !--velocity gradients, used for reconstruction and physical viscosity
+    !
+    if (maxdvdx==maxp) dvdxi(:) = dvdx(:,i)
 
     if (iamgasi) then
        if (ndivcurlv >= 1) divcurlvi(:) = real(divcurlv(:,i),kind=kind(divcurlvi))
-       if (maxdvdx==maxp) dvdxi(:) = dvdx(:,i)
        if (maxvxyzu >= 4) then
           eni   = vxyzu(4,i)
           tempi = 0.0
@@ -1951,7 +1945,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        szzi = 0.
        visctermiso = 0.
        visctermaniso = 0.
-
        dustfraci = 0.
     endif
 
@@ -2332,12 +2325,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           etahalli  = xpartveci(ietahalli)
        endif
 
-       dvdxi(:) = 0.
        if (maxvxyzu >= 4) then
-          if (maxdvdx == maxp) then
-             dvdxi(:) = dvdx(:,i)
-          endif
           eni = xpartveci(ieni)
+       endif
+       if (maxdvdx == maxp) then
+          dvdxi(:) = xpartveci(idvxdxi:idvzdzi)
+       else
+          dvdxi(:) = 0.
        endif
 
        if (use_dustfrac) then
@@ -2717,9 +2711,9 @@ subroutine reconstruct_dv(projv,dx,dy,dz,rx,ry,rz,dvdxi,dvdxj,projvstar)
  dvzdx = 0.5*(dvdxi(7) + dvdxj(7))
  dvzdy = 0.5*(dvdxi(8) + dvdxj(8))
  dvzdz = 0.5*(dvdxi(9) + dvdxj(9))
- projvstar = projv - 0.5*dx*(rx*dvxdx + ry*dvydx + rz*dvzdx) &
-                   - 0.5*dy*(rx*dvxdy + ry*dvydy + rz*dvzdy) &
-                   - 0.5*dz*(rx*dvxdz + ry*dvydz + rz*dvzdz)
+ projvstar = projv - 1.0*dx*(rx*dvxdx + ry*dvydx + rz*dvzdx) &
+                   - 1.0*dy*(rx*dvxdy + ry*dvydy + rz*dvzdy) &
+                   - 1.0*dz*(rx*dvxdz + ry*dvydz + rz*dvzdz)
  projvstar = projv
 ! apply entropy condition
  !if (projvstar*projv < 0.) projvstar = projv

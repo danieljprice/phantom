@@ -1072,7 +1072,7 @@ pure subroutine get_max_stress(dvdx,divvi,rho1i,stressmax,shearvisc,bulkvisc)
  ! tensile instability we only care if the total stress is negative
  ! if stress tensor is positive, don't need correction (stressmax=0)
  stressmax = max(stressmax,-(stressiso + strainmax))
- !stressmax = 0.
+ stressmax = 0.
 
 end subroutine get_max_stress
 
@@ -1473,7 +1473,8 @@ subroutine finish_cell(cell,cell_converged)
 
     pmassi = massoftype(iamtypei)
 
-    call finish_rhosum(rhosum,pmassi,hi,.true.,rhoi=rhoi,rhohi=rhohi,gradhi=gradhi,dhdrhoi_out=dhdrhoi,omegai_out=omegai)
+    call finish_rhosum(rhosum,pmassi,hi,.true.,rhoi=rhoi,rhohi=rhohi,&
+                       gradhi=gradhi,dhdrhoi_out=dhdrhoi,omegai_out=omegai)
 
     func = rhohi - rhoi
     if (omegai > tiny(omegai)) then
