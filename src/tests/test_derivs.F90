@@ -346,7 +346,7 @@ subroutine test_derivs(ntests,npass,string)
           write(*,"(/,a)") '--> testing artificial viscosity terms (disc viscosity)'
 #else
           if (maxalpha==maxp) then
-             write(*,"(/,a)") '--> testing artificial viscosity terms (individual alpha''s)'
+             write(*,"(/,a)") '--> testing artificial viscosity terms (individual alpha)'
           else
              write(*,"(/,a)") '--> testing artificial viscosity terms (constant alpha)'
           endif
