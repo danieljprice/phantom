@@ -32,11 +32,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use set_dust, only:write_temp_grains_file,set_dustfrac_from_inopts
  use options,  only:use_dustfrac
  use growth,   only:set_dustprop
+ use prompting, only:prompt
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer :: i,dust_method
+ integer :: i,dust_method,nratio = 5
  real    :: dust_to_gas
  real    :: dustfrac_percent(ndusttypes) = 0.
 
@@ -49,21 +50,22 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        massoftype(igas) = massoftype(igas)*(1. + dust_to_gas)
     elseif (dust_method == 2) then
        use_dustfrac = .false.
+       call prompt('Enter ratio between number of gas particles and dust particles',nratio,1,5) !We do not care if modulo(npart,nratio) is stricly zero, since npart can be a weird value depdending on the simulation it comes from.
        npart = npartoftype(igas)
-       npartoftype(idust) = npart
-       massoftype(idust)  = massoftype(igas)*dust_to_gas
-       do i=npart+1,2*npart
-          xyzh(1,i) = xyzh(1,i-npart)
-          xyzh(2,i) = xyzh(2,i-npart)
-          xyzh(3,i) = xyzh(3,i-npart)
-          xyzh(4,i) = xyzh(4,i-npart)
+       npartoftype(idust) = npart/nratio
+       massoftype(idust)  = massoftype(igas)*dust_to_gas*nratio
+       do i=npart+1,npart+npart/nratio
+          xyzh(1,i) = xyzh(1,nratio*(i-npart))
+          xyzh(2,i) = xyzh(2,i-nratio*(i-npart))
+          xyzh(3,i) = xyzh(3,i-nratio*(i-npart))
+          xyzh(4,i) = xyzh(4,i-nratio*(i-npart))
 
-          vxyzu(1,i) = vxyzu(1,i-npart)
-          vxyzu(2,i) = vxyzu(2,i-npart)
-          vxyzu(3,i) = vxyzu(3,i-npart)
+          vxyzu(1,i) = vxyzu(1,i-nratio*(i-npart))
+          vxyzu(2,i) = vxyzu(2,i-nratio*(i-npart))
+          vxyzu(3,i) = vxyzu(3,i-nratio*(i-npart))
           call set_particle_type(i,idust)
        enddo
-       npart=2*npart
+       npart=npart+npart/nratio
        if (use_dustgrowth) then
           call set_dustprop(npart)
        endif
