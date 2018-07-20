@@ -111,20 +111,19 @@ module forces
        idBevolyi   = 10, &
        idBevolzi   = 11, &
        idivBdiffi  = 12, &
-       !--dust arrays initial index
-       iddustfraci = 13, &
-       idudtdusti  = 14 +   (ndusttypes-1), &
-       ideltavxi   = 15 + 2*(ndusttypes-1), &
-       ideltavyi   = 16 + 3*(ndusttypes-1), &
-       ideltavzi   = 17 + 4*(ndusttypes-1), &
-       idvi        = 18 + 4*(ndusttypes-1), &
-       iSti        = 19 + 4*(ndusttypes-1), &
-       !--dust arrays final index
-       iddustfraciend = idudtdusti-1, &
-       idudtdustiend  = ideltavxi -1, &
-       ideltavxiend   = ideltavyi -1, &
-       ideltavyiend   = ideltavzi -1, &
-       ideltavziend   = maxfsum
+       !--dust array indexing
+       iddustfraci    = 13, &
+       iddustfraciend = 13 +   (ndusttypes-1), &
+       idudtdusti     = 14 +   (ndusttypes-1), &
+       idudtdustiend  = 14 + 2*(ndusttypes-1), &
+       ideltavxi      = 15 + 2*(ndusttypes-1), &
+       ideltavxiend   = 15 + 3*(ndusttypes-1), &
+       ideltavyi      = 16 + 3*(ndusttypes-1), &
+       ideltavyiend   = 16 + 4*(ndusttypes-1), &
+       ideltavzi      = 17 + 4*(ndusttypes-1), &
+       ideltavziend   = 17 + 5*(ndusttypes-1), &
+       idvi           = 18 + 5*(ndusttypes-1), &
+       iSti           = 19 + 5*(ndusttypes-1)
 
  private
 

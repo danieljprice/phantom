@@ -13,7 +13,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Conrad Chan
+!  OWNER: Daniel Price
 !
 !  $Id$
 !
@@ -1072,6 +1072,7 @@ pure subroutine get_max_stress(dvdx,divvi,rho1i,stressmax,shearvisc,bulkvisc)
  ! tensile instability we only care if the total stress is negative
  ! if stress tensor is positive, don't need correction (stressmax=0)
  stressmax = max(stressmax,-(stressiso + strainmax))
+ !stressmax = 0.
 
 end subroutine get_max_stress
 
