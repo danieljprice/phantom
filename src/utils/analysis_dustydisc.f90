@@ -394,7 +394,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  meantstop(:,:)   = 0.
  meanzdust(:,:)   = 0.
  meanvrdust(:,:)  = 0.
- stan_dev(:,:)    = 0. 
+ stan_dev(:,:)    = 0.
 
  meandustfraci(:,:)  = 0.
  meandustfracisum(:) = 0.
@@ -678,7 +678,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
         unitlx(i) = 0.
         unitly(i) = 0.
         unitlz(i) = 0.
-    endif        
+    endif
 
     if (ninbin(i) > 0) h_smooth(i) = h_smooth(i)/ninbin(i)
  enddo
