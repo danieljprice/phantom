@@ -671,13 +671,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     Ltot = sqrt(Lx(i)*Lx(i) + Ly(i)*Ly(i) + Lz(i)*Lz(i))
 
     if(Ltot/=0.) then
-        unitlx(i) = Lx(i)/Ltot
-        unitly(i) = Ly(i)/Ltot
-        unitlz(i) = Lz(i)/Ltot
+       unitlx(i) = Lx(i)/Ltot
+       unitly(i) = Ly(i)/Ltot
+       unitlz(i) = Lz(i)/Ltot
     else
-        unitlx(i) = 0.
-        unitly(i) = 0.
-        unitlz(i) = 0.
+       unitlx(i) = 0.
+       unitly(i) = 0.
+       unitlz(i) = 0.
     endif
 
     if (ninbin(i) > 0) h_smooth(i) = h_smooth(i)/ninbin(i)
