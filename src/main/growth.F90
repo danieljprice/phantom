@@ -50,6 +50,7 @@ module growth
  real, public           :: vfragoutSI   = 15.
 
  real, public           :: vfrag
+ real, public           :: vref
  real, public           :: vfragin
  real, public           :: vfragout
  real, public           :: grainsizemin
@@ -77,6 +78,7 @@ subroutine init_growth(ierr)
  ierr = 0
 
  !--initialise variables in code units
+ vref           = 100 / unit_velocity
  vfrag          = vfragSI * 100 / unit_velocity
  vfragin        = vfraginSI * 100 / unit_velocity
  vfragout       = vfragoutSI * 100 / unit_velocity
@@ -246,7 +248,9 @@ subroutine get_vrelonvfrag(xyzh,vrel,dustprop,cs,St)
  !
  !--If statements to compute local ratio vrel/vfrag
  !
- if (ifrag > 0) then
+ if (ifrag == 0) then
+    dustprop(3) = vrel/vref ! for pure growth, vrel/vfrag gives vrel in m/s
+ elseif (ifrag > 0) then
     call comp_snow_line(xyzh,cs,izone)
     select case(izone)
     case(0)
