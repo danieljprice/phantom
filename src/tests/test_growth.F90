@@ -155,7 +155,6 @@ subroutine test_growingbox(ntests,npass)
     dustprop(2,i) = dens
     dustprop(3,i) = 0.
     dustprop(4,i) = 0.
-    dustprop(5,i) = 0.
     St(i)         = Stj
  enddo
  npartoftype(idust) = npart - npart_previous
