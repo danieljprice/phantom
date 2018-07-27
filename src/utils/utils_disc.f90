@@ -29,8 +29,6 @@ module discanalysisutils
  character(len=20), parameter, public :: analysistype = 'disc'
  public :: disc_analysis
 
- integer, parameter :: nr = 500
-
  private
 
 contains
