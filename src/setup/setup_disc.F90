@@ -1279,7 +1279,7 @@ subroutine setup_interactive(id)
        !
        !--growth parameters from user
        !
-       call prompt('Enter fragmentation model (0=off,1=on,2=Kobayashi)',ifrag,0,2)
+       call prompt('Enter fragmentation model (0=off,1=on,2=Kobayashi)',ifrag,-1,2)
        select case(ifrag)
        case(0)
           print "(a)",'-----------'

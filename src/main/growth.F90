@@ -25,8 +25,8 @@
 !    isnow        -- snow line (0=off,1=position based,2=temperature based)
 !    rsnow        -- snow line position in AU
 !    vfrag        -- uniform fragmentation threshold in m/s
-!    vfragin      -- inward fragmentation threshold in m/s
-!    vfragout     -- inward fragmentation threshold in m/s
+!    vfragin      -- inner fragmentation threshold in m/s
+!    vfragout     -- outter fragmentation threshold in m/s
 !
 !  DEPENDENCIES: dust, eos, infile_utils, io, options, part, physcon, units
 !+
@@ -209,16 +209,15 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
        !
        !--if statements to compute ds/dt
        !
-       if (dustprop(3,i) < 1. .or. ifrag==0) then ! vrel/vfrag < 1 or pure growth --> growth
+       if (ifrag == -1) dsdt(i) = 0.
+           if ((dustprop(3,i) < 1. .or. ifrag == 0) .and. ifrag /= -1) then ! vrel/vfrag < 1 or pure growth --> growth
           dsdt(i) = rhod/dustprop(2,i)*vrel
        elseif (dustprop(3,i) >= 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
           select case(ifrag)
           case(1)
-             dsdt(i) = -rhod/dustprop(2,i)*vrel ! Symmetrical of Stepinski & Valageas
+                  dsdt(i) = -rhod/dustprop(2,i)*vrel ! Symmetrical of Stepinski & Valageas
           case(2)
-             dsdt(i) = -rhod/dustprop(2,i)*vrel*(dustprop(3,i)**2)/(1+dustprop(3,i)**2) ! Kobayashi model
-          case default
-             dsdt(i) = 0.
+                  dsdt(i) = -rhod/dustprop(2,i)*vrel*(dustprop(3,i)**2)/(1+dustprop(3,i)**2) ! Kobayashi model
           end select
        endif
     endif
@@ -361,7 +360,7 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     imatch = .false.
  end select
 
- if (ifrag == 0 .and. ngot == 1) igotall = .true.
+ if ((ifrag <= 0) .and. ngot == 1) igotall = .true.
  if (isnow == 0) then
     if (ngot == 4) igotall = .true.
  elseif (isnow > 0) then
@@ -403,7 +402,7 @@ subroutine read_growth_setup_options(db,nerr)
  type(inopts), allocatable, intent(inout) :: db(:)
  integer, intent(inout)                   :: nerr
 
- call read_inopt(ifrag,'ifrag',db,min=0,max=2,errcount=nerr)
+ call read_inopt(ifrag,'ifrag',db,min=-1,max=2,errcount=nerr)
  if (ifrag > 0) then
     call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
     call read_inopt(grainsizemin,'grainsizemin',db,min=1.e-5,errcount=nerr)
