@@ -53,7 +53,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: unitlx(nr),unitly(nr),unitlz(nr),tp(nr),ecc(nr)
  real :: psi(nr),tilt_acc(nr)
  integer :: ninbin(nr)
- logical :: assume_Ltot_is_same_as_zaxis
+ logical :: assume_Ltot_is_same_as_zaxis,iexist
 
  integer, parameter :: iparams = 10
  integer, parameter :: iprec   = 24
@@ -137,7 +137,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 ! Printing time and twist for each radius bin
     if (do_precession) then
        write(filename,"(a,i3.3)")"precess",i
-       if (numfile==0) then
+       inquire(file=filename,exist=iexist)
+       if (.not.iexist .or. numfile==0) then
           open(unit=iprec,file=filename,status="replace")
           write(iprec,'("# tilt and twist with time for r = ",es18.10)') rad(i)
           write(iprec,"('#',7(1x,'[',i2.2,1x,a11,']',2x))") &
@@ -196,4 +197,3 @@ subroutine read_discparams(filename,R_in,R_out,H_R,p_index,q_index,M_star,iunit,
 end subroutine read_discparams
 
 end module analysis
-

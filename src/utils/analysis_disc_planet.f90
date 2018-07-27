@@ -28,7 +28,7 @@ module analysis
  character(len=20), parameter, public :: analysistype = 'disc_planet'
  public :: do_analysis
 
- integer, parameter :: nr = 300
+ integer, parameter :: nr = 50
 
  private
 
@@ -65,7 +65,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  integer, parameter :: iparams = 10
  integer, parameter :: iprec   = 24
  integer, parameter :: iplanet = 23
- logical :: do_precession,ifile
+ logical :: do_precession,ifile,iexist
 
  do_precession = .false.
 
@@ -143,7 +143,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 ! Printing time and twist for each radius bin
     if (do_precession) then
        write(filename,"(a,i3.3)")"precess",i
-       if (numfile==0) then
+       inquire(file=filename,exist=iexist)
+       if (.not.iexist .or. numfile==0) then
           open(unit=iprec,file=filename,status="replace")
           write(iprec,'("# tilt and twist with time for r = ",es18.10)') rad(i)
           write(iprec,"('#',7(1x,'[',i2.2,1x,a11,']',2x))") &
@@ -187,7 +188,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  if(nptmass>nptmassinit)then
     do i=nptmassinit+1,nptmass
        write(filename,"(a,i3.3)")"planet_",i-1
-       if (numfile==0) then
+       inquire(file=filename,exist=iexist)
+       if (.not.iexist .or. numfile == 0) then
           open(iplanet,file=filename,status="replace")
           write(iplanet,"('#',20(1x,'[',i2.2,1x,a11,']',2x))") &
                1,'time', &
@@ -323,4 +325,3 @@ subroutine read_discparams(filename,R_in,R_out,H_R,p_index,q_index,M_star,iunit,
 end subroutine read_discparams
 
 end module analysis
-
