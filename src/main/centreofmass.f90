@@ -285,7 +285,7 @@ end subroutine correct_bulk_motion
 !------------------------------------------------------------------------
 subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_ptmass,npart_ptmass)
  use vectorutils, only:cross_product3D
- use part,        only:iphase,iamtype,massoftype
+ use part,        only:iphase,iamtype,massoftype,isdead_or_accreted
  use mpiutils,    only:reduceall_mpi
  real, intent(in)  :: xyzh(:,:),vxyz(:,:)
  real, optional, intent(in):: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
@@ -298,6 +298,7 @@ subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_pt
  L_tot(:) = 0.
 
  ! Calculate the angular momentum from all the particles
+ ! Check if particles are dead or have been accreted first
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyz,npart) &
 !$omp shared(massoftype,iphase) &
@@ -306,10 +307,12 @@ subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_pt
 !$omp reduction(+:L_tot)
 !$omp do
  do ii = 1,npart
-    itype = iamtype(iphase(ii))
-    pmassi = massoftype(itype)
-    call cross_product3D(xyzh(1:3,ii),vxyz(1:3,ii),temp)
-    L_tot = L_tot + temp*pmassi
+    if (.not.isdead_or_accreted(xyzh(4,ii))) then
+      itype = iamtype(iphase(ii))
+      pmassi = massoftype(itype)
+      call cross_product3D(xyzh(1:3,ii),vxyz(1:3,ii),temp)
+      L_tot = L_tot + temp*pmassi
+    endif
  enddo
 !$omp enddo
 
