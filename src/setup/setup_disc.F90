@@ -1664,9 +1664,9 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(profile_set_dust,'profile_set_dust',db,err=ierr)
  endif
  !--resolution
- call read_inopt(np,'np',db,min=0,max=maxp,errcount=nerr)
+ call read_inopt(np,'np',db,min=0,errcount=nerr)
  if (use_dust .and. .not.use_dustfrac) then
-    call read_inopt(np_dust,'np_dust',db,min=0,max=maxp-np,errcount=nerr)
+    call read_inopt(np_dust,'np_dust',db,min=0,errcount=nerr)
  endif
  !--units
  call read_inopt(mass_unit,'mass_unit',db,errcount=nerr)
