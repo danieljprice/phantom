@@ -161,7 +161,7 @@ subroutine set_flyby(mprimary,massratio,minimum_approach,initial_dist, &
     call rotatevec(xyzmh_ptmass(1:3,i),rot_axis,incl)
     call rotatevec(vxyz_ptmass(1:3,i), rot_axis,incl)
  enddo
- 
+
 end subroutine set_flyby
 
 !-------------------------------------------------------------
