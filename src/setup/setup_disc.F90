@@ -85,7 +85,6 @@ module setup
  public  :: setpart
 
  integer :: np,np_dust,norbits,i
- logical :: obsolete_flag = .false.
  !--central objects
  real    :: m1,m2,accr1,accr2,bhspin,bhspinangle,flyby_a,flyby_d,flyby_O,flyby_i
  real    :: binary_a,binary_e,binary_i,binary_O,binary_w,binary_f,deltat
@@ -1385,12 +1384,6 @@ subroutine write_setupfile(filename)
  maxdiscs = 1
  if ((icentral==1) .and. (nsinks==2)) maxdiscs = 3
 
- !--read old options for backwards compatibility
- if (obsolete_flag) then
-    print "(a)",' >>> re-writing obsolete .setup file: CHECK CAREFULLY <<<'
-    call read_obsolete_setup_options(filename)
- endif
-
  print "(/,a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for disc setup routine'
@@ -1641,16 +1634,15 @@ subroutine read_setupfile(filename,ierr)
  !--read old options for backwards compatibility
  call open_db_from_file(db,filename,iunit,ierr)
  call read_inopt(icentral,'icentral',db,err=ierr)
- if (ierr /= 0) obsolete_flag = .true.
- call close_db(db)
- if (obsolete_flag) then
-    print "(a)",' reading obsolete .setup file'
-    call read_obsolete_setup_options(filename)
+ if (ierr /= 0) then
+    ! if old .setup file, read options and return error so it gets rewritten
+    call read_obsolete_setup_options(db)
+    ierr = 1
+    print "(a)",' >>> re-writing obsolete .setup file: CHECK CAREFULLY <<<'
+    return
  endif
 
  nerr = 0
- call open_db_from_file(db,filename,iunit,ierr)
-
  !--dust method
  if (use_dust) then
     call read_inopt(dust_method,'dust_method',db,min=1,max=2,errcount=nerr)
@@ -1870,7 +1862,6 @@ subroutine read_setupfile(filename,ierr)
  if (ierr /= 0) use_mcfost = .false. ! no mcfost by default
 #endif
 
-
  call close_db(db)
  ierr = nerr
  if (nerr > 0) then
@@ -1884,11 +1875,9 @@ end subroutine read_setupfile
 ! subroutine for reading old options for backwards compatibility
 !
 !------------------------------------------------------------------------
-subroutine read_obsolete_setup_options(filename)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- type(inopts), allocatable :: db(:)
- integer, parameter :: iunit = 21
+subroutine read_obsolete_setup_options(db)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), allocatable, intent(inout) :: db(:)
  real,    parameter :: tol = 0.01
  integer :: tmp_i,ierr
  logical :: tmp_l
@@ -1898,8 +1887,6 @@ subroutine read_obsolete_setup_options(filename)
  tmp_r = 0.
  tmp_i = -1
  tmp_l = .false.
-
- call open_db_from_file(db,filename,iunit,ierr)
 
  call read_inopt(np,'npart',db,err=ierr)
  call read_inopt(tmp_i,'np_dust',db,err=ierr)
@@ -1985,8 +1972,6 @@ subroutine read_obsolete_setup_options(filename)
  if (nplanets > 0) setplanets = 1
  call read_inopt(R_in(1),'R_in',db,err=ierr)
  R_ref = R_in(1)
-
- call close_db(db)
 
 end subroutine read_obsolete_setup_options
 
