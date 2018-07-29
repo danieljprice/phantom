@@ -210,14 +210,14 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
        !--if statements to compute ds/dt
        !
        if (ifrag == -1) dsdt(i) = 0.
-           if ((dustprop(3,i) < 1. .or. ifrag == 0) .and. ifrag /= -1) then ! vrel/vfrag < 1 or pure growth --> growth
+       if ((dustprop(3,i) < 1. .or. ifrag == 0) .and. ifrag /= -1) then ! vrel/vfrag < 1 or pure growth --> growth
           dsdt(i) = rhod/dustprop(2,i)*vrel
        elseif (dustprop(3,i) >= 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
           select case(ifrag)
           case(1)
-                  dsdt(i) = -rhod/dustprop(2,i)*vrel ! Symmetrical of Stepinski & Valageas
+             dsdt(i) = -rhod/dustprop(2,i)*vrel ! Symmetrical of Stepinski & Valageas
           case(2)
-                  dsdt(i) = -rhod/dustprop(2,i)*vrel*(dustprop(3,i)**2)/(1+dustprop(3,i)**2) ! Kobayashi model
+             dsdt(i) = -rhod/dustprop(2,i)*vrel*(dustprop(3,i)**2)/(1+dustprop(3,i)**2) ! Kobayashi model
           end select
        endif
     endif
