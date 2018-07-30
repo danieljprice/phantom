@@ -95,7 +95,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real                             :: totmass
  real                             :: xminleft(ndim),xmaxleft(ndim),xminright(ndim),xmaxright(ndim)
  real                             :: delta,gam1,xshock,fac,dtg
- real                             :: uuleft,uuright,volume,xbdyleft,xbdyright,dxright
+ real                             :: uuleft,uuright,volume,xbdyleft,xbdyright,dxright,rholeft,rhoright
  integer                          :: i,ierr,nbpts,ny,nz
  character(len=120)               :: shkfile, filename
  logical                          :: iexist
@@ -155,11 +155,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dxleft = -xleft/float(nx)
  xshock = 0.5*(xleft + xright)
 
+ rholeft  = get_conserved_density(leftstate)
+ rhoright = get_conserved_density(rightstate)
+
  !
  ! adjust boundaries to allow space for boundary particles and inflow
  !
  call adjust_shock_boundaries(dxleft,dxright,radkern, &
-      leftstate(ivx),rightstate(ivx),leftstate(idens),rightstate(idens),tmax,ndim)
+      leftstate(ivx),rightstate(ivx),rholeft,rhoright,tmax,ndim)
  !
  ! print setup parameters
  !
@@ -181,7 +184,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! setup the particles
  !
- if (abs(leftstate(idens)-rightstate(idens)) > epsilon(0.)) then
+ if (abs(rholeft-rhoright) > epsilon(0.)) then
     ! then divide the x axis into two halves at xshock
     xmaxleft(1)  = xshock
     xminright(1) = xshock
@@ -193,14 +196,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     ! set particle mass
     volume           = product(xmaxleft-xminleft)
-    totmass          = volume*leftstate(idens)*(1. + dtg)
+    totmass          = volume*rholeft*(1. + dtg)
     massoftype(igas) = totmass/npart
     if (id==master) print*,' particle mass = ',massoftype(igas)
 
     if (use_closepacked) then
        ! now adjust spacing on right hand side to get correct density given the particle mass
        volume  = product(xmaxright - xminright)
-       totmass = volume*rightstate(idens)*(1. + dtg)
+       totmass = volume*rhoright*(1. + dtg)
        call get_ny_nz_closepacked(dxright,xminright(2),xmaxright(2),xminright(3),xmaxright(3),ny,nz)
        dxright = (xmaxright(1) - xminright(1))/((totmass/massoftype(igas))/(ny*nz))
     endif
@@ -212,16 +215,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
          xminright(2),xmaxright(2),xminright(3),xmaxright(3),dxright,hfact,npart,xyzh,npy=ny,npz=nz) ! set right half
 
     ! define rhozero as average density; required for certain simulations (e.g. non-ideal MHD with constant resistivity)
-    rhozero = (leftstate(idens)*product(xmaxleft-xminleft) + rightstate(idens)*product(xmaxright - xminright)) &
+    rhozero = (rholeft*product(xmaxleft-xminleft) + rhoright*product(xmaxright - xminright)) &
                / product(xmaxright - xminleft)
  else  ! set all of volume if densities are equal
     write(iprint,'(3(a,es16.8))') 'Setup_shock: one density  ',xminleft(1), ' to ',xmaxright(1), ' with dx  = ',dxleft
     call set_unifdis(latticetype,id,master,xminleft(1),xmaxleft(1),xminleft(2), &
                      xmaxleft(2),xminleft(3),xmaxleft(3),dxleft,hfact,npart,xyzh)
     volume           = product(xmaxleft-xminleft)
-    rhozero          = leftstate(idens)
+    rhozero          = rholeft
     dxright          = dxleft
-    massoftype(igas) = leftstate(idens)*volume/real(npart)
+    massoftype(igas) = rholeft*volume/real(npart)
  endif
  !
  ! Fix the particles near x-boundary; else define as gas
@@ -267,14 +270,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  do i=1,npart
     delta = xyzh(1,i) - xshock
     if (delta > 0.) then
-       xyzh(4,i)  = hrho(rightstate(idens),massoftype(igas))
+       xyzh(4,i)  = hrho(rhoright,massoftype(igas))
        vxyzu(1,i) = rightstate(ivx)
        vxyzu(2,i) = rightstate(ivy)
        vxyzu(3,i) = rightstate(ivz)
        if (maxvxyzu >= 4) vxyzu(4,i) = uuright
        if (mhd) Bxyz(1:3,i) = rightstate(iBx:iBz)
     else
-       xyzh(4,i)  = hrho(leftstate(idens),massoftype(igas))
+       xyzh(4,i)  = hrho(rholeft,massoftype(igas))
        vxyzu(1,i) = leftstate(ivx)
        vxyzu(2,i) = leftstate(ivy)
        vxyzu(3,i) = leftstate(ivz)
@@ -578,6 +581,26 @@ subroutine print_shock_params(nstates)
     trim(shocktype),(trim(var_label(i)),leftstate(i),rightstate(i),i=1,nstates)
 
 end subroutine print_shock_params
+
+!------------------------------------------
+!+
+!  Function to return conserved density
+!+
+!------------------------------------------
+real function get_conserved_density(state) result(rho)
+ use dim, only:gr
+ real, intent(in) :: state(max_states)
+ real :: lorentz,v2
+
+ if (gr) then
+    v2 = dot_product(state(ivx:ivz),state(ivx:ivz))
+    lorentz = 1./sqrt(1.-v2)
+    rho = lorentz*state(idens)
+ else
+    rho = state(idens)
+ endif
+
+end function get_conserved_density
 
 !------------------------------------------
 !+
