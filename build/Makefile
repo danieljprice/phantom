@@ -2206,7 +2206,11 @@ qscript:
 	      @echo '#PBS -l nodes='$(NMPI)':ppn='$(NOMP)
            endif
         endif
-	@echo '#PBS -N '`../scripts/randomword.pl`
+        ifdef JOBNAME
+	   @echo '#PBS -N '$(JOBNAME)
+        else
+	   @echo '#PBS -N '`../scripts/randomword.pl`
+        endif
         ifdef QNAME
 	   @echo '#PBS -q '$(QNAME)
         endif
@@ -2296,7 +2300,11 @@ qscript:
 	   @echo '#SBATCH --nodes='$(NMPI)' --ntasks='$(NOMP)
         endif
 	@echo '#SBATCH --cpus-per-task=1'
-	@echo '#SBATCH --job-name='`../scripts/randomword.pl`
+        ifdef JOBNAME
+	   @echo '#SBATCH --job-name='$(JOBNAME)
+        else
+	   @echo '#SBATCH --job-name='`../scripts/randomword.pl`
+        endif
         ifdef QNAME
 	   @echo '#SBATCH --queue='$(QNAME)
         endif
