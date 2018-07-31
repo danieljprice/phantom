@@ -1847,6 +1847,7 @@ end subroutine get_P
 ! as well as some other quantities also needed for artificial viscosity.
 !
 subroutine get_vsig_gr(vsigi,vsigj,projvi,projvj,veli,velj,rij,spsoundi,spsoundj)
+ use io, only:warning
  real, intent(out) :: vsigi,vsigj,projvi,projvj
  real, intent(in)  :: veli(3),velj(3),rij(3),spsoundi,spsoundj
  real :: vij
@@ -1861,6 +1862,9 @@ subroutine get_vsig_gr(vsigi,vsigj,projvi,projvj,veli,velj,rij,spsoundi,spsoundj
  ! Relativistic version vij + csi
  vsigi = (vij+spsoundi)/(1.+vij*spsoundi)
  vsigj = (vij+spsoundj)/(1.+vij*spsoundj)
+
+ if (abs(vsigi) > 1.) call warning('force','vsigi > 1',val=vsigi)
+ if (abs(vsigj) > 1.) call warning('force','vsigj > 1',val=vsigj)
 
  return
 end subroutine get_vsig_gr
