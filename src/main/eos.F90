@@ -857,7 +857,7 @@ end function diff
 !----------------------------------------------------------------
 
 subroutine eosinfo(eos_type,iprint)
- use dim,           only:maxvxyzu
+ use dim,           only:maxvxyzu,gr
  use io,            only:fatal
  use units,         only:unit_density, unit_velocity
  use eos_helmholtz, only:eos_helmholtz_eosinfo
@@ -885,7 +885,11 @@ subroutine eosinfo(eos_type,iprint)
           write(iprint,*) 'OK'
        endif
     elseif (maxvxyzu >= 4) then
-       write(iprint,"(/,a,f10.6)") ' Adiabatic equation of state (evolving UTHERM): P = (gamma-1)*rho*u, gamma = ',gamma
+       if (gr) then
+          write(iprint,"(/,a,f10.6)") ' Adiabatic equation of state with gamma = ',gamma
+       else
+          write(iprint,"(/,a,f10.6)") ' Adiabatic equation of state (evolving UTHERM): P = (gamma-1)*rho*u, gamma = ',gamma
+       endif
     else
        write(iprint,"(/,a,f10.6,a,f10.6)") ' Polytropic equation of state: P = ',polyk,'*rho^',gamma
     endif
