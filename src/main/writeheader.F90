@@ -62,7 +62,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 !  icall = 2 (after particle setup)
 !+
 !-----------------------------------------------------------------
- use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dustgrowth
+ use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dustgrowth,gr
  use io,               only:iprint
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac
@@ -201,12 +201,15 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
        write(iprint,"(a,f10.6)") ' Artificial resistivity, vsig=|vab x rab|   : alphaB = ',alphaB
     endif
     if (maxvxyzu >= 4) then
-       if (gravity) then
+       if (gr) then
+          write(iprint,"(a,f10.6)") ' Art. conductivity                          : alphau = ',alphau
+       else if (gravity .and. .not. gr) then
           write(iprint,"(a,f10.6)") ' Art. conductivity w/divv switch (gravity)  : alphau = ',alphau
        else
           write(iprint,"(a,f10.6)") ' Art. conductivity w/Price 2008 switch      : alphau = ',alphau
        endif
     endif
+    if (gr) write(iprint,"(a)") '    GR --- See Liptai & Price (2018) for implementaion of shock dissipation terms'
     write(iprint,*)
 
 !
