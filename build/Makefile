@@ -1129,13 +1129,8 @@ ifneq ($(UNAME), Darwin)
 endif
 endif
 
-ifeq ($(SYSTEM), gfortranOSX)  # for use with macports gfortran (5.3.0 tested)
+ifeq ($(SYSTEM), gfortranOSX)  # for use with mac gfortran (5.3.0, 7.3.0 tested)
     include Makefile_defaults_gfortran
-    # override these flags
-    FFLAGS= -O3 -Wall -Wno-unused-dummy-argument -frecord-marker=4 -gdwarf-2 \
-            -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize \
-            -std=f2008 -fall-intrinsics
-    LIBCXX = -lc++
 endif
 
 ifeq ($(SYSTEM), gfortran44)
