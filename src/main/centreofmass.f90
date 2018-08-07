@@ -308,10 +308,10 @@ subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_pt
 !$omp do
  do ii = 1,npart
     if (.not.isdead_or_accreted(xyzh(4,ii))) then
-      itype = iamtype(iphase(ii))
-      pmassi = massoftype(itype)
-      call cross_product3D(xyzh(1:3,ii),vxyz(1:3,ii),temp)
-      L_tot = L_tot + temp*pmassi
+       itype = iamtype(iphase(ii))
+       pmassi = massoftype(itype)
+       call cross_product3D(xyzh(1:3,ii),vxyz(1:3,ii),temp)
+       L_tot = L_tot + temp*pmassi
     endif
  enddo
 !$omp enddo

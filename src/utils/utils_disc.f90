@@ -111,9 +111,9 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_
  allocate(zsetgas(npart,nr))
 
 ! Move everything so that the centre of mass is at the origin
-  if (nptmass > 0) then
+ if (nptmass > 0) then
     call reset_centreofmass(npart,xyzh,vxyz,nptmass,xyzmh_ptmass,vxyz_ptmass)
-  endif
+ endif
 
 ! Loop over particles putting properties into the correct bin
 
@@ -189,29 +189,29 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_
  do i = 1,npart
     if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
 
-    xi = xyzh(1:3,i)
-    vi = vxyz(1:3,i)
-    ri = sqrt(dot_product(xi(1:3),xi(1:3)))
+       xi = xyzh(1:3,i)
+       vi = vxyz(1:3,i)
+       ri = sqrt(dot_product(xi(1:3),xi(1:3)))
 
-    ! NB: No internal energy as isothermal
-    if (iexternalforce==iext_einsteinprec) then
-       Ei = 0.5*dot_product(vi,vi) - G*M_star/ri -3.*G*M_star/(ri**2)
-       term = 2.*Ei*(Limag**2 - 6.*mu*mu)/(mu**2)
-    else
-       Ei = 0.5*dot_product(vi,vi) - G*M_star/ri
-       term = 2.*Ei*Limag**2/(mu**2)
-    endif
+       ! NB: No internal energy as isothermal
+       if (iexternalforce==iext_einsteinprec) then
+          Ei = 0.5*dot_product(vi,vi) - G*M_star/ri -3.*G*M_star/(ri**2)
+          term = 2.*Ei*(Limag**2 - 6.*mu*mu)/(mu**2)
+       else
+          Ei = 0.5*dot_product(vi,vi) - G*M_star/ri
+          term = 2.*Ei*Limag**2/(mu**2)
+       endif
 
-    ai = -M_star/(2.*Ei)
+       ai = -M_star/(2.*Ei)
 
-    ii = int((ai-a(1))/da + 1)
+       ii = int((ai-a(1))/da + 1)
 
-    if (ii > nr .or. ii < 1) cycle
-    ninbin(ii) = ninbin(ii) + 1
+       if (ii > nr .or. ii < 1) cycle
+       ninbin(ii) = ninbin(ii) + 1
 
-    ! get vertical height above disc midplane == z if disc is not warped
-    zdash = unitlx(ii)*xi(1) + unitly(ii)*xi(2) + unitlz(ii)*xi(3)
-    zsetgas(ninbin(ii),ii) = zdash
+       ! get vertical height above disc midplane == z if disc is not warped
+       zdash = unitlx(ii)*xi(1) + unitly(ii)*xi(2) + unitlz(ii)*xi(3)
+       zsetgas(ninbin(ii),ii) = zdash
     endif
  enddo
 
