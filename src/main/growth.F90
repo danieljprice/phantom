@@ -50,6 +50,7 @@ module growth
  real, public           :: vfragoutSI   = 15.
 
  real, public           :: vfrag
+ real, public           :: vref
  real, public           :: vfragin
  real, public           :: vfragout
  real, public           :: grainsizemin
@@ -77,6 +78,7 @@ subroutine init_growth(ierr)
  ierr = 0
 
  !--initialise variables in code units
+ vref           = 100 / unit_velocity
  vfrag          = vfragSI * 100 / unit_velocity
  vfragin        = vfraginSI * 100 / unit_velocity
  vfragout       = vfragoutSI * 100 / unit_velocity
@@ -207,7 +209,8 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
        !
        !--if statements to compute ds/dt
        !
-       if (dustprop(3,i) < 1. .or. ifrag==0) then ! vrel/vfrag < 1 or pure growth --> growth
+       if (ifrag == -1) dsdt(i) = 0.
+       if ((dustprop(3,i) < 1. .or. ifrag == 0) .and. ifrag /= -1) then ! vrel/vfrag < 1 or pure growth --> growth
           dsdt(i) = rhod/dustprop(2,i)*vrel
        elseif (dustprop(3,i) >= 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
           select case(ifrag)
@@ -215,8 +218,6 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
              dsdt(i) = -rhod/dustprop(2,i)*vrel ! Symmetrical of Stepinski & Valageas
           case(2)
              dsdt(i) = -rhod/dustprop(2,i)*vrel*(dustprop(3,i)**2)/(1+dustprop(3,i)**2) ! Kobayashi model
-          case default
-             dsdt(i) = 0.
           end select
        endif
     endif
@@ -246,7 +247,9 @@ subroutine get_vrelonvfrag(xyzh,vrel,dustprop,cs,St)
  !
  !--If statements to compute local ratio vrel/vfrag
  !
- if (ifrag > 0) then
+ if (ifrag == 0) then
+    dustprop(3) = vrel/vref ! for pure growth, vrel/vfrag gives vrel in m/s
+ elseif (ifrag > 0) then
     call comp_snow_line(xyzh,cs,izone)
     select case(izone)
     case(0)
@@ -357,7 +360,7 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     imatch = .false.
  end select
 
- if (ifrag == 0 .and. ngot == 1) igotall = .true.
+ if ((ifrag <= 0) .and. ngot == 1) igotall = .true.
  if (isnow == 0) then
     if (ngot == 4) igotall = .true.
  elseif (isnow > 0) then
@@ -399,7 +402,7 @@ subroutine read_growth_setup_options(db,nerr)
  type(inopts), allocatable, intent(inout) :: db(:)
  integer, intent(inout)                   :: nerr
 
- call read_inopt(ifrag,'ifrag',db,min=0,max=2,errcount=nerr)
+ call read_inopt(ifrag,'ifrag',db,min=-1,max=2,errcount=nerr)
  if (ifrag > 0) then
     call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
     call read_inopt(grainsizemin,'grainsizemin',db,min=1.e-5,errcount=nerr)

@@ -357,12 +357,6 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  if (present(position_angle)) posangl = position_angle
  if (present(rwarp))           R_warp = rwarp
  if (present(warp_smoothl))    H_warp = warp_smoothl
- if (present(inclination)) then
-    !--incline disc at position angle and poss. warp disc
-    incl = inclination
-    call set_incline_or_warp(xyzh,vxyzu,npart_tot,npart_start_count,posangl,incl,&
-                             R_warp,H_warp,psimax)
- endif
  !
  !--work out h/H in order to set the artificial viscosity parameter to match a chosen alpha_SS
  !
@@ -375,6 +369,13 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  rmaxav = R_out
  call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,star_m,&
                npart_start_count,npart_tot,do_verbose,R_warp)
+
+ if (present(inclination)) then
+    !--incline disc at position angle and poss. warp disc
+    incl = inclination
+    call set_incline_or_warp(xyzh,vxyzu,npart_tot,npart_start_count,posangl,incl,&
+                             R_warp,H_warp,psimax)
+ endif
  if (maxalpha==0) then
     !
     !--if disc viscosity is used, set the artificial viscosity parameter

@@ -1129,13 +1129,8 @@ ifneq ($(UNAME), Darwin)
 endif
 endif
 
-ifeq ($(SYSTEM), gfortranOSX)  # for use with macports gfortran (5.3.0 tested)
+ifeq ($(SYSTEM), gfortranOSX)  # for use with mac gfortran (5.3.0, 7.3.0 tested)
     include Makefile_defaults_gfortran
-    # override these flags
-    FFLAGS= -O3 -Wall -Wno-unused-dummy-argument -frecord-marker=4 -gdwarf-2 \
-            -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize \
-            -std=f2008 -fall-intrinsics
-    LIBCXX = -lc++
 endif
 
 ifeq ($(SYSTEM), gfortran44)
@@ -2206,7 +2201,11 @@ qscript:
 	      @echo '#PBS -l nodes='$(NMPI)':ppn='$(NOMP)
            endif
         endif
-	@echo '#PBS -N '`../scripts/randomword.pl`
+        ifdef JOBNAME
+	   @echo '#PBS -N '$(JOBNAME)
+        else
+	   @echo '#PBS -N '`../scripts/randomword.pl`
+        endif
         ifdef QNAME
 	   @echo '#PBS -q '$(QNAME)
         endif
@@ -2296,7 +2295,11 @@ qscript:
 	   @echo '#SBATCH --nodes='$(NMPI)' --ntasks='$(NOMP)
         endif
 	@echo '#SBATCH --cpus-per-task=1'
-	@echo '#SBATCH --job-name='`../scripts/randomword.pl`
+        ifdef JOBNAME
+	   @echo '#SBATCH --job-name='$(JOBNAME)
+        else
+	   @echo '#SBATCH --job-name='`../scripts/randomword.pl`
+        endif
         ifdef QNAME
 	   @echo '#SBATCH --queue='$(QNAME)
         endif

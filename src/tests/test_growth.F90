@@ -155,7 +155,6 @@ subroutine test_growingbox(ntests,npass)
     dustprop(2,i) = dens
     dustprop(3,i) = 0.
     dustprop(4,i) = 0.
-    dustprop(5,i) = 0.
     St(i)         = Stj
  enddo
  npartoftype(idust) = npart - npart_previous
@@ -535,7 +534,7 @@ subroutine check_stokes_number(ntests,npass)
 
     do j=1,npart
        if (iamdust(iphase(j))) then
-          r      = sqrt(xyzh(1,j)**2+xyzh(2,j)**2)
+          r      = sqrt(xyzh(1,j)**2+xyzh(2,j)**2+xyzh(3,j)**2)
           Stcomp = 1/(2*K_code*r**(1.5))
           call checkvalbuf(St(j),Stcomp,tolst,'St',nerr(1),ncheck(1),errmax(1))
        endif

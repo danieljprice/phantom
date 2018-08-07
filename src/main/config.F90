@@ -111,16 +111,16 @@ module dim
  integer, parameter :: maxrhosum = 39
 
  ! fsum
- integer, parameter :: fsumvars = 17 ! Number of scalars in fsum
+ integer, parameter :: fsumvars = 19 ! Number of scalars in fsum
  integer, parameter :: fsumarrs = 5  ! Number of arrays in fsum
  integer, parameter :: maxfsum  = fsumvars + fsumarrs*(ndusttypes-1) ! Total number of values
 
  ! xpartveci
  integer, parameter :: maxxpartvecidens = 14
 
- integer, parameter :: xpartvecvars = 47 ! Number of scalars in xpartvec
- integer, parameter :: xpartvecarrs = 2  ! Number of arrays in xpartvec
- integer, parameter :: maxxpartveciforce = xpartvecvars + xpartvecarrs*(ndusttypes-1) ! Total number of values
+ integer, parameter :: maxxpartvecvars = 56 ! Number of scalars in xpartvec
+ integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
+ integer, parameter :: maxxpartveciforce = maxxpartvecvars + maxxpartvecarrs*(ndusttypes-1) ! Total number of values
 
  ! cell storage
  integer, parameter :: maxprocs = 32
@@ -214,21 +214,14 @@ module dim
 #endif
 
 !--------------------
-! Physical viscosity
+! Velocity gradients
 !--------------------
 !
-! storage of strain tensor, necessary if
+! storage of velocity derivatives, necessary if
 ! physical viscosity is done with two
-! first derivatives
+! first derivatives or if dust is used
 !
-#ifdef USE_STRAIN_TENSOR
- integer, parameter :: maxstrain = maxp
-#else
- integer, parameter :: maxstrain = 0
-#endif
-
-! viscosity switches, whether done in step or during derivs call
- logical, parameter :: switches_done_in_derivs = .false.
+ integer, parameter :: maxdvdx = maxp
 
 !--------------------
 ! H2 Chemistry
