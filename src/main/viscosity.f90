@@ -126,7 +126,7 @@ real function dt_viscosity(xi,yi,zi,hi,spsoundi)
  viscnu = shearfunc(xi,yi,zi,spsoundi)
 
  if (viscnu > tiny(viscnu)) then
-    dt_viscosity = 0.4*C_force*hi*hi/viscnu 
+    dt_viscosity = 0.4*C_force*hi*hi/viscnu
  else
     dt_viscosity = huge(dt_viscosity)
  endif
