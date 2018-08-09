@@ -96,7 +96,7 @@ subroutine test_growingbox(ntests,npass)
  use kernel,         only:hfact_default
  use part,           only:idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,rhoh,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-                          dustfrac,dustevol,ddustfrac,temperature,iphase,iamdust,maxtypes,St
+                          dustfrac,dustevol,ddustevol,temperature,iphase,iamdust,maxtypes,St
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use testutils,      only:checkvalbuf,checkvalbuf_end
@@ -200,7 +200,7 @@ subroutine test_growingbox(ntests,npass)
  ! call deriv the first time around
  !
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-            Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+            Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
 
  call init_step(npart,t,dtmax)
  do i=1,nsteps
@@ -227,7 +227,7 @@ subroutine test_growingbox(ntests,npass)
  t = 0
 
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
 
  call init_step(npart,t,dtmax)
 
@@ -260,7 +260,7 @@ subroutine test_growingbox(ntests,npass)
  t = 0
 
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
 
  call init_step(npart,t,dtmax)
 
@@ -288,7 +288,7 @@ subroutine test_growingbox(ntests,npass)
  t = 0
 
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
 
  call init_step(npart,t,dtmax)
 
@@ -319,7 +319,7 @@ subroutine test_growingbox(ntests,npass)
  t = 0
 
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
 
  call init_step(npart,t,dtmax)
 
@@ -358,7 +358,7 @@ subroutine test_growingbox(ntests,npass)
  t = 0
 
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
 
  call init_step(npart,t,dtmax)
 
@@ -400,7 +400,7 @@ subroutine test_growingbox(ntests,npass)
  t = 0
 
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
 
  call init_step(npart,t,dtmax)
 
@@ -435,7 +435,7 @@ subroutine check_stokes_number(ntests,npass)
  use kernel,         only:hfact_default
  use part,           only:igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-                          dustfrac,dustevol,ddustfrac,temperature,iphase,iamdust,maxtypes,St,xyzmh_ptmass
+                          dustfrac,dustevol,ddustevol,temperature,iphase,iamdust,maxtypes,St,xyzmh_ptmass
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use energies,       only:compute_energies,ekin
@@ -519,7 +519,7 @@ subroutine check_stokes_number(ntests,npass)
  t = 0
  dtmax = nsteps*dt
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
  !
  ! run dustybox problem
  !

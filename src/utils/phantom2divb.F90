@@ -24,7 +24,7 @@ program phantom2divb
  use dim,             only:ndivcurlB,maxp,tagline
  use part,            only:npart,xyzh,vxyzu,fxyzu,Bxyz,fext,divcurlv,divcurlB,Bevol,dBevol, &
                            hfact,rhoh,dhdrho,igas,isetphase,iphase,massoftype,maxphase,&
-                           dustfrac,ddustfrac,mhd,temperature,dustprop,ddustprop
+                           dustfrac,ddustevol,mhd,temperature,dustprop,ddustprop
  use io,              only:set_io_unit_numbers,iprint,idisk1,idump
  use initial,         only:initialise
  use readwrite_dumps, only:read_dump,write_fulldump
@@ -72,7 +72,7 @@ program phantom2divb
     endif
     if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,&
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,&
                 temperature,0.,0.,dtdum)
 !
 !--dump to .divv file

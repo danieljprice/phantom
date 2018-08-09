@@ -46,7 +46,7 @@ subroutine test_derivs(ntests,npass,string)
  use part,     only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,fext,divcurlv,divcurlB,maxgradh, &
                     gradh,divBsymm,Bevol,dBevol,Bxyz,Bextx,Bexty,Bextz,alphaind, &
                     maxphase,rhoh,mhd,maxBevol,ndivcurlB,dvdx, &
-                    dustfrac,ddustfrac,temperature,idivv,icurlvx,icurlvy,icurlvz, &
+                    dustfrac,ddustevol,temperature,idivv,icurlvx,icurlvy,icurlvz, &
                     idivB,icurlBx,icurlBy,icurlBz,deltav,dustprop,ddustprop,ndusttypes
  use unifdis,  only:set_unifdis
  use physcon,  only:pi,au,solarm
@@ -91,7 +91,7 @@ subroutine test_derivs(ntests,npass,string)
  integer                :: np,ieosprev
  logical                :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs
  logical                :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testall
- real                   :: vwavei,stressmax,rhoi,sonrhoi(ndusttypes),drhodti,ddustfraci(ndusttypes)
+ real                   :: vwavei,stressmax,rhoi,sonrhoi(ndusttypes),drhodti,ddustevoli(ndusttypes)
  integer(kind=8)        :: nptot
  real,allocatable       :: dummy(:)
 #ifdef IND_TIMESTEPS
@@ -203,7 +203,7 @@ subroutine test_derivs(ntests,npass,string)
     !
     call getused(t1)
     call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
     call getused(t2)
     if (id==master) call printused(t1)
     call rcut_checkmask(rcut,xyzh,npart,checkmask)
@@ -282,7 +282,7 @@ subroutine test_derivs(ntests,npass,string)
        !
        call getused(t1)
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
        call getused(t2)
        if (id==master) then
           fracactive = nactive/real(npart)
@@ -370,7 +370,7 @@ subroutine test_derivs(ntests,npass,string)
 
        call getused(t1)
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
        if (id==master) call printused(t1)
        call rcut_checkmask(rcut,xyzh,npart,checkmask)
        nfailed(:) = 0
@@ -468,7 +468,7 @@ subroutine test_derivs(ntests,npass,string)
 
     call getused(t1)
     call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
     if (id==master) call printused(t1)
     call rcut_checkmask(rcut,xyzh,npart,checkmask)
 
@@ -579,7 +579,7 @@ subroutine test_derivs(ntests,npass,string)
 
        call getused(t1)
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
        if (id==master) call printused(t1)
 
        nfailed(:) = 0
@@ -590,7 +590,7 @@ subroutine test_derivs(ntests,npass,string)
           grainsizek = grainsize(j)
           graindensk = graindens(j)
 #endif
-          call checkvalf(np,xyzh,ddustfrac(j,:),ddustfrac_func,7.e-5,nfailed(3),'deps/dt')
+          call checkvalf(np,xyzh,ddustevol(j,:),ddustevol_func,7.e-5,nfailed(3),'deps/dt')
           if (maxvxyzu>=4) call checkvalf(np,xyzh,fxyzu(4,:),dudtdust_func,5.e-4,nfailed(4),'du/dt')
           call checkvalf(np,xyzh,deltav(1,j,:),deltavx_func,2.3e-5,nfailed(5),'deltavx')
        enddo
@@ -614,16 +614,16 @@ subroutine test_derivs(ntests,npass,string)
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
 !             sonrhoi(:)    = sqrt(dustfrac(:,i)/rhoi)
-!             ddustfraci(:) = 2.*sonrhoi(:)*ddustfrac(:,i) - sonrhoi(:)**2*drhodti
+!             ddustevoli(:) = 2.*sonrhoi(:)*ddustevol(:,i) - sonrhoi(:)**2*drhodti
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
              sonrhoi(:)    = asin(sqrt(dustfrac(:,i)))
-             ddustfraci(:) = 2.*cos(sonrhoi(:))*sin(sonrhoi(:))*ddustfrac(:,i)
+             ddustevoli(:) = 2.*cos(sonrhoi(:))*sin(sonrhoi(:))*ddustevol(:,i)
 !------------------------------------------------
-             dmdust(:)     = dmdust(:) + ddustfraci(:)
+             dmdust(:)     = dmdust(:) + ddustevoli(:)
              dekin  = dekin  + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
              deint  = deint  + (1. - sum(dustfraci))*fxyzu(4,i)
-             dedust = dedust - vxyzu(4,i)*sum(ddustfraci)
+             dedust = dedust - vxyzu(4,i)*sum(ddustevoli)
           enddo
           dmdust  = reduceall_mpi('+',dmdust)
           dekin   = reduceall_mpi('+',dekin)
@@ -688,7 +688,7 @@ subroutine test_derivs(ntests,npass,string)
           call set_active(npart,nactive/nprocs,igas)
           call getused(t1)
           call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
           if (id==master) call printused(t1)
           !
           !--check that various quantities come out as they should do
@@ -747,7 +747,7 @@ subroutine test_derivs(ntests,npass,string)
           call set_active(npart,nactive,igas)
           call getused(t1)
           call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
           if (id==master) call printused(t1)
           call rcut_checkmask(rcut,xyzh,npart,checkmask)
           !
@@ -826,7 +826,7 @@ subroutine test_derivs(ntests,npass,string)
           call set_active(npart,nactive,igas)
           call getused(t1)
           call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
           if (id==master) call printused(t1)
           !
           !--check that various quantities come out as they should do
@@ -881,7 +881,7 @@ subroutine test_derivs(ntests,npass,string)
           call set_active(npart,nactive,igas)
           call getused(t1)
           call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
           if (id==master) call printused(t1)
           !
           !--check that various quantities come out as they should do
@@ -960,7 +960,7 @@ subroutine test_derivs(ntests,npass,string)
     call set_active(npart,nactive,igas)
     call getused(t1)
     call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
     call getused(t2)
     if (id==master) call printused(t1)
     !
@@ -1019,7 +1019,7 @@ subroutine test_derivs(ntests,npass,string)
        call set_active(npart,nactive,igas)
        call getused(t1)
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                    Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
+                    Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
        call getused(t2)
        if (id==master) then
           fracactive = nactive/real(npart)
@@ -1089,7 +1089,7 @@ subroutine test_derivs(ntests,npass,string)
     nactive = npart
     call set_active(npart,nactive,igas)
     call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                 Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
+                 Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
 #endif
     !
     !--first do the calculation with all particles active, then
@@ -1124,7 +1124,7 @@ subroutine test_derivs(ntests,npass,string)
           enddo
           call set_active(npart,nactive,igas)
           call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                       Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
+                       Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
           if (itest==1) then
              fxyzstore(:,1:nptest) = fxyzu(:,1:nptest)
              if (mhd) then
@@ -2518,38 +2518,38 @@ real function dustfrac_func(xyzhi)
 
 end function dustfrac_func
 
-real function ddustfracdx(xyzhi)
+real function ddustevoldx(xyzhi)
  use physcon,  only:pi
  use part,     only:ndusttypes
  use boundary, only:dxbound,xmin
  real, intent(in) :: xyzhi(4)
 
- ddustfracdx = 2.*0.01/dxbound*cos(4.*pi*(xyzhi(1)-xmin)/dxbound) &
+ ddustevoldx = 2.*0.01/dxbound*cos(4.*pi*(xyzhi(1)-xmin)/dxbound) &
                *1./real(ndusttypes)
 
-end function ddustfracdx
+end function ddustevoldx
 
-real function ddustfracdy(xyzhi)
+real function ddustevoldy(xyzhi)
  use physcon,  only:pi
  use part,     only:ndusttypes
  use boundary, only:dybound,ymin
  real, intent(in) :: xyzhi(4)
 
- ddustfracdy = 0.02/dybound*cos(2.*pi*(xyzhi(2)-ymin)/dybound) &
+ ddustevoldy = 0.02/dybound*cos(2.*pi*(xyzhi(2)-ymin)/dybound) &
                *1./real(ndusttypes)
 
-end function ddustfracdy
+end function ddustevoldy
 
-real function ddustfracdz(xyzhi)
+real function ddustevoldz(xyzhi)
  use physcon,  only:pi
  use part,     only:ndusttypes
  use boundary, only:dzbound,zmin
  real, intent(in) :: xyzhi(4)
 
- ddustfracdz = -2.*0.05/dzbound*sin(4.*pi*(xyzhi(3)-zmin)/dzbound) &
+ ddustevoldz = -2.*0.05/dzbound*sin(4.*pi*(xyzhi(3)-zmin)/dzbound) &
                *1./real(ndusttypes)
 
-end function ddustfracdz
+end function ddustevoldz
 
 real function del2dustfrac(xyzhi)
  use physcon,  only:pi
@@ -2564,7 +2564,7 @@ real function del2dustfrac(xyzhi)
 
 end function del2dustfrac
 
-real function ddustfrac_func(xyzhi)
+real function ddustevol_func(xyzhi)
  use eos,  only:gamma
  use part, only:ndusttypes
 #ifdef DUST
@@ -2592,9 +2592,9 @@ real function ddustfrac_func(xyzhi)
  gradu(1)   = dudx(xyzhi)
  gradu(2)   = dudy(xyzhi)
  gradu(3)   = dudz(xyzhi)
- gradeps(1) = ddustfracdx(xyzhi)
- gradeps(2) = ddustfracdy(xyzhi)
- gradeps(3) = ddustfracdz(xyzhi)
+ gradeps(1) = ddustevoldx(xyzhi)
+ gradeps(2) = ddustevoldy(xyzhi)
+ gradeps(3) = ddustevoldz(xyzhi)
  gradsumeps = gradeps*real(ndusttypes)
  du_dot_de  = dot_product(gradu,gradsumeps)
  gradp(:)   = (gamma-1.)*(rhogasi*gradu - rhoi*uui*gradsumeps)
@@ -2619,19 +2619,19 @@ real function ddustfrac_func(xyzhi)
  !
  gradepsts(:) = dustfraci*gradts(:) + tsi*gradeps(:)
 
- !ddustfrac_func = -1./rhoi*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts))
+ !ddustevol_func = -1./rhoi*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts))
 
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
 ! si = sqrt(dustfraci*rhoi)
-! ddustfrac_func = -0.5/si*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts)) - 0.5*si*divvfunc(xyzhi)
+! ddustevol_func = -0.5/si*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts)) - 0.5*si*divvfunc(xyzhi)
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
  si = asin(sqrt(dustfraci))
- ddustfrac_func = -0.5/(rhoi*sin(si)*cos(si))*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts))
+ ddustevol_func = -0.5/(rhoi*sin(si)*cos(si))*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts))
 !------------------------------------------------
 
-end function ddustfrac_func
+end function ddustevol_func
 
 real function dudtdust_func(xyzhi)
  use eos,  only:gamma
@@ -2658,9 +2658,9 @@ real function dudtdust_func(xyzhi)
  gradu(1)   = dudx(xyzhi)
  gradu(2)   = dudy(xyzhi)
  gradu(3)   = dudz(xyzhi)
- gradeps(1) = ddustfracdx(xyzhi)
- gradeps(2) = ddustfracdy(xyzhi)
- gradeps(3) = ddustfracdz(xyzhi)
+ gradeps(1) = ddustevoldx(xyzhi)
+ gradeps(2) = ddustevoldy(xyzhi)
+ gradeps(3) = ddustevoldz(xyzhi)
  gradsumeps = real(ndusttypes)*gradeps
  pri        = (gamma-1.)*rhogasi*uui
  spsoundi   = gamma*pri/rhogasi
@@ -2698,7 +2698,7 @@ real function deltavx_func(xyzhi)
  dustfracisum = real(ndusttypes)*dustfraci
  rhogasi    = (1.-dustfracisum)*rhoi
  rhodusti   = dustfracisum*rhoi
- gradsumeps = real(ndusttypes)*ddustfracdx(xyzhi)
+ gradsumeps = real(ndusttypes)*ddustevoldx(xyzhi)
  gradu      = dudx(xyzhi)
  uui        = utherm(xyzhi)
  pri        = (gamma-1.)*rhogasi*uui

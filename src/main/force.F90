@@ -113,8 +113,8 @@ module forces
        idBevolzi   = 11, &
        idivBdiffi  = 12, &
        !--dust array indexing
-       iddustfraci    = 13, &
-       iddustfraciend = 13 +   (maxdustsmall-1), &
+       iddustevoli    = 13, &
+       iddustevoliend = 13 +   (maxdustsmall-1), &
        idudtdusti     = 14 +   (maxdustsmall-1), &
        idudtdustiend  = 14 + 2*(maxdustsmall-1), &
        ideltavxi      = 15 + 2*(maxdustsmall-1), &
@@ -135,7 +135,7 @@ contains
 !  compute all forces and rates of change on the particles
 !+
 !----------------------------------------------------------------
-subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,&
+subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,&
                  ipart_rhomax,dt,stressmax,temperature)
  use dim,          only:maxvxyzu,maxalpha,maxneigh,maxdvdx,&
                         mhd,mhd_nonideal,lightcurve
@@ -198,7 +198,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  real,         intent(inout) :: vxyzu(:,:),dustprop(:,:)
  real,         intent(in)    :: dustfrac(:,:)
  real,         intent(inout) :: temperature(:)
- real,         intent(out)   :: fxyzu(:,:),ddustfrac(:,:),ddustprop(:,:)
+ real,         intent(out)   :: fxyzu(:,:),ddustevol(:,:),ddustprop(:,:)
  real,         intent(in)    :: Bevol(:,:)
  real,         intent(out)   :: dBevol(:,:)
  real(kind=4), intent(inout) :: divcurlv(:,:)
@@ -398,7 +398,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp reduction(+:ndustres,dustresfacmean) &
 !$omp reduction(max:dustresfacmax) &
 !$omp shared(dustfrac) &
-!$omp shared(ddustfrac) &
+!$omp shared(ddustevol) &
 !$omp shared(deltav) &
 !$omp shared(ibin_wake,ibinnow_m1)
 
@@ -454,7 +454,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     else
 #endif
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
-                             divBsymm,divcurlv,dBevol,ddustfrac,deltav, &
+                             divBsymm,divcurlv,dBevol,ddustevol,deltav, &
                              dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                              nbinmaxnew,nbinmaxstsnew,ncheckbin, &
@@ -529,7 +529,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
        endif
 
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx, &
-                                          divBsymm,divcurlv,dBevol,ddustfrac,deltav, &
+                                          divBsymm,divcurlv,dBevol,ddustevol,deltav, &
                                           dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                                           nbinmaxnew,nbinmaxstsnew,ncheckbin, &
@@ -1490,8 +1490,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    !dustfracterms(l) = dustfracterms(l) - depsdissterm(l)*(dustfraci(l) - dustfracj(l))! &
                    !!*1.e-1/(dustfraci(l) + dustfracj(l))
 
-                   fsum(iddustfraci+(l-1)) = fsum(iddustfraci+(l-1)) - dustfracterms(l)
-                   !fsum(iddustfraci+(l-1)) = fsum(iddustfraci+(l-1)) - dustfracterm(l)
+                   fsum(iddustevoli+(l-1)) = fsum(iddustevoli+(l-1)) - dustfracterms(l)
+                   !fsum(iddustevoli+(l-1)) = fsum(iddustevoli+(l-1)) - dustfracterm(l)
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
 !                   if (maxvxyzu >= 4) fsum(idudtdusti+(l-1)) = fsum(idudtdusti+(l-1)) - sqrtrhodustfraci(l)*dustfracterms(l)*denij
@@ -2158,7 +2158,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 end subroutine compute_cell
 
 subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
-                                         divBsymm,divcurlv,dBevol,ddustfrac,deltav, &
+                                         divBsymm,divcurlv,dBevol,ddustevol,deltav, &
                                          dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                                          nbinmaxnew,nbinmaxstsnew,ncheckbin, &
@@ -2213,7 +2213,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real(kind=4),       intent(out)   :: divBsymm(:)
  real(kind=4),       intent(out)   :: divcurlv(:,:)
  real,               intent(out)   :: dBevol(:,:)
- real,               intent(out)   :: ddustfrac(:,:)
+ real,               intent(out)   :: ddustevol(:,:)
  real,               intent(out)   :: deltav(:,:,:)
 
  real,               intent(inout) :: dtcourant,dtforce,dtvisc
@@ -2497,10 +2497,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        if (use_dustfrac) then
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!          ddustfrac(:,i) = 0.5*(fsum(iddustfraci:iddustfraciend)-sqrt(rhoi*dustfraci(:))*divvi)
+!          ddustevol(:,i) = 0.5*(fsum(iddustevoli:iddustevoliend)-sqrt(rhoi*dustfraci(:))*divvi)
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-          ddustfrac(:,i) = fsum(iddustfraci:iddustfraciend)
+          ddustevol(:,i) = fsum(iddustevoli:iddustevoliend)
 !------------------------------------------------
           deltav(1,:,i)  = fsum(ideltavxi:ideltavxiend)
           deltav(2,:,i)  = fsum(ideltavyi:ideltavyiend)

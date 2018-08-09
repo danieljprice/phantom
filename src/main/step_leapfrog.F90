@@ -89,7 +89,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,maxBevol,&
                           iboundary,get_ntypes,npartoftype,&
-                          dustfrac,dustevol,ddustfrac,temperature,alphaind,nptmass,store_temperature,&
+                          dustfrac,dustevol,ddustevol,temperature,alphaind,nptmass,store_temperature,&
                           dustprop,ddustprop,dustproppred,ndustsmall
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
@@ -157,7 +157,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
- !$omp shared(Bevol,dBevol,dustevol,ddustfrac,use_dustfrac) &
+ !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
  !$omp shared(dustprop,ddustprop,dustproppred) &
 #ifdef IND_TIMESTEPS
  !$omp shared(ibin,ibin_old,twas,timei) &
@@ -186,7 +186,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
        if (itype==igas) then
           if (mhd)          Bevol(:,i)    = Bevol(:,i)        + hdti*dBevol(:,i)
-          if (use_dustfrac) dustevol(:,i) = abs(dustevol(:,i) + hdti*ddustfrac(:,i))
+          if (use_dustfrac) dustevol(:,i) = abs(dustevol(:,i) + hdti*ddustevol(:,i))
        endif
     endif
  enddo predictor
@@ -211,7 +211,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp parallel do default(none) schedule(guided,1) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype) &
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
-!$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustfrac,dustpred,use_dustfrac) &
+!$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
 !$omp shared(alphaind,ieos,alphamax,ndustsmall) &
 !$omp shared(temperature) &
 #ifdef IND_TIMESTEPS
@@ -257,7 +257,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (mhd) Bpred(:,i) = Bevol (:,i) + hdti*dBevol(:,i)
           if (use_dustfrac) then
              rhoi          = rhoh(xyzh(4,i),pmassi)
-             dustpred(:,i) = dustevol(:,i) + hdti*ddustfrac(:,i)
+             dustpred(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
 !             dustfrac(1:ndustsmall,i) = min(dustpred(:,i)**2/rhoi,1.) ! dustevol = sqrt(rho*eps)
@@ -304,7 +304,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  if ((iexternalforce /= 0 .or. nptmass > 0) .and. id==master .and. iverbose >= 2) &
    write(iprint,"(a,f14.6,/)") '> full step            : t=',timei
  if (npart > 0) call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
-                     divcurlB,Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustfrac,temperature,timei,dtsph,dtnew)
+                     divcurlB,Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustevol,temperature,timei,dtsph,dtnew)
 !
 ! if using super-timestepping, determine what dt will be used on the next loop
 !
@@ -336,7 +336,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,npart,hdtsph,store_itype) &
 !$omp shared(Bevol,dBevol,iphase,its) &
-!$omp shared(dustevol,ddustfrac,use_dustfrac) &
+!$omp shared(dustevol,ddustevol,use_dustfrac) &
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
 !$omp shared(dtsph,icooling) &
@@ -377,7 +377,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (use_dustgrowth .and. itype==idust) dustproppred(:,i) = dustproppred(:,i) + dti*ddustprop(:,i)
              if (itype==igas) then
                 if (mhd)          Bevol(:,i)    = Bevol(:,i)    + dti*dBevol(:,i)
-                if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + dti*ddustfrac(:,i)
+                if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + dti*ddustevol(:,i)
              endif
              twas(i) = twas(i) + dti
           endif
@@ -389,7 +389,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdti*dBevol(:,i)
-             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdti*ddustfrac(:,i)
+             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
           endif
           !
           !--Wake inactive particles for next step, if required
@@ -434,7 +434,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              ! corrector step for magnetic field and dust
              !
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdtsph*dBevol(:,i)
-             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdtsph*ddustfrac(:,i)
+             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdtsph*ddustevol(:,i)
           endif
 #endif
        endif
@@ -463,7 +463,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  - hdtsph*dBevol(:,i)
-             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) - hdtsph*ddustfrac(:,i)
+             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) - hdtsph*ddustevol(:,i)
           endif
 #endif
        enddo
@@ -472,7 +472,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !   get new force using updated velocity: no need to recalculate density etc.
 !
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
-                     Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustfrac,&
+                     Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustevol,&
                      temperature,timei,dtsph,dtnew)
     endif
 #ifdef DUSTGROWTH

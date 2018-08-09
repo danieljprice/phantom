@@ -167,7 +167,7 @@ module part
  real               :: dBevol(maxBevol,maxmhdan)
  real(kind=4)       :: divBsymm(maxmhdan)
  real               :: fext(3,maxan)
- real               :: ddustfrac(maxdustsmall,maxdustan)
+ real               :: ddustevol(maxdustsmall,maxdustan)
  real               :: ddustprop(4,maxp_growth) !--grainsize is the only prop that evolves for now
 !
 !--storage associated with/dependent on timestepping
@@ -701,7 +701,7 @@ subroutine copy_particle_all(src,dst)
     dustfrac(:,dst)  = dustfrac(:,src)
     dustevol(:,dst)  = dustevol(:,src)
     dustpred(:,dst)  = dustpred(:,src)
-    ddustfrac(:,dst) = ddustfrac(:,src)
+    ddustevol(:,dst) = ddustevol(:,src)
     deltav(:,:,dst)  = deltav(:,:,src)
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)

@@ -42,7 +42,7 @@ contains
 !+
 !-------------------------------------------------------------
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-                  dustfrac,ddustfrac,temperature,time,dt,dtnew)
+                  dustfrac,ddustevol,temperature,time,dt,dtnew)
  use dim,            only:maxp,maxvxyzu
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
@@ -76,7 +76,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real,         intent(out)   :: dBevol(:,:)
  real,         intent(in)    :: dustfrac(:,:)
  real,         intent(inout) :: dustprop(:,:)
- real,         intent(out)   :: ddustfrac(:,:),ddustprop(:,:)
+ real,         intent(out)   :: ddustevol(:,:),ddustprop(:,:)
  real,         intent(inout) :: temperature(:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
@@ -136,7 +136,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 
  stressmax = 0.
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-            dustfrac,ddustfrac,ipart_rhomax,dt,stressmax,temperature)
+            dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature)
  call do_timing('force',tlast,tcpulast)
 #ifdef DUSTGROWTH
  !
