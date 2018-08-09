@@ -31,13 +31,13 @@ module testrwdump
 contains
 
 subroutine test_rwdump(ntests,npass)
- use part,      only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu, &
-                    Bevol,Bxyz,Bextx,Bexty,Bextz,alphaind,maxalpha,periodic, &
-                    maxphase,mhd,maxvxyzu,maxBevol,igas,idust,maxp,&
-                    poten,gravity,use_dust,dustfrac,xyzmh_ptmass,nptmass,&
-                    nsinkproperties,xyzh_label,xyzmh_ptmass_label,dustfrac_label,&
-                    vxyz_ptmass,vxyz_ptmass_label,vxyzu_label,set_particle_type,iphase
- use dim,             only:ndusttypes
+ use part,            only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,&
+                           Bevol,Bxyz,Bextx,Bexty,Bextz,alphaind,maxalpha,&
+                           periodic,maxphase,mhd,maxvxyzu,maxBevol,igas,idust,&
+                           maxp,poten,gravity,use_dust,dustfrac,xyzmh_ptmass,&
+                           nptmass,nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
+                           dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
+                           vxyzu_label,set_particle_type,iphase,ndusttypes
  use testutils,       only:checkval
  use io,              only:idisk1,id,master,iprint,nprocs
  use readwrite_dumps, only:read_dump,write_fulldump,write_smalldump,read_smalldump,is_small_dump

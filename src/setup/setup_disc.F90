@@ -70,13 +70,14 @@
 !+
 !--------------------------------------------------------------------------
 module setup
- use dim,            only:maxp,use_dust,maxalpha,use_dustgrowth,ndusttypes
+ use dim,            only:maxp,use_dust,maxalpha,use_dustgrowth,maxdusttypes
  use externalforces, only:iext_star,iext_binary,iext_lensethirring,iext_einsteinprec, &
                           iext_corot_binary,iext_corotate
  use options,        only:use_dustfrac,iexternalforce
 #ifdef MCFOST
  use options,        only:use_mcfost
 #endif
+ use part,           only:ndusttypes
  use physcon,        only:au,solarm
  use setdisc,        only:scaled_sigma
  use extern_binary,  only:ramp,surface_force
@@ -108,8 +109,8 @@ module setup
  real    :: ldisc(3),lcentral(3)
  real    :: alphaSS,dist_bt_sinks
  !--dust
- real    :: dustfrac_percent(ndusttypes) = 0.
- real    :: grainsizeinp(ndusttypes),graindensinp(ndusttypes),dust_to_gas_ratio
+ real    :: dustfrac_percent(maxdusttypes)
+ real    :: grainsizeinp(maxdusttypes),graindensinp(maxdusttypes),dust_to_gas_ratio
  !--planets
  integer, parameter :: maxplanets = 9
  integer :: nplanets,setplanets
@@ -171,7 +172,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical :: iexist,seq_exists,is_isothermal,ichange_method
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
  real    :: jdust_to_gas_ratio,Rj,period,Rochelobe,Hill(maxplanets)
- real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Sigmadust,Stokes(ndusttypes)
+ real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Sigmadust,Stokes(maxdusttypes)
  real    :: polyk_dust,xorigini(3),vorigini(3),alpha_returned(3)
  real    :: star_m(3),disc_mdust(3),sig_normdust(3),u(3)
  real    :: enc_m(maxbins),rad(maxbins),Q_mintmp,disc_mtmp(3),annulus_mtmp(3)
@@ -181,7 +182,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=100) :: filename
  character(len=20)  :: fmt_space
  character(len=100) :: prefix
- character(len=120) :: varstring(ndusttypes)
+ character(len=120) :: varstring(maxdusttypes)
 
  integer :: npart_planet_atm,npart_recentre
  integer :: npart_disc
@@ -1878,7 +1879,7 @@ end subroutine read_setupfile
 subroutine read_obsolete_setup_options(db)
  use infile_utils, only:inopts,read_inopt
  type(inopts), allocatable, intent(inout) :: db(:)
- real,    parameter :: tol = 0.01
+ real, parameter :: tol = 0.01
  integer :: tmp_i,ierr
  logical :: tmp_l
  real    :: tmp_r

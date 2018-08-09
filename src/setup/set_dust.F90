@@ -32,9 +32,10 @@
 !--------------------------------------------------------------------------
 
 module set_dust
- use dim,  only:ndusttypes
+ use dim,  only:maxdusttypes
  use dust, only:smincgs,smaxcgs,sindex,grainsizecgs,graindenscgs,K_code,idrag, &
                 ilimitdustflux
+ use part, only:ndusttypes
  implicit none
  !--Default values for the dust in the infile
  integer, public :: io_grainsize = 0
@@ -70,8 +71,10 @@ subroutine set_dustfrac_from_inopts(dust_to_gas,percent,ipart)
  real,    intent(in), optional :: percent(:)
  real,    intent(in) :: dust_to_gas
  integer :: i
- real    :: dustfrac_temp(ndusttypes)
- real    :: dustfrac_multiplier(ndusttypes) = 1.
+ real    :: dustfrac_temp(maxdusttypes)
+ real    :: dustfrac_multiplier(maxdusttypes)
+
+ dustfrac_multiplier = 1.
 
  select case(io_grainsize)
  case(0)
@@ -109,7 +112,7 @@ end subroutine set_dustfrac_from_inopts
 subroutine nduststrings(pre_string,post_string,complete_string)
  use io,  only:fatal
  character(len=*), intent(in) :: pre_string,post_string
- character(len=120), intent(out) :: complete_string(ndusttypes)
+ character(len=120), intent(out) :: complete_string(maxdusttypes)
 
  integer :: i,total_len,int_len
  character(len=20) :: num_string
@@ -152,7 +155,7 @@ subroutine interactively_set_dust_simple(dust_to_gas,imethod,Kdrag,units)
 
  integer :: dust_method = -1
  real    :: units_to_cgs = 1.
- real    :: grainsizeinp(ndusttypes),graindensinp(ndusttypes)
+ real    :: grainsizeinp(maxdusttypes),graindensinp(maxdusttypes)
  character(len=120) :: message
  character(len=10)  :: abbrev = 'cm'
 
@@ -243,7 +246,7 @@ subroutine interactively_set_dust_full(dust_to_gas,dustfrac_percent,grainsizeinp
  real    :: units_to_cgs = 1.
  logical :: simple_grainsize = .false.
  logical :: simple_graindens = .false.
- character(len=120) :: varstring(ndusttypes),varstringalt(ndusttypes)
+ character(len=120) :: varstring(maxdusttypes),varstringalt(maxdusttypes)
  character(len=120) :: message
  character(len=10)  :: abbrev = 'cm'
 
@@ -443,13 +446,13 @@ subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple,imethod)
  real,    intent(out)           :: dust_to_gas
  integer            :: i,ierr
  integer            :: dust_method = -1
- real               :: grainsizeinp(ndusttypes)
- real               :: graindensinp(ndusttypes)
- real               :: dustfrac_percent(ndusttypes)
+ real               :: grainsizeinp(maxdusttypes)
+ real               :: graindensinp(maxdusttypes)
+ real               :: dustfrac_percent(maxdusttypes)
  logical            :: simple_grainsize = .false.
  logical            :: simple_graindens = .false.
  logical            :: simple_output    = .false.
- character(len=120) :: varlabel(ndusttypes)
+ character(len=120) :: varlabel(maxdusttypes)
 
  call read_inopt(dust_method,'dust_method',db,min=1,max=2,errcount=nerr)
  if (present(imethod)) imethod = dust_method
@@ -612,7 +615,7 @@ subroutine check_dust_method(id,filename,dust_method,ichange_method)
  character(len=*), intent(in)    :: filename
  integer :: i,l,iregime,ierr,icheckdust
  real    :: r,rhogasi,rhodusti,rhoi,dustfracisum,spsoundi
- real    :: dustfraci(ndusttypes),tsi(ndusttypes)
+ real    :: dustfraci(maxdusttypes),tsi(maxdusttypes)
  character(len=120) :: string
  logical :: iforce_dust_method = .false.
 
@@ -684,13 +687,18 @@ subroutine write_dust_setup_options(iunit,dust_to_gas,df,gs,gd,imethod,iprofile,
  real,    intent(in)    :: dust_to_gas
 
  integer :: i
- integer :: dust_method = -1
- integer :: profile_set_dust = -1
- real    :: grainsizeinp(ndusttypes)
- real    :: graindensinp(ndusttypes)
- real    :: dustfrac_percent(ndusttypes) = 0.
- logical :: simple_output = .false.
- character(len=120) :: varlabel(ndusttypes),varstring(ndusttypes)
+ integer :: dust_method
+ integer :: profile_set_dust
+ real    :: grainsizeinp(maxdusttypes)
+ real    :: graindensinp(maxdusttypes)
+ real    :: dustfrac_percent(maxdusttypes)
+ logical :: simple_output
+ character(len=120) :: varlabel(maxdusttypes),varstring(maxdusttypes)
+
+ dust_method = -1
+ profile_set_dust = -1
+ dustfrac_percent = 0.
+ simple_output = .false.
 
  grainsizeinp = grainsizecgs
  graindensinp = graindenscgs
@@ -770,7 +778,7 @@ end subroutine write_dust_setup_options
 !+
 !-----------------------------------------------------------------------
 subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,ireadwrite)
- use dim,          only:ndusttypes,use_dustgrowth
+ use dim,          only:use_dustgrowth
  use io,           only:id,master
  use infile_utils, only:open_db_from_file,close_db,inopts
  use options,      only:use_dustfrac
@@ -785,7 +793,7 @@ subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,
  integer            :: dust_method = -1
  integer            :: profile_set_dust = -1
  integer            :: ioselect = 0
- real               :: grainsizeinp(ndusttypes),graindensinp(ndusttypes)
+ real               :: grainsizeinp(maxdusttypes),graindensinp(maxdusttypes)
  logical            :: iexist
  character(len=10)  :: grainsfile = 'grains.tmp'
  type(inopts), allocatable :: db(:)

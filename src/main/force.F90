@@ -30,7 +30,8 @@
 !+
 !--------------------------------------------------------------------------
 module forces
- use dim,      only:maxfsum,maxxpartveciforce,maxBevol,maxp,ndivcurlB,ndivcurlv,ndusttypes
+ use dim, only:maxfsum,maxxpartveciforce,maxBevol,maxp,ndivcurlB,ndivcurlv,&
+               maxdusttypes,maxdustsmall
  use mpiforce, only:cellforce,stackforce
 
  implicit none
@@ -93,9 +94,9 @@ module forces
        !--dust arrays initial index
        idustfraci    = 55, &
        !--dust arrays final index
-       idustfraciend = 55 + (ndusttypes - 1), &
-       itstop        = 56 + (ndusttypes - 1), &
-       itstopend     = 56 + 2*(ndusttypes - 1)
+       idustfraciend = 55 + (maxdusttypes - 1), &
+       itstop        = 56 + (maxdusttypes - 1), &
+       itstopend     = 56 + 2*(maxdusttypes - 1)
 
  !--indexing for fsum array
  integer, parameter :: &
@@ -113,17 +114,17 @@ module forces
        idivBdiffi  = 12, &
        !--dust array indexing
        iddustfraci    = 13, &
-       iddustfraciend = 13 +   (ndusttypes-1), &
-       idudtdusti     = 14 +   (ndusttypes-1), &
-       idudtdustiend  = 14 + 2*(ndusttypes-1), &
-       ideltavxi      = 15 + 2*(ndusttypes-1), &
-       ideltavxiend   = 15 + 3*(ndusttypes-1), &
-       ideltavyi      = 16 + 3*(ndusttypes-1), &
-       ideltavyiend   = 16 + 4*(ndusttypes-1), &
-       ideltavzi      = 17 + 4*(ndusttypes-1), &
-       ideltavziend   = 17 + 5*(ndusttypes-1), &
-       idvi           = 18 + 5*(ndusttypes-1), &
-       iSti           = 19 + 5*(ndusttypes-1)
+       iddustfraciend = 13 +   (maxdustsmall-1), &
+       idudtdusti     = 14 +   (maxdustsmall-1), &
+       idudtdustiend  = 14 + 2*(maxdustsmall-1), &
+       ideltavxi      = 15 + 2*(maxdustsmall-1), &
+       ideltavxiend   = 15 + 3*(maxdustsmall-1), &
+       ideltavyi      = 16 + 3*(maxdustsmall-1), &
+       ideltavyiend   = 16 + 4*(maxdustsmall-1), &
+       ideltavzi      = 17 + 4*(maxdustsmall-1), &
+       ideltavziend   = 17 + 5*(maxdustsmall-1), &
+       idvi           = 18 + 5*(maxdustsmall-1), &
+       iSti           = 19 + 5*(maxdustsmall-1)
 
  private
 
@@ -774,7 +775,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:maxphase,iactive,iamtype,iamdust,get_partinfo
  use part,        only:mhd,maxvxyzu,maxBevol,maxdvdx
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,store_temperature
- use part,        only:rhoh,maxgradh,dvdx
+ use part,        only:rhoh,maxgradh,dvdx,ndustsmall
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
@@ -853,9 +854,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: phi,phii,phij,fgrav,fgravi,fgravj,termi
 #ifdef DUST
  integer :: iregime
- real    :: dragterm,dragheating,wdrag,tsij(ndusttypes),dv2
- real    :: grkernav,tsj(ndusttypes),dustfracterms(ndusttypes),term
- !real    :: Dav(ndusttypes),vsigeps,depsdissterm(ndusttypes)
+ real    :: dragterm,dragheating,wdrag,tsij(maxdusttypes),dv2
+ real    :: grkernav,tsj(maxdusttypes),dustfracterms(maxdusttypes),term
+ !real    :: Dav(maxdusttypes),vsigeps,depsdissterm(maxdusttypes)
 #ifdef DUSTGROWTH
  real    :: ri
 #endif
@@ -865,8 +866,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: auterm,avBterm,mrhoi5,vsigB
  real    :: jcbcbj(3),jcbj(3),dBnonideal(3),dBnonidealj(3),curlBi(3),curlBj(3)
  real    :: vsigavi,vsigavj
- real    :: dustfraci(ndusttypes),dustfracj(ndusttypes),tsi(ndusttypes)
- real    :: sqrtrhodustfraci(ndusttypes),sqrtrhodustfracj(ndusttypes)
+ real    :: dustfraci(maxdusttypes),dustfracj(maxdusttypes),tsi(maxdusttypes)
+ real    :: sqrtrhodustfraci(maxdusttypes),sqrtrhodustfracj(maxdusttypes)
  real    :: dustfracisum,dustfracjsum,epstsi,epstsj,rhogas1i,rhogasj,rhogas1j
  real    :: vwavei,rhoi,rho1i,spsoundi
  real    :: sxxi,sxyi,sxzi,syyi,syzi,szzi
@@ -1437,7 +1438,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           endif
 #ifdef DUST
           if (use_dustfrac) then
-             do l = 1,ndusttypes
+             do l=1,ndustsmall
                 ! get stopping time - for one fluid dust we do not know deltav, but it is small by definition
                 call get_ts(idrag,grainsize(l),graindens(l),rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
              enddo
@@ -1447,7 +1448,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              rhogas1j = 1./rhogasj
 
              !! Check that weighted sums of Tsj and tilde(Tsj) are equal (see Hutchison et al. 2017)
-             !if (ndusttypes>1) then
+             !if (ndustsmall>1) then
              !   if (abs(sum(dustfracj*tsj) - sum(dustfracj*(tsj-epstsj))/(1. - dustfracjsum)) > 1e-14) &
              !      print*,'Stop! tsj or epstsj in force is incorrect!'
              !else
@@ -1455,7 +1456,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              !      print*,'Warning! error in tsj is = ',tsj(1)-(tsj(1)-epstsj)/(1.-dustfracjsum)
              !endif
 
-             do l = 1,ndusttypes
+             do l=1,ndustsmall
                 if (dustfraci(l) > 0. .or. dustfracj(l) > 0.) then
                    ! define averages of diffusion coefficient and kernels
                    !Dav(l)   = dustfraci(l)*tsi(l) + dustfracj(l)*tsj(l)
@@ -1535,7 +1536,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 if (use_dustgrowth) then
                    call get_ts(idrag,dustprop(1,j),dustprop(2,j),rhoi,rhoj,spsoundi,dv2,tsij(1),iregime)
                 else
-                   do l = 1,ndusttypes
+                   do l=1,ndustsmall
                       call get_ts(idrag,grainsize(l),graindens(l),rhoi,rhoj,spsoundi,dv2,tsij(l),iregime)
                    enddo
                 endif
@@ -1570,7 +1571,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    endif
 #endif
                 else
-                   do l = 1,ndusttypes
+                   do l=1,ndustsmall
                       call get_ts(idrag,grainsize(l),graindens(l),rhoj,rhoi,spsoundj,dv2,tsij(l),iregime)
                    enddo
                 endif
@@ -1776,7 +1777,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use dim,       only:maxp,ndivcurlv,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
                 use_dustgrowth,store_temperature
  use part,      only:iamgas,maxphase,iboundary,rhoanddhdrho,igas,massoftype,get_partinfo,&
-                     iohm,ihall,iambi
+                     iohm,ihall,iambi,ndusttypes,ndustsmall
  use viscosity, only:irealvisc,bulkvisc
 #ifdef DUST
  use dust,      only:get_ts,grainsize,graindens,idrag
@@ -1802,10 +1803,10 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  real         :: dvdxi(9),curlBi(3),jcbcbi(3),jcbi(3)
  real         :: hi,rhoi,rho1i,dhdrhoi,pmassi,eni,tempi
  real(kind=8) :: hi1
- real         :: dustfraci(ndusttypes),dustfracisum,rhogasi,ponrhoi,pro2i,pri,spsoundi
+ real         :: dustfraci(maxdusttypes),dustfracisum,rhogasi,ponrhoi,pro2i,pri,spsoundi
  real         :: sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso
 #ifdef DUST
- real         :: tstopi(ndusttypes)
+ real         :: tstopi(maxdusttypes)
 #endif
  real         :: Bxi,Byi,Bzi,Bi,B2i,Bi1
  real         :: vwavei,alphai
@@ -1877,7 +1878,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           dustfraci(:) = dustfrac(:,i)
           dustfracisum = sum(dustfraci)
           rhogasi      = rhoi*(1. - dustfracisum)
-          do j = 1,ndusttypes
+          do j=1,ndusttypes
              if (dustfraci(j) > 1. .or. dustfraci(j) < 0.) call fatal('force','invalid eps',var='dustfrac',val=dustfraci(j))
           enddo
        else
@@ -1909,7 +1910,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        ! get stopping time - for one fluid dust we don't know deltav, but as small by definition we assume=0
        !
        if (use_dustfrac .and. iamgasi) then
-          do j = 1,ndusttypes
+          do j=1,ndustsmall
              call get_ts(idrag,grainsize(j),graindens(j),rhogasi,rhoi*dustfracisum,spsoundi,0.,tstopi(j),iregime)
           enddo
        endif
@@ -2011,7 +2012,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        cell%xpartvec(ipro2i,cell%npcell)          = pro2i
 #ifdef DUST
        if (use_dustfrac) then
-          cell%xpartvec(itstop:itstopend,cell%npcell)       = tstopi
+          cell%xpartvec(itstop:itstopend,cell%npcell) = tstopi
        endif
 #endif
     endif
@@ -2237,8 +2238,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: ponrhoi,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
  real    :: psii,dtau
  real    :: eni,dudtnonideal
- real    :: dustfraci(ndusttypes),dustfracisum
- real    :: tstopi(ndusttypes),tseff,dtdustdenom
+ real    :: dustfraci(maxdusttypes),dustfracisum
+ real    :: tstopi(maxdusttypes),tseff,dtdustdenom
  real    :: etaambii,etahalli,etaohmi
  real    :: vsigmax,vwavei,fxyz4
 #ifdef LIGHTCURVE

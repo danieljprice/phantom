@@ -36,7 +36,7 @@ module testderivs
 contains
 
 subroutine test_derivs(ntests,npass,string)
- use dim,      only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust,ndusttypes
+ use dim,      only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust
  use boundary, only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
  use eos,      only:polyk,gamma,use_entropy
  use io,       only:iprint,id,master,fatal,iverbose,nprocs
@@ -47,7 +47,7 @@ subroutine test_derivs(ntests,npass,string)
                     gradh,divBsymm,Bevol,dBevol,Bxyz,Bextx,Bexty,Bextz,alphaind, &
                     maxphase,rhoh,mhd,maxBevol,ndivcurlB,dvdx, &
                     dustfrac,ddustfrac,temperature,idivv,icurlvx,icurlvy,icurlvz, &
-                    idivB,icurlBx,icurlBy,icurlBz,deltav,dustprop,ddustprop
+                    idivB,icurlBx,icurlBy,icurlBz,deltav,dustprop,ddustprop,ndusttypes
  use unifdis,  only:set_unifdis
  use physcon,  only:pi,au,solarm
  use deriv,           only:derivs
@@ -2507,7 +2507,7 @@ end function dBambiz
 !----------------------------------------------------------------
 real function dustfrac_func(xyzhi)
  use physcon,  only:pi
- use dim,      only:ndusttypes
+ use part,     only:ndusttypes
  use boundary, only:dxbound,dybound,dzbound,xmin,ymin,zmin
  real, intent(in) :: xyzhi(4)
 
@@ -2520,7 +2520,7 @@ end function dustfrac_func
 
 real function ddustfracdx(xyzhi)
  use physcon,  only:pi
- use dim,      only:ndusttypes
+ use part,     only:ndusttypes
  use boundary, only:dxbound,xmin
  real, intent(in) :: xyzhi(4)
 
@@ -2531,7 +2531,7 @@ end function ddustfracdx
 
 real function ddustfracdy(xyzhi)
  use physcon,  only:pi
- use dim,      only:ndusttypes
+ use part,     only:ndusttypes
  use boundary, only:dybound,ymin
  real, intent(in) :: xyzhi(4)
 
@@ -2542,7 +2542,7 @@ end function ddustfracdy
 
 real function ddustfracdz(xyzhi)
  use physcon,  only:pi
- use dim,      only:ndusttypes
+ use part,     only:ndusttypes
  use boundary, only:dzbound,zmin
  real, intent(in) :: xyzhi(4)
 
@@ -2553,7 +2553,7 @@ end function ddustfracdz
 
 real function del2dustfrac(xyzhi)
  use physcon,  only:pi
- use dim,      only:ndusttypes
+ use part,     only:ndusttypes
  use boundary, only:dxbound,dybound,dzbound,xmin,ymin,zmin
  real, intent(in) :: xyzhi(4)
 
@@ -2565,8 +2565,8 @@ real function del2dustfrac(xyzhi)
 end function del2dustfrac
 
 real function ddustfrac_func(xyzhi)
- use eos, only:gamma
- use dim, only:ndusttypes
+ use eos,  only:gamma
+ use part, only:ndusttypes
 #ifdef DUST
  use dust, only:get_ts,idrag,K_code
 #endif
@@ -2635,7 +2635,7 @@ end function ddustfrac_func
 
 real function dudtdust_func(xyzhi)
  use eos,  only:gamma
- use dim,  only:ndusttypes
+ use part, only:ndusttypes
 #ifdef DUST
  use dust, only:get_ts,idrag
 #endif
@@ -2680,8 +2680,8 @@ real function dudtdust_func(xyzhi)
 end function dudtdust_func
 
 real function deltavx_func(xyzhi)
- use eos, only:gamma
- use dim, only:ndusttypes
+ use eos,  only:gamma
+ use part, only:ndusttypes
 #ifdef DUST
  use dust, only:get_ts,idrag
 #endif

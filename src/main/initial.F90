@@ -113,7 +113,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,ndusttypes
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -129,7 +129,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustfrac,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh, &
-                            Bevol,Bxyz,temperature,dustprop,ddustprop
+                            Bevol,Bxyz,temperature,dustprop,ddustprop,ndustsmall
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef PHOTO
@@ -586,7 +586,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  write(iprint,'(2x,a,es18.6)')   'Initial angular momentum: ', angtot_in
  write(iprint,'(2x,a,es18.6)')   'Initial linear momentum:  ', totmom_in
 #ifdef DUST
- do i=1,ndusttypes
+ do i=1,ndustsmall
     write(iprint,'(2x,a,i3,es18.6)') 'Initial dust mass: i = ',i, mdust_in(i)
  enddo
  write(iprint,'(2x,a,es18.6)')   'Initial total dust mass:  ', sum(mdust_in(:))

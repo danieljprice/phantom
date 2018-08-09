@@ -32,7 +32,7 @@
 !+
 !--------------------------------------------------------------------------
 module step_lf_global
- use dim,  only:maxp,maxvxyzu,maxBevol,ndusttypes
+ use dim,  only:maxp,maxvxyzu,maxBevol
  use part, only:vpred,Bpred,dustpred
  use timestep_ind, only:maxbins,itdt,ithdt,itdt1,ittwas
  implicit none

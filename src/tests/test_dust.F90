@@ -41,10 +41,11 @@ subroutine test_dust(ntests,npass)
 #ifdef DUST
  use dust,      only:idrag,init_drag,get_ts,grainsize,graindens,&
                      set_dustfrac,smincgs,smaxcgs,sindex
+ use part,      only:ndusttypes
  use physcon,   only:solarm,au
  use units,     only:set_units,unit_density
  use eos,       only:gamma
- use dim,       only:ndusttypes,use_dust
+ use dim,       only:use_dust
  use mpiutils,  only:barrier_mpi
  use options,   only:use_dustfrac
 #endif
@@ -134,7 +135,7 @@ subroutine test_dustybox(ntests,npass)
  use kernel,         only:hfact_default
  use part,           only:igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-                          dustfrac,dustevol,ddustfrac,temperature,iphase,iamdust,maxtypes
+                          dustfrac,dustevol,ddustfrac,temperature,iphase,iamdust,maxtypes,ndusttypes
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use energies,       only:compute_energies,ekin
@@ -143,7 +144,7 @@ subroutine test_dustybox(ntests,npass)
  use dust,           only:K_code,idrag
  use options,        only:alpha,alphamax,use_dustfrac
  use unifdis,        only:set_unifdis
- use dim,            only:periodic,mhd,use_dust,ndusttypes
+ use dim,            only:periodic,mhd,use_dust
  use timestep,       only:dtmax
  use io,             only:iverbose
  use mpiutils,       only:reduceall_mpi
@@ -279,10 +280,10 @@ end subroutine test_dustybox
 !+
 !----------------------------------------------------
 subroutine test_dustydiffuse(ntests,npass)
- use dim,       only:maxp,periodic,maxtypes,mhd,ndusttypes,use_dust
+ use dim,       only:maxp,periodic,maxtypes,mhd,use_dust
  use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac,dustevol, &
                      xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,set_particle_type,rhoh,temperature,&
-                     dustprop,ddustprop
+                     dustprop,ddustprop,ndusttypes
  use kernel,    only:hfact_default
  use eos,       only:gamma,polyk,ieos
  use dust,      only:K_code,idrag
@@ -476,10 +477,10 @@ end subroutine test_dustydiffuse
 !+
 !---------------------------------------------------------------------------------
 subroutine test_drag(ntests,npass)
- use dim,       only:maxp,periodic,maxtypes,mhd,ndusttypes,maxvxyzu
+ use dim,       only:maxp,periodic,maxtypes,mhd,maxvxyzu
  use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac, &
                      xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,set_particle_type,rhoh,temperature,&
-                     dustprop,ddustprop,idust,iphase,iamtype
+                     dustprop,ddustprop,idust,iphase,iamtype,ndusttypes
  use options,   only:use_dustfrac
  use eos,       only:polyk,ieos
  use kernel,    only:hfact_default
@@ -694,7 +695,8 @@ end subroutine test_epsteinstokes
 !+
 !---------------------------------------------------
 subroutine write_file(time,xyzh,dustfrac,npart)
- use dim, only:ndusttypes,maxp
+ use dim,  only:maxp
+ use part, only:ndusttypes
  real, intent(in)     :: time
  real, intent(in)    :: xyzh(:,:),dustfrac(:,:)
  integer, intent(in) :: npart

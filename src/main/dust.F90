@@ -31,21 +31,22 @@
 !--------------------------------------------------------------------------
 
 module dust
- use dim, only: ndusttypes
+ use dim,  only:maxdusttypes
+ use part, only:ndusttypes
  implicit none
  !--Default values for the dust in the infile
- real, public     :: K_code                   = 1.
- real, public     :: grainsizecgs(ndusttypes) = 0.1
- real, public     :: smincgs                  = 1.e-5
- real, public     :: smaxcgs                  = 0.1
- real, public     :: sindex                   = 3.5
- real, public     :: graindenscgs(ndusttypes) = 3.
+ real, public     :: K_code                     = 1.
+ real, public     :: grainsizecgs(maxdusttypes) = 0.1
+ real, public     :: smincgs                    = 1.e-5
+ real, public     :: smaxcgs                    = 0.1
+ real, public     :: sindex                     = 3.5
+ real, public     :: graindenscgs(maxdusttypes) = 3.
 
  integer, public  :: idrag             = 1
  integer, public  :: icut_backreaction = 0
  logical, public  :: ilimitdustflux    = .false. ! to limit spurious dust generation in outer disc
- real, public     :: grainsize(ndusttypes),graindens(ndusttypes)
- real, private    :: grainmass(ndusttypes)
+ real, public     :: grainsize(maxdusttypes),graindens(maxdusttypes)
+ real, private    :: grainmass(maxdusttypes)
  public           :: get_ts
  public           :: init_drag
  public           :: print_dustinfo
@@ -92,7 +93,7 @@ subroutine init_drag(ierr)
  case(1)
     !--compute the grain mass (spherical compact grains of radius s)
     call set_grainsize(smincgs,smaxcgs)
-    do i = 1,ndusttypes
+    do i=1,ndusttypes
        if (grainmass(i) <= 0. .and. idrag == 1) then
           call error('init_drag','grain size/density <= 0',var='grainmass',val=grainmass(i))
           ierr = 2
@@ -133,9 +134,9 @@ end subroutine init_drag
 !+
 !--------------------------------------------
 subroutine print_dustinfo(iprint)
- use units, only:unit_density,umass,udist
+ use units,    only:unit_density,umass,udist
  use physcon,  only:pi
- use dim, only:use_dustgrowth
+ use dim,      only:use_dustgrowth
  integer, intent(in) :: iprint
  integer :: i
  real    :: rhocrit
@@ -146,7 +147,7 @@ subroutine print_dustinfo(iprint)
        write(iprint,"(a)") ' Using Epstein/Stokes drag with variable grain size. '
     else
        write(iprint,"(a)") ' Using Epstein/Stokes drag with constant grain size: '
-       do i = 1,ndusttypes
+       do i=1,ndusttypes
           write(iprint,"(2(a,1pg10.3),a)") '        Grain size = ',grainsize(i)*udist,      &
                                            ' cm     = ',grainsize(i),' (code units)'
           write(iprint,"(2(a,1pg10.3),a)") '        Grain mass = ',grainmass(i)*umass,      &
@@ -193,32 +194,34 @@ end subroutine set_dustfrac_single
 !+
 !----------------------------------------------------------------
 subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,smin,smax,sind)
- use io,  only: fatal
  real, intent(in)  :: dust_to_gas_tot,smin,smax,sind
  real, intent(out) :: dustfrac(:)
- integer :: i
+ integer :: i,nfrac
  real :: dustfrac_tot
  real :: norm
  real :: rhodtot
- real :: grid(ndusttypes+1) = 0.
- real :: rhodusti(ndusttypes)
+ real :: grid(size(dustfrac)+1)
+ real :: rhodusti(size(dustfrac))
  real :: exact
- real :: power = 0.
+ real :: power
  real, parameter :: tol = 1.e-10
 
  !--reset global power-law index
  sindex = sind
+ grid = 0.
+ power = 0.
+ nfrac = size(dustfrac)
 
- if (smax==smin .or. ndusttypes==1) then
+ if (smax==smin .or. nfrac==1) then
     !--If all the same grain size, then just scale the dust fraction
-    dustfrac = dust_to_gas_tot/(1.+dust_to_gas_tot)*1./real(ndusttypes)
+    dustfrac = dust_to_gas_tot/(1.+dust_to_gas_tot)*1./real(nfrac)
  else
     call set_grainsize(smin,smax,grid)
 
     !--Dust density is computed from drhodust ∝ dn*mdust where dn ∝ s**(-p)*ds
     !  and mdust ∝ s**(3). This is then integrated across each cell to account
     !  for mass contributions from unrepresented grain sizes
-    do i = 1,ndusttypes
+    do i = 1,nfrac
        if (sindex == 4.) then
           rhodusti(i) = log(grid(i+1)/grid(i))
        else
@@ -240,12 +243,12 @@ subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,smin,smax,sind)
 
     !--Check to make sure the integral determining the contributions is correct
     if (sindex == 4.) then
-       exact = log(grid(ndusttypes+1)/grid(1))
+       exact = log(grid(nfrac+1)/grid(1))
     else
-       exact = 1./power*(grid(ndusttypes+1)**power - grid(1)**power)
+       exact = 1./power*(grid(nfrac+1)**power - grid(1)**power)
     endif
     if (abs(rhodtot-exact)/exact>tol) &
-       call fatal('dust','Piecewise integration of MRN distribution not matching the exact solution!')
+       print*, 'Piecewise integration of MRN distribution not matching the exact solution!'
  endif
 
 end subroutine set_dustfrac_power_law
@@ -259,8 +262,7 @@ end subroutine set_dustfrac_power_law
 !-----------------------------------------------------------------------------
 subroutine set_grainsize(smin,smax,grid)
  use physcon, only:pi
- use io,      only: fatal
- use units,   only: udist,unit_density
+ use units,   only:udist,unit_density
  real, intent(in)  :: smin,smax
  real, optional, intent(out) :: grid(:)
  integer :: i
@@ -285,7 +287,7 @@ subroutine set_grainsize(smin,smax,grid)
  else
     !--Create a uniform grid with N+1 points between smax and smin (inclusive)
     log_ds = log10(smax/smin)/real(ndusttypes)
-    do i = 1,ndusttypes+1
+    do i=1,ndusttypes+1
        log_grid(i) = log10(smin) + (i-1)*log_ds
     enddo
 
@@ -294,7 +296,7 @@ subroutine set_grainsize(smin,smax,grid)
 
     !--Find representative s for each cell
     !  (skewed towards small grains because there are more small grains than large grains)
-    do i = 1,ndusttypes
+    do i=1,ndusttypes
        grainsizecgs(i) = sqrt(log_grid(i)*log_grid(i+1))
     enddo
 
@@ -509,7 +511,7 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
  integer, save :: ngraindens = 0
  integer, parameter :: nvars = 8
  integer, parameter :: narrs = 2
- integer, parameter :: nvalues = nvars + narrs*(ndusttypes-1)
+ integer, parameter :: nvalues = nvars + narrs*(maxdusttypes-1)
  integer, parameter :: iidrag        = 1, &
                        ismin         = 2, &
                        ismax         = 3, &
@@ -518,7 +520,7 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
                        ibackreact    = 6, &
                        !--dust arrays initial index
                        igrainsize    = 7, &
-                       igraindens    = 8 + (ndusttypes-1), &
+                       igraindens    = 8 + (maxdusttypes-1), &
                        !--dust arrays final index
                        igrainsizeend = igraindens-1, &
                        igraindensend = nvars

@@ -40,7 +40,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce
  use evwrite,          only:write_evfile,write_evlog
  use energies,         only:etot,totmom,angtot,mdust
- use dim,              only:maxvxyzu,mhd,periodic,ndusttypes
+ use dim,              only:maxvxyzu,mhd,periodic
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,iexternalforce,&
                             icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating,&
@@ -94,7 +94,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,npartoftype, &
-                            fxyz_ptmass_sinksink,ntot,poten
+                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
@@ -429,7 +429,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
        if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
        if (should_conserve_dustmass) then
-          do j = 1,ndusttypes
+          do j = 1,ndustsmall
              call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)
           enddo
        endif
