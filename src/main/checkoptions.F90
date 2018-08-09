@@ -37,9 +37,8 @@ contains
 !-------------------------------------------------------------------
 subroutine check_compile_time_settings(ierr)
  use part,  only:mhd,maxBevol,gravity,ngradh,h2chemistry,maxvxyzu,use_dust,gr
- use dim,   only:use_dustgrowth
+ use dim,   only:use_dustgrowth,maxsts
  use io,    only:error,id,master,fatal,warning
- use dim,   only:maxsts,maxstrain
 #ifdef GR
  use metric_tools, only:icoordinate,icoord_cartesian
 #endif
@@ -117,10 +116,6 @@ subroutine check_compile_time_settings(ierr)
  if (h2chemistry) then
     call error(string,'General relativity not compatible with chemistry.')
     ierr = 8
- endif
- if (maxstrain > 0) then
-    call error(string,'General relativity not compatible with physical viscosity.')
-    ierr = 9
  endif
  if (maxsts > 1) then
     call error(string,'General relativity not compatible with super-timestepping.')

@@ -560,7 +560,7 @@ subroutine die
  call mpi_finalize(ierr)
 #endif
 
- stop
+ call exit(1)
 end subroutine die
 
 end module io

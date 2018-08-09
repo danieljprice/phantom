@@ -95,16 +95,15 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
- use part,             only:xyzh,vxyzu,massoftype,igas
+ use part,             only:igas
  use fileutils,        only:numfromfile
  use io,               only:ianalysis
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,npartoftype, &
-                            fxyz_ptmass_sinksink,ntot
+                            fxyz_ptmass_sinksink,ntot,poten
  use quitdump,         only:quit
- use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev, &
-                            rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin,rhomax_ipart
+ use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
  use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in
@@ -305,11 +304,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     if (gravity .and. icreate_sinks > 0 .and. ipart_rhomax /= 0) then
        !
        ! creation of new sink particles
-       ! Note: rhomax_ipart is for bookkeeping only
        !
-       call ptmass_create(nptmass,npart,rhomax_ipart,xyzh,vxyzu,fxyzu,fext,divcurlv,&
-                          massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time,&
-                          rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin)
+       call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
+                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
     endif
 
     nsteps = nsteps + 1
@@ -734,7 +731,9 @@ end subroutine check_dtmax_for_decrease
 !+
 !----------------------------------------------------------------
 subroutine check_conservation_error(val,ref,tol,label,decrease)
- use io, only:error,fatal,iverbose
+ use io,             only:error,fatal,iverbose
+ use options,        only:iexternalforce
+ use externalforces, only:iext_corot_binary
  real, intent(in) :: val,ref,tol
  character(len=*), intent(in) :: label
  logical, intent(in), optional :: decrease
@@ -752,18 +751,23 @@ subroutine check_conservation_error(val,ref,tol,label,decrease)
     err = abs(err)
  endif
  if (err > tol) then
-    call error('evolve','Large error in '//trim(label)//' conservation ',var='err',val=err)
-    call get_environment_variable('I_WILL_NOT_PUBLISH_CRAP',string)
-    if (.not. (trim(string)=='yes')) then
-       print "(2(/,a))",' You can ignore this error and continue by setting the ',&
-                        ' environment variable I_WILL_NOT_PUBLISH_CRAP=yes to continue'
+    if ((trim(label) == 'angular momentum' .or. trim(label) == 'energy') &
+        .and. iexternalforce == iext_corot_binary) then
+       call error('evolve',trim(label)//' is not being conserved due to corotating frame',var='err',val=err)
+    else
+       call error('evolve','Large error in '//trim(label)//' conservation ',var='err',val=err)
+       call get_environment_variable('I_WILL_NOT_PUBLISH_CRAP',string)
+       if (.not. (trim(string)=='yes')) then
+          print "(2(/,a))",' You can ignore this error and continue by setting the ',&
+                           ' environment variable I_WILL_NOT_PUBLISH_CRAP=yes to continue'
 !#ifdef IND_TIMESTEPS
-!       print "(4(/,a))",' Note: Please try again setting allow_wake=.false. in step_leapfrog.F90. ',&
-!                        ' If the new simulation successfully runs, please send details to ',&
-!                        ' j.wurster[at]exeter.ac.uk so that the bug can be fixed. ',&
-!                        ' Sorry for any inconvenience.'
+!          print "(4(/,a))",' Note: Please try again setting allow_wake=.false. in step_leapfrog.F90. ',&
+!                           ' If the new simulation successfully runs, please send details to ',&
+!                           ' j.wurster[at]exeter.ac.uk so that the bug can be fixed. ',&
+!                           ' Sorry for any inconvenience.'
 !#endif
-       call fatal('evolve',' Conservation errors too large to continue simulation')
+          call fatal('evolve',' Conservation errors too large to continue simulation')
+       endif
     endif
  else
     if (iverbose >= 2) print "(a,es10.3)",trim(label)//' error is ',err

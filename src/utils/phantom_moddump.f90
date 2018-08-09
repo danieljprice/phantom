@@ -81,6 +81,9 @@ program phantommoddump
  if (iexist) then
     print "(/,2a,/)",' Reading default values from ', trim(infile)
     call read_infile(infile,logfile,evfile,dumpfile)
+ else
+    print "(/,64('*'),/,a,/,64('*'))",&
+      ' *** WARNING: '//trim(infile)//' NOT FOUND, USING DEFAULT OPTIONS ***'
  endif
 !
 !--look for an existing input file with name corresponding to the OUTPUT dump file
@@ -181,4 +184,3 @@ program phantommoddump
  print "(/,a,/)",' Phantom moddump: another happy customer'
 
 end program phantommoddump
-

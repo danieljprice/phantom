@@ -22,9 +22,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, dump_utils, eos, externalforces,
-!    initial_params, io, lumin_nsdisc, mpi, mpiutils, options, part,
-!    readwrite_dust, setup_params, sphNGutils, timestep, units
+!  DEPENDENCIES: boundary, dim, dump_utils, dust, eos, externalforces,
+!    gitinfo, initial_params, io, lumin_nsdisc, mpi, mpiutils, options,
+!    part, setup_params, sphNGutils, timestep, units
 !+
 !--------------------------------------------------------------------------
 module readwrite_dumps
@@ -196,7 +196,8 @@ end subroutine end_threadwrite
 character(len=lenid) function fileident(firstchar,codestring)
  use part,    only:h2chemistry,mhd,maxBevol,npartoftype,idust,gravity,lightcurve
  use options, only:use_dustfrac
- use dim,     only:use_dustgrowth
+ use dim,     only:use_dustgrowth,phantom_version_string
+ use gitinfo, only:gitsha
  character(len=2), intent(in) :: firstchar
  character(len=*), intent(in), optional :: codestring
  character(len=10) :: datestring, timestring
@@ -217,9 +218,9 @@ character(len=lenid) function fileident(firstchar,codestring)
  if (use_dustgrowth) string = trim(string)//'+dustgrowth'
 
  if (present(codestring)) then
-    fileident = firstchar//':'//trim(codestring)
+    fileident = firstchar//':'//trim(codestring)//':'//trim(phantom_version_string)//':'//gitsha
  else
-    fileident = firstchar//':Phantom'
+    fileident = firstchar//':Phantom'//':'//trim(phantom_version_string)//':'//gitsha
  endif
 
  if (mhd) then
@@ -239,9 +240,10 @@ end function fileident
 !  extract various options used in Phantom from the fileid string
 !+
 !--------------------------------------------------------------------
-subroutine get_options_from_fileid(fileid,tagged,phantomdump,smalldump,ierr)
+subroutine get_options_from_fileid(fileid,tagged,phantomdump,smalldump,&
+                                   use_onefluiddust,ierr)
  character(len=lenid), intent(in)  :: fileid
- logical,              intent(out) :: tagged,phantomdump,smalldump
+ logical,              intent(out) :: tagged,phantomdump,smalldump,use_onefluiddust
  integer,              intent(out) :: ierr
 !
 !--if file is a small dump, return an error code but still read what
@@ -266,6 +268,11 @@ subroutine get_options_from_fileid(fileid,tagged,phantomdump,smalldump,ierr)
     write(*,*) 'WARNING: could not determine Phantom/sphNG from fileident'
     write(*,*) '(assuming sphNG...)'
     phantomdump = .false.
+ endif
+ if (index(fileid,'+1dust') /= 0) then
+    use_onefluiddust = .true.
+ else
+    use_onefluiddust = .false.
  endif
 
 end subroutine get_options_from_fileid
@@ -440,7 +447,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierrs(1),func=iamtype_int11)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierrs(2))
        if (use_dustgrowth) then
-          call write_array(1,dustprop,dustprop_label,4,npart,k,ipass,idump,nums,ierrs(3))
+          call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierrs(3))
           call write_array(1,St,'St',npart,k,ipass,idump,nums,ierrs(3))
        endif
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
@@ -657,7 +664,7 @@ subroutine write_smalldump(t,dumpfile)
        if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierr,func=iamtype_int11)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (use_dustgrowth) then
-          call write_array(1,dustprop,dustprop_label,4,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+          call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
           call write_array(1,St,'St',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        endif
        if (h2chemistry .and. nabundances >= 1) &
@@ -715,6 +722,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
                       open_dumpfile_r,get_error_text,ierr_realsize,free_header,read_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
  use sphNGutils, only:convert_sinks_sphNG
+ use options,    only:use_dustfrac
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -771,7 +779,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  if (id==master) write(iprint,*) trim(fileidentr)
 
  ! extract file type from the fileid string
- call get_options_from_fileid(fileidentr,tagged,phantomdump,smalldump,ierr)
+ call get_options_from_fileid(fileidentr,tagged,phantomdump,smalldump,use_dustfrac,ierr)
 
  !
  ! read header from the dump file
@@ -950,6 +958,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  use dump_utils, only:skipblock,skip_arrays,check_tag,open_dumpfile_r,get_error_text,&
                       ierr_realsize,read_header,extract,free_header,read_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
+ use options,    only:use_dustfrac
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -985,7 +994,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  if (id==master) write(iprint,*) trim(fileidentr)
 
  ! extract file type from the fileid string
- call get_options_from_fileid(fileidentr,tagged,phantomdump,smalldump,ierr)
+ call get_options_from_fileid(fileidentr,tagged,phantomdump,smalldump,use_dustfrac,ierr)
 
  if (.not.smalldump) then
     if (id==master) call error('read_smalldump','this routine only works for small dump files, aborting...')
@@ -1183,7 +1192,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: match
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3)
- logical               :: got_psi,got_temp,got_dustprop(4),got_St,got_pxyzu(4)
+ logical               :: got_psi,got_temp,got_dustprop(3),got_St,got_pxyzu(4)
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci,ntstopi,ndustveli
 
@@ -1245,9 +1254,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                    call read_array(tstop(ntstopi,:),tstop_label(ntstopi),got_tstop(ntstopi),&
                                    ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 endif
-                if (tag == deltav_label(1)) then
-                   ndustveli = ndustveli + 1
-                   call read_array(deltav(:,ndustveli,:),deltav_label,got_deltav(:,ndustveli),&
+                if (any(tag == deltav_label)) then
+                   !--use deltavx to identify each new dust species
+                   if (tag == deltav_label(1)) ndustveli = ndustveli + 1
+                   call read_array(deltav(:,ndustveli,:),deltav_label,got_deltav(:,ndustveli), &
                                    ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 endif
              endif
@@ -1521,10 +1531,6 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     return
  endif
  if (use_dustgrowth .and. .not.got_dustprop(3)) then
-    write(*,*) 'ERROR! using dustgrowth, but no relative velocity found in dump file'
-    return
- endif
- if (use_dustgrowth .and. .not.got_dustprop(4)) then
     write(*,*) 'ERROR! using dustgrowth, but no ratio vrel/vfrag found in dump file'
     return
  endif
@@ -1710,14 +1716,15 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use eos,            only:polyk,gamma,polyk2,qfacdisc,isink
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,ieos
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz
+ use dust,           only:grainsize,graindens
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use externalforces, only:write_headeropts_extern
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header
- use readwrite_dust, only:write_dust_to_header
- use dim,            only:use_dust,maxtypes,ndustfluids,ndusttypes,use_dustgrowth
+ use dim,            only:use_dust,maxtypes,ndustfluids,ndusttypes,use_dustgrowth, &
+                          phantom_version_major,phantom_version_minor,phantom_version_micro
  use units,          only:udist,umass,utime,unit_Bfield
  logical,         intent(in)    :: sphNGdump
  real,            intent(in)    :: t
@@ -1736,6 +1743,9 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  call add_to_iheader(isink,'isink',hdr,ierr)
  call add_to_iheader(nptmass,'nptmass',hdr,ierr)
  call add_to_iheader(ndustfluids,'ndustfluids',hdr,ierr)
+ call add_to_iheader(phantom_version_major,'majorv',hdr,ierr)
+ call add_to_iheader(phantom_version_minor,'minorv',hdr,ierr)
+ call add_to_iheader(phantom_version_micro,'microv',hdr,ierr)
 
  ! int*8
  call add_to_header(nparttot,'nparttot',hdr,ierr)
@@ -1798,7 +1808,10 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(angtot_in,'angtot_in',hdr,ierr)
     call add_to_rheader(totmom_in,'totmom_in',hdr,ierr)
     call add_to_rheader(mdust_in,'mdust_in',hdr,ierr)
-    if (use_dust) call write_dust_to_header(multidustdump,hdr,ierr)
+    if (use_dust) then
+       call add_to_rheader(grainsize,'grainsize',hdr,ierr)
+       call add_to_rheader(graindens,'graindens',hdr,ierr)
+    endif
  endif
 
  ! real*8
@@ -1824,17 +1837,17 @@ end subroutine fill_header
 subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
                           tfile,hfactfile,alphafile,iprint,ierr)
  use io,             only:id,master
- use dim,            only:maxp,maxvxyzu,ndusttypes
+ use dim,            only:maxp,maxvxyzu,ndusttypes,use_dust
  use eos,            only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
- use options,        only:ieos,tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac,use_moddump
+ use options,        only:ieos,tolh,alpha,alphau,alphaB,iexternalforce
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,maxtypes
+ use dust,           only:grainsize,graindens
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use externalforces, only:read_headeropts_extern
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
  use dump_utils,     only:extract
- use readwrite_dust, only:extract_dust_header
  type(dump_h), intent(in)  :: hdr
  logical,      intent(in)  :: phantomdump
  integer,      intent(in)  :: iprint,ntypesinfile
@@ -1976,9 +1989,13 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
     write(*,*) 'WARNING! compiled for isothermal equation of state but gamma /= 1, gamma=',gamma
  endif
 
- !--pull grain-size distribution values to preserve grain properties
- if (use_dustfrac .and. ndusttypes>1 .and. multidustdump .and. .not.use_moddump) then
-    call extract_dust_header(multidustdump,hdr,ierr)
+ !--pull grain size and density arrays
+ if (use_dust) then
+    call extract('grainsize',grainsize,hdr,ierrs(1))
+    call extract('graindens',graindens,hdr,ierrs(2))
+    if (any(ierrs(1:2) /= 0)) then
+       write(*,*) 'ERROR reading grain size/density from file header'
+    endif
  endif
 
  return

@@ -28,6 +28,7 @@ module externalforces
  integer, parameter, public :: iext_spiral = -1
  integer, parameter, public :: iext_star = -1
  integer, parameter, public :: iext_corotate = -1
+ integer, parameter, public :: iext_corot_binary = -1
 
  !
  ! Human-readable labels for these

@@ -52,6 +52,10 @@ subroutine test_binary(m1,m2,a,e,inc,o,w,f,jfile,itex)
  call set_binary(m1,mrat,a,e,h1,h2,xyzmh,vxyz,n,posang_ascnode=o,arg_peri=w,incl=inc,f=f,verbose=.false.)
  xyz(1:3,1) = xyzmh(1:3,1)
  xyz(1:3,2) = xyzmh(1:3,2)
+ print*,'initial position of primary=',xyz(1:3,1)
+ print*,'initial position of secondary=',xyz(1:3,2)
+ print*,'initial velocity of primary=',vxyz(1:3,1)
+ print*,'initial velocity of secondary=',vxyz(1:3,2)
 
  t = 0.
  period = sqrt(4.*pi**2*a**3/(m1+m2))
@@ -62,16 +66,18 @@ subroutine test_binary(m1,m2,a,e,inc,o,w,f,jfile,itex)
  utime = sqrt(udist**3/(gg*umass))
  period_yrs = period*utime/years
  if (itex /= 0) then ! write line to orbits.tex file
-    write(itex,"(6(f6.2,1x,'&',1x),f8.1,1x)") a,e,inc,o,w,f,period_yrs
+    write(itex,"(6(g6.2,1x,'&',1x),f8.1,1x)") a,e,inc,o,w,f,period_yrs
  endif
-!  write(*,"(6(a,'=',f6.2,1x),a,'=',f8.1,1x)") 'a',a,'e',e,'i',inc,'o',o,'w',w,'f',f,'P',period_yrs
- !print*,'period = ',period
- call get_f(m1,m2,xyz,fxyz)
-
  ! write trajectory of orbit to file
  write(filename,"(a,i3.3,a)") 'orbit',jfile,'.out'
  print "(a,6(f6.2,1x))",'writing to '//trim(filename)//' aeiowf = ',a,e,inc,o,w,f
  open(newunit=lu,file=filename,status='replace')
+ write(lu,"('#',3(3x,a))") 'x','y','z'
+ write(lu,*) xyz(1:3,2) - xyz(1:3,1)
+
+ write(*,"(6(a,'=',g6.2,1x),a,'=',g8.1,1x)") 'a',a,'e',e,'i',inc,'o',o,'w',w,'f',f,'P',period_yrs
+ !print*,'period = ',period
+ call get_f(m1,m2,xyz,fxyz)
  tsep = 0.
  proj_max = 20.
  do i=1,nsteps

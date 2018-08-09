@@ -45,8 +45,9 @@
 !    umass       -- mass units (cgs)
 !    utime       -- time units (cgs)
 !
-!  DEPENDENCIES: dim, domain, eos, externalforces, infile_utils, io,
-!    mpiutils, options, part, physcon, random, units, vectorutils
+!  DEPENDENCIES: centreofmass, dim, domain, eos, externalforces,
+!    infile_utils, io, mpiutils, options, part, physcon, random, units,
+!    vectorutils
 !+
 !--------------------------------------------------------------------------
 module setdisc
@@ -72,7 +73,7 @@ contains
 !----------------------------------------------------------------
 subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
                     rmindust,rmaxdust,phimin,phimax,indexprofile,indexprofiledust, &
-                    rc,rcdust,p_index,p_indexdust,q_index,HoverR,gamma, &
+                    rc,rcdust,p_index,p_indexdust,q_index,q_indexdust,HoverR,HoverRdust,gamma, &
                     disc_mass,disc_massdust,sig_norm,star_mass,xyz_origin,vxyz_origin, &
                     particle_type,particle_mass,hfact,xyzh,vxyzu,polyk, &
                     position_angle,inclination,ismooth,alpha,rwarp,warp_smoothl, &
@@ -80,12 +81,13 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  use dim,  only:maxalpha
  use io,   only:stdout
  use part, only:maxp,idust,maxtypes
+ use centreofmass, only:get_total_angular_momentum
  integer,           intent(in)    :: id,master
  integer, optional, intent(in)    :: nparttot
  integer,           intent(inout) :: npart
  integer, optional, intent(in)    :: npart_start,indexprofile,indexprofiledust
  real,              intent(in)    :: rmin,rmax
- real, optional,    intent(in)    :: rmindust,rmaxdust,p_indexdust,disc_massdust
+ real, optional,    intent(in)    :: rmindust,rmaxdust,p_indexdust,q_indexdust,HoverRdust,disc_massdust
  real, optional,    intent(in)    :: rc,rcdust,rref
  real, optional,    intent(in)    :: phimin,phimax
  real, optional,    intent(inout) :: alpha
@@ -104,12 +106,12 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  character(len=20), optional, intent(in) :: prefix
  integer :: itype,npart_tot,npart_start_count,i,npart_set
  integer :: sigmaprofile,sigmaprofiledust
- real    :: Q,G,cs0,clight
- real    :: R_in,R_out,phi_min,phi_max,H_R,R_indust,R_outdust,p_inddust,R_c,R_c_dust
+ real    :: Q,G,cs0,cs0dust,clight
+ real    :: R_in,R_out,phi_min,phi_max,H_R,H_Rdust,R_indust,R_outdust,p_inddust,q_inddust,R_c,R_c_dust
  real    :: star_m,disc_m,disc_mdust,sigma_norm,sigma_normdust,Q_tmp
  real    :: honH,alphaSS_min,alphaSS_max,rminav,rmaxav,honHmin,honHmax
  real    :: aspin,aspin_angle,posangl,incl,R_warp,H_warp,psimax
- real    :: xorigini(3),vorigini(3),R_ref
+ real    :: xorigini(3),vorigini(3),R_ref,L_tot(3),L_tot_mag
  real    :: enc_m(maxbins),rad(maxbins),enc_m_tmp(maxbins),rad_tmp(maxbins)
  logical :: smooth_surface_density,do_write,do_mixture
  logical :: do_verbose,exponential_taper,exponential_taper_dust
@@ -120,14 +122,6 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  H_R            = HoverR       !--HoverR is H/R at R=R_ref (R_ref=R_in unless specified)
  R_in           = rmin
  R_out          = rmax
- R_indust       = rmin
- R_outdust      = rmax
- p_inddust      = p_index
- if (present(rmindust) .and. present(rmaxdust) .and. present(p_indexdust)) then
-    R_indust    = rmindust
-    R_outdust   = rmaxdust
-    p_inddust   = p_indexdust
- endif
  if (present(star_mass)) then
     star_m = star_mass
  else
@@ -142,13 +136,6 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     if (id==master) call error('set_disc','outer radius < inner radius')
     if (present(ierr)) ierr = 2
     return
- endif
- if (present(rmindust) .and. present(rmaxdust)) then
-    if (rmaxdust < rmindust) then
-       if (id==master) call error('set_disc','dust outer radius < dust inner radius')
-       if (present(ierr)) ierr = 2
-       return
-    endif
  endif
  if (present(nparttot)) then
     npart_set = nparttot
@@ -217,9 +204,25 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  if (present(mixture)) then
     do_mixture = mixture
     if (do_mixture) then
-       if (.not.(present(rmindust) .and. present(rmaxdust) .and. &
-                 present(p_indexdust) .and. present(disc_massdust))) then
+       if (.not.(present(rmindust) .and. present(rmaxdust) .and. present(p_indexdust) &
+           .and. present(q_indexdust) .and. present(HoverRdust) .and. present(disc_massdust))) then
           call fatal('set_disc','setup for dusty disc in the mixture is not specified')
+       else
+          if (rmaxdust < rmindust) then
+             if (id==master) call error('set_disc','dust outer radius < dust inner radius')
+             if (present(ierr)) ierr = 2
+             return
+          endif
+          if (HoverR < HoverRdust .or. q_indexdust < q_index) then
+             if (id==master) call error('set_disc','dust scale height > gas scale height')
+             if (present(ierr)) ierr = 2
+             return
+          endif
+          R_indust  = rmindust
+          R_outdust = rmaxdust
+          p_inddust = p_indexdust
+          q_inddust = q_indexdust
+          H_Rdust   = HoverRdust
        endif
     endif
  endif
@@ -237,6 +240,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !
  cs0 = H_R*sqrt(G*star_m/R_ref)*R_ref**q_index
  polyk = cs0**2
+ if (do_mixture) cs0dust = H_Rdust*sqrt(G*star_m/R_ref)*R_ref**q_inddust   !variable to compute the dust scale height
  !
  !--set surface density profile
  !
@@ -244,7 +248,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !    1 = exponentially tapered power law
  !    2 = smoothed power law
  !    3 = both tapered and smoothed
- !
+ !    4 = warped surface density
+! sigmaprofile=4
  sigmaprofile = 0
  if (exponential_taper) then
     sigmaprofile = 1
@@ -254,8 +259,11 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
        R_c = R_out
     endif
  endif
- if (smooth_surface_density) sigmaprofile = 2
- if (smooth_surface_density .and. exponential_taper) sigmaprofile = 3
+! ignore smooth_surface_density if sigmaprofile=4
+ if (sigmaprofile /= 4) then
+    if (smooth_surface_density) sigmaprofile = 2
+    if (smooth_surface_density .and. exponential_taper) sigmaprofile = 3
+ endif
  !--mixture
  if (do_mixture) then
     sigmaprofiledust = 0
@@ -300,8 +308,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     !--sigma_normdust set from dust disc mass
     sigma_normdust = 1.d0
     call get_disc_mass(disc_mdust,enc_m_tmp,rad_tmp,Q_tmp,sigmaprofiledust, &
-                       sigma_normdust,star_m,p_indexdust,q_index, &
-                       R_indust,R_outdust,R_ref,R_c_dust,H_R)
+                       sigma_normdust,star_m,p_indexdust,q_inddust, &
+                       R_indust,R_outdust,R_ref,R_c_dust,H_Rdust)
     sigma_normdust = sigma_normdust*disc_massdust/disc_mdust
     disc_mdust = disc_massdust
  endif
@@ -330,8 +338,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     'number of particles exceeds array dimensions',var='n',ival=npart_tot)
  call set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                          R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
-                         sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,&
-                         q_index,star_m,G,particle_mass,hfact,itype,xyzh,honH,do_verbose)
+                         sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
+                         q_index,q_inddust,star_m,G,particle_mass,hfact,itype,xyzh,honH,do_verbose)
  !
  !--set particle velocities
  !
@@ -349,12 +357,6 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  if (present(position_angle)) posangl = position_angle
  if (present(rwarp))           R_warp = rwarp
  if (present(warp_smoothl))    H_warp = warp_smoothl
- if (present(inclination)) then
-    !--incline disc at position angle and poss. warp disc
-    incl = inclination
-    call set_incline_or_warp(xyzh,vxyzu,npart_tot,npart_start_count,posangl,incl,&
-                             R_warp,H_warp,psimax)
- endif
  !
  !--work out h/H in order to set the artificial viscosity parameter to match a chosen alpha_SS
  !
@@ -367,6 +369,13 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  rmaxav = R_out
  call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,star_m,&
                npart_start_count,npart_tot,do_verbose,R_warp)
+
+ if (present(inclination)) then
+    !--incline disc at position angle and poss. warp disc
+    incl = inclination
+    call set_incline_or_warp(xyzh,vxyzu,npart_tot,npart_start_count,posangl,incl,&
+                             R_warp,H_warp,psimax)
+ endif
  if (maxalpha==0) then
     !
     !--if disc viscosity is used, set the artificial viscosity parameter
@@ -400,6 +409,9 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  else
     call adjust_centre_of_mass(xyzh,vxyzu,particle_mass,npart_start_count,npart_tot,xorigini,vorigini)
  endif
+ ! Calculate the total angular momentum of the disc only
+ call get_total_angular_momentum(xyzh,vxyzu,npart,L_tot)
+ L_tot_mag = sqrt(dot_product(L_tot,L_tot))*umass*udist**2/utime
  !
  !--print out disc parameters, to file and to the screen
  !
@@ -418,15 +430,15 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
        endif
        call write_discinfo(1,R_in,R_out,R_ref,Q,npart,sigmaprofile,R_c,p_index,q_index, &
                            star_m,disc_m,sigma_norm,real(incl*180.0/pi),honH,cs0, &
-                           alphaSS_min,alphaSS_max,R_warp,psimax,itype)
+                           alphaSS_min,alphaSS_max,R_warp,psimax,L_tot_mag,itype)
        close(1)
        if (do_mixture) then
           open(1,file=trim(prefix)//'-'//trim(labeltype(idust))//'.discparams', &
              status='replace',form='formatted')
           call write_discinfo(1,R_indust,R_outdust,R_ref,Q,npart,sigmaprofiledust, &
-                              R_c_dust,p_inddust,q_index,star_m,disc_massdust, &
-                              sigma_normdust,real(incl*180.0/pi),honH,cs0, &
-                              alphaSS_min,alphaSS_max,R_warp,psimax,idust)
+                              R_c_dust,p_inddust,q_inddust,star_m,disc_massdust, &
+                              sigma_normdust,real(incl*180.0/pi),honH,cs0dust, &
+                              alphaSS_min,alphaSS_max,R_warp,psimax,L_tot_mag,idust)
           close(1)
        endif
     endif
@@ -435,13 +447,13 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
        call write_discinfo(stdout,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
                            R_c,p_index,q_index,star_m,disc_m,sigma_norm, &
                            real(incl*180.0/pi),honH,cs0,alphaSS_min,alphaSS_max, &
-                           R_warp,psimax,itype)
+                           R_warp,psimax,L_tot_mag,itype)
     endif
     if (do_mixture) then
        call write_discinfo(stdout,R_indust,R_outdust,R_ref,Q,npart,sigmaprofiledust, &
-                           R_c_dust,p_inddust,q_index,star_m,disc_massdust, &
-                           sigma_normdust,real(incl*180.0/pi),honH,cs0, &
-                           alphaSS_min,alphaSS_max,R_warp,psimax,idust)
+                           R_c_dust,p_inddust,q_inddust,star_m,disc_massdust, &
+                           sigma_normdust,real(incl*180.0/pi),honH,cs0dust, &
+                           alphaSS_min,alphaSS_max,R_warp,psimax,L_tot_mag,idust)
     endif
  endif
 
@@ -468,15 +480,15 @@ end function cs_func
 !---------------------------------------------------------
 subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                               R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
-                              sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,&
-                              q_index,star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose)
+                              sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
+                              q_index,q_inddust,star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose)
  use io,      only:id,master
  use part,    only:set_particle_type
  use random,  only:ran2
  integer, intent(in)    :: npart_start_count,npart_tot
  real,    intent(in)    :: R_ref,R_in,R_out,phi_min,phi_max
  real,    intent(in)    :: sigma_norm,p_index,cs0,q_index,star_m,G,particle_mass,hfact
- real,    intent(in)    :: sigma_normdust,R_indust,R_outdust,R_c,R_c_dust,p_inddust
+ real,    intent(in)    :: sigma_normdust,R_indust,R_outdust,R_c,R_c_dust,p_inddust,q_inddust,cs0dust
  logical, intent(in)    :: do_mixture,verbose
  integer, intent(in)    :: itype,sigmaprofile,sigmaprofiledust
  real,    intent(inout) :: xyzh(:,:)
@@ -488,7 +500,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  real    :: HH,HHsqrt2,z_min,z_max
  real    :: rhopart,rhoz,hpart
  real    :: xcentreofmass(3)
- real    :: dR,f_val
+ real    :: dR,f_val,sigmamixt,HHdust,HHsqrt2dust,rhozmixt,csdust
 
  !--seed for random number generator
  iseed = -34598 + (itype - igas)
@@ -509,6 +521,8 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     fr_max = max(fr_max,f_val)
  enddo
 
+ sigmamixt = 0.
+ rhozmixt = 0.
  xcentreofmass = 0.
  ipart = npart_start_count - 1
 
@@ -521,7 +535,6 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     !--now get radius
     f = 0.
     randtest = 1.
-    fmixt = 0.
     do while (randtest > f)
        R = R_in + (R_out - R_in)*ran2(iseed)
        randtest = fr_max*ran2(iseed)
@@ -531,7 +544,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
           if (R>=R_indust .and. R<=R_outdust) then
              fmixt = R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_c_dust)
              f     = f + fmixt
-             sigma = sigma + fmixt/R
+             sigmamixt = fmixt/R
           endif
        endif
     enddo
@@ -544,20 +557,34 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     omega   = sqrt(G*star_m/R**3)
     HH      = cs/omega
     HHsqrt2 = sqrt(2.0d0)*HH
+    if (do_mixture) then
+       !-- get HH of dust at R
+       csdust = cs_func(cs0dust,R,q_inddust)
+       HHdust = csdust/omega
+       HHsqrt2dust = sqrt(2.0d0)*HHdust
+    endif
     z_min = -3.0d0*HHsqrt2
     z_max =  3.0d0*HHsqrt2
-    fz_max = 1.0d0
+
+    fz_max = sigma/(HHsqrt2*sqrt(pi))
+    if (do_mixture) fz_max = fz_max + sigmamixt/(HHsqrt2dust*sqrt(pi))
     f = 0.
     randtest = 1.
     do while(randtest > f)
        zi = z_min + (z_max - z_min)*ran2(iseed)
        randtest = fz_max*ran2(iseed)
-       f = exp(-(zi/(HHsqrt2))**2)
-       rhoz = f/(HHsqrt2*sqrt(pi))
+       f = sigma*exp(-(zi/(HHsqrt2))**2)/(HHsqrt2*sqrt(pi))
+       rhoz = f
+       if (do_mixture) then
+          fmixt = sigmamixt*exp(-(zi/(HHsqrt2dust))**2)/(HHsqrt2dust*sqrt(pi))
+          f    = f + fmixt
+          rhozmixt = fmixt
+       endif
     enddo
 
     !--starting estimate of smoothing length for h-rho iterations
-    rhopart = sigma*rhoz
+    rhopart = rhoz
+    if (do_mixture) rhopart = rhopart + rhozmixt
     hpart = hfact*(particle_mass/rhopart)**(1./3.)
 
     if (i_belong(i)) then
@@ -770,6 +797,7 @@ pure subroutine set_incline_or_warp(xyzh,vxyzu,npart_tot,npart_start,posangl,inc
        inc = 0.
     elseif (R < Rwarp+Hwarp) then
        inc = asin(0.5*(1.+sin(pi/(2.*Hwarp)*(R-Rwarp)))*sin(incl))
+!       inc = incl*(0.5*tanh((R-Rwarp)/1.) +0.5)
        psi = pi*Rwarp/(4.*Hwarp)*sin(incl)/sqrt(1. - (0.5*sin(incl))**2)
        psimax = max(psimax,psi)
     else
@@ -806,17 +834,18 @@ end function get_HonR
 subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
                           R_c,p_index,q_index,star_m,disc_m,sigma_norm, &
                           inclination,honH,cs0,alphaSS_min,alphaSS_max, &
-                          R_warp,psimax,itype)
+                          R_warp,psimax,L_tot_mag,itype)
  use eos,          only:get_temperature,init_eos,ieos
  use infile_utils, only:write_inopt
+ use part, only:igas
  integer, intent(in) :: iunit,npart,itype,sigmaprofile
- real,    intent(in) :: R_in,R_out,R_ref,Q,p_index,q_index,star_m,disc_m,sigma_norm
+ real,    intent(in) :: R_in,R_out,R_ref,Q,p_index,q_index,star_m,disc_m,sigma_norm,L_tot_mag
  real,    intent(in) :: alphaSS_min,alphaSS_max,R_warp,psimax,R_c,inclination,honH,cs0
  integer :: ierr,i
  real    :: T0,T_ref,sig,dR,R
  real    :: vxyzutmp(maxvxyzu)
 
- write(iunit,"(/,a)") '# '//trim(labeltype(itype))//' disc parameters'
+ write(iunit,"(/,a)") '# '//trim(labeltype(itype))//' disc parameters - this file is NOT read by setup'
  call write_inopt(R_in,'R_in','inner disc boundary',iunit)
  call write_inopt(R_ref,'R_ref','reference radius',iunit)
  call write_inopt(R_out,'R_out','outer disc boundary',iunit)
@@ -853,16 +882,18 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  call write_inopt(star_m,'M_star','mass of central star',iunit)
  call write_inopt(disc_m,'M_disc','disc mass',iunit)
  call write_inopt(disc_m/star_m,'M_disc/M_star','relative disc mass',iunit)
- call write_inopt(cs0,'cs0','sound speed at R=1',iunit)
+ if(itype == igas) call write_inopt(cs0,'cs0','sound speed at R=1',iunit)
 
  call init_eos(ieos,ierr)
- vxyzutmp = 0.
- T0 = get_temperature(ieos,(/R_in,0.,0./),1.,vxyzutmp)
- call write_inopt(T0,'T_in','temperature (K) at R=R_in',iunit)
- T_ref = get_temperature(ieos,(/R_ref,0.,0./),1.,vxyzutmp)
- call write_inopt(T_ref,'T_ref','temperature (K) at R=R_ref',iunit)
- T0 = get_temperature(ieos,(/R_out,0.,0./),1.,vxyzutmp)
- call write_inopt(T0,'T_out','temperature (K) at R=R_out',iunit)
+ if(itype == igas)then
+    vxyzutmp = 0.
+    T0 = get_temperature(ieos,(/R_in,0.,0./),1.,vxyzutmp)
+    call write_inopt(T0,'T_in','temperature (K) at R=R_in',iunit)
+    T_ref = get_temperature(ieos,(/R_ref,0.,0./),1.,vxyzutmp)
+    call write_inopt(T_ref,'T_ref','temperature (K) at R=R_ref',iunit)
+    T0 = get_temperature(ieos,(/R_out,0.,0./),1.,vxyzutmp)
+    call write_inopt(T0,'T_out','temperature (K) at R=R_out',iunit)
+ endif
 
  call write_inopt(inclination,'inc.deg','disc inclination in degrees',iunit)
  call write_inopt(honH,'<h/H>','approx. mean smoothing length over disc scale height',iunit)
@@ -876,12 +907,12 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  write(iunit,"(a)")
 
  !--print some of these diagnostics in more useful form
- write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
+ if(itype == igas) write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a,/)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
  if (sigmaprofile==0) then
     write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,/)") '# Surface density      = ',&
          sigma_norm*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,')'
  elseif (sigmaprofile==1) then
-    write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,f5.1,a,f4.1,a/)") '# Surface density      = ',&
+    write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,f5.1,a,f4.1,a,/)") '# Surface density      = ',&
          sigma_norm*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,') exp[-(R/',R_c,')^(2-',p_index,')]'
  elseif (sigmaprofile==2) then
     write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,f4.1,a,/)") '# Surface density      = ',&
@@ -889,7 +920,11 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  elseif (sigmaprofile==3) then
     write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,f5.1,a,f4.1,a,f4.1,a,/)") '# Surface density      = ',&
          sigma_norm*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,') exp[-(R/',R_c,')^(2-',p_index,')] (1 - sqrt(',R_in,'/R))'
+ elseif (sigmaprofile==4) then
+    write(iunit, "(a,es9.2,a,f5.1,a,f4.1,a,f5.1,a,f4.1,a,f4.1,a,/)") '# Surface density      = ',&
+         sigma_norm*umass/udist**2,' g/cm^2 (R/',R_in,')^(-0.5)(1-exp(R-',R_out,')) (1 - sqrt(',R_in,'/R))'
  endif
+ write(iunit,"(a,es9.2,a,/)") '# Disc total angular momentum = ',L_tot_mag,' g*cm^2/sec'
 
  return
 end subroutine write_discinfo
@@ -1050,6 +1085,8 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_c) result(sigma)
     sigma = (R/R_ref)**(-pindex)*(1.-sqrt(R_in/R))
  case (3)
     sigma = (R/R_ref)**(-pindex)*exp(-(R/R_c)**(2.-pindex))*(1.-sqrt(R_in/R))
+ case (4)
+    sigma = (R/R_in)**(-pindex)*(1-sqrt(R_in/R))*(1-exp(R-20)) !R_out = 20.
  case default
     call error('set_disc','unavailable sigmaprofile; surface density is set to zero')
     sigma = 0.

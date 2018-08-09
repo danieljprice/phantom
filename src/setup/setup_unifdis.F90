@@ -31,7 +31,7 @@
 !    zmin      -- zmin boundary
 !
 !  DEPENDENCIES: boundary, dim, infile_utils, io, mpiutils, options, part,
-!    physcon, prompting, readwrite_dust, setup_params, unifdis, units
+!    physcon, prompting, set_dust, setup_params, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -58,15 +58,15 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,            only:maxvxyzu,h2chemistry,ndusttypes
- use setup_params,   only:npart_total
- use io,             only:master
- use unifdis,        only:set_unifdis
- use boundary,       only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
- use part,           only:abundance,iHI
- use physcon,        only:pi,mass_proton_cgs,kboltz,years,pc,solarm
- use readwrite_dust, only:set_dustfrac_from_inopts
- use units,          only:set_units
+ use dim,          only:maxvxyzu,h2chemistry,ndusttypes
+ use setup_params, only:npart_total
+ use io,           only:master
+ use unifdis,      only:set_unifdis
+ use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
+ use part,         only:abundance,iHI
+ use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm
+ use set_dust,     only:set_dustfrac_from_inopts
+ use units,        only:set_units
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -184,12 +184,12 @@ end subroutine setpart
 !
 !------------------------------------------------------------------------
 subroutine setup_interactive(id,polyk)
- use io,             only:master
- use mpiutils,       only:bcast_mpi
- use dim,            only:maxp,maxvxyzu,ndusttypes
- use prompting,      only:prompt
- use units,          only:select_unit
- use readwrite_dust, only:interactively_set_dust
+ use io,        only:master
+ use mpiutils,  only:bcast_mpi
+ use dim,       only:maxp,maxvxyzu,ndusttypes
+ use prompting, only:prompt
+ use units,     only:select_unit
+ use set_dust,  only:interactively_set_dust
  integer, intent(in)  :: id
  real,    intent(out) :: polyk
  integer :: ierr
@@ -272,8 +272,8 @@ end subroutine setup_interactive
 !
 !------------------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils,   only:write_inopt
- use readwrite_dust, only:write_dust_setup_options
+ use infile_utils, only:write_inopt
+ use set_dust,     only:write_dust_setup_options
  character(len=*), intent(in) :: filename
  integer :: iunit
 
@@ -319,10 +319,10 @@ end subroutine write_setupfile
 !
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils,   only:open_db_from_file,inopts,read_inopt,close_db
- use units,          only:select_unit
- use io,             only:error
- use readwrite_dust, only:read_dust_setup_options
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use units,        only:select_unit
+ use io,           only:error
+ use set_dust,     only:read_dust_setup_options
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21

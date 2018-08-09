@@ -24,8 +24,8 @@
 !    xright -- x max boundary
 !
 !  DEPENDENCIES: boundary, dim, infile_utils, io, kernel, mpiutils, nicil,
-!    options, part, physcon, prompting, readwrite_dust, setup_params,
-!    timestep, unifdis
+!    options, part, physcon, prompting, set_dust, setup_params, timestep,
+!    unifdis
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -67,19 +67,19 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use setup_params,   only:rhozero,npart_total,ihavesetupB
- use io,             only:fatal,master,iprint
- use unifdis,        only:set_unifdis,get_ny_nz_closepacked
- use boundary,       only:xmin,ymin,zmin,xmax,ymax,zmax,set_boundary
- use mpiutils,       only:bcast_mpi
- use dim,            only:maxp,maxvxyzu,ndim,mhd,ndusttypes
- use options,        only:use_dustfrac
- use part,           only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,periodic,dustfrac,gr
- use kernel,         only:radkern,hfact_default
- use timestep,       only:tmax
- use prompting,      only:prompt
- use readwrite_dust, only:set_dustfrac_from_inopts
- use units,          only:set_units
+ use setup_params, only:rhozero,npart_total,ihavesetupB
+ use io,           only:fatal,master,iprint
+ use unifdis,      only:set_unifdis,get_ny_nz_closepacked
+ use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,set_boundary
+ use mpiutils,     only:bcast_mpi
+ use dim,          only:maxp,maxvxyzu,ndim,mhd,ndusttypes
+ use options,      only:use_dustfrac
+ use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,periodic,dustfrac,gr
+ use kernel,       only:radkern,hfact_default
+ use timestep,     only:tmax
+ use prompting,    only:prompt
+ use set_dust,     only:set_dustfrac_from_inopts
+ use units,        only:set_units
 #ifdef NONIDEALMHD
  use nicil,          only:rho_i_cnst
 #endif
@@ -333,14 +333,14 @@ end subroutine adjust_shock_boundaries
 !+
 !-----------------------------------------------------------------------
 subroutine choose_shock (gamma,polyk,dtg,iexist)
- use io,             only:fatal,id,master
- use dim,            only:mhd,maxvxyzu,use_dust,ndusttypes
- use eos,            only:equationofstate,ieos
- use physcon,        only:pi
- use options,        only:nfulldump,alpha,alphamax,alphaB,alphau
- use timestep,       only:dtmax,tmax
- use prompting,      only:prompt
- use readwrite_dust, only:interactively_set_dust
+ use io,        only:fatal,id,master
+ use dim,       only:mhd,maxvxyzu,use_dust,ndusttypes
+ use eos,       only:equationofstate,ieos
+ use physcon,   only:pi
+ use options,   only:nfulldump,alpha,alphamax,alphaB,alphau
+ use timestep,  only:dtmax,tmax
+ use prompting, only:prompt
+ use set_dust,  only:interactively_set_dust
 #ifdef NONIDEALMHD
  use nicil,       only:use_ohm,use_hall,use_ambi,eta_constant,eta_const_type, &
                        C_OR,C_HE,C_AD,C_nimhd,icnstphys,icnstsemi,icnst
@@ -561,8 +561,9 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  if (abs(xright)  < epsilon(xright))  xright  = -xleft
 
  if (use_dust) then
-    dust_method  = 2
+    dust_method  = 1
     call interactively_set_dust(dtg,imethod=dust_method,Kdrag=.true.)
+    if (dust_method == 2) call fatal('setup','shock setup currently does not support two-fluid dust')
  endif
 
  return
@@ -608,10 +609,10 @@ end function get_conserved_density
 !+
 !------------------------------------------
 subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
- use infile_utils,   only:write_inopt
- use dim,            only:tagline,maxvxyzu,ndusttypes
- use options,        only:use_dustfrac
- use readwrite_dust, only:write_dust_setup_options
+ use infile_utils, only:write_inopt
+ use dim,          only:tagline,maxvxyzu,ndusttypes
+ use options,      only:use_dustfrac
+ use set_dust,     only:write_dust_setup_options
  integer,          intent(in) :: iprint,numstates
  real,             intent(in) :: gamma,polyk,dtg
  character(len=*), intent(in) :: filename
@@ -666,10 +667,10 @@ end subroutine write_setupfile
 !+
 !------------------------------------------
 subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
- use infile_utils,   only:open_db_from_file,inopts,close_db,read_inopt
- use dim,            only:maxvxyzu,ndusttypes
- use options,        only:use_dustfrac
- use readwrite_dust, only:read_dust_setup_options
+ use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
+ use dim,          only:maxvxyzu,ndusttypes
+ use options,      only:use_dustfrac
+ use set_dust,     only:read_dust_setup_options
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
  integer,          intent(in)  :: iprint,numstates

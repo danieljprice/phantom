@@ -54,9 +54,9 @@ program phantom
 #endif
 
  call set_io_unit_numbers
-!
-!--get name of run from the command line
-!
+ !
+ ! get name of run from the command line
+ !
  nargs = command_argument_count()
  if (nargs < 1) then
     if (id==master) then
@@ -66,8 +66,21 @@ program phantom
     call die
  endif
  call get_command_argument(1,infile)
+ !
+ ! catch error if .setup is on command line instead of .in
+ !
+ if (index(infile,'.setup') > 0) then
+    if (id==master) then
+       print "(a,/)",trim(tagline)
+       print "(a)",'ERROR: I think you mean ./phantomsetup '//trim(infile)
+    endif
+    call die
+ endif
 
  if (trim(infile)=='test') then
+    !
+    ! run the phantom internal test suite
+    !
     call initialise()
     if (nargs >= 2) then
        do i=2,nargs
@@ -78,6 +91,9 @@ program phantom
        call testsuite('all',.true.,.true.,ntests,npass,nfail)
     endif
  else
+    !
+    ! perform a simulation
+    !
     if (index(infile,'.in')==0) then
        infile = trim(infile)//'.in'
     endif

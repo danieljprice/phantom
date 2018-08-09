@@ -22,6 +22,7 @@
 !
 !  REFERENCES:
 !   Xiang-Gruess (2016) MNRAS, Volume 455, Issue 3, p.3086-3100
+!   Cuello et al. (2018) submitted to MNRAS
 !
 !  OWNER: Daniel Mentiplay
 !
@@ -150,15 +151,16 @@ subroutine set_flyby(mprimary,massratio,minimum_approach,initial_dist, &
  vxyz_ptmass(:,i2) = vp
 
  !--incline orbit about ascending node
- if (incl /= 0.) then
-    incl = incl*pi/180.
-    big_omega = big_omega*pi/180.
-    do i=i1,i2
-       rot_axis = (/sin(big_omega),-cos(big_omega),0./)
-       call rotatevec(xyzmh_ptmass(1:3,i),rot_axis,incl)
-       call rotatevec(vxyz_ptmass(1:3,i), rot_axis,incl)
-    enddo
- endif
+ ! if incl 0 = prograde orbit
+ ! if incl 180 = retrograde orbit
+ ! Convention: clock-wise rotation in the zx-plane
+ incl = pi-incl*pi/180.
+ big_omega = big_omega*pi/180.
+ do i=i1,i2
+    rot_axis = (/sin(big_omega),-cos(big_omega),0./)
+    call rotatevec(xyzmh_ptmass(1:3,i),rot_axis,incl)
+    call rotatevec(vxyz_ptmass(1:3,i), rot_axis,incl)
+ enddo
 
 end subroutine set_flyby
 

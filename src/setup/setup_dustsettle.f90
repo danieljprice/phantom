@@ -19,8 +19,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, dust, externalforces, io, mpiutils,
-!    options, part, physcon, prompting, readwrite_dust, setup_params,
-!    timestep, unifdis, units
+!    options, part, physcon, prompting, set_dust, setup_params, timestep,
+!    unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -52,7 +52,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,          only:set_units
  use dust,           only:init_drag,idrag,grainsizecgs,graindenscgs,grainsize,graindens,get_ts, &
                           set_dustfrac
- use readwrite_dust, only:interactively_set_dust,set_dustfrac_from_inopts
+ use set_dust,       only:interactively_set_dust,set_dustfrac_from_inopts
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)

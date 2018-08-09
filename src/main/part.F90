@@ -31,10 +31,10 @@
 !--------------------------------------------------------------------------
 module part
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu, &
-          maxalpha,maxptmass,maxstrain, &
+          maxalpha,maxptmass,maxdvdx, &
           mhd,maxmhd,maxBevol,maxp_h2,maxtemp,periodic, &
           maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
-          switches_done_in_derivs,maxp_dustfrac,use_dust, &
+          maxp_dustfrac,use_dust, &
           store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
           maxne,maxp_growth,ndusttypes,gr,maxgr
  implicit none
@@ -57,9 +57,9 @@ module part
 !
 !--storage of dust properties
 !
- real :: dustprop(5,maxp_growth)
+ real :: dustprop(4,maxp_growth)
  real :: St(maxp_growth)
- character(len=*), parameter :: dustprop_label(5) = (/'grainsize ','graindens ','   vrel   ','vrel/vfrag','    dv    '/)
+ character(len=*), parameter :: dustprop_label(4) = (/'grainsize ','graindens ','vrel/vfrag','    dv    '/)
 !
 !--storage in divcurlv
 !
@@ -79,9 +79,9 @@ module part
  character(len=*), parameter :: divcurlB_label(4) = &
    (/'divB  ','curlBx','curlBy','curlBz'/)
 !
-!--physical viscosity
+!--velocity gradients
 !
- real(kind=4) :: straintensor(6,maxstrain)
+ real(kind=4) :: dvdx(9,maxdvdx)
 !
 !--H2 chemistry
 !
@@ -180,7 +180,7 @@ module part
  real(kind=4)       :: divBsymm(maxmhdan)
  real               :: fext(3,maxan)
  real               :: ddustfrac(ndusttypes,maxdustan)
- real               :: ddustprop(5,maxp_growth) !--grainsize is the only prop that evolves for now
+ real               :: ddustprop(4,maxp_growth) !--grainsize is the only prop that evolves for now
 !
 !--storage associated with/dependent on timestepping
 !
@@ -188,7 +188,7 @@ module part
  real               :: ppred(maxvxyzu,maxgran)
  real               :: dustpred(ndusttypes,maxdustan)
  real               :: Bpred(maxBevol,maxmhdan)
- real               :: dustproppred(5,maxp_growth)
+ real               :: dustproppred(4,maxp_growth)
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin(maxan)
  integer(kind=1)    :: ibin_old(maxan)
@@ -605,6 +605,24 @@ subroutine set_particle_type(i,itype)
  endif
 
 end subroutine set_particle_type
+
+!----------------------------------------------------------------
+!+
+!  utility function to get strain tensor from dvdx array
+!+
+!----------------------------------------------------------------
+pure function strain_from_dvdx(dvdxi) result(strain)
+ real, intent(in) :: dvdxi(9)
+ real :: strain(6)
+
+ strain(1) = 2.*dvdxi(1)
+ strain(2) = dvdxi(2) + dvdxi(4)
+ strain(3) = dvdxi(3) + dvdxi(7)
+ strain(4) = 2.*dvdxi(5)
+ strain(5) = dvdxi(6) + dvdxi(8)
+ strain(6) = 2.*dvdxi(9)
+
+end function strain_from_dvdx
 
 !----------------------------------------------------------------
 !+

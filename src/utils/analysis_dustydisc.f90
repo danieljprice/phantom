@@ -19,7 +19,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: dim, dust, infile_utils, io, leastsquares, options, part,
-!    physcon, readwrite_dust, solvelinearsystem, units
+!    physcon, set_dust, solvelinearsystem, units
 !+
 !--------------------------------------------------------------------------
 module analysis
@@ -75,18 +75,18 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
- use dim,            only:maxp
- use io,             only:fatal
- use physcon,        only:pi,jupiterm,years,au
- use part,           only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac,tstop, &
-                          rhoh,maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass,deltav, &
-                          isdead_or_accreted
- use options,        only:use_dustfrac,iexternalforce
- use units,          only:umass,udist,utime
- use dust,           only:graindens,grainsize
- use readwrite_dust, only:read_dust_setup_options
- use leastsquares,   only:fit_slope
- use infile_utils,   only:open_db_from_file,close_db,inopts
+ use dim,          only:maxp
+ use io,           only:fatal
+ use physcon,      only:pi,jupiterm,years,au
+ use part,         only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac,tstop, &
+                        rhoh,maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass,deltav, &
+                        isdead_or_accreted
+ use options,      only:use_dustfrac,iexternalforce
+ use units,        only:umass,udist,utime
+ use dust,         only:graindens,grainsize
+ use set_dust,     only:read_dust_setup_options
+ use leastsquares, only:fit_slope
+ use infile_utils, only:open_db_from_file,close_db,inopts
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyz(:,:)
  real,             intent(in) :: pmass,time
@@ -394,6 +394,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  meantstop(:,:)   = 0.
  meanzdust(:,:)   = 0.
  meanvrdust(:,:)  = 0.
+ stan_dev(:,:)    = 0.
 
  meandustfraci(:,:)  = 0.
  meandustfracisum(:) = 0.
@@ -597,8 +598,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        angz = angz + pgasmass*(xyzh(1,i)*vxyz(2,i) - xyzh(2,i)*vxyz(1,i))
     endif
  enddo
- write(*,*)"Massa della polvere: ",Mdust
- write(*,*)"Massa del gas: ",Mgas
+ write(*,*)"Dust mass: ",Mdust
+ write(*,*)"Gas mass: ",Mgas
 
  numcols = 5 ! # of total columns
  if (.not.init) then
@@ -669,9 +670,15 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  do i = 1,nr
     Ltot = sqrt(Lx(i)*Lx(i) + Ly(i)*Ly(i) + Lz(i)*Lz(i))
 
-    unitlx(i) = Lx(i)/Ltot
-    unitly(i) = Ly(i)/Ltot
-    unitlz(i) = Lz(i)/Ltot
+    if(Ltot/=0.) then
+       unitlx(i) = Lx(i)/Ltot
+       unitly(i) = Ly(i)/Ltot
+       unitlz(i) = Lz(i)/Ltot
+    else
+       unitlx(i) = 0.
+       unitly(i) = 0.
+       unitlz(i) = 0.
+    endif
 
     if (ninbin(i) > 0) h_smooth(i) = h_smooth(i)/ninbin(i)
  enddo

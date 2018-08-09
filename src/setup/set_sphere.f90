@@ -147,7 +147,7 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
  integer(kind=8)                 :: npart_local
  integer                         :: nps_lo,nps_hi,npr_lo,npr_hi,test_region,iter
  integer                         :: npin,npmax,npart0,nx,np,dn
- logical                         :: iterate_to_get_nps,increase_np
+ logical                         :: iterate_to_get_nps
  !
  !--Initialise values
  test_region   = 10
@@ -215,24 +215,18 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
              if (nps_lo > nps_requested .or. nps_requested > nps_hi) then ! sanity check
                 call fatal("set_sphere","Did not converge to the correct two options for number of particles in the sphere.")
              endif
-             if (nps_requested - nps_lo > nps_hi - nps_requested) then
-                nps_requested = nps_hi
-                np            = npr_hi
-             else
-                write(*,'(a,I8,a,F5.2,a)') "set_sphere: Suggesting to use ",nps_lo," in the sphere, which is "&
-                 ,float(nps_requested-nps_lo)/float(nps_requested)*100.0,"% than less requested."
-                write(*,'(a,I8,a,F5.2,a)') "set_sphere: The alternative is to use " &
-                 , nps_hi," particles, which is ",float(nps_hi - nps_requested)/float(nps_requested)*100.0 &
-                 ,"% more than requested."
-                call prompt(' set_sphere: Use the increased number of particles ',increase_np)
-                if (increase_np) then
-                   nps_requested = nps_hi
-                   np            = npr_hi
-                else
-                   nps_requested = nps_lo
-                   np            = npr_lo
-                endif
+             ! always use more particles than requested
+             if (nps_requested - nps_lo < nps_hi - nps_requested) then
+                write(*,'(a,I8,a,F5.2,a)') " set_sphere: The closest number of particles to the requested number is " &
+                    ,nps_lo,", which is ",float(nps_requested-nps_lo)/float(nps_requested)*100.0 &
+                    ,"% than less requested."
+                write(*,'(a)') " set_sphere: We will not use fewer than the requested number of particles."
              endif
+             write(*,'(a,I8,a,F5.2,a)') " set_sphere: Using " &
+              , nps_hi," particles, which is ",float(nps_hi - nps_requested)/float(nps_requested)*100.0 &
+              ,"% more than requested."
+             nps_requested = nps_hi
+             np            = npr_hi
           else
              nps_hi = npart0
              npr_hi = np

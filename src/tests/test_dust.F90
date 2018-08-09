@@ -23,8 +23,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, deriv, dim, dust, energies, eos, io, kernel,
-!    mpiutils, options, part, physcon, step_lf_global, testutils, timestep,
-!    unifdis, units
+!    mpiutils, options, part, physcon, random, step_lf_global, testutils,
+!    timestep, unifdis, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module testdust
@@ -44,8 +44,9 @@ subroutine test_dust(ntests,npass)
  use physcon,   only:solarm,au
  use units,     only:set_units,unit_density
  use eos,       only:gamma
- use dim,       only:ndusttypes
+ use dim,       only:ndusttypes,use_dust
  use mpiutils,  only:barrier_mpi
+ use options,   only:use_dustfrac
 #endif
  integer, intent(inout) :: ntests,npass
 #ifdef DUST
@@ -71,7 +72,8 @@ subroutine test_dust(ntests,npass)
  idrag = 1
  rhoi = 1.e-13/unit_density
  spsoundi = 1.
- if (ndusttypes>1) then
+ if (use_dust .and. ndusttypes>1) then
+    use_dustfrac = .true.
     dust_to_gas = 0.01
     call set_dustfrac(dust_to_gas,dustfraci,smincgs,smaxcgs,sindex)
  else
@@ -93,14 +95,23 @@ subroutine test_dust(ntests,npass)
  call barrier_mpi()
 
  !
+ ! Test that drag conserves momentum and energy
+ !
+ use_dustfrac = .false.
+ call test_drag(ntests,npass)
+ call barrier_mpi()
+
+ !
  ! DUSTYBOX test
  !
+ use_dustfrac = .false.
  call test_dustybox(ntests,npass)
  call barrier_mpi()
 
  !
  ! DUSTYDIFFUSE test
  !
+ use_dustfrac = .true.
  call test_dustydiffuse(ntests,npass)
  call barrier_mpi()
 
@@ -136,15 +147,22 @@ subroutine test_dustybox(ntests,npass)
  use timestep,       only:dtmax
  use io,             only:iverbose
  use mpiutils,       only:reduceall_mpi
+ use kernel,         only:kernelname
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
  integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(5), nerr(5)
  real :: deltax, dz, hfact, totmass, rhozero, errmax(5), dtext_dum
  real :: t, dt, dtext, dtnew
  real :: vg, vd, deltav, ekin_exact, fd
- real, parameter :: tol = 1.e-4, tolvg = 1.e-4, tolfg = 3.3e-3, tolfd = 3.3e-3
+ real :: tol,tolvg,tolfg,tolfd
 
- if (periodic) then
+ if (index(kernelname,'quintic') /= 0) then
+    tol = 1.e-5; tolvg = 2.5e-5; tolfg = 3.3e-4; tolfd = 3.3e-4
+ else
+    tol = 1.e-4; tolvg = 1.e-4; tolfg = 3.e-3; tolfd = 3.e-3
+ endif
+
+ if (periodic .and. use_dust) then
     if (use_dustfrac .and. ndusttypes>1) then
        if (id==master) write(*,"(/,a)") '--> skipping DUSTYBOX because use_dustfrac = yes AND ndusttypes > 1'
        return
@@ -152,7 +170,7 @@ subroutine test_dustybox(ntests,npass)
        if (id==master) write(*,"(/,a)") '--> testing DUSTYBOX'
     endif
  else
-    if (id==master) write(*,"(/,a)") '--> skipping DUSTYBOX (need -DPERIODIC)'
+    if (id==master) write(*,"(/,a)") '--> skipping DUSTYBOX (need -DPERIODIC and -DDUST)'
     return
  endif
  !
@@ -166,6 +184,10 @@ subroutine test_dustybox(ntests,npass)
  rhozero = 1.
  totmass = rhozero*dxbound*dybound*dzbound
  npart = 0
+ fxyzu = 0.
+ ddustprop = 0.
+ ddustfrac = 0.
+ dBevol = 0.
 
  do itype=1,2
     npart_previous = npart
@@ -257,11 +279,11 @@ end subroutine test_dustybox
 !+
 !----------------------------------------------------
 subroutine test_dustydiffuse(ntests,npass)
- use dim,       only:maxp,periodic,maxtypes,mhd,ndusttypes
+ use dim,       only:maxp,periodic,maxtypes,mhd,ndusttypes,use_dust
  use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac,dustevol, &
                      xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,set_particle_type,rhoh,temperature,&
-                     dustprop,ddustprop,pxyzu,dens,metrics
- use options,   only:use_dustfrac
+                     dustprop,ddustprop
+ use part,      only:pxyzu,dens,metrics
  use kernel,    only:hfact_default
  use eos,       only:gamma,polyk,ieos
  use dust,      only:K_code,idrag
@@ -281,10 +303,10 @@ subroutine test_dustydiffuse(ntests,npass)
  real    :: epstot,epsi(ndusttypes),rc,rc2,r2,A,B,eta
  real    :: erri,exact,errl2,term,tol
  real,allocatable   :: ddustfrac_prev(:,:)
- logical, parameter :: do_output = .true.
+ logical, parameter :: do_output = .false.
  real,    parameter :: t_write(5) = (/0.1,0.3,1.0,3.0,10.0/)
 
- if (use_dustfrac .and. periodic) then
+ if (use_dust .and. periodic) then
     if (id==master) write(*,"(/,a)") '--> testing DUSTYDIFFUSE'
  else
     if (id==master) write(*,"(/,a)") '--> skipping DUSTYDIFFUSE (need -DDUST and -DPERIODIC)'
@@ -342,11 +364,10 @@ subroutine test_dustydiffuse(ntests,npass)
  end select
 
  !--check that individual dust fractions add up to the total dust fraction
- if (abs(sum(epsi)-epstot)/epstot>1.e-14) then
-    write(*,"(/,a)") 'ERROR! SUM(epsilon_k) /= epsilon'
-    print*,'SUM(epsilon_k) = ',sum(epsi)
-    print*,'       epsilon = ',epstot
- endif
+ nerr = 0
+ call checkval(sum(epsi),epstot,1.e-14,nerr(1),'sum(epsilon_k) = epsilon')
+ ntests = ntests + 1
+ if (nerr(1)==0) npass = npass + 1
 
  rc   = 0.25
  rc2  = rc**2
@@ -430,7 +451,7 @@ subroutine test_dustydiffuse(ntests,npass)
     enddo
     !$omp end parallel do
     errl2 = sqrt(errl2/n)
-    tol = 2.5e-3 !1.5e-3/(1. + time)  ! take tolerance down with time
+    tol = 2.6e-3 !1.5e-3/(1. + time)  ! take tolerance down with time
     call checkvalbuf(errl2,0.,tol,'L2 err',nerr(1),ncheck(1),errmax(1))
     !
     ! write solution to file if necessary
@@ -438,6 +459,8 @@ subroutine test_dustydiffuse(ntests,npass)
     if (do_output .and. any(abs(t_write-time) < 0.01*dt)) call write_file(time,xyzh,dustfrac,npart)
  enddo
  call checkvalbuf_end('dust diffusion matches exact solution',ncheck(1),nerr(1),errmax(1),tol)
+ ntests = ntests + 1
+ if (nerr(1) == 0) npass = npass + 1
 
  !
  ! clean up dog poo
@@ -447,6 +470,129 @@ subroutine test_dustydiffuse(ntests,npass)
  ddustfrac = 0.
 
 end subroutine test_dustydiffuse
+
+!---------------------------------------------------------------------------------
+!+
+!  check that drag implementation conserves momentum, angular momentum and energy
+!+
+!---------------------------------------------------------------------------------
+subroutine test_drag(ntests,npass)
+ use dim,       only:maxp,periodic,maxtypes,mhd,ndusttypes,maxvxyzu
+ use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac, &
+                     xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,set_particle_type,rhoh,temperature,&
+                     dustprop,ddustprop,idust,iphase,iamtype
+ use part,      only:pxyzu,dens,metrics
+ use options,   only:use_dustfrac
+ use eos,       only:polyk,ieos
+ use kernel,    only:hfact_default
+ use dust,      only:K_code,idrag
+ use boundary,  only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
+ use io,        only:iverbose
+ use unifdis,   only:set_unifdis
+ use deriv,     only:derivs
+ use mpiutils,  only:reduceall_mpi
+ use random,    only:ran2
+ use vectorutils, only:cross_product3D
+ integer, intent(inout) :: ntests,npass
+ integer(kind=8) :: npartoftypetot(maxtypes)
+ integer :: nx,i,nfailed,itype,iseed
+ real    :: da(3),dl(3),temp(3)
+ real    :: psep,time,rhozero,totmass,dtnew,dekin,deint
+
+ if (id==master) write(*,"(/,a)") '--> testing DUST DRAG'
+!
+! set up particles in random distribution
+!
+ nx = 50
+ psep = 1./nx
+ iseed= -14255
+ call set_boundary(xmin,xmax,ymin,ymax,zmin)
+ hfact = hfact_default
+ rhozero = 3.
+ totmass = rhozero*dxbound*dybound*dzbound
+ time  = 0.
+ npart = 0
+ npartoftype(:) = 0
+ if (maxvxyzu < 4)then
+    ieos = 1
+    polyk = 1.
+ else
+    ieos = 2
+ endif
+ fxyzu(:,:) = 0.
+
+ iverbose = 2
+ use_dustfrac = .false.
+ call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                      psep,hfact,npart,xyzh,verbose=.false.)
+ npartoftype(igas) = npart
+ npartoftypetot(igas) = reduceall_mpi('+',npartoftype(igas))
+ massoftype(igas)  = totmass/npartoftypetot(igas)
+
+ do i=1,npart
+    call set_particle_type(i,igas)
+    vxyzu(1:3,i) = (/ran2(iseed),ran2(iseed),ran2(iseed)/)
+    if (maxvxyzu >= 4) vxyzu(4,i) = ran2(iseed)
+ enddo
+
+ call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                      3.*psep,hfact,npart,xyzh,verbose=.false.)
+
+ do i=npartoftype(igas)+1,npart
+    call set_particle_type(i,idust)
+    vxyzu(1:3,i) = (/ran2(iseed),ran2(iseed),ran2(iseed)/)
+    if (maxvxyzu >= 4) vxyzu(4,i) = 0.
+ enddo
+ npartoftype(idust) = npart - npartoftype(igas)
+ npartoftypetot(idust) = reduceall_mpi('+',npartoftype(idust))
+ massoftype(idust)  = totmass/npartoftypetot(idust)
+
+ if (mhd) Bevol = 0.
+
+!
+! call derivatives
+!
+ idrag=1
+ if(idrag==2) K_code = 100.
+
+ call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
+             dustfrac,ddustfrac,temperature,time,0.,dtnew,pxyzu,dens,metrics)
+
+!
+! check that momentum and energy are conserved
+!
+ da(:) = 0.
+ dl(:) = 0.
+ dekin = 0.
+ deint = 0.
+ do i=1,npart
+    itype = iamtype(iphase(i))
+    da(:) = da(:) + massoftype(itype)*fxyzu(1:3,i)
+    if (.not.periodic) then !the angular momentum is not conserved for particle systems with periodic boundary conditions
+       call cross_product3D(xyzh(1:3,i),fxyzu(1:3,i),temp)
+       dl(:) = dl(:) + massoftype(itype)*temp(:)
+    endif
+    if (maxvxyzu >= 4) then
+       dekin  = dekin  + massoftype(itype)*dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
+       deint  = deint  + massoftype(itype)*fxyzu(4,i)
+    endif
+ enddo
+
+ nfailed=0
+ call checkval(da(1),0.,7.e-7,nfailed,'acceleration from drag conserves momentum(x)')
+ call checkval(da(2),0.,7.e-7,nfailed,'acceleration from drag conserves momentum(y)')
+ call checkval(da(3),0.,7.e-7,nfailed,'acceleration from drag conserves momentum(z)')
+ if (.not.periodic) then
+    call checkval(dl(1),0.,1.e-9,nfailed,'acceleration from drag conserves angular momentum(x)')
+    call checkval(dl(2),0.,1.e-9,nfailed,'acceleration from drag conserves angular momentum(y)')
+    call checkval(dl(3),0.,1.e-9,nfailed,'acceleration from drag conserves angular momentum(z)')
+ endif
+ if (maxvxyzu >= 4) call checkval(dekin+deint,0.,7.e-7,nfailed,'acceleration from drag conserves energy')
+
+ ntests = ntests + 1
+ if (nfailed==0) npass = npass + 1
+
+end subroutine test_drag
 
 !---------------------------------------------------------
 !+

@@ -18,8 +18,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: centreofmass, dim, externalforces, initial_params, io,
-!    options, part, prompting, readwrite_dumps
+!  DEPENDENCIES: centreofmass, dim, extern_gwinspiral, externalforces,
+!    initial_params, io, options, part, physcon, prompting,
+!    readwrite_dumps, timestep, units
 !+
 !--------------------------------------------------------------------------
 module moddump
@@ -31,7 +32,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,           only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas,mhd
  use prompting,      only: prompt
  use centreofmass,   only: reset_centreofmass,get_centreofmass
+ use physcon,        only: c
+ use units,          only: unit_velocity
+ use timestep,       only: tmax,dtmax
  use initial_params, only: get_conserv
+ use options,        only: iexternalforce
+ use externalforces, only: iext_gwinspiral
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -40,6 +46,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real :: sep,mtot,angvel,vel1,vel2
  real :: xcom(3), vcom(3), x1com(3), v1com(3), x2com(3), v2com(3)
  real :: pmassi,m1,m2,rad1,rad2
+ real :: tmax0,fac,omega_inner,omega_outer
+ logical :: add_gw,add_v
 
  !
  ! Option selection
@@ -53,13 +61,58 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print *, '   2) Add a star from another dumpfile'
  print *, '   3) Adjust separation of existing binary'
  print *, '   4) Add magnetic field'
+ print *, '   5) Add gravitational waves'
+ print *, '   6) Add radial pulsation'
+ print *, '   7) Add rotational velocity pulsation'
 
  opt = 1
  synchro = 1
- call prompt('Choice',opt, 1, 4)
+ add_gw = .false.
+ add_v  = .false.
+ call prompt('Choice',opt, 1, 7)
+
+
+ !
+ ! Add gravitational waves
+ !
+ if (opt == 5) then
+    add_gw = .true.
+    iexternalforce = iext_gwinspiral
+    print*, 'This option requires creating a binary system.  How would you like to create the second star?'
+    print*, 'Pick option 1 or 2 from above'
+    opt = 1
+    ! Then create binary
+    call prompt('Choice',opt, 1, 2)
+ endif
+
+ !
+ ! Add radial or rotational velocity pulsations
+ !
+ if (opt == 6 .or. opt == 7) then
+    add_v = .true.
+    call reset_velocity(npart,vxyzu)
+    if (opt == 6) then
+       fac = 0.2
+       call prompt('Enter fac, where v_r = fac*r:',fac,0.)
+       call add_vradial(npart,xyzh,vxyzu,fac)
+    endif
+    if (opt == 7) then
+       omega_inner = 0.025
+       omega_outer = 0.014
+       call prompt('Enter angular velocity at center: ',omega_inner)
+       call prompt('Enter angular velocity at surface:',omega_outer)
+       call add_vrotational(npart,xyzh,vxyzu,omega_inner,omega_outer)
+    endif
+    print*, 'Would you like to create the second star?'
+    print*, 'Pick option 1 or 2 from above, or 0 for no additional star'
+    opt = 0
+    ! Then create binary
+    call prompt('Choice',opt, 0, 2)
+ endif
 
  if (opt == 1 .or. opt == 2 .or. opt == 3) then
     sep = 1.0
+    if (add_gw) sep = 50.0
     print *, ''
     call prompt('Enter radial separation between stars (code unit)', sep, 0.)
 
@@ -92,10 +145,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     print *, ''
  endif
 
-
- ! This is turned off (there is no option 5).
+ ! This is turned off.
  ! To get a sufficiently low resolution background requires ~10^9 particles in each star. Not realistic.
- if (opt == 5) then
+ if (.false.) then
     nx = 128
     call prompt('Specify number of particles in x-direction for low-density background',nx,0)
     print *, ''
@@ -142,7 +194,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call get_centreofmass(x2com, v2com, Nstar2, xyzh(:,Nstar1+1:npart), vxyzu(:,Nstar1+1:npart))
 
     ! set orbital velocity of the binary
-    call reset_velocity(npart,vxyzu)
+    if (.not. add_v) call reset_velocity(npart,vxyzu)
     call set_velocity(npart,vxyzu,Nstar1,Nstar2,angvel,vel1,vel2)
     !call set_corotate_velocity(angvel)
 
@@ -156,6 +208,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
     ! reset tracked conservation properties
     get_conserv = 1.
+ endif
+
+! These are additional variables required for the gravitational wave study
+ if (add_gw) then
+    tmax0 = 5./256.*(c/unit_velocity)**5*sep**4/(m1*m2*(m1+m2))
+    dtmax = tmax0/tmax*dtmax
+    tmax  = 2.0*tmax0
+    call save_nstar(Nstar1,Nstar2)
  endif
 
 end subroutine modify_dump
@@ -653,6 +713,69 @@ subroutine synchronise(npart,xyzh,vxyzu,Nstar1,Nstar2,angvel,x1com,x2com)
  enddo
 
 end subroutine synchronise
+!
+! Add radial pulsation velocity to a single star
+!
+subroutine add_vradial(npart,xyzh,vxyzu,fac)
+ use physcon, only: pi
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
+ real,    intent(in)    :: fac
+ integer                :: i
+ real                   :: rad,theta,phi,vr
 
+ do i = 1,npart
+    rad   = sqrt( dot_product(xyzh(1:3,i),xyzh(1:3,i)) )
+    theta = atan(xyzh(2,i)/xyzh(1,i))
+    if (xyzh(1,i) < 0.0) theta = theta + pi
+    phi   = acos(xyzh(3,i)/rad)
+    vr    = fac*rad
+    vxyzu(1,i) = vr*cos(theta)*sin(phi)
+    vxyzu(2,i) = vr*sin(theta)*sin(phi)
+    vxyzu(3,i) = vr*cos(phi)
+ enddo
+
+end subroutine add_vradial
+!
+! Add rotational velocity to a single star
+! Author: Bernard Field under supervision of James Wurster
+! (Note: The output may not be in hydrostatic equilibrium, thus may be unstable)
+subroutine add_vrotational(npart,xyzh,vxyzu,omega_inner,omega_outer)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
+ real,    intent(in)    :: omega_inner,omega_outer
+ integer                :: i
+ real                   :: domega,rad,rad2,rad2i,rstar1
+
+ domega = omega_outer - omega_inner
+ !--calculate stellar radius
+ rad2 = 0.
+ do i = 1,npart
+    rad2i = xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i)
+    rad2  = max(rad2,rad2i)
+ enddo
+ rstar1 = 1.0/sqrt(rad2)
+ !
+ !--Add rotational profile
+ do i=1,npart
+    rad        = sqrt( xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i) )
+    vxyzu(1,i) = -xyzh(2,i) * (domega*rad*rstar1 + omega_inner)
+    vxyzu(2,i) =  xyzh(1,i) * (domega*rad*rstar1 + omega_inner)
+ enddo
+
+end subroutine
+!
+!  Save nstar so it can be properly written to the header
+!
+subroutine save_nstar(Nstar1,Nstar2)
+ use extern_gwinspiral, only: Nstar
+ integer, intent(in) :: Nstar1,Nstar2
+
+ Nstar(1) = Nstar1
+ Nstar(2) = Nstar2
+
+end subroutine save_nstar
+!-----------------------------------------------------------------------
 end module moddump
-
