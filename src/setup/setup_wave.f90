@@ -44,7 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:labeltype,set_particle_type,igas,idust,dustfrac
  use physcon,      only:pi
  use kernel,       only:radkern
- use dim,          only:maxvxyzu,use_dust,maxp,ndusttypes
+ use dim,          only:maxvxyzu,use_dust,maxp
  use options,      only:use_dustfrac
  use prompting,    only:prompt
  use set_dust,     only:interactively_set_dust,set_dustfrac_from_inopts
@@ -59,7 +59,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real :: totmass,fac,deltax,deltay,deltaz
  integer :: i
- integer :: itype,ntypes,npartx
+ integer :: itype,itypes,ntypes,npartx
  integer :: npart_previous,dust_method
  logical, parameter :: ishift_box =.true.
  real, parameter    :: dust_shift = 0.
@@ -122,9 +122,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart_total = 0
  npartoftype(:) = 0
 
- overtypes: do itype=1,ntypes
-    select case (itype)
-    case(igas)
+ overtypes: do itypes=1,ntypes
+    select case (itypes)
+    case(1)
+       itype = igas
        if (id==master) call prompt('enter '//trim(labeltype(itype))//&
                             ' density (gives particle mass)',rhozero,0.)
 
@@ -141,7 +142,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (use_dustfrac) then
           call bcast_mpi(dtg)
        endif
-    case(idust)
+    case(2)
+       itype = idust
        rhozero = dtg*rhozero
     end select
 
