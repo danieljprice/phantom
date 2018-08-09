@@ -44,8 +44,8 @@ module dust
  integer, public  :: idrag             = 1
  integer, public  :: icut_backreaction = 0
  logical, public  :: ilimitdustflux    = .false. ! to limit spurious dust generation in outer disc
- real, public     :: grainsize(ndusttypes),graindens(ndusttypes)
- real, private    :: grainmass(ndusttypes)
+ logical, public  :: readindustprop    = .false. ! dust properties read from dump or calculated
+ real, public     :: grainsize(ndusttypes),graindens(ndusttypes),grainmass(ndusttypes)
  public           :: get_ts
  public           :: init_drag
  public           :: print_dustinfo
@@ -91,7 +91,7 @@ subroutine init_drag(ierr)
  select case(idrag)
  case(1)
     !--compute the grain mass (spherical compact grains of radius s)
-    call set_grainsize(smincgs,smaxcgs)
+    if (.not.readindustprop) call set_grainsize(smincgs,smaxcgs)
     do i = 1,ndusttypes
        if (grainmass(i) <= 0. .and. idrag == 1) then
           call error('init_drag','grain size/density <= 0',var='grainmass',val=grainmass(i))

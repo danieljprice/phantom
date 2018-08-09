@@ -1825,13 +1825,14 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  use eos,            only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
  use options,        only:ieos,tolh,alpha,alphau,alphaB,iexternalforce
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,maxtypes
- use dust,           only:grainsize,graindens
+ use dust,           only:grainsize,graindens,grainmass,readindustprop
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use externalforces, only:read_headeropts_extern
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
  use dump_utils,     only:extract
+ use physcon,        only:pi
  type(dump_h), intent(in)  :: hdr
  logical,      intent(in)  :: phantomdump
  integer,      intent(in)  :: iprint,ntypesinfile
@@ -1977,9 +1978,12 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  if (use_dust) then
     call extract('grainsize',grainsize,hdr,ierrs(1))
     call extract('graindens',graindens,hdr,ierrs(2))
+    grainmass(:) = 4./3.*pi*graindens(:)*grainsize(:)**3
     if (any(ierrs(1:2) /= 0)) then
        write(*,*) 'ERROR reading grain size/density from file header'
     endif
+    !--flag that dust properties have been read from the dump file
+    readindustprop = .true.
  endif
 
  return
