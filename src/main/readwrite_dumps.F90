@@ -1982,8 +1982,8 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
     if (any(ierrs(1:2) /= 0)) then
        write(*,*) 'ERROR reading grain size/density from file header'
     endif
-    !--flag that dust properties have been read from the dump file
-    readindustprop = .true.
+    !--dust properties need to be read in rather than calculated when ndusttypes > 1
+    if (ndusttypes > 1) readindustprop = .true.
  endif
 
  return
