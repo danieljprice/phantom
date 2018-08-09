@@ -449,10 +449,23 @@ subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple,imethod)
  logical            :: simple_grainsize = .false.
  logical            :: simple_graindens = .false.
  logical            :: simple_output    = .false.
- character(len=120) :: varlabel(ndusttypes)
+ character(len=120) :: varlabel(ndusttypes),string(3)
 
  call read_inopt(dust_method,'dust_method',db,min=1,max=2,errcount=nerr)
  if (present(imethod)) imethod = dust_method
+
+ string(1) = 'Warning! dust_method and use_dustfrac are currently incompatible. This is'
+ string(2) = '         normal behaviour when using the moddump utility, but otherwise'
+ string(3) = '         may indicate an initialisation problem for one or both variables.'
+ if (dust_method == 1 .and. .not.use_dustfrac) then
+    write(*,'(/a,/a,/a/)') (trim(string(i)), i = 1,3)
+    print*,'...setting use_dustfrac = .true.'
+    use_dustfrac = .true.
+ elseif (dust_method == 2 .and. use_dustfrac) then
+    write(*,'(/a,/a,/a/)') (trim(string(i)), i = 1,3)
+    print*,'...setting use_dustfrac = .false.'
+    use_dustfrac = .false.
+ endif
 
  if (use_dustfrac) then
     if (dust_method == 2) then
