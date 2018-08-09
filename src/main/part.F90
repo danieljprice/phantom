@@ -104,8 +104,8 @@ module part
  real :: dustfrac(maxdusttypes,maxp_dustfrac)
  character(len=*), parameter :: dustfrac_label(maxdusttypes) = 'dustfrac'
  character(len=*), parameter :: tstop_label(maxdusttypes) = 'tstop'
- real :: dustevol(maxdusttypes,maxp_dustfrac)
- real :: deltav(3,maxdusttypes,maxp_dustfrac)
+ real :: dustevol(maxdustsmall,maxp_dustfrac)
+ real :: deltav(3,maxdustsmall,maxp_dustfrac)
  character(len=*), parameter :: deltav_label(3) = &
    (/'deltavx','deltavy','deltavz'/)
 !
@@ -167,13 +167,13 @@ module part
  real               :: dBevol(maxBevol,maxmhdan)
  real(kind=4)       :: divBsymm(maxmhdan)
  real               :: fext(3,maxan)
- real               :: ddustfrac(maxdusttypes,maxdustan)
+ real               :: ddustfrac(maxdustsmall,maxdustan)
  real               :: ddustprop(4,maxp_growth) !--grainsize is the only prop that evolves for now
 !
 !--storage associated with/dependent on timestepping
 !
  real               :: vpred(maxvxyzu,maxan)
- real               :: dustpred(maxdusttypes,maxdustan)
+ real               :: dustpred(maxdustsmall,maxdustan)
  real               :: Bpred(maxBevol,maxmhdan)
  real               :: dustproppred(4,maxp_growth)
 #ifdef IND_TIMESTEPS
@@ -218,7 +218,7 @@ module part
    +maxphase/maxpd                      &  ! iphase
 #ifdef DUST
    +maxdusttypes                        &  ! dustfrac
-   +maxdusttypes                        &  ! dustevol
+   +maxdustsmall                        &  ! dustevol
 #ifdef DUSTGROWTH
    +1                                   &  ! dustproppred
    +1                                   &  ! ddustprop
@@ -894,6 +894,7 @@ subroutine fill_sendbuf(i,xtemp)
     if (use_dust) then
        call fill_buffer(xtemp, dustfrac(:,i),nbuf)
        call fill_buffer(xtemp, dustevol(:,i),nbuf)
+       call fill_buffer(xtemp, dustpred(:,i),nbuf)
     endif
     if (maxp_h2==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)
@@ -953,7 +954,8 @@ subroutine unfill_buffer(ipart,xbuf)
  endif
  if (use_dust) then
     dustfrac(:,ipart)   = unfill_buf(xbuf,j,maxdusttypes)
-    dustevol(:,ipart)   = unfill_buf(xbuf,j,maxdusttypes)
+    dustevol(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
+    dustpred(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
  endif
  if (maxp_h2==maxp) then
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)

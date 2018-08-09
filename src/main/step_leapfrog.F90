@@ -90,7 +90,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,maxBevol,&
                           iboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustfrac,temperature,alphaind,nptmass,store_temperature,&
-                          dustprop,ddustprop,dustproppred
+                          dustprop,ddustprop,dustproppred,ndustsmall
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
@@ -212,7 +212,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype) &
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustfrac,dustpred,use_dustfrac) &
-!$omp shared(alphaind,ieos,alphamax) &
+!$omp shared(alphaind,ieos,alphamax,ndustsmall) &
 !$omp shared(temperature) &
 #ifdef IND_TIMESTEPS
 !$omp shared(twas,timei) &
@@ -260,10 +260,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              dustpred(:,i) = dustevol(:,i) + hdti*ddustfrac(:,i)
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!             dustfrac(:,i) = min(dustpred(:,i)**2/rhoi,1.) ! dustevol = sqrt(rho*eps)
+!             dustfrac(1:ndustsmall,i) = min(dustpred(:,i)**2/rhoi,1.) ! dustevol = sqrt(rho*eps)
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-             dustfrac(:,i) = sin(dustpred(:,i))**2
+             dustfrac(1:ndustsmall,i) = sin(dustpred(:,i))**2
 !------------------------------------------------
           endif
        endif

@@ -283,7 +283,7 @@ subroutine test_dustydiffuse(ntests,npass)
  use dim,       only:maxp,periodic,maxtypes,mhd,use_dust
  use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac,dustevol, &
                      xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,set_particle_type,rhoh,temperature,&
-                     dustprop,ddustprop,ndusttypes
+                     dustprop,ddustprop,ndusttypes,ndustsmall
  use kernel,    only:hfact_default
  use eos,       only:gamma,polyk,ieos
  use dust,      only:K_code,idrag
@@ -400,10 +400,10 @@ subroutine test_dustydiffuse(ntests,npass)
  do i=1,npart
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!    dustevol(:,i) = sqrt(dustfrac(:,i)*rhoh(xyzh(4,i),massoftype(igas)))
+!    dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)*rhoh(xyzh(4,i),massoftype(igas)))
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-    dustevol(:,i) = asin(sqrt(dustfrac(:,i)))
+    dustevol(:,i) = asin(sqrt(dustfrac(1:ndustsmall,i)))
 !------------------------------------------------
  enddo
 
@@ -418,10 +418,10 @@ subroutine test_dustydiffuse(ntests,npass)
        dustevol(:,i) = dustevol(:,i) + dt*ddustfrac(:,i)
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!       dustfrac(:,i) = dustevol(:,i)**2/rhoh(xyzh(4,i),massoftype(igas))
+!       dustfrac(1:ndustsmall,i) = dustevol(:,i)**2/rhoh(xyzh(4,i),massoftype(igas))
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-       dustfrac(:,i) = sin(dustevol(:,i))**2
+       dustfrac(1:ndustsmall,i) = sin(dustevol(:,i))**2
 !------------------------------------------------
     enddo
     !$omp end parallel do

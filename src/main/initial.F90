@@ -505,10 +505,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
           if (.not.isdead_or_accreted(xyzh(4,i))) then
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!             dustevol(:,i) = sqrt(rhoh(xyzh(4,i),pmassi)*dustfrac(:,i))
+!             dustevol(:,i) = sqrt(rhoh(xyzh(4,i),pmassi)*dustfrac(1:ndustsmall,i))
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-             dustevol(:,i) = asin(sqrt(dustfrac(:,i)))
+             dustevol(:,i) = asin(sqrt(dustfrac(1:ndustsmall,i)))
 !------------------------------------------------
           endif
        enddo
