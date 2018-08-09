@@ -445,7 +445,7 @@ subroutine check_stokes_number(ntests,npass)
  use growth,         only:ifrag,iinterpol
  use options,        only:alpha,alphamax,use_dustfrac
  use unifdis,        only:set_unifdis
- use dim,            only:periodic,mhd,use_dust,ndusttypes
+ use dim,            only:periodic,mhd,use_dust
  use timestep,       only:dtmax
  use io,             only:iverbose
  use mpiutils,       only:reduceall_mpi

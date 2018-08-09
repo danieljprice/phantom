@@ -30,13 +30,11 @@
 !+
 !--------------------------------------------------------------------------
 module part
- use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu, &
-          maxalpha,maxptmass,maxdvdx, &
-          mhd,maxmhd,maxBevol,maxp_h2,maxtemp,periodic, &
-          maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
-          maxp_dustfrac,use_dust, &
-          store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
-          maxne,maxp_growth,maxdustlarge,maxdustsmall,maxdusttypes
+ use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
+               maxptmass,maxdvdx,mhd,maxmhd,maxBevol,maxp_h2,maxtemp,periodic,&
+               maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
+               use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni,&
+               maxne,maxp_growth,maxdustlarge,maxdustsmall,maxdusttypes
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"

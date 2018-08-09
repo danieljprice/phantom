@@ -105,7 +105,7 @@ module dim
 #endif
 #else
  logical, parameter :: use_dust = .false.
- integer, parameter :: maxdustlarge = 0
+ integer, parameter :: maxdustlarge = 1
  integer, parameter :: maxdustsmall = 1
  integer, parameter :: maxp_dustfrac = 0
  logical, parameter :: use_dustgrowth = .false.

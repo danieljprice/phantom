@@ -27,7 +27,7 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use dim,      only:use_dust,ndusttypes,use_dustgrowth
+ use dim,      only:use_dust,maxdustsmall,use_dustgrowth
  use part,     only:igas,idust,set_particle_type
  use set_dust, only:write_temp_grains_file,set_dustfrac_from_inopts
  use options,  only:use_dustfrac
@@ -39,7 +39,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer :: i,dust_method,nratio = 5
  real    :: dust_to_gas
- real    :: dustfrac_percent(ndusttypes) = 0.
+ real    :: dustfrac_percent(maxdustsmall) = 0.
 
  if (use_dust) then
     call write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod=dust_method)

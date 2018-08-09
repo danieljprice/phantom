@@ -36,7 +36,7 @@
 !--------------------------------------------------------------------------
 module setup
  use setup_params, only:rhozero
- use dim,          only:use_dust,ndusttypes
+ use dim,          only:use_dust,maxdustsmall
  use options,      only:use_dustfrac
  implicit none
  public :: setpart
@@ -46,8 +46,8 @@ module setup
  character(len=20) :: dist_unit,mass_unit
  real(kind=8) :: udist,umass
  !--dust
- real    :: dustfrac_percent(ndusttypes) = 0.
- real    :: grainsizeinp(ndusttypes),graindensinp(ndusttypes),dust_to_gas
+ real    :: dustfrac_percent(maxdustsmall) = 0.
+ real    :: grainsizeinp(maxdustsmall),graindensinp(maxdustsmall),dust_to_gas
  private
 
 contains
@@ -58,7 +58,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxvxyzu,h2chemistry,ndusttypes
+ use dim,          only:maxvxyzu,h2chemistry
  use setup_params, only:npart_total
  use io,           only:master
  use unifdis,      only:set_unifdis
@@ -186,14 +186,14 @@ end subroutine setpart
 subroutine setup_interactive(id,polyk)
  use io,        only:master
  use mpiutils,  only:bcast_mpi
- use dim,       only:maxp,maxvxyzu,ndusttypes
+ use dim,       only:maxp,maxvxyzu
  use prompting, only:prompt
  use units,     only:select_unit
  use set_dust,  only:interactively_set_dust
  integer, intent(in)  :: id
  real,    intent(out) :: polyk
  integer :: ierr
- real    :: dustfrac_percent(ndusttypes)
+ real    :: dustfrac_percent(maxdustsmall)
 
  if (id==master) then
     ierr = 1

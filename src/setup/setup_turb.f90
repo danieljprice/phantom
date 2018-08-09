@@ -42,7 +42,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:use_dust,ndusttypes
+ use dim,          only:use_dust,maxdusttypes
  use options,      only:use_dustfrac,nfulldump,beta
  use setup_params, only:rhozero,npart_total,ihavesetupB
  use io,           only:master
@@ -70,7 +70,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical :: iexist
  real :: totmass,deltax
  real :: Bz_0, dust_to_gas
- real :: dustfrac_percent(ndusttypes)
+ real :: dustfrac_percent(maxdusttypes)
 
  print *, ''
  print *, 'Setup for turbulence in a periodic box'
