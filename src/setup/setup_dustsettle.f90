@@ -44,7 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpiutils,       only:bcast_mpi
  use part,           only:labeltype,set_particle_type,igas,dustfrac
  use physcon,        only:pi,au,solarm
- use dim,            only:maxvxyzu,use_dust,maxp,ndusttypes
+ use dim,            only:maxvxyzu,use_dust,maxp,maxdustsmall
  use prompting,      only:prompt
  use externalforces, only:mass1,Rdisc,iext_discgravity
  use options,        only:iexternalforce,use_dustfrac
@@ -66,14 +66,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: i,iregime,ierr,dust_method
  integer :: itype,ntypes,npartx
  integer :: npart_previous
- real    :: H0,HonR,omega,ts(ndusttypes)
+ real    :: H0,HonR,omega,ts(maxdustsmall)
  real    :: xmini,xmaxi,ymaxdisc,cs,t_orb
- real    :: dustfrac_percent(ndusttypes) = 0.
- real    :: dtg = 0.01
+ real    :: dustfrac_percent(maxdustsmall)
+ real    :: dtg
 !
 ! default options
 !
  npartx = 32
+ dustfrac_percent = 0.
+ dtg = 0.01
  if (id==master) then
     itype = 1
     print "(/,a,/)",'  >>> Setting up particles for dust settling test <<<'
@@ -84,13 +86,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (id==master) call prompt('enter '//trim(labeltype(itype))//&
                       ' midplane density (gives particle mass)',rhozero,0.)
  call bcast_mpi(rhozero)
+ call set_units(dist=10.*au,mass=solarm,G=1.)
  if (use_dust) then
     dust_method  = 1
     grainsizecgs = 0.1
     call interactively_set_dust(dtg,dustfrac_percent,grainsizecgs,graindenscgs,imethod=dust_method)
  endif
  call bcast_mpi(dtg)
- call set_units(dist=10.*au,mass=solarm,G=1.)
 !
 ! general parameters
 !
@@ -118,7 +120,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 ! get stopping time information
 !
  call init_drag(ierr)
- do i = 1,ndusttypes
+ do i = 1,ndustsmall
     call get_ts(idrag,grainsize(i),graindens(i),rhozero,0.0*rhozero,cs,0.,ts(i),iregime)
     print*,'s (cm) =',grainsizecgs(i),'   ','St = ts * Omega =',ts(i)*omega
  enddo

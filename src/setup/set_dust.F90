@@ -153,11 +153,15 @@ subroutine interactively_set_dust_simple(dust_to_gas,imethod,Kdrag,units)
  integer, intent(out), optional :: imethod
  character(len=*), intent(in), optional :: units
 
- integer :: dust_method = -1
- real    :: units_to_cgs = 1.
+ integer :: dust_method
+ real    :: units_to_cgs
  real    :: grainsizeinp(maxdusttypes),graindensinp(maxdusttypes)
  character(len=120) :: message
- character(len=10)  :: abbrev = 'cm'
+ character(len=10)  :: abbrev
+
+ dust_method = -1
+ units_to_cgs = 1.
+ abbrev = 'cm'
 
  if (present(imethod)) dust_method = imethod
  if (present(Kdrag)) then
@@ -176,14 +180,11 @@ subroutine interactively_set_dust_simple(dust_to_gas,imethod,Kdrag,units)
     !
     !--dust method
     !
-    if (ndusttypes > 1) dust_method  = 1
-
     call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
     if (dust_method == 1) then
        use_dustfrac = .true.
     else
        use_dustfrac = .false.
-       if (ndusttypes > 1) call fatal('setup','dust_method=2 is currently only compatible with ndusttypes=1!')
     endif
     if (present(imethod)) imethod = dust_method
  endif
@@ -241,14 +242,21 @@ subroutine interactively_set_dust_full(dust_to_gas,dustfrac_percent,grainsizeinp
  character(len=*), intent(in), optional :: units
 
  integer :: i
- integer :: dust_method = -1
- integer :: profile_set_dust = -1
- real    :: units_to_cgs = 1.
- logical :: simple_grainsize = .false.
- logical :: simple_graindens = .false.
+ integer :: dust_method
+ integer :: profile_set_dust
+ real    :: units_to_cgs
+ logical :: simple_grainsize
+ logical :: simple_graindens
  character(len=120) :: varstring(maxdusttypes),varstringalt(maxdusttypes)
  character(len=120) :: message
- character(len=10)  :: abbrev = 'cm'
+ character(len=10)  :: abbrev
+
+ dust_method = -1
+ profile_set_dust = -1
+ units_to_cgs = 1.
+ simple_grainsize = .false.
+ simple_graindens = .false.
+ abbrev = 'cm'
 
  if (present(imethod)) dust_method = imethod
  if (present(iprofile)) profile_set_dust = iprofile
@@ -270,14 +278,11 @@ subroutine interactively_set_dust_full(dust_to_gas,dustfrac_percent,grainsizeinp
     !
     !--dust method
     !
-    if (ndusttypes > 1) dust_method  = 1
-
     call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
     if (dust_method == 1) then
        use_dustfrac = .true.
     else
        use_dustfrac = .false.
-       if (ndusttypes > 1) call fatal('setup','dust_method=2 is currently only compatible with ndusttypes=1!')
     endif
     if (present(imethod)) imethod = dust_method
  endif
@@ -445,14 +450,19 @@ subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple,imethod)
  integer, intent(inout)         :: nerr
  real,    intent(out)           :: dust_to_gas
  integer            :: i,ierr
- integer            :: dust_method = -1
+ integer            :: dust_method
  real               :: grainsizeinp(maxdusttypes)
  real               :: graindensinp(maxdusttypes)
  real               :: dustfrac_percent(maxdusttypes)
- logical            :: simple_grainsize = .false.
- logical            :: simple_graindens = .false.
- logical            :: simple_output    = .false.
+ logical            :: simple_grainsize
+ logical            :: simple_graindens
+ logical            :: simple_output
  character(len=120) :: varlabel(maxdusttypes)
+
+ dust_method = -1
+ simple_grainsize = .false.
+ simple_graindens = .false.
+ simple_output    = .false.
 
  call read_inopt(dust_method,'dust_method',db,min=1,max=2,errcount=nerr)
  if (present(imethod)) imethod = dust_method
@@ -573,31 +583,6 @@ subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple,imethod)
 
 end subroutine read_dust_setup_options
 
-
-!-----------------------------------------------------------------
-!+
-!  Check if new dust options are compatible with old dump files
-!+
-!-----------------------------------------------------------------
-subroutine check_dust_value(ierr,nerr,tag,newval,oldval)
- integer, intent(inout) :: nerr
- integer, intent(in)    :: ierr
- real,    intent(in)    :: newval,oldval
- character(len=*), intent(in) :: tag
-
- real :: tol = 1.e-5
-
- if (ierr == 0) then
-    if (abs((newval-oldval)/oldval) > tol) then
-       print*,'ERROR: '//tag//' is not the same as in dump file'
-       print*,'Change ',newval,'to ',oldval,'in temparary dust file'
-       nerr = nerr + 1
-    endif
- endif
-
-end subroutine check_dust_value
-
-
 !-----------------------------------------------------------------------
 !+
 !  Subroutine for deciding wheather to use one-fluid or two-fluid dust
@@ -617,7 +602,9 @@ subroutine check_dust_method(id,filename,dust_method,ichange_method)
  real    :: r,rhogasi,rhodusti,rhoi,dustfracisum,spsoundi
  real    :: dustfraci(maxdusttypes),tsi(maxdusttypes)
  character(len=120) :: string
- logical :: iforce_dust_method = .false.
+ logical :: iforce_dust_method
+
+ iforce_dust_method = .false.
 
  call init_drag(ierr)
 
@@ -789,14 +776,20 @@ subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,
  integer, intent(out), optional :: imethod
 
  integer, parameter :: iunit = 20
- integer            :: nerr = 0
- integer            :: dust_method = -1
- integer            :: profile_set_dust = -1
- integer            :: ioselect = 0
+ integer            :: nerr
+ integer            :: dust_method
+ integer            :: profile_set_dust
+ integer            :: ioselect
  real               :: grainsizeinp(maxdusttypes),graindensinp(maxdusttypes)
  logical            :: iexist
- character(len=10)  :: grainsfile = 'grains.tmp'
+ character(len=10)  :: grainsfile
  type(inopts), allocatable :: db(:)
+
+ nerr = 0
+ dust_method = -1
+ profile_set_dust = -1
+ ioselect = 0
+ grainsfile = 'grains.tmp'
 
  print "(/,a)",' Warning: missing essential dust options. Checking if '//trim(grainsfile)//' exists...'
 

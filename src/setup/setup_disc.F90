@@ -1652,7 +1652,6 @@ subroutine read_setupfile(filename,ierr)
        use_dustfrac = .true.
     case(2)
        use_dustfrac = .false.
-       if (ndusttypes > 1) call fatal('setup','dust_method=2 is currently only compatible with ndusttypes=1!')
     end select
     call read_inopt(profile_set_dust,'profile_set_dust',db,err=ierr)
  endif
