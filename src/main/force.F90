@@ -1331,7 +1331,20 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           qrho2i = 0.
           qrho2j = 0.
 
+#ifdef GR
+          posj  = (/xj,yj,zj/)
+          velj  = (/vxj,vyj,vzj/)
+          runit = (/runix,runiy,runiz/)
+          call get_bigv(posj,velj,bigvj,bigv2j,alphagrj,lorentzj)
+          call get_vsig_gr(vsigi,vsigj,projbigvi,projbigvj,veli,velj,runit,spsoundi,spsoundj)
+          vsigavi = alphai*vsigi
+          vsigavj = alphaj*vsigj
+#endif
+
+!------------------
 #ifdef DISC_VISCOSITY
+!------------------
+
           !
           !--This is for "physical" disc viscosity
           !  (We multiply by h/rij, use cs for the signal speed, apply to both approaching/receding,
@@ -1344,17 +1357,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              qrho2i = - 0.5*rho1i*alphai*spsoundi*hi*rij1*projv
              if (usej) qrho2j = - 0.5*rho1j*alphaj*spsoundj*hj*rij1*projv
           endif
-#endif
+          dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*hi*rij1*projv**2*grkerni
 
-#ifdef GR
-          posj  = (/xj,yj,zj/)
-          velj  = (/vxj,vyj,vzj/)
-          runit = (/runix,runiy,runiz/)
-          call get_bigv(posj,velj,bigvj,bigv2j,alphagrj,lorentzj)
-          call get_vsig_gr(vsigi,vsigj,projbigvi,projbigvj,veli,velj,runit,spsoundi,spsoundj)
-          vsigavi = alphai*vsigi
-          vsigavj = alphaj*vsigj
-#endif
+!--DISC_VISCOSITY--
+#else
+!------------------
 
           if (projv < 0.) then
 #ifdef GR
@@ -1370,13 +1377,15 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              if (usej) qrho2j = - 0.5*rho1j*vsigavj*projv
 #endif
           endif
+          !--energy conservation from artificial viscosity (don't need j term)
+          dudtdissi = pmassj*qrho2i*projv*grkerni
+!--DISC_VISCOSITY--
+#endif
+!------------------
 
           !--add av term to pressure
           gradpi = pmassj*(pro2i + qrho2i)*grkerni
           if (usej) gradpj = pmassj*(pro2j + qrho2j)*grkernj
-
-          !--energy conservation from artificial viscosity (don't need j term)
-          dudtdissi = pmassj*qrho2i*projv*grkerni
 
           !--artificial thermal conductivity (need j term)
           if (maxvxyzu >= 4) then
