@@ -443,6 +443,8 @@ subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple,imethod)
  real,    intent(out)           :: dust_to_gas
  integer            :: i,ierr
  integer            :: dust_method = -1
+ real               :: tol = 1.e-5
+ real               :: percentsum
  real               :: grainsizeinp(ndusttypes)
  real               :: graindensinp(ndusttypes)
  real               :: dustfrac_percent(ndusttypes)
@@ -512,9 +514,17 @@ subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple,imethod)
           do i = 1,ndusttypes
              call read_inopt(dustfrac_percent(i),trim(varlabel(i)),db,min=0.,max=100.,err=ierr,errcount=nerr)
           enddo
-          if (sum(dustfrac_percent(:)) /= 100.) then
-             print*,'ERROR: dust fraction percentages need to add up to 100!'
+          percentsum = sum(dustfrac_percent(:))
+          if (0.01*abs(percentsum - 100.) > tol) then
+             print*,'ERROR: dust fraction percentages only add up to:',percentsum
+             print*,'sum(dustfrac_percent) = ',sum(dustfrac_percent(:))
              nerr = nerr+1
+          elseif (0.01*abs(percentsum - 100.) < tol) then
+             print*,'Warning: dust fraction percentages only add up to:',percentsum
+             print*,'...adding the difference to the largest dust fraction'
+             where (dustfrac_percent == maxval(dustfrac_percent))
+                dustfrac_percent = dustfrac_percent + (100.-percentsum)
+             endwhere
           endif
           simple_grainsize = .true.
           if (any(grainsizeinp /= grainsizeinp(1)) .or. &
