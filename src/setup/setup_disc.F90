@@ -70,14 +70,15 @@
 !+
 !--------------------------------------------------------------------------
 module setup
- use dim,            only:maxp,use_dust,maxalpha,use_dustgrowth,maxdusttypes
- use externalforces, only:iext_star,iext_binary,iext_lensethirring,iext_einsteinprec, &
-                          iext_corot_binary,iext_corotate
+ use dim,            only:maxp,use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
+                          maxdustlarge,maxdustsmall
+ use externalforces, only:iext_star,iext_binary,iext_lensethirring,&
+                          iext_einsteinprec,iext_corot_binary,iext_corotate
  use options,        only:use_dustfrac,iexternalforce
 #ifdef MCFOST
  use options,        only:use_mcfost
 #endif
- use part,           only:ndusttypes
+ use part,           only:ndusttypes,ndustsmall,ndustlarge
  use physcon,        only:au,solarm
  use setdisc,        only:scaled_sigma
  use extern_binary,  only:ramp,surface_force
@@ -85,7 +86,7 @@ module setup
  implicit none
  public  :: setpart
 
- integer :: np,np_dust,norbits,i
+ integer :: np,np_dust(maxdustlarge),norbits,i
  !--central objects
  real    :: m1,m2,accr1,accr2,bhspin,bhspinangle,flyby_a,flyby_d,flyby_O,flyby_i
  real    :: binary_a,binary_e,binary_i,binary_O,binary_w,binary_f,deltat
@@ -185,7 +186,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120) :: varstring(maxdusttypes)
 
  integer :: npart_planet_atm,npart_recentre
- integer :: npart_disc
+ integer :: npart_disc,p_type
  real, parameter :: a0 = 1.
  real    :: r_surface
  real    :: udens,rho_core
@@ -675,38 +676,41 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           nparttot = nparttot + npingasdisc
           if (use_dust) then
              !--dust disc
-             npindustdisc = int(disc_mdust(i)/totmass_dust*np_dust)
-             call set_disc(id,master      = master,             &
-                           npart          = npindustdisc,       &
-                           npart_start    = nparttot + 1,       &
-                           particle_type  = idust,              &
-                           rref           = R_ref(i),           &
-                           rmin           = R_indust(i),        &
-                           rmax           = R_outdust(i),       &
-                           indexprofile   = iprofiledust(i),    &
-                           rc             = R_c_dust(i),        &
-                           p_index        = pindex_dust(i),     &
-                           q_index        = qindex_dust(i),     &
-                           HoverR         = H_R_dust(i),        &
-                           disc_mass      = disc_mdust(i),      &
-                           star_mass      = star_m(i),          &
-                           gamma          = gamma,              &
-                           particle_mass  = massoftype(idust),  &
-                           xyz_origin     = xorigini,           &
-                           vxyz_origin    = vorigini,           &
-                           hfact          = hfact,              &
-                           xyzh           = xyzh,               &
-                           vxyzu          = vxyzu,              &
-                           polyk          = polyk_dust,         &
-                           ismooth        = ismoothdust(i),     &
-                           position_angle = posangl(i),         &
-                           inclination    = incl(i),            &
-                           rwarp          = R_warp(i),          &
-                           warp_smoothl   = H_warp(i),          &
-                           bh_spin        = bhspin,             &
-                           prefix         = prefix)
-             nparttot  = nparttot  + npindustdisc
-             npartdust = npartdust + npindustdisc
+             do j=1,ndustlarge
+                npindustdisc = int(disc_mdust(i)/totmass_dust*np_dust(j))
+                p_type = idust + j - 1
+                call set_disc(id,master      = master,             &
+                              npart          = npindustdisc,       &
+                              npart_start    = nparttot + 1,       &
+                              particle_type  = p_type,             &
+                              rref           = R_ref(i),           &
+                              rmin           = R_indust(i),        &
+                              rmax           = R_outdust(i),       &
+                              indexprofile   = iprofiledust(i),    &
+                              rc             = R_c_dust(i),        &
+                              p_index        = pindex_dust(i),     &
+                              q_index        = qindex_dust(i),     &
+                              HoverR         = H_R_dust(i),        &
+                              disc_mass      = disc_mdust(i),      &
+                              star_mass      = star_m(i),          &
+                              gamma          = gamma,              &
+                              particle_mass  = massoftype(p_type), &
+                              xyz_origin     = xorigini,           &
+                              vxyz_origin    = vorigini,           &
+                              hfact          = hfact,              &
+                              xyzh           = xyzh,               &
+                              vxyzu          = vxyzu,              &
+                              polyk          = polyk_dust,         &
+                              ismooth        = ismoothdust(i),     &
+                              position_angle = posangl(i),         &
+                              inclination    = incl(i),            &
+                              rwarp          = R_warp(i),          &
+                              warp_smoothl   = H_warp(i),          &
+                              bh_spin        = bhspin,             &
+                              prefix         = prefix)
+                nparttot  = nparttot  + npindustdisc
+                npartdust = npartdust + npindustdisc
+             enddo
           endif
        endif
        !--reset alpha for each disc
@@ -1317,7 +1321,7 @@ subroutine setup_interactive(id)
 !
  np = 500000
  if (use_dust .and. .not.use_dustfrac) then
-    np_dust = np/5
+    np_dust = np/ndustlarge/5
  else
     np_dust = 0
  endif
@@ -1379,7 +1383,7 @@ subroutine write_setupfile(filename)
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
  logical :: done_alpha
- integer :: maxdiscs
+ integer :: i,maxdiscs
 
  done_alpha = .false.
  maxdiscs = 1
@@ -1392,7 +1396,9 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# resolution'
  call write_inopt(np,'np','number of gas particles',iunit)
  if (use_dust .and. .not.use_dustfrac) then
-    call write_inopt(np_dust,'np_dust','number of dust particles',iunit)
+    do i=1,ndustlarge
+       call write_inopt(np_dust(i),'np_dust'//planets(i),'number of dust particles',iunit)
+    enddo
  endif
  !--units
  write(iunit,"(/,a)") '# units'
@@ -1644,22 +1650,6 @@ subroutine read_setupfile(filename,ierr)
  endif
 
  nerr = 0
- !--dust method
- if (use_dust) then
-    call read_inopt(dust_method,'dust_method',db,min=1,max=2,errcount=nerr)
-    select case(dust_method)
-    case(1)
-       use_dustfrac = .true.
-    case(2)
-       use_dustfrac = .false.
-    end select
-    call read_inopt(profile_set_dust,'profile_set_dust',db,err=ierr)
- endif
- !--resolution
- call read_inopt(np,'np',db,min=0,errcount=nerr)
- if (use_dust .and. .not.use_dustfrac) then
-    call read_inopt(np_dust,'np_dust',db,min=0,errcount=nerr)
- endif
  !--units
  call read_inopt(mass_unit,'mass_unit',db,errcount=nerr)
  call read_inopt(dist_unit,'dist_unit',db,errcount=nerr)
@@ -1743,11 +1733,30 @@ subroutine read_setupfile(filename,ierr)
        end select
     end select
  end select
- !--dust & growth
+
+ !--dust
  if (use_dust) then
     call read_dust_setup_options(db,nerr,dust_to_gas_ratio,df=dustfrac_percent,gs=grainsizeinp, &
                                  gd=graindensinp)
+    !--dust method
+    call read_inopt(dust_method,'dust_method',db,min=1,max=2,errcount=nerr)
+    select case(dust_method)
+    case(1)
+       use_dustfrac = .true.
+    case(2)
+       use_dustfrac = .false.
+    end select
+    call read_inopt(profile_set_dust,'profile_set_dust',db,err=ierr)
  endif
+
+ !--resolution
+ call read_inopt(np,'np',db,min=0,errcount=nerr)
+ if (use_dust .and. .not.use_dustfrac) then
+    do i=1,ndustlarge
+       call read_inopt(np_dust(i),'np_dust'//planets(i),db,min=0,errcount=nerr)
+    enddo
+ endif
+
  !--multiple discs
  iuse_disc = .false.
  if ((icentral==1) .and. (nsinks==2)) then

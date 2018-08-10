@@ -32,10 +32,10 @@
 !--------------------------------------------------------------------------
 
 module set_dust
- use dim,  only:maxdusttypes
+ use dim,  only:maxdusttypes,maxdustsmall,maxdustlarge
  use dust, only:smincgs,smaxcgs,sindex,grainsizecgs,graindenscgs,K_code,idrag, &
                 ilimitdustflux
- use part, only:ndusttypes
+ use part, only:ndusttypes,ndustsmall,ndustlarge
  implicit none
  !--Default values for the dust in the infile
  integer, public :: io_grainsize = 0
@@ -287,6 +287,22 @@ subroutine interactively_set_dust_full(dust_to_gas,dustfrac_percent,grainsizeinp
     if (present(imethod)) imethod = dust_method
  endif
 
+ !
+ !--number of grain sizes
+ !
+ if (use_dustfrac) then
+    ndustsmall = 1
+    call prompt('How many grain sizes do you want?',ndustsmall,1,maxdustsmall)
+    !--can only use one method currently
+    ndustlarge = 0
+ else
+    ndustlarge = 1
+    call prompt('How many grain sizes do you want?',ndustlarge,1,maxdustlarge)
+    !--can only use one method currently
+    ndustsmall = 0
+ endif
+ ndusttypes = ndustsmall + ndustlarge
+
  if (use_dustfrac) call prompt('Do you want to limit the dust flux?',ilimitdustflux)
  select case(idrag)
  case(1)
@@ -467,22 +483,28 @@ subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple,imethod)
  call read_inopt(dust_method,'dust_method',db,min=1,max=2,errcount=nerr)
  if (present(imethod)) imethod = dust_method
 
+ if (dust_method == 2) then
+    use_dustfrac = .false.
+ else
+    use_dustfrac = .true.
+    call read_inopt(ilimitdustflux,'ilimitdustflux',db,err=ierr,errcount=nerr)
+ endif
+
  if (use_dustfrac) then
-    if (dust_method == 2) then
-       print*,'Warning! use_dustfrac = .true. AND two-fluid dust are incompatible'
-       print*,'   ...resetting use_dustfrac = .false.'
-       use_dustfrac = .false.
-    else
-       call read_inopt(ilimitdustflux,'ilimitdustflux',db,err=ierr,errcount=nerr)
-       if (ierr /= 0) nerr = nerr + 1
-    endif
+    !--can only use one method currently
+    call read_inopt(ndustsmall,'ndusttypes',db,min=1,max=maxdustsmall,errcount=nerr)
+    ndusttypes = ndustsmall
+ else
+    !--can only use one method currently
+    call read_inopt(ndustlarge,'ndusttypes',db,min=1,max=maxdustlarge,errcount=nerr)
+    ndusttypes = ndustlarge
  endif
 
  call read_inopt(dust_to_gas,'dust_to_gas_ratio',db,min=0.,errcount=nerr)
 
  if (present(isimple)) simple_output = isimple
  if (.not.simple_output) then
-    if (use_dustfrac .and. ndusttypes > 1) then
+    if (ndusttypes > 1) then
        call read_inopt(io_grainsize,'io_grainsize',db,min=0,max=2,errcount=nerr)
        select case(io_grainsize)
        case(0)
@@ -512,7 +534,7 @@ subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple,imethod)
           do i = 1,ndusttypes
              call read_inopt(dustfrac_percent(i),trim(varlabel(i)),db,min=0.,max=100.,err=ierr,errcount=nerr)
           enddo
-          if (sum(dustfrac_percent(:)) /= 100.) then
+          if (abs(sum(dustfrac_percent(:)) - 100.) <= epsilon(1.)) then
              print*,'ERROR: dust fraction percentages need to add up to 100!'
              nerr = nerr+1
           endif
@@ -701,6 +723,15 @@ subroutine write_dust_setup_options(iunit,dust_to_gas,df,gs,gd,imethod,iprofile,
  if (dust_method /= -1) then
     call write_inopt(dust_method,'dust_method','dust method (1=one fluid,2=two fluid)',iunit)
  endif
+ if (use_dustfrac) then
+    !--can only use one method currently
+    call write_inopt(ndustsmall,'ndusttypes','number of grain sizes',iunit)
+    ndusttypes = ndustsmall
+ else
+    !--can only use one method currently
+    call write_inopt(ndustlarge,'ndusttypes','number of grain sizes',iunit)
+    ndusttypes = ndustlarge
+ endif
  if (use_dustfrac) call write_inopt(ilimitdustflux,'ilimitdustflux', &
                                     'limit dust diffusion using Ballabio et al. (2018)',iunit)
  call write_inopt(dust_to_gas,'dust_to_gas_ratio','dust to gas ratio',iunit)
@@ -712,7 +743,7 @@ subroutine write_dust_setup_options(iunit,dust_to_gas,df,gs,gd,imethod,iprofile,
     if (use_dustgrowth) then
        call write_inopt(grainsizeinp(1),'grainsizeinp','initial grain size (in cm)',iunit)
        call write_inopt(graindensinp(1),'graindensinp','intrinsic grain density (in g/cm^3)',iunit) ! Modify this is graindens becomes variable
-    elseif (use_dustfrac .and. ndusttypes > 1) then
+    elseif (ndusttypes > 1) then
        call write_inopt(io_grainsize,'io_grainsize', &
           'grain size distribution (0=power-law,1=equal,2=manually)',iunit)
        select case(io_grainsize)
