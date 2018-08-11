@@ -1205,6 +1205,15 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !--work out vsig for timestepping and av
           vsigi   = max(vwavei - beta*projv,0.)
           vsigavi = max(alphai*vwavei - beta*projv,0.)
+#ifdef GR
+          posj  = [xj,yj,zj]
+          velj  = [vxj,vyj,vzj]
+          runit = [runix,runiy,runiz]
+          call get_bigv(posj,velj,bigvj,bigv2j,alphagrj,lorentzj)
+          call get_vsig_gr(vsigi,vsigj,projbigvi,projbigvj,veli,velj,runit,spsoundi,spsoundj)
+          vsigavi = alphai*vsigi
+          vsigavj = alphaj*vsigj
+#endif
           if (vsigi > vsigmax) vsigmax = vsigi
 
           if (mhd) then
@@ -1331,16 +1340,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !
           qrho2i = 0.
           qrho2j = 0.
-
-#ifdef GR
-          posj  = (/xj,yj,zj/)
-          velj  = (/vxj,vyj,vzj/)
-          runit = (/runix,runiy,runiz/)
-          call get_bigv(posj,velj,bigvj,bigv2j,alphagrj,lorentzj)
-          call get_vsig_gr(vsigi,vsigj,projbigvi,projbigvj,veli,velj,runit,spsoundi,spsoundj)
-          vsigavi = alphai*vsigi
-          vsigavj = alphaj*vsigj
-#endif
 
 !------------------
 #ifdef DISC_VISCOSITY
