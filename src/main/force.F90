@@ -1210,7 +1210,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           velj  = [vxj,vyj,vzj]
           runit = [runix,runiy,runiz]
           call get_bigv(posj,velj,bigvj,bigv2j,alphagrj,lorentzj)
-          call get_vsig_gr(vsigi,vsigj,projbigvi,projbigvj,veli,velj,runit,spsoundi,spsoundj)
+          call get_vsig_gr(vsigi,vsigj,projbigvi,projbigvj,bigvi,bigvj,runit,spsoundi,spsoundj)
           vsigavi = alphai*vsigi
           vsigavj = alphaj*vsigj
 #endif
