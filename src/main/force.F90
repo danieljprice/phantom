@@ -1368,6 +1368,21 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !  (We multiply by h/rij, use cs for the signal speed, apply to both approaching/receding,
           !   with beta viscosity only applied to approaching pairs)
           !
+#ifdef GR
+          enthi  = 1.+eni+pri/densi
+          enthj  = 1.+enj+prj/densj
+          lorentzi_star = 1./sqrt(1.-projbigvi**2)
+          lorentzj_star = 1./sqrt(1.-projbigvj**2)
+          dlorentzv = lorentzi_star*projbigvi - lorentzj_star*projbigvj
+          if (projv < 0.) then
+             qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv*hi*rij1
+             if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv*hj*rij1
+          else
+             qrho2i = -0.5*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1
+             if (usej) qrho2j = -0.5*rho1j*alphaj*spsoundj*enthj*dlorentzv*hj*rij1
+          endif
+          dudtdissi = -0.5*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1*projv*grkerni
+#else
           if (projv < 0.) then
              qrho2i = - 0.5*rho1i*(alphai*spsoundi - beta*projv)*hi*rij1*projv
              if (usej) qrho2j = - 0.5*rho1j*(alphaj*spsoundj - beta*projv)*hj*rij1*projv
@@ -1376,6 +1391,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              if (usej) qrho2j = - 0.5*rho1j*alphaj*spsoundj*hj*rij1*projv
           endif
           dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*hi*rij1*projv**2*grkerni
+#endif
 
 !--DISC_VISCOSITY--
 #else
