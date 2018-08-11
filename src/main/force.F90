@@ -893,7 +893,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: enthi,enthj
  real    :: lorentzi,lorentzj
  real    :: bigvi(1:3),bigvj(1:3),bigv2i,bigv2j,alphagri,alphagrj
- real    :: posi(3),posj(3),veli(3),velj(3),runit(3)
+ real    :: posi(3),posj(3),veli(3),velj(3),vij
 #endif
 
  ! unpack
@@ -1201,18 +1201,30 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           denij = 0.
           tempj = 0.0
        endif
+
+#ifdef GR
+       !-- Get velocites required in GR shock capturing
+       posj  = [xj,yj,zj]
+       velj  = [vxj,vyj,vzj]
+       call get_bigv(posj,velj,bigvj,bigv2j,alphagrj,lorentzj)
+
+       ! Reduce problem to 1D along the line of sight
+       projbigvi = bigvi(1)*runix + bigvi(2)*runiy + bigvi(3)*runiz !dot_product(bigvi,rij)
+       projbigvj = bigvj(1)*runix + bigvj(2)*runiy + bigvj(3)*runiz
+
+       ! Relativistic version of vi-vj
+       vij       = abs((projbigvi-projbigvj)/(1.-projbigvi*projbigvj))
+#endif
+
        if (iamgasi .and. iamgasj) then
           !--work out vsig for timestepping and av
-          vsigi   = max(vwavei - beta*projv,0.)
-          vsigavi = max(alphai*vwavei - beta*projv,0.)
 #ifdef GR
-          posj  = [xj,yj,zj]
-          velj  = [vxj,vyj,vzj]
-          runit = [runix,runiy,runiz]
-          call get_bigv(posj,velj,bigvj,bigv2j,alphagrj,lorentzj)
-          call get_vsig_gr(vsigi,vsigj,projbigvi,projbigvj,bigvi,bigvj,runit,spsoundi,spsoundj)
-          vsigavi = alphai*vsigi
-          vsigavj = alphaj*vsigj
+          ! Relativistic version vij + csi    (could put a beta here somewhere?)
+          vsigi     = (vij+spsoundi)/(1.+vij*spsoundi)
+          vsigavi   = alphai*vsigi
+#else
+          vsigi     = max(vwavei - beta*projv,0.)
+          vsigavi   = max(alphai*vwavei - beta*projv,0.)
 #endif
           if (vsigi > vsigmax) vsigmax = vsigi
 
@@ -1297,8 +1309,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              autermj  = mrhoj5*alphau
              avBtermj = mrhoj5*alphaB*rho1j
 
+#ifdef GR
+             ! Relativistic version vij + csi
+             vsigj   = (vij+spsoundj)/(1.+vij*spsoundj)
+             vsigavj = alphaj*vsigj
+#else
              vsigj = max(vwavej - beta*projv,0.)
              vsigavj = max(alphaj*vwavej - beta*projv,0.)
+#endif
              if (vsigj > vsigmax) vsigmax = vsigj
           else
              vsigj = max(-projv,0.)
@@ -1833,35 +1851,6 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi, &
 
  return
 end subroutine get_P
-
-#ifdef GR
-!
-! Internal subroutine that computes the signal velocity for GR,
-! as well as some other quantities also needed for artificial viscosity.
-!
-subroutine get_vsig_gr(vsigi,vsigj,projvi,projvj,veli,velj,rij,spsoundi,spsoundj)
- use io, only:warning
- real, intent(out) :: vsigi,vsigj,projvi,projvj
- real, intent(in)  :: veli(3),velj(3),rij(3),spsoundi,spsoundj
- real :: vij
-
- ! Reduce problem to 1D along the line of sight
- projvi = dot_product(veli,rij) !vxi*runix + vyi*runiy + vzi*runiz
- projvj = dot_product(velj,rij)
-
- ! Relativistic version of vi-vj
- vij   = abs((projvi-projvj)/(1.-projvi*projvj))
-
- ! Relativistic version vij + csi
- vsigi = (vij+spsoundi)/(1.+vij*spsoundi)
- vsigj = (vij+spsoundj)/(1.+vij*spsoundj)
-
- if (abs(vsigi) > 1.) call warning('force','vsigi > 1',val=vsigi)
- if (abs(vsigj) > 1.) call warning('force','vsigj > 1',val=vsigj)
-
- return
-end subroutine get_vsig_gr
-#endif
 
 #ifdef IND_TIMESTEPS
 !----------------------------------------------------------------
