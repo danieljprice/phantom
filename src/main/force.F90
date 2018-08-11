@@ -937,6 +937,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  vxi = xpartveci(ivxi)
  vyi = xpartveci(ivyi)
  vzi = xpartveci(ivzi)
+ eni = xpartveci(ieni)
 
 #ifdef GR
  posi = [xi,yi,zi]
@@ -1188,8 +1189,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        dvz = vzi - vzj
 
        projv = dvx*runix + dvy*runiy + dvz*runiz
-
-       eni = xpartveci(ieni)
 
        if (iamgasj .and. maxvxyzu >= 4) then
           enj   = vxyzu(4,j)
