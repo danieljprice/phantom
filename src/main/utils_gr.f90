@@ -30,13 +30,16 @@ end function dot_product_gr
 !-------------------------------------------------------------------------------
 
 subroutine get_u0(gcov,v,U0)
+ use io, only:fatal
  real, intent(in)  :: gcov(0:3,0:3), v(1:3)
  real, intent(out) :: U0
- real :: v4(0:3)
+ real :: v4(0:3),vv
 
  v4(0) = 1.
  v4(1:3) = v(1:3)
- U0 = 1./sqrt(-dot_product_gr(v4,v4,gcov))
+ vv = dot_product_gr(v4,v4,gcov)
+ if (vv>0.) call fatal('get_u0','1/sqrt(-v_mu v^mu) ---> non-negative: v_mu v^mu',val=vv)
+ U0 = 1./sqrt(-vv)
 
 end subroutine get_u0
 
