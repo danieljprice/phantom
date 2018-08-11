@@ -47,6 +47,7 @@ end subroutine get_u0
 
 subroutine get_bigv(x,v,bigv,bigv2,alpha,lorentz)
  use metric_tools, only:get_metric3plus1
+ use io,           only:fatal
  real, intent(in)  :: x(1:3),v(1:3)
  real, intent(out) :: bigv(1:3),bigv2,alpha,lorentz
  real :: betadown(1:3),betaUP(1:3),gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
@@ -54,6 +55,7 @@ subroutine get_bigv(x,v,bigv,bigv2,alpha,lorentz)
  call get_metric3plus1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP)
  bigv = (v + betaUP)/alpha
  bigv2 = dot_product_gr(bigv,bigv,gammaijdown)
+ if (bigv2>1.) call fatal('get_bigv','velocity faster than speed of light -- bigv2',val=bigv2)
  lorentz = 1./sqrt(1.-bigv2)
 
 end subroutine get_bigv
