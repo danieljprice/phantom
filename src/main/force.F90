@@ -884,16 +884,17 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: jcbcbi(3),jcbi(3)
  real    :: alphai,grainsizei,graindensi
  logical :: usej
- real    :: densi,densj,eni
+ real    :: xi,yi,zi,densi,densj,eni
  real    :: vxi,vyi,vzi,vxj,vyj,vzj
+ real    :: qrho2i,qrho2j
+
 #ifdef GR
  real    :: projbigvi,projbigvj,lorentzi_star,lorentzj_star,dlorentzv
  real    :: enthi,enthj
  real    :: lorentzi,lorentzj
  real    :: bigvi(1:3),bigvj(1:3),bigv2i,bigv2j,alphagri,alphagrj
- real    :: xi,yi,zi,posi(3),posj(3),veli(3),velj(3),runit(3)
+ real    :: posi(3),posj(3),veli(3),velj(3),runit(3)
 #endif
- real    :: qrho2i,qrho2j
 
  ! unpack
  vwavei        = xpartveci(ivwavei)
@@ -930,15 +931,16 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  endif
  dvdxi(1:9)    = xpartveci(idvxdxi:idvzdzi)
 
+ xi  = xpartveci(ixi)
+ yi  = xpartveci(iyi)
+ zi  = xpartveci(izi)
  vxi = xpartveci(ivxi)
  vyi = xpartveci(ivyi)
  vzi = xpartveci(ivzi)
+
 #ifdef GR
- xi = xpartveci(ixi)
- yi = xpartveci(iyi)
- zi = xpartveci(izi)
- posi = (/xi,yi,zi/)
- veli = (/vxi,vyi,vzi/)
+ posi = [xi,yi,zi]
+ veli = [vxi,vyi,vzi]
  call get_bigv(posi,veli,bigvi,bigv2i,alphagri,lorentzi)
 #endif
 
@@ -1043,16 +1045,16 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        xj = xyzcache(n,1)
        yj = xyzcache(n,2)
        zj = xyzcache(n,3)
-       dx = xpartveci(ixi) - xj
-       dy = xpartveci(iyi) - yj
-       dz = xpartveci(izi) - zj
+       dx = xi - xj
+       dy = yi - yj
+       dz = zi - zj
     else
        xj = xyzh(1,j)
        yj = xyzh(2,j)
        zj = xyzh(3,j)
-       dx = xpartveci(ixi) - xj
-       dy = xpartveci(iyi) - yj
-       dz = xpartveci(izi) - zj
+       dx = xi - xj
+       dy = yi - yj
+       dz = zi - zj
     endif
 #ifdef PERIODIC
     if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
