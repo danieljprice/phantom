@@ -41,7 +41,7 @@ contains
 !----------------------------------------------------------------
 
 subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_index,&
-                     tilt,tilt_acc,twistprev,psi,H,a,h_smooth,sigma,unitlx,unitly,unitlz,Lx,Ly,Lz,&
+                     tilt,tilt_acc,twist,twistprev,psi,H,a,h_smooth,sigma,unitlx,unitly,unitlz,Lx,Ly,Lz,&
                      ecc,ninbin,assume_Ltot_is_same_as_zaxis,xyzmh_ptmass,vxyz_ptmass,nptmass)
  use physcon,      only:pi
  use centreofmass, only:get_total_angular_momentum,reset_centreofmass

@@ -116,7 +116,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  assume_Ltot_is_same_as_zaxis = .false.
 
  call disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_index,&
-                     tilt,tilt_acc,twist,psi,H,rad,h_smooth,sigma,unitlx,unitly,unitlz,&
+                     tilt,tilt_acc,twist,twistprev,psi,H,rad,h_smooth,sigma,unitlx,unitly,unitlz,&
                      Lx,Ly,Lz,ecc,ninbin,assume_Ltot_is_same_as_zaxis,xyzmh_ptmass,vxyz_ptmass,nptmass)
 
  open(iunit,file=output)
@@ -147,18 +147,17 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        if (.not.iexist .or. numfile==0) then
           open(unit=iprec,file=filename,status="replace")
           write(iprec,'("# tilt and twist with time for r = ",es18.10)') rad(i)
-          write(iprec,"('#',7(1x,'[',i2.2,1x,a11,']',2x))") &
+          write(iprec,"('#',6(1x,'[',i2.2,1x,a11,']',2x))") &
                1,'rad', &
                2,'time', &
                3,'tilt', &
                4,'twist', &
                5,'tot twist', &
-               6,'tp', &
-               7,'|e|'
+               6,'|e|'
        else
           open(unit=iprec,file=filename,status="old",position="append")
        endif
-       write(iprec,'(7(es18.10,1X))') rad(i),time,tilt(i),twist(i),twistprev(i),tp(i),ecc(i)
+       write(iprec,'(6(es18.10,1X))') rad(i),time,tilt(i),twist(i),twistprev(i),ecc(i)
        close(unit=iprec)
     endif
 
