@@ -178,7 +178,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: star_m(3),disc_mdust(3),sig_normdust(3),u(3)
  real    :: enc_m(maxbins),rad(maxbins),Q_mintmp,disc_mtmp(3),annulus_mtmp(3)
  integer :: int_len,maxdiscs
- integer :: ierr,j,idisc,nparttot,npartdust,npingasdisc,npindustdisc,itype
+ integer :: ierr,j,idisc,nparttot,npingasdisc,npindustdisc,itype
  integer :: sigmaprofilegas(3),sigmaprofiledust(3),iprofilegas(3),iprofiledust(3)
  character(len=100) :: filename
  character(len=20)  :: fmt_space
@@ -186,7 +186,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120) :: varstring(maxdusttypes)
 
  integer :: npart_planet_atm,npart_recentre
- integer :: npart_disc,p_type
+ integer :: npart_disc
  real, parameter :: a0 = 1.
  real    :: r_surface
  real    :: udens,rho_core
@@ -533,8 +533,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  incl    = incl*(pi/180.0)
  posangl = posangl*(pi/180.0)
  if (maxalpha==0) alpha = alphaSS
- nparttot  = 0
- npartdust = 0
+ nparttot = 0
+ npartoftype(:) = 0
  do i=1,3
     if (iuse_disc(i)) then
        !--set disc origin
@@ -674,15 +674,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                         bh_spin         = bhspin,             &
                         prefix          = prefix)
           nparttot = nparttot + npingasdisc
+          npartoftype(igas) = npartoftype(igas) + npingasdisc
           if (use_dust) then
              !--dust disc
              do j=1,ndustlarge
                 npindustdisc = int(disc_mdust(i)/totmass_dust*np_dust(j))
-                p_type = idust + j - 1
+                itype = idust + j - 1
                 call set_disc(id,master      = master,             &
                               npart          = npindustdisc,       &
                               npart_start    = nparttot + 1,       &
-                              particle_type  = p_type,             &
+                              particle_type  = itype,              &
                               rref           = R_ref(i),           &
                               rmin           = R_indust(i),        &
                               rmax           = R_outdust(i),       &
@@ -694,7 +695,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                               disc_mass      = disc_mdust(i),      &
                               star_mass      = star_m(i),          &
                               gamma          = gamma,              &
-                              particle_mass  = massoftype(p_type), &
+                              particle_mass  = massoftype(itype),  &
                               xyz_origin     = xorigini,           &
                               vxyz_origin    = vorigini,           &
                               hfact          = hfact,              &
@@ -708,8 +709,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                               warp_smoothl   = H_warp(i),          &
                               bh_spin        = bhspin,             &
                               prefix         = prefix)
+                npartoftype(itype) = npartoftype(itype) + npindustdisc
                 nparttot  = nparttot  + npindustdisc
-                npartdust = npartdust + npindustdisc
              enddo
           endif
        endif
@@ -748,8 +749,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--number of particles
  npart = nparttot
- npartoftype(igas)  = nparttot - npartdust
- npartoftype(idust) = npartdust
 
  call check_dust_method(id,filename,dust_method,ichange_method)
  if (ichange_method .and. id==master) then
