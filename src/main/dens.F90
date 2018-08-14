@@ -26,7 +26,7 @@
 !--------------------------------------------------------------------------
 module densityforce
  use dim,     only:maxdvdx,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum,&
-                   maxdusttypes,maxdustlarge,maxdustsmall
+                   maxdusttypes,maxdustlarge
  use part,    only:maxBevol,mhd,dvdx
  use kernel,  only:cnormk,wab0,gradh0,dphidh0,radkern2
  use mpidens, only:celldens,stackdens
@@ -1568,7 +1568,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                          maxneighact,np,ncalc)
  use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,&
                        iboundary,maxphase,massoftype,igas,n_R,n_electronT,&
-                       eta_nimhd,iohm,ihall,iambi,ndustlarge,xyzh_soa,&
+                       eta_nimhd,iohm,ihall,iambi,ndustlarge,ndustsmall,xyzh_soa,&
                        store_temperature,temperature,maxgradh,idust
  use io,          only:fatal,real4
  use eos,         only:get_temperature,get_spsound
@@ -1680,7 +1680,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
           do l=1,ndustlarge
              rhodusti(l) = cnormk*massoftype(idust+l-1)*(rhosum(irhodusti+l-1))*hi31
           enddo
-          iloc = maxdustsmall + 1
+          iloc = ndustsmall + 1
           dustfrac(iloc:iloc+ndustlarge,lli) = rhodusti(1:ndustlarge)*rho1i ! dust-to-gas ratio
        elseif (iamdusti) then
           dustfrac(:,lli) = 0.
