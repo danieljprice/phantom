@@ -854,7 +854,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: phi,phii,phij,fgrav,fgravi,fgravj,termi
 #ifdef DUST
  integer :: iregime
- real    :: dragterm,dragheating,wdrag,tsij(maxdusttypes),dv2
+ real    :: dragterm,dragheating,wdrag,tsij(maxdusttypes),dv2,tsijtmp
  real    :: grkernav,tsj(maxdusttypes),dustfracterms(maxdusttypes),term
  !real    :: Dav(maxdusttypes),vsigeps,depsdissterm(maxdusttypes)
 #ifdef DUSTGROWTH
@@ -1536,15 +1536,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 if (use_dustgrowth) then
                    call get_ts(idrag,dustprop(1,j),dustprop(2,j),rhoi,rhoj,spsoundi,dv2,tsij(1),iregime)
                 else
-                   do l=1,ndustsmall
-                      call get_ts(idrag,grainsize(l),graindens(l),rhoi,rhoj,spsoundi,dv2,tsij(l),iregime)
-                   enddo
+                   call get_ts(idrag,grainsize(iamtypej),graindens(iamtypej),rhoi,rhoj,spsoundi,dv2,tsijtmp,iregime)
                 endif
                 ndrag = ndrag + 1
                 if (iregime > 2)  nstokes = nstokes + 1
                 if (iregime == 2) nsuper = nsuper + 1
-                dragterm = sum(3.*pmassj/((rhoi + rhoj)*tsij(:))*projvstar*wdrag)
-                ts_min = min(ts_min,minval(tsij(:)))
+                dragterm = 3.*pmassj/((rhoi + rhoj)*tsijtmp)*projvstar*wdrag
+                ts_min = min(ts_min,tsijtmp)
                 fsum(ifxi) = fsum(ifxi) - dragterm*runix
                 fsum(ifyi) = fsum(ifyi) - dragterm*runiy
                 fsum(ifzi) = fsum(ifzi) - dragterm*runiz
@@ -1571,12 +1569,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    endif
 #endif
                 else
-                   do l=1,ndustsmall
-                      call get_ts(idrag,grainsize(l),graindens(l),rhoj,rhoi,spsoundj,dv2,tsij(l),iregime)
-                   enddo
+                   call get_ts(idrag,grainsize(iamtypej),graindens(iamtypej),rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
                 endif
-                dragterm = sum(3.*pmassj/((rhoi + rhoj)*tsij(:))*projvstar*wdrag)
-                ts_min = min(ts_min,minval(tsij(:)))
+                dragterm = 3.*pmassj/((rhoi + rhoj)*tsijtmp)*projvstar*wdrag
+                ts_min = min(ts_min,tsijtmp)
                 ndrag = ndrag + 1
                 if (iregime > 2)  nstokes = nstokes + 1
                 if (iregime == 2) nsuper = nsuper + 1
