@@ -711,6 +711,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                               prefix         = prefix)
                 npartoftype(itype) = npartoftype(itype) + npindustdisc
                 nparttot  = nparttot  + npindustdisc
+                sig_normdust(i) = 1.d0
+                call get_disc_mass(disc_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofiledust(i), &
+                                   sig_normdust(i),star_m(i),pindex_dust(i),qindex_dust(i), &
+                                   R_indust(i),R_outdust(i),R_ref(i),R_c_dust(i),H_R_dust(i))
+                sig_normdust(i) = sig_normdust(i) * disc_mdust(i) / disc_mtmp(i)
              enddo
           endif
        endif
