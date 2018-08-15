@@ -831,7 +831,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer(kind=1), intent(out)   :: ibin_wake(:),ibin_neighi
  integer(kind=1), intent(in)    :: ibinnow_m1
  logical,         intent(in)    :: ignoreself
- integer :: l,j,n,iamtypej
+ integer :: l,j,n,iamtypej,idusttype
  logical :: iactivej,iamgasj,iamdustj
  real    :: rij2,q2i,qi,xj,yj,zj,dx,dy,dz,runix,runiy,runiz,rij1,hfacgrkern
  real    :: grkerni,grgrkerni,dvx,dvy,dvz,projv,denij,vsigi,vsigu,dudtdissi
@@ -1536,7 +1536,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 if (use_dustgrowth) then
                    call get_ts(idrag,dustprop(1,j),dustprop(2,j),rhoi,rhoj,spsoundi,dv2,tsij(1),iregime)
                 else
-                   call get_ts(idrag,grainsize(iamtypej),graindens(iamtypej),rhoi,rhoj,spsoundi,dv2,tsijtmp,iregime)
+                   !--the following works for large grains only (not hybrid large and small grains)
+                   idusttype = iamtypej - idust + 1
+                   call get_ts(idrag,grainsize(idusttype),graindens(idusttype),rhoi,rhoj,spsoundi,dv2,tsijtmp,iregime)
                 endif
                 ndrag = ndrag + 1
                 if (iregime > 2)  nstokes = nstokes + 1
@@ -1569,7 +1571,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    endif
 #endif
                 else
-                   call get_ts(idrag,grainsize(iamtypej),graindens(iamtypej),rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
+                   !--the following works for large grains only (not hybrid large and small grains)
+                   idusttype = iamtypei - idust + 1
+                   call get_ts(idrag,grainsize(idusttype),graindens(idusttype),rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
                 endif
                 dragterm = 3.*pmassj/((rhoi + rhoj)*tsijtmp)*projvstar*wdrag
                 ts_min = min(ts_min,tsijtmp)
