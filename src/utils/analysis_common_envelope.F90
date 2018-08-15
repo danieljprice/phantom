@@ -630,12 +630,6 @@ subroutine roche_lobe_values(time, num, npart, particlemass, xyzh, vxyzu)
     allocate(transferred(npart))
     transferred(1:npart) = .false.
 
- if (dump_number == 0) then
-    m1 = npart * particlemass + xyzmh_ptmass(4,1)
-    m2 = xyzmh_ptmass(4,2)
-    allocate(transferred(npart))
-    transferred(1:npart) = .false.
-
     rho_surface = rhoh(xyzh(4,1), particlemass)
     do i=1,npart
        rhopart = rhoh(xyzh(4,i), particlemass)
