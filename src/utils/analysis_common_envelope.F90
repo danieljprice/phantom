@@ -1279,9 +1279,9 @@ subroutine bound_unbound_thermo(time, num, npart, particlemass, xyzh, vxyzu)
     enddo
 
     !average
-    entropy_array(itemp_b)  = entropy_array(itemp_b) / npart 
-    entropy_array(itemp_ub) = entropy_array(itemp_ub) / npart 
-    entropy_array(ipres_b)  = entropy_array(ipres_b) / npart 
+    entropy_array(itemp_b)  = entropy_array(itemp_b) / npart
+    entropy_array(itemp_ub) = entropy_array(itemp_ub) / npart
+    entropy_array(ipres_b)  = entropy_array(ipres_b) / npart
     entropy_array(ipres_ub) = entropy_array(ipres_ub) / npart
     entropy_array(idens_b)  = entropy_array(idens_b) / npart
     entropy_array(idens_ub) = entropy_array(idens_ub) / npart
@@ -1622,7 +1622,7 @@ subroutine orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,c
 
  call set_r2func_origin(com_xyz(1),com_xyz(2),com_xyz(3))
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
-    
+
  sep = separation(xyzmh_ptmass(1:3,1),com_xyz(1:3))
 
  do i=1,npart
@@ -1820,7 +1820,7 @@ end function distance
 subroutine unit_vector(a,b)
  real, intent(in), dimension(3)  :: a
  real, intent(out), dimension(3) :: b
- 
+
  b(1:3) = a(1:3) / distance(a(1:3))
 end subroutine unit_vector
 
