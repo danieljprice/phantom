@@ -376,7 +376,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     call set_incline_or_warp(xyzh,vxyzu,npart_tot,npart_start_count,posangl,incl,&
                              R_warp,H_warp,psimax)
  endif
- if (maxalpha==0) then
+
+#ifdef DISC_VISCOSITY
     !
     !--if disc viscosity is used, set the artificial viscosity parameter
     !  in the input file so as to give the desired alpha_SS
@@ -392,14 +393,15 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
        alphaSS_min = honHmin/10.
        alphaSS_max = honHmax/10.
     endif
- else
+#else
     !
     !--if disc viscosity is not used, simply return the range of alphaSS
     !  implied in the disc by the chosen artificial viscosity parameter
+    !  see Meru & Bate (2010)
     !
     alphaSS_min = honHmin*(31./525.)
     alphaSS_max = honHmax*(31./525.)
- endif
+#endif
  !
  !--adjust positions and velocities so the centre of mass is at the origin
  !  also shift particles to new origin if this is not at (0,0,0)
