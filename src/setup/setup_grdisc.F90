@@ -107,9 +107,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  r_out  = 160.    ! (GM/c^2)
  spin   = 0.
  honr   = 0.02
- alpha  = 0.001
+ alpha  = 0.1
  theta  = 0.      ! inclination angle (degrees)
- p_index= -1.0
+ p_index= 1.5
  np     = 1e5
  accrad = 4.      ! (GM/c^2)
 
@@ -161,7 +161,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                disc_mass     = mdisc,                &
                inclination   = theta,                &
                bh_spin       = spin,                 &
-               alpha         = alpha,                &
                prefix        = fileprefix)
 
 #ifdef GR
@@ -198,7 +197,7 @@ subroutine write_setupfile(filename)
  call write_inopt(r_out  ,'r_out'  ,'outer edge of disc (GM/c^2, code units)'   , iunit)
  call write_inopt(spin   ,'spin'   ,'spin parameter of black hole |a|<1'        , iunit)
  call write_inopt(honr   ,'honr'   ,'scale height H/R of disc (at inner edge)'  , iunit)
- call write_inopt(alpha  ,'alpha'  ,'Shakura-Sunyaev alpha disc viscosity'      , iunit)
+ call write_inopt(alpha  ,'alpha'  ,'artificial viscosity'                      , iunit)
  call write_inopt(theta  ,'theta'  ,'inclination of disc (degrees)'             , iunit)
  call write_inopt(p_index,'p_index','power law index of surface density profile', iunit)
  call write_inopt(accrad ,'accrad' ,'accretion radius   (GM/c^2, code units)'   , iunit)
