@@ -903,8 +903,8 @@ subroutine output_divv_files(time, dumpfile, num, npart, particlemass, xyzh, vxy
     !if (ieos==10) then
     !   call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i) * unit_ergg,pressure(i),temp(i))
     !   call get_eos_kappa_mesa(rhopart*unit_density,temp(i),kappa(i),kappat,kappar)
-       !call ionisation_fraction(rhopart * unit_density, temp(i), X_in, 1.-X_in-Z_in, &
-       !                         ions(1,i),ions(2,i),ions(3,i),ions(4,i),ions(5,i))
+    !call ionisation_fraction(rhopart * unit_density, temp(i), X_in, 1.-X_in-Z_in, &
+    !                         ions(1,i),ions(2,i),ions(3,i),ions(4,i),ions(5,i))
     !else
     !   kappa(i) = 1
     !endif
@@ -1236,60 +1236,60 @@ subroutine bound_unbound_thermo(time, num, npart, particlemass, xyzh, vxyzu)
  integer, parameter           :: idens_b  = 7
  integer, parameter           :: idens_ub = 8
 
-    !zeroes the entropy variable and others
-    entropy_array = 0.
+ !zeroes the entropy variable and others
+ entropy_array = 0.
 
-    !setup
-    if (dump_number == 0) then
-       call prompt('Would you like to use thermal energy in the computation of the bound/unbound status?', switch(1),.false.)
-    endif
+ !setup
+ if (dump_number == 0) then
+    call prompt('Would you like to use thermal energy in the computation of the bound/unbound status?', switch(1),.false.)
+ endif
 
-    call compute_energies(time)
+ call compute_energies(time)
 
-    do i=1,npart
-          call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
+ do i=1,npart
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
 
-          rhopart = rhoh(xyzh(4,i), particlemass)
+    rhopart = rhoh(xyzh(4,i), particlemass)
 
-          !gets entropy for the current particle
-          call get_eos_various_mesa(rhopart*unit_density,vxyzu(4,i) * unit_ergg, &
+    !gets entropy for the current particle
+    call get_eos_various_mesa(rhopart*unit_density,vxyzu(4,i) * unit_ergg, &
                                     pres_1(i),proint_1(i),peint_1(i),temp_1(i),troint_1(i), &
                                     teint_1(i),entrop_1(i),abad_1(i),gamma1_1(i),gam_1(i))
 
-          !sums entropy and other quantities for bound particles and unbound particles
+    !sums entropy and other quantities for bound particles and unbound particles
 
-          if (.not. switch(1)) then
-             etoti = etoti - einti
-          endif
+    if (.not. switch(1)) then
+       etoti = etoti - einti
+    endif
 
-          if (etoti < 0.0) then !bound
-             entropy_array(ient_b)  = entropy_array(ient_b) + entrop_1(i)
-             entropy_array(itemp_b) = entropy_array(itemp_b) + temp_1(i)
-             entropy_array(ipres_b) = entropy_array(ipres_b) + pres_1(i)
-             entropy_array(idens_b) = entropy_array(idens_b) + rhopart*unit_density
+    if (etoti < 0.0) then !bound
+       entropy_array(ient_b)  = entropy_array(ient_b) + entrop_1(i)
+       entropy_array(itemp_b) = entropy_array(itemp_b) + temp_1(i)
+       entropy_array(ipres_b) = entropy_array(ipres_b) + pres_1(i)
+       entropy_array(idens_b) = entropy_array(idens_b) + rhopart*unit_density
 
-          else !unbound
-             entropy_array(ient_ub)  = entropy_array(ient_ub) + entrop_1(i)
-             entropy_array(itemp_ub) = entropy_array(itemp_ub) + temp_1(i)
-             entropy_array(ipres_ub) = entropy_array(ipres_ub) + pres_1(i)
-             entropy_array(idens_ub) = entropy_array(idens_ub) + rhopart*unit_density
+    else !unbound
+       entropy_array(ient_ub)  = entropy_array(ient_ub) + entrop_1(i)
+       entropy_array(itemp_ub) = entropy_array(itemp_ub) + temp_1(i)
+       entropy_array(ipres_ub) = entropy_array(ipres_ub) + pres_1(i)
+       entropy_array(idens_ub) = entropy_array(idens_ub) + rhopart*unit_density
 
-          endif
+    endif
 
-    enddo
+ enddo
 
-    !average
-    entropy_array(itemp_b)  = entropy_array(itemp_b) / npart
-    entropy_array(itemp_ub) = entropy_array(itemp_ub) / npart
-    entropy_array(ipres_b)  = entropy_array(ipres_b) / npart
-    entropy_array(ipres_ub) = entropy_array(ipres_ub) / npart
-    entropy_array(idens_b)  = entropy_array(idens_b) / npart
-    entropy_array(idens_ub) = entropy_array(idens_ub) / npart
+ !average
+ entropy_array(itemp_b)  = entropy_array(itemp_b) / npart
+ entropy_array(itemp_ub) = entropy_array(itemp_ub) / npart
+ entropy_array(ipres_b)  = entropy_array(ipres_b) / npart
+ entropy_array(ipres_ub) = entropy_array(ipres_ub) / npart
+ entropy_array(idens_b)  = entropy_array(idens_b) / npart
+ entropy_array(idens_ub) = entropy_array(idens_ub) / npart
 
-    !writes on file
-    ncols = 8
-    allocate(columns(ncols))
-    columns = (/'       b entr',&
+ !writes on file
+ ncols = 8
+ allocate(columns(ncols))
+ columns = (/'       b entr',&
                 '     unb entr',&
                 '   avg b temp',&
                 ' avg unb temp',&
@@ -1297,8 +1297,8 @@ subroutine bound_unbound_thermo(time, num, npart, particlemass, xyzh, vxyzu)
                 ' avg unb pres',&
                 '   avg b dens',&
                 ' avg unb dens'/)
-    call write_time_file('entropy_vs_time', columns, time, entropy_array, ncols, dump_number)
-    deallocate(columns)
+ call write_time_file('entropy_vs_time', columns, time, entropy_array, ncols, dump_number)
+ deallocate(columns)
 end subroutine bound_unbound_thermo
 
 !!!!! Gravitational drag !!!!!
@@ -1318,20 +1318,20 @@ subroutine gravitational_drag(time, num, npart, particlemass, xyzh, vxyzu)
  real, dimension(4,maxptmass) :: fxyz_ptmass
 
 
-    if (dump_number == 0) then
-       allocate(ang_mom_old(nptmass))
-       do i=1,nptmass
-          call cross(xyzmh_ptmass(1:3,i), xyzmh_ptmass(4,i)*vxyz_ptmass(1:3,i), ang_mom)
-          ang_mom_old(i) = ang_mom(3)
-       enddo
-       time_old = -50.
-    endif
+ if (dump_number == 0) then
+    allocate(ang_mom_old(nptmass))
+    do i=1,nptmass
+       call cross(xyzmh_ptmass(1:3,i), xyzmh_ptmass(4,i)*vxyz_ptmass(1:3,i), ang_mom)
+       ang_mom_old(i) = ang_mom(3)
+    enddo
+    time_old = -50.
+ endif
 
-    drag_force = 0.
+ drag_force = 0.
 
-    ncols = 11
-    allocate(columns(ncols))
-    columns = (/'   par. num.', &
+ ncols = 11
+ allocate(columns(ncols))
+ columns = (/'   par. num.', &
                 '  perp. num.', &
                 '    from dJz', &
                 '  analytical', &
@@ -1343,86 +1343,86 @@ subroutine gravitational_drag(time, num, npart, particlemass, xyzh, vxyzu)
                 '        racc', &
                 'com-sink sep'/)
 
-    call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
+ call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
 
-    do i=2,2
-       fxyz_ptmass = 0.
-       avg_vel = 0
-       avg_vel_par = 0
-       avg_vel_per = 0
-       vel_contrast = 0.
-       nvc = 0
+ do i=2,2
+    fxyz_ptmass = 0.
+    avg_vel = 0
+    avg_vel_par = 0
+    avg_vel_per = 0
+    vel_contrast = 0.
+    nvc = 0
+    racc = 0.
+    cs = 0.
+    rhopart = 0.
+
+    call unit_vector(vxyz_ptmass(1:3,i), unit_vel(1:3))
+
+    call set_r2func_origin(xyzmh_ptmass(1,i),xyzmh_ptmass(2,i),xyzmh_ptmass(3,i))
+    call indexxfunc(npart,r2func_origin,xyzh,iorder)
+
+    !k = iorder(1)
+    !cs = get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k), particlemass),vxyzu(1:3,k))
+    !rhopart = rhoh(xyzh(4,k), particlemass)
+
+    centre_sep = separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
+
+    do j=1,npart
+       k = iorder(j)
+       sep = separation(xyzh(1:3,k),xyzmh_ptmass(1:3,i))
+       if (sep > centre_sep)exit
+       avg_vel(1:3) = avg_vel(1:3) + vxyzu(1:3,k)
+       !vel_contrast = vel_contrast + distance(vxyz_ptmass(1:3,i)) - dot_product(vxyzu(1:3,k), unit_vel)
+       cs = cs + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k), particlemass),vxyzu(1:3,k))
+       !rhopart = rhopart + rhoh(xyzh(4,k), particlemass)
+       rhopart = rhopart + particlemass
+    enddo
+
+    if (j > 1) then
+       avg_vel(1:3) = avg_vel(1:3) / (j-1)
+       avg_vel_par(1:3) = dot_product(avg_vel, unit_vel) * unit_vel
+       avg_vel_per(1:3) = avg_vel(1:3) - avg_vel_par(1:3)
+       vel_contrast = distance(vxyz_ptmass(1:3,i)) - cos_vector_angle(unit_vel, avg_vel_par) * distance(avg_vel_par(1:3))
+       !vel_contrast = separation(vxyz_ptmass(1:3,i),avg_vel_par(1:3))
+       cs = cs / float(j-1)
+       rhopart = rhopart / float(j-1)
+       racc = 2. * xyzmh_ptmass(4,i) / (vel_contrast**2 + cs**2)
+    else
        racc = 0.
-       cs = 0.
-       rhopart = 0.
+    endif
 
-       call unit_vector(vxyz_ptmass(1:3,i), unit_vel(1:3))
-
-       call set_r2func_origin(xyzmh_ptmass(1,i),xyzmh_ptmass(2,i),xyzmh_ptmass(3,i))
-       call indexxfunc(npart,r2func_origin,xyzh,iorder)
-
-       !k = iorder(1)
-       !cs = get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k), particlemass),vxyzu(1:3,k))
-       !rhopart = rhoh(xyzh(4,k), particlemass)
-
-       centre_sep = separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
-
-       do j=1,npart
-          k = iorder(j)
-          sep = separation(xyzh(1:3,k),xyzmh_ptmass(1:3,i))
-          if (sep > centre_sep)exit
-          avg_vel(1:3) = avg_vel(1:3) + vxyzu(1:3,k)
-          !vel_contrast = vel_contrast + distance(vxyz_ptmass(1:3,i)) - dot_product(vxyzu(1:3,k), unit_vel)
-          cs = cs + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k), particlemass),vxyzu(1:3,k))
-          !rhopart = rhopart + rhoh(xyzh(4,k), particlemass)
-          rhopart = rhopart + particlemass
-       enddo
-
-       if (j > 1) then
-          avg_vel(1:3) = avg_vel(1:3) / (j-1)
-          avg_vel_par(1:3) = dot_product(avg_vel, unit_vel) * unit_vel
-          avg_vel_per(1:3) = avg_vel(1:3) - avg_vel_par(1:3)
-          vel_contrast = distance(vxyz_ptmass(1:3,i)) - cos_vector_angle(unit_vel, avg_vel_par) * distance(avg_vel_par(1:3))
-          !vel_contrast = separation(vxyz_ptmass(1:3,i),avg_vel_par(1:3))
-          cs = cs / float(j-1)
-          rhopart = rhopart / float(j-1)
-          racc = 2. * xyzmh_ptmass(4,i) / (vel_contrast**2 + cs**2)
-       else
-          racc = 0.
-       endif
-
-       do j=1,npart
-          k = iorder(j)
-          if (separation(xyzh(1:3,k),xyzmh_ptmass(1:3,i)) > centre_sep) exit
-          call get_accel_sink_gas(nptmass,xyzh(1,k),xyzh(2,k),xyzh(3,k),xyzh(4,k),xyzmh_ptmass,&
+    do j=1,npart
+       k = iorder(j)
+       if (separation(xyzh(1:3,k),xyzmh_ptmass(1:3,i)) > centre_sep) exit
+       call get_accel_sink_gas(nptmass,xyzh(1,k),xyzh(2,k),xyzh(3,k),xyzh(4,k),xyzmh_ptmass,&
                                   fxi,fyi,fzi,phii,particlemass,fxyz_ptmass,fonrmax)
-       enddo
-
-       call cross(unit_vel, (/ 0., 0., 1. /), unit_vel_per)
-
-       drag_force(1,i) = dot_product(fxyz_ptmass(1:3,i),unit_vel)
-       drag_force(2,i) = dot_product(fxyz_ptmass(1:3,i),unit_vel_per)
-       drag_force(4,i) = - rhopart * (vel_contrast * abs(vel_contrast)) * pi * racc**2
-       drag_force(5,i) = vel_contrast
-       drag_force(6,i) = cos_vector_angle(unit_vel, avg_vel_par) * distance(avg_vel_par)
-       drag_force(7,i) = distance(avg_vel_per)
-       drag_force(8,i) = cs
-       drag_force(9,i) = rhopart
-       drag_force(10,i) = racc
-       drag_force(11,i) = centre_sep
     enddo
 
-    do i=2,2
-       call cross(xyzmh_ptmass(1:3,i) - com_xyz(1:3), xyzmh_ptmass(4,i)*vxyz_ptmass(1:3,i), ang_mom)
-       drag_force(3,i) = (ang_mom(3) - ang_mom_old(i)) / ((time - time_old) * distance(xyzmh_ptmass(1:3,i) - com_xyz(1:3)))
-       ang_mom_old(i) = ang_mom(3)
+    call cross(unit_vel, (/ 0., 0., 1. /), unit_vel_per)
 
-       write (filename, "(A16,I0)") "sink_drag_", i
+    drag_force(1,i) = dot_product(fxyz_ptmass(1:3,i),unit_vel)
+    drag_force(2,i) = dot_product(fxyz_ptmass(1:3,i),unit_vel_per)
+    drag_force(4,i) = - rhopart * (vel_contrast * abs(vel_contrast)) * pi * racc**2
+    drag_force(5,i) = vel_contrast
+    drag_force(6,i) = cos_vector_angle(unit_vel, avg_vel_par) * distance(avg_vel_par)
+    drag_force(7,i) = distance(avg_vel_per)
+    drag_force(8,i) = cs
+    drag_force(9,i) = rhopart
+    drag_force(10,i) = racc
+    drag_force(11,i) = centre_sep
+ enddo
 
-       call write_time_file(trim(adjustl(filename)), columns, time, drag_force(:,i), ncols, dump_number)
-    enddo
-    time_old = time
-    deallocate(columns)
+ do i=2,2
+    call cross(xyzmh_ptmass(1:3,i) - com_xyz(1:3), xyzmh_ptmass(4,i)*vxyz_ptmass(1:3,i), ang_mom)
+    drag_force(3,i) = (ang_mom(3) - ang_mom_old(i)) / ((time - time_old) * distance(xyzmh_ptmass(1:3,i) - com_xyz(1:3)))
+    ang_mom_old(i) = ang_mom(3)
+
+    write (filename, "(A16,I0)") "sink_drag_", i
+
+    call write_time_file(trim(adjustl(filename)), columns, time, drag_force(:,i), ncols, dump_number)
+ enddo
+ time_old = time
+ deallocate(columns)
 end subroutine gravitational_drag
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1463,31 +1463,31 @@ subroutine adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptma
  real, dimension(3)  :: omega_vec, omegacrossr
  integer             :: i
 
-    if (dump_number == 0) then
-       call prompt('Was this in a corotating frame?',switch,.false.)
+ if (dump_number == 0) then
+    call prompt('Was this in a corotating frame?',switch,.false.)
 
-       if (switch) then
-          sep = separation(xyzmh_ptmass(1:3,1), xyzmh_ptmass(1:3,2))
-          mtot = sum(xyzmh_ptmass(4,:)) + npart*particlemass
-          omega_c = sqrt(mtot / sep**3)
-       else
-          omega_c = -1
-       endif
+    if (switch) then
+       sep = separation(xyzmh_ptmass(1:3,1), xyzmh_ptmass(1:3,2))
+       mtot = sum(xyzmh_ptmass(4,:)) + npart*particlemass
+       omega_c = sqrt(mtot / sep**3)
+    else
+       omega_c = -1
     endif
+ endif
 
-    if (omega_c > 0.) then
-       omega_vec = (/ 0.,0.,omega_c /)
+ if (omega_c > 0.) then
+    omega_vec = (/ 0.,0.,omega_c /)
 
-       do i=1,npart
-          call cross(omega_vec,xyzh(1:3,i),omegacrossr)
-          vxyzu(1:3,i) = vxyzu(1:3,i) + omegacrossr(1:3)
-       enddo
+    do i=1,npart
+       call cross(omega_vec,xyzh(1:3,i),omegacrossr)
+       vxyzu(1:3,i) = vxyzu(1:3,i) + omegacrossr(1:3)
+    enddo
 
-       do i=1,nptmass
-          call cross(omega_vec,xyzmh_ptmass(1:3,i),omegacrossr)
-          vxyz_ptmass(1:3,i) = vxyz_ptmass(1:3,i) + omegacrossr(1:3)
-       enddo
-    endif
+    do i=1,nptmass
+       call cross(omega_vec,xyzmh_ptmass(1:3,i),omegacrossr)
+       vxyz_ptmass(1:3,i) = vxyz_ptmass(1:3,i) + omegacrossr(1:3)
+    enddo
+ endif
 end subroutine adjust_corotating_velocities
 
 

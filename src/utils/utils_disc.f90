@@ -116,11 +116,11 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
 ! Loop over particles putting properties into the correct bin
  do i = 1,npart
 
-   ! i for the particle number, ii for the bin number
-   xi = xyzh(1:3,i)
-   vi = vxyz(1:3,i)
+    ! i for the particle number, ii for the bin number
+    xi = xyzh(1:3,i)
+    vi = vxyz(1:3,i)
 
-     if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
+    if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
 
        rsphi = sqrt(dot_product(xi(1:3),xi(1:3)))
        rcyli = sqrt(dot_product(xi(1:2),xi(1:2)))
@@ -132,20 +132,20 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
 
        ! NB: No internal energy as isothermal
        if (iexternalforce==iext_einsteinprec) then
-         Ei = 0.5*dot_product(vi,vi) - G*M_star/rsphi -3.*G*M_star/(rsphi**2)
-         term = 2.*Ei*(Limag**2 - 6.*mu*mu)/(mu**2)
+          Ei = 0.5*dot_product(vi,vi) - G*M_star/rsphi -3.*G*M_star/(rsphi**2)
+          term = 2.*Ei*(Limag**2 - 6.*mu*mu)/(mu**2)
        else
-         Ei = 0.5*dot_product(vi,vi) - G*M_star/rsphi
-         term = 2.*Ei*Limag**2/(mu**2)
+          Ei = 0.5*dot_product(vi,vi) - G*M_star/rsphi
+          term = 2.*Ei*Limag**2/(mu**2)
        endif
 
        ai = -M_star/(2.*Ei)
 
        ! Now choose and store the bin
        if (sorting_choice==2) then
-         ii = int((ai-bin(1))/dbin + 1)
+          ii = int((ai-bin(1))/dbin + 1)
        else
-         ii = int((rcyli - bin(1))/dbin + 1)
+          ii = int((rcyli - bin(1))/dbin + 1)
        endif
        mybin(i) = ii
 
@@ -165,12 +165,12 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
 
        ninbin(ii) = ninbin(ii) + 1
 
-     elseif (xyzh(4,i) < -tiny(xyzh)) then !ACCRETED
+    elseif (xyzh(4,i) < -tiny(xyzh)) then !ACCRETED
        angx = angx + pmass*(xi(2)*vi(3) - xi(3)*vi(2))
        angy = angy + pmass*(xi(3)*vi(1) - xi(1)*vi(3))
        angz = angz + pmass*(xi(1)*vi(2) - xi(2)*vi(1))
-     endif
-   enddo
+    endif
+ enddo
 
 ! Convert total angular momentum into a unit vector, and average h_smooth
  do i = 1,nbin
@@ -239,23 +239,23 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
 
  ! Calculate the total angular momentum vector and rotate unitl[x,y,z] if required
  if(rotate) then
-     if (nptmass /= 0) then
+    if (nptmass /= 0) then
        call get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_ptmass,nptmass)
-     else
+    else
        call get_total_angular_momentum(xyzh,vxyz,npart,L_tot)
-     endif
+    endif
 
-     temp = (/L_tot(1),L_tot(2),0./)
-     temp_mag = sqrt(dot_product(temp,temp))
-     rotate_about_z = acos(dot_product((/1.,0.,0./),temp/temp_mag))
+    temp = (/L_tot(1),L_tot(2),0./)
+    temp_mag = sqrt(dot_product(temp,temp))
+    rotate_about_z = acos(dot_product((/1.,0.,0./),temp/temp_mag))
 
-     ! Rotate second about y-axis
-     L_tot_mag = sqrt(dot_product(L_tot,L_tot))
-     rotate_about_y = -acos(dot_product((/0.,0.,1./),L_tot/L_tot_mag))
+    ! Rotate second about y-axis
+    L_tot_mag = sqrt(dot_product(L_tot,L_tot))
+    rotate_about_y = -acos(dot_product((/0.,0.,1./),L_tot/L_tot_mag))
 
-     call rotatevec(L_tot,(/0.,0.,1.0/),-rotate_about_z)
-     call rotatevec(L_tot,(/0.,1.0,0./),rotate_about_y)
-     do i=1,nbin
+    call rotatevec(L_tot,(/0.,0.,1.0/),-rotate_about_z)
+    call rotatevec(L_tot,(/0.,1.0,0./),rotate_about_y)
+    do i=1,nbin
        temp(1) = unitlx(i)
        temp(2) = unitly(i)
        temp(3) = unitlz(i)
@@ -264,8 +264,8 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
        unitlx(i) = temp(1)
        unitly(i) = temp(2)
        unitlz(i) = temp(3)
-     enddo
-   endif
+    enddo
+ endif
 
  do i=1,nbin
     if(i /= 1.and.i /= nbin) then
