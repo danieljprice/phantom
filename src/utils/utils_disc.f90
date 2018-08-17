@@ -19,7 +19,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: centreofmass, externalforces, options, physcon,
+!  DEPENDENCIES: centreofmass, externalforces, options, physcon, prompting,
 !    vectorutils
 !+
 !--------------------------------------------------------------------------
