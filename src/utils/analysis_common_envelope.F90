@@ -1362,7 +1362,7 @@ subroutine gravitational_drag(time, num, npart, particlemass, xyzh, vxyzu)
     call indexxfunc(npart,r2func_origin,xyzh,iorder)
 
     !k = iorder(1)
-    !cs = get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k), particlemass),vxyzu(1:3,k))
+    !cs = get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k), particlemass),vxyzu(:,k))
     !rhopart = rhoh(xyzh(4,k), particlemass)
 
     centre_sep = separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
@@ -1373,7 +1373,7 @@ subroutine gravitational_drag(time, num, npart, particlemass, xyzh, vxyzu)
        if (sep > centre_sep)exit
        avg_vel(1:3) = avg_vel(1:3) + vxyzu(1:3,k)
        !vel_contrast = vel_contrast + distance(vxyz_ptmass(1:3,i)) - dot_product(vxyzu(1:3,k), unit_vel)
-       cs = cs + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k), particlemass),vxyzu(1:3,k))
+       cs = cs + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k), particlemass),vxyzu(:,k))
        !rhopart = rhopart + rhoh(xyzh(4,k), particlemass)
        rhopart = rhopart + particlemass
     enddo
