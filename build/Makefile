@@ -2074,6 +2074,18 @@ mflow: checksys $(OBJM)  mflow.o ev2mdot lombperiod
 lombperiod: powerspectrums.o lombperiod.o
 	$(FC) $(FFLAGS) -o $(BINDIR)/$@  lombperiod.o powerspectrums.o
 
+#----------------------------------------------------
+# these are the sources for the combinedustdumps utility
+#
+combinedustdumps: checksys checkparams $(OBJECTS) $(OBJDUMP) utils_testsuite.o combinedustdumps.o
+	@echo ""
+	@echo "combinedustdumps: many grains make light work"
+	@echo ""
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJDUMP) utils_testsuite.o combinedustdumps.o
+
+cleancombinedustdumps:
+	rm -f $(BINDIR)/phantom2divb
+
 
 
 #----------------------------------------------------
