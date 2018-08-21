@@ -55,15 +55,14 @@ subroutine test_derivs(ntests,npass,string)
  use linklist,        only:set_linklist
  use timing,          only:getused,printused
  use viscosity,       only:bulkvisc,shearparam,irealvisc
- use part,            only:iphase,isetphase,igas
+ use part,            only:iphase,isetphase,igas,grainsize,graindens
  use nicil,           only:use_ambi
 #ifdef IND_TIMESTEPS
  use timestep_ind,    only:nactive
  use part,            only:ibin
 #endif
 #ifdef DUST
- use dust,            only:init_drag,idrag,K_code,grainsize,graindens, &
-                           grainsizecgs,smincgs,smaxcgs,sindex
+ use dust,            only:init_drag,idrag,K_code,grainsizecgs
 #endif
  use units,           only:set_units
  use testutils,       only:checkval,checkvalf
@@ -92,6 +91,7 @@ subroutine test_derivs(ntests,npass,string)
  logical                :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs
  logical                :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testall
  real                   :: vwavei,stressmax,rhoi,sonrhoi(ndusttypes),drhodti,ddustevoli(ndusttypes)
+ real                   :: smincgs,smaxcgs,sindex
  integer(kind=8)        :: nptot
  real,allocatable       :: dummy(:)
 #ifdef IND_TIMESTEPS

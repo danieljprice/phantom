@@ -24,7 +24,7 @@
 module table_utils
  implicit none
 
- public :: yinterp, linspace
+ public :: yinterp, linspace, logspace
 
  private
 

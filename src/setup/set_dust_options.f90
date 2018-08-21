@@ -63,8 +63,6 @@ subroutine set_dust_interactively()
  character(len=120) :: varstringalt(maxdusttypes)
  character(len=120) :: message
  character(len=10)  :: grain_units
- real :: units_to_cgs
- integer :: i
 
  !--can only use one dust method
  call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)

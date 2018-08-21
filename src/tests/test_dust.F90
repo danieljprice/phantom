@@ -39,21 +39,22 @@ contains
 
 subroutine test_dust(ntests,npass)
 #ifdef DUST
- use dust,      only:idrag,init_drag,get_ts,grainsize,graindens,&
-                     set_dustfrac,smincgs,smaxcgs,sindex
- use part,      only:ndusttypes
+ use dust,      only:idrag,init_drag,get_ts
+ use set_dust,  only:set_dustfrac
+ use part,      only:ndusttypes,grainsize,graindens
  use physcon,   only:solarm,au
  use units,     only:set_units,unit_density
  use eos,       only:gamma
  use dim,       only:use_dust
  use mpiutils,  only:barrier_mpi
  use options,   only:use_dustfrac
+ use table_utils, only:logspace
 #endif
  integer, intent(inout) :: ntests,npass
 #ifdef DUST
  integer :: i,nfailed(10),ierr,iregime
  real    :: dustfraci(ndusttypes),dustfracisum,rhoi,rhogasi,spsoundi,tsi(ndusttypes)
- real    :: dust_to_gas
+ real    :: dust_to_gas,smin,smax,sindex
 
  if (id==master) write(*,"(/,a)") '--> TESTING DUST MODULE'
 
@@ -76,7 +77,11 @@ subroutine test_dust(ntests,npass)
  if (use_dust .and. ndusttypes>1) then
     use_dustfrac = .true.
     dust_to_gas = 0.01
-    call set_dustfrac(dust_to_gas,dustfraci,smincgs,smaxcgs,sindex)
+    smin = 1.e-5
+    smax = 1.
+    sindex = 3.5
+    call logspace(grainsize,smin,smax)
+    call set_dustfrac(dust_to_gas,grainsize,sindex,dustfraci)
  else
     dustfraci(:) = 0.5
  endif
@@ -599,7 +604,8 @@ end subroutine test_drag
 !+
 !---------------------------------------------------------
 subroutine test_epsteinstokes(ntests,npass)
- use dust,      only:idrag,init_drag,get_ts,grainsize,graindens,grainsizecgs
+ use dust,      only:idrag,init_drag,get_ts,grainsizecgs
+ use part,      only:grainsize,graindens
  use units,     only:unit_density,unit_velocity,utime
  use physcon,   only:years,kb_on_mh,pi
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end
