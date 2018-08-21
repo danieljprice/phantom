@@ -88,4 +88,26 @@ pure subroutine linspace(x,xmin,xmax)
 
 end subroutine linspace
 
+!--------------------------------------------------------
+!+
+!  Function to fill an array with equally log-spaced points
+!+
+!--------------------------------------------------------
+pure subroutine logspace(x,xmin,xmax)
+ real, intent(out) :: x(:)
+ real, intent(in)  :: xmin,xmax
+ integer :: i, n
+ real    :: dx
+
+ n  = size(x)
+
+ dx = log10(xmax/xmin)/real(n-1)
+ do i=1,n
+    x(i) = log10(xmin) + (i-1)*dx
+ enddo
+
+ x = 10.**x
+
+end subroutine logspace
+
 end module table_utils
