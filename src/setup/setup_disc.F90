@@ -70,28 +70,34 @@
 !+
 !--------------------------------------------------------------------------
 module setup
- use dim,            only:maxp,use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
-                          maxdustlarge,maxdustsmall
- use externalforces, only:iext_star,iext_binary,iext_lensethirring,&
-                          iext_einsteinprec,iext_corot_binary,iext_corotate
- use options,        only:use_dustfrac,iexternalforce
+ use dim,              only:maxp,use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
+                            maxdustlarge,maxdustsmall
+ use externalforces,   only:iext_star,iext_binary,iext_lensethirring,&
+                            iext_einsteinprec,iext_corot_binary,iext_corotate
+ use options,          only:use_dustfrac,iexternalforce
 #ifdef MCFOST
- use options,        only:use_mcfost
+ use options,          only:use_mcfost
 #endif
- use part,           only:ndusttypes,ndustsmall,ndustlarge
- use physcon,        only:au,solarm
- use setdisc,        only:scaled_sigma
- use extern_binary,  only:ramp,surface_force
+ use part,             only:ndusttypes,ndustsmall,ndustlarge
+ use physcon,          only:au,solarm
+ use setdisc,          only:scaled_sigma
+ use extern_binary,    only:ramp,surface_force
+ use set_dust_options, only:dust_method,dust_to_gas,ndusttypesinp,&
+                            grainsizeinp,graindensinp,igrainsize,igraindens,&
+                            iprofile_dust,smincgs,smaxcgs,sindex,dustbinfrac,&
+                            Kdrag,ilimitdustfluxinp
 
  implicit none
  public  :: setpart
 
  integer :: np,np_dust(maxdustlarge),norbits,i
+
  !--central objects
  real    :: m1,m2,accr1,accr2,bhspin,bhspinangle,flyby_a,flyby_d,flyby_O,flyby_i
  real    :: binary_a,binary_e,binary_i,binary_O,binary_w,binary_f,deltat
  integer :: icentral,ipotential,nsinks,ibinary
  logical :: einst_prec
+
  !--discs
  character(len=20) :: disclabel
  character(len=*), dimension(3), parameter :: disctype = &
@@ -100,8 +106,7 @@ module setup
       'secondary'/)
  logical :: iuse_disc(3),itapergas(3),itaperdust(3),iwarp(3)
  logical :: ismoothgas(3),ismoothdust(3),use_global_iso
- integer :: dust_method = 2
- integer :: mass_set(3),profile_set_dust,ndiscs
+ integer :: mass_set(3),ndiscs
  real    :: R_in(3),R_out(3),R_ref(3),R_c(3),R_warp(3),H_warp(3)
  real    :: pindex(3),qindex(3),H_R(3),posangl(3),incl(3)
  real    :: disc_m(3),sig_ref(3),sig_norm(3),annulus_m(3),R_inann(3),R_outann(3),Q_min(3)
@@ -109,15 +114,14 @@ module setup
  real    :: pindex_dust(3),qindex_dust(3),H_R_dust(3)
  real    :: ldisc(3),lcentral(3)
  real    :: alphaSS,dist_bt_sinks
- !--dust
- real    :: dustfrac_percent(maxdusttypes)
- real    :: grainsizeinp(maxdusttypes),graindensinp(maxdusttypes),dust_to_gas_ratio
+
  !--planets
  integer, parameter :: maxplanets = 9
  integer :: nplanets,setplanets
  real    :: mplanet(maxplanets),rplanet(maxplanets),accrplanet(maxplanets),inclplan(maxplanets)
  character(len=*), dimension(maxplanets), parameter :: planets = &
     (/'1','2','3','4','5','6','7','8','9' /)
+
  !--planet atmosphere defaults
  integer :: atm_type     = 1
  real    :: rho_core_cgs = 5.
@@ -138,7 +142,8 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use centreofmass,         only:reset_centreofmass
  use dust,                 only:grainsizecgs,graindenscgs
- use set_dust,             only:io_grainsize,nduststrings,set_dustfrac_from_inopts,check_dust_method
+ use set_dust,             only:set_dustfrac
+ use set_dust_options,     only:check_dust_method,array_of_numbered_strings
  use eos,                  only:isink,qfacdisc
  use extern_binary,        only:accradius1,accradius2,binarymassr,eps_soft1
  use externalforces,       only:mass1,accradius1
@@ -147,7 +152,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use kernel,               only:hfact_default
  use options,              only:ieos,alpha,icooling
  use part,                 only:nptmass,xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,&
-                                ihsoft,igas,idust,iamtype,iphase,dustprop
+                                ihsoft,igas,idust,iamtype,iphase,dustprop,dustfrac
  use physcon,              only:jupiterm,earthm,pi,years
  use setbinary,            only:set_binary,Rochelobe_estimate,get_mean_angmom_vector
  use setdisc,              only:set_disc,get_disc_mass
@@ -172,10 +177,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer, parameter :: maxbins = 4096
  logical :: iexist,seq_exists,is_isothermal,ichange_method
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r,period_longest
- real    :: jdust_to_gas_ratio,Rj,period,Rochelobe,Hill(maxplanets)
+ real    :: jdust_to_gas,Rj,period,Rochelobe,Hill(maxplanets)
  real    :: totmass_gas,totmass_dust,mcentral,R,Sigma,Sigmadust,Stokes(maxdusttypes)
  real    :: polyk_dust,xorigini(3),vorigini(3),alpha_returned(3)
- real    :: star_m(3),disc_mdust(3),sig_normdust(3),u(3)
+ real    :: star_m(3),disc_mdust(3,maxdusttypes),sig_normdust(3),u(3)
  real    :: enc_m(maxbins),rad(maxbins),Q_mintmp,disc_mtmp(3),annulus_mtmp(3)
  integer :: int_len,maxdiscs
  integer :: ierr,j,idisc,nparttot,npingasdisc,npindustdisc,itype
@@ -519,8 +524,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        end select
        totmass_gas = totmass_gas + disc_m(i)
        if (use_dust) then
-          disc_mdust(i) = disc_m(i) * dust_to_gas_ratio
-          totmass_dust  = totmass_dust + disc_mdust(i)
+          do j=1,ndusttypes
+             disc_mdust(i,j) = disc_m(i) * dust_to_gas * dustbinfrac(j)
+             totmass_dust    = totmass_dust + disc_mdust(i,j)
+          enddo
        endif
     endif
  enddo
@@ -572,46 +579,46 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (use_dust .and. use_dustfrac) then
           !--gas and dust mixture disc
           npingasdisc = int(disc_m(i)/totmass_gas*np)
-          call set_disc(id,master        = master,             &
-                        mixture          = .true.,             &
-                        npart            = npingasdisc,        &
-                        npart_start      = nparttot + 1,       &
-                        rref             = R_ref(i),           &
-                        rmin             = R_in(i),            &
-                        rmax             = R_out(i),           &
-                        rmindust         = R_indust(i),        &
-                        rmaxdust         = R_outdust(i),       &
-                        indexprofile     = iprofilegas(i),     &
-                        indexprofiledust = iprofiledust(i),    &
-                        rc               = R_c(i),             &
-                        rcdust           = R_c_dust(i),        &
-                        p_index          = pindex(i),          &
-                        p_indexdust      = pindex_dust(i),     &
-                        q_index          = qindex(i),          &
-                        q_indexdust      = qindex_dust(i),     &
-                        HoverR           = H_R(i),             &
-                        HoverRdust       = H_R_dust(i),        &
-                        disc_mass        = disc_m(i),          &
-                        disc_massdust    = disc_mdust(i),      &
-                        star_mass        = star_m(i),          &
-                        gamma            = gamma,              &
-                        particle_mass    = massoftype(igas),   &
-                        xyz_origin       = xorigini,           &
-                        vxyz_origin      = vorigini,           &
-                        hfact            = hfact,              &
-                        xyzh             = xyzh,               &
-                        vxyzu            = vxyzu,              &
-                        polyk            = polyk,              &
-                        alpha            = alpha,              &
-                        ismooth          = ismoothgas(i),      &
-                        position_angle   = posangl(i),         &
-                        inclination      = incl(i),            &
-                        rwarp            = R_warp(i),          &
-                        warp_smoothl     = H_warp(i),          &
-                        bh_spin          = bhspin,             &
+          call set_disc(id,master        = master,               &
+                        mixture          = .true.,               &
+                        npart            = npingasdisc,          &
+                        npart_start      = nparttot + 1,         &
+                        rref             = R_ref(i),             &
+                        rmin             = R_in(i),              &
+                        rmax             = R_out(i),             &
+                        rmindust         = R_indust(i),          &
+                        rmaxdust         = R_outdust(i),         &
+                        indexprofile     = iprofilegas(i),       &
+                        indexprofiledust = iprofiledust(i),      &
+                        rc               = R_c(i),               &
+                        rcdust           = R_c_dust(i),          &
+                        p_index          = pindex(i),            &
+                        p_indexdust      = pindex_dust(i),       &
+                        q_index          = qindex(i),            &
+                        q_indexdust      = qindex_dust(i),       &
+                        HoverR           = H_R(i),               &
+                        HoverRdust       = H_R_dust(i),          &
+                        disc_mass        = disc_m(i),            &
+                        disc_massdust    = sum(disc_mdust(i,:)), &
+                        star_mass        = star_m(i),            &
+                        gamma            = gamma,                &
+                        particle_mass    = massoftype(igas),     &
+                        xyz_origin       = xorigini,             &
+                        vxyz_origin      = vorigini,             &
+                        hfact            = hfact,                &
+                        xyzh             = xyzh,                 &
+                        vxyzu            = vxyzu,                &
+                        polyk            = polyk,                &
+                        alpha            = alpha,                &
+                        ismooth          = ismoothgas(i),        &
+                        position_angle   = posangl(i),           &
+                        inclination      = incl(i),              &
+                        rwarp            = R_warp(i),            &
+                        warp_smoothl     = H_warp(i),            &
+                        bh_spin          = bhspin,               &
                         prefix           = prefix)
           !--swap radii to keep dust profile the same as gas within [R_indust,R_outdust]
-          if (profile_set_dust == 2) then
+          if (iprofile_dust == 2) then
              R_indust_swap(i)  = R_in(i)
              R_outdust_swap(i) = R_out(i)
           else
@@ -624,20 +631,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           call get_disc_mass(disc_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofiledust(i), &
                              sig_normdust(i),star_m(i),pindex_dust(i),qindex_dust(i), &
                              R_indust_swap(i),R_outdust_swap(i),R_ref(i),R_c_dust(i),H_R_dust(i))
-          sig_normdust(i) = sig_normdust(i) * disc_mdust(i) / disc_mtmp(i)
+          sig_normdust(i) = sig_normdust(i) * sum(disc_mdust(i,:)) / disc_mtmp(i)
           do j=nparttot+1,npingasdisc
              Rj = sqrt(dot_product(xyzh(1:2,j)-xorigini(1:2),xyzh(1:2,j)-xorigini(1:2)))
-             if (profile_set_dust > 0 .and. (Rj<R_indust(i) .or. Rj>R_outdust(i))) then
-                jdust_to_gas_ratio = tiny(jdust_to_gas_ratio)
+             if (iprofile_dust > 0 .and. (Rj<R_indust(i) .or. Rj>R_outdust(i))) then
+                jdust_to_gas = tiny(jdust_to_gas)
              else
-                call get_dust_to_gas_ratio(jdust_to_gas_ratio,Rj,sigmaprofilegas(i), &
-                                           sigmaprofiledust(i),sig_norm(i),sig_normdust(i), &
-                                           pindex(i),pindex_dust(i),R_in(i),R_indust_swap(i),R_ref(i),&
-                                           xyzh(3,j)-xorigini(3),get_H(H_R(i)*R_ref(i),qindex(i),Rj/R_ref(i)),&
-                                           get_H(H_R_dust(i)*R_ref(i),qindex_dust(i),Rj/R_ref(i)),R_c(i),R_c_dust(i))
+                call get_dust_to_gas(jdust_to_gas,Rj,sigmaprofilegas(i), &
+                                     sigmaprofiledust(i),sig_norm(i),sig_normdust(i), &
+                                     pindex(i),pindex_dust(i),R_in(i),R_indust_swap(i),R_ref(i),&
+                                     xyzh(3,j)-xorigini(3),get_H(H_R(i)*R_ref(i),qindex(i),Rj/R_ref(i)),&
+                                     get_H(H_R_dust(i)*R_ref(i),qindex_dust(i),Rj/R_ref(i)),R_c(i),R_c_dust(i))
              endif
-             jdust_to_gas_ratio = max(jdust_to_gas_ratio,tiny(jdust_to_gas_ratio))
-             call set_dustfrac_from_inopts(jdust_to_gas_ratio,percent=dustfrac_percent,ipart=j)
+             jdust_to_gas = max(jdust_to_gas,tiny(jdust_to_gas))
+             call set_dustfrac(jdust_to_gas,grainsizeinp,sindex,dustfrac(:,j))
           enddo
           nparttot = nparttot + npingasdisc
        else
@@ -678,7 +685,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           if (use_dust) then
              !--dust disc
              do j=1,ndustlarge
-                npindustdisc = int(disc_mdust(i)/totmass_dust*np_dust(j))
+                npindustdisc = int(disc_mdust(i,j)/totmass_dust*np_dust(j))
                 itype = idust + j - 1
                 call set_disc(id,master      = master,             &
                               npart          = npindustdisc,       &
@@ -692,7 +699,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                               p_index        = pindex_dust(i),     &
                               q_index        = qindex_dust(i),     &
                               HoverR         = H_R_dust(i),        &
-                              disc_mass      = disc_mdust(i),      &
+                              disc_mass      = disc_mdust(i,j),    &
                               star_mass      = star_m(i),          &
                               gamma          = gamma,              &
                               particle_mass  = massoftype(itype),  &
@@ -715,7 +722,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                 call get_disc_mass(disc_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofiledust(i), &
                                    sig_normdust(i),star_m(i),pindex_dust(i),qindex_dust(i), &
                                    R_indust(i),R_outdust(i),R_ref(i),R_c_dust(i),H_R_dust(i))
-                sig_normdust(i) = sig_normdust(i) * disc_mdust(i) / disc_mtmp(i)
+                sig_normdust(i) = sig_normdust(i) * disc_mdust(i,j) / disc_mtmp(i)
              enddo
           endif
        endif
@@ -794,13 +801,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        dustprop(1,:) = grainsizeinp(1)/udist
        dustprop(2,:) = graindensinp(1)/umass*udist**3
     endif
-
-    if (io_grainsize == 0) then
-       grainsizeinp(:) = grainsizecgs(:)
-    else
-       grainsizecgs(:) = grainsizeinp(:)
-    endif
-    graindenscgs(:)    = graindensinp(:)
  endif
  if (maxdiscs > 1 .and. ibinary==1) then
     !--circumprimary in flyby
@@ -813,30 +813,30 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Sigma = sig_norm(i)*scaled_sigma(R,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
  if (use_dust) then
     Sigmadust = sig_normdust(i)*scaled_sigma(R,sigmaprofiledust(i),pindex_dust(i),R_ref(i),R_indust(i),R_c_dust(i))
-    Stokes = 0.5*pi*graindenscgs*grainsizecgs/(Sigma+Sigmadust) * (udist**2/umass)
+    Stokes = 0.5*pi*graindensinp*grainsizeinp/(Sigma+Sigmadust) * (udist**2/umass)
     print "(a,i2,a)",' -------------- added dust --------------'
     if (use_dustgrowth) then
        print "(a,g10.3,a)", ' initial grain size: ',grainsizeinp,' cm'
     elseif (ndusttypes > 1) then
        int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
        write(fmt_space,'(a,I0,a)') '(a',9-(int_len+1),',a,g10.3,a)'
-       call nduststrings('grain size ',': ',varstring)
-       do i = 1,ndusttypes
-          print(fmt_space),'',trim(varstring(i)),grainsizecgs(i),' cm'
+       call array_of_numbered_strings('grain size ',': ',varstring)
+       do i=1,ndusttypes
+          print(fmt_space),'',trim(varstring(i)),grainsizeinp(i),' cm'
        enddo
-       call nduststrings('grain density ',': ',varstring)
-       do i = 1,ndusttypes
-          print(fmt_space),'',trim(varstring(i)),graindenscgs(i),' g/cm^3'
+       call array_of_numbered_strings('grain density ',': ',varstring)
+       do i=1,ndusttypes
+          print(fmt_space),'',trim(varstring(i)),graindensinp(i),' g/cm^3'
        enddo
     else
-       print "(a,g10.3,a)", '       grain size: ',grainsizecgs(1),' cm'
-       print "(a,g10.3,a)", '      grain density: ',graindenscgs(1),' g/cm^3'
+       print "(a,g10.3,a)", '       grain size: ',grainsizeinp(1),' cm'
+       print "(a,g10.3,a)", '      grain density: ',graindensinp(1),' g/cm^3'
     endif
     if (ndusttypes > 1) then
        int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
        write(fmt_space,'(a,I0,a)') '(a',5-(int_len+1),',a,g10.3,a)'
-       call nduststrings('approx. Stokes ',': ',varstring)
-       do i = 1,ndusttypes
+       call array_of_numbered_strings('approx. Stokes ',': ',varstring)
+       do i=1,ndusttypes
           print(fmt_space),'',trim(varstring(i)),Stokes(i),''
        enddo
     else
@@ -986,11 +986,11 @@ end subroutine setpart
 !
 !------------------------------------------------------------------------
 subroutine setup_interactive(id)
- use growth,    only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
- use dust,      only:ilimitdustflux
- use set_dust,  only:interactively_set_dust
- use prompting, only:prompt
- use io, only: warning
+ use dust,             only:ilimitdustflux
+ use growth,           only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
+ use io,               only:warning
+ use prompting,        only:prompt
+ use set_dust_options, only:set_dust_interactively
  integer, intent(in) :: id
  integer :: maxdiscs
  real    :: disc_mfac(3)
@@ -1252,24 +1252,23 @@ subroutine setup_interactive(id)
 !--set dust disc defaults
 !
  if (use_dust) then
-    ilimitdustflux    = .false.
-    profile_set_dust  = 0
-    dust_to_gas_ratio = 0.01
-    R_indust          = R_in
-    R_outdust         = R_out
-    pindex_dust       = pindex
-    qindex_dust       = qindex
-    H_R_dust          = H_R
-    itaperdust        = itapergas
-    ismoothdust       = ismoothgas
-    grainsizeinp      = 0.1
-    graindensinp      = 3.
-    R_c_dust          = R_c
+    ilimitdustflux = .false.
+    iprofile_dust  = 0
+    dust_to_gas    = 0.01
+    R_indust       = R_in
+    R_outdust      = R_out
+    pindex_dust    = pindex
+    qindex_dust    = qindex
+    H_R_dust       = H_R
+    itaperdust     = itapergas
+    ismoothdust    = ismoothgas
+    grainsizeinp   = 0.1
+    graindensinp   = 3.
+    R_c_dust       = R_c
     print "(/,a)",'=============='
     print "(a)",  '+++  DUST  +++'
     print "(a)",  '=============='
-    call interactively_set_dust(dust_to_gas_ratio,dustfrac_percent,grainsizeinp,graindensinp, &
-                                dust_method,profile_set_dust)
+    call set_dust_interactively()
     if (use_dustgrowth .and. dust_method == 2) then
        print "(/,a)",'================================'
        print "(a)",  '+++  GROWTH & FRAGMENTATION  +++'
@@ -1382,8 +1381,8 @@ end subroutine setup_interactive
 !
 !------------------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only:write_inopt
- use set_dust,     only:write_dust_setup_options
+ use infile_utils,     only:write_inopt
+ use set_dust_options, only:write_dust_setup_options
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
  logical :: done_alpha
@@ -1568,7 +1567,7 @@ subroutine write_setupfile(filename)
           done_alpha = .true.
        endif
        !--dust disc
-       if (use_dust .and. (profile_set_dust == 1 .or. profile_set_dust == 2)) then
+       if (use_dust .and. (iprofile_dust == 1 .or. iprofile_dust == 2)) then
           if (maxdiscs > 1) then
              write(iunit,"(/,a)") '# options for circum'//trim(disclabel)//' dust disc'
           else
@@ -1589,8 +1588,7 @@ subroutine write_setupfile(filename)
  enddo
  !--dust & growth options
  if (use_dust) then
-    call write_dust_setup_options(iunit,dust_to_gas_ratio,df=dustfrac_percent,gs=grainsizeinp, &
-                                  gd=graindensinp,imethod=dust_method,iprofile=profile_set_dust)
+    call write_dust_setup_options(iunit)
  endif
  !--planets
  write(iunit,"(/,a)") '# set planets'
@@ -1631,9 +1629,8 @@ end subroutine write_setupfile
 !
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use set_dust,     only:read_dust_setup_options
- use io,           only:fatal
+ use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
+ use set_dust_options, only:read_dust_setup_options
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
@@ -1740,17 +1737,14 @@ subroutine read_setupfile(filename,ierr)
 
  !--dust
  if (use_dust) then
-    call read_dust_setup_options(db,nerr,dust_to_gas_ratio,df=dustfrac_percent,gs=grainsizeinp, &
-                                 gd=graindensinp)
+    call read_dust_setup_options(db,nerr)
     !--dust method
-    call read_inopt(dust_method,'dust_method',db,min=1,max=2,errcount=nerr)
     select case(dust_method)
     case(1)
        use_dustfrac = .true.
     case(2)
        use_dustfrac = .false.
     end select
-    call read_inopt(profile_set_dust,'profile_set_dust',db,err=ierr)
  endif
 
  !--resolution
@@ -1821,7 +1815,7 @@ subroutine read_setupfile(filename,ierr)
        endif
        !--dust disc
        if (use_dust) then
-          select case (profile_set_dust)
+          select case (iprofile_dust)
           case (0)
              R_indust(i)    = R_in(i)
              R_outdust(i)   = R_out(i)
@@ -1972,10 +1966,10 @@ subroutine read_obsolete_setup_options(db)
  itapergas = .false.
  if (ierr==0 .and. tmp_i==1) itapergas = .true.
  call read_inopt(sig_norm(1),'sigma_naught',db,err=ierr)
- call read_inopt(dust_to_gas_ratio,'dust_to_gas',db,err=ierr)
+ call read_inopt(dust_to_gas,'dust_to_gas',db,err=ierr)
  call read_inopt(tmp_i,'profile_set_dust',db,err=ierr)
  if (ierr /= 0) then
-    profile_set_dust = 1
+    iprofile_dust = 1
     pindex_dust = pindex
  endif
  call read_inopt(tmp_r,'graindensinp',db,err=ierr)
@@ -1993,7 +1987,7 @@ end subroutine read_obsolete_setup_options
 ! calculates dust-to-gas ratio at a particular value of R
 !
 !------------------------------------------------------------------------
-subroutine get_dust_to_gas_ratio(dust_to_gas,R,sigmaprofilegas,sigmaprofiledust, &
+subroutine get_dust_to_gas(dust_to_gas,R,sigmaprofilegas,sigmaprofiledust, &
                                  sig_norm,sig_normdust,pindex,pindex_dust, &
                                  R_in,R_indust,R_ref,zi,hgas,hdust,R_c,R_c_dust)
  real,           intent(in)  :: R,pindex,pindex_dust,sig_norm,sig_normdust
@@ -2007,7 +2001,7 @@ subroutine get_dust_to_gas_ratio(dust_to_gas,R,sigmaprofilegas,sigmaprofiledust,
  sigma_dust  = sig_normdust * scaled_sigma(R,sigmaprofiledust,pindex_dust,R_ref,R_indust,R_c_dust)
  dust_to_gas = (sigma_dust/sigma_gas) * (hgas/hdust) * exp(-0.5d0*(((zi/hdust)**2.)*(1.d0-(hdust/hgas)**2.)))
 
-end subroutine get_dust_to_gas_ratio
+end subroutine get_dust_to_gas
 
 !----------------------------------------------------------------
 !
@@ -2103,7 +2097,7 @@ subroutine set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in, &
 
  npart_planet_atm = npart-npart_disc
  npartoftype(1) = npart
- do i = npart_disc+1,npart
+ do i=npart_disc+1,npart
     !--set the particle type for the atmosphere particles
     call set_particle_type(i,1)
     !-----------------------------------------

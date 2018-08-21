@@ -55,6 +55,12 @@ module part
 !
 !--storage of dust properties
 !
+ real :: grainsize(maxdusttypes)
+ real :: graindens(maxdusttypes)
+ real :: grainmass(maxdusttypes)
+!
+!--storage of dust growth properties
+!
  real :: dustprop(4,maxp_growth)
  real :: St(maxp_growth)
  character(len=*), parameter :: dustprop_label(4) = (/'grainsize ','graindens ','vrel/vfrag','    dv    '/)

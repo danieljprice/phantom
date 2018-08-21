@@ -71,7 +71,7 @@ subroutine compute_energies(t)
                           nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,&
                           isdead_or_accreted,epot_sinksink,imacc,ispinx,ispiny,&
                           ispinz,mhd,gravity,poten,dustfrac,temperature,&
-                          n_R,n_electronT,eta_nimhd,iion,ndustsmall
+                          n_R,n_electronT,eta_nimhd,iion,ndustsmall,graindens,grainsize
  use eos,            only:polyk,utherm,gamma,equationofstate,&
                           get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
@@ -83,7 +83,7 @@ subroutine compute_energies(t)
  use nicil,          only:nicil_get_eta,nicil_get_halldrift,nicil_get_vion, &
                      use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_data_out
 #ifdef DUST
- use dust,           only:get_ts,graindens,grainsize,idrag
+ use dust,           only:get_ts,idrag
  integer :: iregime
  real    :: tsi(maxdustsmall)
 #endif
@@ -155,7 +155,7 @@ subroutine compute_energies(t)
 !$omp shared(iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah) &
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat,iev_ionise) &
-!$omp shared(temperature,ndustsmall) &
+!$omp shared(temperature,grainsize,graindens,ndustsmall) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
@@ -166,7 +166,7 @@ subroutine compute_energies(t)
 !$omp private(ev_data_thread,np_rho_thread) &
 !$omp firstprivate(alphai,itype,pmassi) &
 #ifdef DUST
-!$omp shared(grainsize,graindens,idrag) &
+!$omp shared(idrag) &
 !$omp private(tsi,iregime) &
 #endif
 #ifdef LIGHTCURVE

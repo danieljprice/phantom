@@ -774,8 +774,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:igas,idust,iboundary,iohm,ihall,iambi
  use part,        only:maxphase,iactive,iamtype,iamdust,get_partinfo
  use part,        only:mhd,maxvxyzu,maxBevol,maxdvdx
+ use part,        only:grainsize,graindens
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,store_temperature
- use part,        only:rhoh,maxgradh,dvdx,ndustsmall
+ use part,        only:rhoh,maxgradh,dvdx,ndustsmall,grainsize,graindens
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
@@ -785,9 +786,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use boundary,    only:dxbound,dybound,dzbound
 #endif
  use dim,         only:use_dust,use_dustgrowth
- use dust,        only:grainsize,graindens
 #ifdef DUST
- use dust,        only:get_ts,grainsize,graindens,idrag,icut_backreaction,ilimitdustflux
+ use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux
  use kernel,      only:wkern_drag,cnormk_drag
  use part,        only:dustprop
  use eos,         only:get_spsound
@@ -831,7 +831,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer(kind=1), intent(out)   :: ibin_wake(:),ibin_neighi
  integer(kind=1), intent(in)    :: ibinnow_m1
  logical,         intent(in)    :: ignoreself
- integer :: l,j,n,iamtypej,idusttype
+ integer :: l,j,n,iamtypi,iamtypej,idusttype
  logical :: iactivej,iamgasj,iamdustj
  real    :: rij2,q2i,qi,xj,yj,zj,dx,dy,dz,runix,runiy,runiz,rij1,hfacgrkern
  real    :: grkerni,grgrkerni,dvx,dvy,dvz,projv,denij,vsigi,vsigu,dudtdissi
@@ -877,6 +877,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: jcbcbi(3),jcbi(3)
  real    :: alphai,grainsizei,graindensi
  logical :: usej
+ integer :: iamtypei
 
  ! unpack
  vwavei        = xpartveci(ivwavei)
@@ -916,6 +917,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  vsigmax = 0.
  pmassonrhoi = pmassi*rho1i
  hfacgrkern  = hi41*cnormk*gradhi
+
+ iamtypei = iamtype(iphase(i))
 
  ! default settings for active/phase if iphase not used
  iactivej = .true.
@@ -1777,10 +1780,10 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use dim,       only:maxp,ndivcurlv,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
                 use_dustgrowth,store_temperature
  use part,      only:iamgas,maxphase,iboundary,rhoanddhdrho,igas,massoftype,get_partinfo,&
-                     iohm,ihall,iambi,ndusttypes,ndustsmall
+                     iohm,ihall,iambi,ndusttypes,ndustsmall,grainsize,graindens
  use viscosity, only:irealvisc,bulkvisc
 #ifdef DUST
- use dust,      only:get_ts,grainsize,graindens,idrag
+ use dust,      only:get_ts,idrag
 #endif
  use nicil,     only:nimhd_get_dt,nimhd_get_jcbcb
  use kdtree,    only:inodeparts,inoderange

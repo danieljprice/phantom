@@ -1688,8 +1688,8 @@ end subroutine unfill_header
 subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,ierr)
  use eos,            only:polyk,gamma,polyk2,qfacdisc,isink
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,ieos
- use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,ndustsmall,ndustlarge,idust
- use dust,           only:grainsize,graindens
+ use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,ndustsmall,ndustlarge,&
+                          idust,grainsize,graindens
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
@@ -1816,8 +1816,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  use eos,            only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
  use options,        only:ieos,tolh,alpha,alphau,alphaB,iexternalforce
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,&
-                          maxtypes,ndustsmall,ndustlarge,ndusttypes
- use dust,           only:grainsize,graindens
+                          maxtypes,ndustsmall,ndustlarge,ndusttypes,grainsize,graindens
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
