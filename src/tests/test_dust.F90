@@ -40,7 +40,7 @@ contains
 subroutine test_dust(ntests,npass)
 #ifdef DUST
  use dust,      only:idrag,init_drag,get_ts
- use set_dust,  only:set_dustfrac
+ use set_dust,  only:set_dustbinfrac
  use part,      only:ndusttypes,grainsize,graindens
  use physcon,   only:solarm,au
  use units,     only:set_units,unit_density
@@ -53,7 +53,8 @@ subroutine test_dust(ntests,npass)
  integer, intent(inout) :: ntests,npass
 #ifdef DUST
  integer :: i,nfailed(10),ierr,iregime
- real    :: dustfraci(ndusttypes),dustfracisum,rhoi,rhogasi,spsoundi,tsi(ndusttypes)
+ real    :: dustfraci(ndusttypes),dustbinfraci(ndusttypes),dustfracisum
+ real    :: rhoi,rhogasi,spsoundi,tsi(ndusttypes)
  real    :: dust_to_gas,smin,smax,sindex
 
  if (id==master) write(*,"(/,a)") '--> TESTING DUST MODULE'
@@ -81,7 +82,8 @@ subroutine test_dust(ntests,npass)
     smax = 1.
     sindex = 3.5
     call logspace(grainsize,smin,smax)
-    call set_dustfrac(dust_to_gas,grainsize,sindex,dustfraci)
+    call set_dustbinfrac(smin,smax,sindex,dustbinfraci)
+    dustfraci = dust_to_gas*dustbinfraci
  else
     dustfraci(:) = 0.5
  endif

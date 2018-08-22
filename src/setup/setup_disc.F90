@@ -78,7 +78,7 @@ module setup
 #ifdef MCFOST
  use options,          only:use_mcfost
 #endif
- use part,             only:ndusttypes,ndustsmall,ndustlarge
+ use part,             only:ndusttypes,ndustsmall,ndustlarge,grainsize,graindens
  use physcon,          only:au,solarm
  use setdisc,          only:scaled_sigma
  use extern_binary,    only:ramp,surface_force
@@ -86,6 +86,8 @@ module setup
                             grainsizeinp,graindensinp,igrainsize,igraindens,&
                             iprofile_dust,smincgs,smaxcgs,sindex,dustbinfrac,&
                             Kdrag,ilimitdustfluxinp
+ use dust,             only:ilimitdustflux
+ use set_dust,         only:set_dustbinfrac
 
  implicit none
  public  :: setpart
@@ -136,13 +138,11 @@ contains
 
 !----------------------------------------------------------------
 !
-! This subroutine sets up an accretion disc
+! This subroutine sets up a one or more accretion disc(s)
 !
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use centreofmass,         only:reset_centreofmass
- use dust,                 only:grainsizecgs,graindenscgs
- use set_dust,             only:set_dustfrac
  use set_dust_options,     only:check_dust_method,array_of_numbered_strings
  use eos,                  only:isink,qfacdisc
  use extern_binary,        only:accradius1,accradius2,binarymassr,eps_soft1
@@ -156,6 +156,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,              only:jupiterm,earthm,pi,years
  use setbinary,            only:set_binary,Rochelobe_estimate,get_mean_angmom_vector
  use setdisc,              only:set_disc,get_disc_mass
+ use set_dust_options,     only:set_dust_default_options
  use setflyby,             only:set_flyby,get_T_flyby
  use timestep,             only:tmax,dtmax
  use units,                only:set_units,select_unit,umass,udist,utime
@@ -196,9 +197,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: r_surface
  real    :: udens,rho_core
 
+!--------------------------------------------------------------------------
+!+
+!  Initialization
+!+
+!--------------------------------------------------------------------------
+
  print "(/,65('-'),2(/,a),/,65('-'),/)"
  print "(a)",'     Welcome to the New Disc Setup'
  print "(/,65('-'),2(/,a),/,65('-'),/)"
+
+ !
+ !--set defaults
+ !
+ call set_dust_default_options()
 
  !
  !--get disc setup parameters from file or interactive setup
@@ -206,12 +218,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  filename=trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) then
+
     !--read from setup file
     call read_setupfile(filename,ierr)
     if (id==master) call write_setupfile(filename)
     if (ierr /= 0) then
        stop
     endif
+
     !--setup multiple discs each with different orbital parameters
     !  specified in orbits.dat
     inquire(file='orbits.dat',exist=iexist)
@@ -230,19 +244,30 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        close(unit=23)
        stop
     endif
+
  elseif (id==master) then
-    ! interactive setup
+
+    !--interactive setup
     print "(a,/)",' '//trim(filename)//' not found: using interactive setup'
-    call setup_interactive(id)
-    !
-    !--write default input file
-    !
+    call setup_interactive()
+
+    !--write setup file from interactive setup
     call write_setupfile(filename)
     print "(/,a)",' >>> please edit '//trim(filename)//' to set parameters for your problem then rerun phantomsetup <<<'
     stop
+
  else
+
     stop
+
  endif
+
+!--------------------------------------------------------------------------
+!+
+!  Perform setup
+!+
+!--------------------------------------------------------------------------
+
  !
  !--set units
  !
@@ -644,7 +669,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                                      get_H(H_R_dust(i)*R_ref(i),qindex_dust(i),Rj/R_ref(i)),R_c(i),R_c_dust(i))
              endif
              jdust_to_gas = max(jdust_to_gas,tiny(jdust_to_gas))
-             call set_dustfrac(jdust_to_gas,grainsizeinp,sindex,dustfrac(:,j))
+             dustfrac(:,j) = jdust_to_gas*dustbinfrac(:)
           enddo
           nparttot = nparttot + npingasdisc
        else
@@ -762,7 +787,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--number of particles
  npart = nparttot
 
- call check_dust_method(id,filename,dust_method,ichange_method)
+ call check_dust_method(dust_method,ichange_method)
  if (ichange_method .and. id==master) then
     np_dust = npart/5
     call write_setupfile(filename)
@@ -798,8 +823,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (use_dust) then
     if (use_dustgrowth) then
-       dustprop(1,:) = grainsizeinp(1)/udist
-       dustprop(2,:) = graindensinp(1)/umass*udist**3
+       dustprop(1,:) = grainsize(1)/udist
+       dustprop(2,:) = graindens(1)/umass*udist**3
     endif
  endif
  if (maxdiscs > 1 .and. ibinary==1) then
@@ -813,29 +838,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Sigma = sig_norm(i)*scaled_sigma(R,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
  if (use_dust) then
     Sigmadust = sig_normdust(i)*scaled_sigma(R,sigmaprofiledust(i),pindex_dust(i),R_ref(i),R_indust(i),R_c_dust(i))
-    Stokes = 0.5*pi*graindensinp*grainsizeinp/(Sigma+Sigmadust) * (udist**2/umass)
+    Stokes = 0.5*pi*graindens*grainsize/(Sigma+Sigmadust) * (udist**2/umass)
     print "(a,i2,a)",' -------------- added dust --------------'
     if (use_dustgrowth) then
-       print "(a,g10.3,a)", ' initial grain size: ',grainsizeinp,' cm'
+       print "(a,g10.3,a)", ' initial grain size: ',grainsize,' cm'
     elseif (ndusttypes > 1) then
        int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
        write(fmt_space,'(a,I0,a)') '(a',9-(int_len+1),',a,g10.3,a)'
-       call array_of_numbered_strings('grain size ',': ',varstring)
+       call array_of_numbered_strings('grain size ',': ',varstring(1:ndusttypes))
        do i=1,ndusttypes
-          print(fmt_space),'',trim(varstring(i)),grainsizeinp(i),' cm'
+          print(fmt_space),'',trim(varstring(i)),grainsize(i),' cm'
        enddo
-       call array_of_numbered_strings('grain density ',': ',varstring)
+       call array_of_numbered_strings('grain density ',': ',varstring(1:ndusttypes))
        do i=1,ndusttypes
-          print(fmt_space),'',trim(varstring(i)),graindensinp(i),' g/cm^3'
+          print(fmt_space),'',trim(varstring(i)),graindens(i),' g/cm^3'
        enddo
     else
-       print "(a,g10.3,a)", '       grain size: ',grainsizeinp(1),' cm'
-       print "(a,g10.3,a)", '      grain density: ',graindensinp(1),' g/cm^3'
+       print "(a,g10.3,a)", '       grain size: ',grainsize(1),' cm'
+       print "(a,g10.3,a)", '      grain density: ',graindens(1),' g/cm^3'
     endif
     if (ndusttypes > 1) then
        int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
        write(fmt_space,'(a,I0,a)') '(a',5-(int_len+1),',a,g10.3,a)'
-       call array_of_numbered_strings('approx. Stokes ',': ',varstring)
+       call array_of_numbered_strings('approx. Stokes ',': ',varstring(1:ndusttypes))
        do i=1,ndusttypes
           print(fmt_space),'',trim(varstring(i)),Stokes(i),''
        enddo
@@ -985,13 +1010,11 @@ end subroutine setpart
 !  prompt user for desired setup options
 !
 !------------------------------------------------------------------------
-subroutine setup_interactive(id)
- use dust,             only:ilimitdustflux
+subroutine setup_interactive()
  use growth,           only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
  use io,               only:warning
  use prompting,        only:prompt
  use set_dust_options, only:set_dust_interactively
- integer, intent(in) :: id
  integer :: maxdiscs
  real    :: disc_mfac(3)
  logical :: questplanets
@@ -1252,9 +1275,6 @@ subroutine setup_interactive(id)
 !--set dust disc defaults
 !
  if (use_dust) then
-    ilimitdustflux = .false.
-    iprofile_dust  = 0
-    dust_to_gas    = 0.01
     R_indust       = R_in
     R_outdust      = R_out
     pindex_dust    = pindex
@@ -1262,8 +1282,6 @@ subroutine setup_interactive(id)
     H_R_dust       = H_R
     itaperdust     = itapergas
     ismoothdust    = ismoothgas
-    grainsizeinp   = 0.1
-    graindensinp   = 3.
     R_c_dust       = R_c
     print "(/,a)",'=============='
     print "(a)",  '+++  DUST  +++'
@@ -1324,7 +1342,7 @@ subroutine setup_interactive(id)
 !
  np = 500000
  if (use_dust .and. .not.use_dustfrac) then
-    np_dust = np/ndustlarge/5
+    np_dust = np/ndusttypesinp/5
  else
     np_dust = 0
  endif
@@ -1399,7 +1417,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# resolution'
  call write_inopt(np,'np','number of gas particles',iunit)
  if (use_dust .and. .not.use_dustfrac) then
-    do i=1,ndustlarge
+    do i=1,ndusttypesinp
        call write_inopt(np_dust(i),'np_dust'//planets(i),'number of dust particles',iunit)
     enddo
  endif
@@ -1631,6 +1649,7 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ierr)
  use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
  use set_dust_options, only:read_dust_setup_options
+ use table_utils,      only:logspace
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
@@ -1742,8 +1761,30 @@ subroutine read_setupfile(filename,ierr)
     select case(dust_method)
     case(1)
        use_dustfrac = .true.
+       ilimitdustflux = ilimitdustfluxinp
+       ndustsmall = ndusttypesinp
     case(2)
        use_dustfrac = .false.
+       ndustlarge = ndusttypesinp
+    end select
+    ndusttypes = ndusttypesinp
+    select case(igrainsize)
+    case(0)
+       call logspace(grainsize(1:ndusttypes),smincgs,smaxcgs)
+       call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes))
+    case(1)
+       grainsize(:) = grainsizeinp(:)
+    case default
+       grainsize(1) = grainsizeinp(1)
+       graindens(1) = graindensinp(1)
+    end select
+    select case(igraindens)
+    case(0)
+       graindens(:) = graindensinp(1)
+    case(1)
+       graindens(:) = graindensinp(:)
+    case default
+       graindens(1) = graindensinp(1)
     end select
  endif
 

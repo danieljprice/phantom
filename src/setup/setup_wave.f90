@@ -47,7 +47,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dim,          only:maxvxyzu,use_dust,maxp
  use options,      only:use_dustfrac
  use prompting,    only:prompt
- use set_dust,     only:interactively_set_dust,set_dustfrac_from_inopts
+ use dust,         only:K_code,idrag
+ use set_dust,     only:set_dustfrac
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -81,8 +82,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(/,a,/)",'  >>> Setting up particles for linear wave test <<<'
     call prompt(' enter number of '//trim(labeltype(itype))//' particles in x ',npartx,8,int(maxp/144.))
     if (use_dust) then
-       dust_method  = 2
-       call interactively_set_dust(dtg,imethod=dust_method,Kdrag=.true.)
+       dust_method = 2
+       dtg = 1.
+       idrag = 2
+       call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
+       if (dust_method == 1) then
+          use_dustfrac = .true.
+       else
+          use_dustfrac = .false.
+       endif
+       if (use_dustfrac) K_code = 1000. ! for a more sensible better option
+       call prompt('Enter dust to gas ratio',dtg,0.)
+       call prompt('Enter constant drag coefficient',K_code,0.)
        if (use_dustfrac) then
           massfac = 1. + dtg
        else
@@ -191,7 +202,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
        if (use_dustfrac) then
           if (itype==igas) then
-             call set_dustfrac_from_inopts(dtg,ipart=i)
+             call set_dustfrac(dtg,dustfrac(:,i))
           else
              dustfrac(:,i) = 0.
           endif

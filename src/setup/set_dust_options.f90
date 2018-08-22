@@ -42,6 +42,7 @@ module set_dust_options
  real,    public :: Kdrag
  integer, public :: ilimitdustfluxinp
 
+ public :: set_dust_default_options
  public :: set_dust_interactively
  public :: read_dust_setup_options
  public :: write_dust_setup_options
@@ -54,15 +55,35 @@ contains
 
 !--------------------------------------------------------------------------
 !+
+!  Subroutine for setting default dust setup properties
+!+
+!--------------------------------------------------------------------------
+subroutine set_dust_default_options()
+
+ dust_method = 2
+ dust_to_gas = 0.01
+ ndusttypesinp = 1
+ grainsizeinp(:) = 1.
+ graindensinp(:) = 3.
+ igrainsize = 0
+ igraindens = 0
+ iprofile_dust = 0
+ smincgs = 1.e-4
+ smaxcgs = 1.
+ sindex = 3.5
+ dustbinfrac(:) = 0.
+ dustbinfrac(1) = 1.
+ Kdrag = 1000.
+ ilimitdustfluxinp = .false.
+
+end subroutine set_dust_default_options
+
+!--------------------------------------------------------------------------
+!+
 !  Subroutine for setting dust properties interactively
 !+
 !--------------------------------------------------------------------------
 subroutine set_dust_interactively()
-
- character(len=120) :: varstring(maxdusttypes)
- character(len=120) :: varstringalt(maxdusttypes)
- character(len=120) :: message
- character(len=10)  :: grain_units
 
  !--can only use one dust method
  call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
@@ -109,7 +130,7 @@ subroutine read_dust_setup_options(db,nerr)
 
  !--can only use one method currently
  call read_inopt(dust_method,'dust_method',db,min=1,max=2,errcount=nerr)
- call read_inopt(dust_to_gas,'dust_to_gas_ratio',db,min=0.,errcount=nerr)
+ call read_inopt(dust_to_gas,'dust_to_gas',db,min=0.,errcount=nerr)
  if (dust_method == 1) then
     call read_inopt(ilimitdustfluxinp,'ilimitdustfluxinp',db,err=ierr,errcount=nerr)
  endif
@@ -129,15 +150,15 @@ subroutine read_dust_setup_options(db,nerr)
        call read_inopt(smaxcgs,'smaxcgs',db,min=smincgs,errcount=nerr)
        call read_inopt(sindex ,'sindex' ,db,errcount=nerr)
     case(1)
-       call array_of_numbered_strings('grainsizeinp','',varlabel)
+       call array_of_numbered_strings('grainsizeinp','',varlabel(1:ndusttypesinp))
        do i=1,ndusttypesinp
           call read_inopt(grainsizeinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
        enddo
-       call array_of_numbered_strings('dustbinfrac','',varlabel)
+       call array_of_numbered_strings('dustbinfrac','',varlabel(1:ndusttypesinp))
        do i=1,ndusttypesinp
           call read_inopt(dustbinfrac(i),trim(varlabel(i)),db,min=0.,max=1.,err=ierr,errcount=nerr)
        enddo
-       if (abs(sum(dustbinfrac(:)) - 1.) <= epsilon(1.)) then
+       if (abs(sum(dustbinfrac(:)) - 1.) > epsilon(1.)) then
           call error('set_dust','dust bin fraction needs to add up to 1!')
           nerr = nerr+1
        endif
@@ -147,7 +168,7 @@ subroutine read_dust_setup_options(db,nerr)
     case(0)
        call read_inopt(graindensinp(1),'graindensinp',db,min=0.,err=ierr,errcount=nerr)
     case(1)
-       call array_of_numbered_strings('graindensinp','',varlabel)
+       call array_of_numbered_strings('graindensinp','',varlabel(1:ndusttypesinp))
        do i=1,ndusttypesinp
           call read_inopt(graindensinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
        enddo
@@ -180,7 +201,7 @@ subroutine write_dust_setup_options(iunit)
 
  !--can only use one method per calculation currently
  call write_inopt(dust_method,'dust_method','dust method (1=one fluid,2=two fluid)',iunit)
- call write_inopt(dust_to_gas,'dust_to_gas_ratio','dust to gas ratio',iunit)
+ call write_inopt(dust_to_gas,'dust_to_gas','dust to gas ratio',iunit)
 
  call write_inopt(ndusttypesinp,'ndusttypesinp','number of grain sizes',iunit)
 
@@ -199,13 +220,13 @@ subroutine write_dust_setup_options(iunit)
        call write_inopt(smaxcgs,'smaxcgs','max grain size (in cm)',iunit)
        call write_inopt(sindex ,'sindex' ,'grain size power-law index (e.g. MRN = 3.5)',iunit)
     case(1)
-       call array_of_numbered_strings('grainsizeinp','',varlabel)
-       call array_of_numbered_strings('grain size ',' (in cm)',varstring)
+       call array_of_numbered_strings('grainsizeinp','',varlabel(1:ndusttypesinp))
+       call array_of_numbered_strings('grain size ',' (in cm)',varstring(1:ndusttypesinp))
        do i=1,ndusttypesinp
           call write_inopt(grainsizeinp(i),trim(varlabel(i)),trim(varstring(i)),iunit)
        enddo
-       call array_of_numbered_strings('dustbinfrac','',varlabel)
-       call array_of_numbered_strings('dust bin fraction ',' (frac. of total dust)',varstring)
+       call array_of_numbered_strings('dustbinfrac','',varlabel(1:ndusttypesinp))
+       call array_of_numbered_strings('dust bin fraction ',' (frac. of total dust)',varstring(1:ndusttypesinp))
        do i=1,ndusttypesinp
           call write_inopt(dustbinfrac(i),trim(varlabel(i)),trim(varstring(i)),iunit)
        enddo
@@ -215,8 +236,8 @@ subroutine write_dust_setup_options(iunit)
     case(0)
        call write_inopt(graindensinp(1),'graindensinp','intrinsic grain density (in g/cm^3)',iunit)
     case(1)
-       call array_of_numbered_strings('graindensinp','',varlabel)
-       call array_of_numbered_strings('grain density ',' (in g/cm^3)',varstring)
+       call array_of_numbered_strings('graindensinp','',varlabel(1:ndusttypesinp))
+       call array_of_numbered_strings('grain density ',' (in g/cm^3)',varstring(1:ndusttypesinp))
        do i=1,ndusttypesinp
           call write_inopt(graindensinp(i),trim(varlabel(i)),trim(varstring(i)),iunit)
        enddo
@@ -246,17 +267,15 @@ end subroutine write_dust_setup_options
 !  Subroutine for deciding wheather to use one-fluid or two-fluid dust
 !+
 !--------------------------------------------------------------------------
-subroutine check_dust_method(id,filename,dust_method,ichange_method)
+subroutine check_dust_method(dust_method,ichange_method)
  use dust,    only:init_drag,get_ts,idrag
  use eos,     only:ieos,get_spsound
  use io,      only:master
  use options, only:use_dustfrac
  use part,    only:npart,massoftype,xyzh,vxyzu,rhoh,igas,dustfrac,&
-                   grainsize,graindens,ndusttypes
- integer,          intent(in)    :: id
+                   grainsize,graindens
  integer,          intent(inout) :: dust_method
  logical,          intent(out)   :: ichange_method
- character(len=*), intent(in)    :: filename
  integer :: i,l,iregime,ierr,icheckdust
  real    :: r,rhogasi,rhodusti,rhoi,dustfracisum,spsoundi
  real    :: dustfraci(maxdusttypes),tsi(maxdusttypes)

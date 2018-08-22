@@ -25,12 +25,8 @@
 module set_dust
  implicit none
 
- interface set_dustfrac
-  module procedure set_dustfrac_single,set_dustfrac_power_law
- end interface set_dustfrac
  public :: set_dustfrac
- public :: set_dustfrac_single
- public :: set_dustfrac_power_law
+ public :: set_dustbinfrac
  private
 
 contains
@@ -41,13 +37,13 @@ contains
 !  dust-to-gas ratio. Equation (57) in Price & Laibe (2015)
 !+
 !--------------------------------------------------------------------------
-subroutine set_dustfrac_single(dust_to_gas,dustfrac)
+subroutine set_dustfrac(dust_to_gas,dustfrac)
  real, intent(in)  :: dust_to_gas
- real, intent(out) :: dustfrac
+ real, intent(out) :: dustfrac(:)
 
  dustfrac = dust_to_gas/(1.+dust_to_gas)
 
-end subroutine set_dustfrac_single
+end subroutine set_dustfrac
 
 !--------------------------------------------------------------------------
 !+
@@ -55,65 +51,55 @@ end subroutine set_dustfrac_single
 !  grain sizes, and slope of dust number density distribution in size
 !+
 !--------------------------------------------------------------------------
-subroutine set_dustfrac_power_law(dust_to_gas_tot,grainsize,sindex,dustfrac)
+subroutine set_dustbinfrac(smin,smax,sindex,dustbinfrac)
  use io, only:warning
- real, intent(in)  :: dust_to_gas_tot,grainsize(:),sindex
- real, intent(out) :: dustfrac(:)
+ use table_utils, only:logspace
+ real, intent(in)  :: smin
+ real, intent(in)  :: smax
+ real, intent(in)  :: sindex
+ real, intent(out) :: dustbinfrac(:)
  integer :: i,nbins
- real :: dustfrac_tot
- real :: norm
- real :: rhodtot
- real :: rhodust(size(dustfrac))
+ real :: rhodust(size(dustbinfrac))
+ real :: grid(size(dustbinfrac)+1)
  real :: exact
  real :: power
+ real :: log10_ds
  real, parameter :: tol = 1.e-10
 
- dustfrac_tot = 0.
- norm = 0.
- rhodtot = 0.
  rhodust = 0.
  exact = 0.
  power = 0.
 
- if (size(dustfrac) /= size(grainsize)) then
-    call warning('set_dust','grainsize and dustfrac arrays should have same size')
- endif
-
- nbins = size(dustfrac)
+ nbins = size(dustbinfrac)
+ log10_ds = log10(smax/smin)/(nbins-1)
+ call logspace(grid,smin,smax+log10_ds)
 
  !--Dust density is computed from drhodust ∝ dn*mdust where dn ∝ s**(-p)*ds
  !  and mdust ∝ s**(3). This is then integrated across each cell to account
  !  for mass contributions from unrepresented grain sizes
  do i=1,nbins
     if (sindex == 4.) then
-       rhodust(i) = log(grainsize(i+1)/grainsize(i))
+       rhodust(i) = log(grid(i+1)/grid(i))
     else
        power = 4. - sindex
-       rhodust(i) = 1./power*(grainsize(i+1)**power - grainsize(i)**power)
+       rhodust(i) = 1./power*(grid(i+1)**power - grid(i)**power)
     endif
  enddo
 
- !--Sum the contributions from each cell to get total relative dust content
- rhodtot = sum(rhodust)
-
- !--Calculate the total dust fraction from the dust-to-gas ratio
- dustfrac_tot = dust_to_gas_tot/(1.+dust_to_gas_tot)
-
  !--Calculate the normalisation factor (∝ 1/rhotot) and scale the dust fractions
  !  Note: dust density and dust fraction have the same power-law dependence on s.
- norm        = dustfrac_tot/rhodtot
- dustfrac(:) = norm*rhodust(:)
+ dustbinfrac(:) = rhodust(:)/sum(rhodust)
 
  !--Check to make sure the integral determining the contributions is correct
  if (sindex == 4.) then
-    exact = log(grainsize(nbins+1)/grainsize(1))
+    exact = log(grid(nbins+1)/grid(1))
  else
-    exact = 1./power*(grainsize(nbins+1)**power - grainsize(1)**power)
+    exact = 1./power*(grid(nbins+1)**power - grid(1)**power)
  endif
- if (abs(rhodtot-exact)/exact > tol) then
+ if (abs(sum(rhodust)-exact)/exact > tol) then
     call warning('set_dust','Piecewise integration of MRN distribution not matching the exact solution!')
  endif
 
-end subroutine set_dustfrac_power_law
+end subroutine set_dustbinfrac
 
 end module set_dust

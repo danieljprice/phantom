@@ -52,7 +52,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,          only:set_units
  use dust,           only:init_drag,idrag,grainsizecgs,graindenscgs,grainsize,graindens,get_ts, &
                           set_dustfrac
- use set_dust,       only:interactively_set_dust,set_dustfrac_from_inopts
+ use set_dust,       only:interactively_set_dust
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -173,7 +173,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--one fluid dust: set dust fraction on gas particles
 !
        if (use_dustfrac) then
-          call set_dustfrac_from_inopts(dtg,ipart=i)
+          call set_dustfrac(dtg,dustfrac(:,i))
        else
           dustfrac(:,i) = 0.
        endif
