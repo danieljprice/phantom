@@ -72,7 +72,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis,get_ny_nz_closepacked
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,set_boundary
  use mpiutils,     only:bcast_mpi
- use dim,          only:maxp,maxvxyzu,ndim,mhd,ndusttypes
+ use dim,          only:maxp,maxvxyzu,ndim,mhd
  use options,      only:use_dustfrac
  use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,periodic,dustfrac
  use kernel,       only:radkern,hfact_default
@@ -137,7 +137,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--zero dust to gas ratio in case dust is not being used
  dtg = 0.
-
  !
  ! read shock parameters from the .setup file.
  ! if file does not exist, then ask for user input
@@ -150,7 +149,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  dxleft = -xleft/float(nx)
  xshock = 0.5*(xleft + xright)
-
  !
  ! adjust boundaries to allow space for boundary particles and inflow
  !
@@ -327,7 +325,7 @@ end subroutine adjust_shock_boundaries
 !-----------------------------------------------------------------------
 subroutine choose_shock (gamma,polyk,dtg,iexist)
  use io,        only:fatal,id,master
- use dim,       only:mhd,maxvxyzu,use_dust,ndusttypes
+ use dim,       only:mhd,maxvxyzu,use_dust
  use physcon,   only:pi
  use options,   only:nfulldump,alpha,alphamax,alphaB
  use timestep,  only:dtmax,tmax
@@ -541,7 +539,7 @@ end subroutine print_shock_params
 !------------------------------------------
 subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  use infile_utils, only:write_inopt
- use dim,          only:tagline,maxvxyzu,ndusttypes
+ use dim,          only:tagline,maxvxyzu
  use options,      only:use_dustfrac
  use set_dust,     only:write_dust_setup_options
  integer,          intent(in) :: iprint,numstates
@@ -599,7 +597,7 @@ end subroutine write_setupfile
 !------------------------------------------
 subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
- use dim,          only:maxvxyzu,ndusttypes
+ use dim,          only:maxvxyzu
  use options,      only:use_dustfrac
  use set_dust,     only:read_dust_setup_options
  character(len=*), intent(in)  :: filename
