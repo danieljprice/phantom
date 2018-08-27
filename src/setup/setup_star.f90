@@ -217,7 +217,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  calc_polyk = .true.
  select case(isphere)
  case(ipoly,ihelmholtz)
-    print*,'HHHERRE gamma = ',gamma
     call rho_polytrope(gamma,polyk,Mstar,r,den,npts,rhocentre,calc_polyk,Rstar)
  case(insfile)
     call read_rhotab_wrapper(trim(densityfile),ng_max,r,den,npts,&
