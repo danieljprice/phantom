@@ -72,7 +72,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis,get_ny_nz_closepacked
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,set_boundary
  use mpiutils,     only:bcast_mpi
- use dim,          only:maxp,maxvxyzu,ndim,mhd,ndusttypes
+ use dim,          only:maxp,maxvxyzu,ndim,mhd
  use options,      only:use_dustfrac
  use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,periodic,dustfrac
  use kernel,       only:radkern,hfact_default
@@ -137,7 +137,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--zero dust to gas ratio in case dust is not being used
  dtg = 0.
-
  !
  ! read shock parameters from the .setup file.
  ! if file does not exist, then ask for user input
@@ -150,7 +149,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  dxleft = -xleft/float(nx)
  xshock = 0.5*(xleft + xright)
-
  !
  ! adjust boundaries to allow space for boundary particles and inflow
  !
@@ -327,7 +325,7 @@ end subroutine adjust_shock_boundaries
 !-----------------------------------------------------------------------
 subroutine choose_shock (gamma,polyk,dtg,iexist)
  use io,        only:fatal,id,master
- use dim,       only:mhd,maxvxyzu,use_dust,ndusttypes
+ use dim,       only:mhd,maxvxyzu,use_dust
  use physcon,   only:pi
  use options,   only:nfulldump,alpha,alphamax,alphaB
  use timestep,  only:dtmax,tmax
@@ -541,14 +539,14 @@ end subroutine print_shock_params
 !------------------------------------------
 subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  use infile_utils, only:write_inopt
- use dim,          only:tagline,maxvxyzu,ndusttypes
+ use dim,          only:tagline,maxvxyzu
  use options,      only:use_dustfrac
  use set_dust,     only:write_dust_setup_options
  integer,          intent(in) :: iprint,numstates
  real,             intent(in) :: gamma,polyk,dtg
  character(len=*), intent(in) :: filename
  integer, parameter           :: lu = 20
- integer                      :: i,ierr1,ierr2
+ integer                      :: i,ierr1,ierr2,dust_method
 
  write(iprint,"(a)") ' Writing '//trim(filename)//' with initial left/right states'
  open(unit=lu,file=filename,status='replace',form='formatted')
@@ -585,7 +583,9 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
     !write(lu,"(/,a)") '# dust properties'
     !call write_inopt(dtg,'dtg','Dust to gas ratio',lu,ierr1)
     !if (ierr1 /= 0) write(*,*) 'ERROR writing dtg'
-    call write_dust_setup_options(lu,dtg,isimple=.true.)
+
+    dust_method = 1  !--one-fluid is currently forced for dustyshock
+    call write_dust_setup_options(lu,dtg,imethod=dust_method,isimple=.true.)
  endif
 
  close(unit=lu)
@@ -599,15 +599,15 @@ end subroutine write_setupfile
 !------------------------------------------
 subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
- use dim,          only:maxvxyzu,ndusttypes
- use options,      only:use_dustfrac
+ use dim,          only:maxvxyzu,use_dust
  use set_dust,     only:read_dust_setup_options
+ use io,           only:fatal
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
  integer,          intent(in)  :: iprint,numstates
  integer,          intent(out) :: ierr
  real,             intent(out) :: gamma,polyk,dtg
- integer                       :: i,nerr
+ integer                       :: i,nerr,dust_method
  type(inopts), allocatable     :: db(:)
 
  call open_db_from_file(db,filename,lu,ierr)
@@ -628,8 +628,9 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  call read_inopt(gamma,'gamma',db,min=1.,errcount=nerr)
  if (maxvxyzu==3) call read_inopt(polyk,'polyk',db,min=0.,errcount=nerr)
 
- if (use_dustfrac) then
-    call read_dust_setup_options(db,nerr,dtg,isimple=.true.)
+ if (use_dust) then
+    call read_dust_setup_options(db,nerr,dtg,imethod=dust_method,isimple=.true.)
+    if (dust_method == 2) call fatal('setup','shock setup currently does not support two-fluid dust')
  endif
 
  if (nerr > 0) then

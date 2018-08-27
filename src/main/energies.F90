@@ -41,7 +41,7 @@ module energies
                                iev_angmom,iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop(6),&
                                iev_alpha,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
                                iev_etaa(2),iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n(4),iev_nR(5),iev_nT(2),&
-                               iev_dtg,iev_ts,iev_momall,iev_angall,iev_maccsink(2),&
+                               iev_dtg,iev_ts,iev_dm(ndusttypes),iev_momall,iev_angall,iev_maccsink(2),&
                                iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_ionise
  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
  integer,         parameter :: iev_sum = 1    ! array index of the sum of the quantity
@@ -576,6 +576,9 @@ subroutine compute_energies(t)
  ev_data(iev_sum,iev_com(1)) = xcom
  ev_data(iev_sum,iev_com(2)) = ycom
  ev_data(iev_sum,iev_com(3)) = zcom
+ do i = 1,ndusttypes
+    ev_data(iev_sum,iev_dm(i)) = mdust(i)
+ enddo
  xyzcom(1) = xcom
  xyzcom(2) = ycom
  xyzcom(3) = zcom
