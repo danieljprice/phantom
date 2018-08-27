@@ -46,7 +46,7 @@ module setup
  use prompting,      only:prompt
  use bondiexact,     only:get_bondi_solution,rcrit
 #ifdef GR
- use bondiexact,     only:isol
+ use bondiexact,     only:isol,iswind
 #endif
 
  implicit none
@@ -55,7 +55,8 @@ module setup
 
  private
 
- real :: gamma_eos
+ real :: gamma_eos,rmax,rmin
+ integer :: np
 
  logical, parameter :: set_boundary_particles = .false.
 
@@ -76,28 +77,36 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real               :: vol,rmax,rmin,psep,tff,gcode,rhor,vr,ur
+ real               :: vol,psep,tff,rhor,vr,ur
  real               :: r,pos(3),cs2,totmass,approx_m,approx_h
- integer            :: i,ierr,np,nx,maxvxyzu,nbound
+ integer            :: i,ierr,nx,nbound
  character(len=100) :: filename
  logical            :: iexist
-
+!
 !-- Set code units
+!
  call set_units(G=1.d0,c=1.d0)
- gcode = gg*umass*utime**2/udist**3
- print*,' gcode = ',gcode
+ print*,' gcode = ',gg*umass*utime**2/udist**3
 
- maxvxyzu = size(vxyzu(:,1))
-
+!
 !--Set general parameters
+!
  time           = 0.
  iexternalforce = 1
 
+ rmin = 7.
+ rmax = 8.
+ np   = 10000
+
 #ifdef GR
  if (imetric/=imet_schwarzschild) call fatal('setup_bondi','You are not using the Schwarzschild metric.')
- ! Read isol from file if it exists
+#endif
+
+!
+!-- Read things from setup file
+!
  filename=trim(fileprefix)//'.setup'
- print "(/,1x,63('-'),1(/,1x,a),/,1x,63('-'),/)", 'GR Bondi Flow.'
+ print "(/,1x,63('-'),1(/,1x,a),/,1x,63('-'),/)", 'Bondi Flow.'
  inquire(file=filename,exist=iexist)
  if (iexist) then
     call read_setupfile(filename,ierr)
@@ -107,10 +116,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
  elseif (id==master) then
     print "(a,/)",trim(filename)//' not found: using interactive setup'
+#ifdef GR
     call prompt(' Enter solution type isol (1 = geodesic | 2 = sonic point flow) ',isol,1,2)
+    call prompt(' Do you want a wind (y/n)? ',iswind)
+#endif
+    call prompt(' Enter inner edge: ',rmin,0.)
+    call prompt(' Enter outer edge: ',rmax,rmin)
+    call prompt(' Enter the desired number of particles: ',np,0)
     call write_setupfile(filename)
  endif
-#endif
 
  if (gr) then
     ieos  = 2
@@ -123,32 +137,27 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     polyk = cs2
  endif
 
- gamma_eos      = gamma             ! Note, since non rel bondi is isothermal, solution doesn't depend on gamma
-
+ gamma_eos       = gamma             ! Note, since non rel bondi is isothermal, solution doesn't depend on gamma
  accradius1      = 0.
  accradius1_hard = 0.
 
- rmin = 2.2!2.
- rmax = 20.!10.                    !20.!18.1
  if (gr) then
     rmin = rmin*mass1
     rmax = rmax*mass1
  endif
- np   = 50*1000
- call prompt(' Enter the desired number of particles: ',np,0)
 
- vol  = 4./3.*pi*(rmax**3 - rmin**3)
- nx   = int(np**(1./3.))
- psep = vol**(1./3.)/real(nx)
+ vol      = 4./3.*pi*(rmax**3 - rmin**3)
+ nx       = int(np**(1./3.))
+ psep     = vol**(1./3.)/real(nx)
 
  totmass  = get_mass_r(rhofunc,rmax,rmin)
  approx_m = totmass/np
  approx_h = hfact*(approx_m/rhofunc(rmin))**(1./3.)
  rhozero  = totmass/vol
 
- tff   = sqrt(3.*pi/(32.*rhozero))
- tmax  = 10.*tff
- dtmax = tmax/150.
+ tff      = sqrt(3.*pi/(32.*rhozero))
+ tmax     = 10.*tff
+ dtmax    = tmax/150.
 
  print*,''
  print*,' Setup for gas: '
@@ -163,8 +172,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart_total = 0
  call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,xyzh,rhofunc=rhofunc,nptot=npart_total)
  massoftype(:) = totmass/npart
- print*,' npart = ',npart
- print*,''
+ print "(a,/)",' npart = ',npart
 
  nbound = 0
  do i=1,npart
@@ -216,9 +224,15 @@ subroutine write_setupfile(filename)
 
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# input file for bondiwind setup routine'
+ write(iunit,"(a)") '# input file for bondi setup routine'
  write(iunit,"(/,a)") '# solution type'
+#ifdef GR
  call write_inopt(isol,'isol','(1 = geodesic flow  |  2 = sonic point flow)',iunit)
+ call write_inopt(iswind,'iswind','wind option (logical)',iunit)
+#endif
+ call write_inopt(rmin,'rmin','inner edge',iunit)
+ call write_inopt(rmax,'rmax','outer edge',iunit)
+ call write_inopt(np,'np','desired number of particles (stretch-mapping will only give this approx.)',iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -238,7 +252,13 @@ subroutine read_setupfile(filename,ierr)
 
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(isol, 'isol', db,ierr)
+#ifdef GR
+ call read_inopt(isol,  'isol',   db,ierr)
+ call read_inopt(iswind,'iswind', db,ierr)
+#endif
+ call read_inopt(rmin, 'rmin', db,ierr)
+ call read_inopt(rmax, 'rmax', db,ierr)
+ call read_inopt(np,   'np',   db,ierr)
  call close_db(db)
 
 end subroutine read_setupfile

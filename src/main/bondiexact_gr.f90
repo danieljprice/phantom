@@ -12,7 +12,7 @@ module bondiexact
  real, public  :: rcrit   = 8.
  real, private :: adiabat = 1.
 
- logical, public :: iswind = .true.
+ logical, public :: iswind = .false.
  integer, public :: isol   = 1
 
  private
