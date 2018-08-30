@@ -38,7 +38,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use options,           only:iexternalforce
  use externalforces,    only:omega_corotate,iext_corotate
  use infile_utils,      only:open_db_from_file,inopts,read_inopt,close_db
- use rho_profile,       only:read_red_giant_file
+ use rho_profile,       only:read_mesa_file
  use dim,               only:maxptmass
  use io,                only:fatal
 
@@ -46,7 +46,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer                :: i, ierr, setup_case, two_sink_case = 1, three_sink_case = 1, npts, rhomaxi, n
+ integer                :: i, ierr, setup_case, two_sink_case = 1, three_sink_case = 1, npts, irhomax, n
  integer                :: iremove = 2
  real                   :: primary_mass, companion_mass_1, companion_mass_2, mass_ratio
  real                   :: a1, a2, e, omega_vec(3), omegacrossr(3), vr = 0.0, hsoft_default = 3
@@ -290,13 +290,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call prompt('Enter filename of the input stellar profile', densityfile)
        call prompt('Enter mass of the created point mass core', mcut)
        call prompt('Enter softening length of the point mass', hsoft_default)
-       call read_red_giant_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,Mstar,ierr,mcut,rcut)
+       call read_mesa_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,Mstar,ierr,mcut,rcut)
 
+       irhomax = 1
        do i=1,npart
           rhopart = rhoh(xyzh(4,i), massoftype(igas))
           if (rhopart > rhomax) then
              rhomax = rhopart
-             rhomaxi = i
+             irhomax = i
           endif
        enddo
 
@@ -304,16 +305,16 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        if (nptmass > maxptmass) call fatal('ptmass_create','nptmass > maxptmass')
        n = nptmass
        xyzmh_ptmass(:,n)   = 0.  ! zero all quantities by default
-       xyzmh_ptmass(1:3,n) = xyzh(1:3,rhomaxi)
+       xyzmh_ptmass(1:3,n) = xyzh(1:3,irhomax)
        xyzmh_ptmass(4,n)   = 0.  ! zero mass
        xyzmh_ptmass(ihsoft,n) = hsoft_default
        vxyz_ptmass(:,n) = 0.     ! zero velocity, get this by accreting
 
 
        do i=1,npart
-          radi = sqrt((xyzh(1,i)-xyzh(1,rhomaxi))**2 + &
-                   (xyzh(2,i)-xyzh(2,rhomaxi))**2 + &
-                   (xyzh(3,i)-xyzh(3,rhomaxi))**2)
+          radi = sqrt((xyzh(1,i)-xyzh(1,irhomax))**2 + &
+                   (xyzh(2,i)-xyzh(2,irhomax))**2 + &
+                   (xyzh(3,i)-xyzh(3,irhomax))**2)
           if (radi < rcut) then
              xyzmh_ptmass(4,n) = xyzmh_ptmass(4,n) + massoftype(igas)
              npartoftype(igas) = npartoftype(igas) - 1
@@ -497,4 +498,3 @@ end subroutine set_trinary
 
 
 end module moddump
-

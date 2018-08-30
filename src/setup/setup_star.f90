@@ -67,7 +67,7 @@ module setup
  real(kind=8)       :: udist,umass
  real               :: Rstar,Mstar,rhocentre,maxvxyzu,ui_coef
  real               :: initialtemp
- logical            :: set_vcirc,iexist,input_polyk
+ logical            :: iexist,input_polyk
  logical            :: use_exactN,use_prompt
  character(len=120) :: densityfile
  character(len=20)  :: dist_unit,mass_unit
@@ -154,7 +154,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  need_temp   = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
  isphere     = 1
  EOSopt      = 1
- set_vcirc    = .true.
  input_polyk  = .false.
  !
  ! determine if an .in file exists
@@ -514,6 +513,19 @@ subroutine set_default_options(istar,iexist)
     use_exactN  = .false.
     use_prompt  = .false.
     densityfile = 'kepler_MS.data'
+ case(ibpwpoly)
+    ! simulates the merger of a pair of neutron stars
+    !  Original Author: Madeline Marshall & Bernard Field
+    !  Supervisors: James Wurster & Paul Lasky
+    if (.not. iexist) then
+       tmax           = 5000.0
+       dtmax          =    7.5
+       ieos           =    9
+    endif
+    dist_unit    = 'km'
+    Mstar        =  1.35
+    polyk        = 144.
+    calc_erot    = .true.
  case(ievrard)
     ! Evrard Collapse
     if (.not. iexist) then
@@ -534,7 +546,7 @@ subroutine set_default_options(istar,iexist)
     Rstar       = 0.01
     Mstar       = 0.6
     need_temp   = 1
- case default
+case default
     ! Uniform density sphere
     input_polyk = .true.
     need_grav   = 0 ! to prevent setupfail
@@ -716,4 +728,4 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
 
 end subroutine read_setupfile
 
-end module
+end module setup
