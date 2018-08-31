@@ -103,7 +103,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: vgassol(2,nr),vdustsol(2,maxdusttypes,nr)
  real :: flat_cut,scale_cut,eps_dust_cut
  real :: stan_dev(maxdusttypes,nr)
- real :: zeta(nr+2),dzetadr(nr),Pr(nr+1),dPrdr(nr)
+ real :: zeta(nr+2),dzetadr(nr),Pr(nr+2),dPrdr(nr)
  real :: St_mid(maxdusttypes,nr),St_from_tstop(maxdusttypes,nr)
  real :: rhogmid(nr),rhodmid(maxdusttypes,nr)
  real :: rhog(npart),rhod(maxdusttypes,npart),rhogbin(npartoftype(igas),nr),rhodbin(maxdusttypes,npartoftype(igas),nr)

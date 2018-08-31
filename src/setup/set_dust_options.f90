@@ -40,7 +40,7 @@ module set_dust_options
  real,    public :: sindex
  real,    public :: dustbinfrac(maxdusttypes)
  real,    public :: Kdrag
- integer, public :: ilimitdustfluxinp
+ logical, public :: ilimitdustfluxinp
 
  public :: set_dust_default_options
  public :: set_dust_interactively
