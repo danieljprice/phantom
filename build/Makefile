@@ -2085,14 +2085,16 @@ lombperiod: powerspectrums.o lombperiod.o
 #----------------------------------------------------
 # these are the sources for the combinedustdumps utility
 #
-combinedustdumps: checksys checkparams $(OBJECTS) $(OBJDUMP) utils_testsuite.o combinedustdumps.o
+OBJCDD= ${OBJECTS} combinedustdumps.o
+
+combinedustdumps: checksys checkparams $(OBJCDD)
 	@echo ""
 	@echo "combinedustdumps: many grains make light work"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJDUMP) utils_testsuite.o combinedustdumps.o
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJCDD) $(LDFLAGS)
 
 cleancombinedustdumps:
-	rm -f $(BINDIR)/phantom2divb
+	rm -f $(BINDIR)/combinedustdumps
 
 
 

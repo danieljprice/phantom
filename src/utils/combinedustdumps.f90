@@ -30,7 +30,7 @@ program combinedustdumps
  use io,              only:set_io_unit_numbers,iprint,idisk1
  use part,            only:xyzh,vxyzu,npart,hfact,iphase,npartoftype,&
                            idust,ndusttypes,fxyzu,fext,divcurlv,divcurlB,&
-                           Bevol,dBevol,dustfrac,ddustfrac,temperature,dustprop,&
+                           Bevol,dBevol,dustfrac,ddustevol,temperature,dustprop,&
                            ddustprop
  use readwrite_dumps, only:read_dump,write_fulldump
  implicit none
@@ -96,7 +96,7 @@ program combinedustdumps
     if (counter /= npartoftype(idust)) stop 'wrong number of dust particles'
     call initialise()
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtdum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtdum)
     print*, '----------------------------------------'
     print*, dustfrac
     print*, '----------------------------------------'
