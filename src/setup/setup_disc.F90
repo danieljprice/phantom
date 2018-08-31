@@ -86,7 +86,7 @@ module setup
                             grainsizeinp,graindensinp,igrainsize,igraindens,&
                             iprofile_dust,smincgs,smaxcgs,sindex,dustbinfrac,&
                             Kdrag,ilimitdustfluxinp
- use dust,             only:ilimitdustflux
+ use dust,             only:ilimitdustflux,grainsizecgs,graindenscgs
  use set_dust,         only:set_dustbinfrac
 
  implicit none
@@ -855,7 +855,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        enddo
     else
        print "(a,g10.3,a)", '       grain size: ',grainsize(1),' cm'
-       print "(a,g10.3,a)", '      grain density: ',graindens(1),' g/cm^3'
+       print "(a,g10.3,a)", '    grain density: ',graindens(1),' g/cm^3'
     endif
     if (ndusttypes > 1) then
        int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
@@ -865,7 +865,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           print(fmt_space),'',trim(varstring(i)),Stokes(i),''
        enddo
     else
-       print "(a,g10.3,a)", '   approx. Stokes: ',Stokes,''
+       print "(a,g10.3,a)", '   approx. Stokes: ',Stokes(1),''
     endif
     print "(1x,40('-'),/)"
  else
@@ -1768,24 +1768,26 @@ subroutine read_setupfile(filename,ierr)
        ndustlarge = ndusttypesinp
     end select
     ndusttypes = ndusttypesinp
-    select case(igrainsize)
-    case(0)
-       call logspace(grainsize(1:ndusttypes),smincgs,smaxcgs)
-       call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes))
-    case(1)
-       grainsize(:) = grainsizeinp(:)
-    case default
+    if (ndusttypes > 1) then
+       select case(igrainsize)
+       case(0)
+          call logspace(grainsize(1:ndusttypes),smincgs,smaxcgs)
+          call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes))
+       case(1)
+          grainsize(:) = grainsizeinp(:)
+       end select
+       select case(igraindens)
+       case(0)
+          graindens(:) = graindensinp(1)
+       case(1)
+          graindens(:) = graindensinp(:)
+       end select
+    else
        grainsize(1) = grainsizeinp(1)
        graindens(1) = graindensinp(1)
-    end select
-    select case(igraindens)
-    case(0)
-       graindens(:) = graindensinp(1)
-    case(1)
-       graindens(:) = graindensinp(:)
-    case default
-       graindens(1) = graindensinp(1)
-    end select
+       grainsizecgs = grainsize(1)
+       graindenscgs = graindens(1)
+    endif
  endif
 
  !--resolution
