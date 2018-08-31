@@ -1737,14 +1737,13 @@ cleanphantom2power:
 #----------------------------------------------------
 # these are the sources for the phantom_moddump utility
 #
-OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_filenames.f90 utils_indtimesteps.F90 \
-          checksetup.f90 \
-          set_Bfield.f90 ${LINKLIST} \
-          partinject.F90 random.f90 set_disc.F90 set_dust.F90 set_binary.f90 ${SRCINJECT} \
-          ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} \
-          density_profiles.f90 ptmass.F90 readwrite_infile.f90 ${MODFILE:.f90=.o}
-OBJMOD2 = ${OBJMOD1:.F90=.o}
-OBJMOD = ${OBJMOD2:.f90=.o}
+OBJMOD1= utils_omp.F90 utils_summary.f90 utils_filenames.f90 utils_indtimesteps.F90 \
+          utils_tables.f90 checksetup.f90 set_Bfield.f90 ${LINKLIST} partinject.F90 \
+		  random.f90 set_disc.F90 set_dust.F90 set_binary.f90 ${SRCINJECT} \
+          ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} density_profiles.f90 \
+		  ptmass.F90 readwrite_infile.f90 ${MODFILE:.f90=.o}
+OBJMOD2= ${OBJMOD1:.F90=.o}
+OBJMOD= ${OBJMOD2:.f90=.o}
 OBJDA= ${OBJDUMP} ${OBJMOD} phantom_moddump.o
 
 phantom_moddump: checksystem checkparams $(OBJDA)
@@ -1761,11 +1760,11 @@ cleanmoddump:
 #----------------------------------------------------
 # these are the sources for the phantomanalysis utility
 #
-OBJAN1 = ${ANALYSIS:.f90=.o}
-OBJAN2 = ${OBJAN1:.F90=.o}
-OBJAN = ${OBJAN2:.f=.o}
-OBJA= utils_disc.o utils_filenames.o utils_sort.o leastsquares.o solvelinearsystem.o \
-	  ${OBJDUMP} set_dust.o set_binary.o ${OBJAN}
+OBJAN1= ${ANALYSIS:.f90=.o}
+OBJAN2= ${OBJAN1:.F90=.o}
+OBJAN= ${OBJAN2:.f=.o}
+OBJA= utils_filenames.o utils_sort.o utils_tables.o leastsquares.o solvelinearsystem.o \
+	  ${OBJDUMP} utils_disc.o set_dust.o set_binary.o ${OBJAN}
 
 ifndef ANALYSISBIN
 ANALYSISBIN=phantomanalysis
