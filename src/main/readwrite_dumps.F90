@@ -1574,10 +1574,10 @@ end subroutine check_arrays
 subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
                          nblocks,npart,npartoftype, &
                          tfile,hfactfile,alphafile,iprint,id,nprocs,ierr)
- use dim,        only:maxp
+ use dim,        only:maxp,use_dust
  use io,         only:master ! check this
  use eos,        only:isink
- use part,       only:maxtypes,igas,idust
+ use part,       only:maxtypes,igas,idust,ndustsmall,ndustlarge,ndusttypes
  use units,      only:udist,umass,utime,set_units_extra,set_units
  use dump_utils, only:extract,dump_h
  type(dump_h),    intent(in)  :: hdr
@@ -1674,6 +1674,16 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
 !--default real
  call unfill_rheader(hdr,phantomdump,ntypesinfile,&
                      tfile,hfactfile,alphafile,iprint,ierr)
+
+ if (use_dust) then
+    call extract('ndustsmall',ndustsmall,hdr,ierrs(1))
+    call extract('ndustlarge',ndustlarge,hdr,ierrs(2))
+    ndusttypes = ndustsmall + ndustlarge
+    if (any(ierrs(1:2) /= 0)) then
+       write(*,*) 'ERROR reading number of small/large grain types from file header'
+    endif
+ endif
+
  if (ierr /= 0) return
 
  if (id==master) write(iprint,*) 'time = ',tfile
@@ -1816,7 +1826,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  use eos,            only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
  use options,        only:ieos,tolh,alpha,alphau,alphaB,iexternalforce
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,&
-                          maxtypes,ndustsmall,ndustlarge,ndusttypes,grainsize,graindens
+                          maxtypes,grainsize,graindens
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
@@ -1966,12 +1976,6 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
 
  !--pull grain size and density arrays
  if (use_dust) then
-    call extract('ndustsmall',ndustsmall,hdr,ierrs(1))
-    call extract('ndustlarge',ndustlarge,hdr,ierrs(2))
-    ndusttypes = ndustsmall + ndustlarge
-    if (any(ierrs(1:2) /= 0)) then
-       write(*,*) 'ERROR reading number of small/large grain types from file header'
-    endif
     call extract('grainsize',grainsize,hdr,ierrs(1))
     call extract('graindens',graindens,hdr,ierrs(2))
     if (any(ierrs(1:2) /= 0)) then
