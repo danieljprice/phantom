@@ -546,7 +546,7 @@ subroutine set_default_options(istar,iexist)
     Rstar       = 0.01
     Mstar       = 0.6
     need_temp   = 1
-case default
+ case default
     ! Uniform density sphere
     input_polyk = .true.
     need_grav   = 0 ! to prevent setupfail
