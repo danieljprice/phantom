@@ -81,13 +81,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use physcon,      only:pi,jupiterm,years,au
  use part,         only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac,tstop, &
                         rhoh,maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass,deltav, &
-                        isdead_or_accreted
+                        isdead_or_accreted,graindens
  use options,      only:use_dustfrac,iexternalforce
  use units,        only:umass,udist,utime
- use dust,         only:graindens,grainsize
- use set_dust,     only:read_dust_setup_options
  use leastsquares, only:fit_slope
- use infile_utils, only:open_db_from_file,close_db,inopts
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyz(:,:)
  real,             intent(in) :: pmass,time
@@ -133,7 +130,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: hdust(maxdusttypes,nr),meanzdust(maxdusttypes,nr)
  real :: psi_x,psi_y,psi_z,psi,Mdust,Mgas,Mtot,Macc,pmassi,pgasmass,pdustmass(maxdusttypes)
  real :: dustfraci(maxdusttypes),dustfracisum,rhoeff(maxdusttypes)
- real :: ri_mid,d2g_ratio
+ real :: ri_mid
  real :: l_planet(3),bigl_planet,rad_planet,inc,planet_mass
  real, save :: Mtot_in,Mgas_in,Mdust_in
  logical, save :: init  = .false.
@@ -155,8 +152,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  integer, parameter :: isol    = 34
  integer, parameter :: iunit1  = 22
  logical :: do_precession,ifile
-
- type(inopts), allocatable :: db(:)
 
  if (use_dustfrac .and. ndusttypes > 1) then
     fit_sigma   = .false.
@@ -226,19 +221,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  call read_discparams(filename,R_in,R_out,R_ref,R_warp,H_R_in,H_R_out,H_R_ref, &
                            p_index,R_c,q_index,G,M_star,M_disc,iparams,ierr,cs0,Sig0)
  if (ierr /= 0) call fatal('analysis','could not open/read '//trim(filename))
-
- iline = index(dumpfile,'_')
- discprefix = dumpfile(1:iline-1)
- write(filename,"(a)") trim(discprefix)//'.setup'
- inquire(file=filename, exist=ifile)
- if (ifile) then
-!    call read_setup(filename,d2g_ratio,io_grainsize,grainsize(:),dustfracsuminit, &
-!                    dustfracinit(:),graindens(:),isetupparams,ierr)
-    call open_db_from_file(db,filename,iunit1,ierr)
-    call read_dust_setup_options(db,ierr,d2g_ratio)
-    call close_db(db)
-    if (ierr /= 0) call fatal('analysis','could not open/read .setup file')
- endif
 
  iline = index(dumpfile,'_')
  discprefix = dumpfile(1:iline-1)
