@@ -102,11 +102,13 @@ end subroutine init_drag
 !+
 !--------------------------------------------------------------------------
 subroutine print_dustinfo(iprint)
- use units,    only:unit_density
+ use units,    only:unit_density,umass,udist
  use physcon,  only:pi
  use dim,      only:use_dustgrowth
+ use part,     only:grainsize,graindens,grainmass
  integer, intent(in) :: iprint
  real    :: rhocrit
+ integer :: i
 
  select case(idrag)
  case(1)
@@ -114,6 +116,17 @@ subroutine print_dustinfo(iprint)
        write(iprint,"(a)") ' Using Epstein/Stokes drag with variable grain size. '
     else
        write(iprint,"(a)") ' Using Epstein/Stokes drag with constant grain size: '
+       do i=1,ndusttypes
+          write(iprint,"(2(a,1pg10.3),a)") '        Grain size = ',grainsize(i)*udist,      &
+                                           ' cm     = ',grainsize(i),' (code units)'
+          write(iprint,"(2(a,1pg10.3),a)") '        Grain mass = ',grainmass(i)*umass,      &
+                                           ' g      = ',grainmass(i),' (code units)'
+          write(iprint,"(2(a,1pg10.3),a)") '     Grain density = ',graindens(i)*unit_density,  &
+                                           ' g/cm^3 = ',graindens(i),' (code units)'
+          write(iprint,"(2(a,1pg10.3),a)") '  Gas mfp at rho=1 = ',seff*udist/unit_density, &
+                                           ' cm     = ',seff,' (code units)'
+          rhocrit = 9.*seff/(4.*grainsize(i))
+       enddo
        write(iprint,"(/,a)") ' Density above which Stokes drag is used:'
        write(iprint,"(2(a,1pg10.3),a)")    '           rhocrit = ',rhocrit*unit_density,    &
                                            ' g/cm^3 = ',rhocrit,' (code units)'
@@ -265,6 +278,7 @@ end subroutine get_ts
 subroutine write_options_dust(iunit)
  use dim,          only:use_dustgrowth
  use infile_utils, only:write_inopt
+ use io,           only:warning
  use options,      only:use_dustfrac
  integer, intent(in) :: iunit
  character(len=10)   :: numdust
@@ -278,12 +292,7 @@ subroutine write_options_dust(iunit)
     !--the grain sizes and (intrinsic) grain densities should be set in the setup file
     select case(idrag)
     case(1)
-       print "(a)",'-------------------------------------------------------------------------'
-       print "(a)",'    Warning:                                                             '
-       print "(a)",'      Grain size/density are now set during setup when ndusttypes > 1    '
-       print "(a)",'      and only limited setups (e.g. dustydisc) support this ability.     '
-       print "(a)",'      If not using one of these setups, switch to using idrag = [2,3].   '
-       print "(a)",'-------------------------------------------------------------------------'
+       call warning('dust','Grain density and size are now set during setup and written to file.')
     case(2,3)
        call write_inopt(K_code,'K_code','drag constant when constant drag is used',iunit)
     end select
