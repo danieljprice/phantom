@@ -348,12 +348,12 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
  case('grainsize')
     read(valstring,*,iostat=ierr) grainsizecgs
     grainsize = grainsizecgs/udist
-    igot(igrainsize) = 1
+    !--no longer a compulsory parameter
  case('graindens')
     read(valstring,*,iostat=ierr) graindenscgs
     udens = umass/udist**3
     graindens = graindenscgs/udens
-    igot(igraindens) = 1
+    !--no longer a compulsory parameter
  case('K_code')
     read(valstring,*,iostat=ierr) K_code
     igot(iKcode) = 1
@@ -361,8 +361,8 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) icut_backreaction
     igot(ibackreact) = 1
  case('ilimitdustflux')
-    !--no longer a compulsory parameter
     read(valstring,*,iostat=ierr) ilimitdustflux
+    !--no longer a compulsory parameter
  case default
     imatch = .false.
  end select
@@ -376,10 +376,7 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
  !--Parameters specific to particular setups
  select case(idrag)
  case(1)
-    if (ndusttypes == 1) then
-       ineed(igrainsize) = 1
-       ineed(igraindens) = 1
-    endif
+    ineed(iKcode) = 0
  case(2,3)
     ineed(iKcode) = 1
  case default
