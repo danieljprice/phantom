@@ -347,12 +347,12 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
     igot(iidrag) = 1
  case('grainsize')
     read(valstring,*,iostat=ierr) grainsizecgs
-    grainsize = grainsizecgs/udist
+    grainsize(1) = grainsizecgs/udist
     !--no longer a compulsory parameter
  case('graindens')
     read(valstring,*,iostat=ierr) graindenscgs
     udens = umass/udist**3
-    graindens = graindenscgs/udens
+    graindens(1) = graindenscgs/udens
     !--no longer a compulsory parameter
  case('K_code')
     read(valstring,*,iostat=ierr) K_code
