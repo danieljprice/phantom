@@ -549,6 +549,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        end select
        totmass_gas = totmass_gas + disc_m(i)
        if (use_dust) then
+          disc_mdust(i,:) = 0.
           do j=1,ndusttypes
              disc_mdust(i,j) = disc_m(i) * dust_to_gas * dustbinfrac(j)
              totmass_dust    = totmass_dust + disc_mdust(i,j)
@@ -710,7 +711,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           if (use_dust) then
              !--dust disc
              do j=1,ndustlarge
-                npindustdisc = int(disc_mdust(i,j)/totmass_dust*np_dust(j))
+                npindustdisc = int(disc_mdust(i,j)/sum(disc_mdust(:,j))*np_dust(j))
                 itype = idust + j - 1
                 call set_disc(id,master      = master,             &
                               npart          = npindustdisc,       &
@@ -1774,13 +1775,13 @@ subroutine read_setupfile(filename,ierr)
           call logspace(grainsize(1:ndusttypes),smincgs,smaxcgs)
           call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes))
        case(1)
-          grainsize(:) = grainsizeinp(:)
+          grainsize(1:ndusttypes) = grainsizeinp(1:ndusttypes)
        end select
        select case(igraindens)
        case(0)
-          graindens(:) = graindensinp(1)
+          graindens(1:ndusttypes) = graindensinp(1)
        case(1)
-          graindens(:) = graindensinp(:)
+          graindens(1:ndusttypes) = graindensinp(1:ndusttypes)
        end select
     else
        grainsize(1) = grainsizeinp(1)
