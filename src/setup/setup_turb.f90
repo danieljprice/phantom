@@ -51,7 +51,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpiutils,     only:bcast_mpi
  use part,         only:Bxyz,mhd,dustfrac,grainsize,graindens,ndusttypes,ndustsmall
  use physcon,      only:pi,solarm,pc,km
- use units,        only:set_units
+ use units,        only:set_units,udist,umass
  use prompting,    only:prompt
  use dust,         only:grainsizecgs,graindenscgs,ilimitdustflux
  use set_dust,     only:set_dustfrac,set_dustbinfrac
@@ -143,8 +143,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     smincgs = 1.e-5
     smaxcgs = 1.
     sindex = 3.5
-    grainsize = 1.
-    graindens = 3.
+    grainsize = 0.
+    graindens = 0.
 
     call prompt('Enter total dust to gas ratio',dust_to_gas,0.)
     call prompt('How many grain sizes do you want?',ndustsmall,1,maxdustsmall)
@@ -155,17 +155,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call prompt('Enter minimum grain size in cm',smincgs,0.)
        call prompt('Enter maximum grain size in cm',smaxcgs,0.)
        call logspace(grainsize(1:ndusttypes),smincgs,smaxcgs)
+       grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
        !--mass distribution
        call prompt('Enter power-law index, e.g. MRN',sindex)
        call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes))
        !--grain density
        call prompt('Enter grain density in g/cm^3',graindens(1),0.)
-       graindens = graindens(1)
+       graindens(1:ndusttypes) = graindens(1)/umass*udist**3
     else
        call prompt('Enter grain size in cm',grainsizecgs,0.)
        call prompt('Enter grain density in g/cm^3',graindenscgs,0.)
-       grainsize(1) = grainsizecgs
-       graindens(1) = graindenscgs
+       grainsize(1) = grainsizecgs/udist
+       graindens(1) = graindenscgs/umass*udist**3
     endif
 
  endif

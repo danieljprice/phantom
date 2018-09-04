@@ -158,6 +158,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setdisc,              only:set_disc,get_disc_mass
  use set_dust_options,     only:set_dust_default_options
  use setflyby,             only:set_flyby,get_T_flyby
+ use table_utils,          only:logspace
  use timestep,             only:tmax,dtmax
  use units,                only:set_units,select_unit,umass,udist,utime
  use vectorutils,          only:rotatevec
@@ -495,6 +496,35 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  do i=1,3
     if (.not.iuse_disc(i)) star_m(i) = 0.
  enddo
+
+ !
+ !--dust
+ !
+ if (use_dust) then
+    grainsize = 0.
+    graindens = 0.
+    if (ndusttypes > 1) then
+       select case(igrainsize)
+       case(0)
+          call logspace(grainsize(1:ndusttypes),smincgs,smaxcgs)
+          grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
+          call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes))
+       case(1)
+          grainsize(1:ndusttypes) = grainsizeinp(1:ndusttypes)/udist
+       end select
+       select case(igraindens)
+       case(0)
+          graindens(1:ndusttypes) = graindensinp(1)/umass*udist**3
+       case(1)
+          graindens(1:ndusttypes) = graindensinp(1:ndusttypes)/umass*udist**3
+       end select
+    else
+       grainsize(1) = grainsizeinp(1)/udist
+       graindens(1) = graindensinp(1)/umass*udist**3
+       grainsizecgs = grainsizeinp(1)
+       graindenscgs = graindensinp(1)
+    endif
+ endif
 
  !
  !--compute the disc mass for different mass_set values
@@ -839,24 +869,24 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Sigma = sig_norm(i)*scaled_sigma(R,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
  if (use_dust) then
     Sigmadust = sig_normdust(i)*scaled_sigma(R,sigmaprofiledust(i),pindex_dust(i),R_ref(i),R_indust(i),R_c_dust(i))
-    Stokes = 0.5*pi*graindens*grainsize/(Sigma+Sigmadust) * (udist**2/umass)
+    Stokes = 0.5*pi*graindens*grainsize/(Sigma+Sigmadust)
     print "(a,i2,a)",' -------------- added dust --------------'
     if (use_dustgrowth) then
-       print "(a,g10.3,a)", ' initial grain size: ',grainsize,' cm'
+       print "(a,g10.3,a)", ' initial grain size: ',grainsize(1)*udist,' cm'
     elseif (ndusttypes > 1) then
        int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
        write(fmt_space,'(a,I0,a)') '(a',9-(int_len+1),',a,g10.3,a)'
        call array_of_numbered_strings('grain size ',': ',varstring(1:ndusttypes))
        do i=1,ndusttypes
-          print(fmt_space),'',trim(varstring(i)),grainsize(i),' cm'
+          print(fmt_space),'',trim(varstring(i)),grainsize(i)*udist,' cm'
        enddo
        call array_of_numbered_strings('grain density ',': ',varstring(1:ndusttypes))
        do i=1,ndusttypes
-          print(fmt_space),'',trim(varstring(i)),graindens(i),' g/cm^3'
+          print(fmt_space),'',trim(varstring(i)),graindens(i)*umass/udist**3,' g/cm^3'
        enddo
     else
-       print "(a,g10.3,a)", '       grain size: ',grainsize(1),' cm'
-       print "(a,g10.3,a)", '    grain density: ',graindens(1),' g/cm^3'
+       print "(a,g10.3,a)", '       grain size: ',grainsize(1)*udist,' cm'
+       print "(a,g10.3,a)", '    grain density: ',graindens(1)*umass/udist**3,' g/cm^3'
     endif
     if (ndusttypes > 1) then
        int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
@@ -1650,7 +1680,6 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ierr)
  use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
  use set_dust_options, only:read_dust_setup_options
- use table_utils,      only:logspace
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
@@ -1769,26 +1798,6 @@ subroutine read_setupfile(filename,ierr)
        ndustlarge = ndusttypesinp
     end select
     ndusttypes = ndusttypesinp
-    if (ndusttypes > 1) then
-       select case(igrainsize)
-       case(0)
-          call logspace(grainsize(1:ndusttypes),smincgs,smaxcgs)
-          call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes))
-       case(1)
-          grainsize(1:ndusttypes) = grainsizeinp(1:ndusttypes)
-       end select
-       select case(igraindens)
-       case(0)
-          graindens(1:ndusttypes) = graindensinp(1)
-       case(1)
-          graindens(1:ndusttypes) = graindensinp(1:ndusttypes)
-       end select
-    else
-       grainsize(1) = grainsizeinp(1)
-       graindens(1) = graindensinp(1)
-       grainsizecgs = grainsize(1)
-       graindenscgs = graindens(1)
-    endif
  endif
 
  !--resolution

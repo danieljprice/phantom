@@ -50,7 +50,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use externalforces, only:mass1,Rdisc,iext_discgravity
  use options,        only:iexternalforce,use_dustfrac
  use timestep,       only:dtmax,tmax
- use units,          only:set_units
+ use units,          only:set_units,udist,umass
  use dust,           only:init_drag,idrag,grainsizecgs,graindenscgs,get_ts
  use set_dust,       only:set_dustfrac,set_dustbinfrac
  use table_utils,    only:logspace
@@ -77,8 +77,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartx = 32
  rhozero = 1.e-3
  dtg = 0.01
- grainsize = 0.1
- graindens = 3.
+ grainsize = 0.
+ graindens = 0.
  grainsizecgs = 0.1
  graindenscgs = 3.
  ndustsmall = 1
@@ -108,17 +108,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           call prompt('Enter minimum grain size in cm',smincgs,0.)
           call prompt('Enter maximum grain size in cm',smaxcgs,0.)
           call logspace(grainsize(1:ndusttypes),smincgs,smaxcgs)
+          grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
           !--mass distribution
           call prompt('Enter power-law index, e.g. MRN',sindex)
           call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes))
           !--grain density
           call prompt('Enter grain density in g/cm^3',graindens(1),0.)
-          graindens = graindens(1)
+          graindens(1:ndusttypes) = graindens(1)/umass*udist**3
        else
           call prompt('Enter grain size in cm',grainsizecgs,0.)
           call prompt('Enter grain density in g/cm^3',graindenscgs,0.)
-          grainsize(1) = grainsizecgs
-          graindens(1) = graindenscgs
+          grainsize(1) = grainsizecgs/udist
+          graindens(1) = graindenscgs/umass*udist**3
        endif
     endif
     call bcast_mpi(dtg)
