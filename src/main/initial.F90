@@ -129,7 +129,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh, &
-                            Bevol,Bxyz,temperature,dustprop,ddustprop,ndustsmall
+                            Bevol,Bxyz,temperature,dustprop,ddustprop,ndusttypes,ndustsmall
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef PHOTO
@@ -586,7 +586,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  write(iprint,'(2x,a,es18.6)')   'Initial angular momentum: ', angtot_in
  write(iprint,'(2x,a,es18.6)')   'Initial linear momentum:  ', totmom_in
 #ifdef DUST
- do i=1,ndustsmall
+ do i=1,ndusttypes
     write(iprint,'(2x,a,i3,es18.6)') 'Initial dust mass: i = ',i, mdust_in(i)
  enddo
  write(iprint,'(2x,a,es18.6)')   'Initial total dust mass:  ', sum(mdust_in(:))

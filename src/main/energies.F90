@@ -71,7 +71,8 @@ subroutine compute_energies(t)
                           nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,&
                           isdead_or_accreted,epot_sinksink,imacc,ispinx,ispiny,&
                           ispinz,mhd,gravity,poten,dustfrac,temperature,&
-                          n_R,n_electronT,eta_nimhd,iion,ndustsmall,graindens,grainsize
+                          n_R,n_electronT,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
+                          iamdust
  use eos,            only:polyk,utherm,gamma,equationofstate,&
                           get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
@@ -102,7 +103,7 @@ subroutine compute_energies(t)
  real    :: tempi,etaart,etaart1,etaohm,etahall,etaambi,vhall,vion,vdrift
  real    :: curlBi(3),vhalli(3),vioni(3),vdrifti(3),data_out(n_data_out)
  real    :: erotxi,erotyi,erotzi,fdum(3)
- integer :: i,j,itype,ierr
+ integer :: i,j,itype,ierr,idusttype
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
 
  ! initialise values
@@ -167,7 +168,7 @@ subroutine compute_energies(t)
 !$omp firstprivate(alphai,itype,pmassi) &
 #ifdef DUST
 !$omp shared(idrag) &
-!$omp private(tsi,iregime) &
+!$omp private(tsi,iregime,idusttype) &
 #endif
 #ifdef LIGHTCURVE
 !$omp shared(luminosity,track_lum) &
@@ -268,8 +269,9 @@ subroutine compute_energies(t)
        endif
        if (gravity) epot = epot + poten(i)
 #ifdef DUST
-       if (itype==idust) then
-          mdust = mdust + pmassi
+       if (iamdust(iphase(i))) then
+          idusttype = ndustsmall + itype - idust + 1
+          mdust(idusttype) = mdust(idusttype) + pmassi
        endif
 #endif
        !
@@ -286,7 +288,7 @@ subroutine compute_energies(t)
              do j=1,ndustsmall
                 call ev_data_update(ev_data_thread,iev_dtg,dust_to_gas(j))
              enddo
-             mdust = mdust + pmassi*dustfraci
+             mdust(1:ndustsmall) = mdust(1:ndustsmall) + pmassi*dustfraci(1:ndustsmall)
           else
              dustfraci    = 0.
              dustfracisum = 0.
