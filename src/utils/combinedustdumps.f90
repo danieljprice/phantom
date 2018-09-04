@@ -33,7 +33,7 @@ program combinedustdumps
                            igas,idust,ndusttypes,ndustsmall,ndustlarge,fxyzu,fext,&
                            divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustevol,&
                            temperature,dustprop,ddustprop,set_particle_type,&
-                           grainsize,graindens
+                           grainsize,graindens,iamtype,isdead_or_accreted
  use readwrite_dumps, only:read_dump,write_fulldump
  use units,           only:set_units,select_unit,umass,udist,utime
  implicit none
@@ -119,8 +119,11 @@ program combinedustdumps
  !
  call read_dump(trim(indumpfiles(1)),time,hfact,idisk1,iprint,0,1,ierr)
  do i=1,maxp
-    if (iphase(i)==idust_tmp) then
+    if (iamtype(iphase(i))==idust_tmp) then
        call set_particle_type(i,idust)
+       if (isdead_or_accreted(xyzh(4,i))) then
+          iphase(i) = -iphase(i)
+       endif
     endif
  enddo
  npartoftype(idust) = npartofdust_tmp(1)
@@ -141,9 +144,12 @@ program combinedustdumps
     graindens(i) = graindens_tmp(i)
     do j=1,npartofdust_tmp(i)
        ipart = npart + j
-       call set_particle_type(ipart,itype)
        xyzh(:,ipart) = xyzh_tmp(i,:,j)
        vxyzu(:,ipart) = vxyzu_tmp(i,:,j)
+       call set_particle_type(ipart,itype)
+       if (isdead_or_accreted(xyzh(4,ipart))) then
+          iphase(ipart) = -iphase(ipart)
+       endif
     enddo
     npart = npart + npartofdust_tmp(i)
  enddo
