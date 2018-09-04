@@ -60,13 +60,14 @@ module dump_utils
                                i_real8 = 8
 
  ! error codes
- integer, parameter, public :: ierr_fileopen = 1,&
-                               ierr_endian   = 2, &
-                               ierr_version  = 3, &
-                               ierr_realsize = 4, &
-                               ierr_intsize  = 5, &
-                               ierr_notags   = 6, &
-                               ierr_unknown  = 7
+ integer, parameter, public :: ierr_fileopen  = 1,&
+                               ierr_endian    = 2,&
+                               ierr_version   = 3,&
+                               ierr_realsize  = 4,&
+                               ierr_intsize   = 5,&
+                               ierr_notags    = 6,&
+                               ierr_unknown   = 7,&
+                               ierr_notenough = 8
 
  type dump_h
     integer :: nums(ndatatypes)
@@ -459,7 +460,7 @@ subroutine extracthdr_real8arr(tag,val,hdr,ierr)
 
  if (kind(rval)==kind(val)) then
     call extract(tag,rval,hdr%realvals,hdr%realtags,hdr%nums(i_real),ierr,q=.true.)
-    if (ierr==0) then
+    if (ierr==0 .or. ierr==ierr_notenough) then
        val = rval
     else
        call extract_real8arr(tag,val,hdr%real8vals,hdr%real8tags,hdr%nums(i_real8),ierr)
@@ -710,7 +711,11 @@ subroutine extract_real8arr(tag,rval,r8arr,tags,ntags,ierr,q)
        endif
     endif
  enddo over_tags
- if (nmatched==size(rval)) ierr = 0
+ if (nmatched==size(rval)) then
+    ierr = 0
+ elseif (nmatched > 0) then
+    ierr = ierr_notenough
+ endif
  if (ierr /= 0 .and. .not.present(q)) then
     print "(a)",' ERROR: could not find '//trim(adjustl(tag))//' in header'
  endif
