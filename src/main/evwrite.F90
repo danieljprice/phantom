@@ -81,9 +81,9 @@ contains
 subroutine init_evfile(iunit,evfile,open_file)
  use io,        only: id,master,warning
  use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,calc_erot,lightcurve, &
-                      use_CMacIonize,ndusttypes
+                      use_CMacIonize
  use options,   only: ishock_heating,ipdv_heating,use_dustfrac
- use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype
+ use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes
  use nicil,     only: use_ohm,use_hall,use_ambi,ion_rays,ion_thermal
  use viscosity, only: irealvisc
  integer,            intent(in) :: iunit

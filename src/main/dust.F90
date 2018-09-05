@@ -76,6 +76,7 @@ subroutine init_drag(ierr)
  coeff_gei_1       = sqrt(8./(pi*gamma))
 
  select case(idrag)
+ case(1)
     !--compute the grain mass (spherical compact grains of radius s)
     grainmass(:) = 4./3.*pi*graindens(:)*grainsize(:)**3
  case(2,3)
