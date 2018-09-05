@@ -845,7 +845,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  real    :: T0,T_ref,sig,dR,R
  real    :: vxyzutmp(maxvxyzu)
 
- write(iunit,"(/,a)") '# '//trim(labeltype(itype))//' disc parameters'
+ write(iunit,"(/,a)") '# '//trim(labeltype(itype))//' disc parameters - this file is NOT read by setup'
  call write_inopt(R_in,'R_in','inner disc boundary',iunit)
  call write_inopt(R_ref,'R_ref','reference radius',iunit)
  call write_inopt(R_out,'R_out','outer disc boundary',iunit)

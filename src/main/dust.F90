@@ -29,7 +29,10 @@
 !--------------------------------------------------------------------------
 
 module dust
- use part, only:ndusttypes
+ use dim,      only:use_dustgrowth
+ use part,     only:ndusttypes,grainsize,graindens,grainmass
+ use physcon,  only:pi
+ use units,    only:umass,udist
  implicit none
  !--Default values for the dust in the infile
  real,    public  :: K_code            = 1.
@@ -56,11 +59,9 @@ contains
 !+
 !--------------------------------------------------------------------------
 subroutine init_drag(ierr)
- use physcon,  only:pi
- use io,       only:error
- use units,    only:udist,umass
- use physcon,  only:mass_proton_cgs,cross_section_H2_cgs
  use eos,      only:gamma
+ use io,       only:error
+ use physcon,  only:mass_proton_cgs,cross_section_H2_cgs
  integer, intent(out) :: ierr
  real    :: cste_seff
  real    :: mass_mol_gas, cross_section_gas
@@ -75,6 +76,8 @@ subroutine init_drag(ierr)
  coeff_gei_1       = sqrt(8./(pi*gamma))
 
  select case(idrag)
+    !--compute the grain mass (spherical compact grains of radius s)
+    grainmass(:) = 4./3.*pi*graindens(:)*grainsize(:)**3
  case(2,3)
     !--check the value of K_code
     if (K_code < 0.) then
@@ -102,10 +105,7 @@ end subroutine init_drag
 !+
 !--------------------------------------------------------------------------
 subroutine print_dustinfo(iprint)
- use units,    only:unit_density,umass,udist
- use physcon,  only:pi
- use dim,      only:use_dustgrowth
- use part,     only:grainsize,graindens,grainmass
+ use units, only:unit_density
  integer, intent(in) :: iprint
  real    :: rhocrit
  integer :: i
@@ -152,7 +152,6 @@ end subroutine print_dustinfo
 !--------------------------------------------------------------------------
 subroutine get_ts(idrag,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
                   ts,iregime)
- use physcon,     only:pi
  integer, intent(in)  :: idrag
  integer, intent(out) :: iregime
  real,    intent(in)  :: sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2
@@ -276,7 +275,6 @@ end subroutine get_ts
 !+
 !--------------------------------------------------------------------------
 subroutine write_options_dust(iunit)
- use dim,          only:use_dustgrowth
  use infile_utils, only:write_inopt
  use io,           only:warning
  use options,      only:use_dustfrac
@@ -324,8 +322,6 @@ end subroutine write_options_dust
 !+
 !--------------------------------------------------------------------------
 subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
- use part,  only:grainsize,graindens
- use units, only:udist,umass
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr

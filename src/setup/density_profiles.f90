@@ -12,8 +12,8 @@
 !               2) polytrope
 !               3) piecewise polytrope
 !               4) Evrard
-!               5) Read data from file to make a red giant star
-!               6) Read data from kepler file to make a main sequence star
+!               5) Read data from MESA file
+!               6) Read data from KEPLER file
 !
 !  REFERENCES: None
 !
@@ -31,7 +31,7 @@ module rho_profile
  implicit none
 
  public  :: rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
-            rho_evrard,read_red_giant_file,read_kepler_file
+            rho_evrard,read_mesa_file,read_kepler_file
  public  :: calc_mass_enc
  private :: integrate_rho_profile,get_dPdrho
 
@@ -344,10 +344,10 @@ end subroutine rho_evrard
 
 !-----------------------------------------------------------------------
 !+
-!  Read in the data for the red giant star
+!  Read in data output by the MESA stellar evolution code
 !+
 !-----------------------------------------------------------------------
-subroutine read_red_giant_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
+subroutine read_mesa_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
                                enitab,totmass,ierr,mcut,rcut)
  use units,     only:udist,umass,unit_density,unit_pressure,unit_ergg
  use datafiles, only:find_phantom_datafile
@@ -415,7 +415,6 @@ subroutine read_red_giant_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
  !--convert relevant data from CGS to code units
  !
  !radius
-
  stardata(1:n,4)  = stardata(1:n,4)/udist
  rtab(1:n)        = stardata(1:n,4)
  !density
@@ -438,14 +437,13 @@ subroutine read_red_giant_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
     rcut = rtab(aloc)
     print*, 'rcut = ', rcut
  endif
-end subroutine read_red_giant_file
+end subroutine read_mesa_file
 
 !-----------------------------------------------------------------------
 !+
-!  Read in the data for KEPLER star
+!  Read in datafile from the KEPLER stellar evolution code
 !+
 !-----------------------------------------------------------------------
-
 subroutine read_kepler_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
                                enitab,totmass,ierr,mcut,rcut)
  use units,     only:udist,umass,unit_density,unit_pressure,unit_ergg

@@ -137,7 +137,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--zero dust to gas ratio in case dust is not being used
  dtg = 0.
-
  !
  ! read shock parameters from the .setup file.
  ! if file does not exist, then ask for user input
@@ -150,7 +149,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  dxleft = -xleft/float(nx)
  xshock = 0.5*(xleft + xright)
-
  !
  ! adjust boundaries to allow space for boundary particles and inflow
  !
@@ -557,7 +555,7 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  real,             intent(in) :: gamma,polyk,dtg
  character(len=*), intent(in) :: filename
  integer, parameter           :: lu = 20
- integer                      :: i,ierr1,ierr2
+ integer                      :: i,ierr1,ierr2,dust_method
 
  write(iprint,"(a)") ' Writing '//trim(filename)//' with initial left/right states'
  open(unit=lu,file=filename,status='replace',form='formatted')
@@ -614,7 +612,7 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  integer,          intent(in)  :: iprint,numstates
  integer,          intent(out) :: ierr
  real,             intent(out) :: gamma,polyk,dtg
- integer                       :: i,nerr
+ integer                       :: i,nerr,dust_method
  type(inopts), allocatable     :: db(:)
 
  call open_db_from_file(db,filename,lu,ierr)

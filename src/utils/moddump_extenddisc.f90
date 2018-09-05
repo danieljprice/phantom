@@ -55,15 +55,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real    :: sigma_norm,star_m,toomre_min,enc_m(4096),dummy(4096)
  real    :: Ltot(3,nr),Lunit(3,nr),rad(nr),dr,area,sigma_match
  real    :: sigma(nr),tilt(nr),twist(nr),rotate_about_z,rotate_about_y
- real    :: L_match(3),L_mag,term(3),termmag,Leverything(3),xyz_temp(3)
+ real    :: L_match(3),L_mag,term(3),termmag
  logical :: iexist
  type(inopts), allocatable :: db(:)
 
  ! Prompt user for old disc parameters and new outer radius
  print "(/,2a,/)",'Most of the disc parameters are read from the *.discparams file.'
-! call prompt('Enter the extension (e.g. [].discparams):',filename)
-
- filename = 'disc'
+ call prompt('Enter the extension (e.g. [].discparams):',filename)
 
  infile = trim(filename)//'.discparams'
  inquire(file=trim(infile),exist=iexist)
@@ -82,17 +80,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call fatal('moddump_extenddisc','Cannot find the *.discparams file, try again.')
  endif
 
-! call prompt('Outer radius of new disc?',R_ext)
+ call prompt('Outer radius of new disc?',R_ext)
 
- R_ext = 150.
+ R_c = 1.0
+ R_match = 2./3.*R_out
 
  ! Run a couple of checks
  if (R_out > R_ext) then
     call fatal('moddump_extenddisc','the extended radius is inside the current disc, try again')
  endif
-
- R_c = 1.0
- R_match = 2./3.*R_out
 
  print*,'Disc matched at ',R_match
 
@@ -127,39 +123,16 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  do i = 1,npart
     ! i for particle number, ii for radial bin
-    radius = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
-    ii = int((radius-rad(1))/dr + 1)
-    if (xyzh(4,i) > 0. .and. ii <=nr .and. ii > 0) then
-       Ltot(1,ii) = Ltot(1,ii) + pmass*(xyzh(2,i)*vxyzu(3,i)-xyzh(3,i)*vxyzu(2,i))
-       Ltot(2,ii) = Ltot(2,ii) + pmass*(xyzh(3,i)*vxyzu(1,i)-xyzh(1,i)*vxyzu(3,i))
-       Ltot(3,ii) = Ltot(3,ii) + pmass*(xyzh(1,i)*vxyzu(2,i)-xyzh(2,i)*vxyzu(1,i))
-    endif
- enddo
-
- ! Now calculate the total angular momentum, rotate all particles such that
- ! disc angular momentum is parallel to z
-
- call get_total_angular_momentum(xyzh,vxyzu,npart,Leverything)
-
- L_mag = sqrt(dot_product(Leverything,Leverything))
- term = (/Leverything(1),Leverything(2),0./)
- termmag = sqrt(dot_product(term,term))
-
- rotate_about_z = -acos(dot_product((/1.,0.,0./),term/termmag))
- rotate_about_y = -acos(dot_product((/0.,0.,1./),Leverything/L_mag))
-
- do i = 1,npart
-    ! i for particle number, ii for radial bin
-    xyz_temp = xyzh(1:3,i)
-    call rotatevec(xyz_temp,(/0.,0.,1.0/),rotate_about_z)
-    call rotatevec(xyz_temp,(/0.,1.0,0./),rotate_about_y)
-    radius = sqrt(xyz_temp(1)**2 + xyz_temp(2)**2)
+    radius = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
     ii = int((radius-rad(1))/dr + 1)
     if (xyzh(4,i) > 0. .and. ii <=nr .and. ii > 0) then
        area = (pi*((rad(ii)+dr/2.)**2-(rad(ii)- dr/2.)**2))
        sigma(ii) = sigma(ii) + pmass/area
+       Ltot(1,ii) = Ltot(1,ii) + pmass*(xyzh(2,i)*vxyzu(3,i)-xyzh(3,i)*vxyzu(2,i))
+       Ltot(2,ii) = Ltot(2,ii) + pmass*(xyzh(3,i)*vxyzu(1,i)-xyzh(1,i)*vxyzu(3,i))
+       Ltot(3,ii) = Ltot(3,ii) + pmass*(xyzh(1,i)*vxyzu(2,i)-xyzh(2,i)*vxyzu(1,i))
     endif
-    if (ii > ii_match-1) then
+    if (radius > R_match) then
        xyzh(4,i) = -1.0
 !       call kill_particle(i)
        n_killed = n_killed + 1
@@ -170,14 +143,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  ! Average a little
  sigma_match = (sigma(ii_match - 1) + sigma(ii_match) + sigma(ii_match + 1))/3.
-
  sigma_norm = scaled_sigma(R_match,sigmaprofile,p_value,R_ref,R_in,R_c)
  sigma_norm = sigma_match/sigma_norm
 
  ! Guess a better p value, assuming the new sigma function is not smoothed
  p_value = log(sigma_match/sigma_norm)/log(R_c/R_match)
 
- ! To prevent a blip where the particles are actually stiched together,
+ ! To prevent a blip where the particles are actually stitched together,
  ! add a little extra and then ignore it later
  R_match = 0.9*R_match
 
@@ -215,6 +187,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! Tilt and twist the particles
  ! The tilt could be set by set_warp instead but this way gives tilt AND twist
  ! We also have to rotate velocities (for accurate L)
+ ! NB: these rotations are (correctly) in the opposite order than
+ ! when these rotations are used elsewhere in the code
 
  L_match = (Ltot(:,ii_match - 1) + Ltot(:,ii_match) + Ltot(:,ii_match + 1))/3.
  L_mag = sqrt(dot_product(L_match,L_match))
@@ -227,13 +201,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! Now add those new particles to existing disc
  ipart = npart ! The initial particle number (post shuffle)
  do ii = 1,n_add
-    radius = sqrt(xyzh_add(1,ii)**2 + xyzh_add(2,ii)**2)
+    ! Rotate particle to correct position and velocity
+    call rotatevec(xyzh_add(1:3,ii),(/0.,1.0,0./),rotate_about_y)
+    call rotatevec(xyzh_add(1:3,ii),(/0.,0.,1.0/),rotate_about_z)
+    call rotatevec(vxyzu_add(1:3,ii),(/0.,1.0,0./),rotate_about_y)
+    call rotatevec(vxyzu_add(1:3,ii),(/0.,0.,1.0/),rotate_about_z)
+    radius = sqrt(xyzh_add(1,ii)**2 + xyzh_add(2,ii)**2 + xyzh_add(3,ii)**2)
     jj = int((radius-rad(1))/dr + 1)
     if (jj > ii_match-1) then
-       call rotatevec(xyzh_add(1:3,ii),(/0.,0.,1.0/),rotate_about_z)
-       call rotatevec(xyzh_add(1:3,ii),(/0.,1.0,0./),rotate_about_y)
-       call rotatevec(vxyzu_add(1:3,ii),(/0.,0.,1.0/),rotate_about_z)
-       call rotatevec(vxyzu_add(1:3,ii),(/0.,1.0,0./),rotate_about_y)
+       ! Add the particle
        ipart = ipart + 1
        call  add_or_update_particle(igas, xyzh_add(1:3,ii), vxyzu_add(1:3,ii), xyzh_add(4,ii), &
             vxyzu_add(4,ii), ipart, npart, npartoftype, xyzh, vxyzu)
@@ -248,4 +224,3 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 end subroutine modify_dump
 
 end module moddump
-
