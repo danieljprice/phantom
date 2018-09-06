@@ -47,7 +47,6 @@ module set_dust_options
  public :: read_dust_setup_options
  public :: write_dust_setup_options
  public :: check_dust_method
- public :: array_of_numbered_strings
 
  private
 
@@ -118,9 +117,10 @@ end subroutine set_dust_interactively
 !+
 !--------------------------------------------------------------------------
 subroutine read_dust_setup_options(db,nerr)
- use growth,       only:read_growth_setup_options
- use infile_utils, only:inopts,read_inopt
- use io,           only:error
+ use growth,        only:read_growth_setup_options
+ use infile_utils,  only:inopts,read_inopt
+ use io,            only:error
+ use strings_utils, only:array_of_numbered_strings
 
  type(inopts), allocatable, intent(inout) :: db(:)
  integer, intent(inout) :: nerr
@@ -188,8 +188,9 @@ end subroutine read_dust_setup_options
 !+
 !--------------------------------------------------------------------------
 subroutine write_dust_setup_options(iunit)
- use growth,       only:write_growth_setup_options
- use infile_utils, only:write_inopt
+ use growth,        only:write_growth_setup_options
+ use infile_utils,  only:write_inopt
+ use strings_utils, only:array_of_numbered_strings
 
  integer, intent(in) :: iunit
 
@@ -332,39 +333,5 @@ subroutine check_dust_method(dust_method,ichange_method)
  endif
 
 end subroutine check_dust_method
-
-!--------------------------------------------------------------------------
-!+
-!  utility function to number strings for N dust species
-!+
-!--------------------------------------------------------------------------
-subroutine array_of_numbered_strings(pre_string,post_string,complete_string)
- use io, only:error
- character(len=*),   intent(in)  :: pre_string,post_string
- character(len=120), intent(out) :: complete_string(:)
-
- integer :: i,N,total_len,int_len
- character(len=20) :: num_string,fmt1,fmt2
-
- N = size(complete_string)
- int_len = floor(log10(real(N) + tiny(0.))) + 1
- total_len = len(trim(pre_string)) + int_len  + len(trim(post_string))
- if (len(complete_string) < total_len) then
-    call error('set_dust','N dust string is not long enough!')
- endif
-
- if (N > 1) then
-    do i=1,N
-       write(fmt2,'(I0)') int_len
-       fmt1 = '(I0.'//trim(fmt2)//')'
-       write(num_string,fmt1) i
-       write(complete_string(i),'(A)') trim(pre_string)//trim(adjustl(num_string))//trim(post_string)
-    enddo
- else
-    write(complete_string,'(A)') trim(pre_string)//trim(post_string)
- endif
-
- return
-end subroutine array_of_numbered_strings
 
 end module set_dust_options

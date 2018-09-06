@@ -143,7 +143,6 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use centreofmass,         only:reset_centreofmass
- use set_dust_options,     only:check_dust_method,array_of_numbered_strings
  use eos,                  only:isink,qfacdisc
  use extern_binary,        only:accradius1,accradius2,binarymassr,eps_soft1
  use externalforces,       only:mass1,accradius1
@@ -156,8 +155,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,              only:jupiterm,earthm,pi,years
  use setbinary,            only:set_binary,Rochelobe_estimate,get_mean_angmom_vector
  use setdisc,              only:set_disc,get_disc_mass
- use set_dust_options,     only:set_dust_default_options
+ use set_dust_options,     only:set_dust_default_options,check_dust_method
  use setflyby,             only:set_flyby,get_T_flyby
+ use strings_utils,        only:array_of_numbered_strings
  use table_utils,          only:logspace
  use timestep,             only:tmax,dtmax
  use units,                only:set_units,select_unit,umass,udist,utime
