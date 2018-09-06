@@ -71,8 +71,8 @@ subroutine test_rwdump(ntests,npass)
     ndust = 10
     ngas  = ntot-ndust
     npartoftype(:) = 0
-    npartoftype(1) = ngas
-    npartoftype(2) = ndust
+    npartoftype(igas) = ngas
+    npartoftype(idust) = ndust
     do i=1,npart
        if (i <= npartoftype(1)) then
           call set_particle_type(i,igas)
