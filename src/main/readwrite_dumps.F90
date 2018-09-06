@@ -1574,7 +1574,7 @@ end subroutine check_arrays
 subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
                          nblocks,npart,npartoftype, &
                          tfile,hfactfile,alphafile,iprint,id,nprocs,ierr)
- use dim,        only:maxp,use_dust
+ use dim,        only:maxp,maxdustlarge,use_dust
  use io,         only:master ! check this
  use eos,        only:isink
  use part,       only:maxtypes,igas,idust,ndustsmall,ndustlarge,ndusttypes
@@ -1588,7 +1588,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  integer,         intent(in)  :: iprint,id,nprocs
  integer,         intent(out) :: ierr
  integer         :: nparttoti,npartoftypetoti(maxtypes),ntypesinfile
- integer         :: ierr1,ierrs(3)
+ integer         :: ierr1,ierrs(3),i
  integer(kind=8) :: npartoftypetot(maxtypes),ntypesinfile8
 
  ierr = 0
@@ -1628,7 +1628,12 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  npartoftypetot = int(npartoftypetoti,kind=8)
  if (nblocks==1) then
     npartoftype(1:ntypesinfile) = int(npartoftypetot(1:ntypesinfile))
-    if (npartoftype(idust) > 0) write(*,*) 'n(gas) = ',npartoftype(igas),' n(dust) = ',npartoftype(idust)
+    if (npartoftype(idust) > 0) write(*,*) 'n(gas)     = ',npartoftype(igas)
+    do i=1,maxdustlarge
+       if (npartoftype(idust+i-1) > 0) then
+          write(*,'(x,a,i2,a,i)') 'n(dust:',i,') = ',npartoftype(idust+i-1)
+       endif
+    enddo
  endif
  call extract('isink',isink,hdr,ierr1)
 
