@@ -394,15 +394,16 @@ end subroutine write_evfile
 !+
 !----------------------------------------------------------------
 subroutine write_evlog(iprint)
- use dim,       only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,use_dust
- use energies,  only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas,xyzcom
- use part,      only:ndusttypes
- use viscosity, only:irealvisc,shearparam
- use boundary,  only:dxbound,dybound,dzbound
- use units,     only:unit_density
- use options,   only:use_dustfrac
+ use dim,           only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,use_dust,maxdusttypes
+ use energies,      only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas,xyzcom
+ use part,          only:ndusttypes
+ use viscosity,     only:irealvisc,shearparam
+ use boundary,      only:dxbound,dybound,dzbound
+ use units,         only:unit_density
+ use options,       only:use_dustfrac
+ use strings_utils, only:array_of_numbered_strings
  integer, intent(in) :: iprint
- character(len=120)  :: string
+ character(len=120)  :: string,Mdust_label(maxdusttypes)
  integer :: i
 
  if (ndead > 0) then
@@ -432,8 +433,9 @@ subroutine write_evlog(iprint)
  endif
  if (use_dust) then
     write(iprint,"(1x,'Mgas = ',es10.3)") mgas
+    call array_of_numbered_strings('Mdust','',Mdust_label(1:ndusttypes))
     do i=1,ndusttypes
-       write(iprint,"(1x,'Mdust',i2,' = ',es10.3)") i,mdust(i)
+       write(iprint,"(1x,a' = ',es10.3)") trim(Mdust_label(i)),mdust(i)
     enddo
  endif
 

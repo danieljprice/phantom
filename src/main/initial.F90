@@ -113,7 +113,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -199,6 +199,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use centreofmass,     only:get_centreofmass
  use energies,         only:etot,angtot,totmom,mdust,xyzcom
  use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use strings_utils,    only:array_of_numbered_strings
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  integer         :: ierr,i,j,idot,nerr,nwarn
@@ -214,6 +215,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  logical         :: iexist
  integer :: ncount(maxtypes)
  character(len=len(dumpfile)) :: dumpfileold,fileprefix
+ character(len=7) :: dust_label(maxdusttypes)
 !
 !--do preliminary initialisation
 !
@@ -586,8 +588,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  write(iprint,'(2x,a,es18.6)')   'Initial angular momentum: ', angtot_in
  write(iprint,'(2x,a,es18.6)')   'Initial linear momentum:  ', totmom_in
 #ifdef DUST
+ call array_of_numbered_strings('dust','',dust_label(1:ndusttypes))
  do i=1,ndusttypes
-    write(iprint,'(2x,a,i3,es18.6)') 'Initial dust mass: i = ',i, mdust_in(i)
+    write(iprint,'(2x,a,es18.6)') 'Initial '//dust_label(i)//' mass:     ',mdust_in(i)
  enddo
  write(iprint,'(2x,a,es18.6)')   'Initial total dust mass:  ', sum(mdust_in(:))
 #endif

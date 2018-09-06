@@ -1580,6 +1580,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  use part,       only:maxtypes,igas,idust,ndustsmall,ndustlarge,ndusttypes
  use units,      only:udist,umass,utime,set_units_extra,set_units
  use dump_utils, only:extract,dump_h
+ use strings_utils, only:array_of_numbered_strings
  type(dump_h),    intent(in)  :: hdr
  logical,         intent(in)  :: phantomdump,got_tags
  integer(kind=8), intent(out) :: nparttot
@@ -1588,8 +1589,9 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  integer,         intent(in)  :: iprint,id,nprocs
  integer,         intent(out) :: ierr
  integer         :: nparttoti,npartoftypetoti(maxtypes),ntypesinfile
- integer         :: ierr1,ierrs(3),i
+ integer         :: ierr1,ierrs(3),i,counter
  integer(kind=8) :: npartoftypetot(maxtypes),ntypesinfile8
+ character(len=10) :: dust_label(maxdustlarge)
 
  ierr = 0
  nparttot = 0
@@ -1628,11 +1630,16 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  npartoftypetot = int(npartoftypetoti,kind=8)
  if (nblocks==1) then
     npartoftype(1:ntypesinfile) = int(npartoftypetot(1:ntypesinfile))
-    if (npartoftype(idust) > 0) write(*,*) 'n(gas)     = ',npartoftype(igas)
+    if (npartoftype(idust) > 0) write(*,*) 'n(gas) = ',npartoftype(igas)
+    counter = 0
     do i=1,maxdustlarge
        if (npartoftype(idust+i-1) > 0) then
-          write(*,'(x,a,i2,a,i)') 'n(dust:',i,') = ',npartoftype(idust+i-1)
+          counter = counter + 1
        endif
+    enddo
+    call array_of_numbered_strings('dust','',dust_label(1:counter))
+    do i=1,counter
+       write(*,*) 'n('//trim(dust_label(i))//') = ',npartoftype(idust+i-1)
     enddo
  endif
  call extract('isink',isink,hdr,ierr1)
