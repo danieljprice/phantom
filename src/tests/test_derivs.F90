@@ -24,7 +24,7 @@
 !+
 !--------------------------------------------------------------------------
 module testderivs
- use part,     only:massoftype
+ use part, only:massoftype
  implicit none
 
  public :: test_derivs
@@ -36,68 +36,70 @@ module testderivs
 contains
 
 subroutine test_derivs(ntests,npass,string)
- use dim,      only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust
- use boundary, only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
- use eos,      only:polyk,gamma,use_entropy
- use io,       only:iprint,id,master,fatal,iverbose,nprocs
- use mpiutils, only:reduceall_mpi
- use options,  only:tolh,alpha,alphau,alphaB,beta,ieos,psidecayfac,use_dustfrac
- use kernel,   only:radkern
- use part,     only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,fext,divcurlv,divcurlB,maxgradh, &
-                    gradh,divBsymm,Bevol,dBevol,Bxyz,Bextx,Bexty,Bextz,alphaind, &
-                    maxphase,rhoh,mhd,maxBevol,ndivcurlB,dvdx, &
-                    dustfrac,ddustevol,temperature,idivv,icurlvx,icurlvy,icurlvz, &
-                    idivB,icurlBx,icurlBy,icurlBz,deltav,dustprop,ddustprop,ndusttypes
- use unifdis,  only:set_unifdis
- use physcon,  only:pi,au,solarm
- use deriv,           only:derivs
- use densityforce,    only:get_neighbour_stats,densityiterate
- use linklist,        only:set_linklist
- use timing,          only:getused,printused
- use viscosity,       only:bulkvisc,shearparam,irealvisc
- use part,            only:iphase,isetphase,igas,grainsize,graindens
- use nicil,           only:use_ambi
+ use dim,          only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust,&
+                        maxdustsmall
+ use boundary,     only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
+ use eos,          only:polyk,gamma,use_entropy
+ use io,           only:iprint,id,master,fatal,iverbose,nprocs
+ use mpiutils,     only:reduceall_mpi
+ use options,      only:tolh,alpha,alphau,alphaB,beta,ieos,psidecayfac,use_dustfrac
+ use kernel,       only:radkern
+ use part,         only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,fext,&
+                        divcurlv,divcurlB,maxgradh,gradh,divBsymm,Bevol,dBevol,&
+                        Bxyz,Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
+                        maxBevol,ndivcurlB,dvdx,dustfrac,ddustevol,temperature,&
+                        idivv,icurlvx,icurlvy,icurlvz,idivB,icurlBx,icurlBy,icurlBz,&
+                        deltav,dustprop,ddustprop,ndusttypes,ndustsmall,ndustlarge
+ use unifdis,      only:set_unifdis
+ use physcon,      only:pi,au,solarm
+ use deriv,        only:derivs
+ use densityforce, only:get_neighbour_stats,densityiterate
+ use linklist,     only:set_linklist
+ use timing,       only:getused,printused
+ use viscosity,    only:bulkvisc,shearparam,irealvisc
+ use part,         only:iphase,isetphase,igas,grainsize,graindens
+ use nicil,        only:use_ambi
 #ifdef IND_TIMESTEPS
- use timestep_ind,    only:nactive
- use part,            only:ibin
+ use timestep_ind, only:nactive
+ use part,         only:ibin
 #endif
 #ifdef DUST
- use dust,            only:init_drag,idrag,K_code,grainsizecgs
+ use dust,         only:init_drag,idrag,K_code,grainsizecgs
 #endif
- use units,           only:set_units
- use testutils,       only:checkval,checkvalf
+ use units,        only:set_units
+ use testutils,    only:checkval,checkvalf
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
- real                   :: psep,time,hzero,totmass
+ real              :: psep,time,hzero,totmass
 #ifdef IND_TIMESTEPS
- integer                :: itest,ierr,ierr2,nptest
- real                   :: fracactive,speedup
- real(kind=4)           :: tallactive
- real,         allocatable :: fxyzstore(:,:),dBdtstore(:,:)
+ integer           :: itest,ierr,ierr2,nptest
+ real              :: fracactive,speedup
+ real(kind=4)      :: tallactive
+ real, allocatable :: fxyzstore(:,:),dBdtstore(:,:)
 #else
- integer                :: nactive
+ integer           :: nactive
 #endif
- real                   :: psepblob,hblob,rhoblob,rblob,totvol,rtest
+ real              :: psepblob,hblob,rhoblob,rblob,totvol,rtest
 #ifdef PERIODIC
- integer                :: maxtrial,maxactual
- integer(kind=8)        :: nrhocalc,nactual,nexact
- real                   :: trialmean,actualmean,realneigh
+ integer           :: maxtrial,maxactual
+ integer(kind=8)   :: nrhocalc,nactual,nexact
+ real              :: trialmean,actualmean,realneigh
 #endif
- real                   :: rcut
- real                   :: dtext_dum,rho1i,deint,demag,dekin,dedust,dmdust(ndusttypes),dustfraci(ndusttypes),tol
- real(kind=4)           :: t1,t2
- integer                :: nfailed(21),i,j,npartblob,nparttest
- integer                :: np,ieosprev
- logical                :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs
- logical                :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testall
- real                   :: vwavei,stressmax,rhoi,sonrhoi(ndusttypes),drhodti,ddustevoli(ndusttypes)
- real                   :: smincgs,smaxcgs,sindex
- integer(kind=8)        :: nptot
- real,allocatable       :: dummy(:)
+ real              :: rcut
+ real              :: dtext_dum,rho1i,deint,demag,dekin,dedust,dmdust(maxdustsmall),dustfraci(maxdustsmall),tol
+ real(kind=4)      :: t1,t2
+ integer           :: nfailed(21),i,j,npartblob,nparttest
+ integer           :: np,ieosprev
+ logical           :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs
+ logical           :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testall
+ real              :: vwavei,stressmax,rhoi,sonrhoi(maxdustsmall),drhodti,ddustevoli(maxdustsmall)
+ real              :: smincgs,smaxcgs,sindex
+ integer(kind=8)   :: nptot
+ real, allocatable :: dummy(:)
 #ifdef IND_TIMESTEPS
- real                   :: tolh_old
+ real              :: tolh_old
 #endif
- logical                :: checkmask(maxp)
+ logical           :: checkmask(maxp)
 
  if (id==master) write(*,"(a,/)") '--> TESTING DERIVS MODULE'
 
@@ -555,11 +557,12 @@ subroutine test_derivs(ntests,npass,string)
        !  and ONLY makes sense IFF all dust grains are identical (although
        !  potentially binned with unequal densities).
        !  K_code and K_k are related via: K_k = eps_k/eps*K_code)
-       K_code  = 10.
-       smaxcgs = 0.01 ! value doesn't matter as long as smaxcgs=smincgs=grainsizecgs
-       smincgs = smaxcgs
-       grainsizecgs = smaxcgs
-       sindex  = 1.
+       K_code = 10.
+       grainsize = 0.01
+       graindens = 3.
+       ndustsmall = maxdustsmall
+       ndustlarge = 0
+       ndusttypes = ndustsmall + ndustlarge
        !need to set units if testing with physical drag
        !call set_units(dist=au,mass=solarm,G=1.d0)
        call init_drag(nfailed(1))
@@ -572,7 +575,7 @@ subroutine test_derivs(ntests,npass,string)
           vxyzu(2,i) = vy(xyzh(:,i))
           vxyzu(3,i) = vz(xyzh(:,i))
           if (maxvxyzu>=4) vxyzu(4,i) = utherm(xyzh(:,i))
-          do j = 1,ndusttypes
+          do j=1,ndustsmall
              dustfrac(j,i) = real(dustfrac_func(xyzh(:,i)),kind=kind(dustfrac))
           enddo
        enddo
@@ -585,7 +588,7 @@ subroutine test_derivs(ntests,npass,string)
        nfailed(:) = 0
        call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
        call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
-       do j = 1,1 !ndusttypes !--Only need one because all dust species are identical
+       do j=1,1 !ndustsmall !--Only need one because all dust species are identical
 #ifdef DUST
           grainsizek = grainsize(j)
           graindensk = graindens(j)
@@ -608,7 +611,7 @@ subroutine test_derivs(ntests,npass,string)
           dedust = 0.
           dmdust(:) = 0.
           do i=1,npart
-             dustfraci(:)  = dustfrac(:,i)
+             dustfraci(:)  = dustfrac(1:maxdustsmall,i)
              rhoi          = rhoh(xyzh(4,i),massoftype(igas))
              drhodti       = -rhoi*divcurlv(1,i)
 !------------------------------------------------
@@ -617,7 +620,7 @@ subroutine test_derivs(ntests,npass,string)
 !             ddustevoli(:) = 2.*sonrhoi(:)*ddustevol(:,i) - sonrhoi(:)**2*drhodti
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-             sonrhoi(:)    = asin(sqrt(dustfrac(:,i)))
+             sonrhoi(:)    = asin(sqrt(dustfrac(1:maxdustsmall,i)))
              ddustevoli(:) = 2.*cos(sonrhoi(:))*sin(sonrhoi(:))*ddustevol(:,i)
 !------------------------------------------------
              dmdust(:)     = dmdust(:) + ddustevoli(:)
@@ -633,7 +636,7 @@ subroutine test_derivs(ntests,npass,string)
           nfailed(:) = 0
           !print "(3(a,es17.10))",' dE_kin = ',dekin,' dE_therm = ',deint,' dE_dust = ',dedust
           call checkval(massoftype(1)*(dekin + deint + dedust),0.,7.e-15,nfailed(1),'energy conservation (dE=0)')
-          do i = 1,ndusttypes
+          do i=1,ndustsmall
              call checkval(massoftype(1)*(dmdust(i)),0.,1.5e-14,nfailed(2),'dust mass conservation')
           enddo
           ntests = ntests + 1
