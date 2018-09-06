@@ -57,7 +57,6 @@ module part
 !
  real :: grainsize(maxdusttypes)
  real :: graindens(maxdusttypes)
- real :: grainmass(maxdusttypes)
 !
 !--storage of dust growth properties
 !

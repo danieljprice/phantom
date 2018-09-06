@@ -29,10 +29,10 @@
 !--------------------------------------------------------------------------
 
 module dust
- use dim,      only:use_dustgrowth
- use part,     only:ndusttypes,grainsize,graindens,grainmass
- use physcon,  only:pi
- use units,    only:umass,udist
+ use dim,     only:use_dustgrowth
+ use part,    only:ndusttypes,grainsize,graindens
+ use physcon, only:pi
+ use units,   only:umass,udist
  implicit none
  !--Default values for the dust in the infile
  real,    public  :: K_code            = 1.
@@ -76,9 +76,6 @@ subroutine init_drag(ierr)
  coeff_gei_1       = sqrt(8./(pi*gamma))
 
  select case(idrag)
- case(1)
-    !--compute the grain mass (spherical compact grains of radius s)
-    grainmass(:) = 4./3.*pi*graindens(:)*grainsize(:)**3
  case(2,3)
     !--check the value of K_code
     if (K_code < 0.) then
@@ -106,9 +103,10 @@ end subroutine init_drag
 !+
 !--------------------------------------------------------------------------
 subroutine print_dustinfo(iprint)
+ use dim,   only:maxdusttypes
  use units, only:unit_density
  integer, intent(in) :: iprint
- real    :: rhocrit
+ real    :: rhocrit,grainmass(maxdusttypes)
  integer :: i
 
  select case(idrag)
@@ -117,6 +115,8 @@ subroutine print_dustinfo(iprint)
        write(iprint,"(a)") ' Using Epstein/Stokes drag with variable grain size. '
     else
        write(iprint,"(a)") ' Using Epstein/Stokes drag with constant grain size: '
+       !--compute the grain mass (spherical compact grains of radius s)
+       grainmass(:) = 4./3.*pi*graindens(:)*grainsize(:)**3
        do i=1,ndusttypes
           write(iprint,"(2(a,1pg10.3),a)") '        Grain size = ',grainsize(i)*udist,      &
                                            ' cm     = ',grainsize(i),' (code units)'
