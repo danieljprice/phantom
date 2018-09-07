@@ -1841,7 +1841,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  use eos,            only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
  use options,        only:ieos,tolh,alpha,alphau,alphaB,iexternalforce
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,maxtypes
- use dust,           only:grainsize,graindens
+ use dust,           only:grainsize,graindens,readindustprop
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
@@ -1996,6 +1996,8 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
     if (any(ierrs(1:2) /= 0)) then
        write(*,*) 'ERROR reading grain size/density from file header'
     endif
+    !--dust properties need to be read in rather than calculated when ndusttypes > 1
+    if (ndusttypes > 1) readindustprop = .true.
  endif
 
  return

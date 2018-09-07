@@ -507,7 +507,6 @@ ifeq ($(SETUP), dustyshock)
     FPPFLAGS= -DPERIODIC
     SETUPFILE= setup_shock.F90
     DUST=yes
-    DUSTFRAC=yes
     DOUBLEPRECISION=yes
     KERNEL=quintic
     ISOTHERMAL=no
@@ -632,7 +631,6 @@ ifeq ($(SETUP), dustywave)
     SETUPFILE= setup_wave.f90
     MODFILE= moddump_dustadd.f90
     DUST=yes
-    DUSTFRAC=no
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     ANALYSIS= analysis_trackbox.f90
@@ -1907,8 +1905,8 @@ cleanmoddump:
 OBJAN1 = ${ANALYSIS:.f90=.o}
 OBJAN2 = ${OBJAN1:.F90=.o}
 OBJAN = ${OBJAN2:.f=.o}
-OBJA= utils_disc.o utils_filenames.o utils_sort.o leastsquares.o solvelinearsystem.o \
-	  ${OBJDUMP} set_dust.o set_binary.o ${OBJAN}
+OBJA= utils_filenames.o utils_sort.o leastsquares.o solvelinearsystem.o \
+	  ${OBJDUMP} utils_disc.o set_dust.o set_binary.o ${OBJAN}
 
 ifndef ANALYSISBIN
 ANALYSISBIN=phantomanalysis

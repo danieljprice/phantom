@@ -45,7 +45,7 @@ module options
 
  real, public :: alpha,alphau,beta
  real, public :: alphamax
- real, public :: alphaB, etamhd, psidecayfac, overcleanfac
+ real, public :: alphaB, psidecayfac, overcleanfac
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
 
 ! dust method
@@ -122,7 +122,6 @@ subroutine set_default_options
 
  ! artificial resistivity (MHD only)
  alphaB            = 1.0
- etamhd            = 0.0
  psidecayfac       = 1.0     ! psi decay factor (MHD only)
  overcleanfac      = 1.0     ! factor to increase signal velocity for (only) time steps and psi cleaning
  beta              = 2.0     ! beta viscosity term
@@ -132,7 +131,7 @@ subroutine set_default_options
  call set_defaults_viscosity
 
  ! dust method
- if (ndusttypes>1) then
+ if (ndusttypes > 1) then
     use_dustfrac = .true.
  else
     use_dustfrac = .false.

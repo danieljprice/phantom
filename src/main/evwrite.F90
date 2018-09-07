@@ -58,7 +58,7 @@ module evwrite
                            iev_angmom,iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
                            iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah,&
                            iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT,&
-                           iev_dtg,iev_ts,iev_momall,iev_angall,iev_angall,iev_maccsink,&
+                           iev_dtg,iev_ts,iev_dm,iev_momall,iev_angall,iev_angall,iev_maccsink,&
                            iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_ionise
 
  implicit none
@@ -80,7 +80,8 @@ contains
 !----------------------------------------------------------------
 subroutine init_evfile(iunit,evfile,open_file)
  use io,        only: id,master,warning
- use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,calc_erot,lightcurve,use_CMacIonize
+ use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,calc_erot,lightcurve, &
+                      use_CMacIonize,ndusttypes
  use options,   only: ishock_heating,ipdv_heating,use_dustfrac
  use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype
  use nicil,     only: use_ohm,use_hall,use_ambi,ion_rays,ion_thermal
@@ -89,7 +90,8 @@ subroutine init_evfile(iunit,evfile,open_file)
  character(len=  *), intent(in) :: evfile
  logical,            intent(in) :: open_file
  character(len= 27)             :: ev_fmt
- integer                        :: i,j
+ character(len= 11)             :: dustname
+ integer                        :: i,j,k
  !
  !--Initialise additional variables
  !
@@ -172,7 +174,11 @@ subroutine init_evfile(iunit,evfile,open_file)
  endif
  if (use_dustfrac) then
     call fill_ev_tag(ev_fmt,   iev_dtg,'dust/gas',     'xan',i,j)
-    call fill_ev_tag(ev_fmt,   iev_ts, 't_s',          'mn', i,j)
+    call fill_ev_tag(ev_fmt,   iev_ts, 't_s',          'xn', i,j)
+    do k = 1,ndusttypes
+       write(dustname,'(a,I3)') 'DustMass',k
+       call fill_ev_tag(ev_fmt,iev_dm(k), dustname,    '0',  i,j)
+    enddo
  endif
  if (iexternalforce > 0) then
     call fill_ev_tag(ev_fmt,   iev_momall,'totmomall',   '0',i,j)
@@ -296,7 +302,7 @@ subroutine fill_ev_header(ev_fmt,label,cxmn,j,joffset)
 
  if (len(label)>11 .and. (cxmn=='0' .or. cxmn=='s') ) then
     label0 = label(1:11)
- else if (len(label)>9) then
+ else if (len(label)>9 .and. (cxmn=='x' .or. cxmn=='a' .or. cxmn=='n')) then
     label0 = label(1:9)
  else
     label0 = label

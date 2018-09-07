@@ -443,16 +443,31 @@ subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple,imethod)
  real,    intent(out)           :: dust_to_gas
  integer            :: i,ierr
  integer            :: dust_method = -1
+ real               :: tol = 1.e-5
+ real               :: percentsum
  real               :: grainsizeinp(ndusttypes)
  real               :: graindensinp(ndusttypes)
  real               :: dustfrac_percent(ndusttypes)
  logical            :: simple_grainsize = .false.
  logical            :: simple_graindens = .false.
  logical            :: simple_output    = .false.
- character(len=120) :: varlabel(ndusttypes)
+ character(len=120) :: varlabel(ndusttypes),string(3)
 
  call read_inopt(dust_method,'dust_method',db,min=1,max=2,errcount=nerr)
  if (present(imethod)) imethod = dust_method
+
+ string(1) = 'Warning! dust_method and use_dustfrac are currently incompatible. This is'
+ string(2) = '         normal behaviour when using the moddump utility, but otherwise'
+ string(3) = '         may indicate an initialisation problem for one or both variables.'
+ if (dust_method == 1 .and. .not.use_dustfrac) then
+    write(*,'(/a,/a,/a/)') (trim(string(i)), i = 1,3)
+    print*,'...setting use_dustfrac = .true.'
+    use_dustfrac = .true.
+ elseif (dust_method == 2 .and. use_dustfrac) then
+    write(*,'(/a,/a,/a/)') (trim(string(i)), i = 1,3)
+    print*,'...setting use_dustfrac = .false.'
+    use_dustfrac = .false.
+ endif
 
  if (use_dustfrac) then
     if (dust_method == 2) then
@@ -499,9 +514,17 @@ subroutine read_dust_setup_options(db,nerr,dust_to_gas,df,gs,gd,isimple,imethod)
           do i = 1,ndusttypes
              call read_inopt(dustfrac_percent(i),trim(varlabel(i)),db,min=0.,max=100.,err=ierr,errcount=nerr)
           enddo
-          if (sum(dustfrac_percent(:)) /= 100.) then
-             print*,'ERROR: dust fraction percentages need to add up to 100!'
+          percentsum = sum(dustfrac_percent(:))
+          if (0.01*abs(percentsum - 100.) > tol) then
+             print*,'ERROR: dust fraction percentages only add up to:',percentsum
+             print*,'sum(dustfrac_percent) = ',sum(dustfrac_percent(:))
              nerr = nerr+1
+          elseif (0.01*abs(percentsum - 100.) < tol) then
+             print*,'Warning: dust fraction percentages only add up to:',percentsum
+             print*,'...adding the difference to the largest dust fraction'
+             where (dustfrac_percent == maxval(dustfrac_percent))
+                dustfrac_percent = dustfrac_percent + (100.-percentsum)
+             endwhere
           endif
           simple_grainsize = .true.
           if (any(grainsizeinp /= grainsizeinp(1)) .or. &

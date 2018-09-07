@@ -33,7 +33,6 @@
 !    dtmax_rat0         -- dtmax_new = dtmax_old/dtmax_rat0
 !    dtwallmax          -- maximum wall time between dumps (hhh:mm, 000:00=ignore)
 !    dumpfile           -- dump file to start from
-!    etamhd             -- fixed physical resistivity value
 !    hfact              -- h in units of particle spacing [h = hfact(m/rho)^(1/3)]
 !    ipdv_heating       -- heating from PdV work (0=off, 1=on)
 !    irealvisc          -- physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)
@@ -67,7 +66,7 @@ module readwrite_infile
  use options,   only:nfulldump,nmaxdumps,twallmax,dtwallmax,iexternalforce,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,tolv, &
                      ipdv_heating,ishock_heating,iresistive_heating, &
-                     icooling,psidecayfac,overcleanfac,etamhd,alphamax,&
+                     icooling,psidecayfac,overcleanfac,alphamax,&
                      use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
@@ -193,7 +192,6 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_inopt(alphaB,'alphaB','art. resistivity parameter',iwritein)
     call write_inopt(psidecayfac,'psidecayfac','div B diffusion parameter',iwritein)
     call write_inopt(overcleanfac,'overcleanfac','factor to increase cleaning speed (decreases time step)',iwritein)
-    call write_inopt(etamhd,'etamhd','fixed physical resistivity value',iwritein)
  endif
  call write_inopt(beta,'beta','beta viscosity',iwritein)
  call write_inopt(avdecayconst,'avdecayconst','decay time constant for viscosity switches',iwritein)
@@ -402,8 +400,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) psidecayfac
     case('overcleanfac')
        read(valstring,*,iostat=ierr) overcleanfac
-    case('etamhd')
-       read(valstring,*,iostat=ierr) etamhd
     case('beta')
        read(valstring,*,iostat=ierr) beta
     case('avdecayconst')
@@ -563,7 +559,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (psidecayfac < 0.) call fatal(label,'stupid value for psidecayfac')
        if (psidecayfac > 2.) call warn(label,'psidecayfac set outside recommended range (0.1-2.0)')
        if (overcleanfac < 1.0) call warn(label,'overcleanfac less than 1')
-       if (etamhd < 0.0) call warn(label,'etamhd < 0')
     endif
     if (beta < 0.)     call fatal(label,'beta < 0')
     if (beta > 4.)     call warn(label,'very high beta viscosity set')

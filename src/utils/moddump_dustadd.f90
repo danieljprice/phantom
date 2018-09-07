@@ -55,7 +55,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        npartoftype(idust) = npart/nratio
        massoftype(idust)  = massoftype(igas)*dust_to_gas*nratio
        do i=npart+1,npart+npart/nratio
-          xyzh(1,i) = xyzh(1,nratio*(i-npart))
+          xyzh(1,i) = xyzh(1,i-nratio*(i-npart))
           xyzh(2,i) = xyzh(2,i-nratio*(i-npart))
           xyzh(3,i) = xyzh(3,i-nratio*(i-npart))
           xyzh(4,i) = xyzh(4,i-nratio*(i-npart))
