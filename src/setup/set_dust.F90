@@ -297,16 +297,17 @@ subroutine interactively_set_dust_full(dust_to_gas,dustfrac_percent,grainsizeinp
                   ' 2=manually'//new_line('A'),io_grainsize,0,2)
        select case(io_grainsize)
        case(0)
+          call grainsize_dist_assist(units_to_cgs,abbrev)
 
-          message = 'Enter minimum grain size in '//trim(abbrev)
-          smincgs = smincgs/units_to_cgs
-          call prompt(trim(message),smincgs,0.)
-          smincgs = units_to_cgs*smincgs
+          !message = 'Enter minimum grain size in '//trim(abbrev)
+          !smincgs = smincgs/units_to_cgs
+          !call prompt(trim(message),smincgs,0.)
+          !smincgs = units_to_cgs*smincgs
 
-          message = 'Enter maximum grain size in '//trim(abbrev)
-          smaxcgs = smaxcgs/units_to_cgs
-          call prompt(trim(message),smaxcgs,smincgs)
-          smaxcgs = units_to_cgs*smaxcgs
+          !message = 'Enter maximum grain size in '//trim(abbrev)
+          !smaxcgs = smaxcgs/units_to_cgs
+          !call prompt(trim(message),smaxcgs,smincgs)
+          !smaxcgs = units_to_cgs*smaxcgs
 
           call prompt('Enter power-law index, e.g. MRN',sindex)
           call set_grainsize(smincgs,smaxcgs)
@@ -405,7 +406,7 @@ subroutine get_units_factor(units,factor)
  select case(units)
  case('nm')
     factor = 1.e-7
- case('microns')
+ case('micron')
     factor = 1.e-4
  case('mm')
     factor = 1.e-1
@@ -893,5 +894,218 @@ subroutine write_temp_grains_file(dust_to_gas,dustfrac_percent,imethod,iprofile,
  if (present(imethod)) imethod = dust_method
 
 end subroutine write_temp_grains_file
+
+
+
+!------------------------------------------------------
+!+
+!  Functions used to determine the ideal min/max sizes
+!  and spacing betweeen grain sizes for a simulation
+!+
+!------------------------------------------------------
+real function smin_func(N,s1,sN)
+ integer, intent(in)  :: N
+ real,    intent(in)  :: s1,sN
+ smin_func = s1*(s1/sN)**(1./(2.*real(N-1)))
+end function smin_func
+
+real function smax_func(N,smin,s1,sN)
+ integer, intent(in)  :: N
+ real,    intent(in)  :: smin,s1,sN
+ smax_func = smin*(sN/s1)**(real(N)/real(N-1))
+end function smax_func
+
+real function s1_func(N,sN,logds)
+ integer, intent(in)  :: N
+ real,    intent(in)  :: sN,logds
+ s1_func = sN*10.**(-real(N-1)*logds)
+end function s1_func
+
+real function sN_func(N,s1,logds)
+ integer, intent(in)  :: N
+ real,    intent(in)  :: s1,logds
+ sN_func = s1*10.**(real(N-1)*logds)
+end function sN_func
+
+real function logds_func(N,smin,smax)
+ integer, intent(in)  :: N
+ real,    intent(in)  :: smin,smax
+ logds_func = log10(smax/smin)/real(N)
+end function logds_func
+!------------------------------------------------------
+
+
+
+!------------------------------------------------------
+!+
+!  Utility to help users choose more intuitive grain
+!  size distribution parameters for a simulation
+!+
+!------------------------------------------------------
+subroutine grainsize_dist_assist(units_to_cgs,abbrev)
+ use draw_ascii_art, only:draw_vesta,draw_grainsize_dist_assist
+ use prompting,      only:prompt
+ real,              intent(in) :: units_to_cgs
+ character(len=10), intent(in) :: abbrev
+ character(len=120) :: message
+ real,  allocatable :: loggrid(:),grid(:),s(:)
+ real      :: s1,sN,smin,smax,logds
+ logical   :: iloop = .true.
+ logical   :: itryagain
+ integer   :: i,N,ichoosedist
+
+ call draw_vesta
+ call draw_grainsize_dist_assist
+
+ print*,''
+ print*,'The grain size is selected based on a few important quantites:'
+ print*,'   N    :: number of discrete dust phases'
+ print*,'   s1   :: smallest simulated grain size'
+ print*,'   sN   :: largest simulated grain size'
+ print*,'   dS   :: spacing between grain sizes in log10 space'
+ print*,'   smin :: minimum grain size in the grain-size distribution'
+ print*,'           (used for calculating the mass, i.e. not simulated)'
+ print*,'   smax :: maximum grain size in the grain-size distribution'
+ print*,'           (used for calculating the mass, i.e. not simulated)'
+ print*,''
+ print*,'The following is an illustration of the grid in log10 space:'
+ print*,''
+ print*,'          dS                                                                   '
+ print*,'  |<-------------->|                                                           '
+ print*,' G(1)             G(2)                                   G(N)            G(N+1)'
+ print*,'  |------S(1)------|------S(2)------ // ------S(N-1)------|------S(N)------|   '
+ print*,' Smin     |<-------------->|                                             Smax  '
+ print*,'                  dS                                                           '
+ print*,''
+ print*,'where capital letters denote log10 quantities and lowercase actual CGS values'
+ print*,'   for example :: S(i) = log10(s(i))'
+ print*,'G(i) are the cell edges (important for calculating the mass of simulated grains'
+ print*,'   for example :: m(1) is the integrated mass between g(1) and g(2)'
+ print*,'Note that S(i) is the midpoint of each log10 grid cell, i.e. s1 = sqrt(g(1)*g(2)),'
+ print*,'   which weights the effective grain size to smaller values, reflecting the fact'
+ print*,'   that the number density of a physical distribution decreases with grain size'
+ print*,''
+
+ do while(iloop)
+    !--initialise/reset the values for prompts
+    itryagain   = .false.
+    ichoosedist = 1
+    N           = ndusttypes
+    smin        = smincgs/units_to_cgs
+    smax        = smaxcgs/units_to_cgs
+    logds       = logds_func(N,smin,smax)
+    s1          = smin
+    sN          = smax
+
+    call prompt('Which quantities do you want to define?'// &
+                ' (values <= 0 allow you to trial different N)'//new_line('A')// &
+                ' 0 = s(1), s(N), and dS'//new_line('A')// &
+                ' 1 = s(1) and s(N)'//new_line('A')// &
+                ' 2 = s(1) and dS'//new_line('A')// &
+                ' 3 = s(N) and dS'//new_line('A')// &
+                ' 4 = smin and smax'//new_line('A'),ichoosedist,-4,4)
+
+    select case(abs(ichoosedist))
+    case(0)
+       message = 'Choose the smallest simulated grain size s(1) in '//trim(abbrev)
+       call prompt(trim(message),s1,0.)
+       message = 'Choose the largest simulated grain size s(N) in '//trim(abbrev)
+       call prompt(trim(message),sN,s1,1000.)
+       message = 'Choose the cell width in log10 space dS assuming units of '//trim(abbrev)
+       call prompt(trim(message),logds,0.01,100.)
+       N    = int(1./logds*log10(sN/s1)) + 1
+       sN   = sN_func(N,s1,logds)
+       smin = smin_func(N,s1,sN)
+       smax = smax_func(N,smin,s1,sN)
+    case(1)
+       if (ichoosedist < 0) then
+          call prompt('Choose the number of discrete dust phases (N)',N,0)
+       endif
+       message = 'Choose the smallest simulated grain size s(1) in '//trim(abbrev)
+       call prompt(trim(message),s1,0.)
+       message = 'Choose the largest simulated grain size s(N) in '//trim(abbrev)
+       call prompt(trim(message),sN,s1,1000.)
+       smin  = smin_func(N,s1,sN)
+       smax  = smax_func(N,smin,s1,sN)
+       logds = logds_func(N,smin,smax)
+    case(2)
+       if (ichoosedist < 0) then
+          call prompt('Choose the number of discrete dust phases (N)',N,0)
+       endif
+       message = 'Choose the smallest simulated grain size s(1) in '//trim(abbrev)
+       call prompt(trim(message),s1,0.)
+       message = 'Choose the cell width in log10 space dS assuming units of '//trim(abbrev)
+       call prompt(trim(message),logds,0.01,100.)
+       sN   = sN_func(N,s1,logds)
+       smin = smin_func(N,s1,sN)
+       smax = smax_func(N,smin,s1,sN)
+    case(3)
+       if (ichoosedist < 0) then
+          call prompt('Choose the number of discrete dust phases (N)',N,0)
+       endif
+       message = 'Choose the largest simulated grain size s(N) in '//trim(abbrev)
+       call prompt(trim(message),sN,s1,1000.)
+       message = 'Choose the cell width in log10 space dS assuming units of '//trim(abbrev)
+       call prompt(trim(message),logds,0.01,100.)
+       s1   = s1_func(N,sN,logds)
+       smin = smin_func(N,s1,sN)
+       smax = smax_func(N,smin,s1,sN)
+    case(4)
+       if (ichoosedist < 0) then
+          call prompt('Choose the number of discrete dust phases (N)',N,0)
+       endif
+       message = 'Enter smin for the distribution in '//trim(abbrev)
+       call prompt(trim(message),smin,0.)
+       message = 'Enter smax for the distribution in '//trim(abbrev)
+       call prompt(trim(message),smax,smin)
+       logds = logds_func(N,smin,smax)
+    end select
+
+    print*,''
+    write(*,'(A)') '------------------------------------------'
+    write(*,'(A)') '   Summary of the selected grain sizes:   '
+    write(*,'(A)') '------------------------------------------'
+    if (ichoosedist <= 0 .and. N /= ndusttypes) then
+       write(*,'(A,I2.0)') 'WARNING! If you like these values, you will '//new_line('A')// &
+                            '         have to recompile with ndusttypes = ',N
+       write(*,'(A,I2.0,A/)') '         (currently ndusttypes = ',ndusttypes,')'
+    endif
+    write(*,'(A,E21.14E2,1X,A )') 'smin = ',smin,trim(abbrev)
+    write(*,'(A,E21.14E2,1X,A/)') 'smax = ',smax,trim(abbrev)
+
+    if (allocated(loggrid)) deallocate(loggrid)
+    allocate(loggrid(N+1))
+    if (allocated(grid)) deallocate(grid)
+    allocate(grid(N+1))
+    if (allocated(s)) deallocate(s)
+    allocate(s(N))
+
+    do i = 1,N+1
+       loggrid(i) = log10(smin) + (i-1)*logds
+    enddo
+
+    grid = 10.**loggrid
+
+    s = 0.
+    do i = 1,N
+       s(i) = sqrt(grid(i)*grid(i+1))
+       write(*,'(A,I0.2,A,E21.14E2,1X,A)') 's',i,' = ',s(i),trim(abbrev)
+    enddo
+    write(*,'(A)') '------------------------------------------'
+    print*,''
+
+    if (N == ndusttypes) then
+       call prompt('Would you like to try different values?',itryagain)
+
+       if (.not. itryagain) then
+          smincgs = units_to_cgs*smin
+          smaxcgs = units_to_cgs*smax
+          iloop = .false.
+       endif
+    endif
+ enddo
+
+end subroutine grainsize_dist_assist
+
 
 end module set_dust
