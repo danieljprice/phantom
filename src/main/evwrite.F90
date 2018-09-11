@@ -436,7 +436,7 @@ subroutine write_evlog(iprint)
     Mdust_label = 'Mdust'
     call make_tags_unique(ndusttypes,Mdust_label)
     do i=1,ndusttypes
-       write(iprint,"(1x,a' = ',es10.3)") trim(Mdust_label(i)),mdust(i)
+       write(iprint,"(1x,1(a,' = ',es10.3))") trim(Mdust_label(i)),mdust(i)
     enddo
  endif
 
