@@ -64,7 +64,7 @@ subroutine test_derivs(ntests,npass,string)
  use part,         only:ibin
 #endif
 #ifdef DUST
- use dust,         only:init_drag,idrag,K_code,grainsizecgs
+ use dust,         only:init_drag,idrag,K_code
 #endif
  use units,        only:set_units
  use testutils,    only:checkval,checkvalf
@@ -93,7 +93,6 @@ subroutine test_derivs(ntests,npass,string)
  logical           :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs
  logical           :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testall
  real              :: vwavei,stressmax,rhoi,sonrhoi(maxdustsmall),drhodti,ddustevoli(maxdustsmall)
- real              :: smincgs,smaxcgs,sindex
  integer(kind=8)   :: nptot
  real, allocatable :: dummy(:)
 #ifdef IND_TIMESTEPS

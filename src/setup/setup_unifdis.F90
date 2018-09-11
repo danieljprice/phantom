@@ -41,7 +41,7 @@ module setup
  implicit none
  public :: setpart
 
- integer :: npartx,ilattice,dust_method
+ integer :: npartx,ilattice
  real    :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi
  character(len=20) :: dist_unit,mass_unit
  real(kind=8) :: udist,umass
