@@ -1569,9 +1569,9 @@ edit: checksetup
 #
 SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 \
          utils_dumpfiles.f90 utils_mathfunc.f90 utils_infiles.f90 utils_vectors.f90 \
-         utils_datafiles.f90 datafiles.f90 gitinfo.f90 ${DOMAIN} part.F90 utils_sphNG.f90 \
-         commons.f90 ${SRCFASTMATH} ${SRCEOS} centreofmass.f90 ${SRCPOT} checkoptions.F90 \
-         viscosity.f90 options.f90 prompting.f90 ${SRCDUST} \
+         utils_datafiles.f90 utils_filenames.f90 datafiles.f90 gitinfo.f90 ${DOMAIN} \
+         part.F90 utils_sphNG.f90 commons.f90 ${SRCFASTMATH} ${SRCEOS} centreofmass.f90 \
+         ${SRCPOT} checkoptions.F90 viscosity.f90 options.f90 prompting.f90 ${SRCDUST} \
          readwrite_dumps.F90
 OBJDUMP1= $(SRCDUMP:.f90=.o)
 OBJDUMP= $(OBJDUMP1:.F90=.o)
@@ -1583,7 +1583,7 @@ physcon.o: .make_mathflags
 #----------------------------------------------------
 # these are the sources for phantom setup utility
 #
-SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_filenames.f90 utils_summary.F90 \
+SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 \
           utils_tables.f90 random.f90 mpi_balance.F90 set_dust.F90 \
           set_dust_options.f90 set_binary.f90 set_flyby.f90 utils_indtimesteps.F90 \
           partinject.F90 dtype_kdtree.F90 stack.F90 mpi_dens.F90 mpi_force.F90 \
@@ -1732,11 +1732,11 @@ cleanphantom2power:
 #----------------------------------------------------
 # these are the sources for the phantom_moddump utility
 #
-OBJMOD1= utils_omp.F90 utils_summary.f90 utils_filenames.f90 utils_indtimesteps.F90 \
+OBJMOD1= utils_omp.F90 utils_summary.f90 utils_indtimesteps.F90 \
           utils_tables.f90 checksetup.f90 set_Bfield.f90 ${LINKLIST} partinject.F90 \
-		  random.f90 set_disc.F90 set_dust.F90 set_binary.f90 ${SRCINJECT} \
+          random.f90 set_disc.F90 set_dust.F90 set_binary.f90 ${SRCINJECT} \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} ${SRCPHOTO} density_profiles.f90 \
-		  ptmass.F90 readwrite_infile.f90 ${MODFILE:.f90=.o}
+          ptmass.F90 readwrite_infile.f90 ${MODFILE:.f90=.o}
 OBJMOD2= ${OBJMOD1:.F90=.o}
 OBJMOD= ${OBJMOD2:.f90=.o}
 OBJDA= ${OBJDUMP} ${OBJMOD} phantom_moddump.o
@@ -1758,8 +1758,8 @@ cleanmoddump:
 OBJAN1= ${ANALYSIS:.f90=.o}
 OBJAN2= ${OBJAN1:.F90=.o}
 OBJAN= ${OBJAN2:.f=.o}
-OBJA= utils_filenames.o utils_sort.o utils_tables.o leastsquares.o solvelinearsystem.o \
-	  ${OBJDUMP} utils_disc.o set_dust.o set_binary.o ${OBJAN}
+OBJA= utils_sort.o utils_tables.o leastsquares.o solvelinearsystem.o \
+      ${OBJDUMP} utils_disc.o set_dust.o set_binary.o ${OBJAN}
 
 ifndef ANALYSISBIN
 ANALYSISBIN=phantomanalysis
@@ -2064,7 +2064,7 @@ cleanacc2ang:
 OBJMF1 = ${ANALYSIS:.f90=.o}
 OBJMF2 = ${OBJMF1:.F90=.o}
 OBJMF = ${OBJMF2:.f=.o}
-OBJM= utils_filenames.o utils_sort.o ${OBJDUMP} ${OBJMF} set_binary.o mf_write.o
+OBJM= utils_sort.o leastsquares.o solvelinearsystem.o ${OBJDUMP} ${OBJMF} set_binary.o mf_write.o
 
 .PHONY: mflow
 mflow: checksys $(OBJM)  mflow.o ev2mdot lombperiod
