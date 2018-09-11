@@ -88,6 +88,7 @@ module setup
                             Kdrag,ilimitdustfluxinp
  use dust,             only:ilimitdustflux,grainsizecgs,graindenscgs
  use set_dust,         only:set_dustbinfrac
+ use fileutils,        only:make_tags_unique
 
  implicit none
  public  :: setpart
@@ -157,7 +158,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setdisc,              only:set_disc,get_disc_mass
  use set_dust_options,     only:set_dust_default_options,check_dust_method
  use setflyby,             only:set_flyby,get_T_flyby
- use fileutils,            only:make_tags_unique
  use table_utils,          only:logspace
  use timestep,             only:tmax,dtmax
  use units,                only:set_units,select_unit,umass,udist,utime
@@ -876,18 +876,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        varstring = 'grain size'
        call make_tags_unique(ndusttypes,varstring)
        do i=1,ndusttypes
-          print*,adjustr(varstring(i))//': ',grainsize(i)*udist,' cm'
+          print*,adjustr(varstring(i))//' : ',grainsize(i)*udist,' cm'
        enddo
        varstring = 'grain density'
        call make_tags_unique(ndusttypes,varstring)
        do i=1,ndusttypes
-          print*,adjustr(varstring(i))//': ',graindens(i)*umass/udist**3,' g/cm^3'
+          print*,adjustr(varstring(i))//' : ',graindens(i)*umass/udist**3,' g/cm^3'
        enddo
     endif
     varstring = 'approx. Stokes'
     call make_tags_unique(ndusttypes,varstring)
     do i=1,ndusttypes
-       print*,'',adjustr(varstring(i))//': ',Stokes(i)
+       print*,'',adjustr(varstring(i))//' : ',Stokes(i)
     enddo
     print "(1x,40('-'),/)"
  else
@@ -1427,6 +1427,7 @@ subroutine write_setupfile(filename)
  integer, parameter :: iunit = 20
  logical :: done_alpha
  integer :: i,maxdiscs
+ character(len=20) :: varstring(maxdusttypes)
 
  done_alpha = .false.
  maxdiscs = 1
@@ -1439,8 +1440,10 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# resolution'
  call write_inopt(np,'np','number of gas particles',iunit)
  if (use_dust .and. .not.use_dustfrac) then
+    varstring = 'np_dust'
+    call make_tags_unique(ndusttypesinp,varstring)
     do i=1,ndusttypesinp
-       call write_inopt(np_dust(i),'np_dust'//planets(i),'number of dust particles',iunit)
+       call write_inopt(np_dust(i),varstring(i),'number of dust particles',iunit)
     enddo
  endif
  !--units
@@ -1675,6 +1678,7 @@ subroutine read_setupfile(filename,ierr)
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr
+ character(len=20) :: varstring(maxdusttypes)
  type(inopts), allocatable :: db(:)
 
  print "(a)",' reading setup options from '//trim(filename)
@@ -1794,8 +1798,10 @@ subroutine read_setupfile(filename,ierr)
  !--resolution
  call read_inopt(np,'np',db,min=0,errcount=nerr)
  if (use_dust .and. .not.use_dustfrac) then
+    varstring = 'np_dust'
+    call make_tags_unique(ndusttypesinp,varstring)
     do i=1,ndustlarge
-       call read_inopt(np_dust(i),'np_dust'//planets(i),db,min=0,errcount=nerr)
+       call read_inopt(np_dust(i),varstring(i),db,min=0,errcount=nerr)
     enddo
  endif
 
