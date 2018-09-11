@@ -157,7 +157,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setdisc,              only:set_disc,get_disc_mass
  use set_dust_options,     only:set_dust_default_options,check_dust_method
  use setflyby,             only:set_flyby,get_T_flyby
- use strings_utils,        only:array_of_numbered_strings
+ use fileutils,            only:make_tags_unique
  use table_utils,          only:logspace
  use timestep,             only:tmax,dtmax
  use units,                only:set_units,select_unit,umass,udist,utime
@@ -184,13 +184,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: polyk_dust,xorigini(3),vorigini(3),alpha_returned(3)
  real    :: star_m(3),disc_mdust(3,maxdusttypes),sig_normdust(3),u(3)
  real    :: enc_m(maxbins),rad(maxbins),Q_mintmp,disc_mtmp(3),annulus_mtmp(3)
- integer :: int_len,maxdiscs
+ integer :: maxdiscs
  integer :: ierr,j,idisc,nparttot,npingasdisc,npindustdisc,itype
  integer :: sigmaprofilegas(3),sigmaprofiledust(3),iprofilegas(3),iprofiledust(3)
  character(len=100) :: filename
- character(len=20)  :: fmt_space
  character(len=100) :: prefix
- character(len=120) :: varstring(maxdusttypes)
+ character(len=20)  :: varstring(maxdusttypes)
 
  integer :: npart_planet_atm,npart_recentre
  integer :: npart_disc
@@ -873,31 +872,23 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(a,i2,a)",' -------------- added dust --------------'
     if (use_dustgrowth) then
        print "(a,g10.3,a)", ' initial grain size: ',grainsize(1)*udist,' cm'
-    elseif (ndusttypes > 1) then
-       int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
-       write(fmt_space,'(a,I0,a)') '(a',9-(int_len+1),',a,g10.3,a)'
-       call array_of_numbered_strings('grain size ',': ',varstring(1:ndusttypes))
-       do i=1,ndusttypes
-          print(fmt_space),'',trim(varstring(i)),grainsize(i)*udist,' cm'
-       enddo
-       call array_of_numbered_strings('grain density ',': ',varstring(1:ndusttypes))
-       do i=1,ndusttypes
-          print(fmt_space),'',trim(varstring(i)),graindens(i)*umass/udist**3,' g/cm^3'
-       enddo
     else
-       print "(a,g10.3,a)", '       grain size: ',grainsize(1)*udist,' cm'
-       print "(a,g10.3,a)", '    grain density: ',graindens(1)*umass/udist**3,' g/cm^3'
-    endif
-    if (ndusttypes > 1) then
-       int_len = floor(log10(real(ndusttypes) + tiny(0.))) + 1
-       write(fmt_space,'(a,I0,a)') '(a',5-(int_len+1),',a,g10.3,a)'
-       call array_of_numbered_strings('approx. Stokes ',': ',varstring(1:ndusttypes))
+       varstring = 'grain size'
+       call make_tags_unique(ndusttypes,varstring)
        do i=1,ndusttypes
-          print(fmt_space),'',trim(varstring(i)),Stokes(i),''
+          print*,adjustr(varstring(i))//': ',grainsize(i)*udist,' cm'
        enddo
-    else
-       print "(a,g10.3,a)", '   approx. Stokes: ',Stokes(1),''
+       varstring = 'grain density'
+       call make_tags_unique(ndusttypes,varstring)
+       do i=1,ndusttypes
+          print*,adjustr(varstring(i))//': ',graindens(i)*umass/udist**3,' g/cm^3'
+       enddo
     endif
+    varstring = 'approx. Stokes'
+    call make_tags_unique(ndusttypes,varstring)
+    do i=1,ndusttypes
+       print*,'',adjustr(varstring(i))//': ',Stokes(i)
+    enddo
     print "(1x,40('-'),/)"
  else
     print "(/,a,/)",' There is no dust here!'

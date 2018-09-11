@@ -120,7 +120,7 @@ subroutine read_dust_setup_options(db,nerr)
  use growth,        only:read_growth_setup_options
  use infile_utils,  only:inopts,read_inopt
  use io,            only:error
- use strings_utils, only:array_of_numbered_strings
+ use fileutils,     only:make_tags_unique
 
  type(inopts), allocatable, intent(inout) :: db(:)
  integer, intent(inout) :: nerr
@@ -150,11 +150,13 @@ subroutine read_dust_setup_options(db,nerr)
        call read_inopt(smaxcgs,'smaxcgs',db,min=smincgs,errcount=nerr)
        call read_inopt(sindex ,'sindex' ,db,errcount=nerr)
     case(1)
-       call array_of_numbered_strings('grainsizeinp','',varlabel(1:ndusttypesinp))
+       varlabel = 'grainsizeinp'
+       call make_tags_unique(ndusttypesinp,varlabel)
        do i=1,ndusttypesinp
           call read_inopt(grainsizeinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
        enddo
-       call array_of_numbered_strings('dustbinfrac','',varlabel(1:ndusttypesinp))
+       varlabel = 'dustbinfrac'
+       call make_tags_unique(ndusttypesinp,varlabel)
        do i=1,ndusttypesinp
           call read_inopt(dustbinfrac(i),trim(varlabel(i)),db,min=0.,max=1.,err=ierr,errcount=nerr)
        enddo
@@ -168,7 +170,8 @@ subroutine read_dust_setup_options(db,nerr)
     case(0)
        call read_inopt(graindensinp(1),'graindensinp',db,min=0.,err=ierr,errcount=nerr)
     case(1)
-       call array_of_numbered_strings('graindensinp','',varlabel(1:ndusttypesinp))
+       varlabel = 'graindensinp'
+       call make_tags_unique(ndusttypesinp,varlabel)
        do i=1,ndusttypesinp
           call read_inopt(graindensinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
        enddo
@@ -190,7 +193,7 @@ end subroutine read_dust_setup_options
 subroutine write_dust_setup_options(iunit)
  use growth,        only:write_growth_setup_options
  use infile_utils,  only:write_inopt
- use strings_utils, only:array_of_numbered_strings
+ use fileutils,     only:make_tags_unique
 
  integer, intent(in) :: iunit
 
@@ -221,14 +224,20 @@ subroutine write_dust_setup_options(iunit)
        call write_inopt(smaxcgs,'smaxcgs','max grain size (in cm)',iunit)
        call write_inopt(sindex ,'sindex' ,'grain size power-law index (e.g. MRN = 3.5)',iunit)
     case(1)
-       call array_of_numbered_strings('grainsizeinp','',varlabel(1:ndusttypesinp))
-       call array_of_numbered_strings('grain size ',' (in cm)',varstring(1:ndusttypesinp))
+       varlabel = 'grainsizeinp'
+       varstring = 'grain size'
+       call make_tags_unique(ndusttypesinp,varlabel)
+       call make_tags_unique(ndusttypesinp,varstring)
        do i=1,ndusttypesinp
+          varstring(i) = trim(varstring(i))//' (in cm)'
           call write_inopt(grainsizeinp(i),trim(varlabel(i)),trim(varstring(i)),iunit)
        enddo
-       call array_of_numbered_strings('dustbinfrac','',varlabel(1:ndusttypesinp))
-       call array_of_numbered_strings('dust bin fraction ',' (frac. of total dust)',varstring(1:ndusttypesinp))
+       varlabel = 'dustbinfrac'
+       varstring = 'dust bin fraction'
+       call make_tags_unique(ndusttypesinp,varlabel)
+       call make_tags_unique(ndusttypesinp,varstring)
        do i=1,ndusttypesinp
+          varstring(i) = trim(varstring(i))//' (frac. of total dust)'
           call write_inopt(dustbinfrac(i),trim(varlabel(i)),trim(varstring(i)),iunit)
        enddo
     end select
@@ -237,9 +246,12 @@ subroutine write_dust_setup_options(iunit)
     case(0)
        call write_inopt(graindensinp(1),'graindensinp','intrinsic grain density (in g/cm^3)',iunit)
     case(1)
-       call array_of_numbered_strings('graindensinp','',varlabel(1:ndusttypesinp))
-       call array_of_numbered_strings('grain density ',' (in g/cm^3)',varstring(1:ndusttypesinp))
+       varlabel = 'graindensinp'
+       varstring = 'grain density'
+       call make_tags_unique(ndusttypesinp,varlabel)
+       call make_tags_unique(ndusttypesinp,varstring)
        do i=1,ndusttypesinp
+          varstring(i) = trim(varstring(i))//' (in g/cm^3)'
           call write_inopt(graindensinp(i),trim(varlabel(i)),trim(varstring(i)),iunit)
        enddo
     end select

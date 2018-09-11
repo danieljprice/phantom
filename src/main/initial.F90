@@ -199,7 +199,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use centreofmass,     only:get_centreofmass
  use energies,         only:etot,angtot,totmom,mdust,xyzcom
  use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
- use strings_utils,    only:array_of_numbered_strings
+ use fileutils,        only:make_tags_unique
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  integer         :: ierr,i,j,idot,nerr,nwarn
@@ -588,9 +588,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  write(iprint,'(2x,a,es18.6)')   'Initial angular momentum: ', angtot_in
  write(iprint,'(2x,a,es18.6)')   'Initial linear momentum:  ', totmom_in
 #ifdef DUST
- call array_of_numbered_strings('dust','',dust_label(1:ndusttypes))
+ dust_label = 'dust'
+ call make_tags_unique(ndusttypes,dust_label)
  do i=1,ndusttypes
-    write(iprint,'(2x,a,es18.6)') 'Initial '//dust_label(i)//' mass:     ',mdust_in(i)
+    write(iprint,'(2x,a,es18.6)') 'Initial '//trim(dust_label(i))//' mass:     ',mdust_in(i)
  enddo
  write(iprint,'(2x,a,es18.6)')   'Initial total dust mass:  ', sum(mdust_in(:))
 #endif

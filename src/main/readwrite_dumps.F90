@@ -1580,7 +1580,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  use part,       only:maxtypes,igas,idust,ndustsmall,ndustlarge,ndusttypes
  use units,      only:udist,umass,utime,set_units_extra,set_units
  use dump_utils, only:extract,dump_h
- use strings_utils, only:array_of_numbered_strings
+ use fileutils,  only:make_tags_unique
  type(dump_h),    intent(in)  :: hdr
  logical,         intent(in)  :: phantomdump,got_tags
  integer(kind=8), intent(out) :: nparttot
@@ -1637,7 +1637,8 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
           counter = counter + 1
        endif
     enddo
-    call array_of_numbered_strings('dust','',dust_label(1:counter))
+    dust_label = 'dust'
+    call make_tags_unique(counter,dust_label)
     do i=1,counter
        write(*,*) 'n('//trim(dust_label(i))//') = ',npartoftype(idust+i-1)
     enddo

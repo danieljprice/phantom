@@ -401,7 +401,7 @@ subroutine write_evlog(iprint)
  use boundary,      only:dxbound,dybound,dzbound
  use units,         only:unit_density
  use options,       only:use_dustfrac
- use strings_utils, only:array_of_numbered_strings
+ use fileutils,     only:make_tags_unique
  integer, intent(in) :: iprint
  character(len=120)  :: string,Mdust_label(maxdusttypes)
  integer :: i
@@ -433,7 +433,8 @@ subroutine write_evlog(iprint)
  endif
  if (use_dust) then
     write(iprint,"(1x,'Mgas = ',es10.3)") mgas
-    call array_of_numbered_strings('Mdust','',Mdust_label(1:ndusttypes))
+    Mdust_label = 'Mdust'
+    call make_tags_unique(ndusttypes,Mdust_label)
     do i=1,ndusttypes
        write(iprint,"(1x,a' = ',es10.3)") trim(Mdust_label(i)),mdust(i)
     enddo

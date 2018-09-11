@@ -27,7 +27,7 @@ module fileutils
  implicit none
  public :: getnextfilename,numfromfile,basename,get_ncolumns,skip_header
  public :: strip_extension,is_digit,files_are_sequential
- public :: ucase,lcase
+ public :: ucase,lcase,make_tags_unique
 
  private
 
@@ -371,5 +371,48 @@ function lcase(string)
  enddo
 
 end function lcase
+
+!------------------------------
+! Append a number to a string
+! e.g. string,2 -> string2
+!------------------------------
+subroutine append_number(string,j)
+ character(len=*), intent(inout) :: string
+ integer,          intent(in)    :: j
+ character(len=12) :: strj
+
+ write(strj,"(i12)") j
+ string = trim(string)//trim(adjustl(strj))
+
+end subroutine append_number
+
+!----------------------------------------------------------------------
+! Append numbers to otherwise identical tags to make them unique
+! e.g. massoftype1, massoftype2, massoftype3, etc.
+!----------------------------------------------------------------------
+subroutine make_tags_unique(ntags,tags)
+ integer, intent(in) :: ntags
+ character(len=*), dimension(ntags), intent(inout) :: tags
+ character(len=len(tags)) :: tagprev
+ integer :: i,j
+
+ if (ntags < 1) return
+ j = 0
+ tagprev = tags(1)
+ do i=2,ntags
+     if (tags(i)==tagprev) then
+        j = j + 1
+        if (j==1) then
+           call append_number(tags(i-1),j)
+           j = j + 1
+        endif
+        call append_number(tags(i),j)
+     else
+        tagprev = tags(i)
+        j = 0
+     endif
+ enddo
+
+end subroutine make_tags_unique
 
 end module fileutils
