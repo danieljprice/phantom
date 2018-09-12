@@ -1681,7 +1681,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
              rhodusti(l) = cnormk*massoftype(idust+l-1)*(rhosum(irhodusti+l-1))*hi31
           enddo
           iloc = ndustsmall + 1
-          dustfrac(iloc:iloc+ndustlarge,lli) = rhodusti(1:ndustlarge)*rho1i ! dust-to-gas ratio
+          dustfrac(iloc:iloc+ndustlarge-1,lli) = rhodusti(1:ndustlarge)*rho1i ! dust-to-gas ratio
        elseif (iamdusti) then
           dustfrac(:,lli) = 0.
        endif
