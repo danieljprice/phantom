@@ -427,7 +427,7 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
  ! set default file output parameters
  !
  if (id==master) write(*,"('Setting up ',a)") trim(sphere_opt(isphere))
- call set_default_options(isphere,iexist)
+ call set_default_options(polyk,isphere,iexist)
 
  if (isphere==imesa .or. isphere==ikepler) then
     call prompt('Enter the desired EoS for setup', ieos)
@@ -483,9 +483,10 @@ end subroutine setup_interactive
 !  This routine should not do ANY prompting
 !+
 !-----------------------------------------------------------------------
-subroutine set_default_options(istar,iexist)
- integer, intent(in) :: istar
- logical, intent(in) :: iexist
+subroutine set_default_options(polyk,istar,iexist)
+ real,    intent(out) :: polyk
+ integer, intent(in)  :: istar
+ logical, intent(in)  :: iexist
 
  select case(istar)
  case(ipoly)
@@ -670,7 +671,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
 
  nerr = 0
  call read_inopt(isphere,'isphere',db,errcount=nerr)
- call set_default_options(isphere,iexist=.true.)
+ call set_default_options(polyk,isphere,iexist=.true.)
 
  call read_inopt(mass_unit,'mass_unit',db,ierr)
  call read_inopt(dist_unit,'dist_unit',db,ierr)
