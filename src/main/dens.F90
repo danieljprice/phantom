@@ -1676,14 +1676,12 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        ! and store it in dustfrac as dust-to-gas ratio
        ! so that rho times dustfrac gives dust density
        !
+       dustfrac(:,lli) = 0.
        if (iamgasi) then
           do l=1,ndustlarge
              rhodusti(l) = cnormk*massoftype(idust+l-1)*(rhosum(irhodusti+l-1))*hi31
+             dustfrac(ndustsmall+l,lli) = rhodusti(l)*rho1i ! dust-to-gas ratio
           enddo
-          iloc = ndustsmall + 1
-          dustfrac(iloc:iloc+ndustlarge-1,lli) = rhodusti(1:ndustlarge)*rho1i ! dust-to-gas ratio
-       elseif (iamdusti) then
-          dustfrac(:,lli) = 0.
        endif
     endif
     !
