@@ -55,6 +55,7 @@ subroutine initialise()
  use options,          only:set_default_options
  use part,             only:maxBevol
  use units,            only:set_units
+ use io_summary,       only:summary_initialise
  use boundary,         only:set_boundary
  use writeheader,      only:write_codeinfo
  use evwrite,          only:init_evfile
@@ -87,6 +88,10 @@ subroutine initialise()
  call set_default_options
  call set_boundary
  call init_evfile(ievfile,'testlog',.false.)
+!
+!--initialise values for summary array
+!
+ call summary_initialise
 !
 !--check compile-time settings are OK
 !
@@ -194,7 +199,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use cooling,          only:init_cooling
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
- use io_summary,       only:summary_initialise
  use units,            only:unit_density
  use centreofmass,     only:get_centreofmass
  use energies,         only:etot,angtot,totmom,mdust,xyzcom
@@ -289,9 +293,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
  call init_eos(ieos,ierr)
  if (ierr /= 0) call fatal('initial','error initialising equation of state')
-!
-!--Initialise values for summary array
- call summary_initialise
 !
 !--get total number of particles (on all processors)
 !
