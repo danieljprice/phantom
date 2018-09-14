@@ -678,7 +678,6 @@ ifeq ($(SETUP), srblast)
     METRIC=minkowski
     KERNEL=quintic
     KNOWN_SETUP=yes
-    MAXP=3000000
     CONST_AV=yes
     ISOTHERMAL=no
 endif

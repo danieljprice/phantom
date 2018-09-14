@@ -31,6 +31,7 @@ module setup
  !--private module variables
  integer                      :: npartx
  real                         :: Pblast,Pmed,boxsize,Rblast
+ real                         :: smoothfac
 
 contains
 
@@ -47,7 +48,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
  use physcon,      only:pi
  use timestep,     only:tmax,dtmax
- use options,      only:nfulldump,alphau
+ use options,      only:nfulldump
  use prompting,    only:prompt
  use kernel,       only:hfact_default
  use part,         only:igas,periodic
@@ -63,7 +64,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  real                             :: deltax,totmass,toten
- real                             :: r2
+ real                             :: r,del,umed,ublast
  integer                          :: i,ierr
  character(len=100)               :: filename
  logical                          :: iexist
@@ -86,7 +87,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  time        = 0.
  hfact       = hfact_default
  rhozero     = 1.0
- alphau      = 1.0
  gamma       = 5./3.
 
  !
@@ -96,7 +96,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Pmed        = 0.0
  Rblast      = 0.125
  boxsize     = 1.
- npartx      = 128
+ npartx      = 40
+
+ smoothfac   = 0.1
 
  !
  ! Infile
@@ -128,6 +130,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call prompt(' Enter pressure in medium ',Pmed,0.)
     call prompt(' Enter size of box ',boxsize,0.)
     call prompt(' Enter radius of blast ',Rblast,0.,boxsize/2.)
+    call prompt(' IC smoothing factor (in terms of particle spacing) ',smoothfac)
     call write_setupfile(filename)
  endif
  call bcast_mpi(npartx)
@@ -142,6 +145,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
 
+ del = smoothfac*deltax
+
  !
  ! Finalise particle properties
  !
@@ -154,13 +159,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  toten = 0.
  do i=1,npart
     vxyzu(:,i) = 0.
-    r2         = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
-    if (r2 < Rblast**2) then
-       vxyzu(4,i) = Pblast/(rhozero*(gamma - 1.0))
-       toten = toten + vxyzu(4,i)
-    else
-       vxyzu(4,i) = Pmed/(rhozero*(gamma - 1.0))
-    endif
+    r          = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i))
+    ublast     = Pblast/(rhozero*(gamma - 1.0))
+    umed       = Pmed/(rhozero*(gamma - 1.0))
+    vxyzu(4,i) = (ublast-umed)/(1. + exp((r-Rblast)/del)) + umed
  enddo
 
  write(*,'(2x,a,2Es11.4)')'Pressure in blast, medium: ',Pblast,Pmed
@@ -188,6 +190,7 @@ subroutine write_setupfile(filename)
  call write_inopt(Pmed,   'Pmed'   ,'pressure in medium',iunit)
  call write_inopt(boxsize,'boxsize','size of the box'   ,iunit)
  call write_inopt(Rblast, 'Rblast' ,'radius of blast'   ,iunit)
+ call write_inopt(smoothfac, 'smoothfac' ,'IC smoothing factor (in terms of particle spacing)'   ,iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -212,6 +215,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(Pmed   ,'Pmed'   ,db,ierr)
  call read_inopt(boxsize,'boxsize',db,ierr)
  call read_inopt(Rblast ,'Rblast' ,db,ierr)
+ call read_inopt(smoothfac ,'smoothfac' ,db,ierr)
  call close_db(db)
 
 end subroutine read_setupfile
