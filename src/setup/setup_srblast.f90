@@ -159,7 +159,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  toten = 0.
  do i=1,npart
     vxyzu(:,i) = 0.
-    r          = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i))
+    r          = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
     ublast     = Pblast/(rhozero*(gamma - 1.0))
     umed       = Pmed/(rhozero*(gamma - 1.0))
     vxyzu(4,i) = (ublast-umed)/(1. + exp((r-Rblast)/del)) + umed
