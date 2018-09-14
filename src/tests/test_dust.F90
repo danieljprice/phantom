@@ -123,12 +123,13 @@ end subroutine test_dust
 !+
 !----------------------------------------------------
 subroutine test_dustybox(ntests,npass)
+ use dim,            only:maxp,maxalpha
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
                           dustfrac,dustevol,ddustevol,temperature,iphase,iamdust,maxtypes,&
-                          ndusttypes
+                          ndusttypes,alphaind
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use energies,       only:compute_energies,ekin
@@ -177,6 +178,7 @@ subroutine test_dustybox(ntests,npass)
  ddustprop = 0.
  ddustevol = 0.
  dBevol = 0.
+ if (maxalpha==maxp) alphaind(:,:) = 0.
 
  itype = igas
  npart_previous = npart
@@ -293,11 +295,11 @@ end subroutine test_dustybox
 !+
 !----------------------------------------------------
 subroutine test_dustydiffuse(ntests,npass)
- use dim,       only:maxp,periodic,maxtypes,mhd,use_dust,maxdustsmall
+ use dim,       only:maxp,periodic,maxtypes,mhd,use_dust,maxdustsmall,maxalpha
  use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustevol,dustevol,&
                      xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,&
                      set_particle_type,rhoh,temperature,dustprop,ddustprop,&
-                     ndusttypes,ndustsmall
+                     ndusttypes,ndustsmall,alphaind
  use kernel,    only:hfact_default
  use eos,       only:gamma,polyk,ieos
  use dust,      only:K_code,idrag
@@ -348,6 +350,7 @@ subroutine test_dustydiffuse(ntests,npass)
  massoftype(igas)  = totmass/npartoftypetot(igas)
  allocate(ddustevol_prev(ndustsmall,npart))
  vxyzu = 0.
+ if (maxalpha==maxp) alphaind(:,:) = 0.
  if (mhd) Bevol = 0.
  !
  ! runtime options
@@ -387,12 +390,11 @@ subroutine test_dustydiffuse(ntests,npass)
 
  rc   = 0.25
  rc2  = rc**2
+ dustfrac = 0.
  do i=1,npart
     r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
     if (r2 < rc2) then
        dustfrac(1:ndustsmall,i) = epsi(:)*(1. - r2/rc2)
-    else
-       dustfrac(1:ndustsmall,i) = 0.
     endif
     call set_particle_type(i,igas)
  enddo
@@ -409,6 +411,8 @@ subroutine test_dustydiffuse(ntests,npass)
  tmax = 10.
  nsteps = nint(tmax/dt)
  dt = tmax/nsteps
+ fxyzu = 0.
+ fext = 0.
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
              dustfrac,ddustevol,temperature,time,dt,dtnew)
 
@@ -493,11 +497,11 @@ end subroutine test_dustydiffuse
 !+
 !---------------------------------------------------------------------------------
 subroutine test_drag(ntests,npass)
- use dim,         only:maxp,periodic,maxtypes,mhd,maxvxyzu,maxdustlarge
+ use dim,         only:maxp,periodic,maxtypes,mhd,maxvxyzu,maxdustlarge,maxalpha
  use part,        only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustevol,&
                        xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,&
                        set_particle_type,rhoh,temperature,dustprop,ddustprop,&
-                       idust,iphase,iamtype,ndusttypes,grainsize,graindens
+                       idust,iphase,iamtype,ndusttypes,grainsize,graindens,alphaind
  use options,     only:use_dustfrac
  use eos,         only:polyk,ieos
  use kernel,      only:hfact_default
@@ -537,6 +541,7 @@ subroutine test_drag(ntests,npass)
     ieos = 2
  endif
  fxyzu(:,:) = 0.
+ if (maxalpha==maxp) alphaind(:,:) = 0.
 
  iverbose = 2
  use_dustfrac = .false.
@@ -580,6 +585,7 @@ subroutine test_drag(ntests,npass)
  idrag=1
  if(idrag==2) K_code = 100.
 
+ fext = 0.
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
              dustfrac,ddustevol,temperature,time,0.,dtnew)
 
