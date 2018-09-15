@@ -76,7 +76,7 @@ module setup
                             iext_einsteinprec,iext_corot_binary,iext_corotate
  use options,          only:use_dustfrac,iexternalforce
 #ifdef MCFOST
- use options,          only:use_mcfost
+ use options,          only:use_mcfost,nfulldump
 #endif
  use part,             only:ndusttypes,ndustsmall,ndustlarge,grainsize,graindens
  use physcon,          only:au,solarm
@@ -304,6 +304,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 #ifdef MCFOST
  if (use_mcfost) then
     is_isothermal = .false.
+    nfulldump = 1
  else ! We are in the isothermal case
     is_isothermal = .true.
  endif
