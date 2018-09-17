@@ -69,7 +69,7 @@ program combinedustdumps
  print "(/,a,/)",' combinedustdumps: many grains make light work'
 
  !
- !--allocate arrays for dust particle positions and dustfrac
+ !--read first dumpfile: check idust, check MAXP
  !  we assume all dumps are from the same phantom version
  !
  call read_dump(trim(indumpfiles(1)),time,hfact,idisk1,iprint,0,1,ierr)
@@ -80,6 +80,14 @@ program combinedustdumps
     !--new dumps
     idust_tmp = idust
  endif
+ if (npartoftype(1) + ninpdumps*npartoftype(idust_tmp) > maxp) then
+    print "(a)",' MAXP too small, set MAXP >= ngas+ndumps*ndust and recompile'
+    stop
+ endif
+
+ !
+ !--allocate temporary arrays
+ !
  allocate (xyzh_tmp(ninpdumps,4,npartoftype(idust_tmp)),stat=ierr)
  if (ierr /= 0) stop 'error allocating memory to store positions'
  allocate (vxyzu_tmp(ninpdumps,4,npartoftype(idust_tmp)),stat=ierr)
@@ -189,5 +197,3 @@ program combinedustdumps
  if (allocated(graindens_tmp))   deallocate(graindens_tmp)
 
 end program combinedustdumps
-
-
