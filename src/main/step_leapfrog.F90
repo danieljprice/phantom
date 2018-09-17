@@ -648,7 +648,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use part,           only:maxphase,isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
                           summary_accrete,summary_accrete_fail
- use timestep,       only:bignumber
+ use timestep,       only:bignumber,C_force
  use eos,            only:equationofstate,ieos
  use cons2prim,      only:conservative_to_primitive
  use extern_gr,      only:get_grforce
@@ -782,7 +782,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp parallel do default(none) &
     !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei) &
     !$omp private(i,accreted) &
-    !$omp shared(ieos,dens,pxyzu,iexternalforce) &
+    !$omp shared(ieos,dens,pxyzu,iexternalforce,C_force) &
     !$omp private(pi,pondensi,spsoundi,dtf) &
     !$omp firstprivate(itype,pmassi) &
     !$omp reduction(min:dtextforce_min) &
@@ -798,7 +798,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
           pi = pondensi*dens(i)
           call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
-          dtextforce_min = min(dtf,dtextforce_min)
+          dtextforce_min = min(dtextforce_min,C_force*dtf)
           !
           ! correct v to the full step using only the external force
           !
