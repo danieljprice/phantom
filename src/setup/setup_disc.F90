@@ -54,7 +54,6 @@
 !    mass_unit     -- mass unit (e.g. solarm,jupiterm,earthm)
 !    norbits       -- maximum number of orbits at outer disc
 !    np            -- number of gas particles
-!    np_dust       -- number of dust particles
 !    nplanets      -- number of planets
 !    nsinks        -- number of sinks
 !    ramp          -- Do you want to ramp up the planet mass slowly?
@@ -64,9 +63,10 @@
 !    use_mcfost    -- use the mcfost library
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
-!    extern_corotate, extern_lensethirring, externalforces, growth,
-!    infile_utils, io, kernel, options, part, physcon, prompting, set_dust,
-!    setbinary, setdisc, setflyby, spherical, timestep, units, vectorutils
+!    extern_corotate, extern_lensethirring, externalforces, fileutils,
+!    growth, infile_utils, io, kernel, options, part, physcon, prompting,
+!    set_dust, set_dust_options, setbinary, setdisc, setflyby, spherical,
+!    table_utils, timestep, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module setup

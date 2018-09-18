@@ -12,13 +12,14 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Daniel Mentiplay
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, growth, options, part, prompting, set_dust
+!  DEPENDENCIES: dim, dust, growth, options, part, prompting, set_dust,
+!    table_utils
 !+
 !--------------------------------------------------------------------------
 module moddump

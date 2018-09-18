@@ -17,9 +17,18 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
+!    dust_method   -- dust method (1=one fluid,2=two fluid)
+!    dust_to_gas   -- dust to gas ratio
+!    graindensinp  -- intrinsic grain density (in g/cm^3)
+!    grainsizeinp  -- grain size (in cm)
+!    igraindens    -- grain density input (0=equal,1=manually)
+!    ndusttypesinp -- number of grain sizes
+!    sindex        -- grain size power-law index (e.g. MRN = 3.5)
+!    smaxcgs       -- max grain size (in cm)
+!    smincgs       -- min grain size (in cm)
 !
-!  DEPENDENCIES: dim, dust, eos, growth, infile_utils, io, options, part,
-!    prompting, units
+!  DEPENDENCIES: dim, dust, eos, fileutils, growth, infile_utils, io,
+!    options, part, prompting
 !+
 !--------------------------------------------------------------------------
 module set_dust_options

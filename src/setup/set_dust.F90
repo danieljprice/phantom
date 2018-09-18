@@ -16,9 +16,9 @@
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS:
+!  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES:
+!  DEPENDENCIES: io, table_utils
 !+
 !--------------------------------------------------------------------------
 

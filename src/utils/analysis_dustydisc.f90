@@ -19,7 +19,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: dim, dust, infile_utils, io, leastsquares, options, part,
-!    physcon, set_dust, solvelinearsystem, units
+!    physcon, solvelinearsystem, units
 !+
 !--------------------------------------------------------------------------
 module analysis

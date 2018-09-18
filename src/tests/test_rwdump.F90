@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, dump_utils, dust, eos, io, mpiutils, part,
-!    physcon, readwrite_dumps, testutils, timing, units
+!  DEPENDENCIES: boundary, dump_utils, eos, io, mpiutils, part, physcon,
+!    readwrite_dumps, testutils, timing, units
 !+
 !--------------------------------------------------------------------------
 module testrwdump

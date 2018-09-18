@@ -18,9 +18,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: datafiles, dim, dust, extern_spiral, externalforces, io,
-!    mpiutils, options, part, physcon, prompting, random, setup_params,
-!    units
+!  DEPENDENCIES: datafiles, dim, extern_spiral, externalforces, io,
+!    mpiutils, options, part, physcon, prompting, random, set_dust,
+!    setup_params, units
 !+
 !--------------------------------------------------------------------------
 module setup

@@ -20,9 +20,9 @@
 !
 !  DEPENDENCIES: balance, boundary, centreofmass, checkoptions, checksetup,
 !    chem, cooling, cpuinfo, densityforce, deriv, dim, domain, dust,
-!    energies, eos, evwrite, externalforces, fastmath, forcing, growth,
-!    h2cooling, initial_params, io, io_summary, linklist, mf_write, mpi,
-!    mpiutils, nicil, nicil_sup, omputils, options, part, photoevap,
+!    energies, eos, evwrite, externalforces, fastmath, fileutils, forcing,
+!    growth, h2cooling, initial_params, io, io_summary, linklist, mf_write,
+!    mpi, mpiutils, nicil, nicil_sup, omputils, options, part, photoevap,
 !    ptmass, readwrite_dumps, readwrite_infile, setup, sort_particles,
 !    timestep, timestep_ind, timestep_sts, timing, units, writeheader
 !+

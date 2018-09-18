@@ -22,7 +22,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, dump_utils, dust, eos, externalforces,
+!  DEPENDENCIES: boundary, dim, dump_utils, eos, externalforces, fileutils,
 !    gitinfo, initial_params, io, lumin_nsdisc, mpi, mpiutils, options,
 !    part, setup_params, sphNGutils, timestep, units
 !+

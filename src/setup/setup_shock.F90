@@ -17,15 +17,16 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
+!    dtg    -- Dust to gas ratio
 !    gamma  -- Adiabatic index
 !    nx     -- resolution (number of particles in x) for -xleft < x < xshock
 !    polyk  -- square of the isothermal sound speed
 !    xleft  -- x min boundary
 !    xright -- x max boundary
 !
-!  DEPENDENCIES: boundary, dim, infile_utils, io, kernel, mpiutils, nicil,
-!    options, part, physcon, prompting, set_dust, setup_params, timestep,
-!    unifdis
+!  DEPENDENCIES: boundary, dim, dust, infile_utils, io, kernel, mpiutils,
+!    nicil, options, part, physcon, prompting, set_dust, setup_params,
+!    timestep, unifdis
 !+
 !--------------------------------------------------------------------------
 module setup

@@ -19,7 +19,7 @@
 !
 !  $Id$
 !
-!  USAGE: combinedustdumps inputdumpfile1 ... inputdumpfileN outputdumpfile
+!  USAGE: combinedustdumps inputdumpfiles ... outputdumpfile
 !
 !  DEPENDENCIES: deriv, dim, initial, io, part, readwrite_dumps, units
 !+
