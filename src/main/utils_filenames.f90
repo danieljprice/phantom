@@ -400,17 +400,17 @@ subroutine make_tags_unique(ntags,tags)
  j = 0
  tagprev = tags(1)
  do i=2,ntags
-     if (tags(i)==tagprev) then
-        j = j + 1
-        if (j==1) then
-           call append_number(tags(i-1),j)
-           j = j + 1
-        endif
-        call append_number(tags(i),j)
-     else
-        tagprev = tags(i)
-        j = 0
-     endif
+    if (tags(i)==tagprev) then
+       j = j + 1
+       if (j==1) then
+          call append_number(tags(i-1),j)
+          j = j + 1
+       endif
+       call append_number(tags(i),j)
+    else
+       tagprev = tags(i)
+       j = 0
+    endif
  enddo
 
 end subroutine make_tags_unique

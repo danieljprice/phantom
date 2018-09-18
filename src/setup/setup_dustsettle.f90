@@ -198,7 +198,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     vxyzu(:,i) = 0.
 
- !--set internal energy if necessary
+    !--set internal energy if necessary
     if (maxvxyzu >= 4) then
        if (gamma > 1.) then
           vxyzu(4,i) = cs**2/(gamma-1.)
@@ -207,7 +207,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        endif
     endif
 
- !--one fluid dust: set dust fraction on gas particles
+    !--one fluid dust: set dust fraction on gas particles
     if (use_dustfrac) then
        call set_dustfrac(dtg,dustfrac(:,i))
     else
