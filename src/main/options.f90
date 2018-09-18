@@ -68,7 +68,7 @@ subroutine set_default_options
  use timestep,  only:C_cour,C_force,C_cool,tmax,dtmax,nmax,nout,restartonshortest
  use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha
  use viscosity, only:set_defaults_viscosity
- use dim,       only:maxp,maxvxyzu,nalpha,ndusttypes
+ use dim,       only:maxp,maxvxyzu,nalpha
  use kernel,    only:hfact_default
 
  C_cour  =  0.3
@@ -129,11 +129,7 @@ subroutine set_default_options
  call set_defaults_viscosity
 
  ! dust method
- if (ndusttypes > 1) then
-    use_dustfrac = .true.
- else
-    use_dustfrac = .false.
- endif
+ use_dustfrac = .false.
 
  ! mcfost
  use_mcfost = .false.

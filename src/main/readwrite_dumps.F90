@@ -38,7 +38,6 @@ module readwrite_dumps
  public :: get_blocklimits
  logical, public    :: opened_full_dump       ! for use in analysis files if user wishes to skip small dumps
  logical, public    :: dt_read_in             ! to determine if dt has been read in so that ibin & ibinold can be set on restarts
- logical, public    :: multidustdump = .true. ! determine whether to dump dust arrays
  integer, parameter :: maxphead = 256         ! max items in header
  integer, parameter, public :: is_small_dump = 1978
  integer, parameter, public :: is_not_mhd = 1979
@@ -303,7 +302,7 @@ end subroutine get_dump_size
 !-------------------------------------------------------------------
 subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
-                 lightcurve,maxlum,store_temperature,use_dustgrowth,ndusttypes
+                 lightcurve,maxlum,store_temperature,use_dustgrowth
  use eos,   only:utherm,ieos,equationofstate,done_init_eos,init_eos
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bxyz,Bxyz_label,npart,npartoftype,maxtypes, &
@@ -311,7 +310,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
                  nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,&
                  maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,maxBevol,&
                  divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
-                 dustfrac_label,tstop_label,dustprop,dustprop_label,temperature,St
+                 dustfrac_label,tstop_label,dustprop,dustprop_label,temperature,St,ndusttypes,ndustsmall
  use options,    only:use_dustfrac
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
@@ -348,7 +347,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  type(dump_h)          :: hdr
  real, allocatable :: temparr(:)
  real :: ponrhoi,rhoi,spsoundi
- real :: dustfracisum1(npart),deltavsum(3,npart)
 
 !
 !--collect global information from MPI threads
@@ -452,22 +450,14 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        endif
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
        if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(5))
-       if (use_dust .and. ndusttypes>1 .and. multidustdump) &
-          call write_array(1,sum(dustfrac(:,1:npart),1),'dustfracsum',npart,k,ipass,idump,nums,ierrs(6))
        if (use_dust) &
           call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(7))
-       if (use_dust) call write_array(1,tstop,tstop_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(8))
-       if (use_dustfrac .and. ndusttypes>1 .and. multidustdump) then
-          dustfracisum1(:) = 1./sum(dustfrac(:,1:npart),1)
-          deltavsum(1,:)   = dustfracisum1(:)*sum(dustfrac(:,1:npart)*deltav(1,:,1:npart),1)
-          deltavsum(2,:)   = dustfracisum1(:)*sum(dustfrac(:,1:npart)*deltav(2,:,1:npart),1)
-          deltavsum(3,:)   = dustfracisum1(:)*sum(dustfrac(:,1:npart)*deltav(3,:,1:npart),1)
-          call write_array(1,deltavsum,(/'deltavsumx','deltavsumy','deltavsumz'/),3,npart,k,ipass,idump,nums,ierrs(9))
-       endif
-       do l = 1,ndusttypes
-          if (use_dustfrac .and. multidustdump) &
+       if (use_dust) call write_array(1,tstop,tstop_label,ndustsmall,npart,k,ipass,idump,nums,ierrs(8))
+       if (use_dustfrac) then
+          do l=1,ndustsmall
              call write_array(1,deltav(:,l,:),deltav_label,3,npart,k,ipass,idump,nums,ierrs(10))
-       enddo
+          enddo
+       endif
        if (store_temperature) call write_array(1,temperature,'T',npart,k,ipass,idump,nums,ierrs(12))
 
        ! write pressure to file
@@ -580,12 +570,13 @@ end subroutine write_fulldump
 !-------------------------------------------------------------------
 
 subroutine write_smalldump(t,dumpfile)
- use dim,        only:maxp,maxtypes,use_dust,lightcurve,use_dustgrowth,ndusttypes
+ use dim,        only:maxp,maxtypes,use_dust,lightcurve,use_dustgrowth
  use io,         only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,       only:xyzh,xyzh_label,npart,npartoftype,Bxyz,Bxyz_label,&
                       maxphase,iphase,h2chemistry,nabundances,&
-                      nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,abundance, &
-                      abundance_label,mhd,dustfrac,iamtype_int11,dustprop,dustprop_label,dustfrac_label,St
+                      nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,&
+                      abundance,abundance_label,mhd,dustfrac,iamtype_int11,&
+                      dustprop,dustprop_label,dustfrac_label,St,ndusttypes
  use dump_utils, only:open_dumpfile_w,dump_h,allocate_header,free_header,&
                       write_header,write_array,write_block_header
  use mpiutils,   only:reduceall_mpi
@@ -665,8 +656,6 @@ subroutine write_smalldump(t,dumpfile)
        endif
        if (h2chemistry .and. nabundances >= 1) &
                      call write_array(1,abundance,abundance_label,1,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-       if (use_dust .and. ndusttypes>1 .and. multidustdump) &
-          call write_array(1,sum(dustfrac(:,1:npart),1),'dustfracsum',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (use_dust) &
           call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
@@ -1169,7 +1158,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                                extradust,tfile,alphafile,idisk1,iprint,ierr)
  use dump_utils, only:read_array,match_tag
  use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,maxBevol, &
-                      store_temperature,use_dustgrowth,ndusttypes
+                      store_temperature,use_dustgrowth,maxdusttypes
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,abundance,abundance_label, &
                       alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,tstop,deltav,dustfrac_label, &
@@ -1184,7 +1173,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical, intent(in)   :: extradust
  real,    intent(in)   :: tfile,alphafile
  integer, intent(out)  :: ierr
- logical               :: got_dustfrac(ndusttypes),got_tstop(ndusttypes),got_deltav(3,ndusttypes)
+ logical               :: got_dustfrac(maxdusttypes),got_tstop(maxdusttypes),got_deltav(3,maxdusttypes)
  logical               :: match
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3)
@@ -1585,12 +1574,13 @@ end subroutine check_arrays
 subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
                          nblocks,npart,npartoftype, &
                          tfile,hfactfile,alphafile,iprint,id,nprocs,ierr)
- use dim,        only:maxp
+ use dim,        only:maxp,maxdustlarge,use_dust
  use io,         only:master ! check this
  use eos,        only:isink
- use part,       only:maxtypes,igas,idust
+ use part,       only:maxtypes,igas,idust,ndustsmall,ndustlarge,ndusttypes
  use units,      only:udist,umass,utime,set_units_extra,set_units
  use dump_utils, only:extract,dump_h
+ use fileutils,  only:make_tags_unique
  type(dump_h),    intent(in)  :: hdr
  logical,         intent(in)  :: phantomdump,got_tags
  integer(kind=8), intent(out) :: nparttot
@@ -1599,8 +1589,9 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  integer,         intent(in)  :: iprint,id,nprocs
  integer,         intent(out) :: ierr
  integer         :: nparttoti,npartoftypetoti(maxtypes),ntypesinfile
- integer         :: ierr1,ierrs(3)
+ integer         :: ierr1,ierrs(3),i,counter
  integer(kind=8) :: npartoftypetot(maxtypes),ntypesinfile8
+ character(len=10) :: dust_label(maxdustlarge)
 
  ierr = 0
  nparttot = 0
@@ -1639,7 +1630,18 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  npartoftypetot = int(npartoftypetoti,kind=8)
  if (nblocks==1) then
     npartoftype(1:ntypesinfile) = int(npartoftypetot(1:ntypesinfile))
-    if (npartoftype(idust) > 0) write(*,*) 'n(gas) = ',npartoftype(igas),' n(dust) = ',npartoftype(idust)
+    if (npartoftype(idust) > 0) write(*,*) 'n(gas) = ',npartoftype(igas)
+    counter = 0
+    do i=1,maxdustlarge
+       if (npartoftype(idust+i-1) > 0) then
+          counter = counter + 1
+       endif
+    enddo
+    dust_label = 'dust'
+    call make_tags_unique(counter,dust_label)
+    do i=1,counter
+       write(*,*) 'n('//trim(dust_label(i))//') = ',npartoftype(idust+i-1)
+    enddo
  endif
  call extract('isink',isink,hdr,ierr1)
 
@@ -1685,6 +1687,16 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
 !--default real
  call unfill_rheader(hdr,phantomdump,ntypesinfile,&
                      tfile,hfactfile,alphafile,iprint,ierr)
+
+ if (use_dust) then
+    call extract('ndustsmall',ndustsmall,hdr,ierrs(1))
+    call extract('ndustlarge',ndustlarge,hdr,ierrs(2))
+    ndusttypes = ndustsmall + ndustlarge
+    if (any(ierrs(1:2) /= 0)) then
+       write(*,*) 'ERROR reading number of small/large grain types from file header'
+    endif
+ endif
+
  if (ierr /= 0) return
 
  if (id==master) write(iprint,*) 'time = ',tfile
@@ -1699,15 +1711,15 @@ end subroutine unfill_header
 subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,ierr)
  use eos,            only:polyk,gamma,polyk2,qfacdisc,isink
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,ieos
- use part,           only:massoftype,hfact,Bextx,Bexty,Bextz
- use dust,           only:grainsize,graindens
+ use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,ndustsmall,ndustlarge,&
+                          idust,grainsize,graindens
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use externalforces, only:write_headeropts_extern
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header
- use dim,            only:use_dust,maxtypes,ndustfluids,ndusttypes,use_dustgrowth, &
+ use dim,            only:use_dust,maxtypes,use_dustgrowth, &
                           phantom_version_major,phantom_version_minor,phantom_version_micro
  use units,          only:udist,umass,utime,unit_Bfield
  logical,         intent(in)    :: sphNGdump
@@ -1726,7 +1738,9 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  call add_to_iheader(nblocks,'nblocks',hdr,ierr)
  call add_to_iheader(isink,'isink',hdr,ierr)
  call add_to_iheader(nptmass,'nptmass',hdr,ierr)
- call add_to_iheader(ndustfluids,'ndustfluids',hdr,ierr)
+ call add_to_iheader(ndustlarge,'ndustlarge',hdr,ierr)
+ call add_to_iheader(ndustsmall,'ndustsmall',hdr,ierr)
+ call add_to_iheader(idust,'idust',hdr,ierr)
  call add_to_iheader(phantom_version_major,'majorv',hdr,ierr)
  call add_to_iheader(phantom_version_minor,'minorv',hdr,ierr)
  call add_to_iheader(phantom_version_micro,'microv',hdr,ierr)
@@ -1821,11 +1835,11 @@ end subroutine fill_header
 subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
                           tfile,hfactfile,alphafile,iprint,ierr)
  use io,             only:id,master
- use dim,            only:maxp,maxvxyzu,ndusttypes,use_dust
+ use dim,            only:maxp,maxvxyzu,use_dust
  use eos,            only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
  use options,        only:ieos,tolh,alpha,alphau,alphaB,iexternalforce
- use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,maxtypes
- use dust,           only:grainsize,graindens,readindustprop
+ use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,&
+                          maxtypes,grainsize,graindens
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
@@ -1980,8 +1994,6 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
     if (any(ierrs(1:2) /= 0)) then
        write(*,*) 'ERROR reading grain size/density from file header'
     endif
-    !--dust properties need to be read in rather than calculated when ndusttypes > 1
-    if (ndusttypes > 1) readindustprop = .true.
  endif
 
  return

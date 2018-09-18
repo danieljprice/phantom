@@ -31,13 +31,13 @@ module testrwdump
 contains
 
 subroutine test_rwdump(ntests,npass)
- use part,      only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu, &
-                    Bevol,Bxyz,Bextx,Bexty,Bextz,alphaind,maxalpha,periodic, &
-                    maxphase,mhd,maxvxyzu,maxBevol,igas,idust,maxp,&
-                    poten,gravity,use_dust,dustfrac,xyzmh_ptmass,nptmass,&
-                    nsinkproperties,xyzh_label,xyzmh_ptmass_label,dustfrac_label,&
-                    vxyz_ptmass,vxyz_ptmass_label,vxyzu_label,set_particle_type,iphase
- use dim,             only:ndusttypes
+ use part,            only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,&
+                           Bevol,Bxyz,Bextx,Bexty,Bextz,alphaind,maxalpha,&
+                           periodic,maxphase,mhd,maxvxyzu,maxBevol,igas,idust,&
+                           maxp,poten,gravity,use_dust,dustfrac,xyzmh_ptmass,&
+                           nptmass,nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
+                           dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
+                           vxyzu_label,set_particle_type,iphase,ndusttypes
  use testutils,       only:checkval
  use io,              only:idisk1,id,master,iprint,nprocs
  use readwrite_dumps, only:read_dump,write_fulldump,write_smalldump,read_smalldump,is_small_dump
@@ -48,9 +48,6 @@ subroutine test_rwdump(ntests,npass)
  use mpiutils,        only:barrier_mpi
  use dump_utils,      only:read_array_from_file
  use timing,          only:getused,printused
- use dust,            only:set_grainsize
- real :: smincgs                  = 1.e-5
- real :: smaxcgs                  = 0.1
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(64)
  integer :: i,j,ierr,itest,ngas,ndust,ntot
@@ -74,8 +71,8 @@ subroutine test_rwdump(ntests,npass)
     ndust = 10
     ngas  = ntot-ndust
     npartoftype(:) = 0
-    npartoftype(1) = ngas
-    npartoftype(2) = ndust
+    npartoftype(igas) = ngas
+    npartoftype(idust) = ndust
     do i=1,npart
        if (i <= npartoftype(1)) then
           call set_particle_type(i,igas)
@@ -112,7 +109,6 @@ subroutine test_rwdump(ntests,npass)
        endif
        if (use_dust) then
           dustfrac(:,i) = 16._4
-          if (ndusttypes>1) call set_grainsize(smincgs,smaxcgs)
        endif
     enddo
     nptmass = 10

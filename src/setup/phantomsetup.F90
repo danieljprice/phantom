@@ -26,9 +26,10 @@ program phantomsetup
  use dim,             only:tagline,maxp,maxvxyzu,maxalpha,maxgrav,&
                            ndivcurlv,ndivcurlB
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
-                           Bevol,Bxyz,Bextx,Bexty,Bextz,rhoh,iphase,maxphase,isetphase,igas,iamtype, &
-                           labeltype,xyzmh_ptmass,vxyz_ptmass,maxp_h2,iHI,abundance,&
-                           mhd,alphaind,divcurlv,divcurlB,poten,dustfrac
+                           Bevol,Bxyz,Bextx,Bexty,Bextz,rhoh,iphase,maxphase,&
+                           isetphase,igas,iamtype,labeltype,xyzmh_ptmass,&
+                           vxyz_ptmass,maxp_h2,iHI,abundance,mhd,alphaind,&
+                           divcurlv,divcurlB,poten,dustfrac,ndustsmall,ndustlarge
  use setBfield,       only:set_Bfield
  use eos,             only:polyk,gamma,en_from_utherm
  use io,              only:set_io_unit_numbers,id,master,nprocs,iwritein,fatal,warning
@@ -120,6 +121,8 @@ program phantomsetup
  if (ndivcurlB > 0) divcurlB = 0.
  if (maxgrav > 0) poten = 0.
  if (use_dustfrac) dustfrac = 0.
+ ndustsmall = 0
+ ndustlarge = 0
 #ifdef LIGHTCURVE
  if (lightcurve) luminosity = 0.
 #endif

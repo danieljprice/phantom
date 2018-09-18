@@ -32,7 +32,7 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use dim,     only:maxp,ndusttypes
+ use dim,     only:maxp,maxdusttypes
  use part,    only:maxphase,isdead_or_accreted,dustfrac,massoftype,igas,&
                    iphase,iamtype
  use options, only:use_dustfrac
@@ -41,7 +41,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
  real          :: Mtot,Mgas,Mdust1,Mdust2,Macc,pmassi
- real          :: dustfraci(ndusttypes),dustfracisum
+ real          :: dustfraci(maxdusttypes),dustfracisum
  real, save    :: Mtot_in,Mgas_in,Mdust1_in,Mdust2_in
  integer       :: i,itype,lu
  logical, save :: init = .false.
