@@ -37,7 +37,7 @@ module setup
  implicit none
  public :: setpart
 
- real,    private :: mhole,mdisc,r_in,r_out,spin,honr,theta,p_index,accrad
+ real,    private :: mhole,mdisc,r_in,r_out,spin,honr,theta,p_index,q_index,accrad,gamma_ad
  integer, private :: np
 
  private
@@ -86,30 +86,30 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(:)  = 0
  iexternalforce  = 1
  hfact           = hfact_default
-#ifdef GR
- ieos  = 4
- gamma = 5./3.
-#else
- ieos  = 2
- gamma = 1.
+
+#ifndef GR
  iexternalforce = iext_einsteinprec
 #endif
 
  tmax  = 1000.
  dtmax = 10.
 
+ ieos  = 2
 !
 ! Set default problem parameters
 !
+
  mhole  = 1.e6    ! (solarm)
  mdisc  = 10.     ! (solarm)
  r_in   = 40.     ! (GM/c^2)
  r_out  = 160.    ! (GM/c^2)
- spin   = 0.
- honr   = 0.02
- alpha  = 0.1
+ spin   = 0.9
+ honr   = 0.05
+ alpha  = 0.368205218
  theta  = 0.      ! inclination angle (degrees)
  p_index= 1.5
+ q_index= 0.75
+ gamma_ad= 1.001
  np     = 1e5
  accrad = 4.      ! (GM/c^2)
 
@@ -130,6 +130,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  accradius1 = accrad
  npart = np
 
+ !-- Set gamma from the option read from .setup file
+ gamma = gamma_ad
+
 !
 ! Convert to code units
 !
@@ -148,7 +151,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                rmin          = r_in,                 &
                rmax          = r_out,                &
                p_index       = p_index,              &
-               q_index       = 0.0,                  &
+               q_index       = 0.75,                 &
                HoverR        = honr,                 &
                ismooth       = .true.,               &
                gamma         = gamma,                &
@@ -167,8 +170,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  a     = spin
  ! Overwrite thermal energies to be correct for GR
  ! And use polyk to store the constant thermal energy
- polyk = cs2/(gamma-1.-cs2)
- vxyzu(4,:) = polyk
+ ! polyk = cs2/(gamma-1.-cs2)
+ ! vxyzu(4,:) = polyk
 #else
  blackhole_spin = spin
  polyk = cs2
@@ -200,6 +203,8 @@ subroutine write_setupfile(filename)
  call write_inopt(alpha  ,'alpha'  ,'artificial viscosity'                      , iunit)
  call write_inopt(theta  ,'theta'  ,'inclination of disc (degrees)'             , iunit)
  call write_inopt(p_index,'p_index','power law index of surface density profile', iunit)
+ call write_inopt(q_index,'q_index','power law index of sound speed profile'    , iunit)
+ call write_inopt(gamma_ad,'gamma' ,'adiabatic gamma'                           , iunit)
  call write_inopt(accrad ,'accrad' ,'accretion radius   (GM/c^2, code units)'   , iunit)
  call write_inopt(np     ,'np'     ,'number of particles in disc'               , iunit)
  close(iunit)
@@ -228,6 +233,8 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(alpha  ,'alpha'  ,db,min=0.,errcount=nerr)
  call read_inopt(theta  ,'theta'  ,db,min=0.,max=90.,errcount=nerr)
  call read_inopt(p_index,'p_index',db,errcount=nerr)
+ call read_inopt(q_index,'q_index',db,errcount=nerr)
+ call read_inopt(gamma_ad,'gamma' ,db,min=1.,errcount=nerr)
  call read_inopt(accrad ,'accrad' ,db,min=0.,errcount=nerr)
  call read_inopt(np     ,'np   '  ,db,min=0 ,errcount=nerr)
  call close_db(db)
