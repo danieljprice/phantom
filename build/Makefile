@@ -311,6 +311,7 @@ ifeq ($(SETUP), grdisc)
     MULTIRUNFILE= multirun.f90
     IND_TIMESTEPS=yes
     NCELLSMAX=2*maxp
+    CONST_AV=yes
 endif
 
 ifeq ($(SETUP), adiabaticdisc)
