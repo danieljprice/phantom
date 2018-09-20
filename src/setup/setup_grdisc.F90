@@ -91,8 +91,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  iexternalforce = iext_einsteinprec
 #endif
 
- tmax  = 1000.
- dtmax = 10.
+ tmax  = 2.e4
+ dtmax = 100.
 
  ieos  = 2
 !
@@ -101,16 +101,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  mhole  = 1.e6    ! (solarm)
  mdisc  = 10.     ! (solarm)
- r_in   = 40.     ! (GM/c^2)
+ r_in   = 4.      ! (GM/c^2)
  r_out  = 160.    ! (GM/c^2)
  spin   = 0.9
  honr   = 0.05
  alpha  = 0.368205218
- theta  = 0.      ! inclination angle (degrees)
+ theta  = 3.      ! inclination angle (degrees)
  p_index= 1.5
  q_index= 0.75
  gamma_ad= 1.001
- np     = 1e5
+ np     = 1e6
  accrad = 4.      ! (GM/c^2)
 
 !
@@ -151,7 +151,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                rmin          = r_in,                 &
                rmax          = r_out,                &
                p_index       = p_index,              &
-               q_index       = 0.75,                 &
+               q_index       = q_index,              &
                HoverR        = honr,                 &
                ismooth       = .true.,               &
                gamma         = gamma,                &
