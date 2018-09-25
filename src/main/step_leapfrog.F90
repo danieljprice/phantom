@@ -109,6 +109,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use metric,         only:imetric
  use metric_tools,   only:imet_minkowski
  use cons2prim,      only:conservative_to_primitive
+ use extern_gr,      only:get_grforce_all
 #endif
 #ifdef DUSTGROWTH
  use growth,         only:update_dustprop
@@ -211,6 +212,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !----------------------------------------------------------------------
 #ifdef GR
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
+    call conservative_to_primitive(npart,xyzh,metrics,pxyzu,vxyzu,dens)
+    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
     call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t,damp)
  else
     call step_extern_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,metrics)
