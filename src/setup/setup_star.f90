@@ -121,9 +121,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- integer, parameter               :: ng_max = 5000
- integer, parameter               :: ng     = 1024
- integer                          :: i,nx,npts,ierr
+ integer, parameter               :: ng_max = 20000
+ integer, parameter               :: ng     = 12000
+ integer                          :: i,nx,npts,npmax,ierr
  real                             :: vol_sphere,psep,rmin,densi,ri,polyk_in,presi
  real                             :: r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),enitab(ng_max)
  real                             :: xi, yi, zi, rhoi, spsoundi, p_on_rhogas, eni, tempi

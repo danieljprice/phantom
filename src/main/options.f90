@@ -37,7 +37,7 @@ module options
 ! these are parameters which may be changed by the user
 ! and read from the input file
 !
- integer, public :: nfulldump,nmaxdumps,iexternalforce
+ integer, public :: nfulldump,nmaxdumps,iexternalforce,idamp
  real, public :: tolh,damp,tolv
  real(kind=4), public :: twallmax, dtwallmax
 
@@ -89,7 +89,7 @@ subroutine set_default_options
  Bexty     = 0.
  Bextz     = 0.
  tolh      = 1.e-4           ! tolerance on h iterations
- damp      = 0.              ! damping of velocities
+ idamp     = 0               ! damping type
  iexternalforce = 0          ! external forces
 
  ! equation of state
