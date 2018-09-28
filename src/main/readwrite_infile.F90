@@ -321,7 +321,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallinject   = .true.
  igotalleos      = .true.
  igotallcooling  = .true.
- igotallcooling  = .true.
+ igotalldamping  = .true.
  igotloops       = .false.
  igotallionise   = .true.
  igotallnonideal = .true.
