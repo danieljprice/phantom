@@ -25,22 +25,13 @@
 !+
 !--------------------------------------------------------------------------
 module densityforce
-<<<<<<< HEAD
- use dim,         only:maxstrain,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum
- use part,        only:maxBevol,mhd
- use part,        only:straintensor
- use kdtree,      only:inodeparts,inoderange
- use kernel,      only:cnormk,wab0,gradh0,dphidh0,radkern2
- use mpidens,     only:celldens,stackdens
- use timing,      only:getused,printused,print_time
-=======
  use dim,     only:maxdvdx,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum,&
                    maxdusttypes,maxdustlarge
  use part,    only:maxBevol,mhd,dvdx
+ use kdtree,      only:inodeparts,inoderange
  use kernel,  only:cnormk,wab0,gradh0,dphidh0,radkern2
  use mpidens, only:celldens,stackdens
  use timing,  only:getused,printused,print_time
->>>>>>> master
 
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -131,13 +122,8 @@ contains
 !----------------------------------------------------------------
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                           fxyzu,fext,alphaind,gradh)
-<<<<<<< HEAD
- use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
-                     mhd_nonideal,nalpha
-=======
  use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha, &
                      mhd_nonideal,nalpha,use_dust
->>>>>>> master
  use eos,       only:get_spsound,get_temperature
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
@@ -1590,12 +1576,8 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  use nicil,       only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
  use linklist,    only:set_hmaxcell
  use kernel,      only:radkern
-<<<<<<< HEAD
-
  use part,        only:xyzh_soa,store_temperature,temperature
-=======
  use kdtree,      only:inodeparts
->>>>>>> master
 
  integer,         intent(in)    :: icall
  type(celldens),  intent(in)    :: cell
