@@ -322,7 +322,6 @@ subroutine test_rwdump(ntests,npass)
  if (id==master) write(*,"(/,a)") '<-- READ/WRITE TEST COMPLETE'
  call deallocate_memory
  call allocate_memory(maxp_old)
- ibelong(:) = id
 
 end subroutine test_rwdump
 
