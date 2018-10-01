@@ -58,8 +58,8 @@ module part
 !
 !--storage of dust properties
 !
- real, allocatable :: grainsize(:)
- real, allocatable :: graindens(:)
+ real :: grainsize(maxdusttypes)
+ real :: graindens(maxdusttypes)
 !
 !--storage of dust growth properties
 !
@@ -307,8 +307,6 @@ contains
     call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
     call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
     call allocate_array('Bxyz', Bxyz, 3, maxmhd)
-    call allocate_array('grainsize', grainsize, maxdusttypes)
-    call allocate_array('graindens', graindens, maxdusttypes)
     call allocate_array('dustprop', dustprop, 5, maxp_growth)
     call allocate_array('St', St, maxp_growth)
     call allocate_array('abundance', abundance, nabundances, maxp_h2)
@@ -362,8 +360,6 @@ contains
    deallocate(divcurlB)
    deallocate(Bevol)
    deallocate(Bxyz)
-   deallocate(grainsize)
-   deallocate(graindens)
    deallocate(dustprop)
    deallocate(St)
    deallocate(abundance)
