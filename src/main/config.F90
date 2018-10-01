@@ -329,10 +329,6 @@ contains
 #endif
 #endif
 
-#ifdef USE_STRAIN_TENSOR
-    maxstrain = maxp
-#endif
-
 #ifdef H2CHEM
     maxp_h2 = maxp
 #endif
