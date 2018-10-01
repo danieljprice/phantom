@@ -19,12 +19,13 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: dim, dust, infile_utils, io, leastsquares, options, part,
-!    physcon, readwrite_dust, solvelinearsystem, units
+!    physcon, solvelinearsystem, units
 !+
 !--------------------------------------------------------------------------
 module analysis
- use dim,  only:ndusttypes
+ use dim,  only:maxdusttypes
  use dust, only:grainsizecgs
+ use part, only:ndusttypes
  implicit none
  character(len=20), parameter, public :: analysistype = 'dustydisc'
  public :: do_analysis
@@ -32,7 +33,7 @@ module analysis
  integer, parameter :: nr = 50
  integer, parameter :: numlabels = 23
  integer, parameter :: numarrays = 7
- integer, parameter :: maxlabels = numlabels + numarrays*(ndusttypes-1)
+ integer, parameter :: maxlabels = numlabels + numarrays*(maxdusttypes-1)
  integer, parameter, public :: &
           iradius    = 1,  &
           irhog      = 2,  &
@@ -52,12 +53,12 @@ module analysis
           ivrgas     = 16, &
           ! initial index for arrays
           ivrdust    = 17, &
-          iSt        = 18 +   (ndusttypes-1), &
-          itstop     = 19 + 2*(ndusttypes-1), &
-          ivrsigma   = 20 + 3*(ndusttypes-1), &
-          irhod      = 21 + 4*(ndusttypes-1), &
-          isigmadust = 22 + 5*(ndusttypes-1), &
-          iHdust_R   = 23 + 6*(ndusttypes-1), &
+          iSt        = 18 +   (maxdusttypes-1), &
+          itstop     = 19 + 2*(maxdusttypes-1), &
+          ivrsigma   = 20 + 3*(maxdusttypes-1), &
+          irhod      = 21 + 4*(maxdusttypes-1), &
+          isigmadust = 22 + 5*(maxdusttypes-1), &
+          iHdust_R   = 23 + 6*(maxdusttypes-1), &
           ! ending index for arrays
           ivrdustend    = iSt-1,        &
           iStend        = itstop-1,     &
@@ -75,18 +76,15 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
- use dim,            only:maxp
- use io,             only:fatal
- use physcon,        only:pi,jupiterm,years,au
- use part,           only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac,tstop, &
-                          rhoh,maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass,deltav, &
-                          isdead_or_accreted
- use options,        only:use_dustfrac,iexternalforce
- use units,          only:umass,udist,utime
- use dust,           only:graindens,grainsize
- use readwrite_dust, only:read_dust_setup_options
- use leastsquares,   only:fit_slope
- use infile_utils,   only:open_db_from_file,close_db,inopts
+ use dim,          only:maxp
+ use io,           only:fatal
+ use physcon,      only:pi,jupiterm,years,au
+ use part,         only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac,tstop, &
+                        rhoh,maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass,deltav, &
+                        isdead_or_accreted,graindens
+ use options,      only:use_dustfrac,iexternalforce
+ use units,        only:umass,udist,utime
+ use leastsquares, only:fit_slope
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyz(:,:)
  real,             intent(in) :: pmass,time
@@ -95,25 +93,25 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  character(len=80)  :: output
  character(len=80)  :: filename
  character(len=20)  :: discprefix
- integer, parameter :: nxn = 2*ndusttypes
- integer :: i,j,k,ir,ii,ierr,iline,ninbin(nr),ninbindust(ndusttypes,nr),iwarp,nptmassinit
- integer :: icutgas(nr),icutdust(ndusttypes,nr),find_ii(1),irealvisc
+ integer, parameter :: nxn = 2*maxdusttypes
+ integer :: i,j,k,ir,ii,ierr,iline,ninbin(nr),ninbindust(maxdusttypes,nr),iwarp,nptmassinit
+ integer :: icutgas(nr),icutdust(maxdusttypes,nr),find_ii(1),irealvisc
  integer :: itype,lu,nondustcols,dustcols,numcols
  real, allocatable :: deltavsum(:,:),dustfracisuma(:)
  real :: err,errslope,erryint,slope
  real :: Sig0,rho0,hi,rhoi
- real :: vgassol(2,nr),vdustsol(2,ndusttypes,nr)
+ real :: vgassol(2,nr),vdustsol(2,maxdusttypes,nr)
  real :: flat_cut,scale_cut,eps_dust_cut
- real :: stan_dev(ndusttypes,nr)
- real :: zeta(nr+2),dzetadr(nr),Pr(nr+1),dPrdr(nr)
- real :: St_mid(ndusttypes,nr),St_from_tstop(ndusttypes,nr)
- real :: rhogmid(nr),rhodmid(ndusttypes,nr)
- real :: rhog(npart),rhod(ndusttypes,npart),rhogbin(npartoftype(igas),nr),rhodbin(ndusttypes,npartoftype(igas),nr)
+ real :: stan_dev(maxdusttypes,nr)
+ real :: zeta(nr+2),dzetadr(nr),Pr(nr+2),dPrdr(nr)
+ real :: St_mid(maxdusttypes,nr),St_from_tstop(maxdusttypes,nr)
+ real :: rhogmid(nr),rhodmid(maxdusttypes,nr)
+ real :: rhog(npart),rhod(maxdusttypes,npart),rhogbin(npartoftype(igas),nr),rhodbin(maxdusttypes,npartoftype(igas),nr)
  real :: vK(nr),etabin(npartoftype(igas),nr),meaneta(nr),nuvisc(nr),shearvisc,alphaAV
- real :: vrgasbin(npartoftype(igas),nr),vrdustbin(ndusttypes,npartoftype(igas),nr)
- real :: meanvrgas(nr),meanvrdust(ndusttypes,nr)
- real :: meanrhog(nr),meanrhod(ndusttypes,nr)
- real :: vgas(3),vdust(3,ndusttypes),vrgas(npart),vrdust(ndusttypes,npart)
+ real :: vrgasbin(npartoftype(igas),nr),vrdustbin(maxdusttypes,npartoftype(igas),nr)
+ real :: meanvrgas(nr),meanvrdust(maxdusttypes,nr)
+ real :: meanrhog(nr),meanrhod(maxdusttypes,nr)
+ real :: vgas(3),vdust(3,maxdusttypes),vrgas(npart),vrdust(maxdusttypes,npart)
  real :: R_in,R_out,R_ref,R_warp
  real :: H_R_in,H_R_out,H_R_ref,p_index,q_index,M_star,M_disc,R_c,R_cdust
  real :: R_in_dust,R_out_dust,R_ref_dust,R_warp_dust
@@ -121,18 +119,18 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: G,rmin,rmax,cs0,angx,angy,angz,ri,area !Hi_part
  real :: dreven,log_dr,drlog(nr),log_grid(nr+1),grid(nr+1)
  real :: angtot,Ltot,tilt,dtwist,Li(3)
- real :: rad(nr),Lx(nr),Ly(nr),Lz(nr),h_smooth(nr),sigmagas(nr),sigmadust(ndusttypes,nr),cs(nr),H(nr),omega(nr)
+ real :: rad(nr),Lx(nr),Ly(nr),Lz(nr),h_smooth(nr),sigmagas(nr),sigmadust(maxdusttypes,nr),cs(nr),H(nr),omega(nr)
  real :: zsetgas(npartoftype(igas),nr),hgas(nr),meanzgas(nr)
- real :: dustfraci_bin(ndusttypes,npartoftype(igas),nr),meandustfraci(ndusttypes,nr)
- real :: tstopbin(ndusttypes,npartoftype(igas),nr),meantstop(ndusttypes,nr)
+ real :: dustfraci_bin(maxdusttypes,npartoftype(igas),nr),meandustfraci(maxdusttypes,nr)
+ real :: tstopbin(maxdusttypes,npartoftype(igas),nr),meantstop(maxdusttypes,nr)
  real :: dustfracisum_bin(npartoftype(igas),nr),meandustfracisum(nr)
- real :: d2g_ratio_bin(ndusttypes,npartoftype(igas),nr),meand2g_ratio(ndusttypes,nr)
+ real :: d2g_ratio_bin(maxdusttypes,npartoftype(igas),nr),meand2g_ratio(maxdusttypes,nr)
  real :: unitlx(nr),unitly(nr),unitlz(nr),tp(nr)
- real :: zsetdust(ndusttypes,max(npartoftype(idust),npartoftype(igas)),nr)
- real :: hdust(ndusttypes,nr),meanzdust(ndusttypes,nr)
- real :: psi_x,psi_y,psi_z,psi,Mdust,Mgas,Mtot,Macc,pmassi,pgasmass,pdustmass(ndusttypes)
- real :: dustfraci(ndusttypes),dustfracisum,rhoeff(ndusttypes)
- real :: ri_mid,d2g_ratio
+ real :: zsetdust(maxdusttypes,max(npartoftype(idust),npartoftype(igas)),nr)
+ real :: hdust(maxdusttypes,nr),meanzdust(maxdusttypes,nr)
+ real :: psi_x,psi_y,psi_z,psi,Mdust,Mgas,Mtot,Macc,pmassi,pgasmass,pdustmass(maxdusttypes)
+ real :: dustfraci(maxdusttypes),dustfracisum,rhoeff(maxdusttypes)
+ real :: ri_mid
  real :: l_planet(3),bigl_planet,rad_planet,inc,planet_mass
  real, save :: Mtot_in,Mgas_in,Mdust_in
  logical, save :: init  = .false.
@@ -154,8 +152,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  integer, parameter :: isol    = 34
  integer, parameter :: iunit1  = 22
  logical :: do_precession,ifile
-
- type(inopts), allocatable :: db(:)
 
  if (use_dustfrac .and. ndusttypes > 1) then
     fit_sigma   = .false.
@@ -225,19 +221,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  call read_discparams(filename,R_in,R_out,R_ref,R_warp,H_R_in,H_R_out,H_R_ref, &
                            p_index,R_c,q_index,G,M_star,M_disc,iparams,ierr,cs0,Sig0)
  if (ierr /= 0) call fatal('analysis','could not open/read '//trim(filename))
-
- iline = index(dumpfile,'_')
- discprefix = dumpfile(1:iline-1)
- write(filename,"(a)") trim(discprefix)//'.setup'
- inquire(file=filename, exist=ifile)
- if (ifile) then
-!    call read_setup(filename,d2g_ratio,io_grainsize,grainsize(:),dustfracsuminit, &
-!                    dustfracinit(:),graindens(:),isetupparams,ierr)
-    call open_db_from_file(db,filename,iunit1,ierr)
-    call read_dust_setup_options(db,ierr,d2g_ratio)
-    call close_db(db)
-    if (ierr /= 0) call fatal('analysis','could not open/read .setup file')
- endif
 
  iline = index(dumpfile,'_')
  discprefix = dumpfile(1:iline-1)
@@ -394,6 +377,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  meantstop(:,:)   = 0.
  meanzdust(:,:)   = 0.
  meanvrdust(:,:)  = 0.
+ stan_dev(:,:)    = 0.
 
  meandustfraci(:,:)  = 0.
  meandustfracisum(:) = 0.
@@ -470,13 +454,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
     !--Calculate vr for the gas and the N dust phases
     ri_mid = sqrt(dot_product(xyzh(1:2,i),xyzh(1:2,i)))
-    do j = 1,ndusttypes
+    do j=1,ndusttypes
        if (use_dustfrac) then
           rhoi = rhoh(hi,pmassi)
           rhog(i)    = (1.-dustfracisum)*rhoi
           rhod(j,i)  = dustfraci(j)*rhoi
           if (ndusttypes > 1) then
-             do k = 1,ndusttypes
+             do k=1,ndusttypes
                 if (isnan(deltavsum(k,i))) then
                    deltavsum(k,i) = 0.
                    deltav(:,k,i) = 0.
@@ -559,7 +543,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
                 dustfracisum_bin(ninbin(ii),ii) = dustfracisum
                 dustfraci_bin(:,ninbin(ii),ii)  = dustfraci(:)
                 d2g_ratio_bin(:,ninbin(ii),ii)  = dustfraci(:)/(1. - dustfracisum)
-                do j = 1,ndusttypes
+                do j=1,ndusttypes
                    if (use_dustfrac .and. dustfraci(j) > eps_dust_cut) then
                       ninbindust(j,ii) = ninbindust(j,ii) + 1
                       rhodbin(j,ninbindust(j,ii),ii)  = rhod(j,i)
@@ -573,7 +557,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
              icutgas(ii) = icutgas(ii) + 1
           endif
        elseif(iphase(i) == idust) then
-          do j = 1,ndusttypes
+          do j=1,ndusttypes
              sigmadust(j,ii) = sigmadust(j,ii) + pdustmass(j)/area
 
              ninbindust(j,ii) = ninbindust(j,ii) + 1
@@ -597,8 +581,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        angz = angz + pgasmass*(xyzh(1,i)*vxyz(2,i) - xyzh(2,i)*vxyz(1,i))
     endif
  enddo
- write(*,*)"Massa della polvere: ",Mdust
- write(*,*)"Massa del gas: ",Mgas
+ write(*,*)"Dust mass: ",Mdust
+ write(*,*)"Gas mass: ",Mgas
 
  numcols = 5 ! # of total columns
  if (.not.init) then
@@ -633,7 +617,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        meanrhog(i)  = sum(rhogbin(1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
        meanvrgas(i) = sum(vrgasbin(1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
        if (use_dustfrac) then
-          do j = 1,ndusttypes
+          do j=1,ndusttypes
              meanvrdust(j,i) = sum(vrdustbin(j,1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
              stan_dev(j,i)   = sqrt(sum((vrdustbin(j,1:ninbin(i),i)-meanvrdust(j,i))**2) &
                                /(real(ninbin(i)) - icutgas(i) - 1))
@@ -645,7 +629,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        endif
        hgas(i) = sqrt(sum(((zsetgas(1:ninbin(i),i)-meanzgas(i))**2)/(real(ninbin(i)-1))))
     endif
-    do j = 1,ndusttypes
+    do j=1,ndusttypes
        if (ninbindust(j,i) > 1) then
           meanzdust(j,i)  = sum(zsetdust(j,1:ninbindust(j,i),i))/(real(ninbindust(j,i)))
           meanrhod(j,i)   = sum(rhodbin(j,1:ninbindust(j,i),i))/(real(ninbindust(j,i))-icutdust(j,i))
@@ -669,9 +653,15 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  do i = 1,nr
     Ltot = sqrt(Lx(i)*Lx(i) + Ly(i)*Ly(i) + Lz(i)*Lz(i))
 
-    unitlx(i) = Lx(i)/Ltot
-    unitly(i) = Ly(i)/Ltot
-    unitlz(i) = Lz(i)/Ltot
+    if(Ltot/=0.) then
+       unitlx(i) = Lx(i)/Ltot
+       unitly(i) = Ly(i)/Ltot
+       unitlz(i) = Lz(i)/Ltot
+    else
+       unitlx(i) = 0.
+       unitly(i) = 0.
+       unitlz(i) = 0.
+    endif
 
     if (ninbin(i) > 0) h_smooth(i) = h_smooth(i)/ninbin(i)
  enddo
@@ -691,7 +681,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
  print*,' '
  print*,'Warning: removed a total of',sum(icutgas(:)),'gas particles from the velocity'
- do j = 1,ndusttypes
+ do j=1,ndusttypes
     print*,'             and a total of',sum(icutdust(j,:)),'dust particles from the velocity'
  enddo
  print*,' '
@@ -710,7 +700,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     print*,' '
 
     rhogmid(:) = rho0*rad(:)**(-(p_index-q_index+1.5))
-    do j = 1,ndusttypes
+    do j=1,ndusttypes
        rhodmid(j,:) = rhogmid(:)*meandustfraci(j,:)
     enddo
     !sigmagas(i) = Sig0*rad(i)**(-p_index)
@@ -1030,7 +1020,6 @@ end subroutine do_analysis
 !+
 !----------------------------------------------------------------
 subroutine solve_bai_stone_2010(d2g_ratio,nxn,eta,vK,vgassol,vdustsol,St_mid)
- use dim,               only:ndusttypes
  use solvelinearsystem, only:rowk,dple
  integer, intent(in)  :: nxn
  real,    intent(in)  :: d2g_ratio(:,:),eta(:),vK(:),St_mid(:,:)
@@ -1038,9 +1027,9 @@ subroutine solve_bai_stone_2010(d2g_ratio,nxn,eta,vK,vgassol,vdustsol,St_mid)
  integer, parameter   :: dp = selected_real_kind(14, 60)
  integer  :: i,ir,ierr
  real(dp) :: soln(nxn)
- real :: Imat(ndusttypes,ndusttypes)
- real :: Lambda(ndusttypes,ndusttypes)
- real :: Gamma(ndusttypes,ndusttypes)
+ real :: Imat(maxdusttypes,maxdusttypes)
+ real :: Lambda(maxdusttypes,maxdusttypes)
+ real :: Gamma(maxdusttypes,maxdusttypes)
  real :: Amat(nxn,nxn),Bmat(nxn)
 
  vdustsol(:,:,:) = 0.
@@ -1049,18 +1038,18 @@ subroutine solve_bai_stone_2010(d2g_ratio,nxn,eta,vK,vgassol,vdustsol,St_mid)
     Bmat(ndusttypes+1:nxn) = 1.
 
     Imat(:,:) = 0.
-    do i = 1,ndusttypes
+    do i=1,ndusttypes
        Imat(i,i) = 1.
     enddo
 
     Lambda(:,:) = 0.
-    do i = 1,ndusttypes
+    do i=1,ndusttypes
        Lambda(i,i) = St_mid(i,ir)
        Gamma(i,:)  = d2g_ratio(:,ir)
     enddo
 
     Amat(:,:) = 0.
-    do i = 1,ndusttypes
+    do i=1,ndusttypes
        Amat(i,           :) = [ (Imat(i,:)+Gamma(i,:)), -2.*Lambda(i,:)        ]
        Amat(i+ndusttypes,:) = [ 0.5*Lambda(i,:)       , (Imat(i,:)+Gamma(i,:)) ]
     enddo
@@ -1089,7 +1078,6 @@ end subroutine solve_bai_stone_2010
 !----------------------------------------------------------------
 subroutine solve_dipierro_2018(irealvisc,vgassol,vdustsol,d2g_ratio,r,cs,vK,nu,p,q, &
                                St_mid,zeta,dzetadr,dPrdr)
- use dim,               only:ndusttypes
 
  integer, intent(in)  :: irealvisc
  real,    intent(out) :: vgassol(:,:)
@@ -1100,7 +1088,7 @@ subroutine solve_dipierro_2018(irealvisc,vgassol,vdustsol,d2g_ratio,r,cs,vK,nu,p
  real,    intent(in)  :: St_mid(:,:),zeta(:),dzetadr(:),dPrdr(:)
 
  integer :: i
- real    :: denom2(ndusttypes)
+ real    :: denom2(maxdusttypes)
  real    :: lambda0,lambda1,v_P,v_nu
  real    :: denom1
 

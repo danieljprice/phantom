@@ -33,7 +33,6 @@
 !    dtmax_rat0         -- dtmax_new = dtmax_old/dtmax_rat0
 !    dtwallmax          -- maximum wall time between dumps (hhh:mm, 000:00=ignore)
 !    dumpfile           -- dump file to start from
-!    etamhd             -- fixed physical resistivity value
 !    hfact              -- h in units of particle spacing [h = hfact(m/rho)^(1/3)]
 !    ipdv_heating       -- heating from PdV work (0=off, 1=on)
 !    irealvisc          -- physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)
@@ -56,18 +55,18 @@
 !    twallmax           -- maximum wall time (hhh:mm, 000:00=ignore)
 !    use_mcfost         -- use the mcfost library
 !
-!  DEPENDENCIES: cooling, dim, eos, externalforces, forcing, growth,
+!  DEPENDENCIES: cooling, dim, dust, eos, externalforces, forcing, growth,
 !    infile_utils, inject, io, linklist, nicil_sup, options, part,
-!    photoevap, ptmass, readwrite_dust, timestep, viscosity
+!    photoevap, ptmass, timestep, viscosity
 !+
 !--------------------------------------------------------------------------
 module readwrite_infile
  use dim,       only:calc_erot,incl_erot
  use timestep,  only:rho_dtthresh_cgs,dtmax_rat0
- use options,   only:nfulldump,nmaxdumps,twallmax,dtwallmax,iexternalforce,tolh, &
+ use options,   only:nfulldump,nmaxdumps,twallmax,dtwallmax,iexternalforce,idamp,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,tolv, &
                      ipdv_heating,ishock_heating,iresistive_heating, &
-                     icooling,psidecayfac,overcleanfac,etamhd,alphamax,&
+                     icooling,psidecayfac,overcleanfac,alphamax,&
                      use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
@@ -91,9 +90,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use forcing,         only:write_options_forcing
 #endif
  use externalforces,  only:write_options_externalforces
+ use damping,         only:write_options_damping
  use linklist,        only:write_inopts_link
 #ifdef DUST
- use readwrite_dust,  only:write_dust_infile_options
+ use dust,            only:write_options_dust
 #ifdef DUSTGROWTH
  use growth,          only:write_options_growth
  use options,         only:use_dustfrac
@@ -190,11 +190,11 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_inopt(alphaB,'alphaB','art. resistivity parameter',iwritein)
     call write_inopt(psidecayfac,'psidecayfac','div B diffusion parameter',iwritein)
     call write_inopt(overcleanfac,'overcleanfac','factor to increase cleaning speed (decreases time step)',iwritein)
-    call write_inopt(etamhd,'etamhd','fixed physical resistivity value',iwritein)
  endif
  call write_inopt(beta,'beta','beta viscosity',iwritein)
  call write_inopt(avdecayconst,'avdecayconst','decay time constant for viscosity switches',iwritein)
- call write_inopt(damp,'damp','artificial damping of velocities (if on, v=0 initially)',iwritein)
+
+ call write_options_damping(iwritein,idamp)
 
  !
  ! thermodynamics
@@ -231,7 +231,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #endif
 
 #ifdef DUST
- call write_dust_infile_options(iwritein)
+ call write_options_dust(iwritein)
 #ifdef DUSTGROWTH
  if(.not.use_dustfrac) call write_options_growth(iwritein)
 #endif
@@ -272,10 +272,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #endif
  use externalforces,  only:read_options_externalforces
  use linklist,        only:read_inopts_link
- use readwrite_dust,  only:get_onefluiddust
 #ifdef DUST
- use options,         only:use_dustfrac
- use readwrite_dust,  only:read_dust_infile_options
+ use dust,            only:read_options_dust
 #ifdef DUSTGROWTH
  use growth,          only:read_options_growth
 #endif
@@ -292,6 +290,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use part,            only:mhd,nptmass
  use cooling,         only:read_options_cooling
  use ptmass,          only:read_options_ptmass
+ use damping,         only:read_options_damping
  character(len=*), parameter   :: label = 'read_infile'
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -302,7 +301,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  integer :: ierr,ireaderr,line,idot,ngot,nlinesread
  logical :: imatch,igotallrequired,igotallturb,igotalllink,igotloops
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth
- logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotallphoto
+ logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotallphoto, igotalldamping
  integer, parameter :: nrequired = 1
 
  ireaderr = 0
@@ -322,6 +321,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallinject   = .true.
  igotalleos      = .true.
  igotallcooling  = .true.
+ igotalldamping  = .true.
  igotloops       = .false.
  igotallionise   = .true.
  igotallnonideal = .true.
@@ -394,14 +394,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) psidecayfac
     case('overcleanfac')
        read(valstring,*,iostat=ierr) overcleanfac
-    case('etamhd')
-       read(valstring,*,iostat=ierr) etamhd
     case('beta')
        read(valstring,*,iostat=ierr) beta
     case('avdecayconst')
        read(valstring,*,iostat=ierr) avdecayconst
-    case('damp')
-       read(valstring,*,iostat=ierr) damp
     case('ipdv_heating')
        read(valstring,*,iostat=ierr) ipdv_heating
     case('ishock_heating')
@@ -430,10 +426,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (.not.imatch) call read_inopts_link(name,valstring,imatch,igotalllink,ierr)
 #ifdef DUST
        !--Extract if one-fluid dust is used from the fileid
-       call get_onefluiddust(dumpfile,use_dustfrac)
-       if (.not.imatch) call read_dust_infile_options(name,valstring,imatch,igotalldust,ierr)
+       if (.not.imatch) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
 #ifdef DUSTGROWTH
-       if (.not.imatch .and. .not.use_dustfrac) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
+       if (.not.imatch) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
 #endif
 #endif
 #ifdef PHOTO
@@ -447,6 +442,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #endif
        if (.not.imatch) call read_options_eos(name,valstring,imatch,igotalleos,ierr)
        if (.not.imatch) call read_options_cooling(name,valstring,imatch,igotallcooling,ierr)
+       if (.not.imatch) call read_options_damping(name,valstring,imatch,igotalldamping,ierr,idamp)
        if (maxptmass > 0) then
           if (.not.imatch) call read_options_ptmass(name,valstring,imatch,igotallptmass,ierr)
           !
@@ -469,7 +465,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallrequired = (ngot  >=  nrequired) .and. igotalllink .and. igotallbowen .and. igotalldust &
                    .and. igotalleos .and. igotallcooling .and. igotallextern .and. igotallturb &
                    .and. igotallptmass .and. igotallinject .and. igotallionise .and. igotallnonideal &
-                   .and. igotallphoto .and. igotallgrowth
+                   .and. igotallphoto .and. igotallgrowth .and. igotalldamping
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1
@@ -482,6 +478,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           call error('read_infile','input file '//trim(infile)//' is incomplete for current compilation')
           if (.not.igotalleos) write(*,*) 'missing equation of state options'
           if (.not.igotallcooling) write(*,*) 'missing cooling options'
+          if (.not.igotalldamping) write(*,*) 'missing damping options'
           if (.not.igotalllink) write(*,*) 'missing link options'
           if (.not.igotallbowen) write(*,*) 'missing Bowen dust options'
           if (.not.igotalldust) write(*,*) 'missing dust options'
@@ -535,8 +532,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
                          call warn(label,'ridiculous choice of hfact',4)
     if (tolh > 1.e-3)   call warn(label,'tolh is quite large!',2)
     if (tolh < epsilon(tolh)) call fatal(label,'tolh too small to ever converge')
-    if (damp < 0.)     call fatal(label,'damping < 0')
-    if (damp > 1.)     call warn(label,'damping ridiculously big')
+    !if (damp < 0.)     call fatal(label,'damping < 0')
+    !if (damp > 1.)     call warn(label,'damping ridiculously big')
     if (alpha < 0.)    call fatal(label,'stupid choice of alpha')
     if (alphau < 0.)   call fatal(label,'stupid choice of alphau')
     if (alphau > tiny(alphau) .and. use_entropy) &
@@ -553,7 +550,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (psidecayfac < 0.) call fatal(label,'stupid value for psidecayfac')
        if (psidecayfac > 2.) call warn(label,'psidecayfac set outside recommended range (0.1-2.0)')
        if (overcleanfac < 1.0) call warn(label,'overcleanfac less than 1')
-       if (etamhd < 0.0) call warn(label,'etamhd < 0')
     endif
     if (beta < 0.)     call fatal(label,'beta < 0')
     if (beta > 4.)     call warn(label,'very high beta viscosity set')

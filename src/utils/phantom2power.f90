@@ -19,7 +19,7 @@
 !  USAGE: phantom2power dumpfilename [npixx]
 !
 !  DEPENDENCIES: boundary, dim, fft3d, infile_utils, interpolations3D, io,
-!    params, part, physcon, power, powerspec, readwrite_dumps
+!    part, physcon, power, powerspec, readwrite_dumps
 !+
 !--------------------------------------------------------------------------
 program phantom2power
@@ -31,8 +31,7 @@ program phantom2power
  use interpolations3D, only:interpolate3D
  use powerspec, only:sphfft3D,sphfft3D_fast,sphpow3D,power_part,write_power_ascii,open_power_ascii
  use fft3d, only:fft3df
- use power, only:open_power,write_power,power3d
- use params, only:mlabel,power_unit
+ use power, only:open_power,write_power,power3d,mlabel,power_unit
  use physcon, only:pi
  implicit none
  integer :: npixx,npixy,npixz,numk

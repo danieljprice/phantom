@@ -82,11 +82,12 @@ end subroutine finish_eos_mesa
 !  density/internal energy
 !+
 !----------------------------------------------------------------
-subroutine get_eos_pressure_gamma1_mesa(den,eint,pres,gam1)
+subroutine get_eos_pressure_gamma1_mesa(den,eint,pres,gam1,ierr)
  real, intent(in) :: den, eint
  real, intent(out) :: pres, gam1
+ integer, intent(out) :: ierr
 
- call getvalue_mesa(den,eint,2,pres)
+ call getvalue_mesa(den,eint,3,pres,ierr)
  call getvalue_mesa(den,eint,11,gam1)
 
 end subroutine get_eos_pressure_gamma1_mesa

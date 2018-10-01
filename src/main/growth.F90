@@ -12,7 +12,7 @@
 !
 !  REFERENCES:
 !  Stepinski & Valageas (1997)
-!  Kobayashi & Tanaka (2008)
+!  Kobayashi & Tanaka (2009)
 !
 !  OWNER: Arnaud Vericel
 !
@@ -50,6 +50,7 @@ module growth
  real, public           :: vfragoutSI   = 15.
 
  real, public           :: vfrag
+ real, public           :: vref
  real, public           :: vfragin
  real, public           :: vfragout
  real, public           :: grainsizemin
@@ -57,6 +58,7 @@ module growth
  public                 :: get_growth_rate,get_vrelonvfrag,update_dustprop
  public                 :: write_options_growth,read_options_growth,print_growthinfo,init_growth
  public                 :: vrelative,read_growth_setup_options,write_growth_setup_options
+ public                 :: comp_snow_line
 
 contains
 
@@ -76,6 +78,7 @@ subroutine init_growth(ierr)
  ierr = 0
 
  !--initialise variables in code units
+ vref           = 100 / unit_velocity
  vfrag          = vfragSI * 100 / unit_velocity
  vfragin        = vfraginSI * 100 / unit_velocity
  vfragout       = vfragoutSI * 100 / unit_velocity
@@ -187,7 +190,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
  real, intent(out)    :: dsdt(:)
  integer, intent(in)  :: npart
  !
- real                 :: rhod,cs
+ real                 :: rhod,cs,vrel
  integer              :: i,iam
 
  !--get ds/dt over all dust particles
@@ -199,23 +202,22 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
 
        rhod = rhoh(xyzh(4,i),massoftype(2)) !--idust = 2
        cs   = get_spsound(ieos,xyzh(:,i),rhod,vxyzu(:,i))
-       call get_vrelonvfrag(xyzh(:,i),dustprop(:,i),cs,St(i))
+       call get_vrelonvfrag(xyzh(:,i),vrel,dustprop(:,i),cs,St(i))
        !
        !--dustprop(1)= size, dustprop(2) = intrinsic density, dustprop(3) = vrel,
        !  dustprop(4) = vrel/vfrag, dustprop(5) = vd - vg
        !
        !--if statements to compute ds/dt
        !
-       if (dustprop(4,i) < 1. .or. ifrag==0) then ! vrel/vfrag < 1 or pure growth --> growth
-          dsdt(i) = rhod/dustprop(2,i)*dustprop(3,i)
-       elseif (dustprop(4,i) >= 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
+       if (ifrag == -1) dsdt(i) = 0.
+       if ((dustprop(3,i) < 1. .or. ifrag == 0) .and. ifrag /= -1) then ! vrel/vfrag < 1 or pure growth --> growth
+          dsdt(i) = rhod/dustprop(2,i)*vrel
+       elseif (dustprop(3,i) >= 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
           select case(ifrag)
           case(1)
-             dsdt(i) = -rhod/dustprop(2,i)*dustprop(3,i) ! Symmetrical of Stepinski & Valageas
+             dsdt(i) = -rhod/dustprop(2,i)*vrel ! Symmetrical of Stepinski & Valageas
           case(2)
-             dsdt(i) = -rhod/dustprop(2,i)*dustprop(3,i)*(dustprop(4,i)**2)/(1+dustprop(4,i)**2) ! Kobayashi model
-          case default
-             dsdt(i) = 0.
+             dsdt(i) = -rhod/dustprop(2,i)*vrel*(dustprop(3,i)**2)/(1+dustprop(3,i)**2) ! Kobayashi model
           end select
        endif
     endif
@@ -227,42 +229,67 @@ end subroutine get_growth_rate
 !  Compute the local ratio vrel/vfrag and vrel
 !+
 !-----------------------------------------------------------------------
-subroutine get_vrelonvfrag(xyzh,dustprop,cs,St)
+subroutine get_vrelonvfrag(xyzh,vrel,dustprop,cs,St)
  use options,         only:alpha
  use physcon,         only:Ro
- use eos,             only:temperature_coef,gmw
  real, intent(in)     :: xyzh(:)
  real, intent(in)     :: cs,St
  real, intent(inout)  :: dustprop(:)
- real                 :: Vt,r,cs_snow
-
- !--transform Tsnow in cs_snow
- cs_snow = sqrt(Tsnow/(temperature_coef*gmw))
+ real, intent(out)    :: vrel
+ real                 :: Vt
+ integer              :: izone
 
  !--compute terminal velocity
  Vt = sqrt((2**0.5)*Ro*alpha)*cs
 
  !--compute vrel
- dustprop(3) = vrelative(St,dustprop(5),Vt)
+ vrel = vrelative(St,dustprop(4),Vt)
  !
  !--If statements to compute local ratio vrel/vfrag
  !
- if (ifrag > 0) then
-    select case(isnow)
-    case(0) !--uniform vfrag
-       dustprop(4) = dustprop(3) / vfrag
-    case(1) !--position based snow line in spherical geometry
-       r = sqrt(xyzh(1)**2 + xyzh(2)**2 + xyzh(3)**2)
-       if (r < rsnow) dustprop(4) = dustprop(3) / vfragin
-       if (r > rsnow) dustprop(4) = dustprop(3) / vfragout
-    case(2) !--temperature based snow line
-       if (cs > cs_snow) dustprop(4) = dustprop(3) / vfragin
-       if (cs < cs_snow) dustprop(4) = dustprop(3) / vfragout
-    case default
-       dustprop(4) = 0.
+ if (ifrag == 0) then
+    dustprop(3) = vrel/vref ! for pure growth, vrel/vfrag gives vrel in m/s
+ elseif (ifrag > 0) then
+    call comp_snow_line(xyzh,cs,izone)
+    select case(izone)
+    case(0)
+       dustprop(3) = vrel/vfrag
+    case(1)
+       dustprop(3) = vrel/vfragin
+    case(2)
+       dustprop(3) = vrel/vfragout
     end select
  endif
 end subroutine get_vrelonvfrag
+
+!----------------------------------------------------------------------------
+!+
+! Get the location of a given particle (dust or gas or mixture) with respect
+! to a (or more) snow line(s)
+!+
+!----------------------------------------------------------------------------
+subroutine comp_snow_line(xyzh,cs,izone)
+ use eos,    only:temperature_coef,gmw
+ integer, intent(out) :: izone
+ real, intent(in)     :: xyzh(:),cs
+ real                 :: cs_snow,r
+
+ select case(isnow)
+ case(0)
+    izone = 0
+ case(1)
+    r = sqrt(xyzh(1)**2 + xyzh(2)**2 + xyzh(3)**2)
+    if (r<=rsnow) izone = 1
+    if (r>rsnow) izone = 2
+ case(2)
+    cs_snow = sqrt(Tsnow/(temperature_coef*gmw))
+    if (cs > cs_snow) izone = 1
+    if (cs < cs_snow) izone = 2
+ case default
+    izone = 0
+ end select
+
+end subroutine comp_snow_line
 
 !-----------------------------------------------------------------------
 !+
@@ -333,7 +360,7 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     imatch = .false.
  end select
 
- if (ifrag == 0 .and. ngot == 1) igotall = .true.
+ if ((ifrag <= 0) .and. ngot == 1) igotall = .true.
  if (isnow == 0) then
     if (ngot == 4) igotall = .true.
  elseif (isnow > 0) then
@@ -375,7 +402,7 @@ subroutine read_growth_setup_options(db,nerr)
  type(inopts), allocatable, intent(inout) :: db(:)
  integer, intent(inout)                   :: nerr
 
- call read_inopt(ifrag,'ifrag',db,min=0,max=2,errcount=nerr)
+ call read_inopt(ifrag,'ifrag',db,min=-1,max=2,errcount=nerr)
  if (ifrag > 0) then
     call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
     call read_inopt(grainsizemin,'grainsizemin',db,min=1.e-5,errcount=nerr)
@@ -426,8 +453,8 @@ subroutine set_dustprop(npart)
  integer            :: i
 
  do i=1,npart
-    dustprop(1,i) = grainsizecgs(1) / udist
-    dustprop(2,i) = graindenscgs(1) / unit_density
+    dustprop(1,i) = grainsizecgs / udist
+    dustprop(2,i) = graindenscgs / unit_density
  enddo
 
 end subroutine set_dustprop

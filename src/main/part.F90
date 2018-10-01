@@ -30,6 +30,7 @@
 !+
 !--------------------------------------------------------------------------
 module part
+<<<<<<< HEAD
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu, &
           maxalpha,maxptmass,nsinkproperties,maxstrain, &
           mhd,maxmhd,maxBevol,maxp_h2,nabundances,maxtemp,periodic, &
@@ -39,6 +40,13 @@ module part
           maxne,maxp_growth,ndusttypes, &
           maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh
  use dtypekdtree, only:kdnode
+=======
+ use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
+               maxptmass,maxdvdx,mhd,maxmhd,maxBevol,maxp_h2,maxtemp,periodic,&
+               maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
+               use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni,&
+               maxne,maxp_growth,maxdustlarge,maxdustsmall,maxdusttypes
+>>>>>>> master
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -60,9 +68,20 @@ module part
 !
 !--storage of dust properties
 !
+<<<<<<< HEAD
  real, allocatable :: dustprop(:,:)
  real, allocatable :: St(:)
  character(len=*), parameter :: dustprop_label(5) = (/'grainsize ','graindens ','   vrel   ','vrel/vfrag','    dv    '/)
+=======
+ real :: grainsize(maxdusttypes)
+ real :: graindens(maxdusttypes)
+!
+!--storage of dust growth properties
+!
+ real :: dustprop(4,maxp_growth)
+ real :: St(maxp_growth)
+ character(len=*), parameter :: dustprop_label(4) = (/'grainsize ','graindens ','vrel/vfrag','    dv    '/)
+>>>>>>> master
 !
 !--storage in divcurlv
 !
@@ -82,9 +101,13 @@ module part
  character(len=*), parameter :: divcurlB_label(4) = &
    (/'divB  ','curlBx','curlBy','curlBz'/)
 !
-!--physical viscosity
+!--velocity gradients
 !
+<<<<<<< HEAD
  real(kind=4), allocatable :: straintensor(:,:)
+=======
+ real(kind=4) :: dvdx(9,maxdvdx)
+>>>>>>> master
 !
 !--H2 chemistry
 !
@@ -103,11 +126,19 @@ module part
 !
 !--one-fluid dust (small grains)
 !
+<<<<<<< HEAD
  real, allocatable :: dustfrac(:,:)
  real, allocatable :: dustevol(:,:)
  real, allocatable :: deltav(:,:,:)
  character(len=*), parameter :: dustfrac_label(ndusttypes) = 'dustfrac'
  character(len=*), parameter :: tstop_label(ndusttypes) = 'tstop'
+=======
+ real :: dustfrac(maxdusttypes,maxp_dustfrac)
+ character(len=*), parameter :: dustfrac_label(maxdusttypes) = 'dustfrac'
+ character(len=*), parameter :: tstop_label(maxdusttypes) = 'tstop'
+ real :: dustevol(maxdustsmall,maxp_dustfrac)
+ real :: deltav(3,maxdustsmall,maxp_dustfrac)
+>>>>>>> master
  character(len=*), parameter :: deltav_label(3) = &
    (/'deltavx','deltavy','deltavz'/)
 !
@@ -154,6 +185,7 @@ module part
 !
 !--derivatives (only needed if derivs is called)
 !
+<<<<<<< HEAD
  real, allocatable         :: fxyzu(:,:)
  real, allocatable         :: dBevol(:,:)
  real(kind=4), allocatable :: divBsymm(:)
@@ -167,6 +199,21 @@ module part
  real, allocatable   :: dustpred(:,:)
  real, allocatable   :: Bpred(:,:)
  real, allocatable   :: dustproppred(:,:)
+=======
+ real               :: fxyzu(maxvxyzu,maxan)
+ real               :: dBevol(maxBevol,maxmhdan)
+ real(kind=4)       :: divBsymm(maxmhdan)
+ real               :: fext(3,maxan)
+ real               :: ddustevol(maxdustsmall,maxdustan)
+ real               :: ddustprop(4,maxp_growth) !--grainsize is the only prop that evolves for now
+!
+!--storage associated with/dependent on timestepping
+!
+ real               :: vpred(maxvxyzu,maxan)
+ real               :: dustpred(maxdustsmall,maxdustan)
+ real               :: Bpred(maxBevol,maxmhdan)
+ real               :: dustproppred(4,maxp_growth)
+>>>>>>> master
 #ifdef IND_TIMESTEPS
  integer(kind=1), allocatable :: ibin(:)
  integer(kind=1), allocatable :: ibin_old(:)
@@ -181,8 +228,13 @@ module part
  integer(kind=1), allocatable    :: iphase_soa(:)
  logical, public    :: all_active = .true.
 
+<<<<<<< HEAD
  real(kind=4), allocatable :: gradh(:,:)
  real, allocatable         :: tstop(:,:)
+=======
+ real(kind=4)       :: gradh(ngradh,maxgradh)
+ real               :: tstop(maxdusttypes,maxan)
+>>>>>>> master
 !
 !--storage associated with link list
 !  (used for dead particle list also)
@@ -226,8 +278,8 @@ module part
    +1                                   &  ! iphase
 #endif
 #ifdef DUST
-   +ndusttypes                          &  ! dustfrac
-   +ndusttypes                          &  ! dustevol
+   +maxdusttypes                        &  ! dustfrac
+   +maxdustsmall                        &  ! dustevol
 #ifdef DUSTGROWTH
    +1                                   &  ! dustproppred
    +1                                   &  ! ddustprop
@@ -258,6 +310,8 @@ module part
 
  integer :: npartoftype(maxtypes)
  real    :: massoftype(maxtypes)
+
+ integer :: ndustsmall,ndustlarge,ndusttypes
 !
 !--labels for each type
 !  NOTE: If new particle is added, and it is allowed to be accreted onto
@@ -268,15 +322,18 @@ module part
 !         are not saved)
 !
  integer, parameter :: igas        = 1
- integer, parameter :: idust       = 2
  integer, parameter :: iboundary   = 3
  integer, parameter :: istar       = 4
  integer, parameter :: idarkmatter = 5
  integer, parameter :: ibulge      = 6
+ integer, parameter :: idust       = 7
+ integer, parameter :: idustlast   = idust + maxdustlarge - 1
  integer, parameter :: iunknown    = 0
  logical            :: set_boundaries_to_active = .true.
+ integer :: i
  character(len=5), dimension(maxtypes), parameter :: &
-    labeltype = (/'gas  ','dust ','bound','star ','darkm','bulge'/)
+   labeltype = (/'gas  ','empty','bound','star ','darkm','bulge', &
+                 ('dust ', i=idust,idustlast)/)
 !
 !--generic interfaces for routines
 !
@@ -617,7 +674,7 @@ pure subroutine get_partinfo(iphasei,isactive,isdust,itype)
     itype    = -iphasei
  endif
 #ifdef DUST
- isdust = itype==idust
+ isdust = ((itype>=idust) .and. (itype<=idustlast))
 #else
  isdust = .false.
 #endif
@@ -669,7 +726,7 @@ pure elemental logical function iamdust(iphasei)
  integer :: itype
 
  itype = iamtype(iphasei)
- iamdust = int(itype)==idust
+ iamdust = ((itype>=idust) .and. (itype<=idustlast))
 
 end function iamdust
 
@@ -719,6 +776,24 @@ subroutine set_particle_type(i,itype)
  endif
 
 end subroutine set_particle_type
+
+!----------------------------------------------------------------
+!+
+!  utility function to get strain tensor from dvdx array
+!+
+!----------------------------------------------------------------
+pure function strain_from_dvdx(dvdxi) result(strain)
+ real, intent(in) :: dvdxi(9)
+ real :: strain(6)
+
+ strain(1) = 2.*dvdxi(1)
+ strain(2) = dvdxi(2) + dvdxi(4)
+ strain(3) = dvdxi(3) + dvdxi(7)
+ strain(4) = 2.*dvdxi(5)
+ strain(5) = dvdxi(6) + dvdxi(8)
+ strain(6) = 2.*dvdxi(9)
+
+end function strain_from_dvdx
 
 !----------------------------------------------------------------
 !+
@@ -805,7 +880,7 @@ subroutine copy_particle_all(src,dst)
     dustfrac(:,dst)  = dustfrac(:,src)
     dustevol(:,dst)  = dustevol(:,src)
     dustpred(:,dst)  = dustpred(:,src)
-    ddustfrac(:,dst) = ddustfrac(:,src)
+    ddustevol(:,dst) = ddustevol(:,src)
     deltav(:,:,dst)  = deltav(:,:,src)
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
@@ -997,6 +1072,7 @@ subroutine fill_sendbuf(i,xtemp)
     if (use_dust) then
        call fill_buffer(xtemp, dustfrac(:,i),nbuf)
        call fill_buffer(xtemp, dustevol(:,i),nbuf)
+       call fill_buffer(xtemp, dustpred(:,i),nbuf)
     endif
     if (maxp_h2==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)
@@ -1055,8 +1131,9 @@ subroutine unfill_buffer(ipart,xbuf)
     iphase(ipart)       = nint(unfill_buf(xbuf,j),kind=1)
  endif
  if (use_dust) then
-    dustfrac(:,ipart)   = unfill_buf(xbuf,j,ndusttypes)
-    dustevol(:,ipart)   = unfill_buf(xbuf,j,ndusttypes)
+    dustfrac(:,ipart)   = unfill_buf(xbuf,j,maxdusttypes)
+    dustevol(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
+    dustpred(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
  endif
  if (maxp_h2==maxp) then
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)

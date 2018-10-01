@@ -34,7 +34,7 @@ subroutine test_step(ntests,npass)
  use io,       only:id,master
 #ifdef PERIODIC
  use io,       only:iverbose
- use dim,      only:maxp,maxvxyzu,maxalpha,maxstrain
+ use dim,      only:maxp,maxvxyzu,maxalpha
  use boundary, only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
  use eos,      only:polyk,gamma,use_entropy
  use mpiutils, only:reduceall_mpi

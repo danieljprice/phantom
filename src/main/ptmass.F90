@@ -68,11 +68,6 @@ module ptmass
  integer, public :: ipart_rhomax
  real,    public :: r_crit2,rho_crit
 
- integer,         public :: rhomax_ipart
- integer(kind=1), public :: rhomax_iphase,rhomax_ibin
- real,            public :: rhomax_xyzh(4),rhomax_vxyz(3)
- real(kind=4),    public :: rhomax_divv
-
  ! calibration of timestep control on sink-sink and sink-gas orbital integration
  ! this is hardwired because can be adjusted by changing C_force
  ! just means that with the default setting of C_force the orbits are accurate
@@ -806,15 +801,14 @@ end subroutine update_ptmass
 ! Conditions are given in section 2.2.2 of BBP95 and in the Phantom paper
 !+
 !-------------------------------------------------------------------------
-subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype,&
-                         xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time,&
-                         xyzhi,vxyzi,iphasei_test,divvi_test,ibini)
+subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
+                         massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
  use part,   only:ihacc,ihsoft,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
                   ispinx,ispiny,ispinz,fxyz_ptmass_sinksink
  use dim,    only:maxp,maxneigh,maxvxyzu
  use kdtree, only:getneigh
  use kernel, only:kernel_softening
- use io,     only:iprint,fatal,iverbose,nprocs
+ use io,     only:id,iprint,fatal,iverbose,nprocs
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
 #endif
@@ -826,18 +820,15 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
  use options,  only:ieos
  use units,    only:unit_density
  use io_summary, only:summary_variable_rhomax,summary_ptmass_fail
- use mpiutils, only:reduceall_mpi
+ use mpiutils, only:reduceall_mpi,bcast_mpi,reduceloc_mpi
  integer,         intent(inout) :: nptmass
  integer,         intent(in)    :: npart,itest
  real,            intent(inout) :: xyzh(:,:)
  real,            intent(in)    :: vxyzu(:,:), fxyzu(:,:), fext(:,:), massoftype(:)
- real(4),         intent(in)    :: divcurlv(:,:)
+ real(4),         intent(in)    :: divcurlv(:,:),poten(:)
  real,            intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real,            intent(inout) :: vxyz_ptmass(3,maxptmass),fxyz_ptmass(4,maxptmass)
  real,            intent(in)    :: time
- real, optional,  intent(in)    :: xyzhi(4),vxyzi(3)
- real(kind=4),    optional, intent(in) :: divvi_test
- integer(kind=1), optional, intent(in) :: iphasei_test,ibini
  integer(kind=1)    :: iphasei,ibin_wakei
  integer            :: nneigh
  integer            :: listneigh(maxneigh)
@@ -850,35 +841,37 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
  real    :: dptmass(ndptmass,nptmass+1)
  real    :: xi,yi,zi,hi,hi1,hi21,xj,yj,zj,hj1,hj21,xk,yk,zk,hk1
  real    :: rij2,rik2,rjk2,dx,dy,dz,h_acc2
- real    :: vxi,vyi,vzi,dv2,dvx,dvy,dvz
+ real    :: vxi,vyi,vzi,dv2,dvx,dvy,dvz,rhomax
  real    :: alpha_grav,alphabeta_grav,radxy2,radxz2,radyz2
  real    :: etot,epot,ekin,etherm,erot,erotx,eroty,erotz
  real    :: rcrossvx,rcrossvy,rcrossvz,fxj,fyj,fzj
  real    :: pmassi,pmassj,pmassk,ponrhoj,rhoj,spsoundj
  real    :: q2i,qi,psofti,psoftj,psoftk,fsoft,epot_mass,epot_rad,pmassgas1
- real(4) :: divvi
- integer :: ifail,nacc,j,k,n,nk,itype,itypej,itypek,ifail7(7)
+ real(4) :: divvi,potenj_min,poteni
+ integer :: ifail,nacc,j,k,n,nk,itype,itypej,itypek,ifail7(7),id_rhomax
  logical :: accreted,iactivej,isdustj,iactivek,isdustk,calc_exact_epot
 
  ifail  = 0
  ifail7 = 0
-
- ! itest's characteristics
- if (present(xyzhi)) then
-    xi = xyzhi(1)
-    yi = xyzhi(2)
-    zi = xyzhi(3)
-    hi = xyzhi(4)
-    vxi = vxyzi(1)
-    vyi = vxyzi(2)
-    vzi = vxyzi(3)
-    iphasei= iphasei_test
-    divvi = divvi_test
-#ifdef IND_TIMESTEPS
-    ibin_itest = ibini
-#endif
- else
-    if (itest <= 0 .or. itest > npart) return
+ poteni = 0._4
+ potenj_min = huge(poteni)
+!
+! find the location of the maximum density across
+! all MPI threads
+!
+ rhomax = 0.
+ if (itest > 0 .and. itest <= npart) then
+    iphasei = iphase(itest)
+    itype = iamtype(iphasei)
+    rhomax = rhoh(xyzh(4,itest),massoftype(itype))
+ endif
+ call reduceloc_mpi('max',rhomax,id_rhomax)
+!
+! get properties of particle on the thread
+! where it belongs
+!
+ if (id == id_rhomax) then
+    if (itest < 0 .or. itest > npart) call fatal('ptmass','index out of range testing for sink creation')
     xi = xyzh(1,itest)
     yi = xyzh(2,itest)
     zi = xyzh(3,itest)
@@ -891,7 +884,25 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
 #ifdef IND_TIMESTEPS
     ibin_itest = ibin(itest)
 #endif
+    if (gravity) poteni = poten(itest)
  endif
+!
+! broadcast properties of the particle being tested to all threads
+!
+ call bcast_mpi(xi,id_rhomax)
+ call bcast_mpi(yi,id_rhomax)
+ call bcast_mpi(zi,id_rhomax)
+ call bcast_mpi(hi,id_rhomax)
+ call bcast_mpi(vxi,id_rhomax)
+ call bcast_mpi(vyi,id_rhomax)
+ call bcast_mpi(vzi,id_rhomax)
+ call bcast_mpi(iphasei,id_rhomax)
+ call bcast_mpi(divvi,id_rhomax)
+#ifdef IND_TIMESTEPS
+ call bcast_mpi(ibin_itest,id_rhomax)
+#endif
+ call bcast_mpi(poteni,id_rhomax)
+
  hi1  = 1.0/hi
  hi21 = hi1**2
  if (maxphase==maxp) then
@@ -907,9 +918,11 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
  iactivej = .true.
  pmassgas1 = 1.0/pmassj
 
- call summary_variable_rhomax(itest,rhoh(hi,pmassi)*real(unit_density),iprint,nptmass)
+ if (id==id_rhomax) call summary_variable_rhomax(itest,rhoh(hi,pmassi)*real(unit_density),iprint,nptmass)
 
- if (iverbose >= 1) write(iprint,"(a,i10,a)",advance='no') ' ptmass_create: Testing ',itest,' for ptmass creation...'
+ if (iverbose >= 1 .and. id==id_rhomax) &
+    write(iprint,"(a,i10,a,i2,a)",advance='no') &
+     ' ptmass_create: Testing ',itest,' on thread ',id,' for ptmass creation...'
 
  ! CHECK 0: make sure particle is a gas particle (sanity check, should be unnecessary)
  if (itype /= igas) then
@@ -956,7 +969,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
 !$omp shared(nprocs) &
 !$omp shared(maxp,maxphase) &
 !$omp shared(nneigh,listneigh,h_acc2,xyzh,xyzcache,vxyzu,massoftype,iphase,pmassgas1,calc_exact_epot) &
-!$omp shared(itest,ifail,xi,yi,zi,hi,vxi,vyi,vzi,hi1,hi21,itype,pmassi,ieos,gamma) &
+!$omp shared(itest,id,id_rhomax,ifail,xi,yi,zi,hi,vxi,vyi,vzi,hi1,hi21,itype,pmassi,ieos,gamma,poten) &
 #ifdef PERIODIC
 !$omp shared(dxbound,dybound,dzbound) &
 #endif
@@ -967,7 +980,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
 !$omp private(dx,dy,dz,dvx,dvy,dvz,dv2,isdustj,iactivek,isdustk) &
 !$omp private(rhoj,ponrhoj,spsoundj,q2i,qi,fsoft,rcrossvx,rcrossvy,rcrossvz,radxy2,radyz2,radxz2) &
 !$omp firstprivate(pmassj,pmassk,itypej,iactivej,itypek) &
-!$omp reduction(+:ekin,erotx,eroty,erotz,etherm,epot,epot_mass,epot_rad)
+!$omp reduction(+:ekin,erotx,eroty,erotz,etherm,epot,epot_mass,epot_rad) &
+!$omp reduction(min:potenj_min)
 !$omp do
  over_neigh: do n=1,nneigh
     j = listneigh(n)
@@ -1050,6 +1064,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
 
        ! gravitational potential energy of clump
        if (gravity) then
+          potenj_min = min(potenj_min,poten(j))
           if (calc_exact_epot) then
              if (nprocs > 1) call fatal('ptmass_create', 'cannot use calc_exact_epot with MPI')
              ! Calculate potential energy exactly
@@ -1066,7 +1081,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
              ! add contribution of k-j for all k >= j (to avoid double counting, but include self-contribution)
              over_neigh_k: do nk=n,nneigh
                 k = listneigh(nk)
-                if (k==itest) cycle over_neigh_k ! contribution already added
+                if (k==itest .and. id==id_rhomax) cycle over_neigh_k ! contribution already added
                 if (maxphase==maxp) then
                    call get_partinfo(iphase(k),iactivek,isdustk,itypek)
                    pmassk = massoftype(itypek)
@@ -1145,9 +1160,13 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
        ifail = 7
     endif
  endif
-
  !
- !--Continue checks (non-sensical for ifail==1 since energies not completely calculated)
+ ! communicate failure on any MPI thread to all threads
+ !
+ ifail = int(reduceall_mpi('max',ifail))
+ !
+ ! Continue checks (non-sensical for ifail==1 since energies not completely calculated)
+ !
  if (ifail==0 .or. (record_created .and. ifail > 1)) then
     ! finish computing energies
     ekin  = 0.5*ekin
@@ -1182,6 +1201,12 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
           ifail     = 3
           ifail7(3) = 1
        endif
+
+       ! CHECK 7: particle i is at minimum in potential
+       if (poteni > potenj_min) then
+          ifail = 5
+          ifail7(5) = 1
+       endif
     else
        alpha_grav     = 0.0
        alphabeta_grav = 0.0
@@ -1198,25 +1223,30 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
     alphabeta_grav = 0.0
     etot           = 0.0
  endif
+ ! communicate failure to all MPI threads
+ ifail = int(reduceall_mpi('max',ifail))
 
- if (iverbose >= 1) then
+ if (iverbose >= 1 .and. id==id_rhomax) then
     select case(ifail)
+    case(5)
+       write(iprint,"(/,1x,a,'phi = ',es10.3,' min =',es10.3)") &
+       'ptmass_create: FAILED because not at potential minimum ',poteni,potenj_min
     case(4)
-       write(iprint,"(/,a,es10.3)") &
+       write(iprint,"(/,1x,a,es10.3)") &
        'ptmass_create: FAILED because total energy > 0, etot = ',etot
     case(3)
-       write(iprint,"(/,a,2es10.3)") &
+       write(iprint,"(/,1x,a,2es10.3)") &
        'ptmass_create: FAILED because alpha_grav + beta_grav > 1, alpha, beta = ',alpha_grav, abs(erot/epot)
     case(2)
-       write(iprint,"(/,a,es10.3)") &
+       write(iprint,"(/,1x,a,es10.3)") &
        'ptmass_create: FAILED because thermal energy/grav energy > 0.5: alpha_grav = ',alpha_grav
     case(1)
-       write(iprint,"(/,a)") &
+       write(iprint,"(/,1x,a)") &
        'ptmass_create: FAILED because not all particles within h_acc are active'
     case(0)
-       write(iprint,"(a)") 'ptmass_create: OK'
+       write(iprint,"(1x,a)") 'ptmass_create: OK'
     case default
-       write(iprint,"(/,a)") 'ptmass_create: FAILED (unknown reason)'
+       write(iprint,"(/,1x,a)") 'ptmass_create: FAILED (unknown reason)'
     end select
  endif
 
@@ -1267,8 +1297,10 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,mass
     ! update ptmass position, spin, velocity, acceleration, and mass
     call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 
-    write(iprint,"(a,i3,a,4(es10.3,1x),a,i6,a,es10.3)") ' created ptmass #',nptmass,&
-     ' at (x,y,z,t)=(',xyzmh_ptmass(1:3,nptmass),time,') by accreting ',nacc,' particles: M=',xyzmh_ptmass(4,nptmass)
+    if (id==id_rhomax) then
+       write(iprint,"(a,i3,a,4(es10.3,1x),a,i6,a,es10.3)") ' created ptmass #',nptmass,&
+       ' at (x,y,z,t)=(',xyzmh_ptmass(1:3,nptmass),time,') by accreting ',nacc,' particles: M=',xyzmh_ptmass(4,nptmass)
+    endif
     if (nacc <= 0) call fatal('ptmass_create',' created ptmass but failed to accrete anything')
     !
     ! open new file to track new sink particle details & and update all sink-tracking files;

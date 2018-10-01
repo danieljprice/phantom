@@ -42,7 +42,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, energies, extern_binary, externalforces,
-!    io, nicil, options, part, units, viscosity
+!    fileutils, io, nicil, options, part, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module evwrite
@@ -58,7 +58,7 @@ module evwrite
                            iev_angmom,iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
                            iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah,&
                            iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT,&
-                           iev_dtg,iev_ts,iev_momall,iev_angall,iev_angall,iev_maccsink,&
+                           iev_dtg,iev_ts,iev_dm,iev_momall,iev_angall,iev_angall,iev_maccsink,&
                            iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_ionise
 
  implicit none
@@ -80,16 +80,18 @@ contains
 !----------------------------------------------------------------
 subroutine init_evfile(iunit,evfile,open_file)
  use io,        only: id,master,warning
- use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,calc_erot,lightcurve,use_CMacIonize
+ use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,calc_erot,lightcurve, &
+                      use_CMacIonize
  use options,   only: ishock_heating,ipdv_heating,use_dustfrac
- use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype
+ use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes
  use nicil,     only: use_ohm,use_hall,use_ambi,ion_rays,ion_thermal
  use viscosity, only: irealvisc
  integer,            intent(in) :: iunit
  character(len=  *), intent(in) :: evfile
  logical,            intent(in) :: open_file
  character(len= 27)             :: ev_fmt
- integer                        :: i,j
+ character(len= 11)             :: dustname
+ integer                        :: i,j,k
  !
  !--Initialise additional variables
  !
@@ -172,7 +174,11 @@ subroutine init_evfile(iunit,evfile,open_file)
  endif
  if (use_dustfrac) then
     call fill_ev_tag(ev_fmt,   iev_dtg,'dust/gas',     'xan',i,j)
-    call fill_ev_tag(ev_fmt,   iev_ts, 't_s',          'mn', i,j)
+    call fill_ev_tag(ev_fmt,   iev_ts, 't_s',          'xn', i,j)
+    do k=1,ndusttypes
+       write(dustname,'(a,I3)') 'DustMass',k
+       call fill_ev_tag(ev_fmt,iev_dm(k), dustname,    '0',  i,j)
+    enddo
  endif
  if (iexternalforce > 0) then
     call fill_ev_tag(ev_fmt,   iev_momall,'totmomall',   '0',i,j)
@@ -296,7 +302,7 @@ subroutine fill_ev_header(ev_fmt,label,cxmn,j,joffset)
 
  if (len(label)>11 .and. (cxmn=='0' .or. cxmn=='s') ) then
     label0 = label(1:11)
- else if (len(label)>9) then
+ else if (len(label)>9 .and. (cxmn=='x' .or. cxmn=='a' .or. cxmn=='n')) then
     label0 = label(1:9)
  else
     label0 = label
@@ -388,14 +394,17 @@ end subroutine write_evfile
 !+
 !----------------------------------------------------------------
 subroutine write_evlog(iprint)
- use dim,       only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,use_dust
- use energies,  only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas,xyzcom
- use viscosity, only:irealvisc,shearparam
- use boundary,  only:dxbound,dybound,dzbound
- use units,     only:unit_density
- use options,   only:use_dustfrac
+ use dim,           only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,use_dust,maxdusttypes
+ use energies,      only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas,xyzcom
+ use part,          only:ndusttypes
+ use viscosity,     only:irealvisc,shearparam
+ use boundary,      only:dxbound,dybound,dzbound
+ use units,         only:unit_density
+ use options,       only:use_dustfrac
+ use fileutils,     only:make_tags_unique
  integer, intent(in) :: iprint
- character(len=120)  :: string
+ character(len=120)  :: string,Mdust_label(maxdusttypes)
+ integer :: i
 
  if (ndead > 0) then
     write(iprint,"(1x,a,I10,a,I10)") 'n_alive=',npart-ndead,', n_dead_or_accreted=',ndead
@@ -422,7 +431,14 @@ subroutine write_evlog(iprint)
          'dust2gas ',ev_data(iev_max,iev_dtg),ev_data(iev_ave,iev_dtg)
     write(iprint,"(3x,a,'(mean)=',es10.3,1x,'(min)=',es10.3)") 't_stop ',ev_data(iev_ave,iev_ts),ev_data(iev_min,iev_ts)
  endif
- if (use_dust) write(iprint,"(1x,'Mgas = ',es10.3,', Mdust = ',es10.3)") mgas,mdust
+ if (use_dust) then
+    write(iprint,"(1x,'Mgas = ',es10.3)") mgas
+    Mdust_label = 'Mdust'
+    call make_tags_unique(ndusttypes,Mdust_label)
+    do i=1,ndusttypes
+       write(iprint,"(1x,1(a,' = ',es10.3))") trim(Mdust_label(i)),mdust(i)
+    enddo
+ endif
 
  if (track_mass) write(iprint,"(1x,1(a,'=',es10.3))") 'Accreted mass',accretedmass
 

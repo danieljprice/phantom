@@ -5,6 +5,7 @@ build/*.out
 logs
 bin/getmathflags
 build/.depends
+build/phantom-version.h
 *~
 */*~
 */*/*~

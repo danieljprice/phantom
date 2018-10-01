@@ -90,11 +90,15 @@ subroutine get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,G)
 
  mpri = xyzmh_ptmass(4,ipri)
  msec = xyzmh_ptmass(4,isec)
+! msec = xyzmh_ptmass(4,3)
 
  xpri(:) = xyzmh_ptmass(1:3,ipri)
  vpri(:) = vxyz_ptmass(1:3,ipri)
  xsec(:) = xyzmh_ptmass(1:3,isec)
+! xsec(:) = xyzmh_ptmass(1:3,3)
+! xsec(:) = xyzmh_ptmass(1:3,3)
  vsec(:) = vxyz_ptmass(1:3,isec)
+! vsec(:) = vxyz_ptmass(1:3,3)
  dr(:) = xpri(:) - xsec(:)
  dv(:) = vpri(:) - vsec(:)
  rbin  = sqrt(dot_product(dr,dr))
@@ -170,4 +174,3 @@ subroutine cross(a,b,c)
 end subroutine cross
 !-----------------------------------------------------------------------
 end module analysis
-

@@ -38,8 +38,8 @@ subroutine test_ptmass(ntests,npass)
  use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,&
                     xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,epot_sinksink,&
                     ihacc,isdead_or_accreted,igas,divcurlv,iphase,isetphase,maxphase,&
-                    Bevol,dBevol,dustfrac,ddustfrac,temperature,divcurlB,fxyzu,set_particle_type,&
-                    ispinx,ispiny,ispinz,dustprop,ddustprop
+                    Bevol,dBevol,dustfrac,ddustevol,temperature,divcurlB,fxyzu,set_particle_type,&
+                    ispinx,ispiny,ispinz,dustprop,ddustprop,poten,rhoh
  use eos,             only:gamma,polyk
  use timestep,        only:dtmax,C_force
  use testutils,       only:checkval,checkvalf
@@ -51,8 +51,7 @@ subroutine test_ptmass(ntests,npass)
                            ipart_rhomax,icreate_sinks, &
                            idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
                            idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
-                           ndptmass,update_ptmass, &
-                           rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin
+                           ndptmass,update_ptmass
  use physcon,         only:pi
  use setdisc,         only:set_disc
  use spherical,       only:set_sphere
@@ -81,7 +80,7 @@ subroutine test_ptmass(ntests,npass)
  real                   :: q,phisoft,fsoft,m2,mu,v_c1,v_c2,r1,omega1,omega2
  real                   :: dptmass(ndptmass,maxptmass)
  real                   :: dptmass_thread(ndptmass,maxptmass)
- real                   :: fxyz_sinksink(4,maxptmass)
+ real                   :: fxyz_sinksink(4,maxptmass),rhomax_test,rhomax
  integer                :: norbits,itmp,ierr
  integer                :: nfailed(11),imin(1)
  integer                :: id_rhomax,ipart_rhomax_global
@@ -214,7 +213,7 @@ subroutine test_ptmass(ntests,npass)
        if (itest==2 .or. itest==3) then
           fxyzu(:,:) = 0.
           call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                      Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+                      Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
        endif
        !
        !--evolve this for a number of orbits
@@ -516,7 +515,7 @@ subroutine test_ptmass(ntests,npass)
        psep = 0.05  ! required as a variable since this may change under conditions not requested here
        if (itest==2) then
           ! use random so particle with maximum density is unique
-          call set_sphere('random',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh,rhofunc=gaussianr)
+          call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh,rhofunc=gaussianr)
        else
           call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh)
        endif
@@ -548,21 +547,24 @@ subroutine test_ptmass(ntests,npass)
        icreate_sinks = 1
        iverbose = 1
        call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,0.,0.,dtext_dum)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,0.,0.,dtext_dum)
        !
-       ! check that maximum density gives correct particle for itest=2
+       ! check that particle being tested is at the maximum density
        !
        if (itest==2 .and. gravity) then
           imin = minloc(xyzh(4,1:npart))
           itestp = imin(1)
+          rhomax_test = rhoh(xyzh(4,itestp),massoftype(igas))
           !
           ! only check on the thread that has rhomax
           !
           ipart_rhomax_global = ipart_rhomax
           call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
           if (id == id_rhomax) then
-             call checkval(ipart_rhomax,itestp,0,nfailed(1),'ipart_rhomax')
+             rhomax = rhoh(xyzh(4,ipart_rhomax),massoftype(igas))
+             call checkval(rhomax,rhomax_test,epsilon(0.),nfailed(1),'rhomax')
           else
+             itestp = -1 ! set itest = -1 on other threads
              call checkval(ipart_rhomax,-1,0,nfailed(1),'ipart_rhomax')
           endif
           ntests = ntests + 1
@@ -587,27 +589,9 @@ subroutine test_ptmass(ntests,npass)
        if (.not. gravity) then
           ipart_rhomax_global = itestp
           call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
-          if (id == id_rhomax) then
-             rhomax_xyzh = xyzh(1:4,itestp)
-             rhomax_vxyz = vxyzu(1:3,itestp)
-             rhomax_iphase = iphase(itestp)
-             rhomax_divv = divcurlv(1,itestp)
-#ifdef IND_TIMESTEPS
-             rhomax_ibin = ibin(itestp)
-#endif
-          endif
-          call bcast_mpi(rhomax_xyzh,id_rhomax)
-          call bcast_mpi(rhomax_vxyz,id_rhomax)
-          call bcast_mpi(rhomax_iphase,id_rhomax)
-          call bcast_mpi(rhomax_divv,id_rhomax)
-#ifdef IND_TIMESTEPS
-          call bcast_mpi(rhomax_ibin,id_rhomax)
-#endif
        endif
-
-       call ptmass_create(nptmass,npart,itestp,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype,&
-                          xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,0.,&
-                          rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin)
+       call ptmass_create(nptmass,npart,itestp,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
+                          massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,0.)
        !
        ! check that creation succeeded
        !

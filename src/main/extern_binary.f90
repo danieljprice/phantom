@@ -21,7 +21,7 @@
 !  RUNTIME PARAMETERS:
 !    accradius1  -- accretion radius of primary
 !    accradius2  -- accretion radius of secondary (if iexternalforce=binary)
-!    binarymassr -- m2/(m1+m2) of central binary system (if iexternalforce=binary)
+!    binarymassr -- m1/(m1+m2) of central binary system (if iexternalforce=binary)
 !    eps_soft1   -- Plummer softening of primary
 !    eps_soft2   -- Plummer softening of secondary
 !    ramp        -- ramp up mass of secondary over first 5 orbits?
@@ -43,6 +43,7 @@ module extern_binary
  real, public :: eps_soft1 = 0.0
  real, public :: eps_soft2 = 0.0
  logical, public :: ramp = .false.
+ logical, public :: surface_force = .false.
  real,    private :: binarymassri
 
  public :: binary_force, binary_posvel, binary_accreted, update_binary
@@ -62,8 +63,9 @@ contains
 !----------------------------------------------
 subroutine update_binary(ti)
  use physcon, only:pi
- real, intent(in) :: ti
+ real,    intent(in) :: ti
  real :: cost,sint
+ real :: omega
 
  if (ramp .and. ti < 10.*pi) then
     binarymassri = binarymassr*(sin(ti/20.)**2)
@@ -72,8 +74,14 @@ subroutine update_binary(ti)
     binarymassri = binarymassr
  endif
 
- cost = cos(ti)
- sint = sin(ti)
+ if (surface_force) then
+    omega = 0. ! fixed position
+ else
+    omega = 1.
+ endif
+
+ cost = cos(omega*ti)
+ sint = sin(omega*ti)
  x1 = (1.-binarymassri)*cost
  y1 = (1.-binarymassri)*sint
  x2 = -binarymassri*cost
@@ -90,7 +98,7 @@ end subroutine update_binary
 subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi)
  real, intent(in)  :: xi,yi,zi,ti
  real, intent(out) :: fxi,fyi,fzi,phi
- real :: dx1,dy1,dz1,rr1,f1
+ real :: dx1,dy1,dz1,rr1,f1,r1
  real :: dx2,dy2,dz2,rr2,f2
  real :: dr1,dr2,phi1,phi2
 
@@ -110,13 +118,27 @@ subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi)
  dr1 = 1./sqrt(rr1 + eps_soft1**2)
  dr2 = 1./sqrt(rr2 + eps_soft2**2)
 
- f1   = binarymassri*dr1*dr1*dr1
- f2   = (1.-binarymassri)*dr2*dr2*dr2
+ if (surface_force) then
+    r1  = sqrt(rr1)
+    if (r1 < 2.*eps_soft1) then
+       !--add surface force to keep particles outside of r_planet
+       f1 =  binarymassri/(rr1*r1)*(1.-((2.*eps_soft1-r1)/eps_soft1)**4)
+    else
+       !--1/r potential
+       f1 = binarymassri/(rr1*r1)
+    endif
+ else
+    !--normal softened potential
+    f1 = binarymassri*dr1*dr1*dr1
+ endif
+ f2  = (1.-binarymassri)*dr2*dr2*dr2
 
- fxi  = -dx1*f1 - dx2*f2
- fyi  = -dy1*f1 - dy2*f2
- fzi  = -dz1*f1 - dz2*f2
+ fxi = -dx1*f1 - dx2*f2
+ fyi = -dy1*f1 - dy2*f2
+ fzi = -dz1*f1 - dz2*f2
 
+ ! Note: phi1 is the Newtonian potential and does not include then surface force above;
+ !       however, this is not critical since phi is only used for timestep control
  phi1 = -binarymassri*dr1
  phi2 = -(1.-binarymassri)*dr2
  phi  = phi1 + phi2
@@ -139,13 +161,13 @@ subroutine binary_posvel(ti,posmh,vels)
  posmh(1) = x1
  posmh(2) = y1
  posmh(3) = 0.
- posmh(4) = 1.
+ posmh(4) = binarymassri*1./(1.-binarymassri)
  posmh(5) = accradius1
 
  posmh(6)  = x2
  posmh(7)  = y2
  posmh(8)  = 0.
- posmh(9)  = binarymassri
+ posmh(9)  = 1.
  posmh(10) = accradius2
 
  vels(1) = -(1.-binarymassri)*sin(ti)
@@ -198,10 +220,10 @@ end function binary_accreted
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_externbinary(iunit)
- use infile_utils, only:write_inopt
+ use infile_utils,   only:write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(binarymassr,'binarymassr','m2/(m1+m2) of central binary system (if iexternalforce=binary)',iunit)
+ call write_inopt(binarymassr,'binarymassr','m1/(m1+m2) of central binary system (if iexternalforce=binary)',iunit)
  call write_inopt(accradius1,'accradius1','accretion radius of primary',iunit)
  call write_inopt(accradius2,'accradius2','accretion radius of secondary (if iexternalforce=binary)',iunit)
  call write_inopt(eps_soft1,'eps_soft1','Plummer softening of primary',iunit)
@@ -247,6 +269,8 @@ subroutine read_options_externbinary(name,valstring,imatch,igotall,ierr)
     if (eps_soft2 < 0.)  call fatal(where,'negative eps_soft2')
  case('ramp')
     read(valstring,*,iostat=ierr) ramp
+ case default
+    imatch = .false.
  end select
 
  igotall = (ngot >= 2)

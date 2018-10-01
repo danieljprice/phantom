@@ -23,13 +23,18 @@
 !--------------------------------------------------------------------------
 module dim
  implicit none
+#include "../../build/phantom-version.h"
+ integer, parameter, public :: phantom_version_major = PHANTOM_VERSION_MAJOR
+ integer, parameter, public :: phantom_version_minor = PHANTOM_VERSION_MINOR
+ integer, parameter, public :: phantom_version_micro = PHANTOM_VERSION_MICRO
+ character(len=*), parameter, public :: phantom_version_string = PHANTOM_VERSION_STRING
  character(len=80), parameter :: &  ! module version
     modid="$Id$"
 
  public
 
  character(len=80), parameter :: &
-    tagline='PhantomSPH: (c) 2007-2018 The Authors'
+    tagline='Phantom v'//phantom_version_string//' (c) 2007-2018 The Authors'
 
  ! maximum number of particles
  integer :: maxp
@@ -79,8 +84,22 @@ module dim
  integer :: maxp_growth = 0
 #ifdef DUST
  logical, parameter :: use_dust = .true.
+<<<<<<< HEAD
  integer, parameter :: ndustfluids = 1
  integer, parameter :: ndusttypes = 1
+=======
+#ifdef MAXDUSTLARGE
+ integer, parameter :: maxdustlarge = MAXDUSTLARGE
+#else
+ integer, parameter :: maxdustlarge = 11
+#endif
+#ifdef MAXDUSTSMALL
+ integer, parameter :: maxdustsmall = MAXDUSTSMALL
+#else
+ integer, parameter :: maxdustsmall = 1
+#endif
+ integer, parameter :: maxp_dustfrac = maxp
+>>>>>>> master
 #ifdef DUSTGROWTH
  logical, parameter :: use_dustgrowth = .true.
 #else
@@ -88,28 +107,35 @@ module dim
 #endif
 #else
  logical, parameter :: use_dust = .false.
+<<<<<<< HEAD
  integer, parameter :: ndustfluids = 0
  integer, parameter :: ndusttypes = 1 ! to avoid seg faults
+=======
+ integer, parameter :: maxdustlarge = 1
+ integer, parameter :: maxdustsmall = 1
+ integer, parameter :: maxp_dustfrac = 0
+>>>>>>> master
  logical, parameter :: use_dustgrowth = .false.
 #endif
+ integer, parameter :: maxdusttypes = maxdustsmall + maxdustlarge
 
  ! kdtree
  integer, parameter :: minpart = 10
 
  ! rhosum
- integer, parameter :: maxrhosum = 39
+ integer, parameter :: maxrhosum = 39 + maxdustlarge - 1
 
  ! fsum
- integer, parameter :: fsumvars = 17 ! Number of scalars in fsum
+ integer, parameter :: fsumvars = 19 ! Number of scalars in fsum
  integer, parameter :: fsumarrs = 5  ! Number of arrays in fsum
- integer, parameter :: maxfsum  = fsumvars + fsumarrs*(ndusttypes-1) ! Total number of values
+ integer, parameter :: maxfsum  = fsumvars + fsumarrs*(maxdusttypes-1) ! Total number of values
 
  ! xpartveci
  integer, parameter :: maxxpartvecidens = 14
 
- integer, parameter :: xpartvecvars = 47 ! Number of scalars in xpartvec
- integer, parameter :: xpartvecarrs = 2  ! Number of arrays in xpartvec
- integer, parameter :: maxxpartveciforce = xpartvecvars + xpartvecarrs*(ndusttypes-1) ! Total number of values
+ integer, parameter :: maxxpartvecvars = 56 ! Number of scalars in xpartvec
+ integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
+ integer, parameter :: maxxpartveciforce = maxxpartvecvars + maxxpartvecarrs*(maxdusttypes-1) ! Total number of values
 
  ! cell storage
  integer, parameter :: maxprocs = 32
@@ -158,7 +184,7 @@ module dim
  !
  ! Maximum number of particle types
  !
- integer, parameter :: maxtypes = 6
+ integer, parameter :: maxtypes = 7 + maxdustlarge - 1
 
  !
  ! Number of dimensions, where it is needed
@@ -198,17 +224,21 @@ integer :: maxmhdni = 0
 #endif
 
 !--------------------
-! Physical viscosity
+! Velocity gradients
 !--------------------
 !
-! storage of strain tensor, necessary if
+! storage of velocity derivatives, necessary if
 ! physical viscosity is done with two
-! first derivatives
+! first derivatives or if dust is used
 !
+<<<<<<< HEAD
 integer :: maxstrain = 0
 
 ! viscosity switches, whether done in step or during derivs call
  logical, parameter :: switches_done_in_derivs = .false.
+=======
+ integer, parameter :: maxdvdx = maxp
+>>>>>>> master
 
 !--------------------
 ! H2 Chemistry

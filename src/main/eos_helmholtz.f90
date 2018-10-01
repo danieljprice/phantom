@@ -419,6 +419,7 @@ end subroutine eos_helmholtz_eosinfo
 !----------------------------------------------------------------
 subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
  use units,   only:unit_density,unit_pressure,unit_ergg,unit_velocity
+ use io,      only:warning
  real, intent(inout) :: tempi
  real, intent(in)    :: rhoi
  real, intent(out)   :: ponrhoi
@@ -507,7 +508,7 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
 
        ! exit if reached max number of iterations (convergence failed)
        if (itercount >= maxiter) then
-          print *, 'Helmholtz eos fail to converge'
+          call warning('eos','Helmholtz eos fail to converge')
           done = .true.
        endif
 

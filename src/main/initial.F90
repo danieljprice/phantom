@@ -20,12 +20,11 @@
 !
 !  DEPENDENCIES: balance, boundary, centreofmass, checkoptions, checksetup,
 !    chem, cooling, cpuinfo, densityforce, deriv, dim, domain, dust,
-!    energies, eos, evwrite, externalforces, fastmath, forcing, growth,
-!    h2cooling, initial_params, io, io_summary, linklist, mf_write, mpi,
-!    mpiutils, nicil, nicil_sup, omputils, options, part, photoevap,
+!    energies, eos, evwrite, externalforces, fastmath, fileutils, forcing,
+!    growth, h2cooling, initial_params, io, io_summary, linklist, mf_write,
+!    mpi, mpiutils, nicil, nicil_sup, omputils, options, part, photoevap,
 !    ptmass, readwrite_dumps, readwrite_infile, setup, sort_particles,
-!    step_lf_global, timestep, timestep_ind, timestep_sts, timing, units,
-!    writegitinfo, writeheader
+!    timestep, timestep_ind, timestep_sts, timing, units, writeheader
 !+
 !--------------------------------------------------------------------------
 module initial
@@ -47,27 +46,24 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine initialise()
+<<<<<<< HEAD
  use dim, only:dimid=>modid
+=======
+ use dim,              only:maxp
+>>>>>>> master
  use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
 #endif
  use omputils,         only:init_omp,info_omp
- use options,          only:optid=>modid,set_default_options
- use part,             only:partid=>modid,maxBevol
+ use options,          only:set_default_options
+ use part,             only:maxBevol
  use units,            only:set_units
+ use io_summary,       only:summary_initialise
  use boundary,         only:set_boundary
  use writeheader,      only:write_codeinfo
- use writegitinfo,     only:write_gitinfo
  use evwrite,          only:init_evfile
- use domain,           only:domid=>modid,init_domains
- use densityforce,     only:denid=>modid
- use deriv,            only:derivid=>modid
- use externalforces,   only:extid=>modid
- use linklist,         only:linkid=>modid
- use readwrite_infile, only:inid=>modid
- use readwrite_dumps,  only:dumpid=>modid
- use step_lf_global,   only:stepid=>modid
+ use domain,           only:init_domains
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
 
@@ -76,19 +72,6 @@ subroutine initialise()
 !--write 'PHANTOM' and code version
 !
  if (id==master) call write_codeinfo(6)
-!
-!--print info on compile
-!
- if (id==master) then
-    write(*,"(20(/,1x,a),/)") 'Compiled with module versions:', &
-         trim(dimid),trim(denid),trim(stepid),trim(derivid), &
-         trim(partid),trim(extid),trim(dumpid),trim(inid), &
-         trim(optid),trim(linkid),trim(domid)
- endif
-!
-!--write info on latest git commit
-!
- if (id==master) call write_gitinfo(6)
 !
 !--check that it is OK to use fast sqrt functions
 !  on this architecture
@@ -109,6 +92,10 @@ subroutine initialise()
  call set_default_options
  call set_boundary
  call init_evfile(ievfile,'testlog',.false.)
+!
+!--initialise values for summary array
+!
+ call summary_initialise
 !
 !--check compile-time settings are OK
 !
@@ -135,7 +122,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,ndusttypes
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -149,9 +136,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             npartoftype,maxtypes,alphaind,ntot,ndim, &
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
-                            epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustfrac,&
+                            epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh, &
-                            Bevol,Bxyz,temperature,dustprop,ddustprop
+                            Bevol,Bxyz,temperature,dustprop,ddustprop,ndusttypes,ndustsmall
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef PHOTO
@@ -216,11 +203,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use cooling,          only:init_cooling
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
- use io_summary,       only:summary_initialise
  use units,            only:unit_density
  use centreofmass,     only:get_centreofmass
  use energies,         only:etot,angtot,totmom,mdust,xyzcom
  use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use fileutils,        only:make_tags_unique
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  integer         :: ierr,i,j,idot,nerr,nwarn
@@ -236,6 +223,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  logical         :: iexist
  integer :: ncount(maxtypes)
  character(len=len(dumpfile)) :: dumpfileold,fileprefix
+ character(len=7) :: dust_label(maxdusttypes)
 !
 !--do preliminary initialisation
 !
@@ -312,9 +300,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
  call init_eos(ieos,ierr)
  if (ierr /= 0) call fatal('initial','error initialising equation of state')
-!
-!--Initialise values for summary array
- call summary_initialise
 !
 !--get total number of particles (on all processors)
 !
@@ -523,17 +508,17 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                              Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtnew_first)
+                              Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtnew_first)
     if (use_dustfrac) then
        ! set grainsize parameterisation from the initial dustfrac setting now we know rho
        do i=1,npart
           if (.not.isdead_or_accreted(xyzh(4,i))) then
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!             dustevol(:,i) = sqrt(rhoh(xyzh(4,i),pmassi)*dustfrac(:,i))
+!             dustevol(:,i) = sqrt(rhoh(xyzh(4,i),pmassi)*dustfrac(1:ndustsmall,i))
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-             dustevol(:,i) = asin(sqrt(dustfrac(:,i)))
+             dustevol(:,i) = asin(sqrt(dustfrac(1:ndustsmall,i)))
 !------------------------------------------------
           endif
        enddo
@@ -611,9 +596,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  write(iprint,'(2x,a,es18.6)')   'Initial angular momentum: ', angtot_in
  write(iprint,'(2x,a,es18.6)')   'Initial linear momentum:  ', totmom_in
 #ifdef DUST
+ dust_label = 'dust'
+ call make_tags_unique(ndusttypes,dust_label)
  do i=1,ndusttypes
-    write(iprint,'(2x,a,i3,es18.6)') 'Initial dust mass: i = ',i, mdust_in(i)
+    write(iprint,'(2x,a,es18.6)') 'Initial '//trim(dust_label(i))//' mass:     ',mdust_in(i)
  enddo
+ write(iprint,'(2x,a,es18.6)')   'Initial total dust mass:  ', sum(mdust_in(:))
 #endif
 !
 !--write initial conditions to output file
