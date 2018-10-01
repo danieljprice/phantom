@@ -223,7 +223,7 @@ integer :: maxmhdni = 0
 ! physical viscosity is done with two
 ! first derivatives or if dust is used
 !
- integer, parameter :: maxdvdx = 0 ! TO FIX
+ integer, parameter :: maxdvdx = maxp_hard ! TO FIX
 
 !--------------------
 ! H2 Chemistry
