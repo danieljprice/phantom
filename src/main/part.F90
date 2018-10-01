@@ -30,23 +30,21 @@
 !+
 !--------------------------------------------------------------------------
 module part
-<<<<<<< HEAD
- use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu, &
-          maxalpha,maxptmass,nsinkproperties,maxstrain, &
-          mhd,maxmhd,maxBevol,maxp_h2,nabundances,maxtemp,periodic, &
-          maxgrav,ngradh,maxtypes,h2chemistry,gravity, &
-          switches_done_in_derivs,maxp_dustfrac,use_dust, &
-          store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
-          maxne,maxp_growth,ndusttypes, &
-          maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh
- use dtypekdtree, only:kdnode
-=======
+! <<<<<<< HEAD
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
-               maxptmass,maxdvdx,mhd,maxmhd,maxBevol,maxp_h2,maxtemp,periodic,&
+               maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,maxp_h2,nabundances,maxtemp,periodic,&
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
-               use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni,&
-               maxne,maxp_growth,maxdustlarge,maxdustsmall,maxdusttypes
->>>>>>> master
+               use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
+               maxne,maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
+               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh
+ use dtypekdtree, only:kdnode
+! =======
+!  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
+!                maxptmass,maxdvdx,mhd,maxmhd,maxBevol,maxp_h2,maxtemp,periodic,&
+!                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
+!                use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni,&
+!                maxne,maxp_growth,maxdustlarge,maxdustsmall,maxdusttypes
+! >>>>>>> master
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -68,20 +66,14 @@ module part
 !
 !--storage of dust properties
 !
-<<<<<<< HEAD
- real, allocatable :: dustprop(:,:)
- real, allocatable :: St(:)
- character(len=*), parameter :: dustprop_label(5) = (/'grainsize ','graindens ','   vrel   ','vrel/vfrag','    dv    '/)
-=======
  real :: grainsize(maxdusttypes)
  real :: graindens(maxdusttypes)
 !
 !--storage of dust growth properties
 !
- real :: dustprop(4,maxp_growth)
- real :: St(maxp_growth)
+ real, allocatable :: dustprop(:,:)
+ real, allocatable :: St(:)
  character(len=*), parameter :: dustprop_label(4) = (/'grainsize ','graindens ','vrel/vfrag','    dv    '/)
->>>>>>> master
 !
 !--storage in divcurlv
 !
@@ -103,11 +95,7 @@ module part
 !
 !--velocity gradients
 !
-<<<<<<< HEAD
- real(kind=4), allocatable :: straintensor(:,:)
-=======
  real(kind=4) :: dvdx(9,maxdvdx)
->>>>>>> master
 !
 !--H2 chemistry
 !
@@ -126,19 +114,11 @@ module part
 !
 !--one-fluid dust (small grains)
 !
-<<<<<<< HEAD
  real, allocatable :: dustfrac(:,:)
  real, allocatable :: dustevol(:,:)
  real, allocatable :: deltav(:,:,:)
- character(len=*), parameter :: dustfrac_label(ndusttypes) = 'dustfrac'
- character(len=*), parameter :: tstop_label(ndusttypes) = 'tstop'
-=======
- real :: dustfrac(maxdusttypes,maxp_dustfrac)
  character(len=*), parameter :: dustfrac_label(maxdusttypes) = 'dustfrac'
  character(len=*), parameter :: tstop_label(maxdusttypes) = 'tstop'
- real :: dustevol(maxdustsmall,maxp_dustfrac)
- real :: deltav(3,maxdustsmall,maxp_dustfrac)
->>>>>>> master
  character(len=*), parameter :: deltav_label(3) = &
    (/'deltavx','deltavy','deltavz'/)
 !
@@ -185,35 +165,21 @@ module part
 !
 !--derivatives (only needed if derivs is called)
 !
-<<<<<<< HEAD
  real, allocatable         :: fxyzu(:,:)
  real, allocatable         :: dBevol(:,:)
  real(kind=4), allocatable :: divBsymm(:)
  real, allocatable         :: fext(:,:)
- real, allocatable         :: ddustfrac(:,:)
- real, allocatable         :: ddustprop(:,:) !--grainsize is the only prop that evolves for now
+ ! real               :: ddustevol(maxdustsmall,maxdustan)
+ real               :: ddustevol(maxdustsmall,0) ! NEED TO FIX
+ ! real               :: ddustprop(4,maxp_growth) !--grainsize is the only prop that evolves for now
+ real               :: ddustprop(4,0) !--grainsize is the only prop that evolves for now -- NEED TO FIX
 !
 !--storage associated with/dependent on timestepping
 !
- real, allocatable   :: vpred(:,:)
- real, allocatable   :: dustpred(:,:)
- real, allocatable   :: Bpred(:,:)
- real, allocatable   :: dustproppred(:,:)
-=======
- real               :: fxyzu(maxvxyzu,maxan)
- real               :: dBevol(maxBevol,maxmhdan)
- real(kind=4)       :: divBsymm(maxmhdan)
- real               :: fext(3,maxan)
- real               :: ddustevol(maxdustsmall,maxdustan)
- real               :: ddustprop(4,maxp_growth) !--grainsize is the only prop that evolves for now
-!
-!--storage associated with/dependent on timestepping
-!
- real               :: vpred(maxvxyzu,maxan)
- real               :: dustpred(maxdustsmall,maxdustan)
- real               :: Bpred(maxBevol,maxmhdan)
- real               :: dustproppred(4,maxp_growth)
->>>>>>> master
+real, allocatable   :: vpred(:,:)
+real, allocatable   :: dustpred(:,:)
+real, allocatable   :: Bpred(:,:)
+real, allocatable   :: dustproppred(:,:)
 #ifdef IND_TIMESTEPS
  integer(kind=1), allocatable :: ibin(:)
  integer(kind=1), allocatable :: ibin_old(:)
@@ -228,13 +194,8 @@ module part
  integer(kind=1), allocatable    :: iphase_soa(:)
  logical, public    :: all_active = .true.
 
-<<<<<<< HEAD
  real(kind=4), allocatable :: gradh(:,:)
  real, allocatable         :: tstop(:,:)
-=======
- real(kind=4)       :: gradh(ngradh,maxgradh)
- real               :: tstop(maxdusttypes,maxan)
->>>>>>> master
 !
 !--storage associated with link list
 !  (used for dead particle list also)
@@ -358,7 +319,6 @@ contains
     call allocate_array('Bxyz', Bxyz, 3, maxmhd)
     call allocate_array('dustprop', dustprop, 5, maxp_growth)
     call allocate_array('St', St, maxp_growth)
-    call allocate_array('straintensor', straintensor, 6, maxstrain)
     call allocate_array('abundance', abundance, nabundances, maxp_h2)
     call allocate_array('temperature', temperature, maxtemp)
     call allocate_array('dustfrac', dustfrac, ndusttypes, maxp_dustfrac)
@@ -377,8 +337,6 @@ contains
     call allocate_array('dBevol', dBevol, maxBevol, maxmhdan)
     call allocate_array('divBsumm', divBsymm, maxmhdan)
     call allocate_array('fext', fext, 3, maxan)
-    call allocate_array('ddustfrac', ddustfrac, ndusttypes, maxdustan)
-    call allocate_array('ddustprop', ddustprop, 5, maxp_growth)
     call allocate_array('vpred', vpred, maxvxyzu, maxan)
     call allocate_array('dustpred', dustpred, ndusttypes, maxdustan)
     call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
@@ -412,7 +370,6 @@ contains
    deallocate(Bxyz)
    deallocate(dustprop)
    deallocate(St)
-   deallocate(straintensor)
    deallocate(abundance)
    deallocate(temperature)
    deallocate(dustfrac)
@@ -431,8 +388,6 @@ contains
    deallocate(dBevol)
    deallocate(divBsymm)
    deallocate(fext)
-   deallocate(ddustfrac)
-   deallocate(ddustprop)
    deallocate(vpred)
    deallocate(dustpred)
    deallocate(Bpred)
