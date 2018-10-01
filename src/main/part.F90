@@ -169,10 +169,8 @@ module part
  real, allocatable         :: dBevol(:,:)
  real(kind=4), allocatable :: divBsymm(:)
  real, allocatable         :: fext(:,:)
- ! real               :: ddustevol(maxdustsmall,maxdustan)
- real               :: ddustevol(maxdustsmall,0) ! NEED TO FIX
- ! real               :: ddustprop(4,maxp_growth) !--grainsize is the only prop that evolves for now
- real               :: ddustprop(4,0) !--grainsize is the only prop that evolves for now -- NEED TO FIX
+ real, allocatable         :: ddustevol(:,:)
+ real, allocatable         :: ddustprop(:,:) !--grainsize is the only prop that evolves for now
 !
 !--storage associated with/dependent on timestepping
 !
@@ -321,9 +319,11 @@ contains
     call allocate_array('St', St, maxp_growth)
     call allocate_array('abundance', abundance, nabundances, maxp_h2)
     call allocate_array('temperature', temperature, maxtemp)
-    call allocate_array('dustfrac', dustfrac, ndusttypes, maxp_dustfrac)
-    call allocate_array('dustevol', dustevol,ndusttypes, maxp_dustfrac)
-    call allocate_array('deltav', deltav, 3, ndusttypes, maxp_dustfrac)
+    call allocate_array('dustfrac', dustfrac, maxdusttypes, maxp_dustfrac)
+    call allocate_array('dustevol', dustevol, maxdustsmall, maxp_dustfrac)
+    call allocate_array('ddustevol', ddustevol, maxdustsmall, maxdustan)
+    call allocate_array('ddustprop', ddustprop, 4, maxp_growth)
+    call allocate_array('deltav', deltav, 3, maxdustsmall, maxp_dustfrac)
     call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
     call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
     call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
@@ -351,7 +351,7 @@ contains
     call allocate_array('iphase', iphase, maxphase)
     call allocate_array('iphase_soa', iphase_soa, maxphase)
     call allocate_array('gradh', gradh, ngradh, maxgradh)
-    call allocate_array('tstop', tstop, ndusttypes, maxan)
+    call allocate_array('tstop', tstop, maxdusttypes, maxan)
     call allocate_array('ll', ll, maxan)
     call allocate_array('ibelong', ibelong, maxp)
     call allocate_array('istsactive', istsactive, maxsts)
@@ -374,6 +374,8 @@ contains
    deallocate(temperature)
    deallocate(dustfrac)
    deallocate(dustevol)
+   deallocate(ddustevol)
+   deallocate(ddustprop)
    deallocate(deltav)
    deallocate(xyzmh_ptmass)
    deallocate(vxyz_ptmass)
