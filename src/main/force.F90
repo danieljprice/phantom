@@ -764,7 +764,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                           beta, &
                           pmassi,listneigh,nneigh,xyzcache,fsum,vsigmax, &
                           ifilledcellcache,realviscosity,useresistiveheat, &
-                          xyzh,vxyzu,Bevol,iphase,massoftype, &
+                          xyzh,vxyzu,Bevol,iphasei,iphase,massoftype, &
                           divcurlB,eta_nimhd, temperature, &
                           dustfrac,gradh,divcurlv,alphaind, &
                           alphau,alphaB,bulkvisc,stressmax,&
@@ -822,6 +822,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real,            intent(in)    :: Bevol(:,:)
  real(kind=4),    intent(in)    :: divcurlB(:,:)
  real,            intent(in)    :: dustfrac(:,:)
+ integer(kind=1), intent(in)    :: iphasei
  integer(kind=1), intent(in)    :: iphase(:)
  real,            intent(in)    :: massoftype(:)
  real,            intent(in)    :: eta_nimhd(:,:)
@@ -921,7 +922,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  pmassonrhoi = pmassi*rho1i
  hfacgrkern  = hi41*cnormk*gradhi
 
- iamtypei = iamtype(iphase(i))
+ iamtypei = iamtype(iphasei)
 
  ! default settings for active/phase if iphase not used
  iactivej = .true.
@@ -2152,7 +2153,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          beta, &
                          pmassi,listneigh,nneigh,xyzcache,cell%fsums(:,ip),cell%vsigmax(ip), &
                          .true.,realviscosity,useresistiveheat, &
-                         xyzh,vxyzu,Bevol,iphase,massoftype, &
+                         xyzh,vxyzu,Bevol,cell%iphase(ip),iphase,massoftype, &
                          divcurlB,eta_nimhd, temperature, &
                          dustfrac,gradh,divcurlv,alphaind, &
                          alphau,alphaB,bulkvisc,stressmax, &
