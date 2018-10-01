@@ -1588,11 +1588,7 @@ end subroutine check_arrays
 subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
                          nblocks,npart,npartoftype, &
                          tfile,hfactfile,alphafile,iprint,id,nprocs,ierr)
-<<<<<<< HEAD
- use dim,        only:maxp_hard
-=======
- use dim,        only:maxp,maxdustlarge,use_dust
->>>>>>> master
+ use dim,        only:maxp_hard,maxdustlarge,use_dust
  use io,         only:master ! check this
  use eos,        only:isink
  use part,       only:maxtypes,igas,idust,ndustsmall,ndustlarge,ndusttypes

@@ -668,11 +668,7 @@ subroutine test_epsteinstokes(ntests,npass)
     write(filename,"(a,1pe8.2)") 'rho=',rhogas*unit_density
     ncheck = 0
     nfailed = 0
-<<<<<<< HEAD
-    errmax = 0.0
-=======
     errmax = 0.
->>>>>>> master
     tol = 6.3e-2
     do i=1,npts
        grainsizei = smin*10**((i-1)*ds)/udist
