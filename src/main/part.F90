@@ -30,7 +30,6 @@
 !+
 !--------------------------------------------------------------------------
 module part
-! <<<<<<< HEAD
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
                maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,maxp_h2,nabundances,maxtemp,periodic,&
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
@@ -38,13 +37,6 @@ module part
                maxne,maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh
  use dtypekdtree, only:kdnode
-! =======
-!  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
-!                maxptmass,maxdvdx,mhd,maxmhd,maxBevol,maxp_h2,maxtemp,periodic,&
-!                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
-!                use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni,&
-!                maxne,maxp_growth,maxdustlarge,maxdustsmall,maxdusttypes
-! >>>>>>> master
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
