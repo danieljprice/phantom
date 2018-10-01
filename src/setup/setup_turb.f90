@@ -43,22 +43,6 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
-<<<<<<< HEAD
- use dim,            only:use_dust,ndusttypes,maxp,maxp_dustfrac
- use options,        only:use_dustfrac,nfulldump,beta
- use setup_params,   only:rhozero,npart_total,ihavesetupB
- use io,             only:master
- use unifdis,        only:set_unifdis
- use boundary,       only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use mpiutils,       only:bcast_mpi
- use part,           only:Bxyz,mhd,dustfrac
- use physcon,        only:pi,solarm,pc,km
- use units,          only:set_units
- use prompting,      only:prompt
- use dust,           only:grainsizecgs,graindenscgs
- use readwrite_dust, only:interactively_set_dust,set_dustfrac_from_inopts
- use timestep,       only:dtmax,tmax
-=======
  use dim,          only:use_dust,maxdustsmall
  use options,      only:use_dustfrac,nfulldump,beta
  use setup_params, only:rhozero,npart_total,ihavesetupB
@@ -71,10 +55,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,        only:set_units,udist,umass
  use prompting,    only:prompt
  use dust,         only:grainsizecgs,graindenscgs,ilimitdustflux
+ use readwrite_dust, only:interactively_set_dust,set_dustfrac_from_inopts
  use set_dust,     only:set_dustfrac,set_dustbinfrac
  use timestep,     only:dtmax,tmax
  use table_utils,  only:logspace
->>>>>>> master
+
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -85,11 +70,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  character(len=26)                :: filename
-<<<<<<< HEAD
- integer :: ipart,i,maxp_setup,maxvxyzu,dust_method
-=======
  integer :: ipart,i,maxp,maxvxyzu
->>>>>>> master
  logical :: iexist
  real :: totmass,deltax
  real :: Bz_0
@@ -240,20 +221,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        Bxyz(3,i) = Bz_0
     endif
     !--one fluid dust: set dust fraction on gas particles
-<<<<<<< HEAD
-    !
-    if (use_dustfrac) then
-       call set_dustfrac_from_inopts(dust_to_gas,percent=dustfrac_percent,ipart=i)
-    else
-       if (maxp_dustfrac == maxp) then
-          dustfrac(:,i) = 0.
-=======
     if (use_dust .and. use_dustfrac) then
        if (ndusttypes > 1) then
           dustfrac(1:ndusttypes,i) = dust_to_gas*dustbinfrac(1:ndusttypes)
        else
           call set_dustfrac(dust_to_gas,dustfrac(:,i))
->>>>>>> master
        endif
     endif
  enddo
