@@ -84,10 +84,7 @@ module dim
  integer :: maxp_growth = 0
 #ifdef DUST
  logical, parameter :: use_dust = .true.
-<<<<<<< HEAD
- integer, parameter :: ndustfluids = 1
- integer, parameter :: ndusttypes = 1
-=======
+
 #ifdef MAXDUSTLARGE
  integer, parameter :: maxdustlarge = MAXDUSTLARGE
 #else
@@ -98,8 +95,7 @@ module dim
 #else
  integer, parameter :: maxdustsmall = 1
 #endif
- integer, parameter :: maxp_dustfrac = maxp
->>>>>>> master
+
 #ifdef DUSTGROWTH
  logical, parameter :: use_dustgrowth = .true.
 #else
@@ -107,14 +103,10 @@ module dim
 #endif
 #else
  logical, parameter :: use_dust = .false.
-<<<<<<< HEAD
- integer, parameter :: ndustfluids = 0
- integer, parameter :: ndusttypes = 1 ! to avoid seg faults
-=======
+ ! integer, parameter :: ndustfluids = 0
+ ! integer, parameter :: ndusttypes = 1 ! to avoid seg faults
  integer, parameter :: maxdustlarge = 1
  integer, parameter :: maxdustsmall = 1
- integer, parameter :: maxp_dustfrac = 0
->>>>>>> master
  logical, parameter :: use_dustgrowth = .false.
 #endif
  integer, parameter :: maxdusttypes = maxdustsmall + maxdustlarge
@@ -231,14 +223,7 @@ integer :: maxmhdni = 0
 ! physical viscosity is done with two
 ! first derivatives or if dust is used
 !
-<<<<<<< HEAD
-integer :: maxstrain = 0
-
-! viscosity switches, whether done in step or during derivs call
- logical, parameter :: switches_done_in_derivs = .false.
-=======
- integer, parameter :: maxdvdx = maxp
->>>>>>> master
+ integer, parameter :: maxdvdx = 0 ! TO FIX
 
 !--------------------
 ! H2 Chemistry
