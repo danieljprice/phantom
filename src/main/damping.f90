@@ -54,7 +54,7 @@ subroutine calc_damp(time, damp_fac, idamp)
  else if (idamp == 1) then
     damp_fac = damp
  else if (idamp == 2) then
-    tdyn_star = tdyn_s / utime 
+    tdyn_star = tdyn_s / utime
     tau1 = tdyn_star * 0.1
     tau2 = tdyn_star
     if (time > 5. * tdyn_star) then
