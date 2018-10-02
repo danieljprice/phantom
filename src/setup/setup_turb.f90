@@ -43,7 +43,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:use_dust,maxdustsmall
+ use dim,          only:use_dust,maxdustsmall,maxp_hard,maxvxyzu
  use options,      only:use_dustfrac,nfulldump,beta
  use setup_params, only:rhozero,npart_total,ihavesetupB
  use io,           only:master
@@ -55,7 +55,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,        only:set_units,udist,umass
  use prompting,    only:prompt
  use dust,         only:grainsizecgs,graindenscgs,ilimitdustflux
- use readwrite_dust, only:interactively_set_dust,set_dustfrac_from_inopts
  use set_dust,     only:set_dustfrac,set_dustbinfrac
  use timestep,     only:dtmax,tmax
  use table_utils,  only:logspace
@@ -70,7 +69,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  character(len=26)                :: filename
- integer :: ipart,i,maxp,maxvxyzu
+ integer :: ipart,i
  logical :: iexist
  real :: totmass,deltax
  real :: Bz_0
@@ -98,11 +97,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--setup particles
 !
- maxp_setup = size(xyzh(1,:))
- maxvxyzu = size(vxyzu(:,1))
  if (id==master) then
     npartx = 64
-    call prompt('Enter number of particles in x ',npartx,16,nint((maxp_setup)**(1/3.)))
+    call prompt('Enter number of particles in x ',npartx,16,nint((maxp_hard)**(1/3.)))
  endif
  call bcast_mpi(npartx)
  deltax = dxbound/npartx
