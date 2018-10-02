@@ -24,11 +24,11 @@ subroutine calc_damp(time, damp_fac, idamp)
  integer, intent(in) :: idamp
  real                :: tau1, tau2, tdyn_star
 
- if (idamp .eq. 0) then
+ if (idamp == 0) then
     damp_fac = 0.
- else if (idamp .eq. 1) then
+ else if (idamp == 1) then
     damp_fac = damp
- else if (idamp .eq. 2) then
+ else if (idamp == 2) then
     tdyn_star = tdyn_s / utime 
     tau1 = tdyn_star * 0.1
     tau2 = tdyn_star

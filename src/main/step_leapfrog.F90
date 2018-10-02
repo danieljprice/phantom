@@ -952,7 +952,7 @@ subroutine check_velocity_error(errmax,v2mean,np,its,tolv,dt,timei,idamp,dterr,e
  errmaxmean = errmaxmean + errmax
  errtol = tolv
  dterr = huge(dterr)
- if (tolv < 1.e2 .and. idamp .eq. 0) then
+ if (tolv < 1.e2 .and. idamp == 0) then
 #ifndef IND_TIMESTEPS
     dtf = min(dtcourant,dtforce)
     !--if errors are controlling the timestep
@@ -970,7 +970,7 @@ subroutine check_velocity_error(errmax,v2mean,np,its,tolv,dt,timei,idamp,dterr,e
 ! if the error in the predicted velocity exceeds the tolerance, take iterations
 !
 ! if (maxits > 1 .and. tolv < 1.e2) then
- if (tolv < 1.e2 .and. idamp .eq. 0) then
+ if (tolv < 1.e2 .and. idamp == 0) then
     converged = (errmax < tolv)
     if (id==master .and. .not.converged) then
        vmean = sqrt(v2mean)
