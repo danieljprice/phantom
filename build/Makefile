@@ -719,6 +719,16 @@ ifeq ($(SETUP), wind)
     STS_TIMESTEPS=no
 endif
 
+ifeq ($(SETUP), bowen)
+#   bowen wind setup (pulsating dusty wind)
+    FPPFLAGS= -DBOWEN
+    SETUPFILE= setup_wind.f90
+    SRCINJECT= icosahedron.f90 bowen_dust.F90 inject_wind.f90
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=no
+    STS_TIMESTEPS=no
+endif
+
 ifeq ($(SETUP), BHL)
 # Bondi-Hoyle-Lyttleton setup
     SETUPFILE= setup_BHL.f90
@@ -1466,7 +1476,7 @@ OBJDIR=obj
 .SUFFIXES: .o .f90 .F90 .c .f
 
 %.o : %.f90
-	$(FC) -c $(FFLAGS) $< -o $@
+	$(FC) -c $(FFLAGS) -fpp $(FPPFLAGS) $< -o $@
 
 %.o : %.F90
 	$(FC) -c $(FFLAGS) ${FPP_PREFIX} $(FPPFLAGS) $< -o $@

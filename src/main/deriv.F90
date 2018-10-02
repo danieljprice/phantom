@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: densityforce, dim, externalforces, forces, forcing,
+!  DEPENDENCIES: bowen_dust, densityforce, dim, externalforces, forces, forcing,
 !    growth, io, linklist, mpiutils, part, photoevap, ptmass, timestep,
 !    timing
 !+
@@ -56,6 +56,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 #ifdef PHOTO
  use photoevap,      only:find_ionfront,photo_ionize
  use part,           only:massoftype
+#endif
+#ifdef BOWEN
+ use bowen_dust,     only:radiative_acceleration
 #endif
 #ifdef DUSTGROWTH
  use growth,                only:get_growth_rate
@@ -143,6 +146,13 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  ! compute growth rate of dust particles with respect to their positions
  !
  call get_growth_rate(npart,xyzh,vxyzu,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
+#endif
+!
+! compute radiative acceleration due to dust particles
+!
+#ifdef BOWEN
+ call radiative_acceleration(npart,xyzh,vxyzu,dt, fxyzu)
+ call do_timing('bowendust',tlast,tcpulast)
 #endif
 !
 ! set new timestep from Courant/forces condition
