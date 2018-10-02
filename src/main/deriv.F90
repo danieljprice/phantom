@@ -18,9 +18,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: bowen_dust, densityforce, dim, externalforces, forces, forcing,
-!    growth, io, linklist, mpiutils, part, photoevap, ptmass, timestep,
-!    timing
+!  DEPENDENCIES: bowen_dust, densityforce, dim, externalforces, forces,
+!    forcing, growth, io, linklist, mpiutils, part, photoevap, ptmass,
+!    timestep, timing
 !+
 !--------------------------------------------------------------------------
 module deriv

@@ -28,7 +28,6 @@
 !    beta               -- beta viscosity
 !    bulkvisc           -- magnitude of bulk viscosity
 !    calc_erot          -- include E_rot in the ev_file
-!    damp               -- artificial damping of velocities (if on, v=0 initially)
 !    dtmax              -- time between dumps
 !    dtmax_rat0         -- dtmax_new = dtmax_old/dtmax_rat0
 !    dtwallmax          -- maximum wall time between dumps (hhh:mm, 000:00=ignore)
@@ -55,8 +54,8 @@
 !    twallmax           -- maximum wall time (hhh:mm, 000:00=ignore)
 !    use_mcfost         -- use the mcfost library
 !
-!  DEPENDENCIES: cooling, dim, dust, eos, externalforces, forcing, growth,
-!    infile_utils, inject, io, linklist, nicil_sup, options, part,
+!  DEPENDENCIES: cooling, damping, dim, dust, eos, externalforces, forcing,
+!    growth, infile_utils, inject, io, linklist, nicil_sup, options, part,
 !    photoevap, ptmass, timestep, viscosity
 !+
 !--------------------------------------------------------------------------

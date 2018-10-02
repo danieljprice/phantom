@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2015 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -14,18 +14,13 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Stéven Toupin
+!  OWNER: Lionel
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS:
-!    bowen_Cprime -- radiative cooling rate (g.s/cm³)
-!    bowen_L      -- central star luminosity (Lsun)
-!    bowen_Tcond  -- condensation temperature of dust (K)
-!    bowen_delta  -- condensation temperature range (K)
-!    bowen_kmax   -- maximum dust opacity (cm²/g)
+!  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, infile_utils, io, kernel, part, physcon, units
+!  DEPENDENCIES: dim, io, kernel, part, physcon, units
 !+
 !--------------------------------------------------------------------------
 module bowen_dust

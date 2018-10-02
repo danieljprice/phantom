@@ -1,3 +1,28 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://users.monash.edu.au/~dprice/phantom                               !
+!--------------------------------------------------------------------------!
+!+
+!  MODULE: damping
+!
+!  DESCRIPTION: None
+!
+!  REFERENCES: None
+!
+!  OWNER: Thomas Reichardt
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS:
+!    damp   -- artificial damping of velocities (if on, v=0 initially)
+!    idamp  -- artificial damping of velocities (0=off, 1=constant, 2=star)
+!    tdyn_s -- dynamical timescale of star in seconds - damping is dependent on it
+!
+!  DEPENDENCIES: eos_helmholtz, infile_utils, io, units
+!+
+!--------------------------------------------------------------------------
 module damping
  implicit none
 

@@ -26,8 +26,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: chem, coolfunc, deriv, dim, eos, externalforces, growth,
-!    io, io_summary, mpiutils, options, part, ptmass, timestep,
+!  DEPENDENCIES: chem, coolfunc, damping, deriv, dim, eos, externalforces,
+!    growth, io, io_summary, mpiutils, options, part, ptmass, timestep,
 !    timestep_ind, timestep_sts
 !+
 !--------------------------------------------------------------------------

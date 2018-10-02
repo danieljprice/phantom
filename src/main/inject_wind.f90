@@ -17,15 +17,30 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    ihandled_spheres -- handle inner spheres of the wind (integer)
-!    iwind_resolution -- resolution of the wind -- DO NOT CHANGE DURING SIMULATION --
-!    shift_spheres    -- shift the spheres of the wind
-!    wind_gamma       -- polytropic indice of the wind
-!    wind_sphdist     -- distance between spheres / neighbours -- DO NOT CHANGE DURING SIMULATION --
-!    wind_temperature -- wind temperature at the injection point (Kelvin)
+!    bowen_Cprime        -- radiative cooling rate (g.s/cm³)
+!    bowen_L             -- central star luminosity (Lsun)
+!    bowen_Tcond         -- condensation temperature of dust (K)
+!    bowen_Teff          -- effective temperature of the central star (K)
+!    bowen_delta         -- condensation temperature range (K)
+!    bowen_kappa         -- star atmosphere opacity (cm²/g)
+!    bowen_kmax          -- maximum dust opacity (cm²/g)
+!    central_star_mass   -- mass of the central star (Msun)
+!    central_star_radius -- radius of the central star (au)
+!    companion_star_mass -- mass of the companion star (Msun)
+!    companion_star_r    -- radius of the companion star (au)
+!    eccentricity        -- eccentricity of the binary system
+!    icompanion_star     -- set to 1 for a binary system
+!    ihandled_spheres    -- handle inner spheres of the wind (integer)
+!    iwind_resolution    -- resolution of the wind -- DO NOT CHANGE DURING SIMULATION --
+!    semi_major_axis     -- semi-major axis of the binary system (au)
+!    shift_spheres       -- shift the spheres of the wind
+!    wind_gamma          -- polytropic indice of the wind
+!    wind_osc_period     -- period of the oscillations (days)
+!    wind_sphdist        -- distance between spheres / neighbours -- DO NOT CHANGE DURING SIMULATION --
+!    wind_temperature    -- wind temperature at the injection point (K)
 !
-!  DEPENDENCIES: eos, icosahedron, infile_utils, io, part, partinject,
-!    physcon, timestep, units
+!  DEPENDENCIES: bowen_dust, eos, icosahedron, infile_utils, io, part,
+!    partinject, physcon, timestep, units
 !+
 !--------------------------------------------------------------------------
 module inject
