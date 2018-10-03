@@ -60,7 +60,9 @@ program phantomanalysis
 !--If the first dumpfile, then read the .in file (if it exists) to obtain the equation of state
 !
     if (iarg==1) then
-       iloc = index(dumpfile,'_')
+
+       iloc = index(dumpfile,'_0')
+
        if (iloc > 1) then
           fileprefix = trim(dumpfile(1:iloc-1))
        else

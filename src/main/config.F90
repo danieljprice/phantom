@@ -85,8 +85,16 @@ module dim
 !------
 #ifdef DUST
  logical, parameter :: use_dust = .true.
- integer, parameter :: ndustfluids = 1
- integer, parameter :: ndusttypes = 1
+#ifdef MAXDUSTLARGE
+ integer, parameter :: maxdustlarge = MAXDUSTLARGE
+#else
+ integer, parameter :: maxdustlarge = 11
+#endif
+#ifdef MAXDUSTSMALL
+ integer, parameter :: maxdustsmall = MAXDUSTSMALL
+#else
+ integer, parameter :: maxdustsmall = 1
+#endif
  integer, parameter :: maxp_dustfrac = maxp
 #ifdef DUSTGROWTH
  logical, parameter :: use_dustgrowth = .true.
@@ -97,30 +105,31 @@ module dim
 #endif
 #else
  logical, parameter :: use_dust = .false.
- integer, parameter :: ndustfluids = 0
- integer, parameter :: ndusttypes = 1 ! to avoid seg faults
+ integer, parameter :: maxdustlarge = 1
+ integer, parameter :: maxdustsmall = 1
  integer, parameter :: maxp_dustfrac = 0
  logical, parameter :: use_dustgrowth = .false.
  integer, parameter :: maxp_growth = 0
 #endif
+ integer, parameter :: maxdusttypes = maxdustsmall + maxdustlarge
 
  ! kdtree
  integer, parameter :: minpart = 10
 
  ! rhosum
- integer, parameter :: maxrhosum = 39
+ integer, parameter :: maxrhosum = 39 + maxdustlarge - 1
 
  ! fsum
  integer, parameter :: fsumvars = 19 ! Number of scalars in fsum
  integer, parameter :: fsumarrs = 5  ! Number of arrays in fsum
- integer, parameter :: maxfsum  = fsumvars + fsumarrs*(ndusttypes-1) ! Total number of values
+ integer, parameter :: maxfsum  = fsumvars + fsumarrs*(maxdusttypes-1) ! Total number of values
 
  ! xpartveci
  integer, parameter :: maxxpartvecidens = 14
 
  integer, parameter :: maxxpartvecvars = 56 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
- integer, parameter :: maxxpartveciforce = maxxpartvecvars + maxxpartvecarrs*(ndusttypes-1) ! Total number of values
+ integer, parameter :: maxxpartveciforce = maxxpartvecvars + maxxpartvecarrs*(maxdusttypes-1) ! Total number of values
 
  ! cell storage
  integer, parameter :: maxprocs = 32
@@ -171,7 +180,7 @@ module dim
  !
  ! Maximum number of particle types
  !
- integer, parameter :: maxtypes = 6
+ integer, parameter :: maxtypes = 7 + maxdustlarge - 1
 
  !
  ! Number of dimensions, where it is needed

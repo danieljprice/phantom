@@ -18,9 +18,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: densityforce, dim, externalforces, forces, forcing,
-!    growth, io, linklist, mpiutils, part, photoevap, ptmass, timestep,
-!    timing
+!  DEPENDENCIES: bowen_dust, densityforce, dim, externalforces, forces,
+!    forcing, growth, io, linklist, mpiutils, part, photoevap, ptmass,
+!    timestep, timing
 !+
 !--------------------------------------------------------------------------
 module deriv
@@ -42,7 +42,7 @@ contains
 !+
 !-------------------------------------------------------------
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-                  dustfrac,ddustfrac,temperature,time,dt,dtnew)
+                  dustfrac,ddustevol,temperature,time,dt,dtnew)
  use dim,            only:maxp,maxvxyzu
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
@@ -56,6 +56,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 #ifdef PHOTO
  use photoevap,      only:find_ionfront,photo_ionize
  use part,           only:massoftype
+#endif
+#ifdef BOWEN
+ use bowen_dust,     only:radiative_acceleration
 #endif
 #ifdef DUSTGROWTH
  use growth,                only:get_growth_rate
@@ -76,7 +79,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real,         intent(out)   :: dBevol(:,:)
  real,         intent(in)    :: dustfrac(:,:)
  real,         intent(inout) :: dustprop(:,:)
- real,         intent(out)   :: ddustfrac(:,:),ddustprop(:,:)
+ real,         intent(out)   :: ddustevol(:,:),ddustprop(:,:)
  real,         intent(inout) :: temperature(:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
@@ -136,13 +139,20 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 
  stressmax = 0.
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-            dustfrac,ddustfrac,ipart_rhomax,dt,stressmax,temperature)
+            dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature)
  call do_timing('force',tlast,tcpulast)
 #ifdef DUSTGROWTH
  !
  ! compute growth rate of dust particles with respect to their positions
  !
  call get_growth_rate(npart,xyzh,vxyzu,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
+#endif
+!
+! compute radiative acceleration due to dust particles
+!
+#ifdef BOWEN
+ call radiative_acceleration(npart,xyzh,vxyzu,dt, fxyzu)
+ call do_timing('bowendust',tlast,tcpulast)
 #endif
 !
 ! set new timestep from Courant/forces condition

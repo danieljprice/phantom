@@ -453,8 +453,8 @@ subroutine set_dustprop(npart)
  integer            :: i
 
  do i=1,npart
-    dustprop(1,i) = grainsizecgs(1) / udist
-    dustprop(2,i) = graindenscgs(1) / unit_density
+    dustprop(1,i) = grainsizecgs / udist
+    dustprop(2,i) = graindenscgs / unit_density
  enddo
 
 end subroutine set_dustprop

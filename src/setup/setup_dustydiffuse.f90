@@ -43,9 +43,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use timestep,     only:tmax,dtmax
  use prompting,    only:prompt
  use kernel,       only:hfact_default
- use part,         only:igas,dustfrac,Bevol,set_particle_type
+ use part,         only:igas,dustfrac,Bevol,set_particle_type,ndusttypes
  use mpiutils,     only:bcast_mpi,reduceall_mpi
- use dim,          only:maxp,maxvxyzu,maxtypes,mhd,ndusttypes
+ use dim,          only:maxp,maxvxyzu,maxtypes,mhd,maxdusttypes
  use eos,          only:ieos
  use dust,         only:K_code,idrag
  integer,           intent(in)    :: id
@@ -62,7 +62,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: npartx,i
  integer :: eps_type
  real    :: deltax,totmass
- real    :: epstot,epsi(ndusttypes),rc,rc2,r2
+ real    :: epstot,epsi(maxdusttypes),rc,rc2,r2
  !
  !--general parameters
  !

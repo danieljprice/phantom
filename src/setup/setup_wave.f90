@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, io, kernel, mpiutils, options, part,
+!  DEPENDENCIES: boundary, dim, dust, io, kernel, mpiutils, options, part,
 !    physcon, prompting, set_dust, setup_params, unifdis
 !+
 !--------------------------------------------------------------------------
@@ -44,10 +44,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:labeltype,set_particle_type,igas,idust,dustfrac
  use physcon,      only:pi
  use kernel,       only:radkern
- use dim,          only:maxvxyzu,use_dust,maxp,ndusttypes
+ use dim,          only:maxvxyzu,use_dust,maxp
  use options,      only:use_dustfrac
  use prompting,    only:prompt
- use set_dust,     only:interactively_set_dust,set_dustfrac_from_inopts
+ use dust,         only:K_code,idrag
+ use set_dust,     only:set_dustfrac
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -59,7 +60,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real :: totmass,fac,deltax,deltay,deltaz
  integer :: i
- integer :: itype,ntypes,npartx
+ integer :: itype,itypes,ntypes,npartx
  integer :: npart_previous,dust_method
  logical, parameter :: ishift_box =.true.
  real, parameter    :: dust_shift = 0.
@@ -81,8 +82,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(/,a,/)",'  >>> Setting up particles for linear wave test <<<'
     call prompt(' enter number of '//trim(labeltype(itype))//' particles in x ',npartx,8,int(maxp/144.))
     if (use_dust) then
-       dust_method  = 2
-       call interactively_set_dust(dtg,imethod=dust_method,Kdrag=.true.)
+       dust_method = 2
+       dtg = 1.
+       idrag = 2
+       call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
+       if (dust_method == 1) then
+          use_dustfrac = .true.
+       else
+          use_dustfrac = .false.
+       endif
+       if (use_dustfrac) K_code = 1000. ! for a more sensible better option
+       call prompt('Enter dust to gas ratio',dtg,0.)
+       call prompt('Enter constant drag coefficient',K_code,0.)
        if (use_dustfrac) then
           massfac = 1. + dtg
        else
@@ -122,9 +133,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart_total = 0
  npartoftype(:) = 0
 
- overtypes: do itype=1,ntypes
-    select case (itype)
-    case(igas)
+ overtypes: do itypes=1,ntypes
+    select case (itypes)
+    case(1)
+       itype = igas
        if (id==master) call prompt('enter '//trim(labeltype(itype))//&
                             ' density (gives particle mass)',rhozero,0.)
 
@@ -141,7 +153,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (use_dustfrac) then
           call bcast_mpi(dtg)
        endif
-    case(idust)
+    case(2)
+       itype = idust
        rhozero = dtg*rhozero
     end select
 
@@ -189,7 +202,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
        if (use_dustfrac) then
           if (itype==igas) then
-             call set_dustfrac_from_inopts(dtg,ipart=i)
+             call set_dustfrac(dtg,dustfrac(:,i))
           else
              dustfrac(:,i) = 0.
           endif

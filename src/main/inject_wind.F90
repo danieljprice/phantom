@@ -12,24 +12,39 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Bec Nealon
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    ihandled_spheres -- handle inner spheres of the wind (integer)
-!    iwind_resolution -- resolution of the wind -- DO NOT CHANGE DURING SIMULATION --
-!    shift_spheres    -- shift the spheres of the wind
-!    wind_gamma       -- polytropic indice of the wind
-!    wind_sphdist     -- distance between spheres / neighbours -- DO NOT CHANGE DURING SIMULATION --
-!    wind_temperature -- initial temperature of the wind (Kelvin)
+!    bowen_Cprime        -- radiative cooling rate (g.s/cm³)
+!    bowen_L             -- central star luminosity (Lsun)
+!    bowen_Tcond         -- condensation temperature of dust (K)
+!    bowen_Teff          -- effective temperature of the central star (K)
+!    bowen_delta         -- condensation temperature range (K)
+!    bowen_kappa         -- star atmosphere opacity (cm²/g)
+!    bowen_kmax          -- maximum dust opacity (cm²/g)
+!    central_star_mass   -- mass of the central star (Msun)
+!    central_star_radius -- radius of the central star (au)
+!    companion_star_mass -- mass of the companion star (Msun)
+!    companion_star_r    -- radius of the companion star (au)
+!    eccentricity        -- eccentricity of the binary system
+!    icompanion_star     -- set to 1 for a binary system
+!    ihandled_spheres    -- handle inner spheres of the wind (integer)
+!    iwind_resolution    -- resolution of the wind -- DO NOT CHANGE DURING SIMULATION --
+!    semi_major_axis     -- semi-major axis of the binary system (au)
+!    shift_spheres       -- shift the spheres of the wind
+!    wind_gamma          -- polytropic indice of the wind
+!    wind_osc_period     -- period of the oscillations (days)
+!    wind_sphdist        -- distance between spheres / neighbours -- DO NOT CHANGE DURING SIMULATION --
+!    wind_temperature    -- wind temperature at the injection point (K)
 !
-!  DEPENDENCIES: eos, icosahedron, infile_utils, io, part, partinject,
-!    physcon, timestep, units
+!  DEPENDENCIES: bowen_dust, eos, icosahedron, infile_utils, io, part,
+!    partinject, physcon, timestep, units
 !+
 !--------------------------------------------------------------------------
 module inject
- use physcon, only: au, solarm, years
+ use physcon, only: au, solarm, years, solarl
  implicit none
  character(len=*), parameter, public :: inject_type = 'wind'
 
@@ -39,6 +54,28 @@ module inject
 !
 
 ! Read from input file
+#ifdef BOWEN
+ real, public ::    bowen_kappa = 2.d-4
+ real, public ::    bowen_Teff = 3000.
+ real, public ::    bowen_kmax = 2.7991
+ real, public ::    bowen_Tcond = 1500.
+ real, public ::    bowen_delta = 60.
+ real, public ::    bowen_L = 5315. * solarl
+ real, public ::    bowen_Cprime = 1.000d-5
+ real, public ::    wind_osc_period = 350. * 86400.
+ real, public ::    wind_osc_vamplitude = 2.89d5
+ real, public ::    wind_velocity = 8.622d5
+ real, public ::    wind_mass_rate = 1.04d-7 * solarm/years
+ real, public ::    wind_temperature = 1662.
+ real, public ::    wind_gamma = 5./3.
+ integer, public :: iwind_resolution = 5
+ real, public ::    wind_sphdist = 0.2
+ real, public ::    shift_spheres = 0.
+ integer, public :: ihandled_spheres = 2
+ real, public ::    wind_injection_radius = 4.786 * au
+ real, public ::    central_star_mass = 1.2 * solarm
+ real, public ::    central_star_radius = 1.2568 * au
+#else
  real, public ::    wind_velocity = 35.d5
  real, public ::    wind_mass_rate = 7.65d-7 * solarm/years
  real, public ::    wind_temperature = 3000.
@@ -48,10 +85,10 @@ module inject
  real, public ::    shift_spheres = 3.
  integer, public :: ihandled_spheres = 3
  real, public ::    wind_injection_radius = 1.7 * au
- real, public ::    wind_extrapolation = 0.
  real, public ::    central_star_mass = 1. * solarm
  real, public ::    central_star_radius = 1. * au
- integer, public ::    icompanion_star = 0
+#endif
+ integer, public :: icompanion_star = 0
  real, public ::    companion_star_mass
  real, public ::    companion_star_r
  real, public ::    semi_major_axis
@@ -111,6 +148,9 @@ subroutine inject_particles(time_u,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
  use io,      only: iprint
  use units,   only: utime, umass
  use physcon, only: au
+#ifdef BOWEN
+ use bowen_dust, only: bowen_init
+#endif
  real,    intent(in)    :: time_u, dtlast_u
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
@@ -122,6 +162,10 @@ subroutine inject_particles(time_u,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
 
  if (first_run) then
     call wind_init(.false.)
+#ifdef BOWEN
+    call bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,bowen_Cprime,&
+         bowen_Tcond, bowen_delta,bowen_Teff)
+#endif
     first_run = .false.
  endif
 
@@ -132,7 +176,7 @@ subroutine inject_particles(time_u,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
  inner_handled_sphere = inner_sphere + ihandled_spheres
  do i=inner_sphere+ihandled_spheres,outer_sphere,-1
     local_time = time - (i-shift_spheres) * time_between_spheres
-    call compute_sphere_properties(local_time, r, v, u, rho, e)
+    call compute_sphere_properties(local_time, r, v, u, rho, e, i)
     if (wind_verbose) then
        write(iprint,*) '* Sphere:'
        write(iprint,*) '   Number: ', i
@@ -158,7 +202,7 @@ end subroutine inject_particles
 
 !-----------------------------------------------------------------------
 !+
-!  Time derivative of r and v, for Runge-Kutta iterations
+!  Time derivative of r and v, for Runge-Kutta iterations (stationnary trans-sonic solution)
 !+
 !-----------------------------------------------------------------------
 subroutine drv_dt(rv, drv, GM)
@@ -184,10 +228,34 @@ end subroutine
 
 !-----------------------------------------------------------------------
 !+
-!  Compute the radius, velocity and temperature of a sphere in function of its local time
+!  Compute the radius, velocity and temperature of a sphere at the current local time
 !+
 !-----------------------------------------------------------------------
-subroutine compute_sphere_properties(local_time, r, v, u, rho, e)
+subroutine compute_sphere_properties(local_time, r, v, u, rho, e, sphere_number)
+#ifdef BOWEN
+ use bowen_dust, only: pulsating_bowen_wind_profile
+#endif
+ integer, intent(in) :: sphere_number
+ real, intent(in) :: local_time
+ real, intent(out) :: r, v, u, rho, e
+
+#ifdef BOWEN
+ call pulsating_bowen_wind_profile(local_time, r, v, u, rho, e, sphere_number,&
+       wind_mass_rate,wind_injection_radius,wind_velocity,wind_osc_vamplitude,&
+       wind_osc_period,shift_spheres,central_star_mass,time_between_spheres,&
+       wind_temperature,central_star_radius,wind_gamma)
+#else
+ call stationnary_adiabatic_wind_profile(local_time, r, v, u, rho, e)
+#endif
+
+end subroutine
+
+!-----------------------------------------------------------------------
+!+
+!  stationnary adiabatic supersonic wind
+!+
+!-----------------------------------------------------------------------
+subroutine stationnary_adiabatic_wind_profile(local_time, r, v, u, rho, e)
  use part,    only: nptmass, xyzmh_ptmass
  use physcon, only: pi, Gg
  use units,   only: umass
@@ -217,6 +285,7 @@ subroutine compute_sphere_properties(local_time, r, v, u, rho, e)
  enddo
  r = rv(1)
  v = rv(2)
+ ! this expression for T is only valid for an adiabatic EOS !
  T = wind_temperature * (wind_injection_radius**2 * wind_velocity / (r**2 * v))**(wind_gamma-1.)
  u = T * u_to_temperature_ratio
  rho = wind_mass_rate / (4.*pi*r**2*v)
@@ -344,7 +413,7 @@ subroutine write_options_inject(iunit)
       'velocity at which wind is injected (cm/s) -- DO NOT CHANGE DURING SIMULATION --',iunit)
  call write_inopt(wind_mass_rate/(solarm/years),'wind_mass_rate', &
       'wind mass per unit time (Msun/yr) -- DO NOT CHANGE DURING SIMULATION --',iunit)
- call write_inopt(wind_temperature,'wind_temperature','initial temperature of the wind (Kelvin)',iunit)
+ call write_inopt(wind_temperature,'wind_temperature','wind temperature at the injection point (K)',iunit)
  call write_inopt(wind_gamma,'wind_gamma','polytropic indice of the wind',iunit)
  call write_inopt(iwind_resolution,'iwind_resolution','resolution of the wind -- DO NOT CHANGE DURING SIMULATION --',iunit)
  call write_inopt(wind_sphdist,'wind_sphdist','distance between spheres / neighbours -- DO NOT CHANGE DURING SIMULATION --',iunit)
@@ -352,22 +421,29 @@ subroutine write_options_inject(iunit)
  call write_inopt(ihandled_spheres,'ihandled_spheres','handle inner spheres of the wind (integer)',iunit)
  call write_inopt(wind_injection_radius/au,'wind_inject_radius', &
       'radius of injection of the wind (au) -- DO NOT CHANGE DURING SIMULATION --',iunit)
- call write_inopt(central_star_mass/solarm,'central_star_mass', &
-      'mass of the central star (Msun)',iunit)
- call write_inopt(central_star_radius/au,'central_star_radius', &
-      'radius of the central star (au)',iunit)
- call write_inopt(icompanion_star,'icompanion_star', &
-      'set to 1 for a binary system',iunit)
+ call write_inopt(central_star_mass/solarm,'central_star_mass','mass of the central star (Msun)',iunit)
+ call write_inopt(central_star_radius/au,'central_star_radius','radius of the central star (au)',iunit)
+ call write_inopt(icompanion_star,'icompanion_star','set to 1 for a binary system',iunit)
  if (icompanion_star > 0) then
-    call write_inopt(companion_star_mass/solarm,'companion_star_mass', &
-      'mass of the companion star (Msun)',iunit)
-    call write_inopt(companion_star_r/au,'companion_star_r', &
-      'radius of the companion star (au)',iunit)
-    call write_inopt(semi_major_axis/au,'semi_major_axis', &
-      'semi-major axis of the binary system (au)',iunit)
-    call write_inopt(eccentricity,'eccentricity', &
-      'eccentricity of the binary system',iunit)
+    call write_inopt(companion_star_mass/solarm,'companion_star_mass','mass of the companion star (Msun)',iunit)
+    call write_inopt(companion_star_r/au,'companion_star_r','radius of the companion star (au)',iunit)
+    call write_inopt(semi_major_axis/au,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
+    call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
  endif
+#ifdef BOWEN
+ write(iunit,"(/,a)") '# options controlling bowen dust around central star'
+
+ call write_inopt(bowen_kappa,'bowen_kappa','star atmosphere opacity (cm²/g)',iunit)
+ call write_inopt(bowen_Teff,'bowen_Teff','effective temperature of the central star (K)',iunit)
+ call write_inopt(bowen_kmax,'bowen_kmax','maximum dust opacity (cm²/g)',iunit)
+ call write_inopt(bowen_Tcond,'bowen_Tcond','condensation temperature of dust (K)',iunit)
+ call write_inopt(bowen_delta,'bowen_delta','condensation temperature range (K)',iunit)
+ call write_inopt(bowen_L/solarl,'bowen_L','central star luminosity (Lsun)',iunit)
+ call write_inopt(bowen_Cprime,'bowen_Cprime','radiative cooling rate (g.s/cm³)',iunit)
+ call write_inopt(wind_osc_period/86400.,'wind_osc_period','period of the oscillations (days)',iunit)
+ call write_inopt(wind_osc_vamplitude,'wind_osc_vampl', &
+      'amplitude of velocity variations during oscillations (cm/s)',iunit)
+#endif
 end subroutine
 
 !-----------------------------------------------------------------------
@@ -459,11 +535,54 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) eccentricity
     ngot = ngot + 1
     if (eccentricity < 0.) call fatal(label,'invalid setting for eccentricity (<0)')
+#ifdef BOWEN
+ case('bowen_kappa')
+    read(valstring,*,iostat=ierr) bowen_kappa
+    ngot = ngot + 1
+    if (bowen_kappa < 0.)    call fatal(label,'invalid setting for bowen_kappa (<0)')
+ case('bowen_Teff')
+    read(valstring,*,iostat=ierr) bowen_Teff
+    ngot = ngot + 1
+    if (bowen_Teff < 0.)    call fatal(label,'invalid setting for bowen_Teff (<0)')
+ case('bowen_kmax')
+    read(valstring,*,iostat=ierr) bowen_kmax
+    ngot = ngot + 1
+    if (bowen_kmax < 0.)    call fatal(label,'invalid setting for bowen_kmax (<0)')
+ case('bowen_Tcond')
+    read(valstring,*,iostat=ierr) bowen_Tcond
+    ngot = ngot + 1
+    if (bowen_Tcond < 0.) call fatal(label,'invalid setting for bowen_Tcond (<0)')
+ case('bowen_delta')
+    read(valstring,*,iostat=ierr) bowen_delta
+    ngot = ngot + 1
+    if (bowen_delta < 0.) call fatal(label,'invalid setting for bowen_delta (<0)')
+ case('bowen_L')
+    read(valstring,*,iostat=ierr) bowen_L
+    bowen_L = bowen_L * solarl
+    ngot = ngot + 1
+    if (bowen_L < 0.) call fatal(label,'invalid setting for bowen_L (<0)')
+ case('bowen_Cprime')
+    read(valstring,*,iostat=ierr) bowen_Cprime
+    ngot = ngot + 1
+    if (bowen_Cprime < 0.) call fatal(label,'invalid setting for bowen_Cprime (<0)')
+ case('wind_osc_period')
+    read(valstring,*,iostat=ierr) wind_osc_period
+    wind_osc_period = wind_osc_period*86400.
+    ngot = ngot + 1
+    if (wind_osc_period < 0.) call fatal(label,'invalid setting for wind_osc_period (<0)')
+ case('wind_osc_vampl')
+    read(valstring,*,iostat=ierr) wind_osc_vamplitude
+    ngot = ngot + 1
+    if (wind_osc_vamplitude < 0.) call fatal(label,'invalid setting for wind_osc_vamp (<0)')
+#endif
  case default
     imatch = .false.
  end select
-
+#ifdef BOWEN
+ noptions = 21
+#else
  noptions = 12
+#endif
  if (icompanion_star > 0) then
     noptions = noptions + 4
  endif

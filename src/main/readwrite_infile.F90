@@ -28,7 +28,6 @@
 !    beta               -- beta viscosity
 !    bulkvisc           -- magnitude of bulk viscosity
 !    calc_erot          -- include E_rot in the ev_file
-!    damp               -- artificial damping of velocities (if on, v=0 initially)
 !    dtmax              -- time between dumps
 !    dtmax_rat0         -- dtmax_new = dtmax_old/dtmax_rat0
 !    dtwallmax          -- maximum wall time between dumps (hhh:mm, 000:00=ignore)
@@ -55,15 +54,15 @@
 !    twallmax           -- maximum wall time (hhh:mm, 000:00=ignore)
 !    use_mcfost         -- use the mcfost library
 !
-!  DEPENDENCIES: cooling, dim, dust, eos, externalforces, forcing, growth,
-!    infile_utils, inject, io, linklist, nicil_sup, options, part,
+!  DEPENDENCIES: cooling, damping, dim, dust, eos, externalforces, forcing,
+!    growth, infile_utils, inject, io, linklist, nicil_sup, options, part,
 !    photoevap, ptmass, timestep, viscosity
 !+
 !--------------------------------------------------------------------------
 module readwrite_infile
  use dim,       only:calc_erot,incl_erot
  use timestep,  only:rho_dtthresh_cgs,dtmax_rat0
- use options,   only:nfulldump,nmaxdumps,twallmax,dtwallmax,iexternalforce,tolh, &
+ use options,   only:nfulldump,nmaxdumps,twallmax,dtwallmax,iexternalforce,idamp,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,tolv, &
                      ipdv_heating,ishock_heating,iresistive_heating, &
                      icooling,psidecayfac,overcleanfac,alphamax,&
@@ -90,6 +89,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use forcing,         only:write_options_forcing
 #endif
  use externalforces,  only:write_options_externalforces
+ use damping,         only:write_options_damping
  use linklist,        only:write_inopts_link
 #ifdef DUST
  use dust,            only:write_options_dust
@@ -192,7 +192,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  endif
  call write_inopt(beta,'beta','beta viscosity',iwritein)
  call write_inopt(avdecayconst,'avdecayconst','decay time constant for viscosity switches',iwritein)
- call write_inopt(damp,'damp','artificial damping of velocities (if on, v=0 initially)',iwritein)
+
+ call write_options_damping(iwritein,idamp)
 
  !
  ! thermodynamics
@@ -288,6 +289,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use part,            only:mhd,nptmass
  use cooling,         only:read_options_cooling
  use ptmass,          only:read_options_ptmass
+ use damping,         only:read_options_damping
  character(len=*), parameter   :: label = 'read_infile'
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -298,7 +300,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  integer :: ierr,ireaderr,line,idot,ngot,nlinesread
  logical :: imatch,igotallrequired,igotallturb,igotalllink,igotloops
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth
- logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotallphoto
+ logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotallphoto, igotalldamping
  integer, parameter :: nrequired = 1
 
  ireaderr = 0
@@ -318,6 +320,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallinject   = .true.
  igotalleos      = .true.
  igotallcooling  = .true.
+ igotalldamping  = .true.
  igotloops       = .false.
  igotallionise   = .true.
  igotallnonideal = .true.
@@ -394,8 +397,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) beta
     case('avdecayconst')
        read(valstring,*,iostat=ierr) avdecayconst
-    case('damp')
-       read(valstring,*,iostat=ierr) damp
     case('ipdv_heating')
        read(valstring,*,iostat=ierr) ipdv_heating
     case('ishock_heating')
@@ -440,6 +441,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #endif
        if (.not.imatch) call read_options_eos(name,valstring,imatch,igotalleos,ierr)
        if (.not.imatch) call read_options_cooling(name,valstring,imatch,igotallcooling,ierr)
+       if (.not.imatch) call read_options_damping(name,valstring,imatch,igotalldamping,ierr,idamp)
        if (maxptmass > 0) then
           if (.not.imatch) call read_options_ptmass(name,valstring,imatch,igotallptmass,ierr)
           !
@@ -462,7 +464,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallrequired = (ngot  >=  nrequired) .and. igotalllink .and. igotallbowen .and. igotalldust &
                    .and. igotalleos .and. igotallcooling .and. igotallextern .and. igotallturb &
                    .and. igotallptmass .and. igotallinject .and. igotallionise .and. igotallnonideal &
-                   .and. igotallphoto .and. igotallgrowth
+                   .and. igotallphoto .and. igotallgrowth .and. igotalldamping
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1
@@ -475,6 +477,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           call error('read_infile','input file '//trim(infile)//' is incomplete for current compilation')
           if (.not.igotalleos) write(*,*) 'missing equation of state options'
           if (.not.igotallcooling) write(*,*) 'missing cooling options'
+          if (.not.igotalldamping) write(*,*) 'missing damping options'
           if (.not.igotalllink) write(*,*) 'missing link options'
           if (.not.igotallbowen) write(*,*) 'missing Bowen dust options'
           if (.not.igotalldust) write(*,*) 'missing dust options'
@@ -528,8 +531,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
                          call warn(label,'ridiculous choice of hfact',4)
     if (tolh > 1.e-3)   call warn(label,'tolh is quite large!',2)
     if (tolh < epsilon(tolh)) call fatal(label,'tolh too small to ever converge')
-    if (damp < 0.)     call fatal(label,'damping < 0')
-    if (damp > 1.)     call warn(label,'damping ridiculously big')
+    !if (damp < 0.)     call fatal(label,'damping < 0')
+    !if (damp > 1.)     call warn(label,'damping ridiculously big')
     if (alpha < 0.)    call fatal(label,'stupid choice of alpha')
     if (alphau < 0.)   call fatal(label,'stupid choice of alphau')
     if (alphau > tiny(alphau) .and. use_entropy) &

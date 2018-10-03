@@ -34,7 +34,7 @@ module analysis
  use ptmass,       only:get_accel_sink_gas,get_accel_sink_sink
  use kernel,       only:kernel_softening,radkern,wkern,cnormk
  use eos,          only:equationofstate,ieos,init_eos,finish_eos,X_in,Z_in,get_spsound
- use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa, get_eos_various_mesa
+ use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa, get_eos_various_mesa,get_eos_pressure_gamma1_mesa
  use setbinary,    only:Rochelobe_estimate,L1_point
  use sortutils,    only:set_r2func_origin,r2func_origin,indexxfunc
  implicit none
@@ -586,7 +586,7 @@ subroutine roche_lobe_values(time, num, npart, particlemass, xyzh, vxyzu)
  real, intent(in)               :: time, particlemass
  real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: columns(:)
- integer                        :: i, nFB, nR1T, ncols
+ integer                        :: i, j, nFB, nR1T, ncols
  integer, parameter             :: iRL1   = 1
  integer, parameter             :: iMRL1  = 2
  integer, parameter             :: iBMRL1 = 3
@@ -616,6 +616,8 @@ subroutine roche_lobe_values(time, num, npart, particlemass, xyzh, vxyzu)
  real                           :: rhovol, rhomass, rhopart, R1, rad_vel, sepCoO
  real                           :: temp_const, ponrhoi, spsoundi
  real, dimension(3)             :: rcrossmv, CoO, com_xyz, com_vxyz
+ real, dimension(3,npart)       :: xyz_a
+ integer                        :: npart_a, mean_rad_num, iorder(npart)
 
  MRL = 0.
  rhovol = 0.
@@ -639,22 +641,38 @@ subroutine roche_lobe_values(time, num, npart, particlemass, xyzh, vxyzu)
     enddo
  endif
 
+ mean_rad_num = npart / 200
+ npart_a = 0
+
  do i=1,npart
     rhopart = rhoh(xyzh(4,i), particlemass)
     if (rhopart > rho_surface) then
-       if (separation(xyzh(1:3,i), xyzmh_ptmass(1:3,1)) / 2. < &
-              separation(xyzmh_ptmass(1:3,2), xyzmh_ptmass(1:3,1))) then
+       if (separation(xyzh(1:3,i), xyzmh_ptmass(1:3,1)) < &
+              separation(xyzh(1:3,i), xyzmh_ptmass(1:3,2))) then
           rhomass = rhomass + particlemass
           rhovol = rhovol + particlemass / rhopart
+          npart_a = npart_a + 1
+          xyz_a(1:3,npart_a) = xyzh(1:3,i)
        endif
     endif
  enddo
+
+ call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1))
+ call indexxfunc(npart_a,r2func_origin,xyz_a,iorder)
+
+ R1 = 0
+ do i=npart_a-mean_rad_num,npart_a
+    j = iorder(i)
+    R1 = R1 + separation(xyz_a(1:3,j),xyzmh_ptmass(1:3,1))
+ enddo
+
+ R1 = R1 / real(mean_rad_num)
 
  sep = separation(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,2))
  MRL(iRL1) = Rochelobe_estimate(m2,m1,sep)
  MRL(iRL2) = Rochelobe_estimate(m1,m2,sep)
 
- R1 = (3. * rhovol/(4. * pi))**(1./3.)
+ !R1 = (3. * rhovol/(4. * pi))**(1./3.)
  CoO(1:3) = (xyzmh_ptmass(1:3,1) + xyzmh_ptmass(1:3,2)) / 2.
  MRL(iR1) = R1
  MRL(iRej) = separation(CoO(1:3),xyzmh_ptmass(1:3,1)) + R1
@@ -771,41 +789,57 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
  real, intent(in)               :: time, particlemass
  real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: columns(:)
- integer                        :: i, ncols
- real                           :: star_stability(4)
+ integer                        :: i, j, k, ncols, mean_rad_num, iorder(npart), npart_a, iorder_a(npart)
+ real                           :: star_stability(8)
  real                           :: total_mass, rhovol, totvol, rhopart
+ real                           :: xyz_a(3,1)
  integer, parameter             :: ivoleqrad    = 1
  integer, parameter             :: idensrad     = 2
  integer, parameter             :: imassout     = 3
  integer, parameter             :: imassfracout = 4
+ integer, parameter             :: ipartrad     = 5
+ integer, parameter             :: ipart2hrad   = 6
+ integer, parameter             :: ipdensrad    = 7
+ integer, parameter             :: ip2hdensrad  = 8
 
  totvol = 0
  rhovol = 0
 
+ call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1))
+ call indexxfunc(npart,r2func_origin,xyzh,iorder)
+
  if (dump_number == 0) then
-    rho_surface = rhoh(xyzh(4,1), particlemass)
-    do i=1,npart
-       rhopart = rhoh(xyzh(4,i), particlemass)
-       if (rhopart < rho_surface) then
-          rho_surface = rhopart
-       endif
-    enddo
+    rho_surface = rhoh(xyzh(4,iorder(npart)), particlemass)
  endif
 
+ mean_rad_num = npart / 200
+ npart_a = 0
  do i=1,npart
     rhopart = rhoh(xyzh(4,i), particlemass)
     totvol = totvol + particlemass / rhopart
     if (rhopart > rho_surface) then
-       if (nptmass > 1) then
-          if (separation(xyzh(1:3,i), xyzmh_ptmass(1:3,1)) / 2. < &
-              separation(xyzmh_ptmass(1:3,2), xyzmh_ptmass(1:3,1))) then
-             rhovol = rhovol + particlemass / rhopart
-          endif
-       else
-          rhovol = rhovol + particlemass / rhopart
-       endif
+       rhovol = rhovol + particlemass / rhopart
+       npart_a = npart_a + 1
+       xyz_a(1:3,npart_a) = xyzh(1:3,i)
     endif
  enddo
+
+ call indexxfunc(npart_a,r2func_origin,xyzh,iorder_a)
+
+ do i=npart-mean_rad_num,npart
+    j = iorder(i)
+    k = iorder_a(i)
+    star_stability(ipartrad) = star_stability(ipartrad) + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1))
+    star_stability(ipart2hrad) = star_stability(ipart2hrad) + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1)) + xyzh(4,j)
+    star_stability(ipdensrad) = star_stability(ipdensrad) + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1))
+    star_stability(ip2hdensrad) = star_stability(ip2hdensrad) + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1)) + xyzh(4,j)
+
+ enddo
+
+ star_stability(ipartrad) = star_stability(ipartrad) / real(mean_rad_num)
+ star_stability(ipart2hrad) = star_stability(ipart2hrad) / real(mean_rad_num)
+ star_stability(ipdensrad) = star_stability(ipdensrad) / real(mean_rad_num)
+ star_stability(ip2hdensrad) = star_stability(ip2hdensrad) / real(mean_rad_num)
 
  star_stability(ivoleqrad) = (3. * totvol/(4. * pi))**(1./3.)
  star_stability(idensrad)  = (3. * rhovol/(4. * pi))**(1./3.)
@@ -825,12 +859,16 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
 
  star_stability(imassfracout) = star_stability(imassout) / total_mass
 
- ncols = 4
+ ncols = 8
  allocate(columns(ncols))
  columns = (/'vol. eq. rad',&
              ' density rad',&
              'mass outside',&
-             'frac outside'/)
+             'frac outside',&
+             '    part rad',&
+             ' part 2h rad',&
+             '  p dens rad',&
+             'p2h dens rad'/)
 
  call write_time_file('star_stability', columns, time, star_stability, ncols, dump_number)
  deallocate(columns)
@@ -865,22 +903,22 @@ subroutine output_divv_files(time, dumpfile, num, npart, particlemass, xyzh, vxy
  real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
  integer                        :: i
  real                           :: etoti, ekini, einti, epoti, phii
- real                           :: rhopart, ponrhoi, spsoundi
- real, dimension(npart)         :: bound_energy, mach_number, omega_ratio
+ real                           :: rhopart, ponrhoi, spsoundi, kappat, kappar
+ real, dimension(npart)         :: bound_energy, mach_number, omega_ratio, kappa, temp, pressure
  real, dimension(3)             :: xyz_a, vxyz_a, com_xyz, com_vxyz
  real                           :: ang_vel
 
  call compute_energies(time)
 
- call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
+ !call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
 
  ang_vel = 0.
 
- do i=1,nptmass
-    xyz_a(1:3) = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
-    vxyz_a(1:3) = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
-    ang_vel = ang_vel + 0.5 * (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
- enddo
+ !do i=1,nptmass
+ !   xyz_a(1:3) = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
+ !   vxyz_a(1:3) = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
+ !   ang_vel = ang_vel + 0.5 * (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
+ !enddo
 
  do i=1,npart
     call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
@@ -891,28 +929,27 @@ subroutine output_divv_files(time, dumpfile, num, npart, particlemass, xyzh, vxy
     call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
     mach_number(i) = distance(vxyzu(1:3,i)) / spsoundi
 
-    xyz_a(1:3) = xyzh(1:3,i) - com_xyz(1:3)
-    vxyz_a(1:3) = vxyzu(1:3,i) - com_vxyz(1:3)
+    !xyz_a(1:3) = xyzh(1:3,i) - com_xyz(1:3)
+    !vxyz_a(1:3) = vxyzu(1:3,i) - com_vxyz(1:3)
 
-    omega_ratio(i) = (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
-    omega_ratio(i) = (omega_ratio(i) - ang_vel) / ang_vel
+    !omega_ratio(i) = (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
+    !omega_ratio(i) = (omega_ratio(i) - ang_vel) / ang_vel
 
     !pressure(i) = ponrhoi * rhopart * unit_pressure
 
-
-    !if (ieos==10) then
-    !   call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i) * unit_ergg,pressure(i),temp(i))
-    !   call get_eos_kappa_mesa(rhopart*unit_density,temp(i),kappa(i),kappat,kappar)
-    !call ionisation_fraction(rhopart * unit_density, temp(i), X_in, 1.-X_in-Z_in, &
-    !                         ions(1,i),ions(2,i),ions(3,i),ions(4,i),ions(5,i))
+    if (ieos==10) then
+       call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i) * unit_ergg,pressure(i),temp(i))
+       call get_eos_kappa_mesa(rhopart*unit_density,temp(i),kappa(i),kappat,kappar)
+       !call ionisation_fraction(rhopart * unit_density, temp(i), X_in, 1.-X_in-Z_in, &
+       !                         ions(1,i),ions(2,i),ions(3,i),ions(4,i),ions(5,i))
     !else
     !   kappa(i) = 1
-    !endif
+    endif
  enddo
 
  open(26,file=trim(dumpfile)//".divv",status='replace',form='unformatted')
  write(26) (real(bound_energy(i),kind=4),i=1,npart)
- !write(26) (real(pressure(i),kind=4),i=1,npart)
+ write(26) (real(kappa(i),kind=4),i=1,npart)
  write(26) (real(omega_ratio(i),kind=4),i=1,npart)
  write(26) (real(mach_number(i),kind=4),i=1,npart)
 
@@ -923,11 +960,12 @@ end subroutine output_divv_files
 
 !!!!! EoS surfaces !!!!!
 subroutine eos_surfaces
- integer :: i, j
+ integer :: i, j, ierr
  real    :: rho_array(1000) = (/ (10**(i/10000.), i=-180000,-30150,150) /)
  real    :: eni_array(1000) = (/ (10**(i/10000.), i=120000,149970,30) /)
  real    :: temp_array(400) = (/ (10**(i/1000.), i=3000,6990,10) /)
  real    :: kappa_array(1000,400)
+ real    :: gam1_array(1000,1000)
  real    :: pres_array(1000,1000)
  real    :: kappat, kappar, temp
 
@@ -937,11 +975,11 @@ subroutine eos_surfaces
        if (j < size(temp_array) + 1) then
           call get_eos_kappa_mesa(rho_array(i),temp_array(j),kappa_array(i,j),kappat,kappar)
        endif
-       call get_eos_pressure_temp_mesa(rho_array(i),eni_array(j),pres_array(i,j),temp)
+       call get_eos_pressure_gamma1_mesa(rho_array(i),eni_array(j),pres_array(i,j),gam1_array(i,j),ierr)
+       !call get_eos_pressure_temp_mesa(rho_array(i),eni_array(j),pres_array(i,j),temp)
        !pres_array(i,j) = eni_array(j)*rho_array(i)*0.66667 / pres_array(i,j)
     enddo
  enddo
-
 
  open(unit=1000, file='mesa_eos_pressure.out', status='replace')
 
@@ -952,6 +990,14 @@ subroutine eos_surfaces
 
  close(unit=1000)
 
+ open(unit=1002, file='mesa_eos_gamma.out', status='replace')
+
+ !Write data to file
+ do i=1,1000
+    write(1002,"(1000(3x,es18.11e2,1x))") gam1_array(i,:)
+ enddo
+
+ close(unit=1002)
 
  open(unit=1001, file='mesa_eos_kappa.out', status='replace')
 
@@ -987,18 +1033,16 @@ subroutine ion_profiles(time, num, npart, particlemass, xyzh, vxyzu)
  dist_part = 0.
 
  do i=1,npart
-    if (xyzh(4,i)  >=  0) then
-       rhopart = rhoh(xyzh(4,i), particlemass)
-       npart_hist = npart_hist + 1
-       rad_part(1,npart_hist) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-       call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i) * unit_ergg,pressure,temperature)
-       call ionisation_fraction(rhopart * unit_density, temperature, X_in, 1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
-       dist_part(1,npart_hist) = xh0
-       dist_part(2,npart_hist) = xh1
-       dist_part(3,npart_hist) = xhe0
-       dist_part(4,npart_hist) = xhe1
-       dist_part(5,npart_hist) = xhe2
-    endif
+    rhopart = rhoh(xyzh(4,i), particlemass)
+    npart_hist = npart_hist + 1
+    rad_part(1,npart_hist) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+    call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i) * unit_ergg,pressure,temperature)
+    call ionisation_fraction(rhopart * unit_density, temperature, X_in, 1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
+    dist_part(1,npart_hist) = xh0
+    dist_part(2,npart_hist) = xh1
+    dist_part(3,npart_hist) = xhe0
+    dist_part(4,npart_hist) = xhe1
+    dist_part(5,npart_hist) = xhe2
  enddo
  allocate(hist_var(nbins))
  grid_file = (/ '   grid_HIfrac.ev', &
@@ -1389,6 +1433,43 @@ subroutine gravitational_drag(time, num, npart, particlemass, xyzh, vxyzu)
        racc = 2. * xyzmh_ptmass(4,i) / (vel_contrast**2 + cs**2)
     else
        racc = 0.
+       cs = 0.
+       rhopart = 0.
+
+       call unit_vector(vxyz_ptmass(1:3,i), unit_vel(1:3))
+
+       call set_r2func_origin(xyzmh_ptmass(1,i),xyzmh_ptmass(2,i),xyzmh_ptmass(3,i))
+       call indexxfunc(npart,r2func_origin,xyzh,iorder)
+
+       !k = iorder(1)
+       !cs = get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k), particlemass),vxyzu(1:3,k))
+       !rhopart = rhoh(xyzh(4,k), particlemass)
+
+       centre_sep = separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
+
+       do j=1,npart
+          k = iorder(j)
+          sep = separation(xyzh(1:3,k),xyzmh_ptmass(1:3,i))
+          if (sep > centre_sep) exit
+          avg_vel(1:3) = avg_vel(1:3) + vxyzu(1:3,k)
+          !vel_contrast = vel_contrast + distance(vxyz_ptmass(1:3,i)) - dot_product(vxyzu(1:3,k), unit_vel)
+          cs = cs + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k), particlemass),vxyzu(1:4,k))
+          !rhopart = rhopart + rhoh(xyzh(4,k), particlemass)
+          rhopart = rhopart + particlemass
+       enddo
+
+       if (j > 1) then
+          avg_vel(1:3) = avg_vel(1:3) / (j-1)
+          avg_vel_par(1:3) = dot_product(avg_vel, unit_vel) * unit_vel
+          avg_vel_per(1:3) = avg_vel(1:3) - avg_vel_par(1:3)
+          vel_contrast = distance(vxyz_ptmass(1:3,i)) - cos_vector_angle(unit_vel, avg_vel_par) * distance(avg_vel_par(1:3))
+          !vel_contrast = separation(vxyz_ptmass(1:3,i),avg_vel_par(1:3))
+          cs = cs / float(j-1)
+          rhopart = rhopart / float(j-1)
+          racc = 2. * xyzmh_ptmass(4,i) / (vel_contrast**2 + cs**2)
+       else
+          racc = 0.
+       endif
     endif
 
     do j=1,npart

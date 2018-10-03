@@ -121,9 +121,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- integer, parameter               :: ng_max = 5000
- integer, parameter               :: ng     = 1024
- integer                          :: i,nx,npts,ierr
+ integer, parameter               :: ng_max = 20000
+ integer, parameter               :: ng     = 12000
+ integer                          :: i,nx,npts,npmax,ierr
  real                             :: vol_sphere,psep,rmin,densi,ri,polyk_in,presi
  real                             :: r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),enitab(ng_max)
  real                             :: xi, yi, zi, rhoi, spsoundi, p_on_rhogas, eni, tempi
@@ -427,7 +427,7 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
  ! set default file output parameters
  !
  if (id==master) write(*,"('Setting up ',a)") trim(sphere_opt(isphere))
- call set_default_options(isphere,iexist)
+ call set_default_options(polyk,isphere,iexist)
 
  if (isphere==imesa .or. isphere==ikepler) then
     call prompt('Enter the desired EoS for setup', ieos)
@@ -483,9 +483,10 @@ end subroutine setup_interactive
 !  This routine should not do ANY prompting
 !+
 !-----------------------------------------------------------------------
-subroutine set_default_options(istar,iexist)
- integer, intent(in) :: istar
- logical, intent(in) :: iexist
+subroutine set_default_options(polyk,istar,iexist)
+ real,    intent(out) :: polyk
+ integer, intent(in)  :: istar
+ logical, intent(in)  :: iexist
 
  select case(istar)
  case(ipoly)
@@ -546,7 +547,7 @@ subroutine set_default_options(istar,iexist)
     Rstar       = 0.01
     Mstar       = 0.6
     need_temp   = 1
-case default
+ case default
     ! Uniform density sphere
     input_polyk = .true.
     need_grav   = 0 ! to prevent setupfail
@@ -670,7 +671,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
 
  nerr = 0
  call read_inopt(isphere,'isphere',db,errcount=nerr)
- call set_default_options(isphere,iexist=.true.)
+ call set_default_options(polyk,isphere,iexist=.true.)
 
  call read_inopt(mass_unit,'mass_unit',db,ierr)
  call read_inopt(dist_unit,'dist_unit',db,ierr)

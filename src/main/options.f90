@@ -37,7 +37,7 @@ module options
 ! these are parameters which may be changed by the user
 ! and read from the input file
 !
- integer, public :: nfulldump,nmaxdumps,iexternalforce
+ integer, public :: nfulldump,nmaxdumps,iexternalforce,idamp
  real, public :: tolh,damp,tolv
  real(kind=4), public :: twallmax, dtwallmax
 
@@ -68,7 +68,7 @@ subroutine set_default_options
  use timestep,  only:C_cour,C_force,C_cool,tmax,dtmax,nmax,nout,restartonshortest
  use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha
  use viscosity, only:set_defaults_viscosity
- use dim,       only:maxp,maxvxyzu,nalpha,ndusttypes
+ use dim,       only:maxp,maxvxyzu,nalpha
  use kernel,    only:hfact_default
 
  C_cour  =  0.3
@@ -89,7 +89,7 @@ subroutine set_default_options
  Bexty     = 0.
  Bextz     = 0.
  tolh      = 1.e-4           ! tolerance on h iterations
- damp      = 0.              ! damping of velocities
+ idamp     = 0               ! damping type
  iexternalforce = 0          ! external forces
 
  ! equation of state
@@ -129,11 +129,7 @@ subroutine set_default_options
  call set_defaults_viscosity
 
  ! dust method
- if (ndusttypes > 1) then
-    use_dustfrac = .true.
- else
-    use_dustfrac = .false.
- endif
+ use_dustfrac = .false.
 
  ! mcfost
  use_mcfost = .false.
