@@ -59,7 +59,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: rad_planet,twist_inner,twist_outer,tilt_inner,tilt_outer
  real :: m_red,mu,rotate_about_y,rotate_about_z,planet_mass,pos_planet(3),vel_planet(3)
  real :: temp(3),temp_mag,term(3),tilt_planet,twist_planet,L_tot_mag
- real :: unitl_in(3),unitl_out(3)
+ real :: unitl_in(3),unitl_out(3),eff_tilt
  integer :: ninbin(nr),n_count_inner,n_count_outer,nptmassinit
  logical :: assume_Ltot_is_same_as_zaxis
 
@@ -191,7 +191,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        inquire(file=filename,exist=iexist)
        if (.not.iexist .or. numfile == 0) then
           open(iplanet,file=filename,status="replace")
-          write(iplanet,"('#',26(1x,'[',i2.2,1x,a11,']',2x))") &
+          write(iplanet,"('#',27(1x,'[',i2.2,1x,a11,']',2x))") &
                1,'time', &
                2,'rad(sph)', &
                3,'x', &
@@ -217,7 +217,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
                23,'lz in', &
                24,'lx out', &
                25,'ly out', &
-               26,'lz out'
+               26,'lz out', &
+               27,'eff tilt'
        else
           open(iplanet,file=filename,status="old",position="append")
        endif
@@ -277,6 +278,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        L_ratio_inner = L_inner_mag/L_p_mag
        L_ratio_outer = L_outer_mag/L_p_mag
 
+       ! Calculate the effective tilt between the inner and outer disc
+       eff_tilt = acos(dot_product(unitl_in,unitl_out))
+
        ! For now, measure twist of planet as in disc
        twist_planet = atan2(L_p(2),L_p(1))
        if (twist_planet < 0.) twist_planet = twist_planet + 2.*pi
@@ -295,10 +299,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        endif
        e_planet = sqrt(dot_product(ecc_planet,ecc_planet))
 
-       write(iplanet,'(26(es18.10,1X))') time, rad_planet,xyzmh_ptmass(1:3,i), &
+       write(iplanet,'(27(es18.10,1X))') time, rad_planet,xyzmh_ptmass(1:3,i), &
             L_p(:),vel_planet(1:3),tilt_planet,twist_planet,e_planet, &
             tilt_inner,tilt_outer,twist_inner,twist_outer,L_ratio_inner,L_ratio_outer, &
-            unitl_in(:),unitl_out(:)
+            unitl_in(:),unitl_out(:),eff_tilt
        close(iplanet)
     enddo
  endif
