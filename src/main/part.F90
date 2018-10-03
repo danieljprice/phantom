@@ -231,6 +231,7 @@ real, allocatable   :: dustproppred(:,:)
 #ifdef DUST
    +maxdusttypes                        &  ! dustfrac
    +maxdustsmall                        &  ! dustevol
+   +maxdustsmall                        &  ! dustpred
 #ifdef DUSTGROWTH
    +1                                   &  ! dustproppred
    +1                                   &  ! ddustprop
@@ -330,7 +331,7 @@ contains
     call allocate_array('divBsumm', divBsymm, maxmhdan)
     call allocate_array('fext', fext, 3, maxan)
     call allocate_array('vpred', vpred, maxvxyzu, maxan)
-    call allocate_array('dustpred', dustpred, ndusttypes, maxdustan)
+    call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
     call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
     call allocate_array('dustproppred', dustproppred, 5, maxp_growth)
 #ifdef IND_TIMESTEPS
