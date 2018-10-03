@@ -307,7 +307,7 @@ contains
     call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
     call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
     call allocate_array('Bxyz', Bxyz, 3, maxmhd)
-    call allocate_array('dustprop', dustprop, 5, maxp_growth)
+    call allocate_array('dustprop', dustprop, 4, maxp_growth)
     call allocate_array('St', St, maxp_growth)
     call allocate_array('abundance', abundance, nabundances, maxp_h2)
     call allocate_array('temperature', temperature, maxtemp)
