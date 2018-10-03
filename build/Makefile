@@ -86,7 +86,6 @@ SRCPHOTO=
 # -DNONIDEALMHD         ! non-ideal magnetic fields including ionisation; uses NICIL
 #
 # -DSORT                ! whether or not to sort particles
-# -DSORT_RADIUS_INIT    ! sort particles by R at t=0
 #
 # -DPHOTO               ! turn on the photoevaporation
 # -DLIGHTCURVE          ! lightcurve estimation
@@ -257,7 +256,7 @@ endif
 
 ifeq ($(SETUP), photoevap)
 # Mark Hutchison
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT -DPHOTO
+    FPPFLAGS= -DDISC_VISCOSITY -DPHOTO
     SETUPFILE= setup_photoevap.f90
     ANALYSIS= analysis_disc.f90
     KNOWN_SETUP=yes
@@ -267,7 +266,7 @@ endif
 
 ifeq ($(SETUP), disc)
 #   locally isothermal gas disc
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
+    FPPFLAGS= -DDISC_VISCOSITY
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
 #    ANALYSIS= analysis_binarydisc_af.f90
@@ -282,7 +281,7 @@ endif
 
 ifeq ($(SETUP), adiabaticdisc)
 #   adiabatic disc
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
+    FPPFLAGS= -DDISC_VISCOSITY
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
     KNOWN_SETUP=yes
@@ -293,7 +292,7 @@ endif
 
 ifeq ($(SETUP), lightcurvedisc)
 #   adiabatic disc with lightcurve
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT -DLIGHTCURVE
+    FPPFLAGS= -DDISC_VISCOSITY -DLIGHTCURVE
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
     KNOWN_SETUP=yes
@@ -304,7 +303,7 @@ endif
 
 ifeq ($(SETUP), gwdisc)
 #   locally isothermal discs
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
+    FPPFLAGS= -DDISC_VISCOSITY
     SETUPFILE= setup_gwdisc.f90
     ANALYSIS= analysis_disc.f90
     MAXP=2000000
@@ -317,7 +316,7 @@ endif
 
 ifeq ($(SETUP), nshwdisc)
 #   disc around a neutron star
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT -DPRDRAG
+    FPPFLAGS= -DDISC_VISCOSITY -DPRDRAG
     SETUPFILE= setup_nsdisc.f90
     ANALYSIS= analysis_disc.f90
     MODFILE= moddump_changemass.f90
@@ -336,7 +335,7 @@ endif
 
 ifeq ($(SETUP), binarydiscMFlow)
 #   binarydiscMFlow setup
-    FPPFLAGS= -DSORT_RADIUS_INIT -DMFLOW -DUSE_STRAIN_TENSOR #-DVMFLOW  #-DDISC_VISCOSITY# -DBINPOS
+    FPPFLAGS= -DMFLOW -DUSE_STRAIN_TENSOR #-DVMFLOW  #-DDISC_VISCOSITY# -DBINPOS
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc_MFlow.f90
 #    ANALYSIS= analysis_binarydisc.f90
@@ -351,7 +350,7 @@ endif
 
 ifeq ($(SETUP), planetdisc)
 #   planet disc interaction with fixed planet orbit
-    FPPFLAGS= -DSORT_RADIUS_INIT
+    FPPFLAGS=
     SETUPFILE= setup_planetdisc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes
@@ -362,7 +361,7 @@ endif
 
 ifeq ($(SETUP), planetatm)
 #   disc interaction with fixed planet orbit + atmosphere
-    FPPFLAGS= -DSORT_RADIUS_INIT
+    FPPFLAGS=
     SETUPFILE= setup_disc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes
@@ -373,7 +372,7 @@ endif
 
 ifeq ($(SETUP), torus)
 #   MRI torus
-    FPPFLAGS= -DSORT_RADIUS_INIT
+    FPPFLAGS=
     SETUPFILE= setup_torus.f90
     ANALYSIS= analysis_torus.f90
     KNOWN_SETUP=yes
@@ -381,7 +380,7 @@ endif
 
 ifeq ($(SETUP), galcen)
 #   galactic centre
-    FPPFLAGS= -DSORT_RADIUS_INIT
+    FPPFLAGS=
     SETUPFILE= setup_galcen_stars.f90
     SRCINJECT= inject_galcen_winds.f90
     KNOWN_SETUP=yes
@@ -424,7 +423,7 @@ endif
 
 ifeq ($(SETUP), sphereinbox)
 #   sphere-in-box setup
-    FPPFLAGS= -DPERIODIC -DSORT_RADIUS_INIT
+    FPPFLAGS= -DPERIODIC
     SETUPFILE= setup_sphereinbox.f90
     KNOWN_SETUP=yes
 endif
@@ -477,7 +476,7 @@ endif
 
 ifeq ($(SETUP), dustydisc)
 #   locally isothermal dusty discs
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
+    FPPFLAGS= -DDISC_VISCOSITY
     SETUPFILE= setup_disc.f90
     MODFILE= moddump_dustadd.f90
     ISOTHERMAL=yes
@@ -489,7 +488,7 @@ endif
 
 ifeq ($(SETUP), growingdisc)
 #   locally isothermal dusty discs with growth and fragmentation
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
+    FPPFLAGS= -DDISC_VISCOSITY
     SETUPFILE= setup_disc.f90
     MODFILE= moddump_dustadd.f90
     ISOTHERMAL=yes
@@ -699,7 +698,7 @@ endif
 ifeq ($(SETUP), star)
 #   import stellar model from 1D stellar evolution code
 #   use option 5 of setup_star
-    FPPFLAGS= -DSORT_RADIUS_INIT
+    FPPFLAGS=
     SETUPFILE= setup_star.f90
     MODFILE= moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} dtype_kdtree.o kdtree.o linklist_kdtree.o utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
@@ -876,7 +875,7 @@ endif
 
 ifeq ($(SETUP), testlum)
 #   Lense-Thirring setup
-    FPPFLAGS= -DSORT_RADIUS_INIT -DLIGHTCURVE -DUSE_STRAIN_TENSOR
+    FPPFLAGS= -DLIGHTCURVE -DUSE_STRAIN_TENSOR
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ISOTHERMAL=no
@@ -952,7 +951,7 @@ endif
 
 ifeq ($(SETUP), mcfostcmdline) # [buildbot skip]
 #   live feedback from mcfost, superseded by mcfost setup
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
+    FPPFLAGS= -DDISC_VISCOSITY
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_mcfostcmdline.f90
     LIVE_ANALYSIS=yes
