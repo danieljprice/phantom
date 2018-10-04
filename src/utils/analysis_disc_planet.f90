@@ -51,12 +51,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  integer :: i,ierr,iline,ii
  real :: R_in,R_out,H_R,p_index,q_index,M_star
  real :: G,rmin,rmax,tilt(nr),twist(nr)
- real :: rad(nr),h_smooth(nr),sigma(nr),H(nr)
+ real :: rad(nr),h_smooth(nr),sigma(nr),H(nr),dr
  real :: unitlx(nr),unitly(nr),unitlz(nr),ecc(nr)
  real :: psi(nr),tilt_acc(nr),Lx(nr),Ly(nr),Lz(nr),twistprev(nr)
  real :: L_tot(3),L_p(3),L_inner_mag,L_outer_mag
  real :: L_p_mag,L_ratio_inner,L_ratio_outer,e_planet,ecc_planet(3)
- real :: rad_planet,twist_inner,twist_outer,tilt_inner,tilt_outer
+ real :: rad_planet,twist_inner,twist_outer,tilt_inner,tilt_outer,minclin,minclout,mannulus
  real :: m_red,mu,rotate_about_y,rotate_about_z,planet_mass,pos_planet(3),vel_planet(3)
  real :: temp(3),temp_mag,term(3),tilt_planet,twist_planet,L_tot_mag
  real :: unitl_in(3),unitl_out(3),eff_tilt
@@ -184,6 +184,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  L_tot_mag = sqrt(dot_product(L_tot,L_tot))
  rotate_about_y = -acos(dot_product((/0.,0.,1./),L_tot/L_tot_mag))
 
+! Set up the radius array
+ dr = (rmax-rmin)/real(nr-1)
+
 ! Calculating and printing information for the planet
  if(nptmass>nptmassinit)then
     do i=nptmassinit+1,nptmass
@@ -238,32 +241,37 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        n_count_outer = 0
        unitl_in = 0.
        unitl_out = 0.
+       minclin = 0.
+       minclout = 0.
 
        do ii=1,nr
           if (ninbin(ii) > 0) then
+             mannulus = 2.*pi*rad(ii)*sigma(ii)*dr
              if (rad(ii) < rad_planet) then
                 n_count_inner = n_count_inner + 1
-                tilt_inner = tilt_inner + tilt(ii)
-                twist_inner = twist_inner + twist(ii)
+                minclin = minclin + mannulus
+                tilt_inner = tilt_inner + tilt(ii)*mannulus
+                twist_inner = twist_inner + twist(ii)*mannulus
                 L_inner_mag = L_inner_mag + sqrt(Lx(ii)**2 + Ly(ii)**2 + Lz(ii)**2)
-                unitl_in = unitl_in + (/unitlx(ii),unitly(ii),unitlz(ii)/)
+                unitl_in = unitl_in + (/unitlx(ii),unitly(ii),unitlz(ii)/)*mannulus
              else
                 n_count_outer = n_count_outer + 1
-                tilt_outer = tilt_outer + tilt(ii)
-                twist_outer = twist_outer + twist(ii)
+                minclout = minclout + mannulus
+                tilt_outer = tilt_outer + tilt(ii)*mannulus
+                twist_outer = twist_outer + twist(ii)*mannulus
                 L_outer_mag = L_outer_mag + sqrt(Lx(ii)**2 + Ly(ii)**2 + Lz(ii)**2)
-                unitl_out = unitl_out + (/unitlx(ii),unitly(ii),unitlz(ii)/)
+                unitl_out = unitl_out + (/unitlx(ii),unitly(ii),unitlz(ii)/)*mannulus
              endif
           endif
        enddo
 
        ! Average the tilt and twist inside and outside the planet orbit
-       tilt_inner = tilt_inner/real(n_count_inner)
-       tilt_outer = tilt_outer/real(n_count_outer)
-       twist_inner = twist_inner/real(n_count_inner)
-       twist_outer = twist_outer/real(n_count_outer)
-       unitl_in = unitl_in/real(n_count_inner)
-       unitl_out = unitl_out/real(n_count_outer)
+       tilt_inner = tilt_inner/minclin!real(n_count_inner)
+       tilt_outer = tilt_outer/minclout!real(n_count_outer)
+       twist_inner = twist_inner/minclin!real(n_count_inner)
+       twist_outer = twist_outer/minclout!real(n_count_outer)
+       unitl_in = unitl_in/minclin!real(n_count_inner)
+       unitl_out = unitl_out/minclout!real(n_count_outer)
 
        ! Rotate planet vector such that Ltot is parallel to z-axis
        call cross_product3D(xyzmh_ptmass(1:3,i),vxyz_ptmass(1:3,i),L_p)
