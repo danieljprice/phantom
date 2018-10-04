@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -92,7 +92,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use sortutils,    only: indexx
  use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
  use centreofmass, only: reset_centreofmass
- use part,         only: igas,idust,istar,xyzmh_ptmass,vxyz_ptmass,nptmass,Bevol
+ use part,         only: igas,idust,istar,xyzmh_ptmass,vxyz_ptmass,nptmass,Bxyz
  use units,        only: udist,umass,unit_density,unit_velocity,unit_Bfield
  use physcon,      only: au,solarm
 #ifdef NONIDEALMHD
@@ -244,7 +244,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  if (use_etaart_old) then
     print*, "THIS IS NOT A TRUE REPRESENTATION OF ETA_art since it uses a different vsig!"
 !$omp parallel default(none) &
-!$omp shared(npart,xyzh,alphaB,iphase,massoftype,etaart,Bevol,dthresh) &
+!$omp shared(npart,xyzh,alphaB,iphase,massoftype,etaart,Bxyz,dthresh) &
 !$omp private(i,hi,itype,rhoi)
 !$omp do
     do i = 1,npart
@@ -253,7 +253,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           if (maxphase==maxp) itype = iamtype(iphase(i))
           rhoi = rhoh(hi,massoftype(itype))
           if (rhoi > dthresh .and. itype==igas) then ! to save time since we never care about low density material
-             etaart(i) = etaart_old(hi,rhoi,alphaB,Bevol(1:3,i))
+             etaart(i) = etaart_old(hi,rhoi,alphaB,Bxyz(1:3,i))
           endif
        endif
     enddo
@@ -263,7 +263,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     print*, "THIS IS LIKELY NOT A TRUE REPRESENTATION OF ETA-art since the algorithm is only the same in spirit!"
     print*, "starting to calculate etaart"
 !$omp parallel default(none) &
-!$omp shared(npart,xyzh,vxyzu,iphase,massoftype,etaart,Bevol,dthresh) &
+!$omp shared(npart,xyzh,vxyzu,iphase,massoftype,etaart,Bxyz,dthresh) &
 !$omp private(i,hi,itype,rhoi)
 !$omp do
     do i = 1,npart
@@ -384,7 +384,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     endif
     ! Determines disc mass and properties
 !$omp parallel default(none) &
-!$omp shared(npart,isink,isink0,isinkN,xyzh,Bevol,n_R,n_electronT,etaart,iphase) &
+!$omp shared(npart,isink,isink0,isinkN,xyzh,Bxyz,n_R,n_electronT,etaart,iphase) &
 !$omp shared(calc_eta,particlemass,dthresh,rsepmin2,rad2,dr,calc_rad_prof,rbins2,log_rbin) &
 !$omp private(i,xi,yi,hi,rhoi,rtmp2,ibin,etaohm,etahall,etaambi) &
 !$omp firstprivate(itype) &
@@ -415,7 +415,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                    rad2(i) = rtmp2
                 endif
                 if (isink==isink0 .and. calc_eta) then
-                   call get_eta_global(etaohm,etahall,etaambi,rhoi,n_R(:,i),n_electronT(i),Bevol(1:3,i))
+                   call get_eta_global(etaohm,etahall,etaambi,rhoi,n_R(:,i),n_electronT(i),Bxyz(1:3,i))
                    eta_1 = eta_1 + etaart(i)
                    eta_2 = eta_2 + etaohm
                    eta_3 = eta_3 + etahall
@@ -452,7 +452,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     !
     ! Call analysis to get the (r,phi,z) components of the B & V fields;  this is for gas only!
     if ( (.not. discRM_only .and. calc_rad_prof) .or. angle > 0.0 ) then
-       call doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bevol,particlemass,dthresh &
+       call doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,dthresh &
                          ,au,udist,umass,solarm,unit_velocity,unit_Bfield,rdisc**2,time,mhd,rthresh**2,msink)
     endif
     !
@@ -462,7 +462,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           if (isink==1) rmu_sink(nmu_sink+1) = rdisc
           rmu_sink(nmu_sink) = rdisc
           call get_mu(npart,nptmass,nmu_sink,rmu_sink(1:nmu_sink),mu_sink(isink,:),mass_mu_sink(isink,:), &
-                         B_mu_sink(isink,:),xyzh,xyzmh_ptmass,Bevol,particlemass)
+                         B_mu_sink(isink,:),xyzh,xyzmh_ptmass,Bxyz,particlemass)
        endif
     endif
     !
@@ -509,7 +509,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        rmu_global(nmu_global) = 0.
     endif
     call get_mu(npart,nptmass,nmu_global,rmu_global,mu_global,mass_mu_global,B_mu_global, &
-                xyzh,xyzmh_ptmass,Bevol,particlemass)
+                xyzh,xyzmh_ptmass,Bxyz,particlemass)
     !
     write(fileout7,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_mu.dat'
     write(fileout8,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_mu_mass.dat'
@@ -793,10 +793,10 @@ end function etaart_new
 !  Calculates the evolution of the mass-to-flux ratio
 !+
 !----------------------------------------------------------------
-subroutine get_mu(npart,nptmass,nrad,rad_mu,mu,mass,B,xyzh,xyzmh_ptmass,Bevol,pmassi)
+subroutine get_mu(npart,nptmass,nrad,rad_mu,mu,mass,B,xyzh,xyzmh_ptmass,Bxyz,pmassi)
  integer, intent(in)  :: npart,nptmass,nrad
  real,    intent(in)  :: pmassi,rad_mu(:),xyzh(:,:),xyzmh_ptmass(:,:)
- real,    intent(in)  :: Bevol(:,:)
+ real,    intent(in)  :: Bxyz(:,:)
  real,    intent(out) :: mu(nrad),mass(nrad),B(nrad)
  integer              :: i,j
  real                 :: rmasstoflux_crit
@@ -809,7 +809,7 @@ subroutine get_mu(npart,nptmass,nrad,rad_mu,mu,mass,B,xyzh,xyzmh_ptmass,Bevol,pm
  B       = 0.0
  mu      = 0.0
 !$omp parallel default(none) &
-!$omp shared(npart,nrad,xyzh,Bevol,iphase,pmassi,rad2_mu) &
+!$omp shared(npart,nrad,xyzh,Bxyz,iphase,pmassi,rad2_mu) &
 !$omp shared(mass,vol,B) &
 !$omp private(i,j,xi,yi,zi,hi,hi3,Bxi,Byi,Bzi,Bi,rad2) &
 !$omp private(mass_thread,vol_thread,B_thread)
@@ -824,9 +824,9 @@ subroutine get_mu(npart,nptmass,nrad,rad_mu,mu,mass,B,xyzh,xyzmh_ptmass,Bevol,pm
     hi = xyzh(4,i)
     if (hi > 0.0) then
        hi3 = hi*hi*hi
-       Bxi = Bevol(1,i)
-       Byi = Bevol(2,i)
-       Bzi = Bevol(3,i)
+       Bxi = Bxyz(1,i)
+       Byi = Bxyz(2,i)
+       Bzi = Bxyz(3,i)
        rad2 = xi*xi + yi*yi + zi*zi  ! Note that we are already centred on the point of interest
        Bi   = sqrt(Bxi*Bxi + Byi*Byi + Bzi*Bzi)
        do j = 1,nrad
@@ -874,15 +874,17 @@ end subroutine get_mu
 !  Calculate radial profiles at the given time
 !+
 !----------------------------------------------------------------
-subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bevol,particlemass,dthreshg &
+subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,dthreshg &
                         ,au,udist,umass,solarm,unit_velocity,unit_Bfield &
                         ,rdisc2,time,mhd,rthresh2,dmassp)
- character(len=*), intent(in) :: dumpfile,csink
- integer,          intent(in) :: npart,num
- real,             intent(in) :: xyzh(:,:),vxyzu(:,:),rdisc2,time,rthresh2,dmassp
- real,             intent(in) :: Bevol(:,:)
- real,             intent(in) :: particlemass,dthreshg,au,udist,umass,solarm,unit_velocity,unit_Bfield
- logical,          intent(in) :: mhd
+ character(len=*), intent(in)    :: dumpfile,csink
+ integer,          intent(in)    :: npart,num
+ real,             intent(in)    :: xyzh(:,:)
+ real,             intent(inout) :: vxyzu(:,:)
+ real,             intent(in)    :: rdisc2,time,rthresh2,dmassp
+ real,             intent(in)    :: Bxyz(:,:)
+ real,             intent(in)    :: particlemass,dthreshg,au,udist,umass,solarm,unit_velocity,unit_Bfield
+ logical,          intent(in)    :: mhd
  !
  ! Indicies of the disc bins (Dbins): TIME AVERAGED
  !  Note: Cbins is similar, but different radial cutoff; currently left with hardcoded indicies
@@ -1020,9 +1022,9 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bevol,particlemass,
        vzi = vxyzu(2,i)
        vyi = vxyzu(3,i)
        if (mhd) then
-          Bxi = Bevol(1,i)
-          Byi = Bevol(2,i)
-          Bzi = Bevol(3,i)
+          Bxi = Bxyz(1,i)
+          Byi = Bxyz(2,i)
+          Bzi = Bxyz(3,i)
        else
           Bxi = 0.0
           Byi = 0.0

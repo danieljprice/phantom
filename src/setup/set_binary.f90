@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -334,6 +334,33 @@ function get_a_from_period(m1,m2,period) result(a)
  a = ((m1 + m2)*(period/(2.*pi))**2)**(1./3.)
 
 end function get_a_from_period
+
+!----------------------------------------------------
+! Eccentricity vector, for second body
+! https://en.wikipedia.org/wiki/Eccentricity_vector
+!----------------------------------------------------
+function get_eccentricity_vector(m1,m2,x1,x2,v1,v2)
+ real, intent(in) :: m1,m2
+ real, intent(in) :: x1(3),x2(3),v1(3),v2(3)
+ real :: x0(3),v0(3),r(3),v(3),dr,mu
+ real :: get_eccentricity_vector(3)
+
+ ! centre of mass position and velocity
+ x0 = (m1*x1 + m2*x2)/(m1 + m2)
+ v0 = (m1*v1 + m2*v2)/(m1 + m2)
+
+ ! position and velocity vectors relative to centre of mass
+ r = x2 - x0
+ v = v2 - v0
+
+ ! intermediate quantities
+ dr = 1./sqrt(dot_product(r,r))
+ mu = m1 + m2  ! "standard gravitational parameter"
+
+ ! formula for eccentricity vector
+ get_eccentricity_vector = (dot_product(v,v)/mu - dr)*r - dot_product(r,v)/mu*v
+
+end function get_eccentricity_vector
 
 !-------------------------------------------------------------
 ! Function to find mean angular momentum vector from a list

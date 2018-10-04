@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, centreofmass, dim, io, kernel, mpiutils,
-!    options, part, physcon, prompting, setup_params, unifdis
+!  DEPENDENCIES: boundary, dim, dust, io, kernel, mpiutils, options, part,
+!    physcon, prompting, set_dust, setup_params, unifdis
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -41,13 +41,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
- use part,         only:labeltype,set_particle_type,igas,dustfrac
- use centreofmass, only:reset_centreofmass
+ use part,         only:labeltype,set_particle_type,igas,idust,dustfrac
  use physcon,      only:pi
  use kernel,       only:radkern
  use dim,          only:maxvxyzu,use_dust,maxp
  use options,      only:use_dustfrac
  use prompting,    only:prompt
+ use dust,         only:K_code,idrag
+ use set_dust,     only:set_dustfrac
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -59,30 +60,48 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real :: totmass,fac,deltax,deltay,deltaz
  integer :: i
- integer :: itype,ntypes,npartx
+ integer :: itype,itypes,ntypes,npartx
  integer :: npart_previous,dust_method
  logical, parameter :: ishift_box =.true.
  real, parameter    :: dust_shift = 0.
  real    :: xmin_dust,xmax_dust,ymin_dust,ymax_dust,zmin_dust,zmax_dust
  real    :: kwave,denom,length,uuzero,przero !,dxi
- real    :: xmini,xmaxi,ampl,cs,dtg
+ real    :: xmini,xmaxi,ampl,cs,dtg,massfac
 !
 ! default options
 !
- npartx = 64
+ npartx  = 64
+ ntypes  = 1
  rhozero = 1.
- cs = 1.
- ampl = 1.d-4
+ massfac = 1.
+ cs      = 1.
+ ampl    = 1.d-4
  use_dustfrac = .false.
- dust_method  = 2
  if (id==master) then
     itype = 1
     print "(/,a,/)",'  >>> Setting up particles for linear wave test <<<'
-    call prompt(' enter number of '//trim(labeltype(itype))//' particles in x ',npartx,8,maxp/144)
-    call prompt(' choose dust method (1=one fluid,2=two fluid) ',dust_method,1,2)
+    call prompt(' enter number of '//trim(labeltype(itype))//' particles in x ',npartx,8,int(maxp/144.))
+    if (use_dust) then
+       dust_method = 2
+       dtg = 1.
+       idrag = 2
+       call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
+       if (dust_method == 1) then
+          use_dustfrac = .true.
+       else
+          use_dustfrac = .false.
+       endif
+       if (use_dustfrac) K_code = 1000. ! for a more sensible better option
+       call prompt('Enter dust to gas ratio',dtg,0.)
+       call prompt('Enter constant drag coefficient',K_code,0.)
+       if (use_dustfrac) then
+          massfac = 1. + dtg
+       else
+          ntypes  = 2
+       endif
+    endif
  endif
  call bcast_mpi(npartx)
- if (dust_method==1) use_dustfrac = .true.
 !
 ! boundaries
 !
@@ -114,16 +133,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart_total = 0
  npartoftype(:) = 0
 
- ntypes = 1
- if (use_dust .and. .not.use_dustfrac) ntypes = 2
- dtg = 0.
+ overtypes: do itypes=1,ntypes
+    select case (itypes)
+    case(1)
+       itype = igas
+       if (id==master) call prompt('enter '//trim(labeltype(itype))//&
+                            ' density (gives particle mass)',rhozero,0.)
 
- overtypes: do itype=1,ntypes
-    if (id==master) call prompt('enter '//trim(labeltype(itype))//&
-                         ' density (gives particle mass)',rhozero,0.)
-    call bcast_mpi(rhozero)
-
-    if (itype==1) then
        if (id==master) call prompt('enter sound speed in code units (sets polyk)',cs,0.)
        if (maxvxyzu < 4) then
           call bcast_mpi(cs)
@@ -135,10 +151,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (id==master) call prompt('enter perturbation amplitude',ampl)
        call bcast_mpi(ampl)
        if (use_dustfrac) then
-          if (id==master) call prompt('enter dust-to-gas ratio',dtg,0.,1.)
           call bcast_mpi(dtg)
        endif
-    endif
+    case(2)
+       itype = idust
+       rhozero = dtg*rhozero
+    end select
+
+    call bcast_mpi(rhozero)
 
     npart_previous = npart
 
@@ -182,9 +202,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
        if (use_dustfrac) then
           if (itype==igas) then
-             dustfrac(i) = dtg/(1. + dtg)
+             call set_dustfrac(dtg,dustfrac(:,i))
           else
-             dustfrac(i) = 0.
+             dustfrac(:,i) = 0.
           endif
        endif
     enddo
@@ -192,10 +212,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     npartoftype(itype) = npart - npart_previous
     if (id==master) print*,' npart = ',npart,npart_total
 
-    totmass = rhozero*dxbound*dybound*dzbound
+    totmass = massfac*rhozero*dxbound*dybound*dzbound
     if (id==master) print*,' box volume = ',dxbound*dybound*dzbound,' rhozero = ',rhozero
 
-    massoftype(itype) = totmass/npartoftype(itype)*(1. + dtg)
+    massoftype(itype) = totmass/npartoftype(itype)
     if (id==master) print*,' particle mass = ',massoftype(itype)
 
  enddo overtypes
@@ -211,35 +231,4 @@ end function rhofunc
 
 end subroutine setpart
 
-!----------------------------------------------------------
-!subroutine set_perturbation(xi,xmin,length,kwave,ampl,denom,dxi)
-! use io, only:fatal
-! real, intent(in)  :: xi,xmin,length,kwave,ampl,denom
-! real, intent(out) :: dxi
-! integer, parameter :: itsmax = 20
-! real, parameter    :: tol = 1.d-10
-! integer :: its
-! real    :: dxprev, xmassfrac, func, fderiv
-!
-! dxi = xi-xmin
-! dxprev = length*2.
-! xmassfrac = dxi/length
-
-! its = 0
-! do while ((abs(dxi-dxprev) > tol).and.(its < itsmax))
-!    dxprev = dxi
-!    func = xmassfrac*denom - (dxi - ampl/kwave*(cos(kwave*dxi)-1.0))
-!    fderiv = -1.0 - ampl*sin(kwave*dxi)
-!    dxi = dxi - func/fderiv  ! Newton-Raphson iteration
-!    its = its + 1
-! enddo
-
-! if (its >= itsmax) then
-!    print*,'Error: soundwave - too many iterations'
-!    call fatal('setup_dustywave','Error: soundwave - too many iterations')
-! endif
-
-!end subroutine set_perturbation
-
 end module setup
-

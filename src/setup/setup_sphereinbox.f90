@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -32,9 +32,9 @@
 !    rho_pert_amp     -- amplitude of density perturbation
 !    totmass_sphere   -- mass of sphere in code units
 !
-!  DEPENDENCIES: boundary, dim, eos, infile_utils, io, kernel, options,
-!    part, physcon, prompting, ptmass, setup_params, spherical, timestep,
-!    unifdis, units
+!  DEPENDENCIES: boundary, centreofmass, dim, eos, infile_utils, io,
+!    kernel, options, part, physcon, prompting, ptmass, setup_params,
+!    spherical, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -72,9 +72,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use prompting,    only:prompt
  use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield
  use eos,          only:polyk2,ieos
- use part,         only:Bevol,Bextx,Bexty,Bextz,igas,idust,set_particle_type
+ use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type
  use timestep,     only:dtmax,tmax,rho_dtthresh_cgs,dtmax_rat0
  use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
+ use centreofmass, only:reset_centreofmass
  use options,      only:nfulldump
  use kernel,       only:hfact_default
  integer,           intent(in)    :: id
@@ -133,8 +134,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     ! prompt user for settings
     !
-    np    = int(2.0/3.0*size(xyzh(1,:))) ! approx max number allowed in sphere given size(xyzh(1,:))
-    npmax = np
+    npmax = int(2.0/3.0*size(xyzh(1,:))) ! approx max number allowed in sphere given size(xyzh(1,:))
+    if (npmax < 300000) then
+       np = npmax
+    else if (npmax < 1000000) then
+       np = 300000
+    else
+       np = 1000000
+    endif
     call prompt('Enter the approximate number of particles in the sphere',np,0,npmax)
     np_in    = np
     r_sphere = 4.
@@ -304,10 +311,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                     hfact,npart,np,xyzh,r_sphere,vol_sphere,npart_total)
  print "(a,es10.3)",' Particle separation in sphere = ',psep
  npartsphere = npart
- if (np_in/=npartsphere .and. id==master) then
-    np = npartsphere
-    call write_setupfile(filename)
- endif
+ if (np_in/=npartsphere) np = npartsphere
  !
  ! setup surrounding low density medium
  !
@@ -326,6 +330,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  do i = 1,npartoftype(igas)
     call set_particle_type(i,igas)
  enddo
+ !
+ ! reset to centre of mass
+ !
+ call reset_centreofmass(npart,xyzh,vxyzu)
  !
  ! Set dust
  if (use_dust) then
@@ -387,9 +395,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (maxvxyzu >= 4) vxyzu(4,i) = 1.5*polyk2
     endif
     if (mhd) then
-       Bevol(:,i) = 0.
-       Bevol(1,i) = Bzero*sin(ang_Bomega*pi/180.0)
-       Bevol(3,i) = Bzero*cos(ang_Bomega*pi/180.0)
+       Bxyz(:,i) = 0.
+       Bxyz(1,i) = Bzero*sin(ang_Bomega*pi/180.0)
+       Bxyz(3,i) = Bzero*cos(ang_Bomega*pi/180.0)
     endif
  enddo
  !

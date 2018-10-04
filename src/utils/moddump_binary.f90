@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -38,7 +38,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use options,           only:iexternalforce
  use externalforces,    only:omega_corotate,iext_corotate
  use infile_utils,      only:open_db_from_file,inopts,read_inopt,close_db
- use rho_profile,       only:read_red_giant_file
+ use rho_profile,       only:read_mesa_file
  use dim,               only:maxptmass
  use io,                only:fatal
 
@@ -46,7 +46,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer                :: i, ierr, setup_case, two_sink_case = 1, three_sink_case = 1, npts, rhomaxi, n
+ integer                :: i, ierr, setup_case, two_sink_case = 1, three_sink_case = 1, npts, irhomax, n
  integer                :: iremove = 2
  real                   :: primary_mass, companion_mass_1, companion_mass_2, mass_ratio
  real                   :: a1, a2, e, omega_vec(3), omegacrossr(3), vr = 0.0, hsoft_default = 3
@@ -97,6 +97,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call open_db_from_file(db,filename,20,ierr)
        call read_inopt(omega_corotate,'omega_corotate',db)
        call close_db(db)
+       iexternalforce = 0
        omega_vec = (/ 0.,0.,omega_corotate /)
        do i=1,npart
           call cross(omega_vec,xyzh(:3,i),omegacrossr)
@@ -155,13 +156,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  else
 
 !choose what to do with the star: set a binary or setup a magnetic field
-    print "(4(/,a))",'1) setup a binary system', &
+    print "(5(/,a))",'1) setup a binary system', &
                   '2) setup a magnetic field in the star', &
-                  '3) manually create sink in core', &
-                  '4) setup trinary system'
+                  '3) manually cut profile to create sink in core', &
+                  '4) manually create sink in core', &
+                  '5) setup trinary system'
 
     setup_case = 1
-    call prompt('Choose a setup option ',setup_case,1,4)
+    call prompt('Choose a setup option ',setup_case,1,5)
 
     select case(setup_case)
 
@@ -285,18 +287,18 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        endif
 
     case(3)
-
        densityfile = 'P12_Phantom_Profile.data'
        call prompt('Enter filename of the input stellar profile', densityfile)
        call prompt('Enter mass of the created point mass core', mcut)
        call prompt('Enter softening length of the point mass', hsoft_default)
-       call read_red_giant_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,Mstar,ierr,mcut,rcut)
+       call read_mesa_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,Mstar,ierr,mcut,rcut)
 
+       irhomax = 1
        do i=1,npart
           rhopart = rhoh(xyzh(4,i), massoftype(igas))
           if (rhopart > rhomax) then
              rhomax = rhopart
-             rhomaxi = i
+             irhomax = i
           endif
        enddo
 
@@ -304,16 +306,16 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        if (nptmass > maxptmass) call fatal('ptmass_create','nptmass > maxptmass')
        n = nptmass
        xyzmh_ptmass(:,n)   = 0.  ! zero all quantities by default
-       xyzmh_ptmass(1:3,n) = xyzh(1:3,rhomaxi)
+       xyzmh_ptmass(1:3,n) = xyzh(1:3,irhomax)
        xyzmh_ptmass(4,n)   = 0.  ! zero mass
        xyzmh_ptmass(ihsoft,n) = hsoft_default
        vxyz_ptmass(:,n) = 0.     ! zero velocity, get this by accreting
 
 
        do i=1,npart
-          radi = sqrt((xyzh(1,i)-xyzh(1,rhomaxi))**2 + &
-                   (xyzh(2,i)-xyzh(2,rhomaxi))**2 + &
-                   (xyzh(3,i)-xyzh(3,rhomaxi))**2)
+          radi = sqrt((xyzh(1,i)-xyzh(1,irhomax))**2 + &
+                   (xyzh(2,i)-xyzh(2,irhomax))**2 + &
+                   (xyzh(3,i)-xyzh(3,irhomax))**2)
           if (radi < rcut) then
              xyzmh_ptmass(4,n) = xyzmh_ptmass(4,n) + massoftype(igas)
              npartoftype(igas) = npartoftype(igas) - 1
@@ -324,6 +326,18 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call shuffle_part(npart)
 
     case(4)
+       call prompt('Enter mass of the created point mass core', mcut)
+       call prompt('Enter softening length of the point mass', hsoft_default)
+
+       nptmass = nptmass + 1
+       if (nptmass > maxptmass) call fatal('ptmass_create','nptmass > maxptmass')
+       n = nptmass
+       xyzmh_ptmass(:,n)      = 0.  ! zero all quantities by default
+       xyzmh_ptmass(4,n)      = mcut  ! zero mass
+       xyzmh_ptmass(ihsoft,n) = hsoft_default
+       vxyz_ptmass(:,n)       = 0.
+
+    case(5)
 
        !takes necessary inputs from user 1
        print*, 'Current mass unit is ', umass,'g):'
@@ -497,4 +511,3 @@ end subroutine set_trinary
 
 
 end module moddump
-

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -28,17 +28,17 @@ module leastsquares
 
 contains
 
-subroutine fit_slope(nvals,xval,yval,slope,yint,err,errslope,erryint,xmin,xmax,logplot)
+subroutine fit_slope(nvals,xval,yval,slope,yint,err,errslope,erryint,xmin,xmax,logplot,fixslope)
  integer,      intent(in)  :: nvals
  real,         intent(in)  :: xval(nvals)
  real(kind=8), intent(in)  :: yval(nvals)
  real,         intent(out) :: slope,yint,err,errslope,erryint
  real,         intent(in), optional :: xmin,xmax
- logical,      intent(in), optional :: logplot
+ logical,      intent(in), optional :: logplot,fixslope
  real(kind=8) :: sumx,sumy,sumxx,sumxy,sumyy
  real(kind=8) :: xvali,xi,yi,xmean,ymean
  real(kind=8) :: xmini,xmaxi,erri,sfac
- logical :: islog
+ logical :: islog,fix_slope
  integer :: i,npts
 !
 !--set x limits if present
@@ -55,6 +55,8 @@ subroutine fit_slope(nvals,xval,yval,slope,yint,err,errslope,erryint,xmin,xmax,l
  endif
  islog = .false.
  if (present(logplot)) islog = logplot
+ fix_slope = .false.
+ if (present(fixslope)) fix_slope = fixslope
 !
 !--least squares fit of a straight line
 !
@@ -84,7 +86,7 @@ subroutine fit_slope(nvals,xval,yval,slope,yint,err,errslope,erryint,xmin,xmax,l
  enddo
 
  if (npts > 0 .and. sumxx > 0. .and. sumyy > 0.) then
-    slope = (npts*sumxy - sumy*sumx)/(npts*sumxx - sumx*sumx)
+    if (.not.fix_slope) slope = (npts*sumxy - sumy*sumx)/(npts*sumxx - sumx*sumx)
     yint  = (sumy - slope*sumx)/dble(npts)
 !
 !--calculate errors
@@ -102,7 +104,7 @@ subroutine fit_slope(nvals,xval,yval,slope,yint,err,errslope,erryint,xmin,xmax,l
 
     err   = (sumxy*sumxy)/(sumxx*sumyy)
     sfac  = sqrt((sumyy - sumxy*sumxy/sumxx)/dble(npts - 2))
-    errslope = sfac/sqrt(sumxx)
+    if (.not.fix_slope) errslope = sfac/sqrt(sumxx)
     erryint  = sfac*sqrt(1./dble(npts) + xmean**2/sumxx)
 
     if (present(xmin)) then
@@ -124,7 +126,7 @@ subroutine fit_slope(nvals,xval,yval,slope,yint,err,errslope,erryint,xmin,xmax,l
              endif
           endif
        enddo
-       if (xmini < xmin) then
+       if (xmini < xmin .and. .not.fix_slope) then
           print*,' slope within error down to x = ',xmini
        endif
     endif

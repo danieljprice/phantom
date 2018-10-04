@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -667,12 +667,22 @@ subroutine printerr_real(label,x,val,erri,tol,i)
  real,             intent(in) :: x, val, erri, tol
  integer,          intent(in), optional :: i
 
- if (present(i)) then
-    write(*,"(1x,4(a,es10.3),a,i10,a)") &
-         trim(label)//' = ',x,' should be ',val,' ratio =',x/val,' err =',erri,' (',i,')'
+ if (abs(val) > smallval) then
+    if (present(i)) then
+       write(*,"(1x,4(a,es10.3),a,i10,a)") &
+            trim(label)//' = ',x,' should be ',val,' ratio =',x/val,' err =',erri,' (',i,')'
+    else
+       write(*,"(1x,5(a,es10.3),a)") &
+            trim(label)//' = ',x,' should be ',val,' ratio =',x/val,' err =',erri,' (tol =',tol,')'
+    endif
  else
-    write(*,"(1x,5(a,es10.3),a)") &
-         trim(label)//' = ',x,' should be ',val,' ratio =',x/val,' err =',erri,' (tol =',tol,')'
+    if (present(i)) then
+       write(*,"(1x,3(a,es10.3),a,i10,a)") &
+            trim(label)//' = ',x,' should be ',val,' err =',erri,' (',i,')'
+    else
+       write(*,"(1x,4(a,es10.3),a)") &
+            trim(label)//' = ',x,' should be ',val,' err =',erri,' (tol =',tol,')'
+    endif
  endif
 
  return

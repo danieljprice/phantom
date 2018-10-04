@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -8,8 +8,7 @@
 !  MODULE: viscosity
 !
 !  DESCRIPTION:
-! This module contains everything related to
-!  Physical viscosity
+!   Routines related to physical viscosity
 !
 !  REFERENCES: None
 !
@@ -127,7 +126,7 @@ real function dt_viscosity(xi,yi,zi,hi,spsoundi)
  viscnu = shearfunc(xi,yi,zi,spsoundi)
 
  if (viscnu > tiny(viscnu)) then
-    dt_viscosity = C_force*hi*hi/viscnu
+    dt_viscosity = 0.4*C_force*hi*hi/viscnu
  else
     dt_viscosity = huge(dt_viscosity)
  endif
@@ -140,7 +139,7 @@ end function dt_viscosity
 !+
 !----------------------------------------------------------------
 subroutine viscinfo(ivisc,iprint)
- use dim, only:maxp,maxstrain
+ use dim, only:maxp,maxdvdx
  integer, intent(in) :: ivisc,iprint
 
  select case(ivisc)
@@ -155,7 +154,7 @@ subroutine viscinfo(ivisc,iprint)
     write(iprint,"(a,es10.3)") ' Unknown setting for physical viscosity, nu = ',shearparam
  end select
  if (ivisc /= 0) then
-    if (maxstrain==maxp) then
+    if (maxdvdx==maxp) then
        write(iprint,"(a,/)") ' (computed using two first derivatives)'
     else
        write(iprint,"(a,/)") ' (computed using direct second derivatives)'

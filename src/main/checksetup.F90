@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -42,23 +42,23 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,&
-                kill_particle,shuffle_part,iamdust
- use eos,            only:gamma,polyk
- use centreofmass,   only:get_centreofmass
- use options,        only:ieos,icooling,iexternalforce,use_dustfrac
- use io,             only:id,master
- use externalforces, only:accrete_particles,accradius1,iext_star,iext_corotate
- use timestep,       only:time
- use units,          only:umass,udist,utime
- use physcon,        only:gg
- use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
+                kill_particle,shuffle_part,iamdust,Bxyz,ndustsmall
+ use eos,             only:gamma,polyk
+ use centreofmass,    only:get_centreofmass
+ use options,         only:ieos,icooling,iexternalforce,use_dustfrac
+ use io,              only:id,master
+ use externalforces,  only:accrete_particles,accradius1,iext_star,iext_corotate
+ use timestep,        only:time
+ use units,           only:umass,udist,utime
+ use physcon,         only:gg
+ use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
- integer      :: i,nbad,itype,nunity
+ integer      :: i,j,nbad,itype,nunity
  real         :: xcom(ndim),vcom(ndim)
  real(kind=8) :: gcode
  real         :: hi,hmin,hmax,dust_to_gas
@@ -164,7 +164,13 @@ subroutine check_setup(nerror,nwarn,restart)
        endif
        nerror = nerror + 1
     endif
-
+    !--check for NaNs in B field
+    if (mhd) then
+       if (any(Bxyz(:,i) /= Bxyz(:,i))) then
+          print*,'NaN in magnetic field (Bxyz array) : ', i
+          nerror = nerror + 1
+       endif
+    endif
     hi = xyzh(4,i)
     if ((.not.dorestart .and. hi <= 0.) .or. hi > 1.e20) then
        nbad = nbad + 1
@@ -279,6 +285,15 @@ subroutine check_setup(nerror,nwarn,restart)
     endif
  endif
 !
+!--sanity checks on magnetic field
+!
+ if (mhd) then
+    if (all(abs(Bxyz(:,1:npart)) < tiny(0.))) then
+       print*,'WARNING: MHD is ON but magnetic field is zero everywhere'
+       nwarn = nwarn + 1
+    endif
+ endif
+!
 !--check -DDUST is set if dust particles are used
 !
  if (npartoftype(idust) > 0) then
@@ -316,14 +331,16 @@ subroutine check_setup(nerror,nwarn,restart)
     nunity = 0
     dust_to_gas = 0.
     do i=1,npart
-       if (dustfrac(i) < 0. .or. dustfrac(i) > 1.) then
-          nbad = nbad + 1
-          if (nbad <= 10) print*,' particle ',i,' dustfrac = ',dustfrac(i)
-       elseif (abs(dustfrac(i)-1.) < tiny(1.)) then
-          nunity = nunity + 1
-       else
-          dust_to_gas = dust_to_gas + dustfrac(i)/(1. - dustfrac(i))
-       endif
+       do j=1,ndustsmall
+          if (dustfrac(j,i) < 0. .or. dustfrac(j,i) > 1.) then
+             nbad = nbad + 1
+             if (nbad <= 10) print*,' particle ',i,' dustfrac = ',dustfrac(j,i)
+          elseif (abs(dustfrac(j,i)-1.) < tiny(1.)) then
+             nunity = nunity + 1
+          else
+             dust_to_gas = dust_to_gas + dustfrac(j,i)/(1. - sum(dustfrac(:,i)))
+          endif
+       enddo
     enddo
     if (nbad > 0) then
        print*,'ERROR: ',nbad,' of ',npart,' particles with dustfrac outside [0,1]'
@@ -333,9 +350,13 @@ subroutine check_setup(nerror,nwarn,restart)
        print*,'WARNING: ',nunity,' of ',npart,' PARTICLES ARE PURE DUST (dustfrac=1.0)'
        nwarn = nwarn + 1
     endif
-    ! warn if compiled for one fluid dust but not used
-    if (all(dustfrac(1:npart) < tiny(dustfrac))) then
+    ! warn if compiled for one-fluid dust but not used
+    if (all(dustfrac(:,1:npart) < tiny(dustfrac))) then
        print*,'WARNING: one fluid dust is used but dust fraction is zero everywhere'
+       if (maxdusttypes>1) then
+          print*,'WARNING about the previous WARNING: maxdusttypes > 1 so dust arrays are unnecessarily large!'
+          print*,'                                    Recompile with maxdusttypes = 1 for better efficiency.'
+       endif
        nwarn = nwarn + 1
     endif
     if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas/real(npart-nbad-nunity)

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -31,12 +31,13 @@ module testrwdump
 contains
 
 subroutine test_rwdump(ntests,npass)
- use part,      only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu, &
-                    Bevol,Bextx,Bexty,Bextz,alphaind,maxalpha,periodic, &
-                    maxphase,mhd,maxvxyzu,maxBevol,igas,idust,maxp,&
-                    poten,gravity,use_dust,dustfrac,xyzmh_ptmass,nptmass,&
-                    nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
-                    vxyz_ptmass,vxyz_ptmass_label,vxyzu_label,set_particle_type,iphase
+ use part,            only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,&
+                           Bevol,Bxyz,Bextx,Bexty,Bextz,alphaind,maxalpha,&
+                           periodic,maxphase,mhd,maxvxyzu,maxBevol,igas,idust,&
+                           maxp,poten,gravity,use_dust,dustfrac,xyzmh_ptmass,&
+                           nptmass,nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
+                           dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
+                           vxyzu_label,set_particle_type,iphase,ndusttypes
  use testutils,       only:checkval
  use io,              only:idisk1,id,master,iprint,nprocs
  use readwrite_dumps, only:read_dump,write_fulldump,write_smalldump,read_smalldump,is_small_dump
@@ -70,8 +71,8 @@ subroutine test_rwdump(ntests,npass)
     ndust = 10
     ngas  = ntot-ndust
     npartoftype(:) = 0
-    npartoftype(1) = ngas
-    npartoftype(2) = ndust
+    npartoftype(igas) = ngas
+    npartoftype(idust) = ndust
     do i=1,npart
        if (i <= npartoftype(1)) then
           call set_particle_type(i,igas)
@@ -98,16 +99,16 @@ subroutine test_rwdump(ntests,npass)
           alphaind(1,i) = real(alphawas,kind=kind(alphaind)) ! 0->1
        endif
        if (mhd) then
-          Bevol(1,i) = 10.
-          Bevol(2,i) = 11.
-          Bevol(3,i) = 12.
+          Bxyz(1,i) = 10.
+          Bxyz(2,i) = 11.
+          Bxyz(3,i) = 12.
           if (maxBevol >= 4) Bevol(4,i) = 13.
        endif
        if (gravity) then
           poten(i) = 15._4
        endif
        if (use_dust) then
-          dustfrac(i) = 16._4
+          dustfrac(:,i) = 16._4
        endif
     enddo
     nptmass = 10
@@ -162,12 +163,13 @@ subroutine test_rwdump(ntests,npass)
     if (maxalpha==maxp) alphaind = 0.
     if (mhd) then
        Bevol = 0.
+       Bxyz  = 0.
     endif
     if (gravity) then
        poten = 0.
     endif
     if (use_dust) then
-       dustfrac = 0.
+       dustfrac(:,:) = 0.
     endif
     gamma = 0.
     Bextx = 0.
@@ -245,16 +247,18 @@ subroutine test_rwdump(ntests,npass)
           call checkval(npart,alphaind(1,:),alphawas,tol,nfailed(9),'alpha')
        endif
        if (mhd) then
-          call checkval(npart,Bevol(1,:),10.,tol,nfailed(10),'Bevolx')
-          call checkval(npart,Bevol(2,:),11.,tol,nfailed(11),'Bevoly')
-          call checkval(npart,Bevol(3,:),12.,tol,nfailed(12),'Bevolz')
+          call checkval(npart,Bxyz(1,:),10.,tol,nfailed(10),'Bx')
+          call checkval(npart,Bxyz(2,:),11.,tol,nfailed(11),'By')
+          call checkval(npart,Bxyz(3,:),12.,tol,nfailed(12),'Bz')
           if (maxBevol >= 4) call checkval(npart,Bevol(4,:),13.,tol,nfailed(13),'psi')
        endif
        if (gravity) then
           call checkval(npart,poten,15.,tol,nfailed(15),'poten')
        endif
        if (use_dust) then
-          call checkval(npart,dustfrac,16.,tol,nfailed(16),'dustfrac')
+          do i = 1,ndusttypes
+             call checkval(npart,dustfrac(i,:),16.,tol,nfailed(16),'dustfrac')
+          enddo
        endif
     endif
     if (maxphase==maxp) then
@@ -282,7 +286,7 @@ subroutine test_rwdump(ntests,npass)
 
     ! clean up doggie-doos
     if (use_dust) then
-       dustfrac(:) = 0.
+       dustfrac(:,:) = 0.
     endif
     nptmass = 0
     xyzmh_ptmass = 0.

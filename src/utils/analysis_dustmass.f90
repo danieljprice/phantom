@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -32,7 +32,7 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use dim,     only:maxp
+ use dim,     only:maxp,maxdusttypes
  use part,    only:maxphase,isdead_or_accreted,dustfrac,massoftype,igas,&
                    iphase,iamtype
  use options, only:use_dustfrac
@@ -40,9 +40,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
- real       :: Mtot,Mgas,Mdust1,Mdust2,Macc,pmassi,dustfraci
- real, save :: Mtot_in,Mgas_in,Mdust1_in,Mdust2_in
- integer    :: i,itype,lu
+ real          :: Mtot,Mgas,Mdust1,Mdust2,Macc,pmassi
+ real          :: dustfraci(maxdusttypes),dustfracisum
+ real, save    :: Mtot_in,Mgas_in,Mdust1_in,Mdust2_in
+ integer       :: i,itype,lu
  logical, save :: init = .false.
 
  Mtot   = 0.
@@ -50,8 +51,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  Mdust1 = 0. !--one-fluid dust mass
  Mdust2 = 0. !--two-fluid dust mass
  Macc   = 0.
- pmassi    = massoftype(igas)
- dustfraci = 0.
+ pmassi = massoftype(igas)
+ dustfraci(:) = 0.
  do i=1,npart
     if (maxphase==maxp) then
        itype = iamtype(iphase(i))
@@ -60,13 +61,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     Mtot = Mtot + pmassi
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        if (itype==1) then
-          dustfraci = dustfrac(i)
-          if (use_dustfrac) then
-             Mgas = Mgas + pmassi*(1. - dustfraci)
-          else
-             Mgas = Mgas + pmassi
-          endif
-          Mdust1 = Mdust1 + pmassi*dustfraci
+          if (use_dustfrac) dustfraci(:) = dustfrac(:,i)
+          dustfracisum = sum(dustfraci)
+          Mgas   = Mgas   + pmassi*(1. - dustfracisum)
+          Mdust1 = Mdust1 + pmassi*dustfracisum
        elseif (itype==2) then
           Mdust2 = Mdust2 + pmassi
        endif

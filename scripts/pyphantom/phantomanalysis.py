@@ -29,12 +29,14 @@ class PhantomAnalysis(pyphantom.Simulation):
       self.hfact  = hfact
       self.massofgas  = massofgas/umass
 
-      # Gass quantities
+      # Gas quantities
       npart = self.get_npart()
-      self.npart  = npart
-      self.xyzh   = self.get_part_xyzh(npart)/udist
-      self.vxyz   = self.get_part_vxyz(npart)/(udist/utime)
-      self.utherm = self.get_part_u(npart)/(udist**2/utime**2)
+      self.npart       = npart
+      self.xyzh        = self.get_part_xyzh(npart)/udist
+      self.vxyz        = self.get_part_vxyz(npart)/(udist/utime)
+      self.utherm      = self.get_part_u(npart)/(udist**2/utime**2)
+      self.temperature = self.get_part_temp(npart)
+      self.bxyz        = self.get_part_bxyz(npart)/umagfd
 
       # Point masses
       nptmass             = self.get_nptmass()

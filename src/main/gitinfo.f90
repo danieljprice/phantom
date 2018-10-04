@@ -1,35 +1,35 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
 !+
-!  MODULE: writegitinfo
+!  MODULE: gitinfo
 !
 !  DESCRIPTION: writes the git information to the logfile
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: James Wurster
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, io
+!  DEPENDENCIES: io
 !+
 !--------------------------------------------------------------------------
-module writegitinfo
+module gitinfo
  implicit none
- public :: write_gitinfo
+ public :: get_and_print_gitinfo
+ character(len=7), public :: gitsha = ''
 
  private
 
 contains
 !--------------------------------------------------------------------------
-subroutine write_gitinfo(iunit)
- use dim, only: use_debug
+subroutine get_and_print_gitinfo(iunit)
  use io,  only: igit
  integer, intent(in) :: iunit
  integer             :: i,j,k,io_local,lfile
@@ -46,6 +46,7 @@ subroutine write_gitinfo(iunit)
     do i = 1,9
        read(igit,'(a)') gitinfo
        write(iunit,'(1x,a)') trim(gitinfo)
+       if (index(gitinfo,'ID:')> 0) gitsha = gitinfo(20:26)
     enddo
     i     = 0
     lfile = 0
@@ -89,6 +90,6 @@ subroutine write_gitinfo(iunit)
  endif
  write(iunit,'(a)') ' '
 
-end subroutine write_gitinfo
+end subroutine get_and_print_gitinfo
 !--------------------------------------------------------------------------
-end module writegitinfo
+end module gitinfo

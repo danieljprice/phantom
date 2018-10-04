@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -60,13 +60,14 @@ module dump_utils
                                i_real8 = 8
 
  ! error codes
- integer, parameter, public :: ierr_fileopen = 1,&
-                               ierr_endian   = 2, &
-                               ierr_version  = 3, &
-                               ierr_realsize = 4, &
-                               ierr_intsize  = 5, &
-                               ierr_notags   = 6, &
-                               ierr_unknown  = 7
+ integer, parameter, public :: ierr_fileopen  = 1,&
+                               ierr_endian    = 2,&
+                               ierr_version   = 3,&
+                               ierr_realsize  = 4,&
+                               ierr_intsize   = 5,&
+                               ierr_notags    = 6,&
+                               ierr_unknown   = 7,&
+                               ierr_notenough = 8
 
  type dump_h
     integer :: nums(ndatatypes)
@@ -92,6 +93,7 @@ module dump_utils
 
  public :: write_header, read_header
  public :: allocate_header, free_header
+ public :: print_header
 
  ! generic interface to extract quantities from header
  interface extract
@@ -458,7 +460,7 @@ subroutine extracthdr_real8arr(tag,val,hdr,ierr)
 
  if (kind(rval)==kind(val)) then
     call extract(tag,rval,hdr%realvals,hdr%realtags,hdr%nums(i_real),ierr,q=.true.)
-    if (ierr==0) then
+    if (ierr==0 .or. ierr==ierr_notenough) then
        val = rval
     else
        call extract_real8arr(tag,val,hdr%real8vals,hdr%real8tags,hdr%nums(i_real8),ierr)
@@ -709,7 +711,11 @@ subroutine extract_real8arr(tag,rval,r8arr,tags,ntags,ierr,q)
        endif
     endif
  enddo over_tags
- if (nmatched==size(rval)) ierr = 0
+ if (nmatched==size(rval)) then
+    ierr = 0
+ elseif (nmatched > 0) then
+    ierr = ierr_notenough
+ endif
  if (ierr /= 0 .and. .not.present(q)) then
     print "(a)",' ERROR: could not find '//trim(adjustl(tag))//' in header'
  endif
@@ -1383,6 +1389,53 @@ end subroutine free_header
 
 !-------------------------------------------------------
 !+
+!  print contents of header structure
+!+
+!-------------------------------------------------------
+subroutine print_header(hdr)
+ type(dump_h), intent(in) :: hdr
+ integer :: i
+
+ if (allocated(hdr%inttags) .and. allocated(hdr%intvals)) then
+    do i=1,size(hdr%inttags)
+       print*,hdr%inttags(i),hdr%intvals(i)
+    enddo
+ endif
+ if (allocated(hdr%int1tags) .and. allocated(hdr%int1vals)) then
+    do i=1,size(hdr%int1tags)
+       print*,hdr%int1tags(i),hdr%int1vals(i)
+    enddo
+ endif
+ if (allocated(hdr%int2tags) .and. allocated(hdr%int2vals)) then
+    do i=1,size(hdr%int2tags)
+       print*,hdr%int2tags(i),hdr%int2vals(i)
+    enddo
+ endif
+ if (allocated(hdr%int4tags) .and. allocated(hdr%int4vals)) then
+    do i=1,size(hdr%int4tags)
+       print*,hdr%int4tags(i),hdr%int4vals(i)
+    enddo
+ endif
+ if (allocated(hdr%realtags) .and. allocated(hdr%realvals)) then
+    do i=1,size(hdr%realtags)
+       print*,hdr%realtags(i),hdr%realvals(i)
+    enddo
+ endif
+ if (allocated(hdr%real4tags) .and. allocated(hdr%real4vals)) then
+    do i=1,size(hdr%real4tags)
+       print*,hdr%real4tags(i),hdr%real4vals(i)
+    enddo
+ endif
+ if (allocated(hdr%real8tags) .and. allocated(hdr%real8vals)) then
+    do i=1,size(hdr%real8tags)
+       print*,hdr%real8tags(i),hdr%real8vals(i)
+    enddo
+ endif
+
+end subroutine print_header
+
+!-------------------------------------------------------
+!+
 !  write the header to file
 !+
 !-------------------------------------------------------
@@ -1867,7 +1920,7 @@ subroutine read_array_real4arr(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag
           read(iunit,iostat=ierr) (dum,i=1,noffset),arr(j,i1:i2)
        elseif (ikind==i_real4) then
           got_arr(j) = .true.
-          print*,'WARNING: converting '//trim(tag)//' from real*8->real*4'
+          !print*,'WARNING: converting '//trim(tag)//' from real*8->real*4'
           nread = i2-i1+1
           allocate(dummyr8(nread))
           read(iunit,iostat=ierr) (dumr8,i=1,noffset),dummyr8(1:nread)
@@ -1910,7 +1963,7 @@ subroutine read_array_real8(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag,ma
        read(iunit,iostat=ierr) (dum,i=1,noffset),arr(i1:i2)
     elseif (ikind==i_real4) then
        got_arr = .true.
-       print*,'WARNING: converting '//trim(tag)//' from real*4'
+       !print*,'WARNING: converting '//trim(tag)//' from real*4'
        nread = i2-i1+1
        allocate(dummyr4(nread))
        read(iunit,iostat=ierr) (dumr4,i=1,noffset),dummyr4(1:nread)
@@ -1960,7 +2013,7 @@ subroutine read_array_real8arr(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag
           deallocate(dummyr8)
        elseif (ikind==i_real4) then
           got_arr(j) = .true.
-          print*,'WARNING: converting '//trim(tag)//' from real*4'
+          !print*,'WARNING: converting '//trim(tag)//' from real*4'
           nread = i2-i1+1
           allocate(dummyr4(nread))
           read(iunit,iostat=ierr) (dumr4,i=1,noffset),dummyr4(1:nread)

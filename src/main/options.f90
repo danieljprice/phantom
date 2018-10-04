@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -37,7 +37,7 @@ module options
 ! these are parameters which may be changed by the user
 ! and read from the input file
 !
- integer, public :: nfulldump,nmaxdumps,iexternalforce
+ integer, public :: nfulldump,nmaxdumps,iexternalforce,idamp
  real, public :: tolh,damp,tolv
  real(kind=4), public :: twallmax, dtwallmax
 
@@ -45,12 +45,17 @@ module options
 
  real, public :: alpha,alphau,beta
  real, public :: alphamax
- real, public :: alphaB, etamhd, psidecayfac, overcleanfac
+ real, public :: alphaB, psidecayfac, overcleanfac
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
 
 ! dust method
 
+ logical, public :: use_moddump = .false.
  logical, public :: use_dustfrac
+
+! mcfost
+ logical, public :: use_mcfost, use_Voronoi_limits_file
+ character(len=80), public :: Voronoi_limits_file
 
  public :: set_default_options
  public :: ieos
@@ -84,7 +89,7 @@ subroutine set_default_options
  Bexty     = 0.
  Bextz     = 0.
  tolh      = 1.e-4           ! tolerance on h iterations
- damp      = 0.              ! damping of velocities
+ idamp     = 0               ! damping type
  iexternalforce = 0          ! external forces
 
  ! equation of state
@@ -115,7 +120,6 @@ subroutine set_default_options
 
  ! artificial resistivity (MHD only)
  alphaB            = 1.0
- etamhd            = 0.0
  psidecayfac       = 1.0     ! psi decay factor (MHD only)
  overcleanfac      = 1.0     ! factor to increase signal velocity for (only) time steps and psi cleaning
  beta              = 2.0     ! beta viscosity term
@@ -126,6 +130,9 @@ subroutine set_default_options
 
  ! dust method
  use_dustfrac = .false.
+
+ ! mcfost
+ use_mcfost = .false.
 
 end subroutine set_default_options
 

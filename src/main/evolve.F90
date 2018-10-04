@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -39,7 +39,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use io,               only:iprint,iwritein,id,master,iverbose,flush_warnings,nprocs,fatal
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce
  use evwrite,          only:write_evfile,write_evlog
- use energies,         only:etot,totmom,angtot,mdust,xyzcom
+ use energies,         only:etot,totmom,angtot,mdust
  use dim,              only:maxvxyzu,mhd,periodic
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,iexternalforce,&
@@ -88,19 +88,18 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
- use part,             only:xyzh,vxyzu,massoftype,igas
+ use part,             only:igas
  use fileutils,        only:numfromfile
  use io,               only:ianalysis
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,npartoftype, &
-                            fxyz_ptmass_sinksink
+                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall
  use quitdump,         only:quit
- use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev, &
-                            rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin,rhomax_ipart
+ use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
- use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in
+ use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in
 #ifdef MFLOW
  use mf_write,         only:mflow_write
 #endif
@@ -115,14 +114,14 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: noutput,noutput_dtmax,nsteplast,ncount_fulldumps
  real            :: dtnew,dtlast,timecheck
- real            :: tprint,tzero,dtmaxold,rcom,rcom_in
+ real            :: tprint,tzero,dtmaxold
  real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
  real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
 #ifdef IND_TIMESTEPS
  integer         :: i,nalive,inbin,iamtypei
  integer(kind=1) :: nbinmaxprev
- integer(kind=8) :: nmovedtot,ntot
- real            :: tlast,fracactive,speedup,tcheck,dtau
+ integer(kind=8) :: nmovedtot,nalivetot
+ real            :: tlast,fracactive,speedup,tcheck,dtau,efficiency
  real(kind=4)    :: tall
  real(kind=4)    :: timeperbin(0:maxbins)
  logical         :: dt_changed
@@ -136,8 +135,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
  logical         :: fulldump,abortrun,at_dump_time,update_tzero
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
- logical         :: should_conserve_com,should_conserve_dustmass
- integer         :: nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
+ logical         :: should_conserve_dustmass
+ integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  type(timer)     :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io
 
  tprint    = 0.
@@ -154,18 +153,15 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  else
     should_conserve_momentum = (npartoftype(iboundary)==0)
  endif
- should_conserve_angmom   = (npartoftype(iboundary)==0 .and. .not.periodic)
- should_conserve_com      = should_conserve_momentum
+ should_conserve_angmom   = (npartoftype(iboundary)==0 .and. .not.periodic &
+                            .and. iexternalforce <= 1)
  should_conserve_dustmass = use_dustfrac
- rcom_in = dot_product(xyzcom_in,xyzcom_in)
-
 
 ! Each injection routine will need to bookeep conserved quantities, but until then...
 #ifdef INJECT_PARTICLES
  should_conserve_energy   = .false.
  should_conserve_momentum = .false.
  should_conserve_angmom   = .false.
- should_conserve_com      = .false.
 #endif
 
  noutput          = 1
@@ -214,12 +210,12 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
  nskipped = 0
  if (iexternalforce==iext_spiral) then
-    nevwrite_threshold = int(4.99*npart) ! every 5 full steps
+    nevwrite_threshold = int(4.99*ntot) ! every 5 full steps
  else
-    nevwrite_threshold = int(1.99*npart) ! every 2 full steps
+    nevwrite_threshold = int(1.99*ntot) ! every 2 full steps
  endif
  nskipped_sink = 0
- nsinkwrite_threshold  = int(0.99*npart)
+ nsinkwrite_threshold  = int(0.99*ntot)
 !
 ! timing between dumps
 !
@@ -283,8 +279,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
     !--flag particles as active or not for this timestep
     call set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
-    nactivetot = nactive
-    ntot = nalive
+    nactivetot = reduceall_mpi('+', nactive)
+    nalivetot = reduceall_mpi('+', nalive)
     nskip = int(nactivetot)
 
     !--print summary of timestep bins
@@ -294,11 +290,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     if (gravity .and. icreate_sinks > 0 .and. ipart_rhomax /= 0) then
        !
        ! creation of new sink particles
-       ! Note: rhomax_ipart is for bookkeeping only
        !
-       call ptmass_create(nptmass,npart,rhomax_ipart,xyzh,vxyzu,fxyzu,fext,divcurlv,&
-                          massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time,&
-                          rhomax_xyzh,rhomax_vxyz,rhomax_iphase,rhomax_divv,rhomax_ibin)
+       call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
+                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
     endif
 
     nsteps = nsteps + 1
@@ -307,7 +301,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !  for individual timesteps this is the shortest timestep
 !
     call get_timings(t1,tcpu1)
-!
     if ( use_sts ) then
        call step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
     else
@@ -316,6 +309,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     dtlast = dt
 
     !--timings for step call
+
     call get_timings(t2,tcpu2)
     call increment_timer(timer_step,t2-t1,tcpu2-tcpu1)
     call summary_counter(iosum_nreal,t2-t1)
@@ -327,16 +321,22 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     time = tlast + istepfrac/real(2**nbinmaxprev)*dtmaxold
 
     !--print efficiency of partial timestep
-    if (id==master .and. iverbose >= 0 .and. ntot > 0) then
-       if (nactivetot==ntot) then
+    if (id==master .and. iverbose >= 0 .and. nalivetot > 0) then
+       if (nactivetot==nalivetot) then
           tall = t2-t1
        elseif (tall > 0.) then
-          fracactive = nactivetot/real(ntot)
+          fracactive = nactivetot/real(nalivetot)
           speedup = (t2-t1)/tall
-          if (iverbose >= 2) &
+          if (iverbose >= 2) then
+             if (speedup > 0) then
+                efficiency = 100.*fracactive/speedup
+             else
+                efficiency = 0.
+             endif
              write(iprint,"(1x,'(',3(a,f6.2,'%'),')')") &
                   'moved ',100.*fracactive,' of particles in ',100.*speedup, &
-                  ' of time, efficiency = ',100.*fracactive/speedup
+                  ' of time, efficiency = ',efficiency
+          endif
        endif
     endif
     call update_time_per_bin(tcpu2-tcpu1,istepfrac,nbinmaxprev,timeperbin,inbin)
@@ -425,12 +425,14 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        nskipped = 0
        call get_timings(t1,tcpu1)
        call write_evfile(time,dt)
-       rcom = sqrt(dot_product(xyzcom,xyzcom))
        if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
        if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
        if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
-       if (should_conserve_com)      call check_conservation_error(rcom,rcom_in,1.e-1,'centre of mass')
-       if (should_conserve_dustmass) call check_conservation_error(mdust,mdust_in,1.e-1,'dust mass',decrease=.true.)
+       if (should_conserve_dustmass) then
+          do j = 1,ndustsmall
+             call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)
+          enddo
+       endif
 
        !--write with the same ev file frequency also mass flux and binary position
 #ifdef MFLOW
@@ -566,12 +568,12 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        endif
 #ifdef IND_TIMESTEPS
        !--print summary of timestep bins
-       if (iverbose >= 0 .and. id==master .and. abs(tall) > tiny(tall) .and. ntot > 0) then
-          fracactive = nmovedtot/real(ntot)
+       if (iverbose >= 0 .and. id==master .and. abs(tall) > tiny(tall) .and. nalivetot > 0) then
+          fracactive = nmovedtot/real(nalivetot)
           speedup = timer_lastdump%wall/(tall + tiny(tall))
           write(iprint,"(/,a,f6.2,'%')") ' IND TIMESTEPS efficiency = ',100.*fracactive/speedup
           if (iverbose >= 1) then
-             write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (last full step) : ',tall/real(ntot)
+             write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (last full step) : ',tall/real(nalivetot)
              write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (ave. all steps) : ',timer_lastdump%wall/real(nmovedtot)
           endif
        endif
@@ -715,7 +717,9 @@ end subroutine check_dtmax_for_decrease
 !+
 !----------------------------------------------------------------
 subroutine check_conservation_error(val,ref,tol,label,decrease)
- use io, only:error,fatal,iverbose
+ use io,             only:error,fatal,iverbose
+ use options,        only:iexternalforce
+ use externalforces, only:iext_corot_binary
  real, intent(in) :: val,ref,tol
  character(len=*), intent(in) :: label
  logical, intent(in), optional :: decrease
@@ -733,18 +737,23 @@ subroutine check_conservation_error(val,ref,tol,label,decrease)
     err = abs(err)
  endif
  if (err > tol) then
-    call error('evolve','Large error in '//trim(label)//' conservation ',var='err',val=err)
-    call get_environment_variable('I_WILL_NOT_PUBLISH_CRAP',string)
-    if (.not. (trim(string)=='yes')) then
-       print "(2(/,a))",' You can ignore this error and continue by setting the ',&
-                        ' environment variable I_WILL_NOT_PUBLISH_CRAP=yes to continue'
+    if ((trim(label) == 'angular momentum' .or. trim(label) == 'energy') &
+        .and. iexternalforce == iext_corot_binary) then
+       call error('evolve',trim(label)//' is not being conserved due to corotating frame',var='err',val=err)
+    else
+       call error('evolve','Large error in '//trim(label)//' conservation ',var='err',val=err)
+       call get_environment_variable('I_WILL_NOT_PUBLISH_CRAP',string)
+       if (.not. (trim(string)=='yes')) then
+          print "(2(/,a))",' You can ignore this error and continue by setting the ',&
+                           ' environment variable I_WILL_NOT_PUBLISH_CRAP=yes to continue'
 !#ifdef IND_TIMESTEPS
-!       print "(4(/,a))",' Note: Please try again setting allow_wake=.false. in step_leapfrog.F90. ',&
-!                        ' If the new simulation successfully runs, please send details to ',&
-!                        ' j.wurster[at]exeter.ac.uk so that the bug can be fixed. ',&
-!                        ' Sorry for any inconvenience.'
+!          print "(4(/,a))",' Note: Please try again setting allow_wake=.false. in step_leapfrog.F90. ',&
+!                           ' If the new simulation successfully runs, please send details to ',&
+!                           ' j.wurster[at]exeter.ac.uk so that the bug can be fixed. ',&
+!                           ' Sorry for any inconvenience.'
 !#endif
-       call fatal('evolve',' Conservation errors too large to continue simulation')
+          call fatal('evolve',' Conservation errors too large to continue simulation')
+       endif
     endif
  else
     if (iverbose >= 2) print "(a,es10.3)",trim(label)//' error is ',err

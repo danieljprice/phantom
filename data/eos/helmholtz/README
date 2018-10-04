@@ -1,0 +1,10 @@
+The Helmholtz data tables are too large to be stored in the Phantom git repository
+They will be downloaded automatically when you run the code
+
+or can be retrieved manually using wget from the phantom website, e.g.:
+
+wget http://users.monash.edu.au/~dprice/phantom/data/eos/helmholtz/helm_data.tab
+
+The files are:
+
+helm_data.tab

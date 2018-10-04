@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -36,7 +36,7 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,iphase,istar,idarkmatter,igas, &
+ use part,         only: iphase,istar,idarkmatter,igas, &
                          massoftype,maxp,maxphase,isdead_or_accreted,iamtype,rhoh
  use units,        only: utime,udist,unit_density
  use physcon,      only: years,mpc

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -705,7 +705,7 @@ end function calc_kappa
 !+
 !----------------------------------------------
 real function beta(x,y,z)
- use physcon,              only:c, gg, fourpi, pi
+ use physcon,              only:c, gg, fourpi, pi, roottwo, rpiontwo
  use io,                   only:fatal
  use units,   only:umass,udist
  real, intent(in) :: x,y,z
@@ -751,8 +751,8 @@ real function beta(x,y,z)
     r = sqrt(x**2 + y**2)
     H = calc_scaleheight(r)
     kappa = calc_kappa( frac_X, 2. ) * (umass/(udist*udist))
-    tau = 1.0-erf( abs(z) / (1.414213562373095048801688724*H) )
-    tau = tau * 1.253314137315500251207882642 * kappa * calc_sigma(r) * H
+    tau = 1.0-erf( abs(z) / (roottwo*H) )
+    tau = tau * rpiontwo * kappa * calc_sigma(r) * H
     beta = exp(-tau)
 
  end select
@@ -763,8 +763,6 @@ real function beta(x,y,z)
     beta = Lstar    !hopefully unnecessary sanity checks
  endif
  if( beta < 0. ) beta = 0.
-
- !print*, "DUMP",rcyl, rbin, z, zbin, phi, phibin, beta, Lstar
 
 end function beta
 

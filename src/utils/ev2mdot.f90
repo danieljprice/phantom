@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -70,7 +70,7 @@ program get_mdot
  !
  ! check if filenames form a sequence file01.ev, file02.ev, file03.ev
  !
- combine_files = files_are_sequential(filenames(1:nfiles))
+ combine_files = files_are_sequential(filenames(istart:iend))
 
  nsteps_prev = 0
  nsteps_keep = 0
@@ -78,7 +78,7 @@ program get_mdot
  imacc1_col = 0
  imacc2_col = 0
  ncols = 0
- over_files: do i=1,nfiles
+ over_files: do i=istart,iend
     filename = filenames(i)
     !
     ! read the .ev file
@@ -91,7 +91,7 @@ program get_mdot
     !
     ! open the output (.mdot) file
     !
-    if (.not.combine_files .or. (combine_files .and. i==1)) then
+    if (.not.combine_files .or. (combine_files .and. i==istart)) then
        ncols  = ncols1
        !
        ! get labels and number of columns from the first line of the file

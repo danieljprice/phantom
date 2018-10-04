@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: None
+!  DEPENDENCIES: dim
 !+
 !--------------------------------------------------------------------------
 
@@ -60,9 +60,10 @@ end module timestep
 !+
 !---------------------------------------------------------------
 module initial_params
+ use dim, only:maxdusttypes
  implicit none
  real,    public :: get_conserv = 1.0 ! to track when we have initial values for conservation laws
- real,    public :: etot_in,angtot_in,totmom_in,mdust_in,xyzcom_in(3)
+ real,    public :: etot_in,angtot_in,totmom_in,mdust_in(maxdusttypes)
 
 end module initial_params
 

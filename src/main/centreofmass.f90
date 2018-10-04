@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -19,12 +19,12 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, io, mpiutils, part
+!  DEPENDENCIES: dim, io, mpiutils, part, vectorutils
 !+
 !--------------------------------------------------------------------------
 module centreofmass
  implicit none
- public :: reset_centreofmass,get_centreofmass,correct_bulk_motion
+ public :: reset_centreofmass,get_centreofmass,correct_bulk_motion,get_total_angular_momentum
 
  private
 
@@ -276,5 +276,59 @@ subroutine correct_bulk_motion()
  !$omp end parallel
 
 end subroutine correct_bulk_motion
+
+!------------------------------------------------------------------------
+!
+! Small routine to calculate the total angular momentum vector of
+! the whole system (particles + sinks)
+!
+!------------------------------------------------------------------------
+subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_ptmass,npart_ptmass)
+ use vectorutils, only:cross_product3D
+ use part,        only:iphase,iamtype,massoftype,isdead_or_accreted
+ use mpiutils,    only:reduceall_mpi
+ real, intent(in)  :: xyzh(:,:),vxyz(:,:)
+ real, optional, intent(in):: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, intent(in) :: npart
+ integer, optional, intent(in) :: npart_ptmass
+ real, intent(out) :: L_tot(3)
+ integer           :: ii,itype
+ real              :: temp(3),pmassi
+
+ L_tot(:) = 0.
+
+ ! Calculate the angular momentum from all the particles
+ ! Check if particles are dead or have been accreted first
+!$omp parallel default(none) &
+!$omp shared(xyzh,vxyz,npart) &
+!$omp shared(massoftype,iphase) &
+!$omp shared(xyzmh_ptmass,vxyz_ptmass,npart_ptmass) &
+!$omp private(ii,itype,pmassi,temp) &
+!$omp reduction(+:L_tot)
+!$omp do
+ do ii = 1,npart
+    if (.not.isdead_or_accreted(xyzh(4,ii))) then
+       itype = iamtype(iphase(ii))
+       pmassi = massoftype(itype)
+       call cross_product3D(xyzh(1:3,ii),vxyz(1:3,ii),temp)
+       L_tot = L_tot + temp*pmassi
+    endif
+ enddo
+!$omp enddo
+
+ ! Calculate from the sinks
+ if (present(npart_ptmass)) then
+    !$omp do
+    do ii = 1,npart_ptmass
+       call cross_product3D(xyzmh_ptmass(1:3,ii),vxyz_ptmass(1:3,ii),temp)
+       L_tot = L_tot + temp*xyzmh_ptmass(4,ii)
+    enddo
+    !$omp enddo
+ endif
+!$omp end parallel
+
+ L_tot = reduceall_mpi('+',L_tot)
+
+end subroutine get_total_angular_momentum
 
 end module centreofmass

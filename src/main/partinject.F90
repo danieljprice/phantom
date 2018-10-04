@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -57,7 +57,7 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
  integer :: itype_old
 
  if (particle_number == npart+1) then
-    ! This particle doesn't already exists. Create it.
+    ! This particle doesn't already exist. Create it.
     npart = npart + 1
     ntot = npart ! reduce_mpi('+',npart)
     if (npart  >  maxp) then

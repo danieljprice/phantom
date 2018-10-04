@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -24,51 +24,49 @@
 !    grainsize         -- Grain size in cm
 !    icut_backreaction -- cut the drag on the gas phase (0=no, 1=yes)
 !    idrag             -- gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)
+!    ilimitdustflux    -- limit the dust flux using Ballabio et al. (2018)
 !
-!  DEPENDENCIES: eos, infile_utils, io, physcon, units
+!  DEPENDENCIES: dim, eos, infile_utils, io, options, part, physcon, units
 !+
 !--------------------------------------------------------------------------
 
 module dust
+ use dim,     only:use_dustgrowth
+ use part,    only:ndusttypes,grainsize,graindens
+ use physcon, only:pi
+ use units,   only:umass,udist
  implicit none
  !--Default values for the dust in the infile
- real, public     :: K_code          = 1.
- real, public     :: grainsizecgs    = 0.1
- real, public     :: graindenscgs    = 3.
-
+ real,    public  :: K_code            = 1.
+ real,    public  :: grainsizecgs      = 0.1
+ real,    public  :: graindenscgs      = 3.
  integer, public  :: idrag             = 1
  integer, public  :: icut_backreaction = 0
- real, public     :: grainsize,graindens
- real, private    :: grainmass
- public           :: write_options_dust,read_options_dust
- public           :: get_ts, init_drag
- public           :: print_dustinfo
+ logical, public  :: ilimitdustflux    = .false. ! to limit spurious dust generation in outer disc
 
- ! generic interface to set_dustfrac
- interface set_dustfrac
-  module procedure set_dustfrac_single, set_dustfrac_power_law
- end interface set_dustfrac
- public           :: set_dustfrac
+ public :: get_ts
+ public :: init_drag
+ public :: print_dustinfo
+ public :: write_options_dust
+ public :: read_options_dust
 
- real, private    :: cste_mu,coeff_gei_1,seff
+ real, private :: cste_mu,coeff_gei_1,seff
  private
 
 contains
 
-!-----------------------------------------------------------------------
+!--------------------------------------------------------------------------
 !+
-!  initialize the drag: compute the quatities that are used once
+!  initialize the drag: compute the quantities that are used once
 !+
-!-----------------------------------------------------------------------
+!--------------------------------------------------------------------------
 subroutine init_drag(ierr)
- use physcon,  only:pi
- use io,       only:error
- use units,    only:udist,umass,unit_density
- use physcon,  only:mass_proton_cgs,cross_section_H2_cgs
  use eos,      only:gamma
+ use io,       only:error
+ use physcon,  only:mass_proton_cgs,cross_section_H2_cgs
  integer, intent(out) :: ierr
- real :: cste_seff
- real :: mass_mol_gas, cross_section_gas
+ real    :: cste_seff
+ real    :: mass_mol_gas, cross_section_gas
 
  ierr = 0
  !--compute constants which are used in the ts calculation
@@ -79,15 +77,16 @@ subroutine init_drag(ierr)
  cste_mu           = sqrt(2./(pi*gamma))
  coeff_gei_1       = sqrt(8./(pi*gamma))
 
- !--compute the grain mass (spherical compact grains of radius s)
- !--change this line for fractal grains or grains of different sizes
- grainsize         = grainsizecgs/udist
- graindens         = graindenscgs/unit_density
- grainmass         = 4./3.*pi*graindens*grainsize**3
- if (grainmass <= 0.) then
-    call error('init_drag','grain size/density <= 0',var='grainmass',val=grainmass)
-    ierr = 2
- endif
+ select case(idrag)
+ case(2,3)
+    !--check the value of K_code
+    if (K_code < 0.) then
+       call error('init_drag','K_code < 0',var='K_code',val=K_code)
+       ierr = 4
+    endif
+ case default
+ end select
+
  !--compute the effective surface density used to calculate the mean free path
  cste_seff         = pi/sqrt(2.)*5./64.
  mass_mol_gas      = (2.*mass_proton_cgs)/umass
@@ -97,34 +96,44 @@ subroutine init_drag(ierr)
     call error('init_drag','effective surface density <= 0',var='seff',val=seff)
     ierr = 3
  endif
- !--check the value of K_code
- if ((idrag == 2 .or. idrag == 3) .and. K_code < 0.) then
-    call error('init_drag','K_code < 0',var='K_code',val=K_code)
-    ierr = 4
- endif
 
 end subroutine init_drag
 
-!--------------------------------------------
+!--------------------------------------------------------------------------
 !+
 !  print information about the dust physics
 !+
-!--------------------------------------------
+!--------------------------------------------------------------------------
 subroutine print_dustinfo(iprint)
- use units, only:unit_density,umass,udist
+ use dim,   only:maxdusttypes
+ use units, only:unit_density
  integer, intent(in) :: iprint
- real :: rhocrit
+ real    :: rhocrit,grainmass(maxdusttypes)
+ integer :: i
 
  select case(idrag)
  case(1)
-    write(iprint,"(a)")              ' Using Epstein/Stokes drag: '
-    write(iprint,"(2(a,1pg10.3),a)") '        Grain size = ',grainsize*udist,        ' cm     = ',grainsize,' (code units)'
-    write(iprint,"(2(a,1pg10.3),a)") '        Grain mass = ',grainmass*umass,        ' g      = ',grainmass,' (code units)'
-    write(iprint,"(2(a,1pg10.3),a)") '     Grain density = ',graindens*unit_density, ' g/cm^3 = ',graindens,' (code units)'
-    write(iprint,"(2(a,1pg10.3),a)") '  Gas mfp at rho=1 = ',seff*udist/unit_density,' cm     = ',seff,' (code units)'
-    rhocrit = 9.*seff/(4.*grainsize)
-    write(iprint,"(/,a)")              ' Density above which Stokes drag is used:'
-    write(iprint,"(2(a,1pg10.3),a)") '           rhocrit = ',rhocrit*unit_density,   ' g/cm^3 = ',rhocrit,' (code units)'
+    if (use_dustgrowth) then
+       write(iprint,"(a)") ' Using Epstein/Stokes drag with variable grain size. '
+    else
+       write(iprint,"(a)") ' Using Epstein/Stokes drag with constant grain size: '
+       !--compute the grain mass (spherical compact grains of radius s)
+       grainmass(:) = 4./3.*pi*graindens(:)*grainsize(:)**3
+       do i=1,ndusttypes
+          write(iprint,"(2(a,1pg10.3),a)") '        Grain size = ',grainsize(i)*udist,      &
+                                           ' cm     = ',grainsize(i),' (code units)'
+          write(iprint,"(2(a,1pg10.3),a)") '        Grain mass = ',grainmass(i)*umass,      &
+                                           ' g      = ',grainmass(i),' (code units)'
+          write(iprint,"(2(a,1pg10.3),a)") '     Grain density = ',graindens(i)*unit_density,  &
+                                           ' g/cm^3 = ',graindens(i),' (code units)'
+          write(iprint,"(2(a,1pg10.3),a)") '  Gas mfp at rho=1 = ',seff*udist/unit_density, &
+                                           ' cm     = ',seff,' (code units)'
+          rhocrit = 9.*seff/(4.*grainsize(i))
+       enddo
+       write(iprint,"(/,a)") ' Density above which Stokes drag is used:'
+       write(iprint,"(2(a,1pg10.3),a)")    '           rhocrit = ',rhocrit*unit_density,    &
+                                           ' g/cm^3 = ',rhocrit,' (code units)'
+    endif
  case(2)
     write(iprint,"(/,a,1pg12.5)") ' Using K=const drag with K = ',K_code
  case(3)
@@ -135,55 +144,17 @@ subroutine print_dustinfo(iprint)
 
 end subroutine print_dustinfo
 
-!----------------------------------------------------------------
+!--------------------------------------------------------------------------
 !+
-!  utility function to set the dust fraction given the
-!  dust-to-gas ratio. Equation (57) in Price & Laibe (2015)
-!+
-!----------------------------------------------------------------
-subroutine set_dustfrac_single(dust_to_gas,dustfrac)
- real, intent(in)  :: dust_to_gas
- real, intent(out) :: dustfrac
-
- dustfrac = dust_to_gas/(1. + dust_to_gas)
-
-end subroutine set_dustfrac_single
-
-!----------------------------------------------------------------
-!+
-!  utility function to set the dust fraction given the
-!  dust-to-gas ratio. Equation (57) in Price & Laibe (2015)
-!+
-!----------------------------------------------------------------
-subroutine set_dustfrac_power_law(dust_to_gas_tot,dustfrac,s,smin,smax,sindex)
- use io, only: fatal
- real, intent(in)  :: dust_to_gas_tot, s, smin, smax, sindex
- real, intent(out) :: dustfrac
- real :: dust_to_gas_ind
-
- !dn/ds=const*(s/smax)^-sindex  where dn is the number of particles per cm^3 per interval ds in size (Draine et al. 2006)
- if (sindex /= 4.) then
-    dust_to_gas_ind = (dust_to_gas_tot*(4.-sindex)*s**(3.-sindex))/(smax**(4.-sindex)-smin**(4.-sindex))
- elseif (sindex == 4.) then
-    dust_to_gas_ind = (dust_to_gas_tot*s**(3.-sindex))/(log(smax/smin))
- else
-    call fatal('dust','congratulations on discovering a new number (please check your value for sindex)')
- endif
- dustfrac = dust_to_gas_ind/(1. + dust_to_gas_ind)
-
-end subroutine set_dustfrac_power_law
-
-!----------------------------------------------------------------------------
-!+
-!  get the stopping time (rhoi*rhoj)/(K*(rhoi+rhoj)) for a pair of particles
+!  get the stopping time (rhoi*rhoj)/(K*(rhoi+rhoj)) for a pair of
+!  particles
 !
 !  idrag = 1 : Epstein/Stokes with automatic switching
 !  idrag = 2 : const K
 !+
-!----------------------------------------------------------------------------
+!--------------------------------------------------------------------------
 subroutine get_ts(idrag,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
                   ts,iregime)
- use physcon,     only:pi
  integer, intent(in)  :: idrag
  integer, intent(out) :: iregime
  real,    intent(in)  :: sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2
@@ -201,6 +172,11 @@ subroutine get_ts(idrag,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
  ts1        = 0.
  ts         = 0.
  rhosum     = rhogas + rhodust
+ ! rhosum     = rhogas ! this is an approx. to allow calculations to proceed
+ ! efficiently in case of numerical dust trapping
+ ! should be rhosum =  rhogas + rhodust
+ ! however, without full dust grain population rhodust is an
+ ! approx. anyway
 
  ! compute quantities specific to the drag regime
  select case(idrag)
@@ -263,7 +239,7 @@ subroutine get_ts(idrag,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
     else
        ts1 = dragcoeff*f*rhosum
     endif
-    if (ts1 >= 0.) then
+    if (ts1 > 0.) then
        ts  = 1./ts1
     else
        ts = huge(ts)
@@ -274,6 +250,8 @@ subroutine get_ts(idrag,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
     ! constant drag coefficient
     !
     if (K_code > 0.) then
+       ! WARNING! When ndusttypes > 1, K_code ONLY makes sense
+       ! if all of the grains are identical to one another.
        ts = rhogas*rhodust/(K_code*rhosum)
     else
        ts = huge(ts)
@@ -294,65 +272,118 @@ subroutine get_ts(idrag,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
 
 end subroutine get_ts
 
-!-----------------------------------------------------------------------
+!--------------------------------------------------------------------------
 !+
-!  writes input options to the input file
+!  writes input dust options to the input file
 !+
-!-----------------------------------------------------------------------
+!--------------------------------------------------------------------------
 subroutine write_options_dust(iunit)
  use infile_utils, only:write_inopt
+ use io,           only:warning
+ use options,      only:use_dustfrac
  integer, intent(in) :: iunit
+ character(len=10)   :: numdust
 
- write(iunit,"(/,a)") '# options controlling dust'
+ write(numdust,'(I10)') ndusttypes
+ write(iunit,"(/,a)") '# options controlling dust ('//trim(adjustl(numdust))//' dust species)'
+
  call write_inopt(idrag,'idrag','gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)',iunit)
- call write_inopt(grainsizecgs,'grainsize','Grain size in cm',iunit)
- call write_inopt(graindenscgs,'graindens','Intrinsic grain density in g/cm^3',iunit)
- call write_inopt(K_code,'K_code','drag constant when constant drag is used',iunit)
+
+ if (ndusttypes > 1) then
+    !--the grain sizes and (intrinsic) grain densities should be set in the setup file
+    select case(idrag)
+    case(1)
+       call warning('dust','Grain density and size are now set during setup and written to file.')
+    case(2,3)
+       call write_inopt(K_code,'K_code','drag constant when constant drag is used',iunit)
+    end select
+ else
+    select case(idrag)
+    case(1)
+       if (use_dustgrowth) then
+          call write_inopt(grainsizecgs,'grainsize','Initial grain size in cm',iunit)
+       else
+          call write_inopt(grainsizecgs,'grainsize','Grain size in cm',iunit)
+       endif
+       call write_inopt(graindenscgs,'graindens','Intrinsic grain density in g/cm^3',iunit)
+    case(2,3)
+       call write_inopt(K_code,'K_code','drag constant when constant drag is used',iunit)
+    end select
+ endif
+
  call write_inopt(icut_backreaction,'icut_backreaction','cut the drag on the gas phase (0=no, 1=yes)',iunit)
+
+ if (use_dustfrac) then
+    call write_inopt(ilimitdustflux,'ilimitdustflux','limit the dust flux using Ballabio et al. (2018)',iunit)
+ endif
 
 end subroutine write_options_dust
 
-!-----------------------------------------------------------------------
+!--------------------------------------------------------------------------
 !+
-!  reads input options from the input file
+!  reads input dust options from the input file
 !+
-!-----------------------------------------------------------------------
+!--------------------------------------------------------------------------
 subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
- use units, only:udist,umass
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
- integer, save :: ngot = 0
  real(kind=8)  :: udens
+ integer, parameter :: nvalues = 5
+ integer, parameter :: iidrag        = 1, &
+                       ibackreact    = 2, &
+                       igrainsize    = 3, &
+                       igraindens    = 4, &
+                       iKcode        = 5
+ integer, save :: igot(nvalues) = 0
+ integer       :: ineed(nvalues)
 
  imatch  = .true.
  igotall = .false.
  select case(trim(name))
  case('idrag')
     read(valstring,*,iostat=ierr) idrag
-    ngot = ngot + 1
+    igot(iidrag) = 1
  case('grainsize')
     read(valstring,*,iostat=ierr) grainsizecgs
-    grainsize = grainsizecgs/udist
-    ngot = ngot + 1
+    grainsize(1) = grainsizecgs/udist
+    !--no longer a compulsory parameter
  case('graindens')
     read(valstring,*,iostat=ierr) graindenscgs
     udens = umass/udist**3
-    graindens = graindenscgs/udens
+    graindens(1) = graindenscgs/udens
+    !--no longer a compulsory parameter
  case('K_code')
     read(valstring,*,iostat=ierr) K_code
-    ngot = ngot + 1
+    igot(iKcode) = 1
  case('icut_backreaction')
     read(valstring,*,iostat=ierr) icut_backreaction
+    igot(ibackreact) = 1
+ case('ilimitdustflux')
+    read(valstring,*,iostat=ierr) ilimitdustflux
+    !--no longer a compulsory parameter
  case default
     imatch = .false.
  end select
 
- if (idrag == 2 .or. idrag==3) then
-    if (ngot >= 3) igotall = .true.
- else
-    if (ngot >= 2) igotall = .true.
- endif
+ ineed = 0
+
+ !--Parameters needed by all combinations
+ ineed(iidrag)     = 1
+ ineed(ibackreact) = 1
+
+ !--Parameters specific to particular setups
+ select case(idrag)
+ case(1)
+    ineed(iKcode) = 0
+ case(2,3)
+    ineed(iKcode) = 1
+ case default
+    stop 'Error! Invalid idrag option passed to read_dust_infile_options'
+ end select
+
+ !--Check that we have just the *necessary* parameters
+ if (all(ineed == igot)) igotall = .true.
 
 end subroutine read_options_dust
 

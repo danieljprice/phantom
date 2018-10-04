@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -22,9 +22,9 @@
 !--------------------------------------------------------------------------
 program phantom2divb
  use dim,             only:ndivcurlB,maxp,tagline
- use part,            only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
-                           hfact,rhoh,dhdrho,igas,isetphase,iphase,maxphase,&
-                           dustfrac,ddustfrac
+ use part,            only:npart,xyzh,vxyzu,fxyzu,Bxyz,fext,divcurlv,divcurlB,Bevol,dBevol, &
+                           hfact,rhoh,dhdrho,igas,isetphase,iphase,massoftype,maxphase,&
+                           dustfrac,ddustevol,mhd,temperature,dustprop,ddustprop
  use io,              only:set_io_unit_numbers,iprint,idisk1,idump
  use initial,         only:initialise
  use readwrite_dumps, only:read_dump,write_fulldump
@@ -64,9 +64,16 @@ program phantom2divb
 !
 !--calculate derivatives including the divergence of B
 !
+    Bevol = 0.
+    if (mhd) then
+       do i = 1,npart
+          Bevol(1:3,i) = Bxyz(1:3,i)/rhoh(xyzh(4,i), massoftype(igas))
+       enddo
+    endif
     if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustfrac,ddustfrac,0.,0.,dtdum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,&
+                temperature,0.,0.,dtdum)
 !
 !--dump to .divv file
 !

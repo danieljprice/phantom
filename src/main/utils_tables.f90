@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -24,7 +24,7 @@
 module table_utils
  implicit none
 
- public :: yinterp, linspace
+ public :: yinterp, linspace, logspace
 
  private
 
@@ -87,5 +87,27 @@ pure subroutine linspace(x,xmin,xmax)
  enddo
 
 end subroutine linspace
+
+!--------------------------------------------------------
+!+
+!  Function to fill an array with equally log-spaced points
+!+
+!--------------------------------------------------------
+pure subroutine logspace(x,xmin,xmax)
+ real, intent(out) :: x(:)
+ real, intent(in)  :: xmin,xmax
+ integer :: i, n
+ real    :: dx
+
+ n  = size(x)
+
+ dx = log10(xmax/xmin)/real(n-1)
+ do i=1,n
+    x(i) = log10(xmin) + (i-1)*dx
+ enddo
+
+ x = 10.**x
+
+end subroutine logspace
 
 end module table_utils

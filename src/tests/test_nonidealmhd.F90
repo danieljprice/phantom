@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -87,8 +87,9 @@ subroutine test_wavedamp(ntests,npass)
  use units,          only:set_units,utime,udist,umass,unit_Bfield
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
- use part,           only:npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
-                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,igas,alphaind
+ use part,           only:npart,xyzh,vxyzu,Bxyz,npartoftype,massoftype,set_particle_type,&
+                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustevol,temperature,igas,alphaind,&
+                          dustprop,ddustprop
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use testutils,      only:checkval
@@ -111,7 +112,7 @@ subroutine test_wavedamp(ntests,npass)
  real                   :: t,dt,dtext_dum,dtext,dtnew
  real                   :: L2,h0,quada,quadb,quadc,omegaI,omegaR,Bzrms_num,Bzrms_ana
  real, parameter        :: tol     = 7.15d-5
- real, parameter        :: toltime = 1.30d-8
+ real, parameter        :: toltime = 4.00d-4
  logical                :: valid_dt
  logical                :: print_output = .false.
 
@@ -151,12 +152,14 @@ subroutine test_wavedamp(ntests,npass)
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                    deltax,hfact_default,npart,xyzh,verbose=.false.)
  vxyzu = 0.0
+ Bxyz  = 0.0
  Bevol = 0.0
  do i=1,npart
     call set_particle_type(i,igas)
     vxyzu(3,i) = vcoef*sin(kx*(xyzh(1,i)-xmin))
-    Bevol(1,i) = Bx0
+    Bxyz(1,i)  = Bx0
  enddo
+ Bevol(1:3,:)      = Bxyz(1:3,:)/rhozero
  npartoftype(igas) = npart
  massoftype(igas)  = totmass/npartoftype(igas)
  !
@@ -197,7 +200,7 @@ subroutine test_wavedamp(ntests,npass)
  ! call derivs the first time around
  use_sts = .true.
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
  use_sts = .false.  ! Since we only want to run supertimestepping once to verify we get the correct dt
  !
  ! run wave damp problem
@@ -207,26 +210,25 @@ subroutine test_wavedamp(ntests,npass)
  valid_dt = .true.
  call init_step(npart,t,dtmax)
  do while (valid_dt .and. t <= tmax)
-    t     = t + dt
+    t      = t + dt
     nsteps = nsteps + 1
-    dtext = dt
+    dtext  = dt
     call step(npart,npart,t,dt,dtext,dtnew)
     ! calculate the averaged root-mean-square magnetic field in the z-direction
     Bzrms_num = 0.0
     do j = 1,npart
-       Bzrms_num = Bzrms_num + Bevol(3,j)**2
+       Bzrms_num = Bzrms_num + Bxyz(3,j)**2
     enddo
     Bzrms_num = sqrt(Bzrms_num/npart)
     Bzrms_ana = h0*abs(sin(omegaR*t))*exp(omegaI*t)
     L2        = L2 + (Bzrms_ana - Bzrms_num)**2
-    !print*, t,dt, Bzrms_ana,Bzrms_num
     if (dtnew < dt) valid_dt = .false.
  enddo
  ! For printing outputs if further debugging is required.
  if (print_output) then
     open(unit=111,file='nimhd_wavedamp.dat')
     do i = 1,npart
-       write(111,'(10Es18.6)') xyzh(:,i),Bevol(1:3,i),vxyzu(1:3,i)
+       write(111,'(10Es18.6)') xyzh(:,i),Bxyz(1:3,i),vxyzu(1:3,i)
     enddo
     close(111)
  endif
@@ -235,8 +237,9 @@ subroutine test_wavedamp(ntests,npass)
  call checkval(L2,0.0,tol,nerr(1),'L2 error on wave damp test')
  call checkval(valid_dt,.true.,nerr(2),'dt to ensure above valid default')
 #ifdef STS_TIMESTEPS
- call checkval(dtcourant,4.5249944d-3,toltime,nerr(3),'initial courant dt')
- call checkval(dtdiff,   2.8995286d-2,toltime,nerr(4),'initial dissipation dt from sts')
+ write(*,'(1x,a,3Es18.11)') 'dtcourant, dtdiff: ',dtcourant,dtdiff
+ call checkval(dtcourant,4.51922587536d-3,toltime,nerr(3),'initial courant dt')
+ call checkval(dtdiff,   2.88824049903d-2,toltime,nerr(4),'initial dissipation dt from sts')
 #endif
 
  ntests = ntests + 1
@@ -256,8 +259,8 @@ subroutine test_standingshock(ntests,npass)
  use boundary,       only:set_boundary,ymin,ymax,zmin,zmax,dybound,dzbound
  use kernel,         only:hfact_default,radkern
  use part,           only:npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,hrho,rhoh,&
-                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,igas,iboundary,&
-                          set_boundaries_to_active,alphaind,maxalpha,maxp,iphase
+                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustevol,igas,iboundary,&
+                          set_boundaries_to_active,alphaind,maxalpha,maxp,iphase,Bxyz,dustprop,ddustprop,temperature
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use testutils,      only:checkval
@@ -276,7 +279,7 @@ subroutine test_standingshock(ntests,npass)
  real                   :: t,dt,dtext_dum,dtext,dtnew
  real                   :: dexact,bexact,vexact,L2d,L2v,L2b,dx
  real                   :: leftstate(8),rightstate(8),exact_x(51),exact_d(51),exact_vx(51),exact_by(51)
- real, parameter        :: told = 2.1d-2, tolv=3.0d-2, tolb=1.2d-1
+ real, parameter        :: told = 2.1d-2, tolv=3.05d-2, tolb=1.1d-1
  logical                :: valid_dt
  logical                :: print_output = .false.
  logical                :: valid_bdy
@@ -331,6 +334,7 @@ subroutine test_standingshock(ntests,npass)
  !
  fac   = nint(2.01*radkern*hfact_default)
  vxyzu = 0.0
+ Bxyz  = 0.0
  Bevol = 0.0
  do i=1,npart
     ! set boundaries
@@ -345,11 +349,13 @@ subroutine test_standingshock(ntests,npass)
     if (xyzh(1,i) > 0.) then
        xyzh(4,i)    = hrho(rightstate(1),massoftype(igas))
        vxyzu(1:3,i) = rightstate(3:5)
-       Bevol(1:3,i) = rightstate(6:8)
+       Bxyz(1:3,i)  = rightstate(6:8)
+       Bevol(1:3,i) = rightstate(6:8)/rightstate(1)
     else
        xyzh(4,i)    = hrho(leftstate(1),massoftype(igas))
        vxyzu(1:3,i) = leftstate(3:5)
-       Bevol(1:3,i) = leftstate(6:8)
+       Bxyz(1:3,i)  = leftstate(6:8)
+       Bevol(1:3,i) = leftstate(6:8)/leftstate(1)
     endif
  enddo
  !
@@ -384,7 +390,7 @@ subroutine test_standingshock(ntests,npass)
  !
  ! call derivs the first time around
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
  set_boundaries_to_active = .false.
  !
  ! run standing shock problem
@@ -397,7 +403,6 @@ subroutine test_standingshock(ntests,npass)
     nsteps = nsteps + 1
     dtext  = dt
     call step(npart,npart,t,dt,dtext,dtnew)
-    !print*, t,dt,dtnew,nsteps
     if (dtnew < dt) valid_dt = .false.
  enddo
  !
@@ -439,7 +444,7 @@ subroutine test_standingshock(ntests,npass)
  endif
  do i = 1,npart
     rhoi = rhoh(xyzh(4,i),massoftype(igas))
-    if (print_output) write(112,'(5Es18.6,I3)') xyzh(1:2,i),rhoi,vxyzu(1,i),Bevol(2,i),iphase(i)
+    if (print_output) write(112,'(5Es18.6,I3)') xyzh(1:2,i),rhoi,vxyzu(1,i),Bxyz(2,i),iphase(i)
     if (exact_x(1) < xyzh(1,i) .and. xyzh(1,i) < exact_x(50) ) then
        npts   = npts + 1
        idr    = int(xyzh(1,i)/dx)+1
@@ -448,9 +453,9 @@ subroutine test_standingshock(ntests,npass)
        bexact = exact_by(idr) + (exact_by(idr+1) - exact_by(idr))/dx*(exact_x(idr+1)-xyzh(1,i) )
        L2d = L2d + (dexact - rhoi      )**2
        L2v = L2v + (vexact - vxyzu(1,i))**2
-       L2b = L2b + (bexact - Bevol(2,i))**2
+       L2b = L2b + (bexact - Bxyz(2,i) )**2
        if (print_output) then
-          write(113,'(7Es18.6)') xyzh(1,i),rhoi,vxyzu(1,i),Bevol(2,i),dexact,vexact,bexact
+          write(113,'(7Es18.6)') xyzh(1,i),rhoi,vxyzu(1,i),Bxyz(2,i),dexact,vexact,bexact
        endif
     endif
     if (xyzh(1,i) >  0.71 .and. rhoi > 0.99) valid_bdy = .false.
@@ -488,9 +493,9 @@ subroutine test_narrays(ntests,npass)
  use units,          only:set_units,utime,udist,umass,unit_Bfield,unit_density
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
- use part,           only:npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
-                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustfrac,igas,alphaind,&
-                          n_R,n_electronT,rhoh,eta_nimhd,iohm,ihall,iambi
+ use part,           only:npart,xyzh,vxyzu,Bxyz,npartoftype,massoftype,set_particle_type,&
+                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustevol,igas,alphaind,&
+                          n_R,n_electronT,rhoh,dustprop,ddustprop,eta_nimhd,iohm,ihall,iambi,temperature
  use deriv,          only:derivs
  use testutils,      only:checkval
  use eos,            only:ieos,init_eos,polyk,polyk2,gamma,get_temperature
@@ -526,13 +531,13 @@ subroutine test_narrays(ntests,npass)
  rho0(1)      = 7.420d-18 /unit_density   ! [g/cm^3]
  Bz0(1)       = 8.130d-5  /unit_Bfield    ! [G]
  eta_act(1,1) = 1.14793940113d10          ! [cm^2/s] expected eta_ohm
- eta_act(2,1) = 3.53740662206d14          ! [cm^2/s] expected eta_hall
- eta_act(3,1) = 5.24199083714d17          ! [cm^2/s] expected eta_ambi
+ eta_act(2,1) = 3.40040077209d14          ! [cm^2/s] expected eta_hall
+ eta_act(3,1) = 5.26247580402d17          ! [cm^2/s] expected eta_ambi
  rho0(2)      = 4.6d-3    /unit_density   ! [g/cm^3]
  Bz0(2)       = 1.92d2    /unit_Bfield    ! [G]
- eta_act(1,2) = 5.93454677137d8           ! [cm^2/s] expected eta_ohm
- eta_act(2,2) = 1.06634664733d4           ! [cm^2/s] expected eta_hall
- eta_act(3,2) = 4.06985533992d-3          ! [cm^2/s] expected eta_ambi
+ eta_act(1,2) = 5.93454638765d8           ! [cm^2/s] expected eta_ohm
+ eta_act(2,2) = 1.08059808926d4           ! [cm^2/s] expected eta_hall
+ eta_act(3,2) = 4.17918319187d-3          ! [cm^2/s] expected eta_ambi
  !
  ! initialise values for grid
  !
@@ -579,22 +584,24 @@ subroutine test_narrays(ntests,npass)
     call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                       deltax,hfact_default,npart,xyzh,verbose=.false.)
     vxyzu = 0.0
+    Bxyz  = 0.0
     Bevol = 0.0
     do i=1,npart
        call set_particle_type(i,igas)
-       Bevol(3,i) = Bz0(k)
+       Bxyz(3,i) = Bz0(k)
     enddo
+    Bevol(1:3,:)      = Bxyz(1:3,:)/rho0(k)
     npartoftype(igas) = npart
     massoftype(igas)  = totmass/npartoftype(igas)
     alphaind          = real(alpha,kind=kind(alphaind(1,1)))
     !
-    ! call derivs the first time around & a single step
+    ! call derivs, which will also calculate eta
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustfrac,ddustfrac,t,0.,dtext_dum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
     !
     ! Calculate eta from NICIL
-    Bi    = sqrt( dot_product(Bevol(1:3,1),Bevol(1:3,1)) )
     rhoi  = rhoh(xyzh(4,1),massoftype(1))
+    Bi    = sqrt( dot_product(Bevol(1:3,1),Bevol(1:3,1)) )*rhoi
     tempi = get_temperature(ieos,xyzh(1:3,1),rhoi,vxyzu(:,1))
 
     print*, ' '

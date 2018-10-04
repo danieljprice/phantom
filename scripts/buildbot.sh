@@ -31,7 +31,7 @@ else
 fi
 pwd=$PWD;
 phantomdir="$pwd/../";
-listofcomponents='main utils';
+listofcomponents='main utils setup';
 #listofcomponents='setup';
 #
 # change the line below to exclude things that depend on external libraries from the build
@@ -123,7 +123,8 @@ check_phantomsetup ()
    myinput="\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
    prefix="myrun";
    echo -e "$myinput" > myinput.txt;
-   ./phantomsetup $prefix < myinput.txt > /dev/null; err=$?;
+   sed '/-e/d' myinput.txt > mycleanin.txt
+   ./phantomsetup $prefix < mycleanin.txt > /dev/null; err=$?;
    if [ $err -eq 0 ]; then
       print_result "runs" $pass;
    else
@@ -259,9 +260,9 @@ for setup in $listofsetups; do
       fi
       if [ $err -gt 0 ]; then
          echo "<td><a href=\"$href\">error log</a></td><td>$errors</td>" >> $htmlfile;
-      else 
+      else
          if [ $err -lt 0 ]; then
-            echo "<td></td><td></td>" >> $htmlfile;   
+            echo "<td></td><td></td>" >> $htmlfile;
          else
             echo "<td><a href=\"$href\">warnings</a></td><td></td>" >> $htmlfile;
          fi

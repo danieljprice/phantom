@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -16,9 +16,10 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    npartx -- number of particles in x-direction
+!    npartx  -- number of particles in x-direction
+!    plasmaB -- plasma beta in the initial blast
 !
-!  DEPENDENCIES: boundary, dim, eos, infile_utils, io, kernel, mpiutils,
+!  DEPENDENCIES: boundary, dim, infile_utils, io, kernel, mpiutils,
 !    options, part, physcon, prompting, setup_params, timestep, unifdis,
 !    units
 !+
@@ -30,6 +31,7 @@ module setup
  private
  !--private module variables
  integer                      :: npartx
+ real                         :: plasmaB
 
 contains
 
@@ -49,9 +51,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use options,      only:nfulldump
  use prompting,    only:prompt
  use kernel,       only:wkern,cnormk,radkern2,hfact_default
- use part,         only:Bevol,igas,periodic
+ use part,         only:Bxyz,igas,periodic
  use mpiutils,     only:bcast_mpi,reduceall_mpi
- use eos,          only:ieos
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -63,6 +64,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  real                             :: deltax,totmass,toten
  real                             :: Bx,By,Bz,Pblast,Pmed,Rblast,r2
+ real                             :: plasmaB0,pfrac
  integer                          :: i,ierr
  character(len=100)               :: filename
  logical                          :: iexist
@@ -84,8 +86,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Pblast      = 100.0
  Pmed        = 1.0
  Rblast      = 0.125
- npartx      = 128
+ npartx      = 64
  gamma       = 1.4
+ plasmaB0    = 2.0*Pblast/(Bx*Bx + By*By + Bz*Bz)
+ plasmaB     = plasmaB0
  ihavesetupB = .true.
  filename=trim(fileprefix)//'.in'
  inquire(file=filename,exist=iexist)
@@ -108,6 +112,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  elseif (id==master) then
     print "(a,/)",trim(filename)//' not found: using interactive setup'
     call prompt(' Enter number of particles in x ',npartx,8,nint((maxp)**(1/3.)))
+    call prompt(' Enter the plasma beta in the blast (this will adjust the magnetic field strength) ',plasmaB)
     call write_setupfile(filename)
  endif
  call bcast_mpi(npartx)
@@ -123,12 +128,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  massoftype        = totmass/reduceall_mpi('+',npart)
  if (id==master) print*,' particle mass = ',massoftype(igas)
 
+ ! Reset magnetic field to get the requested plasma beta
+ pfrac = sqrt(plasmaB0/plasmaB)
+ Bx = Bx*pfrac
+ By = By*pfrac
+ Bz = Bz*pfrac
+
  toten = 0.
  do i=1,npart
     vxyzu(:,i) = 0.
-    Bevol(1,i) = Bx
-    Bevol(2,i) = By
-    Bevol(3,i) = Bz
+    Bxyz(1,i) = Bx
+    Bxyz(2,i) = By
+    Bxyz(3,i) = Bz
     r2         = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
     if (r2 < Rblast**2) then
        vxyzu(4,i) = Pblast/(rhozero*(gamma - 1.0))
@@ -136,6 +147,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vxyzu(4,i) = Pmed/(rhozero*(gamma - 1.0))
     endif
  enddo
+
+ write(*,'(2x,a,3Es11.4)')'Magnetic field (Bx,By,Bz): ',Bx,By,Bz
+ write(*,'(2x,a,2Es11.4)')'Pressure in blast, medium: ',Pblast,Pmed
+ write(*,'(2x,a,2Es11.4)')'Plasma beta in blast, medium: ',plasmaB,2.0*Pmed/(Bx*Bx + By*By + Bz*Bz)
+ write(*,'(2x,a, Es11.4)')'Initial blast radius: ',Rblast
 
 end subroutine setpart
 
@@ -154,6 +170,8 @@ subroutine write_setupfile(filename)
  write(iunit,"(a)") '# input file for MHD Blast Wave setup routine'
  write(iunit,"(/,a)") '# dimensions'
  call write_inopt(npartx,'npartx','number of particles in x-direction',iunit)
+ write(iunit,"(/,a)") '# magnetic field strength'
+ call write_inopt(plasmaB,'plasmaB','plasma beta in the initial blast',iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -173,10 +191,10 @@ subroutine read_setupfile(filename,ierr)
 
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(npartx,'npartx',db,ierr)
+ call read_inopt(npartx, 'npartx', db,ierr)
+ call read_inopt(plasmaB,'plasmaB',db,ierr)
  call close_db(db)
 
 end subroutine read_setupfile
 !----------------------------------------------------------------
 end module setup
-

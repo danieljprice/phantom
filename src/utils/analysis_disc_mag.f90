@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -37,7 +37,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use io,      only:fatal
  use dim,          only:maxp
  use physcon, only:pi
- use part, only: rhoh,Bevol,massoftype,iphase,iamtype,igas,maxphase,mhd
+ use part, only: rhoh,Bxyz,massoftype,iphase,iamtype,igas,maxphase,mhd
  use eos,  only: equationofstate
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(4,npart),vxyz(3,npart)
@@ -197,9 +197,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
        h_smooth(ii) = h_smooth(ii) + xyzh(4,i)
 
-       Bx = Bx + Bevol(1,i)
-       By = Bevol(2,i)
-       Bz = Bevol(3,i)
+       Bx = Bx + Bxyz(1,i)
+       By = Bxyz(2,i)
+       Bz = Bxyz(3,i)
        Bmag = sqrt(Bx**2 + By**2 + Bz**2)
 
        B_x(ii) = B_x(ii) + Bx
@@ -329,9 +329,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  do i=1,npart
     ri = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
     rcyli = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
-    Bx = Bevol(1,i)
-    By = Bevol(2,i)
-    Bz = Bevol(3,i)
+    Bx = Bxyz(1,i)
+    By = Bxyz(2,i)
+    Bz = Bxyz(3,i)
     Bmag = sqrt(Bx**2 + By**2 + Bz**2)
 
     Bx_net = Bx_net + Bx

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -50,7 +50,8 @@
 !    rhocrit2pwp -- critical density 2 in g/cm^3 (piecewise polytropic eos)
 !    rhocrit3    -- critical density 3 in g/cm^3 (barotropic eos)
 !
-!  DEPENDENCIES: dim, eos_mesa, infile_utils, io, part, physcon, units
+!  DEPENDENCIES: dim, eos_helmholtz, eos_mesa, infile_utils, io, part,
+!    physcon, units
 !+
 !--------------------------------------------------------------------------
 module eos
@@ -59,6 +60,7 @@ module eos
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc
  logical, parameter, public :: use_entropy = .false.
+ logical,            public :: extract_eos_from_hdr = .false.
  integer,            public :: isink = 0
 
  data qfacdisc /0.75/
@@ -109,19 +111,22 @@ contains
 !  (and position in the case of the isothermal disc)
 !+
 !----------------------------------------------------------------
-subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni)
- use io,    only:fatal,error
+subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
+ use io,    only:fatal,error,warning
  use part,  only:xyzmh_ptmass
  use units,   only:unit_density,unit_pressure,unit_ergg
  use eos_mesa, only:get_eos_pressure_gamma1_mesa
+ use eos_helmholtz, only:eos_helmholtz_pres_sound
 
  integer, intent(in)  :: eos_type
  real,    intent(in)  :: rhoi,xi,yi,zi
  real,    intent(out) :: ponrhoi,spsoundi
- real,    intent(in), optional :: eni
+ real,    intent(inout), optional :: eni
+ real,    intent(inout), optional :: tempi
  real :: r,omega,bigH,polyk_new,r1,r2
  real :: gammai
  real :: cgsrhoi, cgseni, cgspgas, pgas, gam1
+ integer :: ierr
 
  select case(eos_type)
  case(1)
@@ -246,11 +251,12 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni)
     cgsrhoi = rhoi * unit_density
     cgseni = eni * unit_ergg
 
-    call get_eos_pressure_gamma1_mesa(X_in,cgsrhoi,cgseni,cgspgas,gam1)
+    call get_eos_pressure_gamma1_mesa(cgsrhoi,cgseni,cgspgas,gam1,ierr)
     pgas = cgspgas / unit_pressure
 
     ponrhoi = pgas / rhoi
     spsoundi = sqrt(gam1*ponrhoi)
+    if (ierr /= 0) call warning('eos_mesa','extrapolating off tables')
 
  case(11)
 !
@@ -264,9 +270,21 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni)
 !--locally isothermal prescription from Farris et al. (2014) for binary system
 !
     r1=sqrt((xi-xyzmh_ptmass(1,1))**2+(yi-xyzmh_ptmass(2,1))**2 + (zi-xyzmh_ptmass(3,1))**2)
-    r2=sqrt((xi-xyzmh_ptmass(1,2))**2+(yi-xyzmh_ptmass(2,2))**2 + (zi-xyzmh_ptmass(3,2))**2 )
-    ponrhoi=polyk*(xyzmh_ptmass(4,1)*1/r1+xyzmh_ptmass(4,2)*1/r2)**(2*qfacdisc)
+    r2=sqrt((xi-xyzmh_ptmass(1,2))**2+(yi-xyzmh_ptmass(2,2))**2 + (zi-xyzmh_ptmass(3,2))**2)
+!    ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2))**(2*qfacdisc)
+    ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1))**(2*qfacdisc)
     spsoundi=sqrt(ponrhoi)
+
+ case(15)
+!
+!--helmholtz free energy eos
+!
+    if (present(tempi)) then
+       call eos_helmholtz_pres_sound(tempi, rhoi, ponrhoi, spsoundi, eni)
+    else
+       call fatal('eos','tried to call Helmholtz free energy eos without passing temperature')
+    endif
+
 
  case default
     spsoundi = 0. ! avoids compiler warnings
@@ -283,15 +301,20 @@ end subroutine equationofstate
 !  (called from step for decay timescale in alpha switches)
 !+
 !----------------------------------------------------------------
-real function get_spsound(eos_type,xyzi,rhoi,vxyzui)
+real function get_spsound(eos_type,xyzi,rhoi,vxyzui,tempi)
  use dim, only:maxvxyzu
  integer,      intent(in) :: eos_type
  real,         intent(in) :: xyzi(:),rhoi
- real,         intent(in) :: vxyzui(maxvxyzu)
+ real,         intent(inout) :: vxyzui(maxvxyzu)
+ real, intent(inout), optional :: tempi
  real :: spsoundi,ponrhoi
 
  if (maxvxyzu==4) then
-    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
+    if (present(tempi)) then
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),tempi)
+    else
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
+    endif
  else
     call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3))
  endif
@@ -309,7 +332,7 @@ real function get_temperature(eos_type,xyzi,rhoi,vxyzui)
  use dim, only:maxvxyzu
  integer,      intent(in) :: eos_type
  real,         intent(in) :: xyzi(:),rhoi
- real,         intent(in) :: vxyzui(maxvxyzu)
+ real,         intent(inout) :: vxyzui(maxvxyzu)
  real                     :: spsoundi,ponrhoi
  !
  if (maxvxyzu==4) then
@@ -357,6 +380,7 @@ subroutine init_eos(eos_type,ierr)
  use physcon,  only:mass_proton_cgs,kboltz
  use io,       only:error
  use eos_mesa, only:init_eos_mesa
+ use eos_helmholtz, only:eos_helmholtz_init
 
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -450,6 +474,10 @@ subroutine init_eos(eos_type,ierr)
     !
     call init_eos_mesa(X_in,Z_in,ierr)
 
+ case(15)
+
+    call eos_helmholtz_init(ierr)
+
  end select
  done_init_eos = .true.
 
@@ -540,6 +568,7 @@ end subroutine print_eos_to_file
 !-----------------------------------------------------------------------
 subroutine write_options_eos(iunit)
  use infile_utils, only:write_inopt
+ use eos_helmholtz, only:eos_helmholtz_write_inopt
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling equation of state'
@@ -570,6 +599,9 @@ subroutine write_options_eos(iunit)
     call write_inopt(X_in,'X','hydrogen mass fraction',iunit)
     call write_inopt(Z_in,'Z','metallicity',iunit)
 
+ case(15) ! helmholtz eos
+    call eos_helmholtz_write_inopt(iunit)
+
  end select
 
 end subroutine write_options_eos
@@ -580,12 +612,14 @@ end subroutine write_options_eos
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
- use io,         only:fatal
+ use io,            only:fatal
+ use eos_helmholtz, only:eos_helmholtz_set_relaxflag
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
  integer,          save        :: ngot  = 0
  character(len=30), parameter  :: label = 'read_options_eos'
+ integer :: tmp
 
  imatch  = .true.
  select case(trim(name))
@@ -670,6 +704,12 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
  case('Z')
     read(valstring,*,iostat=ierr) Z_in
     if (Z_in <= 0.) call fatal(label,'Z <= 0.0')
+    ngot = ngot + 1
+ case('relaxflag')
+    ! ideally would like this to be self-contained within eos_helmholtz,
+    ! but it's a bit of a pain and this is easy
+    read(valstring,*,iostat=ierr) tmp
+    call eos_helmholtz_set_relaxflag(tmp)
     ngot = ngot + 1
  case default
     imatch = .false.
@@ -791,9 +831,10 @@ end function diff
 !----------------------------------------------------------------
 
 subroutine eosinfo(eos_type,iprint)
- use dim,   only:maxvxyzu
- use io,    only:fatal
- use units, only:unit_density, unit_velocity
+ use dim,           only:maxvxyzu
+ use io,            only:fatal
+ use units,         only:unit_density, unit_velocity
+ use eos_helmholtz, only:eos_helmholtz_eosinfo
  integer, intent(in) :: eos_type,iprint
  real, parameter :: uthermcheck = 3.14159, rhocheck = 23.456
 
@@ -873,6 +914,9 @@ subroutine eosinfo(eos_type,iprint)
                                                  ,rhocrit0pwp,rhocrit1pwp,rhocrit2pwp, '; K = ',k0pwp,k1pwp,k2pwp,k3pwp
     write(iprint,"(  a,3(es10.3)            )") ' Piecewise polytropic eq of state (g/cm^3)     : rhocrit = '&
                                                  ,rhocrit0pwp*unit_density,rhocrit1pwp*unit_density,rhocrit2pwp*unit_density
+ case(15)
+    call eos_helmholtz_eosinfo(iprint)
+
  end select
  write(iprint,*)
 

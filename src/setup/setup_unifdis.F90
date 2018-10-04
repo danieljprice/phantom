@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@
 !  RUNTIME PARAMETERS:
 !    cs0         -- initial sound speed in code units
 !    dist_unit   -- distance unit (e.g. au)
-!    dust_to_gas -- initial dust-to-gas ratio
+!    dust_to_gas -- dust-to-gas ratio
 !    ilattice    -- lattice type (1=cubic, 2=closepacked)
 !    mass_unit   -- mass unit (e.g. solarm)
 !    nx          -- number of particles in x direction
@@ -31,21 +31,23 @@
 !    zmax        -- zmax boundary
 !    zmin        -- zmin boundary
 !
-!  DEPENDENCIES: boundary, dim, dust, infile_utils, io, mpiutils, options,
-!    part, physcon, prompting, setup_params, unifdis, units
+!  DEPENDENCIES: boundary, dim, infile_utils, io, mpiutils, options, part,
+!    physcon, prompting, set_dust, setup_params, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
- use setup_params, only:rhozero
  use dim,          only:use_dust
  use options,      only:use_dustfrac
+ use setup_params, only:rhozero
  implicit none
  public :: setpart
 
  integer :: npartx,ilattice
- real    :: cs0,dust_to_gas,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi
+ real    :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi
  character(len=20) :: dist_unit,mass_unit
  real(kind=8) :: udist,umass
+ !--dust
+ real    :: dust_to_gas
  private
 
 contains
@@ -61,9 +63,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:master
  use unifdis,      only:set_unifdis
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
- use part,         only:dustfrac,abundance,iHI
+ use part,         only:abundance,iHI,dustfrac
  use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm
- use dust,         only:set_dustfrac
+ use set_dust,     only:set_dustfrac
  use units,        only:set_units
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -105,7 +107,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartx = 64
  ilattice = 1
  cs0 = 1.
- dust_to_gas = 0.01
+ if (use_dust) then
+    use_dustfrac = .true.
+    dust_to_gas = 0.01
+ endif
  !
  ! get disc setup parameters from file or interactive setup
  !
@@ -136,7 +141,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  deltax = dxbound/npartx
  npart = 0
  npart_total = 0
- if (use_dust) use_dustfrac = .true.
 
  select case(ilattice)
  case(1)
@@ -164,7 +168,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (use_dustfrac) then
     do i=1,npart
-       call set_dustfrac(dust_to_gas,dustfrac(i))
+       call set_dustfrac(dust_to_gas,dustfrac(:,i))
     enddo
  endif
 
@@ -245,10 +249,8 @@ subroutine setup_interactive(id,polyk)
  !
  ! dust to gas ratio
  !
- if (use_dust) use_dustfrac = .true.
  if (use_dustfrac) then
-    dust_to_gas = 1.e-2
-    if (id==master) call prompt(' enter dust-to-gas ratio ',dust_to_gas,0.)
+    call prompt('Enter dust to gas ratio',dust_to_gas,0.)
     call bcast_mpi(dust_to_gas)
  endif
  !
@@ -296,7 +298,9 @@ subroutine write_setupfile(filename)
  call write_inopt(npartx,'nx','number of particles in x direction',iunit)
  call write_inopt(rhozero,'rhozero','initial density in code units',iunit)
  call write_inopt(cs0,'cs0','initial sound speed in code units',iunit)
- if (use_dust) call write_inopt(dust_to_gas,'dust_to_gas','initial dust-to-gas ratio',iunit)
+ if (use_dustfrac) then
+    call write_inopt(dust_to_gas,'dust_to_gas','dust-to-gas ratio',iunit)
+ endif
  call write_inopt(ilattice,'ilattice','lattice type (1=cubic, 2=closepacked)',iunit)
  close(iunit)
 
@@ -341,7 +345,9 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(npartx,'nx',db,min=8,errcount=nerr)
  call read_inopt(rhozero,'rhozero',db,min=0.,errcount=nerr)
  call read_inopt(cs0,'cs0',db,min=0.,errcount=nerr)
- if (use_dust) call read_inopt(dust_to_gas,'dust_to_gas',db,min=0.,errcount=nerr)
+ if (use_dustfrac) then
+    call read_inopt(dust_to_gas,'dust_to_gas',db,min=0.,errcount=nerr)
+ endif
  call read_inopt(ilattice,'ilattice',db,min=1,max=2,errcount=nerr)
  call close_db(db)
  !

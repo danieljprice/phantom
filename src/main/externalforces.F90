@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -67,12 +67,13 @@ module externalforces
    iext_gnewton       = 12, &
    iext_staticsine    = 13, &
    iext_gwinspiral    = 14, &
-   iext_discgravity   = 15
+   iext_discgravity   = 15, &
+   iext_corot_binary  = 16
 
  !
  ! Human-readable labels for these
  !
- integer, parameter, public  :: iexternalforce_max = 15
+ integer, parameter, public  :: iexternalforce_max = 16
  character(len=*), parameter, public :: externalforcetype(iexternalforce_max) = (/ &
     'star                 ', &
     'corotate             ', &
@@ -88,7 +89,8 @@ module externalforces
     'generalised Newtonian', &
     'static sinusoid      ', &
     'grav. wave inspiral  ', &
-    'disc gravity         '/)
+    'disc gravity         ', &
+    'corotating binary    '/)
 
 contains
 !-----------------------------------------------------------------------
@@ -390,6 +392,18 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
     phi = -mass1/sqrt(Rdisc**2 + yi**2)
     fextyi = -yi*mass1/sqrt(Rdisc**2 + yi**2)**3
 
+ case(iext_corot_binary)
+    !
+    !--gravitational force from central binary
+    !
+    call binary_force(xi,yi,zi,ti,fextxi,fextyi,fextzi,phi)
+
+    !
+    !--spatial part of forces in corotating frame, i.e. centrifugal force
+    !
+    pos = (/xi,yi,zi/)
+    call get_centrifugal_force(pos,fextxi,fextyi,fextzi,phi)
+
  case default
 !
 !--external forces should not be called if iexternalforce = 0
@@ -445,7 +459,7 @@ logical function is_velocity_dependent(iexternalforce)
  integer, intent(in) :: iexternalforce
 
  select case(iexternalforce)
- case(iext_corotate,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton)
+ case(iext_corotate,iext_corot_binary,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton)
     is_velocity_dependent = .true.
  case default
     is_velocity_dependent = .false.
@@ -471,7 +485,7 @@ subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti)
  real,    intent(inout) :: poti
 
  select case(iexternalforce)
- case(iext_corotate)
+ case(iext_corotate,iext_corot_binary)
     call get_coriolis_force(xyzi,veli,fexti,poti)
  case(iext_prdrag)
     call get_prdrag_vdependent_force(xyzi,veli,mass1,fexti)
@@ -505,7 +519,7 @@ subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
  real,    intent(out)   :: fexti(3)
 
  select case(iexternalforce)
- case(iext_corotate)
+ case(iext_corotate,iext_corot_binary)
     call update_coriolis_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt)
  case(iext_prdrag)
     call update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,mass1)
@@ -533,7 +547,7 @@ subroutine update_externalforce(iexternalforce,ti,dmdt)
  logical             :: stopped_now
 
  select case(iexternalforce)
- case(iext_binary)
+ case(iext_binary,iext_corot_binary)
     call update_binary(ti)
  case(iext_prdrag)
     call make_beta_grids( xyzh, massoftype(igas), npartoftype(igas) )
@@ -572,7 +586,7 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
     r2 = xi*xi + yi*yi + zi*zi
     if (r2 < accradius1**2) accreted = .true.
 
- case(iext_binary)
+ case(iext_binary,iext_corot_binary)
 
     accreted = binary_accreted(xi,yi,zi,mi,ti)
 
@@ -594,7 +608,7 @@ pure logical function was_accreted(iexternalforce,hi)
  real,    intent(in) :: hi
 
  select case(iexternalforce)
- case(iext_star,iext_binary,iext_prdrag,&
+ case(iext_star,iext_binary,iext_corot_binary,iext_prdrag,&
       iext_lensethirring,iext_einsteinprec,iext_gnewton)
     ! An accreted particle is indicated by h < 0.
     ! Note less than, but not equal.
@@ -643,6 +657,9 @@ subroutine write_options_externalforces(iunit,iexternalforce)
  select case(iexternalforce)
  case(iext_corotate)
     call write_options_corotate(iunit)
+ case(iext_corot_binary)
+    call write_options_corotate(iunit)
+    call write_options_externbinary(iunit)
  case(iext_binary)
     call write_options_externbinary(iunit)
  case(iext_prdrag)
@@ -678,7 +695,7 @@ subroutine write_headeropts_extern(iexternalforce,hdr,time,ierr)
  select case(iexternalforce)
  case(iext_gwinspiral)
     call write_headeropts_gwinspiral(hdr,ierr)
- case(iext_binary)
+ case(iext_binary,iext_corot_binary)
     call write_headeropts_externbinary(hdr,time,ierr)
  end select
 
@@ -701,7 +718,7 @@ subroutine read_headeropts_extern(iexternalforce,hdr,ierr)
  select case(iexternalforce)
  case(iext_gwinspiral)
     call read_headeropts_gwinspiral(hdr,ierr)
- case(iext_binary)
+ case(iext_binary,iext_corot_binary)
     call read_headeropts_externbinary(hdr,ierr)
  end select
 
@@ -770,6 +787,9 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
     select case(iexternalforce)
     case(iext_corotate)
        call read_options_corotate(name,valstring,imatch,igotallcorotate,ierr)
+    case(iext_corot_binary)
+       call read_options_corotate(name,valstring,imatch,igotallcorotate,ierr)
+       call read_options_externbinary(name,valstring,imatch,igotallbinary,ierr)
     case(iext_binary)
        call read_options_externbinary(name,valstring,imatch,igotallbinary,ierr)
     case(iext_prdrag)
@@ -843,7 +863,7 @@ subroutine initialise_externalforces(iexternalforce,ierr)
  end select
 
  select case(iexternalforce)
- case(iext_star,iext_binary,iext_prdrag,iext_spiral,iext_lensethirring,iext_einsteinprec,iext_gnewton)
+ case(iext_star,iext_binary,iext_corot_binary,iext_prdrag,iext_spiral,iext_lensethirring,iext_einsteinprec,iext_gnewton)
     !
     !--check that G=1 in code units
     !

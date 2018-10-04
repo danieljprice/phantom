@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -18,9 +18,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: datafiles, dim, dust, extern_spiral, externalforces, io,
-!    mpiutils, options, part, physcon, prompting, random, setup_params,
-!    units
+!  DEPENDENCIES: datafiles, dim, extern_spiral, externalforces, io,
+!    mpiutils, options, part, physcon, prompting, random, set_dust,
+!    setup_params, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -54,20 +54,20 @@ contains
 !
 !--------------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,     only:maxp,maxvxyzu,use_dust
- use setup_params, only:rhozero
- use physcon, only:Rg,pi,solarm,pc,kpc
- use units,   only:umass,udist,utime,set_units
- use mpiutils,only:bcast_mpi
- use random,  only:ran2
- use part,    only:h2chemistry,abundance,iHI,dustfrac,istar,igas,ibulge,&
-              idarkmatter,iunknown,set_particle_type
- use options, only:iexternalforce,icooling,nfulldump,use_dustfrac
+ use dim,            only:maxp,maxvxyzu,use_dust
+ use setup_params,   only:rhozero
+ use physcon,        only:Rg,pi,solarm,pc,kpc
+ use units,          only:umass,udist,utime,set_units
+ use mpiutils,       only:bcast_mpi
+ use random,         only:ran2
+ use part,           only:h2chemistry,abundance,iHI,dustfrac,istar,igas,ibulge,&
+                          idarkmatter,iunknown,set_particle_type,ndusttypes
+ use options,        only:iexternalforce,icooling,nfulldump,use_dustfrac
  use externalforces, only:externalforce,initialise_externalforces
- use extern_spiral, only:LogDisc
- use io,      only:fatal
+ use extern_spiral,  only:LogDisc
+ use io,             only:fatal
  use prompting,      only:prompt
- use dust,           only:set_dustfrac
+ use set_dust,       only:set_dustfrac
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -491,8 +491,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     if (use_dust) use_dustfrac = .true.
     if (use_dustfrac) then
-       print*,'What is dust to gas ratio?'
-       read*,dust_to_gas_ratio
+       dust_to_gas_ratio = 0.01
+       call prompt(' What is dust to gas ratio?',dust_to_gas_ratio)
        call bcast_mpi(dust_to_gas_ratio)
     endif
     ierr=0
@@ -576,8 +576,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !------------------------Dust-fractions----------------------------
 !
  if (use_dustfrac) then
+    ndusttypes = 1
     do i=1,npart
-       call set_dustfrac(dust_to_gas_ratio,dustfrac(i))
+       call set_dustfrac(dust_to_gas_ratio,dustfrac(:,i))
     enddo
  endif
 
