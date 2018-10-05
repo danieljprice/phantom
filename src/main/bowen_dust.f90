@@ -26,12 +26,15 @@
 module bowen_dust
   implicit none
 
-  public :: radiative_acceleration, pulsating_bowen_wind_profile, bowen_init
+#define ALPHA_WIND
+
+  public :: radiative_acceleration,pulsating_bowen_wind_profile, bowen_init
 
   private
   integer, parameter :: N = 1024
   integer, parameter :: wind_emitting_sink = 1
   logical, parameter :: verbose = .false.
+  real, parameter :: alpha_wind = 1.d0
   real :: kappa, kmax, L, c_light, specific_energy_to_T_ratio, Cprime, Tcond, delta, Teff
 
 contains
@@ -58,15 +61,20 @@ subroutine pulsating_bowen_wind_profile(local_time, r, v, u, rho, e, sphere_numb
   real :: base_time,base_radius, base_velocity, base_temperature, acceleration, rad_acc, T
 
   base_time = (sphere_number-shift_spheres)*time_between_spheres
-  base_radius = wind_injection_radius
   base_velocity = wind_velocity + wind_osc_vamplitude* cos(2.*pi*base_time/wind_osc_period)
+  base_radius = wind_injection_radius + wind_osc_vamplitude*wind_osc_period/(2.*pi)*sin(2.*pi*base_time/wind_osc_period)
   base_temperature = wind_temperature
-  acceleration = Gg * central_star_mass / wind_injection_radius**2
-
+  acceleration = -Gg * central_star_mass / base_radius**2
+#ifndef ALPHA_WIND
   call guess_acceleration(base_radius, central_star_radius, rad_acc)
+#else
+  rad_acc = -alpha_wind*acceleration
+#endif
   acceleration = acceleration + rad_acc
 
-  !print *,'e',base_radius, local_time*base_velocity, acceleration*(local_time)**2/2., base_velocity , acceleration*local_time
+  ! print *,'radii',wind_injection_radius,base_radius-wind_injection_radius
+  ! print *,'velo ',base_velocity,wind_osc_vamplitude
+  ! print *,'acc  ',acceleration*(local_time)**2/2.,local_time*base_velocity , acceleration*local_time
   r = base_radius + local_time*base_velocity + acceleration*local_time**2/2.
   v = base_velocity + acceleration*local_time
   T = base_temperature
@@ -118,7 +126,7 @@ end subroutine
     real :: OR(N), OR2(N), tau_prime(N)
     real :: Teq(N), kd(N), a(N), a_over_OR(N), kap(N)
     real :: Teq_part(npart), a_over_d_part(npart)
-    real :: dQ_dt
+    real :: dQ_dt,fgrav
     integer :: i
 
     O = xyzmh_ptmass(1:3,1)
@@ -131,6 +139,18 @@ end subroutine
     else
       h = xyzh(4,1:npart)
       call center_star(npart, xyzh, O, r, d, dmin, dmax)
+#ifdef ALPHA_WIND
+      fgrav = alpha_wind*xyzmh_ptmass(4,wind_emitting_sink)
+      do i=1,npart
+         if (xyzh(4,i)  >  0.) then
+            if (i<4) print '(6(1x,es12.4))',fxyzu(1:3,i),fgrav/d(i)**3*r(1:3,i)
+            fxyzu(1:3,i) = fxyzu(1:3,i) + fgrav/d(i)**3*r(1:3,i)
+            vxyzu(4,i) = Teff*specific_energy_to_T_ratio
+            fxyzu(4,i) = 0.d0
+        endif
+       !if (i<20) print '("a",i4,18(1x,es12.4))',i,fxyzu(1:4,i),xyzh(1:3,i)
+       enddo
+#else
       if (abs((dmin-dmax)/dmax)  <  1.0d-10) then
         rho_over_r2 = 0.
       else
@@ -167,6 +187,7 @@ end subroutine
        endif
        !if (i<20) print '("a",i4,18(1x,es12.4))',i,fxyzu(1:4,i),xyzh(1:3,i)
       enddo
+#endif
    endif
    !stop
 
@@ -181,7 +202,7 @@ end subroutine
       write(iprint,*) " * amax:", maxval(a)
       write(iprint,*) ""
     endif
-  end subroutine
+  end subroutine radiative_acceleration
 
 !-----------------------------------------------------------------------
 !+
@@ -213,7 +234,8 @@ end subroutine
       write(iprint,*) " * a(rinject) : ", a(1)
       write(iprint,*) ""
     endif
-  end subroutine
+
+  end subroutine guess_acceleration
 
 !-----------------------------------------------------------------------
 !+
@@ -283,14 +305,15 @@ end subroutine
 !     * a(N): acceleration along the half-line
 !+
 !-----------------------------------------------------------------------
-  subroutine calculate_acceleration(N, L, c, OR2, kd, a)
-    use physcon, only:pi
-    integer, intent(in)  :: N
-    real,    intent(in)  :: L, c, OR2(N), kd(N)
-    real,    intent(out) :: a(N)
+  ! subroutine calculate_acceleration(N, L, c, OR2, kd, a)
+  !   use physcon, only:pi
+  !   integer, intent(in)  :: N
+  !   real,    intent(in)  :: L, c, OR2(N), kd(N)
+  !   real,    intent(out) :: a(N)
 
-    a = L/(4.*pi*c) * kd/OR2
-  end subroutine
+  !   a = L/(4.*pi*c) * kd/OR2
+
+  ! end subroutine
 
 !-----------------------------------------------------------------------
 !+
@@ -318,7 +341,7 @@ end subroutine
 !  Calculates Teq, the radiative equilibrium temperature along the half-line
 !   Inputs:
 !     * N: number of steps
-!     * Teff: temperature of central star
+!     * Teff: effective temperature of central star
 !     * R_star: radius of central star
 !     * tau_prime(N): optical depth
 !     * OR2(N): squared distance

@@ -126,11 +126,19 @@ subroutine wind_init(setup)
  particles_per_sphere = 20 * (2*iwind_resolution*(iwind_resolution-1)) + 12
  neighbour_distance = 2./((2.*iwind_resolution-1.)*sqrt(sqrt(5.)*phi))
  mass_of_particles = wind_sphdist * neighbour_distance * wind_injection_radius * wind_mass_rate &
-                    / (particles_per_sphere * wind_velocity)
+                    / (particles_per_sphere * max(wind_velocity,wind_osc_vamplitude))
  mass_of_spheres = mass_of_particles * particles_per_sphere
  time_between_spheres = mass_of_spheres / wind_mass_rate
  call compute_matrices(geodesic_R)
  call compute_corners(geodesic_v)
+
+ if (wind_verbose) then
+  print *,'particles_per_sphere ',particles_per_sphere
+  print *,'neighbour_distance ',neighbour_distance
+  print *,'mass_of_particles ',mass_of_particles
+  print *,'mass_of_spheres ',mass_of_spheres
+  print *,'time_between_spheres ',time_between_spheres
+ endif
 
  ! adjusting dtmax to avoid uterm < 0 errors
  if (setup) then
@@ -174,6 +182,7 @@ subroutine inject_particles(time_u,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
  outer_sphere = floor((time-dtlast)/time_between_spheres) + 1
  inner_sphere = floor(time/time_between_spheres)
  inner_handled_sphere = inner_sphere + ihandled_spheres
+ print *,'spheres',inner_sphere,inner_handled_sphere,outer_sphere,npart
  do i=inner_sphere+ihandled_spheres,outer_sphere,-1
     local_time = time - (i-shift_spheres) * time_between_spheres
     call compute_sphere_properties(local_time, r, v, u, rho, e, i)
@@ -190,11 +199,14 @@ subroutine inject_particles(time_u,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
     endif
     if (i > inner_sphere) then
        call inject_geodesic_sphere(i, (ihandled_spheres-i+inner_sphere)*particles_per_sphere+1, r, v, u, rho, &
-        npart, npartoftype, xyzh, vxyzu) ! handled sphere
+            npart, npartoftype, xyzh, vxyzu) ! handled sphere
+       print *,'handled',i,npart
     else
        call inject_geodesic_sphere(i, npart+1, r, v, u, rho, npart, npartoftype, xyzh, vxyzu) ! injected sphere
+       print *,'ejected',i,npart
     endif
  enddo
+ print *,'npart',npart,inner_sphere-outer_sphere+1
  mass_lost = mass_of_spheres * (inner_sphere-outer_sphere+1)
  xyzmh_ptmass(4,wind_emitting_sink) = xyzmh_ptmass(4,wind_emitting_sink) - mass_lost/umass
 
@@ -433,7 +445,7 @@ subroutine write_options_inject(iunit)
 #ifdef BOWEN
  write(iunit,"(/,a)") '# options controlling bowen dust around central star'
 
- call write_inopt(bowen_kappa,'bowen_kappa','star atmosphere opacity (cm²/g)',iunit)
+ call write_inopt(bowen_kappa,'bowen_kappa','constant gas opacity (cm²/g)',iunit)
  call write_inopt(bowen_Teff,'bowen_Teff','effective temperature of the central star (K)',iunit)
  call write_inopt(bowen_kmax,'bowen_kmax','maximum dust opacity (cm²/g)',iunit)
  call write_inopt(bowen_Tcond,'bowen_Tcond','condensation temperature of dust (K)',iunit)
