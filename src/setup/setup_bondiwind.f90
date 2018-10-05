@@ -44,7 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use metric,         only: mass1, imetric
  use metric_tools,   only: imet_schwarzschild
  use externalforces, only: accradius1,accradius1_hard
- use inject,         only: wind_init,inject_particles,wind_gamma,mass_of_particles
+ use inject,         only: wind_init,inject_particles,gammawind,masspart
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -63,7 +63,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  time  = 0.
  tmax  = 1000.
  polyk = 0.
- gamma = wind_gamma
+ gamma = gammawind
  iexternalforce  = 1
  mass1           = 1.
  accradius1      = 2.*mass1
@@ -77,7 +77,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = 0
  npartoftype(:) = 0
 
- massoftype = mass_of_particles
+ massoftype = masspart
 
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.
