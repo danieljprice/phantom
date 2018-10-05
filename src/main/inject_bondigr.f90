@@ -134,6 +134,7 @@ subroutine inject_particles(time_u,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
  real :: time, dtlast, local_time, r, v, u, rho, mass_lost
  real :: r2,outer_boundary
  logical, save :: first_run = .true.
+ logical :: outerbound
 
  if (first_run) then
     call wind_init(.false.)
@@ -176,15 +177,20 @@ subroutine inject_particles(time_u,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
  enddo
  mass_lost = mass_of_spheres * (inner_sphere-outer_sphere+1)
 
- outer_boundary = 20.*mass1
- !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,outer_boundary) &
- !$omp private(i,r2)
- do i=1,npart
-    r2 = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
-    if (r2 >outer_boundary**2) xyzh(4,i) = -abs(xyzh(4,i))
- enddo
- !$omp end parallel do
+
+ !--- "Accrete" particles after reaching some outer boundary
+ outerbound = .false.
+ if (outerbound) then
+    outer_boundary = 20.*mass1
+    !$omp parallel do default(none) &
+    !$omp shared(npart,xyzh,outer_boundary) &
+    !$omp private(i,r2)
+    do i=1,npart
+       r2 = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
+       if (r2 >outer_boundary**2) xyzh(4,i) = -abs(xyzh(4,i))
+    enddo
+    !$omp end parallel do
+ endif
 
 end subroutine inject_particles
 
