@@ -166,30 +166,30 @@ subroutine setup_interactive()
  use prompting, only:prompt
  use physcon,   only:solarm
  use units,     only:umass
-    !
-    !--set default options
-    !
+ !
+ !--set default options
+ !
 !    print "(a,f6.3,a,1pe8.2,a)",' Schwarzschild radius is ',2.0*udist/au,' AU for ',umass/solarm,' M_sun black hole'
 
-    call prompt('Enter total number of gas particles ',np,0)
-    call prompt('Enter mass ratio of binary',massr,0.,1.)
+ call prompt('Enter total number of gas particles ',np,0)
+ call prompt('Enter mass ratio of binary',massr,0.,1.)
 
-    accradius2 = massr*accradius1
+ accradius2 = massr*accradius1
 
-    call prompt('Enter initial binary separation',a0,0.)
-    call prompt('Enter accretion radius of the PRIMARY black hole ',accradius1,accradius1,a0)
-    call prompt('Enter accretion radius of the SECONDARY black hole ',accradius2,accradius2,a0)
+ call prompt('Enter initial binary separation',a0,0.)
+ call prompt('Enter accretion radius of the PRIMARY black hole ',accradius1,accradius1,a0)
+ call prompt('Enter accretion radius of the SECONDARY black hole ',accradius2,accradius2,a0)
 
-    call prompt('Enter inner disc edge R_in ',R_in,accradius1)
-    call prompt('Enter outer disc edge R_out ',R_out,R_in)
-    call prompt('Enter H/R at R=R_in ',HoverRinput,0.)
-    call prompt('Enter p index of surface density profile Sigma = Sigma0*R^-p',p_indexinput,0.)
-    call prompt('Enter q index of temperature profile cs = cs0*R^-q',q_indexinput,0.)
-    print "(a,es10.4,a)",'Enter disc mass in units of ',umass/solarm,' solar masses (Mjup = 8.6 x 10^-4 Msun) '
-    call prompt(' ',discm,0.)
-    call prompt('Enter desired value of alpha_SS',alphaSS,0.)
+ call prompt('Enter inner disc edge R_in ',R_in,accradius1)
+ call prompt('Enter outer disc edge R_out ',R_out,R_in)
+ call prompt('Enter H/R at R=R_in ',HoverRinput,0.)
+ call prompt('Enter p index of surface density profile Sigma = Sigma0*R^-p',p_indexinput,0.)
+ call prompt('Enter q index of temperature profile cs = cs0*R^-q',q_indexinput,0.)
+ print "(a,es10.4,a)",'Enter disc mass in units of ',umass/solarm,' solar masses (Mjup = 8.6 x 10^-4 Msun) '
+ call prompt(' ',discm,0.)
+ call prompt('Enter desired value of alpha_SS',alphaSS,0.)
 
-    call prompt('Enter disc inclination (deg) ',inc,-180.,180.)
+ call prompt('Enter disc inclination (deg) ',inc,-180.,180.)
 
 end subroutine setup_interactive
 
