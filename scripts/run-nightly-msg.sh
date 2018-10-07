@@ -1,11 +1,28 @@
 #!/bin/bash
+#
+# Wrapper script to perform nightly build checks
+# for the PHANTOM code on a host machine
+# Contains machine-specific environment settings
+#
 dir=~/phantom-nightly
+#
+# the following two routines prevent the nightly checks
+# from running until the previous nightly checks have
+# finished
+#
 lockfile='LOCKFILE'
 get_lock()
 {
   if [ -e $lockfile ]; then
      echo "$lockfile exists";
-     return 1;
+     # check if it is more than 48 hours old, if so delete
+     if test `find $lockfile -mmin +2880`; then
+        echo "deleting $lockfile more than 48 hours old";
+        rm $lockfile;
+        return 0;
+     else
+        return 1;
+     fi
   else
      date >> $lockfile
      return 0;
@@ -18,6 +35,7 @@ release_lock()
 load_modules()
 {
   source /etc/profile.d/modules.sh
+  source /etc/profile.d/modulecmd.sh
   source ~/.bashrc
   module purge
   source ~/.modules_buildbot
@@ -67,6 +85,10 @@ run_bots()
   else
      echo "error running bots";
   fi
+}
+run_stats()
+{
+  cd $dir/phantom-bots/scripts;
   ./stats.sh $dir >& $dir/stats.log;
   if [ $? -eq 0 ]; then
      echo "stats ran OK";
@@ -77,7 +99,7 @@ run_bots()
   ./phantom-bots/scripts/get_buildbot_timings.sh 20*.html > buildbot_timing.txt;
   ./phantom-bots/scripts/parse-timings.pl 20*.html > testbot_timing.txt;
   ./phantom-bots/scripts/plotstats.sh >> $dir/stats.log;
-  cd $dir;
+  cd $dir
 }
 if [ -d $dir ]; then
    cd $dir;
@@ -97,7 +119,7 @@ check_git;
 if [ $? -eq 0 ]; then
    run_bots;
    run_nightly_build;
-   echo "running";
+   run_stats;
 else
    echo "aborting...";
 fi

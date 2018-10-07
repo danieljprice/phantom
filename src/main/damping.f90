@@ -128,7 +128,7 @@ subroutine read_options_damping(name,valstring,imatch,igotall,ierr,idamp)
     if (idamp < 0) call fatal(label,'damping form choice out of range')
  case('damp')
     read(valstring,*,iostat=ierr) damp
-    if (damp <= 0.)  call fatal(label,'damp <= 0: damping must be positive')
+    if (damp < 0.)  call fatal(label,'damp <= 0: damping must be positive')
     ngot = ngot + 1
  case('tdyn_s')
     read(valstring,*,iostat=ierr) tdyn_s
