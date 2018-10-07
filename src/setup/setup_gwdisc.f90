@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
@@ -26,6 +26,7 @@
 !    accradius2   -- secondary accretion radius
 !    alphaSS      -- desired alpha_SS
 !    discm        -- disc mass
+!    inc          -- inclination (tilt) in degrees
 !    massr        -- mass ratio
 !    np           -- number of particles
 !    p_indexinput -- surface density profile
