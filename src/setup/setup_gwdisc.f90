@@ -56,11 +56,11 @@ contains
 !
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use setdisc,       only:set_disc
- use units,         only:set_units
- use physcon,       only:pi,solarm
- use io,            only:master
- use options,       only:iexternalforce, alpha
+ use setdisc,        only:set_disc
+ use units,          only:set_units
+ use physcon,        only:pi,solarm
+ use io,             only:master
+ use options,        only:iexternalforce, alpha
  use externalforces, only:iext_binary
  integer,            intent(in)            :: id
  integer,            intent(out)           :: npart
@@ -77,7 +77,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  logical :: iexist
  character(len=100) :: filename
-
  !
  !--set code units
  !
@@ -200,21 +199,17 @@ subroutine write_setupfile(filename)
 
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# input file for gwdisc setup routines'
-
+ write(iunit,"(a)")   '# input file for gwdisc setup routines'
  write(iunit,"(/,a)") '# resolution'
-
  call write_inopt(np,'np','number of particles',iunit)
 
  write(iunit,"(/,a)") '# options for binary'
-
  call write_inopt(massr,'massr','mass ratio',iunit)
  call write_inopt(a0,'a0','initial binary separation',iunit)
  call write_inopt(accradius1,'accradius1','primary accretion radius',iunit)
  call write_inopt(accradius2,'accradius2','secondary accretion radius',iunit)
 
  write(iunit,"(/,a)") '# options for accretion disc'
-
  call write_inopt(R_in,'R_in','inner radius',iunit)
  call write_inopt(R_out,'R_out', 'outer radius',iunit)
  call write_inopt(HoverRinput,'HoverRinput','H/R at R_in',iunit)
@@ -230,8 +225,6 @@ end subroutine write_setupfile
 
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use extern_binary, only:accradius1,accradius2,binary_posvel
- use extern_binary, only:massr,a0
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
@@ -241,7 +234,6 @@ subroutine read_setupfile(filename,ierr)
  print "(a)",'reading setup options from '//trim(filename)
 
  call open_db_from_file(db,filename,iunit,ierr)
-
  nerr = 0
  call read_inopt(np,'np',db,min=1,errcount=nerr)
  call read_inopt(massr,'massr',db,min=0.,errcount=nerr)
@@ -260,7 +252,6 @@ subroutine read_setupfile(filename,ierr)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
  endif
-
  call close_db(db)
  close(iunit)
 
