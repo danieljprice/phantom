@@ -37,18 +37,9 @@ module timestep
  real, parameter :: bignumber = 1.e29
 
  real    :: dt, dtcourant, dtforce, dtextforce, dterr, dtdiff, time
+ real    :: dtmax_dratio, dtmax_max, dtmax_min, rhomaxnow
+ integer :: dtmax_ifactor
  logical :: restartonshortest
-
- ! When rho_max > rho_dtthresh, then decrease dtmax by dtmax_rat;
- ! this can currently be done only once per simulation.
- ! The logicals will be automatically adjusted, so do not modify.
- real,    public :: rho_dtthresh
- real,    public :: rho_dtthresh_cgs  = 0.0
- integer, public :: dtmax_rat0        = 1
- integer, public :: dtmax_rat
- logical, public :: mod_dtmax         = .true.
- logical, public :: mod_dtmax_now     = .false.
- logical, public :: mod_dtmax_in_step = .false.
 
 end module timestep
 

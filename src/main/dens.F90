@@ -144,7 +144,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use mpiderivs, only:send_cell,recv_cells,check_send_finished,init_cell_exchange, &
                      finish_cell_exchange,recv_while_wait,reset_cell_counters
 #endif
- use timestep,  only:rho_dtthresh,mod_dtmax,mod_dtmax_now
+ use timestep,  only:rhomaxnow
  use part,      only:ngradh
  use viscosity, only:irealvisc
  use io_summary,only:summary_variable,iosumhup,iosumhdn
@@ -287,7 +287,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp reduction(+:nneighact) &
 !$omp reduction(+:nneightry) &
 !$omp reduction(+:nrelink) &
-!$omp reduction(+:stressmax,rhomax) &
+!$omp reduction(+:stressmax) &
+!$omp reduction(max:rhomax) &
 !$omp private(i)
 
 !$omp do schedule(runtime)
@@ -538,14 +539,11 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  ! reduce rhomax
  rhomax = reduceall_mpi('max',rhomax)
+ rhomaxnow = rhomax
 
  if (realviscosity .and. maxdvdx==maxp .and. stressmax > 0. .and. iverbose > 0 .and. id==master) then
     call warning('force','applying negative stress correction',var='max',val=-stressmax)
  endif
-!
-!--determine if we need to decrease dtmax at the next opportunity
-!
- if (mod_dtmax .and. rhomax > rho_dtthresh) mod_dtmax_now = .true.
 !
 !--warnings
 !

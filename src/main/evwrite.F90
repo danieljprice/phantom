@@ -49,13 +49,14 @@ module evwrite
  use io,             only: fatal
  use part,           only: npart
  use options,        only: iexternalforce
+ use timestep,       only: dtmax_dratio
  use externalforces, only: iext_binary,was_accreted
  use energies,       only: inumev,iquantities,ev_data
  use energies,       only: ndead
  use energies,       only: gas_only,track_mass,track_lum
  use energies,       only: iev_sum,iev_max,iev_min,iev_ave
  use energies,       only: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
-                           iev_angmom,iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
+                           iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
                            iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah,&
                            iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT,&
                            iev_dtg,iev_ts,iev_dm,iev_momall,iev_angall,iev_angall,iev_maccsink,&
@@ -115,6 +116,9 @@ subroutine init_evfile(iunit,evfile,open_file)
  call fill_ev_tag(ev_fmt,iev_angmom, 'angtot',   '0', i,j)
  call fill_ev_tag(ev_fmt,iev_rho,    'rho',      'xa',i,j)
  call fill_ev_tag(ev_fmt,iev_dt,     'dt',       '0', i,j)
+ if (dtmax_dratio > 0.) then
+    call fill_ev_tag(ev_fmt,iev_dtx, 'dtmax',    '0', i,j)
+ endif
  call fill_ev_tag(ev_fmt,iev_entrop, 'totentrop','s', i,j)
  call fill_ev_tag(ev_fmt,iev_rmsmach,'rmsmach',  's', i,j)
  call fill_ev_tag(ev_fmt,iev_vrms,   'vrms',     's', i,j)
@@ -333,6 +337,7 @@ end subroutine fill_ev_header
 !+
 !----------------------------------------------------------------
 subroutine write_evfile(t,dt)
+ use timestep,      only:dtmax
  use energies,      only:compute_energies,ev_data_update
  use io,            only:id,master,ievfile
  use options,       only:iexternalforce
@@ -346,7 +351,8 @@ subroutine write_evfile(t,dt)
 
  if (id==master) then
     !--fill in additional details that are not calculated in energies.f
-    ev_data(iev_sum,iev_dt) = dt
+    ev_data(iev_sum,iev_dt)  = dt
+    ev_data(iev_sum,iev_dtx) = dtmax
     if (iexternalforce==iext_binary) then
        ev_data(iev_sum,iev_maccsink(1)) = accretedmass1
        ev_data(iev_sum,iev_maccsink(2)) = accretedmass2

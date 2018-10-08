@@ -65,7 +65,8 @@ module options
 contains
 
 subroutine set_default_options
- use timestep,  only:C_cour,C_force,C_cool,tmax,dtmax,nmax,nout,restartonshortest
+ use timestep,  only:C_cour,C_force,C_cool,tmax,dtmax,nmax,nout,restartonshortest, &
+                     dtmax_dratio,dtmax_max,dtmax_min
  use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha
  use viscosity, only:set_defaults_viscosity
  use dim,       only:maxp,maxvxyzu,nalpha
@@ -91,6 +92,11 @@ subroutine set_default_options
  tolh      = 1.e-4           ! tolerance on h iterations
  idamp     = 0               ! damping type
  iexternalforce = 0          ! external forces
+
+ ! Values to control dtmax changing with increasing densities
+ dtmax_dratio =  0.          ! dtmax will change if this ratio is exceeded in a timestep (recommend 1.258)
+ dtmax_max    = -1.0         ! maximum dtmax allowed (to be reset to dtmax if = -1)
+ dtmax_min    =  0.          ! minimum dtmax allowed
 
  ! equation of state
  if (maxvxyzu==4) then

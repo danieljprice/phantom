@@ -100,7 +100,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake
  use coolfunc,       only:energ_coolfunc
 #ifdef IND_TIMESTEPS
- use timestep,       only:dtmax,dtmax_rat,dtdiff,mod_dtmax_in_step
+ use timestep,       only:dtmax,dtmax_ifactor,dtdiff
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,ibinnow
  use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
  use part,           only:ibin,ibin_old,twas,iactive
@@ -310,8 +310,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !
 #ifdef IND_TIMESTEPS
  if ( use_sts ) call sts_get_dtau_next(dtsph_next,dtsph,dtmax,dtdiff,nbinmax)
- if (mod_dtmax_in_step .and. sts_it_n) then
-    call decrease_dtmax(npart,maxbins,timei-dtsph,dtmax_rat,dtmax,ibin,ibin_wake,ibin_sts,ibin_dts,mod_dtmax_in_step)
+ if (dtmax_ifactor /=0 .and. sts_it_n) then
+    call decrease_dtmax(npart,maxbins,timei-dtsph,dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_sts,ibin_dts)
  endif
 #endif
 !
@@ -341,7 +341,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
 !$omp shared(dtsph,icooling) &
 #ifdef IND_TIMESTEPS
-!$omp shared(dtmax,ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
+!$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax,ibinnow) &
 !$omp private(dti,hdti) &
 #endif
@@ -361,7 +361,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           !
           if (iactive(iphase(i))) then
              ibin_wake(i) = 0       ! cannot wake active particles
-             hdti = timei - twas(i) ! = 0.5*get_dt(dtmax,ibin_old(i)) if .not.use_sts, dtmax has not changed, particle was not just woken up
+             hdti = timei - twas(i) ! = 0.5*get_dt(dtmax,ibin_old(i)) if .not.use_sts & dtmax has not changed & particle was not just woken up
              if (use_sts) then
                 if (ibin(i) < ibin_sts(i)) ibin(i) = min(ibin_sts(i), nbinmax ) ! increase ibin if needed for super timestepping
                 if (.not.sts_it_n .or. (sts_it_n .and. ibin_sts(i) > ibin(i))) then

@@ -147,8 +147,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
  use ptmass,           only:init_ptmass,get_accel_sink_gas,get_accel_sink_sink, &
                             r_crit,r_crit2,rho_crit,rho_crit_cgs
- use timestep,         only:time,dt,dtextforce,C_force,dtmax, &
-                            rho_dtthresh,rho_dtthresh_cgs,dtmax_rat0,mod_dtmax,mod_dtmax_now
+ use timestep,         only:time,dt,dtextforce,C_force,dtmax
  use timing,           only:get_timings
 #ifdef SORT
  use sort_particles,   only:sort_part
@@ -495,8 +494,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
  dtnew_first   = dtmax  ! necessary in case ntot = 0
  nderivinit    = 1
- rho_dtthresh  = rho_dtthresh_cgs/unit_density
- mod_dtmax_now = .false. ! reset since this would have improperly been tripped if mhd=.true.
  ! call derivs twice with Cullen-Dehnen switch to update accelerations
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  do j=1,nderivinit
@@ -535,16 +532,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     write(iprint,*) 'dt initial    = ',dt
  endif
 #endif
-!
-!--Set parameters to allow for reduction of dtmax
-!  (if mod_dtmax_now=true, then rhomax > rho_dtthresh and we do not want to decrease dt)
-!
- if (rho_dtthresh > 0.0 .and. .not. mod_dtmax_now .and. dtmax_rat0 > 1) then
-    dtmax_rat0 = int(2**(int(log(real(dtmax_rat0)-1.0)/log(2.0))+1)) ! ensure that dtmax_rat0 is a power of 2
- else
-    mod_dtmax     = .false.
-    mod_dtmax_now = .false.
- endif
 !
 !--Calculate current centre of mass
 !
