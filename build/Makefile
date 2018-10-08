@@ -1475,7 +1475,7 @@ OBJDIR=obj
 .SUFFIXES: .o .f90 .F90 .c .f
 
 %.o : %.f90
-	$(FC) -c $(FFLAGS) -fpp $(FPPFLAGS) $< -o $@
+	$(FC) -c $(FFLAGS) $< -o $@
 
 %.o : %.F90
 	$(FC) -c $(FFLAGS) ${FPP_PREFIX} $(FPPFLAGS) $< -o $@
