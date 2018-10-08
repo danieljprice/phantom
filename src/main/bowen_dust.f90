@@ -24,18 +24,16 @@
 !+
 !--------------------------------------------------------------------------
 module bowen_dust
-  implicit none
+ implicit none
 
-#define ALPHA_WIND
+ public :: radiative_acceleration, pulsating_bowen_wind_profile, bowen_init
 
-  public :: radiative_acceleration,pulsating_bowen_wind_profile, bowen_init
-
-  private
-  integer, parameter :: N = 1024
-  integer, parameter :: wind_emitting_sink = 1
-  logical, parameter :: verbose = .false.
-  real, parameter :: alpha_wind = 1.d0
-  real :: kappa, kmax, L, c_light, specific_energy_to_T_ratio, Cprime, Tcond, delta, Teff
+ private
+ integer, parameter :: N = 1024
+ integer, parameter :: wind_emitting_sink = 1
+ logical, parameter :: verbose = .false.
+ real, parameter :: alpha_wind = 1.d0
+ real :: kappa, kmax, L, c_light, specific_energy_to_T_ratio, Cprime, Tcond, delta, Teff
 
 contains
 
@@ -48,11 +46,11 @@ subroutine pulsating_bowen_wind_profile(local_time, r, v, u, rho, e, sphere_numb
        wind_mass_rate,wind_injection_radius,wind_velocity,wind_osc_vamplitude,&
        wind_osc_period,shift_spheres,central_star_mass,time_between_spheres,&
        wind_temperature,central_star_radius,wind_gamma)
-  use part,    only: nptmass, xyzmh_ptmass
-  use physcon, only: pi, Gg
-  use units,   only: umass, utime, udist
-  integer, intent(in) :: sphere_number
-  real, intent(in) :: local_time,wind_injection_radius,wind_velocity,wind_osc_vamplitude,&
+ use part,    only: nptmass, xyzmh_ptmass
+ use physcon, only: pi, Gg
+ use units,   only: umass, utime, udist
+ integer, intent(in) :: sphere_number
+ real, intent(in) :: local_time,wind_injection_radius,wind_velocity,wind_osc_vamplitude,&
        wind_mass_rate,wind_osc_period,shift_spheres,central_star_mass,time_between_spheres,&
        wind_temperature,central_star_radius,wind_gamma
   real, intent(out) :: r, v, u, rho, e
@@ -82,12 +80,12 @@ subroutine pulsating_bowen_wind_profile(local_time, r, v, u, rho, e, sphere_numb
   rho = wind_mass_rate / (4.*pi*r**2*v)
   if (nptmass == 0) then
     GM = 0.
-  else
+ else
     GM = Gg * xyzmh_ptmass(4,wind_emitting_sink) * umass
-  endif
-  e = .5*v**2 - GM/r + wind_gamma*u
-  !if (sphere_number<3320) print '("$$",i4,i2,8(1x,es12.5))',sphere_number,shift_spheres,base_radius,base_velocity,local_time&
-  !     ,time_between_spheres,acceleration,r,v
+ endif
+ e = .5*v**2 - GM/r + wind_gamma*u
+ !if (sphere_number<3320) print '("$$",i4,i2,8(1x,es12.5))',sphere_number,shift_spheres,base_radius,base_velocity,local_time&
+ !     ,time_between_spheres,acceleration,r,v
 
 end subroutine
 
@@ -106,15 +104,15 @@ end subroutine
 !     * rad_acceleration(3,npart): acceleration vectors
 !+
 !-----------------------------------------------------------------------
-  subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fxyzu)
-    use io,       only:iprint
-    use part,     only:rhoh,xyzmh_ptmass,massoftype,igas
-    use units,    only: udist
-    use physcon,  only: pi
-    integer, intent(in)    :: npart
-    real,    intent(in)    :: xyzh(:,:)
+subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fxyzu)
+ use io,       only:iprint
+ use part,     only:rhoh,xyzmh_ptmass,massoftype,igas
+ use units,    only: udist
+ use physcon,  only: pi
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: xyzh(:,:)
 !    real,    intent(in)    :: xyzmh(:,:)
-    real,    intent(inout) :: vxyzu(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
 !    real,    intent(in)    :: part_mass
     real,    intent(in)    :: dt
     real,    intent(inout) :: fxyzu(:,:)
@@ -159,30 +157,30 @@ end subroutine
         call select_particles(npart, distance2, h, nfound, found)
         call density(npart, position, distance2, h, part_mass, nfound, found,&
                     -dmax, dmax, R_star, 2*N+1, rho, rho_over_r2)
-      endif
-      call calculate_tau_prime(N, dmax, R_star, kappa, kap, rho_over_r2, OR, tau_prime)
-      OR2 = OR**2
-      call calculate_Teq(N, R_star, tau_prime, OR2, Teq)
-      call calculate_kd(N, Teq, kd)
-      !do i=1,100
-      !   print '(i4,8(1x,es12.4))',i,Teq(i),kmax,kappa,kd(i),OR(i),0.5*(1.-sqrt(1.-(R_star**2/OR2(i)))),0.75*tau_prime(i)
-      !enddo
-      a = L/(4.*pi*c_light) * kd/OR2
-      a_over_OR = a/OR
-      call interpolate_on_particles(npart, d, N, dmax, a_over_OR, a_over_d_part)
-      call interpolate_on_particles(npart, d, N, dmax, Teq, Teq_part)
-      do i=1,npart
-        if (h(i)  >  0.) then
+    endif
+    call calculate_tau_prime(N, dmax, R_star, kappa, kap, rho_over_r2, OR, tau_prime)
+    OR2 = OR**2
+    call calculate_Teq(N, R_star, tau_prime, OR2, Teq)
+    call calculate_kd(N, Teq, kd)
+    !do i=1,100
+    !   print '(i4,8(1x,es12.4))',i,Teq(i),kmax,kappa,kd(i),OR(i),0.5*(1.-sqrt(1.-(R_star**2/OR2(i)))),0.75*tau_prime(i)
+    !enddo
+    a = L/(4.*pi*c_light) * kd/OR2
+    a_over_OR = a/OR
+    call interpolate_on_particles(npart, d, N, dmax, a_over_OR, a_over_d_part)
+    call interpolate_on_particles(npart, d, N, dmax, Teq, Teq_part)
+    do i=1,npart
+       if (h(i)  >  0.) then
           fxyzu(1,i) = fxyzu(1,i) + a_over_d_part(i) * r(1,i)
           fxyzu(2,i) = fxyzu(2,i) + a_over_d_part(i) * r(2,i)
           fxyzu(3,i) = fxyzu(3,i) + a_over_d_part(i) * r(3,i)
           if (dt  >=  Cprime/rhoh(xyzh(4,i),part_mass)) then   ! assume thermal equilibrium
-            vxyzu(4,i) = Teq_part(i)*specific_energy_to_T_ratio
-            fxyzu(4,i) = 0.d0
+             vxyzu(4,i) = Teq_part(i)*specific_energy_to_T_ratio
+             fxyzu(4,i) = 0.d0
           else
-            dQ_dt = -(vxyzu(4,i) - Teq_part(i)*specific_energy_to_T_ratio) &
+             dQ_dt = -(vxyzu(4,i) - Teq_part(i)*specific_energy_to_T_ratio) &
                 * (rhoh(xyzh(4,i),part_mass)/Cprime)
-            fxyzu(4,i) = fxyzu(4,i) + dQ_dt
+             fxyzu(4,i) = fxyzu(4,i) + dQ_dt
           endif
        endif
        !if (i<20) print '("a",i4,18(1x,es12.4))',i,fxyzu(1:4,i),xyzh(1:3,i)
@@ -242,23 +240,23 @@ end subroutine
 !  Convert parameters into simulation units.
 !+
 !-----------------------------------------------------------------------
-  subroutine bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,&
+subroutine bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,&
        bowen_Cprime, bowen_Tcond, bowen_delta,bowen_Teff)
-    use physcon,     only: solarl,c
-    use units,       only: udist, umass, utime
-    real, intent(in)  :: u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,&
+ use physcon,     only: solarl,c
+ use units,       only: udist, umass, utime
+ real, intent(in)  :: u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,&
          bowen_Cprime, bowen_Tcond, bowen_delta, bowen_Teff
 
-    kappa = bowen_kappa / (udist**2/umass)
-    kmax = bowen_kmax / (udist**2/umass)
-    L = bowen_L /(umass*udist**2/utime**3)
-    c_light = c / (udist/utime)
-    specific_energy_to_T_ratio = u_to_temperature_ratio/(udist/utime)**2
-    Cprime = bowen_Cprime / (umass*utime/udist**3)
-    Tcond = bowen_Tcond
-    delta = bowen_delta
-    Teff  = bowen_Teff
-  end subroutine
+ kappa = bowen_kappa / (udist**2/umass)
+ kmax = bowen_kmax / (udist**2/umass)
+ L = bowen_L /(umass*udist**2/utime**3)
+ c_light = c / (udist/utime)
+ specific_energy_to_T_ratio = u_to_temperature_ratio/(udist/utime)**2
+ Cprime = bowen_Cprime / (umass*utime/udist**3)
+ Tcond = bowen_Tcond
+ delta = bowen_delta
+ Teff  = bowen_Teff
+end subroutine
 
 !-----------------------------------------------------------------------
 !+
@@ -274,23 +272,23 @@ end subroutine
 !     * output(npart): interpolated values
 !+
 !-----------------------------------------------------------------------
-  subroutine interpolate_on_particles(npart, d, N, dmax, quantity, output)
-    integer, intent(in)  :: npart
-    real,    intent(in)  :: d(npart)
-    integer, intent(in)  :: N
-    real,    intent(in)  :: dmax, quantity(N)
-    real,    intent(out) :: output(npart)
+subroutine interpolate_on_particles(npart, d, N, dmax, quantity, output)
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: d(npart)
+ integer, intent(in)  :: N
+ real,    intent(in)  :: dmax, quantity(N)
+ real,    intent(out) :: output(npart)
 
-    real :: r, dr
-    integer :: i, j
+ real :: r, dr
+ integer :: i, j
 
-    dr = dmax / N
-    do i=1,npart
-      r = d(i)
-      j = min(int(r/dr),N-1)
-      output(i) = (r-dr*j)*(quantity(j+1)-quantity(j))/dr + quantity(j)
-    enddo
-  end subroutine
+ dr = dmax / N
+ do i=1,npart
+    r = d(i)
+    j = min(int(r/dr),N-1)
+    output(i) = (r-dr*j)*(quantity(j+1)-quantity(j))/dr + quantity(j)
+ enddo
+end subroutine
 
 !-----------------------------------------------------------------------
 !+
@@ -328,13 +326,13 @@ end subroutine
 !     * kd(N): dust mass opacity the half-line
 !+
 !-----------------------------------------------------------------------
-  subroutine calculate_kd(N, Teq, kd)
-    integer, intent(in)  :: N
-    real,    intent(in)  :: Teq(N)
-    real,    intent(out) :: kd(N)
+subroutine calculate_kd(N, Teq, kd)
+ integer, intent(in)  :: N
+ real,    intent(in)  :: Teq(N)
+ real,    intent(out) :: kd(N)
 
-    kd = kmax/(1. + exp((Teq-Tcond)/delta))
-  end subroutine
+ kd = kmax/(1. + exp((Teq-Tcond)/delta))
+end subroutine
 
 !-----------------------------------------------------------------------
 !+
@@ -349,18 +347,18 @@ end subroutine
 !     * Teq(N): radiative equilibrium temperature
 !+
 !-----------------------------------------------------------------------
-  subroutine calculate_Teq(N, R_star, tau_prime, OR2, Teq)
-    integer, intent(in)  :: N
-    real,    intent(in)  :: R_star, tau_prime(N), OR2(N)
-    real,    intent(out) :: Teq(N)
+subroutine calculate_Teq(N, R_star, tau_prime, OR2, Teq)
+ integer, intent(in)  :: N
+ real,    intent(in)  :: R_star, tau_prime(N), OR2(N)
+ real,    intent(out) :: Teq(N)
 
-    where(OR2  <  R_star**2)
-      Teq = Teff
-    elsewhere
-      Teq = Teff*(0.5*(1.-sqrt(1.-(R_star**2/OR2))) + 0.75*tau_prime)**(1./4.)
-      !Teq = ((Teff**4/2.)*(1.-sqrt(1.-(R_star**2/OR2))) + (Teff**4*3./4.)*tau_prime)**(1./4.)
-    end where
-  end subroutine
+ where(OR2  <  R_star**2)
+    Teq = Teff
+ elsewhere
+    Teq = Teff*(0.5*(1.-sqrt(1.-(R_star**2/OR2))) + 0.75*tau_prime)**(1./4.)
+    !Teq = ((Teff**4/2.)*(1.-sqrt(1.-(R_star**2/OR2))) + (Teff**4*3./4.)*tau_prime)**(1./4.)
+ end where
+end subroutine
 
 !-----------------------------------------------------------------------
 !+
@@ -378,24 +376,24 @@ end subroutine
 !     * tau_prime(N): mean optical depth along the half-line
 !+
 !-----------------------------------------------------------------------
-  subroutine calculate_tau_prime(N, dmax, R_star, kappa, kap, rho_over_r2, OR, tau_prime)
-    integer, intent(in)  :: N
-    real,    intent(in)  :: dmax, R_star, kappa, kap(N), rho_over_r2(2*N+1)
-    real,    intent(out) :: OR(N), tau_prime(N)
+subroutine calculate_tau_prime(N, dmax, R_star, kappa, kap, rho_over_r2, OR, tau_prime)
+ integer, intent(in)  :: N
+ real,    intent(in)  :: dmax, R_star, kappa, kap(N), rho_over_r2(2*N+1)
+ real,    intent(out) :: OR(N), tau_prime(N)
 
-    real :: dr, fact(N)
-    integer :: i
+ real :: dr, fact(N)
+ integer :: i
 
-    tau_prime(N) = 0.
-    dr = dmax/N
-    fact = dr/4. * R_star**2 * (kappa+kap)
-    do i=1,N-1
-      OR(i) = i*dr
-      tau_prime(N-i) = tau_prime(N-i+1) +&
+ tau_prime(N) = 0.
+ dr = dmax/N
+ fact = dr/4. * R_star**2 * (kappa+kap)
+ do i=1,N-1
+    OR(i) = i*dr
+    tau_prime(N-i) = tau_prime(N-i+1) +&
                        fact(i)*(rho_over_r2(i)+rho_over_r2(i+1)+rho_over_r2(2*N-i+1)+rho_over_r2(2*N-i+2))
-    enddo
-    OR(N) = dmax
-  end subroutine
+ enddo
+ OR(N) = dmax
+end subroutine
 
 !-----------------------------------------------------------------------
 !+
@@ -416,71 +414,71 @@ end subroutine
 !     * rho_over_r2(N): rho/r² outside of the central star
 !+
 !-----------------------------------------------------------------------
-  subroutine density(npart, position, distance2, part_h, part_mass, nfound, found,&
+subroutine density(npart, position, distance2, part_h, part_mass, nfound, found,&
                      rmin, rmax, r_star, N, rho, rho_over_r2)
-    use kernel, only:cnormk,wkern
-    integer, intent(in)  :: npart
-    real,    intent(in)  :: position(npart), distance2(npart), part_h(npart), part_mass
-    integer, intent(in)  :: nfound, found(npart)
-    real,    intent(in)  :: rmin, rmax, r_star
-    integer :: N
-    real,    intent(out) :: rho(N), rho_over_r2(N)
+ use kernel, only:cnormk,wkern
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: position(npart), distance2(npart), part_h(npart), part_mass
+ integer, intent(in)  :: nfound, found(npart)
+ real,    intent(in)  :: rmin, rmax, r_star
+ integer :: N
+ real,    intent(out) :: rho(N), rho_over_r2(N)
 
-    real :: OH, PH2, OR(N), OR2, HR, q2, q, fact0, fact, h, h2
-    real :: delta_r, rmin_o, rmin_p, rmax_p, dr, r_star2
-    integer :: i, np, j, j_min, j_max
+ real :: OH, PH2, OR(N), OR2, HR, q2, q, fact0, fact, h, h2
+ real :: delta_r, rmin_o, rmin_p, rmax_p, dr, r_star2
+ integer :: i, np, j, j_min, j_max
 
-    ! Discretization of the line :
-    dr = (rmax-rmin)/(N-1.)
-    !     OR(i) = dr*(i-1)+rmin
-    !     i = (OR(i)-rmin)/dr + 1
+ ! Discretization of the line :
+ dr = (rmax-rmin)/(N-1.)
+ !     OR(i) = dr*(i-1)+rmin
+ !     i = (OR(i)-rmin)/dr + 1
 
-    ! (Very) little optimization :
-    rmin_o = rmin - dr
-    !     OR(i) = dr*i+rmin_o
-    !     i = (OR(i)-rmin_o)/dr
+ ! (Very) little optimization :
+ rmin_o = rmin - dr
+ !     OR(i) = dr*i+rmin_o
+ !     i = (OR(i)-rmin_o)/dr
 
-    rho(:) = 0.
-    fact0 = part_mass*cnormk
-    do i=1,N
-      OR(i) = dr*i+rmin_o
+ rho(:) = 0.
+ fact0 = part_mass*cnormk
+ do i=1,N
+    OR(i) = dr*i+rmin_o
+ enddo
+ do i=1,nfound
+    np = found(i)
+    OH = position(np)
+    PH2 = distance2(np)
+    h = part_h(np)
+    h2 = h*h
+    delta_r = sqrt(4.*h2 - PH2)
+    ! rmin_p and rmax_p are the positions on the line of the two intersections between the line and the interaction sphere
+    rmin_p = OH-delta_r
+    rmax_p = OH+delta_r
+    j_min = ceiling((rmin_p-rmin_o)/dr)
+    j_max = floor((rmax_p-rmin_o)/dr)
+    j_min = max(1, j_min)
+    j_max = min(N, j_max)
+    ! Adds the contribution of the particle i on the density at all the discretized locations in the interaction sphere
+    fact = fact0/h**3
+    do j=j_min, j_max
+       HR = OR(j) - OH
+       q2 = (PH2+HR**2)/h2
+       q = sqrt(q2)
+       rho(j) = rho(j) + fact*wkern(q2,q)
     enddo
-    do i=1,nfound
-      np = found(i)
-      OH = position(np)
-      PH2 = distance2(np)
-      h = part_h(np)
-      h2 = h*h
-      delta_r = sqrt(4.*h2 - PH2)
-      ! rmin_p and rmax_p are the positions on the line of the two intersections between the line and the interaction sphere
-      rmin_p = OH-delta_r
-      rmax_p = OH+delta_r
-      j_min = ceiling((rmin_p-rmin_o)/dr)
-      j_max = floor((rmax_p-rmin_o)/dr)
-      j_min = max(1, j_min)
-      j_max = min(N, j_max)
-      ! Adds the contribution of the particle i on the density at all the discretized locations in the interaction sphere
-      fact = fact0/h**3
-      do j=j_min, j_max
-        HR = OR(j) - OH
-        q2 = (PH2+HR**2)/h2
-        q = sqrt(q2)
-        rho(j) = rho(j) + fact*wkern(q2,q)
-      enddo
-    enddo
+ enddo
 
-    ! rho_over_r2 = 0 inside the star so that we do not divide by zero!
-    r_star2 = r_star**2
-    do i=1,N
-      OR2 = OR(i)**2
-      if (OR2  <  r_star2) then
-        rho_over_r2(i) = 0.
-      else
-        rho_over_r2(i) = rho(i)/OR2
-      endif
-    enddo
+ ! rho_over_r2 = 0 inside the star so that we do not divide by zero!
+ r_star2 = r_star**2
+ do i=1,N
+    OR2 = OR(i)**2
+    if (OR2  <  r_star2) then
+       rho_over_r2(i) = 0.
+    else
+       rho_over_r2(i) = rho(i)/OR2
+    endif
+ enddo
 
-  end subroutine
+end subroutine
 
 !-----------------------------------------------------------------------
 !+
@@ -494,23 +492,23 @@ end subroutine
 !     * found(1:nfound): index of interesting particles
 !+
 !-----------------------------------------------------------------------
-  subroutine select_particles(npart, distance2, part_h, nfound, found)
-    integer, intent(in)  :: npart
-    real,    intent(in)  :: distance2(npart), part_h(npart)
-    integer, intent(out) :: nfound, found(npart)
+subroutine select_particles(npart, distance2, part_h, nfound, found)
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: distance2(npart), part_h(npart)
+ integer, intent(out) :: nfound, found(npart)
 
-    integer :: i
-    real :: h
+ integer :: i
+ real :: h
 
-    nfound = 0
-    do i=1,npart
-      h = part_h(i)
-      if (distance2(i)  <  4.*h**2) then
-        nfound = nfound + 1
-        found(nfound) = i
-      endif
-    enddo
-  end subroutine
+ nfound = 0
+ do i=1,npart
+    h = part_h(i)
+    if (distance2(i)  <  4.*h**2) then
+       nfound = nfound + 1
+       found(nfound) = i
+    endif
+ enddo
+end subroutine
 
 !-----------------------------------------------------------------------
 !+
@@ -523,14 +521,14 @@ end subroutine
 !     * distance2(npart): squared distance between the particles and z axis
 !+
 !-----------------------------------------------------------------------
-  subroutine project_on_z(npart, r, position, distance2)
-    integer, intent(in)  :: npart
-    real,    intent(in)  :: r(3,npart)
-    real,    intent(out) :: position(npart), distance2(npart)
+subroutine project_on_z(npart, r, position, distance2)
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: r(3,npart)
+ real,    intent(out) :: position(npart), distance2(npart)
 
-    position = r(3,:)
-    distance2 = r(1,:)**2+r(2,:)**2
-  end subroutine
+ position = r(3,:)
+ distance2 = r(1,:)**2+r(2,:)**2
+end subroutine
 
 !-----------------------------------------------------------------------
 !+
@@ -552,7 +550,7 @@ end subroutine
 !    integer :: i
 !    real :: u(3), OP(3), HP(3), p
 
-    ! Director vector
+ ! Director vector
 !    u(1) = sin(theta)*cos(phi)
 !    u(2) = sin(theta)*sin(phi)
 !    u(3) = cos(theta)
@@ -581,20 +579,20 @@ end subroutine
 !    * dmax: maximum of d
 !+
 !-----------------------------------------------------------------------
-  subroutine center_star(npart, xyzh, O, r, d, dmin, dmax)
-    use dim,      only:maxp
-    integer, intent(in)  :: npart
-    real,    intent(in)  :: xyzh(4,maxp), O(3)
-    real,    intent(out) :: r(3,npart), d(npart), dmin, dmax
+subroutine center_star(npart, xyzh, O, r, d, dmin, dmax)
+ use dim,      only:maxp
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(4,maxp), O(3)
+ real,    intent(out) :: r(3,npart), d(npart), dmin, dmax
 
-    integer :: i
+ integer :: i
 
-    do i=1,npart
-      r(:,i) = xyzh(1:3,i)-O
-    enddo
-    d = sqrt(r(1,:)**2 + r(2,:)**2 + r(3,:)**2)
-    dmin = minval(d)
-    dmax = maxval(d)
-  end subroutine
+ do i=1,npart
+    r(:,i) = xyzh(1:3,i)-O
+ enddo
+ d = sqrt(r(1,:)**2 + r(2,:)**2 + r(3,:)**2)
+ dmin = minval(d)
+ dmax = maxval(d)
+end subroutine
 
 end module bowen_dust

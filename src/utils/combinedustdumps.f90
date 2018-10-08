@@ -37,10 +37,12 @@ program combinedustdumps
  use readwrite_dumps, only:read_dump,write_fulldump
  use units,           only:set_units,select_unit,umass,udist,utime
  implicit none
+
  character(len=120), allocatable :: indumpfiles(:)
  character(len=120) :: outdumpfile
- real, allocatable  :: xyzh_tmp(:,:,:),vxyzu_tmp(:,:,:),massofdust_tmp(:)
- real, allocatable  :: npartofdust_tmp(:),grainsize_tmp(:),graindens_tmp(:)
+ real, allocatable :: xyzh_tmp(:,:,:),vxyzu_tmp(:,:,:),massofdust_tmp(:)
+ real, allocatable :: grainsize_tmp(:),graindens_tmp(:)
+ integer, allocatable :: npartofdust_tmp(:)
  integer :: i,j,counter,ipart,itype,ierr,nargs,idust_tmp,ninpdumps
  real    :: time,dtdum
  real(kind=8) :: utime_tmp,udist_tmp,umass_tmp
