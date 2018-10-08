@@ -27,11 +27,13 @@ module bowen_dust
  implicit none
 
  public :: radiative_acceleration, pulsating_bowen_wind_profile, bowen_init
+ logical, parameter :: use_alpha_wind = .true.
 
  private
  integer, parameter :: N = 1024
  integer, parameter :: wind_emitting_sink = 1
  logical, parameter :: verbose = .false.
+ real, parameter :: alpha_wind = 1.d0
  real :: kappa, kmax, L, c_light, specific_energy_to_T_ratio, Cprime, Tcond, delta, Teff
 
 contains
@@ -58,15 +60,22 @@ subroutine pulsating_bowen_wind_profile(local_time, r, v, u, rho, e, sphere_numb
  real :: base_time,base_radius, base_velocity, base_temperature, acceleration, rad_acc, T
 
  base_time = (sphere_number-shift_spheres)*time_between_spheres
- base_radius = wind_injection_radius
  base_velocity = wind_velocity + wind_osc_vamplitude* cos(2.*pi*base_time/wind_osc_period)
+ base_radius = wind_injection_radius + wind_osc_vamplitude*wind_osc_period/(2.*pi)*sin(2.*pi*base_time/wind_osc_period)
  base_temperature = wind_temperature
- acceleration = Gg * central_star_mass / wind_injection_radius**2
+ acceleration = -Gg * central_star_mass / base_radius**2
 
- call guess_acceleration(base_radius, central_star_radius, rad_acc)
+ if (use_alpha_wind) then
+    call guess_acceleration(base_radius, central_star_radius, rad_acc)
+ else
+    rad_acc = -alpha_wind*acceleration
+ endif
  acceleration = acceleration + rad_acc
 
- !print *,'e',base_radius, local_time*base_velocity, acceleration*(local_time)**2/2., base_velocity , acceleration*local_time
+ print *,'radii',wind_injection_radius,base_radius-wind_injection_radius
+ print *,'velo ',base_velocity,wind_osc_vamplitude
+ print *,'acc  ',acceleration - rad_acc,rad_acc
+
  r = base_radius + local_time*base_velocity + acceleration*local_time**2/2.
  v = base_velocity + acceleration*local_time
  T = base_temperature
@@ -118,7 +127,7 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fxyzu)
  real :: OR(N), OR2(N), tau_prime(N)
  real :: Teq(N), kd(N), a(N), a_over_OR(N), kap(N)
  real :: Teq_part(npart), a_over_d_part(npart)
- real :: dQ_dt
+ real :: dQ_dt,fgrav
  integer :: i
 
  O = xyzmh_ptmass(1:3,1)
@@ -131,42 +140,55 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fxyzu)
  else
     h = xyzh(4,1:npart)
     call center_star(npart, xyzh, O, r, d, dmin, dmax)
-    if (abs((dmin-dmax)/dmax)  <  1.0d-10) then
-       rho_over_r2 = 0.
-    else
-       !call project_on_line(npart, r, 0.d0, 0.d0, position, distance2)
-       call project_on_z(npart, r, position, distance2)
-       call select_particles(npart, distance2, h, nfound, found)
-       call density(npart, position, distance2, h, part_mass, nfound, found,&
-                    -dmax, dmax, R_star, 2*N+1, rho, rho_over_r2)
-    endif
-    call calculate_tau_prime(N, dmax, R_star, kappa, kap, rho_over_r2, OR, tau_prime)
-    OR2 = OR**2
-    call calculate_Teq(N, R_star, tau_prime, OR2, Teq)
-    call calculate_kd(N, Teq, kd)
-    !do i=1,100
-    !   print '(i4,8(1x,es12.4))',i,Teq(i),kmax,kappa,kd(i),OR(i),0.5*(1.-sqrt(1.-(R_star**2/OR2(i)))),0.75*tau_prime(i)
-    !enddo
-    a = L/(4.*pi*c_light) * kd/OR2
-    a_over_OR = a/OR
-    call interpolate_on_particles(npart, d, N, dmax, a_over_OR, a_over_d_part)
-    call interpolate_on_particles(npart, d, N, dmax, Teq, Teq_part)
-    do i=1,npart
-       if (h(i)  >  0.) then
-          fxyzu(1,i) = fxyzu(1,i) + a_over_d_part(i) * r(1,i)
-          fxyzu(2,i) = fxyzu(2,i) + a_over_d_part(i) * r(2,i)
-          fxyzu(3,i) = fxyzu(3,i) + a_over_d_part(i) * r(3,i)
-          if (dt  >=  Cprime/rhoh(xyzh(4,i),part_mass)) then   ! assume thermal equilibrium
-             vxyzu(4,i) = Teq_part(i)*specific_energy_to_T_ratio
+    if (use_alpha_wind) then
+       fgrav = alpha_wind*xyzmh_ptmass(4,wind_emitting_sink)
+       do i=1,npart
+          if (xyzh(4,i)  >  0.) then
+             if (i<4) print '(6(1x,es12.4))',fxyzu(1:3,i),fgrav/d(i)**3*r(1:3,i)
+             fxyzu(1:3,i) = fxyzu(1:3,i) + fgrav/d(i)**3*r(1:3,i)
+             vxyzu(4,i) = Teff*specific_energy_to_T_ratio
              fxyzu(4,i) = 0.d0
-          else
-             dQ_dt = -(vxyzu(4,i) - Teq_part(i)*specific_energy_to_T_ratio) &
-                * (rhoh(xyzh(4,i),part_mass)/Cprime)
-             fxyzu(4,i) = fxyzu(4,i) + dQ_dt
           endif
+          !if (i<20) print '("a",i4,18(1x,es12.4))',i,fxyzu(1:4,i),xyzh(1:3,i)
+       enddo
+    else
+       if (abs((dmin-dmax)/dmax)  <  1.0d-10) then
+          rho_over_r2 = 0.
+       else
+          !call project_on_line(npart, r, 0.d0, 0.d0, position, distance2)
+          call project_on_z(npart, r, position, distance2)
+          call select_particles(npart, distance2, h, nfound, found)
+          call density(npart, position, distance2, h, part_mass, nfound, found,&
+                    -dmax, dmax, R_star, 2*N+1, rho, rho_over_r2)
        endif
-       !if (i<20) print '("a",i4,18(1x,es12.4))',i,fxyzu(1:4,i),xyzh(1:3,i)
-    enddo
+       call calculate_tau_prime(N, dmax, R_star, kappa, kap, rho_over_r2, OR, tau_prime)
+       OR2 = OR**2
+       call calculate_Teq(N, R_star, tau_prime, OR2, Teq)
+       call calculate_kd(N, Teq, kd)
+       !do i=1,100
+       !   print '(i4,8(1x,es12.4))',i,Teq(i),kmax,kappa,kd(i),OR(i),0.5*(1.-sqrt(1.-(R_star**2/OR2(i)))),0.75*tau_prime(i)
+       !enddo
+       a = L/(4.*pi*c_light) * kd/OR2
+       a_over_OR = a/OR
+       call interpolate_on_particles(npart, d, N, dmax, a_over_OR, a_over_d_part)
+       call interpolate_on_particles(npart, d, N, dmax, Teq, Teq_part)
+       do i=1,npart
+          if (h(i)  >  0.) then
+             fxyzu(1,i) = fxyzu(1,i) + a_over_d_part(i) * r(1,i)
+             fxyzu(2,i) = fxyzu(2,i) + a_over_d_part(i) * r(2,i)
+             fxyzu(3,i) = fxyzu(3,i) + a_over_d_part(i) * r(3,i)
+             if (dt  >=  Cprime/rhoh(xyzh(4,i),part_mass)) then   ! assume thermal equilibrium
+                vxyzu(4,i) = Teq_part(i)*specific_energy_to_T_ratio
+                fxyzu(4,i) = 0.d0
+             else
+                dQ_dt = -(vxyzu(4,i) - Teq_part(i)*specific_energy_to_T_ratio) &
+                * (rhoh(xyzh(4,i),part_mass)/Cprime)
+                fxyzu(4,i) = fxyzu(4,i) + dQ_dt
+             endif
+          endif
+          !if (i<20) print '("a",i4,18(1x,es12.4))',i,fxyzu(1:4,i),xyzh(1:3,i)
+       enddo
+    endif
  endif
  !stop
 
@@ -181,7 +203,7 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fxyzu)
     write(iprint,*) " * amax:", maxval(a)
     write(iprint,*) ""
  endif
-end subroutine
+end subroutine radiative_acceleration
 
 !-----------------------------------------------------------------------
 !+
@@ -191,8 +213,8 @@ end subroutine
 !-----------------------------------------------------------------------
 subroutine guess_acceleration(rinject, r_star, acceleration)
  use io,       only:iprint
- use physcon,  only: pi
- use units,    only: utime, udist
+ use physcon,  only: pi,c
+ use units,    only: utime, udist,umass
  real, intent(in)  :: rinject, r_star
  real, intent(out) :: acceleration
 
@@ -205,15 +227,17 @@ subroutine guess_acceleration(rinject, r_star, acceleration)
  call calculate_kd(N, Teq, kd)
  !call calculate_acceleration(N, OR2, kd, a)
  !acceleration = a(1)
- acceleration = L/(4.*pi*c_light) * kd(1)/OR2(1)*udist/utime**2
+ acceleration = L/(4.*pi*c_light) * kd(1)/OR2(1)*udist**3/utime**2
 
  if (verbose) then
-    write(iprint,*) " * Teq(rinject) : ", Teq(1)
-    write(iprint,*) " * kd(rinject) : ", kd(1)
-    write(iprint,*) " * a(rinject) : ", a(1)
+    write(iprint,*) " * Teq(rinject) : ", Teq(1),tau_prime
+    write(iprint,*) " * kd(rinject)  : ", kd(1)*udist**2/umass
+    write(iprint,*) " * rinject      : ", sqrt(OR2(1)),rinject
+    write(iprint,*) " * a(rinject)   : ", acceleration,5315.*3.9d33/(4.*pi*c) *2.d-4/rinject**2
     write(iprint,*) ""
  endif
-end subroutine
+
+end subroutine guess_acceleration
 
 !-----------------------------------------------------------------------
 !+
@@ -283,14 +307,15 @@ end subroutine
 !     * a(N): acceleration along the half-line
 !+
 !-----------------------------------------------------------------------
-subroutine calculate_acceleration(N, L, c, OR2, kd, a)
- use physcon, only:pi
- integer, intent(in)  :: N
- real,    intent(in)  :: L, c, OR2(N), kd(N)
- real,    intent(out) :: a(N)
+ ! subroutine calculate_acceleration(N, L, c, OR2, kd, a)
+ !   use physcon, only:pi
+ !   integer, intent(in)  :: N
+ !   real,    intent(in)  :: L, c, OR2(N), kd(N)
+ !   real,    intent(out) :: a(N)
 
- a = L/(4.*pi*c) * kd/OR2
-end subroutine
+ !   a = L/(4.*pi*c) * kd/OR2
+
+ ! end subroutine
 
 !-----------------------------------------------------------------------
 !+
@@ -318,7 +343,7 @@ end subroutine
 !  Calculates Teq, the radiative equilibrium temperature along the half-line
 !   Inputs:
 !     * N: number of steps
-!     * Teff: temperature of central star
+!     * Teff: effective temperature of central star
 !     * R_star: radius of central star
 !     * tau_prime(N): optical depth
 !     * OR2(N): squared distance
