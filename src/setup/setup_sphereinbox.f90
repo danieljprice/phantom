@@ -38,8 +38,9 @@
 !+
 !--------------------------------------------------------------------------
 module setup
- use part, only:mhd
- use dim,  only:use_dust,calc_erot,maxvxyzu
+ use part,    only:mhd
+ use dim,     only:use_dust,maxvxyzu
+ use options, only:calc_erot
  implicit none
  public :: setpart
 

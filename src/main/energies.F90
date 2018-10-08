@@ -27,7 +27,7 @@
 
 #define reduce_fn(a,b) reduceall_mpi(a,b)
 module energies
- use dim, only: calc_erot,maxdusttypes,maxdustsmall
+ use dim, only: maxdusttypes,maxdustsmall
  implicit none
 
  logical,         public    :: gas_only,track_mass,track_lum
@@ -77,7 +77,7 @@ subroutine compute_energies(t)
                           get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
- use options,        only:iexternalforce,alpha,alphaB,ieos,use_dustfrac
+ use options,        only:iexternalforce,calc_erot,alpha,alphaB,ieos,use_dustfrac
  use mpiutils,       only:reduceall_mpi
  use ptmass,         only:get_accel_sink_gas
  use viscosity,      only:irealvisc,shearfunc

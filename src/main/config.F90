@@ -298,10 +298,4 @@ module dim
  logical, parameter :: use_CMacIonize = .false.
 #endif
 
-!--------------------
-! Calculate rotational energy in .ev
-!--------------------
- logical, public :: calc_erot = .false.
- logical, public :: incl_erot = .false.
-
 end module dim
