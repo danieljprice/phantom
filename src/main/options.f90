@@ -48,8 +48,10 @@ module options
  real, public :: alphaB, psidecayfac, overcleanfac
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
 
- ! Additional .ev data
+! additional .ev data
  logical, public :: calc_erot
+! final maximum density
+ real,    public :: rhofinal_cgs,rhofinal1
 
 ! dust method
 
@@ -100,9 +102,10 @@ subroutine set_default_options
  dtmax_dratio =  0.          ! dtmax will change if this ratio is exceeded in a timestep (recommend 1.258)
  dtmax_max    = -1.0         ! maximum dtmax allowed (to be reset to dtmax if = -1)
  dtmax_min    =  0.          ! minimum dtmax allowed
-
  ! To allow rotational energies to be printed to .ev
  calc_erot = .false.
+ ! Final maximum density
+ rhofinal_cgs = 0.
 
  ! equation of state
  if (maxvxyzu==4) then

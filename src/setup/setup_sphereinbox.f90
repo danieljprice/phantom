@@ -77,7 +77,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
  use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
  use centreofmass, only:reset_centreofmass
- use options,      only:nfulldump
+ use options,      only:nfulldump,rhofinal_cgs
  use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -419,6 +419,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        dtmax_min = dtmax/8.0
     else
        dtmax_min = 0.0
+       rhofinal_cgs = 0.15
     endif
  endif
 

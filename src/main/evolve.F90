@@ -42,9 +42,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use energies,         only:etot,totmom,angtot,mdust
  use dim,              only:maxvxyzu,mhd,periodic
  use fileutils,        only:getnextfilename
- use options,          only:nfulldump,twallmax,nmaxdumps,iexternalforce,&
-                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating,&
-                            use_dustfrac
+ use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,use_dustfrac,iexternalforce,&
+                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
  use readwrite_infile, only:write_infile
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
@@ -245,7 +244,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
 ! --------------------- main loop ----------------------------------------
 !
- timestepping: do while ((time < tmax).and.((nsteps < nmax) .or.  (nmax < 0)))
+ timestepping: do while ((time < tmax).and.((nsteps < nmax) .or.  (nmax < 0)).and.(rhomaxnow*rhofinal1 < 1.0))
 
 #ifdef INJECT_PARTICLES
     !
@@ -348,10 +347,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     nmovedtot = nmovedtot + nactivetot
 
     !--check that time is as it should be, may indicate error in individual timestep routines
-    if (abs(tcheck-time) > 1.e-4) then
-       call warning('evolve','time out of sync',var='error',val=abs(tcheck-time))
-       print*, time,tcheck,istepfrac,nbinmax,nbinmaxprev,dtmax,dtmaxold
-    endif
+    if (abs(tcheck-time) > 1.e-4) call warning('evolve','time out of sync',var='error',val=abs(tcheck-time))
 
 #ifdef INJECT_PARTICLES
     if (id==master .and. (iverbose >= 1 .or. inbin <= 3)) &
@@ -413,7 +409,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !--Determine if this is the correct time to write to the data file
 !
     at_dump_time = (time >= tmax).or.((mod(nsteps,nout)==0).and.(nout > 0)) &
-                   .or.((nsteps >= nmax).and.(nmax >= 0))
+                   .or.((nsteps >= nmax).and.(nmax >= 0)).or.(rhomaxnow*rhofinal1 >= 1.0)
 #ifdef IND_TIMESTEPS
     if (istepfrac==2**nbinmax) at_dump_time = .true.
 #else

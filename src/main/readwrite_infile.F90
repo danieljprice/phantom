@@ -63,7 +63,7 @@ module readwrite_infile
  use options,   only:nfulldump,nmaxdumps,twallmax,dtwallmax,iexternalforce,idamp,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,tolv, &
                      ipdv_heating,ishock_heating,iresistive_heating, &
-                     icooling,psidecayfac,overcleanfac,alphamax,calc_erot, &
+                     icooling,psidecayfac,overcleanfac,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
@@ -153,10 +153,11 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
  if (incl_runtime2 .or. calc_erot .or. dtmax_dratio > 0.0) then
     write(iwritein,"(/,a)") '# options controlling run time and input/output: supplementary features'
-    call write_inopt(calc_erot,'calc_erot','include E_rot in the ev_file',iwritein)
-    call write_inopt(dtmax_dratio,'dtmax_dratio','dynamic dtmax: density ratio controlling decrease; =0 is off',iwritein)
+    call write_inopt(rhofinal_cgs,'rhofinal_cgs','maximum allowed density (cgs) (-ve=ignore)',iwritein)
+    call write_inopt(dtmax_dratio,'dtmax_dratio','dynamic dtmax: density ratio controlling decrease (-ve=ignore)',iwritein)
     call write_inopt(dtmax_max,'dtmax_max','dynamic dtmax: maximum allowed dtmax (=dtmax if < 0)',iwritein)
     call write_inopt(dtmax_min,'dtmax_min','dynamic dtmax: minimum allowed dtmax',iwritein)
+    call write_inopt(calc_erot,'calc_erot','include E_rot in the ev_file',iwritein)
  endif
 
  write(iwritein,"(/,a)") '# options controlling accuracy'
@@ -355,6 +356,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) dtwallmax
     case('iverbose')
        read(valstring,*,iostat=ierr) iverbose
+    case('rhofinal_cgs')
+       read(valstring,*,iostat=ierr) rhofinal_cgs
+       incl_runtime2 = .true.
     case('calc_erot')
        read(valstring,*,iostat=ierr) calc_erot
        incl_runtime2 = .true.
@@ -540,7 +544,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (tolh < epsilon(tolh)) call fatal(label,'tolh too small to ever converge')
     !if (damp < 0.)     call fatal(label,'damping < 0')
     !if (damp > 1.)     call warn(label,'damping ridiculously big')
-    if (dtmax_dratio < 0.0) call fatal(label,'dtmax_dratio is a ratio of densities thus > 0')
     if (alpha < 0.)    call fatal(label,'stupid choice of alpha')
     if (alphau < 0.)   call fatal(label,'stupid choice of alphau')
     if (alphau > tiny(alphau) .and. use_entropy) &

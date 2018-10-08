@@ -125,7 +125,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             die,fatal,id,master,nprocs,real4,warning
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
                             externalforce_vdependent
- use options,          only:iexternalforce,damp,alpha,icooling,use_dustfrac
+ use options,          only:iexternalforce,damp,alpha,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
@@ -462,6 +462,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  dtsinkgas = huge(dtsinkgas)
  r_crit2   = r_crit*r_crit
  rho_crit  = rho_crit_cgs/unit_density
+ if (rhofinal_cgs > 0.) then
+    rhofinal1 = unit_density/rhofinal_cgs
+ else
+    rhofinal1 = 0.0
+ endif
  if (nptmass > 0) then
     write(iprint,"(a,i12)") ' nptmass       = ',nptmass
 
