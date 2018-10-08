@@ -151,11 +151,11 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(nfulldump,'nfulldump','full dump every n dumps',iwritein)
  call write_inopt(iverbose,'iverbose','verboseness of log (-1=quiet 0=default 1=allsteps 2=debug 5=max)',iwritein)
 
- if (incl_runtime2 .or. calc_erot .or. dtmax_dratio > 0.0) then
+ if (incl_runtime2 .or. rhofinal_cgs > 0.0 .or. dtmax_dratio > 1.0 .or. calc_erot) then
     write(iwritein,"(/,a)") '# options controlling run time and input/output: supplementary features'
-    call write_inopt(rhofinal_cgs,'rhofinal_cgs','maximum allowed density (cgs) (-ve=ignore)',iwritein)
-    call write_inopt(dtmax_dratio,'dtmax_dratio','dynamic dtmax: density ratio controlling decrease (-ve=ignore)',iwritein)
-    call write_inopt(dtmax_max,'dtmax_max','dynamic dtmax: maximum allowed dtmax (=dtmax if < 0)',iwritein)
+    call write_inopt(rhofinal_cgs,'rhofinal_cgs','maximum allowed density (cgs) (<=0 to ignore)',iwritein)
+    call write_inopt(dtmax_dratio,'dtmax_dratio','dynamic dtmax: density ratio controlling decrease (<=0 to ignore)',iwritein)
+    call write_inopt(dtmax_max,'dtmax_max','dynamic dtmax: maximum allowed dtmax (=dtmax if <= 0)',iwritein)
     call write_inopt(dtmax_min,'dtmax_min','dynamic dtmax: minimum allowed dtmax',iwritein)
     call write_inopt(calc_erot,'calc_erot','include E_rot in the ev_file',iwritein)
  endif
@@ -367,7 +367,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        incl_runtime2 = .true.
     case('dtmax_max')
        read(valstring,*,iostat=ierr) dtmax_max
-       if (dtmax_max < 0.0) dtmax_max = dtmax
+       if (dtmax_max <= 0.0) dtmax_max = dtmax
        ! to prevent comparison errors from round-off
        ratio = dtmax_max/dtmax
        ratio = int(ratio+0.5)+0.0001

@@ -690,7 +690,7 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtma
  endif
 
  ! modify dtmax based upon density change (algorithm copied from sphNG)
- if (dtmax_log_dratio > 0.0) then
+ if (dtmax_log_dratio > 1.0) then
     ratio   = log10(rhomaxnew/rhomaxold)
     ipower  = -(int(ratio/dtmax_log_dratio))
     if (abs(ratio/dtmax_log_dratio) < 0.5) ipower = 1
