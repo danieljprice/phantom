@@ -118,7 +118,6 @@ subroutine read_options_damping(name,valstring,imatch,igotall,ierr,idamp)
  integer,          intent(inout) :: idamp
  integer,          save          :: ngot  = 0
  character(len=30), parameter    :: label = 'read_options_damp'
- integer :: tmp
 
  imatch  = .true.
  select case(trim(name))
