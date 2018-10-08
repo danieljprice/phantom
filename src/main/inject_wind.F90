@@ -12,7 +12,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Bec Nealon
+!  OWNER: Daniel Price
 !
 !  $Id$
 !
@@ -22,7 +22,7 @@
 !    bowen_Tcond         -- condensation temperature of dust (K)
 !    bowen_Teff          -- effective temperature of the central star (K)
 !    bowen_delta         -- condensation temperature range (K)
-!    bowen_kappa         -- star atmosphere opacity (cm²/g)
+!    bowen_kappa         -- constant gas opacity (cm²/g)
 !    bowen_kmax          -- maximum dust opacity (cm²/g)
 !    central_star_mass   -- mass of the central star (Msun)
 !    central_star_radius -- radius of the central star (au)
@@ -133,11 +133,11 @@ subroutine wind_init(setup)
  call compute_corners(geodesic_v)
 
  if (wind_verbose) then
-  print *,'particles_per_sphere ',particles_per_sphere
-  print *,'neighbour_distance ',neighbour_distance
-  print *,'mass_of_particles ',mass_of_particles
-  print *,'mass_of_spheres ',mass_of_spheres
-  print *,'time_between_spheres ',time_between_spheres
+    print *,'particles_per_sphere ',particles_per_sphere
+    print *,'neighbour_distance ',neighbour_distance
+    print *,'mass_of_particles ',mass_of_particles
+    print *,'mass_of_spheres ',mass_of_spheres
+    print *,'time_between_spheres ',time_between_spheres
  endif
 
  ! adjusting dtmax to avoid uterm < 0 errors
