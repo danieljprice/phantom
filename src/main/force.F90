@@ -1530,7 +1530,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !
           if (idrag>0) then
              if (iamgasi .and. iamdustj .and. icut_backreaction==0) then
-                call reconstruct_dv(projv,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,projvstar)
+                call reconstruct_dv(projv,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,pmassi,pmassj,projvstar)
                 dv2 = projvstar**2 ! dvx*dvx + dvy*dvy + dvz*dvz
                 if (q2i < q2j) then
                    wdrag = wkern_drag(q2i,qi)*hi21*hi1*cnormk_drag
@@ -1558,7 +1558,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    fsum(idudtdissi) = fsum(idudtdissi) + dragheating
                 endif
              elseif (iamdusti .and. iamgasj) then
-                call reconstruct_dv(projv,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,projvstar)
+                call reconstruct_dv(projv,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,pmassi,pmassj,projvstar)
                 dv2 = projvstar**2 !dvx*dvx + dvy*dvy + dvz*dvz
                 if (q2i < q2j) then
                    wdrag = wkern_drag(q2i,qi)*hi21*hi1*cnormk_drag
@@ -2703,27 +2703,61 @@ end subroutine combine_cells
 !  Apply reconstruction to velocity gradients
 !+
 !-----------------------------------------------------------------------------
-subroutine reconstruct_dv(projv,dx,dy,dz,rx,ry,rz,dvdxi,dvdxj,projvstar)
- real, intent(in)  :: projv,dx,dy,dz,rx,ry,rz,dvdxi(9),dvdxj(9)
+subroutine reconstruct_dv(projv,dx,dy,dz,rx,ry,rz,dvdxi,dvdxj,mi,mj,projvstar)
+ real, intent(in)  :: projv,dx,dy,dz,rx,ry,rz,dvdxi(9),dvdxj(9),mi,mj
  real, intent(out) :: projvstar
- real :: dvxdx,dvxdy,dvxdz,dvydx,dvydy,dvydz,dvzdx,dvzdy,dvzdz
+ !real :: dvxdx,dvxdy,dvxdz,dvydx,dvydy,dvydz,dvzdx,dvzdy,dvzdz
+ real :: slopei,slopej,slope,sep
 
- dvxdx = 0.5*(dvdxi(1) + dvdxj(1))
- dvxdy = 0.5*(dvdxi(2) + dvdxj(2))
- dvxdz = 0.5*(dvdxi(3) + dvdxj(3))
- dvydx = 0.5*(dvdxi(4) + dvdxj(4))
- dvydy = 0.5*(dvdxi(5) + dvdxj(5))
- dvydz = 0.5*(dvdxi(6) + dvdxj(6))
- dvzdx = 0.5*(dvdxi(7) + dvdxj(7))
- dvzdy = 0.5*(dvdxi(8) + dvdxj(8))
- dvzdz = 0.5*(dvdxi(9) + dvdxj(9))
- projvstar = projv - 1.0*dx*(rx*dvxdx + ry*dvydx + rz*dvzdx) &
-                   - 1.0*dy*(rx*dvxdy + ry*dvydy + rz*dvzdy) &
-                   - 1.0*dz*(rx*dvxdz + ry*dvydz + rz*dvzdz)
- projvstar = projv
-! apply entropy condition
- !if (projvstar*projv < 0.) projvstar = projv
+ !dvxdx = 0.5*(dvdxi(1) + dvdxj(1))
+ !dvxdy = 0.5*(dvdxi(2) + dvdxj(2))
+ !dvxdz = 0.5*(dvdxi(3) + dvdxj(3))
+ !dvydx = 0.5*(dvdxi(4) + dvdxj(4))
+ !dvydy = 0.5*(dvdxi(5) + dvdxj(5))
+ !dvydz = 0.5*(dvdxi(6) + dvdxj(6))
+ !dvzdx = 0.5*(dvdxi(7) + dvdxj(7))
+ !dvzdy = 0.5*(dvdxi(8) + dvdxj(8))
+ !dvzdz = 0.5*(dvdxi(9) + dvdxj(9))
+ sep = mi/(mi + mj)
+ !print*,'sep=',sep
+
+ ! CAUTION: here we use dx, not the unit vector to
+ ! define the projected slope. This is fine as
+ ! long as the slope limiter is linear, otherwise
+ ! one should use the unit vector
+ slopei = dx*(rx*dvdxi(1) + ry*dvdxi(4) + rz*dvdxi(7)) &
+        + dy*(rx*dvdxi(2) + ry*dvdxi(5) + rz*dvdxi(8)) &
+        + dz*(rx*dvdxi(3) + ry*dvdxi(6) + rz*dvdxi(9))
+
+ slopej = dx*(rx*dvdxj(1) + ry*dvdxj(4) + rz*dvdxj(7)) &
+        + dy*(rx*dvdxj(2) + ry*dvdxj(5) + rz*dvdxj(8)) &
+        + dz*(rx*dvdxj(3) + ry*dvdxj(6) + rz*dvdxj(9))
+
+ slope = slope_limiter(slopei,slopej)
+ !slope = (slopei + slopej)
+ projvstar = projv - sep*slope
+
+ !projvstar = projv - 0.5*dx*(rx*dvxdx + ry*dvydx + rz*dvzdx) &
+!                   - 0.5*dy*(rx*dvxdy + ry*dvydy + rz*dvzdy) &
+!                   - 0.5*dz*(rx*dvxdz + ry*dvydz + rz*dvzdz)
+
+ !if (abs(projvstar1 - projvstar) > epsilon(0.)) print*,projvstar,projvstar1
+ ! apply entropy condition
+! if (projvstar*projv < 0.) projvstar = projv
 
 end subroutine reconstruct_dv
+
+real function slope_limiter(sl,sr) result(s)
+ real, intent(in) :: sl,sr
+! integer, intent(in) :: ilimiter
+
+ s = 0.
+ ! Van Leer monotonised central (MC)
+ !if (sl*sr > 0.) s = sign(1.0,sl)*min(abs(0.5*(sl + sr)),2.*abs(sl),2.*abs(sr))
+
+ ! Superbee
+ if (sl*sr > 0.) s = sign(1.0,sl)*max(min(abs(sr),2.*abs(sl)),min(2.*abs(sr),abs(sl)))
+
+end function slope_limiter
 
 end module forces
