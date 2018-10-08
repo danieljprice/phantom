@@ -2709,6 +2709,10 @@ subroutine reconstruct_dv(projv,dx,dy,dz,rx,ry,rz,dvdxi,dvdxj,mi,mj,projvstar)
  !real :: dvxdx,dvxdy,dvxdz,dvydx,dvydy,dvydz,dvzdx,dvzdy,dvzdz
  real :: slopei,slopej,slope,sep
 
+ ! do nothing and return
+ projvstar = projv
+ return
+
  !dvxdx = 0.5*(dvdxi(1) + dvdxj(1))
  !dvxdy = 0.5*(dvdxi(2) + dvdxj(2))
  !dvxdz = 0.5*(dvdxi(3) + dvdxj(3))
