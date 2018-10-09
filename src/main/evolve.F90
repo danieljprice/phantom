@@ -730,7 +730,7 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtma
 #endif
 
  ! set nfulldump = 1 if we have modified dtmax
- if (nfulldump > 1) then
+ if (dtmax_ifactor /= 0 .and. nfulldump > 1) then
     nfulldump = 1
     write(iprint,'(1x,a)') "modifying dtmax: nfulldump -> 1 to ensure data is not lost due to decreasing dtmax"
  endif
