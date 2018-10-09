@@ -423,37 +423,33 @@ endif
 
 #--- Bondi accretion/wind ---------------------------
 ifeq ($(SETUP), bondi)
-    SRCBONDI=bondiexact.f90
-    SETUPFILE=setup_bondi.f90
+    SETUPFILE=bondiexact.f90 setup_bondi.f90
     KNOWN_SETUP=yes
     KERNEL=quintic
     ISOTHERMAL=yes
 endif
 ifeq ($(SETUP), bondigr)
-    SRCBONDI=bondiexact_gr.f90
-    SETUPFILE=setup_bondi.f90
+    SETUPFILE=bondiexact_gr.f90 setup_bondi.f90
     KNOWN_SETUP=yes
     KERNEL=quintic
     GR=yes
     METRIC=schwarzschild
 endif
 ifeq ($(SETUP), bondigr-inject)
-    SRCBONDI=bondiexact_gr.f90
     SETUPFILE= setup_bondiwind.F90
-    SRCINJECT= icosahedron.f90 inject_bondigr.f90
+    SRCINJECT=bondiexact_gr.f90 icosahedron.f90 inject_bondigr.f90
     KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
+    IND_TIMESTEPS=yes
     STS_TIMESTEPS=no
-    KERNEL=cubic
+    KERNEL=quintic
     ISOTHERMAL=no
     GR=yes
     METRIC=schwarzschild
 endif
 
 ifeq ($(SETUP), bondi2)
-    SRCBONDI=bondiexact_gr.f90
     SETUPFILE=setup_bondi2.f90
-    SRCINJECT=inject_bondi2.f90
+    SRCINJECT=bondiexact_gr.f90 inject_bondi2.f90
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
     KERNEL=quintic
@@ -1671,7 +1667,6 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          prompting.f90 ${SRCDUST} set_dust.F90 readwrite_dumps.F90 quitdump.f90 \
          mpi_dens.F90 mpi_force.F90 stack.F90 \
          mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
-         ${SRCBONDI} \
          ${SRCTURB} ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} \
          ptmass.F90 readwrite_infile.F90 \
          dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 \
@@ -1748,7 +1743,6 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_filenames.f90 util
           geometry.f90 stretchmap.f90 density_profiles.f90 \
           set_unifdis.f90 set_slab.f90 set_sphere.f90 set_disc.F90 \
           set_vfield.f90 sort_particles.F90 ${SRCINJECT} \
-          ${SRCBONDI} \
           ${SETUPFILE} checksetup.F90 \
           set_Bfield.f90 readwrite_infile.f90
 OBJSETUP1= $(SRCSETUP:.f90=.o)
