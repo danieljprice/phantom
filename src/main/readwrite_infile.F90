@@ -29,6 +29,9 @@
 !    bulkvisc           -- magnitude of bulk viscosity
 !    calc_erot          -- include E_rot in the ev_file
 !    dtmax              -- time between dumps
+!    dtmax_dratio       -- dynamic dtmax: density ratio controlling decrease (<=0 to ignore)
+!    dtmax_max          -- dynamic dtmax: maximum allowed dtmax (=dtmax if <= 0)
+!    dtmax_min          -- dynamic dtmax: minimum allowed dtmax
 !    dtwallmax          -- maximum wall time between dumps (hhh:mm, 000:00=ignore)
 !    dumpfile           -- dump file to start from
 !    hfact              -- h in units of particle spacing [h = hfact(m/rho)^(1/3)]
@@ -45,7 +48,7 @@
 !    overcleanfac       -- factor to increase cleaning speed (decreases time step)
 !    psidecayfac        -- div B diffusion parameter
 !    restartonshortest  -- restart with all particles on shortest timestep
-!    rho_dtthresh       -- density threshhold (cgs) at which to change dtmax
+!    rhofinal_cgs       -- maximum allowed density (cgs) (<=0 to ignore)
 !    shearparam         -- magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)
 !    tmax               -- end time
 !    tolh               -- tolerance on h-rho iterations
