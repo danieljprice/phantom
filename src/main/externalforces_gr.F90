@@ -207,13 +207,13 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
  real,    intent(inout) :: hi
  logical, intent(out)   :: accreted
  integer, intent(in), optional :: i
- integer, save :: ifirst = 0
+ logical, save :: first = .true.
  real :: r2
 
  accreted = .false.
  select case(imetric)
  case(imet_minkowski)
-    if(ifirst==0) print*,"WARNING: Accrete particles: but Metric = Minkowski"
+    if (first) print*,"WARNING: Accrete particles: but Metric = Minkowski"
 
  case(imet_schwarzschild,imet_kerr)
     r2 = xi*xi + yi*yi + zi*zi
@@ -230,7 +230,7 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
     hi = -abs(hi)
  endif
 
- ifirst = ifirst + 1
+ first = .false.
 
 end subroutine accrete_particles
 
