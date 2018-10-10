@@ -3,7 +3,8 @@ module inject
 
  implicit none
 
- integer, parameter, dimension(8) :: resolutions = [1,2,3,4,5,6,10,15]
+ integer, parameter, dimension(8) :: resolutions = (/1,2,3,4,5,6,10,15/)
+ integer, parameter :: nres = size(resolutions)
 
  character(len=*), parameter, public :: inject_type = 'bondi'
  public :: inject_particles,     &
@@ -330,7 +331,7 @@ end function particles_per_sphere
 real function neighbour_distance_on_sphere(ires) result(dist)
  integer, intent(in) :: ires
  real, parameter :: phi = (sqrt(5.)+1.)/2. ! Golden ratio
- 
+
  dist = 2./((2.*ires-1.)*sqrt(sqrt(5.)*phi))
 
 end function neighbour_distance_on_sphere
