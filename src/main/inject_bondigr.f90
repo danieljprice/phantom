@@ -3,6 +3,8 @@ module inject
 
  implicit none
 
+ integer, parameter, dimension(8) :: resolutions = [1,2,3,4,5,6,10,15]
+
  character(len=*), parameter, public :: inject_type = 'bondi'
  public :: inject_particles,     &
            write_options_inject, &
@@ -373,7 +375,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  case('iwindres')
     read(valstring,*,iostat=ierr) iwindres
     ngot = ngot + 1
-    if (.not.any([1,2,3,4,5,6,10,15]==iwindres)) call fatal(label,'invalid setting for iwindres')
+    if (.not.any(resolutions==iwindres)) call fatal(label,'invalid setting for iwindres')
  case('fac')
     read(valstring,*,iostat=ierr) fac
     ngot = ngot + 1
