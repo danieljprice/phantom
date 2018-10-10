@@ -60,7 +60,7 @@ subroutine inject_init(setup,sol)
  call get_solution(rhoin,vin,uthermin,rin)
 
  speed        = abs(vin)
- npsphere     = 20 * (2*iwindres*(iwindres-1)) + 12
+ npsphere     = particles_per_sphere(iwindres)
  neighdist    = 2./((2.*iwindres-1.)*sqrt(sqrt(5.)*phi))
  mdot         = 4.*pi*rin**2*rhoin*speed
 
@@ -320,6 +320,11 @@ subroutine make_rotation_matrix(rotation_angles,rot_m)
  rot_m(3,2) = -c_x*s_y*s_z + s_x*c_z
  rot_m(3,3) = c_x*c_y
 end subroutine
+
+integer function particles_per_sphere(ires)
+ integer, intent(in) :: ires
+ particles_per_sphere = 20 * (2*iwindres*(iwindres-1)) + 12
+end function particles_per_sphere
 
 !-----------------------------------------------------------------------
 !+
