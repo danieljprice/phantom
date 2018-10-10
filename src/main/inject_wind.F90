@@ -81,8 +81,6 @@ module inject
  real, public ::    shift_spheres = 3.
  integer, public :: ihandled_spheres = 3
  real, public ::    wind_injection_radius = 1.7 * au
- real, public ::    central_star_mass = 1. * solarm
- real, public ::    central_star_radius = 1. * au
  real, parameter :: wind_osc_vamplitude = 0.
 #endif
 
@@ -177,7 +175,7 @@ subroutine inject_particles(time_u,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
  print *,'spheres',inner_sphere,inner_handled_sphere,outer_sphere,npart
  do i=inner_sphere+ihandled_spheres,outer_sphere,-1
     local_time = time - (i-shift_spheres) * time_between_spheres
-    call compute_sphere_properties(local_time, r, v, u, rho, e, i)
+    call compute_sphere_properties(local_time, r, v, u, rho, e, i, xyzmh_ptmass)
     if (wind_verbose) then
        write(iprint,*) '* Sphere:'
        write(iprint,*) '   Number: ', i
@@ -235,15 +233,18 @@ end subroutine
 !  Compute the radius, velocity and temperature of a sphere at the current local time
 !+
 !-----------------------------------------------------------------------
-subroutine compute_sphere_properties(local_time, r, v, u, rho, e, sphere_number)
+subroutine compute_sphere_properties(local_time, r, v, u, rho, e, sphere_number, xyzmh_ptmass)
 #ifdef BOWEN
  use bowen_dust, only: pulsating_bowen_wind_profile
 #endif
  integer, intent(in) :: sphere_number
- real, intent(in) :: local_time
+ real, intent(in) :: local_time, xyzmh_ptmass(:,:)
  real, intent(out) :: r, v, u, rho, e
-
 #ifdef BOWEN
+ real :: central_star_mass, central_star_radius
+
+ central_star_mass   = xyzmh_ptmass(4,wind_emitting_sink)
+ central_star_radius = xyzmh_ptmass(5,wind_emitting_sink)
  call pulsating_bowen_wind_profile(local_time, r, v, u, rho, e, sphere_number,&
        wind_mass_rate,wind_injection_radius,wind_velocity,wind_osc_vamplitude,&
        wind_osc_period,shift_spheres,central_star_mass,time_between_spheres,&
