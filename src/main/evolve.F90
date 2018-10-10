@@ -686,6 +686,12 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtma
        dtmax_ifactor_time = int(2**(int(log(real(twallperdump/dtwallmax))/log(2.0))+1))
        write(iprint,'(1x,a,2(es10.3,a))') &
           "modifying dtmax: ",dtmax," -> ",dtmax/dtmax_ifactor_time," due to wall time constraint"
+       ! set nfulldump = 1 to ensure a full dump within a reasonable wall-time
+       if (nfulldump > 1) then
+          nfulldump = 1
+          write(iprint,'(1x,a)')  &
+             "modifying dtmax: nfulldump -> 1 to ensure data is not lost due to decreasing dtmax"
+       endif
     endif
  endif
 
@@ -728,12 +734,6 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtma
     dtmax = -dtmax*dtmax_ifactor
  endif
 #endif
-
- ! set nfulldump = 1 if we have modified dtmax
- if (dtmax_ifactor /= 0 .and. nfulldump > 1) then
-    nfulldump = 1
-    write(iprint,'(1x,a)') "modifying dtmax: nfulldump -> 1 to ensure data is not lost due to decreasing dtmax"
- endif
 
 end subroutine check_dtmax_for_decrease
 !----------------------------------------------------------------
