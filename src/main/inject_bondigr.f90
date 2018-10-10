@@ -55,7 +55,6 @@ subroutine inject_init(setup,sol)
  use kernel,      only:radkern
  logical, intent(in)  :: setup
  integer, intent(out), optional :: sol
- real, parameter :: phi = (sqrt(5.)+1.)/2. ! Golden ratio
  real, parameter :: pi3 = pi/3.            ! irrational number close to one
  real :: speed,rhoin,uthermin,mdot,masssphere,neighdist,drsphere
 
@@ -63,7 +62,7 @@ subroutine inject_init(setup,sol)
 
  speed        = abs(vin)
  npsphere     = particles_per_sphere(iwindres)
- neighdist    = 2./((2.*iwindres-1.)*sqrt(sqrt(5.)*phi))
+ neighdist    = neighbour_distance_on_sphere(iwindres)
  mdot         = 4.*pi*rin**2*rhoin*speed
 
  drsphere     = fac*neighdist
@@ -327,6 +326,14 @@ integer function particles_per_sphere(ires)
  integer, intent(in) :: ires
  particles_per_sphere = 20 * (2*ires*(ires-1)) + 12
 end function particles_per_sphere
+
+real function neighbour_distance_on_sphere(ires) result(dist)
+ integer, intent(in) :: ires
+ real, parameter :: phi = (sqrt(5.)+1.)/2. ! Golden ratio
+ 
+ dist = 2./((2.*ires-1.)*sqrt(sqrt(5.)*phi))
+
+end function neighbour_distance_on_sphere
 
 !-----------------------------------------------------------------------
 !+
