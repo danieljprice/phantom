@@ -29,7 +29,9 @@
 !    bulkvisc           -- magnitude of bulk viscosity
 !    calc_erot          -- include E_rot in the ev_file
 !    dtmax              -- time between dumps
-!    dtmax_rat0         -- dtmax_new = dtmax_old/dtmax_rat0
+!    dtmax_dratio       -- dynamic dtmax: density ratio controlling decrease (<=0 to ignore)
+!    dtmax_max          -- dynamic dtmax: maximum allowed dtmax (=dtmax if <= 0)
+!    dtmax_min          -- dynamic dtmax: minimum allowed dtmax
 !    dtwallmax          -- maximum wall time between dumps (hhh:mm, 000:00=ignore)
 !    dumpfile           -- dump file to start from
 !    hfact              -- h in units of particle spacing [h = hfact(m/rho)^(1/3)]
@@ -46,7 +48,7 @@
 !    overcleanfac       -- factor to increase cleaning speed (decreases time step)
 !    psidecayfac        -- div B diffusion parameter
 !    restartonshortest  -- restart with all particles on shortest timestep
-!    rho_dtthresh       -- density threshhold (cgs) at which to change dtmax
+!    rhofinal_cgs       -- maximum allowed density (cgs) (<=0 to ignore)
 !    shearparam         -- magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)
 !    tmax               -- end time
 !    tolh               -- tolerance on h-rho iterations
@@ -60,17 +62,17 @@
 !+
 !--------------------------------------------------------------------------
 module readwrite_infile
- use dim,       only:calc_erot,incl_erot
- use timestep,  only:rho_dtthresh_cgs,dtmax_rat0
+ use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
  use options,   only:nfulldump,nmaxdumps,twallmax,dtwallmax,iexternalforce,idamp,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,tolv, &
                      ipdv_heating,ishock_heating,iresistive_heating, &
-                     icooling,psidecayfac,overcleanfac,alphamax,&
+                     icooling,psidecayfac,overcleanfac,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
  use io,        only:iverbose
  implicit none
+ logical :: incl_runtime2 = .false.
  character(len=80), parameter, public :: &
     modid="$Id$"
 
@@ -152,17 +154,13 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(nfulldump,'nfulldump','full dump every n dumps',iwritein)
  call write_inopt(iverbose,'iverbose','verboseness of log (-1=quiet 0=default 1=allsteps 2=debug 5=max)',iwritein)
 
- if (incl_erot .or. calc_erot .or. rho_dtthresh_cgs > 0.0) then
+ if (incl_runtime2 .or. rhofinal_cgs > 0.0 .or. dtmax_dratio > 1.0 .or. calc_erot) then
     write(iwritein,"(/,a)") '# options controlling run time and input/output: supplementary features'
-    if (incl_erot .or. calc_erot) then
-       call write_inopt(calc_erot,'calc_erot','include E_rot in the ev_file',iwritein)
-    endif
-    if (rho_dtthresh_cgs > 0.0) then
-       if (rho_dtthresh_cgs > 0.0) then
-          call write_inopt(rho_dtthresh_cgs,'rho_dtthresh','density threshhold (cgs) at which to change dtmax',iwritein)
-          call write_inopt(dtmax_rat0,'dtmax_rat0','dtmax_new = dtmax_old/dtmax_rat0',iwritein)
-       endif
-    endif
+    call write_inopt(rhofinal_cgs,'rhofinal_cgs','maximum allowed density (cgs) (<=0 to ignore)',iwritein)
+    call write_inopt(dtmax_dratio,'dtmax_dratio','dynamic dtmax: density ratio controlling decrease (<=0 to ignore)',iwritein)
+    call write_inopt(dtmax_max,'dtmax_max','dynamic dtmax: maximum allowed dtmax (=dtmax if <= 0)',iwritein)
+    call write_inopt(dtmax_min,'dtmax_min','dynamic dtmax: minimum allowed dtmax',iwritein)
+    call write_inopt(calc_erot,'calc_erot','include E_rot in the ev_file',iwritein)
  endif
 
  write(iwritein,"(/,a)") '# options controlling accuracy'
@@ -298,6 +296,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  character(len=20) :: name
  character(len=120) :: valstring
  integer :: ierr,ireaderr,line,idot,ngot,nlinesread
+ real    :: ratio
  logical :: imatch,igotallrequired,igotallturb,igotalllink,igotloops
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotallphoto, igotalldamping
@@ -360,13 +359,28 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) dtwallmax
     case('iverbose')
        read(valstring,*,iostat=ierr) iverbose
+    case('rhofinal_cgs')
+       read(valstring,*,iostat=ierr) rhofinal_cgs
+       incl_runtime2 = .true.
     case('calc_erot')
        read(valstring,*,iostat=ierr) calc_erot
-       incl_erot = .true.
-    case('rho_dtthresh')
-       read(valstring,*,iostat=ierr) rho_dtthresh_cgs
-    case('dtmax_rat0')
-       read(valstring,*,iostat=ierr) dtmax_rat0
+       incl_runtime2 = .true.
+    case('dtmax_dratio')
+       read(valstring,*,iostat=ierr) dtmax_dratio
+       incl_runtime2 = .true.
+    case('dtmax_max')
+       read(valstring,*,iostat=ierr) dtmax_max
+       if (dtmax_max <= 0.0) dtmax_max = dtmax
+       ! to prevent comparison errors from round-off
+       ratio = dtmax_max/dtmax
+       ratio = int(ratio+0.5)+0.0001
+       dtmax_max = dtmax*ratio
+    case('dtmax_min')
+       read(valstring,*,iostat=ierr) dtmax_min
+       ! to prevent comparison errors from round-off
+       ratio = dtmax/dtmax_min
+       ratio = int(ratio+0.5)+0.0001
+       dtmax_min = dtmax/ratio
     case('C_cour')
        read(valstring,*,iostat=ierr) C_cour
     case('C_force')

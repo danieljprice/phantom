@@ -37,14 +37,13 @@ contains
 
 subroutine evol(infile,logfile,evfile,dumpfile)
  use io,               only:iprint,iwritein,id,master,iverbose,flush_warnings,nprocs,fatal
- use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce
+ use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,dtmax_ifactor,dtmax_dratio
  use evwrite,          only:write_evfile,write_evlog
  use energies,         only:etot,totmom,angtot,mdust
  use dim,              only:maxvxyzu,mhd,periodic
  use fileutils,        only:getnextfilename
- use options,          only:nfulldump,twallmax,nmaxdumps,iexternalforce,&
-                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating,&
-                            use_dustfrac
+ use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,use_dustfrac,iexternalforce,&
+                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
  use readwrite_infile, only:write_infile
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
@@ -58,8 +57,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use dim,              only:maxp
  use part,             only:maxphase,ibin,iphase
  use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,update_time_per_bin,&
-                            write_binsummary,change_nbinmax,nactive,nactivetot,maxbins,&
-                            decrease_dtmax
+                            write_binsummary,change_nbinmax,nactive,nactivetot,maxbins
  use timestep,         only:restartonshortest,dtdiff
  use timestep_sts,     only:sts_get_dtau_next,sts_init_step
  use io,               only:fatal,warning
@@ -113,7 +111,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: noutput,noutput_dtmax,nsteplast,ncount_fulldumps
- real            :: dtnew,dtlast,timecheck
+ real            :: dtnew,dtlast,timecheck,rhomaxold,dtmax_log_dratio
  real            :: tprint,tzero,dtmaxold
  real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
  real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
@@ -133,7 +131,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  integer         :: nactive
  logical, parameter :: dt_changed = .false.
 #endif
- logical         :: fulldump,abortrun,at_dump_time,update_tzero
+ logical         :: fulldump,abortrun,at_dump_time
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
  logical         :: should_conserve_dustmass
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
@@ -168,16 +166,21 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  noutput_dtmax    = 1
  ncount_fulldumps = 0
  tprint           = tzero + dtmax
- update_tzero     = .false.
+ rhomaxold        = rhomaxnow
+ if (dtmax_dratio > 0.) then
+    dtmax_log_dratio = log10(dtmax_dratio)
+ else
+    dtmax_log_dratio = 0.0
+ endif
 #ifdef IND_TIMESTEPS
- istepfrac = 0
- tlast = tzero
- dt = dtmax/2**nbinmax
- nmovedtot = 0
- tall = 0.
- tcheck = time
+ istepfrac     = 0
+ tlast         = tzero
+ dt            = dtmax/2**nbinmax
+ nmovedtot     = 0
+ tall          = 0.
+ tcheck        = time
  timeperbin(:) = 0.
- dt_changed = .false.
+ dt_changed    = .false.
 !
 ! first time through, move all particles on shortest timestep
 ! then allow them to gradually adjust levels.
@@ -200,7 +203,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  endif
 
 #else
- nskip = npart
+ nskip   = npart
  nactive = npart
  if (dt >= (tprint-time)) dt = tprint-time   ! reach tprint exactly
 #endif
@@ -241,7 +244,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
 ! --------------------- main loop ----------------------------------------
 !
- timestepping: do while ((time < tmax).and.((nsteps < nmax) .or.  (nmax < 0)))
+ timestepping: do while ((time < tmax).and.((nsteps < nmax) .or.  (nmax < 0)).and.(rhomaxnow*rhofinal1 < 1.0))
 
 #ifdef INJECT_PARTICLES
     !
@@ -268,7 +271,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !  for global timestepping, this is called in the block where at_dump_time==.true.
     if (istepfrac==2**nbinmax) then
        twallperdump = reduceall_mpi('max', timer_lastdump%wall)
-       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,nfulldump,update_tzero)
+       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
+                                     rhomaxold,rhomaxnow,nfulldump)
     endif
 
     !--sanity check on istepfrac...
@@ -355,7 +359,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
     !--if total number of bins has changed, adjust istepfrac and dt accordingly
     !  (ie., decrease or increase the timestep)
-    if (nbinmax /= nbinmaxprev) then
+    if (nbinmax /= nbinmaxprev .or. dtmax_ifactor/=0) then
        call change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
        dt_changed = .true.
     endif
@@ -405,7 +409,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !--Determine if this is the correct time to write to the data file
 !
     at_dump_time = (time >= tmax).or.((mod(nsteps,nout)==0).and.(nout > 0)) &
-                   .or.((nsteps >= nmax).and.(nmax >= 0))
+                   .or.((nsteps >= nmax).and.(nmax >= 0)).or.(rhomaxnow*rhofinal1 >= 1.0)
 #ifdef IND_TIMESTEPS
     if (istepfrac==2**nbinmax) at_dump_time = .true.
 #else
@@ -477,7 +481,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
 !--Global timesteps: Decrease dtmax if requested (done in step for individual timesteps)
        twallperdump = timer_lastdump%wall
-       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,nfulldump,update_tzero,.true.)
+       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
+                                     rhomaxold,rhomaxnow,nfulldump)
 #endif
 !
 !--get timings since last dump and overall code scaling
@@ -618,10 +623,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        noutput       = noutput + 1
        tprint        = tzero + noutput_dtmax*dtmaxold
        nsteplast     = nsteps
-       if (update_tzero) then
+       if (dtmax_ifactor/=0) then
           tzero         = tprint - dtmaxold
           tprint        = tzero  + dtmax
           noutput_dtmax = 1
+          dtmax_ifactor = 0
        endif
     endif
 
@@ -655,61 +661,81 @@ end subroutine evol
 !  whether individual or global timesteps are being used.
 !+
 !----------------------------------------------------------------
-subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,nfulldump,update_tzero,update_dtmax)
+subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
+                                    rhomaxold,rhomaxnew,nfulldump)
  use options,  only: dtwallmax
- use timestep, only: dtmax_rat,dtmax_rat0,mod_dtmax,mod_dtmax_now,mod_dtmax_in_step
+ use timestep, only: dtmax_max,dtmax_min
  integer,      intent(in)    :: iprint
+ integer,      intent(out)   :: dtmax_ifactor
  integer,      intent(inout) :: nfulldump
- real,         intent(inout) :: dtmax
+ real,         intent(inout) :: dtmax,rhomaxold
+ real,         intent(in)    :: rhomaxnew,dtmax_log_dratio
  real(kind=4), intent(in)    :: twallperdump
- logical,      intent(out)   :: update_tzero
- logical,      intent(in), optional :: update_dtmax
- logical                     :: mod_nfulldump
+ real                        :: ratio
+ integer                     :: ipower,ifactor,dtmax_ifactor_time
+ integer, parameter          :: ifactor_max_dn = 2**2 ! hardcode to allow at most a decrease of 2 bins per step
+ integer, parameter          :: ifactor_max_up = 2**1 ! hardcode to allow at most an increase of 1 bin per step
 
  ! initialise variables
- dtmax_rat     = 0
- update_tzero  = .false.
- mod_nfulldump = .false.
+ dtmax_ifactor      = 0
+ dtmax_ifactor_time = 0
 
  ! modify dtmax based upon wall time constraint, if requested
  if ( dtwallmax > 0.0 ) then
     if (twallperdump > dtwallmax) then
-       mod_nfulldump = (nfulldump > 1)
-       dtmax_rat = int(2**(int(log(real(twallperdump/dtwallmax))/log(2.0))+1))
+       dtmax_ifactor_time = int(2**(int(log(real(twallperdump/dtwallmax))/log(2.0))+1))
        write(iprint,'(1x,a,2(es10.3,a))') &
-          "modifying dtmax: ",dtmax," --> ",dtmax/dtmax_rat," due to wall time constraint"
-       dtmax_rat0 = max(0,dtmax_rat0-dtmax_rat)
+          "modifying dtmax: ",dtmax," -> ",dtmax/dtmax_ifactor_time," due to wall time constraint"
+       ! set nfulldump = 1 to ensure a full dump within a reasonable wall-time
+       if (nfulldump > 1) then
+          nfulldump = 1
+          write(iprint,'(1x,a)')  &
+             "modifying dtmax: nfulldump -> 1 to ensure data is not lost due to decreasing dtmax"
+       endif
     endif
  endif
 
- ! modify dtmax based upon density, if requested, and print info to the logfile
- if (mod_dtmax_now .and. dtmax_rat0 > 1) then
-    mod_nfulldump     = (nfulldump > 1)
-    dtmax_rat         = dtmax_rat0 + dtmax_rat
-    mod_dtmax_now     = .false. ! reset variable
-    mod_dtmax         = .false. ! prevent any additional modifications of dtmax
-    write(iprint,'(1x,a,2(es10.3,a))') &
-       "modifying dtmax: ",dtmax," --> ",dtmax/dtmax_rat," due to user requested decrease"
- endif
-
- ! dtmax will be modified; update all required logicals such that this will happen
- if (dtmax_rat > 1) then
-    mod_nfulldump     = (nfulldump > 1)
-    update_tzero      = .true.  ! to reset tzero and tlast if individual dt
-    mod_dtmax_in_step = .true.  ! to tell step.f to decrease dtmax on its next call for individual dt
-    if (present(update_dtmax)) then
-       if (update_dtmax) dtmax = dtmax/dtmax_rat
+ ! modify dtmax based upon density change (algorithm copied from sphNG)
+ if (dtmax_log_dratio > 0.0) then
+    ratio   = log10(rhomaxnew/rhomaxold)
+    ipower  = -(int(ratio/dtmax_log_dratio))
+    if (abs(ratio/dtmax_log_dratio) < 0.5) ipower = 1
+    ifactor = 2**abs(ipower)
+    if (ipower < 0) then
+       ! decrease dtmax
+       ifactor = min(ifactor,ifactor_max_dn)
+       if (dtmax/ifactor >= dtmax_min ) then
+          dtmax_ifactor = ifactor
+          write(iprint,'(1x,a,2(es10.3,a))') &
+          "modifying dtmax: ",dtmax," -> ",dtmax/ifactor," due to density increase"
+       endif
+    elseif (ipower > 0) then
+       ! increase dtmax
+       ifactor = ifactor_max_up
+       if (dtmax*ifactor <= dtmax_max .and. ifactor*twallperdump < dtwallmax) then
+          dtmax_ifactor = -ifactor
+          write(iprint,'(1x,a,2(es10.3,a))') &
+          "modifying dtmax: ",dtmax," -> ",dtmax*ifactor," due to density decrease/stabilisation"
+       endif
     endif
+    rhomaxold = rhomaxnew
  endif
 
- ! set nfulldump = 1 if we have modified dtmax
- if (mod_nfulldump) then
-    nfulldump = 1
-    write(iprint,'(1x,a)') "modifying dtmax: nfulldump -> 1 to ensure data is not lost due to decreasing dtmax"
+ ! Decreasing due to time constraint trumps change due to density
+ if (dtmax_ifactor_time > 0) then
+    dtmax_ifactor = max(dtmax_ifactor,dtmax_ifactor_time)
  endif
+
+#ifndef IND_TIMESTEPS
+ ! dtmax will be modified now for global timestepping
+ if (dtmax_ifactor > 0) then
+    dtmax =  dtmax/dtmax_ifactor
+ else if (dtmax_ifactor < 0) then
+    dtmax = -dtmax*dtmax_ifactor
+ endif
+#endif
 
 end subroutine check_dtmax_for_decrease
-
 !----------------------------------------------------------------
 !+
 !  routine to check conservation errors during the calculation
