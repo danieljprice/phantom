@@ -7,17 +7,18 @@ module inject
  public :: inject_particles,     &
            write_options_inject, &
            read_options_inject,  &
-           inject_init
+           inject_init,          &
+           choose_inject
 
 !--- Runtime settings read from input file--------------------------
  integer, private :: iwindres        = 4
- real,    private :: dtsphere        = 2.
+ real,    private :: fac             = 1.
  integer, private :: nhandled        = 3
  real,    public  :: rin             = 18.1     ! Injection radius (in units of central mass M)
  real,    public  :: gammawind       = 5./3.
 
 ! Calculated from the previous parameters
- real,    public :: masspart
+ real,    public :: masspart,dtsphere
 
  private
 
@@ -63,10 +64,10 @@ subroutine inject_init(setup,sol)
  neighdist    = 2./((2.*iwindres-1.)*sqrt(sqrt(5.)*phi))
  mdot         = 4.*pi*rin**2*rhoin*speed
 
- ! drsphere     = neighdist
- drsphere     = speed*dtsphere
+ drsphere     = fac*neighdist
+ ! drsphere     = speed*dtsphere
 
- ! dtsphere     = drsphere/speed
+ dtsphere     = drsphere/speed
 
  masspart     = mdot*dtsphere/npsphere
  masssphere   = npsphere*masspart
@@ -81,15 +82,17 @@ subroutine inject_init(setup,sol)
  print*,' -- iwindres                : ',iwindres
  print*,' -- nhandled                : ',nhandled
  print*,' -- rin                     : ',rin
- print*,' -- dtsphere                : ',dtsphere
+ print*,' -- fac                     : ',fac
  print*,' -- gammawind               : ',gammawind
  print*,''
+
  print*,'Other info:'
  print*,' -- Particles per sphere    : ',npsphere
- print*,' -- Nieghbour distance      : ',neighdist
  print*,' -- Mass of particles       : ',masspart
  print*,' -- Mass of spheres         : ',masssphere
  print*,' -- Mdot                    : ',mdot
+ print*,' -- dtsphere                : ',dtsphere
+ print*,' -- Nieghbour distance      : ',neighdist
  print*,' -- Approx. drsphere at rin : ',drsphere
  print*,' -- vr               at rin : ',vin
  print*,' -- utherm           at rin : ',uthermin
@@ -332,7 +335,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(iwindres ,'iwindres' ,'resolution of the wind (1-6,10,15)'                        ,iunit)
  call write_inopt(nhandled ,'nhandled' ,'number of handled/boundary spheres (integer)'              ,iunit)
  call write_inopt(rin      ,'rin'      ,'injection radius'                                          ,iunit)
- call write_inopt(dtsphere ,'dtsphere' ,'time between spheres'                                      ,iunit)
+ call write_inopt(fac      ,'fac'      ,'no. of approx. neighbour distances between shells at rin'  ,iunit)
  call write_inopt(gammawind,'gammawind','polytropic index of the wind'                              ,iunit)
 
 end subroutine
@@ -365,11 +368,11 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  case('iwindres')
     read(valstring,*,iostat=ierr) iwindres
     ngot = ngot + 1
-    if (iwindres < 1)  call fatal(label,'iwindres must be bigger than zero')
- case('dtsphere')
-    read(valstring,*,iostat=ierr) dtsphere
+    if (.not.any([1,2,3,4,5,6,10,15]==iwindres)) call fatal(label,'invalid setting for iwindres')
+ case('fac')
+    read(valstring,*,iostat=ierr) fac
     ngot = ngot + 1
-    if (dtsphere <= 0.)    call fatal(label,'dtsphere must be >=0')
+    if (fac <= 0.)    call fatal(label,'fac must be >0')
  case('nhandled')
     read(valstring,*,iostat=ierr) nhandled
     ngot = ngot + 1
@@ -391,5 +394,19 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  igotall = (ngot >= noptions)
 
 end subroutine
+
+subroutine choose_inject
+ use prompting, only:prompt
+
+ print*,'Interactive setup for inject options:'
+ call prompt('Is it a wind?',iswind)
+ call prompt('Type of flow (1 = geodesic flow  |  2 = sonic point flow)',isol,1,2)
+ call prompt('Wind resolution (1-6,10,15)',iwindres,1,15)
+ call prompt('Radius of injection',rin,2.+tiny(2.))
+ call prompt('Number of approx. neighbour distances between shells at rin',fac,0.)
+ call prompt('Number of handled (boundary) shells',nhandled,0)
+ call prompt('Adiabatic gamma',gammawind,0.)
+
+end subroutine choose_inject
 
 end module inject

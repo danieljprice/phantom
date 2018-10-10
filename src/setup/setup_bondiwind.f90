@@ -44,7 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use metric,         only:imetric
  use metric_tools,   only:imet_schwarzschild
  use externalforces, only:accradius1,accradius1_hard
- use inject,         only:inject_init,inject_particles,gammawind,masspart
+ use inject,         only:inject_init,inject_particles,gammawind,masspart,choose_inject
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -56,6 +56,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  character(len=40) :: infile
  integer :: isol
+ logical :: iexist
+
+ infile = trim(fileprefix)//'.in'
 
  if (.not.gr) call fatal('setup_bondiwind','This setup only works with GR on')
  if (imetric/=imet_schwarzschild) call fatal('setup_bondiwind','This setup is meant for use with the Schwarzschild metric')
@@ -69,6 +72,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  iexternalforce  = 1
  accradius1      = 2.5
  accradius1_hard = accradius1
+
+ iexist = .false.
+ inquire(file=trim(infile),exist=iexist)
+ if (.not.iexist) call choose_inject
 
  call inject_init(setup=.true.,sol=isol)
  !-- Geodesic flow
