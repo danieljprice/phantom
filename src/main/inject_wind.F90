@@ -29,7 +29,6 @@
 !    companion_star_mass -- mass of the companion star (Msun)
 !    companion_star_r    -- radius of the companion star (au)
 !    eccentricity        -- eccentricity of the binary system
-!    icompanion_star     -- set to 1 for a binary system
 !    ihandled_spheres    -- handle inner spheres of the wind (integer)
 !    iwind_resolution    -- resolution of the wind -- DO NOT CHANGE DURING SIMULATION --
 !    semi_major_axis     -- semi-major axis of the binary system (au)
@@ -67,14 +66,11 @@ module inject
  real, public ::    wind_velocity = 8.622d5
  real, public ::    wind_mass_rate = 1.04d-7 * solarm/years
  real, public ::    wind_temperature = 1662.
- real, public ::    wind_gamma = 5./3.
  integer, public :: iwind_resolution = 5
  real, public ::    wind_sphdist = 0.2
  real, public ::    shift_spheres = 0.
  integer, public :: ihandled_spheres = 2
  real, public ::    wind_injection_radius = 4.786 * au
- real, public ::    central_star_mass = 1.2 * solarm
- real, public ::    central_star_radius = 1.2568 * au
 #else
  real, public ::    wind_velocity = 35.d5
  real, public ::    wind_mass_rate = 7.65d-7 * solarm/years
@@ -87,12 +83,8 @@ module inject
  real, public ::    wind_injection_radius = 1.7 * au
  real, public ::    central_star_mass = 1. * solarm
  real, public ::    central_star_radius = 1. * au
+ real, parameter :: wind_osc_vamplitude = 0.
 #endif
- integer, public :: icompanion_star = 0
- real, public ::    companion_star_mass
- real, public ::    companion_star_r
- real, public ::    semi_major_axis
- real, public ::    eccentricity
 
 ! Calculated from the previous parameters
  real, public ::    mass_of_particles, mass_of_spheres, time_between_spheres, neighbour_distance
@@ -426,22 +418,12 @@ subroutine write_options_inject(iunit)
  call write_inopt(wind_mass_rate/(solarm/years),'wind_mass_rate', &
       'wind mass per unit time (Msun/yr) -- DO NOT CHANGE DURING SIMULATION --',iunit)
  call write_inopt(wind_temperature,'wind_temperature','wind temperature at the injection point (K)',iunit)
- call write_inopt(wind_gamma,'wind_gamma','polytropic indice of the wind',iunit)
  call write_inopt(iwind_resolution,'iwind_resolution','resolution of the wind -- DO NOT CHANGE DURING SIMULATION --',iunit)
  call write_inopt(wind_sphdist,'wind_sphdist','distance between spheres / neighbours -- DO NOT CHANGE DURING SIMULATION --',iunit)
  call write_inopt(shift_spheres,'shift_spheres','shift the spheres of the wind',iunit)
  call write_inopt(ihandled_spheres,'ihandled_spheres','handle inner spheres of the wind (integer)',iunit)
  call write_inopt(wind_injection_radius/au,'wind_inject_radius', &
       'radius of injection of the wind (au) -- DO NOT CHANGE DURING SIMULATION --',iunit)
- call write_inopt(central_star_mass/solarm,'central_star_mass','mass of the central star (Msun)',iunit)
- call write_inopt(central_star_radius/au,'central_star_radius','radius of the central star (au)',iunit)
- call write_inopt(icompanion_star,'icompanion_star','set to 1 for a binary system',iunit)
- if (icompanion_star > 0) then
-    call write_inopt(companion_star_mass/solarm,'companion_star_mass','mass of the companion star (Msun)',iunit)
-    call write_inopt(companion_star_r/au,'companion_star_r','radius of the companion star (au)',iunit)
-    call write_inopt(semi_major_axis/au,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
-    call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
- endif
 #ifdef BOWEN
  write(iunit,"(/,a)") '# options controlling bowen dust around central star'
 
@@ -491,10 +473,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) wind_temperature
     ngot = ngot + 1
     if (wind_temperature < 0.)    call fatal(label,'invalid setting for wind_temperature (<0)')
- case('wind_gamma')
-    read(valstring,*,iostat=ierr) wind_gamma
-    ngot = ngot + 1
-    if (wind_gamma < 0.)    call fatal(label,'invalid setting for wind_gamma (<0)')
  case('iwind_resolution')
     read(valstring,*,iostat=ierr) iwind_resolution
     ngot = ngot + 1
@@ -515,38 +493,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     wind_injection_radius = wind_injection_radius * au
     ngot = ngot + 1
     if (wind_injection_radius < 0.) call fatal(label,'invalid setting for wind_inject_radius (<0)')
- case('central_star_mass')
-    read(valstring,*,iostat=ierr) central_star_mass
-    central_star_mass = central_star_mass * solarm
-    ngot = ngot + 1
-    if (central_star_mass <= 0.) call fatal(label,'invalid setting for central_star_mass (<=0)')
- case('central_star_radius')
-    read(valstring,*,iostat=ierr) central_star_radius
-    central_star_radius = central_star_radius * au
-    ngot = ngot + 1
-    if (central_star_radius < 0.) call fatal(label,'invalid setting for central_star_radius (<0)')
- case('icompanion_star')
-    read(valstring,*,iostat=ierr) icompanion_star
-    ngot = ngot + 1
- case('companion_star_mass')
-    read(valstring,*,iostat=ierr) companion_star_mass
-    companion_star_mass = companion_star_mass * solarm
-    ngot = ngot + 1
-    if (companion_star_mass <= 0.) call fatal(label,'invalid setting for companion_star_mass (<=0)')
- case('companion_star_r')
-    read(valstring,*,iostat=ierr) companion_star_r
-    companion_star_r = companion_star_r * au
-    ngot = ngot + 1
-    if (companion_star_r < 0.) call fatal(label,'invalid setting for companion_star_radius (<0)')
- case('semi_major_axis')
-    read(valstring,*,iostat=ierr) semi_major_axis
-    semi_major_axis = semi_major_axis * au
-    ngot = ngot + 1
-    if (semi_major_axis < 0.) call fatal(label,'invalid setting for semi_major_axis (<0)')
- case('eccentricity')
-    read(valstring,*,iostat=ierr) eccentricity
-    ngot = ngot + 1
-    if (eccentricity < 0.) call fatal(label,'invalid setting for eccentricity (<0)')
 #ifdef BOWEN
  case('bowen_kappa')
     read(valstring,*,iostat=ierr) bowen_kappa
@@ -591,13 +537,10 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     imatch = .false.
  end select
 #ifdef BOWEN
- noptions = 21
+ noptions = 17
 #else
- noptions = 12
+ noptions = 8
 #endif
- if (icompanion_star > 0) then
-    noptions = noptions + 4
- endif
  igotall = (ngot >= noptions)
 
 end subroutine
