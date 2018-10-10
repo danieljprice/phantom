@@ -16,9 +16,19 @@
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS: None
+!  RUNTIME PARAMETERS:
+!    central_star_mass   -- mass of the central star (Msun)
+!    central_star_radius -- radius of the central star (au)
+!    companion_star_mass -- mass of the companion star (Msun)
+!    companion_star_r    -- radius of the companion star (au)
+!    eccentricity        -- eccentricity of the binary system
+!    icompanion_star     -- set to 1 for a binary system
+!    mass_of_particles   -- mass resolution (Msun)
+!    semi_major_axis     -- semi-major axis of the binary system (au)
+!    wind_gamma          -- polytropic index
 !
-!  DEPENDENCIES: inject, part, physcon, setbinary, units
+!  DEPENDENCIES: infile_utils, inject, io, part, physcon, prompting,
+!    setbinary, units
 !+
 !--------------------------------------------------------------------------
 module setup
