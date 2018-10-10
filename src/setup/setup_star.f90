@@ -49,11 +49,10 @@ module setup
  use io,             only: fatal
  use part,           only: gravity
  use physcon,        only: solarm,solarr,km,pi,c
- use options,        only: nfulldump,iexternalforce
+ use options,        only: nfulldump,iexternalforce,calc_erot
  use timestep,       only: tmax,dtmax
  use eos,            only: ieos, p1pwpcgs,gamma1pwp,gamma2pwp,gamma3pwp
  use externalforces, only: iext_neutronstar
- use dim,            only: calc_erot
 
  implicit none
  !
