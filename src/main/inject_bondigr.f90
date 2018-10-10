@@ -325,7 +325,7 @@ end subroutine
 
 integer function particles_per_sphere(ires)
  integer, intent(in) :: ires
- particles_per_sphere = 20 * (2*iwindres*(iwindres-1)) + 12
+ particles_per_sphere = 20 * (2*ires*(ires-1)) + 12
 end function particles_per_sphere
 
 !-----------------------------------------------------------------------
