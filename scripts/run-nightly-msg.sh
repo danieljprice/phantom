@@ -34,9 +34,9 @@ release_lock()
 }
 load_modules()
 {
+  source ~/.bashrc
   source /etc/profile.d/modules.sh
   source /etc/profile.d/modulecmd.sh
-  source ~/.bashrc
   module purge
   source ~/.modules_buildbot
   module list
@@ -66,6 +66,7 @@ check_git()
 
 run_nightly_build()
 {
+  cd $dir;
   check_ifort;
   if [ $? -eq 0 ]; then
      echo "ifort OK, running nightly build checks";
