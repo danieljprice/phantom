@@ -44,7 +44,7 @@ module setup
  real, public :: companion_star_r
  real, public :: semi_major_axis
  real, public :: eccentricity
- real, public :: mass_of_particles = 1.e-6
+ real, public :: mass_of_particles = 1.e-7
 
 contains
 
@@ -54,10 +54,10 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only: xyzmh_ptmass, vxyz_ptmass, nptmass
+ use part,      only: xyzmh_ptmass, vxyz_ptmass, nptmass, igas
  use physcon,   only: au, solarm
  use units,     only: umass, set_units
- use inject,    only: wind_init, mass_of_particles
+ use inject,    only: wind_init !, mass_of_particles
  use setbinary, only: set_binary
  use io,        only: master
  integer,           intent(in)    :: id
@@ -92,14 +92,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  gamma = wind_gamma
- call wind_init(.true.)
+ !call wind_init(.true.)
 !
 !--space available for injected gas particles
 !
  npart = 0
  npartoftype(:) = 0
 
- massoftype = mass_of_particles / umass
+ massoftype(igas) = mass_of_particles * (solarm / umass)
+ call wind_init(.true.)
 
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.

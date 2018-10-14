@@ -38,13 +38,13 @@
 module inject
  use physcon, only: au, solarm, years, solarl
  implicit none
+ real, parameter :: phi = (sqrt(5.)+1.)/2. ! Golden ratio
  character(len=*), parameter, public :: inject_type = 'wind'
 
  public :: inject_particles, write_options_inject, read_options_inject, wind_init
 !
 !--runtime settings for this module
 !
-
 ! Read from input file
 #ifdef BOWEN
  real, public ::    bowen_kappa = 2.d-4
@@ -56,30 +56,29 @@ module inject
  real, public ::    bowen_Cprime = 1.000d-5
  real, public ::    wind_osc_period = 350. * 86400.
  real, public ::    wind_osc_vamplitude = 2.89d5
- real, public ::    wind_velocity = 8.622d5
- real, public ::    wind_mass_rate = 1.04d-7 * solarm/years
+ real, public ::    wind_velocity_cm_s = 8.622d5
+ real, public ::    wind_mass_rate_Msun_yr = 1.04d-7
  real, public ::    wind_temperature = 1662.
- integer, public :: iwind_resolution = 5
- real, public ::    wind_sphdist = 0.2
+! integer, public :: iwind_resolution = 5
+! real, public ::    wind_sphdist = 0.2
  real, public ::    shift_spheres = 0.
- integer, public :: ihandled_spheres = 2
- real, public ::    wind_injection_radius = 4.786 * au
+ integer, public :: iboundary_spheres = 2
+ real, public ::    wind_injection_radius = 4.786 ! code units
 #else
- real, public ::    wind_velocity = 35.d5
- real, public ::    wind_mass_rate = 7.65d-7 * solarm/years
+ real, public ::    wind_velocity_cm_s = 35.d5
+ real, public ::    wind_mass_rate_Msun_yr = 7.65d-7
  real, public ::    wind_temperature = 3000.
- real, public ::    wind_gamma = 5./3.
- integer, public :: iwind_resolution = 4
- real, public ::    wind_sphdist = 10.
- real, public ::    shift_spheres = 3.
- integer, public :: ihandled_spheres = 3
- real, public ::    wind_injection_radius = 1.7 * au
+ real, public ::    shift_spheres = 2.
+ integer, public :: iboundary_spheres = 3
+ real, public ::    wind_injection_radius = 1.7 ! code units
  real, parameter :: wind_osc_vamplitude = 0.
 #endif
+ real, public ::    wind_dr_on_dp = 1.
 
 ! Calculated from the previous parameters
- real, public ::    mass_of_particles, mass_of_spheres, time_between_spheres, neighbour_distance
- integer, public :: particles_per_sphere
+ real, private :: wind_mass_rate, wind_velocity
+ real, private :: mass_of_spheres, time_between_spheres, neighbour_distance
+ integer, private :: particles_per_sphere,iwind_resolution
 
  private
 
@@ -95,40 +94,111 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine wind_init(setup)
- use physcon,     only: Rg, solarm, years, pi
- use icosahedron, only: compute_matrices, compute_corners
- use timestep,    only: dtmax
- use eos,         only: gmw
- use units,       only: utime
+ use physcon,     only:Rg, pi
+ use icosahedron, only:compute_matrices, compute_corners
+ use timestep,    only:dtmax
+ use eos,         only:gmw, gamma
+ use units,       only:unit_velocity, umass, utime
+ use part,        only:massoftype,igas
+ use io,          only:iverbose
  logical, intent(in) :: setup
-
- real, parameter :: phi = (sqrt(5.)+1.)/2. ! Golden ratio
+ real :: mV_on_MdotR,mass_of_particles
+ real :: dr,dp,mass_of_particles1
  real :: irrational_numbre_close_to_one
+ !
+ ! convert input parameters to code units
+ !
+ wind_velocity  = wind_velocity_cm_s / unit_velocity
+ wind_mass_rate = wind_mass_rate_Msun_yr * (solarm/umass) / (years/utime)
+ u_to_temperature_ratio = Rg/(gmw*(gamma-1.)) / unit_velocity**2
+ !
+ ! compute the dimensionless resolution factor m V / (Mdot R)
+ ! where m = particle mass and V, Mdot and R are wind parameters
+ !
+ mass_of_particles = massoftype(igas)
+ mV_on_MdotR = mass_of_particles*wind_velocity/(wind_mass_rate*wind_injection_radius)
+ !
+ ! solve for the integer resolution of the geodesic spheres
+ ! gives number of particles on the sphere via N = 20*(2*q*(q - 1)) + 12
+ !
+ iwind_resolution     = get_wind_resolution(wind_dr_on_dp,mV_on_MdotR)
+ particles_per_sphere = get_parts_per_sphere(iwind_resolution)
+ neighbour_distance   = get_neighb_distance(iwind_resolution)
 
- u_to_temperature_ratio = Rg/(gmw*(wind_gamma-1.))
- particles_per_sphere = 20 * (2*iwind_resolution*(iwind_resolution-1)) + 12
- neighbour_distance = 2./((2.*iwind_resolution-1.)*sqrt(sqrt(5.)*phi))
- mass_of_particles = wind_sphdist * neighbour_distance * wind_injection_radius * wind_mass_rate &
-                    / (particles_per_sphere * max(wind_velocity,wind_osc_vamplitude))
  mass_of_spheres = mass_of_particles * particles_per_sphere
  time_between_spheres = mass_of_spheres / wind_mass_rate
  call compute_matrices(geodesic_R)
  call compute_corners(geodesic_v)
 
- if (wind_verbose) then
-    print *,'particles_per_sphere ',particles_per_sphere
-    print *,'neighbour_distance ',neighbour_distance
-    print *,'mass_of_particles ',mass_of_particles
-    print *,'mass_of_spheres ',mass_of_spheres
-    print *,'time_between_spheres ',time_between_spheres
+ if (iverbose >= 1) then
+    print*,'mass of particle = ',massoftype(igas)
+    mass_of_particles1 = wind_dr_on_dp * get_neighb_distance(4) * wind_injection_radius * wind_mass_rate &
+                     / (get_parts_per_sphere(4) * max(wind_velocity,wind_osc_vamplitude))
+    print*,'require mass of particle = ',mass_of_particles1,' to get 492 particles per sphere'
+    print*,'Mdot*R/(m*V) ',1./mV_on_MdotR
+    print*,'wind_resolution ',iwind_resolution
+    print*,'particles_per_sphere ',particles_per_sphere
+    print*,'neighbour_distance ',neighbour_distance
+    dp = neighbour_distance*wind_injection_radius
+    dr = wind_velocity*mass_of_particles*particles_per_sphere/wind_mass_rate
+    print*,'particle separation on spheres = ',dp
+    print*,'distance between spheres = ',dr
+    print*,'got dr/dp = ',dr/dp,' compared to desired dr on dp = ',wind_dr_on_dp
+    print*,'mass_of_particles ',mass_of_particles
+    print*,'mass_of_spheres ',mass_of_spheres
+    print*,'time_between_spheres ',time_between_spheres
  endif
 
  ! adjusting dtmax to avoid uterm < 0 errors
  if (setup) then
     irrational_numbre_close_to_one = pi / 3.
-    dtmax = (.5 * irrational_numbre_close_to_one * time_between_spheres)/utime
+    dtmax = (.5 * irrational_numbre_close_to_one * time_between_spheres)
  endif
-end subroutine
+
+end subroutine wind_init
+
+!-----------------------------------------------------------------------
+!+
+!  solve the cubic equation for q, the integer resolution of the spheres
+!  given a desired ratio between the particle spacing in the sphere
+!  and the radial spacing of spheres
+!+
+!-----------------------------------------------------------------------
+integer function get_wind_resolution(dr_on_dp,mV_on_MdotR)
+ real, intent(in) :: dr_on_dp,mV_on_MdotR
+ real :: fac,term,f1,f2,res
+ !
+ ! we solve (20*q^3 - 30*q^2 + 16*q - 3) - 1./fac = 0
+ ! the following is the only real solution,
+ ! extracted from Mathematica
+ !
+ fac = mV_on_MdotR*sqrt(2.*(5.+sqrt(5.)))
+ term = dr_on_dp/fac
+ f1 = 15.**(1./3.)
+ f2 = (45.*term + sqrt(15. + 2025.*term**2))**(1./3.)
+ res = 0.5*(1. - 1./(f1*f2) + f2/f1**2)
+ get_wind_resolution = nint(res) !max(nint(res(1)),4)
+
+end function get_wind_resolution
+
+!-----------------------------------------------------------------------
+!+
+!  Utility functions for geodesic sphere injection
+!+
+!-----------------------------------------------------------------------
+integer function get_parts_per_sphere(iq)
+ integer, intent(in) :: iq
+
+ get_parts_per_sphere = 20 * (2*iq*(iq-1)) + 12
+
+end function get_parts_per_sphere
+
+real function get_neighb_distance(iq)
+ integer, intent(in) :: iq
+
+ get_neighb_distance = 2./((2.*iq-1.)*sqrt(sqrt(5.)*phi))
+
+end function get_neighb_distance
 
 !-----------------------------------------------------------------------
 !+
@@ -137,11 +207,11 @@ end subroutine
 !-----------------------------------------------------------------------
 subroutine inject_particles(time_u,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype)
  use io,      only: iprint
- use units,   only: utime, umass
  use physcon, only: au
 #ifdef BOWEN
  use bowen_dust, only: bowen_init
 #endif
+ use units,   only: unit_velocity, unit_density, udist
  real,    intent(in)    :: time_u, dtlast_u
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
@@ -155,70 +225,69 @@ subroutine inject_particles(time_u,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
     call wind_init(.false.)
 #ifdef BOWEN
     call bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,bowen_Cprime,&
-         bowen_Tcond, bowen_delta,bowen_Teff)
+         bowen_Tcond,bowen_delta,bowen_Teff)
 #endif
     first_run = .false.
  endif
 
- time = time_u * utime
- dtlast = dtlast_u * utime
+ time = time_u
+ dtlast = dtlast_u
  outer_sphere = floor((time-dtlast)/time_between_spheres) + 1
  inner_sphere = floor(time/time_between_spheres)
- inner_handled_sphere = inner_sphere + ihandled_spheres
- print *,'spheres',inner_sphere,inner_handled_sphere,outer_sphere,npart
- do i=inner_sphere+ihandled_spheres,outer_sphere,-1
+ inner_handled_sphere = inner_sphere + iboundary_spheres
+ do i=inner_sphere+iboundary_spheres,outer_sphere,-1
     local_time = time - (i-shift_spheres) * time_between_spheres
     call compute_sphere_properties(local_time, r, v, u, rho, e, i, xyzmh_ptmass)
     if (wind_verbose) then
        write(iprint,*) '* Sphere:'
-       write(iprint,*) '   Number: ', i
-       write(iprint,*) '   Local Time: ', local_time
-       write(iprint,*) '   Radius: ', r, '(', r/au, ' au)'
-       write(iprint,*) '   Expansion velocity: ', v, '(', v/1.d5, ' km/s)'
+       write(iprint,*) '   Number: ', i,(i-shift_spheres)
+       write(iprint,*) '   Local Time: ', local_time,time,(i-shift_spheres)*time_between_spheres
+       write(iprint,*) '   Radius: ', r, '(', r*(udist/au), ' au)'
+       write(iprint,*) '   Expansion velocity: ', v*unit_velocity, '(', v*unit_velocity/1.d5, ' km/s)'
        write(iprint,*) '   Temperature: ', u / u_to_temperature_ratio, ' K'
-       write(iprint,*) '   Density: ', rho, ' (g/cm³)'
-       write(iprint,*) '   Constant e: ', e, ' (J/g)'
+       write(iprint,*) '   Density: ', rho * unit_density, ' (g/cm³)'
+       write(iprint,*) '   Constant e: ', e * unit_velocity**2 , ' (erg/g)'
        write(iprint,*) ''
+       !read*
     endif
     if (i > inner_sphere) then
-       call inject_geodesic_sphere(i, (ihandled_spheres-i+inner_sphere)*particles_per_sphere+1, r, v, u, rho, &
+       call inject_geodesic_sphere(i, (iboundary_spheres-i+inner_sphere)*particles_per_sphere+1, r, v, u, rho, &
             npart, npartoftype, xyzh, vxyzu) ! handled sphere
-       print *,'handled',i,npart
     else
        call inject_geodesic_sphere(i, npart+1, r, v, u, rho, npart, npartoftype, xyzh, vxyzu) ! injected sphere
-       print *,'ejected',i,npart
     endif
  enddo
- print *,'npart',npart,inner_sphere-outer_sphere+1
+! print *,'npart',npart,inner_sphere-outer_sphere+1
  mass_lost = mass_of_spheres * (inner_sphere-outer_sphere+1)
- xyzmh_ptmass(4,wind_emitting_sink) = xyzmh_ptmass(4,wind_emitting_sink) - mass_lost/umass
+ xyzmh_ptmass(4,wind_emitting_sink) = xyzmh_ptmass(4,wind_emitting_sink) - mass_lost
 
 end subroutine inject_particles
 
 !-----------------------------------------------------------------------
 !+
-!  Time derivative of r and v, for Runge-Kutta iterations (stationnary trans-sonic solution)
+!  Time derivative of r and v, for Runge-Kutta iterations (stationary trans-sonic solution)
 !+
 !-----------------------------------------------------------------------
 subroutine drv_dt(rv, drv, GM)
- use physcon, only: Rg
- use eos, only: gmw
+ use eos, only: gamma
  real, intent(in) :: rv(2), GM
  real, intent(out) :: drv(2)
 
- real :: r, v, dr_dt, r2, T, vs2, dv_dr, dv_dt
+ real :: r, v, dr_dt, r2, T, vs2, dv_dr, dv_dt, u
 
  r = rv(1)
  v = rv(2)
  dr_dt = v
  r2 = r*r
- T = wind_temperature * (wind_injection_radius**2 * wind_velocity / (r2 * v))**(wind_gamma-1.)
- vs2 = wind_gamma * Rg * T / gmw
+ T = wind_temperature * (wind_injection_radius**2 * wind_velocity / (r2 * v))**(gamma-1.)
+ u = T * u_to_temperature_ratio
+ vs2 = gamma * (gamma - 1) * u
  dv_dr = (-GM/r2+2.*vs2/r)/(v-vs2/v)
  dv_dt = dv_dr * v
 
  drv(1) = dr_dt
  drv(2) = dv_dt
+
 end subroutine
 
 !-----------------------------------------------------------------------
@@ -229,6 +298,7 @@ end subroutine
 subroutine compute_sphere_properties(local_time, r, v, u, rho, e, sphere_number, xyzmh_ptmass)
 #ifdef BOWEN
  use bowen_dust, only: pulsating_bowen_wind_profile
+ use eos,        only: gamma
 #endif
  integer, intent(in) :: sphere_number
  real, intent(in) :: local_time, xyzmh_ptmass(:,:)
@@ -241,22 +311,22 @@ subroutine compute_sphere_properties(local_time, r, v, u, rho, e, sphere_number,
  call pulsating_bowen_wind_profile(local_time, r, v, u, rho, e, sphere_number,&
        wind_mass_rate,wind_injection_radius,wind_velocity,wind_osc_vamplitude,&
        wind_osc_period,shift_spheres,central_star_mass,time_between_spheres,&
-       wind_temperature,central_star_radius,wind_gamma)
+       wind_temperature,central_star_radius,gamma)
 #else
- call stationnary_adiabatic_wind_profile(local_time, r, v, u, rho, e)
+ call stationary_adiabatic_wind_profile(local_time, r, v, u, rho, e)
 #endif
 
 end subroutine
 
 !-----------------------------------------------------------------------
 !+
-!  stationnary adiabatic supersonic wind
+!  stationary adiabatic supersonic wind
 !+
 !-----------------------------------------------------------------------
-subroutine stationnary_adiabatic_wind_profile(local_time, r, v, u, rho, e)
+subroutine stationary_adiabatic_wind_profile(local_time, r, v, u, rho, e)
  use part,    only: nptmass, xyzmh_ptmass
- use physcon, only: pi, Gg
- use units,   only: umass
+ use physcon, only: pi
+ use eos,     only: gamma
  real, intent(in) :: local_time
  real, intent(out) :: r, v, u, rho, e
 
@@ -271,7 +341,7 @@ subroutine stationnary_adiabatic_wind_profile(local_time, r, v, u, rho, e)
  if (nptmass == 0) then
     GM = 0.
  else
-    GM = Gg * xyzmh_ptmass(4,wind_emitting_sink) * umass
+    GM = xyzmh_ptmass(4,wind_emitting_sink)
  endif
  ! Runge-Kutta iterations
  do i=1,N
@@ -284,12 +354,12 @@ subroutine stationnary_adiabatic_wind_profile(local_time, r, v, u, rho, e)
  r = rv(1)
  v = rv(2)
  ! this expression for T is only valid for an adiabatic EOS !
- T = wind_temperature * (wind_injection_radius**2 * wind_velocity / (r**2 * v))**(wind_gamma-1.)
+ T = wind_temperature * (wind_injection_radius**2 * wind_velocity / (r**2 * v))**(gamma-1.)
  u = T * u_to_temperature_ratio
  rho = wind_mass_rate / (4.*pi*r**2*v)
- e = .5*v**2 - GM/r + wind_gamma*u
-end subroutine
+ e = .5*v**2 - GM/r + gamma*u
 
+end subroutine stationary_adiabatic_wind_profile
 
 !-----------------------------------------------------------------------
 !+
@@ -298,7 +368,6 @@ end subroutine
 !-----------------------------------------------------------------------
 subroutine inject_geodesic_sphere(sphere_number, first_particle, r, v, u, rho, npart, npartoftype, xyzh, vxyzu)
  use icosahedron, only: pixel2vector
- use units,       only: udist, utime, umass
  use partinject,  only: add_or_update_particle
  use part,        only: igas, hrho, xyzmh_ptmass, vxyz_ptmass, nptmass
  integer, intent(in) :: sphere_number, first_particle
@@ -334,10 +403,10 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, r, v, u, rho, n
  rotation_angles = rotation_angles * sphere_number
 
  ! Quantities in simulation units
- r_sim = r / udist
- v_sim = v / (udist/utime)
- u_sim = u / (udist**2/utime**2)
- h_sim = hrho(rho / (umass/udist**3))
+ r_sim = r !/ udist
+ v_sim = v !/ (udist/utime)
+ u_sim = u !/ (udist**2/utime**2)
+ h_sim = hrho(rho)
 
  call make_rotation_matrix(rotation_angles, rotmat)
  do j=0,particles_per_sphere-1
@@ -395,7 +464,8 @@ subroutine make_rotation_matrix(rotation_angles, rot_m)
  rot_m(3,1) = c_x*s_y*c_z + s_x*s_z
  rot_m(3,2) = -c_x*s_y*s_z + s_x*c_z
  rot_m(3,3) = c_x*c_y
-end subroutine
+
+end subroutine make_rotation_matrix
 
 !-----------------------------------------------------------------------
 !+
@@ -407,17 +477,15 @@ subroutine write_options_inject(iunit)
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(wind_velocity,'wind_velocity', &
-      'velocity at which wind is injected (cm/s) -- DO NOT CHANGE DURING SIMULATION --',iunit)
- call write_inopt(wind_mass_rate/(solarm/years),'wind_mass_rate', &
-      'wind mass per unit time (Msun/yr) -- DO NOT CHANGE DURING SIMULATION --',iunit)
+ call write_inopt(wind_velocity_cm_s,'wind_velocity', &
+      'velocity at which wind is injected (cm/s)',iunit)
+ call write_inopt(wind_mass_rate_Msun_yr,'wind_mass_rate','wind mass per unit time (Msun/yr)',iunit)
  call write_inopt(wind_temperature,'wind_temperature','wind temperature at the injection point (K)',iunit)
- call write_inopt(iwind_resolution,'iwind_resolution','resolution of the wind -- DO NOT CHANGE DURING SIMULATION --',iunit)
- call write_inopt(wind_sphdist,'wind_sphdist','distance between spheres / neighbours -- DO NOT CHANGE DURING SIMULATION --',iunit)
- call write_inopt(shift_spheres,'shift_spheres','shift the spheres of the wind',iunit)
- call write_inopt(ihandled_spheres,'ihandled_spheres','handle inner spheres of the wind (integer)',iunit)
- call write_inopt(wind_injection_radius/au,'wind_inject_radius', &
-      'radius of injection of the wind (au) -- DO NOT CHANGE DURING SIMULATION --',iunit)
+ !call write_inopt(shift_spheres,'shift_spheres','shift the spheres of the wind',iunit)
+ call write_inopt(wind_injection_radius,'wind_inject_radius', &
+      'radius of injection of the wind (code units)',iunit)
+ call write_inopt(wind_dr_on_dp,'wind_dr_on_dp','desired ratio of sphere spacing to particle spacing',iunit)
+ call write_inopt(iboundary_spheres,'iboundary_spheres','number of boundary spheres (integer)',iunit)
 #ifdef BOWEN
  write(iunit,"(/,a)") '# options controlling bowen dust around central star'
 
@@ -440,7 +508,6 @@ end subroutine
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use physcon, only: au, solarm, years
  use io,      only: fatal, error, warning
  character(len=*), intent(in)  :: name,valstring
  logical, intent(out) :: imatch,igotall
@@ -454,13 +521,12 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  igotall = .false.
  select case(trim(name))
  case('wind_velocity')
-    read(valstring,*,iostat=ierr) wind_velocity
+    read(valstring,*,iostat=ierr) wind_velocity_cm_s
     ngot = ngot + 1
     if (wind_velocity < 0.)    call fatal(label,'invalid setting for wind_velocity (<0)')
-    if (wind_velocity > 1.e10) call error(label,'wind_velocity is huge!!!')
+    !if (wind_velocity > 1.e10) call error(label,'wind_velocity is huge!!!')
  case('wind_mass_rate')
-    read(valstring,*,iostat=ierr) wind_mass_rate
-    wind_mass_rate = wind_mass_rate * (solarm/years)
+    read(valstring,*,iostat=ierr) wind_mass_rate_Msun_yr
     ngot = ngot + 1
     if (wind_mass_rate < 0.)    call fatal(label,'invalid setting for wind_mass_rate (<0)')
  case('wind_temperature')
@@ -471,20 +537,19 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) iwind_resolution
     ngot = ngot + 1
     if (iwind_resolution < 1) call fatal(label,'iwind_resolution must be bigger than zero')
- case('wind_sphdist')
-    read(valstring,*,iostat=ierr) wind_sphdist
+ case('wind_dr_on_dp')
+    read(valstring,*,iostat=ierr) wind_dr_on_dp
     ngot = ngot + 1
-    if (wind_sphdist <= 0.) call fatal(label,'wind_sphdist must be >=0')
+    if (wind_dr_on_dp <= 0.) call fatal(label,'wind_dr_on_dp must be >=0')
  case('shift_spheres')
     read(valstring,*,iostat=ierr) shift_spheres
     ngot = ngot + 1
- case('ihandled_spheres')
-    read(valstring,*,iostat=ierr) ihandled_spheres
+ case('iboundary_spheres')
+    read(valstring,*,iostat=ierr) iboundary_spheres
     ngot = ngot + 1
-    if (ihandled_spheres <= 0) call fatal(label,'ihandled_spheres must be > 0')
+    if (iboundary_spheres <= 0) call fatal(label,'iboundary_spheres must be > 0')
  case('wind_inject_radius')
     read(valstring,*,iostat=ierr) wind_injection_radius
-    wind_injection_radius = wind_injection_radius * au
     ngot = ngot + 1
     if (wind_injection_radius < 0.) call fatal(label,'invalid setting for wind_inject_radius (<0)')
 #ifdef BOWEN
@@ -533,7 +598,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 #ifdef BOWEN
  noptions = 17
 #else
- noptions = 8
+ noptions = 6
 #endif
  igotall = (ngot >= noptions)
 
