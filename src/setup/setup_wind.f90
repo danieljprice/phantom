@@ -135,7 +135,7 @@ subroutine setup_interactive()
  integer :: iproblem
 
  iproblem = 1
- call prompt('Which defaults to use? (1=adiabatic wind 2=Bowen)',iproblem,0,1)
+ call prompt('Which defaults to use? (1=adiabatic wind 2=Bowen)',iproblem,0,2)
  call prompt('Add binary?',icompanion_star,0,1)
  select case(iproblem)
  case(2)
