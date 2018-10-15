@@ -299,7 +299,8 @@ end subroutine
 !  Compute the radius, velocity and temperature of a sphere at the current local time
 !+
 !-----------------------------------------------------------------------
-subroutine compute_sphere_properties(time,local_time, r, v, u, rho, e, sphere_number, inner_sphere, inner_handled_sphere, xyzmh_ptmass)
+subroutine compute_sphere_properties(time,local_time, r, v, u, rho, e, sphere_number, &
+                                     inner_sphere, inner_handled_sphere, xyzmh_ptmass)
 #ifdef BOWEN
  use bowen_dust, only: pulsating_bowen_wind_profile
  use eos,        only: gamma
