@@ -39,10 +39,10 @@ subroutine test_sedov(ntests,npass)
                     dustfrac,ddustevol,dustevol,dustprop,ddustprop,temperature
  use part,     only:iphase,maxphase,igas,isetphase
  use eos,      only:gamma,polyk
- use options,  only:ieos,tolh,alpha,alphau,alphaB,beta,tolv
+ use options,  only:ieos,tolh,alpha,alphau,alphaB,beta
  use physcon,  only:pi
  use deriv,    only:derivs
- use timestep, only:time,tmax,dtmax,C_cour,C_force,dt
+ use timestep, only:time,tmax,dtmax,C_cour,C_force,dt,tolv
 #ifndef IND_TIMESTEPS
  use timestep, only:dtcourant,dtforce
 #endif

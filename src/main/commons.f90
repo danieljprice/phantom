@@ -25,26 +25,6 @@
 
 !----------------------------------------------------------------
 !+
-!  Parameters related to timestepping
-!+
-!---------------------------------------------------------------
-module timestep
- implicit none
- real    :: tmax,dtmax
- real    :: C_cour,C_force,C_cool
- integer :: nmax,nout
- integer :: nsteps
- real, parameter :: bignumber = 1.e29
-
- real    :: dt, dtcourant, dtforce, dtextforce, dterr, dtdiff, time
- real    :: dtmax_dratio, dtmax_max, dtmax_min, rhomaxnow
- integer :: dtmax_ifactor
- logical :: restartonshortest
-
-end module timestep
-
-!----------------------------------------------------------------
-!+
 !  Parameters related the initial conditions
 !  These will be calculated upon first initialisation, and will be
 !  used for subsequent restarts

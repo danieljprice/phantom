@@ -63,11 +63,12 @@
 !--------------------------------------------------------------------------
 module readwrite_infile
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
- use options,   only:nfulldump,nmaxdumps,twallmax,dtwallmax,iexternalforce,idamp,tolh, &
-                     alpha,alphau,alphaB,beta,avdecayconst,damp,tolv, &
+ use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,idamp,tolh, &
+                     alpha,alphau,alphaB,beta,avdecayconst,damp, &
                      ipdv_heating,ishock_heating,iresistive_heating, &
                      icooling,psidecayfac,overcleanfac,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file
+ use timestep,  only:dtwallmax,tolv
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
  use io,        only:iverbose
