@@ -451,4 +451,49 @@ subroutine update_time_per_bin(dtcpu,istepfrac,nbinmax,timeperbin,inbin)
 
 end subroutine update_time_per_bin
 
+!-----------------------------------------------------------------
+!+
+!  routine to print out the timestep information to the log file
+!  this version handles individual timesteps
+!+
+!-----------------------------------------------------------------
+subroutine print_dtlog_ind(iprint,ifrac,nfrac,time,dt,nactive,tcpu,np)
+ use io, only:formatreal,formatint
+ integer,         intent(in) :: iprint,ifrac,nfrac
+ real,            intent(in) :: time,dt
+ integer(kind=8), intent(in) :: nactive
+ real(kind=4),    intent(in) :: tcpu
+ integer,         intent(in) :: np
+ character(len=120) :: string
+ character(len=14) :: tmp
+ integer, save :: nplast = 0
+
+ call formatint(ifrac,tmp)
+ string = '> step '//tmp
+ call formatint(nfrac,tmp)
+ string = trim(string)//' / '//tmp
+ write(tmp,"(g14.7)") time
+ string = trim(string)//' t = '//trim(adjustl(tmp))
+ call formatreal(dt,tmp)
+ string = trim(string)//' dt = '//tmp
+ call formatint(nactive,tmp)
+ string = trim(string)//' moved '//tmp
+ call formatreal(real(tcpu),tmp)
+ string = trim(string)//' in '//trim(tmp)//' cpu-s <'
+ !
+ ! only print particle number if it differs from
+ ! the last time we printed it out
+ !
+ if (np /= nplast) then
+    nplast = np
+    write(tmp,"(i12)") np
+    string = trim(string)//' | np = '//trim(adjustl(tmp))//' |'
+ endif
+
+ write(iprint,"(a)") trim(string)
+! write(iprint,5) ifrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1
+!5   format('> step ',i6,' /',i6,2x,'t = ',es14.7,1x,'dt = ',es10.3,' moved ',i10,' in ',f8.2,' cpu-s <')
+
+end subroutine print_dtlog_ind
+
 end module timestep_ind
