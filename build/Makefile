@@ -1100,6 +1100,7 @@ ifeq ($(SYSTEM), monarch)
     QSYS = slurm
     QPROJECT='p01'
     WALLTIME='100:59:59'
+    QPARTITION='comp'
 endif
 
 ifeq ($(SYSTEM), monarchpsxe)
@@ -2333,6 +2334,9 @@ qscript:
         endif
         ifdef QPROJECT
 	   @echo '#SBATCH --account='$(QPROJECT)
+        endif
+        ifdef QPARTITION
+	   @echo '#SBATCH --partition='$(QPARTITION)
         endif
 	@echo '#SBATCH --output='$(OUTFILE)
         ifdef MAILTO
