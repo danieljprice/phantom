@@ -209,7 +209,7 @@ subroutine guess_acceleration(rinject, r_star, acceleration)
  real, intent(in)  :: rinject, r_star
  real, intent(out) :: acceleration
 
- real :: OR2(1), tau_prime(1), Teq(1), kd(1), a(1)
+ real :: OR2(1), tau_prime(1), Teq(1), kd(1)!, a(1)
  integer, parameter :: N=1
 
  tau_prime = 0.

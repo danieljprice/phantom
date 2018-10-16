@@ -347,11 +347,15 @@ subroutine compute_sphere_properties(time,local_time, r, v, u, rho, e, sphere_nu
  !       wind_temperature,gamma)
  if (verbose) then
     if (sphere_number > inner_sphere) then
-       print '("handled, i = ",i5," inner = ",i5," base_r = ",es10.4," r = ",es10.4," v = ",es11.4," phase = ",f7.4," feject = ",f4.3)'&
-          ,sphere_number,inner_sphere,surface_radius,r,v,time/wind_osc_period,time_between_spheres/wind_osc_period
+       print '("handled, i = ",i5," inner = ",i5," base_r = ",es11.4,'// &
+             '" r = ",es11.4," v = ",es11.4," phase = ",f7.4," feject = ",f4.3)', &
+             sphere_number,inner_sphere,surface_radius,r,v,&
+             time/wind_osc_period,time_between_spheres/wind_osc_period
     else
-       print '("ejected, i = ",i5," inner = ",i5," base_r = ",es10.4," r = ",es10.4," v = ",es11.4," phase = ",f7.4," feject = ",f4.3)'&
-          ,sphere_number,inner_sphere,surface_radius,r,v,time/wind_osc_period,time_between_spheres/wind_osc_period
+       print '("ejected, i = ",i5," inner = ",i5," base_r = ",es11.4,'// &
+             '" r = ",es11.4," v = ",es11.4," phase = ",f7.4," feject = ",f4.3)', &
+             sphere_number,inner_sphere,surface_radius,r,v,&
+             time/wind_osc_period,time_between_spheres/wind_osc_period
     endif
  endif
 #else
@@ -639,7 +643,9 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  noptions = 15
  Rstar = sqrt(bowen_L/(4.*pi*steboltz*bowen_Teff**4))/au
  !if you launch the wind inside the photosphere, make sure the wind temperature >= star's effective temperature
- if (wind_injection_radius <= Rstar .and. wind_temperature < bowen_Teff) call fatal(label,'invalid setting for wind_temperature (< bowen_Teff)')
+ if (wind_injection_radius <= Rstar .and. wind_temperature < bowen_Teff) then
+    call fatal(label,'invalid setting for wind_temperature (< bowen_Teff)')
+ endif
 #else
  noptions = 6
 #endif
