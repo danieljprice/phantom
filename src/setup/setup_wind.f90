@@ -37,14 +37,14 @@ module setup
 
  private
  real, public :: wind_gamma = 5./3.
- real, public :: central_star_mass = 1.
- real, public :: central_star_radius = 1.
+ real, public :: central_star_mass = 1.2
+ real, public :: accretion_radius = 1.
  integer, public :: icompanion_star = 0
  real, public :: companion_star_mass
  real, public :: companion_star_r
  real, public :: semi_major_axis
  real, public :: eccentricity
- real, public :: mass_of_particles = 1.e-7
+ real, public :: mass_of_particles = 1.e-11
 
 contains
 
@@ -112,13 +112,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                     companion_star_mass/central_star_mass, &
                     semi_major_axis, &
                     eccentricity, &
-                    central_star_radius, &
+                    accretion_radius, &
                     companion_star_r, &
                     xyzmh_ptmass, vxyz_ptmass, nptmass)
  else
     nptmass = 1
     xyzmh_ptmass(4,1) = central_star_mass
-    xyzmh_ptmass(5,1) = central_star_radius
+    xyzmh_ptmass(5,1) = accretion_radius
  endif
 
 end subroutine setpart
@@ -140,10 +140,10 @@ subroutine setup_interactive()
  select case(iproblem)
  case(2)
     central_star_mass = 1.2 * (solarm / umass)
-    central_star_radius = 1.2568 * (au / udist)
+    accretion_radius = 0.2568 * (au / udist)
  case default
     central_star_mass = 1. * (solarm / umass)
-    central_star_radius = 1. * (au / udist)
+    accretion_radius = 1. * (au / udist)
  end select
 
 end subroutine setup_interactive
@@ -162,7 +162,7 @@ subroutine write_setupfile(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for wind setup routine'
  call write_inopt(central_star_mass,'central_star_mass','mass of the central star (Msun)',iunit)
- call write_inopt(central_star_radius,'central_star_radius','radius of the central star (au)',iunit)
+ call write_inopt(accretion_radius,'accretion_radius','accretion radius of the central star (au)',iunit)
  call write_inopt(icompanion_star,'icompanion_star','set to 1 for a binary system',iunit)
  if (icompanion_star > 0) then
     call write_inopt(companion_star_mass,'companion_star_mass','mass of the companion star (Msun)',iunit)
@@ -193,7 +193,7 @@ subroutine read_setupfile(filename,ierr)
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
  call read_inopt(central_star_mass,'central_star_mass',db,min=0.,max=1000.,errcount=nerr)
- call read_inopt(central_star_radius,'central_star_radius',db,min=0.,errcount=nerr)
+ call read_inopt(accretion_radius,'accretion_radius',db,min=0.,errcount=nerr)
  call read_inopt(icompanion_star,'icompanion_star',db,min=0,errcount=nerr)
  if (icompanion_star > 0) then
     call read_inopt(companion_star_mass,'companion_star_mass',db,min=0.,max=1000.,errcount=nerr)

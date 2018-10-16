@@ -34,7 +34,8 @@ module bowen_dust
  integer, parameter :: wind_emitting_sink = 1
  logical, parameter :: verbose = .false.
  real, parameter :: alpha_wind = 1.d0
- real :: kappa, kmax, L, c_light, specific_energy_to_T_ratio, Cprime, Tcond, delta, Teff
+ real :: kappa, kmax, L, c_light, specific_energy_to_T_ratio, Cprime, Tcond, delta, Teff,&
+      Reff, omega_osc, deltaR_osc
 
 contains
 
@@ -46,45 +47,39 @@ contains
 subroutine pulsating_bowen_wind_profile(local_time, r, v, u, rho, e, sphere_number,&
        wind_mass_rate,wind_injection_radius,wind_velocity,wind_osc_vamplitude,&
        wind_osc_period,shift_spheres,central_star_mass,time_between_spheres,&
-       wind_temperature,central_star_radius,wind_gamma)
+       wind_temperature,wind_gamma)
  use part,    only: nptmass, xyzmh_ptmass
- use physcon, only: pi, Gg
- use units,   only: umass, utime, udist
+ use physcon, only: pi
  integer, intent(in) :: sphere_number
  real, intent(in) :: local_time,wind_injection_radius,wind_velocity,wind_osc_vamplitude,&
        wind_mass_rate,wind_osc_period,shift_spheres,central_star_mass,time_between_spheres,&
-       wind_temperature,central_star_radius,wind_gamma
+       wind_temperature,wind_gamma
  real, intent(out) :: r, v, u, rho, e
 
  real :: GM
- real :: base_time,base_radius, base_velocity, base_temperature, acceleration, rad_acc, T
+ real :: base_time,base_radius, base_velocity, base_temperature, acceleration, rad_acc
 
  base_time = (sphere_number-shift_spheres)*time_between_spheres
  base_velocity = wind_velocity + wind_osc_vamplitude* cos(2.*pi*base_time/wind_osc_period)
  base_radius = wind_injection_radius + wind_osc_vamplitude*wind_osc_period/(2.*pi)*sin(2.*pi*base_time/wind_osc_period)
  base_temperature = wind_temperature
- acceleration = -Gg * central_star_mass / base_radius**2
+ acceleration = -central_star_mass / base_radius**2
 
  if (use_alpha_wind) then
-    call guess_acceleration(base_radius, central_star_radius, rad_acc)
- else
     rad_acc = -alpha_wind*acceleration
+ else
+    call guess_acceleration(base_radius, Reff, rad_acc)
  endif
  acceleration = acceleration + rad_acc
 
- print *,'radii',wind_injection_radius,base_radius-wind_injection_radius
- print *,'velo ',base_velocity,wind_osc_vamplitude
- print *,'acc  ',acceleration - rad_acc,rad_acc
-
  r = base_radius + local_time*base_velocity + acceleration*local_time**2/2.
  v = base_velocity + acceleration*local_time
- T = base_temperature
- u = T * specific_energy_to_T_ratio * (udist/utime)**2
+ u = base_temperature * specific_energy_to_T_ratio
  rho = wind_mass_rate / (4.*pi*r**2*v)
  if (nptmass == 0) then
     GM = 0.
  else
-    GM = Gg * xyzmh_ptmass(4,wind_emitting_sink) * umass
+    GM = xyzmh_ptmass(4,wind_emitting_sink)
  endif
  e = .5*v**2 - GM/r + wind_gamma*u
  !if (sphere_number<3320) print '("$$",i4,i2,8(1x,es12.5))',sphere_number,shift_spheres,base_radius,base_velocity,local_time&
@@ -107,17 +102,14 @@ end subroutine
 !     * rad_acceleration(3,npart): acceleration vectors
 !+
 !-----------------------------------------------------------------------
-subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fxyzu)
+subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fxyzu, time)
  use io,       only:iprint
  use part,     only:rhoh,xyzmh_ptmass,massoftype,igas
- use units,    only: udist
- use physcon,  only: pi
+ use physcon,  only:pi
  integer, intent(in)    :: npart
  real,    intent(in)    :: xyzh(:,:)
-!    real,    intent(in)    :: xyzmh(:,:)
  real,    intent(inout) :: vxyzu(:,:)
-!    real,    intent(in)    :: part_mass
- real,    intent(in)    :: dt
+ real,    intent(in)    :: dt,time
  real,    intent(inout) :: fxyzu(:,:)
 
  real :: O(3), h(npart), r(3, npart), d(npart), dmin, dmax, R_star, part_mass
@@ -131,7 +123,8 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fxyzu)
  integer :: i
 
  O = xyzmh_ptmass(1:3,1)
- R_star = xyzmh_ptmass(5,1)
+ !R_star = xyzmh_ptmass(5,1) should be the actual stellar radius
+ R_star = Reff + deltaR_osc*sin(omega_osc*time)
  kap = 0.
  part_mass = massoftype(igas)
  if (npart == 0) then
@@ -144,12 +137,11 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fxyzu)
        fgrav = alpha_wind*xyzmh_ptmass(4,wind_emitting_sink)
        do i=1,npart
           if (xyzh(4,i)  >  0.) then
-             if (i<4) print '(6(1x,es12.4))',fxyzu(1:3,i),fgrav/d(i)**3*r(1:3,i)
+             !if (i<4) print '(6(1x,es12.4))',fxyzu(1:3,i),fgrav/d(i)**3*r(1:3,i)
              fxyzu(1:3,i) = fxyzu(1:3,i) + fgrav/d(i)**3*r(1:3,i)
              vxyzu(4,i) = Teff*specific_energy_to_T_ratio
              fxyzu(4,i) = 0.d0
           endif
-          !if (i<20) print '("a",i4,18(1x,es12.4))',i,fxyzu(1:4,i),xyzh(1:3,i)
        enddo
     else
        if (abs((dmin-dmax)/dmax)  <  1.0d-10) then
@@ -213,8 +205,7 @@ end subroutine radiative_acceleration
 !-----------------------------------------------------------------------
 subroutine guess_acceleration(rinject, r_star, acceleration)
  use io,       only:iprint
- use physcon,  only: pi,c
- use units,    only: utime, udist,umass
+ use physcon,  only: pi
  real, intent(in)  :: rinject, r_star
  real, intent(out) :: acceleration
 
@@ -227,13 +218,13 @@ subroutine guess_acceleration(rinject, r_star, acceleration)
  call calculate_kd(N, Teq, kd)
  !call calculate_acceleration(N, OR2, kd, a)
  !acceleration = a(1)
- acceleration = L/(4.*pi*c_light) * kd(1)/OR2(1)*udist**3/utime**2
+ acceleration = L/(4.*pi*c_light) * kd(1)/OR2(1)
 
  if (verbose) then
     write(iprint,*) " * Teq(rinject) : ", Teq(1),tau_prime
-    write(iprint,*) " * kd(rinject)  : ", kd(1)*udist**2/umass
+    write(iprint,*) " * kd(rinject)  : ", kd(1)
     write(iprint,*) " * rinject      : ", sqrt(OR2(1)),rinject
-    write(iprint,*) " * a(rinject)   : ", acceleration,5315.*3.9d33/(4.*pi*c) *2.d-4/rinject**2
+    write(iprint,*) " * a(rinject)   : ", acceleration
     write(iprint,*) ""
  endif
 
@@ -245,11 +236,11 @@ end subroutine guess_acceleration
 !+
 !-----------------------------------------------------------------------
 subroutine bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,&
-       bowen_Cprime, bowen_Tcond, bowen_delta,bowen_Teff)
- use physcon,     only: solarl,c
+       bowen_Cprime, bowen_Tcond, bowen_delta,bowen_Teff,wind_osc_vamplitude,wind_osc_period)
+ use physcon,     only: solarl,c,steboltz,pi
  use units,       only: udist, umass, utime
  real, intent(in)  :: u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,&
-         bowen_Cprime, bowen_Tcond, bowen_delta, bowen_Teff
+         bowen_Cprime, bowen_Tcond, bowen_delta, bowen_Teff, wind_osc_vamplitude,wind_osc_period
 
  kappa = bowen_kappa / (udist**2/umass)
  kmax = bowen_kmax / (udist**2/umass)
@@ -260,6 +251,10 @@ subroutine bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,&
  Tcond = bowen_Tcond
  delta = bowen_delta
  Teff  = bowen_Teff
+ Reff = sqrt(bowen_L/(4.*pi*steboltz*bowen_Teff**4))/udist
+ omega_osc = 2.*pi/wind_osc_period
+ deltaR_osc = wind_osc_vamplitude/omega_osc
+
 end subroutine
 
 !-----------------------------------------------------------------------

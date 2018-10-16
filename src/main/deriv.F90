@@ -151,7 +151,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 ! compute radiative acceleration due to dust particles
 !
 #ifdef BOWEN
- call radiative_acceleration(npart,xyzh,vxyzu,dt,fxyzu)
+ call radiative_acceleration(npart,xyzh,vxyzu,dt,fxyzu,time)
  call do_timing('bowendust',tlast,tcpulast)
 #endif
 !
