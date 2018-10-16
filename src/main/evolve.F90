@@ -136,6 +136,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  logical         :: fulldump,abortrun,at_dump_time
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
  logical         :: should_conserve_dustmass
+ logical         :: use_global_dt
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  type(timer)     :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io
 
@@ -175,6 +176,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     dtmax_log_dratio = 0.0
  endif
 #ifdef IND_TIMESTEPS
+ use_global_dt = .false.
  istepfrac     = 0
  tlast         = tzero
  dt            = dtmax/2**nbinmax
@@ -203,8 +205,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     call sts_get_dtau_next(dtau,dt,dtmax,dtdiff,nbinmax)
     call sts_init_step(npart,time,dtmax,dtau)  ! overwrite twas for particles requiring super-timestepping
  endif
-
 #else
+ use_global_dt = .true.
  nskip   = npart
  nactive = npart
  if (dt >= (tprint-time)) dt = tprint-time   ! reach tprint exactly
@@ -274,7 +276,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     if (istepfrac==2**nbinmax) then
        twallperdump = reduceall_mpi('max', timer_lastdump%wall)
        call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
-                                     rhomaxold,rhomaxnow,nfulldump,.true.)
+                                     rhomaxold,rhomaxnow,nfulldump,use_global_dt)
     endif
 
     !--sanity check on istepfrac...
@@ -473,7 +475,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !--Global timesteps: Decrease dtmax if requested (done in step for individual timesteps)
        twallperdump = timer_lastdump%wall
        call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
-                                     rhomaxold,rhomaxnow,nfulldump,.false.)
+                                     rhomaxold,rhomaxnow,nfulldump,use_global_dt)
 #endif
 !
 !--get timings since last dump and overall code scaling
