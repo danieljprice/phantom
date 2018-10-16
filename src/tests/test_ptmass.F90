@@ -41,7 +41,7 @@ subroutine test_ptmass(ntests,npass)
                     Bevol,dBevol,dustfrac,ddustevol,temperature,divcurlB,fxyzu,set_particle_type,&
                     ispinx,ispiny,ispinz,dustprop,ddustprop,poten,rhoh
  use eos,             only:gamma,polyk
- use timestep,        only:dtmax,C_force
+ use timestep,        only:dtmax,C_force,tolv
  use testutils,       only:checkval,checkvalf
  use setbinary,       only:set_binary
  use step_lf_global,  only:step,init_step
@@ -61,7 +61,7 @@ subroutine test_ptmass(ntests,npass)
  !use readwrite_dumps, only:write_fulldump,write_smalldump
  use fileutils,       only:getnextfilename
  use checksetup,      only:check_setup
- use options,         only:tolv,ieos,iexternalforce
+ use options,         only:ieos,iexternalforce
  use units,           only:set_units
  use kernel,          only:kernel_softening
 #ifdef IND_TIMESTEPS

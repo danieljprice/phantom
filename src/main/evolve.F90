@@ -37,7 +37,8 @@ contains
 
 subroutine evol(infile,logfile,evfile,dumpfile)
  use io,               only:iprint,iwritein,id,master,iverbose,flush_warnings,nprocs,fatal
- use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,dtmax_ifactor,dtmax_dratio
+ use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
+                            dtmax_ifactor,dtmax_dratio,check_dtmax_for_decrease
  use evwrite,          only:write_evfile,write_evlog
  use energies,         only:etot,totmom,angtot,mdust
  use dim,              only:maxvxyzu,mhd,periodic
@@ -57,13 +58,14 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use dim,              only:maxp
  use part,             only:maxphase,ibin,iphase
  use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,update_time_per_bin,&
-                            write_binsummary,change_nbinmax,nactive,nactivetot,maxbins
+                            write_binsummary,change_nbinmax,nactive,nactivetot,maxbins,&
+                            print_dtlog_ind
  use timestep,         only:restartonshortest,dtdiff
  use timestep_sts,     only:sts_get_dtau_next,sts_init_step
  use io,               only:fatal,warning
  use step_lf_global,   only:init_step
 #else
- use timestep,         only:dtforce,dtcourant,dterr
+ use timestep,         only:dtforce,dtcourant,dterr,print_dtlog
 #endif
  use timestep_sts,     only: use_sts
  use supertimestep,    only: step_sts
@@ -102,10 +104,10 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use mf_write,         only:mflow_write
 #endif
 #ifdef VMFLOW
- use mf_write,          only:vmflow_write
+ use mf_write,         only:vmflow_write
 #endif
 #ifdef BINPOS
- use mf_write,          only:binpos_write
+ use mf_write,         only:binpos_write
 #endif
 
  character(len=*), intent(in)    :: infile
@@ -272,7 +274,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     if (istepfrac==2**nbinmax) then
        twallperdump = reduceall_mpi('max', timer_lastdump%wall)
        call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
-                                     rhomaxold,rhomaxnow,nfulldump)
+                                     rhomaxold,rhomaxnow,nfulldump,.true.)
     endif
 
     !--sanity check on istepfrac...
@@ -349,13 +351,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !--check that time is as it should be, may indicate error in individual timestep routines
     if (abs(tcheck-time) > 1.e-4) call warning('evolve','time out of sync',var='error',val=abs(tcheck-time))
 
-#ifdef INJECT_PARTICLES
     if (id==master .and. (iverbose >= 1 .or. inbin <= 3)) &
-       call print_dtlog_ind(iprint,istepfrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1,np=npart)
-#else
-    if (id==master .and. (iverbose >= 1 .or. inbin <= 3)) &
-       call print_dtlog_ind(iprint,istepfrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1)
-#endif
+       call print_dtlog_ind(iprint,istepfrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1,npart)
 
     !--if total number of bins has changed, adjust istepfrac and dt accordingly
     !  (ie., decrease or increase the timestep)
@@ -381,18 +378,13 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
 !--write log every step (NB: must print after dt has been set in order to identify timestep constraint)
 !
-#ifdef INJECT_PARTICLES
-    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,np=npart)
-#else
-    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint)
-#endif
+    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,npart)
 #endif
 
 !    if (abs(dt) < 1e-8*dtmax) then
 !       write(iprint,*) 'main loop: timestep too small, dt = ',dt
 !       call quit   ! also writes dump file, safe here because called by all threads
 !    endif
-
 
 !   check that MPI threads are synchronised in time
     timecheck = reduceall_mpi('+',time)
@@ -404,7 +396,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
     call get_timings(t2,tcpu2)
     call increment_timer(timer_lastdump,t2-t1,tcpu2-tcpu1)
-
 !
 !--Determine if this is the correct time to write to the data file
 !
@@ -482,7 +473,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !--Global timesteps: Decrease dtmax if requested (done in step for individual timesteps)
        twallperdump = timer_lastdump%wall
        call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
-                                     rhomaxold,rhomaxnow,nfulldump)
+                                     rhomaxold,rhomaxnow,nfulldump,.false.)
 #endif
 !
 !--get timings since last dump and overall code scaling
@@ -649,93 +640,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
  enddo timestepping
 
-!------------------------------------------------------------------------
-
- return
 end subroutine evol
-
-!----------------------------------------------------------------
-!+
-!  This will determine if dtmax needs to be decreased
-!  This subroutine is called at different times depending on
-!  whether individual or global timesteps are being used.
-!+
-!----------------------------------------------------------------
-subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
-                                    rhomaxold,rhomaxnew,nfulldump)
- use options,  only: dtwallmax
- use timestep, only: dtmax_max,dtmax_min
- integer,      intent(in)    :: iprint
- integer,      intent(out)   :: dtmax_ifactor
- integer,      intent(inout) :: nfulldump
- real,         intent(inout) :: dtmax,rhomaxold
- real,         intent(in)    :: rhomaxnew,dtmax_log_dratio
- real(kind=4), intent(in)    :: twallperdump
- real                        :: ratio
- integer                     :: ipower,ifactor,dtmax_ifactor_time
- integer, parameter          :: ifactor_max_dn = 2**2 ! hardcode to allow at most a decrease of 2 bins per step
- integer, parameter          :: ifactor_max_up = 2**1 ! hardcode to allow at most an increase of 1 bin per step
-
- ! initialise variables
- dtmax_ifactor      = 0
- dtmax_ifactor_time = 0
-
- ! modify dtmax based upon wall time constraint, if requested
- if ( dtwallmax > 0.0 ) then
-    if (twallperdump > dtwallmax) then
-       dtmax_ifactor_time = int(2**(int(log(real(twallperdump/dtwallmax))/log(2.0))+1))
-       write(iprint,'(1x,a,2(es10.3,a))') &
-          "modifying dtmax: ",dtmax," -> ",dtmax/dtmax_ifactor_time," due to wall time constraint"
-       ! set nfulldump = 1 to ensure a full dump within a reasonable wall-time
-       if (nfulldump > 1) then
-          nfulldump = 1
-          write(iprint,'(1x,a)')  &
-             "modifying dtmax: nfulldump -> 1 to ensure data is not lost due to decreasing dtmax"
-       endif
-    endif
- endif
-
- ! modify dtmax based upon density change (algorithm copied from sphNG)
- if (dtmax_log_dratio > 0.0) then
-    ratio   = log10(rhomaxnew/rhomaxold)
-    ipower  = -(int(ratio/dtmax_log_dratio))
-    if (abs(ratio/dtmax_log_dratio) < 0.5) ipower = 1
-    ifactor = 2**abs(ipower)
-    if (ipower < 0) then
-       ! decrease dtmax
-       ifactor = min(ifactor,ifactor_max_dn)
-       if (dtmax/ifactor >= dtmax_min ) then
-          dtmax_ifactor = ifactor
-          write(iprint,'(1x,a,2(es10.3,a))') &
-          "modifying dtmax: ",dtmax," -> ",dtmax/ifactor," due to density increase"
-       endif
-    elseif (ipower > 0) then
-       ! increase dtmax
-       ifactor = ifactor_max_up
-       if (dtmax*ifactor <= dtmax_max .and. ifactor*twallperdump < dtwallmax) then
-          dtmax_ifactor = -ifactor
-          write(iprint,'(1x,a,2(es10.3,a))') &
-          "modifying dtmax: ",dtmax," -> ",dtmax*ifactor," due to density decrease/stabilisation"
-       endif
-    endif
-    rhomaxold = rhomaxnew
- endif
-
- ! Decreasing due to time constraint trumps change due to density
- if (dtmax_ifactor_time > 0) then
-    dtmax_ifactor = max(dtmax_ifactor,dtmax_ifactor_time)
- endif
-
-#ifndef IND_TIMESTEPS
- ! dtmax will be modified now for global timestepping
- if (dtmax_ifactor > 0) then
-    dtmax =  dtmax/dtmax_ifactor
- else if (dtmax_ifactor < 0) then
-    dtmax = -dtmax*dtmax_ifactor
- endif
-#endif
-
-end subroutine check_dtmax_for_decrease
 !----------------------------------------------------------------
 !+
 !  routine to check conservation errors during the calculation
@@ -772,12 +677,6 @@ subroutine check_conservation_error(val,ref,tol,label,decrease)
        if (.not. (trim(string)=='yes')) then
           print "(2(/,a))",' You can ignore this error and continue by setting the ',&
                            ' environment variable I_WILL_NOT_PUBLISH_CRAP=yes to continue'
-!#ifdef IND_TIMESTEPS
-!          print "(4(/,a))",' Note: Please try again setting allow_wake=.false. in step_leapfrog.F90. ',&
-!                           ' If the new simulation successfully runs, please send details to ',&
-!                           ' j.wurster[at]exeter.ac.uk so that the bug can be fixed. ',&
-!                           ' Sorry for any inconvenience.'
-!#endif
           call fatal('evolve',' Conservation errors too large to continue simulation')
        endif
     endif
@@ -804,7 +703,6 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast,&
  real(kind=4)             :: time_fullstep
  character(len=20)        :: string,string1,string2,string3
 
- !write(iprint,*) 'Timings:'
  write(string,"(i12)") nsteps
  call formatreal(real(timer_fromstart%wall),string1)
  call formatreal(real(timer_fromstart%cpu),string2)
@@ -831,7 +729,7 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast,&
  dfrac = 1./(timer_lastdump%wall + epsilon(0._4))
  fracinstep = timer_step%wall*dfrac
  if (fracinstep < 0.99) then
-    write(iprint,"(1x,a,f6.2,a)") 'WARNING: spending ',100.*(1.-fracinstep),'% of time in routines EXTERNAL to step'
+    write(iprint,"(1x,a,f6.2,a)") 'WARNING: ',100.*(1.-fracinstep),'% of time was in unusual routines (not dens/force/link)'
  endif
 
 end subroutine print_timinginfo
@@ -865,83 +763,5 @@ subroutine print_timer(lu,label,my_timer,time_between_dumps)
  endif
 
 end subroutine print_timer
-
-#ifdef IND_TIMESTEPS
-!-----------------------------------------------------------------
-!+
-!  routine to print out the timestep information to the log file
-!  this version handles individual timesteps
-!+
-!-----------------------------------------------------------------
-subroutine print_dtlog_ind(iprint,ifrac,nfrac,time,dt,nactive,tcpu,np)
- use io, only:formatreal,formatint
- integer,         intent(in) :: iprint,ifrac,nfrac
- real,            intent(in) :: time,dt
- integer(kind=8), intent(in) :: nactive
- real(kind=4),    intent(in) :: tcpu
- integer,         intent(in), optional :: np
- character(len=120) :: string
- character(len=14) :: tmp
-
- call formatint(ifrac,tmp)
- string = '> step '//tmp
- call formatint(nfrac,tmp)
- string = trim(string)//' / '//tmp
- write(tmp,"(g14.7)") time
- string = trim(string)//' t = '//trim(adjustl(tmp))
- call formatreal(dt,tmp)
- string = trim(string)//' dt = '//tmp
- call formatint(nactive,tmp)
- string = trim(string)//' moved '//tmp
- call formatreal(real(tcpu),tmp)
- string = trim(string)//' in '//trim(tmp)//' cpu-s <'
-
- if (present(np)) then
-    write(tmp,"(i12)") np
-    string = trim(string)//' | np = '//trim(adjustl(tmp))//' |'
- endif
-
- write(iprint,"(a)") trim(string)
-! write(iprint,5) ifrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1
-!5   format('> step ',i6,' /',i6,2x,'t = ',es14.7,1x,'dt = ',es10.3,' moved ',i10,' in ',f8.2,' cpu-s <')
-
-end subroutine print_dtlog_ind
-#else
-!-----------------------------------------------------------------
-!+
-!  routine to print out the timestep information to the log file
-!+
-!-----------------------------------------------------------------
-subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,np)
- integer, intent(in) :: iprint
- real,    intent(in) :: time,dt,dtforce,dtcourant,dterr,dtmax
- real,    intent(in), optional :: dtprint
- integer, intent(in), optional :: np
- character(len=20) :: str
-
- str = ''
- if (present(np)) then
-    write(str,"(i12)") np
-    str = ', np = '//trim(adjustl(str))
- endif
-
- if (abs(dt-dtforce) < tiny(dt)) then
-    write(iprint,10) time,dt,'(force)'//trim(str)
- elseif (abs(dt-dtcourant) < tiny(dt)) then
-    write(iprint,10) time,dt,'(courant)'//trim(str)
- elseif (abs(dt-dterr) < tiny(dt)) then
-    write(iprint,10) time,dt,'(tolv)'//trim(str)
- elseif (abs(dt-dtmax) <= epsilon(dt)) then
-    write(iprint,10) time,dt,'(dtmax)'//trim(str)
- elseif (present(dtprint) .and. abs(dt-dtprint) < tiny(dt)) then
-    write(iprint,10) time,dt,'(dtprint)'//trim(str)
- else
-    !print*,dt,dtforce,dtcourant,dterr,dtmax
-    write(iprint,10) time,dt,'(unknown)'//trim(str)
- endif
-10 format(' t = ',g12.5,' dt = ',es10.3,1x,a)
-
-end subroutine print_dtlog
-#endif
 
 end module evolve

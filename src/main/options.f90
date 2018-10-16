@@ -30,16 +30,12 @@ module options
     modid="$Id$"
 !
 ! these are parameters which may be changed by the user
-! but which at present are set as parameters
-!
- real, public :: avdecayconst
-!
-! these are parameters which may be changed by the user
 ! and read from the input file
 !
+ real, public :: avdecayconst
  integer, public :: nfulldump,nmaxdumps,iexternalforce,idamp
- real, public :: tolh,damp,tolv
- real(kind=4), public :: twallmax, dtwallmax
+ real, public :: tolh,damp
+ real(kind=4), public :: twallmax
 
 ! artificial viscosity, thermal conductivity, resistivity
 
@@ -54,7 +50,6 @@ module options
  real,    public :: rhofinal_cgs,rhofinal1
 
 ! dust method
-
  logical, public :: use_moddump = .false.
  logical, public :: use_dustfrac
 
@@ -70,25 +65,16 @@ module options
 contains
 
 subroutine set_default_options
- use timestep,  only:C_cour,C_force,C_cool,tmax,dtmax,nmax,nout,restartonshortest, &
-                     dtmax_dratio,dtmax_max,dtmax_min
+ use timestep,  only:set_defaults_timestep
  use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha
  use viscosity, only:set_defaults_viscosity
  use dim,       only:maxp,maxvxyzu,nalpha
  use kernel,    only:hfact_default
 
- C_cour  =  0.3
- C_force =  0.25
- C_cool  =  0.05
- tmax    = 10.0
- dtmax   =  1.0
- tolv    = 1.e-2
+ call set_defaults_timestep
 
- nmax      = -1
- nout      = -1
  nmaxdumps = -1
  twallmax  = 0.0             ! maximum wall time for run, in seconds
- dtwallmax = 43200.0         ! maximum wall time between dumps (seconds); default = 12h
  nfulldump = 10              ! frequency of writing full dumps
  hfact     = hfact_default   ! smoothing length in units of average particle spacing
  Bextx     = 0.              ! external magnetic field
@@ -98,10 +84,6 @@ subroutine set_default_options
  idamp     = 0               ! damping type
  iexternalforce = 0          ! external forces
 
- ! Values to control dtmax changing with increasing densities
- dtmax_dratio =  0.          ! dtmax will change if this ratio is exceeded in a timestep (recommend 1.258)
- dtmax_max    = -1.0         ! maximum dtmax allowed (to be reset to dtmax if = -1)
- dtmax_min    =  0.          ! minimum dtmax allowed
  ! To allow rotational energies to be printed to .ev
  calc_erot = .false.
  ! Final maximum density
@@ -139,7 +121,6 @@ subroutine set_default_options
  overcleanfac      = 1.0     ! factor to increase signal velocity for (only) time steps and psi cleaning
  beta              = 2.0     ! beta viscosity term
  avdecayconst      = 0.1     ! decay time constant for viscosity switches
- restartonshortest = .false. ! whether or not to restart with all parts on shortest step
 
  call set_defaults_viscosity
 

@@ -95,12 +95,12 @@ module eos
  !--Mean molecular weight if temperature required
  real,    public :: gmw            = 2.381
  real,    public :: X_in = 0.74, Z_in = 0.02
- !
+
  real            :: rhocritT,rhocrit0,rhocrit1,rhocrit2,rhocrit3
  real            :: fac2,fac3,log10polyk2,log10rhocritT,rhocritT0slope
  real            :: rhocrit0pwp,rhocrit1pwp,rhocrit2pwp,p0pwp,p1pwp,p2pwp,k0pwp,k1pwp,k2pwp,k3pwp
  real, public    :: temperature_coef
- !
+
  logical, public :: done_init_eos = .false.
 
 contains
@@ -271,7 +271,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
 !
     r1=sqrt((xi-xyzmh_ptmass(1,1))**2+(yi-xyzmh_ptmass(2,1))**2 + (zi-xyzmh_ptmass(3,1))**2)
     r2=sqrt((xi-xyzmh_ptmass(1,2))**2+(yi-xyzmh_ptmass(2,2))**2 + (zi-xyzmh_ptmass(3,2))**2)
-!    ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2))**(2*qfacdisc)
+!  ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2))**(2*qfacdisc)
     ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1))**(2*qfacdisc)
     spsoundi=sqrt(ponrhoi)
 
@@ -334,21 +334,21 @@ real function get_temperature(eos_type,xyzi,rhoi,vxyzui)
  real,         intent(in) :: xyzi(:),rhoi
  real,         intent(inout) :: vxyzui(maxvxyzu)
  real                     :: spsoundi,ponrhoi
- !
+
  if (maxvxyzu==4) then
     call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
  else
     call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3))
  endif
  get_temperature = temperature_coef*gmw*ponrhoi
- !
+
 end function get_temperature
 !-----------------------------------------------------------------------
 real function get_temperature_from_ponrho(ponrho)
  real,         intent(in) :: ponrho
- !
+
  get_temperature_from_ponrho = temperature_coef*gmw*ponrho
- !
+
 end function get_temperature_from_ponrho
 !-----------------------------------------------------------------------
 !+
@@ -358,7 +358,7 @@ end function get_temperature_from_ponrho
 !-----------------------------------------------------------------------
 real function gamma_pwp(rhoi)
  real, intent(in) :: rhoi
- !
+
  if (rhoi < rhocrit0pwp) then
     gamma_pwp = gamma0pwp
  else if (rhoi < rhocrit1pwp) then
@@ -368,7 +368,7 @@ real function gamma_pwp(rhoi)
  else
     gamma_pwp = gamma3pwp
  endif
- !
+
 end function gamma_pwp
 !-----------------------------------------------------------------------
 !+
@@ -385,7 +385,7 @@ subroutine init_eos(eos_type,ierr)
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
  real                 :: logrhomin,logrhomax
- !
+
  ierr = 0
  logrhomin = -22.  ! for printing the EoS to file [cgs]; value is for ieos=8
  logrhomax =  -8.  ! for printing the EoS to file [cgs]; value is for ieos=8
@@ -396,7 +396,7 @@ subroutine init_eos(eos_type,ierr)
  !  c_s^2 = gamma*P/rho = gamma*kT/(gmw*m_p) -> T = P/rho * (gmw*m_p)/k
  !
  temperature_coef = mass_proton_cgs/kboltz * unit_velocity**2
- !
+
  select case(eos_type)
  case(6)
     !
@@ -488,7 +488,6 @@ end subroutine init_eos
 !  finish equation of state
 !+
 !-----------------------------------------------------------------------
-
 subroutine finish_eos(eos_type,ierr)
  use eos_mesa, only: finish_eos_mesa
 
@@ -498,15 +497,14 @@ subroutine finish_eos(eos_type,ierr)
  ierr = 0
 
  select case(eos_type)
-
  case(10)
     !
     !--MESA EoS deallocation
     !
     call finish_eos_mesa
-
  end select
  done_init_eos=.false.
+
 end subroutine finish_eos
 
 !-----------------------------------------------------------------------
@@ -518,12 +516,12 @@ subroutine verify_less_than(ierr,val1,val2)
  use io, only: error
  integer, intent(inout) :: ierr
  real,    intent(in)    :: val1,val2
- !
+
  if (val1 > val2) then
     ierr = ierr + 1
     call error('eos','incorrect ordering of rhocrit')
  endif
- !
+
 end subroutine verify_less_than
 !-----------------------------------------------------------------------
 !+
@@ -539,6 +537,7 @@ subroutine print_eos_to_file(logrhomin,logrhomax,unit_density,unit_velocity)
  integer                  :: i
  !
  !--Open file
+ !
  open(unit=iuniteos,file="EOS.dat",form='formatted',status='replace')
  write(iuniteos,'("# Equation of state properties; all values in cgs")')
  write(iuniteos,"('#',5(1x,'[',i2.2,1x,a11,']',2x))") &
@@ -547,7 +546,7 @@ subroutine print_eos_to_file(logrhomin,logrhomax,unit_density,unit_velocity)
        3,'P/rho', &
        4,'c_s', &
        5,'T'
- !
+
  dummy = 0.0  ! initialise to avoind compiler warning
  drho  = (logrhomax - logrhomin)/float(nlogrho)
  do i = 1,nlogrho
@@ -559,7 +558,7 @@ subroutine print_eos_to_file(logrhomin,logrhomax,unit_density,unit_velocity)
        ponrhoi*unit_velocity**2, spsoundi*unit_velocity**2, temperaturei
  enddo
  close(iuniteos)
- !
+
 end subroutine print_eos_to_file
 !-----------------------------------------------------------------------
 !+
@@ -584,7 +583,6 @@ subroutine write_options_eos(iunit)
     call write_inopt(gamma1,'gamma1','adiabatic index 1 (barotropic eos)',iunit)
     call write_inopt(gamma2,'gamma2','adiabatic index 2 (barotropic eos)',iunit)
     call write_inopt(gamma3,'gamma3','adiabatic index 3 (barotropic eos)',iunit)
-
  case(9)
     call write_inopt(rhocrit0pwpcgs,'rhocrit0pwp','critical density 0 in g/cm^3 (piecewise polytropic eos)',iunit)
     call write_inopt(rhocrit1pwpcgs,'rhocrit1pwp','critical density 1 in g/cm^3 (piecewise polytropic eos)',iunit)
@@ -594,14 +592,11 @@ subroutine write_options_eos(iunit)
     call write_inopt(gamma2pwp,'gamma2pwp','adiabatic index 2 (piecewise polytropic eos)',iunit)
     call write_inopt(gamma3pwp,'gamma3pwp','adiabatic index 3 (piecewise polytropic eos)',iunit)
     call write_inopt(p1pwpcgs,'p1pwp','pressure at cutoff density rhocrit1pwp (piecewise polytropic eos)',iunit)
-
  case(10)
     call write_inopt(X_in,'X','hydrogen mass fraction',iunit)
     call write_inopt(Z_in,'Z','metallicity',iunit)
-
  case(15) ! helmholtz eos
     call eos_helmholtz_write_inopt(iunit)
-
  end select
 
 end subroutine write_options_eos
@@ -631,7 +626,6 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) gmw
     ! not compulsory to read in
     if (gmw <= 0.)  call fatal(label,'mu <= 0')
-
  case('drhocrit')
     read(valstring,*,iostat=ierr) drhocrit0
     if (drhocrit0 < 0.)  call fatal(label,'drhocrit0 < 0: Negative transition region is nonsense')
@@ -839,11 +833,9 @@ subroutine eosinfo(eos_type,iprint)
  real, parameter :: uthermcheck = 3.14159, rhocheck = 23.456
 
  select case(eos_type)
-    !
  case(1,11)
     write(iprint,"(/,a,f10.6)") ' Isothermal equation of state:     cs^2 = ',polyk
     if (eos_type==11) write(iprint,*) ' (ZERO PRESSURE) '
-    !
  case(2)
     if (use_entropy) then
        write(iprint,"(/,a,f10.6,a,f10.6)") ' Adiabatic equation of state (evolving ENTROPY): polyk = ',polyk,' gamma = ',gamma
@@ -863,14 +855,11 @@ subroutine eosinfo(eos_type,iprint)
     else
        write(iprint,"(/,a,f10.6,a,f10.6)") ' Polytropic equation of state: P = ',polyk,'*rho^',gamma
     endif
-    !
  case(3)
     write(iprint,"(/,a,f10.6,a,f10.6)") ' Locally isothermal eq of state (R_sph): cs^2_0 = ',polyk,' qfac = ',qfacdisc
-    !
  case(6)
     write(iprint,"(/,a,i2,a,f10.6,a,f10.6)") ' Locally (on sink ',isink, &
           ') isothermal eos (R_sph): cs^2_0 = ',polyk,' qfac = ',qfacdisc
-    !
  case(8)
     write(iprint,"(/,a,2(es10.3,a))")    ' Barotropic eq of state: cs_ld            = ',sqrt(polyk2),' code units = '&
                                          ,sqrt(polyk2)*unit_velocity,' cm/s'
@@ -908,7 +897,6 @@ subroutine eosinfo(eos_type,iprint)
                                          ,'*(rho /rho2)^',gamma2,'                    for rho2 <= rho/(g/cm^3) < rho3'
     write(iprint,"(3(a,f6.3),a)")        ' Barotropic eq of state: P = cs*rho1*(rho2/rho1)^',gamma1 &
                                         ,'*(rho3/rho2)^',gamma2,'*(rho /rho3)^',gamma3,' for rho3 <= rho/(g/cm^3)'
-    !
  case(9)
     write(iprint,"(/,a,3(es10.3),a,4(es10.3))") ' Piecewise polytropic eq of state (code units) : rhocrit = '&
                                                  ,rhocrit0pwp,rhocrit1pwp,rhocrit2pwp, '; K = ',k0pwp,k1pwp,k2pwp,k3pwp
