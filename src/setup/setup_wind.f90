@@ -17,8 +17,8 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
+!    accretion_radius    -- accretion radius of the central star (au)
 !    central_star_mass   -- mass of the central star (Msun)
-!    central_star_radius -- radius of the central star (au)
 !    companion_star_mass -- mass of the companion star (Msun)
 !    companion_star_r    -- radius of the companion star (au)
 !    eccentricity        -- eccentricity of the binary system
