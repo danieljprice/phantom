@@ -1,7 +1,7 @@
 # default settings for ifort compiler
 # override these in the Makefile
 FC= ifort
-FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
+FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source -no-wrap-margin
 DBLFLAG= -r8
 DEBUGFLAG= -check all -WB -traceback -g -debug all # -fpe0 -fp-stack-check -debug all
 ENDIANFLAGBIG= -convert big_endian
