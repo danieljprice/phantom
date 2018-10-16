@@ -314,7 +314,7 @@ subroutine drv_dt(rv, drv, GM)
  drv(1) = dr_dt
  drv(2) = dv_dt
 
-end subroutine
+end subroutine drv_dt
 
 !-----------------------------------------------------------------------
 !+
@@ -358,7 +358,7 @@ subroutine compute_sphere_properties(time,local_time, r, v, u, rho, e, sphere_nu
  call stationary_adiabatic_wind_profile(local_time, r, v, u, rho, e)
 #endif
 
-end subroutine
+end subroutine compute_sphere_properties
 
 !-----------------------------------------------------------------------
 !+
@@ -468,7 +468,7 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, r, v, u, rho, n
     call add_or_update_particle(igas, particle_position, particle_velocity, h_sim, u, first_particle+j, &
          npart,npartoftype,xyzh,vxyzu)
  enddo
-end subroutine
+end subroutine inject_geodesic_sphere
 
 !-----------------------------------------------------------------------
 !+
@@ -538,7 +538,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(wind_osc_vamplitude_km_s,'wind_osc_vampl', &
       'velocity amplitude of the pulsations (km/s)',iunit)
 #endif
-end subroutine
+end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
 !+
@@ -645,6 +645,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 #endif
  igotall = (ngot >= noptions)
 
-end subroutine
+end subroutine read_options_inject
 
 end module inject
