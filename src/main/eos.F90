@@ -307,7 +307,7 @@ real function get_spsound(eos_type,xyzi,rhoi,vxyzui,tempi)
  use dim, only:maxvxyzu
  integer,      intent(in) :: eos_type
  real,         intent(in) :: xyzi(:),rhoi
- real,         intent(inout) :: vxyzui(maxvxyzu)
+ real,         intent(inout) :: vxyzui(:)
  real, intent(inout), optional :: tempi
  real :: spsoundi,ponrhoi
 
@@ -334,7 +334,7 @@ real function get_temperature(eos_type,xyzi,rhoi,vxyzui)
  use dim, only:maxvxyzu
  integer,      intent(in)    :: eos_type
  real,         intent(in)    :: xyzi(:),rhoi
- real,         intent(inout) :: vxyzui(maxvxyzu)
+ real,         intent(inout) :: vxyzui(:)
  real :: spsoundi,ponrhoi
 
  if (maxvxyzu==4) then
