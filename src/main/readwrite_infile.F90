@@ -47,7 +47,6 @@
 !    nout               -- number of steps between dumps (-ve=ignore)
 !    overcleanfac       -- factor to increase cleaning speed (decreases time step)
 !    psidecayfac        -- div B diffusion parameter
-!    restartonshortest  -- restart with all particles on shortest timestep
 !    rhofinal_cgs       -- maximum allowed density (cgs) (<=0 to ignore)
 !    shearparam         -- magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)
 !    tmax               -- end time
@@ -85,7 +84,7 @@ contains
 !+
 !-----------------------------------------------------------------
 subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
- use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force,restartonshortest
+ use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
  use io,              only:fatal
  use infile_utils,    only:write_inopt
 #ifdef DRIVING
@@ -170,7 +169,6 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(tolv,'tolv','tolerance on v iterations in timestepping',iwritein,exp=.true.)
  call write_inopt(hfact,'hfact','h in units of particle spacing [h = hfact(m/rho)^(1/3)]',iwritein)
  call write_inopt(tolh,'tolh','tolerance on h-rho iterations',iwritein,exp=.true.)
- call write_inopt(restartonshortest,'restartonshortest','restart with all particles on shortest timestep',iwritein)
 
  call write_inopts_link(iwritein)
 
@@ -261,7 +259,7 @@ end subroutine write_infile
 !-----------------------------------------------------------------
 subroutine read_infile(infile,logfile,evfile,dumpfile)
  use dim,             only:maxvxyzu,maxptmass,maxp,gravity
- use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force,restartonshortest
+ use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
  use eos,             only:use_entropy,read_options_eos,ieos
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master
  use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
@@ -392,8 +390,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) hfact
     case('tolh')
        read(valstring,*,iostat=ierr) tolh
-    case('restartonshortest')
-       read(valstring,*,iostat=ierr) restartonshortest
     case('nfulldump')
        read(valstring,*,iostat=ierr) nfulldump
     case('alpha')

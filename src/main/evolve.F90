@@ -60,7 +60,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,update_time_per_bin,&
                             write_binsummary,change_nbinmax,nactive,nactivetot,maxbins,&
                             print_dtlog_ind
- use timestep,         only:restartonshortest,dtdiff
+ use timestep,         only:dtdiff
  use timestep_sts,     only:sts_get_dtau_next,sts_init_step
  use io,               only:fatal,warning
  use step_lf_global,   only:init_step
@@ -189,7 +189,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 ! Keep boundary particles on level 0 since forces are never calculated
 ! and to prevent boundaries from limiting the timestep
 !
- if (time < tiny(time) .or. restartonshortest) then
+ if (time < tiny(time)) then
     !$omp parallel do schedule(static) private(i,iamtypei)
     do i=1,npart
        ibin(i) = nbinmax

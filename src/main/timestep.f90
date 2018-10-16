@@ -33,7 +33,6 @@ module timestep
  real    :: dtmax_dratio, dtmax_max, dtmax_min, rhomaxnow
  real(kind=4) :: dtwallmax
  integer :: dtmax_ifactor
- logical :: restartonshortest
 
  public
 
@@ -59,8 +58,6 @@ subroutine set_defaults_timestep
  dtmax_max    = -1.0         ! maximum dtmax allowed (to be reset to dtmax if = -1)
  dtmax_min    =  0.          ! minimum dtmax allowed
  dtwallmax = 43200.0         ! maximum wall time between dumps (seconds); default = 12h
-
- restartonshortest = .false. ! whether or not to restart with all parts on shortest step
 
 end subroutine set_defaults_timestep
 
