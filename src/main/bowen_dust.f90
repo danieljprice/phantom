@@ -85,7 +85,7 @@ subroutine pulsating_bowen_wind_profile(local_time, r, v, u, rho, e, sphere_numb
  !if (sphere_number<3320) print '("$$",i4,i2,8(1x,es12.5))',sphere_number,shift_spheres,base_radius,base_velocity,local_time&
  !     ,time_between_spheres,acceleration,r,v
 
-end subroutine
+end subroutine pulsating_bowen_wind_profile
 
 !-----------------------------------------------------------------------
 !+
@@ -139,8 +139,8 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fxyzu, time)
           if (xyzh(4,i)  >  0.) then
              !if (i<4) print '(6(1x,es12.4))',fxyzu(1:3,i),fgrav/d(i)**3*r(1:3,i)
              fxyzu(1:3,i) = fxyzu(1:3,i) + fgrav/d(i)**3*r(1:3,i)
-             vxyzu(4,i) = Teff*specific_energy_to_T_ratio
-             fxyzu(4,i) = 0.d0
+!             vxyzu(4,i) = Teff*specific_energy_to_T_ratio
+!             fxyzu(4,i) = 0.d0
           endif
        enddo
     else
@@ -255,7 +255,7 @@ subroutine bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,&
  omega_osc = 2.*pi/wind_osc_period
  deltaR_osc = wind_osc_vamplitude/omega_osc
 
-end subroutine
+end subroutine bowen_init
 
 !-----------------------------------------------------------------------
 !+
@@ -287,7 +287,7 @@ subroutine interpolate_on_particles(npart, d, N, dmax, quantity, output)
     j = min(int(r/dr),N-1)
     output(i) = (r-dr*j)*(quantity(j+1)-quantity(j))/dr + quantity(j)
  enddo
-end subroutine
+end subroutine interpolate_on_particles
 
 !-----------------------------------------------------------------------
 !+
@@ -331,7 +331,7 @@ subroutine calculate_kd(N, Teq, kd)
  real,    intent(out) :: kd(N)
 
  kd = kmax/(1. + exp((Teq-Tcond)/delta))
-end subroutine
+end subroutine calculate_kd
 
 !-----------------------------------------------------------------------
 !+
@@ -357,7 +357,7 @@ subroutine calculate_Teq(N, R_star, tau_prime, OR2, Teq)
     Teq = Teff*(0.5*(1.-sqrt(1.-(R_star**2/OR2))) + 0.75*tau_prime)**(1./4.)
     !Teq = ((Teff**4/2.)*(1.-sqrt(1.-(R_star**2/OR2))) + (Teff**4*3./4.)*tau_prime)**(1./4.)
  end where
-end subroutine
+end subroutine calculate_Teq
 
 !-----------------------------------------------------------------------
 !+
@@ -392,7 +392,7 @@ subroutine calculate_tau_prime(N, dmax, R_star, kappa, kap, rho_over_r2, OR, tau
                        fact(i)*(rho_over_r2(i)+rho_over_r2(i+1)+rho_over_r2(2*N-i+1)+rho_over_r2(2*N-i+2))
  enddo
  OR(N) = dmax
-end subroutine
+end subroutine calculate_tau_prime
 
 !-----------------------------------------------------------------------
 !+
@@ -477,7 +477,7 @@ subroutine density(npart, position, distance2, part_h, part_mass, nfound, found,
     endif
  enddo
 
-end subroutine
+end subroutine density
 
 !-----------------------------------------------------------------------
 !+
@@ -507,7 +507,7 @@ subroutine select_particles(npart, distance2, part_h, nfound, found)
        found(nfound) = i
     endif
  enddo
-end subroutine
+end subroutine select_particles
 
 !-----------------------------------------------------------------------
 !+
@@ -527,7 +527,7 @@ subroutine project_on_z(npart, r, position, distance2)
 
  position = r(3,:)
  distance2 = r(1,:)**2+r(2,:)**2
-end subroutine
+end subroutine project_on_z
 
 !-----------------------------------------------------------------------
 !+
@@ -592,6 +592,6 @@ subroutine center_star(npart, xyzh, O, r, d, dmin, dmax)
  d = sqrt(r(1,:)**2 + r(2,:)**2 + r(3,:)**2)
  dmin = minval(d)
  dmax = maxval(d)
-end subroutine
+end subroutine center_star
 
 end module bowen_dust
