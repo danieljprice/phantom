@@ -346,13 +346,13 @@ subroutine compute_sphere_properties(time,local_time, r, v, u, rho, e, sphere_nu
  !       wind_osc_period,shift_spheres,central_star_mass,time_between_spheres,&
  !       wind_temperature,gamma)
  if (verbose) then
-  if (sphere_number > inner_sphere) then
-   print '("handled, i = ",i5," inner = ",i5," base_r = ",es10.4," r = ",es10.4," v = ",es11.4," phase = ",f7.4," feject = ",f4.3)'&
+    if (sphere_number > inner_sphere) then
+       print '("handled, i = ",i5," inner = ",i5," base_r = ",es10.4," r = ",es10.4," v = ",es11.4," phase = ",f7.4," feject = ",f4.3)'&
           ,sphere_number,inner_sphere,surface_radius,r,v,time/wind_osc_period,time_between_spheres/wind_osc_period
-  else
-   print '("ejected, i = ",i5," inner = ",i5," base_r = ",es10.4," r = ",es10.4," v = ",es11.4," phase = ",f7.4," feject = ",f4.3)'&
+    else
+       print '("ejected, i = ",i5," inner = ",i5," base_r = ",es10.4," r = ",es10.4," v = ",es11.4," phase = ",f7.4," feject = ",f4.3)'&
           ,sphere_number,inner_sphere,surface_radius,r,v,time/wind_osc_period,time_between_spheres/wind_osc_period
-  endif
+    endif
  endif
 #else
  call stationary_adiabatic_wind_profile(local_time, r, v, u, rho, e)
