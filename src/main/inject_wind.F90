@@ -19,15 +19,15 @@
 !  RUNTIME PARAMETERS:
 !    bowen_Cprime      -- radiative cooling rate (g.s/cm³)
 !    bowen_L           -- central star luminosity (Lsun)
-!    bowen_Tcond       -- condensation temperature of dust (K)
-!    bowen_Teff        -- effective temperature of the central star (K)
+!    bowen_Tcond       -- dust condensation temperature (K)
+!    bowen_Teff        -- central star effective temperature (K)
 !    bowen_delta       -- condensation temperature range (K)
 !    bowen_kappa       -- constant gas opacity (cm²/g)
 !    bowen_kmax        -- maximum dust opacity (cm²/g)
 !    iboundary_spheres -- number of boundary spheres (integer)
 !    wind_dr_on_dp     -- desired ratio of sphere spacing to particle spacing
 !    wind_mass_rate    -- wind mass per unit time (Msun/yr)
-!    wind_osc_period   -- period of the oscillations (days)
+!    wind_osc_period   -- stellar pulsation period (days)
 !    wind_temperature  -- wind temperature at the injection point (K)
 !
 !  DEPENDENCIES: bowen_dust, eos, icosahedron, infile_utils, io, part,
