@@ -83,13 +83,13 @@ subroutine compute_energies(t)
  use viscosity,      only:irealvisc,shearfunc
  use nicil,          only:nicil_get_eta,nicil_get_halldrift,nicil_get_vion, &
                      use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_data_out
+#ifdef LIGHTCURVE
+ use part,           only:luminosity
+#endif
 #ifdef DUST
  use dust,           only:get_ts,idrag
- integer :: iregime
+ integer :: iregime,idusttype
  real    :: tsi(maxdustsmall)
-#endif
-#ifdef LIGHTCURVE
- use part,         only:luminosity
 #endif
  real, intent(in) :: t
  real    :: ev_data_thread(4,0:inumev)
@@ -103,7 +103,7 @@ subroutine compute_energies(t)
  real    :: tempi,etaart,etaart1,etaohm,etahall,etaambi,vhall,vion,vdrift
  real    :: curlBi(3),vhalli(3),vioni(3),vdrifti(3),data_out(n_data_out)
  real    :: erotxi,erotyi,erotzi,fdum(3)
- integer :: i,j,itype,ierr,idusttype
+ integer :: i,j,itype,ierr
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
 
  ! initialise values

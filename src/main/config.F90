@@ -198,15 +198,13 @@ module dim
 #ifdef MHD
  logical, parameter :: mhd = .true.
  integer, parameter :: maxmhd = maxp
- integer, parameter :: maxBevol = 4  ! Bx,By,Bz,Psi (latter for div B cleaning)
- integer, parameter :: ndivcurlB = 4
 #else
  ! if no MHD, do not store any of these
  logical, parameter :: mhd = .false.
  integer, parameter :: maxmhd = 0
- integer, parameter :: maxBevol = 4 ! irrelevant, but prevents compiler warnings
- integer, parameter :: ndivcurlB = 0
 #endif
+ integer, parameter :: maxBevol = 4 ! irrelevant, but prevents compiler warnings
+ integer, parameter :: ndivcurlB = 4
 
 ! non-ideal MHD
 #ifdef MHD
