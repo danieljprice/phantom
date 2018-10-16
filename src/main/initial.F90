@@ -134,7 +134,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh, &
-                            Bevol,Bxyz,temperature,dustprop,ddustprop,ndusttypes,ndustsmall
+                            Bevol,Bxyz,temperature,dustprop,ddustprop,ndustsmall
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef PHOTO
@@ -169,6 +169,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef DUST
  use dust,             only:init_drag
+ use part,             only:ndusttypes
 #ifdef DUSTGROWTH
  use growth,           only:init_growth
 #endif
@@ -205,7 +206,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use fileutils,        only:make_tags_unique
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
- integer         :: ierr,i,j,idot,nerr,nwarn
+ integer         :: ierr,i,j,idot,nerr,nwarn,ialphaloc
  integer(kind=8) :: npartoftypetot(maxtypes)
  real            :: poti,dtf,hfactfile,fextv(3)
  real            :: hi,pmassi,rhoi1
@@ -218,7 +219,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  logical         :: iexist
  integer :: ncount(maxtypes)
  character(len=len(dumpfile)) :: dumpfileold,fileprefix
+#ifdef DUST
  character(len=7) :: dust_label(maxdusttypes)
+#endif
 !
 !--do preliminary initialisation
 !
@@ -520,9 +523,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     endif
  enddo
  if (nalpha >= 2) then
+    ialphaloc = 2
     !$omp parallel do private(i)
     do i=1,npart
-       alphaind(1,i) = max(alphaind(1,i),alphaind(2,i)) ! set alpha = max(alphaloc,alpha)
+       alphaind(1,i) = max(alphaind(1,i),alphaind(ialphaloc,i)) ! set alpha = max(alphaloc,alpha)
     enddo
  endif
  set_boundaries_to_active = .false.

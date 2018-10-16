@@ -58,7 +58,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
- integer      :: i,j,nbad,itype,nunity
+ integer      :: i,j,nbad,itype,nunity,iu
  real         :: xcom(ndim),vcom(ndim)
  real(kind=8) :: gcode
  real         :: hi,hmin,hmax,dust_to_gas
@@ -189,10 +189,11 @@ subroutine check_setup(nerror,nwarn,restart)
 !
  if (maxvxyzu==4) then
     nbad = 0
+    iu = 4
     do i=1,npart
-       if (.not.in_range(vxyzu(4,i),0.) .and. xyzh(4,i) >= 0.) then !ignore accreted particles that have negative energies
+       if (.not.in_range(vxyzu(iu,i),0.) .and. xyzh(4,i) >= 0.) then !ignore accreted particles that have negative energies
           nbad = nbad + 1
-          if (nbad <= 10) print*,' particle ',i,' u = ',vxyzu(4,i)
+          if (nbad <= 10) print*,' particle ',i,' u = ',vxyzu(iu,i)
        endif
     enddo
     if (nbad > 0) then

@@ -144,7 +144,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use options,      only:iresistive_heating
  use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,nabundances,ll,get_partinfo,iactive,gradh,&
                         hrho,iphase,maxphase,igas,iboundary,maxgradh,dvdx, &
-                        eta_nimhd,deltav,poten,St
+                        eta_nimhd,deltav,poten
  use timestep,     only:dtcourant,dtforce,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
                         iosumdtf,iosumdtd,iosumdtv,iosumdtc,iosumdto,iosumdth,iosumdta, &
@@ -771,12 +771,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use fastmath,    only:finvsqrt
 #endif
  use kernel,      only:grkern,cnormk,radkern2
- use part,        only:igas,idust,iboundary,iohm,ihall,iambi
- use part,        only:maxphase,iactive,iamtype,iamdust,get_partinfo
- use part,        only:mhd,maxvxyzu,maxBevol,maxdvdx
- use part,        only:grainsize,graindens
+ use part,        only:igas,idust,iboundary,iohm,ihall,iambi,maxphase,iactive,&
+                       iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxBevol,maxdvdx
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,store_temperature
- use part,        only:rhoh,maxgradh,dvdx,ndustsmall,grainsize,graindens
+ use part,        only:rhoh,maxgradh,dvdx
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
@@ -789,7 +787,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef DUST
  use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux
  use kernel,      only:wkern_drag,cnormk_drag
- use part,        only:dustprop
+ use part,        only:dustprop,ndustsmall,grainsize,graindens
  use eos,         only:get_spsound
 #ifdef DUSTGROWTH
  use part,        only:St,xyzmh_ptmass
@@ -800,7 +798,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ibin_old
 #endif
  use timestep,    only:bignumber
- use options,     only:overcleanfac,use_dustfrac,ieos
+ use options,     only:overcleanfac,use_dustfrac
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
  real,            intent(in)    :: xpartveci(:)
@@ -831,7 +829,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer(kind=1), intent(out)   :: ibin_wake(:),ibin_neighi
  integer(kind=1), intent(in)    :: ibinnow_m1
  logical,         intent(in)    :: ignoreself
- integer :: l,j,n,iamtypi,iamtypej,idusttype
+ integer :: j,n,iamtypej
  logical :: iactivej,iamgasj,iamdustj
  real    :: rij2,q2i,qi,xj,yj,zj,dx,dy,dz,runix,runiy,runiz,rij1,hfacgrkern
  real    :: grkerni,grgrkerni,dvx,dvy,dvz,projv,denij,vsigi,vsigu,dudtdissi
@@ -853,9 +851,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
  real    :: phi,phii,phij,fgrav,fgravi,fgravj,termi
 #ifdef DUST
- integer :: iregime
+ integer :: iregime,idusttype,l
  real    :: dragterm,dragheating,wdrag,tsij(maxdusttypes),dv2,tsijtmp
  real    :: grkernav,tsj(maxdusttypes),dustfracterms(maxdusttypes),term
+ real    :: epstsj,rhogas1i,projvstar
  !real    :: Dav(maxdusttypes),vsigeps,depsdissterm(maxdusttypes)
 #ifdef DUSTGROWTH
  real    :: ri
@@ -868,11 +867,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: vsigavi,vsigavj
  real    :: dustfraci(maxdusttypes),dustfracj(maxdusttypes),tsi(maxdusttypes)
  real    :: sqrtrhodustfraci(maxdusttypes),sqrtrhodustfracj(maxdusttypes)
- real    :: dustfracisum,dustfracjsum,epstsi,epstsj,rhogas1i,rhogasj,rhogas1j
+ real    :: dustfracisum,dustfracjsum,epstsi,rhogasj,rhogas1j
  real    :: vwavei,rhoi,rho1i,spsoundi
  real    :: sxxi,sxyi,sxzi,syyi,syzi,szzi
  real    :: visctermiso,visctermaniso
- real    :: pri,pro2i,projvstar
+ real    :: pri,pro2i
  real    :: etaohmi,etahalli,etaambii
  real    :: jcbcbi(3),jcbi(3)
  real    :: alphai,grainsizei,graindensi
@@ -1281,6 +1280,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           dustfracjsum = 0.
           sqrtrhodustfracj = 0.
           dvdxj(:) = 0.
+          sxxj = 0.; sxyj = 0.; sxzj = 0.; syyj = 0.; syzj = 0.; szzj = 0.
        endif
 
        ifgas: if (iamgasi .and. iamgasj) then
@@ -1781,10 +1781,11 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use dim,       only:maxp,ndivcurlv,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
                 use_dustgrowth,store_temperature
  use part,      only:iamgas,maxphase,iboundary,rhoanddhdrho,igas,massoftype,get_partinfo,&
-                     iohm,ihall,iambi,ndustsmall,grainsize,graindens
+                     iohm,ihall,iambi,ndustsmall
  use viscosity, only:irealvisc,bulkvisc
 #ifdef DUST
  use dust,      only:get_ts,idrag
+ use part,      only:grainsize,graindens
 #endif
  use nicil,     only:nimhd_get_dt,nimhd_get_jcbcb
  use kdtree,    only:inodeparts,inoderange
@@ -1943,6 +1944,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        rhogasi = 0.
        pri = 0.
        pro2i = 0.
+       ponrhoi = 0.
        sxxi = 0.
        sxyi = 0.
        sxzi = 0.

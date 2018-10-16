@@ -338,7 +338,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  integer, parameter :: isteps_sphNG = 0, iphase0 = 0
  integer(kind=8)    :: ilen(4)
  integer            :: nums(ndatatypes,4)
- integer            :: i,ipass,k,l
+ integer            :: i,ipass,k,l,iu
  integer            :: ierr,ierrs(20)
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
@@ -464,20 +464,25 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if ((ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15) .and. k==i_real) then
           if (.not. allocated(temparr)) allocate(temparr(npart))
           if (.not.done_init_eos) call init_eos(ieos,ierr)
+          !$omp parallel do default(none) &
+          !$omp shared(xyzh,vxyzu,ieos,npart,temparr,temperature,use_gas) &
+          !$omp private(i,iu,ponrhoi,spsoundi,rhoi)
           do i=1,npart
              rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
              if (maxvxyzu >=4 ) then
+                iu = 4
                 if (store_temperature) then
                    ! cases where the eos stores temperature (ie Helmholtz)
-                   call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),temperature(i))
+                   call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(iu,i),temperature(i))
                 else
-                   call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+                   call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(iu,i))
                 endif
              else
                 call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i))
              endif
              temparr(i) = ponrhoi*rhoi
           enddo
+          !$omp end parallel do
           call write_array(1,temparr,'pressure',npart,k,ipass,idump,nums,ierrs(13))
        endif
 

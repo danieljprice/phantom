@@ -1603,7 +1603,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
  real         :: rhosum(maxrhosum)
 
- integer      :: iamtypei,i,lli,ierr,iloc,l
+ integer      :: iamtypei,i,lli,ierr,l
  logical      :: iactivei,iamgasi,iamdusti
  logical      :: igotrmatrix,igotspsound
  real         :: hi,hi1,hi21,hi31,hi41
@@ -1616,7 +1616,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  real         :: divcurlvi(5),rmatrix(6),dvdxi(9)
  real         :: divcurlBi(ndivcurlB)
  real         :: temperaturei,Bi
- real         :: rho1i,term,denom,rhogasi,rhodusti(maxdustlarge)
+ real         :: rho1i,term,denom,rhodusti(maxdustlarge)
 
  do i = 1,cell%npcell
     lli = inodeparts(cell%arr_index(i))
@@ -1785,5 +1785,5 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  ncalc = ncalc + cell%npcell * cell%nits
 
 end subroutine store_results
-!--------------------------------------------------------------------------
+
 end module densityforce

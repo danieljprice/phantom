@@ -56,7 +56,7 @@ subroutine test_sedov(ntests,npass)
  use mpiutils,  only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2)
- integer :: i,itmp,ierr
+ integer :: i,itmp,ierr,iu
  real    :: psep,denszero,enblast,rblast,prblast,gam1,dtext_dum
  real    :: totmass,etotin,momtotin,etotend,momtotend
  character(len=20) :: logfile,evfile,dumpfile
@@ -86,6 +86,7 @@ subroutine test_sedov(ntests,npass)
     if (maxalpha==maxp) alphaind(1,:) = real4(alpha)
     irealvisc = 0
     tolv = 1.e-3
+    iu = 4
 !
 !--setup particles
 !
@@ -121,9 +122,9 @@ subroutine test_sedov(ntests,npass)
        endif
 
        if ((xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2) < rblast*rblast) then
-          vxyzu(4,i) = prblast/(gam1*denszero)
+          vxyzu(iu,i) = prblast/(gam1*denszero)
        else
-          vxyzu(4,i) = 0.
+          vxyzu(iu,i) = 0.
        endif
        if (mhd) then
           Bevol(:,i) = 0.

@@ -103,7 +103,7 @@ subroutine compute_energies(t)
  real    :: tempi,etaart,etaart1,etaohm,etahall,etaambi,vhall,vion,vdrift
  real    :: curlBi(3),vhalli(3),vioni(3),vdrifti(3),data_out(n_data_out)
  real    :: erotxi,erotyi,erotzi,fdum(3)
- integer :: i,j,itype,ierr
+ integer :: i,j,itype,ierr,iu
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
 
  ! initialise values
@@ -126,6 +126,7 @@ subroutine compute_energies(t)
  angx = 0.
  angy = 0.
  angz = 0.
+ iu   = 4
  np   = 0
  npgas   = 0
  xmomacc = 0.
@@ -147,7 +148,7 @@ subroutine compute_energies(t)
 !
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyzu,iexternalforce,npart,t,id,npartoftype) &
-!$omp shared(alphaind,massoftype,irealvisc) &
+!$omp shared(alphaind,massoftype,irealvisc,iu) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &
 !$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac,use_dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_R,n_electronT,eta_nimhd) &
@@ -298,11 +299,11 @@ subroutine compute_energies(t)
 
           ! thermal energy
           if (maxvxyzu >= 4) then
-             etherm = etherm + pmassi*utherm(vxyzu(4,i),rhoi)*gasfrac
+             etherm = etherm + pmassi*utherm(vxyzu(iu,i),rhoi)*gasfrac
              if (store_temperature) then
-                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(4,i),temperature(i))
+                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(iu,i),temperature(i))
              else
-                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(4,i))
+                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(iu,i))
              endif
           else
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi)

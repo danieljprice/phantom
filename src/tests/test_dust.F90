@@ -374,12 +374,14 @@ subroutine test_dustydiffuse(ntests,npass)
     epsi(:) = epstot/real(ndustsmall)
  case(2)
     !--Unequal dust fractions
+    epsi = 0.
     do i=1,ndustsmall
        epsi(i) = 1./real(i)
     enddo
-    epsi = epstot/sum(epsi)*epsi
+    if (ndustsmall > 0) epsi = epstot/sum(epsi)*epsi
  case default
-    stop 'eps_type not valid!'
+    print*,'ERROR: eps_type not valid!'
+    return
  end select
 
  !--check that individual dust fractions add up to the total dust fraction
@@ -636,7 +638,7 @@ subroutine test_epsteinstokes(ntests,npass)
  use physcon,   only:years,kb_on_mh,pi
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end
  integer, intent(inout) :: ntests,npass
- integer :: iregime,ierr,i,j,nfailed,ncheck
+ integer :: iregime,i,j,nfailed,ncheck
  integer, parameter :: npts=1001, nrhopts = 11
  real :: rhogas,spsoundi,tsi,ts1,deltav,tol,grainsizei,graindensi
  real :: smin,smax,ds,rhomin,rhomax,drho,psi,exact,err,errmax

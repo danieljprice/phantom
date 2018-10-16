@@ -113,7 +113,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  real,    intent(in)    :: t,dtsph
  real,    intent(inout) :: dtextforce
  real,    intent(out)   :: dtnew
- integer            :: i,its,np,ntypes,itype,nwake
+ integer            :: i,its,np,ntypes,itype,nwake,ialphaloc
  real               :: timei,erri,errmax,v2i,errmaxmean
  real               :: vxi,vyi,vzi,eni,vxoldi,vyoldi,vzoldi,hdtsph,pmassi
  real               :: alphaloci,divvdti,source,tdecay1,hi,rhoi,ddenom,spsoundi
@@ -154,6 +154,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  ntypes  = get_ntypes(npartoftype)
  pmassi  = massoftype(itype)
  store_itype = (maxphase==maxp .and. ntypes > 1)
+ ialphaloc = 2
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
@@ -212,7 +213,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype) &
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
-!$omp shared(alphaind,ieos,alphamax,ndustsmall) &
+!$omp shared(alphaind,ieos,alphamax,ndustsmall,ialphaloc) &
 !$omp shared(temperature) &
 #ifdef IND_TIMESTEPS
 !$omp shared(twas,timei) &
@@ -282,7 +283,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           ddenom   = 1./(1. + dtsph*tdecay1) ! implicit integration for decay term
           if (nalpha >= 2) then
              ! Cullen and Dehnen (2010) switch
-             alphaloci = alphaind(2,i)
+             alphaloci = alphaind(ialphaloc,i)
              if (alphaind(1,i) < alphaloci) then
                 alphaind(1,i) = real(alphaloci,kind=kind(alphaind))
              else
