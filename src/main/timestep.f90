@@ -50,14 +50,15 @@ subroutine set_defaults_timestep
  tmax    = 10.0
  dtmax   =  1.0
  tolv    = 1.e-2
- nmax      = -1
- nout      = -1
+ nmax    = -1
+ nout    = -1
+
+ dtwallmax = 43200.0         ! maximum wall time between dumps (seconds); default = 12h
 
  ! Values to control dtmax changing with increasing densities
  dtmax_dratio =  0.          ! dtmax will change if this ratio is exceeded in a timestep (recommend 1.258)
  dtmax_max    = -1.0         ! maximum dtmax allowed (to be reset to dtmax if = -1)
  dtmax_min    =  0.          ! minimum dtmax allowed
- dtwallmax = 43200.0         ! maximum wall time between dumps (seconds); default = 12h
 
 end subroutine set_defaults_timestep
 
