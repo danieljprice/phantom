@@ -282,6 +282,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
     if (present(tempi)) then
        call eos_helmholtz_pres_sound(tempi, rhoi, ponrhoi, spsoundi, eni)
     else
+       ponrhoi = 0.
+       spsoundi = 0.
        call fatal('eos','tried to call Helmholtz free energy eos without passing temperature')
     endif
 
@@ -330,10 +332,10 @@ end function get_spsound
 !-----------------------------------------------------------------------
 real function get_temperature(eos_type,xyzi,rhoi,vxyzui)
  use dim, only:maxvxyzu
- integer,      intent(in) :: eos_type
- real,         intent(in) :: xyzi(:),rhoi
+ integer,      intent(in)    :: eos_type
+ real,         intent(in)    :: xyzi(:),rhoi
  real,         intent(inout) :: vxyzui(maxvxyzu)
- real                     :: spsoundi,ponrhoi
+ real :: spsoundi,ponrhoi
 
  if (maxvxyzu==4) then
     call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
@@ -345,7 +347,7 @@ real function get_temperature(eos_type,xyzi,rhoi,vxyzui)
 end function get_temperature
 !-----------------------------------------------------------------------
 real function get_temperature_from_ponrho(ponrho)
- real,         intent(in) :: ponrho
+ real, intent(in) :: ponrho
 
  get_temperature_from_ponrho = temperature_coef*gmw*ponrho
 
