@@ -518,7 +518,7 @@ subroutine test_drag(ntests,npass)
  use units,       only:udist,unit_density
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
- integer :: nx,i,j,nfailed,itype,iseed,npart_previous
+ integer :: nx,i,j,nfailed,itype,iseed,npart_previous,iu
  real    :: da(3),dl(3),temp(3)
  real    :: psep,time,rhozero,totmass,dtnew,dekin,deint
 
@@ -547,6 +547,7 @@ subroutine test_drag(ntests,npass)
 
  iverbose = 2
  use_dustfrac = .false.
+ iu = 4
 
  call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                       psep,hfact,npart,xyzh,verbose=.false.)
@@ -557,7 +558,7 @@ subroutine test_drag(ntests,npass)
  do i=1,npart
     call set_particle_type(i,igas)
     vxyzu(1:3,i) = (/ran2(iseed),ran2(iseed),ran2(iseed)/)
-    if (maxvxyzu >= 4) vxyzu(4,i) = ran2(iseed)
+    if (maxvxyzu >= 4) vxyzu(iu,i) = ran2(iseed)
  enddo
 
  ndusttypes = maxdustlarge
@@ -572,7 +573,7 @@ subroutine test_drag(ntests,npass)
     do i=npart_previous+1,npart
        call set_particle_type(i,itype)
        vxyzu(1:3,i) = (/ran2(iseed),ran2(iseed),ran2(iseed)/)
-       if (maxvxyzu >= 4) vxyzu(4,i) = 0.
+       if (maxvxyzu >= 4) vxyzu(iu,i) = 0.
     enddo
     npartoftype(itype) = npart - npart_previous
     npartoftypetot(itype) = reduceall_mpi('+',npartoftype(itype))
@@ -607,7 +608,7 @@ subroutine test_drag(ntests,npass)
     endif
     if (maxvxyzu >= 4) then
        dekin  = dekin  + massoftype(itype)*dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
-       deint  = deint  + massoftype(itype)*fxyzu(4,i)
+       deint  = deint  + massoftype(itype)*fxyzu(iu,i)
     endif
  enddo
 

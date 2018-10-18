@@ -46,7 +46,7 @@ subroutine test_growth(ntests,npass)
 
 #ifdef DUST
 #ifdef DUSTGROWTH
- integer :: nfailed(5),ierr,iregime !don't forget the dimension of nfailed
+ integer :: nfailed(5),ierr !don't forget the dimension of nfailed
 
  if (id==master) write(*,"(/,a)") '--> TESTING DUSTGROWTH MODULE'
 
@@ -96,13 +96,13 @@ subroutine test_growingbox(ntests,npass)
  use kernel,         only:hfact_default
  use part,           only:idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,rhoh,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-                          dustfrac,dustevol,ddustevol,temperature,iphase,iamdust,maxtypes,St
+                          dustfrac,ddustevol,temperature,iamdust,maxtypes,St
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use unifdis,        only:set_unifdis
  use eos,            only:ieos,polyk,gamma,get_spsound,init_eos,temperature_coef,gmw
- use options,        only:alpha,alphamax
+ use options,        only:alpha
  use physcon,        only:au,solarm,Ro
  use dim,            only:periodic
  use timestep,       only:dtmax
@@ -112,7 +112,7 @@ subroutine test_growingbox(ntests,npass)
  use growth,         only:ifrag,get_vrelonvfrag,vfrag,isnow,vfragin,vfragout,rsnow,iinterpol,Tsnow
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
- integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(9), nerr(9)
+ integer :: nx, npart_previous, i, j, nsteps, ncheck(9), nerr(9)
  real :: deltax, dz, hfact, totmass, rhozero, errmax(9), dtext_dum
  real :: t, dt, dtext, dtnew
  real :: csj = 1., Stj = 1., s, Vt,vrelonvfrag = 10., cs(10000), cs_snow
@@ -438,12 +438,12 @@ subroutine check_stokes_number(ntests,npass)
                           dustfrac,dustevol,ddustevol,temperature,iphase,iamdust,maxtypes,St,xyzmh_ptmass
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
- use energies,       only:compute_energies,ekin
+ use energies,       only:compute_energies
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use eos,            only:ieos,polyk,gamma
  use dust,           only:K_code,idrag
  use growth,         only:ifrag,iinterpol
- use options,        only:alpha,alphamax,use_dustfrac
+ use options,        only:alpha,alphamax
  use unifdis,        only:set_unifdis
  use dim,            only:periodic,mhd,use_dust
  use timestep,       only:dtmax
@@ -453,7 +453,7 @@ subroutine check_stokes_number(ntests,npass)
  integer(kind=8) :: npartoftypetot(maxtypes)
  integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(1), nerr(1)
  real :: deltax, dz, hfact, totmass, rhozero, errmax(1), dtext_dum
- real :: Stcomp, r, sinit = 1., dens = 1.,s
+ real :: Stcomp, r, sinit = 1., dens = 1.
  real :: t, dt, dtext, dtnew
  real, parameter :: tolst = 5.e-3
 
@@ -560,7 +560,6 @@ subroutine write_file(step,dt,xyzh,dustprop,cs,npart,prefix)
  integer, intent(in)           :: npart,step
  character(len=30)             :: filename,str
  integer                       :: i,lu
- real                          :: r2
 
  write(str,"(i000.4)") step
  filename = prefix//trim(adjustl(str))//'.txt'
