@@ -70,8 +70,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  polyk = 0.
 
  iexternalforce  = 1
- accradius1      = 2.5
- accradius1_hard = accradius1
+ if (accradius1 <= 2. .or. accradius1_hard<=2.) then
+    accradius1      = 2.5
+    accradius1_hard = accradius1
+ endif
 
  iexist = .false.
  inquire(file=trim(infile),exist=iexist)
