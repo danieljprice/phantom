@@ -68,16 +68,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  time  = 0.
  tmax  = 360.
  polyk = 0.
-
  iexternalforce  = 1
- if (accradius1 <= 2. .or. accradius1_hard<=2.) then
-    accradius1      = 2.5
-    accradius1_hard = accradius1
- endif
 
  iexist = .false.
  inquire(file=trim(infile),exist=iexist)
- if (.not.iexist) call choose_inject
+ if (.not.iexist) then
+    call choose_inject
+    accradius1 = 2.5
+    call prompt('Enter accretion radius of black hole ',accradius1,0.)
+    accradius1_hard = accradius1
+ endif
 
  call inject_init(setup=.true.,sol=isol)
  !-- Geodesic flow
