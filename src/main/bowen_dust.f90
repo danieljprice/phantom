@@ -101,9 +101,9 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fxyzu, time)
              else
                 fxyzu(1:3,i) = fxyzu(1:3,i) + Mstar*max(alpha_wind,alpha_surface)/d(i)**3*r(1:3,i)
              endif
-           endif
-        enddo
-     else
+          endif
+       enddo
+    else
        if (abs((dmin-dmax)/dmax)  <  1.0d-10) then
           rho_over_r2 = 0.
        else
