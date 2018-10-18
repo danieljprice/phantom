@@ -26,7 +26,7 @@
 module bowen_dust
  implicit none
 
- public :: radiative_acceleration, pulsating_bowen_wind_profile, bowen_init
+ public :: radiative_acceleration, bowen_init
  logical, parameter :: use_alpha_wind = .true.
 
  private
@@ -36,56 +36,9 @@ module bowen_dust
  real, parameter :: alpha_wind = 1.d0
  real :: kappa, kmax, L, c_light, specific_energy_to_T_ratio, Cprime, Tcond, delta, Teff,&
       Reff, omega_osc, deltaR_osc
+ integer :: nwall_particles
 
 contains
-
-!-----------------------------------------------------------------------
-!+
-!  Compute the radius, velocity and temperature of a sphere as a function of its local time
-!+
-!-----------------------------------------------------------------------
-subroutine pulsating_bowen_wind_profile(local_time, r, v, u, rho, e, sphere_number,&
-       wind_mass_rate,wind_injection_radius,wind_velocity,wind_osc_vamplitude,&
-       wind_osc_period,shift_spheres,central_star_mass,time_between_spheres,&
-       wind_temperature,wind_gamma)
- use part,    only: nptmass, xyzmh_ptmass
- use physcon, only: pi
- integer, intent(in) :: sphere_number
- real, intent(in) :: local_time,wind_injection_radius,wind_velocity,wind_osc_vamplitude,&
-       wind_mass_rate,wind_osc_period,shift_spheres,central_star_mass,time_between_spheres,&
-       wind_temperature,wind_gamma
- real, intent(out) :: r, v, u, rho, e
-
- real :: GM
- real :: base_time,base_radius, base_velocity, base_temperature, acceleration, rad_acc
-
- base_time = (sphere_number-shift_spheres)*time_between_spheres
- base_velocity = wind_velocity + wind_osc_vamplitude* cos(2.*pi*base_time/wind_osc_period)
- base_radius = wind_injection_radius + wind_osc_vamplitude*wind_osc_period/(2.*pi)*sin(2.*pi*base_time/wind_osc_period)
- base_temperature = wind_temperature
- acceleration = -central_star_mass / base_radius**2
-
- if (use_alpha_wind) then
-    rad_acc = -alpha_wind*acceleration
- else
-    call guess_acceleration(base_radius, Reff, rad_acc)
- endif
- acceleration = acceleration + rad_acc
-
- r = base_radius + local_time*base_velocity + acceleration*local_time**2/2.
- v = base_velocity + acceleration*local_time
- u = base_temperature * specific_energy_to_T_ratio
- rho = wind_mass_rate / (4.*pi*r**2*v)
- if (nptmass == 0) then
-    GM = 0.
- else
-    GM = xyzmh_ptmass(4,wind_emitting_sink)
- endif
- e = .5*v**2 - GM/r + wind_gamma*u
- !if (sphere_number<3320) print '("$$",i4,i2,8(1x,es12.5))',sphere_number,shift_spheres,base_radius,base_velocity,local_time&
- !     ,time_between_spheres,acceleration,r,v
-
-end subroutine pulsating_bowen_wind_profile
 
 !-----------------------------------------------------------------------
 !+
@@ -97,14 +50,13 @@ end subroutine pulsating_bowen_wind_profile
 !     * xyzh(4,maxp): big phantom's array of particles
 !     * O(3): location of the central star
 !     * part_mass: mass of the particles (assumed constant)
-!     * R_star: radius of the central star
 !   Outputs:
 !     * rad_acceleration(3,npart): acceleration vectors
 !+
 !-----------------------------------------------------------------------
 subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fxyzu, time)
  use io,       only:iprint
- use part,     only:rhoh,xyzmh_ptmass,massoftype,igas
+ use part,     only:isdead_or_accreted,rhoh,xyzmh_ptmass,massoftype,igas
  use physcon,  only:pi
  integer, intent(in)    :: npart
  real,    intent(in)    :: xyzh(:,:)
@@ -112,19 +64,20 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fxyzu, time)
  real,    intent(in)    :: dt,time
  real,    intent(inout) :: fxyzu(:,:)
 
- real :: O(3), h(npart), r(3, npart), d(npart), dmin, dmax, R_star, part_mass
+ real :: O(3), h(npart), r(3, npart), d(npart), dmin, dmax, part_mass
  real :: position(npart), distance2(npart)
  integer :: nfound, found(npart)
  real :: rho(2*N+1), rho_over_r2(2*N+1)
  real :: OR(N), OR2(N), tau_prime(N)
  real :: Teq(N), kd(N), a(N), a_over_OR(N), kap(N)
  real :: Teq_part(npart), a_over_d_part(npart)
- real :: dQ_dt,fgrav
+ real :: dQ_dt,Mstar,Rforce,R_star,alpha_surface
  integer :: i
 
  O = xyzmh_ptmass(1:3,1)
  !R_star = xyzmh_ptmass(5,1) should be the actual stellar radius
  R_star = Reff + deltaR_osc*sin(omega_osc*time)
+ Rforce = R_star + deltaR_osc
  kap = 0.
  part_mass = massoftype(igas)
  if (npart == 0) then
@@ -134,16 +87,23 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fxyzu, time)
     h = xyzh(4,1:npart)
     call center_star(npart, xyzh, O, r, d, dmin, dmax)
     if (use_alpha_wind) then
-       fgrav = alpha_wind*xyzmh_ptmass(4,wind_emitting_sink)
+       Mstar = xyzmh_ptmass(4,wind_emitting_sink)
        do i=1,npart
-          if (xyzh(4,i)  >  0.) then
-             !if (i<4) print '(6(1x,es12.4))',fxyzu(1:3,i),fgrav/d(i)**3*r(1:3,i)
-             fxyzu(1:3,i) = fxyzu(1:3,i) + fgrav/d(i)**3*r(1:3,i)
-!             vxyzu(4,i) = Teff*specific_energy_to_T_ratio
-!             fxyzu(4,i) = 0.d0
-          endif
-       enddo
-    else
+          if (.not.isdead_or_accreted(xyzh(4,i))) then
+             !repulsive force, Ayliffe & Bate 2010, 408, 876
+             if (d(i) < 2.*Rforce) then
+                alpha_surface = ((2.*Rforce-d(i))/Rforce)**4
+             else
+                alpha_surface = 0.
+             endif
+             if (i <= nwall_particles) then
+                fxyzu(:,i) = 0.
+             else
+                fxyzu(1:3,i) = fxyzu(1:3,i) + Mstar*max(alpha_wind,alpha_surface)/d(i)**3*r(1:3,i)
+             endif
+           endif
+        enddo
+     else
        if (abs((dmin-dmax)/dmax)  <  1.0d-10) then
           rho_over_r2 = 0.
        else
@@ -197,38 +157,6 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fxyzu, time)
  endif
 end subroutine radiative_acceleration
 
-!-----------------------------------------------------------------------
-!+
-!  Easy routine to estimate the acceleration due to
-!  radiation pressure at a given radius.
-!+
-!-----------------------------------------------------------------------
-subroutine guess_acceleration(rinject, r_star, acceleration)
- use io,       only:iprint
- use physcon,  only: pi
- real, intent(in)  :: rinject, r_star
- real, intent(out) :: acceleration
-
- real :: OR2(1), tau_prime(1), Teq(1), kd(1)!, a(1)
- integer, parameter :: N=1
-
- tau_prime = 0.
- OR2 = rinject**2
- call calculate_Teq(N, r_star, tau_prime, OR2, Teq)
- call calculate_kd(N, Teq, kd)
- !call calculate_acceleration(N, OR2, kd, a)
- !acceleration = a(1)
- acceleration = L/(4.*pi*c_light) * kd(1)/OR2(1)
-
- if (verbose) then
-    write(iprint,*) " * Teq(rinject) : ", Teq(1),tau_prime
-    write(iprint,*) " * kd(rinject)  : ", kd(1)
-    write(iprint,*) " * rinject      : ", sqrt(OR2(1)),rinject
-    write(iprint,*) " * a(rinject)   : ", acceleration
-    write(iprint,*) ""
- endif
-
-end subroutine guess_acceleration
 
 !-----------------------------------------------------------------------
 !+
@@ -236,9 +164,10 @@ end subroutine guess_acceleration
 !+
 !-----------------------------------------------------------------------
 subroutine bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,&
-       bowen_Cprime, bowen_Tcond, bowen_delta,bowen_Teff,wind_osc_vamplitude,wind_osc_period)
+       bowen_Cprime, bowen_Tcond, bowen_delta,bowen_Teff,wind_osc_vamplitude,wind_osc_period,nwall)
  use physcon,     only: solarl,c,steboltz,pi
  use units,       only: udist, umass, utime
+ integer, intent(in) :: nwall
  real, intent(in)  :: u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,&
          bowen_Cprime, bowen_Tcond, bowen_delta, bowen_Teff, wind_osc_vamplitude,wind_osc_period
 
@@ -254,6 +183,7 @@ subroutine bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,&
  Reff = sqrt(bowen_L/(4.*pi*steboltz*bowen_Teff**4))/udist
  omega_osc = 2.*pi/wind_osc_period
  deltaR_osc = wind_osc_vamplitude/omega_osc
+ nwall_particles = nwall
 
 end subroutine bowen_init
 
@@ -291,35 +221,9 @@ end subroutine interpolate_on_particles
 
 !-----------------------------------------------------------------------
 !+
-!  Calculates the acceleration due to radiative pressure on dust grains, along the half-line
-!   Inputs:
-!     * N: number of steps
-!     * L: luminosity of central star
-!     * c: speed of light
-!     * OR2(N): squared distance
-!     * kd(N): density divided by squared distance
-!   Outputs:
-!     * a(N): acceleration along the half-line
-!+
-!-----------------------------------------------------------------------
- ! subroutine calculate_acceleration(N, L, c, OR2, kd, a)
- !   use physcon, only:pi
- !   integer, intent(in)  :: N
- !   real,    intent(in)  :: L, c, OR2(N), kd(N)
- !   real,    intent(out) :: a(N)
-
- !   a = L/(4.*pi*c) * kd/OR2
-
- ! end subroutine
-
-!-----------------------------------------------------------------------
-!+
 !  Calculates kd, the dust opacity along the half-line
 !   Inputs:
 !     * N: number of steps
-!     * kmax: maximum dust mass ratio (chosen so that radiative pressure is of the same order as gravity)
-!     * Tcond: condensation temperature of dust grains
-!     * delta: parameter for the width of the condensation temperature range
 !     * Teq(N): radiative equilibrium temperature along the half-line
 !   Outputs:
 !     * kd(N): dust mass opacity the half-line
@@ -355,7 +259,6 @@ subroutine calculate_Teq(N, R_star, tau_prime, OR2, Teq)
     Teq = Teff
  elsewhere
     Teq = Teff*(0.5*(1.-sqrt(1.-(R_star**2/OR2))) + 0.75*tau_prime)**(1./4.)
-    !Teq = ((Teff**4/2.)*(1.-sqrt(1.-(R_star**2/OR2))) + (Teff**4*3./4.)*tau_prime)**(1./4.)
  end where
 end subroutine calculate_Teq
 

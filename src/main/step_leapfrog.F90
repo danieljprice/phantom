@@ -552,6 +552,9 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
  use timestep_sts,   only:sts_it_n
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use damping,        only:calc_damp,apply_damp
+#ifdef BOWEN
+ use bowen_dust,     only:radiative_acceleration
+#endif
  integer,         intent(in)    :: npart,ntypes,nptmass
  real,            intent(in)    :: dtsph,time
  real,            intent(inout) :: dtextforce
@@ -744,6 +747,10 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
     enddo predictor
     !$omp enddo
     !$omp end parallel
+
+#ifdef BOWEN
+    call radiative_acceleration(npart,xyzh,vxyzu,dt,fext,time)
+#endif
 
     !
     ! reduction of sink-gas forces from each MPI thread
