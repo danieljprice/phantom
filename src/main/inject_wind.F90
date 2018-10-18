@@ -83,7 +83,10 @@ module inject
 
  logical, parameter :: wind_verbose = .false.
  integer, parameter :: wind_emitting_sink = 1
- real :: geodesic_R(0:19,3,3), geodesic_v(0:11,3), u_to_temperature_ratio, dr3, rho_ini
+ real :: geodesic_R(0:19,3,3), geodesic_v(0:11,3), u_to_temperature_ratio
+#ifdef BOWEN
+ real :: dr3, rho_ini
+#endif
 
 contains
 
@@ -564,7 +567,9 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 
  integer, save :: ngot = 0
  integer :: noptions
+#ifdef BOWEN
  real :: Rstar
+#endif
  character(len=30), parameter :: label = 'read_options_inject'
 
  imatch  = .true.
