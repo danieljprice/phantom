@@ -63,7 +63,6 @@ subroutine set_dustbinfrac(smin,smax,sindex,dustbinfrac)
  real :: grid(size(dustbinfrac)+1)
  real :: exact
  real :: power
- real :: log10_ds
  real, parameter :: tol = 1.e-10
 
  rhodust = 0.
@@ -71,8 +70,7 @@ subroutine set_dustbinfrac(smin,smax,sindex,dustbinfrac)
  power = 0.
 
  nbins = size(dustbinfrac)
- log10_ds = log10(smax/smin)/(nbins-1)
- call logspace(grid,smin,smax+log10_ds)
+ call logspace(grid,smin,smax)
 
  !--Dust density is computed from drhodust ∝ dn*mdust where dn ∝ s**(-p)*ds
  !  and mdust ∝ s**(3). This is then integrated across each cell to account

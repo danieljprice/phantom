@@ -700,7 +700,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                                      get_H(H_R_dust(i)*R_ref(i),qindex_dust(i),Rj/R_ref(i)),R_c(i),R_c_dust(i))
              endif
              jdust_to_gas = max(jdust_to_gas,tiny(jdust_to_gas))
-             dustfrac(:,j) = jdust_to_gas*dustbinfrac(:)
+             dustfrac(:,j) = (jdust_to_gas/(1.+jdust_to_gas))*dustbinfrac(:)
           enddo
           nparttot = nparttot + npingasdisc
        else
