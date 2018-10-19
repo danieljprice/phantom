@@ -584,7 +584,7 @@ subroutine test_derivs(ntests,npass,string)
           grainsizek = grainsize(j)
           graindensk = graindens(j)
 #endif
-          call checkvalf(np,xyzh,ddustevol(j,:),ddustevol_func,7.e-5,nfailed(3),'deps/dt')
+          call checkvalf(np,xyzh,ddustevol(j,:),ddustevol_func,4.e-4,nfailed(3),'deps/dt')
           if (maxvxyzu>=4) call checkvalf(np,xyzh,fxyzu(iu,:),dudtdust_func,5.e-4,nfailed(4),'du/dt')
           call checkvalf(np,xyzh,deltav(1,j,:),deltavx_func,2.3e-5,nfailed(5),'deltavx')
        enddo
@@ -607,12 +607,12 @@ subroutine test_derivs(ntests,npass,string)
              drhodti       = -rhoi*divcurlv(1,i)
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!             sonrhoi(:)    = sqrt(dustfrac(:,i)/rhoi)
-!             ddustevoli(:) = 2.*sonrhoi(:)*ddustevol(:,i) - sonrhoi(:)**2*drhodti
+             sonrhoi(:)    = sqrt(dustfrac(1:maxdustsmall,i)/rhoi)
+             ddustevoli(:) = 2.*sonrhoi(:)*ddustevol(:,i) - sonrhoi(:)**2*drhodti
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-             sonrhoi(:)    = asin(sqrt(dustfrac(1:maxdustsmall,i)))
-             ddustevoli(:) = 2.*cos(sonrhoi(:))*sin(sonrhoi(:))*ddustevol(:,i)
+!             sonrhoi(:)    = asin(sqrt(dustfrac(1:maxdustsmall,i)))
+!             ddustevoli(:) = 2.*cos(sonrhoi(:))*sin(sonrhoi(:))*ddustevol(:,i)
 !------------------------------------------------
              dmdust(:)     = dmdust(:) + ddustevoli(:)
              dekin  = dekin  + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
@@ -626,7 +626,7 @@ subroutine test_derivs(ntests,npass,string)
 
           nfailed(:) = 0
           !print "(3(a,es17.10))",' dE_kin = ',dekin,' dE_therm = ',deint,' dE_dust = ',dedust
-          call checkval(massoftype(1)*(dekin + deint + dedust),0.,7.e-15,nfailed(1),'energy conservation (dE=0)')
+          call checkval(massoftype(1)*(dekin + deint + dedust),0.,3.e-12,nfailed(1),'energy conservation (dE=0)')
           do i=1,ndustsmall
              call checkval(massoftype(1)*(dmdust(i)),0.,1.5e-14,nfailed(2),'dust mass conservation')
           enddo
@@ -2633,12 +2633,12 @@ real function ddustevol_func(xyzhi)
 
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-! si = sqrt(dustfraci*rhoi)
-! ddustevol_func = -0.5/si*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts)) - 0.5*si*divvfunc(xyzhi)
+ si = sqrt(dustfraci*rhoi)
+ ddustevol_func = -0.5/si*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts)) - 0.5*si*divvfunc(xyzhi)
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
- si = asin(sqrt(dustfraci))
- ddustevol_func = -0.5/(rhoi*sin(si)*cos(si))*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts))
+! si = asin(sqrt(dustfraci))
+! ddustevol_func = -0.5/(rhoi*sin(si)*cos(si))*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts))
 !------------------------------------------------
 
 end function ddustevol_func

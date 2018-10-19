@@ -955,10 +955,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     epstsi = sum(dustfraci(:)*tsi(:))
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!    sqrtrhodustfraci(:) = sqrt(rhoi*dustfraci(:))
+    sqrtrhodustfraci(:) = sqrt(rhoi*dustfraci(:))
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-    sqrtrhodustfraci(:) = asin(sqrt(dustfraci(:)))
+!    sqrtrhodustfraci(:) = asin(sqrt(dustfraci(:)))
 !------------------------------------------------
 #endif
  else
@@ -1216,10 +1216,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 rhogas1j     = 1./rhogasj
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!                sqrtrhodustfracj(:) = sqrt(rhoj*dustfracj(:))
+                sqrtrhodustfracj(:) = sqrt(rhoj*dustfracj(:))
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-                sqrtrhodustfracj(:) = asin(sqrt(dustfracj(:)))
+!                sqrtrhodustfracj(:) = asin(sqrt(dustfracj(:)))
 !------------------------------------------------
              else
                 dustfracj(:) = 0.
@@ -1471,22 +1471,22 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    !dustfracterm(l)  = pmassj*rho1j*Dav(:)*(pri - prj)*grkernav*rij1
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!                   dustfracterms(l) = pmassj*sqrtrhodustfracj(l)*rho1j                     &
-!                                      *((tsi(l)-epstsi)*rhogas1i+(tsj(l)-epstsj)*rhogas1j) &
-!                                      *(pri - prj)*grkernav*rij1
+                   dustfracterms(l) = pmassj*sqrtrhodustfracj(l)*rho1j                     &
+                                      *((tsi(l)-epstsi)*rhogas1i+(tsj(l)-epstsj)*rhogas1j) &
+                                      *(pri - prj)*grkernav*rij1
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-                   dustfracterms(l) = pmassj*sin(sqrtrhodustfracj(l))     &
-                                      *( (tsi(l)-epstsi)*rhogas1i*rho1j   &
-                                        +(tsj(l)-epstsj)*rhogas1j*rho1i ) &
-                                      *(pri - prj)*grkernav*rij1
-                   if (sqrtrhodustfraci(l) == 0.) then
-                      dustfracterms(l) = dustfracterms(l)/(2.*cos(sqrtrhodustfraci(l)))
-                   else
-                      dustfracterms(l) = dustfracterms(l)*sin(sqrtrhodustfraci(l)) &
-                                         /sin(2.*sqrtrhodustfraci(l))
-                      if (sin(2.*sqrtrhodustfraci(l)) == 0. ) stop 'dividing by zero'
-                   endif
+!                   dustfracterms(l) = pmassj*sin(sqrtrhodustfracj(l))     &
+!                                      *( (tsi(l)-epstsi)*rhogas1i*rho1j   &
+!                                        +(tsj(l)-epstsj)*rhogas1j*rho1i ) &
+!                                      *(pri - prj)*grkernav*rij1
+!                   if (sqrtrhodustfraci(l) == 0.) then
+!                      dustfracterms(l) = dustfracterms(l)/(2.*cos(sqrtrhodustfraci(l)))
+!                   else
+!                      dustfracterms(l) = dustfracterms(l)*sin(sqrtrhodustfraci(l)) &
+!                                         /sin(2.*sqrtrhodustfraci(l))
+!                      if (sin(2.*sqrtrhodustfraci(l)) == 0. ) stop 'dividing by zero'
+!                   endif
 !------------------------------------------------
 
                    !vsigeps = 0.5*(spsoundi + spsoundj) !abs(projv)
@@ -1498,11 +1498,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    !fsum(iddustevoli+(l-1)) = fsum(iddustevoli+(l-1)) - dustfracterm(l)
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!                   if (maxvxyzu >= 4) fsum(idudtdusti+(l-1)) = fsum(idudtdusti+(l-1)) - sqrtrhodustfraci(l)*dustfracterms(l)*denij
+                   if (maxvxyzu >= 4) fsum(idudtdusti+(l-1)) = fsum(idudtdusti+(l-1)) - sqrtrhodustfraci(l)*dustfracterms(l)*denij
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-                   if (maxvxyzu >= 4) fsum(idudtdusti+(l-1)) = fsum(idudtdusti+(l-1)) &
-                                      - dustfracterms(l)*sin(2.*sqrtrhodustfraci(l))/rho1i*denij
+!                   if (maxvxyzu >= 4) fsum(idudtdusti+(l-1)) = fsum(idudtdusti+(l-1)) &
+!                                      - dustfracterms(l)*sin(2.*sqrtrhodustfraci(l))/rho1i*denij
 !------------------------------------------------
                 endif
                 ! Equation 270 in Phantom paper
@@ -2504,10 +2504,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        if (use_dustfrac) then
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!          ddustevol(:,i) = 0.5*(fsum(iddustevoli:iddustevoliend)-sqrt(rhoi*dustfraci(:))*divvi)
+          ddustevol(:,i) = 0.5*(fsum(iddustevoli:iddustevoliend)-sqrt(rhoi*dustfraci(1:maxdustsmall))*divvi)
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-          ddustevol(:,i) = fsum(iddustevoli:iddustevoliend)
+!          ddustevol(:,i) = fsum(iddustevoli:iddustevoliend)
 !------------------------------------------------
           deltav(1,:,i)  = fsum(ideltavxi:ideltavxiend)
           deltav(2,:,i)  = fsum(ideltavyi:ideltavyiend)

@@ -422,10 +422,10 @@ subroutine test_dustydiffuse(ntests,npass)
  do i=1,npart
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!    dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)*rhoh(xyzh(4,i),massoftype(igas)))
+    dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)*rhoh(xyzh(4,i),massoftype(igas)))
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-    dustevol(:,i) = asin(sqrt(dustfrac(1:ndustsmall,i)))
+!    dustevol(:,i) = asin(sqrt(dustfrac(1:ndustsmall,i)))
 !------------------------------------------------
  enddo
 
@@ -440,10 +440,10 @@ subroutine test_dustydiffuse(ntests,npass)
        dustevol(:,i) = dustevol(:,i) + dt*ddustevol(:,i)
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!       dustfrac(1:ndustsmall,i) = dustevol(:,i)**2/rhoh(xyzh(4,i),massoftype(igas))
+       dustfrac(1:ndustsmall,i) = dustevol(:,i)**2/rhoh(xyzh(4,i),massoftype(igas))
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-       dustfrac(1:ndustsmall,i) = sin(dustevol(:,i))**2
+!       dustfrac(1:ndustsmall,i) = sin(dustevol(:,i))**2
 !------------------------------------------------
     enddo
     !$omp end parallel do
