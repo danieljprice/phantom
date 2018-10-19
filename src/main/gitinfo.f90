@@ -29,6 +29,11 @@ module gitinfo
 
 contains
 !--------------------------------------------------------------------------
+!+
+!  Open file and print contents containing information about version history
+!  this file is created by script/phantom_version_gen.sh
+!+
+!--------------------------------------------------------------------------
 subroutine get_and_print_gitinfo(iunit)
  use io,  only: igit
  integer, intent(in) :: iunit
@@ -36,15 +41,22 @@ subroutine get_and_print_gitinfo(iunit)
  integer, parameter  :: nfiles = 34
  character(len= 16)  :: fmt
  character(len=128)  :: gitinfo,updatedfiles(nfiles)
- character(len=128)  :: updatedfiles3
+ character(len=128)  :: updatedfiles3,filename
  logical             :: iexist
 
- inquire(file="phantom_version",exist=iexist)
- if (iexist) then
-    open(unit=igit,file="phantom_version")
+ filename='phantom_version'
+ inquire(file=filename,exist=iexist)
+ ! also look in bin directory
+ if (.not.iexist) then
+    filename='../bin/'//trim(filename)
+    inquire(file=filename,exist=iexist)
+ endif
+ io_local = 0
+ if (iexist) open(unit=igit,file=filename,status='old',iostat=io_local)
+ if (iexist .and. io_local == 0) then
     ! Copy in the nine opening lines of information
     do i = 1,9
-       read(igit,'(a)') gitinfo
+       read(igit,'(a)',iostat=io_local) gitinfo
        write(iunit,'(1x,a)') trim(gitinfo)
        if (index(gitinfo,'ID:')> 0) gitsha = gitinfo(20:26)
     enddo
