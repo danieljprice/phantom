@@ -114,9 +114,10 @@ contains
 subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
  use io,    only:fatal,error,warning
  use part,  only:xyzmh_ptmass
- use units,   only:unit_density,unit_pressure,unit_ergg
+ use units,   only:unit_density,unit_pressure,unit_ergg,unit_velocity
  use eos_mesa, only:get_eos_pressure_gamma1_mesa
  use eos_helmholtz, only:eos_helmholtz_pres_sound
+ use eos_shen, only: eos_shen_NL3
 
  integer, intent(in)  :: eos_type
  real,    intent(in)  :: rhoi,xi,yi,zi
@@ -125,7 +126,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
  real,    intent(inout), optional :: tempi
  real :: r,omega,bigH,polyk_new,r1,r2
  real :: gammai
- real :: cgsrhoi, cgseni, cgspgas, pgas, gam1
+ real :: cgsrhoi, cgseni, cgspgas, pgas, gam1, cgsspsoundi
  integer :: ierr
 
  select case(eos_type)
@@ -287,6 +288,23 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
        call fatal('eos','tried to call Helmholtz free energy eos without passing temperature')
     endif
 
+ case(16)
+!
+!--shen eos
+!
+
+!    if (present(enei)) then
+	   cgsrhoi = rhoi * unit_density
+	   !note eni is actually tempi
+	   call eos_shen_NL3(cgsrhoi,eni,0.05,cgspgas,cgsspsoundi)
+       spsoundi=cgsspsoundi / unit_velocity
+       pgas = cgspgas / unit_pressure
+       ponrhoi = pgas / rhoi
+!    else
+!       call fatal('eos','tried to call NL3 eos without passing temperature')
+!    endif
+       
+    
 
  case default
     spsoundi = 0. ! avoids compiler warnings
@@ -383,6 +401,7 @@ subroutine init_eos(eos_type,ierr)
  use io,       only:error
  use eos_mesa, only:init_eos_mesa
  use eos_helmholtz, only:eos_helmholtz_init
+ use eos_shen, only:init_eos_shen_NL3
 
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -479,6 +498,10 @@ subroutine init_eos(eos_type,ierr)
  case(15)
 
     call eos_helmholtz_init(ierr)
+    
+ case(16)
+
+    call init_eos_shen_NL3(ierr)
 
  end select
  done_init_eos = .true.

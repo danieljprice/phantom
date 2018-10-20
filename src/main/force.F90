@@ -2183,8 +2183,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use fastmath,       only:finvsqrt
 #endif
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth
- use eos,            only:use_entropy,gamma
- use options, only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating,use_dustfrac
+ use eos,            only:use_entropy,gamma,ieos
+ use options, only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating,use_dustfrac,damp
  use part,           only:h2chemistry,rhoanddhdrho,abundance,iboundary,igas,maxphase,maxvxyzu,nabundances, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx
 #ifdef IND_TIMESTEPS
@@ -2201,6 +2201,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use chem,           only:energ_h2cooling
  use timestep,       only:C_cour,C_cool,C_force,bignumber,dtmax
  use timestep_sts,   only:use_sts
+ use units,          only:unit_ergg,unit_density
+ use eos_shen,       only:eos_shen_get_dTdu
 #ifdef LIGHTCURVE
  use part,           only:luminosity
 #endif
@@ -2249,6 +2251,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: tstopi(maxdusttypes),tseff,dtdustdenom
  real    :: etaambii,etahalli,etaohmi
  real    :: vsigmax,vwavei,fxyz4
+ real    :: dTdui,dTdui_cgs
 #ifdef LIGHTCURVE
  real    :: dudt_radi
 #endif
@@ -2426,6 +2429,15 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              if (ishock_heating > 0) then
                 fxyz4 = fxyz4 + (gamma - 1.)*rhoi**(1.-gamma)*fsum(idudtdissi)
              endif
+          elseif (ieos==16) then
+          	 if (damp==0) then
+          	 	call eos_shen_get_dTdu(rhoi * unit_density,eni,0.05,dTdui_cgs)
+          	    dTdui = dTdui_cgs / unit_ergg
+	            !use cgs
+          	    fxyz4 = fxyz4 + dTdui*(ponrhoi*rho1i*drhodti + fsum(idudtdissi))
+          	 else
+          	    fxyz4 = 0. 
+          	 endif
           else
              fac = rhoi/rhogasi
              pdv_work = ponrhoi*rho1i*drhodti
