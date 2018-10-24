@@ -854,7 +854,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer :: iregime,idusttype,l
  real    :: dragterm,dragheating,wdrag,dv2,tsijtmp
  real    :: grkernav,tsj(maxdusttypes),dustfracterms(maxdusttypes),term
- real    :: epstsj,rhogas1i,projvstar
+ real    :: projvstar,epstsj!,rhogas1i
  !real    :: Dav(maxdusttypes),vsigeps,depsdissterm(maxdusttypes)
 #ifdef DUSTGROWTH
  real    :: ri
@@ -867,7 +867,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: vsigavi,vsigavj
  real    :: dustfraci(maxdusttypes),dustfracj(maxdusttypes),tsi(maxdusttypes)
  real    :: sqrtrhodustfraci(maxdusttypes),sqrtrhodustfracj(maxdusttypes)
- real    :: dustfracisum,dustfracjsum,epstsi,rhogasj,rhogas1j
+ real    :: dustfracisum,dustfracjsum,rhogasj,epstsi!,rhogas1j
  real    :: vwavei,rhoi,rho1i,spsoundi
  real    :: sxxi,sxyi,sxzi,syyi,syzi,szzi
  real    :: visctermiso,visctermaniso
@@ -955,7 +955,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     epstsi = sum(dustfraci(:)*tsi(:))
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-    sqrtrhodustfraci(:) = sqrt(rhoi*dustfraci(:))
+!    sqrtrhodustfraci(:) = sqrt(rhoi*dustfraci(:))
+!------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+    sqrtrhodustfraci(:) = sqrt(dustfraci(:)/(1.-dustfraci(:)))
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
 !    sqrtrhodustfraci(:) = asin(sqrt(dustfraci(:)))
@@ -1213,10 +1216,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 dustfracj(:) = dustfrac(:,j)
                 dustfracjsum = sum(dustfracj(:))
                 rhogasj      = rhoj*(1. - dustfracjsum)
-                rhogas1j     = 1./rhogasj
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-                sqrtrhodustfracj(:) = sqrt(rhoj*dustfracj(:))
+!                sqrtrhodustfracj(:) = sqrt(rhoj*dustfracj(:))
+!------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+                sqrtrhodustfracj(:) = sqrt(dustfracj(:)/(1.-dustfracj(:)))
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
 !                sqrtrhodustfracj(:) = asin(sqrt(dustfracj(:)))
@@ -1448,8 +1453,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              enddo
              if (ilimitdustflux) tsj(:)   = min(tsj(:),hj/spsoundj) ! flux limiter from Ballabio et al. (2018)
              epstsj   = sum(dustfracj(:)*tsj(:))
-             rhogas1i = rho1i/(1.-dustfracisum)
-             rhogas1j = 1./rhogasj
+             !rhogas1i = rho1i/(1.-dustfracisum)
+             !rhogas1j = 1./rhogasj
 
              !! Check that weighted sums of Tsj and tilde(Tsj) are equal (see Hutchison et al. 2017)
              !if (ndustsmall>1) then
@@ -1471,8 +1476,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    !dustfracterm(l)  = pmassj*rho1j*Dav(:)*(pri - prj)*grkernav*rij1
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-                   dustfracterms(l) = pmassj*sqrtrhodustfracj(l)*rho1j                     &
-                                      *((tsi(l)-epstsi)*rhogas1i+(tsj(l)-epstsj)*rhogas1j) &
+!                   dustfracterms(l) = pmassj*sqrtrhodustfracj(l)*rho1j                     &
+!                                      *((tsi(l)-epstsi)*rhogas1i+(tsj(l)-epstsj)*rhogas1j) &
+!                                      *(pri - prj)*grkernav*rij1
+!------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+                   dustfracterms(l) = pmassj*sqrtrhodustfracj(l)*rho1j     &
+                                      *((tsi(l)-epstsi)*(1.-dustfraci(l))/(1.-dustfracisum)   &
+                                        +(tsj(l)-epstsj)*(1.-dustfracj(l))/(1.-dustfracjsum)) &
                                       *(pri - prj)*grkernav*rij1
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
@@ -1497,7 +1508,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    fsum(iddustevoli+(l-1)) = fsum(iddustevoli+(l-1)) - dustfracterms(l)
                    !fsum(iddustevoli+(l-1)) = fsum(iddustevoli+(l-1)) - dustfracterm(l)
 !------------------------------------------------
-!--sqrt(rho*epsilon) method
+!--sqrt(rho*epsilon) method and sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
                    if (maxvxyzu >= 4) fsum(idudtdusti+(l-1)) = fsum(idudtdusti+(l-1)) - sqrtrhodustfraci(l)*dustfracterms(l)*denij
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
@@ -2504,7 +2515,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        if (use_dustfrac) then
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-          ddustevol(:,i) = 0.5*(fsum(iddustevoli:iddustevoliend)-sqrt(rhoi*dustfraci(1:maxdustsmall))*divvi)
+!          ddustevol(:,i) = 0.5*(fsum(iddustevoli:iddustevoliend)-sqrt(rhoi*dustfraci(1:maxdustsmall))*divvi)
+!------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+          ddustevol(:,i) = 0.5*(fsum(iddustevoli:iddustevoliend)*rho1i/((1.-dustfraci(1:maxdustsmall))**2.))
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
 !          ddustevol(:,i) = fsum(iddustevoli:iddustevoliend)

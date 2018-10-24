@@ -51,13 +51,14 @@ end subroutine set_dustfrac
 !  grain sizes, and slope of dust number density distribution in size
 !+
 !--------------------------------------------------------------------------
-subroutine set_dustbinfrac(smin,smax,sindex,dustbinfrac)
+subroutine set_dustbinfrac(smin,smax,sindex,dustbinfrac,grainsize)
  use io, only:warning
  use table_utils, only:logspace
  real, intent(in)  :: smin
  real, intent(in)  :: smax
  real, intent(in)  :: sindex
  real, intent(out) :: dustbinfrac(:)
+ real, intent(out) :: grainsize(:)
  integer :: i,nbins
  real :: rhodust(size(dustbinfrac))
  real :: grid(size(dustbinfrac)+1)
@@ -76,6 +77,8 @@ subroutine set_dustbinfrac(smin,smax,sindex,dustbinfrac)
  !  and mdust ∝ s**(3). This is then integrated across each cell to account
  !  for mass contributions from unrepresented grain sizes
  do i=1,nbins
+    !--Find representative s for each cell (geometric mean)
+    grainsize(i)=sqrt(grid(i)*grid(i+1))
     if (sindex == 4.) then
        rhodust(i) = log(grid(i+1)/grid(i))
     else

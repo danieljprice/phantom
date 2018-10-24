@@ -506,9 +506,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (ndusttypes > 1) then
        select case(igrainsize)
        case(0)
-          call logspace(grainsize(1:ndusttypes),smincgs,smaxcgs)
+          call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
           grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
-          call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes))
        case(1)
           grainsize(1:ndusttypes) = grainsizeinp(1:ndusttypes)/udist
        end select

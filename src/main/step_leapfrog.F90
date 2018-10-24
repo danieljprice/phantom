@@ -261,7 +261,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              dustpred(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-             dustfrac(1:ndustsmall,i) = min(dustpred(:,i)**2/rhoi,1.) ! dustevol = sqrt(rho*eps)
+!             dustfrac(1:ndustsmall,i) = min(dustpred(:,i)**2/rhoi,1.) ! dustevol = sqrt(rho*eps)
+!------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+             dustfrac(1:ndustsmall,i) = dustpred(:,i)**2/(1.+dustpred(:,i)**2)
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
 !             dustfrac(1:ndustsmall,i) = sin(dustpred(:,i))**2
