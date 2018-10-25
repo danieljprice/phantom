@@ -611,8 +611,8 @@ subroutine test_derivs(ntests,npass,string)
 !             ddustevoli(:) = 2.*sonrhoi(:)*ddustevol(:,i) - sonrhoi(:)**2*drhodti
 !------------------------------------------------
 !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
-            sonrhoi(:)    = sqrt(dustfraci(:)*(1.-dustfraci(:)))
-            ddustevoli(:) = 2.*sonrhoi(:)*(1.-dustfraci(:))*ddustevol(:,i)
+             sonrhoi(:)    = sqrt(dustfraci(:)*(1.-dustfraci(:)))
+             ddustevoli(:) = 2.*sonrhoi(:)*(1.-dustfraci(:))*ddustevol(:,i)
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
 !             sonrhoi(:)    = asin(sqrt(dustfrac(1:maxdustsmall,i)))
