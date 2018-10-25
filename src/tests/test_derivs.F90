@@ -2640,7 +2640,7 @@ real function ddustevol_func(xyzhi)
 ! si = sqrt(dustfraci*rhoi)
 ! ddustevol_func = -0.5/si*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts)) - 0.5*si*divvfunc(xyzhi)
 !------------------------------------------------
-!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018) 
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
  si = sqrt(dustfraci/(1.-dustfraci))
  ddustevol_func = -0.5*((dustfraci*tsi*del2P + dot_product(gradp,gradepsts))/(rhoi*si*(1.-dustfraci)**2.))
 !------------------------------------------------
