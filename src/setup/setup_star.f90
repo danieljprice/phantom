@@ -299,7 +299,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              temperature(i) = initialtemp
           endif
           if (ieos==16) then
-           	 vxyzu(4,i) = 1.e3
+             vxyzu(4,i) = 1.e3
           endif
        endif
     endif

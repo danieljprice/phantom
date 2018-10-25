@@ -50,8 +50,8 @@
 !    rhocrit2pwp -- critical density 2 in g/cm^3 (piecewise polytropic eos)
 !    rhocrit3    -- critical density 3 in g/cm^3 (barotropic eos)
 !
-!  DEPENDENCIES: dim, eos_helmholtz, eos_mesa, infile_utils, io, part,
-!    physcon, units
+!  DEPENDENCIES: dim, eos_helmholtz, eos_mesa, eos_shen, infile_utils, io,
+!    part, physcon, units
 !+
 !--------------------------------------------------------------------------
 module eos
@@ -294,17 +294,17 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
 !
 
 !    if (present(enei)) then
-	   cgsrhoi = rhoi * unit_density
-	   !note eni is actually tempi
-	   call eos_shen_NL3(cgsrhoi,eni,0.05,cgspgas,cgsspsoundi)
-       spsoundi=cgsspsoundi / unit_velocity
-       pgas = cgspgas / unit_pressure
-       ponrhoi = pgas / rhoi
+    cgsrhoi = rhoi * unit_density
+    !note eni is actually tempi
+    call eos_shen_NL3(cgsrhoi,eni,0.05,cgspgas,cgsspsoundi)
+    spsoundi=cgsspsoundi / unit_velocity
+    pgas = cgspgas / unit_pressure
+    ponrhoi = pgas / rhoi
 !    else
 !       call fatal('eos','tried to call NL3 eos without passing temperature')
 !    endif
-       
-    
+
+
 
  case default
     spsoundi = 0. ! avoids compiler warnings
@@ -498,7 +498,7 @@ subroutine init_eos(eos_type,ierr)
  case(15)
 
     call eos_helmholtz_init(ierr)
-    
+
  case(16)
 
     call init_eos_shen_NL3(ierr)

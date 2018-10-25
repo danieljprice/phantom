@@ -23,10 +23,10 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, chem, cooling, dim, dust, eos, fastmath, growth,
-!    io, io_summary, kdtree, kernel, linklist, mpiderivs, mpiforce,
-!    mpiutils, nicil, options, part, physcon, ptmass, stack, timestep,
-!    timestep_ind, timestep_sts, units, viscosity
+!  DEPENDENCIES: boundary, chem, cooling, dim, dust, eos, eos_shen,
+!    fastmath, growth, io, io_summary, kdtree, kernel, linklist, mpiderivs,
+!    mpiforce, mpiutils, nicil, options, part, physcon, ptmass, stack,
+!    timestep, timestep_ind, timestep_sts, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module forces
@@ -2430,14 +2430,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 fxyz4 = fxyz4 + (gamma - 1.)*rhoi**(1.-gamma)*fsum(idudtdissi)
              endif
           elseif (ieos==16) then
-          	 if (damp==0) then
-          	 	call eos_shen_get_dTdu(rhoi * unit_density,eni,0.05,dTdui_cgs)
-          	    dTdui = dTdui_cgs / unit_ergg
-	            !use cgs
-          	    fxyz4 = fxyz4 + dTdui*(ponrhoi*rho1i*drhodti + fsum(idudtdissi))
-          	 else
-          	    fxyz4 = 0. 
-          	 endif
+             if (damp==0) then
+                call eos_shen_get_dTdu(rhoi * unit_density,eni,0.05,dTdui_cgs)
+                dTdui = dTdui_cgs / unit_ergg
+                !use cgs
+                fxyz4 = fxyz4 + dTdui*(ponrhoi*rho1i*drhodti + fsum(idudtdissi))
+             else
+                fxyz4 = 0.
+             endif
           else
              fac = rhoi/rhogasi
              pdv_work = ponrhoi*rho1i*drhodti
