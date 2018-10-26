@@ -75,18 +75,17 @@ module inject
  real, public ::    wind_dr_on_dp = 1.
 
 ! Calculated from the previous parameters
- real, public :: wind_osc_vamplitude,wind_osc_period
- real, private :: wind_mass_rate,wind_velocity,mass_of_spheres, time_between_spheres, neighbour_distance
- integer, private :: particles_per_sphere,iwind_resolution
+ real, public ::    dr3
+ real, public ::    wind_osc_vamplitude,wind_osc_period
 
  private
 
+ real, private ::   wind_mass_rate,wind_velocity,mass_of_spheres, time_between_spheres, neighbour_distance
+ integer, private :: particles_per_sphere,iwind_resolution
+
  logical, parameter :: wind_verbose = .false.
  integer, parameter :: wind_emitting_sink = 1
- real :: geodesic_R(0:19,3,3), geodesic_v(0:11,3), u_to_temperature_ratio
-#ifdef BOWEN
- real :: dr3, rho_ini
-#endif
+ real :: geodesic_R(0:19,3,3), geodesic_v(0:11,3), u_to_temperature_ratio, rho_ini
 
 contains
 
@@ -138,7 +137,7 @@ subroutine wind_init(setup)
  time_between_spheres = mass_of_spheres / wind_mass_rate
 
 #ifdef BOWEN
- rho_ini = wind_mass_rate / (4.*pi*wind_injection_radius**2*wind_osc_vamplitude)
+ rho_ini = wind_mass_rate / (4.*pi*wind_injection_radius**2*wind_velocity_max)
  dr3 = 3.*mass_of_spheres/(4.*pi*rho_ini)
 #endif
 
@@ -239,7 +238,7 @@ end function get_neighb_distance
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype)
  use io,      only: iprint, fatal
- use physcon, only: au
+ use physcon, only: au,pi
 #ifdef BOWEN
  use bowen_dust, only: bowen_init
 #endif
@@ -251,15 +250,15 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npar
  integer, intent(inout) :: npartoftype(:)
 
  integer :: outer_sphere, inner_sphere, inner_handled_sphere, i
- real :: local_time, r, v, u, rho, e, mass_lost
+ real :: local_time, r, v, u, rho, e, mass_lost, surface_radius
  logical, save :: first_run = .true.
  character(len=*), parameter :: label = 'inject_particles'
 
  if (first_run) then
     call wind_init(.false.)
 #ifdef BOWEN
-    call bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,bowen_Cprime,&
-         bowen_Tcond,bowen_delta,bowen_Teff,wind_osc_vamplitude,wind_osc_period,&
+    call bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,wind_injection_radius,&
+         bowen_Cprime,bowen_Tcond,bowen_delta,bowen_Teff,wind_osc_vamplitude,wind_osc_period,&
          iboundary_spheres*particles_per_sphere)
 #endif
     first_run = .false.
@@ -288,9 +287,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npar
        call inject_geodesic_sphere(i, npart+1, r, v, u, rho, npart, npartoftype, xyzh, vxyzu, igas) ! injected sphere
     endif
  enddo
-! print *,'npart',npart,inner_sphere-outer_sphere+1
+ ! update the sink particle properties
  mass_lost = mass_of_spheres * (inner_sphere-outer_sphere+1)
+ surface_radius = wind_injection_radius + wind_osc_vamplitude*wind_osc_period/(2.*pi)*sin(2.*pi*time/wind_osc_period)
  xyzmh_ptmass(4,wind_emitting_sink) = xyzmh_ptmass(4,wind_emitting_sink) - mass_lost
+ xyzmh_ptmass(5,wind_emitting_sink) = (surface_radius**3-dr3)**(1./3.)
 
 end subroutine inject_particles
 
@@ -342,13 +343,18 @@ subroutine compute_sphere_properties(time,local_time, r, v, u, rho, e, sphere_nu
  real :: surface_radius,r3
  logical :: verbose = .true.
 
- v = wind_osc_vamplitude* cos(2.*pi*time/wind_osc_period) !same velocity for all wall particles
+ v = wind_velocity + wind_osc_vamplitude* cos(2.*pi*time/wind_osc_period) !same velocity for all wall particles
  surface_radius = wind_injection_radius + wind_osc_vamplitude*wind_osc_period/(2.*pi)*sin(2.*pi*time/wind_osc_period)
- r3 = surface_radius**3-dr3
- do k = 2,sphere_number-inner_sphere
-    r3 = r3-dr3*(r3/surface_radius**3)**(nrho_index/3.)
- enddo
- r = r3**(1./3)
+ if (sphere_number <= inner_sphere) then
+    r = surface_radius
+    v = max(wind_osc_vamplitude,wind_velocity)
+ else
+    r3 = surface_radius**3-dr3
+    do k = 2,sphere_number-inner_sphere
+       r3 = r3-dr3*(r3/surface_radius**3)**(nrho_index/3.)
+    enddo
+    r = r3**(1./3)
+ endif
  !r = (surface_radius**3-(sphere_number-inner_sphere)*dr3)**(1./3)
  !rho = rho_ini
  u = wind_temperature * u_to_temperature_ratio
@@ -356,10 +362,10 @@ subroutine compute_sphere_properties(time,local_time, r, v, u, rho, e, sphere_nu
  e = .5*v**2 - xyzmh_ptmass(4,wind_emitting_sink)/r + gamma*u
  if (verbose) then
     if (sphere_number > inner_sphere) then
-       ! print '("handled, i = ",i5," inner = ",i5," base_r = ",es11.4,'// &
-       !       '" r = ",es11.4," v = ",es11.4," phase = ",f7.4," feject = ",f4.3)', &
-       !       sphere_number,inner_sphere,surface_radius,r,v,&
-       !       time/wind_osc_period,time_between_spheres/wind_osc_period
+       print '(" handled, i = ",i5," inner = ",i5," base_r = ",es11.4,'// &
+              '" r = ",es11.4," v = ",es11.4," phase = ",f7.4," feject = ",f4.3)', &
+              sphere_number,inner_sphere,surface_radius,r,v,&
+              time/wind_osc_period,time_between_spheres/wind_osc_period
     else
        print '("ejected, i = ",i5," inner = ",i5," base_r = ",es11.4,'// &
              '" r = ",es11.4," v = ",es11.4," phase = ",f7.4," feject = ",f4.3)', &
@@ -567,9 +573,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 
  integer, save :: ngot = 0
  integer :: noptions
-#ifdef BOWEN
  real :: Rstar
-#endif
  character(len=30), parameter :: label = 'read_options_inject'
 
  imatch  = .true.
@@ -643,9 +647,9 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     if (wind_osc_period_days < 0.) call fatal(label,'invalid setting for wind_osc_period (<0)')
  case('wind_osc_vampl')
     read(valstring,*,iostat=ierr) wind_osc_vamplitude_km_s
-    wind_velocity_km_s = 0. ! set wind veolicty to zero when pulsating star
+    !wind_velocity_km_s = 0. ! set wind veolicty to zero when pulsating star
     ngot = ngot + 1
-    if (wind_osc_vamplitude_km_s <= 0.) call fatal(label,'invalid setting for wind_osc_vamp (<0)')
+    if (wind_osc_vamplitude_km_s <= 0. .and. wind_velocity_km_s <= 0.) call fatal(label,'invalid setting for wind_osc_vamp (<0)')
 #endif
  case default
     imatch = .false.

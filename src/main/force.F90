@@ -2439,10 +2439,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
           else
              fac = rhoi/rhogasi
+#ifndef BOWEN
              pdv_work = ponrhoi*rho1i*drhodti
+             !the pdv_work is accounted for in substepping routine
              if (ipdv_heating > 0) then
                 fxyz4 = fxyz4 + fac*pdv_work
              endif
+#endif
              if (ishock_heating > 0) then
                 fxyz4 = fxyz4 + fac*fsum(idudtdissi)
              endif

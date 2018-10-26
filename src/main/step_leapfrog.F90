@@ -181,7 +181,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        !
        ! predict v and u to the half step with "slow" forces
        !
+#ifdef BOWEN
+       !shock heating treated in the implicit loop
+       vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
+#else
        vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+#endif
        if (itype==idust .and. use_dustgrowth) then
           dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
        endif
@@ -198,7 +203,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! accretion onto sinks/potentials also happens during substepping
 !----------------------------------------------------------------------
  if (nptmass > 0 .or. iexternalforce > 0 .or. (h2chemistry .and. icooling > 0) .or. idamp > 0) then
-    call step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,t, &
+    call step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,t, &
                      nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nbinmax,ibin_wake)
  else
     call step_extern_sph(dtsph,npart,xyzh,vxyzu)
@@ -377,7 +382,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 dti = hdti + ibin_dts(ithdt,ibin(i))
              endif
 
+#ifdef BOWEN
+             !internal energy updated in the implicit loop
+             vxyzu(1:3,i) = vxyzu(1:3,i) + dti*fxyzu(1:3,i)
+#else
              vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
+#endif
              if (use_dustgrowth .and. itype==idust) dustproppred(:,i) = dustproppred(:,i) + dti*ddustprop(:,i)
              if (itype==igas) then
                 if (mhd)          Bevol(:,i)    = Bevol(:,i)    + dti*dBevol(:,i)
@@ -464,7 +474,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !
 ! shift v back to the half step
 !
+#ifdef BOWEN
+          vxyzu(1:3,i) = vxyzu(1:3,i) - hdtsph*fxyzu(1:3,i)
+#else
           vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
+#endif
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  - hdtsph*dBevol(:,i)
              if (use_dustfrac) dustevol(:,i) = dustevol(:,i) - hdtsph*ddustevol(:,i)
@@ -533,7 +547,7 @@ end subroutine step_extern_sph
 !  algorithm over the "fast" forces.
 !+
 !----------------------------------------------------------------
-subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmass, &
+subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,nptmass, &
                        xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nbinmax,ibin_wake)
  use dim,            only:maxptmass,maxp,maxvxyzu
  use io,             only:iverbose,id,master,iprint,warning
@@ -561,7 +575,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
  integer,         intent(in)    :: npart,ntypes,nptmass
  real,            intent(in)    :: dtsph,time
  real,            intent(inout) :: dtextforce
- real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
+ real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),fxyzu(:,:)
  real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  integer(kind=1), intent(in)    :: nbinmax
  integer(kind=1), intent(inout) :: ibin_wake(:)
@@ -752,7 +766,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
     !$omp end parallel
 
 #ifdef BOWEN
-    call radiative_acceleration(npart,xyzh,vxyzu,dt,fext,time)
+    call radiative_acceleration(npart,xyzh,vxyzu,dt,fext,fxyzu,time)
 #endif
 
     !

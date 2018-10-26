@@ -14,7 +14,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Lionel
+!  OWNER: Lionel Siess
 !
 !  $Id$
 !
@@ -27,178 +27,160 @@ module bowen_dust
  implicit none
 
  public :: radiative_acceleration, bowen_init
- logical, parameter :: use_alpha_wind = .true.
+ logical, parameter :: use_alpha_wind = .false.
 
  private
  integer, parameter :: N = 1024
  integer, parameter :: wind_emitting_sink = 1
  logical, parameter :: verbose = .false.
  real, parameter :: alpha_wind = 1.d0
- real :: kappa, kmax, L, c_light, specific_energy_to_T_ratio, Cprime, Tcond, delta, Teff,&
-      Reff, omega_osc, deltaR_osc
+ real :: kappa_gas, kmax, L, c_light, specific_energy_to_T_ratio, Cprime, Tcond, deltaT, Teff,&
+      Reff, omega_osc, deltaR_osc, usteboltz,wind_inject, Rmin
  integer :: nwall_particles
 
 contains
 
 !-----------------------------------------------------------------------
 !+
-!  Computes the acceleration due to radiation pressure on dust, on all SPH particles
-!  Here we assume that optical depth is roughly spherically symmetric around the central star
-!  Execution time: a few milliseconds with one million particles
-!   Inputs:
-!     * npart: number of particles
-!     * xyzh(4,maxp): big phantom's array of particles
-!     * O(3): location of the central star
-!     * part_mass: mass of the particles (assumed constant)
-!   Outputs:
-!     * rad_acceleration(3,npart): acceleration vectors
+!  Computes acceleration due to radiation pressure on dust on all SPH particles
+!  is is assumed that optical depth is roughly spherically symmetric around the central star
 !+
 !-----------------------------------------------------------------------
-subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fxyzu, time)
- use io,       only:iprint
- use part,     only:isdead_or_accreted,rhoh,xyzmh_ptmass,massoftype,igas
- use physcon,  only:pi
+subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fext, fxyzu_shock, time)
+ use part,     only:isdead_or_accreted,rhoh,xyzmh_ptmass,massoftype,igas,divcurlv
+ use physcon,  only:pi,mass_proton_cgs
+ use eos,      only:gamma
  integer, intent(in)    :: npart
  real,    intent(in)    :: xyzh(:,:)
- real,    intent(inout) :: vxyzu(:,:)
  real,    intent(in)    :: dt,time
- real,    intent(inout) :: fxyzu(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
+ real,    intent(inout) :: fext(:,:),fxyzu_shock(:,:)
 
- real :: O(3), h(npart), r(3, npart), d(npart), dmin, dmax, part_mass
- real :: position(npart), distance2(npart)
+ real :: r(3, npart), d(npart), z_coord(npart), d2_axis(npart)
+ real :: dmin, dmax, dr, part_mass
  integer :: nfound, found(npart)
- real :: rho(2*N+1), rho_over_r2(2*N+1)
- real :: OR(N), OR2(N), tau_prime(N)
- real :: Teq(N), kd(N), a(N), a_over_OR(N), kap(N)
- real :: Teq_part(npart), a_over_d_part(npart)
- real :: dQ_dt,Mstar,Rforce,R_star,alpha_surface
- integer :: i
+ real :: rho_grid(N), r_grid(N), Teq(N), a_over_r(N), kappa_dust(N)!, T_grid(N), dlnkap_dlnT(N), tau_prime(N)
+ real :: dQ_dt,Mstar,R_star,L_star,Rforce,alpha_surface,dist,frad,frepuls,Teq_part,xr(3),x_star(3)
+ real :: force,fac,Trad,kap_dust,alpha_w,rho,T,Qcool,dQcool_dlnT,mass_per_H
+ logical :: skip
+ integer :: i,j,icooling
 
- O = xyzmh_ptmass(1:3,1)
- !R_star = xyzmh_ptmass(5,1) should be the actual stellar radius
- R_star = Reff + deltaR_osc*sin(omega_osc*time)
- Rforce = R_star + deltaR_osc
- kap = 0.
+
+ if (npart == nwall_particles) return
+ mass_per_H = 1.4 * mass_proton_cgs
  part_mass = massoftype(igas)
- if (npart == 0) then
-    dmin = 0.
-    dmax = 0.
- else
-    h = xyzh(4,1:npart)
-    call center_star(npart, xyzh, O, r, d, dmin, dmax)
-    if (use_alpha_wind) then
-       Mstar = xyzmh_ptmass(4,wind_emitting_sink)
-       do i=1,npart
-          if (.not.isdead_or_accreted(xyzh(4,i))) then
-             !repulsive force, Ayliffe & Bate 2010, 408, 876
-             if (d(i) < 2.*Rforce) then
-                alpha_surface = ((2.*Rforce-d(i))/Rforce)**4
-             else
-                alpha_surface = 0.
-             endif
-             if (i <= nwall_particles) then
-                fxyzu(:,i) = 0.
-             else
-                fxyzu(1:3,i) = fxyzu(1:3,i) + Mstar*max(alpha_wind,alpha_surface)/d(i)**3*r(1:3,i)
-             endif
-          endif
-       enddo
-    else
-       if (abs((dmin-dmax)/dmax)  <  1.0d-10) then
-          rho_over_r2 = 0.
-       else
-          !call project_on_line(npart, r, 0.d0, 0.d0, position, distance2)
-          call project_on_z(npart, r, position, distance2)
-          call select_particles(npart, distance2, h, nfound, found)
-          call density(npart, position, distance2, h, part_mass, nfound, found,&
-                    -dmax, dmax, R_star, 2*N+1, rho, rho_over_r2)
-       endif
-       call calculate_tau_prime(N, dmax, R_star, kappa, kap, rho_over_r2, OR, tau_prime)
-       OR2 = OR**2
-       call calculate_Teq(N, R_star, tau_prime, OR2, Teq)
-       call calculate_kd(N, Teq, kd)
-       !do i=1,100
-       !   print '(i4,8(1x,es12.4))',i,Teq(i),kmax,kappa,kd(i),OR(i),0.5*(1.-sqrt(1.-(R_star**2/OR2(i)))),0.75*tau_prime(i)
-       !enddo
-       a = L/(4.*pi*c_light) * kd/OR2
-       a_over_OR = a/OR
-       call interpolate_on_particles(npart, d, N, dmax, a_over_OR, a_over_d_part)
-       call interpolate_on_particles(npart, d, N, dmax, Teq, Teq_part)
-       do i=1,npart
-          if (h(i)  >  0.) then
-             fxyzu(1,i) = fxyzu(1,i) + a_over_d_part(i) * r(1,i)
-             fxyzu(2,i) = fxyzu(2,i) + a_over_d_part(i) * r(2,i)
-             fxyzu(3,i) = fxyzu(3,i) + a_over_d_part(i) * r(3,i)
-             if (dt  >=  Cprime/rhoh(xyzh(4,i),part_mass)) then   ! assume thermal equilibrium
-                vxyzu(4,i) = Teq_part(i)*specific_energy_to_T_ratio
-                fxyzu(4,i) = 0.d0
-             else
-                dQ_dt = -(vxyzu(4,i) - Teq_part(i)*specific_energy_to_T_ratio) &
-                * (rhoh(xyzh(4,i),part_mass)/Cprime)
-                fxyzu(4,i) = fxyzu(4,i) + dQ_dt
-             endif
-          endif
-          !if (i<20) print '("a",i4,18(1x,es12.4))',i,fxyzu(1:4,i),xyzh(1:3,i)
-       enddo
-    endif
- endif
- !stop
+ x_star(1:3) = xyzmh_ptmass(1:3,wind_emitting_sink)
+ Mstar = xyzmh_ptmass(4,wind_emitting_sink)
+ !R_star = Reff + deltaR_osc*sin(omega_osc*time)
+ R_star = wind_inject + deltaR_osc*sin(omega_osc*time)
+ L_star = 4.*pi*usteboltz*R_star**2*Teff**4
+ print *,'time ###  ##',time,R_star,Reff,npart,nwall_particles,L,L_star
 
- if (verbose) then
-    write(iprint,*) "##############"
-    write(iprint,*) "# BOWEN DUST #"
-    write(iprint,*) "##############"
-    write(iprint,*) " * star radius: ", R_star
-    write(iprint,*) " * min(Teq):", minval(Teq)
-    write(iprint,*) " * max(Teq):", maxval(Teq)
-    write(iprint,*) " * amin:", minval(a)
-    write(iprint,*) " * amax:", maxval(a)
-    write(iprint,*) ""
+ if (use_alpha_wind) then
+    force = 1.8
+    Rforce = force*R_star
+!$omp parallel do default(none) &
+!$omp shared(npart,xyzh,vxyzu,fext,divcurlv,x_star,Rforce,Mstar,R_star,gamma,dt,nwall_particles) &
+!$omp private(xr,alpha_surface,dist)
+   do i=nwall_particles+1,npart
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          xr(1:3) = xyzh(1:3,i)-x_star(1:3)
+          dist = sqrt(xr(1)**2 + xr(2)**2 + xr(3)**2)
+          ! repulsive force, Ayliffe & Bate 2010, MNRAS 408, 876
+          if (dist < Rforce) then
+             alpha_surface = ((Rforce-dist)/(Rforce-R_star))**4
+          else
+             alpha_surface = 0.
+          endif
+          fext(1:3,i) = fext(1:3,i) + Mstar*max(alpha_wind,alpha_surface)/dist**3*xr(1:3)
+          !update internal energy: add pdV work
+          vxyzu(4,i) = vxyzu(4,i) -(gamma-1.)*vxyzu(4,i)*divcurlv(1,i)*dt
+       endif
+    enddo
+!$omp end parallel do
+ else
+    icooling = 3
+    force = 1.2
+    Rforce = force*R_star
+    fac = L_star/(4.*pi*c_light*Mstar)
+    print *,'kmax =====>',fac*kmax
+!!$omp parallel do default(none) &
+!!$omp shared(npart,xyzh,vxyzu,fext,divcurlv,x_star,Rforce,fac,Teff,R_star,Mstar,gamma,kappa_gas,dt,nwall_particles) &
+!!$omp private(xr,alpha_surface,alpha_w,kap_dust,Trad,dist)
+   do i=nwall_particles+1,npart
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          xr(1:3) = xyzh(1:3,i)-x_star(1:3)
+          dist = sqrt(xr(1)**2 + xr(2)**2 + xr(3)**2)
+          ! repulsive force, Ayliffe & Bate 2010, MNRAS 408, 876
+          if (dist < Rforce) then
+             alpha_surface = ((Rforce-dist)/(Rforce-R_star))**4
+          else
+             alpha_surface = 0.
+          endif
+          Trad = Teff*sqrt(R_star/dist)
+          call get_kappa_dust(Trad, kap_dust)
+          alpha_w = fac*(kap_dust+kappa_gas)
+          !print *,i,alpha_w,alpha_surface,kap_dust,kappa_gas,Trad,Teff
+          fext(1:3,i) = fext(1:3,i) + Mstar*max(alpha_w,alpha_surface)/dist**3*xr(1:3)
+          ! !update internal energy: add pdV work
+          ! vxyzu(4,i) = vxyzu(4,i) -(gamma-1.)*vxyzu(4,i)*divcurlv(1,i)*dt
+          ! !cooling terms
+          ! T = vxyzu(4,i)/specific_energy_to_T_ratio
+          ! rho = rhoh(xyzh(4,i), part_mass)
+          ! call calc_cooling(icooling,mass_per_H,T,Trad,rho,Qcool,dQcool_dlnT)
+          ! !print *,i,vxyzu(4,i),Qcool*dt,Trad,T
+          ! if (dt  >=  Cprime/rhoh(xyzh(4,i),part_mass)) then   ! assume thermal equilibrium
+          !   vxyzu(4,i) = Trad*specific_energy_to_T_ratio
+          !   fxyzu(4,i) = 0.d0
+          ! else
+          !   !Qcool = -(vxyzu(4,i) - Trad*specific_energy_to_T_ratio) &
+          !   !     * (rhoh(xyzh(4,i),part_mass)/Cprime)
+          !   vxyzu(4,i) = vxyzu(4,i) + Qcool*dt
+          !   !fext(4,i) = fext(4,i) + Qcool
+          ! endif
+       endif
+    enddo
+!!$omp end parallel do
+    call implicit_wind_cooling(icooling,npart,xyzh,vxyzu,fxyzu_shock,fext,R_star,x_star,dt)
  endif
 end subroutine radiative_acceleration
 
-
 !-----------------------------------------------------------------------
 !+
-!  Convert parameters into simulation units.
+!  Convert parameters into code units.
 !+
 !-----------------------------------------------------------------------
-subroutine bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,&
+subroutine bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,wind_injection_radius,&
        bowen_Cprime, bowen_Tcond, bowen_delta,bowen_Teff,wind_osc_vamplitude,wind_osc_period,nwall)
- use physcon,     only: solarl,c,steboltz,pi
+ use physcon,     only: solarl,c,steboltz,pi,radconst
  use units,       only: udist, umass, utime
  integer, intent(in) :: nwall
- real, intent(in)  :: u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,&
+ real, intent(in)  :: u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,wind_injection_radius,&
          bowen_Cprime, bowen_Tcond, bowen_delta, bowen_Teff, wind_osc_vamplitude,wind_osc_period
 
- kappa = bowen_kappa / (udist**2/umass)
+ kappa_gas = bowen_kappa / (udist**2/umass)
  kmax = bowen_kmax / (udist**2/umass)
  L = bowen_L /(umass*udist**2/utime**3)
  c_light = c / (udist/utime)
- specific_energy_to_T_ratio = u_to_temperature_ratio/(udist/utime)**2
+ specific_energy_to_T_ratio = u_to_temperature_ratio!/(udist/utime)**2
  Cprime = bowen_Cprime / (umass*utime/udist**3)
  Tcond = bowen_Tcond
- delta = bowen_delta
+ deltaT = bowen_delta
  Teff  = bowen_Teff
  Reff = sqrt(bowen_L/(4.*pi*steboltz*bowen_Teff**4))/udist
  omega_osc = 2.*pi/wind_osc_period
  deltaR_osc = wind_osc_vamplitude/omega_osc
  nwall_particles = nwall
+ wind_inject = wind_injection_radius
+ usteboltz = L/(4.*pi*Reff**2*Teff**4)
+ Rmin = Reff - deltaR_osc
 
 end subroutine bowen_init
 
 !-----------------------------------------------------------------------
 !+
-!  Interpolates a quantity computed on the discretized half line on all SPH particles, assuming spherical symmetry
-!  Method: basic linear interpolation
-!   Inputs:
-!     * npart: number of particles
-!     * d(npart): distance of particles
-!     * N: number of steps
-!     * dmax: maximum distance
-!     * quantity(N): the quantity to interpolate
-!   Outputs:
-!     * output(npart): interpolated values
+!  Interpolates a quantity computed on the discretized line of sight for all SPH particles
+!  (spherical symmetry assumed)
 !+
 !-----------------------------------------------------------------------
 subroutine interpolate_on_particles(npart, d, N, dmax, quantity, output)
@@ -212,7 +194,7 @@ subroutine interpolate_on_particles(npart, d, N, dmax, quantity, output)
  integer :: i, j
 
  dr = dmax / N
- do i=1,npart
+ do i=nwall_particles+1,npart
     r = d(i)
     j = min(int(r/dr),N-1)
     output(i) = (r-dr*j)*(quantity(j+1)-quantity(j))/dr + quantity(j)
@@ -234,20 +216,20 @@ subroutine calculate_kd(N, Teq, kd)
  real,    intent(in)  :: Teq(N)
  real,    intent(out) :: kd(N)
 
- kd = kmax/(1. + exp((Teq-Tcond)/delta))
+ kd = kmax/(1. + exp((Teq-Tcond)/deltaT))
 end subroutine calculate_kd
+
+subroutine get_kappa_dust(Teq, kappa_dust)
+ real,    intent(in)  :: Teq
+ real,    intent(out) :: kappa_dust
+
+ kappa_dust = kmax/(1.d0 + exp((Teq-Tcond)/deltaT))
+
+end subroutine get_kappa_dust
 
 !-----------------------------------------------------------------------
 !+
-!  Calculates Teq, the radiative equilibrium temperature along the half-line
-!   Inputs:
-!     * N: number of steps
-!     * Teff: effective temperature of central star
-!     * R_star: radius of central star
-!     * tau_prime(N): optical depth
-!     * OR2(N): squared distance
-!   Outputs:
-!     * Teq(N): radiative equilibrium temperature
+!  Calculates the radiative equilibrium temperature along the half-line
 !+
 !-----------------------------------------------------------------------
 subroutine calculate_Teq(N, R_star, tau_prime, OR2, Teq)
@@ -264,18 +246,7 @@ end subroutine calculate_Teq
 
 !-----------------------------------------------------------------------
 !+
-!  Calculates tau_prime, a rough estimation of the optical depth along the half-line
-!  Method: two-front trapezoidal rule, assuming that rho_over_r2 is discretized on a symmetric manner
-!          the output is the mean value of the optical depth along the two half-lines
-!   Inputs:
-!     * N: number of  (on the half-line)
-!     * dmax: maximum distance
-!     * R_star: radius of central star
-!     * kappa: gas opacity (assumed constant everywhere!)
-!     * rho_over_r2(2N+1): density divided by squared distance (on the full line)
-!   Outputs:
-!     * OR(N): location of the steps on the half-line
-!     * tau_prime(N): mean optical depth along the half-line
+!  Calculates tau_prime along the discretized line of sight
 !+
 !-----------------------------------------------------------------------
 subroutine calculate_tau_prime(N, dmax, R_star, kappa, kap, rho_over_r2, OR, tau_prime)
@@ -299,21 +270,7 @@ end subroutine calculate_tau_prime
 
 !-----------------------------------------------------------------------
 !+
-!  Computes density along the line
-!   Inputs:
-!     * npart: number of particles
-!     * position(npart): location of the projection of the particles on the line (can be either positive or negative)
-!     * distance2(npart): squared distance between the particles and the line
-!     * part_h(npart): smoothing length of particles
-!     * part_mass: mass of particles (assumed the same for all particles)
-!     * nfound: number of interesting particles
-!     * found(1:nfound): list of interesting particles
-!     * rmin, rmax: boundaries of the line (can be either positive or negative but rmax>rmin)
-!     * r_star: radius of a central star
-!     * N: number of steps along the line
-!   Outputs:
-!     * rho(N): density along the line (at N locations between rmin and rmax)
-!     * rho_over_r2(N): rho/r² outside of the central star
+!  compute radiative equilibrium structure (Lucy approximation)
 !+
 !-----------------------------------------------------------------------
 subroutine density(npart, position, distance2, part_h, part_mass, nfound, found,&
@@ -382,30 +339,23 @@ subroutine density(npart, position, distance2, part_h, part_mass, nfound, found,
 
 end subroutine density
 
-!-----------------------------------------------------------------------
+!-----------------------------------------------------------------------------------
 !+
-!  Select interesting particles (whose interaction zone intersects the line)
-!   Inputs:
-!     * npart: number of particles
-!     * distance2(npart): squared distance to the line
-!     * part_h(npart): smoothing length of particle's SPH kernel
-!   Outputs:
-!     * nfound: number of particles found
-!     * found(1:nfound): index of interesting particles
+!  Select interesting particles (whose interaction zone intersects the line of sight)
 !+
-!-----------------------------------------------------------------------
-subroutine select_particles(npart, distance2, part_h, nfound, found)
+!-----------------------------------------------------------------------------------
+subroutine select_particles(npart, d2_axis, part_h, nfound, found)
  integer, intent(in)  :: npart
- real,    intent(in)  :: distance2(npart), part_h(npart)
+ real,    intent(in)  :: d2_axis(npart), part_h(npart)
  integer, intent(out) :: nfound, found(npart)
 
  integer :: i
  real :: h
 
  nfound = 0
- do i=1,npart
+ do i=nwall_particles+1,npart
     h = part_h(i)
-    if (distance2(i)  <  4.*h**2) then
+    if (d2_axis(i)  <  4.*h**2) then
        nfound = nfound + 1
        found(nfound) = i
     endif
@@ -414,45 +364,33 @@ end subroutine select_particles
 
 !-----------------------------------------------------------------------
 !+
-!  Project SPH particles on a vertical line
-!   Inputs:
-!     * npart: number of particles
-!     * r(3,npart): location of the particles
-!   Outputs:
-!     * position(npart): z coordinates of the particles
-!     * distance2(npart): squared distance between the particles and z axis
+!  Project SPH particles on the z-axis and calculate distance to axis
 !+
 !-----------------------------------------------------------------------
-subroutine project_on_z(npart, r, position, distance2)
+subroutine project_on_z(npart, r, z_coord, d2_axis)
  integer, intent(in)  :: npart
  real,    intent(in)  :: r(3,npart)
- real,    intent(out) :: position(npart), distance2(npart)
+ real,    intent(out) :: z_coord(npart), d2_axis(npart)
 
- position = r(3,:)
- distance2 = r(1,:)**2+r(2,:)**2
+ z_coord = r(3,:)
+ d2_axis = r(1,:)**2+r(2,:)**2
 end subroutine project_on_z
 
 !-----------------------------------------------------------------------
 !+
-!  Project SPH particles on a line
-!   Inputs:
-!     * npart: number of particles
-!     * r(3,npart): location of the particles
-!     * theta, phi: direction of the line (theta: colatitude; phi: longitude)
-!   Outputs:
-!     * position(npart): location of the projection of the particles on the line
-!     * distance2(npart): squared distance between the particles and the line
+!  Project SPH particles on a given axis specified by the angles theta and phi
+!  and calculate distance to axis
 !+
 !-----------------------------------------------------------------------
-!  subroutine project_on_line(npart, r, theta, phi, position, distance2)
+!  subroutine project_on_line(npart, r, theta, phi, z_coord, d2_axis)
 !    integer, intent(in)  :: npart
 !    real,    intent(in)  :: r(3,npart), theta, phi
-!    real,    intent(out) :: position(npart), distance2(npart)
+!    real,    intent(out) :: z_coord(npart), d2_axis(npart)
 
 !    integer :: i
 !    real :: u(3), OP(3), HP(3), p
 
- ! Director vector
+ ! Direction vector
 !    u(1) = sin(theta)*cos(phi)
 !    u(2) = sin(theta)*sin(phi)
 !    u(3) = cos(theta)
@@ -460,41 +398,200 @@ end subroutine project_on_z
 !    do i=1,npart
 !      OP = r(:,i)
 !      p = dot_product(OP,u)
-!      position(i) = p
+!      z_coord(i) = p
 !      HP = OP - p*u
-!      distance2(i) = dot_product(HP,HP)
+!      d2_axis(i) = dot_product(HP,HP)
 !    enddo
 !  end subroutine
 
 
 !-----------------------------------------------------------------------
 !+
-! Computes the location of SPH particles in a new frame
-!  Inputs:
-!    * npart: number of particles
-!    * xyzh(4,maxp): big phantom's array of particles
-!    * O(3): location of the new frame
-!  Outputs:
-!    * r(3,npart): location of SPH particles in the new frame
-!    * d(npart): distance from O to SPH particles
-!    * dmin: minimum of d
-!    * dmax: maximum of d
+! Computes the coordinates and radial distance of SPH particles in the
+! reference frame attached to the wind emitting star
 !+
 !-----------------------------------------------------------------------
-subroutine center_star(npart, xyzh, O, r, d, dmin, dmax)
+subroutine center_star(npart, xyzh, xzy_origin, r, d, dmin, dmax)
  use dim,      only:maxp
  integer, intent(in)  :: npart
- real,    intent(in)  :: xyzh(4,maxp), O(3)
+ real,    intent(in)  :: xyzh(4,maxp), xzy_origin(3)
  real,    intent(out) :: r(3,npart), d(npart), dmin, dmax
 
  integer :: i
 
  do i=1,npart
-    r(:,i) = xyzh(1:3,i)-O
+    r(:,i) = xyzh(1:3,i)-xzy_origin
  enddo
  d = sqrt(r(1,:)**2 + r(2,:)**2 + r(3,:)**2)
- dmin = minval(d)
- dmax = maxval(d)
+ dmin = minval(d(nwall_particles+1:npart))
+ dmax = maxval(d(nwall_particles+1:npart))
 end subroutine center_star
+
+!-----------------------------------------------------------------------
+!+
+!  wind cooling. Implicit method to get the internal energy
+!+
+!-----------------------------------------------------------------------
+subroutine implicit_wind_cooling(icooling,npart,xyzh,vxyzu,fxyzu,fext,R_star,x_star,dt)
+ use eos,      only:gamma
+ use part,     only:isdead_or_accreted,rhoh,massoftype,igas,divcurlv
+ use physcon,  only:mass_proton_cgs
+
+ integer, intent(in)    :: npart,icooling
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(in)    :: dt,R_star,x_star(3)
+ real,    intent(inout) :: vxyzu(:,:)
+ real,    intent(inout) :: fxyzu(:,:),fext(:,:)
+
+ real, parameter :: tol = 1.d-4 ! to be adjusted
+ real :: T,Trad,rho,term1,term2,term3,delta_e,mass_per_H,part_mass,Qcool,dQcool_dlnT
+ real :: dist,xr(3),q1,q2,dq1,dq2
+ integer, parameter :: iter_max = 200
+ integer :: i,iter
+
+ mass_per_H = 1.4 * mass_proton_cgs
+ part_mass = massoftype(igas)
+! !$omp parallel do default(none) &
+! !$omp shared(icooling,npart,xyzh,vxyzu,fxyzu,divcurlv) &
+! !$omp shared(gamma,part_mass,mass_per_H,dt,nwall_particles) &
+! !$omp private(iter,term1,term2,term3,delta_e,Qcool,dQcool_dlnT,T,Tg,rho)
+ do i=nwall_particles+1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       xr(1:3) = xyzh(1:3,i)-x_star(1:3)
+       dist = sqrt(xr(1)**2 + xr(2)**2 + xr(3)**2)
+       iter = 0
+       delta_e = 1.d-3
+       Trad = Teff*sqrt(R_star/dist)
+       rho = rhoh(xyzh(4,i), part_mass)
+       term1 = vxyzu(4,i)+fxyzu(4,i)*dt !includes shock heating term
+       term2 = 1.+(gamma-1.)*dt*divcurlv(1,i)
+       do while (abs(delta_e) > tol .and. iter < iter_max)
+          T = vxyzu(4,i)/specific_energy_to_T_ratio
+          call calc_cooling(1,mass_per_H,T,Trad,rho,Q1,dQ1)
+          call calc_cooling(2,mass_per_H,T,Trad,rho,Q2,dQ2)
+          Qcool = q1+q2
+          dQcool_dlnT = dq1+dq2
+          term3 = vxyzu(4,i)*term2-Qcool*dt
+          delta_e = (term1-term3)/(term2-dQcool_dlnT*dt/vxyzu(4,i))
+          !vxyzu(4,i) = vxyzu(4,i)*(1.+delta_e)
+          vxyzu(4,i) = vxyzu(4,i)+delta_e
+          iter = iter + 1
+       enddo
+    endif
+!    fxyzu(4,i) = 0.
+    if (vxyzu(4,i) < 0. .or. isnan(vxyzu(4,i))) then
+       print *,i,vxyzu(4,i)
+       stop ' u<0'
+    endif
+ enddo
+! !$omp end parallel do
+
+end subroutine implicit_wind_cooling
+
+!----------------------------------------------------------------
+!+
+!  Driver for the cooling function
+!+
+!----------------------------------------------------------------
+subroutine calc_cooling (icooling, mass_per_H, Tgas, Trad, rho, Qcool, dQcool_dlnT)
+
+  integer, intent(in) :: icooling
+  real, intent(in) :: mass_per_H
+  real, intent(in) :: Tgas, Trad, rho
+  real, intent(out) :: Qcool, dQcool_dlnT
+
+  Qcool = 0.d0
+  dQcool_dlnT = 0.d0
+  if (icooling == 1 .or. mod(icooling,10) == 3 .or. icooling == 11) then
+     call cooling_neutral_hydrogen(mass_per_H, Tgas, rho, Qcool, dQcool_dlnT)
+  end if
+  if (icooling == 2 .or. mod(icooling,10) == 3 .or. icooling == 12) then
+     call cooling_Bowen_relaxation(Tgas, Trad, rho, Qcool, dQcool_dlnT)
+  end if
+  if (icooling >= 10) then
+     call cooling_radiative_relaxation(Tgas, Trad, Qcool, dQcool_dlnT)
+  end if
+end subroutine calc_cooling
+
+!-----------------------------------------------------------------------
+!+
+!  Bowen 1988 cooling term
+!+
+!-----------------------------------------------------------------------
+subroutine cooling_Bowen_relaxation(T, Trad, rho, Qcool, dQcool_dlnT)
+  real, intent(in) :: T, Trad, rho
+  real, intent(inout) :: Qcool, dQcool_dlnT
+  real :: fac
+
+  fac = specific_energy_to_T_ratio*rho/ Cprime
+  Qcool = Qcool + fac*(Trad-T)
+  dQcool_dlnT = dQcool_dlnT - fac*T
+end subroutine cooling_Bowen_relaxation
+
+!-----------------------------------------------------------------------
+!+
+!  Woitke (2006 A&A) cooling term
+!+
+!-----------------------------------------------------------------------
+subroutine cooling_radiative_relaxation(T, Trad, Qcool, dQcool_dlnT)
+  real, intent(in) :: T, Trad
+  real, intent(inout) :: Qcool, dQcool_dlnT
+  real :: fac
+
+  fac = 4.*kappa_gas*usteboltz
+  Qcool = Qcool + fac*(Trad**4-T**4)
+  dQcool_dlnT = dQcool_dlnT - 4.*fac*T**3
+end subroutine cooling_radiative_relaxation
+
+!-----------------------------------------------------------------------
+!+
+!  Cooling due to neutral H (Spitzer)
+!+
+!-----------------------------------------------------------------------
+subroutine cooling_neutral_hydrogen( mass_per_H, T, rho, Qcool, dQcool_dlnT)
+  use units, only: umass, utime,udist
+  real, intent(in) :: mass_per_H
+  real, intent(in) :: T, rho
+  real, intent(inout) :: Qcool, dQcool_dlnT
+
+  real, parameter :: f = 0.2d0
+  real :: eps_e, Q_H0, fQ
+
+  if (T > 3000.d0) then
+     fQ = utime**2*udist/umass
+     call calc_eps_e(T, eps_e)
+     Q_H0  = -f*fQ*7.3d-19 * eps_e * exp(-118400.d0/T) *rho / (mass_per_H)**2
+     Qcool = Qcool + Q_H0
+     dQcool_dlnT = dQcool_dlnT + 118400.d0/T * Q_H0
+  endif
+end subroutine cooling_neutral_hydrogen
+
+!-----------------------------------------------------------------------
+!+
+!  compute electron equilibrium abundance (Palla et al 1983)
+!+
+!-----------------------------------------------------------------------
+subroutine calc_eps_e(T, eps_e)
+! used for cooling_neutral_hydrogen_radiation
+  real, intent(in) :: T
+  real, intent(out) :: eps_e
+
+  real :: k1, k2, k3, k8, k9, p, q
+
+!  if (T > 3000.) then
+     k1 = 1.88d-10 / T**6.44d-1
+     k2 = 1.83d-18 * T
+     k3 = 1.35d-9
+     k8 = 5.80d-11 * sqrt(T) * exp(-1.58d5/T)
+     k9 = 1.7d-4 * k8
+
+     p = .5d0*k8/k9
+     q = k1*(k2+k3)/(k3*k9)
+
+     eps_e = (p + sqrt(q+p**2))/q
+!  else
+!     eps_e = 0.d0
+!  endif
+end subroutine calc_eps_e
 
 end module bowen_dust
