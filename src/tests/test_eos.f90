@@ -87,6 +87,7 @@ subroutine test_init(ntests, npass)
     call init_eos(ieos,ierr)
     if (ieos==10 .and. .not. got_phantom_dir) cycle ! skip mesa
     if (ieos==15 .and. .not. got_phantom_dir) cycle ! skip helmholtz
+    if (ieos==16 .and. .not. got_phantom_dir) cycle ! skip Shen
     call checkval(ierr,0,0,nfailed(ieos),'eos initialisation')
  enddo
  if (all(nfailed==0)) npass = npass + 1
