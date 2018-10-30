@@ -47,7 +47,6 @@ contains
 !------------------------------------------------------------------------
 subroutine init_eos_shen_NL3(ierr)
  integer, intent(out) :: ierr
- logical :: file_exists
  character(len=120) :: filename
 
  ! find the table datafile
@@ -76,9 +75,7 @@ end subroutine init_eos_shen_NL3
 subroutine eos_shen_NL3(rin_cgs,tin_cgs,yin,p,spsound)
  real, intent(in)  :: rin_cgs,tin_cgs,yin
  real, intent(out) :: p,spsound
- real    :: fer,ent,ene,cnu,cpu,ceu,cnv,anu,pnu,xnu,xpu,xau,xiu,emm
- real    :: turning_point,rin_tmp,dp_drho,p_r1,rin,tin
- integer :: cont
+ real :: turning_point,rin_tmp,dp_drho,p_r1,rin,tin
 
  !cgs to shen
  rin=rin_cgs/(amu/(fmtocm**3))
@@ -203,6 +200,7 @@ end subroutine write_binary_table
 !------------------------------------------------------------------------
 subroutine read_binary_table()
  integer :: i,j,k,m
+ character(len=120) :: filename
 
  ! find the table datafile
  filename = find_phantom_datafile('eos_binary_table.dat', 'eos/shen')
