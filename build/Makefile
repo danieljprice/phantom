@@ -298,6 +298,7 @@ ifeq ($(SETUP), srpolytrope)
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     GRAVITY=yes
+    MODFILE=moddump_polytrope.f90
 endif
 
 ifeq ($(SETUP), grdisc)
