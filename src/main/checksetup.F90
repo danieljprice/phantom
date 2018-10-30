@@ -42,11 +42,11 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,ndusttypes
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,&
-                kill_particle,shuffle_part,iamdust,Bxyz
+                kill_particle,shuffle_part,iamdust,Bxyz,ndustsmall
  use eos,             only:gamma,polyk
  use centreofmass,    only:get_centreofmass
  use options,         only:ieos,icooling,iexternalforce,use_dustfrac
@@ -58,7 +58,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
- integer      :: i,j,nbad,itype,nunity
+ integer      :: i,j,nbad,itype,nunity,iu
  real         :: xcom(ndim),vcom(ndim)
  real(kind=8) :: gcode
  real         :: hi,hmin,hmax,dust_to_gas
@@ -189,10 +189,11 @@ subroutine check_setup(nerror,nwarn,restart)
 !
  if (maxvxyzu==4) then
     nbad = 0
+    iu = 4
     do i=1,npart
-       if (.not.in_range(vxyzu(4,i),0.) .and. xyzh(4,i) >= 0.) then !ignore accreted particles that have negative energies
+       if (.not.in_range(vxyzu(iu,i),0.) .and. xyzh(4,i) >= 0.) then !ignore accreted particles that have negative energies
           nbad = nbad + 1
-          if (nbad <= 10) print*,' particle ',i,' u = ',vxyzu(4,i)
+          if (nbad <= 10) print*,' particle ',i,' u = ',vxyzu(iu,i)
        endif
     enddo
     if (nbad > 0) then
@@ -331,7 +332,7 @@ subroutine check_setup(nerror,nwarn,restart)
     nunity = 0
     dust_to_gas = 0.
     do i=1,npart
-       do j=1,ndusttypes
+       do j=1,ndustsmall
           if (dustfrac(j,i) < 0. .or. dustfrac(j,i) > 1.) then
              nbad = nbad + 1
              if (nbad <= 10) print*,' particle ',i,' dustfrac = ',dustfrac(j,i)
@@ -353,9 +354,9 @@ subroutine check_setup(nerror,nwarn,restart)
     ! warn if compiled for one-fluid dust but not used
     if (all(dustfrac(:,1:npart) < tiny(dustfrac))) then
        print*,'WARNING: one fluid dust is used but dust fraction is zero everywhere'
-       if (ndusttypes>1) then
-          print*,'WARNING about the previous WARNING: ndusttypes > 1 so dust arrays are unnecessarily large!'
-          print*,'                                    Recompile with ndusttypes = 1 for better efficiency.'
+       if (maxdusttypes>1) then
+          print*,'WARNING about the previous WARNING: maxdusttypes > 1 so dust arrays are unnecessarily large!'
+          print*,'                                    Recompile with maxdusttypes = 1 for better efficiency.'
        endif
        nwarn = nwarn + 1
     endif

@@ -37,7 +37,7 @@ subroutine test_lum(ntests,npass)
  use io,       only:iverbose
  use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,&
                     igas,divcurlv,iphase,isetphase,maxphase,mhd,dustprop,ddustprop,&
-                    Bevol,dBevol,dustfrac,ddustfrac,temperature,divcurlB,pxyzu,dens,metrics
+                    Bevol,dBevol,dustfrac,ddustevol,temperature,divcurlB,pxyzu,dens,metrics
  use eos,             only:gamma,polyk
  use testutils,       only:checkval,checkvalf
  use energies,        only:compute_energies,ekin,etherm,totlum !etot,eacc,accretedmass
@@ -162,7 +162,7 @@ subroutine test_lum(ntests,npass)
        call getused(t1)
        fext = 0.
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
        call getused(t2)
 
        !print*,maxalpha,maxp,alphaind(1)
@@ -192,7 +192,7 @@ subroutine test_lum(ntests,npass)
 !-- Check with regular viscosity
  call getused(t1)
  call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
  call getused(t2)
  totlum_saved(2) = totlum
  diff = (totlum_saved(1) - totlum_saved(2))/totlum_saved(1)

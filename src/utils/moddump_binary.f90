@@ -97,6 +97,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call open_db_from_file(db,filename,20,ierr)
        call read_inopt(omega_corotate,'omega_corotate',db)
        call close_db(db)
+       iexternalforce = 0
        omega_vec = (/ 0.,0.,omega_corotate /)
        do i=1,npart
           call cross(omega_vec,xyzh(:3,i),omegacrossr)
@@ -155,13 +156,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  else
 
 !choose what to do with the star: set a binary or setup a magnetic field
-    print "(4(/,a))",'1) setup a binary system', &
+    print "(5(/,a))",'1) setup a binary system', &
                   '2) setup a magnetic field in the star', &
-                  '3) manually create sink in core', &
-                  '4) setup trinary system'
+                  '3) manually cut profile to create sink in core', &
+                  '4) manually create sink in core', &
+                  '5) setup trinary system'
 
     setup_case = 1
-    call prompt('Choose a setup option ',setup_case,1,4)
+    call prompt('Choose a setup option ',setup_case,1,5)
 
     select case(setup_case)
 
@@ -285,7 +287,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        endif
 
     case(3)
-
        densityfile = 'P12_Phantom_Profile.data'
        call prompt('Enter filename of the input stellar profile', densityfile)
        call prompt('Enter mass of the created point mass core', mcut)
@@ -325,6 +326,18 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call shuffle_part(npart)
 
     case(4)
+       call prompt('Enter mass of the created point mass core', mcut)
+       call prompt('Enter softening length of the point mass', hsoft_default)
+
+       nptmass = nptmass + 1
+       if (nptmass > maxptmass) call fatal('ptmass_create','nptmass > maxptmass')
+       n = nptmass
+       xyzmh_ptmass(:,n)      = 0.  ! zero all quantities by default
+       xyzmh_ptmass(4,n)      = mcut  ! zero mass
+       xyzmh_ptmass(ihsoft,n) = hsoft_default
+       vxyz_ptmass(:,n)       = 0.
+
+    case(5)
 
        !takes necessary inputs from user 1
        print*, 'Current mass unit is ', umass,'g):'

@@ -24,7 +24,7 @@
 !+
 !--------------------------------------------------------------------------
 module testderivs
- use part,     only:massoftype
+ use part, only:massoftype
  implicit none
 
  public :: test_derivs
@@ -36,68 +36,70 @@ module testderivs
 contains
 
 subroutine test_derivs(ntests,npass,string)
- use dim,      only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust,ndusttypes
- use boundary, only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
- use eos,      only:polyk,gamma,use_entropy
- use io,       only:iprint,id,master,fatal,iverbose,nprocs
- use mpiutils, only:reduceall_mpi
- use options,  only:tolh,alpha,alphau,alphaB,beta,ieos,psidecayfac,use_dustfrac
- use kernel,   only:radkern
- use part,     only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,fext,divcurlv,divcurlB,maxgradh, &
-                    gradh,divBsymm,Bevol,dBevol,Bxyz,Bextx,Bexty,Bextz,alphaind, &
-                    maxphase,rhoh,mhd,maxBevol,ndivcurlB,dvdx, &
-                    dustfrac,ddustfrac,temperature,idivv,icurlvx,icurlvy,icurlvz, &
-                    idivB,icurlBx,icurlBy,icurlBz,deltav,dustprop,ddustprop,pxyzu,dens,metrics
- use unifdis,  only:set_unifdis
- use physcon,  only:pi,au,solarm
- use deriv,           only:derivs
- use densityforce,    only:get_neighbour_stats,densityiterate
- use linklist,        only:set_linklist
- use timing,          only:getused,printused
- use viscosity,       only:bulkvisc,shearparam,irealvisc
- use part,            only:iphase,isetphase,igas
- use nicil,           only:use_ambi
+ use dim,          only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust,&
+                        maxdustsmall
+ use boundary,     only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
+ use eos,          only:polyk,gamma,use_entropy
+ use io,           only:iprint,id,master,fatal,iverbose,nprocs
+ use mpiutils,     only:reduceall_mpi
+ use options,      only:tolh,alpha,alphau,alphaB,beta,ieos,psidecayfac,use_dustfrac
+ use kernel,       only:radkern
+ use part,         only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,fext,&
+                        divcurlv,divcurlB,maxgradh,gradh,divBsymm,Bevol,dBevol,&
+                        Bxyz,Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
+                        maxBevol,ndivcurlB,dvdx,dustfrac,ddustevol,temperature,&
+                        idivv,icurlvx,icurlvy,icurlvz,idivB,icurlBx,icurlBy,icurlBz,deltav,dustprop,ddustprop,ndustsmall
+ use part,         only:pxyzu,dens,metrics
+ use unifdis,      only:set_unifdis
+ use physcon,      only:pi,au,solarm
+ use deriv,        only:derivs
+ use densityforce, only:get_neighbour_stats,densityiterate
+ use linklist,     only:set_linklist
+ use timing,       only:getused,printused
+ use viscosity,    only:bulkvisc,shearparam,irealvisc
+ use part,         only:iphase,isetphase,igas
+ use nicil,        only:use_ambi
 #ifdef IND_TIMESTEPS
- use timestep_ind,    only:nactive
- use part,            only:ibin
+ use timestep_ind, only:nactive
+ use part,         only:ibin
 #endif
 #ifdef DUST
- use dust,            only:init_drag,idrag,K_code,grainsize,graindens, &
-                           grainsizecgs,smincgs,smaxcgs,sindex
+ use dust,         only:init_drag,idrag,K_code
+ use part,         only:grainsize,graindens,ndustlarge,ndusttypes
 #endif
- use units,           only:set_units
- use testutils,       only:checkval,checkvalf
+ use units,        only:set_units
+ use testutils,    only:checkval,checkvalf
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
- real                   :: psep,time,hzero,totmass
+ real              :: psep,time,hzero,totmass
 #ifdef IND_TIMESTEPS
- integer                :: itest,ierr,ierr2,nptest
- real                   :: fracactive,speedup
- real(kind=4)           :: tallactive
- real,         allocatable :: fxyzstore(:,:),dBdtstore(:,:)
+ integer           :: itest,ierr,ierr2,nptest
+ real              :: fracactive,speedup
+ real(kind=4)      :: tallactive
+ real, allocatable :: fxyzstore(:,:),dBdtstore(:,:)
 #else
- integer                :: nactive
+ integer           :: nactive
 #endif
- real                   :: psepblob,hblob,rhoblob,rblob,totvol,rtest
+ real              :: psepblob,hblob,rhoblob,rblob,totvol,rtest
 #ifdef PERIODIC
- integer                :: maxtrial,maxactual
- integer(kind=8)        :: nrhocalc,nactual,nexact
- real                   :: trialmean,actualmean,realneigh
+ integer           :: maxtrial,maxactual
+ integer(kind=8)   :: nrhocalc,nactual,nexact
+ real              :: trialmean,actualmean,realneigh
 #endif
- real                   :: rcut
- real                   :: dtext_dum,rho1i,deint,demag,dekin,dedust,dmdust(ndusttypes),dustfraci(ndusttypes),tol
- real(kind=4)           :: t1,t2
- integer                :: nfailed(21),i,j,npartblob,nparttest
- integer                :: np,ieosprev
- logical                :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs
- logical                :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testall
- real                   :: vwavei,stressmax,rhoi,sonrhoi(ndusttypes),drhodti,ddustfraci(ndusttypes)
- integer(kind=8)        :: nptot
- real,allocatable       :: dummy(:)
+ real              :: rcut
+ real              :: dtext_dum,rho1i,deint,demag,dekin,dedust,dmdust(maxdustsmall),dustfraci(maxdustsmall),tol
+ real(kind=4)      :: t1,t2
+ integer           :: nfailed(21),i,j,npartblob,nparttest
+ integer           :: np,ieosprev,icurlvxi,icurlvyi,icurlvzi,ialphaloc,iu
+ logical           :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs
+ logical           :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testall
+ real              :: vwavei,stressmax,rhoi,sonrhoi(maxdustsmall),drhodti,ddustevoli(maxdustsmall)
+ integer(kind=8)   :: nptot
+ real, allocatable :: dummy(:)
 #ifdef IND_TIMESTEPS
- real                   :: tolh_old
+ real              :: tolh_old
 #endif
- logical                :: checkmask(maxp)
+ logical           :: checkmask(maxp)
 
  if (id==master) write(*,"(a,/)") '--> TESTING DERIVS MODULE'
 
@@ -141,6 +143,10 @@ subroutine test_derivs(ntests,npass,string)
 #ifndef MPI
  if (npart > maxp) call fatal('testsuite','maxp too low to run derivs test suite')
 #endif
+ icurlvxi = icurlvx ! avoid compiler warnings
+ icurlvyi = icurlvy
+ icurlvzi = icurlvz
+ iu = 4 ! avoid compiler warnings
 
  time = 0.
  npartoftype(:) = 0
@@ -191,19 +197,14 @@ subroutine test_derivs(ntests,npass,string)
 !  pressure distributions (no viscosity)
 !
     if (id==master) write(*,"(/,a)") '--> testing Hydro derivatives '
-    do i=1,npart
-       vxyzu(1,i) = vx(xyzh(:,i))
-       vxyzu(2,i) = vy(xyzh(:,i))
-       vxyzu(3,i) = vz(xyzh(:,i))
-       if (maxvxyzu==4) vxyzu(4,i) = utherm(xyzh(:,i))
-    enddo
+    call set_velocity_and_energy
     call reset_mhd_to_zero
     !
     !--calculate derivatives
     !
     call getused(t1)
     call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
     call getused(t2)
     if (id==master) call printused(t1)
     call rcut_checkmask(rcut,xyzh,npart,checkmask)
@@ -214,9 +215,9 @@ subroutine test_derivs(ntests,npass,string)
     call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)',checkmask)
     call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv',checkmask)
     if (ndivcurlv >= 4) then
-       call checkvalf(np,xyzh,divcurlv(icurlvx,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)',checkmask)
-       call checkvalf(np,xyzh,divcurlv(icurlvy,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
-       call checkvalf(np,xyzh,divcurlv(icurlvz,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
+       call checkvalf(np,xyzh,divcurlv(icurlvxi,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)',checkmask)
+       call checkvalf(np,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
+       call checkvalf(np,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
     endif
     if (maxgradh==maxp) then
        call checkval(np,gradh(1,:),1.01948,1.e-5,nfailed(6),'gradh',checkmask)
@@ -226,9 +227,9 @@ subroutine test_derivs(ntests,npass,string)
        call checkvalf(np,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(8),'force(y)',checkmask)
        call checkvalf(np,xyzh,fxyzu(3,:),forcefuncz,1.e-3,nfailed(9),'force(z)',checkmask)
        if (use_entropy .or. ieos /= 2) then
-          call checkval(np,fxyzu(4,:),0.,epsilon(fxyzu),nfailed(10),'den/dt',checkmask)
+          call checkval(np,fxyzu(iu,:),0.,epsilon(fxyzu),nfailed(10),'den/dt',checkmask)
        else
-          call checkvalf(np,xyzh,fxyzu(4,1:np)/((gamma-1.)*vxyzu(4,1:np)),dudtfunc,1.e-3,nfailed(10),'du/dt',checkmask)
+          call checkvalf(np,xyzh,fxyzu(iu,1:np)/((gamma-1.)*vxyzu(iu,1:np)),dudtfunc,1.e-3,nfailed(10),'du/dt',checkmask)
        endif
     endif
     !
@@ -262,13 +263,8 @@ subroutine test_derivs(ntests,npass,string)
     do itest=0,nint(log10(real(nptot)))-1
        nactive = 10**itest
        if (id==master) write(*,"(/,a,i10,a)") '--> testing Hydro derivatives (on ',nactive,' active particles)'
-
+       call set_velocity_and_energy
        do i=1,npart
-          vxyzu(1,i) = vx(xyzh(:,i))
-          vxyzu(2,i) = vy(xyzh(:,i))
-          vxyzu(3,i) = vz(xyzh(:,i))
-          if (maxvxyzu==4) vxyzu(4,i) = utherm(xyzh(:,i))
-
           if (i <= nactive/nprocs) then
              iphase(i) = isetphase(igas,iactive=.true.)
              xyzh(4,i) = hzero
@@ -282,7 +278,7 @@ subroutine test_derivs(ntests,npass,string)
        !
        call getused(t1)
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
        call getused(t2)
        if (id==master) then
           fracactive = nactive/real(npart)
@@ -301,9 +297,9 @@ subroutine test_derivs(ntests,npass,string)
        call checkval(np,xyzh(4,1:np),hzero,3.e-4,nfailed(1),'h (density)',checkmask)
        call checkvalf(np,xyzh,divcurlv(1,1:np),divvfunc,1.e-3,nfailed(2),'divv',checkmask)
        if (ndivcurlv >= 4) then
-          call checkvalf(np,xyzh,divcurlv(icurlvx,1:np),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)',checkmask)
-          call checkvalf(np,xyzh,divcurlv(icurlvy,1:np),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
-          call checkvalf(np,xyzh,divcurlv(icurlvz,1:np),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
+          call checkvalf(np,xyzh,divcurlv(icurlvxi,1:np),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)',checkmask)
+          call checkvalf(np,xyzh,divcurlv(icurlvyi,1:np),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
+          call checkvalf(np,xyzh,divcurlv(icurlvzi,1:np),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
        endif
        if (maxgradh==maxp) then
           call checkval(np,gradh(1,1:np),1.01948,1.e-5,nfailed(6),'gradh',checkmask)
@@ -313,10 +309,10 @@ subroutine test_derivs(ntests,npass,string)
           call checkvalf(np,xyzh,fxyzu(2,1:np),forcefuncy,1.e-3,nfailed(8),'force(y)',checkmask)
           call checkvalf(np,xyzh,fxyzu(3,1:np),forcefuncz,1.e-3,nfailed(9),'force(z)',checkmask)
           if (use_entropy .or. ieos /= 2) then
-             call checkval(np,fxyzu(4,1:np),0.,epsilon(fxyzu),nfailed(10),'den/dt',checkmask)
+             call checkval(np,fxyzu(iu,1:np),0.,epsilon(fxyzu),nfailed(10),'den/dt',checkmask)
           else
              allocate(dummy(1:np))
-             dummy(1:np) = fxyzu(4,1:np)/((gamma-1.)*vxyzu(4,1:np))
+             dummy(1:np) = fxyzu(iu,1:np)/((gamma-1.)*vxyzu(iu,1:np))
              call checkvalf(np,xyzh,dummy(1:np),dudtfunc,1.e-3,nfailed(11),'du/dt',checkmask)
              deallocate(dummy)
           endif
@@ -360,7 +356,7 @@ subroutine test_derivs(ntests,npass,string)
           vxyzu(1,i) = vx(xyzh(:,i))
           vxyzu(2,i) = vy(xyzh(:,i))
           vxyzu(3,i) = vz(xyzh(:,i))
-          if (maxvxyzu==4) vxyzu(4,i) = uthermconst(xyzh(:,i))
+          if (maxvxyzu==4) vxyzu(iu,i) = uthermconst(xyzh(:,i))
        enddo
        call set_active(npart,nactive,igas)
        call reset_mhd_to_zero
@@ -370,16 +366,16 @@ subroutine test_derivs(ntests,npass,string)
 
        call getused(t1)
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
        if (id==master) call printused(t1)
        call rcut_checkmask(rcut,xyzh,npart,checkmask)
        nfailed(:) = 0
        call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)',checkmask)
        call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv',checkmask)
        if (ndivcurlv >= 4) then
-          call checkvalf(np,xyzh,divcurlv(icurlvx,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)',checkmask)
-          call checkvalf(np,xyzh,divcurlv(icurlvy,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
-          call checkvalf(np,xyzh,divcurlv(icurlvz,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
+          call checkvalf(np,xyzh,divcurlv(icurlvxi,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)',checkmask)
+          call checkvalf(np,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
+          call checkvalf(np,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
        endif
        call checkvalf(np,xyzh,fxyzu(1,:),forceavx,3.2e-2,nfailed(3),'art. visc force(x)',checkmask)
        call checkvalf(np,xyzh,fxyzu(2,:),forceavy,2.4e-2,nfailed(4),'art. visc force(y)',checkmask)
@@ -404,7 +400,7 @@ subroutine test_derivs(ntests,npass,string)
           vxyzu(1,i) = vx(xyzh(:,i))
           vxyzu(2,i) = vy(xyzh(:,i))
           vxyzu(3,i) = vz(xyzh(:,i))
-          if (maxvxyzu==4) vxyzu(4,i) = uthermconst(xyzh(:,i))
+          if (maxvxyzu==4) vxyzu(iu,i) = uthermconst(xyzh(:,i))
           ! set acceleration also
           fxyzu(1,i) = vx(xyzh(:,i))
           fxyzu(2,i) = vy(xyzh(:,i))
@@ -427,12 +423,13 @@ subroutine test_derivs(ntests,npass,string)
        call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
        call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
        if (ndivcurlv >= 4) then
-          call checkvalf(np,xyzh,divcurlv(icurlvx,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
-          call checkvalf(np,xyzh,divcurlv(icurlvy,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
-          call checkvalf(np,xyzh,divcurlv(icurlvz,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
+          call checkvalf(np,xyzh,divcurlv(icurlvxi,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
+          call checkvalf(np,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
+          call checkvalf(np,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
        endif
        if (nalpha >= 2) then
-          call checkvalf(np,xyzh,alphaind(2,:),alphalocfunc,3.5e-4,nfailed(6),'alphaloc')
+          ialphaloc = 2
+          call checkvalf(np,xyzh,alphaind(ialphaloc,:),alphalocfunc,3.5e-4,nfailed(6),'alphaloc')
        endif
 
        ntests = ntests + 1
@@ -458,7 +455,7 @@ subroutine test_derivs(ntests,npass,string)
        vxyzu(1,i) = vx(xyzh(:,i))
        vxyzu(2,i) = vy(xyzh(:,i))
        vxyzu(3,i) = vz(xyzh(:,i))
-       if (maxvxyzu==4) vxyzu(4,i) = 0.
+       if (maxvxyzu==4) vxyzu(iu,i) = 0.
     enddo
     call reset_mhd_to_zero
     call reset_dissipation_to_zero
@@ -468,7 +465,7 @@ subroutine test_derivs(ntests,npass,string)
 
     call getused(t1)
     call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
     if (id==master) call printused(t1)
     call rcut_checkmask(rcut,xyzh,npart,checkmask)
 
@@ -476,9 +473,9 @@ subroutine test_derivs(ntests,npass,string)
     call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)',checkmask)
     call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv',checkmask)
     if (ndivcurlv >= 4) then
-       call checkvalf(np,xyzh,divcurlv(icurlvx,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)',checkmask)
-       call checkvalf(np,xyzh,divcurlv(icurlvy,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
-       call checkvalf(np,xyzh,divcurlv(icurlvz,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
+       call checkvalf(np,xyzh,divcurlv(icurlvxi,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)',checkmask)
+       call checkvalf(np,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
+       call checkvalf(np,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
     endif
     if (maxdvdx==maxp) then
        call checkvalf(np,xyzh,dvdx(1,:),dvxdx,1.7e-3,nfailed(6),  'dvxdx',checkmask)
@@ -520,7 +517,7 @@ subroutine test_derivs(ntests,npass,string)
        deint = 0.
        dekin = 0.
        do i=1,npart
-          deint = deint + fxyzu(4,i)
+          deint = deint + fxyzu(iu,i)
           dekin = dekin + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
        enddo
        deint = reduceall_mpi('+',deint)
@@ -534,7 +531,7 @@ subroutine test_derivs(ntests,npass,string)
        call checkval(massoftype(1)*(deint + dekin),0.,tol,nfailed(19),'\sum v.dv/dt + du/dt = 0')
 
        ! also check that dissipation is positive definite
-       call checkval(all(fxyzu(4,1:np) >= 0.),.true.,nfailed(20),'du/dt >= 0 for all particles')
+       call checkval(all(fxyzu(iu,1:np) >= 0.),.true.,nfailed(20),'du/dt >= 0 for all particles')
     endif
 
     ntests = ntests + 1
@@ -555,11 +552,12 @@ subroutine test_derivs(ntests,npass,string)
        !  and ONLY makes sense IFF all dust grains are identical (although
        !  potentially binned with unequal densities).
        !  K_code and K_k are related via: K_k = eps_k/eps*K_code)
-       K_code  = 10.
-       smaxcgs = 0.01 ! value doesn't matter as long as smaxcgs=smincgs=grainsizecgs
-       smincgs = smaxcgs
-       grainsizecgs = smaxcgs
-       sindex  = 1.
+       K_code = 10.
+       grainsize = 0.01
+       graindens = 3.
+       ndustsmall = maxdustsmall
+       ndustlarge = 0
+       ndusttypes = ndustsmall + ndustlarge
        !need to set units if testing with physical drag
        !call set_units(dist=au,mass=solarm,G=1.d0)
        call init_drag(nfailed(1))
@@ -567,31 +565,28 @@ subroutine test_derivs(ntests,npass,string)
        polyk = 0.
        call reset_mhd_to_zero
        call reset_dissipation_to_zero
+       call set_velocity_and_energy
        do i=1,npart
-          vxyzu(1,i) = vx(xyzh(:,i))
-          vxyzu(2,i) = vy(xyzh(:,i))
-          vxyzu(3,i) = vz(xyzh(:,i))
-          if (maxvxyzu>=4) vxyzu(4,i) = utherm(xyzh(:,i))
-          do j = 1,ndusttypes
+          do j=1,ndustsmall
              dustfrac(j,i) = real(dustfrac_func(xyzh(:,i)),kind=kind(dustfrac))
           enddo
        enddo
 
        call getused(t1)
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
        if (id==master) call printused(t1)
 
        nfailed(:) = 0
        call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
        call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
-       do j = 1,1 !ndusttypes !--Only need one because all dust species are identical
+       do j=1,1 !ndustsmall !--Only need one because all dust species are identical
 #ifdef DUST
           grainsizek = grainsize(j)
           graindensk = graindens(j)
 #endif
-          call checkvalf(np,xyzh,ddustfrac(j,:),ddustfrac_func,7.e-5,nfailed(3),'deps/dt')
-          if (maxvxyzu>=4) call checkvalf(np,xyzh,fxyzu(4,:),dudtdust_func,5.e-4,nfailed(4),'du/dt')
+          call checkvalf(np,xyzh,ddustevol(j,:),ddustevol_func,4.e-5,nfailed(3),'deps/dt')
+          if (maxvxyzu>=4) call checkvalf(np,xyzh,fxyzu(iu,:),dudtdust_func,5.e-4,nfailed(4),'du/dt')
           call checkvalf(np,xyzh,deltav(1,j,:),deltavx_func,2.3e-5,nfailed(5),'deltavx')
        enddo
 
@@ -608,22 +603,26 @@ subroutine test_derivs(ntests,npass,string)
           dedust = 0.
           dmdust(:) = 0.
           do i=1,npart
-             dustfraci(:)  = dustfrac(:,i)
+             dustfraci(:)  = dustfrac(1:maxdustsmall,i)
              rhoi          = rhoh(xyzh(4,i),massoftype(igas))
              drhodti       = -rhoi*divcurlv(1,i)
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!             sonrhoi(:)    = sqrt(dustfrac(:,i)/rhoi)
-!             ddustfraci(:) = 2.*sonrhoi(:)*ddustfrac(:,i) - sonrhoi(:)**2*drhodti
+!             sonrhoi(:)    = sqrt(dustfrac(1:maxdustsmall,i)/rhoi)
+!             ddustevoli(:) = 2.*sonrhoi(:)*ddustevol(:,i) - sonrhoi(:)**2*drhodti
+!------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+             sonrhoi(:)    = sqrt(dustfraci(:)*(1.-dustfraci(:)))
+             ddustevoli(:) = 2.*sonrhoi(:)*(1.-dustfraci(:))*ddustevol(:,i)
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-             sonrhoi(:)    = asin(sqrt(dustfrac(:,i)))
-             ddustfraci(:) = 2.*cos(sonrhoi(:))*sin(sonrhoi(:))*ddustfrac(:,i)
+!             sonrhoi(:)    = asin(sqrt(dustfrac(1:maxdustsmall,i)))
+!             ddustevoli(:) = 2.*cos(sonrhoi(:))*sin(sonrhoi(:))*ddustevol(:,i)
 !------------------------------------------------
-             dmdust(:)     = dmdust(:) + ddustfraci(:)
+             dmdust(:)     = dmdust(:) + ddustevoli(:)
              dekin  = dekin  + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
-             deint  = deint  + (1. - sum(dustfraci))*fxyzu(4,i)
-             dedust = dedust - vxyzu(4,i)*sum(ddustfraci)
+             deint  = deint  + (1. - sum(dustfraci))*fxyzu(iu,i)
+             dedust = dedust - vxyzu(iu,i)*sum(ddustevoli)
           enddo
           dmdust  = reduceall_mpi('+',dmdust)
           dekin   = reduceall_mpi('+',dekin)
@@ -632,9 +631,9 @@ subroutine test_derivs(ntests,npass,string)
 
           nfailed(:) = 0
           !print "(3(a,es17.10))",' dE_kin = ',dekin,' dE_therm = ',deint,' dE_dust = ',dedust
-          call checkval(massoftype(1)*(dekin + deint + dedust),0.,7.e-15,nfailed(1),'energy conservation (dE=0)')
-          do i = 1,ndusttypes
-             call checkval(massoftype(1)*(dmdust(i)),0.,1.5e-14,nfailed(2),'dust mass conservation')
+          call checkval(massoftype(1)*(dekin + deint + dedust),0.,6.5e-15,nfailed(1),'energy conservation (dE=0)')
+          do i=1,ndustsmall
+             call checkval(massoftype(1)*(dmdust(i)),0.,1.e-15,nfailed(2),'dust mass conservation')
           enddo
           ntests = ntests + 1
           if (nfailed(1)==0) npass = npass + 1
@@ -683,12 +682,12 @@ subroutine test_derivs(ntests,npass,string)
              Bevol(1,i) = Bxyz(1,i) * rho1i
              Bevol(2,i) = Bxyz(2,i) * rho1i
              Bevol(3,i) = Bxyz(3,i) * rho1i
-             if (maxvxyzu==4) vxyzu(4,i) = 0.
+             if (maxvxyzu==4) vxyzu(iu,i) = 0.
           enddo
           call set_active(npart,nactive/nprocs,igas)
           call getused(t1)
           call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
           if (id==master) call printused(t1)
           !
           !--check that various quantities come out as they should do
@@ -747,7 +746,7 @@ subroutine test_derivs(ntests,npass,string)
           call set_active(npart,nactive,igas)
           call getused(t1)
           call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
           if (id==master) call printused(t1)
           call rcut_checkmask(rcut,xyzh,npart,checkmask)
           !
@@ -774,7 +773,7 @@ subroutine test_derivs(ntests,npass,string)
              demag = 0.
              do i=1,npart
                 rho1i = 1./rhoh(xyzh(4,i),massoftype(1))
-                deint = deint + fxyzu(4,i)
+                deint = deint + fxyzu(iu,i)
                 demag = demag + dot_product(Bevol(1:3,i),dBevol(1:3,i))*rho1i
              enddo
              nfailed(:) = 0
@@ -821,12 +820,12 @@ subroutine test_derivs(ntests,npass,string)
              vwavei = sqrt(polyk + (Bxyz(1,i) * Bxyz(1,i) + Bxyz(2,i) * Bxyz(2,i) + Bxyz(3,i) * Bxyz(3,i)) &
                                    / rhoh(xyzh(4,i),massoftype(1)))
              Bevol(4,i) = psi(xyzh(:,i))/vwavei
-             if (maxvxyzu==4) vxyzu(4,i) = 0.
+             if (maxvxyzu==4) vxyzu(iu,i) = 0.
           enddo
           call set_active(npart,nactive,igas)
           call getused(t1)
           call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
           if (id==master) call printused(t1)
           !
           !--check that various quantities come out as they should do
@@ -876,12 +875,12 @@ subroutine test_derivs(ntests,npass,string)
              Bevol(2,i) = Bxyz(2,i) * rho1i
              Bevol(3,i) = Bxyz(3,i) * rho1i
              if (maxBevol>=4) Bevol(4,i) = 0.
-             if (maxvxyzu==4) vxyzu(4,i) = 0.
+             if (maxvxyzu==4) vxyzu(iu,i) = 0.
           enddo
           call set_active(npart,nactive,igas)
           call getused(t1)
           call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
           if (id==master) call printused(t1)
           !
           !--check that various quantities come out as they should do
@@ -945,13 +944,7 @@ subroutine test_derivs(ntests,npass,string)
     hzero = hfact*(massoftype(1)/rhozero)**(1./3.)
     hblob = hfact*(massoftype(1)/rhoblob)**(1./3.)
     call reset_dissipation_to_zero
-
-    do i=1,npart
-       vxyzu(1,i) = vx(xyzh(:,i))
-       vxyzu(2,i) = vy(xyzh(:,i))
-       vxyzu(3,i) = vz(xyzh(:,i))
-       if (maxvxyzu==4) vxyzu(4,i) = utherm(xyzh(:,i))
-    enddo
+    call set_velocity_and_energy
     call reset_mhd_to_zero
     !
     !--calculate derivatives
@@ -960,7 +953,7 @@ subroutine test_derivs(ntests,npass,string)
     call set_active(npart,nactive,igas)
     call getused(t1)
     call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
     call getused(t2)
     if (id==master) call printused(t1)
     !
@@ -970,19 +963,19 @@ subroutine test_derivs(ntests,npass,string)
     call checkval(nparttest,xyzh(4,:),hblob,4.e-4,nfailed(1),'h (density)')
     call checkvalf(nparttest,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
     if (ndivcurlv >= 4) then
-       call checkvalf(nparttest,xyzh,divcurlv(icurlvx,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
-       call checkvalf(nparttest,xyzh,divcurlv(icurlvy,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
-       call checkvalf(nparttest,xyzh,divcurlv(icurlvz,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
+       call checkvalf(nparttest,xyzh,divcurlv(icurlvxi,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
+       call checkvalf(nparttest,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
+       call checkvalf(nparttest,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
     endif
     if (maxvxyzu==4) then
        call checkvalf(nparttest,xyzh,fxyzu(1,:),forcefuncx,1.e-3,nfailed(6),'force(x)')
        call checkvalf(nparttest,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(7),'force(y)')
        call checkvalf(nparttest,xyzh,fxyzu(3,:),forcefuncz,1.e-3,nfailed(8),'force(z)')
        if (use_entropy .or. ieos /= 2) then
-          call checkval(nparttest,fxyzu(4,:),0.,epsilon(fxyzu),nfailed(9),'den/dt')
+          call checkval(nparttest,fxyzu(iu,:),0.,epsilon(fxyzu),nfailed(9),'den/dt')
        else
           allocate(dummy(nparttest))
-          dummy(1:nparttest) = fxyzu(4,1:nparttest)/((gamma-1.)*vxyzu(4,1:nparttest))
+          dummy(1:nparttest) = fxyzu(iu,1:nparttest)/((gamma-1.)*vxyzu(iu,1:nparttest))
           call checkvalf(nparttest,xyzh,dummy(1:nparttest),dudtfunc,1.e-3,nfailed(9),'du/dt')
           deallocate(dummy)
        endif
@@ -1019,7 +1012,7 @@ subroutine test_derivs(ntests,npass,string)
        call set_active(npart,nactive,igas)
        call getused(t1)
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                    Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+                    Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
        call getused(t2)
        if (id==master) then
           fracactive = nactive/real(npart)
@@ -1035,19 +1028,19 @@ subroutine test_derivs(ntests,npass,string)
        call checkval(nparttest,xyzh(4,:),hblob,4.e-4,nfailed(1),'h (density)')
        call checkvalf(nparttest,xyzh,divcurlv(idivv,:),divvfunc,1.e-3,nfailed(2),'divv')
        if (ndivcurlv >= 4) then
-          call checkvalf(nparttest,xyzh,divcurlv(icurlvx,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
-          call checkvalf(nparttest,xyzh,divcurlv(icurlvy,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
-          call checkvalf(nparttest,xyzh,divcurlv(icurlvz,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
+          call checkvalf(nparttest,xyzh,divcurlv(icurlvxi,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
+          call checkvalf(nparttest,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
+          call checkvalf(nparttest,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
        endif
        if (maxvxyzu==4) then
           call checkvalf(nparttest,xyzh,fxyzu(1,:),forcefuncx,1.e-3,nfailed(6),'force(x)')
           call checkvalf(nparttest,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(7),'force(y)')
           call checkvalf(nparttest,xyzh,fxyzu(3,:),forcefuncz,1.e-3,nfailed(8),'force(z)')
           if (use_entropy .or. ieos /= 2) then
-             call checkval(nparttest,fxyzu(4,1:nparttest),0.,epsilon(fxyzu),nfailed(9),'den/dt')
+             call checkval(nparttest,fxyzu(iu,1:nparttest),0.,epsilon(fxyzu),nfailed(9),'den/dt')
           else
              allocate(dummy(nparttest))
-             dummy(1:nparttest) = fxyzu(4,1:nparttest)/((gamma-1.)*vxyzu(4,1:nparttest))
+             dummy(1:nparttest) = fxyzu(iu,1:nparttest)/((gamma-1.)*vxyzu(iu,1:nparttest))
              call checkvalf(nparttest,xyzh,dummy(1:nparttest),dudtfunc,1.e-3,nfailed(9),'du/dt')
              deallocate(dummy)
           endif
@@ -1089,7 +1082,7 @@ subroutine test_derivs(ntests,npass,string)
     nactive = npart
     call set_active(npart,nactive,igas)
     call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                 Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+                 Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
 #endif
     !
     !--first do the calculation with all particles active, then
@@ -1110,11 +1103,8 @@ subroutine test_derivs(ntests,npass,string)
              nactive = npart
              if (id==master) write(*,"(1x,a)") 'evaluating derivs with all particles active...'
           endif
+          call set_velocity_and_energy
           do i=1,npart
-             vxyzu(1,i) = vx(xyzh(:,i))
-             vxyzu(2,i) = vy(xyzh(:,i))
-             vxyzu(3,i) = vz(xyzh(:,i))
-             if (maxvxyzu >= 4) vxyzu(4,i) = utherm(xyzh(:,i))
              if (mhd) then
                 Bevol(1,i) = Bx(xyzh(:,i))
                 Bevol(2,i) = By(xyzh(:,i))
@@ -1124,7 +1114,7 @@ subroutine test_derivs(ntests,npass,string)
           enddo
           call set_active(npart,nactive,igas)
           call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                       Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+                       Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
           if (itest==1) then
              fxyzstore(:,1:nptest) = fxyzu(:,1:nptest)
              if (mhd) then
@@ -1137,7 +1127,7 @@ subroutine test_derivs(ntests,npass,string)
              call checkval(nptest,fxyzu(2,:),fxyzstore(2,1:nptest),1.e-4,nfailed(2),'force(y)')
              call checkval(nptest,fxyzu(3,:),fxyzstore(3,1:nptest),1.e-4,nfailed(3),'force(z)')
              if (maxvxyzu >= 4) then
-                call checkval(nptest,fxyzu(4,:),fxyzstore(4,1:nptest),1.e-5,nfailed(4),'du/dt')
+                call checkval(nptest,fxyzu(iu,:),fxyzstore(4,1:nptest),1.e-5,nfailed(4),'du/dt')
              endif
              if (mhd) then
                 call checkval(nptest,dBevol(1,:),dBdtstore(1,1:nptest),1.e-5,nfailed(5),'dBx/dt')
@@ -1192,10 +1182,13 @@ subroutine set_active(npart,nactive,itype)
 #endif
 end subroutine set_active
 
+!--------------------------------------
+!+
+!  reset all dissipation terms to zero
+!+
+!--------------------------------------
 subroutine reset_dissipation_to_zero
- !
- !--reset all dissipation terms to zero
- !
+
  alpha = 0.
  alphau = 0.
  alphaB = 0.
@@ -1207,10 +1200,32 @@ subroutine reset_dissipation_to_zero
 
 end subroutine reset_dissipation_to_zero
 
+!----------------------------------
+!+
+!  set vxyzu array using functions
+!  ready for test suite
+!+
+!----------------------------------
+subroutine set_velocity_and_energy
+ integer :: iu
+ iu = 4
+
+ do i=1,npart
+    vxyzu(1,i) = vx(xyzh(:,i))
+    vxyzu(2,i) = vy(xyzh(:,i))
+    vxyzu(3,i) = vz(xyzh(:,i))
+    if (maxvxyzu >= 4) vxyzu(iu,i) = utherm(xyzh(:,i))
+ enddo
+
+end subroutine set_velocity_and_energy
+
+!----------------------------------
+!+
+!  reset all MHD terms to zero
+!+
+!----------------------------------
 subroutine reset_mhd_to_zero
- !
- !--reset all MHD terms to zero
- !
+
  Bextx = 0.
  Bexty = 0.
  Bextz = 0.
@@ -2507,7 +2522,7 @@ end function dBambiz
 !----------------------------------------------------------------
 real function dustfrac_func(xyzhi)
  use physcon,  only:pi
- use dim,      only:ndusttypes
+ use part,     only:ndusttypes
  use boundary, only:dxbound,dybound,dzbound,xmin,ymin,zmin
  real, intent(in) :: xyzhi(4)
 
@@ -2518,42 +2533,42 @@ real function dustfrac_func(xyzhi)
 
 end function dustfrac_func
 
-real function ddustfracdx(xyzhi)
+real function ddustevoldx(xyzhi)
  use physcon,  only:pi
- use dim,      only:ndusttypes
+ use part,     only:ndusttypes
  use boundary, only:dxbound,xmin
  real, intent(in) :: xyzhi(4)
 
- ddustfracdx = 2.*0.01/dxbound*cos(4.*pi*(xyzhi(1)-xmin)/dxbound) &
+ ddustevoldx = 2.*0.01/dxbound*cos(4.*pi*(xyzhi(1)-xmin)/dxbound) &
                *1./real(ndusttypes)
 
-end function ddustfracdx
+end function ddustevoldx
 
-real function ddustfracdy(xyzhi)
+real function ddustevoldy(xyzhi)
  use physcon,  only:pi
- use dim,      only:ndusttypes
+ use part,     only:ndusttypes
  use boundary, only:dybound,ymin
  real, intent(in) :: xyzhi(4)
 
- ddustfracdy = 0.02/dybound*cos(2.*pi*(xyzhi(2)-ymin)/dybound) &
+ ddustevoldy = 0.02/dybound*cos(2.*pi*(xyzhi(2)-ymin)/dybound) &
                *1./real(ndusttypes)
 
-end function ddustfracdy
+end function ddustevoldy
 
-real function ddustfracdz(xyzhi)
+real function ddustevoldz(xyzhi)
  use physcon,  only:pi
- use dim,      only:ndusttypes
+ use part,     only:ndusttypes
  use boundary, only:dzbound,zmin
  real, intent(in) :: xyzhi(4)
 
- ddustfracdz = -2.*0.05/dzbound*sin(4.*pi*(xyzhi(3)-zmin)/dzbound) &
+ ddustevoldz = -2.*0.05/dzbound*sin(4.*pi*(xyzhi(3)-zmin)/dzbound) &
                *1./real(ndusttypes)
 
-end function ddustfracdz
+end function ddustevoldz
 
 real function del2dustfrac(xyzhi)
  use physcon,  only:pi
- use dim,      only:ndusttypes
+ use part,     only:ndusttypes
  use boundary, only:dxbound,dybound,dzbound,xmin,ymin,zmin
  real, intent(in) :: xyzhi(4)
 
@@ -2564,9 +2579,9 @@ real function del2dustfrac(xyzhi)
 
 end function del2dustfrac
 
-real function ddustfrac_func(xyzhi)
- use eos, only:gamma
- use dim, only:ndusttypes
+real function ddustevol_func(xyzhi)
+ use eos,  only:gamma
+ use part, only:ndusttypes
 #ifdef DUST
  use dust, only:get_ts,idrag,K_code
 #endif
@@ -2592,9 +2607,9 @@ real function ddustfrac_func(xyzhi)
  gradu(1)   = dudx(xyzhi)
  gradu(2)   = dudy(xyzhi)
  gradu(3)   = dudz(xyzhi)
- gradeps(1) = ddustfracdx(xyzhi)
- gradeps(2) = ddustfracdy(xyzhi)
- gradeps(3) = ddustfracdz(xyzhi)
+ gradeps(1) = ddustevoldx(xyzhi)
+ gradeps(2) = ddustevoldy(xyzhi)
+ gradeps(3) = ddustevoldz(xyzhi)
  gradsumeps = gradeps*real(ndusttypes)
  du_dot_de  = dot_product(gradu,gradsumeps)
  gradp(:)   = (gamma-1.)*(rhogasi*gradu - rhoi*uui*gradsumeps)
@@ -2619,23 +2634,27 @@ real function ddustfrac_func(xyzhi)
  !
  gradepsts(:) = dustfraci*gradts(:) + tsi*gradeps(:)
 
- !ddustfrac_func = -1./rhoi*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts))
+ !ddustevol_func = -1./rhoi*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts))
 
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
 ! si = sqrt(dustfraci*rhoi)
-! ddustfrac_func = -0.5/si*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts)) - 0.5*si*divvfunc(xyzhi)
+! ddustevol_func = -0.5/si*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts)) - 0.5*si*divvfunc(xyzhi)
+!------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+ si = sqrt(dustfraci/(1.-dustfraci))
+ ddustevol_func = -0.5*((dustfraci*tsi*del2P + dot_product(gradp,gradepsts))/(rhoi*si*(1.-dustfraci)**2.))
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
- si = asin(sqrt(dustfraci))
- ddustfrac_func = -0.5/(rhoi*sin(si)*cos(si))*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts))
+! si = asin(sqrt(dustfraci))
+! ddustevol_func = -0.5/(rhoi*sin(si)*cos(si))*(dustfraci*tsi*del2P + dot_product(gradp,gradepsts))
 !------------------------------------------------
 
-end function ddustfrac_func
+end function ddustevol_func
 
 real function dudtdust_func(xyzhi)
  use eos,  only:gamma
- use dim,  only:ndusttypes
+ use part, only:ndusttypes
 #ifdef DUST
  use dust, only:get_ts,idrag
 #endif
@@ -2658,9 +2677,9 @@ real function dudtdust_func(xyzhi)
  gradu(1)   = dudx(xyzhi)
  gradu(2)   = dudy(xyzhi)
  gradu(3)   = dudz(xyzhi)
- gradeps(1) = ddustfracdx(xyzhi)
- gradeps(2) = ddustfracdy(xyzhi)
- gradeps(3) = ddustfracdz(xyzhi)
+ gradeps(1) = ddustevoldx(xyzhi)
+ gradeps(2) = ddustevoldy(xyzhi)
+ gradeps(3) = ddustevoldz(xyzhi)
  gradsumeps = real(ndusttypes)*gradeps
  pri        = (gamma-1.)*rhogasi*uui
  spsoundi   = gamma*pri/rhogasi
@@ -2680,8 +2699,8 @@ real function dudtdust_func(xyzhi)
 end function dudtdust_func
 
 real function deltavx_func(xyzhi)
- use eos, only:gamma
- use dim, only:ndusttypes
+ use eos,  only:gamma
+ use part, only:ndusttypes
 #ifdef DUST
  use dust, only:get_ts,idrag
 #endif
@@ -2698,7 +2717,7 @@ real function deltavx_func(xyzhi)
  dustfracisum = real(ndusttypes)*dustfraci
  rhogasi    = (1.-dustfracisum)*rhoi
  rhodusti   = dustfracisum*rhoi
- gradsumeps = real(ndusttypes)*ddustfracdx(xyzhi)
+ gradsumeps = real(ndusttypes)*ddustevoldx(xyzhi)
  gradu      = dudx(xyzhi)
  uui        = utherm(xyzhi)
  pri        = (gamma-1.)*rhogasi*uui

@@ -21,6 +21,7 @@ urlgitrepo="https://bitbucket.org/danielprice/phantom";
 url="http://users.monash.edu.au/~dprice/phantom";
 webserver="users.monash.edu.au:WWW/phantom/";
 #urllogs="https://users.monash.edu.au/~dprice/phantom/nightly/logs/"
+sender="daniel.price@infra.monash.edu";
 admin="daniel.price@monash.edu";
 systems="msg gfortran";
 mailfile="$dir/mail.tmp";
@@ -48,7 +49,14 @@ get_incoming_changes ()
       exit;
    fi
    git log ..@{u} --format="%aN <%aE>" | sort -u > $dir/users.list;
-   # extract list of people to send mail to
+   # get list of incoming changesets
+   changesets=`git log ..@{u} --format="%h"`;
+#   changesets=`grep commit $incoming | cut -d':' -f 2`;
+   git log ..@{u} --format="%s" > $dir/summary.txt;
+}
+extract_names_of_users ()
+{
+   # extract list of people to send mail to from users.list
    mailto='';
    names='';
    while read line; do
@@ -56,10 +64,9 @@ get_incoming_changes ()
       names+="`echo $line | cut -d' ' -f 1`, ";
    done < $dir/users.list
    echo "mailto: $mailto";
-   # get list of incoming changesets
-   changesets=`git log ..@{u} --format="%h"`;
-#   changesets=`grep commit $incoming | cut -d':' -f 2`;
-   git log ..@{u} --format="%s" > $dir/summary.txt;
+}
+extract_changeset_list ()
+{
    i=0;
    while read line; do
       summary[$((i++))]=`echo $line`
@@ -124,16 +131,21 @@ write_htmlfile_gittag_and_mailfile ()
        cat test-status-$SYSTEM.html >> $htmlfile
        cat build-status-$SYSTEM.html >> $htmlfile
        files=`ls make-*errors*-$SYSTEM.txt make-*errors*-$SYSTEM-debug.txt test-results*-$SYSTEM.txt test-results*-$SYSTEM-debug.txt`
-       for x in $files; do
-           webfile="$webdir/nightly/logs/$x";
-           cp $x $webfile;
-       done
+       weblogdir="$webdir/nightly/logs"
+       if [ -d "$weblogdir" ]; then
+          for x in $files; do
+              webfile="$weblogdir/$x";
+              cp $x $webfile;
+          done
+       else
+          echo "ERROR: cannot copy logs to $weblogdir: directory does not exist";
+       fi
        faillog=$codedir/logs/build-failures-$SYSTEM.txt;
        faillogtest=$codedir/logs/test-failures-$SYSTEM.txt;
        faillogsetup=$codedir/logs/setup-failures-$SYSTEM.txt;
        if [ -e $faillog ]; then
           fails='';
-          for fail in `cat $faillog`; do
+          for fail in `cat $faillog | sort -u`; do
              fails+="$fail ";
           done
           if [ "X$fails" != "X" ]; then
@@ -197,6 +209,7 @@ write_htmlfile_gittag_and_mailfile ()
       fi
       failtext=${failtext/ and /};
       gittag="${failtext/ and /}fail-$datetag";
+      gittag="${gittag/ and /}";
    else
       if [ "X$warnings" != "X" ]; then
          gotissues=1;
@@ -211,8 +224,9 @@ write_htmlfile_gittag_and_mailfile ()
       text='Please give yourself a pat on the back';
       msg=' Congratulations!';
    else
-      preamble="I detected ${msg/build failure/<strong>build failure</strong>} due to changes pushed in the last 24 hours.";
-      preamble="${preamble/testsuite failures/<strong>testsuite failures</strong>}";
+      preamble="Detected ${msg}";
+      preamblehtml="I detected ${msg/build failure/<strong>build failure</strong>} due to changes pushed in the last 24 hours.";
+      preamblehtml="${preamble/testsuite failures/<strong>testsuite failures</strong>}";
    fi
    if [ "X$mailto" == "X" ]; then
       echo "BLANK users list in mail, sending to admin only";
@@ -237,7 +251,7 @@ Content-Type: text/html
 
 <p>Dear $names</p>
 
-<p>$preamble Details below, or on the <a href="$url/nightly/">web page</a>.</p>
+<p>$preamblehtml Details below, or on the <a href="$url/nightly/">web page</a>.</p>
 
 <p>$text.</p>
 
@@ -292,10 +306,14 @@ commit_and_push_to_website ()
 # enter code directory
 cd $codedir
 get_incoming_changes
+extract_names_of_users
+extract_changeset_list
 pull_changes
 run_buildbot
 #pull_wiki
 write_htmlfile_gittag_and_mailfile
+#longmessage="${names/,/}: $preamble $text"
+#echo "$longmessage"
 message="status: <$url/nightly/build/$datetag.html|$gittag>"
 post_to_slack "$message"
 tag_code_and_push_tags

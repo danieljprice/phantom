@@ -23,8 +23,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, deriv, dim, dust, energies, eos, io, kernel,
-!    mpiutils, options, part, physcon, random, step_lf_global, testutils,
-!    timestep, unifdis, units, vectorutils
+!    mpiutils, options, part, physcon, random, set_dust, step_lf_global,
+!    table_utils, testutils, timestep, unifdis, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module testdust
@@ -39,20 +39,20 @@ contains
 
 subroutine test_dust(ntests,npass)
 #ifdef DUST
- use dust,      only:idrag,init_drag,get_ts,grainsize,graindens,&
-                     set_dustfrac,smincgs,smaxcgs,sindex
- use physcon,   only:solarm,au
- use units,     only:set_units,unit_density
- use eos,       only:gamma
- use dim,       only:ndusttypes,use_dust
- use mpiutils,  only:barrier_mpi
- use options,   only:use_dustfrac
+ use dust,        only:idrag,init_drag,get_ts
+ use set_dust,    only:set_dustbinfrac
+ use physcon,     only:solarm,au
+ use units,       only:set_units,unit_density,udist
+ use eos,         only:gamma
+ use dim,         only:use_dust
+ use mpiutils,    only:barrier_mpi
+ use options,     only:use_dustfrac
+ use table_utils, only:logspace
 #endif
  integer, intent(inout) :: ntests,npass
 #ifdef DUST
- integer :: i,nfailed(10),ierr,iregime
- real    :: dustfraci(ndusttypes),dustfracisum,rhoi,rhogasi,spsoundi,tsi(ndusttypes)
- real    :: dust_to_gas
+ integer :: nfailed(2),ierr,iregime
+ real    :: rhoi,rhogasi,rhodusti,spsoundi,tsi,grainsizei,graindensi
 
  if (id==master) write(*,"(/,a)") '--> TESTING DUST MODULE'
 
@@ -72,21 +72,14 @@ subroutine test_dust(ntests,npass)
  idrag = 1
  rhoi = 1.e-13/unit_density
  spsoundi = 1.
- if (use_dust .and. ndusttypes>1) then
-    use_dustfrac = .true.
-    dust_to_gas = 0.01
-    call set_dustfrac(dust_to_gas,dustfraci,smincgs,smaxcgs,sindex)
- else
-    dustfraci(:) = 0.5
- endif
- dustfracisum = sum(dustfraci)
- rhogasi = rhoi*(1. - dustfracisum)
- do i = 1,ndusttypes
-    call get_ts(idrag,grainsize(i),graindens(i),rhogasi,rhoi*dustfracisum,spsoundi,0.,tsi(i),iregime)
- enddo
+ grainsizei = 1./udist
+ graindensi = 1./unit_density
+ rhogasi  = 0.5*rhoi
+ rhodusti = 0.5*rhoi
+ call get_ts(idrag,grainsizei,graindensi,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
  call checkval(iregime,1,0,nfailed(1),'deltav=0 gives Epstein drag')
  ntests = ntests + 1
- if (all(nfailed==0)) npass = npass + 1
+ if (nfailed(1)==0) npass = npass + 1
 
  !
  ! Test transition between Epstein/Stokes drag
@@ -130,20 +123,23 @@ end subroutine test_dust
 !+
 !----------------------------------------------------
 subroutine test_dustybox(ntests,npass)
+ use dim,            only:maxp,maxalpha
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-                          dustfrac,dustevol,ddustfrac,temperature,iphase,iamdust,maxtypes,pxyzu,dens,metrics
+                          dustfrac,dustevol,ddustevol,temperature,iphase,iamdust,maxtypes,&
+                          ndusttypes,alphaind
+ use part,           only:pxyzu,dens,metrics
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use energies,       only:compute_energies,ekin
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use eos,            only:ieos,polyk,gamma
  use dust,           only:K_code,idrag
- use options,        only:alpha,alphamax,use_dustfrac
+ use options,        only:alpha,alphamax
  use unifdis,        only:set_unifdis
- use dim,            only:periodic,mhd,use_dust,ndusttypes
+ use dim,            only:periodic,mhd,use_dust
  use timestep,       only:dtmax
  use io,             only:iverbose
  use mpiutils,       only:reduceall_mpi
@@ -163,12 +159,7 @@ subroutine test_dustybox(ntests,npass)
  endif
 
  if (periodic .and. use_dust) then
-    if (use_dustfrac .and. ndusttypes>1) then
-       if (id==master) write(*,"(/,a)") '--> skipping DUSTYBOX because use_dustfrac = yes AND ndusttypes > 1'
-       return
-    else
-       if (id==master) write(*,"(/,a)") '--> testing DUSTYBOX'
-    endif
+    if (id==master) write(*,"(/,a)") '--> testing DUSTYBOX'
  else
     if (id==master) write(*,"(/,a)") '--> skipping DUSTYBOX (need -DPERIODIC and -DDUST)'
     return
@@ -186,17 +177,42 @@ subroutine test_dustybox(ntests,npass)
  npart = 0
  fxyzu = 0.
  ddustprop = 0.
- ddustfrac = 0.
+ ddustevol = 0.
  dBevol = 0.
+ if (maxalpha==maxp) alphaind(:,:) = 0.
 
- do itype=1,2
+ itype = igas
+ npart_previous = npart
+ call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                  deltax,hfact,npart,xyzh,verbose=.false.)
+ do i=npart_previous+1,npart
+    call set_particle_type(i,itype)
+    vxyzu(:,i) = 0.
+    if (iamdust(iphase(i))) then
+       vxyzu(1,i) = 1.
+    endif
+    fext(:,i) = 0.
+    if (mhd) Bevol(:,i) = 0.
+    if (use_dust) then
+       dustevol(:,i) = 0.
+       dustfrac(:,i) = 0.
+    endif
+ enddo
+ npartoftype(itype) = npart - npart_previous
+ npartoftypetot(itype) = reduceall_mpi('+',npartoftype(itype))
+ massoftype(itype) = totmass/npartoftypetot(itype)
+
+
+ ndusttypes = 1         ! only works with one dust type currently
+ do j=1,ndusttypes
+    itype = idust + j - 1
     npart_previous = npart
     call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                      deltax,hfact,npart,xyzh,verbose=.false.)
     do i=npart_previous+1,npart
        call set_particle_type(i,itype)
        vxyzu(:,i) = 0.
-       if (itype==idust) then
+       if (iamdust(iphase(i))) then
           vxyzu(1,i) = 1.
        endif
        fext(:,i) = 0.
@@ -210,6 +226,7 @@ subroutine test_dustybox(ntests,npass)
     npartoftypetot(itype) = reduceall_mpi('+',npartoftype(itype))
     massoftype(itype) = totmass/npartoftypetot(itype)
  enddo
+
  !
  ! runtime parameters
  !
@@ -229,7 +246,7 @@ subroutine test_dustybox(ntests,npass)
  t = 0
  dtmax = nsteps*dt
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum,pxyzu,dens,metrics)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum,pxyzu,dens,metrics)
  !
  ! run dustybox problem
  !
@@ -279,10 +296,11 @@ end subroutine test_dustybox
 !+
 !----------------------------------------------------
 subroutine test_dustydiffuse(ntests,npass)
- use dim,       only:maxp,periodic,maxtypes,mhd,ndusttypes,use_dust
- use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac,dustevol, &
-                     xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,set_particle_type,rhoh,temperature,&
-                     dustprop,ddustprop
+ use dim,       only:maxp,periodic,maxtypes,mhd,use_dust,maxdustsmall,maxalpha
+ use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustevol,dustevol,&
+                     xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,&
+                     set_particle_type,rhoh,temperature,dustprop,ddustprop,&
+                     ndusttypes,ndustsmall,alphaind
  use part,      only:pxyzu,dens,metrics
  use kernel,    only:hfact_default
  use eos,       only:gamma,polyk,ieos
@@ -300,9 +318,9 @@ subroutine test_dustydiffuse(ntests,npass)
  integer :: eps_type
  real    :: errmax(1)
  real    :: deltax,rhozero,totmass,dt,dtnew,time,tmax
- real    :: epstot,epsi(ndusttypes),rc,rc2,r2,A,B,eta
+ real    :: epstot,epsi(maxdustsmall),rc,rc2,r2,A,B,eta
  real    :: erri,exact,errl2,term,tol
- real,allocatable   :: ddustfrac_prev(:,:)
+ real,allocatable   :: ddustevol_prev(:,:)
  logical, parameter :: do_output = .false.
  real,    parameter :: t_write(5) = (/0.1,0.3,1.0,3.0,10.0/)
 
@@ -324,14 +342,17 @@ subroutine test_dustydiffuse(ntests,npass)
  time  = 0.
  npart = 0
  npartoftype(:) = 0
+ ndustsmall = maxdustsmall
+ ndusttypes = ndustsmall
  iverbose = 2
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                   deltax,hfact,npart,xyzh,verbose=.false.)
  npartoftype(igas) = npart
  npartoftypetot(igas) = reduceall_mpi('+',npartoftype(igas))
  massoftype(igas)  = totmass/npartoftypetot(igas)
- allocate(ddustfrac_prev(ndusttypes,npart))
+ allocate(ddustevol_prev(ndustsmall,npart))
  vxyzu = 0.
+ if (maxalpha==maxp) alphaind(:,:) = 0.
  if (mhd) Bevol = 0.
  !
  ! runtime options
@@ -352,15 +373,17 @@ subroutine test_dustydiffuse(ntests,npass)
  select case(eps_type)
  case(1)
     !--Equal dust fractions
-    epsi(:) = epstot/real(ndusttypes)
+    epsi(:) = epstot/real(ndustsmall)
  case(2)
     !--Unequal dust fractions
-    do i=1,ndusttypes
+    epsi = 0.
+    do i=1,ndustsmall
        epsi(i) = 1./real(i)
     enddo
-    epsi = epstot/sum(epsi)*epsi
+    if (ndustsmall > 0) epsi = epstot/sum(epsi)*epsi
  case default
-    stop 'eps_type not valid!'
+    print*,'ERROR: eps_type not valid!'
+    return
  end select
 
  !--check that individual dust fractions add up to the total dust fraction
@@ -371,12 +394,11 @@ subroutine test_dustydiffuse(ntests,npass)
 
  rc   = 0.25
  rc2  = rc**2
+ dustfrac = 0.
  do i=1,npart
     r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
     if (r2 < rc2) then
-       dustfrac(:,i) = epsi(:)*(1. - r2/rc2)
-    else
-       dustfrac(:,i) = 0.
+       dustfrac(1:ndustsmall,i) = epsi(:)*(1. - r2/rc2)
     endif
     call set_particle_type(i,igas)
  enddo
@@ -393,17 +415,22 @@ subroutine test_dustydiffuse(ntests,npass)
  tmax = 10.
  nsteps = nint(tmax/dt)
  dt = tmax/nsteps
+ fxyzu = 0.
+ fext = 0.
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-             dustfrac,ddustfrac,temperature,time,dt,dtnew,pxyzu,dens,metrics)
+             dustfrac,ddustevol,temperature,time,dt,dtnew,pxyzu,dens,metrics)
 
  if (do_output) call write_file(time,xyzh,dustfrac,npart)
  do i=1,npart
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!    dustevol(:,i) = sqrt(dustfrac(:,i)*rhoh(xyzh(4,i),massoftype(igas)))
+!    dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)*rhoh(xyzh(4,i),massoftype(igas)))
+!------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+    dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)/(1.-dustfrac(1:ndustsmall,i)))
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-    dustevol(:,i) = asin(sqrt(dustfrac(:,i)))
+!    dustevol(:,i) = asin(sqrt(dustfrac(1:ndustsmall,i)))
 !------------------------------------------------
  enddo
 
@@ -414,22 +441,25 @@ subroutine test_dustydiffuse(ntests,npass)
     time = j*dt
     !$omp parallel do private(i)
     do i=1,npart
-       ddustfrac_prev(:,i) = ddustfrac(:,i)
-       dustevol(:,i) = dustevol(:,i) + dt*ddustfrac(:,i)
+       ddustevol_prev(:,i) = ddustevol(:,i)
+       dustevol(:,i) = dustevol(:,i) + dt*ddustevol(:,i)
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!       dustfrac(:,i) = dustevol(:,i)**2/rhoh(xyzh(4,i),massoftype(igas))
+!       dustfrac(1:ndustsmall,i) = dustevol(:,i)**2/rhoh(xyzh(4,i),massoftype(igas))
+!------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+       dustfrac(1:ndustsmall,i) = dustevol(:,i)**2/(1.+dustevol(:,i)**2)
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-       dustfrac(:,i) = sin(dustevol(:,i))**2
+!       dustfrac(1:ndustsmall,i) = sin(dustevol(:,i))**2
 !------------------------------------------------
     enddo
     !$omp end parallel do
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,dt,dtnew,pxyzu,dens,metrics)
+                dustprop,ddustprop,dustfrac,ddustevol,temperature,time,dt,dtnew,pxyzu,dens,metrics)
     !$omp parallel do private(i)
     do i=1,npart
-       dustevol(:,i) = dustevol(:,i) + 0.5*dt*(ddustfrac(:,i) - ddustfrac_prev(:,i))
+       dustevol(:,i) = dustevol(:,i) + 0.5*dt*(ddustevol(:,i) - ddustevol_prev(:,i))
     enddo
     !$omp end parallel do
 
@@ -467,7 +497,7 @@ subroutine test_dustydiffuse(ntests,npass)
  !
  dustevol  = 0.
  dustfrac  = 0.
- ddustfrac = 0.
+ ddustevol = 0.
 
 end subroutine test_dustydiffuse
 
@@ -477,25 +507,27 @@ end subroutine test_dustydiffuse
 !+
 !---------------------------------------------------------------------------------
 subroutine test_drag(ntests,npass)
- use dim,       only:maxp,periodic,maxtypes,mhd,ndusttypes,maxvxyzu
- use part,      only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustfrac, &
-                     xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,set_particle_type,rhoh,temperature,&
-                     dustprop,ddustprop,idust,iphase,iamtype
- use part,      only:pxyzu,dens,metrics
- use options,   only:use_dustfrac
- use eos,       only:polyk,ieos
- use kernel,    only:hfact_default
- use dust,      only:K_code,idrag
- use boundary,  only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
- use io,        only:iverbose
- use unifdis,   only:set_unifdis
- use deriv,     only:derivs
- use mpiutils,  only:reduceall_mpi
- use random,    only:ran2
+ use dim,         only:maxp,periodic,maxtypes,mhd,maxvxyzu,maxdustlarge,maxalpha
+ use part,        only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustevol,&
+                       xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,&
+                       set_particle_type,rhoh,temperature,dustprop,ddustprop,&
+                       idust,iphase,iamtype,ndusttypes,grainsize,graindens,alphaind
+ use part,        only:pxyzu,dens,metrics
+ use options,     only:use_dustfrac
+ use eos,         only:polyk,ieos
+ use kernel,      only:hfact_default
+ use dust,        only:K_code,idrag
+ use boundary,    only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
+ use io,          only:iverbose
+ use unifdis,     only:set_unifdis
+ use deriv,       only:derivs
+ use mpiutils,    only:reduceall_mpi
+ use random,      only:ran2
  use vectorutils, only:cross_product3D
+ use units,       only:udist,unit_density
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
- integer :: nx,i,nfailed,itype,iseed
+ integer :: nx,i,j,nfailed,itype,iseed,npart_previous,iu
  real    :: da(3),dl(3),temp(3)
  real    :: psep,time,rhozero,totmass,dtnew,dekin,deint
 
@@ -520,32 +552,42 @@ subroutine test_drag(ntests,npass)
     ieos = 2
  endif
  fxyzu(:,:) = 0.
+ if (maxalpha==maxp) alphaind(:,:) = 0.
 
  iverbose = 2
  use_dustfrac = .false.
+ iu = 4
+
  call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                       psep,hfact,npart,xyzh,verbose=.false.)
  npartoftype(igas) = npart
  npartoftypetot(igas) = reduceall_mpi('+',npartoftype(igas))
- massoftype(igas)  = totmass/npartoftypetot(igas)
+ massoftype(igas) = totmass/npartoftypetot(igas)
 
  do i=1,npart
     call set_particle_type(i,igas)
     vxyzu(1:3,i) = (/ran2(iseed),ran2(iseed),ran2(iseed)/)
-    if (maxvxyzu >= 4) vxyzu(4,i) = ran2(iseed)
+    if (maxvxyzu >= 4) vxyzu(iu,i) = ran2(iseed)
  enddo
 
- call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                      3.*psep,hfact,npart,xyzh,verbose=.false.)
+ ndusttypes = maxdustlarge
+ do j=1,ndusttypes
+    grainsize(j) = j*1./udist
+    graindens(j) = 1./unit_density
+    npart_previous = npart
+    call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                         3.*psep,hfact,npart,xyzh,verbose=.false.)
 
- do i=npartoftype(igas)+1,npart
-    call set_particle_type(i,idust)
-    vxyzu(1:3,i) = (/ran2(iseed),ran2(iseed),ran2(iseed)/)
-    if (maxvxyzu >= 4) vxyzu(4,i) = 0.
+    itype = idust + j - 1
+    do i=npart_previous+1,npart
+       call set_particle_type(i,itype)
+       vxyzu(1:3,i) = (/ran2(iseed),ran2(iseed),ran2(iseed)/)
+       if (maxvxyzu >= 4) vxyzu(iu,i) = 0.
+    enddo
+    npartoftype(itype) = npart - npart_previous
+    npartoftypetot(itype) = reduceall_mpi('+',npartoftype(itype))
+    massoftype(itype) = totmass/npartoftypetot(itype)
  enddo
- npartoftype(idust) = npart - npartoftype(igas)
- npartoftypetot(idust) = reduceall_mpi('+',npartoftype(idust))
- massoftype(idust)  = totmass/npartoftypetot(idust)
 
  if (mhd) Bevol = 0.
 
@@ -555,8 +597,9 @@ subroutine test_drag(ntests,npass)
  idrag=1
  if(idrag==2) K_code = 100.
 
+ fext = 0.
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-             dustfrac,ddustfrac,temperature,time,0.,dtnew,pxyzu,dens,metrics)
+             dustfrac,ddustevol,temperature,time,0.,dtnew,pxyzu,dens,metrics)
 
 !
 ! check that momentum and energy are conserved
@@ -574,7 +617,7 @@ subroutine test_drag(ntests,npass)
     endif
     if (maxvxyzu >= 4) then
        dekin  = dekin  + massoftype(itype)*dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
-       deint  = deint  + massoftype(itype)*fxyzu(4,i)
+       deint  = deint  + massoftype(itype)*fxyzu(iu,i)
     endif
  enddo
 
@@ -600,14 +643,14 @@ end subroutine test_drag
 !+
 !---------------------------------------------------------
 subroutine test_epsteinstokes(ntests,npass)
- use dust,      only:idrag,init_drag,get_ts,grainsize,graindens,grainsizecgs
- use units,     only:unit_density,unit_velocity,utime
+ use dust,      only:idrag,get_ts
+ use units,     only:unit_density,unit_velocity,utime,udist
  use physcon,   only:years,kb_on_mh,pi
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end
  integer, intent(inout) :: ntests,npass
- integer :: iregime,ierr,i,j,nfailed,ncheck
+ integer :: iregime,i,j,nfailed,ncheck
  integer, parameter :: npts=1001, nrhopts = 11
- real :: rhogas,spsoundi,tsi,ts1,deltav,tol
+ real :: rhogas,spsoundi,tsi,ts1,deltav,tol,grainsizei,graindensi
  real :: smin,smax,ds,rhomin,rhomax,drho,psi,exact,err,errmax
  logical :: write_output = .false.
  character(len=60) :: filename
@@ -618,6 +661,7 @@ subroutine test_epsteinstokes(ntests,npass)
  idrag = 1
  spsoundi = 6.e4/unit_velocity
  deltav = 1.e-2*spsoundi
+ graindensi = 1./unit_density
  !print*,' T = ',(6.e4)**2/kb_on_mh*2.,' delta v/cs = ',deltav/spsoundi
  smin = 1.e-6 ! cgs units
  smax = 1.e8
@@ -636,17 +680,17 @@ subroutine test_epsteinstokes(ntests,npass)
     write(filename,"(a,1pe8.2)") 'rho=',rhogas*unit_density
     ncheck = 0
     nfailed = 0
+    errmax = 0.
     tol = 6.3e-2
     do i=1,npts
-       grainsizecgs  = smin*10**((i-1)*ds)
-       call init_drag(ierr)
+       grainsizei = smin*10**((i-1)*ds)/udist
        !--no need to test drag transition 'ndusttypes' times...once is enough
-       call get_ts(idrag,grainsize(1),graindens(1),rhogas,0.,spsoundi,deltav**2,tsi,iregime)
-       !print*,'s = ',grainsizecgs,' ts = ',tsi*utime/years,',yr ',iregime
+       call get_ts(idrag,grainsizei,graindensi,rhogas,0.,spsoundi,deltav**2,tsi,iregime)
+       !print*,'s = ',grainsizei,' ts = ',tsi*utime/years,',yr ',iregime
 
        if (i > 1) call checkvalbuf((tsi-ts1)/abs(tsi),0.,tol,'ts is continuous into Stokes regime',nfailed,ncheck,errmax)
        ts1 = tsi
-       if (write_output) write(lu,*) grainsizecgs,tsi*utime/years,iregime
+       if (write_output) write(lu,*) grainsizei,tsi*utime/years,iregime
     enddo
     if (write_output) close(lu)
     call checkvalbuf_end('ts is continuous into Stokes regime: '//trim(filename),ncheck,nfailed,errmax,tol)
@@ -657,9 +701,8 @@ subroutine test_epsteinstokes(ntests,npass)
  !
  ! graph of variation with delta v / cs
  !
- grainsizecgs = 0.1
+ grainsizei = 0.1/udist
  rhogas = 1.e-13/unit_density
- call init_drag(ierr)
  smin = 0.
  smax = 10.
  ds = (smax-smin)/real(npts-1)
@@ -667,7 +710,7 @@ subroutine test_epsteinstokes(ntests,npass)
  if (write_output) open(unit=lu,file='ts-deltav.out',status='replace')
  do i=1,npts
     deltav = (smin + (i-1)*ds)*spsoundi
-    call get_ts(idrag,grainsize(1),graindens(1),rhogas,0.,spsoundi,deltav**2,tsi,iregime)
+    call get_ts(idrag,grainsizei,graindensi,rhogas,0.,spsoundi,deltav**2,tsi,iregime)
     psi = sqrt(0.5)*deltav/spsoundi
     if (i==1) then
        ts1 = tsi
@@ -696,7 +739,8 @@ end subroutine test_epsteinstokes
 !+
 !---------------------------------------------------
 subroutine write_file(time,xyzh,dustfrac,npart)
- use dim, only:ndusttypes,maxp
+ use dim,  only:maxp
+ use part, only:ndusttypes
  real, intent(in)     :: time
  real, intent(in)    :: xyzh(:,:),dustfrac(:,:)
  integer, intent(in) :: npart

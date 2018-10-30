@@ -85,8 +85,16 @@ module dim
 !------
 #ifdef DUST
  logical, parameter :: use_dust = .true.
- integer, parameter :: ndustfluids = 1
- integer, parameter :: ndusttypes = 1
+#ifdef MAXDUSTLARGE
+ integer, parameter :: maxdustlarge = MAXDUSTLARGE
+#else
+ integer, parameter :: maxdustlarge = 11
+#endif
+#ifdef MAXDUSTSMALL
+ integer, parameter :: maxdustsmall = MAXDUSTSMALL
+#else
+ integer, parameter :: maxdustsmall = 11
+#endif
  integer, parameter :: maxp_dustfrac = maxp
 #ifdef DUSTGROWTH
  logical, parameter :: use_dustgrowth = .true.
@@ -97,30 +105,31 @@ module dim
 #endif
 #else
  logical, parameter :: use_dust = .false.
- integer, parameter :: ndustfluids = 0
- integer, parameter :: ndusttypes = 1 ! to avoid seg faults
+ integer, parameter :: maxdustlarge = 1
+ integer, parameter :: maxdustsmall = 1
  integer, parameter :: maxp_dustfrac = 0
  logical, parameter :: use_dustgrowth = .false.
  integer, parameter :: maxp_growth = 0
 #endif
+ integer, parameter :: maxdusttypes = maxdustsmall + maxdustlarge
 
  ! kdtree
  integer, parameter :: minpart = 10
 
  ! rhosum
- integer, parameter :: maxrhosum = 39
+ integer, parameter :: maxrhosum = 39 + maxdustlarge - 1
 
  ! fsum
  integer, parameter :: fsumvars = 19 ! Number of scalars in fsum
  integer, parameter :: fsumarrs = 5  ! Number of arrays in fsum
- integer, parameter :: maxfsum  = fsumvars + fsumarrs*(ndusttypes-1) ! Total number of values
+ integer, parameter :: maxfsum  = fsumvars + fsumarrs*(maxdusttypes-1) ! Total number of values
 
  ! xpartveci
  integer, parameter :: maxxpartvecidens = 14
 
  integer, parameter :: maxxpartvecvars = 57 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
- integer, parameter :: maxxpartveciforce = maxxpartvecvars + maxxpartvecarrs*(ndusttypes-1) ! Total number of values
+ integer, parameter :: maxxpartveciforce = maxxpartvecvars + maxxpartvecarrs*(maxdusttypes-1) ! Total number of values
 
  ! cell storage
  integer, parameter :: maxprocs = 32
@@ -133,11 +142,11 @@ module dim
  ! storage for artificial viscosity switch
 #ifdef DISC_VISCOSITY
  integer, parameter :: maxalpha = 0
- integer, parameter :: nalpha = 0
+ integer, parameter :: nalpha = 1
 #else
 #ifdef CONST_AV
  integer, parameter :: maxalpha = 0
- integer, parameter :: nalpha = 0
+ integer, parameter :: nalpha = 1
 #else
  integer, parameter :: maxalpha = maxp
 #ifdef USE_MORRIS_MONAGHAN
@@ -171,7 +180,7 @@ module dim
  !
  ! Maximum number of particle types
  !
- integer, parameter :: maxtypes = 6
+ integer, parameter :: maxtypes = 7 + maxdustlarge - 1
 
  !
  ! Number of dimensions, where it is needed
@@ -189,15 +198,13 @@ module dim
 #ifdef MHD
  logical, parameter :: mhd = .true.
  integer, parameter :: maxmhd = maxp
- integer, parameter :: maxBevol = 4  ! Bx,By,Bz,Psi (latter for div B cleaning)
- integer, parameter :: ndivcurlB = 4
 #else
  ! if no MHD, do not store any of these
  logical, parameter :: mhd = .false.
  integer, parameter :: maxmhd = 0
- integer, parameter :: maxBevol = 4 ! irrelevant, but prevents compiler warnings
- integer, parameter :: ndivcurlB = 0
 #endif
+ integer, parameter :: maxBevol = 4 ! irrelevant, but prevents compiler warnings
+ integer, parameter :: ndivcurlB = 4
 
 ! non-ideal MHD
 #ifdef MHD
@@ -288,12 +295,6 @@ module dim
 #else
  logical, parameter :: use_CMacIonize = .false.
 #endif
-
-!--------------------
-! Calculate rotational energy in .ev
-!--------------------
- logical, public :: calc_erot = .false.
- logical, public :: incl_erot = .false.
 
  !--------------------
  ! General relativity

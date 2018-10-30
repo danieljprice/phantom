@@ -13,3 +13,9 @@ OMPFLAGS = -fopenmp
 CC = gcc
 CCFLAGS = -O3
 LIBCXX = -lstdc++
+
+# for gfortran version 7+ need this flag to fix DEBUG=yes compile failures
+GFORTRAN_VERSION_MAJOR=${shell gfortran -dumpversion | cut -d'.' -f 1}
+ifeq ($(shell [ $(GFORTRAN_VERSION_MAJOR) -gt 6 ] && echo true),true)
+    DEBUGFLAG+= -finit-derived
+endif

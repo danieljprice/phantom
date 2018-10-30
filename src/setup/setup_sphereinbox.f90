@@ -38,8 +38,9 @@
 !+
 !--------------------------------------------------------------------------
 module setup
- use part, only:mhd
- use dim,  only:use_dust,calc_erot,maxvxyzu
+ use part,    only:mhd
+ use dim,     only:use_dust,maxvxyzu
+ use options, only:calc_erot
  implicit none
  public :: setpart
 
@@ -73,10 +74,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield
  use eos,          only:polyk2,ieos
  use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type
- use timestep,     only:dtmax,tmax,rho_dtthresh_cgs,dtmax_rat0
+ use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
  use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
  use centreofmass, only:reset_centreofmass
- use options,      only:nfulldump
+ use options,      only:nfulldump,rhofinal_cgs
  use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -93,8 +94,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real               :: totmass_box,t_ff,r2,area,Bzero,rmasstoflux_crit
  real               :: rxy2,rxyz2,phi,dphi,lbox
  integer            :: i,nx,np_in,npartsphere,npmax,ierr
- logical            :: iexist,is_box,make_sinks
- logical            :: modify_dtmax = .false.  ! decrease dtmax specifically for isolated protostar formation studies
+ logical            :: iexist,is_box
+ logical            :: make_sinks = .true.
  character(len=100) :: filename
  character(len=40)  :: fmt
  character(len=10)  :: string,h_acc_char
@@ -200,7 +201,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     !
     ! ask about sink particle details; these will not be saved to the .setup file since they exist in the .in file
-    make_sinks = .true.
     call prompt('Do you wish to dynamically create sink particles? ',make_sinks)
     if (make_sinks) then
        if (binary) then
@@ -378,7 +378,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           xyzh(2,i) = sqrt(rxy2)*sin(phi)
        endif
     enddo
-    modify_dtmax = .false.
  endif
  !
  ! velocity field corresponding to uniform rotation
@@ -405,22 +404,24 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  filename=trim(fileprefix)//'.in'
  inquire(file=filename,exist=iexist)
+ dtmax = t_ff/100.  ! Since this variable can change, always reset it if running phantomsetup
  if (.not. iexist) then
     if (binary) then
-       tmax       = 13.33
+       tmax      = 13.33
     else
-       tmax       = 10.75
+       tmax      = 10.75
     endif
-    dtmax         = t_ff/100.
-    ieos          = 8
-    nfulldump     = 1
-    calc_erot     = .true.
-    if (modify_dtmax) then
-       dtmax_rat0       = 4
-       rho_dtthresh_cgs = 5.0d-13
+    ieos         = 8
+    nfulldump    = 1
+    calc_erot    = .true.
+    dtmax_dratio = 1.258
+    if (make_sinks) then
+       dtmax_min = dtmax/8.0
+    else
+       dtmax_min = 0.0
+       rhofinal_cgs = 0.15
     endif
  endif
- if (modify_dtmax) dtmax = t_ff/100.
 
 end subroutine setpart
 

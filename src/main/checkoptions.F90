@@ -37,7 +37,7 @@ contains
 !-------------------------------------------------------------------
 subroutine check_compile_time_settings(ierr)
  use part,  only:mhd,maxBevol,gravity,ngradh,h2chemistry,maxvxyzu,use_dust,gr
- use dim,   only:use_dustgrowth,maxsts
+ use dim,   only:use_dustgrowth,maxtypes,maxsts
  use io,    only:error,id,master,fatal,warning
 #ifdef GR
  use metric_tools, only:icoordinate,icoord_cartesian
@@ -87,6 +87,12 @@ subroutine check_compile_time_settings(ierr)
        ierr = 3
     endif
  endif
+ if (maxtypes > 64) then
+    if (id==master) call error(string,'cannot use more than 64 particle types' // &
+       ' unless iphase is changed to int*2')
+    ierr = 4
+ endif
+
 
 #ifdef DISC_VISCOSITY
 #ifdef CONST_AV

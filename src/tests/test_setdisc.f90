@@ -35,7 +35,7 @@ subroutine test_setdisc(ntests,npass)
  use io,         only:id,master
  use part,       only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,Bevol,mhd, &
                       alphaind,maxalpha, &
-                      divcurlv,divcurlB,dBevol,periodic,maxvxyzu,dustfrac,ddustfrac,dustprop,ddustprop,temperature,&
+                      divcurlv,divcurlB,dBevol,periodic,maxvxyzu,dustfrac,ddustevol,dustprop,ddustprop,temperature,&
                       pxyzu,dens,metrics
  use eos,        only:polyk,gamma
  use options,    only:ieos,alpha,alphau,alphaB
@@ -119,7 +119,7 @@ subroutine test_setdisc(ntests,npass)
 !
     call getused(t1)
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
     call getused(t2)
     if (id==master) call printused(t1)
 !
