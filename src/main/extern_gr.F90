@@ -54,9 +54,11 @@ end subroutine get_grforce_all
 !    this is multiplied by the safety factor C_force elsewhere
 subroutine dt_grforce(xyzh,fext,dtf)
 #ifdef FINVSQRT
- use fastmath, only:finvsqrt
+ use fastmath,     only:finvsqrt
 #endif
- use physcon,  only:pi
+ use physcon,      only:pi
+ use metric,       only:imetric
+ use metric_tools, only:imet_minkowski
  real, intent(in)  :: xyzh(4),fext(3)
  real, intent(out) :: dtf
  real :: r,r2,dtf1,dtf2,f2i
@@ -69,9 +71,13 @@ subroutine dt_grforce(xyzh,fext,dtf)
  dtf1 = sqrt(xyzh(4)/sqrt(f2i)) ! This is not really accurate since fi is a component of dp/dt, not da/dt
 #endif
 
- r2   = xyzh(1)*xyzh(1) + xyzh(2)*xyzh(2) + xyzh(3)*xyzh(3)
- r    = sqrt(r2)
- dtf2 = (2.*pi*sqrt(r*r2))/steps_per_orbit
+ if (imetric /= imet_minkowski) then
+    r2   = xyzh(1)*xyzh(1) + xyzh(2)*xyzh(2) + xyzh(3)*xyzh(3)
+    r    = sqrt(r2)
+    dtf2 = (2.*pi*sqrt(r*r2))/steps_per_orbit
+ else
+    dtf2 = huge(dtf2)
+ endif
 
  dtf = min(dtf1,dtf2)
 

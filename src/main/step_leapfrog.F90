@@ -212,7 +212,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! accretion onto sinks/potentials also happens during substepping
 !----------------------------------------------------------------------
 #ifdef GR
- if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
+ if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0) then
     call conservative_to_primitive(npart,xyzh,metrics,pxyzu,vxyzu,dens)
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
     call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t)
@@ -651,7 +651,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use dim,            only:maxptmass,maxp,maxvxyzu
  use io,             only:iverbose,id,master,iprint,warning
  use externalforces, only:externalforce,accrete_particles,update_externalforce
- use options,        only:iexternalforce
+ use options,        only:iexternalforce,idamp
  use part,           only:maxphase,isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
                           summary_accrete,summary_accrete_fail
@@ -660,6 +660,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use cons2prim,      only:conservative_to_primitive
  use extern_gr,      only:get_grforce
  use metric_tools,   only:pack_metric,pack_metricderivs
+ use damping,        only:calc_damp,apply_damp
  integer, intent(in)    :: npart,ntypes
  real,    intent(in)    :: dtsph,time
  real,    intent(inout) :: dtextforce
@@ -668,7 +669,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  real    :: timei,t_end_step,hdt,pmassi
  real    :: dt,dtf,dtextforcenew,dtextforce_min
  real    :: pi,pprev(3),xyz_prev(3),spsoundi,pondensi
- real    :: x_err,pmom_err,fstar(3),vxyzu_star(4),accretedmass
+ real    :: x_err,pmom_err,fstar(3),vxyzu_star(4),accretedmass,damp_fac
  ! real, save :: dmdt = 0.
  logical :: last_step,done,converged,accreted
  integer, parameter :: itsmax = 50
@@ -698,6 +699,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     timei         = timei + dt
     nsubsteps     = nsubsteps + 1
     dtextforcenew = bignumber
+
+    call calc_damp(time, damp_fac, idamp)
 
     if (.not.last_step .and. iverbose > 1 .and. id==master) then
        write(iprint,"(a,f14.6)") '> external forces only : t=',timei
@@ -793,7 +796,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp private(pi,pondensi,spsoundi,dtf) &
     !$omp firstprivate(itype,pmassi) &
     !$omp reduction(min:dtextforce_min) &
-    !$omp reduction(+:accretedmass,naccreted)
+    !$omp reduction(+:accretedmass,naccreted) &
+    !$omp shared(idamp,damp_fac)
     accreteloop: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           if (ntypes > 1 .and. maxphase==maxp) then
@@ -806,6 +810,11 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           pi = pondensi*dens(i)
           call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
           dtextforce_min = min(dtextforce_min,C_force*dtf)
+
+          if (idamp > 0.) then
+             call apply_damp(i, fext(1,i), fext(2,i), fext(3,i), vxyzu, damp_fac)
+          endif
+
           !
           ! correct v to the full step using only the external force
           !
