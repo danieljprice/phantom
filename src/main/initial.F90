@@ -450,6 +450,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef GR
 ! COMPUTE METRIC HERE
  call init_metric(npart,xyzh,metrics,metricderivs)
+#ifdef PRIM2CONS_FIRST
+ ! -- The conserved quantites (momentum and entropy) are being computed
+ ! -- directly from the primitive values in the starting dumpfile.
+ call primitive_to_conservative(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+ write(iprint,*) ''
+ call warning('initial','using preprocessor flag -DPRIM2CONS_FIRST')
+ write(iprint,'(a,/)') ' This means doing prim2cons BEFORE the initial density calculation for this simulation.'
+#endif
  ! --- Need rho computed by sum to do primitive to conservative, since dens is not read from file
  if (npart>0) then
     call set_linklist(npart,npart,xyzh,vxyzu)
@@ -457,7 +465,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                               fxyzu,fext,alphaind,gradh)
  endif
+#ifndef PRIM2CONS_FIRST
  call primitive_to_conservative(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+#endif
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
     call initialise_externalforces(iexternalforce,ierr)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')

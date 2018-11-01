@@ -290,7 +290,7 @@ ifeq ($(SETUP), grtde)
 endif
 
 ifeq ($(SETUP), srpolytrope)
-    FPPFLAGS= -DSORT_RADIUS_INIT
+    FPPFLAGS= -DSORT_RADIUS_INIT -DPRIM2CONS_FIRST
     SETUPFILE= setup_srpolytrope.f90
     GR=yes
     METRIC=minkowski
