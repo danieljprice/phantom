@@ -264,7 +264,7 @@ subroutine compute_energies(t)
        angz = angz + pmassi*angi(3)
 
        ! kinetic energy
-       ekin     = ekin + pmassi*(pdotv + alpha_gr/lorentzi) ! The 'kinetic term' in total specific energy
+       ekin     = ekin + pmassi*(pdotv + alpha_gr/lorentzi - 1.) ! The 'kinetic term' in total specific energy, minus rest mass
 #else
        ! centre of mass
        xcom = xcom + pmassi*xi
