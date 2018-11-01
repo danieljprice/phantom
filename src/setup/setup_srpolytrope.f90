@@ -44,6 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use timestep,    only:tmax,dtmax
  use eos,         only:ieos
  use rho_profile, only:rho_polytrope
+ use prompting,   only:prompt
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -80,6 +81,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 !-- resolution
  nr    = 50
+ call prompt('Resolution -- number of radial particles',nr,0)
  psep  = rstar/nr
 
 !-- polytrope
