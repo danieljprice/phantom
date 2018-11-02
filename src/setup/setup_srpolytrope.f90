@@ -28,6 +28,8 @@ module setup
 
  private
 
+ integer :: nr = 25 !-- Default number of particles in star radius
+
 contains
 
 !----------------------------------------------------------------
@@ -42,6 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,     only:solarm,solarr
  use io,          only:master,fatal
  use timestep,    only:tmax,dtmax
+ use options,     only:nfulldump
  use eos,         only:ieos
  use rho_profile, only:rho_polytrope
  use prompting,   only:prompt
@@ -54,21 +57,31 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
+ character(len=120) :: filename,infile
  integer, parameter :: ntab=5000
- integer :: i,npts,nr
+ integer :: i,npts,ierr
  real    :: psep
  real    :: rtab(ntab),rhotab(ntab)
  real    :: densi,mstar,rstar
+ logical :: iexist
+
+ infile = trim(fileprefix)//'.in'
+ iexist = .false.
+ inquire(file=trim(infile),exist=iexist)
 
 !-- general parameters
  time  = 0.
  polyk = 1.e-10
  gamma = 5./3.
  ieos  = 2
- tmax  = 1000.
- dtmax = 10
 
-!-- space available for injected gas particles
+!-- set tmax and dtmax if no infile found, otherwise we use whatever values it had
+ if (.not.iexist) then
+    tmax      = 20000.
+    dtmax     = 100.
+    nfulldump = 1
+ endif
+
  npart          = 0
  npartoftype(:) = 0
  xyzh(:,:)      = 0.
@@ -79,9 +92,23 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  mstar = 1.*solarm/umass
  rstar = 1.*solarr/udist
 
+ !
+ !-- Read runtime parameters from setup file
+ !
+  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' SR polytrope'
+  filename = trim(fileprefix)//'.setup'
+  inquire(file=filename,exist=iexist)
+  if (iexist) call read_setupfile(filename,ierr)
+  if (.not. iexist .or. ierr /= 0) then
+    if (id==master) then
+       call prompt('Resolution -- number of radial particles',nr,0)
+       call write_setupfile(filename)
+       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
+    endif
+    stop
+  endif
+
 !-- resolution
- nr    = 50
- call prompt('Resolution -- number of radial particles',nr,0)
  psep  = rstar/nr
 
 !-- polytrope
@@ -105,5 +132,43 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (npart == 0) call fatal('setup','no particles setup')
 
 end subroutine setpart
+
+!
+!---Read/write setup file--------------------------------------------------
+!
+subroutine write_setupfile(filename)
+ use infile_utils, only:write_inopt
+ character(len=*), intent(in) :: filename
+ integer, parameter :: iunit = 20
+
+ print "(a)",' writing setup options file '//trim(filename)
+ open(unit=iunit,file=filename,status='replace',form='formatted')
+ write(iunit,"(a)") '# input file for SR polytrope setup'
+ call write_inopt(nr,'nr','resolution (number of radial particles)',iunit)
+ close(iunit)
+
+end subroutine write_setupfile
+
+subroutine read_setupfile(filename,ierr)
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use io,           only:error
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
+ integer, parameter :: iunit = 21
+ integer :: nerr
+ type(inopts), allocatable :: db(:)
+
+ print "(a)",'reading setup options from '//trim(filename)
+ nerr = 0
+ ierr = 0
+ call open_db_from_file(db,filename,iunit,ierr)
+ call read_inopt(nr,'nr',db,min=0,errcount=nerr)
+ call close_db(db)
+ if (nerr > 0) then
+    print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
+    ierr = nerr
+ endif
+
+end subroutine read_setupfile
 
 end module setup
