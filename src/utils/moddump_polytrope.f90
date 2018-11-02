@@ -10,37 +10,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer :: i
- real    :: vr,rhat(3),r,vmax,vmin,vmean,vi
+ real    :: amp
 
-!
-!-- Find min, max, and mean velocties in star/polytrope
-!
- vmin  = huge(vmin)
- vmax  = 0.
- vmean = 0.
+ amp = 1.e-4
+
+ call prompt('Enter the velocity amplitude you want the star to begin oscillating with',amp)
+
  do i=1,npart
-    vi    = sqrt(dot_product(vxyzu(1:3,i),vxyzu(1:3,i)))
-    vmin  = min(vmin,vi)
-    vmax  = max(vmax,vi)
-    vmean = vmean + vi
- enddo
- vmean = vmean/npart
-
- print*,'--- Velocities in polytrope: ---'
- print*,'vmin  = ',vmin
- print*,'vmax  = ',vmax
- print*,'vmean = ',vmean
- print*,'--------------------------------'
-
-!
-!-- Set velocties in star/polytrope to desried value
-!
- vr = -vmean
- call prompt('Enter the velocity you want the star to begin oscillating with',vr)
- do i=1,npart
-    r     = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    rhat  = xyzh(1:3,i)/r
-    vxyzu(1:3,i) = vr*rhat
+    vxyzu(1:3,i) = amp*xyzh(1:3,i)
  enddo
 
  return
