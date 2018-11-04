@@ -712,7 +712,7 @@ endif
 ifeq ($(SETUP), wind)
 #   wind setup (adiabatic supersonic spherical wind from a sink particle)
     SETUPFILE= setup_wind.f90
-    SRCINJECT= icosahedron.f90 inject_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -722,7 +722,7 @@ ifeq ($(SETUP), bowen)
 #   bowen wind setup (pulsating dusty wind)
     FPPFLAGS= -DBOWEN
     SETUPFILE= setup_wind.f90
-    SRCINJECT= icosahedron.f90 bowen_dust.F90 inject_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 bowen_dust.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
