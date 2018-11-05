@@ -30,8 +30,8 @@
 !    wind_osc_period   -- stellar pulsation period (days)
 !    wind_temperature  -- wind temperature at the injection point (K)
 !
-!  DEPENDENCIES: bowen_dust, eos, icosahedron, infile_utils, io, part,
-!    partinject, physcon, timestep, units
+!  DEPENDENCIES: bowen_dust, eos, icosahedron, infile_utils, injectutils,
+!    io, part, physcon, units
 !+
 !--------------------------------------------------------------------------
 module inject

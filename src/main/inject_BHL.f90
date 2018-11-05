@@ -28,7 +28,7 @@
 !    BHL_wind_length      -- crude wind length (in star radii)
 !
 !  DEPENDENCIES: dim, eos, infile_utils, io, part, partinject, physcon,
-!    timestep, units
+!    units
 !+
 !--------------------------------------------------------------------------
 module inject

@@ -5,7 +5,7 @@
 ! http://users.monash.edu.au/~dprice/phantom                               !
 !--------------------------------------------------------------------------!
 !+
-!  MODULE: inject
+!  MODULE: injectutils
 !
 !  DESCRIPTION:
 !   Utility routines for geodesic sphere injection
@@ -16,9 +16,9 @@
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS:
+!  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: partinject
+!  DEPENDENCIES: icosahedron, part, partinject
 !+
 !--------------------------------------------------------------------------
 module injectutils
