@@ -190,6 +190,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use balance,          only:balancedomains
  use domain,           only:ibelong
 #endif
+#ifdef INJECT_PARTICLES
+ use inject,           only:init_inject,inject_particles
+#endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:gamma,polyk,ieos,init_eos
  use part,             only:hfact,h2chemistry
@@ -210,7 +213,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  integer(kind=8) :: npartoftypetot(maxtypes)
  real            :: poti,dtf,hfactfile,fextv(3)
  real            :: hi,pmassi,rhoi1
- real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dummy(3)
+ real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dummy(3),dtinject
  real            :: stressmax
 #ifdef NONIDEALMHD
  real            :: gmw_old,gmw_new
@@ -406,6 +409,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  dtcourant = huge(dtcourant)
  dtforce   = huge(dtforce)
 #endif
+ dtinject  = huge(dtinject)
 
 !
 !--balance domains prior to starting calculation
@@ -498,6 +502,15 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  endif
  call init_ptmass(nptmass,logfile,dumpfile)
 !
+!--inject particles at t=0, and get timestep constraint on this
+!
+#ifdef INJECT_PARTICLES
+ call init_inject(ierr)
+ if (ierr /= 0) call fatal('initial','error initialising particle injection')
+ call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                       npart,npartoftype,dtinject)
+#endif
+!
 !--calculate (all) derivatives the first time around
 !
  dtnew_first   = dtmax  ! necessary in case ntot = 0
@@ -537,7 +550,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !--set initial timestep
 !
 #ifndef IND_TIMESTEPS
- dt = dtnew_first
+ dt = min(dtnew_first,dtinject)
  if (id==master) then
     write(iprint,*) 'dt(forces)    = ',dtforce
     write(iprint,*) 'dt(courant)   = ',dtcourant

@@ -35,7 +35,7 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'BHL'
 
- public :: inject_particles, BHL_init, write_options_inject, read_options_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject
 !
 !--runtime settings for this module
 !
@@ -61,7 +61,7 @@ module inject
  real, parameter :: c_inf = 1.
  real, parameter :: Ra = 1.
 
- real :: distance_between_layers, time_between_layers, h_inf, u_inf, v_inf, tmax
+ real :: distance_between_layers, time_between_layers, h_inf, u_inf, v_inf
  integer :: max_layers, max_particles, nodd, neven
  logical :: first_run = .true.
  real, allocatable :: layer_even(:,:), layer_odd(:,:)
@@ -69,18 +69,22 @@ module inject
  logical, parameter :: verbose = .false.
 
 contains
-
-subroutine BHL_init(setup)
+!-----------------------------------------------------------------------
+!+
+!  Initialize global variables or arrays needed for injection routine
+!+
+!-----------------------------------------------------------------------
+subroutine init_inject(ierr)
  use physcon,    only:gg,pi
  use eos,        only:gamma
  use part,       only:hfact
- use timestep,   only:tmax,dtmax
- use units,      only:utime
  use dim,        only:maxp
  use io,         only:fatal
- logical, intent(in) :: setup
- real :: element_volume, y, z, irrational_number_close_to_one
+ integer, intent(out) :: ierr
+ real :: element_volume, y, z
  integer :: size_y, size_z, pass, i, j
+
+ ierr = 0
 
  v_inf = BHL_mach*c_inf
  BHL_m_star = v_inf**2*Ra/(2.*gg)
@@ -154,32 +158,33 @@ subroutine BHL_init(setup)
  time_between_layers = distance_between_layers/v_inf
  BHL_pmass = dens_inf*element_volume
  h_inf = hfact*(BHL_pmass/dens_inf)**(1./3.)
- if (setup) then
-    tmax = (100.*abs(wind_injection_x)/v_inf)/utime
-    irrational_number_close_to_one = 3./pi
-    dtmax = (irrational_number_close_to_one*time_between_layers)/utime
- endif
-end subroutine
+ !if (setup) then
+!    tmax = (100.*abs(wind_injection_x)/v_inf)/utime
+! endif
+
+end subroutine init_inject
 
 !-----------------------------------------------------------------------
 !+
 !  Main routine handling wind injection.
 !+
 !-----------------------------------------------------------------------
-subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype)
- use io,       only:iprint
- use physcon,  only:gg
+subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                            npart,npartoftype,dtinject)
+ use physcon,  only:gg,pi
+ use units,    only:utime
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
+ real,    intent(out)   :: dtinject
 
- real :: last_time, local_time, x
- integer :: inner_layer, outer_layer, i, i_limited, i_part, np
+ real :: last_time, local_time, x, irrational_number_close_to_one
+ integer :: inner_layer, outer_layer, i, i_limited, i_part, np, ierr
  real, allocatable :: xyz(:,:), vxyz(:,:), h(:), u(:)
 
  if (first_run) then
-    call BHL_init(.false.)
+    call init_inject(ierr)
     first_run = .false.
  endif
 
@@ -221,15 +226,19 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npar
     call inject_or_update_particles(i_part+1, np, xyz, vxyz, h, u, .false.)
     deallocate(xyz, vxyz, h, u)
  enddo
+
+ irrational_number_close_to_one = 3./pi
+ dtinject = (irrational_number_close_to_one*time_between_layers)/utime
+
 end subroutine inject_particles
 
 !
 ! Inject gas or boundary particles
 !
 subroutine inject_or_update_particles(ifirst, n, position, velocity, h, u, boundary)
- use part, only:igas,iboundary,npart,npartoftype,xyzh,vxyzu,massoftype
+ use part,       only:igas,iboundary,npart,npartoftype,xyzh,vxyzu
  use partinject, only:add_or_update_particle
- use units, only: umass, udist, utime
+ use units,      only:udist, utime
  implicit none
  integer, intent(in) :: ifirst, n
  double precision, intent(in) :: position(3,n), velocity(3,n), h(n), u(n)
@@ -269,6 +278,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(BHL_wind_injection_x,'BHL_wind_injection_x','x position of the wind injection boundary (in star radii)',iunit)
  call write_inopt(BHL_psep,'BHL_psep','particle separation (in star radii)',iunit)
  call write_inopt(BHL_wind_length,'BHL_wind_length','crude wind length (in star radii)',iunit)
+
 end subroutine
 
 !-----------------------------------------------------------------------

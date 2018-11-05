@@ -39,7 +39,7 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'wind'
 
- public :: inject_particles, write_options_inject, read_options_inject, init_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject
 !
 !--runtime settings for this module
 !
@@ -94,19 +94,22 @@ contains
 !  Initialize reusable variables
 !+
 !-----------------------------------------------------------------------
-subroutine init_inject(setup)
+subroutine init_inject(ierr)
  use physcon,     only:Rg, days, km
  use icosahedron, only:compute_matrices, compute_corners
- use timestep,    only:dtmax
  use eos,         only:gmw, gamma
  use units,       only:unit_velocity, umass, utime
  use part,        only:massoftype,igas,iboundary
  use io,          only:iverbose
  use injectutils, only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
- logical, intent(in) :: setup
+ integer, intent(out) :: ierr
  real :: mV_on_MdotR,mass_of_particles
  real :: dr,dp,mass_of_particles1,wind_velocity_max
  real, parameter :: irrational_number_close_to_one = pi/3.
+ !
+ ! return without error
+ !
+ ierr = 0
  !
  ! convert input parameters to code units
  !
@@ -179,12 +182,6 @@ subroutine init_inject(setup)
       1.-(iboundary_spheres*dr3)**(1./3.)/wind_injection_radius,' Rinject'
 #endif
 
- ! adjusting dtmax to avoid uterm < 0 errors
- ! to be removed when the routine provides timestep constraints
- if (setup) then
-    dtmax = (.5 * irrational_number_close_to_one * time_between_spheres)
- endif
-
 end subroutine init_inject
 
 !-----------------------------------------------------------------------
@@ -192,7 +189,8 @@ end subroutine init_inject
 !  Main routine handling wind injection.
 !+
 !-----------------------------------------------------------------------
-subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype)
+subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                            npart,npartoftype,dtinject)
  use io,          only:iprint,fatal
  use eos,         only:gamma
 #ifdef BOWEN
@@ -205,14 +203,15 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npar
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
-
- integer :: outer_sphere, inner_sphere, inner_boundary_sphere, i
+ real,    intent(out)   :: dtinject
+ real, parameter :: irrational_number_close_to_one = pi/3.
+ integer :: outer_sphere, inner_sphere, inner_boundary_sphere, i, ierr
  real    :: local_time, GM, r, v, u, rho, e, mass_lost, x0(3), v0(3)
  logical, save :: first_run = .true.
  character(len=*), parameter :: label = 'inject_particles'
 
  if (first_run) then
-    call init_inject(.false.)
+    call init_inject(ierr)
 #ifdef BOWEN
     call bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,bowen_Cprime,&
          bowen_Tcond,bowen_delta,bowen_Teff,wind_osc_vamplitude,wind_osc_period,&
@@ -258,8 +257,16 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npar
     endif
  enddo
 ! print *,'npart',npart,inner_sphere-outer_sphere+1
- mass_lost = mass_of_spheres * (inner_sphere-outer_sphere+1)
- xyzmh_ptmass(4,wind_emitting_sink) = xyzmh_ptmass(4,wind_emitting_sink) - mass_lost
+ if (nptmass > 0 .and. wind_emitting_sink <= nptmass) then
+    mass_lost = mass_of_spheres * (inner_sphere-outer_sphere+1)
+    xyzmh_ptmass(4,wind_emitting_sink) = xyzmh_ptmass(4,wind_emitting_sink) - mass_lost
+ endif
+
+ !
+ ! return timestep constraint to ensure that time between sphere
+ ! injections is adequately resolved
+ !
+ dtinject = (.5 * irrational_number_close_to_one * time_between_spheres)
 
 end subroutine inject_particles
 

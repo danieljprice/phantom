@@ -92,7 +92,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  gamma = wind_gamma
- !call wind_init(.true.)
 !
 !--space available for injected gas particles
 !
@@ -100,7 +99,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(:) = 0
 
  massoftype(igas) = mass_of_particles * (solarm / umass)
- call init_inject(.true.)
+ call init_inject(ierr)
 
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.

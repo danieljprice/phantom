@@ -67,10 +67,10 @@ end subroutine set_defaults_timestep
 !  routine to print out the timestep information to the log file
 !+
 !-----------------------------------------------------------------
-subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,np)
+subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,dtinj,np)
  integer, intent(in) :: iprint
  real,    intent(in) :: time,dt,dtforce,dtcourant,dterr,dtmax
- real,    intent(in), optional :: dtprint
+ real,    intent(in), optional :: dtprint,dtinj
  integer, intent(in) :: np
  character(len=20) :: str
  integer, save :: nplast = 0
@@ -92,6 +92,8 @@ subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,np)
     write(iprint,10) time,dt,'(dtmax)'//trim(str)
  elseif (present(dtprint) .and. abs(dt-dtprint) < tiny(dt)) then
     write(iprint,10) time,dt,'(dtprint)'//trim(str)
+ elseif (present(dtinj) .and. abs(dt-dtinj) < tiny(dt)) then
+    write(iprint,10) time,dt,'(dtinject)'//trim(str)
  else
     !print*,dt,dtforce,dtcourant,dterr,dtmax
     write(iprint,10) time,dt,'(unknown)'//trim(str)
