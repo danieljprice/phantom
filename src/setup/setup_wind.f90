@@ -57,7 +57,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only: xyzmh_ptmass, vxyz_ptmass, nptmass, igas
  use physcon,   only: au, solarm
  use units,     only: umass, set_units
- use inject,    only: wind_init !, mass_of_particles
+ use inject,    only: init_inject !, mass_of_particles
  use setbinary, only: set_binary
  use io,        only: master
  integer,           intent(in)    :: id
@@ -92,7 +92,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  gamma = wind_gamma
- !call wind_init(.true.)
 !
 !--space available for injected gas particles
 !
@@ -100,7 +99,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(:) = 0
 
  massoftype(igas) = mass_of_particles * (solarm / umass)
- call wind_init(.true.)
+ call init_inject(ierr)
 
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.
