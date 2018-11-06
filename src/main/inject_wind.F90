@@ -205,7 +205,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real,    intent(out)   :: dtinject
  real, parameter :: irrational_number_close_to_one = pi/3.
  integer :: outer_sphere, inner_sphere, inner_boundary_sphere, i, ierr
- real    :: local_time, GM, r, v, u, rho, e, mass_lost, x0(3), v0(3)
+ real    :: local_time, GM, r, v, u, rho, e, mass_lost, surface_radius, x0(3), v0(3)
  logical, save :: first_run = .true.
  character(len=*), parameter :: label = 'inject_particles'
 
