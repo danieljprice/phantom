@@ -48,11 +48,6 @@ program phantom
  nfail  = 0
 
  call init_mpi(id,nprocs)
-#ifdef MPI
- call init_tree_comms()
- call init_mpi_memory()
-#endif
-
  call set_io_unit_numbers
  !
  ! get name of run from the command line
@@ -77,6 +72,10 @@ program phantom
     call die
  endif
 
+#ifdef MPI
+ call init_tree_comms()
+ call init_mpi_memory()
+#endif
  if (trim(infile)=='test') then
     !
     ! run the phantom internal test suite
