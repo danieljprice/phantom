@@ -59,7 +59,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use part,             only:maxphase,ibin,iphase
  use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,update_time_per_bin,&
                             write_binsummary,change_nbinmax,nactive,nactivetot,maxbins,&
-                            print_dtlog_ind
+                            print_dtlog_ind,get_newbin
  use timestep,         only:dtdiff
  use timestep_sts,     only:sts_get_dtau_next,sts_init_step
  use io,               only:fatal,warning
@@ -261,6 +261,13 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
     call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
 #ifdef IND_TIMESTEPS
+    ! find timestep bin associated with dtinject
+    nbinmaxprev = nbinmax
+    call get_newbin(dtinject,dtmax,nbinmax,allow_decrease=.false.)
+    if (nbinmax > nbinmaxprev) then ! update number of bins if needed
+       call change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
+    endif
+    ! put all injected particles on shortest bin
     do iloop=npart_old+1,npart
        ibin(iloop) = nbinmax
        twas(iloop) = time + 0.5*get_dt(dtmax,ibin(iloop))
@@ -360,7 +367,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
     !--if total number of bins has changed, adjust istepfrac and dt accordingly
     !  (ie., decrease or increase the timestep)
-    if (nbinmax /= nbinmaxprev .or. dtmax_ifactor/=0) then
+    if (nbinmax /= nbinmaxprev .or. dtmax_ifactor /= 0) then
        call change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
        dt_changed = .true.
     endif
