@@ -25,7 +25,7 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'supernovae'
 
- public :: inject_particles, write_options_inject, read_options_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject
 
  integer, parameter :: maxsn = 30
  real, parameter :: xyz_sn(3,maxsn) = &
@@ -63,6 +63,19 @@ module inject
  private
 
 contains
+!-----------------------------------------------------------------------
+!+
+!  Initialize global variables or arrays needed for injection routine
+!+
+!-----------------------------------------------------------------------
+subroutine init_inject(ierr)
+ integer, intent(out) :: ierr
+ !
+ ! return without error
+ !
+ ierr = 0
+
+end subroutine init_inject
 
 !-----------------------------------------------------------------------
 !+
@@ -70,7 +83,8 @@ contains
 !  Note that we actually only inject thermal energy, not kinetic energy
 !+
 !-----------------------------------------------------------------------
-subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype)
+subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                            npart,npartoftype,dtinject)
  use io,      only:id,master
  use eos,     only:gamma
  use part,    only:rhoh,massoftype,igas
@@ -78,6 +92,7 @@ subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,np
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
+ real,    intent(out)   :: dtinject
  integer            :: i,i_sn,ipart
  real    :: dx(3),uval,t_sn,r2
  logical :: inject_sn
@@ -116,6 +131,11 @@ subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,np
     print*,' energy injected into ',ipart,' particles'
     print*,'--------'
  endif
+ !
+ !-timestep constraint
+ !
+ dtinject = dt_sn
+
 end subroutine inject_particles
 
 !-----------------------------------------------------------------------

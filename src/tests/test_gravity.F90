@@ -34,7 +34,6 @@ subroutine test_gravity(ntests,npass,string)
  use io,        only:id,master
 #ifdef GRAVITY
  use dim,       only:maxp
- use io,        only:iverbose
  use part,      only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,Bevol,mhd, &
                      alphaind,maxalpha,dustprop,ddustprop, &
                      divcurlv,divcurlB,dBevol,gradh,poten,&

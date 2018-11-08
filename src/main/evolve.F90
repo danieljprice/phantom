@@ -59,7 +59,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use part,             only:maxphase,ibin,iphase
  use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,update_time_per_bin,&
                             write_binsummary,change_nbinmax,nactive,nactivetot,maxbins,&
-                            print_dtlog_ind
+                            print_dtlog_ind,get_newbin
  use timestep,         only:dtdiff
  use timestep_sts,     only:sts_get_dtau_next,sts_init_step
  use io,               only:fatal,warning
@@ -121,7 +121,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: noutput,noutput_dtmax,nsteplast,ncount_fulldumps
  real            :: dtnew,dtlast,timecheck,rhomaxold,dtmax_log_dratio
- real            :: tprint,tzero,dtmaxold
+ real            :: tprint,tzero,dtmaxold,dtinject
  real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
  real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
 #ifdef IND_TIMESTEPS
@@ -152,6 +152,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  nsteplast = 0
  tzero     = time
  dtlast    = 0.
+ dtinject  = huge(dtinject)
 
  should_conserve_energy = (maxvxyzu==4 .and. ieos==2 .and. icooling==0 .and. &
                            ipdv_heating==1 .and. ishock_heating==1 &
@@ -182,6 +183,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  else
     dtmax_log_dratio = 0.0
  endif
+
 #ifdef IND_TIMESTEPS
  use_global_dt = .false.
  istepfrac     = 0
@@ -264,7 +266,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #ifdef IND_TIMESTEPS
     npart_old=npart
 #endif
-    call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype)
+    call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
 #ifdef GR
     call init_metric(npart,xyzh,metrics,metricderivs)
     call primitive_to_conservative(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
@@ -273,6 +275,13 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     endif
 #endif
 #ifdef IND_TIMESTEPS
+    ! find timestep bin associated with dtinject
+    nbinmaxprev = nbinmax
+    call get_newbin(dtinject,dtmax,nbinmax,allow_decrease=.false.)
+    if (nbinmax > nbinmaxprev) then ! update number of bins if needed
+       call change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
+    endif
+    ! put all injected particles on shortest bin
     do iloop=npart_old+1,npart
        ibin(iloop) = nbinmax
        twas(iloop) = time + 0.5*get_dt(dtmax,ibin(iloop))
@@ -372,7 +381,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
     !--if total number of bins has changed, adjust istepfrac and dt accordingly
     !  (ie., decrease or increase the timestep)
-    if (nbinmax /= nbinmaxprev .or. dtmax_ifactor/=0) then
+    if (nbinmax /= nbinmaxprev .or. dtmax_ifactor /= 0) then
        call change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
        dt_changed = .true.
     endif
@@ -390,11 +399,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     ! Following redefinitions are to avoid crashing if dtprint = 0 & to reach next output while avoiding round-off errors
     dtprint = min(tprint,tmax) - time + epsilon(dtmax)
     if (dtprint <= epsilon(dtmax) .or. dtprint >= (1.0-1e-8)*dtmax ) dtprint = dtmax + epsilon(dtmax)
-    dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax),dtprint)
+    dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax),dtprint,dtinject)
 !
 !--write log every step (NB: must print after dt has been set in order to identify timestep constraint)
 !
-    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,npart)
+    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,dtinject,npart)
 #endif
 
 !    if (abs(dt) < 1e-8*dtmax) then

@@ -30,7 +30,7 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'rochelobe'
 
- public :: inject_particles, write_options_inject, read_options_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject
 
  real, private :: Mdot = 1.0e-9
  real, private :: Mdotcode = 0.
@@ -39,14 +39,27 @@ module inject
  real, private :: gastemp = 3000.
 
 contains
+!-----------------------------------------------------------------------
+!+
+!  Initialize global variables or arrays needed for injection routine
+!+
+!-----------------------------------------------------------------------
+subroutine init_inject(ierr)
+ integer, intent(out) :: ierr
+ !
+ ! return without error
+ !
+ ierr = 0
+
+end subroutine init_inject
 
 !-----------------------------------------------------------------------
 !+
 !  Main routine handling injection at the L1 point.
 !+
 !-----------------------------------------------------------------------
-subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
-           npart,npartoftype)
+subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                            npart,npartoftype,dtinject)
  use io,        only:fatal
  use part,      only:nptmass,massoftype,igas,hfact
  use partinject,only:add_or_update_particle
@@ -59,6 +72,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
+ real,    intent(out)   :: dtinject
  real :: m1,m2,q,radL1,h,u,theta_s,A,mu,theta_rand,r_rand,dNdt_code,Porb,r12,r2L1,r0L1,smag
  real :: eps, spd_inject, phizzs, phinns, lm12, lm1, lm32, sw_chi, sw_gamma
  real :: xyzL1(3),xyzi(3),vxyz(3),dr(3),x1(3),x2(3),x0(3),dxyz(3),vxyzL1(3),v1(3),v2(3),xyzinj(3),s(3)
@@ -141,6 +155,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     call add_or_update_particle(part_type, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
 
  enddo
+ !
+ !-- no constraint on timestep
+ !
+ dtinject = huge(dtinject)
 
 end subroutine inject_particles
 

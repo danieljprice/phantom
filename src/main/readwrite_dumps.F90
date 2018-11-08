@@ -451,6 +451,8 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        endif
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
        if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(5))
+       if (use_dust .and. ndusttypes>1) &
+          call write_array(1,sum(dustfrac(:,1:npart),1),'dustfracsum',npart,k,ipass,idump,nums,ierrs(6))
        if (use_dust) &
           call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(7))
        if (use_dust) call write_array(1,tstop,tstop_label,ndustsmall,npart,k,ipass,idump,nums,ierrs(8))
@@ -666,6 +668,8 @@ subroutine write_smalldump(t,dumpfile)
        endif
        if (h2chemistry .and. nabundances >= 1) &
           call write_array(1,abundance,abundance_label,1,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+       if (use_dust .and. ndusttypes>1) &
+          call write_array(1,sum(dustfrac(:,1:npart),1),'dustfracsum',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (use_dust) &
           call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
