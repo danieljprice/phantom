@@ -709,6 +709,17 @@ ifeq ($(SETUP), star)
     MHD=no
 endif
 
+ifeq ($(SETUP), isowind)
+#   wind setup (isothermal spherical wind from a sink particle)
+    FPPFLAGS=
+    ISOTHERMAL=yes
+    SETUPFILE= setup_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 inject_wind.f90
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=no
+    STS_TIMESTEPS=no
+endif
+
 ifeq ($(SETUP), wind)
 #   wind setup (adiabatic supersonic spherical wind from a sink particle)
     SETUPFILE= setup_wind.f90

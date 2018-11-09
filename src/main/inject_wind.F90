@@ -118,7 +118,11 @@ subroutine init_inject(ierr)
  wind_osc_vamplitude    = wind_osc_vamplitude_km_s * (km / unit_velocity)
  wind_velocity          = wind_velocity_km_s * (km / unit_velocity)
  wind_mass_rate         = wind_mass_rate_Msun_yr * (solarm/umass) / (years/utime)
- u_to_temperature_ratio = Rg/(gmw*(gamma-1.)) / unit_velocity**2
+ if (gamma > 1.0001) then
+   u_to_temperature_ratio = Rg/(gmw*(gamma-1.)) / unit_velocity**2
+ else
+   u_to_temperature_ratio = 1.
+ endif
  wind_velocity_max      = max(wind_velocity,wind_osc_vamplitude)
  !
  ! compute the dimensionless resolution factor m V / (Mdot R)
@@ -259,8 +263,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  if (nptmass > 0 .and. wind_emitting_sink <= nptmass) then
     mass_lost = mass_of_spheres * (inner_sphere-outer_sphere+1)
     xyzmh_ptmass(4,wind_emitting_sink) = xyzmh_ptmass(4,wind_emitting_sink) - mass_lost
-    surface_radius = wind_injection_radius + wind_osc_vamplitude*wind_osc_period/(2.*pi)*sin(2.*pi*time/wind_osc_period)
-    xyzmh_ptmass(5,wind_emitting_sink) = (surface_radius**3-dr3)**(1./3.)
+    if (wind_osc_vamplitude > 0.) then
+       surface_radius = wind_injection_radius + wind_osc_vamplitude*wind_osc_period/(2.*pi)*sin(2.*pi*time/wind_osc_period)
+       xyzmh_ptmass(5,wind_emitting_sink) = (surface_radius**3-dr3)**(1./3.)
+    endif
  endif
 
  !
@@ -277,6 +283,7 @@ end subroutine inject_particles
 !+
 !-----------------------------------------------------------------------
 subroutine drv_dt(rv,drv,GM,gamma)
+ use eos, only : polyk
  real, intent(in) :: rv(2),GM,gamma
  real, intent(out) :: drv(2)
  real :: r, v, dr_dt, r2, T, vs2, dv_dr, dv_dt, u
@@ -285,9 +292,13 @@ subroutine drv_dt(rv,drv,GM,gamma)
  v = rv(2)
  dr_dt = v
  r2 = r*r
- T = wind_temperature * (wind_injection_radius**2 * wind_velocity / (r2 * v))**(gamma-1.)
- u = T * u_to_temperature_ratio
- vs2 = gamma * (gamma - 1) * u
+ if (gamma > 1.0001) then
+   T = wind_temperature * (wind_injection_radius**2 * wind_velocity / (r2 * v))**(gamma-1.)
+   u = T * u_to_temperature_ratio
+   vs2 = gamma * (gamma - 1) * u
+ else
+   vs2 = polyk
+ endif
  dv_dr = (-GM/r2+2.*vs2/r)/(v-vs2/v)
  dv_dt = dv_dr * v
 
@@ -329,9 +340,13 @@ subroutine compute_sphere_properties(time,local_time,gamma,GM,r,v,u,rho,e,sphere
  endif
  !r = (surface_radius**3-(sphere_number-inner_sphere)*dr3)**(1./3)
  !rho = rho_ini
- u = wind_temperature * u_to_temperature_ratio
+ if (gamma > 1.0001) then
+   u = wind_temperature * u_to_temperature_ratio
+   e = .5*v**2 - GM/r + gamma*u
+ else
+   e = .5*v**2 - GM/r
+ endif
  rho = rho_ini*(surface_radius/r)**nrho_index
- e = .5*v**2 - GM/r + gamma*u
  if (verbose) then
     if (sphere_number > inner_sphere) then
        print '("boundary, i = ",i5," inner = ",i5," base_r = ",es11.4,'// &
@@ -377,10 +392,14 @@ subroutine stationary_adiabatic_wind_profile(local_time, r, v, u, rho, e, gamma,
  r = rv(1)
  v = rv(2)
  ! this expression for T is only valid for an adiabatic EOS !
- T = wind_temperature * (wind_injection_radius**2 * wind_velocity / (r**2 * v))**(gamma-1.)
- u = T * u_to_temperature_ratio
+ if (gamma > 1.0001) then
+   T = wind_temperature * (wind_injection_radius**2 * wind_velocity / (r**2 * v))**(gamma-1.)
+   u = T * u_to_temperature_ratio
+   e = .5*v**2 - GM/r + gamma*u
+ else
+   e = .5*v**2 - GM/r
+ endif
  rho = wind_mass_rate / (4.*pi*r**2*v)
- e = .5*v**2 - GM/r + gamma*u
 
 end subroutine stationary_adiabatic_wind_profile
 
@@ -390,13 +409,21 @@ end subroutine stationary_adiabatic_wind_profile
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_inject(iunit)
+ use dim,          only: maxvxyzu
  use infile_utils, only: write_inopt
+ use units,        only: unit_velocity
+ use physcon,      only: mass_proton_cgs, kboltz
+ use eos,          only: gmw,polyk
  integer, intent(in) :: iunit
 
  call write_inopt(wind_velocity_km_s,'wind_velocity', &
       'velocity at which wind is injected (km/s)',iunit)
  call write_inopt(wind_mass_rate_Msun_yr,'wind_mass_rate','wind mass per unit time (Msun/yr)',iunit)
- call write_inopt(wind_temperature,'wind_temperature','wind temperature at the injection point (K)',iunit)
+ if (maxvxyzu==4) then
+    call write_inopt(wind_temperature,'wind_temperature','wind temperature at the injection point (K)',iunit)
+ else
+    wind_temperature = polyk* mass_proton_cgs/kboltz * unit_velocity**2*gmw
+ endif
  !call write_inopt(shift_spheres,'shift_spheres','shift the spheres of the wind',iunit)
  call write_inopt(wind_injection_radius,'wind_inject_radius', &
       'radius of injection of the wind (code units)',iunit)
@@ -433,6 +460,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  integer, save :: ngot = 0
  integer :: noptions
  real :: Rstar
+ logical :: isowind = .true.
  character(len=30), parameter :: label = 'read_options_inject'
 
  imatch  = .true.
@@ -442,7 +470,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) wind_velocity_km_s
     ngot = ngot + 1
     if (wind_velocity < 0.)    call fatal(label,'invalid setting for wind_velocity (<0)')
-    !if (wind_velocity > 1.e10) call error(label,'wind_velocity is huge!!!')
  case('wind_mass_rate')
     read(valstring,*,iostat=ierr) wind_mass_rate_Msun_yr
     ngot = ngot + 1
@@ -450,6 +477,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  case('wind_temperature')
     read(valstring,*,iostat=ierr) wind_temperature
     ngot = ngot + 1
+    isowind = .false.
     if (wind_temperature < 0.)    call fatal(label,'invalid setting for wind_temperature (<0)')
  case('iwind_resolution')
     read(valstring,*,iostat=ierr) iwind_resolution
@@ -523,8 +551,9 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 #else
  noptions = 6
 #endif
+ if (isowind) noptions = noptions -1
  igotall = (ngot >= noptions)
-
+ print *,isowind,noptions,ngot,igotall
 end subroutine read_options_inject
 
 end module inject

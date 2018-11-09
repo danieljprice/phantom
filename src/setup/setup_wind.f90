@@ -37,6 +37,7 @@ module setup
 
  private
  real, public :: wind_gamma = 5./3.
+ real, public :: T_wind = 3000.
  real, public :: central_star_mass = 1.2
  real, public :: accretion_radius = 1.
  integer, public :: icompanion_star = 0
@@ -55,11 +56,12 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,      only: xyzmh_ptmass, vxyz_ptmass, nptmass, igas
- use physcon,   only: au, solarm
- use units,     only: umass, set_units
+ use physcon,   only: au, solarm, mass_proton_cgs, kboltz
+ use units,     only: umass, set_units,unit_velocity
  use inject,    only: init_inject !, mass_of_particles
  use setbinary, only: set_binary
  use io,        only: master
+ use eos,       only: gmw
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -70,6 +72,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=*), intent(in)    :: fileprefix
  character(len=len(fileprefix)+6) :: filename
+ real :: temperature_coef
  integer :: ierr
  logical :: iexist
 
@@ -78,7 +81,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--general parameters
 !
  time = 0.
- polyk = 0.
  filename = trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) call read_setupfile(filename,ierr)
@@ -92,6 +94,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  gamma = wind_gamma
+ if (wind_gamma == 1.) then
+   temperature_coef = mass_proton_cgs/kboltz * unit_velocity**2
+   polyk            = T_wind/(temperature_coef*gmw)
+ else
+   polyk = 0.
+ endif
+
 !
 !--space available for injected gas particles
 !
@@ -134,12 +143,16 @@ subroutine setup_interactive()
  integer :: iproblem
 
  iproblem = 1
- call prompt('Which defaults to use? (1=adiabatic wind 2=Bowen)',iproblem,0,2)
+ call prompt('Which defaults to use? (0=isotherm, 1=adiabatic wind 2=Bowen)',iproblem,0,2)
  call prompt('Add binary?',icompanion_star,0,1)
  select case(iproblem)
  case(2)
     central_star_mass = 1.2 * (solarm / umass)
     accretion_radius = 0.2568 * (au / udist)
+ case (0)
+    wind_gamma = 1.
+    central_star_mass = 1. * (solarm / umass)
+    accretion_radius = 1. * (au / udist)
  case default
     central_star_mass = 1. * (solarm / umass)
     accretion_radius = 1. * (au / udist)
@@ -171,6 +184,9 @@ subroutine write_setupfile(filename)
  endif
  call write_inopt(mass_of_particles,'mass_of_particles','mass resolution (Msun)',iunit)
  call write_inopt(wind_gamma,'wind_gamma','polytropic index',iunit)
+ if ( wind_gamma == 1.) then
+    call write_inopt(T_wind,'T_wind','wind temperature (K)',iunit)
+ endif
  close(iunit)
 
 end subroutine write_setupfile
@@ -199,9 +215,12 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(companion_star_r,'companion_star_r',db,min=0.,max=1000.,errcount=nerr)
     call read_inopt(semi_major_axis,'semi_major_axis',db,min=0.,errcount=nerr)
     call read_inopt(eccentricity,'eccentricity',db,min=0.,errcount=nerr)
-    call read_inopt(wind_gamma,'wind_gamma',db,min=1.,max=4.,errcount=nerr)
  endif
  call read_inopt(mass_of_particles,'mass_of_particles',db,min=0.,errcount=nerr)
+ call read_inopt(wind_gamma,'wind_gamma',db,min=1.,max=4.,errcount=nerr)
+ if ( wind_gamma == 1.) then
+    call read_inopt(T_wind,'T_wind',db,min=0.,errcount=nerr)
+ endif
  call close_db(db)
  ierr = nerr
 

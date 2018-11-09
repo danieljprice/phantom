@@ -563,7 +563,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     endif
     if (beta < 0.)     call fatal(label,'beta < 0')
     if (beta > 4.)     call warn(label,'very high beta viscosity set')
-#ifndef MCFOST
+#if !defined (MCFOST) && !defined (WIND)
     if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 10 .and. ieos /= 15)) &
        call fatal(label,'only ieos=2 makes sense if storing thermal energy')
 #endif
