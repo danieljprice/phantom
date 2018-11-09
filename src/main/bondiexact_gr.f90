@@ -13,7 +13,7 @@ module bondiexact
  real, private :: adiabat = 1.
 
  logical, public :: iswind = .false.
- integer, public :: isol   = 1
+ integer, public :: isol   = 2
 
  private
 
