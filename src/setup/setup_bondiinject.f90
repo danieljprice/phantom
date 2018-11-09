@@ -28,7 +28,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  character(len=*),  intent(in)    :: fileprefix
  integer :: ierr
 
- if (.not.gr) call fatal('setup_bondiwind','This setup only works with GR on')
+ if (.not.gr) call fatal('setup','This setup only works with GR on')
  if (imetric/=imet_schwarzschild) call fatal('setup','This setup is meant for use with the Schwarzschild metric')
  call set_units(G=1.,c=1.)
 
