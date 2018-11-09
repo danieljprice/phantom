@@ -2,7 +2,7 @@ module inject
  use physcon, only:pi
  implicit none
 
- character(len=*), parameter, public :: inject_type = 'grwind'
+ character(len=*), parameter, public :: inject_type = 'grbondi'
 
  !-- Public subroutines in module
  public :: init_inject,          &
