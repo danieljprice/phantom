@@ -1639,12 +1639,10 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        iamgasi  = .true.
     endif
 
-    if (iamtypei==iboundary) then
-       if (set_boundaries_to_active) then
-          iactivei = .true.
-          iamtypei = igas
-          iamgasi  = .true.
-       endif
+    if (iamtypei==iboundary .and. set_boundaries_to_active) then
+       iactivei = .true.
+       iamtypei = igas
+       iamgasi  = .true.
     endif
 
     pmassi = massoftype(iamtypei)

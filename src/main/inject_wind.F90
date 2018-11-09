@@ -209,7 +209,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real,    intent(out)   :: dtinject
  real, parameter :: irrational_number_close_to_one = pi/3.
  integer :: outer_sphere, inner_sphere, inner_boundary_sphere, i, ierr
- real    :: local_time, GM, r, v, u, rho, e, mass_lost, surface_radius, x0(3), v0(3)
+ real    :: local_time, GM, r, v, u, rho, e, mass_lost, surface_radius, x0(3), v0(3)!, cs2max, dr, dp
  logical, save :: first_run = .true.
  character(len=*), parameter :: label = 'inject_particles'
 
@@ -237,6 +237,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  inner_sphere = floor(time/time_between_spheres)
  inner_boundary_sphere = inner_sphere + iboundary_spheres
  if (inner_sphere-outer_sphere > iboundary_spheres) call fatal(label,'problem with boundary spheres, timestep likely too large!')
+! cs2max = 0.
  do i=inner_sphere+iboundary_spheres,outer_sphere,-1
     local_time = time - (i-shift_spheres) * time_between_spheres
     call compute_sphere_properties(time,local_time,gamma,GM,r,v,u,rho,e,i,&
@@ -258,6 +259,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        call inject_geodesic_sphere(i, npart+1, iwind_resolution, r, v, u, rho, geodesic_R, geodesic_V,&
             npart, npartoftype, xyzh, vxyzu, igas, x0, v0) ! injected sphere
     endif
+    !cs2max = max(cs2max,gamma*(gamma-1)*u)
  enddo
  ! update the sink particle properties
  if (nptmass > 0 .and. wind_emitting_sink <= nptmass) then
@@ -273,6 +275,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  ! return timestep constraint to ensure that time between sphere
  ! injections is adequately resolved
  !
+ !dr = neighbour_distance*wind_injection_radius
+ !dtinject = 0.25*dr/sqrt(cs2max)
  dtinject = (.5 * irrational_number_close_to_one * time_between_spheres)
 
 end subroutine inject_particles
@@ -553,7 +557,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 #endif
  if (isowind) noptions = noptions -1
  igotall = (ngot >= noptions)
- print *,isowind,noptions,ngot,igotall
+ 
 end subroutine read_options_inject
 
 end module inject
