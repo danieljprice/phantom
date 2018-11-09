@@ -446,18 +446,6 @@ ifeq ($(SETUP), bondigr-inject)
     GR=yes
     METRIC=schwarzschild
 endif
-
-ifeq ($(SETUP), bondi2)
-    SETUPFILE=setup_bondi2.f90
-    SRCINJECT=bondiexact_gr.f90 inject_bondi2.f90
-    IND_TIMESTEPS=no
-    STS_TIMESTEPS=no
-    KERNEL=quintic
-    CONST_AV=yes
-    GR=yes
-    METRIC=schwarzschild
-    KNOWN_SETUP=yes
-endif
 #-----------------------------------------------
 
 ifeq ($(SETUP), quebec)
