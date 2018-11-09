@@ -17,7 +17,7 @@ module inject
 
  !-- Variables calculated from the previous parameters
  real,    private :: masssphere,dtsphere,neighdist,vin
- integer, private :: npsphere,iwindres,
+ integer, private :: npsphere,iwindres
 
  private
 
