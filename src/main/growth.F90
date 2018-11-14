@@ -55,7 +55,7 @@ module growth
  real, public           :: vfragout
  real, public           :: grainsizemin
 
- public                 :: get_growth_rate,get_vrelonvfrag,update_dustprop
+ public                 :: get_growth_rate,get_vrelonvfrag,check_dustprop
  public                 :: write_options_growth,read_options_growth,print_growthinfo,init_growth
  public                 :: vrelative,read_growth_setup_options,write_growth_setup_options
  public                 :: comp_snow_line
@@ -427,19 +427,18 @@ end subroutine read_growth_setup_options
 !  Update dustprop and make sure dustprop(1,:) isn't too small
 !+
 !-----------------------------------------------------------------------
-subroutine update_dustprop(npart,dustproppred)
- use part,                only:iamtype,iphase,idust,dustprop
- real,intent(in)           :: dustproppred(:,:)
+subroutine check_dustprop(npart,size)
+ use part,                only:iamtype,iphase,idust
+ real,intent(inout)        :: size(:)
  integer,intent(in)        :: npart
  integer                   :: i
 
  do i=1,npart
     if (iamtype(iphase(i))==idust) then
-       dustprop(:,i) = dustproppred(:,i)
-       if (ifrag > 0 .and. dustprop(1,i) < grainsizemin) dustprop(1,i) = grainsizemin
+       if (ifrag > 0 .and. size(i) < grainsizemin) size(i) = grainsizemin
     endif
  enddo
-end subroutine update_dustprop
+end subroutine check_dustprop
 
 !-----------------------------------------------------------------------
 !+
