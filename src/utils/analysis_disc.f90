@@ -114,9 +114,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  iexternalforce_read = 0
  inquire(file=trim(discprefix)//'.in', exist=ifile)
  if (ifile) then
-   call open_db_from_file(db,trim(discprefix)//'.in',iparams,ierr)
-   call read_inopt(iexternalforce_read,'iexternalforce',db,ierr)
-   call close_db(db)
+    call open_db_from_file(db,trim(discprefix)//'.in',iparams,ierr)
+    call read_inopt(iexternalforce_read,'iexternalforce',db,ierr)
+    call close_db(db)
  endif
  if (iexternalforce_read > 0) then
     assume_Ltot_is_same_as_zaxis = .true.

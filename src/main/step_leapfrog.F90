@@ -478,7 +478,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        !$omp end parallel do
 
 #ifdef DUSTGROWTH
- call check_dustprop(npart,dustprop(1,:)) !--check minimum size in case of fragmentation
+       call check_dustprop(npart,dustprop(1,:)) !--check minimum size in case of fragmentation
 #endif
 
 !
