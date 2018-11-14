@@ -204,8 +204,8 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
        cs   = get_spsound(ieos,xyzh(:,i),rhod,vxyzu(:,i))
        call get_vrelonvfrag(xyzh(:,i),vrel,dustprop(:,i),cs,St(i))
        !
-       !--dustprop(1)= size, dustprop(2) = intrinsic density, dustprop(3) = vrel,
-       !  dustprop(4) = vrel/vfrag, dustprop(5) = vd - vg
+       !--dustprop(1)= size, dustprop(2) = intrinsic density,
+       !  dustprop(3) = vrel/vfrag, dustprop(4) = vd - vg
        !
        !--if statements to compute ds/dt
        !
