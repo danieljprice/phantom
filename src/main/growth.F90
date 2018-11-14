@@ -183,7 +183,7 @@ end subroutine print_growthinfo
 !+
 !-----------------------------------------------------------------------
 subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
- use part,            only:massoftype,rhoh,idust,iamtype,iphase,St,maxvxyzu
+ use part,            only:get_pmass,rhoh,idust,iamtype,iphase,St,maxvxyzu
  use eos,             only:get_spsound,ieos
  real, intent(inout)  :: dustprop(:,:),vxyzu(:,:)
  real, intent(in)     :: xyzh(:,:)
@@ -200,7 +200,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
 
     if (iam==idust) then
 
-       rhod = rhoh(xyzh(4,i),massoftype(2)) !--idust = 2
+       rhod = rhoh(xyzh(4,i),get_pmass(2,.false.)) !--idust = 2
        cs   = get_spsound(ieos,xyzh(:,i),rhod,vxyzu(:,i))
        call get_vrelonvfrag(xyzh(:,i),vrel,dustprop(:,i),cs,St(i))
        !
