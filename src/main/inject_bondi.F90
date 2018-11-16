@@ -106,7 +106,7 @@ end subroutine init_inject
 !+
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
- use io,          only:iprint,fatal
+ use io,          only:iprint,warning
  use eos,         only:gamma
  use part,        only:igas,iboundary
  use injectutils, only:inject_geodesic_sphere
@@ -135,7 +135,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npar
  inner_sphere = floor(time/dtsphere)
  inner_boundary_sphere = inner_sphere + iboundspheres
 
- if (inner_sphere-outer_sphere > iboundspheres) call fatal(label,'problem with boundary spheres, timestep likely too large!')
+ if (inner_sphere-outer_sphere > iboundspheres) call warning(label,'problem with boundary spheres, timestep likely too large!')
 ! cs2max = 0.
 
  do i=inner_sphere+iboundspheres,outer_sphere,-1
