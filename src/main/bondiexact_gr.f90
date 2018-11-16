@@ -42,7 +42,7 @@ subroutine bondigr_geodesic(rho,v,u,r,mass,gam)
  real :: sqrtg,alpha,dfunc,efunc
 
  dfunc = den0/(r**2*sqrt(2.*mass/r*(1.- 2.*mass/r)))
- efunc = en0/((sqrt(2.*mass/r)*r**2)**gam * (1.- 2.*mass/r)**((gam + 1.)/4.))
+ efunc = en0/((sqrt(2.*mass/r)*r**2)**gam * sqrt(1.- 2.*mass/r))
 
  sqrtg = 1.
  alpha = sqrt(1. - 2.*mass/r)
