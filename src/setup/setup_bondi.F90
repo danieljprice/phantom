@@ -77,6 +77,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
+ integer, parameter :: ntab=10000
+ real               :: rhotab(ntab)
  real               :: vol,psep,tff,rhor,vr,ur
  real               :: r,pos(3),cs2,totmass,approx_m,approx_h
  integer            :: i,ierr,nx,nbound
@@ -150,6 +152,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  nx       = int(np**(1./3.))
  psep     = vol**(1./3.)/real(nx)
 
+ call get_rhotab(rhotab,rmin,rmax,mass1,gamma)
+
  totmass  = get_mass_r(rhofunc,rmax,rmin)
  approx_m = totmass/np
  approx_h = hfact*(approx_m/rhofunc(rmin))**(1./3.)
@@ -170,9 +174,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--- Add stretched sphere
  npart = 0
  npart_total = 0
- call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,xyzh,rhofunc=rhofunc,nptot=npart_total)
+ call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,xyzh,rhotab=rhotab,nptot=npart_total)
  massoftype(:) = totmass/npart
- print "(a,/)",' npart = ',npart
+ print "(a,i0,/)",' npart = ',npart
 
  nbound = 0
  do i=1,npart
@@ -211,7 +215,6 @@ real function rhofunc(r)
  rhofunc = rho
 end function rhofunc
 
-#ifdef GR
 !----------------------------------------------------------------
 !+
 !  write parameters to setup file
@@ -263,5 +266,21 @@ subroutine read_setupfile(filename,ierr)
 
 end subroutine read_setupfile
 !----------------------------------------------------------------
-#endif
+
+subroutine get_rhotab(rhotab,rmin,rmax,mass1,gamma)
+ real, intent(out) :: rhotab(:)
+ real, intent(in) :: rmin,rmax,mass1,gamma
+ integer :: i,n
+ real :: dr,r,vr,ur
+
+ n  = size(rhotab)
+ dr = (rmax-rmin)/(n-1)
+
+ do i=1,n
+    r = rmin + (i-1)*dr
+    call get_bondi_solution(rhotab(i),vr,ur,r,mass1,gamma)
+ enddo
+
+end subroutine get_rhotab
+
 end module setup
