@@ -87,7 +87,7 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
 end subroutine get_metric_cartesian
 
 !--- The metric tensor in SPHERICAL-like form
-subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
+pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
  real,    intent(in)  :: position(3)
  real,    intent(out) :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
  real :: a2,r2,r,rho2,delta,sintheta2
@@ -166,7 +166,7 @@ subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
 end subroutine metric_cartesian_derivatives
 
 !--- Derivatives of the covariant 'SPHERICAL' metric
-subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi)
+pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi)
  real, intent(in) :: position(3)
  real, intent(out), dimension(0:3,0:3) :: dgcovdr,dgcovdtheta,dgcovdphi
  real :: r, theta, sintheta, costheta, rho, delta
@@ -209,7 +209,7 @@ end subroutine metric_spherical_derivatives
 !----------------------------------------------------------------
 
 !--- (Jacobian tensor) Derivatives of Boyer-Lindquist 'Spherical' with respect to 'Cartesian' coordinates
-subroutine get_jacobian(position,dxdx)
+pure subroutine get_jacobian(position,dxdx)
  real, intent(in), dimension(3) :: position
  real, intent(out), dimension(0:3,0:3) :: dxdx
  real, dimension(3) :: dBLdx,dBLdy,dBLdz
@@ -262,7 +262,7 @@ subroutine get_jacobian(position,dxdx)
 end subroutine get_jacobian
 
 !--- Boyer-Lindquist coordinate transformations from CARTEISAN to SPHERICAL
-subroutine cartesian2spherical(xcart,xspher)
+pure subroutine cartesian2spherical(xcart,xspher)
  real, intent(in) :: xcart(3)
  real, intent(out) ::xspher(3)
  real :: x,y,z,x2,y2,z2,a2,r2spherical,r2,r
@@ -285,7 +285,7 @@ subroutine cartesian2spherical(xcart,xspher)
 end subroutine cartesian2spherical
 
 !--- Boyer-Lindquist coordinate transformations from SPHERICAL to CARTEISAN
-subroutine spherical2cartesian(xspher,xcart)
+pure subroutine spherical2cartesian(xspher,xcart)
  real, intent(in) :: xspher(3)
  real, intent(out) :: xcart(3)
  real :: x,y,z,r,theta,phi,r2,a2

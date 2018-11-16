@@ -30,7 +30,7 @@ contains
 !
 !=========================
 
-subroutine get_u(u,P,dens)
+pure subroutine get_u(u,P,dens)
  real, intent(in)  :: dens,P
  real, intent(out) :: u
  real :: uthermconst
@@ -49,7 +49,7 @@ subroutine get_u(u,P,dens)
 
 end subroutine
 
-subroutine get_enthalpy(enth,dens,P)
+pure subroutine get_enthalpy(enth,dens,P)
  real, intent(in)  :: dens,P
  real, intent(out) :: enth
 

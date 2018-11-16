@@ -249,7 +249,7 @@ end subroutine metric_spherical_derivatives
 !----------------------------------------------------------------
 
 !--- (Jacobian tensor) Derivatives of Schwarzschild 'Spherical' with respect to 'Cartesian' coordinates
-subroutine get_jacobian(position,dxdx)
+pure subroutine get_jacobian(position,dxdx)
  real, intent(in), dimension(3) :: position
  real, intent(out), dimension(0:3,0:3) :: dxdx
  real, dimension(3) :: dSPHERICALdx,dSPHERICALdy,dSPHERICALdz
@@ -293,7 +293,7 @@ subroutine get_jacobian(position,dxdx)
 
 end subroutine get_jacobian
 
-subroutine cartesian2spherical(xcart,xspher)
+pure subroutine cartesian2spherical(xcart,xspher)
  real, intent(in) :: xcart(3)
  real, intent(out) ::xspher(3)
  real :: x,y,z
@@ -311,7 +311,7 @@ subroutine cartesian2spherical(xcart,xspher)
 
 end subroutine cartesian2spherical
 
-subroutine spherical2cartesian(xspher,xcart)
+pure subroutine spherical2cartesian(xspher,xcart)
  real, intent(in) :: xspher(3)
  real, intent(out) :: xcart(3)
  real :: x,y,z,r,theta,phi
