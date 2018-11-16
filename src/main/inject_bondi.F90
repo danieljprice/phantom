@@ -50,6 +50,7 @@ subroutine init_inject(ierr)
  use part,        only:massoftype,igas,iboundary
  use eos,         only:gamma
  use io,          only:iverbose
+ use bondiexact,  only:isol,iswind
  integer, intent(out) :: ierr
  real :: mVonMdotR,masspart
  real :: dr,dp,masspart1,mdot,speedin
@@ -79,6 +80,27 @@ subroutine init_inject(ierr)
 
  call compute_matrices(geodesic_R)
  call compute_corners(geodesic_v)
+
+ print*,'========= GR Bondi Wind Injection ======================'
+ print*,'Info:                         '
+ print*,' -- outflow (wind) ?        : ',iswind
+ print*,' -- isol (type of flow)     : ',isol
+ print*,' -- iwindres                : ',iwindres
+ print*,' -- nhandled                : ',iboundspheres
+ print*,' -- rin                     : ',rin
+ print*,' -- drdp                    : ',drdp
+ print*,' -- gamma                   : ',gamma
+ print*,' -- Particles per sphere    : ',npsphere
+ print*,' -- Mass of particles       : ',masspart
+ print*,' -- Mass of spheres         : ',masssphere
+ print*,' -- Mdot                    : ',mdot
+ print*,' -- dtsphere                : ',dtsphere
+ print*,' -- Nieghbour distance      : ',neighdist
+ print*,' -- vr               at rin : ',vin
+ print*,' -- utherm           at rin : ',uthermin
+ print*,' -- rho              at rin : ',rhoin
+ print*,'========================================================'
+ print*,''
 
  if (iverbose >= 1) then
     print*,'mass of particle = ',massoftype(igas)
