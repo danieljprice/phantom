@@ -50,7 +50,7 @@ contains
 
 !--- This is a wrapper subroutine to get the metric tensor in both covariant (gcov) and
 !    contravariant (gcon) form.
-subroutine get_metric(position,gcov,gcon,sqrtg)
+pure subroutine get_metric(position,gcov,gcon,sqrtg)
  use metric,     only: get_metric_cartesian,get_metric_spherical,cartesian2spherical
  use inverse4x4, only: inv4x4
  real, intent(in)  :: position(3)
@@ -95,7 +95,7 @@ end subroutine get_metric_derivs
 !-------------------------------------------------------------------------------
 
 !--- The numerical derivatives of the covariant metric tensor
-subroutine numerical_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
+pure subroutine numerical_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
  real, intent(in) :: position(3)
  real, intent(out), dimension(0:3,0:3) :: dgcovdx,dgcovdy,dgcovdz
  real :: gblah(0:3,0:3), temp(3), gplus(0:3,0:3),gminus(0:3,0:3),dx,dy,dz,di,sqrtgblag
@@ -130,21 +130,21 @@ subroutine numerical_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
 end subroutine numerical_metric_derivs
 
 !-------------------------------------------------------------------------------
-subroutine get_metric3plus1_only(x,alpha,betadown,betaUP,gammaijdown,gammaijUP)
+pure subroutine get_metric3plus1_only(x,alpha,betadown,betaUP,gammaijdown,gammaijUP)
  real, intent(in)  :: x(1:3)
  real, intent(out) :: alpha,betadown(1:3),betaUP(1:3),gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
  real              :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
  call metric3p1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
 end subroutine get_metric3plus1_only
 
-subroutine get_metric3plus1_both(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
+pure subroutine get_metric3plus1_both(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
  real, intent(in)  :: x(1:3)
  real, intent(out) :: alpha,betadown(1:3),betaUP(1:3),gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
  real, intent(out) :: gcov(0:3,0:3),gcon(0:3,0:3),sqrtg
  call metric3p1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
 end subroutine get_metric3plus1_both
 
-subroutine metric3p1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
+pure subroutine metric3p1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
  real, intent(in)  :: x(1:3)
  real, intent(out) :: alpha,betadown(1:3),betaUP(1:3), gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
  real, intent(out) :: gcov(0:3,0:3),gcon(0:3,0:3),sqrtg
@@ -214,7 +214,7 @@ end subroutine init_metric
 !
 !--- Subroutine to pack the metric (cov and con) into a single array
 !
-subroutine pack_metric(xyz,metrici)
+pure subroutine pack_metric(xyz,metrici)
  real, intent(in)  :: xyz(3)
  real, intent(out) :: metrici(:,:,:)
  real :: sqrtg
@@ -234,7 +234,7 @@ end subroutine pack_metricderivs
 !
 !--- Subroutine to return metric/components from metrici array
 !
-subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,betadown,betaUP)
+pure subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,betadown,betaUP)
  real, intent(in), dimension(0:3,0:3,2) :: metrici
  real, intent(out), dimension(0:3,0:3), optional :: gcov,gcon
  real, intent(out), dimension(1:3,1:3), optional :: gammaijdown,gammaijUP
