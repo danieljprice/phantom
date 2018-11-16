@@ -16,7 +16,8 @@ module inject
  integer, public :: iboundspheres = 3
 
  !-- Variables calculated from the previous parameters
- real,    private :: masssphere,dtsphere,neighdist,vin
+ real,    public  :: dtsphere
+ real,    private :: masssphere,neighdist,vin
  integer, private :: npsphere,iwindres
 
  private
