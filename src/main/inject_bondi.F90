@@ -154,12 +154,12 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npar
     if (i > inner_sphere) then
        !-- boundary sphere
        ipartbegin = (iboundspheres-i+inner_sphere)*npsphere+1
-       itype      = iboundary
     else
        !-- injected sphere
        ipartbegin = npart + 1
-       itype      = igas
     endif
+
+    itype = igas
 
     call inject_geodesic_sphere(i,ipartbegin,iwindres,r,v,u,rho,geodesic_R,geodesic_V,npart,npartoftype,xyzh,vxyzu,itype,x0,v0)
  enddo
