@@ -26,6 +26,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  real,              intent(out)   :: polyk,gamma_eos,hfact
  real,              intent(inout) :: time
  character(len=*),  intent(in)    :: fileprefix
+ logical :: iexist
  integer :: ierr
 
  if (.not.gr) call fatal('setup','This setup only works with GR on')
@@ -36,12 +37,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  tmax            = 360.
  polyk           = 0.
  iexternalforce  = 1
- accradius1      = 2.5
- accradius1_hard = accradius1
- npart           = 0
- npartoftype(:)  = 0
 
- massoftype(igas) = 1.30833862e-2
+ !-- Don't overwrite these values if infile exists
+ inquire(file=trim(fileprefix)//'.in',exist=iexist)
+ if (.not.iexist) then
+    accradius1      = 2.1
+    accradius1_hard = accradius1
+ endif
+
+ npart            = 0
+ npartoftype(:)   = 0
+ massoftype(igas) = 0.012 !1.30833862e-2
  gamma            = 5./3. !Set gamma in module eos since init_inject needs to know about it.
  gamma_eos        = gamma
 
