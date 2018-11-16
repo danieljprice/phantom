@@ -560,6 +560,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  if (ierr /= 0) call fatal('initial','error initialising particle injection')
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                        npart,npartoftype,dtinject)
+#ifdef GR
+ call init_metric(npart,xyzh,metrics,metricderivs)
+ call primitive_to_conservative(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+ if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
+    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce) ! Not 100% sure if this is needed here
+ endif
+#endif
 #endif
 !
 !--calculate (all) derivatives the first time around
