@@ -852,9 +852,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--dust
  !
  if (use_dust) then
-    if (use_dustgrowth) then
-       dustprop(1,:) = grainsize(1)/udist
-       dustprop(2,:) = graindens(1)/umass*udist**3
+    if (use_dustgrowth) then !-size and dens already in code units
+       dustprop(1,:) = grainsize(1)
+       dustprop(2,:) = graindens(1)
     endif
  endif
  if (maxdiscs > 1 .and. ibinary==1) then
