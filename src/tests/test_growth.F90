@@ -337,8 +337,8 @@ subroutine test_growingbox(ntests,npass)
        if (r > rsnow) call checkvalbuf(dustprop(1,j),so,10*tols,'size',nerr(7),ncheck(7),errmax(7))
     enddo
  enddo
- call checkvalbuf_end('size match exact solution (in)',ncheck(6),nerr(6),errmax(6),tols)
- call checkvalbuf_end('size match exact solution (out)',ncheck(7),nerr(7),errmax(7 ),tols)
+ call checkvalbuf_end('size match exact solution (in)',ncheck(6),nerr(6),errmax(6),10*tols)
+ call checkvalbuf_end('size match exact solution (out)',ncheck(7),nerr(7),errmax(7 ),10*tols)
  !
  ! testing growth inside the snow line and fragmentation outside of it
  !
@@ -380,8 +380,8 @@ subroutine test_growingbox(ntests,npass)
     enddo
     if (do_output) call write_file(i,dt,xyzh,dustprop/sinit,cs/cs_snow,npart,'snowline_temp_')
  enddo
- call checkvalbuf_end('size match exact solution (in)',ncheck(8),nerr(8),errmax(8),tols)
- call checkvalbuf_end('size match exact solution (out)',ncheck(9),nerr(9),errmax(9),tols)
+ call checkvalbuf_end('size match exact solution (in)',ncheck(8),nerr(8),errmax(8),10*tols)
+ call checkvalbuf_end('size match exact solution (out)',ncheck(9),nerr(9),errmax(9),10*tols)
 
  if (all(nerr(1:9)==0)) npass = npass + 1
  ntests = ntests + 1
