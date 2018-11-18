@@ -522,6 +522,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        graindens(1) = graindensinp(1)/umass*udist**3
        grainsizecgs = grainsizeinp(1)
        graindenscgs = graindensinp(1)
+       if (use_dustgrowth) then
+          dustprop(1,:) = grainsize(1)
+          dustprop(2,:) = graindens(1)
+       endif
     endif
  endif
 
@@ -851,12 +855,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--dust
  !
- if (use_dust) then
-    if (use_dustgrowth) then !-size and dens already in code units
-       dustprop(1,:) = grainsize(1)
-       dustprop(2,:) = graindens(1)
-    endif
- endif
  if (maxdiscs > 1 .and. ibinary==1) then
     !--circumprimary in flyby
     i = 2
