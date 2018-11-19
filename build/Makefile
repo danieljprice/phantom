@@ -266,7 +266,11 @@ endif
 
 ifeq ($(SETUP), disc)
 #   locally isothermal gas disc
-    FPPFLAGS= -DDISC_VISCOSITY
+     ifeq ($(DISC_VISCOSITY), no)
+	FPPFLAGS=
+     else
+        FPPFLAGS= -DDISC_VISCOSITY
+    endif
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
 #    ANALYSIS= analysis_binarydisc_af.f90
