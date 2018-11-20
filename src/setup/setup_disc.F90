@@ -1441,7 +1441,7 @@ subroutine write_setupfile(filename)
     varstring = 'np_dust'
     call make_tags_unique(ndusttypesinp,varstring)
     do i=1,ndusttypesinp
-       call write_inopt(np_dust(i),varstring(i),'number of dust particles',iunit)
+       call write_inopt(np_dust(i),trim(varstring(i)),'number of dust particles',iunit)
     enddo
  endif
  !--units
