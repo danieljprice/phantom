@@ -819,12 +819,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--initialise dustprop for dust particles only
  do i=1,npart
-    if (use_dustgrowth .and. iamtype(iphase(i))==idust) then
-       dustprop(1,i) = grainsize(1)
-       dustprop(2,i) = graindens(1)
-    else
-       dustprop(:,i) = 0.
-   endif
+    if (use_dustgrowth) then
+       if (iamtype(iphase(i))==idust) then
+          dustprop(1,i) = grainsize(1)
+          dustprop(2,i) = graindens(1)
+       else
+          dustprop(:,i) = 0.
+       endif
+    endif
  enddo
 
  call check_dust_method(dust_method,ichange_method)
