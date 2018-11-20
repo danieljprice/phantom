@@ -522,10 +522,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        graindens(1) = graindensinp(1)/umass*udist**3
        grainsizecgs = grainsizeinp(1)
        graindenscgs = graindensinp(1)
-       if (use_dustgrowth) then
-          dustprop(1,:) = grainsize(1)
-          dustprop(2,:) = graindens(1)
-       endif
     endif
  endif
 
@@ -820,6 +816,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--number of particles
  npart = nparttot
+
+ !--initialise dustprop for dust particles only
+ do i=1,npart
+    if (use_dustgrowth .and. iamtype(iphase(i))==idust) then
+       dustprop(1,i) = grainsize(1)
+       dustprop(2,i) = graindens(1)
+    else
+       dustprop(:,i) = 0.
+   endif
+ enddo
 
  call check_dust_method(dust_method,ichange_method)
  if (ichange_method .and. id==master) then
