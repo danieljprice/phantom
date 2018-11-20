@@ -34,13 +34,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  call set_units(G=1.,c=1.)
 
  time            = 0.
- tmax            = 360.
  polyk           = 0.
  iexternalforce  = 1
 
  !-- Don't overwrite these values if infile exists
  inquire(file=trim(fileprefix)//'.in',exist=iexist)
  if (.not.iexist) then
+    tmax            = 360.
     accradius1      = 2.1
     accradius1_hard = accradius1
  endif
