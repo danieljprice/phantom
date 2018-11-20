@@ -1863,6 +1863,7 @@ subroutine read_setupfile(filename,ierr)
        endif
        !--dust disc
        if (use_dust) then
+          call read_inopt(iprofile_dust,'iprofile_dust',db,errcount=nerr)
           select case (iprofile_dust)
           case (0)
              R_indust(i)    = R_in(i)
