@@ -343,7 +343,7 @@ subroutine test_growingbox(ntests,npass)
     enddo
  enddo
  call checkvalbuf_end('size match exact solution (in)',ncheck(6),nerr(6),errmax(6),10*tols)
- call checkvalbuf_end('size match exact solution (out)',ncheck(7),nerr(7),errmax(7 ),10*tols)
+ call checkvalbuf_end('size match exact solution (out)',ncheck(7),nerr(7),errmax(7),10*tols)
  !
  ! testing growth inside the snow line and fragmentation outside of it
  !

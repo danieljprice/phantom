@@ -229,7 +229,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (itype==iboundary) then
              vpred(:,i) = vxyzu(:,i)
              if (mhd)          Bpred(:,i)  = Bevol (:,i)
-             if (use_dustgrowth) dustproppred(:,:) = dustprop(:,:)
+             if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
              cycle predict_sph
           endif
@@ -485,7 +485,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !   get new force using updated velocity: no need to recalculate density etc.
 !
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
-                     Bpred,dBevol,dustprop,ddustprop,dustfrac,ddustevol,&
+                     Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustevol,&
                      temperature,timei,dtsph,dtnew)
     endif
  enddo iterations
