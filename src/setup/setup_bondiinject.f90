@@ -4,7 +4,11 @@ module setup
 
  private
 
- logical :: filldomain = .false.
+!
+!-- Defaults for setup-time parameters
+!
+ logical :: filldomain = .true.
+ real    :: pmassi      = 4.e-4
 
 contains
 
@@ -14,7 +18,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  use units,          only:set_units
  use inject,         only:init_inject,inject_particles,dtsphere,rin
  use timestep,       only:tmax
- use io,             only:master
  use eos,            only:gamma
  use metric,         only:imetric
  use metric_tools,   only:imet_schwarzschild
@@ -40,6 +43,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  polyk           = 0.
  iexternalforce  = 1
 
+ call read_write_setupfile(id,fileprefix)
+
  !-- Don't overwrite these values if infile exists
  inquire(file=trim(fileprefix)//'.in',exist=iexist)
  if (.not.iexist) then
@@ -50,7 +55,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
 
  npart            = 0
  npartoftype(:)   = 0
- massoftype(igas) = 0.012 !1.30833862e-2
+ massoftype(igas) = pmassi
  gamma            = 5./3. !Set gamma in module eos since init_inject needs to know about it.
  gamma_eos        = gamma
 
@@ -90,5 +95,77 @@ subroutine get_tinfall(tinfall,r1,r2,gamma)
  enddo
 
 end subroutine get_tinfall
+
+!
+!---Read/write setup file--------------------------------------------------
+!
+
+subroutine read_write_setupfile(id,fileprefix)
+ use io, only:master
+ integer,          intent(in) :: id
+ character(len=*), intent(in) :: fileprefix
+ character(len=120) :: filename
+ logical :: iexist
+ integer :: ierr
+
+ if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Bondi injection in GR'
+ filename = trim(fileprefix)//'.setup'
+ inquire(file=filename,exist=iexist)
+ if (iexist) call read_setupfile(filename,ierr)
+ if (.not. iexist .or. ierr /= 0) then
+   if (id==master) then
+      call setup_interactive()
+      call write_setupfile(filename)
+      print*,' Edit '//trim(filename)//' and rerun phantomsetup'
+   endif
+   stop
+ endif
+
+end subroutine read_write_setupfile
+
+subroutine setup_interactive()
+ use prompting, only:prompt
+
+ call prompt('Enter particle mass',pmassi,0.)
+ call prompt('Dou want to prefill the domain with gas?',filldomain)
+
+end subroutine setup_interactive
+
+subroutine write_setupfile(filename)
+ use infile_utils, only:write_inopt
+ character(len=*), intent(in) :: filename
+ integer, parameter :: iunit = 20
+
+ print "(a)",' writing setup options file '//trim(filename)
+ open(unit=iunit,file=filename,status='replace',form='formatted')
+ write(iunit,"(a)") '# input file for binary setup routines'
+ call write_inopt(pmassi,    'pmassi',    'particle mass',                           iunit)
+ call write_inopt(filldomain,'filldomain','filldomain to accretion radius (logical)',iunit)
+ close(iunit)
+
+end subroutine write_setupfile
+
+subroutine read_setupfile(filename,ierr)
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use io,           only:error
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
+ integer, parameter :: iunit = 21
+ integer :: nerr
+ type(inopts), allocatable :: db(:)
+
+ print "(a)",'reading setup options from '//trim(filename)
+ nerr = 0
+ ierr = 0
+ call open_db_from_file(db,filename,iunit,ierr)
+ call read_inopt(pmassi,    'pmassi',    db,min=0.,errcount=nerr)
+ call read_inopt(filldomain,'filldomain',db,       errcount=nerr)
+ call close_db(db)
+ if (nerr > 0) then
+    print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
+    ierr = nerr
+ endif
+
+end subroutine read_setupfile
 
 end module setup
