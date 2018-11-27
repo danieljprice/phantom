@@ -439,7 +439,7 @@ ifeq ($(SETUP), grbondi-inject)
     SETUPFILE= setup_bondiinject.F90
     SRCINJECT=bondiexact_gr.f90 icosahedron.f90 utils_inject.f90 inject_bondi.f90
     KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
+    IND_TIMESTEPS=no
     STS_TIMESTEPS=no
     KERNEL=quintic
     ISOTHERMAL=no
