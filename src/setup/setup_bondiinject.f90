@@ -16,8 +16,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  use part,           only:igas,gr,xyzmh_ptmass,vxyz_ptmass
  use options,        only:iexternalforce
  use units,          only:set_units
- use inject,         only:init_inject,inject_particles,dtsphere,rin
+ use inject,         only:init_inject,inject_particles,dtsphere,rin,inject_interactive
  use timestep,       only:tmax
+ use io,             only:iprint
  use eos,            only:gamma
  use metric,         only:imetric
  use metric_tools,   only:imet_schwarzschild
@@ -51,6 +52,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
     tmax            = 360.
     accradius1      = 2.1
     accradius1_hard = accradius1
+    write(iprint,'(/,a,/)') trim(fileprefix)//'.in not found'
+    write(iprint,*) 'Using interactive setup to set injection parameters:'
+    call inject_interactive()
  endif
 
  npart            = 0

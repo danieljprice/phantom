@@ -8,7 +8,8 @@ module inject
  public :: init_inject,          &
            inject_particles,     &
            write_options_inject, &
-           read_options_inject
+           read_options_inject,  &
+           inject_interactive
 
  !-- Runtime variables read from input file
  real,    public :: rin           = 18.1
@@ -285,5 +286,14 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  igotall  = (ngot >= noptions)
 
 end subroutine read_options_inject
+
+subroutine inject_interactive()
+ use prompting, only:prompt
+
+ call prompt('Enter injection radius',rin)
+ call prompt('Enter drdp -- the relative spacing between shells and between particles on shells',drdp)
+ call prompt('Enter the number of boundary shells/spheres',iboundspheres)
+
+end subroutine inject_interactive
 
 end module inject
