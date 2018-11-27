@@ -276,7 +276,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  case('iboundspheres')
     read(valstring,*,iostat=ierr) iboundspheres
     ngot = ngot + 1
-    if (iboundspheres <= 0)     call fatal(label,'iboundspheres must be > 0')
+    if (iboundspheres < 0)     call fatal(label,'iboundspheres must be >= 0')
  case default
     imatch = .false.
  end select
