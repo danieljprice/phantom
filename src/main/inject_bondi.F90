@@ -239,12 +239,14 @@ end subroutine integrate_solution
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_inject(iunit)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
+ use bondiexact,   only:isol
  integer, intent(in) :: iunit
 
- call write_inopt(rin          ,'rin'          ,'radius of injection of the wind'                           ,iunit)
- call write_inopt(drdp         ,'drdp'         ,'desired ratio of sphere spacing to particle spacing'       ,iunit)
- call write_inopt(iboundspheres,'iboundspheres','number of boundary spheres (integer)'                      ,iunit)
+ call write_inopt(rin          ,'rin'          ,'radius of injection of the wind'                    ,iunit)
+ call write_inopt(drdp         ,'drdp'         ,'desired ratio of sphere spacing to particle spacing',iunit)
+ call write_inopt(iboundspheres,'iboundspheres','number of boundary spheres (integer)'               ,iunit)
+ call write_inopt(isol         ,'isol'         ,'solution type (1=geodesic | 2=sonic point)'         ,iunit)
 
 end subroutine write_options_inject
 
@@ -254,7 +256,8 @@ end subroutine write_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
+ use bondiexact, only:isol
+ use io,         only:fatal
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -269,30 +272,36 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  case('rin')
     read(valstring,*,iostat=ierr) rin
     ngot = ngot + 1
-    if (rin < 0.) call fatal(label,'invalid setting for rin (<0)')
+    if (rin < 0.)            call fatal(label,'invalid setting for rin (<0)')
  case('drdp')
     read(valstring,*,iostat=ierr) drdp
     ngot = ngot + 1
-    if (drdp <= 0.)        call fatal(label,'drdp must be >=0')
+    if (drdp <= 0.)          call fatal(label,'drdp must be >=0')
  case('iboundspheres')
     read(valstring,*,iostat=ierr) iboundspheres
     ngot = ngot + 1
-    if (iboundspheres < 0)     call fatal(label,'iboundspheres must be >= 0')
+    if (iboundspheres < 0)   call fatal(label,'iboundspheres must be >= 0')
+ case('isol')
+    read(valstring,*,iostat=ierr) isol
+    ngot = ngot + 1
+    if (isol<1 .or. isol>2)  call fatal(label,'invalid choice for isol')
  case default
     imatch = .false.
  end select
 
- noptions = 3
+ noptions = 4
  igotall  = (ngot >= noptions)
 
 end subroutine read_options_inject
 
 subroutine inject_interactive()
- use prompting, only:prompt
+ use prompting,  only:prompt
+ use bondiexact, only:isol
 
- call prompt('Enter injection radius',rin)
- call prompt('Enter drdp -- the relative spacing between shells and between particles on shells',drdp)
- call prompt('Enter the number of boundary shells/spheres',iboundspheres)
+ call prompt('Enter solution type (1=geodesic | 2=sonic point)',isol,1,2)
+ call prompt('Enter injection radius',rin,0.)
+ call prompt('Enter drdp -- the relative spacing between shells and between particles on shells',drdp,0.)
+ call prompt('Enter the number of boundary shells/spheres',iboundspheres,0)
 
 end subroutine inject_interactive
 
