@@ -144,9 +144,14 @@ subroutine test_growingbox(ntests,npass)
  vxyzu = 0.
  fxyzu = 0.
  fext = 0.
+ divcurlB = 0.
+ divcurlv = 0.
+ dustfrac = 0.
  ddustprop = 0.
  ddustevol = 0.
+ Bevol = 0.
  dBevol = 0.
+ temperature = 0.
  if (maxalpha==maxp) alphaind(:,:) = 0.
 
  npart_previous = npart
