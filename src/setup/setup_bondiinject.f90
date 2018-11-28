@@ -20,6 +20,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  use timestep,       only:tmax
  use io,             only:iprint
  use eos,            only:gamma
+ use prompting,      only:prompt
  use metric,         only:imetric
  use metric_tools,   only:imet_schwarzschild
  use externalforces, only:accradius1,accradius1_hard
@@ -55,6 +56,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
     write(iprint,'(/,a,/)') trim(fileprefix)//'.in not found'
     write(iprint,*) 'Using interactive setup to set injection parameters:'
     call inject_interactive()
+    call prompt('Enter tmax',tmax,0.)
+    call prompt('Enter accretion radius',accradius1,0.)
  endif
 
  npart            = 0
