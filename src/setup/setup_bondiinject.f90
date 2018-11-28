@@ -76,7 +76,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
     call get_tinfall(tinfall,r1=accradius1,r2=rin,gamma=gamma)
     nspheres = int(tinfall/dtsphere) !27!100!20!
     write(iprint,*) 'number of "real" spheres: ',nspheres
-    call inject_particles(dtsphere*nspheres,dtsphere*nspheres,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
+    call inject_particles(dtsphere*nspheres*(1.+1.e-15),dtsphere*nspheres,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
  endif
 
 end subroutine setpart
