@@ -54,7 +54,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
     accradius1      = 2.1
     accradius1_hard = accradius1
     write(iprint,'(/,a,/)') trim(fileprefix)//'.in not found'
-    write(iprint,*) 'Using interactive setup to set injection parameters:'
+    write(iprint,'(a,/)') 'Using interactive setup to set injection parameters:'
     call inject_interactive()
     call prompt('Enter tmax',tmax,0.)
     call prompt('Enter accretion radius',accradius1,0.)
@@ -75,7 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
 !
     call get_tinfall(tinfall,r1=accradius1,r2=rin,gamma=gamma)
     nspheres = int(tinfall/dtsphere) !27!100!20!
-    print*,'number of "real" spheres: ',nspheres
+    write(iprint,*) 'number of "real" spheres: ',nspheres
     call inject_particles(dtsphere*nspheres,dtsphere*nspheres,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
  endif
 
@@ -108,14 +108,14 @@ end subroutine get_tinfall
 !
 
 subroutine read_write_setupfile(id,fileprefix)
- use io, only:master
+ use io, only:master,iprint
  integer,          intent(in) :: id
  character(len=*), intent(in) :: fileprefix
  character(len=120) :: filename
  logical :: iexist
  integer :: ierr
 
- if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Bondi injection in GR'
+ if (id==master) write(iprint,"(/,65('-'),1(/,a),/,65('-'),/)") ' Bondi injection in GR'
  filename = trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) call read_setupfile(filename,ierr)
@@ -123,7 +123,7 @@ subroutine read_write_setupfile(id,fileprefix)
    if (id==master) then
       call setup_interactive()
       call write_setupfile(filename)
-      print*,' Edit '//trim(filename)//' and rerun phantomsetup'
+      write(iprint,*) 'Edit '//trim(filename)//' and rerun phantomsetup'
    endif
    stop
  endif
@@ -140,10 +140,11 @@ end subroutine setup_interactive
 
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
+ use io,           only:iprint
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
 
- print "(a)",' writing setup options file '//trim(filename)
+ write(iprint,"(a)") ' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for binary setup routines'
  call write_inopt(pmassi,    'pmassi',    'particle mass',                           iunit)
@@ -154,14 +155,14 @@ end subroutine write_setupfile
 
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use io,           only:error
+ use io,           only:error,iprint
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr
  type(inopts), allocatable :: db(:)
 
- print "(a)",'reading setup options from '//trim(filename)
+ write(iprint,"(a)") 'reading setup options from '//trim(filename)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
@@ -169,7 +170,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(filldomain,'filldomain',db,       errcount=nerr)
  call close_db(db)
  if (nerr > 0) then
-    print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
+    write(iprint,"(1x,i2,a)") nerr,' error(s) during read of setup file: re-writing...'
     ierr = nerr
  endif
 
