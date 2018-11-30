@@ -43,7 +43,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use dim,            only:use_dust,lightcurve,maxdusttypes
  use eos,            only:temperature_coef,gmw,gamma
  use timestep,       only:dtmax
- use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file
+ use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
+                          use_mcfost_stellar_parameters
 
  character(len=*), intent(in)    :: dumpfile
  integer,          intent(in)    :: num,npart,iunit
@@ -71,7 +72,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     if (.not.init_mcfost) then
        ilen = index(dumpfile,'_',back=.true.) ! last position of the '_' character
        mcfost_para_filename = dumpfile(1:ilen-1)//'.para'
-       call init_mcfost_phantom(mcfost_para_filename,use_Voronoi_limits_file,Voronoi_limits_file,SPH_limits,ierr)
+       call init_mcfost_phantom(mcfost_para_filename,use_Voronoi_limits_file,Voronoi_limits_file,SPH_limits,ierr, &
+            fix_star = use_mcfost_stellar_parameters)
        if (ierr /= 0) call fatal('mcfost-phantom','error in init_mcfost_phantom')
        init_mcfost = .true.
     endif

@@ -76,7 +76,7 @@ module setup
                             iext_einsteinprec,iext_corot_binary,iext_corotate
  use options,          only:use_dustfrac,iexternalforce
 #ifdef MCFOST
- use options,          only:use_mcfost,nfulldump
+ use options,          only:use_mcfost,use_mcfost_stellar_parameters,nfulldump
 #endif
  use part,             only:ndusttypes,ndustsmall,ndustlarge,grainsize,graindens
  use physcon,          only:au,solarm
@@ -1658,6 +1658,7 @@ subroutine write_setupfile(filename)
  !--mcfost
  write(iunit,"(/,a)") '# mcfost'
  call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iunit)
+ call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars','Fix the stellar parameters to mcfost values or update using sink mass',iunit)
 #endif
 
  close(iunit)
@@ -1915,6 +1916,8 @@ subroutine read_setupfile(filename,ierr)
  !--mcfost
  call read_inopt(use_mcfost,'use_mcfost',db,err=ierr)
  if (ierr /= 0) use_mcfost = .false. ! no mcfost by default
+ call read_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',db,err=ierr)
+ if (ierr /= 0) use_mcfost_stellar_parameters = .false. ! update stellar parameters by default
 #endif
 
  call close_db(db)
