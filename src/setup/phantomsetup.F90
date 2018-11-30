@@ -81,6 +81,9 @@ program phantomsetup
     print*,'       (these are assigned automatically)'
     print "(/,a)",' e.g. "phantomsetup mysim"'
     stop
+ elseif (fileprefix=='test') then
+    print*,'Error: cannot use ''test'' as the job name, please rename your .setup file'
+    stop
  endif
  infile = trim(fileprefix)//'.in'
  inquire(file=trim(infile),exist=iexist)
