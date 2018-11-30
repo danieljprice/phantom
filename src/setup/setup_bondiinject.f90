@@ -35,7 +35,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  character(len=*),  intent(in)    :: fileprefix
  logical :: iexist
  integer :: ierr,nspheres
- real :: dtinject,tinfall
+ real :: dtinject,tinfall,fac
 
  if (.not.gr) call fatal('setup','This setup only works with GR on')
  if (imetric/=imet_schwarzschild) call fatal('setup','This setup is meant for use with the Schwarzschild metric')
@@ -76,7 +76,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
     call get_tinfall(tinfall,r1=accradius1,r2=rin,gamma=gamma)
     nspheres = int(tinfall/dtsphere) !27!100!20!
     write(iprint,*) 'number of "real" spheres: ',nspheres
-    call inject_particles(dtsphere*nspheres*(1.+1.e-15),dtsphere*nspheres,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
+    fac = 1.+1.e-15
+    call inject_particles(dtsphere*nspheres*fac,dtsphere*nspheres,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
  endif
 
 end subroutine setpart
