@@ -94,9 +94,9 @@ end subroutine test_growth
 subroutine test_growingbox(ntests,npass)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
- use part,           only:idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,rhoh,&
+ use part,           only:idust,igas,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-                          dustfrac,ddustevol,temperature,iamdust,maxtypes,St
+                          dustfrac,ddustevol,temperature,iamdust,maxtypes,St,alphaind
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use testutils,      only:checkvalbuf,checkvalbuf_end
@@ -104,7 +104,7 @@ subroutine test_growingbox(ntests,npass)
  use eos,            only:ieos,polyk,gamma,get_spsound,init_eos,temperature_coef,gmw
  use options,        only:alpha
  use physcon,        only:au,solarm,Ro
- use dim,            only:periodic
+ use dim,            only:periodic,maxp,maxalpha
  use timestep,       only:dtmax
  use io,             only:iverbose
  use units,          only:set_units
@@ -141,6 +141,18 @@ subroutine test_growingbox(ntests,npass)
  rhozero = 1.
  totmass = rhozero*dxbound*dybound*dzbound
  npart = 0
+ vxyzu = 0.
+ fxyzu = 0.
+ fext = 0.
+ divcurlB = 0.
+ divcurlv = 0.
+ dustfrac = 0.
+ ddustprop = 0.
+ ddustevol = 0.
+ Bevol = 0.
+ dBevol = 0.
+ temperature = 0.
+ if (maxalpha==maxp) alphaind(:,:) = 0.
 
  npart_previous = npart
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
@@ -148,9 +160,6 @@ subroutine test_growingbox(ntests,npass)
  call set_units(mass=solarm,dist=au,G=1.d0)
  do i=npart_previous+1,npart
     call set_particle_type(i,idust)
-    vxyzu(:,i) = 0.
-    fxyzu(:,i) = 0.
-    fext(:,i) = 0.
     dustprop(1,i) = sinit
     dustprop(2,i) = dens
     dustprop(3,i) = 0.
@@ -160,6 +169,7 @@ subroutine test_growingbox(ntests,npass)
  npartoftype(idust) = npart - npart_previous
  npartoftypetot(idust) = reduceall_mpi('+',npartoftype(idust))
  massoftype(idust) = totmass/npartoftypetot(idust)
+ massoftype(igas)  = 0.
  !
  ! runtime parameters
  !
@@ -338,7 +348,7 @@ subroutine test_growingbox(ntests,npass)
     enddo
  enddo
  call checkvalbuf_end('size match exact solution (in)',ncheck(6),nerr(6),errmax(6),10*tols)
- call checkvalbuf_end('size match exact solution (out)',ncheck(7),nerr(7),errmax(7 ),10*tols)
+ call checkvalbuf_end('size match exact solution (out)',ncheck(7),nerr(7),errmax(7),10*tols)
  !
  ! testing growth inside the snow line and fragmentation outside of it
  !

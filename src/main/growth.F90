@@ -200,7 +200,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
 
     if (iam==idust) then
 
-       rhod = rhoh(xyzh(4,i),get_pmass(2,.false.)) !--idust = 2
+       rhod = rhoh(xyzh(4,i),get_pmass(idust,.false.))
        cs   = get_spsound(ieos,xyzh(:,i),rhod,vxyzu(:,i))
        call get_vrelonvfrag(xyzh(:,i),vrel,dustprop(:,i),cs,St(i))
        !

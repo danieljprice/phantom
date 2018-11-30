@@ -522,10 +522,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        graindens(1) = graindensinp(1)/umass*udist**3
        grainsizecgs = grainsizeinp(1)
        graindenscgs = graindensinp(1)
-       if (use_dustgrowth) then
-          dustprop(1,:) = grainsize(1)
-          dustprop(2,:) = graindens(1)
-       endif
     endif
  endif
 
@@ -821,6 +817,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--number of particles
  npart = nparttot
 
+ !--initialise dustprop for dust particles only
+ if (use_dustgrowth) then
+    do i=1,npart
+       if (iamtype(iphase(i))==idust) then
+          dustprop(1,i) = grainsize(1)
+          dustprop(2,i) = graindens(1)
+       else
+          dustprop(:,i) = 0.
+       endif
+    enddo
+ endif
  call check_dust_method(dust_method,ichange_method)
  if (ichange_method .and. id==master) then
     np_dust = npart/5
@@ -1441,7 +1448,7 @@ subroutine write_setupfile(filename)
     varstring = 'np_dust'
     call make_tags_unique(ndusttypesinp,varstring)
     do i=1,ndusttypesinp
-       call write_inopt(np_dust(i),varstring(i),'number of dust particles',iunit)
+       call write_inopt(np_dust(i),trim(varstring(i)),'number of dust particles',iunit)
     enddo
  endif
  !--units
@@ -1864,6 +1871,7 @@ subroutine read_setupfile(filename,ierr)
        endif
        !--dust disc
        if (use_dust) then
+          call read_inopt(iprofile_dust,'iprofile_dust',db,errcount=nerr)
           select case (iprofile_dust)
           case (0)
              R_indust(i)    = R_in(i)
