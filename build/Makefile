@@ -266,7 +266,11 @@ endif
 
 ifeq ($(SETUP), disc)
 #   locally isothermal gas disc
-    FPPFLAGS= -DDISC_VISCOSITY
+     ifeq ($(DISC_VISCOSITY), no)
+	FPPFLAGS=
+     else
+        FPPFLAGS= -DDISC_VISCOSITY
+    endif
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
 #    ANALYSIS= analysis_binarydisc_af.f90
@@ -709,20 +713,31 @@ ifeq ($(SETUP), star)
     MHD=no
 endif
 
+ifeq ($(SETUP), isowind)
+#   wind setup (isothermal spherical wind from a sink particle)
+    FPPFLAGS=
+    ISOTHERMAL=yes
+    SETUPFILE= setup_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 inject_wind.f90
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=no
+    STS_TIMESTEPS=no
+endif
+
 ifeq ($(SETUP), wind)
 #   wind setup (adiabatic supersonic spherical wind from a sink particle)
     SETUPFILE= setup_wind.f90
-    SRCINJECT= icosahedron.f90 inject_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
 endif
 
 ifeq ($(SETUP), bowen)
-#   bowen wind setup (pulsating dusty wind)
+# bowen wind setup (pulsating dusty wind)
     FPPFLAGS= -DBOWEN
     SETUPFILE= setup_wind.f90
-    SRCINJECT= icosahedron.f90 bowen_dust.F90 inject_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 bowen_dust.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no

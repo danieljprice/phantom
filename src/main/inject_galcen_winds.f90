@@ -31,7 +31,7 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'galcen_winds'
 
- public :: inject_particles, write_options_inject, read_options_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject
 
  !integer :: wind_type = 1
  real :: outer_boundary = 20.
@@ -49,14 +49,27 @@ module inject
  integer, private :: iseed = -666
 
 contains
+!-----------------------------------------------------------------------
+!+
+!  Initialize global variables or arrays needed for injection routine
+!+
+!-----------------------------------------------------------------------
+subroutine init_inject(ierr)
+ integer, intent(out) :: ierr
+ !
+ ! return without error
+ !
+ ierr = 0
+
+end subroutine init_inject
 
 !-----------------------------------------------------------------------
 !+
 !  Main routine handling injection at the L1 point.
 !+
 !-----------------------------------------------------------------------
-subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
-           npart,npartoftype)
+subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                            npart,npartoftype,dtinject)
  use io,        only:fatal,iverbose
  use part,      only:massoftype,igas,ihacc,i_tlast
  use partinject,only:add_or_update_particle
@@ -69,6 +82,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
+ real,    intent(out)   :: dtinject
  real :: r2,Mcut,Mdot_fac,vel_fac,Minject,Mdot_code,tlast
  real :: xyzi(3),vxyz(3),xyz_star(3),vxyz_star(3),dir(3)
  real :: rr,phi,theta,cosphi,sinphi,costheta,sintheta
@@ -209,6 +223,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     print*,'npart = ',npart
     print*,'tpi = ',total_particles_injected(1:nptmass)
  endif
+ !
+ !-- no constraint on timestep
+ !
+ dtinject = huge(dtinject)
 
 end subroutine inject_particles
 

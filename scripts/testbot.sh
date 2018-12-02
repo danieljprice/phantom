@@ -66,7 +66,7 @@ echo "Test suite checked: "`date` >> $htmlfile;
 echo "<table>" >> $htmlfile;
 ncheck=0;
 nfail=0;
-listofsetups="test testkd test2 testcyl testgrav testdust testnimhd";
+listofsetups="test testkd test2 testcyl testgrav testdust testnimhd testgrowth";
 for setup in $listofsetups; do
     cd $phantomdir;
     errorlog="./logs/test-results-$setup-$SYSTEM$tag.txt";
@@ -90,6 +90,8 @@ for setup in $listofsetups; do
        arg="dust";
     elif [ $setup == "testnimhd" ]; then
        arg="nimhd";
+    elif [ $setup == "testgrowth" ]; then
+       arg="dustgrowth";
     else
        arg="";
     fi

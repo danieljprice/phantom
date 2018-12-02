@@ -422,7 +422,10 @@ subroutine test_dustydiffuse(ntests,npass)
  do i=1,npart
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-    dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)*rhoh(xyzh(4,i),massoftype(igas)))
+!    dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)*rhoh(xyzh(4,i),massoftype(igas)))
+!------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+    dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)/(1.-dustfrac(1:ndustsmall,i)))
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
 !    dustevol(:,i) = asin(sqrt(dustfrac(1:ndustsmall,i)))
@@ -440,7 +443,10 @@ subroutine test_dustydiffuse(ntests,npass)
        dustevol(:,i) = dustevol(:,i) + dt*ddustevol(:,i)
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-       dustfrac(1:ndustsmall,i) = dustevol(:,i)**2/rhoh(xyzh(4,i),massoftype(igas))
+!       dustfrac(1:ndustsmall,i) = dustevol(:,i)**2/rhoh(xyzh(4,i),massoftype(igas))
+!------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+       dustfrac(1:ndustsmall,i) = dustevol(:,i)**2/(1.+dustevol(:,i)**2)
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
 !       dustfrac(1:ndustsmall,i) = sin(dustevol(:,i))**2
@@ -499,7 +505,7 @@ end subroutine test_dustydiffuse
 !+
 !---------------------------------------------------------------------------------
 subroutine test_drag(ntests,npass)
- use dim,         only:maxp,periodic,maxtypes,mhd,maxvxyzu,maxdustlarge,maxalpha
+ use dim,         only:maxp,periodic,maxtypes,mhd,maxvxyzu,maxdustlarge,maxalpha,use_dustgrowth
  use part,        only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustevol,&
                        xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,&
                        set_particle_type,rhoh,temperature,dustprop,ddustprop,&
@@ -581,7 +587,10 @@ subroutine test_drag(ntests,npass)
  enddo
 
  if (mhd) Bevol = 0.
-
+ if (use_dustgrowth) then
+    dustprop(1,:) = grainsize(1)
+    dustprop(2,:) = graindens(1)
+ endif
 !
 ! call derivatives
 !

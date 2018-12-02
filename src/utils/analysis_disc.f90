@@ -38,6 +38,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use io,      only:fatal
  use physcon, only:pi
  use part,    only:xyzmh_ptmass,vxyz_ptmass,nptmass
+ use infile_utils, only:open_db_from_file,read_inopt,close_db,inopts
  character(len=*), intent(in) :: dumpfile
  real,             intent(inout) :: xyzh(:,:),vxyz(:,:)
  real,             intent(inout) :: pmass,time
@@ -52,8 +53,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: rad(nr),h_smooth(nr),sigma(nr),H(nr)
  real :: unitlx(nr),unitly(nr),unitlz(nr),ecc(nr)
  real :: psi(nr),tilt_acc(nr)
- integer :: ninbin(nr)
+ integer :: ninbin(nr),iexternalforce_read
  logical :: assume_Ltot_is_same_as_zaxis,iexist
+ type(inopts), allocatable :: db(:)
 
  integer, parameter :: iparams = 10
  integer, parameter :: iprec   = 24
@@ -104,8 +106,22 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 ! the potential or any discs that have a warp
 ! For any setup that uses iexternalforce and assumes that the vast majority of the angular
 ! momentum is held by the central potential, this should be set to true
-
  assume_Ltot_is_same_as_zaxis = .false.
+
+ ! Check, if iexternalforce > 0 from the *.in file
+ ! this value should be set to true (or if GR is used)
+ ! Open *.in file and read the iexternalforce variable
+ iexternalforce_read = 0
+ inquire(file=trim(discprefix)//'.in', exist=ifile)
+ if (ifile) then
+    call open_db_from_file(db,trim(discprefix)//'.in',iparams,ierr)
+    call read_inopt(iexternalforce_read,'iexternalforce',db,ierr)
+    call close_db(db)
+ endif
+ if (iexternalforce_read > 0) then
+    assume_Ltot_is_same_as_zaxis = .true.
+    print*,'Resetting assume_Ltot_is_same_as_zaxis=.true. in analysis'
+ endif
 
  call disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_index,&
                      tilt,tilt_acc,twist,twistprev,psi,H,rad,h_smooth,sigma,unitlx,unitly,unitlz,&

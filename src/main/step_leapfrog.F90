@@ -106,7 +106,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:ibin,ibin_old,twas,iactive
 #endif
 #ifdef DUSTGROWTH
- use growth,                only:update_dustprop
+ use growth,                only:check_dustprop
 #endif
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -229,7 +229,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (itype==iboundary) then
              vpred(:,i) = vxyzu(:,i)
              if (mhd)          Bpred(:,i)  = Bevol (:,i)
-             if (use_dustgrowth) dustproppred(:,:) = dustprop(:,:)
+             if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
              cycle predict_sph
           endif
@@ -252,7 +252,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #endif
        vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
        if (use_dustgrowth .and. itype==idust) then
-          dustproppred(:,i) = dustproppred(:,i) + hdti*ddustprop(:,i)
+          dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
        endif
        if (itype==igas) then
           if (mhd) Bpred(:,i) = Bevol (:,i) + hdti*dBevol(:,i)
@@ -261,7 +261,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              dustpred(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-             dustfrac(1:ndustsmall,i) = min(dustpred(:,i)**2/rhoi,1.) ! dustevol = sqrt(rho*eps)
+!             dustfrac(1:ndustsmall,i) = min(dustpred(:,i)**2/rhoi,1.) ! dustevol = sqrt(rho*eps)
+!------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+             dustfrac(1:ndustsmall,i) = dustpred(:,i)**2/(1.+dustpred(:,i)**2)
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
 !             dustfrac(1:ndustsmall,i) = sin(dustpred(:,i))**2
@@ -375,7 +378,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              endif
 
              vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
-             if (use_dustgrowth .and. itype==idust) dustproppred(:,i) = dustproppred(:,i) + dti*ddustprop(:,i)
+             if (use_dustgrowth .and. itype==idust) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
              if (itype==igas) then
                 if (mhd)          Bevol(:,i)    = Bevol(:,i)    + dti*dBevol(:,i)
                 if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + dti*ddustevol(:,i)
@@ -387,7 +390,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           !
           hdti = timei - twas(i)
           vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
-
+          if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdti*dBevol(:,i)
              if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
@@ -430,6 +433,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (icooling==3) call energ_coolfunc(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph,v2i)
           endif
 
+          if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdtsph*ddustprop(:,i)
           if (itype==igas) then
              !
              ! corrector step for magnetic field and dust
@@ -451,17 +455,20 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #ifdef IND_TIMESTEPS
           if (iactive(iphase(i))) then
              vpred(:,i) = vxyzu(:,i)
+             if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (mhd)          Bpred(:,i)  = Bevol(:,i)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
           endif
 #else
           vpred(:,i) = vxyzu(:,i)
+          if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
           if (mhd)          Bpred(:,i)  = Bevol(:,i)
           if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
 !
 ! shift v back to the half step
 !
           vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
+          if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  - hdtsph*dBevol(:,i)
              if (use_dustfrac) dustevol(:,i) = dustevol(:,i) - hdtsph*ddustevol(:,i)
@@ -469,6 +476,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #endif
        enddo
        !$omp end parallel do
+
+#ifdef DUSTGROWTH
+       call check_dustprop(npart,dustprop(1,:)) !--check minimum size in case of fragmentation
+#endif
+
 !
 !   get new force using updated velocity: no need to recalculate density etc.
 !
@@ -476,9 +488,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                      Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustevol,&
                      temperature,timei,dtsph,dtnew)
     endif
-#ifdef DUSTGROWTH
-    call update_dustprop(npart,dustproppred) !--update dustprop values
-#endif
  enddo iterations
  ! Summary statements & crash if velocity is not converged
  if (nwake > 1) call summary_variable('wake',iowake,  0,real(nwake))

@@ -21,10 +21,11 @@
 !  DEPENDENCIES: balance, boundary, centreofmass, checkoptions, checksetup,
 !    chem, cooling, cpuinfo, densityforce, deriv, dim, domain, dust,
 !    energies, eos, evwrite, externalforces, fastmath, fileutils, forcing,
-!    growth, h2cooling, initial_params, io, io_summary, linklist, mf_write,
-!    mpi, mpiutils, nicil, nicil_sup, omputils, options, part, photoevap,
-!    ptmass, readwrite_dumps, readwrite_infile, setup, sort_particles,
-!    timestep, timestep_ind, timestep_sts, timing, units, writeheader
+!    growth, h2cooling, initial_params, inject, io, io_summary, linklist,
+!    mf_write, mpi, mpiutils, nicil, nicil_sup, omputils, options, part,
+!    photoevap, ptmass, readwrite_dumps, readwrite_infile, setup,
+!    sort_particles, timestep, timestep_ind, timestep_sts, timing, units,
+!    writeheader
 !+
 !--------------------------------------------------------------------------
 module initial
@@ -190,6 +191,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use balance,          only:balancedomains
  use domain,           only:ibelong
 #endif
+#ifdef INJECT_PARTICLES
+ use inject,           only:init_inject,inject_particles
+#endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:gamma,polyk,ieos,init_eos
  use part,             only:hfact,h2chemistry
@@ -210,7 +214,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  integer(kind=8) :: npartoftypetot(maxtypes)
  real            :: poti,dtf,hfactfile,fextv(3)
  real            :: hi,pmassi,rhoi1
- real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dummy(3)
+ real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dummy(3),dtinject
  real            :: stressmax
 #ifdef NONIDEALMHD
  real            :: gmw_old,gmw_new
@@ -406,6 +410,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  dtcourant = huge(dtcourant)
  dtforce   = huge(dtforce)
 #endif
+ dtinject  = huge(dtinject)
 
 !
 !--balance domains prior to starting calculation
@@ -498,6 +503,15 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  endif
  call init_ptmass(nptmass,logfile,dumpfile)
 !
+!--inject particles at t=0, and get timestep constraint on this
+!
+#ifdef INJECT_PARTICLES
+ call init_inject(ierr)
+ if (ierr /= 0) call fatal('initial','error initialising particle injection')
+ call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                       npart,npartoftype,dtinject)
+#endif
+!
 !--calculate (all) derivatives the first time around
 !
  dtnew_first   = dtmax  ! necessary in case ntot = 0
@@ -513,7 +527,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
           if (.not.isdead_or_accreted(xyzh(4,i))) then
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-             dustevol(:,i) = sqrt(rhoh(xyzh(4,i),pmassi)*dustfrac(1:ndustsmall,i))
+!             dustevol(:,i) = sqrt(rhoh(xyzh(4,i),pmassi)*dustfrac(1:ndustsmall,i))
+!------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+             dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)/(1.-dustfrac(1:ndustsmall,i)))
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
 !             dustevol(:,i) = asin(sqrt(dustfrac(1:ndustsmall,i)))
@@ -534,7 +551,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !--set initial timestep
 !
 #ifndef IND_TIMESTEPS
- dt = dtnew_first
+ dt = min(dtnew_first,dtinject)
  if (id==master) then
     write(iprint,*) 'dt(forces)    = ',dtforce
     write(iprint,*) 'dt(courant)   = ',dtcourant

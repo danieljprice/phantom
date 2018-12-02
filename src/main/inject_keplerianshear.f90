@@ -55,7 +55,8 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'keplerianshear'
 
- public :: inject_particles, write_options_inject, read_options_inject, set_injection_parameters
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject
+ public :: set_injection_parameters
 
  type injectparams
     real, public :: R_in, R_out, Rsect_in, Rsect_out, width, R_mid, dr_bound, phi_inject
@@ -70,13 +71,27 @@ module inject
  private
 
 contains
+!-----------------------------------------------------------------------
+!+
+!  Initialize global variables or arrays needed for injection routine
+!+
+!-----------------------------------------------------------------------
+subroutine init_inject(ierr)
+ integer, intent(out) :: ierr
+ !
+ ! return without error
+ !
+ ierr = 0
+
+end subroutine init_inject
 
 !-----------------------------------------------------------------------
 !+
 !  Main routine handling wind injection.
 !+
 !-----------------------------------------------------------------------
-subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype)
+subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                            npart,npartoftype,dtinject)
  use part,      only:igas,iboundary, massoftype
  use physcon,   only:Rg,gg,pi
  use eos,       only:gamma
@@ -85,6 +100,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npar
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
+ real,    intent(out)   :: dtinject
 
  real, parameter :: mu = 1.26 ! Used in Bowen (1988)
 
@@ -167,9 +183,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npar
  endif
 
  write(87,*) time, dtlast, ninject, ndomain, nboundary, nkill, nqueue, nqueuecrit, injected
-
-
  print*, npart, ' particles in total'
+ !
+ !-- no constraint on timestep
+ !
+ dtinject = huge(dtinject)
 
 end subroutine
 
@@ -262,9 +280,8 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 
 end subroutine
 
-
 subroutine set_injection_parameters(R_in, R_out, Rsect_in,Rsect_out,dr_bound,&
-phimax,phi_inject,p_index,q_index,HoverR,disc_mass,object_mass)
+ phimax,phi_inject,p_index,q_index,HoverR,disc_mass,object_mass)
 
  real, intent(in) :: R_in, R_out, Rsect_in,Rsect_out, dr_bound
  real, intent(in) :: phimax,p_index,q_index,HoverR, phi_inject

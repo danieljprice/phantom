@@ -93,7 +93,7 @@ module dim
 #ifdef MAXDUSTSMALL
  integer, parameter :: maxdustsmall = MAXDUSTSMALL
 #else
- integer, parameter :: maxdustsmall = 1
+ integer, parameter :: maxdustsmall = 11
 #endif
  integer, parameter :: maxp_dustfrac = maxp
 #ifdef DUSTGROWTH

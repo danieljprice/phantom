@@ -26,41 +26,42 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    Ratm_in       -- inner atmosphere radius (planet radii)
-!    Ratm_out      -- outer atmosphere radius (planet radii)
-!    accr1         -- central star accretion radius
-!    accr2         -- perturber accretion radius
-!    alphaSS       -- desired alphaSS
-!    atm_type      -- atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))
-!    bhspin        -- black hole spin
-!    bhspinangle   -- black hole spin angle (deg)
-!    binary_O      -- Omega, PA of ascending node (deg)
-!    binary_a      -- binary semi-major axis
-!    binary_e      -- binary eccentricity
-!    binary_f      -- f, initial true anomaly (deg,180=apastron)
-!    binary_i      -- i, inclination (deg)
-!    binary_w      -- w, argument of periapsis (deg)
-!    deltat        -- output interval as fraction of orbital period
-!    dist_unit     -- distance unit (e.g. au,pc,kpc,0.1pc)
-!    einst_prec    -- include Einstein precession
-!    flyby_O       -- position angle of ascending node (deg)
-!    flyby_a       -- distance of minimum approach
-!    flyby_d       -- initial distance (units of dist. min. approach)
-!    flyby_i       -- inclination (deg)
-!    ibinary       -- binary orbit (0=bound,1=unbound [flyby])
-!    ipotential    -- potential (1=central point mass,
-!    m1            -- central star mass
-!    m2            -- perturber mass
-!    mass_unit     -- mass unit (e.g. solarm,jupiterm,earthm)
-!    norbits       -- maximum number of orbits at outer disc
-!    np            -- number of gas particles
-!    nplanets      -- number of planets
-!    nsinks        -- number of sinks
-!    ramp          -- Do you want to ramp up the planet mass slowly?
-!    rho_core      -- planet core density (cgs units)
-!    setplanets    -- add planets? (0=no,1=yes)
-!    surface_force -- model m1 as planet with surface
-!    use_mcfost    -- use the mcfost library
+!    Ratm_in          -- inner atmosphere radius (planet radii)
+!    Ratm_out         -- outer atmosphere radius (planet radii)
+!    accr1            -- central star accretion radius
+!    accr2            -- perturber accretion radius
+!    alphaSS          -- desired alphaSS
+!    atm_type         -- atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))
+!    bhspin           -- black hole spin
+!    bhspinangle      -- black hole spin angle (deg)
+!    binary_O         -- Omega, PA of ascending node (deg)
+!    binary_a         -- binary semi-major axis
+!    binary_e         -- binary eccentricity
+!    binary_f         -- f, initial true anomaly (deg,180=apastron)
+!    binary_i         -- i, inclination (deg)
+!    binary_w         -- w, argument of periapsis (deg)
+!    deltat           -- output interval as fraction of orbital period
+!    dist_unit        -- distance unit (e.g. au,pc,kpc,0.1pc)
+!    einst_prec       -- include Einstein precession
+!    flyby_O          -- position angle of ascending node (deg)
+!    flyby_a          -- distance of minimum approach
+!    flyby_d          -- initial distance (units of dist. min. approach)
+!    flyby_i          -- inclination (deg)
+!    ibinary          -- binary orbit (0=bound,1=unbound [flyby])
+!    ipotential       -- potential (1=central point mass,
+!    m1               -- central star mass
+!    m2               -- perturber mass
+!    mass_unit        -- mass unit (e.g. solarm,jupiterm,earthm)
+!    norbits          -- maximum number of orbits at outer disc
+!    np               -- number of gas particles
+!    nplanets         -- number of planets
+!    nsinks           -- number of sinks
+!    ramp             -- Do you want to ramp up the planet mass slowly?
+!    rho_core         -- planet core density (cgs units)
+!    setplanets       -- add planets? (0=no,1=yes)
+!    surface_force    -- model m1 as planet with surface
+!    use_mcfost       -- use the mcfost library
+!    use_mcfost_stars -- Fix the stellar parameters to mcfost values or update using sink mass
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_corotate, extern_lensethirring, externalforces, fileutils,
@@ -76,7 +77,7 @@ module setup
                             iext_einsteinprec,iext_corot_binary,iext_corotate
  use options,          only:use_dustfrac,iexternalforce
 #ifdef MCFOST
- use options,          only:use_mcfost,nfulldump
+ use options,          only:use_mcfost,use_mcfost_stellar_parameters,nfulldump
 #endif
  use part,             only:ndusttypes,ndustsmall,ndustlarge,grainsize,graindens
  use physcon,          only:au,solarm
@@ -506,9 +507,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (ndusttypes > 1) then
        select case(igrainsize)
        case(0)
-          call logspace(grainsize(1:ndusttypes),smincgs,smaxcgs)
+          call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
           grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
-          call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes))
        case(1)
           grainsize(1:ndusttypes) = grainsizeinp(1:ndusttypes)/udist
        end select
@@ -818,6 +818,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--number of particles
  npart = nparttot
 
+ !--initialise dustprop for dust particles only
+ if (use_dustgrowth) then
+    do i=1,npart
+       if (iamtype(iphase(i))==idust) then
+          dustprop(1,i) = grainsize(1)
+          dustprop(2,i) = graindens(1)
+       else
+          dustprop(:,i) = 0.
+       endif
+    enddo
+ endif
  call check_dust_method(dust_method,ichange_method)
  if (ichange_method .and. id==master) then
     np_dust = npart/5
@@ -852,12 +863,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--dust
  !
- if (use_dust) then
-    if (use_dustgrowth) then
-       dustprop(1,:) = grainsize(1)/udist
-       dustprop(2,:) = graindens(1)/umass*udist**3
-    endif
- endif
  if (maxdiscs > 1 .and. ibinary==1) then
     !--circumprimary in flyby
     i = 2
@@ -1444,7 +1449,7 @@ subroutine write_setupfile(filename)
     varstring = 'np_dust'
     call make_tags_unique(ndusttypesinp,varstring)
     do i=1,ndusttypesinp
-       call write_inopt(np_dust(i),varstring(i),'number of dust particles',iunit)
+       call write_inopt(np_dust(i),trim(varstring(i)),'number of dust particles',iunit)
     enddo
  endif
  !--units
@@ -1661,6 +1666,7 @@ subroutine write_setupfile(filename)
  !--mcfost
  write(iunit,"(/,a)") '# mcfost'
  call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iunit)
+ call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars','Fix the stellar parameters to mcfost values or update using sink mass',iunit)
 #endif
 
  close(iunit)
@@ -1866,6 +1872,7 @@ subroutine read_setupfile(filename,ierr)
        endif
        !--dust disc
        if (use_dust) then
+          call read_inopt(iprofile_dust,'iprofile_dust',db,errcount=nerr)
           select case (iprofile_dust)
           case (0)
              R_indust(i)    = R_in(i)
@@ -1918,6 +1925,8 @@ subroutine read_setupfile(filename,ierr)
  !--mcfost
  call read_inopt(use_mcfost,'use_mcfost',db,err=ierr)
  if (ierr /= 0) use_mcfost = .false. ! no mcfost by default
+ call read_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',db,err=ierr)
+ if (ierr /= 0) use_mcfost_stellar_parameters = .false. ! update stellar parameters by default
 #endif
 
  call close_db(db)
