@@ -588,6 +588,7 @@ subroutine test_drag(ntests,npass)
 
  if (mhd) Bevol = 0.
  if (use_dustgrowth) then
+    dustprop(:,:) = 0.
     dustprop(1,:) = grainsize(1)
     dustprop(2,:) = graindens(1)
  endif

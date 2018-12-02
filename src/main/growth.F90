@@ -240,7 +240,7 @@ subroutine get_vrelonvfrag(xyzh,vrel,dustprop,cs,St)
  integer              :: izone
 
  !--compute terminal velocity
- Vt = sqrt((2**0.5)*Ro*alpha)*cs
+ Vt = sqrt(sqrt(2)*Ro*alpha)*cs
 
  !--compute vrel
  vrel = vrelative(St,dustprop(4),Vt)
@@ -464,9 +464,9 @@ real function vrelative(St,dv,Vt)
  real             :: Sc
 
  !--compute Schmidt number Sc
- Sc = (1+St)*sqrt(1+dv**2/Vt**2)
+ Sc = (1.+St)*sqrt(1.+dv**2/Vt**2)
  !--then compute vrel
- vrelative = sqrt(2.)*Vt*sqrt(Sc-1)/(Sc)
+ vrelative = sqrt(2.)*Vt*sqrt(Sc-1.)/(Sc)
 
  return
 end function vrelative
