@@ -240,7 +240,7 @@ subroutine get_vrelonvfrag(xyzh,vrel,dustprop,cs,St)
  integer              :: izone
 
  !--compute terminal velocity
- Vt = sqrt(sqrt(2)*Ro*alpha)*cs
+ Vt = sqrt(sqrt(2.)*Ro*alpha)*cs
 
  !--compute vrel
  vrel = vrelative(St,dustprop(4),Vt)
