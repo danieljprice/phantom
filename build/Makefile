@@ -1097,6 +1097,7 @@ endif
 
 ifeq ($(SYSTEM), monarch)
     include Makefile_defaults_ifort
+    OMPFLAGS=-qopenmp -qopt-report
     QSYS = slurm
     QPROJECT='p01'
     WALLTIME='100:59:59'
