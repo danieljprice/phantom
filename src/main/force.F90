@@ -805,6 +805,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use options,     only:overcleanfac,use_dustfrac
 #ifdef GR
  use utils_gr,    only:get_bigv
+ use metric,      only:imetric
+ use metric_tools,only:imet_minkowski
 #endif
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
@@ -895,6 +897,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: lorentzi,lorentzj
  real    :: bigvi(1:3),bigvj(1:3),bigv2i,bigv2j,alphagri,alphagrj
  real    :: posi(3),posj(3),veli(3),velj(3),vij
+ real    :: enthdensav
 #endif
 
  ! unpack
@@ -1406,10 +1409,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #else
 !------------------
 
+#ifdef GR
+          enthi  = 1.+eni+pri/densi
+          enthj  = 1.+enj+prj/densj
+#endif
+
           if (projv < 0.) then
 #ifdef GR
-             enthi  = 1.+eni+pri/densi
-             enthj  = 1.+enj+prj/densj
              lorentzi_star = 1./sqrt(1.-projbigvi**2)
              lorentzj_star = 1./sqrt(1.-projbigvj**2)
              dlorentzv = lorentzi_star*projbigvi - lorentzj_star*projbigvj
@@ -1440,10 +1446,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              endif
 #ifdef GR
              denij = alphagri*eni/lorentzi - alphagrj*enj/lorentzj
-             dendissterm = denij*(auterm*vsigi*grkerni + autermj*vsigj*grkernj)
-#else
-             dendissterm = vsigu*denij*(auterm*grkerni + autermj*grkernj)
+             if (imetric==imet_minkowski) then
+                enthdensav = 0.5*(enthi*pri + enthj*prj)
+                vsigu = min(1.,sqrt(abs(pri-prj)/enthdensav))
+             else
+                vsigu = abs(vij)
+             endif
 #endif
+             dendissterm = vsigu*denij*(auterm*grkerni + autermj*grkernj)
           endif
 
           if (mhd) then
