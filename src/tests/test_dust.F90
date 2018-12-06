@@ -507,7 +507,7 @@ end subroutine test_dustydiffuse
 !+
 !---------------------------------------------------------------------------------
 subroutine test_drag(ntests,npass)
- use dim,         only:maxp,periodic,maxtypes,mhd,maxvxyzu,maxdustlarge,maxalpha
+ use dim,         only:maxp,periodic,maxtypes,mhd,maxvxyzu,maxdustlarge,maxalpha,use_dustgrowth
  use part,        only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustevol,&
                        xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,&
                        set_particle_type,rhoh,temperature,dustprop,ddustprop,&
@@ -590,7 +590,11 @@ subroutine test_drag(ntests,npass)
  enddo
 
  if (mhd) Bevol = 0.
-
+ if (use_dustgrowth) then
+    dustprop(:,:) = 0.
+    dustprop(1,:) = grainsize(1)
+    dustprop(2,:) = graindens(1)
+ endif
 !
 ! call derivatives
 !

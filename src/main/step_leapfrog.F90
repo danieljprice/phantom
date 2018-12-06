@@ -112,7 +112,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use extern_gr,      only:get_grforce_all
 #endif
 #ifdef DUSTGROWTH
- use growth,         only:update_dustprop
+ use growth,         only:check_dustprop
 #endif
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -261,7 +261,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              endif
 
              if (mhd)          Bpred(:,i)  = Bevol (:,i)
-             if (use_dustgrowth) dustproppred(:,:) = dustprop(:,:)
+             if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
              cycle predict_sph
           endif
@@ -290,7 +290,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
 
        if (use_dustgrowth .and. itype==idust) then
-          dustproppred(:,i) = dustproppred(:,i) + hdti*ddustprop(:,i)
+          dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
        endif
        if (itype==igas) then
           if (mhd) Bpred(:,i) = Bevol (:,i) + hdti*dBevol(:,i)
@@ -430,7 +430,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
              endif
 
-             if (use_dustgrowth .and. itype==idust) dustproppred(:,i) = dustproppred(:,i) + dti*ddustprop(:,i)
+             if (use_dustgrowth .and. itype==idust) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
              if (itype==igas) then
                 if (mhd)          Bevol(:,i)    = Bevol(:,i)    + dti*dBevol(:,i)
                 if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + dti*ddustevol(:,i)
@@ -447,7 +447,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           else
              vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
           endif
-
+          if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdti*dBevol(:,i)
              if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
@@ -510,6 +510,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              endif
           endif
 
+          if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdtsph*ddustprop(:,i)
           if (itype==igas) then
              !
              ! corrector step for magnetic field and dust
@@ -541,7 +542,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              else
                 vpred(:,i) = vxyzu(:,i)
              endif
-
+             if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (mhd)          Bpred(:,i)  = Bevol(:,i)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
           endif
@@ -551,7 +552,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           else
              vpred(:,i) = vxyzu(:,i)
           endif
-
+          if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
           if (mhd)          Bpred(:,i)  = Bevol(:,i)
           if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
 !
@@ -562,7 +563,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           else
              vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
           endif
-
+          if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  - hdtsph*dBevol(:,i)
              if (use_dustfrac) dustevol(:,i) = dustevol(:,i) - hdtsph*ddustevol(:,i)
@@ -570,6 +571,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #endif
        enddo
        !$omp end parallel do
+
+#ifdef DUSTGROWTH
+       call check_dustprop(npart,dustprop(1,:)) !--check minimum size in case of fragmentation
+#endif
+
 !
 !   get new force using updated velocity: no need to recalculate density etc.
 !
@@ -580,9 +586,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                      temperature,timei,dtsph,dtnew,ppred,dens,metrics)
        if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
     endif
-#ifdef DUSTGROWTH
-    call update_dustprop(npart,dustproppred) !--update dustprop values
-#endif
  enddo iterations
  ! Summary statements & crash if velocity is not converged
  if (nwake > 1) call summary_variable('wake',iowake,  0,real(nwake))
