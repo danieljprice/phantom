@@ -122,6 +122,7 @@ subroutine set_default_options
  psidecayfac       = 1.0     ! psi decay factor (MHD only)
  overcleanfac      = 1.0     ! factor to increase signal velocity for (only) time steps and psi cleaning
  beta              = 2.0     ! beta viscosity term
+ if (gr) beta      = 1.0
  avdecayconst      = 0.1     ! decay time constant for viscosity switches
 
  call set_defaults_viscosity
