@@ -942,8 +942,8 @@ subroutine output_divv_files(time, dumpfile, num, npart, particlemass, xyzh, vxy
        call get_eos_kappa_mesa(rhopart*unit_density,temp(i),kappa(i),kappat,kappar)
        !call ionisation_fraction(rhopart * unit_density, temp(i), X_in, 1.-X_in-Z_in, &
        !                         ions(1,i),ions(2,i),ions(3,i),ions(4,i),ions(5,i))
-    !else
-    !   kappa(i) = 1
+       !else
+       !   kappa(i) = 1
     endif
  enddo
 

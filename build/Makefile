@@ -86,7 +86,6 @@ SRCPHOTO=
 # -DNONIDEALMHD         ! non-ideal magnetic fields including ionisation; uses NICIL
 #
 # -DSORT                ! whether or not to sort particles
-# -DSORT_RADIUS_INIT    ! sort particles by R at t=0
 #
 # -DPHOTO               ! turn on the photoevaporation
 # -DLIGHTCURVE          ! lightcurve estimation
@@ -257,7 +256,7 @@ endif
 
 ifeq ($(SETUP), photoevap)
 # Mark Hutchison
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT -DPHOTO
+    FPPFLAGS= -DDISC_VISCOSITY -DPHOTO
     SETUPFILE= setup_photoevap.f90
     ANALYSIS= analysis_disc.f90
     KNOWN_SETUP=yes
@@ -267,7 +266,11 @@ endif
 
 ifeq ($(SETUP), disc)
 #   locally isothermal gas disc
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
+     ifeq ($(DISC_VISCOSITY), no)
+	FPPFLAGS=
+     else
+        FPPFLAGS= -DDISC_VISCOSITY
+    endif
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
 #    ANALYSIS= analysis_binarydisc_af.f90
@@ -282,7 +285,7 @@ endif
 
 ifeq ($(SETUP), adiabaticdisc)
 #   adiabatic disc
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
+    FPPFLAGS= -DDISC_VISCOSITY
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
     KNOWN_SETUP=yes
@@ -293,7 +296,7 @@ endif
 
 ifeq ($(SETUP), lightcurvedisc)
 #   adiabatic disc with lightcurve
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT -DLIGHTCURVE
+    FPPFLAGS= -DDISC_VISCOSITY -DLIGHTCURVE
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
     KNOWN_SETUP=yes
@@ -304,7 +307,7 @@ endif
 
 ifeq ($(SETUP), gwdisc)
 #   locally isothermal discs
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
+    FPPFLAGS= -DDISC_VISCOSITY
     SETUPFILE= setup_gwdisc.f90
     ANALYSIS= analysis_disc.f90
     MAXP=2000000
@@ -317,7 +320,7 @@ endif
 
 ifeq ($(SETUP), nshwdisc)
 #   disc around a neutron star
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT -DPRDRAG
+    FPPFLAGS= -DDISC_VISCOSITY -DPRDRAG
     SETUPFILE= setup_nsdisc.f90
     ANALYSIS= analysis_disc.f90
     MODFILE= moddump_changemass.f90
@@ -336,7 +339,7 @@ endif
 
 ifeq ($(SETUP), binarydiscMFlow)
 #   binarydiscMFlow setup
-    FPPFLAGS= -DSORT_RADIUS_INIT -DMFLOW -DUSE_STRAIN_TENSOR #-DVMFLOW  #-DDISC_VISCOSITY# -DBINPOS
+    FPPFLAGS= -DMFLOW -DUSE_STRAIN_TENSOR #-DVMFLOW  #-DDISC_VISCOSITY# -DBINPOS
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc_MFlow.f90
 #    ANALYSIS= analysis_binarydisc.f90
@@ -351,7 +354,7 @@ endif
 
 ifeq ($(SETUP), planetdisc)
 #   planet disc interaction with fixed planet orbit
-    FPPFLAGS= -DSORT_RADIUS_INIT
+    FPPFLAGS=
     SETUPFILE= setup_planetdisc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes
@@ -362,7 +365,7 @@ endif
 
 ifeq ($(SETUP), planetatm)
 #   disc interaction with fixed planet orbit + atmosphere
-    FPPFLAGS= -DSORT_RADIUS_INIT
+    FPPFLAGS=
     SETUPFILE= setup_disc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes
@@ -373,7 +376,7 @@ endif
 
 ifeq ($(SETUP), torus)
 #   MRI torus
-    FPPFLAGS= -DSORT_RADIUS_INIT
+    FPPFLAGS=
     SETUPFILE= setup_torus.f90
     ANALYSIS= analysis_torus.f90
     KNOWN_SETUP=yes
@@ -381,7 +384,7 @@ endif
 
 ifeq ($(SETUP), galcen)
 #   galactic centre
-    FPPFLAGS= -DSORT_RADIUS_INIT
+    FPPFLAGS=
     SETUPFILE= setup_galcen_stars.f90
     SRCINJECT= inject_galcen_winds.f90
     KNOWN_SETUP=yes
@@ -424,7 +427,7 @@ endif
 
 ifeq ($(SETUP), sphereinbox)
 #   sphere-in-box setup
-    FPPFLAGS= -DPERIODIC -DSORT_RADIUS_INIT
+    FPPFLAGS= -DPERIODIC
     SETUPFILE= setup_sphereinbox.f90
     KNOWN_SETUP=yes
 endif
@@ -477,7 +480,7 @@ endif
 
 ifeq ($(SETUP), dustydisc)
 #   locally isothermal dusty discs
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
+    FPPFLAGS= -DDISC_VISCOSITY
     SETUPFILE= setup_disc.f90
     MODFILE= moddump_dustadd.f90
     ISOTHERMAL=yes
@@ -489,7 +492,7 @@ endif
 
 ifeq ($(SETUP), growingdisc)
 #   locally isothermal dusty discs with growth and fragmentation
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
+    FPPFLAGS= -DDISC_VISCOSITY
     SETUPFILE= setup_disc.f90
     MODFILE= moddump_dustadd.f90
     ISOTHERMAL=yes
@@ -699,7 +702,7 @@ endif
 ifeq ($(SETUP), star)
 #   import stellar model from 1D stellar evolution code
 #   use option 5 of setup_star
-    FPPFLAGS= -DSORT_RADIUS_INIT
+    FPPFLAGS=
     SETUPFILE= setup_star.f90
     MODFILE= moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
@@ -710,10 +713,31 @@ ifeq ($(SETUP), star)
     MHD=no
 endif
 
+ifeq ($(SETUP), isowind)
+#   wind setup (isothermal spherical wind from a sink particle)
+    FPPFLAGS=
+    ISOTHERMAL=yes
+    SETUPFILE= setup_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 inject_wind.f90
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=no
+    STS_TIMESTEPS=no
+endif
+
 ifeq ($(SETUP), wind)
 #   wind setup (adiabatic supersonic spherical wind from a sink particle)
     SETUPFILE= setup_wind.f90
-    SRCINJECT= icosahedron.f90 inject_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 inject_wind.f90
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=no
+    STS_TIMESTEPS=no
+endif
+
+ifeq ($(SETUP), bowen)
+# bowen wind setup (pulsating dusty wind)
+    FPPFLAGS= -DBOWEN
+    SETUPFILE= setup_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 bowen_dust.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -876,7 +900,7 @@ endif
 
 ifeq ($(SETUP), testlum)
 #   Lense-Thirring setup
-    FPPFLAGS= -DSORT_RADIUS_INIT -DLIGHTCURVE -DUSE_STRAIN_TENSOR
+    FPPFLAGS= -DLIGHTCURVE -DUSE_STRAIN_TENSOR
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ISOTHERMAL=no
@@ -952,7 +976,7 @@ endif
 
 ifeq ($(SETUP), mcfostcmdline) # [buildbot skip]
 #   live feedback from mcfost, superseded by mcfost setup
-    FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT
+    FPPFLAGS= -DDISC_VISCOSITY
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_mcfostcmdline.f90
     LIVE_ANALYSIS=yes
@@ -1088,9 +1112,11 @@ endif
 
 ifeq ($(SYSTEM), monarch)
     include Makefile_defaults_ifort
+    OMPFLAGS=-qopenmp -qopt-report
     QSYS = slurm
     QPROJECT='p01'
     WALLTIME='100:59:59'
+    QPARTITION='comp'
 endif
 
 ifeq ($(SYSTEM), monarchpsxe)
@@ -1504,7 +1530,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
          utils_allocate.f90 \
          utils_mathfunc.f90 part.F90 ${DOMAIN} utils_timing.f90 mpi_balance.F90 \
-         commons.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
+         commons.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_datafiles.f90 datafiles.f90 \
          gitinfo.f90 ${SRCFASTMATH} random.f90 checkoptions.F90 ${SRCEOS} \
@@ -1581,7 +1607,7 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          ${SRCEOS} ${SRCPOT} ${SRCPHOTO} \
          memory.F90 \
          utils_sphNG.f90 \
-         commons.f90 ${SRCFASTMATH} checkoptions.F90 \
+         commons.f90 timestep.f90 ${SRCFASTMATH} checkoptions.F90 \
          viscosity.f90 options.f90 prompting.f90 ${SRCDUST} \
          readwrite_dumps.F90
 OBJDUMP1= $(SRCDUMP:.f90=.o)
@@ -1954,9 +1980,10 @@ cleanphantomevcompare:
 #----------------------------------------------------
 # these are the sources for the multirun utility
 #
-SRCMULT = physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 mpi_utils.F90 ${SRCFASTMATH} units.f90 boundary.f90 utils_allocate.f90 part.F90 commons.f90 \
+SRCMULT = physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 mpi_utils.F90 ${SRCFASTMATH} \
+          units.f90 boundary.f90 utils_allocate.f90 part.F90 timestep.f90 commons.f90 \
           utils_filenames.f90 utils_mathfunc.f90 utils_vectors.f90 utils_omp.F90 utils_datafiles.f90 datafiles.f90 \
-          viscosity.f90 options.f90 ${SRCEOS} \
+          viscosity.f90 options.f90 damping.f90 ${SRCEOS} \
           utils_infiles.f90 utils_dumpfiles.f90 utils_summary.f90 centreofmass.f90 \
           ${SRCCHEM} ${DOMAIN} ${SRCPOT} ptmass.F90 ${LINKLIST} ${SRCTURB} \
           prompting.f90 ${SRCDUST} ${SRCNIMHD} readwrite_infile.f90 ${MULTIRUNFILE}
@@ -2335,6 +2362,9 @@ qscript:
         endif
         ifdef QPROJECT
 	   @echo '#SBATCH --account='$(QPROJECT)
+        endif
+        ifdef QPARTITION
+	   @echo '#SBATCH --partition='$(QPARTITION)
         endif
 	@echo '#SBATCH --output='$(OUTFILE)
         ifdef MAILTO

@@ -338,7 +338,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  integer, parameter :: isteps_sphNG = 0, iphase0 = 0
  integer(kind=8)    :: ilen(4)
  integer            :: nums(ndatatypes,4)
- integer            :: i,ipass,k,l
+ integer            :: i,ipass,k,l,iu
  integer            :: ierr,ierrs(20)
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
@@ -464,20 +464,25 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if ((ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15) .and. k==i_real) then
           if (.not. allocated(temparr)) allocate(temparr(npart))
           if (.not.done_init_eos) call init_eos(ieos,ierr)
+          !$omp parallel do default(none) &
+          !$omp shared(xyzh,vxyzu,ieos,npart,temparr,temperature,use_gas) &
+          !$omp private(i,iu,ponrhoi,spsoundi,rhoi)
           do i=1,npart
              rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
              if (maxvxyzu >=4 ) then
+                iu = 4
                 if (store_temperature) then
                    ! cases where the eos stores temperature (ie Helmholtz)
-                   call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),temperature(i))
+                   call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(iu,i),temperature(i))
                 else
-                   call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+                   call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(iu,i))
                 endif
              else
                 call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i))
              endif
              temparr(i) = ponrhoi*rhoi
           enddo
+          !$omp end parallel do
           call write_array(1,temparr,'pressure',npart,k,ipass,idump,nums,ierrs(13))
        endif
 
@@ -655,7 +660,7 @@ subroutine write_smalldump(t,dumpfile)
           call write_array(1,St,'St',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        endif
        if (h2chemistry .and. nabundances >= 1) &
-                     call write_array(1,abundance,abundance_label,1,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+          call write_array(1,abundance,abundance_label,1,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (use_dust) &
           call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
@@ -668,7 +673,8 @@ subroutine write_smalldump(t,dumpfile)
     !
     if (nptmass > 0) then
        ilen(2) = nptmass
-       call write_array(2,xyzmh_ptmass,xyzmh_ptmass_label,nsinkproperties,nptmass,i_real,ipass,idump,nums,ierr,singleprec=.true.)
+       call write_array(2,xyzmh_ptmass,xyzmh_ptmass_label,nsinkproperties,nptmass,&
+                        i_real,ipass,idump,nums,ierr,singleprec=.true.)
     endif
     !
     !--Block 4 (MHD)
@@ -1391,7 +1397,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,store_temperature,use_dustgrowth
  use eos,  only:polyk,gamma
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,&
-                xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac
+                xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes
  use io,   only:warning,id,master
  use options,    only:alpha,use_dustfrac
  use sphNGutils, only:itype_from_sphNG_iphase,isphNG_accreted
@@ -1512,7 +1518,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
      endif
    enddo
  endif
- if (use_dustfrac .and. .not. all(got_dustfrac)) then
+ if (use_dustfrac .and. .not. all(got_dustfrac(1:ndusttypes))) then
     if (id==master .and. i1==1) write(*,*) 'ERROR! using one-fluid dust, but no dust fraction found in dump file'
     if (id==master .and. i1==1) write(*,*) ' Setting dustfrac = 0'
     dustfrac = 0.

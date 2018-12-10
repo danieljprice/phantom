@@ -374,12 +374,14 @@ subroutine test_dustydiffuse(ntests,npass)
     epsi(:) = epstot/real(ndustsmall)
  case(2)
     !--Unequal dust fractions
+    epsi = 0.
     do i=1,ndustsmall
        epsi(i) = 1./real(i)
     enddo
-    epsi = epstot/sum(epsi)*epsi
+    if (ndustsmall > 0) epsi = epstot/sum(epsi)*epsi
  case default
-    stop 'eps_type not valid!'
+    print*,'ERROR: eps_type not valid!'
+    return
  end select
 
  !--check that individual dust fractions add up to the total dust fraction
@@ -422,8 +424,11 @@ subroutine test_dustydiffuse(ntests,npass)
 !--sqrt(rho*epsilon) method
 !    dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)*rhoh(xyzh(4,i),massoftype(igas)))
 !------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+    dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)/(1.-dustfrac(1:ndustsmall,i)))
+!------------------------------------------------
 !--asin(sqrt(epsilon)) method
-    dustevol(:,i) = asin(sqrt(dustfrac(1:ndustsmall,i)))
+!    dustevol(:,i) = asin(sqrt(dustfrac(1:ndustsmall,i)))
 !------------------------------------------------
  enddo
 
@@ -440,8 +445,11 @@ subroutine test_dustydiffuse(ntests,npass)
 !--sqrt(rho*epsilon) method
 !       dustfrac(1:ndustsmall,i) = dustevol(:,i)**2/rhoh(xyzh(4,i),massoftype(igas))
 !------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+       dustfrac(1:ndustsmall,i) = dustevol(:,i)**2/(1.+dustevol(:,i)**2)
+!------------------------------------------------
 !--asin(sqrt(epsilon)) method
-       dustfrac(1:ndustsmall,i) = sin(dustevol(:,i))**2
+!       dustfrac(1:ndustsmall,i) = sin(dustevol(:,i))**2
 !------------------------------------------------
     enddo
     !$omp end parallel do
@@ -497,7 +505,7 @@ end subroutine test_dustydiffuse
 !+
 !---------------------------------------------------------------------------------
 subroutine test_drag(ntests,npass)
- use dim,         only:maxp,periodic,maxtypes,mhd,maxvxyzu,maxdustlarge,maxalpha
+ use dim,         only:maxp,periodic,maxtypes,mhd,maxvxyzu,maxdustlarge,maxalpha,use_dustgrowth
  use part,        only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustevol,&
                        xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,&
                        set_particle_type,rhoh,temperature,dustprop,ddustprop,&
@@ -516,7 +524,7 @@ subroutine test_drag(ntests,npass)
  use units,       only:udist,unit_density
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
- integer :: nx,i,j,nfailed,itype,iseed,npart_previous
+ integer :: nx,i,j,nfailed,itype,iseed,npart_previous,iu
  real    :: da(3),dl(3),temp(3)
  real    :: psep,time,rhozero,totmass,dtnew,dekin,deint
 
@@ -545,6 +553,7 @@ subroutine test_drag(ntests,npass)
 
  iverbose = 2
  use_dustfrac = .false.
+ iu = 4
 
  call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                       psep,hfact,npart,xyzh,verbose=.false.)
@@ -555,7 +564,7 @@ subroutine test_drag(ntests,npass)
  do i=1,npart
     call set_particle_type(i,igas)
     vxyzu(1:3,i) = (/ran2(iseed),ran2(iseed),ran2(iseed)/)
-    if (maxvxyzu >= 4) vxyzu(4,i) = ran2(iseed)
+    if (maxvxyzu >= 4) vxyzu(iu,i) = ran2(iseed)
  enddo
 
  ndusttypes = maxdustlarge
@@ -570,7 +579,7 @@ subroutine test_drag(ntests,npass)
     do i=npart_previous+1,npart
        call set_particle_type(i,itype)
        vxyzu(1:3,i) = (/ran2(iseed),ran2(iseed),ran2(iseed)/)
-       if (maxvxyzu >= 4) vxyzu(4,i) = 0.
+       if (maxvxyzu >= 4) vxyzu(iu,i) = 0.
     enddo
     npartoftype(itype) = npart - npart_previous
     npartoftypetot(itype) = reduceall_mpi('+',npartoftype(itype))
@@ -578,7 +587,11 @@ subroutine test_drag(ntests,npass)
  enddo
 
  if (mhd) Bevol = 0.
-
+ if (use_dustgrowth) then
+    dustprop(:,:) = 0.
+    dustprop(1,:) = grainsize(1)
+    dustprop(2,:) = graindens(1)
+ endif
 !
 ! call derivatives
 !
@@ -605,7 +618,7 @@ subroutine test_drag(ntests,npass)
     endif
     if (maxvxyzu >= 4) then
        dekin  = dekin  + massoftype(itype)*dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
-       deint  = deint  + massoftype(itype)*fxyzu(4,i)
+       deint  = deint  + massoftype(itype)*fxyzu(iu,i)
     endif
  enddo
 
@@ -641,7 +654,7 @@ subroutine test_epsteinstokes(ntests,npass)
  use physcon,   only:years,kb_on_mh,pi
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end
  integer, intent(inout) :: ntests,npass
- integer :: iregime,ierr,i,j,nfailed,ncheck
+ integer :: iregime,i,j,nfailed,ncheck
  integer, parameter :: npts=1001, nrhopts = 11
  real :: rhogas,spsoundi,tsi,ts1,deltav,tol,grainsizei,graindensi
  real :: smin,smax,ds,rhomin,rhomax,drho,psi,exact,err,errmax

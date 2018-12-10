@@ -68,7 +68,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     maxdust = maxdustsmall
  elseif (dust_method==2) then
     maxdust = maxdustlarge
-    call prompt('Enter ratio between number of gas particles and dust particles',np_ratio,1,5)
+    call prompt('Enter ratio between number of gas particles and dust particles',np_ratio,1,10)
     !--We do not care if modulo(npart,np_ratio) is stricly zero, since npart can
     !  be a weird value depdending on the simulation it comes from.
  endif
@@ -80,10 +80,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     !--grainsizes
     call prompt('Enter minimum grain size in cm',smincgs,0.)
     call prompt('Enter maximum grain size in cm',smaxcgs,0.)
-    call logspace(grainsize(1:ndusttypes),smincgs,smaxcgs)
     !--mass distribution
     call prompt('Enter power-law index, e.g. MRN',sindex)
-    call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes))
+    call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
     !--grain density
     call prompt('Enter grain density in g/cm^3',graindens(1),0.)
     graindens = graindens(1)

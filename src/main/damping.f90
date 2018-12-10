@@ -1,3 +1,28 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://users.monash.edu.au/~dprice/phantom                               !
+!--------------------------------------------------------------------------!
+!+
+!  MODULE: damping
+!
+!  DESCRIPTION: None
+!
+!  REFERENCES: None
+!
+!  OWNER: Thomas Reichardt
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS:
+!    damp   -- artificial damping of velocities (if on, v=0 initially)
+!    idamp  -- artificial damping of velocities (0=off, 1=constant, 2=star)
+!    tdyn_s -- dynamical timescale of star in seconds - damping is dependent on it
+!
+!  DEPENDENCIES: eos_helmholtz, infile_utils, io, units
+!+
+!--------------------------------------------------------------------------
 module damping
  implicit none
 
@@ -24,12 +49,12 @@ subroutine calc_damp(time, damp_fac, idamp)
  integer, intent(in) :: idamp
  real                :: tau1, tau2, tdyn_star
 
- if (idamp .eq. 0) then
+ if (idamp == 0) then
     damp_fac = 0.
- else if (idamp .eq. 1) then
+ else if (idamp == 1) then
     damp_fac = damp
- else if (idamp .eq. 2) then
-    tdyn_star = tdyn_s / utime 
+ else if (idamp == 2) then
+    tdyn_star = tdyn_s / utime
     tau1 = tdyn_star * 0.1
     tau2 = tdyn_star
     if (time > 5. * tdyn_star) then
@@ -93,7 +118,6 @@ subroutine read_options_damping(name,valstring,imatch,igotall,ierr,idamp)
  integer,          intent(inout) :: idamp
  integer,          save          :: ngot  = 0
  character(len=30), parameter    :: label = 'read_options_damp'
- integer :: tmp
 
  imatch  = .true.
  select case(trim(name))
@@ -103,7 +127,7 @@ subroutine read_options_damping(name,valstring,imatch,igotall,ierr,idamp)
     if (idamp < 0) call fatal(label,'damping form choice out of range')
  case('damp')
     read(valstring,*,iostat=ierr) damp
-    if (damp <= 0.)  call fatal(label,'damp <= 0: damping must be positive')
+    if (damp < 0.)  call fatal(label,'damp <= 0: damping must be positive')
     ngot = ngot + 1
  case('tdyn_s')
     read(valstring,*,iostat=ierr) tdyn_s

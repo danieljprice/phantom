@@ -52,7 +52,7 @@ subroutine test_rwdump(ntests,npass)
  use timing,          only:getused,printused
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(64)
- integer :: i,j,ierr,itest,ngas,ndust,ntot,maxp_old
+ integer :: i,j,ierr,itest,ngas,ndust,ntot,maxp_old,iu
  real    :: tfile,hfactfile,time,tol,toldp
  real    :: alphawas,Bextxwas,Bextywas,Bextzwas,polykwas
  real    :: xminwas,xmaxwas,yminwas,ymaxwas,zminwas,zmaxwas
@@ -91,6 +91,7 @@ subroutine test_rwdump(ntests,npass)
     gamma = 1.3
     polyk = 2.2
     alphawas = real(0.23_4)
+    iu = 4
     do i=1,npart
        xyzh(1,i) = 1.
        xyzh(2,i) = 2.
@@ -99,7 +100,7 @@ subroutine test_rwdump(ntests,npass)
        vxyzu(1,i) = 5.
        vxyzu(2,i) = 6.
        vxyzu(3,i) = 7.
-       if (maxvxyzu >= 4) vxyzu(4,i) = 8.
+       if (maxvxyzu >= 4) vxyzu(iu,i) = 8.
        if (maxalpha==maxp) then
           alphaind(1,i) = real(alphawas,kind=kind(alphaind)) ! 0->1
        endif

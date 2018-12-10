@@ -13,14 +13,14 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Christophe Pinte
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, dust, eos, io, mcfost2phantom, options, part,
-!    timestep, units
+!  DEPENDENCIES: dim, eos, io, mcfost2phantom, options, part, timestep,
+!    units
 !+
 !--------------------------------------------------------------------------
 module analysis
@@ -36,35 +36,35 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use mcfost2phantom, only:init_mcfost_phantom,run_mcfost_phantom
  use part,           only:massoftype,iphase,dustfrac,hfact,npartoftype,&
                           get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
-                          massoftype,xyzmh_ptmass,luminosity,igas
+                          massoftype,xyzmh_ptmass,luminosity,igas,&
+                          grainsize,graindens,ndusttypes
  use units,          only:umass,utime,udist
  use io,             only:fatal
- use dim,            only:use_dust,lightcurve
- use dust,           only:grainsize,graindens
- use eos, only : temperature_coef, gmw, gamma
+ use dim,            only:use_dust,lightcurve,maxdusttypes
+ use eos,            only:temperature_coef,gmw,gamma
  use timestep,       only:dtmax
- use options, only: use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file
+ use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
+                          use_mcfost_stellar_parameters
 
- character(len=*), intent(in) :: dumpfile
- integer,          intent(in) :: num,npart,iunit
- real,             intent(in) :: xyzh(:,:)
- real,             intent(in) :: particlemass,time
- real,           intent(inout):: vxyzu(:,:)
- logical, save :: init_mcfost = .false.
- real    :: mu_gas, factor
- real(kind=4) :: Tdust(npart)
- real    :: grain_size(1)
- integer :: ierr,ntypes,ndusttypes,dustfluidtype,ilen,nlum, i
+ character(len=*), intent(in)    :: dumpfile
+ integer,          intent(in)    :: num,npart,iunit
+ real,             intent(in)    :: xyzh(:,:)
+ real,             intent(in)    :: particlemass,time
+ real,             intent(inout) :: vxyzu(:,:)
+
+ logical, save   :: init_mcfost = .false.
+ real            :: mu_gas,factor,T_to_u
+ real(kind=4)    :: Tdust(npart)
+ integer         :: ierr,ntypes,dustfluidtype,ilen,nlum,i
  integer(kind=1) :: itype(maxp)
- character(len=len(dumpfile) + 20) :: mcfost_para_filename
- logical :: compute_Frad
- real(kind=8), dimension(6), save :: SPH_limits
- real(kind=4),dimension(:,:,:),allocatable :: Frad
- real,dimension(:),allocatable :: dudt
- real :: T_to_u
- real, parameter :: Tdefault = 1.
+ logical         :: compute_Frad
+ real(kind=8), dimension(6), save            :: SPH_limits
+ real(kind=4), dimension(:,:,:), allocatable :: Frad
+ real,         dimension(:),     allocatable :: dudt
+ real,    parameter :: Tdefault = 1.
  logical, parameter :: write_T_files = .false. ! ask mcfost to write fits files with temperature structure
  integer, parameter :: ISM = 2 ! ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto
+ character(len=len(dumpfile) + 20) :: mcfost_para_filename
 
 
  if (use_mcfost) then
@@ -72,7 +72,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     if (.not.init_mcfost) then
        ilen = index(dumpfile,'_',back=.true.) ! last position of the '_' character
        mcfost_para_filename = dumpfile(1:ilen-1)//'.para'
-       call init_mcfost_phantom(mcfost_para_filename, use_Voronoi_limits_file, Voronoi_limits_file, SPH_limits, ierr)
+       call init_mcfost_phantom(mcfost_para_filename,use_Voronoi_limits_file,Voronoi_limits_file,SPH_limits,ierr, &
+            fix_star = use_mcfost_stellar_parameters)
        if (ierr /= 0) call fatal('mcfost-phantom','error in init_mcfost_phantom')
        init_mcfost = .true.
     endif
@@ -83,17 +84,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     else
        itype(:) = 1
     endif
-    if (use_dust) then
-       ndusttypes = 1
-    else
+    if (.not. use_dust) then
        ndusttypes = 0
     endif
-    if (npartoftype(idust) > 0) then
-       dustfluidtype = 2
-    else
+    if (use_dustfrac) then
        dustfluidtype = 1
+    else
+       dustfluidtype = 2
     endif
-    grain_size(:) = grainsize
 
     nlum = npart
     allocate(dudt(nlum))
@@ -109,7 +107,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     T_to_u = factor * massoftype(igas) /dtmax
 
     call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
-         npartoftype,xyzh,vxyzu,itype,grain_size,graindens,dustfrac,massoftype,&
+         npartoftype,xyzh,vxyzu,itype,grainsize,graindens,dustfrac,massoftype,&
          xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
          Frad,mu_gas,ierr,write_T_files,ISM,T_to_u)
     !print*,' mu_gas = ',mu_gas

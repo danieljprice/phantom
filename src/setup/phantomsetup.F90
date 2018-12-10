@@ -17,9 +17,9 @@
 !
 !  USAGE: phantomsetup fileprefix [nprocsfake]
 !
-!  DEPENDENCIES: boundary, centreofmass, checksetup, dim, domain, eos,
-!    fileutils, io, mpiutils, options, part, physcon, readwrite_dumps,
-!    readwrite_infile, setBfield, setup, setup_params, sortutils, units
+!  DEPENDENCIES: boundary, checksetup, dim, domain, eos, fileutils, io,
+!    mpiutils, options, part, physcon, readwrite_dumps, readwrite_infile,
+!    setBfield, setup, setup_params, units
 !+
 !--------------------------------------------------------------------------
 program phantomsetup
@@ -46,10 +46,6 @@ program phantomsetup
  use domain,          only:init_domains
  use boundary,        only:set_boundary
  use fileutils,       only:strip_extension
-#ifdef SORT_RADIUS_INIT
- use sortutils,       only:indexxfunc,r2func_origin,set_r2func_origin
- use centreofmass,    only:get_centreofmass
-#endif
 #ifdef LIGHTCURVE
  use part,            only:luminosity,maxlum,lightcurve
 #endif
@@ -60,11 +56,7 @@ program phantomsetup
  character(len=lenprefix)    :: fileprefix
  character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile,string
  real                        :: time,pmassi
-#ifdef SORT_RADIUS_INIT
- integer, allocatable :: iorder(:)
- real                     :: x0(3),v0(3)
-#endif
- logical                  :: iexist
+ logical                     :: iexist
 
  call set_io_unit_numbers
  call set_units
@@ -89,6 +81,9 @@ program phantomsetup
     print*,'Error: File prefix should not contain _0000'
     print*,'       (these are assigned automatically)'
     print "(/,a)",' e.g. "phantomsetup mysim"'
+    stop
+ elseif (fileprefix=='test') then
+    print*,'Error: cannot use ''test'' as the job name, please rename your .setup file'
     stop
  endif
  infile = trim(fileprefix)//'.in'
@@ -208,19 +203,7 @@ program phantomsetup
 !
 !--write initial conditions to the dump file
 !
-#ifdef SORT_RADIUS_INIT
-    if (id==master) write(*,"(a)",ADVANCE='NO') ' Sorting particles by radius...'
-    call get_centreofmass(x0,v0,npart,xyzh,vxyzu)
-    if (id==master) print*,' setting origin for sort to ',x0
-    call set_r2func_origin(x0(1),x0(2),x0(3))
-    allocate(iorder(maxp))
-    call indexxfunc(npart,r2func_origin,xyzh,iorder)
-    if (id==master) write(*,"(a)") ' done'
-    call write_fulldump(time,dumpfile,ntotal,iorder)
-    deallocate(iorder)
-#else
     call write_fulldump(time,dumpfile,ntotal)
-#endif
 !
 !--write an input file if it doesn't already exist
 !

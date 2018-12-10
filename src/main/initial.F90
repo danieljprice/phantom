@@ -21,10 +21,11 @@
 !  DEPENDENCIES: balance, boundary, centreofmass, checkoptions, checksetup,
 !    chem, cooling, cpuinfo, densityforce, deriv, dim, domain, dust,
 !    energies, eos, evwrite, externalforces, fastmath, fileutils, forcing,
-!    growth, h2cooling, initial_params, io, io_summary, linklist, mf_write,
-!    mpi, mpiutils, nicil, nicil_sup, omputils, options, part, photoevap,
-!    ptmass, readwrite_dumps, readwrite_infile, setup, sort_particles,
-!    timestep, timestep_ind, timestep_sts, timing, units, writeheader
+!    growth, h2cooling, initial_params, inject, io, io_summary, linklist,
+!    mf_write, mpi, mpiutils, nicil, nicil_sup, omputils, options, part,
+!    photoevap, ptmass, readwrite_dumps, readwrite_infile, setup,
+!    sort_particles, timestep, timestep_ind, timestep_sts, timing, units,
+!    writeheader
 !+
 !--------------------------------------------------------------------------
 module initial
@@ -124,7 +125,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             die,fatal,id,master,nprocs,real4,warning
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
                             externalforce_vdependent
- use options,          only:iexternalforce,damp,alpha,icooling,use_dustfrac
+ use options,          only:iexternalforce,damp,alpha,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
@@ -133,7 +134,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh, &
-                            Bevol,Bxyz,temperature,dustprop,ddustprop,ndusttypes,ndustsmall
+                            Bevol,Bxyz,temperature,dustprop,ddustprop,ndustsmall
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef PHOTO
@@ -146,8 +147,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
  use ptmass,           only:init_ptmass,get_accel_sink_gas,get_accel_sink_sink, &
                             r_crit,r_crit2,rho_crit,rho_crit_cgs
- use timestep,         only:time,dt,dtextforce,C_force,dtmax, &
-                            rho_dtthresh,rho_dtthresh_cgs,dtmax_rat0,mod_dtmax,mod_dtmax_now
+ use timestep,         only:time,dt,dtextforce,C_force,dtmax
  use timing,           only:get_timings
 #ifdef SORT
  use sort_particles,   only:sort_part
@@ -169,6 +169,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef DUST
  use dust,             only:init_drag
+ use part,             only:ndusttypes
 #ifdef DUSTGROWTH
  use growth,           only:init_growth
 #endif
@@ -189,6 +190,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use balance,          only:balancedomains
  use part,             only:ibelong
 #endif
+#ifdef INJECT_PARTICLES
+ use inject,           only:init_inject,inject_particles
+#endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:gamma,polyk,ieos,init_eos
  use part,             only:hfact,h2chemistry
@@ -205,11 +209,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use fileutils,        only:make_tags_unique
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
- integer         :: ierr,i,j,idot,nerr,nwarn
+ integer         :: ierr,i,j,idot,nerr,nwarn,ialphaloc
  integer(kind=8) :: npartoftypetot(maxtypes)
  real            :: poti,dtf,hfactfile,fextv(3)
  real            :: hi,pmassi,rhoi1
- real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dummy(3)
+ real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dummy(3),dtinject
  real            :: stressmax
 #ifdef NONIDEALMHD
  real            :: gmw_old,gmw_new
@@ -218,7 +222,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  logical         :: iexist
  integer :: ncount(maxtypes)
  character(len=len(dumpfile)) :: dumpfileold,fileprefix
+#ifdef DUST
  character(len=7) :: dust_label(maxdusttypes)
+#endif
 !
 !--do preliminary initialisation
 !
@@ -406,6 +412,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  dtcourant = huge(dtcourant)
  dtforce   = huge(dtforce)
 #endif
+ dtinject  = huge(dtinject)
 
 !
 !--balance domains prior to starting calculation
@@ -465,6 +472,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  dtsinkgas = huge(dtsinkgas)
  r_crit2   = r_crit*r_crit
  rho_crit  = rho_crit_cgs/unit_density
+ if (rhofinal_cgs > 0.) then
+    rhofinal1 = unit_density/rhofinal_cgs
+ else
+    rhofinal1 = 0.0
+ endif
  if (nptmass > 0) then
     write(iprint,"(a,i12)") ' nptmass       = ',nptmass
 
@@ -493,12 +505,19 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  endif
  call init_ptmass(nptmass,logfile,dumpfile)
 !
+!--inject particles at t=0, and get timestep constraint on this
+!
+#ifdef INJECT_PARTICLES
+ call init_inject(ierr)
+ if (ierr /= 0) call fatal('initial','error initialising particle injection')
+ call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                       npart,npartoftype,dtinject)
+#endif
+!
 !--calculate (all) derivatives the first time around
 !
  dtnew_first   = dtmax  ! necessary in case ntot = 0
  nderivinit    = 1
- rho_dtthresh  = rho_dtthresh_cgs/unit_density
- mod_dtmax_now = .false. ! reset since this would have improperly been tripped if mhd=.true.
  ! call derivs twice with Cullen-Dehnen switch to update accelerations
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  do j=1,nderivinit
@@ -512,17 +531,21 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !--sqrt(rho*epsilon) method
 !             dustevol(:,i) = sqrt(rhoh(xyzh(4,i),pmassi)*dustfrac(1:ndustsmall,i))
 !------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+             dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)/(1.-dustfrac(1:ndustsmall,i)))
+!------------------------------------------------
 !--asin(sqrt(epsilon)) method
-             dustevol(:,i) = asin(sqrt(dustfrac(1:ndustsmall,i)))
+!             dustevol(:,i) = asin(sqrt(dustfrac(1:ndustsmall,i)))
 !------------------------------------------------
           endif
        enddo
     endif
  enddo
  if (nalpha >= 2) then
+    ialphaloc = 2
     !$omp parallel do private(i)
     do i=1,npart
-       alphaind(1,i) = max(alphaind(1,i),alphaind(2,i)) ! set alpha = max(alphaloc,alpha)
+       alphaind(1,i) = max(alphaind(1,i),alphaind(ialphaloc,i)) ! set alpha = max(alphaloc,alpha)
     enddo
  endif
  set_boundaries_to_active = .false.
@@ -530,23 +553,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !--set initial timestep
 !
 #ifndef IND_TIMESTEPS
- dt = dtnew_first
+ dt = min(dtnew_first,dtinject)
  if (id==master) then
     write(iprint,*) 'dt(forces)    = ',dtforce
     write(iprint,*) 'dt(courant)   = ',dtcourant
     write(iprint,*) 'dt initial    = ',dt
  endif
 #endif
-!
-!--Set parameters to allow for reduction of dtmax
-!  (if mod_dtmax_now=true, then rhomax > rho_dtthresh and we do not want to decrease dt)
-!
- if (rho_dtthresh > 0.0 .and. .not. mod_dtmax_now .and. dtmax_rat0 > 1) then
-    dtmax_rat0 = int(2**(int(log(real(dtmax_rat0)-1.0)/log(2.0))+1)) ! ensure that dtmax_rat0 is a power of 2
- else
-    mod_dtmax     = .false.
-    mod_dtmax_now = .false.
- endif
 !
 !--Calculate current centre of mass
 !

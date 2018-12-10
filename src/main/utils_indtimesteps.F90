@@ -105,7 +105,7 @@ end subroutine init_ibin
 !----------------------------------------------------------------
 subroutine set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
  use io,   only:iprint,fatal
- use part, only:isdead_or_accreted,iamtype,isetphase,maxp,all_active
+ use part, only:isdead_or_accreted,iamtype,isetphase,maxp,all_active,iboundary
  integer,         intent(in)    :: npart
  integer,         intent(out)   :: nactive,nalive
  integer(kind=1), intent(inout) :: iphase(maxp),ibin(maxp)
@@ -120,12 +120,13 @@ subroutine set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
 !$omp shared(npart,nbinmax,ibin,iprint,istepfrac,iphase,xyzh) &
 !$omp private(i,itype,iactivei,ibini) &
 !$omp reduction(+:nactive,nalive)
-!$omp do
+!$omp do schedule(guided,10)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        nalive = nalive + 1
        itype  = iamtype(iphase(i))
-       !
+       ! boundary particles are never active
+       if (itype==iboundary) ibin(i) = 0
        ibini = ibin(i)
        !--sanity check
        if (ibini > nbinmax) then
@@ -145,6 +146,7 @@ subroutine set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
 !$omp end parallel
  !
  !--Determine the current maximum ibin that is active
+ !
  i       = 0
  ibinnow = nbinmax
  do while (ibinnow == nbinmax .and. i < nbinmax)
@@ -153,13 +155,13 @@ subroutine set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
  enddo
  !
  !--Determine activity to determine if stressmax needs to be reset
+ !
  if (nactive==nalive) then
     all_active = .true.
  else
     all_active = .false.
  endif
- !
- return
+
 end subroutine set_active_particles
 #endif
 
@@ -276,21 +278,45 @@ end subroutine get_newbin
 !  This can only occur at full dumps, thus particles are synchronised
 !+
 !----------------------------------------------------------------
-subroutine decrease_dtmax(npart,nbins,time,dtmax_rat,dtmax,ibin,ibin_wake,ibin_sts,&
-                          ibin_dts,mod_dtmax_in_step)
- integer,         intent(in)    :: npart,nbins,dtmax_rat
+subroutine decrease_dtmax(npart,nbins,time,dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_sts,&
+                          ibin_dts)
+ integer,         intent(in)    :: npart,nbins,dtmax_ifactor
  integer(kind=1), intent(inout) :: ibin(:),ibin_wake(:),ibin_sts(:)
  real,            intent(in)    :: time
  real,            intent(inout) :: dtmax,ibin_dts(4,0:nbins)
- logical,         intent(inout) :: mod_dtmax_in_step
  integer                        :: i
  integer(kind=1)                :: ibin_rat
 
- dtmax    = dtmax/dtmax_rat
- ibin_rat = int((log10(real(dtmax_rat)-1.0)/log10(2.0))+1,kind=1)
+ !--Determine the new dtmax and update ibin_dts for particle waking
+ if (dtmax_ifactor > 0) then
+    dtmax    =  dtmax/dtmax_ifactor
+    ibin_rat = int((log10(real(dtmax_ifactor)-1.0)/log10(2.0))+1,kind=1)
+    do i = 0,nbins-ibin_rat
+       ibin_dts(:,i) = ibin_dts(:,i+ibin_rat)
+    enddo
+    do i = nbins-ibin_rat+1,nbins
+       ibin_dts(itdt,  i) = get_dt(dtmax,int(i,kind=1))
+       ibin_dts(ithdt, i) = 0.5*ibin_dts(itdt,i)
+       ibin_dts(itdt1, i) = 1.0/ibin_dts(itdt,i)
+       ibin_dts(ittwas,i) = time + 0.5*get_dt(dtmax,int(i,kind=1))
+    enddo
+ else if (dtmax_ifactor < 0) then
+    dtmax    = -dtmax*dtmax_ifactor
+    ibin_rat = -int((log10(real(-dtmax_ifactor)-1.0)/log10(2.0))+1,kind=1)
+    do i = nbins,abs(ibin_rat),-1
+       ibin_dts(:,i) = ibin_dts(:,i+ibin_rat)
+    enddo
+    do i = 0,abs(ibin_rat)-1
+       ibin_dts(itdt,  i) = get_dt(dtmax,int(i,kind=1))
+       ibin_dts(ithdt, i) = 0.5*ibin_dts(itdt,i)
+       ibin_dts(itdt1, i) = 1.0/ibin_dts(itdt,i)
+       ibin_dts(ittwas,i) = time + 0.5*get_dt(dtmax,int(i,kind=1))
+    enddo
+ else
+    return
+ endif
  !
  !--Modify the ibins
- !
 !$omp parallel default(none) &
 !$omp shared(npart,ibin,ibin_wake,ibin_rat) &
 #ifdef STS_TIMESTEPS
@@ -308,19 +334,6 @@ subroutine decrease_dtmax(npart,nbins,time,dtmax_rat,dtmax,ibin,ibin_wake,ibin_s
 !$omp enddo
 !$omp end parallel
  nbinmax = max(0_1,nbinmax-ibin_rat)
- mod_dtmax_in_step = .false.
- !
- !--Correct ibin_dts for particle waking
- !
- do i = 0,nbins-ibin_rat
-    ibin_dts(:,i) = ibin_dts(:,i+ibin_rat)
- enddo
- do i = nbins-ibin_rat+1,nbins
-    ibin_dts(itdt,  i) = get_dt(dtmax,int(i,kind=1))
-    ibin_dts(ithdt, i) = 0.5*ibin_dts(itdt,i)
-    ibin_dts(itdt1, i) = 1.0/ibin_dts(itdt,i)
-    ibin_dts(ittwas,i) = time + 0.5*get_dt(dtmax,int(i,kind=1))
- enddo
 
 end subroutine decrease_dtmax
 !----------------------------------------------------------------
@@ -357,7 +370,7 @@ subroutine write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
        np = np + 1
        ibini = ibin(i)
        if (ibini > nbinmax .or. ibini < 0) then
-          call error('write_bin','timestep bin exceeds maximum',i,var='ibin',ival=ibini)
+          call error('write_bin','timestep bin exceeds maximum',var='ibin',ival=ibini)
           cycle over_part
        endif
        ninbin(ibini) = ninbin(ibini) + 1
@@ -439,5 +452,50 @@ subroutine update_time_per_bin(dtcpu,istepfrac,nbinmax,timeperbin,inbin)
  timeperbin(inbin) = timeperbin(inbin) + dtcpu
 
 end subroutine update_time_per_bin
+
+!-----------------------------------------------------------------
+!+
+!  routine to print out the timestep information to the log file
+!  this version handles individual timesteps
+!+
+!-----------------------------------------------------------------
+subroutine print_dtlog_ind(iprint,ifrac,nfrac,time,dt,nactive,tcpu,np)
+ use io, only:formatreal,formatint
+ integer,         intent(in) :: iprint,ifrac,nfrac
+ real,            intent(in) :: time,dt
+ integer(kind=8), intent(in) :: nactive
+ real(kind=4),    intent(in) :: tcpu
+ integer,         intent(in) :: np
+ character(len=120) :: string
+ character(len=14) :: tmp
+ integer, save :: nplast = 0
+
+ call formatint(ifrac,tmp)
+ string = '> step '//tmp
+ call formatint(nfrac,tmp)
+ string = trim(string)//' / '//tmp
+ write(tmp,"(g14.7)") time
+ string = trim(string)//' t = '//trim(adjustl(tmp))
+ call formatreal(dt,tmp)
+ string = trim(string)//' dt = '//tmp
+ call formatint(nactive,tmp)
+ string = trim(string)//' moved '//tmp
+ call formatreal(real(tcpu),tmp)
+ string = trim(string)//' in '//trim(tmp)//' cpu-s <'
+ !
+ ! only print particle number if it differs from
+ ! the last time we printed it out
+ !
+ if (np /= nplast) then
+    nplast = np
+    write(tmp,"(i12)") np
+    string = trim(string)//' | np = '//trim(adjustl(tmp))//' |'
+ endif
+
+ write(iprint,"(a)") trim(string)
+! write(iprint,5) ifrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1
+!5   format('> step ',i6,' /',i6,2x,'t = ',es14.7,1x,'dt = ',es10.3,' moved ',i10,' in ',f8.2,' cpu-s <')
+
+end subroutine print_dtlog_ind
 
 end module timestep_ind

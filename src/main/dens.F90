@@ -145,7 +145,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use mpiderivs, only:send_cell,recv_cells,check_send_finished,init_cell_exchange, &
                      finish_cell_exchange,recv_while_wait,reset_cell_counters
 #endif
- use timestep,  only:rho_dtthresh,mod_dtmax,mod_dtmax_now
+ use timestep,  only:rhomaxnow
  use part,      only:ngradh
  use viscosity, only:irealvisc
  use io_summary,only:summary_variable,iosumhup,iosumhdn
@@ -288,7 +288,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp reduction(+:nneighact) &
 !$omp reduction(+:nneightry) &
 !$omp reduction(+:nrelink) &
-!$omp reduction(+:stressmax,rhomax) &
+!$omp reduction(+:stressmax) &
+!$omp reduction(max:rhomax) &
 !$omp private(i)
 
 !$omp do schedule(runtime)
@@ -539,14 +540,11 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  ! reduce rhomax
  rhomax = reduceall_mpi('max',rhomax)
+ rhomaxnow = rhomax
 
  if (realviscosity .and. maxdvdx==maxp .and. stressmax > 0. .and. iverbose > 0 .and. id==master) then
     call warning('force','applying negative stress correction',var='max',val=-stressmax)
  endif
-!
-!--determine if we need to decrease dtmax at the next opportunity
-!
- if (mod_dtmax .and. rhomax > rho_dtthresh) mod_dtmax_now = .true.
 !
 !--warnings
 !
@@ -1604,7 +1602,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
  real         :: rhosum(maxrhosum)
 
- integer      :: iamtypei,i,lli,ierr,iloc,l
+ integer      :: iamtypei,i,lli,ierr,l
  logical      :: iactivei,iamgasi,iamdusti
  logical      :: igotrmatrix,igotspsound
  real         :: hi,hi1,hi21,hi31,hi41
@@ -1617,7 +1615,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  real         :: divcurlvi(5),rmatrix(6),dvdxi(9)
  real         :: divcurlBi(ndivcurlB)
  real         :: temperaturei,Bi
- real         :: rho1i,term,denom,rhogasi,rhodusti(maxdustlarge)
+ real         :: rho1i,term,denom,rhodusti(maxdustlarge)
 
  do i = 1,cell%npcell
     lli = inodeparts(cell%arr_index(i))
@@ -1640,12 +1638,10 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        iamgasi  = .true.
     endif
 
-    if (iamtypei==iboundary) then
-       if (set_boundaries_to_active) then
-          iactivei = .true.
-          iamtypei = igas
-          iamgasi  = .true.
-       endif
+    if (iamtypei==iboundary .and. set_boundaries_to_active) then
+       iactivei = .true.
+       iamtypei = igas
+       iamgasi  = .true.
     endif
 
     pmassi = massoftype(iamtypei)
@@ -1786,5 +1782,5 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  ncalc = ncalc + cell%npcell * cell%nits
 
 end subroutine store_results
-!--------------------------------------------------------------------------
+
 end module densityforce

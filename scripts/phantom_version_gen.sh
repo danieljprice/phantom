@@ -6,7 +6,7 @@ VF=../bin/phantom_version
 TimeNow=$(date)
 #Write compilation details to file
 echo "Compilation details:" > $VF
-echo "   Date Phantom was compiled: $TimeNow" >> $VF
+echo "   Date compiled: $TimeNow" >> $VF
 echo "   Pre-processor flags used: $1" >> $VF
 echo " " >> $VF
 
@@ -18,7 +18,7 @@ GitNow=$(git describe --tag)
 test -z "$IsModified" || IsMod="true"
 
 # Write to file
-echo "Phantom version details:" >> $VF
+echo "Version details:" >> $VF
 echo "   Date this version was committed to the repository: $GitDate" >> $VF
 echo "   Commit tag:     $GitNow" >> $VF
 echo "   Full commit ID: $GitId" >> $VF
@@ -27,4 +27,3 @@ if IsMod=="true"
       echo "   Locally modified files:" >> $VF;
       echo "$IsModified" >> $VF;
 fi
-

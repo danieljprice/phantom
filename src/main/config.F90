@@ -93,7 +93,7 @@ module dim
 #ifdef MAXDUSTSMALL
  integer, parameter :: maxdustsmall = MAXDUSTSMALL
 #else
- integer, parameter :: maxdustsmall = 1
+ integer, parameter :: maxdustsmall = 11
 #endif
 
 #ifdef DUSTGROWTH
@@ -140,10 +140,10 @@ module dim
  ! storage for artificial viscosity switch
  integer :: maxalpha = 0
 #ifdef DISC_VISCOSITY
- integer, parameter :: nalpha = 0
+ integer, parameter :: nalpha = 1
 #else
 #ifdef CONST_AV
- integer, parameter :: nalpha = 0
+ integer, parameter :: nalpha = 1
 #else
 #ifdef USE_MORRIS_MONAGHAN
  integer, parameter :: nalpha = 1
@@ -194,14 +194,11 @@ module dim
 integer :: maxmhd = 0
 #ifdef MHD
  logical, parameter :: mhd = .true.
- integer, parameter :: maxBevol = 4  ! Bx,By,Bz,Psi (latter for div B cleaning)
- integer, parameter :: ndivcurlB = 4
 #else
- ! if no MHD, do not store any of these
  logical, parameter :: mhd = .false.
- integer, parameter :: maxBevol = 4 ! irrelevant, but prevents compiler warnings
- integer, parameter :: ndivcurlB = 0
 #endif
+ integer, parameter :: maxBevol = 4 ! irrelevant, but prevents compiler warnings
+ integer, parameter :: ndivcurlB = 4
 
 ! non-ideal MHD
 integer :: maxmhdni = 0
@@ -273,12 +270,6 @@ integer :: maxne = 0
 #else
  logical, parameter :: use_CMacIonize = .false.
 #endif
-
-!--------------------
-! Calculate rotational energy in .ev
-!--------------------
- logical, public :: calc_erot = .false.
- logical, public :: incl_erot = .false.
 
  !--------------------
  ! Analysis array sizes
