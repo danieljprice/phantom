@@ -704,6 +704,7 @@ end subroutine write_smalldump
 !-------------------------------------------------------------------
 
 subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
+ use memory,   only:allocate_memory
  use dim,      only:maxp,maxvxyzu,maxalpha,maxgrav,gravity,lightcurve,maxlum,mhd
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &
@@ -796,6 +797,12 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  endif
 
  call free_header(hdr,ierr)
+
+ !
+ !--Allocate main arrays
+ !
+ call allocate_memory(int(nparttot / nprocs))
+
 !
 !--arrays
 !
@@ -830,18 +837,18 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 !
 !--check block header for errors
 !
-    call check_block_header(narraylengths,nblocks,ilen,nums,nparttot,nhydrothisblock,nptmass,ierr)
-    if (ierr /= 0) then
-       call error('read_dump','error in array headers')
-       return
-    endif
+  call check_block_header(narraylengths,nblocks,ilen,nums,nparttot,nhydrothisblock,nptmass,ierr)
+  if (ierr /= 0) then
+     call error('read_dump','error in array headers')
+     return
+  endif
 !
 !--exit after reading the file header if the optional argument
 !  "headeronly" is present and set to true
 !
-    if (present(headeronly)) then
-       if (headeronly) return
-    endif
+   if (present(headeronly)) then
+      if (headeronly) return
+   endif
 !
 !--determine if extra dust quantites should be read
 !
@@ -860,13 +867,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     i1 = i2 + 1
     i2 = i1 + (npartread - 1)
     npart = npart + npartread
-#ifdef MPI
-    if (npart > maxp) then
-       write(*,*) 'npart > maxp in readwrite_dumps'
-       ierr = 1
-       return
-    endif
-#endif
+
     if (npartread <= 0 .and. nptmass <= 0) then
        print*,' SKIPPING BLOCK npartread = ',npartread
        call skipblock(idisk1,nums(:,1),nums(:,2),nums(:,3),nums(:,4),tagged,ierr)
@@ -900,6 +901,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  !
  npartoftypetot = npartoftype
  call count_particle_types(npartoftype)
+
  npartoftypetotact = reduceall_mpi('+',npartoftype)
  do i = 1,maxtypes
     if (npartoftypetotact(i) /= npartoftypetot(i)) then
@@ -942,6 +944,7 @@ end subroutine read_dump
 !-------------------------------------------------------------------
 
 subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
+ use memory,   only:allocate_memory
  use dim,      only:maxp,maxvxyzu,mhd,maxBevol
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:npart,npartoftype,maxtypes,nptmass,nsinkproperties,maxptmass, &
@@ -1024,6 +1027,11 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  endif
 
  call free_header(hdr,ierr)
+ !
+ !--Allocate main arrays
+ !
+ call allocate_memory(int(nparttot / nprocs))
+
 !
 !--arrays
 !
@@ -1499,10 +1507,16 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
        alphaind(1,i1:i2) = real(alpha,kind=4)
     endif
  endif
- if (any(massoftype <= 0. .and. npartoftype /= 0) .and. npartread > 0) then
-    if (id==master .and. i1==1) write(*,*) 'ERROR! mass not set in read_dump (Phantom)'
-    ierr = 12
-    return
+ if (npartread > 0) then
+   do i = 1, size(massoftype)
+     if (npartoftype(i) > 0) then
+       if (massoftype(i) <= 0.0) then
+         if (id==master .and. i1==1) write(*,*) 'ERROR! mass not set in read_dump (Phantom)'
+         ierr = 12
+         return
+       endif
+     endif
+   enddo
  endif
  if (use_dustfrac .and. .not. all(got_dustfrac(1:ndusttypes))) then
     if (id==master .and. i1==1) write(*,*) 'ERROR! using one-fluid dust, but no dust fraction found in dump file'
@@ -1580,7 +1594,7 @@ end subroutine check_arrays
 subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
                          nblocks,npart,npartoftype, &
                          tfile,hfactfile,alphafile,iprint,id,nprocs,ierr)
- use dim,        only:maxp,maxdustlarge,use_dust
+ use dim,        only:maxp_hard,maxdustlarge,use_dust
  use io,         only:master ! check this
  use eos,        only:isink
  use part,       only:maxtypes,igas,idust,ndustsmall,ndustlarge,ndusttypes
@@ -1653,7 +1667,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
 
 !--non-MPI dumps
  if (nprocs==1) then
-    if (nparttoti > maxp) then
+    if (nparttoti > maxp_hard) then
        write (*,*) 'ERROR in readdump: number of particles exceeds MAXP: recompile with MAXP=',nparttoti
        ierr = 4
        return
@@ -2241,6 +2255,7 @@ subroutine count_particle_types(npartoftype)
     itype = iamtype(iphase(i))
     npartoftype(itype) = npartoftype(itype) + 1
  enddo
+
 end subroutine count_particle_types
 
 end module readwrite_dumps

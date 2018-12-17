@@ -31,24 +31,27 @@
 !--------------------------------------------------------------------------
 module part
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
-               maxptmass,maxdvdx,mhd,maxmhd,maxBevol,maxp_h2,maxtemp,periodic,&
+               maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,maxp_h2,nabundances,maxtemp,periodic,&
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
-               use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni,&
-               maxne,maxp_growth,maxdustlarge,maxdustsmall,maxdusttypes
+               use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
+               maxne,maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
+               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh
+ use dtypekdtree, only:kdnode
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
 !
 !--basic storage needed for read/write of particle data
 !
- real :: xyzh(4,maxp)
- real :: xyzh_soa(maxp,4)
- real :: vxyzu(maxvxyzu,maxp)
- real(kind=4) :: alphaind(nalpha,maxalpha)
- real(kind=4) :: divcurlv(ndivcurlv,maxp)
- real(kind=4) :: divcurlB(ndivcurlB,maxp)
- real :: Bevol(maxBevol,maxmhd)
- real :: Bxyz(3,maxmhd)
+
+ real, allocatable :: xyzh(:,:)
+ real, allocatable :: xyzh_soa(:,:)
+ real, allocatable :: vxyzu(:,:)
+ real(kind=4), allocatable :: alphaind(:,:)
+ real(kind=4), allocatable :: divcurlv(:,:)
+ real(kind=4), allocatable :: divcurlB(:,:)
+ real, allocatable :: Bevol(:,:)
+ real, allocatable :: Bxyz(:,:)
  character(len=*), parameter :: xyzh_label(4) = (/'x','y','z','h'/)
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
  character(len=*), parameter :: Bxyz_label(3) = (/'Bx','By','Bz'/)
@@ -60,8 +63,8 @@ module part
 !
 !--storage of dust growth properties
 !
- real :: dustprop(4,maxp_growth)
- real :: St(maxp_growth)
+ real, allocatable :: dustprop(:,:)
+ real, allocatable :: St(:)
  character(len=*), parameter :: dustprop_label(4) = (/'grainsize ','graindens ','vrel/vfrag','    dv    '/)
 !
 !--storage in divcurlv
@@ -88,33 +91,31 @@ module part
 !
 !--H2 chemistry
 !
- integer, parameter :: nabundances = 5
  integer, parameter :: ih2ratio  = 1 ! ratio of H2 to H
  integer, parameter :: iHI       = 2 ! HI abundance
  integer, parameter :: iproton   = 3 ! proton abundance
  integer, parameter :: ielectron = 4 ! electron abundance
  integer, parameter :: iCO       = 5 ! CO abundance
- real :: abundance(nabundances,maxp_h2)
+ real, allocatable :: abundance(:,:)
  character(len=*), parameter :: abundance_label(5) = &
    (/'h2ratio','abHIq  ','abhpq  ','abeq   ','abco   '/)
 !
 !--storage of temperature
 !
- real :: temperature(maxtemp)
+ real, allocatable :: temperature(:)
 !
 !--one-fluid dust (small grains)
 !
- real :: dustfrac(maxdusttypes,maxp_dustfrac)
+ real, allocatable :: dustfrac(:,:)
+ real, allocatable :: dustevol(:,:)
+ real, allocatable :: deltav(:,:,:)
  character(len=*), parameter :: dustfrac_label(maxdusttypes) = 'dustfrac'
  character(len=*), parameter :: tstop_label(maxdusttypes) = 'tstop'
- real :: dustevol(maxdustsmall,maxp_dustfrac)
- real :: deltav(3,maxdustsmall,maxp_dustfrac)
  character(len=*), parameter :: deltav_label(3) = &
    (/'deltavx','deltavy','deltavz'/)
 !
 !--sink particles
 !
- integer, parameter :: nsinkproperties = 11
  integer, parameter :: ihacc  = 5 ! accretion radius
  integer, parameter :: ihsoft = 6 ! softening radius
  integer, parameter :: imacc  = 7 ! accreted mass
@@ -122,9 +123,9 @@ module part
  integer, parameter :: ispiny = 9  ! spin angular momentum y
  integer, parameter :: ispinz = 10 ! spin angular momentum z
  integer, parameter :: i_tlast = 11 ! time of last injection
- real :: xyzmh_ptmass(nsinkproperties,maxptmass)
- real :: vxyz_ptmass(3,maxptmass)
- real :: fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
+ real, allocatable :: xyzmh_ptmass(:,:)
+ real, allocatable :: vxyz_ptmass(:,:)
+ real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
  character(len=*), parameter :: xyzmh_ptmass_label(11) = &
@@ -134,11 +135,13 @@ module part
 !
 !--self-gravity
 !
- real(kind=4) :: poten(maxgrav)
+ real(kind=4), allocatable :: poten(:)
 !
 !--Non-ideal MHD
 !
- real :: n_R(4,maxmhdni),n_electronT(maxne),eta_nimhd(4,maxmhdni)
+ real, allocatable :: n_R(:,:)
+ real, allocatable :: n_electronT(:)
+ real, allocatable :: eta_nimhd(:,:)
  integer, parameter :: iohm  = 1 ! eta_ohm
  integer, parameter :: ihall = 2 ! eta_hall
  integer, parameter :: iambi = 3 ! eta_ambi
@@ -146,67 +149,65 @@ module part
 #ifdef NONIDEALMHD
  character(len=*), parameter :: eta_nimhd_label(4) = (/'eta_{OR}','eta_{HE}','eta_{AD}','ne/n    '/)
 #endif
-!
-!--for analysis routines, do not allocate any more storage
-!  than is strictly necessary
-!
-#ifdef ANALYSIS
- integer, parameter, private :: maxan = 0
- integer, parameter, private :: maxmhdan = 0
- integer, parameter, private :: maxdustan = 0
-#else
- integer, parameter, private :: maxan = maxp
- integer, parameter, private :: maxmhdan = maxmhd
- integer, parameter, private :: maxdustan = maxp_dustfrac
-#endif
+
 !
 !--lightcurves
 !
- real(kind=4) :: luminosity(maxlum)
+ real(kind=4), allocatable :: luminosity(:)
 !
 !--derivatives (only needed if derivs is called)
 !
- real               :: fxyzu(maxvxyzu,maxan)
- real               :: dBevol(maxBevol,maxmhdan)
- real(kind=4)       :: divBsymm(maxmhdan)
- real               :: fext(3,maxan)
- real               :: ddustevol(maxdustsmall,maxdustan)
- real               :: ddustprop(4,maxp_growth) !--grainsize is the only prop that evolves for now
+ real, allocatable         :: fxyzu(:,:)
+ real, allocatable         :: dBevol(:,:)
+ real(kind=4), allocatable :: divBsymm(:)
+ real, allocatable         :: fext(:,:)
+ real, allocatable         :: ddustevol(:,:)
+ real, allocatable         :: ddustprop(:,:) !--grainsize is the only prop that evolves for now
 !
 !--storage associated with/dependent on timestepping
 !
- real               :: vpred(maxvxyzu,maxan)
- real               :: dustpred(maxdustsmall,maxdustan)
- real               :: Bpred(maxBevol,maxmhdan)
- real               :: dustproppred(4,maxp_growth)
+real, allocatable   :: vpred(:,:)
+real, allocatable   :: dustpred(:,:)
+real, allocatable   :: Bpred(:,:)
+real, allocatable   :: dustproppred(:,:)
 #ifdef IND_TIMESTEPS
- integer(kind=1)    :: ibin(maxan)
- integer(kind=1)    :: ibin_old(maxan)
- integer(kind=1)    :: ibin_wake(maxan)
- real(kind=4)       :: dt_in(maxan)
- real               :: twas(maxan)
+ integer(kind=1), allocatable :: ibin(:)
+ integer(kind=1), allocatable :: ibin_old(:)
+ integer(kind=1), allocatable :: ibin_wake(:)
+ real(kind=4),    allocatable :: dt_in(:)
+ real,            allocatable :: twas(:)
 #else
  integer(kind=1)    :: ibin_wake(1)
 #endif
- integer, parameter :: maxphase = maxan
- integer, parameter :: maxgradh = maxan
- integer(kind=1)    :: iphase(maxphase)
- integer(kind=1)    :: iphase_soa(maxphase)
+
+ integer(kind=1), allocatable    :: iphase(:)
+ integer(kind=1), allocatable    :: iphase_soa(:)
  logical, public    :: all_active = .true.
 
- real(kind=4)       :: gradh(ngradh,maxgradh)
- real               :: tstop(maxdusttypes,maxan)
+ real(kind=4), allocatable :: gradh(:,:)
+ real, allocatable         :: tstop(:,:)
 !
 !--storage associated with link list
 !  (used for dead particle list also)
 !
- integer :: ll(maxan)
+ integer, allocatable :: ll(:)
  real    :: dxi(ndim) ! to track the extent of the particles
+
+!
+!--particle belong
+!
+ integer, allocatable :: ibelong(:)
+
+!
+!--super time stepping
+!
+ integer(kind=1), allocatable :: istsactive(:)
+ integer(kind=1), allocatable :: ibin_sts(:)
+
 !
 !--size of the buffer required for transferring particle
 !  information between MPI threads
 !
- integer, parameter, private :: maxpd =  max(maxp,1) ! avoid divide by zero
  integer, parameter, private :: usedivcurlv = min(ndivcurlv,1)
  integer, parameter :: ipartbufsize = 4 &  ! xyzh
    +maxvxyzu                            &  ! vxyzu
@@ -214,22 +215,37 @@ module part
    +maxvxyzu                            &  ! fxyzu
    +3                                   &  ! fext
    +usedivcurlv                         &  ! divcurlv
-   +nalpha*maxalpha/maxpd               &  ! alphaind
-   +ngradh*maxgradh/maxpd               &  ! gradh
-   +(maxmhd/maxpd)*maxBevol             &  ! Bevol
-   +(maxmhd/maxpd)*maxBevol             &  ! Bpred
-   +maxphase/maxpd                      &  ! iphase
+#ifndef CONST_AV
+   +nalpha                              &  ! alphaind
+#endif
+#ifndef ANALYSIS
+   +ngradh                              &  ! gradh
+#endif
+#ifdef MHD
+   +maxBevol                            &  ! Bevol
+   +maxBevol                            &  ! Bpred
+#endif
+#ifndef ANALYSIS
+   +1                                   &  ! iphase
+#endif
 #ifdef DUST
    +maxdusttypes                        &  ! dustfrac
    +maxdustsmall                        &  ! dustevol
+   +maxdustsmall                        &  ! dustpred
 #ifdef DUSTGROWTH
    +1                                   &  ! dustproppred
    +1                                   &  ! ddustprop
 #endif
 #endif
-   +(maxp_h2/maxpd)*nabundances         &  ! abundance
-   +(maxgrav/maxpd)                     &  ! poten
-   +(maxtemp/maxpd)                     &  ! temperature
+#ifdef H2CHEM
+   +nabundances                         &  ! abundance
+#endif
+#ifdef GRAVITY
+   +1                                   &  ! poten
+#endif
+#ifdef STORE_TEMPERATURE
+   +1                                   &  ! temperature
+#endif
 #ifdef IND_TIMESTEPS
    +1                                   &  ! ibin
    +1                                   &  ! ibin_old
@@ -280,6 +296,116 @@ module part
  private :: hrho4,hrho8,hrho4_pmass,hrho8_pmass,hrhomixed_pmass
 
 contains
+
+   subroutine allocate_part
+      use allocutils, only:allocate_array
+
+    call allocate_array('xyzh', xyzh, 4, maxp)
+    call allocate_array('xyzh_soa', xyzh_soa, maxp, 4)
+    call allocate_array('vxyzu', vxyzu, maxvxyzu, maxp)
+    call allocate_array('alphaind', alphaind, nalpha, maxalpha)
+    call allocate_array('divcurlv', divcurlv, ndivcurlv, maxp)
+    call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
+    call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
+    call allocate_array('Bxyz', Bxyz, 3, maxmhd)
+    call allocate_array('dustprop', dustprop, 4, maxp_growth)
+    call allocate_array('St', St, maxp_growth)
+    call allocate_array('abundance', abundance, nabundances, maxp_h2)
+    call allocate_array('temperature', temperature, maxtemp)
+    call allocate_array('dustfrac', dustfrac, maxdusttypes, maxp_dustfrac)
+    call allocate_array('dustevol', dustevol, maxdustsmall, maxp_dustfrac)
+    call allocate_array('ddustevol', ddustevol, maxdustsmall, maxdustan)
+    call allocate_array('ddustprop', ddustprop, 4, maxp_growth)
+    call allocate_array('deltav', deltav, 3, maxdustsmall, maxp_dustfrac)
+    call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
+    call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
+    call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
+    call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
+    call allocate_array('poten', poten, maxgrav)
+    call allocate_array('n_R', n_R, 4, maxmhdni)
+    call allocate_array('n_electronT', n_electronT, maxne)
+    call allocate_array('eta_nimhd', eta_nimhd, 4, maxmhdni)
+    call allocate_array('luminosity', luminosity, maxlum)
+    call allocate_array('fxyzu', fxyzu, maxvxyzu, maxan)
+    call allocate_array('dBevol', dBevol, maxBevol, maxmhdan)
+    call allocate_array('divBsumm', divBsymm, maxmhdan)
+    call allocate_array('fext', fext, 3, maxan)
+    call allocate_array('vpred', vpred, maxvxyzu, maxan)
+    call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
+    call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
+    call allocate_array('dustproppred', dustproppred, 5, maxp_growth)
+#ifdef IND_TIMESTEPS
+    call allocate_array('ibin', ibin, maxan)
+    call allocate_array('ibin_old', ibin_old, maxan)
+    call allocate_array('ibin_wake', ibin_wake, maxan)
+    call allocate_array('dt_in', dt_in, maxan)
+    call allocate_array('twas', twas, maxan)
+#endif
+    call allocate_array('iphase', iphase, maxphase)
+    call allocate_array('iphase_soa', iphase_soa, maxphase)
+    call allocate_array('gradh', gradh, ngradh, maxgradh)
+    call allocate_array('tstop', tstop, maxdusttypes, maxan)
+    call allocate_array('ll', ll, maxan)
+    call allocate_array('ibelong', ibelong, maxp)
+    call allocate_array('istsactive', istsactive, maxsts)
+    call allocate_array('ibin_sts', ibin_sts, maxsts)
+
+   end subroutine allocate_part
+
+   subroutine deallocate_part
+   deallocate(xyzh)
+   deallocate(xyzh_soa)
+   deallocate(vxyzu)
+   deallocate(alphaind)
+   deallocate(divcurlv)
+   deallocate(divcurlB)
+   deallocate(Bevol)
+   deallocate(Bxyz)
+   deallocate(dustprop)
+   deallocate(St)
+   deallocate(abundance)
+   deallocate(temperature)
+   deallocate(dustfrac)
+   deallocate(dustevol)
+   deallocate(ddustevol)
+   deallocate(ddustprop)
+   deallocate(deltav)
+   deallocate(xyzmh_ptmass)
+   deallocate(vxyz_ptmass)
+   deallocate(fxyz_ptmass)
+   deallocate(fxyz_ptmass_sinksink)
+   deallocate(poten)
+   deallocate(n_R)
+   deallocate(n_electronT)
+   deallocate(eta_nimhd)
+   deallocate(luminosity)
+   deallocate(fxyzu)
+   deallocate(dBevol)
+   deallocate(divBsymm)
+   deallocate(fext)
+   deallocate(vpred)
+   deallocate(dustpred)
+   deallocate(Bpred)
+   deallocate(dustproppred)
+#ifdef IND_TIMESTEPS
+   deallocate(ibin)
+   deallocate(ibin_old)
+   deallocate(ibin_wake)
+   deallocate(dt_in)
+   deallocate(twas)
+#endif
+   deallocate(iphase)
+   deallocate(iphase_soa)
+   deallocate(gradh)
+   deallocate(tstop)
+   deallocate(ll)
+   deallocate(ibelong)
+   deallocate(istsactive)
+   deallocate(ibin_sts)
+
+   end subroutine deallocate_part
+
+
 !----------------------------------------------------------------
 !+
 !  this function determines the mass of the particle
@@ -756,7 +882,6 @@ end subroutine reorder_particles
 !-----------------------------------------------------------------------
 subroutine shuffle_part(np)
  use io, only:fatal
- use domain, only:ibelong
  integer, intent(inout) :: np
  integer :: newpart
 

@@ -28,8 +28,9 @@
 !+
 !--------------------------------------------------------------------------
 program phantom
- use dim,             only:tagline
- use mpiutils,        only:init_mpi, finalise_mpi
+ use memory,          only:allocate_memory
+ use dim,             only:tagline,maxp_hard
+ use mpiutils,        only:init_mpi,finalise_mpi
 #ifdef MPI
  use mpiderivs,       only:init_tree_comms,finish_tree_comms
  use stack,           only:init_mpi_memory,finish_mpi_memory
@@ -81,6 +82,7 @@ program phantom
     ! run the phantom internal test suite
     !
     call initialise()
+    call allocate_memory(maxp_hard)
     if (nargs >= 2) then
        do i=2,nargs
           call get_command_argument(i,infile)

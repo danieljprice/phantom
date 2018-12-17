@@ -715,6 +715,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
  ! Loop over cells
 
  !$omp parallel default(none) &
+ !$omp shared(maxp,maxphase) &
  !$omp shared(ncells,ll,ifirstincell,npart) &
  !$omp shared(xyzh,vxyzu,iphase) &
  !$omp shared(neighcount,neighb) &

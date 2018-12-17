@@ -25,12 +25,23 @@
 !+
 !--------------------------------------------------------------------------
 module kdtree
- use dim,         only:maxp,ncellsmax,minpart
+ use dim,         only:maxp,maxp_hard,ncellsmax,minpart
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
  use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi
 
  implicit none
+
+ integer, public,  allocatable :: inoderange(:,:)
+ integer, public,  allocatable :: inodeparts(:)
+ real,             allocatable :: xyzh_swap(:,:)
+ integer,          allocatable :: inodeparts_swap(:)
+ integer(kind=1),  allocatable :: iphase_swap(:)
+#ifdef MPI
+ type(kdnode),     allocatable :: refinementnode(:)
+#endif
+ integer,          allocatable :: list(:)
+ !$omp threadprivate(list)
 
 !
 !--tree parameters
@@ -46,6 +57,7 @@ module kdtree
  logical, private :: already_warned = .false.
  integer, private :: numthreads
 
+ public :: allocate_kdtree, deallocate_kdtree
  public :: maketree, revtree, getneigh, kdnode
 #ifdef MPI
  public :: maketreeglobal
@@ -66,15 +78,41 @@ module kdtree
     real    :: xmax(ndimtree)
  end type
 
- integer, public  :: inoderange(2,ncellsmax+1)
- integer, public  :: inodeparts(maxp)
- real             :: xyzh_swap(maxp,4)
- integer          :: inodeparts_swap(maxp)
- integer(kind=1)  :: iphase_swap(maxphase)
-
  private
 
 contains
+
+ subroutine allocate_kdtree
+    use allocutils, only:allocate_array
+
+    call allocate_array('inoderange', inoderange, 2, ncellsmax+1)
+    call allocate_array('inodeparts', inodeparts, maxp)
+    call allocate_array('xyzh_swap', xyzh_swap, maxp, 4)
+    call allocate_array('inodeparts_swap', inodeparts_swap, maxp)
+    call allocate_array('iphase_swap', iphase_swap, maxphase)
+#ifdef MPI
+    call allocate_array('refinementnode', refinementnode, ncellsmax+1)
+#endif
+    !$omp parallel
+    call allocate_array('list', list, maxp)
+    !$omp end parallel
+
+ end subroutine allocate_kdtree
+
+ subroutine deallocate_kdtree
+    deallocate(inoderange)
+    deallocate(inodeparts)
+    deallocate(xyzh_swap)
+    deallocate(inodeparts_swap)
+    deallocate(iphase_swap)
+#ifdef MPI
+    deallocate(refinementnode)
+#endif
+    !$omp parallel
+    deallocate(list)
+    !$omp end parallel
+ end subroutine deallocate_kdtree
+
 
 !--------------------------------------------------------------------------------
 !+
@@ -97,7 +135,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
 !$ use omp_lib
  type(kdnode),    intent(out)   :: node(ncellsmax+1)
  integer,         intent(in)    :: np,ndim
- real,            intent(inout) :: xyzh(4,maxp)  ! inout because of boundary crossing
+ real,            intent(inout) :: xyzh(:,:)  ! inout because of boundary crossing
  integer,         intent(out)   :: ifirstincell(ncellsmax+1)
  integer(kind=8), intent(out)   :: ncells
  integer, optional, intent(out)  :: refinelevels
@@ -107,8 +145,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
  real :: xmini(ndim),xmaxi(ndim),xminl(ndim),xmaxl(ndim),xminr(ndim),xmaxr(ndim)
  integer, parameter :: istacksize = 512
  type(kdbuildstack), save :: stack(istacksize)
- integer, save :: list(maxp)
-!$omp threadprivate(stack,list)
+ !$omp threadprivate(stack)
  type(kdbuildstack) :: queue(istacksize)
 !$ integer :: threadid
  integer :: npcounter
@@ -314,7 +351,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  integer,         intent(out) :: nproot
  real,            intent(out) :: xmini(ndim), xmaxi(ndim)
  integer,         intent(inout) :: ifirstincell(ncellsmax+1)
- real,            intent(inout) :: xyzh(4,maxp)
+ real,            intent(inout) :: xyzh(:,:)
  integer :: i,ncross
  real    :: xminpart,yminpart,zminpart,xmaxpart,ymaxpart,zmaxpart
  real    :: xi, yi, zi
@@ -521,6 +558,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  ! during initial queue build which is serial, we can parallelise this loop
  if (npnode > 1000 .and. doparallel) then
     !$omp parallel do schedule(static) default(none) &
+    !$omp shared(maxp,maxphase) &
     !$omp shared(npnode,list,xyzh,x0,iphase,massoftype,dfac) &
     !$omp shared(xyzh_soa,inoderange,nnode,iphase_soa) &
     !$omp private(i,xi,yi,zi,hi,dx,dy,dz,dr2) &
@@ -829,7 +867,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
  use boundary, only:dxbound,dybound,dzbound
 #endif
  use io,       only:fatal,id
- use part,     only:maxgrav,gravity
+ use part,     only:gravity
 #ifdef FINVSQRT
  use fastmath, only:finvsqrt
 #endif
@@ -840,7 +878,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
  real,    intent(in)                :: xsizei,rcuti
  integer, intent(out)               :: listneigh(maxneigh)
  integer, intent(out)               :: nneigh
- real,    intent(in)                :: xyzh(4,maxp)
+ real,    intent(in)                :: xyzh(:,:)
  real,    intent(out)               :: xyzcache(:,:)
  integer, intent(in)                :: ifirstincell(ncellsmax+1)
  logical, intent(in)                :: get_hj
@@ -1165,7 +1203,7 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
  use part, only:maxphase,iphase,igas,massoftype,iamtype
  use io,   only:fatal
  type(kdnode), intent(inout) :: node(ncellsmax+1)
- real,    intent(in)  :: xyzh(4,maxp)
+ real,    intent(in)  :: xyzh(:,:)
  integer, intent(in)  :: ifirstincell(ncellsmax+1)
  integer(kind=8), intent(in) :: ncells
  real :: hmax, r2max
@@ -1195,6 +1233,7 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
  enddo
 
 !$omp parallel default(none) &
+!$omp shared(maxp,maxphase) &
 !$omp shared(xyzh, ifirstincell, ncells) &
 !$omp shared(node, ll, iphase, massoftype, maxlevel) &
 !$omp private(hmax, r2max, xi, yi, zi, hi, il, ir, nodel, noder) &
@@ -1391,10 +1430,9 @@ end subroutine add_child_nodes
 subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,np,ndim,cellatid,ifirstincell,ncells)
  use io,           only:fatal,warning,id,nprocs
  use mpiutils,     only:reduceall_mpi
- use domain,       only:ibelong
  use balance,      only:balancedomains
  use mpiderivs,    only:tree_sync,tree_bcast
- use part,         only:isdead_or_accreted,iactive
+ use part,         only:isdead_or_accreted,iactive,ibelong
 
  type(kdnode), intent(out)     :: nodeglobal(ncellsmax+1)
  type(kdnode), intent(out)     :: node(ncellsmax+1)
@@ -1418,7 +1456,6 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  integer(kind=8), intent(out)  :: ncells
 
  type(kdnode)                  :: mynode(1)
- type(kdnode), save            :: refinementnode(ncellsmax+1)
 
  integer                       :: nl, nr
  integer                       :: il, ir, iself, parent
@@ -1429,8 +1466,6 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  integer                       :: i, k, offset, roffset, roffset_prev, coffset
  integer                       :: inode
  integer                       :: npnode
-
- integer, save                 :: list(maxp)
 
  logical                       :: wassplit
 
