@@ -31,7 +31,7 @@ module testlum
 contains
 
 subroutine test_lum(ntests,npass)
- use dim,      only:maxp,periodic,lightcurve,maxalpha
+ use dim,      only:periodic,lightcurve
  use io,       only:id,master
 #ifdef LIGHTCURVE
  use io,       only:iverbose
@@ -45,6 +45,7 @@ subroutine test_lum(ntests,npass)
  use deriv,           only:derivs
  use timing,          only:getused
 #ifndef DISC_VISCOSITY
+ use dim,             only:maxp
  use part,            only:alphaind,maxalpha
  use options,         only:alphau,alphaB
  use viscosity,       only:irealvisc,shearfunc,dt_viscosity,shearparam

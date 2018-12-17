@@ -43,7 +43,7 @@ contains
 !-------------------------------------------------------------
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
                   dustfrac,ddustevol,temperature,time,dt,dtnew,pxyzu,dens,metrics)
- use dim,            only:maxp,maxvxyzu
+ use dim,            only:maxvxyzu
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate

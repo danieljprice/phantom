@@ -37,7 +37,7 @@ subroutine test_rwdump(ntests,npass)
                            maxp,poten,gravity,use_dust,dustfrac,xyzmh_ptmass,&
                            nptmass,nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
                            dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
-                           vxyzu_label,set_particle_type,iphase,ndusttypes,ibelong
+                           vxyzu_label,set_particle_type,iphase,ndusttypes
  use dim,             only:maxp
  use memory,          only:allocate_memory,deallocate_memory
  use testutils,       only:checkval

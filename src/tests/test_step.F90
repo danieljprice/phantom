@@ -39,7 +39,7 @@ subroutine test_step(ntests,npass)
  use eos,      only:polyk,gamma,use_entropy
  use mpiutils, only:reduceall_mpi
  use options,  only:tolh,alpha,alphau,alphaB,ieos
- use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,divcurlv,maxgradh, &
+ use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,divcurlv, &
                     Bevol,dBevol,Bextx,Bexty,Bextz,alphaind,fext, &
                     maxphase,mhd,maxBevol,igas
  use unifdis,  only:set_unifdis
