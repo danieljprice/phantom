@@ -36,7 +36,7 @@ module part
                use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
                maxne,maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh, &
-               gr,maxgr
+               gr,maxgr,maxgran
  use dtypekdtree, only:kdnode
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -115,14 +115,13 @@ module part
  character(len=*), parameter :: deltav_label(3) = &
    (/'deltavx','deltavy','deltavz'/)
 !
-!--General relativity  <<<<<<<<<<<<< FIX THIS FOR GR DYNAMIC MEM
+!--General relativity
 !
- real :: pxyzu(maxvxyzu,maxgr)
- character(len=*), parameter :: pxyzu_label(4) = &
-  (/'px     ','py     ','pz     ','entropy'/)
- real :: dens(maxgr)
- real :: metrics(0:3,0:3,2,maxgr)
- real :: metricderivs(0:3,0:3,3,maxgr)
+ real, allocatable :: pxyzu(:,:) !pxyzu(maxvxyzu,maxgr)
+ character(len=*), parameter :: pxyzu_label(4) = (/'px     ','py     ','pz     ','entropy'/)
+ real, allocatable :: dens(:) !dens(maxgr)
+ real, allocatable :: metrics(:,:,:,:) !metrics(0:3,0:3,2,maxgr)
+ real, allocatable :: metricderivs(:,:,:,:) !metricderivs(0:3,0:3,3,maxgr)
 
 !
 !--sink particles
@@ -310,7 +309,7 @@ real, allocatable   :: dustproppred(:,:)
 contains
 
    subroutine allocate_part
-      use allocutils, only:allocate_array
+      use allocutils, only:allocate_array, allocate_metric_array
 
     call allocate_array('xyzh', xyzh, 4, maxp)
     call allocate_array('xyzh_soa', xyzh_soa, maxp, 4)
@@ -329,6 +328,10 @@ contains
     call allocate_array('ddustevol', ddustevol, maxdustsmall, maxdustan)
     call allocate_array('ddustprop', ddustprop, 4, maxp_growth)
     call allocate_array('deltav', deltav, 3, maxdustsmall, maxp_dustfrac)
+    call allocate_array('pxyzu', pxyzu, maxvxyzu, maxgr)
+    call allocate_array('dens', dens, maxgr)
+    call allocate_metric_array('metrics', metrics, 2, maxgr)
+    call allocate_metric_array('metricderivs', metricderivs, 3, maxgr)
     call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
     call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
     call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
@@ -343,6 +346,7 @@ contains
     call allocate_array('divBsumm', divBsymm, maxmhdan)
     call allocate_array('fext', fext, 3, maxan)
     call allocate_array('vpred', vpred, maxvxyzu, maxan)
+    call allocate_array('ppred', ppred, maxvxyzu, maxgran)
     call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
     call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
     call allocate_array('dustproppred', dustproppred, 5, maxp_growth)

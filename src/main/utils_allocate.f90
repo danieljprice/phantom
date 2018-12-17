@@ -4,7 +4,7 @@ use dtypekdtree,  only:kdnode,kdnode_bytes
 
  implicit none
 
- public :: allocate_array
+ public :: allocate_array, allocate_metric_array
 
  real :: nbytes_allocated = 0.0
 
@@ -169,6 +169,17 @@ contains
     call check_allocate(name, allocstat)
     call print_allocation_stats(name, (/n1/), 'kdnode')
  end subroutine allocate_array_kdnode_1d
+
+ subroutine allocate_metric_array(name, x, n3, n4)
+    character(len=*),            intent(in)     :: name
+    real(kind=8), allocatable,   intent(inout)  :: x(:,:,:,:)
+    integer,                     intent(in)     :: n3, n4
+    integer                                     :: allocstat
+
+    allocate(x(0:3, 0:3, n3, n4), stat = allocstat)
+    call check_allocate(name, allocstat)
+    call print_allocation_stats(name, (/4, 4, n3, n4/), 'real(8)')
+ end subroutine allocate_metric_array
 
  subroutine check_allocate(name, allocstat)
     character(len=*),   intent(in) :: name

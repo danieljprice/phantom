@@ -718,6 +718,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !
     !$omp parallel default(none) &
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype) &
+    !$omp shared(maxphase,maxp) &
     !$omp shared(dt,hdt) &
     !$omp shared(its,pxyzu,dens,metrics,metricderivs) &
     !$omp private(i,dtf,vxyzu_star,fstar) &
@@ -795,6 +796,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
 
     !$omp parallel do default(none) &
     !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei) &
+    !$omp shared(maxphase,maxp) &
     !$omp private(i,accreted) &
     !$omp shared(ieos,dens,pxyzu,iexternalforce,C_force) &
     !$omp private(pi,pondensi,spsoundi,dtf) &

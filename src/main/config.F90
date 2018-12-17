@@ -246,6 +246,16 @@ integer :: maxgrav = 0
 #endif
 
 !--------------------
+! General relativity
+!--------------------
+integer :: maxgr = 0
+#ifdef GR
+logical, parameter :: gr = .true.
+#else
+logical, parameter :: gr = .false.
+#endif
+
+!--------------------
 ! Supertimestepping
 !--------------------
 integer :: maxsts = 1
@@ -277,6 +287,7 @@ integer :: maxne = 0
  integer :: maxan = 0
  integer :: maxmhdan = 0
  integer :: maxdustan = 0
+ integer :: maxgran = 0
 
  !--------------------
  ! Phase and gradh sizes - inconsistent with everything else, but keeping to original logic
@@ -328,6 +339,10 @@ contains
     maxgrav = maxp
 #endif
 
+#ifdef GR
+    maxgr = maxp
+#endif
+
 #ifdef STS_TIMESTEPS
 #ifdef IND_TIMESTEPS
     maxsts = maxp
@@ -350,6 +365,7 @@ contains
     maxan = maxp
     maxmhdan = maxmhd
     maxdustan = maxp_dustfrac
+    maxgran = maxgr
 #endif
 
 ! Very convoluted, but follows original logic...
@@ -357,16 +373,5 @@ contains
     maxgradh = maxan
 
  end subroutine update_max_sizes
-
- !--------------------
- ! General relativity
- !--------------------
-#ifdef GR
- integer, parameter :: maxgr = maxp
- logical, parameter :: gr = .true.
-#else
- integer, parameter :: maxgr = 0
- logical, parameter :: gr = .false.
-#endif
 
 end module dim
