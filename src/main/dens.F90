@@ -129,8 +129,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
                      get_cell_location,set_hmaxcell,sync_hmax_mpi
  use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho,&
-                     ll,get_partinfo,iactive,maxgradh,&
-                     hrho,iphase,maxphase,igas,idust,iboundary,iamgas,periodic,&
+                     ll,get_partinfo,iactive,&
+                     hrho,iphase,igas,idust,iboundary,iamgas,periodic,&
                      all_active,dustfrac,Bxyz
 #ifdef FINVSQRT
  use fastmath,  only:finvsqrt
