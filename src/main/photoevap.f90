@@ -89,18 +89,18 @@ contains
 !***************************************************************************************
 
 subroutine allocate_photoevap
-  use dim, only:maxp
-  use allocutils, only:allocate_array
+ use dim, only:maxp
+ use allocutils, only:allocate_array
 
-  call allocate_array('Rnum', Rnum, maxp)
-  call allocate_array('Thetanum', Thetanum, maxp)
-  call allocate_array('Phinum', Phinum, maxp)
+ call allocate_array('Rnum', Rnum, maxp)
+ call allocate_array('Thetanum', Thetanum, maxp)
+ call allocate_array('Phinum', Phinum, maxp)
 end subroutine allocate_photoevap
 
 subroutine deallocate_photoevap
-  deallocate(Rnum)
-  deallocate(Thetanum)
-  deallocate(Phinum)
+ deallocate(Rnum)
+ deallocate(Thetanum)
+ deallocate(Phinum)
 end subroutine deallocate_photoevap
 
 !----------------------------------------------------------------

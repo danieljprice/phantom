@@ -82,36 +82,36 @@ module kdtree
 
 contains
 
- subroutine allocate_kdtree
-    use allocutils, only:allocate_array
+subroutine allocate_kdtree
+ use allocutils, only:allocate_array
 
-    call allocate_array('inoderange', inoderange, 2, ncellsmax+1)
-    call allocate_array('inodeparts', inodeparts, maxp)
-    call allocate_array('xyzh_swap', xyzh_swap, maxp, 4)
-    call allocate_array('inodeparts_swap', inodeparts_swap, maxp)
-    call allocate_array('iphase_swap', iphase_swap, maxphase)
+ call allocate_array('inoderange', inoderange, 2, ncellsmax+1)
+ call allocate_array('inodeparts', inodeparts, maxp)
+ call allocate_array('xyzh_swap', xyzh_swap, maxp, 4)
+ call allocate_array('inodeparts_swap', inodeparts_swap, maxp)
+ call allocate_array('iphase_swap', iphase_swap, maxphase)
 #ifdef MPI
-    call allocate_array('refinementnode', refinementnode, ncellsmax+1)
+ call allocate_array('refinementnode', refinementnode, ncellsmax+1)
 #endif
-    !$omp parallel
-    call allocate_array('list', list, maxp)
-    !$omp end parallel
+ !$omp parallel
+ call allocate_array('list', list, maxp)
+ !$omp end parallel
 
- end subroutine allocate_kdtree
+end subroutine allocate_kdtree
 
- subroutine deallocate_kdtree
-    deallocate(inoderange)
-    deallocate(inodeparts)
-    deallocate(xyzh_swap)
-    deallocate(inodeparts_swap)
-    deallocate(iphase_swap)
+subroutine deallocate_kdtree
+ deallocate(inoderange)
+ deallocate(inodeparts)
+ deallocate(xyzh_swap)
+ deallocate(inodeparts_swap)
+ deallocate(iphase_swap)
 #ifdef MPI
-    deallocate(refinementnode)
+ deallocate(refinementnode)
 #endif
-    !$omp parallel
-    deallocate(list)
-    !$omp end parallel
- end subroutine deallocate_kdtree
+ !$omp parallel
+ deallocate(list)
+ !$omp end parallel
+end subroutine deallocate_kdtree
 
 
 !--------------------------------------------------------------------------------

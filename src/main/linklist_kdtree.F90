@@ -57,23 +57,23 @@ module linklist
 
 contains
 
- subroutine allocate_linklist
-    use allocutils, only:allocate_array
+subroutine allocate_linklist
+ use allocutils, only:allocate_array
 
-    call allocate_array('cellatid', cellatid, ncellsmax+1)
-    call allocate_array('ifirstincell', ifirstincell, ncellsmax+1)
-    call allocate_array('nodeglobal', nodeglobal, ncellsmax+1)
-    call allocate_array('node', node, ncellsmax+1)
-    call allocate_array('nodemap', nodemap, ncellsmax+1)
- end subroutine allocate_linklist
+ call allocate_array('cellatid', cellatid, ncellsmax+1)
+ call allocate_array('ifirstincell', ifirstincell, ncellsmax+1)
+ call allocate_array('nodeglobal', nodeglobal, ncellsmax+1)
+ call allocate_array('node', node, ncellsmax+1)
+ call allocate_array('nodemap', nodemap, ncellsmax+1)
+end subroutine allocate_linklist
 
- subroutine deallocate_linklist
-   deallocate(cellatid)
-   deallocate(ifirstincell)
-   deallocate(nodeglobal)
-   deallocate(node)
-   deallocate(nodemap)
- end subroutine deallocate_linklist
+subroutine deallocate_linklist
+ deallocate(cellatid)
+ deallocate(ifirstincell)
+ deallocate(nodeglobal)
+ deallocate(node)
+ deallocate(nodemap)
+end subroutine deallocate_linklist
 
 subroutine get_hmaxcell(inode,hmaxcell)
  integer, intent(in)  :: inode

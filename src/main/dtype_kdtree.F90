@@ -29,7 +29,7 @@ module dtypekdtree
  integer, parameter :: ndimtree = 3
 #endif
 
-integer, parameter :: kdnode_bytes = &
+ integer, parameter :: kdnode_bytes = &
                       8*ndimtree &  ! xcen(ndimtree)
                     + 8 &           ! size
                     + 8 &           ! hmax

@@ -837,18 +837,18 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 !
 !--check block header for errors
 !
-  call check_block_header(narraylengths,nblocks,ilen,nums,nparttot,nhydrothisblock,nptmass,ierr)
-  if (ierr /= 0) then
-     call error('read_dump','error in array headers')
-     return
-  endif
+    call check_block_header(narraylengths,nblocks,ilen,nums,nparttot,nhydrothisblock,nptmass,ierr)
+    if (ierr /= 0) then
+       call error('read_dump','error in array headers')
+       return
+    endif
 !
 !--exit after reading the file header if the optional argument
 !  "headeronly" is present and set to true
 !
-   if (present(headeronly)) then
-      if (headeronly) return
-   endif
+    if (present(headeronly)) then
+       if (headeronly) return
+    endif
 !
 !--determine if extra dust quantites should be read
 !
@@ -1511,15 +1511,15 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     endif
  endif
  if (npartread > 0) then
-   do i = 1, size(massoftype)
-     if (npartoftype(i) > 0) then
-       if (massoftype(i) <= 0.0) then
-         if (id==master .and. i1==1) write(*,*) 'ERROR! mass not set in read_dump (Phantom)'
-         ierr = 12
-         return
+    do i = 1, size(massoftype)
+       if (npartoftype(i) > 0) then
+          if (massoftype(i) <= 0.0) then
+             if (id==master .and. i1==1) write(*,*) 'ERROR! mass not set in read_dump (Phantom)'
+             ierr = 12
+             return
+          endif
        endif
-     endif
-   enddo
+    enddo
  endif
  if (use_dustfrac .and. .not. all(got_dustfrac(1:ndusttypes))) then
     if (id==master .and. i1==1) write(*,*) 'ERROR! using one-fluid dust, but no dust fraction found in dump file'

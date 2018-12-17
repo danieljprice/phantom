@@ -273,9 +273,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  !
  !--initialise alpha's (after the infile has been read)
  !
-  if (maxalpha==maxp) then
-     alphaind(:,:) = real4(alpha)
-  endif
+ if (maxalpha==maxp) then
+    alphaind(:,:) = real4(alpha)
+ endif
 
 !
 !--initialise values for non-ideal MHD

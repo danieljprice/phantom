@@ -126,7 +126,7 @@ subroutine test_step(ntests,npass)
  ! If using individual timesteps, ibin may be uninitialised
 #ifdef IND_TIMESTEPS
  do i = 1, npart
-   ibin(i) = nbinmax
+    ibin(i) = nbinmax
  enddo
 #endif
 
