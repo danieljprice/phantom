@@ -302,7 +302,7 @@ end subroutine get_dump_size
 !-------------------------------------------------------------------
 subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
-                 lightcurve,maxlum,store_temperature,use_dustgrowth
+                 lightcurve,store_temperature,use_dustgrowth
  use eos,   only:utherm,ieos,equationofstate,done_init_eos,init_eos
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bxyz,Bxyz_label,npart,npartoftype,maxtypes, &
@@ -705,7 +705,7 @@ end subroutine write_smalldump
 
 subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use memory,   only:allocate_memory
- use dim,      only:maxp,maxvxyzu,maxalpha,maxgrav,gravity,lightcurve,maxlum,mhd
+ use dim,      only:maxp,maxvxyzu,gravity,lightcurve,mhd
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &
                     maxphase,isetphase,nptmass,nsinkproperties,maxptmass,get_pmass, &
@@ -945,7 +945,10 @@ end subroutine read_dump
 
 subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use memory,   only:allocate_memory
- use dim,      only:maxp,maxvxyzu,mhd,maxBevol
+ use dim,      only:maxvxyzu,mhd,maxBevol
+#ifdef MPI
+ use dim,      only:maxp
+#endif
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:npart,npartoftype,maxtypes,nptmass,nsinkproperties,maxptmass, &
                     massoftype
@@ -1855,7 +1858,7 @@ end subroutine fill_header
 subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
                           tfile,hfactfile,alphafile,iprint,ierr)
  use io,             only:id,master
- use dim,            only:maxp,maxvxyzu,use_dust
+ use dim,            only:maxvxyzu,use_dust
  use eos,            only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
  use options,        only:ieos,tolh,alpha,alphau,alphaB,iexternalforce
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,&
@@ -2097,7 +2100,7 @@ end subroutine fake_header_tags
 !+
 !-----------------------------------------------------------------
 subroutine fake_array_tags(iblock,ikind,tags,phantomdump)
- use dim, only:maxalpha,maxp,maxvxyzu,h2chemistry
+ use dim, only:maxvxyzu,h2chemistry
  integer, intent(in) :: iblock,ikind
  logical, intent(in) :: phantomdump
  character(len=lentag), intent(out) :: tags(:)
