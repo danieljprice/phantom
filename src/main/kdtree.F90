@@ -20,8 +20,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: balance, boundary, dim, domain, dtypekdtree, fastmath, io,
-!    kernel, mpiderivs, mpiutils, part
+!  DEPENDENCIES: allocutils, balance, boundary, dim, domain, dtypekdtree,
+!    fastmath, io, kernel, mpiderivs, mpiutils, part
 !+
 !--------------------------------------------------------------------------
 module kdtree

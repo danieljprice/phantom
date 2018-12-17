@@ -20,7 +20,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, io
+!  DEPENDENCIES: dim, io, part
 !+
 !--------------------------------------------------------------------------
 module domain

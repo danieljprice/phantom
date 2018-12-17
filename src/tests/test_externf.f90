@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, extern_corotate, externalforces, io, part, physcon,
+!  DEPENDENCIES: extern_corotate, externalforces, io, part, physcon,
 !    testutils, unifdis, units
 !+
 !--------------------------------------------------------------------------

@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, domain, io, mpi, mpiutils, part, timing
+!  DEPENDENCIES: dim, io, mpi, mpiutils, part, timing
 !+
 !--------------------------------------------------------------------------
 #ifdef MPI

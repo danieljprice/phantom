@@ -22,8 +22,8 @@
 !  RUNTIME PARAMETERS:
 !    tree_accuracy -- tree opening criterion (0.0-1.0)
 !
-!  DEPENDENCIES: boundary, dim, dtypekdtree, infile_utils, io, kdtree,
-!    kernel, mpiutils, part
+!  DEPENDENCIES: allocutils, boundary, dim, dtypekdtree, infile_utils, io,
+!    kdtree, kernel, mpiutils, part
 !+
 !--------------------------------------------------------------------------
 module linklist
