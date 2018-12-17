@@ -139,7 +139,7 @@ contains
 !----------------------------------------------------------------
 subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,&
                  ipart_rhomax,dt,stressmax,temperature)
- use dim,          only:maxvxyzu,maxalpha,maxneigh,maxdvdx,&
+ use dim,          only:maxvxyzu,maxneigh,maxdvdx,&
                         mhd,mhd_nonideal,lightcurve
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,     only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location
@@ -778,7 +778,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:igas,idust,iboundary,iohm,ihall,iambi,maxphase,iactive,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxBevol,maxdvdx
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,store_temperature
- use part,        only:rhoh,maxgradh,dvdx
+ use part,        only:rhoh,dvdx
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
