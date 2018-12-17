@@ -94,6 +94,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  ngas      = 0
  ndm       = 0
 !$omp parallel default(none) &
+!$omp shared(maxp,maxphase) &
 !$omp shared(npart,xyzh,iphase,massoftype) &
 !$omp private(i,itype,xi,yi,zi,hi,pmassi,rhoi) &
 !$omp reduction(+:xpos1,ypos1,zpos1,xpos2,ypos2,zpos2,totmass1,totmass2) &
@@ -168,4 +169,3 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 end subroutine do_analysis
 
 end module
-

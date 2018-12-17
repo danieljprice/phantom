@@ -23,7 +23,7 @@
 !+
 !--------------------------------------------------------------------------
 program phantom2power
- use dim,  only:tagline,periodic
+ use dim,  only:tagline,periodic,maxp_hard
  use part, only:xyzh,vxyzu,npart,massoftype,rhoh,hfact
  use io, only:set_io_unit_numbers,iprint,idisk1,real4
  use boundary, only:xmin,ymin,zmin,dxbound,dybound,dzbound
@@ -41,7 +41,7 @@ program phantom2power
  real, allocatable :: pk(:),xk(:)
  real, allocatable :: datgrid(:,:,:,:) !rho, vx, vy, vz
  real, allocatable :: dati(:,:,:),datx(:,:,:),daty(:,:,:)
- real :: rho(size(xyzh(1,:)))
+ real :: rho(maxp_hard)
  real :: comp(12),xminpart(3),xmaxpart(3),xminp(3),dxmaxp(3)
  real :: ptot,dxmin,compensate,totvol,totmass,totrho2,rhoi,rhopow,rhopowprev,rhomin,rhomax
  real :: weight,time,pixwidth,ekin,ekinrho,ekinrho23,ekx,eky,ekz,dvol,vx2,vy2,vz2

@@ -66,7 +66,7 @@ subroutine test_ptmass(ntests,npass)
  use units,           only:set_units
  use kernel,          only:kernel_softening
 #ifdef IND_TIMESTEPS
- use part,            only:ibin
+ use part,            only:ibin,ibin_old
 #endif
  use mpiutils,        only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi
  integer, intent(inout) :: ntests,npass
@@ -121,6 +121,7 @@ subroutine test_ptmass(ntests,npass)
 
 #ifdef IND_TIMESTEPS
     ibin(:) = 0_1
+    ibin_old(:) = 0_1
 #endif
     iverbose = 0
     tree_accuracy = 0.

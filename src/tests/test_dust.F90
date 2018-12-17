@@ -625,6 +625,11 @@ subroutine test_drag(ntests,npass)
     endif
  enddo
 
+ da = reduceall_mpi('+', da)
+ dl = reduceall_mpi('+', dl)
+ dekin = reduceall_mpi('+', dekin)
+ deint = reduceall_mpi('+', deint)
+
  nfailed=0
  call checkval(da(1),0.,7.e-7,nfailed,'acceleration from drag conserves momentum(x)')
  call checkval(da(2),0.,7.e-7,nfailed,'acceleration from drag conserves momentum(y)')

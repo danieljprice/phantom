@@ -26,11 +26,11 @@
 module domain
  use dim, only:maxp
  use io,  only:nprocs
+ use part, only:ibelong
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
 
- integer, public :: ibelong(maxp)
  integer, parameter :: ndim = 3
 
  !--default initialisation of domainisperiodic so that

@@ -52,6 +52,10 @@ subroutine test_step(ntests,npass)
  use timestep,        only:dtmax
  use testutils,       only:checkval,checkvalf
 #endif
+#ifdef IND_TIMESTEPS
+ use timestep_ind, only: nbinmax
+ use part,         only: ibin
+#endif
  integer, intent(inout) :: ntests,npass
 #ifdef PERIODIC
  real                   :: psep,hzero,totmass,dt,t,dtext,dtnew_dum
@@ -117,6 +121,14 @@ subroutine test_step(ntests,npass)
  dt      = 2.0/(nsteps)
  dtmax   = dt
  t = 0.
+
+ ! If using individual timesteps, ibin may be uninitialised
+#ifdef IND_TIMESTEPS
+ do i = 1, npart
+   ibin(i) = nbinmax
+ enddo
+#endif
+
  call init_step(npart,t,dtmax)
 
  nfailed(:) = 0

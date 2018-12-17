@@ -23,8 +23,9 @@
 !+
 !--------------------------------------------------------------------------
 program phantomsetup
+ use memory,            only:allocate_memory,deallocate_memory
  use dim,             only:tagline,maxp,maxvxyzu,maxalpha,maxgrav,&
-                           ndivcurlv,ndivcurlB
+                           ndivcurlv,ndivcurlB,maxp_hard
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
                            Bevol,Bxyz,Bextx,Bexty,Bextz,rhoh,iphase,maxphase,&
                            isetphase,igas,iamtype,labeltype,xyzmh_ptmass,&
@@ -93,6 +94,15 @@ program phantomsetup
 !--if input file exists, read it
 !
  if (iexist) call read_infile(infile,logfile,evfile,dumpfile)
+
+!
+!--In general, setup routines do not know the number of particles until they
+!  are written. Need to allocate up to the hard limit. Legacy setup routines may
+!  also rely on maxp being set to the number of desired particles. Allocate only
+!  part, not kdtree or linklist
+!
+ call allocate_memory(maxp_hard, part_only=.true.)
+
 !
 !--reset logfile name
 !
@@ -203,6 +213,7 @@ program phantomsetup
     endif
  enddo
 
- call finalise_mpi()
+ call finalise_mpi
+ call deallocate_memory(part_only=.true.)
 
 end program phantomsetup

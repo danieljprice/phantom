@@ -59,7 +59,7 @@ end subroutine test_eos
 !+
 !----------------------------------------------------------
 subroutine test_init(ntests, npass)
- use eos,       only:maxeos,init_eos,isink,polyk
+ use eos,       only:maxeos,init_eos,isink,polyk,polyk2
  use io,        only:id,master
  use testutils, only:checkval
  integer, intent(inout) :: ntests,npass
@@ -78,6 +78,7 @@ subroutine test_init(ntests, npass)
 
  ! ieos=8, barotropic eos, requires polyk to be set to avoid undefined
  polyk = 0.1
+ polyk2 = 0.1
 
  ! ieos=10 and 15, MESA and Helmholtz eos, require table read from files
  call get_environment_variable('PHANTOM_DIR',pdir)

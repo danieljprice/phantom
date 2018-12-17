@@ -36,6 +36,7 @@ contains
 
 subroutine testsuite(string,first,last,ntests,npass,nfail)
  use io,           only:iprint,id,master,iverbose
+ use io_summary,   only:summary_initialise
  use testderivs,   only:test_derivs
  use teststep,     only:test_step
  use testlink,     only:test_link
@@ -76,6 +77,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: usefsqrt,usefinvsqrt
 #endif
  real(kind=4) :: twall1,tcpu1,twall2,tcpu2
+
+ call summary_initialise
 
  iprint = 6
  iverbose = max(iverbose,2)
