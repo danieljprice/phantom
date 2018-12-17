@@ -27,8 +27,8 @@ module setup
  use externalforces, only:accradius1,accradius1_hard
  use dim,            only:gr
 #ifdef GR
- use metric,         only:mass1,imetric
- use metric_tools,   only:imet_schwarzschild
+ use metric,         only:mass1
+ use metric_tools,   only:imet_schwarzschild,imetric
 #else
  use externalforces, only:mass1
 #endif

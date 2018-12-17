@@ -808,8 +808,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use options,     only:overcleanfac,use_dustfrac
 #ifdef GR
  use utils_gr,    only:get_bigv
- use metric,      only:imetric
- use metric_tools,only:imet_minkowski
+ use metric_tools,only:imet_minkowski,imetric
 #endif
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti

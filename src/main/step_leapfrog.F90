@@ -106,8 +106,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:ibin,ibin_old,twas,iactive
 #endif
 #ifdef GR
- use metric,         only:imetric
- use metric_tools,   only:imet_minkowski
+ use metric_tools,   only:imet_minkowski,imetric
  use cons2prim,      only:conservative_to_primitive
  use extern_gr,      only:get_grforce_all
 #endif

@@ -142,8 +142,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use cons2prim,        only:primitive_to_conservative
  use eos,              only:equationofstate,ieos
  use extern_gr,        only:get_grforce_all
- use metric_tools,     only:init_metric,imet_minkowski
- use metric,           only:imetric
+ use metric_tools,     only:init_metric,imet_minkowski,imetric
 #endif
 #ifdef PHOTO
  use photoevap,        only:set_photoevap_grid

@@ -21,8 +21,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  use io,             only:iprint
  use eos,            only:gamma
  use prompting,      only:prompt
- use metric,         only:imetric
- use metric_tools,   only:imet_schwarzschild
+ use metric_tools,   only:imet_schwarzschild,imetric
  use externalforces, only:accradius1,accradius1_hard
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart

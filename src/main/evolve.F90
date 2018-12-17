@@ -88,8 +88,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #ifdef GR
  use part,             only:pxyzu,dens,metrics,metricderivs
  use cons2prim,        only:primitive_to_conservative
- use metric_tools,     only:init_metric,imet_minkowski
- use metric,           only:imetric
+ use metric_tools,     only:init_metric,imet_minkowski,imetric
  use extern_gr,        only:get_grforce_all
 #endif
 #endif

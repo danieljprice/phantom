@@ -199,8 +199,7 @@ end subroutine update_externalforce
 !+
 !-----------------------------------------------------------------------
 subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
- use metric,       only:imetric
- use metric_tools, only:imet_minkowski,imet_schwarzschild,imet_kerr
+ use metric_tools, only:imet_minkowski,imet_schwarzschild,imet_kerr,imetric
  use part,         only:set_particle_type,iboundary,maxphase,maxp,igas,npartoftype
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: xi,yi,zi,mi,ti
@@ -240,8 +239,7 @@ end subroutine accrete_particles
 !+
 !-----------------------------------------------------------------------
 pure logical function was_accreted(iexternalforce,hi)
- use metric,       only:imetric
- use metric_tools, only:imet_minkowski
+ use metric_tools, only:imet_minkowski,imetric
  integer, intent(in) :: iexternalforce
  real,    intent(in) :: hi
 
@@ -260,8 +258,7 @@ end function was_accreted
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_externalforces(iunit,iexternalforce)
- use metric,       only:imetric
- use metric_tools, only:imet_minkowski
+ use metric_tools, only:imet_minkowski,imetric
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit,iexternalforce
 
@@ -313,8 +310,7 @@ end subroutine read_headeropts_extern
 !-----------------------------------------------------------------------
 subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexternalforce)
  use io,           only:fatal,warn
- use metric,       only:imetric
- use metric_tools, only:imet_minkowski
+ use metric_tools, only:imet_minkowski,imetric
  character(len=*), intent(in)    :: name,valstring
  logical,          intent(out)   :: imatch,igotall
  integer,          intent(out)   :: ierr

@@ -57,8 +57,7 @@ subroutine dt_grforce(xyzh,fext,dtf)
  use fastmath,     only:finvsqrt
 #endif
  use physcon,      only:pi
- use metric,       only:imetric
- use metric_tools, only:imet_minkowski
+ use metric_tools, only:imet_minkowski,imetric
  real, intent(in)  :: xyzh(4),fext(3)
  real, intent(out) :: dtf
  real :: r,r2,dtf1,dtf2,f2i
