@@ -781,7 +781,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use kernel,      only:grkern,cnormk,radkern2
  use part,        only:igas,idust,iboundary,iohm,ihall,iambi,maxphase,iactive,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxBevol,maxdvdx
- use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,store_temperature
+ use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,store_temperature,gr
  use part,        only:rhoh,dvdx
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
 #ifdef GRAVITY
@@ -931,7 +931,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  curlBi(1)     = xpartveci(icurlBxi)
  curlBi(2)     = xpartveci(icurlByi)
  curlBi(3)     = xpartveci(icurlBzi)
- densi         = xpartveci(idensGRi)
+ if (gr) then
+    densi      = xpartveci(idensGRi)
+ endif
  if (use_dustgrowth) then
     grainsizei = xpartveci(igrainsizei)
     graindensi = xpartveci(igraindensi)
@@ -1933,7 +1935,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use io,        only:fatal
  use options,   only:alpha,use_dustfrac
  use dim,       only:maxp,ndivcurlv,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
-                use_dustgrowth,store_temperature
+                use_dustgrowth,store_temperature,gr
  use part,      only:iamgas,maxphase,iboundary,rhoanddhdrho,igas,massoftype,get_partinfo,&
                      iohm,ihall,iambi,ndustsmall
  use viscosity, only:irealvisc,bulkvisc
@@ -2196,7 +2198,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        cell%xpartvec(ijcbyi,cell%npcell)          = jcbi(2)
        cell%xpartvec(ijcbzi,cell%npcell)          = jcbi(3)
     endif
-    cell%xpartvec(idensGRi,cell%npcell)           = densi
+    if (gr) then
+       cell%xpartvec(idensGRi,cell%npcell)        = densi
+    endif
 #ifdef DUSTGROWTH
     cell%xpartvec(igrainsizei,cell%npcell)        = dustprop(1,i)
     cell%xpartvec(igraindensi,cell%npcell)        = dustprop(2,i)
@@ -2606,7 +2610,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           endif
           fxyz4 = 0.
           if (use_entropy .or. gr) then
-             densi = xpartveci(idensGRi)
+             if (gr) densi = xpartveci(idensGRi)
              if (gr .and. ishock_heating > 0) then
                 fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*u0i*fsum(idudtdissi)
              else if (ishock_heating > 0) then
