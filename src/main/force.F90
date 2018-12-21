@@ -100,7 +100,10 @@ module forces
        itstop        = 56 + (maxdusttypes - 1), &
        itstopend     = 56 + 2*(maxdusttypes - 1), &
        !--gr primitive density
-       idensGRi      = itstopend + 1
+       idensGRi      = itstopend + 1, &
+       !--gr metrics
+       imetricstart  = idensGRi + 1, &
+       imetricend    = imetricstart + 31
 
  !--indexing for fsum array
  integer, parameter :: &
@@ -373,6 +376,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp private(remote_export) &
 !$omp private(nneigh) &
 !$omp shared(dens) &
+!$omp shared(metrics) &
 #ifdef GRAVITY
 !$omp shared(massoftype,npart) &
 !$omp private(hi,pmassi,rhoi) &
@@ -420,7 +424,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     cell%icell = icell
 
     call start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol, &
-                         dustfrac,dustprop,eta_nimhd,temperature,alphaind,stressmax,dens)
+                         dustfrac,dustprop,eta_nimhd,temperature,alphaind,stressmax,dens,metrics)
     if (cell%npcell == 0) cycle over_cells
 
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
@@ -890,9 +894,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: alphai,grainsizei,graindensi
  logical :: usej
  integer :: iamtypei
- real    :: xi,yi,zi,densi,densj,eni
+ real    :: xi,yi,zi,densi,densj,eni,metrici(0:3,0:3,2)
  real    :: vxi,vyi,vzi,vxj,vyj,vzj
  real    :: qrho2i,qrho2j
+ integer :: ii,ia,ib,ic
 
 #ifdef GR
  real    :: projbigvi,projbigvj,lorentzi_star,lorentzj_star,dlorentzv
@@ -931,9 +936,20 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  curlBi(1)     = xpartveci(icurlBxi)
  curlBi(2)     = xpartveci(icurlByi)
  curlBi(3)     = xpartveci(icurlBzi)
+
  if (gr) then
     densi      = xpartveci(idensGRi)
+    ii = imetricstart
+    do ic = 1,2
+       do ib = 0,3
+         do ia = 0,3
+            metrici(ia,ib,ic) = xpartveci(ii)
+            ii = ii + 1
+         enddo
+       enddo
+    enddo
  endif
+
  if (use_dustgrowth) then
     grainsizei = xpartveci(igrainsizei)
     graindensi = xpartveci(igraindensi)
@@ -1930,7 +1946,7 @@ end subroutine check_dtmin
 !----------------------------------------------------------------
 
 subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol, &
-                     dustfrac,dustprop,eta_nimhd,temperature,alphaind,stressmax,dens)
+                     dustfrac,dustprop,eta_nimhd,temperature,alphaind,stressmax,dens,metrics)
 
  use io,        only:fatal
  use options,   only:alpha,use_dustfrac
@@ -1959,6 +1975,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  real(kind=4),       intent(in)    :: alphaind(:,:)
  real,               intent(in)    :: stressmax
  real,               intent(in)    :: dens(:)
+ real,               intent(in)    :: metrics(:,:,:,:)
 
  real         :: divcurlvi(ndivcurlv)
  real         :: dvdxi(9),curlBi(3),jcbcbi(3),jcbi(3)
@@ -1972,7 +1989,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  real         :: Bxi,Byi,Bzi,Bi,B2i,Bi1
  real         :: vwavei,alphai
 
- integer      :: i,j,iamtypei,ip
+ integer      :: i,j,iamtypei,ip,ii,ia,ib,ic
  real         :: densi
 
 #ifdef DUST
@@ -2198,9 +2215,20 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        cell%xpartvec(ijcbyi,cell%npcell)          = jcbi(2)
        cell%xpartvec(ijcbzi,cell%npcell)          = jcbi(3)
     endif
+
     if (gr) then
        cell%xpartvec(idensGRi,cell%npcell)        = densi
+       ii = imetricstart
+       do ic = 1,2
+          do ib = 1,4
+             do ia = 1,4
+                cell%xpartvec(ii,cell%npcell)     = metrics(ia,ib,ic,i)
+                ii = ii + 1
+             enddo
+          enddo
+       enddo
     endif
+
 #ifdef DUSTGROWTH
     cell%xpartvec(igrainsizei,cell%npcell)        = dustprop(1,i)
     cell%xpartvec(igraindensi,cell%npcell)        = dustprop(2,i)
@@ -2372,7 +2400,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:luminosity
 #endif
 #ifdef GR
- use metric_tools,   only:get_metric
+ use metric_tools,   only:unpack_metric
  use utils_gr,       only:get_u0
 #endif
 #ifdef DUSTGROWTH
@@ -2438,7 +2466,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  integer               :: ip,i
  real                  :: densi, vxi,vyi,vzi,u0i
 #ifdef GR
- real                  :: posi(3),veli(3),gcov(0:3,0:3),gcon(0:3,0:3),sqrtg
+ real                  :: posi(3),veli(3),gcov(0:3,0:3),metrici(0:3,0:3,2)
+ integer               :: ii,ia,ib,ic
 #endif
 
  eni = 0.
@@ -2493,7 +2522,19 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef GR
     veli = (/vxi,vyi,vzi/)
     posi = (/xi,yi,zi/)
-    call get_metric(posi,gcov,gcon,sqrtg)
+
+    densi = xpartveci(idensGRi)
+    ii = imetricstart
+    do ic = 1,2
+       do ib = 0,3
+         do ia = 0,3
+            metrici(ia,ib,ic) = xpartveci(ii)
+            ii = ii + 1
+         enddo
+       enddo
+    enddo
+
+    call unpack_metric(metrici,gcov=gcov)
     call get_u0(gcov,veli,u0i)
 #endif
 
@@ -2610,7 +2651,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           endif
           fxyz4 = 0.
           if (use_entropy .or. gr) then
-             if (gr) densi = xpartveci(idensGRi)
              if (gr .and. ishock_heating > 0) then
                 fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*u0i*fsum(idudtdissi)
              else if (ishock_heating > 0) then

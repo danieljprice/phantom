@@ -84,7 +84,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real,         intent(inout) :: temperature(:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
- real,         intent(inout) :: pxyzu(:,:), dens(:), metrics(:,:,:,:)
+ real,         intent(inout) :: pxyzu(:,:), dens(:)
+ real,         intent(in)    :: metrics(:,:,:,:)
  real(kind=4)       :: t1,tcpu1,tlast,tcpulast
 
  t1 = 0.
