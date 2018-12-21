@@ -458,7 +458,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                       iphase,divcurlv,divcurlB,alphaind,eta_nimhd,temperature, &
-                      dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,dens)
+                      dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,dens,metrics)
 
 #ifdef MPI
     if (do_export) then
@@ -508,7 +508,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
        call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          iphase,divcurlv,divcurlB,alphaind,eta_nimhd, temperature, &
-                         dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,dens)
+                         dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,dens,metrics)
 
        cell%remote_export(id+1) = .false.
 
@@ -778,7 +778,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                           dustfrac,gradh,divcurlv,alphaind, &
                           alphau,alphaB,bulkvisc,stressmax,&
                           ndrag,nstokes,nsuper,ts_min,ibinnow_m1,ibin_wake,ibin_neighi,&
-                          ignoreself,dens)
+                          ignoreself,dens,metrics)
 #ifdef FINVSQRT
  use fastmath,    only:finvsqrt
 #endif
@@ -845,7 +845,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer(kind=1), intent(out)   :: ibin_wake(:),ibin_neighi
  integer(kind=1), intent(in)    :: ibinnow_m1
  logical,         intent(in)    :: ignoreself
- real,            intent(in)    :: dens(:)
+ real,            intent(in)    :: dens(:),metrics(:,:,:,:)
  integer :: j,n,iamtypej
  logical :: iactivej,iamgasj,iamdustj
  real    :: rij2,q2i,qi,xj,yj,zj,dx,dy,dz,runix,runiy,runiz,rij1,hfacgrkern
@@ -894,7 +894,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: alphai,grainsizei,graindensi
  logical :: usej
  integer :: iamtypei
- real    :: xi,yi,zi,densi,densj,eni,metrici(0:3,0:3,2)
+ real    :: xi,yi,zi,densi,densj,eni,metrici(0:3,0:3,2),metricj(0:3,0:3,2)
  real    :: vxi,vyi,vzi,vxj,vyj,vzj
  real    :: qrho2i,qrho2j
  integer :: ii,ia,ib,ic
@@ -904,7 +904,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: enthi,enthj
  real    :: lorentzi,lorentzj
  real    :: bigvi(1:3),bigvj(1:3),bigv2i,bigv2j,alphagri,alphagrj
- real    :: posi(3),posj(3),veli(3),velj(3),vij
+ real    :: veli(3),velj(3),vij
  real    :: enthdensav
 #endif
 
@@ -965,9 +965,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  eni = xpartveci(ieni)
 
 #ifdef GR
- posi = [xi,yi,zi]
  veli = [vxi,vyi,vzi]
- call get_bigv(posi,veli,bigvi,bigv2i,alphagri,lorentzi)
+ call get_bigv(metrici,veli,bigvi,bigv2i,alphagri,lorentzi)
 #endif
 
  fsum(:) = 0.
@@ -1234,9 +1233,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
 #ifdef GR
        !-- Get velocites required in GR shock capturing
-       posj  = [xj,yj,zj]
        velj  = [vxj,vyj,vzj]
-       call get_bigv(posj,velj,bigvj,bigv2j,alphagrj,lorentzj)
+       metricj(0:3,0:3,1:2) = metrics(:,:,:,j)
+       call get_bigv(metricj,velj,bigvj,bigv2j,alphagrj,lorentzj)
 
        ! Reduce problem to 1D along the line of sight
        projbigvi = bigvi(1)*runix + bigvi(2)*runiy + bigvi(3)*runiz !dot_product(bigvi,rij)
@@ -2240,7 +2239,7 @@ end subroutine start_cell
 
 subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                         iphase,divcurlv,divcurlB,alphaind,eta_nimhd,temperature, &
-                        dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,dens)
+                        dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,dens,metrics)
  use io,          only:error
 #ifdef MPI
  use io,          only:id
@@ -2270,7 +2269,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  integer(kind=1), intent(in)     :: ibinnow_m1
  real,            intent(in)     :: stressmax
  real,            intent(in)     :: xyzcache(:,:)
- real,            intent(in)     :: dens(:)
+ real,            intent(in)     :: dens(:),metrics(:,:,:,:)
 
  real                            :: hi
  real(kind=8)                    :: hi1,hi21,hi31,hi41
@@ -2353,7 +2352,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          dustfrac,gradh,divcurlv,alphaind, &
                          alphau,alphaB,bulkvisc,stressmax, &
                          cell%ndrag,cell%nstokes,cell%nsuper,cell%dtdrag(ip),ibinnow_m1,ibin_wake,cell%ibinneigh(ip), &
-                         ignoreself,dens)
+                         ignoreself,dens,metrics)
 
  enddo over_parts
 
