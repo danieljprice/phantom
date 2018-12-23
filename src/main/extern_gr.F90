@@ -16,10 +16,11 @@ contains
 !---------------------------------------------------------------
 subroutine get_grforce(xyzhi,metrici,metricderivsi,veli,densi,ui,pi,fexti,dtf)
  real, intent(in)  :: xyzhi(4),metrici(:,:,:),metricderivsi(0:3,0:3,3),veli(3),densi,ui,pi
- real, intent(out) :: fexti(3),dtf
+ real, intent(out) :: fexti(3)
+ real, intent(out), optional :: dtf
 
  call forcegr(xyzhi(1:3),metrici,metricderivsi,veli,densi,ui,pi,fexti)
- call dt_grforce(xyzhi,fexti,dtf)
+ if (present(dtf)) call dt_grforce(xyzhi,fexti,dtf)
 
 end subroutine get_grforce
 
