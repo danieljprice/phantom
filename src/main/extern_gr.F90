@@ -65,8 +65,8 @@ subroutine dt_grforce(xyzh,fext,dtf)
  integer, parameter :: steps_per_orbit = 100
 
  f2i = fext(1)*fext(1) + fext(2)*fext(2) + fext(3)*fext(3)
-#ifdef FINVSQSRT
- dtf1 = sqrt(hi*finvsqrt(f2i))
+#ifdef FINVSQRT
+ dtf1 = sqrt(xyzh(4)*finvsqrt(f2i))
 #else
  dtf1 = sqrt(xyzh(4)/sqrt(f2i)) ! This is not really accurate since fi is a component of dp/dt, not da/dt
 #endif
