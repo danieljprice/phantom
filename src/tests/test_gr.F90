@@ -8,7 +8,17 @@ module testgr
 contains
 
 subroutine test_gr(ntests,npass)
- use io,              only:id,master
+ use io,  only:id,master
+ integer, intent(inout)   :: ntests,npass
+
+ if (id==master) write(*,"(/,a,/)") '--> TESTING GENERAL RELATIVITY'
+ call test_combinations(ntests,npass)
+ if (id==master) write(*,"(/,a)") '<-- GR TESTS COMPLETE'
+
+end subroutine test_gr
+
+! Indivdual test subroutines start here
+subroutine test_combinations(ntests,npass)
  use testutils,       only:checkvalbuf,checkvalbuf_end,checkval
  use eos,             only:gamma,equationofstate,ieos
  use utils_gr,        only:dot_product_gr
@@ -21,9 +31,6 @@ subroutine test_gr(ntests,npass)
  real    :: pi,ri,thetai,phii,vxi,vyi,vzi,x,y,z,p,dens,u,pondens,spsound
  integer :: i,j,k,l,m,n,ii,jj,count
  integer :: ncomb_metric,npass_metric,ncomb_cons2prim,npass_cons2prim
-
- if (id==master) write(*,"(/,a,/)") '--> TESTING GENERAL RELATIVITY'
-
  write(*,'(/,a)') '--> testing metric and cons2prim'
  write(*,'(a,/)') '    metric type = '//trim(metric_type)
 
@@ -94,16 +101,11 @@ subroutine test_gr(ntests,npass)
     enddo
  enddo
 
-
  print*,ncomb_metric,' combinations tried, out of which ',npass_metric,'passed the metric test'
  print*,ncomb_cons2prim,' combinations tried, out of which ',npass_cons2prim,'passed the cons2prim test'
  if (npass_metric==ncomb_metric .and. npass_cons2prim==ncomb_cons2prim) npass = npass + 1
 
- if (id==master) write(*,"(/,a)") '<-- GR TESTS COMPLETE'
-
-end subroutine test_gr
-
-! Indivdual test subroutines start here
+end subroutine test_combinations
 
 !----------------------------------------------------------------
 !+
