@@ -35,6 +35,8 @@ subroutine get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtext
  integer :: i
  real    :: dtf,pi,pondensi,spsoundi
 
+ dtexternal = huge(dtexternal)
+
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,ieos,C_force) &
  !$omp private(i,dtf,spsoundi,pondensi,pi) &
