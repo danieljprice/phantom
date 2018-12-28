@@ -755,6 +755,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
 
           call conservative_to_primitive(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
           xyzh(1:3,i) = xyzh(1:3,i) + dt*vxyzu(1:3,i)
+          call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
 
 
           its        = 0
