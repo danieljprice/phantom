@@ -13,11 +13,119 @@ subroutine test_gr(ntests,npass)
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING GENERAL RELATIVITY'
  call test_combinations(ntests,npass)
+ call test_geodesic(ntests,npass)
  if (id==master) write(*,"(/,a)") '<-- GR TESTS COMPLETE'
 
 end subroutine test_gr
 
 ! Indivdual test subroutines start here
+subroutine test_geodesic(ntests,npass)
+ use io,             only:iverbose
+ use part,           only:igas,npartoftype,massoftype,set_particle_type,get_ntypes
+ use step_lf_global, only:step_extern_gr
+ use testutils,      only:checkval
+ use eos,            only:ieos
+ use cons2prim,      only:primitive_to_conservative,conservative_to_primitive
+ use metric_tools,   only:init_metric,unpack_metric,imetric,imet_schwarzschild
+ use utils_gr,       only:dot_product_gr
+ use vectorutils,    only:cross_product3D
+ use extern_gr,      only:get_grforce_all
+ integer, intent(inout) :: ntests,npass
+ integer :: nsteps,nerr(6),norbits,nstepsperorbit,ntypes,npart
+ real    :: time,dt,period,x0,vy0,tmax,dtextforce,massi,blah
+ real    :: angmom(3),angmom0(3),tol
+ real    :: xyzh(4,1),vxyzu(4,1),fext(3,1),pxyzu(4,1),dens(1),metrics(0:3,0:3,2,1),metricderivs(0:3,0:3,3,1)
+
+ write(*,'(/,a)') '--> testing step_extern_gr (geodesic integration)'
+
+ if (imetric /= imet_schwarzschild) then
+    write(*,'(/,a)') '    Metric /= Schwarzschild -- skipping test of step_extern_gr (geodesic integration)'
+    return
+ endif
+
+ npart        = 1
+
+ xyzh         = 0.
+ vxyzu        = 0.
+ pxyzu        = 0.
+ fext         = 0.
+ metrics      = 0.
+ metricderivs = 0.
+
+ x0           = 90.
+ vy0          = 0.0521157
+ xyzh(1:3,1)  = (/x0,0. ,0./)
+ vxyzu(1:3,1) = (/0.,vy0,0./)
+ xyzh(4,:)    = 1.
+ vxyzu(4,:)   = 0.
+ massi        = 1.e-10
+ call set_particle_type(1,igas)
+ period       = 2390. ! approximate
+
+ npartoftype(igas) = npart
+ massoftype(igas)  = massi
+ ntypes            = get_ntypes(npartoftype)
+
+ !
+ ! initialise runtime parameters
+ !
+ ieos           = 11
+ iverbose       = 1
+
+ norbits        = 4
+ time           = 0
+ tmax           = norbits*period
+ nstepsperorbit = 1000
+
+ blah = 0.239
+ dt             = blah !period/nstepsperorbit
+
+ call init_metric(npart,xyzh,metrics,metricderivs)
+ call primitive_to_conservative(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+ call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
+ call calculate_angmom(xyzh(1:3,1),metrics(:,:,:,1),massi,vxyzu(1:3,1),angmom0)
+
+ nsteps = 0
+ do while (time <= tmax)
+    nsteps = nsteps + 1
+    time   = time   + dt
+    dtextforce = blah
+    call step_extern_gr(npart,ntypes,dt,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,time)
+ enddo
+
+ call calculate_angmom(xyzh(1:3,1),metrics(:,:,:,1),massi,vxyzu(1:3,1),angmom)
+
+ tol = 1.e-18
+ call checkval(angmom(1),angmom0(1),tol,nerr(1),'error in angmomx')
+ call checkval(angmom(2),angmom0(2),tol,nerr(2),'error in angmomy')
+ call checkval(angmom(3),angmom0(3),tol,nerr(3),'error in angmomz')
+ call checkval(xyzh(1,1), 77.606726748045929,tol,nerr(4),'error in final x position')
+ call checkval(xyzh(2,1),-45.576259888019351,tol,nerr(5),'error in final y position')
+ call checkval(xyzh(3,1),0.0                ,tol,nerr(6),'error in final z position')
+
+ ntests = ntests + 1
+ if (all(nerr==0)) npass = npass + 1
+
+end subroutine test_geodesic
+
+subroutine calculate_angmom(xyzi,metrici,massi,vxyzi,angmomi)
+ use metric_tools, only:unpack_metric
+ use vectorutils,  only:cross_product3D
+ use utils_gr,     only:dot_product_gr
+ real, intent(in)  :: xyzi(3),metrici(:,:,:),massi,vxyzi(3)
+ real, intent(out) :: angmomi(3)
+ real              :: alpha_gr,beta_gr_UP(3),bigvi(3),fourvel_space(3),lorentzi,v2i,gammaijdown(3,3)
+
+ call unpack_metric(metrici,betaUP=beta_gr_UP,alpha=alpha_gr,gammaijdown=gammaijdown)
+ bigvi    = (vxyzi+beta_gr_UP)/alpha_gr
+ v2i      = dot_product_gr(bigvi,bigvi,gammaijdown)
+ lorentzi = 1./sqrt(1.-v2i)
+ fourvel_space = (lorentzi/alpha_gr)*vxyzi
+ call cross_product3D(xyzi,fourvel_space,angmomi) ! position cross with four-velocity
+ angmomi=angmomi*massi
+
+end subroutine calculate_angmom
+
 subroutine test_combinations(ntests,npass)
  use physcon,         only:pi
  use testutils,       only:checkvalbuf,checkvalbuf_end,checkval
