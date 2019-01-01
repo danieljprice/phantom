@@ -19,6 +19,7 @@ end subroutine test_gr
 
 ! Indivdual test subroutines start here
 subroutine test_combinations(ntests,npass)
+ use physcon,         only:pi
  use testutils,       only:checkvalbuf,checkvalbuf_end,checkval
  use eos,             only:gamma,equationofstate,ieos
  use utils_gr,        only:dot_product_gr
@@ -28,10 +29,10 @@ subroutine test_combinations(ntests,npass)
  real    :: radii(5),theta(5),phi(5),vx(5),vy(5),vz(5)
  real    :: utherm(4),density(4)
  real    :: position(3),v(3),v4(0:3),sqrtg,gcov(0:3,0:3),gcon(0:3,0:3)
- real    :: pi,ri,thetai,phii,vxi,vyi,vzi,x,y,z,p,dens,u,pondens,spsound
+ real    :: ri,thetai,phii,vxi,vyi,vzi,x,y,z,p,dens,u,pondens,spsound
  integer :: i,j,k,l,m,n,ii,jj,count
  integer :: ncomb_metric,npass_metric,ncomb_cons2prim,npass_cons2prim
- write(*,'(/,a)') '--> testing metric and cons2prim'
+ write(*,'(/,a)') '--> testing metric and cons2prim with combinations of variables'
  write(*,'(a,/)') '    metric type = '//trim(metric_type)
 
  ntests = ntests + 1
@@ -41,8 +42,6 @@ subroutine test_combinations(ntests,npass)
  npass_cons2prim = 0
 
  gamma = 5./3.
-
- pi     = 4.*atan(1.)
 
  radii  = (/2.1,2.5,3.0,5.0,10.0/)
  theta  = (/0.,pi/4.,pi/2.,3.*pi/4.,pi/)
