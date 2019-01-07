@@ -13,35 +13,135 @@ subroutine test_gr(ntests,npass)
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING GENERAL RELATIVITY'
  call test_combinations(ntests,npass)
- call test_geodesic(ntests,npass)
+ call test_precession(ntests,npass)
+ call test_inccirc(ntests,npass)
  if (id==master) write(*,"(/,a)") '<-- GR TESTS COMPLETE'
 
 end subroutine test_gr
 
 ! Indivdual test subroutines start here
-subroutine test_geodesic(ntests,npass)
+subroutine test_precession(ntests,npass)
+ use testutils,    only:checkval
+#ifdef KERR
+ use metric,       only:a
+#else
+ real :: a
+#endif
+ integer, intent(inout) :: ntests,npass
+ integer :: nerr(6),norbits,nstepsperorbit
+ real    :: dt,period,x0,vy0,tmax,angtol,postol
+ real    :: angmom(3),angmom0(3),xyz(3),vxyz(3)
+
+ write(*,'(/,a)') '--> testing step_extern_gr (precession)'
+
+ a              = 0.
+ x0             = 90.
+ vy0            = 0.0521157
+ xyz            = (/x0,0. ,0./)
+ vxyz           = (/0.,vy0,0./)
+ period         = 2390. ! approximate
+ norbits        = 4
+ tmax           = norbits*period
+ nstepsperorbit = 1000
+ dt             = 0.239 !period/nstepsperorbit
+
+ call integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
+
+ angtol = 1.08e-15
+ postol = 1.4e-5
+ call checkval(angmom(1),angmom0(1),angtol,nerr(1),'error in angmomx')
+ call checkval(angmom(2),angmom0(2),angtol,nerr(2),'error in angmomy')
+ call checkval(angmom(3),angmom0(3),angtol,nerr(3),'error in angmomz')
+ call checkval(xyz(1), 77.606726748045929,postol,nerr(4),'error in final x position')
+ call checkval(xyz(2),-45.576259888019351,postol,nerr(5),'error in final y position')
+ call checkval(xyz(3),0.0                ,postol,nerr(6),'error in final z position')
+
+ ntests = ntests + 1
+ if (all(nerr==0)) npass = npass + 1
+
+end subroutine test_precession
+
+subroutine test_inccirc(ntests,npass)
+ use physcon,   only:pi
+ use testutils, only:checkval
+ use metric_tools, only:imetric,imet_kerr
+#ifdef KERR
+ use metric,    only:a
+#else
+ real :: a
+#endif
+ integer, intent(inout) :: ntests,npass
+ integer :: nerr(6),norbits,nstepsperorbit
+ real    :: dt,period,tmax
+ real    :: angmom(3),angmom0(3),xyz(3),vxyz(3)
+ real :: m,omega,phi,q,r,rdot,rho2,theta,thetadot,vx,vy,vz,x1,y1,z1
+ real :: R2,rfinal
+
+ write(*,'(/,a)') '--> testing step_extern_gr (inclined circular orbit)'
+
+ if (imetric /= imet_kerr) then
+    write(*,'(/,a)') '   Skipping test! Metric is not Kerr.'
+    return
+ endif
+
+ a        = 1.
+ r        = 10.
+ theta    = 45.*pi/180. ! convert to radians
+ phi      = 0.
+ m        = 1.
+ q        = sqrt(r**2 - a**2*cos(theta)**2)
+ rho2     = r**2 + a**2*cos(theta)**2
+ omega    = q*sqrt(m)/(sin(theta)*(rho2*sqrt(r)+a*q*sqrt(m)*sin(theta))) !shakura 1987
+ rdot     = 0.
+ thetadot = 0.
+
+ ! Cartesian coordinates
+ x1 = sqrt(r**2+a**2)*sin(theta)*cos(phi)
+ y1 = sqrt(r**2+a**2)*sin(theta)*sin(phi)
+ z1 = r*cos(theta)
+ vx = r/sqrt(r**2+a**2)*sin(theta)*cos(phi)*rdot + sqrt(r**2+a**2)*(cos(theta)*cos(phi)*thetadot-sin(theta)*sin(phi)*omega)
+ vy = r/sqrt(r**2+a**2)*sin(theta)*sin(phi)*rdot + sqrt(r**2+a**2)*(cos(theta)*sin(phi)*thetadot+sin(theta)*cos(phi)*omega)
+ vz = cos(theta)*rdot-r*sin(theta)*thetadot
+
+ xyz  = (/x1,y1,z1/)
+ vxyz = (/vx,vy,vz/)
+
+ period         = 2390. ! approximate
+ norbits        = 4
+ tmax           = norbits*period
+ nstepsperorbit = 1000
+ dt             = 0.239 !period/nstepsperorbit
+
+ call integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
+
+ R2     = dot_product(xyz,xyz)
+ rfinal = sqrt(0.5*(R2-a**2) + 0.5*sqrt((R2-a**2)**2 + 4.*a**2*xyz(3)**2))
+
+ nerr = 0
+ call checkval(angmom(1),angmom0(1),6.e-10,nerr(1),'error in angmomx')
+ call checkval(angmom(2),angmom0(2),6.e-10,nerr(2),'error in angmomy')
+ call checkval(angmom(3),angmom0(3),6.e-10,nerr(3),'error in angmomz')
+ call checkval(rfinal   ,r         ,4.08e-6,nerr(4),'error in final r position')
+
+ ntests = ntests + 1
+ if (all(nerr==0)) npass = npass + 1
+
+end subroutine test_inccirc
+
+subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
  use io,             only:iverbose
  use part,           only:igas,npartoftype,massoftype,set_particle_type,get_ntypes
  use step_lf_global, only:step_extern_gr
- use testutils,      only:checkval
  use eos,            only:ieos
- use cons2prim,      only:primitive_to_conservative,conservative_to_primitive
- use metric_tools,   only:init_metric,unpack_metric,imetric,imet_schwarzschild
- use utils_gr,       only:dot_product_gr
- use vectorutils,    only:cross_product3D
+ use cons2prim,      only:primitive_to_conservative
+ use metric_tools,   only:init_metric,unpack_metric
  use extern_gr,      only:get_grforce_all
- integer, intent(inout) :: ntests,npass
- integer :: nsteps,nerr(6),norbits,nstepsperorbit,ntypes,npart
- real    :: time,dt,period,x0,vy0,tmax,dtextforce,massi,blah
- real    :: angmom(3),angmom0(3),tol
+ real, intent(in) :: tmax,dt
+ real, intent(inout) :: xyz(3), vxyz(3)
+ real, intent(out)   :: angmom0(3),angmom(3)
+ integer :: nsteps,ntypes,npart
+ real    :: time,dtextforce,massi,blah
  real    :: xyzh(4,1),vxyzu(4,1),fext(3,1),pxyzu(4,1),dens(1),metrics(0:3,0:3,2,1),metricderivs(0:3,0:3,3,1)
-
- write(*,'(/,a)') '--> testing step_extern_gr (geodesic integration)'
-
- if (imetric /= imet_schwarzschild) then
-    write(*,'(/,a)') '    Metric /= Schwarzschild -- skipping test of step_extern_gr (geodesic integration)'
-    return
- endif
 
  npart        = 1
 
@@ -52,15 +152,12 @@ subroutine test_geodesic(ntests,npass)
  metrics      = 0.
  metricderivs = 0.
 
- x0           = 90.
- vy0          = 0.0521157
- xyzh(1:3,1)  = (/x0,0. ,0./)
- vxyzu(1:3,1) = (/0.,vy0,0./)
+ xyzh(1:3,1)  = xyz(:)
+ vxyzu(1:3,1) = vxyz(:)
  xyzh(4,:)    = 1.
  vxyzu(4,:)   = 0.
  massi        = 1.e-10
  call set_particle_type(1,igas)
- period       = 2390. ! approximate
 
  npartoftype(igas) = npart
  massoftype(igas)  = massi
@@ -71,14 +168,8 @@ subroutine test_geodesic(ntests,npass)
  !
  ieos           = 11
  iverbose       = 1
-
- norbits        = 4
  time           = 0
- tmax           = norbits*period
- nstepsperorbit = 1000
-
- blah = 0.239
- dt             = blah !period/nstepsperorbit
+ blah           = dt
 
  call init_metric(npart,xyzh,metrics,metricderivs)
  call primitive_to_conservative(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
@@ -95,18 +186,10 @@ subroutine test_geodesic(ntests,npass)
 
  call calculate_angmom(xyzh(1:3,1),metrics(:,:,:,1),massi,vxyzu(1:3,1),angmom)
 
- tol = 1.e-18
- call checkval(angmom(1),angmom0(1),tol,nerr(1),'error in angmomx')
- call checkval(angmom(2),angmom0(2),tol,nerr(2),'error in angmomy')
- call checkval(angmom(3),angmom0(3),tol,nerr(3),'error in angmomz')
- call checkval(xyzh(1,1), 77.606726748045929,tol,nerr(4),'error in final x position')
- call checkval(xyzh(2,1),-45.576259888019351,tol,nerr(5),'error in final y position')
- call checkval(xyzh(3,1),0.0                ,tol,nerr(6),'error in final z position')
+ xyz(:)  = xyzh(1:3,1)
+ vxyz(:) = vxyzu(1:3,1)
 
- ntests = ntests + 1
- if (all(nerr==0)) npass = npass + 1
-
-end subroutine test_geodesic
+end subroutine integrate_geodesic
 
 subroutine calculate_angmom(xyzi,metrici,massi,vxyzi,angmomi)
  use metric_tools, only:unpack_metric
@@ -221,7 +304,6 @@ end subroutine test_combinations
 !----------------------------------------------------------------
 subroutine test_metric_i(gcov,gcon,ntests,npass)
  use testutils, only:checkvalbuf
- use utils_gr,  only:dot_product_gr
  integer, intent(inout)   :: ntests,npass
  real,    intent(in)      :: gcov(0:3,0:3),gcon(0:3,0:3)
  real, dimension(0:3,0:3) :: gg

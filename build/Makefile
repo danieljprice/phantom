@@ -1026,7 +1026,7 @@ ifeq ($(SETUP), testgr)
     FPPFLAGS= -DGR
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
-    METRIC=schwarzschild
+    METRIC=kerr
 endif
 
 ifeq ($(SETUP), default)
@@ -1429,6 +1429,9 @@ endif
 
 ifeq ($(GR), yes)
     FPPFLAGS += -DGR
+ifeq ($(METRIC), kerr)
+    FPPFLAGS += -DKERR
+endif
     CONST_AV=yes
 endif
 
