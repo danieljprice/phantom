@@ -706,6 +706,9 @@ end subroutine write_smalldump
 subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use memory,   only:allocate_memory
  use dim,      only:maxp,maxvxyzu,gravity,lightcurve,mhd
+#ifdef INJECT_PARTICLES
+ use dim,      only:maxp_hard
+#endif
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &
                     maxphase,isetphase,nptmass,nsinkproperties,maxptmass,get_pmass, &
@@ -801,7 +804,11 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  !
  !--Allocate main arrays
  !
+#ifdef INJECT_PARTICLES
+ call allocate_memory(maxp_hard)
+#else
  call allocate_memory(int(nparttot / nprocs))
+#endif
 
 !
 !--arrays
@@ -949,6 +956,9 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 #ifdef MPI
  use dim,      only:maxp
 #endif
+#ifdef INJECT_PARTICLES
+ use dim,      only:maxp_hard
+#endif
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:npart,npartoftype,maxtypes,nptmass,nsinkproperties,maxptmass, &
                     massoftype
@@ -1033,7 +1043,11 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  !
  !--Allocate main arrays
  !
+#ifdef INJECT_PARTICLES
+ call allocate_memory(maxp_hard)
+#else
  call allocate_memory(int(nparttot / nprocs))
+#endif
 
 !
 !--arrays
