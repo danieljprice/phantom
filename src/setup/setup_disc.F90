@@ -2187,8 +2187,8 @@ subroutine read_setupfile(filename,ierr)
     if (ibinary==0) then
        call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
     endif
-     call read_inopt(iuse_disc(i),'use_primarydisc',db,errcount=nerr)
-     call read_inopt(iuse_disc(i),'use_secondardisc',db,errcount=nerr)
+    call read_inopt(iuse_disc(2),'use_primarydisc',db,errcount=nerr)
+    call read_inopt(iuse_disc(3),'use_secondarydisc',db,errcount=nerr)
  else
     iuse_disc(1) = .true.
  endif
