@@ -1272,41 +1272,51 @@ end subroutine print_angular_momentum
 !--------------------------------------------------------------------------
 subroutine print_dust()
 
- real :: Sigma,Sigmadust,Stokes(maxdusttypes),R_midpoint
+ real :: Sigma
+ real :: Sigmadust
+ real :: Stokes(maxdusttypes)
+ real :: R_midpoint
 
- if (ndiscs > 1 .and. ibinary==1) then
-    !--circumprimary in flyby
-    i = 2
- else
-    !--single disc or circumbinary
-    i = idisc
- endif
- R_midpoint = (R_in(i) + R_out(i))/2
- Sigma = sig_norm(i)*scaled_sigma(R_midpoint,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
  if (use_dust) then
-    Sigmadust = sig_normdust(i)*scaled_sigma(R_midpoint,sigmaprofiledust(i),pindex_dust(i),R_ref(i),R_indust(i),R_c_dust(i))
-    Stokes = 0.5*pi*graindens*grainsize/(Sigma+Sigmadust)
-    print "(a,i2,a)",' -------------- added dust --------------'
-    if (use_dustgrowth) then
-       print "(a,g10.3,a)", ' initial grain size: ',grainsize(1)*udist,' cm'
-    else
-       duststring = 'grain size'
-       call make_tags_unique(ndusttypes,duststring)
-       do i=1,ndusttypes
-          print*,adjustr(duststring(i))//' : ',grainsize(i)*udist,' cm'
-       enddo
-       duststring = 'grain density'
-       call make_tags_unique(ndusttypes,duststring)
-       do i=1,ndusttypes
-          print*,adjustr(duststring(i))//' : ',graindens(i)*umass/udist**3,' g/cm^3'
-       enddo
-    endif
-    duststring = 'approx. Stokes'
-    call make_tags_unique(ndusttypes,duststring)
-    do i=1,ndusttypes
-       print*,'',adjustr(duststring(i))//' : ',Stokes(i)
+
+    print "(/,a)",' --------------------- added dust ---------------------'
+
+       if (use_dustgrowth) then
+          print "(a,g10.3,a)", ' initial grain size: ',grainsize(1)*udist,' cm'
+       else
+          duststring = 'grain size'
+          call make_tags_unique(ndusttypes,duststring)
+          do i=1,ndusttypes
+             print*,adjustr(duststring(i))//' : ',grainsize(i)*udist,' cm'
+          enddo
+          duststring = 'grain density'
+          call make_tags_unique(ndusttypes,duststring)
+          do i=1,ndusttypes
+             print*,adjustr(duststring(i))//' : ',graindens(i)*umass/udist**3,' g/cm^3'
+          enddo
+       endif
+
+    do i=1,ndiscs
+       if (iuse_disc(i)) then
+          R_midpoint = (R_in(i) + R_out(i))/2
+          Sigma = sig_norm(i) * &
+                  scaled_sigma(R_midpoint,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
+          Sigmadust = sig_normdust(i) * &
+                      scaled_sigma(R_midpoint,sigmaprofiledust(i),pindex_dust(i),&
+                                   R_ref(i),R_indust(i),R_c_dust(i))
+          Stokes = 0.5*pi*graindens*grainsize/(Sigma+Sigmadust)
+          duststring = 'approx. Stokes'
+          call make_tags_unique(ndusttypes,duststring)
+          if (ndiscs > 1) then
+             print "(/,a,i2,a)",' ---------------------   disc',i,'   ---------------------'
+          endif
+          do j=1,ndusttypes
+             print*,'',adjustr(duststring(j))//' : ',Stokes(j)
+          enddo
+       endif
     enddo
-    print "(1x,40('-'),/)"
+    print "(1x,54('-'),/)"
+
  else
     print "(/,a,/)",' There is no dust here!'
  endif
