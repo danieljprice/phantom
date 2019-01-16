@@ -102,10 +102,8 @@ module setup
  !--resolution
  integer :: np,np_dust(maxdustlarge)
 
- !--setup filename prefix
+ !--setup filename
  character(len=100) :: filename
- character(len=100) :: prefix
- character(len=20)  :: duststring(maxdusttypes)
 
  !--central objects
  real    :: mcentral
@@ -193,9 +191,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
  real,              intent(out)   :: xyzh(:,:)
- real,              intent(out)   :: polyk,gamma,hfact
- real,              intent(out)   :: vxyzu(:,:)
  real,              intent(out)   :: massoftype(:)
+ real,              intent(out)   :: vxyzu(:,:)
+ real,              intent(out)   :: polyk
+ real,              intent(out)   :: gamma
+ real,              intent(out)   :: hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
 
@@ -280,6 +280,7 @@ end subroutine setpart
 !
 !--------------------------------------------------------------------------
 subroutine set_default_options()
+
  integer :: i
 
  !--units
@@ -494,6 +495,7 @@ end subroutine setup_units
 !
 !--------------------------------------------------------------------------
 subroutine number_of_discs()
+
  integer :: i
 
  ndiscs = max(count(iuse_disc),1)
@@ -610,6 +612,7 @@ end subroutine equation_of_state
 !
 !--------------------------------------------------------------------------
 subroutine surface_density_profile()
+
  integer :: i
 
  iprofilegas = 0
@@ -883,25 +886,25 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
  use options,   only:alpha
  use setbinary, only:Rochelobe_estimate
  use setdisc,   only:set_disc
-
  integer,           intent(in)    :: id
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: time
  real,              intent(out)   :: hfact
  real,              intent(in)    :: gamma
- real,              intent(out)   :: polyk
  integer,           intent(out)   :: npart
+ real,              intent(out)   :: polyk
  integer,           intent(out)   :: npartoftype(:)
  real,              intent(out)   :: massoftype(:)
  real,              intent(inout) :: xyzh(:,:)
  real,              intent(inout) :: vxyzu(:,:)
 
- integer :: i,j,itype
- real    :: Rochelobe
- real    :: polyk_dust
- real    :: xorigini(3),vorigini(3)
- real    :: alpha_returned(maxdiscs)
- integer :: npingasdisc,npindustdisc
+ integer            :: i,j,itype
+ integer            :: npingasdisc,npindustdisc
+ real               :: Rochelobe
+ real               :: polyk_dust
+ real               :: xorigini(3),vorigini(3)
+ real               :: alpha_returned(maxdiscs)
+ character(len=100) :: prefix
 
  time  = 0.
  hfact = hfact_default
@@ -1159,20 +1162,33 @@ subroutine set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in, &
                           npart,npart_planet_atm,npart_disc,hfact)
  use part,          only:set_particle_type
  use spherical,     only:set_sphere
- integer, intent(in)    :: id,maxvxyzu,itype
- integer, intent(inout) :: npart,npart_planet_atm,npart_disc
+ integer, intent(in)    :: id
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
  integer, intent(inout) :: npartoftype(:)
- real,    intent(inout) :: Ratm_in,Ratm_out
- real,    intent(in)    :: a0,R_in,HoverR,Mstar,q_index,gamma,r_surface,hfact
- real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: maxvxyzu
+ integer, intent(in)    :: itype
+ real,    intent(in)    :: a0
+ real,    intent(in)    :: R_in
+ real,    intent(in)    :: HoverR
+ real,    intent(in)    :: Mstar
+ real,    intent(in)    :: q_index
+ real,    intent(in)    :: gamma
+ real,    intent(inout) :: Ratm_in
+ real,    intent(inout) :: Ratm_out
+ real,    intent(in)    :: r_surface
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npart_planet_atm
+ integer, intent(inout) :: npart_disc
+ real,    intent(in)    :: hfact
 
  integer, parameter :: igas = 1
  integer(kind=8)    :: nptot
  integer            :: i,nx
- real :: xyz_orig(3)
- real :: a_orbit
- real :: psep,vol_sphere
- real :: cs0,cs
+ real               :: xyz_orig(3)
+ real               :: a_orbit
+ real               :: psep,vol_sphere
+ real               :: cs0,cs
  !
  ! place particles in sphere
  !
@@ -1299,11 +1315,13 @@ end subroutine print_angular_momentum
 !--------------------------------------------------------------------------
 subroutine print_dust()
 
- integer :: i,j
- real    :: Sigma
- real    :: Sigmadust
- real    :: Stokes(maxdusttypes)
- real    :: R_midpoint
+ character(len=20) :: duststring(maxdusttypes)
+ integer           :: i,j
+ real              :: Sigma
+ real              :: Sigmadust
+ real              :: Stokes(maxdusttypes)
+ real              :: R_midpoint
+
 
  if (use_dust) then
 
@@ -1861,9 +1879,11 @@ subroutine write_setupfile(filename)
  use infile_utils,     only:write_inopt
  use set_dust_options, only:write_dust_setup_options
  character(len=*), intent(in) :: filename
+
  integer, parameter :: iunit = 20
- logical :: done_alpha
- integer :: i,n_possible_discs
+ logical            :: done_alpha
+ integer            :: i,n_possible_discs
+ character(len=20)  :: duststring(maxdusttypes)
 
  done_alpha = .false.
  n_possible_discs = 1
@@ -2114,9 +2134,11 @@ subroutine read_setupfile(filename,ierr)
  use set_dust_options, only:read_dust_setup_options,ilimitdustfluxinp
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
- integer, parameter :: iunit = 21
- integer :: nerr,i
+
  type(inopts), allocatable :: db(:)
+ integer,      parameter   :: iunit = 21
+ integer                   :: nerr,i
+ character(len=20)         :: duststring(maxdusttypes)
 
  print "(a)",' reading setup options from '//trim(filename)
 
@@ -2427,7 +2449,9 @@ end subroutine set_dustfrac
 !
 !--------------------------------------------------------------------------
 real function get_H(h0,qindex,r)
- real, intent(in) :: h0,qindex,r
+ real, intent(in) :: h0
+ real, intent(in) :: qindex
+ real, intent(in) :: r
 
  get_H = h0*(r**(-qindex+1.5))
 
@@ -2459,7 +2483,9 @@ end function atm_dens
 !
 !--------------------------------------------------------------------------
 pure real function cs_func(cs0,r,q_index)
- real, intent(in) :: cs0,r,q_index
+ real, intent(in) :: cs0
+ real, intent(in) :: r
+ real, intent(in) :: q_index
 
  cs_func = cs0*r**(-q_index)
 
@@ -2472,9 +2498,12 @@ end function cs_func
 !--------------------------------------------------------------------------
 subroutine make_corotate(xyzh,vxyzu,a0,Mstar,npart,npart_disc)
  use extern_corotate, only:omega_corotate
- integer, intent(in)    :: npart,npart_disc
+ real,    intent(in)    :: xyzh(:,:)
  real,    intent(inout) :: vxyzu(:,:)
- real,    intent(in)    :: xyzh(:,:),a0,Mstar
+ real,    intent(in)    :: a0
+ real,    intent(in)    :: Mstar
+ integer, intent(in)    :: npart
+ integer, intent(in)    :: npart_disc
 
  integer :: i
  real    :: phipart,r
