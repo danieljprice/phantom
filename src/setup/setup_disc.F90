@@ -77,6 +77,7 @@ module setup
                             iext_einsteinprec,iext_corot_binary,iext_corotate
  use extern_binary,    only:binarymassr,accradius1,accradius2,ramp,surface_force,eps_soft1
  use fileutils,        only:make_tags_unique
+ use growth,           only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
  use io,               only:master,warning,error,fatal
  use kernel,           only:hfact_default
  use options,          only:use_dustfrac,iexternalforce
@@ -118,40 +119,41 @@ module setup
  logical :: einst_prec
 
  !--discs
- integer, parameter :: max_discs = 3
+ integer, parameter :: maxdiscs = 3
 
  character(len=20) :: disclabel
- character(len=*), dimension(max_discs), parameter :: disctype = &
+ character(len=*), dimension(maxdiscs), parameter :: disctype = &
     (/'binary   ', &
       'primary  ', &
       'secondary'/)
 
- real    :: star_m(max_discs)
+ real    :: star_m(maxdiscs)
  real    :: totmass_gas,totmass_dust
 
  integer :: ndiscs
- integer :: mass_set(max_discs)
- logical :: iuse_disc(max_discs)
- logical :: ismoothgas(max_discs),ismoothdust(max_discs)
- logical :: itapergas(max_discs),itaperdust(max_discs)
- logical :: iwarp(max_discs)
+ integer :: idisc
+ integer :: mass_set(maxdiscs)
+ logical :: iuse_disc(maxdiscs)
+ logical :: ismoothgas(maxdiscs),ismoothdust(maxdiscs)
+ logical :: itapergas(maxdiscs),itaperdust(maxdiscs)
+ logical :: iwarp(maxdiscs)
  logical :: use_global_iso
  real    :: alphaSS
- integer :: sigmaprofilegas(max_discs),sigmaprofiledust(max_discs)
- integer :: iprofilegas(max_discs),iprofiledust(max_discs)
+ integer :: sigmaprofilegas(maxdiscs),sigmaprofiledust(maxdiscs)
+ integer :: iprofilegas(maxdiscs),iprofiledust(maxdiscs)
 
- real    :: R_in(max_discs),R_out(max_discs),R_ref(max_discs),R_c(max_discs)
- real    :: pindex(max_discs),disc_m(max_discs),sig_ref(max_discs),sig_norm(max_discs)
- real    :: qindex(max_discs),H_R(max_discs)
- real    :: posangl(max_discs),incl(max_discs)
- real    :: annulus_m(max_discs),R_inann(max_discs),R_outann(max_discs)
- real    :: R_warp(max_discs),H_warp(max_discs)
- real    :: Q_min(max_discs)
+ real    :: R_in(maxdiscs),R_out(maxdiscs),R_ref(maxdiscs),R_c(maxdiscs)
+ real    :: pindex(maxdiscs),disc_m(maxdiscs),sig_ref(maxdiscs),sig_norm(maxdiscs)
+ real    :: qindex(maxdiscs),H_R(maxdiscs)
+ real    :: posangl(maxdiscs),incl(maxdiscs)
+ real    :: annulus_m(maxdiscs),R_inann(maxdiscs),R_outann(maxdiscs)
+ real    :: R_warp(maxdiscs),H_warp(maxdiscs)
+ real    :: Q_min(maxdiscs)
 
- real    :: disc_mdust(max_discs,maxdusttypes),sig_normdust(max_discs)
- real    :: R_indust(max_discs),R_indust_swap(max_discs)
- real    :: R_outdust(max_discs),R_outdust_swap(max_discs),R_c_dust(max_discs)
- real    :: pindex_dust(max_discs),qindex_dust(max_discs),H_R_dust(max_discs)
+ real    :: disc_mdust(maxdiscs,maxdusttypes),sig_normdust(maxdiscs)
+ real    :: R_indust(maxdiscs),R_indust_swap(maxdiscs)
+ real    :: R_outdust(maxdiscs),R_outdust_swap(maxdiscs),R_c_dust(maxdiscs)
+ real    :: pindex_dust(maxdiscs),qindex_dust(maxdiscs),H_R_dust(maxdiscs)
 
  !--planets
  integer, parameter :: maxplanets = 9
@@ -159,6 +161,7 @@ module setup
  character(len=*), dimension(maxplanets), parameter :: planets = &
     (/'1','2','3','4','5','6','7','8','9' /)
 
+ logical :: questplanets
  integer :: nplanets,setplanets
  real    :: mplanet(maxplanets),rplanet(maxplanets),accrplanet(maxplanets),inclplan(maxplanets)
 
@@ -178,10 +181,7 @@ module setup
 
  real :: period_longest
  real :: enc_m(maxbins),rad(maxbins)
- real :: Q_mintmp,disc_mtmp(max_discs),annulus_mtmp(max_discs)
-
- integer :: maxdiscs
- integer :: idisc
+ real :: Q_mintmp,disc_mtmp(maxdiscs),annulus_mtmp(maxdiscs)
 
 contains
 
@@ -209,9 +209,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
    "",/, &
    "-----------------------------------------------------------------",/)
 
- !--set defaults
- !  TODO: add defaults for all other options
- call set_dust_default_options()
+ !--set default options
+ call set_default_options()
 
  !--get disc setup parameters from file or interactive setup
  call get_setup_parameters(id,fileprefix)
@@ -276,6 +275,131 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  return
 
 end subroutine setpart
+
+!--------------------------------------------------------------------------
+!
+! Set default options
+!
+!--------------------------------------------------------------------------
+subroutine set_default_options()
+
+ !--units
+ dist_unit = 'au'
+ mass_unit = 'solarm'
+
+ !--central object(s)
+ icentral = 1
+
+ !--external potential
+ ipotential = 1
+
+ !--point mass
+ iexternalforce = iext_star
+ m1    = 1.
+ m2    = 1.
+ accr1 = 1.
+ accr2 = 1.
+
+ !--planetary atmosphere
+ surface_force = .false.
+
+ !--spinning black hole (Lense-Thirring)
+ einst_prec = .false.
+ bhspin      = 1.
+ bhspinangle = 0.
+
+ !--sink particle(s)
+ nsinks = 1
+ ibinary = 0
+
+ !--binary
+ binary_a = 10.
+ binary_e = 0.
+ binary_i = 0.
+ binary_O = 0.
+ binary_w = 270.
+ binary_f = 180.
+
+ !--flyby
+ flyby_a  = 200.
+ flyby_d  = 10.
+ flyby_O  = 0.
+ flyby_i  = 0.
+
+ !--multiple disc options
+ iuse_disc = .false.
+ iuse_disc(1) = .true.
+ ndiscs = 1
+
+ !--eos
+ use_global_iso = .false.
+
+ !--dust distribution
+ call set_dust_default_options()
+
+ !--gas disc
+ R_in       = 1.
+ R_out      = 150.
+ R_ref      = 1.
+ R_c        = 150.
+ R_warp     = 0.
+ H_warp     = 0.
+ mass_set   = 0
+ itapergas  = .false.
+ ismoothgas = .true.
+ iwarp      = .false.
+ pindex     = 1.
+ qindex     = 0.25
+ alphaSS    = 0.005
+ posangl    = 0.
+ incl       = 0.
+ H_R        = 0.05
+ disc_m     = 0.05
+ sig_norm   = 1.e-02
+ sig_ref    = 1.e-02
+ Q_min      = 1.0
+ annulus_m  = 0.05
+ R_inann    = 1.
+ R_outann   = 150.
+
+ !--dust disc
+ R_indust       = R_in
+ R_outdust      = R_out
+ pindex_dust    = pindex
+ qindex_dust    = qindex
+ H_R_dust       = H_R
+ itaperdust     = itapergas
+ ismoothdust    = ismoothgas
+ R_c_dust       = R_c
+
+ !--dust growth
+ ifrag = 1
+ isnow = 0
+ rsnow = 100.
+ Tsnow = 20.
+ vfragSI = 15.
+ vfraginSI = 5.
+ vfragoutSI = 15.
+ gsizemincgs = 1.e-3
+
+ !--resolution
+ np = 500000
+ np_dust = np/maxdustlarge/5
+
+ !--planets
+ questplanets  = .false.
+ setplanets    = 0
+ nplanets      = 0
+ mplanet       = 1.
+ rplanet       = (/ (10.*i, i=1,maxplanets) /)
+ accrplanet    = 0.25
+ inclplan      = 0.
+
+ !--simulation time
+ deltat  = 0.1
+ norbits = 100
+
+end subroutine set_default_options
 
 !--------------------------------------------------------------------------
 !
@@ -369,13 +493,11 @@ end subroutine setup_units
 !--------------------------------------------------------------------------
 subroutine number_of_discs()
 
- maxdiscs = 1
- if ((icentral==1) .and. (nsinks==2)) maxdiscs = 3
  ndiscs = max(count(iuse_disc),1)
  !--index of disc (if only one)
  idisc = 0
  if (ndiscs==1) then
-    do i=1,3
+    do i=1,maxdiscs
        if (iuse_disc(i)) idisc = i
     enddo
  endif
@@ -441,7 +563,7 @@ subroutine equation_of_state(gamma)
     else
        !--single disc
        if (qindex(idisc) > 0.) then
-          do i=1,3
+          do i=1,maxdiscs
              !--eos around sink
              if (iuse_disc(i)) isink = i-1
           enddo
@@ -484,7 +606,7 @@ subroutine surface_density_profile()
 
  iprofilegas = 0
  sigmaprofilegas = 0
- do i=1,3
+ do i=1,maxdiscs
     if (itapergas(i)) then
        iprofilegas(i) = 1
        sigmaprofilegas(i) = 1
@@ -495,7 +617,7 @@ subroutine surface_density_profile()
  if (use_dust) then
     iprofiledust = 0
     sigmaprofiledust = 0
-    do i=1,3
+    do i=1,maxdiscs
        if (itaperdust(i)) then
           iprofiledust(i) = 1
           sigmaprofiledust(i) = 1
@@ -604,7 +726,7 @@ subroutine setup_central_objects()
  end select
  !--set array of central object masses
  star_m = (/mcentral, m1, m2/)
- do i=1,3
+ do i=1,maxdiscs
     if (.not.iuse_disc(i)) star_m(i) = 0.
  enddo
 
@@ -657,7 +779,7 @@ subroutine calculate_disc_mass()
 
  totmass_gas  = 0.
  totmass_dust = 0.
- do i=1,3
+ do i=1,maxdiscs
     if (iuse_disc(i)) then
        select case(mass_set(i))
        case (0)
@@ -729,8 +851,8 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
  real    :: jdust_to_gas,Rj
  real    :: Rochelobe
  real    :: polyk_dust
- real    :: xorigini(max_discs),vorigini(max_discs)
- real    :: alpha_returned(max_discs)
+ real    :: xorigini(maxdiscs),vorigini(maxdiscs)
+ real    :: alpha_returned(maxdiscs)
  integer :: npingasdisc,npindustdisc
 
  integer,           intent(in)    :: id
@@ -752,7 +874,7 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
  if (maxalpha==0) alpha = alphaSS
  npart = 0
  npartoftype(:) = 0
- do i=1,3
+ do i=1,maxdiscs
     if (iuse_disc(i)) then
        !--set disc origin
        if (ndiscs > 1) then
@@ -779,7 +901,7 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
           vorigini  = 0.
           Rochelobe = huge(0.)
        end select
-       if (maxdiscs > 1 .and. ibinary==0) then
+       if (ndiscs > 1 .and. ibinary==0) then
           if (R_out(i) > Rochelobe) call warning('setup_disc', &
              'Outer disc radius for circum'//trim(disctype(i))//' > Roche lobe of ' &
              //trim(disctype(i)))
@@ -1128,7 +1250,7 @@ subroutine print_angular_momentum(npart,xyzh,vxyzu)
  real,    intent(in) :: xyzh(:,:)
  real,    intent(in) :: vxyzu(:,:)
 
- real :: ldisc(max_discs),lcentral(max_discs)
+ real :: ldisc(maxdiscs),lcentral(maxdiscs)
 
  ldisc = get_mean_angmom_vector(npart,xyzh,vxyzu)
  print "(a,'(',3(es10.2,1x),')')",' Disc specific angular momentum = ',ldisc
@@ -1152,7 +1274,7 @@ subroutine print_dust()
 
  real :: Sigma,Sigmadust,Stokes(maxdusttypes),R_midpoint
 
- if (maxdiscs > 1 .and. ibinary==1) then
+ if (ndiscs > 1 .and. ibinary==1) then
     !--circumprimary in flyby
     i = 2
  else
@@ -1349,27 +1471,15 @@ end subroutine set_tmax_dtmax
 
 !--------------------------------------------------------------------------
 !
-!  prompt user for desired setup options
+!  Prompt user for desired setup options
 !
 !--------------------------------------------------------------------------
 subroutine setup_interactive()
- use growth,           only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
- use io,               only:warning
  use prompting,        only:prompt
  use set_dust_options, only:set_dust_interactively
- integer :: maxdiscs
  real    :: disc_mfac(3)
- logical :: questplanets
 
- !
- !--units
- !
- dist_unit = 'au'
- mass_unit = 'solarm'
- !
- !--set defaults for central object(s)
- !
- icentral = 1
+ !--central object(s)
  print "(a)",'==========================='
  print "(a)",'+++  CENTRAL OBJECT(S)  +++'
  print "(a)",'==========================='
@@ -1379,7 +1489,6 @@ subroutine setup_interactive()
  select case (icentral)
  case (0)
     !--external potential
-    ipotential = 1
     call prompt('Which potential?'//new_line('A')// &
                ' 1=central point mass'//new_line('A')// &
                ' 2=binary potential'//new_line('A')// &
@@ -1392,7 +1501,6 @@ subroutine setup_interactive()
        accr1    = 1.
     case (2)
        !--fixed binary
-       surface_force = .false.
        call prompt('Do you want model a surface on one mass (i.e. planet)?',surface_force)
        if (surface_force) then
           iexternalforce = iext_corot_binary
@@ -1428,7 +1536,6 @@ subroutine setup_interactive()
     end select
  case (1)
     !--sink particle(s)
-    nsinks = 1
     call prompt('How many sinks?',nsinks,1,2)
     select case (nsinks)
     case (1)
@@ -1437,7 +1544,6 @@ subroutine setup_interactive()
        accr1    = 1.
     case (2)
        !--binary
-       ibinary = 0
        call prompt('Do you want the binary orbit to be bound (elliptic) or'// &
                   ' unbound (parabolic/hyperbolic) [flyby]?'//new_line('A')// &
                   ' 0=bound'//new_line('A')//' 1=unbound'//new_line('A'),ibinary,0,1)
@@ -1467,64 +1573,49 @@ subroutine setup_interactive()
        end select
     end select
  end select
-!
-!--multiple disc options
-!
+
+ !--multiple disc options
  print "(/,a)",'================='
  print "(a)",  '+++  DISC(S)  +++'
  print "(a)",  '================='
- iuse_disc = .false.
- iuse_disc(1) = .true.
- ndiscs = 1
- maxdiscs = 1
- if ((icentral==1) .and. (nsinks>=2)) then
+ if ((icentral==1) .and. (nsinks==2)) then
     !--multiple discs possible
     if (ibinary==0) then
        !--bound binary: circum-binary, -primary, -secondary
-       maxdiscs = 3
+       iuse_disc(1) = .true.
+       iuse_disc(2) = .false.
+       iuse_disc(3) = .false.
+       call prompt('Do you want a circumbinary disc?',iuse_disc(1))
+       call prompt('Do you want a circumprimary disc?',iuse_disc(2))
+       call prompt('Do you want a circumsecondary disc?',iuse_disc(3))
     elseif (ibinary==1) then
        !--unbound binary (flyby): circum-primary, -secondary
-       maxdiscs = 2
-       iuse_disc(2) = .true.
        iuse_disc(1) = .false.
+       iuse_disc(2) = .true.
+       iuse_disc(3) = .false.
+       call prompt('Do you want a circumprimary disc?',iuse_disc(2))
+       call prompt('Do you want a circumsecondary disc?',iuse_disc(3))
     endif
-    do i=4-maxdiscs,3
-       call prompt('Do you want a circum'//trim(disctype(i))//' disc?',iuse_disc(i))
-    enddo
     if (.not.any(iuse_disc)) iuse_disc(1) = .true.
-    !--set number of discs
+    !--number of discs
     ndiscs = count(iuse_disc)
     if (ndiscs > 1) then
        use_global_iso = .false.
     endif
  endif
-!
-!--set gas disc defaults
-!
- R_in       = accr1
- R_out      = 150.
- R_ref      = R_in
- R_c        = R_out
- R_warp     = 0.
- H_warp     = 0.
- mass_set   = 0
- itapergas  = .false.
- ismoothgas = .true.
- iwarp      = .false.
- pindex     = 1.
- qindex     = 0.25
+
+ !--gas disc
+ R_in  = accr1
+ R_ref = R_in
+ R_c   = R_out
  if (ndiscs > 1) qindex = 0.
- if (maxalpha==0) alphaSS    = 0.005
- posangl    = 0.
- incl       = 0.
- H_R        = 0.05
- disc_mfac  = 1.
+ if (maxalpha==0) alphaSS = 0.005
  if (surface_force) then
-    R_in       = 0.1
-    R_out      = 3.
-    R_ref      = 1.
+    R_in  = 0.1
+    R_out = 3.
+    R_ref = 1.
  endif
- if ((icentral==1 .and. nsinks>=2) .and. (ibinary==0)) then
+ if ((icentral==1 .and. nsinks==2) .and. (ibinary==0)) then
     !--don't smooth circumbinary, by default
     ismoothgas(1) = .false.
     !--set appropriate disc radii for bound binary
@@ -1537,12 +1628,13 @@ subroutine setup_interactive()
        !--set H/R so temperature is globally constant
        call prompt('Do you want a globally isothermal disc (if not Farris et al. 2014)?',use_global_iso)
        !--------------------------------------------------------------------------
-       ! N.B. The initializations of multiple discs is not done using the implementation of the eos
-       ! a radial profile centred on CM, primary and secondary is used.
-       ! The value of H_R used in setpart to set cs0 is the one of the circumbinary if cb disc is present,
-       ! otherwise it uses the circumprimary.
-       ! The values of H_R used for the other discs are set using the equations below, however changing them here
-       ! is not enough. THey need to be changed also in the the setpart function.
+       ! N.B. The initializations of multiple discs is not done using the
+       ! implementation of the eos a radial profile centred on CM, primary and
+       ! secondary is used. The value of H_R used in setpart to set cs0 is the
+       ! one of the circumbinary if cb disc is present, otherwise it uses the
+       ! circumprimary. The values of H_R used for the other discs are set using
+       ! the equations below, however changing them here is not enough. They need
+       ! to be changed also in the the setpart function.
        !--------------------------------------------------------------------------
        if(.not. use_global_iso) then
           call prompt('Enter q_index',qindex(1))
@@ -1581,7 +1673,7 @@ subroutine setup_interactive()
        endif
     endif
  endif
- do i=1,3
+ do i=1,maxdiscs
     if (iuse_disc(i)) then
        if (ndiscs > 1) print "(/,a)",' >>>  circum'//trim(disctype(i))//' disc  <<<'
        call prompt('How do you want to set the gas disc mass?'//new_line('A')// &
@@ -1613,40 +1705,25 @@ subroutine setup_interactive()
        endif
     endif
  enddo
-!
-!--set dust disc defaults
-!
+
+ !--dust disc
  if (use_dust) then
-    R_indust       = R_in
-    R_outdust      = R_out
-    pindex_dust    = pindex
-    qindex_dust    = qindex
-    H_R_dust       = H_R
-    itaperdust     = itapergas
-    ismoothdust    = ismoothgas
-    R_c_dust       = R_c
+    R_indust    = R_in
+    R_outdust   = R_out
+    qindex_dust = qindex
+    H_R_dust    = H_R
+    ismoothdust = ismoothgas
+    R_c_dust    = R_c
     print "(/,a)",'=============='
     print "(a)",  '+++  DUST  +++'
     print "(a)",  '=============='
+    !--dust distribution
     call set_dust_interactively()
+    !--dust growth
     if (use_dustgrowth .and. dust_method == 2) then
        print "(/,a)",'================================'
        print "(a)",  '+++  GROWTH & FRAGMENTATION  +++'
        print "(a)",  '================================'
-       !
-       !--set growth parameters default
-       !
-       ifrag = 1
-       isnow = 0
-       rsnow = 100.
-       Tsnow = 20.
-       vfragSI = 15.
-       vfraginSI = 5.
-       vfragoutSI = 15.
-       gsizemincgs = 1.e-3
-       !
-       !--growth parameters from user
-       !
        call prompt('Enter fragmentation model (0=off,1=on,2=Kobayashi)',ifrag,-1,2)
        select case(ifrag)
        case(0)
@@ -1679,25 +1756,15 @@ subroutine setup_interactive()
        print "(a)",'growth and fragmentation not available for one fluid method'
     endif
  endif
-!
-!--resolution
-!
- np = 500000
+
+ !--resolution
  if (use_dust .and. .not.use_dustfrac) then
     np_dust = np/ndusttypesinp/5
  else
     np_dust = 0
  endif
-!
-!--add planets
-!
- questplanets  = .false.
- setplanets    = 0
- nplanets      = 0
- mplanet       = 1.
- rplanet       = (/ (10.*i, i=1,maxplanets) /)
- accrplanet    = 0.25
- inclplan      = 0.
+
+ !--planets
  print "(/,a)",'================='
  print "(a)",  '+++  PLANETS  +++'
  print "(a)",  '================='
@@ -1707,14 +1774,11 @@ subroutine setup_interactive()
     nplanets   = 1
     call prompt('Enter the number of planets',nplanets,1,maxplanets)
  endif
-!
-!--determine simulation time
-!
+
+ !--simulation time
  print "(/,a)",'================'
  print "(a)",  '+++  OUTPUT  +++'
  print "(a)",  '================'
- deltat  = 0.1
- norbits = 100
  if (setplanets==1) then
     call prompt('Enter time between dumps as fraction of outer planet period',deltat,0.)
     call prompt('Enter number of orbits to simulate',norbits,0)
@@ -1746,11 +1810,11 @@ subroutine write_setupfile(filename)
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
  logical :: done_alpha
- integer :: i,maxdiscs
+ integer :: i,n_possible_discs
 
  done_alpha = .false.
- maxdiscs = 1
- if ((icentral==1) .and. (nsinks==2)) maxdiscs = 3
+ n_possible_discs = 1
+ if ((icentral==1) .and. (nsinks==2)) n_possible_discs = 3
 
  print "(/,a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
@@ -1860,9 +1924,9 @@ subroutine write_setupfile(filename)
     end select
  end select
  !--multiple disc options
- if (maxdiscs > 1) then
+ if (n_possible_discs > 1) then
     write(iunit,"(/,a)") '# options for multiple discs'
-    do i=1,3
+    do i=1,maxdiscs
        call write_inopt(iuse_disc(i),'use_'//trim(disctype(i))//'disc','setup circum' &
                                      //trim(disctype(i))//' disc',iunit)
     enddo
@@ -1870,15 +1934,15 @@ subroutine write_setupfile(filename)
                      'globally isothermal or Farris et al. (2014)',iunit)
  endif
  !--individual disc(s)
- do i=1,3
+ do i=1,maxdiscs
     if (iuse_disc(i)) then
-       if (maxdiscs > 1) then
+       if (n_possible_discs > 1) then
           disclabel = disctype(i)
        else
           disclabel = ''
        endif
        !--gas disc
-       if (maxdiscs > 1) then
+       if (n_possible_discs > 1) then
           write(iunit,"(/,a)") '# options for circum'//trim(disclabel)//' gas disc'
        else
           write(iunit,"(/,a)") '# options for gas accretion disc'
@@ -1930,7 +1994,7 @@ subroutine write_setupfile(filename)
        endif
        !--dust disc
        if (use_dust .and. (iprofile_dust == 1 .or. iprofile_dust == 2)) then
-          if (maxdiscs > 1) then
+          if (n_possible_discs > 1) then
              write(iunit,"(/,a)") '# options for circum'//trim(disclabel)//' dust disc'
           else
              write(iunit,"(/,a)") '# options for dust accretion disc'
@@ -2121,11 +2185,10 @@ subroutine read_setupfile(filename,ierr)
  iuse_disc = .false.
  if ((icentral==1) .and. (nsinks==2)) then
     if (ibinary==0) then
-       call read_inopt(iuse_disc(1),'use_'//trim(disctype(1))//'disc',db,errcount=nerr)
+       call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
     endif
-    do i=2,3
-       call read_inopt(iuse_disc(i),'use_'//trim(disctype(i))//'disc',db,errcount=nerr)
-    enddo
+     call read_inopt(iuse_disc(i),'use_primarydisc',db,errcount=nerr)
+     call read_inopt(iuse_disc(i),'use_secondardisc',db,errcount=nerr)
  else
     iuse_disc(1) = .true.
  endif
@@ -2134,7 +2197,7 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(use_global_iso,'use_global_iso',db,errcount=nerr)
  endif
 
- do i=1,3
+ do i=1,maxdiscs
     if (iuse_disc(i)) then
        if (nsinks == 2) then
           disclabel = disctype(i)
