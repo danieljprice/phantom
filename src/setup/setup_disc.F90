@@ -1297,20 +1297,20 @@ subroutine print_dust()
 
     print "(/,a)",' --------------------- added dust ---------------------'
 
-       if (use_dustgrowth) then
-          print "(a,g10.3,a)", ' initial grain size: ',grainsize(1)*udist,' cm'
-       else
-          duststring = 'grain size'
-          call make_tags_unique(ndusttypes,duststring)
-          do i=1,ndusttypes
-             print*,adjustr(duststring(i))//' : ',grainsize(i)*udist,' cm'
-          enddo
-          duststring = 'grain density'
-          call make_tags_unique(ndusttypes,duststring)
-          do i=1,ndusttypes
-             print*,adjustr(duststring(i))//' : ',graindens(i)*umass/udist**3,' g/cm^3'
-          enddo
-       endif
+    if (use_dustgrowth) then
+       print "(a,g10.3,a)", ' initial grain size: ',grainsize(1)*udist,' cm'
+    else
+       duststring = 'grain size'
+       call make_tags_unique(ndusttypes,duststring)
+       do i=1,ndusttypes
+          print*,adjustr(duststring(i))//' : ',grainsize(i)*udist,' cm'
+       enddo
+       duststring = 'grain density'
+       call make_tags_unique(ndusttypes,duststring)
+       do i=1,ndusttypes
+          print*,adjustr(duststring(i))//' : ',graindens(i)*umass/udist**3,' g/cm^3'
+       enddo
+    endif
 
     do i=1,ndiscs
        if (iuse_disc(i)) then
