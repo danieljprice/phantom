@@ -67,7 +67,7 @@
 !    extern_corotate, extern_lensethirring, externalforces, fileutils,
 !    growth, infile_utils, io, kernel, options, part, physcon, prompting,
 !    set_dust, set_dust_options, setbinary, setdisc, setflyby, spherical,
-!    table_utils, timestep, units, vectorutils
+!    timestep, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module setup
