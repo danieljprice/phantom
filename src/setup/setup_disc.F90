@@ -72,7 +72,7 @@
 !--------------------------------------------------------------------------
 module setup
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
-                            maxdustlarge
+                            maxdustlarge,maxdustsmall
  use externalforces,   only:iext_star,iext_binary,iext_lensethirring,&
                             iext_einsteinprec,iext_corot_binary,iext_corotate
  use extern_binary,    only:binarymassr,accradius1,accradius2,ramp,surface_force,eps_soft1
@@ -99,9 +99,10 @@ module setup
 
  private
 
+ !--resolution
  integer :: np,np_dust(maxdustlarge)
- integer :: i,j,k,ierr,itype
 
+ !--setup filename prefix
  character(len=100) :: filename
  character(len=100) :: prefix
  character(len=20)  :: duststring(maxdusttypes)
@@ -279,6 +280,7 @@ end subroutine setpart
 !
 !--------------------------------------------------------------------------
 subroutine set_default_options()
+ integer :: i
 
  !--units
  dist_unit = 'au'
@@ -400,14 +402,15 @@ end subroutine set_default_options
 
 !--------------------------------------------------------------------------
 !
-! This subroutine gets setup parameters from interactive setup or file
+! Get setup parameters from interactive setup or file
 !
 !--------------------------------------------------------------------------
 subroutine get_setup_parameters(id,fileprefix)
- integer,           intent(in)    :: id
- character(len=20), intent(in)    :: fileprefix
+ integer,           intent(in) :: id
+ character(len=20), intent(in) :: fileprefix
 
  logical :: iexist,seq_exists
+ integer :: j,ierr
 
  filename=trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
@@ -460,11 +463,13 @@ end subroutine get_setup_parameters
 
 !--------------------------------------------------------------------------
 !
-! This subroutine sets the units
+! Set the units
 !
 !--------------------------------------------------------------------------
 subroutine setup_units()
  use units, only:set_units,select_unit
+
+ integer :: ierr
 
  if (icentral==0 .and. ipotential==3) then
     !--black hole units
@@ -485,10 +490,11 @@ end subroutine setup_units
 
 !--------------------------------------------------------------------------
 !
-! This subroutine calculates the number of required discs
+! Calculate the number of required discs
 !
 !--------------------------------------------------------------------------
 subroutine number_of_discs()
+ integer :: i
 
  ndiscs = max(count(iuse_disc),1)
  !--index of disc (if only one)
@@ -503,7 +509,7 @@ end subroutine number_of_discs
 
 !--------------------------------------------------------------------------
 !
-! This subroutine sets the equation of state
+! Set the equation of state
 !
 !--------------------------------------------------------------------------
 subroutine equation_of_state(gamma)
@@ -515,6 +521,7 @@ subroutine equation_of_state(gamma)
  real, intent(out) :: gamma
 
  logical :: is_isothermal
+ integer :: i
 
  is_isothermal = (maxvxyzu==3)
 #ifdef MCFOST
@@ -527,6 +534,7 @@ subroutine equation_of_state(gamma)
 #endif
 
  if (is_isothermal) then
+
     !--isothermal
     gamma = 1.0
     if (ndiscs /= 1) then
@@ -575,7 +583,9 @@ subroutine equation_of_state(gamma)
           qfacdisc = qindex(idisc)
        endif
     endif
+
  else
+
     !--adiabatic
     ieos = 2
     gamma = 5./3.
@@ -589,17 +599,18 @@ subroutine equation_of_state(gamma)
        alphau = 0
     endif
 #endif
+
  endif
 
 end subroutine equation_of_state
 
-
 !--------------------------------------------------------------------------
 !
-! This subroutine sets the surface density profile choice
+! Set the surface density profile choice
 !
 !--------------------------------------------------------------------------
 subroutine surface_density_profile()
+ integer :: i
 
  iprofilegas = 0
  sigmaprofilegas = 0
@@ -611,6 +622,7 @@ subroutine surface_density_profile()
     if (ismoothgas(i)) sigmaprofilegas(i) = 2
     if (itapergas(i) .and. ismoothgas(i)) sigmaprofilegas(i) = 3
  enddo
+
  if (use_dust) then
     iprofiledust = 0
     sigmaprofiledust = 0
@@ -637,7 +649,7 @@ end subroutine surface_density_profile
 
 !--------------------------------------------------------------------------
 !
-! This subroutine sets up the central object(s)
+! Set up the central object(s)
 !
 !--------------------------------------------------------------------------
 subroutine setup_central_objects()
@@ -645,6 +657,8 @@ subroutine setup_central_objects()
  use extern_lensethirring, only:blackhole_spin,blackhole_spin_angle
  use setbinary,            only:set_binary
  use setflyby,             only:set_flyby
+
+ integer :: i
 
  mcentral = m1
  select case (icentral)
@@ -730,6 +744,7 @@ subroutine setup_central_objects()
        end select
     end select
  end select
+
  !--set array of central object masses
  star_m = (/mcentral, m1, m2/)
  do i=1,maxdiscs
@@ -740,7 +755,7 @@ end subroutine setup_central_objects
 
 !--------------------------------------------------------------------------
 !
-! This subroutine sets the grain size distribution
+! Set the grain size distribution
 !
 !--------------------------------------------------------------------------
 subroutine setup_dust_grain_distribution()
@@ -778,11 +793,12 @@ end subroutine setup_dust_grain_distribution
 
 !--------------------------------------------------------------------------
 !
-! This subroutine calculates the required disc mass
+! Calculate the required disc masses
 !
 !--------------------------------------------------------------------------
 subroutine calculate_disc_mass()
 
+ integer :: i,j
  integer, parameter :: maxbins = 4096
 
  real :: enc_m(maxbins),rad(maxbins)
@@ -859,7 +875,7 @@ end subroutine calculate_disc_mass
 
 !--------------------------------------------------------------------------
 !
-! This subroutine sets up the discs
+! Set up the discs
 !
 !--------------------------------------------------------------------------
 subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
@@ -867,13 +883,6 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
  use options,   only:alpha
  use setbinary, only:Rochelobe_estimate
  use setdisc,   only:set_disc
-
- real    :: jdust_to_gas,Rj
- real    :: Rochelobe
- real    :: polyk_dust
- real    :: xorigini(maxdiscs),vorigini(maxdiscs)
- real    :: alpha_returned(maxdiscs)
- integer :: npingasdisc,npindustdisc
 
  integer,           intent(in)    :: id
  character(len=20), intent(in)    :: fileprefix
@@ -887,7 +896,12 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
  real,              intent(inout) :: xyzh(:,:)
  real,              intent(inout) :: vxyzu(:,:)
 
- real :: H,Hd
+ integer :: i,j,itype
+ real    :: Rochelobe
+ real    :: polyk_dust
+ real    :: xorigini(3),vorigini(3)
+ real    :: alpha_returned(maxdiscs)
+ integer :: npingasdisc,npindustdisc
 
  time  = 0.
  hfact = hfact_default
@@ -896,16 +910,18 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
  if (maxalpha==0) alpha = alphaSS
  npart = 0
  npartoftype(:) = 0
+
  do i=1,maxdiscs
     if (iuse_disc(i)) then
 
-       !--set disc origin
        if (ndiscs > 1) then
           print "(/,a)",'>>> Setting up circum'//trim(disctype(i))//' disc <<<'
           prefix = trim(fileprefix)//'-'//disctype(i)
        else
           prefix = fileprefix
        endif
+
+       !--set disc origin
        select case(i)
        case(3)
           !--circumsecondary
@@ -924,8 +940,9 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
           vorigini  = 0.
           Rochelobe = huge(0.)
        end select
-       if (ndiscs > 1 .and. ibinary==0) then
-          if (R_out(i) > Rochelobe) call warning('setup_disc', &
+
+       if ((ndiscs > 1 .and. ibinary==0) .and. (R_out(i) > Rochelobe)) then
+          call warning('setup_disc', &
              'Outer disc radius for circum'//trim(disctype(i))//' > Roche lobe of ' &
              //trim(disctype(i)))
        endif
@@ -935,6 +952,7 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
 
           !--gas and dust mixture disc
           npingasdisc = int(disc_m(i)/totmass_gas*np)
+
           call set_disc(id,master        = master,               &
                         mixture          = .true.,               &
                         npart            = npingasdisc,          &
@@ -975,30 +993,15 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
                         prefix           = prefix)
 
           !--set dustfrac
-          do j=npart+1,npingasdisc
-             Rj = sqrt(dot_product(xyzh(1:2,j)-xorigini(1:2),xyzh(1:2,j)-xorigini(1:2)))
-             if (iprofile_dust > 0 .and. (Rj<R_indust(i) .or. Rj>R_outdust(i))) then
-                jdust_to_gas = tiny(jdust_to_gas)
-             else
-                do k=1,ndustsmall
-                   H = get_H(H_R(i)*R_ref(i),qindex(i),Rj/R_ref(i))
-                   Hd = get_H(H_R_dust(i)*R_ref(i),qindex_dust(i),Rj/R_ref(i))
-                   call get_dust_to_gas(jdust_to_gas,Rj,sigmaprofilegas(i),&
-                                        sigmaprofiledust(i),sig_norm(i),&
-                                        sig_normdust(i,k),pindex(i),pindex_dust(i),&
-                                        R_in(i),R_indust_swap(i),R_ref(i),&
-                                        xyzh(3,j)-xorigini(3),H,Hd,R_c(i),R_c_dust(i))
-                enddo
-             endif
-             jdust_to_gas = max(jdust_to_gas,tiny(jdust_to_gas))
-             dustfrac(:,j) = (jdust_to_gas/(1.+jdust_to_gas))*dustbinfrac(:)
-          enddo
+          call set_dustfrac(i,npart+1,npart+1+npingasdisc,xyzh,xorigini)
+
           npart = npart + npingasdisc
 
        else
 
           !--gas disc
           npingasdisc = int(disc_m(i)/totmass_gas*np)
+
           call set_disc(id,master       = master,             &
                         npart           = npingasdisc,        &
                         npart_start     = npart + 1,          &
@@ -1029,14 +1032,18 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
                         warp_smoothl    = H_warp(i),          &
                         bh_spin         = bhspin,             &
                         prefix          = prefix)
+
           npart = npart + npingasdisc
           npartoftype(igas) = npartoftype(igas) + npingasdisc
 
           if (use_dust) then
-             !--dust disc
+
+             !--dust disc(s)
              do j=1,ndustlarge
+
                 npindustdisc = int(disc_mdust(i,j)/sum(disc_mdust(:,j))*np_dust(j))
                 itype = idust + j - 1
+
                 call set_disc(id,master      = master,             &
                               npart          = npindustdisc,       &
                               npart_start    = npart + 1,          &
@@ -1066,8 +1073,10 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
                               warp_smoothl   = H_warp(i),          &
                               bh_spin        = bhspin,             &
                               prefix         = prefix)
+
+                npart = npart + npindustdisc
                 npartoftype(itype) = npartoftype(itype) + npindustdisc
-                npart  = npart + npindustdisc
+
              enddo
           endif
 
@@ -1092,7 +1101,7 @@ end subroutine setup_discs
 
 !--------------------------------------------------------------------------
 !
-! This subroutine sets up a planetary atmosphere
+! Set up a planetary atmosphere
 !
 !--------------------------------------------------------------------------
 subroutine planet_atmosphere(id,npart,xyzh,vxyzu,npartoftype,gamma,hfact)
@@ -1106,7 +1115,7 @@ subroutine planet_atmosphere(id,npart,xyzh,vxyzu,npartoftype,gamma,hfact)
 
  real, parameter :: a0 = 1.
 
- integer :: npart_disc
+ integer :: npart_disc,itype
  real    :: r_surface
  real    :: udens,rho_core
 
@@ -1214,11 +1223,13 @@ end subroutine set_planet_atm
 
 !--------------------------------------------------------------------------
 !
-! This subroutine initialises the dustprop array
+! Initialise the dustprop array
 !
 !--------------------------------------------------------------------------
 subroutine initialise_dustprop(npart)
  integer, intent(in) :: npart
+
+ integer :: i
 
  if (use_dustgrowth) then
     do i=1,npart
@@ -1235,7 +1246,7 @@ end subroutine initialise_dustprop
 
 !--------------------------------------------------------------------------
 !
-! This subroutine checks the chosen dust method for validity
+! Check the chosen dust method for validity
 !
 !--------------------------------------------------------------------------
 subroutine check_dust_method_valid(id,npart)
@@ -1257,7 +1268,7 @@ end subroutine check_dust_method_valid
 
 !--------------------------------------------------------------------------
 !
-! This subroutine prints angular momentum information
+! Print angular momentum information
 !
 !--------------------------------------------------------------------------
 subroutine print_angular_momentum(npart,xyzh,vxyzu)
@@ -1283,15 +1294,16 @@ end subroutine print_angular_momentum
 
 !--------------------------------------------------------------------------
 !
-! This subroutine prints dust information
+! Print dust information
 !
 !--------------------------------------------------------------------------
 subroutine print_dust()
 
- real :: Sigma
- real :: Sigmadust
- real :: Stokes(maxdusttypes)
- real :: R_midpoint
+ integer :: i,j
+ real    :: Sigma
+ real    :: Sigmadust
+ real    :: Stokes(maxdusttypes)
+ real    :: R_midpoint
 
  if (use_dust) then
 
@@ -1344,7 +1356,7 @@ end subroutine print_dust
 
 !--------------------------------------------------------------------------
 !
-! This subroutine sets up planets
+! Set up planets
 !
 !--------------------------------------------------------------------------
 subroutine set_planets(npart,massoftype,xyzh)
@@ -1353,21 +1365,24 @@ subroutine set_planets(npart,massoftype,xyzh)
  real,    intent(in) :: massoftype(:)
  real,    intent(in) :: xyzh(:,:)
 
- real :: dist_bt_sinks
- real :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r
- real :: Hill(maxplanets)
- real :: u(3)
+ integer :: i,j,itype
+ real    :: dist_bt_sinks
+ real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r
+ real    :: Hill(maxplanets)
+ real    :: u(3)
 
  period_planet_longest = 0.
  if (setplanets==1) then
     print "(a,i2,a)",' --------- added ',nplanets,' planets ------------'
     do i=1,nplanets
+
        nptmass = nptmass + 1
        phi = 0.
        phi = phi*pi/180.
        cosphi = cos(phi)
        sinphi = sin(phi)
        disc_m_within_r = 0.
+
        !--disc mass correction
        do j=1,npart
           r2 = xyzh(1,j)**2 + xyzh(2,j)**2 + xyzh(3,j)**2
@@ -1376,12 +1391,14 @@ subroutine set_planets(npart,massoftype,xyzh)
              disc_m_within_r = disc_m_within_r + massoftype(itype)
           endif
        enddo
+
        !--inner planet mass correction
        if (nplanets>1) then
           do j=1,nplanets
              if (rplanet(j)<rplanet(i)) disc_m_within_r = disc_m_within_r + mplanet(j)*jupiterm/umass
           enddo
        endif
+
        !--set sink particles
        Hill(i) = (mplanet(i)*jupiterm/solarm/(3.*mcentral))**(1./3.) * rplanet(i)
        if (nsinks == 2) then
@@ -1405,6 +1422,7 @@ subroutine set_planets(npart,massoftype,xyzh)
        u = (/-sin(phi),cos(phi),0./)
        call rotatevec(xyzmh_ptmass(1:3,nptmass),u,-inclplan(i))
        call rotatevec(vxyz_ptmass(1:3,nptmass), u,-inclplan(i))
+
        !--print planet information
        omega = vphi/rplanet(i)
        print "(a,i2,a)",             ' >>> planet ',i,' <<<'
@@ -1424,6 +1442,7 @@ subroutine set_planets(npart,massoftype,xyzh)
        print "(a,g10.3,a)",   '    4:1 : ',(sqrt(mcentral)/(4.*omega))**(2./3.)*udist/au,' AU'
        print "(a,g10.3,a)",   '    5:1 : ',(sqrt(mcentral)/(5.*omega))**(2./3.)*udist/au,' AU'
        print "(a,g10.3,a)",   '    9:1 : ',(sqrt(mcentral)/(9.*omega))**(2./3.)*udist/au,' AU'
+
        !--check planet accretion radii
        if (accrplanet(i) < 0.05) then
           call warning('setup_disc','accretion radius of planet < 1/20 Hill radius: unnecessarily small')
@@ -1433,8 +1452,10 @@ subroutine set_planets(npart,massoftype,xyzh)
           call warning('setup_disc','accretion radius of planet > accretion radius of primary star: this is unphysical')
        endif
        print *, ''
+
        !--determine longest period
        period_planet_longest = max(period_planet_longest, 2.*pi/omega)
+
     enddo
     print "(1x,45('-'))"
     print *, ''
@@ -1444,7 +1465,7 @@ end subroutine set_planets
 
 !--------------------------------------------------------------------------
 !
-!  reset centre of mass to origin
+!  Reset centre of mass to origin
 !
 !--------------------------------------------------------------------------
 subroutine set_centreofmass(npart,xyzh,vxyzu)
@@ -1466,7 +1487,7 @@ end subroutine set_centreofmass
 
 !--------------------------------------------------------------------------
 !
-!  set tmax and dtmax for infile
+!  Set tmax and dtmax for infile
 !
 !--------------------------------------------------------------------------
 subroutine set_tmax_dtmax()
@@ -1491,6 +1512,7 @@ subroutine set_tmax_dtmax()
     !--outer disc orbital period
     period = sqrt(4.*pi**2*R_out(idisc)**3/mcentral)
  endif
+
  if (period > 0.) then
     if (deltat > 0.) dtmax = deltat*period
     if (norbits >= 0) tmax = norbits*period
@@ -1506,6 +1528,8 @@ end subroutine set_tmax_dtmax
 subroutine setup_interactive()
  use prompting,        only:prompt
  use set_dust_options, only:set_dust_interactively
+
+ integer :: i
  real    :: disc_mfac(3)
 
  !--central object(s)
@@ -1830,7 +1854,7 @@ end subroutine setup_interactive
 
 !--------------------------------------------------------------------------
 !
-! write setup file
+! Write setup file
 !
 !--------------------------------------------------------------------------
 subroutine write_setupfile(filename)
@@ -2081,7 +2105,7 @@ end subroutine write_setupfile
 
 !--------------------------------------------------------------------------
 !
-! read setup file
+! Read setup file
 !
 !--------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
@@ -2091,7 +2115,7 @@ subroutine read_setupfile(filename,ierr)
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
- integer :: nerr
+ integer :: nerr,i
  type(inopts), allocatable :: db(:)
 
  print "(a)",' reading setup options from '//trim(filename)
@@ -2336,29 +2360,70 @@ end subroutine read_setupfile
 
 !--------------------------------------------------------------------------
 !
-! calculates dust-to-gas ratio at a particular value of R
+! Set dustfrac
 !
 !--------------------------------------------------------------------------
-subroutine get_dust_to_gas(dust_to_gas,R,sigmaprofilegas,sigmaprofiledust, &
-                           sig_norm,sig_normdust,pindex,pindex_dust, &
-                           R_in,R_indust,R_ref,zi,hgas,hdust,R_c,R_c_dust)
- real,    intent(in)  :: R,pindex,pindex_dust,sig_norm,sig_normdust
- real,    intent(in)  :: R_in,R_indust,R_ref,zi,hgas,hdust
- real,    intent(in)  :: R_c,R_c_dust
- integer, intent(in)  :: sigmaprofilegas,sigmaprofiledust
- real,    intent(out) :: dust_to_gas
+subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
+ integer, intent(in) :: disc_index
+ integer, intent(in) :: ipart_start
+ integer, intent(in) :: ipart_end
+ real,    intent(in) :: xyzh(:,:)
+ real,    intent(in) :: xorigini(3)
 
- real :: sigma_gas,sigma_dust
+ integer :: i,j
+ real    :: R,z
+ real    :: dust_to_gas
+ real    :: Hg,Hd
+ real    :: sigma_gas
+ real    :: sigma_dust
+ real    :: scaled_sigma_dust
 
- sigma_gas   = sig_norm     * scaled_sigma(R,sigmaprofilegas,pindex,R_ref,R_in,R_c)
- sigma_dust  = sig_normdust * scaled_sigma(R,sigmaprofiledust,pindex_dust,R_ref,R_indust,R_c_dust)
- dust_to_gas = (sigma_dust/sigma_gas) * (hgas/hdust) * exp(-0.5d0*(((zi/hdust)**2.)*(1.d0-(hdust/hgas)**2.)))
+ do i=ipart_start,ipart_end
 
-end subroutine get_dust_to_gas
+    R = sqrt(dot_product(xyzh(1:2,i)-xorigini(1:2),xyzh(1:2,i)-xorigini(1:2)))
+    z = xyzh(3,i) - xorigini(3)
+
+    if (iprofile_dust > 0 .and. (R<R_indust(disc_index) .or. R>R_outdust(disc_index))) then
+
+       dust_to_gas = tiny(dust_to_gas)
+
+    else
+
+       Hg = get_H(H_R(disc_index)*R_ref(disc_index),qindex(disc_index),R/R_ref(disc_index))
+       Hd = get_H(H_R_dust(disc_index)*R_ref(disc_index),qindex_dust(disc_index),R/R_ref(disc_index))
+
+       sigma_gas = sig_norm(disc_index) * scaled_sigma(R,&
+                                                       sigmaprofilegas(disc_index),&
+                                                       pindex(disc_index),&
+                                                       R_ref(disc_index),&
+                                                       R_in(disc_index),&
+                                                       R_c(disc_index))
+       scaled_sigma_dust = scaled_sigma(R,&
+                                        sigmaprofiledust(disc_index),&
+                                        pindex_dust(disc_index),&
+                                        R_ref(disc_index),&
+                                        R_indust(disc_index),&
+                                        R_c_dust(disc_index))
+
+       dust_to_gas = 0.
+       do j=1,ndustsmall
+          sigma_dust = sig_normdust(disc_index,j) * scaled_sigma_dust
+          dust_to_gas = dust_to_gas + (sigma_dust/sigma_gas) * (Hg/Hd) &
+                                    * exp(-0.5d0*((z/Hd)**2.-(z/Hg)**2.))
+       enddo
+
+    endif
+
+    dust_to_gas = max(dust_to_gas,tiny(dust_to_gas))
+    dustfrac(:,i) = (dust_to_gas/(1.+dust_to_gas))*dustbinfrac(:)
+
+ enddo
+
+end subroutine set_dustfrac
 
 !--------------------------------------------------------------------------
 !
-! height scale as a function of radius
+! Scale height as a function of radius
 !
 !--------------------------------------------------------------------------
 real function get_H(h0,qindex,r)
@@ -2369,7 +2434,7 @@ real function get_H(h0,qindex,r)
 end function get_H
 !--------------------------------------------------------------------------
 !
-! spherical density profile as a function of radius
+! Spherical density profile as a function of radius
 !
 !--------------------------------------------------------------------------
 real function atm_dens(r)
@@ -2390,7 +2455,7 @@ end function atm_dens
 
 !--------------------------------------------------------------------------
 !
-! function to return the sound speed given the radius
+! Return the sound speed given the radius
 !
 !--------------------------------------------------------------------------
 pure real function cs_func(cs0,r,q_index)
