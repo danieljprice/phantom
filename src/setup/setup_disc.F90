@@ -100,8 +100,7 @@ module setup
  private
 
  integer :: np,np_dust(maxdustlarge)
- integer :: norbits
- integer :: i,j,ierr,itype
+ integer :: i,j,k,ierr,itype
 
  character(len=100) :: filename
  character(len=100) :: prefix
@@ -110,12 +109,11 @@ module setup
  !--central objects
  real    :: mcentral
  real    :: m1,m2,accr1,accr2
- real    :: bhspin,bhspinangle
- real    :: flyby_a,flyby_d,flyby_O,flyby_i
- real    :: binary_a,binary_e,binary_i,binary_O,binary_w,binary_f
- real    :: deltat
  integer :: icentral,ipotential,ibinary
  integer :: nsinks
+ real    :: binary_a,binary_e,binary_i,binary_O,binary_w,binary_f
+ real    :: flyby_a,flyby_d,flyby_O,flyby_i
+ real    :: bhspin,bhspinangle
  logical :: einst_prec
 
  !--discs
@@ -128,7 +126,7 @@ module setup
       'secondary'/)
 
  real    :: star_m(maxdiscs)
- real    :: totmass_gas,totmass_dust
+ real    :: totmass_gas
 
  integer :: ndiscs
  integer :: idisc
@@ -150,7 +148,7 @@ module setup
  real    :: R_warp(maxdiscs),H_warp(maxdiscs)
  real    :: Q_min(maxdiscs)
 
- real    :: disc_mdust(maxdiscs,maxdusttypes),sig_normdust(maxdiscs)
+ real    :: disc_mdust(maxdiscs,maxdusttypes),sig_normdust(maxdiscs,maxdusttypes)
  real    :: R_indust(maxdiscs),R_indust_swap(maxdiscs)
  real    :: R_outdust(maxdiscs),R_outdust_swap(maxdiscs),R_c_dust(maxdiscs)
  real    :: pindex_dust(maxdiscs),qindex_dust(maxdiscs),H_R_dust(maxdiscs)
@@ -163,7 +161,9 @@ module setup
 
  logical :: questplanets
  integer :: nplanets,setplanets
- real    :: mplanet(maxplanets),rplanet(maxplanets),accrplanet(maxplanets),inclplan(maxplanets)
+ real    :: mplanet(maxplanets),rplanet(maxplanets)
+ real    :: accrplanet(maxplanets),inclplan(maxplanets)
+ real    :: period_planet_longest
 
  !--planetary atmosphere
  integer :: npart_planet_atm
@@ -176,12 +176,9 @@ module setup
  !--units
  character(len=20) :: dist_unit,mass_unit
 
- !--misc
- integer, parameter :: maxbins = 4096
-
- real :: period_longest
- real :: enc_m(maxbins),rad(maxbins)
- real :: Q_mintmp,disc_mtmp(maxdiscs),annulus_mtmp(maxdiscs)
+ !--time
+ real    :: deltat
+ integer :: norbits
 
 contains
 
@@ -627,6 +624,15 @@ subroutine surface_density_profile()
     enddo
  endif
 
+ !--swap radii to keep dust profile the same as gas within [R_indust,R_outdust]
+ if (iprofile_dust == 2) then
+    R_indust_swap(:)  = R_in(:)
+    R_outdust_swap(:) = R_out(:)
+ else
+    R_indust_swap(:)  = R_indust(:)
+    R_outdust_swap(:) = R_outdust(:)
+ endif
+
 end subroutine surface_density_profile
 
 !--------------------------------------------------------------------------
@@ -777,25 +783,32 @@ end subroutine setup_dust_grain_distribution
 !--------------------------------------------------------------------------
 subroutine calculate_disc_mass()
 
+ integer, parameter :: maxbins = 4096
+
+ real :: enc_m(maxbins),rad(maxbins)
+ real :: Q_mintmp,disc_mtmp,annulus_mtmp
+
  totmass_gas  = 0.
- totmass_dust = 0.
+
  do i=1,maxdiscs
     if (iuse_disc(i)) then
+
+       !--gas discs
        select case(mass_set(i))
        case (0)
           !--set sigma normalisation from disc mass
           sig_norm(i) = 1.d0
-          call get_disc_mass(disc_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofilegas(i),sig_norm(i), &
+          call get_disc_mass(disc_mtmp,enc_m,rad,Q_mintmp,sigmaprofilegas(i),sig_norm(i), &
                              star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
                              H_R(i))
-          sig_norm(i) = sig_norm(i) * disc_m(i) / disc_mtmp(i)
+          sig_norm(i) = sig_norm(i) * disc_m(i) / disc_mtmp
        case (1)
           !--set disc mass from annulus mass
           sig_norm(i) = 1.d0
-          call get_disc_mass(annulus_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofilegas(i),sig_norm(i), &
+          call get_disc_mass(annulus_mtmp,enc_m,rad,Q_mintmp,sigmaprofilegas(i),sig_norm(i), &
                              star_m(i),pindex(i),qindex(i),R_inann(i),R_outann(i),R_ref(i),R_c(i), &
                              H_R(i))
-          sig_norm(i) = sig_norm(i) * annulus_m(i) / annulus_mtmp(i)
+          sig_norm(i) = sig_norm(i) * annulus_m(i) / annulus_mtmp
           call get_disc_mass(disc_m(i),enc_m,rad,Q_min(i),sigmaprofilegas(i),sig_norm(i), &
                              star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
                              H_R(i))
@@ -815,7 +828,7 @@ subroutine calculate_disc_mass()
        case (4)
           !--set disc mass from minimum Toomre Q
           sig_norm(i) = 1.d0
-          call get_disc_mass(disc_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofilegas(i),sig_norm(i), &
+          call get_disc_mass(disc_mtmp,enc_m,rad,Q_mintmp,sigmaprofilegas(i),sig_norm(i), &
                              star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
                              H_R(i))
           sig_norm(i) = sig_norm(i) * Q_mintmp / Q_min(i)
@@ -824,12 +837,19 @@ subroutine calculate_disc_mass()
                              star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
                              H_R(i))
        end select
+
        totmass_gas = totmass_gas + disc_m(i)
+
+       !--dust discs
        if (use_dust) then
           disc_mdust(i,:) = 0.
           do j=1,ndusttypes
              disc_mdust(i,j) = disc_m(i) * dust_to_gas * dustbinfrac(j)
-             totmass_dust    = totmass_dust + disc_mdust(i,j)
+             sig_normdust(i,j) = 1.d0
+             call get_disc_mass(disc_mtmp,enc_m,rad,Q_mintmp,sigmaprofiledust(i), &
+                                sig_normdust(i,j),star_m(i),pindex_dust(i),qindex_dust(i), &
+                                R_indust_swap(i),R_outdust_swap(i),R_ref(i),R_c_dust(i),H_R_dust(i))
+             sig_normdust(i,j) = sig_normdust(i,j) * disc_mdust(i,j) / disc_mtmp
           enddo
        endif
     endif
@@ -867,6 +887,8 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
  real,              intent(inout) :: xyzh(:,:)
  real,              intent(inout) :: vxyzu(:,:)
 
+ real :: H,Hd
+
  time  = 0.
  hfact = hfact_default
  incl    = incl*(pi/180.0)
@@ -876,6 +898,7 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
  npartoftype(:) = 0
  do i=1,maxdiscs
     if (iuse_disc(i)) then
+
        !--set disc origin
        if (ndiscs > 1) then
           print "(/,a)",'>>> Setting up circum'//trim(disctype(i))//' disc <<<'
@@ -909,12 +932,13 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
 
        !--set disc(s)
        if (use_dust .and. use_dustfrac) then
+
           !--gas and dust mixture disc
           npingasdisc = int(disc_m(i)/totmass_gas*np)
           call set_disc(id,master        = master,               &
                         mixture          = .true.,               &
                         npart            = npingasdisc,          &
-                        npart_start      = npart + 1,         &
+                        npart_start      = npart + 1,            &
                         rref             = R_ref(i),             &
                         rmin             = R_in(i),              &
                         rmax             = R_out(i),             &
@@ -949,42 +973,35 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
                         warp_smoothl     = H_warp(i),            &
                         bh_spin          = bhspin,               &
                         prefix           = prefix)
-          !--swap radii to keep dust profile the same as gas within [R_indust,R_outdust]
-          if (iprofile_dust == 2) then
-             R_indust_swap(i)  = R_in(i)
-             R_outdust_swap(i) = R_out(i)
-          else
-             R_indust_swap(i)  = R_indust(i)
-             R_outdust_swap(i) = R_outdust(i)
-          endif
 
           !--set dustfrac
-          sig_normdust(i) = 1.d0
-          call get_disc_mass(disc_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofiledust(i), &
-                             sig_normdust(i),star_m(i),pindex_dust(i),qindex_dust(i), &
-                             R_indust_swap(i),R_outdust_swap(i),R_ref(i),R_c_dust(i),H_R_dust(i))
-          sig_normdust(i) = sig_normdust(i) * sum(disc_mdust(i,:)) / disc_mtmp(i)
           do j=npart+1,npingasdisc
              Rj = sqrt(dot_product(xyzh(1:2,j)-xorigini(1:2),xyzh(1:2,j)-xorigini(1:2)))
              if (iprofile_dust > 0 .and. (Rj<R_indust(i) .or. Rj>R_outdust(i))) then
                 jdust_to_gas = tiny(jdust_to_gas)
              else
-                call get_dust_to_gas(jdust_to_gas,Rj,sigmaprofilegas(i), &
-                                     sigmaprofiledust(i),sig_norm(i),sig_normdust(i), &
-                                     pindex(i),pindex_dust(i),R_in(i),R_indust_swap(i),R_ref(i),&
-                                     xyzh(3,j)-xorigini(3),get_H(H_R(i)*R_ref(i),qindex(i),Rj/R_ref(i)),&
-                                     get_H(H_R_dust(i)*R_ref(i),qindex_dust(i),Rj/R_ref(i)),R_c(i),R_c_dust(i))
+                do k=1,ndustsmall
+                   H = get_H(H_R(i)*R_ref(i),qindex(i),Rj/R_ref(i))
+                   Hd = get_H(H_R_dust(i)*R_ref(i),qindex_dust(i),Rj/R_ref(i))
+                   call get_dust_to_gas(jdust_to_gas,Rj,sigmaprofilegas(i),&
+                                        sigmaprofiledust(i),sig_norm(i),&
+                                        sig_normdust(i,k),pindex(i),pindex_dust(i),&
+                                        R_in(i),R_indust_swap(i),R_ref(i),&
+                                        xyzh(3,j)-xorigini(3),H,Hd,R_c(i),R_c_dust(i))
+                enddo
              endif
              jdust_to_gas = max(jdust_to_gas,tiny(jdust_to_gas))
              dustfrac(:,j) = (jdust_to_gas/(1.+jdust_to_gas))*dustbinfrac(:)
           enddo
           npart = npart + npingasdisc
+
        else
+
           !--gas disc
           npingasdisc = int(disc_m(i)/totmass_gas*np)
           call set_disc(id,master       = master,             &
                         npart           = npingasdisc,        &
-                        npart_start     = npart + 1,       &
+                        npart_start     = npart + 1,          &
                         particle_type   = igas,               &
                         rref            = R_ref(i),           &
                         rmin            = R_in(i),            &
@@ -1014,6 +1031,7 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
                         prefix          = prefix)
           npart = npart + npingasdisc
           npartoftype(igas) = npartoftype(igas) + npingasdisc
+
           if (use_dust) then
              !--dust disc
              do j=1,ndustlarge
@@ -1021,7 +1039,7 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
                 itype = idust + j - 1
                 call set_disc(id,master      = master,             &
                               npart          = npindustdisc,       &
-                              npart_start    = npart + 1,       &
+                              npart_start    = npart + 1,          &
                               particle_type  = itype,              &
                               rref           = R_ref(i),           &
                               rmin           = R_indust(i),        &
@@ -1050,16 +1068,14 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
                               prefix         = prefix)
                 npartoftype(itype) = npartoftype(itype) + npindustdisc
                 npart  = npart + npindustdisc
-                sig_normdust(i) = 1.d0
-                call get_disc_mass(disc_mtmp(i),enc_m,rad,Q_mintmp,sigmaprofiledust(i), &
-                                   sig_normdust(i),star_m(i),pindex_dust(i),qindex_dust(i), &
-                                   R_indust(i),R_outdust(i),R_ref(i),R_c_dust(i),H_R_dust(i))
-                sig_normdust(i) = sig_normdust(i) * disc_mdust(i,j) / disc_mtmp(i)
              enddo
           endif
+
        endif
+
        !--reset alpha for each disc
        alpha_returned(i) = alpha
+
     endif
  enddo
 
@@ -1301,9 +1317,12 @@ subroutine print_dust()
           R_midpoint = (R_in(i) + R_out(i))/2
           Sigma = sig_norm(i) * &
                   scaled_sigma(R_midpoint,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
-          Sigmadust = sig_normdust(i) * &
-                      scaled_sigma(R_midpoint,sigmaprofiledust(i),pindex_dust(i),&
-                                   R_ref(i),R_indust(i),R_c_dust(i))
+          Sigmadust = 0.
+          do j=1,ndusttypes
+             Sigmadust = Sigmadust + sig_normdust(i,j) * &
+                         scaled_sigma(R_midpoint,sigmaprofiledust(i),pindex_dust(i),&
+                                      R_ref(i),R_indust(i),R_c_dust(i))
+          enddo
           Stokes = 0.5*pi*graindens*grainsize/(Sigma+Sigmadust)
           duststring = 'approx. Stokes'
           call make_tags_unique(ndusttypes,duststring)
@@ -1339,7 +1358,7 @@ subroutine set_planets(npart,massoftype,xyzh)
  real :: Hill(maxplanets)
  real :: u(3)
 
- period_longest = 0.
+ period_planet_longest = 0.
  if (setplanets==1) then
     print "(a,i2,a)",' --------- added ',nplanets,' planets ------------'
     do i=1,nplanets
@@ -1415,7 +1434,7 @@ subroutine set_planets(npart,massoftype,xyzh)
        endif
        print *, ''
        !--determine longest period
-       period_longest = max(period_longest, 2.*pi/omega)
+       period_planet_longest = max(period_planet_longest, 2.*pi/omega)
     enddo
     print "(1x,45('-'))"
     print *, ''
@@ -1457,19 +1476,19 @@ subroutine set_tmax_dtmax()
  real :: period
 
  if (icentral==1 .and. nsinks==2 .and. ibinary==0) then
-    !--bound binary
+    !--binary orbital period
     period = sqrt(4.*pi**2*binary_a**3/mcentral)
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
-    !--unbound binary (flyby)
+    !--time of flyby
     period = get_T_flyby(m1,m2,flyby_a,flyby_d)
  elseif (setplanets==1) then
-    !--outer planet set above
-    period = period_longest
+    !--outer planet orbital period
+    period = period_planet_longest
  elseif (iwarp(idisc)) then
-    !--warp radius
+    !--warp period
     period = sqrt(4.*pi**2*R_warp(idisc)**3/mcentral)
  else
-    !--outer disc
+    !--outer disc orbital period
     period = sqrt(4.*pi**2*R_out(idisc)**3/mcentral)
  endif
  if (period > 0.) then
