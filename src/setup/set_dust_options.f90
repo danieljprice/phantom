@@ -43,7 +43,7 @@ module set_dust_options
  real,    public :: graindensinp(maxdusttypes)
  integer, public :: igrainsize
  integer, public :: igraindens
- integer, public :: iprofile_dust
+ integer, public :: isetdust
  real,    public :: smincgs
  real,    public :: smaxcgs
  real,    public :: sindex
@@ -75,7 +75,7 @@ subroutine set_dust_default_options()
  graindensinp(:) = 3.
  igrainsize = 0
  igraindens = 0
- iprofile_dust = 0
+ isetdust = 0
  smincgs = 1.e-4
  smaxcgs = 1.
  sindex = 3.5
@@ -116,7 +116,7 @@ subroutine set_dust_interactively()
  call prompt('How do you want to set the dust density profile?'//new_line('A')// &
             ' 0=equal to the gas'//new_line('A')// &
             ' 1=custom'//new_line('A')// &
-            ' 2=equal to the gas, but with unique cutoffs'//new_line('A'),iprofile_dust,0,2)
+            ' 2=equal to the gas, but with unique cutoffs'//new_line('A'),isetdust,0,2)
 
 end subroutine set_dust_interactively
 
@@ -277,7 +277,7 @@ subroutine write_dust_setup_options(iunit)
 
  endif
 
- call write_inopt(iprofile_dust,'iprofile_dust', &
+ call write_inopt(isetdust,'isetdust', &
     'how to set dust density profile (0=equal to gas,1=custom,2=equal to gas with cutoffs)',iunit)
 
  if (use_dustgrowth) call write_growth_setup_options(iunit)
