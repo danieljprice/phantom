@@ -907,6 +907,7 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
  real               :: xorigini(3),vorigini(3)
  real               :: alpha_returned(maxdiscs)
  character(len=100) :: prefix
+ character(len=100) :: dustprefix(maxdusttypes)
 
  time  = 0.
  hfact = hfact_default
@@ -1049,6 +1050,13 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
 
           if (use_dust) then
 
+             if (ndustlarge > 1) then
+                dustprefix = trim(prefix)//'-'
+                call make_tags_unique(ndustlarge,dustprefix)
+             else
+                dustprefix = trim(prefix)
+             endif
+
              !--dust disc(s)
              do j=1,ndustlarge
 
@@ -1083,7 +1091,7 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
                               rwarp          = R_warp(i),          &
                               warp_smoothl   = H_warp(i),          &
                               bh_spin        = bhspin,             &
-                              prefix         = prefix)
+                              prefix         = dustprefix(j))
 
                 npart = npart + npindustdisc
                 npartoftype(itype) = npartoftype(itype) + npindustdisc
