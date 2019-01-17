@@ -90,7 +90,7 @@ module setup
  use physcon,          only:au,solarm,jupiterm,earthm,pi,years
  use setdisc,          only:scaled_sigma,get_disc_mass
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
-                            ndusttypesinp,iprofile_dust,dustbinfrac
+                            ndusttypesinp,isetdust,dustbinfrac
  use units,            only:umass,udist,utime
 
  implicit none
@@ -128,16 +128,15 @@ module setup
  real    :: totmass_gas
 
  integer :: ndiscs
- integer :: idisc
- integer :: mass_set(maxdiscs)
+ integer :: onlydisc
+ integer :: isetgas(maxdiscs)
  logical :: iuse_disc(maxdiscs)
+ integer :: sigmaprofilegas(maxdiscs),sigmaprofiledust(maxdiscs)
  logical :: ismoothgas(maxdiscs),ismoothdust(maxdiscs)
  logical :: itapergas(maxdiscs),itaperdust(maxdiscs)
  logical :: iwarp(maxdiscs)
  logical :: use_global_iso
  real    :: alphaSS
- integer :: sigmaprofilegas(maxdiscs),sigmaprofiledust(maxdiscs)
- integer :: iprofilegas(maxdiscs),iprofiledust(maxdiscs)
 
  real    :: R_in(maxdiscs),R_out(maxdiscs),R_ref(maxdiscs),R_c(maxdiscs)
  real    :: pindex(maxdiscs),disc_m(maxdiscs),sig_ref(maxdiscs),sig_norm(maxdiscs)
@@ -344,7 +343,7 @@ subroutine set_default_options()
  R_c        = 150.
  R_warp     = 0.
  H_warp     = 0.
- mass_set   = 0
+ isetgas    = 0
  itapergas  = .false.
  ismoothgas = .true.
  iwarp      = .false.
@@ -500,10 +499,10 @@ subroutine number_of_discs()
 
  ndiscs = max(count(iuse_disc),1)
  !--index of disc (if only one)
- idisc = 0
+ onlydisc = 0
  if (ndiscs==1) then
     do i=1,maxdiscs
-       if (iuse_disc(i)) idisc = i
+       if (iuse_disc(i)) onlydisc = i
     enddo
  endif
 
@@ -569,7 +568,7 @@ subroutine equation_of_state(gamma)
        endif
     else
        !--single disc
-       if (qindex(idisc) > 0.) then
+       if (qindex(onlydisc) > 0.) then
           do i=1,maxdiscs
              !--eos around sink
              if (iuse_disc(i)) isink = i-1
@@ -582,7 +581,7 @@ subroutine equation_of_state(gamma)
              ieos = 3
              print "(/,a)",' setting ieos=3 for locally isothermal disc around origin'
           endif
-          qfacdisc = qindex(idisc)
+          qfacdisc = qindex(onlydisc)
        endif
     endif
 
@@ -610,16 +609,20 @@ end subroutine equation_of_state
 !
 ! Set the surface density profile choice
 !
+!    0 = power law
+!    1 = exponentially tapered power law
+!    2 = smoothed power law
+!    3 = both tapered and smoothed
+!    4 = warped surface density
+!
 !--------------------------------------------------------------------------
 subroutine surface_density_profile()
 
  integer :: i
 
- iprofilegas = 0
  sigmaprofilegas = 0
  do i=1,maxdiscs
     if (itapergas(i)) then
-       iprofilegas(i) = 1
        sigmaprofilegas(i) = 1
     endif
     if (ismoothgas(i)) sigmaprofilegas(i) = 2
@@ -627,11 +630,9 @@ subroutine surface_density_profile()
  enddo
 
  if (use_dust) then
-    iprofiledust = 0
     sigmaprofiledust = 0
     do i=1,maxdiscs
        if (itaperdust(i)) then
-          iprofiledust(i) = 1
           sigmaprofiledust(i) = 1
        endif
        if (ismoothdust(i)) sigmaprofiledust(i) = 2
@@ -640,7 +641,7 @@ subroutine surface_density_profile()
  endif
 
  !--swap radii to keep dust profile the same as gas within [R_indust,R_outdust]
- if (iprofile_dust == 2) then
+ if (isetdust == 2) then
     R_indust_swap(:)  = R_in(:)
     R_outdust_swap(:) = R_out(:)
  else
@@ -813,7 +814,7 @@ subroutine calculate_disc_mass()
     if (iuse_disc(i)) then
 
        !--gas discs
-       select case(mass_set(i))
+       select case(isetgas(i))
        case (0)
           !--set sigma normalisation from disc mass
           sig_norm(i) = 1.d0
@@ -900,6 +901,7 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
 
  integer            :: i,j,itype
  integer            :: npingasdisc,npindustdisc
+ integer            :: iprofilegas,iprofiledust
  real               :: Rochelobe
  real               :: polyk_dust
  real               :: xorigini(3),vorigini(3)
@@ -950,6 +952,12 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
              //trim(disctype(i)))
        endif
 
+       !--taper disc
+       iprofilegas = 0
+       iprofiledust = 0
+       if (itapergas(i)) iprofilegas = 1
+       if (itaperdust(i)) iprofiledust = 1
+
        !--set disc(s)
        if (use_dust .and. use_dustfrac) then
 
@@ -965,8 +973,8 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
                         rmax             = R_out(i),             &
                         rmindust         = R_indust(i),          &
                         rmaxdust         = R_outdust(i),         &
-                        indexprofile     = iprofilegas(i),       &
-                        indexprofiledust = iprofiledust(i),      &
+                        indexprofile     = iprofilegas,          &
+                        indexprofiledust = iprofiledust,         &
                         rc               = R_c(i),               &
                         rcdust           = R_c_dust(i),          &
                         p_index          = pindex(i),            &
@@ -1012,7 +1020,7 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
                         rref            = R_ref(i),           &
                         rmin            = R_in(i),            &
                         rmax            = R_out(i),           &
-                        indexprofile    = iprofilegas(i),     &
+                        indexprofile    = iprofilegas,        &
                         rc              = R_c(i),             &
                         p_index         = pindex(i),          &
                         q_index         = qindex(i),          &
@@ -1054,7 +1062,7 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
                               rref           = R_ref(i),           &
                               rmin           = R_indust(i),        &
                               rmax           = R_outdust(i),       &
-                              indexprofile   = iprofiledust(i),    &
+                              indexprofile   = iprofiledust,       &
                               rc             = R_c_dust(i),        &
                               p_index        = pindex_dust(i),     &
                               q_index        = qindex_dust(i),     &
@@ -1093,7 +1101,7 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
 
  !--alpha viscosity
  if (ndiscs==1) then
-    alpha = alpha_returned(idisc)
+    alpha = alpha_returned(onlydisc)
  else
     call warning('setup_disc', &
        'multiple discs: cannot use alpha_AV for alpha_SS, setting equal to 0.1')
@@ -1523,12 +1531,12 @@ subroutine set_tmax_dtmax()
  elseif (setplanets==1) then
     !--outer planet orbital period
     period = period_planet_longest
- elseif (iwarp(idisc)) then
+ elseif (iwarp(onlydisc)) then
     !--warp period
-    period = sqrt(4.*pi**2*R_warp(idisc)**3/mcentral)
+    period = sqrt(4.*pi**2*R_warp(onlydisc)**3/mcentral)
  else
     !--outer disc orbital period
-    period = sqrt(4.*pi**2*R_out(idisc)**3/mcentral)
+    period = sqrt(4.*pi**2*R_out(onlydisc)**3/mcentral)
  endif
 
  if (period > 0.) then
@@ -1752,10 +1760,10 @@ subroutine setup_interactive()
                   ' 1=mass within annulus'//new_line('A')// &
                   ' 2=surface density normalisation'//new_line('A')// &
                   ' 3=surface density at reference radius'//new_line('A')// &
-                  ' 4=minimum Toomre Q'//new_line('A'),mass_set(i),0,4)
+                  ' 4=minimum Toomre Q'//new_line('A'),isetgas(i),0,4)
        call prompt('Do you want to exponentially taper the outer gas disc profile?',itapergas(i))
        call prompt('Do you want to warp the disc?',iwarp(i))
-       select case (mass_set(i))
+       select case (isetgas(i))
        case (0)
           disc_m(i)    = 0.05   * disc_mfac(i)
        case (1)
@@ -2020,7 +2028,7 @@ subroutine write_setupfile(filename)
        else
           write(iunit,"(/,a)") '# options for gas accretion disc'
        endif
-       call write_inopt(mass_set(i),'mass_set'//trim(disclabel),'how to set gas density profile' // &
+       call write_inopt(isetgas(i),'isetgas'//trim(disclabel),'how to set gas density profile' // &
           ' (0=total disc mass,1=mass within annulus,2=surface density normalisation,' // &
           '3=surface density at reference radius,4=minimum Toomre Q)',iunit)
        call write_inopt(itapergas(i),'itapergas'//trim(disclabel), &
@@ -2032,7 +2040,7 @@ subroutine write_setupfile(filename)
        call write_inopt(R_out(i),'R_out'//trim(disclabel),'outer radius',iunit)
        if (itapergas(i)) call write_inopt(R_c(i),'R_c'//trim(disclabel), &
           'characteristic radius of the exponential taper',iunit)
-       select case (mass_set(i))
+       select case (isetgas(i))
        case (0)
           call write_inopt(disc_m(i),'disc_m'//trim(disclabel),'disc mass',iunit)
        case (1)
@@ -2066,7 +2074,7 @@ subroutine write_setupfile(filename)
           done_alpha = .true.
        endif
        !--dust disc
-       if (use_dust .and. (iprofile_dust == 1 .or. iprofile_dust == 2)) then
+       if (use_dust .and. (isetdust == 1 .or. isetdust == 2)) then
           if (n_possible_discs > 1) then
              write(iunit,"(/,a)") '# options for circum'//trim(disclabel)//' dust disc'
           else
@@ -2285,11 +2293,11 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(R_ref(i),'R_ref'//trim(disclabel),db,min=R_in(i),errcount=nerr)
        call read_inopt(itapergas(i),'itapergas'//trim(disclabel),db,errcount=nerr)
        call read_inopt(ismoothgas(i),'ismoothgas'//trim(disclabel),db,errcount=nerr)
-       call read_inopt(mass_set(i),'mass_set'//trim(disclabel),db,min=0,max=4,errcount=nerr)
+       call read_inopt(isetgas(i),'isetgas'//trim(disclabel),db,min=0,max=4,errcount=nerr)
        if (itapergas(i)) then
           call read_inopt(R_c(i),'R_c'//trim(disclabel),db,min=0.,errcount=nerr)
        endif
-       select case (mass_set(i))
+       select case (isetgas(i))
        case (0)
           call read_inopt(disc_m(i),'disc_m'//trim(disclabel),db,min=0.,errcount=nerr)
        case (1)
@@ -2315,8 +2323,8 @@ subroutine read_setupfile(filename,ierr)
        endif
        !--dust disc
        if (use_dust) then
-          call read_inopt(iprofile_dust,'iprofile_dust',db,errcount=nerr)
-          select case (iprofile_dust)
+          call read_inopt(isetdust,'isetdust',db,errcount=nerr)
+          select case (isetdust)
           case (0)
              R_indust(i)    = R_in(i)
              R_outdust(i)   = R_out(i)
@@ -2405,7 +2413,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
     R = sqrt(dot_product(xyzh(1:2,i)-xorigini(1:2),xyzh(1:2,i)-xorigini(1:2)))
     z = xyzh(3,i) - xorigini(3)
 
-    if (iprofile_dust > 0 .and. (R<R_indust(disc_index) .or. R>R_outdust(disc_index))) then
+    if (isetdust > 0 .and. (R<R_indust(disc_index) .or. R>R_outdust(disc_index))) then
 
        dust_to_gas = tiny(dust_to_gas)
 
