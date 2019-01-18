@@ -307,11 +307,19 @@ subroutine update_max_sizes(n)
 #endif
 #endif
 
- if (nalpha > 0) then
-    maxalpha = maxp
- else
-    maxalpha = 0
- endif
+#ifdef DISC_VISCOSITY
+ maxalpha = 0
+#else
+#ifdef CONST_AV
+ maxalpha = 0
+#else
+#ifdef USE_MORRIS_MONAGHAN
+ maxalpha = maxp
+#else
+ maxalpha = maxp
+#endif
+#endif
+#endif
 
 #ifdef MHD
  maxmhd = maxp
