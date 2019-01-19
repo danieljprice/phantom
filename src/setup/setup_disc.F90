@@ -976,7 +976,7 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
        !--taper gas disc
        iprofilegas = 0
        if (itapergas(i)) iprofilegas = 1
-       if (itapersetgas(i)) iprofilegas = 2
+       if (itapersetgas(i) == 1) iprofilegas = 2
 
        !--set disc(s)
        if (use_dust .and. use_dustfrac) then
@@ -984,7 +984,7 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
           !--taper dust disc
           iprofiledust = 0
           if (itaperdust(i,1)) iprofiledust = 1
-          if (itapersetdust(i,1)) iprofiledust = 2
+          if (itapersetdust(i,1) == 1) iprofiledust = 2
 
           !--gas and dust mixture disc
           npingasdisc = int(disc_m(i)/totmass_gas*np)
@@ -1934,6 +1934,7 @@ subroutine write_setupfile(filename)
  character(len=20)  :: duststring(maxdusttypes)
  character(len=20)  :: taper_string
  character(len=20)  :: smooth_string
+ character(len=40)  :: tmpstr
 
  done_alpha = .false.
  n_possible_discs = 1
@@ -2134,20 +2135,21 @@ subroutine write_setupfile(filename)
              else
                 write(iunit,"(/,a)") '# options for '//trim(duststring(j))//' accretion disc'
              endif
-             call write_inopt(itaperdust(i,j),'itaper'//trim(duststring(j))//trim(disclabel), &
+             tmpstr = trim(duststring(j))//trim(disclabel)
+             call write_inopt(itaperdust(i,j),'itaper'//trim(tmpstr), &
                 'exponentially taper the outer disc profile',iunit)
-             if (itaperdust(i,j)) call write_inopt(itapersetdust(i,j),'itapersetdust'//trim(disclabel), &
+             if (itaperdust(i,j)) call write_inopt(itapersetdust(i,j),'itapersetdust'//trim(tmpstr), &
                 'how to set taper (0=exp[-(R/R_c)^(2-p)], 1=[1-exp(R-R_out)]',iunit)
-             call write_inopt(ismoothdust(i,j),'ismooth'//trim(duststring(j))//trim(disclabel),'smooth inner disc',iunit)
-             call write_inopt(R_indust(i,j),'R_in'//trim(duststring(j))//trim(disclabel),'inner radius',iunit)
-             call write_inopt(R_outdust(i,j),'R_out'//trim(duststring(j))//trim(disclabel),'outer radius',iunit)
+             call write_inopt(ismoothdust(i,j),'ismooth'//trim(tmpstr),'smooth inner disc',iunit)
+             call write_inopt(R_indust(i,j),'R_in'//trim(tmpstr),'inner radius',iunit)
+             call write_inopt(R_outdust(i,j),'R_out'//trim(tmpstr),'outer radius',iunit)
              if (itaperdust(i,j) .and. itapersetdust(i,j)==0) then
-                call write_inopt(R_c_dust(i,j),'R_c_'//trim(duststring(j))//trim(disclabel), &
+                call write_inopt(R_c_dust(i,j),'R_c_'//trim(tmpstr), &
                 'characteristic radius of the exponential taper',iunit)
              endif
-             call write_inopt(pindex_dust(i,j),'pindex_'//trim(duststring(j))//trim(disclabel),'p index',iunit)
-             call write_inopt(qindex_dust(i,j),'qindex_'//trim(duststring(j))//trim(disclabel),'q index',iunit)
-             call write_inopt(H_R_dust(i,j),'H_R_'//trim(duststring(j))//trim(disclabel),'H/R at R=R_ref',iunit)
+             call write_inopt(pindex_dust(i,j),'pindex_'//trim(tmpstr),'p index',iunit)
+             call write_inopt(qindex_dust(i,j),'qindex_'//trim(tmpstr),'q index',iunit)
+             call write_inopt(H_R_dust(i,j),'H_R_'//trim(tmpstr),'H/R at R=R_ref',iunit)
           enddo
        endif
     endif
@@ -2206,6 +2208,7 @@ subroutine read_setupfile(filename,ierr)
  integer,      parameter   :: iunit = 21
  integer                   :: nerr,i,j
  character(len=20)         :: duststring(maxdusttypes)
+ character(len=40)         :: tmpstr
 
  print "(a)",' reading setup options from '//trim(filename)
 
@@ -2400,25 +2403,26 @@ subroutine read_setupfile(filename,ierr)
                 ismoothdust(i,j) = ismoothgas(i)
                 R_c_dust(i,j)    = R_c(i)
              case (1,2)
-                call read_inopt(R_indust(i,j),'R_in'//trim(duststring(j))//trim(disclabel),db,min=R_in(i),err=ierr,errcount=nerr)
+                tmpstr = trim(duststring(j))//trim(disclabel)
+                call read_inopt(R_indust(i,j),'R_in'//trim(tmpstr),db,min=R_in(i),err=ierr,errcount=nerr)
                 if (ierr /= 0) R_indust(i,j) = R_in(i)
 
-                call read_inopt(R_outdust(i,j),'R_out'//trim(duststring(j))//trim(disclabel),db,min=R_indust(i,j),max=R_out(i),err=ierr,errcount=nerr)
+                call read_inopt(R_outdust(i,j),'R_out'//trim(tmpstr),db,min=R_indust(i,j),max=R_out(i),err=ierr,errcount=nerr)
                 if (ierr /= 0) R_outdust(i,j) = R_out(i)
-                call read_inopt(pindex_dust(i,j),'pindex_'//trim(duststring(j))//trim(disclabel),db,err=ierr,errcount=nerr)
+                call read_inopt(pindex_dust(i,j),'pindex_'//trim(tmpstr),db,err=ierr,errcount=nerr)
                 if (ierr /= 0) pindex_dust(i,j) = pindex(i)
-                call read_inopt(itaperdust(i,j),'itaper'//trim(duststring(j))//trim(disclabel),db,err=ierr,errcount=nerr)
-                if (itaperdust(i,j)) call read_inopt(itapersetdust(i,j),'itapersetdust'//trim(duststring(j))//trim(disclabel),db,errcount=nerr)
-                call read_inopt(ismoothdust(i,j),'ismooth'//trim(duststring(j))//trim(disclabel),db,err=ierr,errcount=nerr)
+                call read_inopt(itaperdust(i,j),'itaper'//trim(tmpstr),db,err=ierr,errcount=nerr)
+                if (itaperdust(i,j)) call read_inopt(itapersetdust(i,j),'itapersetdust'//trim(tmpstr),db,errcount=nerr)
+                call read_inopt(ismoothdust(i,j),'ismooth'//trim(tmpstr),db,err=ierr,errcount=nerr)
                 if (itaperdust(i,j)) then
                    if (itapersetdust(i,j)==0) then
-                      call read_inopt(R_c_dust(i,j),'R_c_'//trim(duststring(j))//trim(disclabel),db,min=0.,err=ierr,errcount=nerr)
+                      call read_inopt(R_c_dust(i,j),'R_c_'//trim(tmpstr),db,min=0.,err=ierr,errcount=nerr)
                    endif
                    if (ierr /= 0) R_c_dust(i,j) = R_c(i)
                 endif
-                call read_inopt(qindex_dust(i,j),'qindex_'//trim(duststring(j))//trim(disclabel),db,min=qindex(i),err=ierr,errcount=nerr)
+                call read_inopt(qindex_dust(i,j),'qindex_'//trim(tmpstr),db,min=qindex(i),err=ierr,errcount=nerr)
                 if (ierr /= 0) qindex_dust(i,j) = qindex(i)
-                call read_inopt(H_R_dust(i,j),'H_R_'//trim(duststring(j))//trim(disclabel),db,min=0.,max=H_R(i),err=ierr,errcount=nerr)
+                call read_inopt(H_R_dust(i,j),'H_R_'//trim(tmpstr),db,min=0.,max=H_R(i),err=ierr,errcount=nerr)
                 if (ierr /= 0) H_R_dust(i,j) = H_R(i)
              end select
           enddo
