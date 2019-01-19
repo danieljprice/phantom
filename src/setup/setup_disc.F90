@@ -2351,11 +2351,13 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(R_out(i),'R_out'//trim(disclabel),db,min=R_in(i),errcount=nerr)
        call read_inopt(R_ref(i),'R_ref'//trim(disclabel),db,min=R_in(i),errcount=nerr)
        call read_inopt(itapergas(i),'itapergas'//trim(disclabel),db,errcount=nerr)
-       call read_inopt(itapersetgas(i),'itapersetgas'//trim(disclabel),db,errcount=nerr)
+       if (itapergas(i)) call read_inopt(itapersetgas(i),'itapersetgas'//trim(disclabel),db,errcount=nerr)
        call read_inopt(ismoothgas(i),'ismoothgas'//trim(disclabel),db,errcount=nerr)
        call read_inopt(isetgas(i),'isetgas'//trim(disclabel),db,min=0,max=4,errcount=nerr)
-       if (itapergas(i) .and. itapersetgas(i)==0) then
-          call read_inopt(R_c(i),'R_c'//trim(disclabel),db,min=0.,errcount=nerr)
+       if (itapergas(i)) then
+          if (itapersetgas(i)==0) then
+             call read_inopt(R_c(i),'R_c'//trim(disclabel),db,min=0.,errcount=nerr)
+          endif
        endif
        select case (isetgas(i))
        case (0)
@@ -2406,10 +2408,12 @@ subroutine read_setupfile(filename,ierr)
                 call read_inopt(pindex_dust(i,j),'pindex_'//trim(duststring(j))//trim(disclabel),db,err=ierr,errcount=nerr)
                 if (ierr /= 0) pindex_dust(i,j) = pindex(i)
                 call read_inopt(itaperdust(i,j),'itaper'//trim(duststring(j))//trim(disclabel),db,err=ierr,errcount=nerr)
-                call read_inopt(itapersetdust(i,j),'itapersetdust'//trim(duststring(j))//trim(disclabel),db,errcount=nerr)
+                if (itaperdust(i,j)) call read_inopt(itapersetdust(i,j),'itapersetdust'//trim(duststring(j))//trim(disclabel),db,errcount=nerr)
                 call read_inopt(ismoothdust(i,j),'ismooth'//trim(duststring(j))//trim(disclabel),db,err=ierr,errcount=nerr)
-                if (itaperdust(i,j) .and. itapersetdust(i,j)==0) then
-                   call read_inopt(R_c_dust(i,j),'R_c_'//trim(duststring(j))//trim(disclabel),db,min=0.,err=ierr,errcount=nerr)
+                if (itaperdust(i,j)) then
+                   if (itapersetdust(i,j)==0) then
+                      call read_inopt(R_c_dust(i,j),'R_c_'//trim(duststring(j))//trim(disclabel),db,min=0.,err=ierr,errcount=nerr)
+                   endif
                    if (ierr /= 0) R_c_dust(i,j) = R_c(i)
                 endif
                 call read_inopt(qindex_dust(i,j),'qindex_'//trim(duststring(j))//trim(disclabel),db,min=qindex(i),err=ierr,errcount=nerr)
