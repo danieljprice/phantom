@@ -134,6 +134,7 @@ module setup
  integer :: sigmaprofilegas(maxdiscs)
  logical :: ismoothgas(maxdiscs)
  logical :: itapergas(maxdiscs)
+ integer :: itapersetgas(maxdiscs)
  logical :: iwarp(maxdiscs)
  logical :: use_global_iso
  real    :: alphaSS
@@ -149,6 +150,7 @@ module setup
  integer :: sigmaprofiledust(maxdiscs,maxdusttypes)
  logical :: ismoothdust(maxdiscs,maxdusttypes)
  logical :: itaperdust(maxdiscs,maxdusttypes)
+ integer :: itapersetdust(maxdiscs,maxdusttypes)
  real    :: disc_mdust(maxdiscs,maxdusttypes),sig_normdust(maxdiscs,maxdusttypes)
  real    :: R_indust(maxdiscs,maxdusttypes),R_indust_swap(maxdiscs,maxdusttypes)
  real    :: R_outdust(maxdiscs,maxdusttypes),R_outdust_swap(maxdiscs,maxdusttypes)
@@ -342,39 +344,41 @@ subroutine set_default_options()
  call set_dust_default_options()
 
  !--gas disc
- R_in       = 1.
- R_out      = 150.
- R_ref      = 1.
- R_c        = 150.
- R_warp     = 0.
- H_warp     = 0.
- isetgas    = 0
- itapergas  = .false.
- ismoothgas = .true.
- iwarp      = .false.
- pindex     = 1.
- qindex     = 0.25
- alphaSS    = 0.005
- posangl    = 0.
- incl       = 0.
- H_R        = 0.05
- disc_m     = 0.05
- sig_norm   = 1.e-02
- sig_ref    = 1.e-02
- Q_min      = 1.0
- annulus_m  = 0.05
- R_inann    = 1.
- R_outann   = 150.
+ R_in         = 1.
+ R_out        = 150.
+ R_ref        = 1.
+ R_c          = 150.
+ R_warp       = 0.
+ H_warp       = 0.
+ isetgas      = 0
+ itapergas    = .false.
+ itapersetgas = 0
+ ismoothgas   = .true.
+ iwarp        = .false.
+ pindex       = 1.
+ qindex       = 0.25
+ alphaSS      = 0.005
+ posangl      = 0.
+ incl         = 0.
+ H_R          = 0.05
+ disc_m       = 0.05
+ sig_norm     = 1.e-02
+ sig_ref      = 1.e-02
+ Q_min        = 1.0
+ annulus_m    = 0.05
+ R_inann      = 1.
+ R_outann     = 150.
 
  !--dust disc
- R_indust    = 1.
- R_outdust   = 150.
- pindex_dust = 1.
- qindex_dust = 0.25
- H_R_dust    = 0.05
- itaperdust  = .false.
- ismoothdust = .true.
- R_c_dust    = 150.
+ R_indust      = 1.
+ R_outdust     = 150.
+ pindex_dust   = 1.
+ qindex_dust   = 0.25
+ H_R_dust      = 0.05
+ itaperdust    = .false.
+ itapersetdust = 0
+ ismoothdust   = .true.
+ R_c_dust      = 150.
 
  !--dust growth
  ifrag = 1
@@ -625,7 +629,8 @@ end subroutine equation_of_state
 !    1 = exponentially tapered power law
 !    2 = smoothed power law
 !    3 = both tapered and smoothed
-!    4 = warped surface density
+!    4 = alternative taper
+!    5 = alternative taper with smoothing
 !
 !--------------------------------------------------------------------------
 subroutine surface_density_profile()
@@ -633,25 +638,25 @@ subroutine surface_density_profile()
  integer :: i,j
 
  !--gas profile
- sigmaprofilegas = 0
  do i=1,maxdiscs
-    if (itapergas(i)) then
-       sigmaprofilegas(i) = 1
-    endif
+    sigmaprofilegas(i) = 0
+    if (itapergas(i)) sigmaprofilegas(i) = 1
     if (ismoothgas(i)) sigmaprofilegas(i) = 2
     if (itapergas(i) .and. ismoothgas(i)) sigmaprofilegas(i) = 3
+    if (itapersetgas(i)==1) sigmaprofilegas(i) = 4
+    if (itapersetgas(i)==1 .and. ismoothgas(i)) sigmaprofilegas(i) = 5
  enddo
 
  !--dust profile
  if (use_dust) then
-    sigmaprofiledust = 0
     do i=1,maxdiscs
        do j=1,ndusttypes
-          if (itaperdust(i,j)) then
-             sigmaprofiledust(i,j) = 1
-          endif
+          sigmaprofiledust(i,j) = 0
+          if (itaperdust(i,j)) sigmaprofiledust(i,j) = 1
           if (ismoothdust(i,j)) sigmaprofiledust(i,j) = 2
           if (itaperdust(i,j) .and. ismoothdust(i,j)) sigmaprofiledust(i,j) = 3
+          if (itapersetdust(i,j)==1) sigmaprofiledust(i,j) = 4
+          if (itapersetdust(i,j)==1 .and. ismoothdust(i,j)) sigmaprofiledust(i,j) = 5
        enddo
        !--swap radii to keep dust profile the same as gas within [R_indust,R_outdust]
        if (isetdust == 2) then
@@ -856,7 +861,7 @@ subroutine calculate_disc_mass()
           !--set disc mass from sigma at reference radius
           if (.not.(R_in(i) < R_ref(i)) .and. ismoothgas(i)) call fatal('setup_disc', &
              'if smoothing inner disc and setting disc mass by sigma(R_ref), require R_in < R_ref')
-          sig_norm(i) = sig_ref(i) / scaled_sigma(R_ref(i),sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
+          sig_norm(i) = sig_ref(i) / scaled_sigma(R_ref(i),sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_out(i),R_c(i))
           call get_disc_mass(disc_m(i),enc_m,rad,Q_min(i),sigmaprofilegas(i),sig_norm(i), &
                              star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
                              H_R(i))
@@ -971,7 +976,7 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
        !--taper gas disc
        iprofilegas = 0
        if (itapergas(i)) iprofilegas = 1
-
+       if (itapersetgas(i)) iprofilegas = 2
 
        !--set disc(s)
        if (use_dust .and. use_dustfrac) then
@@ -979,6 +984,7 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
           !--taper dust disc
           iprofiledust = 0
           if (itaperdust(i,1)) iprofiledust = 1
+          if (itapersetdust(i,1)) iprofiledust = 2
 
           !--gas and dust mixture disc
           npingasdisc = int(disc_m(i)/totmass_gas*np)
@@ -1384,12 +1390,12 @@ subroutine print_dust()
        if (iuse_disc(i)) then
           R_midpoint = (R_in(i) + R_out(i))/2
           Sigma = sig_norm(i) * &
-                  scaled_sigma(R_midpoint,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_c(i))
+                  scaled_sigma(R_midpoint,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_out(i),R_c(i))
           Sigmadust = 0.
           do j=1,ndusttypes
              Sigmadust = Sigmadust + sig_normdust(i,j) * &
                          scaled_sigma(R_midpoint,sigmaprofiledust(i,j),pindex_dust(i,j),&
-                                      R_ref(i),R_indust(i,j),R_c_dust(i,j))
+                                      R_ref(i),R_indust(i,j),R_outdust(i,j),R_c_dust(i,j))
           enddo
           Stokes = 0.5*pi*graindens*grainsize/(Sigma+Sigmadust)
           duststring = 'approx. Stokes'
@@ -1926,6 +1932,8 @@ subroutine write_setupfile(filename)
  logical            :: done_alpha
  integer            :: i,j,n_possible_discs
  character(len=20)  :: duststring(maxdusttypes)
+ character(len=20)  :: taper_string
+ character(len=20)  :: smooth_string
 
  done_alpha = .false.
  n_possible_discs = 1
@@ -2067,12 +2075,14 @@ subroutine write_setupfile(filename)
           '3=surface density at reference radius,4=minimum Toomre Q)',iunit)
        call write_inopt(itapergas(i),'itapergas'//trim(disclabel), &
           'exponentially taper the outer disc profile',iunit)
+       if (itapergas(i)) call write_inopt(itapersetgas(i),'itapersetgas'//trim(disclabel), &
+          'how to set taper (0=exp[-(R/R_c)^(2-p)], 1=[1-exp(R-R_out)]',iunit)
        call write_inopt(ismoothgas(i),'ismoothgas'//trim(disclabel),'smooth inner disc',iunit)
        call write_inopt(iwarp(i),'iwarp'//trim(disclabel),'warp disc',iunit)
        call write_inopt(R_in(i),'R_in'//trim(disclabel),'inner radius',iunit)
        call write_inopt(R_ref(i),'R_ref'//trim(disclabel),'reference radius',iunit)
        call write_inopt(R_out(i),'R_out'//trim(disclabel),'outer radius',iunit)
-       if (itapergas(i)) call write_inopt(R_c(i),'R_c'//trim(disclabel), &
+       if (itapergas(i) .and. itapersetgas(i)==0) call write_inopt(R_c(i),'R_c'//trim(disclabel), &
           'characteristic radius of the exponential taper',iunit)
        select case (isetgas(i))
        case (0)
@@ -2082,13 +2092,20 @@ subroutine write_setupfile(filename)
           call write_inopt(R_inann(i),'R_inann'//trim(disclabel),'inner annulus radius',iunit)
           call write_inopt(R_outann(i),'R_outann'//trim(disclabel),'outer annulus radius',iunit)
        case (2)
+          taper_string = ''
+          smooth_string = ''
           if (itapergas(i)) then
-             call write_inopt(sig_norm(i),'sig_norm'//trim(disclabel), &
-                'sigma = sig_norm (R/R_ref)^-p exp[-(R/R_c)^(2-p)] (1-sqrt(R_in/R))',iunit)
-          else
-             call write_inopt(sig_norm(i),'sig_norm'//trim(disclabel), &
-                'sigma = sig_norm (R/R_ref)^-p (1-sqrt(R_in/R))',iunit)
+             if (itapersetgas(i)==0) then
+                taper_string = 'exp[-(R/R_c)^(2-p)]'
+             else if(itapersetgas(i)==1) then
+                taper_string = '[1-exp(R-R_out)]'
+             endif
           endif
+          if (ismoothgas(i)) then
+             smooth_string = '(1-sqrt(R_in/R))'
+          endif
+          call write_inopt(sig_norm(i),'sig_norm'//trim(disclabel), &
+             'sigma = sig_norm (R/R_ref)^-p '//trim(taper_string)//' '//trim(smooth_string),iunit)
        case (3)
           call write_inopt(sig_ref(i),'sig_ref'//trim(disclabel),'sigma at reference radius',iunit)
        case (4)
@@ -2119,11 +2136,15 @@ subroutine write_setupfile(filename)
              endif
              call write_inopt(itaperdust(i,j),'itaper'//trim(duststring(j))//trim(disclabel), &
                 'exponentially taper the outer disc profile',iunit)
+             if (itaperdust(i,j)) call write_inopt(itapersetdust(i,j),'itapersetdust'//trim(disclabel), &
+                'how to set taper (0=exp[-(R/R_c)^(2-p)], 1=[1-exp(R-R_out)]',iunit)
              call write_inopt(ismoothdust(i,j),'ismooth'//trim(duststring(j))//trim(disclabel),'smooth inner disc',iunit)
              call write_inopt(R_indust(i,j),'R_in'//trim(duststring(j))//trim(disclabel),'inner radius',iunit)
              call write_inopt(R_outdust(i,j),'R_out'//trim(duststring(j))//trim(disclabel),'outer radius',iunit)
-             if (itaperdust(i,j)) call write_inopt(R_c_dust(i,j),'R_c_'//trim(duststring(j))//trim(disclabel), &
+             if (itaperdust(i,j) .and. itapersetdust(i,j)==0) then
+                call write_inopt(R_c_dust(i,j),'R_c_'//trim(duststring(j))//trim(disclabel), &
                 'characteristic radius of the exponential taper',iunit)
+             endif
              call write_inopt(pindex_dust(i,j),'pindex_'//trim(duststring(j))//trim(disclabel),'p index',iunit)
              call write_inopt(qindex_dust(i,j),'qindex_'//trim(duststring(j))//trim(disclabel),'q index',iunit)
              call write_inopt(H_R_dust(i,j),'H_R_'//trim(duststring(j))//trim(disclabel),'H/R at R=R_ref',iunit)
@@ -2330,9 +2351,10 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(R_out(i),'R_out'//trim(disclabel),db,min=R_in(i),errcount=nerr)
        call read_inopt(R_ref(i),'R_ref'//trim(disclabel),db,min=R_in(i),errcount=nerr)
        call read_inopt(itapergas(i),'itapergas'//trim(disclabel),db,errcount=nerr)
+       call read_inopt(itapersetgas(i),'itapersetgas'//trim(disclabel),db,errcount=nerr)
        call read_inopt(ismoothgas(i),'ismoothgas'//trim(disclabel),db,errcount=nerr)
        call read_inopt(isetgas(i),'isetgas'//trim(disclabel),db,min=0,max=4,errcount=nerr)
-       if (itapergas(i)) then
+       if (itapergas(i) .and. itapersetgas(i)==0) then
           call read_inopt(R_c(i),'R_c'//trim(disclabel),db,min=0.,errcount=nerr)
        endif
        select case (isetgas(i))
@@ -2384,8 +2406,9 @@ subroutine read_setupfile(filename,ierr)
                 call read_inopt(pindex_dust(i,j),'pindex_'//trim(duststring(j))//trim(disclabel),db,err=ierr,errcount=nerr)
                 if (ierr /= 0) pindex_dust(i,j) = pindex(i)
                 call read_inopt(itaperdust(i,j),'itaper'//trim(duststring(j))//trim(disclabel),db,err=ierr,errcount=nerr)
+                call read_inopt(itapersetdust(i,j),'itapersetdust'//trim(duststring(j))//trim(disclabel),db,errcount=nerr)
                 call read_inopt(ismoothdust(i,j),'ismooth'//trim(duststring(j))//trim(disclabel),db,err=ierr,errcount=nerr)
-                if (itaperdust(i,j)) then
+                if (itaperdust(i,j) .and. itapersetdust(i,j)==0) then
                    call read_inopt(R_c_dust(i,j),'R_c_'//trim(duststring(j))//trim(disclabel),db,min=0.,err=ierr,errcount=nerr)
                    if (ierr /= 0) R_c_dust(i,j) = R_c(i)
                 endif
@@ -2460,6 +2483,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
                                                     pindex(disc_index),&
                                                     R_ref(disc_index),&
                                                     R_in(disc_index),&
+                                                    R_out(disc_index),&
                                                     R_c(disc_index))
 
     do j=1,ndustsmall
@@ -2472,6 +2496,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
                                            pindex_dust(disc_index,j),&
                                            R_ref(disc_index),&
                                            R_indust(disc_index,j),&
+                                           R_outdust(disc_index,j),&
                                            R_c_dust(disc_index,j))
           dust_to_gas(j) = (sigma_dust/sigma_gas) * (Hg/Hd) * exp(-0.5d0*((z/Hd)**2.-(z/Hg)**2.))
        endif

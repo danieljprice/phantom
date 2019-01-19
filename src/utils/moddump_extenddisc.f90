@@ -143,7 +143,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  ! Average a little
  sigma_match = (sigma(ii_match - 1) + sigma(ii_match) + sigma(ii_match + 1))/3.
- sigma_norm = scaled_sigma(R_match,sigmaprofile,p_value,R_ref,R_in,R_c)
+ sigma_norm = scaled_sigma(R_match,sigmaprofile,p_value,R_ref,R_in,R_out,R_c)
  sigma_norm = sigma_match/sigma_norm
 
  ! Guess a better p value, assuming the new sigma function is not smoothed
