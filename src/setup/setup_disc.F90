@@ -2261,6 +2261,7 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(bhspinangle,'bhspinangle',db,min=0.,errcount=nerr)
     end select
  case (1)
+    iexternalforce = 0
     !--sink particles
     call read_inopt(nsinks,'nsinks',db,min=1,max=2,errcount=nerr)
     select case (nsinks)
