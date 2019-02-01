@@ -81,13 +81,7 @@ subroutine get_metric_derivs(position,dgcovdx1, dgcovdx2, dgcovdx3)
  select case(icoordinate)
 
  case(icoord_cartesian)
-    if (imetric /= imet_kerr) then
-       call metric_cartesian_derivatives(position,dgcovdx1, dgcovdx2, dgcovdx3)
-    else if (imetric == imet_kerr) then
-       call numerical_metric_derivs(position,dgcovdx1, dgcovdx2, dgcovdx3)
-    else
-       STOP 'No derivatives being used...'
-    end if
+    call metric_cartesian_derivatives(position,dgcovdx1, dgcovdx2, dgcovdx3)
  case(icoord_spherical)
     call metric_spherical_derivatives(position,dgcovdx1, dgcovdx2, dgcovdx3)
  end select
@@ -95,41 +89,41 @@ subroutine get_metric_derivs(position,dgcovdx1, dgcovdx2, dgcovdx3)
 end subroutine get_metric_derivs
 
 !-------------------------------------------------------------------------------
-
+! (not being used at the moment)
 !--- The numerical derivatives of the covariant metric tensor
-pure subroutine numerical_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
- real, intent(in) :: position(3)
- real, intent(out), dimension(0:3,0:3) :: dgcovdx,dgcovdy,dgcovdz
- real :: gblah(0:3,0:3), temp(3), gplus(0:3,0:3),gminus(0:3,0:3),dx,dy,dz,di,sqrtgblag
- di = 1.e-8
- dx = di
- dy = di
- dz = di
-
- temp      = position
- temp(1)   = temp(1)+dx
- call get_metric(temp,gplus,gblah,sqrtgblag)
- temp      = position
- temp(1)   = temp(1)-dx
- call get_metric(temp,gminus,gblah,sqrtgblag)
- dgcovdx = 0.5*(gplus-gminus)/dx
-
- temp      = position
- temp(2)   = temp(2)+dy
- call get_metric(temp,gplus,gblah,sqrtgblag)
- temp      = position
- temp(2)   = temp(2)-dy
- call get_metric(temp,gminus,gblah,sqrtgblag)
- dgcovdy = 0.5*(gplus-gminus)/dy
-
- temp      = position
- temp(3)   = temp(3)+dz
- call get_metric(temp,gplus,gblah,sqrtgblag)
- temp      = position
- temp(3)   = temp(3)-dz
- call get_metric(temp,gminus,gblah,sqrtgblag)
- dgcovdz = 0.5*(gplus-gminus)/dz
-end subroutine numerical_metric_derivs
+! pure subroutine numerical_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
+!  real, intent(in) :: position(3)
+!  real, intent(out), dimension(0:3,0:3) :: dgcovdx,dgcovdy,dgcovdz
+!  real :: gblah(0:3,0:3), temp(3), gplus(0:3,0:3),gminus(0:3,0:3),dx,dy,dz,di,sqrtgblag
+!  di = 1.e-8
+!  dx = di
+!  dy = di
+!  dz = di
+!
+!  temp      = position
+!  temp(1)   = temp(1)+dx
+!  call get_metric(temp,gplus,gblah,sqrtgblag)
+!  temp      = position
+!  temp(1)   = temp(1)-dx
+!  call get_metric(temp,gminus,gblah,sqrtgblag)
+!  dgcovdx = 0.5*(gplus-gminus)/dx
+!
+!  temp      = position
+!  temp(2)   = temp(2)+dy
+!  call get_metric(temp,gplus,gblah,sqrtgblag)
+!  temp      = position
+!  temp(2)   = temp(2)-dy
+!  call get_metric(temp,gminus,gblah,sqrtgblag)
+!  dgcovdy = 0.5*(gplus-gminus)/dy
+!
+!  temp      = position
+!  temp(3)   = temp(3)+dz
+!  call get_metric(temp,gplus,gblah,sqrtgblag)
+!  temp      = position
+!  temp(3)   = temp(3)-dz
+!  call get_metric(temp,gminus,gblah,sqrtgblag)
+!  dgcovdz = 0.5*(gplus-gminus)/dz
+! end subroutine numerical_metric_derivs
 
 !-------------------------------------------------------------------------------
 pure subroutine get_metric3plus1_only(x,alpha,betadown,betaUP,gammaijdown,gammaijUP)
