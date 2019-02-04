@@ -676,8 +676,15 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  ! real, save :: dmdt = 0.
  logical :: last_step,done,converged,accreted
  integer, parameter :: itsmax = 50
- real, parameter :: ptol = 1.e-15, xtol = 1.e-15
- integer, save :: pitsmax = 0, xitsmax = 0
+ real,    parameter :: ptol = 1.e-7, xtol = 1.e-7
+ integer :: pitsmax = 0,  xitsmax = 0
+ real    :: perrmax = 0., xerrmax = 0.
+
+ pitsmax = 0
+ xitsmax = 0
+ perrmax = 0.
+ xerrmax = 0.
+
 !
 ! determine whether or not to use substepping
 !
@@ -723,7 +730,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp private(i,vxyzu_star,fstar) &
     !$omp private(converged,pprev,pmom_err,xyz_prev,x_err,pi) &
     !$omp firstprivate(pmassi,itype) &
-    !$omp reduction(max:xitsmax,pitsmax) &
+    !$omp reduction(max:xitsmax,pitsmax,perrmax,xerrmax) &
     !$omp reduction(min:dtextforcenew)
     !$omp do
     predictor: do i=1,npart
@@ -745,18 +752,17 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
              call conservative_to_primitive(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
              call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fstar)
              pxyzu(1:3,i) = pprev + hdt*(fstar - fext(1:3,i))
-             pmom_err = maxval( abs( (pxyzu(1:3,i) - pprev)/pprev ) )
+             pmom_err = maxval(abs(pxyzu(1:3,i) - pprev))
              if (pmom_err < ptol) converged = .true.
              fext(1:3,i) = fstar
           enddo pmom_iterations
           if (its > itsmax ) call warning('step_extern_gr','Reached max number of pmom iterations. pmom_err ',val=pmom_err)
-
           pitsmax = max(its,pitsmax)
+          perrmax = max(pmom_err,perrmax)
 
           call conservative_to_primitive(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
           xyzh(1:3,i) = xyzh(1:3,i) + dt*vxyzu(1:3,i)
           call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
-
 
           its        = 0
           converged  = .false.
@@ -769,7 +775,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
              xyz_prev    = xyzh(1:3,i)
              call conservative_to_primitive(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu_star,dens(i))
              xyzh(1:3,i)  = xyz_prev + hdt*(vxyzu_star(1:3) - vxyzu(1:3,i))
-             x_err = maxval( abs( (xyzh(1:3,i)-xyz_prev)/xyz_prev ) )
+             x_err = maxval(abs(xyzh(1:3,i)-xyz_prev))
              if (x_err < xtol) converged = .true.
              vxyzu(:,i)   = vxyzu_star
              ! UPDATE METRIC HERE
@@ -778,7 +784,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           call pack_metricderivs(xyzh(1:3,i),metricderivs(:,:,:,i))
           if (its > itsmax ) call warning('step_extern_gr','Reached max number of x iterations. x_err ',val=x_err)
           xitsmax = max(its,xitsmax)
-
+          xerrmax = max(x_err,xerrmax)
 
           ! Skip remainder of update if boundary particle; note that fext==0 for these particles
           if (itype==iboundary) cycle predictor
@@ -786,6 +792,13 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     enddo predictor
     !$omp enddo
     !$omp end parallel
+
+    if (iverbose >= 2 .and. id==master) then
+       write(iprint,*)                '------ Iterations summary: -------------------------------'
+       write(iprint,"(a,i2,a,f14.6)") 'Most pmom iterations = ',pitsmax,' | max error = ',perrmax
+       write(iprint,"(a,i2,a,f14.6)") 'Most xyz  iterations = ',xitsmax,' | max error = ',xerrmax
+       write(iprint,*)
+    endif
 
     !
     ! corrector step on gas particles (also accrete particles at end of step)
@@ -825,6 +838,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           ! correct v to the full step using only the external force
           !
           pxyzu(1:3,i) = pxyzu(1:3,i) + hdt*fext(1:3,i)
+          ! call conservative_to_primitive(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i)) !? Do we need this?
 
           if (iexternalforce > 0) then
              call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
