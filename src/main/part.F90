@@ -151,6 +151,10 @@ module part
  character(len=*), parameter :: eta_nimhd_label(4) = (/'eta_{OR}','eta_{HE}','eta_{AD}','ne/n    '/)
 #endif
 
+#ifdef RADIATION
+ real, allocatable :: radenergy(:,:)
+ character(len=*), parameter :: radenergy_label(5) = (/'radE', 'Edx ', 'Edy ', 'Edz ', 'Eddt'/)
+#endif
 !
 !--lightcurves
 !
@@ -336,6 +340,10 @@ subroutine allocate_part
  call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
  call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
  call allocate_array('dustproppred', dustproppred, 4, maxp_growth)
+#ifdef RADIATION
+! radenergy, d/dx, d/dy, d/dz, d^2/dt^2
+ call allocate_array('radenergy', radenergy, 5, maxp)
+#endif
 #ifdef IND_TIMESTEPS
  call allocate_array('ibin', ibin, maxan)
  call allocate_array('ibin_old', ibin_old, maxan)
@@ -398,6 +406,9 @@ subroutine deallocate_part
  deallocate(dt_in)
  deallocate(twas)
 #endif
+#ifdef RADIATION
+ deallocate(radenergy)
+#endif
  deallocate(iphase)
  deallocate(iphase_soa)
  deallocate(gradh)
@@ -406,7 +417,6 @@ subroutine deallocate_part
  deallocate(ibelong)
  deallocate(istsactive)
  deallocate(ibin_sts)
-
 end subroutine deallocate_part
 
 !----------------------------------------------------------------

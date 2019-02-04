@@ -1779,6 +1779,7 @@ subroutine write_array_real8arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,i
        do j=istart,iend
           write(iunit, iostat=ierr) tag(my_tag(j))
           if (imatch==i_real4 .or. use_singleprec) then
+            print*, "done ", my_tag(j), " | ", tag(my_tag(j))
              write(iunit, iostat=ierr) (real(arr(j,i),kind=4),i=1,len2)
           else
              write(iunit, iostat=ierr) (arr(j,i),i=1,len2)

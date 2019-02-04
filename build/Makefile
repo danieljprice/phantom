@@ -982,6 +982,17 @@ ifeq ($(SETUP), mcfostcmdline) # [buildbot skip]
     IND_TIMESTEPS=yes
 endif
 
+ifeq ($(SETUP), diffusion_only)
+    FPPFLAGS= -DPERIODIC -DRADIATION
+    SETUPFILE= setup_diffusion_only.F90
+    DOUBLEPRECISION=yes
+    KERNEL=quintic
+    ISOTHERMAL=no
+    KNOWN_SETUP=yes
+    DEBUG=yes
+    MPI=no
+endif
+
 ifndef SETUPFILE
     SETUPFILE= setup_unifdis.F90
 endif

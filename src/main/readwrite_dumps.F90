@@ -329,6 +329,9 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use dim,  only:mhd_nonideal
  use part, only:eta_nimhd,eta_nimhd_label
 #endif
+#ifdef RADIATION
+ use part, only:radenergy, radenergy_label
+#endif
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in), optional :: iorder(:)
@@ -339,7 +342,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  integer(kind=8)    :: ilen(4)
  integer            :: nums(ndatatypes,4)
  integer            :: i,ipass,k,l,iu
- integer            :: ierr,ierrs(20)
+ integer            :: ierr,ierrs(21)
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
  logical            :: sphNGdump, write_itype, use_gas
@@ -348,6 +351,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  real, allocatable :: temparr(:)
  real :: ponrhoi,rhoi,spsoundi
 
+print*, "write_fulldump"
 !
 !--collect global information from MPI threads
 !
@@ -437,6 +441,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
     write_itype = any(npartoftypetot(2:) > 0)
  endif
  do ipass=1,2
+   print*, "pass in write full dump", ipass
     do k=1,ndatatypes
        !
        ! Block 1 arrays (hydrodynamics)
@@ -513,7 +518,10 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierrs(20))
        endif
 #endif
-       if (any(ierrs(1:20) /= 0)) call error('write_dump','error writing hydro arrays')
+#ifdef RADIATION
+       call write_array(1,radenergy,radenergy_label,5,npart,k,ipass,idump,nums,ierrs(21),index=1)
+#endif
+       if (any(ierrs(1:21) /= 0)) call error('write_dump','error writing hydro arrays')
     enddo
 
     do k=1,ndatatypes
@@ -552,7 +560,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 #endif
        endif
     enddo
-
     if (ipass==1) call write_block_header(narraylengths,ilen,nums,idump,ierr)
  enddo
  if (allocated(temparr)) deallocate(temparr)
@@ -581,7 +588,8 @@ subroutine write_smalldump(t,dumpfile)
                       maxphase,iphase,h2chemistry,nabundances,&
                       nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,&
                       abundance,abundance_label,mhd,dustfrac,iamtype_int11,&
-                      dustprop,dustprop_label,dustfrac_label,St,ndusttypes
+                      dustprop,dustprop_label,dustfrac_label,St,ndusttypes,&
+                      radenergy,radenergy_label
  use dump_utils, only:open_dumpfile_w,dump_h,allocate_header,free_header,&
                       write_header,write_array,write_block_header
  use mpiutils,   only:reduceall_mpi
@@ -597,7 +605,6 @@ subroutine write_smalldump(t,dumpfile)
  integer(kind=8) :: nparttot,npartoftypetot(maxtypes)
  logical         :: write_itype
  type(dump_h)    :: hdr
-
 !
 !--collect global information from MPI threads
 !
@@ -666,6 +673,9 @@ subroutine write_smalldump(t,dumpfile)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
 #ifdef LIGHTCURVE
        if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+#endif
+#ifdef RADIATION
+       call write_array(1,radenergy,radenergy_label,5,npart,k,ipass,idump,nums,ierr,index=1,singleprec=.true.)
 #endif
     enddo
     !
@@ -1195,7 +1205,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,abundance,abundance_label, &
                       alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,tstop,deltav,dustfrac_label, &
-                      tstop_label,deltav_label,temperature,dustprop,dustprop_label,St,divcurlv,divcurlv_label
+                      tstop_label,deltav_label,temperature,dustprop,dustprop_label,St,divcurlv,divcurlv_label, &
+                      radenergy,radenergy_label
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
 #endif
@@ -1210,7 +1221,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: match
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3)
- logical               :: got_psi,got_temp,got_dustprop(3),got_St,got_divcurlv(4)
+ logical               :: got_psi,got_temp,got_dustprop(3),got_St,got_divcurlv(4),got_raden
+>>>>>>> init diffusion
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci,ntstopi,ndustveli
 
@@ -1234,6 +1246,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_dustprop  = .false.
  got_St        = .false.
  got_divcurlv  = .false.
+ got_raden     = .false.
 
  ndustfraci = 0
  ntstopi    = 0
@@ -1302,6 +1315,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              ! read dt if it is in the file
              !
              call read_array(dt_in,'dt',dt_read_in,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+#endif
+#ifdef RADIATION
+             call read_array(radenergy(1,:),radenergy_label(1),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
           case(2)
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
