@@ -246,20 +246,21 @@ pure subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,beta
  real, intent(out), dimension(0:3,0:3), optional :: gcov,gcon
  real, intent(out), dimension(1:3,1:3), optional :: gammaijdown,gammaijUP
  real, intent(out),                     optional :: alpha,betadown(3),betaUP(3)
- real :: alpha_,betaUP_(3)
  integer :: i,j
 
 #ifdef FINVSQRT
- if (present(alpha)) alpha_  = finvsqrt(-metrici(0,0,2))
+ if (present(alpha)) alpha  = finvsqrt(-metrici(0,0,2))
 #else
- if (present(alpha)) alpha_  = sqrt(-1./metrici(0,0,2))
+ if (present(alpha)) alpha  = sqrt(-1./metrici(0,0,2))
 #endif
- if (present(betaUP).or.present(gammaijUP)) betaUP_ = metrici(0,1:3,2) * (-1./metrici(0,0,2)) ! = gcon(0,1:3)*alpha**2
+
+ if (present(betaUP)) betaUP = metrici(0,1:3,2) * (-1./metrici(0,0,2)) ! = gcon(0,1:3)*alpha**2
+
  if (present(gammaijUP)) then
     gammaijUP = 0.
     do j=1,3
       do i=1,3
-         gammaijUP(i,j) = metrici(i,j,2) + betaUP_(i)*metrici(0,j,2) ! = gcon(i,j) + betaUP(i)*betaUP(j)/alpha**2
+         gammaijUP(i,j) = metrici(i,j,2) + metrici(0,i,2)*metrici(0,j,2)*(-1./metrici(0,0,2)) ! = gcon(i,j) + betaUP(i)*betaUP(j)/alpha**2
       enddo
     enddo
  endif
@@ -267,9 +268,7 @@ pure subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,beta
  if (present(gcov))        gcov        = metrici(0:3,0:3,1)
  if (present(gcon))        gcon        = metrici(0:3,0:3,2)
  if (present(gammaijdown)) gammaijdown = metrici(1:3,1:3,1)
- if (present(alpha))       alpha       = alpha_
  if (present(betadown))    betadown    = metrici(0,1:3,1)
- if (present(betaUP))      betaUP      = betaUP_
 
 end subroutine unpack_metric
 
