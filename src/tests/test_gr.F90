@@ -22,6 +22,7 @@ end subroutine test_gr
 ! Indivdual test subroutines start here
 subroutine test_precession(ntests,npass)
  use testutils,    only:checkval
+ use metric_tools, only:imetric,imet_kerr,imet_schwarzschild
 #ifdef KERR
  use metric,       only:a
 #else
@@ -33,6 +34,10 @@ subroutine test_precession(ntests,npass)
  real    :: angmom(3),angmom0(3),xyz(3),vxyz(3)
 
  write(*,'(/,a)') '--> testing step_extern_gr (precession)'
+ if (imetric /= imet_kerr .and. imetric /= imet_schwarzschild) then
+    write(*,'(/,a)') '   Skipping test! Metric is not Kerr (or Schwarzschild).'
+    return
+ endif
 
  a              = 0.
  x0             = 90.
