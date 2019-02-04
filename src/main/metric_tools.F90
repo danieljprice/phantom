@@ -250,18 +250,16 @@ pure subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,beta
  integer :: i,j
 
 #ifdef FINVSQRT
- if (present(alpha).or.present(betaUP).or.present(gammaijUP)) alpha_  = finvsqrt(-metrici(0,0,2))
+ if (present(alpha)) alpha_  = finvsqrt(-metrici(0,0,2))
 #else
- if (present(alpha).or.present(betaUP).or.present(gammaijUP)) alpha_  = sqrt(-1./metrici(0,0,2))
+ if (present(alpha)) alpha_  = sqrt(-1./metrici(0,0,2))
 #endif
- if (present(betaUP).or.present(gammaijUP))                   betaUP_ = metrici(0,1:3,2) * (alpha_**2)
- !                                                                     |^ gcon_(0,1:3) ^|
+ if (present(betaUP).or.present(gammaijUP)) betaUP_ = metrici(0,1:3,2) * (-1./metrici(0,0,2)) ! = gcon(0,1:3)*alpha**2
  if (present(gammaijUP)) then
     gammaijUP = 0.
     do j=1,3
       do i=1,3
-         gammaijUP(i,j) = metrici(i,j,2) + betaUP_(i)*betaUP_(j)/alpha_**2
-         !                |^ gcon_(i,j) ^|
+         gammaijUP(i,j) = metrici(i,j,2) + betaUP_(i)*metrici(0,j,2) ! = gcon(i,j) + betaUP(i)*betaUP(j)/alpha**2
       enddo
     enddo
  endif
