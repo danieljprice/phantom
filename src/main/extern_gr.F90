@@ -96,7 +96,7 @@ end subroutine dt_grforce
 subroutine forcegr(x,metrici,metricderivsi,v,dens,u,p,fterm)
  use metric_tools, only:unpack_metric
  use utils_gr,     only:get_u0
- use io,           only:iprint,fatal
+ use io,           only:iprint,fatal,error
  real, intent(in)  :: x(3),metrici(:,:,:),metricderivsi(0:3,0:3,3),v(3),dens,u,p
  real, intent(out) :: fterm(3)
  real    :: gcov(0:3,0:3), gcon(0:3,0:3)
@@ -114,8 +114,9 @@ subroutine forcegr(x,metrici,metricderivsi,v,dens,u,p,fterm)
 
  ! first component of the upper-case 4-velocity
  call get_u0(gcov,v,uzero,ierr)
- if (ierr>0) then
+ if (ierr > 0) then
     write(iprint,*) 'x,y,z = ',x
+    call error('get_u0 in extern_gr','1/sqrt(-v_mu v^mu) ---> non-negative: v_mu v^mu')
     call fatal('forcegr','could not compute forcegr at r = ',val=sqrt(dot_product(x,x)) )
  endif
 

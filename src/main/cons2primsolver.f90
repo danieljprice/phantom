@@ -74,13 +74,14 @@ end subroutine
 subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
  use utils_gr,     only:get_u0
  use metric_tools, only:unpack_metric
+ use io,           only:error
  real, intent(in)  :: x(1:3),metrici(:,:,:)
  real, intent(in)  :: dens,v(1:3),u,P
  real, intent(out) :: rho,pmom(1:3),en
  integer, intent(in) :: ien_type
  real, dimension(0:3,0:3) :: gcov
  real :: sqrtg, enth, gvv, U0, v4U(0:3)
- integer :: i, mu
+ integer :: i, mu, ierror
 
  v4U(0) = 1.
  v4U(1:3) = v(:)
@@ -91,7 +92,8 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
  sqrtg = 1.
  call unpack_metric(metrici,gcov=gcov)
 
- call get_u0(gcov,v,U0)
+ call get_u0(gcov,v,U0,ierror)
+ if (ierror > 0) call error('get_u0 in prim2cons','1/sqrt(-v_mu v^mu) ---> non-negative: v_mu v^mu')
  rho = sqrtg*dens*U0
  do i=1,3
     pmom(i) = U0*enth*dot_product(gcov(i,:),v4U(:))

@@ -2372,7 +2372,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                                          dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax, &
 #endif
                                          ndustres,dustresfacmax,dustresfacmean)
- use io,             only:fatal
+ use io,             only:fatal,error
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
@@ -2466,7 +2466,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real                  :: densi, vxi,vyi,vzi,u0i
 #ifdef GR
  real                  :: posi(3),veli(3),gcov(0:3,0:3),metrici(0:3,0:3,2)
- integer               :: ii,ia,ib,ic
+ integer               :: ii,ia,ib,ic,ierror
 #endif
 
  eni = 0.
@@ -2534,7 +2534,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     enddo
 
     call unpack_metric(metrici,gcov=gcov)
-    call get_u0(gcov,veli,u0i)
+    call get_u0(gcov,veli,u0i,ierror)
+    if (ierror > 0) call error('get_u0 in force','1/sqrt(-v_mu v^mu) ---> non-negative: v_mu v^mu')
 #endif
 
     if (iamgasi) then

@@ -29,23 +29,18 @@ end function dot_product_gr
 
 !-------------------------------------------------------------------------------
 
-subroutine get_u0(gcov,v,U0,ierr)
- use io, only:fatal,warning,error
- real, intent(in)  :: gcov(0:3,0:3), v(1:3)
- real, intent(out) :: U0
- integer, intent(out), optional :: ierr
+pure subroutine get_u0(gcov,v,U0,ierr)
+ real,    intent(in)  :: gcov(0:3,0:3), v(1:3)
+ real,    intent(out) :: U0
+ integer, intent(out) :: ierr
  real :: v4(0:3),vv
 
- if (present(ierr)) ierr = 0
-
- v4(0) = 1.
+ ierr    = 0
+ v4(0)   = 1.
  v4(1:3) = v(1:3)
- vv = dot_product_gr(v4,v4,gcov)
- if (vv>0.) then
-    call error('get_u0','1/sqrt(-v_mu v^mu) ---> non-negative: v_mu v^mu',val=vv)
-    if (present(ierr)) ierr = 1
- endif
- U0 = 1./sqrt(-vv)
+ vv      = dot_product_gr(v4,v4,gcov)
+ U0      = 1./sqrt(-vv)
+ if (vv > 0.) ierr = 1
 
 end subroutine get_u0
 
@@ -61,7 +56,7 @@ subroutine get_bigv(metrici,v,bigv,bigv2,alpha,lorentz)
  call unpack_metric(metrici,betaUP=betaUP,alpha=alpha,gammaijdown=gammaijdown)
  bigv = (v + betaUP)/alpha
  bigv2 = dot_product_gr(bigv,bigv,gammaijdown)
- if (bigv2>1.) call fatal('get_bigv','velocity faster than speed of light -- bigv2',val=bigv2)
+ if (bigv2 > 1.) call fatal('get_bigv','velocity faster than speed of light -- bigv2',val=bigv2)
  lorentz = 1./sqrt(1.-bigv2)
 
 end subroutine get_bigv
@@ -83,15 +78,19 @@ end subroutine h2dens
 
 subroutine rho2dens(dens,rho,position,metrici,v)
  use metric_tools, only:unpack_metric
+ use io,           only:error
  real, intent(in) :: rho,position(1:3),metrici(:,:,:),v(1:3)
  real, intent(out):: dens
+ integer :: ierror
  real :: gcov(0:3,0:3), sqrtg, U0
 
  ! Hard coded sqrtg=1 since phantom is always in cartesian coordinates
  sqrtg = 1.
  call unpack_metric(metrici,gcov=gcov)
- call get_u0(gcov,v,U0)
+ call get_u0(gcov,v,U0,ierror)
  dens = rho/(sqrtg*U0)
+
+ if (ierror > 0) call error('get_u0 in rho2dens','1/sqrt(-v_mu v^mu) ---> non-negative: v_mu v^mu')
 
 end subroutine rho2dens
 
