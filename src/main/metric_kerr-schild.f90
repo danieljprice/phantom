@@ -7,7 +7,7 @@ module metric
  integer,          parameter :: imetric     = 4
 
  real, public  :: mass1 = 1.       ! mass of central object
- real, public  :: a     = 1.       ! spin of central object
+ real, public  :: a     = 0.       ! spin of central object
 
 contains
 
@@ -20,7 +20,9 @@ contains
 !--- The Kerr-Schild metric tensor in CARTESIAN-like form
 pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  real, intent(in)  :: position(3)
- real, intent(out) :: gcov(0:3,0:3),gcon(0:3,0:3), sqrtg
+ real, intent(out) :: gcov(0:3,0:3)
+ real, intent(out), optional :: gcon(0:3,0:3)
+ real, intent(out), optional :: sqrtg
  real :: x,y,z,x2,y2,z2,a2
  real :: r2spherical,r2,r
  real :: rho2,delta,r2a2,term,sintheta2
@@ -28,7 +30,7 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  real :: rs
  rs = 2.*mass1
 
- sqrtg = 1.
+ if (present(sqrtg)) sqrtg = 1.
 
  x  = position(1)
  y  = position(2)
@@ -62,22 +64,24 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  gcov(3,2) = gcov(2,3)                                    !gzy
  gcov(3,3) = 1.+term*z2/r                                 !gzz
 
- gcon(0,0) = -1. - term*r                                 !gtt
- gcon(0,1) = term*r*(r*x+a*y)/r2a2                        !gtx
- gcon(0,2) = term*r*(r*y-a*x)/r2a2                        !gty
- gcon(0,3) = term*z                                       !gtz
- gcon(1,0) = gcon(0,1)                                    !gxt
- gcon(1,1) = 1.-term*r*((r*x+a*y)/r2a2)**2                !gxx
- gcon(1,2) = -term*r*(r*x+a*y)*(r*y-a*x)/r2a2**2          !gxy
- gcon(1,3) = -term*z*(r*x+a*y)/r2a2                       !gxz
- gcon(2,0) = gcon(0,2)                                    !gyt
- gcon(2,1) = gcon(1,2)                                    !gyx
- gcon(2,2) = 1.-term*r*((r*y-a*x)/r2a2)**2                !gyy
- gcon(2,3) = -term*z*(r*y-a*x)/r2a2                       !gyz
- gcon(3,0) = gcon(0,3)                                    !gzt
- gcon(3,1) = gcon(1,3)                                    !gzx
- gcon(3,2) = gcon(2,3)                                    !gzy
- gcon(3,3) = 1.-term*z2/r                                 !gzz
+ if (present(gcon)) then
+    gcon(0,0) = -1. - term*r                                 !gtt
+    gcon(0,1) = term*r*(r*x+a*y)/r2a2                        !gtx
+    gcon(0,2) = term*r*(r*y-a*x)/r2a2                        !gty
+    gcon(0,3) = term*z                                       !gtz
+    gcon(1,0) = gcon(0,1)                                    !gxt
+    gcon(1,1) = 1.-term*r*((r*x+a*y)/r2a2)**2                !gxx
+    gcon(1,2) = -term*r*(r*x+a*y)*(r*y-a*x)/r2a2**2          !gxy
+    gcon(1,3) = -term*z*(r*x+a*y)/r2a2                       !gxz
+    gcon(2,0) = gcon(0,2)                                    !gyt
+    gcon(2,1) = gcon(1,2)                                    !gyx
+    gcon(2,2) = 1.-term*r*((r*y-a*x)/r2a2)**2                !gyy
+    gcon(2,3) = -term*z*(r*y-a*x)/r2a2                       !gyz
+    gcon(3,0) = gcon(0,3)                                    !gzt
+    gcon(3,1) = gcon(1,3)                                    !gzx
+    gcon(3,2) = gcon(2,3)                                    !gzy
+    gcon(3,3) = 1.-term*z2/r                                 !gzz
+ endif
 
 end subroutine get_metric_cartesian
 

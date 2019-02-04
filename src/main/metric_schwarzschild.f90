@@ -16,7 +16,9 @@ contains
 !--- The metric tensor in 'CARTESIAN-like form'
 pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  real, intent(in) :: position(3)
- real, intent(out) :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
+ real, intent(out) :: gcov(0:3,0:3)
+ real, intent(out), optional :: gcon(0:3,0:3)
+ real, intent(out), optional :: sqrtg
  real :: r,r2,r3,rs_on_r3,coeff,x,y,z,x2,y2,z2,term
  real :: rs
  rs = 2.*mass1
@@ -34,7 +36,7 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
 
 
  !--- The Schwarzschild metric tensor in CARTESIAN-like form
- sqrtg = 1.
+ if (present(sqrtg)) sqrtg = 1.
 
  term  = (1.-rs/r)
  coeff = 1./term
@@ -54,26 +56,30 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  gcov(2,3) = gcov(3,2)
  gcov(3,3) = coeff*(1.-rs_on_r3*(x2+y2))
 
- gcon      = 0.
- gcon(0,0) = -1./term
+ if (present(gcon)) then
+    gcon      = 0.
+    gcon(0,0) = -1./term
 
- gcon(1,1) = 1.-rs_on_r3*x2
- gcon(2,1) = -rs_on_r3*x*y
- gcon(3,1) = -rs_on_r3*x*z
+    gcon(1,1) = 1.-rs_on_r3*x2
+    gcon(2,1) = -rs_on_r3*x*y
+    gcon(3,1) = -rs_on_r3*x*z
 
- gcon(1,2) = gcon(2,1)
- gcon(2,2) = 1.-rs_on_r3*y2
- gcon(3,2) = -rs_on_r3*y*z
+    gcon(1,2) = gcon(2,1)
+    gcon(2,2) = 1.-rs_on_r3*y2
+    gcon(3,2) = -rs_on_r3*y*z
 
- gcon(1,3) = gcon(3,1)
- gcon(2,3) = gcon(3,2)
- gcon(3,3) = 1.-rs_on_r3*z2
+    gcon(1,3) = gcon(3,1)
+    gcon(2,3) = gcon(3,2)
+    gcon(3,3) = 1.-rs_on_r3*z2
+ endif
 
 end subroutine get_metric_cartesian
 
 pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
  real, intent(in)  :: position(3)
- real, intent(out) :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
+ real, intent(out) :: gcov(0:3,0:3)
+ real, intent(out), optional :: gcon(0:3,0:3)
+ real, intent(out), optional :: sqrtg
  real :: r,theta,sintheta,r2
  real :: rs
  rs = 2.*mass1
@@ -100,24 +106,26 @@ pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
  gcov(2,3) = 0.
  gcov(3,3) = r2*sintheta**2
 
- gcon(0,0) = -(r/(r - rs))
- gcon(1,0) = 0.
- gcon(2,0) = 0.
- gcon(3,0) = 0.
- gcon(0,1) = 0.
- gcon(1,1) = 1. - rs/r
- gcon(2,1) = 0.
- gcon(3,1) = 0.
- gcon(0,2) = 0.
- gcon(1,2) = 0.
- gcon(2,2) = 1./r2
- gcon(3,2) = 0.
- gcon(0,3) = 0.
- gcon(1,3) = 0.
- gcon(2,3) = 0.
- gcon(3,3) = 1./(r2*sintheta**2)
+ if (present(gcon)) then
+    gcon(0,0) = -(r/(r - rs))
+    gcon(1,0) = 0.
+    gcon(2,0) = 0.
+    gcon(3,0) = 0.
+    gcon(0,1) = 0.
+    gcon(1,1) = 1. - rs/r
+    gcon(2,1) = 0.
+    gcon(3,1) = 0.
+    gcon(0,2) = 0.
+    gcon(1,2) = 0.
+    gcon(2,2) = 1./r2
+    gcon(3,2) = 0.
+    gcon(0,3) = 0.
+    gcon(1,3) = 0.
+    gcon(2,3) = 0.
+    gcon(3,3) = 1./(r2*sintheta**2)
+ endif
 
- sqrtg = r2*sintheta
+ if (present(sqrtg)) sqrtg = r2*sintheta
 
 end subroutine get_metric_spherical
 

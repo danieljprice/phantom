@@ -61,12 +61,20 @@ pure subroutine get_metric(position,gcov,gcon,sqrtg)
 
  select case(icoordinate)
  case(icoord_cartesian)
-    call get_metric_cartesian(position,gcov,gcon,sqrtg)
+    if (useinv4x4) then
+       call get_metric_cartesian(position,gcov,sqrtg=sqrtg)
+       call inv4x4(gcov,gcon,det)
+    else
+       call get_metric_cartesian(position,gcov,gcon=gcon,sqrtg=sqrtg)
+    endif
  case(icoord_spherical)
-    call get_metric_spherical(position,gcov,gcon,sqrtg)
+    if (useinv4x4) then
+       call get_metric_spherical(position,gcov,sqrtg=sqrtg)
+       call inv4x4(gcov,gcon,det)
+    else
+       call get_metric_spherical(position,gcov,gcon=gcon,sqrtg=sqrtg)
+    endif
  end select
-
- if (useinv4x4) call inv4x4(gcov,gcon,det)
 
 end subroutine get_metric
 

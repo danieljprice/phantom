@@ -12,29 +12,31 @@ contains
 !+
 !----------------------------------------------------------------
 pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
- real,    intent(in)  :: position(3)
- real,    intent(out) :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
+ real, intent(in)  :: position(3)
+ real, intent(out) :: gcov(0:3,0:3)
+ real, intent(out), optional :: gcon(0:3,0:3)
+ real, intent(out), optional :: sqrtg
 
  gcov = 0.
- gcon = 0.
 
  gcov(0,0) = -1.
  gcov(1,1) = 1.
  gcov(2,2) = 1.
  gcov(3,3) = 1.
 
- gcon      = gcov
+ if (present(gcon))  gcon  = gcov
+ if (present(sqrtg)) sqrtg = 1.
 
- sqrtg     = 1.
 end subroutine get_metric_cartesian
 
 pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
- real,    intent(in)  :: position(3)
- real,    intent(out) :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
+ real, intent(in)  :: position(3)
+ real, intent(out) :: gcov(0:3,0:3)
+ real, intent(out), optional :: gcon(0:3,0:3)
+ real, intent(out), optional :: sqrtg
  real :: r2,sintheta
 
  gcov = 0.
- gcon = 0.
 
  r2       = position(1)**2
  sintheta = sin(position(2))
@@ -44,12 +46,16 @@ pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
  gcov(2,2) = r2
  gcov(3,3) = r2*sintheta**2
 
- gcon(0,0) = -1.
- gcon(1,1) = 1.
- gcon(2,2) = 1./r2
- gcov(3,3) = 1./gcov(3,3)
+ if (present(gcon)) then
+    gcon      = 0.
+    gcon(0,0) = -1.
+    gcon(1,1) = 1.
+    gcon(2,2) = 1./r2
+    gcov(3,3) = 1./gcov(3,3)
+ endif
 
- sqrtg     = r2*sintheta
+ if (present(sqrtg)) sqrtg = r2*sintheta
+
 end subroutine get_metric_spherical
 
 pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)

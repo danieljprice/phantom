@@ -7,7 +7,7 @@ module metric
  integer,          parameter :: imetric     = 3
 
  real, public  :: mass1 = 1.       ! mass of central object
- real, public  :: a     = 0.       ! spin of central object
+ real, public  :: a     = 0.9       ! spin of central object
 
 contains
 
@@ -20,7 +20,9 @@ contains
 !--- The metric tensor in 'CARTESIAN-like form'
 pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  real, intent(in)  :: position(3)
- real, intent(out) :: gcov(0:3,0:3),gcon(0:3,0:3), sqrtg
+ real, intent(out) :: gcov(0:3,0:3)
+ real, intent(out), optional :: gcon(0:3,0:3)
+ real, intent(out), optional :: sqrtg
  real :: x,y,z,x2,y2,z2,a2
  real :: r2spherical,r2,r
  real :: rho2,delta,sintheta2
@@ -28,7 +30,7 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  real :: rs
  rs = 2.*mass1
 
- sqrtg = 1.
+ if (present(sqrtg)) sqrtg = 1.
 
  x  = position(1)
  y  = position(2)
@@ -67,29 +69,33 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  gcov(2,3) = ((a2 + r2)*y*z)/(delta*rho2) - (y*z*(1. - ((a2 + r2)*z2)/(r2*rho2)))/(r2 - z2)
  gcov(3,3) = ((a2 + r2)**2*z2)/(delta*r2*rho2) + (rho2*(1. - ((a2 + r2)*z2)/(r2*rho2))**2)/(r2 - z2)
 
- gcon(0,0) = gphiphi/(-gtphi**2 + gphiphi*gtt)
- gcon(1,0) = -((gtphi*y)/(gtphi**2 - gphiphi*gtt))
- gcon(2,0) = (gtphi*x)/(gtphi**2 - gphiphi*gtt)
- gcon(3,0) = 0.
- gcon(0,1) = -((gtphi*y)/(gtphi**2 - gphiphi*gtt))
- gcon(1,1) = (delta*r2*x2)/((a2 + r2)**2*rho2) + (gtt*y2)/(-gtphi**2 + gphiphi*gtt) + (x2*z2)/(rho2*(r2 - z2))
- gcon(2,1) = -((gtt*x*y)/(-gtphi**2 + gphiphi*gtt)) + (delta*r2*x*y)/((a2 + r2)**2*rho2) + (x*y*z2)/(rho2*(r2 - z2))
- gcon(3,1) = -((x*z)/rho2) + (delta*x*z)/((a2 + r2)*rho2)
- gcon(0,2) = (gtphi*x)/(gtphi**2 - gphiphi*gtt)
- gcon(1,2) = -((gtt*x*y)/(-gtphi**2 + gphiphi*gtt)) + (delta*r2*x*y)/((a2 + r2)**2*rho2) + (x*y*z2)/(rho2*(r2 - z2))
- gcon(2,2) = (gtt*x2)/(-gtphi**2 + gphiphi*gtt) + (delta*r2*y2)/((a2 + r2)**2*rho2) + (y2*z2)/(rho2*(r2 - z2))
- gcon(3,2) = -((y*z)/rho2) + (delta*y*z)/((a2 + r2)*rho2)
- gcon(0,3) = 0.
- gcon(1,3) = -((x*z)/rho2) + (delta*x*z)/((a2 + r2)*rho2)
- gcon(2,3) = -((y*z)/rho2) + (delta*y*z)/((a2 + r2)*rho2)
- gcon(3,3) = (r2 - z2)/rho2 + (delta*z2)/(r2*rho2)
+ if (present(gcon)) then
+    gcon(0,0) = gphiphi/(-gtphi**2 + gphiphi*gtt)
+    gcon(1,0) = -((gtphi*y)/(gtphi**2 - gphiphi*gtt))
+    gcon(2,0) = (gtphi*x)/(gtphi**2 - gphiphi*gtt)
+    gcon(3,0) = 0.
+    gcon(0,1) = -((gtphi*y)/(gtphi**2 - gphiphi*gtt))
+    gcon(1,1) = (delta*r2*x2)/((a2 + r2)**2*rho2) + (gtt*y2)/(-gtphi**2 + gphiphi*gtt) + (x2*z2)/(rho2*(r2 - z2))
+    gcon(2,1) = -((gtt*x*y)/(-gtphi**2 + gphiphi*gtt)) + (delta*r2*x*y)/((a2 + r2)**2*rho2) + (x*y*z2)/(rho2*(r2 - z2))
+    gcon(3,1) = -((x*z)/rho2) + (delta*x*z)/((a2 + r2)*rho2)
+    gcon(0,2) = (gtphi*x)/(gtphi**2 - gphiphi*gtt)
+    gcon(1,2) = -((gtt*x*y)/(-gtphi**2 + gphiphi*gtt)) + (delta*r2*x*y)/((a2 + r2)**2*rho2) + (x*y*z2)/(rho2*(r2 - z2))
+    gcon(2,2) = (gtt*x2)/(-gtphi**2 + gphiphi*gtt) + (delta*r2*y2)/((a2 + r2)**2*rho2) + (y2*z2)/(rho2*(r2 - z2))
+    gcon(3,2) = -((y*z)/rho2) + (delta*y*z)/((a2 + r2)*rho2)
+    gcon(0,3) = 0.
+    gcon(1,3) = -((x*z)/rho2) + (delta*x*z)/((a2 + r2)*rho2)
+    gcon(2,3) = -((y*z)/rho2) + (delta*y*z)/((a2 + r2)*rho2)
+    gcon(3,3) = (r2 - z2)/rho2 + (delta*z2)/(r2*rho2)
+ endif
 
 end subroutine get_metric_cartesian
 
 !--- The metric tensor in SPHERICAL-like form
 pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
- real,    intent(in)  :: position(3)
- real,    intent(out) :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
+ real, intent(in)  :: position(3)
+ real, intent(out) :: gcov(0:3,0:3)
+ real, intent(out), optional :: gcon(0:3,0:3)
+ real, intent(out), optional :: sqrtg
  real :: a2,r2,r,rho2,delta,sintheta2
  real :: gtt,grr,gthetatheta,gtphi,gphiphi
  real :: phi,theta
@@ -128,24 +134,26 @@ pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
  gtphi       = gcov(0,3)
  gphiphi     = gcov(3,3)
 
- gcon(0,0) = gphiphi/(-gtphi**2 + gphiphi*gtt)
- gcon(1,0) = 0.
- gcon(2,0) = 0.
- gcon(3,0) = gtphi/(gtphi**2 - gphiphi*gtt)
- gcon(0,1) = 0.
- gcon(1,1) = delta/rho2
- gcon(2,1) = 0.
- gcon(3,1) = 0.
- gcon(0,2) = 0.
- gcon(1,2) = 0.
- gcon(2,2) = 1./rho2
- gcon(3,2) = 0.
- gcon(0,3) = gtphi/(gtphi**2 - gphiphi*gtt)
- gcon(1,3) = 0.
- gcon(2,3) = 0.
- gcon(3,3) = gtt/(-gtphi**2 + gphiphi*gtt)
+ if (present(gcon)) then
+    gcon(0,0) = gphiphi/(-gtphi**2 + gphiphi*gtt)
+    gcon(1,0) = 0.
+    gcon(2,0) = 0.
+    gcon(3,0) = gtphi/(gtphi**2 - gphiphi*gtt)
+    gcon(0,1) = 0.
+    gcon(1,1) = delta/rho2
+    gcon(2,1) = 0.
+    gcon(3,1) = 0.
+    gcon(0,2) = 0.
+    gcon(1,2) = 0.
+    gcon(2,2) = 1./rho2
+    gcon(3,2) = 0.
+    gcon(0,3) = gtphi/(gtphi**2 - gphiphi*gtt)
+    gcon(1,3) = 0.
+    gcon(2,3) = 0.
+    gcon(3,3) = gtt/(-gtphi**2 + gphiphi*gtt)
+ endif
 
- sqrtg = grr*gthetatheta*(-gtphi**2+gphiphi*gtt)
+ if (present(sqrtg)) sqrtg = grr*gthetatheta*(-gtphi**2+gphiphi*gtt)
 
 end subroutine get_metric_spherical
 
