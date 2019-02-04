@@ -239,6 +239,9 @@ end subroutine pack_metricderivs
 !--- Subroutine to return metric/components from metrici array
 !
 pure subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,betadown,betaUP)
+#ifdef FINVSQRT
+ use fastmath, only:finvsqrt
+#endif
  real, intent(in), dimension(0:3,0:3,2) :: metrici
  real, intent(out), dimension(0:3,0:3), optional :: gcov,gcon
  real, intent(out), dimension(1:3,1:3), optional :: gammaijdown,gammaijUP
@@ -246,7 +249,11 @@ pure subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,beta
  real :: alpha_,betaUP_(3)
  integer :: i,j
 
+#ifdef FINVSQRT
+ if (present(alpha).or.present(betaUP).or.present(gammaijUP)) alpha_  = finvsqrt(-metrici(0,0,2))
+#else
  if (present(alpha).or.present(betaUP).or.present(gammaijUP)) alpha_  = sqrt(-1./metrici(0,0,2))
+#endif
  if (present(betaUP).or.present(gammaijUP))                   betaUP_ = metrici(0,1:3,2) * (alpha_**2)
  !                                                                     |^ gcon_(0,1:3) ^|
  if (present(gammaijUP)) then

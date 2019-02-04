@@ -88,6 +88,9 @@ subroutine compute_energies(t)
  use metric_tools,   only:unpack_metric
  use utils_gr,       only:dot_product_gr
  use vectorutils,    only:cross_product3D
+#ifdef FINVSQRT
+ use fastmath,       only:finvsqrt
+#endif
 #endif
 #ifdef LIGHTCURVE
  use part,           only:luminosity
@@ -254,7 +257,11 @@ subroutine compute_energies(t)
        call unpack_metric(metrics(:,:,:,i),betaUP=beta_gr_UP,alpha=alpha_gr,gammaijdown=gammaijdown)
        bigvi    = (vxyzu(1:3,i)+beta_gr_UP)/alpha_gr
        v2i      = dot_product_gr(bigvi,bigvi,gammaijdown)
+#ifdef FINVSQRT
+       lorentzi = finvsqrt(1.-v2i)
+#else
        lorentzi = 1./sqrt(1.-v2i)
+#endif
        pdotv    = pxi*vxi + pyi*vyi + pzi*vzi
 
        ! angular momentum

@@ -30,6 +30,9 @@ end function dot_product_gr
 !-------------------------------------------------------------------------------
 
 pure subroutine get_u0(gcov,v,U0,ierr)
+#ifdef FINVSQRT
+ use fastmath, only:finvsqrt
+#endif
  real,    intent(in)  :: gcov(0:3,0:3), v(1:3)
  real,    intent(out) :: U0
  integer, intent(out) :: ierr
@@ -39,7 +42,11 @@ pure subroutine get_u0(gcov,v,U0,ierr)
  v4(0)   = 1.
  v4(1:3) = v(1:3)
  vv      = dot_product_gr(v4,v4,gcov)
+#ifdef FINVSQRT
+ U0      = finvsqrt(-vv)
+#else
  U0      = 1./sqrt(-vv)
+#endif
  if (vv > 0.) ierr = 1
 
 end subroutine get_u0
@@ -49,6 +56,9 @@ end subroutine get_u0
 subroutine get_bigv(metrici,v,bigv,bigv2,alpha,lorentz)
  use metric_tools, only:unpack_metric
  use io,           only:fatal
+#ifdef FINVSQRT
+ use fastmath,     only:finvsqrt
+#endif
  real, intent(in)  :: metrici(0:3,0:3,2),v(1:3)
  real, intent(out) :: bigv(1:3),bigv2,alpha,lorentz
  real :: betaUP(1:3),gammaijdown(1:3,1:3)
@@ -57,7 +67,11 @@ subroutine get_bigv(metrici,v,bigv,bigv2,alpha,lorentz)
  bigv = (v + betaUP)/alpha
  bigv2 = dot_product_gr(bigv,bigv,gammaijdown)
  if (bigv2 > 1.) call fatal('get_bigv','velocity faster than speed of light -- bigv2',val=bigv2)
+#ifdef FINVSQRT
+ lorentz = finvsqrt(1.-bigv2)
+#else
  lorentz = 1./sqrt(1.-bigv2)
+#endif
 
 end subroutine get_bigv
 

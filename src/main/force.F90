@@ -1403,8 +1403,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef GR
           enthi  = 1.+eni+pri/densi
           enthj  = 1.+enj+prj/densj
+#ifdef FINVSQRT
+          lorentzi_star = finvsqrt(1.-projbigvi**2)
+          lorentzj_star = finvsqrt(1.-projbigvj**2)
+#else
           lorentzi_star = 1./sqrt(1.-projbigvi**2)
           lorentzj_star = 1./sqrt(1.-projbigvj**2)
+#endif
           dlorentzv = lorentzi_star*projbigvi - lorentzj_star*projbigvj
           if (projv < 0.) then
              qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv*hi*rij1
