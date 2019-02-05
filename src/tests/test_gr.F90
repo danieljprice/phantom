@@ -126,7 +126,7 @@ subroutine test_inccirc(ntests,npass)
  call checkval(angmom(1),angmom0(1),6.e-10,nerr(1),'error in angmomx')
  call checkval(angmom(2),angmom0(2),6.e-10,nerr(2),'error in angmomy')
  call checkval(angmom(3),angmom0(3),6.e-10,nerr(3),'error in angmomz')
- call checkval(rfinal   ,r         ,4.08e-6,nerr(4),'error in final r position')
+ call checkval(rfinal   ,r         ,5.08e-6,nerr(4),'error in final r position')
 
  ntests = ntests + 1
  if (all(nerr==0)) npass = npass + 1
