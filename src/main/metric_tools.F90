@@ -250,7 +250,7 @@ pure subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,beta
  real, intent(out), dimension(0:3,0:3), optional :: gcov,gcon
  real, intent(out), dimension(1:3,1:3), optional :: gammaijdown,gammaijUP
  real, intent(out),                     optional :: alpha,betadown(3),betaUP(3)
- integer :: i,j
+ integer :: i
 
 #ifdef FINVSQRT
  if (present(alpha)) alpha  = finvsqrt(-metrici(0,0,2))
@@ -262,10 +262,8 @@ pure subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,beta
 
  if (present(gammaijUP)) then
     gammaijUP = 0.
-    do j=1,3
-      do i=1,3
-         gammaijUP(i,j) = metrici(i,j,2) + metrici(0,i,2)*metrici(0,j,2)*(-1./metrici(0,0,2)) ! = gcon(i,j) + betaUP(i)*betaUP(j)/alpha**2
-      enddo
+    do i=1,3
+       gammaijUP(:,i) = metrici(1:3,i,2) + metrici(1:3,0,2)*metrici(i,0,2)*(-1./metrici(0,0,2)) ! = gcon(i,j) + betaUP(i)*betaUP(j)/alpha**2
     enddo
  endif
 
