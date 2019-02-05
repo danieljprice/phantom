@@ -28,7 +28,7 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  real :: rho2,delta,sintheta2
  real :: gphiphi,gtphi,gtt
  real :: rs
- real :: a2pr2,term1,dx2py2,drho2delta,dr2,drho2,dr2mz2
+ real :: a2pr2,term1,dx2py2,drho2delta,dr2,drho2,dr2mz2,term2,term3,term4
  rs = 2.*mass1
 
  if (present(sqrtg)) sqrtg = 1.
@@ -60,18 +60,21 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  dx2py2    = 1./(x2 + y2)
  drho2delta = drho2/delta
  dr2mz2    = 1./(r2 - z2)
+ term2     = gtphi*dx2py2
+ term3     = gphiphi*dx2py2**2
+ term4     = drho2*dr2mz2
 
  gcov(0,0) = -1. + (r*rs)*drho2
- gcov(1,0) = -((gtphi*y)*dx2py2)
- gcov(2,0) = (gtphi*x)*dx2py2
+ gcov(1,0) = -y*term2
+ gcov(2,0) =  x*term2
  gcov(3,0) = 0.
  gcov(0,1) = -((gtphi*y)*dx2py2)
- gcov(1,1) = (r2*x2)*drho2delta + (gphiphi*y2)*dx2py2**2 + (x2*z2)*drho2*dr2mz2
- gcov(2,1) = (r2*x*y)*drho2delta - (gphiphi*x*y)*dx2py2**2 + (x*y*z2)*drho2*dr2mz2
+ gcov(1,1) = (r2*x2)*drho2delta + term3*y2 + (x2*z2)*term4
+ gcov(2,1) = (r2*x*y)*drho2delta - term3*x*y + (x*y*z2)*term4
  gcov(3,1) = (a2pr2*x*z)*drho2delta - (x*z*term1)*dr2mz2
  gcov(0,2) = (gtphi*x)*dx2py2
- gcov(1,2) = (r2*x*y)*drho2delta - (gphiphi*x*y)*dx2py2**2 + (x*y*z2)*drho2*dr2mz2
- gcov(2,2) = (r2*y2)*drho2delta + (gphiphi*x2)*dx2py2**2 + (y2*z2)*drho2*dr2mz2
+ gcov(1,2) = (r2*x*y)*drho2delta - term3*x*y + (x*y*z2)*term4
+ gcov(2,2) = (r2*y2)*drho2delta + term3*x2 + (y2*z2)*term4
  gcov(3,2) = (a2pr2*y*z)*drho2delta - (y*z*term1)*dr2mz2
  gcov(0,3) = 0.
  gcov(1,3) = (a2pr2*x*z)*drho2delta - (x*z*term1)*dr2mz2
