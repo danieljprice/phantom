@@ -28,7 +28,7 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  real :: rho2,delta,sintheta2
  real :: gphiphi,gtphi,gtt
  real :: rs
- real :: a2pr2,term1,dx2py2,drho2delta,dr2
+ real :: a2pr2,term1,dx2py2,drho2delta,dr2,drho2
  rs = 2.*mass1
 
  if (present(sqrtg)) sqrtg = 1.
@@ -45,31 +45,32 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  r         = sqrt(r2)
  dr2       = 1./r2
  rho2      = r2 + a2*(z2*dr2)
+ drho2     = 1./rho2
  a2pr2     = a2 + r2
 
  !--- The Boyer-Lindquist metric tensor in CARTESIAN-like form
 
  delta     = a2pr2 - rs*r
  sintheta2 = 1. - z2*dr2
- gtt       = -1. + (r*rs)/rho2
- gphiphi   = sintheta2*(a2pr2 + (a2*r*rs*sintheta2)/rho2)
- gtphi     = -((a*r*rs*sintheta2)/rho2)
+ gtt       = -1. + (r*rs)*drho2
+ gphiphi   = sintheta2*(a2pr2 + (a2*r*rs*sintheta2)*drho2)
+ gtphi     = -((a*r*rs*sintheta2)*drho2)
 
- term1     = 1. - (a2pr2*z2)*dr2/rho2
+ term1     = 1. - (a2pr2*z2)*dr2*drho2
  dx2py2    = 1./(x2 + y2)
- drho2delta = 1./(rho2*delta)
+ drho2delta = drho2/delta
 
- gcov(0,0) = -1. + (r*rs)/rho2
+ gcov(0,0) = -1. + (r*rs)*drho2
  gcov(1,0) = -((gtphi*y)*dx2py2)
  gcov(2,0) = (gtphi*x)*dx2py2
  gcov(3,0) = 0.
  gcov(0,1) = -((gtphi*y)*dx2py2)
- gcov(1,1) = (r2*x2)*drho2delta + (gphiphi*y2)*dx2py2**2 + (x2*z2)/(rho2*(r2 - z2))
- gcov(2,1) = (r2*x*y)*drho2delta - (gphiphi*x*y)*dx2py2**2 + (x*y*z2)/(rho2*(r2 - z2))
+ gcov(1,1) = (r2*x2)*drho2delta + (gphiphi*y2)*dx2py2**2 + (x2*z2)*drho2/(r2 - z2)
+ gcov(2,1) = (r2*x*y)*drho2delta - (gphiphi*x*y)*dx2py2**2 + (x*y*z2)*drho2/(r2 - z2)
  gcov(3,1) = (a2pr2*x*z)*drho2delta - (x*z*term1)/(r2 - z2)
  gcov(0,2) = (gtphi*x)*dx2py2
- gcov(1,2) = (r2*x*y)*drho2delta - (gphiphi*x*y)*dx2py2**2 + (x*y*z2)/(rho2*(r2 - z2))
- gcov(2,2) = (r2*y2)*drho2delta + (gphiphi*x2)*dx2py2**2 + (y2*z2)/(rho2*(r2 - z2))
+ gcov(1,2) = (r2*x*y)*drho2delta - (gphiphi*x*y)*dx2py2**2 + (x*y*z2)*drho2/(r2 - z2)
+ gcov(2,2) = (r2*y2)*drho2delta + (gphiphi*x2)*dx2py2**2 + (y2*z2)*drho2/(r2 - z2)
  gcov(3,2) = (a2pr2*y*z)*drho2delta - (y*z*term1)/(r2 - z2)
  gcov(0,3) = 0.
  gcov(1,3) = (a2pr2*x*z)*drho2delta - (x*z*term1)/(r2 - z2)
@@ -84,15 +85,15 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
     gcon(0,1) = -((gtphi*y)/(gtphi**2 - gphiphi*gtt))
     gcon(1,1) = (delta*r2*x2)/(a2pr2**2*rho2) + (gtt*y2)/(-gtphi**2 + gphiphi*gtt) + (x2*z2)/(rho2*(r2 - z2))
     gcon(2,1) = -((gtt*x*y)/(-gtphi**2 + gphiphi*gtt)) + (delta*r2*x*y)/(a2pr2**2*rho2) + (x*y*z2)/(rho2*(r2 - z2))
-    gcon(3,1) = -((x*z)/rho2) + (delta*x*z)/(a2pr2*rho2)
+    gcon(3,1) = -((x*z)*drho2) + (delta*x*z)/(a2pr2*rho2)
     gcon(0,2) = (gtphi*x)/(gtphi**2 - gphiphi*gtt)
     gcon(1,2) = -((gtt*x*y)/(-gtphi**2 + gphiphi*gtt)) + (delta*r2*x*y)/(a2pr2**2*rho2) + (x*y*z2)/(rho2*(r2 - z2))
     gcon(2,2) = (gtt*x2)/(-gtphi**2 + gphiphi*gtt) + (delta*r2*y2)/(a2pr2**2*rho2) + (y2*z2)/(rho2*(r2 - z2))
-    gcon(3,2) = -((y*z)/rho2) + (delta*y*z)/(a2pr2*rho2)
+    gcon(3,2) = -((y*z)*drho2) + (delta*y*z)/(a2pr2*rho2)
     gcon(0,3) = 0.
-    gcon(1,3) = -((x*z)/rho2) + (delta*x*z)/(a2pr2*rho2)
-    gcon(2,3) = -((y*z)/rho2) + (delta*y*z)/(a2pr2*rho2)
-    gcon(3,3) = (r2 - z2)/rho2 + (delta*z2)/(r2*rho2)
+    gcon(1,3) = -((x*z)*drho2) + (delta*x*z)/(a2pr2*rho2)
+    gcon(2,3) = -((y*z)*drho2) + (delta*y*z)/(a2pr2*rho2)
+    gcon(3,3) = (r2 - z2)*drho2 + (delta*z2)/(r2*rho2)
  endif
 
 end subroutine get_metric_cartesian
