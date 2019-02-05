@@ -33,6 +33,8 @@ module forces
  use dim, only:maxfsum,maxxpartveciforce,maxBevol,maxp,ndivcurlB,ndivcurlv,&
                maxdusttypes,maxdustsmall
  use mpiforce, only:cellforce,stackforce
+ use linklist, only:ifirstincell
+ use kdtree,   only:inodeparts,inoderange
 
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -137,10 +139,10 @@ contains
 !----------------------------------------------------------------
 subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,&
                  ipart_rhomax,dt,stressmax,temperature)
- use dim,          only:maxvxyzu,maxalpha,maxneigh,maxdvdx,&
+ use dim,          only:maxvxyzu,maxneigh,maxdvdx,&
                         mhd,mhd_nonideal,lightcurve
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
- use linklist,     only:ncells,ifirstincell,get_neighbour_list,get_hmaxcell,get_cell_location
+ use linklist,     only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location
  use options,      only:iresistive_heating
  use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,nabundances,ll,get_partinfo,iactive,gradh,&
                         hrho,iphase,maxphase,igas,iboundary,maxgradh,dvdx, &
@@ -341,6 +343,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  if (maxgradh /= maxp) call fatal('force','need storage of gradh (maxgradh=maxp)')
 
 !$omp parallel default(none) &
+!$omp shared(maxp,maxphase) &
 !$omp shared(ncells,ll,ifirstincell) &
 !$omp shared(xyzh) &
 !$omp shared(dustprop) &
@@ -762,7 +765,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                           beta, &
                           pmassi,listneigh,nneigh,xyzcache,fsum,vsigmax, &
                           ifilledcellcache,realviscosity,useresistiveheat, &
-                          xyzh,vxyzu,Bevol,iphase,massoftype, &
+                          xyzh,vxyzu,Bevol,iphasei,iphase,massoftype, &
                           divcurlB,eta_nimhd, temperature, &
                           dustfrac,gradh,divcurlv,alphaind, &
                           alphau,alphaB,bulkvisc,stressmax,&
@@ -775,7 +778,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:igas,idust,iboundary,iohm,ihall,iambi,maxphase,iactive,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxBevol,maxdvdx
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,store_temperature
- use part,        only:rhoh,maxgradh,dvdx
+ use part,        only:rhoh,dvdx
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
@@ -817,6 +820,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real,            intent(in)    :: Bevol(:,:)
  real(kind=4),    intent(in)    :: divcurlB(:,:)
  real,            intent(in)    :: dustfrac(:,:)
+ integer(kind=1), intent(in)    :: iphasei
  integer(kind=1), intent(in)    :: iphase(:)
  real,            intent(in)    :: massoftype(:)
  real,            intent(in)    :: eta_nimhd(:,:)
@@ -917,7 +921,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  pmassonrhoi = pmassi*rho1i
  hfacgrkern  = hi41*cnormk*gradhi
 
- iamtypei = iamtype(iphase(i))
+ iamtypei = iamtype(iphasei)
 
  ! default settings for active/phase if iphase not used
  iactivej = .true.
@@ -1799,7 +1803,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use part,      only:grainsize,graindens
 #endif
  use nicil,     only:nimhd_get_dt,nimhd_get_jcbcb
- use kdtree,    only:inodeparts,inoderange
  type(cellforce),    intent(inout) :: cell
  integer(kind=1),    intent(in)    :: iphase(:)
  real,               intent(in)    :: xyzh(:,:)
@@ -2065,7 +2068,6 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  use options,     only:beta,alphau,alphaB,iresistive_heating
  use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,massoftype
  use viscosity,   only:irealvisc,bulkvisc
- use kdtree,      only:inodeparts
 
  type(cellforce), intent(inout)  :: cell
 
@@ -2164,7 +2166,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          beta, &
                          pmassi,listneigh,nneigh,xyzcache,cell%fsums(:,ip),cell%vsigmax(ip), &
                          .true.,realviscosity,useresistiveheat, &
-                         xyzh,vxyzu,Bevol,iphase,massoftype, &
+                         xyzh,vxyzu,Bevol,cell%iphase(ip),iphase,massoftype, &
                          divcurlB,eta_nimhd, temperature, &
                          dustfrac,gradh,divcurlv,alphaind, &
                          alphau,alphaB,bulkvisc,stressmax, &
@@ -2206,7 +2208,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use viscosity,      only:bulkvisc,dt_viscosity,irealvisc,shearfunc
  use kernel,         only:kernel_softening
  use linklist,       only:get_distance_from_centre_of_mass
- use kdtree,         only:expand_fgrav_in_taylor_series,inodeparts
+ use kdtree,         only:expand_fgrav_in_taylor_series
  use nicil,          only:nimhd_get_dudt,nimhd_get_dt
  use cooling,        only:energ_cooling
  use chem,           only:energ_h2cooling

@@ -29,9 +29,27 @@ module dtypekdtree
  integer, parameter :: ndimtree = 3
 #endif
 
+ integer, parameter :: kdnode_bytes = &
+                      8*ndimtree &  ! xcen(ndimtree)
+                    + 8 &           ! size
+                    + 8 &           ! hmax
+                    + 4 &           ! leftchild
+                    + 4 &           ! rightchild
+                    + 4 &           ! parent
+#ifdef GRAVITY
+                    + 8 &           ! mass
+                    + 8*6 &         ! quads(6)
+#endif
+#ifdef TREEVIZ
+                    + 8*ndimtree &  ! xmin(ndimtree)
+                    + 8*ndimtree &  ! xmax(ndimtree)
+#endif
+                    + 0
+
  private
  public :: ndimtree
  public :: kdnode
+ public :: kdnode_bytes
 #ifdef MPI
  public :: get_mpitype_of_kdnode
 #endif

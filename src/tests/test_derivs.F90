@@ -1985,7 +1985,6 @@ end function Az
 !+
 !----------------------------------------------------------------
 real function Bx(xyzhi)
- use dim,      only:maxp
  use boundary, only:xmin,dxbound,zmin,dzbound
  use physcon,  only:pi
  use part,     only:Bextx
@@ -2018,7 +2017,6 @@ real function Bz(xyzhi)
 end function Bz
 
 real function dBxdx(xyzhi)
- use dim,      only:maxp
  use boundary, only:xmin,dxbound
  use physcon,  only:pi
  real, intent(in) :: xyzhi(4)
@@ -2108,7 +2106,6 @@ end function dBzdz
 real function dBxdxdx(xyzhi)
  use boundary, only:dxbound,xmin
  use physcon,  only:pi
- use part,     only:maxp
  real, intent(in) :: xyzhi(4)
 
  dBxdxdx = -2.*pi/dxbound*sin(2.*pi*(xyzhi(1)-xmin)/dxbound)
@@ -2223,7 +2220,6 @@ end function dBzdtresist
 !--functional form of div B
 !
 real function divBfunc(xyzhi)
- use dim,  only:maxp
  real, intent(in) :: xyzhi(4)
 
  divBfunc = dBxdx(xyzhi) + dBydy(xyzhi) + dBzdz(xyzhi)

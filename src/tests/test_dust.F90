@@ -588,6 +588,7 @@ subroutine test_drag(ntests,npass)
 
  if (mhd) Bevol = 0.
  if (use_dustgrowth) then
+    dustprop(:,:) = 0.
     dustprop(1,:) = grainsize(1)
     dustprop(2,:) = graindens(1)
  endif
@@ -620,6 +621,11 @@ subroutine test_drag(ntests,npass)
        deint  = deint  + massoftype(itype)*fxyzu(iu,i)
     endif
  enddo
+
+ da = reduceall_mpi('+', da)
+ dl = reduceall_mpi('+', dl)
+ dekin = reduceall_mpi('+', dekin)
+ deint = reduceall_mpi('+', deint)
 
  nfailed=0
  call checkval(da(1),0.,7.e-7,nfailed,'acceleration from drag conserves momentum(x)')

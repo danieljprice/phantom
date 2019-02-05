@@ -33,7 +33,7 @@ module testkdtree
 contains
 
 subroutine test_kdtree(ntests,npass)
- use dim,       only:ncellsmax,maxp
+ use dim,       only:maxp
  use io,        only:id,master,iverbose
  use linklist,  only:ifirstincell,ncells,node
  use part,      only:npart,xyzh,hfact,massoftype,igas,maxphase,iphase,isetphase

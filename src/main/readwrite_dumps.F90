@@ -23,8 +23,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, dump_utils, eos, externalforces, fileutils,
-!    gitinfo, initial_params, io, lumin_nsdisc, mpi, mpiutils, options,
-!    part, setup_params, sphNGutils, timestep, units
+!    gitinfo, initial_params, io, lumin_nsdisc, memory, mpi, mpiutils,
+!    options, part, setup_params, sphNGutils, timestep, units
 !+
 !--------------------------------------------------------------------------
 module readwrite_dumps
@@ -302,7 +302,7 @@ end subroutine get_dump_size
 !-------------------------------------------------------------------
 subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
-                 lightcurve,maxlum,store_temperature,use_dustgrowth
+                 lightcurve,store_temperature,use_dustgrowth
  use eos,   only:utherm,ieos,equationofstate,done_init_eos,init_eos
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bxyz,Bxyz_label,npart,npartoftype,maxtypes, &
@@ -704,7 +704,11 @@ end subroutine write_smalldump
 !-------------------------------------------------------------------
 
 subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
- use dim,      only:maxp,maxvxyzu,maxalpha,maxgrav,gravity,lightcurve,maxlum,mhd
+ use memory,   only:allocate_memory
+ use dim,      only:maxp,maxvxyzu,gravity,lightcurve,mhd
+#ifdef INJECT_PARTICLES
+ use dim,      only:maxp_hard
+#endif
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &
                     maxphase,isetphase,nptmass,nsinkproperties,maxptmass,get_pmass, &
@@ -796,6 +800,16 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  endif
 
  call free_header(hdr,ierr)
+
+ !
+ !--Allocate main arrays
+ !
+#ifdef INJECT_PARTICLES
+ call allocate_memory(maxp_hard)
+#else
+ call allocate_memory(int(nparttot / nprocs))
+#endif
+
 !
 !--arrays
 !
@@ -860,13 +874,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     i1 = i2 + 1
     i2 = i1 + (npartread - 1)
     npart = npart + npartread
-#ifdef MPI
-    if (npart > maxp) then
-       write(*,*) 'npart > maxp in readwrite_dumps'
-       ierr = 1
-       return
-    endif
-#endif
+
     if (npartread <= 0 .and. nptmass <= 0) then
        print*,' SKIPPING BLOCK npartread = ',npartread
        call skipblock(idisk1,nums(:,1),nums(:,2),nums(:,3),nums(:,4),tagged,ierr)
@@ -900,6 +908,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  !
  npartoftypetot = npartoftype
  call count_particle_types(npartoftype)
+
  npartoftypetotact = reduceall_mpi('+',npartoftype)
  do i = 1,maxtypes
     if (npartoftypetotact(i) /= npartoftypetot(i)) then
@@ -942,7 +951,14 @@ end subroutine read_dump
 !-------------------------------------------------------------------
 
 subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
- use dim,      only:maxp,maxvxyzu,mhd,maxBevol
+ use memory,   only:allocate_memory
+ use dim,      only:maxvxyzu,mhd,maxBevol
+#ifdef MPI
+ use dim,      only:maxp
+#endif
+#ifdef INJECT_PARTICLES
+ use dim,      only:maxp_hard
+#endif
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:npart,npartoftype,maxtypes,nptmass,nsinkproperties,maxptmass, &
                     massoftype
@@ -1024,6 +1040,15 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  endif
 
  call free_header(hdr,ierr)
+ !
+ !--Allocate main arrays
+ !
+#ifdef INJECT_PARTICLES
+ call allocate_memory(maxp_hard)
+#else
+ call allocate_memory(int(nparttot / nprocs))
+#endif
+
 !
 !--arrays
 !
@@ -1499,10 +1524,16 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
        alphaind(1,i1:i2) = real(alpha,kind=4)
     endif
  endif
- if (any(massoftype <= 0. .and. npartoftype /= 0) .and. npartread > 0) then
-    if (id==master .and. i1==1) write(*,*) 'ERROR! mass not set in read_dump (Phantom)'
-    ierr = 12
-    return
+ if (npartread > 0) then
+    do i = 1, size(massoftype)
+       if (npartoftype(i) > 0) then
+          if (massoftype(i) <= 0.0) then
+             if (id==master .and. i1==1) write(*,*) 'ERROR! mass not set in read_dump (Phantom)'
+             ierr = 12
+             return
+          endif
+       endif
+    enddo
  endif
  if (use_dustfrac .and. .not. all(got_dustfrac(1:ndusttypes))) then
     if (id==master .and. i1==1) write(*,*) 'ERROR! using one-fluid dust, but no dust fraction found in dump file'
@@ -1580,7 +1611,7 @@ end subroutine check_arrays
 subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
                          nblocks,npart,npartoftype, &
                          tfile,hfactfile,alphafile,iprint,id,nprocs,ierr)
- use dim,        only:maxp,maxdustlarge,use_dust
+ use dim,        only:maxp_hard,maxdustlarge,use_dust
  use io,         only:master ! check this
  use eos,        only:isink
  use part,       only:maxtypes,igas,idust,ndustsmall,ndustlarge,ndusttypes
@@ -1653,7 +1684,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
 
 !--non-MPI dumps
  if (nprocs==1) then
-    if (nparttoti > maxp) then
+    if (nparttoti > maxp_hard) then
        write (*,*) 'ERROR in readdump: number of particles exceeds MAXP: recompile with MAXP=',nparttoti
        ierr = 4
        return
@@ -1841,7 +1872,7 @@ end subroutine fill_header
 subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
                           tfile,hfactfile,alphafile,iprint,ierr)
  use io,             only:id,master
- use dim,            only:maxp,maxvxyzu,use_dust
+ use dim,            only:maxvxyzu,use_dust
  use eos,            only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
  use options,        only:ieos,tolh,alpha,alphau,alphaB,iexternalforce
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,&
@@ -2083,7 +2114,7 @@ end subroutine fake_header_tags
 !+
 !-----------------------------------------------------------------
 subroutine fake_array_tags(iblock,ikind,tags,phantomdump)
- use dim, only:maxalpha,maxp,maxvxyzu,h2chemistry
+ use dim, only:maxvxyzu,h2chemistry
  integer, intent(in) :: iblock,ikind
  logical, intent(in) :: phantomdump
  character(len=lentag), intent(out) :: tags(:)
@@ -2241,6 +2272,7 @@ subroutine count_particle_types(npartoftype)
     itype = iamtype(iphase(i))
     npartoftype(itype) = npartoftype(itype) + 1
  enddo
+
 end subroutine count_particle_types
 
 end module readwrite_dumps

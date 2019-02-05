@@ -28,6 +28,7 @@ module densityforce
  use dim,     only:maxdvdx,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum,&
                    maxdusttypes,maxdustlarge
  use part,    only:maxBevol,mhd,dvdx
+ use kdtree,      only:inodeparts,inoderange
  use kernel,  only:cnormk,wab0,gradh0,dphidh0,radkern2
  use mpidens, only:celldens,stackdens
  use timing,  only:getused,printused,print_time
@@ -125,11 +126,11 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                      mhd_nonideal,nalpha,use_dust
  use eos,       only:get_spsound,get_temperature
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
- use linklist,  only:ncells,ifirstincell,get_neighbour_list,get_hmaxcell, &
+ use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
                      get_cell_location,set_hmaxcell,sync_hmax_mpi
- use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho, &
-                     ll,get_partinfo,iactive,maxgradh,&
-                     hrho,iphase,maxphase,igas,idust,iboundary,iamgas,periodic,&
+ use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho,&
+                     ll,get_partinfo,iactive,&
+                     hrho,iphase,igas,idust,iboundary,iamgas,periodic,&
                      all_active,dustfrac,Bxyz
 #ifdef FINVSQRT
  use fastmath,  only:finvsqrt
@@ -1235,7 +1236,6 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  use dim,         only:maxvxyzu
  use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,set_boundaries_to_active
  use viscosity,   only:irealvisc
- use kdtree,      only:inodeparts
 #ifdef MPI
  use io,          only:id
 #endif
@@ -1339,7 +1339,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
  use io,          only:fatal
  use dim,         only:maxp,maxvxyzu
  use part,        only:maxphase,get_partinfo,iboundary,maxBevol,mhd,igas,iamgas,set_boundaries_to_active
- use kdtree,      only:inodeparts,inoderange
 
  type(celldens),     intent(inout) :: cell
  integer(kind=1),    intent(in)    :: iphase(:)
@@ -1432,7 +1431,6 @@ subroutine finish_cell(cell,cell_converged)
  use io,       only:iprint,fatal
  use part,     only:get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,hrho
  use options,  only:tolh
- use kdtree,   only:inodeparts
 
  type(celldens),  intent(inout) :: cell
  logical,         intent(out)   :: cell_converged
@@ -1576,6 +1574,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  use nicil,       only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
  use linklist,    only:set_hmaxcell
  use kernel,      only:radkern
+ use part,        only:xyzh_soa,store_temperature,temperature
  use kdtree,      only:inodeparts
 
  integer,         intent(in)    :: icall

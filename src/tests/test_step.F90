@@ -19,7 +19,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, eos, io, mpiutils, options, part, physcon,
-!    step_lf_global, testutils, timestep, timing, unifdis, viscosity
+!    step_lf_global, testutils, timestep, timestep_ind, timing, unifdis,
+!    viscosity
 !+
 !--------------------------------------------------------------------------
 module teststep
@@ -39,7 +40,7 @@ subroutine test_step(ntests,npass)
  use eos,      only:polyk,gamma,use_entropy
  use mpiutils, only:reduceall_mpi
  use options,  only:tolh,alpha,alphau,alphaB,ieos
- use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,divcurlv,maxgradh, &
+ use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,divcurlv, &
                     Bevol,dBevol,Bextx,Bexty,Bextz,alphaind,fext, &
                     maxphase,mhd,maxBevol,igas
  use unifdis,  only:set_unifdis
@@ -51,6 +52,10 @@ subroutine test_step(ntests,npass)
  use part,            only:iphase,isetphase,igas
  use timestep,        only:dtmax
  use testutils,       only:checkval,checkvalf
+#endif
+#ifdef IND_TIMESTEPS
+ use timestep_ind, only: nbinmax
+ use part,         only: ibin
 #endif
  integer, intent(inout) :: ntests,npass
 #ifdef PERIODIC
@@ -117,6 +122,14 @@ subroutine test_step(ntests,npass)
  dt      = 2.0/(nsteps)
  dtmax   = dt
  t = 0.
+
+ ! If using individual timesteps, ibin may be uninitialised
+#ifdef IND_TIMESTEPS
+ do i = 1, npart
+    ibin(i) = nbinmax
+ enddo
+#endif
+
  call init_step(npart,t,dtmax)
 
  nfailed(:) = 0

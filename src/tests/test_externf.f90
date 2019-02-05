@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, extern_corotate, externalforces, io, part, physcon,
+!  DEPENDENCIES: extern_corotate, externalforces, io, part, physcon,
 !    testutils, unifdis, units
 !+
 !--------------------------------------------------------------------------
@@ -31,7 +31,6 @@ module testexternf
 contains
 
 subroutine test_externf(ntests,npass)
- use dim,      only:maxp
  use io,       only:id,master
  use part,     only:npart,xyzh,hfact,massoftype,igas
  use testutils,only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end

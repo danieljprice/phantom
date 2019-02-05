@@ -147,6 +147,7 @@ subroutine compute_energies(t)
  call initialise_ev_data(ev_data)
 !
 !$omp parallel default(none) &
+!$omp shared(maxp,maxphase,maxalpha) &
 !$omp shared(xyzh,vxyzu,iexternalforce,npart,t,id,npartoftype) &
 !$omp shared(alphaind,massoftype,irealvisc,iu) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &

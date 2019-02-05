@@ -21,11 +21,11 @@
 !    mu_cgs         -- Mean molecular weight
 !    recombrate_cgs -- Recombination rate (alpha)
 !
-!  DEPENDENCIES: dim, eos, externalforces, infile_utils, physcon, units
+!  DEPENDENCIES: allocutils, dim, eos, externalforces, infile_utils,
+!    physcon, units
 !+
 !--------------------------------------------------------------------------
 module photoevap
- use dim, only:maxp
 
  implicit none
 
@@ -35,9 +35,9 @@ module photoevap
  integer, parameter :: Ntheta = 400
 
  !--Index to identify which cell particles belong
- integer :: Rnum(maxp)
- integer :: Thetanum(maxp)
- integer :: Phinum(maxp)
+ integer, allocatable :: Rnum(:)
+ integer, allocatable :: Thetanum(:)
+ integer, allocatable :: Phinum(:)
 
  !--# of particles per cell and ray.
  integer :: Cellpartnum(Nr-1,Ntheta-1,Nphi-1)
@@ -73,6 +73,8 @@ module photoevap
 
  real    :: prev_time
 
+ public  :: allocate_photoevap
+ public  :: deallocate_photoevap
  public  :: write_options_photoevap
  public  :: read_options_photoevap
  public  :: photo_ionize
@@ -85,6 +87,21 @@ contains
 
 !***************************************************************************************
 !***************************************************************************************
+
+subroutine allocate_photoevap
+ use dim, only:maxp
+ use allocutils, only:allocate_array
+
+ call allocate_array('Rnum', Rnum, maxp)
+ call allocate_array('Thetanum', Thetanum, maxp)
+ call allocate_array('Phinum', Phinum, maxp)
+end subroutine allocate_photoevap
+
+subroutine deallocate_photoevap
+ deallocate(Rnum)
+ deallocate(Thetanum)
+ deallocate(Phinum)
+end subroutine deallocate_photoevap
 
 !----------------------------------------------------------------
 !+
