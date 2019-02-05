@@ -68,17 +68,17 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  gcov(1,0) = -y*term2
  gcov(2,0) =  x*term2
  gcov(3,0) = 0.
- gcov(0,1) = -((gtphi*y)*dx2py2)
+ gcov(0,1) = gcov(1,0)
  gcov(1,1) = (r2*x2)*drho2delta + term3*y2 + (x2*z2)*term4
  gcov(2,1) = (r2*x*y)*drho2delta - term3*x*y + (x*y*z2)*term4
  gcov(3,1) = (a2pr2*x*z)*drho2delta - (x*z*term1)*dr2mz2
- gcov(0,2) = (gtphi*x)*dx2py2
- gcov(1,2) = (r2*x*y)*drho2delta - term3*x*y + (x*y*z2)*term4
+ gcov(0,2) = gcov(2,0)
+ gcov(1,2) = gcov(2,1)
  gcov(2,2) = (r2*y2)*drho2delta + term3*x2 + (y2*z2)*term4
  gcov(3,2) = (a2pr2*y*z)*drho2delta - (y*z*term1)*dr2mz2
- gcov(0,3) = 0.
- gcov(1,3) = (a2pr2*x*z)*drho2delta - (x*z*term1)*dr2mz2
- gcov(2,3) = (a2pr2*y*z)*drho2delta - (y*z*term1)*dr2mz2
+ gcov(0,3) = gcov(3,0)
+ gcov(1,3) = gcov(3,1)
+ gcov(2,3) = gcov(3,2)
  gcov(3,3) = (a2pr2**2*z2)*dr2*drho2delta + (rho2*term1**2)*dr2mz2
 
  if (present(gcon)) then
@@ -86,17 +86,17 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
     gcon(1,0) = -((gtphi*y)/(gtphi**2 - gphiphi*gtt))
     gcon(2,0) = (gtphi*x)/(gtphi**2 - gphiphi*gtt)
     gcon(3,0) = 0.
-    gcon(0,1) = -((gtphi*y)/(gtphi**2 - gphiphi*gtt))
+    gcon(0,1) = gcon(1,0)
     gcon(1,1) = (delta*r2*x2)/(a2pr2**2*rho2) + (gtt*y2)/(-gtphi**2 + gphiphi*gtt) + (x2*z2)/(rho2*(r2 - z2))
     gcon(2,1) = -((gtt*x*y)/(-gtphi**2 + gphiphi*gtt)) + (delta*r2*x*y)/(a2pr2**2*rho2) + (x*y*z2)/(rho2*(r2 - z2))
     gcon(3,1) = -((x*z)*drho2) + (delta*x*z)/(a2pr2*rho2)
-    gcon(0,2) = (gtphi*x)/(gtphi**2 - gphiphi*gtt)
-    gcon(1,2) = -((gtt*x*y)/(-gtphi**2 + gphiphi*gtt)) + (delta*r2*x*y)/(a2pr2**2*rho2) + (x*y*z2)/(rho2*(r2 - z2))
+    gcon(0,2) = gcon(2,0)
+    gcon(1,2) = gcon(2,1)
     gcon(2,2) = (gtt*x2)/(-gtphi**2 + gphiphi*gtt) + (delta*r2*y2)/(a2pr2**2*rho2) + (y2*z2)/(rho2*(r2 - z2))
     gcon(3,2) = -((y*z)*drho2) + (delta*y*z)/(a2pr2*rho2)
-    gcon(0,3) = 0.
-    gcon(1,3) = -((x*z)*drho2) + (delta*x*z)/(a2pr2*rho2)
-    gcon(2,3) = -((y*z)*drho2) + (delta*y*z)/(a2pr2*rho2)
+    gcon(0,3) = gcon(3,0)
+    gcon(1,3) = gcon(3,1)
+    gcon(2,3) = gcon(3,2)
     gcon(3,3) = (r2 - z2)*drho2 + (delta*z2)/(r2*rho2)
  endif
 
