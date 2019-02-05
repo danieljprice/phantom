@@ -28,7 +28,7 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  real :: rho2,delta,sintheta2
  real :: gphiphi,gtphi,gtt
  real :: rs
- real :: a2pr2,term1
+ real :: a2pr2,term1,dx2py2,drho2delta
  rs = 2.*mass1
 
  if (present(sqrtg)) sqrtg = 1.
@@ -44,9 +44,7 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  r2        = 0.5*(r2spherical-a2)+0.5*sqrt( (r2spherical-a2)**2 + 4.*a2*z2 )
  r         = sqrt(r2)
  rho2      = r2 + a2*(z2/r2)
-
  a2pr2     = a2 + r2
- term1     = (1. - (a2pr2*z2)/(r2*rho2))
 
  !--- The Boyer-Lindquist metric tensor in CARTESIAN-like form
 
@@ -56,22 +54,26 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  gphiphi   = sintheta2*(a2pr2 + (a2*r*rs*sintheta2)/rho2)
  gtphi     = -((a*r*rs*sintheta2)/rho2)
 
+ term1     = (1. - (a2pr2*z2)/(r2*rho2))
+ dx2py2    = 1./(x2 + y2)
+ drho2delta = 1./(rho2*delta)
+
  gcov(0,0) = -1. + (r*rs)/rho2
- gcov(1,0) = -((gtphi*y)/(x2 + y2))
- gcov(2,0) = (gtphi*x)/(x2 + y2)
+ gcov(1,0) = -((gtphi*y)*dx2py2)
+ gcov(2,0) = (gtphi*x)*dx2py2
  gcov(3,0) = 0.
- gcov(0,1) = -((gtphi*y)/(x2 + y2))
- gcov(1,1) = (r2*x2)/(delta*rho2) + (gphiphi*y2)/(x2 + y2)**2 + (x2*z2)/(rho2*(r2 - z2))
- gcov(2,1) = (r2*x*y)/(delta*rho2) - (gphiphi*x*y)/(x2 + y2)**2 + (x*y*z2)/(rho2*(r2 - z2))
- gcov(3,1) = (a2pr2*x*z)/(delta*rho2) - (x*z*term1)/(r2 - z2)
- gcov(0,2) = (gtphi*x)/(x2 + y2)
- gcov(1,2) = (r2*x*y)/(delta*rho2) - (gphiphi*x*y)/(x2 + y2)**2 + (x*y*z2)/(rho2*(r2 - z2))
- gcov(2,2) = (r2*y2)/(delta*rho2) + (gphiphi*x2)/(x2 + y2)**2 + (y2*z2)/(rho2*(r2 - z2))
- gcov(3,2) = (a2pr2*y*z)/(delta*rho2) - (y*z*term1)/(r2 - z2)
+ gcov(0,1) = -((gtphi*y)*dx2py2)
+ gcov(1,1) = (r2*x2)*drho2delta + (gphiphi*y2)*dx2py2**2 + (x2*z2)/(rho2*(r2 - z2))
+ gcov(2,1) = (r2*x*y)*drho2delta - (gphiphi*x*y)*dx2py2**2 + (x*y*z2)/(rho2*(r2 - z2))
+ gcov(3,1) = (a2pr2*x*z)*drho2delta - (x*z*term1)/(r2 - z2)
+ gcov(0,2) = (gtphi*x)*dx2py2
+ gcov(1,2) = (r2*x*y)*drho2delta - (gphiphi*x*y)*dx2py2**2 + (x*y*z2)/(rho2*(r2 - z2))
+ gcov(2,2) = (r2*y2)*drho2delta + (gphiphi*x2)*dx2py2**2 + (y2*z2)/(rho2*(r2 - z2))
+ gcov(3,2) = (a2pr2*y*z)*drho2delta - (y*z*term1)/(r2 - z2)
  gcov(0,3) = 0.
- gcov(1,3) = (a2pr2*x*z)/(delta*rho2) - (x*z*term1)/(r2 - z2)
- gcov(2,3) = (a2pr2*y*z)/(delta*rho2) - (y*z*term1)/(r2 - z2)
- gcov(3,3) = (a2pr2**2*z2)/(delta*r2*rho2) + (rho2*term1**2)/(r2 - z2)
+ gcov(1,3) = (a2pr2*x*z)*drho2delta - (x*z*term1)/(r2 - z2)
+ gcov(2,3) = (a2pr2*y*z)*drho2delta - (y*z*term1)/(r2 - z2)
+ gcov(3,3) = (a2pr2**2*z2)/(r2)*drho2delta + (rho2*term1**2)/(r2 - z2)
 
  if (present(gcon)) then
     gcon(0,0) = gphiphi/(-gtphi**2 + gphiphi*gtt)
