@@ -157,7 +157,11 @@ pure subroutine metric3p1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gco
  call get_metric(x,gcov,gcon,sqrtg)
  betadown    = gcov(0,1:3)
  gammaijdown = gcov(1:3,1:3)
+#ifdef FINVSQRT
+ alpha       = finvsqrt(-gcon(0,0))
+#else
  alpha       = sqrt(-1./gcon(0,0))
+#endif
  betaUP      = gcon(0,1:3)*alpha**2
  gammaijUP   = 0.
  do i=1,3
