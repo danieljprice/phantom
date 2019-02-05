@@ -28,7 +28,7 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  real :: rho2,delta,sintheta2
  real :: gphiphi,gtphi,gtt
  real :: rs
- real :: a2pr2,term1,dx2py2,drho2delta
+ real :: a2pr2,term1,dx2py2,drho2delta,dr2
  rs = 2.*mass1
 
  if (present(sqrtg)) sqrtg = 1.
@@ -43,18 +43,19 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  r2spherical = x2+y2+z2
  r2        = 0.5*(r2spherical-a2)+0.5*sqrt( (r2spherical-a2)**2 + 4.*a2*z2 )
  r         = sqrt(r2)
- rho2      = r2 + a2*(z2/r2)
+ dr2       = 1./r2
+ rho2      = r2 + a2*(z2*dr2)
  a2pr2     = a2 + r2
 
  !--- The Boyer-Lindquist metric tensor in CARTESIAN-like form
 
  delta     = a2pr2 - rs*r
- sintheta2 = 1. - z2/r2
+ sintheta2 = 1. - z2*dr2
  gtt       = -1. + (r*rs)/rho2
  gphiphi   = sintheta2*(a2pr2 + (a2*r*rs*sintheta2)/rho2)
  gtphi     = -((a*r*rs*sintheta2)/rho2)
 
- term1     = (1. - (a2pr2*z2)/(r2*rho2))
+ term1     = 1. - (a2pr2*z2)*dr2/rho2
  dx2py2    = 1./(x2 + y2)
  drho2delta = 1./(rho2*delta)
 
@@ -73,7 +74,7 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  gcov(0,3) = 0.
  gcov(1,3) = (a2pr2*x*z)*drho2delta - (x*z*term1)/(r2 - z2)
  gcov(2,3) = (a2pr2*y*z)*drho2delta - (y*z*term1)/(r2 - z2)
- gcov(3,3) = (a2pr2**2*z2)/(r2)*drho2delta + (rho2*term1**2)/(r2 - z2)
+ gcov(3,3) = (a2pr2**2*z2)*dr2*drho2delta + (rho2*term1**2)/(r2 - z2)
 
  if (present(gcon)) then
     gcon(0,0) = gphiphi/(-gtphi**2 + gphiphi*gtt)
