@@ -1718,7 +1718,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use eos,            only:polyk,gamma,polyk2,qfacdisc,isink
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,ieos
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,ndustsmall,ndustlarge,&
-                          idust,grainsize,graindens
+                          idust,grainsize,graindens,ndusttypes
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
@@ -1811,10 +1811,10 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(etot_in,'etot_in',hdr,ierr)
     call add_to_rheader(angtot_in,'angtot_in',hdr,ierr)
     call add_to_rheader(totmom_in,'totmom_in',hdr,ierr)
-    call add_to_rheader(mdust_in,'mdust_in',hdr,ierr)
+    call add_to_rheader(mdust_in(1:ndusttypes),'mdust_in',hdr,ierr)
     if (use_dust) then
-       call add_to_rheader(grainsize,'grainsize',hdr,ierr)
-       call add_to_rheader(graindens,'graindens',hdr,ierr)
+       call add_to_rheader(grainsize(1:ndusttypes),'grainsize',hdr,ierr)
+       call add_to_rheader(graindens(1:ndusttypes),'graindens',hdr,ierr)
     endif
  endif
 
