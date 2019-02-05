@@ -131,9 +131,9 @@ pure subroutine forcegr(x,metrici,metricderivsi,v,dens,u,p,fterm,ierr)
  ! source term
  fterm = 0.
  do i=0,3
-   fterm(1) =  fterm(1) + dot_product(term(i,:),metricderivsi(i,:,1))
-   fterm(2) =  fterm(2) + dot_product(term(i,:),metricderivsi(i,:,2))
-   fterm(3) =  fterm(3) + dot_product(term(i,:),metricderivsi(i,:,3))
+   fterm(1) =  fterm(1) + dot_product(term(:,i),metricderivsi(:,i,1))
+   fterm(2) =  fterm(2) + dot_product(term(:,i),metricderivsi(:,i,2))
+   fterm(3) =  fterm(3) + dot_product(term(:,i),metricderivsi(:,i,3))
  enddo
 
 end subroutine forcegr
