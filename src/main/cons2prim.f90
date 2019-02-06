@@ -2,7 +2,7 @@ module cons2prim
  use cons2primsolver, only:ien_entropy
  implicit none
 
- public :: cons2primall,cons2primi
+ public :: cons2primall,cons2primi,cons2primi_withpressure
  public :: prim2consall,prim2consi
 
  private
@@ -114,10 +114,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
 
 end subroutine cons2primall
 
-! Note: this subroutine needs to be able to return pressure when called before
-!       call to getting gr forces, since that requires pressure. Could maybe
-!       get around this by calling eos somewhere along the way instead.
-subroutine cons2primi(xyzhi,metrici,pxyzui,vxyzui,densi,ierr,pressure)
+subroutine cons2primi(xyzhi,metrici,pxyzui,vxyzui,densi,ierr)
  use part,            only:massoftype,igas,rhoh
  use cons2primsolver, only:conservative2primitive
  use eos,             only:equationofstate,ieos,gamma
@@ -126,18 +123,34 @@ subroutine cons2primi(xyzhi,metrici,pxyzui,vxyzui,densi,ierr,pressure)
  real, dimension(4),         intent(inout) :: vxyzui
  real,    intent(inout)                    :: densi
  integer, intent(out)                      :: ierr
- real,    intent(out),  optional      :: pressure
- real    :: rhoi, p_guess, xyzi(1:3), v_guess(1:3), u_guess, pondens, spsound
+ real :: rhoi,p_guess,pondens,spsound
+
+ ! Construct a guess for pressure (dens is already passed in and is also a guess coming in, but correct value gets passed out)
+ call equationofstate(ieos,pondens,spsound,densi,xyzhi(1),xyzhi(2),xyzhi(3),vxyzui(4))
+ p_guess = pondens*densi
 
  rhoi    = rhoh(xyzhi(4),massoftype(igas))
- xyzi    = xyzhi(1:3)
- v_guess = vxyzui(1:3)
- u_guess = vxyzui(4)
- call equationofstate(ieos,pondens,spsound,densi,xyzi(1),xyzi(2),xyzi(3),u_guess)
- p_guess = pondens*densi
- call conservative2primitive(xyzi,metrici,vxyzui(1:3),densi,vxyzui(4),p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierr,ien_entropy,gamma)
- if (present(pressure)) pressure = p_guess
+ call conservative2primitive(xyzhi(1:3),metrici,vxyzui(1:3),densi,vxyzui(4), &
+                             p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierr,ien_entropy,gamma)
 
 end subroutine cons2primi
+
+subroutine cons2primi_withpressure(xyzhi,metrici,pxyzui,vxyzui,densi,ierr,pressure)
+ use part,            only:massoftype,igas,rhoh
+ use cons2primsolver, only:conservative2primitive
+ use eos,             only:gamma
+ real, dimension(4),         intent(in)    :: xyzhi,pxyzui
+ real, dimension(0:3,0:3,2), intent(in)    :: metrici
+ real, dimension(4),         intent(inout) :: vxyzui
+ real,    intent(inout)                    :: densi, pressure
+ integer, intent(out)                      :: ierr
+ real :: rhoi
+ ! pressure and dens are guesses coming in, and their correct value gets sent back out
+
+ rhoi    = rhoh(xyzhi(4),massoftype(igas))
+ call conservative2primitive(xyzhi(1:3),metrici,vxyzui(1:3),densi,vxyzui(4), &
+                             pressure,rhoi,pxyzui(1:3),pxyzui(4),ierr,ien_entropy,gamma)
+
+end subroutine cons2primi_withpressure
 
 end module cons2prim

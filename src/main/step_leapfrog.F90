@@ -660,7 +660,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
                           summary_accrete,summary_accrete_fail
  use timestep,       only:bignumber,C_force
  use eos,            only:equationofstate,ieos
- use cons2prim,      only:cons2primi
+ use cons2prim,      only:cons2primi_withpressure
  use extern_gr,      only:get_grforce
  use metric_tools,   only:pack_metric,pack_metricderivs
  use damping,        only:calc_damp,apply_damp
@@ -726,8 +726,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype) &
     !$omp shared(maxphase,maxp) &
     !$omp shared(dt,hdt) &
-    !$omp shared(its,pxyzu,dens,metrics,metricderivs) &
-    !$omp private(i,vxyzu_star,fstar) &
+    !$omp shared(ieos,its,pxyzu,dens,metrics,metricderivs) &
+    !$omp private(i,vxyzu_star,fstar,pondensi,spsoundi) &
     !$omp private(converged,pprev,pmom_err,xyz_prev,x_err,pri,ierr) &
     !$omp firstprivate(pmassi,itype) &
     !$omp reduction(max:xitsmax,pitsmax,perrmax,xerrmax) &
@@ -745,11 +745,15 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
 
           pxyzu(1:3,i) = pxyzu(1:3,i) + hdt*fext(1:3,i)
 
+          !-- Compute pressure for the first guess in cons2prim
+          call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+          pri  = pondensi*dens(i)
+
 ! Note: grforce needs derivatives of the metric, which do not change between pmom iterations
           pmom_iterations: do while (its <= itsmax .and. .not. converged)
              its   = its + 1
              pprev = pxyzu(1:3,i)
-             call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr,pressure=pri)
+             call cons2primi_withpressure(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr,pri)
              call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fstar)
              pxyzu(1:3,i) = pprev + hdt*(fstar - fext(1:3,i))
              pmom_err = maxval(abs(pxyzu(1:3,i) - pprev))
@@ -760,7 +764,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           pitsmax = max(its,pitsmax)
           perrmax = max(pmom_err,perrmax)
 
-          call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr,pressure=pri)
+          call cons2primi_withpressure(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr,pri)
           xyzh(1:3,i) = xyzh(1:3,i) + dt*vxyzu(1:3,i)
           call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
 
@@ -773,7 +777,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           xyz_iterations: do while (its <= itsmax .and. .not. converged)
              its         = its+1
              xyz_prev    = xyzh(1:3,i)
-             call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu_star,dens(i),ierr)
+             call cons2primi_withpressure(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu_star,dens(i),ierr,pri)
              xyzh(1:3,i)  = xyz_prev + hdt*(vxyzu_star(1:3) - vxyzu(1:3,i))
              x_err = maxval(abs(xyzh(1:3,i)-xyz_prev))
              if (x_err < xtol) converged = .true.
