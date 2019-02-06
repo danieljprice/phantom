@@ -660,7 +660,6 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
                           summary_accrete,summary_accrete_fail
  use timestep,       only:bignumber,C_force
  use eos,            only:equationofstate,ieos,gamma
- use cons2prim,      only:cons2primi_withpressure
  use cons2primsolver,only:conservative2primitive,ien_entropy
  use extern_gr,      only:get_grforce
  use metric_tools,   only:pack_metric,pack_metricderivs
@@ -768,7 +767,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           pitsmax = max(its,pitsmax)
           perrmax = max(pmom_err,perrmax)
 
-          call cons2primi_withpressure(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr,pri,rhoi)
+          call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,rhoi,&
+                                      pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy,gamma)
           xyzh(1:3,i) = xyzh(1:3,i) + dt*vxyzu(1:3,i)
           call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
 
@@ -781,7 +781,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           xyz_iterations: do while (its <= itsmax .and. .not. converged)
              its         = its+1
              xyz_prev    = xyzh(1:3,i)
-             call cons2primi_withpressure(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu_star,dens(i),ierr,pri,rhoi)
+             call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu_star(1:3),dens(i),vxyzu_star(4),pri,rhoi,&
+                                         pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy,gamma)
              xyzh(1:3,i)  = xyz_prev + hdt*(vxyzu_star(1:3) - vxyzu(1:3,i))
              x_err = maxval(abs(xyzh(1:3,i)-xyz_prev))
              if (x_err < xtol) converged = .true.

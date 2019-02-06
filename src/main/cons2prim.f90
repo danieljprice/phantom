@@ -2,7 +2,7 @@ module cons2prim
  use cons2primsolver, only:ien_entropy
  implicit none
 
- public :: cons2primall,cons2primi,cons2primi_withpressure
+ public :: cons2primall,cons2primi
  public :: prim2consall,prim2consi
 
  private
@@ -134,21 +134,5 @@ subroutine cons2primi(xyzhi,metrici,pxyzui,vxyzui,densi,ierr)
                              p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierr,ien_entropy,gamma)
 
 end subroutine cons2primi
-
-subroutine cons2primi_withpressure(xyzhi,metrici,pxyzui,vxyzui,densi,ierr,pressure,rhoi)
- use cons2primsolver, only:conservative2primitive
- use eos,             only:gamma
- real, dimension(4),         intent(in)    :: xyzhi,pxyzui
- real, dimension(0:3,0:3,2), intent(in)    :: metrici
- real, dimension(4),         intent(inout) :: vxyzui
- real,    intent(inout)                    :: densi, pressure
- integer, intent(out)                      :: ierr
- real,    intent(in)                       :: rhoi
- ! pressure and dens are guesses coming in, and their correct value gets sent back out
-
- call conservative2primitive(xyzhi(1:3),metrici,vxyzui(1:3),densi,vxyzui(4), &
-                             pressure,rhoi,pxyzui(1:3),pxyzui(4),ierr,ien_entropy,gamma)
-
-end subroutine cons2primi_withpressure
 
 end module cons2prim
