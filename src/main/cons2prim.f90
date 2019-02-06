@@ -101,7 +101,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
 !$omp private(i,ierr)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr=ierr)
+       call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
        if (ierr > 0) then
           print*,' pmom =',pxyzu(1:3,i)
           print*,' rho* =',rhoh(xyzh(4,i),massoftype(igas))
