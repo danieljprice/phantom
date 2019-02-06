@@ -2,8 +2,8 @@ module cons2prim
  use cons2primsolver, only:ien_entropy
  implicit none
 
- public :: cons2primall,cons2primi,cons2prim_i
- public :: prim2consall,prim2consi,prim2cons_i
+ public :: cons2primall,cons2primi,cons2primi_alt
+ public :: prim2consall,prim2consi,prim2consi_alt
 
  private
 
@@ -77,11 +77,11 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens)
  endif
  call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
  pi = pondensi*densi
- call prim2cons_i(xyzi,metrici,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4))
+ call prim2consi_alt(xyzi,metrici,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4))
 
 end subroutine prim2consi
 
-subroutine prim2cons_i(pos,metrici,vel,dens,u,P,rho,pmom,en)
+subroutine prim2consi_alt(pos,metrici,vel,dens,u,P,rho,pmom,en)
  use cons2primsolver, only:primitive2conservative
  use eos,             only:gamma
  real, intent(in)  :: pos(1:3),metrici(:,:,:)
@@ -90,7 +90,7 @@ subroutine prim2cons_i(pos,metrici,vel,dens,u,P,rho,pmom,en)
 
  call primitive2conservative(pos,metrici,vel,dens,u,P,rho,pmom,en,ien_entropy,gamma)
 
-end subroutine prim2cons_i
+end subroutine prim2consi_alt
 
 
 !-------------------------------------
@@ -148,13 +148,13 @@ subroutine cons2primi(xyzhi,metrici,pxyzui,vxyzui,densi,pressure,ierr)
  u_guess = vxyzui(4)
  call equationofstate(ieos,pondens,spsound,densi,xyzi(1),xyzi(2),xyzi(3),u_guess)
  p_guess = pondens*densi
- call cons2prim_i(xyzi,metrici,vxyzui(1:3),densi,vxyzui(4),p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierror)
+ call cons2primi_alt(xyzi,metrici,vxyzui(1:3),densi,vxyzui(4),p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierror)
  if (present(pressure)) pressure = p_guess
  if (present(ierr)) ierr = ierror
 
 end subroutine cons2primi
 
-subroutine cons2prim_i(pos,metrici,vel,dens,u,P,rho,pmom,en,ierr)
+subroutine cons2primi_alt(pos,metrici,vel,dens,u,P,rho,pmom,en,ierr)
  use cons2primsolver, only:conservative2primitive
  use eos,             only:gamma
  real, intent(in)     :: pos(1:3), metrici(:,:,:)
@@ -165,6 +165,6 @@ subroutine cons2prim_i(pos,metrici,vel,dens,u,P,rho,pmom,en,ierr)
 
  call conservative2primitive(pos,metrici,vel,dens,u,P,rho,pmom,en,ierr,ien_entropy,gamma)
 
-end subroutine cons2prim_i
+end subroutine cons2primi_alt
 
 end module cons2prim
