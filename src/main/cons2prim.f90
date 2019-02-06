@@ -118,9 +118,8 @@ end subroutine cons2primall
 !       call to getting gr forces, since that requires pressure. Could maybe
 !       get around this by calling eos somewhere along the way instead.
 subroutine cons2primi(xyzhi,metrici,pxyzui,vxyzui,densi,ierr,pressure)
- use part,            only:massoftype, igas, rhoh
+ use part,            only:massoftype,igas,rhoh
  use cons2primsolver, only:conservative2primitive
- use utils_gr,        only:rho2dens
  use eos,             only:equationofstate,ieos,gamma
  real, dimension(4),         intent(in)    :: xyzhi,pxyzui
  real, dimension(0:3,0:3,2), intent(in)    :: metrici
