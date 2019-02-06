@@ -36,13 +36,9 @@ module metric_tools
 
 !-------------------------------------------------------------------------------
 
- public :: get_metric, get_metric_derivs, get_metric3plus1, print_metricinfo, init_metric, pack_metric, unpack_metric
+ public :: get_metric, get_metric_derivs, print_metricinfo, init_metric, pack_metric, unpack_metric
  public :: pack_metricderivs
  public :: imetric
-
- interface get_metric3plus1
-  module procedure get_metric3plus1_only, get_metric3plus1_both
- end interface get_metric3plus1
 
  private
 
@@ -133,43 +129,6 @@ end subroutine get_metric_derivs
 !  dgcovdz = 0.5*(gplus-gminus)/dz
 ! end subroutine numerical_metric_derivs
 
-!-------------------------------------------------------------------------------
-pure subroutine get_metric3plus1_only(x,alpha,betadown,betaUP,gammaijdown,gammaijUP)
- real, intent(in)  :: x(1:3)
- real, intent(out) :: alpha,betadown(1:3),betaUP(1:3),gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
- real              :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
- call metric3p1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
-end subroutine get_metric3plus1_only
-
-pure subroutine get_metric3plus1_both(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
- real, intent(in)  :: x(1:3)
- real, intent(out) :: alpha,betadown(1:3),betaUP(1:3),gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
- real, intent(out) :: gcov(0:3,0:3),gcon(0:3,0:3),sqrtg
- call metric3p1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
-end subroutine get_metric3plus1_both
-
-pure subroutine metric3p1(x,alpha,betadown,betaUP,gammaijdown,gammaijUP,gcov,gcon,sqrtg)
- real, intent(in)  :: x(1:3)
- real, intent(out) :: alpha,betadown(1:3),betaUP(1:3), gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
- real, intent(out) :: gcov(0:3,0:3),gcon(0:3,0:3),sqrtg
- integer :: i,j
-
- call get_metric(x,gcov,gcon,sqrtg)
- betadown    = gcov(0,1:3)
- gammaijdown = gcov(1:3,1:3)
-#ifdef FINVSQRT
- alpha       = finvsqrt(-gcon(0,0))
-#else
- alpha       = sqrt(-1./gcon(0,0))
-#endif
- betaUP      = gcon(0,1:3)*alpha**2
- gammaijUP   = 0.
- do i=1,3
-    do j=1,3
-       gammaijUP(i,j) = gcon(i,j) + betaUP(i)*betaUP(j)/alpha**2
-    enddo
- enddo
-end subroutine metric3p1
 !-------------------------------------------------------------------------------
 
 ! This is not being used at the moment...
