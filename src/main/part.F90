@@ -333,7 +333,7 @@ subroutine allocate_part
  call allocate_array('vpred', vpred, maxvxyzu, maxan)
  call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
  call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
- call allocate_array('dustproppred', dustproppred, 5, maxp_growth)
+ call allocate_array('dustproppred', dustproppred, 4, maxp_growth)
 #ifdef IND_TIMESTEPS
  call allocate_array('ibin', ibin, maxan)
  call allocate_array('ibin_old', ibin_old, maxan)
