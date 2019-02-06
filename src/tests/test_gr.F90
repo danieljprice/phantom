@@ -343,36 +343,6 @@ subroutine test_metric_i(gcov,gcon,ntests,npass)
 
 end subroutine test_metric_i
 
-!----------------------------------------------------------------
-!+
-!  Test of U0 (velocity)
-!+
-!----------------------------------------------------------------
-subroutine test_u0(gcov,gcon,v,ntests,npass)
- use testutils, only:checkvalbuf
- use utils_gr,  only:dot_product_gr
- integer, intent(inout) :: ntests,npass
- real,    intent(in)    :: gcov(0:3,0:3),gcon(0:3,0:3),v(3)
- integer ::error,ncheck
- real    :: gvv,v4(4)
-
- ntests = ntests+1
- error  = 0
-
- v4  = (/1.,v/)
- gvv = dot_product_gr(v4,v4,gcov)
-
- ! Check to see if U0 is imaginary (i.e. bad velocity)
- call checkvalbuf(int(sign(1.,gvv)),-1,0,'[F]: sign of dot_product_gr(v4,v4,gcov))',error,ncheck)
-
- if (error/=0) then
-    print*,'Warning, U0 is imaginary: dot_product_gr(v4,v4,gcov)=',gvv,' > 0'
- else
-    npass = npass + 1
- endif
-
-end subroutine test_u0
-
 subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
  use cons2prim,    only:conservative_to_primitive,primitive_to_conservative
  use testutils,    only:checkval,checkvalbuf
