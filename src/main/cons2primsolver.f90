@@ -114,9 +114,8 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type,gamm
 
 end subroutine primitive2conservative
 
-subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type,gamma)
+pure subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type,gamma)
  use metric_tools, only: unpack_metric
- use io,           only: warning
  real, intent(in)    :: x(1:3),metrici(:,:,:)
  real, intent(inout) :: dens,P
  real, intent(out)   :: v(1:3),u
@@ -184,11 +183,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
     if (abs(enth-enth_old)/enth < tol) converged = .true.
  enddo
 
- if (.not.converged) then
-    call warning('cons2primsolver','enthalpy did not converge. delta enth / enth = ',val=abs(enth-enth_old)/enth)
-    ierr = 1
-    return
- endif
+ if (.not.converged) ierr = 1
 
  lorentz_LEO = sqrt(1.+pmom2/enth**2)
  dens = rho*alpha/(sqrtg*lorentz_LEO)

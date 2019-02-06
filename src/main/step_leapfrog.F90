@@ -757,6 +757,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
              pprev = pxyzu(1:3,i)
              call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,rhoi,&
                                          pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy,gamma)
+             if (ierr > 0) call warning('cons2primsolver [in step_extern_gr (a)]','enthalpy did not converge',i=i)
              call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fstar)
              pxyzu(1:3,i) = pprev + hdt*(fstar - fext(1:3,i))
              pmom_err = maxval(abs(pxyzu(1:3,i) - pprev))
@@ -769,6 +770,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
 
           call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,rhoi,&
                                       pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy,gamma)
+          if (ierr > 0) call warning('cons2primsolver [in step_extern_gr (b)]','enthalpy did not converge',i=i)
           xyzh(1:3,i) = xyzh(1:3,i) + dt*vxyzu(1:3,i)
           call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
 
@@ -783,6 +785,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
              xyz_prev    = xyzh(1:3,i)
              call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu_star(1:3),dens(i),vxyzu_star(4),pri,rhoi,&
                                          pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy,gamma)
+             if (ierr > 0) call warning('cons2primsolver [in step_extern_gr (c)]','enthalpy did not converge',i=i)
              xyzh(1:3,i)  = xyz_prev + hdt*(vxyzu_star(1:3) - vxyzu(1:3,i))
              x_err = maxval(abs(xyzh(1:3,i)-xyz_prev))
              if (x_err < xtol) converged = .true.
