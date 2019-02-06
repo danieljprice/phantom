@@ -659,8 +659,9 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
                           summary_accrete,summary_accrete_fail
  use timestep,       only:bignumber,C_force
- use eos,            only:equationofstate,ieos
+ use eos,            only:equationofstate,ieos,gamma
  use cons2prim,      only:cons2primi_withpressure
+ use cons2primsolver,only:conservative2primitive,ien_entropy
  use extern_gr,      only:get_grforce
  use metric_tools,   only:pack_metric,pack_metricderivs
  use damping,        only:calc_damp,apply_damp
@@ -727,7 +728,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype) &
     !$omp shared(maxphase,maxp) &
     !$omp shared(dt,hdt) &
-    !$omp shared(ieos,its,pxyzu,dens,metrics,metricderivs) &
+    !$omp shared(ieos,gamma,its,pxyzu,dens,metrics,metricderivs) &
     !$omp private(i,vxyzu_star,fstar,pondensi,spsoundi,rhoi) &
     !$omp private(converged,pprev,pmom_err,xyz_prev,x_err,pri,ierr) &
     !$omp firstprivate(pmassi,itype) &
@@ -755,7 +756,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           pmom_iterations: do while (its <= itsmax .and. .not. converged)
              its   = its + 1
              pprev = pxyzu(1:3,i)
-             call cons2primi_withpressure(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr,pri,rhoi)
+             call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,rhoi,&
+                                         pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy,gamma)
              call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fstar)
              pxyzu(1:3,i) = pprev + hdt*(fstar - fext(1:3,i))
              pmom_err = maxval(abs(pxyzu(1:3,i) - pprev))
