@@ -677,8 +677,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  logical :: last_step,done,converged,accreted
  integer, parameter :: itsmax = 50
  real,    parameter :: ptol = 1.e-7, xtol = 1.e-7
- integer :: pitsmax = 0,  xitsmax = 0
- real    :: perrmax = 0., xerrmax = 0.
+ integer :: pitsmax,xitsmax
+ real    :: perrmax,xerrmax
 
  pitsmax = 0
  xitsmax = 0
