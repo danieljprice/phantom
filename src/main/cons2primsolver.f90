@@ -105,9 +105,12 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
        gvv = gvv + gcov(i,mu)*v4U(mu)*v4U(i)
     enddo
  enddo
- en = U0*enth*gvv + (1.+u)/U0
 
- if (ien_type == ien_entropy) en = P/(dens**gamma)
+ if (ien_type == ien_entropy) then
+    en = P/(dens**gamma)
+ else
+    en = U0*enth*gvv + (1.+u)/U0
+ endif
 
 end subroutine primitive2conservative
 
@@ -150,18 +153,26 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
     lorentz_LEO = sqrt(1.+pmom2/enth_old**2)
     dens = rho*alpha/(sqrtg*lorentz_LEO)
 
-    p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product(pmom,betaUP)),0.)
-    if (ien_type == ien_entropy) p = en*dens**gamma
-    if (ieos==4) p = (gamma-1.)*dens*polyk
+    if (ien_type == ien_entropy) then
+       p = en*dens**gamma
+    else if (ieos==4) then
+       p = (gamma-1.)*dens*polyk
+    else
+       p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product(pmom,betaUP)),0.)
+    endif
 
     call get_enthalpy(enth,dens,p)
 
     f = enth-enth_old
 
     !This line is unique to the equation of state - implemented for adiabatic at the moment
-    df= -1.+(gamma/(gamma-1.))*(1.-pmom2*p/(enth_old**3*lorentz_LEO**2*dens))
-    if (ien_type == ien_entropy) df = -1. + (gamma*pmom2*P)/(lorentz_LEO**2 * enth_old**3 * dens)
-    if (ieos==4) df = -1. ! Isothermal, I think...
+    if (ien_type == ien_entropy) then
+       df = -1. + (gamma*pmom2*P)/(lorentz_LEO**2 * enth_old**3 * dens)
+    else if (ieos==4) then
+       df = -1. ! Isothermal, I think...
+    else
+       df= -1.+(gamma/(gamma-1.))*(1.-pmom2*p/(enth_old**3*lorentz_LEO**2*dens))
+    endif
 
     enth = enth_old - f/df
 
@@ -182,8 +193,11 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
  lorentz_LEO = sqrt(1.+pmom2/enth**2)
  dens = rho*alpha/(sqrtg*lorentz_LEO)
 
- p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product(pmom,betaUP)),0.)
- if (ien_type == ien_entropy) p = en*dens**gamma
+ if (ien_type == ien_entropy) then
+    p = en*dens**gamma
+ else
+    p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product(pmom,betaUP)),0.)
+ endif
 
  v3d(:) = alpha*pmom(:)/(enth*lorentz_LEO)-betadown(:)
 
