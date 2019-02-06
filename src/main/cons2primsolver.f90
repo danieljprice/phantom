@@ -1,5 +1,5 @@
 module cons2primsolver
- use eos, only: gamma,ieos,polyk
+ use eos, only:ieos,polyk
  implicit none
 
  public :: conservative2primitive,primitive2conservative
@@ -30,8 +30,8 @@ contains
 !
 !=========================
 
-pure subroutine get_u(u,P,dens)
- real, intent(in)  :: dens,P
+pure subroutine get_u(u,P,dens,gamma)
+ real, intent(in)  :: dens,P,gamma
  real, intent(out) :: u
  real :: uthermconst
 
@@ -49,8 +49,8 @@ pure subroutine get_u(u,P,dens)
 
 end subroutine
 
-pure subroutine get_enthalpy(enth,dens,P)
- real, intent(in)  :: dens,P
+pure subroutine get_enthalpy(enth,dens,P,gamma)
+ real, intent(in)  :: dens,P,gamma
  real, intent(out) :: enth
 
  ! Needed in dust case when dens = 0 causes P/dens = NaN and therefore enth = NaN
@@ -71,12 +71,12 @@ end subroutine
 !  conserved variables are (rho,pmom_i,en)
 !+
 !----------------------------------------------------------------
-subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
+subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type,gamma)
  use utils_gr,     only:get_u0
  use metric_tools, only:unpack_metric
  use io,           only:error
  real, intent(in)  :: x(1:3),metrici(:,:,:)
- real, intent(in)  :: dens,v(1:3),u,P
+ real, intent(in)  :: dens,v(1:3),u,P,gamma
  real, intent(out) :: rho,pmom(1:3),en
  integer, intent(in) :: ien_type
  real, dimension(0:3,0:3) :: gcov
@@ -86,7 +86,7 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
  v4U(0) = 1.
  v4U(1:3) = v(:)
 
- call get_enthalpy(enth,dens,p) !enth = 1.+ u + P/dens
+ call get_enthalpy(enth,dens,p,gamma) !enth = 1.+ u + P/dens
 
  ! Hard coded sqrtg=1 since phantom is always in cartesian coordinates
  sqrtg = 1.
@@ -114,13 +114,13 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
 
 end subroutine primitive2conservative
 
-subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type)
+subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type,gamma)
  use metric_tools, only: unpack_metric
  use io,           only: warning
  real, intent(in)    :: x(1:3),metrici(:,:,:)
  real, intent(inout) :: dens,P
  real, intent(out)   :: v(1:3),u
- real, intent(in)    :: rho,pmom(1:3),en
+ real, intent(in)    :: rho,pmom(1:3),en,gamma
  integer, intent(out) :: ierr
  integer, intent(in)  :: ien_type
  real, dimension(1:3,1:3) :: gammaijUP
@@ -144,7 +144,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
  enddo
 
  ! Guess enthalpy (using previous values of dens and pressure)
- call get_enthalpy(enth,dens,p)
+ call get_enthalpy(enth,dens,p,gamma)
 
  niter = 0
  converged = .false.
@@ -161,7 +161,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
        p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product(pmom,betaUP)),0.)
     endif
 
-    call get_enthalpy(enth,dens,p)
+    call get_enthalpy(enth,dens,p,gamma)
 
     f = enth-enth_old
 
@@ -206,7 +206,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
     v(i) = dot_product(gammaijUP(:,i),v3d(:))
  enddo
 
- call get_u(u,P,dens)
+ call get_u(u,P,dens,gamma)
 
 end subroutine conservative2primitive
 

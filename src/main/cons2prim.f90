@@ -83,11 +83,12 @@ end subroutine prim2consi
 
 subroutine prim2cons_i(pos,metrici,vel,dens,u,P,rho,pmom,en)
  use cons2primsolver, only:primitive2conservative
+ use eos,             only:gamma
  real, intent(in)  :: pos(1:3),metrici(:,:,:)
  real, intent(in)  :: dens,vel(1:3),u,P
  real, intent(out) :: rho,pmom(1:3),en
 
- call primitive2conservative(pos,metrici,vel,dens,u,P,rho,pmom,en,ien_entropy)
+ call primitive2conservative(pos,metrici,vel,dens,u,P,rho,pmom,en,ien_entropy,gamma)
 
 end subroutine prim2cons_i
 
@@ -155,13 +156,14 @@ end subroutine cons2primi
 
 subroutine cons2prim_i(pos,metrici,vel,dens,u,P,rho,pmom,en,ierr)
  use cons2primsolver, only:conservative2primitive
+ use eos,             only:gamma
  real, intent(in)     :: pos(1:3), metrici(:,:,:)
  real, intent(in)     :: rho,pmom(1:3),en
  real, intent(out)    :: vel(1:3),u
  real, intent(inout)  :: dens,P      ! Intent=inout because we need their previous values as an initial guess in the solver
  integer, intent(out) :: ierr
 
- call conservative2primitive(pos,metrici,vel,dens,u,P,rho,pmom,en,ierr,ien_entropy)
+ call conservative2primitive(pos,metrici,vel,dens,u,P,rho,pmom,en,ierr,ien_entropy,gamma)
 
 end subroutine cons2prim_i
 
