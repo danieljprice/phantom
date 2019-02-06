@@ -671,7 +671,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  integer :: i,itype,nsubsteps,naccreted,its
  real    :: timei,t_end_step,hdt,pmassi
  real    :: dt,dtf,dtextforcenew,dtextforce_min
- real    :: pi,pprev(3),xyz_prev(3),spsoundi,pondensi
+ real    :: pri,pprev(3),xyz_prev(3),spsoundi,pondensi
  real    :: x_err,pmom_err,fstar(3),vxyzu_star(4),accretedmass,damp_fac
  ! real, save :: dmdt = 0.
  logical :: last_step,done,converged,accreted
@@ -728,7 +728,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp shared(dt,hdt) &
     !$omp shared(its,pxyzu,dens,metrics,metricderivs) &
     !$omp private(i,vxyzu_star,fstar) &
-    !$omp private(converged,pprev,pmom_err,xyz_prev,x_err,pi) &
+    !$omp private(converged,pprev,pmom_err,xyz_prev,x_err,pri) &
     !$omp firstprivate(pmassi,itype) &
     !$omp reduction(max:xitsmax,pitsmax,perrmax,xerrmax) &
     !$omp reduction(min:dtextforcenew)
@@ -749,8 +749,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           pmom_iterations: do while (its <= itsmax .and. .not. converged)
              its   = its + 1
              pprev = pxyzu(1:3,i)
-             call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
-             call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fstar)
+             call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pri)
+             call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fstar)
              pxyzu(1:3,i) = pprev + hdt*(fstar - fext(1:3,i))
              pmom_err = maxval(abs(pxyzu(1:3,i) - pprev))
              if (pmom_err < ptol) converged = .true.
@@ -760,7 +760,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           pitsmax = max(its,pitsmax)
           perrmax = max(pmom_err,perrmax)
 
-          call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
+          call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pri)
           xyzh(1:3,i) = xyzh(1:3,i) + dt*vxyzu(1:3,i)
           call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
 
@@ -812,7 +812,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp shared(maxphase,maxp) &
     !$omp private(i,accreted) &
     !$omp shared(ieos,dens,pxyzu,iexternalforce,C_force) &
-    !$omp private(pi,pondensi,spsoundi,dtf) &
+    !$omp private(pri,pondensi,spsoundi,dtf) &
     !$omp firstprivate(itype,pmassi) &
     !$omp reduction(min:dtextforce_min) &
     !$omp reduction(+:accretedmass,naccreted) &
@@ -826,8 +826,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           endif
 
           call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
-          pi = pondensi*dens(i)
-          call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
+          pri = pondensi*dens(i)
+          call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fext(1:3,i),dtf)
           dtextforce_min = min(dtextforce_min,C_force*dtf)
 
           if (idamp > 0.) then
