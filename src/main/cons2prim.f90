@@ -2,7 +2,7 @@ module cons2prim
  use cons2primsolver, only:ien_entropy
  implicit none
 
- public :: cons2primall,cons2primi
+ public :: cons2primall
  public :: prim2consall,prim2consi
 
  private
@@ -122,26 +122,5 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
 !$omp end parallel do
 
 end subroutine cons2primall
-
-subroutine cons2primi(xyzhi,metrici,pxyzui,vxyzui,densi,ierr)
- use part,            only:massoftype,igas,rhoh
- use cons2primsolver, only:conservative2primitive
- use eos,             only:equationofstate,ieos,gamma
- real, dimension(4),         intent(in)    :: xyzhi,pxyzui
- real, dimension(0:3,0:3,2), intent(in)    :: metrici
- real, dimension(4),         intent(inout) :: vxyzui
- real,    intent(inout)                    :: densi
- integer, intent(out)                      :: ierr
- real :: rhoi,p_guess,pondens,spsound
-
- ! Construct a guess for pressure (dens is already passed in and is also a guess coming in, but correct value gets passed out)
- call equationofstate(ieos,pondens,spsound,densi,xyzhi(1),xyzhi(2),xyzhi(3),vxyzui(4))
- p_guess = pondens*densi
-
- rhoi    = rhoh(xyzhi(4),massoftype(igas))
- call conservative2primitive(xyzhi(1:3),metrici,vxyzui(1:3),densi,vxyzui(4), &
-                             p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierr,ien_entropy,gamma)
-
-end subroutine cons2primi
 
 end module cons2prim

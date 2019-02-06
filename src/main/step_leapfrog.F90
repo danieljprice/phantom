@@ -604,9 +604,10 @@ end subroutine step
 
 #ifdef GR
 subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
- use part,         only:isdead_or_accreted
- use cons2prim,    only:cons2primi
- use io,           only:warning
+ use part,            only:isdead_or_accreted,igas,massoftype,rhoh
+ use cons2primsolver, only:conservative2primitive,ien_entropy
+ use eos,             only:ieos,equationofstate,gamma
+ use io,              only:warning
  use metric_tools, only:pack_metric
  real,    intent(in)    :: dt
  integer, intent(in)    :: npart
@@ -618,14 +619,23 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  integer :: i,niter,ierr
  real    :: xpred(1:3),vold(1:3),diff
  logical :: converged
+ real    :: pondensi,spsoundi,rhoi,pri
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,dens,dt) &
- !$omp shared(pxyzu,metrics) &
- !$omp private(i,niter,diff,xpred,vold,converged,ierr)
+ !$omp shared(pxyzu,metrics,ieos,gamma,massoftype) &
+ !$omp private(i,niter,diff,xpred,vold,converged,ierr) &
+ !$omp private(spsoundi,pondensi,pri,rhoi)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
+
+       !-- Compute pressure for the first guess in cons2prim
+       call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+       pri  = pondensi*dens(i)
+       rhoi = rhoh(xyzh(4,i),massoftype(igas))
+       call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,rhoi,&
+                                   pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy,gamma)
+       if (ierr > 0) call warning('cons2primsolver [in step_extern_sph_gr (a)]','enthalpy did not converge',i=i)
        !
        ! main position update
        !
@@ -635,7 +645,9 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
        niter = 0
        do while (.not. converged .and. niter<=nitermax)
           niter = niter + 1
-          call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
+          call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,rhoi,&
+                                      pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy,gamma)
+          if (ierr > 0) call warning('cons2primsolver [in step_extern_sph_gr (b)]','enthalpy did not converge',i=i)
           xyzh(1:3,i) = xpred + 0.5*dt*(vxyzu(1:3,i)-vold)
           diff = maxval(abs(xyzh(1:3,i)-xpred)/xpred)
           if (diff < xtol) converged = .true.
@@ -850,7 +862,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           ! correct v to the full step using only the external force
           !
           pxyzu(1:3,i) = pxyzu(1:3,i) + hdt*fext(1:3,i)
-          ! call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr) !? Do we need this?
+          ! Do we need call cons2prim here ??
 
           if (iexternalforce > 0) then
              call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
