@@ -135,8 +135,7 @@ subroutine cons2primi(xyzhi,metrici,pxyzui,vxyzui,densi,ierr)
 
 end subroutine cons2primi
 
-subroutine cons2primi_withpressure(xyzhi,metrici,pxyzui,vxyzui,densi,ierr,pressure)
- use part,            only:massoftype,igas,rhoh
+subroutine cons2primi_withpressure(xyzhi,metrici,pxyzui,vxyzui,densi,ierr,pressure,rhoi)
  use cons2primsolver, only:conservative2primitive
  use eos,             only:gamma
  real, dimension(4),         intent(in)    :: xyzhi,pxyzui
@@ -144,10 +143,9 @@ subroutine cons2primi_withpressure(xyzhi,metrici,pxyzui,vxyzui,densi,ierr,pressu
  real, dimension(4),         intent(inout) :: vxyzui
  real,    intent(inout)                    :: densi, pressure
  integer, intent(out)                      :: ierr
- real :: rhoi
+ real,    intent(in)                       :: rhoi
  ! pressure and dens are guesses coming in, and their correct value gets sent back out
 
- rhoi    = rhoh(xyzhi(4),massoftype(igas))
  call conservative2primitive(xyzhi(1:3),metrici,vxyzui(1:3),densi,vxyzui(4), &
                              pressure,rhoi,pxyzui(1:3),pxyzui(4),ierr,ien_entropy,gamma)
 
