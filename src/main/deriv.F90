@@ -58,14 +58,14 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  use part,           only:massoftype
 #endif
 #ifdef DUSTGROWTH
- use growth,                only:get_growth_rate
+ use growth,         only:get_growth_rate
 #endif
- use part,         only:mhd,gradh,alphaind,igas
- use timing,       only:get_timings
- use forces,       only:force
- use derivutils,  only: do_timing
+ use part,           only:mhd,gradh,alphaind,igas
+ use timing,         only:get_timings
+ use forces,         only:force
+ use derivutils,     only:do_timing
 #ifdef GR
- use cons2prim,      only: conservative_to_primitive
+ use cons2prim,      only:cons2primall
 #endif
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
@@ -132,7 +132,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  endif
 
 #ifdef GR
- call conservative_to_primitive(npart,xyzh,metrics,pxyzu,vxyzu,dens)
+ call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
 #endif
 
 !

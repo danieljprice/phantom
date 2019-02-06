@@ -2,11 +2,7 @@ module cons2prim
  use cons2primsolver, only:ien_entropy
  implicit none
 
- interface conservative_to_primitive
-  module procedure cons2prim_i, cons2primphantom_i,cons2primphantom_all
- end interface conservative_to_primitive
-
- public :: conservative_to_primitive
+ public :: cons2primall,cons2primi,cons2prim_i
  public :: prim2consall,prim2consi,prim2cons_i
 
  private
@@ -102,7 +98,7 @@ end subroutine prim2cons_i
 !
 !-------------------------------------
 
-subroutine cons2primphantom_all(npart,xyzh,metrics,pxyzu,vxyzu,dens)
+subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
  use part, only:isdead_or_accreted, massoftype, igas, rhoh
  use io,   only:fatal
  integer, intent(in)    :: npart
@@ -115,7 +111,7 @@ subroutine cons2primphantom_all(npart,xyzh,metrics,pxyzu,vxyzu,dens)
 !$omp private(i,ierr)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call cons2primphantom_i(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr=ierr)
+       call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr=ierr)
        if (ierr > 0) then
           print*,' pmom =',pxyzu(1:3,i)
           print*,' rho* =',rhoh(xyzh(4,i),massoftype(igas))
@@ -126,12 +122,12 @@ subroutine cons2primphantom_all(npart,xyzh,metrics,pxyzu,vxyzu,dens)
  end do
 !$omp end parallel do
 
-end subroutine cons2primphantom_all
+end subroutine cons2primall
 
 ! Note: this subroutine needs to be able to return pressure when called before
 !       call to getting gr forces, since that requires pressure. Could maybe
 !       get around this by calling eos somewhere along the way instead.
-subroutine cons2primphantom_i(xyzhi,metrici,pxyzui,vxyzui,densi,pressure,ierr)
+subroutine cons2primi(xyzhi,metrici,pxyzui,vxyzui,densi,pressure,ierr)
  use part,            only:massoftype, igas, rhoh
  use cons2primsolver, only:conservative2primitive
  use utils_gr,        only:rho2dens
@@ -155,7 +151,7 @@ subroutine cons2primphantom_i(xyzhi,metrici,pxyzui,vxyzui,densi,pressure,ierr)
  if (present(pressure)) pressure = p_guess
  if (present(ierr)) ierr = ierror
 
-end subroutine cons2primphantom_i
+end subroutine cons2primi
 
 subroutine cons2prim_i(pos,metrici,vel,dens,u,P,rho,pmom,en,ierr)
  use cons2primsolver, only:conservative2primitive

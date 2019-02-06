@@ -107,7 +107,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #endif
 #ifdef GR
  use metric_tools,   only:imet_minkowski,imetric
- use cons2prim,      only:conservative_to_primitive
+ use cons2prim,      only:cons2primall
  use extern_gr,      only:get_grforce_all
 #endif
 #ifdef DUSTGROWTH
@@ -212,7 +212,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !----------------------------------------------------------------------
 #ifdef GR
  if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0) then
-    call conservative_to_primitive(npart,xyzh,metrics,pxyzu,vxyzu,dens)
+    call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
     call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t)
  else
@@ -596,7 +596,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  endif
 
 #ifdef GR
- call conservative_to_primitive(npart,xyzh,metrics,pxyzu,vxyzu,dens)
+ call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
 #endif
 
  return
@@ -605,7 +605,7 @@ end subroutine step
 #ifdef GR
 subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  use part,         only:isdead_or_accreted
- use cons2prim,    only:conservative_to_primitive
+ use cons2prim,    only:cons2primi
  use io,           only:warning
  use metric_tools, only:pack_metric
  real,    intent(in)    :: dt
@@ -625,7 +625,7 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  !$omp private(i,niter,diff,xpred,vold,converged)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call conservative_to_primitive(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i))
+       call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i))
        !
        ! main position update
        !
@@ -635,7 +635,7 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
        niter = 0
        do while (.not. converged .and. niter<=nitermax)
           niter = niter + 1
-          call conservative_to_primitive(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i))
+          call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i))
           xyzh(1:3,i) = xpred + 0.5*dt*(vxyzu(1:3,i)-vold)
           diff = maxval(abs(xyzh(1:3,i)-xpred)/xpred)
           if (diff < xtol) converged = .true.
@@ -660,7 +660,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
                           summary_accrete,summary_accrete_fail
  use timestep,       only:bignumber,C_force
  use eos,            only:equationofstate,ieos
- use cons2prim,      only:conservative_to_primitive
+ use cons2prim,      only:cons2primi
  use extern_gr,      only:get_grforce
  use metric_tools,   only:pack_metric,pack_metricderivs
  use damping,        only:calc_damp,apply_damp
@@ -749,7 +749,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           pmom_iterations: do while (its <= itsmax .and. .not. converged)
              its   = its + 1
              pprev = pxyzu(1:3,i)
-             call conservative_to_primitive(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
+             call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
              call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fstar)
              pxyzu(1:3,i) = pprev + hdt*(fstar - fext(1:3,i))
              pmom_err = maxval(abs(pxyzu(1:3,i) - pprev))
@@ -760,7 +760,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           pitsmax = max(its,pitsmax)
           perrmax = max(pmom_err,perrmax)
 
-          call conservative_to_primitive(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
+          call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),pi)
           xyzh(1:3,i) = xyzh(1:3,i) + dt*vxyzu(1:3,i)
           call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
 
@@ -768,12 +768,12 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           converged  = .false.
           vxyzu_star = vxyzu(:,i)
 ! Note: since particle positions change between iterations the metric and its derivatives need to be updated.
-!       conservative_to_primitive does not require derivatives of the metric, so those can updated once the iterations
+!       cons2prim does not require derivatives of the metric, so those can updated once the iterations
 !       are complete, in order to reduce the number of computations.
           xyz_iterations: do while (its <= itsmax .and. .not. converged)
              its         = its+1
              xyz_prev    = xyzh(1:3,i)
-             call conservative_to_primitive(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu_star,dens(i))
+             call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu_star,dens(i))
              xyzh(1:3,i)  = xyz_prev + hdt*(vxyzu_star(1:3) - vxyzu(1:3,i))
              x_err = maxval(abs(xyzh(1:3,i)-xyz_prev))
              if (x_err < xtol) converged = .true.
@@ -838,7 +838,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           ! correct v to the full step using only the external force
           !
           pxyzu(1:3,i) = pxyzu(1:3,i) + hdt*fext(1:3,i)
-          ! call conservative_to_primitive(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i)) !? Do we need this?
+          ! call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i)) !? Do we need this?
 
           if (iexternalforce > 0) then
              call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
