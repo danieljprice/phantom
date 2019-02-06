@@ -124,7 +124,7 @@ pure subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien
  integer, intent(in)  :: ien_type
  real, dimension(1:3,1:3) :: gammaijUP
  real :: sqrtg,enth,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
- real :: f,df
+ real :: f,df,term,lorentz_LEO2
  integer :: niter, i
  real, parameter :: tol = 1.e-12
  integer, parameter :: nitermax = 100
@@ -147,10 +147,12 @@ pure subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien
 
  niter = 0
  converged = .false.
+ term = rho*alpha/sqrtg
  do while (.not. converged .and. niter < nitermax)
     enth_old = enth
-    lorentz_LEO = sqrt(1.+pmom2/enth_old**2)
-    dens = rho*alpha/(sqrtg*lorentz_LEO)
+    lorentz_LEO2 = 1.+pmom2/enth_old**2
+    lorentz_LEO = sqrt(lorentz_LEO2)
+    dens = term/lorentz_LEO
 
     if (ien_type == ien_entropy) then
        p = en*dens**gamma
@@ -166,11 +168,11 @@ pure subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien
 
     !This line is unique to the equation of state - implemented for adiabatic at the moment
     if (ien_type == ien_entropy) then
-       df = -1. + (gamma*pmom2*P)/(lorentz_LEO**2 * enth_old**3 * dens)
+       df = -1. + (gamma*pmom2*P)/(lorentz_LEO2 * enth_old**3 * dens)
     else if (ieos==4) then
        df = -1. ! Isothermal, I think...
     else
-       df= -1.+(gamma/(gamma-1.))*(1.-pmom2*p/(enth_old**3*lorentz_LEO**2*dens))
+       df= -1.+(gamma/(gamma-1.))*(1.-pmom2*p/(enth_old**3*lorentz_LEO2*dens))
     endif
 
     enth = enth_old - f/df
@@ -186,7 +188,7 @@ pure subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien
  if (.not.converged) ierr = 1
 
  lorentz_LEO = sqrt(1.+pmom2/enth**2)
- dens = rho*alpha/(sqrtg*lorentz_LEO)
+ dens = term/lorentz_LEO
 
  if (ien_type == ien_entropy) then
     p = en*dens**gamma
