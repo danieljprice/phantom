@@ -2,15 +2,12 @@ module cons2prim
  use cons2primsolver, only:ien_entropy
  implicit none
 
- interface primitive_to_conservative
-  module procedure prim2cons_i, prim2consphantom_i,prim2consphantom_all
- end interface primitive_to_conservative
-
  interface conservative_to_primitive
   module procedure cons2prim_i, cons2primphantom_i,cons2primphantom_all
  end interface conservative_to_primitive
 
- public :: primitive_to_conservative, conservative_to_primitive
+ public :: conservative_to_primitive
+ public :: prim2consall,prim2consi,prim2cons_i
 
  private
 
@@ -22,7 +19,7 @@ contains
 !
 !-------------------------------------
 
-subroutine prim2consphantom_all(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
+subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
  use part,         only:isdead_or_accreted
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:),metrics(:,:,:,:),vxyzu(:,:)
@@ -46,14 +43,14 @@ subroutine prim2consphantom_all(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
 !$omp private(i)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call prim2consphantom_i(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),dens(i),pxyzu(:,i),usedens)
+       call prim2consi(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),dens(i),pxyzu(:,i),usedens)
     endif
  enddo
 !$omp end parallel do
 
-end subroutine prim2consphantom_all
+end subroutine prim2consall
 
-subroutine prim2consphantom_i(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens)
+subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens)
  use utils_gr,     only:h2dens
  use eos,          only:equationofstate,ieos
  real, dimension(4), intent(in)  :: xyzhi, vxyzui
@@ -86,7 +83,7 @@ subroutine prim2consphantom_i(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens)
  pi = pondensi*densi
  call prim2cons_i(xyzi,metrici,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4))
 
-end subroutine prim2consphantom_i
+end subroutine prim2consi
 
 subroutine prim2cons_i(pos,metrici,vel,dens,u,P,rho,pmom,en)
  use cons2primsolver, only:primitive2conservative

@@ -87,7 +87,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef GR
  use part,             only:pxyzu,dens,metrics,metricderivs
- use cons2prim,        only:primitive_to_conservative
+ use cons2prim,        only:prim2consall
  use metric_tools,     only:init_metric,imet_minkowski,imetric
  use extern_gr,        only:get_grforce_all
 #endif
@@ -268,7 +268,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
 #ifdef GR
     call init_metric(npart,xyzh,metrics,metricderivs)
-    call primitive_to_conservative(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+    call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
     if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
        call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce) ! Not 100% sure if this is needed here
     endif

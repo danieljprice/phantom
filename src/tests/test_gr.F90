@@ -138,7 +138,7 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
  use part,           only:igas,npartoftype,massoftype,set_particle_type,get_ntypes
  use step_lf_global, only:step_extern_gr
  use eos,            only:ieos
- use cons2prim,      only:primitive_to_conservative
+ use cons2prim,      only:prim2consall
  use metric_tools,   only:init_metric,unpack_metric
  use extern_gr,      only:get_grforce_all
  real, intent(in) :: tmax,dt
@@ -177,7 +177,7 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
  blah           = dt
 
  call init_metric(npart,xyzh,metrics,metricderivs)
- call primitive_to_conservative(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+ call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
  call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
  call calculate_angmom(xyzh(1:3,1),metrics(:,:,:,1),massi,vxyzu(1:3,1),angmom0)
 
@@ -344,7 +344,7 @@ subroutine test_metric_i(gcov,gcon,ntests,npass)
 end subroutine test_metric_i
 
 subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
- use cons2prim,    only:conservative_to_primitive,primitive_to_conservative
+ use cons2prim,    only:conservative_to_primitive,prim2cons_i
  use testutils,    only:checkval,checkvalbuf
  use metric_tools, only:pack_metric
  real, intent(in) :: x(1:3),v(1:3),dens,u,p
@@ -367,7 +367,7 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
  p_out    = p
 
  call pack_metric(x,metrici)
- call primitive_to_conservative(x,metrici,v,dens,u,P,rho,pmom,en)
+ call prim2cons_i(x,metrici,v,dens,u,P,rho,pmom,en)
  call conservative_to_primitive(x,metrici,v_out,dens_out,u_out,p_out,rho,pmom,en,ierr)
 
  ! call checkval(ierr,0,0,n_error,'ierr = 0 for convergence')

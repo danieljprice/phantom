@@ -139,7 +139,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef GR
- use cons2prim,        only:primitive_to_conservative
+ use cons2prim,        only:prim2consall
  use eos,              only:equationofstate,ieos
  use extern_gr,        only:get_grforce_all
  use metric_tools,     only:init_metric,imet_minkowski,imetric
@@ -459,7 +459,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef PRIM2CONS_FIRST
  ! -- The conserved quantites (momentum and entropy) are being computed
  ! -- directly from the primitive values in the starting dumpfile.
- call primitive_to_conservative(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+ call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
  write(iprint,*) ''
  call warning('initial','using preprocessor flag -DPRIM2CONS_FIRST')
  write(iprint,'(a,/)') ' This means doing prim2cons BEFORE the initial density calculation for this simulation.'
@@ -472,7 +472,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                               fxyzu,fext,alphaind,gradh)
  endif
 #ifndef PRIM2CONS_FIRST
- call primitive_to_conservative(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+ call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
 #endif
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
     call initialise_externalforces(iexternalforce,ierr)
@@ -563,7 +563,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                        npart,npartoftype,dtinject)
 #ifdef GR
  call init_metric(npart,xyzh,metrics,metricderivs)
- call primitive_to_conservative(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+ call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce) ! Not 100% sure if this is needed here
  endif
