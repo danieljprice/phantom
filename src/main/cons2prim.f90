@@ -89,19 +89,28 @@ end subroutine prim2consi
 !-------------------------------------
 
 subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
- use part, only:isdead_or_accreted, massoftype, igas, rhoh
- use io,   only:fatal
+ use cons2primsolver, only:conservative2primitive
+ use part,            only:isdead_or_accreted,massoftype,igas,rhoh
+ use io,              only:fatal
+ use eos,             only:equationofstate,ieos,gamma
  integer, intent(in)    :: npart
  real,    intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
  real,    intent(inout) :: vxyzu(:,:),dens(:)
  integer :: i, ierr
+ real    :: p_guess,rhoi,pondens,spsound
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype) &
-!$omp private(i,ierr)
+!$omp shared(ieos,gamma) &
+!$omp private(i,ierr,spsound,pondens,p_guess,rhoi)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr)
+      ! Construct a guess for pressure (dens is already passed in and is also a guess coming in, but correct value gets passed out)
+      call equationofstate(ieos,pondens,spsound,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+      p_guess = pondens*dens(i)
+      rhoi    = rhoh(xyzh(4,i),massoftype(igas))
+      call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i), &
+                                  p_guess,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy,gamma)
        if (ierr > 0) then
           print*,' pmom =',pxyzu(1:3,i)
           print*,' rho* =',rhoh(xyzh(4,i),massoftype(igas))
