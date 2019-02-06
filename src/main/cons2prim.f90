@@ -2,8 +2,8 @@ module cons2prim
  use cons2primsolver, only:ien_entropy
  implicit none
 
- public :: cons2primall,cons2primi,cons2primi_alt
- public :: prim2consall,prim2consi,prim2consi_alt
+ public :: cons2primall,cons2primi
+ public :: prim2consall,prim2consi
 
  private
 
@@ -82,18 +82,6 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens)
 
 end subroutine prim2consi
 
-subroutine prim2consi_alt(pos,metrici,vel,dens,u,P,rho,pmom,en)
- use cons2primsolver, only:primitive2conservative
- use eos,             only:gamma
- real, intent(in)  :: pos(1:3),metrici(:,:,:)
- real, intent(in)  :: dens,vel(1:3),u,P
- real, intent(out) :: rho,pmom(1:3),en
-
- call primitive2conservative(pos,metrici,vel,dens,u,P,rho,pmom,en,ien_entropy,gamma)
-
-end subroutine prim2consi_alt
-
-
 !-------------------------------------
 !
 !  Conservative to primitive routines
@@ -154,18 +142,5 @@ subroutine cons2primi(xyzhi,metrici,pxyzui,vxyzui,densi,pressure,ierr)
  if (present(ierr)) ierr = ierror
 
 end subroutine cons2primi
-
-subroutine cons2primi_alt(pos,metrici,vel,dens,u,P,rho,pmom,en,ierr)
- use cons2primsolver, only:conservative2primitive
- use eos,             only:gamma
- real, intent(in)     :: pos(1:3), metrici(:,:,:)
- real, intent(in)     :: rho,pmom(1:3),en
- real, intent(out)    :: vel(1:3),u
- real, intent(inout)  :: dens,P      ! Intent=inout because we need their previous values as an initial guess in the solver
- integer, intent(out) :: ierr
-
- call conservative2primitive(pos,metrici,vel,dens,u,P,rho,pmom,en,ierr,ien_entropy,gamma)
-
-end subroutine cons2primi_alt
 
 end module cons2prim

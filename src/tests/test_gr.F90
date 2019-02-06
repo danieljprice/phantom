@@ -344,9 +344,10 @@ subroutine test_metric_i(gcov,gcon,ntests,npass)
 end subroutine test_metric_i
 
 subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
- use cons2prim,    only:cons2primi_alt,prim2consi_alt
- use testutils,    only:checkval,checkvalbuf
- use metric_tools, only:pack_metric
+ use cons2primsolver, only:conservative2primitive,primitive2conservative,ien_entropy
+ use testutils,       only:checkval,checkvalbuf
+ use metric_tools,    only:pack_metric
+ use eos,             only:gamma
  real, intent(in) :: x(1:3),v(1:3),dens,u,p
  integer, intent(inout) :: ntests,npass
  real :: metrici(0:3,0:3,2)
@@ -367,8 +368,8 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
  p_out    = p
 
  call pack_metric(x,metrici)
- call prim2consi_alt(x,metrici,v,dens,u,P,rho,pmom,en)
- call cons2primi_alt(x,metrici,v_out,dens_out,u_out,p_out,rho,pmom,en,ierr)
+ call primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_entropy,gamma)
+ call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,rho,pmom,en,ierr,ien_entropy,gamma)
 
  ! call checkval(ierr,0,0,n_error,'ierr = 0 for convergence')
  call checkvalbuf(ierr,0,0,'[F]: ierr (convergence)',nerrors,ncheck)
