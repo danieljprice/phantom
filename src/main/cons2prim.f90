@@ -47,8 +47,9 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
 end subroutine prim2consall
 
 subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens)
- use utils_gr,     only:h2dens
- use eos,          only:equationofstate,ieos
+ use cons2primsolver, only:primitive2conservative
+ use utils_gr,        only:h2dens
+ use eos,             only:equationofstate,ieos,gamma
  real, dimension(4), intent(in)  :: xyzhi, vxyzui
  real,               intent(in)  :: metrici(:,:,:)
  real, intent(inout)             :: dens_i
@@ -77,7 +78,7 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens)
  endif
  call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
  pi = pondensi*densi
- call prim2consi_alt(xyzi,metrici,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4))
+ call primitive2conservative(xyzi,metrici,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4),ien_entropy,gamma)
 
 end subroutine prim2consi
 
@@ -132,7 +133,7 @@ subroutine cons2primi(xyzhi,metrici,pxyzui,vxyzui,densi,pressure,ierr)
  use part,            only:massoftype, igas, rhoh
  use cons2primsolver, only:conservative2primitive
  use utils_gr,        only:rho2dens
- use eos,             only:equationofstate,ieos
+ use eos,             only:equationofstate,ieos,gamma
  real, dimension(4),         intent(in)    :: xyzhi,pxyzui
  real, dimension(:,:,:),     intent(in)    :: metrici
  real, dimension(4),         intent(inout) :: vxyzui
@@ -148,7 +149,7 @@ subroutine cons2primi(xyzhi,metrici,pxyzui,vxyzui,densi,pressure,ierr)
  u_guess = vxyzui(4)
  call equationofstate(ieos,pondens,spsound,densi,xyzi(1),xyzi(2),xyzi(3),u_guess)
  p_guess = pondens*densi
- call cons2primi_alt(xyzi,metrici,vxyzui(1:3),densi,vxyzui(4),p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierror)
+ call conservative2primitive(xyzi,metrici,vxyzui(1:3),densi,vxyzui(4),p_guess,rhoi,pxyzui(1:3),pxyzui(4),ierror,ien_entropy,gamma)
  if (present(pressure)) pressure = p_guess
  if (present(ierr)) ierr = ierror
 
