@@ -749,7 +749,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           pmom_iterations: do while (its <= itsmax .and. .not. converged)
              its   = its + 1
              pprev = pxyzu(1:3,i)
-             call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr,pri)
+             call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr,pressure=pri)
              call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fstar)
              pxyzu(1:3,i) = pprev + hdt*(fstar - fext(1:3,i))
              pmom_err = maxval(abs(pxyzu(1:3,i) - pprev))
@@ -760,7 +760,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           pitsmax = max(its,pitsmax)
           perrmax = max(pmom_err,perrmax)
 
-          call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr,pri)
+          call cons2primi(xyzh(:,i),metrics(:,:,:,i),pxyzu(:,i),vxyzu(:,i),dens(i),ierr,pressure=pri)
           xyzh(1:3,i) = xyzh(1:3,i) + dt*vxyzu(1:3,i)
           call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
 

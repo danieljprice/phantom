@@ -123,7 +123,7 @@ subroutine cons2primi(xyzhi,metrici,pxyzui,vxyzui,densi,ierr,pressure)
  use utils_gr,        only:rho2dens
  use eos,             only:equationofstate,ieos,gamma
  real, dimension(4),         intent(in)    :: xyzhi,pxyzui
- real, dimension(:,:,:),     intent(in)    :: metrici
+ real, dimension(0:3,0:3,2), intent(in)    :: metrici
  real, dimension(4),         intent(inout) :: vxyzui
  real,    intent(inout)                    :: densi
  integer, intent(out)                      :: ierr
