@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: readwrite_dumps
@@ -23,8 +23,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, dump_utils, eos, externalforces, fileutils,
-!    gitinfo, initial_params, io, lumin_nsdisc, mpi, mpiutils, options,
-!    part, setup_params, sphNGutils, timestep, units
+!    gitinfo, initial_params, io, lumin_nsdisc, memory, mpi, mpiutils,
+!    options, part, setup_params, sphNGutils, timestep, units
 !+
 !--------------------------------------------------------------------------
 module readwrite_dumps
@@ -711,6 +711,9 @@ end subroutine write_smalldump
 subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use memory,   only:allocate_memory
  use dim,      only:maxp,maxvxyzu,gravity,lightcurve,mhd
+#ifdef INJECT_PARTICLES
+ use dim,      only:maxp_hard
+#endif
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &
                     maxphase,isetphase,nptmass,nsinkproperties,maxptmass,get_pmass, &
@@ -806,7 +809,11 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  !
  !--Allocate main arrays
  !
+#ifdef INJECT_PARTICLES
+ call allocate_memory(maxp_hard)
+#else
  call allocate_memory(int(nparttot / nprocs))
+#endif
 
 !
 !--arrays
@@ -842,18 +849,18 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 !
 !--check block header for errors
 !
-  call check_block_header(narraylengths,nblocks,ilen,nums,nparttot,nhydrothisblock,nptmass,ierr)
-  if (ierr /= 0) then
-     call error('read_dump','error in array headers')
-     return
-  endif
+    call check_block_header(narraylengths,nblocks,ilen,nums,nparttot,nhydrothisblock,nptmass,ierr)
+    if (ierr /= 0) then
+       call error('read_dump','error in array headers')
+       return
+    endif
 !
 !--exit after reading the file header if the optional argument
 !  "headeronly" is present and set to true
 !
-   if (present(headeronly)) then
-      if (headeronly) return
-   endif
+    if (present(headeronly)) then
+       if (headeronly) return
+    endif
 !
 !--determine if extra dust quantites should be read
 !
@@ -954,6 +961,9 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 #ifdef MPI
  use dim,      only:maxp
 #endif
+#ifdef INJECT_PARTICLES
+ use dim,      only:maxp_hard
+#endif
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:npart,npartoftype,maxtypes,nptmass,nsinkproperties,maxptmass, &
                     massoftype
@@ -1038,7 +1048,11 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  !
  !--Allocate main arrays
  !
+#ifdef INJECT_PARTICLES
+ call allocate_memory(maxp_hard)
+#else
  call allocate_memory(int(nparttot / nprocs))
+#endif
 
 !
 !--arrays
@@ -1518,15 +1532,15 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     endif
  endif
  if (npartread > 0) then
-   do i = 1, size(massoftype)
-     if (npartoftype(i) > 0) then
-       if (massoftype(i) <= 0.0) then
-         if (id==master .and. i1==1) write(*,*) 'ERROR! mass not set in read_dump (Phantom)'
-         ierr = 12
-         return
+    do i = 1, size(massoftype)
+       if (npartoftype(i) > 0) then
+          if (massoftype(i) <= 0.0) then
+             if (id==master .and. i1==1) write(*,*) 'ERROR! mass not set in read_dump (Phantom)'
+             ierr = 12
+             return
+          endif
        endif
-     endif
-   enddo
+    enddo
  endif
  if (use_dustfrac .and. .not. all(got_dustfrac(1:ndusttypes))) then
     if (id==master .and. i1==1) write(*,*) 'ERROR! using one-fluid dust, but no dust fraction found in dump file'
@@ -1752,7 +1766,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use eos,            only:polyk,gamma,polyk2,qfacdisc,isink
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,ieos
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,ndustsmall,ndustlarge,&
-                          idust,grainsize,graindens
+                          idust,grainsize,graindens,ndusttypes
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
@@ -1845,10 +1859,10 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(etot_in,'etot_in',hdr,ierr)
     call add_to_rheader(angtot_in,'angtot_in',hdr,ierr)
     call add_to_rheader(totmom_in,'totmom_in',hdr,ierr)
-    call add_to_rheader(mdust_in,'mdust_in',hdr,ierr)
+    call add_to_rheader(mdust_in(1:ndusttypes),'mdust_in',hdr,ierr)
     if (use_dust) then
-       call add_to_rheader(grainsize,'grainsize',hdr,ierr)
-       call add_to_rheader(graindens,'graindens',hdr,ierr)
+       call add_to_rheader(grainsize(1:ndusttypes),'grainsize',hdr,ierr)
+       call add_to_rheader(graindens(1:ndusttypes),'graindens',hdr,ierr)
     endif
  endif
 

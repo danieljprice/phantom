@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: dim
@@ -192,7 +192,7 @@ module dim
 !-----------------
 ! Magnetic fields
 !-----------------
-integer :: maxmhd = 0
+ integer :: maxmhd = 0
 #ifdef MHD
  logical, parameter :: mhd = .true.
 #else
@@ -202,7 +202,7 @@ integer :: maxmhd = 0
  integer, parameter :: ndivcurlB = 4
 
 ! non-ideal MHD
-integer :: maxmhdni = 0
+ integer :: maxmhdni = 0
 #ifdef MHD
 #ifdef NONIDEALMHD
  logical, parameter :: mhd_nonideal = .true.
@@ -226,7 +226,7 @@ integer :: maxmhdni = 0
 !--------------------
 ! H2 Chemistry
 !--------------------
-integer :: maxp_h2 = 0
+ integer :: maxp_h2 = 0
 #ifdef H2CHEM
  logical, parameter :: h2chemistry = .true.
 #else
@@ -237,7 +237,7 @@ integer :: maxp_h2 = 0
 !--------------------
 ! Self-gravity
 !--------------------
-integer :: maxgrav = 0
+ integer :: maxgrav = 0
 #ifdef GRAVITY
  logical, parameter :: gravity = .true.
  integer, parameter :: ngradh = 2
@@ -259,12 +259,12 @@ logical, parameter :: gr = .false.
 !--------------------
 ! Supertimestepping
 !--------------------
-integer :: maxsts = 1
+ integer :: maxsts = 1
 
 !--------------------
 ! Light curve stuff
 !--------------------
-integer :: maxlum = 0
+ integer :: maxlum = 0
 #ifdef LIGHTCURVE
  logical, parameter :: lightcurve = .true.
 #else
@@ -274,7 +274,7 @@ integer :: maxlum = 0
 !--------------------
 ! Electron number densities .or. ionisation fractions
 !--------------------
-integer :: maxne = 0
+ integer :: maxne = 0
 
 #ifdef CMACIONIZE
  logical, parameter :: use_CMacIonize = .true.
@@ -297,47 +297,55 @@ integer :: maxne = 0
  integer :: maxgradh = 0
 
 contains
-  subroutine update_max_sizes(n)
-    integer, intent(in) :: n
+subroutine update_max_sizes(n)
+ integer, intent(in) :: n
 
-    maxp = n
+ maxp = n
 
 #ifdef STORE_TEMPERATURE
-    maxtemp = maxp
+ maxtemp = maxp
 #endif
 
 #ifdef NCELLSMAX
-    ncellsmax = NCELLSMAX
+ ncellsmax = NCELLSMAX
 #else
-    ncellsmax = min(2*maxp,maxp_hard)
+ ncellsmax = min(2*maxp,maxp_hard)
 #endif
 
 #ifdef DUST
-    maxp_dustfrac = maxp
+ maxp_dustfrac = maxp
 #ifdef DUSTGROWTH
-    maxp_growth = maxp
+ maxp_growth = maxp
 #endif
 #endif
 
-    if (nalpha > 0) then
-       maxalpha = maxp
-    else
-       maxalpha = 0
-    endif
+#ifdef DISC_VISCOSITY
+ maxalpha = 0
+#else
+#ifdef CONST_AV
+ maxalpha = 0
+#else
+#ifdef USE_MORRIS_MONAGHAN
+ maxalpha = maxp
+#else
+ maxalpha = maxp
+#endif
+#endif
+#endif
 
 #ifdef MHD
-    maxmhd = maxp
+ maxmhd = maxp
 #ifdef NONIDEALMHD
-    maxmhdni = maxp
+ maxmhdni = maxp
 #endif
 #endif
 
 #ifdef H2CHEM
-    maxp_h2 = maxp
+ maxp_h2 = maxp
 #endif
 
 #ifdef GRAVITY
-    maxgrav = maxp
+ maxgrav = maxp
 #endif
 
 #ifdef GR
@@ -346,33 +354,33 @@ contains
 
 #ifdef STS_TIMESTEPS
 #ifdef IND_TIMESTEPS
-    maxsts = maxp
+ maxsts = maxp
 #endif
 #endif
 
 #if LIGHTCURVE
-    maxlum = maxp
+ maxlum = maxp
 #endif
 
 #ifdef NONIDEALMHD
-    maxne = maxp
+ maxne = maxp
 #else
 #ifdef CMACIONIZE
-    maxne = maxp
+ maxne = maxp
 #endif
 #endif
 
 #ifndef ANALYSIS
-    maxan = maxp
-    maxmhdan = maxmhd
-    maxdustan = maxp_dustfrac
-    maxgran = maxgr
+ maxan = maxp
+ maxmhdan = maxmhd
+ maxdustan = maxp_dustfrac
+ maxgran = maxgr
 #endif
 
 ! Very convoluted, but follows original logic...
-    maxphase = maxan
-    maxgradh = maxan
+ maxphase = maxan
+ maxgradh = maxan
 
- end subroutine update_max_sizes
+end subroutine update_max_sizes
 
 end module dim

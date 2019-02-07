@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: teststep
@@ -19,7 +19,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, eos, io, mpiutils, options, part, physcon,
-!    step_lf_global, testutils, timestep, timing, unifdis, viscosity
+!    step_lf_global, testutils, timestep, timestep_ind, timing, unifdis,
+!    viscosity
 !+
 !--------------------------------------------------------------------------
 module teststep
@@ -125,7 +126,7 @@ subroutine test_step(ntests,npass)
  ! If using individual timesteps, ibin may be uninitialised
 #ifdef IND_TIMESTEPS
  do i = 1, npart
-   ibin(i) = nbinmax
+    ibin(i) = nbinmax
  enddo
 #endif
 

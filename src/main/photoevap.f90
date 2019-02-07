@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: photoevap
@@ -21,7 +21,8 @@
 !    mu_cgs         -- Mean molecular weight
 !    recombrate_cgs -- Recombination rate (alpha)
 !
-!  DEPENDENCIES: dim, eos, externalforces, infile_utils, physcon, units
+!  DEPENDENCIES: allocutils, dim, eos, externalforces, infile_utils,
+!    physcon, units
 !+
 !--------------------------------------------------------------------------
 module photoevap
@@ -88,18 +89,18 @@ contains
 !***************************************************************************************
 
 subroutine allocate_photoevap
-  use dim, only:maxp
-  use allocutils, only:allocate_array
+ use dim, only:maxp
+ use allocutils, only:allocate_array
 
-  call allocate_array('Rnum', Rnum, maxp)
-  call allocate_array('Thetanum', Thetanum, maxp)
-  call allocate_array('Phinum', Phinum, maxp)
+ call allocate_array('Rnum', Rnum, maxp)
+ call allocate_array('Thetanum', Thetanum, maxp)
+ call allocate_array('Phinum', Phinum, maxp)
 end subroutine allocate_photoevap
 
 subroutine deallocate_photoevap
-  deallocate(Rnum)
-  deallocate(Thetanum)
-  deallocate(Phinum)
+ deallocate(Rnum)
+ deallocate(Thetanum)
+ deallocate(Phinum)
 end subroutine deallocate_photoevap
 
 !----------------------------------------------------------------

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: linklist
@@ -22,8 +22,8 @@
 !  RUNTIME PARAMETERS:
 !    tree_accuracy -- tree opening criterion (0.0-1.0)
 !
-!  DEPENDENCIES: boundary, dim, dtypekdtree, infile_utils, io, kdtree,
-!    kernel, mpiutils, part
+!  DEPENDENCIES: allocutils, boundary, dim, dtypekdtree, infile_utils, io,
+!    kdtree, kernel, mpiutils, part
 !+
 !--------------------------------------------------------------------------
 module linklist
@@ -57,23 +57,23 @@ module linklist
 
 contains
 
- subroutine allocate_linklist
-    use allocutils, only:allocate_array
+subroutine allocate_linklist
+ use allocutils, only:allocate_array
 
-    call allocate_array('cellatid', cellatid, ncellsmax+1)
-    call allocate_array('ifirstincell', ifirstincell, ncellsmax+1)
-    call allocate_array('nodeglobal', nodeglobal, ncellsmax+1)
-    call allocate_array('node', node, ncellsmax+1)
-    call allocate_array('nodemap', nodemap, ncellsmax+1)
- end subroutine allocate_linklist
+ call allocate_array('cellatid', cellatid, ncellsmax+1)
+ call allocate_array('ifirstincell', ifirstincell, ncellsmax+1)
+ call allocate_array('nodeglobal', nodeglobal, ncellsmax+1)
+ call allocate_array('node', node, ncellsmax+1)
+ call allocate_array('nodemap', nodemap, ncellsmax+1)
+end subroutine allocate_linklist
 
- subroutine deallocate_linklist
-   deallocate(cellatid)
-   deallocate(ifirstincell)
-   deallocate(nodeglobal)
-   deallocate(node)
-   deallocate(nodemap)
- end subroutine deallocate_linklist
+subroutine deallocate_linklist
+ deallocate(cellatid)
+ deallocate(ifirstincell)
+ deallocate(nodeglobal)
+ deallocate(node)
+ deallocate(nodemap)
+end subroutine deallocate_linklist
 
 subroutine get_hmaxcell(inode,hmaxcell)
  integer, intent(in)  :: inode
