@@ -33,7 +33,7 @@ module setup
  implicit none
  public :: setpart
 
- real    :: mhole,mstar,rstar,beta,ecc,norbits
+ real    :: mhole,mstar,rstar,beta,ecc,norbits,theta
  integer :: dumpsperorbit,nr
 
  private
@@ -57,6 +57,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,       only:ieos
  use externalforces,only:accradius1,accradius1_hard
  use rho_profile,   only:rho_polytrope
+ use vectorutils,   only:rotatevec
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -104,6 +105,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  norbits       = 5.
  dumpsperorbit = 100
  nr            = 50
+ theta         = 0.
 
 !
 !-- Read runtime parameters from setup file
@@ -134,6 +136,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  accradius1_hard = 5.*mass1
  accradius1      = accradius1_hard
  a               = 0.
+
+ theta           = theta*pi/180.
 
  xyzstar  = 0.
  vxyzstar = 0.
@@ -169,15 +173,10 @@ elseif (abs(ecc-1.) < tiny(0.)) then
 
  endif
 
+ call rotatevec(xyzstar,(/0.,1.,0./),-theta)
+
  lorentz = 1./sqrt(1.-dot_product(vxyzstar,vxyzstar))
  if (lorentz>1.1) call warning('setup','Lorentz factor of star greater than 1.1, density may not be correct')
- if (id==master) then
-    print "(/,a)",       ' STAR SETUP:'
-    print "(a,3f10.3)"  ,'         Position = ',xyzstar
-    print "(a,3f10.3)"  ,'         Velocity = ',vxyzstar
-    print "(a,1f10.3)"  ,' Lorentz factor   = ',lorentz
-    print "(a,1f10.3,/)",' Polytropic gamma = ',gamma
- endif
 
  tmax      = norbits*period
  dtmax     = period/dumpsperorbit
@@ -193,6 +192,13 @@ elseif (abs(ecc-1.) < tiny(0.)) then
     vxyzu(1:3,i) = vxyzstar(1:3)
  enddo
 
+ if (id==master) then
+    print "(/,a)",       ' STAR SETUP:'
+    print "(a,3f10.3)"  ,'         Position = ',xyzstar
+    print "(a,3f10.3)"  ,'         Velocity = ',vxyzstar
+    print "(a,1f10.3)"  ,' Lorentz factor   = ',lorentz
+    print "(a,1f10.3,/)",' Polytropic gamma = ',gamma
+ endif
 
  if (id==master) print "(/,a,i10,/)",' Number of particles setup = ',npart
 
@@ -220,6 +226,7 @@ subroutine write_setupfile(filename)
  call write_inopt(norbits,      'norbits',      'number of orbits',                           iunit)
  call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',                  iunit)
  call write_inopt(nr           ,'nr'           ,'particles per star radius (i.e. resolution)',iunit)
+ call write_inopt(theta        ,'theta'        ,'inclination of orbit (degrees)',             iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -245,12 +252,12 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(norbits,      'norbits',      db,min=0.,errcount=nerr)
  call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=0 ,errcount=nerr)
  call read_inopt(nr,           'nr',           db,min=0 ,errcount=nerr)
+ call read_inopt(theta,        'theta',        db,       errcount=nerr)
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
     ierr = nerr
  endif
-
 
 end subroutine read_setupfile
 
