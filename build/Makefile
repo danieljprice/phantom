@@ -287,6 +287,7 @@ ifeq ($(SETUP), grtde)
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     GRAVITY=yes
+    ANALYSIS=analysis_tde.f90
 endif
 
 ifeq ($(SETUP), srpolytrope)
