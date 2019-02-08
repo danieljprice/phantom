@@ -69,6 +69,7 @@ subroutine allocate_memory(n, part_only)
     call error('memory', 'Attempting to allocate memory, but memory is already allocated. &
     & Deallocating and then allocating again.')
     call deallocate_memory(part_only=part_only_)
+    call update_max_sizes(n)
  endif
 
  call allocate_part
