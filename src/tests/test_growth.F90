@@ -102,7 +102,7 @@ subroutine test_growingbox(ntests,npass)
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use unifdis,        only:set_unifdis
  use eos,            only:ieos,polyk,gamma,get_spsound,init_eos,temperature_coef,gmw
- use options,        only:alpha
+ use viscosity,      only:shearparam
  use physcon,        only:au,solarm,Ro
  use dim,            only:periodic,maxp,maxalpha
  use timestep,       only:dtmax
@@ -175,7 +175,7 @@ subroutine test_growingbox(ntests,npass)
  !
  ifrag = 0
  isnow = 0
- alpha = 1.
+ shearparam = 1.
  iverbose = 0
  ieos = 1
  polyk = 1.
@@ -197,9 +197,9 @@ subroutine test_growingbox(ntests,npass)
  !
  ! usefull variables used along the tests
  !
- Vt = sqrt(2**(0.5)*alpha*Ro)*csj
+ Vt = sqrt(2**(0.5)*shearparam*Ro)*csj
  vfrag = 1/vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! vfrag < vrel : fragmentation
- tau = 1/(sqrt(2**1.5*Ro*alpha))
+ tau = 1/(sqrt(2**1.5*Ro*shearparam))
  switch = abs(nsteps/2)
  !
  ! testing pure growth with St=cst & St=f(size)
@@ -382,7 +382,7 @@ subroutine test_growingbox(ntests,npass)
     call step(npart,npart,t,dt,dtext,dtnew)
     do j=1,npart
        cs(j) = get_spsound(ieos,xyzh(:,j),rhozero,vxyzu(:,j))
-       Vt = sqrt(2**(0.5)*alpha*Ro)*cs(j)
+       Vt = sqrt(2**(0.5)*shearparam*Ro)*cs(j)
        s_in(j)  = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
        s_out(j) = sinit - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
        if (cs(j) > cs_snow) call checkvalbuf(dustprop(1,j),s_in(j),10*tols,'size',nerr(8),ncheck(8),errmax(8))
