@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: growth
@@ -28,7 +28,8 @@
 !    vfragin      -- inward fragmentation threshold in m/s
 !    vfragout     -- inward fragmentation threshold in m/s
 !
-!  DEPENDENCIES: dust, eos, infile_utils, io, options, part, physcon, units
+!  DEPENDENCIES: dust, eos, infile_utils, io, part, physcon, units,
+!    viscosity
 !+
 !--------------------------------------------------------------------------
 module growth
@@ -230,7 +231,7 @@ end subroutine get_growth_rate
 !+
 !-----------------------------------------------------------------------
 subroutine get_vrelonvfrag(xyzh,vrel,dustprop,cs,St)
- use options,         only:alpha
+ use viscosity,       only:shearparam
  use physcon,         only:Ro
  real, intent(in)     :: xyzh(:)
  real, intent(in)     :: cs,St
@@ -240,7 +241,7 @@ subroutine get_vrelonvfrag(xyzh,vrel,dustprop,cs,St)
  integer              :: izone
 
  !--compute terminal velocity
- Vt = sqrt((2**0.5)*Ro*alpha)*cs
+ Vt = sqrt(sqrt(2.)*Ro*shearparam)*cs
 
  !--compute vrel
  vrel = vrelative(St,dustprop(4),Vt)
@@ -464,9 +465,9 @@ real function vrelative(St,dv,Vt)
  real             :: Sc
 
  !--compute Schmidt number Sc
- Sc = (1+St)*sqrt(1+dv**2/Vt**2)
+ Sc = (1.+St)*sqrt(1.+dv**2/Vt**2)
  !--then compute vrel
- vrelative = sqrt(2.)*Vt*sqrt(Sc-1)/(Sc)
+ vrelative = sqrt(2.)*Vt*sqrt(Sc-1.)/(Sc)
 
  return
 end function vrelative

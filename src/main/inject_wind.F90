@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: inject
@@ -30,8 +30,8 @@
 !    wind_osc_period   -- stellar pulsation period (days)
 !    wind_temperature  -- wind temperature at the injection point (K)
 !
-!  DEPENDENCIES: bowen_dust, eos, icosahedron, infile_utils, injectutils,
-!    io, part, physcon, units
+!  DEPENDENCIES: bowen_dust, dim, eos, icosahedron, infile_utils,
+!    injectutils, io, part, physcon, units
 !+
 !--------------------------------------------------------------------------
 module inject
@@ -119,9 +119,9 @@ subroutine init_inject(ierr)
  wind_velocity          = wind_velocity_km_s * (km / unit_velocity)
  wind_mass_rate         = wind_mass_rate_Msun_yr * (solarm/umass) / (years/utime)
  if (gamma > 1.0001) then
-   u_to_temperature_ratio = Rg/(gmw*(gamma-1.)) / unit_velocity**2
+    u_to_temperature_ratio = Rg/(gmw*(gamma-1.)) / unit_velocity**2
  else
-   u_to_temperature_ratio = 1.
+    u_to_temperature_ratio = Rg/(gmw*2./3.) / unit_velocity**2
  endif
  wind_velocity_max      = max(wind_velocity,wind_osc_vamplitude)
  !
@@ -283,7 +283,7 @@ end subroutine inject_particles
 
 !-----------------------------------------------------------------------
 !+
-!  Time derivative of r and v, for Runge-Kutta iterations (stationary trans-sonic solution)
+!  Time derivative of r and v, for Runge-Kutta iterations (stationary wind solution)
 !+
 !-----------------------------------------------------------------------
 subroutine drv_dt(rv,drv,GM,gamma)
@@ -297,11 +297,11 @@ subroutine drv_dt(rv,drv,GM,gamma)
  dr_dt = v
  r2 = r*r
  if (gamma > 1.0001) then
-   T = wind_temperature * (wind_injection_radius**2 * wind_velocity / (r2 * v))**(gamma-1.)
-   u = T * u_to_temperature_ratio
-   vs2 = gamma * (gamma - 1) * u
+    T = wind_temperature * (wind_injection_radius**2 * wind_velocity / (r2 * v))**(gamma-1.)
+    u = T * u_to_temperature_ratio
+    vs2 = gamma * (gamma - 1.) * u
  else
-   vs2 = polyk
+    vs2 = polyk
  endif
  dv_dr = (-GM/r2+2.*vs2/r)/(v-vs2/v)
  dv_dt = dv_dr * v
@@ -318,9 +318,7 @@ end subroutine drv_dt
 !-----------------------------------------------------------------------
 subroutine compute_sphere_properties(time,local_time,gamma,GM,r,v,u,rho,e,sphere_number, &
                                      inner_sphere,inner_boundary_sphere)
-#ifdef BOWEN
- !use bowen_dust, only: pulsating_bowen_wind_profile
-#endif
+
  integer, intent(in)  :: sphere_number, inner_sphere, inner_boundary_sphere
  real,    intent(in)  :: time,local_time,gamma,GM
  real,    intent(out) :: r, v, u, rho, e
@@ -345,10 +343,10 @@ subroutine compute_sphere_properties(time,local_time,gamma,GM,r,v,u,rho,e,sphere
  !r = (surface_radius**3-(sphere_number-inner_sphere)*dr3)**(1./3)
  !rho = rho_ini
  if (gamma > 1.0001) then
-   u = wind_temperature * u_to_temperature_ratio
-   e = .5*v**2 - GM/r + gamma*u
+    u = wind_temperature * u_to_temperature_ratio
+    e = .5*v**2 - GM/r + gamma*u
  else
-   e = .5*v**2 - GM/r
+    e = .5*v**2 - GM/r + u
  endif
  rho = rho_ini*(surface_radius/r)**nrho_index
  if (verbose) then
@@ -397,11 +395,11 @@ subroutine stationary_adiabatic_wind_profile(local_time, r, v, u, rho, e, gamma,
  v = rv(2)
  ! this expression for T is only valid for an adiabatic EOS !
  if (gamma > 1.0001) then
-   T = wind_temperature * (wind_injection_radius**2 * wind_velocity / (r**2 * v))**(gamma-1.)
-   u = T * u_to_temperature_ratio
-   e = .5*v**2 - GM/r + gamma*u
+    T = wind_temperature * (wind_injection_radius**2 * wind_velocity / (r**2 * v))**(gamma-1.)
+    u = T * u_to_temperature_ratio
+    e = .5*v**2 - GM/r + gamma*u
  else
-   e = .5*v**2 - GM/r
+    e = .5*v**2 - GM/r + u
  endif
  rho = wind_mass_rate / (4.*pi*r**2*v)
 
@@ -557,7 +555,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 #endif
  if (isowind) noptions = noptions -1
  igotall = (ngot >= noptions)
- 
+
 end subroutine read_options_inject
 
 end module inject

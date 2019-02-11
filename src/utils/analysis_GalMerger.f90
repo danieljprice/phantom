@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: analysis
@@ -94,6 +94,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  ngas      = 0
  ndm       = 0
 !$omp parallel default(none) &
+!$omp shared(maxp,maxphase) &
 !$omp shared(npart,xyzh,iphase,massoftype) &
 !$omp private(i,itype,xi,yi,zi,hi,pmassi,rhoi) &
 !$omp reduction(+:xpos1,ypos1,zpos1,xpos2,ypos2,zpos2,totmass1,totmass2) &
@@ -168,4 +169,3 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 end subroutine do_analysis
 
 end module
-

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: analysis
@@ -715,6 +715,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
  ! Loop over cells
 
  !$omp parallel default(none) &
+ !$omp shared(maxp,maxphase) &
  !$omp shared(ncells,ll,ifirstincell,npart) &
  !$omp shared(xyzh,vxyzu,iphase) &
  !$omp shared(neighcount,neighb) &

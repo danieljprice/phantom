@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testlum
@@ -31,7 +31,7 @@ module testlum
 contains
 
 subroutine test_lum(ntests,npass)
- use dim,      only:maxp,periodic,lightcurve,maxalpha
+ use dim,      only:periodic,lightcurve
  use io,       only:id,master
 #ifdef LIGHTCURVE
  use io,       only:iverbose
@@ -45,6 +45,7 @@ subroutine test_lum(ntests,npass)
  use deriv,           only:derivs
  use timing,          only:getused
 #ifndef DISC_VISCOSITY
+ use dim,             only:maxp
  use part,            only:alphaind,maxalpha
  use options,         only:alphau,alphaB
  use viscosity,       only:irealvisc,shearfunc,dt_viscosity,shearparam

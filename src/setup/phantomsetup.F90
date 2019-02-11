@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  PROGRAM: phantomsetup
@@ -18,13 +18,14 @@
 !  USAGE: phantomsetup fileprefix [nprocsfake]
 !
 !  DEPENDENCIES: boundary, checksetup, dim, domain, eos, fileutils, io,
-!    mpiutils, options, part, physcon, readwrite_dumps, readwrite_infile,
-!    setBfield, setup, setup_params, units
+!    memory, mpiutils, options, part, physcon, readwrite_dumps,
+!    readwrite_infile, setBfield, setup, setup_params, units
 !+
 !--------------------------------------------------------------------------
 program phantomsetup
+ use memory,            only:allocate_memory,deallocate_memory
  use dim,             only:tagline,maxp,maxvxyzu,maxalpha,maxgrav,&
-                           ndivcurlv,ndivcurlB
+                           ndivcurlv,ndivcurlB,maxp_hard
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
                            Bevol,Bxyz,Bextx,Bexty,Bextz,rhoh,iphase,maxphase,&
                            isetphase,igas,iamtype,labeltype,xyzmh_ptmass,&
@@ -81,6 +82,9 @@ program phantomsetup
     print*,'       (these are assigned automatically)'
     print "(/,a)",' e.g. "phantomsetup mysim"'
     stop
+ elseif (fileprefix=='test') then
+    print*,'Error: cannot use ''test'' as the job name, please rename your .setup file'
+    stop
  endif
  infile = trim(fileprefix)//'.in'
  inquire(file=trim(infile),exist=iexist)
@@ -90,6 +94,15 @@ program phantomsetup
 !--if input file exists, read it
 !
  if (iexist) call read_infile(infile,logfile,evfile,dumpfile)
+
+!
+!--In general, setup routines do not know the number of particles until they
+!  are written. Need to allocate up to the hard limit. Legacy setup routines may
+!  also rely on maxp being set to the number of desired particles. Allocate only
+!  part, not kdtree or linklist
+!
+ call allocate_memory(maxp_hard, part_only=.true.)
+
 !
 !--reset logfile name
 !
@@ -200,6 +213,7 @@ program phantomsetup
     endif
  enddo
 
- call finalise_mpi()
+ call finalise_mpi
+ call deallocate_memory(part_only=.true.)
 
 end program phantomsetup

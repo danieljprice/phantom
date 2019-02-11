@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: test
@@ -19,11 +19,11 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, mpiutils, options, testcooling, testcorotate,
-!    testderivs, testdust, testeos, testexternf, testgeometry, testgnewton,
-!    testgravity, testgrowth, testindtstep, testkdtree, testkernel,
-!    testlink, testmath, testnimhd, testptmass, testrwdump, testsedov,
-!    testsetdisc, teststep, timing
+!  DEPENDENCIES: io, io_summary, mpiutils, options, testcooling,
+!    testcorotate, testderivs, testdust, testeos, testexternf,
+!    testgeometry, testgnewton, testgravity, testgrowth, testindtstep,
+!    testkdtree, testkernel, testlink, testmath, testnimhd, testptmass,
+!    testrwdump, testsedov, testsetdisc, teststep, timing
 !+
 !--------------------------------------------------------------------------
 module test
@@ -36,6 +36,7 @@ contains
 
 subroutine testsuite(string,first,last,ntests,npass,nfail)
  use io,           only:iprint,id,master,iverbose
+ use io_summary,   only:summary_initialise
  use testderivs,   only:test_derivs
  use teststep,     only:test_step
  use testlink,     only:test_link
@@ -72,6 +73,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: usefsqrt,usefinvsqrt
 #endif
  real(kind=4) :: twall1,tcpu1,twall2,tcpu2
+
+ call summary_initialise
 
  iprint = 6
  iverbose = max(iverbose,2)

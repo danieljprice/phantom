@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testptmass
@@ -65,7 +65,7 @@ subroutine test_ptmass(ntests,npass)
  use units,           only:set_units
  use kernel,          only:kernel_softening
 #ifdef IND_TIMESTEPS
- use part,            only:ibin
+ use part,            only:ibin,ibin_old
 #endif
  use mpiutils,        only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi
  integer, intent(inout) :: ntests,npass
@@ -120,6 +120,7 @@ subroutine test_ptmass(ntests,npass)
 
 #ifdef IND_TIMESTEPS
     ibin(:) = 0_1
+    ibin_old(:) = 0_1
 #endif
     iverbose = 0
     tree_accuracy = 0.
