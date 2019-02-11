@@ -35,7 +35,7 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
- use io, only:fatal
+ use io, only:warning,iprint
  character(len=*),   intent(in) :: dumpfile
  integer,            intent(in) :: numfile,npart,iunit
  real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -45,7 +45,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real, dimension(nmaxbins) :: ebins,dnde,tbins,dndt
  real    :: Lhat(3),inc,rot
  integer :: i,iline,ierr
- logical :: ifile
+ logical :: iexist
 
 ! Print the analysis being done
  write(*,'("Performing analysis type ",A)') analysistype
@@ -62,13 +62,18 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  iline = index(dumpfile,'_')
  tdeprefix = dumpfile(1:iline-1)
  tdeparams = trim(tdeprefix)//'.tdeparams'
- inquire(file=tdeparams, exist=ifile)
+ inquire(file=tdeparams, exist=iexist)
  ierr =1
- if (ifile) then
+ if (iexist) then
     call read_tdeparams(tdeparams,mh,iunit,ierr)
-    if (ierr /= 0) call fatal('analysis','could not open/read '//trim(tdeparams))
+    if (ierr /= 0) call warning('analysis','could not open/read '//trim(tdeparams))
  else
-    call fatal('analysis','could not open/read '//trim(tdeparams))
+    call warning('analysis','file '//trim(tdeparams)//' does not exist')
+ endif
+
+ if (.not.iexist .or. ierr/=0) then
+    write(iprint,*) 'Assuming default black hole mass'
+    mh = 1.
  endif
 
 ! Print out the parameters
