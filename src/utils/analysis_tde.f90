@@ -43,6 +43,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  character(len=120) :: output
  character(len=20)  :: tdeprefix,tdeparams
  real, dimension(nmaxbins) :: ebins,dnde,tbins,dndt
+ real    :: Lhat(3),inc,rot
  integer :: i,iline,ierr
  logical :: ifile
 
@@ -77,7 +78,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  write(*,*)
 
  nbins = int(sqrt(real(npart)))
- call tde_analysis(npart,xyzh,vxyzu,ebins,dnde,tbins,dndt)
+ call tde_analysis(npart,xyzh,vxyzu,ebins,dnde,tbins,dndt,Lhat,inc,rot)
 
  open(iunit,file=output)
  write(iunit,'("# Analysis data at t = ",es20.12)') time
@@ -91,6 +92,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     write(iunit,'(4(es18.10,1X))') ebins(i),dnde(i),tbins(i),dndt(i)
  enddo
 
+ write(1,*) time,Lhat,inc,rot
+
 end subroutine do_analysis
 
 !--------------------------------------------------------------------------------------------------------------------
@@ -98,18 +101,24 @@ end subroutine do_analysis
 !-- Actual subroutine where the analysis is done!
 !
 !--------------------------------------------------------------------------------------------------------------------
-subroutine tde_analysis(npart,xyzh,vxyzu,ebins,dnde,tbins,dndt)
+subroutine tde_analysis(npart,xyzh,vxyzu,ebins,dnde,tbins,dndt,Lhat,inc,rot)
+ use physcon,     only:pi
+ use vectorutils, only:cross_product3D
+ use part,        only:isdead_or_accreted
  integer, intent(in) :: npart
  real, intent(in)    :: xyzh(:,:),vxyzu(:,:)
  real, intent(out), dimension(nmaxbins) :: ebins,dnde,tbins,dndt
+ real, intent(out)   :: Lhat(3),inc,rot
  integer :: i
  real    :: eps(npart),tr(npart),r,v2,trmin
+ real    :: Li(3),Ltot(3),Lhatxy(3),Lxy(3)
 
  !
  !-- Compute the specific energy and return time of each particles, store in an array
  !
  tr  = 0.
  eps = 0.
+ Ltot = 0.
  do i=1,npart
     r      = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
     v2     = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
@@ -119,7 +128,18 @@ subroutine tde_analysis(npart,xyzh,vxyzu,ebins,dnde,tbins,dndt)
     else
        tr(i) = 0.
     endif
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       call cross_product3D(xyzh(1:3,i),vxyzu(1:3,i),Li)
+       Ltot = Ltot + Li
+    endif
  enddo
+
+ Lhat   = Ltot/sqrt(dot_product(Ltot,Ltot))
+ Lxy    = (/Lhat(1),Lhat(2),0./)
+ Lhatxy = Lxy/sqrt(dot_product(Lxy,Lxy))
+
+ inc  = acos(dot_product( Lhat, Lhatxy ))*180./pi !angle up/down from xy plane
+ rot  = acos(dot_product( Lhatxy, (/1.,0.,0./) ))*180./pi !angle around in xy plane (from x axis)
 
  ! Create a histogram of the enegies and return times
  call hist(npart,eps,ebins,dnde,minval(eps),maxval(eps),nbins)
