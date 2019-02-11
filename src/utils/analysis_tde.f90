@@ -42,6 +42,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real,               intent(in) :: pmass,time
  character(len=120) :: output
  character(len=20)  :: tdeprefix,tdeparams
+ integer, parameter :: iu = 1993
+ logical, save      :: first = .true.
  real, dimension(nmaxbins) :: ebins,dnde,tbins,dndt
  real    :: Lhat(3),inc,rot
  integer :: i,iline,ierr
@@ -97,7 +99,22 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     write(iunit,'(4(es18.10,1X))') ebins(i),dnde(i),tbins(i),dndt(i)
  enddo
 
- write(1,*) time,Lhat,inc,rot
+ ! Write angular momentum vector information
+ if (first) then
+    first = .false.
+    open(unit=iu, file='angmomvec.ev',status='replace')
+    write(iu,"('#',6(1x,'[',i2.2,1x,a11,']',2x))") &
+          1,'time',&
+          2,'Lx',  &
+          3,'Ly',  &
+          4,'Lz',  &
+          5,'inc', &
+          6,'rot'
+ else
+    open(unit=iu, file='angmomvec.ev',position='append')
+ endif
+ write(iu,'(6(es18.10,1X))') time,Lhat,inc,rot
+ close(iu)
 
 end subroutine do_analysis
 
