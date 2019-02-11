@@ -1584,7 +1584,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    call get_ts(idrag,grainsizei,graindensi,rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
 #ifdef DUSTGROWTH
                    if (usej .and. iinterpol) then
-                      fsum(idvi) = fsum(idvi) + 3*pmassj/rhoj*projv*wdrag
+                      fsum(idvi) = fsum(idvi) + 3.*pmassj/rhoj*projv*wdrag
                       ri         = sqrt(xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2)
                       fsum(iSti) = fsum(iSti) + pmassj/rhoj*tsijtmp*wdrag/(ri**1.5)
                    endif
