@@ -28,7 +28,8 @@
 !    vfragin      -- inward fragmentation threshold in m/s
 !    vfragout     -- inward fragmentation threshold in m/s
 !
-!  DEPENDENCIES: dust, eos, infile_utils, io, options, part, physcon, units
+!  DEPENDENCIES: dust, eos, infile_utils, io, part, physcon, units,
+!    viscosity
 !+
 !--------------------------------------------------------------------------
 module growth
@@ -230,7 +231,7 @@ end subroutine get_growth_rate
 !+
 !-----------------------------------------------------------------------
 subroutine get_vrelonvfrag(xyzh,vrel,dustprop,cs,St)
- use options,         only:alpha
+ use viscosity,       only:shearparam
  use physcon,         only:Ro
  real, intent(in)     :: xyzh(:)
  real, intent(in)     :: cs,St
@@ -240,7 +241,7 @@ subroutine get_vrelonvfrag(xyzh,vrel,dustprop,cs,St)
  integer              :: izone
 
  !--compute terminal velocity
- Vt = sqrt(sqrt(2.)*Ro*alpha)*cs
+ Vt = sqrt(sqrt(2.)*Ro*shearparam)*cs
 
  !--compute vrel
  vrel = vrelative(St,dustprop(4),Vt)
