@@ -562,7 +562,11 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  close(unit=idump)
  call end_threadwrite(id)
 
- call write_fulldump_hdf5(t,dumpfile,ntotal)
+ if (present(ntotal)) then
+    call write_fulldump_hdf5(t,dumpfile,ntotal)
+ else
+    call write_fulldump_hdf5(t,dumpfile)
+ endif
 
 end subroutine write_fulldump
 
