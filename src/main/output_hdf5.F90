@@ -187,12 +187,16 @@ subroutine write_hdf5_arrays(file_id,xyzh,vxyzu,iphase,pressure,alphaind,dtind,p
        call write_to_hdf5(Bevol(4,:),'psi',group_id)
     endif
     if (ndivcurlB >= 1) then
-       call write_to_hdf5(divcurlB,'divcurlB',group_id)
+       call write_to_hdf5(divcurlB(1,:),'divB',group_id)
+       call write_to_hdf5(divcurlB(2:4,:),'curlBxyz',group_id)
     else
        call write_to_hdf5(divBsymm,'divBsymm',group_id)
     endif
     if (mhd_nonideal) then
-       call write_to_hdf5(eta_nimhd,'eta_nimhd',group_id)
+       call write_to_hdf5(eta_nimhd(1,:),'eta_{OR}',group_id)
+       call write_to_hdf5(eta_nimhd(2,:),'eta_{HE}',group_id)
+       call write_to_hdf5(eta_nimhd(3,:),'eta_{AD}',group_id)
+       call write_to_hdf5(eta_nimhd(4,:),'ne/n'    ,group_id)
     endif
  endif
 
