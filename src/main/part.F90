@@ -65,7 +65,7 @@ module part
 !
  real, allocatable :: dustprop(:,:)
  real, allocatable :: St(:)
- character(len=*), parameter :: dustprop_label(4) = (/'grainsize ','graindens ','vrel/vfrag','    dv    '/)
+ character(len=*), parameter :: dustprop_label(4) = (/'grainsize ','graindens ','vrel/vfrag','  dv/Vt   '/)
 !
 !--storage in divcurlv
 !

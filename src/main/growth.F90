@@ -245,6 +245,9 @@ subroutine get_vrelonvfrag(xyzh,vrel,dustprop,cs,St)
 
  !--compute vrel
  vrel = vrelative(St,dustprop(4),Vt)
+
+ dustprop(4) = sqrt(dustprop(4)**2) / Vt
+
  !
  !--If statements to compute local ratio vrel/vfrag
  !
