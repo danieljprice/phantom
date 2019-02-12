@@ -165,8 +165,8 @@ subroutine write_hdf5_arrays(file_id,xyzh,vxyzu,iphase,pressure,alphaind,dtind,p
  integer(HID_T) :: group_id
  integer :: error
 
- ! Create header group
- call h5gcreate_f(file_id,'arrays',group_id,error)
+ ! Create particles group
+ call h5gcreate_f(file_id,'particles',group_id,error)
 
  ! Main arrays
  call write_to_hdf5(xyzh(1:3,:),'xyz',group_id)
@@ -179,18 +179,6 @@ subroutine write_hdf5_arrays(file_id,xyzh,vxyzu,iphase,pressure,alphaind,dtind,p
  if (.not.const_av)  call write_to_hdf5(alphaind,'alpha',group_id) ! Viscosity
  if (ind_timesteps)  call write_to_hdf5(dtind,'dt',group_id)       ! Individual timesteps
  if (gravity)        call write_to_hdf5(poten,'poten',group_id)
-
- ! Sink arrays
- if (nptmass > 0) then
-    call write_to_hdf5(xyzmh_ptmass(1:3,:),'xyz_ptmass',group_id)
-    call write_to_hdf5(xyzmh_ptmass(4,:),'m_ptmass',group_id)
-    call write_to_hdf5(xyzmh_ptmass(5,:),'h_ptmass',group_id)
-    call write_to_hdf5(xyzmh_ptmass(6,:),'hsoft_ptmass',group_id)
-    call write_to_hdf5(xyzmh_ptmass(7,:),'maccreted_ptmass',group_id)
-    call write_to_hdf5(xyzmh_ptmass(8:10,:),'spinxyz_ptmass',group_id)
-    call write_to_hdf5(xyzmh_ptmass(11,:),'tlast_ptmass',group_id)
-    call write_to_hdf5(vxyz_ptmass,'vxyz_ptmass',group_id)
- endif
 
  ! MHD arrays
  if (mhd) then
@@ -226,7 +214,22 @@ subroutine write_hdf5_arrays(file_id,xyzh,vxyzu,iphase,pressure,alphaind,dtind,p
  if (lightcurve)        call write_to_hdf5(luminosity,'luminosity',group_id)
  if (prdrag)            call write_to_hdf5(beta_pr,'beta_pr',group_id)
 
- ! Close the header group
+ ! Close the particles group
+ call h5gclose_f(group_id, error)
+
+ ! Create sink group
+ call h5gcreate_f(file_id,'sinks',group_id,error)
+ if (nptmass > 0) then
+    call write_to_hdf5(xyzmh_ptmass(1:3,:),'xyz',group_id)
+    call write_to_hdf5(xyzmh_ptmass(4,:),'m',group_id)
+    call write_to_hdf5(xyzmh_ptmass(5,:),'h',group_id)
+    call write_to_hdf5(xyzmh_ptmass(6,:),'hsoft',group_id)
+    call write_to_hdf5(xyzmh_ptmass(7,:),'maccreted',group_id)
+    call write_to_hdf5(xyzmh_ptmass(8:10,:),'spinxyz',group_id)
+    call write_to_hdf5(xyzmh_ptmass(11,:),'tlast',group_id)
+    call write_to_hdf5(vxyz_ptmass,'vxyz',group_id)
+ endif
+ ! Close the sink group
  call h5gclose_f(group_id, error)
 
 end subroutine write_hdf5_arrays
