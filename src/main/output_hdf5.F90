@@ -178,7 +178,7 @@ subroutine write_hdf5_arrays(file_id,xyzh,vxyzu,iphase,pressure,alphaind,dtind,p
 
  if (.not.const_av)  call write_to_hdf5(alphaind,'alpha',group_id) ! Viscosity
  if (ind_timesteps)  call write_to_hdf5(dtind,'dt',group_id)       ! Individual timesteps
- if (gravity) call write_to_hdf5(poten,'poten',group_id)
+ if (gravity)        call write_to_hdf5(poten,'poten',group_id)
 
  ! Sink arrays
  if (nptmass > 0) then
@@ -214,11 +214,11 @@ subroutine write_hdf5_arrays(file_id,xyzh,vxyzu,iphase,pressure,alphaind,dtind,p
  endif
 
  ! Other Arrays
- if (h2chemistry) call write_to_hdf5(abundance,'abundance',group_id)
+ if (h2chemistry)       call write_to_hdf5(abundance,'abundance',group_id)
  if (store_temperature) call write_to_hdf5(temperature,'T',group_id)
- if (ndivcurlv >= 1) call write_to_hdf5(divcurlv,'divcurlv',group_id)
- if (lightcurve) call write_to_hdf5(luminosity,'luminosity',group_id)
- if (prdrag) call write_to_hdf5(beta_pr,'beta_pr',group_id)
+ if (ndivcurlv >= 1)    call write_to_hdf5(divcurlv,'divcurlv',group_id)
+ if (lightcurve)        call write_to_hdf5(luminosity,'luminosity',group_id)
+ if (prdrag)            call write_to_hdf5(beta_pr,'beta_pr',group_id)
 
  ! Close the header group
  call h5gclose_f(group_id, error)
