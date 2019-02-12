@@ -205,18 +205,24 @@ subroutine write_hdf5_arrays(file_id,xyzh,vxyzu,iphase,pressure,alphaind,dtind,p
     call write_to_hdf5(dustfrac,'dustfrac',group_id)
     call write_to_hdf5(tstop,'tstop',group_id)
  endif
- if (use_dustfrac) call write_to_hdf5(deltav,'deltav',group_id)
+ if (use_dustfrac) call write_to_hdf5(deltav,'deltavxyz',group_id)
  if (use_dustgrowth) then
-    call write_to_hdf5(dustprop,'dustprop',group_id)
+    call write_to_hdf5(dustprop(1,:),'grainsize' ,group_id)
+    call write_to_hdf5(dustprop(2,:),'graindens' ,group_id)
+    call write_to_hdf5(dustprop(3,:),'vrel/vfrag',group_id)
+    call write_to_hdf5(dustprop(4,:),'dv_dust'   ,group_id)
     call write_to_hdf5(St,'St',group_id)
  endif
 
  ! Other Arrays
  if (h2chemistry)       call write_to_hdf5(abundance,'abundance',group_id)
  if (store_temperature) call write_to_hdf5(temperature,'T',group_id)
- if (ndivcurlv >= 1)    call write_to_hdf5(divcurlv,'divcurlv',group_id)
- if (lightcurve)        call write_to_hdf5(luminosity,'luminosity',group_id)
- if (prdrag)            call write_to_hdf5(beta_pr,'beta_pr',group_id)
+ if (ndivcurlv >= 1) then
+    call write_to_hdf5(divcurlv(1,:),'divv',group_id)
+    if (ndivcurlv>=4) call write_to_hdf5(divcurlv(2:4,:),'curlvxyz',group_id)
+ endif
+ if (lightcurve) call write_to_hdf5(luminosity,'luminosity',group_id)
+ if (prdrag)     call write_to_hdf5(beta_pr,'beta_pr',group_id)
 
  ! Close the particles group
  call h5gclose_f(group_id, error)
