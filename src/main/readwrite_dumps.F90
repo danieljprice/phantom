@@ -562,7 +562,136 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  close(unit=idump)
  call end_threadwrite(id)
 
+ call write_fulldump_hdf5(t,dumpfile,ntotal)
+
 end subroutine write_fulldump
+
+subroutine write_fulldump_hdf5(t,dumpfile,ntotal)
+ use output_hdf5,    only:open_hdf5file,close_hdf5file,write_hdf5_header,write_hdf5_arrays,outputfile_id
+ use dim,            only:maxp,maxvxyzu,gravity,maxalpha,mhd,mhd_nonideal,use_dust,use_dustgrowth
+ use dim,            only:phantom_version_major,phantom_version_minor,phantom_version_micro,store_temperature
+ use eos,            only:ieos,equationofstate,done_init_eos,init_eos,polyk,gamma,polyk2,qfacdisc,isink
+ use io,             only:real4,nprocs
+ use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
+ use part,           only:xyzh,vxyzu,Bevol,Bxyz,npart,npartoftype,maxtypes, &
+                          alphaind,rhoh,divBsymm,maxphase,iphase, &
+                          nptmass,xyzmh_ptmass,vxyz_ptmass,&
+                          get_pmass,abundance,&
+                          divcurlv,divcurlB,poten,dustfrac,deltav,tstop,&
+                          dustprop,temperature,St,ndustsmall,luminosity,&
+                          eta_nimhd,massoftype,hfact,Bextx,Bexty,Bextz,&
+                          ndustlarge,idust,grainsize,graindens,&
+                          h2chemistry,lightcurve,maxBevol,&
+                          ndivcurlB,ndivcurlv
+#ifdef IND_TIMESTEPS
+ use part,           only:ibin
+#endif
+ use mpiutils,       only:reduce_mpi,reduceall_mpi
+ use lumin_nsdisc,   only:beta
+ use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use setup_params,   only:rhozero
+ use timestep,       only:dtmax,C_cour,C_force
+ use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
+ use units,          only:udist,umass,utime,unit_Bfield
+ real,             intent(in) :: t
+ character(len=*), intent(in) :: dumpfile
+ integer(kind=8),  intent(in), optional :: ntotal
+ integer           :: i
+ integer           :: ierr,nblocks
+ integer(kind=8)   :: nparttot,npartoftypetot(maxtypes)
+ logical           :: use_gas,ind_timesteps,const_av,prdrag
+ real              :: ponrhoi,rhoi,spsoundi
+ real, allocatable, dimension(:) :: pressure,dtind,beta_pr
+
+!
+!--collect global information from MPI threads
+!
+!--allow non-MPI calls to create MPI dump files
+#ifdef MPI
+ nparttot = reduceall_mpi('+',npart)
+ npartoftypetot = reduceall_mpi('+',npartoftype)
+#else
+ if (present(ntotal)) then
+    nparttot = ntotal
+    npartoftypetot = npartoftype
+    if (all(npartoftypetot==0)) then
+       npartoftypetot(1) = ntotal
+    endif
+ else
+    nparttot = npart
+    npartoftypetot = npartoftype
+ endif
+#endif
+ nblocks = nprocs
+
+#ifdef IND_TIMESTEPS
+ ind_timesteps = .true.
+#else
+ ind_timesteps = .false.
+#endif
+#ifdef PRDRAG
+ prdrag = .true.
+#else
+ prdrag = .false.
+#endif
+
+ if (maxphase==maxp) then
+    use_gas = .false.
+ else
+    use_gas = .true.
+ endif
+
+ allocate(pressure(nparttot),beta_pr(nparttot),dtind(nparttot))
+
+ ! Compute pressure and beta_pr array
+ if (.not.done_init_eos) call init_eos(ieos,ierr)
+ !$omp parallel do default(none) &
+ !$omp shared(xyzh,vxyzu,ieos,nparttot,pressure,beta_pr,temperature,use_gas,prdrag) &
+ !$omp private(i,ponrhoi,spsoundi,rhoi)
+ do i=1,int(nparttot)
+    rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
+    if (maxvxyzu >=4 ) then
+       if (store_temperature) then
+          ! cases where the eos stores temperature (ie Helmholtz)
+          call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),temperature(i))
+       else
+          call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+       endif
+    else
+       call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i))
+    endif
+    pressure(i) = ponrhoi*rhoi
+    if (prdrag) beta_pr(i)  = real4(beta(xyzh(1,i), xyzh(2,i), xyzh(3,i)))
+ enddo
+ !$omp end parallel do
+
+! Compute dtind array
+ if (ind_timesteps) dtind = dtmax/2**ibin(1:npart)
+
+! Check if constant AV
+ if (maxp==maxalpha) then
+    const_av = .false.
+ else
+    const_av = .true.
+ endif
+
+ call open_hdf5file(trim(dumpfile)//'.h5',outputfile_id)
+ call write_hdf5_header(outputfile_id,maxtypes,nblocks,isink,nptmass,ndustlarge,ndustsmall,idust,             &
+                        phantom_version_major,phantom_version_minor,phantom_version_micro,                    &
+                        int(nparttot),int(npartoftypetot),iexternalforce,ieos,t,dtmax,gamma,rhozero,          &
+                        polyk,hfact,tolh,C_cour,C_force,alpha,alphau,alphaB,polyk2,qfacdisc,                  &
+                        massoftype,Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,zmax,get_conserv,               &
+                        etot_in,angtot_in,totmom_in,mdust_in,grainsize,graindens,udist,umass,utime,unit_Bfield)
+ call write_hdf5_arrays(outputfile_id,xyzh,vxyzu,int(iphase),pressure,real(alphaind),dtind,real(poten),xyzmh_ptmass,   &
+                        vxyz_ptmass,Bxyz,Bevol,real(divcurlB),real(divBsymm),eta_nimhd,dustfrac,tstop,deltav,dustprop, &
+                        st,abundance,temperature,real(divcurlv),real(luminosity),beta_pr,                              &
+                        const_av,ind_timesteps,gravity,nptmass,mhd,maxBevol,ndivcurlB,mhd_nonideal,use_dust,      &
+                        use_dustfrac,use_dustgrowth,h2chemistry,store_temperature,ndivcurlv,lightcurve,prdrag          )
+ call close_hdf5file(outputfile_id)
+
+ deallocate(pressure,beta_pr,dtind)
+
+end subroutine write_fulldump_hdf5
 
 !--------------------------------------------------------------------
 !+
