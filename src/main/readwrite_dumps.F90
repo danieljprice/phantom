@@ -603,7 +603,7 @@ subroutine write_fulldump_hdf5(t,dumpfile,ntotal)
  integer           :: i
  integer           :: ierr,nblocks
  integer(kind=8)   :: nparttot,npartoftypetot(maxtypes)
- logical           :: use_gas,ind_timesteps,const_av,prdrag
+ logical           :: use_gas,ind_timesteps,const_av,prdrag,isothermal
  real              :: ponrhoi,rhoi,spsoundi
  real, allocatable, dimension(:) :: pressure,dtind,beta_pr
 
@@ -637,6 +637,11 @@ subroutine write_fulldump_hdf5(t,dumpfile,ntotal)
  prdrag = .true.
 #else
  prdrag = .false.
+#endif
+#ifdef ISOTHERMAL
+ isothermal = .true.
+#else
+ isothermal = .false.
 #endif
 
  if (maxphase==maxp) then
@@ -689,8 +694,8 @@ subroutine write_fulldump_hdf5(t,dumpfile,ntotal)
  call write_hdf5_arrays(outputfile_id,xyzh,vxyzu,int(iphase),pressure,real(alphaind),dtind,real(poten),xyzmh_ptmass,   &
                         vxyz_ptmass,Bxyz,Bevol,real(divcurlB),real(divBsymm),eta_nimhd,dustfrac,tstop,deltav,dustprop, &
                         st,abundance,temperature,real(divcurlv),real(luminosity),beta_pr,                              &
-                        const_av,ind_timesteps,gravity,nptmass,mhd,maxBevol,ndivcurlB,mhd_nonideal,use_dust,      &
-                        use_dustfrac,use_dustgrowth,h2chemistry,store_temperature,ndivcurlv,lightcurve,prdrag          )
+                        const_av,ind_timesteps,gravity,nptmass,mhd,maxBevol,ndivcurlB,mhd_nonideal,use_dust,           &
+                        use_dustfrac,use_dustgrowth,h2chemistry,store_temperature,ndivcurlv,lightcurve,prdrag,isothermal)
  call close_hdf5file(outputfile_id)
 
  deallocate(pressure,beta_pr,dtind)

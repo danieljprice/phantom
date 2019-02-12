@@ -152,7 +152,7 @@ subroutine write_hdf5_arrays(file_id,xyzh,vxyzu,iphase,pressure,alphaind,dtind,p
                              abundance,temperature,divcurlv,luminosity,beta_pr,                                &
                              const_av,ind_timesteps,gravity,nptmass,mhd,maxBevol,ndivcurlB,mhd_nonideal,       &
                              use_dust,use_dustfrac,use_dustgrowth,h2chemistry,store_temperature,ndivcurlv,     &
-                             lightcurve,prdrag                                                                 )
+                             lightcurve,prdrag,isothermal                                                      )
  integer(HID_T),         intent(in) :: file_id
  real, dimension(:),     intent(in) :: pressure,dtind,poten,beta_pr,divBsymm,st,temperature,luminosity
  real, dimension(:,:),   intent(in) :: xyzh,vxyzu,alphaind,Bxyz,Bevol,divcurlB,eta_nimhd,xyzmh_ptmass,vxyz_ptmass
@@ -161,7 +161,7 @@ subroutine write_hdf5_arrays(file_id,xyzh,vxyzu,iphase,pressure,alphaind,dtind,p
  integer, intent(in) :: iphase(:)
  integer, intent(in) :: nptmass,maxBevol,ndivcurlB,ndivcurlv
  logical, intent(in) :: const_av,ind_timesteps,gravity,mhd,mhd_nonideal,use_dust,use_dustfrac,use_dustgrowth
- logical, intent(in) :: h2chemistry,store_temperature,lightcurve,prdrag
+ logical, intent(in) :: h2chemistry,store_temperature,lightcurve,prdrag,isothermal
  integer(HID_T) :: group_id
  integer :: error
 
@@ -169,8 +169,10 @@ subroutine write_hdf5_arrays(file_id,xyzh,vxyzu,iphase,pressure,alphaind,dtind,p
  call h5gcreate_f(file_id,'arrays',group_id,error)
 
  ! Main arrays
- call write_to_hdf5(xyzh,'xyzh',group_id)
- call write_to_hdf5(vxyzu,'vxyzu',group_id)
+ call write_to_hdf5(xyzh(1:3,:),'xyz',group_id)
+ call write_to_hdf5(xyzh(4,:),'h',group_id)
+ call write_to_hdf5(vxyzu(1:3,:),'vxyz',group_id)
+ if (.not.isothermal) call write_to_hdf5(vxyzu(4,:),'u',group_id)
  call write_to_hdf5(iphase,'itype',group_id)
  call write_to_hdf5(pressure,'pressure',group_id)
 
