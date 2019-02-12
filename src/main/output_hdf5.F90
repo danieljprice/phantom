@@ -182,7 +182,13 @@ subroutine write_hdf5_arrays(file_id,xyzh,vxyzu,iphase,pressure,alphaind,dtind,p
 
  ! Sink arrays
  if (nptmass > 0) then
-    call write_to_hdf5(xyzmh_ptmass,'xyzmh_ptmass',group_id)
+    call write_to_hdf5(xyzmh_ptmass(1:3,:),'xyz_ptmass',group_id)
+    call write_to_hdf5(xyzmh_ptmass(4,:),'m_ptmass',group_id)
+    call write_to_hdf5(xyzmh_ptmass(5,:),'h_ptmass',group_id)
+    call write_to_hdf5(xyzmh_ptmass(6,:),'hsoft_ptmass',group_id)
+    call write_to_hdf5(xyzmh_ptmass(7,:),'maccreted_ptmass',group_id)
+    call write_to_hdf5(xyzmh_ptmass(8:10,:),'spinxyz_ptmass',group_id)
+    call write_to_hdf5(xyzmh_ptmass(11,:),'tlast_ptmass',group_id)
     call write_to_hdf5(vxyz_ptmass,'vxyz_ptmass',group_id)
  endif
 
