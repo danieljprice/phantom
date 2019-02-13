@@ -48,10 +48,13 @@ subroutine test_dust(ntests,npass)
  use mpiutils,    only:barrier_mpi
  use options,     only:use_dustfrac
  use table_utils, only:logspace
+#ifdef DUSTGROWTH
+ use growth,      only:init_growth
+#endif
 #endif
  integer, intent(inout) :: ntests,npass
 #ifdef DUST
- integer :: nfailed(2),ierr,iregime
+ integer :: nfailed(3),ierr,iregime
  real    :: rhoi,rhogasi,rhodusti,spsoundi,tsi,grainsizei,graindensi
 
  if (id==master) write(*,"(/,a)") '--> TESTING DUST MODULE'
@@ -67,6 +70,10 @@ subroutine test_dust(ntests,npass)
     call init_drag(ierr)
     call checkval(ierr,0,0,nfailed(idrag),'drag initialisation')
  enddo
+#ifdef DUSTGROWTH
+ call init_growth(ierr)
+ call checkval(ierr,0,0,nfailed(3),'growth initialisation')
+#endif
  if (all(nfailed==0)) npass = npass + 1
 
  idrag = 1

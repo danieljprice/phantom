@@ -70,9 +70,7 @@ contains
 !------------------------------------------------
 subroutine init_growth(ierr)
  use io,        only:error
- use part,        only:dustprop,npart
  integer, intent(out) :: ierr
-
  integer              :: i
 
  i = 0
@@ -85,26 +83,6 @@ subroutine init_growth(ierr)
  vfragout       = vfragoutSI * 100 / unit_velocity
  rsnow          = rsnow * au / udist
  grainsizemin   = gsizemincgs / udist
-
- !-- Check that all the parameters are > 0 when needed
- do i=1,npart
-    if (dustprop(1,i) < 0.) then
-       call error('init_growth','grainsize < 0',var='dustprop',val=dustprop(1,i))
-       ierr = 1
-    endif
-    if (dustprop(2,i) < 0.) then
-       call error('init_growth','graindens < 0',var='dustprop',val=dustprop(2,i))
-       ierr = 1
-    endif
-    if (dustprop(3,i) < 0.) then
-       call error('init_growth','vrel < 0',var='dustprop',val=dustprop(3,i))
-       ierr = 1
-    endif
-    if (dustprop(4,i) < 0.) then
-       call error('init_growth','vrel/vfrag < 0',var='dustprop',val=dustprop(4,i))
-       ierr = 1
-    endif
- enddo
 
  if (ifrag > 0) then
     if (grainsizemin < 0.) then
