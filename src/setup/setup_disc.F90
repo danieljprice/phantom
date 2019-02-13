@@ -1386,7 +1386,7 @@ subroutine print_dust()
        enddo
     endif
 
-    do i=1,ndiscs
+    do i=1,maxdiscs
        if (iuse_disc(i)) then
           R_midpoint = (R_in(i) + R_out(i))/2
           Sigma = sig_norm(i) * &
