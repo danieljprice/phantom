@@ -88,42 +88,42 @@ subroutine init_growth(ierr)
 
  !-- Check that all the parameters are > 0 when needed
  do i=1,npart
-    if (dustprop(1,i) < 0) then
+    if (dustprop(1,i) < 0.) then
        call error('init_growth','grainsize < 0',var='dustprop',val=dustprop(1,i))
        ierr = 1
     endif
-    if (dustprop(2,i) < 0) then
+    if (dustprop(2,i) < 0.) then
        call error('init_growth','graindens < 0',var='dustprop',val=dustprop(2,i))
        ierr = 1
     endif
-    if (dustprop(3,i) < 0) then
+    if (dustprop(3,i) < 0.) then
        call error('init_growth','vrel < 0',var='dustprop',val=dustprop(3,i))
        ierr = 1
     endif
-    if (dustprop(4,i) < 0) then
+    if (dustprop(4,i) < 0.) then
        call error('init_growth','vrel/vfrag < 0',var='dustprop',val=dustprop(4,i))
        ierr = 1
     endif
  enddo
 
  if (ifrag > 0) then
-    if (grainsizemin < 0) then
+    if (grainsizemin < 0.) then
        call error('init_growth','grainsizemin < 0',var='grainsizemin',val=grainsizemin)
        ierr = 1
     endif
     select case(isnow)
     case(0) !-- uniform vfrag
-       if (vfrag <= 0) then
+       if (vfrag <= 0.) then
           call error('init_growth','vfrag <= 0',var='vfrag',val=vfrag)
           ierr = 2
        endif
     case(1) !--position based snow line
-       if (rsnow <= 0) then
+       if (rsnow <= 0.) then
           call error('init_growth','rsnow <= 0',var='rsnow',val=rsnow)
           ierr = 2
        endif
     case(2) !-- temperature based snow line
-       if (Tsnow <= 0) then
+       if (Tsnow <= 0.) then
           call error('init_growth','Tsnow <= 0',var='Tsnow',val=Tsnow)
           ierr = 2
        endif
@@ -137,7 +137,7 @@ subroutine init_growth(ierr)
        call error('init_growth','vfragin <= 0',var='vfragin',val=vfragin)
        ierr = 3
     endif
-    if (vfragout <= 0) then
+    if (vfragout <= 0.) then
        call error('init_growth','vfragout <= 0',var='vfragout',val=vfragout)
        ierr = 3
     endif
@@ -183,11 +183,11 @@ end subroutine print_growthinfo
 !  two-fluid dust method.
 !+
 !-----------------------------------------------------------------------
-subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
- use part,            only:get_pmass,rhoh,idust,iamtype,iphase,St,maxvxyzu
+subroutine get_growth_rate(npart,xyzh,vxyzu,St,dustprop,dsdt)
+ use part,            only:get_pmass,rhoh,idust,iamtype,iphase,maxvxyzu,isdead_or_accreted
  use eos,             only:get_spsound,ieos
  real, intent(inout)  :: dustprop(:,:),vxyzu(:,:)
- real, intent(in)     :: xyzh(:,:)
+ real, intent(in)     :: xyzh(:,:),St(:)
  real, intent(out)    :: dsdt(:)
  integer, intent(in)  :: npart
  !
@@ -196,33 +196,38 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustprop,dsdt)
 
  !--get ds/dt over all dust particles
  do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       iam = iamtype(iphase(i))
 
-    iam = iamtype(iphase(i))
+       if (iam==idust) then
 
-    if (iam==idust) then
+          rhod = rhoh(xyzh(4,i),get_pmass(idust,.false.))
+          cs   = get_spsound(ieos,xyzh(:,i),rhod,vxyzu(:,i))
 
-       rhod = rhoh(xyzh(4,i),get_pmass(idust,.false.))
-       cs   = get_spsound(ieos,xyzh(:,i),rhod,vxyzu(:,i))
-       call get_vrelonvfrag(xyzh(:,i),vrel,dustprop(:,i),cs,St(i))
-       !
-       !--dustprop(1)= size, dustprop(2) = intrinsic density,
-       !  dustprop(3) = vrel/vfrag, dustprop(4) = vd - vg
-       !
-       !--if statements to compute ds/dt
-       !
-       if (ifrag == -1) dsdt(i) = 0.
-       if ((dustprop(3,i) < 1. .or. ifrag == 0) .and. ifrag /= -1) then ! vrel/vfrag < 1 or pure growth --> growth
-          dsdt(i) = rhod/dustprop(2,i)*vrel
-       elseif (dustprop(3,i) >= 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
-          select case(ifrag)
-          case(1)
-             dsdt(i) = -rhod/dustprop(2,i)*vrel ! Symmetrical of Stepinski & Valageas
-          case(2)
-             dsdt(i) = -rhod/dustprop(2,i)*vrel*(dustprop(3,i)**2)/(1+dustprop(3,i)**2) ! Kobayashi model
-          end select
+          call get_vrelonvfrag(xyzh(:,i),vrel,dustprop(:,i),cs,St(i))
+          !
+          !--dustprop(1)= size, dustprop(2) = intrinsic density,
+          !  dustprop(3) = vrel/vfrag, dustprop(4) = vd - vg
+          !
+          !--if statements to compute ds/dt
+          !
+          if (ifrag == -1) dsdt(i) = 0.
+          if ((dustprop(3,i) < 1. .or. ifrag == 0) .and. ifrag /= -1) then ! vrel/vfrag < 1 or pure growth --> growth
+             dsdt(i) = rhod/dustprop(2,i)*vrel
+          elseif (dustprop(3,i) >= 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
+             select case(ifrag)
+             case(1)
+                dsdt(i) = -rhod/dustprop(2,i)*vrel ! Symmetrical of Stepinski & Valageas
+             case(2)
+                dsdt(i) = -rhod/dustprop(2,i)*vrel*(dustprop(3,i)**2)/(1+dustprop(3,i)**2) ! Kobayashi model
+             end select
+          endif
        endif
+    else
+       dsdt(i) = 0.
     endif
  enddo
+
 end subroutine get_growth_rate
 
 !-----------------------------------------------------------------------
@@ -245,25 +250,29 @@ subroutine get_vrelonvfrag(xyzh,vrel,dustprop,cs,St)
 
  !--compute vrel
  vrel = vrelative(St,dustprop(4),Vt)
-
- dustprop(4) = sqrt(dustprop(4)**2) / Vt
-
+ if (Vt > 0.) then
+    dustprop(4) = abs(dustprop(4)) / Vt
+ else
+    dustprop(4) = 0.
+ endif
  !
  !--If statements to compute local ratio vrel/vfrag
  !
+ dustprop(3) = 0. ! default value
  if (ifrag == 0) then
-    dustprop(3) = vrel/vref ! for pure growth, vrel/vfrag gives vrel in m/s
+    if (vref > 0.) dustprop(3) = vrel/vref ! for pure growth, vrel/vfrag gives vrel in m/s
  elseif (ifrag > 0) then
     call comp_snow_line(xyzh,cs,izone)
     select case(izone)
-    case(0)
-       dustprop(3) = vrel/vfrag
-    case(1)
-       dustprop(3) = vrel/vfragin
     case(2)
-       dustprop(3) = vrel/vfragout
+       if (vfragout > 0.) dustprop(3) = vrel/vfragout
+    case(1)
+       if (vfragin > 0.) dustprop(3) = vrel/vfragin
+    case default
+       if (vfrag > 0.) dustprop(3) = vrel/vfrag
     end select
  endif
+
 end subroutine get_vrelonvfrag
 
 !----------------------------------------------------------------------------
@@ -372,6 +381,7 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
  else
     igotall = .false.
  endif
+
 end subroutine read_options_growth
 
 !-----------------------------------------------------------------------
@@ -442,6 +452,7 @@ subroutine check_dustprop(npart,size)
        if (ifrag > 0 .and. size(i) < grainsizemin) size(i) = grainsizemin
     endif
  enddo
+
 end subroutine check_dustprop
 
 !-----------------------------------------------------------------------
@@ -467,12 +478,14 @@ real function vrelative(St,dv,Vt)
  real, intent(in) :: St,dv,Vt
  real             :: Sc
 
+ vrelative = 0.
  !--compute Schmidt number Sc
- Sc = (1.+St)*sqrt(1.+dv**2/Vt**2)
- !--then compute vrel
- vrelative = sqrt(2.)*Vt*sqrt(Sc-1.)/(Sc)
+ if (abs(Vt) > 0.) then
+    Sc = (1.+St)*sqrt(1.+dv**2/Vt**2)
+    !--then compute vrel
+    if (Sc > 0.) vrelative = sqrt(2.)*Vt*sqrt(Sc-1.)/(Sc)
+ endif
 
- return
 end function vrelative
 
 end module growth
