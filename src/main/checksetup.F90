@@ -500,6 +500,7 @@ subroutine check_setup_growth(npart,nerror)
  integer, intent(inout) :: nerror
  integer :: i,j,nbad(4)
 
+ nbad = 0
  !-- Check that all the parameters are > 0 when needed
  do i=1,npart
     do j=1,4
