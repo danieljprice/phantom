@@ -30,17 +30,18 @@ program phantomevcompare
  logical, parameter  :: write_columns = .true.
  integer             :: i,j,k,ki,kj,iio,idot,numcol,numcol0,nummodels,nargs,ierr
  integer             :: headerorder(max_columns)
+ real                :: tfirst
  real                :: oldorder(max_columns),neworder(max_columns)
  logical             :: interactive,single_output,concise
  logical             :: enter_filename,add_prefix,add_prefix_verified,get_newfile
  logical             :: initial_entry,keep_searching,iexist,ifailed,readfailed,make_outname
  character(len=  12) :: columns0(max_columns),columns(max_columns)
  character(len=  19) :: columnsEV(max_columns)
- character(len=  64) :: filename,evfile,evinfile,outprefix,modelprefix,ev_fmtD,ev_fmtH
+ character(len=  64) :: filename,evfile,evfile_next,evinfile,outprefix,modelprefix,ev_fmtD,ev_fmtH
  character(len=  64) :: infilenames(maxfiles),outfilenames(maxfiles),outfilename0a,outfilename0b
  character(len= 256) :: evout_new
  character(len=4096) :: cdummy
- integer, parameter  :: icolA = 26, icolB = 27
+ integer, parameter  :: icolA = 26, icolB = 27, icolC = 28
 
  !
  !--If argument exists, read it in
@@ -303,6 +304,7 @@ program phantomevcompare
     do while (ierr==0)
        i = i + 1
        write(evfile,'(a,I2.2,a)') trim(infilenames(j)),i,'.ev'
+       write(evfile_next,'(a,I2.2,a)') trim(infilenames(j)),i+1,'.ev'
        call get_column_labels_from_ev(evfile,columns,numcol,ierr)
        if (ierr==0) then
           !--Compare the header to the master header
@@ -332,6 +334,15 @@ program phantomevcompare
              open(unit=icolB,file=evout_new)
              write(icolB,ev_fmtH)'#',columnsEV(1:numcol0)
           endif
+          !--Open the next file to determine the cut-off point
+          inquire(file=evfile_next,exist=iexist)
+          tfirst = 0.0
+          if (iexist) then
+             open(unit=icolC,file=evfile_next)
+             read(icolC,*) cdummy
+             read(icolC,*) tfirst
+             close(icolC)
+          endif
           !--Rewrite the .ev file in the new order with the new name
           open(icolA,file=trim(evfile))
           read(icolA,*) cdummy ! read and ignore header
@@ -339,6 +350,7 @@ program phantomevcompare
           iio      = 0
           do while (iio==0)
              read(icolA,*,iostat=iio) oldorder(1:numcol)
+             if (single_output .and. oldorder(1) > tfirst .and. tfirst > 0.) iio = -1 ! prevent duplication of data
              if (iio==0) then
                 do k = 1,numcol
                    if (headerorder(k) > 0) neworder(headerorder(k)) = oldorder(k)
