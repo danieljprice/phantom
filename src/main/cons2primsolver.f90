@@ -55,7 +55,7 @@ pure subroutine get_enthalpy(enth,dens,P,gamma)
 
  ! Needed in dust case when dens = 0 causes P/dens = NaN and therefore enth = NaN
  ! or gamma=1 gives divide-by-zero
- if(P==0. .or. abs(p)<tiny(p)) then
+ if(abs(p) < tiny(p)) then
     enth = 1.
  else
     enth = 1.+p/dens*(gamma/(gamma-1.))
@@ -123,8 +123,8 @@ pure subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien
  integer, intent(out) :: ierr
  integer, intent(in)  :: ien_type
  real, dimension(1:3,1:3) :: gammaijUP
- real :: sqrtg,enth,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
- real :: f,df,term,lorentz_LEO2
+ real :: sqrtg,sqrtg_inv,enth,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
+ real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b
  integer :: niter, i
  real, parameter :: tol = 1.e-12
  integer, parameter :: nitermax = 100
@@ -133,6 +133,7 @@ pure subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien
 
  ! Hard coding sqrgt=1 since phantom is always in cartesian coordinates
  sqrtg = 1.
+ sqrtg_inv = 1./sqrtg
 
  ! Get metric components from metric array
  call unpack_metric(metrici,gammaijUP=gammaijUP,alpha=alpha,betadown=betadown,betaUP=betaUP)
@@ -147,7 +148,10 @@ pure subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien
 
  niter = 0
  converged = .false.
- term = rho*alpha/sqrtg
+ term = rho*alpha*sqrtg_inv
+ gamfac = gamma/(gamma-1.)
+ pm_dot_b = dot_product(pmom,betaUP)
+
  do while (.not. converged .and. niter < nitermax)
     enth_old = enth
     lorentz_LEO2 = 1.+pmom2/enth_old**2
@@ -159,10 +163,12 @@ pure subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien
     else if (ieos==4) then
        p = (gamma-1.)*dens*polyk
     else
-       p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product(pmom,betaUP)),0.)
+       p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
     endif
 
-    call get_enthalpy(enth,dens,p,gamma)
+    enth = 0.
+    if (p > 0.) enth = 1.+p/dens*gamfac
+    !call get_enthalpy(enth,dens,p,gamma)
 
     f = enth-enth_old
 
@@ -172,7 +178,7 @@ pure subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien
     else if (ieos==4) then
        df = -1. ! Isothermal, I think...
     else
-       df= -1.+(gamma/(gamma-1.))*(1.-pmom2*p/(enth_old**3*lorentz_LEO2*dens))
+       df= -1.+gamfac*(1.-pmom2*p/(enth_old**3*lorentz_LEO2*dens))
     endif
 
     enth = enth_old - f/df
@@ -193,7 +199,7 @@ pure subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien
  if (ien_type == ien_entropy) then
     p = en*dens**gamma
  else
-    p = max(rho/sqrtg*(enth*lorentz_LEO*alpha-en-dot_product(pmom,betaUP)),0.)
+    p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-dot_product(pmom,betaUP)),0.)
  endif
 
  v3d(:) = alpha*pmom(:)/(enth*lorentz_LEO)-betadown(:)

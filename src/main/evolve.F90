@@ -49,7 +49,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
  use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer
- use derivutils,       only:timer_dens,timer_force,timer_link
+ use derivutils,       only:timer_dens,timer_force,timer_link,timer_extf
  use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
 #ifdef SORT
  use sort_particles,   only:sort_part
@@ -245,6 +245,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  call reset_timer(timer_dens,'density')
  call reset_timer(timer_force,'force')
  call reset_timer(timer_link,'link')
+ call reset_timer(timer_extf,'extf')
 
  call flush(iprint)
 #ifdef LIVE_ANALYSIS
@@ -582,7 +583,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
        if (id==master) then
           call print_timinginfo(iprint,nsteps,nsteplast,timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
-                                             timer_dens,timer_force,timer_link)
+                                             timer_dens,timer_force,timer_link,timer_extf)
           !--Write out summary to log file
           call summary_printout(iprint,nptmass)
        endif
@@ -717,12 +718,12 @@ end subroutine check_conservation_error
 !----------------------------------------------------------------
 subroutine print_timinginfo(iprint,nsteps,nsteplast,&
            timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
-           timer_dens,timer_force,timer_link)
+           timer_dens,timer_force,timer_link,timer_extf)
  use io,     only:formatreal
  use timing, only:timer
  integer,      intent(in) :: iprint,nsteps,nsteplast
  type(timer),  intent(in) :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
-                             timer_dens,timer_force,timer_link
+                             timer_dens,timer_force,timer_link,timer_extf
  real                     :: dfrac,fracinstep
  real(kind=4)             :: time_fullstep
  character(len=20)        :: string,string1,string2,string3
@@ -747,6 +748,7 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast,&
  call print_timer(iprint,"step (force)",  timer_force,time_fullstep)
  call print_timer(iprint,"step (dens) ",  timer_dens, time_fullstep)
  call print_timer(iprint,"step (link) ",  timer_link, time_fullstep)
+ call print_timer(iprint,"step (extf) ",  timer_extf, time_fullstep)
  call print_timer(iprint,timer_ev%label,  timer_ev,   time_fullstep)
  call print_timer(iprint,timer_io%label,  timer_io,   time_fullstep)
 

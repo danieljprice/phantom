@@ -4,7 +4,7 @@ module derivutils
  implicit none
 
 
- type(timer), public     :: timer_dens,timer_force,timer_link
+ type(timer), public     :: timer_dens,timer_force,timer_link,timer_extf
 
  private
 
@@ -36,6 +36,8 @@ subroutine do_timing(label,tlast,tcpulast,start,lunit)
     call increment_timer(timer_force,t2-tlast,tcpu2-tcpulast)
  else if (label=='link') then
     call increment_timer(timer_link,t2-tlast,tcpu2-tcpulast)
+ else if (label=='extf') then
+    call increment_timer(timer_extf,t2-tlast,tcpu2-tcpulast)
  endif
 
  if (iverbose >= 2) then

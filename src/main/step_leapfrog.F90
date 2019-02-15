@@ -113,6 +113,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #ifdef DUSTGROWTH
  use growth,         only:check_dustprop
 #endif
+ use timing,         only:increment_timer,get_timings
+ use derivutils,     only:timer_extf
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
  real,    intent(in)    :: t,dtsph
@@ -123,6 +125,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  real               :: vxi,vyi,vzi,eni,vxoldi,vyoldi,vzoldi,hdtsph,pmassi
  real               :: alphaloci,divvdti,source,tdecay1,hi,rhoi,ddenom,spsoundi
  real               :: v2mean,hdti
+ real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real               :: pxi,pyi,pzi,p2i,p2mean
 #ifdef IND_TIMESTEPS
  real               :: dtsph_next,dti,time_now
@@ -210,6 +213,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! substepping with external and sink particle forces, using dtextforce
 ! accretion onto sinks/potentials also happens during substepping
 !----------------------------------------------------------------------
+ call get_timings(t1,tcpu1)
 #ifdef GR
  if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0) then
     call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
@@ -227,6 +231,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call step_extern_sph(dtsph,npart,xyzh,vxyzu)
  endif
 #endif
+ call get_timings(t2,tcpu2)
+ call increment_timer(timer_extf,t2-t1,tcpu2-tcpu1)
 
  timei = timei + dtsph
 !----------------------------------------------------
@@ -683,15 +689,17 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  integer :: i,itype,nsubsteps,naccreted,its,ierr
  real    :: timei,t_end_step,hdt,pmassi
  real    :: dt,dtf,dtextforcenew,dtextforce_min
- real    :: pri,pprev(3),xyz_prev(3),spsoundi,pondensi
- real    :: x_err,pmom_err,fstar(3),vxyzu_star(4),accretedmass,damp_fac
+ real    :: pri,spsoundi,pondensi
+ real, save :: pprev(3),xyz_prev(3),fstar(3),vxyz_star(3),xyz(3),pxyz(3),vxyz(3),fexti(3)
+!$omp threadprivate(pprev,xyz_prev,fstar,vxyz_star,xyz,pxyz,vxyz,fexti)
+ real    :: x_err,pmom_err,accretedmass,damp_fac
  ! real, save :: dmdt = 0.
  logical :: last_step,done,converged,accreted
  integer, parameter :: itsmax = 50
  real,    parameter :: ptol = 1.e-7, xtol = 1.e-7
  integer :: pitsmax,xitsmax
  real    :: perrmax,xerrmax
- real :: rhoi
+ real :: rhoi,hi,eni,uui,densi
 
  pitsmax = 0
  xitsmax = 0
@@ -740,14 +748,18 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp shared(maxphase,maxp) &
     !$omp shared(dt,hdt) &
     !$omp shared(ieos,gamma,its,pxyzu,dens,metrics,metricderivs) &
-    !$omp private(i,vxyzu_star,fstar,pondensi,spsoundi,rhoi) &
-    !$omp private(converged,pprev,pmom_err,xyz_prev,x_err,pri,ierr) &
+    !$omp private(i,pondensi,spsoundi,rhoi,hi,eni,uui,densi) &
+    !$omp private(converged,pmom_err,x_err,pri,ierr) &
     !$omp firstprivate(pmassi,itype) &
     !$omp reduction(max:xitsmax,pitsmax,perrmax,xerrmax) &
     !$omp reduction(min:dtextforcenew)
     !$omp do
     predictor: do i=1,npart
-       if (.not.isdead_or_accreted(xyzh(4,i))) then
+       xyz(1) = xyzh(1,i)
+       xyz(2) = xyzh(2,i)
+       xyz(3) = xyzh(3,i)
+       hi = xyzh(4,i)
+       if (.not.isdead_or_accreted(hi)) then
           if (ntypes > 1 .and. maxphase==maxp) then
              itype = iamtype(iphase(i))
              pmassi = massoftype(itype)
@@ -755,60 +767,77 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
 
           its       = 0
           converged = .false.
+          !
+          ! make local copies of array quantities
+          !
+          pxyz(1:3) = pxyzu(1:3,i)
+          eni       = pxyzu(4,i)
+          vxyz(1:3) = vxyzu(1:3,i)
+          uui       = vxyzu(4,i)
+          fexti     = fext(:,i)
+          densi     = dens(i)
 
-          pxyzu(1:3,i) = pxyzu(1:3,i) + hdt*fext(1:3,i)
+          pxyz      = pxyz + hdt*fexti
 
           !-- Compute pressure for the first guess in cons2prim
-          call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
-          pri  = pondensi*dens(i)
-          rhoi = rhoh(xyzh(4,i),massoftype(igas))
+          call equationofstate(ieos,pondensi,spsoundi,densi,xyz(1),xyz(2),xyz(3),uui)
+          pri  = pondensi*densi
+          rhoi = rhoh(hi,massoftype(igas))
 
 ! Note: grforce needs derivatives of the metric, which do not change between pmom iterations
           pmom_iterations: do while (its <= itsmax .and. .not. converged)
              its   = its + 1
-             pprev = pxyzu(1:3,i)
-             call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,rhoi,&
-                                         pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy,gamma)
+             pprev = pxyz
+             call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,rhoi,&
+                                         pxyz,eni,ierr,ien_entropy,gamma)
              if (ierr > 0) call warning('cons2primsolver [in step_extern_gr (a)]','enthalpy did not converge',i=i)
-             call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fstar)
-             pxyzu(1:3,i) = pprev + hdt*(fstar - fext(1:3,i))
-             pmom_err = maxval(abs(pxyzu(1:3,i) - pprev))
+             call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar)
+             pxyz = pprev + hdt*(fstar - fexti)
+             pmom_err = maxval(abs(pxyz - pprev))
              if (pmom_err < ptol) converged = .true.
-             fext(1:3,i) = fstar
+             fexti = fstar
           enddo pmom_iterations
           if (its > itsmax ) call warning('step_extern_gr','Reached max number of pmom iterations. pmom_err ',val=pmom_err)
           pitsmax = max(its,pitsmax)
           perrmax = max(pmom_err,perrmax)
 
-          call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,rhoi,&
-                                      pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy,gamma)
+          call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,rhoi,&
+                                      pxyz,eni,ierr,ien_entropy,gamma)
           if (ierr > 0) call warning('cons2primsolver [in step_extern_gr (b)]','enthalpy did not converge',i=i)
-          xyzh(1:3,i) = xyzh(1:3,i) + dt*vxyzu(1:3,i)
-          call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
+          xyz = xyz + dt*vxyz
+          call pack_metric(xyz,metrics(:,:,:,i))
 
           its        = 0
           converged  = .false.
-          vxyzu_star = vxyzu(:,i)
+          vxyz_star = vxyz
 ! Note: since particle positions change between iterations the metric and its derivatives need to be updated.
 !       cons2prim does not require derivatives of the metric, so those can updated once the iterations
 !       are complete, in order to reduce the number of computations.
           xyz_iterations: do while (its <= itsmax .and. .not. converged)
              its         = its+1
-             xyz_prev    = xyzh(1:3,i)
-             call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu_star(1:3),dens(i),vxyzu_star(4),pri,rhoi,&
-                                         pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy,gamma)
+             xyz_prev    = xyz
+             call conservative2primitive(xyz,metrics(:,:,:,i),vxyz_star,densi,uui,pri,rhoi,&
+                                         pxyz,eni,ierr,ien_entropy,gamma)
              if (ierr > 0) call warning('cons2primsolver [in step_extern_gr (c)]','enthalpy did not converge',i=i)
-             xyzh(1:3,i)  = xyz_prev + hdt*(vxyzu_star(1:3) - vxyzu(1:3,i))
-             x_err = maxval(abs(xyzh(1:3,i)-xyz_prev))
+             xyz  = xyz_prev + hdt*(vxyz_star - vxyz)
+             x_err = maxval(abs(xyz-xyz_prev))
              if (x_err < xtol) converged = .true.
-             vxyzu(:,i)   = vxyzu_star
+             vxyz = vxyz_star
              ! UPDATE METRIC HERE
-             call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
+             call pack_metric(xyz,metrics(:,:,:,i))
           enddo xyz_iterations
-          call pack_metricderivs(xyzh(1:3,i),metricderivs(:,:,:,i))
+          call pack_metricderivs(xyz,metricderivs(:,:,:,i))
           if (its > itsmax ) call warning('step_extern_gr','Reached max number of x iterations. x_err ',val=x_err)
           xitsmax = max(its,xitsmax)
           xerrmax = max(x_err,xerrmax)
+
+          ! re-pack arrays back where they belong
+          xyzh(1:3,i) = xyz(1:3)
+          pxyzu(1:3,i) = pxyz(1:3)
+          vxyzu(1:3,i) = vxyz(1:3)
+          vxyzu(4,i) = uui
+          fext(:,i)  = fexti
+          dens(i) = densi
 
           ! Skip remainder of update if boundary particle; note that fext==0 for these particles
           if (itype==iboundary) cycle predictor
@@ -831,7 +860,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     naccreted    = 0
     dtextforce_min = bignumber
 
-    !$omp parallel do default(none) &
+    !$omp parallel default(none) &
     !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei) &
     !$omp shared(maxphase,maxp) &
     !$omp private(i,accreted) &
@@ -841,6 +870,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp reduction(min:dtextforce_min) &
     !$omp reduction(+:accretedmass,naccreted) &
     !$omp shared(idamp,damp_fac)
+    !$omp do
     accreteloop: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           if (ntypes > 1 .and. maxphase==maxp) then
@@ -874,7 +904,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           endif
        endif
     enddo accreteloop
-    !$omp end parallel do
+    !$omp end do
+    !$omp end parallel
 
     if (iverbose >= 2 .and. id==master .and. naccreted /= 0) write(iprint,"(a,es10.3,a,i4,a)") &
        'Step: at time ',timei,', ',naccreted,' particles were accreted. Mass accreted = ',accretedmass

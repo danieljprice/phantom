@@ -650,6 +650,14 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 #endif
 
  !--recompute size of node
+ !$omp parallel do default(none) &
+ !$omp shared(xyzh_soa,npnode,inoderange,nnode,x0) &
+ !$omp private(xi,yi,zi,hi,dx,dy,dz,dr2) &
+#ifdef GRAVITY
+ !$omp reduction(+:quads) &
+#endif
+ !$omp reduction(max:r2max) &
+ !$omp private(pmassi)
  do i=1,npnode
     xi = xyzh_soa(inoderange(1,nnode)+i-1,1)
     yi = xyzh_soa(inoderange(1,nnode)+i-1,2)
@@ -677,6 +685,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     quads(6) = quads(6) + pmassi*(3.*dz*dz - dr2)  ! Q_zz
 #endif
  enddo
+ !$omp end parallel do
 
 #ifdef MPI
  if (present(groupsize)) then
