@@ -64,6 +64,7 @@ module part
 !--storage of dust growth properties
 !
  real, allocatable :: dustprop(:,:)
+ real, allocatable :: csound(:) !- sound speed around each dust particles
  real, allocatable :: St(:)
  character(len=*), parameter :: dustprop_label(4) = (/'grainsize ','graindens ','vrel/vfrag','  dv/Vt   '/)
 !
@@ -310,6 +311,7 @@ subroutine allocate_part
  call allocate_array('Bxyz', Bxyz, 3, maxmhd)
  call allocate_array('dustprop', dustprop, 4, maxp_growth)
  call allocate_array('St', St, maxp_growth)
+ call allocate_array('csound', csound, maxp_growth)
  call allocate_array('abundance', abundance, nabundances, maxp_h2)
  call allocate_array('temperature', temperature, maxtemp)
  call allocate_array('dustfrac', dustfrac, maxdusttypes, maxp_dustfrac)
@@ -363,6 +365,7 @@ subroutine deallocate_part
  deallocate(Bxyz)
  deallocate(dustprop)
  deallocate(St)
+ deallocate(csound)
  deallocate(abundance)
  deallocate(temperature)
  deallocate(dustfrac)
