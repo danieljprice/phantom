@@ -587,11 +587,11 @@ subroutine check_stokes_number(ntests,npass)
     call step(npart,npart,t,dt,dtext,dtnew)
 
     do j=1,npart
-        if (iamdust(iphase(j))) then
-           r      = sqrt(xyzh(1,j)**2+xyzh(2,j)**2+xyzh(3,j)**2)
-           Stcomp = 1/(2*K_code*r**(1.5))
-           call checkvalbuf(St(j),Stcomp,tolst,'St',nerr(k),ncheck(k),errmax(k))
-           call checkvalbuf(csound(j),sqrt(polyk),tolcs,'csound',nerr(k+6),ncheck(k+6),errmax(k+6))
+       if (iamdust(iphase(j))) then
+          r      = sqrt(xyzh(1,j)**2+xyzh(2,j)**2+xyzh(3,j)**2)
+          Stcomp = 1/(2*K_code*r**(1.5))
+          call checkvalbuf(St(j),Stcomp,tolst,'St',nerr(k),ncheck(k),errmax(k))
+          call checkvalbuf(csound(j),sqrt(polyk),tolcs,'csound',nerr(k+6),ncheck(k+6),errmax(k+6))
        endif
     enddo
 
@@ -599,8 +599,8 @@ subroutine check_stokes_number(ntests,npass)
     call checkvalbuf_end('Sound speed interpolation match exact solution',ncheck(k+6),nerr(k+6),errmax(k+6),tolcs)
  enddo
 
-    ntests = ntests + 1
-    if (all(nerr(1:12)==0)) npass = npass + 1
+ ntests = ntests + 1
+ if (all(nerr(1:12)==0)) npass = npass + 1
 
 end subroutine check_stokes_number
 !---------------------------------------------------
