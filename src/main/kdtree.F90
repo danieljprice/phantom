@@ -655,6 +655,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  !$omp private(xi,yi,zi,hi,dx,dy,dz,dr2) &
 #ifdef GRAVITY
  !$omp reduction(+:quads) &
+ !$omp shared(maxphase,maxp,massoftype,iphase_soa) &
 #endif
  !$omp reduction(max:r2max) &
  !$omp private(pmassi)
