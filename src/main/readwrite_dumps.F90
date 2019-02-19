@@ -574,6 +574,8 @@ subroutine write_fulldump_hdf5(t,dumpfile,ntotal)
  use output_hdf5,    only:open_hdf5file,close_hdf5file,write_hdf5_header,write_hdf5_arrays,outputfile_id
  use dim,            only:maxp,maxvxyzu,gravity,maxalpha,mhd,mhd_nonideal,use_dust,use_dustgrowth
  use dim,            only:phantom_version_major,phantom_version_minor,phantom_version_micro,store_temperature
+ use dim,            only:phantom_version_string
+ use gitinfo,        only:gitsha
  use eos,            only:ieos,equationofstate,done_init_eos,init_eos,polyk,gamma,polyk2,qfacdisc,isink
  use io,             only:real4,nprocs
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
@@ -606,6 +608,10 @@ subroutine write_fulldump_hdf5(t,dumpfile,ntotal)
  logical           :: use_gas,ind_timesteps,const_av,prdrag,isothermal
  real              :: ponrhoi,rhoi,spsoundi
  real, allocatable, dimension(:) :: pressure,dtind,beta_pr
+ character(len=100):: fileident
+ character(len=10) :: datestring, timestring
+ character(len=30) :: string
+ character(len=*), parameter :: dumptype = 'fulldump'
 
 !
 !--collect global information from MPI threads
@@ -684,12 +690,39 @@ subroutine write_fulldump_hdf5(t,dumpfile,ntotal)
     const_av = .true.
  endif
 
+ !
+ !--print date and time stamp in file header
+ !
+ call date_and_time(datestring,timestring)
+ datestring = datestring(7:8)//'/'//datestring(5:6)//'/'//datestring(1:4)
+ timestring = timestring(1:2)//':'//timestring(3:4)//':'//timestring(5:)
+
+ string = ' '
+ if (gravity) string = trim(string)//'+grav'
+ if (npartoftype(idust) > 0) string = trim(string)//'+dust'
+ if (use_dustfrac) string = trim(string)//'+1dust'
+ if (h2chemistry) string = trim(string)//'+H2chem'
+ if (lightcurve) string = trim(string)//'+lightcurve'
+ if (use_dustgrowth) string = trim(string)//'+dustgrowth'
+
+ fileident = dumptype//': '//'Phantom'//' '//trim(phantom_version_string)//' '//gitsha
+
+ if (mhd) then
+    if (maxBevol==4) then
+       fileident = trim(fileident)//' (mhd+clean'//trim(string)//')  : '//trim(datestring)//' '//trim(timestring)
+    else
+       fileident = trim(fileident)//' (mhd'//trim(string)//')  : '//trim(datestring)//' '//trim(timestring)
+    endif
+ else
+    fileident = trim(fileident)//' (hydro'//trim(string)//'): '//trim(datestring)//' '//trim(timestring)
+ endif
+
  call open_hdf5file(trim(dumpfile)//'.h5',outputfile_id)
- call write_hdf5_header(outputfile_id,maxtypes,nblocks,isink,nptmass,ndustlarge,ndustsmall,idust,             &
-                        phantom_version_major,phantom_version_minor,phantom_version_micro,                    &
-                        int(nparttot),int(npartoftypetot),iexternalforce,ieos,t,dtmax,gamma,rhozero,          &
-                        polyk,hfact,tolh,C_cour,C_force,alpha,alphau,alphaB,polyk2,qfacdisc,                  &
-                        massoftype,Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,zmax,get_conserv,               &
+ call write_hdf5_header(outputfile_id,trim(fileident),maxtypes,nblocks,isink,nptmass,ndustlarge,ndustsmall,idust,&
+                        phantom_version_major,phantom_version_minor,phantom_version_micro,                       &
+                        int(nparttot),int(npartoftypetot),iexternalforce,ieos,t,dtmax,gamma,rhozero,             &
+                        polyk,hfact,tolh,C_cour,C_force,alpha,alphau,alphaB,polyk2,qfacdisc,                     &
+                        massoftype,Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,zmax,get_conserv,                  &
                         etot_in,angtot_in,totmom_in,mdust_in,grainsize,graindens,udist,umass,utime,unit_Bfield)
  call write_hdf5_arrays(outputfile_id,xyzh,vxyzu,int(iphase),pressure,real(alphaind),dtind,real(poten),xyzmh_ptmass,   &
                         vxyz_ptmass,Bxyz,Bevol,real(divcurlB),real(divBsymm),eta_nimhd,dustfrac,tstop,deltav,dustprop, &

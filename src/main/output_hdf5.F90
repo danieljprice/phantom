@@ -25,13 +25,14 @@ subroutine close_hdf5file(file_id)
  call h5close_f(error)          ! Close Fortran h5 interfaces
 end subroutine close_hdf5file
 
-subroutine write_hdf5_header(file_id,maxtypes,nblocks,isink,nptmass,ndustlarge,ndustsmall,idust,                  &
+subroutine write_hdf5_header(file_id,fileident,maxtypes,nblocks,isink,nptmass,ndustlarge,ndustsmall,idust,                  &
                             phantom_version_major,phantom_version_minor,phantom_version_micro,                    &
                             nparttot,npartoftypetot,iexternalforce,ieos,t,dtmax,gamma,rhozero,                    &
                             polyk,hfact,tolh,C_cour,C_force,alpha,alphau,alphaB,polyk2,qfacdisc,                  &
                             massoftype,Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,zmax,get_conserv,               &
                             etot_in,angtot_in,totmom_in,mdust_in,grainsize,graindens,udist,umass,utime,unit_Bfield)
- integer(HID_T), intent(in) :: file_id
+ integer(HID_T),   intent(in) :: file_id
+ character(len=*), intent(in) :: fileident
  integer, intent(in) :: maxtypes,              & !integer (default)
                         nblocks,               & !integer (default)
                         isink,                 & !integer (default)
@@ -88,6 +89,7 @@ subroutine write_hdf5_header(file_id,maxtypes,nblocks,isink,nptmass,ndustlarge,n
     call h5gcreate_f(file_id,'header',group_id,error)
 
     ! Write things to header group
+    call write_to_hdf5(fileident,'fileident',group_id)
     ! call write_to_hdf5(int(nparttot),'nparttot',group_id)
     call write_to_hdf5(maxtypes,'ntypes',group_id)
     ! call write_to_hdf5(int(npartoftypetot(1:maxtypes)),'npartoftype',group_id)
