@@ -70,6 +70,7 @@ contains
 !------------------------------------------------
 subroutine init_growth(ierr)
  use io,        only:error
+ use viscosity, only:irealvisc,shearparam
  integer, intent(out) :: ierr
  integer              :: i
 
@@ -121,6 +122,13 @@ subroutine init_growth(ierr)
     endif
  endif
 
+ if (ifrag > -1) then
+    if (irealvisc == 1) then
+       call error('init_growth','shearparam should be used for growth when irealvisc /= 1',var='shearparam',val=shearparam)
+       ierr = 4
+    endif
+endif
+
 end subroutine init_growth
 
 !----------------------------------------------------------
@@ -129,11 +137,14 @@ end subroutine init_growth
 !+
 !----------------------------------------------------------
 subroutine print_growthinfo(iprint)
+ use viscosity, only:shearparam
+
  integer, intent(in) :: iprint
 
  if (ifrag == 0) write(iprint,"(a)")    ' Using pure growth model where ds = + vrel*rhod/graindens*dt    '
  if (ifrag == 1) write(iprint,"(a)")    ' Using growth/frag where ds = (+ or -) vrel*rhod/graindens*dt   '
  if (ifrag == 2) write(iprint,"(a)")    ' Using growth with Kobayashi fragmentation model '
+ if (ifrag > -1) write(iprint,"((a,1pg10.3))")' Computing Vrel with alphaSS = ',shearparam
  if (ifrag > 0) then
     write(iprint,"(2(a,1pg10.3),a)")' grainsizemin = ',gsizemincgs,' cm = ',grainsizemin,' (code units)'
     if (isnow == 1) then
