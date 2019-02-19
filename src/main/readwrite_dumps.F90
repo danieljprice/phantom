@@ -577,7 +577,7 @@ subroutine write_fulldump_hdf5(t,dumpfile,ntotal)
  use dim,            only:phantom_version_string
  use gitinfo,        only:gitsha
  use eos,            only:ieos,equationofstate,done_init_eos,init_eos,polyk,gamma,polyk2,qfacdisc,isink
- use io,             only:real4,nprocs
+ use io,             only:real4,nprocs,fatal
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
  use part,           only:xyzh,vxyzu,Bevol,Bxyz,npart,npartoftype,maxtypes, &
                           alphaind,rhoh,divBsymm,maxphase,iphase, &
@@ -612,6 +612,7 @@ subroutine write_fulldump_hdf5(t,dumpfile,ntotal)
  character(len=10) :: datestring, timestring
  character(len=30) :: string
  character(len=*), parameter :: dumptype = 'fulldump'
+ integer :: error
 
 !
 !--collect global information from MPI threads
@@ -717,7 +718,8 @@ subroutine write_fulldump_hdf5(t,dumpfile,ntotal)
     fileident = trim(fileident)//' (hydro'//trim(string)//'): '//trim(datestring)//' '//trim(timestring)
  endif
 
- call open_hdf5file(trim(dumpfile)//'.h5',outputfile_id)
+ call open_hdf5file(trim(dumpfile)//'.h5',outputfile_id,error)
+ if (error/=0) call fatal('write_fulldump_hdf5','could not open file')
  call write_hdf5_header(outputfile_id,trim(fileident),maxtypes,nblocks,isink,nptmass,ndustlarge,ndustsmall,idust,&
                         phantom_version_major,phantom_version_minor,phantom_version_micro,                       &
                         int(nparttot),int(npartoftypetot),iexternalforce,ieos,t,dtmax,gamma,rhozero,             &
@@ -729,7 +731,8 @@ subroutine write_fulldump_hdf5(t,dumpfile,ntotal)
                         st,abundance,temperature,real(divcurlv),real(luminosity),beta_pr,                              &
                         const_av,ind_timesteps,gravity,nptmass,mhd,maxBevol,ndivcurlB,mhd_nonideal,use_dust,           &
                         use_dustfrac,use_dustgrowth,h2chemistry,store_temperature,ndivcurlv,lightcurve,prdrag,isothermal)
- call close_hdf5file(outputfile_id)
+ call close_hdf5file(outputfile_id,error)
+ if (error/=0) call fatal('write_fulldump_hdf5','could not close file')
 
  deallocate(pressure,beta_pr,dtind)
 

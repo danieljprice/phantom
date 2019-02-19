@@ -10,19 +10,23 @@ implicit none
 
 contains
 
-subroutine open_hdf5file(filename,file_id)
+subroutine open_hdf5file(filename,file_id,error)
  character(len=*), intent(in)  :: filename
  integer(HID_T),   intent(out) :: file_id
- integer :: error
- call h5open_f(error)                                     ! Initialise Fortran h5 interfaces
- call h5fcreate_f(filename,H5F_ACC_TRUNC_F,file_id,error) ! Create file
+ integer,          intent(out) :: error
+ integer :: errors(2)
+ call h5open_f(errors(1))                                     ! Initialise Fortran h5 interfaces
+ call h5fcreate_f(filename,H5F_ACC_TRUNC_F,file_id,errors(2)) ! Create file
+ error = maxval(abs(errors))
 end subroutine open_hdf5file
 
-subroutine close_hdf5file(file_id)
+subroutine close_hdf5file(file_id,error)
  integer(HID_T), intent(in) :: file_id
- integer :: error
- call h5fclose_f(file_id,error) ! Close the file
- call h5close_f(error)          ! Close Fortran h5 interfaces
+ integer, intent(out) :: error
+ integer :: errors(2)
+ call h5fclose_f(file_id,errors(2)) ! Close the file
+ call h5close_f(errors(1))          ! Close Fortran h5 interfaces
+ error = maxval(abs(errors))
 end subroutine close_hdf5file
 
 subroutine write_hdf5_header(file_id,fileident,maxtypes,nblocks,isink,nptmass,ndustlarge,ndustsmall,idust,                  &
