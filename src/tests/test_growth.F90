@@ -596,18 +596,18 @@ subroutine check_stokes_number(ntests,npass)
     ! run dustybox problem
     !
     do i=1,nsteps
-    t     = t + dt
-    dtext = dt
-    call step(npart,npart,t,dt,dtext,dtnew)
+       t     = t + dt
+       dtext = dt
+       call step(npart,npart,t,dt,dtext,dtnew)
 
-    do j=1,npart
-       if (iamdust(iphase(j))) then
-          r      = sqrt(xyzh(1,j)**2+xyzh(2,j)**2+xyzh(3,j)**2)
-          Stcomp = 1./(2.*K_code*r**(1.5))
-          call checkvalbuf(St(j)/Stcomp,1.,tolst,'St',nerr(k),ncheck(k),errmax(k))
-          call checkvalbuf(csound(j)/cscomp,1.,tolcs,'csound',nerr(k+6),ncheck(k+6),errmax(k+6))
-       endif
-    enddo
+       do j=1,npart
+          if (iamdust(iphase(j))) then
+             r      = sqrt(xyzh(1,j)**2+xyzh(2,j)**2+xyzh(3,j)**2)
+             Stcomp = 1./(2.*K_code*r**(1.5))
+             call checkvalbuf(St(j)/Stcomp,1.,tolst,'St',nerr(k),ncheck(k),errmax(k))
+             call checkvalbuf(csound(j)/cscomp,1.,tolcs,'csound',nerr(k+6),ncheck(k+6),errmax(k+6))
+          endif
+       enddo
     enddo
     call checkvalbuf_end('Stokes number interpolation match exact solution',ncheck(k),nerr(k),errmax(k),tolst)
     call checkvalbuf_end('Sound speed interpolation match exact solution',ncheck(k+6),nerr(k+6),errmax(k+6),tolcs)
