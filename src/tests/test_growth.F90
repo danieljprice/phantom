@@ -350,7 +350,7 @@ subroutine test_growingbox(ntests,npass)
  do i=1,nsteps
     t     = t + dt
     dtext = dt
-    call step(npart,npart,t,dt,dtext,dtnew) !--integrate dust size
+    call step(npart,npart,t,dt,dtext,dtnew)
     s     = sinit - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*vrelonvfrag**2/(vrelonvfrag**2+1)*t
     do j=1,npart
        call checkvalbuf(dustprop(1,j)/s,1.,tols,'size',nerr(4),ncheck(4),errmax(4))
@@ -468,6 +468,8 @@ subroutine check_stokes_number(ntests,npass)
  use timestep,       only:dtmax
  use io,             only:iverbose
  use mpiutils,       only:reduceall_mpi
+ use physcon,        only:au,solarm
+ use units,          only:set_units,unit_velocity
 
  integer,intent(inout) :: ntests,npass
 
@@ -479,6 +481,7 @@ subroutine check_stokes_number(ntests,npass)
  integer         :: i
  integer         :: j
  integer         :: k
+ integer         :: nsteps
  integer         :: ncheck(12)
  integer         :: nerr(12)
 
@@ -490,10 +493,12 @@ subroutine check_stokes_number(ntests,npass)
  real            :: errmax(12)
  real            :: dtext_dum
  real            :: Stcomp
+ real            :: cscomp
  real            :: r
  real            :: sinit
  real            :: dens
  real            :: t
+ real            :: tmax
  real            :: dt
  real            :: dtext
  real            :: dtnew
@@ -521,6 +526,7 @@ subroutine check_stokes_number(ntests,npass)
  deltax  = 1./nx
  dz      = 2.*sqrt(6.)/nx
  call set_boundary(-0.5,0.5,-0.25,0.25,-dz,dz)
+ call set_units(mass=solarm,dist=au,G=1.d0)
  hfact   = hfact_default
  rhozero = 1.
  totmass = rhozero*dxbound*dybound*dzbound
@@ -532,7 +538,11 @@ subroutine check_stokes_number(ntests,npass)
                      deltax,hfact,npart,xyzh,verbose=.false.)
     do i=npart_previous+1,npart
        call set_particle_type(i,itype)
-       vxyzu(:,i)          = 0.
+       if (itype == idust) then
+          vxyzu(:,i)       = 1.
+       else
+          vxyzu(:,i)       = 0.
+       endif
        fext(:,i)           = 0.
        if (mhd) Bevol(:,i) = 0.
        if (use_dust) then
@@ -557,6 +567,8 @@ subroutine check_stokes_number(ntests,npass)
  iverbose  = 0
  iinterpol = .true.
  dt        = 1.e-3
+ nsteps    = 100
+ tmax      = nsteps*dt
  ncheck(:) = 0
  nerr(:)   = 0
  errmax(:) = 0.
@@ -573,15 +585,17 @@ subroutine check_stokes_number(ntests,npass)
 
     St(:)     = 0.
     csound(:) = 0.
-    t         = 0
-    K_code    = 10.**(k-3)
-    polyk     = (10.**(k*0.6))**2
+    t         = 0.
+    K_code    = 10.**(-k+3.5)
+    cscomp    = (10.**(k/2.+1.))/unit_velocity
+    polyk     = cscomp**2.
 
-    write(*,"(/,a,f8.2,a,f8.2,a)")'-------- K =',K_code,' , cs = ',sqrt(polyk),' m/s --------'
+    write(*,"(/,a,es8.1,a,es8.2,a)")'-------- St ~ ',1./(2.*K_code),' , cs = ',cscomp*unit_velocity,' m/s --------'
 
     !
     ! run dustybox problem
     !
+    do i=1,nsteps
     t     = t + dt
     dtext = dt
     call step(npart,npart,t,dt,dtext,dtnew)
@@ -589,12 +603,12 @@ subroutine check_stokes_number(ntests,npass)
     do j=1,npart
         if (iamdust(iphase(j))) then
            r      = sqrt(xyzh(1,j)**2+xyzh(2,j)**2+xyzh(3,j)**2)
-           Stcomp = 1/(2*K_code*r**(1.5))
-           call checkvalbuf(St(j),Stcomp,tolst,'St',nerr(k),ncheck(k),errmax(k))
-           call checkvalbuf(csound(j),sqrt(polyk),tolcs,'csound',nerr(k+6),ncheck(k+6),errmax(k+6))
+           Stcomp = 1./(2.*K_code*r**(1.5))
+           call checkvalbuf(St(j)/Stcomp,1.,tolst,'St',nerr(k),ncheck(k),errmax(k))
+           call checkvalbuf(csound(j)/cscomp,1.,tolcs,'csound',nerr(k+6),ncheck(k+6),errmax(k+6))
        endif
     enddo
-
+    enddo
     call checkvalbuf_end('Stokes number interpolation match exact solution',ncheck(k),nerr(k),errmax(k),tolst)
     call checkvalbuf_end('Sound speed interpolation match exact solution',ncheck(k+6),nerr(k+6),errmax(k+6),tolcs)
  enddo

@@ -163,7 +163,6 @@ end subroutine print_growthinfo
 !-----------------------------------------------------------------------
 subroutine get_growth_rate(npart,xyzh,vxyzu,cs,St,dustprop,dsdt)
  use part,            only:get_pmass,rhoh,idust,iamtype,iphase,maxvxyzu,isdead_or_accreted
- !use eos,             only:get_spsound,ieos
  real, intent(inout)  :: dustprop(:,:),vxyzu(:,:)
  real, intent(in)     :: xyzh(:,:),St(:),cs(:)
  real, intent(out)    :: dsdt(:)
@@ -180,12 +179,11 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,cs,St,dustprop,dsdt)
        if (iam==idust) then
 
           rhod = rhoh(xyzh(4,i),get_pmass(idust,.false.))
-          !print*, cs(i) / get_spsound(ieos,xyzh(:,i),rhod,vxyzu(:,i))
 
           call get_vrelonvfrag(xyzh(:,i),vrel,dustprop(:,i),cs(i),St(i))
           !
           !--dustprop(1)= size, dustprop(2) = intrinsic density,
-          !  dustprop(3) = vrel/vfrag, dustprop(4) = vd - vg
+          !  dustprop(3) = vrel/vfrag, dustprop(4) = (vd - vg)/Vt
           !
           !--if statements to compute ds/dt
           !
