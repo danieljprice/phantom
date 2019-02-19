@@ -9,7 +9,7 @@ implicit none
  interface write_to_hdf5
     module procedure write_scalar, write_array_1d, write_array_2d, write_array_3d, write_array_4d, write_array_6d, &
                      write_scalar_int, write_scalar_intkind8, write_intarray_1d, write_intarray_1dkind8, write_intarray_1dkind1, &
-                     write_array_1dkind4, write_array_2dkind4
+                     write_array_1dkind4, write_array_2dkind4, write_string
  end interface
 
 contains
@@ -393,5 +393,54 @@ subroutine write_intarray_1dkind1(x, name, id)
  ! Closet dataspace
  call h5sclose_f(dspace_id, error)
 end subroutine write_intarray_1dkind1
+
+subroutine write_string(str, name, id)
+ use hdf5,          only:SIZE_T,H5T_FORTRAN_S1,C_PTR
+ use hdf5,          only:h5tcopy_f,h5tset_size_f,h5tclose_f
+ use iso_c_binding, only:c_loc
+ character(*),    intent(in), target :: str
+ character(*),    intent(in) :: name
+ integer(HID_T),  intent(in) :: id
+
+ integer, parameter  :: ndims = 0
+ integer(HSIZE_T)    :: sshape(ndims)
+ integer(HID_T)      :: dspace_id
+ integer(HID_T)      :: dset_id
+ integer             :: error
+
+ integer(SIZE_T) :: slength
+ integer(HID_T)  :: filetype
+
+ type(C_PTR) :: cpointer
+
+ slength = len(str)
+ sshape  = shape(str)
+
+ ! Create file datatypes. Save the string as FORTRAN string
+ call h5tcopy_f(H5T_FORTRAN_S1, filetype, error)
+ call h5tset_size_f(filetype, slength, error)
+
+ ! Create dataspace
+ call h5screate_simple_f(ndims, sshape, dspace_id, error)
+
+ ! Create the dataset in file
+ call h5dcreate_f(id, name, filetype, dspace_id, dset_id, error)
+
+ ! Find C pointer
+ cpointer = c_loc(str(1:1))
+
+ ! Write to file
+ call h5dwrite_f(dset_id, filetype, cpointer, error)
+
+ ! Close dataset
+ call h5dclose_f(dset_id, error)
+
+ ! Closet dataspace
+ call h5sclose_f(dspace_id, error)
+
+ ! Close datatype
+ call h5tclose_f(filetype, error)
+
+end subroutine write_string
 
 end module utils_outputhdf5
