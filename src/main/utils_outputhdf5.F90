@@ -23,21 +23,24 @@ subroutine write_scalar(x, name, id, error)
  integer(HSIZE_T), parameter  :: xshape(0) = 0
  integer(HID_T)    :: dspace_id
  integer(HID_T)    :: dset_id
+ integer :: errors(5)
 
  ! Create dataspace
- call h5screate_f(H5S_SCALAR_F, dspace_id, error)
+ call h5screate_f(H5S_SCALAR_F, dspace_id, errors(1))
 
  ! Create dataset in file
- call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, error)
+ call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, errors(2))
 
  ! Write to file
- call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, error)
+ call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, errors(3))
 
  ! Close dataset
- call h5dclose_f(dset_id, error)
+ call h5dclose_f(dset_id, errors(4))
 
  ! Closet dataspace
- call h5sclose_f(dspace_id, error)
+ call h5sclose_f(dspace_id, errors(5))
+
+ error = maxval(abs(errors))
 
 end subroutine write_scalar
 
@@ -51,23 +54,26 @@ subroutine write_array_1d(x, name, id, error)
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
+ integer :: errors(5)
 
  xshape = shape(x)
 
  ! Create dataspace
- call h5screate_simple_f(ndims, xshape, dspace_id, error)
+ call h5screate_simple_f(ndims, xshape, dspace_id, errors(1))
 
  ! Create dataset in file
- call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, error)
+ call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, errors(2))
 
  ! Write to file
- call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, error)
+ call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, errors(3))
 
  ! Close dataset
- call h5dclose_f(dset_id, error)
+ call h5dclose_f(dset_id, errors(4))
 
  ! Closet dataspace
- call h5sclose_f(dspace_id, error)
+ call h5sclose_f(dspace_id, errors(5))
+
+ error = maxval(abs(errors))
 
 end subroutine write_array_1d
 
@@ -81,23 +87,26 @@ subroutine write_array_1dkind4(x, name, id, error)
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
+ integer :: errors(5)
 
  xshape = shape(x)
 
  ! Create dataspace
- call h5screate_simple_f(ndims, xshape, dspace_id, error)
+ call h5screate_simple_f(ndims, xshape, dspace_id, errors(1))
 
  ! Create dataset in file
- call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, error)
+ call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, errors(2))
 
  ! Write to file
- call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, error)
+ call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, errors(3))
 
  ! Close dataset
- call h5dclose_f(dset_id, error)
+ call h5dclose_f(dset_id, errors(4))
 
  ! Closet dataspace
- call h5sclose_f(dspace_id, error)
+ call h5sclose_f(dspace_id, errors(5))
+
+ error = maxval(abs(errors))
 
 end subroutine write_array_1dkind4
 
@@ -111,23 +120,26 @@ subroutine write_array_2d(x, name, id, error)
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
+ integer :: errors(5)
 
  xshape = shape(x)
 
  ! Create dataspace
- call h5screate_simple_f(ndims, xshape, dspace_id, error)
+ call h5screate_simple_f(ndims, xshape, dspace_id, errors(1))
 
  ! Create dataset in file
- call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, error)
+ call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, errors(2))
 
  ! Write to file
- call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, error)
+ call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, errors(3))
 
  ! Close dataset
- call h5dclose_f(dset_id, error)
+ call h5dclose_f(dset_id, errors(4))
 
  ! Closet dataspace
- call h5sclose_f(dspace_id, error)
+ call h5sclose_f(dspace_id, errors(5))
+
+ error = maxval(abs(errors))
 
 end subroutine write_array_2d
 
@@ -141,23 +153,26 @@ subroutine write_array_2dkind4(x, name, id, error)
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
+ integer :: errors(5)
 
  xshape = shape(x)
 
  ! Create dataspace
- call h5screate_simple_f(ndims, xshape, dspace_id, error)
+ call h5screate_simple_f(ndims, xshape, dspace_id, errors(1))
 
  ! Create dataset in file
- call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, error)
+ call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, errors(2))
 
  ! Write to file
- call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, error)
+ call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, errors(3))
 
  ! Close dataset
- call h5dclose_f(dset_id, error)
+ call h5dclose_f(dset_id, errors(4))
 
  ! Closet dataspace
- call h5sclose_f(dspace_id, error)
+ call h5sclose_f(dspace_id, errors(5))
+
+ error = maxval(abs(errors))
 
 end subroutine write_array_2dkind4
 
@@ -171,23 +186,26 @@ subroutine write_array_3d(x, name, id, error)
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
+ integer :: errors(5)
 
  xshape = shape(x)
 
  ! Create dataspace
- call h5screate_simple_f(ndims, xshape, dspace_id, error)
+ call h5screate_simple_f(ndims, xshape, dspace_id, errors(1))
 
  ! Create dataset in file
- call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, error)
+ call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, errors(2))
 
  ! Write to file
- call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, error)
+ call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, errors(3))
 
  ! Close dataset
- call h5dclose_f(dset_id, error)
+ call h5dclose_f(dset_id, errors(4))
 
  ! Closet dataspace
- call h5sclose_f(dspace_id, error)
+ call h5sclose_f(dspace_id, errors(5))
+
+ error = maxval(abs(errors))
 
 end subroutine write_array_3d
 
@@ -201,23 +219,26 @@ subroutine write_array_4d(x, name, id, error)
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
+ integer :: errors(5)
 
  xshape = shape(x)
 
  ! Create dataspace
- call h5screate_simple_f(ndims, xshape, dspace_id, error)
+ call h5screate_simple_f(ndims, xshape, dspace_id, errors(1))
 
  ! Create dataset in file
- call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, error)
+ call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, errors(2))
 
  ! Write to file
- call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, error)
+ call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, errors(3))
 
  ! Close dataset
- call h5dclose_f(dset_id, error)
+ call h5dclose_f(dset_id, errors(4))
 
  ! Closet dataspace
- call h5sclose_f(dspace_id, error)
+ call h5sclose_f(dspace_id, errors(5))
+
+ error = maxval(abs(errors))
 
 end subroutine write_array_4d
 
@@ -231,23 +252,26 @@ subroutine write_array_6d(x, name, id, error)
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
+ integer :: errors(5)
 
  xshape = shape(x)
 
  ! Create dataspace
- call h5screate_simple_f(ndims, xshape, dspace_id, error)
+ call h5screate_simple_f(ndims, xshape, dspace_id, errors(1))
 
  ! Create dataset in file
- call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, error)
+ call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, errors(2))
 
  ! Write to file
- call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, error)
+ call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, errors(3))
 
  ! Close dataset
- call h5dclose_f(dset_id, error)
+ call h5dclose_f(dset_id, errors(4))
 
  ! Closet dataspace
- call h5sclose_f(dspace_id, error)
+ call h5sclose_f(dspace_id, errors(5))
+
+ error = maxval(abs(errors))
 
 end subroutine write_array_6d
 
@@ -260,21 +284,24 @@ subroutine write_scalar_int(x, name, id, error)
  integer(HSIZE_T), parameter  :: xshape(0) = 0
  integer(HID_T)    :: dspace_id
  integer(HID_T)    :: dset_id
+ integer :: errors(5)
 
  ! Create dataspace
- call h5screate_f(H5S_SCALAR_F, dspace_id, error)
+ call h5screate_f(H5S_SCALAR_F, dspace_id, errors(1))
 
  ! Create dataset in file
- call h5dcreate_f(id, name, H5T_NATIVE_INTEGER, dspace_id, dset_id, error)
+ call h5dcreate_f(id, name, H5T_NATIVE_INTEGER, dspace_id, dset_id, errors(2))
 
  ! Write to file
- call h5dwrite_f(dset_id, H5T_NATIVE_INTEGER, x, xshape, error)
+ call h5dwrite_f(dset_id, H5T_NATIVE_INTEGER, x, xshape, errors(3))
 
  ! Close dataset
- call h5dclose_f(dset_id, error)
+ call h5dclose_f(dset_id, errors(4))
 
  ! Closet dataspace
- call h5sclose_f(dspace_id, error)
+ call h5sclose_f(dspace_id, errors(5))
+
+ error = maxval(abs(errors))
 
 end subroutine write_scalar_int
 
@@ -287,21 +314,24 @@ subroutine write_scalar_intkind8(x, name, id, error)
  integer(HSIZE_T), parameter  :: xshape(0) = 0
  integer(HID_T)    :: dspace_id
  integer(HID_T)    :: dset_id
+ integer :: errors(5)
 
  ! Create dataspace
- call h5screate_f(H5S_SCALAR_F, dspace_id, error)
+ call h5screate_f(H5S_SCALAR_F, dspace_id, errors(1))
 
  ! Create dataset in file
- call h5dcreate_f(id, name, H5T_NATIVE_INTEGER, dspace_id, dset_id, error)
+ call h5dcreate_f(id, name, H5T_NATIVE_INTEGER, dspace_id, dset_id, errors(2))
 
  ! Write to file
- call h5dwrite_f(dset_id, H5T_NATIVE_INTEGER, x, xshape, error)
+ call h5dwrite_f(dset_id, H5T_NATIVE_INTEGER, x, xshape, errors(3))
 
  ! Close dataset
- call h5dclose_f(dset_id, error)
+ call h5dclose_f(dset_id, errors(4))
 
  ! Closet dataspace
- call h5sclose_f(dspace_id, error)
+ call h5sclose_f(dspace_id, errors(5))
+
+ error = maxval(abs(errors))
 
 end subroutine write_scalar_intkind8
 
@@ -315,23 +345,26 @@ subroutine write_intarray_1d(x, name, id, error)
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
+ integer :: errors(5)
 
  xshape = shape(x)
 
  ! Create dataspace
- call h5screate_simple_f(ndims, xshape, dspace_id, error)
+ call h5screate_simple_f(ndims, xshape, dspace_id, errors(1))
 
  ! Create dataset in file
- call h5dcreate_f(id, name, H5T_NATIVE_INTEGER, dspace_id, dset_id, error)
+ call h5dcreate_f(id, name, H5T_NATIVE_INTEGER, dspace_id, dset_id, errors(2))
 
  ! Write to file
- call h5dwrite_f(dset_id, H5T_NATIVE_INTEGER, x, xshape, error)
+ call h5dwrite_f(dset_id, H5T_NATIVE_INTEGER, x, xshape, errors(3))
 
  ! Close dataset
- call h5dclose_f(dset_id, error)
+ call h5dclose_f(dset_id, errors(4))
 
  ! Closet dataspace
- call h5sclose_f(dspace_id, error)
+ call h5sclose_f(dspace_id, errors(5))
+
+ error = maxval(abs(errors))
 
 end subroutine write_intarray_1d
 
@@ -345,23 +378,26 @@ subroutine write_intarray_1dkind8(x, name, id, error)
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
+ integer :: errors(5)
 
  xshape = shape(x)
 
  ! Create dataspace
- call h5screate_simple_f(ndims, xshape, dspace_id, error)
+ call h5screate_simple_f(ndims, xshape, dspace_id, errors(1))
 
  ! Create dataset in file
- call h5dcreate_f(id, name, H5T_NATIVE_INTEGER, dspace_id, dset_id, error)
+ call h5dcreate_f(id, name, H5T_NATIVE_INTEGER, dspace_id, dset_id, errors(2))
 
  ! Write to file
- call h5dwrite_f(dset_id, H5T_NATIVE_INTEGER, x, xshape, error)
+ call h5dwrite_f(dset_id, H5T_NATIVE_INTEGER, x, xshape, errors(3))
 
  ! Close dataset
- call h5dclose_f(dset_id, error)
+ call h5dclose_f(dset_id, errors(4))
 
  ! Closet dataspace
- call h5sclose_f(dspace_id, error)
+ call h5sclose_f(dspace_id, errors(5))
+
+ error = maxval(abs(errors))
 
 end subroutine write_intarray_1dkind8
 
@@ -375,23 +411,27 @@ subroutine write_intarray_1dkind1(x, name, id, error)
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
+ integer :: errors(5)
 
  xshape = shape(x)
 
  ! Create dataspace
- call h5screate_simple_f(ndims, xshape, dspace_id, error)
+ call h5screate_simple_f(ndims, xshape, dspace_id, errors(1))
 
  ! Create dataset in file
- call h5dcreate_f(id, name, H5T_NATIVE_INTEGER, dspace_id, dset_id, error)
+ call h5dcreate_f(id, name, H5T_NATIVE_INTEGER, dspace_id, dset_id, errors(2))
 
  ! Write to file
- call h5dwrite_f(dset_id, H5T_NATIVE_INTEGER, x, xshape, error)
+ call h5dwrite_f(dset_id, H5T_NATIVE_INTEGER, x, xshape, errors(3))
 
  ! Close dataset
- call h5dclose_f(dset_id, error)
+ call h5dclose_f(dset_id, errors(4))
 
  ! Closet dataspace
- call h5sclose_f(dspace_id, error)
+ call h5sclose_f(dspace_id, errors(5))
+
+ error = maxval(abs(errors))
+
 end subroutine write_intarray_1dkind1
 
 subroutine write_string(str, name, id, error)
@@ -407,39 +447,40 @@ subroutine write_string(str, name, id, error)
  integer(HSIZE_T)    :: sshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
-
- integer(SIZE_T) :: slength
- integer(HID_T)  :: filetype
-
- type(C_PTR) :: cpointer
+ integer(SIZE_T)     :: slength
+ integer(HID_T)      :: filetype
+ type(C_PTR)         :: cpointer
+ integer :: errors(8)
 
  slength = len(str)
  sshape  = shape(str)
 
  ! Create file datatypes. Save the string as FORTRAN string
- call h5tcopy_f(H5T_FORTRAN_S1, filetype, error)
- call h5tset_size_f(filetype, slength, error)
+ call h5tcopy_f(H5T_FORTRAN_S1, filetype, errors(1))
+ call h5tset_size_f(filetype, slength, errors(2))
 
  ! Create dataspace
- call h5screate_simple_f(ndims, sshape, dspace_id, error)
+ call h5screate_simple_f(ndims, sshape, dspace_id, errors(3))
 
  ! Create the dataset in file
- call h5dcreate_f(id, name, filetype, dspace_id, dset_id, error)
+ call h5dcreate_f(id, name, filetype, dspace_id, dset_id, errors(4))
 
  ! Find C pointer
  cpointer = c_loc(str(1:1))
 
  ! Write to file
- call h5dwrite_f(dset_id, filetype, cpointer, error)
+ call h5dwrite_f(dset_id, filetype, cpointer, errors(5))
 
  ! Close dataset
- call h5dclose_f(dset_id, error)
+ call h5dclose_f(dset_id, errors(6))
 
  ! Closet dataspace
- call h5sclose_f(dspace_id, error)
+ call h5sclose_f(dspace_id, errors(7))
 
  ! Close datatype
- call h5tclose_f(filetype, error)
+ call h5tclose_f(filetype, errors(8))
+
+ error = maxval(abs(errors))
 
 end subroutine write_string
 
