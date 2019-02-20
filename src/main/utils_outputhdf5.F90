@@ -9,9 +9,12 @@ module utils_outputhdf5
  private
 
  interface write_to_hdf5
-  module procedure write_scalar, write_array_1d, write_array_2d, write_array_3d, &
-                   write_scalar_int, write_scalar_intkind8, write_intarray_1d, write_intarray_1dkind8, write_intarray_1dkind1, &
-                   write_array_1dkind4, write_array_2dkind4, write_string
+  module procedure write_scalar,                                                      & ! Reals
+                   write_array_1d, write_array_2d, write_array_3d,                    & ! Real(8) arrays
+                   write_array_1dkind4, write_array_2dkind4,                          & ! Real(4) arrays
+                   write_scalar_int, write_scalar_intkind8,                           & ! Integers
+                   write_intarray_1d, write_intarray_1dkind8, write_intarray_1dkind1, & ! Integer arrays
+                   write_string                                                         ! Strings
  end interface
 
 contains
