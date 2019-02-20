@@ -149,10 +149,10 @@ subroutine write_array_1dkind4(x, name, id, error)
  call h5screate_simple_f(ndims, xshape, dspace_id, errors(1))
 
  ! Create dataset in file
- call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, errors(2))
+ call h5dcreate_f(id, name, H5T_NATIVE_REAL, dspace_id, dset_id, errors(2))
 
  ! Write to file
- call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, errors(3))
+ call h5dwrite_f(dset_id, H5T_NATIVE_REAL, x, xshape, errors(3))
 
  ! Close dataset
  call h5dclose_f(dset_id, errors(4))
@@ -215,10 +215,10 @@ subroutine write_array_2dkind4(x, name, id, error)
  call h5screate_simple_f(ndims, xshape, dspace_id, errors(1))
 
  ! Create dataset in file
- call h5dcreate_f(id, name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, errors(2))
+ call h5dcreate_f(id, name, H5T_NATIVE_REAL, dspace_id, dset_id, errors(2))
 
  ! Write to file
- call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, errors(3))
+ call h5dwrite_f(dset_id, H5T_NATIVE_REAL, x, xshape, errors(3))
 
  ! Close dataset
  call h5dclose_f(dset_id, errors(4))
