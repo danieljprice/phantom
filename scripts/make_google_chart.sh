@@ -4,6 +4,8 @@
 #  Script to convert text data files to plots via
 #  google charts API.
 #
+#  Daniel Price 2018-2019
+#
 #--------------------------------------------------------
 #
 # generic routines to write code to print google charts
@@ -113,9 +115,11 @@ get_date_format()
   fi
   echo $format;
 }
-#
-# wrapper routine
-#
+
+#-------------------------------
+# main code to parse text files
+# and output as google chart
+#-------------------------------
 if [ $# -lt 3 ]; then
    echo "Usage: $0 datafile title subtitle label1 label2 label3..."
 else
