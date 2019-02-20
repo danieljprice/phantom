@@ -300,53 +300,49 @@ end subroutine get_dump_size
 !  (this is everything needed to restart a run)
 !+
 !-------------------------------------------------------------------
-subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
- use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
-                 lightcurve,store_temperature,use_dustgrowth
- use eos,   only:utherm,ieos,equationofstate,done_init_eos,init_eos
- use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
- use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bxyz,Bxyz_label,npart,npartoftype,maxtypes, &
-                 alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
-                 nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,&
-                 maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,maxBevol,&
-                 divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
-                 dustfrac_label,tstop_label,dustprop,dustprop_label,temperature,St,ndusttypes,ndustsmall
- use options,    only:use_dustfrac
- use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
-                 free_header,write_header,write_array,write_block_header
- use mpiutils,   only:reduce_mpi,reduceall_mpi
+subroutine write_fulldump(t,dumpfile,ntotal)
+ use output_hdf5,    only:open_hdf5file,close_hdf5file,write_hdf5_header,write_hdf5_arrays,outputfile_id
+ use dim,            only:maxp,maxvxyzu,gravity,maxalpha,mhd,mhd_nonideal,use_dust,use_dustgrowth
+ use dim,            only:phantom_version_major,phantom_version_minor,phantom_version_micro,store_temperature
+ use dim,            only:phantom_version_string
+ use gitinfo,        only:gitsha
+ use eos,            only:ieos,equationofstate,done_init_eos,init_eos,polyk,gamma,polyk2,qfacdisc,isink
+ use io,             only:real4,nprocs,fatal
+ use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
+ use part,           only:xyzh,vxyzu,Bevol,Bxyz,npart,npartoftype,maxtypes, &
+                          alphaind,rhoh,divBsymm,maxphase,iphase, &
+                          nptmass,xyzmh_ptmass,vxyz_ptmass,&
+                          get_pmass,abundance,&
+                          divcurlv,divcurlB,poten,dustfrac,deltav,tstop,&
+                          dustprop,temperature,St,ndustsmall,luminosity,&
+                          eta_nimhd,massoftype,hfact,Bextx,Bexty,Bextz,&
+                          ndustlarge,idust,grainsize,graindens,&
+                          h2chemistry,lightcurve,maxBevol,&
+                          ndivcurlB,ndivcurlv,ndusttypes
 #ifdef IND_TIMESTEPS
- use timestep,   only:dtmax
- use part,       only:ibin
+ use part,           only:ibin
 #endif
-#ifdef PRDRAG
- use lumin_nsdisc, only:beta
-#endif
-#ifdef LIGHTCURVE
- use part,  only:luminosity
-#endif
-#ifdef NONIDEALMHD
- use dim,  only:mhd_nonideal
- use part, only:eta_nimhd,eta_nimhd_label
-#endif
+ use mpiutils,       only:reduce_mpi,reduceall_mpi
+ use lumin_nsdisc,   only:beta
+ use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use setup_params,   only:rhozero
+ use timestep,       only:dtmax,C_cour,C_force
+ use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
+ use units,          only:udist,umass,utime,unit_Bfield
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
- integer,          intent(in), optional :: iorder(:)
- logical,          intent(in), optional :: sphNG
  integer(kind=8),  intent(in), optional :: ntotal
-
- integer, parameter :: isteps_sphNG = 0, iphase0 = 0
- integer(kind=8)    :: ilen(4)
- integer            :: nums(ndatatypes,4)
- integer            :: i,ipass,k,l,iu
- integer            :: ierr,ierrs(20)
- integer            :: nblocks,nblockarrays,narraylengths
- integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
- logical            :: sphNGdump, write_itype, use_gas
- character(len=lenid)  :: fileid
- type(dump_h)          :: hdr
- real, allocatable :: temparr(:)
- real :: ponrhoi,rhoi,spsoundi
+ integer           :: i
+ integer           :: ierr,nblocks
+ integer(kind=8)   :: nparttot,npartoftypetot(maxtypes)
+ logical           :: use_gas,ind_timesteps,const_av,prdrag,isothermal
+ real              :: ponrhoi,rhoi,spsoundi
+ real, allocatable, dimension(:) :: pressure,dtind,beta_pr
+ character(len=100):: fileident
+ character(len=10) :: datestring, timestring
+ character(len=30) :: string
+ character(len=*), parameter :: dumptype = 'fulldump'
+ integer :: error
 
 !
 !--collect global information from MPI threads
@@ -369,13 +365,21 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 #endif
  nblocks = nprocs
 
- sphNGdump = .false.
- if (present(sphNG)) then
-    sphNGdump = sphNG
-    if (sphNG) write(iprint,*) 'ERROR: sphNG output no longer supported'
- endif
-
- fileid = fileident('FT','Phantom')
+#ifdef IND_TIMESTEPS
+ ind_timesteps = .true.
+#else
+ ind_timesteps = .false.
+#endif
+#ifdef PRDRAG
+ prdrag = .true.
+#else
+ prdrag = .false.
+#endif
+#ifdef ISOTHERMAL
+ isothermal = .true.
+#else
+ isothermal = .false.
+#endif
 
  if (maxphase==maxp) then
     use_gas = .false.
@@ -383,184 +387,87 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
     use_gas = .true.
  endif
 
-!--number of blocks per thread : for hydro these are hydro + point masses
-!  block 3 is blank (rt in sphNG), block 4 is for mhd.
-!
- narraylengths = 2
- if (mhd) narraylengths = 4
-!
-!--open dumpfile
-!
- masterthread: if (id==master) then
+ allocate(pressure(nparttot),beta_pr(nparttot),dtind(nparttot))
 
-    write(iprint,"(/,/,'-------->   TIME = ',g12.4,"// &
-              "': full dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
-
-    call open_dumpfile_w(idump,dumpfile,fileid,ierr)
-    if (ierr /= 0) then
-       call error('write_fulldump','error creating new dumpfile '//trim(dumpfile))
-       return
+ ! Compute pressure and beta_pr array
+ if (.not.done_init_eos) call init_eos(ieos,ierr)
+ !$omp parallel do default(none) &
+ !$omp shared(xyzh,vxyzu,ieos,nparttot,pressure,beta_pr,temperature,use_gas,prdrag) &
+ !$omp private(i,ponrhoi,spsoundi,rhoi)
+ do i=1,int(nparttot)
+    rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
+    if (maxvxyzu >=4 ) then
+       if (store_temperature) then
+          ! cases where the eos stores temperature (ie Helmholtz)
+          call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),temperature(i))
+       else
+          call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+       endif
+    else
+       call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i))
     endif
-!
-!--single values
-!
-    hdr = allocate_header(nint=maxphead,nreal=maxphead,err=ierr)
-
-    call fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,ierr)
-    if (ierr /= 0) call warning('write_fulldump','error filling header arrays')
-
-    call write_header(idump,hdr,ierr)
-    if (ierr /= 0) call error('write_fulldump','error writing header to dumpfile')
-
-    call free_header(hdr,ierr)
-    if (ierr /= 0) call error('write_fulldump','error deallocating header')
-!
-!--arrays
-!
-!--total number of blocks
-!  each thread has up to 4 blocks (hydro variables, sink particles, radiative transfer and MHD)
-!  repeated nblocks times (once for each MPI process)
-!
-    nblockarrays = narraylengths*nblocks
-    write (idump, iostat=ierr) nblockarrays
-
- endif masterthread
-
- call start_threadwrite(id,idump,dumpfile)
-
- ierrs = 0
- nums = 0
- ilen = 0_8
- if (sphNGdump) then
-    write_itype = .true.
- else
-    write_itype = any(npartoftypetot(2:) > 0)
- endif
- do ipass=1,2
-    do k=1,ndatatypes
-       !
-       ! Block 1 arrays (hydrodynamics)
-       !
-       ilen(1) = int(npart,kind=8)
-       if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierrs(1),func=iamtype_int11)
-       call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierrs(2))
-       if (use_dustgrowth) then
-          call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierrs(3))
-          call write_array(1,St,'St',npart,k,ipass,idump,nums,ierrs(3))
-       endif
-       call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
-       if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(5))
-       if (use_dust) &
-          call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(7))
-       if (use_dust) call write_array(1,tstop,tstop_label,ndustsmall,npart,k,ipass,idump,nums,ierrs(8))
-       if (use_dustfrac) then
-          do l=1,ndustsmall
-             call write_array(1,deltav(:,l,:),deltav_label,3,npart,k,ipass,idump,nums,ierrs(10))
-          enddo
-       endif
-       if (store_temperature) call write_array(1,temperature,'T',npart,k,ipass,idump,nums,ierrs(12))
-
-       ! write pressure to file
-       if ((ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15) .and. k==i_real) then
-          if (.not. allocated(temparr)) allocate(temparr(npart))
-          if (.not.done_init_eos) call init_eos(ieos,ierr)
-          !$omp parallel do default(none) &
-          !$omp shared(xyzh,vxyzu,ieos,npart,temparr,temperature,use_gas) &
-          !$omp private(i,iu,ponrhoi,spsoundi,rhoi)
-          do i=1,npart
-             rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
-             if (maxvxyzu >=4 ) then
-                iu = 4
-                if (store_temperature) then
-                   ! cases where the eos stores temperature (ie Helmholtz)
-                   call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(iu,i),temperature(i))
-                else
-                   call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(iu,i))
-                endif
-             else
-                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i))
-             endif
-             temparr(i) = ponrhoi*rhoi
-          enddo
-          !$omp end parallel do
-          call write_array(1,temparr,'pressure',npart,k,ipass,idump,nums,ierrs(13))
-       endif
-
-       ! smoothing length written as real*4 to save disk space
-       call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,ierrs(14),use_kind=4,index=4)
-       if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,ierrs(15))
-       !if (maxalpha==maxp) then ! (uncomment this to write alphaloc to the full dumps)
-       !   call write_array(1,alphaind,(/'alpha ','alphaloc'/),2,npart,k,ipass,idump,nums,ierrs(10))
-       !endif
-       if (ndivcurlv >= 1) call write_array(1,divcurlv,divcurlv_label,ndivcurlv,npart,k,ipass,idump,nums,ierrs(16))
-       if (gravity .and. maxgrav==maxp) then
-          call write_array(1,poten,'poten',npart,k,ipass,idump,nums,ierrs(17))
-       endif
-#ifdef IND_TIMESTEPS
-       call write_array(1,dtmax/2**ibin(1:npart),'dt',npart,k,ipass,idump,nums,ierrs(18),use_kind=4)
-#endif
-#ifdef PRDRAG
-       if (k==i_real) then
-          if (.not.allocated(temparr)) allocate(temparr(npart))
-          do i=1,npart
-             temparr(i) = real4(beta(xyzh(1,i), xyzh(2,i), xyzh(3,i)))
-          enddo
-          call write_array(1,temparr,'beta_pr',npart,k,ipass,idump,nums,ierrs(19))
-       endif
-#endif
-#ifdef LIGHTCURVE
-       if (lightcurve) then
-          call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierrs(20))
-       endif
-#endif
-       if (any(ierrs(1:20) /= 0)) call error('write_dump','error writing hydro arrays')
-    enddo
-
-    do k=1,ndatatypes
-       !
-       ! Block 2 arrays (sink particles)
-       !
-       if (.not. sphNGdump .and. nptmass > 0 .and. nptmass <= maxptmass) then
-          ilen(2) = int(nptmass,kind=8)
-          call write_array(2,xyzmh_ptmass,xyzmh_ptmass_label,nsinkproperties,nptmass,k,ipass,idump,nums,ierrs(1))
-          call write_array(2,vxyz_ptmass,vxyz_ptmass_label,3,nptmass,k,ipass,idump,nums,ierrs(2))
-          if (any(ierrs(1:2) /= 0)) call error('write_dump','error writing sink particle arrays')
-       endif
-    enddo
-
-    do k=1,ndatatypes
-       !
-       ! Block 4 arrays (MHD)
-       !
-       if (mhd) then
-          ilen(4) = int(npart,kind=8)
-          call write_array(4,Bxyz,Bxyz_label,3,npart,k,ipass,idump,nums,ierrs(1))
-          if (maxBevol >= 4) then
-             call write_array(4,Bevol(4,:),'psi',npart,k,ipass,idump,nums,ierrs(1))
-          endif
-          if (ndivcurlB >= 1) then
-             call write_array(4,divcurlB,divcurlB_label,ndivcurlB,npart,k,ipass,idump,nums,ierrs(2))
-          else
-             call write_array(4,divBsymm,'divBsymm',npart,k,ipass,idump,nums,ierrs(2))
-          endif
-          if (any(ierrs(1:2) /= 0)) call error('write_dump','error writing MHD arrays')
-#ifdef NONIDEALMHD
-          if (mhd_nonideal) then
-             call write_array(4,eta_nimhd,eta_nimhd_label,4,npart,k,ipass,idump,nums,ierrs(1))
-             if (ierrs(1) /= 0) call error('write_dump','error writing non-ideal MHD arrays')
-          endif
-#endif
-       endif
-    enddo
-
-    if (ipass==1) call write_block_header(narraylengths,ilen,nums,idump,ierr)
+    pressure(i) = ponrhoi*rhoi
+    if (prdrag) beta_pr(i)  = real4(beta(xyzh(1,i), xyzh(2,i), xyzh(3,i)))
  enddo
- if (allocated(temparr)) deallocate(temparr)
+ !$omp end parallel do
 
- if (ierr /= 0) write(iprint,*) 'error whilst writing dumpfile '//trim(dumpfile)
+! Compute dtind array
+ if (ind_timesteps) dtind = dtmax/2**ibin(1:npart)
 
- close(unit=idump)
- call end_threadwrite(id)
+! Check if constant AV
+ if (maxp==maxalpha) then
+    const_av = .false.
+ else
+    const_av = .true.
+ endif
+
+ !
+ !--print date and time stamp in file header
+ !
+ call date_and_time(datestring,timestring)
+ datestring = datestring(7:8)//'/'//datestring(5:6)//'/'//datestring(1:4)
+ timestring = timestring(1:2)//':'//timestring(3:4)//':'//timestring(5:)
+
+ string = ' '
+ if (gravity) string = trim(string)//'+grav'
+ if (npartoftype(idust) > 0) string = trim(string)//'+dust'
+ if (use_dustfrac) string = trim(string)//'+1dust'
+ if (h2chemistry) string = trim(string)//'+H2chem'
+ if (lightcurve) string = trim(string)//'+lightcurve'
+ if (use_dustgrowth) string = trim(string)//'+dustgrowth'
+
+ fileident = dumptype//': '//'Phantom'//' '//trim(phantom_version_string)//' '//gitsha
+
+ if (mhd) then
+    if (maxBevol==4) then
+       fileident = trim(fileident)//' (mhd+clean'//trim(string)//')  : '//trim(datestring)//' '//trim(timestring)
+    else
+       fileident = trim(fileident)//' (mhd'//trim(string)//')  : '//trim(datestring)//' '//trim(timestring)
+    endif
+ else
+    fileident = trim(fileident)//' (hydro'//trim(string)//'): '//trim(datestring)//' '//trim(timestring)
+ endif
+
+ call open_hdf5file(trim(dumpfile)//'.h5',outputfile_id,error)
+ if (error/=0) call fatal('write_fulldump_hdf5','could not open file')
+ call write_hdf5_header(outputfile_id,error,trim(fileident),maxtypes,nblocks,isink,nptmass,ndustlarge,ndustsmall,idust,&
+                        phantom_version_major,phantom_version_minor,phantom_version_micro,                             &
+                        int(nparttot),int(npartoftypetot),iexternalforce,ieos,t,dtmax,gamma,rhozero,                   &
+                        polyk,hfact,tolh,C_cour,C_force,alpha,alphau,alphaB,polyk2,qfacdisc,                           &
+                        massoftype,Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,zmax,get_conserv,                        &
+                        etot_in,angtot_in,totmom_in,mdust_in,grainsize,graindens,udist,umass,utime,unit_Bfield         )
+ if (error/=0) call fatal('write_fulldump_hdf5','could not write header')
+ call write_hdf5_arrays(outputfile_id,error,xyzh,vxyzu,int(iphase),pressure,real(alphaind),dtind,real(poten),xyzmh_ptmass,&
+                        vxyz_ptmass,Bxyz,Bevol,real(divcurlB),real(divBsymm),eta_nimhd,                                   &
+                        dustfrac(1:ndusttypes,:),tstop(1:ndustsmall,:),deltav(:,1:ndustsmall,:),dustprop,st,              &
+                        abundance,temperature,real(divcurlv),real(luminosity),beta_pr,                                    &
+                        const_av,ind_timesteps,gravity,nptmass,mhd,maxBevol,ndivcurlB,mhd_nonideal,use_dust,              &
+                        use_dustfrac,use_dustgrowth,h2chemistry,store_temperature,ndivcurlv,lightcurve,prdrag,isothermal  )
+ if (error/=0) call fatal('write_fulldump_hdf5','could not write arrays')
+ call close_hdf5file(outputfile_id,error)
+ if (error/=0) call fatal('write_fulldump_hdf5','could not close file')
+
+ deallocate(pressure,beta_pr,dtind)
 
 end subroutine write_fulldump
 

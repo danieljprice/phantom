@@ -1471,7 +1471,11 @@ endif
 # HDF5 libraries (if required)
 #
 ifeq ($(HDF5), yes)
-    LDFLAGS+= -L$(HDF5ROOT)/lib -lhdf5
+ifeq (X$(HDF5ROOT), X)
+    HDF5ROOT= /usr/local/opt/hdf5
+endif
+    FFLAGS+= -I$(HDF5ROOT)/include
+    LDFLAGS+= -L$(HDF5ROOT)/lib -lhdf5 -lhdf5_fortran
     CCFLAGS+= -I$(HDF5ROOT)/include
     FPPFLAGS+= -DHAVE_HDF5
 endif
@@ -1533,6 +1537,12 @@ SRCCHEM= coolfunc.f90 fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2
 SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
 SRCEOS = ${SRCMESA} eos_helmholtz.f90 eos.F90
 
+ifeq ($(HDF5), yes)
+SRCREADWRITE_DUMPS= utils_outputhdf5.F90 output_hdf5.F90 readwrite_dumps_hdf5.F90
+else
+SRCREADWRITE_DUMPS= readwrite_dumps.F90
+endif
+
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
          utils_allocate.f90 \
@@ -1545,8 +1555,8 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          set_disc.F90 partinject.F90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM} \
          directsum.f90 prompting.f90 ${SRCDUST} set_dust.F90 set_dust_options.f90 \
          mpi_dens.F90 mpi_force.F90 stack.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
-         ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} memory.F90 utils_outputhdf5.F90 output_hdf5.F90 \
-         readwrite_dumps.F90 quitdump.f90 ptmass.F90 \
+         ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} memory.F90 ${SRCREADWRITE_DUMPS}  \
+         quitdump.f90 ptmass.F90 \
          readwrite_infile.F90 dens.F90 force.F90 deriv.F90 energies.F90 sort_particles.F90 \
          evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90 \
          geometry.f90 stretchmap.f90 density_profiles.f90 set_unifdis.f90 set_slab.f90 \
@@ -1559,7 +1569,7 @@ OBJECTS = $(OBJECTS1:.F90=.o)
 
 .PHONY: phantom
 phantom: checksystem checkparams $(OBJECTS) phantom.o
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJECTS) phantom.o $(LDFLAGS) $(LIBS)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJECTS) phantom.o $(LDFLAGS)
 ifeq ($(UNAME), Darwin)
 	dsymutil $(BINDIR)/$@
 endif
@@ -1607,22 +1617,13 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          utils_sphNG.f90 \
          commons.f90 timestep.f90 ${SRCFASTMATH} checkoptions.F90 \
          viscosity.f90 options.f90 prompting.f90 ${SRCDUST} \
-         utils_outputhdf5.F90 output_hdf5.F90 readwrite_dumps.F90
+         ${SRCREADWRITE_DUMPS}
 OBJDUMP1= $(SRCDUMP:.f90=.o)
 OBJDUMP= $(OBJDUMP1:.F90=.o)
 
 # make first file required for compiling utilities depend on math flags
 # to ensure that this is always up to date before compiling anything else.
 physcon.o: .make_mathflags
-
-LIBDIR  = /usr/local
-LIBHDF5 = -I$(LIBDIR)/include $(LIBDIR)/lib/libhdf5_fortran.a $(LIBDIR)/lib/libhdf5.a
-LIBZ    = /usr/lib/libz.dylib
-LIBSZ   = $(LIBDIR)/lib/libsz.a
-LIBS    = $(LIBHDF5) $(LIBZ) $(LIBSZ) -lm
-
-utils_outputhdf5.o: utils_outputhdf5.F90
-	$(FC) -c $(FFLAGS) ${FPP_PREFIX} $(FPPFLAGS) $(LIBS) $< -o $@
 
 #----------------------------------------------------
 # these are the sources for phantom setup utility
@@ -1661,6 +1662,11 @@ phantom-version.h:
 	@echo "#define PHANTOM_VERSION_MINOR $(PHANTOM_VERSION_MINOR)" >> $@
 	@echo "#define PHANTOM_VERSION_MICRO $(PHANTOM_VERSION_MICRO)" >> $@
 	@echo "#define PHANTOM_VERSION_STRING \"$(VERSION)\"" >> $@
+
+#----------------------------------------------------
+# run checkhdf5 for HDF5=yes
+#
+utils_outputhdf5.o: checkhdf5
 
 #----------------------------------------------------
 # these are the sources for the phantom2grid utility
