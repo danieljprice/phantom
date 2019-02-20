@@ -1,15 +1,15 @@
 module utils_outputhdf5
  use hdf5, only:h5screate_f,h5sclose_f,h5screate_simple_f,h5dcreate_f,h5dclose_f,h5dwrite_f
  use hdf5, only:HID_T,H5F_ACC_TRUNC_F,HSIZE_T,H5S_SCALAR_F,H5T_NATIVE_DOUBLE,H5T_NATIVE_INTEGER
-implicit none
+ implicit none
  public :: write_to_hdf5
 
  private
 
  interface write_to_hdf5
-    module procedure write_scalar, write_array_1d, write_array_2d, write_array_3d, write_array_4d, write_array_6d, &
-                     write_scalar_int, write_scalar_intkind8, write_intarray_1d, write_intarray_1dkind8, write_intarray_1dkind1, &
-                     write_array_1dkind4, write_array_2dkind4, write_string
+  module procedure write_scalar, write_array_1d, write_array_2d, write_array_3d, write_array_4d, write_array_6d, &
+                   write_scalar_int, write_scalar_intkind8, write_intarray_1d, write_intarray_1dkind8, write_intarray_1dkind1, &
+                   write_array_1dkind4, write_array_2dkind4, write_string
  end interface
 
 contains
