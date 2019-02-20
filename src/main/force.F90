@@ -2578,7 +2578,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     else ! not gas
 #ifdef DUSTGROWTH
        if (use_dust .and. iamdusti .and. iinterpol) then
-          dustprop(4,i) = fsum(idvi)
+          dustprop(4,i) = abs(fsum(idvi))
           St(i)         = fsum(iSti)
           csound(i)     = fsum(icsi)
        endif

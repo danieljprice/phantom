@@ -72,7 +72,7 @@ subroutine test_growth(ntests,npass)
  !
  ! check stokes number interpolation
  !
- call check_stokes_number(ntests,npass)
+ call check_interpolations(ntests,npass)
  call barrier_mpi()
 
  if (id==master) write(*,"(/,a)") '<-- DUSTGROWTH TEST COMPLETE'
@@ -449,7 +449,7 @@ subroutine test_growingbox(ntests,npass)
 
 end subroutine test_growingbox
 
-subroutine check_stokes_number(ntests,npass)
+subroutine check_interpolations(ntests,npass)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
@@ -468,7 +468,8 @@ subroutine check_stokes_number(ntests,npass)
  use timestep,       only:dtmax
  use io,             only:iverbose
  use mpiutils,       only:reduceall_mpi
- use physcon,        only:au,solarm
+ use physcon,        only:au,solarm,Ro
+ use viscosity,      only:shearparam
  use units,          only:set_units,unit_velocity
 
  integer,intent(inout) :: ntests,npass
@@ -482,18 +483,19 @@ subroutine check_stokes_number(ntests,npass)
  integer         :: j
  integer         :: k
  integer         :: nsteps
- integer         :: ncheck(12)
- integer         :: nerr(12)
+ integer         :: ncheck(24)
+ integer         :: nerr(24)
 
  real            :: deltax
  real            :: dz
  real            :: hfact
  real            :: totmass
  real            :: rhozero
- real            :: errmax(12)
+ real            :: errmax(24)
  real            :: dtext_dum
  real            :: Stcomp
  real            :: cscomp
+ real            :: s
  real            :: r
  real            :: sinit
  real            :: dens
@@ -502,9 +504,13 @@ subroutine check_stokes_number(ntests,npass)
  real            :: dt
  real            :: dtext
  real            :: dtnew
+ real            :: dv
+ real            :: Vt
 
  real, parameter :: tolst = 5.e-3
  real, parameter :: tolcs = 5.e-3
+ real, parameter :: tols  = 5.e-3
+ real, parameter :: toldv = 5.e-3
 
  sinit = 1.
  dens  = 1.
@@ -538,11 +544,8 @@ subroutine check_stokes_number(ntests,npass)
                      deltax,hfact,npart,xyzh,verbose=.false.)
     do i=npart_previous+1,npart
        call set_particle_type(i,itype)
-       if (itype == idust) then
-          vxyzu(:,i)       = 1.
-       else
-          vxyzu(:,i)       = 0.
-       endif
+       vxyzu(:,i)       = 0.
+       if (itype == idust) vxyzu(1,i) = 1.
        fext(:,i)           = 0.
        if (mhd) Bevol(:,i) = 0.
        if (use_dust) then
@@ -558,20 +561,22 @@ subroutine check_stokes_number(ntests,npass)
  !
  ! runtime parameters
  !
- ieos      = 1
- idrag     = 2
- ifrag     = -1
- gamma     = 1.
- alpha     = 0.
- alphamax  = 0.
- iverbose  = 0
- iinterpol = .true.
- dt        = 1.e-3
- nsteps    = 100
- tmax      = nsteps*dt
- ncheck(:) = 0
- nerr(:)   = 0
- errmax(:) = 0.
+ ieos       = 1
+ idrag      = 2
+ ifrag      = 0
+ gamma      = 1.
+ alpha      = 0.
+ alphamax   = 0.
+ iverbose   = 0
+ shearparam = 0.01
+ iinterpol  = .true.
+ dv         = 0.
+ dt         = 1.e-3
+ nsteps     = 100
+ tmax       = nsteps*dt
+ ncheck(:)  = 0
+ nerr(:)    = 0
+ errmax(:)  = 0.
 
  call init_step(npart,t,dtmax)
 
@@ -583,12 +588,10 @@ subroutine check_stokes_number(ntests,npass)
 
  do k=1,6
 
-    St(:)     = 0.
-    csound(:) = 0.
-    t         = 0.
-    K_code    = 10.**(-k+3.5)
-    cscomp    = (10.**(k/2.+1.))/unit_velocity
-    polyk     = cscomp**2.
+    t                   = 0.
+    K_code              = 10.**(-k+3.5)
+    cscomp              = (10.**(k/2.+1.))/unit_velocity
+    polyk               = cscomp**2.
 
     write(*,"(/,a,es8.1,a,es8.2,a)")'-------- St ~ ',1./(2.*K_code),' , cs = ',cscomp*unit_velocity,' m/s --------'
 
@@ -599,24 +602,40 @@ subroutine check_stokes_number(ntests,npass)
        t     = t + dt
        dtext = dt
        call step(npart,npart,t,dt,dtext,dtnew)
-
        do j=1,npart
           if (iamdust(iphase(j))) then
              r      = sqrt(xyzh(1,j)**2+xyzh(2,j)**2+xyzh(3,j)**2)
              Stcomp = 1./(2.*K_code*r**(1.5))
+             s      = sinit + rhozero/dens*sqrt(2.**(3./2.)*Ro*shearparam)*cscomp*sqrt(Stcomp)/(1+Stcomp)*t
+             Vt = sqrt(sqrt(2.)*Ro*shearparam)*cscomp
+             dv     = exp(-2.*K_code*t)/Vt
              call checkvalbuf(St(j)/Stcomp,1.,tolst,'St',nerr(k),ncheck(k),errmax(k))
              call checkvalbuf(csound(j)/cscomp,1.,tolcs,'csound',nerr(k+6),ncheck(k+6),errmax(k+6))
+             !call checkvalbuf(dustprop(4,j)/dv,1.,toldv,'dv',nerr(k+12),ncheck(k+12),errmax(k+12))
+             call checkvalbuf(dustprop(1,j)/s,1.,tols,'size',nerr(k+18),ncheck(k+18),errmax(k+18))
           endif
        enddo
     enddo
     call checkvalbuf_end('Stokes number interpolation match exact solution',ncheck(k),nerr(k),errmax(k),tolst)
-    call checkvalbuf_end('Sound speed interpolation match exact solution',ncheck(k+6),nerr(k+6),errmax(k+6),tolcs)
+    call checkvalbuf_end('sound speed interpolation match exact solution',ncheck(k+6),nerr(k+6),errmax(k+6),tolcs)
+    !call checkvalbuf_end('dv interpolation match exact solution',ncheck(k+12),nerr(k+12),errmax(k+12),toldv)
+    call checkvalbuf_end('size integration match exact solution',ncheck(k+18),nerr(k+18),errmax(k+18),tols)
+
+    do j=1,npart
+       St(j)            = 0.
+       vxyzu(:,j)       = 0.
+       if (iamdust(iphase(j))) then
+          dustprop(1,j) = sinit
+          csound(j)     = 0.
+          vxyzu(1,j)    = 1.
+       endif
+    enddo
  enddo
 
  ntests = ntests + 1
- if (all(nerr(1:12)==0)) npass = npass + 1
+ if (all(nerr(1:24)==0)) npass = npass + 1
 
-end subroutine check_stokes_number
+end subroutine check_interpolations
 !---------------------------------------------------
 !+
 !  write an output file with x, y, z ,
