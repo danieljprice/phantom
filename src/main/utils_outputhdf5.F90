@@ -2,14 +2,14 @@ module utils_outputhdf5
  use hdf5, only:h5open_f,h5close_f,h5fcreate_f,h5fclose_f
  use hdf5, only:h5screate_f,h5sclose_f,h5screate_simple_f,h5dcreate_f,h5dclose_f,h5dwrite_f
  use hdf5, only:h5gcreate_f,h5gclose_f
- use hdf5, only:HID_T,H5F_ACC_TRUNC_F,HSIZE_T,H5S_SCALAR_F,H5T_NATIVE_DOUBLE,H5T_NATIVE_INTEGER
+ use hdf5, only:HID_T,H5F_ACC_TRUNC_F,HSIZE_T,H5S_SCALAR_F,H5T_NATIVE_REAL,H5T_NATIVE_DOUBLE,H5T_NATIVE_INTEGER
  implicit none
  public :: write_to_hdf5, open_hdf5file, close_hdf5file, HID_T, h5gcreate_f, h5gclose_f
 
  private
 
  interface write_to_hdf5
-  module procedure write_scalar,                                                      & ! Reals
+  module procedure write_scalar, write_scalarkind4,                                   & ! Reals
                    write_array_1d, write_array_2d, write_array_3d,                    & ! Real(8) arrays
                    write_array_1dkind4, write_array_2dkind4,                          & ! Real(4) arrays
                    write_scalar_int, write_scalar_intkind8,                           & ! Integers
@@ -67,6 +67,36 @@ subroutine write_scalar(x, name, id, error)
  error = maxval(abs(errors))
 
 end subroutine write_scalar
+
+subroutine write_scalarkind4(x, name, id, error)
+ real(kind=4),           intent(in) :: x
+ character(*),   intent(in) :: name
+ integer(HID_T), intent(in) :: id
+ integer,        intent(out):: error
+
+ integer(HSIZE_T), parameter  :: xshape(0) = 0
+ integer(HID_T)    :: dspace_id
+ integer(HID_T)    :: dset_id
+ integer :: errors(5)
+
+ ! Create dataspace
+ call h5screate_f(H5S_SCALAR_F, dspace_id, errors(1))
+
+ ! Create dataset in file
+ call h5dcreate_f(id, name, H5T_NATIVE_REAL, dspace_id, dset_id, errors(2))
+
+ ! Write to file
+ call h5dwrite_f(dset_id, H5T_NATIVE_REAL, x, xshape, errors(3))
+
+ ! Close dataset
+ call h5dclose_f(dset_id, errors(4))
+
+ ! Closet dataspace
+ call h5sclose_f(dspace_id, errors(5))
+
+ error = maxval(abs(errors))
+
+end subroutine write_scalarkind4
 
 subroutine write_array_1d(x, name, id, error)
  real,           intent(in) :: x(:)
