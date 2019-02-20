@@ -1624,9 +1624,6 @@ LIBS    = $(LIBHDF5) $(LIBZ) $(LIBSZ) -lm
 utils_outputhdf5.o: utils_outputhdf5.F90
 	$(FC) -c $(FFLAGS) ${FPP_PREFIX} $(FPPFLAGS) $(LIBS) $< -o $@
 
-output_hdf5.o: output_hdf5.F90
-	$(FC) -c $(FFLAGS) ${FPP_PREFIX} $(FPPFLAGS) $(LIBS) $< -o $@
-
 #----------------------------------------------------
 # these are the sources for phantom setup utility
 #

@@ -1,33 +1,18 @@
 module output_hdf5
- use hdf5,             only:HID_T,h5open_f,h5fcreate_f,H5F_ACC_TRUNC_F,h5fclose_f,h5close_f,h5gcreate_f,h5gclose_f
  use utils_outputhdf5, only:write_to_hdf5
+ use utils_outputhdf5, only:open_hdf5file,close_hdf5file
+ use utils_outputhdf5, only:HID_T,h5gcreate_f,h5gclose_f
+
  implicit none
- public :: open_hdf5file, close_hdf5file, write_hdf5_header, write_hdf5_arrays
+
+ public :: write_hdf5_header,write_hdf5_arrays
+ public :: open_hdf5file,close_hdf5file
 
  integer(HID_T), public :: outputfile_id
 
  private
 
 contains
-
-subroutine open_hdf5file(filename,file_id,error)
- character(len=*), intent(in)  :: filename
- integer(HID_T),   intent(out) :: file_id
- integer,          intent(out) :: error
- integer :: errors(2)
- call h5open_f(errors(1))                                     ! Initialise Fortran h5 interfaces
- call h5fcreate_f(filename,H5F_ACC_TRUNC_F,file_id,errors(2)) ! Create file
- error = maxval(abs(errors))
-end subroutine open_hdf5file
-
-subroutine close_hdf5file(file_id,error)
- integer(HID_T), intent(in) :: file_id
- integer, intent(out) :: error
- integer :: errors(2)
- call h5fclose_f(file_id,errors(2)) ! Close the file
- call h5close_f(errors(1))          ! Close Fortran h5 interfaces
- error = maxval(abs(errors))
-end subroutine close_hdf5file
 
 subroutine write_hdf5_header(file_id,error,fileident,maxtypes,nblocks,isink,nptmass,ndustlarge,ndustsmall,idust,  &
                             phantom_version_major,phantom_version_minor,phantom_version_micro,                    &

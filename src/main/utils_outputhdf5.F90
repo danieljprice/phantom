@@ -1,8 +1,10 @@
 module utils_outputhdf5
+ use hdf5, only:h5open_f,h5close_f,h5fcreate_f,h5fclose_f
  use hdf5, only:h5screate_f,h5sclose_f,h5screate_simple_f,h5dcreate_f,h5dclose_f,h5dwrite_f
+ use hdf5, only:h5gcreate_f,h5gclose_f
  use hdf5, only:HID_T,H5F_ACC_TRUNC_F,HSIZE_T,H5S_SCALAR_F,H5T_NATIVE_DOUBLE,H5T_NATIVE_INTEGER
  implicit none
- public :: write_to_hdf5
+ public :: write_to_hdf5, open_hdf5file, close_hdf5file, HID_T, h5gcreate_f, h5gclose_f
 
  private
 
@@ -13,6 +15,25 @@ module utils_outputhdf5
  end interface
 
 contains
+
+subroutine open_hdf5file(filename,file_id,error)
+ character(len=*), intent(in)  :: filename
+ integer(HID_T),   intent(out) :: file_id
+ integer,          intent(out) :: error
+ integer :: errors(2)
+ call h5open_f(errors(1))                                     ! Initialise Fortran h5 interfaces
+ call h5fcreate_f(filename,H5F_ACC_TRUNC_F,file_id,errors(2)) ! Create file
+ error = maxval(abs(errors))
+end subroutine open_hdf5file
+
+subroutine close_hdf5file(file_id,error)
+ integer(HID_T), intent(in) :: file_id
+ integer, intent(out) :: error
+ integer :: errors(2)
+ call h5fclose_f(file_id,errors(2)) ! Close the file
+ call h5close_f(errors(1))          ! Close Fortran h5 interfaces
+ error = maxval(abs(errors))
+end subroutine close_hdf5file
 
 subroutine write_scalar(x, name, id, error)
  real,           intent(in) :: x
