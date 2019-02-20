@@ -1,7 +1,7 @@
 module output_hdf5
  use utils_outputhdf5, only:write_to_hdf5
- use utils_outputhdf5, only:open_hdf5file,close_hdf5file
- use utils_outputhdf5, only:HID_T,h5gcreate_f,h5gclose_f
+ use utils_outputhdf5, only:open_hdf5file,close_hdf5file,open_hdf5group,close_hdf5group
+ use utils_outputhdf5, only:HID_T
 
  implicit none
 
@@ -36,7 +36,7 @@ subroutine write_hdf5_header(file_id,error,fileident,maxtypes,nblocks,isink,nptm
  errors(:) = 0
 
  ! Create header group
- call h5gcreate_f(file_id,'header',group_id,errors(1))
+ call open_hdf5group(file_id,'header',group_id,errors(1))
 
  ! Write things to header group
  call write_to_hdf5(fileident,'fileident',group_id,errors(2))
@@ -93,7 +93,7 @@ subroutine write_hdf5_header(file_id,error,fileident,maxtypes,nblocks,isink,nptm
  call write_to_hdf5(unit_Bfield,'umagfd',group_id,errors(52))
 
  ! Close the header group
- call h5gclose_f(group_id, errors(53))
+ call close_hdf5group(group_id, errors(53))
 
  error = maxval(abs(errors))
 
@@ -123,7 +123,7 @@ subroutine write_hdf5_arrays(file_id,error,xyzh,vxyzu,iphase,pressure,alphaind,d
  errors(:) = 0
 
  ! Create particles group
- call h5gcreate_f(file_id,'particles',group_id,errors(1))
+ call open_hdf5group(file_id,'particles',group_id,errors(1))
 
  ! Main arrays
  call write_to_hdf5(xyzh(1:3,:),'xyz',group_id,errors(2))
@@ -182,10 +182,10 @@ subroutine write_hdf5_arrays(file_id,error,xyzh,vxyzu,iphase,pressure,alphaind,d
  if (prdrag)     call write_to_hdf5(real(beta_pr,kind=4),'beta_pr',group_id,errors(33))
 
  ! Close the particles group
- call h5gclose_f(group_id, errors(34))
+ call close_hdf5group(group_id, errors(34))
 
  ! Create sink group
- call h5gcreate_f(file_id,'sinks',group_id,errors(35))
+ call open_hdf5group(file_id,'sinks',group_id,errors(35))
  if (nptmass > 0) then
     call write_to_hdf5(xyzmh_ptmass(1:3,1:nptmass),'xyz',group_id,errors(36))
     call write_to_hdf5(xyzmh_ptmass(4,1:nptmass),'m',group_id,errors(37))
@@ -197,7 +197,7 @@ subroutine write_hdf5_arrays(file_id,error,xyzh,vxyzu,iphase,pressure,alphaind,d
     call write_to_hdf5(vxyz_ptmass(:,1:nptmass),'vxyz',group_id,errors(43))
  endif
  ! Close the sink group
- call h5gclose_f(group_id, errors(44))
+ call close_hdf5group(group_id, errors(44))
 
  error = maxval(abs(errors))
 

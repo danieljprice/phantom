@@ -1,10 +1,12 @@
 module utils_outputhdf5
- use hdf5, only:h5open_f,h5close_f,h5fcreate_f,h5fclose_f
+ use hdf5, only:h5open_f,h5close_f,h5fcreate_f,h5fclose_f,h5gcreate_f,h5gclose_f
  use hdf5, only:h5screate_f,h5sclose_f,h5screate_simple_f,h5dcreate_f,h5dclose_f,h5dwrite_f
- use hdf5, only:h5gcreate_f,h5gclose_f
  use hdf5, only:HID_T,H5F_ACC_TRUNC_F,HSIZE_T,H5S_SCALAR_F,H5T_NATIVE_REAL,H5T_NATIVE_DOUBLE,H5T_NATIVE_INTEGER
+
  implicit none
- public :: write_to_hdf5, open_hdf5file, close_hdf5file, HID_T, h5gcreate_f, h5gclose_f
+
+ public :: write_to_hdf5, open_hdf5file, close_hdf5file, open_hdf5group, close_hdf5group
+ public :: HID_T
 
  private
 
@@ -15,7 +17,15 @@ module utils_outputhdf5
                    write_scalar_int, write_scalar_intkind8,                           & ! Integers
                    write_intarray_1d, write_intarray_1dkind8, write_intarray_1dkind1, & ! Integer arrays
                    write_string                                                         ! Strings
- end interface
+ end interface write_to_hdf5
+
+ interface open_hdf5group
+  module procedure h5gcreate_f
+ end interface open_hdf5group
+
+ interface close_hdf5group
+  module procedure h5gclose_f
+ end interface close_hdf5group
 
 contains
 
