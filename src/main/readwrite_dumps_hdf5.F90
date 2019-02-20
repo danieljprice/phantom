@@ -126,54 +126,6 @@ end subroutine get_blocklimits
 
 !--------------------------------------------------------------------
 !+
-!  contruct header string based on compile-time options
-!  these are for information only (ie. not important for restarting)
-!+
-!--------------------------------------------------------------------
-character(len=lenid) function fileident(firstchar,codestring)
- use part,    only:h2chemistry,mhd,maxBevol,npartoftype,idust,gravity,lightcurve
- use options, only:use_dustfrac
- use dim,     only:use_dustgrowth,phantom_version_string
- use gitinfo, only:gitsha
- character(len=2), intent(in) :: firstchar
- character(len=*), intent(in), optional :: codestring
- character(len=10) :: datestring, timestring
- character(len=30) :: string
-!
-!--print date and time stamp in file header
-!
- call date_and_time(datestring,timestring)
- datestring = datestring(7:8)//'/'//datestring(5:6)//'/'//datestring(1:4)
- timestring = timestring(1:2)//':'//timestring(3:4)//':'//timestring(5:)
-
- string = ' '
- if (gravity) string = trim(string)//'+grav'
- if (npartoftype(idust) > 0) string = trim(string)//'+dust'
- if (use_dustfrac) string = trim(string)//'+1dust'
- if (h2chemistry) string = trim(string)//'+H2chem'
- if (lightcurve) string = trim(string)//'+lightcurve'
- if (use_dustgrowth) string = trim(string)//'+dustgrowth'
-
- if (present(codestring)) then
-    fileident = firstchar//':'//trim(codestring)//':'//trim(phantom_version_string)//':'//gitsha
- else
-    fileident = firstchar//':Phantom'//':'//trim(phantom_version_string)//':'//gitsha
- endif
-
- if (mhd) then
-    if (maxBevol==4) then
-       fileident = trim(fileident)//' (mhd+clean'//trim(string)//')  : '//trim(datestring)//' '//trim(timestring)
-    else
-       fileident = trim(fileident)//' (mhd'//trim(string)//')  : '//trim(datestring)//' '//trim(timestring)
-    endif
- else
-    fileident = trim(fileident)//' (hydro'//trim(string)//'): '//trim(datestring)//' '//trim(timestring)
- endif
-
-end function fileident
-
-!--------------------------------------------------------------------
-!+
 !  extract various options used in Phantom from the fileid string
 !+
 !--------------------------------------------------------------------
