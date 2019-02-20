@@ -720,18 +720,20 @@ subroutine write_fulldump_hdf5(t,dumpfile,ntotal)
 
  call open_hdf5file(trim(dumpfile)//'.h5',outputfile_id,error)
  if (error/=0) call fatal('write_fulldump_hdf5','could not open file')
- call write_hdf5_header(outputfile_id,trim(fileident),maxtypes,nblocks,isink,nptmass,ndustlarge,ndustsmall,idust,&
-                        phantom_version_major,phantom_version_minor,phantom_version_micro,                       &
-                        int(nparttot),int(npartoftypetot),iexternalforce,ieos,t,dtmax,gamma,rhozero,             &
-                        polyk,hfact,tolh,C_cour,C_force,alpha,alphau,alphaB,polyk2,qfacdisc,                     &
-                        massoftype,Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,zmax,get_conserv,                  &
-                        etot_in,angtot_in,totmom_in,mdust_in,grainsize,graindens,udist,umass,utime,unit_Bfield)
- call write_hdf5_arrays(outputfile_id,xyzh,vxyzu,int(iphase),pressure,real(alphaind),dtind,real(poten),xyzmh_ptmass,    &
-                        vxyz_ptmass,Bxyz,Bevol,real(divcurlB),real(divBsymm),eta_nimhd,                                 &
-                        dustfrac(1:ndusttypes,:),tstop(1:ndustsmall,:),deltav(:,1:ndustsmall,:),dustprop,st,            &
-                        abundance,temperature,real(divcurlv),real(luminosity),beta_pr,                                  &
-                        const_av,ind_timesteps,gravity,nptmass,mhd,maxBevol,ndivcurlB,mhd_nonideal,use_dust,            &
-                        use_dustfrac,use_dustgrowth,h2chemistry,store_temperature,ndivcurlv,lightcurve,prdrag,isothermal)
+ call write_hdf5_header(outputfile_id,error,trim(fileident),maxtypes,nblocks,isink,nptmass,ndustlarge,ndustsmall,idust,&
+                        phantom_version_major,phantom_version_minor,phantom_version_micro,                             &
+                        int(nparttot),int(npartoftypetot),iexternalforce,ieos,t,dtmax,gamma,rhozero,                   &
+                        polyk,hfact,tolh,C_cour,C_force,alpha,alphau,alphaB,polyk2,qfacdisc,                           &
+                        massoftype,Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,zmax,get_conserv,                        &
+                        etot_in,angtot_in,totmom_in,mdust_in,grainsize,graindens,udist,umass,utime,unit_Bfield         )
+ if (error/=0) call fatal('write_fulldump_hdf5','could not write header')
+ call write_hdf5_arrays(outputfile_id,error,xyzh,vxyzu,int(iphase),pressure,real(alphaind),dtind,real(poten),xyzmh_ptmass,&
+                        vxyz_ptmass,Bxyz,Bevol,real(divcurlB),real(divBsymm),eta_nimhd,                                   &
+                        dustfrac(1:ndusttypes,:),tstop(1:ndustsmall,:),deltav(:,1:ndustsmall,:),dustprop,st,              &
+                        abundance,temperature,real(divcurlv),real(luminosity),beta_pr,                                    &
+                        const_av,ind_timesteps,gravity,nptmass,mhd,maxBevol,ndivcurlB,mhd_nonideal,use_dust,              &
+                        use_dustfrac,use_dustgrowth,h2chemistry,store_temperature,ndivcurlv,lightcurve,prdrag,isothermal  )
+ if (error/=0) call fatal('write_fulldump_hdf5','could not write arrays')
  call close_hdf5file(outputfile_id,error)
  if (error/=0) call fatal('write_fulldump_hdf5','could not close file')
 

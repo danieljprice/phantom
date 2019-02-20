@@ -29,13 +29,14 @@ subroutine close_hdf5file(file_id,error)
  error = maxval(abs(errors))
 end subroutine close_hdf5file
 
-subroutine write_hdf5_header(file_id,fileident,maxtypes,nblocks,isink,nptmass,ndustlarge,ndustsmall,idust,                  &
+subroutine write_hdf5_header(file_id,error,fileident,maxtypes,nblocks,isink,nptmass,ndustlarge,ndustsmall,idust,  &
                             phantom_version_major,phantom_version_minor,phantom_version_micro,                    &
                             nparttot,npartoftypetot,iexternalforce,ieos,t,dtmax,gamma,rhozero,                    &
                             polyk,hfact,tolh,C_cour,C_force,alpha,alphau,alphaB,polyk2,qfacdisc,                  &
                             massoftype,Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,zmax,get_conserv,               &
                             etot_in,angtot_in,totmom_in,mdust_in,grainsize,graindens,udist,umass,utime,unit_Bfield)
  integer(HID_T),   intent(in) :: file_id
+ integer,          intent(out):: error
  character(len=*), intent(in) :: fileident
  integer, intent(in) :: maxtypes,              & !integer (default)
                         nblocks,               & !integer (default)
@@ -153,15 +154,19 @@ subroutine write_hdf5_header(file_id,fileident,maxtypes,nblocks,isink,nptmass,nd
 
  ! Close the header group
  call h5gclose_f(group_id, errors(53))
+
+ error = maxval(abs(errors))
+
 end subroutine write_hdf5_header
 
-subroutine write_hdf5_arrays(file_id,xyzh,vxyzu,iphase,pressure,alphaind,dtind,poten,xyzmh_ptmass,vxyz_ptmass, &
-                             Bxyz,Bevol,divcurlB,divBsymm,eta_nimhd,dustfrac,tstop,deltav,dustprop,st,         &
-                             abundance,temperature,divcurlv,luminosity,beta_pr,                                &
-                             const_av,ind_timesteps,gravity,nptmass,mhd,maxBevol,ndivcurlB,mhd_nonideal,       &
-                             use_dust,use_dustfrac,use_dustgrowth,h2chemistry,store_temperature,ndivcurlv,     &
-                             lightcurve,prdrag,isothermal                                                      )
+subroutine write_hdf5_arrays(file_id,error,xyzh,vxyzu,iphase,pressure,alphaind,dtind,poten,xyzmh_ptmass,vxyz_ptmass, &
+                             Bxyz,Bevol,divcurlB,divBsymm,eta_nimhd,dustfrac,tstop,deltav,dustprop,st,               &
+                             abundance,temperature,divcurlv,luminosity,beta_pr,                                      &
+                             const_av,ind_timesteps,gravity,nptmass,mhd,maxBevol,ndivcurlB,mhd_nonideal,             &
+                             use_dust,use_dustfrac,use_dustgrowth,h2chemistry,store_temperature,ndivcurlv,           &
+                             lightcurve,prdrag,isothermal                                                            )
  integer(HID_T),         intent(in) :: file_id
+ integer,                intent(out):: error
  real, dimension(:),     intent(in) :: pressure,dtind,poten,beta_pr,divBsymm,st,temperature,luminosity
  real, dimension(:,:),   intent(in) :: xyzh,vxyzu,alphaind,Bxyz,Bevol,divcurlB,eta_nimhd,xyzmh_ptmass,vxyz_ptmass
  real, dimension(:,:),   intent(in) :: dustfrac,tstop,dustprop,abundance,divcurlv
@@ -251,6 +256,8 @@ subroutine write_hdf5_arrays(file_id,xyzh,vxyzu,iphase,pressure,alphaind,dtind,p
  endif
  ! Close the sink group
  call h5gclose_f(group_id, errors(44))
+
+ error = maxval(abs(errors))
 
 end subroutine write_hdf5_arrays
 
