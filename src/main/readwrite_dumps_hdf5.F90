@@ -457,10 +457,10 @@ subroutine write_fulldump(t,dumpfile,ntotal)
                         massoftype,Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,zmax,get_conserv,                        &
                         etot_in,angtot_in,totmom_in,mdust_in,grainsize,graindens,udist,umass,utime,unit_Bfield         )
  if (error/=0) call fatal('write_fulldump_hdf5','could not write header')
- call write_hdf5_arrays(outputfile_id,error,xyzh,vxyzu,int(iphase),pressure,real(alphaind),dtind,real(poten),xyzmh_ptmass,&
-                        vxyz_ptmass,Bxyz,Bevol,real(divcurlB),real(divBsymm),eta_nimhd,                                   &
+ call write_hdf5_arrays(outputfile_id,error,xyzh,vxyzu,int(iphase),pressure,alphaind,dtind,poten,xyzmh_ptmass,            &
+                        vxyz_ptmass,Bxyz,Bevol,divcurlB,divBsymm,eta_nimhd,                                               &
                         dustfrac(1:ndusttypes,:),tstop(1:ndustsmall,:),deltav(:,1:ndustsmall,:),dustprop,st,              &
-                        abundance,temperature,real(divcurlv),real(luminosity),beta_pr,                                    &
+                        abundance,temperature,divcurlv,luminosity,beta_pr,                                                &
                         const_av,ind_timesteps,gravity,nptmass,mhd,maxBevol,ndivcurlB,mhd_nonideal,use_dust,              &
                         use_dustfrac,use_dustgrowth,h2chemistry,store_temperature,ndivcurlv,lightcurve,prdrag,isothermal  )
  if (error/=0) call fatal('write_fulldump_hdf5','could not write arrays')

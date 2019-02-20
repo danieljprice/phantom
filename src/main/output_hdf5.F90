@@ -152,10 +152,12 @@ subroutine write_hdf5_arrays(file_id,error,xyzh,vxyzu,iphase,pressure,alphaind,d
                              lightcurve,prdrag,isothermal                                                            )
  integer(HID_T),         intent(in) :: file_id
  integer,                intent(out):: error
- real, dimension(:),     intent(in) :: pressure,dtind,poten,beta_pr,divBsymm,st,temperature,luminosity
- real, dimension(:,:),   intent(in) :: xyzh,vxyzu,alphaind,Bxyz,Bevol,divcurlB,eta_nimhd,xyzmh_ptmass,vxyz_ptmass
- real, dimension(:,:),   intent(in) :: dustfrac,tstop,dustprop,abundance,divcurlv
+ real, dimension(:),     intent(in) :: pressure,dtind,beta_pr,st,temperature
+ real, dimension(:,:),   intent(in) :: xyzh,vxyzu,Bxyz,Bevol,eta_nimhd,xyzmh_ptmass,vxyz_ptmass
+ real, dimension(:,:),   intent(in) :: dustfrac,tstop,dustprop,abundance
  real, dimension(:,:,:), intent(in) :: deltav
+ real(kind=4), dimension(:),   intent(in) :: poten,divBsymm,luminosity
+ real(kind=4), dimension(:,:), intent(in) :: alphaind,divcurlv,divcurlB
  integer, intent(in) :: iphase(:)
  integer, intent(in) :: nptmass,maxBevol,ndivcurlB,ndivcurlv
  logical, intent(in) :: const_av,ind_timesteps,gravity,mhd,mhd_nonideal,use_dust,use_dustfrac,use_dustgrowth
