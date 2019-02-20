@@ -172,14 +172,14 @@ subroutine write_hdf5_arrays(file_id,error,xyzh,vxyzu,iphase,pressure,alphaind,d
 
  ! Main arrays
  call write_to_hdf5(xyzh(1:3,:),'xyz',group_id,errors(2))
- call write_to_hdf5(xyzh(4,:),'h',group_id,errors(3))
+ call write_to_hdf5(real(xyzh(4,:),kind=4),'h',group_id,errors(3)) ! Write smoothing length in single precision to save disc space
  call write_to_hdf5(vxyzu(1:3,:),'vxyz',group_id,errors(4))
  if (.not.isothermal) call write_to_hdf5(vxyzu(4,:),'u',group_id,errors(5))
  call write_to_hdf5(iphase,'itype',group_id,errors(6))
  call write_to_hdf5(pressure,'pressure',group_id,errors(7))
 
- if (.not.const_av)  call write_to_hdf5(alphaind,'alpha',group_id,errors(8)) ! Viscosity
- if (ind_timesteps)  call write_to_hdf5(dtind,'dt',group_id,errors(9))       ! Individual timesteps
+ if (.not.const_av)  call write_to_hdf5(alphaind,'alpha',group_id,errors(8))        ! Viscosity
+ if (ind_timesteps)  call write_to_hdf5(real(dtind,kind=4),'dt',group_id,errors(9)) ! Individual timesteps
  if (gravity)        call write_to_hdf5(poten,'poten',group_id,errors(10))
 
  ! MHD arrays
@@ -224,7 +224,7 @@ subroutine write_hdf5_arrays(file_id,error,xyzh,vxyzu,iphase,pressure,alphaind,d
     if (ndivcurlv>=4) call write_to_hdf5(divcurlv(2:4,:),'curlvxyz',group_id,errors(31))
  endif
  if (lightcurve) call write_to_hdf5(luminosity,'luminosity',group_id,errors(32))
- if (prdrag)     call write_to_hdf5(beta_pr,'beta_pr',group_id,errors(33))
+ if (prdrag)     call write_to_hdf5(real(beta_pr,kind=4),'beta_pr',group_id,errors(33))
 
  ! Close the particles group
  call h5gclose_f(group_id, errors(34))

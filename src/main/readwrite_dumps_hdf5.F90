@@ -307,7 +307,7 @@ subroutine write_fulldump(t,dumpfile,ntotal)
  use dim,            only:phantom_version_string
  use gitinfo,        only:gitsha
  use eos,            only:ieos,equationofstate,done_init_eos,init_eos,polyk,gamma,polyk2,qfacdisc,isink
- use io,             only:real4,nprocs,fatal
+ use io,             only:nprocs,fatal
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
  use part,           only:xyzh,vxyzu,Bevol,Bxyz,npart,npartoftype,maxtypes, &
                           alphaind,rhoh,divBsymm,maxphase,iphase, &
@@ -407,7 +407,7 @@ subroutine write_fulldump(t,dumpfile,ntotal)
        call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i))
     endif
     pressure(i) = ponrhoi*rhoi
-    if (prdrag) beta_pr(i)  = real4(beta(xyzh(1,i), xyzh(2,i), xyzh(3,i)))
+    if (prdrag) beta_pr(i)  = beta(xyzh(1,i), xyzh(2,i), xyzh(3,i))
  enddo
  !$omp end parallel do
 
