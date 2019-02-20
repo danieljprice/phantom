@@ -127,7 +127,7 @@ subroutine init_growth(ierr)
        call error('init_growth','shearparam should be used for growth when irealvisc /= 1',var='shearparam',val=shearparam)
        ierr = 4
     endif
-endif
+ endif
 
 end subroutine init_growth
 
