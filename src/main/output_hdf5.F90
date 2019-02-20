@@ -23,55 +23,13 @@ subroutine write_hdf5_header(file_id,error,fileident,maxtypes,nblocks,isink,nptm
  integer(HID_T),   intent(in) :: file_id
  integer,          intent(out):: error
  character(len=*), intent(in) :: fileident
- integer, intent(in) :: maxtypes,              & !integer (default)
-                        nblocks,               & !integer (default)
-                        isink,                 & !integer (default)
-                        nptmass,               & !integer (default)
-                        ndustlarge,            & !integer (default)
-                        ndustsmall,            & !integer (default)
-                        idust,                 & !integer (default)
-                        phantom_version_major, & !integer (default)
-                        phantom_version_minor, & !integer (default)
-                        phantom_version_micro, & !integer (default)
-                        nparttot,              & !int*8
-                        npartoftypetot(:),     & !int(:)*8
-                        iexternalforce,        & !int*4
-                        ieos                     !int*4
- real, intent(in) :: t,                     & !real (default)
-                     dtmax,                 & !real (default)
-                     gamma,                 & !real (default)
-                     rhozero,               & !real (default)
-                     polyk,                 & !real (default)
-                     hfact,                 & !real (default)
-                     tolh,                  & !real (default)
-                     C_cour,                & !real (default)
-                     C_force,               & !real (default)
-                     alpha,                 & !real (default)
-                     alphau,                & !real (default)
-                     alphaB,                & !real (default)
-                     polyk2,                & !real (default)
-                     qfacdisc,              & !real (default)
-                     massoftype(:),         & !real(:) (default)
-                     Bextx,                 & !real (default)
-                     Bexty,                 & !real (default)
-                     Bextz,                 & !real (default)
-                     xmin,                  & !real (default)
-                     xmax,                  & !real (default)
-                     ymin,                  & !real (default)
-                     ymax,                  & !real (default)
-                     zmin,                  & !real (default)
-                     zmax,                  & !real (default)
-                     get_conserv,           & !real (default)
-                     etot_in,               & !real (default)
-                     angtot_in,             & !real (default)
-                     totmom_in,             & !real (default)
-                     mdust_in(:),           & !real(:) (default)
-                     grainsize(:),          & !real(:) (default)
-                     graindens(:),          & !real(:) (default)
-                     udist,                 & !real*8
-                     umass,                 & !real*8
-                     utime,                 & !real*8
-                     unit_Bfield              !real*8
+ integer, intent(in) :: maxtypes,nblocks,isink,nptmass,ndustlarge,ndustsmall,idust,        &
+                        phantom_version_major,phantom_version_minor,phantom_version_micro, &
+                        nparttot,npartoftypetot(:),iexternalforce,ieos
+ real,    intent(in) :: t,dtmax,gamma,rhozero,polyk,hfact,tolh,C_cour,C_force,alpha,alphau,alphaB,    &
+                        polyk2,qfacdisc,massoftype(:),Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,zmax,&
+                        get_conserv,etot_in,angtot_in,totmom_in,mdust_in(:),grainsize(:),graindens(:),&
+                        udist,umass,utime,unit_Bfield
  integer(HID_T) :: group_id
  integer :: errors(53)
 
@@ -82,9 +40,7 @@ subroutine write_hdf5_header(file_id,error,fileident,maxtypes,nblocks,isink,nptm
 
  ! Write things to header group
  call write_to_hdf5(fileident,'fileident',group_id,errors(2))
- ! call write_to_hdf5(int(nparttot),'nparttot',group_id,errors())
  call write_to_hdf5(maxtypes,'ntypes',group_id,errors(3))
- ! call write_to_hdf5(int(npartoftypetot(1:maxtypes)),'npartoftype',group_id,errors())
  call write_to_hdf5(nblocks,'nblocks',group_id,errors(4))
  call write_to_hdf5(isink,'isink',group_id,errors(5))
  call write_to_hdf5(nptmass,'nptmass',group_id,errors(6))
@@ -95,8 +51,7 @@ subroutine write_hdf5_header(file_id,error,fileident,maxtypes,nblocks,isink,nptm
  call write_to_hdf5(phantom_version_minor,'minorv',group_id,errors(11))
  call write_to_hdf5(phantom_version_micro,'microv',group_id,errors(12))
  call write_to_hdf5(nparttot,'nparttot',group_id,errors(13))
- ! call write_to_hdf5(int(maxtypes,kind=8),'ntypes',group_id,errors())
- call write_to_hdf5(npartoftypetot(1:maxtypes),'npartoftype',group_id,errors(14))
+ call write_to_hdf5(npartoftypetot(1:maxtypes),'npartoftype',group_id,errors(14)) ! Integer array
  call write_to_hdf5(iexternalforce,'iexternalforce',group_id,errors(15))
  call write_to_hdf5(ieos,'ieos',group_id,errors(16))
  call write_to_hdf5(t,'time',group_id,errors(17))
@@ -113,12 +68,12 @@ subroutine write_hdf5_header(file_id,error,fileident,maxtypes,nblocks,isink,nptm
  call write_to_hdf5(alphaB,'alphaB',group_id,errors(28))
  call write_to_hdf5(polyk2,'polyk2',group_id,errors(29))
  call write_to_hdf5(qfacdisc,'qfacdisc',group_id,errors(30))
- call write_to_hdf5(massoftype,'massoftype',group_id,errors(31)) ! array
+ call write_to_hdf5(massoftype,'massoftype',group_id,errors(31)) ! Real array
  call write_to_hdf5(Bextx,'Bextx',group_id,errors(32))
  call write_to_hdf5(Bexty,'Bexty',group_id,errors(33))
  call write_to_hdf5(Bextz,'Bextz',group_id,errors(34))
  call write_to_hdf5(0.,'dum',group_id,errors(35))
- ! if (iexternalforce /= 0) call write_headeropts_extern(iexternalforce,hdr,t,ierr)
+ ! if (iexternalforce /= 0) call write_headeropts_extern(iexternalforce,hdr,t,ierr)  !!!! NEED TO FIND A WAY TO DO THIS
  call write_to_hdf5(xmin,'xmin',group_id,errors(36))
  call write_to_hdf5(xmax,'xmax',group_id,errors(37))
  call write_to_hdf5(ymin,'ymin',group_id,errors(38))
@@ -129,9 +84,9 @@ subroutine write_hdf5_header(file_id,error,fileident,maxtypes,nblocks,isink,nptm
  call write_to_hdf5(etot_in,'etot_in',group_id,errors(43))
  call write_to_hdf5(angtot_in,'angtot_in',group_id,errors(44))
  call write_to_hdf5(totmom_in,'totmom_in',group_id,errors(45))
- call write_to_hdf5(mdust_in,'mdust_in',group_id,errors(46))
- call write_to_hdf5(grainsize,'grainsize',group_id,errors(47))
- call write_to_hdf5(graindens,'graindens',group_id,errors(48))
+ call write_to_hdf5(mdust_in,'mdust_in',group_id,errors(46))   ! Real array
+ call write_to_hdf5(grainsize,'grainsize',group_id,errors(47)) ! Real array
+ call write_to_hdf5(graindens,'graindens',group_id,errors(48)) ! Real array
  call write_to_hdf5(udist,'udist',group_id,errors(49))
  call write_to_hdf5(umass,'umass',group_id,errors(50))
  call write_to_hdf5(utime,'utime',group_id,errors(51))
