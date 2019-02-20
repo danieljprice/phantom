@@ -216,7 +216,7 @@ subroutine write_hdf5_arrays(file_id,xyzh,vxyzu,iphase,pressure,alphaind,dtind,p
     call write_to_hdf5(dustprop(1,:),'grainsize' ,group_id)
     call write_to_hdf5(dustprop(2,:),'graindens' ,group_id)
     call write_to_hdf5(dustprop(3,:),'vrel/vfrag',group_id)
-    call write_to_hdf5(dustprop(4,:),'dv_dust'   ,group_id)
+    ! call write_to_hdf5(dustprop(4,:),'dv_dust'   ,group_id)
     call write_to_hdf5(St,'St',group_id)
  endif
 
