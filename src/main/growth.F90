@@ -70,6 +70,7 @@ contains
 !------------------------------------------------
 subroutine init_growth(ierr)
  use io,        only:error
+ use viscosity, only:irealvisc,shearparam
  integer, intent(out) :: ierr
  integer              :: i
 
@@ -121,6 +122,13 @@ subroutine init_growth(ierr)
     endif
  endif
 
+ if (ifrag > -1) then
+    if (irealvisc == 1) then
+       call error('init_growth','shearparam should be used for growth when irealvisc /= 1',var='shearparam',val=shearparam)
+       ierr = 4
+    endif
+endif
+
 end subroutine init_growth
 
 !----------------------------------------------------------
@@ -129,11 +137,14 @@ end subroutine init_growth
 !+
 !----------------------------------------------------------
 subroutine print_growthinfo(iprint)
+ use viscosity, only:shearparam
+
  integer, intent(in) :: iprint
 
  if (ifrag == 0) write(iprint,"(a)")    ' Using pure growth model where ds = + vrel*rhod/graindens*dt    '
  if (ifrag == 1) write(iprint,"(a)")    ' Using growth/frag where ds = (+ or -) vrel*rhod/graindens*dt   '
  if (ifrag == 2) write(iprint,"(a)")    ' Using growth with Kobayashi fragmentation model '
+ if (ifrag > -1) write(iprint,"((a,1pg10.3))")' Computing Vrel with alphaSS = ',shearparam
  if (ifrag > 0) then
     write(iprint,"(2(a,1pg10.3),a)")' grainsizemin = ',gsizemincgs,' cm = ',grainsizemin,' (code units)'
     if (isnow == 1) then
@@ -161,15 +172,14 @@ end subroutine print_growthinfo
 !  two-fluid dust method.
 !+
 !-----------------------------------------------------------------------
-subroutine get_growth_rate(npart,xyzh,vxyzu,St,dustprop,dsdt)
+subroutine get_growth_rate(npart,xyzh,vxyzu,cs,St,dustprop,dsdt)
  use part,            only:get_pmass,rhoh,idust,iamtype,iphase,maxvxyzu,isdead_or_accreted
- use eos,             only:get_spsound,ieos
  real, intent(inout)  :: dustprop(:,:),vxyzu(:,:)
- real, intent(in)     :: xyzh(:,:),St(:)
+ real, intent(in)     :: xyzh(:,:),St(:),cs(:)
  real, intent(out)    :: dsdt(:)
  integer, intent(in)  :: npart
  !
- real                 :: rhod,cs,vrel
+ real                 :: rhod,vrel
  integer              :: i,iam
 
  !--get ds/dt over all dust particles
@@ -180,12 +190,11 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,St,dustprop,dsdt)
        if (iam==idust) then
 
           rhod = rhoh(xyzh(4,i),get_pmass(idust,.false.))
-          cs   = get_spsound(ieos,xyzh(:,i),rhod,vxyzu(:,i))
 
-          call get_vrelonvfrag(xyzh(:,i),vrel,dustprop(:,i),cs,St(i))
+          call get_vrelonvfrag(xyzh(:,i),vrel,dustprop(:,i),cs(i),St(i))
           !
           !--dustprop(1)= size, dustprop(2) = intrinsic density,
-          !  dustprop(3) = vrel/vfrag, dustprop(4) = vd - vg
+          !  dustprop(3) = vrel/vfrag, dustprop(4) = (vd - vg)/Vt
           !
           !--if statements to compute ds/dt
           !

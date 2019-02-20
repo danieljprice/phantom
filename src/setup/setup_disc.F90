@@ -1296,6 +1296,8 @@ subroutine initialise_dustprop(npart)
        if (iamtype(iphase(i))==idust) then
           dustprop(1,i) = grainsize(1)
           dustprop(2,i) = graindens(1)
+          dustprop(3,i) = 0.
+          dustprop(4,i) = 0.
        else
           dustprop(:,i) = 0.
        endif
