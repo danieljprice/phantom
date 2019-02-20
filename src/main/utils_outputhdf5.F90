@@ -14,15 +14,15 @@ implicit none
 
 contains
 
-subroutine write_scalar(x, name, id)
+subroutine write_scalar(x, name, id, error)
  real,           intent(in) :: x
  character(*),   intent(in) :: name
  integer(HID_T), intent(in) :: id
+ integer,        intent(out):: error
 
  integer(HSIZE_T), parameter  :: xshape(0) = 0
  integer(HID_T)    :: dspace_id
  integer(HID_T)    :: dset_id
- integer           :: error
 
  ! Create dataspace
  call h5screate_f(H5S_SCALAR_F, dspace_id, error)
@@ -41,16 +41,16 @@ subroutine write_scalar(x, name, id)
 
 end subroutine write_scalar
 
-subroutine write_array_1d(x, name, id)
+subroutine write_array_1d(x, name, id, error)
  real,           intent(in) :: x(:)
  character(*),   intent(in) :: name
  integer(HID_T), intent(in) :: id
+ integer,        intent(out):: error
 
  integer, parameter  :: ndims = 1
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
- integer             :: error
 
  xshape = shape(x)
 
@@ -71,16 +71,16 @@ subroutine write_array_1d(x, name, id)
 
 end subroutine write_array_1d
 
-subroutine write_array_1dkind4(x, name, id)
+subroutine write_array_1dkind4(x, name, id, error)
  real(kind=4),   intent(in) :: x(:)
  character(*),   intent(in) :: name
  integer(HID_T), intent(in) :: id
+ integer,        intent(out):: error
 
  integer, parameter  :: ndims = 1
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
- integer             :: error
 
  xshape = shape(x)
 
@@ -101,16 +101,16 @@ subroutine write_array_1dkind4(x, name, id)
 
 end subroutine write_array_1dkind4
 
-subroutine write_array_2d(x, name, id)
+subroutine write_array_2d(x, name, id, error)
  real,           intent(in) :: x(:,:)
  character(*),   intent(in) :: name
  integer(HID_T), intent(in) :: id
+ integer,        intent(out):: error
 
  integer, parameter  :: ndims = 2
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
- integer             :: error
 
  xshape = shape(x)
 
@@ -131,16 +131,16 @@ subroutine write_array_2d(x, name, id)
 
 end subroutine write_array_2d
 
-subroutine write_array_2dkind4(x, name, id)
+subroutine write_array_2dkind4(x, name, id, error)
  real(kind=4),   intent(in) :: x(:,:)
  character(*),   intent(in) :: name
  integer(HID_T), intent(in) :: id
+ integer,        intent(out):: error
 
  integer, parameter  :: ndims = 2
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
- integer             :: error
 
  xshape = shape(x)
 
@@ -161,16 +161,16 @@ subroutine write_array_2dkind4(x, name, id)
 
 end subroutine write_array_2dkind4
 
-subroutine write_array_3d(x, name, id)
+subroutine write_array_3d(x, name, id, error)
  real,           intent(in) :: x(:,:,:)
  character(*),   intent(in) :: name
  integer(HID_T), intent(in) :: id
+ integer,        intent(out):: error
 
  integer, parameter  :: ndims = 3
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
- integer             :: error
 
  xshape = shape(x)
 
@@ -191,16 +191,16 @@ subroutine write_array_3d(x, name, id)
 
 end subroutine write_array_3d
 
-subroutine write_array_4d(x, name, id)
+subroutine write_array_4d(x, name, id, error)
  real,           intent(in) :: x(:,:,:,:)
  character(*),   intent(in) :: name
  integer(HID_T), intent(in) :: id
+ integer,        intent(out):: error
 
  integer, parameter  :: ndims = 4
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
- integer             :: error
 
  xshape = shape(x)
 
@@ -221,16 +221,16 @@ subroutine write_array_4d(x, name, id)
 
 end subroutine write_array_4d
 
-subroutine write_array_6d(x, name, id)
+subroutine write_array_6d(x, name, id, error)
  real,           intent(in) :: x(:,:,:,:,:,:)
  character(*),   intent(in) :: name
  integer(HID_T), intent(in) :: id
+ integer,        intent(out):: error
 
  integer, parameter  :: ndims = 6
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
- integer             :: error
 
  xshape = shape(x)
 
@@ -251,15 +251,15 @@ subroutine write_array_6d(x, name, id)
 
 end subroutine write_array_6d
 
-subroutine write_scalar_int(x, name, id)
+subroutine write_scalar_int(x, name, id, error)
  integer,        intent(in) :: x
  character(*),   intent(in) :: name
  integer(HID_T), intent(in) :: id
+ integer,        intent(out):: error
 
  integer(HSIZE_T), parameter  :: xshape(0) = 0
  integer(HID_T)    :: dspace_id
  integer(HID_T)    :: dset_id
- integer           :: error
 
  ! Create dataspace
  call h5screate_f(H5S_SCALAR_F, dspace_id, error)
@@ -278,15 +278,15 @@ subroutine write_scalar_int(x, name, id)
 
 end subroutine write_scalar_int
 
-subroutine write_scalar_intkind8(x, name, id)
+subroutine write_scalar_intkind8(x, name, id, error)
  integer(kind=8), intent(in) :: x
  character(*),    intent(in) :: name
  integer(HID_T),  intent(in) :: id
+ integer,         intent(out):: error
 
  integer(HSIZE_T), parameter  :: xshape(0) = 0
  integer(HID_T)    :: dspace_id
  integer(HID_T)    :: dset_id
- integer           :: error
 
  ! Create dataspace
  call h5screate_f(H5S_SCALAR_F, dspace_id, error)
@@ -305,16 +305,16 @@ subroutine write_scalar_intkind8(x, name, id)
 
 end subroutine write_scalar_intkind8
 
-subroutine write_intarray_1d(x, name, id)
+subroutine write_intarray_1d(x, name, id, error)
  integer,        intent(in) :: x(:)
  character(*),   intent(in) :: name
  integer(HID_T), intent(in) :: id
+ integer,        intent(out):: error
 
  integer, parameter  :: ndims = 1
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
- integer             :: error
 
  xshape = shape(x)
 
@@ -335,16 +335,16 @@ subroutine write_intarray_1d(x, name, id)
 
 end subroutine write_intarray_1d
 
-subroutine write_intarray_1dkind8(x, name, id)
+subroutine write_intarray_1dkind8(x, name, id, error)
  integer(kind=8), intent(in) :: x(:)
  character(*),    intent(in) :: name
  integer(HID_T),  intent(in) :: id
+ integer,         intent(out):: error
 
  integer, parameter  :: ndims = 1
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
- integer             :: error
 
  xshape = shape(x)
 
@@ -365,16 +365,16 @@ subroutine write_intarray_1dkind8(x, name, id)
 
 end subroutine write_intarray_1dkind8
 
-subroutine write_intarray_1dkind1(x, name, id)
+subroutine write_intarray_1dkind1(x, name, id, error)
  integer(kind=1), intent(in) :: x(:)
  character(*),    intent(in) :: name
  integer(HID_T),  intent(in) :: id
+ integer,         intent(out):: error
 
  integer, parameter  :: ndims = 1
  integer(HSIZE_T)    :: xshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
- integer             :: error
 
  xshape = shape(x)
 
@@ -394,19 +394,19 @@ subroutine write_intarray_1dkind1(x, name, id)
  call h5sclose_f(dspace_id, error)
 end subroutine write_intarray_1dkind1
 
-subroutine write_string(str, name, id)
+subroutine write_string(str, name, id, error)
  use hdf5,          only:SIZE_T,H5T_FORTRAN_S1,C_PTR
  use hdf5,          only:h5tcopy_f,h5tset_size_f,h5tclose_f
  use iso_c_binding, only:c_loc
  character(*),    intent(in), target :: str
  character(*),    intent(in) :: name
  integer(HID_T),  intent(in) :: id
+ integer,         intent(out):: error
 
  integer, parameter  :: ndims = 0
  integer(HSIZE_T)    :: sshape(ndims)
  integer(HID_T)      :: dspace_id
  integer(HID_T)      :: dset_id
- integer             :: error
 
  integer(SIZE_T) :: slength
  integer(HID_T)  :: filetype
