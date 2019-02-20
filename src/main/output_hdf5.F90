@@ -203,4 +203,72 @@ subroutine write_hdf5_arrays(file_id,error,xyzh,vxyzu,iphase,pressure,alphaind,d
 
 end subroutine write_hdf5_arrays
 
+subroutine write_hdf5_arrays_small(file_id,error, &
+                                   xyzh,iphase,xyzmh_ptmass,Bxyz,dustfrac,dustprop,st,abundance,luminosity, &
+                                   nptmass,mhd,use_dust,use_dustgrowth,h2chemistry,lightcurve)
+ integer(HID_T),         intent(in) :: file_id
+ integer,                intent(out):: error
+ real, dimension(:),     intent(in) :: st
+ real, dimension(:,:),   intent(in) :: xyzh,Bxyz,xyzmh_ptmass
+ real, dimension(:,:),   intent(in) :: dustfrac,dustprop,abundance
+ real(kind=4), dimension(:),   intent(in) :: luminosity
+ integer, intent(in) :: iphase(:)
+ integer, intent(in) :: nptmass
+ logical, intent(in) :: mhd,use_dust,use_dustgrowth
+ logical, intent(in) :: h2chemistry,lightcurve
+ integer(HID_T) :: group_id
+ integer :: errors(44)
+
+ errors(:) = 0
+
+ ! Create particles group
+ call open_hdf5group(file_id,'particles',group_id,errors(1))
+
+ ! Main arrays
+ call write_to_hdf5(real(xyzh(1:3,:),kind=4),'xyz',group_id,errors(2))
+ call write_to_hdf5(real(xyzh(4,:),kind=4),'h',group_id,errors(3)) ! Write smoothing length in single precision to save disc space
+ call write_to_hdf5(iphase,'itype',group_id,errors(6))
+
+ ! MHD arrays
+ if (mhd) then
+    call write_to_hdf5(real(Bxyz,kind=4),'Bxyz',group_id,errors(11))
+ endif
+
+ ! Dust arrays
+ if (use_dust) then
+    call write_to_hdf5(real(dustfrac,kind=4),'dustfrac',group_id,errors(21))
+ endif
+ if (use_dustgrowth) then
+    call write_to_hdf5(real(dustprop(1,:),kind=4),'grainsize' ,group_id,errors(24))
+    call write_to_hdf5(real(dustprop(2,:),kind=4),'graindens' ,group_id,errors(25))
+    call write_to_hdf5(real(dustprop(3,:),kind=4),'vrel/vfrag',group_id,errors(26))
+  ! call write_to_hdf5(real(dustprop(4,:),kind=4),'dv_dust'   ,group_id,errors())
+    call write_to_hdf5(real(St,kind=4),'St',group_id,errors(27))
+ endif
+
+ ! Other Arrays
+ if (h2chemistry) call write_to_hdf5(real(abundance,kind=4),'abundance',group_id,errors(28))
+ if (lightcurve)  call write_to_hdf5(luminosity,'luminosity',group_id,errors(32)) ! This is already sinlge precision
+
+ ! Close the particles group
+ call close_hdf5group(group_id, errors(34))
+
+ ! Create sink group
+ call open_hdf5group(file_id,'sinks',group_id,errors(35))
+ if (nptmass > 0) then
+    call write_to_hdf5(real(xyzmh_ptmass(1:3,1:nptmass),kind=4),'xyz',group_id,errors(36))
+    call write_to_hdf5(real(xyzmh_ptmass(4,1:nptmass),kind=4),'m',group_id,errors(37))
+    call write_to_hdf5(real(xyzmh_ptmass(5,1:nptmass),kind=4),'h',group_id,errors(38))
+    call write_to_hdf5(real(xyzmh_ptmass(6,1:nptmass),kind=4),'hsoft',group_id,errors(39))
+    call write_to_hdf5(real(xyzmh_ptmass(7,1:nptmass),kind=4),'maccreted',group_id,errors(40))
+    call write_to_hdf5(real(xyzmh_ptmass(8:10,1:nptmass),kind=4),'spinxyz',group_id,errors(41))
+    call write_to_hdf5(real(xyzmh_ptmass(11,1:nptmass),kind=4),'tlast',group_id,errors(42))
+ endif
+ ! Close the sink group
+ call close_hdf5group(group_id, errors(44))
+
+ error = maxval(abs(errors))
+
+end subroutine write_hdf5_arrays_small
+
 end module output_hdf5
