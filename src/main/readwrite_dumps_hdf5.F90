@@ -307,7 +307,7 @@ subroutine write_fulldump(t,dumpfile,ntotal)
  use dim,            only:phantom_version_string
  use gitinfo,        only:gitsha
  use eos,            only:ieos,equationofstate,done_init_eos,init_eos,polyk,gamma,polyk2,qfacdisc,isink
- use io,             only:nprocs,fatal
+ use io,             only:nprocs,fatal,id,master,iprint
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
  use part,           only:xyzh,vxyzu,Bevol,Bxyz,npart,npartoftype,maxtypes, &
                           alphaind,rhoh,divBsymm,maxphase,iphase, &
@@ -343,6 +343,9 @@ subroutine write_fulldump(t,dumpfile,ntotal)
  character(len=30) :: string
  character(len=*), parameter :: dumptype = 'fulldump'
  integer :: error
+
+ if (id==master) write(iprint,"(/,/,'-------->   TIME = ',g12.4,"// &
+                 "': full dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
 
 !
 !--collect global information from MPI threads
