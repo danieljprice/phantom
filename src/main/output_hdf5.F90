@@ -5,7 +5,7 @@ module output_hdf5
 
  implicit none
 
- public :: write_hdf5_header,write_hdf5_arrays
+ public :: write_hdf5_header,write_hdf5_arrays,write_hdf5_arrays_small
  public :: open_hdf5file,close_hdf5file
 
  integer(HID_T), public :: outputfile_id

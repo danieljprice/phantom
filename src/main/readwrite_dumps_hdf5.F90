@@ -126,68 +126,6 @@ end subroutine get_blocklimits
 
 !--------------------------------------------------------------------
 !+
-!  utility for initialising each thread
-!+
-!--------------------------------------------------------------------
-subroutine start_threadwrite(id,iunit,filename)
-#ifdef MPI
- use mpi
- use mpiutils, only:status,mpierr
-#endif
- use io, only:fatal,iverbose
- implicit none
- integer, intent(in) :: id, iunit
- character(len=*), intent(in) :: filename
- integer :: nowgo,ierr
-
- if (iverbose >= 3) print *,id,' : starting write...'
- nowgo = 0
- if (id  >  0) then
-#ifdef MPI
-    call MPI_RECV(nowgo,1,MPI_INTEGER,id-1,99,MPI_COMM_WORLD,status,mpierr)
-#endif
-    open(unit=iunit,file=filename,status='old',form='unformatted',position='append',iostat=ierr)
-    if (ierr /= 0) then
-       call fatal('start_threadwrite','can''t append to dumpfile '//trim(filename))
-    else
-       if (iverbose >= 3) print*,'thread ',id,': opened file '//trim(filename)
-    endif
- endif
-
- return
-end subroutine start_threadwrite
-
-!--------------------------------------------------------------------
-!+
-!  utility for finalising each thread
-!+
-!--------------------------------------------------------------------
-subroutine end_threadwrite(id)
- use io, only:iverbose
-#ifdef MPI
- use mpi
- use mpiutils, only:mpierr
- use io, only:nprocs
-#endif
- implicit none
- integer, intent(in) :: id
-#ifdef MPI
- integer :: nowgo
-#endif
-
- if (iverbose >= 3) print *,' thread ',id,' : finished write.'
-#ifdef MPI
- if (id  <  nprocs-1) then
-    nowgo = 1
-    call MPI_SEND(nowgo,1,MPI_INTEGER,id+1,99,MPI_COMM_WORLD,mpierr)
- endif
-#endif
-
- return
-end subroutine end_threadwrite
-
-!--------------------------------------------------------------------
-!+
 !  contruct header string based on compile-time options
 !  these are for information only (ie. not important for restarting)
 !+
@@ -293,7 +231,6 @@ subroutine get_dump_size(fileid,smalldump)
 
 end subroutine get_dump_size
 
-
 !--------------------------------------------------------------------
 !+
 !  subroutine to write output to full dump file
@@ -301,7 +238,34 @@ end subroutine get_dump_size
 !+
 !-------------------------------------------------------------------
 subroutine write_fulldump(t,dumpfile,ntotal)
- use output_hdf5,    only:open_hdf5file,close_hdf5file,write_hdf5_header,write_hdf5_arrays,outputfile_id
+ real,             intent(in) :: t
+ character(len=*), intent(in) :: dumpfile
+ integer(kind=8),  intent(in), optional :: ntotal
+ if (present(ntotal)) then
+    call write_dump(t,dumpfile,fulldump=.true.,ntotal=ntotal)
+ else
+    call write_dump(t,dumpfile,fulldump=.true.)
+ endif
+end subroutine
+
+!--------------------------------------------------------------------
+!+
+!  subroutine to write output to small dump file
+!  (ie. minimal output...)
+!
+!  note that small dumps are always SINGLE PRECISION
+!+
+!-------------------------------------------------------------------
+subroutine write_smalldump(t,dumpfile)
+ real,             intent(in) :: t
+ character(len=*), intent(in) :: dumpfile
+ call write_dump(t,dumpfile,fulldump=.false.)
+end subroutine
+
+! Generic subroutine for writing a dumpfile
+subroutine write_dump(t,dumpfile,fulldump,ntotal)
+ use output_hdf5,    only:open_hdf5file,close_hdf5file,outputfile_id
+ use output_hdf5,    only:write_hdf5_header,write_hdf5_arrays,write_hdf5_arrays_small
  use dim,            only:maxp,maxvxyzu,gravity,maxalpha,mhd,mhd_nonideal,use_dust,use_dustgrowth
  use dim,            only:phantom_version_major,phantom_version_minor,phantom_version_micro,store_temperature
  use dim,            only:phantom_version_string
@@ -331,6 +295,7 @@ subroutine write_fulldump(t,dumpfile,ntotal)
  use units,          only:udist,umass,utime,unit_Bfield
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
+ logical,          intent(in) :: fulldump
  integer(kind=8),  intent(in), optional :: ntotal
  integer           :: i
  integer           :: ierr,nblocks
@@ -341,11 +306,16 @@ subroutine write_fulldump(t,dumpfile,ntotal)
  character(len=100):: fileident
  character(len=10) :: datestring, timestring
  character(len=30) :: string
- character(len=*), parameter :: dumptype = 'fulldump'
+ character(len=9)  :: dumptype
  integer :: error
 
- if (id==master) write(iprint,"(/,/,'-------->   TIME = ',g12.4,"// &
-                 "': full dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
+ if (id==master) then
+    if (fulldump) then
+       write(iprint,"(/,/,'-------->   TIME = ',g12.4,"//"': full dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
+    else
+       write(iprint,"(/,/,'-------->   TIME = ',g12.4,"//"': small dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
+    endif
+ endif
 
 !
 !--collect global information from MPI threads
@@ -390,32 +360,34 @@ subroutine write_fulldump(t,dumpfile,ntotal)
     use_gas = .true.
  endif
 
- allocate(pressure(nparttot),beta_pr(nparttot),dtind(nparttot))
+ if (.not.fulldump) then
+    allocate(pressure(nparttot),beta_pr(nparttot),dtind(nparttot))
 
- ! Compute pressure and beta_pr array
- if (.not.done_init_eos) call init_eos(ieos,ierr)
- !$omp parallel do default(none) &
- !$omp shared(xyzh,vxyzu,ieos,nparttot,pressure,beta_pr,temperature,use_gas,prdrag) &
- !$omp private(i,ponrhoi,spsoundi,rhoi)
- do i=1,int(nparttot)
-    rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
-    if (maxvxyzu >=4 ) then
-       if (store_temperature) then
-          ! cases where the eos stores temperature (ie Helmholtz)
-          call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),temperature(i))
+    ! Compute pressure and beta_pr array
+    if (.not.done_init_eos) call init_eos(ieos,ierr)
+    !$omp parallel do default(none) &
+    !$omp shared(xyzh,vxyzu,ieos,nparttot,pressure,beta_pr,temperature,use_gas,prdrag) &
+    !$omp private(i,ponrhoi,spsoundi,rhoi)
+    do i=1,int(nparttot)
+       rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
+       if (maxvxyzu >=4 ) then
+          if (store_temperature) then
+             ! cases where the eos stores temperature (ie Helmholtz)
+             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),temperature(i))
+          else
+             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+          endif
        else
-          call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+          call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i))
        endif
-    else
-       call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i))
-    endif
-    pressure(i) = ponrhoi*rhoi
-    if (prdrag) beta_pr(i)  = beta(xyzh(1,i), xyzh(2,i), xyzh(3,i))
- enddo
- !$omp end parallel do
+       pressure(i) = ponrhoi*rhoi
+       if (prdrag) beta_pr(i)  = beta(xyzh(1,i), xyzh(2,i), xyzh(3,i))
+    enddo
+    !$omp end parallel do
 
-! Compute dtind array
- if (ind_timesteps) dtind = dtmax/2**ibin(1:npart)
+    ! Compute dtind array
+    if (ind_timesteps) dtind = dtmax/2**ibin(1:npart)
+ endif
 
 ! Check if constant AV
  if (maxp==maxalpha) then
@@ -439,7 +411,12 @@ subroutine write_fulldump(t,dumpfile,ntotal)
  if (lightcurve) string = trim(string)//'+lightcurve'
  if (use_dustgrowth) string = trim(string)//'+dustgrowth'
 
- fileident = dumptype//': '//'Phantom'//' '//trim(phantom_version_string)//' '//gitsha
+ if (fulldump) then
+    dumptype = 'fulldump '
+ else
+    dumptype = 'smalldump'
+ endif
+ fileident = trim(dumptype)//': '//'Phantom'//' '//trim(phantom_version_string)//' '//gitsha
 
  if (mhd) then
     if (maxBevol==4) then
@@ -460,150 +437,24 @@ subroutine write_fulldump(t,dumpfile,ntotal)
                         massoftype,Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,zmax,get_conserv,                        &
                         etot_in,angtot_in,totmom_in,mdust_in,grainsize,graindens,udist,umass,utime,unit_Bfield         )
  if (error/=0) call fatal('write_fulldump_hdf5','could not write header')
- call write_hdf5_arrays(outputfile_id,error,xyzh,vxyzu,int(iphase),pressure,alphaind,dtind,poten,xyzmh_ptmass,            &
-                        vxyz_ptmass,Bxyz,Bevol,divcurlB,divBsymm,eta_nimhd,                                               &
-                        dustfrac(1:ndusttypes,:),tstop(1:ndustsmall,:),deltav(:,1:ndustsmall,:),dustprop,st,              &
-                        abundance,temperature,divcurlv,luminosity,beta_pr,                                                &
-                        const_av,ind_timesteps,gravity,nptmass,mhd,maxBevol,ndivcurlB,mhd_nonideal,use_dust,              &
-                        use_dustfrac,use_dustgrowth,h2chemistry,store_temperature,ndivcurlv,lightcurve,prdrag,isothermal  )
+ if (fulldump) then
+    call write_hdf5_arrays(outputfile_id,error,xyzh,vxyzu,int(iphase),pressure,alphaind,dtind,poten,xyzmh_ptmass,            &
+                           vxyz_ptmass,Bxyz,Bevol,divcurlB,divBsymm,eta_nimhd,                                               &
+                           dustfrac(1:ndusttypes,:),tstop(1:ndustsmall,:),deltav(:,1:ndustsmall,:),dustprop,st,              &
+                           abundance,temperature,divcurlv,luminosity,beta_pr,                                                &
+                           const_av,ind_timesteps,gravity,nptmass,mhd,maxBevol,ndivcurlB,mhd_nonideal,use_dust,              &
+                           use_dustfrac,use_dustgrowth,h2chemistry,store_temperature,ndivcurlv,lightcurve,prdrag,isothermal  )
+ else
+    call write_hdf5_arrays_small(outputfile_id,error,xyzh,int(iphase),xyzmh_ptmass,Bxyz,dustfrac,dustprop,st,   &
+                                 abundance,luminosity,nptmass,mhd,use_dust,use_dustgrowth,h2chemistry,lightcurve)
+ endif
  if (error/=0) call fatal('write_fulldump_hdf5','could not write arrays')
  call close_hdf5file(outputfile_id,error)
  if (error/=0) call fatal('write_fulldump_hdf5','could not close file')
 
- deallocate(pressure,beta_pr,dtind)
+ if (fulldump) deallocate(pressure,beta_pr,dtind)
 
-end subroutine write_fulldump
-
-!--------------------------------------------------------------------
-!+
-!  subroutine to write output to small dump file
-!  (ie. minimal output...)
-!
-!  note that small dumps are always SINGLE PRECISION
-!  (faked to look like the default real is real*4)
-!+
-!-------------------------------------------------------------------
-
-subroutine write_smalldump(t,dumpfile)
- use dim,        only:maxp,maxtypes,use_dust,lightcurve,use_dustgrowth
- use io,         only:idump,iprint,real4,id,master,error,warning,nprocs
- use part,       only:xyzh,xyzh_label,npart,npartoftype,Bxyz,Bxyz_label,&
-                      maxphase,iphase,h2chemistry,nabundances,&
-                      nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,&
-                      abundance,abundance_label,mhd,dustfrac,iamtype_int11,&
-                      dustprop,dustprop_label,dustfrac_label,St,ndusttypes
- use dump_utils, only:open_dumpfile_w,dump_h,allocate_header,free_header,&
-                      write_header,write_array,write_block_header
- use mpiutils,   only:reduceall_mpi
-#ifdef LIGHTCURVE
- use part,       only:luminosity
-#endif
- real,             intent(in) :: t
- character(len=*), intent(in) :: dumpfile
- integer(kind=8) :: ilen(4)
- integer         :: nums(ndatatypes,4)
- integer         :: ierr,ipass,k
- integer         :: nblocks,nblockarrays,narraylengths
- integer(kind=8) :: nparttot,npartoftypetot(maxtypes)
- logical         :: write_itype
- type(dump_h)    :: hdr
-
-!
-!--collect global information from MPI threads
-!
- nparttot = reduceall_mpi('+',npart)
- npartoftypetot = reduceall_mpi('+',npartoftype)
- nblocks = nprocs
-
- narraylengths = 2
- if (mhd) narraylengths = 4
-
- masterthread: if (id==master) then
-!
-!--open dumpfile
-!
-    write(iprint,"(/,/,'-------->   TIME = ',g12.4,"// &
-              "': small dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
-
-    call open_dumpfile_w(idump,dumpfile,fileident('ST'),ierr,singleprec=.true.)
-    if (ierr /= 0) then
-       call error('write_smalldump','can''t create new dumpfile '//trim(dumpfile))
-       return
-    endif
-!
-!--single values
-!
-    hdr = allocate_header(nint=maxphead,nreal=maxphead,err=ierr)
-
-    call fill_header(.false.,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,ierr)
-    if (ierr /= 0) call warning('write_smalldump','error filling header arrays')
-
-    call write_header(idump,hdr,ierr,singleprec=.true.)
-    if (ierr /= 0) call error('write_smalldump','error writing header to dumpfile')
-
-    call free_header(hdr,ierr)
-    if (ierr /= 0) call error('write_smalldump','error deallocating header')
-!
-!--arrays: number of array lengths
-!
-    nblockarrays = narraylengths*nblocks
-    write (idump, iostat=ierr) nblockarrays
-    if (ierr /= 0) call error('write_smalldump','error writing nblockarrays')
-
- endif masterthread
-
- call start_threadwrite(id,idump,dumpfile)
-
- nums = 0
- ilen = 0_8
- write_itype = (maxphase==maxp .and. any(npartoftypetot(2:) > 0))
- do ipass=1,2
-    do k=1,ndatatypes
-       !
-       !--Block 1 (hydrodynamics)
-       !
-       ilen(1) = npart
-       if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierr,func=iamtype_int11)
-       call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-       if (use_dustgrowth) then
-          call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-          call write_array(1,St,'St',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-       endif
-       if (h2chemistry .and. nabundances >= 1) &
-          call write_array(1,abundance,abundance_label,1,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-       if (use_dust) &
-          call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-       call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
-#ifdef LIGHTCURVE
-       if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-#endif
-    enddo
-    !
-    !--Block 2 (sinks)
-    !
-    if (nptmass > 0) then
-       ilen(2) = nptmass
-       call write_array(2,xyzmh_ptmass,xyzmh_ptmass_label,nsinkproperties,nptmass,&
-                        i_real,ipass,idump,nums,ierr,singleprec=.true.)
-    endif
-    !
-    !--Block 4 (MHD)
-    !
-    if (mhd) then
-       ilen(4) = npart
-       do k=1,ndatatypes
-          call write_array(4,Bxyz,Bxyz_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-       enddo
-    endif
-
-    if (ipass==1) call write_block_header(narraylengths,ilen,nums,idump,ierr)
- enddo
-
- close(unit=idump)
- call end_threadwrite(id)
- return
-
-end subroutine write_smalldump
+end subroutine write_dump
 
 !--------------------------------------------------------------------
 !+
@@ -1649,130 +1500,6 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  if (id==master) write(iprint,*) 'time = ',tfile
 
 end subroutine unfill_header
-
-!--------------------------------------------------------------------
-!+
-!  subroutine to fill the real header with various things
-!+
-!-------------------------------------------------------------------
-subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,ierr)
- use eos,            only:polyk,gamma,polyk2,qfacdisc,isink
- use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,ieos
- use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,ndustsmall,ndustlarge,&
-                          idust,grainsize,graindens,ndusttypes
- use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
- use setup_params,   only:rhozero
- use timestep,       only:dtmax,C_cour,C_force
- use externalforces, only:write_headeropts_extern
- use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
- use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header
- use dim,            only:use_dust,maxtypes,use_dustgrowth, &
-                          phantom_version_major,phantom_version_minor,phantom_version_micro
- use units,          only:udist,umass,utime,unit_Bfield
- logical,         intent(in)    :: sphNGdump
- real,            intent(in)    :: t
- integer(kind=8), intent(in)    :: nparttot,npartoftypetot(:)
- integer,         intent(in)    :: nblocks,nptmass
- type(dump_h),    intent(inout) :: hdr
- integer,         intent(out)   :: ierr
- integer :: number
-
- ierr = 0
- ! default int
- call add_to_iheader(int(nparttot),'nparttot',hdr,ierr)
- call add_to_iheader(maxtypes,'ntypes',hdr,ierr)
- call add_to_iheader(int(npartoftypetot(1:maxtypes)),'npartoftype',hdr,ierr)
- call add_to_iheader(nblocks,'nblocks',hdr,ierr)
- call add_to_iheader(isink,'isink',hdr,ierr)
- call add_to_iheader(nptmass,'nptmass',hdr,ierr)
- call add_to_iheader(ndustlarge,'ndustlarge',hdr,ierr)
- call add_to_iheader(ndustsmall,'ndustsmall',hdr,ierr)
- call add_to_iheader(idust,'idust',hdr,ierr)
- call add_to_iheader(phantom_version_major,'majorv',hdr,ierr)
- call add_to_iheader(phantom_version_minor,'minorv',hdr,ierr)
- call add_to_iheader(phantom_version_micro,'microv',hdr,ierr)
-
- ! int*8
- call add_to_header(nparttot,'nparttot',hdr,ierr)
- call add_to_header(int(maxtypes,kind=8),'ntypes',hdr,ierr)
- call add_to_header(npartoftypetot(1:maxtypes),'npartoftype',hdr,ierr)
-
- ! int*4
- call add_to_header(iexternalforce,'iexternalforce',hdr,ierr)
- call add_to_header(ieos,'ieos',hdr,ierr)
-
- ! default real variables
- call add_to_rheader(t,'time',hdr,ierr)
- call add_to_rheader(dtmax,'dtmax',hdr,ierr)
- call add_to_rheader(gamma,'gamma',hdr,ierr)
- call add_to_rheader(rhozero,'rhozero',hdr,ierr)
- call add_to_rheader(1.5*polyk,'RK2',hdr,ierr)
- if (sphNGdump) then ! number = 23
-    call add_to_rheader(0.,'escaptot',hdr,ierr)
-    call add_to_rheader(0.,'tkin',hdr,ierr)
-    call add_to_rheader(0.,'tgrav',hdr,ierr)
-    call add_to_rheader(0.,'tterm',hdr,ierr)
-    call add_to_rheader(0.,'anglostx',hdr,ierr)
-    call add_to_rheader(0.,'anglosty',hdr,ierr)
-    call add_to_rheader(0.,'anglostz',hdr,ierr)
-    call add_to_rheader(0.,'specang',hdr,ierr)
-    call add_to_rheader(0.,'ptmassin',hdr,ierr)
-    call add_to_rheader(0.,'tmag',hdr,ierr)
-    call add_to_rheader(Bextx,'Bextx',hdr,ierr)
-    call add_to_rheader(Bexty,'Bexty',hdr,ierr)
-    call add_to_rheader(Bextz,'Bextz',hdr,ierr)
-    call add_to_rheader(0.,'hzero',hdr,ierr)
-    call add_to_rheader(1.5*polyk2,'uzero_n2',hdr,ierr)
-    call add_to_rheader(0.,'hmass',hdr,ierr)
-    call add_to_rheader(0.,'gapfac',hdr,ierr)
-    call add_to_rheader(0.,'pmassinitial',hdr,ierr)
- else ! number = 49
-    call add_to_rheader(hfact,'hfact',hdr,ierr)
-    call add_to_rheader(tolh,'tolh',hdr,ierr)
-    call add_to_rheader(C_cour,'C_cour',hdr,ierr)
-    call add_to_rheader(C_force,'C_force',hdr,ierr)
-    call add_to_rheader(alpha,'alpha',hdr,ierr)
-    call add_to_rheader(alphau,'alphau',hdr,ierr)
-    call add_to_rheader(alphaB,'alphaB',hdr,ierr)
-    call add_to_rheader(polyk2,'polyk2',hdr,ierr)
-    call add_to_rheader(qfacdisc,'qfacdisc',hdr,ierr)
-    call add_to_rheader(massoftype,'massoftype',hdr,ierr) ! array
-    call add_to_rheader(Bextx,'Bextx',hdr,ierr)
-    call add_to_rheader(Bexty,'Bexty',hdr,ierr)
-    call add_to_rheader(Bextz,'Bextz',hdr,ierr)
-    call add_to_rheader(0.,'dum',hdr,ierr)
-    if (iexternalforce /= 0) call write_headeropts_extern(iexternalforce,hdr,t,ierr)
-    call add_to_rheader(xmin,'xmin',hdr,ierr)
-    call add_to_rheader(xmax,'xmax',hdr,ierr)
-    call add_to_rheader(ymin,'ymin',hdr,ierr)
-    call add_to_rheader(ymax,'ymax',hdr,ierr)
-    call add_to_rheader(zmin,'zmin',hdr,ierr)
-    call add_to_rheader(zmax,'zmax',hdr,ierr)
-    call add_to_rheader(get_conserv,'get_conserv',hdr,ierr)
-    call add_to_rheader(etot_in,'etot_in',hdr,ierr)
-    call add_to_rheader(angtot_in,'angtot_in',hdr,ierr)
-    call add_to_rheader(totmom_in,'totmom_in',hdr,ierr)
-    call add_to_rheader(mdust_in(1:ndusttypes),'mdust_in',hdr,ierr)
-    if (use_dust) then
-       call add_to_rheader(grainsize(1:ndusttypes),'grainsize',hdr,ierr)
-       call add_to_rheader(graindens(1:ndusttypes),'graindens',hdr,ierr)
-    endif
- endif
-
- ! real*8
- call add_to_header(udist,'udist',hdr,ierr)
- call add_to_header(umass,'umass',hdr,ierr)
- call add_to_header(utime,'utime',hdr,ierr)
- call add_to_header(unit_Bfield,'umagfd',hdr,ierr)
-
- if (ierr /= 0) write(*,*) ' ERROR: arrays too small writing rheader'
-
- number = num_in_header(hdr%realtags)
- if (number >= maxphead) then
-    write(*,*) 'error: header arrays too small for number of items in header: will be truncated'
- endif
-
-end subroutine fill_header
 
 !--------------------------------------------------------------------
 !+
