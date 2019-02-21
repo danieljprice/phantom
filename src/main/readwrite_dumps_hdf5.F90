@@ -312,7 +312,7 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
     use_gas = .true.
  endif
 
- if (.not.fulldump) then
+ if (fulldump) then
     allocate(pressure(nparttot),beta_pr(nparttot),dtind(nparttot))
 
     ! Compute pressure and beta_pr array
