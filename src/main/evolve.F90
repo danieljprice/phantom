@@ -634,6 +634,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        call reset_timer(timer_dens)
        call reset_timer(timer_force)
        call reset_timer(timer_link)
+       call reset_timer(timer_extf)
 
        noutput_dtmax = noutput_dtmax + 1
        noutput       = noutput + 1
