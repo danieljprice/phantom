@@ -14,13 +14,15 @@ datetag=`date "+%Y%m%d"`;
 #---------------------
 #  script settings
 #---------------------
-webdir=$dir/web
+#webdir=$dir/web
+webdir=$dir/phantomsph.bitbucket.org
 codedir=$dir/phantom
-#url="https://phantomsph.bitbucket.io/"
+benchdir=$dir/phantom-benchmarks
+url="https://phantomsph.bitbucket.io/"
 urlgitrepo="https://bitbucket.org/danielprice/phantom";
-url="http://users.monash.edu.au/~dprice/phantom";
-webserver="users.monash.edu.au:WWW/phantom/";
-#urllogs="https://users.monash.edu.au/~dprice/phantom/nightly/logs/"
+#url="http://users.monash.edu.au/~dprice/phantom";
+#webserver="users.monash.edu.au:WWW/phantom/";
+urllogs="https://users.monash.edu.au/~dprice/phantom/nightly/logs/"
 sender="daniel.price@infra.monash.edu";
 admin="daniel.price@monash.edu";
 systems="msg gfortran";
@@ -82,6 +84,8 @@ pull_changes ()
       echo "error pulling changes, buildbot not run";
       exit;
    fi
+   cd $benchdir; git pull >& gitpull.log
+   cd $codedir;
 }
 run_buildbot ()
 {
@@ -92,9 +96,22 @@ run_buildbot ()
       export SYSTEM=$sys;
       echo "SYSTEM=$SYSTEM";
       export PHANTOM_DIR=$codedir; # so setup tests can find data files
-      ./testbot.sh "$url/nightly/logs/";
-      ./buildbot.sh 17000000 "$url/nightly/logs/";
+      ./testbot.sh "$urllogs/nightly/logs/";
+      ./buildbot.sh 17000000 "$urllogs/nightly/logs/";
    done
+}
+run_benchmarks ()
+{
+   # run performance suite
+   echo "--- running benchmarks ---";
+   cd $benchdir;
+   export PHANTOM_DIR=$codedir;
+   for sys in $systems; do
+       export SYSTEM=$sys;
+       echo "SYSTEM=$sys";
+       ./run-benchmarks.sh;
+   done
+   ./plot-benchmarks.sh;
 }
 pull_wiki ()
 {
@@ -130,6 +147,7 @@ write_htmlfile_gittag_and_mailfile ()
        export SYSTEM=$sys;
        cat test-status-$SYSTEM.html >> $htmlfile
        cat build-status-$SYSTEM.html >> $htmlfile
+       cat $benchdir/opt-status-$SYSTEM.html >> $htmlfile
        files=`ls make-*errors*-$SYSTEM.txt make-*errors*-$SYSTEM-debug.txt test-results*-$SYSTEM.txt test-results*-$SYSTEM-debug.txt`
        weblogdir="$webdir/nightly/logs"
        if [ -d "$weblogdir" ]; then
@@ -294,14 +312,21 @@ commit_and_push_to_website ()
    echo "--- commit and push to web server / git repo ---";
    # commit and push changes to web server
    cp $htmlfile $webdir/nightly/build;
+   cp $benchdir/performance.html ${webdir}/nightly/opt/index.html;
+   cp $benchdir/*.js ${webdir}/nightly/opt/;
    cd $webdir/nightly/build;
-   cp $htmlfile index.html;
+   if [ -e $htmlfile ]; then
+      cp $htmlfile index.html;
+   fi
    cd $webdir;
-   rsync -avz nightly/ $webserver/nightly/;
-   #git add nightly/*.html
-   #git status
-   #git commit -m "[buildbot]: results `date`"
-   #git push
+   #rsync -avz nightly/ $webserver/nightly/;
+   git pull
+   git add nightly/*.html
+   git add nightly/opt/*
+   git add nightly/stats/*
+   git status
+   git commit -m "[nightly]: results `date`"
+   git push
 }
 # enter code directory
 cd $codedir
@@ -310,6 +335,7 @@ extract_names_of_users
 extract_changeset_list
 pull_changes
 run_buildbot
+run_benchmarks
 #pull_wiki
 write_htmlfile_gittag_and_mailfile
 #longmessage="${names/,/}: $preamble $text"
