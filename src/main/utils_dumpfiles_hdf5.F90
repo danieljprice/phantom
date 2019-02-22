@@ -1,19 +1,32 @@
-module output_hdf5
- use utils_outputhdf5, only:write_to_hdf5
- use utils_outputhdf5, only:open_hdf5file,close_hdf5file,open_hdf5group,close_hdf5group
- use utils_outputhdf5, only:HID_T
+module utils_dumpfiles_hdf5
+ use utils_hdf5, only:write_to_hdf5,    &
+                      read_from_hdf5,   &
+                      create_hdf5file,  &
+                      open_hdf5file,    &
+                      close_hdf5file,   &
+                      open_hdf5group,   &
+                      create_hdf5group, &
+                      close_hdf5group,  &
+                      HID_T
 
  implicit none
 
  public :: write_hdf5_header,write_hdf5_arrays,write_hdf5_arrays_small
- public :: open_hdf5file,close_hdf5file
+ public :: read_hdf5_header
+ public :: create_hdf5file,open_hdf5file,close_hdf5file
 
- integer(HID_T), public :: outputfile_id
+ integer(HID_T), public :: hdf5_file_id
 
  private
 
 contains
 
+
+!--------------------------------------------------------------------
+!+
+!  write header
+!+
+!-------------------------------------------------------------------
 subroutine write_hdf5_header(file_id,error,fileident,maxtypes,nblocks,isink,nptmass,ndustlarge,ndustsmall,idust,  &
                             phantom_version_major,phantom_version_minor,phantom_version_micro,                    &
                             nparttot,npartoftypetot,iexternalforce,ieos,t,dtmax,gamma,rhozero,                    &
@@ -36,7 +49,7 @@ subroutine write_hdf5_header(file_id,error,fileident,maxtypes,nblocks,isink,nptm
  errors(:) = 0
 
  ! Create header group
- call open_hdf5group(file_id,'header',group_id,errors(1))
+ call create_hdf5group(file_id,'header',group_id,errors(1))
 
  ! Write things to header group
  call write_to_hdf5(fileident,'fileident',group_id,errors(2))
@@ -99,6 +112,108 @@ subroutine write_hdf5_header(file_id,error,fileident,maxtypes,nblocks,isink,nptm
 
 end subroutine write_hdf5_header
 
+!--------------------------------------------------------------------
+!+
+!  read header
+!+
+!-------------------------------------------------------------------
+subroutine read_hdf5_header(file_id,error,fileident,isink,                     &
+                            nptmass,ndustlarge,ndustsmall,               &
+                            npart,npartoftype,                           &
+                            iexternalforce,ieos,time,dtmax,gamma,rhozero,polyk,   &
+                            hfact,tolh,C_cour,C_force,alpha,alphau,alphaB,     &
+                            polyk2,qfacdisc,massoftype,Bextx,Bexty,Bextz,xmin, &
+                            xmax,ymin,ymax,zmin,zmax,get_conserv,etot_in,     &
+                            angtot_in,totmom_in,mdust_in,grainsize,graindens,  &
+                            udist,umass,utime,unit_Bfield)
+
+ integer(HID_T),   intent(in)  :: file_id
+ integer,          intent(out) :: error
+ character(len=*), intent(out) :: fileident
+ integer, intent(out) :: isink,nptmass,ndustlarge,ndustsmall,                 &
+                         npart,npartoftype(:),                    &
+                         iexternalforce,ieos
+ real,    intent(out) :: time,dtmax,gamma,rhozero,polyk,hfact,tolh,C_cour,       &
+                         C_force,alpha,alphau,alphaB,polyk2,qfacdisc,         &
+                         massoftype(:),Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax, &
+                         zmin,zmax,get_conserv,etot_in,angtot_in,totmom_in,   &
+                         mdust_in(:),grainsize(:),graindens(:),udist,umass,   &
+                         utime,unit_Bfield
+
+ integer(HID_T) :: group_id
+ integer :: errors(53)
+ integer :: ntypes
+ real :: rval
+
+ errors(:) = 0
+
+ errors = 0
+
+ ! Create header group
+ call open_hdf5group(file_id,'header',group_id,errors(1))
+
+ ! Write things to header group
+ call read_from_hdf5(fileident,'fileident',group_id,errors(2))
+ call read_from_hdf5(ntypes,'ntypes',group_id,errors(3))
+ call read_from_hdf5(isink,'isink',group_id,errors(5))
+ call read_from_hdf5(nptmass,'nptmass',group_id,errors(6))
+ call read_from_hdf5(ndustlarge,'ndustlarge',group_id,errors(7))
+ call read_from_hdf5(ndustsmall,'ndustsmall',group_id,errors(8))
+ call read_from_hdf5(npart,'nparttot',group_id,errors(13))
+ call read_from_hdf5(npartoftype(1:ntypes),'npartoftype',group_id,errors(14)) ! Integer array
+ call read_from_hdf5(iexternalforce,'iexternalforce',group_id,errors(15))
+ call read_from_hdf5(ieos,'ieos',group_id,errors(16))
+ call read_from_hdf5(time,'time',group_id,errors(17))
+ call read_from_hdf5(dtmax,'dtmax',group_id,errors(18))
+ call read_from_hdf5(gamma,'gamma',group_id,errors(19))
+ call read_from_hdf5(rhozero,'rhozero',group_id,errors(20))
+ call read_from_hdf5(rval,'RK2',group_id,errors(21))
+ polyk = rval/1.5
+ call read_from_hdf5(hfact,'hfact',group_id,errors(22))
+ call read_from_hdf5(tolh,'tolh',group_id,errors(23))
+ call read_from_hdf5(C_cour,'C_cour',group_id,errors(24))
+ call read_from_hdf5(C_force,'C_force',group_id,errors(25))
+ call read_from_hdf5(alpha,'alpha',group_id,errors(26))
+ call read_from_hdf5(alphau,'alphau',group_id,errors(27))
+ call read_from_hdf5(alphaB,'alphaB',group_id,errors(28))
+ call read_from_hdf5(polyk2,'polyk2',group_id,errors(29))
+ call read_from_hdf5(qfacdisc,'qfacdisc',group_id,errors(30))
+ call read_from_hdf5(massoftype,'massoftype',group_id,errors(31)) ! Real array
+ call read_from_hdf5(Bextx,'Bextx',group_id,errors(32))
+ call read_from_hdf5(Bexty,'Bexty',group_id,errors(33))
+ call read_from_hdf5(Bextz,'Bextz',group_id,errors(34))
+ !call read_from_hdf5(0.,'dum',group_id,errors(35))
+ ! if (iexternalforce /= 0) call write_headeropts_extern(iexternalforce,hdr,t,ierr)  !!!! NEED TO FIND A WAY TO DO THIS
+ call read_from_hdf5(xmin,'xmin',group_id,errors(36))
+ call read_from_hdf5(xmax,'xmax',group_id,errors(37))
+ call read_from_hdf5(ymin,'ymin',group_id,errors(38))
+ call read_from_hdf5(ymax,'ymax',group_id,errors(39))
+ call read_from_hdf5(zmin,'zmin',group_id,errors(40))
+ call read_from_hdf5(zmax,'zmax',group_id,errors(41))
+ call read_from_hdf5(get_conserv,'get_conserv',group_id,errors(42))
+ call read_from_hdf5(etot_in,'etot_in',group_id,errors(43))
+ call read_from_hdf5(angtot_in,'angtot_in',group_id,errors(44))
+ call read_from_hdf5(totmom_in,'totmom_in',group_id,errors(45))
+ call read_from_hdf5(mdust_in,'mdust_in',group_id,errors(46))   ! Real array
+ call read_from_hdf5(grainsize,'grainsize',group_id,errors(47)) ! Real array
+ call read_from_hdf5(graindens,'graindens',group_id,errors(48)) ! Real array
+ call read_from_hdf5(udist,'udist',group_id,errors(49))
+ call read_from_hdf5(umass,'umass',group_id,errors(50))
+ call read_from_hdf5(utime,'utime',group_id,errors(51))
+ call read_from_hdf5(unit_Bfield,'umagfd',group_id,errors(52))
+
+ ! Close the header group
+ call close_hdf5group(group_id, errors(53))
+
+ error = maxval(abs(errors))
+
+end subroutine read_hdf5_header
+
+!--------------------------------------------------------------------
+!+
+!  write arrays for full dump
+!+
+!-------------------------------------------------------------------
 subroutine write_hdf5_arrays(file_id,error,xyzh,vxyzu,iphase,pressure,alphaind,dtind,poten,xyzmh_ptmass,vxyz_ptmass, &
                              Bxyz,Bevol,divcurlB,divBsymm,eta_nimhd,dustfrac,tstop,deltav,dustprop,st,               &
                              abundance,temperature,divcurlv,luminosity,beta_pr,                                      &
@@ -123,7 +238,7 @@ subroutine write_hdf5_arrays(file_id,error,xyzh,vxyzu,iphase,pressure,alphaind,d
  errors(:) = 0
 
  ! Create particles group
- call open_hdf5group(file_id,'particles',group_id,errors(1))
+ call create_hdf5group(file_id,'particles',group_id,errors(1))
 
  ! Main arrays
  call write_to_hdf5(xyzh(1:3,:),'xyz',group_id,errors(2))
@@ -185,7 +300,7 @@ subroutine write_hdf5_arrays(file_id,error,xyzh,vxyzu,iphase,pressure,alphaind,d
  call close_hdf5group(group_id, errors(34))
 
  ! Create sink group
- call open_hdf5group(file_id,'sinks',group_id,errors(35))
+ call create_hdf5group(file_id,'sinks',group_id,errors(35))
  if (nptmass > 0) then
     call write_to_hdf5(xyzmh_ptmass(1:3,1:nptmass),'xyz',group_id,errors(36))
     call write_to_hdf5(xyzmh_ptmass(4,1:nptmass),'m',group_id,errors(37))
@@ -203,6 +318,11 @@ subroutine write_hdf5_arrays(file_id,error,xyzh,vxyzu,iphase,pressure,alphaind,d
 
 end subroutine write_hdf5_arrays
 
+!--------------------------------------------------------------------
+!+
+!  write arrays for small dump
+!+
+!-------------------------------------------------------------------
 subroutine write_hdf5_arrays_small(file_id,error, &
                                    xyzh,iphase,xyzmh_ptmass,Bxyz,dustfrac,dustprop,st,abundance,luminosity, &
                                    nptmass,mhd,use_dust,use_dustgrowth,h2chemistry,lightcurve)
@@ -222,7 +342,7 @@ subroutine write_hdf5_arrays_small(file_id,error, &
  errors(:) = 0
 
  ! Create particles group
- call open_hdf5group(file_id,'particles',group_id,errors(1))
+ call create_hdf5group(file_id,'particles',group_id,errors(1))
 
  ! Main arrays
  call write_to_hdf5(real(xyzh(1:3,:),kind=4),'xyz',group_id,errors(2))
@@ -254,7 +374,7 @@ subroutine write_hdf5_arrays_small(file_id,error, &
  call close_hdf5group(group_id, errors(34))
 
  ! Create sink group
- call open_hdf5group(file_id,'sinks',group_id,errors(35))
+ call create_hdf5group(file_id,'sinks',group_id,errors(35))
  if (nptmass > 0) then
     call write_to_hdf5(real(xyzmh_ptmass(1:3,1:nptmass),kind=4),'xyz',group_id,errors(36))
     call write_to_hdf5(real(xyzmh_ptmass(4,1:nptmass),kind=4),'m',group_id,errors(37))
@@ -271,4 +391,4 @@ subroutine write_hdf5_arrays_small(file_id,error, &
 
 end subroutine write_hdf5_arrays_small
 
-end module output_hdf5
+end module utils_dumpfiles_hdf5

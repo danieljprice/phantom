@@ -1,12 +1,48 @@
-module utils_outputhdf5
- use hdf5, only:h5open_f,h5close_f,h5fcreate_f,h5fclose_f,h5gcreate_f,h5gclose_f
- use hdf5, only:h5screate_f,h5sclose_f,h5screate_simple_f,h5dcreate_f,h5dclose_f,h5dwrite_f
- use hdf5, only:HID_T,H5F_ACC_TRUNC_F,HSIZE_T,H5S_SCALAR_F,H5T_NATIVE_REAL,H5T_NATIVE_DOUBLE,H5T_NATIVE_INTEGER
+module utils_hdf5
+ use hdf5, only:h5open_f,           &
+                h5close_f,          &
+                h5fcreate_f,        &
+                h5fopen_f,          &
+                h5fclose_f,         &
+                h5gcreate_f,        &
+                h5gopen_f,          &
+                h5gclose_f,         &
+                h5dopen_f,          &
+                h5dread_f,          &
+                h5dcreate_f,        &
+                h5dclose_f,         &
+                h5dwrite_f,         &
+                h5screate_f,        &
+                h5sclose_f,         &
+                h5screate_simple_f, &
+                h5tcopy_f,          &
+                h5tset_size_f,      &
+                h5tclose_f,         &
+                HID_T,              &
+                H5F_ACC_TRUNC_F,    &
+                H5F_ACC_RDWR_F,     &
+                HSIZE_T,            &
+                H5S_SCALAR_F,       &
+                H5T_NATIVE_REAL,    &
+                H5T_NATIVE_DOUBLE,  &
+                H5T_NATIVE_INTEGER, &
+                SIZE_T,             &
+                H5T_FORTRAN_S1,     &
+                C_PTR
+
+ use iso_c_binding, only:c_loc
 
  implicit none
 
- public :: write_to_hdf5, open_hdf5file, close_hdf5file, open_hdf5group, close_hdf5group
- public :: HID_T
+ public :: write_to_hdf5,    &
+           read_from_hdf5,   &
+           open_hdf5file,    &
+           create_hdf5file,  &
+           close_hdf5file,   &
+           open_hdf5group,   &
+           create_hdf5group, &
+           close_hdf5group,  &
+           HID_T
 
  private
 
@@ -19,8 +55,21 @@ module utils_outputhdf5
                    write_string                                                         ! Strings
  end interface write_to_hdf5
 
- interface open_hdf5group
+ interface read_from_hdf5
+  module procedure read_scalar, read_scalarkind4,                                   & ! Reals
+                   read_array_1d, read_array_2d, read_array_3d,                     & ! Real(8) arrays
+                   read_array_1dkind4, read_array_2dkind4,                          & ! Real(4) arrays
+                   read_scalar_int, read_scalar_intkind8,                           & ! Integers
+                   read_intarray_1d, read_intarray_1dkind8, read_intarray_1dkind1,  & ! Integer arrays
+                   read_string                                                        ! Strings
+ end interface read_from_hdf5
+
+ interface create_hdf5group
   module procedure h5gcreate_f
+ end interface create_hdf5group
+
+ interface open_hdf5group
+  module procedure h5gopen_f
  end interface open_hdf5group
 
  interface close_hdf5group
@@ -29,13 +78,23 @@ module utils_outputhdf5
 
 contains
 
-subroutine open_hdf5file(filename,file_id,error)
+subroutine create_hdf5file(filename,file_id,error)
  character(len=*), intent(in)  :: filename
  integer(HID_T),   intent(out) :: file_id
  integer,          intent(out) :: error
  integer :: errors(2)
  call h5open_f(errors(1))                                     ! Initialise Fortran h5 interfaces
  call h5fcreate_f(filename,H5F_ACC_TRUNC_F,file_id,errors(2)) ! Create file
+ error = maxval(abs(errors))
+end subroutine create_hdf5file
+
+subroutine open_hdf5file(filename,file_id,error)
+ character(len=*), intent(in)  :: filename
+ integer(HID_T),   intent(out) :: file_id
+ integer,          intent(out) :: error
+ integer :: errors(2)
+ call h5open_f(errors(1))                                     ! Initialise Fortran h5 interfaces
+ call h5fopen_f(filename,H5F_ACC_RDWR_F,file_id,errors(2))    ! Open file
  error = maxval(abs(errors))
 end subroutine open_hdf5file
 
@@ -79,7 +138,7 @@ subroutine write_scalar(x, name, id, error)
 end subroutine write_scalar
 
 subroutine write_scalarkind4(x, name, id, error)
- real(kind=4),           intent(in) :: x
+ real(kind=4),   intent(in) :: x
  character(*),   intent(in) :: name
  integer(HID_T), intent(in) :: id
  integer,        intent(out):: error
@@ -433,9 +492,6 @@ subroutine write_intarray_1dkind1(x, name, id, error)
 end subroutine write_intarray_1dkind1
 
 subroutine write_string(str, name, id, error)
- use hdf5,          only:SIZE_T,H5T_FORTRAN_S1,C_PTR
- use hdf5,          only:h5tcopy_f,h5tset_size_f,h5tclose_f
- use iso_c_binding, only:c_loc
  character(*),    intent(in), target :: str
  character(*),    intent(in) :: name
  integer(HID_T),  intent(in) :: id
@@ -482,4 +538,331 @@ subroutine write_string(str, name, id, error)
 
 end subroutine write_string
 
-end module utils_outputhdf5
+subroutine read_scalar(x, name, id, error)
+ real,           intent(out) :: x
+ character(*),   intent(in)  :: name
+ integer(HID_T), intent(in)  :: id
+ integer,        intent(out) :: error
+
+ integer(HSIZE_T), parameter  :: xshape(0) = 0
+ integer(HID_T)    :: dset_id
+ integer :: errors(3)
+
+ ! Open dataset
+ call h5dopen_f(id, name, dset_id, errors(1))
+
+ ! Read dataset
+ call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, errors(2))
+
+ ! Close dataset
+ call h5dclose_f(dset_id, errors(3))
+
+ error = maxval(abs(errors))
+
+end subroutine read_scalar
+
+subroutine read_scalarkind4(x, name, id, error)
+ real(kind=4),   intent(out) :: x
+ character(*),   intent(in)  :: name
+ integer(HID_T), intent(in)  :: id
+ integer,        intent(out) :: error
+
+ integer(HSIZE_T), parameter  :: xshape(0) = 0
+ integer(HID_T)    :: dset_id
+ integer :: errors(3)
+
+ ! Open dataset
+ call h5dopen_f(id, name, dset_id, errors(1))
+
+ ! Read dataset
+ call h5dread_f(dset_id, H5T_NATIVE_REAL, x, xshape, errors(2))
+
+ ! Close dataset
+ call h5dclose_f(dset_id, errors(3))
+
+ error = maxval(abs(errors))
+
+end subroutine read_scalarkind4
+
+subroutine read_array_1d(x, name, id, error)
+ real,           intent(out) :: x(:)
+ character(*),   intent(in)  :: name
+ integer(HID_T), intent(in)  :: id
+ integer,        intent(out) :: error
+
+ integer, parameter :: ndims = 1
+ integer(HSIZE_T)   :: xshape(ndims)
+ integer(HID_T)     :: dset_id
+ integer :: errors(3)
+
+ xshape = shape(x)
+
+ ! Open dataset
+ call h5dopen_f(id, name, dset_id, errors(1))
+
+ ! Read dataset
+ call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, errors(2))
+
+ ! Close dataset
+ call h5dclose_f(dset_id, errors(3))
+
+ error = maxval(abs(errors))
+
+end subroutine read_array_1d
+
+subroutine read_array_1dkind4(x, name, id, error)
+ real(kind=4),   intent(out) :: x(:)
+ character(*),   intent(in)  :: name
+ integer(HID_T), intent(in)  :: id
+ integer,        intent(out) :: error
+
+ integer, parameter :: ndims = 1
+ integer(HSIZE_T)   :: xshape(ndims)
+ integer(HID_T)     :: dset_id
+ integer :: errors(3)
+
+ xshape = shape(x)
+
+ ! Open dataset
+ call h5dopen_f(id, name, dset_id, errors(1))
+
+ ! Read dataset
+ call h5dread_f(dset_id, H5T_NATIVE_REAL, x, xshape, errors(2))
+
+ ! Close dataset
+ call h5dclose_f(dset_id, errors(3))
+
+ error = maxval(abs(errors))
+
+end subroutine read_array_1dkind4
+
+subroutine read_array_2d(x, name, id, error)
+ real,           intent(out) :: x(:,:)
+ character(*),   intent(in)  :: name
+ integer(HID_T), intent(in)  :: id
+ integer,        intent(out) :: error
+
+ integer, parameter :: ndims = 2
+ integer(HSIZE_T)   :: xshape(ndims)
+ integer(HID_T)     :: dset_id
+ integer :: errors(3)
+
+ xshape = shape(x)
+
+ ! Open dataset
+ call h5dopen_f(id, name, dset_id, errors(1))
+
+ ! Read dataset
+ call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, errors(2))
+
+ ! Close dataset
+ call h5dclose_f(dset_id, errors(3))
+
+ error = maxval(abs(errors))
+
+end subroutine read_array_2d
+
+subroutine read_array_2dkind4(x, name, id, error)
+ real(kind=4),   intent(out) :: x(:,:)
+ character(*),   intent(in)  :: name
+ integer(HID_T), intent(in)  :: id
+ integer,        intent(out) :: error
+
+ integer, parameter :: ndims = 2
+ integer(HSIZE_T)   :: xshape(ndims)
+ integer(HID_T)     :: dset_id
+ integer :: errors(3)
+
+ xshape = shape(x)
+
+ ! Open dataset
+ call h5dopen_f(id, name, dset_id, errors(1))
+
+ ! Read dataset
+ call h5dread_f(dset_id, H5T_NATIVE_REAL, x, xshape, errors(2))
+
+ ! Close dataset
+ call h5dclose_f(dset_id, errors(3))
+
+ error = maxval(abs(errors))
+
+end subroutine read_array_2dkind4
+
+subroutine read_array_3d(x, name, id, error)
+ real,           intent(out) :: x(:,:,:)
+ character(*),   intent(in) :: name
+ integer(HID_T), intent(in) :: id
+ integer,        intent(out):: error
+
+ integer, parameter :: ndims = 3
+ integer(HSIZE_T)   :: xshape(ndims)
+ integer(HID_T)     :: dset_id
+ integer :: errors(3)
+
+ xshape = shape(x)
+
+ ! Open dataset
+ call h5dopen_f(id, name, dset_id, errors(1))
+
+ ! Read dataset
+ call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, x, xshape, errors(2))
+
+ ! Close dataset
+ call h5dclose_f(dset_id, errors(3))
+
+ error = maxval(abs(errors))
+
+end subroutine read_array_3d
+
+subroutine read_scalar_int(x, name, id, error)
+ integer,        intent(out) :: x
+ character(*),   intent(in)  :: name
+ integer(HID_T), intent(in)  :: id
+ integer,        intent(out) :: error
+
+ integer(HSIZE_T), parameter  :: xshape(0) = 0
+ integer(HID_T) :: dset_id
+ integer :: errors(3)
+
+ ! Open dataset
+ call h5dopen_f(id, name, dset_id, errors(1))
+
+ ! Read dataset
+ call h5dread_f(dset_id, H5T_NATIVE_INTEGER, x, xshape, errors(2))
+
+ ! Close dataset
+ call h5dclose_f(dset_id, errors(3))
+
+ error = maxval(abs(errors))
+
+end subroutine read_scalar_int
+
+subroutine read_scalar_intkind8(x, name, id, error)
+ integer(kind=8), intent(out) :: x
+ character(*),    intent(in)  :: name
+ integer(HID_T),  intent(in)  :: id
+ integer,         intent(out) :: error
+
+ integer(HSIZE_T), parameter  :: xshape(0) = 0
+ integer(HID_T) :: dset_id
+ integer :: errors(3)
+
+ ! Open dataset
+ call h5dopen_f(id, name, dset_id, errors(1))
+
+ ! Read dataset
+ call h5dread_f(dset_id, H5T_NATIVE_INTEGER, x, xshape, errors(2))
+
+ ! Close dataset
+ call h5dclose_f(dset_id, errors(3))
+
+ error = maxval(abs(errors))
+
+end subroutine read_scalar_intkind8
+
+subroutine read_intarray_1d(x, name, id, error)
+ integer,        intent(out) :: x(:)
+ character(*),   intent(in)  :: name
+ integer(HID_T), intent(in)  :: id
+ integer,        intent(out) :: error
+
+ integer, parameter :: ndims = 1
+ integer(HSIZE_T)   :: xshape(ndims)
+ integer(HID_T)     :: dset_id
+ integer :: errors(3)
+
+ xshape = shape(x)
+
+ ! Open dataset
+ call h5dopen_f(id, name, dset_id, errors(1))
+
+ ! Read dataset
+ call h5dread_f(dset_id, H5T_NATIVE_INTEGER, x, xshape, errors(2))
+
+ ! Close dataset
+ call h5dclose_f(dset_id, errors(3))
+
+ error = maxval(abs(errors))
+
+end subroutine read_intarray_1d
+
+subroutine read_intarray_1dkind8(x, name, id, error)
+ integer(kind=8), intent(out) :: x(:)
+ character(*),    intent(in)  :: name
+ integer(HID_T),  intent(in)  :: id
+ integer,         intent(out) :: error
+
+ integer, parameter :: ndims = 1
+ integer(HSIZE_T)   :: xshape(ndims)
+ integer(HID_T)     :: dset_id
+ integer :: errors(3)
+
+ xshape = shape(x)
+
+ ! Open dataset
+ call h5dopen_f(id, name, dset_id, errors(1))
+
+ ! Read dataset
+ call h5dread_f(dset_id, H5T_NATIVE_INTEGER, x, xshape, errors(2))
+
+ ! Close dataset
+ call h5dclose_f(dset_id, errors(3))
+
+ error = maxval(abs(errors))
+
+end subroutine read_intarray_1dkind8
+
+subroutine read_intarray_1dkind1(x, name, id, error)
+ integer(kind=1), intent(out) :: x(:)
+ character(*),    intent(in)  :: name
+ integer(HID_T),  intent(in)  :: id
+ integer,         intent(out) :: error
+
+ integer, parameter :: ndims = 1
+ integer(HSIZE_T)   :: xshape(ndims)
+ integer(HID_T)     :: dset_id
+ integer :: errors(3)
+
+ xshape = shape(x)
+
+ ! Open dataset
+ call h5dopen_f(id, name, dset_id, errors(1))
+
+ ! Read dataset
+ call h5dread_f(dset_id, H5T_NATIVE_INTEGER, x, xshape, errors(2))
+
+ ! Close dataset
+ call h5dclose_f(dset_id, errors(3))
+
+ error = maxval(abs(errors))
+
+end subroutine read_intarray_1dkind1
+
+subroutine read_string(str, name, id, error)
+ ! TODO: fix this subroutine
+ character(*),   intent(out), target :: str
+ character(*),   intent(in) :: name
+ integer(HID_T), intent(in) :: id
+ integer,        intent(out):: error
+
+ integer, parameter  :: ndims = 0
+ integer(HSIZE_T)    :: sshape(ndims)
+ integer(HID_T)      :: dset_id
+ integer :: errors(3)
+
+ sshape = shape(str)
+
+ ! Open dataset
+ call h5dopen_f(id, name, dset_id, errors(1))
+
+ ! Read dataset
+ call h5dread_f(dset_id, H5T_FORTRAN_S1, str, sshape, errors(2))
+
+ ! Close dataset
+ call h5dclose_f(dset_id, errors(3))
+
+ error = maxval(abs(errors))
+
+end subroutine read_string
+
+end module utils_hdf5
