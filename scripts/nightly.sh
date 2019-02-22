@@ -36,10 +36,12 @@ summary=[];
 changesets='';
 mailto='';
 names='';
+slacknames='';
 sendmail=1;
 # work out who to blame
 get_incoming_changes ()
 {
+   cd $codedir;
    echo "--- getting incoming changes ---";
    git fetch
    git log ..@{u} --format="commit:%h%nauthor: %aN <%aE>%nsummary:%s" > $incoming;
@@ -56,6 +58,20 @@ get_incoming_changes ()
 #   changesets=`grep commit $incoming | cut -d':' -f 2`;
    git log ..@{u} --format="%s" > $dir/summary.txt;
 }
+get_slack_name ()
+{
+   fullname=$(echo $1 | cut -d'<' -f 1);
+   firstname=$(echo $1 | cut -d' ' -f 1);
+   slackid=$firstname;
+   while read myline; do
+     f1=$(echo $myline | cut -d':' -f 1);
+     f2=$(echo $myline | cut -d':' -f 2 | sed 's/^[[:space:]]*//');
+     if [ "$fullname" == "$f1" ]; then
+        slackid="$f2";
+     fi
+   done < $codedir/.slackmap
+   echo "<$slackid>";
+}
 extract_names_of_users ()
 {
    # extract list of people to send mail to from users.list
@@ -64,6 +80,8 @@ extract_names_of_users ()
    while read line; do
       mailto+="$line,";
       names+="`echo $line | cut -d' ' -f 1`, ";
+      slacknames+=`get_slack_name "$line"`;
+      slacknames+=" ";
    done < $dir/users.list
    echo "mailto: $mailto";
 }
@@ -239,6 +257,7 @@ write_htmlfile_gittag_and_mailfile ()
    echo $mytag > $tagfile;
    if [ $gotissues -eq 0 ]; then
       preamble='Congratulations! Your changes to Phantom in the last 24 hours passed all tests.';
+      preamblehtml=${preamble};
       text='Please give yourself a pat on the back';
       msg=' Congratulations!';
    else
@@ -283,6 +302,11 @@ Content-Type: text/html
 EOM
       cat $htmlfile >> $mailfile;
    fi
+#
+# write slack message
+#
+   line="$slacknames\n $preamble\n$text\nTagged as <$url/nightly/build/$datetag.html|$gittag>"
+   echo $line > slack.tmp;
 }
 tag_code_and_push_tags()
 {
@@ -300,8 +324,12 @@ send_email ()
 post_to_slack ()
 {
   message=$1;
+  channel=$2;
+  if [ "X$channel" == "X" ]; then
+     channel="#commits"
+  fi
   webhookurl="https://hooks.slack.com/services/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"
-  channel="#commits"
+  #channel="#commits"
   username="buildbot"
   json="{\"channel\": \"$channel\", \"username\": \"$username\", \"text\": \"$message\", \"icon_emoji\": \":ghost:\"}"
 
@@ -328,8 +356,6 @@ commit_and_push_to_website ()
    git commit -m "[nightly]: results `date`"
    git push
 }
-# enter code directory
-cd $codedir
 get_incoming_changes
 extract_names_of_users
 extract_changeset_list
@@ -338,10 +364,10 @@ run_buildbot
 run_benchmarks
 #pull_wiki
 write_htmlfile_gittag_and_mailfile
-#longmessage="${names/,/}: $preamble $text"
-#echo "$longmessage"
 message="status: <$url/nightly/build/$datetag.html|$gittag>"
-post_to_slack "$message"
+post_to_slack "$message" "#commits"
+message=`cat slack.tmp`
+post_to_slack "$message" "#nightly"
 tag_code_and_push_tags
 send_email
 commit_and_push_to_website
