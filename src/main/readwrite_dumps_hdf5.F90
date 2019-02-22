@@ -35,7 +35,9 @@ module readwrite_dumps
                                 write_hdf5_header,       &
                                 write_hdf5_arrays,       &
                                 write_hdf5_arrays_small, &
-                                read_hdf5_header
+                                read_hdf5_header,        &
+                                read_hdf5_arrays,        &
+                                read_hdf5_arrays_small
 
  implicit none
  character(len=80), parameter, public :: &    ! module version
@@ -344,10 +346,12 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
- use options,        only:tolh,alpha,alphau,alphaB,iexternalforce
- use part,           only:npart,npartoftype,massoftype,nptmass, &
-                          ndustlarge,ndustsmall,grainsize,graindens, &
-                          Bextx,Bexty,Bextz
+ use io,             only:fatal
+ use memory,         only:allocate_memory
+ use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
+ use part,           only:xyzh,vxyzu,npart,npartoftype,massoftype,nptmass, &
+                          ndustlarge,ndustsmall,grainsize,graindens,Bextx, &
+                          Bexty,Bextz
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use units,          only:udist,umass,utime,unit_Bfield
@@ -359,23 +363,46 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  logical, optional, intent(in)  :: dustydisc
 
  character(len=200) :: fileident
- integer :: error
+ integer :: errors(10)
+ logical :: smalldump,isothermal
 
- call open_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,error)
+ call open_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,errors(1))
 
- call read_hdf5_header(hdf5_file_id,error,fileident,isink,nptmass,ndustlarge,  &
-                       ndustsmall,npart,npartoftype,iexternalforce,ieos,tfile, &
-                       dtmax,gamma,rhozero,polyk,hfactfile,tolh,C_cour,C_force,&
-                       alpha,alphau,alphaB,polyk2,qfacdisc,massoftype,Bextx,   &
-                       Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,zmax,get_conserv,  &
-                       etot_in,angtot_in,totmom_in,mdust_in,grainsize,         &
-                       graindens,udist,umass,utime,unit_Bfield)
+ call read_hdf5_header(hdf5_file_id,errors(2),fileident,isink,nptmass,         &
+                       ndustlarge,ndustsmall,npart,npartoftype,iexternalforce, &
+                       ieos,tfile,dtmax,gamma,rhozero,polyk,hfactfile,tolh,    &
+                       C_cour,C_force,alpha,alphau,alphaB,polyk2,qfacdisc,     &
+                       massoftype,Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,  &
+                       zmax,get_conserv,etot_in,angtot_in,totmom_in,mdust_in,  &
+                       grainsize,graindens,udist,umass,utime,unit_Bfield)
+
+ call get_options_from_fileid(fileident,smalldump,use_dustfrac,errors(3))
+
+ !
+ !--Allocate main arrays
+ !
+#ifdef INJECT_PARTICLES
+ call allocate_memory(maxp_hard)
+#else
+ call allocate_memory(int(npart / nprocs))
+#endif
+
+#ifdef ISOTHERMAL
+ isothermal = .true.
+#else
+ isothermal = .false.
+#endif
 
  ! TODO: read arrays
+ if (.not.smalldump) then
+    call read_hdf5_arrays(hdf5_file_id,errors(4),npart,xyzh,vxyzu,isothermal)
+ else
+    call fatal('read_dump',trim(dumpfile)//'.h5 is not a full dump')
+ endif
 
- call close_hdf5file(hdf5_file_id,error)
+ call close_hdf5file(hdf5_file_id,errors(4))
 
- ierr = 0
+ ierr = maxval(abs(errors))
 
 end subroutine read_dump
 
@@ -429,28 +456,38 @@ end subroutine checkparam
 !  and perform basic sanity checks
 !+
 !---------------------------------------------------------------
-subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
-                        alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
-                        got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_St, &
-                        got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
- use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,store_temperature,use_dustgrowth
- use eos,  only:polyk,gamma
- use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,&
-                xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes
- use io,   only:warning,id,master
+subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties, &
+                        massoftype,alphafile,tfile,phantomdump,got_iphase,   &
+                        got_xyzh,got_vxyzu,got_alpha,got_abund,got_dustfrac, &
+                        got_sink_data,got_sink_vels,got_Bxyz,got_psi,        &
+                        got_dustprop,got_St,got_temp,iphase,xyzh,vxyzu,      &
+                        alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+
+ use dim,        only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry, &
+                      store_temperature,use_dustgrowth
+ use eos,        only:polyk,gamma
+ use part,       only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft, &
+                      imacc,xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,   &
+                      rhoh,dustfrac,ndusttypes
+ use io,         only:warning,id,master
  use options,    only:alpha,use_dustfrac
  use sphNGutils, only:itype_from_sphNG_iphase,isphNG_accreted
- integer,         intent(in)    :: i1,i2,npartoftype(:),npartread,nptmass,nsinkproperties
+
+ integer,         intent(in)    :: i1,i2,npartoftype(:),npartread,nptmass, &
+                                   nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
- logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha,got_dustprop(:),got_St
- logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_Bxyz(:)
- logical,         intent(in)    :: got_psi, got_temp
+ logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),     &
+                                   got_vxyzu(:),got_alpha,got_dustprop(:), &
+                                   got_St,got_abund(:),got_dustfrac(:),    &
+                                   got_sink_data(:),got_sink_vels(:),      &
+                                   got_Bxyz(:),got_psi,got_temp
  integer(kind=1), intent(inout) :: iphase(:)
  real,            intent(inout) :: vxyzu(:,:), Bevol(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
  real,            intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
  integer,         intent(in)    :: iprint
  integer,         intent(out)   :: ierr
+
  logical :: use_gas
  integer :: i,itype,nread
  !
