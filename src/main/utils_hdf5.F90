@@ -1,33 +1,38 @@
 module utils_hdf5
- use hdf5, only:h5open_f,           &
-                h5close_f,          &
-                h5fcreate_f,        &
-                h5fopen_f,          &
-                h5fclose_f,         &
-                h5gcreate_f,        &
-                h5gopen_f,          &
-                h5gclose_f,         &
-                h5dopen_f,          &
-                h5dread_f,          &
-                h5dcreate_f,        &
-                h5dclose_f,         &
-                h5dwrite_f,         &
-                h5screate_f,        &
-                h5sclose_f,         &
-                h5screate_simple_f, &
-                h5tcopy_f,          &
-                h5tset_size_f,      &
-                h5tclose_f,         &
-                HID_T,              &
-                H5F_ACC_TRUNC_F,    &
-                H5F_ACC_RDWR_F,     &
-                HSIZE_T,            &
-                H5S_SCALAR_F,       &
-                H5T_NATIVE_REAL,    &
-                H5T_NATIVE_DOUBLE,  &
-                H5T_NATIVE_INTEGER, &
-                SIZE_T,             &
-                H5T_FORTRAN_S1,     &
+ use hdf5, only:h5open_f,                    &
+                h5close_f,                   &
+                h5fcreate_f,                 &
+                h5fopen_f,                   &
+                h5fclose_f,                  &
+                h5gcreate_f,                 &
+                h5gopen_f,                   &
+                h5gclose_f,                  &
+                h5dopen_f,                   &
+                h5dread_f,                   &
+                h5dread_vl_f,                &
+                h5dcreate_f,                 &
+                h5dclose_f,                  &
+                h5dwrite_f,                  &
+                h5screate_f,                 &
+                h5sclose_f,                  &
+                h5screate_simple_f,          &
+                h5tcopy_f,                   &
+                h5tset_size_f,               &
+                h5tclose_f,                  &
+                H5Dget_type_f,               &
+                H5Tget_size_f,               &
+                H5Dget_space_f,              &
+                H5Sget_simple_extent_dims_f, &
+                HID_T,                       &
+                H5F_ACC_TRUNC_F,             &
+                H5F_ACC_RDWR_F,              &
+                HSIZE_T,                     &
+                H5S_SCALAR_F,                &
+                H5T_NATIVE_REAL,             &
+                H5T_NATIVE_DOUBLE,           &
+                H5T_NATIVE_INTEGER,          &
+                SIZE_T,                      &
+                H5T_FORTRAN_S1,              &
                 C_PTR
 
  use iso_c_binding, only:c_loc
@@ -853,27 +858,61 @@ subroutine read_intarray_1dkind1(x,name,id,error)
 end subroutine read_intarray_1dkind1
 
 subroutine read_string(str,name,id,error)
- ! TODO: fix this subroutine
- character(*),   intent(out), target :: str
+ character(*),   intent(out) :: str
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
  integer,        intent(out) :: error
 
- integer, parameter  :: ndims = 0
- integer(HSIZE_T)    :: sshape(ndims)
- integer(HID_T)      :: dset_id
- integer :: errors(3)
+ integer :: errors(12)
 
- sshape = shape(str)
+ integer        , parameter :: dim0 = 1
+ integer(SIZE_T), parameter :: sdim = 100
 
- ! Open dataset
- call h5dopen_f(id,name,dset_id,errors(1))
+ integer(HSIZE_T), dimension(1:1) :: dims = (/dim0/)
+ integer(HSIZE_T), dimension(1:1) :: maxdims
 
- ! Read dataset
- call h5dread_f(dset_id,H5T_FORTRAN_S1,str,sshape,errors(2))
+ integer(HID_T) :: filetype,memtype,space,dset
 
- ! Close dataset
- call h5dclose_f(dset_id,errors(3))
+ character(LEN=sdim), dimension(:), allocatable, target :: rdata
+ integer(SIZE_T) :: size
+ type(c_ptr) :: f_ptr
+
+ call h5dopen_f(id,name,dset,errors(1))
+
+ ! Get the datatype and its size.
+ call h5dget_type_f(dset,filetype,errors(2))
+ call H5Tget_size_f(filetype,size,errors(3))
+
+ ! Make sure the declared length is large enough,
+ ! the C string contains the null character.
+ if (size.GT.sdim+1) then
+    print*,'ERROR: Character LEN is too small'
+    stop
+ endif
+
+ ! Get dataspace.
+ call H5Dget_space_f(dset,space,errors(4))
+ call H5Sget_simple_extent_dims_f(space,dims,maxdims,errors(5))
+
+ allocate(rdata(1:dims(1)))
+
+ ! Create the memory datatype.
+ call H5Tcopy_f(H5T_FORTRAN_S1,memtype,errors(6))
+ call H5Tset_size_f(memtype,sdim,errors(7))
+
+ ! Read the data.
+ f_ptr = C_LOC(rdata(1)(1:1))
+ call H5Dread_f(dset,memtype,f_ptr,errors(8),space)
+
+ ! Close and release resources.
+ call H5Dclose_f(dset,errors(9))
+ call H5Sclose_f(space,errors(10))
+ call H5Tclose_f(filetype,errors(11))
+ call H5Tclose_f(memtype,errors(12))
+
+ str = rdata(1)
+
+ deallocate(rdata)
 
  error = maxval(abs(errors))
 
