@@ -20,10 +20,10 @@ module utils_hdf5
                 h5tcopy_f,                   &
                 h5tset_size_f,               &
                 h5tclose_f,                  &
-                H5Dget_type_f,               &
-                H5Tget_size_f,               &
-                H5Dget_space_f,              &
-                H5Sget_simple_extent_dims_f, &
+                h5dget_type_f,               &
+                h5tget_size_f,               &
+                h5dget_space_f,              &
+                h5sget_simple_extent_dims_f, &
                 HID_T,                       &
                 H5F_ACC_TRUNC_F,             &
                 H5F_ACC_RDWR_F,              &
@@ -971,18 +971,18 @@ subroutine read_string(str,name,id,got,error)
 
  ! Get the datatype and its size.
  call h5dget_type_f(dset,filetype,errors(2))
- call H5Tget_size_f(filetype,size,errors(3))
+ call h5tget_size_f(filetype,size,errors(3))
 
  ! Make sure the declared length is large enough,
  ! the C string contains the null character.
- if (size.GT.sdim+1) then
+ if (size > sdim+1) then
     print*,'ERROR: Character LEN is too small'
     stop
  endif
 
  ! Get dataspace.
- call H5Dget_space_f(dset,space,errors(4))
- call H5Sget_simple_extent_dims_f(space,dims,maxdims,errors(5))
+ call h5dget_space_f(dset,space,errors(4))
+ call h5sget_simple_extent_dims_f(space,dims,maxdims,errors(5))
 
  allocate(rdata(1:dims(1)))
 
