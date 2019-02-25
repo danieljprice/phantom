@@ -36,8 +36,7 @@ module readwrite_dumps
                                 write_hdf5_arrays,       &
                                 write_hdf5_arrays_small, &
                                 read_hdf5_header,        &
-                                read_hdf5_arrays,        &
-                                read_hdf5_arrays_small
+                                read_hdf5_arrays
 
  implicit none
  character(len=80), parameter, public :: &    ! module version
@@ -82,23 +81,6 @@ end subroutine get_options_from_fileid
 
 !--------------------------------------------------------------------
 !+
-!  extract dump size used in Phantom from the fileid string
-!+
-!--------------------------------------------------------------------
-subroutine get_dump_size(fileid,smalldump)
- character(len=*), intent(in)  :: fileid
- logical,          intent(out) :: smalldump
- !
- if (fileid(1:5)=='small') then
-    smalldump = .true.
- else
-    smalldump = .false.
- endif
-
-end subroutine get_dump_size
-
-!--------------------------------------------------------------------
-!+
 !  subroutine to write output to full dump file
 !  (this is everything needed to restart a run)
 !+
@@ -134,22 +116,23 @@ end subroutine
 !+
 !-------------------------------------------------------------------
 subroutine write_dump(t,dumpfile,fulldump,ntotal)
- use dim,            only:maxp,maxvxyzu,gravity,maxalpha,mhd,mhd_nonideal,use_dust,use_dustgrowth
- use dim,            only:phantom_version_major,phantom_version_minor,phantom_version_micro,store_temperature
- use dim,            only:phantom_version_string
+ use dim,            only:maxp,maxvxyzu,gravity,maxalpha,mhd,mhd_nonideal,   &
+                          use_dust,use_dustgrowth,phantom_version_major,     &
+                          phantom_version_minor,phantom_version_micro,       &
+                          store_temperature,phantom_version_string
+ use eos,            only:ieos,equationofstate,done_init_eos,init_eos,polyk, &
+                          gamma,polyk2,qfacdisc,isink
  use gitinfo,        only:gitsha
- use eos,            only:ieos,equationofstate,done_init_eos,init_eos,polyk,gamma,polyk2,qfacdisc,isink
  use io,             only:nprocs,fatal,id,master,iprint
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
- use part,           only:xyzh,vxyzu,Bevol,Bxyz,npart,npartoftype,maxtypes, &
-                          alphaind,rhoh,divBsymm,maxphase,iphase, &
-                          nptmass,xyzmh_ptmass,vxyz_ptmass,&
-                          get_pmass,abundance,&
-                          divcurlv,divcurlB,poten,dustfrac,deltav,tstop,&
-                          dustprop,temperature,St,ndustsmall,luminosity,&
-                          eta_nimhd,massoftype,hfact,Bextx,Bexty,Bextz,&
-                          ndustlarge,idust,grainsize,graindens,&
-                          h2chemistry,lightcurve,maxBevol,&
+ use part,           only:xyzh,vxyzu,Bevol,Bxyz,npart,npartoftype,maxtypes,  &
+                          alphaind,rhoh,divBsymm,maxphase,iphase,nptmass,    &
+                          xyzmh_ptmass,vxyz_ptmass,get_pmass,abundance,      &
+                          divcurlv,divcurlB,poten,dustfrac,deltav,tstop,     &
+                          dustprop,temperature,St,ndustsmall,luminosity,     &
+                          eta_nimhd,massoftype,hfact,Bextx,Bexty,Bextz,      &
+                          ndustlarge,idust,grainsize,graindens,              &
+                          h2chemistry,lightcurve,maxBevol,                   &
                           ndivcurlB,ndivcurlv,ndusttypes
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
@@ -313,15 +296,15 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
 
  if (fulldump) then
     call write_hdf5_arrays(hdf5_file_id,error,xyzh(:,1:npart),vxyzu(:,1:npart), &
-                           int(iphase(1:npart)),pressure, &
-                           alphaind,dtind,poten,xyzmh_ptmass,vxyz_ptmass,Bxyz, &
-                           Bevol,divcurlB,divBsymm,eta_nimhd,                  &
-                           dustfrac(1:ndusttypes,:),tstop(1:ndustsmall,:),     &
-                           deltav(:,1:ndustsmall,:),dustprop,st,abundance,     &
-                           temperature,divcurlv(:,1:npart),luminosity,beta_pr,const_av,   &
-                           ind_timesteps,gravity,nptmass,mhd,maxBevol,         &
-                           ndivcurlB,mhd_nonideal,use_dust,use_dustfrac,       &
-                           use_dustgrowth,h2chemistry,store_temperature,       &
+                           int(iphase(1:npart)),pressure,alphaind,dtind,poten,  &
+                           xyzmh_ptmass,vxyz_ptmass,Bxyz,Bevol,divcurlB,        &
+                           divBsymm,eta_nimhd,dustfrac(1:ndusttypes,:),         &
+                           tstop(1:ndustsmall,:),deltav(:,1:ndustsmall,:),      &
+                           dustprop,st,abundance,temperature,                   &
+                           divcurlv(:,1:npart),luminosity,beta_pr,const_av,     &
+                           ind_timesteps,gravity,nptmass,mhd,maxBevol,          &
+                           ndivcurlB,mhd_nonideal,use_dust,use_dustfrac,        &
+                           use_dustgrowth,h2chemistry,store_temperature,        &
                            ndivcurlv,lightcurve,prdrag,isothermal)
  else
     call write_hdf5_arrays_small(hdf5_file_id,error,xyzh,int(iphase),       &
@@ -344,14 +327,18 @@ end subroutine write_dump
 !-------------------------------------------------------------------
 subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
+ use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
+                          h2chemistry,store_temperature
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use io,             only:fatal
  use memory,         only:allocate_memory
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
- use part,           only:xyzh,vxyzu,npart,npartoftype,massoftype,nptmass, &
-                          ndustlarge,ndustsmall,grainsize,graindens,Bextx, &
-                          Bexty,Bextz
+ use part,           only:iphase,xyzh,vxyzu,npart,npartoftype,massoftype,   &
+                          nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,      &
+                          ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz, &
+                          dt_in,alphaind,poten,Bxyz,Bevol,dustfrac,deltav,  &
+                          dustprop,tstop,St,temperature,abundance
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use units,          only:udist,umass,utime,unit_Bfield
@@ -364,7 +351,101 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 
  character(len=200) :: fileident
  integer :: errors(10)
- logical :: smalldump,isothermal
+ logical :: smalldump,isothermal,ind_timesteps,const_av
+
+ call open_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,errors(1))
+ if (errors(1) /= 0) then
+    ierr = 1
+    call fatal('read_dump',trim(dumpfile)//'.h5 does not exist')
+ endif
+
+ call read_hdf5_header(hdf5_file_id,errors(2),fileident,isink,nptmass,         &
+                       ndustlarge,ndustsmall,npart,npartoftype,iexternalforce, &
+                       ieos,tfile,dtmax,gamma,rhozero,polyk,hfactfile,tolh,    &
+                       C_cour,C_force,alpha,alphau,alphaB,polyk2,qfacdisc,     &
+                       massoftype,Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,  &
+                       zmax,get_conserv,etot_in,angtot_in,totmom_in,mdust_in,  &
+                       grainsize,graindens,udist,umass,utime,unit_Bfield)
+
+ call get_options_from_fileid(fileident,smalldump,use_dustfrac,errors(3))
+
+ !
+ !--Allocate main arrays
+ !
+#ifdef INJECT_PARTICLES
+ call allocate_memory(maxp_hard)
+#else
+ call allocate_memory(int(npart / nprocs))
+#endif
+
+#ifdef ISOTHERMAL
+ isothermal = .true.
+#else
+ isothermal = .false.
+#endif
+
+#ifdef IND_TIMESTEPS
+ ind_timesteps = .true.
+#else
+ ind_timesteps = .false.
+#endif
+
+! Check if constant AV
+ if (maxp==maxalpha) then
+    const_av = .false.
+ else
+    const_av = .true.
+ endif
+
+ if (.not.smalldump) then
+    call read_hdf5_arrays(hdf5_file_id,errors(4),npart,nptmass,iphase,xyzh,vxyzu, &
+                          xyzmh_ptmass,vxyz_ptmass,dt_in,alphaind,poten,Bxyz,     &
+                          Bevol,dustfrac,deltav,dustprop,tstop,St,temperature,    &
+                          abundance,isothermal,const_av,ind_timesteps,gravity,    &
+                          mhd,use_dust,use_dustfrac,use_dustgrowth,h2chemistry,   &
+                          store_temperature)
+ else
+    call fatal('read_dump',trim(dumpfile)//'.h5 is not a full dump')
+ endif
+
+ call close_hdf5file(hdf5_file_id,errors(5))
+
+ ierr = maxval(abs(errors))
+
+end subroutine read_dump
+
+!--------------------------------------------------------------------
+!+
+!  subroutine to read full dump from file
+!+
+!-------------------------------------------------------------------
+subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
+ use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
+ use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
+                          h2chemistry,store_temperature
+ use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
+ use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use io,             only:error,fatal
+ use memory,         only:allocate_memory
+ use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
+ use part,           only:iphase,xyzh,vxyzu,npart,npartoftype,massoftype,   &
+                          nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,      &
+                          ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz, &
+                          dt_in,alphaind,poten,Bxyz,Bevol,dustfrac,deltav,  &
+                          dustprop,tstop,St,temperature,abundance
+ use setup_params,   only:rhozero
+ use timestep,       only:dtmax,C_cour,C_force
+ use units,          only:udist,umass,utime,unit_Bfield
+ character(len=*),  intent(in)  :: dumpfile
+ real,              intent(out) :: tfile,hfactfile
+ integer,           intent(in)  :: idisk1,iprint,id,nprocs
+ integer,           intent(out) :: ierr
+ logical, optional, intent(in)  :: headeronly
+ logical, optional, intent(in)  :: dustydisc
+
+ character(len=200) :: fileident
+ integer :: errors(10)
+ logical :: smalldump,isothermal,ind_timesteps,const_av
 
  call open_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,errors(1))
 
@@ -393,40 +474,33 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  isothermal = .false.
 #endif
 
- ! TODO: read arrays
- if (.not.smalldump) then
-    call read_hdf5_arrays(hdf5_file_id,errors(4),npart,xyzh,vxyzu,isothermal)
+#ifdef IND_TIMESTEPS
+ ind_timesteps = .true.
+#else
+ ind_timesteps = .false.
+#endif
+
+! Check if constant AV
+ if (maxp==maxalpha) then
+    const_av = .false.
  else
-    call fatal('read_dump',trim(dumpfile)//'.h5 is not a full dump')
+    const_av = .true.
  endif
 
- call close_hdf5file(hdf5_file_id,errors(4))
+ if (smalldump) then
+    call read_hdf5_arrays(hdf5_file_id,errors(4),npart,nptmass,iphase,xyzh,vxyzu, &
+                          xyzmh_ptmass,vxyz_ptmass,dt_in,alphaind,poten,Bxyz,     &
+                          Bevol,dustfrac,deltav,dustprop,tstop,St,temperature,    &
+                          abundance,isothermal,const_av,ind_timesteps,gravity,    &
+                          mhd,use_dust,use_dustfrac,use_dustgrowth,h2chemistry,   &
+                          store_temperature)
+ else
+    call error('read_smalldump',trim(dumpfile)//'.h5 is not a small dump')
+ endif
+
+ call close_hdf5file(hdf5_file_id,errors(5))
 
  ierr = maxval(abs(errors))
-
-end subroutine read_dump
-
-!--------------------------------------------------------------------
-!+
-!  subroutine to read full dump from file
-!+
-!-------------------------------------------------------------------
-subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
- character(len=*),  intent(in)  :: dumpfile
- real,              intent(out) :: tfile,hfactfile
- integer,           intent(in)  :: idisk1,iprint,id,nprocs
- integer,           intent(out) :: ierr
- logical, optional, intent(in)  :: headeronly
- logical, optional, intent(in)  :: dustydisc
-
- integer :: error
-
- call open_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,error)
-
- ! TODO: read header
- ! TODO: read arrays
-
- call close_hdf5file(hdf5_file_id,error)
 
 end subroutine read_smalldump
 
