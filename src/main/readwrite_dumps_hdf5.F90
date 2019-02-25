@@ -477,7 +477,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
    deallocate(dtind)
 
  else
-    call fatal('read_dump',trim(dumpfile)//'.h5 is not a full dump')
+    call error('read_dump',trim(dumpfile)//'.h5 is not a full dump')
  endif
 
  call close_hdf5file(hdf5_file_id,errors(5))
