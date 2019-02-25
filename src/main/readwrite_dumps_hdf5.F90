@@ -365,17 +365,17 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  use io,             only:fatal,error
  use memory,         only:allocate_memory
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
- use part,           only:iphase,xyzh,vxyzu,npart,npartoftype,massoftype,   &
-                          nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,      &
-                          ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz, &
-                          alphaind,poten,Bxyz,Bevol,dustfrac,deltav,  &
-                          dustprop,tstop,St,temperature,abundance
+ use part,           only:iphase,xyzh,vxyzu,npart,npartoftype,massoftype,     &
+                          nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,        &
+                          ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz,   &
+                          alphaind,poten,Bxyz,Bevol,dustfrac,deltav,dustprop, &
+                          tstop,St,temperature,abundance,ndusttypes
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
 #endif
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
- use units,          only:udist,umass,utime,unit_Bfield
+ use units,          only:udist,umass,utime,unit_Bfield,set_units_extra
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -422,6 +422,12 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
                        zmax,get_conserv,etot_in,angtot_in,totmom_in,mdust_in,  &
                        grainsize,graindens,udist,umass,utime,unit_Bfield)
 
+ !
+ !--Set values from header
+ !
+ call set_units_extra()
+ ndusttypes = ndustsmall + ndustlarge
+
  call get_options_from_fileid(fileident,smalldump,use_dustfrac,errors(3))
 
  !
@@ -454,30 +460,29 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 
  if (.not.smalldump) then
     allocate(dtind(npart))
-    call read_hdf5_arrays(hdf5_file_id,errors(4),npart,nptmass,iphase,xyzh,vxyzu, &
-                          xyzmh_ptmass,vxyz_ptmass,dtind,alphaind,poten,Bxyz,     &
-                          Bevol,dustfrac,deltav,dustprop,tstop,St,temperature,    &
-                          abundance,isothermal,const_av,ind_timesteps,gravity,    &
-                          mhd,use_dust,use_dustfrac,use_dustgrowth,h2chemistry,   &
-                          store_temperature,nsinkproperties,got_iphase,got_xyzh,  &
-                          got_vxyzu,   &
-                          got_dustfrac,got_tstop,got_deltav,got_abund,     &
-                          got_dt_in,got_alpha,got_poten,got_sink_data,     &
-                          got_sink_vels,got_Bxyz,got_psi,got_temp,         &
+    call read_hdf5_arrays(hdf5_file_id,errors(4),npart,nptmass,iphase,xyzh,    &
+                          vxyzu,xyzmh_ptmass,vxyz_ptmass,dtind,alphaind,poten, &
+                          Bxyz,Bevol,dustfrac,deltav,dustprop,tstop,St,        &
+                          temperature,abundance,isothermal,const_av,           &
+                          ind_timesteps,gravity,mhd,use_dust,use_dustfrac,     &
+                          use_dustgrowth,h2chemistry,store_temperature,        &
+                          nsinkproperties,got_iphase,got_xyzh,got_vxyzu,       &
+                          got_dustfrac,got_tstop,got_deltav,got_abund,         &
+                          got_dt_in,got_alpha,got_poten,got_sink_data,         &
+                          got_sink_vels,got_Bxyz,got_psi,got_temp,             &
                           got_dustprop,got_St)
 
-    call check_arrays(1,npart,npartoftype,nptmass,nsinkproperties, &
-                      massoftype,alpha,tfile,got_iphase,   &
-                      got_xyzh,got_vxyzu,got_alpha,got_abund,got_dustfrac, &
-                      got_sink_data,got_sink_vels,got_Bxyz,got_psi,        &
-                      got_dustprop,got_St,got_temp,iphase,xyzh,vxyzu,      &
-                      alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+    call check_arrays(1,npart,npartoftype,nptmass,nsinkproperties,massoftype, &
+                      alpha,tfile,got_iphase,got_xyzh,got_vxyzu,got_alpha,    &
+                      got_abund,got_dustfrac,got_sink_data,got_sink_vels,     &
+                      got_Bxyz,got_psi,got_dustprop,got_St,got_temp,iphase,   &
+                      xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 
 #ifdef IND_TIMESTEPS
     if (size(dt_in)/=size(dtind)) call error('read_smalldump','problem reading individual timesteps')
     dt_in = dtind
 #endif
-   deallocate(dtind)
+    deallocate(dtind)
 
  else
     call error('read_dump',trim(dumpfile)//'.h5 is not a full dump')
@@ -509,13 +514,13 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
                           nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,      &
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz, &
                           alphaind,poten,Bxyz,Bevol,dustfrac,deltav,        &
-                          dustprop,tstop,St,temperature,abundance
+                          dustprop,tstop,St,temperature,abundance,ndusttypes
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
 #endif
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
- use units,          only:udist,umass,utime,unit_Bfield
+ use units,          only:udist,umass,utime,unit_Bfield,set_units_extra
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -556,6 +561,12 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
                        zmax,get_conserv,etot_in,angtot_in,totmom_in,mdust_in,  &
                        grainsize,graindens,udist,umass,utime,unit_Bfield)
 
+ !
+ !--Set values from header
+ !
+ call set_units_extra()
+ ndusttypes = ndustsmall + ndustlarge
+
  call get_options_from_fileid(fileident,smalldump,use_dustfrac,errors(3))
 
  !
@@ -587,16 +598,16 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  endif
 
  if (smalldump) then
-    call read_hdf5_arrays(hdf5_file_id,errors(4),npart,nptmass,iphase,xyzh,vxyzu, &
-                          xyzmh_ptmass,vxyz_ptmass,dtind,alphaind,poten,Bxyz,     &
-                          Bevol,dustfrac,deltav,dustprop,tstop,St,temperature,    &
-                          abundance,isothermal,const_av,ind_timesteps,gravity,    &
-                          mhd,use_dust,use_dustfrac,use_dustgrowth,h2chemistry,   &
-                          store_temperature,nsinkproperties,got_iphase,got_xyzh,  &
-                          got_vxyzu,   &
-                          got_dustfrac,got_tstop,got_deltav,got_abund,     &
-                          got_dt_in,got_alpha,got_poten,got_sink_data,     &
-                          got_sink_vels,got_Bxyz,got_psi,got_temp,         &
+    call read_hdf5_arrays(hdf5_file_id,errors(4),npart,nptmass,iphase,xyzh,    &
+                          vxyzu,xyzmh_ptmass,vxyz_ptmass,dtind,alphaind,poten, &
+                          Bxyz,Bevol,dustfrac,deltav,dustprop,tstop,St,        &
+                          temperature,abundance,isothermal,const_av,           &
+                          ind_timesteps,gravity,mhd,use_dust,use_dustfrac,     &
+                          use_dustgrowth,h2chemistry,store_temperature,        &
+                          nsinkproperties,got_iphase,got_xyzh,got_vxyzu,       &
+                          got_dustfrac,got_tstop,got_deltav,got_abund,         &
+                          got_dt_in,got_alpha,got_poten,got_sink_data,         &
+                          got_sink_vels,got_Bxyz,got_psi,got_temp,             &
                           got_dustprop,got_St)
 
 #ifdef IND_TIMESTEPS
