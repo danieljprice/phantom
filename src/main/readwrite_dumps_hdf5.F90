@@ -356,7 +356,7 @@ end subroutine write_dump
 subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
-                          h2chemistry,store_temperature
+                          h2chemistry,store_temperature,nsinkproperties
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use io,             only:fatal,error
@@ -384,6 +384,24 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  character(len=200) :: fileident
  integer :: errors(5)
  logical :: smalldump,isothermal,ind_timesteps,const_av
+
+ logical :: got_iphase,                     &
+            got_xyzh,                       &
+            got_vxyzu,                      &
+            got_dustfrac,                   &
+            got_tstop,                      &
+            got_deltav,                     &
+            got_abund,                      &
+            got_dt_in,                      &
+            got_alpha,                      &
+            got_poten,                      &
+            got_sink_data(nsinkproperties), &
+            got_sink_vels,                  &
+            got_Bxyz,                       &
+            got_psi,                        &
+            got_temp,                       &
+            got_dustprop(3),                &
+            got_St
 
  errors(:) = 0
 
@@ -432,17 +450,31 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  endif
 
  if (.not.smalldump) then
+
     call read_hdf5_arrays(hdf5_file_id,errors(4),npart,nptmass,iphase,xyzh,vxyzu, &
                           xyzmh_ptmass,vxyz_ptmass,dtind,alphaind,poten,Bxyz,     &
                           Bevol,dustfrac,deltav,dustprop,tstop,St,temperature,    &
                           abundance,isothermal,const_av,ind_timesteps,gravity,    &
                           mhd,use_dust,use_dustfrac,use_dustgrowth,h2chemistry,   &
-                          store_temperature)
+                          store_temperature,nsinkproperties,got_iphase,got_xyzh,  &
+                          got_vxyzu,   &
+                          got_dustfrac,got_tstop,got_deltav,got_abund,     &
+                          got_dt_in,got_alpha,got_poten,got_sink_data,     &
+                          got_sink_vels,got_Bxyz,got_psi,got_temp,         &
+                          got_dustprop,got_St)
+
+    call check_arrays(1,npart,npartoftype,nptmass,nsinkproperties, &
+                      massoftype,alpha,tfile,got_iphase,   &
+                      got_xyzh,got_vxyzu,got_alpha,got_abund,got_dustfrac, &
+                      got_sink_data,got_sink_vels,got_Bxyz,got_psi,        &
+                      got_dustprop,got_St,got_temp,iphase,xyzh,vxyzu,      &
+                      alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 
 #ifdef IND_TIMESTEPS
     if (size(dt_in)/=size(dtind)) call error('read_smalldump','problem reading individual timesteps')
     dt_in = dtind
 #endif
+
  else
     call fatal('read_dump',trim(dumpfile)//'.h5 is not a full dump')
  endif
@@ -463,7 +495,7 @@ end subroutine read_dump
 subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
-                          h2chemistry,store_temperature
+                          h2chemistry,store_temperature,nsinkproperties
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use io,             only:error,fatal
@@ -491,6 +523,24 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  character(len=200) :: fileident
  integer :: errors(10)
  logical :: smalldump,isothermal,ind_timesteps,const_av
+
+ logical :: got_iphase,                     &
+            got_xyzh,                       &
+            got_vxyzu,                      &
+            got_dustfrac,                   &
+            got_tstop,                      &
+            got_deltav,                     &
+            got_abund,                      &
+            got_dt_in,                      &
+            got_alpha,                      &
+            got_poten,                      &
+            got_sink_data(nsinkproperties), &
+            got_sink_vels,                  &
+            got_Bxyz,                       &
+            got_psi,                        &
+            got_temp,                       &
+            got_dustprop(3),                &
+            got_St
 
  call open_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,errors(1))
 
@@ -538,7 +588,13 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
                           Bevol,dustfrac,deltav,dustprop,tstop,St,temperature,    &
                           abundance,isothermal,const_av,ind_timesteps,gravity,    &
                           mhd,use_dust,use_dustfrac,use_dustgrowth,h2chemistry,   &
-                          store_temperature)
+                          store_temperature,nsinkproperties,got_iphase,got_xyzh,  &
+                          got_vxyzu,   &
+                          got_dustfrac,got_tstop,got_deltav,got_abund,     &
+                          got_dt_in,got_alpha,got_poten,got_sink_data,     &
+                          got_sink_vels,got_Bxyz,got_psi,got_temp,         &
+                          got_dustprop,got_St)
+
 #ifdef IND_TIMESTEPS
     if (size(dt_in)/=size(dtind)) call error('read_smalldump','problem reading individual timesteps')
     dt_in = dtind
@@ -580,31 +636,28 @@ end subroutine checkparam
 !  and perform basic sanity checks
 !+
 !---------------------------------------------------------------
-subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties, &
-                        massoftype,alphafile,tfile,phantomdump,got_iphase,   &
-                        got_xyzh,got_vxyzu,got_alpha,got_abund,got_dustfrac, &
-                        got_sink_data,got_sink_vels,got_Bxyz,got_psi,        &
-                        got_dustprop,got_St,got_temp,iphase,xyzh,vxyzu,      &
-                        alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+subroutine check_arrays(i1,i2,npartoftype,nptmass,nsinkproperties,massoftype, &
+                        alphafile,tfile,got_iphase,got_xyzh,got_vxyzu,        &
+                        got_alpha,got_abund,got_dustfrac,got_sink_data,       &
+                        got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_St,   &
+                        got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,     &
+                        Bevol,iprint,ierr)
 
  use dim,        only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry, &
                       store_temperature,use_dustgrowth
  use eos,        only:polyk,gamma
- use part,       only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft, &
-                      imacc,xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,   &
-                      rhoh,dustfrac,ndusttypes
+ use part,       only:maxphase,isetphase,igas,ihacc,ihsoft,imacc, &
+                      xyzmh_ptmass_label,get_pmass,rhoh,dustfrac
  use io,         only:warning,id,master
  use options,    only:alpha,use_dustfrac
- use sphNGutils, only:itype_from_sphNG_iphase,isphNG_accreted
 
- integer,         intent(in)    :: i1,i2,npartoftype(:),npartread,nptmass, &
-                                   nsinkproperties
+ integer,         intent(in)    :: i1,i2,npartoftype(:),nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
- logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),     &
-                                   got_vxyzu(:),got_alpha,got_dustprop(:), &
-                                   got_St,got_abund(:),got_dustfrac(:),    &
-                                   got_sink_data(:),got_sink_vels(:),      &
-                                   got_Bxyz(:),got_psi,got_temp
+ logical,         intent(in)    :: got_iphase,got_xyzh,got_vxyzu,  &
+                                   got_alpha,got_dustprop(:),      &
+                                   got_St,got_abund,got_dustfrac,  &
+                                   got_sink_data(:),got_sink_vels, &
+                                   got_Bxyz,got_psi,got_temp
  integer(kind=1), intent(inout) :: iphase(:)
  real,            intent(inout) :: vxyzu(:,:), Bevol(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
@@ -619,24 +672,10 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties, &
  !
  if (maxphase==maxp) then
     if (got_iphase) then
-       if (phantomdump) then
-          do i=i1,i2
-             itype = int(iphase(i))
-             iphase(i) = isetphase(itype,iactive=.true.)
-          enddo
-       else
-          ! convert from sphNG
-          do i=i1,i2
-             itype = itype_from_sphNG_iphase(iphase(i))
-             iphase(i) = isetphase(itype,iactive=.true.)
-             if (itype==isphNG_accreted) then
-                !  mark accreted/unknown particle types as dead according
-                !  to Phantom (i.e., give negative smoothing length)
-                xyzh(4,i) = -abs(xyzh(4,i))
-                call set_particle_type(i,igas) ! to give an allowed particle type
-             endif
-          enddo
-       endif
+       do i=i1,i2
+          itype = int(iphase(i))
+          iphase(i) = isetphase(itype,iactive=.true.)
+       enddo
     elseif (any(npartoftype(2:) > 0)) then
        !
        !--iphase is required if there is more than one particle type
@@ -663,15 +702,15 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties, &
  !
  ! hydrodynamics arrays
  !
- if (any(.not.got_xyzh)) then
+ if (.not.got_xyzh) then
     if (id==master .and. i1==1) write(*,*) 'ERROR: x, y, z or h not found in file'
     ierr = 9
     return
  endif
- if (any(.not.got_vxyzu(1:3))) then
+ if (.not.got_vxyzu) then
     if (id==master .and. i1==1) write(*,*) 'ERROR: missing velocity information from file'
  endif
- if (maxvxyzu==4 .and. .not.got_vxyzu(4)) then
+ if (maxvxyzu==4 .and. .not.got_vxyzu) then
     if (gamma < 1.01) then
        do i=i1,i2
           vxyzu(4,i) = 1.5*polyk
@@ -686,7 +725,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties, &
        if (id==master .and. i1==1) write(*,*) 'WARNING: u not in file but setting u = (K*rho**(gamma-1))/(gamma-1)'
     endif
  endif
- if (h2chemistry .and. .not.all(got_abund)) then
+ if (h2chemistry .and. .not.got_abund) then
     if (id==master) write(*,*) 'error in rdump: using H2 chemistry, but abundances not found in dump file'
     ierr = 9
     return
@@ -707,18 +746,16 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties, &
        alphaind(1,i1:i2) = real(alpha,kind=4)
     endif
  endif
- if (npartread > 0) then
-    do i = 1, size(massoftype)
-       if (npartoftype(i) > 0) then
-          if (massoftype(i) <= 0.0) then
-             if (id==master .and. i1==1) write(*,*) 'ERROR! mass not set in read_dump (Phantom)'
-             ierr = 12
-             return
-          endif
+ do i = 1, size(massoftype)
+    if (npartoftype(i) > 0) then
+       if (massoftype(i) <= 0.0) then
+          if (id==master .and. i1==1) write(*,*) 'ERROR! mass not set in read_dump (Phantom)'
+          ierr = 12
+          return
        endif
-    enddo
- endif
- if (use_dustfrac .and. .not. all(got_dustfrac(1:ndusttypes))) then
+    endif
+ enddo
+ if (use_dustfrac .and. .not. got_dustfrac) then
     if (id==master .and. i1==1) write(*,*) 'ERROR! using one-fluid dust, but no dust fraction found in dump file'
     if (id==master .and. i1==1) write(*,*) ' Setting dustfrac = 0'
     dustfrac = 0.
@@ -757,7 +794,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties, &
           endif
        endif
     enddo
-    if (.not.all(got_sink_vels(1:3))) then
+    if (.not.got_sink_vels) then
        if (id==master .and. i1==1) write(*,*) 'WARNING! sink particle velocities not found'
     endif
     if (id==master .and. i1==1) then
@@ -775,7 +812,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties, &
  ! MHD arrays
  !
  if (mhd) then
-    if (.not.all(got_Bxyz(1:3))) then
+    if (.not.got_Bxyz) then
        if (id==master .and. i1==1) write(*,*) 'WARNING: MHD but magnetic field arrays not found in Phantom dump file'
     endif
     if (maxBevol==4 .and. .not.got_psi) then

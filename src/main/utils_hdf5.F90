@@ -13,6 +13,7 @@ module utils_hdf5
                 h5dcreate_f,                 &
                 h5dclose_f,                  &
                 h5dwrite_f,                  &
+                h5lexists_f,                 &
                 h5screate_f,                 &
                 h5sclose_f,                  &
                 h5screate_simple_f,          &
@@ -557,15 +558,20 @@ subroutine write_string(str,name,id,error)
 
 end subroutine write_string
 
-subroutine read_scalar(x,name,id,error)
+subroutine read_scalar(x,name,id,got,error)
  real,           intent(out) :: x
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
+ logical,        intent(out) :: got
  integer,        intent(out) :: error
 
  integer(HSIZE_T), parameter  :: xshape(0) = 0
  integer(HID_T) :: dset_id
  integer :: errors(3)
+
+ ! Check if dataset exists
+ call h5lexists_f(id,name,got,error)
+ if (.not.got) return
 
  ! Open dataset
  call h5dopen_f(id,name,dset_id,errors(1))
@@ -577,19 +583,26 @@ subroutine read_scalar(x,name,id,error)
  call h5dclose_f(dset_id,errors(3))
 
  error = maxval(abs(errors))
+
+ if (error /= 0) got = .false.
 
 end subroutine read_scalar
 
-subroutine read_scalarkind4(x,name,id,error)
+subroutine read_scalarkind4(x,name,id,got,error)
  real(kind=4),   intent(out) :: x
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
+ logical,        intent(out) :: got
  integer,        intent(out) :: error
 
  integer(HSIZE_T), parameter  :: xshape(0) = 0
  integer(HID_T) :: dset_id
  integer :: errors(3)
 
+ ! Check if dataset exists
+ call h5lexists_f(id,name,got,error)
+ if (.not.got) return
+
  ! Open dataset
  call h5dopen_f(id,name,dset_id,errors(1))
 
@@ -600,13 +613,16 @@ subroutine read_scalarkind4(x,name,id,error)
  call h5dclose_f(dset_id,errors(3))
 
  error = maxval(abs(errors))
+
+ if (error /= 0) got = .false.
 
 end subroutine read_scalarkind4
 
-subroutine read_array_1d(x,name,id,error)
+subroutine read_array_1d(x,name,id,got,error)
  real,           intent(out) :: x(:)
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
+ logical,        intent(out) :: got
  integer,        intent(out) :: error
 
  integer, parameter :: ndims = 1
@@ -615,6 +631,10 @@ subroutine read_array_1d(x,name,id,error)
  integer :: errors(3)
 
  xshape = shape(x)
+
+ ! Check if dataset exists
+ call h5lexists_f(id,name,got,error)
+ if (.not.got) return
 
  ! Open dataset
  call h5dopen_f(id,name,dset_id,errors(1))
@@ -626,13 +646,16 @@ subroutine read_array_1d(x,name,id,error)
  call h5dclose_f(dset_id,errors(3))
 
  error = maxval(abs(errors))
+
+ if (error /= 0) got = .false.
 
 end subroutine read_array_1d
 
-subroutine read_array_1dkind4(x,name,id,error)
+subroutine read_array_1dkind4(x,name,id,got,error)
  real(kind=4),   intent(out) :: x(:)
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
+ logical,        intent(out) :: got
  integer,        intent(out) :: error
 
  integer, parameter :: ndims = 1
@@ -641,6 +664,10 @@ subroutine read_array_1dkind4(x,name,id,error)
  integer :: errors(3)
 
  xshape = shape(x)
+
+ ! Check if dataset exists
+ call h5lexists_f(id,name,got,error)
+ if (.not.got) return
 
  ! Open dataset
  call h5dopen_f(id,name,dset_id,errors(1))
@@ -653,12 +680,15 @@ subroutine read_array_1dkind4(x,name,id,error)
 
  error = maxval(abs(errors))
 
+ if (error /= 0) got = .false.
+
 end subroutine read_array_1dkind4
 
-subroutine read_array_2d(x,name,id,error)
+subroutine read_array_2d(x,name,id,got,error)
  real,           intent(out) :: x(:,:)
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
+ logical,        intent(out) :: got
  integer,        intent(out) :: error
 
  integer, parameter :: ndims = 2
@@ -667,6 +697,10 @@ subroutine read_array_2d(x,name,id,error)
  integer :: errors(3)
 
  xshape = shape(x)
+
+ ! Check if dataset exists
+ call h5lexists_f(id,name,got,error)
+ if (.not.got) return
 
  ! Open dataset
  call h5dopen_f(id,name,dset_id,errors(1))
@@ -679,12 +713,15 @@ subroutine read_array_2d(x,name,id,error)
 
  error = maxval(abs(errors))
 
+ if (error /= 0) got = .false.
+
 end subroutine read_array_2d
 
-subroutine read_array_2dkind4(x,name,id,error)
+subroutine read_array_2dkind4(x,name,id,got,error)
  real(kind=4),   intent(out) :: x(:,:)
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
+ logical,        intent(out) :: got
  integer,        intent(out) :: error
 
  integer, parameter :: ndims = 2
@@ -693,6 +730,10 @@ subroutine read_array_2dkind4(x,name,id,error)
  integer :: errors(3)
 
  xshape = shape(x)
+
+ ! Check if dataset exists
+ call h5lexists_f(id,name,got,error)
+ if (.not.got) return
 
  ! Open dataset
  call h5dopen_f(id,name,dset_id,errors(1))
@@ -705,12 +746,15 @@ subroutine read_array_2dkind4(x,name,id,error)
 
  error = maxval(abs(errors))
 
+ if (error /= 0) got = .false.
+
 end subroutine read_array_2dkind4
 
-subroutine read_array_3d(x,name,id,error)
+subroutine read_array_3d(x,name,id,got,error)
  real,           intent(out) :: x(:,:,:)
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
+ logical,        intent(out) :: got
  integer,        intent(out) :: error
 
  integer, parameter :: ndims = 3
@@ -720,6 +764,10 @@ subroutine read_array_3d(x,name,id,error)
 
  xshape = shape(x)
 
+ ! Check if dataset exists
+ call h5lexists_f(id,name,got,error)
+ if (.not.got) return
+
  ! Open dataset
  call h5dopen_f(id,name,dset_id,errors(1))
 
@@ -731,17 +779,24 @@ subroutine read_array_3d(x,name,id,error)
 
  error = maxval(abs(errors))
 
+ if (error /= 0) got = .false.
+
 end subroutine read_array_3d
 
-subroutine read_scalar_int(x,name,id,error)
+subroutine read_scalar_int(x,name,id,got,error)
  integer,        intent(out) :: x
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
+ logical,        intent(out) :: got
  integer,        intent(out) :: error
 
  integer(HSIZE_T), parameter  :: xshape(0) = 0
  integer(HID_T) :: dset_id
  integer :: errors(3)
+
+ ! Check if dataset exists
+ call h5lexists_f(id,name,got,error)
+ if (.not.got) return
 
  ! Open dataset
  call h5dopen_f(id,name,dset_id,errors(1))
@@ -753,18 +808,25 @@ subroutine read_scalar_int(x,name,id,error)
  call h5dclose_f(dset_id,errors(3))
 
  error = maxval(abs(errors))
+
+ if (error /= 0) got = .false.
 
 end subroutine read_scalar_int
 
-subroutine read_scalar_intkind8(x,name,id,error)
+subroutine read_scalar_intkind8(x,name,id,got,error)
  integer(kind=8), intent(out) :: x
  character(*),    intent(in)  :: name
  integer(HID_T),  intent(in)  :: id
+ logical,         intent(out) :: got
  integer,         intent(out) :: error
 
  integer(HSIZE_T), parameter  :: xshape(0) = 0
  integer(HID_T) :: dset_id
  integer :: errors(3)
+
+ ! Check if dataset exists
+ call h5lexists_f(id,name,got,error)
+ if (.not.got) return
 
  ! Open dataset
  call h5dopen_f(id,name,dset_id,errors(1))
@@ -777,12 +839,15 @@ subroutine read_scalar_intkind8(x,name,id,error)
 
  error = maxval(abs(errors))
 
+ if (error /= 0) got = .false.
+
 end subroutine read_scalar_intkind8
 
-subroutine read_intarray_1d(x,name,id,error)
+subroutine read_intarray_1d(x,name,id,got,error)
  integer,        intent(out) :: x(:)
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
+ logical,        intent(out) :: got
  integer,        intent(out) :: error
 
  integer, parameter :: ndims = 1
@@ -792,6 +857,10 @@ subroutine read_intarray_1d(x,name,id,error)
 
  xshape = shape(x)
 
+ ! Check if dataset exists
+ call h5lexists_f(id,name,got,error)
+ if (.not.got) return
+
  ! Open dataset
  call h5dopen_f(id,name,dset_id,errors(1))
 
@@ -802,13 +871,16 @@ subroutine read_intarray_1d(x,name,id,error)
  call h5dclose_f(dset_id,errors(3))
 
  error = maxval(abs(errors))
+
+ if (error /= 0) got = .false.
 
 end subroutine read_intarray_1d
 
-subroutine read_intarray_1dkind8(x,name,id,error)
+subroutine read_intarray_1dkind8(x,name,id,got,error)
  integer(kind=8), intent(out) :: x(:)
  character(*),    intent(in)  :: name
  integer(HID_T),  intent(in)  :: id
+ logical,         intent(out) :: got
  integer,         intent(out) :: error
 
  integer, parameter :: ndims = 1
@@ -817,6 +889,10 @@ subroutine read_intarray_1dkind8(x,name,id,error)
  integer :: errors(3)
 
  xshape = shape(x)
+
+ ! Check if dataset exists
+ call h5lexists_f(id,name,got,error)
+ if (.not.got) return
 
  ! Open dataset
  call h5dopen_f(id,name,dset_id,errors(1))
@@ -828,13 +904,16 @@ subroutine read_intarray_1dkind8(x,name,id,error)
  call h5dclose_f(dset_id,errors(3))
 
  error = maxval(abs(errors))
+
+ if (error /= 0) got = .false.
 
 end subroutine read_intarray_1dkind8
 
-subroutine read_intarray_1dkind1(x,name,id,error)
+subroutine read_intarray_1dkind1(x,name,id,got,error)
  integer(kind=1), intent(out) :: x(:)
  character(*),    intent(in)  :: name
  integer(HID_T),  intent(in)  :: id
+ logical,         intent(out) :: got
  integer,         intent(out) :: error
 
  integer, parameter :: ndims = 1
@@ -843,6 +922,10 @@ subroutine read_intarray_1dkind1(x,name,id,error)
  integer :: errors(3)
 
  xshape = shape(x)
+
+ ! Check if dataset exists
+ call h5lexists_f(id,name,got,error)
+ if (.not.got) return
 
  ! Open dataset
  call h5dopen_f(id,name,dset_id,errors(1))
@@ -855,12 +938,15 @@ subroutine read_intarray_1dkind1(x,name,id,error)
 
  error = maxval(abs(errors))
 
+ if (error /= 0) got = .false.
+
 end subroutine read_intarray_1dkind1
 
-subroutine read_string(str,name,id,error)
+subroutine read_string(str,name,id,got,error)
  character(*),   intent(out) :: str
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
+ logical,        intent(out) :: got
  integer,        intent(out) :: error
 
  integer :: errors(12)
@@ -876,6 +962,10 @@ subroutine read_string(str,name,id,error)
  character(LEN=sdim), dimension(:), allocatable, target :: rdata
  integer(SIZE_T) :: size
  type(c_ptr) :: f_ptr
+
+ ! Check if dataset exists
+ call h5lexists_f(id,name,got,error)
+ if (.not.got) return
 
  call h5dopen_f(id,name,dset,errors(1))
 
@@ -915,6 +1005,8 @@ subroutine read_string(str,name,id,error)
  deallocate(rdata)
 
  error = maxval(abs(errors))
+
+ if (error /= 0) got = .false.
 
 end subroutine read_string
 
