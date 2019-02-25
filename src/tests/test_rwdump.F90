@@ -38,7 +38,7 @@ subroutine test_rwdump(ntests,npass)
                            nptmass,nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
                            dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
                            vxyzu_label,set_particle_type,iphase,ndusttypes
- use dim,             only:maxp
+ use dim,             only:maxp,maxdusttypes
  use memory,          only:allocate_memory,deallocate_memory
  use testutils,       only:checkval
  use io,              only:idisk1,id,master,iprint,nprocs
@@ -114,6 +114,7 @@ subroutine test_rwdump(ntests,npass)
           poten(i) = 15._4
        endif
        if (use_dust) then
+          ndusttypes = maxdusttypes
           dustfrac(:,i) = 16._4
        endif
     enddo
