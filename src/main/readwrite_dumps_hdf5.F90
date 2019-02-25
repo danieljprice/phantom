@@ -333,7 +333,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
                           h2chemistry,store_temperature
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
- use io,             only:fatal
+ use io,             only:fatal,error
  use memory,         only:allocate_memory
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
  use part,           only:iphase,xyzh,vxyzu,npart,npartoftype,massoftype,   &
