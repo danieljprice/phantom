@@ -369,10 +369,13 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  !$omp parallel default(none) &
  !$omp shared(np,xyzh) &
  !$omp shared(inodeparts,iphase,xyzh_soa,iphase_soa,nproot) &
+#ifdef PERIODIC
+ !$omp shared(isperiodic) &
+ !$omp reduction(+:ncross) &
+#endif
  !$omp private(i,xi,yi,zi) &
  !$omp reduction(min:xminpart,yminpart,zminpart) &
- !$omp reduction(max:xmaxpart,ymaxpart,zmaxpart) &
- !$omp reduction(+:ncross)
+ !$omp reduction(max:xmaxpart,ymaxpart,zmaxpart)
  !$omp do schedule(guided,1)
  do i=1,np
     if (.not.isdead_or_accreted(xyzh(4,i))) then
