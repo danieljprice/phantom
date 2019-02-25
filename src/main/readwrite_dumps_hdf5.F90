@@ -350,8 +350,10 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  logical, optional, intent(in)  :: dustydisc
 
  character(len=200) :: fileident
- integer :: errors(10)
+ integer :: errors(5)
  logical :: smalldump,isothermal,ind_timesteps,const_av
+
+ errors(:) = 0
 
  call open_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,errors(1))
  if (errors(1) /= 0) then

@@ -1477,7 +1477,7 @@ endif
     FFLAGS+= -I$(HDF5ROOT)/include
     LDFLAGS+= -L$(HDF5ROOT)/lib -lhdf5 -lhdf5_fortran
     CCFLAGS+= -I$(HDF5ROOT)/include
-    FPPFLAGS+= -DHAVE_HDF5
+    FPPFLAGS+= -DHDF5
 endif
 
 #
