@@ -68,8 +68,11 @@ subroutine get_options_from_fileid(fileid,smalldump,use_onefluiddust,ierr)
  ierr = 0
  smalldump = .false.
  if (fileid(1:4) /= 'full') then
-    ierr = 1
-    if (fileid(1:5)=='small') smalldump = .true.
+    if (fileid(1:5)=='small') then
+       smalldump = .true.
+    else
+       ierr = 1
+    endif
  endif
  if (index(fileid,'+1dust') /= 0) then
     use_onefluiddust = .true.
