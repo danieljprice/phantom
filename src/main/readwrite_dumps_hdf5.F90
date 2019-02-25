@@ -414,6 +414,8 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 
  ierr = maxval(abs(errors))
 
+ if (smalldump) ierr = is_small_dump
+
 end subroutine read_dump
 
 !--------------------------------------------------------------------
