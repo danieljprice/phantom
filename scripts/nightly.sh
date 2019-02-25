@@ -14,13 +14,15 @@ datetag=`date "+%Y%m%d"`;
 #---------------------
 #  script settings
 #---------------------
-webdir=$dir/web
+#webdir=$dir/web
+webdir=$dir/phantomsph.bitbucket.org
 codedir=$dir/phantom
-#url="https://phantomsph.bitbucket.io/"
+benchdir=$dir/phantom-benchmarks
+url="https://phantomsph.bitbucket.io/"
 urlgitrepo="https://bitbucket.org/danielprice/phantom";
-url="http://users.monash.edu.au/~dprice/phantom";
-webserver="users.monash.edu.au:WWW/phantom/";
-#urllogs="https://users.monash.edu.au/~dprice/phantom/nightly/logs/"
+#url="http://users.monash.edu.au/~dprice/phantom";
+#webserver="users.monash.edu.au:WWW/phantom/";
+urllogs="https://users.monash.edu.au/~dprice/phantom/nightly/logs/"
 sender="daniel.price@infra.monash.edu";
 admin="daniel.price@monash.edu";
 systems="msg gfortran";
@@ -34,10 +36,12 @@ summary=[];
 changesets='';
 mailto='';
 names='';
+slacknames='';
 sendmail=1;
 # work out who to blame
 get_incoming_changes ()
 {
+   cd $codedir;
    echo "--- getting incoming changes ---";
    git fetch
    git log ..@{u} --format="commit:%h%nauthor: %aN <%aE>%nsummary:%s" > $incoming;
@@ -54,6 +58,20 @@ get_incoming_changes ()
 #   changesets=`grep commit $incoming | cut -d':' -f 2`;
    git log ..@{u} --format="%s" > $dir/summary.txt;
 }
+get_slack_name ()
+{
+   fullname=$(echo $1 | cut -d'<' -f 1);
+   firstname=$(echo $1 | cut -d' ' -f 1);
+   slackid=$firstname;
+   while read myline; do
+     f1=$(echo $myline | cut -d':' -f 1);
+     f2=$(echo $myline | cut -d':' -f 2 | sed 's/^[[:space:]]*//');
+     if [ "$fullname" == "$f1" ]; then
+        slackid="$f2";
+     fi
+   done < $codedir/.slackmap
+   echo "<$slackid>";
+}
 extract_names_of_users ()
 {
    # extract list of people to send mail to from users.list
@@ -62,6 +80,8 @@ extract_names_of_users ()
    while read line; do
       mailto+="$line,";
       names+="`echo $line | cut -d' ' -f 1`, ";
+      slacknames+=`get_slack_name "$line"`;
+      slacknames+=" ";
    done < $dir/users.list
    echo "mailto: $mailto";
 }
@@ -82,6 +102,8 @@ pull_changes ()
       echo "error pulling changes, buildbot not run";
       exit;
    fi
+   cd $benchdir; git pull >& gitpull.log
+   cd $codedir;
 }
 run_buildbot ()
 {
@@ -92,9 +114,22 @@ run_buildbot ()
       export SYSTEM=$sys;
       echo "SYSTEM=$SYSTEM";
       export PHANTOM_DIR=$codedir; # so setup tests can find data files
-      ./testbot.sh "$url/nightly/logs/";
-      ./buildbot.sh 17000000 "$url/nightly/logs/";
+      ./testbot.sh "$urllogs/nightly/logs/";
+      ./buildbot.sh 17000000 "$urllogs/nightly/logs/";
    done
+}
+run_benchmarks ()
+{
+   # run performance suite
+   echo "--- running benchmarks ---";
+   cd $benchdir;
+   export PHANTOM_DIR=$codedir;
+   for sys in $systems; do
+       export SYSTEM=$sys;
+       echo "SYSTEM=$sys";
+       ./run-benchmarks.sh;
+   done
+   ./plot-benchmarks.sh;
 }
 pull_wiki ()
 {
@@ -130,6 +165,7 @@ write_htmlfile_gittag_and_mailfile ()
        export SYSTEM=$sys;
        cat test-status-$SYSTEM.html >> $htmlfile
        cat build-status-$SYSTEM.html >> $htmlfile
+       cat $benchdir/opt-status-$SYSTEM.html >> $htmlfile
        files=`ls make-*errors*-$SYSTEM.txt make-*errors*-$SYSTEM-debug.txt test-results*-$SYSTEM.txt test-results*-$SYSTEM-debug.txt`
        weblogdir="$webdir/nightly/logs"
        if [ -d "$weblogdir" ]; then
@@ -221,6 +257,7 @@ write_htmlfile_gittag_and_mailfile ()
    echo $mytag > $tagfile;
    if [ $gotissues -eq 0 ]; then
       preamble='Congratulations! Your changes to Phantom in the last 24 hours passed all tests.';
+      preamblehtml=${preamble};
       text='Please give yourself a pat on the back';
       msg=' Congratulations!';
    else
@@ -265,6 +302,11 @@ Content-Type: text/html
 EOM
       cat $htmlfile >> $mailfile;
    fi
+#
+# write slack message
+#
+   line="$slacknames\n $preamble\n$text\nTagged as <$url/nightly/build/$datetag.html|$gittag>"
+   echo $line > slack.tmp;
 }
 tag_code_and_push_tags()
 {
@@ -282,8 +324,12 @@ send_email ()
 post_to_slack ()
 {
   message=$1;
+  channel=$2;
+  if [ "X$channel" == "X" ]; then
+     channel="#commits"
+  fi
   webhookurl="https://hooks.slack.com/services/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"
-  channel="#commits"
+  #channel="#commits"
   username="buildbot"
   json="{\"channel\": \"$channel\", \"username\": \"$username\", \"text\": \"$message\", \"icon_emoji\": \":ghost:\"}"
 
@@ -294,28 +340,34 @@ commit_and_push_to_website ()
    echo "--- commit and push to web server / git repo ---";
    # commit and push changes to web server
    cp $htmlfile $webdir/nightly/build;
+   cp $benchdir/performance.html ${webdir}/nightly/opt/index.html;
+   cp $benchdir/*.js ${webdir}/nightly/opt/;
    cd $webdir/nightly/build;
-   cp $htmlfile index.html;
+   if [ -e $htmlfile ]; then
+      cp $htmlfile index.html;
+   fi
    cd $webdir;
-   rsync -avz nightly/ $webserver/nightly/;
-   #git add nightly/*.html
-   #git status
-   #git commit -m "[buildbot]: results `date`"
-   #git push
+   #rsync -avz nightly/ $webserver/nightly/;
+   git pull
+   git add nightly/*.html
+   git add nightly/opt/*
+   git add nightly/stats/*
+   git status
+   git commit -m "[nightly]: results `date`"
+   git push
 }
-# enter code directory
-cd $codedir
 get_incoming_changes
 extract_names_of_users
 extract_changeset_list
 pull_changes
 run_buildbot
+run_benchmarks
 #pull_wiki
 write_htmlfile_gittag_and_mailfile
-#longmessage="${names/,/}: $preamble $text"
-#echo "$longmessage"
 message="status: <$url/nightly/build/$datetag.html|$gittag>"
-post_to_slack "$message"
+post_to_slack "$message" "#commits"
+message=`cat slack.tmp`
+post_to_slack "$message" "#nightly"
 tag_code_and_push_tags
 send_email
 commit_and_push_to_website

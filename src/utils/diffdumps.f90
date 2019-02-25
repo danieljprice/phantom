@@ -34,7 +34,7 @@ program diffdumps
  real, allocatable :: xyzh2(:,:)
  real, allocatable :: vxyzu2(:,:)
  integer :: ierr,ndiff,ndiffx,ndiffy,ndiffz,ndiffh,ndiffvx,ndiffvy,ndiffvz,ndiffu
- real    :: time,time2,hfact2,tolerance
+ real    :: time,time2,hfact2,tolerance,err(8)
  logical :: idiff
 
  call set_io_unit_numbers
@@ -83,15 +83,16 @@ program diffdumps
 
  idiff = .false.
  ndiffu = 0
- call checkval(npart,xyzh(1,:),xyzh2(1,:),tolerance,ndiffx,'x')
- call checkval(npart,xyzh(2,:),xyzh2(2,:),tolerance,ndiffy,'y')
- call checkval(npart,xyzh(3,:),xyzh2(3,:),tolerance,ndiffz,'z')
- call checkval(npart,xyzh(4,:),xyzh2(4,:),tolerance,ndiffh,'h')
+ err = 0.
+ call checkval(npart,xyzh(1,:),xyzh2(1,:),tolerance,ndiffx,'x',rmserr=err(1))
+ call checkval(npart,xyzh(2,:),xyzh2(2,:),tolerance,ndiffy,'y',rmserr=err(2))
+ call checkval(npart,xyzh(3,:),xyzh2(3,:),tolerance,ndiffz,'z',rmserr=err(3))
+ call checkval(npart,xyzh(4,:),xyzh2(4,:),tolerance,ndiffh,'h',rmserr=err(4))
 
- call checkval(npart,vxyzu(1,:),vxyzu2(1,:),tolerance,ndiffvx,'vx')
- call checkval(npart,vxyzu(2,:),vxyzu2(2,:),tolerance,ndiffvy,'vy')
- call checkval(npart,vxyzu(3,:),vxyzu2(3,:),tolerance,ndiffvz,'vz')
- if (maxvxyzu >= 4) call checkval(npart,vxyzu(4,:),vxyzu2(4,:),tolerance,ndiffu,'u')
+ call checkval(npart,vxyzu(1,:),vxyzu2(1,:),tolerance,ndiffvx,'vx',rmserr=err(5))
+ call checkval(npart,vxyzu(2,:),vxyzu2(2,:),tolerance,ndiffvy,'vy',rmserr=err(6))
+ call checkval(npart,vxyzu(3,:),vxyzu2(3,:),tolerance,ndiffvz,'vz',rmserr=err(7))
+ if (maxvxyzu >= 4) call checkval(npart,vxyzu(4,:),vxyzu2(4,:),tolerance,ndiffu,'u',rmserr=err(8))
 
  print "(/,a,/)",' diffdumps: we wish you a pleasant journey '
  print *,'         positions differ ',max(ndiffx,ndiffy,ndiffz),' times'
@@ -102,6 +103,8 @@ program diffdumps
  ndiff = ndiffx + ndiffy + ndiffz + ndiffh + ndiffvx + ndiffvy + ndiffvz + ndiffu
  if (allocated(xyzh2)) deallocate(xyzh2)
  if (allocated(vxyzu2)) deallocate(vxyzu2)
+
+ print "(/a,es10.4)",'MAX RMS ERROR: ',maxval(err)
 
  if (ndiff > 0) then
     print "(/,a)",' FILES DIFFER'
@@ -115,4 +118,3 @@ program diffdumps
  endif
 
 end program diffdumps
-

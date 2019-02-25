@@ -126,7 +126,8 @@ module forces
        ideltavzi      = 17 + 4*(maxdustsmall-1), &
        ideltavziend   = 17 + 5*(maxdustsmall-1), &
        idvi           = 18 + 5*(maxdustsmall-1), &
-       iSti           = 19 + 5*(maxdustsmall-1)
+       iSti           = 19 + 5*(maxdustsmall-1), &
+       icsi           = 20 + 5*(maxdustsmall-1)
 
  private
 
@@ -1587,6 +1588,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                       fsum(idvi) = fsum(idvi) + 3.*pmassj/rhoj*projv*wdrag
                       ri         = sqrt(xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2)
                       fsum(iSti) = fsum(iSti) + pmassj/rhoj*tsijtmp*wdrag/(ri**1.5)
+                      fsum(icsi) = fsum(icsi) + pmassj/rhoj*spsoundj*wdrag
                    endif
 #endif
                 else
@@ -2218,7 +2220,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:luminosity
 #endif
 #ifdef DUSTGROWTH
- use part,           only: dustprop,St
+ use part,           only:dustprop,St,csound
  use growth,         only:iinterpol
 #endif
 
@@ -2576,8 +2578,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     else ! not gas
 #ifdef DUSTGROWTH
        if (use_dust .and. iamdusti .and. iinterpol) then
-          dustprop(4,i) = fsum(idvi)
-          St(i) = fsum(iSti)
+          dustprop(4,i) = abs(fsum(idvi))
+          St(i)         = fsum(iSti)
+          csound(i)     = fsum(icsi)
        endif
 #endif
 
