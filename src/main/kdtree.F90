@@ -365,6 +365,33 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
 
  ncross = 0
  nproot = 0
+ !$omp parallel default(none) &
+ !$omp shared(np,xyzh) &
+ !$omp shared(inodeparts,iphase,xyzh_soa,iphase_soa,nproot) &
+ !$omp private(i,xi,yi,zi) &
+ !$omp reduction(min:xminpart,yminpart,zminpart) &
+ !$omp reduction(max:xmaxpart,ymaxpart,zmaxpart) &
+ !$omp reduction(+:ncross)
+ !$omp do schedule(guided,10)
+ do i=1,np
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+#ifdef PERIODIC
+       call cross_boundary(isperiodic,xyzh(:,i),ncross)
+#endif
+       xi = xyzh(1,i)
+       yi = xyzh(2,i)
+       zi = xyzh(3,i)
+       xminpart = min(xminpart,xi)
+       yminpart = min(yminpart,yi)
+       zminpart = min(zminpart,zi)
+       xmaxpart = max(xmaxpart,xi)
+       ymaxpart = max(ymaxpart,yi)
+       zmaxpart = max(zmaxpart,zi)
+    endif
+ enddo
+ !$omp end do
+ !$omp end parallel
+
  do i=1,np
     isnotdead: if (.not.isdead_or_accreted(xyzh(4,i))) then
        nproot = nproot + 1
@@ -378,20 +405,6 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
 #else
        inodeparts(nproot) = i
 #endif
-
-#ifdef PERIODIC
-       call cross_boundary(isperiodic,xyzh(:,i),ncross)
-#endif
-       xi = xyzh(1,i)
-       yi = xyzh(2,i)
-       zi = xyzh(3,i)
-       xminpart = min(xminpart,xi)
-       yminpart = min(yminpart,yi)
-       zminpart = min(zminpart,zi)
-       xmaxpart = max(xmaxpart,xi)
-       ymaxpart = max(ymaxpart,yi)
-       zmaxpart = max(zmaxpart,zi)
-
        xyzh_soa(nproot,:) = xyzh(:,i)
        iphase_soa(nproot) = iphase(i)
     endif isnotdead
