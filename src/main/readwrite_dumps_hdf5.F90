@@ -237,7 +237,9 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
     !$omp end parallel do
 
     ! Compute dtind array
+#ifdef IND_TIMESTEPS
     if (ind_timesteps) dtind = dtmax/2**ibin(1:npart)
+#endif
  endif
 
 ! Check if constant AV
@@ -337,8 +339,11 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  use part,           only:iphase,xyzh,vxyzu,npart,npartoftype,massoftype,   &
                           nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,      &
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz, &
-                          dt_in,alphaind,poten,Bxyz,Bevol,dustfrac,deltav,  &
+                          alphaind,poten,Bxyz,Bevol,dustfrac,deltav,  &
                           dustprop,tstop,St,temperature,abundance
+#ifdef IND_TIMESTEPS
+ use part,           only:dt_in
+#endif
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use units,          only:udist,umass,utime,unit_Bfield
@@ -348,6 +353,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  integer,           intent(out) :: ierr
  logical, optional, intent(in)  :: headeronly
  logical, optional, intent(in)  :: dustydisc
+ real(kind=4), dimension(npart) :: dtind
 
  character(len=200) :: fileident
  integer :: errors(5)
@@ -401,11 +407,16 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 
  if (.not.smalldump) then
     call read_hdf5_arrays(hdf5_file_id,errors(4),npart,nptmass,iphase,xyzh,vxyzu, &
-                          xyzmh_ptmass,vxyz_ptmass,dt_in,alphaind,poten,Bxyz,     &
+                          xyzmh_ptmass,vxyz_ptmass,dtind,alphaind,poten,Bxyz,     &
                           Bevol,dustfrac,deltav,dustprop,tstop,St,temperature,    &
                           abundance,isothermal,const_av,ind_timesteps,gravity,    &
                           mhd,use_dust,use_dustfrac,use_dustgrowth,h2chemistry,   &
                           store_temperature)
+
+#ifdef IND_TIMESTEPS
+    if (size(dt_in)/=size(dtind)) call error('read_smalldump','problem reading individual timesteps')
+    dt_in = dtind
+#endif
  else
     call fatal('read_dump',trim(dumpfile)//'.h5 is not a full dump')
  endif
@@ -435,8 +446,11 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  use part,           only:iphase,xyzh,vxyzu,npart,npartoftype,massoftype,   &
                           nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,      &
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz, &
-                          dt_in,alphaind,poten,Bxyz,Bevol,dustfrac,deltav,  &
+                          alphaind,poten,Bxyz,Bevol,dustfrac,deltav,        &
                           dustprop,tstop,St,temperature,abundance
+#ifdef IND_TIMESTEPS
+ use part,           only:dt_in
+#endif
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use units,          only:udist,umass,utime,unit_Bfield
@@ -446,6 +460,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  integer,           intent(out) :: ierr
  logical, optional, intent(in)  :: headeronly
  logical, optional, intent(in)  :: dustydisc
+ real(kind=4), dimension(npart) :: dtind
 
  character(len=200) :: fileident
  integer :: errors(10)
@@ -493,11 +508,16 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 
  if (smalldump) then
     call read_hdf5_arrays(hdf5_file_id,errors(4),npart,nptmass,iphase,xyzh,vxyzu, &
-                          xyzmh_ptmass,vxyz_ptmass,dt_in,alphaind,poten,Bxyz,     &
+                          xyzmh_ptmass,vxyz_ptmass,dtind,alphaind,poten,Bxyz,     &
                           Bevol,dustfrac,deltav,dustprop,tstop,St,temperature,    &
                           abundance,isothermal,const_av,ind_timesteps,gravity,    &
                           mhd,use_dust,use_dustfrac,use_dustgrowth,h2chemistry,   &
                           store_temperature)
+#ifdef IND_TIMESTEPS
+    if (size(dt_in)/=size(dtind)) call error('read_smalldump','problem reading individual timesteps')
+    dt_in = dtind
+#endif
+
  else
     call error('read_smalldump',trim(dumpfile)//'.h5 is not a small dump')
  endif
