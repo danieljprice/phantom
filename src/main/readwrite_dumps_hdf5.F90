@@ -212,14 +212,14 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  endif
 
  if (fulldump) then
-    allocate(pressure(nparttot),beta_pr(nparttot),dtind(nparttot))
+    allocate(pressure(npart),beta_pr(npart),dtind(npart))
 
     ! Compute pressure and beta_pr array
     if (.not.done_init_eos) call init_eos(ieos,ierr)
     !$omp parallel do default(none) &
-    !$omp shared(xyzh,vxyzu,ieos,nparttot,pressure,beta_pr,temperature,use_gas,prdrag) &
+    !$omp shared(xyzh,vxyzu,ieos,npart,pressure,beta_pr,temperature,use_gas,prdrag) &
     !$omp private(i,ponrhoi,spsoundi,rhoi)
-    do i=1,int(nparttot)
+    do i=1,int(npart)
        rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
        if (maxvxyzu >=4 ) then
           if (store_temperature) then
