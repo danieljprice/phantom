@@ -379,7 +379,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  integer,           intent(out) :: ierr
  logical, optional, intent(in)  :: headeronly
  logical, optional, intent(in)  :: dustydisc
- real(kind=4), dimension(npart) :: dtind
+ real(kind=4), allocatable, dimension(:) :: dtind
 
  character(len=200) :: fileident
  integer :: errors(5)
@@ -450,7 +450,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  endif
 
  if (.not.smalldump) then
-
+    allocate(dtind(npart))
     call read_hdf5_arrays(hdf5_file_id,errors(4),npart,nptmass,iphase,xyzh,vxyzu, &
                           xyzmh_ptmass,vxyz_ptmass,dtind,alphaind,poten,Bxyz,     &
                           Bevol,dustfrac,deltav,dustprop,tstop,St,temperature,    &
@@ -474,6 +474,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     if (size(dt_in)/=size(dtind)) call error('read_smalldump','problem reading individual timesteps')
     dt_in = dtind
 #endif
+   deallocate(dtind)
 
  else
     call fatal('read_dump',trim(dumpfile)//'.h5 is not a full dump')
