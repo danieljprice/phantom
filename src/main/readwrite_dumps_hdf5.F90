@@ -522,7 +522,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  real(kind=4), dimension(npart) :: dtind
 
  character(len=200) :: fileident
- integer :: errors(10)
+ integer :: errors(5)
  logical :: smalldump,isothermal,ind_timesteps,const_av
 
  logical :: got_iphase,                     &
