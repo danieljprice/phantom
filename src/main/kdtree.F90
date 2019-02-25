@@ -389,7 +389,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
        zmaxpart = max(zmaxpart,zi)
     endif
  enddo
- !$omp end do
+ !$omp enddo
  !$omp end parallel
 
  do i=1,np
