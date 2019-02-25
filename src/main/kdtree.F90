@@ -141,7 +141,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
  integer, optional, intent(out)  :: refinelevels
 
  integer :: i,npnode,il,ir,istack,nl,nr,mymum
- integer :: nnode,minlevel,level
+ integer :: nnode,minlevel,level,nqueue
  real :: xmini(ndim),xmaxi(ndim),xminl(ndim),xmaxl(ndim),xminr(ndim),xmaxr(ndim)
  integer, parameter :: istacksize = 512
  type(kdbuildstack), save :: stack(istacksize)
@@ -200,8 +200,9 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
     done_init_kdtree = .true.
  endif
 
+ nqueue = numthreads
  ! build using a queue to build level by level until number of nodes = number of threads
- over_queue: do while (istack  <  numthreads)
+ over_queue: do while (istack  <  nqueue)
     ! if the tree finished while building the queue, then we should just return
     ! only happens for small particle numbers
     if (istack <= 0) then
@@ -246,7 +247,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
     !$omp shared(xyzh) &
     !$omp shared(np, ndim) &
     !$omp shared(node, ncells) &
-    !$omp shared(numthreads) &
+    !$omp shared(nqueue) &
     !$omp private(istack) &
     !$omp private(nnode, mymum, level, npnode, xmini, xmaxi) &
     !$omp private(ir, il, nl, nr) &
@@ -256,7 +257,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
     !$omp reduction(min:minlevel) &
     !$omp reduction(max:maxlevel)
     !$omp do schedule(static)
-    do i = 1, numthreads
+    do i = 1, nqueue
 
        stack(1) = queue(i)
        istack = 1
@@ -372,7 +373,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  !$omp reduction(min:xminpart,yminpart,zminpart) &
  !$omp reduction(max:xmaxpart,ymaxpart,zmaxpart) &
  !$omp reduction(+:ncross)
- !$omp do schedule(guided,10)
+ !$omp do schedule(guided,1)
  do i=1,np
     if (.not.isdead_or_accreted(xyzh(4,i))) then
 #ifdef PERIODIC
@@ -504,7 +505,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  integer :: npnodetot
 
  logical :: nodeisactive
- integer :: i,npcounter
+ integer :: i,j,npcounter,i1
  real    :: xi,yi,zi,hi,dx,dy,dz,dr2
  real    :: r2max, hmax
  real    :: xcofm,ycofm,zcofm,fac,dfac
@@ -520,14 +521,16 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 
  nodeisactive = .false.
  if (inoderange(1,nnode) > 0) then
-    do i = inoderange(1,nnode),inoderange(2,nnode)
-       if (inodeparts(i) > 0) nodeisactive = .true.
-    enddo
+    checkactive: do i = inoderange(1,nnode),inoderange(2,nnode)
+       if (inodeparts(i) > 0) then
+          nodeisactive = .true.
+          exit checkactive
+       endif
+    enddo checkactive
     npcounter = inoderange(2,nnode) - inoderange(1,nnode) + 1
  else
     npcounter = 0
  endif
-
 
  if (npcounter /= npnode) then
     print*,'constructing node ',nnode,': found ',npcounter,' particles, expected:',npnode,' particles for this node'
@@ -540,8 +543,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  nl = 0
  nr = 0
  if ((.not. present(groupsize)) .and. (npnode  <  1)) return ! node has no particles, just quit
-
- !x0(:) = 0.5*(xmini(:) + xmaxi(:))  ! geometric centre of the node
 
  r2max = 0.
  hmax  = 0.
@@ -568,25 +569,25 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     endif
  endif
 
+ i1=inoderange(1,nnode)
  ! during initial queue build which is serial, we can parallelise this loop
  if (npnode > 1000 .and. doparallel) then
     !$omp parallel do schedule(static) default(none) &
     !$omp shared(maxp,maxphase) &
-    !$omp shared(npnode,list,xyzh,iphase,massoftype,dfac) &
-    !$omp shared(xyzh_soa,inoderange,nnode,iphase_soa) &
-    !$omp private(i,xi,yi,zi,hi,dx,dy,dz,dr2) &
+    !$omp shared(npnode,massoftype,dfac) &
+    !$omp shared(xyzh_soa,i1,iphase_soa) &
+    !$omp private(i,xi,yi,zi,hi) &
     !$omp firstprivate(pmassi,fac) &
     !$omp reduction(+:xcofm,ycofm,zcofm,totmass_node) &
-    !$omp reduction(max:r2max) &
     !$omp reduction(max:hmax)
-    do i=1,npnode
-       xi = xyzh_soa(inoderange(1,nnode)+i-1,1)
-       yi = xyzh_soa(inoderange(1,nnode)+i-1,2)
-       zi = xyzh_soa(inoderange(1,nnode)+i-1,3)
-       hi = xyzh_soa(inoderange(1,nnode)+i-1,4)
+    do i=i1,i1+npnode-1
+       xi = xyzh_soa(i,1)
+       yi = xyzh_soa(i,2)
+       zi = xyzh_soa(i,3)
+       hi = xyzh_soa(i,4)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase_soa(inoderange(1,nnode)+i-1)))
+          pmassi = massoftype(iamtype(iphase_soa(i)))
           fac    = pmassi*dfac ! to avoid round-off error
        endif
        totmass_node = totmass_node + pmassi
@@ -596,14 +597,14 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     enddo
     !$omp end parallel do
  else
-    do i=1,npnode
-       xi = xyzh_soa(inoderange(1,nnode)+i-1,1)
-       yi = xyzh_soa(inoderange(1,nnode)+i-1,2)
-       zi = xyzh_soa(inoderange(1,nnode)+i-1,3)
-       hi = xyzh_soa(inoderange(1,nnode)+i-1,4)
+    do i=i1,i1+npnode-1
+       xi = xyzh_soa(i,1)
+       yi = xyzh_soa(i,2)
+       zi = xyzh_soa(i,3)
+       hi = xyzh_soa(i,4)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase_soa(inoderange(1,nnode)+i-1)))
+          pmassi = massoftype(iamtype(iphase_soa(i)))
           fac    = pmassi*dfac ! to avoid round-off error
        endif
        totmass_node = totmass_node + pmassi
@@ -642,11 +643,20 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  quads(:) = 0.
 #endif
 
- !--recompute size of node
- do i=1,npnode
-    xi = xyzh_soa(inoderange(1,nnode)+i-1,1)
-    yi = xyzh_soa(inoderange(1,nnode)+i-1,2)
-    zi = xyzh_soa(inoderange(1,nnode)+i-1,3)
+ !--compute size of node
+ !!$omp parallel do if (npnode > 1000 .and. doparallel) &
+ !!$omp default(none) schedule(static) &
+ !!$omp shared(npnode,xyzh_soa,x0,i1) &
+ !!$omp private(i,xi,yi,zi,dx,dy,dz,dr2,pmassi) &
+#ifdef GRAVITY
+ !!$omp shared(iphase_soa,massoftype) &
+ !!$omp reduction(+:quads) &
+#endif
+ !!$omp reduction(max:r2max)
+ do i=i1,i1+npnode-1
+    xi = xyzh_soa(i,1)
+    yi = xyzh_soa(i,2)
+    zi = xyzh_soa(i,3)
     dx    = xi - x0(1)
     dy    = yi - x0(2)
 #ifdef TREEVIZ
@@ -658,7 +668,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     r2max = max(r2max,dr2)
 #ifdef GRAVITY
     if (maxphase==maxp) then
-       pmassi = massoftype(iamtype(iphase_soa(inoderange(1,nnode)+i-1)))
+       pmassi = massoftype(iamtype(iphase_soa(i)))
     endif
     quads(1) = quads(1) + pmassi*(3.*dx*dx - dr2)  ! Q_xx
     quads(2) = quads(2) + pmassi*(3.*dx*dy)        ! Q_xy = Q_yx
@@ -668,6 +678,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     quads(6) = quads(6) + pmassi*(3.*dz*dz - dr2)  ! Q_zz
 #endif
  enddo
+ !!$omp end parallel do
 
 #ifdef MPI
  if (present(groupsize)) then
@@ -765,7 +776,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        nl = inoderange(1,nnode)
        nr = inoderange(2,nnode)
        inodeparts_swap(nl:nr) = inodeparts(nl:nr)
-       xyzh_swap(nl:nr,:) = xyzh_soa(nl:nr,:)
+       do j=1,4
+          xyzh_swap(nl:nr,j) = xyzh_soa(nl:nr,j)
+       enddo
        iphase_swap(nl:nr) = iphase_soa(nl:nr)
        counterl = 0
        !DIR$ ivdep
