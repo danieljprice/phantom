@@ -541,7 +541,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  nr = 0
  if ((.not. present(groupsize)) .and. (npnode  <  1)) return ! node has no particles, just quit
 
- x0(:) = 0.5*(xmini(:) + xmaxi(:))  ! geometric centre of the node
+ !x0(:) = 0.5*(xmini(:) + xmaxi(:))  ! geometric centre of the node
 
  r2max = 0.
  hmax  = 0.
@@ -572,7 +572,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  if (npnode > 1000 .and. doparallel) then
     !$omp parallel do schedule(static) default(none) &
     !$omp shared(maxp,maxphase) &
-    !$omp shared(npnode,list,xyzh,x0,iphase,massoftype,dfac) &
+    !$omp shared(npnode,list,xyzh,iphase,massoftype,dfac) &
     !$omp shared(xyzh_soa,inoderange,nnode,iphase_soa) &
     !$omp private(i,xi,yi,zi,hi,dx,dy,dz,dr2) &
     !$omp firstprivate(pmassi,fac) &
@@ -584,16 +584,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        yi = xyzh_soa(inoderange(1,nnode)+i-1,2)
        zi = xyzh_soa(inoderange(1,nnode)+i-1,3)
        hi = xyzh_soa(inoderange(1,nnode)+i-1,4)
-
-       dx    = xi - x0(1)
-       dy    = yi - x0(2)
-#ifdef TREEVIZ
-       dz    = 0.
-#else
-       dz    = zi - x0(3)
-#endif
-       dr2   = dx*dx + dy*dy + dz*dz
-       r2max = max(r2max,dr2)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
           pmassi = massoftype(iamtype(iphase_soa(inoderange(1,nnode)+i-1)))
@@ -611,16 +601,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        yi = xyzh_soa(inoderange(1,nnode)+i-1,2)
        zi = xyzh_soa(inoderange(1,nnode)+i-1,3)
        hi = xyzh_soa(inoderange(1,nnode)+i-1,4)
-
-       dx    = xi - x0(1)
-       dy    = yi - x0(2)
-#ifdef TREEVIZ
-       dz    = 0.
-#else
-       dz    = zi - x0(3)
-#endif
-       dr2   = dx*dx + dy*dy + dz*dz
-       r2max = max(r2max,dr2)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
           pmassi = massoftype(iamtype(iphase_soa(inoderange(1,nnode)+i-1)))
@@ -667,8 +647,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     xi = xyzh_soa(inoderange(1,nnode)+i-1,1)
     yi = xyzh_soa(inoderange(1,nnode)+i-1,2)
     zi = xyzh_soa(inoderange(1,nnode)+i-1,3)
-    hi = xyzh_soa(inoderange(1,nnode)+i-1,4)
-
     dx    = xi - x0(1)
     dy    = yi - x0(2)
 #ifdef TREEVIZ
