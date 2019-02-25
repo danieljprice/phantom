@@ -164,7 +164,7 @@ subroutine write_hdf5_arrays(file_id,error,xyzh,vxyzu,iphase,pressure,        &
  call write_to_hdf5(iphase,'itype',group_id,errors(6))
  call write_to_hdf5(pressure,'pressure',group_id,errors(7))
 
- if (.not.const_av)  call write_to_hdf5(alphaind,'alpha',group_id,errors(8))        ! Viscosity
+ if (.not.const_av)  call write_to_hdf5(alphaind(1,:),'alpha',group_id,errors(8))   ! Viscosity (only ever write 'first' alpha)
  if (ind_timesteps)  call write_to_hdf5(real(dtind,kind=4),'dt',group_id,errors(9)) ! Individual timesteps
  if (gravity)        call write_to_hdf5(poten,'poten',group_id,errors(10))
 
