@@ -507,7 +507,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     leftstate  = (/1.7942,0.017942,-0.9759,-0.6561,0.,1.,1.74885,0./)
     rightstate = (/1.    ,0.01    ,-1.7510, 0.    ,0.,1.,0.6    ,0./)
     xleft      = -2.0
-  case(9)
+ case(9)
     shocktype = 'Radiation shock'
 
     call set_units(dist=au,mass=solarm,G=1.d0)
