@@ -151,12 +151,13 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  character(len=*), intent(in) :: dumpfile
  logical,          intent(in) :: fulldump
  integer(kind=8),  intent(in), optional :: ntotal
+
  integer           :: i
  integer           :: ierr,nblocks
  integer(kind=8)   :: nparttot,npartoftypetot(maxtypes)
  logical           :: use_gas,ind_timesteps,const_av,prdrag,isothermal
  real              :: ponrhoi,rhoi,spsoundi
- real, allocatable, dimension(:) :: pressure,dtind,beta_pr
+ real, allocatable :: pressure(:),dtind(:),beta_pr(:)
  character(len=100):: fileident
  character(len=10) :: datestring, timestring
  character(len=30) :: string
@@ -382,7 +383,8 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  integer,           intent(out) :: ierr
  logical, optional, intent(in)  :: headeronly
  logical, optional, intent(in)  :: dustydisc
- real(kind=4), allocatable, dimension(:) :: dtind
+
+ real(kind=4), allocatable :: dtind(:)
 
  character(len=200) :: fileident
  integer :: errors(5)
@@ -527,7 +529,8 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  integer,           intent(out) :: ierr
  logical, optional, intent(in)  :: headeronly
  logical, optional, intent(in)  :: dustydisc
- real(kind=4), dimension(npart) :: dtind
+
+ real(kind=4) :: dtind(npart)
 
  character(len=200) :: fileident
  integer :: errors(5)

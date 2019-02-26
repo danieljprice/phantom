@@ -952,15 +952,15 @@ subroutine read_string(str,name,id,got,error)
 
  integer :: errors(12)
 
- integer        , parameter :: dim0 = 1
+ integer,         parameter :: dim0 = 1
  integer(SIZE_T), parameter :: sdim = 100
 
- integer(HSIZE_T), dimension(1:1) :: dims = (/dim0/)
- integer(HSIZE_T), dimension(1:1) :: maxdims
+ integer(HSIZE_T) :: dims(1) = (/dim0/)
+ integer(HSIZE_T) :: maxdims(1)
 
  integer(HID_T) :: filetype,memtype,space,dset
 
- character(LEN=sdim), dimension(:), allocatable, target :: rdata
+ character(LEN=sdim), allocatable, target :: rdata(:)
  integer(SIZE_T) :: size
  type(c_ptr) :: f_ptr
 
