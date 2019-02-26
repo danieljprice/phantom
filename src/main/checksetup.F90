@@ -42,7 +42,7 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,&
@@ -362,6 +362,11 @@ subroutine check_setup(nerror,nwarn,restart)
     endif
     if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas/real(npart-nbad-nunity)
  endif
+
+!
+!--check dust growth arrays
+!
+ if (use_dustgrowth) call check_setup_growth(npart,nerror)
 !
 !--check point mass setup
 !
@@ -494,5 +499,28 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  enddo
 
 end subroutine check_setup_ptmass
+
+subroutine check_setup_growth(npart,nerror)
+ use part, only:dustprop,dustprop_label
+ integer, intent(in)    :: npart
+ integer, intent(inout) :: nerror
+ integer :: i,j,nbad(4)
+
+ nbad = 0
+ !-- Check that all the parameters are > 0 when needed
+ do i=1,npart
+    do j=1,4
+       if (dustprop(j,i) < 0.) nbad(j) = nbad(j) + 1
+    enddo
+ enddo
+
+ do j=1,4
+    if (nbad(j) > 0) then
+       print*,'ERROR: ',nbad,' of ',npart,' with '//trim(dustprop_label(j))//' < 0'
+       nerror = nerror + 1
+    endif
+ enddo
+
+end subroutine check_setup_growth
 
 end module checksetup

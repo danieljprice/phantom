@@ -1296,6 +1296,8 @@ subroutine initialise_dustprop(npart)
        if (iamtype(iphase(i))==idust) then
           dustprop(1,i) = grainsize(1)
           dustprop(2,i) = graindens(1)
+          dustprop(3,i) = 0.
+          dustprop(4,i) = 0.
        else
           dustprop(:,i) = 0.
        endif
@@ -1386,7 +1388,7 @@ subroutine print_dust()
        enddo
     endif
 
-    do i=1,ndiscs
+    do i=1,maxdiscs
        if (iuse_disc(i)) then
           R_midpoint = (R_in(i) + R_out(i))/2
           Sigma = sig_norm(i) * &

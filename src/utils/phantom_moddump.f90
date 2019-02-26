@@ -23,7 +23,7 @@
 !+
 !--------------------------------------------------------------------------
 program phantommoddump
- use dim,             only:maxp,tagline
+ use dim,             only:tagline
  use eos,             only:polyk
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,mhd

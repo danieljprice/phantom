@@ -446,7 +446,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierrs(1),func=iamtype_int11)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierrs(2))
        if (use_dustgrowth) then
-          call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierrs(3))
+          call write_array(1,dustprop,dustprop_label,4,npart,k,ipass,idump,nums,ierrs(3))
           call write_array(1,St,'St',npart,k,ipass,idump,nums,ierrs(3))
        endif
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
@@ -661,7 +661,7 @@ subroutine write_smalldump(t,dumpfile)
        if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierr,func=iamtype_int11)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (use_dustgrowth) then
-          call write_array(1,dustprop,dustprop_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+          call write_array(1,dustprop,dustprop_label,4,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
           call write_array(1,St,'St',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        endif
        if (h2chemistry .and. nabundances >= 1) &
@@ -710,19 +710,16 @@ end subroutine write_smalldump
 
 subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use memory,   only:allocate_memory
- use dim,      only:maxp,maxvxyzu,gravity,lightcurve,mhd
-#ifdef INJECT_PARTICLES
- use dim,      only:maxp_hard
-#endif
+ use dim,      only:maxp,maxvxyzu,gravity,lightcurve,mhd,maxp_hard
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &
                     maxphase,isetphase,nptmass,nsinkproperties,maxptmass,get_pmass, &
                     xyzmh_ptmass,vxyz_ptmass
- use dump_utils, only:skipblock,skip_arrays,check_tag,lenid,ndatatypes,read_header,read_array, &
+ use dump_utils, only:skipblock,skip_arrays,check_tag,lenid,ndatatypes,read_header, &
                       open_dumpfile_r,get_error_text,ierr_realsize,free_header,read_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
  use sphNGutils, only:convert_sinks_sphNG
- use options,    only:use_dustfrac
+ use options,    only:use_dustfrac,use_moddump
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -812,7 +809,12 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- call allocate_memory(int(nparttot / nprocs))
+ if (.not. use_moddump) then
+    call allocate_memory(int(nparttot / nprocs))
+ else
+    ! This is required for the cases when particles will be added during moddump
+    call allocate_memory(maxp_hard)
+ endif
 #endif
 
 !
@@ -1020,7 +1022,6 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
     ierr = 3
     return
  endif
-
 !
 !--single values
 !

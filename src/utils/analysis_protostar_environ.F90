@@ -248,7 +248,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
 !$omp shared(npart,xyzh,alphaB,iphase,massoftype,etaart,Bxyz,dthresh) &
-!$omp private(i,hi,itype,rhoi)
+!$omp private(i,hi,rhoi) &
+!$omp firstprivate(itype)
 !$omp do
     do i = 1,npart
        hi = xyzh(4,i)
@@ -268,7 +269,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
 !$omp shared(npart,xyzh,vxyzu,iphase,massoftype,etaart,Bxyz,dthresh) &
-!$omp private(i,hi,itype,rhoi)
+!$omp private(i,hi,rhoi) &
+!$omp firstprivate(itype)
 !$omp do
     do i = 1,npart
        hi = xyzh(4,i)
