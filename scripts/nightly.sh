@@ -349,6 +349,7 @@ commit_and_push_to_website ()
    cd $webdir;
    #rsync -avz nightly/ $webserver/nightly/;
    git pull
+   git add nightly/build/*.html
    git add nightly/*.html
    git add nightly/opt/*
    git add nightly/stats/*
