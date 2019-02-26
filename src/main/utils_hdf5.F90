@@ -32,6 +32,7 @@ module utils_hdf5
                 H5T_NATIVE_REAL,             &
                 H5T_NATIVE_DOUBLE,           &
                 H5T_NATIVE_INTEGER,          &
+                H5T_STD_I8LE,                &
                 SIZE_T,                      &
                 H5T_FORTRAN_S1,              &
                 C_PTR
@@ -496,10 +497,10 @@ subroutine write_intarray_1dkind1(x,name,id,error)
  call h5screate_simple_f(ndims,xshape,dspace_id,errors(1))
 
  ! Create dataset in file
- call h5dcreate_f(id,name,H5T_NATIVE_INTEGER,dspace_id,dset_id,errors(2))
+ call h5dcreate_f(id,name,H5T_STD_I8LE,dspace_id,dset_id,errors(2))
 
  ! Write to file
- call h5dwrite_f(dset_id,H5T_NATIVE_INTEGER,x,xshape,errors(3))
+ call h5dwrite_f(dset_id,H5T_STD_I8LE,x,xshape,errors(3))
 
  ! Close dataset
  call h5dclose_f(dset_id,errors(4))
@@ -931,7 +932,7 @@ subroutine read_intarray_1dkind1(x,name,id,got,error)
  call h5dopen_f(id,name,dset_id,errors(1))
 
  ! Read dataset
- call h5dread_f(dset_id,H5T_NATIVE_INTEGER,x,xshape,errors(2))
+ call h5dread_f(dset_id,H5T_STD_I8LE,x,xshape,errors(2))
 
  ! Close dataset
  call h5dclose_f(dset_id,errors(3))

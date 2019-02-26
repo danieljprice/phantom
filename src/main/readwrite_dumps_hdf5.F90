@@ -303,7 +303,7 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
     call write_hdf5_arrays(hdf5_file_id,error,npart,                            & ! File ID and error code
                            xyzh,                                                & !---------
                            vxyzu,                                               & !
-                           int(iphase),                                         & !
+                           iphase,                                              & !
                            pressure,                                            & !
                            alphaind,                                            & !
                            dtind,                                               & !
@@ -332,7 +332,7 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  else
     call write_hdf5_arrays_small(hdf5_file_id,error,npart,             & ! File ID and error code
                                  xyzh,                                 & !--------
-                                 int(iphase),                          & !
+                                 iphase,                               & !
                                  xyzmh_ptmass,                         & !
                                  Bxyz,                                 & !
                                  dustfrac,                             & ! Arrays

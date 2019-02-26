@@ -143,7 +143,7 @@ subroutine write_hdf5_arrays(file_id,error,npart,xyzh,vxyzu,iphase,pressure,  &
  real, dimension(:,:,:), intent(in) :: deltav
  real(kind=4), dimension(:),   intent(in) :: poten,divBsymm,luminosity
  real(kind=4), dimension(:,:), intent(in) :: alphaind,divcurlv,divcurlB
- integer, intent(in) :: iphase(:)
+ integer(kind=1), intent(in) :: iphase(:)
  integer, intent(in) :: nptmass,maxBevol,ndivcurlB,ndivcurlv
  logical, intent(in) :: const_av,ind_timesteps,gravity,mhd,mhd_nonideal,  &
                         use_dust,use_dustfrac,use_dustgrowth,h2chemistry, &
@@ -251,7 +251,7 @@ subroutine write_hdf5_arrays_small(file_id,error,npart,xyzh,iphase,xyzmh_ptmass,
  real, dimension(:,:),   intent(in) :: xyzh,Bxyz,xyzmh_ptmass
  real, dimension(:,:),   intent(in) :: dustfrac,dustprop,abundance
  real(kind=4), dimension(:),   intent(in) :: luminosity
- integer, intent(in) :: iphase(:)
+ integer(kind=1), intent(in) :: iphase(:)
  integer, intent(in) :: nptmass
  logical, intent(in) :: mhd,use_dust,use_dustgrowth
  logical, intent(in) :: h2chemistry,lightcurve
@@ -537,8 +537,7 @@ subroutine read_hdf5_arrays(file_id,error,npart,nptmass,iphase,xyzh,vxyzu,   &
  call open_hdf5group(file_id,'particles',group_id,errors(1))
 
  ! Main arrays
- call read_from_hdf5(itmp,'itype',group_id,got_iphase,errors(2))
- if (got_iphase) iphase = int(itmp,kind=1)
+ call read_from_hdf5(iphase,'itype',group_id,got_iphase,errors(2))
  call read_from_hdf5(xyzh(1:3,:),'xyz',group_id,got,errors(3))
  if (got) got_xyzh = .true.
  call read_from_hdf5(rtmp,'h',group_id,got,errors(4))
