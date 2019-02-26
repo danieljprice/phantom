@@ -38,6 +38,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use io,      only:fatal
  use physcon, only:pi
  use part,    only:xyzmh_ptmass,vxyz_ptmass,nptmass
+ use dim,     only:gr
  use infile_utils, only:open_db_from_file,read_inopt,close_db,inopts
  character(len=*), intent(in) :: dumpfile
  real,             intent(inout) :: xyzh(:,:),vxyz(:,:)
@@ -118,7 +119,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     call read_inopt(iexternalforce_read,'iexternalforce',db,ierr)
     call close_db(db)
  endif
- if (iexternalforce_read > 0) then
+ if (iexternalforce_read > 0 .or. gr) then
     assume_Ltot_is_same_as_zaxis = .true.
     print*,'Resetting assume_Ltot_is_same_as_zaxis=.true. in analysis'
  endif
