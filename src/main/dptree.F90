@@ -40,11 +40,17 @@ subroutine maketree1(node, xyzh, np, ndim, ifirstincell, ncells)
  integer,         intent(out)   :: ifirstincell(ncellsmax+1)
  integer(kind=8), intent(out)   :: ncells
  integer :: leaf_level
+ real :: xmin(3),xmax(3)
 
  call empty_tree(node)
  ! get sort key
  if (.not.allocated(pkey)) allocate(pkey(np))
- call get_sort_key(np,xyzh,pkey)
+
+ ! get bounds of particle distribution, and enforce periodicity
+ call get_particle_bounds(np,xyzh,xmin,xmax)
+
+ ! get Hilbert keys for all particles
+ call get_sort_key(np,xyzh,xmin,xmax,pkey)
 
  if (allocated(iorder) .and. size(iorder) /= np) deallocate(iorder)
  if (.not.allocated(iorder)) allocate(iorder(np))
@@ -54,6 +60,7 @@ subroutine maketree1(node, xyzh, np, ndim, ifirstincell, ncells)
  call parallel_sort(np,pkey,iorder)
 
  ! divide this list into equal leaf nodes (nearest power of 2)
+ ! and get particle lists for all parent nodes
  call build_tree_index(np,minpart,leaf_level,inoderange,ncells)
 
  ! get properties of all leaf nodes (in parallel)
@@ -63,7 +70,7 @@ subroutine maketree1(node, xyzh, np, ndim, ifirstincell, ncells)
  call climb_tree(node,inoderange,leaf_level,xyzh,iorder)
 
  maxlevel = leaf_level
- return
+ !return
     write(*,"(a,i10,3(a,i2))") ' maketree1: nodes = ',ncells,', leaf level = ',maxlevel
     block
        real :: sizesum
@@ -106,9 +113,6 @@ subroutine build_tree_index(np,parts_per_leaf,leaf_level,inoderange,ncells)
  nleaf           = 2**leaf_level
  parts_per_leafi = np/real(nleaf)
 
- !print*,' np/minpart = ',ratio,' log2(np/minpart) = ',log(ratio)/log(2.)
- !print*, 'LEAF LEVEL = ',leaf_level,' NLEAF = ',nleaf
- !print*,' mean parts per leaf = ',parts_per_leafi
  !
  ! divide sorted list into approximately equal length chunks
  !
@@ -235,9 +239,7 @@ subroutine climb_tree(node,inoderange,leaf_level,xyzh,iorder)
        nodel = node(il)
        noder = node(ir)
        call add_child_nodes(nodel,noder,node(inode))
-       !print*,' size l=',nodel%size,'x0=',nodel%xcen
-       !print*,' size r=',noder%size,'x0=',noder%xcen
-       !print*,' add=',node(inode)%size,node(inode)%xcen
+       !print*,' approx size =',node(inode)%size
        call recompute_node_size(node(inode),inoderange(1,inode),inoderange(2,inode),xyzh,iorder)
        !print*,' recomputed size =',node(inode)%size
     enddo
@@ -249,56 +251,73 @@ end subroutine climb_tree
 
 !-----------------------------------
 !+
+!  get particle bounds
+!+
+!-----------------------------------
+subroutine get_particle_bounds(np,xyzh,xmin,xmax)
+#ifdef PERIODIC
+ use boundary, only:cross_boundary
+ use domain,   only:isperiodic
+#endif
+ integer, intent(in) :: np
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(out)   :: xmin(3),xmax(3)
+ integer :: ncross,i
+
+ xmin(:) = huge(0.)
+ xmax(:) = -huge(0.)
+ ncross = 0
+ !$omp parallel do default(none) &
+ !$omp shared(np,xyzh) private(i) &
+#ifdef PERIODIC
+ !$omp shared(isperiodic) &
+#endif
+ !$omp reduction(min:xmin) &
+ !$omp reduction(max:xmax) &
+ !$omp reduction(+:ncross)
+ do i=1,np
+#ifdef PERIODIC
+    call cross_boundary(isperiodic,xyzh(:,i),ncross)
+#endif
+    xmin(1) = min(xmin(1),xyzh(1,i))
+    xmax(1) = max(xmax(1),xyzh(1,i))
+    xmin(2) = min(xmin(2),xyzh(2,i))
+    xmax(2) = max(xmax(2),xyzh(2,i))
+    xmin(3) = min(xmin(3),xyzh(3,i))
+    xmax(3) = max(xmax(3),xyzh(3,i))
+ enddo
+ !$omp end parallel do
+
+end subroutine get_particle_bounds
+
+!-----------------------------------
+!+
 !  get sort key
 !+
 !-----------------------------------
-subroutine get_sort_key(np,xyzh,rkey)
+subroutine get_sort_key(np,xyzh,xmin,xmax,rkey)
  use hilbert, only:p_to_h
  integer, intent(in) :: np
- real, intent(in) :: xyzh(:,:)
+ real, intent(in) :: xyzh(:,:),xmin(3),xmax(3)
  real, intent(out) :: rkey(np)
  integer :: i
  integer(8) :: ip(3),ngrid
  integer(8) :: iz,m
- real :: xmin,ymin,zmin,xmax,ymax,zmax
- real :: dx1,dy1,dz1
-
- xmin = huge(0.)
- ymin = huge(0.)
- zmin = huge(0.)
- xmax = -huge(0.)
- ymax = -huge(0.)
- zmax = -huge(0.)
- !$omp parallel do default(none) &
- !$omp shared(np,xyzh) private(i) &
- !$omp reduction(min:xmin,ymin,zmin) &
- !$omp reduction(max:xmax,ymax,zmax)
- do i=1,np
-    xmin = min(xmin,xyzh(1,i))
-    xmax = max(xmax,xyzh(1,i))
-    ymin = min(ymin,xyzh(2,i))
-    ymax = max(ymax,xyzh(2,i))
-    zmin = min(zmin,xyzh(3,i))
-    zmax = max(zmax,xyzh(3,i))
- enddo
- !$omp end parallel do
+ real :: dx1(3)
 
  ngrid = np ! size of discrete grid (np**3)
  m = nint(log(real(ngrid))/log(2.))
  ngrid = 2**m
 
  dx1 = 1./(xmax - xmin)*ngrid
- dy1 = 1./(ymax - ymin)*ngrid
- dz1 = 1./(zmax - zmin)*ngrid
  !$omp parallel do default(none) &
- !$omp shared(xyzh,dx1,dy1,dz1,rkey,np,m) &
- !$omp shared(xmin,ymin,zmin) &
+ !$omp shared(xyzh,xmin,dx1,rkey,np,m) &
  !$omp private(i,ip,iz) &
  !$omp schedule(static)
  do i=1,np
-    ip(1) = int((xyzh(1,i) - xmin)*dx1)
-    ip(2) = int((xyzh(2,i) - ymin)*dy1)
-    ip(3) = int((xyzh(3,i) - zmin)*dz1)
+    ip(1) = int((xyzh(1,i) - xmin(1))*dx1(1))
+    ip(2) = int((xyzh(2,i) - xmin(2))*dx1(2))
+    ip(3) = int((xyzh(3,i) - xmin(3))*dx1(3))
     iz = p_to_h(ip,m)
     if (iz < 0) stop 'exceeded hilbert key precision'
     rkey(i) = real(iz)
@@ -320,15 +339,6 @@ subroutine parallel_sort(np,rkey,iorder)
  integer, intent(out) :: iorder(np)
 
  call indexx(np,rkey,iorder)
-
- ! initialise order
-! !$omp parallel do default(none) &
- !!$omp shared(np,iorder) &
- !!$omp private(i)
- !do i=1,np
-!    iorder(i) = i
-! enddo
-! !$omp end parallel do
 
 end subroutine parallel_sort
 
@@ -436,6 +446,12 @@ subroutine construct_node(nodei,i1,i2,xyzh,iorder)
 
 end subroutine construct_node
 
+!-----------------------------------
+!+
+!  compute node size exactly
+!  from summing over node particles
+!+
+!-----------------------------------
 subroutine recompute_node_size(nodei,i1,i2,xyzh,list)
  type(kdnode), intent(inout) :: nodei
  integer,      intent(in) :: i1,i2
@@ -448,7 +464,6 @@ subroutine recompute_node_size(nodei,i1,i2,xyzh,list)
  y0 = nodei%xcen(2)
  z0 = nodei%xcen(3)
  r2max = 0.
-!--compute size of node
  do j=i1,i2
     i = list(j)
     dx = xyzh(1,i) - x0
