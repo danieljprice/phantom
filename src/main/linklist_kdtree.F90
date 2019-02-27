@@ -150,6 +150,8 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
 #ifdef MPI
  use kdtree,       only: maketreeglobal
 #endif
+ use dptree, only:maketree1
+ use timing, only:wallclock
 
 #ifdef MPI
  integer, intent(inout) :: npart
@@ -159,11 +161,18 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
  integer, intent(in)    :: nactive
  real,    intent(inout) :: xyzh(4,maxp)
  real,    intent(in)    :: vxyzu(:,:)
+ real :: t1,t2,t3
 
 #ifdef MPI
  call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells)
 #else
+ t1 = wallclock()
  call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
+ t2 = wallclock()
+ call maketree1(node,xyzh,npart,ndimtree,ifirstincell,ncells)
+ t3 = wallclock()
+ print*,' TIMING OLD=',t2-t1,' NEW = ',t3-t2, ' OLD/NEW = ', (t2-t1)/(t3-t2)
+ stop
 #endif
 
 end subroutine set_linklist

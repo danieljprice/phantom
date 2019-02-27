@@ -64,6 +64,7 @@ module kdtree
 #endif
  public :: empty_tree
  public :: compute_fnode, expand_fgrav_in_taylor_series
+ public :: add_child_nodes
 
  integer, parameter, public :: lenfgrav = 20
 
@@ -304,6 +305,31 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
  if (iverbose >= 3) then
     write(iprint,"(a,i10,3(a,i2))") ' maketree: nodes = ',ncells,', max level = ',maxlevel,&
        ', min leaf level = ',minlevel,' max level indexed = ',maxlevel_indexed
+    block
+       integer :: nleaf
+       real :: sizesum
+       nleaf = 0
+       sizesum = 0.
+       do i=1,int(ncells)
+          if (abs(ifirstincell(i)) > 0) then
+             sizesum = sizesum + node(i)%size
+             nleaf = nleaf + 1
+          endif
+       enddo
+       print*,' size root node = ',node(1)%size,' sum of leaf nodes = ',sizesum
+       print*,' mean size leaf node = ',sizesum/real(nleaf),' number of leaf nodes = ',nleaf
+       print*,' TREE SCORE = ',node(1)%size*real(nleaf)/sizesum
+       print*,' mean parts per leaf node = ',np/real(nleaf)
+       do level=maxlevel_indexed-1,0,-1
+          nleaf = 0; sizesum = 0.
+          do i=2**level,2**(level+1)-1
+             sizesum = sizesum + node(i)%size
+             nleaf = nleaf + 1
+          enddo
+          print*,level,' SCORE = ',node(1)%size*real(nleaf)/sizesum,' mean size = ',&
+                       sizesum/real(nleaf),'sum=',sizesum,' nnodes=',nleaf
+       enddo
+    end block
  endif
 
 end subroutine maketree
@@ -1367,9 +1393,10 @@ subroutine add_child_nodes(l,r,nodei)
  real :: xl(3),sl,hl
  real :: xr(3),sr,hr
 #ifdef GRAVITY
- real :: ql(6),qr(6),mr,ml,mnode,dm
+ real :: ql(6),qr(6)
 #endif
  real :: dx,dy,dz,dr2,dr
+ real :: mr,ml,mnode,dm
 
  xl = l%xcen
  hl = l%hmax
@@ -1377,6 +1404,8 @@ subroutine add_child_nodes(l,r,nodei)
 #ifdef GRAVITY
  ml = l%mass
  ql = l%quads
+#else
+ ml = 1.
 #endif
 
  xr = r%xcen
@@ -1385,34 +1414,21 @@ subroutine add_child_nodes(l,r,nodei)
 #ifdef GRAVITY
  mr = r%mass
  qr = r%quads
+#else
+ mr = 1.
+#endif
  mnode = ml + mr
  dm    = 1./mnode
-#endif
  dx = xl(1) - xr(1)
  dy = xl(2) - xr(2)
  dz = xl(3) - xr(3)
  dr2 = dx*dx + dy*dy + dz*dz
  dr  = sqrt(dr2)
-#ifdef GRAVITY
  ! centre of mass
  nodei%xcen = (xl*ml + xr*mr)*dm
  ! size, formula as in Benz et al. 1990
  ! and from thinking about it...
  nodei%size = max(ml*dm*dr+sr,mr*dm*dr+sl)
-#else
- ! distance between left child and node centre
- dx = xl(1) - nodei%xcen(1)
- dy = xl(2) - nodei%xcen(2)
- dz = xl(3) - nodei%xcen(3)
- dr = sqrt(dx*dx + dy*dy + dz*dz)
- nodei%size = dr+sl
- ! distance between right child and node centre
- dx = xr(1) - nodei%xcen(1)
- dy = xr(2) - nodei%xcen(2)
- dz = xr(3) - nodei%xcen(3)
- dr = sqrt(dx*dx + dy*dy + dz*dz)
- nodei%size = max(nodei%size,dr+sr)
-#endif
  nodei%hmax = max(hl,hr)
 #ifdef GRAVITY
  nodei%mass = mnode
