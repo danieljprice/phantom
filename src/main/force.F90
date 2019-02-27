@@ -33,8 +33,7 @@ module forces
  use dim, only:maxfsum,maxxpartveciforce,maxBevol,maxp,ndivcurlB,ndivcurlv,&
                maxdusttypes,maxdustsmall
  use mpiforce, only:cellforce,stackforce
- use linklist, only:ifirstincell
- use kdtree,   only:inodeparts,inoderange
+ use dptree,   only:iorder,inoderange
 
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -143,7 +142,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use dim,          only:maxvxyzu,maxneigh,maxdvdx,&
                         mhd,mhd_nonideal,lightcurve
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
- use linklist,     only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location
+ use linklist,     only:get_neighbour_list,get_hmaxcell,get_cell_location,get_cell_list
  use options,      only:iresistive_heating
  use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,nabundances,ll,get_partinfo,iactive,gradh,&
                         hrho,iphase,maxphase,igas,iboundary,maxgradh,dvdx, &
@@ -213,7 +212,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  real, save :: xyzcache(maxcellcache,4)
  integer, save :: listneigh(maxneigh)
 !$omp threadprivate(xyzcache,listneigh)
- integer :: i,icell,nneigh
+ integer :: i,icell,nneigh,istart,iend
  integer :: nstokes,nsuper,ndrag,ndustres
  real    :: dtmini,dtohm,dthall,dtambi,dtvisc
  real    :: dustresfacmean,dustresfacmax
@@ -343,9 +342,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !
  if (maxgradh /= maxp) call fatal('force','need storage of gradh (maxgradh=maxp)')
 
+ call get_cell_list(istart,iend)
+
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(ncells,ll,ifirstincell) &
+!$omp shared(istart,iend) &
 !$omp shared(xyzh) &
 !$omp shared(dustprop) &
 !$omp shared(ddustprop) &
@@ -408,17 +409,18 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp shared(ibin_wake,ibinnow_m1)
 
 !$omp do schedule(runtime)
- over_cells: do icell=1,int(ncells)
-    i = ifirstincell(icell)
+ over_leaf_nodes: do icell=istart,iend
+! over_cells: do icell=1,int(ncells)
+!    i = ifirstincell(icell)
 
     !--skip empty cells AND inactive cells
-    if (i <= 0) cycle over_cells
+!    if (i <= 0) cycle over_cells
 
     cell%icell = icell
 
     call start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol, &
                          dustfrac,dustprop,eta_nimhd,temperature,alphaind,stressmax)
-    if (cell%npcell == 0) cycle over_cells
+    if (cell%npcell == 0) cycle over_leaf_nodes
 
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
     !
@@ -476,7 +478,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #ifdef MPI
     endif
 #endif
- enddo over_cells
+ enddo over_leaf_nodes
 !$omp enddo
 
 #ifdef MPI
@@ -1844,7 +1846,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
 
  cell%npcell = 0
  over_parts: do ip = inoderange(1,cell%icell),inoderange(2,cell%icell)
-    i = inodeparts(ip)
+    i = iorder(ip)
 
     if (i < 0) then
        cycle over_parts
@@ -2131,7 +2133,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
        cycle over_parts
     endif
 
-    i = inodeparts(cell%arr_index(ip))
+    i = iorder(cell%arr_index(ip))
 
     pmassi = massoftype(iamtypei)
 
@@ -2305,7 +2307,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     pmassi = massoftype(iamtypei)
 
-    i = inodeparts(cell%arr_index(ip))
+    i = iorder(cell%arr_index(ip))
 
     fsum(:)       = cell%fsums(:,ip)
     xpartveci(:)  = cell%xpartvec(:,ip)

@@ -40,7 +40,7 @@ MODFILE       = moddump_default.f90
 ANALYSIS      = analysis_dtheader.f90
 MULTIRUNFILE  = multirun.f90
 LIVE_ANALYSIS = no
-LINKLIST      = dtype_kdtree.F90 kdtree.F90 hilbert.f90 dptree.F90 linklist_kdtree.F90
+LINKLIST      = dtype_kdtree.F90 kdtree.F90 hilbert.f90 dptree.F90 linklist_dptree.F90
 #
 # can comment out the following lines and instead set
 # the parameters as environment variables
@@ -1544,7 +1544,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          set_binary.f90 set_flyby.f90 viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} damping.f90 \
          set_disc.F90 partinject.F90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM} \
          directsum.f90 prompting.f90 ${SRCDUST} set_dust.F90 set_dust_options.f90 \
-         mpi_dens.F90 mpi_force.F90 stack.F90 mpi_derivs.F90 kdtree.F90 hilbert.f90 dptree.F90 linklist_kdtree.F90 ${SRCTURB} \
+         mpi_dens.F90 mpi_force.F90 stack.F90 mpi_derivs.F90 kdtree.F90 hilbert.f90 dptree.F90 linklist_dptree.F90 ${SRCTURB} \
          ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} memory.F90 readwrite_dumps.F90 quitdump.f90 ptmass.F90 \
          readwrite_infile.F90 dens.F90 force.F90 deriv.F90 energies.F90 sort_particles.F90 \
          evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90 \
@@ -1597,7 +1597,7 @@ edit: checksetup
 # these are the sources for anything which uses the readwrite_dumps module
 #
 SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 \
-         utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 ${DOMAIN} kdtree.F90 hilbert.f90 dptree.F90 linklist_kdtree.F90 \
+         utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 ${DOMAIN} kdtree.F90 hilbert.f90 dptree.F90 linklist_dptree.F90 \
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 \
          utils_datafiles.f90 utils_filenames.f90 datafiles.f90 gitinfo.f90 \
          centreofmass.f90 \

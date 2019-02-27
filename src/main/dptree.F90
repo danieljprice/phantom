@@ -3,7 +3,7 @@ module dptree
  use dtypekdtree, only:kdnode
  implicit none
  integer, parameter :: ndimtree = 3
- !real, public :: tree_accuracy = 0.5
+ real, public :: tree_accuracy = 0.5
 
 ! type kdnode
 !   sequence
@@ -16,12 +16,13 @@ module dptree
 !#endif
 ! end type kdnode
 
- public :: maketree1
+ public :: maketree1,getneigh1,climb_tree_hmax
+ public :: get_node_list
  private
 
  integer, public :: maxlevel
- integer, allocatable :: iorder(:)
- integer, allocatable :: inoderange(:,:)
+ integer, allocatable, public :: iorder(:)
+ integer, allocatable, public :: inoderange(:,:)
  real, allocatable :: pkey(:)
  integer, parameter :: irootnode = 1
 
@@ -70,24 +71,24 @@ subroutine maketree1(node, xyzh, np, ndim, ifirstincell, ncells)
  call climb_tree(node,inoderange,leaf_level,xyzh,iorder)
 
  maxlevel = leaf_level
- !return
-    write(*,"(a,i10,3(a,i2))") ' maketree1: nodes = ',ncells,', leaf level = ',maxlevel
-    block
-       real :: sizesum
-       integer :: i,istart,iend,nleaf,level
-       print*,' size root node = ',node(1)%size
-       do level=leaf_level,0,-1
-          call get_node_list(level,istart,iend)
-          sizesum = 0.
-          do i=istart,iend
-             sizesum = sizesum + node(i)%size
-          enddo
-          nleaf = iend - istart + 1
-          if (level==leaf_level) print*,' mean parts per leaf node = ',np/real(nleaf)
-          print*,level,' SCORE = ',node(1)%size*real(nleaf)/sizesum,' mean size = ',&
-                       sizesum/real(nleaf),'sum=',sizesum,' nnodes=',nleaf
-       enddo
-    end block
+ return
+    ! write(*,"(a,i10,3(a,i2))") ' maketree1: nodes = ',ncells,', leaf level = ',maxlevel
+    ! block
+    !    real :: sizesum
+    !    integer :: i,istart,iend,nleaf,level
+    !    print*,' size root node = ',node(1)%size
+    !    do level=leaf_level,0,-1
+    !       call get_node_list(level,istart,iend)
+    !       sizesum = 0.
+    !       do i=istart,iend
+    !          sizesum = sizesum + node(i)%size
+    !       enddo
+    !       nleaf = iend - istart + 1
+    !       if (level==leaf_level) print*,' mean parts per leaf node = ',np/real(nleaf)
+    !       print*,level,' SCORE = ',node(1)%size*real(nleaf)/sizesum,' mean size = ',&
+    !                    sizesum/real(nleaf),'sum=',sizesum,' nnodes=',nleaf
+    !    enddo
+    ! end block
 
 end subroutine maketree1
 
@@ -248,6 +249,33 @@ subroutine climb_tree(node,inoderange,leaf_level,xyzh,iorder)
  !$omp end parallel
 
 end subroutine climb_tree
+
+!---------------------------------------------
+!+
+!  as for climb tree, but only updating hmax
+!+
+!---------------------------------------------
+subroutine climb_tree_hmax(node,leaf_level)
+ type(kdnode), intent(inout) :: node(:)
+ integer,      intent(in)    :: leaf_level
+ integer :: level,inode,il,ir,istart,iend
+
+ !$omp parallel default(none) &
+ !$omp shared(leaf_level) &
+ !$omp shared(node) &
+ !$omp private(level,inode,istart,iend,il,ir)
+ do level=leaf_level-1,0,-1
+    call get_node_list(level,istart,iend)
+    !$omp do
+    do inode=istart,iend
+       call get_child_nodes(inode,il,ir)       ! get child nodes
+       node(inode)%hmax = max(node(il)%hmax,node(ir)%hmax)
+    enddo
+    !$omp enddo
+ enddo
+ !$omp end parallel
+
+end subroutine climb_tree_hmax
 
 !-----------------------------------
 !+
@@ -475,5 +503,177 @@ subroutine recompute_node_size(nodei,i1,i2,xyzh,list)
  nodei%size = sqrt(r2max) + epsilon(r2max)
 
 end subroutine recompute_node_size
+
+!----------------------------------------------------------------
+!+
+!  Routine to walk tree for neighbour search
+!  (all particles within a given h_i and optionally within h_j)
+!+
+!----------------------------------------------------------------
+subroutine getneigh1(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+& get_hj,fnode,remote_export)
+ use dim,      only:maxneigh
+#ifdef PERIODIC
+ use boundary, only:dxbound,dybound,dzbound
+#endif
+ use io,       only:fatal,id
+ use part,     only:gravity
+#ifdef FINVSQRT
+ use fastmath, only:finvsqrt
+#endif
+ use kernel,   only:radkern
+ use kdtree,   only:lenfgrav
+ type(kdnode), intent(in)           :: node(ncellsmax+1)
+ integer, intent(in)                :: ndim,ixyzcachesize
+ real,    intent(in)                :: xpos(ndim)
+ real,    intent(in)                :: xsizei,rcuti
+ integer, intent(out)               :: listneigh(maxneigh)
+ integer, intent(out)               :: nneigh
+ real,    intent(in)                :: xyzh(:,:)
+ real,    intent(out)               :: xyzcache(:,:)
+ logical, intent(in)                :: get_hj
+ real,    intent(out),    optional  :: fnode(lenfgrav)
+ logical, intent(out),    optional  :: remote_export(:)
+ integer, parameter :: istacksize = 300
+ integer :: maxcache
+ integer :: nstack(istacksize)
+ integer :: n,istack,il,ir,npnode,i1,i2,i,j,jmax,nn
+ real :: dx,dy,dz,xsizej,rcutj
+ real :: rcut,rcut2,r2
+ real :: xoffset,yoffset,zoffset,tree_acc2
+ logical :: open_tree_node
+#ifdef GRAVITY
+ real :: quads(6)
+ real :: dr,totmass_node
+#endif
+#ifdef PERIODIC
+ real :: hdlx,hdly,hdlz
+
+ hdlx = 0.5*dxbound
+ hdly = 0.5*dybound
+ hdlz = 0.5*dzbound
+#endif
+ tree_acc2 = tree_accuracy*tree_accuracy
+ if (present(fnode)) fnode(:) = 0.
+ rcut     = rcuti
+
+ if (ixyzcachesize > 0) then
+    maxcache = size(xyzcache(1,:))
+ else
+    maxcache = 0
+ endif
+
+ if (present(remote_export)) remote_export = .false.
+
+ nneigh = 0
+ istack = 1
+ nstack(istack) = irootnode
+ open_tree_node = .false.
+
+ over_stack: do while(istack /= 0)
+    n = nstack(istack)
+    istack = istack - 1
+    dx = xpos(1) - node(n)%xcen(1)      ! distance between node centres
+    dy = xpos(2) - node(n)%xcen(2)
+#ifndef TREEVIZ
+    dz = xpos(3) - node(n)%xcen(3)
+#endif
+    xsizej       = node(n)%size
+#ifdef GRAVITY
+    totmass_node = node(n)%mass
+    quads        = node(n)%quads
+#endif
+    call get_child_nodes(n,il,ir)
+    xoffset = 0.
+    yoffset = 0.
+    zoffset = 0.
+#ifdef PERIODIC
+    if (abs(dx) > hdlx) then            ! mod distances across boundary if periodic BCs
+       xoffset = dxbound*SIGN(1.0,dx)
+       dx = dx - xoffset
+    endif
+    if (abs(dy) > hdly) then
+       yoffset = dybound*SIGN(1.0,dy)
+       dy = dy - yoffset
+    endif
+    if (abs(dz) > hdlz) then
+       zoffset = dzbound*SIGN(1.0,dz)
+       dz = dz - zoffset
+    endif
+#endif
+    r2    = dx*dx + dy*dy + dz*dz
+    if (get_hj) then  ! find neighbours within both hi and hj
+       rcutj = radkern*node(n)%hmax
+       rcut  = max(rcuti,rcutj)
+    endif
+    rcut2 = (xsizei + xsizej + rcut)**2   ! node size + search radius
+#ifdef GRAVITY
+    open_tree_node = tree_acc2*r2 < xsizej*xsizej    ! tree opening criterion for self-gravity
+#endif
+    if ((r2 < rcut2) .or. open_tree_node) then
+       if_leaf: if (n >= 2**maxlevel) then ! once we hit a leaf node, retrieve contents into trial neighbour cache
+          if_global_walk: if (present(remote_export)) then
+         !    ! id is stored in ipart as id + 1
+         !    if (ifirstincell(n) /= (id + 1)) then
+         !       remote_export(ifirstincell(n)) = .true.
+         !    endif
+          else
+             i1=inoderange(1,n)
+             i2=inoderange(2,n)
+             npnode = i2 - i1 + 1
+             listneigh(nneigh+1:nneigh+npnode) = iorder(i1:i2)
+             if (nneigh < ixyzcachesize) then ! not strictly necessary, loop doesn't execute anyway
+                nn = min(nneigh+npnode,ixyzcachesize)
+                !print*,' got ',nneigh+npnode,' capping to ',nn
+                jmax = max(nn-nneigh,0)
+                !print*,'cache build ',nneigh+1,'->',nneigh+jmax,'parts ',i1,'->',i1+jmax-1,&
+                  !  ' nneigh = ',nneigh+1,'->',nneigh+npnode
+                if (maxcache >= 4) then
+                   do j=1,jmax
+                      i = iorder(i1+j-1)
+                      xyzcache(nneigh+j,1) = xyzh(1,i) + xoffset
+                      xyzcache(nneigh+j,2) = xyzh(2,i) + yoffset
+                      xyzcache(nneigh+j,3) = xyzh(3,i) + zoffset
+                      xyzcache(nneigh+j,4) = 1./xyzh(4,i)
+                   enddo
+                else
+                   do j=1,jmax
+                      i = iorder(i1+j-1)
+                      xyzcache(nneigh+j,1) = xyzh(1,i) + xoffset
+                      xyzcache(nneigh+j,2) = xyzh(2,i) + yoffset
+                      xyzcache(nneigh+j,3) = xyzh(3,i) + zoffset
+                   enddo
+                endif
+             endif
+             nneigh = nneigh + npnode
+          endif if_global_walk
+       else
+          if (istack+2 > istacksize) call fatal('getneigh','stack overflow in getneigh')
+          if (il /= 0) then
+             istack = istack + 1
+             nstack(istack) = il
+          endif
+          if (ir /= 0) then
+             istack = istack + 1
+             nstack(istack) = ir
+          endif
+       endif if_leaf
+#ifdef GRAVITY
+    elseif (present(fnode) .and. ((.not. present(remote_export)) .or. n < 2*nprocs-1)) then
+!
+!--long range force on node due to distant node, along node centres
+!  along with derivatives in order to perform series expansion
+!
+#ifdef FINVSQRT
+       dr = finvsqrt(r2)
+#else
+       dr = 1./sqrt(r2)
+#endif
+       call compute_fnode(dx,dy,dz,dr,totmass_node,quads,fnode)
+#endif
+    endif
+ enddo over_stack
+
+end subroutine getneigh1
 
 end module dptree

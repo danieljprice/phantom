@@ -28,7 +28,7 @@ module densityforce
  use dim,     only:maxdvdx,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum,&
                    maxdusttypes,maxdustlarge
  use part,    only:maxBevol,mhd,dvdx
- use kdtree,      only:inodeparts,inoderange
+ use dptree,  only:iorder,inoderange
  use kernel,  only:cnormk,wab0,gradh0,dphidh0,radkern2
  use mpidens, only:celldens,stackdens
  use timing,  only:getused,printused,print_time
@@ -126,10 +126,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                      mhd_nonideal,nalpha,use_dust
  use eos,       only:get_spsound,get_temperature
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
- use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
-                     get_cell_location,set_hmaxcell,sync_hmax_mpi
+ use linklist,  only:get_neighbour_list,get_hmaxcell,get_cell_list,&
+                     get_cell_location,set_hmaxcell,sync_hmax_mpi,update_hmax_remote
  use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho,&
-                     ll,get_partinfo,iactive,&
+                     get_partinfo,iactive,&
                      hrho,iphase,igas,idust,iboundary,iamgas,periodic,&
                      all_active,dustfrac,Bxyz
 #ifdef FINVSQRT
@@ -175,7 +175,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  real    :: rhomax
 
- integer                   :: npcell
+ integer                   :: npcell,istart,iend
 
  type(celldens)            :: cell
 
@@ -228,12 +228,13 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 #endif
 
  rhomax = 0.0
+ call get_cell_list(istart,iend)
 
 !$omp parallel default(none) &
-!$omp shared(icall) &
-!$omp shared(ncells) &
-!$omp shared(ll) &
-!$omp shared(ifirstincell) &
+!$omp shared(icall,istart,iend) &
+!!$omp shared(ncells) &
+!!$omp shared(ll) &
+!!$omp shared(ifirstincell) &
 !$omp shared(xyzh) &
 !$omp shared(vxyzu) &
 !$omp shared(fxyzu) &
@@ -293,11 +294,12 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp private(i)
 
 !$omp do schedule(runtime)
- over_cells: do icell=1,int(ncells)
-    i = ifirstincell(icell)
+  over_leaf_nodes: do icell=istart,iend
+! over_cells: do icell=1,int(ncells)
+!    i = ifirstincell(icell)
 
-    !--skip empty cells AND inactive cells
-    if (i <= 0) cycle over_cells
+!    !--skip empty cells AND inactive cells
+!    if (i <= 0) cycle over_cells
 
     !
     !--get the neighbour list and fill the cell cache
@@ -392,7 +394,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        endif
     endif
 #endif
- enddo over_cells
+ enddo over_leaf_nodes
 !$omp enddo
 
 #ifdef MPI
@@ -528,6 +530,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
 #endif
 !$omp end parallel
+
+ call update_hmax_remote
+
 #ifdef MPI
  call finish_cell_exchange(irequestrecv,xsendbuf)
  call sync_hmax_mpi
@@ -568,7 +573,7 @@ end subroutine densityiterate
 !  MAKE SURE THIS ROUTINE IS INLINED BY THE COMPILER
 !+
 !----------------------------------------------------------------
-pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
+subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
                                  listneigh,nneigh,nneighi,dxcache,xyzcache,rhosum,&
                                  ifilledcellcache,ifilledneighcache,getdv,getdB,&
                                  realviscosity,xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself)
@@ -663,6 +668,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
     endif
 
     q2i = rij2*hi21
+    !print*,i,' neighb',j,' #',n,' of ',nneigh,isizecellcache,' q2i=',dx,dy,dz,hi21
 !
 !--do interaction if r/h < compact support size
 !
@@ -1231,7 +1237,7 @@ end subroutine reduce_and_print_neighbour_stats
 !--------------------------------------------------------------------------
 !+
 !--------------------------------------------------------------------------
-pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
+subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
                              xyzcache)
  use dim,         only:maxvxyzu
  use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,set_boundaries_to_active
@@ -1266,7 +1272,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  realviscosity = (irealvisc > 0)
 
  over_parts: do i = 1,cell%npcell
-    lli = inodeparts(cell%arr_index(i))
+    lli = iorder(cell%arr_index(i))
     ! note: only active particles have been sent here
     if (maxphase==maxp) then
        call get_partinfo(cell%iphase(i),iactivei,iamdusti,iamtypei)
@@ -1354,7 +1360,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
 
  cell%npcell = 0
  over_parts: do ip = inoderange(1,cell%icell),inoderange(2,cell%icell)
-    i = inodeparts(ip)
+    i = iorder(ip)
 
     if (i < 0) then
        cycle over_parts
@@ -1502,7 +1508,7 @@ subroutine finish_cell(cell,cell_converged)
        write(iprint,*) 'error = ',abs(hnew-hi)/hi_old,' tolh = ',tolh
        write(iprint,*) 'itype = ',iamtypei
        write(iprint,*) 'x,y,z = ',xyzh(1:3)
-       call fatal('densityiterate','could not converge in density',inodeparts(cell%arr_index(i)),'error',abs(hnew-hi)/hi_old)
+       call fatal('densityiterate','could not converge in density',iorder(cell%arr_index(i)),'error',abs(hnew-hi)/hi_old)
     endif
 
     if (converged) then
@@ -1575,7 +1581,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  use linklist,    only:set_hmaxcell
  use kernel,      only:radkern
  use part,        only:xyzh_soa,store_temperature,temperature
- use kdtree,      only:inodeparts
+ use dptree,      only:iorder
 
  integer,         intent(in)    :: icall
  type(celldens),  intent(in)    :: cell
@@ -1618,7 +1624,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  real         :: rho1i,term,denom,rhodusti(maxdustlarge)
 
  do i = 1,cell%npcell
-    lli = inodeparts(cell%arr_index(i))
+    lli = iorder(cell%arr_index(i))
     hi = cell%h(i)
     rhosum = cell%rhosums(:,i)
 
