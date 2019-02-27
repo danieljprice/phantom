@@ -85,6 +85,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use timestep_ind,     only:get_dt
 #endif
 #endif
+#ifdef RADIATION
+ use radiation,        only:update_Trad
+#endif
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
  use part,             only:igas
@@ -312,7 +315,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                           poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
     endif
-
+#ifdef RADIATION
+    call update_Trad()
+#endif
     nsteps = nsteps + 1
 !
 !--evolve data for one timestep

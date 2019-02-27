@@ -45,7 +45,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,      only:pi
  use kernel,       only:radkern
  use dim,          only:maxvxyzu,use_dust,maxp
- use options,      only:use_dustfrac
+ use options,      only:nfulldump,use_dustfrac
+ use timestep,     only:dtmax,tmax
  use prompting,    only:prompt
  use dust,         only:K_code,idrag
  use set_dust,     only:set_dustfrac
@@ -67,13 +68,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: xmin_dust,xmax_dust,ymin_dust,ymax_dust,zmin_dust,zmax_dust
  real    :: kwave,denom,length,uuzero,przero !,dxi
  real    :: xmini,xmaxi,ampl,cs,dtg,massfac
-!
-! default options
-!
 
-#ifndef RADIATION
-  call fatal('setup','Not enough arrays. Need to run diffusion problems with -DRADIATION.')
-#endif
   npartx  = 64
   ntypes  = 1
   rhozero = 1.
@@ -85,9 +80,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     itype = 1
     print "(/,a,/)",'  >>> Setting up particles for diffusion only test <<<'
     call prompt(' enter number of '//trim(labeltype(itype))//' particles in x ',npartx,8,int(maxp/144.))
-    if (use_dust) then
-      call fatal('setup','dust is not supported')
-    endif
   endif
   call bcast_mpi(npartx)
   !
@@ -110,18 +102,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
   npartoftype(:) = 0
 
   itype = igas
-  if (id==master) call prompt('enter '//trim(labeltype(itype))//&
-                      ' density (gives particle mass)',rhozero,0.)
+  rhozero = 1.0
+  cs = 1.0
+  polyk = 0.
 
-  if (id==master) call prompt('enter sound speed in code units (sets polyk)',cs,0.)
-  if (maxvxyzu < 4) then
-    call bcast_mpi(cs)
-    polyk = cs**2
-    print*,' polyk = ',polyk
-  else
-    polyk = 0.
-  endif
-
+  nfulldump = 1
+  dtmax     = 0.1
+  tmax      = 1.0
   call bcast_mpi(rhozero)
 
   call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
@@ -133,9 +120,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vxyzu(1:3,i) = 0.
     vxyzu(4,i) = cs**2/(gamma*(gamma-1.))
     if (xyzh(1,i) < 0.0) then
-      radenergy(1,i) = 1.0
+      radenergy(i) = 1.0
     else
-      radenergy(1,i) = 2.0
+      radenergy(i) = 2.0
     end if
   enddo
 

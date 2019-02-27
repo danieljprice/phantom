@@ -152,8 +152,10 @@ module part
 #endif
 
 #ifdef RADIATION
- real, allocatable :: radenergy(:,:)
- character(len=*), parameter :: radenergy_label(5) = (/'radE', 'Edx ', 'Edy ', 'Edz ', 'Eddt'/)
+ real, allocatable :: radenergy(:)
+ real, allocatable :: gradradenergy(:,:)
+ real, allocatable :: dradenergy(:)
+ character(len=*), parameter :: radenergy_label(5) = (/'radE', 'dEdx', 'dEdy', 'dEdz', 'dEdt'/)
 #endif
 !
 !--lightcurves
@@ -342,7 +344,9 @@ subroutine allocate_part
  call allocate_array('dustproppred', dustproppred, 4, maxp_growth)
 #ifdef RADIATION
 ! radenergy, d/dx, d/dy, d/dz, d^2/dt^2
- call allocate_array('radenergy', radenergy, 5, maxp)
+ call allocate_array('radenergy', radenergy, maxp)
+ call allocate_array('gradradenergy', gradradenergy, 3, maxp)
+ call allocate_array('dradenergy', dradenergy, maxp)
 #endif
 #ifdef IND_TIMESTEPS
  call allocate_array('ibin', ibin, maxan)
@@ -408,6 +412,8 @@ subroutine deallocate_part
 #endif
 #ifdef RADIATION
  deallocate(radenergy)
+ deallocate(gradradenergy)
+ deallocate(dradenergy)
 #endif
  deallocate(iphase)
  deallocate(iphase_soa)

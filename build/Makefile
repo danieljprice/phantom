@@ -474,6 +474,17 @@ ifeq ($(SETUP), nimhdshock)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), radshock)
+    FPPFLAGS= -DPERIODIC -DRADIATION
+    SETUPFILE= setup_shock.F90
+    DOUBLEPRECISION=yes
+    KERNEL=quintic
+    ISOTHERMAL=no
+    KNOWN_SETUP=yes
+    DEBUG=yes
+    MPI=no
+endif
+
 ifeq ($(SETUP), dustydisc)
 #   locally isothermal dusty discs
     FPPFLAGS= -DDISC_VISCOSITY
@@ -1573,6 +1584,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 \
          readwrite_infile.F90 dens.F90 force.F90 deriv.F90 energies.F90 sort_particles.F90 \
+         radiation.f90 \
          evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90 \
          geometry.f90 stretchmap.f90 density_profiles.f90 set_unifdis.f90 set_slab.f90 \
          set_sphere.f90 set_vfield.f90 ${SETUPFILE} checksetup.F90 utils_testsuite.f90 \

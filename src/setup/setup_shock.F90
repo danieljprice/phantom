@@ -76,6 +76,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dim,          only:maxp,maxvxyzu,ndim,mhd
  use options,      only:use_dustfrac
  use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,periodic,dustfrac
+#ifdef RADIATION
+ use part,         only:radenergy
+ use eos,          only:gmw
+ use physcon,      only:Rg,c,steboltz
+ use units,        only:unit_pressure,unit_density
+#endif
  use kernel,       only:radkern,hfact_default
  use timestep,     only:tmax
  use prompting,    only:prompt
@@ -92,7 +98,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real                             :: totmass
+ real                             :: totmass, Tgas, Trad
  real                             :: xminleft(ndim),xmaxleft(ndim),xminright(ndim),xmaxright(ndim)
  real                             :: delta,gam1,xshock,fac,dtg
  real                             :: uuleft,uuright,volume,xbdyleft,xbdyright,dxright
@@ -268,6 +274,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vxyzu(3,i) = rightstate(ivz)
        if (maxvxyzu >= 4) vxyzu(4,i) = uuright
        if (mhd) Bxyz(1:3,i) = rightstate(iBx:iBz)
+#ifdef RADIATION
+       Tgas = gmw*(rightstate(ipr)*unit_pressure)/(rightstate(idens)*unit_density)/Rg
+       radenergy(i) = 4.0*steboltz*Tgas**4.0/c/(rightstate(idens)*unit_density)
+#endif
     else
        xyzh(4,i)  = hrho(leftstate(idens),massoftype(igas))
        vxyzu(1,i) = leftstate(ivx)
@@ -275,6 +285,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vxyzu(3,i) = leftstate(ivz)
        if (maxvxyzu >= 4) vxyzu(4,i) = uuleft
        if (mhd) Bxyz(1:3,i) = leftstate(iBx:iBz)
+#ifdef RADIATION
+       Tgas = gmw*(leftstate(ipr)*unit_pressure)/(leftstate(idens)*unit_density)/Rg
+       radenergy(i) = 4.0*steboltz*Tgas**4.0/c/(leftstate(idens)*unit_density)
+#endif
     endif
  enddo
  if (mhd) ihavesetupB = .true.
