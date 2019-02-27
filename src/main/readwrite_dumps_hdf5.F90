@@ -27,7 +27,11 @@
 !    options, part, setup_params, sphNGutils, timestep, units
 !+
 !--------------------------------------------------------------------------
+#ifdef PHANTOM2HDF5
+module readwrite_dumps_hdf5
+#else
 module readwrite_dumps
+#endif
  use utils_dumpfiles_hdf5, only:create_hdf5file,         &
                                 open_hdf5file,           &
                                 close_hdf5file,          &
@@ -954,4 +958,8 @@ subroutine count_particle_types(npartoftype)
 
 end subroutine count_particle_types
 
+#ifdef PHANTOM2HDF5
+end module readwrite_dumps_hdf5
+#else
 end module readwrite_dumps
+#endif

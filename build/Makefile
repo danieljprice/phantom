@@ -1974,6 +1974,38 @@ cleanphantom2mcfost:
 	rm -f $(BINDIR)/phantom2mcfost
 
 #----------------------------------------------------
+# these are the sources for the phantom2hdf5 utility
+#
+ifeq ($(PHANTOM2HDF5), yes)
+    FPPFLAGS += -DPHANTOM2HDF5
+endif
+checkhdf5flags:
+   ifneq ($(HDF5), yes)
+	@echo "-----------------------------"
+	@echo "Need to compile with HDF5=yes"
+	@echo "-----------------------------"
+	${MAKE} err
+   endif
+   ifneq ($(PHANTOM2HDF5), yes)
+	@echo "-------------------------------------"
+	@echo "Need to compile with PHANTOM2HDF5=yes"
+	@echo "-------------------------------------"
+	${MAKE} err
+   endif
+
+.PHONY: phantom2hdf5
+phantom2hdf5: checksystem checkparams checkhdf5flags $(OBJDUMP) readwrite_dumps.o phantom2hdf5.o
+	@echo ""
+	@echo "phantom2hdf5: welcome to the future"
+	@echo ""
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJDUMP) readwrite_dumps.o phantom2hdf5.o $(LDFLAGS)
+
+p2h: phantom2hdf5
+
+cleanphantom2hdf5:
+	rm -f $(BINDIR)/phantom2hdf5
+
+#----------------------------------------------------
 # utility to rewrite .ev files using a common header
 #
 SRCEV=utils_infiles.f90 utils_evfiles.f90 prompting.f90 phantomevcompare.f90
