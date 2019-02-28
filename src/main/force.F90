@@ -209,7 +209,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  real,         intent(in)    :: dt,stressmax
  integer,      intent(out)   :: ipart_rhomax ! test this particle for point mass creation
 
- real, save :: xyzcache(maxcellcache,4)
+ real, save :: xyzcache(4,maxcellcache)
  integer, save :: listneigh(maxneigh)
 !$omp threadprivate(xyzcache,listneigh)
  integer :: i,icell,nneigh,istart,iend
@@ -1022,9 +1022,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
     if (ifilledcellcache .and. n <= maxcellcache) then
        ! positions from cache are already mod boundary
-       xj = xyzcache(n,1)
-       yj = xyzcache(n,2)
-       zj = xyzcache(n,3)
+       xj = xyzcache(1,n)
+       yj = xyzcache(2,n)
+       zj = xyzcache(3,n)
        dx = xpartveci(ixi) - xj
        dy = xpartveci(iyi) - yj
        dz = xpartveci(izi) - zj
@@ -1046,7 +1046,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     !--hj is in the cell cache but not in the neighbour cache
     !  as not accessed during the density summation
     if (ifilledcellcache .and. n <= maxcellcache) then
-       hj1 = xyzcache(n,4)
+       hj1 = xyzcache(4,n)
     else
        hj1 = 1./xyzh(4,j)
     endif

@@ -160,7 +160,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real,         intent(out)   :: stressmax
 
  integer, save :: listneigh(maxneigh)
- real,   save :: xyzcache(isizecellcache,3)
+ real,   save :: xyzcache(3,isizecellcache)
 !$omp threadprivate(xyzcache,listneigh)
 
  integer :: i,icell
@@ -650,9 +650,9 @@ subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
     else
        if (ifilledcellcache .and. n <= isizecellcache) then
           ! positions from cache are already mod boundary
-          dx = xpartveci(ixi) - xyzcache(n,1)
-          dy = xpartveci(iyi) - xyzcache(n,2)
-          dz = xpartveci(izi) - xyzcache(n,3)
+          dx = xpartveci(ixi) - xyzcache(1,n)
+          dy = xpartveci(iyi) - xyzcache(2,n)
+          dz = xpartveci(izi) - xyzcache(3,n)
        else
           dx = xpartveci(ixi) - xyzh(1,j)
           dy = xpartveci(iyi) - xyzh(2,j)
@@ -1254,7 +1254,7 @@ subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu
  logical,         intent(in)     :: getdB
  real,            intent(in)     :: Bevol(:,:)
  real,            intent(in)     :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real,            intent(in)     :: xyzcache(isizecellcache,3)
+ real,            intent(in)     :: xyzcache(3,isizecellcache)
 
  real                            :: dxcache(7,isizeneighcache)
 

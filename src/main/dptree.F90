@@ -558,7 +558,7 @@ subroutine getneigh1(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,
  rcut     = rcuti
 
  if (ixyzcachesize > 0) then
-    maxcache = size(xyzcache(1,:))
+    maxcache = size(xyzcache(:,1))
  else
     maxcache = 0
  endif
@@ -631,17 +631,17 @@ subroutine getneigh1(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,
                 if (maxcache >= 4) then
                    do j=1,jmax
                       i = iorder(i1+j-1)
-                      xyzcache(nneigh+j,1) = xyzh(1,i) + xoffset
-                      xyzcache(nneigh+j,2) = xyzh(2,i) + yoffset
-                      xyzcache(nneigh+j,3) = xyzh(3,i) + zoffset
-                      xyzcache(nneigh+j,4) = 1./xyzh(4,i)
+                      xyzcache(1,nneigh+j) = xyzh(1,i) + xoffset
+                      xyzcache(2,nneigh+j) = xyzh(2,i) + yoffset
+                      xyzcache(3,nneigh+j) = xyzh(3,i) + zoffset
+                      xyzcache(4,nneigh+j) = 1./xyzh(4,i)
                    enddo
                 else
                    do j=1,jmax
                       i = iorder(i1+j-1)
-                      xyzcache(nneigh+j,1) = xyzh(1,i) + xoffset
-                      xyzcache(nneigh+j,2) = xyzh(2,i) + yoffset
-                      xyzcache(nneigh+j,3) = xyzh(3,i) + zoffset
+                      xyzcache(1,nneigh+j) = xyzh(1,i) + xoffset
+                      xyzcache(2,nneigh+j) = xyzh(2,i) + yoffset
+                      xyzcache(3,nneigh+j) = xyzh(3,i) + zoffset
                    enddo
                 endif
              endif
