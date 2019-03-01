@@ -5,17 +5,6 @@ module dptree
  integer, parameter :: ndimtree = 3
  real, public :: tree_accuracy = 0.5
 
-! type kdnode
-!   sequence
-!   real :: xcen(ndimtree)
-!   real :: size
-!   real :: hmax
-!#ifdef GRAVITY
-!   real :: mass
-!   real :: quads(6)
-!#endif
-! end type kdnode
-
  public :: maketree1,getneigh1,climb_tree_hmax
  public :: get_node_list
  private
@@ -71,35 +60,67 @@ subroutine maketree1(node, xyzh, np, ndim, ifirstincell, ncells)
  call climb_tree(node,inoderange,leaf_level,xyzh,iorder)
 
  maxlevel = leaf_level
- return
-     write(*,"(a,i10,3(a,i2))") ' maketree1: nodes = ',ncells,', leaf level = ',maxlevel
-     block
-        real :: sizesum,sizemax,pkeysize
-        integer :: i,j,istart,iend,nleaf,level,maxpnode,minpnode,npnode
-        print*,' size root node = ',node(1)%size
-        do level=leaf_level,0,-1
-           call get_node_list(level,istart,iend)
-           sizesum = 0.
-           sizemax = 0.
-           do i=istart,iend
-              sizesum = sizesum + node(i)%size
-              sizemax = max(sizemax,node(i)%size)
-           enddo
-           nleaf = iend - istart + 1
-           if (level==leaf_level) print*,' mean parts per leaf node = ',np/real(nleaf)
-           print*,level,' SCORE = ',node(1)%size*real(nleaf)/sizesum,' mean size = ',&
-                        sizesum/real(nleaf),'max=',sizemax,'sum=',sizesum,' nnodes=',nleaf
-        enddo
-        call get_node_list(leaf_level,istart,iend)
-        minpnode = huge(maxpnode)
-        maxpnode = 0
-        do i=istart,iend
-           npnode = inoderange(2,i) - inoderange(1,i) + 1
-           minpnode = min(minpnode,npnode)
-           maxpnode = max(maxpnode,npnode)
-        enddo
-        print*,' MAX particles per node = ',maxpnode,' MIN=',minpnode
+ !return
+ call diagnose_and_score_tree(leaf_level,np,node)
+ !call print_keys_to_file(leaf_level,node,pkey,xyzh)
+ stop
 
+end subroutine maketree1
+
+!-----------------------------------
+!+
+!  print tree diagnostics, for
+!  debugging use only
+!+
+!-----------------------------------
+subroutine diagnose_and_score_tree(leaf_level,np,node)
+ integer, intent(in) :: leaf_level,np
+ type(kdnode), intent(in) :: node(:)
+ real :: sizesum,sizemax
+ integer :: i,j,istart,iend,nleaf,level,maxpnode,minpnode,npnode
+
+ write(*,"(a,i10,3(a,i2))") ' maketree1: nodes = ',2**(leaf_level+1)-1,', leaf level = ',maxlevel
+ print*,' size root node = ',node(irootnode)%size
+
+ do level=leaf_level,0,-1
+    call get_node_list(level,istart,iend)
+    sizesum = 0.
+    sizemax = 0.
+    do i=istart,iend
+       sizesum = sizesum + node(i)%size
+       sizemax = max(sizemax,node(i)%size)
+    enddo
+    nleaf = iend - istart + 1
+    if (level==leaf_level) print*,' mean parts per leaf node = ',np/real(nleaf)
+    print*,level,' SCORE = ',node(1)%size*real(nleaf)/sizesum,' mean size = ',&
+                        sizesum/real(nleaf),'max=',sizemax,'sum=',sizesum,' nnodes=',nleaf
+ enddo
+ call get_node_list(leaf_level,istart,iend)
+ minpnode = huge(maxpnode)
+ maxpnode = 0
+ do i=istart,iend
+    npnode = inoderange(2,i) - inoderange(1,i) + 1
+    minpnode = min(minpnode,npnode)
+    maxpnode = max(maxpnode,npnode)
+ enddo
+ print*,' MAX particles per node = ',maxpnode,' MIN=',minpnode
+
+end subroutine diagnose_and_score_tree
+
+!-----------------------------------
+!+
+!  print keys to file (for diagnostics)
+!+
+!-----------------------------------
+subroutine print_keys_to_file(leaf_level,node,pkey,xyzh)
+ integer, intent(in) :: leaf_level
+ type(kdnode), intent(in) :: node(:)
+ real,    intent(in) :: pkey(:),xyzh(:,:)
+ integer :: i,j,istart,iend,level,iu
+ real :: pkeysize
+ character(len=30) :: filename
+
+ print*,'writing pkey.list'
  open(1,file='pkey.list')
  write(1,"(a)") '# i  nodeid  id  x  y  z  h  pkey  nodesize   pkeysize'
  call get_node_list(leaf_level,istart,iend)
@@ -110,12 +131,22 @@ subroutine maketree1(node, xyzh, np, ndim, ifirstincell, ncells)
     enddo
  enddo
  close(1)
- stop
 
-     end block
+ ! see the decomposition by key on the first 16 nodes
+ level = 4
+ call get_node_list(level,istart,iend)
+ do j=istart,iend
+    write(filename,"(a,i5.5,a)") 'node',j-istart+1,'.list'
+    print "(a)",' writing '//trim(filename)
+    open(newunit=iu,file=filename,status='replace')
+    write(iu,"(a)") '# i  nodeid  id  x  y  z  h  pkey  nodesize '
+    do i=inoderange(1,j),inoderange(2,j)
+       write(iu,*) i,j,iorder(i),xyzh(:,iorder(i)),pkey(iorder(i)),node(j)%size
+    enddo
+    close(iu)
+ enddo
 
-
-end subroutine maketree1
+end subroutine print_keys_to_file
 
 !-----------------------------------
 !+
@@ -124,14 +155,13 @@ end subroutine maketree1
 !  every node
 !+
 !-----------------------------------
-subroutine build_tree_index(np,parts_per_leaf,leaf_level,inoderange,ncells,pkey)
+subroutine build_tree_index(np,parts_per_leaf,leaf_level,inoderange,ncells)
  use io, only:fatal
  integer, intent(in)  :: np,parts_per_leaf
  integer, intent(out) :: leaf_level
  integer, intent(out) :: inoderange(:,:)
- real,    intent(in)  :: pkey(:)
  integer(kind=8), intent(out) :: ncells
- real :: ratio,parts_per_leafi,pkeyrangemean,pkeyrangemax,pkeyrange
+ real :: ratio,parts_per_leafi
  integer :: nleaf,inode,index,istart,iend
  integer :: level,il,ir,i1,i2,j
 
@@ -146,53 +176,16 @@ subroutine build_tree_index(np,parts_per_leaf,leaf_level,inoderange,ncells,pkey)
  call get_node_list(leaf_level,istart,iend)
  ncells = int(iend)
  if (ncells > size(inoderange(1,:))) call fatal('maketree','array size too small for number of levels')
- pkeyrangemean = 0.
- pkeyrangemax = 0.
+
  !$omp parallel do default(none) schedule(static) &
- !$omp shared(istart,iend,parts_per_leafi,inoderange,pkey,iorder) &
- !$omp private(inode,index,pkeyrange) reduction(max:pkeyrangemax) reduction(+:pkeyrangemean)
+ !$omp shared(istart,iend,parts_per_leafi,inoderange) &
+ !$omp private(inode,index)
  do inode=istart,iend
     index = inode - istart
     inoderange(1,inode) = int(index*parts_per_leafi) + 1
     inoderange(2,inode) = int(((index+1)*parts_per_leafi))
-    pkeyrange = pkey(iorder(inoderange(2,inode))) - pkey(iorder(inoderange(1,inode)))
-    pkeyrangemean = pkeyrangemean + pkeyrange
-    pkeyrangemax = max(pkeyrangemax,pkeyrange)
  enddo
  !$omp end parallel do
-
- pkeyrangemean = pkeyrangemean/(iend-istart+1)
- print*,' MEAN PKEY RANGE = ',pkeyrangemean,' MAX = ',pkeyrangemax
- do j=1,0
- do inode=istart,iend-1
-    i2 = inoderange(2,inode)
-    i1 = inoderange(1,inode+1)
-    pkeyrange = pkey(iorder(inoderange(2,inode))) - pkey(iorder(inoderange(1,inode)))
-    ! move last particle to next bin if it is closer
-    ! in key distance to first particle of next leaf
-    if (inoderange(2,inode) > inoderange(1,inode) + 1) then
-       if (pkeyrange > 10.*pkeyrangemean) then
-          !print*,'inode',inode,' parts ',i2,'->',i1,' got ',pkeyrange,' ratio =',pkeyrange/pkeyrangemean
-          inoderange(2,inode) = inoderange(2,inode) - 1
-          inoderange(1,inode+1) = inoderange(1,inode+1) - 1
-      !    print*,'shifting boundary, parts=',inoderange(2,inode) - inoderange(1,inode)
-       endif
-    endif
- enddo
- !do inode=iend,istart+1
-!    i1 = inoderange(1,inode)
-!    i2 = inoderange(2,inode-1)
-    ! move last particle to next bin if it is closer
-    ! in key distance to first particle of next leaf
-    !print*,'inode ',i2,i1,' got '
-!    if (inoderange(2,inode) > inoderange(1,inode)) then
-!       if ((pkey(i1)-pkey(i2)) < (pkey(i1+1) - pkey(i1))) then
-!          inoderange(2,inode-1) = inoderange(2,inode-1) + 1
-!          inoderange(1,inode) = inoderange(1,inode) + 1
-!       endif
-!    endif
- !enddo
- enddo
  !
  ! sweep up the levels, building index ranges of parent nodes
  ! based on index ranges of the lower level chunks
@@ -294,15 +287,9 @@ integer function get_median(level,parts_per_leaf,i1,i2,iorder,x)
     get_median = i1
     return
  endif
-
- ratio = (i2-i1)/real(parts_per_leaf)
- mylevel = int(log(ratio)/log(2.)) + 1
- minpart_level = 2**(mylevel+2)
- !parts_per_leafi = (i2-i1)/real(minpart_level)
- !print*,' ALLOWED ',minpart_level, ' ON LEVEL ',level,' with ',parts_per_leafi,' parts per leaf'
  n = 0
  xmed = 0.
- do i=i1,i2
+ do i=i1,i2,10
     n = n + 1
     xmed = xmed + x(iorder(i))
  enddo
@@ -313,7 +300,14 @@ integer function get_median(level,parts_per_leaf,i1,i2,iorder,x)
     i = i + 1
  enddo
  get_median = i
- !return
+ return
+
+ ratio = (i2-i1)/real(parts_per_leaf)
+ mylevel = int(log(ratio)/log(2.)) + 1
+ minpart_level = 2**(mylevel+2)
+ !parts_per_leafi = (i2-i1)/real(minpart_level)
+ !print*,' ALLOWED ',minpart_level, ' ON LEVEL ',level,' with ',parts_per_leafi,' parts per leaf'
+
  !print*,' WANT PIVOT ',i,' MINPART ON LEVEL ',level,' = ',minpart_level
  if (i > i1 + minpart_level) then
     i = i1 + minpart_level
@@ -322,8 +316,6 @@ integer function get_median(level,parts_per_leaf,i1,i2,iorder,x)
  endif
  !print*,' GOT PIVOT ',i
  get_median = i
-
- return
 
 end function get_median
 
@@ -635,10 +627,10 @@ subroutine construct_node(nodei,i1,i2,xyzh,iorder)
 #endif
  enddo
  if (sqrt(r2max) > 20.) then
-    !print*,'LARGE NODE: SIZE=',sqrt(r2max),x0
-   !do j=i1,i2
-       !print*,' -> part ',iorder(j),xyzh(:,iorder(j)),pkey(iorder(j))
-    !enddo
+    print*,'LARGE NODE: SIZE=',sqrt(r2max),x0
+    do j=i1,i2
+       print*,' -> part ',iorder(j),xyzh(:,iorder(j)),pkey(iorder(j))
+    enddo
  endif
  ! assign properties to node
  nodei%xcen    = x0(:)
