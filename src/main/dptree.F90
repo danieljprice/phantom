@@ -40,7 +40,7 @@ subroutine maketree1(node, xyzh, np, ndim, ifirstincell, ncells)
  real,            intent(inout) :: xyzh(:,:)  ! inout because of boundary crossing
  integer,         intent(out)   :: ifirstincell(ncellsmax+1)
  integer(kind=8), intent(out)   :: ncells
- integer :: leaf_level
+ integer :: leaf_level,i
  real :: xmin(3),xmax(3)
 
  call empty_tree(node)
@@ -62,7 +62,7 @@ subroutine maketree1(node, xyzh, np, ndim, ifirstincell, ncells)
 
  ! divide this list into equal leaf nodes (nearest power of 2)
  ! and get particle lists for all parent nodes
- call build_tree_index(np,minpart,leaf_level,inoderange,ncells)
+ call build_tree_index1(np,minpart,leaf_level,inoderange,ncells,pkey)
 
  ! get properties of all leaf nodes (in parallel)
  call build_leaf_nodes(leaf_level,node,xyzh,iorder)
@@ -72,23 +72,48 @@ subroutine maketree1(node, xyzh, np, ndim, ifirstincell, ncells)
 
  maxlevel = leaf_level
  return
-    ! write(*,"(a,i10,3(a,i2))") ' maketree1: nodes = ',ncells,', leaf level = ',maxlevel
-    ! block
-    !    real :: sizesum
-    !    integer :: i,istart,iend,nleaf,level
-    !    print*,' size root node = ',node(1)%size
-    !    do level=leaf_level,0,-1
-    !       call get_node_list(level,istart,iend)
-    !       sizesum = 0.
-    !       do i=istart,iend
-    !          sizesum = sizesum + node(i)%size
-    !       enddo
-    !       nleaf = iend - istart + 1
-    !       if (level==leaf_level) print*,' mean parts per leaf node = ',np/real(nleaf)
-    !       print*,level,' SCORE = ',node(1)%size*real(nleaf)/sizesum,' mean size = ',&
-    !                    sizesum/real(nleaf),'sum=',sizesum,' nnodes=',nleaf
-    !    enddo
-    ! end block
+     write(*,"(a,i10,3(a,i2))") ' maketree1: nodes = ',ncells,', leaf level = ',maxlevel
+     block
+        real :: sizesum,sizemax,pkeysize
+        integer :: i,j,istart,iend,nleaf,level,maxpnode,minpnode,npnode
+        print*,' size root node = ',node(1)%size
+        do level=leaf_level,0,-1
+           call get_node_list(level,istart,iend)
+           sizesum = 0.
+           sizemax = 0.
+           do i=istart,iend
+              sizesum = sizesum + node(i)%size
+              sizemax = max(sizemax,node(i)%size)
+           enddo
+           nleaf = iend - istart + 1
+           if (level==leaf_level) print*,' mean parts per leaf node = ',np/real(nleaf)
+           print*,level,' SCORE = ',node(1)%size*real(nleaf)/sizesum,' mean size = ',&
+                        sizesum/real(nleaf),'max=',sizemax,'sum=',sizesum,' nnodes=',nleaf
+        enddo
+        call get_node_list(leaf_level,istart,iend)
+        minpnode = huge(maxpnode)
+        maxpnode = 0
+        do i=istart,iend
+           npnode = inoderange(2,i) - inoderange(1,i) + 1
+           minpnode = min(minpnode,npnode)
+           maxpnode = max(maxpnode,npnode)
+        enddo
+        print*,' MAX particles per node = ',maxpnode,' MIN=',minpnode
+
+ open(1,file='pkey.list')
+ write(1,"(a)") '# i  nodeid  id  x  y  z  h  pkey  nodesize   pkeysize'
+ call get_node_list(leaf_level,istart,iend)
+ do j=istart,iend
+    pkeysize = pkey(iorder(inoderange(2,j))) - pkey(iorder(inoderange(1,j)))
+    do i=inoderange(1,j),inoderange(2,j)
+       write(1,*) i,j,iorder(i),xyzh(:,iorder(i)),pkey(iorder(i)),node(j)%size,pkeysize
+    enddo
+ enddo
+ close(1)
+ stop
+
+     end block
+
 
 end subroutine maketree1
 
@@ -99,15 +124,16 @@ end subroutine maketree1
 !  every node
 !+
 !-----------------------------------
-subroutine build_tree_index(np,parts_per_leaf,leaf_level,inoderange,ncells)
+subroutine build_tree_index(np,parts_per_leaf,leaf_level,inoderange,ncells,pkey)
  use io, only:fatal
  integer, intent(in)  :: np,parts_per_leaf
  integer, intent(out) :: leaf_level
  integer, intent(out) :: inoderange(:,:)
+ real,    intent(in)  :: pkey(:)
  integer(kind=8), intent(out) :: ncells
- real :: ratio,parts_per_leafi
+ real :: ratio,parts_per_leafi,pkeyrangemean,pkeyrangemax,pkeyrange
  integer :: nleaf,inode,index,istart,iend
- integer :: level,il,ir
+ integer :: level,il,ir,i1,i2,j
 
  ratio           = np/real(parts_per_leaf)
  leaf_level      = int(log(ratio)/log(2.)) + 1
@@ -120,15 +146,53 @@ subroutine build_tree_index(np,parts_per_leaf,leaf_level,inoderange,ncells)
  call get_node_list(leaf_level,istart,iend)
  ncells = int(iend)
  if (ncells > size(inoderange(1,:))) call fatal('maketree','array size too small for number of levels')
+ pkeyrangemean = 0.
+ pkeyrangemax = 0.
  !$omp parallel do default(none) schedule(static) &
- !$omp shared(istart,iend,parts_per_leafi,inoderange) &
- !$omp private(inode,index)
+ !$omp shared(istart,iend,parts_per_leafi,inoderange,pkey,iorder) &
+ !$omp private(inode,index,pkeyrange) reduction(max:pkeyrangemax) reduction(+:pkeyrangemean)
  do inode=istart,iend
     index = inode - istart
     inoderange(1,inode) = int(index*parts_per_leafi) + 1
     inoderange(2,inode) = int(((index+1)*parts_per_leafi))
+    pkeyrange = pkey(iorder(inoderange(2,inode))) - pkey(iorder(inoderange(1,inode)))
+    pkeyrangemean = pkeyrangemean + pkeyrange
+    pkeyrangemax = max(pkeyrangemax,pkeyrange)
  enddo
  !$omp end parallel do
+
+ pkeyrangemean = pkeyrangemean/(iend-istart+1)
+ print*,' MEAN PKEY RANGE = ',pkeyrangemean,' MAX = ',pkeyrangemax
+ do j=1,0
+ do inode=istart,iend-1
+    i2 = inoderange(2,inode)
+    i1 = inoderange(1,inode+1)
+    pkeyrange = pkey(iorder(inoderange(2,inode))) - pkey(iorder(inoderange(1,inode)))
+    ! move last particle to next bin if it is closer
+    ! in key distance to first particle of next leaf
+    if (inoderange(2,inode) > inoderange(1,inode) + 1) then
+       if (pkeyrange > 10.*pkeyrangemean) then
+          !print*,'inode',inode,' parts ',i2,'->',i1,' got ',pkeyrange,' ratio =',pkeyrange/pkeyrangemean
+          inoderange(2,inode) = inoderange(2,inode) - 1
+          inoderange(1,inode+1) = inoderange(1,inode+1) - 1
+      !    print*,'shifting boundary, parts=',inoderange(2,inode) - inoderange(1,inode)
+       endif
+    endif
+ enddo
+ !do inode=iend,istart+1
+!    i1 = inoderange(1,inode)
+!    i2 = inoderange(2,inode-1)
+    ! move last particle to next bin if it is closer
+    ! in key distance to first particle of next leaf
+    !print*,'inode ',i2,i1,' got '
+!    if (inoderange(2,inode) > inoderange(1,inode)) then
+!       if ((pkey(i1)-pkey(i2)) < (pkey(i1+1) - pkey(i1))) then
+!          inoderange(2,inode-1) = inoderange(2,inode-1) + 1
+!          inoderange(1,inode) = inoderange(1,inode) + 1
+!       endif
+!    endif
+ !enddo
+ enddo
  !
  ! sweep up the levels, building index ranges of parent nodes
  ! based on index ranges of the lower level chunks
@@ -155,6 +219,113 @@ subroutine build_tree_index(np,parts_per_leaf,leaf_level,inoderange,ncells)
  if (inoderange(2,irootnode) /= np) call fatal('maketree','finishing index of root node /= np')
 
 end subroutine build_tree_index
+
+!-----------------------------------
+!+
+!  Build the tree index, i.e. index
+!  of first and last particle on
+!  every node
+!+
+!-----------------------------------
+subroutine build_tree_index1(np,parts_per_leaf,leaf_level,inoderange,ncells,pkey)
+ use io, only:fatal
+ integer, intent(in)  :: np,parts_per_leaf
+ integer, intent(out) :: leaf_level
+ integer, intent(out) :: inoderange(:,:)
+ real,    intent(in)  :: pkey(:)
+ integer(kind=8), intent(out) :: ncells
+ real :: ratio,parts_per_leafi,pkeyrangemean,pkeyrangemax,pkeyrange
+ integer :: nleaf,inode,index,istart,iend
+ integer :: level,il,ir,i1,i2,j,ipivot
+
+ ratio           = np/real(parts_per_leaf)
+ leaf_level      = int(log(ratio)/log(2.)) + 1
+ nleaf           = 2**leaf_level
+ parts_per_leafi = np/real(nleaf)
+ !
+ ! start with all particles in root node
+ !
+ inoderange(1,irootnode) = 1
+ inoderange(2,irootnode) = np
+ !
+ ! recursively partition into
+ !
+ !$omp parallel default(none) &
+ !$omp shared(inoderange,leaf_level,iorder,pkey,parts_per_leaf) &
+ !$omp private(level,inode,istart,iend,il,ir,i1,i2,ipivot)
+ do level=0,leaf_level-1
+    call get_node_list(level,istart,iend)
+    !$omp do
+    do inode=istart,iend
+       call get_child_nodes(inode,il,ir)
+       i1 = inoderange(1,inode)
+       i2 = inoderange(2,inode)
+       if (i2 > i1) then
+          ipivot = get_median(level,parts_per_leaf,inoderange(1,inode),inoderange(2,inode),iorder,pkey)
+          inoderange(1,il) = inoderange(1,inode)
+          inoderange(2,il) = ipivot
+          inoderange(1,ir) = ipivot+1
+          inoderange(2,ir) = inoderange(2,inode)
+       else
+          inoderange(1,il) = inoderange(1,inode)
+          inoderange(2,il) = inoderange(1,inode)-1
+          inoderange(1,ir) = inoderange(1,inode)
+          inoderange(2,ir) = inoderange(1,inode)-1
+       endif
+    enddo
+    !$omp end do
+ enddo
+ !$omp end parallel
+
+end subroutine build_tree_index1
+
+integer function get_median(level,parts_per_leaf,i1,i2,iorder,x)
+ integer, intent(in) :: level,parts_per_leaf,i1,i2
+ integer, intent(in) :: iorder(:)
+ real,    intent(in) :: x(:)
+ integer :: n,i,minpart_level,mylevel
+ real :: xmed,ratio,parts_per_leafi
+
+ !get_median = i1
+ !return
+ !get_median = (i1 - 1) + (i2 - i1)/2
+ !return
+ if (i2 <= i1) then
+    get_median = i1
+    return
+ endif
+
+ ratio = (i2-i1)/real(parts_per_leaf)
+ mylevel = int(log(ratio)/log(2.)) + 1
+ minpart_level = 2**(mylevel+2)
+ !parts_per_leafi = (i2-i1)/real(minpart_level)
+ !print*,' ALLOWED ',minpart_level, ' ON LEVEL ',level,' with ',parts_per_leafi,' parts per leaf'
+ n = 0
+ xmed = 0.
+ do i=i1,i2
+    n = n + 1
+    xmed = xmed + x(iorder(i))
+ enddo
+ xmed = xmed/real(n)
+ !print*,' got median ',xmed
+ i = i1
+ do while (x(iorder(i)) < xmed .and. i < i2)
+    i = i + 1
+ enddo
+ get_median = i
+ !return
+ !print*,' WANT PIVOT ',i,' MINPART ON LEVEL ',level,' = ',minpart_level
+ if (i > i1 + minpart_level) then
+    i = i1 + minpart_level
+ elseif (i < i2 - minpart_level) then
+    i = i2 - minpart_level
+ endif
+ !print*,' GOT PIVOT ',i
+ get_median = i
+
+ return
+
+end function get_median
 
 !-----------------------------------
 !+
@@ -390,6 +561,7 @@ subroutine construct_node(nodei,i1,i2,xyzh,iorder)
 #endif
  integer :: i,j
 
+ !if (i2 < i1) return
 !
 ! to avoid round off error from repeated multiplication by pmassi (which is small)
 ! we compute the centre of mass with a factor relative to gas particles
@@ -462,7 +634,12 @@ subroutine construct_node(nodei,i1,i2,xyzh,iorder)
     quads(6) = quads(6) + pmassi*(3.*dz*dz - dr2)  ! Q_zz
 #endif
  enddo
-
+ if (sqrt(r2max) > 20.) then
+    !print*,'LARGE NODE: SIZE=',sqrt(r2max),x0
+   !do j=i1,i2
+       !print*,' -> part ',iorder(j),xyzh(:,iorder(j)),pkey(iorder(j))
+    !enddo
+ endif
  ! assign properties to node
  nodei%xcen    = x0(:)
  nodei%size    = sqrt(r2max) + epsilon(r2max)
@@ -620,6 +797,7 @@ subroutine getneigh1(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,
           else
              i1=inoderange(1,n)
              i2=inoderange(2,n)
+!             if (nneigh > 100000) print*,'NODE ',n,' adding ',npnode,rcuti,xsizei,xsizej
              npnode = i2 - i1 + 1
              listneigh(nneigh+1:nneigh+npnode) = iorder(i1:i2)
              if (nneigh < ixyzcachesize) then ! not strictly necessary, loop doesn't execute anyway

@@ -307,27 +307,29 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
        ', min leaf level = ',minlevel,' max level indexed = ',maxlevel_indexed
     block
        integer :: nleaf
-       real :: sizesum
+       real :: sizesum,sizemax
        nleaf = 0
        sizesum = 0.
        do i=1,int(ncells)
           if (abs(ifirstincell(i)) > 0) then
              sizesum = sizesum + node(i)%size
+             sizemax = max(sizemax,node(i)%size)
              nleaf = nleaf + 1
           endif
        enddo
        print*,' size root node = ',node(1)%size,' sum of leaf nodes = ',sizesum
-       print*,' mean size leaf node = ',sizesum/real(nleaf),' number of leaf nodes = ',nleaf
+       print*,' mean size leaf node = ',sizesum/real(nleaf),'max=',sizemax,' number of leaf nodes = ',nleaf
        print*,' TREE SCORE = ',node(1)%size*real(nleaf)/sizesum
        print*,' mean parts per leaf node = ',np/real(nleaf)
        do level=maxlevel_indexed-1,0,-1
-          nleaf = 0; sizesum = 0.
+          nleaf = 0; sizesum = 0.; sizemax = 0.
           do i=2**level,2**(level+1)-1
              sizesum = sizesum + node(i)%size
+             sizemax = max(sizemax,node(i)%size)
              nleaf = nleaf + 1
           enddo
           print*,level,' SCORE = ',node(1)%size*real(nleaf)/sizesum,' mean size = ',&
-                       sizesum/real(nleaf),'sum=',sizesum,' nnodes=',nleaf
+                       sizesum/real(nleaf),'max=',sizemax,'sum=',sizesum,' nnodes=',nleaf
        enddo
     end block
  endif
@@ -1418,7 +1420,11 @@ subroutine add_child_nodes(l,r,nodei)
  mr = 1.
 #endif
  mnode = ml + mr
- dm    = 1./mnode
+ if (mnode > 0.) then
+    dm = 1./mnode
+ else
+    dm = 0.
+ endif
  dx = xl(1) - xr(1)
  dy = xl(2) - xr(2)
  dz = xl(3) - xr(3)
