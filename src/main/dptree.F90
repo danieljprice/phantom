@@ -24,6 +24,7 @@ contains
 !-------------------------------------
 subroutine maketree1(node, xyzh, np, ndim, ifirstincell, ncells)
  use kdtree, only:empty_tree
+ use timing, only:getused
  type(kdnode),    intent(out)   :: node(ncellsmax+1)
  integer,         intent(in)    :: np,ndim
  real,            intent(inout) :: xyzh(:,:)  ! inout because of boundary crossing
@@ -31,16 +32,20 @@ subroutine maketree1(node, xyzh, np, ndim, ifirstincell, ncells)
  integer(kind=8), intent(out)   :: ncells
  integer :: leaf_level,i
  real :: xmin(3),xmax(3)
+ real(4) :: t1,t2,t3,t4,t5,t6,t7
 
+ call getused(t1)
  call empty_tree(node)
  ! get sort key
  if (.not.allocated(pkey)) allocate(pkey(np))
 
  ! get bounds of particle distribution, and enforce periodicity
  call get_particle_bounds(np,xyzh,xmin,xmax)
+ call getused(t2)
 
  ! get Hilbert keys for all particles
  call get_sort_key(np,xyzh,xmin,xmax,pkey)
+ call getused(t3)
 
  if (allocated(iorder) .and. size(iorder) /= np) deallocate(iorder)
  if (.not.allocated(iorder)) allocate(iorder(np))
@@ -48,21 +53,29 @@ subroutine maketree1(node, xyzh, np, ndim, ifirstincell, ncells)
 
  ! sort particles into order based on the sort key
  call parallel_sort(np,pkey,iorder)
+ call getused(t4)
 
  ! divide this list into equal leaf nodes (nearest power of 2)
  ! and get particle lists for all parent nodes
- call build_tree_index1(np,minpart,leaf_level,inoderange,ncells,pkey)
+ call build_tree_index(np,minpart,leaf_level,inoderange,ncells)
+ call getused(t5)
+! call build_tree_index1(np,minpart,leaf_level,inoderange,ncells,pkey)
 
  ! get properties of all leaf nodes (in parallel)
  call build_leaf_nodes(leaf_level,node,xyzh,iorder)
+ call getused(t6)
 
  ! propagate information to parent nodes
  call climb_tree(node,inoderange,leaf_level,xyzh,iorder)
+ call getused(t7)
 
  maxlevel = leaf_level
- !return
+
  call diagnose_and_score_tree(leaf_level,np,node)
  !call print_keys_to_file(leaf_level,node,pkey,xyzh)
+
+ print*,'TREE timings: tot:',t7-t1,' bnd:',t2-t1,' keys:',t3-t2,' sort:',t4-t3,&
+        ' index:',t5-t4,' build:',t6-t5,' climb:',t7-t6
  stop
 
 end subroutine maketree1
@@ -289,7 +302,7 @@ integer function get_median(level,parts_per_leaf,i1,i2,iorder,x)
  endif
  n = 0
  xmed = 0.
- do i=i1,i2,10
+ do i=i1,i2,2 !,10
     n = n + 1
     xmed = xmed + x(iorder(i))
  enddo
@@ -300,7 +313,7 @@ integer function get_median(level,parts_per_leaf,i1,i2,iorder,x)
     i = i + 1
  enddo
  get_median = i
- return
+ !return
 
  ratio = (i2-i1)/real(parts_per_leaf)
  mylevel = int(log(ratio)/log(2.)) + 1
@@ -626,12 +639,7 @@ subroutine construct_node(nodei,i1,i2,xyzh,iorder)
     quads(6) = quads(6) + pmassi*(3.*dz*dz - dr2)  ! Q_zz
 #endif
  enddo
- if (sqrt(r2max) > 20.) then
-    print*,'LARGE NODE: SIZE=',sqrt(r2max),x0
-    do j=i1,i2
-       print*,' -> part ',iorder(j),xyzh(:,iorder(j)),pkey(iorder(j))
-    enddo
- endif
+
  ! assign properties to node
  nodei%xcen    = x0(:)
  nodei%size    = sqrt(r2max) + epsilon(r2max)
