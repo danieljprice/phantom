@@ -140,9 +140,12 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
                           eta_nimhd,massoftype,hfact,Bextx,Bexty,Bextz,      &
                           ndustlarge,idust,grainsize,graindens,              &
                           h2chemistry,lightcurve,maxBevol,                   &
-                          ndivcurlB,ndivcurlv,ndusttypes
+                          ndivcurlB,ndivcurlv
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
+#ifdef PHANTOM2HDF5
+ use part,           only:dt_in
+#endif
 #endif
  use mpiutils,       only:reduce_mpi,reduceall_mpi
  use lumin_nsdisc,   only:beta
@@ -246,7 +249,11 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
 
     ! Compute dtind array
 #ifdef IND_TIMESTEPS
+#ifdef PHANTOM2HDF5
+    if (ind_timesteps) dtind = dt_in
+#else
     if (ind_timesteps) dtind = dtmax/2**ibin(1:npart)
+#endif
 #endif
  endif
 
@@ -320,7 +327,7 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
                            divcurlB,                                            & !
                            divBsymm,                                            & !
                            eta_nimhd,                                           & !
-                           dustfrac(1:ndusttypes,:),                            & !
+                           dustfrac(1:ndustsmall+ndustlarge,:),                 & !
                            tstop(1:ndustsmall,:),                               & !
                            deltav(:,1:ndustsmall,:),                            & !
                            dustprop,                                            & !
