@@ -380,7 +380,7 @@ end function gamma_pwp
 subroutine init_eos(eos_type,ierr)
  use units,    only:unit_density,unit_velocity,unit_pressure
  use physcon,  only:mass_proton_cgs,kboltz
- use io,       only:error
+ use io,       only:error,warning
  use eos_mesa, only:init_eos_mesa
  use eos_helmholtz, only:eos_helmholtz_init
 
@@ -445,6 +445,15 @@ subroutine init_eos(eos_type,ierr)
        log10polyk2    = 0.0
        log10rhocritT  = 0.0
        rhocritT0slope = 0.0
+    endif
+
+    ! Reset rhocrit0 if a warm medium is not defined
+    if (rhocrit0cgs > 0.0 .and. polyk2 < tiny(polyk2)) then
+       call warning('init_eos','warm medium defined by rho0 but not polyk2.  Resetting rho0 = 0.')
+       drhocrit0   = 0.0
+       rhocritT    = 0.0
+       rhocrit0    = 0.0
+       rhocrit0cgs = 0.0
     endif
 
  case(9)
@@ -635,7 +644,7 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('rhocrit0')
     read(valstring,*,iostat=ierr) rhocrit0cgs
-    if (rhocrit0cgs <= 0.) call fatal(label,'rhocrit0 <= 0')
+    ! if (rhocrit0cgs <= 0.) call fatal(label,'rhocrit0 <= 0')  ! This region can be 0 is the warm medium is undefined
     ngot = ngot + 1
  case('rhocrit1')
     read(valstring,*,iostat=ierr) rhocrit1cgs
@@ -863,8 +872,11 @@ subroutine eosinfo(eos_type,iprint)
     write(iprint,"(/,a,i2,a,f10.6,a,f10.6)") ' Locally (on sink ',isink, &
           ') isothermal eos (R_sph): cs^2_0 = ',polyk,' qfac = ',qfacdisc
  case(8)
-    write(iprint,"(/,a,2(es10.3,a))")    ' Barotropic eq of state: cs_ld            = ',sqrt(polyk2),' code units = '&
+    write(iprint,"(a)") ' '
+    if (polyk2 > 0.0) then
+       write(iprint,"(/,a,2(es10.3,a))") ' Barotropic eq of state: cs_ld            = ',sqrt(polyk2),' code units = '&
                                          ,sqrt(polyk2)*unit_velocity,' cm/s'
+    endif
     write(iprint,"(  a,2(es10.3,a))")    ' Barotropic eq of state: cs               = ',sqrt(polyk), ' code units = '&
                                          ,sqrt(polyk)*unit_velocity, ' cm/s'
     if (drhocrit0 > 0.0) then
@@ -873,8 +885,10 @@ subroutine eosinfo(eos_type,iprint)
        write(iprint,"(  a,2(es10.3,a))") ' Barotropic eq of state: rhocrit0 == rho0 = ',rhocrit0,    ' code units = '&
                                          ,rhocrit0*unit_density,     ' g/cm^3'
     else
-       write(iprint,"(  a,2(es10.3,a))") ' Barotropic eq of state: rhocrit0 == rho0 = ',rhocritT,    ' code units = '&
+       if (rhocritT > 0.0) then
+          write(iprint,"(a,2(es10.3,a))")' Barotropic eq of state: rhocrit0 == rho0 = ',rhocritT,    ' code units = '&
                                          ,rhocritT*unit_density,     ' g/cm^3'
+       endif
     endif
 
     write(iprint,"(  a,2(es10.3,a))")    ' Barotropic eq of state: rhocrit1 == rho1 = ',rhocrit1,    ' code units = '&
@@ -889,10 +903,15 @@ subroutine eosinfo(eos_type,iprint)
        write(iprint,"(a,14x,a)")         ' Barotropic eq of state: P = 10**(log10(cs_bg**2) + M*(log10(rhoT)-log10(rho)))' &
                                          ,' for rhoT <= rho/(g/cm^3) < rho0'
     else
-       write(iprint,"(a,53x,a)")         ' Barotropic eq of state: P = cs_ld*rho','for         rho/(g/cm^3) < rho0'
+       if (polyk2 > 0.0) then
+          write(iprint,"(a,53x,a)")      ' Barotropic eq of state: P = cs_ld*rho','for         rho/(g/cm^3) < rho0'
+       endif
     endif
-
-    write(iprint,"(a,56x,a)")            ' Barotropic eq of state: P = cs*rho','for rho0 <= rho/(g/cm^3) < rho1'
+    if (polyk2 > 0.0) then
+       write(iprint,"(a,56x,a)")         ' Barotropic eq of state: P = cs*rho','for rho0 <= rho/(g/cm^3) < rho1'
+    else
+       write(iprint,"(a,56x,a)")         ' Barotropic eq of state: P = cs*rho','for         rho/(g/cm^3) < rho1'
+    endif
     write(iprint,"(a,f5.3,37x,a)")       ' Barotropic eq of state: P = cs*rho1*(rho /rho1)^',gamma1 &
                                          ,'for rho1 <= rho/(g/cm^3) < rho2'
     write(iprint,"(2(a,f5.3),a)")        ' Barotropic eq of state: P = cs*rho1*(rho2/rho1)^',gamma1 &
