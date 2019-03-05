@@ -13,14 +13,20 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: James Wurster
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS: None
+!  RUNTIME PARAMETERS:
+!    M_cloud     -- mass of cloud in solar masses
+!    R_cloud     -- radius of cloud in pc
+!    Temperature -- Temperature
+!    mu          -- mean molecular mass
+!    n_particles -- number of particles in sphere
 !
-!  DEPENDENCIES: centreofmass, datafiles, eos, io, part, physcon, ptmass,
-!    random, setup_params, setvfield, timestep, units, velfield
+!  DEPENDENCIES: centreofmass, datafiles, dim, eos, infile_utils, io,
+!    kernel, part, physcon, prompting, ptmass, random, setup_params,
+!    setvfield, timestep, units, velfield
 !+
 !--------------------------------------------------------------------------
 module setup
