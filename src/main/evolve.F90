@@ -40,7 +40,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
                             dtmax_ifactor,dtmax_dratio,check_dtmax_for_decrease
  use evwrite,          only:write_evfile,write_evlog
- use energies,         only:etot,totmom,angtot,mdust
+ use energies,         only:etot,totmom,angtot,mdust,npcs0
  use dim,              only:maxvxyzu,mhd,periodic
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,use_dustfrac,iexternalforce,&
@@ -438,6 +438,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
           do j = 1,ndustsmall
              call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)
           enddo
+       endif
+       if (npcs0 > 0) then
+          call fatal('evolve','N gas particles with sound speed = 0',var='N',ival=int(npcs0,kind=4))
        endif
 
        !--write with the same ev file frequency also mass flux and binary position

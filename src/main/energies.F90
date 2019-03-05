@@ -36,7 +36,7 @@ module energies
  real,            public    :: xmom,ymom,zmom
  real,            public    :: totlum
  integer,         public    :: iquantities
- integer(kind=8), public    :: ndead
+ integer(kind=8), public    :: ndead,npcs0
  integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com(3),&
                                iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop(6),&
                                iev_alpha,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
@@ -128,6 +128,7 @@ subroutine compute_energies(t)
  angz = 0.
  iu   = 4
  np   = 0
+ npcs0   = 0
  npgas   = 0
  xmomacc = 0.
  ymomacc = 0.
@@ -175,7 +176,7 @@ subroutine compute_energies(t)
 #ifdef LIGHTCURVE
 !$omp shared(luminosity,track_lum) &
 #endif
-!$omp reduction(+:np,npgas,xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
+!$omp reduction(+:np,npgas,npcs0,xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
 !$omp reduction(+:ekin,etherm,emag,epot)
  call initialise_ev_data(ev_data_thread)
@@ -317,6 +318,7 @@ subroutine compute_energies(t)
              endif
           endif
           vsigi = spsoundi
+          if (spsoundi < tiny(spsoundi)) npcs0 = npcs0 + 1
           ! entropy
           call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma))
 
@@ -541,6 +543,8 @@ subroutine compute_energies(t)
  else
     dnpgas = 0.
  endif
+ !--Number of gas particles without a sound spee
+ npcs0 = reduce_fn('+',npcs0)
  !--Finalise the arrays & correct as necessary;
  !  Almost all of the average quantities are over gas particles only
  call finalise_ev_data(ev_data,dnpgas)

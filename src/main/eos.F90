@@ -558,7 +558,7 @@ subroutine print_eos_to_file(logrhomin,logrhomax,unit_density,unit_velocity)
        4,'c_s', &
        5,'T'
 
- dummy = 0.0  ! initialise to avoind compiler warning
+ dummy = 0.0  ! initialise to avoid compiler warning
  drho  = (logrhomax - logrhomin)/float(nlogrho)
  do i = 1,nlogrho
     rho = 10**(logrhomin +(i-1)*drho)/unit_density
