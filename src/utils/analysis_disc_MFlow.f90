@@ -326,9 +326,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     enddo
  endif
 
-  !Deallocating array
-  deallocate(z)
-  deallocate(indexz)
+ !Deallocating array
+ deallocate(z)
+ deallocate(indexz)
 
 end subroutine do_analysis
 

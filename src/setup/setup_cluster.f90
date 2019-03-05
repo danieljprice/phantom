@@ -113,7 +113,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (id==master) call write_setupfile(fileset)
        stop
     endif
- !--Prompt to get inputs and write to file
+    !--Prompt to get inputs and write to file
  elseif (id==master) then
     print "(a,/)",trim(fileset)//' not found: using interactive setup'
     call get_input_from_prompts()
