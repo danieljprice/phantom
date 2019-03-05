@@ -179,8 +179,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--Print summary
  if (id==master) then
     write(*,"(1x,a)") 'Cluster formation setup: '
-    write(*,"(1x,a,f6.3,a)")   '       Rcloud = ',Rcloud_pc,' pc'
-    write(*,"(1x,a,f6.2,a)")   '       Mcloud = ',Mcloud_msun,' Msun'
+    write(*,"(1x,a,es10.3,a)") '       Rcloud = ',Rcloud_pc,' pc'
+    write(*,"(1x,a,es10.3,a)") '       Mcloud = ',Mcloud_msun,' Msun'
     write(*,"(1x,a,es10.3,a)") ' Mean density = ',rhozero*umass/udist**3,' g/cm^3'
     write(*,"(1x,a,es10.3,a,es10.3,a)") 'Particle mass = ',massoftype(1)*(umass/solarm),' Msun'
     write(*,"(1x,a,es10.3,a,e10.3,a)") 'Freefall time = ',t_ff*(utime/years),' years (',t_ff,' in code units)'
