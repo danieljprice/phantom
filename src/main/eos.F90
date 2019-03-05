@@ -885,19 +885,19 @@ subroutine eosinfo(eos_type,iprint)
                                          ,rhocrit3*unit_density,     ' g/cm^3'
     write(iprint,"(a)")                  ' Barotropic eq of state:'
     if (drhocrit0 > 0.0) then
-       write(iprint,"(a,56x,a)")         ' Barotropic eq of state: P = cs_ld*rho','for         rho/(g/cm^3) < rhoT'
+       write(iprint,"(a,53x,a)")         ' Barotropic eq of state: P = cs_ld*rho','for         rho/(g/cm^3) < rhoT'
        write(iprint,"(a,14x,a)")         ' Barotropic eq of state: P = 10**(log10(cs_bg**2) + M*(log10(rhoT)-log10(rho)))' &
                                          ,' for rhoT <= rho/(g/cm^3) < rho0'
     else
-       write(iprint,"(a,56x,a)")         ' Barotropic eq of state: P = cs_ld*rho','for         rho/(g/cm^3) < rho0'
+       write(iprint,"(a,53x,a)")         ' Barotropic eq of state: P = cs_ld*rho','for         rho/(g/cm^3) < rho0'
     endif
 
-    write(iprint,"(a,59x,a)")            ' Barotropic eq of state: P = cs*rho','for rho0 <= rho/(g/cm^3) < rho1'
-    write(iprint,"(a,f6.3,39x,a)")       ' Barotropic eq of state: P = cs*rho1*(rho /rho1)^',gamma1 &
+    write(iprint,"(a,56x,a)")            ' Barotropic eq of state: P = cs*rho','for rho0 <= rho/(g/cm^3) < rho1'
+    write(iprint,"(a,f5.3,37x,a)")       ' Barotropic eq of state: P = cs*rho1*(rho /rho1)^',gamma1 &
                                          ,'for rho1 <= rho/(g/cm^3) < rho2'
-    write(iprint,"(2(a,f6.3),a)")        ' Barotropic eq of state: P = cs*rho1*(rho2/rho1)^',gamma1 &
-                                         ,'*(rho /rho2)^',gamma2,'                    for rho2 <= rho/(g/cm^3) < rho3'
-    write(iprint,"(3(a,f6.3),a)")        ' Barotropic eq of state: P = cs*rho1*(rho2/rho1)^',gamma1 &
+    write(iprint,"(2(a,f5.3),a)")        ' Barotropic eq of state: P = cs*rho1*(rho2/rho1)^',gamma1 &
+                                         ,'*(rho /rho2)^',gamma2,'                   for rho2 <= rho/(g/cm^3) < rho3'
+    write(iprint,"(3(a,f5.3),a)")        ' Barotropic eq of state: P = cs*rho1*(rho2/rho1)^',gamma1 &
                                         ,'*(rho3/rho2)^',gamma2,'*(rho /rho3)^',gamma3,' for rho3 <= rho/(g/cm^3)'
  case(9)
     write(iprint,"(/,a,3(es10.3),a,4(es10.3))") ' Piecewise polytropic eq of state (code units) : rhocrit = '&
