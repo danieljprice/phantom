@@ -644,7 +644,7 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('rhocrit0')
     read(valstring,*,iostat=ierr) rhocrit0cgs
-    ! if (rhocrit0cgs <= 0.) call fatal(label,'rhocrit0 <= 0')  ! This region can be 0 is the warm medium is undefined
+    ! if (rhocrit0cgs <= 0.) call fatal(label,'rhocrit0 <= 0')  ! This region can be 0 if the warm medium is undefined
     ngot = ngot + 1
  case('rhocrit1')
     read(valstring,*,iostat=ierr) rhocrit1cgs
@@ -841,7 +841,9 @@ subroutine eosinfo(eos_type,iprint)
  use units,         only:unit_density, unit_velocity
  use eos_helmholtz, only:eos_helmholtz_eosinfo
  integer, intent(in) :: eos_type,iprint
- real, parameter :: uthermcheck = 3.14159, rhocheck = 23.456
+ real, parameter     :: uthermcheck = 3.14159, rhocheck = 23.456
+ character(len=14)   :: cu
+ character(len=25)   :: baro
 
  select case(eos_type)
  case(1,11)
@@ -872,52 +874,43 @@ subroutine eosinfo(eos_type,iprint)
     write(iprint,"(/,a,i2,a,f10.6,a,f10.6)") ' Locally (on sink ',isink, &
           ') isothermal eos (R_sph): cs^2_0 = ',polyk,' qfac = ',qfacdisc
  case(8)
+    write(baro,"(a)") ' Barotropic eq of state: '
+    write(cu,  "(a)") ' code units = '
     write(iprint,"(a)") ' '
     if (polyk2 > 0.0) then
-       write(iprint,"(/,a,2(es10.3,a))") ' Barotropic eq of state: cs_ld            = ',sqrt(polyk2),' code units = '&
-                                         ,sqrt(polyk2)*unit_velocity,' cm/s'
+       write(iprint,"(/,2a,2(es10.3,a))") baro, 'cs_ld            = ',sqrt(polyk2),cu,sqrt(polyk2)*unit_velocity,' cm/s'
     endif
-    write(iprint,"(  a,2(es10.3,a))")    ' Barotropic eq of state: cs               = ',sqrt(polyk), ' code units = '&
-                                         ,sqrt(polyk)*unit_velocity, ' cm/s'
+    write(iprint,"(  2a,2(es10.3,a))")    baro, 'cs               = ',sqrt(polyk), cu,sqrt(polyk)*unit_velocity, ' cm/s'
     if (drhocrit0 > 0.0) then
-       write(iprint,"(  a,2(es10.3,a))") ' Barotropic eq of state: rhocritT == rhoT = ',rhocritT,    ' code units = '&
-                                         ,rhocritT*unit_density,     ' g/cm^3'
-       write(iprint,"(  a,2(es10.3,a))") ' Barotropic eq of state: rhocrit0 == rho0 = ',rhocrit0,    ' code units = '&
-                                         ,rhocrit0*unit_density,     ' g/cm^3'
+       write(iprint,"(  2a,2(es10.3,a))") baro, 'rhocritT == rhoT = ',rhocritT,    cu,rhocritT*unit_density,     ' g/cm^3'
+       write(iprint,"(  2a,2(es10.3,a))") baro, 'rhocrit0 == rho0 = ',rhocrit0,    cu,rhocrit0*unit_density,     ' g/cm^3'
     else
        if (rhocritT > 0.0) then
-          write(iprint,"(a,2(es10.3,a))")' Barotropic eq of state: rhocrit0 == rho0 = ',rhocritT,    ' code units = '&
-                                         ,rhocritT*unit_density,     ' g/cm^3'
+          write(iprint,"(2a,2(es10.3,a))")baro, 'rhocrit0 == rho0 = ',rhocritT,    cu,rhocritT*unit_density,     ' g/cm^3'
        endif
     endif
 
-    write(iprint,"(  a,2(es10.3,a))")    ' Barotropic eq of state: rhocrit1 == rho1 = ',rhocrit1,    ' code units = '&
-                                         ,rhocrit1*unit_density,     ' g/cm^3'
-    write(iprint,"(  a,2(es10.3,a))")    ' Barotropic eq of state: rhocrit2 == rho2 = ',rhocrit2,    ' code units = '&
-                                         ,rhocrit2*unit_density,     ' g/cm^3'
-    write(iprint,"(  a,2(es10.3,a))")    ' Barotropic eq of state: rhocrit3 == rho3 = ',rhocrit3,    ' code units = '&
-                                         ,rhocrit3*unit_density,     ' g/cm^3'
-    write(iprint,"(a)")                  ' Barotropic eq of state:'
+    write(iprint,"(  2a,2(es10.3,a))")    baro, 'rhocrit1 == rho1 = ',rhocrit1,    cu,rhocrit1*unit_density,     ' g/cm^3'
+    write(iprint,"(  2a,2(es10.3,a))")    baro, 'rhocrit2 == rho2 = ',rhocrit2,    cu,rhocrit2*unit_density,     ' g/cm^3'
+    write(iprint,"(  2a,2(es10.3,a))")    baro, 'rhocrit3 == rho3 = ',rhocrit3,    cu,rhocrit3*unit_density,     ' g/cm^3'
+    write(iprint,"(a)")                   baro
     if (drhocrit0 > 0.0) then
-       write(iprint,"(a,53x,a)")         ' Barotropic eq of state: P = cs_ld*rho','for         rho/(g/cm^3) < rhoT'
-       write(iprint,"(a,14x,a)")         ' Barotropic eq of state: P = 10**(log10(cs_bg**2) + M*(log10(rhoT)-log10(rho)))' &
-                                         ,' for rhoT <= rho/(g/cm^3) < rho0'
+       write(iprint,"(2a,53x,a)")         baro, 'P = cs_ld*rho','for         rho < rhoT'
+       write(iprint,"(2a,11x,a)")         baro, 'P = 10**(log10(cs_ld**2) + M*(log10(rhoT)-log10(rho)))',' for rhoT <= rho < rho0'
     else
        if (polyk2 > 0.0) then
-          write(iprint,"(a,53x,a)")      ' Barotropic eq of state: P = cs_ld*rho','for         rho/(g/cm^3) < rho0'
+          write(iprint,"(2a,53x,a)")      baro, 'P = cs_ld*rho','for         rho < rho0'
        endif
     endif
     if (polyk2 > 0.0) then
-       write(iprint,"(a,56x,a)")         ' Barotropic eq of state: P = cs*rho','for rho0 <= rho/(g/cm^3) < rho1'
+       write(iprint,"(2a,56x,a)")         baro, 'P = cs*rho','for rho0 <= rho < rho1'
     else
-       write(iprint,"(a,56x,a)")         ' Barotropic eq of state: P = cs*rho','for         rho/(g/cm^3) < rho1'
+       write(iprint,"(2a,56x,a)")         baro, 'P = cs*rho','for         rho < rho1'
     endif
-    write(iprint,"(a,f5.3,37x,a)")       ' Barotropic eq of state: P = cs*rho1*(rho /rho1)^',gamma1 &
-                                         ,'for rho1 <= rho/(g/cm^3) < rho2'
-    write(iprint,"(2(a,f5.3),a)")        ' Barotropic eq of state: P = cs*rho1*(rho2/rho1)^',gamma1 &
-                                         ,'*(rho /rho2)^',gamma2,'                   for rho2 <= rho/(g/cm^3) < rho3'
-    write(iprint,"(3(a,f5.3),a)")        ' Barotropic eq of state: P = cs*rho1*(rho2/rho1)^',gamma1 &
-                                        ,'*(rho3/rho2)^',gamma2,'*(rho /rho3)^',gamma3,' for rho3 <= rho/(g/cm^3)'
+    write(iprint,"(2a,f5.3,37x,a)")       baro, 'P = cs*rho1*(rho /rho1)^',gamma1,'for rho1 <= rho < rho2'
+    write(iprint,"(a,2(a,f5.3),18x,a)")   baro, 'P = cs*rho1*(rho2/rho1)^',gamma1,'*(rho /rho2)^',gamma2,' for rho2 <= rho < rho3'
+    write(iprint,"(a,3(a,f5.3),a)")       baro, 'P = cs*rho1*(rho2/rho1)^',gamma1,'*(rho3/rho2)^',gamma2, &
+                                                                                  '*(rho /rho3)^',gamma3,' for rho3 <= rho'
  case(9)
     write(iprint,"(/,a,3(es10.3),a,4(es10.3))") ' Piecewise polytropic eq of state (code units) : rhocrit = '&
                                                  ,rhocrit0pwp,rhocrit1pwp,rhocrit2pwp, '; K = ',k0pwp,k1pwp,k2pwp,k3pwp
