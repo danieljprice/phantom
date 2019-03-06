@@ -302,7 +302,7 @@ subroutine allocate_part
  use allocutils, only:allocate_array
 
  call allocate_array('xyzh', xyzh, 4, maxp)
- call allocate_array('xyzh_soa', xyzh_soa, maxp, 4)
+ call allocate_array('xyzh_soa', xyzh_soa, 4, maxp)
  call allocate_array('vxyzu', vxyzu, maxvxyzu, maxp)
  call allocate_array('alphaind', alphaind, nalpha, maxalpha)
  call allocate_array('divcurlv', divcurlv, ndivcurlv, maxp)

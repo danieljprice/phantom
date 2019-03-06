@@ -30,7 +30,7 @@ module linklist
  use dim,          only:maxp,ncellsmax
  use part,         only:ll
  use dtypekdtree,  only:kdnode
- use dptree,       only:leaf_level=>maxlevel
+ use dptree,       only:leaf_level=>maxlevel,iorder,inoderange
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -53,7 +53,8 @@ module linklist
  public :: set_hmaxcell,get_hmaxcell,update_hmax_remote
  public :: get_cell_location
  public :: sync_hmax_mpi
- public :: get_cell_list
+ public :: get_cell_list,node_is_active
+ public :: iorder,inoderange
 
  private
 
@@ -84,6 +85,14 @@ subroutine get_cell_list(istart,iend)
  call get_node_list(leaf_level,istart,iend)
 
 end subroutine get_cell_list
+
+logical function node_is_active(icell)
+ integer, intent(in) :: icell
+
+ !--skip empty cells AND inactive cells
+ node_is_active = .true.
+
+end function node_is_active
 
 subroutine get_hmaxcell(inode,hmaxcell)
  integer, intent(in)  :: inode
@@ -131,12 +140,13 @@ end subroutine get_distance_from_centre_of_mass
 
 subroutine set_linklist(npart,nactive,xyzh,vxyzu)
  use dtypekdtree,  only:ndimtree
- !use kdtree,       only:maketree
+ use kdtree,       only:maketree
 #ifdef MPI
  use kdtree,       only: maketreeglobal
 #endif
  use dptree, only:maketree1
- use timing, only:wallclock
+ use octtree, only:maketree2
+ use timing, only:getused
 
 #ifdef MPI
  integer, intent(inout) :: npart
@@ -146,17 +156,19 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
  integer, intent(in)    :: nactive
  real,    intent(inout) :: xyzh(4,maxp)
  real,    intent(in)    :: vxyzu(:,:)
- real :: t1,t2
+ real(4) :: t1,t2,t3
 
 #ifdef MPI
  call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells)
 #else
- t1 = wallclock()
+ print *,' RATIO MAX h/MIN h = ',maxval(xyzh(4,1:npart))/minval(xyzh(4,1:npart))
+ call getused(t1)
  !call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
- !t2 = wallclock()
+ call getused(t2)
  call maketree1(node,xyzh,npart,ndimtree,ifirstincell,ncells)
- t2 = wallclock()
- print*,' TIMING = ',t2-t1 !, ' OLD/NEW = ', (t2-t1)/(t3-t2)
+! call maketree2(xyzh,npart,ndimtree,ifirstincell,ncells)
+ call getused(t3)
+ print*,' TIMING = ',t3-t2, ' OLD =',t2-t1,' OLD/NEW = ', (t2-t1)/(t3-t2)
  !read*
 #endif
 

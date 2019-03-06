@@ -41,7 +41,7 @@ module dim
 #ifdef MAXP
  integer, parameter :: maxp_hard = MAXP
 #else
- integer, parameter :: maxp_hard = 1000000
+ integer, parameter :: maxp_hard = 10000000
 #endif
 
  ! maximum number of point masses
@@ -112,7 +112,7 @@ module dim
  integer, parameter :: maxdusttypes = maxdustsmall + maxdustlarge
 
  ! kdtree
- integer, parameter :: minpart = 10
+ integer, parameter :: minpart = 32
 
  ! rhosum
  integer, parameter :: maxrhosum = 39 + maxdustlarge - 1
@@ -297,7 +297,7 @@ subroutine update_max_sizes(n)
 #ifdef NCELLSMAX
  ncellsmax = NCELLSMAX
 #else
- ncellsmax = min(2*maxp,maxp_hard)
+ ncellsmax = min(3*maxp,maxp_hard)
 #endif
 
 #ifdef DUST

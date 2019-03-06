@@ -28,7 +28,7 @@ module densityforce
  use dim,     only:maxdvdx,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum,&
                    maxdusttypes,maxdustlarge
  use part,    only:maxBevol,mhd,dvdx
- use dptree,  only:iorder,inoderange
+ use linklist,only:iorder,inoderange
  use kernel,  only:cnormk,wab0,gradh0,dphidh0,radkern2
  use mpidens, only:celldens,stackdens
  use timing,  only:getused,printused,print_time
@@ -127,7 +127,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use eos,       only:get_spsound,get_temperature
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:get_neighbour_list,get_hmaxcell,get_cell_list,&
-                     get_cell_location,set_hmaxcell,sync_hmax_mpi,update_hmax_remote
+                     get_cell_location,set_hmaxcell,sync_hmax_mpi,update_hmax_remote,node_is_active
  use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho,&
                      get_partinfo,iactive,&
                      hrho,iphase,igas,idust,iboundary,iamgas,periodic,&
@@ -296,10 +296,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp do schedule(runtime)
   over_leaf_nodes: do icell=istart,iend
 ! over_cells: do icell=1,int(ncells)
-!    i = ifirstincell(icell)
-
-!    !--skip empty cells AND inactive cells
-!    if (i <= 0) cycle over_cells
+    if (.not.node_is_active(icell)) cycle over_leaf_nodes
 
     !
     !--get the neighbour list and fill the cell cache
@@ -1360,6 +1357,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
 
  cell%npcell = 0
  over_parts: do ip = inoderange(1,cell%icell),inoderange(2,cell%icell)
+    if (ip <= 0) exit over_parts
     i = iorder(ip)
 
     if (i < 0) then
@@ -1578,10 +1576,9 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  use options,     only:ieos,alpha,alphamax,use_dustfrac
  use viscosity,   only:bulkvisc,shearparam
  use nicil,       only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
- use linklist,    only:set_hmaxcell
+ use linklist,    only:set_hmaxcell,iorder
  use kernel,      only:radkern
  use part,        only:xyzh_soa,store_temperature,temperature
- use dptree,      only:iorder
 
  integer,         intent(in)    :: icall
  type(celldens),  intent(in)    :: cell
@@ -1658,7 +1655,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
     !--store final results of density iteration
     !
     xyzh(4,lli) = hrho(rhoi,pmassi)
-    xyzh_soa(cell%arr_index(i),4) = xyzh(4,lli)
+    xyzh_soa(4,cell%arr_index(i)) = xyzh(4,lli)
 
     if (xyzh(4,lli) < 0.) call fatal('densityiterate','setting negative h from hrho',i,var='rhoi',val=real(rhoi))
 

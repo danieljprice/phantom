@@ -88,7 +88,7 @@ subroutine allocate_kdtree
 
  call allocate_array('inoderange', inoderange, 2, ncellsmax+1)
  call allocate_array('inodeparts', inodeparts, maxp)
- call allocate_array('xyzh_swap', xyzh_swap, maxp, 4)
+ call allocate_array('xyzh_swap', xyzh_swap, 4, maxp)
  call allocate_array('inodeparts_swap', inodeparts_swap, maxp)
  call allocate_array('iphase_swap', iphase_swap, maxphase)
 #ifdef MPI
@@ -301,7 +301,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
  endif
 
  if (present(refinelevels)) refinelevels = minlevel
-
+ return
  if (iverbose >= 3) then
     write(iprint,"(a,i10,3(a,i2))") ' maketree: nodes = ',ncells,', max level = ',maxlevel,&
        ', min leaf level = ',minlevel,' max level indexed = ',maxlevel_indexed
@@ -310,6 +310,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
        real :: sizesum,sizemax
        nleaf = 0
        sizesum = 0.
+       sizemax = 0.
        do i=1,int(ncells)
           if (abs(ifirstincell(i)) > 0) then
              sizesum = sizesum + node(i)%size
@@ -325,6 +326,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
           nleaf = 0; sizesum = 0.; sizemax = 0.
           do i=2**level,2**(level+1)-1
              sizesum = sizesum + node(i)%size
+             print*,i,'nodesize=',node(i)%size
              sizemax = max(sizemax,node(i)%size)
              nleaf = nleaf + 1
           enddo
@@ -437,7 +439,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
 #else
        inodeparts(nproot) = i
 #endif
-       xyzh_soa(nproot,:) = xyzh(:,i)
+       xyzh_soa(:,nproot) = xyzh(:,i)
        iphase_soa(nproot) = iphase(i)
     endif isnotdead
  enddo
@@ -612,10 +614,10 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     !$omp reduction(+:xcofm,ycofm,zcofm,totmass_node) &
     !$omp reduction(max:hmax)
     do i=i1,i1+npnode-1
-       xi = xyzh_soa(i,1)
-       yi = xyzh_soa(i,2)
-       zi = xyzh_soa(i,3)
-       hi = xyzh_soa(i,4)
+       xi = xyzh_soa(1,i)
+       yi = xyzh_soa(2,i)
+       zi = xyzh_soa(3,i)
+       hi = xyzh_soa(4,i)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
           pmassi = massoftype(iamtype(iphase_soa(i)))
@@ -629,10 +631,10 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     !$omp end parallel do
  else
     do i=i1,i1+npnode-1
-       xi = xyzh_soa(i,1)
-       yi = xyzh_soa(i,2)
-       zi = xyzh_soa(i,3)
-       hi = xyzh_soa(i,4)
+       xi = xyzh_soa(1,i)
+       yi = xyzh_soa(2,i)
+       zi = xyzh_soa(3,i)
+       hi = xyzh_soa(4,i)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
           pmassi = massoftype(iamtype(iphase_soa(i)))
@@ -685,9 +687,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 #endif
  !!$omp reduction(max:r2max)
  do i=i1,i1+npnode-1
-    xi = xyzh_soa(i,1)
-    yi = xyzh_soa(i,2)
-    zi = xyzh_soa(i,3)
+    xi = xyzh_soa(1,i)
+    yi = xyzh_soa(2,i)
+    zi = xyzh_soa(3,i)
     dx    = xi - x0(1)
     dy    = yi - x0(2)
 #ifdef TREEVIZ
@@ -807,20 +809,20 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        nl = inoderange(1,nnode)
        nr = inoderange(2,nnode)
        inodeparts_swap(nl:nr) = inodeparts(nl:nr)
-       do j=1,4
-          xyzh_swap(nl:nr,j) = xyzh_soa(nl:nr,j)
+       do j=nl,nr
+          xyzh_swap(:,j) = xyzh_soa(:,j)
        enddo
        iphase_swap(nl:nr) = iphase_soa(nl:nr)
        counterl = 0
        !DIR$ ivdep
        do i = inoderange(1,nnode), inoderange(2,nnode)
-          xi = xyzh_swap(i,iaxis)
+          xi = xyzh_swap(iaxis,i)
           if (xi  <=  xpivot) then
              inodeparts(nl+counterl) = inodeparts_swap(i)
-             xyzh_soa(nl+counterl,1) = xyzh_swap(i,1)
-             xyzh_soa(nl+counterl,2) = xyzh_swap(i,2)
-             xyzh_soa(nl+counterl,3) = xyzh_swap(i,3)
-             xyzh_soa(nl+counterl,4) = xyzh_swap(i,4)
+             xyzh_soa(1,nl+counterl) = xyzh_swap(1,i)
+             xyzh_soa(2,nl+counterl) = xyzh_swap(2,i)
+             xyzh_soa(3,nl+counterl) = xyzh_swap(3,i)
+             xyzh_soa(4,nl+counterl) = xyzh_swap(4,i)
              iphase_soa(nl+counterl) = iphase_swap(i)
              counterl = counterl + 1
           endif
@@ -829,13 +831,13 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        counterr=0
        !DIR$ ivdep
        do i = inoderange(1,nnode), inoderange(2,nnode)
-          xi = xyzh_swap(i,iaxis)
+          xi = xyzh_swap(iaxis,i)
           if (xi  >  xpivot) then
              inodeparts(nl+counterr) = inodeparts_swap(i)
-             xyzh_soa(nl+counterr,1) = xyzh_swap(i,1)
-             xyzh_soa(nl+counterr,2) = xyzh_swap(i,2)
-             xyzh_soa(nl+counterr,3) = xyzh_swap(i,3)
-             xyzh_soa(nl+counterr,4) = xyzh_swap(i,4)
+             xyzh_soa(1,nl+counterr) = xyzh_swap(1,i)
+             xyzh_soa(2,nl+counterr) = xyzh_swap(2,i)
+             xyzh_soa(3,nl+counterr) = xyzh_swap(3,i)
+             xyzh_soa(4,nl+counterr) = xyzh_swap(4,i)
              iphase_soa(nl+counterr) = iphase_swap(i)
              counterr = counterr + 1
           endif
@@ -864,18 +866,18 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           inoderange(2,ir) = inoderange(2,nnode)
        endif
 
-       xminl(1) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),1))
-       xminl(2) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),2))
-       xminl(3) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),3))
-       xmaxl(1) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),1))
-       xmaxl(2) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),2))
-       xmaxl(3) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),3))
-       xminr(1) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),1))
-       xminr(2) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),2))
-       xminr(3) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),3))
-       xmaxr(1) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),1))
-       xmaxr(2) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),2))
-       xmaxr(3) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),3))
+       xminl(1) = minval(xyzh_soa(1,inoderange(1,il):inoderange(2,il)))
+       xminl(2) = minval(xyzh_soa(2,inoderange(1,il):inoderange(2,il)))
+       xminl(3) = minval(xyzh_soa(3,inoderange(1,il):inoderange(2,il)))
+       xmaxl(1) = maxval(xyzh_soa(1,inoderange(1,il):inoderange(2,il)))
+       xmaxl(2) = maxval(xyzh_soa(2,inoderange(1,il):inoderange(2,il)))
+       xmaxl(3) = maxval(xyzh_soa(3,inoderange(1,il):inoderange(2,il)))
+       xminr(1) = minval(xyzh_soa(1,inoderange(1,ir):inoderange(2,ir)))
+       xminr(2) = minval(xyzh_soa(2,inoderange(1,ir):inoderange(2,ir)))
+       xminr(3) = minval(xyzh_soa(3,inoderange(1,ir):inoderange(2,ir)))
+       xmaxr(1) = maxval(xyzh_soa(1,inoderange(1,ir):inoderange(2,ir)))
+       xmaxr(2) = maxval(xyzh_soa(2,inoderange(1,ir):inoderange(2,ir)))
+       xmaxr(3) = maxval(xyzh_soa(3,inoderange(1,ir):inoderange(2,ir)))
     else
        nl = 0
        nr = 0
@@ -943,7 +945,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
  rcut     = rcuti
 
  if (ixyzcachesize > 0) then
-    maxcache = size(xyzcache(1,:))
+    maxcache = size(xyzcache(:,1))
  else
     maxcache = 0
  endif
@@ -1009,34 +1011,34 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
                 if (maxcache >= 4) then
                    do ipart=1,npnode
                       listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
-                      xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
-                      xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
-                      xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
-                      xyzcache(nneigh+ipart,4) = 1./xyzh_soa(inoderange(1,n)+ipart-1,4)
+                      xyzcache(1,nneigh+ipart) = xyzh_soa(1,inoderange(1,n)+ipart-1) + xoffset
+                      xyzcache(2,nneigh+ipart) = xyzh_soa(2,inoderange(1,n)+ipart-1) + yoffset
+                      xyzcache(3,nneigh+ipart) = xyzh_soa(3,inoderange(1,n)+ipart-1) + zoffset
+                      xyzcache(4,nneigh+ipart) = 1./xyzh_soa(4,inoderange(1,n)+ipart-1)
                    enddo
                 else
                    do ipart=1,npnode
                       listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
-                      xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
-                      xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
-                      xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
+                      xyzcache(1,nneigh+ipart) = xyzh_soa(1,inoderange(1,n)+ipart-1) + xoffset
+                      xyzcache(2,nneigh+ipart) = xyzh_soa(2,inoderange(1,n)+ipart-1) + yoffset
+                      xyzcache(3,nneigh+ipart) = xyzh_soa(3,inoderange(1,n)+ipart-1) + zoffset
                    enddo
                 endif
              elseif (nneigh < ixyzcachesize) then
                 if (maxcache >= 4) then
                    do ipart=1,ixyzcachesize-nneigh
                       listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
-                      xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
-                      xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
-                      xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
-                      xyzcache(nneigh+ipart,4) = 1./xyzh_soa(inoderange(1,n)+ipart-1,4)
+                      xyzcache(1,nneigh+ipart) = xyzh_soa(1,inoderange(1,n)+ipart-1) + xoffset
+                      xyzcache(2,nneigh+ipart) = xyzh_soa(2,inoderange(1,n)+ipart-1) + yoffset
+                      xyzcache(3,nneigh+ipart) = xyzh_soa(3,inoderange(1,n)+ipart-1) + zoffset
+                      xyzcache(4,nneigh+ipart) = 1./xyzh_soa(4,inoderange(1,n)+ipart-1)
                    enddo
                 else
                    do ipart=1,ixyzcachesize-nneigh
                       listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
-                      xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
-                      xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
-                      xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
+                      xyzcache(1,nneigh+ipart) = xyzh_soa(1,inoderange(1,n)+ipart-1) + xoffset
+                      xyzcache(2,nneigh+ipart) = xyzh_soa(2,inoderange(1,n)+ipart-1) + yoffset
+                      xyzcache(3,nneigh+ipart) = xyzh_soa(3,inoderange(1,n)+ipart-1) + zoffset
                    enddo
                 endif
                 do ipart=ixyzcachesize-nneigh+1,npnode
@@ -1578,7 +1580,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
 #else
        inodeparts(npnode) = i
 #endif
-       xyzh_soa(npnode,:) = xyzh(:,i)
+       xyzh_soa(:,npnode) = xyzh(:,i)
        iphase_soa(npnode) = iphase(i)
     enddo
 

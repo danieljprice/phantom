@@ -33,7 +33,7 @@ module forces
  use dim, only:maxfsum,maxxpartveciforce,maxBevol,maxp,ndivcurlB,ndivcurlv,&
                maxdusttypes,maxdustsmall
  use mpiforce, only:cellforce,stackforce
- use dptree,   only:iorder,inoderange
+ use linklist, only:iorder,inoderange
 
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -142,7 +142,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use dim,          only:maxvxyzu,maxneigh,maxdvdx,&
                         mhd,mhd_nonideal,lightcurve
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
- use linklist,     only:get_neighbour_list,get_hmaxcell,get_cell_location,get_cell_list
+ use linklist,     only:get_neighbour_list,get_hmaxcell,get_cell_location,get_cell_list,node_is_active
  use options,      only:iresistive_heating
  use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,nabundances,ll,get_partinfo,iactive,gradh,&
                         hrho,iphase,maxphase,igas,iboundary,maxgradh,dvdx, &
@@ -411,10 +411,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp do schedule(runtime)
  over_leaf_nodes: do icell=istart,iend
 ! over_cells: do icell=1,int(ncells)
-!    i = ifirstincell(icell)
-
-    !--skip empty cells AND inactive cells
-!    if (i <= 0) cycle over_cells
+    if (.not.node_is_active(icell)) cycle over_leaf_nodes
 
     cell%icell = icell
 
@@ -1846,6 +1843,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
 
  cell%npcell = 0
  over_parts: do ip = inoderange(1,cell%icell),inoderange(2,cell%icell)
+    if (ip <= 0) exit over_parts
     i = iorder(ip)
 
     if (i < 0) then

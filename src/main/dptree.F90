@@ -9,7 +9,7 @@ module dptree
  public :: get_node_list
  private
 
- integer, public :: maxlevel
+ integer, public :: maxlevel,maxlevel_indexed,maxcell
  integer, allocatable, public :: iorder(:)
  integer, allocatable, public :: inoderange(:,:)
  real, allocatable :: pkey(:)
@@ -57,9 +57,10 @@ subroutine maketree1(node, xyzh, np, ndim, ifirstincell, ncells)
 
  ! divide this list into equal leaf nodes (nearest power of 2)
  ! and get particle lists for all parent nodes
- call build_tree_index(np,minpart,leaf_level,inoderange,ncells)
- call getused(t5)
+ !call build_tree_index(np,minpart,leaf_level,inoderange,ncells)
 ! call build_tree_index1(np,minpart,leaf_level,inoderange,ncells,pkey)
+ call build_tree_index2(np,minpart,leaf_level,inoderange,ncells,iorder,pkey)
+ call getused(t5)
 
  ! get properties of all leaf nodes (in parallel)
  call build_leaf_nodes(leaf_level,node,xyzh,iorder)
@@ -76,7 +77,7 @@ subroutine maketree1(node, xyzh, np, ndim, ifirstincell, ncells)
 
  print*,'TREE timings: tot:',t7-t1,' bnd:',t2-t1,' keys:',t3-t2,' sort:',t4-t3,&
         ' index:',t5-t4,' build:',t6-t5,' climb:',t7-t6
- stop
+ !stop
 
 end subroutine maketree1
 
@@ -285,6 +286,98 @@ subroutine build_tree_index1(np,parts_per_leaf,leaf_level,inoderange,ncells,pkey
 
 end subroutine build_tree_index1
 
+!-----------------------------------
+!+
+!  Build the tree index, i.e. index
+!  of first and last particle on
+!  every node
+!+
+!-----------------------------------
+subroutine build_tree_index2(np,parts_per_leaf,leaf_level,inoderange,ncells,iorder,pkey)
+ use io, only:fatal
+ integer, intent(in)  :: np,parts_per_leaf
+ integer, intent(out) :: leaf_level
+ integer, intent(out) :: inoderange(:,:)
+ integer, intent(in)  :: iorder(:)
+ real,    intent(in)  :: pkey(:)
+ integer(kind=8), intent(out) :: ncells
+ integer :: imask(np),imasksum(np),i,istart,iend,inode,index,nleaf,parts_per_leafi
+ integer :: il,ir,level,isum
+
+ !
+ ! bin into leaf nodes (find identical pkeys)
+ !
+ imask(1:np) = 0
+ !
+ ! flag where keys are not identical => these denote leaf cell boundaries
+ !
+ do i=2,np
+!    print*,i,'key=',pkey(iorder(i))
+!    read*
+    if (nint(pkey(iorder(i))) /= nint(pkey(iorder(i-1)))) imask(i) = 1
+ enddo
+ nleaf = sum(imask) + 1
+ print*,' got ',nleaf,' unique keys'
+ !
+ ! count number of leaf nodes, and round to nearest power of two
+ !
+ leaf_level = int(log(real(nleaf))/log(2.)) + 1
+ print*,' got ',2**leaf_level,' leaf nodes, leaf_level = ',leaf_level
+ call get_node_list(leaf_level,istart,iend)
+ maxcell = istart + nleaf - 1
+ ncells = maxcell
+ !
+ ! store leaf cell boundaries in inoderange(1,inode)->inoderange(2,inode)
+ !
+ print*,' start at node ',istart
+ inoderange(1,istart) = 1
+ inoderange(2,istart) = np
+ isum = 0
+ do i=1,np
+    isum = isum + imask(i)
+    imasksum(i) = isum
+ enddo
+ do i=2,np
+    if (imask(i)==1) then
+       inode = istart + imasksum(i)
+       inoderange(2,inode-1) = i-1
+       inoderange(1,inode) = i
+       !print*,'leaf node ',inode - 1,' range = ',inoderange(1,inode-1),':',inoderange(2,inode-1)
+       !read*
+    endif
+ enddo
+ inoderange(2,maxcell) = np
+ !
+ ! sweep up the levels, building index ranges of parent nodes
+ ! based on index ranges of the lower level chunks
+ !
+ !$omp parallel default(none) &
+ !$omp shared(inoderange,leaf_level) &
+ !$omp private(level,inode,istart,iend,il,ir)
+ do level=leaf_level-1,0,-1
+    call get_node_list(level,istart,iend)
+    !print*,' *** level ',level,' nodes ',istart,':',iend,' ***'
+    !$omp do schedule(static)
+    do inode=istart,iend
+       call get_child_nodes(inode,il,ir)
+       inoderange(1,inode) = inoderange(1,il)
+       if (inoderange(2,ir) /= 0) then
+          inoderange(2,inode) = inoderange(2,ir)
+       else
+          inoderange(2,inode) = inoderange(2,il)
+       endif
+       if (level < 2) print*,'node ',inode,': ',inoderange(1,inode),'->',inoderange(2,inode)
+    enddo
+    !$omp end do
+ enddo
+ !$omp end parallel
+
+ ! sanity checks
+ if (inoderange(1,irootnode) /= 1) call fatal('maketree','starting index of root node /= 1')
+ if (inoderange(2,irootnode) /= np) call fatal('maketree','finishing index of root node /= np')
+
+end subroutine build_tree_index2
+
 integer function get_median(level,parts_per_leaf,i1,i2,iorder,x)
  integer, intent(in) :: level,parts_per_leaf,i1,i2
  integer, intent(in) :: iorder(:)
@@ -301,19 +394,19 @@ integer function get_median(level,parts_per_leaf,i1,i2,iorder,x)
     return
  endif
  n = 0
- xmed = 0.
- do i=i1,i2,2 !,10
-    n = n + 1
-    xmed = xmed + x(iorder(i))
- enddo
- xmed = xmed/real(n)
+ xmed = (x(iorder(i2)) - x(iorder(i1)))/2.
+! do i=i1,i2,2 !,10
+!    n = n + 1
+!    xmed = xmed + x(iorder(i))
+! enddo
+! xmed = xmed/real(n)
  !print*,' got median ',xmed
  i = i1
  do while (x(iorder(i)) < xmed .and. i < i2)
     i = i + 1
  enddo
  get_median = i
- !return
+! return
 
  ratio = (i2-i1)/real(parts_per_leaf)
  mylevel = int(log(ratio)/log(2.)) + 1
@@ -343,7 +436,7 @@ pure subroutine get_node_list(level,istart,iend)
  integer, intent(out) :: istart,iend
 
  istart = 2**level
- iend   = 2**(level+1) - 1
+ iend   = min(2**(level+1) - 1,maxcell)
 
 end subroutine get_node_list
 
@@ -371,7 +464,7 @@ end subroutine get_child_nodes
 !-----------------------------------
 subroutine build_leaf_nodes(leaf_level,node,xyzh,iorder)
  integer,      intent(in)  :: leaf_level
- type(kdnode), intent(out) :: node(:)
+ type(kdnode), intent(inout) :: node(:)
  real,         intent(in)  :: xyzh(:,:)
  integer,      intent(in)  :: iorder(:)
  integer :: inode,istart,iend
@@ -403,26 +496,30 @@ subroutine climb_tree(node,inoderange,leaf_level,xyzh,iorder)
  type(kdnode) :: nodel,noder
 
  ! climb up tree, computing properties of parent nodes from their children
- !$omp parallel default(none) &
- !$omp shared(leaf_level) &
- !$omp shared(node,inoderange,xyzh,iorder) &
- !$omp private(level,inode,istart,iend,il,ir,nodel,noder)
+ !!$omp parallel default(none) &
+ !!$omp shared(leaf_level) &
+ !!$omp shared(node,inoderange,xyzh,iorder) &
+ !!$omp private(level,inode,istart,iend,il,ir,nodel,noder)
  do level=leaf_level-1,0,-1
     call get_node_list(level,istart,iend)
-    !$omp do
+    !!$omp do
     do inode=2**level,2**(level+1)-1    ! nodes stored using Gafton & Rosswog index order
        ! get child nodes
        call get_child_nodes(inode,il,ir)
        nodel = node(il)
        noder = node(ir)
-       call add_child_nodes(nodel,noder,node(inode))
-       !print*,' approx size =',node(inode)%size
-       call recompute_node_size(node(inode),inoderange(1,inode),inoderange(2,inode),xyzh,iorder)
-       !print*,' recomputed size =',node(inode)%size
+       if (inoderange(1,ir) /= 0) then
+          call add_child_nodes(nodel,noder,node(inode))
+          !print*,' approx size =',node(inode)%size
+          call recompute_node_size(node(inode),inoderange(1,inode),inoderange(2,inode),xyzh,iorder)
+          !print*,' recomputed size =',node(inode)%size
+       else
+          node(inode) = nodel
+       endif
     enddo
-    !$omp enddo
+    !!$omp enddo
  enddo
- !$omp end parallel
+ !!$omp end parallel
 
 end subroutine climb_tree
 
@@ -509,9 +606,10 @@ subroutine get_sort_key(np,xyzh,xmin,xmax,rkey)
  integer(8) :: iz,m
  real :: dx1(3)
 
- ngrid = np ! size of discrete grid (np**3)
+ ngrid = 512 !2048 !64 !np ! size of discrete grid (np**3)
  m = nint(log(real(ngrid))/log(2.))
  ngrid = 2**m
+ maxlevel_indexed = m
 
  dx1 = 1./(xmax - xmin)*ngrid
  !$omp parallel do default(none) &
@@ -523,12 +621,22 @@ subroutine get_sort_key(np,xyzh,xmin,xmax,rkey)
     ip(2) = int((xyzh(2,i) - xmin(2))*dx1(2))
     ip(3) = int((xyzh(3,i) - xmin(3))*dx1(3))
     iz = p_to_h(ip,m)
+!    iz = bhkey(ip) !p_to_h(ip,m)
     if (iz < 0) stop 'exceeded hilbert key precision'
     rkey(i) = real(iz)
+    !print*,i,' i,j,k= ',ip,' iz =',iz,' key=',rkey(i)
+    !read*
  enddo
  !$omp end parallel do
 
 end subroutine get_sort_key
+
+integer(kind=8) function bhkey(ip)
+ integer(kind=8), intent(in) :: ip(3)
+
+ bhkey = 4*ip(1) + 2*ip(2) + ip(3)
+
+end function bhkey
 
 !-----------------------------------
 !+
@@ -566,7 +674,16 @@ subroutine construct_node(nodei,i1,i2,xyzh,iorder)
 #endif
  integer :: i,j
 
- !if (i2 < i1) return
+ if (i2 < i1 .or. i1==0 .or. i2==0) then
+    nodei%xcen = 0.
+    nodei%size = 0.
+    nodei%hmax = 0.
+#ifdef GRAVITY
+    nodei%mass  = 0.
+    nodei%quads = 0.
+#endif
+    return
+ endif
 !
 ! to avoid round off error from repeated multiplication by pmassi (which is small)
 ! we compute the centre of mass with a factor relative to gas particles
@@ -665,6 +782,7 @@ subroutine recompute_node_size(nodei,i1,i2,xyzh,list)
  real :: x0,y0,z0,dx,dy,dz,dr2,r2max
  integer :: i,j
 
+ if (i1 <= 0) return
  x0 = nodei%xcen(1)
  y0 = nodei%xcen(2)
  z0 = nodei%xcen(3)

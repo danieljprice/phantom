@@ -30,9 +30,12 @@ module linklist
  use dim,          only:maxp,ncellsmax
  use part,         only:ll
  use dtypekdtree,  only:kdnode
+ use kdtree,       only:iorder=>inodeparts,inoderange
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
+
+ public :: iorder,inoderange
 
  integer,               allocatable :: cellatid(:)
  integer,     public,   allocatable :: ifirstincell(:)
@@ -50,8 +53,9 @@ module linklist
  public :: set_linklist, get_neighbour_list, write_inopts_link, read_inopts_link
  public :: get_distance_from_centre_of_mass, getneigh_pos
  public :: set_hmaxcell,get_hmaxcell,update_hmax_remote
- public :: get_cell_location
+ public :: get_cell_location,get_cell_list
  public :: sync_hmax_mpi
+ public :: node_is_active
 
  private
 
@@ -74,6 +78,22 @@ subroutine deallocate_linklist
  deallocate(node)
  deallocate(nodemap)
 end subroutine deallocate_linklist
+
+subroutine get_cell_list(istart,iend)
+ integer, intent(out) :: istart,iend
+
+ istart = 1
+ iend = ncells
+
+end subroutine get_cell_list
+
+logical function node_is_active(icell)
+ integer, intent(in) :: icell
+
+ !--skip empty cells AND inactive cells
+ node_is_active = (ifirstincell(icell) > 0)
+
+end function node_is_active
 
 subroutine get_hmaxcell(inode,hmaxcell)
  integer, intent(in)  :: inode
@@ -102,9 +122,9 @@ subroutine set_hmaxcell(inode,hmaxcell)
 
 end subroutine set_hmaxcell
 
-subroutine update_hmax_remote(ncells)
+subroutine update_hmax_remote() !(ncells)
  use mpiutils, only:reduceall_mpi
- integer(kind=8), intent(in) :: ncells
+ !integer(kind=8), intent(in) :: ncells
  integer :: n,j
  real :: hmaxcell
 
@@ -150,8 +170,7 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
 #ifdef MPI
  use kdtree,       only: maketreeglobal
 #endif
- use dptree, only:maketree1
- use timing, only:wallclock
+ use timing, only:getused
 
 #ifdef MPI
  integer, intent(inout) :: npart
@@ -161,18 +180,15 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
  integer, intent(in)    :: nactive
  real,    intent(inout) :: xyzh(4,maxp)
  real,    intent(in)    :: vxyzu(:,:)
- real :: t1,t2,t3
+ real(4) :: t1,t2
 
 #ifdef MPI
  call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells)
 #else
- t1 = wallclock()
+ call getused(t1)
  call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
- t2 = wallclock()
- call maketree1(node,xyzh,npart,ndimtree,ifirstincell,ncells)
- t3 = wallclock()
- print*,' TIMING OLD=',t2-t1,' NEW = ',t3-t2, ' OLD/NEW = ', (t2-t1)/(t3-t2)
- stop
+ call getused(t2)
+ print*,' TIMING = ',t2-t1
 #endif
 
 end subroutine set_linklist
