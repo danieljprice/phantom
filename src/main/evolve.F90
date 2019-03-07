@@ -36,11 +36,11 @@ module evolve
 contains
 
 subroutine evol(infile,logfile,evfile,dumpfile)
- use io,               only:iprint,iwritein,id,master,iverbose,flush_warnings,nprocs,fatal
+ use io,               only:iprint,iwritein,id,master,iverbose,flush_warnings,nprocs,fatal,warning
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
                             dtmax_ifactor,dtmax_dratio,check_dtmax_for_decrease
  use evwrite,          only:write_evfile,write_evlog
- use energies,         only:etot,totmom,angtot,mdust,npcs0
+ use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0
  use dim,              only:maxvxyzu,mhd,periodic
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,use_dustfrac,iexternalforce,&
@@ -62,7 +62,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
                             print_dtlog_ind,get_newbin
  use timestep,         only:dtdiff
  use timestep_sts,     only:sts_get_dtau_next,sts_init_step
- use io,               only:fatal,warning
  use step_lf_global,   only:init_step
 #else
  use timestep,         only:dtforce,dtcourant,dterr,print_dtlog
@@ -146,6 +145,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  tzero     = time
  dtlast    = 0.
  dtinject  = huge(dtinject)
+ np_cs_eq_0 = 0
+ np_e_eq_0  = 0
 
  should_conserve_energy = (maxvxyzu==4 .and. ieos==2 .and. icooling==0 .and. &
                            ipdv_heating==1 .and. ishock_heating==1 &
@@ -439,8 +440,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
              call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)
           enddo
        endif
-       if (npcs0 > 0) then
-          call fatal('evolve','N gas particles with sound speed = 0',var='N',ival=int(npcs0,kind=4))
+       if (np_e_eq_0 > 0) then
+          call warning('evolve','N gas particles with energy = 0',var='N',ival=int(np_e_eq_0,kind=4))
+       endif
+       if (np_cs_eq_0 > 0) then
+          call fatal('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))
        endif
 
        !--write with the same ev file frequency also mass flux and binary position
