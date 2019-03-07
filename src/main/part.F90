@@ -153,7 +153,7 @@ module part
 
 #ifdef RADIATION
  real, allocatable :: radenergy(:)
- real, allocatable :: gradradenergy(:,:)
+ real, allocatable :: radenergyflux(:,:)
  real, allocatable :: dradenergy(:)
  character(len=*), parameter :: radenergy_label(5) = (/'radE', 'dEdx', 'dEdy', 'dEdz', 'dEdt'/)
 #endif
@@ -345,7 +345,7 @@ subroutine allocate_part
 #ifdef RADIATION
 ! radenergy, d/dx, d/dy, d/dz, d^2/dt^2
  call allocate_array('radenergy', radenergy, maxp)
- call allocate_array('gradradenergy', gradradenergy, 3, maxp)
+ call allocate_array('radenergyflux', radenergyflux, 3, maxp)
  call allocate_array('dradenergy', dradenergy, maxp)
 #endif
 #ifdef IND_TIMESTEPS
@@ -412,7 +412,7 @@ subroutine deallocate_part
 #endif
 #ifdef RADIATION
  deallocate(radenergy)
- deallocate(gradradenergy)
+ deallocate(radenergyflux)
  deallocate(dradenergy)
 #endif
  deallocate(iphase)
@@ -524,7 +524,7 @@ end function dhdrho
 !  (routine is an optimisation - also returns divisions)
 !+
 !----------------------------------------------------------------
-subroutine rhoanddhdrho(hi,hi1,rhoi,rho1i,dhdrhoi,pmassi)
+pure subroutine rhoanddhdrho(hi,hi1,rhoi,rho1i,dhdrhoi,pmassi)
  real,         intent(in)  :: hi, pmassi
  real(kind=8), intent(out) :: hi1
  real,         intent(out) :: rhoi

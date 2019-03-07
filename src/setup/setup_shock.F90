@@ -80,7 +80,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:radenergy
  use eos,          only:gmw
  use physcon,      only:Rg,c,steboltz
- use units,        only:unit_pressure,unit_density
+ use units,        only:unit_pressure,unit_density,unit_ergg
 #endif
  use kernel,       only:radkern,hfact_default
  use timestep,     only:tmax
@@ -98,7 +98,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real                             :: totmass, Tgas, Trad
+ real                             :: totmass, Tgas
  real                             :: xminleft(ndim),xmaxleft(ndim),xminright(ndim),xmaxright(ndim)
  real                             :: delta,gam1,xshock,fac,dtg
  real                             :: uuleft,uuright,volume,xbdyleft,xbdyright,dxright
@@ -276,7 +276,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (mhd) Bxyz(1:3,i) = rightstate(iBx:iBz)
 #ifdef RADIATION
        Tgas = gmw*(rightstate(ipr)*unit_pressure)/(rightstate(idens)*unit_density)/Rg
-       radenergy(i) = 4.0*steboltz*Tgas**4.0/c/(rightstate(idens)*unit_density)
+       radenergy(i) = 4.0*steboltz*Tgas**4.0/c/(rightstate(idens)*unit_density)/unit_ergg
 #endif
     else
        xyzh(4,i)  = hrho(leftstate(idens),massoftype(igas))
@@ -287,7 +287,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (mhd) Bxyz(1:3,i) = leftstate(iBx:iBz)
 #ifdef RADIATION
        Tgas = gmw*(leftstate(ipr)*unit_pressure)/(leftstate(idens)*unit_density)/Rg
-       radenergy(i) = 4.0*steboltz*Tgas**4.0/c/(leftstate(idens)*unit_density)
+       radenergy(i) = 4.0*steboltz*Tgas**4.0/c/(leftstate(idens)*unit_density)/unit_ergg
 #endif
     endif
  enddo

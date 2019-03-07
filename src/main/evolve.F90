@@ -86,7 +86,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
 #endif
 #ifdef RADIATION
- use radiation,        only:update_Trad
+ use part,             only:radenergy
+ use radiation,        only:update_energy
 #endif
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
@@ -316,7 +317,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
                           poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
     endif
 #ifdef RADIATION
-    call update_Trad()
+    call update_energy(npart,xyzh,fxyzu,dt,vxyzu,radenergy)
 #endif
     nsteps = nsteps + 1
 !
@@ -439,7 +440,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        call write_evfile(time,dt)
        if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
        if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
+#ifndef RADIATION
        if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
+#endif
        if (should_conserve_dustmass) then
           do j = 1,ndustsmall
              call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)

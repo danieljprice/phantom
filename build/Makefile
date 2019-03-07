@@ -481,8 +481,9 @@ ifeq ($(SETUP), radshock)
     KERNEL=quintic
     ISOTHERMAL=no
     KNOWN_SETUP=yes
-    DEBUG=yes
+    DEBUG=no
     MPI=no
+    # OPENMP=no
 endif
 
 ifeq ($(SETUP), dustydisc)
