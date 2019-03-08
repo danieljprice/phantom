@@ -1685,11 +1685,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
 
 !--non-MPI dumps
  if (nprocs==1) then
-    if (nparttoti > maxp_hard) then
-       write (*,*) 'ERROR in readdump: number of particles exceeds MAXP: recompile with MAXP=',nparttoti
-       ierr = 4
-       return
-    elseif (nparttoti > huge(npart)) then
+    if (nparttoti > huge(npart)) then
        write (*,*) 'ERROR in readdump: number of particles exceeds 32 bit limit, must use int(kind=8)''s ',nparttoti
        ierr = 4
        return

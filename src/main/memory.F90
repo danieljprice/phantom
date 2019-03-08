@@ -29,8 +29,8 @@ contains
  !--Allocate all allocatable arrays: mostly part arrays, and tree structures
  !
 subroutine allocate_memory(n, part_only)
- use io, only:iprint,error,fatal,nprocs,id
- use dim, only:update_max_sizes,maxp_hard
+ use io, only:iprint,error,fatal,nprocs,id,master
+ use dim, only:update_max_sizes,maxp
  use allocutils, only:nbytes_allocated,bytes2human
  use part, only:allocate_part
  use kdtree, only:allocate_kdtree
@@ -45,14 +45,16 @@ subroutine allocate_memory(n, part_only)
  logical :: part_only_
  character(len=11) :: sizestring
 
- if (n > maxp_hard) call fatal('memory', 'Trying to allocate above maxp hard limit.')
-
  if (present(part_only)) then
     part_only_ = part_only
  else
     part_only_ = .false.
  endif
 
+ if (nbytes_allocated > 0.0 .and. n < maxp) then
+   !print "(a)",' ARRAYS ALREADY ALLOCATED... SKIPPING'
+   return ! just silently skip if arrays are already large enough
+ endif
  call update_max_sizes(n)
 
  if (nprocs == 1) then
