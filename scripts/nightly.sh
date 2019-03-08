@@ -16,13 +16,15 @@ datetag=`date "+%Y%m%d"`;
 #---------------------
 #webdir=$dir/web
 webdir=$dir/phantomsph.bitbucket.org
+weblogdir="$webdir/nightly/logs"
 codedir=$dir/phantom
 benchdir=$dir/phantom-benchmarks
 url="https://phantomsph.bitbucket.io/"
 urlgitrepo="https://bitbucket.org/danielprice/phantom";
 #url="http://users.monash.edu.au/~dprice/phantom";
 #webserver="users.monash.edu.au:WWW/phantom/";
-urllogs="https://users.monash.edu.au/~dprice/phantom/nightly/logs/"
+webrepo="phantomsph/phantomsph.bitbucket.org"
+urllogs="https://bitbucket.org/${webrepo}/downloads/"
 sender="daniel.price@infra.monash.edu";
 admin="daniel.price@monash.edu";
 systems="msg gfortran";
@@ -105,6 +107,22 @@ pull_changes ()
    cd $benchdir; git pull >& gitpull.log
    cd $codedir;
 }
+clean_logs()
+{
+   echo "--- cleaning logs ---";
+   if [ -d $codedir/logs ]; then
+      cd $codedir/logs
+      for logfile in *.txt; do
+          if test `find $logfile -mmin +20160`; then
+             echo "deleting $logfile more than 2 weeks old";
+             rm $logfile;
+          fi
+      done;
+      rm -f *.tmp; # delete any temporary files
+   else
+      echo "error: $codedir/logs does not exist"
+   fi
+}
 run_buildbot ()
 {
    # run the buildbot and testbot scripts
@@ -114,8 +132,8 @@ run_buildbot ()
       export SYSTEM=$sys;
       echo "SYSTEM=$SYSTEM";
       export PHANTOM_DIR=$codedir; # so setup tests can find data files
-      ./testbot.sh "$urllogs/nightly/logs/";
-      ./buildbot.sh 17000000 "$urllogs/nightly/logs/";
+      ./testbot.sh "$urllogs";
+      ./buildbot.sh 17000000 "$urllogs";
    done
 }
 run_benchmarks ()
@@ -167,7 +185,6 @@ write_htmlfile_gittag_and_mailfile ()
        cat build-status-$SYSTEM.html >> $htmlfile
        cat $benchdir/opt-status-$SYSTEM.html >> $htmlfile
        files=`ls make-*errors*-$SYSTEM.txt make-*errors*-$SYSTEM-debug.txt test-results*-$SYSTEM.txt test-results*-$SYSTEM-debug.txt`
-       weblogdir="$webdir/nightly/logs"
        if [ -d "$weblogdir" ]; then
           for x in $files; do
               webfile="$weblogdir/$x";
@@ -356,11 +373,21 @@ commit_and_push_to_website ()
    git status
    git commit -m "[nightly]: results `date`"
    git push
+   # post logs to "downloads" area
+   # BB_AUTH is an auth token unique to the bitbucket user (e.g. set to danielprice:authkey)
+   if [ -d $weblogdir ]; then
+      cd $weblogdir;
+      for logfile in `ls *.txt | grep -v old.txt`; do
+          curl -v "https://${BB_AUTH}@api.bitbucket.org/2.0/repositories/${webrepo}/downloads" \
+               -F files=@"$logfile"
+      done
+   fi
 }
 get_incoming_changes
 extract_names_of_users
 extract_changeset_list
 pull_changes
+clean_logs
 run_buildbot
 run_benchmarks
 #pull_wiki
