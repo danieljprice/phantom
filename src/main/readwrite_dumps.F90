@@ -854,7 +854,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
        if (.not. use_moddump) then
           call allocate_memory(int(nparttot / nprocs))
        else
-         ! This is required for the cases when particles will be added during moddump
+          ! This is required for the cases when particles will be added during moddump
           call allocate_memory(maxp_hard)
        endif
 #endif
