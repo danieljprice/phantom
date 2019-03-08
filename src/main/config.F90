@@ -297,7 +297,7 @@ subroutine update_max_sizes(n)
 #ifdef NCELLSMAX
  ncellsmax = NCELLSMAX
 #else
- ncellsmax = min(2*maxp,maxp_hard)
+ ncellsmax = 2*maxp
 #endif
 
 #ifdef DUST
