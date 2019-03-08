@@ -142,7 +142,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use dim,          only:maxvxyzu,maxneigh,maxdvdx,&
                         mhd,mhd_nonideal,lightcurve
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
- use linklist,     only:get_neighbour_list,get_hmaxcell,get_cell_location,get_cell_list,node_is_active
+ use linklist,     only:get_neighbour_list,get_hmaxcell,get_cell_location,get_cell_list,node_is_active,ifirstincell
  use options,      only:iresistive_heating
  use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,nabundances,ll,get_partinfo,iactive,gradh,&
                         hrho,iphase,maxphase,igas,iboundary,maxgradh,dvdx, &
@@ -346,6 +346,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
+!$omp shared(ifirstincell) &
 !$omp shared(istart,iend) &
 !$omp shared(xyzh) &
 !$omp shared(dustprop) &
@@ -411,7 +412,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp do schedule(runtime)
  over_leaf_nodes: do icell=istart,iend
 ! over_cells: do icell=1,int(ncells)
-    if (.not.node_is_active(icell)) cycle over_leaf_nodes
+    if (ifirstincell(icell) <= 0) cycle over_leaf_nodes
+    !if (.not.node_is_active(icell)) cycle over_leaf_nodes
 
     cell%icell = icell
 

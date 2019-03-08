@@ -132,6 +132,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                      get_partinfo,iactive,&
                      hrho,iphase,igas,idust,iboundary,iamgas,periodic,&
                      all_active,dustfrac,Bxyz
+ use linklist, only:ifirstincell
 #ifdef FINVSQRT
  use fastmath,  only:finvsqrt
 #endif
@@ -234,7 +235,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(icall,istart,iend) &
 !!$omp shared(ncells) &
 !!$omp shared(ll) &
-!!$omp shared(ifirstincell) &
+!$omp shared(ifirstincell) &
 !$omp shared(xyzh) &
 !$omp shared(vxyzu) &
 !$omp shared(fxyzu) &
@@ -296,7 +297,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp do schedule(runtime)
   over_leaf_nodes: do icell=istart,iend
 ! over_cells: do icell=1,int(ncells)
-    if (.not.node_is_active(icell)) cycle over_leaf_nodes
+    if (ifirstincell(icell) <= 0) cycle over_leaf_nodes
+!    if (.not.node_is_active(icell)) cycle over_leaf_nodes
 
     !
     !--get the neighbour list and fill the cell cache
@@ -528,7 +530,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 #endif
 !$omp end parallel
 
- call update_hmax_remote
+ !call update_hmax_remote
 
 #ifdef MPI
  call finish_cell_exchange(irequestrecv,xsendbuf)

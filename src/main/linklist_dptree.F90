@@ -145,7 +145,7 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
  use kdtree,       only: maketreeglobal
 #endif
  use dptree, only:maketree1
- use octtree, only:maketree2
+! use octtree, only:maketree2
  use timing, only:getused
 
 #ifdef MPI

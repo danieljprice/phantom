@@ -112,7 +112,7 @@ module dim
  integer, parameter :: maxdusttypes = maxdustsmall + maxdustlarge
 
  ! kdtree
- integer, parameter :: minpart = 32
+ integer, parameter :: minpart = 10
 
  ! rhosum
  integer, parameter :: maxrhosum = 39 + maxdustlarge - 1
@@ -297,7 +297,7 @@ subroutine update_max_sizes(n)
 #ifdef NCELLSMAX
  ncellsmax = NCELLSMAX
 #else
- ncellsmax = min(3*maxp,maxp_hard)
+ ncellsmax = min(2*maxp,maxp_hard)
 #endif
 
 #ifdef DUST
