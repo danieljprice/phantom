@@ -26,7 +26,7 @@
 !--------------------------------------------------------------------------
 program combinedustdumps
  use deriv,           only:derivs
- use dim,             only:maxp,tagline
+ use dim,             only:maxp,maxvxyzu,tagline
  use initial,         only:initialise
  use io,              only:set_io_unit_numbers,iprint,idisk1,fatal
  use part,            only:xyzh,vxyzu,npart,hfact,iphase,npartoftype,massoftype,&
@@ -39,7 +39,6 @@ program combinedustdumps
  use memory,          only:allocate_memory
  use checksetup,      only:check_setup
  implicit none
-
  character(len=120), allocatable :: indumpfiles(:)
  character(len=120) :: outdumpfile
  real, allocatable :: xyzh_tmp(:,:,:),vxyzu_tmp(:,:,:),massofdust_tmp(:)
@@ -89,6 +88,13 @@ program combinedustdumps
     counter = counter + npartoftype(idust_tmp)
  enddo
  !
+ !--sanity check array sizes
+ !
+ if (idust+ninpdumps-1 > size(npartoftype)) then
+    call fatal('combinedustdumps','not enough particle types: compile with DUST=yes and',&
+               var='MAXDUSTLARGE >',ival=ninpdumps-1)
+ endif
+ !
  ! allocate memory
  !
  call allocate_memory(counter)
@@ -101,7 +107,7 @@ program combinedustdumps
  !
  allocate (xyzh_tmp(ninpdumps,4,npartoftype(idust_tmp)),stat=ierr)
  if (ierr /= 0) stop 'error allocating memory to store positions'
- allocate (vxyzu_tmp(ninpdumps,4,npartoftype(idust_tmp)),stat=ierr)
+ allocate (vxyzu_tmp(ninpdumps,maxvxyzu,npartoftype(idust_tmp)),stat=ierr)
  if (ierr /= 0) stop 'error allocating memory to store velocities'
  allocate (npartofdust_tmp(ninpdumps),stat=ierr)
  if (ierr /= 0) stop 'error allocating memory to store number of dust particles'
@@ -151,7 +157,6 @@ program combinedustdumps
  massoftype(2) = 0
  grainsize(1) = grainsize_tmp(1)
  graindens(1) = graindens_tmp(1)
-
  !
  !--add dust from other dumps
  !
