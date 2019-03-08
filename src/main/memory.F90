@@ -51,7 +51,7 @@ subroutine allocate_memory(n, part_only)
     part_only_ = .false.
  endif
 
- if (nbytes_allocated > 0.0 .and. n < maxp) then
+ if (nbytes_allocated > 0.0 .and. n <= maxp) then
    !print "(a)",' ARRAYS ALREADY ALLOCATED... SKIPPING'
    return ! just silently skip if arrays are already large enough
  endif

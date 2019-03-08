@@ -797,21 +797,6 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  endif
 
  call free_header(hdr,ierr)
-
- !
- !--Allocate main arrays
- !
-#ifdef INJECT_PARTICLES
- call allocate_memory(maxp_hard)
-#else
- if (.not. use_moddump) then
-    call allocate_memory(int(nparttot / nprocs))
- else
-    ! This is required for the cases when particles will be added during moddump
-    call allocate_memory(maxp_hard)
- endif
-#endif
-
 !
 !--arrays
 !
@@ -857,6 +842,22 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 !
     if (present(headeronly)) then
        if (headeronly) return
+    endif
+
+    if (iblock==1) then
+!
+!--Allocate main arrays
+!
+#ifdef INJECT_PARTICLES
+       call allocate_memory(maxp_hard)
+#else
+       if (.not. use_moddump) then
+          call allocate_memory(int(nparttot / nprocs))
+       else
+         ! This is required for the cases when particles will be added during moddump
+          call allocate_memory(maxp_hard)
+       endif
+#endif
     endif
 !
 !--determine if extra dust quantites should be read
