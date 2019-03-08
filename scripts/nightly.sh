@@ -136,6 +136,15 @@ run_buildbot ()
       ./buildbot.sh 17000000 "$urllogs";
    done
 }
+create_slack_performance_report ()
+{
+   echo "--- creating performance report ---";
+   if [ -e $benchdir/opt2slack.pl ]; then
+      text=`cd $benchdir; ./opt2slack.pl opt*.html`
+      line="Nightly performance report (graphs <$url/nightly/opt/|here>):\n$text"
+      echo $line > slack-perf.tmp;
+   fi
+}
 run_benchmarks ()
 {
    # run performance suite
@@ -148,6 +157,7 @@ run_benchmarks ()
        ./run-benchmarks.sh;
    done
    ./plot-benchmarks.sh;
+   create_slack_performance_report;
 }
 pull_wiki ()
 {
@@ -383,6 +393,17 @@ commit_and_push_to_website ()
       done
    fi
 }
+post_slack_messages()
+{
+  message="status: <$url/nightly/build/$datetag.html|$gittag>"
+  post_to_slack "$message" "#commits"
+  message=`cat slack.tmp`
+  post_to_slack "$message" "#nightly"
+  if [ -e slack-perf.tmp ]; then
+     message=`cat slack-perf.tmp`
+     post_to_slack "$message" "#nightly"
+  fi
+}
 get_incoming_changes
 extract_names_of_users
 extract_changeset_list
@@ -392,10 +413,7 @@ run_buildbot
 run_benchmarks
 #pull_wiki
 write_htmlfile_gittag_and_mailfile
-message="status: <$url/nightly/build/$datetag.html|$gittag>"
-post_to_slack "$message" "#commits"
-message=`cat slack.tmp`
-post_to_slack "$message" "#nightly"
+post_slack_messages
 tag_code_and_push_tags
 send_email
 commit_and_push_to_website
