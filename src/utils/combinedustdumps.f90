@@ -36,6 +36,7 @@ program combinedustdumps
                            grainsize,graindens,iamtype,isdead_or_accreted
  use readwrite_dumps, only:read_dump,write_fulldump
  use units,           only:set_units,select_unit,umass,udist,utime
+ use memory,          only:allocate_memory
  implicit none
 
  character(len=120), allocatable :: indumpfiles(:)
@@ -71,24 +72,30 @@ program combinedustdumps
  print "(/,a,/)",' combinedustdumps: many grains make light work'
 
  !
- !--read first dumpfile: check idust, check MAXP
- !  we assume all dumps are from the same phantom version
+ ! read first dumpfile HEADER ONLY: check idust, check MAXP
+ ! we assume all dumps are from the same phantom version
+ !
+ counter = 0
+ idust_tmp = idust ! new dumps, location of first dust particle type
+ do i=1,ninpdumps
+    call read_dump(trim(indumpfiles(i)),time,hfact,idisk1,iprint,0,1,ierr,headeronly=.true.)
+    if (ierr /= 0) stop 'error reading dumpfile... aborting'
+    if (i==1) then
+       counter = counter + npartoftype(1)
+       if (npartoftype(2) > 0) idust_tmp = 2  !old dumps
+    endif
+    counter = counter + npartoftype(idust_tmp)
+ enddo
+ !
+ ! allocate memory
+ !
+ call allocate_memory(counter)
+ !
+ ! read gas particles from first file
  !
  call read_dump(trim(indumpfiles(1)),time,hfact,idisk1,iprint,0,1,ierr)
- if (npartoftype(2) > 0) then
-    !--old dumps
-    idust_tmp = 2
- else
-    !--new dumps
-    idust_tmp = idust
- endif
- if (npartoftype(1) + ninpdumps*npartoftype(idust_tmp) > maxp) then
-    print "(a)",' MAXP too small, set MAXP >= ngas+ndumps*ndust and recompile'
-    stop
- endif
-
  !
- !--allocate temporary arrays
+ ! allocate temporary arrays
  !
  allocate (xyzh_tmp(ninpdumps,4,npartoftype(idust_tmp)),stat=ierr)
  if (ierr /= 0) stop 'error allocating memory to store positions'
