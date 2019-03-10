@@ -138,6 +138,7 @@ run_buildbot ()
 }
 create_slack_performance_report ()
 {
+   cd $dir;
    echo "--- creating performance report ---";
    if [ -e $benchdir/opt2slack.pl ]; then
       text=`cd $benchdir; ./opt2slack.pl opt*.html`
@@ -387,10 +388,14 @@ commit_and_push_to_website ()
    # BB_AUTH is an auth token unique to the bitbucket user (e.g. set to danielprice:authkey)
    if [ -d $weblogdir ]; then
       cd $weblogdir;
+      #flags='';
       for logfile in `ls *.txt | grep -v old.txt`; do
-          curl -v "https://${BB_AUTH}@api.bitbucket.org/2.0/repositories/${webrepo}/downloads" \
+          #flags+="-F files=@$logfile "
+          curl "https://${BB_AUTH}@api.bitbucket.org/2.0/repositories/${webrepo}/downloads" \
                -F files=@"$logfile"
       done
+      #curl -v "https://${BB_AUTH}@api.bitbucket.org/2.0/repositories/${webrepo}/downloads" \
+      #        $flags;
    fi
 }
 post_slack_messages()
@@ -411,6 +416,7 @@ pull_changes
 clean_logs
 run_buildbot
 run_benchmarks
+#create_slack_performance_report
 #pull_wiki
 write_htmlfile_gittag_and_mailfile
 post_slack_messages
