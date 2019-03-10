@@ -2691,7 +2691,7 @@ err:
 	$(error aborting);
 
 clean:
-	rm -f *.o *.mod
+	rm -f *.o *.mod phantom-version.h
 
 cleanall: clean cleanmathflags
 	cd $(BINDIR); rm -f phantom phantomsetup
