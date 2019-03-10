@@ -21,8 +21,8 @@
 !
 !  USAGE: combinedustdumps inputdumpfiles ... outputdumpfile
 !
-!  DEPENDENCIES: deriv, dim, initial, io, memory, part, readwrite_dumps,
-!    units
+!  DEPENDENCIES: checksetup, deriv, dim, initial, io, memory, part,
+!    readwrite_dumps, units
 !+
 !--------------------------------------------------------------------------
 program combinedustdumps
