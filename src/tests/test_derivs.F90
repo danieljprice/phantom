@@ -37,7 +37,7 @@ contains
 
 subroutine test_derivs(ntests,npass,string)
  use dim,          only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust,&
-                        maxdustsmall
+                        maxdustsmall,periodic
  use boundary,     only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
  use eos,          only:polyk,gamma,use_entropy
  use io,           only:iprint,id,master,fatal,iverbose,nprocs
@@ -68,6 +68,7 @@ subroutine test_derivs(ntests,npass,string)
 #endif
  use units,        only:set_units
  use testutils,    only:checkval,checkvalf
+ use domain,       only:i_belong
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
  real              :: psep,time,hzero,totmass
@@ -152,7 +153,8 @@ subroutine test_derivs(ntests,npass,string)
  npart = 0
  totmass = rhozero*dxbound*dybound*dzbound
 
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
+ call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
+                  hfact,npart,xyzh,periodic,mask=i_belong)
  np = npart
 
  if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
@@ -923,15 +925,18 @@ subroutine test_derivs(ntests,npass,string)
     !
     !--setup high density blob
     !
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psepblob,hfact,npart,xyzh,rmax=rtest)
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psepblob,&
+                     hfact,npart,xyzh,periodic,mask=i_belong,rmax=rtest)
     nparttest = npart
 
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psepblob,hfact,npart,xyzh,rmin=rtest,rmax=rblob)
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psepblob,&
+                     hfact,npart,xyzh,periodic,mask=i_belong,rmin=rtest,rmax=rblob)
     npartblob = npart
     !
     !--setup surrounding medium
     !
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh,rmin=rblob)
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
+                     hfact,npart,xyzh,periodic,mask=i_belong,rmin=rblob)
     npartoftype(1) = npart
     nptot = reduceall_mpi('+',npart)
     print*,' thread ',id,' npart = ',npart,' in blob = ',npartblob,' to test = ',nparttest
@@ -1065,7 +1070,7 @@ subroutine test_derivs(ntests,npass,string)
 
     npart = 0
     call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                      psep,hfact,npart,xyzh)
+                      psep,hfact,npart,xyzh,periodic,mask=i_belong)
 
     !
     !--need to initialise dBevol to zero, otherwise if cleaning is not updated

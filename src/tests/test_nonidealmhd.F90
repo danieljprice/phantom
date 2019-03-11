@@ -101,6 +101,7 @@ subroutine test_wavedamp(ntests,npass)
  use io,             only:iverbose
  use nicil,          only:nicil_initialise,eta_constant,eta_const_type,icnstsemi, &
                           use_ohm,use_hall,use_ambi,C_AD
+ use domain,         only:i_belong
 #ifdef STS_TIMESTEPS
  use timestep_sts,   only:sts_initialise
  use timestep,       only:dtdiff,dtcourant
@@ -151,7 +152,7 @@ subroutine test_wavedamp(ntests,npass)
  ! set particles
  !
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                   deltax,hfact_default,npart,xyzh,verbose=.false.)
+                   deltax,hfact_default,npart,xyzh,periodic,verbose=.false.,mask=i_belong)
  vxyzu = 0.0
  Bxyz  = 0.0
  Bevol = 0.0
@@ -273,6 +274,7 @@ subroutine test_standingshock(ntests,npass)
  use io,             only:iverbose
  use nicil,          only:nicil_initialise,eta_constant,eta_const_type,icnstsemi, &
                           use_ohm,use_hall,use_ambi,C_OR,C_HE,C_AD
+ use domain,         only:i_belong
  integer, intent(inout) :: ntests,npass
  integer                :: i,nx,ny,nz,nsteps,ierr,idr,npts
  integer                :: nerr(5)
@@ -317,7 +319,8 @@ subroutine test_standingshock(ntests,npass)
  !
  ! set particles on the left half of the shock
  !
- call set_unifdis('closepacked',id,master,xleft,0.0,ymin,ymax,zmin,zmax,dxleft,hfact_default,npart,xyzh)
+ call set_unifdis('closepacked',id,master,xleft,0.0,ymin,ymax,zmin,zmax,dxleft,&
+                  hfact_default,npart,xyzh,periodic,mask=i_belong)
  volume                = -xleft*dybound*dzbound
  totmass               = volume*leftstate(1)
  massoftype(igas)      = totmass/npart
@@ -329,7 +332,8 @@ subroutine test_standingshock(ntests,npass)
  volume  = xright*dybound*dzbound
  totmass = volume*rightstate(1)
  dxright = xright/((totmass/massoftype(igas))/(ny*nz))
- call set_unifdis('closepacked',id,master,0.0,xright,ymin,ymax,zmin,zmax,dxright,hfact_default,npart,xyzh,npy=ny,npz=nz)
+ call set_unifdis('closepacked',id,master,0.0,xright,ymin,ymax,zmin,zmax,dxright,&
+                hfact_default,npart,xyzh,periodic,npy=ny,npz=nz,mask=i_belong)
  !
  ! set boundary particles, and set properties of the particles
  !
@@ -506,6 +510,7 @@ subroutine test_narrays(ntests,npass)
  use io,             only:iverbose
  use nicil,          only:nicil_initialise,nicil_get_eta,eta_constant,use_ohm,use_hall,use_ambi,&
                           ion_rays,ion_thermal,unit_eta
+ use domain,         only:i_belong
  integer, intent(inout) :: ntests,npass
  integer, parameter     :: kmax = 2
  integer                :: i,k,nx,ierr,itmp
@@ -585,7 +590,7 @@ subroutine test_narrays(ntests,npass)
     ! set particles
     !
     call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                      deltax,hfact_default,npart,xyzh,verbose=.false.)
+                      deltax,hfact_default,npart,xyzh,periodic,verbose=.false.,mask=i_belong)
     vxyzu = 0.0
     Bxyz  = 0.0
     Bevol = 0.0

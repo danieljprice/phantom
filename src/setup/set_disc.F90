@@ -52,7 +52,7 @@
 !--------------------------------------------------------------------------
 module setdisc
  use dim,      only:maxvxyzu
- use domain,   only:i_belong
+ use domain,   only:i_belong_i4
  use io,       only:warning,error,fatal
  use mpiutils, only:reduceall_mpi
  use part,     only:igas,labeltype
@@ -333,7 +333,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  if (present(nparttot)) then
     npart = 0
     do i=1,npart_set
-       if (i_belong(i)) npart = npart + 1
+       if (i_belong_i4(i)) npart = npart + 1
     enddo
  endif
  !
@@ -593,7 +593,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     if (do_mixture) rhopart = rhopart + rhozmixt
     hpart = hfact*(particle_mass/rhopart)**(1./3.)
 
-    if (i_belong(i)) then
+    if (i_belong_i4(i)) then
        ipart = ipart + 1
        !--set positions -- move to origin below
        xyzh(1,ipart) = R*cos(phi)
@@ -639,7 +639,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  ierr = 0
  ipart = npart_start_count - 1
  do i=npart_start_count,npart_tot
-    if (i_belong(i)) then
+    if (i_belong_i4(i)) then
        ipart = ipart + 1
        !
        !--set velocities to give centrifugal balance:
@@ -749,7 +749,7 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
  totmass       = 0.
  ipart = i1 - 1
  do i=i1,i2
-    if (i_belong(i)) then
+    if (i_belong_i4(i)) then
        ipart = ipart + 1
        xcentreofmass = xcentreofmass + particle_mass*xyzh(1:3,ipart)
        vcentreofmass = vcentreofmass + particle_mass*vxyzu(1:3,ipart)
@@ -767,7 +767,7 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
 
  ipart = i1 - 1
  do i=i1,i2
-    if (i_belong(i)) then
+    if (i_belong_i4(i)) then
        ipart = ipart + 1
        xyzh(1:3,ipart)  = xyzh(1:3,ipart)  - xcentreofmass + x0
        vxyzu(1:3,ipart) = vxyzu(1:3,ipart) - vcentreofmass + v0
@@ -1002,7 +1002,7 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,M_star,i
  !--loop over particles putting properties into the correct bin
  ipart = i1 - 1
  do i=i1,i2
-    if (i_belong(i)) then
+    if (i_belong_i4(i)) then
        ipart = ipart + 1
        if (xyzh(4,ipart) > tiny(xyzh)) then ! IF ACTIVE
           ri = sqrt(dot_product(xyzh(1:3,ipart),xyzh(1:3,ipart)))

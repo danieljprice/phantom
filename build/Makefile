@@ -1621,8 +1621,7 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 \
           utils_tables.f90 random.f90 mpi_balance.F90 set_dust.F90 set_dust_options.f90 set_binary.f90 set_flyby.f90 \
           utils_indtimesteps.F90 partinject.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
-          ptmass.F90 energies.F90 \
-          density_profiles.f90 \
+          ptmass.F90 energies.F90 density_profiles.f90 \
           set_slab.f90 set_sphere.f90 set_disc.F90 \
           set_vfield.f90 sort_particles.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \

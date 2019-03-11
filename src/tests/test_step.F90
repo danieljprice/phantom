@@ -42,7 +42,7 @@ subroutine test_step(ntests,npass)
  use options,  only:tolh,alpha,alphau,alphaB,ieos
  use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,divcurlv, &
                     Bevol,dBevol,Bextx,Bexty,Bextz,alphaind,fext, &
-                    maxphase,mhd,maxBevol,igas
+                    maxphase,mhd,maxBevol,igas,periodic
  use unifdis,  only:set_unifdis
  use physcon,  only:pi
  use timing,   only:getused
@@ -52,6 +52,7 @@ subroutine test_step(ntests,npass)
  use part,            only:iphase,isetphase,igas
  use timestep,        only:dtmax
  use testutils,       only:checkval,checkvalf
+ use domain,          only:i_belong
 #endif
 #ifdef IND_TIMESTEPS
  use timestep_ind, only: nbinmax
@@ -68,7 +69,8 @@ subroutine test_step(ntests,npass)
 
  npart = 0
  psep = dxbound/50.
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
+ call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                 psep,hfact,npart,xyzh,periodic,mask=i_belong)
 
  npartoftype(:) = 0
  npartoftype(1) = npart

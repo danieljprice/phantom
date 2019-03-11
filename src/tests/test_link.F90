@@ -31,7 +31,7 @@ module testlink
 contains
 
 subroutine test_link(ntests,npass)
- use dim,      only:maxp,maxneigh
+ use dim,      only:maxp,maxneigh,periodic
  use io,       only:id,master,nprocs!,iverbose
  use mpiutils, only:reduceall_mpi
  use part,     only:npart,npartoftype,massoftype,xyzh,vxyzu,hfact,igas,kill_particle
@@ -44,6 +44,7 @@ subroutine test_link(ntests,npass)
  use testutils,       only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end
  use linklist,        only:set_linklist,get_neighbour_list,ncells,ifirstincell
  use kdtree,          only:inodeparts,inoderange
+ use domain,          only:i_belong
 #ifdef PERIODIC
  use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax,dybound,dzbound
  use linklist, only:dcellx,dcelly,dcellz
@@ -67,7 +68,7 @@ subroutine test_link(ntests,npass)
  logical                :: hasactive
 #endif
  integer                :: maxneighi,minneigh,iseed,nlinktest,itest,ndead
- integer(kind=8)        :: meanneigh
+ integer(kind=8)        :: meanneigh,i8
  integer :: nfailed(8)
  logical                :: iactivei,iactivej,activecell
  real, allocatable :: xyzcache(:,:)
@@ -100,7 +101,8 @@ subroutine test_link(ntests,npass)
  dzboundp = zmaxp-zminp
  psep = (xmaxp-xminp)/32.
 
- call set_unifdis('random',id,master,xminp,xmaxp,yminp,ymaxp,zminp,zmaxp,psep,hfact,npart,xyzh,nptot=nptot)
+ call set_unifdis('random',id,master,xminp,xmaxp,yminp,ymaxp,zminp,zmaxp,psep,&
+                  hfact,npart,xyzh,periodic,nptot=nptot,mask=i_belong)
  npartoftype(:) = 0
  npartoftype(igas) = npart
  !print*,'thread ',id,' npart = ',npart
@@ -125,9 +127,9 @@ subroutine test_link(ntests,npass)
 
     iseed = -24358
     ip = 0
-    do i=1,int(nptot)
+    do i8=1_8,nptot
        hi = hmin + ran2(iseed)*(hmax - hmin)
-       if (i_belong(i)) then
+       if (i_belong(i8)) then
           ip = ip + 1
           !--give random smoothing lengths
           xyzh(4,ip) = hi

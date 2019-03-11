@@ -30,7 +30,7 @@ module testsedov
 contains
 
 subroutine test_sedov(ntests,npass)
- use dim,      only:maxp,maxvxyzu,maxalpha,use_dust
+ use dim,      only:maxp,maxvxyzu,maxalpha,use_dust,periodic
  use io,       only:id,master,iprint,ievfile,iverbose,real4
  use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use unifdis,  only:set_unifdis
@@ -54,6 +54,7 @@ subroutine test_sedov(ntests,npass)
  use io_summary,only:summary_reset
  use initial_params, only:etot_in,angtot_in,totmom_in,mdust_in
  use mpiutils,  only:reduceall_mpi
+ use domain,    only:i_belong
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2)
  integer :: i,itmp,ierr,iu
@@ -102,7 +103,8 @@ subroutine test_sedov(ntests,npass)
     prblast  = gam1*enblast/(4./3.*pi*rblast**3)
     npart    = 0
 
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,&
+                     npart,xyzh,periodic,mask=i_belong)
 
     npartoftype(:) = 0
     npartoftype(1) = npart

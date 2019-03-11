@@ -36,8 +36,8 @@ contains
 !+
 !-------------------------------------------------------------
 subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
-                       zmin,zmax,delta,hfact,np,xyzh,rmin,rmax,rcylmin,rcylmax,&
-                       nptot,npy,npz,rhofunc,inputiseed,verbose,periodic,dir,geom,mask,err)
+                       zmin,zmax,delta,hfact,np,xyzh,periodic,rmin,rmax,rcylmin,rcylmax,&
+                       nptot,npy,npz,rhofunc,inputiseed,verbose,dir,geom,mask,err)
  use random,     only:ran2
  use stretchmap, only:set_density_profile
  !use domain,     only:i_belong
@@ -46,13 +46,15 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  integer,          intent(inout) :: np
  real,             intent(in)    :: xmin,xmax,ymin,ymax,zmin,zmax,delta,hfact
  real,             intent(out)   :: xyzh(:,:)
+ logical,          intent(in)    :: periodic ! true or false
+
  real,             intent(in),    optional :: rmin,rmax
  real,             intent(in),    optional :: rcylmin,rcylmax
  integer(kind=8),  intent(inout), optional :: nptot
  integer,          intent(in),    optional :: npy,npz,dir,geom
  real, external,                  optional :: rhofunc
  integer,          intent(in),    optional :: inputiseed
- logical,          intent(in),    optional :: verbose, periodic
+ logical,          intent(in),    optional :: verbose
  integer,          intent(out),   optional :: err
  ! following lines of code allow an optional mask= argument
  ! to setup only certain subsets of the particle domain (used for MPI)
@@ -61,8 +63,8 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
    integer(kind=8), intent(in) :: ip
   end function mask_prototype
  end interface
- procedure(mask_prototype), pointer, optional :: mask
- procedure(mask_prototype), pointer :: i_belong
+ procedure(mask_prototype), optional :: mask
+ procedure(mask_prototype), pointer  :: i_belong
 
  integer            :: i,j,k,l,m,nx,ny,nz,npnew,npin,ierr
  integer            :: jy,jz,ipart,maxp,iseed,icoord,igeom
@@ -74,7 +76,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  real               :: rmin2,rmax2,rcylmin2,rcylmax2
  real               :: xpartmin,ypartmin,zpartmin
  real               :: xpartmax,ypartmax,zpartmax,xmins,xmaxs
- logical            :: is_verbose, is_periodic
+ logical            :: is_verbose
  character(len=*), parameter :: fmt1 = "(/,1x,16('-'),' particles set on ',i3,2(' x ',i3),"// &
                                        "' uniform ',a,' lattice ',14('-'))"
  character(len=*), parameter :: fmt2 = "(/,1x,13('-'),' particles set on',i6,2(' x',i6),"// &
@@ -127,10 +129,6 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  ! Suppress output to the terminal if wished - handy for setups which call this subroutine frequently
  is_verbose = .true.
  if (present(verbose)) is_verbose = verbose
-
- ! enforce exact periodicity
- is_periodic = .false.
- if (present(periodic)) is_periodic = periodic
 
  ! check against mask
  if (present(mask)) then
@@ -218,7 +216,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        print fmtdx,'dx',deltax,'dy',deltay,'dz',deltaz
        print fmtdy,'dy/dx: ',deltay/deltax,' dz/dx: ',deltaz/deltax
     endif
-    if (is_periodic) then
+    if (periodic) then
        ny = 2*int(ny/2)
        nz = 2*int(nz/2)
        deltax = dxbound/nx
@@ -353,7 +351,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        print fmtdx,'dx',deltax,'dy',deltay,'dz',deltaz
        print fmtdy,'dy/dx: ',deltay/deltax,' dz/dx: ',deltaz/deltax
     endif
-    if (is_periodic) then
+    if (periodic) then
        ny = 2*int(ny/2)
        nz = 3*int(nz/3)
        if (.not.present(npy)) then  ! if fixing ny and nz keep deltax = input value
@@ -465,7 +463,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
 
     enddo
 
-    !if (id==master .and. is_periodic) then
+    !if (id==master .and. periodic) then
     !print*,'part boundaries',xpartmin,xpartmax,ypartmin,ypartmax,zpartmin,zpartmax
 
     !print*,'part spacing with the edges of the box ','x',(xpartmin-xmin)/deltax,(xmax-xpartmax)/deltax, &

@@ -36,6 +36,7 @@ contains
 subroutine set_slab(id,master,nx,xmini,xmaxi,ymini,ymaxi,deltax,hfact,np,xyzh,lattice)
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound
  use unifdis,      only:set_unifdis
+ use domain,       only:i_belong
  integer,          intent(in)    :: id,master,nx
  integer,          intent(inout) :: np
  real,             intent(in)    :: xmini,xmaxi,ymini,ymaxi,hfact
@@ -67,7 +68,8 @@ subroutine set_slab(id,master,nx,xmini,xmaxi,ymini,ymaxi,deltax,hfact,np,xyzh,la
 !
 ! set particle lattice
 !
- call set_unifdis(mylattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,np,xyzh)
+ call set_unifdis(mylattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
+                  hfact,np,xyzh,.true.,mask=i_belong)
 
 end subroutine set_slab
 

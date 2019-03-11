@@ -97,7 +97,7 @@ subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh, &
                              hfact,np,np_requested,xyzh,rmax,vol_sphere,nptot)
  else
     call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
-                     zmin,zmax,delta,hfact,np,xyzh,rmin=rmin,rmax=rmax,nptot=nptot,verbose=.false.)
+                     zmin,zmax,delta,hfact,np,xyzh,.false.,rmin=rmin,rmax=rmax,nptot=nptot,verbose=.false.)
  endif
  !
  ! allow stretch mapping to give arbitrary density profiles
@@ -174,7 +174,7 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
     npart       = npin
     npart_total = npart_local
     call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
-                    hfact,npart,xyzh,rmax=r_sphere,nptot=npart_total,verbose=.false.)
+                    hfact,npart,xyzh,.false.,rmax=r_sphere,nptot=npart_total,verbose=.false.)
     npart0 = npart - npin
     if (npart0==nps_requested) then
        iterate_to_get_nps = .false.
