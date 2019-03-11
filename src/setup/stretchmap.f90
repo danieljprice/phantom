@@ -31,14 +31,19 @@
 !+
 !--------------------------------------------------------------------------
 module stretchmap
- use physcon, only:pi
  implicit none
+ real, parameter :: pi = 4.*atan(1.)
  public :: set_density_profile
 
  integer, private :: ngrid = 1024 ! number of points used when integrating rho to get mass
  integer, parameter, private :: maxits = 100  ! max number of iterations
  integer, parameter, private :: maxits_nr = 30  ! max iterations with Newton-Raphson
  real,    parameter, private :: tol = 1.e-9  ! tolerance on iterations
+ integer, parameter, public :: ierr_zero_size_density_table = 1, &
+                               ierr_memory_allocation = 2, &
+                               ierr_table_size_differs = 3, &
+                               ierr_not_converged = -1
+
  private
 
 contains
@@ -79,8 +84,7 @@ contains
 !  contain density values on equally spaced bins between cmin and cmax
 !+
 !----------------------------------------------------------------
-subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,coord)
- use io,          only:error,fatal,iprint,id,master
+subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,coord,verbose,err)
  use geometry,    only:coord_transform,maxcoordsys,labelcoord,igeom_cartesian!,labelcoordsys
  use table_utils, only:yinterp,linspace
  integer, intent(in)    :: np
@@ -89,15 +93,20 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
  real,    external,   optional :: rhofunc
  real,    intent(in), optional :: rhotab(:),xtab(:)
  integer, intent(in), optional :: start, geom, coord
+ logical, intent(in), optional :: verbose
+ integer, intent(out),optional :: err
  real :: totmass,rhozero,hi,fracmassold
  real :: x(3),xt(3),xmin,xmax,xold,xi,xminbisect,xmaxbisect
  real :: xprev,func,dfunc,rhoi,rho_at_min
  real, allocatable  :: xtable(:),masstab(:)
- integer            :: i,its,igeom,icoord,istart,ierr,nt
- logical            :: is_r, is_rcyl, bisect
+ integer            :: i,its,igeom,icoord,istart,nt,nerr,ierr
+ logical            :: is_r, is_rcyl, bisect, isverbose
+
+ isverbose = .true.
+ if (present(verbose)) isverbose = verbose
 
  if (present(rhofunc) .or. present(rhotab)) then
-    if (id==master) print "(a)",' >>>>>>  s  t  r  e   t    c     h       m     a    p   p  i  n  g  <<<<<<'
+    if (isverbose) print "(a)",' >>>>>>  s  t  r  e   t    c     h       m     a    p   p  i  n  g  <<<<<<'
     !
     ! defaults for optional arguments
     !
@@ -120,18 +129,30 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
     !   i.e. that the same total mass is in both)
     !
     if (present(rhotab)) then
-       if (id==master) write(iprint,*) 'stretching to match tabulated density profile in '//&
-                                       trim(labelcoord(icoord,igeom))//' direction'
+       if (isverbose) write(*,*) 'stretching to match tabulated density profile in '//&
+                                 trim(labelcoord(icoord,igeom))//' direction'
        nt = size(rhotab)
-       if (nt <= 0) call fatal('set_density_profile','size of density table <= 0')
+       if (nt <= 0) then
+          if (isverbose) write(*,*) 'ERROR: zero size density table'
+          if (present(err)) err = ierr_zero_size_density_table
+          return
+       endif
        allocate(xtable(nt),masstab(nt),stat=ierr)
-       if (ierr /= 0) call fatal('set_density_profile','cannot allocate memory for mass/coordinate table')
+       if (ierr /= 0) then
+          if (isverbose) write(*,*) 'ERROR: cannot allocate memory for mass/coordinate table'
+          if (present(err)) err = ierr_memory_allocation
+          return
+       endif
        !
        ! if no coordinate table is passed, create a table
        ! of equally spaced points between xmin and xmax
        !
        if (present(xtab)) then
-          if (size(xtab) < nt) call fatal('set_density_profile','coordinate table different size to density table')
+          if (size(xtab) < nt) then
+             if (isverbose) write(*,*) 'ERROR: coordinate table different size to density table'
+             if (present(err)) ierr = ierr_table_size_differs
+             return
+          endif
           xtable(1:nt) = xtab(1:nt)
        else
           call linspace(xtable(1:nt),xmin,xmax)
@@ -146,7 +167,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
        totmass    = yinterp(masstab,xtable(1:nt),xmax)
        rho_at_min = yinterp(rhotab,xtable(1:nt),xmin)
     else
-       if (id==master) write(iprint,*) 'stretching to match density profile in '&
+       if (isverbose) write(*,*) 'stretching to match density profile in '&
                        //trim(labelcoord(icoord,igeom))//' direction'
        if (is_r) then
           totmass = get_mass_r(rhofunc,xmax,xmin)
@@ -166,9 +187,9 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
        rhozero = totmass/(xmax - xmin)
     endif
 
-    if (id==master) then
-       write(iprint,*) 'density at '//trim(labelcoord(icoord,igeom))//' = ',xmin,' is ',rho_at_min
-       write(iprint,*) 'total mass      = ',totmass
+    if (isverbose) then
+       write(*,*) 'density at '//trim(labelcoord(icoord,igeom))//' = ',xmin,' is ',rho_at_min
+       write(*,*) 'total mass      = ',totmass
     endif
 
     if (present(start)) then
@@ -177,11 +198,13 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
        istart = 0
     endif
 
+    nerr = 0
     !$omp parallel do default(none) &
     !$omp shared(np,xyzh,rhozero,igeom,rhotab,xtable,masstab,nt) &
     !$omp shared(xmin,xmax,totmass,icoord,is_r,is_rcyl,istart) &
     !$omp private(x,xold,xt,fracmassold,its,xprev,xi,hi,rhoi) &
-    !$omp private(func,dfunc,xminbisect,xmaxbisect,bisect)
+    !$omp private(func,dfunc,xminbisect,xmaxbisect,bisect) &
+    !$omp reduction(+:nerr)
     do i=istart+1,np
        x(1) = xyzh(1,i)
        x(2) = xyzh(2,i)
@@ -283,14 +306,19 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
           xyzh(2,i) = x(2)
           xyzh(3,i) = x(3)
           xyzh(4,i) = hi*(rhozero/rhoi)**(1./3.)
-          if (its >= maxits) call error('set_density_profile','Stretch mapping not converged')
+          if (its >= maxits) nerr = nerr + 1
        endif
     enddo
     !$omp end parallel do
 
+    if (isverbose .and. nerr > 0) then
+       if (present(err)) err = ierr_not_converged
+       if (isverbose) write(*,*) 'ERROR: stretch mapping not converged on ',nerr,' particles'
+    endif
+
     if (allocated(xtable))  deallocate(xtable)
     if (allocated(masstab)) deallocate(masstab)
-    if (id==master) print "(a,/)",' >>>>>> done'
+    if (isverbose) print "(a,/)",' >>>>>> done'
  endif
 
 end subroutine set_density_profile

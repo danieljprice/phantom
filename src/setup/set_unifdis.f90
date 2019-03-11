@@ -37,11 +37,10 @@ contains
 !-------------------------------------------------------------
 subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
                        zmin,zmax,delta,hfact,np,xyzh,rmin,rmax,rcylmin,rcylmax,&
-                       nptot,npy,npz,rhofunc,inputiseed,verbose,dir,geom)
+                       nptot,npy,npz,rhofunc,inputiseed,verbose,periodic,dir,geom,mask,err)
  use random,     only:ran2
- use part,       only:periodic
  use stretchmap, only:set_density_profile
- use domain,     only:i_belong
+ !use domain,     only:i_belong
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master
  integer,          intent(inout) :: np
@@ -53,9 +52,19 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  integer,          intent(in),    optional :: npy,npz,dir,geom
  real, external,                  optional :: rhofunc
  integer,          intent(in),    optional :: inputiseed
- logical,          intent(in),    optional :: verbose
+ logical,          intent(in),    optional :: verbose, periodic
+ integer,          intent(out),   optional :: err
+ ! following lines of code allow an optional mask= argument
+ ! to setup only certain subsets of the particle domain (used for MPI)
+ abstract interface
+  logical function mask_prototype(ip)
+   integer(kind=8), intent(in) :: ip
+  end function mask_prototype
+ end interface
+ procedure(mask_prototype), pointer, optional :: mask
+ procedure(mask_prototype), pointer :: i_belong
 
- integer            :: i,j,k,l,m,nx,ny,nz,npnew,npin
+ integer            :: i,j,k,l,m,nx,ny,nz,npnew,npin,ierr
  integer            :: jy,jz,ipart,maxp,iseed,icoord,igeom
  integer(kind=8)    :: iparttot
  real               :: delx,dely
@@ -65,7 +74,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  real               :: rmin2,rmax2,rcylmin2,rcylmax2
  real               :: xpartmin,ypartmin,zpartmin
  real               :: xpartmax,ypartmax,zpartmax,xmins,xmaxs
- logical            :: is_verbose
+ logical            :: is_verbose, is_periodic
  character(len=*), parameter :: fmt1 = "(/,1x,16('-'),' particles set on ',i3,2(' x ',i3),"// &
                                        "' uniform ',a,' lattice ',14('-'))"
  character(len=*), parameter :: fmt2 = "(/,1x,13('-'),' particles set on',i6,2(' x',i6),"// &
@@ -116,10 +125,18 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  endif
 
  ! Suppress output to the terminal if wished - handy for setups which call this subroutine frequently
-
  is_verbose = .true.
- if (present(verbose)) then
-    is_verbose = verbose
+ if (present(verbose)) is_verbose = verbose
+
+ ! enforce exact periodicity
+ is_periodic = .false.
+ if (present(periodic)) is_periodic = periodic
+
+ ! check against mask
+ if (present(mask)) then
+    i_belong => mask
+ else
+    i_belong => mask_true
  endif
 
  select case(trim(lattice))
@@ -201,7 +218,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        print fmtdx,'dx',deltax,'dy',deltay,'dz',deltaz
        print fmtdy,'dy/dx: ',deltay/deltax,' dz/dx: ',deltaz/deltax
     endif
-    if (periodic) then
+    if (is_periodic) then
        ny = 2*int(ny/2)
        nz = 2*int(nz/2)
        deltax = dxbound/nx
@@ -336,7 +353,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        print fmtdx,'dx',deltax,'dy',deltay,'dz',deltaz
        print fmtdy,'dy/dx: ',deltay/deltax,' dz/dx: ',deltaz/deltax
     endif
-    if (periodic) then
+    if (is_periodic) then
        ny = 2*int(ny/2)
        nz = 3*int(nz/3)
        if (.not.present(npy)) then  ! if fixing ny and nz keep deltax = input value
@@ -448,7 +465,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
 
     enddo
 
-    !if (id==master .and. periodic) then
+    !if (id==master .and. is_periodic) then
     !print*,'part boundaries',xpartmin,xpartmax,ypartmin,ypartmax,zpartmin,zpartmax
 
     !print*,'part spacing with the edges of the box ','x',(xpartmin-xmin)/deltax,(xmax-xpartmax)/deltax, &
@@ -538,10 +555,14 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
           xmaxs = ymax
        endif
     endif
-    call set_density_profile(np,xyzh,min=xmins,max=xmaxs,rhofunc=rhofunc,start=npin,geom=igeom,coord=icoord)
+    call set_density_profile(np,xyzh,min=xmins,max=xmaxs,rhofunc=rhofunc,&
+         start=npin,geom=igeom,coord=icoord,verbose=(id==master .and. is_verbose),err=ierr)
+    if (ierr > 0) then
+       if (present(err)) err = ierr
+       return
+    endif
  endif
 
- return
 end subroutine set_unifdis
 !
 !-------------------------------------------------------------
@@ -555,6 +576,13 @@ pure logical function in_range(x,xmin,xmax)
  in_range = (x >= xmin .and. x <= xmax)
 
 end function in_range
+
+pure logical function mask_true(ip)
+ integer(kind=8), intent(in) :: ip
+
+ mask_true = .true.
+
+end function mask_true
 
 subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
  real,     intent(in) :: delta,ymin,ymax,zmin,zmax

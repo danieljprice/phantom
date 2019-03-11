@@ -1558,7 +1558,7 @@ OBJECTS = $(OBJECTS1:.F90=.o)
 
 .PHONY: phantom
 phantom: checksystem checkparams $(OBJECTS) phantom.o
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJECTS) phantom.o $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJECTS) phantom.o $(LDFLAGS) -L$(BINDIR) -lphantomsetup
 ifeq ($(UNAME), Darwin)
 	dsymutil $(BINDIR)/$@
 endif
@@ -1622,8 +1622,8 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 \
           utils_indtimesteps.F90 partinject.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           ptmass.F90 energies.F90 \
-          geometry.f90 stretchmap.f90 density_profiles.f90 \
-          set_unifdis.f90 set_slab.f90 set_sphere.f90 set_disc.F90 \
+          density_profiles.f90 \
+          set_slab.f90 set_sphere.f90 set_disc.F90 \
           set_vfield.f90 sort_particles.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
           set_Bfield.f90 damping.f90 readwrite_infile.f90
@@ -1632,10 +1632,18 @@ OBJSETUP1= $(SRCSETUP:.f90=.o)
 OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 
 .PHONY: phantomsetup
-phantomsetup: setup
+phantomsetup: libsetup setup
 
-setup: checksystem checkparams $(OBJSETUP)
-	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS)
+FFLAGS+=-fPIC
+LIBSETUP=$(BINDIR)/libphantomsetup.a
+SRCLIBSETUP=geometry.f90 random.f90 utils_tables.f90 stretchmap.f90 set_unifdis.f90 libsetup.f90
+OBJLIBSETUP=${SRCLIBSETUP:.f90=.o}
+
+$(LIBSETUP): $(OBJLIBSETUP)
+	ar rcs $@ $^
+
+setup: checksystem checkparams $(LIBSETUP) $(OBJSETUP)
+	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS) -L$(BINDIR) -lphantomsetup
 	@echo ""
 	@echo "Phantom setup built"
 	@echo ""
@@ -2691,7 +2699,7 @@ err:
 	$(error aborting);
 
 clean:
-	rm -f *.o *.mod phantom-version.h
+	rm -f *.o phantom-version.h
 
 cleanall: clean cleanmathflags
 	cd $(BINDIR); rm -f phantom phantomsetup
