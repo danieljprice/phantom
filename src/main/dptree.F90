@@ -6,7 +6,7 @@ module dptree
  real, public :: tree_accuracy = 0.5
 
  public :: maketree1,getneigh1,climb_tree_hmax
- public :: get_node_list
+ public :: get_node_list,get_particle_bounds
  private
 
  integer, public :: maxlevel,maxlevel_indexed,maxcell

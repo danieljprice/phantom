@@ -43,7 +43,7 @@ subroutine test_link(ntests,npass)
  use part,            only:maxphase,iphase,isetphase,igas,iactive
  use testutils,       only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end
  use linklist,        only:set_linklist,get_neighbour_list,ncells,ifirstincell
- use kdtree,          only:inodeparts,inoderange
+ use kdtree,          only:inodeparts=>iorder,inoderange
 #ifdef PERIODIC
  use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax,dybound,dzbound
  use linklist, only:dcellx,dcelly,dcellz

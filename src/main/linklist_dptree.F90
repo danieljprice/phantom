@@ -30,7 +30,8 @@ module linklist
  use dim,          only:maxp,ncellsmax
  use part,         only:ll
  use dtypekdtree,  only:kdnode
- use dptree,       only:leaf_level=>maxlevel,iorder,inoderange
+! use dptree,       only:leaf_level=>maxlevel,iorder,inoderange
+ use kdtree2,       only:iorder,inoderange
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -82,7 +83,9 @@ subroutine get_cell_list(istart,iend)
  use dptree, only:get_node_list
  integer, intent(out) :: istart,iend
 
- call get_node_list(leaf_level,istart,iend)
+ istart = 1
+ iend = int(ncells)
+! call get_node_list(leaf_level,istart,iend)
 
 end subroutine get_cell_list
 
@@ -144,7 +147,8 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
 #ifdef MPI
  use kdtree,       only: maketreeglobal
 #endif
- use dptree, only:maketree1
+ use kdtree2,      only:maketree3
+! use dptree, only:maketree1
 ! use octtree, only:maketree2
  use timing, only:getused
 
@@ -165,8 +169,9 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
  call getused(t1)
  !call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
  call getused(t2)
- call maketree1(node,xyzh,npart,ndimtree,ifirstincell,ncells)
+! call maketree1(node,xyzh,npart,ndimtree,ifirstincell,ncells)
 ! call maketree2(xyzh,npart,ndimtree,ifirstincell,ncells)
+ call maketree3(node,xyzh,npart,ndimtree,ifirstincell,ncells)
  call getused(t3)
  print*,' TIMING = ',t3-t2, ' OLD =',t2-t1,' OLD/NEW = ', (t2-t1)/(t3-t2)
  !read*
@@ -186,7 +191,7 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
                               getj,f,remote_export, &
                               cell_xpos,cell_xsizei,cell_rcuti,local_gravity)
  use kdtree, only:lenfgrav
- use dptree, only:getneigh1
+ use kdtree2, only:getneigh1
  use kernel, only:radkern
 #ifdef PERIODIC
  use io,       only:warning

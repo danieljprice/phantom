@@ -30,7 +30,7 @@ module linklist
  use dim,          only:maxp,ncellsmax
  use part,         only:ll
  use dtypekdtree,  only:kdnode
- use kdtree,       only:iorder=>inodeparts,inoderange
+ use kdtree,       only:iorder,inoderange
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -69,6 +69,7 @@ subroutine allocate_linklist
  call allocate_array('nodeglobal', nodeglobal, ncellsmax+1)
  call allocate_array('node', node, ncellsmax+1)
  call allocate_array('nodemap', nodemap, ncellsmax+1)
+
 end subroutine allocate_linklist
 
 subroutine deallocate_linklist
