@@ -23,7 +23,12 @@
 !--------------------------------------------------------------------------
 module io_summary
  implicit none
- integer, parameter :: maxiosum = 39         ! Number of values to summarise
+ integer, parameter :: maxiosum = 39&         ! Number of values to summarise
+#ifdef RADIATION
+ +1&
+#endif
+ +0
+
  integer, parameter :: maxrhomx = 16         ! Number of maximum possible rhomax' per set
  integer, parameter :: maxisink =  5         ! Maximum number of sink particles's accretion details to track
  !--Array indicies for various parameters
@@ -75,6 +80,10 @@ module io_summary
  !  particle waking
  integer, parameter :: iowake     = 39       ! number of woken particles
  !  Number of steps
+#ifdef RADIATION
+ integer, parameter :: iosumdtr   = maxiosum
+#endif
+
  integer, parameter :: iosum_nreal = maxiosum+1  ! number of 'real' steps taken
  integer, parameter :: iosum_nsts  = maxiosum+2  ! number of 'actual' steps (including STS) taken
  !
@@ -413,6 +422,10 @@ subroutine summary_printout(iprint,nptmass)
       ,iosum_nstep(iosumdta  ),'|',iosum_rpart(iosumdta  ),'|',iosum_ave(iosumdta  ),'|',iosum_max(iosumdta  ),'|'
     if (iosum_nstep(iosumdte  )/=0) write(iprint,30) '| dtdust             |' &
       ,iosum_nstep(iosumdte  ),'|',iosum_rpart(iosumdte  ),'|',iosum_ave(iosumdte  ),'|',iosum_max(iosumdte  ),'|'
+#ifdef RADIATION
+    if (iosum_nstep(iosumdtr  )/=0) write(iprint,30) '| dtradiation         |' &
+      ,iosum_nstep(iosumdtr  ),'|',iosum_rpart(iosumdtr  ),'|',iosum_ave(iosumdtr  ),'|',iosum_max(iosumdtr  ),'|'
+#endif
 30  format(a,i13,a,3(f13.2,a))
 #else
     write(iprint,'(a)') '| dt                    |       < dt_Courant      |     #times smallest      |'
@@ -426,6 +439,10 @@ subroutine summary_printout(iprint,nptmass)
      write(iprint,40)   '| dthall                | ',iosum_nstep(iosumdth),' |',iosum_npart(iosumdth),'   |'
     if (iosum_nstep(iosumdta)/=0) &
      write(iprint,40)   '| dtambi                | ',iosum_nstep(iosumdta),' |',iosum_npart(iosumdta),'   |'
+#ifdef RADIATION
+    if (iosum_nstep(iosumdtr)/=0) &
+     write(iprint,40)   '| dtradiation           | ',iosum_nstep(iosumdtr),' |',iosum_npart(iosumdtr),'   |'
+#endif
 40  format(a,2(i23,a))
 #endif
     write(iprint,'(a)') '------------------------------------------------------------------------------'

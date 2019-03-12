@@ -39,7 +39,12 @@ module setup
  character(len=100) :: latticetype = 'closepacked'
  logical :: use_closepacked
 
- integer, parameter :: max_states = 8
+ integer, parameter :: max_states = 8&
+#ifdef RADIATION
+ +1& ! iradkappa
+#endif
+ +0
+
  integer            :: nstates
  integer, parameter :: &
     idens = 1, &
@@ -50,9 +55,17 @@ module setup
     iBx   = 6, &
     iBy   = 7, &
     iBz   = 8
+#ifdef RADIATION
+ integer, parameter :: iradkappa = iBz + 1
+#endif
 
  character(len=4), parameter :: var_label(max_states) = &
-   (/'dens','pr  ','vx  ','vy  ','vz  ','Bx  ','By  ','Bz  '/)
+   (/'dens','pr  ','vx  ','vy  ','vz  ','Bx  ','By  ','Bz  '&
+#ifdef RADIATION
+    ,'radK'&
+#endif
+   /)
+
 
  real :: leftstate(max_states), rightstate(max_states)
  !
@@ -73,14 +86,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis,get_ny_nz_closepacked
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,set_boundary
  use mpiutils,     only:bcast_mpi
- use dim,          only:maxp,maxvxyzu,ndim,mhd
+ use dim,          only:maxvxyzu,ndim,mhd
  use options,      only:use_dustfrac
  use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,periodic,dustfrac
 #ifdef RADIATION
- use part,         only:radenergy
+ use part,         only:radenergy,radkappa
  use eos,          only:gmw
  use physcon,      only:Rg,c,steboltz
- use units,        only:unit_pressure,unit_density,unit_ergg
+ use units,        only:unit_pressure,unit_density,unit_ergg,unit_velocity
 #endif
  use kernel,       only:radkern,hfact_default
  use timestep,     only:tmax
@@ -98,13 +111,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real                             :: totmass, Tgas
+ real                             :: totmass
  real                             :: xminleft(ndim),xmaxleft(ndim),xminright(ndim),xmaxright(ndim)
  real                             :: delta,gam1,xshock,fac,dtg
  real                             :: uuleft,uuright,volume,xbdyleft,xbdyright,dxright
  integer                          :: i,ierr,nbpts,ny,nz
  character(len=120)               :: shkfile, filename
  logical                          :: iexist
+#ifdef RADIATION
+ real                             :: Tgas
+#endif
  !
  ! quit if not periodic
  !
@@ -277,6 +293,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 #ifdef RADIATION
        Tgas = gmw*(rightstate(ipr)*unit_pressure)/(rightstate(idens)*unit_density)/Rg
        radenergy(i) = 4.0*steboltz*Tgas**4.0/c/(rightstate(idens)*unit_density)/unit_ergg
+       radkappa(i) = rightstate(iradkappa)
 #endif
     else
        xyzh(4,i)  = hrho(leftstate(idens),massoftype(igas))
@@ -288,6 +305,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 #ifdef RADIATION
        Tgas = gmw*(leftstate(ipr)*unit_pressure)/(leftstate(idens)*unit_density)/Rg
        radenergy(i) = 4.0*steboltz*Tgas**4.0/c/(leftstate(idens)*unit_density)/unit_ergg
+       radkappa(i) = leftstate(iradkappa)
 #endif
     endif
  enddo
@@ -346,11 +364,13 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  use timestep,  only:dtmax,tmax
  use prompting, only:prompt
  use dust,      only:K_code,idrag
- use eos,       only:gmw
- use units,     only:set_units,udist,utime,unit_density,unit_pressure
 #ifdef NONIDEALMHD
  use nicil,       only:use_ohm,use_hall,use_ambi,eta_constant,eta_const_type, &
                        C_OR,C_HE,C_AD,C_nimhd,icnstphys,icnstsemi,icnst
+#endif
+#ifdef RADIATION
+ use units,     only:umass,set_units,udist,utime,unit_density,unit_pressure
+ use eos,       only:gmw
 #endif
  real,    intent(inout) :: gamma,polyk
  real,    intent(out)   :: dtg
@@ -358,9 +378,12 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  integer, parameter     :: nshocks = 10
  character(len=30)      :: shocks(nshocks)
  integer                :: i,choice,dust_method
- real                   :: const,uu,dens,pres,Tgas !, dxright
+ real                   :: const
 #ifdef NONIDEALMHD
  real                   :: gamma_AD,rho_i_cnst
+#endif
+#ifdef RADIATION
+ real                   :: kappa,kappa_code,dens,pres,Tgas,uu
 #endif
 !
 !--set default file output parameters
@@ -423,8 +446,8 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     !--Sod shock
     shocktype = 'Sod shock'
     gamma      = 5./3.
-    leftstate  = (/1.000,1.0,0.,0.,0.,0.,0.,0./)
-    rightstate = (/0.125,0.1,0.,0.,0.,0.,0.,0./)
+    leftstate(1:iBz)  = (/1.000,1.0,0.,0.,0.,0.,0.,0./)
+    rightstate(1:iBz) = (/0.125,0.1,0.,0.,0.,0.,0.,0./)
     if (maxvxyzu < 4) call fatal('setup','Sod shock tube requires ISOTHERMAL=no')
  case(2)
     !--Ryu et al. shock 1a
@@ -435,8 +458,8 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
        dtmax     =   0.004
     endif
     gamma      =   5./3.
-    leftstate  = (/1.,20.,10.,0.,0.,5./const,5./const,0./)
-    rightstate = (/1.,1.,-10.,0.,0.,5./const,5./const,0./)
+    leftstate(1:iBz)  = (/1.,20.,10.,0.,0.,5./const,5./const,0./)
+    rightstate(1:iBz) = (/1.,1.,-10.,0.,0.,5./const,5./const,0./)
  case(3)
     !--Ryu et al. shock 1b
     shocktype = 'Ryu et al. shock 1b'
@@ -445,14 +468,14 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
        dtmax     =   0.0015
     endif
     gamma      =  5./3.
-    leftstate  = (/1.0,1. ,0.,0.,0.,5./const,5./const,0./)
-    rightstate = (/0.1,10.,0.,0.,0.,5./const,2./const,0./)
+    leftstate(1:iBz)  = (/1.0,1. ,0.,0.,0.,5./const,5./const,0./)
+    rightstate(1:iBz) = (/0.1,10.,0.,0.,0.,5./const,2./const,0./)
  case(4)
     !--Ryu et al. shock 2a
     shocktype  = "Ryu et al. shock 2a (with 7 discontinuities)"
     gamma      = 5./3.
-    leftstate  = (/1.08,0.95,1.2,0.01,0.5,2./const,3.6/const,2./const/)
-    rightstate = (/1.  ,1.  ,0. ,0.  ,0. ,2./const,4.0/const,2./const/)
+    leftstate(1:iBz)  = (/1.08,0.95,1.2,0.01,0.5,2./const,3.6/const,2./const/)
+    rightstate(1:iBz) = (/1.  ,1.  ,0. ,0.  ,0. ,2./const,4.0/const,2./const/)
  case(5)
     !--Ryu et al. shock 2b
     shocktype = 'Ryu et al. shock 2b'
@@ -461,8 +484,8 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
        dtmax    =   0.00175
     endif
     gamma      = 5./3.
-    leftstate  = (/1.0,1. ,0.,0.,0.,3./const,6./const,0./)
-    rightstate = (/0.1,10.,0.,2.,1.,3./const,1./const,0./)
+    leftstate(1:iBz)  = (/1.0,1. ,0.,0.,0.,3./const,6./const,0./)
+    rightstate(1:iBz) = (/0.1,10.,0.,2.,1.,3./const,1./const,0./)
  case(6)
     !--Brio-Wu shock
     shocktype = 'Brio/Wu (Ryu/Jones shock 5a)'
@@ -471,8 +494,8 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
        dtmax   = 0.005
     endif
     gamma      = 2.0
-    leftstate  = (/1.000,1.0,0.,0.,0.,0.75, 1.,0./)
-    rightstate = (/0.125,0.1,0.,0.,0.,0.75,-1.,0./)
+    leftstate(1:iBz)  = (/1.000,1.0,0.,0.,0.,0.75, 1.,0./)
+    rightstate(1:iBz) = (/0.125,0.1,0.,0.,0.,0.75,-1.,0./)
  case(7)
     !--C-shock
     shocktype = 'C-shock'
@@ -490,8 +513,8 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     endif
     gamma      =  1.0
     polyk      =  0.01
-    leftstate  = (/1.,0.006, 4.45,0.,0.,1./sqrt(2.),1./sqrt(2.),0./)
-    rightstate = (/1.,0.006,-4.45,0.,0.,1./sqrt(2.),1./sqrt(2.),0./)
+    leftstate(1:iBz)  = (/1.,0.006, 4.45,0.,0.,1./sqrt(2.),1./sqrt(2.),0./)
+    rightstate(1:iBz) = (/1.,0.006,-4.45,0.,0.,1./sqrt(2.),1./sqrt(2.),0./)
     nx         = 200
     xleft      = -4.00d6
  case(8)
@@ -518,10 +541,11 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     nx         = 512
     polyk      = 0.01
     gamma      = 1.0
-    leftstate  = (/1.7942,0.017942,-0.9759,-0.6561,0.,1.,1.74885,0./)
-    rightstate = (/1.    ,0.01    ,-1.7510, 0.    ,0.,1.,0.6    ,0./)
+    leftstate(1:iBz)  = (/1.7942,0.017942,-0.9759,-0.6561,0.,1.,1.74885,0./)
+    rightstate(1:iBz) = (/1.    ,0.01    ,-1.7510, 0.    ,0.,1.,0.6    ,0./)
     xleft      = -2.0
  case(9)
+#ifdef RADIATION
     shocktype = 'Radiation shock'
 
     call set_units(dist=au,mass=solarm,G=1.d0)
@@ -533,13 +557,24 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     pres  = (gamma-1.)*uu*dens/unit_pressure
     dens  = dens/unit_density
     ! (/'dens','pr  ','vx  ','vy  ','vz  ','Bx  ','By  ','Bz  '/)
-    leftstate  = (/dens, pres,  3.2e5/(udist/utime), 0.,0.,0.,0.,0./)
-    rightstate = (/dens, pres, -3.2e5/(udist/utime), 0.,0.,0.,0.,0./)
-    xright     =  1e15/udist
-    xleft      = -1e15/udist
-    tmax       = 1e9/utime
-    dtmax      = 1e7/utime
+    leftstate(1:iBz)  = (/dens, pres,  3.2e5/(udist/utime), 0.,0.,0.,0.,0./)
+    rightstate(1:iBz) = (/dens, pres, -3.2e5/(udist/utime), 0.,0.,0.,0.,0./)
+    xright =  1e15/udist
+    xleft  = -1e15/udist
+    tmax   = 1e9/utime
+    dtmax  = 1e7/utime
+    kappa  = 4e1
+    call prompt('Kappa left (total radiation opacity)',kappa,0.,1e6)
+    kappa_code = kappa/(udist**2/umass)
+    leftstate(iradkappa) = kappa_code
+    call prompt('Kappa right (total radiation opacity)',kappa,0.,1e6)
+    kappa_code = kappa/(udist**2/umass)
+    rightstate(iradkappa) = kappa_code
+
     if (maxvxyzu < 4) call fatal('setup','Sod shock tube requires ISOTHERMAL=no')
+#else
+    call fatal('setup','Radiation shock is only possible with "RADIATION=yes"')
+#endif
  end select
 
  call prompt('Enter resolution (number of particles in x) for left half (x<0)',nx,8)

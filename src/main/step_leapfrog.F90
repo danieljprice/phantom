@@ -34,6 +34,9 @@
 module step_lf_global
  use dim,  only:maxp,maxvxyzu,maxBevol
  use part, only:vpred,Bpred,dustpred
+#ifdef RADIATION
+ use part, only:radenpred
+#endif
  use timestep_ind, only:maxbins,itdt,ithdt,itdt1,ittwas
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -91,6 +94,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustevol,temperature,alphaind,nptmass,store_temperature,&
                           dustprop,ddustprop,dustproppred,ndustsmall
+#ifdef RADIATION
+ use part,           only:radenergy,dradenergy
+#endif
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
@@ -158,6 +164,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
+#ifdef RADIATION
+ !$omp shared(radenergy,dradenergy,radenpred)&
+#endif
  !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
  !$omp shared(dustprop,ddustprop,dustproppred) &
 #ifdef IND_TIMESTEPS
@@ -189,6 +198,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (mhd)          Bevol(:,i)    = Bevol(:,i)        + hdti*dBevol(:,i)
           if (use_dustfrac) dustevol(:,i) = abs(dustevol(:,i) + hdti*ddustevol(:,i))
        endif
+#ifdef RADIATION
+       radenergy(i) = radenergy(i) + hdti*dradenergy(i)
+#endif
     endif
  enddo predictor
  !omp end parallel do
@@ -219,6 +231,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #ifdef IND_TIMESTEPS
 !$omp shared(twas,timei) &
 #endif
+#ifdef RADIATION
+ !$omp shared(radenergy,dradenergy,radenpred)&
+#endif
 !$omp private(hi,rhoi,tdecay1,source,ddenom,hdti) &
 !$omp private(i,spsoundi,alphaloci,divvdti) &
 !$omp firstprivate(pmassi,itype,avdecayconst,alpha)
@@ -232,6 +247,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (mhd)          Bpred(:,i)  = Bevol (:,i)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
+#ifdef RADIATION
+             radenpred(i) = radenergy(i)
+#endif
              cycle predict_sph
           endif
        endif
@@ -272,6 +290,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !------------------------------------------------
           endif
        endif
+#ifdef RADIATION
+       radenpred(i) = radenergy(i) + hdti*dradenergy(i)
+#endif
        !
        ! viscosity switch ONLY (conductivity and resistivity do not use MM97-style switches)
        !
@@ -350,6 +371,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(ibin_dts,nbinmax,ibinnow) &
 !$omp private(dti,hdti) &
 #endif
+#ifdef RADIATION
+ !$omp shared(radenergy,dradenergy,radenpred)&
+#endif
 !$omp private(i,vxi,vyi,vzi,vxoldi,vyoldi,vzoldi) &
 !$omp private(erri,v2i,eni) &
 !$omp reduction(max:errmax) &
@@ -384,6 +408,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 if (mhd)          Bevol(:,i)    = Bevol(:,i)    + dti*dBevol(:,i)
                 if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + dti*ddustevol(:,i)
              endif
+#ifdef RADIATION
+             radenergy(i) = radenergy(i) + dti*dradenergy(i)
+#endif
              twas(i) = twas(i) + dti
           endif
           !
@@ -396,6 +423,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdti*dBevol(:,i)
              if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
           endif
+#ifdef RADIATION
+          radenergy(i) = radenergy(i) + hdti*dradenergy(i)
+#endif
           !
           !--Wake inactive particles for next step, if required
           !
@@ -459,12 +489,18 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (mhd)          Bpred(:,i)  = Bevol(:,i)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
+#ifdef RADIATION
+             radenpred(i) = radenergy(i)
+#endif
           endif
 #else
           vpred(:,i) = vxyzu(:,i)
           if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
           if (mhd)          Bpred(:,i)  = Bevol(:,i)
           if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
+#ifdef RADIATION
+          radenpred(i) = radenergy(i)
+#endif
 !
 ! shift v back to the half step
 !
@@ -474,6 +510,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  - hdtsph*dBevol(:,i)
              if (use_dustfrac) dustevol(:,i) = dustevol(:,i) - hdtsph*ddustevol(:,i)
           endif
+#ifdef RADIATION
+          radenergy(i) = radenergy(i) - hdtsph*dradenergy(i)
+#endif
+
 #endif
        enddo
        !$omp end parallel do

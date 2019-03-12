@@ -135,6 +135,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,temperature,dustprop,ddustprop,ndustsmall
+#ifdef RADIATION
+ use part,             only:radenergy,radenergyflux
+#endif
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef PHOTO
@@ -381,7 +384,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        call set_linklist(npart,npart,xyzh,vxyzu)
        fxyzu = 0.
        call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                              fxyzu,fext,alphaind,gradh)
+                              fxyzu,fext,alphaind,gradh&
+#ifdef RADIATION
+                              ,radenergy,radenergyflux&
+#endif
+                              )
     endif
 
     ! now convert to B/rho

@@ -99,6 +99,19 @@ module forces
        idustfraciend = 55 + (maxdusttypes - 1), &
        itstop        = 56 + (maxdusttypes - 1), &
        itstopend     = 56 + 2*(maxdusttypes - 1)
+ integer, parameter :: lastxpartveci = 56 + 2*(maxdusttypes - 1)
+#ifdef RADIATION
+ integer, parameter :: &
+       iradei        = lastxpartveci + 1, &
+       iradxi        = lastxpartveci + 2, &
+       iradyi        = lastxpartveci + 3, &
+       iradzi        = lastxpartveci + 4, &
+       iradki        = lastxpartveci + 5, &
+       iradli        = lastxpartveci + 6, &
+       lastxpartvecirad = lastxpartveci + 6
+! #else ! use it for adding new physics and checking if radiation was used
+!  integer, parameter :: lastxpartvecirad = lastxpartveci
+#endif
 
  !--indexing for fsum array
  integer, parameter :: &
@@ -128,7 +141,10 @@ module forces
        idvi           = 18 + 5*(maxdustsmall-1), &
        iSti           = 19 + 5*(maxdustsmall-1), &
        icsi           = 20 + 5*(maxdustsmall-1)
-
+#ifdef RADIATION
+ integer, parameter :: &
+       idradi         = 20 + 5*(maxdustsmall-1) + 1
+#endif
  private
 
 contains
@@ -139,7 +155,12 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,&
-                 ipart_rhomax,dt,stressmax,temperature)
+                 ipart_rhomax,dt,stressmax,temperature&
+#ifdef RADIATION
+                 ,radenergy,radenergyflux,radkappa,dradenergy&
+#endif
+                 )
+
  use dim,          only:maxvxyzu,maxneigh,maxdvdx,&
                         mhd,mhd_nonideal,lightcurve
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
@@ -192,7 +213,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use stack,        only:stack_remote => force_stack_1
  use stack,        only:stack_waiting => force_stack_2
 #endif
-
+#ifdef RADIATION
+ use io_summary,   only:iosumdtr
+#endif
  integer,      intent(in)    :: icall,npart
  real,         intent(in)    :: xyzh(:,:)
  real,         intent(inout) :: vxyzu(:,:),dustprop(:,:)
@@ -205,6 +228,15 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  real(kind=4), intent(in)    :: divcurlB(:,:)
  real,         intent(in)    :: dt,stressmax
  integer,      intent(out)   :: ipart_rhomax ! test this particle for point mass creation
+#ifdef RADIATION
+ real,         intent(in)    :: radenergy(:),radenergyflux(:,:),radkappa(:)
+ real,         intent(inout) :: dradenergy(:)
+#ifdef IND_TIMESTEPS
+ integer :: ndtrad
+ real    :: dtradmean,dtradfacmax
+#endif
+ real    :: dtrad
+#endif
 
  real, save :: xyzcache(maxcellcache,4)
  integer, save :: listneigh(maxneigh)
@@ -227,7 +259,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #endif
  logical :: realviscosity,useresistiveheat
 #ifndef IND_TIMESTEPS
- real    :: dtmaxi
+ real    :: dtmaxi,minglobdt
 #else
  integer :: nbinmaxnew,nbinmaxstsnew,ncheckbin
  integer :: ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd
@@ -286,6 +318,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  dtambifacmax    = 0.0
  dtdustfacmax    = 0.0
  ibinnow_m1      = ibinnow - 1_1
+#ifdef RADIATION
+ ndtrad          = 0
+ dtradmean       = 0.0
+ dtradfacmax     = 0.0
+#endif
 #else
  ibinnow_m1      = 0
 #endif
@@ -300,6 +337,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  dtohm           = bignumber
  dthall          = bignumber
  dtambi          = bignumber
+#ifdef RADIATION
+ dtrad           = bignumber
+#endif
+
  if (iverbose >= 3 .and. id==master) write(iprint,*) 'forces: cell cache =',maxcellcache
 
  realviscosity    = (irealvisc > 0)
@@ -386,6 +427,14 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp reduction(max:dtfrcfacmax,dtfrcngfacmax,dtdragfacmax,dtdragdfacmax,dtcoolfacmax,dtviscfacmax) &
 !$omp reduction(max:nbinmaxnew,nbinmaxstsnew) &
 #endif
+#ifdef RADIATION
+!$omp shared(radenergy,radenergyflux,radkappa,dradenergy)&
+!$omp reduction(min:dtrad) &
+#ifdef IND_TIMESTEPS
+!$omp reduction(+:ndtrad,dtradmean) &
+!$omp reduction(max:dtradfacmax) &
+#endif
+#endif
 !$omp reduction(min:dtohm,dthall,dtambi,dtdiff) &
 !$omp reduction(min:dtcourant,dtforce,dtvisc) &
 !$omp reduction(max:dtmaxi) &
@@ -407,7 +456,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     cell%icell = icell
 
     call start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol, &
-                         dustfrac,dustprop,eta_nimhd,temperature,alphaind,stressmax)
+                         dustfrac,dustprop,eta_nimhd,temperature,alphaind,stressmax&
+#ifdef RADIATION
+                    ,radenergy,radenergyflux,radkappa&
+#endif
+                   )
     if (cell%npcell == 0) cycle over_cells
 
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
@@ -441,7 +494,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                       iphase,divcurlv,divcurlB,alphaind,eta_nimhd, temperature, &
-                      dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache)
+                      dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache&
+#ifdef RADIATION
+                      ,radenergy,radenergyflux,radkappa&
+#endif
+                      )
 
 #ifdef MPI
     if (do_export) then
@@ -461,7 +518,14 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
                              dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean, &
                              dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax, &
 #endif
-                             ndustres,dustresfacmax,dustresfacmean)
+                             ndustres,dustresfacmax,dustresfacmean&
+#ifdef RADIATION
+                             ,dradenergy,dtrad&
+#ifdef IND_TIMESTEPS
+                             ,ndtrad,dtradmean,dtradfacmax&
+#endif
+#endif
+                             )
 
 #ifdef MPI
     endif
@@ -491,7 +555,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
        call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          iphase,divcurlv,divcurlB,alphaind,eta_nimhd, temperature, &
-                         dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache)
+                         dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache&
+#                     ifdef RADIATION
+                         ,radenergy,radenergyflux,radkappa&
+#                     endif
+                         )
 
        cell%remote_export(id+1) = .false.
 
@@ -536,7 +604,14 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
                                           dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean, &
                                           dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax, &
 #endif
-                                          ndustres,dustresfacmax,dustresfacmean)
+                                          ndustres,dustresfacmax,dustresfacmean&
+#ifdef RADIATION
+                                          ,dradenergy,dtrad&
+#ifdef IND_TIMESTEPS
+                                          ,ndtrad,dtradmean,dtradfacmax&
+#endif
+#endif
+                                          )
 
     enddo over_waiting
 !$omp enddo
@@ -654,6 +729,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  ndtdrag    = int(reduce_mpi('+',ndtdrag))
  ndtdragd   = int(reduce_mpi('+',ndtdragd))
  ndtdust    = int(reduce_mpi('+',ndtdust))
+#ifdef RADIATION
+ ndtrad     = int(reduce_mpi('+',ndtrad))
+#endif
 
  !  Print warning statements, if required
  if (iverbose >= 1 .and. id==master) then
@@ -663,6 +741,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     if (ndtdrag    > 0) write(iprint,*) 'drag controlling timestep on ',ndtdrag,' gas particles'
     if (ndtdragd   > 0) write(iprint,*) 'drag controlling timestep on ',ndtdrag,' dust particles'
     if (ndtdust    > 0) write(iprint,*) 'dust diffusion controlling timestep on ',ndtdust,' particles'
+#ifdef RADIATION
+    if (ndtrad     > 0) write(iprint,*) 'radiation diffusion controlling timestep on ',ndtrad,' particles'
+#endif
     if (ndtvisc    > 0) then
        write(iprint,*)   'thread ',id,' WARNING: viscosity           constraining timestep on ',ndtvisc,' particles by factor ', &
                        dtviscfacmean/real(ndtvisc)
@@ -695,7 +776,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     if (ndthall > 0)  call summary_variable('dt',iosumdth  ,ndthall   ,dthallfacmean /real(ndthall)   ,dthallfacmax )
     if (ndtambi > 0)  call summary_variable('dt',iosumdta  ,ndtambi   ,dtambifacmean /real(ndtambi)   ,dtambifacmax )
  endif
-
+#ifdef RADIATION
+ if (ndtrad     > 0)  call summary_variable('dt',iosumdtr  ,ndtrad    ,dtradmean/real(ndtrad)         ,dtradfacmax)
+#endif
 #else
 
  dtcourant = reduceall_mpi('min',dtcourant)
@@ -717,8 +800,19 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     if ( dthall < dtcourant ) call summary_variable('dt',iosumdth,0,0.0)
     if ( dtohm  < dtcourant ) call summary_variable('dt',iosumdto,0,0.0)
     if ( dtambi < dtcourant ) call summary_variable('dt',iosumdta,0,0.0)
-    if (min(dtvisc,dtohm,dthall,dtambi) < dtcourant) then
-       dtcourant = min(dtvisc,dtohm,dthall,dtambi)
+#ifdef RADIATION
+    dtrad    = reduceall_mpi('min',dtrad)
+    if ( dtrad  < dtcourant ) call summary_variable('dt',iosumdtr,0,0.0)
+#endif
+
+    minglobdt = min(dtvisc,dtohm,dthall,dtambi&
+#ifdef RADIATION
+    ,dtrad&
+#endif
+    )
+
+    if (minglobdt < dtcourant) then
+       dtcourant = minglobdt
        if      (abs(dtcourant-dtvisc) < tiny(dtcourant) ) then
           if (iverbose >= 1 .and. id==master) call warning('force','viscosity constraining Courant timestep')
           call summary_variable('dt',iosumdtv,0,0.0,0.0, .true. )
@@ -731,6 +825,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
        else if (abs(dtcourant-dtambi) < tiny(dtcourant) ) then
           if (iverbose >= 1 .and. id==master) call warning('force','ambipolar diffusion constraining Courant timestep')
           call summary_variable('dt',iosumdta,0,0.0,0.0, .true. )
+#ifdef RADIATION
+       else if (abs(dtcourant-dtrad) < tiny(dtcourant) ) then
+          if (iverbose >= 1 .and. id==master) call warning('force','radiation diffusion constraining Courant timestep')
+          call summary_variable('dt',iosumdtr,0,0.0,0.0, .true. )
+#endif
        endif
     endif
  else
@@ -761,7 +860,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                           dustfrac,gradh,divcurlv,alphaind, &
                           alphau,alphaB,bulkvisc,stressmax,&
                           ndrag,nstokes,nsuper,ts_min,ibinnow_m1,ibin_wake,ibin_neighi,&
-                          ignoreself)
+                          ignoreself&
+#                      ifdef RADIATION
+                          ,radenergy,radenergyflux,radkappa&
+#                      endif
+                          )
 #ifdef FINVSQRT
  use fastmath,    only:finvsqrt
 #endif
@@ -794,6 +897,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
  use timestep,    only:bignumber
  use options,     only:overcleanfac,use_dustfrac
+#ifdef RADIATION
+ use units,       only:unit_velocity
+ use physcon,     only:c
+#endif
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
  real,            intent(in)    :: xpartveci(:)
@@ -825,6 +932,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer(kind=1), intent(out)   :: ibin_wake(:),ibin_neighi
  integer(kind=1), intent(in)    :: ibinnow_m1
  logical,         intent(in)    :: ignoreself
+#ifdef RADIATION
+ real,            intent(in)    :: radenergy(:),radenergyflux(:,:),radkappa(:)
+#endif
  integer :: j,n,iamtypej
  logical :: iactivej,iamgasj,iamdustj
  real    :: rij2,q2i,qi,xj,yj,zj,dx,dy,dz,runix,runiy,runiz,rij1,hfacgrkern
@@ -873,6 +983,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: alphai,grainsizei,graindensi
  logical :: usej
  integer :: iamtypei
+#ifdef RADIATION
+ real    :: radFi(3),radFj(3),radRj,radDFWi,radDFWj,c_code,radkappai,radkappaj,&
+            radDi,radDj,radeni,radenj,radlambdai,radlambdaj
+#endif
 
  ! unpack
  vwavei        = xpartveci(ivwavei)
@@ -1628,6 +1742,34 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        fsum(ifzi) = fsum(ifzi) - dz*fgravj
        fsum(ipot) = fsum(ipot) + pmassj*phii
 #endif
+#ifdef RADIATION
+       pmassj = massoftype(iamtypej)
+       rhoj = rhoh(hj,pmassj)
+
+       radFi(1:3) = xpartveci(iradxi:iradzi)
+       radFj(1:3) = radenergyflux(1:3,j)
+       radkappai = xpartveci(iradki)
+       radkappaj = radkappa(j)
+       radeni = xpartveci(iradei)
+       radenj = radenergy(j)
+       c_code = c/unit_velocity
+
+       radlambdai = xpartveci(iradli)
+       radDi = c_code*radlambdai/radkappai/rhoi
+
+       radRj = sqrt(dot_product(radFj(:),radFj(:)))/(radkappaj*rhoj*rhoj*radenj)
+       radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
+       radDj = c_code*radlambdaj/radkappaj/rhoj
+
+       ! TWO FIRST DERIVATES !
+       radDFWi = pmassj*radDi*grkerni*rho21i*(radFi(1)*runix + radFi(2)*runiy + radFi(3)*runiz)
+       radDFWj = pmassj*radDj*grkernj*rho21j*(radFj(1)*runix + radFj(2)*runiy + radFj(3)*runiz)
+       fsum(idradi) = fsum(idradi) + (radDFWi + radDFWj)
+       ! BROOKSHAW !
+       ! fsum(idradi) = fsum(idradi) + pmassj/rhoi/rhoj*&
+       !                                ((4*radDi*radDj)/(radDi+radDj))*&
+       !                                (rhoi*radeni-rhoj*radenj)*grkerni*rij1
+#endif
     endif is_sph_neighbour
  enddo loop_over_neighbours2
 
@@ -1786,7 +1928,11 @@ end subroutine check_dtmin
 !----------------------------------------------------------------
 
 subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol, &
-                     dustfrac,dustprop,eta_nimhd,temperature,alphaind,stressmax)
+                     dustfrac,dustprop,eta_nimhd,temperature,alphaind,stressmax&
+#                 ifdef RADIATION
+                     ,radenergy,radenergyflux,radkappa&
+#                 endif
+                     )
 
  use io,        only:fatal
  use options,   only:alpha,use_dustfrac
@@ -1814,6 +1960,10 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  real,               intent(inout) :: temperature(:)
  real(kind=4),       intent(in)    :: alphaind(:,:)
  real,               intent(in)    :: stressmax
+#ifdef RADIATION
+ real,               intent(in)    :: radenergy(:),radenergyflux(:,:),radkappa(:)
+ real         :: radRi
+#endif
 
  real         :: divcurlvi(ndivcurlv)
  real         :: dvdxi(9),curlBi(3),jcbcbi(3),jcbi(3)
@@ -2049,6 +2199,14 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     cell%xpartvec(igrainsizei,cell%npcell)        = dustprop(1,i)
     cell%xpartvec(igraindensi,cell%npcell)        = dustprop(2,i)
 #endif
+#ifdef RADIATION
+    radRi = sqrt(dot_product(radenergyflux(1:3,i),radenergyflux(1:3,i)))&
+                /(radkappa(i)*rhoi*rhoi*radenergy(i))
+    cell%xpartvec(iradei,cell%npcell)        = radenergy(i)
+    cell%xpartvec(iradxi:iradzi,cell%npcell) = radenergyflux(1:3,i)
+    cell%xpartvec(iradki,cell%npcell)        = radkappa(i)
+    cell%xpartvec(iradli,cell%npcell)        = (2. + radRi)/(6. + 3*radRi + radRi*radRi)
+#endif
     cell%xpartvec(idvxdxi:idvzdzi,cell%npcell)    = dvdx(1:9,i)
  enddo over_parts
 
@@ -2056,7 +2214,11 @@ end subroutine start_cell
 
 subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                         iphase,divcurlv,divcurlB,alphaind,eta_nimhd, temperature, &
-                        dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache)
+                        dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache&
+#                    ifdef RADIATION
+                        ,radenergy,radenergyflux,radkappa&
+#                    endif
+                        )
  use io,          only:error
 #ifdef MPI
  use io,          only:id
@@ -2086,6 +2248,9 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  integer(kind=1), intent(in)     :: ibinnow_m1
  real,            intent(in)     :: stressmax
  real,            intent(in)     :: xyzcache(:,:)
+#ifdef RADIATION
+ real,            intent(in)     :: radenergy(:),radenergyflux(:,:),radkappa(:)
+#endif
 
  real                            :: hi
  real(kind=8)                    :: hi1,hi21,hi31,hi41
@@ -2168,7 +2333,11 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          dustfrac,gradh,divcurlv,alphaind, &
                          alphau,alphaB,bulkvisc,stressmax, &
                          cell%ndrag,cell%nstokes,cell%nsuper,cell%dtdrag(ip),ibinnow_m1,ibin_wake,cell%ibinneigh(ip), &
-                         ignoreself)
+                         ignoreself&
+#                     ifdef RADIATION
+                         ,radenergy,radenergyflux,radkappa&
+#                     endif
+                         )
 
  enddo over_parts
 
@@ -2187,7 +2356,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                                          dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean, &
                                          dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax, &
 #endif
-                                         ndustres,dustresfacmax,dustresfacmean)
+                                         ndustres,dustresfacmax,dustresfacmean&
+#ifdef RADIATION
+                                         ,dradenergy,dtrad&
+#ifdef IND_TIMESTEPS
+                                         ,ndtrad,dtradmean,dtradfacmax&
+#endif
+#endif
+                                         )
  use io,             only:fatal
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
@@ -2218,7 +2394,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:dustprop,St,csound
  use growth,         only:iinterpol
 #endif
-
+#ifdef RADIATION
+ use physcon,        only:c
+ use units,          only:unit_velocity
+#endif
  integer,            intent(in)    :: icall
  type(cellforce),    intent(inout) :: cell
  real,               intent(inout) :: fxyzu(:,:)
@@ -2247,7 +2426,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #endif
  integer,            intent(inout) :: ndustres
  real,               intent(inout) :: dustresfacmean,dustresfacmax
-
+#ifdef RADIATION
+ real,               intent(inout) :: dradenergy(:),dtrad
+#ifdef IND_TIMESTEPS
+ integer,            intent(inout) :: ndtrad
+ real,               intent(inout) :: dtradmean,dtradfacmax
+#endif
+ real    :: c_code,dtradi,radlambdai,radkappai
+#endif
  real    :: xpartveci(maxxpartveciforce),fsum(maxfsum)
  real    :: rhoi,rho1i,rhogasi,hi,hi1,pmassi
  real    :: Bxyzi(maxBevol),curlBi(3),dvdxi(9),straini(6)
@@ -2633,10 +2819,22 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     elseif (use_dust .and. .not.use_dustfrac) then
        tstop(:,i) = dtdrag
     endif
+#ifdef RADIATION
+    dradenergy(i) = fsum(idradi)
+    c_code        = c/unit_velocity
+    radkappai     = xpartveci(iradki)
+    radlambdai    = xpartveci(iradli)
+    dtradi        = 1.2*hi*hi*rhoi*radkappai/c_code/radlambdai
+#endif
 
 #ifdef IND_TIMESTEPS
     !-- The new timestep for particle i
-    dtitmp = min(dtf,dtcool,dtvisci,dtdrag,dtohmi,dthalli,dtambii,dtdusti)
+    dtitmp = min(dtf,dtcool,dtvisci,dtdrag,dtohmi,dthalli,dtambii,dtdusti&
+#ifdef RADIATION
+    ,dtradi&
+#endif
+    )
+
     if (dtitmp < dti .and. dtitmp < dtmax) then
        dti     = dtitmp
        if (dti < tiny(dti) .or. dti > huge(dti)) call fatal('force','invalid dti',var='dti',val=dti) ! sanity check
@@ -2651,6 +2849,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           call check_dtmin(dtcheck,dti,dthalli,dtrat,ndthall   ,dthallfacmean ,dthallfacmax,dtchar,'dt_hall'    )
           call check_dtmin(dtcheck,dti,dtambii,dtrat,ndtambi   ,dtambifacmean ,dtambifacmax,dtchar,'dt_ambi'    )
           call check_dtmin(dtcheck,dti,dtdusti,dtrat,ndtdust   ,dtdustfacmean ,dtdustfacmax,dtchar,'dt_dust'    )
+#ifdef RADIATION
+          call check_dtmin(dtcheck,dti,dtradi ,dtrat,ndtrad    ,dtradmean     ,dtradfacmax ,dtchar,'dt_radiation')
+#endif
        else
           call check_dtmin(dtcheck,dti,dtf    ,dtrat,ndtforceng,dtfrcngfacmean,dtfrcngfacmax,dtchar,'dt_force'  )
           call check_dtmin(dtcheck,dti,dtdrag ,dtrat,ndtdragd  ,dtdragdfacmean,dtdragdfacmax,dtchar,'dt_drag'   )
@@ -2691,8 +2892,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
     dtmini = min(dtmini,dti)
     dtmaxi = max(dtmaxi,dti)
+#ifdef RADIATION
+    dtrad = min(dtrad,dtradi)
 #endif
 
+#endif
  enddo over_parts
 end subroutine finish_cell_and_store_results
 

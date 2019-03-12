@@ -86,7 +86,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
 #endif
 #ifdef RADIATION
- use part,             only:radenergy
+ use part,             only:radenergy,radkappa
  use radiation,        only:update_energy
 #endif
 #ifdef LIVE_ANALYSIS
@@ -317,7 +317,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
                           poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
     endif
 #ifdef RADIATION
-    call update_energy(npart,xyzh,fxyzu,dt,vxyzu,radenergy)
+    call update_energy(npart,xyzh,fxyzu,vxyzu,radenergy,radkappa,0.5*dt)
 #endif
     nsteps = nsteps + 1
 !
@@ -330,6 +330,10 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     else
        call step(npart,nactive,time,dt,dtextforce,dtnew)
     endif
+#ifdef RADIATION
+    call update_energy(npart,xyzh,fxyzu,vxyzu,radenergy,radkappa,0.5*dt)
+#endif
+
     dtlast = dt
 
     !--timings for step call

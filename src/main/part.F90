@@ -155,7 +155,9 @@ module part
  real, allocatable :: radenergy(:)
  real, allocatable :: radenergyflux(:,:)
  real, allocatable :: dradenergy(:)
- character(len=*), parameter :: radenergy_label(5) = (/'radE', 'dEdx', 'dEdy', 'dEdz', 'dEdt'/)
+ real, allocatable :: radenpred(:)
+ real, allocatable :: radkappa(:)
+ character(len=*), parameter :: radenergy_label(6) = (/'ksi ', 'Fx  ', 'Fy  ', 'Fz  ', 'dksi', 'krad'/)
 #endif
 !
 !--lightcurves
@@ -347,6 +349,8 @@ subroutine allocate_part
  call allocate_array('radenergy', radenergy, maxp)
  call allocate_array('radenergyflux', radenergyflux, 3, maxp)
  call allocate_array('dradenergy', dradenergy, maxp)
+ call allocate_array('radenpred', radenpred, maxp)
+ call allocate_array('radkappa', radkappa, maxp)
 #endif
 #ifdef IND_TIMESTEPS
  call allocate_array('ibin', ibin, maxan)
@@ -414,6 +418,8 @@ subroutine deallocate_part
  deallocate(radenergy)
  deallocate(radenergyflux)
  deallocate(dradenergy)
+ deallocate(radenpred)
+ deallocate(radkappa)
 #endif
  deallocate(iphase)
  deallocate(iphase_soa)

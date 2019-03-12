@@ -114,20 +114,39 @@ module dim
  ! kdtree
  integer, parameter :: minpart = 10
 
+ integer, parameter :: &
+#ifdef RADIATION
+   radensumforce      = 1,&
+   radenxpartvecforce = 6,&
+   radensumden        = 3,&
+   radenxpartvetden   = 1
+#else
+   radensumforce      = 0,&
+   radenxpartvecforce = 0,&
+   radenxpartvetden   = 0,&
+   radensumden        = 0
+#endif
+
  ! rhosum
- integer, parameter :: maxrhosum = 39 + maxdustlarge - 1
+ integer, parameter :: maxrhosum = 39 + &
+                                   maxdustlarge - 1 + &
+                                   radensumden
 
  ! fsum
  integer, parameter :: fsumvars = 19 ! Number of scalars in fsum
  integer, parameter :: fsumarrs = 5  ! Number of arrays in fsum
- integer, parameter :: maxfsum  = fsumvars + fsumarrs*(maxdusttypes-1) ! Total number of values
+ integer, parameter :: maxfsum  = fsumvars + &                  ! Total number of values
+                                  fsumarrs*(maxdusttypes-1) + &
+                                  radensumforce
 
- ! xpartveci
- integer, parameter :: maxxpartvecidens = 14
+! xpartveci
+ integer, parameter :: maxxpartvecidens = 14 + radenxpartvetden
 
  integer, parameter :: maxxpartvecvars = 56 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
- integer, parameter :: maxxpartveciforce = maxxpartvecvars + maxxpartvecarrs*(maxdusttypes-1) ! Total number of values
+ integer, parameter :: maxxpartveciforce = maxxpartvecvars + &              ! Total number of values
+                                           maxxpartvecarrs*(maxdusttypes-1) + &
+                                           radenxpartvecforce
 
  ! cell storage
  integer, parameter :: maxprocs = 32
@@ -278,6 +297,7 @@ module dim
  integer :: maxgradh = 0
 
 contains
+
 subroutine update_max_sizes(n)
  integer, intent(in) :: n
 
