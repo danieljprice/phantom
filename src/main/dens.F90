@@ -1271,6 +1271,9 @@ subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu
  realviscosity = (irealvisc > 0)
 
  over_parts: do i = 1,cell%npcell
+    ! skip particles already converged
+    if (cell%converged(i)) cycle over_parts
+
     lli = iorder(cell%arr_index(i))
     ! note: only active particles have been sent here
     if (maxphase==maxp) then
@@ -1389,6 +1392,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
     endif
 
     cell%npcell = cell%npcell + 1
+    cell%converged(cell%npcell) = .false.
 
     cell%arr_index(cell%npcell)               = ip
     cell%iphase(cell%npcell)                  = iphase(i)
@@ -1449,9 +1453,11 @@ subroutine finish_cell(cell,cell_converged)
  integer                        :: i,iamtypei !,nwarnup,nwarndown
  logical                        :: iactivei,iamgasi,iamdusti,converged
 
- cell%nits = cell%nits + 1
  cell_converged = .true.
  over_parts: do i = 1,cell%npcell
+    if (cell%converged(i)) cycle over_parts
+    cell%nits = cell%nits + 1
+
     hi = cell%h(i)
     hi_old = cell%h_old(i)
     rhosum = cell%rhosums(:,i)
@@ -1496,6 +1502,7 @@ subroutine finish_cell(cell,cell_converged)
     endif
 
     converged = ((abs(hnew-hi)/hi_old) < tolh .and. omegai > 0. .and. hi > 0.)
+    cell%converged(i) = converged
     if (cell_converged) cell_converged = converged
 
     if ((.not. converged) .and. (cell%nits >= maxdensits)) then
@@ -1784,7 +1791,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
     maxneighact = max(maxneighact,cell%nneigh(i))
  enddo
  np = np + cell%npcell
- ncalc = ncalc + cell%npcell * cell%nits
+ ncalc = ncalc + cell%nits
 
 end subroutine store_results
 

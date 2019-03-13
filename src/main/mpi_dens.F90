@@ -37,6 +37,7 @@ module mpidens
 
  type celldens
     sequence
+    logical          :: converged(minpart)
     real             :: h(minpart)                             ! don't put this in xpartvec because it is modified inplace
     real             :: h_old(minpart)                         ! original h
     real             :: xpartvec(maxxpartvecidens,minpart)
@@ -73,7 +74,7 @@ contains
 subroutine get_mpitype_of_celldens(dtype)
  use mpi
 
- integer, parameter              :: ndata = 20
+ integer, parameter              :: ndata = 21
 
  integer, intent(out)            :: dtype
  integer                         :: dtype_old
@@ -86,6 +87,12 @@ subroutine get_mpitype_of_celldens(dtype)
  nblock = 0
 
  call MPI_GET_ADDRESS(cell,start,mpierr)
+
+ nblock = nblock + 1
+ blens(nblock) = size(cell%converged)
+ mpitypes(nblock) = MPI_REAL8
+ call MPI_GET_ADDRESS(cell%converged,addr,mpierr)
+ disp(nblock) = addr - start
 
  nblock = nblock + 1
  blens(nblock) = size(cell%h)
