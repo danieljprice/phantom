@@ -50,16 +50,18 @@ end subroutine empty_tree
 
 subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
  use timing, only:getused
+ use part, only:isdead_or_accreted
  type(kdnode),    intent(out)   :: node(ncellsmax+1)
  integer,         intent(in)    :: np,ndim
  real,            intent(inout) :: xyzh(:,:)  ! inout because of boundary crossing
  integer,         intent(out)   :: ifirstincell(ncellsmax+1)
  integer(kind=8), intent(out)   :: ncells
  real :: xmini(3),xmaxi(3)
- integer :: i,inode
+ integer :: i,inode,n
  real(4) :: t1,t2,t3,t4,t5 !,t6,t7
 
  ifirstincell = 0
+ if (allocated(iorder) .and. size(iorder) < np) deallocate(inoderange,iorder,iorder_was)
  if (.not.allocated(inoderange)) allocate(inoderange(2,ncellsmax+1))
  if (.not.allocated(iorder)) allocate(iorder(np))
  if (.not.allocated(iorder_was)) allocate(iorder_was(np))
@@ -80,11 +82,15 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
  ! get bounds of particle distribution, and enforce periodicity
  call get_particle_bounds(np,xyzh,xmini,xmaxi)
  call getused(t2)
+ n = 0
  do i=1,np
-    iorder(i) = i
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       n = n + 1
+       iorder(n) = i
+    endif
  enddo
  call getused(t3)
- call build_tree_index(np,node,xyzh,xmini,xmaxi,iorder,iorder_was,inoderange,ncells)
+ call build_tree_index(n,node,xyzh,xmini,xmaxi,iorder,iorder_was,inoderange,ncells)
  call getused(t4)
 
  !$omp parallel do default(none) schedule(dynamic,10) &
@@ -96,7 +102,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
  !$omp end parallel do
  call getused(t5)
 
- print*,' TIMINGS: init: ',t3-t1,' index:',t4-t3,' construct:',t5-t4
+ print*,' TIMINGS: init: ',t3-t2,t2-t1,' index:',t4-t3,' construct:',t5-t4
  return
  print*,' DONE, ncells = ',ncells
     write(*,"(a,i10,3(a,i2))") ' maketree: nodes = ',ncells,', max level = ',maxlevel,&
@@ -151,10 +157,10 @@ subroutine build_tree_index(np,node,xyzh,xmin,xmax,iorder,iorder_was,inoderange,
 !$omp end parallel
 
 contains
- recursive subroutine build_tree_index_r(inode,mymum,i1,i2,level,xmin,xmax)
+ recursive subroutine build_tree_index_r(inode,mymum,i1,i2,level,xmini,xmaxi)
  use io, only:fatal
  integer, intent(in) :: inode,mymum,i1,i2,level
- real, intent(in)    :: xmin(ndimtree),xmax(ndimtree)
+ real, intent(in)    :: xmini(ndimtree),xmaxi(ndimtree)
  integer :: npnode,nl,nr,iaxis,i,j,il,ir
  real :: xpivot,xminl(ndimtree),xmaxl(ndimtree),xminr(ndimtree),xmaxr(ndimtree)
 
@@ -171,13 +177,13 @@ contains
  endif
 
  iaxis = mod(level,3) + 1 ! cycle x->y->z as we descend levels
- xpivot = 0.5*(xmin(iaxis) + xmax(iaxis))
+ xpivot = 0.5*(xmini(iaxis) + xmaxi(iaxis))
  !print*,' pivot = ',xpivot,' on axis ',iaxis,xmin(iaxis),xmax(iaxis)
 
- xminl = xmin
- xmaxl = xmax
- xminr = xmin
- xmaxr = xmax
+ xminl = xmini
+ xmaxl = xmaxi
+ xminr = xmini
+ xmaxr = xmaxi
  xmaxl(iaxis) = xpivot
  xminr(iaxis) = xpivot
  !
@@ -505,9 +511,11 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
              i2=inoderange(2,n)
 !             if (nneigh > 100000) print*,'NODE ',n,' adding ',npnode,rcuti,xsizei,xsizej
              npnode = i2 - i1 + 1
-             do i=i1,i2
-                listneigh(nneigh+(i-i1+1)) = iorder(i)
+             if (npnode <= 0) stop 'npnode <= 0'
+             do j=1,npnode
+                listneigh(nneigh+j) = iorder(i1+j-1)
              enddo
+!             listneigh(nneigh+1:nneigh+npnode) = iorder(i1:i2)
              if (nneigh < ixyzcachesize) then ! not strictly necessary, loop doesn't execute anyway
                 nn = min(nneigh+npnode,ixyzcachesize)
                 !print*,' got ',nneigh+npnode,' capping to ',nn
