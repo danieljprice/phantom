@@ -305,7 +305,7 @@ subroutine write_hdf5_arrays_small(file_id,error,npart,xyzh,iphase,           &
     call write_to_hdf5(real(dustprop(1,1:npart),kind=4),'grainsize',group_id,errors(7))
     call write_to_hdf5(real(dustprop(2,1:npart),kind=4),'graindens',group_id,errors(8))
     call write_to_hdf5(real(dustprop(3,1:npart),kind=4),'vrel/vfrag',group_id,errors(9))
-  ! call write_to_hdf5(real(dustprop(4,1:npart),kind=4),'dv_dust',group_id,errors())
+    ! call write_to_hdf5(real(dustprop(4,1:npart),kind=4),'dv_dust',group_id,errors())
     call write_to_hdf5(real(St(1:npart),kind=4),'St',group_id,errors(10))
  endif
 

@@ -50,9 +50,9 @@ program phantom2hdf5
 
  over_args: do iarg=1,nargs
     call get_command_argument(iarg,dumpfile)
-   !
-   !--read particle setup from dumpfile
-   !
+    !
+    !--read particle setup from dumpfile
+    !
     fulldump = .true.
     call read_dump(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr)
 
