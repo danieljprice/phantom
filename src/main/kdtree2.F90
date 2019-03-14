@@ -60,7 +60,6 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
  integer :: i,inode,n
  real(4) :: t1,t2,t3,t4,t5 !,t6,t7
 
- ifirstincell = 0
  if (allocated(iorder) .and. size(iorder) < np) deallocate(inoderange,iorder,iorder_was)
  if (.not.allocated(inoderange)) allocate(inoderange(2,ncellsmax+1))
  if (.not.allocated(iorder)) allocate(iorder(np))
@@ -77,7 +76,11 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
  ncells = 2**(maxlevel_indexed+1) - 1
 
  call getused(t1)
+
+ ! wipe tree indices
  call empty_tree(node)
+ ifirstincell = 0
+ inoderange = 0
 
  ! get bounds of particle distribution, and enforce periodicity
  call get_particle_bounds(np,xyzh,xmini,xmaxi)
@@ -90,7 +93,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
     endif
  enddo
  call getused(t3)
- call build_tree_index(n,node,xyzh,xmini,xmaxi,iorder,iorder_was,inoderange,ncells)
+ call build_tree_index(n,node,xyzh,xmini,xmaxi,ifirstincell,iorder,iorder_was,inoderange,ncells)
  call getused(t4)
 
  !$omp parallel do default(none) schedule(dynamic,10) &
@@ -140,10 +143,11 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
 
 end subroutine maketree
 
-subroutine build_tree_index(np,node,xyzh,xmin,xmax,iorder,iorder_was,inoderange,ncells)
+subroutine build_tree_index(np,node,xyzh,xmin,xmax,ifirstincell,iorder,iorder_was,inoderange,ncells)
  integer, intent(in) :: np
  type(kdnode), intent(inout) :: node(:)
  real,    intent(in)    :: xyzh(:,:),xmin(ndimtree),xmax(ndimtree)
+ integer, intent(inout)   :: ifirstincell(:)
  integer, intent(inout) :: iorder(:),iorder_was(:),inoderange(:,:)
  integer(kind=8), intent(inout) :: ncells
 
@@ -169,10 +173,14 @@ contains
  inoderange(1,inode) = i1  ! this works even if node empty
  inoderange(2,inode) = i2  ! in this case i2 = i1-1 and therefore npnode = 0
  npnode = i2-i1+1
- !print*,'node ',inode,' parts ',i1,'->',i2,' npnode=',npnode,' level=',level
+
  !maxlevel = max(level,maxlevel)
  if (npnode < minpart) then
     ! we are a leaf node, return
+    node(inode)%parent = mymum
+    node(inode)%leftchild = 0
+    node(inode)%rightchild = 0
+    ifirstincell(inode) = 1
     return
  endif
 
@@ -205,7 +213,6 @@ contains
  enddo
  !print*,' splitting, left  = ',nl,i1,i1+nl-1,' iorder=',iorder(i1:i1+10)
  !print*,' splitting, right = ',nr,i1+nl,i2,' iorder=',iorder(i1+nl+1:i1+nl+1+10)
- !read*
  if (level < maxlevel_indexed) then
     il = 2*inode
     ir = il + 1
@@ -303,10 +310,11 @@ subroutine construct_node(nodei,inode,i1,i2,xyzh,iorder,ifirstincell)
 #endif
     return
  endif
- npnode = i2 - i1
- if (npnode < minpart) then ! is a leaf node
-    ifirstincell(inode) = 1
- endif
+ npnode = i2 - i1 + 1
+ !if (npnode < minpart) then ! is a leaf node
+    !if (ifirstincell(inode) /= 1) print*,'GOT ',inode,npnode
+   ! ifirstincell(inode) = 1
+ !endif
 !
 ! to avoid round off error from repeated multiplication by pmassi (which is small)
 ! we compute the centre of mass with a factor relative to gas particles
@@ -511,7 +519,6 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
              i2=inoderange(2,n)
 !             if (nneigh > 100000) print*,'NODE ',n,' adding ',npnode,rcuti,xsizei,xsizej
              npnode = i2 - i1 + 1
-             if (npnode <= 0) stop 'npnode <= 0'
              do j=1,npnode
                 listneigh(nneigh+j) = iorder(i1+j-1)
              enddo
