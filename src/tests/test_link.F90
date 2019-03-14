@@ -59,7 +59,7 @@ subroutine test_link(ntests,npass)
  real                   :: rhozero,hi21,dx,dy,dz,xi,yi,zi,q2,hmin,hmax,hi
  integer                :: i,j,icell,ixyzcachesize,ncellstest,nfailedprev,maxpen
  integer                :: nneigh,nneighexact,nneightry,max1,max2,ncheck1,ncheck2,nwarn
- integer                :: ip
+ integer                :: ip,np
  integer                :: nparttot
  integer(kind=8)        :: nptot
 #ifdef IND_TIMESTEPS
@@ -242,6 +242,7 @@ subroutine test_link(ntests,npass)
 !
        ncellstest = 10
        nfailed(:) = 0
+       np = 0
        max1 = 0
        max2 = 0
        ncheck1 = 0
@@ -268,6 +269,7 @@ subroutine test_link(ntests,npass)
 
           over_parts: do ip = inoderange(1,icell),inoderange(2,icell)
              i = inodeparts(ip)
+             np = np + 1
              iactivei = .true.
 #ifdef IND_TIMESTEPS
              i = abs(i)
@@ -397,12 +399,16 @@ subroutine test_link(ntests,npass)
 
        call checkvalbuf_end('nneigh (cached)',  ncheck1,nfailed(1),max1,0)
        call checkvalbuf_end('nneigh (no cache)',ncheck2,nfailed(2),max2,0,npart)
-       write(*,"(1x,2(a,i6),a,f9.2)") 'max nneigh = ',maxneighi,&
-    ' min nneigh = ',minneigh,' mean = ',meanneigh/real(ncheck2)
+       !write(*,"(1x,2(a,i6),a,f9.2)") 'max nneigh = ',maxneighi,&
+    !' min nneigh = ',minneigh,' mean = ',meanneigh/real(ncheck2)
 
        ntests = ntests + 2
        if (nfailed(1)==0) npass = npass + 1
        if (nfailed(2)==0) npass = npass + 1
+
+       call checkval(np,npart-ndead,0,nfailed(1),'# of parts in leaf nodes')
+       ntests = ntests + 1
+       if (nfailed(1)==0) npass = npass + 1
 
     endif dochecks
 
