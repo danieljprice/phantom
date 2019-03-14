@@ -87,8 +87,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  write(*,'("ASSUMING G==1")')
  G = 1.0
 
- call read_discparams(''//trim(filename)//'.discparams',R_in,R_out,H_R,p_index,q_index,M_star,Sig0,iparams,ierr)
- if (ierr /= 0) call fatal('analysis','could not open/read discparams.list')
+ call read_discparams2(''//trim(filename)//'.discparams',R_in,R_out,H_R,p_index,q_index,M_star,Sig0,iparams,ierr)
+ !if (ierr /= 0) call fatal('analysis','could not open/read discparams.list')
 
 
 ! Print out the parameters
@@ -100,11 +100,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  write(*,*) 'p_index = ',p_index
  write(*,*) 'q_index = ',q_index
  write(*,*) 'M_star  = ',M_star
+ write(*,*) 'sig_ref  = ',Sig0
  write(*,*)
  write(*,*)
 
 
- call createbins(rad,nr,rmax,rmin,dr)
+ call createbins(rad,nr,R_out,R_in,dr)
 
 
 
@@ -324,6 +325,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        print*,"i, ninbin(i),Hperc(i):",i,ninbin(i),Hperc(i)
     enddo
  endif
+
+ !Deallocating array
+ deallocate(z)
+ deallocate(indexz)
+
 end subroutine do_analysis
 
 
@@ -348,7 +354,7 @@ subroutine read_discparams(filename,R_in,R_out,H_R,p_index,q_index,M_star,iunit,
  if (ierr /= 0) return
  call read_inopt(R_out,'R_out',db,ierr)
  if (ierr /= 0) return
- call read_inopt(H_R,'H_R',db,ierr)
+ call read_inopt(H_R,'H/R_ref',db,ierr)
  if (ierr /= 0) return
  call read_inopt(p_index,'p_index',db,ierr)
  if (ierr /= 0) return
@@ -377,7 +383,7 @@ subroutine read_discparams2(filename,R_in,R_out,H_R,p_index,q_index,M_star,Sig0,
  if (ierr /= 0) return
  call read_inopt(R_out,'R_out',db,ierr)
  if (ierr /= 0) return
- call read_inopt(H_R,'H_R',db,ierr)
+ call read_inopt(H_R,'H/R_ref',db,ierr)
  if (ierr /= 0) return
  call read_inopt(p_index,'p_index',db,ierr)
  if (ierr /= 0) return
@@ -385,7 +391,7 @@ subroutine read_discparams2(filename,R_in,R_out,H_R,p_index,q_index,M_star,Sig0,
  if (ierr /= 0) return
  call read_inopt(M_star,'M_star',db,ierr)
  if (ierr /= 0) return
- call read_inopt(Sig0,'Sig0',db,ierr)
+ call read_inopt(Sig0,'sig_ref',db,ierr)
  if (ierr /= 0) return
 
 

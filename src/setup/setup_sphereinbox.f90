@@ -8,7 +8,9 @@
 !  MODULE: setup
 !
 !  DESCRIPTION:
-! this module does setup
+!   This module sets up a sphere-in-a-box: a cold, dense sphere placed in
+!   a warm medium; the two media are in pressure-equilibrium.
+!   This currently works for gas-only and two-fluid dust.
 !
 !  REFERENCES: None
 !

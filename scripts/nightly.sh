@@ -16,13 +16,15 @@ datetag=`date "+%Y%m%d"`;
 #---------------------
 #webdir=$dir/web
 webdir=$dir/phantomsph.bitbucket.org
+weblogdir="$webdir/nightly/logs"
 codedir=$dir/phantom
 benchdir=$dir/phantom-benchmarks
 url="https://phantomsph.bitbucket.io/"
 urlgitrepo="https://bitbucket.org/danielprice/phantom";
 #url="http://users.monash.edu.au/~dprice/phantom";
 #webserver="users.monash.edu.au:WWW/phantom/";
-urllogs="https://users.monash.edu.au/~dprice/phantom/nightly/logs/"
+webrepo="phantomsph/phantomsph.bitbucket.org"
+urllogs="https://bitbucket.org/${webrepo}/downloads/"
 sender="daniel.price@infra.monash.edu";
 admin="daniel.price@monash.edu";
 systems="msg gfortran";
@@ -30,6 +32,8 @@ mailfile="$dir/mail.tmp";
 htmlfile="$dir/$datetag.html";
 incoming="$dir/incoming.txt";
 tagfile="$dir/gittag.tmp";
+slackfile="$dir/slack.tmp";
+slackfile2="$dir/slack-perf.tmp";
 #---------------------
 gittag='';
 summary=[];
@@ -105,6 +109,22 @@ pull_changes ()
    cd $benchdir; git pull >& gitpull.log
    cd $codedir;
 }
+clean_logs()
+{
+   echo "--- cleaning logs ---";
+   if [ -d $codedir/logs ]; then
+      cd $codedir/logs
+      for logfile in *.txt; do
+          if test `find $logfile -mmin +20160`; then
+             echo "deleting $logfile more than 2 weeks old";
+             rm $logfile;
+          fi
+      done;
+      rm -f *.tmp; # delete any temporary files
+   else
+      echo "error: $codedir/logs does not exist"
+   fi
+}
 run_buildbot ()
 {
    # run the buildbot and testbot scripts
@@ -114,9 +134,19 @@ run_buildbot ()
       export SYSTEM=$sys;
       echo "SYSTEM=$SYSTEM";
       export PHANTOM_DIR=$codedir; # so setup tests can find data files
-      ./testbot.sh "$urllogs/nightly/logs/";
-      ./buildbot.sh 17000000 "$urllogs/nightly/logs/";
+      ./testbot.sh "$urllogs";
+      ./buildbot.sh 17000000 "$urllogs";
    done
+}
+create_slack_performance_report ()
+{
+   cd $dir;
+   echo "--- creating performance report ---";
+   if [ -e $benchdir/opt2slack.pl ]; then
+      text=`cd $benchdir; ./opt2slack.pl opt*.html`
+      line="Nightly performance report (graphs <$url/nightly/opt/|here>):\n$text"
+      echo $line > $slackfile2;
+   fi
 }
 run_benchmarks ()
 {
@@ -130,6 +160,7 @@ run_benchmarks ()
        ./run-benchmarks.sh;
    done
    ./plot-benchmarks.sh;
+   create_slack_performance_report;
 }
 pull_wiki ()
 {
@@ -167,7 +198,6 @@ write_htmlfile_gittag_and_mailfile ()
        cat build-status-$SYSTEM.html >> $htmlfile
        cat $benchdir/opt-status-$SYSTEM.html >> $htmlfile
        files=`ls make-*errors*-$SYSTEM.txt make-*errors*-$SYSTEM-debug.txt test-results*-$SYSTEM.txt test-results*-$SYSTEM-debug.txt`
-       weblogdir="$webdir/nightly/logs"
        if [ -d "$weblogdir" ]; then
           for x in $files; do
               webfile="$weblogdir/$x";
@@ -306,7 +336,7 @@ EOM
 # write slack message
 #
    line="$slacknames\n $preamble\n$text\nTagged as <$url/nightly/build/$datetag.html|$gittag>"
-   echo $line > slack.tmp;
+   echo $line > $slackfile;
 }
 tag_code_and_push_tags()
 {
@@ -356,21 +386,45 @@ commit_and_push_to_website ()
    git status
    git commit -m "[nightly]: results `date`"
    git push
+   # post logs to "downloads" area
+   # BB_AUTH is an auth token unique to the bitbucket user (e.g. set to danielprice:authkey)
+   if [ -d $weblogdir ]; then
+      cd $weblogdir;
+      #flags='';
+      for logfile in `ls *.txt | grep -v old.txt`; do
+          #flags+="-F files=@$logfile "
+          curl "https://${BB_AUTH}@api.bitbucket.org/2.0/repositories/${webrepo}/downloads" \
+               -F files=@"$logfile"
+      done
+      #curl -v "https://${BB_AUTH}@api.bitbucket.org/2.0/repositories/${webrepo}/downloads" \
+      #        $flags;
+   fi
+}
+post_slack_messages()
+{
+  cd $dir
+  message="status: <$url/nightly/build/$datetag.html|$gittag>"
+  post_to_slack "$message" "#commits"
+  message=`cat $slackfile`
+  post_to_slack "$message" "#nightly"
+  if [ -e $slackfile2 ]; then
+     message=`cat $slackfile2`
+     post_to_slack "$message" "#nightly"
+  fi
 }
 get_incoming_changes
 extract_names_of_users
 extract_changeset_list
 pull_changes
+clean_logs
 run_buildbot
 run_benchmarks
+#create_slack_performance_report
 #pull_wiki
 write_htmlfile_gittag_and_mailfile
-message="status: <$url/nightly/build/$datetag.html|$gittag>"
-post_to_slack "$message" "#commits"
-message=`cat slack.tmp`
-post_to_slack "$message" "#nightly"
 tag_code_and_push_tags
 send_email
 commit_and_push_to_website
+post_slack_messages
 cd $dir
 echo "--- finished buildbot `date` ---";

@@ -34,10 +34,10 @@ module dim
  public
 
  character(len=80), parameter :: &
-    tagline='Phantom v'//phantom_version_string//' (c) 2007-2018 The Authors'
+    tagline='Phantom v'//phantom_version_string//' (c) 2007-2019 The Authors'
 
  ! maximum number of particles
- integer :: maxp
+ integer :: maxp = 0 ! memory not allocated initially
 #ifdef MAXP
  integer, parameter :: maxp_hard = MAXP
 #else
@@ -297,7 +297,7 @@ subroutine update_max_sizes(n)
 #ifdef NCELLSMAX
  ncellsmax = NCELLSMAX
 #else
- ncellsmax = min(2*maxp,maxp_hard)
+ ncellsmax = 2*maxp
 #endif
 
 #ifdef DUST

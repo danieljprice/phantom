@@ -21,14 +21,15 @@
 !
 !  USAGE: combinedustdumps inputdumpfiles ... outputdumpfile
 !
-!  DEPENDENCIES: deriv, dim, initial, io, part, readwrite_dumps, units
+!  DEPENDENCIES: checksetup, deriv, dim, initial, io, memory, part,
+!    readwrite_dumps, units
 !+
 !--------------------------------------------------------------------------
 program combinedustdumps
  use deriv,           only:derivs
- use dim,             only:maxp,tagline
+ use dim,             only:maxp,maxvxyzu,tagline
  use initial,         only:initialise
- use io,              only:set_io_unit_numbers,iprint,idisk1
+ use io,              only:set_io_unit_numbers,iprint,idisk1,fatal
  use part,            only:xyzh,vxyzu,npart,hfact,iphase,npartoftype,massoftype,&
                            igas,idust,ndusttypes,ndustsmall,ndustlarge,fxyzu,fext,&
                            divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustevol,&
@@ -36,14 +37,16 @@ program combinedustdumps
                            grainsize,graindens,iamtype,isdead_or_accreted
  use readwrite_dumps, only:read_dump,write_fulldump
  use units,           only:set_units,select_unit,umass,udist,utime
+ use memory,          only:allocate_memory
+ use checksetup,      only:check_setup
  implicit none
-
  character(len=120), allocatable :: indumpfiles(:)
  character(len=120) :: outdumpfile
  real, allocatable :: xyzh_tmp(:,:,:),vxyzu_tmp(:,:,:),massofdust_tmp(:)
  real, allocatable :: grainsize_tmp(:),graindens_tmp(:)
  integer, allocatable :: npartofdust_tmp(:)
  integer :: i,j,counter,ipart,itype,ierr,nargs,idust_tmp,ninpdumps
+ integer :: nwarn,nerror
  real    :: time,dtdum
  real(kind=8) :: utime_tmp,udist_tmp,umass_tmp
 
@@ -71,28 +74,41 @@ program combinedustdumps
  print "(/,a,/)",' combinedustdumps: many grains make light work'
 
  !
- !--read first dumpfile: check idust, check MAXP
- !  we assume all dumps are from the same phantom version
+ ! read first dumpfile HEADER ONLY: check idust, check MAXP
+ ! we assume all dumps are from the same phantom version
+ !
+ counter = 0
+ idust_tmp = idust ! new dumps, location of first dust particle type
+ do i=1,ninpdumps
+    call read_dump(trim(indumpfiles(i)),time,hfact,idisk1,iprint,0,1,ierr,headeronly=.true.)
+    if (ierr /= 0) stop 'error reading dumpfile... aborting'
+    if (i==1) then
+       counter = counter + npartoftype(1)
+       if (npartoftype(2) > 0) idust_tmp = 2  !old dumps
+    endif
+    counter = counter + npartoftype(idust_tmp)
+ enddo
+ !
+ !--sanity check array sizes
+ !
+ if (idust+ninpdumps-1 > size(npartoftype)) then
+    call fatal('combinedustdumps','not enough particle types: compile with DUST=yes and',&
+               var='MAXDUSTLARGE >',ival=ninpdumps-1)
+ endif
+ !
+ ! allocate memory
+ !
+ call allocate_memory(counter)
+ !
+ ! read gas particles from first file
  !
  call read_dump(trim(indumpfiles(1)),time,hfact,idisk1,iprint,0,1,ierr)
- if (npartoftype(2) > 0) then
-    !--old dumps
-    idust_tmp = 2
- else
-    !--new dumps
-    idust_tmp = idust
- endif
- if (npartoftype(1) + ninpdumps*npartoftype(idust_tmp) > maxp) then
-    print "(a)",' MAXP too small, set MAXP >= ngas+ndumps*ndust and recompile'
-    stop
- endif
-
  !
- !--allocate temporary arrays
+ ! allocate temporary arrays
  !
  allocate (xyzh_tmp(ninpdumps,4,npartoftype(idust_tmp)),stat=ierr)
  if (ierr /= 0) stop 'error allocating memory to store positions'
- allocate (vxyzu_tmp(ninpdumps,4,npartoftype(idust_tmp)),stat=ierr)
+ allocate (vxyzu_tmp(ninpdumps,maxvxyzu,npartoftype(idust_tmp)),stat=ierr)
  if (ierr /= 0) stop 'error allocating memory to store velocities'
  allocate (npartofdust_tmp(ninpdumps),stat=ierr)
  if (ierr /= 0) stop 'error allocating memory to store number of dust particles'
@@ -142,7 +158,6 @@ program combinedustdumps
  massoftype(2) = 0
  grainsize(1) = grainsize_tmp(1)
  graindens(1) = graindens_tmp(1)
-
  !
  !--add dust from other dumps
  !
@@ -177,6 +192,12 @@ program combinedustdumps
  utime_tmp = utime
  umass_tmp = umass
  udist_tmp = udist
+
+ !
+ !--check the setup is OK
+ !
+ call check_setup(nerror,nwarn,restart=.true.)
+ if (nerror > 0) call fatal('combinedustdumps','errors in merged particle setup')
 
  !
  !--calculate dustfrac
