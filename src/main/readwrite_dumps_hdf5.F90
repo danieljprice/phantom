@@ -16,15 +16,15 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Daniel Mentiplay
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, dump_utils, eos, externalforces, fileutils,
-!    gitinfo, initial_params, io, lumin_nsdisc, memory, mpi, mpiutils,
-!    options, part, setup_params, sphNGutils, timestep, units
+!  DEPENDENCIES: boundary, dim, eos, gitinfo, initial_params, io,
+!    lumin_nsdisc, memory, mpiutils, options, part, setup_params, timestep,
+!    units, utils_dumpfiles_hdf5
 !+
 !--------------------------------------------------------------------------
 #ifdef PHANTOM2HDF5

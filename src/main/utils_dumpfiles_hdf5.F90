@@ -1,3 +1,25 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
+!+
+!  MODULE: utils_dumpfiles_hdf5
+!
+!  DESCRIPTION: None
+!
+!  REFERENCES: None
+!
+!  OWNER: Daniel Mentiplay
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS: None
+!
+!  DEPENDENCIES: utils_hdf5
+!+
+!--------------------------------------------------------------------------
 module utils_dumpfiles_hdf5
  use utils_hdf5, only:write_to_hdf5,    &
                       read_from_hdf5,   &
