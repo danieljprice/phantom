@@ -1588,6 +1588,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  use linklist,    only:set_hmaxcell,iorder
  use kernel,      only:radkern
  use part,        only:xyzh_soa,store_temperature,temperature
+ use kdtree,      only:treecache
 
  integer,         intent(in)    :: icall
  type(celldens),  intent(in)    :: cell
@@ -1664,6 +1665,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
     !--store final results of density iteration
     !
     xyzh(4,lli) = hrho(rhoi,pmassi)
+    treecache(4,cell%arr_index(i)) = xyzh(4,lli)
     !xyzh_soa(4,cell%arr_index(i)) = xyzh(4,lli)
 
     if (xyzh(4,lli) < 0.) call fatal('densityiterate','setting negative h from hrho',i,var='rhoi',val=real(rhoi))

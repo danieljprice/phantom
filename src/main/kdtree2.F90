@@ -11,10 +11,13 @@ module kdtree
  integer, parameter, public :: irootnode = 1
  real, public :: tree_accuracy = 0.5
  integer, parameter, public :: lenfgrav = 20
+ real, allocatable :: treecache(:,:)
 
 contains
+
 subroutine allocate_kdtree
  use allocutils, only:allocate_array
+
 
 end subroutine allocate_kdtree
 
@@ -49,8 +52,8 @@ subroutine empty_tree(node)
 end subroutine empty_tree
 
 subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
- use timing, only:getused
- use part, only:isdead_or_accreted
+ use timing, only:getused,get_timings
+ use part, only:isdead_or_accreted,igas,maxphase,maxp,massoftype,iphase,iamtype
  type(kdnode),    intent(out)   :: node(ncellsmax+1)
  integer,         intent(in)    :: np,ndim
  real,            intent(inout) :: xyzh(:,:)  ! inout because of boundary crossing
@@ -58,12 +61,13 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
  integer(kind=8), intent(out)   :: ncells
  real :: xmini(3),xmaxi(3)
  integer :: i,inode,n
- real(4) :: t1,t2,t3,t4,t5 !,t6,t7
+ real(4) :: t1,t2,t3,t4,t5,tcpu1,tcpu2,tcpu3,tcpu4,tcpu5,tcpu6 !,t6,t7
 
  if (allocated(iorder) .and. size(iorder) < np) deallocate(inoderange,iorder,iorder_was)
  if (.not.allocated(inoderange)) allocate(inoderange(2,ncellsmax+1))
  if (.not.allocated(iorder)) allocate(iorder(np))
  if (.not.allocated(iorder_was)) allocate(iorder_was(np))
+ if (.not.allocated(treecache)) allocate(treecache(5,np))
 
  ! maximum level where 2^k indexing can be used (thus avoiding critical sections)
  ! deeper than this we access cells via a stack as usual
@@ -75,7 +79,8 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
  ! and is decreased afterwards according to the maximum depth actually reached
  ncells = 2**(maxlevel_indexed+1) - 1
 
- call getused(t1)
+ call get_timings(t1,tcpu1)
+! call getused(t1)
 
  ! wipe tree indices
  call empty_tree(node)
@@ -84,7 +89,9 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
 
  ! get bounds of particle distribution, and enforce periodicity
  call get_particle_bounds(np,xyzh,xmini,xmaxi)
- call getused(t2)
+! call getused(t2)
+ call get_timings(t2,tcpu2)
+
  n = 0
  do i=1,np
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -92,54 +99,41 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
        iorder(n) = i
     endif
  enddo
- call getused(t3)
+ call get_timings(t3,tcpu3)
+! call getused(t3)
  call build_tree_index(n,node,xyzh,xmini,xmaxi,ifirstincell,iorder,iorder_was,inoderange,ncells)
- call getused(t4)
+ call get_timings(t4,tcpu4)
+ !call getused(t4)
 
- !$omp parallel do default(none) schedule(dynamic,10) &
- !$omp shared(node,ncells,inoderange,xyzh,iorder,ifirstincell) &
- !$omp private(inode)
+! call build_cache(n,iorder,xyzh,treecache)
+ !$omp parallel default(none) &
+ !$omp shared(maxphase,maxp,treecache,xyzh,n,massoftype,iphase,iorder) &
+ !$omp shared(node,ncells,inoderange,ifirstincell) &
+ !$omp private(i,inode)
+ !$omp do
+ do i=1,n
+    treecache(1:4,i) = xyzh(:,iorder(i))
+    if (maxphase==maxp) then
+       treecache(5,i) = massoftype(iamtype(iphase(iorder(i))))
+    else
+       treecache(5,i) = massoftype(igas)
+    endif
+ enddo
+ !$omp end do
+ !$omp barrier
+ !$omp do schedule(dynamic)
  do inode=1,ncells
     call construct_node(node(inode),inode,inoderange(1,inode),inoderange(2,inode),xyzh,iorder,ifirstincell)
  enddo
- !$omp end parallel do
- call getused(t5)
+ !$omp end do
+ !$omp end parallel
+! call getused(t5)
+ call get_timings(t5,tcpu5)
+
 
  print*,' TIMINGS: init: ',t3-t2,t2-t1,' index:',t4-t3,' construct:',t5-t4
- return
- print*,' DONE, ncells = ',ncells
-    write(*,"(a,i10,3(a,i2))") ' maketree: nodes = ',ncells,', max level = ',maxlevel,&
-       ' max level indexed = ',maxlevel_indexed
-    block
-       integer :: nleaf,level
-       real :: sizesum,sizemax
-       nleaf = 0
-       sizesum = 0.
-       sizemax = 0.
-       do i=1,int(ncells)
-          if (abs(ifirstincell(i)) > 0) then
-             sizesum = sizesum + node(i)%size
-             sizemax = max(sizemax,node(i)%size)
-             nleaf = nleaf + 1
-          endif
-       enddo
-       print*,' size root node = ',node(1)%size,' sum of leaf nodes = ',sizesum
-       print*,' mean size leaf node = ',sizesum/real(nleaf),'max=',sizemax,' number of leaf nodes = ',nleaf
-       print*,' TREE SCORE = ',node(1)%size*real(nleaf)/sizesum
-       print*,' mean parts per leaf node = ',np/real(nleaf)
-       return
-       do level=maxlevel_indexed-1,0,-1
-          nleaf = 0; sizesum = 0.; sizemax = 0.
-          do i=2**level,2**(level+1)-1
-             sizesum = sizesum + node(i)%size
-             !print*,i,'nodesize=',node(i)%size
-             sizemax = max(sizemax,node(i)%size)
-             nleaf = nleaf + 1
-          enddo
-          print*,level,' SCORE = ',node(1)%size*real(nleaf)/sizesum,' mean size = ',&
-                       sizesum/real(nleaf),'max=',sizemax,'sum=',sizesum,' nnodes=',nleaf
-       enddo
-    end block
+ print*,' SCALING: init: ',(tcpu3-tcpu2)/(t3-t2),(tcpu2-tcpu1)/(t2-t1),&
+        ' index:',(tcpu4-tcpu3)/(t4-t3),' construct:',(tcpu5-tcpu4)/(t5-t4)
 
 end subroutine maketree
 
@@ -150,12 +144,15 @@ subroutine build_tree_index(np,node,xyzh,xmin,xmax,ifirstincell,iorder,iorder_wa
  integer, intent(inout)   :: ifirstincell(:)
  integer, intent(inout) :: iorder(:),iorder_was(:),inoderange(:,:)
  integer(kind=8), intent(inout) :: ncells
+ integer :: level,mymum
 
-!$omp parallel default(none) firstprivate(xmin,xmax,np) &
+ level = 0
+ mymum = 0
+!$omp parallel default(none) firstprivate(xmin,xmax,np,level,mymum) &
 !$omp shared(node,ncells,iorder,iorder_was,inoderange,xyzh)
 !$omp single
 !$omp task
- call build_tree_index_r(irootnode,0,1,np,0,xmin,xmax)
+ call build_tree_index_r(irootnode,mymum,1,np,level,xmin,xmax)
 !$omp end task
 !$omp end single
 !$omp end parallel
@@ -184,7 +181,9 @@ contains
     return
  endif
 
+ !iaxis = maxloc(xmaxi - xmini,1) ! cut longest axis
  iaxis = mod(level,3) + 1 ! cycle x->y->z as we descend levels
+
  xpivot = 0.5*(xmini(iaxis) + xmaxi(iaxis))
  !print*,' pivot = ',xpivot,' on axis ',iaxis,xmin(iaxis),xmax(iaxis)
 
@@ -227,7 +226,6 @@ contains
  node(inode)%parent = mymum
  node(inode)%leftchild = il
  node(inode)%rightchild = ir
- !print*,' launching tasks ',il,ir,inode
  !$omp task
  call build_tree_index_r(il,inode,i1,i1+nl-1,level+1,xminl,xmaxl)
  !$omp end task
@@ -339,16 +337,21 @@ subroutine construct_node(nodei,inode,i1,i2,xyzh,iorder,ifirstincell)
  hmax  = 0.
  x0(:) = 0.
  do j=i1,i2
-    i = iorder(j)
-    xi = xyzh(1,i)
-    yi = xyzh(2,i)
-    zi = xyzh(3,i)
-    hi = xyzh(4,i)
+    xi = treecache(1,j)
+    yi = treecache(2,j)
+    zi = treecache(3,j)
+    hi = treecache(4,j)
+    pmassi = treecache(5,j)
+!    i = iorder(j)
+!    xi = xyzh(1,i)
+!    yi = xyzh(2,i)
+!    zi = xyzh(3,i)
+!    hi = xyzh(4,i)
     hmax  = max(hmax,hi)
-    if (maxphase==maxp) then
-       pmassi = massoftype(iamtype(iphase(i)))
+!    if (maxphase==maxp) then
+!       pmassi = massoftype(iamtype(iphase(i)))
        fac    = pmassi*dfac ! to avoid round-off error
-    endif
+!    endif
     totmass_node = totmass_node + pmassi
     x0(1) = x0(1) + fac*xi
     x0(2) = x0(2) + fac*yi
@@ -369,16 +372,17 @@ subroutine construct_node(nodei,inode,i1,i2,xyzh,iorder,ifirstincell)
 #endif
 !--compute size of node
  do j=i1,i2
-    i = iorder(j)
-    dx = xyzh(1,i) - x0(1)
-    dy = xyzh(2,i) - x0(2)
-    dz = xyzh(3,i) - x0(3)
+!    i = iorder(j)
+    dx = treecache(1,j) - x0(1)
+    dy = treecache(2,j) - x0(2)
+    dz = treecache(3,j) - x0(3)
     dr2   = dx*dx + dy*dy + dz*dz
     r2max = max(r2max,dr2)
 #ifdef GRAVITY
-    if (maxphase==maxp) then
-       pmassi = massoftype(iamtype(iphase_soa(i)))
-    endif
+    pmassi = treecache(5,j)
+    !if (maxphase==maxp) then
+      ! pmassi = massoftype(iamtype(iphase_soa(i)))
+    !endif
     quads(1) = quads(1) + pmassi*(3.*dx*dx - dr2)  ! Q_xx
     quads(2) = quads(2) + pmassi*(3.*dx*dy)        ! Q_xy = Q_yx
     quads(3) = quads(3) + pmassi*(3.*dx*dz)        ! Q_xz = Q_zx
@@ -531,18 +535,27 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
                   !  ' nneigh = ',nneigh+1,'->',nneigh+npnode
                 if (maxcache >= 4) then
                    do j=1,jmax
-                      i = iorder(i1+j-1)
-                      xyzcache(1,nneigh+j) = xyzh(1,i) + xoffset
-                      xyzcache(2,nneigh+j) = xyzh(2,i) + yoffset
-                      xyzcache(3,nneigh+j) = xyzh(3,i) + zoffset
-                      xyzcache(4,nneigh+j) = 1./xyzh(4,i)
+                      !i = iorder(i1+j-1)
+                      !xyzcache(1,nneigh+j) = xyzh(1,i) + xoffset
+                      !xyzcache(2,nneigh+j) = xyzh(2,i) + yoffset
+                      !xyzcache(3,nneigh+j) = xyzh(3,i) + zoffset
+                      !xyzcache(4,nneigh+j) = 1./xyzh(4,i)
+                      xyzcache(1,nneigh+j) = treecache(1,i1+j-1) + xoffset
+                      xyzcache(2,nneigh+j) = treecache(2,i1+j-1) + yoffset
+                      xyzcache(3,nneigh+j) = treecache(3,i1+j-1) + zoffset
+                      xyzcache(4,nneigh+j) = 1./treecache(4,i1+j-1)
+                      !print*,' x = ',xyzh(:,iorder(i1+j-1)),' cache=',treecache(1:4,i1+j-1)
                    enddo
+                   !read*
                 else
                    do j=1,jmax
-                      i = iorder(i1+j-1)
-                      xyzcache(1,nneigh+j) = xyzh(1,i) + xoffset
-                      xyzcache(2,nneigh+j) = xyzh(2,i) + yoffset
-                      xyzcache(3,nneigh+j) = xyzh(3,i) + zoffset
+                      !i = iorder(i1+j-1)
+                      xyzcache(1,nneigh+j) = treecache(1,i1+j-1) + xoffset
+                      xyzcache(2,nneigh+j) = treecache(2,i1+j-1) + yoffset
+                      xyzcache(3,nneigh+j) = treecache(3,i1+j-1) + zoffset
+                      !xyzcache(1,nneigh+j) = xyzh(1,i) + xoffset
+                      !xyzcache(2,nneigh+j) = xyzh(2,i) + yoffset
+                      !xyzcache(3,nneigh+j) = xyzh(3,i) + zoffset
                    enddo
                 endif
              endif
