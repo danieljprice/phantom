@@ -13,6 +13,16 @@ module kdtree
  integer, parameter, public :: lenfgrav = 20
  real, allocatable :: treecache(:,:)
 
+ type kdbuildstack
+    integer :: node
+    integer :: parent
+    integer :: level
+    integer :: i1
+    integer :: i2
+    real    :: xmin(ndimtree)
+    real    :: xmax(ndimtree)
+ end type
+
 contains
 
 subroutine allocate_kdtree
@@ -61,7 +71,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
  integer(kind=8), intent(out)   :: ncells
  real :: xmini(3),xmaxi(3)
  integer :: i,inode,n
- real(4) :: t1,t2,t3,t4,t5,tcpu1,tcpu2,tcpu3,tcpu4,tcpu5,tcpu6 !,t6,t7
+ real(4) :: t1,t2,t3,t4,t5,tcpu1,tcpu2,tcpu3,tcpu4,tcpu5
 
  if (allocated(iorder) .and. size(iorder) < np) deallocate(inoderange,iorder,iorder_was)
  if (.not.allocated(inoderange)) allocate(inoderange(2,ncellsmax+1))
@@ -99,9 +109,13 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
        iorder(n) = i
     endif
  enddo
+ print*,' NDEAD = ',np-n
  call get_timings(t3,tcpu3)
+
+
 ! call getused(t3)
- call build_tree_index(n,node,xyzh,xmini,xmaxi,ifirstincell,iorder,iorder_was,inoderange,ncells)
+ call build_tree_index1(n,node,xyzh,xmini,xmaxi,ifirstincell,iorder,iorder_was,inoderange,ncells)
+! call build_tree_index(n,node,xyzh,xmini,xmaxi,ifirstincell,iorder,iorder_was,inoderange,ncells)
  call get_timings(t4,tcpu4)
  !call getused(t4)
 
@@ -122,7 +136,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
  !$omp end do
  !$omp barrier
  !$omp do schedule(dynamic)
- do inode=1,ncells
+ do inode=1,int(ncells)
     call construct_node(node(inode),inode,inoderange(1,inode),inoderange(2,inode),xyzh,iorder,ifirstincell)
  enddo
  !$omp end do
@@ -137,105 +151,263 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
 
 end subroutine maketree
 
-subroutine build_tree_index(np,node,xyzh,xmin,xmax,ifirstincell,iorder,iorder_was,inoderange,ncells)
+subroutine build_tree_index1(np,node,xyzh,xmin,xmax,ifirstincell,iorder,iorder_was,inoderange,ncells)
+ use io, only:fatal
+!$ use omp_lib
  integer, intent(in) :: np
  type(kdnode), intent(inout) :: node(:)
  real,    intent(in)    :: xyzh(:,:),xmin(ndimtree),xmax(ndimtree)
- integer, intent(inout)   :: ifirstincell(:)
+ integer, intent(inout) :: ifirstincell(:)
  integer, intent(inout) :: iorder(:),iorder_was(:),inoderange(:,:)
  integer(kind=8), intent(inout) :: ncells
- integer :: level,mymum
+ integer :: mymum,level,i1,i2,i1l,i2l,i1r,i2r,il,ir
+ integer :: i,istack,nnode,nqueue
+ integer, save :: numthreads
+ logical, save :: done_init_kdtree = .false.
+ real :: xmini(ndimtree),xmaxi(ndimtree)
+ real :: xminl(ndimtree),xmaxl(ndimtree),xminr(ndimtree),xmaxr(ndimtree)
+ logical :: finished,wassplit
+ integer, parameter :: istacksize = 512
+ type(kdbuildstack), save :: stack(istacksize)
+ !$omp threadprivate(stack)
+ type(kdbuildstack) :: queue(istacksize)
 
- level = 0
- mymum = 0
-!$omp parallel default(none) firstprivate(xmin,xmax,np,level,mymum) &
-!$omp shared(node,ncells,iorder,iorder_was,inoderange,xyzh)
-!$omp single
-!$omp task
- call build_tree_index_r(irootnode,mymum,1,np,level,xmin,xmax)
-!$omp end task
-!$omp end single
+ istack = 1
+ wassplit = .false.
+ finished = .false.
+
+ ! need to number of particles in node during build to allocate space for local link list
+ ! this is counted above to remove dead/accreted particles
+ call push_onto_stack(queue(istack),irootnode,0,0,1,np,xmin,xmax)
+
+ if (.not.done_init_kdtree) then
+    ! 1 thread for serial, overwritten when using OpenMP
+    numthreads = 1
+
+    ! get number of OpenMPthreads
+    !$omp parallel default(none) shared(numthreads)
+    !$ numthreads = omp_get_num_threads()
+    !$omp end parallel
+    done_init_kdtree = .true.
+ endif
+ nqueue = numthreads
+ !print*,' HERE nthreads = ',numthreads
+
+ ! build using a queue to build level by level until number of nodes = number of threads
+ over_queue: do while (istack  <  nqueue)
+    ! if the tree finished while building the queue, then we should just return
+    ! only happens for small particle numbers
+    if (istack <= 0) then
+       finished = .true.
+       exit over_queue
+    endif
+    ! pop off front of queue
+    call pop_off_stack(queue(1),istack,nnode,mymum,level,i1,i2,xmini,xmaxi)
+    ! shuffle queue forward
+    do i=1,istack
+       queue(i) = queue(i+1)
+    enddo
+    ! construct node
+    call build_node(node(nnode),nnode,mymum,i1,i2,&
+            level, xmini, xmaxi,il,ir,i1l,i2l,i1r,i2r,xminl, xmaxl, xminr, xmaxr, &
+            ncells,ifirstincell(nnode),inoderange(:,nnode),xyzh,iorder,iorder_was,wassplit)
+    if (wassplit) then
+       if (istack+2 > istacksize) call fatal('maketree',&
+                                       'queue size exceeded in tree build, increase istacksize and recompile')
+       istack = istack + 1
+       call push_onto_stack(queue(istack),il,nnode,level+1,i1l,i2l,xminl,xmaxl)
+       istack = istack + 1
+       call push_onto_stack(queue(istack),ir,nnode,level+1,i1r,i2r,xminr,xmaxr)
+    endif
+
+ enddo over_queue
+
+ done: if (.not.finished) then
+
+    ! build using a stack which builds depth first
+    ! each thread grabs a node from the queue and builds its own subtree
+
+    !$omp parallel default(none) &
+    !$omp shared(queue) &
+    !$omp shared(ifirstincell,inoderange,iorder,iorder_was) &
+    !$omp shared(xyzh) &
+    !$omp shared(np) &
+    !$omp shared(node, ncells) &
+    !$omp shared(nqueue) &
+    !$omp private(istack) &
+    !$omp private(nnode, mymum, level, xmini, xmaxi) &
+    !$omp private(il,ir,i1,i2,i1l,i2l,i1r,i2r) &
+    !$omp private(xminr, xmaxr, xminl, xmaxl) &
+    !$omp private(wassplit) &
+    !$omp reduction(max:maxlevel)
+    !$omp do schedule(static)
+    do i = 1, nqueue
+
+       stack(1) = queue(i)
+       istack = 1
+
+       over_stack: do while(istack > 0)
+
+          ! pop off front of queue
+          call pop_off_stack(stack(istack),istack,nnode,mymum,level,i1,i2,xmini,xmaxi)
+
+          ! construct node
+          call build_node(node(nnode),nnode,mymum,i1,i2,&
+               level, xmini, xmaxi,il,ir,i1l,i2l,i1r,i2r,xminl, xmaxl, xminr, xmaxr, &
+               ncells,ifirstincell(nnode),inoderange(:,nnode),xyzh,iorder,iorder_was,wassplit)
+          if (wassplit) then
+             if (istack+2 > istacksize) call fatal('maketree',&
+                                       'queue size exceeded in tree build, increase istacksize and recompile')
+             istack = istack + 1
+             call push_onto_stack(stack(istack),il,nnode,level+1,i1l,i2l,xminl,xmaxl)
+             istack = istack + 1
+             call push_onto_stack(stack(istack),ir,nnode,level+1,i1r,i2r,xminr,xmaxr)
+          endif
+       enddo over_stack
+    enddo
+!$omp enddo
 !$omp end parallel
 
-contains
- recursive subroutine build_tree_index_r(inode,mymum,i1,i2,level,xmini,xmaxi)
- use io, only:fatal
- integer, intent(in) :: inode,mymum,i1,i2,level
- real, intent(in)    :: xmini(ndimtree),xmaxi(ndimtree)
- integer :: npnode,nl,nr,iaxis,i,j,il,ir
- real :: xpivot,xminl(ndimtree),xmaxl(ndimtree),xminr(ndimtree),xmaxr(ndimtree)
+ endif done
 
- ! set start and end of particle list
- if (inode > ncellsmax) call fatal('maketree','number of nodes exceeds array size',var='nodes',ival=inode)
- inoderange(1,inode) = i1  ! this works even if node empty
- inoderange(2,inode) = i2  ! in this case i2 = i1-1 and therefore npnode = 0
- npnode = i2-i1+1
+end subroutine build_tree_index1
 
- !maxlevel = max(level,maxlevel)
- if (npnode < minpart) then
-    ! we are a leaf node, return
-    node(inode)%parent = mymum
-    node(inode)%leftchild = 0
-    node(inode)%rightchild = 0
-    ifirstincell(inode) = 1
-    return
- endif
+! also used for queue push
+pure subroutine push_onto_stack(stackentry,node,parent,level,i1,i2,xmin,xmax)
+ type(kdbuildstack), intent(out) :: stackentry
+ integer,            intent(in)  :: node,parent,level
+ integer,            intent(in)  :: i1,i2
+ real,               intent(in)  :: xmin(ndimtree),xmax(ndimtree)
 
- !iaxis = maxloc(xmaxi - xmini,1) ! cut longest axis
- iaxis = mod(level,3) + 1 ! cycle x->y->z as we descend levels
+ stackentry%node   = node
+ stackentry%parent = parent
+ stackentry%level  = level
+ stackentry%i1     = i1
+ stackentry%i2     = i2
+ stackentry%xmin   = xmin
+ stackentry%xmax   = xmax
 
- xpivot = 0.5*(xmini(iaxis) + xmaxi(iaxis))
- !print*,' pivot = ',xpivot,' on axis ',iaxis,xmin(iaxis),xmax(iaxis)
+end subroutine push_onto_stack
 
- xminl = xmini
- xmaxl = xmaxi
- xminr = xmini
- xmaxr = xmaxi
- xmaxl(iaxis) = xpivot
- xminr(iaxis) = xpivot
- !
- ! sort particles into left or right child nodes
- !
- !print*,inode,i1,i2
- iorder_was(i1:i2) = iorder(i1:i2)
- nl = 0
- nr = 0
- do j=i1,i2
-    i = iorder_was(j)
-    if (xyzh(iaxis,i) < xpivot) then
-       nl = nl + 1
-       iorder(i1+nl-1) = i
-    else
-       nr = nr + 1
-       iorder(i2-(nr-1)) = i
-    endif
- enddo
- !print*,' splitting, left  = ',nl,i1,i1+nl-1,' iorder=',iorder(i1:i1+10)
- !print*,' splitting, right = ',nr,i1+nl,i2,' iorder=',iorder(i1+nl+1:i1+nl+1+10)
- if (level < maxlevel_indexed) then
-    il = 2*inode
-    ir = il + 1
- else
-    !$omp critical(ncells)
-    ncells = ncells + 1
-    il = int(ncells)
-    ncells = ncells + 1
-    ir = int(ncells)
-    !$omp end critical(ncells)
- endif
- node(inode)%parent = mymum
- node(inode)%leftchild = il
- node(inode)%rightchild = ir
- !$omp task
- call build_tree_index_r(il,inode,i1,i1+nl-1,level+1,xminl,xmaxl)
- !$omp end task
- !$omp task
- call build_tree_index_r(ir,inode,i1+nl,i2,level+1,xminr,xmaxr)
- !$omp end task
+! also used for queue pop
+pure subroutine pop_off_stack(stackentry, istack, nnode, mymum, level, i1, i2, xmini, xmaxi)
+ type(kdbuildstack), intent(in)    :: stackentry
+ integer,            intent(inout) :: istack
+ integer,            intent(out)   :: nnode, mymum, level, i1, i2
+ real,               intent(out)   :: xmini(ndimtree), xmaxi(ndimtree)
 
-end subroutine build_tree_index_r
+ nnode  = stackentry%node
+ mymum  = stackentry%parent
+ level  = stackentry%level
+ i1     = stackentry%i1
+ i2     = stackentry%i2
+ xmini  = stackentry%xmin
+ xmaxi  = stackentry%xmax
+ istack = istack - 1
 
-end subroutine build_tree_index
+end subroutine pop_off_stack
+
+subroutine build_node(nodei,inode,mymum,i1,i2,level,xmini,xmaxi,il,ir,&
+                      i1l,i2l,i1r,i2r,xminl,xmaxl,xminr,xmaxr,ncells,&
+                      ifirstincelli,inoderangei,xyzh,iorder,iorder_was,was_split)
+use io, only:fatal
+type(kdnode), intent(out) :: nodei
+integer, intent(in) :: inode,mymum,i1,i2,level
+real, intent(in)    :: xmini(ndimtree),xmaxi(ndimtree)
+integer, intent(out) :: il,ir,i1l,i2l,i1r,i2r
+real, intent(out)    :: xminl(ndimtree),xmaxl(ndimtree),xminr(ndimtree),xmaxr(ndimtree)
+integer(kind=8), intent(inout) :: ncells
+integer, intent(out) :: ifirstincelli,inoderangei(2)
+real, intent(in)     :: xyzh(:,:)
+integer, intent(inout) :: iorder(:),iorder_was(:)
+logical, intent(out) :: was_split
+integer :: npnode,nl,nr,iaxis,i,j
+real :: xpivot
+
+! set start and end of particle list
+if (inode > ncellsmax) call fatal('maketree','number of nodes exceeds array size',var='nodes',ival=inode)
+inoderangei(1) = i1  ! this works even if node empty
+inoderangei(2) = i2  ! in this case i2 = i1-1 and therefore npnode = 0
+npnode = i2-i1+1
+
+!maxlevel = max(level,maxlevel)
+if (npnode < minpart) then
+   ! we are a leaf node, return
+   nodei%parent = mymum
+   nodei%leftchild = 0
+   nodei%rightchild = 0
+   ifirstincelli = 1
+   il = 0
+   ir = 0
+   i1l = 0
+   i2l = 0
+   i1r = 0
+   i2r = 0
+   was_split = .false.
+   return
+else
+   ifirstincelli = 0
+   was_split = .true. ! has children
+endif
+
+!iaxis = maxloc(xmaxi - xmini,1) ! cut longest axis
+iaxis = mod(level,3) + 1 ! cycle x->y->z as we descend levels
+
+xpivot = 0.5*(xmini(iaxis) + xmaxi(iaxis))
+!print*,' pivot = ',xpivot,' on axis ',iaxis,xmin(iaxis),xmax(iaxis)
+
+xminl = xmini
+xmaxl = xmaxi
+xminr = xmini
+xmaxr = xmaxi
+xmaxl(iaxis) = xpivot
+xminr(iaxis) = xpivot
+!
+! sort particles into left or right child nodes
+!
+!print*,inode,i1,i2
+!$omp parallel do if (i2-i1 > 10000) private(j)
+do j=i1,i2
+   iorder_was(j) = iorder(j)
+enddo
+!$omp end parallel do
+nl = 0
+nr = 0
+do j=i1,i2
+   i = iorder_was(j)
+   if (xyzh(iaxis,i) < xpivot) then
+      nl = nl + 1
+      iorder(i1+nl-1) = i
+   else
+      nr = nr + 1
+      iorder(i2-(nr-1)) = i
+   endif
+enddo
+!print*,' splitting, left  = ',nl,i1,i1+nl-1,' iorder=',iorder(i1:i1+10)
+!print*,' splitting, right = ',nr,i1+nl,i2,' iorder=',iorder(i1+nl+1:i1+nl+1+10)
+if (level < maxlevel_indexed) then
+   il = 2*inode
+   ir = il + 1
+else
+   !$omp critical(ncells)
+   ncells = ncells + 1
+   il = int(ncells)
+   ncells = ncells + 1
+   ir = int(ncells)
+   !$omp end critical(ncells)
+endif
+nodei%parent = mymum
+nodei%leftchild = il
+nodei%rightchild = ir
+!
+! set particle lists for child nodes
+!
+i1l = i1       ! left node
+i2l = i1+nl-1
+i1r = i1+nl    ! right node
+i2r = i2
+
+end subroutine build_node
 
 !-----------------------------------
 !+
@@ -285,7 +457,7 @@ end subroutine get_particle_bounds
 !+
 !-----------------------------------
 subroutine construct_node(nodei,inode,i1,i2,xyzh,iorder,ifirstincell)
- use part, only:massoftype,iphase,iamtype,npartoftype,maxtypes,maxphase,maxp,igas
+ use part, only:massoftype,iphase,iamtype,npartoftype,maxtypes,igas
  type(kdnode), intent(inout) :: nodei
  integer, intent(in) :: inode,i1,i2
  real,    intent(in) :: xyzh(:,:)
