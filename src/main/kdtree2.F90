@@ -12,6 +12,7 @@ module kdtree
  real, public :: tree_accuracy = 0.5
  integer, parameter, public :: lenfgrav = 20
  real, allocatable :: treecache(:,:)
+ logical, allocatable :: i_am_active(:)
 
  type kdbuildstack
     integer :: node
@@ -63,7 +64,7 @@ end subroutine empty_tree
 
 subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
  use timing, only:getused,get_timings
- use part, only:isdead_or_accreted,igas,maxphase,maxp,massoftype,iphase,iamtype
+ use part, only:isdead_or_accreted,igas,maxphase,maxp,massoftype,iphase,iamtype,iactive
  type(kdnode),    intent(out)   :: node(ncellsmax+1)
  integer,         intent(in)    :: np,ndim
  real,            intent(inout) :: xyzh(:,:)  ! inout because of boundary crossing
@@ -71,13 +72,18 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
  integer(kind=8), intent(out)   :: ncells
  real :: xmini(3),xmaxi(3)
  integer :: i,inode,n
+ integer(1) :: iphasei
  real(4) :: t1,t2,t3,t4,t5,tcpu1,tcpu2,tcpu3,tcpu4,tcpu5
 
- if (allocated(iorder) .and. size(iorder) < np) deallocate(inoderange,iorder,iorder_was)
+ if (allocated(iorder) .and. size(iorder) < np) then
+    deallocate(inoderange,iorder,iorder_was,treecache)
+    if (allocated(i_am_active)) deallocate(i_am_active)
+ endif
  if (.not.allocated(inoderange)) allocate(inoderange(2,ncellsmax+1))
  if (.not.allocated(iorder)) allocate(iorder(np))
  if (.not.allocated(iorder_was)) allocate(iorder_was(np))
  if (.not.allocated(treecache)) allocate(treecache(5,np))
+ if (.not.allocated(i_am_active) .and. maxphase==maxp) allocate(i_am_active(np))
 
  ! maximum level where 2^k indexing can be used (thus avoiding critical sections)
  ! deeper than this we access cells via a stack as usual
@@ -122,13 +128,15 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells)
 ! call build_cache(n,iorder,xyzh,treecache)
  !$omp parallel default(none) &
  !$omp shared(maxphase,maxp,treecache,xyzh,n,massoftype,iphase,iorder) &
- !$omp shared(node,ncells,inoderange,ifirstincell) &
- !$omp private(i,inode)
+ !$omp shared(node,ncells,inoderange,ifirstincell,i_am_active) &
+ !$omp private(i,inode,iphasei)
  !$omp do
  do i=1,n
     treecache(1:4,i) = xyzh(:,iorder(i))
     if (maxphase==maxp) then
-       treecache(5,i) = massoftype(iamtype(iphase(iorder(i))))
+       iphasei    = iphase(iorder(i))
+       treecache(5,i) = massoftype(iamtype(iphasei))
+       i_am_active(i) = iactive(iphasei)
     else
        treecache(5,i) = massoftype(igas)
     endif
@@ -457,7 +465,7 @@ end subroutine get_particle_bounds
 !+
 !-----------------------------------
 subroutine construct_node(nodei,inode,i1,i2,xyzh,iorder,ifirstincell)
- use part, only:massoftype,iphase,iamtype,npartoftype,maxtypes,igas
+ use part, only:massoftype,maxphase,maxp,iphase,iamtype,npartoftype,maxtypes,igas,iactive
  type(kdnode), intent(inout) :: nodei
  integer, intent(in) :: inode,i1,i2
  real,    intent(in) :: xyzh(:,:)
@@ -469,6 +477,7 @@ subroutine construct_node(nodei,inode,i1,i2,xyzh,iorder,ifirstincell)
  real :: quads(6)
 #endif
  integer :: i,j,npnode
+ logical :: nodeisactive
 
  if (i2 < i1 .or. i1==0 .or. i2==0) then
     nodei%xcen = 0.
@@ -481,10 +490,20 @@ subroutine construct_node(nodei,inode,i1,i2,xyzh,iorder,ifirstincell)
     return
  endif
  npnode = i2 - i1 + 1
- !if (npnode < minpart) then ! is a leaf node
-    !if (ifirstincell(inode) /= 1) print*,'GOT ',inode,npnode
-   ! ifirstincell(inode) = 1
- !endif
+!
+! tag leaf node as inactive if it contains no active particles
+!
+ if (npnode < minpart .and. allocated(i_am_active)) then
+    nodeisactive = .false.
+    checkactive: do j=i1,i2
+       if (i_am_active(j)) then
+!       if (iactive(iphase(iorder(j)))) then
+          nodeisactive = .true.
+          exit checkactive
+       endif
+    enddo checkactive
+    if (.not.nodeisactive) ifirstincell(inode) = -1
+ endif
 !
 ! to avoid round off error from repeated multiplication by pmassi (which is small)
 ! we compute the centre of mass with a factor relative to gas particles
