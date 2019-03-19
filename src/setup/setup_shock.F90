@@ -93,7 +93,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:radenergy,radkappa
  use eos,          only:gmw
  use physcon,      only:Rg,c,steboltz
- use units,        only:unit_pressure,unit_density,unit_ergg,unit_velocity
+ use units,        only:unit_pressure,unit_density,unit_ergg
 #endif
  use kernel,       only:radkern,hfact_default
  use timestep,     only:tmax

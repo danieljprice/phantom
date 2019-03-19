@@ -92,6 +92,10 @@ module setup
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
                             ndusttypesinp,isetdust,dustbinfrac,check_dust_method
  use units,            only:umass,udist,utime
+#ifdef RADIATION
+ use eos,              only:gmw
+ use part,             only:radenergy,radkappa
+#endif
 
  implicit none
 
@@ -269,6 +273,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--set tmax and dtmax
  call set_tmax_dtmax()
+
+#ifdef RADIATION
+ call set_radiation_and_gas_temperature_equal(&
+        npart,gamma,gmw,xyzh,vxyzu,massoftype,radenergy,radkappa)
+#endif
 
  !--remind user to check for warnings and errors
  write(*,20)
@@ -2592,4 +2601,30 @@ subroutine make_corotate(xyzh,vxyzu,a0,Mstar,npart,npart_disc)
 
 end subroutine make_corotate
 
+#ifdef RADIATION
+subroutine set_radiation_and_gas_temperature_equal(npart,gamma,gmw,xyzh,vxyzu,massoftype,radenergy,radkappa)
+ use physcon,   only:Rg,steboltz,c
+ use units,     only:udist,umass,unit_pressure,unit_density,unit_ergg
+ use part,      only:rhoh
+
+ integer, intent(in) :: npart
+ real, intent(in)    :: gamma,xyzh(:,:),vxyzu(:,:),massoftype(:)
+ real, intent(inout) :: gmw,radenergy(:),radkappa(:)
+ real                :: kappa,kappa_code,rhoi,rhoi_code,pri_code,Tgas
+ integer             :: i
+
+ gmw   = 2.0
+ kappa  = 1e5
+ kappa_code = kappa/(udist**2/umass)
+
+   do i=1,npart
+      rhoi_code = rhoh(xyzh(4,i),massoftype(igas))
+      rhoi      = rhoi_code*unit_density
+      pri_code  = (gamma-1.)*vxyzu(4,i)*rhoi_code
+      Tgas = gmw*(pri_code*unit_pressure)/rhoi/Rg
+      radenergy(i) = (4.0*steboltz*Tgas**4.0/c/rhoi)/unit_ergg
+      radkappa(i) = kappa_code
+   enddo
+end subroutine set_radiation_and_gas_temperature_equal
+#endif
 end module setup

@@ -481,9 +481,7 @@ ifeq ($(SETUP), radshock)
     KERNEL=quintic
     ISOTHERMAL=no
     KNOWN_SETUP=yes
-    DEBUG=no
     MPI=no
-    # OPENMP=no
 endif
 
 ifeq ($(SETUP), dustydisc)
@@ -790,7 +788,7 @@ endif
 
 ifeq ($(SETUP), sgdisc)
 #   self-gravitating disc
-    IND_TIMESTEPS=yes
+    # IND_TIMESTEPS=yes
     GRAVITY=yes
     SETUPFILE= setup_disc.f90
 #   ANALYSIS = ${LINKLIST} utils_omp.F90 utils_summary.F90 ptmass.F90 analysis_clumpfind.F90
@@ -1387,6 +1385,10 @@ endif
 
 ifeq ($(DEBUG), yes)
     FFLAGS += -DDEBUG
+endif
+
+ifeq ($(RADIATION), yes)
+    FFLAGS += -DRADIATION
 endif
 
 ifdef SRCTURB

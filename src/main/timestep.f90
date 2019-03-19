@@ -30,6 +30,10 @@ module timestep
  real, parameter :: bignumber = 1.e29
 
  real    :: dt, dtcourant, dtforce, dtextforce, dterr, dtdiff, time
+#ifdef RADIATION
+ ! real    :: dtrad,C_rad = 1.2*1e-4
+ real    :: dtrad,C_rad = 1.2
+#endif
  real    :: dtmax_dratio, dtmax_max, dtmax_min, rhomaxnow
  real(kind=4) :: dtwallmax
  integer :: dtmax_ifactor
@@ -67,11 +71,18 @@ end subroutine set_defaults_timestep
 !  routine to print out the timestep information to the log file
 !+
 !-----------------------------------------------------------------
-subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,dtinj,np)
+subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,&
+#ifdef RADIATION
+                       dtrad,&
+#endif
+                       dtprint,dtinj,np)
  integer, intent(in) :: iprint
  real,    intent(in) :: time,dt,dtforce,dtcourant,dterr,dtmax
  real,    intent(in), optional :: dtprint,dtinj
  integer, intent(in) :: np
+#ifdef RADIATION
+ real,    intent(in) :: dtrad
+#endif
  character(len=20) :: str
  integer, save :: nplast = 0
 
@@ -94,6 +105,10 @@ subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,dtin
     write(iprint,10) time,dt,'(dtprint)'//trim(str)
  elseif (present(dtinj) .and. abs(dt-dtinj) < tiny(dt)) then
     write(iprint,10) time,dt,'(dtinject)'//trim(str)
+#ifdef RADIATION
+ elseif (abs(dt-dtrad) < tiny(dt)) then
+    write(iprint,10) time,dt,'(radiation)'//trim(str)
+#endif
  else
     !print*,dt,dtforce,dtcourant,dterr,dtmax
     write(iprint,10) time,dt,'(unknown)'//trim(str)

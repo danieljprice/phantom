@@ -88,6 +88,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #ifdef RADIATION
  use part,             only:radenergy,radkappa
  use radiation,        only:update_energy
+#ifndef IND_TIMESTEPS
+ use timestep,         only:dtrad
+#endif
 #endif
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
@@ -396,11 +399,19 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     ! Following redefinitions are to avoid crashing if dtprint = 0 & to reach next output while avoiding round-off errors
     dtprint = min(tprint,tmax) - time + epsilon(dtmax)
     if (dtprint <= epsilon(dtmax) .or. dtprint >= (1.0-1e-8)*dtmax ) dtprint = dtmax + epsilon(dtmax)
-    dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax),dtprint,dtinject)
+    dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax),dtprint,dtinject&
+#ifdef RADIATION
+    ,dtrad&
+#endif
+    )
 !
 !--write log every step (NB: must print after dt has been set in order to identify timestep constraint)
 !
-    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,dtinject,npart)
+    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,&
+#ifdef RADIATION
+    dtrad,&
+#endif
+    dtprint,dtinject,npart)
 #endif
 
 !    if (abs(dt) < 1e-8*dtmax) then

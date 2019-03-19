@@ -423,7 +423,7 @@ subroutine summary_printout(iprint,nptmass)
     if (iosum_nstep(iosumdte  )/=0) write(iprint,30) '| dtdust             |' &
       ,iosum_nstep(iosumdte  ),'|',iosum_rpart(iosumdte  ),'|',iosum_ave(iosumdte  ),'|',iosum_max(iosumdte  ),'|'
 #ifdef RADIATION
-    if (iosum_nstep(iosumdtr  )/=0) write(iprint,30) '| dtradiation         |' &
+    if (iosum_nstep(iosumdtr  )/=0) write(iprint,30) '| dtradiation        |' &
       ,iosum_nstep(iosumdtr  ),'|',iosum_rpart(iosumdtr  ),'|',iosum_ave(iosumdtr  ),'|',iosum_max(iosumdtr  ),'|'
 #endif
 30  format(a,i13,a,3(f13.2,a))

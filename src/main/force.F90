@@ -215,6 +215,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #endif
 #ifdef RADIATION
  use io_summary,   only:iosumdtr
+ use timestep,     only:dtrad
 #endif
  integer,      intent(in)    :: icall,npart
  real,         intent(in)    :: xyzh(:,:)
@@ -235,7 +236,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  integer :: ndtrad
  real    :: dtradmean,dtradfacmax
 #endif
- real    :: dtrad
 #endif
 
  real, save :: xyzcache(maxcellcache,4)
@@ -1743,8 +1743,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        fsum(ipot) = fsum(ipot) + pmassj*phii
 #endif
 #ifdef RADIATION
+       runix = dx*rij1
+       runiy = dy*rij1
+       runiz = dz*rij1
+
        pmassj = massoftype(iamtypej)
        rhoj = rhoh(hj,pmassj)
+       rho21j = 1./rhoj/rhoj
+       grkerni = grkern(q2i,qi)*hfacgrkern
 
        radFi(1:3) = xpartveci(iradxi:iradzi)
        radFj(1:3) = radenergyflux(1:3,j)
@@ -2201,7 +2207,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
 #endif
 #ifdef RADIATION
     radRi = sqrt(dot_product(radenergyflux(1:3,i),radenergyflux(1:3,i)))&
-                /(radkappa(i)*rhoi*rhoi*radenergy(i))
+              /(radkappa(i)*rhoi*rhoi*radenergy(i))
     cell%xpartvec(iradei,cell%npcell)        = radenergy(i)
     cell%xpartvec(iradxi:iradzi,cell%npcell) = radenergyflux(1:3,i)
     cell%xpartvec(iradki,cell%npcell)        = radkappa(i)
@@ -2397,6 +2403,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef RADIATION
  use physcon,        only:c
  use units,          only:unit_velocity
+ use timestep,       only:C_rad
 #endif
  integer,            intent(in)    :: icall
  type(cellforce),    intent(inout) :: cell
@@ -2824,7 +2831,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     c_code        = c/unit_velocity
     radkappai     = xpartveci(iradki)
     radlambdai    = xpartveci(iradli)
-    dtradi        = 1.2*hi*hi*rhoi*radkappai/c_code/radlambdai
+    dtradi        = C_rad*hi*hi*rhoi*radkappai/c_code/radlambdai
 #endif
 
 #ifdef IND_TIMESTEPS
