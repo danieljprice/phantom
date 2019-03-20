@@ -559,11 +559,16 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     ! (/'dens','pr  ','vx  ','vy  ','vz  ','Bx  ','By  ','Bz  '/)
     leftstate(1:iBz)  = (/dens, pres,  3.2e5/(udist/utime), 0.,0.,0.,0.,0./)
     rightstate(1:iBz) = (/dens, pres, -3.2e5/(udist/utime), 0.,0.,0.,0.,0./)
-    xright =  1e15/udist
-    xleft  = -1e15/udist
+    xright =  1e15
+    xleft  = -1e15
     tmax   = 1e9/utime
     dtmax  = 1e7/utime
     kappa  = 4e1
+    call prompt('xRight',xright,0.,1e30)
+    call prompt('xLeft',xleft,-1e30,0.)
+    xright = xright/udist
+    xleft  = xleft/udist
+
     call prompt('Kappa left (total radiation opacity)',kappa,0.,1e6)
     kappa_code = kappa/(udist**2/umass)
     leftstate(iradkappa) = kappa_code
