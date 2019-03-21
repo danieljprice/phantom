@@ -169,7 +169,7 @@ subroutine build_tree_index1(np,node,xyzh,xmin,xmax,ifirstincell,iorder,iorder_w
  integer, intent(inout) :: iorder(:),iorder_was(:),inoderange(:,:)
  integer(kind=8), intent(inout) :: ncells
  integer :: mymum,level,i1,i2,i1l,i2l,i1r,i2r,il,ir
- integer :: i,istack,istack_global,nnode,ndone,npdone
+ integer :: i,istack,istack_global,nnode,ndone,npdone,nfinished,min_per_thread
  integer, save :: numthreads
  logical, save :: done_init_kdtree = .false.
  real :: xmini(ndimtree),xmaxi(ndimtree)
@@ -201,13 +201,19 @@ subroutine build_tree_index1(np,node,xyzh,xmin,xmax,ifirstincell,iorder,iorder_w
  ! each thread grabs a node from the queue and builds its own subtree
  istack_global = 1
  call push_onto_stack(stack_global(istack_global),irootnode,0,0,1,np,xmin,xmax)
+ nfinished = 0
+
+ ! the following sets the minimum number of nodes each thread has to complete
+ ! before it stops checking for additional work. At least one thread must
+ ! reach this minimum otherwise the task loop will hang
+ min_per_thread = np/minpart/numthreads
 
  !$omp parallel default(none) &
  !$omp shared(ifirstincell,inoderange,iorder,iorder_was) &
  !$omp shared(xyzh,stack_global,istack_global) &
  !$omp shared(np) &
  !$omp shared(node, ncells) &
- !$omp shared(numthreads,iverbose) &
+ !$omp shared(numthreads,iverbose,nfinished,min_per_thread) &
  !$omp private(istack) &
  !$omp private(nnode, mymum, level, xmini, xmaxi) &
  !$omp private(il,ir,i1,i2,i1l,i2l,i1r,i2r) &
@@ -222,7 +228,7 @@ subroutine build_tree_index1(np,node,xyzh,xmin,xmax,ifirstincell,iorder,iorder_w
     npdone = 0
     mymum = 0
 
-    over_stack: do while(istack > 0 .or. istack_global > 0 .or. ndone < 2**6)
+    over_stack: do while(istack > 0 .or. istack_global > 0 .or. (ndone < min_per_thread .and. nfinished==0))
 
        ! pop off stack
        if (istack > 0) then ! pop off local stack
@@ -265,6 +271,9 @@ subroutine build_tree_index1(np,node,xyzh,xmin,xmax,ifirstincell,iorder,iorder_w
           call push_onto_stack(stack(istack),ir,nnode,level+1,i1r,i2r,xminr,xmaxr)
        endif
     enddo over_stack
+    !$omp critical(threadfinished)
+    nfinished = nfinished + 1
+    !$omp end critical(threadfinished)
     if (iverbose >= 0) print*,' thread ',i,' done ',ndone,' npdone = ',npdone
  enddo
 !$omp enddo
