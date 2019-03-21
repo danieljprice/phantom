@@ -389,12 +389,12 @@ if (level < maxlevel_indexed) then
    il = 2*inode
    ir = il + 1
 else
-   !$omp critical(ncells)
+   !$omp critical(ncellsp)
    ncells = ncells + 1
    il = int(ncells)
    ncells = ncells + 1
    ir = int(ncells)
-   !$omp end critical(ncells)
+   !$omp end critical(ncellsp)
 endif
 nodei%parent = mymum
 nodei%leftchild = il
