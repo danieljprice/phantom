@@ -265,7 +265,7 @@ subroutine build_tree_index1(np,node,xyzh,xmin,xmax,ifirstincell,iorder,iorder_w
           call push_onto_stack(stack(istack),ir,nnode,level+1,i1r,i2r,xminr,xmaxr)
        endif
     enddo over_stack
-    if (iverbose >= 2) print*,' thread ',i,' done ',ndone,' npdone = ',npdone
+    if (iverbose >= 0) print*,' thread ',i,' done ',ndone,' npdone = ',npdone
  enddo
 !$omp enddo
 !$omp end parallel
@@ -609,7 +609,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
  integer :: nstack(istacksize)
  integer :: n,istack,il,ir,npnode,i1,i2,j,jmax,nn
  real :: dx,dy,dz,xsizej,rcutj
- real :: rcut,rcut2,r2
+ real :: rcut,rcut2,r2,hmax
  real :: xoffset,yoffset,zoffset,tree_acc2
  logical :: open_tree_node
 #ifdef GRAVITY
@@ -649,12 +649,13 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
     dz = xpos(3) - node(n)%xcen(3)
 #endif
     xsizej       = node(n)%size
+    hmax         = node(n)%hmax
+    il           = node(n)%leftchild
+    ir           = node(n)%rightchild
 #ifdef GRAVITY
     totmass_node = node(n)%mass
     quads        = node(n)%quads
 #endif
-    il = node(n)%leftchild
-    ir = node(n)%rightchild
     !call get_child_nodes(n,il,ir)
     xoffset = 0.
     yoffset = 0.
@@ -675,7 +676,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
 #endif
     r2    = dx*dx + dy*dy + dz*dz
     if (get_hj) then  ! find neighbours within both hi and hj
-       rcutj = radkern*node(n)%hmax
+       rcutj = radkern*hmax
        rcut  = max(rcuti,rcutj)
     endif
     rcut2 = (xsizei + xsizej + rcut)**2   ! node size + search radius
