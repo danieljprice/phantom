@@ -1480,6 +1480,10 @@ endif
     FPPFLAGS+= -DHDF5
 endif
 
+IDFLAGS=$(FPPFLAGS)
+ifeq ($(DEBUG), yes)
+    IDFLAGS += -DDEBUG
+endif
 #
 # select domain decomposition type
 #
@@ -1573,7 +1577,8 @@ phantom: checksystem checkparams $(OBJECTS) phantom.o
 ifeq ($(UNAME), Darwin)
 	dsymutil $(BINDIR)/$@
 endif
-	@sh ../scripts/phantom_version_gen.sh "$(FPPFLAGS)"
+
+	@sh ../scripts/phantom_version_gen.sh "$(IDFLAGS)"
 	@echo ""
 	@echo "The Phantom is here (in $(BINDIR)/phantom)"
 	@echo ""
