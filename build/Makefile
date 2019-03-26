@@ -682,6 +682,21 @@ ifeq ($(SETUP), cluster)
     MAXP=3500000
 endif
 
+ifeq ($(SETUP), amuse)
+#   AMUSE setup (like cluster formation)
+    FPPFLAGS= -DAMUSE
+    SETUPFILE= #velfield_fromcubes.f90 setup_cluster.f90
+    MODFILE= #moddump_default.f90
+    ANALYSIS= #phantom_pdfs.o analysis_MWpdf.f90 #analysis_sinkmass.f90
+    ISOTHERMAL=yes
+    MHD=no
+    GRAVITY=yes
+    IND_TIMESTEPS=no # Change this later
+    KNOWN_SETUP=yes
+    MAXPTMASS=1000
+    MAXP=3500000
+endif
+
 ifeq ($(SETUP), binary)
 #   binary setup
     FPPFLAGS= -DCONST_AV
