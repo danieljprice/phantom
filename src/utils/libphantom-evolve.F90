@@ -60,7 +60,6 @@ subroutine evol_init()
 #ifdef IND_TIMESTEPS
  use part,             only:ibin
  use timestep_ind,     only:istepfrac,nbinmax
- use timestep,         only:restartonshortest
 #endif
 
 #ifdef IND_TIMESTEPS
@@ -88,7 +87,7 @@ subroutine evol_init()
 ! first time through, move all particles on shortest timestep
 ! then allow them to gradually adjust levels
 !
- if (time < tiny(time) .or. restartonshortest) then
+ if (time < tiny(time)) then
     !$omp parallel do schedule(static) private(i)
     do i=1,npart
        ibin(i) = nbinmax
