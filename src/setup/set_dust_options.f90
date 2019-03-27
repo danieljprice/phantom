@@ -346,6 +346,7 @@ subroutine check_dust_method(dust_method,ichange_method)
     print*,'    environment variable IFORCE_DUST_METHOD=yes to not see this message'
     print*,'    again.'
     print*,''
+    print*,"Particles not satisfying the condition:",real(icheckdust)/real(npart)*100,"%"
     print*,'-------------------------------------------------------------------------------'
     print*,''
  endif
