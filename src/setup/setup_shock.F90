@@ -292,7 +292,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (mhd) Bxyz(1:3,i) = rightstate(iBx:iBz)
 #ifdef RADIATION
        Tgas = gmw*(rightstate(ipr)*unit_pressure)/(rightstate(idens)*unit_density)/Rg
-       radenergy(i) = 4.0*steboltz*Tgas**4.0/c/(rightstate(idens)*unit_density)/unit_ergg
+       radenergy(i) = 4.0*steboltz*Tgas**4.0/c/unit_ergg
        radkappa(i) = rightstate(iradkappa)
 #endif
     else
@@ -304,7 +304,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (mhd) Bxyz(1:3,i) = leftstate(iBx:iBz)
 #ifdef RADIATION
        Tgas = gmw*(leftstate(ipr)*unit_pressure)/(leftstate(idens)*unit_density)/Rg
-       radenergy(i) = 4.0*steboltz*Tgas**4.0/c/(leftstate(idens)*unit_density)/unit_ergg
+       radenergy(i) = 4.0*steboltz*Tgas**4.0/c/unit_ergg
        radkappa(i) = leftstate(iradkappa)
 #endif
     endif
@@ -550,7 +550,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
 
     call set_units(dist=au,mass=solarm,G=1.d0)
     gamma = 5./3.
-    gmw   = 2.1
+    gmw   = 2.0
     Tgas  = 1500.
     uu    = Tgas*Rg/(gamma - 1.0)/gmw
     dens  = 1.e-10

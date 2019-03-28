@@ -134,7 +134,7 @@ contains
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                           fxyzu,fext,alphaind,gradh&
 #ifdef RADIATION
-                          ,radenergy,radenergyflux&
+                          ,radenevol,radenflux,radenergy&
 #endif
                           )
  use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha, &
@@ -173,8 +173,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real(kind=4), intent(out)   :: gradh(:,:)
  real,         intent(out)   :: stressmax
 #ifdef RADIATION
- real,         intent(in)    :: radenergy(:)
- real,         intent(inout) :: radenergyflux(:,:)
+ real,         intent(in)    :: radenevol(:)
+ real,         intent(inout) :: radenflux(:,:)
+ real,         intent(inout) :: radenergy(:)
+
 #endif
 
  integer, save :: listneigh(maxneigh)
@@ -272,8 +274,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(iverbose) &
 !$omp shared(iprint) &
 #ifdef RADIATION
+!$omp shared(radenevol)&
+!$omp shared(radenflux)&
 !$omp shared(radenergy)&
-!$omp shared(radenergyflux)&
 #endif
 #ifdef MPI
 !$omp shared(xrecvbuf) &
@@ -342,7 +345,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
     call start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol&
 #                 ifdef RADIATION
-                    ,radenergy&
+                    ,radenevol&
 #                 endif
                    )
 
@@ -367,7 +370,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
     call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache&
 #ifdef RADIATION
-                     ,radenergy&
+                     ,radenevol&
 #endif
                      )
 
@@ -404,7 +407,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              endif
              call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache&
 #ifdef RADIATION
-                              ,radenergy&
+                              ,radenevol&
 #endif
                               )
 #ifdef MPI
@@ -421,7 +424,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
                              dvdx,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc&
 #ifdef RADIATION
-                             ,radenergyflux&
+                             ,radenflux,radenergy&
 #endif
                              )
 #ifdef MPI
@@ -470,7 +473,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
           call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache&
 #ifdef RADIATION
-                           ,radenergy&
+                           ,radenevol&
 #endif
                            )
 
@@ -539,7 +542,12 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              stack_redo%cells(cell%waiting_index) = cell
           else
              call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                                dvdx,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+                                dvdx,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc
+#ifdef RADIATION
+                                ,radenflux,radenergy&
+#endif
+                                )
+
           endif
 
        enddo over_waiting
@@ -614,7 +622,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                                  ifilledcellcache,ifilledneighcache,getdv,getdB,&
                                  realviscosity,xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself&
 #ifdef RADIATION
-                                 ,radenergy&
+                                 ,radenevol&
 #endif
                                  )
 #ifdef PERIODIC
@@ -654,7 +662,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  real                        :: rhoi, rhoj
  logical                     :: same_type,gas_gas,iamdustj,getRadiationFlux
 #ifdef RADIATION
- real,         intent(in)    :: radenergy(:)
+ real,         intent(in)    :: radenevol(:)
  real                        :: dradenij
 #endif
 
@@ -866,7 +874,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
 #ifdef RADIATION
              rhoi = rhoh(real(hi), massoftype(igas))
              rhoj = rhoh(xyzh(4,j), massoftype(igas))
-             dradenij = radenergy(j)*rhoj - xpartveci(iradei)*rhoi
+             dradenij = radenevol(j)*rhoj - xpartveci(iradei)*rhoi
              rhosum(iradexi) = rhosum(iradexi) + dradenij*runix
              rhosum(iradeyi) = rhosum(iradeyi) + dradenij*runiy
              rhosum(iradezi) = rhosum(iradezi) + dradenij*runiz
@@ -1296,7 +1304,7 @@ end subroutine reduce_and_print_neighbour_stats
 pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
                              xyzcache&
 #ifdef RADIATION
-                             ,radenergy&
+                             ,radenevol&
 #endif
                              )
  use dim,         only:maxvxyzu
@@ -1316,7 +1324,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  real,            intent(in)     :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
  real,            intent(in)     :: xyzcache(isizecellcache,3)
 #ifdef RADIATION
- real,            intent(in)     :: radenergy(:)
+ real,            intent(in)     :: radenevol(:)
 #endif
 
  real                            :: dxcache(7,isizeneighcache)
@@ -1377,7 +1385,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
                           .true.,.false.,getdv,getdB,realviscosity,&
                           xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself&
 #ifdef RADIATION
-                          ,radenergy&
+                          ,radenevol&
 #endif
                           )
 
@@ -1410,7 +1418,7 @@ end subroutine compute_hmax
 !--------------------------------------------------------------------------
 subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol&
 #ifdef RADIATION
-                      ,radenergy&
+                      ,radenevol&
 #endif
                      )
  use io,          only:fatal
@@ -1425,7 +1433,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol&
  real,               intent(in)    :: fext(:,:)
  real,               intent(in)    :: Bevol(:,:)
 #ifdef RADIATION
- real,               intent(in)    :: radenergy(:)
+ real,               intent(in)    :: radenevol(:)
 #endif
 
  integer :: i,ip
@@ -1502,7 +1510,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol&
     endif
 
 #ifdef RADIATION
-    cell%xpartvec(iradei,cell%npcell) = radenergy(i)
+    cell%xpartvec(iradei,cell%npcell) = radenevol(i)
 #endif
 
  enddo over_parts
@@ -1647,7 +1655,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                          dustfrac,rhomax,nneightry,nneighact,maxneightry,&
                          maxneighact,np,ncalc&
 #ifdef RADIATION
-                         ,radenergyflux&
+                         ,radenflux,radenergy&
 #endif
                          )
  use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,&
@@ -1688,7 +1696,8 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  integer,         intent(inout) :: np
  integer(kind=8), intent(inout) :: ncalc
 #ifdef RADIATION
- real,            intent(inout) :: radenergyflux(:,:)
+ real,            intent(inout) :: radenflux(:,:)
+ real,            intent(inout) :: radenergy(:)
 #endif
 
  real         :: rhosum(maxrhosum)
@@ -1862,9 +1871,14 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        ! store strain tensor
        dvdx(:,lli) = real(dvdxi(:),kind=kind(dvdx))
     endif
+
 #ifdef RADIATION
-    radenergyflux(1:3,lli) = cell%rhosums(iradexi:iradezi,i)*term
+    radenflux(1:3,lli) = cell%rhosums(iradexi:iradezi,i)*term
+    if (icall==0 .or. icall==1) then
+       radenergy(lli) = cell%xpartvec(iradei,i) * rhoi
+    endif
 #endif
+
     ! stats
     nneightry = nneightry + cell%nneightry
     nneighact = nneighact + cell%nneigh(i)

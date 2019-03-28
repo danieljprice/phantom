@@ -191,7 +191,9 @@ module setup
 
  !--other
  logical :: ichange_method
-
+#ifdef RADIATION
+ real    :: iradkappa = -1.
+#endif
 contains
 
 !--------------------------------------------------------------------------
@@ -2180,6 +2182,10 @@ subroutine write_setupfile(filename)
  call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars','Fix the stellar parameters to mcfost values or update using sink mass',iunit)
 #endif
 
+#ifdef RADIATION
+ call write_inopt(iradkappa,'radkappa','constant radiation opacity kappa',iunit)
+#endif
+
  close(iunit)
 
 end subroutine write_setupfile
@@ -2445,6 +2451,9 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',db,err=ierr)
  if (ierr /= 0) use_mcfost_stellar_parameters = .false. ! update stellar parameters by default
 #endif
+#ifdef RADIATION
+ call read_inopt(iradkappa,'radkappa',db,err=ierr)
+#endif
 
  call close_db(db)
  ierr = nerr
@@ -2604,25 +2613,28 @@ end subroutine make_corotate
 #ifdef RADIATION
 subroutine set_radiation_and_gas_temperature_equal(npart,gamma,gmw,xyzh,vxyzu,massoftype,radenergy,radkappa)
  use physcon,   only:Rg,steboltz,c
- use units,     only:udist,umass,unit_pressure,unit_density,unit_ergg
+ use units,     only:udist,umass,unit_ergg,unit_density
  use part,      only:rhoh
 
  integer, intent(in) :: npart
  real, intent(in)    :: gamma,xyzh(:,:),vxyzu(:,:),massoftype(:)
  real, intent(inout) :: gmw,radenergy(:),radkappa(:)
- real                :: kappa,kappa_code,rhoi,rhoi_code,pri_code,Tgas
+ real                :: kappa,kappa_code,Tgas
  integer             :: i
 
  gmw   = 2.0
- kappa  = 1e5
+ if (iradkappa > 0) then
+    kappa = iradkappa
+ else
+    kappa  = 1e5
+ end if
+ print*, kappa
+ read*
  kappa_code = kappa/(udist**2/umass)
 
    do i=1,npart
-      rhoi_code = rhoh(xyzh(4,i),massoftype(igas))
-      rhoi      = rhoi_code*unit_density
-      pri_code  = (gamma-1.)*vxyzu(4,i)*rhoi_code
-      Tgas = gmw*(pri_code*unit_pressure)/rhoi/Rg
-      radenergy(i) = (4.0*steboltz*Tgas**4.0/c/rhoi)/unit_ergg
+      Tgas = gmw*((gamma-1.)*vxyzu(4,i)*unit_ergg)/Rg
+      radenergy(i) = (4.0*steboltz*Tgas**4.0/c)/unit_ergg/unit_density
       radkappa(i) = kappa_code
    enddo
 end subroutine set_radiation_and_gas_temperature_equal

@@ -520,7 +520,7 @@ print*, "write_fulldump"
 #endif
 #ifdef RADIATION
        call write_array(1,radenergy,radenergy_label(1),npart,k,ipass,idump,nums,ierrs(1))
-       call write_array(1,radkappa,radenergy_label(6),npart,k,ipass,idump,nums,ierrs(1))
+       call write_array(1,radkappa,radenergy_label(2),npart,k,ipass,idump,nums,ierrs(1))
 #endif
        if (any(ierrs(1:21) /= 0)) call error('write_dump','error writing hydro arrays')
     enddo
@@ -536,16 +536,6 @@ print*, "write_fulldump"
           if (any(ierrs(1:2) /= 0)) call error('write_dump','error writing sink particle arrays')
        endif
     enddo
-
-! #ifdef RADIATION
-!     do k=1,ndatatypes
-!        !
-!        ! Block 3 arrays (radiation)
-!        !
-!        call write_array(1,radenergy,radenergy_label(1),npart,k,ipass,idump,nums,ierrs(1))
-!     enddo
-!     read*
-! #endif
 
     do k=1,ndatatypes
        !
@@ -698,7 +688,7 @@ subroutine write_smalldump(t,dumpfile)
     endif
 #ifdef RADIATION
     call write_array(1,radenergy,radenergy_label(1),npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-    call write_array(1,radkappa,radenergy_label(6),npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+    call write_array(1,radkappa,radenergy_label(2),npart,k,ipass,idump,nums,ierr,singleprec=.true.)
 #endif
     !
     !--Block 4 (MHD)
@@ -1333,15 +1323,11 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #endif
 #ifdef RADIATION
              call read_array(radenergy,radenergy_label(1),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             call read_array(radkappa,radenergy_label(6),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(radkappa,radenergy_label(2),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
           case(2)
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
              call read_array(vxyz_ptmass, vxyz_ptmass_label, got_sink_vels,ik,1,nptmass,0,idisk1,tag,match,ierr)
-! #ifdef RADIATION
-!           case(3)
-!              call read_array(radenergy,radenergy_label(1),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-! #endif
           case(4)
              call read_array(Bxyz,Bxyz_label,got_Bxyz,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(Bevol(4,:),'psi',got_psi,ik,i1,i2,noffset,idisk1,tag,match,ierr)

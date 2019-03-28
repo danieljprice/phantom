@@ -1,7 +1,7 @@
 #ifdef RADIATION
 module radiation
  implicit none
- public :: update_energy
+ public :: update_radenergy
 
  private
 
@@ -9,7 +9,7 @@ contains
 
 ! print for individual timesteps where radiation is limiting condition for courant dt
 
-subroutine update_energy(npart,xyzh,fxyzu,vxyzu,radenergy,radkappa,dt)
+subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radenevol,radkappa,dt)
   use part,     only:rhoh,igas,massoftype
   use eos,      only:gmw,gamma
   use units,    only:udist,utime,&
@@ -18,7 +18,7 @@ subroutine update_energy(npart,xyzh,fxyzu,vxyzu,radenergy,radkappa,dt)
   use io,       only:fatal
 
   real, intent(in)    ::dt,xyzh(:,:),fxyzu(:,:),radkappa(:)
-  real, intent(inout) ::vxyzu(:,:),radenergy(:)
+  real, intent(inout) ::vxyzu(:,:),radenevol(:)
   integer, intent(in) ::npart
 
   real :: ui,pmassi,rhoi,xii
@@ -37,7 +37,7 @@ subroutine update_energy(npart,xyzh,fxyzu,vxyzu,radenergy,radkappa,dt)
   !$omp private(kappa,ack,rhoi,ui)&
   !$omp private(dudt,xii,etot,unew)&
   !$omp shared(radkappa,xyzh,vxyzu)&
-  !$omp shared(fxyzu,pmassi,radenergy)&
+  !$omp shared(fxyzu,pmassi,radenevol)&
   !$omp shared(dt,cv1,a,steboltz_code)
   do i = 1,npart
     kappa = radkappa(i)
@@ -46,16 +46,16 @@ subroutine update_energy(npart,xyzh,fxyzu,vxyzu,radenergy,radkappa,dt)
     rhoi = rhoh(xyzh(4,i),pmassi)
     ui   = vxyzu(4,i)
     dudt = fxyzu(4,i)
-    xii = radenergy(i)
+    xii = radenevol(i)
     etot = ui + xii
     unew = ui
     call solve_internal_energy(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
     vxyzu(4,i) = unew
-    radenergy(i) = etot - unew
-    if (radenergy(i) < 0) call fatal('radiation','radenergy is negative', i)
+    radenevol(i) = etot - unew
+    if (radenevol(i) < 0) call fatal('radiation','radenergy is negative', i)
   end do
   !$omp end parallel do
-end subroutine update_energy
+end subroutine update_radenergy
 
 subroutine solve_internal_energy(unew,ui,rho,etot,dudt,ack,a,cv1,dt)
  real, intent(out) :: unew
@@ -75,5 +75,11 @@ subroutine solve_internal_energy(unew,ui,rho,etot,dudt,ack,a,cv1,dt)
  end do
 end subroutine solve_internal_energy
 
+subroutine set_radiation_regions(iamthick,radenflux,xyzh)
+  real, intent(inout) :: iamthick(:),radenflux(:,:)
+  real, intent(in)    :: xyzh(:,:)
+
+
+end subroutine set_radiation_regions
 end module radiation
 #endif

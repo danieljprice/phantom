@@ -153,11 +153,12 @@ module part
 
 #ifdef RADIATION
  real, allocatable :: radenergy(:)
- real, allocatable :: radenergyflux(:,:)
- real, allocatable :: dradenergy(:)
+ real, allocatable :: radenevol(:)
+ real, allocatable :: radenflux(:,:)
+ real, allocatable :: dradenevol(:)
  real, allocatable :: radenpred(:)
  real, allocatable :: radkappa(:)
- character(len=*), parameter :: radenergy_label(6) = (/'ksi ', 'Fx  ', 'Fy  ', 'Fz  ', 'dksi', 'krad'/)
+ character(len=*), parameter :: radenergy_label(2) = (/'radE', 'radK'/)
 #endif
 !
 !--lightcurves
@@ -347,8 +348,9 @@ subroutine allocate_part
 #ifdef RADIATION
 ! radenergy, d/dx, d/dy, d/dz, d^2/dt^2
  call allocate_array('radenergy', radenergy, maxp)
- call allocate_array('radenergyflux', radenergyflux, 3, maxp)
- call allocate_array('dradenergy', dradenergy, maxp)
+ call allocate_array('radenevol', radenevol, maxp)
+ call allocate_array('radenflux', radenflux, 3, maxp)
+ call allocate_array('dradenevol', dradenevol, maxp)
  call allocate_array('radenpred', radenpred, maxp)
  call allocate_array('radkappa', radkappa, maxp)
 #endif
@@ -416,8 +418,9 @@ subroutine deallocate_part
 #endif
 #ifdef RADIATION
  deallocate(radenergy)
- deallocate(radenergyflux)
- deallocate(dradenergy)
+ deallocate(radenevol)
+ deallocate(radenflux)
+ deallocate(dradenevol)
  deallocate(radenpred)
  deallocate(radkappa)
 #endif

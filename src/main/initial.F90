@@ -136,7 +136,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,temperature,dustprop,ddustprop,ndustsmall
 #ifdef RADIATION
- use part,             only:radenergy,radenergyflux
+ use part,             only:radenergy,radenevol,radenflux
 #endif
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
@@ -227,6 +227,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  character(len=len(dumpfile)) :: dumpfileold,fileprefix
 #ifdef DUST
  character(len=7) :: dust_label(maxdusttypes)
+#endif
+#ifdef RADIATION
+ logical          :: radiation
 #endif
 !
 !--do preliminary initialisation
@@ -379,14 +382,20 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !  So we now convert our primitive variable read, B, to the conservative B/rho
 !  This necessitates computing the density sum.
 !
- if (mhd) then
+#ifdef RADIATION
+ radiation=.true.
+#else
+ radiation=.false.
+#endif
+
+ if ((mhd).or.(radiation)) then
     if (npart > 0) then
        call set_linklist(npart,npart,xyzh,vxyzu)
        fxyzu = 0.
        call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                               fxyzu,fext,alphaind,gradh&
 #ifdef RADIATION
-                              ,radenergy,radenergyflux&
+                              ,radenevol,radenflux,radenergy&
 #endif
                               )
     endif
@@ -397,12 +406,16 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        hi         = xyzh(4,i)
        pmassi     = massoftype(itype)
        rhoi1      = 1.0/rhoh(hi,pmassi)
-       Bevol(1,i) = Bxyz(1,i) * rhoi1
-       Bevol(2,i) = Bxyz(2,i) * rhoi1
-       Bevol(3,i) = Bxyz(3,i) * rhoi1
+       if (mhd) then
+          Bevol(1,i) = Bxyz(1,i) * rhoi1
+          Bevol(2,i) = Bxyz(2,i) * rhoi1
+          Bevol(3,i) = Bxyz(3,i) * rhoi1
+       endif
+       if (radiation) then
+          radenevol(i) = radenergy(i) * rhoi1
+       endif
     enddo
  endif
-
 
 #ifdef IND_TIMESTEPS
  ibin(:)       = 0

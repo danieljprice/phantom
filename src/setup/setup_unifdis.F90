@@ -48,6 +48,10 @@ module setup
  real(kind=8) :: udist,umass
  !--dust
  real    :: dust_to_gas
+#ifdef RADIATION
+ real    :: iradkappa,iradenergy,igasenergy
+#endif
+
  private
 
 contains
@@ -67,6 +71,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm
  use set_dust,     only:set_dustfrac
  use units,        only:set_units
+#ifdef RADIATION
+ use part,         only:rhoh,radenergy,radkappa
+ use units,        only:unit_ergg,udist,umass
+ use timestep,     only:tmax,dtmax
+ use options,      only:nfulldump
+#endif
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -178,7 +188,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        abundance(iHI,i) = 1.  ! assume all atomic hydrogen initially
     enddo
  endif
-
+#ifdef RADIATION
+ do i=1,npart
+    radenergy(i) = iradenergy/unit_ergg
+    radkappa(i)  = iradkappa/(udist*udist/umass)
+    vxyzu(4,i)   = (igasenergy/rhoh(xyzh(4,i),massoftype(1)))/unit_ergg
+ enddo
+ cs0 = sqrt((gamma*(gamma-1.))*vxyzu(4,1))
+ if (id==master) print*,' radiation setup: new sound speed = ',cs0,' new pressure = ',cs0**2/gamma
+ tmax  = 1e-7
+ dtmax = 1e-09
+ nfulldump = 1
+#endif
 end subroutine setpart
 
 !------------------------------------------------------------------------
@@ -262,6 +283,19 @@ subroutine setup_interactive(id,polyk)
  endif
  call bcast_mpi(ilattice)
 
+#ifdef RADIATION
+ if (id==master) then
+    iradkappa  = 0.4
+    iradenergy = 1e12
+    igasenergy = 1e2
+    call prompt('Enter radiation opacity kappa (code units)',iradkappa)
+    call prompt('Enter radiation energy      E (code units)',iradenergy)
+    call prompt('Enter       gas energy      e (code units)',igasenergy)
+ end if
+ call bcast_mpi(iradkappa)
+ call bcast_mpi(iradenergy)
+#endif
+
 end subroutine setup_interactive
 
 !------------------------------------------------------------------------
@@ -302,6 +336,12 @@ subroutine write_setupfile(filename)
     call write_inopt(dust_to_gas,'dust_to_gas','dust-to-gas ratio',iunit)
  endif
  call write_inopt(ilattice,'ilattice','lattice type (1=cubic, 2=closepacked)',iunit)
+#ifdef RADIATION
+ write(iunit,"(/,a)") '# radiation'
+ call write_inopt(iradkappa,  'radkappa','radiation opacity kappa',iunit)
+ call write_inopt(iradenergy,'radenergy','radiation energy E',iunit)
+ call write_inopt(igasenergy,'gasenergy','gas energy e',iunit)
+#endif
  close(iunit)
 
 end subroutine write_setupfile
@@ -349,6 +389,11 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(dust_to_gas,'dust_to_gas',db,min=0.,errcount=nerr)
  endif
  call read_inopt(ilattice,'ilattice',db,min=1,max=2,errcount=nerr)
+#ifdef RADIATION
+ call read_inopt(iradkappa,  'radkappa',db,errcount=nerr)
+ call read_inopt(iradenergy,'radenergy',db,errcount=nerr)
+ call read_inopt(igasenergy,'gasenergy',db,errcount=nerr)
+#endif
  call close_db(db)
  !
  ! parse units

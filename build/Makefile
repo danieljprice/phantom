@@ -916,7 +916,7 @@ ifeq ($(SETUP), default)
     KNOWN_SETUP=yes
     SETUPFILE= setup_unifdis.F90
     FPPFLAGS= -DPERIODIC
-    DUST=yes
+    # DUST=yes
 endif
 
 #ifeq ($(SETUP), clumpybox) # [buildbot skip]
@@ -990,17 +990,6 @@ ifeq ($(SETUP), mcfostcmdline) # [buildbot skip]
     KNOWN_SETUP=yes
     MULTIRUNFILE= multirun.f90
     IND_TIMESTEPS=yes
-endif
-
-ifeq ($(SETUP), diffusion_only)
-    FPPFLAGS= -DPERIODIC -DRADIATION
-    SETUPFILE= setup_diffusion_only.F90
-    DOUBLEPRECISION=yes
-    KERNEL=quintic
-    ISOTHERMAL=no
-    KNOWN_SETUP=yes
-    DEBUG=yes
-    MPI=no
 endif
 
 ifndef SETUPFILE

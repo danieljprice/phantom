@@ -43,6 +43,10 @@ module energies
                                iev_etaa(2),iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n(4),iev_nR(5),iev_nT(2),&
                                iev_dtg,iev_ts,iev_dm(maxdusttypes),iev_momall,iev_angall,iev_maccsink(2),&
                                iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_ionise
+#ifdef RADIATION
+ integer,         public    :: iev_erad
+ real,            public    :: erad
+#endif
  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
  integer,         parameter :: iev_sum = 1    ! array index of the sum of the quantity
  integer,         parameter :: iev_max = 2    ! array index of the maximum of the quantity
@@ -83,6 +87,9 @@ subroutine compute_energies(t)
  use viscosity,      only:irealvisc,shearfunc
  use nicil,          only:nicil_get_eta,nicil_get_halldrift,nicil_get_vion, &
                      use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_data_out
+#ifdef RADIATION
+ use part,           only:radenevol
+#endif
 #ifdef LIGHTCURVE
  use part,           only:luminosity
 #endif
@@ -115,6 +122,9 @@ subroutine compute_energies(t)
  epot = 0.
  emag = 0.
  etot = 0.
+#ifdef RADIATION
+ erad = 0.
+#endif
  xcom = 0.
  ycom = 0.
  zcom = 0.
@@ -179,6 +189,10 @@ subroutine compute_energies(t)
 #endif
 !$omp reduction(+:np,npgas,np_cs_eq_0,np_e_eq_0) &
 !$omp reduction(+:xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
+#ifdef RADIATION
+!$omp shared(radenevol,iev_erad) &
+!$omp reduction(+:erad) &
+#endif
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
 !$omp reduction(+:ekin,etherm,emag,epot)
  call initialise_ev_data(ev_data_thread)
@@ -278,6 +292,9 @@ subroutine compute_energies(t)
           idusttype = ndustsmall + itype - idust + 1
           mdust(idusttype) = mdust(idusttype) + pmassi
        endif
+#endif
+#ifdef RADIATION
+       erad = erad + pmassi*radenevol(i)
 #endif
        !
        ! the following apply ONLY to gas particles
@@ -559,9 +576,15 @@ subroutine compute_energies(t)
  if (maxvxyzu >= 4 .or. gamma >= 1.0001) etherm = reduce_fn('+',etherm)
  emag = reduce_fn('+',emag)
  epot = reduce_fn('+',epot)
+#ifdef RADIATION
+ erad = reduce_fn('+',erad)
+#endif
  if (nptmass > 1) epot = epot + epot_sinksink
 
  etot = ekin + etherm + emag + epot
+#ifdef RADIATION
+ etot = etot + erad
+#endif
 
  xcom = reduce_fn('+',xcom)
  ycom = reduce_fn('+',ycom)
@@ -589,6 +612,7 @@ subroutine compute_energies(t)
  ev_data(iev_sum,iev_emag  ) = emag
  ev_data(iev_sum,iev_epot  ) = epot
  ev_data(iev_sum,iev_etot  ) = etot
+ ev_data(iev_sum,iev_erad  ) = erad
  ev_data(iev_sum,iev_totmom) = totmom
  ev_data(iev_sum,iev_angmom) = angtot
  ev_data(iev_sum,iev_com(1)) = xcom
