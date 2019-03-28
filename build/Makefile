@@ -22,8 +22,8 @@
 .KEEP_STATE:
 
 PHANTOM_VERSION_MAJOR=1
-PHANTOM_VERSION_MINOR=2
-PHANTOM_VERSION_MICRO=1
+PHANTOM_VERSION_MINOR=3
+PHANTOM_VERSION_MICRO=0
 VERSION=$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICRO)
 
 KNOWN_SYSTEM=no
@@ -1471,11 +1471,19 @@ endif
 # HDF5 libraries (if required)
 #
 ifeq ($(HDF5), yes)
-    LDFLAGS+= -L$(HDF5ROOT)/lib -lhdf5
+ifeq (X$(HDF5ROOT), X)
+    HDF5ROOT= /usr/local/opt/hdf5
+endif
+    FFLAGS+= -I$(HDF5ROOT)/include
+    LDFLAGS+= -L$(HDF5ROOT)/lib -lhdf5 -lhdf5_fortran
     CCFLAGS+= -I$(HDF5ROOT)/include
-    FPPFLAGS+= -DHAVE_HDF5
+    FPPFLAGS+= -DHDF5
 endif
 
+IDFLAGS=$(FPPFLAGS)
+ifeq ($(DEBUG), yes)
+    IDFLAGS += -DDEBUG
+endif
 #
 # select domain decomposition type
 #
@@ -1533,6 +1541,12 @@ SRCCHEM= coolfunc.f90 fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2
 SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
 SRCEOS = ${SRCMESA} eos_helmholtz.f90 eos.F90
 
+ifeq ($(HDF5), yes)
+SRCREADWRITE_DUMPS= utils_hdf5.F90 utils_dumpfiles_hdf5.F90 readwrite_dumps_hdf5.F90
+else
+SRCREADWRITE_DUMPS= readwrite_dumps.F90
+endif
+
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
          utils_allocate.f90 \
@@ -1545,7 +1559,8 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          set_disc.F90 partinject.F90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM} \
          directsum.f90 prompting.f90 ${SRCDUST} set_dust.F90 set_dust_options.f90 \
          mpi_dens.F90 mpi_force.F90 stack.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
-         ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} memory.F90 readwrite_dumps.F90 quitdump.f90 ptmass.F90 \
+         ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} memory.F90 ${SRCREADWRITE_DUMPS}  \
+         quitdump.f90 ptmass.F90 \
          readwrite_infile.F90 dens.F90 force.F90 deriv.F90 energies.F90 sort_particles.F90 \
          evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90 \
          geometry.f90 stretchmap.f90 density_profiles.f90 set_unifdis.f90 set_slab.f90 \
@@ -1562,7 +1577,8 @@ phantom: checksystem checkparams $(OBJECTS) phantom.o
 ifeq ($(UNAME), Darwin)
 	dsymutil $(BINDIR)/$@
 endif
-	@sh ../scripts/phantom_version_gen.sh "$(FPPFLAGS)"
+
+	@sh ../scripts/phantom_version_gen.sh "$(IDFLAGS)"
 	@echo ""
 	@echo "The Phantom is here (in $(BINDIR)/phantom)"
 	@echo ""
@@ -1606,7 +1622,7 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          utils_sphNG.f90 \
          commons.f90 timestep.f90 ${SRCFASTMATH} checkoptions.F90 \
          viscosity.f90 options.f90 prompting.f90 ${SRCDUST} \
-         readwrite_dumps.F90
+         ${SRCREADWRITE_DUMPS}
 OBJDUMP1= $(SRCDUMP:.f90=.o)
 OBJDUMP= $(OBJDUMP1:.F90=.o)
 
@@ -1635,7 +1651,7 @@ OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 phantomsetup: setup
 
 setup: checksystem checkparams $(OBJSETUP)
-	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS) $(LIBS)
 	@echo ""
 	@echo "Phantom setup built"
 	@echo ""
@@ -1651,6 +1667,11 @@ phantom-version.h:
 	@echo "#define PHANTOM_VERSION_MINOR $(PHANTOM_VERSION_MINOR)" >> $@
 	@echo "#define PHANTOM_VERSION_MICRO $(PHANTOM_VERSION_MICRO)" >> $@
 	@echo "#define PHANTOM_VERSION_STRING \"$(VERSION)\"" >> $@
+
+#----------------------------------------------------
+# run checkhdf5 for HDF5=yes
+#
+utils_outputhdf5.o: checkhdf5
 
 #----------------------------------------------------
 # these are the sources for the phantom2grid utility
@@ -1956,6 +1977,38 @@ analysis_mcfost.o: checkmcfost
 
 cleanphantom2mcfost:
 	rm -f $(BINDIR)/phantom2mcfost
+
+#----------------------------------------------------
+# these are the sources for the phantom2hdf5 utility
+#
+ifeq ($(PHANTOM2HDF5), yes)
+    FPPFLAGS += -DPHANTOM2HDF5
+endif
+checkhdf5flags:
+   ifneq ($(HDF5), yes)
+	@echo "-----------------------------"
+	@echo "Need to compile with HDF5=yes"
+	@echo "-----------------------------"
+	${MAKE} err
+   endif
+   ifneq ($(PHANTOM2HDF5), yes)
+	@echo "-------------------------------------"
+	@echo "Need to compile with PHANTOM2HDF5=yes"
+	@echo "-------------------------------------"
+	${MAKE} err
+   endif
+
+.PHONY: phantom2hdf5
+phantom2hdf5: checksystem checkparams checkhdf5flags $(OBJDUMP) readwrite_dumps.o phantom2hdf5.o
+	@echo ""
+	@echo "phantom2hdf5: welcome to the future"
+	@echo ""
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJDUMP) readwrite_dumps.o phantom2hdf5.o $(LDFLAGS)
+
+p2h: phantom2hdf5
+
+cleanphantom2hdf5:
+	rm -f $(BINDIR)/phantom2hdf5
 
 #----------------------------------------------------
 # utility to rewrite .ev files using a common header
@@ -2691,7 +2744,7 @@ err:
 	$(error aborting);
 
 clean:
-	rm -f *.o *.mod
+	rm -f *.o *.mod phantom-version.h
 
 cleanall: clean cleanmathflags
 	cd $(BINDIR); rm -f phantom phantomsetup

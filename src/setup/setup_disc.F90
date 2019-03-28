@@ -90,7 +90,7 @@ module setup
  use physcon,          only:au,solarm,jupiterm,earthm,pi,years
  use setdisc,          only:scaled_sigma,get_disc_mass
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
-                            ndusttypesinp,isetdust,dustbinfrac
+                            ndusttypesinp,isetdust,dustbinfrac,check_dust_method
  use units,            only:umass,udist,utime
 
  implicit none
@@ -185,6 +185,9 @@ module setup
  real    :: deltat
  integer :: norbits
 
+ !--other
+ logical :: ichange_method
+
 contains
 
 !--------------------------------------------------------------------------
@@ -250,7 +253,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call initialise_dustprop(npart)
 
  !--check dust method for validity
- call check_dust_method_valid(id,npart)
+ call check_dust_method(dust_method,ichange_method)
 
  !--print information about the angular momenta
  call print_angular_momentum(npart,xyzh,vxyzu)
@@ -1296,6 +1299,8 @@ subroutine initialise_dustprop(npart)
        if (iamtype(iphase(i))==idust) then
           dustprop(1,i) = grainsize(1)
           dustprop(2,i) = graindens(1)
+          dustprop(3,i) = 0.
+          dustprop(4,i) = 0.
        else
           dustprop(:,i) = 0.
        endif
@@ -1303,28 +1308,6 @@ subroutine initialise_dustprop(npart)
  endif
 
 end subroutine initialise_dustprop
-
-!--------------------------------------------------------------------------
-!
-! Check the chosen dust method for validity
-!
-!--------------------------------------------------------------------------
-subroutine check_dust_method_valid(id,npart)
- use set_dust_options, only:check_dust_method
- integer, intent(in) :: id
- integer, intent(in) :: npart
-
- logical :: ichange_method
-
- call check_dust_method(dust_method,ichange_method)
- if (ichange_method .and. id==master) then
-    np_dust = npart/5
-    call write_setupfile(filename)
-    print "(/,a)",' >>> please rerun the setup routine <<<'
-    stop
- endif
-
-end subroutine check_dust_method_valid
 
 !--------------------------------------------------------------------------
 !
@@ -1386,7 +1369,7 @@ subroutine print_dust()
        enddo
     endif
 
-    do i=1,ndiscs
+    do i=1,maxdiscs
        if (iuse_disc(i)) then
           R_midpoint = (R_in(i) + R_out(i))/2
           Sigma = sig_norm(i) * &
@@ -2481,6 +2464,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
  real    :: sigma_gas
  real    :: sigma_dust
 
+ dust_to_gas = 0.
  do i=ipart_start,ipart_end
 
     R = sqrt(dot_product(xyzh(1:2,i)-xorigini(1:2),xyzh(1:2,i)-xorigini(1:2)))
@@ -2510,7 +2494,6 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
           dust_to_gas(j) = (sigma_dust/sigma_gas) * (Hg/Hd) * exp(-0.5d0*((z/Hd)**2.-(z/Hg)**2.))
        endif
     enddo
-
     dustfrac(:,i) = (dust_to_gas/(1.+sum(dust_to_gas)))*dustbinfrac(:)
 
  enddo

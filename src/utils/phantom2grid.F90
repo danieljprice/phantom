@@ -27,7 +27,7 @@ program phantom2grid
  use boundary,         only:xmin,ymin,zmin,xmax,ymax,zmax
  use readwrite_dumps,  only:read_dump,write_gadgetdump
  use interpolations3D, only:interpolate3D
-#ifdef HAVE_HDF5
+#ifdef HDF5
  use hdf5utils,        only:write_grid_hdf5
  use iso_c_binding,    only:c_float
 #endif
@@ -40,7 +40,7 @@ program phantom2grid
  real               :: offset,rhomin,dati
 ! real               :: trans(6),datmax
 ! real, dimension(npixx,npixy) :: coldens
-#ifdef HAVE_HDF5
+#ifdef HDF5
  real(kind=c_float), allocatable :: dattemp(:)
  character(len=120) :: filenameout
  integer            :: inum,n
@@ -398,7 +398,7 @@ program phantom2grid
           write(16) (((real4(datgrid(irec,i,j,k)),i=1,npixx),j=1,npixy),k=1,npixz)
        enddo
        close(unit=16)
-#ifdef HAVE_HDF5
+#ifdef HDF5
     case('hdf5')
        if (npart > 1e9) then
           nx = 1024
@@ -476,10 +476,10 @@ subroutine print_usage
             ' 3 = Potsdam comparison format: ascii only', &
             ' 4 = KITP comparison format ', &
             ' 5 = gridbinary format (KITP without recl)', &
-#ifdef HAVE_HDF5
+#ifdef HDF5
             ' 6 = FLASH-style HDF5 files'
 #else
- ' 6 = FLASH-style HDF5 files (NOT AVAILABLE: compile with -DHAVE_HDF5)'
+ ' 6 = FLASH-style HDF5 files (NOT AVAILABLE: compile with -DHDF5)'
 #endif
 
 end subroutine print_usage

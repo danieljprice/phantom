@@ -36,7 +36,7 @@ module energies
  real,            public    :: xmom,ymom,zmom
  real,            public    :: totlum
  integer,         public    :: iquantities
- integer(kind=8), public    :: ndead
+ integer(kind=8), public    :: ndead,np_cs_eq_0,np_e_eq_0
  integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com(3),&
                                iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop(6),&
                                iev_alpha,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
@@ -138,6 +138,8 @@ subroutine compute_energies(t)
  mgas    = 0.
  mdust   = 0.
  mgas    = 0.
+ np_cs_eq_0 = 0
+ np_e_eq_0  = 0
  if (maxalpha==maxp) then
     alphai = 0.
  else
@@ -175,7 +177,8 @@ subroutine compute_energies(t)
 #ifdef LIGHTCURVE
 !$omp shared(luminosity,track_lum) &
 #endif
-!$omp reduction(+:np,npgas,xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
+!$omp reduction(+:np,npgas,np_cs_eq_0,np_e_eq_0) &
+!$omp reduction(+:xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
 !$omp reduction(+:ekin,etherm,emag,epot)
  call initialise_ev_data(ev_data_thread)
@@ -306,6 +309,8 @@ subroutine compute_energies(t)
              else
                 call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(iu,i))
              endif
+             if (vxyzu(iu,i) < tiny(vxyzu(iu,i))) np_e_eq_0 = np_e_eq_0 + 1
+             if (spsoundi < tiny(spsoundi) .and. vxyzu(iu,i) > 0. ) np_cs_eq_0 = np_cs_eq_0 + 1
           else
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi)
              if (ieos==2 .and. gamma > 1.001) then
@@ -315,6 +320,7 @@ subroutine compute_energies(t)
                 !--thermal energy using piecewise polytropic equation of state
                 etherm = etherm + pmassi*ponrhoi/(gamma_pwp(rhoi)-1.)*gasfrac
              endif
+             if (spsoundi < tiny(spsoundi)) np_cs_eq_0 = np_cs_eq_0 + 1
           endif
           vsigi = spsoundi
           ! entropy
@@ -541,6 +547,9 @@ subroutine compute_energies(t)
  else
     dnpgas = 0.
  endif
+ !--Number of gas particles without a sound speed or energy
+ np_cs_eq_0 = reduce_fn('+',np_cs_eq_0)
+ np_e_eq_0  = reduce_fn('+',np_e_eq_0)
  !--Finalise the arrays & correct as necessary;
  !  Almost all of the average quantities are over gas particles only
  call finalise_ev_data(ev_data,dnpgas)

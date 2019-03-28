@@ -61,7 +61,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  real, intent(out)                :: sigma(nbin),h_smooth(nbin),unitlx(nbin)
  integer, intent(out)             :: ninbin(nbin)
  real                             :: dbin,angx,angy,angz,unitangz
- real                             :: angtot,Ltot
+ real                             :: angtot,Ltot,position_star(3),velocity_star(3)
  real                             :: rsphi,rcyli,area,Ei,mu,term,ecci
  real                             :: Li(3),xi(3),vi(3),Limag,dtwist
  real                             :: psi_x,psi_y,psi_z,tp(nbin)
@@ -105,29 +105,35 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  angz = 0.0
  twist = 0.0
  mu = G*M_star
+ position_star = (/0.,0.,0./)
+ velocity_star = (/0.,0.,0./)
 
  allocate(zsetgas(npart,nbin),mybin(npart))
 
 ! Move everything so that the centre of mass is at the origin
  if (nptmass > 0) then
     call reset_centreofmass(npart,xyzh,vxyz,nptmass,xyzmh_ptmass,vxyz_ptmass)
+    ! Assume that the disc is around the first point mass (normally occurs)
+    position_star(1:3) = xyzmh_ptmass(1:3,1)
+    velocity_star(1:3) = vxyz_ptmass(1:3,1)
  endif
 
 ! Loop over particles putting properties into the correct bin
  do i = 1,npart
 
     ! i for the particle number, ii for the bin number
-    xi = xyzh(1:3,i)
-    vi = vxyz(1:3,i)
+    xi = xyzh(1:3,i) - position_star(1:3)
+    vi = vxyz(1:3,i) - velocity_star(1:3)
 
     if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
 
        rsphi = sqrt(dot_product(xi(1:3),xi(1:3)))
        rcyli = sqrt(dot_product(xi(1:2),xi(1:2)))
 
-       Li(1) = pmass*(xi(2)*vi(3)-xi(3)*vi(2))
-       Li(2) = pmass*(xi(3)*vi(1)-xi(1)*vi(3))
-       Li(3) = pmass*(xi(1)*vi(2)-xi(2)*vi(1))
+       Li(1) = pmass*(xi(2)*vi(3) - xi(3)*vi(2))
+       Li(2) = pmass*(xi(3)*vi(1) - xi(1)*vi(3))
+       Li(3) = pmass*(xi(1)*vi(2) - xi(2)*vi(1))
+
        Limag = sqrt(dot_product(Li,Li))/pmass
 
        ! NB: No internal energy as isothermal
@@ -194,8 +200,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  ninbin = 0
  do i = 1,npart
     if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
-       xi = xyzh(1:3,i)
-       vi = vxyz(1:3,i)
+       xi = xyzh(1:3,i) - position_star
        ii = mybin(i)
 
        if (ii > nbin .or. ii < 1) cycle

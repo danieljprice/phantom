@@ -295,7 +295,7 @@ subroutine check_dust_method(dust_method,ichange_method)
  use io,      only:master
  use options, only:use_dustfrac
  use part,    only:npart,massoftype,xyzh,vxyzu,rhoh,igas,dustfrac,&
-                   grainsize,graindens
+                   grainsize,graindens,ndusttypes
  integer,          intent(inout) :: dust_method
  logical,          intent(out)   :: ichange_method
  integer :: i,l,iregime,ierr,icheckdust
@@ -308,20 +308,21 @@ subroutine check_dust_method(dust_method,ichange_method)
 
  call init_drag(ierr)
 
+ dustfraci(:) = 0.
  icheckdust = 0
  do i=1,npart
     r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
     if (use_dustfrac) then
        rhoi = rhoh(xyzh(4,i),massoftype(igas))
-       dustfraci(:) = dustfrac(:,i)
-       dustfracisum = sum(dustfraci(:))
+       dustfraci(1:ndusttypes) = dustfrac(1:ndusttypes,i)
+       dustfracisum = sum(dustfraci(1:ndusttypes))
        rhogasi      = rhoi*(1.-dustfracisum)
        spsoundi     = get_spsound(ieos,xyzh(:,i),rhogasi,vxyzu(:,i))
        do l=1,ndusttypesinp
           rhodusti = rhoi*dustfraci(l)
           call get_ts(idrag,grainsize(l),graindens(l),rhogasi,rhodusti,spsoundi,0.,tsi(l),iregime)
        enddo
-       if (any(tsi(:) > xyzh(4,i)/spsoundi)) icheckdust = icheckdust + 1
+       if (any(tsi(1:ndusttypes) > xyzh(4,i)/spsoundi)) icheckdust = icheckdust + 1
     endif
  enddo
 
@@ -337,19 +338,16 @@ subroutine check_dust_method(dust_method,ichange_method)
     endif
 
     print*,''
-    print*,'*******************************************************************************'
-    print*,'WARNING! More than 10% of the particles have a Stokes Number larger than the'
-    print*,'threshold under which the terminal velocity approximation is valid. We suggest'
-    print*,'you switch to using two-fluid. If you absolutely insist on using the one-fluid,'
-    print*,'you can set the environment variable IFORCE_DUST_METHOD=yes and rerun the setup.'
-    print*,'*******************************************************************************'
+    print*,'-------------------------------------------------------------------------------'
     print*,''
- elseif (iforce_dust_method) then
+    print*,'    WARNING! More than 10% of particles have Stokes number greater than'
+    print*,'    the threshold under which the terminal velocity approximation is valid.'
+    print*,'    We suggest you switch to the "two-fluid" method. You can set the'
+    print*,'    environment variable IFORCE_DUST_METHOD=yes to not see this message'
+    print*,'    again.'
     print*,''
-    print*,'*******************************************************************************'
-    print*,'WARNING! You have chosen to manually select the dust method. Care should be taken'
-    print*,'to ensure that you do not violate the terminal velocity approximation.'
-    print*,'*******************************************************************************'
+    print*,"Particles not satisfying the condition:",real(icheckdust)/real(npart)*100,"%"
+    print*,'-------------------------------------------------------------------------------'
     print*,''
  endif
 

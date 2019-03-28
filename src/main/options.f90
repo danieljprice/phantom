@@ -70,6 +70,7 @@ subroutine set_default_options
  use viscosity, only:set_defaults_viscosity
  use dim,       only:maxp,maxvxyzu,nalpha
  use kernel,    only:hfact_default
+ use eos,       only:polyk2
 
  call set_defaults_timestep
 
@@ -99,6 +100,7 @@ subroutine set_default_options
  ipdv_heating       = 1
  iresistive_heating = 1
  icooling           = 0
+ polyk2             = 0 ! only used for ieos=8
 
  ! artificial viscosity
  if (maxalpha==maxp) then
