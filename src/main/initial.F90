@@ -193,6 +193,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
  use inject,           only:init_inject,inject_particles
 #endif
+#ifdef KROME
+ use part,             only:species_abund
+ use part,             only:gamma_chem, mu_chem
+ use krome_phantom_coupling
+ use krome_user
+#endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:gamma,polyk,ieos,init_eos
  use part,             only:hfact,h2chemistry
@@ -224,6 +230,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  character(len=len(dumpfile)) :: dumpfileold,fileprefix
 #ifdef DUST
  character(len=7) :: dust_label(maxdusttypes)
+#endif
+#ifdef KROME
+ real num_dens(krome_nmols)
 #endif
 !
 !--do preliminary initialisation
@@ -512,6 +521,26 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  if (ierr /= 0) call fatal('initial','error initialising particle injection')
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                        npart,npartoftype,dtinject)
+#endif
+!
+!--set initial chemical abundance values
+!
+#ifdef KROME
+call initialise_krome()
+
+species_abund(krome_idx_He,:) = He_init
+species_abund(krome_idx_C,:)  = C_init
+species_abund(krome_idx_N,:)  = N_init
+species_abund(krome_idx_O,:)  = O_init
+species_abund(krome_idx_H,:)  = H_init
+
+print *, mu_chem(1,1)
+
+! do p=0, npart
+!    num_dens(:)     = krome_x2n(species_abund(:,p), GASDENS)
+!    gamma_chem(:,p) = krome_get_gamma( num_dens(:), GASTEMP )
+!    mu_chem(:,p)    = krome_get_mu(num_dens(:))
+! enddo
 #endif
 !
 !--calculate (all) derivatives the first time around

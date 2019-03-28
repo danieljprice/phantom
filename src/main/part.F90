@@ -37,6 +37,9 @@ module part
                maxne,maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh
  use dtypekdtree, only:kdnode
+#ifdef KROME
+  use krome_user, only: krome_nmols
+#endif
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -150,7 +153,15 @@ module part
 #ifdef NONIDEALMHD
  character(len=*), parameter :: eta_nimhd_label(4) = (/'eta_{OR}','eta_{HE}','eta_{AD}','ne/n    '/)
 #endif
-
+!
+!--Chemistry with KROME
+!
+#ifdef KROME
+ real, allocatable :: species_abund(:,:) 
+ real, allocatable :: gamma_chem(:,:)
+ real, allocatable :: mu_chem(:,:)
+ character(len=16) :: species_abund_label(krome_nmols)
+#endif
 !
 !--lightcurves
 !
@@ -240,6 +251,11 @@ module part
 #endif
 #ifdef H2CHEM
    +nabundances                         &  ! abundance
+#endif
+#ifdef KROME
+   +krome_nmols                         &  ! abundance
+   +1                                   &  ! variable gamma
+   +1                                   &  ! variable mu
 #endif
 #ifdef GRAVITY
    +1                                   &  ! poten
@@ -351,6 +367,11 @@ subroutine allocate_part
  call allocate_array('ibelong', ibelong, maxp)
  call allocate_array('istsactive', istsactive, maxsts)
  call allocate_array('ibin_sts', ibin_sts, maxsts)
+#ifdef KROME
+ call allocate_array('species_abund', species_abund, krome_nmols, maxp)
+ call allocate_array('gamma_chem', gamma_chem, 1, maxp)
+ call allocate_array('mu_chem', mu_chem, 1, maxp)
+#endif
 
 end subroutine allocate_part
 
@@ -405,6 +426,11 @@ subroutine deallocate_part
  deallocate(ibelong)
  deallocate(istsactive)
  deallocate(ibin_sts)
+#ifdef KROME
+ deallocate(species_abund)
+ deallocate(gamma_chem)
+ deallocate(mu_chem)
+#endif
 
 end subroutine deallocate_part
 
@@ -838,6 +864,11 @@ subroutine copy_particle_all(src,dst)
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
  if (store_temperature) temperature(dst) = temperature(src)
+#ifdef KROME
+ species_abund(:,dst) = species_abund(:,src)
+ gamma_chem(:,dst)    = gamma_chem(:,src)
+ mu_chem(:,dst)       = mu_chem(:,src)
+#endif
 
  return
 end subroutine copy_particle_all

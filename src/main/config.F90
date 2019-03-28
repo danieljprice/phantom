@@ -180,7 +180,17 @@ module dim
  !  the number of dimensions)
  !
  integer, parameter :: ndim = 3
-
+ 
+ 
+!-----------------
+! KROME chemistry
+!-----------------
+#ifdef KROME
+ logical, parameter :: use_krome = .true.
+#else
+ logical, parameter :: use_krome = .false.
+#endif
+ 
 !-----------------
 ! Magnetic fields
 !-----------------

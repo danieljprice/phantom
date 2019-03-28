@@ -41,6 +41,7 @@ ANALYSIS      = analysis_dtheader.f90
 MULTIRUNFILE  = multirun.f90
 LIVE_ANALYSIS = no
 LINKLIST      = dtype_kdtree.F90 kdtree.F90 linklist_kdtree.F90
+KROME         = disabled
 #
 # can comment out the following lines and instead set
 # the parameters as environment variables
@@ -52,7 +53,8 @@ ifndef EDITOR
   EDITOR= emacs
 endif
 ifndef OPENMP
-  OPENMP= yes
+#   OPENMP= yes
+  OPENMP= no
 endif
 ifndef SPLASH_DIR
    SPLASH_DIR=${shell if [ -d $$HOME/splash ]; then echo $$HOME/splash; fi}
@@ -1370,6 +1372,10 @@ ifdef SRCTURB
     FPPFLAGS += -DDRIVING
 endif
 
+ifeq ($(KROME), krome)
+    FPPFLAGS += -DKROME
+endif
+
 #
 # kernel choice
 #
@@ -1550,7 +1556,7 @@ endif
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
          utils_allocate.f90 \
-         utils_mathfunc.f90 part.F90 ${DOMAIN} utils_timing.f90 mpi_balance.F90 \
+         utils_mathfunc.f90 part.F90 ${DOMAIN} utils_timing.f90 krome.f90 mpi_balance.F90 \
          commons.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_datafiles.f90 datafiles.f90 \
@@ -1571,13 +1577,32 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
 OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
 
-.PHONY: phantom
+ifeq ($(KROME), krome)
+
+    .PHONY: all
+    all: krome phantom
+    -include MakeKrome
+else
+    .PHONY: phantom
+endif
+
 phantom: checksystem checkparams $(OBJECTS) phantom.o
 	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJECTS) phantom.o $(LDFLAGS)
 ifeq ($(UNAME), Darwin)
 	dsymutil $(BINDIR)/$@
 endif
 
+
+	@echo ""
+	@echo "=============== CHEMISTRY ==============="
+	@echo ""
+ifeq ($(KROME), krome)
+	@echo "krome coupling status = enabled"
+else
+	@echo "krome coupling status = disabled"
+endif
+	@echo ""
+	@echo "========================================="
 	@sh ../scripts/phantom_version_gen.sh "$(IDFLAGS)"
 	@echo ""
 	@echo "The Phantom is here (in $(BINDIR)/phantom)"

@@ -1576,6 +1576,20 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  use kernel,      only:radkern
  use part,        only:xyzh_soa,store_temperature,temperature
  use kdtree,      only:inodeparts
+#ifdef IND_TIMESTEPS
+ use part, only: ibin
+ use timestep, only: dtmax
+#else
+ use timestep, only: dt
+#endif
+#ifdef KROME
+ use krome_main
+ use krome_user
+ use part,       only: species_abund, mu_chem, gamma_chem
+ use units,      only: unit_density, utime
+ use physcon,    only: au
+ use eos,        only: get_temperature_locmu, get_local_u_internal
+#endif
 
  integer,         intent(in)    :: icall
  type(celldens),  intent(in)    :: cell
@@ -1616,6 +1630,12 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  real         :: divcurlBi(ndivcurlB)
  real         :: temperaturei,Bi
  real         :: rho1i,term,denom,rhodusti(maxdustlarge)
+#ifdef IND_TIMESTEPS
+ real :: dt
+#endif
+#ifdef KROME
+ real :: dt_cgs, rho_cgs
+#endif
 
  do i = 1,cell%npcell
     lli = inodeparts(cell%arr_index(i))
@@ -1771,6 +1791,28 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        ! store strain tensor
        dvdx(:,lli) = real(dvdxi(:),kind=kind(dvdx))
     endif
+
+#ifdef IND_TIMESTEPS
+    dt = dtmax/2**ibin(lli)
+#endif        
+#ifdef KROME
+    rho_cgs = rhoi*unit_density
+    dt_cgs = dt*utime 
+    temperaturei = get_temperature_locmu(ieos,cell%xpartvec(ixi:izi,i),real(rhoi),mu_chem(1,lli),vxyzui(:),gamma_chem(1,lli))
+    
+    if (dt .ne. 0.0) then
+      call krome(species_abund(:,lli),real(rho_cgs),real(temperaturei),real(dt_cgs))
+    endif
+    
+    
+!   Here we update the particle's mean molecular weight
+    mu_chem(1,lli) =  krome_get_mu(krome_x2n(species_abund(:,lli),rho_cgs))
+!   Here we update the particle's adiabatic index
+    gamma_chem(1,lli) = krome_get_gamma_x(species_abund(:,lli),temperaturei)  
+!   Here we update the particle's internal energy
+    vxyzui(4:lli) = get_local_u_internal(gamma_chem(1,lli),mu_chem(1,lli),temperaturei)
+
+#endif
 
     ! stats
     nneightry = nneightry + cell%nneightry

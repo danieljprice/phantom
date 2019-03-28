@@ -16,7 +16,7 @@ if [ $# -ge 1 ]; then
    echo 'ifndef SETUP';
    echo 'SETUP='$1;
    echo 'endif';
-   makeflags='SETUP=${SETUP} RUNDIR=${PWD}';
+   makeflags='SETUP=${SETUP} RUNDIR=${PWD} KROME='$2;
 else
    makeflags='RUNDIR=${PWD}';
 fi
