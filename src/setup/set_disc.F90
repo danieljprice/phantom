@@ -349,9 +349,14 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !
  !--set particle velocities
  !
+ if (present(inclination)) then
+    incl = inclination
+ else
+    incl = 0.
+ endif
  call set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,aspin_angle, &
                           clight,cs0,exponential_taper,p_index,q_index,gamma,R_in, &
-                          rad,enc_m,smooth_surface_density,xyzh,vxyzu)
+                          rad,enc_m,smooth_surface_density,xyzh,vxyzu,incl)
  !
  !--inclines and warps
  !
@@ -625,7 +630,7 @@ end subroutine set_disc_positions
 !----------------------------------------------------------------
 subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin, &
                                aspin_angle,clight,cs0,do_sigmapringle,p_index, &
-                               q_index,gamma,R_in,rad,enc_m,smooth_sigma,xyzh,vxyzu)
+                               q_index,gamma,R_in,rad,enc_m,smooth_sigma,xyzh,vxyzu,inclination)
  use externalforces, only:iext_einsteinprec
  use options,        only:iexternalforce
  use part,           only:gravity
@@ -633,10 +638,11 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  real,    intent(in)    :: G,star_m,aspin,aspin_angle,clight,cs0,p_index,q_index
  real,    intent(in)    :: rad(:),enc_m(:),gamma,R_in
  logical, intent(in)    :: do_sigmapringle,smooth_sigma
- real,    intent(in)    :: xyzh(:,:)
+ real,    intent(in)    :: xyzh(:,:),inclination
  real,    intent(inout) :: vxyzu(:,:)
  real :: term,term_pr,term_bh,det,vr,vphi,cs,R,phi
  integer :: i,itable,ipart,ierr
+ real :: rg,vkep
 
  ierr = 0
  ipart = npart_start_count - 1
@@ -699,7 +705,14 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        !--now solve quadratic equation for vphi
        !
        det = term_bh**2 + 4.*(term + term_pr)
+       Rg   = G*star_m/clight**2
+       vkep = sqrt(G*star_m/R)
+#ifdef GR
+       ! Pure post-Newtonian velocity i.e. no pressure corrections
+       vphi = vkep**4/clight**3 * (sqrt(aspin**2 + (R/Rg)**3) - aspin) * cos(inclination)
+#else
        vphi = 0.5*(term_bh + sqrt(det))
+#endif
        !
        !--radial velocities (zero in general)
        !
