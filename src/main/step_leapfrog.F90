@@ -747,8 +747,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype) &
     !$omp shared(maxphase,maxp) &
     !$omp shared(dt,hdt) &
-    !$omp shared(ieos,gamma,its,pxyzu,dens,metrics,metricderivs) &
-    !$omp private(i,pondensi,spsoundi,rhoi,hi,eni,uui,densi) &
+    !$omp shared(ieos,gamma,pxyzu,dens,metrics,metricderivs) &
+    !$omp private(i,its,pondensi,spsoundi,rhoi,hi,eni,uui,densi) &
     !$omp private(converged,pmom_err,x_err,pri,ierr) &
     !$omp firstprivate(pmassi,itype) &
     !$omp reduction(max:xitsmax,pitsmax,perrmax,xerrmax) &
