@@ -63,7 +63,6 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
                            sts_initialise_activity,sts_set_active_particles,nnu
  use io,             only: fatal
  use step_lf_global, only: step
- use evwrite,        only: write_evfile
  integer, intent(inout) :: npart,nactive
  integer, intent(in)    :: iprint
  real,    intent(in)    :: time,dt
@@ -136,7 +135,6 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
     !
     ! Call step
     call step(npart,nactive,timei,dtau0,dtextforce,dtnew)
-    !  call write_evfile(timei,dtau)
     call summary_counter(iosum_nsts)
     dtsum      = dtsum + dtau0
     timei      = timei + dtau0
