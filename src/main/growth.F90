@@ -234,14 +234,8 @@ subroutine get_vrelonvfrag(xyzh,vrel,dustprop,cs,St)
 
  !--compute turbulent velocity
  Vt = sqrt(sqrt(2.)*Ro*shearparam)*cs
-
  !--compute vrel
  vrel = vrelative(St,dustprop(4),Vt)
- if (Vt > 0.) then
-    dustprop(4) = dustprop(4) / Vt
- else
-    dustprop(4) = 0.
- endif
  !
  !--If statements to compute local ratio vrel/vfrag
  !
@@ -468,7 +462,7 @@ real function vrelative(St,dv,Vt)
  vrelative = 0.
  !--compute Schmidt number Sc
  if (abs(Vt) > 0.) then
-    Sc = (1.+St)!*sqrt(1.+dv**2/Vt**2)
+    Sc = (1.+St)*sqrt(1.+dv**2/Vt**2)
     !--then compute vrel
     if (Sc > 0.) vrelative = sqrt(2.)*Vt*sqrt(Sc-1.)/(Sc)
  endif

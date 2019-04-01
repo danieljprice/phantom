@@ -516,7 +516,7 @@ subroutine check_interpolations(ntests,npass)
  real, parameter :: tolst = 5.e-4
  real, parameter :: tolcs = 5.e-4
  real, parameter :: tols  = 5.e-4
- real, parameter :: toldv = 5.e-4
+ real, parameter :: toldv = 5.e-3
 
  sinit = 1.
  dens  = 1.
@@ -579,9 +579,9 @@ subroutine check_interpolations(ntests,npass)
  iinterpol  = .true.
  dv         = 0.
  dt         = 5.e-3
- tmax       = 0.2
+ tmax       = 0.1
  nsteps     = int(tmax/dt)
- noutputs   = 100
+ noutputs   = 200
  if (noutputs > nsteps) noutputs = nsteps
  modu       = int(nsteps/noutputs)
  ncheck(:)  = 0
@@ -589,14 +589,6 @@ subroutine check_interpolations(ntests,npass)
  errmax(:)  = 0.
 
  call init_step(npart,t,dtmax)
-
- !
- ! call derivs the first time around
- !
- call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-      Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
-
- !do k=1,6
 
     t                   = 0.
     K_code              = 0.5
@@ -615,20 +607,20 @@ subroutine check_interpolations(ntests,npass)
              Stcomp(j) = 1./(2.*K_code*r**(1.5))
              Vt        = sqrt(sqrt(2.)*Ro*shearparam)*cscomp
              s(j)      = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stcomp(j))/(1+Stcomp(j))*t
-             dv        = vini*exp(-2.*K_code*t)/Vt
+             dv        = vini*exp(-2.*K_code*t)
              call checkvalbuf(St(j)/Stcomp(j),1.,tolst,'St',nerr(1),ncheck(1),errmax(1))
              call checkvalbuf(csound(j)/cscomp,1.,tolcs,'csound',nerr(2),ncheck(2),errmax(2))
-             !call checkvalbuf(dustprop(4,j)/dv,1.,toldv,'dv',nerr(3),ncheck(3),errmax(3))
+             call checkvalbuf(dustprop(4,j)/dv,1.,toldv,'dv',nerr(3),ncheck(3),errmax(3))
              if (vini == 0.) call checkvalbuf(dustprop(1,j)/s(j),1.,tols,'size',nerr(4),ncheck(4),errmax(4))
           endif
        enddo
        if (do_output .and. mod(i,modu)==0) call write_file_err(i,dt,xyzh,dustprop,s,St,&
-                                           Stcomp,csound,cscomp,dv,npart,"bla_")
+                                           Stcomp,csound,cscomp,dv,npart,"blah_")
        t = t + dt
     enddo
     call checkvalbuf_end('Stokes number interpolation match exact solution',ncheck(1),nerr(1),errmax(1),tolst)
     call checkvalbuf_end('sound speed interpolation match exact solution',ncheck(2),nerr(2),errmax(2),tolcs)
-    !call checkvalbuf_end('dv interpolation match exact solution',ncheck(3),nerr(3),errmax(3),toldv)
+    call checkvalbuf_end('dv interpolation match exact solution',ncheck(3),nerr(3),errmax(3),toldv)
     if (vini == 0.) call checkvalbuf_end('size integration match exact solution',ncheck(4),nerr(4),errmax(4),tols)
 
  ntests = ntests + 1
