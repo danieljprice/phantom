@@ -332,7 +332,7 @@ subroutine check_dust_method(dust_method,ichange_method)
  ichange_method = .false.
  if (real(icheckdust)/real(npart) > 0.1 .and. .not.iforce_dust_method) then
     if (dust_method == 1) then
-       use_dustfrac = .false.
+      ! use_dustfrac = .false.
        ichange_method = .true.
        dust_method = 2
     endif
