@@ -32,7 +32,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: evwrite, io, io_summary, part, step_lf_global, timestep,
+!  DEPENDENCIES: io, io_summary, part, step_lf_global, timestep,
 !    timestep_ind, timestep_sts
 !+
 !--------------------------------------------------------------------------
