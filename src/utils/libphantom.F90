@@ -289,9 +289,11 @@ subroutine init(len_infile, infile, logfile, evfile, dumpfile, tmax_in, dtmax_in
  double precision, intent(in) :: tmax_in, dtmax_in
 
  call set_io_unit_numbers
+#ifndef AMUSE
  if (index(infile,'.in')==0) then
     infile = trim(infile)//'.in'
  endif
+#endif
  call startrun(infile,logfile,evfile,dumpfile)
  ! Overrides tmax and dtmax
  tmax = tmax_in/utime
@@ -363,9 +365,23 @@ subroutine finalize_step_wrapper(len_infile, infile, len_logfile, logfile, &
 end subroutine
 
 !
+! Calculate new timestep
+!
+subroutine calculate_timestep()
+ use timestep, only:time,tmax,dtmax,dt,dtforce,dtcourant,dterr
+ implicit none
+ real :: dtexact
+ dtexact = tmax - time + epsilon(dtmax)
+ if (dtexact <= epsilon(dtmax) .or. dtexact >= (1.0-1e-8)*dtmax ) then
+     dtexact = dtmax + epsilon(dtmax)
+ endif
+ dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax),dtexact)
+end subroutine
+
+!
 ! Get stepping and timing information
 !
-subroutine get_time(time_out, tmax_out, nsteps_out, nmax_out, dt_out)
+subroutine get_time_info(time_out, tmax_out, nsteps_out, nmax_out, dt_out)
  use timestep,         only:time,tmax,nmax,nsteps,dt
  use units,            only:utime
  implicit none
@@ -455,13 +471,13 @@ end subroutine
 !
 ! Get hfact
 !
-subroutine get_hfact(hfact_out)
- use part, only:hfact
- implicit none
- double precision, intent(out) :: hfact_out
-
- hfact_out = dble(hfact)
-end subroutine
+!subroutine get_hfact(hfact_out)
+! use part, only:hfact
+! implicit none
+! double precision, intent(out) :: hfact_out
+!
+! hfact_out = dble(hfact)
+!end subroutine
 
 !
 ! Get npart
@@ -485,23 +501,6 @@ subroutine get_npart(npart_out, nodisabled)
     npart_out = npart
  endif
 end subroutine
-
-!
-! Get specific xyzh
-!
-subroutine get_specific_xyzh(n, part_xyzh)
- use part, only:npart,xyzh
- use units, only:udist
- implicit none
- double precision, dimension(4), intent(out) :: part_xyzh
- integer :: i, n
-
- do i=1,4
-    part_xyzh(i) = dble(xyzh(i,n)*udist)
- enddo
-
-end subroutine
-
 
 !
 ! Get xyzh
@@ -545,20 +544,6 @@ subroutine get_part_xyzh(npart_in, part_xyzh, nodisabled, ierr)
  endif
 end subroutine
 
-!
-! Get specific vxyz
-!
-subroutine get_specific_vxyz(n, part_vxyz)
- use part, only:npart,vxyzu
- use units, only:udist,utime
- implicit none
- double precision, dimension(4), intent(out) :: part_vxyz
- integer :: n,i
-
- do i=1,3
-    part_vxyz(i) = dble(vxyzu(i,n)*udist/utime)
- enddo
-end subroutine
 
 !
 ! Get vxyz
