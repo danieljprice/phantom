@@ -232,8 +232,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--read parameters from the infile
 !
+#ifndef AMUSE
  call read_infile(infile,logfile,evfile,dumpfile)
-
+#endif
 !
 !--initialise log output
 !
@@ -251,6 +252,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--read particle setup from dumpfile
 !
+#ifndef AMUSE
  if (trim(dumpfile)=='setup') then
     write(iprint,"(72('-'))")
     idot = index(infile,'.in')
@@ -269,6 +271,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (nwarn > 0) call warning('initial','warnings from particle data in file',var='warnings',ival=nwarn)
     if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
  endif
+!#ifndef AMUSE
+#endif
 
  !
  !--initialise alpha's (after the infile has been read)
@@ -567,6 +571,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--write second header to logfile/screen
 !
+#ifndef AMUSE
  if (id==master) call write_header(2,infile,evfile,logfile,dumpfile,ntot)
 
  call init_evfile(ievfile,evfile,.true.)
@@ -585,6 +590,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef BINPOS
  call binpos_init(ibinpos,evfile) !take evfile in input to create string.binpos
  call binpos_write(time, dt)
+#endif
+!#ifndef AMUSE
 #endif
 !
 !--Set initial values for continual verification of conservation laws
@@ -615,6 +622,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !--write initial conditions to output file
 !  if the input file ends in .tmp or .init
 !
+#ifndef AMUSE
  iposinit = index(dumpfile,'.init')
  ipostmp  = index(dumpfile,'.tmp')
  if (iposinit > 0 .or. ipostmp > 0) then
@@ -641,6 +649,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        close(unit=idisk1,status='delete')
     endif
  endif
+!#ifndef AMUSE
+#endif
 
  if (id==master) then
     call flush_warnings()
