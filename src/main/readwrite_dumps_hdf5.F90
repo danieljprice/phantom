@@ -147,6 +147,9 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  use part,           only:dt_in
 #endif
 #endif
+#ifdef KROME
+ use part,           only:gamma_chem
+#endif
  use mpiutils,       only:reduce_mpi,reduceall_mpi
  use lumin_nsdisc,   only:beta
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
@@ -232,8 +235,12 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
     !$omp private(i,ponrhoi,spsoundi,rhoi)
     do i=1,int(npart)
        rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
+       print *, gamma_chem(1,i)
        if (maxvxyzu >=4 ) then
-          if (store_temperature) then
+          if (use_krome) then
+             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=vxyzu(4,i), &
+                                  gamma_local=gamma_chem(1,i))
+          else if (store_temperature) then
              ! cases where the eos stores temperature (ie Helmholtz)
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),temperature(i))
           else

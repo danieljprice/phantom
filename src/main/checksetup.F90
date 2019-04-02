@@ -87,10 +87,13 @@ subroutine check_setup(nerror,nwarn,restart)
     print*,'Error in setup: sum(npartoftype) > maxp ',sum(npartoftype(:))
     nerror = nerror + 1
  endif
+#ifdef KROME
+#else
  if (gamma <= 0.) then
     print*,'WARNING! Error in setup: gamma not set (should be set > 0 even if not used)'
     nwarn = nwarn + 1
  endif
+#endif
  if (hfact < 1.) then
     print*,'Error in setup: hfact = ',hfact,', should be >= 1'
     nerror = nerror + 1
@@ -98,9 +101,12 @@ subroutine check_setup(nerror,nwarn,restart)
  if (polyk < 0.) then
     print*,'Error in setup: polyk = ',polyk,', should be >= 0'
     nerror = nerror + 1
+#ifdef KROME
+#else
  elseif (polyk < tiny(0.) .and. ieos /= 2) then
     print*,'WARNING! polyk = ',polyk,' in setup, speed of sound will be zero in equation of state'
     nwarn = nwarn + 1
+#endif
  endif
  if (npart < 0) then
     print*,'Error in setup: npart = ',npart,', should be >= 0'

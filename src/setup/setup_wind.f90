@@ -33,7 +33,11 @@
 !+
 !--------------------------------------------------------------------------
 module setup
+ 
+ use dim,    only: use_krome
+ 
  implicit none
+ 
  public :: setpart
 
  private
@@ -73,7 +77,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=*), intent(in)    :: fileprefix
  character(len=len(fileprefix)+6) :: filename
- real :: temperature_coef
  integer :: ierr
  logical :: iexist
 
@@ -93,13 +96,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     stop
  endif
-
- gamma = wind_gamma
- if (wind_gamma <= 1.0001) then
-    polyk = kboltz*T_wind/(mass_proton_cgs * gmw * unit_velocity**2)
- else
-    polyk = 0.
- endif
+ 
+  gamma = wind_gamma
+  if (wind_gamma <= 1.0001) then
+     polyk = kboltz*T_wind/(mass_proton_cgs * gmw * unit_velocity**2)
+  else
+     polyk = 0.
+  endif
 
 !
 !--space available for injected gas particles
@@ -142,21 +145,32 @@ subroutine setup_interactive()
  use units,     only:umass,udist
  integer :: iproblem
 
- iproblem = 1
- call prompt('Which defaults to use? (0=isotherm, 1=adiabatic wind 2=Bowen)',iproblem,0,2)
- call prompt('Add binary?',icompanion_star,0,1)
- select case(iproblem)
- case(2)
+  iproblem = 1
+
+ if (use_krome) then
+
+  call prompt('Add binary?',icompanion_star,0,1)
+  central_star_mass = 1. * (solarm / umass)
+  accretion_radius = 1. * (au / udist)
+ 
+ else
+
+  call prompt('Which defaults to use? (0=isotherm, 1=adiabatic wind 2=Bowen)',iproblem,0,2)
+  call prompt('Add binary?',icompanion_star,0,1)
+  select case(iproblem)
+  case(2)
     central_star_mass = 1.2 * (solarm / umass)
     accretion_radius = 0.2568 * (au / udist)
- case (0)
+  case(0)
     wind_gamma = 1.
     central_star_mass = 1. * (solarm / umass)
     accretion_radius = 1. * (au / udist)
- case default
+  case default
     central_star_mass = 1. * (solarm / umass)
     accretion_radius = 1. * (au / udist)
- end select
+  end select
+
+ endif
 
 end subroutine setup_interactive
 
@@ -183,9 +197,16 @@ subroutine write_setupfile(filename)
     call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
  endif
  call write_inopt(mass_of_particles,'mass_of_particles','mass resolution (Msun)',iunit)
- call write_inopt(wind_gamma,'wind_gamma','polytropic index',iunit)
- if ( wind_gamma == 1.) then
-    call write_inopt(T_wind,'T_wind','wind temperature (K)',iunit)
+ 
+ if (use_krome) then
+  call write_inopt(wind_gamma,'initial_wind_gamma','polytropic index',iunit)
+ else
+ 
+  call write_inopt(wind_gamma,'wind_gamma','polytropic index',iunit)
+  if ( wind_gamma == 1.) then
+     call write_inopt(T_wind,'T_wind','wind temperature (K)',iunit)
+  endif
+  
  endif
  close(iunit)
 
@@ -217,10 +238,18 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(eccentricity,'eccentricity',db,min=0.,errcount=nerr)
  endif
  call read_inopt(mass_of_particles,'mass_of_particles',db,min=0.,errcount=nerr)
- call read_inopt(wind_gamma,'wind_gamma',db,min=1.,max=4.,errcount=nerr)
- if ( wind_gamma == 1.) then
-    call read_inopt(T_wind,'T_wind',db,min=0.,errcount=nerr)
+ 
+ if (use_krome) then
+  call read_inopt(wind_gamma,'initial_wind_gamma',db,min=1.,max=4.,errcount=nerr)
+ else
+ 
+  call read_inopt(wind_gamma,'wind_gamma',db,min=1.,max=4.,errcount=nerr)
+  if ( wind_gamma == 1.) then
+     call read_inopt(T_wind,'T_wind',db,min=0.,errcount=nerr)
+  endif
+  
  endif
+ 
  call close_db(db)
  ierr = nerr
 

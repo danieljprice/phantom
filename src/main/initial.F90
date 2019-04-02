@@ -195,7 +195,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef KROME
  use part,             only:species_abund
- use part,             only:gamma_chem, mu_chem
  use krome_phantom_coupling
  use krome_user
 #endif
@@ -230,9 +229,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  character(len=len(dumpfile)) :: dumpfileold,fileprefix
 #ifdef DUST
  character(len=7) :: dust_label(maxdusttypes)
-#endif
-#ifdef KROME
- real num_dens(krome_nmols)
 #endif
 !
 !--do preliminary initialisation
@@ -533,14 +529,6 @@ species_abund(krome_idx_C,:)  = C_init
 species_abund(krome_idx_N,:)  = N_init
 species_abund(krome_idx_O,:)  = O_init
 species_abund(krome_idx_H,:)  = H_init
-
-print *, mu_chem(1,1)
-
-! do p=0, npart
-!    num_dens(:)     = krome_x2n(species_abund(:,p), GASDENS)
-!    gamma_chem(:,p) = krome_get_gamma( num_dens(:), GASTEMP )
-!    mu_chem(:,p)    = krome_get_mu(num_dens(:))
-! enddo
 #endif
 !
 !--calculate (all) derivatives the first time around
@@ -552,6 +540,7 @@ print *, mu_chem(1,1)
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                               Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtnew_first)
+    
     if (use_dustfrac) then
        ! set grainsize parameterisation from the initial dustfrac setting now we know rho
        do i=1,npart

@@ -124,7 +124,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                           fxyzu,fext,alphaind,gradh)
  use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha, &
                      mhd_nonideal,nalpha,use_dust
- use eos,       only:get_spsound,get_temperature
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
                      get_cell_location,set_hmaxcell,sync_hmax_mpi
@@ -189,6 +188,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real                      :: ntotal
  logical                   :: iterations_finished
  logical                   :: do_export
+ 
+ print *, 'DERP'
 
  call init_cell_exchange(xrecvbuf,irequestrecv)
  stack_waiting%n = 0
@@ -1588,7 +1589,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  use part,       only: species_abund, mu_chem, gamma_chem
  use units,      only: unit_density, utime
  use physcon,    only: au
- use eos,        only: get_temperature_locmu, get_local_u_internal
+ use eos,        only: get_temperature_loc, get_local_u_internal
 #endif
 
  integer,         intent(in)    :: icall
@@ -1798,7 +1799,8 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 #ifdef KROME
     rho_cgs = rhoi*unit_density
     dt_cgs = dt*utime 
-    temperaturei = get_temperature_locmu(ieos,cell%xpartvec(ixi:izi,i),real(rhoi),mu_chem(1,lli),vxyzui(:),gamma_chem(1,lli))
+    temperaturei = get_temperature_loc(ieos,cell%xpartvec(ixi:izi,i),real(rhoi), &
+                                         mu_chem(1,lli),vxyzui(:),gamma_chem(1,lli))
     
     if (dt .ne. 0.0) then
       call krome(species_abund(:,lli),real(rho_cgs),real(temperaturei),real(dt_cgs))

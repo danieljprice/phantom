@@ -69,6 +69,9 @@ subroutine set_default_options
  use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha
  use viscosity, only:set_defaults_viscosity
  use dim,       only:maxp,maxvxyzu,nalpha
+#ifdef KROME
+ use dim,       only:use_krome
+#endif
  use kernel,    only:hfact_default
  use eos,       only:polyk2
 
@@ -91,7 +94,9 @@ subroutine set_default_options
  rhofinal_cgs = 0.
 
  ! equation of state
- if (maxvxyzu==4) then
+ if (use_krome) then
+    ieos = 16
+ else if (maxvxyzu==4) then
     ieos = 2
  else
     ieos = 1

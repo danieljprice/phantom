@@ -86,6 +86,10 @@ subroutine compute_energies(t)
 #ifdef LIGHTCURVE
  use part,           only:luminosity
 #endif
+#ifdef KROME
+ use dim,  only: use_krome
+ use part, only: gamma_chem
+#endif
 #ifdef DUST
  use dust,           only:get_ts,idrag
  integer :: iregime,idusttype
@@ -306,6 +310,11 @@ subroutine compute_energies(t)
              etherm = etherm + pmassi*utherm(vxyzu(iu,i),rhoi)*gasfrac
              if (store_temperature) then
                 call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(iu,i),temperature(i))
+#ifdef KROME
+             else if (use_krome) then
+                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=vxyzu(iu,i),&
+                                     gamma_local=gamma_chem(1,i))
+#endif
              else
                 call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(iu,i))
              endif
@@ -324,7 +333,11 @@ subroutine compute_energies(t)
           endif
           vsigi = spsoundi
           ! entropy
+#ifdef KROME
+          call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma_chem(1,i)))
+#else
           call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma))
+#endif
 
 #ifdef DUST
           ! min and mean stopping time

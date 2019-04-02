@@ -64,7 +64,7 @@ module inject
  real, public ::    wind_injection_radius = 1.2568 ! code units
 #else
  real, public ::    wind_velocity_km_s = 35.
- real, public ::    wind_mass_rate_Msun_yr = 7.65d-7
+ real, public ::    wind_mass_rate_Msun_yr = 1.00d-8
  real, public ::    wind_temperature = 3000.
  real, public ::    shift_spheres = 2.
  integer, public :: iboundary_spheres = 3

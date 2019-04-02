@@ -84,6 +84,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  logical, parameter :: itiming = .true.
  real(kind=4)       :: t1,tcpu1,tlast,tcpulast
 
+ 
  t1 = 0.
  tcpu1 = 0.
  if (itiming) call get_timings(t1,tcpu1)
@@ -134,7 +135,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  call forceit(time,npart,xyzh,vxyzu,fxyzu)
  call do_timing('driving',tlast,tcpulast)
 #endif
-
  stressmax = 0.
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
             dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature)

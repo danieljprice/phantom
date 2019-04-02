@@ -1648,9 +1648,13 @@ end subroutine compute_forces
 subroutine get_P(rhoi,rho1i,xi,yi,zi,pmassi,eni,tempi,Bxi,Byi,Bzi,dustfraci, &
                  ponrhoi,pro2i,pri,spsoundi,vwavei, &
                  sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso, &
-                 realviscosity,divvi,bulkvisc,dvdx,stressmax)
+                 realviscosity,divvi,bulkvisc,dvdx,stressmax, &
+                 gammai)
 
  use dim,       only:maxvxyzu,maxdvdx,maxp,store_temperature
+#ifdef KROME 
+ use dim,       only:use_krome
+#endif
  use part,      only:mhd,strain_from_dvdx
  use eos,       only:equationofstate
  use options,   only:ieos
@@ -1664,10 +1668,12 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi,pmassi,eni,tempi,Bxi,Byi,Bzi,dustfraci, &
  logical, intent(in)    :: realviscosity
  real,    intent(in)    :: divvi,bulkvisc,stressmax
  real,    intent(in)    :: dvdx(9)
+ real,    intent(inout)   , optional :: gammai
 
  real :: Bro2i,Brhoxi,Brhoyi,Brhozi,rhogasi,gasfrac
  real :: stressiso,term,graddivvcoeff,del2vcoeff,strain(6)
  real :: shearvisc,etavisc,valfven2i,p_on_rhogas
+ 
 !
 !--get pressure (actually pr/dens) and sound speed from equation of state
 !
@@ -1676,6 +1682,10 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi,pmassi,eni,tempi,Bxi,Byi,Bzi,dustfraci, &
  if (maxvxyzu >= 4) then
     if (store_temperature) then
        call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi,eni,tempi)
+#ifdef KROME
+    else if (use_krome) then
+       call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi,eni=eni,gamma_local=gammai)
+#endif
     else
        call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi,eni)
     endif
@@ -1804,6 +1814,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use dust,      only:get_ts,idrag
  use part,      only:grainsize,graindens
 #endif
+#ifdef KROME
+ use part,      only:gamma_chem
+#endif
  use nicil,     only:nimhd_get_dt,nimhd_get_jcbcb
  type(cellforce),    intent(inout) :: cell
  integer(kind=1),    intent(in)    :: iphase(:)
@@ -1831,9 +1844,10 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
 #endif
  real         :: Bxi,Byi,Bzi,Bi,B2i,Bi1
  real         :: vwavei,alphai
-
+#ifdef KROME
+ real         :: gammai
+#endif
  integer      :: i,j,iamtypei,ip
-
 #ifdef DUST
  integer :: iregime
 #endif
@@ -1868,6 +1882,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
 
     pmassi = massoftype(iamtypei)
     hi = xyzh(4,i)
+#ifdef KROME
+    gammai = gamma_chem(1,i)
+#endif
     if (hi < 0.) call fatal('force','negative smoothing length',i,var='h',val=hi)
 
     !
@@ -1917,6 +1934,18 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        !
        ! calculate terms required in the force evaluation
        !
+#ifdef KROME
+       call get_P(rhoi,rho1i, &
+                  xyzh(1,i),xyzh(2,i),xyzh(3,i), &
+                  pmassi, &
+                  eni, tempi, &
+                  Bxi,Byi,Bzi, &
+                  dustfraci(:), &
+                  ponrhoi,pro2i,pri,spsoundi, &
+                  vwavei,sxxi,sxyi,sxzi,syyi,syzi,szzi, &
+                  visctermiso,visctermaniso,realviscosity,divcurlvi(1),bulkvisc,dvdxi,stressmax, &
+                  gammai)
+#else
        call get_P(rhoi,rho1i, &
                   xyzh(1,i),xyzh(2,i),xyzh(3,i), &
                   pmassi, &
@@ -1926,6 +1955,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
                   ponrhoi,pro2i,pri,spsoundi, &
                   vwavei,sxxi,sxyi,sxzi,syyi,syzi,szzi, &
                   visctermiso,visctermaniso,realviscosity,divcurlvi(1),bulkvisc,dvdxi,stressmax)
+#endif
 #ifdef DUST
        !
        ! get stopping time - for one fluid dust we don't know deltav, but as small by definition we assume=0
@@ -2199,7 +2229,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #endif
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth
  use eos,            only:use_entropy,gamma
- use options, only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating,use_dustfrac
+ use options,        only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating,use_dustfrac
  use part,           only:h2chemistry,rhoanddhdrho,abundance,iboundary,igas,maxphase,maxvxyzu,nabundances, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx
 #ifdef IND_TIMESTEPS
@@ -2439,7 +2469,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           fxyz4 = 0.
           if (use_entropy) then
              if (ishock_heating > 0) then
+#ifdef KROME
                 fxyz4 = fxyz4 + (gamma - 1.)*rhoi**(1.-gamma)*fsum(idudtdissi)
+#else
+                fxyz4 = fxyz4 + (gamma - 1.)*rhoi**(1.-gamma)*fsum(idudtdissi)
+#endif
              endif
           else
              fac = rhoi/rhogasi
