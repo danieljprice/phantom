@@ -188,8 +188,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real                      :: ntotal
  logical                   :: iterations_finished
  logical                   :: do_export
- 
- print *, 'DERP'
 
  call init_cell_exchange(xrecvbuf,irequestrecv)
  stack_waiting%n = 0
@@ -1812,7 +1810,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 !   Here we update the particle's adiabatic index
     gamma_chem(1,lli) = krome_get_gamma_x(species_abund(:,lli),temperaturei)  
 !   Here we update the particle's internal energy
-    vxyzui(4:lli) = get_local_u_internal(gamma_chem(1,lli),mu_chem(1,lli),temperaturei)
+    vxyzui(4) = get_local_u_internal(gamma_chem(1,lli),mu_chem(1,lli),temperaturei)
 
 #endif
 

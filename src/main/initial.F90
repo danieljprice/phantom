@@ -275,12 +275,24 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
  endif
 
- !
- !--initialise alpha's (after the infile has been read)
- !
+!
+!--initialise alpha's (after the infile has been read)
+!
  if (maxalpha==maxp) then
     alphaind(:,:) = real4(alpha)
  endif
+!
+!--set initial chemical abundance values
+!
+#ifdef KROME
+call initialise_krome()
+
+species_abund(krome_idx_He,:) = He_init
+species_abund(krome_idx_C,:)  = C_init
+species_abund(krome_idx_N,:)  = N_init
+species_abund(krome_idx_O,:)  = O_init
+species_abund(krome_idx_H,:)  = H_init
+#endif
 
 !
 !--initialise values for non-ideal MHD
@@ -509,6 +521,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     dtextforce = min(dtextforce,dtsinkgas)
  endif
  call init_ptmass(nptmass,logfile,dumpfile)
+ 
 !
 !--inject particles at t=0, and get timestep constraint on this
 !
@@ -517,18 +530,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  if (ierr /= 0) call fatal('initial','error initialising particle injection')
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                        npart,npartoftype,dtinject)
-#endif
-!
-!--set initial chemical abundance values
-!
-#ifdef KROME
-call initialise_krome()
-
-species_abund(krome_idx_He,:) = He_init
-species_abund(krome_idx_C,:)  = C_init
-species_abund(krome_idx_N,:)  = N_init
-species_abund(krome_idx_O,:)  = O_init
-species_abund(krome_idx_H,:)  = H_init
 #endif
 !
 !--calculate (all) derivatives the first time around

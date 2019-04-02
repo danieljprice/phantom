@@ -127,6 +127,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
                         stressmax,fxyzu,fext,alphaind,gradh)
     call do_timing('dens',tlast,tcpulast)
  endif
+ 
 !
 ! compute forces
 !
