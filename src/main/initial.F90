@@ -194,9 +194,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use inject,           only:init_inject,inject_particles
 #endif
  use writeheader,      only:write_codeinfo,write_header
- use eos,              only:gamma,polyk,ieos,init_eos
- use part,             only:hfact,h2chemistry
- use setup,            only:setpart
+ use eos,              only:ieos,init_eos
+ use part,             only:h2chemistry
  use checksetup,       only:check_setup
  use h2cooling,        only:init_h2cooling
  use cooling,          only:init_cooling
@@ -209,7 +208,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use fileutils,        only:make_tags_unique
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
- integer         :: ierr,i,j,idot,nerr,nwarn,ialphaloc
+ integer         :: ierr,i,j,nerr,nwarn,ialphaloc
  integer(kind=8) :: npartoftypetot(maxtypes)
  real            :: poti,dtf,hfactfile,fextv(3)
  real            :: hi,pmassi,rhoi1
@@ -221,7 +220,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist
  integer :: ncount(maxtypes)
- character(len=len(dumpfile)) :: dumpfileold,fileprefix
+ character(len=len(dumpfile)) :: dumpfileold
 #ifdef DUST
  character(len=7) :: dust_label(maxdusttypes)
 #endif
@@ -249,34 +248,19 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 
  if (id==master) call write_header(1,infile,evfile,logfile,dumpfile)
 !
-!--read particle setup from dumpfile
+!--initialise alpha's (after the infile has been read)
 !
- if (trim(dumpfile)=='setup') then
-    write(iprint,"(72('-'))")
-    idot = index(infile,'.in')
-    if (idot <= 1) idot = len_trim(infile)
-    dumpfile = infile(1:idot-1)//'_00000.tmp'
-    fileprefix = infile(1:idot-1)
-    write(iprint,"(72('-'))")
-    call setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
-    call check_setup(nerr,nwarn) ! sanity check output of setpart
-    if (nwarn > 0) call warning('initial','warnings during particle setup',var='warnings',ival=nwarn)
-    if (nerr > 0)  call fatal('initial','errors in particle setup',var='errors',ival=nerr)
- else
-    call read_dump(trim(dumpfile),time,hfactfile,idisk1,iprint,id,nprocs,ierr)
-    if (ierr /= 0) call fatal('initial','error reading dumpfile')
-    call check_setup(nerr,nwarn,restart=.true.) ! sanity check what has been read from file
-    if (nwarn > 0) call warning('initial','warnings from particle data in file',var='warnings',ival=nwarn)
-    if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
- endif
-
- !
- !--initialise alpha's (after the infile has been read)
- !
  if (maxalpha==maxp) then
     alphaind(:,:) = real4(alpha)
  endif
-
+!
+!--read particle setup from dumpfile
+!
+ call read_dump(trim(dumpfile),time,hfactfile,idisk1,iprint,id,nprocs,ierr)
+ if (ierr /= 0) call fatal('initial','error reading dumpfile')
+ call check_setup(nerr,nwarn,restart=.true.) ! sanity check what has been read from file
+ if (nwarn > 0) call warning('initial','warnings from particle data in file',var='warnings',ival=nwarn)
+ if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
 !
 !--initialise values for non-ideal MHD
 !
