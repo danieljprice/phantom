@@ -38,7 +38,7 @@ subroutine test_rwdump(ntests,npass)
                            nptmass,nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
                            dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
                            vxyzu_label,set_particle_type,iphase,ndusttypes
- use dim,             only:maxp
+ use dim,             only:maxp,maxdusttypes
  use memory,          only:allocate_memory,deallocate_memory
  use testutils,       only:checkval
  use io,              only:idisk1,id,master,iprint,nprocs
@@ -114,6 +114,7 @@ subroutine test_rwdump(ntests,npass)
           poten(i) = 15._4
        endif
        if (use_dust) then
+          ndusttypes = maxdusttypes
           dustfrac(:,i) = 16._4
        endif
     enddo
@@ -300,6 +301,7 @@ subroutine test_rwdump(ntests,npass)
     xyzmh_ptmass = 0.
     vxyz_ptmass = 0.
 
+#ifndef HDF5
 #ifndef MPI
     ! test read of a single array from the file
     if (itest==1) then
@@ -313,9 +315,14 @@ subroutine test_rwdump(ntests,npass)
        if (all(nfailed==0)) npass = npass + 1
     endif
 #endif
+#endif
 
     if (id==master) then
+#ifdef HDF5
+       open(unit=idisk1,file='test.dump.h5',status='old')
+#else
        open(unit=idisk1,file='test.dump',status='old')
+#endif
        close(unit=idisk1,status='delete')
     endif
  enddo over_tests

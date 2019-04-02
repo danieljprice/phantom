@@ -9,7 +9,7 @@
 !
 !  DESCRIPTION:
 !  This module contains stuff to do with the equation of state
-!  Curent options:
+!  Current options:
 !     1 = isothermal eos
 !     2 = adiabatic/polytropic eos
 !     3 = eos for a locally isothermal disc as in Lodato & Pringle (2007)

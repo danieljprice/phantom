@@ -32,6 +32,8 @@ mailfile="$dir/mail.tmp";
 htmlfile="$dir/$datetag.html";
 incoming="$dir/incoming.txt";
 tagfile="$dir/gittag.tmp";
+slackfile="$dir/slack.tmp";
+slackfile2="$dir/slack-perf.tmp";
 #---------------------
 gittag='';
 summary=[];
@@ -143,7 +145,7 @@ create_slack_performance_report ()
    if [ -e $benchdir/opt2slack.pl ]; then
       text=`cd $benchdir; ./opt2slack.pl opt*.html`
       line="Nightly performance report (graphs <$url/nightly/opt/|here>):\n$text"
-      echo $line > slack-perf.tmp;
+      echo $line > $slackfile2;
    fi
 }
 run_benchmarks ()
@@ -334,7 +336,7 @@ EOM
 # write slack message
 #
    line="$slacknames\n $preamble\n$text\nTagged as <$url/nightly/build/$datetag.html|$gittag>"
-   echo $line > slack.tmp;
+   echo $line > $slackfile;
 }
 tag_code_and_push_tags()
 {
@@ -400,12 +402,13 @@ commit_and_push_to_website ()
 }
 post_slack_messages()
 {
+  cd $dir
   message="status: <$url/nightly/build/$datetag.html|$gittag>"
   post_to_slack "$message" "#commits"
-  message=`cat slack.tmp`
+  message=`cat $slackfile`
   post_to_slack "$message" "#nightly"
-  if [ -e slack-perf.tmp ]; then
-     message=`cat slack-perf.tmp`
+  if [ -e $slackfile2 ]; then
+     message=`cat $slackfile2`
      post_to_slack "$message" "#nightly"
   fi
 }
@@ -419,9 +422,9 @@ run_benchmarks
 #create_slack_performance_report
 #pull_wiki
 write_htmlfile_gittag_and_mailfile
-post_slack_messages
 tag_code_and_push_tags
 send_email
 commit_and_push_to_website
+post_slack_messages
 cd $dir
 echo "--- finished buildbot `date` ---";
