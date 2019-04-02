@@ -833,3 +833,708 @@ subroutine delete_particles_outside_sphere_wrapper(center, radius)
 
  call delete_particles_outside_sphere(center/udist, radius/udist)
 end subroutine
+
+!!
+!! Below this are AMUSE helper subroutines
+!!
+
+!
+! Initialize Phantom and set default parameters
+!
+subroutine amuse_initialize_code()
+    implicit none
+    call code_init()
+    call set_defaults()
+end subroutine
+
+subroutine amuse_cleanup_code()
+    implicit none
+    call finalize()
+end subroutine
+
+! New particles
+subroutine amuse_new_sph_particle(i, mass, x, y, z, vx, vy, vz, u, h)
+    use part, only:igas,npart,npartoftype,xyzh,vxyzu,massoftype
+    use partinject, only:add_or_update_particle
+    use units, only:umass,udist,utime
+    implicit none
+    integer :: n, i, itype
+    double precision :: mass, x, y, z, vx, vy, vz, u, h
+    double precision :: position(3), velocity(3)
+  
+    itype = igas
+    i = npart + 1
+    position(1) = x / udist
+    position(2) = y / udist
+    position(3) = z / udist
+    velocity(1) = vx / (udist/utime)
+    velocity(2) = vy / (udist/utime)
+    velocity(3) = vz / (udist/utime)
+    if (npartoftype(itype) == 0) then
+        !print *, "Setting mass"
+        massoftype(itype) = mass / umass
+    !else
+    !    print *, "Not setting mass"
+    endif
+    call add_or_update_particle(itype,position,velocity,h/udist, &
+        u/(udist**2/utime**2),i,npart,npartoftype,xyzh,vxyzu)
+end subroutine
+
+subroutine amuse_new_dm_particle(i, mass, x, y, z, vx, vy, vz, radius)
+    use part, only:idarkmatter,npart,npartoftype,xyzh,vxyzu
+    use partinject, only:add_or_update_particle
+    use units, only:umass,udist,utime
+    implicit none
+    integer :: n, i, itype
+    double precision :: mass, x, y, z, vx, vy, vz, radius, u
+    double precision :: position(3), velocity(3)
+  
+    u=0
+    itype = idarkmatter
+    i = npart + 1
+    position(1) = x / udist
+    position(2) = y / udist
+    position(3) = z / udist
+    velocity(1) = vx / (udist/utime)
+    velocity(2) = vy / (udist/utime)
+    velocity(3) = vz / (udist/utime)
+    if (npartoftype(itype) == 0) then
+        !print *, "Setting mass"
+        massoftype(itype) = mass / umass
+    !else
+    !    print *, "Not setting mass"
+    endif
+
+    call add_or_update_particle(itype,position,velocity,radius/udist, &
+        u,i,npart,npartoftype,xyzh,vxyzu)
+end subroutine
+
+subroutine amuse_new_sink_particle(i, mass, x, y, z, vx, vy, vz, radius)
+    use part, only:npart
+    use partinject, only:add_or_update_sink
+    use units, only:umass,udist,utime
+    implicit none
+    integer :: i
+    double precision :: mass, x, y, z, vx, vy, vz, radius
+    double precision :: position(3), velocity(3)
+  
+    i = npart + 1
+    position(1) = x / udist
+    position(2) = y / udist
+    position(3) = z / udist
+    velocity(1) = vx / (udist/utime)
+    velocity(2) = vy / (udist/utime)
+    velocity(3) = vz / (udist/utime)
+    call add_or_update_sink(position,velocity,radius/udist,mass/umass,i)
+end subroutine
+
+subroutine amuse_get_potential_energy(epot_out)
+    use energies, only:epot
+    implicit none
+    double precision, intent(out) :: epot_out
+    epot_out = epot
+end subroutine
+
+subroutine amuse_get_kinetic_energy(ekin_out)
+    use energies, only:ekin
+    implicit none
+    double precision, intent(out) :: ekin_out
+    ekin_out = ekin
+end subroutine
+
+subroutine amuse_get_thermal_energy(etherm_out)
+    use energies, only:etherm
+    implicit none
+    double precision, intent(out) :: etherm_out
+    etherm_out = etherm
+end subroutine
+
+subroutine amuse_get_time_step(dt_out)
+    use timestep, only:dt
+    use units, only:utime
+    implicit none
+    double precision, intent(out) :: dt_out
+    dt_out = dt * utime
+end subroutine
+
+subroutine amuse_get_number_of_particles(n)
+    use part, only:npart
+    implicit none
+    integer, intent(out) :: n
+    logical :: nodisabled
+    nodisabled = .false.
+    ! should look at npartoftype(itype) in part.f90 module instead?, as npart can only increase
+    call get_npart(n, nodisabled)
+end subroutine
+
+subroutine amuse_get_time(time_out)
+    use timestep, only:time
+    use units, only:utime
+    implicit none
+    double precision, intent(out) :: time_out
+    time_out = dble(time*utime)
+end subroutine
+
+subroutine amuse_get_density(i, rho)
+    use part, only:rhoh,iphase,massoftype,xyzh
+    use units, only:umass,udist
+    implicit none
+    integer :: i
+    double precision :: pmassi
+    double precision, intent(out) :: rho
+    pmassi = massoftype(abs(iphase(i)))
+    rho = dble(rhoh(xyzh(4,i), pmassi)*umass/udist**3)
+end subroutine
+
+subroutine amuse_get_pressure(i, p)
+    use part, only:rhoh,iphase,massoftype,xyzh
+    use units, only:umass,udist
+    use eos, only:ieos,equationofstate
+    implicit none
+    integer :: i, eos_type
+    double precision :: pmassi, ponrho, rho, spsound, x, y, z
+    double precision, intent(out) :: p
+    eos_type = ieos
+    pmassi = massoftype(abs(iphase(i)))
+    rho = dble(rhoh(xyzh(4,i), pmassi)*umass/udist**3)
+    !p = 0
+    x = xyzh(1,i)
+    y = xyzh(2,i)
+    z = xyzh(3,i)
+    call equationofstate(eos_type,ponrho,spsound,rho,x,y,z)
+    p = ponrho * rho
+end subroutine
+
+subroutine amuse_get_mass(i, part_mass)
+    use part, only:iphase,massoftype
+    use units, only:umass
+    implicit none
+    double precision, intent(out) :: part_mass
+    integer :: i
+    !TODO: Need something different for sinks ("ptmass")
+    part_mass = dble(massoftype(abs(iphase(i)))*umass)
+end subroutine
+
+subroutine amuse_get_state_gas(i, mass, x, y, z, vx, vy, vz, u, h)
+    implicit none
+    integer :: i
+    double precision, intent(inout) :: mass, x, y, z, vx, vy, vz, u, h
+    call amuse_get_mass(i, mass)
+    call amuse_get_position(i, x, y, z)
+    call amuse_get_velocity(i, vx, vy, vz)
+    call amuse_get_internal_energy(i, u)
+    call amuse_get_smoothing_length(i, h)
+end subroutine
+
+subroutine amuse_get_state_dm(i, mass, x, y, z, vx, vy, vz, radius)
+    implicit none
+    integer :: i
+    double precision :: mass, x, y, z, vx, vy, vz, radius
+    call amuse_get_mass(i, mass)
+    call amuse_get_position(i, x, y, z)
+    call amuse_get_velocity(i, vx, vy, vz)
+    call amuse_get_radius(i, radius)
+end subroutine
+
+subroutine amuse_get_position(i, x, y, z)
+    use part, only:xyzh
+    use units, only:udist
+    implicit none
+    integer, intent(in) :: i
+    double precision, intent(out) :: x, y, z
+    x = xyzh(1, i) * udist
+    y = xyzh(2, i) * udist
+    z = xyzh(3, i) * udist
+end subroutine
+
+subroutine amuse_get_velocity(i, vx, vy, vz)
+    use part, only:vxyzu
+    use units, only:udist,utime
+    implicit none
+    integer, intent(in) :: i
+    double precision, intent(out) :: vx, vy, vz
+    vx = vxyzu(1, i) * udist / utime
+    vy = vxyzu(2, i) * udist / utime
+    vz = vxyzu(3, i) * udist / utime
+end subroutine
+
+subroutine amuse_get_smoothing_length(i, h)
+    use part, only:xyzh
+    use units, only:udist
+    implicit none
+    integer, intent(in) :: i
+    double precision, intent(out) :: h
+    h = xyzh(4, i) * udist
+end subroutine
+
+subroutine amuse_get_radius(i, radius)
+    implicit none
+    integer, intent(in) :: i
+    double precision, intent(out) :: radius
+    call amuse_get_smoothing_length(i, radius)
+end subroutine
+
+subroutine amuse_get_internal_energy(i, u)
+    use part, only:vxyzu
+    use units, only:udist,utime
+    implicit none
+    integer, intent(in) :: i
+    double precision, intent(out) :: u
+    u = vxyzu(4, i) * udist**2 / utime**2
+end subroutine
+
+subroutine amuse_get_dtmax(dtmax_out)
+    use timestep, only:dtmax
+    use units, only:utime
+    implicit none
+    double precision, intent(out) :: dtmax_out
+    dtmax_out = dtmax * utime
+end subroutine
+
+subroutine amuse_set_time_step(dt_in)
+    use timestep, only:dt
+    use units, only:utime
+    implicit none
+    double precision, intent(in) :: dt_in
+    dt = dt_in / utime
+end subroutine
+
+subroutine amuse_set_dtmax(dtmax_in)
+    use timestep, only:dtmax
+    use units, only:utime
+    implicit none
+    double precision, intent(in) :: dtmax_in
+    dtmax = dtmax_in / utime
+end subroutine
+
+subroutine amuse_set_mass(i, part_mass)
+    use part, only:iphase,massoftype
+    use units, only:umass
+    implicit none
+    double precision, intent(in) :: part_mass
+    integer :: i
+    ! Need to do something different for sinks ("ptmass")
+    massoftype(abs(iphase(i))) = part_mass / umass
+end subroutine
+
+subroutine amuse_set_state_gas(i, mass, x, y, z, vx, vy, vz, u, h)
+    implicit none
+    integer :: i
+    double precision :: mass, x, y, z, vx, vy, vz, u, h
+    call amuse_set_mass(i, mass)
+    call amuse_set_position(i, x, y, z)
+    call amuse_set_velocity(i, vx, vy, vz)
+    call amuse_set_internal_energy(i, u)
+    call amuse_set_smoothing_length(i, h)
+end subroutine
+
+subroutine amuse_set_state_dm(i, mass, x, y, z, vx, vy, vz, radius)
+    implicit none
+    integer :: i
+    double precision :: mass, x, y, z, vx, vy, vz, radius
+    call amuse_set_mass(i, mass)
+    call amuse_set_position(i, x, y, z)
+    call amuse_set_velocity(i, vx, vy, vz)
+    call amuse_set_radius(i, radius)
+end subroutine
+
+subroutine amuse_set_position(i, x, y, z)
+    use part, only:xyzh
+    use units, only:udist
+    implicit none
+    integer, intent(in) :: i
+    double precision, intent(in) :: x, y, z
+    xyzh(1, i) = x / udist
+    xyzh(2, i) = y / udist
+    xyzh(3, i) = z / udist
+end subroutine
+
+subroutine amuse_set_velocity(i, vx, vy, vz)
+    use part, only:vxyzu
+    use units, only:udist,utime
+    implicit none
+    integer, intent(in) :: i
+    double precision, intent(in) :: vx, vy, vz
+    vxyzu(1, i) = vx / udist * utime
+    vxyzu(2, i) = vy / udist * utime
+    vxyzu(3, i) = vz / udist * utime
+end subroutine
+
+subroutine amuse_set_smoothing_length(i, h)
+    use part, only:xyzh
+    use units, only:udist
+    implicit none
+    integer, intent(in) :: i
+    double precision, intent(in) :: h
+    xyzh(4, i) = h / udist
+end subroutine
+
+subroutine amuse_set_radius(i, radius)
+    implicit none
+    integer, intent(in) :: i
+    double precision :: radius
+    call amuse_set_smoothing_length(i, radius)
+end subroutine
+
+subroutine amuse_set_internal_energy(i, u)
+    use part, only:vxyzu
+    use units, only:udist,utime
+    implicit none
+    integer, intent(in) :: i
+    double precision, intent(in) :: u
+    vxyzu(4, i) = u / udist**2 * utime**2
+end subroutine
+
+subroutine amuse_evolve_model(tmax_in)
+    use timestep, only:tmax, time, dt, dtmax
+    use evolvesplit, only:init_step, finalize_step
+    use units, only:utime
+    implicit none
+    double precision, intent(in) :: tmax_in
+    integer :: len_infile
+    character(len=120) :: infile, logfile, evfile, dumpfile
+  
+    infile = '/dev/null'
+    logfile = '/dev/null'
+    evfile = '/dev/null'
+    dumpfile = '/dev/null'
+    
+    ! if (nsteps == 0) then
+    !     call init(len_infile, infile, logfile, evfile, dumpfile, tmax, dtmax)
+    ! endif
+  
+    tmax = tmax_in / utime
+    
+    timestepping: do while ((time < tmax))
+        call init_step()
+        call calculate_timestep()
+        call step_wrapper()
+        call finalize_step(infile, logfile, evfile, dumpfile)
+    enddo timestepping
+end subroutine
+
+
+!
+! Setters and getters for parameters
+!
+subroutine amuse_set_c_courant(C_cour_in)
+    use timestep, only:C_cour
+    implicit none
+    double precision, intent(in) :: C_cour_in
+    C_cour = C_cour_in
+end subroutine
+
+subroutine amuse_set_c_force(C_force_in)
+    use timestep, only:C_force
+    implicit none
+    double precision, intent(in) :: C_force_in
+    C_force = C_force_in
+end subroutine
+
+subroutine amuse_set_tolv(tolv_in)
+    use options, only:tolv
+    implicit none
+    double precision, intent(in) :: tolv_in
+    tolv = tolv_in
+end subroutine
+
+subroutine amuse_set_hfact(hfact_in)
+    use part, only:hfact
+    implicit none
+    double precision, intent(in) :: hfact_in
+    hfact = hfact_in
+end subroutine
+
+subroutine amuse_set_tolh(tolh_in)
+    use options, only:tolh
+    implicit none
+    double precision, intent(in) :: tolh_in
+    tolh = tolh_in
+end subroutine
+
+subroutine amuse_set_tree_accuracy(tree_accuracy_in)
+    use kdtree, only:tree_accuracy
+    implicit none
+    double precision, intent(in) :: tree_accuracy_in
+    tree_accuracy = tree_accuracy_in
+end subroutine
+
+subroutine amuse_set_alpha(alpha_in)
+    use options, only:alpha
+    implicit none
+    double precision, intent(in) :: alpha_in
+    alpha = alpha_in
+end subroutine
+
+subroutine amuse_set_alphamax(alphamax_in)
+    use options, only:alphamax
+    implicit none
+    double precision, intent(in) :: alphamax_in
+    alphamax = alphamax_in
+end subroutine
+
+subroutine amuse_set_beta(beta_in)
+    use options, only:beta
+    implicit none
+    double precision, intent(in) :: beta_in
+    beta = beta_in
+end subroutine
+
+subroutine amuse_set_avdecayconst(avdecayconst_in)
+    use options, only:avdecayconst
+    implicit none
+    double precision, intent(in) :: avdecayconst_in
+    avdecayconst = avdecayconst_in
+end subroutine
+
+subroutine amuse_set_damp(damp_in)
+    use options, only:damp
+    implicit none
+    integer, intent(in) :: damp_in
+    damp = damp_in
+end subroutine
+
+subroutine amuse_set_ieos(ieos_in)
+    use eos, only:ieos
+    implicit none
+    integer, intent(in) :: ieos_in
+    ieos = ieos_in
+end subroutine
+
+subroutine amuse_set_mu(mu_in)
+    use eos, only:gmw
+    implicit none
+    double precision, intent(in) :: mu_in
+    gmw = mu_in
+end subroutine
+
+subroutine amuse_set_rho_crit_cgs(rho_crit_cgs_in)
+    use ptmass, only:rho_crit_cgs
+    implicit none
+    double precision, intent(in) :: rho_crit_cgs_in
+    rho_crit_cgs = rho_crit_cgs_in
+end subroutine
+
+subroutine amuse_set_r_crit(r_crit_in)
+    use ptmass, only:r_crit
+    implicit none
+    double precision, intent(in) :: r_crit_in
+    r_crit = r_crit_in
+end subroutine
+
+subroutine amuse_set_h_acc(h_acc_in)
+    use ptmass, only:h_acc
+    implicit none
+    double precision, intent(in) :: h_acc_in
+    h_acc = h_acc_in
+end subroutine
+
+subroutine amuse_set_h_soft_sinkgas(h_soft_sinkgas_in)
+    use ptmass, only:h_soft_sinkgas
+    implicit none
+    double precision, intent(in) :: h_soft_sinkgas_in
+    h_soft_sinkgas = h_soft_sinkgas_in
+end subroutine
+
+subroutine amuse_set_h_soft_sinksink(h_soft_sinksink_in)
+    use ptmass, only:h_soft_sinksink
+    implicit none
+    double precision, intent(in) :: h_soft_sinksink_in
+    h_soft_sinksink = h_soft_sinksink_in
+end subroutine
+
+subroutine amuse_set_f_acc(f_acc_in)
+    use ptmass, only:f_acc
+    implicit none
+    double precision, intent(in) :: f_acc_in
+    f_acc = f_acc_in
+end subroutine
+
+subroutine amuse_set_iexternalforce(iexternalforce_in)
+    use options, only:iexternalforce
+    implicit none
+    integer, intent(in) :: iexternalforce_in
+    iexternalforce = iexternalforce_in
+end subroutine
+
+subroutine amuse_set_irealvisc(irealvisc_in)
+    use viscosity, only:irealvisc
+    implicit none
+    integer, intent(in) :: irealvisc_in
+    irealvisc = irealvisc_in
+end subroutine
+
+subroutine amuse_set_shearparam(shearparam_in)
+    use viscosity, only:shearparam
+    implicit none
+    double precision, intent(in) :: shearparam_in
+    shearparam = shearparam_in
+end subroutine
+
+subroutine amuse_set_bulkvisc(bulkvisc_in)
+    use viscosity, only:bulkvisc
+    implicit none
+    double precision, intent(in) :: bulkvisc_in
+    bulkvisc = bulkvisc_in
+end subroutine
+
+subroutine amuse_get_c_courant(C_cour_out)
+    use timestep, only:C_cour
+    implicit none
+    double precision, intent(out) :: C_cour_out
+    C_cour_out = C_cour
+end subroutine
+
+subroutine amuse_get_c_force(C_force_out)
+    use timestep, only:C_force
+    implicit none
+    double precision, intent(out) :: C_force_out
+    C_force_out = C_force
+end subroutine
+
+subroutine amuse_get_tolv(tolv_out)
+    use options, only:tolv
+    implicit none
+    double precision, intent(out) :: tolv_out
+    tolv_out = tolv
+end subroutine
+
+subroutine amuse_get_hfact(hfact_out)
+    use part, only:hfact
+    implicit none
+    double precision, intent(out) :: hfact_out
+    hfact_out = hfact
+end subroutine
+
+subroutine amuse_get_tolh(tolh_out)
+    use options, only:tolh
+    implicit none
+    double precision, intent(out) :: tolh_out
+    tolh_out = tolh
+end subroutine
+
+subroutine amuse_get_tree_accuracy(tree_accuracy_out)
+    use kdtree, only:tree_accuracy
+    implicit none
+    double precision, intent(out) :: tree_accuracy_out
+    tree_accuracy_out = tree_accuracy
+end subroutine
+
+subroutine amuse_get_alpha(alpha_out)
+    use options, only:alpha
+    implicit none
+    double precision, intent(out) :: alpha_out
+    alpha_out = alpha
+end subroutine
+
+subroutine amuse_get_alphamax(alphamax_out)
+    use options, only:alphamax
+    implicit none
+    double precision, intent(out) :: alphamax_out
+    alphamax_out = alphamax
+end subroutine
+
+subroutine amuse_get_beta(beta_out)
+    use options, only:beta
+    implicit none
+    double precision, intent(out) :: beta_out
+    beta_out = beta
+end subroutine
+
+subroutine amuse_get_avdecayconst(avdecayconst_out)
+    use options, only:avdecayconst
+    implicit none
+    double precision, intent(out) :: avdecayconst_out
+    avdecayconst_out = avdecayconst
+end subroutine
+
+subroutine amuse_get_damp(damp_out)
+    use options, only:damp
+    implicit none
+    integer, intent(out) :: damp_out
+    damp_out = damp
+end subroutine
+
+subroutine amuse_get_ieos(ieos_out)
+    use eos, only:ieos
+    implicit none
+    integer, intent(out) :: ieos_out
+    ieos_out = ieos
+end subroutine
+
+subroutine amuse_get_mu(mu_out)
+    use eos, only:gmw
+    implicit none
+    double precision, intent(out) :: mu_out
+    mu_out = gmw
+end subroutine
+
+subroutine amuse_get_rho_crit_cgs(rho_crit_cgs_out)
+    use ptmass, only:rho_crit_cgs
+    implicit none
+    double precision, intent(out) :: rho_crit_cgs_out
+    rho_crit_cgs_out = rho_crit_cgs
+end subroutine
+
+subroutine amuse_get_r_crit(r_crit_out)
+    use ptmass, only:r_crit
+    implicit none
+    double precision, intent(out) :: r_crit_out
+    r_crit_out = r_crit
+end subroutine
+
+subroutine amuse_get_h_acc(h_acc_out)
+    use ptmass, only:h_acc
+    implicit none
+    double precision, intent(out) :: h_acc_out
+    h_acc_out = h_acc
+end subroutine
+
+subroutine amuse_get_h_soft_sinkgas(h_soft_sinkgas_out)
+    use ptmass, only:h_soft_sinkgas
+    implicit none
+    double precision, intent(out) :: h_soft_sinkgas_out
+    h_soft_sinkgas_out = h_soft_sinkgas
+end subroutine
+
+subroutine amuse_get_h_soft_sinksink(h_soft_sinksink_out)
+    use ptmass, only:h_soft_sinksink
+    implicit none
+    double precision, intent(out) :: h_soft_sinksink_out
+    h_soft_sinksink_out = h_soft_sinksink
+end subroutine
+
+subroutine amuse_get_f_acc(f_acc_out)
+    use ptmass, only:f_acc
+    implicit none
+    double precision, intent(out) :: f_acc_out
+    f_acc_out = f_acc
+end subroutine
+
+subroutine amuse_get_iexternalforce(iexternalforce_out)
+    use options, only:iexternalforce
+    implicit none
+    integer, intent(out) :: iexternalforce_out
+    iexternalforce_out = iexternalforce
+end subroutine
+
+subroutine amuse_get_irealvisc(irealvisc_out)
+    use viscosity, only:irealvisc
+    implicit none
+    integer, intent(out) :: irealvisc_out
+    irealvisc_out = irealvisc
+end subroutine
+
+subroutine amuse_get_shearparam(shearparam_out)
+    use viscosity, only:shearparam
+    implicit none
+    double precision, intent(out) :: shearparam_out
+    shearparam_out = shearparam
+end subroutine
+
+subroutine amuse_get_bulkvisc(bulkvisc_out)
+    use viscosity, only:bulkvisc
+    implicit none
+    double precision, intent(out) :: bulkvisc_out
+    bulkvisc_out = bulkvisc
+end subroutine
