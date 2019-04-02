@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  PROGRAM: phantom
@@ -24,12 +24,14 @@
 !
 !  USAGE: phantom infilename
 !
-!  DEPENDENCIES: dim, evolve, initial, io, mpiderivs, mpiutils, stack, test
+!  DEPENDENCIES: dim, evolve, initial, io, memory, mpiderivs, mpiutils,
+!    stack, test
 !+
 !--------------------------------------------------------------------------
 program phantom
- use dim,             only:tagline
- use mpiutils,        only:init_mpi, finalise_mpi
+ use memory,          only:allocate_memory
+ use dim,             only:tagline,maxp_hard
+ use mpiutils,        only:init_mpi,finalise_mpi
 #ifdef MPI
  use mpiderivs,       only:init_tree_comms,finish_tree_comms
  use stack,           only:init_mpi_memory,finish_mpi_memory
@@ -48,15 +50,10 @@ program phantom
  nfail  = 0
 
  call init_mpi(id,nprocs)
-#ifdef MPI
- call init_tree_comms()
- call init_mpi_memory()
-#endif
-
  call set_io_unit_numbers
-!
-!--get name of run from the command line
-!
+ !
+ ! get name of run from the command line
+ !
  nargs = command_argument_count()
  if (nargs < 1) then
     if (id==master) then
@@ -66,9 +63,27 @@ program phantom
     call die
  endif
  call get_command_argument(1,infile)
+ !
+ ! catch error if .setup is on command line instead of .in
+ !
+ if (index(infile,'.setup') > 0) then
+    if (id==master) then
+       print "(a,/)",trim(tagline)
+       print "(a)",'ERROR: I think you mean ./phantomsetup '//trim(infile)
+    endif
+    call die
+ endif
 
+#ifdef MPI
+ call init_tree_comms()
+ call init_mpi_memory()
+#endif
  if (trim(infile)=='test') then
+    !
+    ! run the phantom internal test suite
+    !
     call initialise()
+    call allocate_memory(maxp_hard)
     if (nargs >= 2) then
        do i=2,nargs
           call get_command_argument(i,infile)
@@ -78,6 +93,9 @@ program phantom
        call testsuite('all',.true.,.true.,ntests,npass,nfail)
     endif
  else
+    !
+    ! perform a simulation
+    !
     if (index(infile,'.in')==0) then
        infile = trim(infile)//'.in'
     endif

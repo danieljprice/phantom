@@ -36,12 +36,12 @@ subroutine inject_or_update_particle(particle_number, mass, position, velocity, 
  call set_part_mass(mass, ierr)
  ! npart = npart + 1
  ! If ierr = 0, it means mass is set successfully.
- ! If it is 1, it means the mass could not be set, because there were 
+ ! If it is 1, it means the mass could not be set, because there were
  ! already particles in the simulation.
 
  call add_or_update_particle(itype,position(:)/udist,velocity(:)/(udist/utime),&
      h/udist,u/(udist**2/utime**2),particle_number,npart,npartoftype,xyzh,vxyzu)
- 
+
 end subroutine
 
 !
@@ -268,8 +268,8 @@ end subroutine
 subroutine set_defaults()
  use options, only: set_default_options
  implicit none
- 
- call set_default_options() 
+
+ call set_default_options()
 end subroutine
 
 

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testptmass
@@ -38,10 +38,10 @@ subroutine test_ptmass(ntests,npass)
  use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,&
                     xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,epot_sinksink,&
                     ihacc,isdead_or_accreted,igas,divcurlv,iphase,isetphase,maxphase,&
-                    Bevol,dBevol,dustfrac,ddustfrac,temperature,divcurlB,fxyzu,set_particle_type,&
+                    Bevol,dBevol,dustfrac,ddustevol,temperature,divcurlB,fxyzu,set_particle_type,&
                     ispinx,ispiny,ispinz,dustprop,ddustprop,poten,rhoh
  use eos,             only:gamma,polyk
- use timestep,        only:dtmax,C_force
+ use timestep,        only:dtmax,C_force,tolv
  use testutils,       only:checkval,checkvalf
  use setbinary,       only:set_binary
  use step_lf_global,  only:step,init_step
@@ -61,11 +61,11 @@ subroutine test_ptmass(ntests,npass)
  !use readwrite_dumps, only:write_fulldump,write_smalldump
  use fileutils,       only:getnextfilename
  use checksetup,      only:check_setup
- use options,         only:tolv,ieos,iexternalforce
+ use options,         only:ieos,iexternalforce
  use units,           only:set_units
  use kernel,          only:kernel_softening
 #ifdef IND_TIMESTEPS
- use part,            only:ibin
+ use part,            only:ibin,ibin_old
 #endif
  use mpiutils,        only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi
  integer, intent(inout) :: ntests,npass
@@ -120,6 +120,7 @@ subroutine test_ptmass(ntests,npass)
 
 #ifdef IND_TIMESTEPS
     ibin(:) = 0_1
+    ibin_old(:) = 0_1
 #endif
     iverbose = 0
     tree_accuracy = 0.
@@ -213,7 +214,7 @@ subroutine test_ptmass(ntests,npass)
        if (itest==2 .or. itest==3) then
           fxyzu(:,:) = 0.
           call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                      Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,t,0.,dtext_dum)
+                      Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
        endif
        !
        !--evolve this for a number of orbits
@@ -547,7 +548,7 @@ subroutine test_ptmass(ntests,npass)
        icreate_sinks = 1
        iverbose = 1
        call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,0.,0.,dtext_dum)
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,0.,0.,dtext_dum)
        !
        ! check that particle being tested is at the maximum density
        !

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: densityforce
@@ -13,7 +13,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Conrad Chan
+!  OWNER: Daniel Price
 !
 !  $Id$
 !
@@ -25,12 +25,13 @@
 !+
 !--------------------------------------------------------------------------
 module densityforce
- use dim,         only:maxstrain,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum
- use part,        only:maxBevol,mhd
- use part,        only:straintensor
- use kernel,      only:cnormk,wab0,gradh0,dphidh0,radkern2
- use mpidens,     only:celldens,stackdens
- use timing,      only:getused,printused,print_time
+ use dim,     only:maxdvdx,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum,&
+                   maxdusttypes,maxdustlarge
+ use part,    only:maxBevol,mhd,dvdx
+ use kdtree,      only:inodeparts,inoderange
+ use kernel,  only:cnormk,wab0,gradh0,dphidh0,radkern2
+ use mpidens, only:celldens,stackdens
+ use timing,  only:getused,printused,print_time
 
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -95,7 +96,8 @@ module densityforce
        idBzdxi          = 36, &
        idBzdyi          = 37, &
        idBzdzi          = 38, &
-       irhodusti        = 39
+       irhodusti        = 39, &
+       irhodustiend     = 39 + (maxdustlarge - 1)
 
  !--kernel related parameters
  !real, parameter    :: cnormk = 1./pi, wab0 = 1., gradh0 = -3.*wab0, radkern2 = 4F.0
@@ -121,14 +123,14 @@ contains
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                           fxyzu,fext,alphaind,gradh)
  use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha, &
-                     mhd_nonideal,nalpha
+                     mhd_nonideal,nalpha,use_dust
  use eos,       only:get_spsound,get_temperature
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
- use linklist,  only:ncells,ifirstincell,get_neighbour_list,get_hmaxcell, &
+ use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
                      get_cell_location,set_hmaxcell,sync_hmax_mpi
- use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho, &
-                     ll,get_partinfo,iactive,maxgradh,&
-                     hrho,iphase,maxphase,igas,idust,iboundary,iamgas,periodic,&
+ use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho,&
+                     ll,get_partinfo,iactive,&
+                     hrho,iphase,igas,idust,iboundary,iamgas,periodic,&
                      all_active,dustfrac,Bxyz
 #ifdef FINVSQRT
  use fastmath,  only:finvsqrt
@@ -143,7 +145,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use mpiderivs, only:send_cell,recv_cells,check_send_finished,init_cell_exchange, &
                      finish_cell_exchange,recv_while_wait,reset_cell_counters
 #endif
- use timestep,  only:rho_dtthresh,mod_dtmax,mod_dtmax_now
+ use timestep,  only:rhomaxnow
  use part,      only:ngradh
  use viscosity, only:irealvisc
  use io_summary,only:summary_variable,iosumhup,iosumhdn
@@ -211,7 +213,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  !
  realviscosity = (irealvisc > 0)
  getdv = ((maxalpha==maxp .or. ndivcurlv >= 4) .and. icall <= 1) .or. &
-         (realviscosity .and. maxstrain==maxp)
+         (maxdvdx==maxp .and. (use_dust .or. realviscosity))
  if (getdv .and. ndivcurlv < 1) call fatal('densityiterate','divv not stored but it needs to be')
  getdB = (mhd .and. (ndivcurlB >= 4 .or. mhd_nonideal))
 
@@ -244,7 +246,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(alphaind) &
 !$omp shared(dustfrac) &
 !$omp shared(Bxyz) &
-!$omp shared(straintensor) &
+!$omp shared(dvdx) &
 !$omp shared(id) &
 !$omp shared(nprocs) &
 !$omp shared(getdB) &
@@ -286,7 +288,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp reduction(+:nneighact) &
 !$omp reduction(+:nneightry) &
 !$omp reduction(+:nrelink) &
-!$omp reduction(+:stressmax,rhomax) &
+!$omp reduction(+:stressmax) &
+!$omp reduction(max:rhomax) &
 !$omp private(i)
 
 !$omp do schedule(runtime)
@@ -383,7 +386,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        if (.not. do_export) then
 #endif
           call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                             straintensor,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+                             dvdx,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
 #ifdef MPI
           nlocal = nlocal + 1
        endif
@@ -495,7 +498,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              stack_redo%cells(cell%waiting_index) = cell
           else
              call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                                straintensor,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+                                dvdx,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
           endif
 
        enddo over_waiting
@@ -531,20 +534,17 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 #endif
 
  ! reduce max stress across MPI procs
- if (realviscosity .and. maxstrain==maxp) then
+ if (realviscosity .and. maxdvdx==maxp) then
     stressmax = reduceall_mpi('max',stressmax)
  endif
 
  ! reduce rhomax
  rhomax = reduceall_mpi('max',rhomax)
+ rhomaxnow = rhomax
 
- if (realviscosity .and. maxstrain==maxp .and. stressmax > 0. .and. iverbose > 0 .and. id==master) then
+ if (realviscosity .and. maxdvdx==maxp .and. stressmax > 0. .and. iverbose > 0 .and. id==master) then
     call warning('force','applying negative stress correction',var='max',val=-stressmax)
  endif
-!
-!--determine if we need to decrease dtmax at the next opportunity
-!
- if (mod_dtmax .and. rhomax > rho_dtthresh) mod_dtmax_now = .true.
 !
 !--warnings
 !
@@ -579,7 +579,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  use fastmath, only:finvsqrt
 #endif
  use kernel,   only:get_kernel,get_kernel_grav1
- use part,     only:iphase,iamgas,iamtype,maxphase,iboundary,igas,idust,rhoh,massoftype
+ use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,iboundary,igas,idust,rhoh,massoftype
  use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust
  integer,      intent(in)    :: i
  real,         intent(in)    :: xpartveci(:)
@@ -600,14 +600,14 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  logical,      intent(in)    :: ignoreself
  integer(kind=1)             :: iphasej
  integer                     :: iamtypej
- integer                     :: j,n
+ integer                     :: j,n,iloc
  real                        :: dx,dy,dz,runix,runiy,runiz
  real                        :: rij2,rij,rij1,q2i,qi,q2prev,rij1grkern
  real                        :: wabi,grkerni,dwdhi,dphidhi
  real                        :: projv,dvx,dvy,dvz,dax,day,daz
  real                        :: projdB,dBx,dBy,dBz,fxi,fyi,fzi,fxj,fyj,fzj
  real                        :: rhoi, rhoj
- logical                     :: same_type,gas_gas
+ logical                     :: same_type,gas_gas,iamdustj
 
  rhosum(:) = 0.
  if (ignoreself) then
@@ -707,6 +707,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
        if (maxphase==maxp) then
           iphasej   = iphase(j)
           iamtypej  = iamtype(iphasej)
+          iamdustj  = iamdust(iphasej)
           same_type = ((iamtypei == iamtypej) .or. (iamtypej==iboundary))
           gas_gas   = (iamgasi .and. same_type)  ! this ensure that boundary particles are included in gas_gas calculations
        endif
@@ -743,7 +744,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                 projv = dvx*runix + dvy*runiy + dvz*runiz
                 rhosum(idivvi) = rhosum(idivvi) + projv
 
-                if (realviscosity .or. ndivcurlv > 1 .or. nalpha > 1) then
+                if (maxdvdx > 0 .or. ndivcurlv > 1 .or. nalpha > 1) then
                    rhosum(idvxdxi) = rhosum(idvxdxi) + dvx*runix
                    rhosum(idvxdyi) = rhosum(idvxdyi) + dvx*runiy
                    rhosum(idvxdzi) = rhosum(idvxdzi) + dvx*runiz
@@ -809,9 +810,9 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
              endif
 
           endif
-       elseif (use_dust .and. (iamgasi  .and. iamtypej==idust) .or. &
-                              (iamdusti .and. iamtypej==igas)) then
-          rhosum(irhodusti) = rhosum(irhodusti) + wabi
+       elseif (use_dust .and. (iamgasi  .and. iamdustj)) then
+          iloc = irhodusti + iamtypej - idust
+          rhosum(iloc) = rhosum(iloc) + wabi
        endif sametype
 
     elseif (n <= isizeneighcache) then
@@ -992,21 +993,21 @@ end subroutine calculate_divcurlB_from_sums
 
 !----------------------------------------------------------------
 !+
-!  Internal utility to extract the strain tensor from summations
+!  Internal utility to extract velocity gradients from summations
 !  calculated during the density loop.
 !+
 !----------------------------------------------------------------
-subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,strain)
+subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,dvdx)
  real, intent(in)  :: rhosum(:)
  real, intent(in)  :: termnorm,denom
  real, intent(in)  :: rmatrix(6)
- real, intent(out) :: strain(6)
+ real, intent(out) :: dvdx(9)
 
  real :: ddenom,gradvxdxi,gradvxdyi,gradvxdzi
  real :: gradvydxi,gradvydyi,gradvydzi,gradvzdxi,gradvzdyi,gradvzdzi
  real :: dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi
 
-!  if (abs(denom) > tiny(denom)) then ! do exact linear first derivatives
+! if (abs(denom) > tiny(denom)) then ! do exact linear first derivatives
  if (.false.) then ! do exact linear first derivatives
     ddenom = 1./denom
     call exactlinear(gradvxdxi,gradvxdyi,gradvxdzi, &
@@ -1040,12 +1041,13 @@ subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,strain)
     dvzdzi = -rhosum(idvzdzi)*termnorm
  endif
 
- strain(1) = (dvxdxi + dvxdxi)
- strain(2) = (dvxdyi + dvydxi)
- strain(3) = (dvxdzi + dvzdxi)
- strain(4) = (dvydyi + dvydyi)
- strain(5) = (dvydzi + dvzdyi)
- strain(6) = (dvzdzi + dvzdzi)
+ dvdx(:) = (/dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi/)
+! strain(1) = (dvxdxi + dvxdxi)
+! strain(2) = (dvxdyi + dvydxi)
+! strain(3) = (dvxdzi + dvzdxi)
+! strain(4) = (dvydyi + dvydyi)
+! strain(5) = (dvydzi + dvzdyi)
+! strain(6) = (dvzdzi + dvzdzi)
 
 end subroutine calculate_strain_from_sums
 
@@ -1055,10 +1057,13 @@ end subroutine calculate_strain_from_sums
 !  (to avoid tensile instability)
 !+
 !----------------------------------------------------------------
-pure subroutine get_max_stress(strain,divvi,rho1i,stressmax,shearvisc,bulkvisc)
- real, intent(in)    :: strain(6), divvi, rho1i, shearvisc, bulkvisc
+pure subroutine get_max_stress(dvdx,divvi,rho1i,stressmax,shearvisc,bulkvisc)
+ use part, only:strain_from_dvdx
+ real, intent(in)    :: dvdx(9), divvi, rho1i, shearvisc, bulkvisc
  real, intent(inout) :: stressmax
- real :: strainmax,stressiso
+ real :: strainmax,stressiso,strain(6)
+
+ strain = strain_from_dvdx(dvdx)
 
  ! shearvisc = eta/rho, so this is eta/rho**2
  strainmax = -shearvisc*rho1i*maxval(strain) ! 1/rho*L^2/T*1/L*L/T = 1/rho*L^2/T^2
@@ -1068,6 +1073,7 @@ pure subroutine get_max_stress(strain,divvi,rho1i,stressmax,shearvisc,bulkvisc)
  ! tensile instability we only care if the total stress is negative
  ! if stress tensor is positive, don't need correction (stressmax=0)
  stressmax = max(stressmax,-(stressiso + strainmax))
+ stressmax = 0.
 
 end subroutine get_max_stress
 
@@ -1230,7 +1236,6 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  use dim,         only:maxvxyzu
  use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,set_boundaries_to_active
  use viscosity,   only:irealvisc
- use kdtree,      only:inodeparts
 #ifdef MPI
  use io,          only:id
 #endif
@@ -1334,7 +1339,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
  use io,          only:fatal
  use dim,         only:maxp,maxvxyzu
  use part,        only:maxphase,get_partinfo,iboundary,maxBevol,mhd,igas,iamgas,set_boundaries_to_active
- use kdtree,      only:inodeparts,inoderange
 
  type(celldens),     intent(inout) :: cell
  integer(kind=1),    intent(in)    :: iphase(:)
@@ -1427,7 +1431,6 @@ subroutine finish_cell(cell,cell_converged)
  use io,       only:iprint,fatal
  use part,     only:get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,hrho
  use options,  only:tolh
- use kdtree,   only:inodeparts
 
  type(celldens),  intent(inout) :: cell
  logical,         intent(out)   :: cell_converged
@@ -1468,7 +1471,8 @@ subroutine finish_cell(cell,cell_converged)
 
     pmassi = massoftype(iamtypei)
 
-    call finish_rhosum(rhosum,pmassi,hi,.true.,rhoi=rhoi,rhohi=rhohi,gradhi=gradhi,dhdrhoi_out=dhdrhoi,omegai_out=omegai)
+    call finish_rhosum(rhosum,pmassi,hi,.true.,rhoi=rhoi,rhohi=rhohi,&
+                       gradhi=gradhi,dhdrhoi_out=dhdrhoi,omegai_out=omegai)
 
     func = rhohi - rhoi
     if (omegai > tiny(omegai)) then
@@ -1554,20 +1558,22 @@ end subroutine finish_rhosum
 !--------------------------------------------------------------------------
 !+
 !--------------------------------------------------------------------------
-subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                         straintensor,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
- use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,&
-                       n_R,n_electronT,eta_nimhd,iohm,ihall,iambi
+subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
+                         gradh,divcurlv,divcurlB,alphaind,dvdx,vxyzu,Bxyz,&
+                         dustfrac,rhomax,nneightry,nneighact,maxneightry,&
+                         maxneighact,np,ncalc)
+ use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,&
+                       iboundary,maxphase,massoftype,igas,n_R,n_electronT,&
+                       eta_nimhd,iohm,ihall,iambi,ndustlarge,ndustsmall,xyzh_soa,&
+                       store_temperature,temperature,maxgradh,idust
  use io,          only:fatal,real4
  use eos,         only:get_temperature,get_spsound
- use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,mhd_nonideal,use_dust,ndusttypes
- use part,        only:maxgradh,idust
+ use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,mhd_nonideal,use_dust
  use options,     only:ieos,alpha,alphamax,use_dustfrac
  use viscosity,   only:bulkvisc,shearparam
  use nicil,       only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
  use linklist,    only:set_hmaxcell
  use kernel,      only:radkern
-
  use part,        only:xyzh_soa,store_temperature,temperature
  use kdtree,      only:inodeparts
 
@@ -1582,7 +1588,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gra
  real(kind=4),    intent(inout) :: divcurlv(:,:)
  real(kind=4),    intent(inout) :: divcurlB(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
- real(kind=4),    intent(inout) :: straintensor(:,:)
+ real(kind=4),    intent(inout) :: dvdx(:,:)
  real,            intent(in)    :: vxyzu(:,:)
  real,            intent(out)   :: dustfrac(:,:)
  real,            intent(out)   :: Bxyz(:,:)
@@ -1596,7 +1602,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gra
 
  real         :: rhosum(maxrhosum)
 
- integer      :: iamtypei,i,lli,ierr
+ integer      :: iamtypei,i,lli,ierr,l
  logical      :: iactivei,iamgasi,iamdusti
  logical      :: igotrmatrix,igotspsound
  real         :: hi,hi1,hi21,hi31,hi41
@@ -1606,10 +1612,10 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gra
  real         :: Bxi,Byi,Bzi,gradBi
  real         :: vxyzui(4)
  real         :: spsoundi,xi_limiter
- real         :: divcurlvi(5),rmatrix(6),straini(6)
+ real         :: divcurlvi(5),rmatrix(6),dvdxi(9)
  real         :: divcurlBi(ndivcurlB)
  real         :: temperaturei,Bi
- real         :: rho1i,term,denom,rhogasi,rhodusti(ndusttypes)
+ real         :: rho1i,term,denom,rhodusti(maxdustlarge)
 
  do i = 1,cell%npcell
     lli = inodeparts(cell%arr_index(i))
@@ -1632,12 +1638,10 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gra
        iamgasi  = .true.
     endif
 
-    if (iamtypei==iboundary) then
-       if (set_boundaries_to_active) then
-          iactivei = .true.
-          iamtypei = igas
-          iamgasi  = .true.
-       endif
+    if (iamtypei==iboundary .and. set_boundaries_to_active) then
+       iactivei = .true.
+       iamtypei = igas
+       iamgasi  = .true.
     endif
 
     pmassi = massoftype(iamtypei)
@@ -1666,17 +1670,14 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gra
        ! for 2-fluid dust compute dust density on gas particles
        ! and store it in dustfrac as dust-to-gas ratio
        ! so that rho times dustfrac gives dust density
-       ! and similarly compute the gas density on dust particles and
-       ! store it in dustfrac as gas-to-dust ratio
        !
+       dustfrac(:,lli) = 0.
        if (iamgasi) then
-          rhodusti(:) = cnormk*massoftype(idust)*(rhosum(irhodusti))*hi31
-          dustfrac(:,lli) = rhodusti(:)*rho1i ! dust-to-gas ratio
-       elseif (iamdusti) then
-          rhogasi = cnormk*massoftype(igas)*(rhosum(irhodusti))*hi31
-          dustfrac(:,lli) = rhogasi*rho1i ! gas-to-dust ratio
+          do l=1,ndustlarge
+             rhodusti(l) = cnormk*massoftype(idust+l-1)*(rhosum(irhodusti+l-1))*hi31
+             dustfrac(ndustsmall+l,lli) = rhodusti(l)*rho1i ! dust-to-gas ratio
+          enddo
        endif
-       if (ndusttypes>1) call fatal('dens','2-fluid not compatible with ndusttypes > 1')
     endif
     !
     ! store divv and curl v and related quantities
@@ -1762,14 +1763,14 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gra
     !
     !--get strain tensor from summations
     !
-    realvisc: if (realviscosity .and. maxstrain==maxp .and. iamgasi) then
+    if (maxdvdx==maxp .and. getdv) then
        if (.not.igotrmatrix) call calculate_rmatrix_from_sums(cell%rhosums(:,i),denom,rmatrix,igotrmatrix)
-       call calculate_strain_from_sums(cell%rhosums(:,i),term,denom,rmatrix,straini)
+       call calculate_strain_from_sums(cell%rhosums(:,i),term,denom,rmatrix,dvdxi)
        ! check for negative stresses to prevent tensile instability
-       call get_max_stress(straini,divcurlvi(1),rho1i,stressmax,shearparam,bulkvisc)
+       if (realviscosity) call get_max_stress(dvdxi,divcurlvi(1),rho1i,stressmax,shearparam,bulkvisc)
        ! store strain tensor
-       straintensor(:,lli) = real(straini(:),kind=kind(straintensor))
-    endif realvisc
+       dvdx(:,lli) = real(dvdxi(:),kind=kind(dvdx))
+    endif
 
     ! stats
     nneightry = nneightry + cell%nneightry
@@ -1781,5 +1782,5 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,gra
  ncalc = ncalc + cell%npcell * cell%nits
 
 end subroutine store_results
-!--------------------------------------------------------------------------
+
 end module densityforce

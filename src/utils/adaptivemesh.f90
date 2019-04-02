@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: adaptivemesh
@@ -23,7 +23,7 @@
 !+
 !--------------------------------------------------------------------------
 module adaptivemesh
- use dim, only:maxp,periodic
+ use dim, only:maxp,maxp_hard,periodic
  implicit none
  !--this controls the number of cells on each level
  integer, parameter :: nsub = 2
@@ -36,7 +36,7 @@ module adaptivemesh
  !  bear in mind that total number of cells is maxmeshes*nsub**ndim
  !  so use maxp/nsub**ndim to get number of cells = maxp
  !
- integer, parameter :: maxmeshes = maxp/2 !8*maxp/nsub**ndim
+ integer, parameter :: maxmeshes = maxp_hard/2 !8*maxp/nsub**ndim
  !
  !--resolution of the root grid (2^ifirstlevel)^ndim
  !

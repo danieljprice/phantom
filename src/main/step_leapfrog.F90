@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: step_lf_global
@@ -26,13 +26,13 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: chem, coolfunc, deriv, dim, eos, externalforces, growth,
-!    io, io_summary, mpiutils, options, part, ptmass, timestep,
-!    timestep_ind, timestep_sts
+!  DEPENDENCIES: bowen_dust, chem, coolfunc, damping, deriv, dim, eos,
+!    externalforces, growth, io, io_summary, mpiutils, options, part,
+!    ptmass, timestep, timestep_ind, timestep_sts
 !+
 !--------------------------------------------------------------------------
 module step_lf_global
- use dim,  only:maxp,maxvxyzu,maxBevol,ndusttypes
+ use dim,  only:maxp,maxvxyzu,maxBevol
  use part, only:vpred,Bpred,dustpred
  use timestep_ind, only:maxbins,itdt,ithdt,itdt1,ittwas
  implicit none
@@ -84,36 +84,36 @@ end subroutine init_step
 subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,use_dustgrowth
  use io,             only:iprint,fatal,iverbose,id,master,warning
- use options,        only:damp,tolv,iexternalforce,icooling,use_dustfrac
+ use options,        only:idamp,iexternalforce,icooling,use_dustfrac
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,maxBevol,&
-                          switches_done_in_derivs,iboundary,get_ntypes,npartoftype,&
-                          dustfrac,dustevol,ddustfrac,temperature,alphaind,nptmass,store_temperature,&
-                          dustprop,ddustprop,dustproppred
+                          iboundary,get_ntypes,npartoftype,&
+                          dustfrac,dustevol,ddustevol,temperature,alphaind,nptmass,store_temperature,&
+                          dustprop,ddustprop,dustproppred,ndustsmall
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
- use timestep,       only:dterr,bignumber
+ use timestep,       only:dterr,bignumber,tolv
  use mpiutils,       only:reduceall_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ibin_wake
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake
  use coolfunc,       only:energ_coolfunc
 #ifdef IND_TIMESTEPS
- use timestep,       only:dtmax,dtmax_rat,dtdiff,mod_dtmax_in_step
+ use timestep,       only:dtmax,dtmax_ifactor,dtdiff
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,ibinnow
  use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
  use part,           only:ibin,ibin_old,twas,iactive
 #endif
 #ifdef DUSTGROWTH
- use growth,                only:update_dustprop
+ use growth,                only:check_dustprop
 #endif
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
  real,    intent(in)    :: t,dtsph
  real,    intent(inout) :: dtextforce
  real,    intent(out)   :: dtnew
- integer            :: i,its,np,ntypes,itype,nwake
+ integer            :: i,its,np,ntypes,itype,nwake,ialphaloc
  real               :: timei,erri,errmax,v2i,errmaxmean
  real               :: vxi,vyi,vzi,eni,vxoldi,vyoldi,vzoldi,hdtsph,pmassi
  real               :: alphaloci,divvdti,source,tdecay1,hi,rhoi,ddenom,spsoundi
@@ -154,10 +154,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  ntypes  = get_ntypes(npartoftype)
  pmassi  = massoftype(itype)
  store_itype = (maxphase==maxp .and. ntypes > 1)
+ ialphaloc = 2
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
- !$omp shared(Bevol,dBevol,dustevol,ddustfrac,use_dustfrac) &
+ !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
  !$omp shared(dustprop,ddustprop,dustproppred) &
 #ifdef IND_TIMESTEPS
  !$omp shared(ibin,ibin_old,twas,timei) &
@@ -182,11 +183,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        !
        vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
        if (itype==idust .and. use_dustgrowth) then
-          dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
+          dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
        endif
        if (itype==igas) then
           if (mhd)          Bevol(:,i)    = Bevol(:,i)        + hdti*dBevol(:,i)
-          if (use_dustfrac) dustevol(:,i) = abs(dustevol(:,i) + hdti*ddustfrac(:,i))
+          if (use_dustfrac) dustevol(:,i) = abs(dustevol(:,i) + hdti*ddustevol(:,i))
        endif
     endif
  enddo predictor
@@ -196,8 +197,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! substepping with external and sink particle forces, using dtextforce
 ! accretion onto sinks/potentials also happens during substepping
 !----------------------------------------------------------------------
- if (nptmass > 0 .or. iexternalforce > 0 .or. (h2chemistry .and. icooling > 0) .or. damp > 0.) then
-    call step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,t,damp, &
+ if (nptmass > 0 .or. iexternalforce > 0 .or. (h2chemistry .and. icooling > 0) .or. idamp > 0) then
+    call step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,t, &
                      nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nbinmax,ibin_wake)
  else
     call step_extern_sph(dtsph,npart,xyzh,vxyzu)
@@ -209,10 +210,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! force evaluations, using dtsph
 !----------------------------------------------------
 !$omp parallel do default(none) schedule(guided,1) &
+!$omp shared(maxp,maxphase,maxalpha) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype) &
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
-!$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustfrac,dustpred,use_dustfrac) &
-!$omp shared(alphaind,ieos,alphamax) &
+!$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
+!$omp shared(alphaind,ieos,alphamax,ndustsmall,ialphaloc) &
 !$omp shared(temperature) &
 #ifdef IND_TIMESTEPS
 !$omp shared(twas,timei) &
@@ -228,7 +230,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (itype==iboundary) then
              vpred(:,i) = vxyzu(:,i)
              if (mhd)          Bpred(:,i)  = Bevol (:,i)
-             if (use_dustgrowth) dustproppred(:,:) = dustprop(:,:)
+             if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
              cycle predict_sph
           endif
@@ -251,19 +253,22 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #endif
        vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
        if (use_dustgrowth .and. itype==idust) then
-          dustproppred(:,i) = dustproppred(:,i) + hdti*ddustprop(:,i)
+          dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
        endif
        if (itype==igas) then
           if (mhd) Bpred(:,i) = Bevol (:,i) + hdti*dBevol(:,i)
           if (use_dustfrac) then
              rhoi          = rhoh(xyzh(4,i),pmassi)
-             dustpred(:,i) = dustevol(:,i) + hdti*ddustfrac(:,i)
+             dustpred(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-!             dustfrac(:,i) = min(dustpred(:,i)**2/rhoi,1.) ! dustevol = sqrt(rho*eps)
+!             dustfrac(1:ndustsmall,i) = min(dustpred(:,i)**2/rhoi,1.) ! dustevol = sqrt(rho*eps)
+!------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+             dustfrac(1:ndustsmall,i) = dustpred(:,i)**2/(1.+dustpred(:,i)**2)
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
-             dustfrac(:,i) = sin(dustpred(:,i))**2
+!             dustfrac(1:ndustsmall,i) = sin(dustpred(:,i))**2
 !------------------------------------------------
           endif
        endif
@@ -282,7 +287,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           ddenom   = 1./(1. + dtsph*tdecay1) ! implicit integration for decay term
           if (nalpha >= 2) then
              ! Cullen and Dehnen (2010) switch
-             alphaloci = alphaind(2,i)
+             alphaloci = alphaind(ialphaloc,i)
              if (alphaind(1,i) < alphaloci) then
                 alphaind(1,i) = real(alphaloci,kind=kind(alphaind))
              else
@@ -304,14 +309,14 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  if ((iexternalforce /= 0 .or. nptmass > 0) .and. id==master .and. iverbose >= 2) &
    write(iprint,"(a,f14.6,/)") '> full step            : t=',timei
  if (npart > 0) call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
-                     divcurlB,Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustfrac,temperature,timei,dtsph,dtnew)
+                     divcurlB,Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustevol,temperature,timei,dtsph,dtnew)
 !
 ! if using super-timestepping, determine what dt will be used on the next loop
 !
 #ifdef IND_TIMESTEPS
  if ( use_sts ) call sts_get_dtau_next(dtsph_next,dtsph,dtmax,dtdiff,nbinmax)
- if (mod_dtmax_in_step .and. sts_it_n) then
-    call decrease_dtmax(npart,maxbins,timei-dtsph,dtmax_rat,dtmax,ibin,ibin_wake,ibin_sts,ibin_dts,mod_dtmax_in_step)
+ if (dtmax_ifactor /=0 .and. sts_it_n) then
+    call decrease_dtmax(npart,maxbins,timei-dtsph,dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_sts,ibin_dts)
  endif
 #endif
 !
@@ -336,12 +341,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,npart,hdtsph,store_itype) &
 !$omp shared(Bevol,dBevol,iphase,its) &
-!$omp shared(dustevol,ddustfrac,use_dustfrac) &
+!$omp shared(dustevol,ddustevol,use_dustfrac) &
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
 !$omp shared(dtsph,icooling) &
 #ifdef IND_TIMESTEPS
-!$omp shared(dtmax,ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
+!$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax,ibinnow) &
 !$omp private(dti,hdti) &
 #endif
@@ -361,7 +366,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           !
           if (iactive(iphase(i))) then
              ibin_wake(i) = 0       ! cannot wake active particles
-             hdti = timei - twas(i) ! = 0.5*get_dt(dtmax,ibin_old(i)) if .not.use_sts, dtmax has not changed, particle was not just woken up
+             hdti = timei - twas(i) ! = 0.5*get_dt(dtmax,ibin_old(i)) if .not.use_sts & dtmax has not changed & particle was not just woken up
              if (use_sts) then
                 if (ibin(i) < ibin_sts(i)) ibin(i) = min(ibin_sts(i), nbinmax ) ! increase ibin if needed for super timestepping
                 if (.not.sts_it_n .or. (sts_it_n .and. ibin_sts(i) > ibin(i))) then
@@ -374,10 +379,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              endif
 
              vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
-             if (use_dustgrowth .and. itype==idust) dustproppred(:,i) = dustproppred(:,i) + dti*ddustprop(:,i)
+             if (use_dustgrowth .and. itype==idust) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
              if (itype==igas) then
                 if (mhd)          Bevol(:,i)    = Bevol(:,i)    + dti*dBevol(:,i)
-                if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + dti*ddustfrac(:,i)
+                if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + dti*ddustevol(:,i)
              endif
              twas(i) = twas(i) + dti
           endif
@@ -386,10 +391,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           !
           hdti = timei - twas(i)
           vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
-
+          if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdti*dBevol(:,i)
-             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdti*ddustfrac(:,i)
+             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
           endif
           !
           !--Wake inactive particles for next step, if required
@@ -429,19 +434,20 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (icooling==3) call energ_coolfunc(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph,v2i)
           endif
 
+          if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdtsph*ddustprop(:,i)
           if (itype==igas) then
              !
              ! corrector step for magnetic field and dust
              !
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdtsph*dBevol(:,i)
-             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdtsph*ddustfrac(:,i)
+             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdtsph*ddustevol(:,i)
           endif
 #endif
        endif
     enddo corrector
 !$omp enddo
 !$omp end parallel
-    call check_velocity_error(errmax,v2mean,np,its,tolv,dtsph,timei,damp,dterr,errmaxmean,converged)
+    call check_velocity_error(errmax,v2mean,np,its,tolv,dtsph,timei,idamp,dterr,errmaxmean,converged)
 
     if (.not.converged .and. npart > 0) then
        !$omp parallel do private(i) schedule(static)
@@ -450,34 +456,39 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #ifdef IND_TIMESTEPS
           if (iactive(iphase(i))) then
              vpred(:,i) = vxyzu(:,i)
+             if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (mhd)          Bpred(:,i)  = Bevol(:,i)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
           endif
 #else
           vpred(:,i) = vxyzu(:,i)
+          if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
           if (mhd)          Bpred(:,i)  = Bevol(:,i)
           if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
 !
 ! shift v back to the half step
 !
           vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
+          if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  - hdtsph*dBevol(:,i)
-             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) - hdtsph*ddustfrac(:,i)
+             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) - hdtsph*ddustevol(:,i)
           endif
 #endif
        enddo
        !$omp end parallel do
+
+#ifdef DUSTGROWTH
+       call check_dustprop(npart,dustprop(1,:)) !--check minimum size in case of fragmentation
+#endif
+
 !
 !   get new force using updated velocity: no need to recalculate density etc.
 !
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
-                     Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustfrac,&
+                     Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustevol,&
                      temperature,timei,dtsph,dtnew)
     endif
-#ifdef DUSTGROWTH
-    call update_dustprop(npart,dustproppred) !--update dustprop values
-#endif
  enddo iterations
  ! Summary statements & crash if velocity is not converged
  if (nwake > 1) call summary_variable('wake',iowake,  0,real(nwake))
@@ -529,7 +540,7 @@ end subroutine step_extern_sph
 !  algorithm over the "fast" forces.
 !+
 !----------------------------------------------------------------
-subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,nptmass, &
+subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmass, &
                        xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nbinmax,ibin_wake)
  use dim,            only:maxptmass,maxp,maxvxyzu
  use io,             only:iverbose,id,master,iprint,warning
@@ -540,19 +551,22 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
                           idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
                           idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
                           ndptmass,update_ptmass
- use options,        only:iexternalforce
+ use options,        only:iexternalforce,idamp,icooling
  use part,           only:maxphase,abundance,nabundances,h2chemistry,temperature,store_temperature,epot_sinksink,&
                           isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
                           fxyz_ptmass_sinksink
- use options,        only:icooling
  use chem,           only:energ_h2cooling
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
                           summary_accrete,summary_accrete_fail
  use timestep,       only:bignumber,C_force
  use timestep_sts,   only:sts_it_n
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
+ use damping,        only:calc_damp,apply_damp
+#ifdef BOWEN
+ use bowen_dust,     only:radiative_acceleration
+#endif
  integer,         intent(in)    :: npart,ntypes,nptmass
- real,            intent(in)    :: dtsph,time,damp
+ real,            intent(in)    :: dtsph,time
  real,            intent(inout) :: dtextforce
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
  real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
@@ -566,9 +580,11 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
  real            :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
  real            :: dtf,accretedmass,t_end_step,dtextforce_min
  real            :: dptmass(ndptmass,nptmass)
+ real            :: damp_fac
  real, save      :: dmdt = 0.
  logical         :: accreted,extf_is_velocity_dependent
  logical         :: last_step,done
+
 !
 ! determine whether or not to use substepping
 !
@@ -598,6 +614,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     dtextforcenew = bignumber
     dtsinkgas     = bignumber
     dtphi2        = bignumber
+
+    call calc_damp(time, damp_fac, idamp)
 
     if (.not.last_step .and. iverbose > 1 .and. id==master) then
        write(iprint,"(a,f14.6)") '> external/ptmass forces only : t=',timei
@@ -638,10 +656,11 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     !
     fonrmax = 0.
     !$omp parallel default(none) &
+    !$omp shared(maxp,maxphase) &
     !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype) &
     !$omp shared(temperature) &
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,icooling) &
-    !$omp shared(xyzmh_ptmass,vxyz_ptmass,damp) &
+    !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
     !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv) &
     !$omp private(i,ichem,idudtcool,dudtcool,fxi,fyi,fzi,phii) &
     !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,deni,fextv,accreted) &
@@ -714,10 +733,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
                 fextz = fextz + fextv(3)
              endif
           endif
-          if (damp > 0.) then
-             fextx = fextx - damp*vxyzu(1,i)
-             fexty = fexty - damp*vxyzu(2,i)
-             fextz = fextz - damp*vxyzu(3,i)
+          if (idamp > 0.) then
+             call apply_damp(i, fextx, fexty, fextz, vxyzu, damp_fac)
           endif
           fext(1,i) = fextx
           fext(2,i) = fexty
@@ -741,6 +758,10 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     enddo predictor
     !$omp enddo
     !$omp end parallel
+
+#ifdef BOWEN
+    call radiative_acceleration(npart,xyzh,vxyzu,dt,fext,time)
+#endif
 
     !
     ! reduction of sink-gas forces from each MPI thread
@@ -770,6 +791,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,damp,n
     dptmass(:,1:nptmass) = 0.
 
     !$omp parallel default(none) &
+    !$omp shared(maxp,maxphase) &
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei,nptmass,sts_it_n) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,f_acc) &
     !$omp shared(iexternalforce) &
@@ -906,7 +928,7 @@ end subroutine step_extern
 !  within some tolerance we iterate the corrector step
 !+
 !-----------------------------------------------------
-subroutine check_velocity_error(errmax,v2mean,np,its,tolv,dt,timei,damp,dterr,errmaxmean,converged)
+subroutine check_velocity_error(errmax,v2mean,np,its,tolv,dt,timei,idamp,dterr,errmaxmean,converged)
  use io,         only:id,master,iprint,iverbose,warning
 #ifndef IND_TIMESTEPS
  use timestep,   only:dtcourant,dtforce,bignumber
@@ -914,8 +936,8 @@ subroutine check_velocity_error(errmax,v2mean,np,its,tolv,dt,timei,damp,dterr,er
  use mpiutils,   only:reduceall_mpi
  use io_summary, only:summary_variable,iosumtve,iosumtvv
  real,    intent(inout) :: errmax,v2mean,errmaxmean
- integer, intent(in)    :: np,its
- real,    intent(in)    :: tolv,dt,timei,damp
+ integer, intent(in)    :: np,its,idamp
+ real,    intent(in)    :: tolv,dt,timei
  real,    intent(out)   :: dterr
  logical, intent(out)   :: converged
  real            :: errtol,vmean
@@ -934,7 +956,7 @@ subroutine check_velocity_error(errmax,v2mean,np,its,tolv,dt,timei,damp,dterr,er
  nptot = reduceall_mpi('+',np)
  v2mean = reduceall_mpi('+',v2mean)
  errmax = reduceall_mpi('max',errmax)
- if (damp > 0.) call warning('step','damping is ON')
+ if (idamp > 0) call warning('step','damping is ON')
 
  if (nptot > 0) then
     v2mean = v2mean/real(nptot)
@@ -949,7 +971,7 @@ subroutine check_velocity_error(errmax,v2mean,np,its,tolv,dt,timei,damp,dterr,er
  errmaxmean = errmaxmean + errmax
  errtol = tolv
  dterr = huge(dterr)
- if (tolv < 1.e2 .and. damp < tiny(damp)) then
+ if (tolv < 1.e2 .and. idamp == 0) then
 #ifndef IND_TIMESTEPS
     dtf = min(dtcourant,dtforce)
     !--if errors are controlling the timestep
@@ -967,7 +989,7 @@ subroutine check_velocity_error(errmax,v2mean,np,its,tolv,dt,timei,damp,dterr,er
 ! if the error in the predicted velocity exceeds the tolerance, take iterations
 !
 ! if (maxits > 1 .and. tolv < 1.e2) then
- if (tolv < 1.e2 .and. damp < tiny(damp)) then
+ if (tolv < 1.e2 .and. idamp == 0) then
     converged = (errmax < tolv)
     if (id==master .and. .not.converged) then
        vmean = sqrt(v2mean)

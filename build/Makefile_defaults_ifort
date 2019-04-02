@@ -1,14 +1,21 @@
 # default settings for ifort compiler
 # override these in the Makefile
 FC= ifort
-FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
+FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source -no-wrap-margin
 DBLFLAG= -r8
 DEBUGFLAG= -check all -WB -traceback -g -debug all # -fpe0 -fp-stack-check -debug all
 ENDIANFLAGBIG= -convert big_endian
 ENDIANFLAGLITTLE= -convert little_endian
 # or use setenv F_UFMTENDIAN=big:45 at runtime (e.g. for unit 45 only)
-OMPFLAGS = -openmp
 CC = icc
 CCFLAGS = -O3 -mcmodel=medium
 LIBCXX = -cxxlib
 KNOWN_SYSTEM=yes
+
+# for ifort version 18+ -openmp flag is obsolete
+IFORT_VERSION_MAJOR=${shell ifort -v 2>&1 | cut -d' ' -f 3 | cut -d'.' -f 1}
+ifeq ($(shell [ $(IFORT_VERSION_MAJOR) -gt 17 ] && echo true),true)
+    OMPFLAGS= -qopenmp
+else
+    OMPFLAGS = -openmp
+endif

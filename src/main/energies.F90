@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: energies
@@ -27,21 +27,21 @@
 
 #define reduce_fn(a,b) reduceall_mpi(a,b)
 module energies
- use dim, only: calc_erot,ndusttypes
+ use dim, only: maxdusttypes,maxdustsmall
  implicit none
 
  logical,         public    :: gas_only,track_mass,track_lum
  real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot,xyzcom(3)
- real,            public    :: vrms,rmsmach,accretedmass,mdust(ndusttypes),mgas
+ real,            public    :: vrms,rmsmach,accretedmass,mdust(maxdusttypes),mgas
  real,            public    :: xmom,ymom,zmom
  real,            public    :: totlum
  integer,         public    :: iquantities
- integer(kind=8), public    :: ndead
+ integer(kind=8), public    :: ndead,np_cs_eq_0,np_e_eq_0
  integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com(3),&
-                               iev_angmom,iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop(6),&
+                               iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop(6),&
                                iev_alpha,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
                                iev_etaa(2),iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n(4),iev_nR(5),iev_nT(2),&
-                               iev_dtg,iev_ts,iev_momall,iev_angall,iev_maccsink(2),&
+                               iev_dtg,iev_ts,iev_dm(maxdusttypes),iev_momall,iev_angall,iev_maccsink(2),&
                                iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_ionise
  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
  integer,         parameter :: iev_sum = 1    ! array index of the sum of the quantity
@@ -62,28 +62,34 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine compute_energies(t)
- use dim,  only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,lightcurve,use_dust,use_CMacIonize,store_temperature
- use part, only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,npartoftype, &
-                alphaind,Bxyz,Bevol,divcurlB,iamtype,igas,idust,iboundary,istar,idarkmatter,ibulge, &
-                nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,isdead_or_accreted,epot_sinksink,&
-                imacc,ispinx,ispiny,ispinz,mhd,gravity,poten,dustfrac,temperature,&
-                n_R,n_electronT,eta_nimhd,iion
- use eos,            only:polyk,utherm,gamma,equationofstate,get_temperature_from_ponrho,gamma_pwp
+ use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
+                          lightcurve,use_dust,use_CMacIonize,store_temperature,&
+                          maxdusttypes
+ use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
+                          npartoftype,alphaind,Bxyz,Bevol,divcurlB,iamtype,&
+                          igas,idust,iboundary,istar,idarkmatter,ibulge,&
+                          nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,&
+                          isdead_or_accreted,epot_sinksink,imacc,ispinx,ispiny,&
+                          ispinz,mhd,gravity,poten,dustfrac,temperature,&
+                          n_R,n_electronT,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
+                          iamdust,ndusttypes
+ use eos,            only:polyk,utherm,gamma,equationofstate,&
+                          get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
- use options,        only:iexternalforce,alpha,alphaB,ieos,use_dustfrac
+ use options,        only:iexternalforce,calc_erot,alpha,alphaB,ieos,use_dustfrac
  use mpiutils,       only:reduceall_mpi
  use ptmass,         only:get_accel_sink_gas
  use viscosity,      only:irealvisc,shearfunc
  use nicil,          only:nicil_get_eta,nicil_get_halldrift,nicil_get_vion, &
                      use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_data_out
-#ifdef DUST
- use dust,           only:get_ts,graindens,grainsize,idrag
- integer :: iregime
- real    :: tsi(ndusttypes)
-#endif
 #ifdef LIGHTCURVE
- use part,         only:luminosity
+ use part,           only:luminosity
+#endif
+#ifdef DUST
+ use dust,           only:get_ts,idrag
+ integer :: iregime,idusttype
+ real    :: tsi(maxdustsmall)
 #endif
  real, intent(in) :: t
  real    :: ev_data_thread(4,0:inumev)
@@ -93,11 +99,11 @@ subroutine compute_energies(t)
  real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
  real    :: ponrhoi,spsoundi,B2i,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
  real    :: n_total,n_total1,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
- real    :: gasfrac,rhogasi,dustfracisum,dustfraci(ndusttypes),dust_to_gas(ndusttypes)
+ real    :: gasfrac,rhogasi,dustfracisum,dustfraci(maxdusttypes),dust_to_gas(maxdusttypes)
  real    :: tempi,etaart,etaart1,etaohm,etahall,etaambi,vhall,vion,vdrift
  real    :: curlBi(3),vhalli(3),vioni(3),vdrifti(3),data_out(n_data_out)
  real    :: erotxi,erotyi,erotzi,fdum(3)
- integer :: i,j,itype,ierr
+ integer :: i,j,itype,ierr,iu
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
 
  ! initialise values
@@ -120,6 +126,7 @@ subroutine compute_energies(t)
  angx = 0.
  angy = 0.
  angz = 0.
+ iu   = 4
  np   = 0
  npgas   = 0
  xmomacc = 0.
@@ -131,6 +138,8 @@ subroutine compute_energies(t)
  mgas    = 0.
  mdust   = 0.
  mgas    = 0.
+ np_cs_eq_0 = 0
+ np_e_eq_0  = 0
  if (maxalpha==maxp) then
     alphai = 0.
  else
@@ -140,8 +149,9 @@ subroutine compute_energies(t)
  call initialise_ev_data(ev_data)
 !
 !$omp parallel default(none) &
+!$omp shared(maxp,maxphase,maxalpha) &
 !$omp shared(xyzh,vxyzu,iexternalforce,npart,t,id,npartoftype) &
-!$omp shared(alphaind,massoftype,irealvisc) &
+!$omp shared(alphaind,massoftype,irealvisc,iu) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &
 !$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac,use_dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_R,n_electronT,eta_nimhd) &
@@ -150,7 +160,7 @@ subroutine compute_energies(t)
 !$omp shared(iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah) &
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat,iev_ionise) &
-!$omp shared(temperature) &
+!$omp shared(temperature,grainsize,graindens,ndustsmall) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
@@ -161,13 +171,14 @@ subroutine compute_energies(t)
 !$omp private(ev_data_thread,np_rho_thread) &
 !$omp firstprivate(alphai,itype,pmassi) &
 #ifdef DUST
-!$omp shared(grainsize,graindens,idrag) &
-!$omp private(tsi,iregime) &
+!$omp shared(idrag) &
+!$omp private(tsi,iregime,idusttype) &
 #endif
 #ifdef LIGHTCURVE
 !$omp shared(luminosity,track_lum) &
 #endif
-!$omp reduction(+:np,npgas,xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
+!$omp reduction(+:np,npgas,np_cs_eq_0,np_e_eq_0) &
+!$omp reduction(+:xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
 !$omp reduction(+:ekin,etherm,emag,epot)
  call initialise_ev_data(ev_data_thread)
@@ -263,8 +274,9 @@ subroutine compute_energies(t)
        endif
        if (gravity) epot = epot + poten(i)
 #ifdef DUST
-       if (itype==idust) then
-          mdust = mdust + pmassi
+       if (iamdust(iphase(i))) then
+          idusttype = ndustsmall + itype - idust + 1
+          mdust(idusttype) = mdust(idusttype) + pmassi
        endif
 #endif
        !
@@ -278,10 +290,10 @@ subroutine compute_energies(t)
              dustfracisum = sum(dustfraci)
              gasfrac      = 1. - dustfracisum
              dust_to_gas  = dustfraci(:)/gasfrac
-             do j = 1,ndusttypes
+             do j=1,ndustsmall
                 call ev_data_update(ev_data_thread,iev_dtg,dust_to_gas(j))
              enddo
-             mdust = mdust + pmassi*dustfraci
+             mdust(1:ndustsmall) = mdust(1:ndustsmall) + pmassi*dustfraci(1:ndustsmall)
           else
              dustfraci    = 0.
              dustfracisum = 0.
@@ -291,12 +303,14 @@ subroutine compute_energies(t)
 
           ! thermal energy
           if (maxvxyzu >= 4) then
-             etherm = etherm + pmassi*utherm(vxyzu(4,i),rhoi)*gasfrac
+             etherm = etherm + pmassi*utherm(vxyzu(iu,i),rhoi)*gasfrac
              if (store_temperature) then
-                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(4,i),temperature(i))
+                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(iu,i),temperature(i))
              else
-                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(4,i))
+                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(iu,i))
              endif
+             if (vxyzu(iu,i) < tiny(vxyzu(iu,i))) np_e_eq_0 = np_e_eq_0 + 1
+             if (spsoundi < tiny(spsoundi) .and. vxyzu(iu,i) > 0. ) np_cs_eq_0 = np_cs_eq_0 + 1
           else
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi)
              if (ieos==2 .and. gamma > 1.001) then
@@ -306,6 +320,7 @@ subroutine compute_energies(t)
                 !--thermal energy using piecewise polytropic equation of state
                 etherm = etherm + pmassi*ponrhoi/(gamma_pwp(rhoi)-1.)*gasfrac
              endif
+             if (spsoundi < tiny(spsoundi)) np_cs_eq_0 = np_cs_eq_0 + 1
           endif
           vsigi = spsoundi
           ! entropy
@@ -315,7 +330,7 @@ subroutine compute_energies(t)
           ! min and mean stopping time
           if (use_dustfrac) then
              rhogasi = rhoi*gasfrac
-             do j = 1,ndusttypes
+             do j=1,ndustsmall
                 call get_ts(idrag,grainsize(j),graindens(j),rhogasi,rhoi*dustfracisum,spsoundi,0.,tsi(j),iregime)
                 call ev_data_update(ev_data_thread,iev_ts,tsi(j))
              enddo
@@ -532,6 +547,9 @@ subroutine compute_energies(t)
  else
     dnpgas = 0.
  endif
+ !--Number of gas particles without a sound speed or energy
+ np_cs_eq_0 = reduce_fn('+',np_cs_eq_0)
+ np_e_eq_0  = reduce_fn('+',np_e_eq_0)
  !--Finalise the arrays & correct as necessary;
  !  Almost all of the average quantities are over gas particles only
  call finalise_ev_data(ev_data,dnpgas)
@@ -576,6 +594,9 @@ subroutine compute_energies(t)
  ev_data(iev_sum,iev_com(1)) = xcom
  ev_data(iev_sum,iev_com(2)) = ycom
  ev_data(iev_sum,iev_com(3)) = zcom
+ do i=1,ndusttypes
+    ev_data(iev_sum,iev_dm(i)) = mdust(i)
+ enddo
  xyzcom(1) = xcom
  xyzcom(2) = ycom
  xyzcom(3) = zcom

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: analysis
@@ -296,6 +296,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     enddo
  endif
 
+ !Deallocating array
+ deallocate(z)
+ deallocate(indexz)
+
 end subroutine do_analysis
 
 !----------------------------------------------------------------
@@ -356,7 +360,7 @@ subroutine read_discparams2(filename,R_in,R_out,H_R,p_index,q_index,M_star,Sig0,
  if (ierr /= 0) return
  call read_inopt(M_star,'M_star',db,ierr)
  if (ierr /= 0) return
- call read_inopt(Sig0,'sig_in',db,ierr)
+ call read_inopt(Sig0,'sig_ref',db,ierr)
  if (ierr /= 0) return
 
 

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testlum
@@ -31,13 +31,13 @@ module testlum
 contains
 
 subroutine test_lum(ntests,npass)
- use dim,      only:maxp,periodic,lightcurve,maxalpha
+ use dim,      only:periodic,lightcurve
  use io,       only:id,master
 #ifdef LIGHTCURVE
  use io,       only:iverbose
  use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,&
                     igas,divcurlv,iphase,isetphase,maxphase,mhd,dustprop,ddustprop,&
-                    Bevol,dBevol,dustfrac,ddustfrac,temperature,divcurlB
+                    Bevol,dBevol,dustfrac,ddustevol,temperature,divcurlB
  use eos,             only:gamma,polyk
  use testutils,       only:checkval,checkvalf
  use energies,        only:compute_energies,ekin,etherm,totlum !etot,eacc,accretedmass
@@ -45,6 +45,7 @@ subroutine test_lum(ntests,npass)
  use deriv,           only:derivs
  use timing,          only:getused
 #ifndef DISC_VISCOSITY
+ use dim,             only:maxp
  use part,            only:alphaind,maxalpha
  use options,         only:alphau,alphaB
  use viscosity,       only:irealvisc,shearfunc,dt_viscosity,shearparam
@@ -162,7 +163,7 @@ subroutine test_lum(ntests,npass)
        call getused(t1)
        fext = 0.
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
        call getused(t2)
 
        !print*,maxalpha,maxp,alphaind(1)
@@ -192,7 +193,7 @@ subroutine test_lum(ntests,npass)
 !-- Check with regular viscosity
  call getused(t1)
  call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustfrac,temperature,time,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
  call getused(t2)
  totlum_saved(2) = totlum
  diff = (totlum_saved(1) - totlum_saved(2))/totlum_saved(1)

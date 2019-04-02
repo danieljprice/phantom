@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: analysis
@@ -144,11 +144,11 @@ end function treturn
 !
 !-- General function to compute a histogram
 !
-subroutine hist(np,xarray,xhist,yhist,xmin,xmax,nbins)
+subroutine hist(np,xarray,xhist,yhist,xmin,xmax,n_bins)
  use sortutils, only:indexx
- integer, intent(in) :: np,nbins
+ integer, intent(in) :: np,n_bins
  real, intent(in)    :: xarray(np),xmin,xmax
- real, intent(out)   :: xhist(nbins),yhist(nbins)
+ real, intent(out)   :: xhist(n_bins),yhist(n_bins)
  integer :: indx(np),i,ibin,j
  real    :: dx,xright
 
@@ -156,7 +156,7 @@ subroutine hist(np,xarray,xhist,yhist,xmin,xmax,nbins)
  call indexx(np,xarray,indx)
 
 ! Spacing between bins
- dx = (xmax-xmin)/nbins
+ dx = (xmax-xmin)/n_bins
 
 ! Initialise x and y arrays of histogram arrays
  yhist  = 0.
@@ -180,11 +180,12 @@ subroutine hist(np,xarray,xhist,yhist,xmin,xmax,nbins)
        ibin    = ibin + 1              ! go to next bin
        xright  = xright  + dx          ! increase the upper bin upper value
     endif
+    if (ibin > n_bins) exit
  enddo
 
 ! Create the x axis array for the histogram, use the bin centre as the bin value
  xhist(1) = xmin+dx/2.
- do i=2,nbins
+ do i=2,n_bins
     xhist(i) = xhist(i-1) + dx
  enddo
 

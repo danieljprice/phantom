@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  PROGRAM: phantom2gadget
@@ -22,7 +22,7 @@
 !+
 !--------------------------------------------------------------------------
 program phantom2gadget
- use dim,             only:maxp,tagline
+ use dim,             only:maxp_hard,tagline
  use part,            only:hfact,massoftype,npart,xyzh,vxyzu,rhoh
  use eos,             only:polyk
  use io,              only:set_io_unit_numbers,iprint,idisk1
@@ -33,7 +33,7 @@ program phantom2gadget
  integer :: nargs
  character(len=120) :: dumpfilein,dumpfileout
  real :: time
- real :: rho(maxp)
+ real :: rho(maxp_hard)
  integer :: ierr,i
 
  call set_io_unit_numbers
@@ -67,4 +67,3 @@ program phantom2gadget
  print "(/,a,/)",' Phantom2gadget: Good luck with that.'
 
 end program phantom2gadget
-

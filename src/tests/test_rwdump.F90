@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testrwdump
@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, dump_utils, dust, eos, io, mpiutils, part,
-!    physcon, readwrite_dumps, testutils, timing, units
+!  DEPENDENCIES: boundary, dim, dump_utils, eos, io, memory, mpiutils,
+!    part, physcon, readwrite_dumps, testutils, timing, units
 !+
 !--------------------------------------------------------------------------
 module testrwdump
@@ -31,13 +31,15 @@ module testrwdump
 contains
 
 subroutine test_rwdump(ntests,npass)
- use part,      only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu, &
-                    Bevol,Bxyz,Bextx,Bexty,Bextz,alphaind,maxalpha,periodic, &
-                    maxphase,mhd,maxvxyzu,maxBevol,igas,idust,maxp,&
-                    poten,gravity,use_dust,dustfrac,xyzmh_ptmass,nptmass,&
-                    nsinkproperties,xyzh_label,xyzmh_ptmass_label,dustfrac_label,&
-                    vxyz_ptmass,vxyz_ptmass_label,vxyzu_label,set_particle_type,iphase
- use dim,             only:ndusttypes
+ use part,            only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,&
+                           Bevol,Bxyz,Bextx,Bexty,Bextz,alphaind,maxalpha,&
+                           periodic,maxphase,mhd,maxvxyzu,maxBevol,igas,idust,&
+                           maxp,poten,gravity,use_dust,dustfrac,xyzmh_ptmass,&
+                           nptmass,nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
+                           dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
+                           vxyzu_label,set_particle_type,iphase,ndusttypes
+ use dim,             only:maxp,maxdusttypes
+ use memory,          only:allocate_memory,deallocate_memory
  use testutils,       only:checkval
  use io,              only:idisk1,id,master,iprint,nprocs
  use readwrite_dumps, only:read_dump,write_fulldump,write_smalldump,read_smalldump,is_small_dump
@@ -48,12 +50,9 @@ subroutine test_rwdump(ntests,npass)
  use mpiutils,        only:barrier_mpi
  use dump_utils,      only:read_array_from_file
  use timing,          only:getused,printused
- use dust,            only:set_grainsize
- real :: smincgs                  = 1.e-5
- real :: smaxcgs                  = 0.1
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(64)
- integer :: i,j,ierr,itest,ngas,ndust,ntot
+ integer :: i,j,ierr,itest,ngas,ndust,ntot,maxp_old,iu
  real    :: tfile,hfactfile,time,tol,toldp
  real    :: alphawas,Bextxwas,Bextywas,Bextzwas,polykwas
  real    :: xminwas,xmaxwas,yminwas,ymaxwas,zminwas,zmaxwas
@@ -62,6 +61,9 @@ subroutine test_rwdump(ntests,npass)
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING READ/WRITE from dump file'
  test_speed = .false.
+
+ ! This test will reallocate memory, so reset at the end
+ maxp_old = maxp
 
  over_tests: do itest = 1,2
 
@@ -74,8 +76,8 @@ subroutine test_rwdump(ntests,npass)
     ndust = 10
     ngas  = ntot-ndust
     npartoftype(:) = 0
-    npartoftype(1) = ngas
-    npartoftype(2) = ndust
+    npartoftype(igas) = ngas
+    npartoftype(idust) = ndust
     do i=1,npart
        if (i <= npartoftype(1)) then
           call set_particle_type(i,igas)
@@ -89,6 +91,7 @@ subroutine test_rwdump(ntests,npass)
     gamma = 1.3
     polyk = 2.2
     alphawas = real(0.23_4)
+    iu = 4
     do i=1,npart
        xyzh(1,i) = 1.
        xyzh(2,i) = 2.
@@ -97,7 +100,7 @@ subroutine test_rwdump(ntests,npass)
        vxyzu(1,i) = 5.
        vxyzu(2,i) = 6.
        vxyzu(3,i) = 7.
-       if (maxvxyzu >= 4) vxyzu(4,i) = 8.
+       if (maxvxyzu >= 4) vxyzu(iu,i) = 8.
        if (maxalpha==maxp) then
           alphaind(1,i) = real(alphawas,kind=kind(alphaind)) ! 0->1
        endif
@@ -111,8 +114,8 @@ subroutine test_rwdump(ntests,npass)
           poten(i) = 15._4
        endif
        if (use_dust) then
+          ndusttypes = maxdusttypes
           dustfrac(:,i) = 16._4
-          if (ndusttypes>1) call set_grainsize(smincgs,smaxcgs)
        endif
     enddo
     nptmass = 10
@@ -190,6 +193,7 @@ subroutine test_rwdump(ntests,npass)
        if (id==master) write(*,"(/,a)") '--> checking read_dump'
        ntests = ntests + 1
        nfailed = 0
+       call deallocate_memory
        call read_dump('test.dump',tfile,hfactfile,idisk1,iprint,id,nprocs,ierr)
        call checkval(ierr,is_small_dump,0,nfailed(1),'read_dump returns is_small_dump error code')
        if (all(nfailed==0)) npass = npass + 1
@@ -198,6 +202,7 @@ subroutine test_rwdump(ntests,npass)
        call read_smalldump('test.dump',tfile,hfactfile,idisk1,iprint,id,nprocs,ierr)
        toldp = epsilon(0._4)
     else
+       call deallocate_memory
        call read_dump('test.dump',tfile,hfactfile,idisk1,iprint,id,nprocs,ierr)
        toldp = tiny(toldp)
     endif
@@ -267,7 +272,7 @@ subroutine test_rwdump(ntests,npass)
     endif
     if (maxphase==maxp) then
        call checkval(ngas,iphase,igas,0,nfailed(17),'particle type 1')
-       call checkval(ndust,iphase(npart-ndust+1:npart+ndust),idust,0,nfailed(18),'particle type 2')
+       call checkval(ndust,iphase(npart-ndust+1:npart),idust,0,nfailed(18),'particle type 2')
     endif
     ntests = ntests + 1
     if (all(nfailed==0)) npass = npass + 1
@@ -296,6 +301,7 @@ subroutine test_rwdump(ntests,npass)
     xyzmh_ptmass = 0.
     vxyz_ptmass = 0.
 
+#ifndef HDF5
 #ifndef MPI
     ! test read of a single array from the file
     if (itest==1) then
@@ -309,15 +315,21 @@ subroutine test_rwdump(ntests,npass)
        if (all(nfailed==0)) npass = npass + 1
     endif
 #endif
+#endif
 
     if (id==master) then
+#ifdef HDF5
+       open(unit=idisk1,file='test.dump.h5',status='old')
+#else
        open(unit=idisk1,file='test.dump',status='old')
+#endif
        close(unit=idisk1,status='delete')
     endif
-
  enddo over_tests
 
  if (id==master) write(*,"(/,a)") '<-- READ/WRITE TEST COMPLETE'
+ call deallocate_memory
+ call allocate_memory(maxp_old)
 
 end subroutine test_rwdump
 

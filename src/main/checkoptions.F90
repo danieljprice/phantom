@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: checkoptions
@@ -37,7 +37,7 @@ contains
 !-------------------------------------------------------------------
 subroutine check_compile_time_settings(ierr)
  use part,  only:mhd,maxBevol,gravity,ngradh,h2chemistry,maxvxyzu
- use dim,   only:use_dustgrowth
+ use dim,   only:use_dustgrowth,maxtypes
  use io,    only:error,id,master
  integer, intent(out) :: ierr
  character(len=16), parameter :: string = 'compile settings'
@@ -84,6 +84,12 @@ subroutine check_compile_time_settings(ierr)
        ierr = 3
     endif
  endif
+ if (maxtypes > 64) then
+    if (id==master) call error(string,'cannot use more than 64 particle types' // &
+       ' unless iphase is changed to int*2')
+    ierr = 4
+ endif
+
 
 #ifdef DISC_VISCOSITY
 #ifdef CONST_AV

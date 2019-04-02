@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: deriv
@@ -42,8 +42,8 @@ contains
 !+
 !-------------------------------------------------------------
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-                  dustfrac,ddustfrac,temperature,time,dt,dtnew)
- use dim,            only:maxp,maxvxyzu
+                  dustfrac,ddustevol,temperature,time,dt,dtnew)
+ use dim,            only:maxvxyzu
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
@@ -58,7 +58,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  use part,           only:massoftype
 #endif
 #ifdef DUSTGROWTH
- use growth,                only:get_growth_rate
+ use growth,         only:get_growth_rate
+ use part,           only:St,csound
 #endif
  use part,         only:mhd,gradh,alphaind,igas
  use timing,       only:get_timings
@@ -76,7 +77,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real,         intent(out)   :: dBevol(:,:)
  real,         intent(in)    :: dustfrac(:,:)
  real,         intent(inout) :: dustprop(:,:)
- real,         intent(out)   :: ddustfrac(:,:),ddustprop(:,:)
+ real,         intent(out)   :: ddustevol(:,:),ddustprop(:,:)
  real,         intent(inout) :: temperature(:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
@@ -136,13 +137,13 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 
  stressmax = 0.
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-            dustfrac,ddustfrac,ipart_rhomax,dt,stressmax,temperature)
+            dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature)
  call do_timing('force',tlast,tcpulast)
 #ifdef DUSTGROWTH
  !
  ! compute growth rate of dust particles with respect to their positions
  !
- call get_growth_rate(npart,xyzh,vxyzu,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
+ call get_growth_rate(npart,xyzh,vxyzu,csound,St,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
 #endif
 !
 ! set new timestep from Courant/forces condition
