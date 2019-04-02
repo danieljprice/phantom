@@ -248,12 +248,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 
  if (id==master) call write_header(1,infile,evfile,logfile,dumpfile)
 !
-!--initialise alpha's (after the infile has been read)
-!
- if (maxalpha==maxp) then
-    alphaind(:,:) = real4(alpha)
- endif
-!
 !--read particle setup from dumpfile
 !
  call read_dump(trim(dumpfile),time,hfactfile,idisk1,iprint,id,nprocs,ierr)
