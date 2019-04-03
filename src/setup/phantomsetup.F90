@@ -23,20 +23,18 @@
 !+
 !--------------------------------------------------------------------------
 program phantomsetup
- use memory,            only:allocate_memory,deallocate_memory
- use dim,             only:tagline,maxp,maxvxyzu,maxalpha,maxgrav,&
+ use memory,          only:allocate_memory,deallocate_memory
+ use dim,             only:tagline,maxp,maxvxyzu,&
                            ndivcurlv,ndivcurlB,maxp_hard
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
-                           Bevol,Bxyz,Bextx,Bexty,Bextz,rhoh,iphase,maxphase,&
-                           isetphase,igas,iamtype,labeltype,xyzmh_ptmass,&
-                           vxyz_ptmass,maxp_h2,iHI,abundance,mhd,alphaind,&
-                           divcurlv,divcurlB,poten,dustfrac,ndustsmall,ndustlarge
+                           Bxyz,Bextx,Bexty,Bextz,rhoh,iphase,maxphase,&
+                           isetphase,igas,iamtype,labeltype,mhd,init_part
  use setBfield,       only:set_Bfield
  use eos,             only:polyk,gamma,en_from_utherm
  use io,              only:set_io_unit_numbers,id,master,nprocs,iwritein,fatal,warning
  use readwrite_dumps, only:write_fulldump
  use readwrite_infile,only:write_infile,read_infile
- use options,         only:set_default_options,use_dustfrac
+ use options,         only:set_default_options
  use setup,           only:setpart
  use setup_params,    only:ihavesetupB,npart_total
  use checksetup,      only:check_setup
@@ -111,34 +109,7 @@ program phantomsetup
 !--setup particles
 !
  time = 0.
- npart = 0
- npartoftype(:) = 0
- massoftype(:)  = 0.
-!--initialise point mass arrays to zero
- xyzmh_ptmass = 0.
- vxyz_ptmass  = 0.
-
- ! initialise arrays not passed to setup routine to zero
- if (mhd) Bevol = 0.
- if (maxphase > 0) iphase = 0 ! phases not set
- if (maxalpha==maxp)  alphaind = 0.
- if (ndivcurlv > 0) divcurlv = 0.
- if (ndivcurlB > 0) divcurlB = 0.
- if (maxgrav > 0) poten = 0.
- if (use_dustfrac) dustfrac = 0.
- ndustsmall = 0
- ndustlarge = 0
-#ifdef LIGHTCURVE
- if (lightcurve) luminosity = 0.
-#endif
-!
-!--initialise chemistry arrays if this has been compiled
-!  (these may be altered by the specific setup routine)
-!
- if (maxp_h2==maxp) then
-    abundance(:,:)   = 0.
-    abundance(iHI,:) = 1.  ! assume all atomic hydrogen initially
- endif
+ call init_part
 
  if (use_mpi) then
     call init_mpi(id,nprocs)

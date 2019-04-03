@@ -58,6 +58,9 @@ fi
 htmlfile="$phantomdir/logs/build-status-$SYSTEM.html";
 faillog="$phantomdir/logs/build-failures-$SYSTEM.txt";
 faillogsetup="$phantomdir/logs/setup-failures-$SYSTEM.txt";
+#
+# delete old log files
+#
 if [ -e $htmlfile ]; then
    rm $htmlfile;
 fi

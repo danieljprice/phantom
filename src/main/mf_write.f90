@@ -435,7 +435,7 @@ subroutine read_discparams(filename,R_in,R_out,H_R,p_index,q_index,M_star,iunit,
  if (ierr /= 0) return
  call read_inopt(R_out,'R_out',db,ierr)
  if (ierr /= 0) return
- call read_inopt(H_R,'H_R',db,ierr)
+ call read_inopt(H_R,'H/R_ref',db,ierr)
  if (ierr /= 0) return
  call read_inopt(p_index,'p_index',db,ierr)
  if (ierr /= 0) return

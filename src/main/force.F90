@@ -185,10 +185,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #ifdef DUST
  !use dust,         only:get_ts
  use kernel,       only:wkern_drag,cnormk_drag
-#ifdef DUSTGROWTH
- use growth,       only:iinterpol
- use part,         only:St
-#endif
 #endif
  use nicil,        only:nimhd_get_jcbcb,nimhd_get_dt,nimhd_get_dBdt,nimhd_get_dudt
 #ifdef LIGHTCURVE
@@ -321,12 +317,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  nstokes       = 0
  nsuper        = 0
  ndustres      = 0
-#ifdef DUSTGROWTH
- if (iinterpol) then
-    St(:)         = 0.
-    dustprop(4,:) = 0.
- endif
-#endif
 
  ! sink particle creation
  ipart_rhomax  = 0
@@ -804,6 +794,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use eos,         only:get_spsound
 #ifdef DUSTGROWTH
  use growth,      only:iinterpol
+ use kernel,      only:wkern,cnormk
 #endif
 #endif
 #ifdef IND_TIMESTEPS
@@ -875,7 +866,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: projvstar,epstsj!,rhogas1i
  !real    :: Dav(maxdusttypes),vsigeps,depsdissterm(maxdusttypes)
 #ifdef DUSTGROWTH
- real    :: ri
+ real    :: ri,winter,sqdv2
 #endif
 #endif
  real    :: dBevolx,dBevoly,dBevolz,divBsymmterm,divBdiffterm
@@ -1219,7 +1210,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        dvz = vzi - vzj
 
        projv = dvx*runix + dvy*runiy + dvz*runiz
-
+#ifdef DUSTGROWTH
+       sqdv2 = sqrt(dvx*dvx + dvy*dvy + dvz*dz)
+#endif
        if (iamgasj .and. maxvxyzu >= 4) then
           enj   = vxyzu(4,j)
           tempj = 0.0
@@ -1730,10 +1723,15 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    call get_ts(idrag,grainsizei,graindensi,rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
 #ifdef DUSTGROWTH
                    if (usej .and. iinterpol) then
-                      fsum(idvi) = fsum(idvi) + 3.*pmassj/rhoj*projv*wdrag
+                      if (q2i < q2j) then
+                         winter = wkern(q2i,qi)*hi21*hi1*cnormk
+                      else
+                         winter = wkern(q2j,qj)*hi21*hi1*cnormk
+                      endif
+                      fsum(idvi) = fsum(idvi) + pmassj/rhoj*sqdv2*winter
                       ri         = sqrt(xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2)
-                      fsum(iSti) = fsum(iSti) + pmassj/rhoj*tsijtmp*wdrag/(ri**1.5)
-                      fsum(icsi) = fsum(icsi) + pmassj/rhoj*spsoundj*wdrag
+                      fsum(iSti) = fsum(iSti) + pmassj/rhoj*tsijtmp*winter/(ri**1.5)
+                      fsum(icsi) = fsum(icsi) + pmassj/rhoj*spsoundj*winter
                    endif
 #endif
                 else
@@ -2807,6 +2805,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           dustprop(4,i) = abs(fsum(idvi))
           St(i)         = fsum(iSti)
           csound(i)     = fsum(icsi)
+       else
+          dustprop(4,i) = 0.
        endif
 #endif
 

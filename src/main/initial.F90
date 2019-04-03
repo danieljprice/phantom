@@ -367,10 +367,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     ncount(:) = 0
     do i=1,npart
        itype = iamtype(iphase(i))
-       !-- Initialise dust properties to none for gas particles
-#ifdef DUSTGROWTH
-       if (itype==igas) dustprop(:,i) = 0.
-#endif
        if (itype < 1 .or. itype > maxtypes) then
           call fatal('initial','unknown value for itype from iphase array',i,var='iphase',ival=int(iphase(i)))
        else
@@ -674,7 +670,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  iposinit = index(dumpfile,'.init')
  ipostmp  = index(dumpfile,'.tmp')
  if (iposinit > 0 .or. ipostmp > 0) then
+#ifdef HDF5
+    dumpfileold = trim(dumpfile)//'.h5'
+#else
     dumpfileold = dumpfile
+#endif
     if (iposinit > 0) then
        dumpfile = trim(dumpfile(1:iposinit-1))
     else

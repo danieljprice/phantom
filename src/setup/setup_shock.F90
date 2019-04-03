@@ -24,9 +24,9 @@
 !    xleft  -- x min boundary
 !    xright -- x max boundary
 !
-!  DEPENDENCIES: boundary, dim, dust, infile_utils, io, kernel, mpiutils,
-!    nicil, options, part, physcon, prompting, set_dust, setup_params,
-!    timestep, unifdis
+!  DEPENDENCIES: boundary, dim, dust, eos, infile_utils, io, kernel,
+!    mpiutils, nicil, options, part, physcon, prompting, set_dust,
+!    setup_params, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -336,12 +336,14 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  use io,        only:fatal,id,master
  use dim,       only:mhd,maxvxyzu,use_dust
  use eos,       only:equationofstate,ieos
- use physcon,   only:pi
+ use physcon,   only:pi,Rg,au,solarm
  use options,   only:nfulldump,alpha,alphamax,alphaB,use_dustfrac
  use options,   only:alphau
  use timestep,  only:dtmax,tmax
  use prompting, only:prompt
  use dust,      only:K_code,idrag
+ use eos,       only:gmw
+ use units,     only:set_units,udist,utime,unit_density,unit_pressure
 #ifdef NONIDEALMHD
  use nicil,       only:use_ohm,use_hall,use_ambi,eta_constant,eta_const_type, &
                        C_OR,C_HE,C_AD,C_nimhd,icnstphys,icnstsemi,icnst
@@ -351,8 +353,8 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  logical, intent(in)    :: iexist
  integer, parameter     :: nshocks = 11
  character(len=30)      :: shocks(nshocks)
- integer                :: i, choice,dust_method
- real                   :: const !, dxright
+ integer                :: i,choice,dust_method
+ real                   :: const,uu,dens,pres,Tgas !, dxright
 #ifdef NONIDEALMHD
  real                   :: gamma_AD,rho_i_cnst
 #endif
@@ -396,7 +398,8 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  shocks(6) = 'Brio-Wu (Ryu 5a)'
  shocks(7) = 'C-shock'
  shocks(8) = 'Steady shock'
- shocks(9) = 'Relativistic Sod shock'
+ shocks(9) = 'Radiation shock'
+ shocks(10) = 'Relativistic Sod shock'
 
  do i = 1, nshocks
     if (trim(shocks(i)) /= 'none') write(*,"(a5,i2,1x,a30)") 'Case ', i, shocks(i)
@@ -411,7 +414,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
 #endif
 #endif
 #ifdef GR
- choice = 9
+ choice = 10
 #endif
  call prompt('Enter shock choice',choice,1,nshocks)
  icase = choice
@@ -516,11 +519,29 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     endif
     nx         = 512
     polyk      = 0.01
-    gamma      =  1.0
+    gamma      = 1.0
     leftstate  = (/1.7942,0.017942,-0.9759,-0.6561,0.,1.,1.74885,0./)
     rightstate = (/1.    ,0.01    ,-1.7510, 0.    ,0.,1.,0.6    ,0./)
     xleft      = -2.0
  case(9)
+    shocktype = 'Radiation shock'
+
+    call set_units(dist=au,mass=solarm,G=1.d0)
+    gamma = 5./3.
+    gmw   = 2.1
+    Tgas  = 1500.
+    uu    = Tgas*Rg/(gamma - 1.0)/gmw
+    dens  = 1.e-10
+    pres  = (gamma-1.)*uu*dens/unit_pressure
+    dens  = dens/unit_density
+    ! (/'dens','pr  ','vx  ','vy  ','vz  ','Bx  ','By  ','Bz  '/)
+    leftstate  = (/dens, pres,  3.2e5/(udist/utime), 0.,0.,0.,0.,0./)
+    rightstate = (/dens, pres, -3.2e5/(udist/utime), 0.,0.,0.,0.,0./)
+    xright     =  1e15/udist
+    xleft      = -1e15/udist
+    tmax       = 1e9/utime
+    dtmax      = 1e7/utime
+ case(10)
     !--Sod shock
     relativistic_choice = 1
     shocktype = "Mildly-Relativistic Sod shock"
