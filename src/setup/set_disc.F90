@@ -634,6 +634,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  use externalforces, only:iext_einsteinprec
  use options,        only:iexternalforce
  use part,           only:gravity
+ use dim,            only:gr
  integer, intent(in)    :: npart_tot,npart_start_count,itype
  real,    intent(in)    :: G,star_m,aspin,aspin_angle,clight,cs0,p_index,q_index
  real,    intent(in)    :: rad(:),enc_m(:),gamma,R_in
@@ -707,12 +708,12 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        det = term_bh**2 + 4.*(term + term_pr)
        Rg   = G*star_m/clight**2
        vkep = sqrt(G*star_m/R)
-#ifdef GR
-       ! Pure post-Newtonian velocity i.e. no pressure corrections
-       vphi = vkep**4/clight**3 * (sqrt(aspin**2 + (R/Rg)**3) - aspin) * cos(inclination)
-#else
-       vphi = 0.5*(term_bh + sqrt(det))
-#endif
+       if (gr) then
+          ! Pure post-Newtonian velocity i.e. no pressure corrections
+          vphi = vkep**4/clight**3 * (sqrt(aspin**2 + (R/Rg)**3) - aspin) * cos(inclination)
+       else
+          vphi = 0.5*(term_bh + sqrt(det))
+       endif
        !
        !--radial velocities (zero in general)
        !
