@@ -842,7 +842,10 @@ end subroutine
 ! Initialize Phantom and set default parameters
 !
 subroutine amuse_initialize_code()
+    use dim, only:maxp,maxp_hard
+    use memory, only:allocate_memory
     implicit none
+    call allocate_memory(maxp_hard)
     call code_init()
     call set_defaults()
 end subroutine
@@ -881,7 +884,7 @@ subroutine amuse_new_sph_particle(i, mass, x, y, z, vx, vy, vz, u, h)
 end subroutine
 
 subroutine amuse_new_dm_particle(i, mass, x, y, z, vx, vy, vz, radius)
-    use part, only:idarkmatter,npart,npartoftype,xyzh,vxyzu
+    use part, only:idarkmatter,npart,npartoftype,xyzh,vxyzu,massoftype
     use partinject, only:add_or_update_particle
     use units, only:umass,udist,utime
     implicit none
@@ -1232,7 +1235,7 @@ subroutine amuse_set_c_force(C_force_in)
 end subroutine
 
 subroutine amuse_set_tolv(tolv_in)
-    use options, only:tolv
+    use timestep, only:tolv
     implicit none
     double precision, intent(in) :: tolv_in
     tolv = tolv_in
@@ -1287,11 +1290,11 @@ subroutine amuse_set_avdecayconst(avdecayconst_in)
     avdecayconst = avdecayconst_in
 end subroutine
 
-subroutine amuse_set_damp(damp_in)
-    use options, only:damp
+subroutine amuse_set_idamp(idamp_in)
+    use options, only:idamp
     implicit none
-    integer, intent(in) :: damp_in
-    damp = damp_in
+    integer, intent(in) :: idamp_in
+    idamp = idamp_in
 end subroutine
 
 subroutine amuse_set_ieos(ieos_in)
@@ -1393,7 +1396,7 @@ subroutine amuse_get_c_force(C_force_out)
 end subroutine
 
 subroutine amuse_get_tolv(tolv_out)
-    use options, only:tolv
+    use timestep, only:tolv
     implicit none
     double precision, intent(out) :: tolv_out
     tolv_out = tolv
@@ -1448,11 +1451,11 @@ subroutine amuse_get_avdecayconst(avdecayconst_out)
     avdecayconst_out = avdecayconst
 end subroutine
 
-subroutine amuse_get_damp(damp_out)
-    use options, only:damp
+subroutine amuse_get_idamp(idamp_out)
+    use options, only:idamp
     implicit none
-    integer, intent(out) :: damp_out
-    damp_out = damp
+    integer, intent(out) :: idamp_out
+    idamp_out = idamp
 end subroutine
 
 subroutine amuse_get_ieos(ieos_out)
