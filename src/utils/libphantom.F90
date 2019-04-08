@@ -844,10 +844,13 @@ end subroutine
 subroutine amuse_initialize_code()
     use dim, only:maxp,maxp_hard
     use memory, only:allocate_memory
+    use physcon, only:pc,solarm
+    use units, only:set_units
     implicit none
     call allocate_memory(maxp_hard)
     call code_init()
     call set_defaults()
+    call set_units(dist=0.1d0*pc,mass=solarm,G=1.)
 end subroutine
 
 subroutine amuse_cleanup_code()
@@ -859,7 +862,6 @@ end subroutine
 subroutine amuse_new_sph_particle(i, mass, x, y, z, vx, vy, vz, u, h)
     use part, only:igas,npart,npartoftype,xyzh,vxyzu,massoftype
     use partinject, only:add_or_update_particle
-    use units, only:umass,udist,utime
     implicit none
     integer :: n, i, itype
     double precision :: mass, x, y, z, vx, vy, vz, u, h
@@ -867,26 +869,22 @@ subroutine amuse_new_sph_particle(i, mass, x, y, z, vx, vy, vz, u, h)
   
     itype = igas
     i = npart + 1
-    position(1) = x / udist
-    position(2) = y / udist
-    position(3) = z / udist
-    velocity(1) = vx / (udist/utime)
-    velocity(2) = vy / (udist/utime)
-    velocity(3) = vz / (udist/utime)
+    position(1) = x
+    position(2) = y
+    position(3) = z
+    velocity(1) = vx
+    velocity(2) = vy
+    velocity(3) = vz
     if (npartoftype(itype) == 0) then
-        !print *, "Setting mass"
-        massoftype(itype) = mass / umass
-    !else
-    !    print *, "Not setting mass"
+        massoftype(itype) = mass
     endif
-    call add_or_update_particle(itype,position,velocity,h/udist, &
-        u/(udist**2/utime**2),i,npart,npartoftype,xyzh,vxyzu)
+    call add_or_update_particle(itype,position,velocity,h, &
+        u,i,npart,npartoftype,xyzh,vxyzu)
 end subroutine
 
 subroutine amuse_new_dm_particle(i, mass, x, y, z, vx, vy, vz, radius)
     use part, only:idarkmatter,npart,npartoftype,xyzh,vxyzu,massoftype
     use partinject, only:add_or_update_particle
-    use units, only:umass,udist,utime
     implicit none
     integer :: n, i, itype
     double precision :: mass, x, y, z, vx, vy, vz, radius, u
@@ -895,40 +893,41 @@ subroutine amuse_new_dm_particle(i, mass, x, y, z, vx, vy, vz, radius)
     u=0
     itype = idarkmatter
     i = npart + 1
-    position(1) = x / udist
-    position(2) = y / udist
-    position(3) = z / udist
-    velocity(1) = vx / (udist/utime)
-    velocity(2) = vy / (udist/utime)
-    velocity(3) = vz / (udist/utime)
+    position(1) = x
+    position(2) = y
+    position(3) = z
+    velocity(1) = vx
+    velocity(2) = vy
+    velocity(3) = vz
     if (npartoftype(itype) == 0) then
-        !print *, "Setting mass"
-        massoftype(itype) = mass / umass
-    !else
-    !    print *, "Not setting mass"
+        massoftype(itype) = mass
     endif
 
-    call add_or_update_particle(itype,position,velocity,radius/udist, &
+    call add_or_update_particle(itype,position,velocity,radius, &
         u,i,npart,npartoftype,xyzh,vxyzu)
 end subroutine
 
 subroutine amuse_new_sink_particle(i, mass, x, y, z, vx, vy, vz, radius)
     use part, only:npart
     use partinject, only:add_or_update_sink
-    use units, only:umass,udist,utime
     implicit none
     integer :: i
     double precision :: mass, x, y, z, vx, vy, vz, radius
     double precision :: position(3), velocity(3)
   
     i = npart + 1
-    position(1) = x / udist
-    position(2) = y / udist
-    position(3) = z / udist
-    velocity(1) = vx / (udist/utime)
-    velocity(2) = vy / (udist/utime)
-    velocity(3) = vz / (udist/utime)
-    call add_or_update_sink(position,velocity,radius/udist,mass/umass,i)
+    position(1) = x
+    position(2) = y
+    position(3) = z
+    velocity(1) = vx
+    velocity(2) = vy
+    velocity(3) = vz
+    call add_or_update_sink(position,velocity,radius,mass,i)
+end subroutine
+
+subroutine amuse_delete_particle(i)
+    use part, only:kill_particle
+    call kill_particle(i)
 end subroutine
 
 subroutine amuse_get_potential_energy(epot_out)
@@ -954,10 +953,18 @@ end subroutine
 
 subroutine amuse_get_time_step(dt_out)
     use timestep, only:dt
-    use units, only:utime
     implicit none
     double precision, intent(out) :: dt_out
-    dt_out = dt * utime
+    dt_out = dt
+end subroutine
+
+subroutine amuse_get_number_of_sph_particles(n)
+    use part, only:npartoftype,igas
+    implicit none
+    integer, intent(out) :: n
+    logical :: nodisabled
+    nodisabled = .false.
+    n = npartoftype(igas)
 end subroutine
 
 subroutine amuse_get_number_of_particles(n)
@@ -972,26 +979,23 @@ end subroutine
 
 subroutine amuse_get_time(time_out)
     use timestep, only:time
-    use units, only:utime
     implicit none
     double precision, intent(out) :: time_out
-    time_out = dble(time*utime)
+    time_out = time
 end subroutine
 
 subroutine amuse_get_density(i, rho)
     use part, only:rhoh,iphase,massoftype,xyzh
-    use units, only:umass,udist
     implicit none
     integer :: i
     double precision :: pmassi
     double precision, intent(out) :: rho
     pmassi = massoftype(abs(iphase(i)))
-    rho = dble(rhoh(xyzh(4,i), pmassi)*umass/udist**3)
+    rho = rhoh(xyzh(4,i), pmassi)
 end subroutine
 
 subroutine amuse_get_pressure(i, p)
     use part, only:rhoh,iphase,massoftype,xyzh
-    use units, only:umass,udist
     use eos, only:ieos,equationofstate
     implicit none
     integer :: i, eos_type
@@ -999,8 +1003,7 @@ subroutine amuse_get_pressure(i, p)
     double precision, intent(out) :: p
     eos_type = ieos
     pmassi = massoftype(abs(iphase(i)))
-    rho = dble(rhoh(xyzh(4,i), pmassi)*umass/udist**3)
-    !p = 0
+    call amuse_get_density(i, rho)
     x = xyzh(1,i)
     y = xyzh(2,i)
     z = xyzh(3,i)
@@ -1010,12 +1013,11 @@ end subroutine
 
 subroutine amuse_get_mass(i, part_mass)
     use part, only:iphase,massoftype
-    use units, only:umass
     implicit none
     double precision, intent(out) :: part_mass
     integer :: i
     !TODO: Need something different for sinks ("ptmass")
-    part_mass = dble(massoftype(abs(iphase(i)))*umass)
+    part_mass = massoftype(abs(iphase(i)))
 end subroutine
 
 subroutine amuse_get_state_gas(i, mass, x, y, z, vx, vy, vz, u, h)
@@ -1041,33 +1043,30 @@ end subroutine
 
 subroutine amuse_get_position(i, x, y, z)
     use part, only:xyzh
-    use units, only:udist
     implicit none
     integer, intent(in) :: i
     double precision, intent(out) :: x, y, z
-    x = xyzh(1, i) * udist
-    y = xyzh(2, i) * udist
-    z = xyzh(3, i) * udist
+    x = xyzh(1, i)
+    y = xyzh(2, i)
+    z = xyzh(3, i)
 end subroutine
 
 subroutine amuse_get_velocity(i, vx, vy, vz)
     use part, only:vxyzu
-    use units, only:udist,utime
     implicit none
     integer, intent(in) :: i
     double precision, intent(out) :: vx, vy, vz
-    vx = vxyzu(1, i) * udist / utime
-    vy = vxyzu(2, i) * udist / utime
-    vz = vxyzu(3, i) * udist / utime
+    vx = vxyzu(1, i)
+    vy = vxyzu(2, i)
+    vz = vxyzu(3, i)
 end subroutine
 
 subroutine amuse_get_smoothing_length(i, h)
     use part, only:xyzh
-    use units, only:udist
     implicit none
     integer, intent(in) :: i
     double precision, intent(out) :: h
-    h = xyzh(4, i) * udist
+    h = xyzh(4, i)
 end subroutine
 
 subroutine amuse_get_radius(i, radius)
@@ -1079,45 +1078,40 @@ end subroutine
 
 subroutine amuse_get_internal_energy(i, u)
     use part, only:vxyzu
-    use units, only:udist,utime
     implicit none
     integer, intent(in) :: i
     double precision, intent(out) :: u
-    u = vxyzu(4, i) * udist**2 / utime**2
+    u = vxyzu(4, i)
 end subroutine
 
 subroutine amuse_get_dtmax(dtmax_out)
     use timestep, only:dtmax
-    use units, only:utime
     implicit none
     double precision, intent(out) :: dtmax_out
-    dtmax_out = dtmax * utime
+    dtmax_out = dtmax
 end subroutine
 
 subroutine amuse_set_time_step(dt_in)
     use timestep, only:dt
-    use units, only:utime
     implicit none
     double precision, intent(in) :: dt_in
-    dt = dt_in / utime
+    dt = dt_in
 end subroutine
 
 subroutine amuse_set_dtmax(dtmax_in)
     use timestep, only:dtmax
-    use units, only:utime
     implicit none
     double precision, intent(in) :: dtmax_in
-    dtmax = dtmax_in / utime
+    dtmax = dtmax_in
 end subroutine
 
 subroutine amuse_set_mass(i, part_mass)
     use part, only:iphase,massoftype
-    use units, only:umass
     implicit none
     double precision, intent(in) :: part_mass
     integer :: i
     ! Need to do something different for sinks ("ptmass")
-    massoftype(abs(iphase(i))) = part_mass / umass
+    massoftype(abs(iphase(i))) = part_mass
 end subroutine
 
 subroutine amuse_set_state_gas(i, mass, x, y, z, vx, vy, vz, u, h)
@@ -1143,33 +1137,30 @@ end subroutine
 
 subroutine amuse_set_position(i, x, y, z)
     use part, only:xyzh
-    use units, only:udist
     implicit none
     integer, intent(in) :: i
     double precision, intent(in) :: x, y, z
-    xyzh(1, i) = x / udist
-    xyzh(2, i) = y / udist
-    xyzh(3, i) = z / udist
+    xyzh(1, i) = x
+    xyzh(2, i) = y
+    xyzh(3, i) = z
 end subroutine
 
 subroutine amuse_set_velocity(i, vx, vy, vz)
     use part, only:vxyzu
-    use units, only:udist,utime
     implicit none
     integer, intent(in) :: i
     double precision, intent(in) :: vx, vy, vz
-    vxyzu(1, i) = vx / udist * utime
-    vxyzu(2, i) = vy / udist * utime
-    vxyzu(3, i) = vz / udist * utime
+    vxyzu(1, i) = vx
+    vxyzu(2, i) = vy
+    vxyzu(3, i) = vz
 end subroutine
 
 subroutine amuse_set_smoothing_length(i, h)
     use part, only:xyzh
-    use units, only:udist
     implicit none
     integer, intent(in) :: i
     double precision, intent(in) :: h
-    xyzh(4, i) = h / udist
+    xyzh(4, i) = h
 end subroutine
 
 subroutine amuse_set_radius(i, radius)
@@ -1181,39 +1172,44 @@ end subroutine
 
 subroutine amuse_set_internal_energy(i, u)
     use part, only:vxyzu
-    use units, only:udist,utime
     implicit none
     integer, intent(in) :: i
     double precision, intent(in) :: u
-    vxyzu(4, i) = u / udist**2 * utime**2
+    vxyzu(4, i) = u
 end subroutine
 
 subroutine amuse_evolve_model(tmax_in)
-    use timestep, only:tmax, time, dt, dtmax
+    use timestep, only:tmax, time, dt, dtmax, rhomaxnow
     use evolvesplit, only:init_step, finalize_step
-    use units, only:utime
+    use units, only:utime, udist, umass
+    use options, only:rhofinal1
     implicit none
     double precision, intent(in) :: tmax_in
+    logical :: maximum_density_reached
     integer :: len_infile
     character(len=120) :: infile, logfile, evfile, dumpfile
+    integer :: steps_this_loop
+
+    steps_this_loop = 0
   
     infile = '/dev/null'
     logfile = '/dev/null'
     evfile = '/dev/null'
     dumpfile = '/dev/null'
     
-    ! if (nsteps == 0) then
-    !     call init(len_infile, infile, logfile, evfile, dumpfile, tmax, dtmax)
-    ! endif
-  
-    tmax = tmax_in / utime
+    tmax = tmax_in
     
-    timestepping: do while ((time < tmax))
+    timestepping: do while ( &
+        (time < tmax) .and. &
+        ((rhomaxnow*rhofinal1 < 1.0) .or. (steps_this_loop < 1)) &
+    )
         call init_step()
         call calculate_timestep()
         call step_wrapper()
         call finalize_step(infile, logfile, evfile, dumpfile)
+        steps_this_loop = steps_this_loop + 1
     enddo timestepping
+
 end subroutine
 
 
@@ -1311,11 +1307,25 @@ subroutine amuse_set_mu(mu_in)
     gmw = mu_in
 end subroutine
 
-subroutine amuse_set_rho_crit_cgs(rho_crit_cgs_in)
-    use ptmass, only:rho_crit_cgs
+subroutine amuse_set_rhofinal(rhofinal_in)
+    use options, only:rhofinal_cgs, rhofinal1
+    use units, only:unit_density
     implicit none
-    double precision, intent(in) :: rho_crit_cgs_in
-    rho_crit_cgs = rho_crit_cgs_in
+    double precision, intent(in) :: rhofinal_in
+    rhofinal_cgs = rhofinal_in * unit_density
+    if (rhofinal_cgs > 0.) then
+        rhofinal1 = unit_density/rhofinal_cgs
+    else
+        rhofinal1 = 0.0
+    endif
+end subroutine
+
+subroutine amuse_set_rho_crit(rho_crit_in)
+    use ptmass, only:rho_crit_cgs
+    use units, only:unit_density
+    implicit none
+    double precision, intent(in) :: rho_crit_in
+    rho_crit_cgs = rho_crit_in * unit_density
 end subroutine
 
 subroutine amuse_set_r_crit(r_crit_in)
@@ -1472,11 +1482,20 @@ subroutine amuse_get_mu(mu_out)
     mu_out = gmw
 end subroutine
 
-subroutine amuse_get_rho_crit_cgs(rho_crit_cgs_out)
-    use ptmass, only:rho_crit_cgs
+subroutine amuse_get_rhofinal(rhofinal_out)
+    use options, only:rhofinal_cgs
+    use units, only:unit_density
     implicit none
-    double precision, intent(out) :: rho_crit_cgs_out
-    rho_crit_cgs_out = rho_crit_cgs
+    double precision, intent(out) :: rhofinal_out
+    rhofinal_out = rhofinal_cgs / unit_density
+end subroutine
+
+subroutine amuse_get_rho_crit(rho_crit_out)
+    use ptmass, only:rho_crit_cgs
+    use units, only:unit_density
+    implicit none
+    double precision, intent(out) :: rho_crit_out
+    rho_crit_out = rho_crit_cgs / unit_density
 end subroutine
 
 subroutine amuse_get_r_crit(r_crit_out)
