@@ -1408,11 +1408,25 @@ subroutine amuse_set_gamma(gamma_in)
     gamma = gamma_in
 end subroutine
 
-subroutine amuse_set_units(udist_in, umass_in)
-    use units, only:set_units
+subroutine amuse_set_umass(umass_in)
+    use units, only:umass
     implicit none
-    double precision, intent(in) :: udist_in, umass_in
-    call set_units(dist=udist_in,mass=umass_in,G=1.)
+    double precision, intent(in) :: umass_in
+    umass = umass_in
+end subroutine
+
+subroutine amuse_set_udist(udist_in)
+    use units, only:udist
+    implicit none
+    double precision, intent(in) :: udist_in
+    udist = udist_in
+end subroutine
+
+subroutine amuse_set_utime(utime_in)
+    use units, only:utime
+    implicit none
+    double precision, intent(in) :: utime_in
+    utime = utime_in
 end subroutine
 
 ! End of Setters
@@ -1596,12 +1610,25 @@ subroutine amuse_get_gamma(gamma_out)
     gamma_out = gamma
 end subroutine
 
-subroutine amuse_get_units(udist_out, umass_out)
-    use units, only:udist,umass
+subroutine amuse_get_umass(umass_out)
+    use units, only:umass
     implicit none
-    double precision, intent(out) :: udist_out, umass_out
-    udist_out = udist
+    double precision, intent(out) :: umass_out
     umass_out = umass
+end subroutine
+
+subroutine amuse_get_utime(utime_out)
+    use units, only:utime
+    implicit none
+    double precision, intent(out) :: utime_out
+    utime_out = utime
+end subroutine
+
+subroutine amuse_get_udist(udist_out)
+    use units, only:udist
+    implicit none
+    double precision, intent(out) :: udist_out
+    udist_out = udist
 end subroutine
 
 ! End of Getters
