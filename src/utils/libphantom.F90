@@ -1077,11 +1077,17 @@ subroutine amuse_get_radius(i, radius)
 end subroutine
 
 subroutine amuse_get_internal_energy(i, u)
+    use dim, only:maxvxyzu
     use part, only:vxyzu
     implicit none
     integer, intent(in) :: i
     double precision, intent(out) :: u
-    u = vxyzu(4, i)
+
+    if (maxvxyzu >= 4) then
+        u = vxyzu(4, i)
+    else
+        u = 0
+    endif
 end subroutine
 
 subroutine amuse_get_dtmax(dtmax_out)
@@ -1171,11 +1177,14 @@ subroutine amuse_set_radius(i, radius)
 end subroutine
 
 subroutine amuse_set_internal_energy(i, u)
+    use dim, only:maxvxyzu
     use part, only:vxyzu
     implicit none
     integer, intent(in) :: i
     double precision, intent(in) :: u
-    vxyzu(4, i) = u
+    if (maxvxyzu >= 4) then
+        vxyzu(4, i) = u
+    endif
 end subroutine
 
 subroutine amuse_evolve_model(tmax_in)
@@ -1391,6 +1400,13 @@ subroutine amuse_set_bulkvisc(bulkvisc_in)
     bulkvisc = bulkvisc_in
 end subroutine
 
+subroutine amuse_set_gamma(gamma_in)
+    use eos, only:gamma
+    implicit none
+    double precision, intent(in) :: gamma_in
+    gamma = gamma_in
+end subroutine
+
 subroutine amuse_get_c_courant(C_cour_out)
     use timestep, only:C_cour
     implicit none
@@ -1559,4 +1575,11 @@ subroutine amuse_get_bulkvisc(bulkvisc_out)
     implicit none
     double precision, intent(out) :: bulkvisc_out
     bulkvisc_out = bulkvisc
+end subroutine
+
+subroutine amuse_get_gamma(gamma_out)
+    use eos, only:gamma
+    implicit none
+    double precision, intent(out) :: gamma_out
+    gamma_out = gamma
 end subroutine
