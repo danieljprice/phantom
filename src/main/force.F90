@@ -778,7 +778,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use kernel,      only:grkern,cnormk,radkern2
  use part,        only:igas,idust,iboundary,iohm,ihall,iambi,maxphase,iactive,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxBevol,maxdvdx
- use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,store_temperature
+ use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,store_temperature,use_krome
  use part,        only:rhoh,dvdx
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
 #ifdef GRAVITY
@@ -793,13 +793,15 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux
  use kernel,      only:wkern_drag,cnormk_drag
  use part,        only:dustprop,ndustsmall,grainsize,graindens
- use eos,         only:get_spsound
 #ifdef DUSTGROWTH
  use growth,      only:iinterpol
 #endif
 #endif
 #ifdef IND_TIMESTEPS
  use part,        only:ibin_old
+#endif
+#ifdef KROME
+ use part,        only:gamma_chem
 #endif
  use timestep,    only:bignumber
  use options,     only:overcleanfac,use_dustfrac
@@ -855,6 +857,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  logical, parameter :: add_contribution = .true.
 #endif
  real    :: phi,phii,phij,fgrav,fgravi,fgravj,termi
+#ifdef KROME
+ real    :: gammaj
+#endif
 #ifdef DUST
  integer :: iregime,idusttype,l
  real    :: dragterm,dragheating,wdrag,dv2,tsijtmp
@@ -1213,6 +1218,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           rhoj     = rhoh(hj,pmassj)
           rho1j    = 1./rhoj
           rho21j   = rho1j*rho1j
+          if (use_krome) then
+             gammaj = gamma_chem(j)
+          endif
           if (maxdvdx==maxp) dvdxj(:) = dvdx(:,j)
 
           if (iamgasj) then
@@ -1242,10 +1250,17 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              !
              !--calculate j terms (which were precalculated outside loop for i)
              !
-             call get_P(rhoj,rho1j,xj,yj,zj,pmassj,enj,tempj,Bxj,Byj,Bzj,dustfracj, &
-                        ponrhoj,pro2j,prj,spsoundj,vwavej, &
-                        sxxj,sxyj,sxzj,syyj,syzj,szzj,visctermisoj,visctermanisoj, &
-                        realviscosity,divvj,bulkvisc,dvdxj,stressmax)
+             if (use_krome) then
+                call get_P(rhoj,rho1j,xj,yj,zj,pmassj,enj,tempj,Bxj,Byj,Bzj,dustfracj, &
+                           ponrhoj,pro2j,prj,spsoundj,vwavej, &
+                           sxxj,sxyj,sxzj,syyj,syzj,szzj,visctermisoj,visctermanisoj, &
+                           realviscosity,divvj,bulkvisc,dvdxj,stressmax,gammaj)
+             else
+                call get_P(rhoj,rho1j,xj,yj,zj,pmassj,enj,tempj,Bxj,Byj,Bzj,dustfracj, &
+                           ponrhoj,pro2j,prj,spsoundj,vwavej, &
+                           sxxj,sxyj,sxzj,syyj,syzj,szzj,visctermisoj,visctermanisoj, &
+                           realviscosity,divvj,bulkvisc,dvdxj,stressmax)
+             endif
 
              if (store_temperature) then
                 vxyzu(4,j)     = enj
@@ -1651,10 +1666,7 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi,pmassi,eni,tempi,Bxi,Byi,Bzi,dustfraci, &
                  realviscosity,divvi,bulkvisc,dvdx,stressmax, &
                  gammai)
 
- use dim,       only:maxvxyzu,maxdvdx,maxp,store_temperature
-#ifdef KROME 
- use dim,       only:use_krome
-#endif
+ use dim,       only:maxvxyzu,maxdvdx,maxp,store_temperature,use_krome
  use part,      only:mhd,strain_from_dvdx
  use eos,       only:equationofstate
  use options,   only:ieos
@@ -1680,12 +1692,10 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi,pmassi,eni,tempi,Bxi,Byi,Bzi,dustfraci, &
  gasfrac = (1. - sum(dustfraci))  ! rhogas/rho
  rhogasi = rhoi*gasfrac       ! rhogas = (1-eps)*rho
  if (maxvxyzu >= 4) then
-    if (store_temperature) then
-       call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi,eni,tempi)
-#ifdef KROME
-    else if (use_krome) then
+    if (use_krome) then
        call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi,eni=eni,gamma_local=gammai)
-#endif
+    else if (store_temperature) then
+       call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi,eni,tempi)
     else
        call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi,eni)
     endif
@@ -1806,7 +1816,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use io,        only:fatal
  use options,   only:alpha,use_dustfrac
  use dim,       only:maxp,ndivcurlv,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
-                use_dustgrowth,store_temperature
+                use_dustgrowth,store_temperature,use_krome
  use part,      only:iamgas,maxphase,iboundary,rhoanddhdrho,igas,massoftype,get_partinfo,&
                      iohm,ihall,iambi,ndustsmall
  use viscosity, only:irealvisc,bulkvisc
@@ -1882,9 +1892,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
 
     pmassi = massoftype(iamtypei)
     hi = xyzh(4,i)
-#ifdef KROME
-    gammai = gamma_chem(1,i)
-#endif
+    if (use_krome) then
+       gammai = gamma_chem(i)
+    endif
     if (hi < 0.) call fatal('force','negative smoothing length',i,var='h',val=hi)
 
     !
@@ -1934,28 +1944,28 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        !
        ! calculate terms required in the force evaluation
        !
-#ifdef KROME
-       call get_P(rhoi,rho1i, &
-                  xyzh(1,i),xyzh(2,i),xyzh(3,i), &
-                  pmassi, &
-                  eni, tempi, &
-                  Bxi,Byi,Bzi, &
-                  dustfraci(:), &
-                  ponrhoi,pro2i,pri,spsoundi, &
-                  vwavei,sxxi,sxyi,sxzi,syyi,syzi,szzi, &
-                  visctermiso,visctermaniso,realviscosity,divcurlvi(1),bulkvisc,dvdxi,stressmax, &
-                  gammai)
-#else
-       call get_P(rhoi,rho1i, &
-                  xyzh(1,i),xyzh(2,i),xyzh(3,i), &
-                  pmassi, &
-                  eni, tempi, &
-                  Bxi,Byi,Bzi, &
-                  dustfraci(:), &
-                  ponrhoi,pro2i,pri,spsoundi, &
-                  vwavei,sxxi,sxyi,sxzi,syyi,syzi,szzi, &
-                  visctermiso,visctermaniso,realviscosity,divcurlvi(1),bulkvisc,dvdxi,stressmax)
-#endif
+       if (use_krome) then
+          call get_P(rhoi,rho1i, &
+                     xyzh(1,i),xyzh(2,i),xyzh(3,i), &
+                     pmassi, &
+                     eni, tempi, &
+                     Bxi,Byi,Bzi, &
+                     dustfraci(:), &
+                     ponrhoi,pro2i,pri,spsoundi, &
+                     vwavei,sxxi,sxyi,sxzi,syyi,syzi,szzi, &
+                     visctermiso,visctermaniso,realviscosity,divcurlvi(1),bulkvisc,dvdxi,stressmax, &
+                     gammai)
+       else
+          call get_P(rhoi,rho1i, &
+                     xyzh(1,i),xyzh(2,i),xyzh(3,i), &
+                     pmassi, &
+                     eni, tempi, &
+                     Bxi,Byi,Bzi, &
+                     dustfraci(:), &
+                     ponrhoi,pro2i,pri,spsoundi, &
+                     vwavei,sxxi,sxyi,sxzi,syyi,syzi,szzi, &
+                     visctermiso,visctermaniso,realviscosity,divcurlvi(1),bulkvisc,dvdxi,stressmax)
+       endif
 #ifdef DUST
        !
        ! get stopping time - for one fluid dust we don't know deltav, but as small by definition we assume=0
@@ -2227,7 +2237,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
- use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth
+ use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,use_krome
  use eos,            only:use_entropy,gamma
  use options,        only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating,use_dustfrac
  use part,           only:h2chemistry,rhoanddhdrho,abundance,iboundary,igas,maxphase,maxvxyzu,nabundances, &
@@ -2252,6 +2262,12 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef DUSTGROWTH
  use part,           only:dustprop,St,csound
  use growth,         only:iinterpol
+#endif
+#ifdef KROME
+ use krome_user
+ use part,           only:gamma_chem,species_abund,krometemperature, &
+                          kromecool
+ use units,          only:unit_density,unit_ergg
 #endif
 
  integer,            intent(in)    :: icall
@@ -2469,11 +2485,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           fxyz4 = 0.
           if (use_entropy) then
              if (ishock_heating > 0) then
-#ifdef KROME
-                fxyz4 = fxyz4 + (gamma - 1.)*rhoi**(1.-gamma)*fsum(idudtdissi)
-#else
-                fxyz4 = fxyz4 + (gamma - 1.)*rhoi**(1.-gamma)*fsum(idudtdissi)
-#endif
+                if (use_krome) then
+                   fxyz4 = fxyz4 + (gamma_chem(i) - 1.)*rhoi**(1.-gamma_chem(i))*fsum(idudtdissi)
+                else
+                   fxyz4 = fxyz4 + (gamma - 1.)*rhoi**(1.-gamma)*fsum(idudtdissi)
+                endif
              endif
           else
              fac = rhoi/rhogasi
@@ -2520,6 +2536,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              if (use_dustfrac) then
                 !fxyz4 = fxyz4 + 0.5*fac*rho1i*fsum(idudtdusti)
                 fxyz4 = fxyz4 + 0.5*fac*rho1i*sum(fsum(idudtdusti:idudtdustiend))
+             endif
+             if (use_krome) then
+                if (dt .ne. 0.0) then
+!                  kromecool(i) has units erg/s/cm^3. This needs to be converted to code units
+!                  and divided by density to obtain phantom's du/dt in erg/s/g.                   
+                   fxyz4 = fxyz4 - (kromecool(i)*unit_ergg/unit_density)/rhoi
+                endif
              endif
           endif
           if (maxvxyzu >= 4) fxyzu(4,i) = fxyz4

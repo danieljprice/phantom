@@ -118,7 +118,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes,use_krome
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -284,15 +284,15 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--set initial chemical abundance values
 !
-#ifdef KROME
-call initialise_krome()
+if (use_krome) then
+   call initialise_krome()
 
-species_abund(krome_idx_He,:) = He_init
-species_abund(krome_idx_C,:)  = C_init
-species_abund(krome_idx_N,:)  = N_init
-species_abund(krome_idx_O,:)  = O_init
-species_abund(krome_idx_H,:)  = H_init
-#endif
+   species_abund(krome_idx_He,:) = He_init
+   species_abund(krome_idx_C,:)  = C_init
+   species_abund(krome_idx_N,:)  = N_init
+   species_abund(krome_idx_O,:)  = O_init
+   species_abund(krome_idx_H,:)  = H_init
+endif
 
 !
 !--initialise values for non-ideal MHD

@@ -1301,7 +1301,6 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
 #else
     ignoreself = .true.
 #endif
-
     call get_density_sums(lli,cell%xpartvec(:,i),hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
                           listneigh,nneigh,nneighi,dxcache,xyzcache,cell%rhosums(:,i),&
                           .true.,.false.,getdv,getdB,realviscosity,&
@@ -1567,7 +1566,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                        store_temperature,temperature,maxgradh,idust
  use io,          only:fatal,real4
  use eos,         only:get_temperature,get_spsound
- use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,mhd_nonideal,use_dust
+ use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,mhd_nonideal,use_dust,use_krome
  use options,     only:ieos,alpha,alphamax,use_dustfrac
  use viscosity,   only:bulkvisc,shearparam
  use nicil,       only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
@@ -1584,10 +1583,10 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 #ifdef KROME
  use krome_main
  use krome_user
- use part,       only: species_abund, mu_chem, gamma_chem
+ use part,       only: species_abund,mu_chem,gamma_chem,krometemperature, &
+                       kromecool
  use units,      only: unit_density, utime
- use physcon,    only: au
- use eos,        only: get_temperature_loc, get_local_u_internal
+ use eos,        only: get_temperature_loc
 #endif
 
  integer,         intent(in)    :: icall
@@ -1719,7 +1718,9 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
           vxyzui(3) = cell%xpartvec(ivzi,i)
           vxyzui(4) = cell%xpartvec(ieni,i)
 
-          if (store_temperature) then
+          if (use_krome) then
+             spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:),gamma_locali=gamma_chem(lli))
+          else if (store_temperature) then
              spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:),temperature(lli))
           else
              spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:))
@@ -1789,30 +1790,28 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        if (realviscosity) call get_max_stress(dvdxi,divcurlvi(1),rho1i,stressmax,shearparam,bulkvisc)
        ! store strain tensor
        dvdx(:,lli) = real(dvdxi(:),kind=kind(dvdx))
-    endif
-
+    endif    
 #ifdef IND_TIMESTEPS
     dt = dtmax/2**ibin(lli)
-#endif        
-#ifdef KROME
-    rho_cgs = rhoi*unit_density
-    dt_cgs = dt*utime 
-    temperaturei = get_temperature_loc(ieos,cell%xpartvec(ixi:izi,i),real(rhoi), &
-                                         mu_chem(1,lli),vxyzui(:),gamma_chem(1,lli))
-    
-    if (dt .ne. 0.0) then
-      call krome(species_abund(:,lli),real(rho_cgs),real(temperaturei),real(dt_cgs))
+#endif    
+    if (use_krome) then
+       rho_cgs = rhoi*unit_density
+       dt_cgs = dt*utime 
+       if (dt .ne. 0.0) then
+          temperaturei = get_temperature_loc(ieos,cell%xpartvec(ixi:izi,i),real(rhoi), &
+                                            mu_chem(lli),vxyzui(4),gamma_chem(lli))
+!         Here we calculate the cooling contribution due to krome called by force.F90
+          kromecool(i) = krome_get_cooling(krome_x2n(species_abund(:,lli),rho_cgs),temperaturei)
+!         Here we evolve the chemistry and update the abundances          
+          call krome(species_abund(:,lli),real(rho_cgs),real(temperaturei),real(dt_cgs))
+!         Here we update the gas temperature array for the dumpfiles
+          krometemperature(lli) = temperaturei
+!         Here we update the particle's mean molecular weight
+          mu_chem(lli) =  krome_get_mu(krome_x2n(species_abund(:,lli),rho_cgs))
+!         Here we update the particle's adiabatic index
+          gamma_chem(lli) = krome_get_gamma_x(species_abund(:,lli),temperaturei)
+       endif      
     endif
-    
-    
-!   Here we update the particle's mean molecular weight
-    mu_chem(1,lli) =  krome_get_mu(krome_x2n(species_abund(:,lli),rho_cgs))
-!   Here we update the particle's adiabatic index
-    gamma_chem(1,lli) = krome_get_gamma_x(species_abund(:,lli),temperaturei)  
-!   Here we update the particle's internal energy
-    vxyzui(4) = get_local_u_internal(gamma_chem(1,lli),mu_chem(1,lli),temperaturei)
-
-#endif
 
     ! stats
     nneightry = nneightry + cell%nneightry

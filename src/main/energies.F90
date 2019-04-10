@@ -64,7 +64,7 @@ contains
 subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
                           lightcurve,use_dust,use_CMacIonize,store_temperature,&
-                          maxdusttypes
+                          maxdusttypes,use_krome
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           npartoftype,alphaind,Bxyz,Bevol,divcurlB,iamtype,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
@@ -87,7 +87,6 @@ subroutine compute_energies(t)
  use part,           only:luminosity
 #endif
 #ifdef KROME
- use dim,  only: use_krome
  use part, only: gamma_chem
 #endif
 #ifdef DUST
@@ -164,7 +163,7 @@ subroutine compute_energies(t)
 !$omp shared(iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah) &
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat,iev_ionise) &
-!$omp shared(temperature,grainsize,graindens,ndustsmall) &
+!$omp shared(temperature,grainsize,graindens,ndustsmall,gamma_chem) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
@@ -308,13 +307,11 @@ subroutine compute_energies(t)
           ! thermal energy
           if (maxvxyzu >= 4) then
              etherm = etherm + pmassi*utherm(vxyzu(iu,i),rhoi)*gasfrac
-             if (store_temperature) then
-                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(iu,i),temperature(i))
-#ifdef KROME
-             else if (use_krome) then
+             if (use_krome) then
                 call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=vxyzu(iu,i),&
-                                     gamma_local=gamma_chem(1,i))
-#endif
+                                     gamma_local=gamma_chem(i))
+             else if (store_temperature) then
+                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(iu,i),temperature(i))
              else
                 call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(iu,i))
              endif
@@ -333,11 +330,12 @@ subroutine compute_energies(t)
           endif
           vsigi = spsoundi
           ! entropy
-#ifdef KROME
-          call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma_chem(1,i)))
-#else
-          call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma))
-#endif
+          
+          if (use_krome) then
+             call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma_chem(i)))
+          else
+             call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma))
+          endif
 
 #ifdef DUST
           ! min and mean stopping time

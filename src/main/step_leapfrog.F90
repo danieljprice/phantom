@@ -82,7 +82,8 @@ end subroutine init_step
 !+
 !------------------------------------------------------------
 subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
- use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,use_dustgrowth
+ use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry, &
+                          use_dustgrowth,use_krome
  use io,             only:iprint,fatal,iverbose,id,master,warning
  use options,        only:idamp,iexternalforce,icooling,use_dustfrac
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
@@ -106,7 +107,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:ibin,ibin_old,twas,iactive
 #endif
 #ifdef DUSTGROWTH
- use growth,                only:check_dustprop
+ use growth,         only:check_dustprop
+#endif
+#ifdef KROME
+ use part,           only: gamma_chem
 #endif
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -220,7 +224,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
 !$omp shared(alphaind,ieos,alphamax,ndustsmall,ialphaloc) &
-!$omp shared(temperature) &
+!$omp shared(temperature,gamma_chem) &
 #ifdef IND_TIMESTEPS
 !$omp shared(twas,timei) &
 #endif
@@ -283,7 +287,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (maxalpha==maxp) then
           hi   = xyzh(4,i)
           rhoi = rhoh(hi,pmassi)
-          if (store_temperature) then
+          if (use_krome) then
+             spsoundi = get_spsound(ieos,xyzh(:,i),rhoi,vpred(:,i),gamma_locali=gamma_chem(i))
+          else if (store_temperature) then
              spsoundi = get_spsound(ieos,xyzh(:,i),rhoi,vpred(:,i),temperature(i))
           else
              spsoundi = get_spsound(ieos,xyzh(:,i),rhoi,vpred(:,i))
@@ -307,6 +313,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
     endif
  enddo predict_sph
+ 
  !$omp end parallel do
 !
 ! recalculate all SPH forces, and new timestep

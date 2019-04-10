@@ -36,9 +36,9 @@ contains
 !
 !-------------------------------------------------------------------
 subroutine check_compile_time_settings(ierr)
- use part,  only:mhd,maxBevol,gravity,ngradh,h2chemistry,maxvxyzu
- use dim,   only:use_dustgrowth,maxtypes
- use io,    only:error,id,master
+ use part,     only:mhd,maxBevol,gravity,ngradh,h2chemistry,maxvxyzu
+ use dim,      only:use_dustgrowth,maxtypes
+ use io,       only:error,id,master
  integer, intent(out) :: ierr
  character(len=16), parameter :: string = 'compile settings'
 

@@ -67,9 +67,7 @@ module eos
 
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm
  public  :: get_spsound,get_temperature,get_temperature_from_ponrho
-#ifdef KROME
  public  :: get_temperature_loc, get_local_u_internal
-#endif
  public  :: gamma_pwp
  public  :: init_eos, finish_eos, write_options_eos, read_options_eos
  public  :: print_eos_to_file
@@ -114,11 +112,7 @@ contains
 !  (and position in the case of the isothermal disc)
 !+
 !----------------------------------------------------------------
-#ifdef KROME
 subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gamma_local)
-#else
-subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
-#endif
  use io,    only:fatal,error,warning
  use part,  only:xyzmh_ptmass
  use units,   only:unit_density,unit_pressure,unit_ergg
@@ -130,9 +124,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
  real,    intent(out) :: ponrhoi,spsoundi
  real,    intent(inout), optional :: eni
  real,    intent(inout), optional :: tempi
-#ifdef KROME
  real,    intent(in)   , optional :: gamma_local
-#endif
  real :: r,omega,bigH,polyk_new,r1,r2
  real :: gammai
  real :: cgsrhoi, cgseni, cgspgas, pgas, gam1
@@ -299,7 +291,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
 !    
 !--variable gamma
 !
-#ifdef KROME
   case(16)
   
     if (present(gamma_local)) then
@@ -309,7 +300,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
        call fatal('eos','using KROME to calculate local gamma but variable '&
                         'not passed in equationofstate() function')
     endif
-#endif
+
     
  case default
     spsoundi = 0. ! avoids compiler warnings
@@ -382,19 +373,18 @@ end function get_temperature
 !+
 !  query function to return the temperature
 !  for calculations with a local mean molecular
-!  weight
+!  weight and local adiabatic index
 !+
 !-----------------------------------------------------------------------
-#ifdef KROME
-real function get_temperature_loc(eos_type,xyzi,rhoi,gmwi,vxyzui,gamma_locali)
+real function get_temperature_loc(eos_type,xyzi,rhoi,gmwi,intenerg,gamma_locali)
  use dim, only:maxvxyzu
  integer,      intent(in)    :: eos_type
  real,         intent(in)    :: xyzi(:),rhoi,gmwi,gamma_locali
- real,         intent(inout) :: vxyzui(:)
+ real,         intent(inout) :: intenerg
  real :: spsoundi,ponrhoi
  
  if (maxvxyzu==4) then
-    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),eni=vxyzui(4),gamma_local=gamma_locali)
+    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),eni=intenerg,gamma_local=gamma_locali)
  else
     print *, "CHEMISTRY PROBLEM: ISOTHERMAL SETUP USED, INTERNAL ENERGY NOT STORED"
  endif
@@ -402,7 +392,12 @@ real function get_temperature_loc(eos_type,xyzi,rhoi,gmwi,vxyzui,gamma_locali)
 
 end function get_temperature_loc
 
-
+!-----------------------------------------------------------------------
+!+
+!  query function to return the internal energy
+!  for calculations with a local mean molecular
+!  weight and local adiabatic index
+!+
 !-----------------------------------------------------------------------
 
 real function get_local_u_internal(gamma_locali, gmwi, gas_temp_local)
@@ -413,8 +408,6 @@ real function get_local_u_internal(gamma_locali, gmwi, gas_temp_local)
  get_local_u_internal = ponrhoi/(gamma_locali-1)
 
  end function get_local_u_internal 
-
-#endif
 
 !-----------------------------------------------------------------------
 real function get_temperature_from_ponrho(ponrho)

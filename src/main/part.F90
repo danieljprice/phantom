@@ -158,8 +158,10 @@ module part
 !
 #ifdef KROME
  real, allocatable :: species_abund(:,:) 
- real, allocatable :: gamma_chem(:,:)
- real, allocatable :: mu_chem(:,:)
+ real, allocatable :: gamma_chem(:)
+ real, allocatable :: mu_chem(:)
+ real, allocatable :: krometemperature (:)
+ real, allocatable :: kromecool (:)
  character(len=16) :: species_abund_label(krome_nmols)
 #endif
 !
@@ -256,6 +258,8 @@ module part
    +krome_nmols                         &  ! abundance
    +1                                   &  ! variable gamma
    +1                                   &  ! variable mu
+   +1                                   &  ! temperature array
+   +1                                   &  ! cooling array
 #endif
 #ifdef GRAVITY
    +1                                   &  ! poten
@@ -369,8 +373,10 @@ subroutine allocate_part
  call allocate_array('ibin_sts', ibin_sts, maxsts)
 #ifdef KROME
  call allocate_array('species_abund', species_abund, krome_nmols, maxp)
- call allocate_array('gamma_chem', gamma_chem, 1, maxp)
- call allocate_array('mu_chem', mu_chem, 1, maxp)
+ call allocate_array('gamma_chem', gamma_chem, maxp)
+ call allocate_array('mu_chem', mu_chem, maxp)
+ call allocate_array('krometemperature', krometemperature, maxp)
+ call allocate_array('kromecool', kromecool, maxp)
 #endif
 
 end subroutine allocate_part
@@ -430,6 +436,8 @@ subroutine deallocate_part
  deallocate(species_abund)
  deallocate(gamma_chem)
  deallocate(mu_chem)
+ deallocate(krometemperature)
+ deallocate(kromecool)
 #endif
 
 end subroutine deallocate_part
@@ -865,9 +873,11 @@ subroutine copy_particle_all(src,dst)
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
  if (store_temperature) temperature(dst) = temperature(src)
 #ifdef KROME
- species_abund(:,dst) = species_abund(:,src)
- gamma_chem(:,dst)    = gamma_chem(:,src)
- mu_chem(:,dst)       = mu_chem(:,src)
+ species_abund(:,dst)        = species_abund(:,src)
+ gamma_chem(dst)             = gamma_chem(src)
+ mu_chem(dst)                = mu_chem(src)
+ krometemperature(dst)       = krometemperature(src)
+ kromecool(dst)              = kromecool(src)
 #endif
 
  return

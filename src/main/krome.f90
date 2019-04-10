@@ -26,7 +26,7 @@ module krome_phantom_coupling
  
  use krome_user
  use krome_main
- use part, only: species_abund_label, mu_chem, gamma_chem
+ use part, only: species_abund_label,mu_chem,gamma_chem,krometemperature
  
  implicit none
 
@@ -62,8 +62,9 @@ module krome_phantom_coupling
   call krome_set_user_crflux(cosmic_ray_rate)
  
   species_abund_label(:) = krome_get_names()
-  mu_chem(1,:)           = 2.12444   ! for composition below
-  gamma_chem(1,:)        = 1.66667
+  mu_chem(:)           = 2.12444   ! for composition below
+  gamma_chem(:)        = 1.66667
+  krometemperature(:)  = 3000
     
   ! Initial chemical abundance value for AGB surface
   He_init = 3.11e-1 ! mass fraction

@@ -68,10 +68,7 @@ subroutine set_default_options
  use timestep,  only:set_defaults_timestep
  use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha
  use viscosity, only:set_defaults_viscosity
- use dim,       only:maxp,maxvxyzu,nalpha
-#ifdef KROME
- use dim,       only:use_krome
-#endif
+ use dim,       only:maxp,maxvxyzu,nalpha,use_krome
  use kernel,    only:hfact_default
  use eos,       only:polyk2
 
