@@ -844,13 +844,12 @@ end subroutine
 subroutine amuse_initialize_code()
     use dim, only:maxp,maxp_hard
     use memory, only:allocate_memory
-    use physcon, only:pc,solarm
     use units, only:set_units
     implicit none
     call allocate_memory(maxp_hard)
     call code_init()
     call set_defaults()
-    call set_units(dist=0.1d0*pc,mass=solarm,G=1.)
+    call set_units(dist=1.,mass=1.,G=1.)
 end subroutine
 
 subroutine amuse_cleanup_code()
@@ -1190,7 +1189,6 @@ end subroutine
 subroutine amuse_evolve_model(tmax_in)
     use timestep, only:tmax, time, dt, dtmax, rhomaxnow
     use evolvesplit, only:init_step, finalize_step
-    use units, only:utime, udist, umass
     use options, only:rhofinal1
     implicit none
     double precision, intent(in) :: tmax_in
@@ -1225,6 +1223,9 @@ end subroutine
 !
 ! Setters and getters for parameters
 !
+
+! Setters
+
 subroutine amuse_set_c_courant(C_cour_in)
     use timestep, only:C_cour
     implicit none
@@ -1407,6 +1408,17 @@ subroutine amuse_set_gamma(gamma_in)
     gamma = gamma_in
 end subroutine
 
+subroutine amuse_set_units(udist_in, umass_in)
+    use units, only:set_units
+    implicit none
+    double precision, intent(in) :: udist_in, umass_in
+    call set_units(dist=udist_in,mass=umass_in,G=1.)
+end subroutine
+
+! End of Setters
+
+! Getters
+
 subroutine amuse_get_c_courant(C_cour_out)
     use timestep, only:C_cour
     implicit none
@@ -1583,3 +1595,13 @@ subroutine amuse_get_gamma(gamma_out)
     double precision, intent(out) :: gamma_out
     gamma_out = gamma
 end subroutine
+
+subroutine amuse_get_units(udist_out, umass_out)
+    use units, only:udist,umass
+    implicit none
+    double precision, intent(out) :: udist_out, umass_out
+    udist_out = udist
+    umass_out = umass
+end subroutine
+
+! End of Getters
