@@ -124,7 +124,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                           fxyzu,fext,alphaind,gradh)
  use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha, &
                      mhd_nonideal,nalpha,use_dust
- use eos,       only:get_spsound,get_temperature
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
                      get_cell_location,set_hmaxcell,sync_hmax_mpi
