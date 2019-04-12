@@ -37,8 +37,9 @@ module setup
  implicit none
  public :: setpart
 
- real,    private :: mhole,mdisc,r_in,r_out,spin,honr,theta,p_index,q_index,accrad,gamma_ad
+ real,    private :: mhole,mdisc,r_in,r_out,r_ref,spin,honr,theta,p_index,q_index,accrad,gamma_ad
  integer, private :: np
+ logical, private :: ismooth
 
  private
 
@@ -103,6 +104,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  mdisc  = 10.     ! (solarm)
  r_in   = 4.      ! (GM/c^2)
  r_out  = 160.    ! (GM/c^2)
+ r_ref  = r_in
+ ismooth= .true.
  spin   = 0.9
  honr   = 0.05
  alpha  = 0.368205218
@@ -150,10 +153,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                npart         = npart,                &
                rmin          = r_in,                 &
                rmax          = r_out,                &
+               rref          = r_ref,                &
                p_index       = p_index,              &
                q_index       = q_index,              &
                HoverR        = honr,                 &
-               ismooth       = .true.,               &
+               ismooth       = ismooth,              &
                gamma         = gamma,                &
                hfact         = hfact,                &
                xyzh          = xyzh,                 &
@@ -172,6 +176,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! And use polyk to store the constant thermal energy
  ! polyk = cs2/(gamma-1.-cs2)
  ! vxyzu(4,:) = polyk
+
+ polyk = 0. !?
+
 #else
  blackhole_spin = spin
  polyk = cs2
@@ -198,8 +205,10 @@ subroutine write_setupfile(filename)
  call write_inopt(mdisc  ,'mdisc'  ,'mass of disc       (solar mass)'           , iunit)
  call write_inopt(r_in   ,'r_in'   ,'inner edge of disc (GM/c^2, code units)'   , iunit)
  call write_inopt(r_out  ,'r_out'  ,'outer edge of disc (GM/c^2, code units)'   , iunit)
+ call write_inopt(r_ref  ,'r_ref'  ,'reference radius   (GM/c^2, code units)'   , iunit)
+ call write_inopt(ismooth,'ismooth','smooth inner edge of the disc (logical)'   , iunit)
  call write_inopt(spin   ,'spin'   ,'spin parameter of black hole |a|<1'        , iunit)
- call write_inopt(honr   ,'honr'   ,'scale height H/R of disc (at inner edge)'  , iunit)
+ call write_inopt(honr   ,'honr'   ,'scale height H/R of disc (at r_ref)'       , iunit)
  call write_inopt(alpha  ,'alpha'  ,'artificial viscosity'                      , iunit)
  call write_inopt(theta  ,'theta'  ,'inclination of disc (degrees)'             , iunit)
  call write_inopt(p_index,'p_index','power law index of surface density profile', iunit)
@@ -228,6 +237,8 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(mdisc  ,'mdisc'  ,db,min=0.,errcount=nerr)
  call read_inopt(r_in   ,'r_in'   ,db,min=0.,errcount=nerr)
  call read_inopt(r_out  ,'r_out'  ,db,min=0.,errcount=nerr)
+ call read_inopt(r_ref  ,'r_ref'  ,db,min=0.,errcount=nerr)
+ call read_inopt(ismooth,'ismooth',db,errcount=nerr)
  call read_inopt(spin   ,'spin'   ,db,min=-1.,max=1.,errcount=nerr)
  call read_inopt(honr   ,'honr'   ,db,min=0.,errcount=nerr)
  call read_inopt(alpha  ,'alpha'  ,db,min=0.,errcount=nerr)
