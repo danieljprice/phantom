@@ -1602,17 +1602,17 @@ OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
 
 ifeq ($(KROME), krome)
-    
+
 
     .PHONY: all
-    
+
     ${KROMEPATH}/optionsKrome.opt:
-    
+	cp ${KROMEPATH}/build/coolCO.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
 	cp optionsKrome.opt ${KROMEPATH}/build
 	cp react_AGB_reduced_eHHeCNO ${KROMEPATH}/networks
 	cd ${KROMEPATH}; ${KROMEPATH}/krome -options=build/optionsKrome.opt
 	make all
-    
+
     all: krome phantom
     -include MakeKrome
 else

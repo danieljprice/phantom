@@ -13,7 +13,7 @@ OBJECTS += $(KROME_OBJS)
 krome: $(KROME_OBJS)
 
 $(KROME_OBJS):
-	$(MAKE) -C $(KROME_BUILD_DIR) gfortran
-    
+	$(MAKE) -C $(KROME_BUILD_DIR) $(SYSTEM)
+
 clean_krome:
 	$(MAKE) -C $(KROME_BUILD_DIR) clean
