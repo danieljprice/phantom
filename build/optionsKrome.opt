@@ -1,0 +1,12 @@
+-n=networks/react_AGB_reduced_eHHeCNO
+#-compact 
+-cooling=ATOMIC,CHEM,H2,CIE,Z,CI,CII,OI,OII,CO 
+-heating=CHEM,CR 
+-H2opacity=RIPAMONTI 
+-gamma=EXACT 
+-noSinkCheck 
+-noRecCheck 
+-noTlimits 
+-useX 
+-conserveLin
+-useTabs

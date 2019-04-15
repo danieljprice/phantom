@@ -1,6 +1,6 @@
 .PHONY: clean_krome krome
 
-KROME_BUILD_DIR := ${KROMEPATH}
+KROME_BUILD_DIR := ${KROMEPATH}/build
 KROME_LIBS := lapack
 
 FFLAGS += -I$(KROME_BUILD_DIR)
