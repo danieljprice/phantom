@@ -881,15 +881,15 @@ subroutine amuse_new_sph_particle(i, mass, x, y, z, vx, vy, vz, u, h)
         u,i,npart,npartoftype,xyzh,vxyzu)
 end subroutine
 
-subroutine amuse_new_dm_particle(i, mass, x, y, z, vx, vy, vz, radius)
+subroutine amuse_new_dm_particle(i, mass, x, y, z, vx, vy, vz)
     use part, only:idarkmatter,npart,npartoftype,xyzh,vxyzu,massoftype
     use partinject, only:add_or_update_particle
     implicit none
     integer :: n, i, itype
-    double precision :: mass, x, y, z, vx, vy, vz, radius, u
+    double precision :: mass, x, y, z, vx, vy, vz, h_smooth, u
     double precision :: position(3), velocity(3)
   
-    u=0
+    u = 0
     itype = idarkmatter
     i = npart + 1
     position(1) = x
@@ -898,35 +898,45 @@ subroutine amuse_new_dm_particle(i, mass, x, y, z, vx, vy, vz, radius)
     velocity(1) = vx
     velocity(2) = vy
     velocity(3) = vz
+    h_smooth = 0.1 ! TODO set this to some default
     if (npartoftype(itype) == 0) then
         massoftype(itype) = mass
     endif
 
-    call add_or_update_particle(itype,position,velocity,radius, &
+    call add_or_update_particle(itype,position,velocity,h_smooth, &
         u,i,npart,npartoftype,xyzh,vxyzu)
 end subroutine
 
-subroutine amuse_new_sink_particle(i, mass, x, y, z, vx, vy, vz, radius)
-    use part, only:npart
+subroutine amuse_new_sink_particle(j, mass, x, y, z, vx, vy, vz)
+    use part, only:nptmass
     use partinject, only:add_or_update_sink
     implicit none
-    integer :: i
-    double precision :: mass, x, y, z, vx, vy, vz, radius
+    integer :: i, j
+    double precision :: mass, x, y, z, vx, vy, vz, h_smooth
     double precision :: position(3), velocity(3)
   
-    i = npart + 1
+    i = nptmass + 1
     position(1) = x
     position(2) = y
     position(3) = z
     velocity(1) = vx
     velocity(2) = vy
     velocity(3) = vz
-    call add_or_update_sink(position,velocity,radius,mass,i)
+    h_smooth = 0.1 ! TODO set this to some default
+    call add_or_update_sink(position,velocity,h_smooth,mass,i)
+    j = -i
 end subroutine
 
 subroutine amuse_delete_particle(i)
-    use part, only:kill_particle
-    call kill_particle(i)
+    use part, only:kill_particle,xyzmh_ptmass
+    integer :: i, j
+    if (i = abs(i)) then
+        call kill_particle(i)
+    else
+        j = -i
+        ! Sink particles can't be killed - so we just set its mass to zero
+        xyzmh_ptmass(4,j) = 0
+    endif
 end subroutine
 
 subroutine amuse_get_potential_energy(epot_out)
@@ -972,7 +982,6 @@ subroutine amuse_get_number_of_particles(n)
     integer, intent(out) :: n
     logical :: nodisabled
     nodisabled = .false.
-    ! should look at npartoftype(itype) in part.f90 module instead?, as npart can only increase
     call get_npart(n, nodisabled)
 end subroutine
 
@@ -1011,12 +1020,16 @@ subroutine amuse_get_pressure(i, p)
 end subroutine
 
 subroutine amuse_get_mass(i, part_mass)
-    use part, only:iphase,massoftype
+    use part, only:iphase,massoftype,xyzmh_ptmass
     implicit none
     double precision, intent(out) :: part_mass
-    integer :: i
-    !TODO: Need something different for sinks ("ptmass")
-    part_mass = massoftype(abs(iphase(i)))
+    integer :: i, j
+    if (i = abs(i)) then
+        part_mass = massoftype(abs(iphase(i)))
+    else
+        j = -i
+        part_mass = xyzmh_ptmass(4,j)
+    endif
 end subroutine
 
 subroutine amuse_get_state_gas(i, mass, x, y, z, vx, vy, vz, u, h)
@@ -1040,32 +1053,61 @@ subroutine amuse_get_state_dm(i, mass, x, y, z, vx, vy, vz, radius)
     call amuse_get_radius(i, radius)
 end subroutine
 
-subroutine amuse_get_position(i, x, y, z)
-    use part, only:xyzh
+subroutine amuse_get_state_sink(j, mass, x, y, z, vx, vy, vz, radius)
     implicit none
-    integer, intent(in) :: i
+    integer :: j
+    double precision :: mass, x, y, z, vx, vy, vz, radius
+    call amuse_get_mass(j, mass)
+    call amuse_get_position(j, x, y, z)
+    call amuse_get_velocity(j, vx, vy, vz)
+    call amuse_get_radius(j, radius)
+end subroutine
+
+subroutine amuse_get_position(i, x, y, z)
+    use part, only:xyzh,xyzmh_ptmass
+    implicit none
+    integer, intent(in) :: i, j
     double precision, intent(out) :: x, y, z
-    x = xyzh(1, i)
-    y = xyzh(2, i)
-    z = xyzh(3, i)
+    if (i = abs(i)) then
+        x = xyzh(1, i)
+        y = xyzh(2, i)
+        z = xyzh(3, i)
+    else
+        j = -i
+        x = xyzmh_ptmass(1, j)
+        y = xyzmh_ptmass(2, j)
+        z = xyzmh_ptmass(3, j)
+    endif
 end subroutine
 
 subroutine amuse_get_velocity(i, vx, vy, vz)
-    use part, only:vxyzu
+    use part, only:vxyzu,vxyz_ptmass
     implicit none
-    integer, intent(in) :: i
+    integer, intent(in) :: i, j
     double precision, intent(out) :: vx, vy, vz
-    vx = vxyzu(1, i)
-    vy = vxyzu(2, i)
-    vz = vxyzu(3, i)
+    if (i = abs(i)) then
+        vx = vxyzu(1, i)
+        vy = vxyzu(2, i)
+        vz = vxyzu(3, i)
+    else
+        j = -i
+        vx = vxyz_ptmass(1, j)
+        vy = vxyz_ptmass(2, j)
+        vz = vxyz_ptmass(3, j)
+    endif
 end subroutine
 
 subroutine amuse_get_smoothing_length(i, h)
-    use part, only:xyzh
+    use part, only:xyzh,xyzmh_ptmass,ihsoft
     implicit none
-    integer, intent(in) :: i
+    integer, intent(in) :: i, j
     double precision, intent(out) :: h
-    h = xyzh(4, i)
+    if (i = abs(i)) then
+        h = xyzh(4, i)
+    else
+        j = -i
+        h = xyzmh_ptmass(ihsoft,j)
+    endif
 end subroutine
 
 subroutine amuse_get_radius(i, radius)
@@ -1111,12 +1153,16 @@ subroutine amuse_set_dtmax(dtmax_in)
 end subroutine
 
 subroutine amuse_set_mass(i, part_mass)
-    use part, only:iphase,massoftype
+    use part, only:iphase,massoftype,xyzmh_ptmass
     implicit none
     double precision, intent(in) :: part_mass
-    integer :: i
-    ! Need to do something different for sinks ("ptmass")
-    massoftype(abs(iphase(i))) = part_mass
+    integer :: i, j
+    if (i = abs(i)) then
+        massoftype(abs(iphase(i))) = part_mass
+    else
+        j = -i
+        xyzmh_ptmass(4,j) = part_mass
+    endif
 end subroutine
 
 subroutine amuse_set_state_gas(i, mass, x, y, z, vx, vy, vz, u, h)
@@ -1140,32 +1186,61 @@ subroutine amuse_set_state_dm(i, mass, x, y, z, vx, vy, vz, radius)
     call amuse_set_radius(i, radius)
 end subroutine
 
-subroutine amuse_set_position(i, x, y, z)
-    use part, only:xyzh
+subroutine amuse_set_state_sink(j, mass, x, y, z, vx, vy, vz, radius)
     implicit none
-    integer, intent(in) :: i
+    integer :: j
+    double precision :: mass, x, y, z, vx, vy, vz, radius
+    call amuse_set_mass(j, mass)
+    call amuse_set_position(j, x, y, z)
+    call amuse_set_velocity(j, vx, vy, vz)
+    call amuse_set_radius(j, radius)
+end subroutine
+
+subroutine amuse_set_position(i, x, y, z)
+    use part, only:xyzh,xyzmh_ptmass
+    implicit none
+    integer, intent(in) :: i, j
     double precision, intent(in) :: x, y, z
-    xyzh(1, i) = x
-    xyzh(2, i) = y
-    xyzh(3, i) = z
+    if (i = abs(i)) then
+        xyzh(1, i) = x
+        xyzh(2, i) = y
+        xyzh(3, i) = z
+    else
+        j = -i
+        xyzmh_ptmass(1, j) = x
+        xyzmh_ptmass(2, j) = y
+        xyzmh_ptmass(3, j) = z
+    endif
 end subroutine
 
 subroutine amuse_set_velocity(i, vx, vy, vz)
-    use part, only:vxyzu
+    use part, only:vxyzu,vxyz_ptmass
     implicit none
-    integer, intent(in) :: i
+    integer, intent(in) :: i, j
     double precision, intent(in) :: vx, vy, vz
-    vxyzu(1, i) = vx
-    vxyzu(2, i) = vy
-    vxyzu(3, i) = vz
+    if (i = abs(i)) then
+        vxyzu(1, i) = vx
+        vxyzu(2, i) = vy
+        vxyzu(3, i) = vz
+    else
+        j = -i
+        vxyz_ptmass(1, j) = vx
+        vxyz_ptmass(2, j) = vy
+        vxyz_ptmass(3, j) = vz
+    endif
 end subroutine
 
 subroutine amuse_set_smoothing_length(i, h)
-    use part, only:xyzh
+    use part, only:xyzh,xyzmh_ptmass,ihsoft
     implicit none
-    integer, intent(in) :: i
+    integer, intent(in) :: i, j
     double precision, intent(in) :: h
-    xyzh(4, i) = h
+    if (i = abs(i)) then
+        xyzh(4, i) = h
+    else
+        j = -i
+        xyzmh_ptmass(ihsoft, j) = h
+    endif
 end subroutine
 
 subroutine amuse_set_radius(i, radius)
@@ -1216,9 +1291,7 @@ subroutine amuse_evolve_model(tmax_in)
         call finalize_step(infile, logfile, evfile, dumpfile)
         steps_this_loop = steps_this_loop + 1
     enddo timestepping
-
 end subroutine
-
 
 !
 ! Setters and getters for parameters
