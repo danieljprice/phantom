@@ -1685,7 +1685,7 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi,pmassi,eni,tempi,Bxi,Byi,Bzi,dustfraci, &
  real :: Bro2i,Brhoxi,Brhoyi,Brhozi,rhogasi,gasfrac
  real :: stressiso,term,graddivvcoeff,del2vcoeff,strain(6)
  real :: shearvisc,etavisc,valfven2i,p_on_rhogas
- 
+
 !
 !--get pressure (actually pr/dens) and sound speed from equation of state
 !
@@ -2265,8 +2265,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #endif
 #ifdef KROME
  use krome_user
- use part,           only:gamma_chem,species_abund,krometemperature, &
-                          kromecool
+ use part,           only:gamma_chem,krometemperature,kromecool
  use units,          only:unit_density,unit_ergg
 #endif
 
@@ -2540,7 +2539,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              if (use_krome) then
                 if (dt .ne. 0.0) then
 !                  kromecool(i) has units erg/s/cm^3. This needs to be converted to code units
-!                  and divided by density to obtain phantom's du/dt in erg/s/g.                   
+!                  and divided by density to obtain phantom's du/dt in erg/s/g.
                    fxyz4 = fxyz4 - (kromecool(i)*unit_ergg/unit_density)/rhoi
                 endif
              endif

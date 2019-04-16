@@ -1,10 +1,10 @@
-.PHONY: clean_krome krome
+.PHONY: clean_krome krome_setup krome
 
-KROME_BUILD_DIR := ${KROMEPATH}/build
-KROME_LIBS := lapack
+KROME_BUILD_DIR = ${KROMEPATH}/build
 
 FFLAGS += -I$(KROME_BUILD_DIR)
-LDFLAGS += -l$(KROME_LIBS)
+
+PASSED=0
 
 KOBJS := krome_commons.o krome_constants.o krome_coolingGH.o krome_cooling.o krome_dust.o krome_fit.o krome_gadiab.o krome_getphys.o krome_grfuncs.o krome_heating.o krome.o krome_ode.o krome_phfuncs.o krome_photo.o krome_reduction.o krome_stars.o krome_subs.o krome_tabs.o krome_user_commons.o krome_user.o opkda1.o opkda2.o opkdmain.o
 KROME_OBJS := $(addprefix $(KROME_BUILD_DIR)/, $(KOBJS))
@@ -13,7 +13,25 @@ OBJECTS += $(KROME_OBJS)
 krome: $(KROME_OBJS)
 
 $(KROME_OBJS):
-	$(MAKE) -C $(KROME_BUILD_DIR) $(SYSTEM)
+	$(MAKE) -C $(KROME_BUILD_DIR)
 
 clean_krome:
 	$(MAKE) -C $(KROME_BUILD_DIR) clean
+
+krome_setup:
+ifeq ("$(wildcard ${KROMEPATH}/networks/react_AGB_reduced_eHHeCNO)","")
+	cp react_AGB_reduced_eHHeCNO ${KROMEPATH}/networks
+endif
+ifeq ("$(wildcard ${KROMEPATH}/build/optionsKrome.opt)","")
+	cp optionsKrome.opt ${KROMEPATH}/build
+	cd ${KROMEPATH}; ${KROMEPATH}/krome -options=build/optionsKrome.opt
+	make clean_krome
+override PASSED:=1
+endif
+ifeq ("$(wildcard ${KROMEPATH}/build/reactions_verbatim.dat)","")
+	override PASSED:=2
+endif
+
+	ifeq ($(PASSED),1)
+	  cp ${KROMEPATH}/build/coolCO.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
+	endif

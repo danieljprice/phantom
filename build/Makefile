@@ -54,8 +54,7 @@ ifndef EDITOR
   EDITOR= emacs
 endif
 ifndef OPENMP
-#   OPENMP= yes
-  OPENMP= no
+  OPENMP= yes
 endif
 ifndef SPLASH_DIR
    SPLASH_DIR=${shell if [ -d $$HOME/splash ]; then echo $$HOME/splash; fi}
@@ -1375,6 +1374,7 @@ endif
 
 ifeq ($(KROME), krome)
     FPPFLAGS += -DKROME
+    LDFLAGS  += -mkl
 endif
 
 #
@@ -1602,19 +1602,10 @@ OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
 
 ifeq ($(KROME), krome)
-
-
     .PHONY: all
 
-    ${KROMEPATH}/optionsKrome.opt:
-	cp ${KROMEPATH}/build/coolCO.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
-	cp optionsKrome.opt ${KROMEPATH}/build
-	cp react_AGB_reduced_eHHeCNO ${KROMEPATH}/networks
-	cd ${KROMEPATH}; ${KROMEPATH}/krome -options=build/optionsKrome.opt
-	make all
-
-    all: krome phantom
-    -include MakeKrome
+    all: krome_setup krome phantom
+     -include MakeKrome
 else
     .PHONY: phantom
 endif
