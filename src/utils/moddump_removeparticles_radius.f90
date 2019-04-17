@@ -64,19 +64,17 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call prompt('Enter the z coordinates of the center of that sphere',outcenter(3),0.)
  endif
 
- if (icutinside) print*,' Phantommoddump: Remove particles inside a particular radius'
- !
- !--removing particles
- !
- print*,'Removing particles inside radius ',inradius
- call delete_particles_inside_radius(incenter,inradius,npart,npartoftype)
+ if (icutinside) then
+    print*,'Phantommoddump: Remove particles inside a particular radius'
+    print*,'Removing particles inside radius ',inradius
+    call delete_particles_inside_radius(incenter,inradius,npart,npartoftype)
+ endif
 
- if (icutoutside) print*,' Phantommoddump: Remove particles outside a particular radius'
- !
- !--removing particles
- !
- print*,'Removing particles outside radius ',outradius
- call delete_particles_outside_sphere(outcenter,outradius)
+ if (icutoutside) then
+    print*,'Phantommoddump: Remove particles outside a particular radius'
+    print*,'Removing particles outside radius ',outradius
+    call delete_particles_outside_sphere(outcenter,outradius)
+ endif
 
 end subroutine modify_dump
 
