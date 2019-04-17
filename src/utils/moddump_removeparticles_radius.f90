@@ -17,7 +17,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: part
+!  DEPENDENCIES: part, prompting
 !+
 !--------------------------------------------------------------------------
 module moddump
