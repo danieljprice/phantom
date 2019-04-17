@@ -2628,8 +2628,6 @@ subroutine set_radiation_and_gas_temperature_equal(npart,gamma,gmw,xyzh,vxyzu,ma
  else
     kappa  = 1e5
  end if
- print*, kappa
- read*
  kappa_code = kappa/(udist**2/umass)
 
    do i=1,npart

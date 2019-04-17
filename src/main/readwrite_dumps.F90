@@ -330,7 +330,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use part, only:eta_nimhd,eta_nimhd_label
 #endif
 #ifdef RADIATION
- use part, only:radenergy,radenergy_label,radkappa
+ use part, only:radenergy,radenergy_label,radkappa,radenflux
 #endif
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
@@ -521,6 +521,7 @@ print*, "write_fulldump"
 #ifdef RADIATION
        call write_array(1,radenergy,radenergy_label(1),npart,k,ipass,idump,nums,ierrs(1))
        call write_array(1,radkappa,radenergy_label(2),npart,k,ipass,idump,nums,ierrs(1))
+       call write_array(1,radenflux,radenergy_label(3:5),3,npart,k,ipass,idump,nums,ierrs(1))
 #endif
        if (any(ierrs(1:21) /= 0)) call error('write_dump','error writing hydro arrays')
     enddo
@@ -591,7 +592,7 @@ subroutine write_smalldump(t,dumpfile)
                       abundance,abundance_label,mhd,dustfrac,iamtype_int11,&
                       dustprop,dustprop_label,dustfrac_label,St,ndusttypes
 #ifdef RADIATION
- use part,       only:radenergy,radenergy_label,radkappa
+ use part,       only:radenergy,radenergy_label,radkappa,radenflux
 #endif
  use dump_utils, only:open_dumpfile_w,dump_h,allocate_header,free_header,&
                       write_header,write_array,write_block_header
@@ -689,6 +690,7 @@ subroutine write_smalldump(t,dumpfile)
 #ifdef RADIATION
     call write_array(1,radenergy,radenergy_label(1),npart,k,ipass,idump,nums,ierr,singleprec=.true.)
     call write_array(1,radkappa,radenergy_label(2),npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+    call write_array(1,radenflux,radenergy_label(3:5),3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
 #endif
     !
     !--Block 4 (MHD)
@@ -1211,7 +1213,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,tstop,deltav,dustfrac_label, &
                       tstop_label,deltav_label,temperature,dustprop,dustprop_label,St,divcurlv,divcurlv_label
 #ifdef RADIATION
- use part,       only:radenergy,radenergy_label,radkappa
+ use part,       only:radenergy,radenergy_label,radkappa,radenflux
 #endif
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
@@ -1324,6 +1326,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #ifdef RADIATION
              call read_array(radenergy,radenergy_label(1),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(radkappa,radenergy_label(2),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(radenflux(1,:),radenergy_label(3),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(radenflux(2,:),radenergy_label(4),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(radenflux(3,:),radenergy_label(5),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
           case(2)
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)

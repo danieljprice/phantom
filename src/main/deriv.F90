@@ -65,7 +65,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  use timing,       only:get_timings
  use forces,       only:force
 #ifdef RADIATION
- use part,         only:radenevol,radenflux,radkappa,dradenevol,radenergy
+ use part,         only:radenevol,radenflux,radkappa,dradenevol,radenergy,radthick
 #endif
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
@@ -130,7 +130,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
     call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
                         stressmax,fxyzu,fext,alphaind,gradh&
 #ifdef RADIATION
-                        ,radenevol,radenflux,radenergy&
+                        ,radenevol,radenflux,radenergy,radthick&
 #endif
                         )
     call do_timing('dens',tlast,tcpulast)

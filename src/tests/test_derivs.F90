@@ -50,7 +50,7 @@ subroutine test_derivs(ntests,npass,string)
                         maxBevol,ndivcurlB,dvdx,dustfrac,ddustevol,temperature,&
                         idivv,icurlvx,icurlvy,icurlvz,idivB,icurlBx,icurlBy,icurlBz,deltav,dustprop,ddustprop,ndustsmall
 #ifdef RADIATION
- use part,         only:radenevol,radenergy,radenflux
+ use part,         only:radenevol,radenergy,radenflux,radthick
 #endif
  use unifdis,      only:set_unifdis
  use physcon,      only:pi,au,solarm
@@ -420,7 +420,7 @@ subroutine test_derivs(ntests,npass,string)
        call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
                            Bevol,stressmax,fxyzu,fext,alphaind,gradh&
 #ifdef RADIATION
-                           ,radenevol,radenflux,radenergy&
+                           ,radenevol,radenflux,radenergy,radthick&
 #endif
                            )
        if (id==master) call printused(t1)
@@ -663,7 +663,7 @@ subroutine test_derivs(ntests,npass,string)
     call densityiterate(2,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
                       Bevol,stressmax,fxyzu,fext,alphaind,gradh&
 #ifdef RADIATION
-                      ,radenevol,radenflux,radenergy&
+                      ,radenevol,radenflux,radenergy,radthick&
 #endif
                       )
 #ifdef IND_TIMESTEPS

@@ -44,7 +44,8 @@ module allocutils
       allocate_array_integer1_1d, &
       allocate_array_integer1_2d, &
       allocate_array_integer1_3d, &
-      allocate_array_kdnode_1d
+      allocate_array_kdnode_1d, &
+      allocate_array_logical
  end interface
 
 contains
@@ -204,6 +205,18 @@ subroutine allocate_array_kdnode_1d(name, x, n1)
  call print_allocation_stats(name, (/n1/), 'kdnode')
 
 end subroutine allocate_array_kdnode_1d
+
+subroutine allocate_array_logical(name, x, n1)
+ character(len=*),          intent(in)     :: name
+ logical, allocatable,      intent(inout)  :: x(:)
+ integer,                   intent(in)     :: n1
+ integer                                   :: allocstat
+
+ allocate(x(n1), stat = allocstat)
+ call check_allocate(name, allocstat)
+ call print_allocation_stats(name, (/n1/), 'integer(4)')
+
+end subroutine allocate_array_logical
 
 subroutine check_allocate(name, allocstat)
  character(len=*),   intent(in) :: name

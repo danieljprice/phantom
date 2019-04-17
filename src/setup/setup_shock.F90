@@ -292,7 +292,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (mhd) Bxyz(1:3,i) = rightstate(iBx:iBz)
 #ifdef RADIATION
        Tgas = gmw*(rightstate(ipr)*unit_pressure)/(rightstate(idens)*unit_density)/Rg
-       radenergy(i) = 4.0*steboltz*Tgas**4.0/c/unit_ergg
+       radenergy(i) = 4.0*steboltz*Tgas**4.0/c/(unit_ergg*unit_density)
        radkappa(i) = rightstate(iradkappa)
 #endif
     else
@@ -304,7 +304,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (mhd) Bxyz(1:3,i) = leftstate(iBx:iBz)
 #ifdef RADIATION
        Tgas = gmw*(leftstate(ipr)*unit_pressure)/(leftstate(idens)*unit_density)/Rg
-       radenergy(i) = 4.0*steboltz*Tgas**4.0/c/unit_ergg
+       radenergy(i) = 4.0*steboltz*Tgas**4.0/c/(unit_ergg*unit_density)
        radkappa(i) = leftstate(iradkappa)
 #endif
     endif
@@ -559,13 +559,19 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     ! (/'dens','pr  ','vx  ','vy  ','vz  ','Bx  ','By  ','Bz  '/)
     leftstate(1:iBz)  = (/dens, pres,  3.2e5/(udist/utime), 0.,0.,0.,0.,0./)
     rightstate(1:iBz) = (/dens, pres, -3.2e5/(udist/utime), 0.,0.,0.,0.,0./)
-    xright =  1e15
-    xleft  = -1e15
     tmax   = 1e9/utime
     dtmax  = 1e7/utime
     kappa  = 4e1
-    call prompt('xRight',xright,0.,1e30)
-    call prompt('xLeft',xleft,-1e30,0.)
+    xright = -3.2e5
+    xleft  =  3.2e5
+    call prompt('velocity right',xright, -1e30, 0.)
+    call prompt('velocity left ',xleft, 0.,   1e30)
+    leftstate(ivx)  = xleft/(udist/utime)
+    rightstate(ivx) = xright/(udist/utime)
+    xright =  1e15
+    xleft  = -1e15
+    call prompt('border right',xright,0.,  1e30)
+    call prompt('border left',xleft,  -1e30, 0.)
     xright = xright/udist
     xleft  = xleft/udist
 

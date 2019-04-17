@@ -108,7 +108,8 @@ module forces
        iradzi        = lastxpartveci + 4, &
        iradki        = lastxpartveci + 5, &
        iradli        = lastxpartveci + 6, &
-       lastxpartvecirad = lastxpartveci + 6
+       iradri        = lastxpartveci + 7, &
+       lastxpartvecirad = lastxpartveci + 7
 ! #else ! use it for adding new physics and checking if radiation was used
 !  integer, parameter :: lastxpartvecirad = lastxpartveci
 #endif
@@ -1761,10 +1762,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        c_code = c/unit_velocity
 
        radlambdai = xpartveci(iradli)
+       ! radlambdai = 1./3.
        radDi = c_code*radlambdai/radkappai/rhoi
 
        radRj = sqrt(dot_product(radFj(:),radFj(:)))/(radkappaj*rhoj*rhoj*radenj)
        radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
+       ! radlambdaj = 1./3.
        radDj = c_code*radlambdaj/radkappaj/rhoj
 
        ! TWO FIRST DERIVATES !
@@ -2212,6 +2215,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     cell%xpartvec(iradxi:iradzi,cell%npcell) = radenflux(1:3,i)
     cell%xpartvec(iradki,cell%npcell)        = radkappa(i)
     cell%xpartvec(iradli,cell%npcell)        = (2. + radRi)/(6. + 3*radRi + radRi*radRi)
+    cell%xpartvec(iradri,cell%npcell)        = radRi
 #endif
     cell%xpartvec(idvxdxi:idvzdzi,cell%npcell)    = dvdx(1:9,i)
  enddo over_parts
@@ -2827,12 +2831,22 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        tstop(:,i) = dtdrag
     endif
 #ifdef RADIATION
-    dradenevol(i) = fsum(idradi)
+    ! dradenevol(i) = rhoi*fsum(idradi) + xpartveci(iradei)*drhodti
+    dradenevol(i) = rhoi*fsum(idradi)
     c_code        = c/unit_velocity
     radkappai     = xpartveci(iradki)
     radlambdai    = xpartveci(iradli)
-    dtradi        = C_rad*hi*hi*rhoi*radkappai/c_code/radlambdai
-    ! dtradi        = C_rad*hi*hi*rhoi*radkappai/c_code/radlambdai
+
+    ! xii           = xpartveci(iradei)
+    ! radri         = xpartveci(iradri)
+
+    ! edfacti = radlambdai+radlambdai**2*radri**2
+    ! flux diffusion dtrad i
+    ! eq30 Whitehouse & Bate 2004
+    dtradi = C_rad*hi*hi*rhoi*radkappai/c_code/radlambdai
+    ! rad pressure term
+    ! eq31 Whitehouse & Bate 2004
+    ! C_rad/edfacti/rhoi/xii/divvi
 #endif
 
 #ifdef IND_TIMESTEPS

@@ -63,6 +63,9 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use options,      only:set_default_options
  use timing,       only:get_timings,print_time
  use mpiutils,     only:barrier_mpi
+#ifdef RADIATION
+ use testradiation, only:test_radiation
+#endif
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
@@ -71,6 +74,9 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
+#endif
+#ifdef RADIATION
+ logical :: doradiation
 #endif
  real(kind=4) :: twall1,tcpu1,twall2,tcpu2
 
@@ -123,6 +129,12 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'geom')      /= 0) dogeom    = .true.
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,doptmass,docooling,dogeom/))
 
+#ifdef RADIATION
+ doradiation = .false.
+ if (index(string,'radiation') /= 0) doradiation = .true.
+ doany = any([doany,doradiation])
+#endif
+
  select case(trim(string))
  case('kernel','kern')
     dokernel = .true.
@@ -161,6 +173,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  case default
     if (.not.doany) testall = .true.
  end select
+
 #ifdef FINVSQRT
  call test_math(ntests,npass,usefsqrt,usefinvsqrt)
  call barrier_mpi()
@@ -316,6 +329,14 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call set_default_options ! restore defaults
     call barrier_mpi()
  endif
+
+#ifdef RADIATION
+ if (doradiation.or.testall) then
+    call test_radiation(ntests,npass)
+    call set_default_options ! restore defaults
+    call barrier_mpi()
+ endif
+#endif
 !
 !--now do a "real" calculation, putting it all together (Sedov blast wave)
 !

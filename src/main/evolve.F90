@@ -86,8 +86,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
 #endif
 #ifdef RADIATION
- use part,             only:radenevol,radkappa
- use radiation,        only:update_radenergy
+ use part,             only:radenevol,radkappa,radthick,radenflux
+ use radiation,        only:update_radenergy,set_radfluxesandregions
 #ifndef IND_TIMESTEPS
  use timestep,         only:dtrad
 #endif
@@ -321,6 +321,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     endif
 #ifdef RADIATION
     call update_radenergy(npart,xyzh,fxyzu,vxyzu,radenevol,radkappa,0.5*dt)
+    call set_radfluxesandregions(npart,radthick,radenevol,radenflux,xyzh,vxyzu)
 #endif
     nsteps = nsteps + 1
 !
@@ -613,6 +614,10 @@ subroutine evol(infile,logfile,evfile,dumpfile)
              write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (last full step) : ',tall/real(nalivetot)
              write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (ave. all steps) : ',timer_lastdump%wall/real(nmovedtot)
           endif
+#ifdef RADIATION
+          write(iprint,"(/,a,f6.2,'%')") &
+              ' RADIATION thin particles = ',100.*(size(radthick)-count(radthick))/size(radthick)
+#endif
        endif
        if (iverbose >= 0) then
           call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)

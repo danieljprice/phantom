@@ -612,7 +612,9 @@ subroutine compute_energies(t)
  ev_data(iev_sum,iev_emag  ) = emag
  ev_data(iev_sum,iev_epot  ) = epot
  ev_data(iev_sum,iev_etot  ) = etot
+#ifdef RADIATION
  ev_data(iev_sum,iev_erad  ) = erad
+#endif
  ev_data(iev_sum,iev_totmom) = totmom
  ev_data(iev_sum,iev_angmom) = angtot
  ev_data(iev_sum,iev_com(1)) = xcom

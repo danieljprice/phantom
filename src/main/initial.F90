@@ -136,7 +136,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,temperature,dustprop,ddustprop,ndustsmall
 #ifdef RADIATION
- use part,             only:radenergy,radenevol,radenflux
+ use part,             only:radenergy,radenevol,radenflux,radthick
 #endif
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
@@ -228,9 +228,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef DUST
  character(len=7) :: dust_label(maxdusttypes)
 #endif
-#ifdef RADIATION
  logical          :: radiation
-#endif
 !
 !--do preliminary initialisation
 !
@@ -384,6 +382,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 #ifdef RADIATION
  radiation=.true.
+ radthick(:) = .true.
 #else
  radiation=.false.
 #endif
@@ -395,7 +394,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                               fxyzu,fext,alphaind,gradh&
 #ifdef RADIATION
-                              ,radenevol,radenflux,radenergy&
+                              ,radenevol,radenflux,radenergy,radthick&
 #endif
                               )
     endif
@@ -411,9 +410,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
           Bevol(2,i) = Bxyz(2,i) * rhoi1
           Bevol(3,i) = Bxyz(3,i) * rhoi1
        endif
+#ifdef RADIATION
        if (radiation) then
           radenevol(i) = radenergy(i) * rhoi1
        endif
+#endif
     enddo
  endif
 

@@ -158,7 +158,8 @@ module part
  real, allocatable :: dradenevol(:)
  real, allocatable :: radenpred(:)
  real, allocatable :: radkappa(:)
- character(len=*), parameter :: radenergy_label(2) = (/'radE', 'radK'/)
+ logical, allocatable :: radthick(:)
+ character(len=*), parameter :: radenergy_label(5) = (/'radE ','radK ','radFx','radFy','radFz'/)
 #endif
 !
 !--lightcurves
@@ -346,13 +347,13 @@ subroutine allocate_part
  call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
  call allocate_array('dustproppred', dustproppred, 4, maxp_growth)
 #ifdef RADIATION
-! radenergy, d/dx, d/dy, d/dz, d^2/dt^2
  call allocate_array('radenergy', radenergy, maxp)
  call allocate_array('radenevol', radenevol, maxp)
  call allocate_array('radenflux', radenflux, 3, maxp)
  call allocate_array('dradenevol', dradenevol, maxp)
  call allocate_array('radenpred', radenpred, maxp)
  call allocate_array('radkappa', radkappa, maxp)
+ call allocate_array('radthick', radthick, maxp)
 #endif
 #ifdef IND_TIMESTEPS
  call allocate_array('ibin', ibin, maxan)
@@ -423,6 +424,7 @@ subroutine deallocate_part
  deallocate(dradenevol)
  deallocate(radenpred)
  deallocate(radkappa)
+ deallocate(radthick)
 #endif
  deallocate(iphase)
  deallocate(iphase_soa)

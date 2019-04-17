@@ -117,7 +117,7 @@ module dim
  integer, parameter :: &
 #ifdef RADIATION
    radensumforce      = 1,&
-   radenxpartvecforce = 6,&
+   radenxpartvecforce = 7,&
    radensumden        = 3,&
    radenxpartvetden   = 1
 #else
