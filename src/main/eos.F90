@@ -288,20 +288,20 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        spsoundi = 0.
        call fatal('eos','tried to call Helmholtz free energy eos without passing temperature')
     endif
-!    
+!
 !--variable gamma
 !
   case(16)
-  
+
     if (present(gamma_local)) then
-       ponrhoi  = (gamma_local-1)*eni
+       ponrhoi  = (gamma_local-1.)*eni
        spsoundi = sqrt(gamma_local*ponrhoi)
     else
        call fatal('eos','using KROME to calculate local gamma but variable '&
                         'not passed in equationofstate() function')
     endif
 
-    
+
  case default
     spsoundi = 0. ! avoids compiler warnings
     ponrhoi  = 0.
@@ -317,20 +317,20 @@ end subroutine equationofstate
 !  (called from step for decay timescale in alpha switches)
 !+
 !----------------------------------------------------------------
-real function get_spsound(eos_type,xyzi,rhoi,vxyzui,tempi,gamma_locali)
+real function get_spsound(eos_type,xyzi,rhoi,vxyzui,tempi,gammai)
  use dim, only:maxvxyzu
  integer,      intent(in)      :: eos_type
  real,         intent(in)      :: xyzi(:),rhoi
  real,         intent(inout)   :: vxyzui(:)
  real, intent(inout)   , optional    :: tempi
- real, intent(in)      , optional    :: gamma_locali
+ real, intent(in)      , optional    :: gammai
  real :: spsoundi,ponrhoi
 
  if (maxvxyzu==4) then
-    if (present(gamma_locali)) then
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),gamma_local=gamma_locali)
+    if (present(gammai)) then
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),gamma_local=gammai)
     else if (present(tempi)) then
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),tempi)
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),tempi=tempi)
     else
        call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
     endif
@@ -347,44 +347,43 @@ end function get_spsound
 !  (currently only required for non-ideal MHD)
 !+
 !-----------------------------------------------------------------------
-real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gamma_locali)
+real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai)
  use dim, only:maxvxyzu
  integer,      intent(in)    :: eos_type
  real,         intent(in)    :: xyzi(:),rhoi
  real,         intent(inout) :: vxyzui(:)
- real, intent(in), optional  :: gamma_locali
+ real, intent(in), optional  :: gammai
  real :: spsoundi,ponrhoi
 
  if (maxvxyzu==4) then
-    if (present(gamma_locali)) then
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),gamma_local=gamma_locali)
+    if (present(gammai)) then
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),gamma_local=gammai)
     else
        call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
     endif
  else
     call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3))
  endif
- 
+
  get_temperature = temperature_coef*gmw*ponrhoi
 
 end function get_temperature
 
 !-----------------------------------------------------------------------
 !+
-!  query function to return the temperature
-!  for calculations with a local mean molecular
-!  weight and local adiabatic index
+!  query function to return the temperature for calculations with a local
+!  mean molecular weight and local adiabatic index
 !+
 !-----------------------------------------------------------------------
-real function get_temperature_loc(eos_type,xyzi,rhoi,gmwi,intenerg,gamma_locali)
+real function get_temperature_loc(eos_type,xyzi,rhoi,gmwi,intenerg,gammai)
  use dim, only:maxvxyzu
  integer,      intent(in)    :: eos_type
- real,         intent(in)    :: xyzi(:),rhoi,gmwi,gamma_locali
+ real,         intent(in)    :: xyzi(:),rhoi,gmwi,gammai
  real,         intent(inout) :: intenerg
  real :: spsoundi,ponrhoi
- 
+
  if (maxvxyzu==4) then
-    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),eni=intenerg,gamma_local=gamma_locali)
+    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),eni=intenerg,gamma_local=gammai)
  else
     print *, "CHEMISTRY PROBLEM: ISOTHERMAL SETUP USED, INTERNAL ENERGY NOT STORED"
  endif
@@ -392,22 +391,21 @@ real function get_temperature_loc(eos_type,xyzi,rhoi,gmwi,intenerg,gamma_locali)
 
 end function get_temperature_loc
 
-!-----------------------------------------------------------------------
+!----------------------------------------------------------------------------
 !+
-!  query function to return the internal energy
-!  for calculations with a local mean molecular
-!  weight and local adiabatic index
+!  query function to return the internal energyfor calculations with a local
+!  mean molecular weight and local adiabatic index
 !+
-!-----------------------------------------------------------------------
+!----------------------------------------------------------------------------
 
-real function get_local_u_internal(gamma_locali, gmwi, gas_temp_local)
- real,         intent(in)    :: gamma_locali, gmwi, gas_temp_local
+real function get_local_u_internal(gammai, gmwi, gas_temp_local)
+ real,         intent(in)    :: gammai, gmwi, gas_temp_local
  real :: ponrhoi
- 
- ponrhoi              = gas_temp_local/(gmwi*temperature_coef)
- get_local_u_internal = ponrhoi/(gamma_locali-1)
 
- end function get_local_u_internal 
+ ponrhoi              = gas_temp_local/(gmwi*temperature_coef)
+ get_local_u_internal = ponrhoi/(gammai-1.)
+
+ end function get_local_u_internal
 
 !-----------------------------------------------------------------------
 real function get_temperature_from_ponrho(ponrho)
@@ -647,8 +645,7 @@ subroutine write_options_eos(iunit)
 
  write(iunit,"(/,a)") '# options controlling equation of state'
  call write_inopt(ieos,'ieos','eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)',iunit)
-#ifdef KROME
-#else
+#ifndef KROME
  call write_inopt(gmw,'mu','mean molecular weight',iunit)
 #endif
  select case(ieos)

@@ -118,7 +118,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes,use_krome
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -284,7 +284,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--set initial chemical abundance values
 !
-if (use_krome) then
+#ifdef KROME
    call initialise_krome()
 
    species_abund(krome_idx_He,:) = He_init
@@ -292,7 +292,7 @@ if (use_krome) then
    species_abund(krome_idx_N,:)  = N_init
    species_abund(krome_idx_O,:)  = O_init
    species_abund(krome_idx_H,:)  = H_init
-endif
+#endif
 
 !
 !--initialise values for non-ideal MHD
@@ -521,7 +521,7 @@ endif
     dtextforce = min(dtextforce,dtsinkgas)
  endif
  call init_ptmass(nptmass,logfile,dumpfile)
- 
+
 !
 !--inject particles at t=0, and get timestep constraint on this
 !
@@ -541,7 +541,7 @@ endif
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                               Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtnew_first)
-    
+
     if (use_dustfrac) then
        ! set grainsize parameterisation from the initial dustfrac setting now we know rho
        do i=1,npart

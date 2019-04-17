@@ -1587,7 +1587,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                        store_temperature,temperature,maxgradh,idust
  use io,          only:fatal,real4
  use eos,         only:get_temperature,get_spsound
- use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,mhd_nonideal,use_dust,use_krome
+ use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,mhd_nonideal,use_dust
  use options,     only:ieos,alpha,alphamax,use_dustfrac
  use viscosity,   only:bulkvisc,shearparam
  use nicil,       only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
@@ -1744,13 +1744,15 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
           vxyzui(3) = cell%xpartvec(ivzi,i)
           vxyzui(4) = cell%xpartvec(ieni,i)
 
-          if (use_krome) then
-             spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:),gamma_locali=gamma_chem(lli))
-          else if (store_temperature) then
-             spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:),temperature(lli))
+#ifdef KROME
+          spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:),gammai=gamma_chem(lli))
+#else
+          if (store_temperature) then
+             spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:),tempi=temperature(lli))
           else
              spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:))
           endif
+#endif
           alphaind(2,lli) = real4(get_alphaloc(divcurlvi(5),spsoundi,hi,xi_limiter,alpha,alphamax))
        endif
     else ! we always need div v for h prediction
@@ -1821,23 +1823,21 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
     dt = dtmax/2**ibin(lli)
 #endif
 #ifdef KROME
-    if (use_krome) then
-       rho_cgs = rhoi*unit_density
-       dt_cgs = dt*utime
-       if (dt .ne. 0.0) then
-          temperaturei = get_temperature_loc(ieos,cell%xpartvec(ixi:izi,i),rhoi, &
-                                            mu_chem(lli),vxyzui(4),gamma_chem(lli))
-!         Here we calculate the cooling contribution due to krome called by force.F90
-          kromecool(i) = krome_get_cooling(krome_x2n(species_abund(:,lli),rho_cgs),temperaturei)
-!         Here we evolve the chemistry and update the abundances
-          call krome(species_abund(:,lli),rho_cgs,temperaturei,dt_cgs)
-!         Here we update the gas temperature array for the dumpfiles
-          krometemperature(lli) = temperaturei
-!         Here we update the particle's mean molecular weight
-          mu_chem(lli) =  krome_get_mu(krome_x2n(species_abund(:,lli),rho_cgs))
-!         Here we update the particle's adiabatic index
-          gamma_chem(lli) = krome_get_gamma_x(species_abund(:,lli),temperaturei)
-       endif
+    rho_cgs = rhoi*unit_density
+    dt_cgs = dt*utime
+    if (dt .ne. 0.0) then
+       temperaturei = get_temperature_loc(ieos,cell%xpartvec(ixi:izi,i),rhoi, &
+                                         mu_chem(lli),vxyzui(4),gamma_chem(lli))
+!          Here we calculate the cooling contribution due to krome called by force.F90
+       kromecool(i) = krome_get_cooling(krome_x2n(species_abund(:,lli),rho_cgs),temperaturei)
+!          Here we evolve the chemistry and update the abundances
+       call krome(species_abund(:,lli),rho_cgs,temperaturei,dt_cgs)
+!          Here we update the gas temperature array for the dumpfiles
+       krometemperature(lli) = temperaturei
+!          Here we update the particle's mean molecular weight
+       mu_chem(lli) =  krome_get_mu(krome_x2n(species_abund(:,lli),rho_cgs))
+!          Here we update the particle's adiabatic index
+       gamma_chem(lli) = krome_get_gamma_x(species_abund(:,lli),temperaturei)
     endif
 #endif
     ! stats

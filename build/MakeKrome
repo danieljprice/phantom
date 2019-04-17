@@ -32,6 +32,6 @@ ifeq ("$(wildcard ${KROMEPATH}/build/reactions_verbatim.dat)","")
 	override PASSED:=2
 endif
 
-	ifeq ($(PASSED),1)
-	  cp ${KROMEPATH}/build/coolCO.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
-	endif
+ifeq ($(PASSED),1)
+  cp ${KROMEPATH}/build/coolCO.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
+endif
