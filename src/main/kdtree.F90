@@ -25,7 +25,7 @@
 !+
 !--------------------------------------------------------------------------
 module kdtree
- use dim,         only:maxp,ncellsmax,minpart
+ use dim,         only:maxp,maxp_hard,ncellsmax,minpart
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
  use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi
@@ -34,13 +34,11 @@ module kdtree
 
  integer, public,  allocatable :: inoderange(:,:)
  integer, public,  allocatable :: inodeparts(:)
- real,             allocatable :: xyzh_swap(:,:)
- integer,          allocatable :: inodeparts_swap(:)
- integer(kind=1),  allocatable :: iphase_swap(:)
 #ifdef MPI
  type(kdnode),     allocatable :: refinementnode(:)
 #endif
  integer,          allocatable :: list(:)
+ logical,          allocatable :: lessthenpivot(:)
  !$omp threadprivate(list)
 
 !
@@ -87,30 +85,26 @@ subroutine allocate_kdtree
 
  call allocate_array('inoderange', inoderange, 2, ncellsmax+1)
  call allocate_array('inodeparts', inodeparts, maxp)
- call allocate_array('xyzh_swap', xyzh_swap, maxp, 4)
- call allocate_array('inodeparts_swap', inodeparts_swap, maxp)
- call allocate_array('iphase_swap', iphase_swap, maxphase)
 #ifdef MPI
  call allocate_array('refinementnode', refinementnode, ncellsmax+1)
 #endif
  !$omp parallel
  call allocate_array('list', list, maxp)
  !$omp end parallel
+ allocate(lessthenpivot(maxp))
 
 end subroutine allocate_kdtree
 
 subroutine deallocate_kdtree
  deallocate(inoderange)
  deallocate(inodeparts)
- deallocate(xyzh_swap)
- deallocate(inodeparts_swap)
- deallocate(iphase_swap)
 #ifdef MPI
  deallocate(refinementnode)
 #endif
  !$omp parallel
  deallocate(list)
  !$omp end parallel
+ deallocate(lessthenpivot)
 end subroutine deallocate_kdtree
 
 
@@ -519,8 +513,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  real    :: quads(6)
 #endif
  real    :: pmassi
-
- integer :: counterl, counterr
+ integer         :: inodeparts_swap,k
+ integer(kind=1) :: iphase_swap
+ real            :: xyzh_swap(4)
 
  nodeisactive = .false.
  if (inoderange(1,nnode) > 0) then
@@ -778,61 +773,68 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     if (npnode > 0) then
        nl = inoderange(1,nnode)
        nr = inoderange(2,nnode)
-       inodeparts_swap(nl:nr) = inodeparts(nl:nr)
-       do j=1,4
-          xyzh_swap(nl:nr,j) = xyzh_soa(nl:nr,j)
-       enddo
-       iphase_swap(nl:nr) = iphase_soa(nl:nr)
-       counterl = 0
-       !DIR$ ivdep
-       do i = inoderange(1,nnode), inoderange(2,nnode)
-          xi = xyzh_swap(i,iaxis)
-          if (xi  <=  xpivot) then
-             inodeparts(nl+counterl) = inodeparts_swap(i)
-             xyzh_soa(nl+counterl,1) = xyzh_swap(i,1)
-             xyzh_soa(nl+counterl,2) = xyzh_swap(i,2)
-             xyzh_soa(nl+counterl,3) = xyzh_swap(i,3)
-             xyzh_soa(nl+counterl,4) = xyzh_swap(i,4)
-             iphase_soa(nl+counterl) = iphase_swap(i)
-             counterl = counterl + 1
-          endif
-       enddo
-       nl = nl + counterl
-       counterr=0
-       !DIR$ ivdep
-       do i = inoderange(1,nnode), inoderange(2,nnode)
-          xi = xyzh_swap(i,iaxis)
-          if (xi  >  xpivot) then
-             inodeparts(nl+counterr) = inodeparts_swap(i)
-             xyzh_soa(nl+counterr,1) = xyzh_swap(i,1)
-             xyzh_soa(nl+counterr,2) = xyzh_swap(i,2)
-             xyzh_soa(nl+counterr,3) = xyzh_swap(i,3)
-             xyzh_soa(nl+counterr,4) = xyzh_swap(i,4)
-             iphase_soa(nl+counterr) = iphase_swap(i)
-             counterr = counterr + 1
-          endif
-       enddo
-       nr = nr - counterr
-       inoderange(1,il) = inoderange(1,nnode)
-       inoderange(2,il) = nl - 1
-       inoderange(1,ir) = nr + 1
-       inoderange(2,ir) = inoderange(2,nnode)
-       nl = nl - inoderange(1,nnode)
-       nr = inoderange(2,nnode) - nr
+       i = nl
+       j = nr
+
+       lessthenpivot(i) = xyzh_soa(i,iaxis) < xpivot
+       lessthenpivot(j) = xyzh_soa(j,iaxis) < xpivot
+       ! k = 0
+       do while(i < j)
+         if (lessthenpivot(i)) then
+           i = i + 1
+           lessthenpivot(i) = xyzh_soa(i,iaxis) < xpivot
+         else
+           if (.not.lessthenpivot(j)) then
+             j = j - 1
+             lessthenpivot(j) = xyzh_soa(j,iaxis) < xpivot
+           else
+             inodeparts_swap = inodeparts(i)
+             xyzh_swap(1:4)  = xyzh_soa(i,1:4)
+             iphase_swap     = iphase_soa(i)
+
+             inodeparts(i)   = inodeparts(j)
+             xyzh_soa(i,1:4) = xyzh_soa(j,1:4)
+             iphase_soa(i)   = iphase_soa(j)
+
+             inodeparts(j)   = inodeparts_swap
+             xyzh_soa(j,1:4) = xyzh_swap(1:4)
+             iphase_soa(j)   = iphase_swap
+
+             i = i + 1
+             j = j - 1
+             lessthenpivot(i) = xyzh_soa(i,iaxis) < xpivot
+             lessthenpivot(j) = xyzh_soa(j,iaxis) < xpivot
+             ! k = k + 1
+           end if
+         end if
+       end do
+       if (.not.lessthenpivot(i)) then
+         i = i - 1
+       end if
+       if (lessthenpivot(j)) then
+         j = j + 1
+       end if
+
+       inoderange(1,il) = nl
+       inoderange(2,il) = i
+       inoderange(1,ir) = j
+       inoderange(2,ir) = nr
+
+       nl = i - (nl - 1)
+       nr = nr - (j - 1)
 
        if (nr + nl  /=  npnode) then
-          call error('maketree','number of left + right != parent number of particles while splitting node')
-       endif
+         call error('maketree','number of left + right != parent number of particles while splitting node')
+      endif
 
        ! see if all the particles ended up in one node, if so, arbitrarily build 2 cells
        if ( (.not. present(groupsize)) .and. ((nl==npnode) .or. (nr==npnode)) ) then
           ! no need to move particles because if they all ended up in one node,
           ! then they are still in the original order
           nl = npnode / 2
-          nr= npnode - counterl
           inoderange(1,il) = inoderange(1,nnode)
           inoderange(2,il) = inoderange(1,nnode) + nl - 1
-          inoderange(1,ir) = inoderange(2,nnode) - nr + 1
+          inoderange(1,ir) = inoderange(1,nnode) + nl
           inoderange(2,ir) = inoderange(2,nnode)
        endif
 
