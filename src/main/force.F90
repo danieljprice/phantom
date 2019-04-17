@@ -1581,7 +1581,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                       if (q2i < q2j) then
                          winter = wkern(q2i,qi)*hi21*hi1*cnormk
                       else
-                         winter = wkern(q2j,qj)*hi21*hi1*cnormk
+                         winter = wkern(q2j,qj)*hj21*hj1*cnormk
                       endif
                       fsum(idvi) = fsum(idvi) + pmassj/rhoj*sqdv2*winter
                       ri         = sqrt(xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2)
