@@ -10,26 +10,24 @@ contains
 subroutine test_radiation(ntests,npass)
  use dim,          only:maxp
  use io,           only:id,master,iverbose
- use part,         only:npart,xyzh,fxyzu,vxyzu,massoftype,igas,divcurlB,&
+ use part,         only:npart,xyzh,fxyzu,vxyzu,massoftype,igas,&
                         iphase,maxphase,isetphase,radenergy,radkappa,rhoh,&
-                        alphaind,bevol,gradh,divcurlv,fext,npartoftype,&
-                        radenevol,radkappa,radenflux,radthick,dradenevol,&
-                        maxvxyzu,dBevol,ddustevol,ddustprop,&
-                        dustfrac,dustprop,temperature
+                        npartoftype,&
+                        radenevol,radkappa,radenflux,dradenevol,&
+                        maxvxyzu
  use kernel,       only:hfact_default
  use unifdis,      only:set_unifdis
  use units,        only:set_units
  use eos,          only:gmw,gamma,polyk
  use linklist,     only:set_linklist
- use ptmass,       only:ipart_rhomax
  use densityforce, only:densityiterate
  use forces,       only:force
 
  integer, intent(inout) :: ntests,npass
 
- real :: psep,hfact,rr
- real :: stressmax,pmassi,dt
- integer :: i,j,nactive
+ real :: psep,hfact
+ real :: pmassi
+ integer :: i
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING RADIATION MODULE'
 
@@ -97,20 +95,22 @@ subroutine test_exchange_terms(npart,pmassi,radenergy,radenevol,radkappa,xyzh,vx
      fxyzu(4,i)  = 0
   enddo
 
-  maxt = 9e-7
+  maxt = 5e-7
   t = 0.
   rhoi    = rhoh(xyzh(4,1),pmassi)
   physrho = rhoi*unit_density
   i = 0
   do while(t < maxt/utime)
-     ! dt = max(1e-16/utime,0.05*t)
-     dt = maxt/utime/4
+     dt = max(1e-18/utime,0.05*t)
+     ! dt = maxt/utime
      call update_radenergy(1,xyzh,fxyzu,vxyzu,radenevol,radkappa,dt)
+     ! call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
+     ! call solve_internal_energy_explicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
      t = t + dt
-     ! if (mod(i,10)==0) then
+     if (mod(i,10)==0) then
         laste = (vxyzu(4,1)*unit_ergg)*physrho
         write(26,*) t*utime, laste,(radenevol(1)*unit_ergg)*physrho
-      ! end if
+      end if
      i = i + 1
   enddo
   call checkval(laste,21195027.055207778,3.e-4,ierr,'gas energy')
@@ -130,17 +130,17 @@ subroutine test_exchange_terms(npart,pmassi,radenergy,radenevol,radkappa,xyzh,vx
   physrho = rhoi*unit_density
   i = 0
   do while(t < maxt/utime)
-     ! dt = max(1e-16/utime,0.05*t)
-     dt = maxt/utime/4
+     dt = max(1e-18/utime,0.05*t)
+     ! dt = maxt/utime
      call update_radenergy(1,xyzh,fxyzu,vxyzu,radenevol,radkappa,dt)
      t = t + dt
-     ! if (mod(i,10)==0) then
+     if (mod(i,10)==0) then
         laste = (vxyzu(4,1)*unit_ergg)*physrho
         write(26,*) t*utime, laste,(radenevol(1)*unit_ergg)*physrho
-      ! end if
+      end if
      i = i + 1
   enddo
-  call checkval(laste,21142736.646201313,3.e-4,ierr,'gas energy')
+  call checkval(laste,21142367.365743987,3.e-4,ierr,'gas energy')
 end subroutine
 
 subroutine test_uniform_fluxes_and_derivs()

@@ -2832,7 +2832,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
 #ifdef RADIATION
     ! dradenevol(i) = rhoi*fsum(idradi) + xpartveci(iradei)*drhodti
-    dradenevol(i) = rhoi*fsum(idradi)
+    dradenevol(i) = fsum(idradi)
     c_code        = c/unit_velocity
     radkappai     = xpartveci(iradki)
     radlambdai    = xpartveci(iradli)
@@ -2843,7 +2843,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     ! edfacti = radlambdai+radlambdai**2*radri**2
     ! flux diffusion dtrad i
     ! eq30 Whitehouse & Bate 2004
-    dtradi = C_rad*hi*hi*rhoi*radkappai/c_code/radlambdai
+    dtradi = C_rad*hi*hi*rhoi*radkappai/c_code/radlambdai/radlambdai
     ! rad pressure term
     ! eq31 Whitehouse & Bate 2004
     ! C_rad/edfacti/rhoi/xii/divvi

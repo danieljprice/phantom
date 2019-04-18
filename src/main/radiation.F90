@@ -52,6 +52,7 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radenevol,radkappa,dt)
     etot = ui + xii
     unew = ui
     call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
+    call solve_internal_energy_implicit_substeps(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
     ! call solve_internal_energy_explicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
     vxyzu(4,i) = unew
     radenevol(i) = etot - unew
@@ -60,6 +61,38 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radenevol,radkappa,dt)
   end do
   !$omp end parallel do
 end subroutine update_radenergy
+
+subroutine solve_internal_energy_implicit_substeps(unew,ui,rho,etot,dudt,ack,a,cv1,dt)
+ real, intent(out) :: unew
+ real, intent(in)  :: ui, etot, dudt, dt, rho, ack, a, cv1
+
+ real     :: fu,dfu,eps,dts,dunew,unewp,uip
+ integer  :: iter,i,level
+
+ unew = ui
+ unewp = huge(1.)
+ eps = 1e-8
+ dunew = (unewp-unew)/unew
+ level = 1
+ do while((abs(dunew) > eps).and.(level <= 2**10))
+   unewp = unew
+   dts   = dt/level
+   uip   = ui
+   do i=1,level
+     iter  = 0
+     fu    = huge(1.)
+     do while((abs(fu) > eps).and.(iter < 10))
+       iter = iter + 1
+       fu   = unew/dts - uip/dts - dudt - ack*(rho*(etot-unew)/a - (unew*cv1)**4)
+       dfu  = 1./dts + ack*(rho/a + 4.*(unew**3*cv1**4))
+       unew = unew - fu/dfu
+     end do
+     uip = unew
+   end do
+   dunew = (unewp-unew)/unew
+   level = level*2
+ end do
+end subroutine solve_internal_energy_implicit_substeps
 
 subroutine solve_internal_energy_implicit(unew,ui,rho,etot,dudt,ack,a,cv1,dt)
  real, intent(out) :: unew
@@ -71,17 +104,12 @@ subroutine solve_internal_energy_implicit(unew,ui,rho,etot,dudt,ack,a,cv1,dt)
  fu = huge(1.)
  iter = 0
  eps = 1e-14
- ! do while((abs(fu) > eps).and.(iter < 10).and.(abs(unew-ui)/ui < 0.2))
  do while((abs(fu) > eps).and.(iter < 10))
    iter = iter + 1
    fu  = unew/dt - ui/dt - dudt - ack*(rho*(etot-unew)/a - (unew*cv1)**4)
    dfu = 1./dt + ack*(rho/a + 4.*(unew**3*cv1**4))
    unew = unew - fu/dfu
  end do
- ! if (abs(unew-ui)/ui > 0.1) then
- !   if (unew > ui) unew = ui*1.1
- !   if (unew < ui) unew = ui*0.9
- ! endif
 end subroutine solve_internal_energy_implicit
 
 subroutine solve_internal_energy_explicit(unew,ui,rho,etot,dudt,ack,a,cv1,dt)
@@ -98,7 +126,6 @@ subroutine solve_internal_energy_explicit(unew,ui,rho,etot,dudt,ack,a,cv1,dt)
  unew = ui + dts*(dudt + ack*(rho*(etot-ui)/a - (ui*cv1)**4))
 
  do while((abs(du) > eps*unew).and.(level <= 2**10))
- ! do while(level <= 2**10)
    unews = unew
    level = level*2
    dts  = dt/level
@@ -136,11 +163,11 @@ subroutine set_radfluxesandregions(npart,radthick,radenevol,radenflux,xyzh,vxyzu
     if (abs(xyzh(3,i)) > H) then
       if (xyzh(3,i) <= 0.) then
         radenflux(1:2,i) = 0.
-        radenflux(3,i)   = -rhoi*abs(radenevol(i))
+        radenflux(3,i)   =  rhoi*abs(radenevol(i))
         radthick(i) = .false.
       else if (xyzh(3,i) > 0.) then
         radenflux(1:2,i) =  0.
-        radenflux(3,i)   =  rhoi*abs(radenevol(i))
+        radenflux(3,i)   = -rhoi*abs(radenevol(i))
         radthick(i) = .false.
       end if
     end if

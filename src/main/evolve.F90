@@ -321,7 +321,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     endif
 #ifdef RADIATION
     call update_radenergy(npart,xyzh,fxyzu,vxyzu,radenevol,radkappa,0.5*dt)
-    call set_radfluxesandregions(npart,radthick,radenevol,radenflux,xyzh,vxyzu)
+    ! call set_radfluxesandregions(npart,radthick,radenevol,radenflux,xyzh,vxyzu)
 #endif
     nsteps = nsteps + 1
 !
