@@ -1374,7 +1374,11 @@ endif
 
 ifeq ($(KROME), krome)
     FPPFLAGS += -DKROME
+ifeq ($(SYSTEM), ifort)
     LDFLAGS  += -mkl
+else
+    LDFLAGS  += -llapack
+endif
 endif
 
 #
