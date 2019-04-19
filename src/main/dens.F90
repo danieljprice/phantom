@@ -1658,7 +1658,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  real :: dt
 #endif
 #ifdef KROME
- real :: dt_cgs, rho_cgs
+ real :: dt_cgs, rho_cgs !, xvect(krome_nmols), nvect(krome_nmols)
 #endif
 
  do i = 1,cell%npcell
@@ -1828,16 +1828,22 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
     if (dt .ne. 0.0) then
        temperaturei = get_temperature_loc(ieos,cell%xpartvec(ixi:izi,i),rhoi, &
                                          mu_chem(lli),vxyzui(4),gamma_chem(lli))
-!          Here we calculate the cooling contribution due to krome called by force.F90
-       kromecool(i) = krome_get_cooling(krome_x2n(species_abund(:,lli),rho_cgs),temperaturei)
 !          Here we evolve the chemistry and update the abundances
        call krome(species_abund(:,lli),rho_cgs,temperaturei,dt_cgs)
+!          Here we calculate the cooling contribution due to krome called by force.F90
+       !nvect(:) = species_abund(:,lli)
+       kromecool(i) = krome_get_cooling(krome_x2n(species_abund(:,lli),rho_cgs),temperaturei)
+       !xvect = krome_x2n(nvect,rho_cgs)
+       !kromecool(i) = krome_get_cooling(xvect,temperaturei)
 !          Here we update the gas temperature array for the dumpfiles
        krometemperature(lli) = temperaturei
 !          Here we update the particle's mean molecular weight
        mu_chem(lli) =  krome_get_mu(krome_x2n(species_abund(:,lli),rho_cgs))
+       !mu_chem(lli) =  krome_get_mu(xvect)
 !          Here we update the particle's adiabatic index
        gamma_chem(lli) = krome_get_gamma_x(species_abund(:,lli),temperaturei)
+       !gamma_chem(lli) = krome_get_gamma_x(nvect,temperaturei)
+       !species_abund(:,lli)= nvect(:)
     endif
 #endif
     ! stats

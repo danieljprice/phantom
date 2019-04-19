@@ -42,7 +42,7 @@ MULTIRUNFILE  = multirun.f90
 LIVE_ANALYSIS = no
 LINKLIST      = dtype_kdtree.F90 kdtree.F90 linklist_kdtree.F90
 KROME         = disabled
-DEBUG         = yes
+DEBUG         = no
 #
 # can comment out the following lines and instead set
 # the parameters as environment variables
@@ -1377,7 +1377,7 @@ ifeq ($(KROME), krome)
 ifeq ($(SYSTEM), ifort)
     LDFLAGS  += -mkl
 else
-    LDFLAGS  += -llapack
+    LDFLAGS  += -L/usr/lib/x86_64-linux-gnu -lmkl_core -lmkl_gnu_thread -lmkl_gf_lp64 -fopenmp
 endif
 endif
 
@@ -1562,7 +1562,7 @@ ifeq ($(KROME), krome)
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
          utils_allocate.f90 \
-         utils_mathfunc.f90 part.F90 ${DOMAIN} utils_timing.f90 krome.f90 mpi_balance.F90 \
+         utils_mathfunc.f90 part.F90 ${DOMAIN} krome.f90 utils_timing.f90 mpi_balance.F90 \
          commons.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_datafiles.f90 datafiles.f90 \
@@ -1608,8 +1608,8 @@ OBJECTS = $(OBJECTS1:.F90=.o)
 ifeq ($(KROME), krome)
     .PHONY: all
 
-    all: krome_setup krome phantom
-     -include MakeKrome
+    all: checksystem krome_setup krome phantom
+    include MakeKrome
 else
     .PHONY: phantom
 endif
@@ -2798,6 +2798,9 @@ err:
 
 clean:
 	rm -f *.o *.mod phantom-version.h
+ifeq ($(KROME),krome)
+	rm -f ${KROMEPATH}/build/*.o ${KROMEPATH}/build/*.mod
+endif
 
 cleanall: clean cleanmathflags
 	cd $(BINDIR); rm -f phantom phantomsetup

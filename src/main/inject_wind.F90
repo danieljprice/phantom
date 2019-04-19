@@ -26,7 +26,7 @@
 !    bowen_kmax        -- maximum dust opacity (cm²/g)
 !    iboundary_spheres -- number of boundary spheres (integer)
 !    wind_dr_on_dp     -- desired ratio of sphere spacing to particle spacing
-!    wind_mass_rate    -- wind mass per unit time (Msun/yr)
+!    wind_mass_rate    -- wind mass loss rate (Msun/yr)
 !    wind_osc_period   -- stellar pulsation period (days)
 !    wind_temperature  -- wind temperature at the injection point (K)
 !
@@ -236,10 +236,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  outer_sphere = floor((time-dtlast)/time_between_spheres) + 1
  inner_sphere = floor(time/time_between_spheres)
  inner_boundary_sphere = inner_sphere + iboundary_spheres
+
  if (inner_sphere-outer_sphere > iboundary_spheres) call fatal(label,'problem with boundary spheres, timestep likely too large!')
 ! cs2max = 0.
- do i=inner_sphere+iboundary_spheres,outer_sphere,-1
-    local_time = time - (i-shift_spheres) * time_between_spheres
+ do i=inner_boundary_sphere,outer_sphere,-1
+    local_time = time - (i-abs(shift_spheres)) * time_between_spheres
     call compute_sphere_properties(time,local_time,gamma,GM,r,v,u,rho,e,i,&
          inner_sphere,inner_boundary_sphere)
     if (wind_verbose) then
@@ -251,6 +252,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        write(iprint,*) ''
        !read*
     endif
+
+    ! boundary sphere
     if (i > inner_sphere) then
        call inject_geodesic_sphere(i, (iboundary_spheres-i+inner_sphere)*particles_per_sphere+1, &
             iwind_resolution, r, v, u, rho,  geodesic_R, geodesic_V, &
@@ -342,8 +345,8 @@ subroutine compute_sphere_properties(time,local_time,gamma,GM,r,v,u,rho,e,sphere
  endif
  !r = (surface_radius**3-(sphere_number-inner_sphere)*dr3)**(1./3)
  !rho = rho_ini
+ u = wind_temperature * u_to_temperature_ratio
  if (gamma > 1.0001) then
-    u = wind_temperature * u_to_temperature_ratio
     e = .5*v**2 - GM/r + gamma*u
  else
     e = .5*v**2 - GM/r + u
@@ -376,7 +379,7 @@ end subroutine compute_sphere_properties
 subroutine stationary_adiabatic_wind_profile(local_time, r, v, u, rho, e, gamma, GM)
  real, intent(in)  :: local_time, GM, gamma
  real, intent(out) :: r, v, u, rho, e
- real :: dt, rv(2), k1(2), k2(2), k3(2), k4(2), T
+ real :: dt, rv(2), k1(2), k2(2), k3(2), k4(2), T, new_rv(2)
  integer, parameter :: N = 10000
  integer :: i
 
@@ -386,9 +389,12 @@ subroutine stationary_adiabatic_wind_profile(local_time, r, v, u, rho, e, gamma,
  ! Runge-Kutta iterations
  do i=1,N
     call drv_dt(rv,          k1, GM, gamma)
-    call drv_dt(rv+dt/2.*k1, k2, GM, gamma)
-    call drv_dt(rv+dt/2.*k2, k3, GM, gamma)
-    call drv_dt(rv+dt*k3,    k4, GM, gamma)
+    new_rv = rv+dt/2.*k1
+    call drv_dt(new_rv, k2, GM, gamma)
+    new_rv = rv+dt/2.*k2
+    call drv_dt(new_rv, k3, GM, gamma)
+    new_rv = rv+dt/1.*k3
+    call drv_dt(new_rv,    k4, GM, gamma)
     rv = rv + dt/6. * (k1 + 2.*k2 + 2.*k3 + k4)
  enddo
  r = rv(1)
@@ -399,6 +405,7 @@ subroutine stationary_adiabatic_wind_profile(local_time, r, v, u, rho, e, gamma,
     u = T * u_to_temperature_ratio
     e = .5*v**2 - GM/r + gamma*u
  else
+    u = T * u_to_temperature_ratio
     e = .5*v**2 - GM/r + u
  endif
  rho = wind_mass_rate / (4.*pi*r**2*v)

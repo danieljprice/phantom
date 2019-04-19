@@ -37,7 +37,11 @@ echo 'libphantom      : phantomlib'
 echo 'mflow           : mflow'
 echo
 echo 'clean:'
-echo '	cd ${PHANTOMDIR}; make clean'
+if [ $# -ge 1 ]; then
+    echo '	cd ${PHANTOMDIR}; make clean KROME=krome'
+else
+    echo '	cd ${PHANTOMDIR}; make clean'
+fi
 echo 'setup:'
 echo '	cd ${PHANTOMDIR}; make '$makeflags' setup; cd -; cp ${PHANTOMDIR}/bin/phantomsetup .'
 echo 'moddump:'
