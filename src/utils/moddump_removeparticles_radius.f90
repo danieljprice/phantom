@@ -11,7 +11,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Mentiplay
+!  OWNER: Arnaud Vericel
 !
 !  $Id$
 !
