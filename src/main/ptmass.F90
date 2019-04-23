@@ -101,8 +101,12 @@ module ptmass
 contains
 !----------------------------------------------------------------
 !+
-!  if (tofrom==.true.)  acceleration from/to gas particles due to sink particles
-!  if (tofrom==.false.) acceleration on gas due to sink particles (but not vice-versa)
+!  if (tofrom==.true.)  Acceleration from/to gas particles due to sink particles;
+!                       required in initial.F90 & step_leapfrog.F90 to update all accelerations
+!  if (tofrom==.false.) Acceleration on gas due to sink particles (but not vice-versa);
+!                       this is typically used to calculate phi (in compute_energies in
+!                       energies.F90); in this case, fxi,fyi,fzi should be dummy input
+!                       variables that do not affect the sink's motion.
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, &

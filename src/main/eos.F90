@@ -133,7 +133,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
 !
 !--isothermal eos
 !
-    ponrhoi = polyk
+    ponrhoi  = polyk
     spsoundi = sqrt(ponrhoi)
 
  case(2)
@@ -164,15 +164,15 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
 !--this is for a locally isothermal disc as in Lodato & Pringle (2007)
 !   cs = cs_0*R^(-q) -- polyk is cs^2, so this is (R^2)^(-q)
 !
-    ponrhoi = polyk*(xi**2 + yi**2 + zi**2)**(-qfacdisc)
+    ponrhoi  = polyk*(xi**2 + yi**2 + zi**2)**(-qfacdisc)
     spsoundi = sqrt(ponrhoi)
 
  case(6)
 !
 !--this is for a locally isothermal disc as in Lodato & Pringle (2007), centered on a sink particle
 !   cs = cs_0*R^(-q) -- polyk is cs^2, so this is (R^2)^(-q)
-    ponrhoi = polyk*((xi-xyzmh_ptmass(1,isink))**2 + (yi-xyzmh_ptmass(2,isink))**2 + &
-                     (zi-xyzmh_ptmass(3,isink))**2)**(-qfacdisc)
+    ponrhoi  = polyk*((xi-xyzmh_ptmass(1,isink))**2 + (yi-xyzmh_ptmass(2,isink))**2 + &
+                      (zi-xyzmh_ptmass(3,isink))**2)**(-qfacdisc)
     spsoundi = sqrt(ponrhoi)
 
  case(7)
@@ -249,12 +249,12 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
 !--MESA eos
 !
     cgsrhoi = rhoi * unit_density
-    cgseni = eni * unit_ergg
+    cgseni  = eni * unit_ergg
 
     call get_eos_pressure_gamma1_mesa(cgsrhoi,cgseni,cgspgas,gam1,ierr)
     pgas = cgspgas / unit_pressure
 
-    ponrhoi = pgas / rhoi
+    ponrhoi  = pgas / rhoi
     spsoundi = sqrt(gam1*ponrhoi)
     if (ierr /= 0) call warning('eos_mesa','extrapolating off tables')
 
@@ -262,7 +262,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
 !
 !--isothermal eos with zero pressure
 !
-    ponrhoi = 0.
+    ponrhoi  = 0.
     spsoundi = sqrt(polyk)
 
  case(14)
@@ -282,7 +282,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
     if (present(tempi)) then
        call eos_helmholtz_pres_sound(tempi, rhoi, ponrhoi, spsoundi, eni)
     else
-       ponrhoi = 0.
+       ponrhoi  = 0.
        spsoundi = 0.
        call fatal('eos','tried to call Helmholtz free energy eos without passing temperature')
     endif
