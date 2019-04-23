@@ -1045,24 +1045,22 @@ subroutine amuse_get_state_gas(i, mass, x, y, z, vx, vy, vz, u, h)
     call amuse_get_smoothing_length(i, h)
 end subroutine
 
-subroutine amuse_get_state_dm(i, mass, x, y, z, vx, vy, vz, radius)
+subroutine amuse_get_state_dm(i, mass, x, y, z, vx, vy, vz)
     implicit none
     integer :: i
-    double precision :: mass, x, y, z, vx, vy, vz, radius
+    double precision :: mass, x, y, z, vx, vy, vz
     call amuse_get_mass(i, mass)
     call amuse_get_position(i, x, y, z)
     call amuse_get_velocity(i, vx, vy, vz)
-    call amuse_get_radius(i, radius)
 end subroutine
 
-subroutine amuse_get_state_sink(j, mass, x, y, z, vx, vy, vz, radius)
+subroutine amuse_get_state_sink(j, mass, x, y, z, vx, vy, vz)
     implicit none
     integer :: j
     double precision :: mass, x, y, z, vx, vy, vz, radius
     call amuse_get_mass(j, mass)
     call amuse_get_position(j, x, y, z)
     call amuse_get_velocity(j, vx, vy, vz)
-    call amuse_get_radius(j, radius)
 end subroutine
 
 subroutine amuse_get_position(i, x, y, z)
@@ -1182,24 +1180,22 @@ subroutine amuse_set_state_gas(i, mass, x, y, z, vx, vy, vz, u, h)
     call amuse_set_smoothing_length(i, h)
 end subroutine
 
-subroutine amuse_set_state_dm(i, mass, x, y, z, vx, vy, vz, radius)
+subroutine amuse_set_state_dm(i, mass, x, y, z, vx, vy, vz)
     implicit none
     integer :: i
-    double precision :: mass, x, y, z, vx, vy, vz, radius
+    double precision :: mass, x, y, z, vx, vy, vz
     call amuse_set_mass(i, mass)
     call amuse_set_position(i, x, y, z)
     call amuse_set_velocity(i, vx, vy, vz)
-    call amuse_set_radius(i, radius)
 end subroutine
 
-subroutine amuse_set_state_sink(j, mass, x, y, z, vx, vy, vz, radius)
+subroutine amuse_set_state_sink(j, mass, x, y, z, vx, vy, vz)
     implicit none
     integer :: j
-    double precision :: mass, x, y, z, vx, vy, vz, radius
+    double precision :: mass, x, y, z, vx, vy, vz
     call amuse_set_mass(j, mass)
     call amuse_set_position(j, x, y, z)
     call amuse_set_velocity(j, vx, vy, vz)
-    call amuse_set_radius(j, radius)
 end subroutine
 
 subroutine amuse_set_position(i, x, y, z)
