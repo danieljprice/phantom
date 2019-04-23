@@ -929,8 +929,9 @@ end subroutine
 
 subroutine amuse_delete_particle(i)
     use part, only:kill_particle,xyzmh_ptmass
-    integer :: i, j
-    if (i = abs(i)) then
+    integer, intent(in) :: i
+    integer :: j
+    if (i == abs(i)) then
         call kill_particle(i)
     else
         j = -i
@@ -1023,8 +1024,9 @@ subroutine amuse_get_mass(i, part_mass)
     use part, only:iphase,massoftype,xyzmh_ptmass
     implicit none
     double precision, intent(out) :: part_mass
-    integer :: i, j
-    if (i = abs(i)) then
+    integer, intent(in) :: i
+    integer :: j
+    if (i == abs(i)) then
         part_mass = massoftype(abs(iphase(i)))
     else
         j = -i
@@ -1066,9 +1068,10 @@ end subroutine
 subroutine amuse_get_position(i, x, y, z)
     use part, only:xyzh,xyzmh_ptmass
     implicit none
-    integer, intent(in) :: i, j
+    integer, intent(in) :: i
+    integer :: j
     double precision, intent(out) :: x, y, z
-    if (i = abs(i)) then
+    if (i == abs(i)) then
         x = xyzh(1, i)
         y = xyzh(2, i)
         z = xyzh(3, i)
@@ -1083,9 +1086,10 @@ end subroutine
 subroutine amuse_get_velocity(i, vx, vy, vz)
     use part, only:vxyzu,vxyz_ptmass
     implicit none
-    integer, intent(in) :: i, j
+    integer, intent(in) :: i
+    integer :: j
     double precision, intent(out) :: vx, vy, vz
-    if (i = abs(i)) then
+    if (i == abs(i)) then
         vx = vxyzu(1, i)
         vy = vxyzu(2, i)
         vz = vxyzu(3, i)
@@ -1100,9 +1104,10 @@ end subroutine
 subroutine amuse_get_smoothing_length(i, h)
     use part, only:xyzh,xyzmh_ptmass,ihsoft
     implicit none
-    integer, intent(in) :: i, j
+    integer, intent(in) :: i
+    integer :: j
     double precision, intent(out) :: h
-    if (i = abs(i)) then
+    if (i == abs(i)) then
         h = xyzh(4, i)
     else
         j = -i
@@ -1156,8 +1161,9 @@ subroutine amuse_set_mass(i, part_mass)
     use part, only:iphase,massoftype,xyzmh_ptmass
     implicit none
     double precision, intent(in) :: part_mass
-    integer :: i, j
-    if (i = abs(i)) then
+    integer, intent(in) :: i
+    integer :: j
+    if (i == abs(i)) then
         massoftype(abs(iphase(i))) = part_mass
     else
         j = -i
@@ -1199,9 +1205,10 @@ end subroutine
 subroutine amuse_set_position(i, x, y, z)
     use part, only:xyzh,xyzmh_ptmass
     implicit none
-    integer, intent(in) :: i, j
+    integer, intent(in) :: i
+    integer :: j
     double precision, intent(in) :: x, y, z
-    if (i = abs(i)) then
+    if (i == abs(i)) then
         xyzh(1, i) = x
         xyzh(2, i) = y
         xyzh(3, i) = z
@@ -1216,9 +1223,10 @@ end subroutine
 subroutine amuse_set_velocity(i, vx, vy, vz)
     use part, only:vxyzu,vxyz_ptmass
     implicit none
-    integer, intent(in) :: i, j
+    integer, intent(in) :: i
+    integer :: j
     double precision, intent(in) :: vx, vy, vz
-    if (i = abs(i)) then
+    if (i == abs(i)) then
         vxyzu(1, i) = vx
         vxyzu(2, i) = vy
         vxyzu(3, i) = vz
@@ -1233,9 +1241,10 @@ end subroutine
 subroutine amuse_set_smoothing_length(i, h)
     use part, only:xyzh,xyzmh_ptmass,ihsoft
     implicit none
-    integer, intent(in) :: i, j
+    integer, intent(in) :: i
+    integer :: j
     double precision, intent(in) :: h
-    if (i = abs(i)) then
+    if (i == abs(i)) then
         xyzh(4, i) = h
     else
         j = -i
