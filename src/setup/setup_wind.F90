@@ -79,7 +79,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=*),  intent(in)    :: fileprefix
  character(len=len(fileprefix)+6) :: filename
  character(len=len(fileprefix)+10) :: dumpfile,infile,evfile,logfile
- integer :: ierr,iwind
+ integer :: ierr
  logical :: iexist
 
  call set_units(dist=au,mass=solarm,G=1.)
@@ -140,12 +140,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzmh_ptmass(5,1) = accretion_radius
  endif
 
- iwind = iwind_resolution
  massoftype(igas) = default_particle_mass * (solarm / umass)
  call init_inject(ierr)
-
- if (iwind == 0) iwind_resolution = 0
- !massoftype(igas) = mass_of_particles * (solarm / umass)
 
 end subroutine setpart
 

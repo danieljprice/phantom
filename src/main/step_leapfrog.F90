@@ -587,7 +587,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use timestep_sts,   only:sts_it_n
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use damping,        only:calc_damp,apply_damp
-#if defined(WIND) || defined(KROME)
+#ifdef INJECT_PARTICLES
  use inject,         only:radiativeforce,wind_alpha
 #endif
  integer,         intent(in)    :: npart,ntypes,nptmass

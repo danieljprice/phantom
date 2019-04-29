@@ -15,14 +15,6 @@ KOBJS := krome_commons.o krome_constants.o krome_coolingGH.o krome_cooling.o kro
 KROME_OBJS := $(addprefix $(KROME_BUILD_DIR)/, $(KOBJS))
 OBJECTS += $(KROME_OBJS)
 
-krome: $(KROME_OBJS)
-
-$(KROME_OBJS):
-	$(MAKE) -C $(KROME_BUILD_DIR) fc=$(SYSTEM) switch=$(KFLAGS)
-
-clean_krome:
-	$(MAKE) -C $(KROME_BUILD_DIR) clean
-
 krome_setup:
 ifeq ("$(wildcard ${KROMEPATH}/networks/react_AGB_reduced_eHHeCNO)","")
 	cp react_AGB_reduced_eHHeCNO ${KROMEPATH}/networks
@@ -39,3 +31,15 @@ ifeq ("$(PASSED)$(wildcard ${KROMEPATH}/build/reactions_verbatim.dat)","0")
 	cd ${KROMEPATH}; ${KROMEPATH}/krome -options=build/optionsKrome.opt
 	cp ${KROMEPATH}/build/coolCO.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
 endif
+ifeq ("$(wildcard ${RUNDIR}/reactions_verbatim.dat)","")
+	cp ${KROMEPATH}/build/coolCO.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
+endif
+
+krome: $(KROME_OBJS)
+
+$(KROME_OBJS):
+	$(MAKE) -C $(KROME_BUILD_DIR) fc=$(SYSTEM) switch=$(KFLAGS)
+
+clean_krome:
+	$(MAKE) -C $(KROME_BUILD_DIR) clean
+	rm ${KROMEPATH}/build/*.dat
