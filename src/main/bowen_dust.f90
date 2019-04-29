@@ -26,7 +26,7 @@
 module bowen_dust
  implicit none
 
- public :: radiative_acceleration, bowen_init
+ public :: radiative_acceleration, init_bowen
  logical, parameter :: use_alpha_wind = .false.
 
  private
@@ -39,6 +39,7 @@ module bowen_dust
  integer :: nwall_particles
 
 contains
+
 
 !-----------------------------------------------------------------------
 !+
@@ -150,7 +151,7 @@ end subroutine radiative_acceleration
 !  Convert parameters into code units.
 !+
 !-----------------------------------------------------------------------
-subroutine bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,wind_injection_radius,&
+subroutine init_bowen(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,wind_injection_radius,&
        bowen_Cprime, bowen_Tcond, bowen_delta,bowen_Teff,wind_osc_vamplitude,wind_osc_period,nwall)
  use physcon,     only: solarl,c,steboltz,pi,radconst
  use units,       only: udist, umass, utime
@@ -175,7 +176,7 @@ subroutine bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,wind
  usteboltz = L/(4.*pi*Reff**2*Teff**4)
  Rmin = Reff - deltaR_osc
 
-end subroutine bowen_init
+end subroutine init_bowen
 
 !-----------------------------------------------------------------------
 !+
