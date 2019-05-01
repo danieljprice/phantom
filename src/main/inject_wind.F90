@@ -30,7 +30,7 @@
 !    wind_CO_ratio      -- wind initial C/O ratio
 !    wind_alpha         -- fraction of the gravitational acceleration imparted to the gas
 !    wind_shell_spacing -- desired ratio of sphere spacing to particle spacing
-!    wind_expT          -- temperature law exponent (if wind_type=1)
+!    wind_expT          -- temperature law exponent (if wind_type=2)
 !    wind_inject_radius -- radius of injection of the wind (au)
 !    wind_mass_rate     -- wind mass loss rate (Msun/yr)
 !    wind_osc_period    -- stellar pulsation period (days)
@@ -145,7 +145,7 @@ subroutine init_inject(ierr)
     ! where m = particle mass and V, Mdot and R are wind parameters
     !
     mass_of_particles = massoftype(igas)
-    mV_on_MdotR = mass_of_particles*wind_velocity/(wind_mass_rate*wind_injection_radius)
+    mV_on_MdotR = mass_of_particles*wind_velocity_max/(wind_mass_rate*wind_injection_radius)
     !
     ! solve for the integer resolution of the geodesic spheres
     ! gives number of particles on the sphere via N = 20*(2*q*(q - 1)) + 12
@@ -159,7 +159,7 @@ subroutine init_inject(ierr)
     particles_per_sphere = get_parts_per_sphere(iresolution)
     neighbour_distance   = get_neighb_distance(iresolution)
     mass_of_particles = wind_shell_spacing*neighbour_distance * wind_injection_radius * wind_mass_rate &
-       / (particles_per_sphere * wind_velocity)
+       / (particles_per_sphere * wind_velocity_max)
     massoftype(igas) = mass_of_particles
     print *,'iwind_resolution unchanged = ',iresolution
  endif
@@ -330,12 +330,12 @@ subroutine compute_sphere_properties(time,local_time,gamma,GM,r,v,u,rho,e,sphere
  real,    intent(out) :: r, v, u, rho, e
 
 #ifdef BOWEN
- call bowen_wind_profile(time,local_time,r,v,u,rho,e,GM, gamma,sphere_number, &
+ call bowen_wind_profile(time,local_time, r, v, u, rho, e, GM, gamma, sphere_number, &
                                      inner_sphere,inner_boundary_sphere)
 #elif PARKER
- call parker_wind_profile(time,local_time,r,v,u,rho,e,GM, gamma,Jstar,K,mu,cs)
+ call parker_wind_profile(time,local_time, r, v, u, rho, e, GM, gamma, Jstar, K, mu, cs)
 #else
- call stationary_wind_profile(local_time, r, v, u, rho, e, gamma, GM)
+ call stationary_wind_profile(local_time, r, v, u, rho, e, GM, gamma)
 #endif
 
 end subroutine compute_sphere_properties
@@ -347,7 +347,7 @@ end subroutine compute_sphere_properties
 !  Oscillating inner boundary : bowen wind
 !+
 !-----------------------------------------------------------------------
-subroutine bowen_wind_profile(time,local_time,r,v,u,rho,e,GM, gamma,sphere_number, &
+subroutine bowen_wind_profile(time,local_time,r,v,u,rho,e,GM,gamma,sphere_number, &
                                      inner_sphere,inner_boundary_sphere)
  use physcon,     only: pi
  integer, intent(in)  :: sphere_number, inner_sphere, inner_boundary_sphere
@@ -402,7 +402,7 @@ end subroutine bowen_wind_profile
 !  stationary supersonic wind
 !+
 !-----------------------------------------------------------------------
-subroutine stationary_wind_profile(local_time, r, v, u, rho, e, gamma, GM)
+subroutine stationary_wind_profile(local_time, r, v, u, rho, e, GM, gamma)
  use physcon,     only: pi
  real, intent(in)  :: local_time, GM, gamma
  real, intent(out) :: r, v, u, rho, e
@@ -441,7 +441,7 @@ end subroutine stationary_wind_profile
 
 !-----------------------------------------------------------------------
 !+
-!  Time derivative of r and v, for Runge-Kutta iterations (stationary wind solution)
+!  Time derivative of r and v, for Runge-Kutta iterations (stationary supersonic solution)
 !+
 !-----------------------------------------------------------------------
 subroutine drv_dt(rv,drv,GM,gamma)
@@ -519,9 +519,9 @@ subroutine write_options_inject(iunit)
  endif
  call write_inopt(wind_alpha,'wind_alpha','fraction of the gravitational acceleration imparted to the gas',iunit)
  call write_inopt(iwind_resolution,'iwind_resolution','if<>0 set number of particles on the sphere, reset particle mass',iunit)
- call write_inopt(iboundary_spheres,'iboundary_spheres','number of boundary spheres (integer)',iunit)
- call write_inopt(wind_shell_spacing,'wind_shell_spacing','desired ratio of sphere spacing to particle spacing',iunit)
  call write_inopt(shift_spheres,'shift_spheres','delay before the ejection of shells',iunit)
+ call write_inopt(wind_shell_spacing,'wind_shell_spacing','desired ratio of sphere spacing to particle spacing',iunit)
+ call write_inopt(iboundary_spheres,'iboundary_spheres','number of boundary spheres (integer)',iunit)
 #if defined (BOWEN) || defined(PARKER)
  write(iunit,"(/,a)") '# options controlling dust and cooling'
 
@@ -532,8 +532,8 @@ subroutine write_options_inject(iunit)
  call write_inopt(bowen_kmax,'bowen_kmax','maximum dust opacity (cm²/g)',iunit)
  call write_inopt(bowen_Tcond,'bowen_Tcond','dust condensation temperature (K)',iunit)
  call write_inopt(bowen_delta,'bowen_delta','condensation temperature range (K)',iunit)
- call write_inopt(wind_type,'wind_type','stellar wind (1 = no dust, 2 = T(r)+dust, 3 = adia+dust, 4 = 3+cooling)',iunit)
- call write_inopt(wind_expT,'wind_expT','temperature law exponent (if wind_type=1)', iunit)
+ call write_inopt(wind_type,'wind_type','stellar wind (1=no dust,2=T(r)+dust,3=adia+dust,4=3+cooling)',iunit)
+ call write_inopt(wind_expT,'wind_expT','temperature law exponent (if wind_type=2)', iunit)
  call write_inopt(wind_CO_ratio ,'wind_CO_ratio','wind initial C/O ratio',iunit)
 #endif
 
@@ -573,8 +573,8 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     isowind = .false.
     if (wind_temperature < 0.)    call fatal(label,'invalid setting for wind_temperature (<0)')
  case('wind_alpha')
-     read(valstring,*,iostat=ierr) wind_alpha
-     if (wind_alpha < 0.) call fatal(label,'invalid setting for wind_alpha (must be > 0)')
+    read(valstring,*,iostat=ierr) wind_alpha
+    if (wind_alpha < 0.) call fatal(label,'invalid setting for wind_alpha (must be > 0)')
  case('iwind_resolution')
     read(valstring,*,iostat=ierr) iwind_resolution
     ngot = ngot + 1
@@ -584,12 +584,12 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
     if (iboundary_spheres <= 0) call fatal(label,'iboundary_spheres must be > 0')
  case('wind_shell_spacing')
-     read(valstring,*,iostat=ierr) wind_shell_spacing
-     ngot = ngot + 1
-     if (wind_shell_spacing <= 0.) call fatal(label,'wind_shell_spacing must be >=0')
+    read(valstring,*,iostat=ierr) wind_shell_spacing
+    ngot = ngot + 1
+    if (wind_shell_spacing <= 0.) call fatal(label,'wind_shell_spacing must be >=0')
  case('shift_spheres')
-     read(valstring,*,iostat=ierr) shift_spheres
-     ngot = ngot + 1
+    read(valstring,*,iostat=ierr) shift_spheres
+    ngot = ngot + 1
  case('wind_inject_radius')
     read(valstring,*,iostat=ierr) wind_injection_radius_au
     ngot = ngot + 1
@@ -637,20 +637,23 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 #endif
  case('wind_type')
     read(valstring,*,iostat=ierr) wind_type
+    ngot = ngot + 1
     if (wind_type < 0 .or. wind_type > 4 ) call fatal(label,'invalid setting for wind_type ([0,3])')
  case('wind_CO_ratio')
     read(valstring,*,iostat=ierr) wind_CO_ratio
+    ngot = ngot + 1
     if (wind_CO_ratio < 0.) call fatal(label,'invalid setting for wind_CO_ratio (must be > 0)')
  case('wind_expT')
     read(valstring,*,iostat=ierr) wind_expT
+    ngot = ngot + 1
 #endif
  case default
     imatch = .false.
  end select
 #ifdef BOWEN
+ noptions = 18
+#elif PARKER
  noptions = 16
-#elseif PARKER
- noptions = 14
 #else
  noptions = 6
 #endif
@@ -664,8 +667,8 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  if (isowind) noptions = noptions -1
  igotall = (ngot >= noptions)
  if (iboundary_spheres.gt.int(shift_spheres).and.igotall) then
-    print *,'too many boundary shells - imposing iboundary_spheres = shift_spheres',iboundary_spheres,shift_spheres
-    iboundary_spheres = int(shift_spheres)
+    print *,'shift_spheres too small - imposing shift_spheres = iboundary_spheres = ',iboundary_spheres
+    shift_spheres = sign(dble(iboundary_spheres),shift_spheres)
  endif
 end subroutine read_options_inject
 
