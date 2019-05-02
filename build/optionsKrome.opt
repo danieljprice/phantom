@@ -1,6 +1,6 @@
 -n=networks/react_AGB_reduced_eHHeCNO
 #-compact 
--cooling=ATOMIC,CHEM,H2,CIE,Z,CI,CII,OI,OII,CO 
+-cooling=ATOMIC,CHEM,H2,CIE,Z,CI,CII,OI,OII,CO,OH,H2O,HCN
 -heating=CHEM,CR 
 -H2opacity=RIPAMONTI 
 -gamma=EXACT 
