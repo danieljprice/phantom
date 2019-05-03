@@ -67,7 +67,7 @@ module readwrite_infile
                      ipdv_heating,ishock_heating,iresistive_heating, &
                      icooling,psidecayfac,overcleanfac,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file, use_mcfost_stellar_parameters
- use timestep,  only:dtwallmax,tolv
+ use timestep,  only:dtwallmax,tolv,xtol,ptol
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
  use io,        only:iverbose
@@ -115,7 +115,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use eos,             only:write_options_eos,ieos
  use ptmass,          only:write_options_ptmass
  use cooling,         only:write_options_cooling
- use dim,             only:maxvxyzu,maxptmass,gravity
+ use dim,             only:maxvxyzu,maxptmass,gravity,gr
  use part,            only:h2chemistry,maxp,mhd,maxalpha,nptmass
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
@@ -172,6 +172,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(tolv,'tolv','tolerance on v iterations in timestepping',iwritein,exp=.true.)
  call write_inopt(hfact,'hfact','h in units of particle spacing [h = hfact(m/rho)^(1/3)]',iwritein)
  call write_inopt(tolh,'tolh','tolerance on h-rho iterations',iwritein,exp=.true.)
+ if (gr) then
+    call write_inopt(xtol,'xtol','tolerance on xyz iterations',iwritein)
+    call write_inopt(ptol,'ptol','tolerance on pmom iterations',iwritein)
+ endif
 
  call write_inopts_link(iwritein)
 
@@ -398,6 +402,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) C_force
     case('tolv')
        read(valstring,*,iostat=ierr) tolv
+    case('xtol')
+       read(valstring,*,iostat=ierr) xtol
+    case('ptol')
+       read(valstring,*,iostat=ierr) ptol
     case('hfact')
        read(valstring,*,iostat=ierr) hfact
     case('tolh')
@@ -551,6 +559,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (C_force <= 0.) call fatal(label,'bad choice for force timestep control')
     if (tolv <= 0.)    call fatal(label,'silly choice for tolv (< 0)')
     if (tolv > 1.e-1) call warn(label,'dangerously large tolerance on v iterations')
+    if (xtol <= 0.)    call fatal(label,'silly choice for xtol (< 0)')
+    if (xtol > 1.e-1) call warn(label,'dangerously large tolerance on xyz iterations')
+    if (ptol <= 0.)    call fatal(label,'silly choice for ptol (< 0)')
+    if (ptol > 1.e-1) call warn(label,'dangerously large tolerance on pmom iterations')
     if (nfulldump==0 .or. nfulldump > 10000) call fatal(label,'nfulldump = 0')
     if (nfulldump >= 50) call warn(label,'no full dumps for a long time...',1)
     if (twallmax < 0.)  call fatal(label,'invalid twallmax (use 000:00 to ignore)')

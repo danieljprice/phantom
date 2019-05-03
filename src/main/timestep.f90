@@ -24,7 +24,7 @@
 module timestep
  implicit none
  real    :: tmax,dtmax
- real    :: C_cour,C_force,C_cool,tolv
+ real    :: C_cour,C_force,C_cool,tolv,xtol,ptol
  integer :: nmax,nout
  integer :: nsteps
  real, parameter :: bignumber = 1.e29
@@ -50,6 +50,8 @@ subroutine set_defaults_timestep
  tmax    = 10.0
  dtmax   =  1.0
  tolv    = 1.e-2
+ xtol    = 1.e-7
+ ptol    = 1.e-7
  nmax    = -1
  nout    = -1
 

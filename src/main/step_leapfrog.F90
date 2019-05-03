@@ -614,21 +614,21 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  use cons2primsolver, only:conservative2primitive,ien_entropy
  use eos,             only:ieos,equationofstate,gamma
  use io,              only:warning
- use metric_tools, only:pack_metric
+ use metric_tools,    only:pack_metric
+ use timestep,        only:xtol
  real,    intent(in)    :: dt
  integer, intent(in)    :: npart
  real,    intent(inout) :: xyzh(:,:),dens(:),metrics(:,:,:,:)
  real,    intent(in)    :: pxyzu(:,:)
  real,    intent(out)   :: vxyzu(:,:)
  integer, parameter :: nitermax = 50
- real,    parameter ::     xtol = 1.e-15
  integer :: i,niter,ierr
  real    :: xpred(1:3),vold(1:3),diff
  logical :: converged
  real    :: pondensi,spsoundi,rhoi,pri
 
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,vxyzu,dens,dt) &
+ !$omp shared(npart,xyzh,vxyzu,dens,dt,xtol) &
  !$omp shared(pxyzu,metrics,ieos,gamma,massoftype) &
  !$omp private(i,niter,diff,xpred,vold,converged,ierr) &
  !$omp private(spsoundi,pondensi,pri,rhoi)
@@ -676,7 +676,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use part,           only:maxphase,isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
                           summary_accrete,summary_accrete_fail
- use timestep,       only:bignumber,C_force
+ use timestep,       only:bignumber,C_force,xtol,ptol
  use eos,            only:equationofstate,ieos,gamma
  use cons2primsolver,only:conservative2primitive,ien_entropy
  use extern_gr,      only:get_grforce
@@ -696,7 +696,6 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  ! real, save :: dmdt = 0.
  logical :: last_step,done,converged,accreted
  integer, parameter :: itsmax = 50
- real,    parameter :: ptol = 1.e-7, xtol = 1.e-7
  integer :: pitsmax,xitsmax
  real    :: perrmax,xerrmax
  real :: rhoi,hi,eni,uui,densi
@@ -746,7 +745,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp parallel default(none) &
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype) &
     !$omp shared(maxphase,maxp) &
-    !$omp shared(dt,hdt) &
+    !$omp shared(dt,hdt,xtol,ptol) &
     !$omp shared(ieos,gamma,pxyzu,dens,metrics,metricderivs) &
     !$omp private(i,its,pondensi,spsoundi,rhoi,hi,eni,uui,densi) &
     !$omp private(converged,pmom_err,x_err,pri,ierr) &
