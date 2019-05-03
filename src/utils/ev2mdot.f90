@@ -96,8 +96,9 @@ program get_mdot
        !
        ! get labels and number of columns from the first line of the file
        !
-       imacc_col = find_column(labels,'accretedm') ! label used in standard .ev files
+       imacc_col = find_column(labels,'accretedmas') ! label used in standard .ev files
        if (imacc_col <= 0) imacc_col = find_column(labels,'macc') ! label used in sink particle .ev files
+       if (imacc_col <= 0) imacc_col = find_column(labels,'accretedm') ! label used in old .ev files
        if (imacc_col <= 0) then
           print*,"(a)",'ERROR: could not locate accreted mass column from header information'
           if (combine_files) then
