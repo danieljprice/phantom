@@ -363,6 +363,10 @@ subroutine check_setup(nerror,nwarn,restart)
     if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas/real(npart-nbad-nunity)
  endif
 
+#ifdef GR
+ call check_gr(npart,nerror,xyzh,vxyzu)
+#endif
+
 !
 !--check dust growth arrays
 !
@@ -522,5 +526,31 @@ subroutine check_setup_growth(npart,nerror)
  enddo
 
 end subroutine check_setup_growth
+
+#ifdef GR
+subroutine check_gr(npart,nerror,xyzh,vxyzu)
+ use metric_tools, only:pack_metric,unpack_metric
+ use utils_gr,     only:get_u0
+ integer, intent(in)    :: npart
+ integer, intent(inout) :: nerror
+ real,    intent(in)    :: xyzh(:,:),vxyzu(:,:)
+ real    :: metrici(0:3,0:3,2),gcov(0:3,0:3),u0
+ integer :: ierr,i,nbad
+
+ nbad = 0
+ do i=1,npart
+    call pack_metric(xyzh(1:3,i),metrici)
+    call unpack_metric(metrici,gcov=gcov)
+    call get_u0(gcov,vxyzu(1:3,i),U0,ierr)
+    if (ierr/=0) nbad = nbad + 1
+ enddo
+
+ if (nbad > 0) then
+    print*,'Error in setup: ',nbad,' of ',npart,' particles have undefined U0'
+    nerror = nerror + 1
+ endif
+
+end subroutine check_gr
+#endif
 
 end module checksetup
