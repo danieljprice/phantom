@@ -1067,17 +1067,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        xj = xyzcache(n,1)
        yj = xyzcache(n,2)
        zj = xyzcache(n,3)
-       dx = xi - xj
-       dy = yi - yj
-       dz = zi - zj
     else
        xj = xyzh(1,j)
        yj = xyzh(2,j)
        zj = xyzh(3,j)
-       dx = xi - xj
-       dy = yi - yj
-       dz = zi - zj
     endif
+    dx = xi - xj
+    dy = yi - yj
+    dz = zi - zj
 #ifdef PERIODIC
     if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
     if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
@@ -1093,7 +1090,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        hj1 = 1./xyzh(4,j)
     endif
     hj21 = hj1*hj1
-    q2j = rij2*hj21
+    q2j  = rij2*hj21
     is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
 #ifdef GRAVITY
        !  Determine if neighbouring particle is hidden by a sink particle;
@@ -1122,10 +1119,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #else
           rij1 = 1./sqrt(rij2)
 #endif
-          qi = (rij2*rij1)*hi1  ! this is qi = rij*hi1
+          qi   = (rij2*rij1)*hi1  ! this is qi = rij*hi1
        else
           rij1 = 0.
-          qi = 0.
+          qi   = 0.
        endif
 
        if (q2i < radkern2) then
@@ -1726,7 +1723,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                       if (q2i < q2j) then
                          winter = wkern(q2i,qi)*hi21*hi1*cnormk
                       else
-                         winter = wkern(q2j,qj)*hi21*hi1*cnormk
+                         winter = wkern(q2j,qj)*hj21*hj1*cnormk
                       endif
                       fsum(idvi) = fsum(idvi) + pmassj/rhoj*sqdv2*winter
                       ri         = sqrt(xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2)

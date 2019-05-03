@@ -71,16 +71,9 @@ subroutine check_compile_time_settings(ierr)
  ierr = 1
 #endif
 #endif
-
-#ifdef GRAVITY
- if (.not.gravity) call error(string,'-DGRAVITY but gravity=.false.')
-#endif
- if (gravity) then
-    if (ngradh < 2) then
-       if (id==master) call error(string,'gravity requires ngradh=2 for gradsoft storage')
-       ierr = 2
-    endif
- endif
+!
+!--check additional dimension settings are OK
+!
  if (h2chemistry) then
     if (maxvxyzu /= 4) then
        if (id==master) call error(string,'must store thermal energy (maxvxyzu=4 in dim file) if using H2 chemistry')
@@ -92,8 +85,21 @@ subroutine check_compile_time_settings(ierr)
        ' unless iphase is changed to int*2')
     ierr = 4
  endif
-
-
+!
+!--check gravity flags are OK
+!
+#ifdef GRAVITY
+ if (.not.gravity) call error(string,'-DGRAVITY but gravity=.false.')
+#endif
+ if (gravity) then
+    if (ngradh < 2) then
+       if (id==master) call error(string,'gravity requires ngradh=2 for gradsoft storage')
+       ierr = 2
+    endif
+ endif
+!
+!--check that mutually-exclusive pre-processor statements and/or logicals are not set
+!
 #ifdef DISC_VISCOSITY
 #ifdef CONST_AV
  if (id==master) call error(string,'should not use both -DCONST_AV and -DDISC_VISCOSITY')
