@@ -531,6 +531,7 @@ end subroutine check_setup_growth
 subroutine check_gr(npart,nerror,xyzh,vxyzu)
  use metric_tools, only:pack_metric,unpack_metric
  use utils_gr,     only:get_u0
+ use part,         only:isdead_or_accreted
  integer, intent(in)    :: npart
  integer, intent(inout) :: nerror
  real,    intent(in)    :: xyzh(:,:),vxyzu(:,:)
@@ -539,10 +540,12 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
 
  nbad = 0
  do i=1,npart
-    call pack_metric(xyzh(1:3,i),metrici)
-    call unpack_metric(metrici,gcov=gcov)
-    call get_u0(gcov,vxyzu(1:3,i),U0,ierr)
-    if (ierr/=0) nbad = nbad + 1
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       call pack_metric(xyzh(1:3,i),metrici)
+       call unpack_metric(metrici,gcov=gcov)
+       call get_u0(gcov,vxyzu(1:3,i),U0,ierr)
+       if (ierr/=0) nbad = nbad + 1
+    endif
  enddo
 
  if (nbad > 0) then
