@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: infile_utils, io, physcon, sortutils
+!  DEPENDENCIES: infile_utils, io, part, physcon, sortutils
 !+
 !--------------------------------------------------------------------------
 module analysis
