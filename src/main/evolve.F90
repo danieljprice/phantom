@@ -85,12 +85,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use timestep_ind,     only:get_dt
 #endif
 #endif
-#ifdef RADIATION
- use part,             only:radenevol,radkappa,radthick,radenflux
+ use dim,              only:isradiation
+ use part,             only:radiation,ithick
  use radiation,        only:update_radenergy,set_radfluxesandregions
 #ifndef IND_TIMESTEPS
  use timestep,         only:dtrad
-#endif
 #endif
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
@@ -319,10 +318,10 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                           poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
     endif
-#ifdef RADIATION
-    call update_radenergy(npart,xyzh,fxyzu,vxyzu,radenevol,radkappa,0.5*dt)
-    ! call set_radfluxesandregions(npart,radthick,radenevol,radenflux,xyzh,vxyzu)
-#endif
+    if (isradiation) then
+      call update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,0.5*dt)
+      call set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
+    endif
     nsteps = nsteps + 1
 !
 !--evolve data for one timestep
@@ -334,9 +333,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     else
        call step(npart,nactive,time,dt,dtextforce,dtnew)
     endif
-#ifdef RADIATION
-    call update_radenergy(npart,xyzh,fxyzu,vxyzu,radenevol,radkappa,0.5*dt)
-#endif
+    if (isradiation) call update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,0.5*dt)
 
     dtlast = dt
 
@@ -400,19 +397,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     ! Following redefinitions are to avoid crashing if dtprint = 0 & to reach next output while avoiding round-off errors
     dtprint = min(tprint,tmax) - time + epsilon(dtmax)
     if (dtprint <= epsilon(dtmax) .or. dtprint >= (1.0-1e-8)*dtmax ) dtprint = dtmax + epsilon(dtmax)
-    dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax),dtprint,dtinject&
-#ifdef RADIATION
-    ,dtrad&
-#endif
-    )
+    dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax),dtprint,dtinject,dtrad)
 !
 !--write log every step (NB: must print after dt has been set in order to identify timestep constraint)
 !
-    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,&
-#ifdef RADIATION
-    dtrad,&
-#endif
-    dtprint,dtinject,npart)
+    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtrad,dtprint,dtinject,npart)
 #endif
 
 !    if (abs(dt) < 1e-8*dtmax) then
@@ -456,9 +445,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        call write_evfile(time,dt)
        if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
        if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
-#ifndef RADIATION
        if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
-#endif
        if (should_conserve_dustmass) then
           do j = 1,ndustsmall
              call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)
@@ -614,10 +601,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
              write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (last full step) : ',tall/real(nalivetot)
              write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (ave. all steps) : ',timer_lastdump%wall/real(nmovedtot)
           endif
-#ifdef RADIATION
-          write(iprint,"(/,a,f6.2,'%')") &
-              ' RADIATION thin particles = ',100.*(size(radthick)-count(radthick))/size(radthick)
-#endif
+          if (isradiation) write(iprint,"(/,a,f6.2,'%')") &
+              ' RADIATION thin particles = ',&
+              100.*(size(radiation(ithick,:))-count(radiation(ithick,:)==1))/size(radiation(ithick,:))
        endif
        if (iverbose >= 0) then
           call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)

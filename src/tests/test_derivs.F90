@@ -49,9 +49,7 @@ subroutine test_derivs(ntests,npass,string)
                         Bxyz,Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
                         maxBevol,ndivcurlB,dvdx,dustfrac,ddustevol,temperature,&
                         idivv,icurlvx,icurlvy,icurlvz,idivB,icurlBx,icurlBy,icurlBz,deltav,dustprop,ddustprop,ndustsmall
-#ifdef RADIATION
- use part,         only:radenevol,radenergy,radenflux,radthick
-#endif
+ use part,         only:radiation
  use unifdis,      only:set_unifdis
  use physcon,      only:pi,au,solarm
  use deriv,        only:derivs
@@ -418,11 +416,7 @@ subroutine test_derivs(ntests,npass,string)
        ! ONLY call density, since we do not want accelerations being reset
        call set_linklist(npart,nactive,xyzh,vxyzu)
        call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
-                           Bevol,stressmax,fxyzu,fext,alphaind,gradh&
-#ifdef RADIATION
-                           ,radenevol,radenflux,radenergy,radthick&
-#endif
-                           )
+                           Bevol,stressmax,fxyzu,fext,alphaind,gradh,radiation)
        if (id==master) call printused(t1)
 
        nfailed(:) = 0
@@ -661,11 +655,7 @@ subroutine test_derivs(ntests,npass,string)
     ! obtain smoothing lengths
     call set_linklist(npart,nactive,xyzh,vxyzu)
     call densityiterate(2,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
-                      Bevol,stressmax,fxyzu,fext,alphaind,gradh&
-#ifdef RADIATION
-                      ,radenevol,radenflux,radenergy,radthick&
-#endif
-                      )
+                      Bevol,stressmax,fxyzu,fext,alphaind,gradh,radiation)
 #ifdef IND_TIMESTEPS
     do itest=nint(log10(real(nptot))),0,-2
        nactive = 10**itest

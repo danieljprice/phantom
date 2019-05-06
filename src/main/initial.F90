@@ -118,7 +118,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes,isradiation
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -135,9 +135,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,temperature,dustprop,ddustprop,ndustsmall
-#ifdef RADIATION
- use part,             only:radenergy,radenevol,radenflux,radthick
-#endif
+ use part,             only:radiation,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef PHOTO
@@ -228,7 +226,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef DUST
  character(len=7) :: dust_label(maxdusttypes)
 #endif
- logical          :: radiation
 !
 !--do preliminary initialisation
 !
@@ -380,23 +377,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !  So we now convert our primitive variable read, B, to the conservative B/rho
 !  This necessitates computing the density sum.
 !
-#ifdef RADIATION
- radiation=.true.
- radthick(:) = .true.
-#else
- radiation=.false.
-#endif
+ if (isradiation) radiation(ithick,:) = 1
 
- if ((mhd).or.(radiation)) then
+ if (mhd) then
     if (npart > 0) then
        call set_linklist(npart,npart,xyzh,vxyzu)
        fxyzu = 0.
        call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                              fxyzu,fext,alphaind,gradh&
-#ifdef RADIATION
-                              ,radenevol,radenflux,radenergy,radthick&
-#endif
-                              )
+                              fxyzu,fext,alphaind,gradh,radiation)
     endif
 
     ! now convert to B/rho
@@ -410,11 +398,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
           Bevol(2,i) = Bxyz(2,i) * rhoi1
           Bevol(3,i) = Bxyz(3,i) * rhoi1
        endif
-#ifdef RADIATION
-       if (radiation) then
-          radenevol(i) = radenergy(i) * rhoi1
-       endif
-#endif
     enddo
  endif
 

@@ -1,8 +1,9 @@
-#ifdef RADIATION
 module testradiation
- implicit none
- public :: test_radiation
+ use part, only:ithick,iradxi,ifluxx,ifluxy,ifluxz,idflux,ikappa
 
+ implicit none
+
+ public :: test_radiation
  private
 
 contains
@@ -11,9 +12,9 @@ subroutine test_radiation(ntests,npass)
  use dim,          only:maxp
  use io,           only:id,master,iverbose
  use part,         only:npart,xyzh,fxyzu,vxyzu,massoftype,igas,&
-                        iphase,maxphase,isetphase,radenergy,radkappa,rhoh,&
+                        iphase,maxphase,isetphase,rhoh,&
                         npartoftype,&
-                        radenevol,radkappa,radenflux,dradenevol,&
+                        radiation,iradxi,ikappa,idflux,ifluxx,ifluxy,ifluxz,&
                         maxvxyzu
  use kernel,       only:hfact_default
  use unifdis,      only:set_unifdis
@@ -33,11 +34,8 @@ subroutine test_radiation(ntests,npass)
 
  iverbose = 1
 
- radenergy(:)    = 0
- radenevol(:)    = 0
- radkappa(:)     = 0
- radenflux(:,:)  = 0
- dradenevol(:)   = 0
+ radiation(:,:) = 0.
+ radiation(ithick,:) = 1.
 
  psep = 1./16.
  hfact = hfact_default
@@ -53,7 +51,7 @@ subroutine test_radiation(ntests,npass)
  npartoftype(1) = npart
  pmassi = massoftype(igas)
 
- call test_exchange_terms(npart,pmassi,radenergy,radenevol,radkappa,xyzh,vxyzu,fxyzu)
+ call test_exchange_terms(npart,pmassi,radiation,xyzh,vxyzu,fxyzu)
 
 #ifndef PERIODIC
   if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF RADIATION MODULE (need -DPERIODIC)'
@@ -67,7 +65,7 @@ subroutine test_radiation(ntests,npass)
  if (id==master) write(*,"(/,a)") '<-- RADIATION TEST COMPLETE'
 end subroutine test_radiation
 
-subroutine test_exchange_terms(npart,pmassi,radenergy,radenevol,radkappa,xyzh,vxyzu,fxyzu)
+subroutine test_exchange_terms(npart,pmassi,radiation,xyzh,vxyzu,fxyzu)
   use units,      only:unit_ergg,unit_density,umass,udist,utime
   use part,       only:rhoh
   use radiation,  only:update_radenergy
@@ -78,7 +76,7 @@ subroutine test_exchange_terms(npart,pmassi,radenergy,radenevol,radkappa,xyzh,vx
   real,intent(inout) :: &
     pmassi
   real,intent(inout) :: &
-    radenergy(:),radenevol(:),radkappa(:),xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
+    radiation(:,:),xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
   integer,intent(inout) ::&
     npart
 
@@ -86,10 +84,9 @@ subroutine test_exchange_terms(npart,pmassi,radenergy,radenevol,radkappa,xyzh,vx
   integer :: i,ierr
 
   do i=1,npart
-     radenergy(i) = 1e12/(unit_ergg*unit_density)
      rhoi         = rhoh(xyzh(4,i),pmassi)
-     radenevol(i) = radenergy(i)/rhoi
-     radkappa(i)  = 0.4/(udist**2/umass)
+     radiation(iradxi,i) = 1e12/(unit_ergg*unit_density)/rhoi
+     radiation(ikappa,i)  = 0.4/(udist**2/umass)
      vxyzu(4,i)   = 1e10/(unit_ergg*unit_density)
      vxyzu(4,i)   = vxyzu(4,i)/rhoi
      fxyzu(4,i)  = 0
@@ -103,23 +100,23 @@ subroutine test_exchange_terms(npart,pmassi,radenergy,radenevol,radkappa,xyzh,vx
   do while(t < maxt/utime)
      dt = max(1e-18/utime,0.05*t)
      ! dt = maxt/utime
-     call update_radenergy(1,xyzh,fxyzu,vxyzu,radenevol,radkappa,dt)
+     call update_radenergy(1,xyzh,fxyzu,vxyzu,radiation,dt)
      ! call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
      ! call solve_internal_energy_explicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
      t = t + dt
      if (mod(i,10)==0) then
         laste = (vxyzu(4,1)*unit_ergg)*physrho
-        write(26,*) t*utime, laste,(radenevol(1)*unit_ergg)*physrho
+        write(26,*) t*utime, laste,(radiation(iradxi,1)*unit_ergg)*physrho
       end if
      i = i + 1
   enddo
   call checkval(laste,21195027.055207778,3.e-4,ierr,'gas energy')
 
   do i=1,npart
-     radenergy(i) = 1e12/(unit_ergg*unit_density)
+     ! radenergy(i) = 1e12/(unit_ergg*unit_density)
      rhoi         = rhoh(xyzh(4,i),pmassi)
-     radenevol(i) = radenergy(i)/rhoi
-     radkappa(i)  = 0.4/(udist**2/umass)
+     radiation(iradxi,i) = 1e12/(unit_ergg*unit_density)/rhoi
+     radiation(ikappa,i) = 0.4/(udist**2/umass)
      vxyzu(4,i)   = 1e2/(unit_ergg*unit_density)
      vxyzu(4,i)   = vxyzu(4,i)/rhoi
      fxyzu(4,i)  = 0
@@ -132,11 +129,11 @@ subroutine test_exchange_terms(npart,pmassi,radenergy,radenevol,radkappa,xyzh,vx
   do while(t < maxt/utime)
      dt = max(1e-18/utime,0.05*t)
      ! dt = maxt/utime
-     call update_radenergy(1,xyzh,fxyzu,vxyzu,radenevol,radkappa,dt)
+     call update_radenergy(1,xyzh,fxyzu,vxyzu,radiation,dt)
      t = t + dt
      if (mod(i,10)==0) then
         laste = (vxyzu(4,1)*unit_ergg)*physrho
-        write(26,*) t*utime, laste,(radenevol(1)*unit_ergg)*physrho
+        write(26,*) t*utime, laste,(radiation(iradxi,1)*unit_ergg)*physrho
       end if
      i = i + 1
   enddo
@@ -147,9 +144,9 @@ subroutine test_uniform_fluxes_and_derivs()
   use dim,          only:maxp
   use io,           only:id,master
   use part,         only:npart,xyzh,fxyzu,vxyzu,massoftype,igas,divcurlB,&
-                         iphase,maxphase,isetphase,radenergy,radkappa,rhoh,&
+                         iphase,maxphase,isetphase,rhoh,&
                          alphaind,bevol,gradh,divcurlv,fext,npartoftype,&
-                         radenevol,radkappa,radenflux,radthick,dradenevol,&
+                         radiation,&
                          Bextx,Bexty,Bextz,maxvxyzu,dBevol,ddustevol,ddustprop,&
                          dustfrac,dustprop,temperature
   use kernel,       only:hfact_default
@@ -191,26 +188,27 @@ subroutine test_uniform_fluxes_and_derivs()
 
   call set_linklist(npart,nactive,xyzh,vxyzu)
   do i=1,20
-     radenevol(:) = 1.0
-     radenflux(:,:) = 0.
-     radthick(:) = .true.
-     radkappa(:) = 4e1
-     dradenevol(:) = 0.
+     radiation(iradxi,:) = 1.0
+     radiation(ifluxx:ifluxz,:) = 0.
+     radiation(ithick,:) = 1
+     radiation(ikappa,:) = 4e1
+     radiation(idflux,:) = 0.
 
     call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
                         Bevol,stressmax,fxyzu,fext,alphaind,gradh,&
-                        radenevol,radenflux,radenergy,radthick)
+                        radiation)
     call force(1,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,&
                dBevol,dustprop,ddustprop,dustfrac,ddustevol,&
                ipart_rhomax,dt,stressmax,temperature,&
-               radenevol,radenflux,radkappa,dradenevol)
+               radiation)
 
      do j=2,npart
-       radenflux(:,1) = radenflux(:,1) + radenflux(:,j)
-       dradenevol(1)  = dradenevol(1)  + dradenevol(j)
+       radiation(ifluxx:ifluxz,1) = radiation(ifluxx:ifluxz,1) + radiation(ifluxx:ifluxz,j)
+       radiation(idflux,1)  = radiation(idflux,1)  + radiation(idflux,j)
      enddo
      print'(a,g5.2,a,g9.2,2x,g9.2,2x,g9.2,a,g9.2)',&
-           "Uniform | iter = ",i," | d{rad}/dx_i = ", radenflux(:,1)," | d^2{rad}/dt^2 = ", dradenevol(1)
+           "Uniform | iter = ",i," | d{rad}/dx_i = ",&
+           radiation(ifluxx:ifluxz,1)," | d^2{rad}/dt^2 = ", radiation(idflux,1)
   enddo
 end subroutine
 
@@ -218,9 +216,9 @@ subroutine test_random_fluxes_and_derivs()
   use dim,          only:maxp
   use io,           only:id,master
   use part,         only:npart,xyzh,fxyzu,vxyzu,massoftype,igas,divcurlB,&
-                         iphase,maxphase,isetphase,radenergy,radkappa,rhoh,&
+                         iphase,maxphase,isetphase,rhoh,&
                          alphaind,bevol,gradh,divcurlv,fext,npartoftype,&
-                         radenevol,radkappa,radenflux,radthick,dradenevol,&
+                         radiation,&
                          Bextx,Bexty,Bextz,maxvxyzu,dBevol,ddustevol,ddustprop,&
                          dustfrac,dustprop,temperature
   use kernel,       only:hfact_default
@@ -264,29 +262,29 @@ subroutine test_random_fluxes_and_derivs()
   do i=1,20
     do j=1,npart
        call random_number(rr)
-       radenevol(j) = 1.0 + 0.1*(rr - 0.5)
-       radenflux(:,j) = 0.
-       radthick(j) = .true.
-       radkappa(j) = 4e1
-       dradenevol(j) = 0.
+       radiation(iradxi,j) = 1.0 + 0.1*(rr - 0.5)
+       radiation(ifluxx:ifluxz,j) = 0.
+       radiation(ithick,j) = 1
+       radiation(ikappa,j) = 4e1
+       radiation(idflux,j) = 0.
     enddo
 
     call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
                         Bevol,stressmax,fxyzu,fext,alphaind,gradh,&
-                        radenevol,radenflux,radenergy,radthick)
+                        radiation)
     call force(1,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,&
                dBevol,dustprop,ddustprop,dustfrac,ddustevol,&
                ipart_rhomax,dt,stressmax,temperature,&
-               radenevol,radenflux,radkappa,dradenevol)
+               radiation)
 
      do j=2,npart
-       radenflux(:,1) = radenflux(:,1) + radenflux(:,j)
-       dradenevol(1)  = dradenevol(1)  + dradenevol(j)
+       radiation(ifluxx:ifluxz,1) = radiation(ifluxx:ifluxz,1) + radiation(ifluxx:ifluxz,j)
+       radiation(idflux,1)        = radiation(idflux,1)        + radiation(idflux,j)
      enddo
      print'(a,g5.2,a,g9.2,2x,g9.2,2x,g9.2,a,g9.2)',&
-           "Random  | iter = ",i," | d{rad}/dx_i = ", radenflux(:,1)," | d^2{rad}/dt^2 = ", dradenevol(1)
+           "Random  | iter = ",i," | d{rad}/dx_i = ",&
+           radiation(ifluxx:ifluxz,1)," | d^2{rad}/dt^2 = ", radiation(idflux,1)
   enddo
 end subroutine
 
 end module testradiation
-#endif

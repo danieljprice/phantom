@@ -310,7 +310,8 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
                  nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,&
                  maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,maxBevol,&
                  divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
-                 dustfrac_label,tstop_label,dustprop,dustprop_label,temperature,St,ndusttypes,ndustsmall
+                 dustfrac_label,tstop_label,dustprop,dustprop_label,temperature,St,ndusttypes,ndustsmall,&
+                 radiation,radenergy_label,iradxi,ikappa,ifluxx,ifluxy,ifluxz
  use options,    only:use_dustfrac
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
@@ -328,9 +329,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 #ifdef NONIDEALMHD
  use dim,  only:mhd_nonideal
  use part, only:eta_nimhd,eta_nimhd_label
-#endif
-#ifdef RADIATION
- use part, only:radenergy,radenergy_label,radkappa,radenflux
 #endif
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
@@ -518,11 +516,12 @@ print*, "write_fulldump"
           call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierrs(20))
        endif
 #endif
-#ifdef RADIATION
-       call write_array(1,radenergy,radenergy_label(1),npart,k,ipass,idump,nums,ierrs(1))
-       call write_array(1,radkappa,radenergy_label(2),npart,k,ipass,idump,nums,ierrs(1))
-       call write_array(1,radenflux,radenergy_label(3:5),3,npart,k,ipass,idump,nums,ierrs(1))
-#endif
+       call write_array(1,radiation(iradxi,:),&
+                          radenergy_label(iradxi),npart,k,ipass,idump,nums,ierrs(1))
+       call write_array(1,radiation(ikappa,:),&
+                          radenergy_label(ikappa),npart,k,ipass,idump,nums,ierrs(1))
+       call write_array(1,radiation(ifluxx:ifluxz,:),&
+                          radenergy_label(ifluxx:ifluxz),3,npart,k,ipass,idump,nums,ierrs(1))
        if (any(ierrs(1:21) /= 0)) call error('write_dump','error writing hydro arrays')
     enddo
 
@@ -590,10 +589,8 @@ subroutine write_smalldump(t,dumpfile)
                       maxphase,iphase,h2chemistry,nabundances,&
                       nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,&
                       abundance,abundance_label,mhd,dustfrac,iamtype_int11,&
-                      dustprop,dustprop_label,dustfrac_label,St,ndusttypes
-#ifdef RADIATION
- use part,       only:radenergy,radenergy_label,radkappa,radenflux
-#endif
+                      dustprop,dustprop_label,dustfrac_label,St,ndusttypes,&
+                      radiation,radenergy_label,iradxi,ifluxx,ifluxy,ifluxz,ikappa
  use dump_utils, only:open_dumpfile_w,dump_h,allocate_header,free_header,&
                       write_header,write_array,write_block_header
  use mpiutils,   only:reduceall_mpi
@@ -687,11 +684,12 @@ subroutine write_smalldump(t,dumpfile)
        call write_array(2,xyzmh_ptmass,xyzmh_ptmass_label,nsinkproperties,nptmass,&
                         i_real,ipass,idump,nums,ierr,singleprec=.true.)
     endif
-#ifdef RADIATION
-    call write_array(1,radenergy,radenergy_label(1),npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-    call write_array(1,radkappa,radenergy_label(2),npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-    call write_array(1,radenflux,radenergy_label(3:5),3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-#endif
+    call write_array(1,radiation(iradxi,:),&
+                       radenergy_label(iradxi),npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+    call write_array(1,radiation(ikappa,:),&
+                       radenergy_label(ikappa),npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+    call write_array(1,radiation(ifluxx:ifluxz,:),&
+                       radenergy_label(ifluxx:ifluxz),3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
     !
     !--Block 4 (MHD)
     !
@@ -1211,10 +1209,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,abundance,abundance_label, &
                       alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,tstop,deltav,dustfrac_label, &
-                      tstop_label,deltav_label,temperature,dustprop,dustprop_label,St,divcurlv,divcurlv_label
-#ifdef RADIATION
- use part,       only:radenergy,radenergy_label,radkappa,radenflux
-#endif
+                      tstop_label,deltav_label,temperature,dustprop,dustprop_label,St,divcurlv,divcurlv_label, &
+                      radiation,radenergy_label,iradxi,ikappa,ifluxx,ifluxy,ifluxz
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
 #endif
@@ -1323,13 +1319,16 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              !
              call read_array(dt_in,'dt',dt_read_in,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
-#ifdef RADIATION
-             call read_array(radenergy,radenergy_label(1),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             call read_array(radkappa,radenergy_label(2),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             call read_array(radenflux(1,:),radenergy_label(3),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             call read_array(radenflux(2,:),radenergy_label(4),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             call read_array(radenflux(3,:),radenergy_label(5),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-#endif
+             call read_array(radiation(iradxi,:),&
+                             radenergy_label(iradxi),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(radiation(ikappa,:),&
+                             radenergy_label(ikappa),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(radiation(ifluxx,:),&
+                             radenergy_label(ifluxx),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(radiation(ifluxy,:),&
+                             radenergy_label(ifluxy),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(radiation(ifluxz,:),&
+                             radenergy_label(ifluxz),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
           case(2)
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
              call read_array(vxyz_ptmass, vxyz_ptmass_label, got_sink_vels,ik,1,nptmass,0,idisk1,tag,match,ierr)

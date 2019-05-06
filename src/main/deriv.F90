@@ -64,9 +64,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  use part,         only:mhd,gradh,alphaind,igas
  use timing,       only:get_timings
  use forces,       only:force
-#ifdef RADIATION
- use part,         only:radenevol,radenflux,radkappa,dradenevol,radenergy,radthick
-#endif
+ use part,         only:radiation,iradxi,ifluxx,ifluxy,ifluxz,ithick
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -128,11 +126,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 ! read*
  if (icall==1) then
     call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
-                        stressmax,fxyzu,fext,alphaind,gradh&
-#ifdef RADIATION
-                        ,radenevol,radenflux,radenergy,radthick&
-#endif
-                        )
+                        stressmax,fxyzu,fext,alphaind,gradh,&
+                        radiation)
     call do_timing('dens',tlast,tcpulast)
  endif
 !
@@ -146,11 +141,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 
  stressmax = 0.
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-            dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature&
-#        ifdef RADIATION
-            ,radenevol,radenflux,radkappa,dradenevol&
-#        endif
-            )
+            dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature,&
+            radiation)
  call do_timing('force',tlast,tcpulast)
 #ifdef DUSTGROWTH
  !

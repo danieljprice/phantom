@@ -35,7 +35,7 @@ module part
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
                use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
                maxne,maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
-               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh
+               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad
  use dtypekdtree, only:kdnode
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -151,16 +151,18 @@ module part
  character(len=*), parameter :: eta_nimhd_label(4) = (/'eta_{OR}','eta_{HE}','eta_{AD}','ne/n    '/)
 #endif
 
-#ifdef RADIATION
- real, allocatable :: radenergy(:)
- real, allocatable :: radenevol(:)
- real, allocatable :: radenflux(:,:)
- real, allocatable :: dradenevol(:)
- real, allocatable :: radenpred(:)
- real, allocatable :: radkappa(:)
- logical, allocatable :: radthick(:)
- character(len=*), parameter :: radenergy_label(5) = (/'radE ','radK ','radFx','radFy','radFz'/)
-#endif
+ integer, parameter :: iradxi = 1, &
+                       ifluxx = 2, &
+                       ifluxy = 3, &
+                       ifluxz = 4, &
+                       idflux = 5, &
+                       ikappa = 6, &
+                       ithick = 7, &
+                       ixipred= 8, &
+                       maxirad= 8
+ real, allocatable :: radiation(:,:)
+ character(len=*), parameter :: radenergy_label(maxirad) = &
+    (/'xi   ','radFx','radFy','radFz','dradF','radK ','thick','pxi  '/)
 !
 !--lightcurves
 !
@@ -346,15 +348,7 @@ subroutine allocate_part
  call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
  call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
  call allocate_array('dustproppred', dustproppred, 4, maxp_growth)
-#ifdef RADIATION
- call allocate_array('radenergy', radenergy, maxp)
- call allocate_array('radenevol', radenevol, maxp)
- call allocate_array('radenflux', radenflux, 3, maxp)
- call allocate_array('dradenevol', dradenevol, maxp)
- call allocate_array('radenpred', radenpred, maxp)
- call allocate_array('radkappa', radkappa, maxp)
- call allocate_array('radthick', radthick, maxp)
-#endif
+ call allocate_array('radiation', radiation, maxirad, maxprad)
 #ifdef IND_TIMESTEPS
  call allocate_array('ibin', ibin, maxan)
  call allocate_array('ibin_old', ibin_old, maxan)
@@ -417,15 +411,7 @@ subroutine deallocate_part
  deallocate(dt_in)
  deallocate(twas)
 #endif
-#ifdef RADIATION
- deallocate(radenergy)
- deallocate(radenevol)
- deallocate(radenflux)
- deallocate(dradenevol)
- deallocate(radenpred)
- deallocate(radkappa)
- deallocate(radthick)
-#endif
+ deallocate(radiation)
  deallocate(iphase)
  deallocate(iphase_soa)
  deallocate(gradh)

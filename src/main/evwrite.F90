@@ -60,10 +60,7 @@ module evwrite
                            iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah,&
                            iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT,&
                            iev_dtg,iev_ts,iev_dm,iev_momall,iev_angall,iev_angall,iev_maccsink,&
-                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_ionise
-#ifdef RADIATION
- use energies,       only: iev_erad
-#endif
+                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_ionise,iev_erad
 
  implicit none
  public                    :: init_evfile, write_evfile, write_evlog
@@ -115,9 +112,7 @@ subroutine init_evfile(iunit,evfile,open_file)
  call fill_ev_tag(ev_fmt,iev_emag,   'emag',     '0', i,j)
  call fill_ev_tag(ev_fmt,iev_epot,   'epot',     '0', i,j)
  call fill_ev_tag(ev_fmt,iev_etot,   'etot',     '0', i,j)
-#ifdef RADIATION
  call fill_ev_tag(ev_fmt,iev_erad,   'erad',     '0', i,j)
-#endif
  call fill_ev_tag(ev_fmt,iev_totmom, 'totmom',   '0', i,j)
  call fill_ev_tag(ev_fmt,iev_angmom, 'angtot',   '0', i,j)
  call fill_ev_tag(ev_fmt,iev_rho,    'rho',      'xa',i,j)
@@ -408,9 +403,7 @@ end subroutine write_evfile
 subroutine write_evlog(iprint)
  use dim,           only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,use_dust,maxdusttypes
  use energies,      only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas,xyzcom
-#ifdef RADIATION
  use energies,      only:erad
-#endif
  use part,          only:ndusttypes
  use viscosity,     only:irealvisc,shearparam
  use boundary,      only:dxbound,dybound,dzbound
@@ -427,9 +420,7 @@ subroutine write_evlog(iprint)
  write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") &
       'tot',etot,'kin',ekin,'therm',etherm,'pot',epot
 
-#ifdef RADIATION
  write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") 'rad',erad
-#endif
 
  if (mhd)        write(iprint,"(1x,('E',a,'=',es10.3))") 'mag',emag
  if (track_mass) write(iprint,"(1x,('E',a,'=',es10.3))") 'acc',ev_data(iev_sum,iev_eacc)

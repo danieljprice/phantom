@@ -114,17 +114,17 @@ module dim
  ! kdtree
  integer, parameter :: minpart = 10
 
+ integer :: maxprad = 0
+
  integer, parameter :: &
+ radensumforce      = 1,&
+ radenxpartvecforce = 7,&
+ radensumden        = 3,&
+ radenxpartvetden   = 1
 #ifdef RADIATION
-   radensumforce      = 1,&
-   radenxpartvecforce = 7,&
-   radensumden        = 3,&
-   radenxpartvetden   = 1
+ logical, parameter :: isradiation = .true.
 #else
-   radensumforce      = 0,&
-   radenxpartvecforce = 0,&
-   radenxpartvetden   = 0,&
-   radensumden        = 0
+ logical, parameter :: isradiation = .false.
 #endif
 
  ! rhosum
@@ -373,6 +373,9 @@ subroutine update_max_sizes(n)
  maxdustan = maxp_dustfrac
 #endif
 
+#ifdef RADIATION
+ maxprad = maxp
+#endif
 ! Very convoluted, but follows original logic...
  maxphase = maxan
  maxgradh = maxan

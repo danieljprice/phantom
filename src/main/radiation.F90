@@ -1,4 +1,3 @@
-#ifdef RADIATION
 module radiation
  implicit none
  public :: update_radenergy,set_radfluxesandregions
@@ -7,16 +6,17 @@ module radiation
 
 contains
 
-subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radenevol,radkappa,dt)
- use part,         only:rhoh,igas,massoftype,radenflux
+subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
+ use part,         only:rhoh,igas,massoftype,ikappa,iradxi,iphase,iamtype
  use eos,          only:gmw,gamma
  use units,        only:udist,utime,&
                         unit_energ,unit_velocity
  use physcon,      only:Rg,steboltz,c
  use io,           only:fatal
+ use dim,          only:maxphase,maxp
 
-  real, intent(in)    ::dt,xyzh(:,:),fxyzu(:,:),radkappa(:)
-  real, intent(inout) ::vxyzu(:,:),radenevol(:)
+  real, intent(in)    ::dt,xyzh(:,:),fxyzu(:,:)
+  real, intent(inout) ::vxyzu(:,:),radiation(:,:)
   integer, intent(in) ::npart
 
   real :: ui,pmassi,rhoi,xii
@@ -34,30 +34,30 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radenevol,radkappa,dt)
   !$omp parallel do default(none)&
   !$omp private(kappa,ack,rhoi,ui)&
   !$omp private(dudt,xii,etot,unew)&
-  !$omp shared(radkappa,xyzh,vxyzu)&
-  !$omp shared(fxyzu,pmassi,radenevol)&
-  !$omp shared(radenflux)&
+  !$omp shared(radiation,xyzh,vxyzu)&
+  !$omp shared(fxyzu,pmassi,maxphase,maxp)&
+  !$omp shared(iphase)&
   !$omp shared(dt,cv1,a,steboltz_code)
   do i = 1,npart
-    ! if (maxphase==maxp) then
-    !    if (iamtype(iphase(i)) /= igas) cycle ! skip non-gas
-    ! endif
-    kappa = radkappa(i)
+    if (maxphase==maxp) then
+       if (iamtype(iphase(i)) /= igas) cycle
+    endif
+    kappa = radiation(ikappa,i)
     ack = 4.*steboltz_code*kappa
 
     rhoi = rhoh(xyzh(4,i),pmassi)
     ui   = vxyzu(4,i)
     dudt = fxyzu(4,i)
-    xii = radenevol(i)
+    xii = radiation(iradxi,i)
     etot = ui + xii
     unew = ui
-    call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
+    ! call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
     call solve_internal_energy_implicit_substeps(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
     ! call solve_internal_energy_explicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
     vxyzu(4,i) = unew
-    radenevol(i) = etot - unew
+    radiation(iradxi,i) = etot - unew
     ! print*, 'T_gas=',unew*cv1,'T_rad=',(rhoi*(etot-unew)/a)**(1./4.)
-    if (radenevol(i) <= 0) call fatal('radiation','radenevol is negative', i)
+    if (radiation(iradxi,i) <= 0) call fatal('radiation','radenevol is negative', i)
   end do
   !$omp end parallel do
 end subroutine update_radenergy
@@ -139,39 +139,37 @@ subroutine solve_internal_energy_explicit(unew,ui,rho,etot,dudt,ack,a,cv1,dt)
  end do
 end subroutine solve_internal_energy_explicit
 
-subroutine set_radfluxesandregions(npart,radthick,radenevol,radenflux,xyzh,vxyzu)
-  use part,    only: igas,massoftype,rhoh
+subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
+  use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi
   use eos,     only: get_spsound
   use options, only: ieos
 
-  real, intent(inout)    :: radenflux(:,:),vxyzu(:,:)
-  real, intent(in)       :: xyzh(:,:),radenevol(:)
-  logical, intent(inout) :: radthick(:)
+  real, intent(inout)    :: radiation(:,:),vxyzu(:,:)
+  real, intent(in)       :: xyzh(:,:)
   integer, intent(in)    :: npart
 
   integer :: i
   real :: pmassi,H,cs,rhoi,r
 
   pmassi = massoftype(igas)
-  radthick(:) = .true.
+  radiation(ithick,:) = 1
 
-  do i = 1,npart
-    rhoi = rhoh(xyzh(4,i),pmassi)
-    cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
-    r  = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    H  = 2*cs*sqrt(r**3)
-    if (abs(xyzh(3,i)) > H) then
-      if (xyzh(3,i) <= 0.) then
-        radenflux(1:2,i) = 0.
-        radenflux(3,i)   =  rhoi*abs(radenevol(i))
-        radthick(i) = .false.
-      else if (xyzh(3,i) > 0.) then
-        radenflux(1:2,i) =  0.
-        radenflux(3,i)   = -rhoi*abs(radenevol(i))
-        radthick(i) = .false.
-      end if
-    end if
-  end do
+  ! do i = 1,npart
+  !   rhoi = rhoh(xyzh(4,i),pmassi)
+  !   cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
+  !   r  = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+  !   H  = 2*cs*sqrt(r**3)
+  !   if (abs(xyzh(3,i)) > H) then
+  !     if (xyzh(3,i) <= 0.) then
+  !       radiation(ifluxx:ifluxy,i) = 0.
+  !       radiation(ifluxz,i)        =  rhoi*abs(radiation(iradxi,i))
+  !       radiation(ithick,i) = 0
+  !     else if (xyzh(3,i) > 0.) then
+  !       radiation(ifluxx:ifluxy,i) = 0.
+  !       radiation(ifluxz,i)        =  -rhoi*abs(radiation(iradxi,i))
+  !       radiation(ithick,i) = 0
+  !     end if
+  !   end if
+  ! end do
 end subroutine set_radfluxesandregions
 end module radiation
-#endif
