@@ -54,7 +54,7 @@ subroutine get_angmomvec(npart,xyzh,vxyzu,Lhat,inc,rot)
  real, intent(in)    :: xyzh(:,:),vxyzu(:,:)
  real, intent(out)   :: Lhat(3),inc,rot
  integer :: i
- real    :: Li(3),Ltot(3),Lhatxy(3),Lxy(3)
+ real    :: Li(3),Ltot(3)
 
  Ltot = 0.
  do i=1,npart
@@ -64,15 +64,9 @@ subroutine get_angmomvec(npart,xyzh,vxyzu,Lhat,inc,rot)
     endif
  enddo
 
- Lhat   = Ltot/sqrt(dot_product(Ltot,Ltot))
- Lxy    = (/Lhat(1),Lhat(2),0./)
- Lhatxy = Lxy/sqrt(dot_product(Lxy,Lxy))
-
- !-- Should always be 0<inc<90 degrees, given the way we construct Lhatxyz
- inc = acos(dot_product( Lhat, Lhatxy ))*180./pi ! Angle from xy plane
- inc = inc*sign(1.,Lhat(3))                      ! Return with the correct sign i.e. whether up or down from xy plane
-
- rot = atan2(Lhat(2),Lhat(1))*180./pi            ! Angle around in xy plane (from x axis)
+ Lhat = Ltot/sqrt(dot_product(Ltot,Ltot))
+ inc  = acos(dot_product( Lhat,(/0.,0.,1./)))*180./pi ! Angle from +z axis -- should always be 0<inc<180 degrees
+ rot  = atan2(Lhat(2),Lhat(1))*180./pi                ! Angle around in xy plane (from +x axis) -- should always -180<rot<180
 
 end subroutine get_angmomvec
 
