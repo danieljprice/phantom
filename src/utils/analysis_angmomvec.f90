@@ -68,8 +68,11 @@ subroutine get_angmomvec(npart,xyzh,vxyzu,Lhat,inc,rot)
  Lxy    = (/Lhat(1),Lhat(2),0./)
  Lhatxy = Lxy/sqrt(dot_product(Lxy,Lxy))
 
- inc  = acos(dot_product( Lhat, Lhatxy ))*180./pi !angle up/down from xy plane
- rot  = acos(dot_product( Lhatxy, (/1.,0.,0./) ))*180./pi !angle around in xy plane (from x axis)
+ !-- Should always be 0<inc<90 degrees, given the way we construct Lhatxyz
+ inc = acos(dot_product( Lhat, Lhatxy ))*180./pi ! Angle from xy plane
+ inc = inc*sign(1.,Lhat(3))                      ! Return with the correct sign i.e. whether up or down from xy plane
+
+ rot = atan2(Lhat(2),Lhat(1))*180./pi            ! Angle around in xy plane (from x axis)
 
 end subroutine get_angmomvec
 
