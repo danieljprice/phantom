@@ -70,7 +70,7 @@ subroutine solve_internal_energy_implicit_substeps(unew,ui,rho,etot,dudt,ack,a,c
  integer  :: iter,i,level
 
  unew = ui
- unewp = huge(1.)
+ unewp = 2.*ui
  eps = 1e-8
  dunew = (unewp-unew)/unew
  level = 1
@@ -154,22 +154,33 @@ subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
   pmassi = massoftype(igas)
   radiation(ithick,:) = 1
 
-  ! do i = 1,npart
-  !   rhoi = rhoh(xyzh(4,i),pmassi)
-  !   cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
-  !   r  = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-  !   H  = 2*cs*sqrt(r**3)
-  !   if (abs(xyzh(3,i)) > H) then
-  !     if (xyzh(3,i) <= 0.) then
-  !       radiation(ifluxx:ifluxy,i) = 0.
-  !       radiation(ifluxz,i)        =  rhoi*abs(radiation(iradxi,i))
-  !       radiation(ithick,i) = 0
-  !     else if (xyzh(3,i) > 0.) then
-  !       radiation(ifluxx:ifluxy,i) = 0.
-  !       radiation(ifluxz,i)        =  -rhoi*abs(radiation(iradxi,i))
-  !       radiation(ithick,i) = 0
-  !     end if
-  !   end if
-  ! end do
+  do i = 1,npart
+    rhoi = rhoh(xyzh(4,i),pmassi)
+    if (rhoi < 2e-4) then
+      if (xyzh(1,i) < 0.) then
+        radiation(ifluxy:ifluxz,i) = 0.
+        radiation(ifluxx,i)        =  rhoi*abs(radiation(iradxi,i))*0.5
+        radiation(ithick,i) = 0
+      else if (xyzh(1,i) > 0.) then
+        radiation(ifluxy:ifluxz,i) = 0.
+        radiation(ifluxx,i)        = -rhoi*abs(radiation(iradxi,i))*0.5
+        radiation(ithick,i) = 0
+      end if
+    end if
+    ! cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
+    ! r  = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+    ! H  = 2*cs*sqrt(r**3)
+    ! if (abs(xyzh(3,i)) > H) then
+    !   if (xyzh(3,i) <= 0.) then
+    !     radiation(ifluxx:ifluxy,i) = 0.
+    !     radiation(ifluxz,i)        =  rhoi*abs(radiation(iradxi,i))
+    !     radiation(ithick,i) = 0
+    !   else if (xyzh(3,i) > 0.) then
+    !     radiation(ifluxx:ifluxy,i) = 0.
+    !     radiation(ifluxz,i)        =  -rhoi*abs(radiation(iradxi,i))
+    !     radiation(ithick,i) = 0
+    !   end if
+    ! end if
+  end do
 end subroutine set_radfluxesandregions
 end module radiation

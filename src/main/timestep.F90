@@ -30,7 +30,7 @@ module timestep
  real, parameter :: bignumber = 1.e29
 
  real    :: dt, dtcourant, dtforce, dtextforce, dterr, dtdiff, time
- real    :: dtrad,C_rad = 1.2*1e-3
+ real    :: dtrad,C_rad = 1.2
  ! real    :: dtrad,C_rad = 1.2
  real    :: dtmax_dratio, dtmax_max, dtmax_min, rhomaxnow
  real(kind=4) :: dtwallmax

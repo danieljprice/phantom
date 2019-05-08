@@ -528,7 +528,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     rightstate(1:iBz) = (/1.    ,0.01    ,-1.7510, 0.    ,0.,1.,0.6    ,0./)
     xleft      = -2.0
  case(9)
-    if (.not.isradiation) call fatal('setup','Radiation shock is only possible with "RADIATION=yes"')
+    ! if (.not.isradiation) call fatal('setup','Radiation shock is only possible with "RADIATION=yes"')
     shocktype = 'Radiation shock'
 
     call set_units(dist=au,mass=solarm,G=1.d0)
@@ -558,12 +558,14 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     xright = xright/udist
     xleft  = xleft/udist
 
-    call prompt('Kappa left (total radiation opacity)',kappa,0.,1e6)
-    kappa_code = kappa/(udist**2/umass)
-    leftstate(iradkappa) = kappa_code
-    call prompt('Kappa right (total radiation opacity)',kappa,0.,1e6)
-    kappa_code = kappa/(udist**2/umass)
-    rightstate(iradkappa) = kappa_code
+    if (isradiation) then
+       call prompt('Kappa left (total radiation opacity)',kappa,0.,1e6)
+       kappa_code = kappa/(udist**2/umass)
+       leftstate(iradkappa) = kappa_code
+       call prompt('Kappa right (total radiation opacity)',kappa,0.,1e6)
+       kappa_code = kappa/(udist**2/umass)
+       rightstate(iradkappa) = kappa_code
+    endif
 
     if (maxvxyzu < 4) call fatal('setup','Sod shock tube requires ISOTHERMAL=no')
  end select

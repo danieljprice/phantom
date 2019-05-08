@@ -1808,7 +1808,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
     endif
 
     if (isradiation) then
-        if ((radiation(ithick,lli) - 1) < epsilon(0.)) then
+        if (radiation(ithick,lli) == 1) then
            radiation(ifluxx:ifluxz,lli) = cell%rhosums(iradfxi:iradfzi,i)*term
         endif
     endif

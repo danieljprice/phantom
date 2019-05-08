@@ -601,9 +601,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
              write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (last full step) : ',tall/real(nalivetot)
              write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (ave. all steps) : ',timer_lastdump%wall/real(nmovedtot)
           endif
-          if (isradiation) write(iprint,"(/,a,f6.2,'%')") &
-              ' RADIATION thin particles = ',&
-              100.*(size(radiation(ithick,:))-count(radiation(ithick,:)==1))/size(radiation(ithick,:))
+          if (isradiation) then
+             write(iprint,"(/,a,f6.2,'%')") &
+                ' RADIATION particles done by SPH = ',&
+                100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
+          endif
        endif
        if (iverbose >= 0) then
           call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)

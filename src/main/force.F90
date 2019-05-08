@@ -2749,7 +2749,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
     if (isradiation) then
        ! dradenevol(i) = rhoi*fsum(idradi) + xpartveci(iradei)*drhodti
-       radiation(idradi,i) = fsum(idradi)
+       radiation(idflux,i) = fsum(idradi)
        c_code        = c/unit_velocity
        radkappai     = xpartveci(iradkappai)
        radlambdai    = xpartveci(iradlambdai)
@@ -2764,6 +2764,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        ! rad pressure term
        ! eq31 Whitehouse & Bate 2004
        ! C_rad/edfacti/rhoi/xii/divvi
+    else
+       dtradi = bignumber
     endif
 
 
