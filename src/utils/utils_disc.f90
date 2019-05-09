@@ -67,7 +67,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  real                             :: psi_x,psi_y,psi_z,tp(nbin)
  real                             :: L_tot(3),L_tot_mag,temp(3),temp_mag
  real                             :: rotate_about_z,rotate_about_y
- real                             :: meanzii,zdash,twist(nbin),ai
+ real                             :: zdash,twist(nbin),ai
  real, allocatable                :: zsetgas(:,:),myz(:)
  integer                          :: mybin(npart)
  integer                          :: i,ii,sorting_choice,iallocerr
@@ -112,8 +112,9 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  allocate(zsetgas(npart,nbin),stat=iallocerr)
  ! If you don't have enough memory to allocate zsetgas, then calculate H the slow way with less memory.
  if (iallocerr/=0) then
-    write(*,'(/,a)') 'Warning: could not allocate memory for array zsetgas! (Possibly requires too much memory)'
-    write(*,'(a,/)') 'Height of the disc, H, will be calculated the slow way'
+    write(*,'(/,a)') ' WARNING: Could not allocate memory for array zsetgas!'
+    write(*,'(a)')   '          (It possibly requires too much memory)'
+    write(*,'(a,/)') '          Height of the disc, H, will be calculated the slow way.'
     if (allocated(zsetgas)) deallocate(zsetgas)
     allocate(myz(npart))
  endif
@@ -232,17 +233,10 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
 
 ! Calculate H from the particle positions
  if (iallocerr==0) then
-    do ii = 1,nbin
-       if (ninbin(ii)==0) then
-          meanzii = 0.
-       else
-          meanzii = sum(zsetgas(1:ninbin(ii),ii))/real(ninbin(ii))
-       endif
-       H(ii) = sqrt(sum(((zsetgas(1:ninbin(ii),ii)-meanzii)**2)/(real(ninbin(ii)-1))))
-    enddo
+    call calculate_H_fast(nbin,H,zsetgas,ninbin)
     deallocate(zsetgas) ! clean up
  else
-    call calculate_H(nbin,npart,H,mybin,ninbin,myz)
+    call calculate_H_slow(nbin,npart,H,mybin,ninbin,myz)
     deallocate(myz) ! clean up
  endif
 
@@ -352,7 +346,26 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
 
 end subroutine disc_analysis
 
-subroutine calculate_H(nbin,npart,H,mybin,ninbin,myz)
+subroutine calculate_H_fast(nbin,H,zsetgas,ninbin)
+ integer, intent(in)  :: nbin
+ real,    intent(out) :: H(:)
+ real,    intent(in)  :: zsetgas(:,:)
+ integer, intent(in)  :: ninbin(:)
+ integer :: ii
+ real    :: meanzii
+
+ do ii = 1,nbin
+    if (ninbin(ii)==0) then
+       meanzii = 0.
+    else
+       meanzii = sum(zsetgas(1:ninbin(ii),ii))/real(ninbin(ii))
+    endif
+    H(ii) = sqrt(sum(((zsetgas(1:ninbin(ii),ii)-meanzii)**2)/(real(ninbin(ii)-1))))
+ enddo
+
+end subroutine calculate_H_fast
+
+subroutine calculate_H_slow(nbin,npart,H,mybin,ninbin,myz)
  integer, intent(in)  :: nbin,npart
  real,    intent(out) :: H(:)
  integer, intent(in)  :: mybin(:),ninbin(:)
@@ -392,6 +405,6 @@ subroutine calculate_H(nbin,npart,H,mybin,ninbin,myz)
  enddo
  !omp end parallel do
 
-end subroutine calculate_H
+end subroutine calculate_H_slow
 
 end module discanalysisutils
