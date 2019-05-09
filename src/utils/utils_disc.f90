@@ -104,6 +104,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  angy = 0.0
  angz = 0.0
  twist = 0.0
+ twistprev = 0.0
  mu = G*M_star
  position_star = (/0.,0.,0./)
  velocity_star = (/0.,0.,0./)
@@ -182,9 +183,15 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  do i = 1,nbin
     Ltot = sqrt(Lx(i)*Lx(i) + Ly(i)*Ly(i) + Lz(i)*Lz(i))
 
-    unitlx(i) = Lx(i)/Ltot
-    unitly(i) = Ly(i)/Ltot
-    unitlz(i) = Lz(i)/Ltot
+    if (Ltot<tiny(Ltot)) then
+       unitlx(i) = 0.
+       unitly(i) = 0.
+       unitlz(i) = 0.
+    else
+       unitlx(i) = Lx(i)/Ltot
+       unitly(i) = Ly(i)/Ltot
+       unitlz(i) = Lz(i)/Ltot
+    endif
 
     if (ninbin(i) > 0) then
        h_smooth(i) = h_smooth(i)/ninbin(i)
@@ -214,7 +221,11 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
 
 ! Calculate H from the particle positions
  do i = 1,nbin
-    meanzgas(i)  = sum(zsetgas(1:ninbin(i),i))/real(ninbin(i))
+    if (ninbin(i)==0) then
+       meanzgas(i) = 0.
+    else
+       meanzgas(i) = sum(zsetgas(1:ninbin(i),i))/real(ninbin(i))
+    endif
     H(i) = sqrt(sum(((zsetgas(1:ninbin(i),i)-meanzgas(i))**2)/(real(ninbin(i)-1))))
  enddo
 
@@ -225,7 +236,12 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  angtot = sqrt(angx*angx + angy*angy + angz*angz)
 
 ! For unit angular momentum accreted, z component
- unitangz = angz/angtot
+ if (angtot<tiny(angtot)) then
+    unitangz = 0.
+ else
+    unitangz = angz/angtot
+ endif
+
  print*,' angular momentum of accreted particles = ',angtot!,angx,angy,angz,unitangz
 
 ! Now loop over rings to calculate required quantities
@@ -289,7 +305,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
           twistprev(i) = 0.0
        endif
        ! Taking into account negative twist
-       if (twist(i) < 0) then
+       if (twist(i) < 0.) then
           twistprev(i) = 2.*pi + twist(i)
        else
           twistprev(i) = twist(i) !cumulative twist
