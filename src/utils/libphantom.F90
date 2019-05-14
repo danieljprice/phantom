@@ -1126,7 +1126,12 @@ subroutine amuse_get_radius(i, radius)
     implicit none
     integer, intent(in) :: i
     double precision, intent(out) :: radius
-    call amuse_get_smoothing_length(i, radius)
+    if (i == abs(i)) then
+        call amuse_get_smoothing_length(i, radius)
+    else
+        j = -i
+        call amuse_get_sink_radius(j, radius)
+    endif
 end subroutine
 
 subroutine amuse_get_internal_energy(i, u)
@@ -1270,7 +1275,12 @@ subroutine amuse_set_radius(i, radius)
     implicit none
     integer, intent(in) :: i
     double precision :: radius
-    call amuse_set_smoothing_length(i, radius)
+    if (i == abs(i)) then
+        call amuse_set_smoothing_length(i, radius)
+    else
+        j = -i
+        call amuse_set_sink_radius(j, radius)
+    endif
 end subroutine
 
 subroutine amuse_set_internal_energy(i, u)
@@ -1442,10 +1452,10 @@ subroutine amuse_set_r_crit(r_crit_in)
 end subroutine
 
 subroutine amuse_set_h_acc(h_acc_in)
-    use ptmass, only:h_acc
+    use ptmass, only:hacc
     implicit none
     double precision, intent(in) :: h_acc_in
-    h_acc = h_acc_in
+    hacc = h_acc_in
 end subroutine
 
 subroutine amuse_set_h_soft_sinkgas(h_soft_sinkgas_in)
@@ -1644,10 +1654,10 @@ subroutine amuse_get_r_crit(r_crit_out)
 end subroutine
 
 subroutine amuse_get_h_acc(h_acc_out)
-    use ptmass, only:h_acc
+    use ptmass, only:hacc
     implicit none
     double precision, intent(out) :: h_acc_out
-    h_acc_out = h_acc
+    h_acc_out = hacc
 end subroutine
 
 subroutine amuse_get_h_soft_sinkgas(h_soft_sinkgas_out)
