@@ -1054,13 +1054,22 @@ subroutine amuse_get_state_dm(i, mass, x, y, z, vx, vy, vz)
     call amuse_get_velocity(i, vx, vy, vz)
 end subroutine
 
-subroutine amuse_get_state_sink(j, mass, x, y, z, vx, vy, vz)
+subroutine amuse_get_state_sink(j, mass, x, y, z, vx, vy, vz, radius)
     implicit none
     integer :: j
     double precision :: mass, x, y, z, vx, vy, vz, radius
     call amuse_get_mass(j, mass)
     call amuse_get_position(j, x, y, z)
     call amuse_get_velocity(j, vx, vy, vz)
+    call amuse_get_sink_radius(j, radius)
+end subroutine
+
+subroutine amuse_get_sink_radius(j, radius)
+    use part, only:xyzmh_ptmass, ihsoft
+    implicit none
+    integer :: j
+    double precision :: radius
+    radius = xyzmh_ptmass(ihsoft, j)
 end subroutine
 
 subroutine amuse_get_position(i, x, y, z)
@@ -1189,13 +1198,22 @@ subroutine amuse_set_state_dm(i, mass, x, y, z, vx, vy, vz)
     call amuse_set_velocity(i, vx, vy, vz)
 end subroutine
 
-subroutine amuse_set_state_sink(j, mass, x, y, z, vx, vy, vz)
+subroutine amuse_set_state_sink(j, mass, x, y, z, vx, vy, vz, radius)
     implicit none
     integer :: j
     double precision :: mass, x, y, z, vx, vy, vz
     call amuse_set_mass(j, mass)
     call amuse_set_position(j, x, y, z)
     call amuse_set_velocity(j, vx, vy, vz)
+    call amuse_set_sink_radius(j, radius)
+end subroutine
+
+subroutine amuse_set_sink_radius(j, radius)
+    use part, only:xyzmh_ptmass, ihsoft
+    implicit none
+    integer :: j
+    double precision :: radius
+    xyzmh_ptmass(ihsoft, j) = radius
 end subroutine
 
 subroutine amuse_set_position(i, x, y, z)
