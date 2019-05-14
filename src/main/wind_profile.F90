@@ -11,37 +11,36 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Lionel Siess
+!  OWNER: Lionel
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: eos, gailstatwind, inject, physcon, units
+!  DEPENDENCIES: dust_formation, eos, physcon, units
 !+
 !--------------------------------------------------------------------------
 module wind_profile
 
 #ifdef BOWEN
- public :: bowen_wind_profile
-#elif NUCLEATION
- public :: evolve_hydro
-#else
- public :: stationary_wind_profile
+ public :: pulsating_wind_profile
 #endif
- public :: init_wind_profile,rk4_step_dr
+ public :: evolve_hydro,energy_profile
+ public :: stationary_wind_profile
+ public :: init_wind_profile
 
  private
 
 ! Wind properties
  real :: Mstar_cgs, Lstar_cgs, Tstar, Rstar_cgs, wind_gamma, wind_mass_rate
- real :: Cprime, u_to_temperature_ratio, expT, alpha, wind_temperature
- integer :: wind_type ! 2 = temperature law, 3 = adiabatic polytrope, 4 = polytrope with Bowen's cooling
+ real :: Cprime, u_to_temperature_ratio, expT, alpha, wind_temperature,Rstar
+ integer :: wind_type
 
 contains
 
 subroutine init_wind_profile(Mstar_in, Lstar_in, Tstar_in, Rstar_in, Cprime_cgs, &
-       expT_in, Mdot_in, CO_ratio, u_to_T, alpha_in, Twind, wind_type_in)
+     expT_in, Mdot_in, CO_ratio, u_to_T, alpha_in, Twind, wind_type_in)
+ use units,   only:udist
  use physcon, only:c, solarm, years
  use eos,     only:gamma
  use dust_formation, only: set_abundances,set_cooling
@@ -67,6 +66,7 @@ subroutine init_wind_profile(Mstar_in, Lstar_in, Tstar_in, Rstar_in, Cprime_cgs,
  wind_temperature = Twind
  wind_mass_rate = Mdot_in !code units
  Rstar_cgs = Rstar_in
+ Rstar = Rstar_in/udist
  u_to_temperature_ratio = u_to_T
  call set_abundances(CO_ratio)
 
@@ -74,9 +74,9 @@ subroutine init_wind_profile(Mstar_in, Lstar_in, Tstar_in, Rstar_in, Cprime_cgs,
 
  cool_radiation_H0 = .false.
  if (wind_type == 2) then
-   cool_relaxation_Bowen = .false.
+    cool_relaxation_Bowen = .false.
  else
-   cool_relaxation_Bowen = .true.
+    cool_relaxation_Bowen = .true.
  endif
  cool_collisions_dust = .false.
  cool_relaxation_Stefan = .false.
@@ -119,7 +119,7 @@ end subroutine init_wind_profile
 !  Oscillating inner boundary : bowen wind
 !+
 !-----------------------------------------------------------------------
-subroutine bowen_wind_profile(time,local_time,r,v,u,rho,e,GM,gamma,sphere_number, &
+subroutine pulsating_wind_profile(time,local_time,r,v,u,rho,e,GM,gamma,sphere_number, &
                                      inner_sphere,inner_boundary_sphere)
  use physcon,     only: pi
  integer, intent(in)  :: sphere_number, inner_sphere, inner_boundary_sphere
@@ -166,7 +166,7 @@ subroutine bowen_wind_profile(time,local_time,r,v,u,rho,e,GM,gamma,sphere_number
     endif
  endif
 
-end subroutine bowen_wind_profile
+end subroutine pulsating_wind_profile
 
 #else
 
@@ -367,4 +367,10 @@ pure real function solve_q(a, b, c)
  endif
 end function solve_q
 
+real function energy_profile(xyzh)
+ real, intent(in) :: xyzh(4)
+ real :: r
+ r = sqrt(xyzh(1)**2+xyzh(2)**2+xyzh(3)**2)
+ energy_profile = u_to_temperature_ratio*Tstar*(Rstar/r)**expT
+end function energy_profile
 end module wind_profile

@@ -40,7 +40,7 @@
 !    gamma3pwp   -- adiabatic index 3 (piecewise polytropic eos)
 !    ieos        -- eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)
 !    metallicity -- metallicity
-!    gmw         -- mean molecular weight
+!    mu          -- mean molecular weight
 !    p1pwp       -- pressure at cutoff density rhocrit1pwp (piecewise polytropic eos)
 !    rhocrit0    -- critical density 0 in g/cm^3 (barotropic eos)
 !    rhocrit0pwp -- critical density 0 in g/cm^3 (piecewise polytropic eos)
@@ -291,7 +291,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
 !--variable gamma
 !
-  case(16)
+ case(16)
 
     if (present(gamma_local)) then
        ponrhoi  = (gamma_local-1.)*eni
@@ -405,7 +405,7 @@ real function get_local_u_internal(gammai, gmwi, gas_temp_local)
  ponrhoi              = gas_temp_local/(gmwi*temperature_coef)
  get_local_u_internal = ponrhoi/(gammai-1.)
 
- end function get_local_u_internal
+end function get_local_u_internal
 
 !-----------------------------------------------------------------------
 real function get_temperature_from_ponrho(ponrho)

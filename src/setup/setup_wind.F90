@@ -24,6 +24,7 @@
 !    companion_star_r    -- radius of the companion star (au)
 !    eccentricity        -- eccentricity of the binary system
 !    icompanion_star     -- set to 1 for a binary system
+!    initial_wind_gamma  -- polytropic index
 !    mass_of_particles   -- mass resolution (Msun)
 !    semi_major_axis     -- semi-major axis of the binary system (au)
 !    wind_gamma          -- polytropic index

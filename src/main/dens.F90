@@ -20,8 +20,9 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, eos, fastmath, io, io_summary, kdtree,
-!    kernel, linklist, mpidens, mpiderivs, mpiutils, nicil, options, part,
-!    stack, timestep, timing, viscosity
+!    kernel, krome_main, krome_user, linklist, mpidens, mpiderivs,
+!    mpiutils, nicil, options, part, stack, timestep, timing, units,
+!    viscosity
 !+
 !--------------------------------------------------------------------------
 module densityforce
@@ -1825,7 +1826,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 #ifdef KROME
     rho_cgs = rhoi*unit_density
     dt_cgs = dt*utime
-    if (dt .ne. 0.0) then
+    if (dt  /=  0.0) then
        temperaturei = get_temperature_loc(ieos,cell%xpartvec(ixi:izi,i),rhoi, &
                                          mu_chem(lli),vxyzui(4),gamma_chem(lli))
 !          Here we evolve the chemistry and update the abundances

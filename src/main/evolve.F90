@@ -218,7 +218,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 ! threshold for writing to .ev file, to avoid repeatedly computing energies
 ! for all the particles which would add significantly to the cpu time
 !
- 
+
  nskipped = 0
  if (iexternalforce==iext_spiral) then
     nevwrite_threshold = int(4.99*ntot) ! every 5 full steps

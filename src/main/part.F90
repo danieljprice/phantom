@@ -26,7 +26,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: allocutils, dim, dtypekdtree, io, mpiutils
+!  DEPENDENCIES: allocutils, dim, dtypekdtree, io, krome_user, mpiutils
 !+
 !--------------------------------------------------------------------------
 module part

@@ -24,9 +24,9 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, chem, cooling, dim, dust, eos, fastmath, growth,
-!    io, io_summary, kdtree, kernel, linklist, mpiderivs, mpiforce,
-!    mpiutils, nicil, options, part, physcon, ptmass, stack, timestep,
-!    timestep_ind, timestep_sts, units, viscosity
+!    io, io_summary, kdtree, kernel, krome_user, linklist, mpiderivs,
+!    mpiforce, mpiutils, nicil, options, part, physcon, ptmass, stack,
+!    timestep, timestep_ind, timestep_sts, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module forces
@@ -1893,7 +1893,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     pmassi = massoftype(iamtypei)
     hi = xyzh(4,i)
 #ifdef KROME
-       gammai = gamma_chem(i)
+    gammai = gamma_chem(i)
 #endif
     if (hi < 0.) call fatal('force','negative smoothing length',i,var='h',val=hi)
 
@@ -2537,7 +2537,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 fxyz4 = fxyz4 + 0.5*fac*rho1i*sum(fsum(idudtdusti:idudtdustiend))
              endif
 #ifdef KROME
-             if (dt .ne. 0.0) then
+             if (dt  /=  0.0) then
 !                 kromecool(i) has units erg/s/cm^3. This needs to be converted to code units
 !                 and divided by density to obtain phantom's du/dt in erg/s/g.
                 fxyz4 = fxyz4 - (kromecool(i)*unit_ergg/unit_density)/rhoi

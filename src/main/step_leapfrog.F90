@@ -26,9 +26,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: bowen_dust, chem, coolfunc, damping, deriv, dim, eos,
-!    externalforces, growth, io, io_summary, mpiutils, options, part,
-!    ptmass, timestep, timestep_ind, timestep_sts
+!  DEPENDENCIES: chem, coolfunc, damping, deriv, dim, eos, externalforces,
+!    growth, inject, io, io_summary, mpiutils, options, part, ptmass,
+!    timestep, timestep_ind, timestep_sts, wind_profile
 !+
 !--------------------------------------------------------------------------
 module step_lf_global
@@ -99,6 +99,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ibin_wake
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake
  use coolfunc,       only:energ_coolfunc
+ use wind_profile,   only:energy_profile
+ use inject,         only:wind_type
 #ifdef IND_TIMESTEPS
  use timestep,       only:dtmax,dtmax_ifactor,dtdiff
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,ibinnow
@@ -360,7 +362,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustevol,ddustevol,use_dustfrac) &
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
-!$omp shared(dtsph,icooling) &
+!$omp shared(dtsph,icooling,wind_type) &
 #ifdef IND_TIMESTEPS
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax,ibinnow) &
@@ -464,6 +466,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdtsph*ddustevol(:,i)
           endif
 #endif
+       endif
+       if (wind_type == 2) then
+          vxyzu(4,i) = energy_profile(xyzh(:,i))
        endif
     enddo corrector
 !$omp enddo

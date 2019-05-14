@@ -311,7 +311,7 @@ subroutine compute_energies(t)
           if (maxvxyzu >= 4) then
              etherm = etherm + pmassi*utherm(vxyzu(iu,i),rhoi)*gasfrac
 #ifdef KROME
-              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=vxyzu(iu,i),&
+             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=vxyzu(iu,i),&
                                    gamma_local=gamma_chem(i))
 #else
              if (store_temperature) then

@@ -83,7 +83,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real,         intent(out)   :: dtnew
  logical, parameter :: itiming = .true.
  real(kind=4)       :: t1,tcpu1,tlast,tcpulast
- 
+
  t1 = 0.
  tcpu1 = 0.
  if (itiming) call get_timings(t1,tcpu1)
