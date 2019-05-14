@@ -35,10 +35,10 @@ module part
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
                use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
                maxne,maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
-               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh
+               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxsp
  use dtypekdtree, only:kdnode
 #ifdef KROME
-  use krome_user, only: krome_nmols
+ use krome_user, only: krome_nmols
 #endif
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -154,10 +154,16 @@ module part
  character(len=*), parameter :: eta_nimhd_label(4) = (/'eta_{OR}','eta_{HE}','eta_{AD}','ne/n    '/)
 #endif
 !
+!--Dust formation - theory of moments
+!
+#ifdef NUCLEATION
+ real, allocatable :: partJstarKmu(:,:)
+#endif
+!
 !--Chemistry with KROME
 !
 #ifdef KROME
- real, allocatable :: species_abund(:,:) 
+ real, allocatable :: species_abund(:,:)
  real, allocatable :: gamma_chem(:)
  real, allocatable :: mu_chem(:)
  real, allocatable :: krometemperature (:)
@@ -254,12 +260,17 @@ module part
 #ifdef H2CHEM
    +nabundances                         &  ! abundance
 #endif
+#ifdef NUCLEATION
+   +1                                   &  ! nucleation rate
+   +4                                   &  ! moments
+   +1                                   &  ! mean molecular weight
+#endif
 #ifdef KROME
    +krome_nmols                         &  ! abundance
    +1                                   &  ! variable gamma
    +1                                   &  ! variable mu
-   +1                                   &  ! temperature array
-   +1                                   &  ! cooling array
+   +1                                   &  ! temperature
+   +1                                   &  ! cooling rate
 #endif
 #ifdef GRAVITY
    +1                                   &  ! poten
@@ -371,6 +382,9 @@ subroutine allocate_part
  call allocate_array('ibelong', ibelong, maxp)
  call allocate_array('istsactive', istsactive, maxsts)
  call allocate_array('ibin_sts', ibin_sts, maxsts)
+#ifdef NUCLEATION
+ call allocate_array('partJstarKmu', partJstarKmu, 6, maxsp)
+#endif
 #ifdef KROME
  call allocate_array('species_abund', species_abund, krome_nmols, maxp)
  call allocate_array('gamma_chem', gamma_chem, maxp)
@@ -432,6 +446,9 @@ subroutine deallocate_part
  deallocate(ibelong)
  deallocate(istsactive)
  deallocate(ibin_sts)
+#ifdef NUCLEATION
+ deallocate(partJstarKmu)
+#endif
 #ifdef KROME
  deallocate(species_abund)
  deallocate(gamma_chem)
@@ -872,12 +889,15 @@ subroutine copy_particle_all(src,dst)
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
  if (store_temperature) temperature(dst) = temperature(src)
+#ifdef NUCLEATION
+ partJstarKmu(:,dst) = partJstarKmu(:,src)
+#endif
 #ifdef KROME
- species_abund(:,dst)        = species_abund(:,src)
- gamma_chem(dst)             = gamma_chem(src)
- mu_chem(dst)                = mu_chem(src)
- krometemperature(dst)       = krometemperature(src)
- kromecool(dst)              = kromecool(src)
+ species_abund(:,dst)  = species_abund(:,src)
+ gamma_chem(dst)       = gamma_chem(src)
+ mu_chem(dst)          = mu_chem(src)
+ krometemperature(dst) = krometemperature(src)
+ kromecool(dst)        = kromecool(src)
 #endif
 
  return

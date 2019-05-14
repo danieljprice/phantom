@@ -180,8 +180,8 @@ module dim
  !  the number of dimensions)
  !
  integer, parameter :: ndim = 3
- 
- 
+
+
 !-----------------
 ! KROME chemistry
 !-----------------
@@ -190,7 +190,7 @@ module dim
 #else
  logical, parameter :: use_krome = .false.
 #endif
- 
+
 !-----------------
 ! Magnetic fields
 !-----------------
@@ -252,6 +252,15 @@ module dim
 ! Supertimestepping
 !--------------------
  integer :: maxsts = 1
+
+!--------------------
+! Dust formation
+!--------------------
+#ifdef NUCLEATION
+ integer :: maxsp = maxp_hard
+#else
+ integer :: maxsp = 0
+#endif
 
 !--------------------
 ! Light curve stuff
