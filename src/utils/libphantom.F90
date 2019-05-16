@@ -907,25 +907,32 @@ subroutine amuse_new_dm_particle(i, mass, x, y, z, vx, vy, vz)
         u,i,npart,npartoftype,xyzh,vxyzu)
 end subroutine
 
-subroutine amuse_new_sink_particle(j, mass, x, y, z, vx, vy, vz)
-    use part, only:nptmass
+subroutine amuse_new_sink_particle(j, mass, x, y, z, vx, vy, vz, &
+        radius, h_smooth)
+    use part, only:nptmass,maxptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
     use partinject, only:add_or_update_sink
     implicit none
     integer :: i, j
-    double precision :: mass, x, y, z, vx, vy, vz, h_smooth
+    double precision :: mass, x, y, z, vx, vy, vz, radius, h_smooth
     double precision :: position(3), velocity(3)
   
-    i = nptmass + 1
-    position(1) = x
-    position(2) = y
-    position(3) = z
-    velocity(1) = vx
-    velocity(2) = vy
-    velocity(3) = vz
-    h_smooth = 0.1 ! TODO set this to some default
-    call add_or_update_sink(position,velocity,h_smooth,mass,i)
+    nptmass = nptmass + 1
+    ! Replace this with something AMUSE can handle
+    if (nptmass > maxptmass) call fatal('creating new sink', 'nptmass > maxptmass')
+    i = nptmass
     j = -i
+    xyzmh_ptmass(:,i) = 0.
+    xyzmh_ptmass(1,i) = x
+    xyzmh_ptmass(2,i) = y
+    xyzmh_ptmass(3,i) = z
+    xyzmh_ptmass(4,i) = mass
+    xyzmh_ptmass(ihacc,i) = radius
+    xyzmh_ptmass(ihsoft,i) = h_smooth
+    vxyz_ptmass(1,i) = vx
+    vxyz_ptmass(2,i) = vy
+    vxyz_ptmass(3,i) = vz
 end subroutine
+
 
 subroutine amuse_delete_particle(i)
     use part, only:kill_particle,xyzmh_ptmass
@@ -1065,11 +1072,11 @@ subroutine amuse_get_state_sink(j, mass, x, y, z, vx, vy, vz, radius)
 end subroutine
 
 subroutine amuse_get_sink_radius(j, radius)
-    use part, only:xyzmh_ptmass, ihsoft
+    use part, only:xyzmh_ptmass, ihacc
     implicit none
     integer :: j
     double precision :: radius
-    radius = xyzmh_ptmass(ihsoft, j)
+    radius = xyzmh_ptmass(ihacc, j)
 end subroutine
 
 subroutine amuse_get_position(i, x, y, z)
@@ -1215,11 +1222,11 @@ subroutine amuse_set_state_sink(j, mass, x, y, z, vx, vy, vz, radius)
 end subroutine
 
 subroutine amuse_set_sink_radius(j, radius)
-    use part, only:xyzmh_ptmass, ihsoft
+    use part, only:xyzmh_ptmass, ihacc
     implicit none
     integer :: j
     double precision :: radius
-    xyzmh_ptmass(ihsoft, j) = radius
+    xyzmh_ptmass(ihacc, j) = radius
 end subroutine
 
 subroutine amuse_set_position(i, x, y, z)
