@@ -909,8 +909,8 @@ end subroutine
 
 subroutine amuse_new_sink_particle(j, mass, x, y, z, vx, vy, vz, &
         radius, h_smooth)
+    use io, only:fatal
     use part, only:nptmass,maxptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
-    use partinject, only:add_or_update_sink
     implicit none
     integer :: i, j
     double precision :: mass, x, y, z, vx, vy, vz, radius, h_smooth
