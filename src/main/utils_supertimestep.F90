@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: timestep_sts
@@ -28,6 +28,7 @@
 !--------------------------------------------------------------------------
 module timestep_sts
  use dim, only: maxsts
+ use part, only: istsactive,ibin_sts
  implicit none
 
  !--Control Variables (Hardcode values if not using STS)
@@ -66,8 +67,7 @@ module timestep_sts
  logical,         private   :: print_nu_to_file = .false.  ! to allow nu to be printed for testing purposes
  !
  !--Variables
- integer(kind=1), private   :: istsactive(maxsts)
- integer(kind=1), public    :: ibin_sts(maxsts),isfirstdtau(ndtau_max)
+ integer(kind=1), public    :: isfirstdtau(ndtau_max)
  real,            public    :: dtau(ndtau_max),nu(nnu,dtcoef_max),dtdiffcoef(dtcoef_max)
  integer,         public    :: ipart_rhomax_sts,nbinmaxsts,Nmegasts_done,Nmegasts_now,Nmegasts_next
  integer,         public    :: Nreal,Nsts,icase_sts

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: ptmass
@@ -101,8 +101,12 @@ module ptmass
 contains
 !----------------------------------------------------------------
 !+
-!  if (tofrom==.true.)  acceleration from/to gas particles due to sink particles
-!  if (tofrom==.false.) acceleration on gas due to sink particles (but not vice-versa)
+!  if (tofrom==.true.)  Acceleration from/to gas particles due to sink particles;
+!                       required in initial.F90 & step_leapfrog.F90 to update all accelerations
+!  if (tofrom==.false.) Acceleration on gas due to sink particles (but not vice-versa);
+!                       this is typically used to calculate phi (in compute_energies in
+!                       energies.F90); in this case, fxi,fyi,fzi should be dummy input
+!                       variables that do not affect the sink's motion.
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, &
@@ -815,7 +819,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 #ifdef IND_TIMESTEPS
  use part,     only:ibin,ibin_wake
 #endif
- use linklist, only:ifirstincell,getneigh_pos
+ use linklist, only:getneigh_pos,ifirstincell
  use eos,      only:equationofstate,gamma,gamma_pwp,utherm
  use options,  only:ieos
  use units,    only:unit_density
@@ -967,6 +971,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  if ((nneigh_thresh > 0 .and. nneigh > nneigh_thresh) .or. (nprocs > 1)) calc_exact_epot = .false.
 !$omp parallel default(none) &
 !$omp shared(nprocs) &
+!$omp shared(maxp,maxphase) &
 !$omp shared(nneigh,listneigh,h_acc2,xyzh,xyzcache,vxyzu,massoftype,iphase,pmassgas1,calc_exact_epot) &
 !$omp shared(itest,id,id_rhomax,ifail,xi,yi,zi,hi,vxi,vyi,vzi,hi1,hi21,itype,pmassi,ieos,gamma,poten) &
 #ifdef PERIODIC

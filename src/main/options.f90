@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: options
@@ -54,7 +54,7 @@ module options
  logical, public :: use_dustfrac
 
 ! mcfost
- logical, public :: use_mcfost, use_Voronoi_limits_file
+ logical, public :: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters
  character(len=80), public :: Voronoi_limits_file
 
  public :: set_default_options
@@ -70,6 +70,7 @@ subroutine set_default_options
  use viscosity, only:set_defaults_viscosity
  use dim,       only:maxp,maxvxyzu,nalpha
  use kernel,    only:hfact_default
+ use eos,       only:polyk2
 
  call set_defaults_timestep
 
@@ -99,6 +100,7 @@ subroutine set_default_options
  ipdv_heating       = 1
  iresistive_heating = 1
  icooling           = 0
+ polyk2             = 0 ! only used for ieos=8
 
  ! artificial viscosity
  if (maxalpha==maxp) then
@@ -129,6 +131,7 @@ subroutine set_default_options
 
  ! mcfost
  use_mcfost = .false.
+ use_mcfost_stellar_parameters = .false.
 
 end subroutine set_default_options
 

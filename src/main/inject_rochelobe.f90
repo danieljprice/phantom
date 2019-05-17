@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: inject
@@ -106,7 +106,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  xyzL1(1:3) = xyzmh_ptmass(1:3,1) + radL1*dr(:)   ! set as vector position
  r0L1 = dist(xyzL1, (/0., 0., 0./))               ! distance from L1 to center of mass
  r2L1 = dist(xyzL1, x2)                           ! ... and from the mass donor's center
- s = (/cos(theta_s),sin(theta_s),0.0/)*r2L1*eps*0.025   ! last factor still a "magic number". Fix.
+ s = (/cos(theta_s),sin(theta_s),0.0/)*r2L1*eps*0.5   ! last factor still a "magic number". Fix.
  smag = sqrt(dot_product(s,s))
  xyzinj(1:3) = xyzL1 + s
  vxyzL1 = v1*dist(xyzL1,x0)/dist(x0, x1) ! orbital motion of L1 point
@@ -120,8 +120,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  sw_chi = A/r12**2
  sw_gamma = (lm32 + (12.*lm1/r0L1 - phinns)*lm32*smag/(2.*lm32 + lm12))/r12**2 !H+99 eq A13
  sw_gamma = lm12/r12**2
- print*, sw_chi, sw_gamma
- print*, 1/sqrt(sw_chi), 1/sqrt(sw_gamma)
 !-- mass of gas particles is set by mass accretion rate and particle injection rate
 !
  Mdotcode  = Mdot*(solarm/years)/(umass/utime)
@@ -136,21 +134,21 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  else
     particles_to_place = max(0, int(0.5 + (time*Mdotcode/massoftype(igas)) - npartoftype(igas) ))
  endif
- do wall_i=1,particles_to_place
 
+ do wall_i=0,particles_to_place-1
     ! calculate particle offset
     theta_rand = ran2(s1)*twopi
-    r_rand = rayleigh_deviate(s1)*chi/udist
+    r_rand = rayleigh_deviate(s1)*sw_chi/udist
     dxyz=(/0.0, cos(theta_rand), sin(theta_rand)/)*r_rand   ! Stream is placed randomly in a cylinder
     ! with a Gaussian density distribution
     part_type = igas
     vxyz = (/ cos(theta_s), sin(theta_s), 0.0 /)*spd_inject
     u = 3.*(kboltz*gastemp/(mu*mass_proton_cgs))/2. * (utime/udist)**2
     i_part = npart + 1
-    call rotate_into_plane(dxyz,vxyz,x2-xyzinj)
+    call rotate_into_plane(dxyz,vxyz,xyzL1-xyzinj)
     vxyz = vxyz + vxyzL1
     xyzi = xyzL1 + dxyz
-    h = hfact*chi/udist
+    h = hfact*sw_chi/udist
     !add the particle
     call add_or_update_particle(part_type, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
 
@@ -200,14 +198,13 @@ subroutine rotate_into_plane(r1,v1,ref)
 
  dr     = sqrt(dot_product(ref,ref))
  dphi   = atan2(ref(2),ref(1))
- dtheta = 0. !acos(ref(3)/dr)
+ dtheta = 0.0!acos(ref(3)/dr)
 
  r     = sqrt(dot_product(r1,r1))
  phi   = atan2(r1(2),r1(1))
  theta = acos(r1(3)/r)
 
  call get_v_spherical(r1,v1,vr,vphi,vtheta)
-
  phi   = phi + dphi
  theta = theta + dtheta
 

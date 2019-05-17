@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testdust
@@ -22,9 +22,10 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, deriv, dim, dust, energies, eos, io, kernel,
-!    mpiutils, options, part, physcon, random, set_dust, step_lf_global,
-!    table_utils, testutils, timestep, unifdis, units, vectorutils
+!  DEPENDENCIES: boundary, deriv, dim, dust, energies, eos, growth, io,
+!    kernel, mpiutils, options, part, physcon, random, set_dust,
+!    step_lf_global, table_utils, testutils, timestep, unifdis, units,
+!    vectorutils
 !+
 !--------------------------------------------------------------------------
 module testdust
@@ -48,10 +49,13 @@ subroutine test_dust(ntests,npass)
  use mpiutils,    only:barrier_mpi
  use options,     only:use_dustfrac
  use table_utils, only:logspace
+#ifdef DUSTGROWTH
+ use growth,      only:init_growth
+#endif
 #endif
  integer, intent(inout) :: ntests,npass
 #ifdef DUST
- integer :: nfailed(2),ierr,iregime
+ integer :: nfailed(3),ierr,iregime
  real    :: rhoi,rhogasi,rhodusti,spsoundi,tsi,grainsizei,graindensi
 
  if (id==master) write(*,"(/,a)") '--> TESTING DUST MODULE'
@@ -67,6 +71,10 @@ subroutine test_dust(ntests,npass)
     call init_drag(ierr)
     call checkval(ierr,0,0,nfailed(idrag),'drag initialisation')
  enddo
+#ifdef DUSTGROWTH
+ call init_growth(ierr)
+ call checkval(ierr,0,0,nfailed(3),'growth initialisation')
+#endif
  if (all(nfailed==0)) npass = npass + 1
 
  idrag = 1
@@ -505,7 +513,7 @@ end subroutine test_dustydiffuse
 !+
 !---------------------------------------------------------------------------------
 subroutine test_drag(ntests,npass)
- use dim,         only:maxp,periodic,maxtypes,mhd,maxvxyzu,maxdustlarge,maxalpha
+ use dim,         only:maxp,periodic,maxtypes,mhd,maxvxyzu,maxdustlarge,maxalpha,use_dustgrowth
  use part,        only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustevol,&
                        xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,&
                        set_particle_type,rhoh,temperature,dustprop,ddustprop,&
@@ -587,7 +595,11 @@ subroutine test_drag(ntests,npass)
  enddo
 
  if (mhd) Bevol = 0.
-
+ if (use_dustgrowth) then
+    dustprop(:,:) = 0.
+    dustprop(1,:) = grainsize(1)
+    dustprop(2,:) = graindens(1)
+ endif
 !
 ! call derivatives
 !
@@ -617,6 +629,11 @@ subroutine test_drag(ntests,npass)
        deint  = deint  + massoftype(itype)*fxyzu(iu,i)
     endif
  enddo
+
+ da = reduceall_mpi('+', da)
+ dl = reduceall_mpi('+', dl)
+ dekin = reduceall_mpi('+', dekin)
+ deint = reduceall_mpi('+', deint)
 
  nfailed=0
  call checkval(da(1),0.,7.e-7,nfailed,'acceleration from drag conserves momentum(x)')

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: setup
@@ -17,6 +17,7 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
+!    T_wind              -- wind temperature (K)
 !    accretion_radius    -- accretion radius of the central star (au)
 !    central_star_mass   -- mass of the central star (Msun)
 !    companion_star_mass -- mass of the companion star (Msun)
@@ -27,7 +28,7 @@
 !    semi_major_axis     -- semi-major axis of the binary system (au)
 !    wind_gamma          -- polytropic index
 !
-!  DEPENDENCIES: infile_utils, inject, io, part, physcon, prompting,
+!  DEPENDENCIES: eos, infile_utils, inject, io, part, physcon, prompting,
 !    setbinary, units
 !+
 !--------------------------------------------------------------------------
@@ -94,11 +95,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  gamma = wind_gamma
- if (wind_gamma == 1.) then
-   temperature_coef = mass_proton_cgs/kboltz * unit_velocity**2
-   polyk            = T_wind/(temperature_coef*gmw)
+ if (wind_gamma <= 1.0001) then
+    polyk = kboltz*T_wind/(mass_proton_cgs * gmw * unit_velocity**2)
  else
-   polyk = 0.
+    polyk = 0.
  endif
 
 !

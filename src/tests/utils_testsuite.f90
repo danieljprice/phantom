@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testutils
@@ -437,16 +437,17 @@ end subroutine checkval1_int8
 !  checks an array of values against an array of expected answers
 !+
 !----------------------------------------------------------------
-subroutine checkval_r8arr(n,x,xexact,tol,ndiff,label,checkmask)
+subroutine checkval_r8arr(n,x,xexact,tol,ndiff,label,checkmask,rmserr)
  integer,          intent(in)  :: n
  real(kind=8),     intent(in)  :: x(:),xexact(:)
  real,             intent(in)  :: tol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
  logical, optional,intent(in)  :: checkmask(:)
+ real(kind=8), optional, intent(out) :: rmserr
  integer :: i,nval
  real(kind=8) :: erri,val,errmax,valmax,errl2
- real :: errmaxr
+ real :: errmaxr,errl2i
 
  call print_testinfo(trim(label))
 
@@ -480,7 +481,9 @@ subroutine checkval_r8arr(n,x,xexact,tol,ndiff,label,checkmask)
  enddo
 
  errmaxr = real(errmax)
- call printresult(n,ndiff,errmaxr,real(tol),real(errl2),real(valmax),nval)
+ errl2i  = real(errl2)
+ call printresult(n,ndiff,errmaxr,real(tol),errl2i,real(valmax),nval)
+ if (present(rmserr)) rmserr = errl2i
 
  return
 end subroutine checkval_r8arr
@@ -490,28 +493,34 @@ end subroutine checkval_r8arr
 !  checks an array of real*4 values against an array of expected answers
 !+
 !----------------------------------------------------------------
-subroutine checkval_r4arr(n,x,xexact,tol,ndiff,label,checkmask)
+subroutine checkval_r4arr(n,x,xexact,tol,ndiff,label,checkmask,rmserr)
  integer,          intent(in)  :: n
  real(kind=4),     intent(in)  :: x(:),xexact(:)
  real,             intent(in)  :: tol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
  logical, optional,intent(in)  :: checkmask(:)
- integer :: i
+ real, optional, intent(out)   :: rmserr
+ integer :: i,nval
  real(kind=4) :: erri,val,errmax
- real :: errmaxr
+ real :: errmaxr,errl2,valmax
 
  call print_testinfo(trim(label))
 
  ndiff = 0
  errmax = 0.
+ errl2 = 0.
+ valmax = 0.
+ nval = 0
  do i=1,n
     if (present(checkmask)) then
        if (.not. checkmask(i)) cycle
     endif
     if (.not.isdead(i)) then
        val = xexact(i)
+       valmax = max(real(val),valmax)
        erri = abs(x(i)-val)
+       errl2 = errl2 + erri*erri
        if (abs(val) > smallval .and. erri > tol) erri = erri/abs(val)
 !       if (abs(val) > tol) erri = erri/val
 
@@ -522,12 +531,14 @@ subroutine checkval_r4arr(n,x,xexact,tol,ndiff,label,checkmask)
              call printerr(label,real(x(i)),real(val),real(erri),tol,i)
           endif
        endif
+       nval = nval + 1
        errmax = max(errmax,erri)
     endif
  enddo
 
  errmaxr = errmax
- call printresult(n,ndiff,errmaxr,real(tol))
+ call printresult(n,ndiff,errmaxr,real(tol),errl2,valmax,nval)
+ if (present(rmserr)) rmserr = errl2
 
  return
 end subroutine checkval_r4arr
@@ -757,7 +768,8 @@ subroutine printresult_real(npi,ndiff,errmax,tol,errl2i,valmaxi,nvali)
  integer, intent(inout) :: ndiff
  real,    intent(inout) :: errmax
  real,    intent(in)    :: tol
- real,    intent(in), optional :: errl2i,valmaxi
+ real,    intent(inout), optional :: errl2i
+ real,    intent(in), optional :: valmaxi
  integer, intent(in), optional :: nvali
  integer(kind=8) :: np,nval
  real            :: valmax,errl2
@@ -777,6 +789,7 @@ subroutine printresult_real(npi,ndiff,errmax,tol,errl2i,valmaxi,nvali)
     else
        errl2 = sqrt(errl2)
     endif
+    errl2i = errl2
  endif
 
  if (id==master) then

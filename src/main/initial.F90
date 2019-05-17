@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: initial
@@ -47,7 +47,6 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine initialise()
- use dim,              only:maxp
  use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
@@ -189,7 +188,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef MPI
  use balance,          only:balancedomains
- use domain,           only:ibelong
+ use part,             only:ibelong
 #endif
 #ifdef INJECT_PARTICLES
  use inject,           only:init_inject,inject_particles
@@ -234,12 +233,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !--read parameters from the infile
 !
  call read_infile(infile,logfile,evfile,dumpfile)
-!
-!--initialise alpha's (after the infile has been read)
-!
- if (maxalpha==maxp) then
-    alphaind(:,:) = real4(alpha)
- endif
+
 !
 !--initialise log output
 !
@@ -275,6 +269,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (nwarn > 0) call warning('initial','warnings from particle data in file',var='warnings',ival=nwarn)
     if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
  endif
+
+ !
+ !--initialise alpha's (after the infile has been read)
+ !
+ if (maxalpha==maxp) then
+    alphaind(:,:) = real4(alpha)
+ endif
+
 !
 !--initialise values for non-ideal MHD
 !
@@ -357,10 +359,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     ncount(:) = 0
     do i=1,npart
        itype = iamtype(iphase(i))
-       !-- Initialise dust properties to none for gas particles
-#ifdef DUSTGROWTH
-       if (itype==igas) dustprop(:,i) = 0.
-#endif
        if (itype < 1 .or. itype > maxtypes) then
           call fatal('initial','unknown value for itype from iphase array',i,var='iphase',ival=int(iphase(i)))
        else
@@ -616,7 +614,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  iposinit = index(dumpfile,'.init')
  ipostmp  = index(dumpfile,'.tmp')
  if (iposinit > 0 .or. ipostmp > 0) then
+#ifdef HDF5
+    dumpfileold = trim(dumpfile)//'.h5'
+#else
     dumpfileold = dumpfile
+#endif
     if (iposinit > 0) then
        dumpfile = trim(dumpfile(1:iposinit-1))
     else

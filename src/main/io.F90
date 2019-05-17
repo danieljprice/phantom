@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: io
@@ -288,12 +288,16 @@ subroutine buffer_warning(wherefrom,string,ncount,level)
  character(len=*), intent(in)  :: wherefrom, string
  integer(kind=8),  intent(out) :: ncount
  integer,          intent(in), optional :: level
- integer :: lw,ls,j
+ integer :: lw,ls,leq,j
 
  if (.not.warningdb_initialised) call init_warningdb
  ncount = 1
  lw = min(len_trim(wherefrom),lenwhere)
  ls = min(len_trim(string),lenmsg)
+ ! check if string contains equals sign and only use
+ ! the part before the equals to check for similar warnings
+ leq = index(string,'=')
+ if (leq > 12) ls = min(ls,leq) ! ensure equals not in first few (12) chars
  j = 1
  over_db: do while(j <= maxwarningdb)
     if (warningdb(j)%wherefrom(1:lw) == wherefrom(1:lw) &

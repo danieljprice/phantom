@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testlink
@@ -42,7 +42,8 @@ subroutine test_link(ntests,npass)
  use domain,   only:i_belong
  use part,            only:maxphase,iphase,isetphase,igas,iactive
  use testutils,       only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end
- use linklist,        only:set_linklist,get_neighbour_list,ifirstincell,ncells
+ use linklist,        only:set_linklist,get_neighbour_list,ncells,ifirstincell
+ use kdtree,          only:inodeparts,inoderange
 #ifdef PERIODIC
  use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax,dybound,dzbound
  use linklist, only:dcellx,dcelly,dcellz
@@ -52,7 +53,6 @@ subroutine test_link(ntests,npass)
 #ifdef IND_TIMESTEPS
  use part,     only:iphase_soa
 #endif
- use kdtree,   only:inodeparts,inoderange
  integer, intent(inout) :: ntests,npass
  real                   :: psep,hzero,totmass,dxboundp,dyboundp,dzboundp
  real                   :: xminp,xmaxp,yminp,ymaxp,zminp,zmaxp

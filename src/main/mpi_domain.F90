@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: domain
@@ -20,17 +20,17 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, io
+!  DEPENDENCIES: dim, io, part
 !+
 !--------------------------------------------------------------------------
 module domain
  use dim, only:maxp
  use io,  only:nprocs
+ use part, only:ibelong
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
 
- integer, public :: ibelong(maxp)
  integer, parameter :: ndim = 3
 
  !--default initialisation of domainisperiodic so that

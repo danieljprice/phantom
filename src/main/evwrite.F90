@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: evwrite
@@ -120,8 +120,8 @@ subroutine init_evfile(iunit,evfile,open_file)
     call fill_ev_tag(ev_fmt,iev_dtx, 'dtmax',    '0', i,j)
  endif
  call fill_ev_tag(ev_fmt,iev_entrop, 'totentrop','s', i,j)
- call fill_ev_tag(ev_fmt,iev_rmsmach,'rmsmach',  's', i,j)
- call fill_ev_tag(ev_fmt,iev_vrms,   'vrms',     's', i,j)
+ call fill_ev_tag(ev_fmt,iev_rmsmach,'rmsmach',  '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_vrms,   'vrms',     '0', i,j)
  call fill_ev_tag(ev_fmt,iev_com(1), 'xcom',     '0', i,j)
  call fill_ev_tag(ev_fmt,iev_com(2), 'ycom',     '0', i,j)
  call fill_ev_tag(ev_fmt,iev_com(3), 'zcom',     '0', i,j)

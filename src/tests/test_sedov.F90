@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testsedov
@@ -74,39 +74,39 @@ subroutine test_sedov(ntests,npass)
     if (id==master) write(*,"(/,a)") '--> testing Sedov blast wave'
     call summary_reset ! reset since summary will be written by evol if there are warnings; want only warnings from this test
     call set_boundary(-0.5,0.5,-0.5,0.5,-0.5,0.5)
-    time = 0.
-    hfact = 1.2
-    ieos = 2
-    iverbose = 1 !max(iverbose,1)
-    alpha = 1.
-    alphau = 1.
-    alphaB = 0.
-    beta  = 2.
-    tolh = 1.e-5
+    time      = 0.
+    hfact     = 1.2
+    ieos      = 2
+    iverbose  = 1 !max(iverbose,1)
+    alpha     = 1.
+    alphau    = 1.
+    alphaB    = 0.
+    beta      = 2.
+    tolh      = 1.e-5
     if (maxalpha==maxp) alphaind(1,:) = real4(alpha)
     irealvisc = 0
-    tolv = 1.e-3
-    iu = 4
+    tolv      = 1.e-3
+    iu        = 4
 !
 !--setup particles
 !
     npart = 16
-    psep = dxbound/npart
+    psep  = dxbound/npart
 
     denszero = 1.0
-    polyk = 0.
-    enblast = 1.0
-    rblast = 2.*hfact*psep
-    gamma = 5./3.
-    gam1 = gamma - 1.
-    prblast = gam1*enblast/(4./3.*pi*rblast**3)
-    npart = 0
+    polyk    = 0.
+    enblast  = 1.0
+    rblast   = 2.*hfact*psep
+    gamma    = 5./3.
+    gam1     =  gamma - 1.
+    prblast  = gam1*enblast/(4./3.*pi*rblast**3)
+    npart    = 0
 
     call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
 
     npartoftype(:) = 0
     npartoftype(1) = npart
-    ntot = npart
+    ntot           = npart
 
     totmass = denszero*dxbound*dybound*dzbound
     massoftype(:) = 0.

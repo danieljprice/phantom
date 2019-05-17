@@ -1,14 +1,16 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: setup
 !
 !  DESCRIPTION:
-! this module does setup
+!   This module sets up a sphere-in-a-box: a cold, dense sphere placed in
+!   a warm medium; the two media are in pressure-equilibrium.
+!   This currently works for gas-only and two-fluid dust.
 !
 !  REFERENCES: None
 !
