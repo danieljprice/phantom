@@ -195,7 +195,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef KROME
  use part,             only:species_abund
- use krome_phantom_coupling
+ use krome_interface,  only:initialise_krome,H_init, He_init, C_init, N_init, O_init
  use krome_user
 #endif
  use writeheader,      only:write_codeinfo,write_header

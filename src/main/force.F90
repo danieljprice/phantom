@@ -2265,7 +2265,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #endif
 #ifdef KROME
  use krome_user
- use part,           only:gamma_chem,krometemperature,kromecool
+ use part,           only:gamma_chem,kromecool
  use units,          only:unit_density,unit_ergg
 #endif
 

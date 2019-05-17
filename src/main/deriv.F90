@@ -50,6 +50,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  use timestep,       only:dtcourant,dtforce,dtmax
  use ptmass,         only:ipart_rhomax
  use externalforces, only:externalforce
+#ifdef KROME
+ use krome_interface, only:update_krome
+#endif
 #ifdef DRIVING
  use forcing,        only:forceit
 #endif
@@ -126,6 +129,12 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
                         stressmax,fxyzu,fext,alphaind,gradh)
     call do_timing('dens',tlast,tcpulast)
  endif
+!
+! update chemical composition and cooling rate
+!
+#ifdef KROME
+ call update_krome(dt,npart,xyzh,vxyzu)
+#endif
 !
 ! compute forces
 !

@@ -11,7 +11,7 @@
 !
 !  REFERENCES: Gail & Sedlmayr textbook Physics and chemistry of Circumstellar dust shells
 !
-!  OWNER: Not Committed Yet
+!  OWNER: Lionel
 !
 !  $Id$
 !

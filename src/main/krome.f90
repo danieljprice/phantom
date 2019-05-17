@@ -22,7 +22,7 @@
 !  DEPENDENCIES: krome_main, krome_user, part
 !+
 !--------------------------------------------------------------------------
-module krome_phantom_coupling
+module krome_interface
 
  use krome_user
  use krome_main
@@ -30,7 +30,7 @@ module krome_phantom_coupling
 
  implicit none
 
- public :: initialise_krome
+ public :: initialise_krome,update_krome
 
  real  :: cosmic_ray_rate
  real  :: H_init, He_init, C_init, N_init, O_init
@@ -76,4 +76,68 @@ subroutine initialise_krome()
 
 end subroutine initialise_krome
 
-end module krome_phantom_coupling
+subroutine update_krome(dt,npart,xyzh,vxyzu)
+
+ use part,      only:rhoh,massoftype,isdead_or_accreted,igas,&
+                     species_abund,mu_chem,gamma_chem,krometemperature,kromecool
+ use units,     only:unit_density, utime
+ use eos,       only:ieos,get_local_temperature!equationofstate
+
+ integer, intent(in) :: npart
+ real, intent(in) :: dt,xyzh(:,:)
+ real, intent(inout) :: vxyzu(:,:)
+ integer :: i
+ real :: T_local, dt_cgs, hi, rhoi, rho_cgs
+
+ dt_cgs = dt*utime
+!$omp parallel do schedule(runtime) &
+!$omp default(none) &
+!$omp shared(ieos,dt_cgs, npart, unit_density) &
+!$omp shared(species_abund) &
+!$omp shared(krometemperature) &
+!$omp shared(kromecool) &
+!$omp shared(mu_chem) &
+!$omp shared(gamma_chem) &
+!$omp shared(vxyzu,xyzh, massoftype) &
+!$omp private(i,T_local, hi, rhoi, rho_cgs)
+
+ do i = 1,npart
+   hi = xyzh(4,i)
+   if (.not.isdead_or_accreted(hi))  then
+     rhoi = rhoh(hi,massoftype(igas))
+     rho_cgs = rhoi**unit_density
+     call get_local_temperature(ieos,xyzh(1,i),xyzh(2,i),xyzh(3,i),rhoi,mu_chem(i),vxyzu(4,i),gamma_chem(i),T_local)
+     ! evolve the chemistry and update the abundances
+     call krome(species_abund(:,i),rho_cgs,T_local,dt_cgs)
+     ! calculate the cooling contribution, needed for force.F90
+     kromecool(i) = krome_get_cooling(krome_x2n(species_abund(:,i),rho_cgs),T_local)
+     ! update the gas temperature array for the dumpfiles
+     !!!!!!!!!! KROMETEMPERATURE WILL BE REMOVED. IF YOU NEED IT COMPUTE IT. NO NEED TO BE STORED
+     krometemperature(i) = T_local
+     ! update the particle's mean molecular weight
+     mu_chem(i) =  krome_get_mu(krome_x2n(species_abund(:,i),rho_cgs))
+     ! update the particle's adiabatic index
+     gamma_chem(i) = krome_get_gamma_x(species_abund(:,i),T_local)
+   endif
+ enddo
+!$omp end parallel do
+
+end subroutine update_krome
+
+! subroutine get_local_temperature(eos_type,xi,yi,zi,rhoi,gmwi,intenerg,gammai,local_temperature)
+!  use dim, only:maxvxyzu
+!  integer,      intent(in)    :: eos_type
+!  real,         intent(in)    :: xi,yi,zi,rhoi,gmwi,gammai
+!  real,         intent(inout) :: intenerg
+!  real,         intent(out)   :: local_temperature
+!  real :: spsoundi,ponrhoi
+
+!  if (maxvxyzu==4) then
+!     call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=intenerg,gamma_local=gammai)
+!  else
+!     print *, "CHEMISTRY PROBLEM: ISOTHERMAL SETUP USED, INTERNAL ENERGY NOT STORED"
+!  endif
+!  local_temperature = temperature_coef*gmwi*ponrhoi
+
+! end subroutine get_local_temperature
+end module krome_interface

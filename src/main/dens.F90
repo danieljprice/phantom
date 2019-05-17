@@ -133,7 +133,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                      hrho,iphase,igas,idust,iboundary,iamgas,periodic,&
                      all_active,dustfrac,Bxyz
 #ifdef KROME
- use part,      only:species_abund,mu_chem,gamma_chem,krometemperature,kromecool
+ use part,      only:gamma_chem
 #endif
 #ifdef FINVSQRT
  use fastmath,  only:finvsqrt
@@ -248,10 +248,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(divcurlB) &
 !$omp shared(alphaind) &
 #ifdef KROME
-!$omp shared(species_abund) &
-!$omp shared(krometemperature) &
-!$omp shared(kromecool) &
-!$omp shared(mu_chem) &
 !$omp shared(gamma_chem) &
 #endif
 !$omp shared(dustfrac) &
@@ -398,7 +394,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv, &
                divcurlB,alphaind,dvdx,vxyzu,Bxyz,&
 #ifdef KROME
-               species_abund,krometemperature,kromecool,mu_chem,gamma_chem,&
+               gamma_chem,&
 #endif
                dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
 #ifdef MPI
@@ -514,7 +510,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv, &
                   divcurlB,alphaind,dvdx,vxyzu,Bxyz, &
 #ifdef KROME
-                  species_abund,krometemperature,kromecool,mu_chem,gamma_chem,&
+                  gamma_chem,&
 #endif
                   dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
           endif
@@ -1578,7 +1574,7 @@ end subroutine finish_rhosum
 subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                          gradh,divcurlv,divcurlB,alphaind,dvdx,vxyzu,Bxyz,&
 #ifdef KROME
-                         species_abund,krometemperature,kromecool,mu_chem,gamma_chem,&
+                         gamma_chem,&
 #endif
                          dustfrac,rhomax,nneightry,nneighact,maxneightry,&
                          maxneighact,np,ncalc)
@@ -1599,14 +1595,6 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 #ifdef IND_TIMESTEPS
  use part, only: ibin
  use timestep, only: dtmax
-#else
- use timestep, only: dt
-#endif
-#ifdef KROME
- use krome_main
- use krome_user
- use units,      only: unit_density, utime
- use eos,        only: get_temperature_loc
 #endif
 
  integer,         intent(in)    :: icall
@@ -1621,11 +1609,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  real(kind=4),    intent(inout) :: divcurlB(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
 #ifdef KROME
- real,            intent(inout) :: species_abund(:,:)
- real,            intent(inout) :: krometemperature(:)
- real,            intent(inout) :: mu_chem(:)
- real,            intent(inout) :: gamma_chem(:)
- real,            intent(out)   :: kromecool(:)
+ real,            intent(in)    :: gamma_chem(:)
 #endif
  real(kind=4),    intent(inout) :: dvdx(:,:)
  real,            intent(in)    :: vxyzu(:,:)
@@ -1655,12 +1639,6 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  real         :: divcurlBi(ndivcurlB)
  real         :: temperaturei,Bi
  real         :: rho1i,term,denom,rhodusti(maxdustlarge)
-#ifdef IND_TIMESTEPS
- real :: dt
-#endif
-#ifdef KROME
- real :: dt_cgs, rho_cgs !, xvect(krome_nmols), nvect(krome_nmols)
-#endif
 
  do i = 1,cell%npcell
     lli = inodeparts(cell%arr_index(i))
@@ -1820,33 +1798,6 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        ! store strain tensor
        dvdx(:,lli) = real(dvdxi(:),kind=kind(dvdx))
     endif
-#ifdef IND_TIMESTEPS
-    dt = dtmax/2**ibin(lli)
-#endif
-#ifdef KROME
-    rho_cgs = rhoi*unit_density
-    dt_cgs = dt*utime
-    if (dt  /=  0.0) then
-       temperaturei = get_temperature_loc(ieos,cell%xpartvec(ixi:izi,i),rhoi, &
-                                         mu_chem(lli),vxyzui(4),gamma_chem(lli))
-!          Here we evolve the chemistry and update the abundances
-       call krome(species_abund(:,lli),rho_cgs,temperaturei,dt_cgs)
-!          Here we calculate the cooling contribution due to krome called by force.F90
-       !nvect(:) = species_abund(:,lli)
-       kromecool(i) = krome_get_cooling(krome_x2n(species_abund(:,lli),rho_cgs),temperaturei)
-       !xvect = krome_x2n(nvect,rho_cgs)
-       !kromecool(i) = krome_get_cooling(xvect,temperaturei)
-!          Here we update the gas temperature array for the dumpfiles
-       krometemperature(lli) = temperaturei
-!          Here we update the particle's mean molecular weight
-       mu_chem(lli) =  krome_get_mu(krome_x2n(species_abund(:,lli),rho_cgs))
-       !mu_chem(lli) =  krome_get_mu(xvect)
-!          Here we update the particle's adiabatic index
-       gamma_chem(lli) = krome_get_gamma_x(species_abund(:,lli),temperaturei)
-       !gamma_chem(lli) = krome_get_gamma_x(nvect,temperaturei)
-       !species_abund(:,lli)= nvect(:)
-    endif
-#endif
     ! stats
     nneightry = nneightry + cell%nneightry
     nneighact = nneighact + cell%nneigh(i)

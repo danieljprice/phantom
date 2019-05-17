@@ -11,7 +11,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Lionel
+!  OWNER: Lionel Siess
 !
 !  $Id$
 !
@@ -267,6 +267,8 @@ subroutine init_inject(ierr)
  print*,'distance between spheres   = ',wind_shell_spacing*neighbour_distance
  print*,'particles per sphere       = ',particles_per_sphere
  print*,'time_between_spheres       = ',time_between_spheres
+ print*,'wind_injection_radius      = ',wind_injection_radius
+ print*,'stellar_radius             = ',Rstar_cgs / udist
 
 end subroutine init_inject
 
@@ -309,10 +311,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  character(len=*), parameter :: label = 'inject_particles'
 
  !Already done in initial.F90
- if (first_run) then
-    call init_inject(ierr)
-    first_run = .false.
- endif
+ ! if (first_run) then
+ !    call init_inject(ierr)
+ !    first_run = .false.
+ ! endif
 
  if (nptmass > 0 .and. wind_emitting_sink <= nptmass) then
     x0 = xyzmh_ptmass(1:3,wind_emitting_sink)
@@ -610,27 +612,28 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  end select
 #ifdef BOWEN
  noptions = 18
-#elif NUCLEATION
- noptions = 16
 #else
- noptions = 6
+ noptions = 16
 #endif
- Rstar_cgs = sqrt(star_Lum/(4.*pi*steboltz*star_Teff**4))
- !if you launch the wind inside the photosphere, make sure the wind temperature >= star's effective temperature
- if (wind_injection_radius_au <= Rstar_cgs/au.and.igotall) then
-    print *,'invalid setting for wind_inject_radius (< Rstar)',wind_injection_radius_au,Rstar_cgs/au
-    !call fatal(label,'invalid setting for wind_inject_radius (< Rstar)')
- endif
- if (wind_temperature < star_Teff.and.igotall) then
-    print *,wind_injection_radius_au,Rstar_cgs/au,wind_temperature,star_Teff
-    !call fatal(label,'invalid setting for wind_temperature (Twind < star_Teff)')
- endif
  if (isowind) noptions = noptions -1
  igotall = (ngot >= noptions)
- if (iboundary_spheres > int(shift_spheres).and.igotall) then
-    print *,'shift_spheres too small - imposing shift_spheres = iboundary_spheres = ',iboundary_spheres
-    shift_spheres = sign(dble(iboundary_spheres),shift_spheres)
+ if (igotall .and. trim(name) /= '') then
+    Rstar_cgs = sqrt(star_Lum/(4.*pi*steboltz*star_Teff**4))
+    !if you launch the wind inside the photosphere, make sure the wind temperature >= star's effective temperature
+    if (wind_injection_radius_au <= Rstar_cgs/au) then
+       print *,'invalid setting for wind_inject_radius < Rstar (au)',wind_injection_radius_au,Rstar_cgs/au
+       !call fatal(label,'invalid setting for wind_inject_radius (< Rstar)')
+    endif
+    if (wind_temperature < star_Teff) then
+       print *,'Twind < star_Teff',wind_temperature,star_Teff
+       !call fatal(label,'invalid setting for wind_temperature (Twind < star_Teff)')
+    endif
+    if (iboundary_spheres > int(shift_spheres)) then
+       print *,'shift_spheres too small - imposing shift_spheres = iboundary_spheres = ',iboundary_spheres
+       shift_spheres = sign(dble(iboundary_spheres),shift_spheres)
+    endif
  endif
+ if (trim(name) == '') ngot = 0
 end subroutine read_options_inject
 
 end module inject

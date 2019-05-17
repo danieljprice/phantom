@@ -67,7 +67,7 @@ module eos
 
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm
  public  :: get_spsound,get_temperature,get_temperature_from_ponrho
- public  :: get_temperature_loc, get_local_u_internal
+ public  :: get_local_temperature, get_local_u_internal
  public  :: gamma_pwp
  public  :: init_eos, finish_eos, write_options_eos, read_options_eos
  public  :: print_eos_to_file
@@ -369,28 +369,30 @@ real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai)
 
 end function get_temperature
 
+#ifdef KROME
 !-----------------------------------------------------------------------
 !+
 !  query function to return the temperature for calculations with a local
 !  mean molecular weight and local adiabatic index
 !+
 !-----------------------------------------------------------------------
-real function get_temperature_loc(eos_type,xyzi,rhoi,gmwi,intenerg,gammai)
+subroutine get_local_temperature(eos_type,xi,yi,zi,rhoi,gmwi,intenerg,gammai,local_temperature)
  use dim, only:maxvxyzu
  integer,      intent(in)    :: eos_type
- real,         intent(in)    :: xyzi(:),rhoi,gmwi,gammai
+ real,         intent(in)    :: xi,yi,zi,rhoi,gmwi,gammai
  real,         intent(inout) :: intenerg
+ real,         intent(out)   :: local_temperature
  real :: spsoundi,ponrhoi
 
  if (maxvxyzu==4) then
-    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),eni=intenerg,gamma_local=gammai)
+    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=intenerg,gamma_local=gammai)
  else
     print *, "CHEMISTRY PROBLEM: ISOTHERMAL SETUP USED, INTERNAL ENERGY NOT STORED"
  endif
- get_temperature_loc = temperature_coef*gmwi*ponrhoi
+ local_temperature = temperature_coef*gmwi*ponrhoi
 
-end function get_temperature_loc
-
+end subroutine get_local_temperature
+#endif
 !----------------------------------------------------------------------------
 !+
 !  query function to return the internal energyfor calculations with a local
