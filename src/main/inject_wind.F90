@@ -299,7 +299,7 @@ subroutine drv_dt(rv,drv,GM,gamma)
  if (gamma > 1.0001) then
     T = wind_temperature * (wind_injection_radius**2 * wind_velocity / (r2 * v))**(gamma-1.)
     u = T * u_to_temperature_ratio
-    vs2 = gamma * (gamma - 1) * u
+    vs2 = gamma * (gamma - 1.) * u
  else
     vs2 = polyk
  endif
@@ -462,7 +462,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  integer, save :: ngot = 0
  integer :: noptions
  real :: Rstar
-#endif
  logical :: isowind = .true.
  character(len=30), parameter :: label = 'read_options_inject'
 
