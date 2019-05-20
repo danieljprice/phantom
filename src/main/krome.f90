@@ -62,15 +62,15 @@ subroutine initialise_krome()
  call krome_set_user_crflux(cosmic_ray_rate)
 
  species_abund_label(:) = krome_get_names()
- mu_chem(:)           = 2.12444   ! for composition below
- gamma_chem(:)        = 1.66667
- krometemperature(:)  = 3000
+ mu_chem(:)            = 2.12444   ! for composition below
+ gamma_chem(:)         = 1.66667
+ krometemperature(:)   = 0
 
  ! Initial chemical abundance value for AGB surface
  He_init = 3.11e-1 ! mass fraction
- C_init = 2.63e-3  ! mass fraction
- N_init = 1.52e-3  ! mass fraction
- O_init = 9.60e-3  ! mass fraction
+ C_init  = 2.63e-3 ! mass fraction
+ N_init  = 1.52e-3 ! mass fraction
+ O_init  = 9.60e-3 ! mass fraction
 
  H_init = 1.0 - He_init - C_init - N_init - O_init
 
@@ -100,7 +100,7 @@ subroutine update_krome(dt,npart,xyzh,vxyzu)
 !$omp shared(gamma_chem) &
 !$omp shared(vxyzu,xyzh, massoftype) &
 !$omp private(i,T_local, hi, rhoi, rho_cgs)
-
+ 
  do i = 1,npart
    hi = xyzh(4,i)
    if (.not.isdead_or_accreted(hi))  then
@@ -112,7 +112,6 @@ subroutine update_krome(dt,npart,xyzh,vxyzu)
      ! calculate the cooling contribution, needed for force.F90
      kromecool(i) = krome_get_cooling(krome_x2n(species_abund(:,i),rho_cgs),T_local)
      ! update the gas temperature array for the dumpfiles
-     !!!!!!!!!! KROMETEMPERATURE WILL BE REMOVED. IF YOU NEED IT COMPUTE IT. NO NEED TO BE STORED
      krometemperature(i) = T_local
      ! update the particle's mean molecular weight
      mu_chem(i) =  krome_get_mu(krome_x2n(species_abund(:,i),rho_cgs))

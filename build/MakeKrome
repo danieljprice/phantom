@@ -17,11 +17,8 @@ KROME_OBJS := $(addprefix $(KROME_BUILD_DIR)/, $(KOBJS))
 OBJECTS += $(KROME_OBJS)
 
 krome_setup:
-ifeq ("$(wildcard ${KROMEPATH}/networks/react_AGB_reduced_eHHeCNO)","")
-	cp react_AGB_reduced_eHHeCNO ${KROMEPATH}/networks
-endif
-ifeq ("$(wildcard ${RUNDIR}/reactions_verbatim.dat)","")
-	cp ${KROMEPATH}/build/coolCO.dat ${KROMEPATH}/build/coolH2O.dat ${KROMEPATH}/build/coolOH.dat ${KROMEPATH}/build/coolHCN.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
+ifeq ("$(wildcard ${KROMEPATH}/networks/react_AGB_full_eHHeCNO_benchmark)","")
+	cp react_AGB_full_eHHeCNO_benchmark ${KROMEPATH}/networks
 endif
 ifeq ("$(wildcard ${KROMEPATH}/build/optionsKrome.opt)","")
 	cp optionsKrome.opt ${KROMEPATH}/build
@@ -32,6 +29,9 @@ override PASSED:=1
 endif
 ifeq ("$(PASSED)$(wildcard ${KROMEPATH}/build/reactions_verbatim.dat)","0")
 	cd ${KROMEPATH}; ./krome -options=build/optionsKrome.opt
+	cp ${KROMEPATH}/build/coolCO.dat ${KROMEPATH}/build/coolH2O.dat ${KROMEPATH}/build/coolOH.dat ${KROMEPATH}/build/coolHCN.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
+endif
+ifeq ("$(wildcard ${RUNDIR}/reactions_verbatim.dat)","")
 	cp ${KROMEPATH}/build/coolCO.dat ${KROMEPATH}/build/coolH2O.dat ${KROMEPATH}/build/coolOH.dat ${KROMEPATH}/build/coolHCN.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
 endif
 

@@ -133,7 +133,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 ! update chemical composition and cooling rate
 !
 #ifdef KROME
- call update_krome(dt,npart,xyzh,vxyzu)
+ if (dt  /=  0.0) then
+    call update_krome(dt,npart,xyzh,vxyzu)
+ endif
 #endif
 !
 ! compute forces

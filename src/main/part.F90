@@ -168,7 +168,7 @@ module part
  real, allocatable :: mu_chem(:)
  real, allocatable :: krometemperature (:)
  real, allocatable :: kromecool (:)
- character(len=16) :: species_abund_label(krome_nmols)
+ character(len=16)  :: species_abund_label(krome_nmols)
 #endif
 !
 !--lightcurves
