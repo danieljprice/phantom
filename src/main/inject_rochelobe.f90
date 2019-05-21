@@ -139,7 +139,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  Mdotcode  = Mdot*(solarm/years)/(umass/utime)
  dNdt_code = dNdt*utime / Porb
  massoftype(igas) = Mdotcode/dNdt_code
- 
+
 !
 !-- Place particles
 !
