@@ -86,7 +86,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  x1 = xyzmh_ptmass(1:3,1)
  x2 = xyzmh_ptmass(1:3,2)
  v1 = vxyz_ptmass(1:3,1)
- v2 = vxyz_ptmass(1:3,1)
+ v2 = vxyz_ptmass(1:3,2)
  dr = x2 - x1
  r12 = dist(x2,x1)
  m1 = xyzmh_ptmass(4,1)
@@ -100,26 +100,40 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 !--quantities related to the gas injection at/near L1
 !
  Porb      = twopi * sqrt( (r12*udist)**3 / (gg*(m1+m2)*umass) )
- eps = Porb/(twopi*r12) * (gastemp*kboltz/gmw)**0.5*utime/udist
+ print*, "DEBUG: Porb=",Porb/3600," h"
+ eps = Porb/(twopi*r12*udist) * (gastemp*kboltz/(gmw*mass_proton_cgs))**0.5
+ print*, "DEBUG: eps=",eps
  A  = mu / abs(radL1 - 1. + mu)**3 + (1. - mu)/abs(radL1 + mu)**3! See Lubow & Shu 1975, eq 13
+ print*, "DEBUG: A=",A
  theta_s = -acos( -4./(3.*A)+(1-8./(9.*A))**0.5)/2.              ! See Lubow & Shu 1975, eq 24
+ print*, "DEBUG: theta_s=",theta_s*180/3.14159265358979323," deg"
  xyzL1(1:3) = xyzmh_ptmass(1:3,1) + radL1*dr(:)   ! set as vector position
+ print*, "DEBUG: xyzL1=",xyzL1*udist/1e5," km"
  r0L1 = dist(xyzL1, (/0., 0., 0./))               ! distance from L1 to center of mass
+ print*, "DEBUG: r0L1=",r0L1*udist/1e5," km"
  r2L1 = dist(xyzL1, x2)                           ! ... and from the mass donor's center
+ print*, "DEBUG: r2L1=",r2L1*udist/1e5," km"
  s = (/cos(theta_s),sin(theta_s),0.0/)*r2L1*eps*0.5   ! last factor still a "magic number". Fix.
+ print*, "DEBUG: s=",s*udist/1e5," km"
  smag = sqrt(dot_product(s,s))
  xyzinj(1:3) = xyzL1 + s
  vxyzL1 = v1*dist(xyzL1,x0)/dist(x0, x1) ! orbital motion of L1 point
  spd_inject = abs((3.*A)/(4*eps)*dist(xyzinj,xyzL1)*sin(2*theta_s))  !L&S75 eq 23b
+ print*, "DEBUG: spd_inject=",spd_inject*udist/(utime*1e2)," m/s"
  lm12 = (A - 2. + sqrt(A*(9.*A - 8.)))/2.                        ! See Heerlein+99, eq A8
  lm32 = lm12 - A + 2.                                            ! See Heerlein+99, eq A15
  lm1  = sqrt(A)
+ print*, "DEBUG:: lm12=",lm12,"lm32=",lm32,"lm1=",lm1
 
- call phi_derivs(phinns,phizzs,xyzL1,theta_s,m1,m2,mu,r12,Porb)
- sw_chi = (A + 2.*A*phizzs*smag/(lm12 + 2.*A))/r12**2                          !H+99 eq A5
- sw_chi = A/r12**2
- sw_gamma = (lm32 + (12.*lm1/r0L1 - phinns)*lm32*smag/(2.*lm32 + lm12))/r12**2 !H+99 eq A13
- sw_gamma = lm12/r12**2
+ !call phi_derivs(phinns,phizzs,xyzL1,x1(1),x2(1),theta_s,m1,m2,mu,r12,Porb)
+ !sw_chi = (A + 2.*A*phizzs*smag/(lm12 + 2.*A))/r12**2                          !H+99 eq A5
+ sw_chi = 15/udist
+ !sw_gamma = (lm32 + (12.*lm1/r0L1 - phinns)*lm32*smag/(2.*lm32 + lm12))/r12**2 !H+99 eq A13
+ sw_gamma = 15/udist
+
+ print*,"DEBUG: phizzs*smag=",phizzs*smag
+ print*,' DEBUG: chi is ',sw_chi,' gamma is ',sw_gamma,' in code units'
+ print*,' DEBUG: chi is ',sw_chi*udist/1e5,' gamma is ',sw_gamma*udist/1e5,' in km'
 !-- mass of gas particles is set by mass accretion rate and particle injection rate
 !
  Mdotcode  = Mdot*(solarm/years)/(umass/utime)
@@ -157,7 +171,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  !-- no constraint on timestep
  !
  dtinject = huge(dtinject)
-
 end subroutine inject_particles
 
 !
@@ -229,32 +242,39 @@ end subroutine rotate_into_plane
 ! in code units
 ! See equations A16 and A9 of Heerlein+99
 !
-subroutine phi_derivs(phinns,phizzs,xyzL1,theta_s,m1,m2,mu,r12,Porb)
+subroutine phi_derivs(phinns,phizzs,xyzL1,xx1,xx2,theta_s,m1,m2,mu,r12,Porb)
  use physcon,   only:pi,gg,solarm
  use units,     only:umass,udist,utime
  real, intent(out)  :: phinns,phizzs
- real, intent(in)   :: xyzL1(3),theta_s,mu,r12,Porb
- real               :: X,Y,st,ct,theta_r,M1,M2,R,Phi
- X=xyzL1(1)*udist
- Y=xyzL1(2)*udist
- theta_r=atan2(Y,X)-pi+theta_s
- st = sin(theta_r)
- ct = cos(theta_r)
+ real, intent(in)   :: xyzL1(3),theta_s,mu,r12,Porb,xx1,xx2
+ real               :: XL1,st,ct,M1,M2,R,X1,X2
+ XL1=xyzL1(1)*udist
+ X1=xx1*udist
+ X2=xx2*udist
+ st = sin(theta_s)
+ ct = cos(theta_s)
  M1 = m1*umass
  M2 = m2*umass
  R = r12*udist
 
- Phi = gg*M1/((X - mu*R)**2+Y**2)**0.5 + gg*M2/((X + (1 - mu)*R)**2+Y**2)**0.5 + gg*(M1+M2)*(X**2+Y**2)/(2*R**3)
+! phizzs = M1*(Y*st + (X - mu*R)*ct)/((X-mu*R)**2+Y**2)**(5./2)
+! phizzs = phizzs + M2*(Y*st + (X + (1 - mu)*R)*ct)/((X+(1-mu)*R)**2+Y**2)**(5./2)
+! phizzs = -3.*phizzs*gg/R/(Porb/(2*pi)) / (udist * utime**2)
+ phizzs  = 3*gg*M1*(X1-XL1)**(-4)*ct
+ phizzs = phizzs - 3*gg*M2*(X2-XL1)**(-4)*ct
+ phizzs = phizzs * udist * utime**2
+print*,"DEBUG, phizzs=", phizzs
 
- phizzs = M1*(Y*st + (X - mu*R)*ct)/((X-mu*R)**2+Y**2)**(5./2)
- phizzs = phizzs + M2*(Y*st + (X + (1 - mu)*R)*ct)/((X+(1-mu)*R)**2+Y**2)**(5./2)
- phizzs = -3.*phizzs*gg*udist*utime**2/R/(Porb/(2*pi*utime))
+! phinns = M1*(Y*st + (X - mu*R)*ct)*(Y*ct - (X - (mu*R))*st)**2/((X - mu*R)**2 + Y**2)**(7./2)
+! phinns = phinns + M2*(Y*st + ((1 - mu)*R + X)*ct)*(Y - ((1 - mu)*R + X)*st)**2/((X - (1 - mu)*R)**2 + Y**2)**(7./2)
+! phinns = 5*phinns - M1*(Y*st + (X - mu*R)*ct)/((X - mu*R)**2+Y**2)**(5./2)
+! phinns = phinns - M2*(Y*st + ((1 - mu)*R + X)*ct)/(((1 - mu)*R + X)**2 + Y**2)**(5./2)
+! phinns = 3*phinns*gg*udist*utime**2/R/(Porb/(2*pi*utime))
 
- phinns = M1*(Y*st + (X - mu*R)*ct)*(Y*ct - (X - (mu*R))*st)**2/((X - mu*R)**2 + Y**2)**(7./2)
- phinns = phinns + M2*(Y*st + ((1 - mu)*R + X)*ct)*(Y - ((1 - mu)*R + X)*st)**2/((X - (1 - mu)*R)**2 + Y**2)**(7./2)
- phinns = 5*phinns - M1*(Y*st + (X - mu*R)*ct)/((X - mu*R)**2+Y**2)**(5./2)
- phinns = phinns - M2*(Y*st + ((1 - mu)*R + X)*ct)/(((1 - mu)*R + X)**2 + Y**2)**(5./2)
- phinns = 3*phinns*gg*udist*utime**2/R/(Porb/(2*pi*utime))
+ phinns  = 3*gg*M1*(X1-XL1)**(-4)*ct**3
+ phinns = phinns - 3*gg*M2*(X2-XL1)**(-4)*ct**3
+ phinns = phinns * udist * utime**2
+ print*,"DEBUG, phinns=", phinns
 
 end subroutine phi_derivs
 
@@ -298,8 +318,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 !
 !--convert mass injection rate to code units
 !
-    print*,' DEBUG: Mdot is ',Mdot,' Msun/yr, which is ',Mdotcode,' in code units'
-
  case('dNdt')
     read(valstring,*,iostat=ierr) dNdt
     ngot = ngot + 1
