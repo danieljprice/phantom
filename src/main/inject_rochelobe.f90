@@ -263,7 +263,7 @@ subroutine phi_derivs(phinns,phizzs,xyzL1,xx1,xx2,theta_s,m1,m2,mu,r12,Porb)
  phizzs  = 3*gg*M1*(X1-XL1)**(-4)*ct
  phizzs = phizzs - 3*gg*M2*(X2-XL1)**(-4)*ct
  phizzs = phizzs * udist * utime**2
-print*,"DEBUG, phizzs=", phizzs
+ print*,"DEBUG, phizzs=", phizzs
 
 ! phinns = M1*(Y*st + (X - mu*R)*ct)*(Y*ct - (X - (mu*R))*st)**2/((X - mu*R)**2 + Y**2)**(7./2)
 ! phinns = phinns + M2*(Y*st + ((1 - mu)*R + X)*ct)*(Y - ((1 - mu)*R + X)*st)**2/((X - (1 - mu)*R)**2 + Y**2)**(7./2)
