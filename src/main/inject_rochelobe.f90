@@ -127,13 +127,13 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
  !call phi_derivs(phinns,phizzs,xyzL1,x1(1),x2(1),theta_s,m1,m2,mu,r12,Porb)
  !sw_chi = (A + 2.*A*phizzs*smag/(lm12 + 2.*A))/r12**2                          !H+99 eq A5
- sw_chi = 15/udist
+ sw_chi = (15/udist)**(-2)
  !sw_gamma = (lm32 + (12.*lm1/r0L1 - phinns)*lm32*smag/(2.*lm32 + lm12))/r12**2 !H+99 eq A13
- sw_gamma = 15/udist
+ sw_gamma = (15/udist)**(-2)
 
  print*,"DEBUG: phizzs*smag=",phizzs*smag
  print*,' DEBUG: chi is ',sw_chi,' gamma is ',sw_gamma,' in code units'
- print*,' DEBUG: chi is ',sw_chi*udist/1e5,' gamma is ',sw_gamma*udist/1e5,' in km'
+ print*,' DEBUG: chi is ',sw_chi**(-0.5)*udist/1e5,' gamma is ',sw_gamma**(-0.5)*udist/1e5,' in km'
 !-- mass of gas particles is set by mass accretion rate and particle injection rate
 !
  Mdotcode  = Mdot*(solarm/years)/(umass/utime)
