@@ -52,9 +52,6 @@ subroutine test_lum(ntests,npass)
 #endif
  use options,         only:ieos,alpha,iexternalforce,ipdv_heating,ishock_heating
  !use part,            only:luminosity
-#ifdef IND_TIMESTEPS
- use timestep_ind,    only:nactive
-#endif
 #endif
  integer, intent(inout) :: ntests,npass
 #ifdef LIGHTCURVE
@@ -64,6 +61,7 @@ subroutine test_lum(ntests,npass)
  real(kind=4) :: t1,t2
  integer                :: nfail,ii
 #endif
+ integer :: nactive
 
 !#ifdef DISC_VISCOSITY
 !    if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF LIGHTCURVE (cannot have -DDISC_VISCOSITY)'
