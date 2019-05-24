@@ -392,7 +392,7 @@ subroutine get_local_temperature(eos_type,xi,yi,zi,rhoi,gmwi,intenerg,gammai,loc
  local_temperature = temperature_coef*gmwi*ponrhoi
 
 end subroutine get_local_temperature
-#endif
+
 !----------------------------------------------------------------------------
 !+
 !  query function to return the internal energyfor calculations with a local
@@ -408,7 +408,7 @@ real function get_local_u_internal(gammai, gmwi, gas_temp_local)
  get_local_u_internal = ponrhoi/(gammai-1.)
 
 end function get_local_u_internal
-
+#endif
 !-----------------------------------------------------------------------
 real function get_temperature_from_ponrho(ponrho)
  real, intent(in) :: ponrho

@@ -81,7 +81,7 @@ subroutine update_krome(dt,npart,xyzh,vxyzu)
  use part,      only:rhoh,massoftype,isdead_or_accreted,igas,&
                      species_abund,mu_chem,gamma_chem,krometemperature,kromecool
  use units,     only:unit_density, utime
- use eos,       only:ieos,get_local_temperature!equationofstate
+ use eos,       only:ieos,get_local_temperature,get_local_u_internal!equationofstate
 
  integer, intent(in) :: npart
  real, intent(in) :: dt,xyzh(:,:)
@@ -92,7 +92,7 @@ subroutine update_krome(dt,npart,xyzh,vxyzu)
  dt_cgs = dt*utime
 !$omp parallel do schedule(runtime) &
 !$omp default(none) &
-!$omp shared(ieos,dt_cgs, npart, unit_density) &
+!$omp shared(ieos,dt,dt_cgs, npart, unit_density) &
 !$omp shared(species_abund) &
 !$omp shared(krometemperature) &
 !$omp shared(kromecool) &
@@ -107,21 +107,66 @@ subroutine update_krome(dt,npart,xyzh,vxyzu)
      rhoi = rhoh(hi,massoftype(igas))
      rho_cgs = rhoi**unit_density
      call get_local_temperature(ieos,xyzh(1,i),xyzh(2,i),xyzh(3,i),rhoi,mu_chem(i),vxyzu(4,i),gamma_chem(i),T_local)
+     ! normalise abudances and balance charge conservation with e-
+     call krome_consistent_x(species_abund(:,i))
      ! evolve the chemistry and update the abundances
-     call krome(species_abund(:,i),rho_cgs,T_local,dt_cgs)
-     ! calculate the cooling contribution, needed for force.F90
-     kromecool(i) = krome_get_cooling(krome_x2n(species_abund(:,i),rho_cgs),T_local)
+     call evolve_chemistry(species_abund(:,i),rho_cgs,T_local,dt_cgs)
      ! update the gas temperature array for the dumpfiles
      krometemperature(i) = T_local
      ! update the particle's mean molecular weight
-     mu_chem(i) =  krome_get_mu(krome_x2n(species_abund(:,i),rho_cgs))
+     print *, '--------------------------'
+     print *, species_abund(:,i)
+     mu_chem(i) =  krome_get_mu_x(species_abund(:,i))
+!      mu_chem(i) =  krome_get_mu(krome_x2n(species_abund(:,i),rho_cgs))
      ! update the particle's adiabatic index
      gamma_chem(i) = krome_get_gamma_x(species_abund(:,i),T_local)
+     ! calculate the cooling contribution, needed for force.F90
+     kromecool(i) = (get_local_u_internal(gamma_chem(i), mu_chem(i), T_local)-vxyzu(4,i))/dt
    endif
  enddo
 !$omp end parallel do
 
 end subroutine update_krome
+
+subroutine evolve_chemistry(species, dens, temp, time)
+
+ real, intent(inout) :: species(:), temp
+ real, intent(in)    :: dens, time
+ real, allocatable   :: test_species1(:), test_species2(:)
+ real                :: test_temp1, test_temp2, test_dens, test_time
+ real                :: dudt, dt_cool
+ integer             :: i, N
+ 
+ test_species1 = species
+ test_species2 = species
+ test_dens     = dens
+ test_temp1    = temp
+ test_temp2    = temp
+ test_time     = time
+ 
+ call krome(test_species2,test_dens,test_temp2,test_time)
+ 
+ ! Calculate cooling timescale
+ dudt = abs(test_temp2 - test_temp1)/test_time
+ dt_cool = test_temp1/dudt
+ 
+ ! Substepping if dt_cool < input timestep
+ !!!! explicit addition of krome cooling in force.F90 to determine hydro timestep not needed anymore
+ !!!! skipping the contribution to fxyz4 and updating the final particle energy still to be implemented
+ if (dt_cool < test_time) then 
+    N = ceiling(test_time/dt_cool)
+    print *, 'cooling timestep smaller than hydro timestep, substepping...     N=',N
+    do i = 1,N       
+       call krome(test_species1,test_dens,test_temp1,test_time/N)
+    enddo
+    species = test_species1
+    temp    = test_temp1
+ else
+    species = test_species2
+    temp    = test_temp2
+ endif
+
+end subroutine evolve_chemistry
 
 ! subroutine get_local_temperature(eos_type,xi,yi,zi,rhoi,gmwi,intenerg,gammai,local_temperature)
 !  use dim, only:maxvxyzu

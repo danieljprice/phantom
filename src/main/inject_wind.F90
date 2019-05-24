@@ -361,7 +361,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     else
        r = wind_injection_radius
        v = wind_velocity
-       call stationary_wind_profile(local_time, r, v, u, rho, e, GM, gamma, mu)
+       call stationary_wind_profile(local_time, r, v, wind_temperature, u, rho, e, GM, gamma, mu)
     endif
 
     if (wind_verbose) then

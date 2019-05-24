@@ -2,12 +2,6 @@
 
 KROME_BUILD_DIR = ${KROMEPATH}/build
 
-#ifeq ($(SYSTEM),gfortran)
-#   KFLAGS="-ffree-line-length-none -O3 -Wall -Wno-unused-dummy-argument -frecord-marker=4 -gdwarf-2 -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize -fall-intrinsics -mcmodel=medium -fdefault-real-8 -fdefault-double-8"
-#else
-#   KFLAGS="$(FFLAGS)"
-#endif
-
 KFLAGS="$(FFLAGS)"
 FFLAGS+= -I$(KROME_BUILD_DIR)
 PASSED=0
@@ -23,18 +17,14 @@ endif
 ifeq ("$(wildcard ${KROMEPATH}/build/optionsKrome.opt)","")
 	cp optionsKrome.opt ${KROMEPATH}/build
 	cd ${KROMEPATH}; ./krome -options=build/optionsKrome.opt
-	cp -f ${KROMEPATH}/build/coolCO.dat ${KROMEPATH}/build/coolH2O.dat ${KROMEPATH}/build/coolOH.dat ${KROMEPATH}/build/coolHCN.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
+	cp -f ${KROMEPATH}/data/coolCO.dat ${KROMEPATH}/data/coolH2O.dat ${KROMEPATH}/data/coolOH.dat ${KROMEPATH}/data/coolHCN.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
 	make clean_krome
 override PASSED:=1
 endif
 ifeq ("$(PASSED)$(wildcard ${KROMEPATH}/build/reactions_verbatim.dat)","0")
 	cd ${KROMEPATH}; ./krome -options=build/optionsKrome.opt
-	cp ${KROMEPATH}/build/coolCO.dat ${KROMEPATH}/build/coolH2O.dat ${KROMEPATH}/build/coolOH.dat ${KROMEPATH}/build/coolHCN.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
+	cp ${KROMEPATH}/data/coolCO.dat ${KROMEPATH}/data/coolH2O.dat ${KROMEPATH}/data/coolOH.dat ${KROMEPATH}/data/coolHCN.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
 endif
-ifeq ("$(wildcard ${RUNDIR}/reactions_verbatim.dat)","")
-	cp ${KROMEPATH}/build/coolCO.dat ${KROMEPATH}/build/coolH2O.dat ${KROMEPATH}/build/coolOH.dat ${KROMEPATH}/build/coolHCN.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
-endif
-
 
 krome: $(KROME_OBJS)
 

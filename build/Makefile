@@ -42,7 +42,7 @@ MULTIRUNFILE  = multirun.f90
 LIVE_ANALYSIS = no
 LINKLIST      = dtype_kdtree.F90 kdtree.F90 linklist_kdtree.F90
 KROME         = disabled
-DEBUG         = yes
+DEBUG         = no
 #
 # can comment out the following lines and instead set
 # the parameters as environment variables

@@ -2538,9 +2538,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
 #ifdef KROME
              if (dt  /=  0.0) then
-!                 kromecool(i) has units erg/s/cm^3. This needs to be converted to code units
-!                 and divided by density to obtain phantom's du/dt in erg/s/g.
-                fxyz4 = fxyz4 - (kromecool(i)*unit_ergg/unit_density)/rhoi
+!                 kromecool(i) is in code units
+                fxyz4 = fxyz4 + kromecool(i)
              endif
 #endif
           endif

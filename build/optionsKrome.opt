@@ -1,9 +1,9 @@
 -n=networks/react_AGB_full_eHHeCNO_benchmark
 #-compact 
--cooling=ATOMIC,CHEM,H2,CIE,Z,CI,CII,OI,OII,CO,OH,H2O,HCN
--heating=CHEM,CR 
--H2opacity=RIPAMONTI 
--gamma=EXACT 
+#-cooling=ATOMIC,CHEM,H2,CIE,Z,CI,CII,OI,OII,CO,OH,H2O,HCN
+#-heating=CHEM,CR 
+#-H2opacity=RIPAMONTI 
+#-gamma=EXACT 
 -noSinkCheck 
 -noRecCheck 
 -noTlimits 
