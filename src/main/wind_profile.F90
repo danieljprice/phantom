@@ -175,13 +175,13 @@ end subroutine pulsating_wind_profile
 !  stationary wind - solution when input velocity is defined
 !+
 !-----------------------------------------------------------------------
-subroutine stationary_wind_profile(local_time, r, v, T, u, rho, e, GM, gamma, mu)
+subroutine stationary_wind_profile(local_time, r, v, u, rho, e, GM, gamma, mu)
  use physcon,     only: pi
  use units,       only:udist,unit_velocity
  real, intent(in)  :: local_time, GM, gamma, mu
- real, intent(inout) :: r, v, T
+ real, intent(inout) :: r, v
  real, intent(out) ::  u, rho, e
- real :: dt, r0, v0, rvT(3), new_rvT(3), err, Q, dQ_dr, dalpha_dr, numerator, denominator
+ real :: dt, T, r0, v0, rvT(3), new_rvT(3), err, Q, dQ_dr, dalpha_dr, numerator, denominator
  integer, parameter :: N = 10000
  integer :: i
 
@@ -192,7 +192,7 @@ subroutine stationary_wind_profile(local_time, r, v, T, u, rho, e, GM, gamma, mu
  dQ_dr = 0.
  rvT(1) = r*udist
  rvT(2) = v*unit_velocity
- rvT(3) = T
+ rvT(3) = wind_temperature
  do i=1,N
     call RK4_step_dr(dt, rvT, mu, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
     rvT = new_rvT
