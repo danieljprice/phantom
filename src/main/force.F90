@@ -2662,6 +2662,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              if (gr) then
                 fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*u0i*fsum(idendtdissi)
              endif
+#ifdef ISENTROPIC
+             if (gr) then
+                fxyz4 = 0.
+#ifdef LIGHTCURVE
+                luminosity(i) = pmassi*u0i*(fsum(idendtdissi)+fsum(idudtdissi))
+#endif
+             endif
+#endif
           else
              fac = rhoi/rhogasi
              pdv_work = ponrhoi*rho1i*drhodti

@@ -1429,6 +1429,10 @@ ifeq ($(GR), yes)
 ifeq ($(METRIC), kerr)
     FPPFLAGS += -DKERR
 endif
+ifeq ($(ISENTROPIC), yes)
+    FPPFLAGS += -DISENTROPIC
+    FPPFLAGS += -DLIGHTCURVE
+endif
     CONST_AV=yes
 endif
 
