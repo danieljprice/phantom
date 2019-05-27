@@ -1878,7 +1878,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
                           maxtypes,grainsize,graindens
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
- use externalforces, only:read_headeropts_extern
+ use externalforces, only:read_headeropts_extern,extract_iextern_from_hdr
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
  use dump_utils,     only:extract
  type(dump_h), intent(in)  :: hdr
@@ -1944,6 +1944,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
        ierr = 4
     endif
     call extract('iexternalforce',iextern_in_file,hdr,ierrs(1))
+    if (extract_iextern_from_hdr) iexternalforce = iextern_in_file
     if (iexternalforce /= 0) then
        call read_headeropts_extern(iexternalforce,hdr,ierrs(1))
        if (ierrs(1) /= 0) ierr = 5

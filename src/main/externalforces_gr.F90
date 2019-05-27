@@ -20,6 +20,7 @@ module externalforces
  real, public :: accradius1 = 0.
  real, public :: accradius1_hard = 0.
 
+ logical, public :: extract_iextern_from_hdr = .false.
 
  ! (the following for compatibility with non-relativistic code)
  integer, parameter, public :: iext_lensethirring = -1

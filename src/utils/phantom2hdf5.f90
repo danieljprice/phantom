@@ -27,12 +27,17 @@ program phantom2hdf5
  use readwrite_dumps,      only:read_dump,read_smalldump,write_fulldump
  use readwrite_dumps_hdf5, only:read_dump_hdf5=>read_dump, write_fulldump_hdf5=>write_fulldump
  use readwrite_dumps_hdf5, only:write_smalldump_hdf5=>write_smalldump
+ use eos,                  only:extract_eos_from_hdr
+ use externalforces,       only:extract_iextern_from_hdr
  implicit none
  integer :: nargs,iarg
  character(len=120) :: dumpfile
  real :: time
  integer :: ierr
  logical :: fulldump
+
+ extract_eos_from_hdr     = .true.
+ extract_iextern_from_hdr = .true.
 
  call set_io_unit_numbers
  iprint = 6

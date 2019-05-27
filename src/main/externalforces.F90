@@ -50,6 +50,7 @@ module externalforces
  real, public :: Rdisc = 5.
 
  real, public :: accradius1_hard = 0.
+ logical, public :: extract_iextern_from_hdr = .false.
 
  !
  ! enumerated list of external forces
