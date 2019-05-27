@@ -17,7 +17,8 @@
 !
 !  USAGE: phantom2hdf5 dumpfile(s)
 !
-!  DEPENDENCIES: dim, io, part, readwrite_dumps, readwrite_dumps_hdf5
+!  DEPENDENCIES: dim, eos, externalforces, io, part, readwrite_dumps,
+!    readwrite_dumps_hdf5
 !+
 !--------------------------------------------------------------------------
 program phantom2hdf5
