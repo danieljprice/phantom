@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: infile_utils, io, physcon, sortutils
+!  DEPENDENCIES: infile_utils, io, part, physcon, sortutils
 !+
 !--------------------------------------------------------------------------
 module analysis
@@ -99,6 +99,7 @@ end subroutine do_analysis
 !
 !--------------------------------------------------------------------------------------------------------------------
 subroutine tde_analysis(npart,xyzh,vxyzu,ebins,dnde,tbins,dndt)
+ use part, only:isdead_or_accreted
  integer, intent(in) :: npart
  real, intent(in)    :: xyzh(:,:),vxyzu(:,:)
  real, intent(out), dimension(nmaxbins) :: ebins,dnde,tbins,dndt
@@ -111,13 +112,15 @@ subroutine tde_analysis(npart,xyzh,vxyzu,ebins,dnde,tbins,dndt)
  tr  = 0.
  eps = 0.
  do i=1,npart
-    r      = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    v2     = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
-    eps(i) = v2/2. - mh/r                                     !-- Specific energy
-    if (eps(i)<0.) then
-       tr(i) = treturn(mh,eps(i))                             !-- Return time, only set if energy is negative
-    else
-       tr(i) = 0.
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       r      = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+       v2     = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
+       eps(i) = v2/2. - mh/r                                     !-- Specific energy
+       if (eps(i)<0.) then
+          tr(i) = treturn(mh,eps(i))                             !-- Return time, only set if energy is negative
+       else
+          tr(i) = 0.
+       endif
     endif
  enddo
 
@@ -196,10 +199,10 @@ end subroutine hist
 !  Read tde information from .tdeparams file
 !+
 !----------------------------------------------------------------
-subroutine read_tdeparams(filename,mh,iunit,ierr)
+subroutine read_tdeparams(filename,mhole,iunit,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  character(len=*), intent(in)  :: filename
- real,             intent(out) :: mh
+ real,             intent(out) :: mhole
  integer,          intent(in)  :: iunit
  integer,          intent(out) :: ierr
  type(inopts), allocatable :: db(:)
@@ -207,7 +210,7 @@ subroutine read_tdeparams(filename,mh,iunit,ierr)
 ! Read in parameters from the file .tdeparams
  call open_db_from_file(db,filename,iunit,ierr)
  if (ierr /= 0) return
- call read_inopt(mh,'mh',db,ierr)
+ call read_inopt(mhole,'mh',db,ierr)
  if (ierr /= 0) return
  call close_db(db)
 
