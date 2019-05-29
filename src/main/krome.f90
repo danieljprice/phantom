@@ -25,6 +25,7 @@
 module krome_interface
 
  use krome_user
+ use krome_getphys
  use krome_main
  use part, only: species_abund_label,mu_chem,gamma_chem,krometemperature
 
@@ -62,9 +63,6 @@ subroutine initialise_krome()
  call krome_set_user_crflux(cosmic_ray_rate)
 
  species_abund_label(:) = krome_get_names()
- mu_chem(:)            = 2.12444   ! for composition below
- gamma_chem(:)         = 1.66667
- krometemperature(:)   = 0
 
  ! Initial chemical abundance value for AGB surface
  He_init = 3.11e-1 ! mass fraction
@@ -105,7 +103,7 @@ subroutine update_krome(dt,npart,xyzh,vxyzu)
    hi = xyzh(4,i)
    if (.not.isdead_or_accreted(hi))  then
      rhoi = rhoh(hi,massoftype(igas))
-     rho_cgs = rhoi**unit_density
+     rho_cgs = rhoi*unit_density
      call get_local_temperature(ieos,xyzh(1,i),xyzh(2,i),xyzh(3,i),rhoi,mu_chem(i),vxyzu(4,i),gamma_chem(i),T_local)
      ! normalise abudances and balance charge conservation with e-
      call krome_consistent_x(species_abund(:,i))
@@ -114,10 +112,7 @@ subroutine update_krome(dt,npart,xyzh,vxyzu)
      ! update the gas temperature array for the dumpfiles
      krometemperature(i) = T_local
      ! update the particle's mean molecular weight
-     print *, '--------------------------'
-     print *, species_abund(:,i)
      mu_chem(i) =  krome_get_mu_x(species_abund(:,i))
-!      mu_chem(i) =  krome_get_mu(krome_x2n(species_abund(:,i),rho_cgs))
      ! update the particle's adiabatic index
      gamma_chem(i) = krome_get_gamma_x(species_abund(:,i),T_local)
      ! calculate the cooling contribution, needed for force.F90

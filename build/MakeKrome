@@ -11,8 +11,8 @@ KROME_OBJS := $(addprefix $(KROME_BUILD_DIR)/, $(KOBJS))
 OBJECTS += $(KROME_OBJS)
 
 krome_setup:
-ifeq ("$(wildcard ${KROMEPATH}/networks/react_AGB_full_eHHeCNO_benchmark)","")
-	cp react_AGB_full_eHHeCNO_benchmark ${KROMEPATH}/networks
+ifeq ("$(wildcard ${KROMEPATH}/networks/react_AGB_full_eHHeCNO)","")
+	cp react_AGB_full_eHHeCNO ${KROMEPATH}/networks
 endif
 ifeq ("$(wildcard ${KROMEPATH}/build/optionsKrome.opt)","")
 	cp optionsKrome.opt ${KROMEPATH}/build

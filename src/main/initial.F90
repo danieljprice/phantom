@@ -194,7 +194,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use inject,           only:init_inject,inject_particles
 #endif
 #ifdef KROME
- use part,             only:species_abund
+ use part,             only:species_abund,mu_chem,gamma_chem,krometemperature
  use krome_interface,  only:initialise_krome,H_init, He_init, C_init, N_init, O_init
  use krome_user
 #endif
@@ -225,10 +225,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist
- integer :: ncount(maxtypes)
+ integer         :: ncount(maxtypes)
  character(len=len(dumpfile)) :: dumpfileold,fileprefix
 #ifdef DUST
  character(len=7) :: dust_label(maxdusttypes)
+#endif
+#ifdef KROME
+ real            :: wind_temperature
 #endif
 !
 !--do preliminary initialisation
@@ -281,18 +284,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  if (maxalpha==maxp) then
     alphaind(:,:) = real4(alpha)
  endif
-!
-!--set initial chemical abundance values
-!
-#ifdef KROME
- call initialise_krome()
-
- species_abund(krome_idx_He,:) = He_init
- species_abund(krome_idx_C,:)  = C_init
- species_abund(krome_idx_N,:)  = N_init
- species_abund(krome_idx_O,:)  = O_init
- species_abund(krome_idx_H,:)  = H_init
-#endif
 
 !
 !--initialise values for non-ideal MHD
@@ -530,6 +521,22 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  if (ierr /= 0) call fatal('initial','error initialising particle injection')
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                        npart,npartoftype,dtinject)
+#endif
+!
+!--set initial chemical abundance values
+!
+#ifdef KROME
+ call initialise_krome()
+
+ species_abund(krome_idx_He,:) = He_init
+ species_abund(krome_idx_C,:)  = C_init
+ species_abund(krome_idx_N,:)  = N_init
+ species_abund(krome_idx_O,:)  = O_init
+ species_abund(krome_idx_H,:)  = H_init
+ 
+ mu_chem(:)            = krome_get_mu_x(species_abund(:,1))
+ gamma_chem(:)         = krome_get_gamma_x(species_abund(:,1),wind_temperature)
+ krometemperature(:)   = wind_temperature
 #endif
 !
 !--calculate (all) derivatives the first time around
