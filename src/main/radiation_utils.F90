@@ -1,9 +1,8 @@
-module radiation
+module radiation_utils
  implicit none
  public :: update_radenergy,set_radfluxesandregions
 
  private
-
 contains
 
 subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
@@ -12,7 +11,7 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
  use units,        only:udist,utime,&
                         unit_energ,unit_velocity
  use physcon,      only:Rg,steboltz,c
- use io,           only:fatal
+ use io,           only:fatal,warning
  use dim,          only:maxphase,maxp
 
   real, intent(in)    ::dt,xyzh(:,:),fxyzu(:,:)
@@ -22,9 +21,9 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
   real :: ui,pmassi,rhoi,xii
   real :: ack,a,cv1,kappa,dudt,etot,unew
   real :: c_code, steboltz_code
-  integer :: i
+  integer :: i, di
 
-  pmassi = massoftype(igas)
+  pmassi        = massoftype(igas)
   steboltz_code = steboltz/(unit_energ/(udist**2*utime))
   c_code        = c/unit_velocity
 
@@ -33,12 +32,13 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
 
   !$omp parallel do default(none)&
   !$omp private(kappa,ack,rhoi,ui)&
-  !$omp private(dudt,xii,etot,unew)&
+  !$omp private(dudt,xii,etot,unew,di)&
   !$omp shared(radiation,xyzh,vxyzu)&
   !$omp shared(fxyzu,pmassi,maxphase,maxp)&
   !$omp shared(iphase)&
   !$omp shared(dt,cv1,a,steboltz_code)
   do i = 1,npart
+    di = i
     if (maxphase==maxp) then
        if (iamtype(iphase(i)) /= igas) cycle
     endif
@@ -49,15 +49,21 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
     ui   = vxyzu(4,i)
     dudt = fxyzu(4,i)
     xii = radiation(iradxi,i)
+    if (xii <= 0) then
+       call warning('radiation','radiation energy is negative before exchange', i)
+    endif
+
     etot = ui + xii
     unew = ui
-    ! call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
-    call solve_internal_energy_implicit_substeps(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
-    ! call solve_internal_energy_explicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
+    ! print*, 'Before:  ', 'T_gas=',unew*cv1,'T_rad=',(rhoi*(etot-unew)/a)**(1./4.)
+    call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
+    ! call solve_internal_energy_implicit_substeps(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
+    ! call solve_internal_energy_explicit_substeps(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt,di)
     vxyzu(4,i) = unew
     radiation(iradxi,i) = etot - unew
-    ! print*, 'T_gas=',unew*cv1,'T_rad=',(rhoi*(etot-unew)/a)**(1./4.)
-    if (radiation(iradxi,i) <= 0) call fatal('radiation','radenevol is negative', i)
+    ! print*, 'After:   ', 'T_gas=',unew*cv1,'T_rad=',(rhoi*(etot-unew)/a)**(1./4.)
+    if (radiation(iradxi,i) <= 0) &
+       call fatal('radiation','radiation energy is negative after exchange', i)
   end do
   !$omp end parallel do
 end subroutine update_radenergy
@@ -112,32 +118,41 @@ subroutine solve_internal_energy_implicit(unew,ui,rho,etot,dudt,ack,a,cv1,dt)
  end do
 end subroutine solve_internal_energy_implicit
 
-subroutine solve_internal_energy_explicit(unew,ui,rho,etot,dudt,ack,a,cv1,dt)
+subroutine solve_internal_energy_explicit(unew,ui,rho,etot,dudt,ack,a,cv1,dt,di)
  real, intent(out) :: unew
  real, intent(in)  :: ui, etot, dudt, dt, rho, ack, a, cv1
+ integer, intent(in) :: di
+
+ unew = ui + dt*(dudt + ack*(rho*(etot-ui)/a - (ui*cv1)**4))
+end subroutine solve_internal_energy_explicit
+
+subroutine solve_internal_energy_explicit_substeps(unew,ui,rho,etot,dudt,ack,a,cv1,dt,di)
+ real, intent(out) :: unew
+ real, intent(in)  :: ui, etot, dudt, dt, rho, ack, a, cv1
+ integer, intent(in) :: di
  real     :: du,eps,dts,unews,uis
  integer  :: i,level
 
- du    = huge(1.)
  level = 1
  eps   = 1e-8
  dts   = dt
 
  unew = ui + dts*(dudt + ack*(rho*(etot-ui)/a - (ui*cv1)**4))
-
- do while((abs(du) > eps*unew).and.(level <= 2**10))
+ unews = 2*unew
+ du = (unew-unews)/unew
+ do while((abs(du) > eps).and.(level <= 2**10))
    unews = unew
    level = level*2
    dts  = dt/level
    unew = 0.
    uis  = ui
    do i=1,level
-     unew = uis + dts*(dudt + ack*(rho*(etot-ui)/a - (ui*cv1)**4))
+     unew = uis + dts*(dudt + ack*(rho*(etot-uis)/a - (uis*cv1)**4))
      uis  = unew
    end do
    du = (unew-unews)/unew
  end do
-end subroutine solve_internal_energy_explicit
+end subroutine solve_internal_energy_explicit_substeps
 
 subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
   use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi
@@ -156,31 +171,36 @@ subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
 
   do i = 1,npart
     rhoi = rhoh(xyzh(4,i),pmassi)
-    if (rhoi < 2e-4) then
-      if (xyzh(1,i) < 0.) then
-        radiation(ifluxy:ifluxz,i) = 0.
-        radiation(ifluxx,i)        =  rhoi*abs(radiation(iradxi,i))*0.5
-        radiation(ithick,i) = 0
-      else if (xyzh(1,i) > 0.) then
-        radiation(ifluxy:ifluxz,i) = 0.
-        radiation(ifluxx,i)        = -rhoi*abs(radiation(iradxi,i))*0.5
-        radiation(ithick,i) = 0
-      end if
-    end if
-    ! cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
-    ! r  = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    ! H  = 2*cs*sqrt(r**3)
-    ! if (abs(xyzh(3,i)) > H) then
-    !   if (xyzh(3,i) <= 0.) then
-    !     radiation(ifluxx:ifluxy,i) = 0.
-    !     radiation(ifluxz,i)        =  rhoi*abs(radiation(iradxi,i))
+    ! if (rhoi < 2e-4) then
+    !   if (xyzh(1,i) < 0.) then
+    !     radiation(ifluxy:ifluxz,i) = 0.
+    !     radiation(ifluxx,i)        = -rhoi*abs(radiation(iradxi,i))*0.5
     !     radiation(ithick,i) = 0
-    !   else if (xyzh(3,i) > 0.) then
-    !     radiation(ifluxx:ifluxy,i) = 0.
-    !     radiation(ifluxz,i)        =  -rhoi*abs(radiation(iradxi,i))
+    !   else if (xyzh(1,i) > 0.) then
+    !     radiation(ifluxy:ifluxz,i) = 0.
+    !     radiation(ifluxx,i)        =  rhoi*abs(radiation(iradxi,i))*0.5
     !     radiation(ithick,i) = 0
     !   end if
     ! end if
+    cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
+    r  = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+    H  = cs*sqrt(r**3)
+    if (abs(xyzh(3,i)) > H) then
+       radiation(ithick,i) = 0
+       ! if (xyzh(3,i) <= 0.) then
+       !   radiation(ifluxx:ifluxy,i) = 0.
+       !   radiation(ifluxz,i)        =  rhoi*abs(radiation(iradxi,i))
+       !   radiation(ithick,i) = 0
+       ! else if (xyzh(3,i) > 0.) then
+       !   radiation(ifluxx:ifluxy,i) = 0.
+       !   radiation(ifluxz,i)        =  -rhoi*abs(radiation(iradxi,i))
+       !   radiation(ithick,i) = 0
+       ! end if
+    end if
   end do
 end subroutine set_radfluxesandregions
-end module radiation
+! subroutine mcfost_do_analysis()
+!
+! end subroutine mcfost_do_analysis
+!
+end module radiation_utils

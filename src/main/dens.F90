@@ -594,7 +594,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  use kernel,   only:get_kernel,get_kernel_grav1
  use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,iboundary,igas,idust,rhoh,massoftype,&
                     iradxi
- use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust,isradiation
+ use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust,do_radiation
  integer,      intent(in)    :: i
  real,         intent(in)    :: xpartveci(:)
  real(kind=8), intent(in)    :: hi,hi1,hi21
@@ -738,7 +738,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
           ! calculate things needed for viscosity switches
           ! and real viscosity
           !
-          if (getdv .or. getdB .or. isradiation) then
+          if (getdv .or. getdB .or. do_radiation) then
              rij1 = 1./(rij + epsilon(rij))
              if (ifilledneighcache .and. n <= isizeneighcache) then
                 !--dx,dy,dz are either in neighbour cache or have been calculated
@@ -824,13 +824,13 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                 rhosum(idBzdzi) = rhosum(idBzdzi) + dBz*runiz
              endif
 
-             if (isradiation) then
-               rhoi = rhoh(real(hi), massoftype(igas))
-               rhoj = rhoh(xyzh(4,j), massoftype(igas))
-               dradenij = radiation(iradxi,j)*rhoj - xpartveci(iradxii)*rhoi
-               rhosum(iradfxi) = rhosum(iradfxi) + dradenij*runix
-               rhosum(iradfyi) = rhosum(iradfyi) + dradenij*runiy
-               rhosum(iradfzi) = rhosum(iradfzi) + dradenij*runiz
+             if (do_radiation .and. gas_gas) then
+                rhoi = rhoh(real(hi), massoftype(igas))
+                rhoj = rhoh(xyzh(4,j), massoftype(igas))
+                dradenij = radiation(iradxi,j)*rhoj - xpartveci(iradxii)*rhoi
+                rhosum(iradfxi) = rhosum(iradfxi) + dradenij*runix
+                rhosum(iradfyi) = rhosum(iradfyi) + dradenij*runiy
+                rhosum(iradfzi) = rhosum(iradfzi) + dradenij*runiz
              endif
           endif
        elseif (use_dust .and. (iamgasi  .and. iamdustj)) then
@@ -1364,7 +1364,7 @@ end subroutine compute_hmax
 subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,&
                       radiation)
  use io,          only:fatal
- use dim,         only:maxp,maxvxyzu,isradiation
+ use dim,         only:maxp,maxvxyzu,do_radiation
  use part,        only:maxphase,get_partinfo,iboundary,maxBevol,mhd,igas,iamgas,set_boundaries_to_active,&
                        iradxi
 
@@ -1450,7 +1450,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,&
        endif
     endif
 
-    if (isradiation) cell%xpartvec(iradxii,cell%npcell) = radiation(iradxi,i)
+    if (do_radiation) cell%xpartvec(iradxii,cell%npcell) = radiation(iradxi,i)
 
  enddo over_parts
 
@@ -1602,7 +1602,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  use io,          only:fatal,real4
  use eos,         only:get_temperature,get_spsound
  use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,mhd_nonideal,use_dust,&
-                       isradiation
+                       do_radiation
  use options,     only:ieos,alpha,alphamax,use_dustfrac
  use viscosity,   only:bulkvisc,shearparam
  use nicil,       only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
@@ -1807,10 +1807,11 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        dvdx(:,lli) = real(dvdxi(:),kind=kind(dvdx))
     endif
 
-    if (isradiation) then
-        if (radiation(ithick,lli) == 1) then
-           radiation(ifluxx:ifluxz,lli) = cell%rhosums(iradfxi:iradfzi,i)*term
-        endif
+    if (do_radiation.and.iamgasi) then
+        ! if (radiation(ithick,lli) > 0.5) then
+           radiation(ifluxx:ifluxz,lli) = &
+              cell%rhosums(iradfxi:iradfzi,i)*term
+        ! endif
     endif
     ! stats
     nneightry = nneightry + cell%nneightry

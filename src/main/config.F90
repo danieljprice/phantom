@@ -122,9 +122,11 @@ module dim
  radensumden        = 3,&
  radenxpartvetden   = 1
 #ifdef RADIATION
- logical, parameter :: isradiation = .true.
+ logical, parameter :: do_radiation = .true.
+ logical :: exchange_radiation_energy = .true.
 #else
- logical, parameter :: isradiation = .false.
+ logical, parameter :: do_radiation = .false.
+ logical :: exchange_radiation_energy = .false.
 #endif
 
  ! rhosum

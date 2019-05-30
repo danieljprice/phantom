@@ -93,7 +93,7 @@ module setup
                             ndusttypesinp,isetdust,dustbinfrac,check_dust_method
  use units,            only:umass,udist,utime
  use part,             only:radiation
- use dim,              only:isradiation
+ use dim,              only:do_radiation
 
  implicit none
 
@@ -272,8 +272,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--set tmax and dtmax
  call set_tmax_dtmax()
 
- if (isradiation) call set_radiation_and_gas_temperature_equal(&
-        npart,gamma,xyzh,vxyzu,massoftype,radiation)
+ if (do_radiation) &
+   call set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massoftype,radiation)
 
  !--remind user to check for warnings and errors
  write(*,20)
@@ -2177,7 +2177,7 @@ subroutine write_setupfile(filename)
         'use_mcfost_stars','Fix the stellar parameters to mcfost values or update using sink mass',iunit)
 #endif
 
- if (isradiation) call write_inopt(iradkappa,'radkappa','constant radiation opacity kappa',iunit)
+ if (do_radiation) call write_inopt(iradkappa,'radkappa','constant radiation opacity kappa',iunit)
 
  close(iunit)
 
@@ -2445,7 +2445,7 @@ subroutine read_setupfile(filename,ierr)
  if (ierr /= 0) use_mcfost_stellar_parameters = .false. ! update stellar parameters by default
 #endif
 
- if (isradiation) call read_inopt(iradkappa,'radkappa',db,err=ierr)
+ if (do_radiation) call read_inopt(iradkappa,'radkappa',db,err=ierr)
 
  call close_db(db)
  ierr = nerr
@@ -2614,11 +2614,10 @@ subroutine set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massof
  real                :: kappa,kappa_code,Tgas,rhoi,pmassi
  integer             :: i
 
- gmw   = 2.0
  if (iradkappa > 0) then
     kappa = iradkappa
  else
-    kappa  = 1e5
+    kappa = 1e5
  end if
  kappa_code = kappa/(udist**2/umass)
  pmassi = massoftype(igas)

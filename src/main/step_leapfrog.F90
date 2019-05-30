@@ -32,7 +32,7 @@
 !+
 !--------------------------------------------------------------------------
 module step_lf_global
- use dim,  only:maxp,maxvxyzu,maxBevol,isradiation
+ use dim,  only:maxp,maxvxyzu,maxBevol,do_radiation
  use part, only:vpred,Bpred,dustpred
  use part, only:radiation,iradxi,idflux,ixipred
  use timestep_ind, only:maxbins,itdt,ithdt,itdt1,ittwas
@@ -191,7 +191,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (itype==igas) then
           if (mhd)          Bevol(:,i)    = Bevol(:,i)        + hdti*dBevol(:,i)
           if (use_dustfrac) dustevol(:,i) = abs(dustevol(:,i) + hdti*ddustevol(:,i))
-          if (isradiation)  radiation(iradxi,i) = radiation(iradxi,i) + hdti*radiation(idflux,i)
+          if (do_radiation) then
+            radiation(iradxi,i) = radiation(iradxi,i) + hdti*radiation(idflux,i)
+          endif
        endif
     endif
  enddo predictor
@@ -237,7 +239,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (mhd)            Bpred(:,i)  = Bevol (:,i)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (use_dustfrac)   dustpred(:,i) = dustevol(:,i)
-             if (isradiation)    radiation(ixipred,i) = radiation(iradxi,i)
+             if (do_radiation)    radiation(ixipred,i) = radiation(iradxi,i)
              cycle predict_sph
           endif
        endif
@@ -277,7 +279,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !             dustfrac(1:ndustsmall,i) = sin(dustpred(:,i))**2
 !------------------------------------------------
           endif
-          if (isradiation) radiation(iradxi,i) = radiation(iradxi,i) + hdti*radiation(idflux,i)
+          if (do_radiation) then
+             radiation(ixipred,i) = radiation(iradxi,i) + hdti*radiation(idflux,i)
+          endif
        endif
        !
        ! viscosity switch ONLY (conductivity and resistivity do not use MM97-style switches)
@@ -391,7 +395,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (itype==igas) then
                 if (mhd)          Bevol(:,i)    = Bevol(:,i)    + dti*dBevol(:,i)
                 if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + dti*ddustevol(:,i)
-                if (isradiation)  radiation(iradxi,i) = radiation(iradxi,i) + dti*radiation(idflux,i)
+                if (do_radiation) then
+                   radiation(iradxi,i) = radiation(iradxi,i) + dti*radiation(idflux,i)
+                endif
              endif
              twas(i) = twas(i) + dti
           endif
@@ -404,7 +410,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdti*dBevol(:,i)
              if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
-             if (isradiation)  radiation(iradxi,i) = radiation(iradxi,i) + hdti*radiation(idflux,i)
+             if (do_radiation) then
+                radiation(iradxi,i) = radiation(iradxi,i) + hdti*radiation(idflux,i)
+             endif
           endif
           !
           !--Wake inactive particles for next step, if required
@@ -451,6 +459,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              !
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdtsph*dBevol(:,i)
              if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdtsph*ddustevol(:,i)
+             if (do_radiation) then
+                radiation(iradxi,i) = radiation(iradxi,i) + hdtsph*radiation(idflux,i)
+             endif
           endif
 #endif
        endif
@@ -469,14 +480,14 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (mhd)          Bpred(:,i)  = Bevol(:,i)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
-             if (isradiation)  radiation(ixipred,i) = radiation(iradxi,i)
+             if (do_radiation)  radiation(ixipred,i) = radiation(iradxi,i)
           endif
 #else
           vpred(:,i) = vxyzu(:,i)
           if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
           if (mhd)          Bpred(:,i)  = Bevol(:,i)
           if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
-          if (isradiation)  radiation(ixipred,i) = radiation(iradxi,i)
+          if (do_radiation)  radiation(ixipred,i) = radiation(iradxi,i)
 !
 ! shift v back to the half step
 !
@@ -485,7 +496,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  - hdtsph*dBevol(:,i)
              if (use_dustfrac) dustevol(:,i) = dustevol(:,i) - hdtsph*ddustevol(:,i)
-             if (isradiation)  radiation(iradxi,i) = radiation(iradxi,i) - hdtsph*radiation(idflux,i)
+             if (do_radiation) then
+                radiation(iradxi,i) = radiation(iradxi,i) - hdtsph*radiation(idflux,i)
+             endif
           endif
 
 #endif

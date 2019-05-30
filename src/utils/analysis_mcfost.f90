@@ -37,9 +37,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use part,           only:massoftype,iphase,dustfrac,hfact,npartoftype,&
                           get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
                           massoftype,xyzmh_ptmass,luminosity,igas,&
-                          grainsize,graindens,ndusttypes
+                          grainsize,graindens,ndusttypes,do_radiation,radiation,ithick
  use units,          only:umass,utime,udist
- use io,             only:fatal
+ use io,             only:fatal,warning
  use dim,            only:use_dust,lightcurve,maxdusttypes
  use eos,            only:temperature_coef,gmw,gamma
  use timestep,       only:dtmax
@@ -65,7 +65,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  logical, parameter :: write_T_files = .false. ! ask mcfost to write fits files with temperature structure
  integer, parameter :: ISM = 2 ! ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
-
 
  if (use_mcfost) then
     write(*,*) "Calling mcfost"
@@ -118,14 +117,23 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     write(*,*) ''
 
     ! set thermal energy
-    do i=1,npart
-       if (Tdust(i) > 1.) then
-          vxyzu(4,i) = Tdust(i) * factor
-       else
-          ! if mcfost doesn't return a temperature set it to Tdefault
-          vxyzu(4,i) = Tdefault * factor
-       endif
-    enddo
+    if (do_radiation) then
+      do i=1,npart
+         if ((Tdust(i) > 1.).and.(radiation(ithick,i) < 0.5)) then
+            vxyzu(4,i) = Tdust(i) * factor
+         endif
+         ! else left the temperature as it was before
+      enddo
+    else
+      do i=1,npart
+         if (Tdust(i) > 1.) then
+            vxyzu(4,i) = Tdust(i) * factor
+         else
+            ! if mcfost doesn't return a temperature set it to Tdefault
+            vxyzu(4,i) = Tdefault * factor
+         endif
+      enddo
+    endif
 
     if (allocated(dudt)) deallocate(dudt)
     if (allocated(Frad)) deallocate(Frad)

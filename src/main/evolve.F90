@@ -85,9 +85,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use timestep_ind,     only:get_dt
 #endif
 #endif
- use dim,              only:isradiation
+ use dim,              only:do_radiation,exchange_radiation_energy
  use part,             only:radiation,ithick
- use radiation,        only:update_radenergy,set_radfluxesandregions
+ use radiation_utils,  only:update_radenergy,set_radfluxesandregions
 #ifndef IND_TIMESTEPS
  use timestep,         only:dtrad
 #endif
@@ -318,9 +318,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                           poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
     endif
-    if (isradiation) then
+    if (do_radiation.and.exchange_radiation_energy) then
       call update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,0.5*dt)
-      call set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
+      ! call set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
     endif
     nsteps = nsteps + 1
 !
@@ -333,7 +333,10 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     else
        call step(npart,nactive,time,dt,dtextforce,dtnew)
     endif
-    if (isradiation) call update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,0.5*dt)
+
+    if (do_radiation.and.exchange_radiation_energy) then
+       call update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,0.5*dt)
+    endif
 
     dtlast = dt
 
@@ -601,7 +604,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
              write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (last full step) : ',tall/real(nalivetot)
              write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (ave. all steps) : ',timer_lastdump%wall/real(nmovedtot)
           endif
-          if (isradiation) then
+          if (do_radiation) then
              write(iprint,"(/,a,f6.2,'%')") &
                 ' RADIATION particles done by SPH = ',&
                 100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))

@@ -66,6 +66,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
  use part,         only:abundance,iHI,dustfrac
  use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm
+ use eos,          only:gmw
  use set_dust,     only:set_dustfrac
  use units,        only:set_units
  integer,           intent(in)    :: id
@@ -135,7 +136,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! set units and boundaries
  !
  call set_units(dist=udist,mass=umass,G=1.d0)
- call set_boundary(xmini,xmaxi,xmini,xmaxi,xmini,xmaxi)
+ call set_boundary(xmini,xmaxi,ymini,ymaxi,zmini,zmaxi)
  !
  ! setup particles
  !

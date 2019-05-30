@@ -31,7 +31,7 @@
 !--------------------------------------------------------------------------
 module forces
  use dim, only:maxfsum,maxxpartveciforce,maxBevol,maxp,ndivcurlB,ndivcurlv,&
-               maxdusttypes,maxdustsmall,isradiation
+               maxdusttypes,maxdustsmall,do_radiation
  use mpiforce, only:cellforce,stackforce
  use linklist, only:ifirstincell
  use kdtree,   only:inodeparts,inoderange
@@ -1489,6 +1489,42 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              !--div B in difference form for dpsi/dt evolution
              fsum(idivBdiffi) = fsum(idivBdiffi) + divBdiffterm
           endif
+
+          if (do_radiation) then
+             radDFWj = 0.
+
+             c_code = c/unit_velocity
+             if (usej) then
+                radFj(1:3) = radiation(ifluxx:ifluxz,j)
+                radkappaj = radiation(ikappa,j)
+                radenj = radiation(iradxi,j)
+                ! radRj = sqrt(dot_product(radFj(:),radFj(:)))/(radkappaj*rhoj*rhoj*radenj)
+                ! radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
+                radlambdaj = 1./3.
+
+                radDj = c_code*radlambdaj/radkappaj/rhoj
+
+                radDFWj = pmassj*radDj*grkernj*rho21j &
+                          *(radFj(1)*runix + radFj(2)*runiy + radFj(3)*runiz)
+             endif
+
+             radFi(1:3) = xpartveci(iradfxi:iradfzi)
+             radkappai = xpartveci(iradkappai)
+             radeni = xpartveci(iradxii)
+             ! radlambdai = xpartveci(iradlambdai)
+             radlambdai = 1./3.
+
+             radDi = c_code*radlambdai/radkappai/rhoi
+
+             ! TWO FIRST DERIVATES !
+             radDFWi = pmassj*radDi*grkerni*rho21i*(radFi(1)*runix + radFi(2)*runiy + radFi(3)*runiz)
+
+             fsum(idradi) = fsum(idradi) + (radDFWi + radDFWj)
+             ! BROOKSHAW !
+             ! fsum(idradi) = fsum(idradi) + pmassj/rhoi/rhoj*&
+             !                                ((4*radDi*radDj)/(radDi+radDj))*&
+             !                                (rhoi*radeni-rhoj*radenj)*grkerni*rij1
+          endif
 #ifdef DUST
           if (use_dustfrac) then
              tsj = 0.
@@ -1678,44 +1714,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        fsum(ifzi) = fsum(ifzi) - dz*fgravj
        fsum(ipot) = fsum(ipot) + pmassj*phii
 #endif
-
-       if (isradiation) then
-          runix = dx*rij1
-          runiy = dy*rij1
-          runiz = dz*rij1
-
-          pmassj = massoftype(iamtypej)
-          rhoj = rhoh(hj,pmassj)
-          rho21j = 1./rhoj/rhoj
-          grkerni = grkern(q2i,qi)*hfacgrkern
-
-          radFi(1:3) = xpartveci(iradfxi:iradfzi)
-          radFj(1:3) = radiation(ifluxx:ifluxz,j)
-          radkappai = xpartveci(iradkappai)
-          radkappaj = radiation(ikappa,j)
-          radeni = xpartveci(iradxii)
-          radenj = radiation(iradxi,j)
-          c_code = c/unit_velocity
-
-          radlambdai = xpartveci(iradlambdai)
-          ! radlambdai = 1./3.
-          radDi = c_code*radlambdai/radkappai/rhoi
-
-          radRj = sqrt(dot_product(radFj(:),radFj(:)))/(radkappaj*rhoj*rhoj*radenj)
-          radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
-          ! radlambdaj = 1./3.
-          radDj = c_code*radlambdaj/radkappaj/rhoj
-
-          ! TWO FIRST DERIVATES !
-          radDFWi = pmassj*radDi*grkerni*rho21i*(radFi(1)*runix + radFi(2)*runiy + radFi(3)*runiz)
-          radDFWj = pmassj*radDj*grkernj*rho21j*(radFj(1)*runix + radFj(2)*runiy + radFj(3)*runiz)
-          fsum(idradi) = fsum(idradi) + (radDFWi + radDFWj)
-          ! BROOKSHAW !
-          ! fsum(idradi) = fsum(idradi) + pmassj/rhoi/rhoj*&
-          !                                ((4*radDi*radDj)/(radDi+radDj))*&
-          !                                (rhoi*radeni-rhoj*radenj)*grkerni*rij1
-       endif
-
     endif is_sph_neighbour
  enddo loop_over_neighbours2
 
@@ -2124,6 +2122,16 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           cell%xpartvec(itstop:itstopend,cell%npcell) = tstopi
        endif
 #endif
+       if (do_radiation) then
+          radRi = sqrt(dot_product(radiation(ifluxx:ifluxz,i),radiation(ifluxx:ifluxz,i)))&
+                   /(radiation(ikappa,i)*rhoi*rhoi*radiation(iradxi,i))
+          cell%xpartvec(iradxii,cell%npcell)         = radiation(iradxi,i)
+          cell%xpartvec(iradfxi:iradfzi,cell%npcell) = radiation(ifluxx:ifluxz,i)
+          cell%xpartvec(iradkappai,cell%npcell)      = radiation(ikappa,i)
+          cell%xpartvec(iradlambdai,cell%npcell)     = &
+             (2. + radRi)/(6. + 3*radRi + radRi*radRi)
+          cell%xpartvec(iradrbigi,cell%npcell)       = radRi
+       endif
     endif
     if (mhd_nonideal) then
        cell%xpartvec(ietaohmi,cell%npcell)        = eta_nimhd(iohm,i)
@@ -2140,16 +2148,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     cell%xpartvec(igrainsizei,cell%npcell)        = dustprop(1,i)
     cell%xpartvec(igraindensi,cell%npcell)        = dustprop(2,i)
 #endif
-
-    if (isradiation) then
-       radRi = sqrt(dot_product(radiation(ifluxx:ifluxz,i),radiation(ifluxx:ifluxz,i)))&
-                 /(radiation(ikappa,i)*rhoi*rhoi*radiation(iradxi,i))
-       cell%xpartvec(iradxii,cell%npcell)         = radiation(iradxi,i)
-       cell%xpartvec(iradfxi:iradfzi,cell%npcell) = radiation(ifluxx:ifluxz,i)
-       cell%xpartvec(iradkappai,cell%npcell)      = radiation(ikappa,i)
-       cell%xpartvec(iradlambdai,cell%npcell)     = (2. + radRi)/(6. + 3*radRi + radRi*radRi)
-       cell%xpartvec(iradrbigi,cell%npcell)       = radRi
-    end if
 
     cell%xpartvec(idvxdxi:idvzdzi,cell%npcell)    = dvdx(1:9,i)
  enddo over_parts
@@ -2747,7 +2745,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     elseif (use_dust .and. .not.use_dustfrac) then
        tstop(:,i) = dtdrag
     endif
-    if (isradiation) then
+
+    if (do_radiation.and.iamgasi) then
        ! dradenevol(i) = rhoi*fsum(idradi) + xpartveci(iradei)*drhodti
        radiation(idflux,i) = fsum(idradi)
        c_code        = c/unit_velocity

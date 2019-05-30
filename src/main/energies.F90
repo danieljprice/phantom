@@ -67,7 +67,7 @@ subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
                           lightcurve,use_dust,use_CMacIonize,store_temperature,&
                           maxdusttypes,&
-                          isradiation
+                          do_radiation
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           npartoftype,alphaind,Bxyz,Bevol,divcurlB,iamtype,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
@@ -286,7 +286,7 @@ subroutine compute_energies(t)
           mdust(idusttype) = mdust(idusttype) + pmassi
        endif
 #endif
-       if (isradiation) erad = erad + pmassi*radiation(iradxi,i)
+       if (do_radiation) erad = erad + pmassi*radiation(iradxi,i)
        !
        ! the following apply ONLY to gas particles
        !

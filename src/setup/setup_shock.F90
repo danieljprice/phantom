@@ -77,7 +77,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis,get_ny_nz_closepacked
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,set_boundary
  use mpiutils,     only:bcast_mpi
- use dim,          only:maxvxyzu,ndim,mhd,isradiation
+ use dim,          only:maxvxyzu,ndim,mhd,do_radiation
  use options,      only:use_dustfrac
  use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,periodic,dustfrac
  use part,         only:radiation,iradxi,ikappa
@@ -277,7 +277,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vxyzu(3,i) = rightstate(ivz)
        if (maxvxyzu >= 4) vxyzu(4,i) = uuright
        if (mhd) Bxyz(1:3,i) = rightstate(iBx:iBz)
-       if (isradiation) then
+       if (do_radiation) then
           Tgas = gmw*(rightstate(ipr)*unit_pressure)/(rightstate(idens)*unit_density)/Rg
           radiation(iradxi,i) = 4.0*steboltz*Tgas**4.0/c/(rightstate(idens)*unit_density)/unit_ergg
           radiation(ikappa,i) = rightstate(iradkappa)
@@ -289,7 +289,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vxyzu(3,i) = leftstate(ivz)
        if (maxvxyzu >= 4) vxyzu(4,i) = uuleft
        if (mhd) Bxyz(1:3,i) = leftstate(iBx:iBz)
-       if (isradiation) then
+       if (do_radiation) then
           Tgas = gmw*(leftstate(ipr)*unit_pressure)/(leftstate(idens)*unit_density)/Rg
           radiation(iradxi,i) = 4.0*steboltz*Tgas**4.0/c/(leftstate(idens)*unit_density)/unit_ergg
           radiation(ikappa,i) = leftstate(iradkappa)
@@ -345,7 +345,7 @@ end subroutine adjust_shock_boundaries
 !-----------------------------------------------------------------------
 subroutine choose_shock (gamma,polyk,dtg,iexist)
  use io,        only:fatal,id,master
- use dim,       only:mhd,maxvxyzu,use_dust,isradiation
+ use dim,       only:mhd,maxvxyzu,use_dust,do_radiation
  use physcon,   only:pi,Rg,au,solarm
  use options,   only:nfulldump,alpha,alphamax,alphaB,use_dustfrac
  use timestep,  only:dtmax,tmax
@@ -528,7 +528,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     rightstate(1:iBz) = (/1.    ,0.01    ,-1.7510, 0.    ,0.,1.,0.6    ,0./)
     xleft      = -2.0
  case(9)
-    ! if (.not.isradiation) call fatal('setup','Radiation shock is only possible with "RADIATION=yes"')
+    ! if (.not.do_radiation) call fatal('setup','Radiation shock is only possible with "RADIATION=yes"')
     shocktype = 'Radiation shock'
 
     call set_units(dist=au,mass=solarm,G=1.d0)
@@ -558,7 +558,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     xright = xright/udist
     xleft  = xleft/udist
 
-    if (isradiation) then
+    if (do_radiation) then
        call prompt('Kappa left (total radiation opacity)',kappa,0.,1e6)
        kappa_code = kappa/(udist**2/umass)
        leftstate(iradkappa) = kappa_code

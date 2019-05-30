@@ -64,7 +64,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use timing,       only:get_timings,print_time
  use mpiutils,     only:barrier_mpi
  use testradiation, only:test_radiation
- use dim,           only:isradiation
+ use dim,           only:do_radiation
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
@@ -326,7 +326,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  endif
 
  if (doradiation.or.testall) then
-   if(isradiation) then
+   if(do_radiation) then
     call test_radiation(ntests,npass)
     call set_default_options ! restore defaults
     call barrier_mpi()
