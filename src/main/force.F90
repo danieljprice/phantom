@@ -570,7 +570,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
                                           ndtrad,dtradmean,dtradfacmax, &
 #endif
                                           ndustres,dustresfacmax,dustresfacmean,&
-                                          radiation)
+                                          radiation,dtrad)
 
     enddo over_waiting
 !$omp enddo

@@ -503,7 +503,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              ! direction export (0)
              call send_cell(cell,0,irequestsend,xsendbuf)
 !$omp end critical
-             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache)
+             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,&
+             radiation)
 
              stack_redo%cells(cell%waiting_index) = cell
           else
