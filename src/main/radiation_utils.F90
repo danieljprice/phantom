@@ -35,7 +35,7 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
   !$omp private(dudt,xii,etot,unew,di)&
   !$omp shared(radiation,xyzh,vxyzu)&
   !$omp shared(fxyzu,pmassi,maxphase,maxp)&
-  !$omp shared(iphase)&
+  !$omp shared(iphase,npart)&
   !$omp shared(dt,cv1,a,steboltz_code)
   do i = 1,npart
     di = i

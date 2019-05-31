@@ -533,7 +533,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
 
     call set_units(dist=au,mass=solarm,G=1.d0)
     gamma = 5./3.
-    gmw   = 2.0
+    gmw   = 2.38
     Tgas  = 1500.
     uu    = Tgas*Rg/(gamma - 1.0)/gmw
     dens  = 1.e-10
