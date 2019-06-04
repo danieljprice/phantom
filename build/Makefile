@@ -2285,6 +2285,15 @@ ev2mdot: checksys utils_filenames.o utils_infiles.o utils_evfiles.o ev2mdot.o
 
 cleanev2mdot:
 	rm -f $(BINDIR)/ev2mdot
+#----------------------------------------------------
+# these are the sources for the ev2kdot utility
+#
+.PHONY: ev2kdot
+ev2kdot: checksys utils_filenames.o utils_infiles.o utils_evfiles.o ev2kdot.o
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2kdot.o utils_filenames.o utils_evfiles.o utils_infiles.o
+
+cleanev2kdot:
+	rm -f $(BINDIR)/ev2kdot
 
 #----------------------------------------------------
 # these are the sources for the acc2ang utility
