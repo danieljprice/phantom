@@ -143,14 +143,13 @@ subroutine evolve_chemistry(species, dens, temp, time)
  
  ! Calculate cooling timescale
  dudt = abs(test_temp2 - test_temp1)/test_time
- dt_cool = test_temp1/dudt
+ dt_cool = abs(test_temp1/dudt)
  
  ! Substepping if dt_cool < input timestep
  !!!! explicit addition of krome cooling in force.F90 to determine hydro timestep not needed anymore
  !!!! skipping the contribution to fxyz4 and updating the final particle energy still to be implemented
  if (dt_cool < test_time) then 
     N = ceiling(test_time/dt_cool)
-    print *, 'cooling timestep smaller than hydro timestep, substepping...     N=',N
     do i = 1,N       
        call krome(test_species1,test_dens,test_temp1,test_time/N)
     enddo
