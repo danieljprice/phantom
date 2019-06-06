@@ -2265,7 +2265,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #endif
 #ifdef KROME
  use krome_user
- use part,           only:gamma_chem,kromecool
+ use part,           only:gamma_chem
  use units,          only:unit_density,unit_ergg
 #endif
 
@@ -2536,12 +2536,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 !fxyz4 = fxyz4 + 0.5*fac*rho1i*fsum(idudtdusti)
                 fxyz4 = fxyz4 + 0.5*fac*rho1i*sum(fsum(idudtdusti:idudtdustiend))
              endif
-#ifdef KROME
-             if (dt  /=  0.0) then
-!                 kromecool(i) is in code units
-                fxyz4 = fxyz4 + kromecool(i)
-             endif
-#endif
           endif
           if (maxvxyzu >= 4) fxyzu(4,i) = fxyz4
        endif

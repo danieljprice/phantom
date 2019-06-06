@@ -82,7 +82,8 @@ end subroutine init_step
 !+
 !------------------------------------------------------------
 subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
- use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,use_dustgrowth
+ use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,&
+                          use_dustgrowth,use_krome
  use io,             only:iprint,fatal,iverbose,id,master,warning
  use options,        only:idamp,iexternalforce,icooling,use_dustfrac
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
@@ -111,7 +112,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use growth,         only:check_dustprop
 #endif
 #ifdef KROME
- use part,           only: gamma_chem
+ use part,            only: gamma_chem,mu_chem
+ use krome_interface, only: krometemperature
+ use eos,             only: get_local_u_internal
 #endif
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -363,6 +366,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
 !$omp shared(dtsph,icooling,wind_type) &
+#ifdef KROME
+!$omp shared(gamma_chem,mu_chem,krometemperature) &
+#endif
 #ifdef IND_TIMESTEPS
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax,ibinnow) &
@@ -466,6 +472,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdtsph*ddustevol(:,i)
           endif
 #endif
+       endif
+       if (use_krome) then
+          vxyzu(4,i) = get_local_u_internal(gamma_chem(i),mu_chem(i),krometemperature(i))
        endif
        if (wind_type == 2) then
           vxyzu(4,i) = energy_profile(xyzh(:,i))

@@ -167,7 +167,6 @@ module part
  real, allocatable :: gamma_chem(:)
  real, allocatable :: mu_chem(:)
  real, allocatable :: krometemperature (:)
- real, allocatable :: kromecool (:)
  character(len=16)  :: species_abund_label(krome_nmols)
 #endif
 !
@@ -390,7 +389,6 @@ subroutine allocate_part
  call allocate_array('gamma_chem', gamma_chem, maxp)
  call allocate_array('mu_chem', mu_chem, maxp)
  call allocate_array('krometemperature', krometemperature, maxp)
- call allocate_array('kromecool', kromecool, maxp)
 #endif
 
 end subroutine allocate_part
@@ -454,7 +452,6 @@ subroutine deallocate_part
  deallocate(gamma_chem)
  deallocate(mu_chem)
  deallocate(krometemperature)
- deallocate(kromecool)
 #endif
 
 end subroutine deallocate_part
@@ -897,7 +894,6 @@ subroutine copy_particle_all(src,dst)
  gamma_chem(dst)       = gamma_chem(src)
  mu_chem(dst)          = mu_chem(src)
  krometemperature(dst) = krometemperature(src)
- kromecool(dst)        = kromecool(src)
 #endif
 
  return

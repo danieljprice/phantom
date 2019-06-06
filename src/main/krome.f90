@@ -77,27 +77,27 @@ end subroutine initialise_krome
 subroutine update_krome(dt,npart,xyzh,vxyzu)
 
  use part,      only:rhoh,massoftype,isdead_or_accreted,igas,&
-                     species_abund,mu_chem,gamma_chem,krometemperature,kromecool
- use units,     only:unit_density, utime
+                     species_abund,mu_chem,gamma_chem,krometemperature
+ use units,     only:unit_density,utime,udist
  use eos,       only:ieos,get_local_temperature,get_local_u_internal!equationofstate
 
  integer, intent(in) :: npart
- real, intent(in) :: dt,xyzh(:,:)
- real, intent(inout) :: vxyzu(:,:)
+ real, intent(in) :: dt
+ real, intent(inout) :: vxyzu(:,:),xyzh(:,:)
  integer :: i
  real :: T_local, dt_cgs, hi, rhoi, rho_cgs
+ real :: particle_position_sq
 
  dt_cgs = dt*utime
 !$omp parallel do schedule(runtime) &
 !$omp default(none) &
-!$omp shared(ieos,dt,dt_cgs, npart, unit_density) &
+!$omp shared(ieos,dt,dt_cgs, npart, unit_density, udist) &
 !$omp shared(species_abund) &
 !$omp shared(krometemperature) &
-!$omp shared(kromecool) &
 !$omp shared(mu_chem) &
 !$omp shared(gamma_chem) &
 !$omp shared(vxyzu,xyzh, massoftype) &
-!$omp private(i,T_local, hi, rhoi, rho_cgs)
+!$omp private(i,T_local, hi, rhoi, rho_cgs, particle_position_sq)
  
  do i = 1,npart
    hi = xyzh(4,i)
@@ -115,8 +115,9 @@ subroutine update_krome(dt,npart,xyzh,vxyzu)
      mu_chem(i) =  krome_get_mu_x(species_abund(:,i))
      ! update the particle's adiabatic index
      gamma_chem(i) = krome_get_gamma_x(species_abund(:,i),T_local)
-     ! calculate the cooling contribution, needed for force.F90
-     kromecool(i) = (get_local_u_internal(gamma_chem(i), mu_chem(i), T_local)-vxyzu(4,i))/dt
+     ! when modelling stellar wind: remove partiles beyond r_max=100*AU => resolution too low
+     particle_position_sq = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
+     if (particle_position_sq > (1.496e15/udist)**2) xyzh(4,i) = -abs(xyzh(4,i))
    endif
  enddo
 !$omp end parallel do
@@ -127,37 +128,38 @@ subroutine evolve_chemistry(species, dens, temp, time)
 
  real, intent(inout) :: species(:), temp
  real, intent(in)    :: dens, time
- real, allocatable   :: test_species1(:), test_species2(:)
- real                :: test_temp1, test_temp2, test_dens, test_time
+ real, allocatable   :: dupl_species1(:), dupl_species2(:)
+ real                :: dupl_temp1, dupl_temp2, dupl_dens, dupl_time
  real                :: dudt, dt_cool
  integer             :: i, N
  
- test_species1 = species
- test_species2 = species
- test_dens     = dens
- test_temp1    = temp
- test_temp2    = temp
- test_time     = time
+ ! Duplicate input arrays 
+ dupl_species1 = species
+ dupl_species2 = species
+ dupl_dens     = dens
+ dupl_temp1    = temp
+ dupl_temp2    = temp
+ dupl_time     = time
  
- call krome(test_species2,test_dens,test_temp2,test_time)
+ call krome(dupl_species2,dupl_dens,dupl_temp2,dupl_time)
  
  ! Calculate cooling timescale
- dudt = abs(test_temp2 - test_temp1)/test_time
- dt_cool = abs(test_temp1/dudt)
+ dudt = abs(dupl_temp2 - dupl_temp1)/dupl_time
+ dt_cool = abs(dupl_temp1/dudt)
  
  ! Substepping if dt_cool < input timestep
  !!!! explicit addition of krome cooling in force.F90 to determine hydro timestep not needed anymore
  !!!! skipping the contribution to fxyz4 and updating the final particle energy still to be implemented
- if (dt_cool < test_time) then 
-    N = ceiling(test_time/dt_cool)
+ if (dt_cool < dupl_time) then 
+    N = ceiling(dupl_time/dt_cool)
     do i = 1,N       
-       call krome(test_species1,test_dens,test_temp1,test_time/N)
+       call krome(dupl_species1,dupl_dens,dupl_temp1,dupl_time/N)
     enddo
-    species = test_species1
-    temp    = test_temp1
+    species = dupl_species1
+    temp    = dupl_temp1
  else
-    species = test_species2
-    temp    = test_temp2
+    species = dupl_species2
+    temp    = dupl_temp2
  endif
 
 end subroutine evolve_chemistry
