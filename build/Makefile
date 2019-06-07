@@ -691,7 +691,7 @@ ifeq ($(SETUP), amuse)
     IND_TIMESTEPS=no # Change this later
     KNOWN_SETUP=yes
     MAXPTMASS=10000
-    MAXP=1000000
+    MAXP=10000000
 endif
 
 ifeq ($(SETUP), binary)
