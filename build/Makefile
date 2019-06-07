@@ -285,7 +285,7 @@ ifeq ($(SETUP), grtde)
     GR=yes
     METRIC=kerr
     KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
+    IND_TIMESTEPS=no
     GRAVITY=yes
     ANALYSIS=analysis_tde.f90
 endif
