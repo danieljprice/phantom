@@ -16,38 +16,19 @@
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS:
-!    cs0         -- initial sound speed in code units
-!    dist_unit   -- distance unit (e.g. au)
-!    dust_to_gas -- dust-to-gas ratio
-!    ilattice    -- lattice type (1=cubic, 2=closepacked)
-!    mass_unit   -- mass unit (e.g. solarm)
-!    nx          -- number of particles in x direction
-!    rhozero     -- initial density in code units
-!    xmax        -- xmax boundary
-!    xmin        -- xmin boundary
-!    ymax        -- ymax boundary
-!    ymin        -- ymin boundary
-!    zmax        -- zmax boundary
-!    zmin        -- zmin boundary
-!
 !  DEPENDENCIES: boundary, dim, infile_utils, io, mpiutils, options, part,
 !    physcon, prompting, set_dust, setup_params, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
- use dim,          only:use_dust
- use options,      only:use_dustfrac
  use setup_params, only:rhozero
  implicit none
  public :: setpart
 
- integer :: npartx,ilattice
+ integer :: npartx,ilattice,iradtype
  real    :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi
  character(len=20) :: dist_unit,mass_unit
  real(kind=8) :: udist,umass
- !--dust
- real    :: dust_to_gas
 
  private
 
@@ -59,15 +40,20 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxvxyzu,h2chemistry
- use setup_params, only:npart_total
- use io,           only:master
- use unifdis,      only:set_unifdis
- use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
- use part,         only:abundance,iHI,dustfrac
- use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm
- use set_dust,     only:set_dustfrac
- use units,        only:set_units
+ use setup_params,  only:npart_total
+ use io,            only:master,fatal,warning
+ use unifdis,       only:set_unifdis
+ use boundary,      only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
+
+ use physcon,       only:pi,mass_proton_cgs,kboltz,years,pc,solarm,c,Rg,steboltz
+ use set_dust,      only:set_dustfrac
+ use units,         only:set_units,unit_energ,unit_ergg,unit_velocity,utime
+ use part,          only:rhoh,igas,radiation,ithick,iradxi,ikappa
+ use eos,           only:gmw
+ use kernel,        only:hfact_default
+ use timestep,      only:dtmax,tmax
+ use options,       only:nfulldump
+
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -78,55 +64,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
+
  character(len=40) :: filename
  real    :: totmass,deltax
  integer :: i,ierr
  logical :: iexist
- !
- !--general parameters
- !
- time = 0.
- if (maxvxyzu < 4) then
-    gamma = 1.
- else
-    gamma = 5./3.
- endif
- !
- ! default units
- !
- mass_unit = 'solarm'
- dist_unit = 'pc'
- !
- ! set boundaries to default values
- !
- xmini = xmin; xmaxi = xmax
- ymini = ymin; ymaxi = ymax
- zmini = zmin; zmaxi = zmax
- !
- ! set default values for input parameters
- !
- npartx = 64
- ilattice = 1
- cs0 = 1.
- if (use_dust) then
-    use_dustfrac = .true.
-    dust_to_gas = 0.01
- endif
- !
- ! get disc setup parameters from file or interactive setup
- !
+
+ real :: a,c_code,cv1,kappa_code,pmassi,rho0,steboltz_code,Tref,xi0
+ real :: rhoi,etot
+
  filename=trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) then
     !--read from setup file
-    call read_setupfile(filename,ierr)
-    if (id==master) call write_setupfile(filename)
+    call read_setupfile(filename,gamma,ierr)
+    if (id==master) call write_setupfile(filename,gamma)
     if (ierr /= 0) then
        stop
     endif
  elseif (id==master) then
-    call setup_interactive(id,polyk)
-    call write_setupfile(filename)
+    call setup_setdefaults(&
+       id,polyk,gamma,xmin,xmax,ymin,ymax,zmin,zmax,mass_unit,dist_unit,&
+       npartx,cs0)
+    call write_setupfile(filename,gamma)
     stop 'rerun phantomsetup after editing .setup file'
  else
     stop
@@ -142,6 +102,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  deltax = dxbound/npartx
  npart = 0
  npart_total = 0
+ hfact = hfact_default
 
  select case(ilattice)
  case(1)
@@ -162,23 +123,38 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (id==master) print*,' particle mass = ',massoftype(1)
  if (id==master) print*,' initial sound speed = ',cs0,' pressure = ',cs0**2/gamma
 
- do i=1,npart
-    vxyzu(1:3,i) = 0.
-    if (maxvxyzu >= 4) vxyzu(4,i) = cs0**2/(gamma*(gamma-1.))
- enddo
+ vxyzu(1:3,:) = 0.
 
- if (use_dustfrac) then
-    do i=1,npart
-       call set_dustfrac(dust_to_gas,dustfrac(:,i))
-    enddo
- endif
+ c_code = c/unit_velocity
+ steboltz_code = steboltz/(unit_energ/(udist**2*utime))
+ cv1 = (gamma-1.)*gmw/Rg*unit_velocity**2
+ a   = 4.*steboltz_code/c_code
+ pmassi = massoftype(igas)
 
- if (h2chemistry) then
-    do i=1,npart
-       abundance(:,i)   = 0.
-       abundance(iHI,i) = 1.  ! assume all atomic hydrogen initially
-    enddo
- endif
+ Tref = 100
+
+ ! rho0 = rhoh(xyzh(4,1),pmassi)
+ ! xi0 = a*Tref**4.0/rho0
+ !
+ select case(iradtype)
+ case(1)
+
+ case(2)
+   dtmax = 1e12/utime
+   tmax  = 10*dtmax
+   nfulldump = 1
+   radiation(ithick,:) = 1.
+   kappa_code = 1.0/(udist**2/umass)
+   do i=1,npart
+      rhoi = rhoh(xyzh(4,1),pmassi)
+      vxyzu(4,i) = (Tref/cv1)/(unit_ergg)
+      xi0 = a*Tref**4.0/rhoi
+      radiation(ikappa,i) = kappa_code
+      radiation(iradxi,i) = xi0*(1 + 1e-1*sin(xyzh(1,i)*2*pi/(xmax-xmin)))
+   enddo
+ case default
+    call fatal('setup_radiativebox', 'radiation setup is not available')
+ end select
 end subroutine setpart
 
 !------------------------------------------------------------------------
@@ -186,92 +162,58 @@ end subroutine setpart
 ! interactive setup
 !
 !------------------------------------------------------------------------
-subroutine setup_interactive(id,polyk)
+subroutine setup_setdefaults(&
+   id,polyk,gamma,xmin,xmax,ymin,ymax,zmin,zmax,mass_unit,dist_unit,&
+   npartx,cs0)
  use io,        only:master
  use mpiutils,  only:bcast_mpi
- use dim,       only:maxp,maxvxyzu
- use prompting, only:prompt
- use units,     only:select_unit
+ use options,   only:exchange_radiation_energy,limit_radiation_flux
  integer, intent(in)  :: id
- real,    intent(out) :: polyk
- integer :: ierr
+ integer, intent(out) :: npartx
+ real,    intent(in)  :: xmin,xmax,ymin,ymax,zmin,zmax
+ real,    intent(out) :: polyk,gamma,cs0
+ character(len=*),intent(out) :: mass_unit,dist_unit
 
- if (id==master) then
-    ierr = 1
-    do while (ierr /= 0)
-       call prompt('Enter mass unit (e.g. solarm,jupiterm,earthm)',mass_unit)
-       call select_unit(mass_unit,umass,ierr)
-       if (ierr /= 0) print "(a)",' ERROR: mass unit not recognised'
-    enddo
-    ierr = 1
-    do while (ierr /= 0)
-       call prompt('Enter distance unit (e.g. au,pc,kpc,0.1pc)',dist_unit)
-       call select_unit(dist_unit,udist,ierr)
-       if (ierr /= 0) print "(a)",' ERROR: length unit not recognised'
-    enddo
+ mass_unit = 'solarm'
+ dist_unit = 'au'
 
-    call prompt('enter xmin boundary',xmini)
-    call prompt('enter xmax boundary',xmaxi,xmini)
-    call prompt('enter ymin boundary',ymini)
-    call prompt('enter ymax boundary',ymaxi,ymini)
-    call prompt('enter zmin boundary',zmini)
-    call prompt('enter zmax boundary',zmaxi,zmini)
- endif
- !
- ! number of particles
- !
+ xmini = xmin
+ xmaxi = xmax
+ ymini = ymin
+ ymaxi = ymax
+ zmini = zmin
+ zmaxi = zmax
+
  npartx = 64
+ rhozero = 1e4
+ gamma = 5./3.
+ cs0 = 1.
+ polyk = 0.
+ ilattice = 1
+ iradtype = 2
+ exchange_radiation_energy = .false.
+ limit_radiation_flux = .false.
+
  if (id==master) then
-    print*,' uniform setup... (max = ',nint((maxp)**(1/3.)),')'
-    call prompt('enter number of particles in x direction ',npartx,1)
+    call bcast_mpi(npartx)
+    call bcast_mpi(rhozero)
+    call bcast_mpi(cs0)
+    call bcast_mpi(ilattice)
+    call bcast_mpi(iradtype)
  endif
- call bcast_mpi(npartx)
- !
- ! mean density
- !
- rhozero = 1.
- if (id==master) call prompt(' enter density (gives particle mass)',rhozero,0.)
- call bcast_mpi(rhozero)
- !
- ! sound speed in code units
- !
- if (id==master) then
-    cs0 = 1.
-    call prompt(' enter sound speed in code units (sets polyk)',cs0,0.)
- endif
- call bcast_mpi(cs0)
- if (maxvxyzu < 4) then
-    polyk = cs0**2
-    print*,' polyk = ',polyk
- else
-    polyk = 0.
- endif
- !
- ! dust to gas ratio
- !
- if (use_dustfrac) then
-    call prompt('Enter dust to gas ratio',dust_to_gas,0.)
-    call bcast_mpi(dust_to_gas)
- endif
- !
- ! type of lattice
- !
- if (id==master) then
-    ilattice = 1
-    call prompt(' select lattice type (1=cubic, 2=closepacked)',ilattice,1)
- endif
- call bcast_mpi(ilattice)
-end subroutine setup_interactive
+end subroutine setup_setdefaults
 
 !------------------------------------------------------------------------
 !
 ! write setup file
 !
 !------------------------------------------------------------------------
-subroutine write_setupfile(filename)
+subroutine write_setupfile(filename,gamma)
  use infile_utils, only:write_inopt
+ use options,      only:exchange_radiation_energy,limit_radiation_flux
  character(len=*), intent(in) :: filename
  integer :: iunit
+ real, intent(in) :: gamma
 
  print "(/,a)",' writing setup options file '//trim(filename)
  open(newunit=iunit,file=filename,status='replace',form='formatted')
@@ -297,10 +239,14 @@ subroutine write_setupfile(filename)
  call write_inopt(npartx,'nx','number of particles in x direction',iunit)
  call write_inopt(rhozero,'rhozero','initial density in code units',iunit)
  call write_inopt(cs0,'cs0','initial sound speed in code units',iunit)
- if (use_dustfrac) then
-    call write_inopt(dust_to_gas,'dust_to_gas','dust-to-gas ratio',iunit)
- endif
+ call write_inopt(gamma,'gamma','',iunit)
  call write_inopt(ilattice,'ilattice','lattice type (1=cubic, 2=closepacked)',iunit)
+ call write_inopt(iradtype,'iradtype',&
+ 'type of radiation setup (1=uniform,2=sin diffusion,3=gaussian faster-than-light diffusion)',iunit)
+ call write_inopt(exchange_radiation_energy,'gas-rad_exchange',&
+    'do or do not exchange energy  between gas and radiation',iunit)
+ call write_inopt(limit_radiation_flux,'flux_limiter',&
+    'do or do not limit radiation  flux',iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -310,15 +256,17 @@ end subroutine write_setupfile
 ! read setup file
 !
 !------------------------------------------------------------------------
-subroutine read_setupfile(filename,ierr)
+subroutine read_setupfile(filename,gamma,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use units,        only:select_unit
  use io,           only:error
+ use options,      only:exchange_radiation_energy,limit_radiation_flux
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr
  type(inopts), allocatable :: db(:)
+ real, intent(out) :: gamma
 
  print "(a)",' reading setup options from '//trim(filename)
  nerr = 0
@@ -344,10 +292,12 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(npartx,'nx',db,min=8,errcount=nerr)
  call read_inopt(rhozero,'rhozero',db,min=0.,errcount=nerr)
  call read_inopt(cs0,'cs0',db,min=0.,errcount=nerr)
- if (use_dustfrac) then
-    call read_inopt(dust_to_gas,'dust_to_gas',db,min=0.,errcount=nerr)
- endif
+ call read_inopt(gamma,'gamma',db,min=0.,errcount=nerr)
  call read_inopt(ilattice,'ilattice',db,min=1,max=2,errcount=nerr)
+ call read_inopt(iradtype,'iradtype',db,min=1,max=3,errcount=nerr)
+ call read_inopt(exchange_radiation_energy,'gas-rad_exchange',db,errcount=nerr)
+ call read_inopt(limit_radiation_flux,'flux_limiter',db,errcount=nerr)
+
  call close_db(db)
  !
  ! parse units

@@ -379,6 +379,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
  if (do_radiation) radiation(ithick,:) = 1
 
+
  if (mhd) then
     if (npart > 0) then
        call set_linklist(npart,npart,xyzh,vxyzu)

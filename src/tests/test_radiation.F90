@@ -9,7 +9,8 @@ module testradiation
 contains
 
 subroutine test_radiation(ntests,npass)
- use dim,          only:maxp,exchange_radiation_energy
+ use dim,          only:maxp
+ use options,      only:exchange_radiation_energy
  use io,           only:id,master,iverbose
  use part,         only:npart,xyzh,fxyzu,vxyzu,massoftype,igas,&
                         iphase,maxphase,isetphase,rhoh,&
@@ -236,11 +237,12 @@ subroutine test_uniform_derivs(ntests,npass)
     ! print*, Tref, Trad, Tgas
  enddo
 
-do i = 1,2
- call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
-             divcurlB,Bpred,dBevol,dustproppred,ddustprop,dustfrac,&
-             ddustevol,temperature,timei,dtsph,dtnew)
-enddo
+ do i = 1,2
+    call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
+                divcurlB,Bpred,dBevol,dustproppred,ddustprop,dustfrac,&
+                ddustevol,temperature,timei,dtsph,dtnew)
+ enddo
+
  nerr_e = 0
  ncheck_e = 0
  errmax_e = 0.

@@ -66,11 +66,13 @@ module readwrite_infile
                      alpha,alphau,alphaB,beta,avdecayconst,damp, &
                      ipdv_heating,ishock_heating,iresistive_heating, &
                      icooling,psidecayfac,overcleanfac,alphamax,calc_erot,rhofinal_cgs, &
-                     use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file, use_mcfost_stellar_parameters
+                     use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file, use_mcfost_stellar_parameters,&
+                     exchange_radiation_energy,limit_radiation_flux
  use timestep,  only:dtwallmax,tolv
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
  use io,        only:iverbose
+ use dim,       only:do_radiation
  implicit none
  logical :: incl_runtime2 = .false.
  character(len=80), parameter, public :: &
@@ -247,6 +249,14 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef NONIDEALMHD
  call write_options_nicil(iwritein)
 #endif
+
+ if (do_radiation) then
+    write(iwritein,"(/,a)") '# options for radiation'
+    call write_inopt(exchange_radiation_energy,'gas-rad_exchange',&
+    'do or do not exchange energy  between gas and radiation',iwritein)
+    call write_inopt(limit_radiation_flux,'flux_limiter',&
+    'do or do not limit radiation  flux',iwritein)
+ endif
 
  if (iwritein /= iprint) close(unit=iwritein)
  if (iwritein /= iprint) write(iprint,"(/,a)") ' input file '//trim(infile)//' written successfully.'
@@ -431,6 +441,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     case('use_mcfost_stars')
        read(valstring,*,iostat=ierr) use_mcfost_stellar_parameters
 #endif
+    case('gas-rad_exchange')
+       read(valstring,*,iostat=ierr) exchange_radiation_energy
+    case('flux_limiter')
+       read(valstring,*,iostat=ierr) limit_radiation_flux
     case default
        imatch = .false.
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)

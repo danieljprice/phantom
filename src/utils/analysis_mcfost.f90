@@ -37,7 +37,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use part,           only:massoftype,iphase,dustfrac,hfact,npartoftype,&
                           get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
                           massoftype,xyzmh_ptmass,luminosity,igas,&
-                          grainsize,graindens,ndusttypes,do_radiation,radiation,ithick
+                          grainsize,graindens,ndusttypes,&
+                          do_radiation,radiation,ithick,maxirad,ikappa
  use units,          only:umass,utime,udist
  use io,             only:fatal,warning
  use dim,            only:use_dust,lightcurve,maxdusttypes
@@ -45,6 +46,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use timestep,       only:dtmax
  use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
                           use_mcfost_stellar_parameters
+ use physcon,        only:cm,gram
 
  character(len=*), intent(in)    :: dumpfile
  integer,          intent(in)    :: num,npart,iunit
@@ -59,12 +61,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer(kind=1) :: itype(maxp)
  logical         :: compute_Frad
  real(kind=8), dimension(6), save            :: SPH_limits
- real(kind=4), dimension(:,:,:), allocatable :: Frad
  real,         dimension(:),     allocatable :: dudt
  real,    parameter :: Tdefault = 1.
  logical, parameter :: write_T_files = .false. ! ask mcfost to write fits files with temperature structure
  integer, parameter :: ISM = 2 ! ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
+ integer :: skippedNum = 0
 
  if (use_mcfost) then
     write(*,*) "Calling mcfost"
@@ -99,17 +101,19 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     else
        dudt(1:nlum) = vxyzu(4,1:nlum) * massoftype(igas) / dtmax
     endif
-    allocate(Frad(3,ndusttypes,npart))
 
     factor = 1.0/(temperature_coef*gmw*(gamma-1))
     ! this this the factor needed to compute u^(n+1)/dtmax from temperature
     T_to_u = factor * massoftype(igas) /dtmax
 
-    call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
-         npartoftype,xyzh,vxyzu,itype,grainsize,graindens,dustfrac,massoftype,&
+    call run_mcfost_phantom(&
+         npart,nptmass,ntypes,ndusttypes,dustfluidtype,npartoftype,maxirad,&
+         xyzh,vxyzu,radiation,ikappa,&
+         itype,grainsize,graindens,dustfrac,massoftype,&
          xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
-         Frad,mu_gas,ierr,write_T_files,ISM,T_to_u)
-    !print*,' mu_gas = ',mu_gas
+         mu_gas,ierr,write_T_files,ISM,T_to_u)
+
+    print*, 'just after mcfost'
 
     write(*,*) ''
     write(*,*) 'Minimum temperature = ', minval(Tdust, mask=(Tdust > 0.))
@@ -122,8 +126,20 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          if ((Tdust(i) > 1.).and.(radiation(ithick,i) < 0.5)) then
             vxyzu(4,i) = Tdust(i) * factor
          endif
+         ! radiation(ikappa,i) = radiation(ikappa,i)*(cm**2/gram)/(udist**2/umass)
+         print*, i, ')   [kappa] physical=',radiation(ikappa,i),&
+            '[kappa] code=',radiation(ikappa,i)*(cm**2/gram)/(udist**2/umass),&
+            '[1] code=', 1*(cm**2/gram)/(udist**2/umass)
+         read*
+         ! if (radiation(ikappa,i) == 0) read*
+         ! if (radiation(ikappa,i) > 1e6) skippedNum = skippedNum + 1
+         ! if (i<100) then
+         !    print*, vxyzu(4,i), Tdust(i), radiation(ithick,i)
+         !    read*
+         ! endif
          ! else left the temperature as it was before
       enddo
+      ! print*, "number of particles with old kappa: ", skippedNum
     else
       do i=1,npart
          if (Tdust(i) > 1.) then
@@ -136,7 +152,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     endif
 
     if (allocated(dudt)) deallocate(dudt)
-    if (allocated(Frad)) deallocate(Frad)
 
     write(*,*) "End of analysis mcfost"
  endif ! use_mcfost

@@ -992,6 +992,15 @@ ifeq ($(SETUP), mcfostcmdline) # [buildbot skip]
     IND_TIMESTEPS=yes
 endif
 
+ifeq ($(SETUP), radiativebox)
+    SETUPFILE=setup_radiativebox.f90
+    ISOTHERMAL=no
+    KNOWN_SETUP=yes
+    RADIATION=yes
+    IND_TIMESTEPS=yes
+    PERIODIC=yes
+endif
+
 ifndef SETUPFILE
     SETUPFILE= setup_unifdis.F90
 endif

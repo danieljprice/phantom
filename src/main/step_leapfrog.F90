@@ -239,7 +239,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (mhd)            Bpred(:,i)  = Bevol (:,i)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (use_dustfrac)   dustpred(:,i) = dustevol(:,i)
-             if (do_radiation)    radiation(ixipred,i) = radiation(iradxi,i)
+             if (do_radiation)   radiation(ixipred,i) = radiation(iradxi,i)
              cycle predict_sph
           endif
        endif
@@ -480,14 +480,14 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (mhd)          Bpred(:,i)  = Bevol(:,i)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
-             if (do_radiation)  radiation(ixipred,i) = radiation(iradxi,i)
+             if (do_radiation) radiation(ixipred,i) = radiation(iradxi,i)
           endif
 #else
           vpred(:,i) = vxyzu(:,i)
           if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
           if (mhd)          Bpred(:,i)  = Bevol(:,i)
           if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
-          if (do_radiation)  radiation(ixipred,i) = radiation(iradxi,i)
+          if (do_radiation) radiation(ixipred,i) = radiation(iradxi,i)
 !
 ! shift v back to the half step
 !

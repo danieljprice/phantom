@@ -243,7 +243,7 @@ subroutine write_hdf5_arrays(file_id,error,npart,xyzh,vxyzu,iphase,pressure,  &
  ! Create sink group
  call create_hdf5group(file_id,'sinks',group_id,errors(35))
  if (nptmass > 0) then
-    call write_to_hdf5(xyzmh_ptmass(1:3,1:nptmass),'xyz',group_id,errors(36))
+    call write_to_hdf5(xyzmh_ptmass(1:3,1:nptmass),'xyz',group_id,errors, curent_error_id)
     call write_to_hdf5(xyzmh_ptmass(4,1:nptmass),'m',group_id,errors(37))
     call write_to_hdf5(xyzmh_ptmass(5,1:nptmass),'h',group_id,errors(38))
     call write_to_hdf5(xyzmh_ptmass(6,1:nptmass),'hsoft',group_id,errors(39))

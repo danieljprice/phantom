@@ -2323,7 +2323,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:dustprop,St,csound
  use growth,         only:iinterpol
 #endif
-
+ use io,             only:warning
  use physcon,        only:c
  use units,          only:unit_velocity
  use timestep,       only:C_rad
@@ -2747,19 +2747,25 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
 
     if (do_radiation.and.iamgasi) then
-       ! dradenevol(i) = rhoi*fsum(idradi) + xpartveci(iradei)*drhodti
        radiation(idflux,i) = fsum(idradi)
        c_code        = c/unit_velocity
        radkappai     = xpartveci(iradkappai)
        radlambdai    = xpartveci(iradlambdai)
-
-       ! xii           = xpartveci(iradei)
        ! radri         = xpartveci(iradri)
 
-       ! edfacti = radlambdai+radlambdai**2*radri**2
-       ! flux diffusion dtrad i
        ! eq30 Whitehouse & Bate 2004
        dtradi = C_rad*hi*hi*rhoi*radkappai/c_code/radlambdai
+
+       ! horrible hack to ensure that the rad energy is positive after the integration
+       if ((radiation(iradxi,i) + dtradi*radiation(idflux,i)) < 0) then
+          ! print*, radiation(iradxi,i), radiation(idflux,i), dtradi,&
+          !   radiation(iradxi,i) + dtradi*radiation(idflux,i), -radiation(iradxi,i)/radiation(idflux,i)
+          dtradi = -radiation(iradxi,i)/radiation(idflux,i)/1e4
+          ! call warning('force','radiation may become negative',i)
+          ! print*, radiation(iradxi,i), radiation(idflux,i), dtradi,&
+          !   radiation(iradxi,i) + dtradi*radiation(idflux,i)
+          ! read*
+       endif
        ! rad pressure term
        ! eq31 Whitehouse & Bate 2004
        ! C_rad/edfacti/rhoi/xii/divvi

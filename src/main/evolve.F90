@@ -85,7 +85,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use timestep_ind,     only:get_dt
 #endif
 #endif
- use dim,              only:do_radiation,exchange_radiation_energy
+ use dim,              only:do_radiation
+ use options,          only:exchange_radiation_energy
  use part,             only:radiation,ithick
  use radiation_utils,  only:update_radenergy,set_radfluxesandregions
 #ifndef IND_TIMESTEPS
@@ -250,6 +251,16 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  call flush(iprint)
 #ifdef LIVE_ANALYSIS
  if (id==master) then
+   if(do_radiation) then
+      if (time == 0.) then
+         radiation(ithick,:) = 0.
+      else
+         call set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
+      endif
+      write(iprint,"(/,a,f6.2,'%')") &
+         ' RADIATION particles done by SPH = ',&
+         100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
+    endif
     call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(igas),npart,time,ianalysis)
  endif
@@ -319,8 +330,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
                           poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
     endif
     if (do_radiation.and.exchange_radiation_energy) then
-      call update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,0.5*dt)
-      ! call set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
+       call update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,0.5*dt)
     endif
     nsteps = nsteps + 1
 !
@@ -583,6 +593,12 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
 #ifdef LIVE_ANALYSIS
        if (id==master) then
+          if(do_radiation) then
+             call set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
+             write(iprint,"(/,a,f6.2,'%')") &
+                ' RADIATION particles done by SPH = ',&
+                100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
+          endif
           call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
                            massoftype(igas),npart,time,ianalysis)
        endif
@@ -603,11 +619,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
           if (iverbose >= 1) then
              write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (last full step) : ',tall/real(nalivetot)
              write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (ave. all steps) : ',timer_lastdump%wall/real(nmovedtot)
-          endif
-          if (do_radiation) then
-             write(iprint,"(/,a,f6.2,'%')") &
-                ' RADIATION particles done by SPH = ',&
-                100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
           endif
        endif
        if (iverbose >= 0) then

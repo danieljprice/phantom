@@ -57,6 +57,9 @@ module options
  logical, public :: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters
  character(len=80), public :: Voronoi_limits_file
 
+ ! radiation
+ logical,public :: exchange_radiation_energy, limit_radiation_flux
+
  public :: set_default_options
  public :: ieos
 
@@ -68,7 +71,7 @@ subroutine set_default_options
  use timestep,  only:set_defaults_timestep
  use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha
  use viscosity, only:set_defaults_viscosity
- use dim,       only:maxp,maxvxyzu,nalpha
+ use dim,       only:maxp,maxvxyzu,nalpha,do_radiation
  use kernel,    only:hfact_default
  use eos,       only:polyk2
 
@@ -132,6 +135,14 @@ subroutine set_default_options
  ! mcfost
  use_mcfost = .false.
  use_mcfost_stellar_parameters = .false.
+
+ if (do_radiation) then
+    exchange_radiation_energy = .true.
+    limit_radiation_flux = .true.
+ else
+   exchange_radiation_energy = .false.
+   limit_radiation_flux = .false.
+ endif
 
 end subroutine set_default_options
 
