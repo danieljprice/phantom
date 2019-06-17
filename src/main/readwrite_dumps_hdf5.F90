@@ -41,7 +41,9 @@ module readwrite_dumps
                                 write_hdf5_arrays_small, &
                                 read_hdf5_header,        &
                                 read_hdf5_arrays,        &
-                                header_hdf5
+                                header_hdf5,             &
+                                got_arrays_hdf5,         &
+                                arrays_options_hdf5
 
  implicit none
  character(len=80), parameter, public :: &    ! module version
@@ -444,25 +446,9 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  integer :: errors(5)
  logical :: smalldump,isothermal,ind_timesteps,const_av
 
- logical :: got_iphase,                     &
-            got_xyzh,                       &
-            got_vxyzu,                      &
-            got_dustfrac,                   &
-            got_tstop,                      &
-            got_deltav,                     &
-            got_abund,                      &
-            got_dt_in,                      &
-            got_alpha,                      &
-            got_poten,                      &
-            got_sink_data(nsinkproperties), &
-            got_sink_vels,                  &
-            got_Bxyz,                       &
-            got_psi,                        &
-            got_temp,                       &
-            got_dustprop(3),                &
-            got_St
-
  type (header_hdf5) :: hdr
+ type (arrays_options_hdf5) :: array_options
+ type (got_arrays_hdf5) :: got_arrays
 
  errors(:) = 0
 
@@ -555,25 +541,33 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     const_av = .true.
  endif
 
+ array_options%isothermal = isothermal
+ array_options%const_av = const_av
+ array_options%ind_timesteps = ind_timesteps
+ array_options%gravity = gravity
+ array_options%mhd = mhd
+ array_options%use_dust = use_dust
+ array_options%use_dustfrac = use_dustfrac
+ array_options%use_dustgrowth = use_dustgrowth
+ array_options%h2chemistry = h2chemistry
+ array_options%store_temperature = store_temperature
+
  if (.not.smalldump) then
     allocate(dtind(npart))
     call read_hdf5_arrays(hdf5_file_id,errors(4),npart,nptmass,iphase,xyzh,    &
                           vxyzu,xyzmh_ptmass,vxyz_ptmass,dtind,alphaind,poten, &
                           Bxyz,Bevol,dustfrac,deltav,dustprop,tstop,St,        &
-                          temperature,abundance,isothermal,const_av,           &
-                          ind_timesteps,gravity,mhd,use_dust,use_dustfrac,     &
-                          use_dustgrowth,h2chemistry,store_temperature,        &
-                          nsinkproperties,got_iphase,got_xyzh,got_vxyzu,       &
-                          got_dustfrac,got_tstop,got_deltav,got_abund,         &
-                          got_dt_in,got_alpha,got_poten,got_sink_data,         &
-                          got_sink_vels,got_Bxyz,got_psi,got_temp,             &
-                          got_dustprop,got_St)
+                          temperature,abundance,array_options,got_arrays)
 
     call check_arrays(1,npart,npartoftype,nptmass,nsinkproperties,massoftype, &
-                      alpha,tfile,got_iphase,got_xyzh,got_vxyzu,got_alpha,    &
-                      got_abund,got_dustfrac,got_sink_data,got_sink_vels,     &
-                      got_Bxyz,got_psi,got_dustprop,got_St,got_temp,iphase,   &
-                      xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+                      alpha,tfile,got_arrays%got_iphase,got_arrays%got_xyzh,  &
+                      got_arrays%got_vxyzu,got_arrays%got_alpha,              &
+                      got_arrays%got_abund,got_arrays%got_dustfrac,           &
+                      got_arrays%got_sink_data,got_arrays%got_sink_vels,      &
+                      got_arrays%got_Bxyz,got_arrays%got_psi,                 &
+                      got_arrays%got_dustprop,got_arrays%got_St,              &
+                      got_arrays%got_temp,iphase,xyzh,vxyzu,alphaind,         &
+                      xyzmh_ptmass,Bevol,iprint,ierr)
 
 #ifdef IND_TIMESTEPS
     if (size(dt_in)/=size(dtind)) call error('read_smalldump','problem reading individual timesteps')
@@ -631,25 +625,9 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  integer :: errors(5)
  logical :: smalldump,isothermal,ind_timesteps,const_av
 
- logical :: got_iphase,                     &
-            got_xyzh,                       &
-            got_vxyzu,                      &
-            got_dustfrac,                   &
-            got_tstop,                      &
-            got_deltav,                     &
-            got_abund,                      &
-            got_dt_in,                      &
-            got_alpha,                      &
-            got_poten,                      &
-            got_sink_data(nsinkproperties), &
-            got_sink_vels,                  &
-            got_Bxyz,                       &
-            got_psi,                        &
-            got_temp,                       &
-            got_dustprop(3),                &
-            got_St
-
  type (header_hdf5) :: hdr
+ type (arrays_options_hdf5) :: array_options
+ type (got_arrays_hdf5) :: got_arrays
 
  call open_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,errors(1))
 
@@ -700,7 +678,6 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  utime = hdr%utime
  unit_Bfield = hdr%unit_Bfield
 
-
  !
  !--Set values from header
  !
@@ -737,18 +714,22 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
     const_av = .true.
  endif
 
+ array_options%isothermal = isothermal
+ array_options%const_av = const_av
+ array_options%ind_timesteps = ind_timesteps
+ array_options%gravity = gravity
+ array_options%mhd = mhd
+ array_options%use_dust = use_dust
+ array_options%use_dustfrac = use_dustfrac
+ array_options%use_dustgrowth = use_dustgrowth
+ array_options%h2chemistry = h2chemistry
+ array_options%store_temperature = store_temperature
+
  if (smalldump) then
     call read_hdf5_arrays(hdf5_file_id,errors(4),npart,nptmass,iphase,xyzh,    &
                           vxyzu,xyzmh_ptmass,vxyz_ptmass,dtind,alphaind,poten, &
                           Bxyz,Bevol,dustfrac,deltav,dustprop,tstop,St,        &
-                          temperature,abundance,isothermal,const_av,           &
-                          ind_timesteps,gravity,mhd,use_dust,use_dustfrac,     &
-                          use_dustgrowth,h2chemistry,store_temperature,        &
-                          nsinkproperties,got_iphase,got_xyzh,got_vxyzu,       &
-                          got_dustfrac,got_tstop,got_deltav,got_abund,         &
-                          got_dt_in,got_alpha,got_poten,got_sink_data,         &
-                          got_sink_vels,got_Bxyz,got_psi,got_temp,             &
-                          got_dustprop,got_St)
+                          temperature,abundance,array_options,got_arrays)
 
 #ifdef IND_TIMESTEPS
     if (size(dt_in)/=size(dtind)) call error('read_smalldump','problem reading individual timesteps')
