@@ -119,16 +119,22 @@ module utils_dumpfiles_hdf5
  end type
 
  type arrays_options_hdf5
-    logical :: isothermal,                     &
-               const_av,                       &
-               ind_timesteps,                  &
-               gravity,                        &
-               mhd,                            &
-               use_dust,                       &
-               use_dustfrac,                   &
-               use_dustgrowth,                 &
-               h2chemistry,                    &
+    logical :: isothermal,        &
+               const_av,          &
+               ind_timesteps,     &
+               gravity,           &
+               mhd,               &
+               mhd_nonideal,      &
+               use_dust,          &
+               use_dustfrac,      &
+               use_dustgrowth,    &
+               h2chemistry,       &
+               lightcurve,        &
+               prdrag,            &
                store_temperature
+    integer :: maxBevol,          &
+               ndivcurlB,         &
+               ndivcurlv
  end type
 
  private
@@ -221,19 +227,16 @@ end subroutine write_hdf5_header
 !  write arrays for full dump
 !+
 !-------------------------------------------------------------------
-subroutine write_hdf5_arrays(file_id,error,npart,xyzh,vxyzu,iphase,pressure,  &
-                             alphaind,dtind,poten,xyzmh_ptmass,vxyz_ptmass,   &
-                             Bxyz,Bevol,divcurlB,divBsymm,eta_nimhd,dustfrac, &
-                             tstop,deltav,dustprop,St,abundance,temperature,  &
-                             divcurlv,luminosity,beta_pr,const_av,            &
-                             ind_timesteps,gravity,nptmass,mhd,maxBevol,      &
-                             ndivcurlB,mhd_nonideal,use_dust,use_dustfrac,    &
-                             use_dustgrowth,h2chemistry,store_temperature,    &
-                             ndivcurlv,lightcurve,prdrag,isothermal)
+subroutine write_hdf5_arrays(file_id,error,npart,nptmass,xyzh,vxyzu,iphase, &
+                             pressure,alphaind,dtind,poten,xyzmh_ptmass,    &
+                             vxyz_ptmass,Bxyz,Bevol,divcurlB,divBsymm,      &
+                             eta_nimhd,dustfrac,tstop,deltav,dustprop,St,   &
+                             abundance,temperature,divcurlv,luminosity,     &
+                             beta_pr,array_options)
 
  integer(HID_T),  intent(in) :: file_id
  integer,         intent(out):: error
- integer,         intent(in) :: npart, nptmass,maxBevol,ndivcurlB,ndivcurlv
+ integer,         intent(in) :: npart,nptmass
  real,            intent(in) :: pressure(:),dtind(:),beta_pr(:),St(:),         &
                                 temperature(:),xyzh(:,:),vxyzu(:,:),Bxyz(:,:), &
                                 Bevol(:,:), eta_nimhd(:,:),xyzmh_ptmass(:,:),  &
@@ -242,10 +245,7 @@ subroutine write_hdf5_arrays(file_id,error,npart,xyzh,vxyzu,iphase,pressure,  &
  real(kind=4),    intent(in) :: poten(:),divBsymm(:),luminosity(:),            &
                                 alphaind(:,:),divcurlv(:,:),divcurlB(:,:)
  integer(kind=1), intent(in) :: iphase(:)
- logical,         intent(in) :: const_av,ind_timesteps,gravity,mhd,            &
-                                mhd_nonideal,use_dust,use_dustfrac,            &
-                                use_dustgrowth,h2chemistry,store_temperature,  &
-                                lightcurve,prdrag,isothermal
+ type (arrays_options_hdf5), intent(in)  :: array_options
 
  integer(HID_T) :: group_id
  integer :: errors(44)
@@ -260,27 +260,27 @@ subroutine write_hdf5_arrays(file_id,error,npart,xyzh,vxyzu,iphase,pressure,  &
  ! Write smoothing length in single precision to save disc space
  call write_to_hdf5(real(xyzh(4,1:npart),kind=4),'h',group_id,errors(3))
  call write_to_hdf5(vxyzu(1:3,1:npart),'vxyz',group_id,errors(4))
- if (.not.isothermal) call write_to_hdf5(vxyzu(4,1:npart),'u',group_id,errors(5))
+ if (.not.array_options%isothermal) call write_to_hdf5(vxyzu(4,1:npart),'u',group_id,errors(5))
  call write_to_hdf5(iphase(1:npart),'itype',group_id,errors(6))
  call write_to_hdf5(pressure(1:npart),'pressure',group_id,errors(7))
 
- if (.not.const_av)  call write_to_hdf5(alphaind(1,1:npart),'alpha',group_id,errors(8))   ! Viscosity (only ever write 'first' alpha)
- if (ind_timesteps)  call write_to_hdf5(real(dtind(1:npart),kind=4),'dt',group_id,errors(9)) ! Individual timesteps
- if (gravity)        call write_to_hdf5(poten(1:npart),'poten',group_id,errors(10))
+ if (.not.array_options%const_av)  call write_to_hdf5(alphaind(1,1:npart),'alpha',group_id,errors(8))   ! Viscosity (only ever write 'first' alpha)
+ if (array_options%ind_timesteps)  call write_to_hdf5(real(dtind(1:npart),kind=4),'dt',group_id,errors(9)) ! Individual timesteps
+ if (array_options%gravity)        call write_to_hdf5(poten(1:npart),'poten',group_id,errors(10))
 
  ! MHD arrays
- if (mhd) then
+ if (array_options%mhd) then
     call write_to_hdf5(Bxyz(:,1:npart),'Bxyz',group_id,errors(11))
-    if (maxBevol >= 4) then
+    if (array_options%maxBevol >= 4) then
        call write_to_hdf5(Bevol(4,1:npart),'psi',group_id,errors(12))
     endif
-    if (ndivcurlB >= 1) then
+    if (array_options%ndivcurlB >= 1) then
        call write_to_hdf5(divcurlB(1,1:npart),'divB',group_id,errors(13))
        call write_to_hdf5(divcurlB(2:4,1:npart),'curlBxyz',group_id,errors(14))
     else
        call write_to_hdf5(divBsymm(1:npart),'divBsymm',group_id,errors(16))
     endif
-    if (mhd_nonideal) then
+    if (array_options%mhd_nonideal) then
        call write_to_hdf5(eta_nimhd(1,1:npart),'eta_{OR}',group_id,errors(17))
        call write_to_hdf5(eta_nimhd(2,1:npart),'eta_{HE}',group_id,errors(18))
        call write_to_hdf5(eta_nimhd(3,1:npart),'eta_{AD}',group_id,errors(19))
@@ -289,12 +289,12 @@ subroutine write_hdf5_arrays(file_id,error,npart,xyzh,vxyzu,iphase,pressure,  &
  endif
 
  ! Dust arrays
- if (use_dust) then
+ if (array_options%use_dust) then
     call write_to_hdf5(dustfrac(:,1:npart),'dustfrac',group_id,errors(21))
     call write_to_hdf5(tstop(:,1:npart),'tstop',group_id,errors(22))
  endif
- if (use_dustfrac) call write_to_hdf5(deltav(:,:,1:npart),'deltavxyz',group_id,errors(23))
- if (use_dustgrowth) then
+ if (array_options%use_dustfrac) call write_to_hdf5(deltav(:,:,1:npart),'deltavxyz',group_id,errors(23))
+ if (array_options%use_dustgrowth) then
     call write_to_hdf5(dustprop(1,1:npart),'grainsize',group_id,errors(24))
     call write_to_hdf5(dustprop(2,1:npart),'graindens',group_id,errors(25))
     call write_to_hdf5(dustprop(3,1:npart),'vrel/vfrag',group_id,errors(26))
@@ -303,14 +303,14 @@ subroutine write_hdf5_arrays(file_id,error,npart,xyzh,vxyzu,iphase,pressure,  &
  endif
 
  ! Other Arrays
- if (h2chemistry)       call write_to_hdf5(abundance(:,1:npart),'abundance',group_id,errors(28))
- if (store_temperature) call write_to_hdf5(temperature(1:npart),'T',group_id,errors(29))
- if (ndivcurlv >= 1) then
+ if (array_options%h2chemistry)       call write_to_hdf5(abundance(:,1:npart),'abundance',group_id,errors(28))
+ if (array_options%store_temperature) call write_to_hdf5(temperature(1:npart),'T',group_id,errors(29))
+ if (array_options%ndivcurlv >= 1) then
     call write_to_hdf5(divcurlv(1,1:npart),'divv',group_id,errors(30))
-    if (ndivcurlv>=4) call write_to_hdf5(divcurlv(2:4,1:npart),'curlvxyz',group_id,errors(31))
+    if (array_options%ndivcurlv>=4) call write_to_hdf5(divcurlv(2:4,1:npart),'curlvxyz',group_id,errors(31))
  endif
- if (lightcurve) call write_to_hdf5(luminosity(1:npart),'luminosity',group_id,errors(32))
- if (prdrag)     call write_to_hdf5(real(beta_pr(1:npart),kind=4),'beta_pr',group_id,errors(33))
+ if (array_options%lightcurve) call write_to_hdf5(luminosity(1:npart),'luminosity',group_id,errors(32))
+ if (array_options%prdrag)     call write_to_hdf5(real(beta_pr(1:npart),kind=4),'beta_pr',group_id,errors(33))
 
  ! Close the particles group
  call close_hdf5group(group_id, errors(34))
@@ -339,10 +339,9 @@ end subroutine write_hdf5_arrays
 !  write arrays for small dump
 !+
 !-------------------------------------------------------------------
-subroutine write_hdf5_arrays_small(file_id,error,npart,xyzh,iphase,           &
+subroutine write_hdf5_arrays_small(file_id,error,npart,nptmass,xyzh,iphase,   &
                                    xyzmh_ptmass,Bxyz,dustfrac,dustprop,St,    &
-                                   abundance,luminosity,nptmass,mhd,use_dust, &
-                                   use_dustgrowth,h2chemistry,lightcurve)
+                                   abundance,luminosity,array_options)
 
  integer(HID_T),  intent(in) :: file_id
  integer,         intent(out):: error
@@ -351,8 +350,7 @@ subroutine write_hdf5_arrays_small(file_id,error,npart,xyzh,iphase,           &
                                 dustfrac(:,:),dustprop(:,:),abundance(:,:)
  real(kind=4),    intent(in) :: luminosity(:)
  integer(kind=1), intent(in) :: iphase(:)
- logical,         intent(in) :: mhd,use_dust,use_dustgrowth,h2chemistry, &
-                                lightcurve
+ type (arrays_options_hdf5), intent(in)  :: array_options
 
  integer(HID_T) :: group_id
  integer :: errors(22)
@@ -368,15 +366,15 @@ subroutine write_hdf5_arrays_small(file_id,error,npart,xyzh,iphase,           &
  call write_to_hdf5(iphase(1:npart),'itype',group_id,errors(4))
 
  ! MHD arrays
- if (mhd) then
+ if (array_options%mhd) then
     call write_to_hdf5(real(Bxyz(:,1:npart),kind=4),'Bxyz',group_id,errors(5))
  endif
 
  ! Dust arrays
- if (use_dust) then
+ if (array_options%use_dust) then
     call write_to_hdf5(real(dustfrac(:,1:npart),kind=4),'dustfrac',group_id,errors(6))
  endif
- if (use_dustgrowth) then
+ if (array_options%use_dustgrowth) then
     call write_to_hdf5(real(dustprop(1,1:npart),kind=4),'grainsize',group_id,errors(7))
     call write_to_hdf5(real(dustprop(2,1:npart),kind=4),'graindens',group_id,errors(8))
     call write_to_hdf5(real(dustprop(3,1:npart),kind=4),'vrel/vfrag',group_id,errors(9))
@@ -385,8 +383,8 @@ subroutine write_hdf5_arrays_small(file_id,error,npart,xyzh,iphase,           &
  endif
 
  ! Other Arrays
- if (h2chemistry) call write_to_hdf5(real(abundance(:,1:npart),kind=4),'abundance',group_id,errors(11))
- if (lightcurve)  call write_to_hdf5(luminosity(1:npart),'luminosity',group_id,errors(12))
+ if (array_options%h2chemistry) call write_to_hdf5(real(abundance(:,1:npart),kind=4),'abundance',group_id,errors(11))
+ if (array_options%lightcurve)  call write_to_hdf5(luminosity(1:npart),'luminosity',group_id,errors(12))
 
  ! Close the particles group
  call close_hdf5group(group_id, errors(13))

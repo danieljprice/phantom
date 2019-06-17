@@ -173,7 +173,9 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  character(len=30) :: string
  character(len=9)  :: dumptype
  integer :: error
- type (header_hdf5)     :: hdr
+
+ type (header_hdf5) :: hdr
+ type (arrays_options_hdf5) :: array_options
 
  if (id==master) then
     if (fulldump) then
@@ -300,9 +302,11 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
     fileident = trim(fileident)//' (hydro'//trim(string)//'): '//trim(datestring)//' '//trim(timestring)
  endif
 
+ ! create the HDF file
  call create_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,error)
  if (error/=0) call fatal('write_fulldump_hdf5','could not open file')
 
+ ! construct header derived type
  hdr%fileident = trim(fileident)
  hdr%ntypes = maxtypes
  hdr%isink = isink
@@ -353,54 +357,74 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  hdr%utime = utime
  hdr%unit_Bfield = unit_Bfield
 
+ ! write the header to the HDF file
  call write_hdf5_header(hdf5_file_id,hdr,error)
  if (error/=0) call fatal('write_fulldump_hdf5','could not write header')
 
+ ! create options derived type for writing arrays
+ array_options%isothermal = isothermal
+ array_options%const_av = const_av
+ array_options%ind_timesteps = ind_timesteps
+ array_options%gravity = gravity
+ array_options%mhd = mhd
+ array_options%use_dust = use_dust
+ array_options%use_dustfrac = use_dustfrac
+ array_options%use_dustgrowth = use_dustgrowth
+ array_options%h2chemistry = h2chemistry
+ array_options%store_temperature = store_temperature
+ array_options%maxBevol = maxBevol
+ array_options%ndivcurlB = ndivcurlB
+ array_options%ndivcurlv = ndivcurlv
+
+ ! write the arrays to file
  if (fulldump) then
-    call write_hdf5_arrays(hdf5_file_id,error,npart,                            & ! File ID and error code
-                           xyzh,                                                & !---------
-                           vxyzu,                                               & !
-                           iphase,                                              & !
-                           pressure,                                            & !
-                           alphaind,                                            & !
-                           dtind,                                               & !
-                           poten,                                               & !
-                           xyzmh_ptmass,                                        & !
-                           vxyz_ptmass,                                         & !
-                           Bxyz,                                                & !
-                           Bevol,                                               & ! Arrays
-                           divcurlB,                                            & !
-                           divBsymm,                                            & !
-                           eta_nimhd,                                           & !
-                           dustfrac(1:ndustsmall+ndustlarge,:),                 & !
-                           tstop(1:ndustsmall,:),                               & !
-                           deltav(:,1:ndustsmall,:),                            & !
-                           dustprop,                                            & !
-                           st,                                                  & !
-                           abundance,                                           & !
-                           temperature,                                         & !
-                           divcurlv,                                            & !
-                           luminosity,                                          & !
-                           beta_pr,                                             & !---------
-                           const_av,ind_timesteps,gravity,nptmass,mhd,maxBevol, & !---------
-                           ndivcurlB,mhd_nonideal,use_dust,use_dustfrac,        & ! Options
-                           use_dustgrowth,h2chemistry,store_temperature,        & !---------
-                           ndivcurlv,lightcurve,prdrag,isothermal)
+    call write_hdf5_arrays(hdf5_file_id,                        & ! File ID
+                           error,                               & ! Error code
+                           npart,                               & ! # particles
+                           nptmass,                             & ! # sinks
+                           xyzh,                                & !---------
+                           vxyzu,                               & !
+                           iphase,                              & !
+                           pressure,                            & !
+                           alphaind,                            & !
+                           dtind,                               & !
+                           poten,                               & !
+                           xyzmh_ptmass,                        & !
+                           vxyz_ptmass,                         & !
+                           Bxyz,                                & !
+                           Bevol,                               & ! Arrays
+                           divcurlB,                            & !
+                           divBsymm,                            & !
+                           eta_nimhd,                           & !
+                           dustfrac(1:ndustsmall+ndustlarge,:), & !
+                           tstop(1:ndustsmall,:),               & !
+                           deltav(:,1:ndustsmall,:),            & !
+                           dustprop,                            & !
+                           st,                                  & !
+                           abundance,                           & !
+                           temperature,                         & !
+                           divcurlv,                            & !
+                           luminosity,                          & !
+                           beta_pr,                             & !---------
+                           array_options)                         ! Options
  else
-    call write_hdf5_arrays_small(hdf5_file_id,error,npart,             & ! File ID and error code
-                                 xyzh,                                 & !--------
-                                 iphase,                               & !
-                                 xyzmh_ptmass,                         & !
-                                 Bxyz,                                 & !
-                                 dustfrac,                             & ! Arrays
-                                 dustprop,                             & !
-                                 st,                                   & !
-                                 abundance,                            & !
-                                 luminosity,                           & !--------
-                                 nptmass,mhd,use_dust,use_dustgrowth,  & ! Options
-                                 h2chemistry,lightcurve)                 !--------
+    call write_hdf5_arrays_small(hdf5_file_id, & ! File ID
+                                 error,        & ! Error code
+                                 npart,        & ! # particles
+                                 nptmass,      & ! # sinks
+                                 xyzh,         & !--------
+                                 iphase,       & !
+                                 xyzmh_ptmass, & !
+                                 Bxyz,         & !
+                                 dustfrac,     & ! Arrays
+                                 dustprop,     & !
+                                 st,           & !
+                                 abundance,    & !
+                                 luminosity,   & !--------
+                                 array_options)  ! Options
  endif
  if (error/=0) call fatal('write_fulldump_hdf5','could not write arrays')
+
  call close_hdf5file(hdf5_file_id,error)
  if (error/=0) call fatal('write_fulldump_hdf5','could not close file')
 
