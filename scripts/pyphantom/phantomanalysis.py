@@ -28,15 +28,29 @@ class PhantomAnalysis(pyphantom.Simulation):
       self.time   = time
       self.hfact  = hfact
       self.massofgas  = massofgas/umass
-
+      ##########################
       # Gas quantities
+      ########################
       npart = self.get_npart()
       self.npart       = npart
       self.xyzh        = self.get_part_xyzh(npart)/udist
       self.vxyz        = self.get_part_vxyz(npart)/(udist/utime)
-      self.utherm      = self.get_part_u(npart)/(udist**2/utime**2)
-      self.temperature = self.get_part_temp(npart)
-      self.bxyz        = self.get_part_bxyz(npart)/umagfd
+      ####################################
+      # Gas quantities: Try loading internal energy and magnetic field
+      ####################################
+      try:
+          self.utherm      = self.get_part_u(npart)/(udist**2/utime**2)
+      except: 
+          print "Unable to load uterm, likely the quantity is not stored."
+      try:
+          self.temperature = self.get_part_temp(npart)
+      except: 
+       	  print	"Unable to load temperature, likely the quantity is not stored."
+      try:
+          self.bxyz        = self.get_part_bxyz(npart)/umagfd
+      except: 
+       	  print	"Unable to load magnetic field, likely the quantity is not stored."
+      ####################
 
       # Point masses
       nptmass             = self.get_nptmass()
