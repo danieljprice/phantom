@@ -40,7 +40,8 @@ module readwrite_dumps
                                 write_hdf5_arrays,       &
                                 write_hdf5_arrays_small, &
                                 read_hdf5_header,        &
-                                read_hdf5_arrays
+                                read_hdf5_arrays,        &
+                                header_hdf5
 
  implicit none
  character(len=80), parameter, public :: &    ! module version
@@ -170,6 +171,7 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  character(len=30) :: string
  character(len=9)  :: dumptype
  integer :: error
+ type (header_hdf5)     :: hdr
 
  if (id==master) then
     if (fulldump) then
@@ -299,16 +301,57 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  call create_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,error)
  if (error/=0) call fatal('write_fulldump_hdf5','could not open file')
 
- call write_hdf5_header(hdf5_file_id,error,trim(fileident),maxtypes,nblocks,   &
-                        isink,nptmass,ndustlarge,ndustsmall,idust,             &
-                        phantom_version_major,phantom_version_minor,           &
-                        phantom_version_micro,int(nparttot),                   &
-                        int(npartoftypetot),iexternalforce,ieos,t,dtmax,gamma, &
-                        rhozero, polyk,hfact,tolh,C_cour,C_force,alpha,alphau, &
-                        alphaB,polyk2,qfacdisc,massoftype,Bextx,Bexty,Bextz,   &
-                        xmin,xmax,ymin,ymax,zmin,zmax,get_conserv,etot_in,     &
-                        angtot_in,totmom_in,mdust_in,grainsize,graindens,      &
-                        udist,umass,utime,unit_Bfield)
+ hdr%fileident = trim(fileident)
+ hdr%ntypes = maxtypes
+ hdr%isink = isink
+ hdr%nptmass = nptmass
+ hdr%ndustlarge = ndustlarge
+ hdr%ndustsmall = ndustsmall
+ hdr%idust = idust
+ hdr%phantom_version_major = phantom_version_major
+ hdr%phantom_version_minor = phantom_version_minor
+ hdr%phantom_version_micro = phantom_version_micro
+ hdr%nparttot = int(nparttot)
+ hdr%npartoftypetot = reshape(int(npartoftypetot),shape(hdr%npartoftypetot),pad=[0])
+ hdr%iexternalforce = iexternalforce
+ hdr%ieos = ieos
+ hdr%time = t
+ hdr%dtmax = dtmax
+ hdr%gamma = gamma
+ hdr%rhozero = rhozero
+ hdr%polyk = polyk
+ hdr%hfact = hfact
+ hdr%tolh = tolh
+ hdr%C_cour = C_cour
+ hdr%C_force = C_force
+ hdr%alpha = alpha
+ hdr%alphau = alphau
+ hdr%alphaB = alphaB
+ hdr%polyk2 = polyk2
+ hdr%qfacdisc = qfacdisc
+ hdr%massoftype = reshape(massoftype,shape(hdr%massoftype),pad=[0.0])
+ hdr%Bextx = Bextx
+ hdr%Bexty = Bexty
+ hdr%Bextz = Bextz
+ hdr%xmin = xmin
+ hdr%xmax = xmax
+ hdr%ymin = ymin
+ hdr%ymax = ymax
+ hdr%zmin = zmin
+ hdr%zmax = zmax
+ hdr%get_conserv = get_conserv
+ hdr%etot_in = etot_in
+ hdr%angtot_in = angtot_in
+ hdr%totmom_in = totmom_in
+ hdr%mdust_in = reshape(mdust_in,shape(hdr%mdust_in),pad=[0.0])
+ hdr%grainsize = reshape(grainsize,shape(hdr%grainsize),pad=[0.0])
+ hdr%graindens = reshape(graindens,shape(hdr%graindens),pad=[0.0])
+ hdr%udist = udist
+ hdr%umass = umass
+ hdr%utime = utime
+ hdr%unit_Bfield = unit_Bfield
+
+ call write_hdf5_header(hdf5_file_id,hdr,error)
  if (error/=0) call fatal('write_fulldump_hdf5','could not write header')
 
  if (fulldump) then
@@ -419,6 +462,8 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
             got_dustprop(3),                &
             got_St
 
+ type (header_hdf5) :: hdr
+
  errors(:) = 0
 
  call open_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,errors(1))
@@ -427,13 +472,52 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     call fatal('read_dump',trim(dumpfile)//'.h5 does not exist')
  endif
 
- call read_hdf5_header(hdf5_file_id,errors(2),fileident,isink,nptmass,         &
-                       ndustlarge,ndustsmall,npart,npartoftype,iexternalforce, &
-                       ieos,tfile,dtmax,gamma,rhozero,polyk,hfactfile,tolh,    &
-                       C_cour,C_force,alpha,alphau,alphaB,polyk2,qfacdisc,     &
-                       massoftype,Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,  &
-                       zmax,get_conserv,etot_in,angtot_in,totmom_in,mdust_in,  &
-                       grainsize,graindens,udist,umass,utime,unit_Bfield)
+ call read_hdf5_header(hdf5_file_id,hdr,errors(2))
+
+ fileident = hdr%fileident
+ isink = hdr%isink
+ nptmass = hdr%nptmass
+ ndustlarge = hdr%ndustlarge
+ ndustsmall = hdr%ndustsmall
+ npart = hdr%nparttot
+ npartoftype = reshape(hdr%npartoftypetot,shape(npartoftype),pad=[0])
+ iexternalforce = hdr%iexternalforce
+ ieos = hdr%ieos
+ tfile = hdr%time
+ dtmax = hdr%dtmax
+ gamma = hdr%gamma
+ rhozero = hdr%rhozero
+ polyk = hdr%polyk
+ hfactfile = hdr%hfact
+ tolh = hdr%tolh
+ C_cour = hdr%C_cour
+ C_force = hdr%C_force
+ alpha = hdr%alpha
+ alphau = hdr%alphau
+ alphaB = hdr%alphaB
+ polyk2 = hdr%polyk2
+ qfacdisc = hdr%qfacdisc
+ massoftype = reshape(hdr%massoftype,shape(massoftype),pad=[0.0])
+ Bextx = hdr%Bextx
+ Bexty = hdr%Bexty
+ Bextz = hdr%Bextz
+ xmin = hdr%xmin
+ xmax = hdr%xmax
+ ymin = hdr%ymin
+ ymax = hdr%ymax
+ zmin = hdr%zmin
+ zmax = hdr%zmax
+ get_conserv = hdr%get_conserv
+ etot_in = hdr%etot_in
+ angtot_in = hdr%angtot_in
+ totmom_in = hdr%totmom_in
+ mdust_in = reshape(hdr%mdust_in,shape(mdust_in),pad=[0.0])
+ grainsize = reshape(hdr%grainsize,shape(grainsize),pad=[0.0])
+ graindens = reshape(hdr%graindens,shape(graindens),pad=[0.0])
+ udist = hdr%udist
+ umass = hdr%umass
+ utime = hdr%utime
+ unit_Bfield = hdr%unit_Bfield
 
  !
  !--Set values from header
@@ -565,15 +649,57 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
             got_dustprop(3),                &
             got_St
 
+ type (header_hdf5) :: hdr
+
  call open_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,errors(1))
 
- call read_hdf5_header(hdf5_file_id,errors(2),fileident,isink,nptmass,         &
-                       ndustlarge,ndustsmall,npart,npartoftype,iexternalforce, &
-                       ieos,tfile,dtmax,gamma,rhozero,polyk,hfactfile,tolh,    &
-                       C_cour,C_force,alpha,alphau,alphaB,polyk2,qfacdisc,     &
-                       massoftype,Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,  &
-                       zmax,get_conserv,etot_in,angtot_in,totmom_in,mdust_in,  &
-                       grainsize,graindens,udist,umass,utime,unit_Bfield)
+ call read_hdf5_header(hdf5_file_id,hdr,errors(2))
+
+ fileident = hdr%fileident
+ isink = hdr%isink
+ nptmass = hdr%nptmass
+ ndustlarge = hdr%ndustlarge
+ ndustsmall = hdr%ndustsmall
+ npart = hdr%nparttot
+ npartoftype = reshape(hdr%npartoftypetot,shape(npartoftype),pad=[0])
+ iexternalforce = hdr%iexternalforce
+ ieos = hdr%ieos
+ tfile = hdr%time
+ dtmax = hdr%dtmax
+ gamma = hdr%gamma
+ rhozero = hdr%rhozero
+ polyk = hdr%polyk
+ hfactfile = hdr%hfact
+ tolh = hdr%tolh
+ C_cour = hdr%C_cour
+ C_force = hdr%C_force
+ alpha = hdr%alpha
+ alphau = hdr%alphau
+ alphaB = hdr%alphaB
+ polyk2 = hdr%polyk2
+ qfacdisc = hdr%qfacdisc
+ massoftype = reshape(hdr%massoftype,shape(massoftype),pad=[0.0])
+ Bextx = hdr%Bextx
+ Bexty = hdr%Bexty
+ Bextz = hdr%Bextz
+ xmin = hdr%xmin
+ xmax = hdr%xmax
+ ymin = hdr%ymin
+ ymax = hdr%ymax
+ zmin = hdr%zmin
+ zmax = hdr%zmax
+ get_conserv = hdr%get_conserv
+ etot_in = hdr%etot_in
+ angtot_in = hdr%angtot_in
+ totmom_in = hdr%totmom_in
+ mdust_in = reshape(hdr%mdust_in,shape(mdust_in),pad=[0.0])
+ grainsize = reshape(hdr%grainsize,shape(grainsize),pad=[0.0])
+ graindens = reshape(hdr%graindens,shape(graindens),pad=[0.0])
+ udist = hdr%udist
+ umass = hdr%umass
+ utime = hdr%utime
+ unit_Bfield = hdr%unit_Bfield
+
 
  !
  !--Set values from header
