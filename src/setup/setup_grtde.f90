@@ -161,6 +161,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzstar  = xyzmh_ptmass(1:3,2)
     nptmass  = 0
 
+    call rotatevec(xyzstar,(/0.,1.,0./),-theta)
+    call rotatevec(vxyzstar,(/0.,1.,0./),-theta)
+
  !
  !-- Setup a parabolic orbit
  !
@@ -169,18 +172,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     period   = 2.*pi*sqrt(r0**3/mass1) !period not defined for parabolic orbit, so just need some number
     y0       = -2.*rp + r0
     x0       = sqrt(r0**2 - y0**2)
-    xyzstar  = (/x0,y0,0./)
+    xyzstar  = (/-x0,y0,0./)
     vel      = sqrt(2.*mass1/r0)
-    vhat     = (/-2.*rp,-x0,0./)/sqrt(4.*rp**2 + x0**2)
+    vhat     = (/2.*rp,-x0,0./)/sqrt(4.*rp**2 + x0**2)
     vxyzstar = vel*vhat
+
+    call rotatevec(xyzstar,(/0.,1.,0./),theta)
+    call rotatevec(vxyzstar,(/0.,1.,0./),theta)
 
  else
     call fatal('setup','please choose a valid eccentricity (0<ecc<=1)',var='ecc',val=ecc)
 
  endif
-
- call rotatevec(xyzstar,(/0.,1.,0./),-theta)
- call rotatevec(vxyzstar,(/0.,1.,0./),-theta)
 
  lorentz = 1./sqrt(1.-dot_product(vxyzstar,vxyzstar))
  if (lorentz>1.1) call warning('setup','Lorentz factor of star greater than 1.1, density may not be correct')
