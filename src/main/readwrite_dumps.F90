@@ -1986,7 +1986,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  call extract('angtot_in',  angtot_in,  hdr,ierrs(3))
  call extract('totmom_in',  totmom_in,  hdr,ierrs(4))
  call extract('mdust_in',   mdust_in,   hdr,ierrs(5))
- if (any(ierrs(1:5) /= 0)) then
+ if (any(ierrs(1:4) /= 0)) then
     write(*,*) 'ERROR reading values to verify conservation laws.  Resetting initial values.'
     get_conserv = 1.0
  endif
