@@ -20,7 +20,7 @@
 !    Wurster J. & Thacker R., 2013, MNRAS, 431, 2513
 !    Wurster J. & Thacker R., 2013, MNRAS, 431, 539
 !
-!  OWNER: Daniel Price
+!  OWNER: James Wurster
 !
 !  $Id$
 !

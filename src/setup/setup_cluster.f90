@@ -21,6 +21,8 @@
 !    M_cloud     -- mass of cloud in solar masses
 !    R_cloud     -- radius of cloud in pc
 !    Temperature -- Temperature
+!    dist_fac    -- distance unit in pc
+!    mass_fac    -- mass unit in pc
 !    mu          -- mean molecular mass
 !    n_particles -- number of particles in sphere
 !
