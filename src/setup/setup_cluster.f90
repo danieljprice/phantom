@@ -35,8 +35,10 @@ module setup
  public :: setpart
 
  private
- integer :: np,ieos_in
- real    :: Rsink_au,Rcloud_pc,Mcloud_msun,Temperature,mu
+ integer           :: np,ieos_in
+ real              :: Rsink_au,Rcloud_pc,Mcloud_msun,Temperature,mu
+ real(kind=8)      :: mass_fac,dist_fac
+ character(len=32) :: default_cluster
 
 contains
 
@@ -78,9 +80,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical                      :: inexists,setexists
  logical                      :: BBB03 = .true. ! use the BB03 defaults, else that of a YMC (S. Jaffa)
 
- !--Set units
- call set_units(dist=0.1d0*pc,mass=solarm,G=1.)
-
  !--Check for existence of the .in and .setup files
  filein=trim(fileprefix)//'.in'
  inquire(file=filein,exist=inexists)
@@ -95,15 +94,25 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  mu          = 2.46          ! Mean molecular weight (required for polyK only)
  if (BBB03) then
     ! from Bate, Bonnell & Bromm (2003)
-    Rcloud_pc   = 0.1875 ! Input radius [pc]
-    Mcloud_msun = 50.    ! Input mass [Msun]
-    ieos_in     = 8      ! Barotropic equation of state
+    default_cluster = "Bate, Bonnell & Bromm (2003)"
+    Rcloud_pc   = 0.1875  ! Input radius [pc]
+    Mcloud_msun = 50.     ! Input mass [Msun]
+    ieos_in     = 8       ! Barotropic equation of state
+    mass_fac    = 1.0     ! mass code unit: mass_fac * solarm
+    dist_fac    = 0.1     ! distance code unit: dist_fac * pc
  else
     ! Young Massive Cluster (S. Jaffa, University of Hertfordshire)
-    Rcloud_pc   = 5.0    ! Input radius [pc]
-    Mcloud_msun = 1.0d5  ! Input mass [Msun]
-    ieos_in     = 1      ! Isothermal equation of state
+    default_cluster = "Young Massive Cluster"
+    Rcloud_pc   = 5.0     ! Input radius [pc]
+    Mcloud_msun = 1.0d5   ! Input mass [Msun]
+    ieos_in     = 1       ! Isothermal equation of state
+    mass_fac    = 1.0d5   ! mass code unit: mass_fac * solarm
+    dist_fac    = 1.0     ! distance code unit: dist_fac * pc
  endif
+
+ !--Set units
+ call set_units(dist=dist_fac*pc,mass=mass_fac*solarm,G=1.)
+
  if (maxvxyzu >= 4) ieos_in = 2 ! Adiabatic equation of state
 
  !--Read values from .setup
@@ -202,7 +211,10 @@ end subroutine setpart
 subroutine get_input_from_prompts()
  use prompting, only:prompt
 
+ write(*,'(2a)') 'Default settings: ',trim(default_cluster)
  call prompt('Enter the number of particles in the sphere',np,0,np)
+ call prompt('Enter the distance unit (in pc)',dist_fac)
+ call prompt('Enter the mass unit (in Msun)',mass_fac)
  call prompt('Enter the mass of the cloud (in Msun)',Mcloud_msun)
  call prompt('Enter the radius of the cloud (in pc)',Rcloud_pc)
  call prompt('Enter the radius of the sink particles (in au)',Rsink_au)
@@ -226,6 +238,9 @@ subroutine write_setupfile(filename)
  write(iunit,"(a)") '# input file for cluster setup routines'
  write(iunit,"(/,a)") '# resolution'
  call write_inopt(np,'n_particles','number of particles in sphere',iunit)
+ write(iunit,"(/,a)") '# units'
+ call write_inopt(dist_fac,'dist_fac','distance unit in pc',iunit)
+ call write_inopt(mass_fac,'mass_fac','mass unit in pc',iunit)
  write(iunit,"(/,a)") '# options for sphere'
  call write_inopt(Mcloud_msun,'M_cloud','mass of cloud in solar masses',iunit)
  call write_inopt(Rcloud_pc,'R_cloud','radius of cloud in pc',iunit)
@@ -254,6 +269,8 @@ subroutine read_setupfile(filename,ierr)
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
  call read_inopt(np,'n_particles',db,ierr)
+ call read_inopt(dist_fac,'dist_fac',db,ierr)
+ call read_inopt(mass_fac,'mass_fac',db,ierr)
  call read_inopt(Mcloud_msun,'M_cloud',db,ierr)
  call read_inopt(Rcloud_pc,'R_cloud',db,ierr)
  call read_inopt(Temperature,'Temperature',db,ierr)
