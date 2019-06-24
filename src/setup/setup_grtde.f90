@@ -74,7 +74,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: rtidal,rp,semia,psep,period,hacc1,hacc2,massr
  real    :: vxyzstar(3),xyzstar(3),rtab(ntab),rhotab(ntab)
  real    :: densi,r0,vel,lorentz
- real    :: vhat(3),x0,y0,trueanom,apocentre
+ real    :: vhat(3),x0,y0
 
 !
 !-- general parameters
@@ -107,8 +107,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dumpsperorbit = 100
  nr            = 50
  theta         = 0.
-
- r0            = 500.*mass1      ! A default starting distance from the black hole.
 
 !
 !-- Read runtime parameters from setup file
@@ -155,43 +153,37 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     hacc1    = rstar/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
     hacc2    = hacc1
     massr    = mstar/mass1
-    apocentre = rp*(1.+ecc)/(1.-ecc)
-    trueanom = acos((rp*(1.+ecc)/r0 - 1.)/ecc)*180./pi
-    if (r0 > apocentre) then
-       r0 = apocentre
-       trueanom = 180.
-    endif
-    if (r0 < rp) then
-       r0 = rp
-       trueanom = 0.
-    endif
+    ! apocentre = rp*(1.+ecc)/(1.-ecc)
+    ! trueanom = acos((rp*(1.+ecc)/r0 - 1.)/ecc)*180./pi
     call set_binary(mass1,massr,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,&
-                    posang_ascnode=0.,arg_peri=90.,incl=0.,f=-trueanom)
+                    posang_ascnode=0.,arg_peri=90.,incl=0.,f=-180.)
     vxyzstar = vxyz_ptmass(1:3,2)
     xyzstar  = xyzmh_ptmass(1:3,2)
     nptmass  = 0
+
+    call rotatevec(xyzstar,(/0.,1.,0./),-theta)
+    call rotatevec(vxyzstar,(/0.,1.,0./),-theta)
 
  !
  !-- Setup a parabolic orbit
  !
  elseif (abs(ecc-1.) < tiny(0.)) then
+    r0       = 10.*rtidal              ! A default starting distance from the black hole.
     period   = 2.*pi*sqrt(r0**3/mass1) !period not defined for parabolic orbit, so just need some number
-    if (r0 < 2.*rp) then
-      r0 = 2.*rp
-    endif
     y0       = -2.*rp + r0
     x0       = sqrt(r0**2 - y0**2)
-    xyzstar  = (/x0,y0,0./)
+    xyzstar  = (/-x0,y0,0./)
     vel      = sqrt(2.*mass1/r0)
-    vhat     = (/-2.*rp,-x0,0./)/sqrt(4.*rp**2 + x0**2)
+    vhat     = (/2.*rp,-x0,0./)/sqrt(4.*rp**2 + x0**2)
     vxyzstar = vel*vhat
+
+    call rotatevec(xyzstar,(/0.,1.,0./),theta)
+    call rotatevec(vxyzstar,(/0.,1.,0./),theta)
 
  else
     call fatal('setup','please choose a valid eccentricity (0<ecc<=1)',var='ecc',val=ecc)
 
  endif
-
- call rotatevec(xyzstar,(/0.,1.,0./),-theta)
 
  lorentz = 1./sqrt(1.-dot_product(vxyzstar,vxyzstar))
  if (lorentz>1.1) call warning('setup','Lorentz factor of star greater than 1.1, density may not be correct')
