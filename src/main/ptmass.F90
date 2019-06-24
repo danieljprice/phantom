@@ -1153,8 +1153,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  endif
  !
  !--Update tracking array & reset ifail if required
- !  Note that if ifail_array(6,7,8)==1 and record_created==.false., this subroutine will
- !  already have been exited, and this loop will never be reached
+ !  Note that if ifail_array(inosink_notgas,inosink_divv,inosink_h)==1 and record_created==.false.,
+ !  this subroutine will already have been exited, and this loop will never be reached
  if ( record_created ) then
     if ( ifail==inosink_active ) then
        ifail_array(inosink_active) = 1
