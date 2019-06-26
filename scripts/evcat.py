@@ -8,14 +8,16 @@ import sys
 if sys.version_info[0] < 3:
     raise SystemExit('ERROR: you must use Python 3')
 
+# Printing options
 np.set_printoptions(threshold=np.inf,floatmode='fixed',linewidth=np.inf)
+fmt = '%18.10E'
 
 description="""
 Use this script to combine multiple phantom ev files together, removing overlap, and output to stdout
 """
 
 parser = argparse.ArgumentParser(description=description)
-parser.add_argument('evfiles', nargs='+', help='list of phantom ev files')
+parser.add_argument('evfiles', nargs='+', metavar='file', help='phantom ev file')
 args = parser.parse_args()
 
 # Check that all files exist
@@ -63,11 +65,11 @@ for i in range(nfiles-1):
     if i!=0: header=''
 
     # Print the unique parts of each file
-    np.savetxt(sys.stdout.buffer,data[:ii-1,:],header=header,fmt='%18.10e',comments='')
+    np.savetxt(sys.stdout.buffer,data[:ii-1,:],header=header,fmt=fmt,comments='')
 
 if nfiles>1:
     # Print all of the last file
-    np.savetxt(sys.stdout.buffer,data_next[:,:],header=header,fmt='%18.10e',comments='')
+    np.savetxt(sys.stdout.buffer,data_next[:,:],header=header,fmt=fmt,comments='')
 else:
     # Just print the contents of the 1 file present
     data = np.array(pd.read_csv(args.evfiles[0],skiprows           = 0,
@@ -76,4 +78,4 @@ else:
                                                 skip_blank_lines   = True,
                                                 comment            = '#',
                                                 header             = None))
-    np.savetxt(sys.stdout.buffer,data[:,:],header=header,fmt='%18.10e',comments='')
+    np.savetxt(sys.stdout.buffer,data[:,:],header=header,fmt=fmt,comments='')
