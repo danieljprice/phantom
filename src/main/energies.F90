@@ -74,6 +74,9 @@ subroutine compute_energies(t)
                           n_R,n_electronT,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
                           iamdust,ndusttypes
  use part,           only:pxyzu,metrics
+ use part,           only:fxyzu,fext
+ use dim,            only:gw
+ use gravwaveutils,  only:calculate_strain
  use eos,            only:polyk,utherm,gamma,equationofstate,&
                           get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
@@ -119,6 +122,8 @@ subroutine compute_energies(t)
 #endif
  integer :: i,j,itype,ierr,iu
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
+
+ real    :: axyz(3,npart),hx,hp,hxx,hpp
 
  ! initialise values
  itype  = igas
@@ -723,6 +728,13 @@ subroutine compute_energies(t)
     ev_data(iev_sum,iev_eacc) = accretedmass/accradius1 ! total accretion energy
  endif
  if (track_lum) totlum = ev_data(iev_sum,iev_totlum)
+
+ if (gw) then
+    axyz   = fxyzu(1:3,1:npart) + fext(1:3,1:npart)
+    pmassi = massoftype(igas)
+    call calculate_strain(hx,hp,hxx,hpp,xyzh,vxyzu(1:3,:),axyz,pmassi,npart)
+    write(1,*) t,hx,hp,hxx,hpp
+ endif
 
  return
 end subroutine compute_energies

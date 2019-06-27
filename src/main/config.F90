@@ -250,6 +250,15 @@ logical, parameter :: gr = .false.
 #endif
 
 !--------------------
+! Gravitational waves
+!--------------------
+#ifdef GW
+logical, parameter :: gw = .true.
+#else
+logical, parameter :: gw = .false.
+#endif
+
+!--------------------
 ! Supertimestepping
 !--------------------
  integer :: maxsts = 1

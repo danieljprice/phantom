@@ -252,6 +252,8 @@ ifeq ($(SETUP), wd)
     KNOWN_SETUP   = yes
     STORE_TEMP    = yes
     MODFILE       = moddump_binarystar.f90
+    GW            = yes
+    ANALYSIS      = analysis_gws.f90
 endif
 
 ifeq ($(SETUP), photoevap)
@@ -1434,6 +1436,10 @@ ifeq ($(ISENTROPIC), yes)
     FPPFLAGS += -DLIGHTCURVE
 endif
     CONST_AV=yes
+endif
+
+ifeq ($(GW), yes)
+    FPPFLAGS += -DGW
 endif
 
 ifeq ($(DUST), yes)
