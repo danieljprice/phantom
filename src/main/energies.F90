@@ -31,7 +31,7 @@ module energies
  implicit none
 
  logical,         public    :: gas_only,track_mass,track_lum
- real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot,xyzcom(3)
+ real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot,mtot,xyzcom(3)
  real,            public    :: vrms,rmsmach,accretedmass,mdust(maxdusttypes),mgas
  real,            public    :: xmom,ymom,zmom
  real,            public    :: totlum
@@ -103,7 +103,7 @@ subroutine compute_energies(t)
  real, intent(in) :: t
  real    :: ev_data_thread(4,0:inumev)
  real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,rhoi,angx,angy,angz
- real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,xcom,ycom,zcom,mtot,dm
+ real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,xcom,ycom,zcom,dm
  real    :: epoti,pmassi,dnptot,dnpgas
  real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
  real    :: ponrhoi,spsoundi,B2i,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai

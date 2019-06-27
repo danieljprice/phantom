@@ -40,7 +40,10 @@ module readwrite_dumps
                                 write_hdf5_arrays,       &
                                 write_hdf5_arrays_small, &
                                 read_hdf5_header,        &
-                                read_hdf5_arrays
+                                read_hdf5_arrays,        &
+                                header_hdf5,             &
+                                got_arrays_hdf5,         &
+                                arrays_options_hdf5
 
  implicit none
  character(len=80), parameter, public :: &    ! module version
@@ -171,6 +174,9 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  character(len=9)  :: dumptype
  integer :: error
 
+ type (header_hdf5) :: hdr
+ type (arrays_options_hdf5) :: array_options
+
  if (id==master) then
     if (fulldump) then
        write(iprint,"(/,/,'-------->   TIME = ',g12.4,"//"': full dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
@@ -296,66 +302,129 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
     fileident = trim(fileident)//' (hydro'//trim(string)//'): '//trim(datestring)//' '//trim(timestring)
  endif
 
+ ! create the HDF file
  call create_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,error)
  if (error/=0) call fatal('write_fulldump_hdf5','could not open file')
 
- call write_hdf5_header(hdf5_file_id,error,trim(fileident),maxtypes,nblocks,   &
-                        isink,nptmass,ndustlarge,ndustsmall,idust,             &
-                        phantom_version_major,phantom_version_minor,           &
-                        phantom_version_micro,int(nparttot),                   &
-                        int(npartoftypetot),iexternalforce,ieos,t,dtmax,gamma, &
-                        rhozero, polyk,hfact,tolh,C_cour,C_force,alpha,alphau, &
-                        alphaB,polyk2,qfacdisc,massoftype,Bextx,Bexty,Bextz,   &
-                        xmin,xmax,ymin,ymax,zmin,zmax,get_conserv,etot_in,     &
-                        angtot_in,totmom_in,mdust_in,grainsize,graindens,      &
-                        udist,umass,utime,unit_Bfield)
+ ! construct header derived type
+ hdr%fileident = trim(fileident)
+ hdr%ntypes = maxtypes
+ hdr%isink = isink
+ hdr%nptmass = nptmass
+ hdr%ndustlarge = ndustlarge
+ hdr%ndustsmall = ndustsmall
+ hdr%idust = idust
+ hdr%phantom_version_major = phantom_version_major
+ hdr%phantom_version_minor = phantom_version_minor
+ hdr%phantom_version_micro = phantom_version_micro
+ hdr%nparttot = int(nparttot)
+ hdr%npartoftypetot = reshape(int(npartoftypetot),shape(hdr%npartoftypetot),pad=[0])
+ hdr%iexternalforce = iexternalforce
+ hdr%ieos = ieos
+ hdr%time = t
+ hdr%dtmax = dtmax
+ hdr%gamma = gamma
+ hdr%rhozero = rhozero
+ hdr%polyk = polyk
+ hdr%hfact = hfact
+ hdr%tolh = tolh
+ hdr%C_cour = C_cour
+ hdr%C_force = C_force
+ hdr%alpha = alpha
+ hdr%alphau = alphau
+ hdr%alphaB = alphaB
+ hdr%polyk2 = polyk2
+ hdr%qfacdisc = qfacdisc
+ hdr%massoftype = reshape(massoftype,shape(hdr%massoftype),pad=[0.0])
+ hdr%Bextx = Bextx
+ hdr%Bexty = Bexty
+ hdr%Bextz = Bextz
+ hdr%xmin = xmin
+ hdr%xmax = xmax
+ hdr%ymin = ymin
+ hdr%ymax = ymax
+ hdr%zmin = zmin
+ hdr%zmax = zmax
+ hdr%get_conserv = get_conserv
+ hdr%etot_in = etot_in
+ hdr%angtot_in = angtot_in
+ hdr%totmom_in = totmom_in
+ hdr%mdust_in = reshape(mdust_in,shape(hdr%mdust_in),pad=[0.0])
+ hdr%grainsize = reshape(grainsize,shape(hdr%grainsize),pad=[0.0])
+ hdr%graindens = reshape(graindens,shape(hdr%graindens),pad=[0.0])
+ hdr%udist = udist
+ hdr%umass = umass
+ hdr%utime = utime
+ hdr%unit_Bfield = unit_Bfield
+
+ ! write the header to the HDF file
+ call write_hdf5_header(hdf5_file_id,hdr,error)
  if (error/=0) call fatal('write_fulldump_hdf5','could not write header')
 
+ ! create options derived type for writing arrays
+ array_options%isothermal = isothermal
+ array_options%const_av = const_av
+ array_options%ind_timesteps = ind_timesteps
+ array_options%gravity = gravity
+ array_options%mhd = mhd
+ array_options%use_dust = use_dust
+ array_options%use_dustfrac = use_dustfrac
+ array_options%use_dustgrowth = use_dustgrowth
+ array_options%h2chemistry = h2chemistry
+ array_options%store_temperature = store_temperature
+ array_options%maxBevol = maxBevol
+ array_options%ndivcurlB = ndivcurlB
+ array_options%ndivcurlv = ndivcurlv
+
+ ! write the arrays to file
  if (fulldump) then
-    call write_hdf5_arrays(hdf5_file_id,error,npart,                            & ! File ID and error code
-                           xyzh,                                                & !---------
-                           vxyzu,                                               & !
-                           iphase,                                              & !
-                           pressure,                                            & !
-                           alphaind,                                            & !
-                           dtind,                                               & !
-                           poten,                                               & !
-                           xyzmh_ptmass,                                        & !
-                           vxyz_ptmass,                                         & !
-                           Bxyz,                                                & !
-                           Bevol,                                               & ! Arrays
-                           divcurlB,                                            & !
-                           divBsymm,                                            & !
-                           eta_nimhd,                                           & !
-                           dustfrac(1:ndustsmall+ndustlarge,:),                 & !
-                           tstop(1:ndustsmall,:),                               & !
-                           deltav(:,1:ndustsmall,:),                            & !
-                           dustprop,                                            & !
-                           st,                                                  & !
-                           abundance,                                           & !
-                           temperature,                                         & !
-                           divcurlv,                                            & !
-                           luminosity,                                          & !
-                           beta_pr,                                             & !---------
-                           const_av,ind_timesteps,gravity,nptmass,mhd,maxBevol, & !---------
-                           ndivcurlB,mhd_nonideal,use_dust,use_dustfrac,        & ! Options
-                           use_dustgrowth,h2chemistry,store_temperature,        & !---------
-                           ndivcurlv,lightcurve,prdrag,isothermal)
+    call write_hdf5_arrays(hdf5_file_id,                        & ! File ID
+                           error,                               & ! Error code
+                           npart,                               & ! # particles
+                           nptmass,                             & ! # sinks
+                           xyzh,                                & !---------
+                           vxyzu,                               & !
+                           iphase,                              & !
+                           pressure,                            & !
+                           alphaind,                            & !
+                           dtind,                               & !
+                           poten,                               & !
+                           xyzmh_ptmass,                        & !
+                           vxyz_ptmass,                         & !
+                           Bxyz,                                & !
+                           Bevol,                               & ! Arrays
+                           divcurlB,                            & !
+                           divBsymm,                            & !
+                           eta_nimhd,                           & !
+                           dustfrac(1:ndustsmall+ndustlarge,:), & !
+                           tstop(1:ndustsmall,:),               & !
+                           deltav(:,1:ndustsmall,:),            & !
+                           dustprop,                            & !
+                           st,                                  & !
+                           abundance,                           & !
+                           temperature,                         & !
+                           divcurlv,                            & !
+                           luminosity,                          & !
+                           beta_pr,                             & !---------
+                           array_options)                         ! Options
  else
-    call write_hdf5_arrays_small(hdf5_file_id,error,npart,             & ! File ID and error code
-                                 xyzh,                                 & !--------
-                                 iphase,                               & !
-                                 xyzmh_ptmass,                         & !
-                                 Bxyz,                                 & !
-                                 dustfrac,                             & ! Arrays
-                                 dustprop,                             & !
-                                 st,                                   & !
-                                 abundance,                            & !
-                                 luminosity,                           & !--------
-                                 nptmass,mhd,use_dust,use_dustgrowth,  & ! Options
-                                 h2chemistry,lightcurve)                 !--------
+    call write_hdf5_arrays_small(hdf5_file_id, & ! File ID
+                                 error,        & ! Error code
+                                 npart,        & ! # particles
+                                 nptmass,      & ! # sinks
+                                 xyzh,         & !--------
+                                 iphase,       & !
+                                 xyzmh_ptmass, & !
+                                 Bxyz,         & !
+                                 dustfrac,     & ! Arrays
+                                 dustprop,     & !
+                                 st,           & !
+                                 abundance,    & !
+                                 luminosity,   & !--------
+                                 array_options)  ! Options
  endif
  if (error/=0) call fatal('write_fulldump_hdf5','could not write arrays')
+
  call close_hdf5file(hdf5_file_id,error)
  if (error/=0) call fatal('write_fulldump_hdf5','could not close file')
 
@@ -401,23 +470,9 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  integer :: errors(5)
  logical :: smalldump,isothermal,ind_timesteps,const_av
 
- logical :: got_iphase,                     &
-            got_xyzh,                       &
-            got_vxyzu,                      &
-            got_dustfrac,                   &
-            got_tstop,                      &
-            got_deltav,                     &
-            got_abund,                      &
-            got_dt_in,                      &
-            got_alpha,                      &
-            got_poten,                      &
-            got_sink_data(nsinkproperties), &
-            got_sink_vels,                  &
-            got_Bxyz,                       &
-            got_psi,                        &
-            got_temp,                       &
-            got_dustprop(3),                &
-            got_St
+ type (header_hdf5) :: hdr
+ type (arrays_options_hdf5) :: array_options
+ type (got_arrays_hdf5) :: got_arrays
 
  errors(:) = 0
 
@@ -427,13 +482,52 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     call fatal('read_dump',trim(dumpfile)//'.h5 does not exist')
  endif
 
- call read_hdf5_header(hdf5_file_id,errors(2),fileident,isink,nptmass,         &
-                       ndustlarge,ndustsmall,npart,npartoftype,iexternalforce, &
-                       ieos,tfile,dtmax,gamma,rhozero,polyk,hfactfile,tolh,    &
-                       C_cour,C_force,alpha,alphau,alphaB,polyk2,qfacdisc,     &
-                       massoftype,Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,  &
-                       zmax,get_conserv,etot_in,angtot_in,totmom_in,mdust_in,  &
-                       grainsize,graindens,udist,umass,utime,unit_Bfield)
+ call read_hdf5_header(hdf5_file_id,hdr,errors(2))
+
+ fileident = hdr%fileident
+ isink = hdr%isink
+ nptmass = hdr%nptmass
+ ndustlarge = hdr%ndustlarge
+ ndustsmall = hdr%ndustsmall
+ npart = hdr%nparttot
+ npartoftype = reshape(hdr%npartoftypetot,shape(npartoftype),pad=[0])
+ iexternalforce = hdr%iexternalforce
+ ieos = hdr%ieos
+ tfile = hdr%time
+ dtmax = hdr%dtmax
+ gamma = hdr%gamma
+ rhozero = hdr%rhozero
+ polyk = hdr%polyk
+ hfactfile = hdr%hfact
+ tolh = hdr%tolh
+ C_cour = hdr%C_cour
+ C_force = hdr%C_force
+ alpha = hdr%alpha
+ alphau = hdr%alphau
+ alphaB = hdr%alphaB
+ polyk2 = hdr%polyk2
+ qfacdisc = hdr%qfacdisc
+ massoftype = reshape(hdr%massoftype,shape(massoftype),pad=[0.0])
+ Bextx = hdr%Bextx
+ Bexty = hdr%Bexty
+ Bextz = hdr%Bextz
+ xmin = hdr%xmin
+ xmax = hdr%xmax
+ ymin = hdr%ymin
+ ymax = hdr%ymax
+ zmin = hdr%zmin
+ zmax = hdr%zmax
+ get_conserv = hdr%get_conserv
+ etot_in = hdr%etot_in
+ angtot_in = hdr%angtot_in
+ totmom_in = hdr%totmom_in
+ mdust_in = reshape(hdr%mdust_in,shape(mdust_in),pad=[0.0])
+ grainsize = reshape(hdr%grainsize,shape(grainsize),pad=[0.0])
+ graindens = reshape(hdr%graindens,shape(graindens),pad=[0.0])
+ udist = hdr%udist
+ umass = hdr%umass
+ utime = hdr%utime
+ unit_Bfield = hdr%unit_Bfield
 
  !
  !--Set values from header
@@ -471,25 +565,33 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     const_av = .true.
  endif
 
+ array_options%isothermal = isothermal
+ array_options%const_av = const_av
+ array_options%ind_timesteps = ind_timesteps
+ array_options%gravity = gravity
+ array_options%mhd = mhd
+ array_options%use_dust = use_dust
+ array_options%use_dustfrac = use_dustfrac
+ array_options%use_dustgrowth = use_dustgrowth
+ array_options%h2chemistry = h2chemistry
+ array_options%store_temperature = store_temperature
+
  if (.not.smalldump) then
     allocate(dtind(npart))
     call read_hdf5_arrays(hdf5_file_id,errors(4),npart,nptmass,iphase,xyzh,    &
                           vxyzu,xyzmh_ptmass,vxyz_ptmass,dtind,alphaind,poten, &
                           Bxyz,Bevol,dustfrac,deltav,dustprop,tstop,St,        &
-                          temperature,abundance,isothermal,const_av,           &
-                          ind_timesteps,gravity,mhd,use_dust,use_dustfrac,     &
-                          use_dustgrowth,h2chemistry,store_temperature,        &
-                          nsinkproperties,got_iphase,got_xyzh,got_vxyzu,       &
-                          got_dustfrac,got_tstop,got_deltav,got_abund,         &
-                          got_dt_in,got_alpha,got_poten,got_sink_data,         &
-                          got_sink_vels,got_Bxyz,got_psi,got_temp,             &
-                          got_dustprop,got_St)
+                          temperature,abundance,array_options,got_arrays)
 
     call check_arrays(1,npart,npartoftype,nptmass,nsinkproperties,massoftype, &
-                      alpha,tfile,got_iphase,got_xyzh,got_vxyzu,got_alpha,    &
-                      got_abund,got_dustfrac,got_sink_data,got_sink_vels,     &
-                      got_Bxyz,got_psi,got_dustprop,got_St,got_temp,iphase,   &
-                      xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+                      alpha,tfile,got_arrays%got_iphase,got_arrays%got_xyzh,  &
+                      got_arrays%got_vxyzu,got_arrays%got_alpha,              &
+                      got_arrays%got_abund,got_arrays%got_dustfrac,           &
+                      got_arrays%got_sink_data,got_arrays%got_sink_vels,      &
+                      got_arrays%got_Bxyz,got_arrays%got_psi,                 &
+                      got_arrays%got_dustprop,got_arrays%got_St,              &
+                      got_arrays%got_temp,iphase,xyzh,vxyzu,alphaind,         &
+                      xyzmh_ptmass,Bevol,iprint,ierr)
 
 #ifdef IND_TIMESTEPS
     if (size(dt_in)/=size(dtind)) call error('read_smalldump','problem reading individual timesteps')
@@ -547,33 +649,58 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  integer :: errors(5)
  logical :: smalldump,isothermal,ind_timesteps,const_av
 
- logical :: got_iphase,                     &
-            got_xyzh,                       &
-            got_vxyzu,                      &
-            got_dustfrac,                   &
-            got_tstop,                      &
-            got_deltav,                     &
-            got_abund,                      &
-            got_dt_in,                      &
-            got_alpha,                      &
-            got_poten,                      &
-            got_sink_data(nsinkproperties), &
-            got_sink_vels,                  &
-            got_Bxyz,                       &
-            got_psi,                        &
-            got_temp,                       &
-            got_dustprop(3),                &
-            got_St
+ type (header_hdf5) :: hdr
+ type (arrays_options_hdf5) :: array_options
+ type (got_arrays_hdf5) :: got_arrays
 
  call open_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,errors(1))
 
- call read_hdf5_header(hdf5_file_id,errors(2),fileident,isink,nptmass,         &
-                       ndustlarge,ndustsmall,npart,npartoftype,iexternalforce, &
-                       ieos,tfile,dtmax,gamma,rhozero,polyk,hfactfile,tolh,    &
-                       C_cour,C_force,alpha,alphau,alphaB,polyk2,qfacdisc,     &
-                       massoftype,Bextx,Bexty,Bextz,xmin,xmax,ymin,ymax,zmin,  &
-                       zmax,get_conserv,etot_in,angtot_in,totmom_in,mdust_in,  &
-                       grainsize,graindens,udist,umass,utime,unit_Bfield)
+ call read_hdf5_header(hdf5_file_id,hdr,errors(2))
+
+ fileident = hdr%fileident
+ isink = hdr%isink
+ nptmass = hdr%nptmass
+ ndustlarge = hdr%ndustlarge
+ ndustsmall = hdr%ndustsmall
+ npart = hdr%nparttot
+ npartoftype = reshape(hdr%npartoftypetot,shape(npartoftype),pad=[0])
+ iexternalforce = hdr%iexternalforce
+ ieos = hdr%ieos
+ tfile = hdr%time
+ dtmax = hdr%dtmax
+ gamma = hdr%gamma
+ rhozero = hdr%rhozero
+ polyk = hdr%polyk
+ hfactfile = hdr%hfact
+ tolh = hdr%tolh
+ C_cour = hdr%C_cour
+ C_force = hdr%C_force
+ alpha = hdr%alpha
+ alphau = hdr%alphau
+ alphaB = hdr%alphaB
+ polyk2 = hdr%polyk2
+ qfacdisc = hdr%qfacdisc
+ massoftype = reshape(hdr%massoftype,shape(massoftype),pad=[0.0])
+ Bextx = hdr%Bextx
+ Bexty = hdr%Bexty
+ Bextz = hdr%Bextz
+ xmin = hdr%xmin
+ xmax = hdr%xmax
+ ymin = hdr%ymin
+ ymax = hdr%ymax
+ zmin = hdr%zmin
+ zmax = hdr%zmax
+ get_conserv = hdr%get_conserv
+ etot_in = hdr%etot_in
+ angtot_in = hdr%angtot_in
+ totmom_in = hdr%totmom_in
+ mdust_in = reshape(hdr%mdust_in,shape(mdust_in),pad=[0.0])
+ grainsize = reshape(hdr%grainsize,shape(grainsize),pad=[0.0])
+ graindens = reshape(hdr%graindens,shape(graindens),pad=[0.0])
+ udist = hdr%udist
+ umass = hdr%umass
+ utime = hdr%utime
+ unit_Bfield = hdr%unit_Bfield
 
  !
  !--Set values from header
@@ -611,18 +738,22 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
     const_av = .true.
  endif
 
+ array_options%isothermal = isothermal
+ array_options%const_av = const_av
+ array_options%ind_timesteps = ind_timesteps
+ array_options%gravity = gravity
+ array_options%mhd = mhd
+ array_options%use_dust = use_dust
+ array_options%use_dustfrac = use_dustfrac
+ array_options%use_dustgrowth = use_dustgrowth
+ array_options%h2chemistry = h2chemistry
+ array_options%store_temperature = store_temperature
+
  if (smalldump) then
     call read_hdf5_arrays(hdf5_file_id,errors(4),npart,nptmass,iphase,xyzh,    &
                           vxyzu,xyzmh_ptmass,vxyz_ptmass,dtind,alphaind,poten, &
                           Bxyz,Bevol,dustfrac,deltav,dustprop,tstop,St,        &
-                          temperature,abundance,isothermal,const_av,           &
-                          ind_timesteps,gravity,mhd,use_dust,use_dustfrac,     &
-                          use_dustgrowth,h2chemistry,store_temperature,        &
-                          nsinkproperties,got_iphase,got_xyzh,got_vxyzu,       &
-                          got_dustfrac,got_tstop,got_deltav,got_abund,         &
-                          got_dt_in,got_alpha,got_poten,got_sink_data,         &
-                          got_sink_vels,got_Bxyz,got_psi,got_temp,             &
-                          got_dustprop,got_St)
+                          temperature,abundance,array_options,got_arrays)
 
 #ifdef IND_TIMESTEPS
     if (size(dt_in)/=size(dtind)) call error('read_smalldump','problem reading individual timesteps')

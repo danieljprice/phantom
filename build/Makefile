@@ -1603,16 +1603,34 @@ ifeq ($(USEMPI), yes)
 else
     RUNMPI=
 endif
+
 #
 # HDF5 libraries (if required)
+#
+# Requires two directories:
+#   - include for Fortran .mod files
+#   - lib for the shared library .so files
+#
+# Often both directories are under one root,
+# e.g. HDF5ROOT= /usr/local/opt/hdf5
+# In this case just set HDF5ROOT for your machine.
+#
+# However, sometimes these directories are separate,
+# then you must set both HDF5INCLUDE and HDF5LIB.
 #
 ifeq ($(HDF5), yes)
 ifeq (X$(HDF5ROOT), X)
     HDF5ROOT= /usr/local/opt/hdf5
 endif
-    FFLAGS+= -I$(HDF5ROOT)/include
-    LDFLAGS+= -L$(HDF5ROOT)/lib -lhdf5 -lhdf5_fortran
-    CCFLAGS+= -I$(HDF5ROOT)/include
+ifeq (X$(HDF5INCLUDE), X)
+    HDF5INCLUDE= $(HDF5ROOT)/include
+endif
+ifeq (X$(HDF5LIB), X)
+    HDF5LIB= $(HDF5ROOT)/lib
+endif
+    FFLAGS+= -I$(HDF5INCLUDE)
+    CCFLAGS+= -I$(HDF5INCLUDE)
+    LDFLAGS+= -L$(HDF5LIB) -lhdf5 -lhdf5_fortran
     FPPFLAGS+= -DHDF5
 endif
 
