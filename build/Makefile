@@ -1721,7 +1721,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          utils_allocate.f90 \
          utils_mathfunc.f90 part.F90 ${DOMAIN} utils_timing.f90 mpi_balance.F90 \
          commons.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
-         utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 \
+         utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_gravwave.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_datafiles.f90 datafiles.f90 \
          gitinfo.f90 ${SRCFASTMATH} random.f90 ${SRCEOS} ${SRCGR} checkoptions.F90 \
          set_binary.f90 set_flyby.f90 viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} damping.f90 \
@@ -1985,7 +1985,7 @@ OBJAN1= ${ANALYSIS:.f90=.o}
 OBJAN2= ${OBJAN1:.F90=.o}
 OBJAN= ${OBJAN2:.f=.o}
 OBJA= utils_sort.o utils_tables.o leastsquares.o solvelinearsystem.o \
-      ${OBJDUMP} utils_disc.o set_dust.o set_binary.o ${OBJAN}
+      ${OBJDUMP} utils_disc.o utils_gravwave.o set_dust.o set_binary.o ${OBJAN}
 
 ifndef ANALYSISBIN
 ANALYSISBIN=phantomanalysis

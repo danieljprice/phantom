@@ -14,11 +14,12 @@
  use externalforces, only:initialise_externalforces,update_externalforce,externalforce,externalforce_vdependent
  use timestep,       only:C_force
  use prompting,      only:prompt
- use units,          only: umass,udist,utime
+ use units,          only:umass,udist,utime
  use physcon,        only:gg,c
- use options,        only: iexternalforce
- use part,           only: isdead_or_accreted
+ use options,        only:iexternalforce
+ use part,           only:isdead_or_accreted
  use io,             only:fatal
+ use gravwaveutils,  only:calculate_strain
  character(len=*),   intent(in) :: dumpfile
  real,               intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,               intent(inout) :: pmass,time
@@ -30,7 +31,7 @@
  logical, save       :: first = .true.
  logical, save       :: firstcall = .true.
  logical, save       :: firstdump = .true.
- real                :: hp,hx,hpp,hxx,d,q(6),ddq(6)
+ real                :: hp,hx,hpp,hxx,d
  real, save          :: distan
  integer, save       :: a
 
@@ -63,35 +64,7 @@
   enddo
   !$omp end parallel do
 
-! initialise quadrupole to zero
-  q(:)=0
-
-! calculate the components of the traceless quadrupole--not necessary but maybe useful
-  do i=1,npart
-   if(xyzh(4,i)>tiny(xyzh)) then  !if not accreted
-    q(1)=q(1)+pmass*(xyzh(1,i)*xyzh(1,i)-0.3*(xyzh(1,i)**2.+xyzh(2,i)**2.+xyzh(3,i)**2.)) !qxx
-    q(2)=q(2)+pmass*(xyzh(1,i)*xyzh(2,i)-0.3*(xyzh(1,i)**2.+xyzh(2,i)**2.+xyzh(3,i)**2.)) !qxy
-    q(3)=q(3)+pmass*(xyzh(1,i)*xyzh(3,i)-0.3*(xyzh(1,i)**2.+xyzh(2,i)**2.+xyzh(3,i)**2.)) !qxz
-    q(4)=q(4)+pmass*(xyzh(2,i)*xyzh(2,i)-0.3*(xyzh(1,i)**2.+xyzh(2,i)**2.+xyzh(3,i)**2.)) !qyy
-    q(5)=q(5)+pmass*(xyzh(2,i)*xyzh(3,i)-0.3*(xyzh(1,i)**2.+xyzh(2,i)**2.+xyzh(3,i)**2.)) !qyz
-    q(6)=q(6)+pmass*(xyzh(3,i)*xyzh(3,i)-0.3*(xyzh(1,i)**2.+xyzh(2,i)**2.+xyzh(3,i)**2.)) !qzz
-   end if
-  enddo
-
-! initialise the second time derivative of the quadrupole to zero
-  ddq(:)=0
-! calculate the second time derivative of the traceless quadrupole
- do i=1,npart
-   if(xyzh(4,i)>tiny(xyzh)) then !if not accreted
-    ddq(1)=ddq(1)+pmass*(2*vxyzu(1,i)*vxyzu(1,i)+xyzh(1,i)*fext(1,i)+xyzh(1,i)*fext(1,i)) !ddqxx
-    ddq(2)=ddq(2)+pmass*(2*vxyzu(1,i)*vxyzu(2,i)+xyzh(1,i)*fext(2,i)+xyzh(2,i)*fext(1,i)) !ddqxy
-    ddq(3)=ddq(3)+pmass*(2*vxyzu(1,i)*vxyzu(3,i)+xyzh(1,i)*fext(3,i)+xyzh(3,i)*fext(1,i)) !ddqxz
-    ddq(4)=ddq(4)+pmass*(2*vxyzu(2,i)*vxyzu(2,i)+xyzh(2,i)*fext(2,i)+xyzh(2,i)*fext(2,i)) !ddqyy
-    ddq(5)=ddq(5)+pmass*(2*vxyzu(2,i)*vxyzu(3,i)+xyzh(2,i)*fext(3,i)+xyzh(3,i)*fext(2,i)) !ddqyz
-    ddq(6)=ddq(6)+pmass*(2*vxyzu(3,i)*vxyzu(3,i)+xyzh(3,i)*fext(3,i)+xyzh(3,i)*fext(3,i)) !ddqzz
-   end if
- enddo
-
+  call calculate_strain(hx,hp,hxx,hpp,xyzh,vxyzu(1:3,:),fext(1:3,:),pmass,npart)
 
   if (firstcall) then
    firstcall=.false.
@@ -100,13 +73,11 @@
   endif
 
 ! gw strain in the direction perpendicular to the orbit
-  hx=gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*(ddq(1)-ddq(4))
-  hp=2*gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*(ddq(2))
+  hx = gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*hx
+  hp = 2*gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*hp
 ! gw strain in the plane of the orbit
-  hpp=gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*(ddq(6)-ddq(4))
-  hxx=-2*gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*(ddq(5))
-
-  print*, 'eskereeee'
+  hpp = gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*hpp
+  hxx = -2*gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*hxx
 
 ! Write a file where I append all the values of the strain wrt time
  if (first) then
