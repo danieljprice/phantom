@@ -56,7 +56,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  logical, save   :: init_mcfost = .false.
  real            :: mu_gas,factor,T_to_u
- real(kind=4)    :: Tdust(npart)
+ real(kind=4), dimension(npart)    :: Tdust, n_packets
  integer         :: ierr,ntypes,dustfluidtype,ilen,nlum,i
  integer(kind=1) :: itype(maxp)
  logical         :: compute_Frad
@@ -111,8 +111,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          xyzh,vxyzu,radiation,ikappa,&
          itype,grainsize,graindens,dustfrac,massoftype,&
          xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
-         mu_gas,ierr,write_T_files,ISM,T_to_u)
-
+         n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
     print*, 'just after mcfost'
 
     write(*,*) ''
