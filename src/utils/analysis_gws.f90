@@ -25,17 +25,24 @@
  integer,            intent(in) :: npart,iunitone,numfile
  real,               dimension(3,npart):: fext
  integer             :: ierr,i
- real                ::dtextforce,dtf,poti,fextv(3)
+ real                :: dtextforce,dtf,poti,fextv(3)
  integer, parameter  :: iu = 1993
  logical, save       :: first = .true.
- logical             :: firstcall = .true.
- real                :: hp,hx,q(6),ddq(6),hp_,hx_,d
+ logical, save       :: firstcall = .true.
+ logical, save       :: firstdump = .true.
+ real                :: hp,hx,hpp,hxx,d,q(6),ddq(6)
  real, save          :: distan
+ integer, save       :: a
 
 ! read the particle accelerations
   dtextforce=huge(dtextforce)
 
-  iexternalforce=14 !-->check
+  if (firstdump) then
+   firstdump=.false.
+   call prompt('Write the external force [1:16]:', a)
+   iexternalforce=a
+   print*, 'WARNING: you have to check that the external force used is reasonable for a physical point of view.'
+  endif
 
   call initialise_externalforces(iexternalforce,ierr)
   call update_externalforce(iexternalforce,time,0.)
@@ -94,27 +101,27 @@
 
 ! gw strain in the direction perpendicular to the orbit
   hx=gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*(ddq(1)-ddq(4))
-  hp=gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*(ddq(2))
-
+  hp=2*gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*(ddq(2))
 ! gw strain in the plane of the orbit
-  hx_=gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*(ddq(6)-ddq(4))
-  hp_=-gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*(ddq(5))
+  hpp=gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*(ddq(6)-ddq(4))
+  hxx=-2*gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*(ddq(5))
 
+  print*, 'eskereeee'
 
 ! Write a file where I append all the values of the strain wrt time
  if (first) then
   first = .false.
   open(unit=iu, file='strain.gw',status='replace')
    write(iu,"('#',5(1x,'[',i2.2,1x,a11,']',2x))") &
-    1, 'time in cu', &
+    1, 'time', &
     2, 'hp', &
     3, 'hx', &
-    4, 'hp_', &
-    5, 'hx_'
+    4, 'hpp', &
+    5, 'hxx'
   else
    open(unit=iu, file='strain.gw',position='append')
    endif
-  write(iu,'(5(es18.10,1X))') time,hp,hx,hp_,hx_
+  write(iu,'(5(es18.10,1X))') time*utime,hp,hx,hpp,hxx
   close(iu)
 
   end subroutine do_analysis
