@@ -76,35 +76,33 @@ module utils_hdf5
  private
 
  interface write_to_hdf5
-  module procedure write_scalar,           & ! real(8)
-                   write_scalarkind4,      & ! real(4)
-                   write_array_1d,         & ! 1d real(8) arrays
-                   write_array_2d,         & ! 2d real(8) arrays
-                   write_array_3d,         & ! 3d real(8) arrays
-                   write_array_1dkind4,    & ! 1d real(4) arrays
-                   write_array_2dkind4,    & ! 2d real(4) arrays
-                   write_scalar_int,       & ! integer(4)
-                   write_scalar_intkind8,  & ! integer(8)
-                   write_intarray_1d,      & ! id integer(4) arrays
-                   write_intarray_1dkind8, & ! id integer(8) arrays
-                   write_intarray_1dkind1, & ! id integer(1) arrays
-                   write_string              ! strings
+  module procedure write_real_kind4,              & ! real(4)
+                   write_real_kind8,              & ! real(8)
+                   write_real_1d_array_kind4,     & ! 1d real(4) arrays
+                   write_real_1d_array_kind8,     & ! 1d real(8) arrays
+                   write_real_2d_array_kind4,     & ! 2d real(4) arrays
+                   write_real_2d_array_kind8,     & ! 2d real(8) arrays
+                   write_real_3d_array_kind4,     & ! 3d real(4) arrays
+                   write_real_3d_array_kind8,     & ! 3d real(8) arrays
+                   write_integer_kind4,           & ! integer(4)
+                   write_integer_1d_array_kind1,  & ! 1d integer(1) arrays
+                   write_integer_1d_array_kind4,  & ! 1d integer(4) arrays
+                   write_string                     ! strings
  end interface write_to_hdf5
 
  interface read_from_hdf5
-  module procedure read_scalar,           & ! real(8)
-                   read_scalarkind4,      & ! real(4)
-                   read_array_1d,         & ! 1d real(8) arrays
-                   read_array_2d,         & ! 2d real(8) arrays
-                   read_array_3d,         & ! 3d real(8) arrays
-                   read_array_1dkind4,    & ! 1d real(4) arrays
-                   read_array_2dkind4,    & ! 2d real(4) arrays
-                   read_scalar_int,       & ! integer(4)
-                   read_scalar_intkind8,  & ! integer(8)
-                   read_intarray_1d,      & ! 1d integer(4) arrays
-                   read_intarray_1dkind8, & ! 1d integer(8) arrays
-                   read_intarray_1dkind1, & ! 1d integer(1) arrays
-                   read_string              ! strings
+  module procedure read_real_kind4,              & ! real(4)
+                   read_real_kind8,              & ! real(8)
+                   read_real_1d_array_kind4,     & ! 1d real(4) arrays
+                   read_real_1d_array_kind8,     & ! 1d real(8) arrays
+                   read_real_2d_array_kind4,     & ! 2d real(4) arrays
+                   read_real_2d_array_kind8,     & ! 2d real(8) arrays
+                   read_real_3d_array_kind4,     & ! 3d real(4) arrays
+                   read_real_3d_array_kind8,     & ! 3d real(8) arrays
+                   read_integer_kind4,           & ! integer(4)
+                   read_integer_1d_array_kind1,  & ! 1d integer(1) arrays
+                   read_integer_1d_array_kind4,  & ! 1d integer(4) arrays
+                   read_string                     ! strings
  end interface read_from_hdf5
 
  interface create_hdf5group
@@ -150,37 +148,7 @@ subroutine close_hdf5file(file_id,error)
  error = maxval(abs(errors))
 end subroutine close_hdf5file
 
-subroutine write_scalar(x,name,id,error)
- real,           intent(in)  :: x
- character(*),   intent(in)  :: name
- integer(HID_T), intent(in)  :: id
- integer,        intent(out) :: error
-
- integer(HSIZE_T), parameter  :: xshape(0) = 0
- integer(HID_T) :: dspace_id
- integer(HID_T) :: dset_id
- integer :: errors(5)
-
- ! Create dataspace
- call h5screate_f(H5S_SCALAR_F,dspace_id,errors(1))
-
- ! Create dataset in file
- call h5dcreate_f(id,name,H5T_NATIVE_DOUBLE,dspace_id,dset_id,errors(2))
-
- ! Write to file
- call h5dwrite_f(dset_id,H5T_NATIVE_DOUBLE,x,xshape,errors(3))
-
- ! Close dataset
- call h5dclose_f(dset_id,errors(4))
-
- ! Closet dataspace
- call h5sclose_f(dspace_id,errors(5))
-
- error = maxval(abs(errors))
-
-end subroutine write_scalar
-
-subroutine write_scalarkind4(x,name,id,error)
+subroutine write_real_kind4(x,name,id,error)
  real(kind=4),   intent(in)  :: x
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
@@ -208,24 +176,21 @@ subroutine write_scalarkind4(x,name,id,error)
 
  error = maxval(abs(errors))
 
-end subroutine write_scalarkind4
+end subroutine write_real_kind4
 
-subroutine write_array_1d(x,name,id,error)
- real,           intent(in)  :: x(:)
+subroutine write_real_kind8(x,name,id,error)
+ real(kind=8),   intent(in)  :: x
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
  integer,        intent(out) :: error
 
- integer, parameter :: ndims = 1
- integer(HSIZE_T)   :: xshape(ndims)
- integer(HID_T)     :: dspace_id
- integer(HID_T)     :: dset_id
+ integer(HSIZE_T), parameter  :: xshape(0) = 0
+ integer(HID_T) :: dspace_id
+ integer(HID_T) :: dset_id
  integer :: errors(5)
 
- xshape = shape(x)
-
  ! Create dataspace
- call h5screate_simple_f(ndims,xshape,dspace_id,errors(1))
+ call h5screate_f(H5S_SCALAR_F,dspace_id,errors(1))
 
  ! Create dataset in file
  call h5dcreate_f(id,name,H5T_NATIVE_DOUBLE,dspace_id,dset_id,errors(2))
@@ -241,9 +206,9 @@ subroutine write_array_1d(x,name,id,error)
 
  error = maxval(abs(errors))
 
-end subroutine write_array_1d
+end subroutine write_real_kind8
 
-subroutine write_array_1dkind4(x,name,id,error)
+subroutine write_real_1d_array_kind4(x,name,id,error)
  real(kind=4),   intent(in)  :: x(:)
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
@@ -274,15 +239,15 @@ subroutine write_array_1dkind4(x,name,id,error)
 
  error = maxval(abs(errors))
 
-end subroutine write_array_1dkind4
+end subroutine write_real_1d_array_kind4
 
-subroutine write_array_2d(x,name,id,error)
- real,           intent(in)  :: x(:,:)
+subroutine write_real_1d_array_kind8(x,name,id,error)
+ real(kind=8),   intent(in)  :: x(:)
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
  integer,        intent(out) :: error
 
- integer, parameter :: ndims = 2
+ integer, parameter :: ndims = 1
  integer(HSIZE_T)   :: xshape(ndims)
  integer(HID_T)     :: dspace_id
  integer(HID_T)     :: dset_id
@@ -307,9 +272,9 @@ subroutine write_array_2d(x,name,id,error)
 
  error = maxval(abs(errors))
 
-end subroutine write_array_2d
+end subroutine write_real_1d_array_kind8
 
-subroutine write_array_2dkind4(x,name,id,error)
+subroutine write_real_2d_array_kind4(x,name,id,error)
  real(kind=4),   intent(in)  :: x(:,:)
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
@@ -340,10 +305,76 @@ subroutine write_array_2dkind4(x,name,id,error)
 
  error = maxval(abs(errors))
 
-end subroutine write_array_2dkind4
+end subroutine write_real_2d_array_kind4
 
-subroutine write_array_3d(x,name,id,error)
- real,           intent(in)  :: x(:,:,:)
+subroutine write_real_2d_array_kind8(x,name,id,error)
+ real(kind=8),   intent(in)  :: x(:,:)
+ character(*),   intent(in)  :: name
+ integer(HID_T), intent(in)  :: id
+ integer,        intent(out) :: error
+
+ integer, parameter :: ndims = 2
+ integer(HSIZE_T)   :: xshape(ndims)
+ integer(HID_T)     :: dspace_id
+ integer(HID_T)     :: dset_id
+ integer :: errors(5)
+
+ xshape = shape(x)
+
+ ! Create dataspace
+ call h5screate_simple_f(ndims,xshape,dspace_id,errors(1))
+
+ ! Create dataset in file
+ call h5dcreate_f(id,name,H5T_NATIVE_DOUBLE,dspace_id,dset_id,errors(2))
+
+ ! Write to file
+ call h5dwrite_f(dset_id,H5T_NATIVE_DOUBLE,x,xshape,errors(3))
+
+ ! Close dataset
+ call h5dclose_f(dset_id,errors(4))
+
+ ! Closet dataspace
+ call h5sclose_f(dspace_id,errors(5))
+
+ error = maxval(abs(errors))
+
+end subroutine write_real_2d_array_kind8
+
+subroutine write_real_3d_array_kind4(x,name,id,error)
+ real(kind=4),   intent(in)  :: x(:,:,:)
+ character(*),   intent(in)  :: name
+ integer(HID_T), intent(in)  :: id
+ integer,        intent(out) :: error
+
+ integer, parameter :: ndims = 3
+ integer(HSIZE_T)   :: xshape(ndims)
+ integer(HID_T)     :: dspace_id
+ integer(HID_T)     :: dset_id
+ integer :: errors(5)
+
+ xshape = shape(x)
+
+ ! Create dataspace
+ call h5screate_simple_f(ndims,xshape,dspace_id,errors(1))
+
+ ! Create dataset in file
+ call h5dcreate_f(id,name,H5T_NATIVE_REAL,dspace_id,dset_id,errors(2))
+
+ ! Write to file
+ call h5dwrite_f(dset_id,H5T_NATIVE_REAL,x,xshape,errors(3))
+
+ ! Close dataset
+ call h5dclose_f(dset_id,errors(4))
+
+ ! Closet dataspace
+ call h5sclose_f(dspace_id,errors(5))
+
+ error = maxval(abs(errors))
+
+end subroutine write_real_3d_array_kind4
+
+subroutine write_real_3d_array_kind8(x,name,id,error)
+ real(kind=8),   intent(in)  :: x(:,:,:)
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
  integer,        intent(out) :: error
@@ -373,40 +404,10 @@ subroutine write_array_3d(x,name,id,error)
 
  error = maxval(abs(errors))
 
-end subroutine write_array_3d
+end subroutine write_real_3d_array_kind8
 
-subroutine write_scalar_int(x,name,id,error)
- integer,        intent(in)  :: x
- character(*),   intent(in)  :: name
- integer(HID_T), intent(in)  :: id
- integer,        intent(out) :: error
-
- integer(HSIZE_T), parameter  :: xshape(0) = 0
- integer(HID_T) :: dspace_id
- integer(HID_T) :: dset_id
- integer :: errors(5)
-
- ! Create dataspace
- call h5screate_f(H5S_SCALAR_F,dspace_id,errors(1))
-
- ! Create dataset in file
- call h5dcreate_f(id,name,H5T_NATIVE_INTEGER,dspace_id,dset_id,errors(2))
-
- ! Write to file
- call h5dwrite_f(dset_id,H5T_NATIVE_INTEGER,x,xshape,errors(3))
-
- ! Close dataset
- call h5dclose_f(dset_id,errors(4))
-
- ! Closet dataspace
- call h5sclose_f(dspace_id,errors(5))
-
- error = maxval(abs(errors))
-
-end subroutine write_scalar_int
-
-subroutine write_scalar_intkind8(x,name,id,error)
- integer(kind=8), intent(in)  :: x
+subroutine write_integer_kind4(x,name,id,error)
+ integer(kind=4), intent(in)  :: x
  character(*),    intent(in)  :: name
  integer(HID_T),  intent(in)  :: id
  integer,         intent(out) :: error
@@ -433,43 +434,10 @@ subroutine write_scalar_intkind8(x,name,id,error)
 
  error = maxval(abs(errors))
 
-end subroutine write_scalar_intkind8
+end subroutine write_integer_kind4
 
-subroutine write_intarray_1d(x,name,id,error)
- integer,        intent(in)  :: x(:)
- character(*),   intent(in)  :: name
- integer(HID_T), intent(in)  :: id
- integer,        intent(out) :: error
-
- integer, parameter :: ndims = 1
- integer(HSIZE_T)   :: xshape(ndims)
- integer(HID_T)     :: dspace_id
- integer(HID_T)     :: dset_id
- integer :: errors(5)
-
- xshape = shape(x)
-
- ! Create dataspace
- call h5screate_simple_f(ndims,xshape,dspace_id,errors(1))
-
- ! Create dataset in file
- call h5dcreate_f(id,name,H5T_NATIVE_INTEGER,dspace_id,dset_id,errors(2))
-
- ! Write to file
- call h5dwrite_f(dset_id,H5T_NATIVE_INTEGER,x,xshape,errors(3))
-
- ! Close dataset
- call h5dclose_f(dset_id,errors(4))
-
- ! Closet dataspace
- call h5sclose_f(dspace_id,errors(5))
-
- error = maxval(abs(errors))
-
-end subroutine write_intarray_1d
-
-subroutine write_intarray_1dkind8(x,name,id,error)
- integer(kind=8), intent(in)  :: x(:)
+subroutine write_integer_1d_array_kind4(x,name,id,error)
+ integer(kind=4), intent(in)  :: x(:)
  character(*),    intent(in)  :: name
  integer(HID_T),  intent(in)  :: id
  integer,         intent(out) :: error
@@ -499,9 +467,9 @@ subroutine write_intarray_1dkind8(x,name,id,error)
 
  error = maxval(abs(errors))
 
-end subroutine write_intarray_1dkind8
+end subroutine write_integer_1d_array_kind4
 
-subroutine write_intarray_1dkind1(x,name,id,error)
+subroutine write_integer_1d_array_kind1(x,name,id,error)
  integer(kind=1), intent(in)  :: x(:)
  character(*),    intent(in)  :: name
  integer(HID_T),  intent(in)  :: id
@@ -532,7 +500,7 @@ subroutine write_intarray_1dkind1(x,name,id,error)
 
  error = maxval(abs(errors))
 
-end subroutine write_intarray_1dkind1
+end subroutine write_integer_1d_array_kind1
 
 subroutine write_string(str,name,id,error)
  character(*),    intent(in), target :: str
@@ -581,37 +549,7 @@ subroutine write_string(str,name,id,error)
 
 end subroutine write_string
 
-subroutine read_scalar(x,name,id,got,error)
- real,           intent(out) :: x
- character(*),   intent(in)  :: name
- integer(HID_T), intent(in)  :: id
- logical,        intent(out) :: got
- integer,        intent(out) :: error
-
- integer(HSIZE_T), parameter  :: xshape(0) = 0
- integer(HID_T) :: dset_id
- integer :: errors(3)
-
- ! Check if dataset exists
- call h5lexists_f(id,name,got,error)
- if (.not.got) return
-
- ! Open dataset
- call h5dopen_f(id,name,dset_id,errors(1))
-
- ! Read dataset
- call h5dread_f(dset_id,H5T_NATIVE_DOUBLE,x,xshape,errors(2))
-
- ! Close dataset
- call h5dclose_f(dset_id,errors(3))
-
- error = maxval(abs(errors))
-
- if (error /= 0) got = .false.
-
-end subroutine read_scalar
-
-subroutine read_scalarkind4(x,name,id,got,error)
+subroutine read_real_kind4(x,name,id,got,error)
  real(kind=4),   intent(out) :: x
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
@@ -639,21 +577,18 @@ subroutine read_scalarkind4(x,name,id,got,error)
 
  if (error /= 0) got = .false.
 
-end subroutine read_scalarkind4
+end subroutine read_real_kind4
 
-subroutine read_array_1d(x,name,id,got,error)
- real,           intent(out) :: x(:)
+subroutine read_real_kind8(x,name,id,got,error)
+ real(kind=8),   intent(out) :: x
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
  logical,        intent(out) :: got
  integer,        intent(out) :: error
 
- integer, parameter :: ndims = 1
- integer(HSIZE_T)   :: xshape(ndims)
- integer(HID_T)     :: dset_id
+ integer(HSIZE_T), parameter  :: xshape(0) = 0
+ integer(HID_T) :: dset_id
  integer :: errors(3)
-
- xshape = shape(x)
 
  ! Check if dataset exists
  call h5lexists_f(id,name,got,error)
@@ -672,9 +607,9 @@ subroutine read_array_1d(x,name,id,got,error)
 
  if (error /= 0) got = .false.
 
-end subroutine read_array_1d
+end subroutine read_real_kind8
 
-subroutine read_array_1dkind4(x,name,id,got,error)
+subroutine read_real_1d_array_kind4(x,name,id,got,error)
  real(kind=4),   intent(out) :: x(:)
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
@@ -705,16 +640,16 @@ subroutine read_array_1dkind4(x,name,id,got,error)
 
  if (error /= 0) got = .false.
 
-end subroutine read_array_1dkind4
+end subroutine read_real_1d_array_kind4
 
-subroutine read_array_2d(x,name,id,got,error)
- real,           intent(out) :: x(:,:)
+subroutine read_real_1d_array_kind8(x,name,id,got,error)
+ real(kind=8),   intent(out) :: x(:)
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
  logical,        intent(out) :: got
  integer,        intent(out) :: error
 
- integer, parameter :: ndims = 2
+ integer, parameter :: ndims = 1
  integer(HSIZE_T)   :: xshape(ndims)
  integer(HID_T)     :: dset_id
  integer :: errors(3)
@@ -738,9 +673,9 @@ subroutine read_array_2d(x,name,id,got,error)
 
  if (error /= 0) got = .false.
 
-end subroutine read_array_2d
+end subroutine read_real_1d_array_kind8
 
-subroutine read_array_2dkind4(x,name,id,got,error)
+subroutine read_real_2d_array_kind4(x,name,id,got,error)
  real(kind=4),   intent(out) :: x(:,:)
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
@@ -771,10 +706,76 @@ subroutine read_array_2dkind4(x,name,id,got,error)
 
  if (error /= 0) got = .false.
 
-end subroutine read_array_2dkind4
+end subroutine read_real_2d_array_kind4
 
-subroutine read_array_3d(x,name,id,got,error)
- real,           intent(out) :: x(:,:,:)
+subroutine read_real_2d_array_kind8(x,name,id,got,error)
+ real(kind=8),   intent(out) :: x(:,:)
+ character(*),   intent(in)  :: name
+ integer(HID_T), intent(in)  :: id
+ logical,        intent(out) :: got
+ integer,        intent(out) :: error
+
+ integer, parameter :: ndims = 2
+ integer(HSIZE_T)   :: xshape(ndims)
+ integer(HID_T)     :: dset_id
+ integer :: errors(3)
+
+ xshape = shape(x)
+
+ ! Check if dataset exists
+ call h5lexists_f(id,name,got,error)
+ if (.not.got) return
+
+ ! Open dataset
+ call h5dopen_f(id,name,dset_id,errors(1))
+
+ ! Read dataset
+ call h5dread_f(dset_id,H5T_NATIVE_DOUBLE,x,xshape,errors(2))
+
+ ! Close dataset
+ call h5dclose_f(dset_id,errors(3))
+
+ error = maxval(abs(errors))
+
+ if (error /= 0) got = .false.
+
+end subroutine read_real_2d_array_kind8
+
+subroutine read_real_3d_array_kind4(x,name,id,got,error)
+ real(kind=4),   intent(out) :: x(:,:,:)
+ character(*),   intent(in)  :: name
+ integer(HID_T), intent(in)  :: id
+ logical,        intent(out) :: got
+ integer,        intent(out) :: error
+
+ integer, parameter :: ndims = 3
+ integer(HSIZE_T)   :: xshape(ndims)
+ integer(HID_T)     :: dset_id
+ integer :: errors(3)
+
+ xshape = shape(x)
+
+ ! Check if dataset exists
+ call h5lexists_f(id,name,got,error)
+ if (.not.got) return
+
+ ! Open dataset
+ call h5dopen_f(id,name,dset_id,errors(1))
+
+ ! Read dataset
+ call h5dread_f(dset_id,H5T_NATIVE_REAL,x,xshape,errors(2))
+
+ ! Close dataset
+ call h5dclose_f(dset_id,errors(3))
+
+ error = maxval(abs(errors))
+
+ if (error /= 0) got = .false.
+
+end subroutine read_real_3d_array_kind4
+
+subroutine read_real_3d_array_kind8(x,name,id,got,error)
+ real(kind=8),   intent(out) :: x(:,:,:)
  character(*),   intent(in)  :: name
  integer(HID_T), intent(in)  :: id
  logical,        intent(out) :: got
@@ -804,40 +805,10 @@ subroutine read_array_3d(x,name,id,got,error)
 
  if (error /= 0) got = .false.
 
-end subroutine read_array_3d
+end subroutine read_real_3d_array_kind8
 
-subroutine read_scalar_int(x,name,id,got,error)
- integer,        intent(out) :: x
- character(*),   intent(in)  :: name
- integer(HID_T), intent(in)  :: id
- logical,        intent(out) :: got
- integer,        intent(out) :: error
-
- integer(HSIZE_T), parameter  :: xshape(0) = 0
- integer(HID_T) :: dset_id
- integer :: errors(3)
-
- ! Check if dataset exists
- call h5lexists_f(id,name,got,error)
- if (.not.got) return
-
- ! Open dataset
- call h5dopen_f(id,name,dset_id,errors(1))
-
- ! Read dataset
- call h5dread_f(dset_id,H5T_NATIVE_INTEGER,x,xshape,errors(2))
-
- ! Close dataset
- call h5dclose_f(dset_id,errors(3))
-
- error = maxval(abs(errors))
-
- if (error /= 0) got = .false.
-
-end subroutine read_scalar_int
-
-subroutine read_scalar_intkind8(x,name,id,got,error)
- integer(kind=8), intent(out) :: x
+subroutine read_integer_kind4(x,name,id,got,error)
+ integer(kind=4), intent(out) :: x
  character(*),    intent(in)  :: name
  integer(HID_T),  intent(in)  :: id
  logical,         intent(out) :: got
@@ -864,75 +835,9 @@ subroutine read_scalar_intkind8(x,name,id,got,error)
 
  if (error /= 0) got = .false.
 
-end subroutine read_scalar_intkind8
+end subroutine read_integer_kind4
 
-subroutine read_intarray_1d(x,name,id,got,error)
- integer,        intent(out) :: x(:)
- character(*),   intent(in)  :: name
- integer(HID_T), intent(in)  :: id
- logical,        intent(out) :: got
- integer,        intent(out) :: error
-
- integer, parameter :: ndims = 1
- integer(HSIZE_T)   :: xshape(ndims)
- integer(HID_T)     :: dset_id
- integer :: errors(3)
-
- xshape = shape(x)
-
- ! Check if dataset exists
- call h5lexists_f(id,name,got,error)
- if (.not.got) return
-
- ! Open dataset
- call h5dopen_f(id,name,dset_id,errors(1))
-
- ! Read dataset
- call h5dread_f(dset_id,H5T_NATIVE_INTEGER,x,xshape,errors(2))
-
- ! Close dataset
- call h5dclose_f(dset_id,errors(3))
-
- error = maxval(abs(errors))
-
- if (error /= 0) got = .false.
-
-end subroutine read_intarray_1d
-
-subroutine read_intarray_1dkind8(x,name,id,got,error)
- integer(kind=8), intent(out) :: x(:)
- character(*),    intent(in)  :: name
- integer(HID_T),  intent(in)  :: id
- logical,         intent(out) :: got
- integer,         intent(out) :: error
-
- integer, parameter :: ndims = 1
- integer(HSIZE_T)   :: xshape(ndims)
- integer(HID_T)     :: dset_id
- integer :: errors(3)
-
- xshape = shape(x)
-
- ! Check if dataset exists
- call h5lexists_f(id,name,got,error)
- if (.not.got) return
-
- ! Open dataset
- call h5dopen_f(id,name,dset_id,errors(1))
-
- ! Read dataset
- call h5dread_f(dset_id,H5T_NATIVE_INTEGER,x,xshape,errors(2))
-
- ! Close dataset
- call h5dclose_f(dset_id,errors(3))
-
- error = maxval(abs(errors))
-
- if (error /= 0) got = .false.
-
-end subroutine read_intarray_1dkind8
-
-subroutine read_intarray_1dkind1(x,name,id,got,error)
+subroutine read_integer_1d_array_kind1(x,name,id,got,error)
  integer(kind=1), intent(out) :: x(:)
  character(*),    intent(in)  :: name
  integer(HID_T),  intent(in)  :: id
@@ -963,7 +868,40 @@ subroutine read_intarray_1dkind1(x,name,id,got,error)
 
  if (error /= 0) got = .false.
 
-end subroutine read_intarray_1dkind1
+end subroutine read_integer_1d_array_kind1
+
+subroutine read_integer_1d_array_kind4(x,name,id,got,error)
+ integer(kind=4), intent(out) :: x(:)
+ character(*),    intent(in)  :: name
+ integer(HID_T),  intent(in)  :: id
+ logical,         intent(out) :: got
+ integer,         intent(out) :: error
+
+ integer, parameter :: ndims = 1
+ integer(HSIZE_T)   :: xshape(ndims)
+ integer(HID_T)     :: dset_id
+ integer :: errors(3)
+
+ xshape = shape(x)
+
+ ! Check if dataset exists
+ call h5lexists_f(id,name,got,error)
+ if (.not.got) return
+
+ ! Open dataset
+ call h5dopen_f(id,name,dset_id,errors(1))
+
+ ! Read dataset
+ call h5dread_f(dset_id,H5T_NATIVE_INTEGER,x,xshape,errors(2))
+
+ ! Close dataset
+ call h5dclose_f(dset_id,errors(3))
+
+ error = maxval(abs(errors))
+
+ if (error /= 0) got = .false.
+
+end subroutine read_integer_1d_array_kind4
 
 subroutine read_string(str,name,id,got,error)
  character(*),   intent(out) :: str

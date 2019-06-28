@@ -23,9 +23,8 @@
 !    energies, eos, evwrite, externalforces, fastmath, fileutils, forcing,
 !    growth, h2cooling, initial_params, inject, io, io_summary, linklist,
 !    mf_write, mpi, mpiutils, nicil, nicil_sup, omputils, options, part,
-!    photoevap, ptmass, readwrite_dumps, readwrite_infile, setup,
-!    sort_particles, timestep, timestep_ind, timestep_sts, timing, units,
-!    writeheader
+!    photoevap, ptmass, readwrite_dumps, readwrite_infile, sort_particles,
+!    timestep, timestep_ind, timestep_sts, timing, units, writeheader
 !+
 !--------------------------------------------------------------------------
 module initial
@@ -203,7 +202,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use cpuinfo,          only:print_cpuinfo
  use units,            only:unit_density
  use centreofmass,     only:get_centreofmass
- use energies,         only:etot,angtot,totmom,mdust,xyzcom
+ use energies,         only:etot,angtot,totmom,mdust,xyzcom,mtot
  use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use fileutils,        only:make_tags_unique
  character(len=*), intent(in)  :: infile
@@ -212,8 +211,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  integer(kind=8) :: npartoftypetot(maxtypes)
  real            :: poti,dtf,hfactfile,fextv(3)
  real            :: hi,pmassi,rhoi1
- real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dummy(3),dtinject
- real            :: stressmax
+ real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject
+ real            :: stressmax,xmin,ymin,zmin,xmax,ymax,zmax,dx,dy,dz,tolu,toll
+ real            :: dummy(3)
 #ifdef NONIDEALMHD
  real            :: gmw_old,gmw_new
 #endif
@@ -561,6 +561,46 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  call binpos_write(time, dt)
 #endif
 !
+!--Determine the maximum separation of particles
+ xmax = -huge(xmax)
+ ymax = -huge(ymax)
+ zmax = -huge(zmax)
+ xmin =  huge(xmin)
+ ymin =  huge(ymin)
+ zmin =  huge(zmin)
+ !$omp parallel do default(none) &
+ !$omp shared(npart,xyzh) &
+ !$omp private(i) &
+ !$omp reduction(min:xmin,ymin,zmin) &
+ !$omp reduction(max:xmax,ymax,zmax)
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       xmin = min(xmin,xyzh(1,i))
+       ymin = min(ymin,xyzh(2,i))
+       zmin = min(zmin,xyzh(3,i))
+       xmax = max(xmax,xyzh(1,i))
+       ymax = max(ymax,xyzh(2,i))
+       zmax = max(zmax,xyzh(3,i))
+    endif
+ enddo
+ !$omp end parallel do
+ dx = abs(xmax - xmin)
+ dy = abs(ymax - ymin)
+ dz = abs(zmax - zmin)
+!
+!--Print box sizes and masses
+!
+ if (get_conserv > 0.0) then
+    write(iprint,'(1x,a)') 'Initial mass and box size (in code units):'
+ else
+    write(iprint,'(1x,a)') 'Mass and box size (in code units) of this restart:'
+ endif
+ write(iprint,'(2x,a,es18.6)') 'Total mass: ', mtot
+ write(iprint,'(2x,a,es18.6)') 'x-Box size: ', dx
+ write(iprint,'(2x,a,es18.6)') 'y-Box size: ', dy
+ write(iprint,'(2x,a,es18.6)') 'z-Box size: ', dz
+ write(iprint,'(a)') ' '
+!
 !--Set initial values for continual verification of conservation laws
 !  get_conserve=0.5: update centre of mass only; get_conserve=1: update all; get_conserve=-1: update none
 !
@@ -569,22 +609,32 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     angtot_in = angtot
     totmom_in = totmom
     mdust_in  = mdust
-    get_conserv = -1.
-    write(iprint,'(1x,a)') 'Setting initial values to verify conservation laws:'
+    write(iprint,'(1x,a)') 'Setting initial values (in code units) to verify conservation laws:'
  else
-    write(iprint,'(1x,a)') 'Reading initial values to verify conservation laws from previous run:'
+    write(iprint,'(1x,a)') 'Reading initial values (in code units) to verify conservation laws from previous run:'
  endif
- write(iprint,'(2x,a,es18.6)')   'Initial total energy:     ', etot_in
- write(iprint,'(2x,a,es18.6)')   'Initial angular momentum: ', angtot_in
- write(iprint,'(2x,a,es18.6)')   'Initial linear momentum:  ', totmom_in
+ write(iprint,'(2x,a,es18.6)') 'Initial total energy:     ', etot_in
+ write(iprint,'(2x,a,es18.6)') 'Initial angular momentum: ', angtot_in
+ write(iprint,'(2x,a,es18.6)') 'Initial linear momentum:  ', totmom_in
 #ifdef DUST
  dust_label = 'dust'
  call make_tags_unique(ndusttypes,dust_label)
  do i=1,ndusttypes
     write(iprint,'(2x,a,es18.6)') 'Initial '//trim(dust_label(i))//' mass:     ',mdust_in(i)
  enddo
- write(iprint,'(2x,a,es18.6)')   'Initial total dust mass:  ', sum(mdust_in(:))
+ write(iprint,'(2x,a,es18.6)') 'Initial total dust mass:  ', sum(mdust_in(:))
 #endif
+!
+!--Print warnings of units if values are not reasonable
+ tolu = 1.0d2
+ toll = 1.0d-2
+ if (get_conserv > 0.0) then
+    get_conserv = -1.
+    if (abs(etot_in) > tolu ) call warning('initial','consider changing code-units to reduce abs(total energy)')
+    if (mtot > tolu .or. mtot < toll) call warning('initial','consider changing code-units to have total mass closer to unity')
+    if (dx > tolu .or. dx < toll .or. dy > tolu .or. dy < toll .or. dz > tolu .or. dz < toll) &
+    call warning('initial','consider changing code-units to have box length closer to unity')
+ endif
 !
 !--write initial conditions to output file
 !  if the input file ends in .tmp or .init
