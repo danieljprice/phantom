@@ -110,6 +110,13 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #ifdef DUSTGROWTH
  use growth,                only:check_dustprop
 #endif
+! #ifdef LIVE_ANALYSIS
+!  use io,              only:ianalysis
+!  use part,            only:ithick
+!  use fileutils,       only:numfromfile
+!  use analysis,        only:do_analysis
+!  use radiation_utils, only:set_radfluxesandregions
+! #endif
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
  real,    intent(in)    :: t,dtsph
@@ -471,7 +478,15 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call check_velocity_error(errmax,v2mean,np,its,tolv,dtsph,timei,idamp,dterr,errmaxmean,converged)
 
     if (.not.converged .and. npart > 0) then
-       !$omp parallel do private(i) schedule(static)
+!$omp parallel do default(none)&
+!$omp private(i) &
+!$omp shared(npart,hdtsph)&
+!$omp shared(store_itype,vxyzu,fxyzu,vpred,iphase) &
+!$omp shared(Bevol,dBevol,Bpred) &
+!$omp shared(dustprop,ddustprop,dustproppred,use_dustfrac,dustevol,dustpred,ddustevol) &
+!$omp shared(radiation) &
+!$omp firstprivate(itype) &
+!$omp schedule(static)
        do i=1,npart
           if (store_itype) itype = iamtype(iphase(i))
 #ifdef IND_TIMESTEPS
@@ -488,9 +503,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (mhd)          Bpred(:,i)  = Bevol(:,i)
           if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
           if (do_radiation) radiation(ixipred,i) = radiation(iradxi,i)
-!
-! shift v back to the half step
-!
+          !
+          ! shift v back to the half step
+          !
           vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
           if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
           if (itype==igas) then
@@ -503,7 +518,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
 #endif
        enddo
-       !$omp end parallel do
+!$omp end parallel do
 
 #ifdef DUSTGROWTH
        call check_dustprop(npart,dustprop(1,:)) !--check minimum size in case of fragmentation
@@ -512,7 +527,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !
 !   get new force using updated velocity: no need to recalculate density etc.
 !
-       call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
+       call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
                      Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustevol,&
                      temperature,timei,dtsph,dtnew)
     endif
@@ -524,6 +539,20 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call summary_printout(iprint,nptmass)
     call fatal('step','VELOCITY ITERATIONS NOT CONVERGED!!')
  endif
+
+! #ifdef LIVE_ANALYSIS
+!  if ((id==master).and.(do_radiation).and.(dtnew < 1e-10)) then
+!     call set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
+!     write(iprint,"(/,a,f6.2,'%')") &
+!        ' -}+{- RADIATION particles done by SPH = ',&
+!        100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
+!     call do_analysis('run_00000',numfromfile('run_00000'),xyzh,vxyzu, &
+!                      massoftype(igas),npart,timei,ianalysis)
+!     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
+!                   Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustevol,&
+!                   temperature,timei,dtsph,dtnew)
+!  endif
+! #endif
 
  return
 end subroutine step

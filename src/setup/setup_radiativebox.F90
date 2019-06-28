@@ -51,7 +51,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,          only:rhoh,igas,radiation,ithick,iradxi,ikappa
  use eos,           only:gmw
  use kernel,        only:hfact_default
- use timestep,      only:dtmax,tmax
+ use timestep,      only:dtmax,tmax,C_rad
  use options,       only:nfulldump
 
  integer,           intent(in)    :: id
@@ -70,8 +70,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: i,ierr
  logical :: iexist
 
- real :: a,c_code,cv1,kappa_code,pmassi,rho0,steboltz_code,Tref,xi0
- real :: rhoi,etot
+ real :: a,c_code,cv1,kappa_code,pmassi,steboltz_code,Tref,xi0
+ real :: rhoi,h0,rho0
 
  filename=trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
@@ -133,24 +133,44 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  Tref = 100
 
- ! rho0 = rhoh(xyzh(4,1),pmassi)
  ! xi0 = a*Tref**4.0/rho0
  !
  select case(iradtype)
  case(1)
 
  case(2)
-   dtmax = 1e12/utime
+   h0   = xyzh(4,1)
+   rho0 = rhoh(h0,pmassi)
+   kappa_code = 1.0/(udist**2/umass)
+
+   dtmax = C_rad*h0*h0*rho0*kappa_code/c_code*25
    tmax  = 10*dtmax
    nfulldump = 1
+
    radiation(ithick,:) = 1.
-   kappa_code = 1.0/(udist**2/umass)
    do i=1,npart
       rhoi = rhoh(xyzh(4,1),pmassi)
       vxyzu(4,i) = (Tref/cv1)/(unit_ergg)
       xi0 = a*Tref**4.0/rhoi
       radiation(ikappa,i) = kappa_code
       radiation(iradxi,i) = xi0*(1 + 1e-1*sin(xyzh(1,i)*2*pi/(xmax-xmin)))
+   enddo
+ case(3)
+   h0   = xyzh(4,1)
+   rho0 = rhoh(h0,pmassi)
+   kappa_code = 1.0/(udist**2/umass)
+
+   dtmax = C_rad*h0*h0*rho0*kappa_code/c_code/5
+   tmax  = 200*dtmax
+   nfulldump = 1
+
+   radiation(ithick,:) = 1.
+   do i=1,npart
+      rhoi = rhoh(xyzh(4,1),pmassi)
+      vxyzu(4,i) = (Tref/cv1)/(unit_ergg)
+      xi0 = a*Tref**4.0/rhoi
+      radiation(ikappa,i) = kappa_code
+      radiation(iradxi,i) = xi0*exp(-500.*xyzh(1,i)**2)
    enddo
  case default
     call fatal('setup_radiativebox', 'radiation setup is not available')
@@ -184,13 +204,13 @@ subroutine setup_setdefaults(&
  zmini = zmin
  zmaxi = zmax
 
- npartx = 64
- rhozero = 1e4
+ npartx = 32
+ rhozero = 1.
  gamma = 5./3.
  cs0 = 1.
  polyk = 0.
- ilattice = 1
- iradtype = 2
+ ilattice = 2
+ iradtype = 3
  exchange_radiation_energy = .false.
  limit_radiation_flux = .false.
 

@@ -477,6 +477,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
        stack_waiting%cells(cell%waiting_index) = cell
     else
 #endif
+
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
                              divBsymm,divcurlv,dBevol,ddustevol,deltav, &
                              dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
@@ -753,8 +754,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     if ( dthall < dtcourant ) call summary_variable('dt',iosumdth,0,0.0)
     if ( dtohm  < dtcourant ) call summary_variable('dt',iosumdto,0,0.0)
     if ( dtambi < dtcourant ) call summary_variable('dt',iosumdta,0,0.0)
-    dtrad    = reduceall_mpi('min',dtrad)
-    if ( dtrad  < dtcourant ) call summary_variable('dt',iosumdtr,0,0.0)
 
     minglobdt = min(dtvisc,dtohm,dthall,dtambi,dtrad)
 
@@ -772,9 +771,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
        else if (abs(dtcourant-dtambi) < tiny(dtcourant) ) then
           if (iverbose >= 1 .and. id==master) call warning('force','ambipolar diffusion constraining Courant timestep')
           call summary_variable('dt',iosumdta,0,0.0,0.0, .true. )
-       else if (abs(dtcourant-dtrad) < tiny(dtcourant) ) then
-          if (iverbose >= 1 .and. id==master) call warning('force','radiation diffusion constraining Courant timestep')
-          call summary_variable('dt',iosumdtr,0,0.0,0.0, .true. )
        endif
     endif
  else
@@ -784,6 +780,18 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
        call summary_variable('dt',iosumdtv,0,0.0,0.0, .true. )
     endif
  endif
+
+ if (do_radiation) then
+    dtrad = reduceall_mpi('min',dtrad)
+    if (dtrad < dtcourant) then
+       call summary_variable('dt',iosumdtr,0,0.0)
+       dtcourant = dtrad
+       if (iverbose >= 1 .and. id==master) &
+          call warning('force','radiation is constraining Courant timestep')
+       call summary_variable('dt',iosumdtr,0,0.0,0.0,.true.)
+    endif
+ endif
+
  if ( dtforce < dtcourant ) call summary_variable('dt',iosumdtf,0,0.0,0.0, .true. )
 #endif
 
@@ -1507,17 +1515,16 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 radDFWj = pmassj*radDj*grkernj*rho21j &
                           *(radFj(1)*runix + radFj(2)*runiy + radFj(3)*runiz)
              endif
-
              radFi(1:3) = xpartveci(iradfxi:iradfzi)
              radkappai = xpartveci(iradkappai)
              radeni = xpartveci(iradxii)
-             ! radlambdai = xpartveci(iradlambdai)
-             radlambdai = 1./3.
+             radlambdai = xpartveci(iradlambdai)
 
              radDi = c_code*radlambdai/radkappai/rhoi
 
              ! TWO FIRST DERIVATES !
-             radDFWi = pmassj*radDi*grkerni*rho21i*(radFi(1)*runix + radFi(2)*runiy + radFi(3)*runiz)
+             radDFWi = pmassj*radDi*grkerni*rho21i*&
+                (radFi(1)*runix + radFi(2)*runiy + radFi(3)*runiz)
 
              fsum(idradi) = fsum(idradi) + (radDFWi + radDFWj)
              ! BROOKSHAW !
@@ -1525,6 +1532,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              !                                ((4*radDi*radDj)/(radDi+radDj))*&
              !                                (rhoi*radeni-rhoj*radenj)*grkerni*rij1
           endif
+
 #ifdef DUST
           if (use_dustfrac) then
              tsj = 0.
@@ -2122,16 +2130,19 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           cell%xpartvec(itstop:itstopend,cell%npcell) = tstopi
        endif
 #endif
+
        if (do_radiation) then
           radRi = sqrt(dot_product(radiation(ifluxx:ifluxz,i),radiation(ifluxx:ifluxz,i)))&
                    /(radiation(ikappa,i)*rhoi*rhoi*radiation(iradxi,i))
           cell%xpartvec(iradxii,cell%npcell)         = radiation(iradxi,i)
           cell%xpartvec(iradfxi:iradfzi,cell%npcell) = radiation(ifluxx:ifluxz,i)
           cell%xpartvec(iradkappai,cell%npcell)      = radiation(ikappa,i)
-          cell%xpartvec(iradlambdai,cell%npcell)     = &
-             (2. + radRi)/(6. + 3*radRi + radRi*radRi)
+          ! cell%xpartvec(iradlambdai,cell%npcell)     = &
+          !    (2. + radRi)/(6. + 3*radRi + radRi*radRi)
+          cell%xpartvec(iradlambdai,cell%npcell)     = 1./3.
           cell%xpartvec(iradrbigi,cell%npcell)       = radRi
        endif
+
     endif
     if (mhd_nonideal) then
        cell%xpartvec(ietaohmi,cell%npcell)        = eta_nimhd(iohm,i)
@@ -2300,8 +2311,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth
  use eos,            only:use_entropy,gamma
  use options, only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating,use_dustfrac
- use part,           only:h2chemistry,rhoanddhdrho,abundance,iboundary,igas,maxphase,maxvxyzu,nabundances, &
-                          massoftype,get_partinfo,tstop,strain_from_dvdx
+ use part,           only:h2chemistry,rhoanddhdrho,abundance,iboundary,&
+                          igas,maxphase,maxvxyzu,nabundances,&
+                          massoftype,get_partinfo,tstop,strain_from_dvdx,&
+                          ithick,idtrad
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
  use timestep_ind,   only:get_newbin
@@ -2747,32 +2760,50 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
 
     if (do_radiation.and.iamgasi) then
-       radiation(idflux,i) = fsum(idradi)
-       c_code        = c/unit_velocity
-       radkappai     = xpartveci(iradkappai)
-       radlambdai    = xpartveci(iradlambdai)
-       ! radri         = xpartveci(iradri)
+       if (radiation(ithick,i) > 0.5) then
+          radiation(idflux,i) = fsum(idradi)
+          c_code        = c/unit_velocity
+          radkappai     = xpartveci(iradkappai)
+          radlambdai    = xpartveci(iradlambdai)
+          ! radri         = xpartveci(iradri)
 
-       ! eq30 Whitehouse & Bate 2004
-       dtradi = C_rad*hi*hi*rhoi*radkappai/c_code/radlambdai
-
-       ! horrible hack to ensure that the rad energy is positive after the integration
-       if ((radiation(iradxi,i) + dtradi*radiation(idflux,i)) < 0) then
-          ! print*, radiation(iradxi,i), radiation(idflux,i), dtradi,&
-          !   radiation(iradxi,i) + dtradi*radiation(idflux,i), -radiation(iradxi,i)/radiation(idflux,i)
-          dtradi = -radiation(iradxi,i)/radiation(idflux,i)/1e4
-          ! call warning('force','radiation may become negative',i)
-          ! print*, radiation(iradxi,i), radiation(idflux,i), dtradi,&
-          !   radiation(iradxi,i) + dtradi*radiation(idflux,i)
-          ! read*
+          ! eq30 Whitehouse & Bate 2004
+          dtradi = C_rad*hi*hi*rhoi*radkappai/c_code/radlambdai
+          ! if (i==11109) then
+          !   print*, 'Debugging is here', i
+          !   print*, C_rad,hi,rhoi,radkappai,c_code,radlambdai
+          !   print*, dtradi
+          !   print*, radkappai
+          !   print*, radiation(iradxi,i), radiation(idflux,i)
+          !   print*, radiation(iradxi,i) + dtradi*radiation(idflux,i)
+          ! endif
+          ! horrible hack to ensure that the rad energy is positive after the integration
+          if ((radiation(iradxi,i) + dtradi*radiation(idflux,i)) < 0) then
+             ! print*, radiation(iradxi,i), radiation(idflux,i), dtradi,&
+             !   radiation(iradxi,i) + dtradi*radiation(idflux,i), -radiation(iradxi,i)/radiation(idflux,i)
+             dtradi = -radiation(iradxi,i)/radiation(idflux,i)/1e1
+             call warning('force','radiation may become negative, limiting timestep')
+             ! print*, radiation(iradxi,i), radiation(idflux,i), dtradi,&
+             !   radiation(iradxi,i) + dtradi*radiation(idflux,i)
+             ! read*
+          endif
+          radiation(idtrad,i) = dtradi
+          ! if (i==11109) then
+          !   print*, dtradi
+          !   print*, radiation(iradxi,i) + dtradi*radiation(idflux,i)
+          !   read*
+          ! endif
+         ! else
+         !    radiation(idflux,i) = 0
+         !    dtradi = bignumber
+         ! endif
+       else
+          radiation(idflux,i) = 0.
+          dtradi = bignumber
        endif
-       ! rad pressure term
-       ! eq31 Whitehouse & Bate 2004
-       ! C_rad/edfacti/rhoi/xii/divvi
     else
        dtradi = bignumber
     endif
-
 
 #ifdef IND_TIMESTEPS
     !-- The new timestep for particle i
@@ -2833,8 +2864,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
     dtmini = min(dtmini,dti)
     dtmaxi = max(dtmaxi,dti)
-    dtrad = min(dtrad,dtradi)
-
+    dtrad  = min(dtrad,dtradi)
 #endif
  enddo over_parts
 end subroutine finish_cell_and_store_results

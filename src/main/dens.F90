@@ -833,6 +833,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                 rhosum(iradfyi) = rhosum(iradfyi) + dradenij*runiy
                 rhosum(iradfzi) = rhosum(iradfzi) + dradenij*runiz
              endif
+
           endif
        elseif (use_dust .and. (iamgasi  .and. iamdustj)) then
           iloc = irhodusti + iamtypej - idust
@@ -1809,11 +1810,14 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
     endif
 
     if (do_radiation.and.iamgasi) then
-        ! if (radiation(ithick,lli) > 0.5) then
-           radiation(ifluxx:ifluxz,lli) = &
-              cell%rhosums(iradfxi:iradfzi,i)*term
-        ! endif
+       ! if (radiation(ithick,i) > 0.5) then
+        radiation(ifluxx:ifluxz,lli) = &
+        cell%rhosums(iradfxi:iradfzi,i)*term
+       ! else
+       !    radiation(ifluxx:ifluxz,lli) = 0.
+       ! endif
     endif
+
     ! stats
     nneightry = nneightry + cell%nneightry
     nneighact = nneighact + cell%nneigh(i)

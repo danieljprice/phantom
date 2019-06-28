@@ -249,22 +249,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  call reset_timer(timer_link,'link')
 
  call flush(iprint)
-#ifdef LIVE_ANALYSIS
- if (id==master) then
-   if(do_radiation) then
-      if (time == 0.) then
-         radiation(ithick,:) = 0.
-      else
-         call set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
-      endif
-      write(iprint,"(/,a,f6.2,'%')") &
-         ' RADIATION particles done by SPH = ',&
-         100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
-    endif
-    call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
-                     massoftype(igas),npart,time,ianalysis)
- endif
-#endif
 !
 ! --------------------- main loop ----------------------------------------
 !
@@ -329,6 +313,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                           poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
     endif
+
     if (do_radiation.and.exchange_radiation_energy) then
        call update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,0.5*dt)
     endif
@@ -345,7 +330,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     endif
 
     if (do_radiation.and.exchange_radiation_energy) then
-       call update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,0.5*dt)
+       call update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,0.5*dtnew)
     endif
 
     dtlast = dt
@@ -591,18 +576,18 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        call increment_timer(timer_io,t2-t1,tcpu2-tcpu1)
        timer_io%cpu   = reduce_mpi('+',timer_io%cpu)
 
-#ifdef LIVE_ANALYSIS
-       if (id==master) then
-          if(do_radiation) then
-             call set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
-             write(iprint,"(/,a,f6.2,'%')") &
-                ' RADIATION particles done by SPH = ',&
-                100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
-          endif
-          call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
-                           massoftype(igas),npart,time,ianalysis)
-       endif
-#endif
+! #ifdef LIVE_ANALYSIS
+!        if (id==master) then
+!           if (do_radiation) then
+!              call set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
+!              write(iprint,"(/,a,f6.2,'%')") &
+!                 ' -}+{- RADIATION particles done by SPH = ',&
+!                 100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
+!           endif
+!           call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
+!                            massoftype(igas),npart,time,ianalysis)
+!        endif
+! #endif
 
        if (id==master) then
           call print_timinginfo(iprint,nsteps,nsteplast,timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&

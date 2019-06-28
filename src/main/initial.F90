@@ -194,6 +194,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
  use inject,           only:init_inject,inject_particles
 #endif
+#ifdef LIVE_ANALYSIS
+ use analysis,         only:do_analysis
+ use part,             only:igas
+ use fileutils,        only:numfromfile
+ use io,               only:ianalysis
+ use radiation_utils,  only:set_radfluxesandregions
+#endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:gamma,polyk,ieos,init_eos
  use part,             only:hfact,h2chemistry
@@ -521,6 +528,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  nderivinit    = 1
  ! call derivs twice with Cullen-Dehnen switch to update accelerations
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
+ if (do_radiation) nderivinit = 1
+
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                               Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtnew_first)
@@ -541,7 +550,29 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
           endif
        enddo
     endif
+#ifdef LIVE_ANALYSIS
+    if(do_radiation) then
+       if (time == 0) then
+          radiation(ithick,:) = 0.
+       else
+          call set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
+       endif
+       write(iprint,"(/,a,f6.2,'%')") &
+          ' -}+{- RADIATION particles done by SPH = ',&
+          100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
+       call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
+                        massoftype(igas),npart,time,ianalysis)
+       call set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
+       write(iprint,"(/,a,f6.2,'%')") &
+          ' -}+{- RADIATION particles done by SPH = ',&
+          100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
+       call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,&
+                   0.,dtnew_first)
+     endif
+#endif
  enddo
+
  if (nalpha >= 2) then
     ialphaloc = 2
     !$omp parallel do private(i)

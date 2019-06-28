@@ -997,7 +997,7 @@ ifeq ($(SETUP), radiativebox)
     ISOTHERMAL=no
     KNOWN_SETUP=yes
     RADIATION=yes
-    IND_TIMESTEPS=yes
+    IND_TIMESTEPS=no
     PERIODIC=yes
 endif
 

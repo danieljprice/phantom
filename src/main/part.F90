@@ -160,10 +160,11 @@ module part
                        ikappa = 6, &
                        ithick = 7, &
                        ixipred= 8, &
-                       maxirad= 8
+                       idtrad = 9, &
+                       maxirad= 9
  real, allocatable :: radiation(:,:)
  character(len=*), parameter :: radenergy_label(maxirad) = &
-    (/'xi   ','radFx','radFy','radFz','dradF','radK ','thick','pxi  '/)
+    (/'xi   ','radFx','radFy','radFz','dradF','radK ','thick','pxi  ', 'dtrad'/)
 !
 !--lightcurves
 !

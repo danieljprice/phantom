@@ -519,10 +519,6 @@ print*, "write_fulldump"
 #endif
        if (do_radiation) then
           call write_array(1,radiation,radenergy_label,maxirad,npart,k,ipass,idump,nums,ierrs(21))
-          ! call write_array(1,radiation(ikappa,:),&
-          !                    radenergy_label(ikappa),npart,k,ipass,idump,nums,ierrs(22))
-          ! call write_array(1,radiation(ifluxx:ifluxz,:),&
-          !                    radenergy_label(ifluxx:ifluxz),3,npart,k,ipass,idump,nums,ierrs(23))
       endif
        if (any(ierrs(1:23) /= 0)) call error('write_dump','error writing hydro arrays')
     enddo
@@ -689,10 +685,6 @@ subroutine write_smalldump(t,dumpfile)
     endif
     if (do_radiation) then
        call write_array(1,radiation,radenergy_label,maxirad,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-       ! call write_array(1,radiation(ikappa,:),&
-       !                    radenergy_label(ikappa),npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-       ! call write_array(1,radiation(ifluxx:ifluxz,:),&
-       !                    radenergy_label(ifluxx:ifluxz),3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
     endif
     !
     !--Block 4 (MHD)
@@ -1326,10 +1318,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #endif
              if (do_radiation) then
                 call read_array(radiation,radenergy_label,got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-!                call read_array(radiation(ikappa,:),&
-!                                radenergy_label(ikappa),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-!                call read_array(radiation(ifluxx,:),&
-!                                radenergy_label(ifluxx),got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
           case(2)
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
