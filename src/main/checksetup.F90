@@ -42,8 +42,7 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth, &
-                use_krome
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,&
@@ -88,12 +87,14 @@ subroutine check_setup(nerror,nwarn,restart)
     print*,'Error in setup: sum(npartoftype) > maxp ',sum(npartoftype(:))
     nerror = nerror + 1
  endif
- if (use_krome) then
-    print*, 'KROME COMPILED. Setup gamma value is only initial gamma at t=0.'
- else if (gamma <= 0.) then
+#ifdef KROME
+ print*, 'KROME setup. gamma is recomputed, the current value is only for t=0.'
+#else
+ if (gamma <= 0.) then
     print*,'WARNING! Error in setup: gamma not set (should be set > 0 even if not used)'
     nwarn = nwarn + 1
  endif
+#endif
  if (hfact < 1.) then
     print*,'Error in setup: hfact = ',hfact,', should be >= 1'
     nerror = nerror + 1
@@ -102,12 +103,14 @@ subroutine check_setup(nerror,nwarn,restart)
     print*,'Error in setup: polyk = ',polyk,', should be >= 0'
     nerror = nerror + 1
  endif
- if (use_krome) then
-    print*, 'KROME COMPILED. Only eos=16 makes sense.'
- else if (polyk < tiny(0.) .and. ieos /= 2) then
+#ifdef KROME
+ print*, 'KROME setup. Only eos=16 makes sense.'
+#else
+ if (polyk < tiny(0.) .and. ieos /= 2) then
     print*,'WARNING! polyk = ',polyk,' in setup, speed of sound will be zero in equation of state'
     nwarn = nwarn + 1
  endif
+#endif
  if (npart < 0) then
     print*,'Error in setup: npart = ',npart,', should be >= 0'
     nerror = nerror + 1

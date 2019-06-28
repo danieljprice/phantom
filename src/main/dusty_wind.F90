@@ -11,7 +11,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Lionel
+!  OWNER: Lionel Siess
 !
 !  $Id$
 !
@@ -24,12 +24,11 @@
 
 module dusty_wind
  implicit none
- public :: init_dustywind
+ public :: setup_dustywind
  public :: get_initial_wind_speed!, profile_findr0
- public :: calc_alpha, wind_state, dusty_wind_profile
-#ifdef NUCLEATION
+ public :: wind_state, dusty_wind_profile
  public :: evolve_gail
-#endif
+
  private
 
 ! Shared variables
@@ -42,12 +41,12 @@ module dusty_wind
  real :: Mstar_cgs, Lstar_cgs, Tstar, Rstar_cgs, wind_gamma, expT, Mdot_cgs
  real :: Cprime, u_to_temperature_ratio, wind_alpha
  integer :: wind_type ! 2 = temperature law, 3 = adiabatic polytrope, 4 = polytrope with Bowen's cooling
- logical :: gas_opacity,calc_dust
+ logical :: gas_opacity
 
 ! State of the wind
  type wind_state
     real :: dt, t, r, v, a, Tg, Jstar, K(0:3), time_end
-    real :: mu, S, alpha, kappa_ross, kappa_planck, rho, p
+    real :: mu, gamma, S, alpha, kappa_ross, kappa_planck, rho, p
     real :: c, tau_lucy, dalpha_dr, r_old, Q, dQ_dr
     !real :: Q_H0, Q_relax_Bowen, Q_col_dust, Q_relax_Stefan
     integer :: spcode, nsteps
@@ -55,19 +54,23 @@ module dusty_wind
  end type wind_state
 contains
 
-subroutine init_dustywind(Mstar_in, Lstar_in, Tstar_in, Rstar_in, Cprime_cgs, &
+subroutine setup_dustywind(Mstar_in, Lstar_in, Tstar_in, Rstar_in, Cprime_cgs, &
        expT_in, Mdot_in, u_to_T, alpha_in, wind_type_in)
  use physcon, only:c, solarm, years
  use eos,     only:gamma
+ use units,   only:umass,utime
+ use dust_formation, only: set_abundances,set_cooling
+
  integer, intent(in) :: wind_type_in
  real, intent(in) :: Mstar_in, Lstar_in, Tstar_in, Rstar_in, Cprime_cgs, expT_in,&
       Mdot_in, u_to_T, alpha_in
+ logical :: cool_radiation_H0, cool_relaxation_Bowen, cool_collisions_dust, cool_relaxation_Stefan
 
  Mstar_cgs = Mstar_in*solarm
  Lstar_cgs = Lstar_in
  Tstar = Tstar_in
  wind_type = wind_type_in
- calc_dust = wind_type > 10
+ wind_alpha = alpha_in
  Cprime = Cprime_cgs ! keep it in cgs
  if (wind_type == 2) then
     expT = expT_in
@@ -77,13 +80,24 @@ subroutine init_dustywind(Mstar_in, Lstar_in, Tstar_in, Rstar_in, Cprime_cgs, &
  else
     wind_gamma = gamma
  endif
- wind_alpha = alpha_in
- Mdot_cgs = Mdot_in * (solarm/years)
+ Mdot_cgs = Mdot_in * umass/utime
  Rstar_cgs = Rstar_in
  u_to_temperature_ratio = u_to_T
-end subroutine init_dustywind
 
-#ifdef NUCLEATION
+ call set_abundances(CO_ratio)
+
+ cool_radiation_H0 = .false.
+ if (wind_type == 2) then
+    cool_relaxation_Bowen = .false.
+ else
+    cool_relaxation_Bowen = .true.
+ endif
+ cool_collisions_dust = .false.
+ cool_relaxation_Stefan = .false.
+ call set_cooling(cool_radiation_H0, cool_relaxation_Bowen, cool_collisions_dust, cool_relaxation_Stefan)
+
+end subroutine setup_dustywind
+
 !-----------------------------------------------------------------------
 !
 !  set particle dust properties
@@ -134,7 +148,6 @@ subroutine evolve_gail(dtlast, xyzh, vxyzu, xyzmh_ptmass, vxyz_ptmass, partJstar
     !endif
  enddo
 end subroutine evolve_gail
-#endif
 
 !-----------------------------------------------------------------------
 !
@@ -159,12 +172,12 @@ end subroutine calc_alpha
 !  Initialize wind variables
 !
 !-----------------------------------------------------------------------
-subroutine wind_init(r0, v0, T0, time_end, state)
+subroutine init_dustywind(r0, v0, T0, time_end, state)
 ! all quantities in cgs
  use physcon, only:pi,kboltz,atomic_mass_unit
  use io,      only:fatal
  use eos,     only:gmw
- use dust_formation, only: evolve_chem,calc_kappa_dust,calc_dust_cooling_rate,calc_Teq
+ use dust_formation, only: evolve_chem,calc_kappa_dust,calc_cooling_rate,calc_Teq
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(out) :: state
  real :: tau_lucy_bounded,Teq
@@ -187,17 +200,18 @@ subroutine wind_init(r0, v0, T0, time_end, state)
  state%alpha = wind_alpha
  state%dalpha_dr = 0.
  state%mu = gmw
+ state%gamma = wind_gamma
  state%K(:) = 0.
  state%tau_lucy = 2./3.
  state%S = 0.
  state%Q = 0.
  state%dQ_dr = 0.
  state%rho = Mdot_cgs/(4.*pi * state%r**2 * state%v)
- if (calc_dust) then
-    call evolve_chem(0., r0, v0, T0, state%rho, state%Jstar, state%K, state%mu, state%S)
-    call calc_alpha(state%K(3), state%alpha)
-    call calc_kappa_dust(state%K(3), Mdot_cgs, state%kappa_planck, state%kappa_ross)
- endif
+
+ call evolve_chem(0., r0, v0, T0, state%rho, state%Jstar, state%K, state%mu, state%S)
+ call calc_alpha(state%K(3), state%alpha)
+ call calc_kappa_dust(state%K(3), Mdot_cgs, state%kappa_planck, state%kappa_ross)
+
  if (wind_type == 4) then
     if (r0 < Rstar_cgs) then
        call fatal(label,'cannot determine equilibrium temperature because r < Rstar')
@@ -206,7 +220,7 @@ subroutine wind_init(r0, v0, T0, time_end, state)
           tau_lucy_bounded = max(0., state%tau_lucy)
           Teq = Tstar * (.5*(1.-sqrt(1.-(Rstar_cgs/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
        endif
-       call calc_dust_cooling_rate(state%rho, state%Tg, Teq, wind_gamma, state%mu, Cprime, &
+       call calc_cooling_rate(state%rho, state%Tg, Teq, wind_gamma, state%mu, Cprime, &
             state%K(2)/(state%r**2*state%v), state%kappa_ross, state%Q)
     endif
  endif
@@ -216,29 +230,28 @@ subroutine wind_init(r0, v0, T0, time_end, state)
  state%spcode = 0
  state%nsteps = 1
  state%error = .false.
-end subroutine wind_init
+end subroutine init_dustywind
 
 !-----------------------------------------------------------------------
 !
 !  Integrate chemistry, cooling and hydro over one time step
 !
 !-----------------------------------------------------------------------
-subroutine wind_step(state)
+subroutine dustywind_step(state)
 ! all quantities in cgs
  use physcon,        only:pi,kboltz,atomic_mass_unit
- use dust_formation, only:evolve_chem,calc_kappa_dust,calc_dust_cooling_rate,calc_Teq
+ use dust_formation, only:evolve_chem,calc_kappa_dust,calc_cooling_rate,calc_Teq
  use wind_profile,   only:evolve_hydro
  type(wind_state), intent(inout) :: state
 
  real, parameter :: max_dt = 1.d9
  real :: rvT(3), alpha_old, kappa_ross_old, rho_old, dt_next, Q_old, v_old, dt_max, tau_lucy_bounded, Teq
 
- if (calc_dust) then
-    call evolve_chem(state%dt, state%r, state%v, state%Tg, state%rho, state%Jstar, state%K, state%mu, state%S)
-    alpha_old = state%alpha
-    call calc_alpha(state%K(3), state%alpha)
-    if (state%t > 0.) state%dalpha_dr = (state%alpha-alpha_old)/(1.+state%r-state%r_old)
- endif
+ call evolve_chem(state%dt,state%r,state%v,state%Tg,state%rho,state%Jstar,state%K,state%mu,state%S)
+ alpha_old = state%alpha
+ call calc_alpha(state%K(3), state%alpha)
+ if (state%t > 0.) state%dalpha_dr = (state%alpha-alpha_old)/(1.+state%r-state%r_old)
+
  if (state%time_end > 0.) then
     dt_max = min(state%time_end - state%t, max_dt)
  else
@@ -249,8 +262,8 @@ subroutine wind_step(state)
  rvT(2) = state%v
  rvT(3) = state%Tg
  v_old = state%v
- call evolve_hydro(state%dt, rvT, state%mu, state%alpha, state%dalpha_dr, state%Q, state%dQ_dr, &
-      state%spcode, state%dt_force, dt_max, dt_next)
+ call evolve_hydro(state%dt, rvT, state%mu, state%gamma, state%alpha, state%dalpha_dr, &
+      state%Q, state%dQ_dr, state%spcode, state%dt_force, dt_max, dt_next)
  state%r = rvT(1)
  state%v = rvT(2)
  state%a = (state%v-v_old)/(state%dt)
@@ -262,19 +275,19 @@ subroutine wind_step(state)
  state%p = state%rho*kboltz*state%Tg/(state%mu*atomic_mass_unit)
  state%c = sqrt(wind_gamma*kboltz*state%Tg/(state%mu*atomic_mass_unit))
  kappa_ross_old = state%kappa_ross
- if (calc_dust) then
-    call calc_kappa_dust(state%K(3), Mdot_cgs, state%kappa_planck, state%kappa_ross)
-    state%tau_lucy = state%tau_lucy &
-            - (state%r-state%r_old) * Rstar_cgs**2 &
-            * (state%kappa_ross*state%rho/state%r**2 + kappa_ross_old*rho_old/state%r_old**2)/2.
- endif
+
+ call calc_kappa_dust(state%K(3), Mdot_cgs, state%kappa_planck, state%kappa_ross)
+ state%tau_lucy = state%tau_lucy &
+      - (state%r-state%r_old) * Rstar_cgs**2 &
+      * (state%kappa_ross*state%rho/state%r**2 + kappa_ross_old*rho_old/state%r_old**2)/2.
+
  if (wind_type == 4) then
     Q_old = state%Q
     if (calc_Teq) then
        tau_lucy_bounded = max(0., state%tau_lucy)
        Teq = Tstar * (.5*(1.-sqrt(1.-(Rstar_cgs/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
     endif
-    call calc_dust_cooling_rate(state%rho, state%Tg, Teq, wind_gamma, state%mu, Cprime, &
+    call calc_cooling_rate(state%rho, state%Tg, Teq, wind_gamma, state%mu, Cprime, &
         state%K(2)/(state%r**2*state%v),state%kappa_ross, state%Q)
     if (state%t > 0. .and. state%r /= state%r_old) state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
  endif
@@ -285,14 +298,14 @@ subroutine wind_step(state)
  state%nsteps = state%nsteps + 1
  if (state%full_integration) state%spcode = 0
 
-end subroutine wind_step
+end subroutine dustywind_step
 
 !-----------------------------------------------------------------------
 !
-!  Integrate the steady wind equation up to t = t_end
+!  Integrate the dusty wind equation up to t = t_end
 !
 !-----------------------------------------------------------------------
-subroutine calc_wind_profile(r0, v0, T0, time_end, state)
+subroutine calc_dustywind_profile(r0, v0, T0, time_end, state)
 !all quantities in cgs
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(out) :: state
@@ -300,7 +313,7 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
  logical :: tau_test
 
 !compute chemistry and initialize variables
- call wind_init(r0, v0, T0, time_end, state)
+ call init_dustywind(r0, v0, T0, time_end, state)
 
  if (state%v > state%c) then
     state%spcode = 1
@@ -311,11 +324,11 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
  do while(state%t < state%time_end .and. state%dt> dtmin .and. state%Tg > Tend .and. .not.state%error .and. state%spcode == 0)
     tau_lucy_last = state%tau_lucy
 
-    call wind_step(state)
+    call dustywind_step(state)
     tau_test = (tau_lucy_last-state%tau_lucy)/tau_lucy_last < 1.e-6 .and. state%tau_lucy < .6
     if (state%r == state%r_old .or. state%tau_lucy < -1. .or. tau_test) state%error = .true.
  enddo
-end subroutine calc_wind_profile
+end subroutine calc_dustywind_profile
 
 !-----------------------------------------------------------------------
 !+
@@ -331,7 +344,7 @@ subroutine dusty_wind_profile(time,local_time,r,v,T,u,rho,e,GM,gamma,Jstar,K,mu,
 
  type(wind_state) :: state
 
- call calc_wind_profile(r, v, T, local_time*utime, state)
+ call calc_dustywind_profile(r, v, T, local_time*utime, state)
  r = state%r/udist
  v = state%v/unit_velocity
  rho = state%rho/(unit_density)
@@ -357,14 +370,14 @@ subroutine save_windprofile(r0, T0, v0, time_end, dt_write, filename)
  logical :: written
  integer :: i
 
- call wind_init(r0, v0, T0, time_end, state)
+ call init_dustywind(r0, v0, T0, time_end, state)
  open(unit=1337,file=filename)
  call filewrite_header(1337)
  call filewrite_state(1337, state)
 
  i = 0
  do while(state%t < state%time_end .and. state%dt > dtmin .and. state%Tg > Tend)
-    call wind_step(state)
+    call dustywind_step(state)
     written = .false.
     if (dt_write == 0. .or. mod(i,1000)==0) then
        call filewrite_state(1337, state)
@@ -475,7 +488,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, verbose)
  v0max = v0
  icount = 0
  do while (icount < ncount_max)
-    call calc_wind_profile(r0, v0, T0, 0., state)
+    call calc_dustywind_profile(r0, v0, T0, 0., state)
     if (verbose) print *,' v0 = ', v0, state%t,icount,state%spcode
     if (state%spcode == -1) then
        v0min = v0
@@ -494,7 +507,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, verbose)
  icount = 0
  do while (icount < ncount_max)
     if (verbose) print *, ' v0 = ', v0
-    call calc_wind_profile(r0, v0, T0, 0., state)
+    call calc_dustywind_profile(r0, v0, T0, 0., state)
     if (state%spcode == 1) then
        v0max = v0
        exit
@@ -512,7 +525,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, verbose)
     v0last = v0
     v0 = (v0min+v0max)/2.
     if (verbose) print *, 'v0 = ', v0
-    call calc_wind_profile(r0, v0, T0, 0., state)
+    call calc_dustywind_profile(r0, v0, T0, 0., state)
     if (state%spcode == -1) then
        v0min = v0
     elseif (state%spcode == 1) then
@@ -568,7 +581,7 @@ subroutine profile_findr0(time_end, T0, r0, v0, step_factor, nsteps, sonic, verb
  do
     Rstar_cgs = r0
     call get_initial_wind_speed(r0, T0, v0, sonic, verbosev)
-    call calc_wind_profile(r0, v0, T0, time_end, state)
+    call calc_dustywind_profile(r0, v0, T0, time_end, state)
     if (verbose) print *, state%error,' r0 = ', r0, 'tau_lucy = ', state%tau_lucy
     if (state%error) then
 ! something wrong happened!
@@ -593,7 +606,7 @@ subroutine profile_findr0(time_end, T0, r0, v0, step_factor, nsteps, sonic, verb
  do
     Rstar_cgs = r0
     call get_initial_wind_speed(r0, T0, v0, sonic, verbosev)
-    call calc_wind_profile(r0, v0, T0, time_end, state)
+    call calc_dustywind_profile(r0, v0, T0, time_end, state)
     if (verbose) print *, 'r0 = ', r0, 'tau_lucy = ', state%tau_lucy
     if (state%error) then
 ! something wrong happened!
@@ -618,7 +631,7 @@ subroutine profile_findr0(time_end, T0, r0, v0, step_factor, nsteps, sonic, verb
     r0 = (r0min+r0max)/2.
     Rstar_cgs = r0
     call get_initial_wind_speed(r0, T0, v0, sonic, verbosev)
-    call calc_wind_profile(r0, v0, T0, time_end, state)
+    call calc_dustywind_profile(r0, v0, T0, time_end, state)
     if (verbose) print *, 'r0 = ', r0, 'tau_lucy = ', state%tau_lucy
     if (abs(state%tau_lucy) < abs(tau_lucy_best)) then
        r0best = r0

@@ -26,7 +26,7 @@
 module bowen_dust
  implicit none
 
- public :: radiative_acceleration, init_bowen
+ public :: radiative_acceleration, setup_bowen
  logical, parameter :: use_alpha_wind = .false.
 
  private
@@ -151,24 +151,24 @@ end subroutine radiative_acceleration
 !  Convert parameters into code units.
 !+
 !-----------------------------------------------------------------------
-subroutine init_bowen(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,wind_injection_radius,&
-       bowen_Cprime, bowen_Tcond, bowen_delta,bowen_Teff,wind_osc_vamplitude,wind_osc_period,nwall)
+subroutine setup_bowen(u_to_temperature_ratio,bowen_kappa,bowen_kmax,star_Lum,wind_injection_radius,&
+       bowen_Cprime, bowen_Tcond, bowen_delta,star_Teff,wind_osc_vamplitude,wind_osc_period,nwall)
  use physcon,     only: solarl,c,steboltz,pi,radconst
  use units,       only: udist, umass, utime
  integer, intent(in) :: nwall
- real, intent(in)  :: u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,wind_injection_radius,&
-         bowen_Cprime, bowen_Tcond, bowen_delta, bowen_Teff, wind_osc_vamplitude,wind_osc_period
+ real, intent(in)  :: u_to_temperature_ratio,bowen_kappa,bowen_kmax,star_Lum,wind_injection_radius,&
+         bowen_Cprime, bowen_Tcond, bowen_delta, star_Teff, wind_osc_vamplitude,wind_osc_period
 
  kappa_gas = bowen_kappa / (udist**2/umass)
  kmax = bowen_kmax / (udist**2/umass)
- L = bowen_L /(umass*udist**2/utime**3)
+ L = star_Lum /(umass*udist**2/utime**3)
  c_light = c / (udist/utime)
  specific_energy_to_T_ratio = u_to_temperature_ratio!/(udist/utime)**2
  Cprime = bowen_Cprime / (umass*utime/udist**3)
  Tcond = bowen_Tcond
  deltaT = bowen_delta
- Teff  = bowen_Teff
- Reff = sqrt(bowen_L/(4.*pi*steboltz*bowen_Teff**4))/udist
+ Teff  = star_Teff
+ Reff = sqrt(star_Lum/(4.*pi*steboltz*star_Teff**4))/udist
  omega_osc = 2.*pi/wind_osc_period
  deltaR_osc = wind_osc_vamplitude/omega_osc
  nwall_particles = nwall
@@ -176,7 +176,63 @@ subroutine init_bowen(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,wind
  usteboltz = L/(4.*pi*Reff**2*Teff**4)
  Rmin = Reff - deltaR_osc
 
-end subroutine init_bowen
+end subroutine setup_bowen
+
+
+!-----------------------------------------------------------------------
+!+
+!  Oscillating inner boundary : bowen wind
+!+
+!-----------------------------------------------------------------------
+subroutine pulsating_wind_profile(time,local_time,r,v,u,rho,e,GM,gamma,sphere_number, &
+                                     inner_sphere,inner_boundary_sphere)
+ use physcon,     only: pi
+ integer, intent(in)  :: sphere_number, inner_sphere, inner_boundary_sphere
+ real,    intent(in)  :: time,local_time,gamma,GM
+ real,    intent(out) :: r, v, u, rho, e
+
+ integer, parameter :: nrho_index = 10
+ integer :: k
+ real :: surface_radius,r3
+ logical :: verbose = .true.
+
+ v = wind_velocity + wind_osc_vamplitude* cos(2.*pi*time/wind_osc_period) !same velocity for all wall particles
+ surface_radius = wind_injection_radius + wind_osc_vamplitude*wind_osc_period/(2.*pi)*sin(2.*pi*time/wind_osc_period)
+ if (sphere_number <= inner_sphere) then
+    r = surface_radius
+    v = max(wind_osc_vamplitude,wind_velocity)
+ else
+    r3 = surface_radius**3-dr3
+    do k = 2,sphere_number-inner_sphere
+       r3 = r3-dr3*(r3/surface_radius**3)**(nrho_index/3.)
+    enddo
+    r = r3**(1./3)
+ endif
+ !r = (surface_radius**3-(sphere_number-inner_sphere)*dr3)**(1./3)
+ !rho = rho_ini
+ u = wind_temperature * u_to_temperature_ratio
+ if (gamma > 1.0001) then
+    e = .5*v**2 - GM/r + gamma*u
+ else
+    e = .5*v**2 - GM/r + u
+ endif
+ rho = rho_ini*(surface_radius/r)**nrho_index
+ if (verbose) then
+    if (sphere_number > inner_sphere) then
+       print '("boundary, i = ",i5," inner = ",i5," base_r = ",es11.4,'// &
+             '" r = ",es11.4," v = ",es11.4," phase = ",f7.4," feject = ",f4.3)', &
+             sphere_number,inner_sphere,surface_radius,r,v,&
+             time/wind_osc_period,time_between_spheres/wind_osc_period
+    else
+       print '("ejected, i = ",i5," inner = ",i5," base_r = ",es11.4,'// &
+             '" r = ",es11.4," v = ",es11.4," phase = ",f7.4," feject = ",f4.3)', &
+             sphere_number,inner_sphere,surface_radius,r,v,&
+             time/wind_osc_period,time_between_spheres/wind_osc_period
+    endif
+ endif
+
+end subroutine pulsating_wind_profile
+
 
 !-----------------------------------------------------------------------
 !+
@@ -488,6 +544,13 @@ subroutine implicit_wind_cooling(icooling,npart,xyzh,vxyzu,fxyzu,fext,R_star,x_s
 ! !$omp end parallel do
 
 end subroutine implicit_wind_cooling
+
+
+!#####################################################################################
+!
+!  ALL COOLING ROUTINES HAVE BEEN MOVED TO DUST_FORMATION BUT ARGUMENTS ARE DIFFRENT!
+!
+!#####################################################################################
 
 !----------------------------------------------------------------
 !+

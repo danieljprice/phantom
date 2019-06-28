@@ -67,7 +67,9 @@ module eos
 
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm
  public  :: get_spsound,get_temperature,get_temperature_from_ponrho
+#ifdef KROME
  public  :: get_local_temperature, get_local_u_internal
+#endif
  public  :: gamma_pwp
  public  :: init_eos, finish_eos, write_options_eos, read_options_eos
  public  :: print_eos_to_file

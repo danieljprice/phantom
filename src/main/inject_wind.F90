@@ -126,8 +126,12 @@ contains
 subroutine init_inject(ierr)
  use io,           only:fatal
  use timestep,     only:tmax
- use wind_profile, only:init_wind_profile
- use dusty_wind,   only:init_dustywind,get_initial_wind_speed
+ !use wind_profile, only:setup_wind
+#ifdef NUCLEATION
+ use dusty_wind,     only:setup_dustywind,get_initial_wind_speed
+#else
+ use dust_free_wind, only:setup_wind,get_initial_wind_speed
+#endif
 #ifdef BOWEN
  use bowen_dust,   only:init_bowen
 #else
@@ -170,16 +174,22 @@ subroutine init_inject(ierr)
  wind_velocity         = max(wind_velocity,wind_osc_vamplitude)
  Cprime = bowen_Cprime / (umass*utime/udist**3)
  wind_injection_radius  = wind_injection_radius_au * au / udist
- call init_wind_profile(xyzmh_ptmass(4,wind_emitting_sink), star_Lum, star_Teff, Rstar_cgs,&
+
+
+!original: Rstar_cgs = wind_injection_radius_au*au
+#ifdef NUCLEATION
+    call setup_dustywind(xyzmh_ptmass(4,wind_emitting_sink), star_Lum, star_Teff, Rstar_cgs, &
+         bowen_Cprime, wind_expT, wind_mass_rate, u_to_temperature_ratio, wind_alpha, wind_type)
+
+#else
+    call setup_wind(xyzmh_ptmass(4,wind_emitting_sink), star_Lum, star_Teff, Rstar_cgs,&
       bowen_Cprime, wind_expT, wind_mass_rate, wind_CO_ratio, u_to_temperature_ratio, &
       wind_alpha, wind_temperature, wind_type)
+#endif
 
 ! integrate the wind equation to get the initial velocity required to set the resolution
  if (sonic_type ==  1) then
-!original: Rstar_cgs = wind_injection_radius_au*au
-    call init_dustywind(xyzmh_ptmass(4,wind_emitting_sink), star_Lum, star_Teff, Rstar_cgs, bowen_Cprime,&
-      wind_expT, wind_mass_rate_Msun_yr, u_to_temperature_ratio, wind_alpha, wind_type)
-    !Temperature profile
+    ! Temperature profile
     if (wind_type == 2 .and. wind_temperature /= star_Teff) then
        wind_injection_radius_au = Rstar_cgs/au*(star_Teff/wind_temperature)**(1./wind_expT)
     endif
@@ -206,15 +216,19 @@ subroutine init_inject(ierr)
     neighbour_distance   = get_neighb_distance(iresolution)
     print *,'iwind_resolution equivalence = ',iresolution
  else
+    if (wind_velocity == 0.)  then
+       call fatal(label,'zero input wind velocity')
+    endif
     iresolution = iwind_resolution
     particles_per_sphere = get_parts_per_sphere(iresolution)
     neighbour_distance   = get_neighb_distance(iresolution)
-    mass_of_particles = wind_shell_spacing*neighbour_distance * wind_injection_radius * wind_mass_rate &
-       / (particles_per_sphere * wind_velocity)
-    !print *,mass_of_particles,wind_injection_radius,wind_velocity
+    mass_of_particles = wind_shell_spacing*neighbour_distance * wind_injection_radius * &
+         wind_mass_rate / (particles_per_sphere * wind_velocity)
     massoftype(igas) = mass_of_particles
+    !print *,mass_of_particles,wind_injection_radius,wind_velocity
     print *,'iwind_resolution unchanged = ',iresolution
  endif
+
  mass_of_spheres = mass_of_particles * particles_per_sphere
  nwall_particles = iboundary_spheres*particles_per_sphere
  time_between_spheres  = mass_of_spheres / wind_mass_rate
@@ -228,21 +242,17 @@ subroutine init_inject(ierr)
  call compute_corners(geodesic_v)
 
  if (iverbose >= 1) then
-    print*,'mass of particle = ',massoftype(igas)
     mass_of_particles1 = wind_shell_spacing * get_neighb_distance(4) * wind_injection_radius * wind_mass_rate &
                      / (get_parts_per_sphere(4) * wind_velocity)
     print*,'require mass of particle = ',mass_of_particles1,' to get 492 particles per sphere'
-    print*,'particles_per_sphere ',particles_per_sphere
-    print*,'neighbour_distance ',neighbour_distance
     dp = neighbour_distance*wind_injection_radius
     dr = wind_velocity*mass_of_particles*particles_per_sphere/wind_mass_rate
     print*,'particle separation on spheres = ',dp
-    print*,'distance between spheres = ',dr
     print*,'got dr/dp = ',dr/dp,' compared to desired dr on dp = ',wind_shell_spacing
  endif
 
 #ifdef BOWEN
- call init_bowen(u_to_temperature_ratio,bowen_kappa,bowen_kmax,star_Lum,wind_injection_radius,&
+ call setup_bowen(u_to_temperature_ratio,bowen_kappa,bowen_kmax,star_Lum,wind_injection_radius,&
       bowen_Cprime,bowen_Tcond,bowen_delta,star_Teff,wind_osc_vamplitude,wind_osc_period,&
       iboundary_spheres*particles_per_sphere)
  rho_ini = wind_mass_rate / (4.*pi*wind_injection_radius**2*wind_velocity)
@@ -285,11 +295,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 #ifdef BOWEN
  use wind_profile, only:pulsating_wind_profile
 #elif NUCLEATION
- use dusty_wind,   only:evolve_gail
+ use dusty_wind,   only:evolve_gail,dusty_wind_profile
  use part,         only:partJstarKmu
 #else
- use dusty_wind,   only:dusty_wind_profile
- use wind_profile, only:stationary_wind_profile
+ use dust_free_wind, only:stationary_wind_profile
 #endif
  use units,        only:udist,unit_velocity
  use part,         only:igas,iboundary,nptmass
@@ -355,6 +364,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
          inner_sphere,inner_boundary_sphere)
 #endif
     if (sonic_type == 1) then
+!#ifdef NUCLEATION
        r = Rstar_cgs
        v = wind_velocity*unit_velocity
        call dusty_wind_profile(time,local_time, r, v, wind_temperature, u, rho, e, GM, gamma, Jstar, K, mu, cs)
@@ -624,10 +634,10 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
        print *,'invalid setting for wind_inject_radius < Rstar (au)',wind_injection_radius_au,Rstar_cgs/au
        !call fatal(label,'invalid setting for wind_inject_radius (< Rstar)')
     endif
-    if (wind_temperature < star_Teff) then
-       print *,'Twind < star_Teff',wind_temperature,star_Teff
-       !call fatal(label,'invalid setting for wind_temperature (Twind < star_Teff)')
-    endif
+    ! if (wind_temperature < star_Teff) then
+    !    print *,'Twind < star_Teff',wind_temperature,star_Teff
+    !    !call fatal(label,'invalid setting for wind_temperature (Twind < star_Teff)')
+    ! endif
     if (iboundary_spheres > int(shift_spheres)) then
        print *,'shift_spheres too small - imposing shift_spheres = iboundary_spheres = ',iboundary_spheres
        shift_spheres = sign(dble(iboundary_spheres),shift_spheres)

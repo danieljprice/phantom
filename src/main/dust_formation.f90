@@ -25,7 +25,7 @@ module dust_formation
  implicit none
  character(len=*), parameter :: label = 'dust_formation'
 
- public :: set_abundances,set_cooling,evolve_chem,calc_kappa_dust,calc_dust_cooling_rate
+ public :: set_abundances,set_cooling,evolve_chem,calc_kappa_dust,calc_cooling_rate
  logical, public :: calc_Teq
 
  private
@@ -75,7 +75,7 @@ contains
 !  calculate cooling rates
 !
 !-----------------------------------------------------------------------
-subroutine calc_dust_cooling_rate(rho, T, Teq, gamma, mu, Cprime, K2, kappa, Q)
+subroutine calc_cooling_rate(rho, T, Teq, gamma, mu, Cprime, K2, kappa, Q)
 ! all quantities in cgs
  real, intent(in) :: rho, T, Teq, gamma, mu, Cprime, K2, kappa
  real, intent(out) :: Q
@@ -90,7 +90,7 @@ subroutine calc_dust_cooling_rate(rho, T, Teq, gamma, mu, Cprime, K2, kappa, Q)
  if (cool_collisions_dust)   Q_col_dust = cooling_collision_dust_grains(T, Teq, rho, K2, mu)
  if (cool_relaxation_Stefan) Q_relax_Stefan = cooling_radiative_relaxation(T, Teq, kappa)
  Q = Q_H0 + Q_relax_Bowen+ Q_col_dust+ Q_relax_Stefan
-end subroutine calc_dust_cooling_rate
+end subroutine calc_cooling_rate
 
 !-----------------------------------------------------------------------
 !

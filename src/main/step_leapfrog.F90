@@ -473,9 +473,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           endif
 #endif
        endif
-       if (use_krome) then
-          vxyzu(4,i) = get_local_u_internal(gamma_chem(i),mu_chem(i),krometemperature(i))
-       endif
+#ifdef KROME
+       vxyzu(4,i) = get_local_u_internal(gamma_chem(i),mu_chem(i),krometemperature(i))
+#endif
        if (wind_type == 2) then
           vxyzu(4,i) = energy_profile(xyzh(:,i))
        endif
