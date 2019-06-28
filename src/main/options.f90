@@ -106,7 +106,7 @@ subroutine set_default_options
  polyk2             = 0 ! only used for ieos=8
 
  ! artificial viscosity
- if (maxalpha==maxp) then
+ if (maxalpha>0 .and. maxalpha==maxp) then
     if (nalpha >= 2) then
        alpha = 0.0 ! Cullen-Dehnen switch
     else
