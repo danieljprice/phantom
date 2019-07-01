@@ -7,11 +7,18 @@ public :: calculate_strain
 contains
 
 subroutine calculate_strain(hx,hp,hxx,hpp,xyzh,vxyz,axyz,pmass,npart)
+!  use prompting,      only:prompt
+  use units,          only:umass,udist,utime
+  use physcon,        only:gg,c
   real, intent(out) :: hx,hp,hxx,hpp
   real, intent(in)  :: xyzh(:,:), vxyz(:,:), axyz(:,:), pmass
   integer, intent(in) :: npart
   real :: q(6), ddq(6)
+  !logical, save       :: firstcall = .true.
   integer :: i
+  real, save          :: distan
+
+  distan=0.03*3.0e24
 
   ! initialise quadrupole to zero
     q(:)=0
@@ -43,12 +50,14 @@ subroutine calculate_strain(hx,hp,hxx,hpp,xyzh,vxyz,axyz,pmass,npart)
      end if
    enddo
 
-   ! gw strain in the direction perpendicular to the orbit
-     hx = ddq(1)-ddq(4)
-     hp = ddq(2)
-   ! gw strain in the plane of the orbit
-     hpp = ddq(6)-ddq(4)
-     hxx = ddq(5)
+   ! gw strain in the direction perpendicular to the orbit, theta=0
+     hp = gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*(ddq(1)-ddq(4))
+     hx = 2.*gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*ddq(2)
+   ! gw strain in the plane of the orbit, theta=pi/2
+     hpp = gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*(ddq(1)-ddq(6))
+     hxx = -2.*gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*ddq(3)
+
+    print*, 'ciao'
 
 end subroutine calculate_strain
 

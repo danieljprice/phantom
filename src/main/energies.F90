@@ -28,6 +28,7 @@
 #define reduce_fn(a,b) reduceall_mpi(a,b)
 module energies
  use dim, only: maxdusttypes,maxdustsmall
+use units, only:utime
  implicit none
 
  logical,         public    :: gas_only,track_mass,track_lum
@@ -733,7 +734,7 @@ subroutine compute_energies(t)
     axyz   = fxyzu(1:3,1:npart) + fext(1:3,1:npart)
     pmassi = massoftype(igas)
     call calculate_strain(hx,hp,hxx,hpp,xyzh,vxyzu(1:3,:),axyz,pmassi,npart)
-    write(1,*) t,hx,hp,hxx,hpp
+ write(1,*) t*utime,hx,hp,hxx,hpp
  endif
 
  return
