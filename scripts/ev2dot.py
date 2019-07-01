@@ -1,17 +1,11 @@
 #!/usr/bin/env python
-import pandas as pd
 import numpy  as np
 import argparse
-import os
 import sys
-import re
+import evfiles as ev
 
 if sys.version_info[0] < 3:
     raise SystemExit('ERROR: you must use Python 3')
-
-# Printing options
-np.set_printoptions(threshold=np.inf,floatmode='fixed',linewidth=np.inf)
-fmt = '%18.10E'
 
 description="""
 Use this script to take the time derivative of selected columns in a phantom ev file.
@@ -25,30 +19,13 @@ parser.add_argument('-f', '--file',   required=True, nargs=1,   metavar='evfile'
 parser.add_argument('-c', '--columns', default=None, nargs='+', metavar='column', help='columns to take time derivative of')
 parser.add_argument('-dt','--dtmin',   default=None, nargs=1,   metavar='dtmin',  help='minimum dt to take derivative over')
 args = parser.parse_args()
-file = args.file[0]
 
-# Check that file exist
-if not os.path.isfile(file):
-    raise SystemExit('Error: the file "'+file+'" does not exist or is not a file')
+data   = ev.load(args.file[0])  # Load evfile into a pandas data frame
+labels = args.columns           # List of columns to take time derivative of
 
-# Read the columns names in the file using regex
-with open(file,'r') as f:
-    header       = f.readline().strip('\n')
-    column_names = re.findall('\[\d+\s+(.*?)\]',header)
-
-# Number of columns in file
-ncols = len(column_names)
-
-data = pd.read_csv(file,skiprows           = 0,
-                        dtype              = np.float64,
-                        delim_whitespace   = True,
-                        skip_blank_lines   = True,
-                        comment            = '#',
-                        header             = None,
-                        names              = column_names)
-
-# List of columns to cut from file
-labels = args.columns
+# Get columns
+column_names = list(data)
+ncols        = len(column_names)
 
 if labels is not None:
     # Replace integer columns with corresponding column name
@@ -105,12 +82,5 @@ for irow in range(nrows):
         irowprev    = irow
         irow_deriv += 1
 
-# Construct the header string
-header='# [01        time]   '
-for i in range(len(labels)):
-    label  = labels[i]+' dot'
-    label  = label.rjust(12)
-    no     = str(i+2).zfill(2)
-    header = header + '[' + no + label + ']' + '   '
-
-np.savetxt(sys.stdout.buffer,evdot[:irow_deriv,:],header=header,fmt=fmt,comments='')
+column_labels = ['time'] + [l + ' dot' for l in labels]
+ev.printev(data=evdot[:irow_deriv,:],labels=column_labels)
