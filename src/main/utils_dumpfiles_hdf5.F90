@@ -134,7 +134,9 @@ module utils_dumpfiles_hdf5
                store_temperature
     integer :: maxBevol,          &
                ndivcurlB,         &
-               ndivcurlv
+               ndivcurlv,         &
+               ndustsmall,        &
+               ndustlarge
  end type
 
  private
@@ -248,7 +250,7 @@ subroutine write_hdf5_arrays(file_id,error,npart,nptmass,xyzh,vxyzu,iphase, &
  type (arrays_options_hdf5), intent(in)  :: array_options
 
  integer(HID_T) :: group_id
- integer :: errors(44)
+ integer :: errors(44),ndusttypes
 
  errors(:) = 0
 
@@ -262,7 +264,7 @@ subroutine write_hdf5_arrays(file_id,error,npart,nptmass,xyzh,vxyzu,iphase, &
  call write_to_hdf5(vxyzu(1:3,1:npart),'vxyz',group_id,errors(4))
  if (.not.array_options%isothermal) call write_to_hdf5(vxyzu(4,1:npart),'u',group_id,errors(5))
  call write_to_hdf5(iphase(1:npart),'itype',group_id,errors(6))
- call write_to_hdf5(pressure(1:npart),'pressure',group_id,errors(7))
+ ! call write_to_hdf5(pressure(1:npart),'pressure',group_id,errors(7))
 
  if (.not.array_options%const_av)  call write_to_hdf5(alphaind(1,1:npart),'alpha',group_id,errors(8))   ! Viscosity (only ever write 'first' alpha)
  if (array_options%ind_timesteps)  call write_to_hdf5(real(dtind(1:npart),kind=4),'dt',group_id,errors(9)) ! Individual timesteps
@@ -289,11 +291,14 @@ subroutine write_hdf5_arrays(file_id,error,npart,nptmass,xyzh,vxyzu,iphase, &
  endif
 
  ! Dust arrays
- if (array_options%use_dust) then
-    call write_to_hdf5(dustfrac(:,1:npart),'dustfrac',group_id,errors(21))
-    call write_to_hdf5(tstop(:,1:npart),'tstop',group_id,errors(22))
+ ndusttypes = array_options%ndustsmall + array_options%ndustlarge
+ if (array_options%use_dust .and. ndusttypes > 0) then
+    call write_to_hdf5(dustfrac(1:ndusttypes,1:npart),'dustfrac',group_id,errors(21))
+    call write_to_hdf5(tstop(1:ndusttypes,1:npart),'tstop',group_id,errors(22))
+    if (array_options%use_dustfrac .and. array_options%ndustsmall > 0) then
+       call write_to_hdf5(deltav(:,1:array_options%ndustsmall,1:npart),'deltavxyz',group_id,errors(23))
+    endif
  endif
- if (array_options%use_dustfrac) call write_to_hdf5(deltav(:,:,1:npart),'deltavxyz',group_id,errors(23))
  if (array_options%use_dustgrowth) then
     call write_to_hdf5(dustprop(1,1:npart),'grainsize',group_id,errors(24))
     call write_to_hdf5(dustprop(2,1:npart),'graindens',group_id,errors(25))
@@ -353,7 +358,7 @@ subroutine write_hdf5_arrays_small(file_id,error,npart,nptmass,xyzh,iphase,   &
  type (arrays_options_hdf5), intent(in)  :: array_options
 
  integer(HID_T) :: group_id
- integer :: errors(22)
+ integer :: errors(22),ndusttypes
 
  errors(:) = 0
 
@@ -371,7 +376,8 @@ subroutine write_hdf5_arrays_small(file_id,error,npart,nptmass,xyzh,iphase,   &
  endif
 
  ! Dust arrays
- if (array_options%use_dust) then
+ ndusttypes = array_options%ndustsmall + array_options%ndustlarge
+ if (array_options%use_dust .and. ndusttypes > 0) then
     call write_to_hdf5(real(dustfrac(:,1:npart),kind=4),'dustfrac',group_id,errors(6))
  endif
  if (array_options%use_dustgrowth) then
