@@ -8,16 +8,19 @@ if sys.version_info[0] < 3:
     raise SystemExit('ERROR: you must use Python 3')
 
 description="""
-Use this script cut out certain columns from a phantom ev file, and output to stdout
+Use this script cut out certain columns from a phantom ev file, and output to stdout.
+
+If multiple ev files are given, they are assumed to be in order, and are first combined
+with any overlap removed, before cutting columns.
 """
 
 parser = argparse.ArgumentParser(description=description)
-parser.add_argument('-f','--file',   required=True, nargs=1,   metavar='evfile', help='phantom ev file')
+parser.add_argument('-f','--file',   required=True, nargs='+', metavar='evfile', help='phantom ev file')
 parser.add_argument('-c','--columns',required=True, nargs='+', metavar='column', help='column names to extract')
 args = parser.parse_args()
 
-data   = ev.load(args.file[0])  # Load evfile into a pandas data frame
-labels = args.columns           # List of columns to cut from file
+data   = ev.load_files(args.file)  # Load evfiles into a single, combined, pandas data frame
+labels = args.columns              # List of columns to cut from file
 
 # Get columns
 column_names = list(data)

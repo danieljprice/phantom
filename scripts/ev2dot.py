@@ -12,16 +12,19 @@ Use this script to take the time derivative of selected columns in a phantom ev 
 If no columns are given, the derivative of all columns is computed.
 
 If time column cannot be determined automatically, it is assumed to be the first column.
+
+If multiple ev files are given, they are assumed to be in order, and are first combined
+with any overlap removed, before taking the derivative.
 """
 
 parser = argparse.ArgumentParser(description=description)
-parser.add_argument('-f', '--file',   required=True, nargs=1,   metavar='evfile', help='phantom ev file')
+parser.add_argument('-f', '--file',   required=True, nargs='+', metavar='evfile', help='phantom ev file')
 parser.add_argument('-c', '--columns', default=None, nargs='+', metavar='column', help='columns to take time derivative of')
 parser.add_argument('-dt','--dtmin',   default=None, nargs=1,   metavar='dtmin',  help='minimum dt to take derivative over')
 args = parser.parse_args()
 
-data   = ev.load(args.file[0])  # Load evfile into a pandas data frame
-labels = args.columns           # List of columns to take time derivative of
+data   = ev.load_files(args.file)  # Load evfiles into a single, combined, pandas data frame
+labels = args.columns              # List of columns to take time derivative of
 
 # Get columns
 column_names = list(data)
