@@ -40,16 +40,17 @@ for i in range(nfiles-1):
         if t > tnextfile:
             break
 
-    # Only write the header once
-    if i!=0: column_labels = None
-
-    # Print the unique parts of each file
-    ev.printev(data[:ii-1,:],column_labels)
+    if i==0:
+        data_combined = np.copy(data[:ii-1,:])
+    else:
+        data_combined = np.concatenate((data_combined[:,:],data[:ii-1,:]))
 
 if nfiles>1:
-    # Print all of the last file
-    ev.printev(data_next[:,:],labels=None)
+    # Add all of the last file
+    data_combined = np.concatenate((data_combined[:,:],data_next[:,:]))
+
 else:
     # Just print the contents of the 1 file present
-    data = np.array(ev.load(args.evfiles[0]))
-    ev.printev(data[:,:],column_labels)
+    data_combined = np.array(ev.load(args.evfiles[0]))
+
+ev.printev(data_combined[:,:],column_labels)
