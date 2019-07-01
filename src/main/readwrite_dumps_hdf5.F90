@@ -375,37 +375,39 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  array_options%maxBevol = maxBevol
  array_options%ndivcurlB = ndivcurlB
  array_options%ndivcurlv = ndivcurlv
+ array_options%ndustsmall = ndustsmall
+ array_options%ndustlarge = ndustlarge
 
  ! write the arrays to file
  if (fulldump) then
-    call write_hdf5_arrays(hdf5_file_id,                        & ! File ID
-                           error,                               & ! Error code
-                           npart,                               & ! # particles
-                           nptmass,                             & ! # sinks
-                           xyzh,                                & !---------
-                           vxyzu,                               & !
-                           iphase,                              & !
-                           pressure,                            & !
-                           alphaind,                            & !
-                           dtind,                               & !
-                           poten,                               & !
-                           xyzmh_ptmass,                        & !
-                           vxyz_ptmass,                         & !
-                           Bxyz,                                & !
-                           Bevol,                               & ! Arrays
-                           divcurlB,                            & !
-                           divBsymm,                            & !
-                           eta_nimhd,                           & !
-                           dustfrac(1:ndustsmall+ndustlarge,:), & !
-                           tstop(1:ndustsmall,:),               & !
-                           deltav(:,1:ndustsmall,:),            & !
-                           dustprop,                            & !
-                           st,                                  & !
-                           abundance,                           & !
-                           temperature,                         & !
-                           divcurlv,                            & !
-                           luminosity,                          & !
-                           beta_pr,                             & !---------
+    call write_hdf5_arrays(hdf5_file_id, & ! File ID
+                           error,        & ! Error code
+                           npart,        & ! # particles
+                           nptmass,      & ! # sinks
+                           xyzh,         & !---------
+                           vxyzu,        & !
+                           iphase,       & !
+                           pressure,     & !
+                           alphaind,     & !
+                           dtind,        & !
+                           poten,        & !
+                           xyzmh_ptmass, & !
+                           vxyz_ptmass,  & !
+                           Bxyz,         & !
+                           Bevol,        & ! Arrays
+                           divcurlB,     & !
+                           divBsymm,     & !
+                           eta_nimhd,    & !
+                           dustfrac,     & !
+                           tstop,        & !
+                           deltav,       & !
+                           dustprop,     & !
+                           st,           & !
+                           abundance,    & !
+                           temperature,  & !
+                           divcurlv,     & !
+                           luminosity,   & !
+                           beta_pr,      & !---------
                            array_options)                         ! Options
  else
     call write_hdf5_arrays_small(hdf5_file_id, & ! File ID
