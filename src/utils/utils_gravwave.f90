@@ -7,7 +7,7 @@ module gravwaveutils
 
 contains
 
-pure subroutine calculate_strain(hx,hp,hxx,hpp,xyzh,vxyz,axyz,pmass,npart)
+subroutine calculate_strain(hx,hp,hxx,hpp,xyzh,vxyz,axyz,pmass,npart)
  use units,   only:umass,udist,utime
  use physcon, only:gg,c
  real, intent(out)   :: hx,hp,hxx,hpp
@@ -23,6 +23,10 @@ pure subroutine calculate_strain(hx,hp,hxx,hpp,xyzh,vxyz,axyz,pmass,npart)
  q(:)   = 0.
  ddq(:) = 0.
 
+ !$omp parallel do default(none) &
+ !$omp shared(npart,xyzh,vxyz,axyz,pmass) &
+ !$omp private(i,x,y,z,vx,vy,vz,ax,ay,az,r2) &
+ !$omp reduction(+:q,ddq)
  do i=1,npart
     if(xyzh(4,i)>tiny(xyzh)) then  !if not accreted
       x  = xyzh(1,i)
@@ -54,6 +58,7 @@ pure subroutine calculate_strain(hx,hp,hxx,hpp,xyzh,vxyz,axyz,pmass,npart)
        ddq(6) = ddq(6) + pmass*(2.*vz*vz+z*az+z*az) !ddqzz
     end if
  enddo
+ !omp end parallel do
 
  fac = gg*c**(-4)*distan**(-1)*umass*udist**(2)*utime**(-2)
 
