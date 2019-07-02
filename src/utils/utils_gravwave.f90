@@ -7,17 +7,15 @@ module gravwaveutils
 
 contains
 
+! This subroutine computes the gravitational wave strain at a distance of 1Mpc
 subroutine calculate_strain(hx,hp,hxx,hpp,xyzh,vxyz,axyz,pmass,npart)
  use units,   only:umass,udist,utime
  use physcon, only:gg,c
  real, intent(out)   :: hx,hp,hxx,hpp
  real, intent(in)    :: xyzh(:,:), vxyz(:,:), axyz(:,:), pmass
  integer, intent(in) :: npart
- real       :: q(6),ddq(6),x,y,z,vx,vy,vz,ax,ay,az,fac,r2
+ real       :: q(6),ddq(6),x,y,z,vx,vy,vz,ax,ay,az,fac,r2,gc4,d
  integer    :: i
- real       :: distan
-
- distan = 0.03*3.0e24
 
  ! initialise quadrupole and second deriv to zero
  q(:)   = 0.
@@ -60,7 +58,9 @@ subroutine calculate_strain(hx,hp,hxx,hpp,xyzh,vxyz,axyz,pmass,npart)
  enddo
  !omp end parallel do
 
- fac = gg*c**(-4)*distan**(-1)*umass*udist**(2)*utime**(-2)
+ d   = 3.10e24/udist                        ! 1Mpc in code units
+ gc4 = (gg/c**4) / (utime**2/(umass*udist)) ! G/c^4 in code units
+ fac = gc4/d
 
  ! gw strain in the direction perpendicular to the orbit, theta=0
  hp = fac*(ddq(1)-ddq(4))

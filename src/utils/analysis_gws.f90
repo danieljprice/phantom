@@ -12,8 +12,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunitone)
  use externalforces, only:initialise_externalforces,update_externalforce,externalforce,externalforce_vdependent
  use timestep,       only:C_force
  use prompting,      only:prompt
- use units,          only:umass,udist,utime
- use physcon,        only:gg,c
+ use units,          only:utime
  use options,        only:iexternalforce
  use part,           only:isdead_or_accreted
  use io,             only:fatal
@@ -29,8 +28,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunitone)
  logical, save       :: first = .true.
  logical, save       :: firstcall = .true.
  logical, save       :: firstdump = .true.
- real                :: hp,hx,hpp,hxx,d,fac
- real, save          :: distan
+ real                :: hp,hx,hpp,hxx
+ real,save           :: d
 
 ! read the particle accelerations
  dtextforce=huge(dtextforce)
@@ -60,23 +59,14 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunitone)
  enddo
  !$omp end parallel do
 
+ ! Returns the gravitational wave strain at 1Mpc
  call calculate_strain(hx,hp,hxx,hpp,xyzh,vxyzu(1:3,:),fext(1:3,:),pmass,npart)
 
  if (firstcall) then
     firstcall=.false.
+    d = 1.
     call prompt('Write the distance from the source (Mpc):',d)
-    distan=d*3.10e24!--convert Mpc in cm
  endif
-
- fac = gg*c**(-4)*distan**(-1)*umass*udist**(2)*utime**(-2)
-
-! gw strain in the direction perpendicular to the orbit
- hx = fac*hx
- hp = 2*fac*hp
-
-! gw strain in the plane of the orbit
- hpp = fac*hpp
- hxx = -2*fac*hxx
 
 ! Write a file where I append all the values of the strain wrt time
  if (first) then
@@ -91,7 +81,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunitone)
  else
     open(unit=iu, file='strain.gw',position='append')
  endif
- write(iu,'(5(es18.10,1X))') time*utime,hp,hx,hpp,hxx
+
+ ! Rescale the strains by the desired distance
+ write(iu,'(5(es18.10,1X))') time*utime,hp/d,hx/d,hpp/d,hxx/d
+
  close(iu)
 
 end subroutine do_analysis
