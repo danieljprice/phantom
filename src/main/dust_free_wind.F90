@@ -197,7 +197,7 @@ end subroutine wind_step
 !
 !-----------------------------------------------------------------------
 subroutine calc_wind_profile(r0, v0, T0, time_end, state)
-!all quantities in cgs
+! all quantities in cgs
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(inout) :: state
  logical :: tau_test
@@ -207,7 +207,7 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
 
  if (state%v > state%c) then
     state%spcode = 1
-    print *, 'Initial velocity cannot be greater than sound speed'
+    !print *, 'Initial velocity cannot be greater than sound speed'
  endif
 
 !compute 1D wind solution with dust
@@ -239,14 +239,17 @@ subroutine stationary_wind_profile(local_time, r, v, u, rho, e, GM, gamma, mu)
  T = wind_temperature
  r0 = r
  v0 = v
+ r = r*udist
+ v = v*unit_velocity
  state%mu = mu
  state%gamma = gamma
  call calc_wind_profile(r, v, T, local_time*utime, state)
  r = state%r/udist
  v = state%v/unit_velocity
  rho = state%rho/(unit_density)
+ T = state%Tg
  if (gamma > 1.0001) then
-    T = wind_temperature * ((r0/udist)**2 * (v0/unit_velocity) / (r**2 * v))**(gamma-1.)
+    T = wind_temperature * ((r0**2 * v0) / (r**2 * v))**(gamma-1.)
     u = T * u_to_temperature_ratio
     e = .5*v**2 - GM/r + gamma*u
  else
@@ -255,7 +258,7 @@ subroutine stationary_wind_profile(local_time, r, v, u, rho, e, GM, gamma, mu)
     e = .5*v**2 - GM/r + u
  endif
  !cs = state%c/unit_velocity
-end subroutine stationary_wind_profile
+end subroutine
 
 
 !-----------------------------------------------------------------------
@@ -283,8 +286,8 @@ subroutine old_stationary_wind_profile(local_time, r, v, u, rho, e, GM, gamma, m
  rvT(2) = v*unit_velocity
  rvT(3) = wind_temperature
  do i=1,N
-    call RK4_step_dr(dt, rvT, mu, gamma, wind_alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
-    rvT = new_rvT
+  call RK4_step_dr(dt, rvT, mu, gamma, wind_alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
+  rvT = new_rvT
  enddo
  r = new_rvt(1)/udist
  v = new_rvt(2)/unit_velocity
@@ -300,7 +303,7 @@ subroutine old_stationary_wind_profile(local_time, r, v, u, rho, e, GM, gamma, m
  !update radius, velocity and density
  rho = wind_mass_rate / (4.*pi*r**2*v)
 
-end subroutine old_stationary_wind_profile
+end subroutine
 
 !-----------------------------------------------------------------------
 !

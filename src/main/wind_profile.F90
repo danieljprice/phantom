@@ -22,26 +22,31 @@
 !--------------------------------------------------------------------------
 module wind_profile
 
-#ifdef BOWEN
- public :: pulsating_wind_profile
-#endif
- public :: evolve_hydro,energy_profile
- public :: setup_wind,RK4_step_dr
+ implicit none
+
+ public :: evolve_hydro,energy_profile,RK4_step_dr,init_wind_equations
 
  private
 
 ! Wind properties
- real :: Mstar_cgs, Lstar_cgs, Tstar, Rstar_cgs, wind_gamma, wind_mass_rate
- real :: Cprime, u_to_temperature_ratio, expT, wind_alpha, wind_temperature,Rstar
+ real :: Mstar_cgs, Tstar, Rstar, Rstar_cgs, expT, u_to_temperature_ratio
  integer :: wind_type
 
 contains
 
-#ifdef BOWEN
-
-#else
-
-#endif
+  subroutine init_wind_equations (Mstar_in, Tstar_in, Rstar_in, expT_in, u_to_T, iwind)
+  use physcon, only:solarm
+  use units,   only:udist
+  real, intent(in) :: Mstar_in, Tstar_in, Rstar_in, expT_in, u_to_T
+  integer, intent(in) :: iwind
+  Mstar_cgs = Mstar_in*solarm
+  expT= expT_in
+  wind_type = iwind
+  Tstar = Tstar_in
+  Rstar = Rstar_in
+  Rstar_cgs = Rstar*udist
+  u_to_temperature_ratio = u_to_T
+end subroutine init_wind_equations
 
 subroutine evolve_hydro(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, spcode, dt_force, dt_max, dt_next)
  use physcon, only:kboltz,atomic_mass_unit,Gg

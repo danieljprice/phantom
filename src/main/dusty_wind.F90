@@ -306,7 +306,6 @@ end subroutine dustywind_step
 !
 !-----------------------------------------------------------------------
 subroutine calc_dustywind_profile(r0, v0, T0, time_end, state)
-!all quantities in cgs
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(out) :: state
  real :: tau_lucy_last
@@ -344,6 +343,8 @@ subroutine dusty_wind_profile(time,local_time,r,v,T,u,rho,e,GM,gamma,Jstar,K,mu,
 
  type(wind_state) :: state
 
+ r = r*udist
+ v = v*unit_velocity
  call calc_dustywind_profile(r, v, T, local_time*utime, state)
  r = state%r/udist
  v = state%v/unit_velocity

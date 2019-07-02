@@ -108,7 +108,7 @@ module inject
 
  real, private::   dtpulsation = 1.d99
  real, private ::  wind_mass_rate,wind_velocity,mass_of_spheres,time_between_spheres,neighbour_distance,&
-      Rstar_cgs,Cprime,wind_injection_radius
+      Rstar_cgs,Rstar,Cprime,wind_injection_radius
  integer, private :: particles_per_sphere,nwall_particles,iresolution
 
  logical, parameter :: wind_verbose = .false.
@@ -126,7 +126,7 @@ contains
 subroutine init_inject(ierr)
  use io,           only:fatal
  use timestep,     only:tmax
- !use wind_profile, only:setup_wind
+ use wind_profile, only:init_wind_equations
 #ifdef NUCLEATION
  use dusty_wind,     only:setup_dustywind,get_initial_wind_speed
 #else
@@ -174,9 +174,10 @@ subroutine init_inject(ierr)
  wind_velocity         = max(wind_velocity,wind_osc_vamplitude)
  Cprime = bowen_Cprime / (umass*utime/udist**3)
  wind_injection_radius  = wind_injection_radius_au * au / udist
-
+ Rstar = Rstar_cgs/udist
 
 !original: Rstar_cgs = wind_injection_radius_au*au
+call init_wind_equations (xyzmh_ptmass(4,wind_emitting_sink), star_Teff, Rstar, wind_expT, u_to_temperature_ratio, wind_type)
 #ifdef NUCLEATION
     call setup_dustywind(xyzmh_ptmass(4,wind_emitting_sink), star_Lum, star_Teff, Rstar_cgs, &
          bowen_Cprime, wind_expT, wind_mass_rate, u_to_temperature_ratio, wind_alpha, wind_type)
@@ -363,16 +364,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     call pulsating_wind_profile(time,local_time, r, v, u, rho, e, GM, gamma, sphere_number, &
          inner_sphere,inner_boundary_sphere)
 #endif
-    if (sonic_type == 1) then
-!#ifdef NUCLEATION
-       r = Rstar_cgs
-       v = wind_velocity*unit_velocity
-       call dusty_wind_profile(time,local_time, r, v, wind_temperature, u, rho, e, GM, gamma, Jstar, K, mu, cs)
-    else
-       r = wind_injection_radius
-       v = wind_velocity
-       call stationary_wind_profile(local_time, r, v, u, rho, e, GM, gamma, mu)
-    endif
+    v = wind_velocity
+#ifdef NUCLEATION
+    r = Rstar
+    call dusty_wind_profile(time,local_time, r, v, wind_temperature, u, rho, e, GM, gamma, Jstar, K, mu, cs)
+#else
+    r = wind_injection_radius
+    call stationary_wind_profile(local_time, r, v, u, rho, e, GM, gamma, mu)
+#endif
 
     if (wind_verbose) then
        print '("sphere ",5(i3),9(1x,es15.8))',i,inner_sphere,iboundary_spheres,outer_sphere,int(shift_spheres),&
@@ -512,8 +511,9 @@ end subroutine write_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io,      only: fatal, error, warning
- use physcon, only: pi,steboltz,au
+ use io,      only:fatal, error, warning
+ use units,   only:udist
+ use physcon, only:pi,steboltz,au
  character(len=*), intent(in)  :: name,valstring
  logical, intent(out) :: imatch,igotall
  integer,intent(out) :: ierr
