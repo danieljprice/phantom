@@ -22,9 +22,10 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, eos, gitinfo, initial_params, io,
-!    lumin_nsdisc, memory, mpiutils, options, part, setup_params, timestep,
-!    units, utils_dumpfiles_hdf5
+!  DEPENDENCIES: boundary, dim, eos, extern_binary, extern_gwinspiral,
+!    externalforces, gitinfo, initial_params, io, lumin_nsdisc, memory,
+!    mpiutils, options, part, setup_params, timestep, units,
+!    utils_dumpfiles_hdf5
 !+
 !--------------------------------------------------------------------------
 #ifdef PHANTOM2HDF5
