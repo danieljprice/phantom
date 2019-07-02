@@ -43,7 +43,8 @@ module readwrite_dumps
                                 read_hdf5_arrays,        &
                                 header_hdf5,             &
                                 got_arrays_hdf5,         &
-                                arrays_options_hdf5
+                                arrays_options_hdf5,     &
+                                externalforce_hdf5
 
  implicit none
  character(len=80), parameter, public :: &    ! module version
@@ -157,6 +158,9 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  use timestep,       only:dtmax,C_cour,C_force
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use units,          only:udist,umass,utime,unit_Bfield
+ use externalforces, only:iext_gwinspiral,iext_binary,iext_corot_binary
+ use extern_binary,  only:binary_posvel,a0,direction,accretedmass1,accretedmass2
+ use extern_gwinspiral, only:Nstar
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  logical,          intent(in) :: fulldump
@@ -173,9 +177,12 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  character(len=30) :: string
  character(len=9)  :: dumptype
  integer :: error
+ real :: posmh(10)
+ real :: vels(6)
 
  type (header_hdf5) :: hdr
  type (arrays_options_hdf5) :: array_options
+ type (externalforce_hdf5) :: extern
 
  if (id==master) then
     if (fulldump) then
@@ -357,8 +364,24 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  hdr%utime = utime
  hdr%unit_Bfield = unit_Bfield
 
+ ! contstruct external force derived type
+ select case(hdr%iexternalforce)
+ case(iext_gwinspiral)
+    extern%Nstar = Nstar
+ case(iext_binary,iext_corot_binary)
+    call binary_posvel(t,posmh,vels)
+    extern%xyzmh1 = posmh(1:5)
+    extern%xyzmh2 = posmh(6:10)
+    extern%vxyz1 = vels(1:3)
+    extern%vxyz2 = vels(4:6)
+    extern%accretedmass1 = accretedmass1
+    extern%accretedmass2 = accretedmass2
+    extern%a0 = a0
+    extern%direction = direction
+ end select
+
  ! write the header to the HDF file
- call write_hdf5_header(hdf5_file_id,hdr,error)
+ call write_hdf5_header(hdf5_file_id,hdr,extern,error)
  if (error/=0) call fatal('write_fulldump_hdf5','could not write header')
 
  ! create options derived type for writing arrays
@@ -459,6 +482,9 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use units,          only:udist,umass,utime,unit_Bfield,set_units_extra
+ use externalforces, only:iext_gwinspiral,iext_binary,iext_corot_binary
+ use extern_gwinspiral, only:Nstar
+ use extern_binary,  only:a0,direction,accretedmass1,accretedmass2
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -475,6 +501,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  type (header_hdf5) :: hdr
  type (arrays_options_hdf5) :: array_options
  type (got_arrays_hdf5) :: got_arrays
+ type (externalforce_hdf5) :: extern
 
  errors(:) = 0
 
@@ -484,8 +511,11 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     call fatal('read_dump',trim(dumpfile)//'.h5 does not exist')
  endif
 
- call read_hdf5_header(hdf5_file_id,hdr,errors(2))
+ call read_hdf5_header(hdf5_file_id,hdr,extern,errors(2))
 
+ !
+ !--Set values from header
+ !
  fileident = hdr%fileident
  isink = hdr%isink
  nptmass = hdr%nptmass
@@ -531,13 +561,23 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  utime = hdr%utime
  unit_Bfield = hdr%unit_Bfield
 
- !
- !--Set values from header
- !
  call set_units_extra()
  ndusttypes = ndustsmall + ndustlarge
 
  call get_options_from_fileid(fileident,smalldump,use_dustfrac,errors(3))
+
+ !
+ !--Set values from external forces
+ !
+ select case(hdr%iexternalforce)
+ case(iext_gwinspiral)
+    Nstar = extern%Nstar
+ case(iext_binary,iext_corot_binary)
+    a0 = extern%a0
+    direction = extern%direction
+    accretedmass1 = extern%accretedmass1
+    accretedmass2 = extern%accretedmass2
+ end select
 
  !
  !--Allocate main arrays
@@ -638,6 +678,9 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use units,          only:udist,umass,utime,unit_Bfield,set_units_extra
+ use externalforces, only:iext_gwinspiral,iext_binary,iext_corot_binary
+ use extern_gwinspiral, only:Nstar
+ use extern_binary,  only:a0,direction,accretedmass1,accretedmass2
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -654,11 +697,15 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  type (header_hdf5) :: hdr
  type (arrays_options_hdf5) :: array_options
  type (got_arrays_hdf5) :: got_arrays
+ type (externalforce_hdf5) :: extern
 
  call open_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,errors(1))
 
- call read_hdf5_header(hdf5_file_id,hdr,errors(2))
+ call read_hdf5_header(hdf5_file_id,hdr,extern,errors(2))
 
+ !
+ !--Set values from header
+ !
  fileident = hdr%fileident
  isink = hdr%isink
  nptmass = hdr%nptmass
@@ -704,13 +751,23 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  utime = hdr%utime
  unit_Bfield = hdr%unit_Bfield
 
- !
- !--Set values from header
- !
  call set_units_extra()
  ndusttypes = ndustsmall + ndustlarge
 
  call get_options_from_fileid(fileident,smalldump,use_dustfrac,errors(3))
+
+ !
+ !--Set values from external forces
+ !
+ select case(hdr%iexternalforce)
+ case(iext_gwinspiral)
+    Nstar = extern%Nstar
+ case(iext_binary,iext_corot_binary)
+    a0 = extern%a0
+    direction = extern%direction
+    accretedmass1 = extern%accretedmass1
+    accretedmass2 = extern%accretedmass2
+ end select
 
  !
  !--Allocate main arrays
