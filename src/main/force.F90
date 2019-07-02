@@ -2760,47 +2760,19 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
 
     if (do_radiation.and.iamgasi) then
-       if (radiation(ithick,i) > 0.5) then
-          radiation(idflux,i) = fsum(idradi)
-          c_code        = c/unit_velocity
-          radkappai     = xpartveci(iradkappai)
-          radlambdai    = xpartveci(iradlambdai)
-          ! radri         = xpartveci(iradri)
-
-          ! eq30 Whitehouse & Bate 2004
-          dtradi = C_rad*hi*hi*rhoi*radkappai/c_code/radlambdai
-          ! if (i==11109) then
-          !   print*, 'Debugging is here', i
-          !   print*, C_rad,hi,rhoi,radkappai,c_code,radlambdai
-          !   print*, dtradi
-          !   print*, radkappai
-          !   print*, radiation(iradxi,i), radiation(idflux,i)
-          !   print*, radiation(iradxi,i) + dtradi*radiation(idflux,i)
-          ! endif
-          ! horrible hack to ensure that the rad energy is positive after the integration
-          if ((radiation(iradxi,i) + dtradi*radiation(idflux,i)) < 0) then
-             ! print*, radiation(iradxi,i), radiation(idflux,i), dtradi,&
-             !   radiation(iradxi,i) + dtradi*radiation(idflux,i), -radiation(iradxi,i)/radiation(idflux,i)
-             dtradi = -radiation(iradxi,i)/radiation(idflux,i)/1e1
-             call warning('force','radiation may become negative, limiting timestep')
-             ! print*, radiation(iradxi,i), radiation(idflux,i), dtradi,&
-             !   radiation(iradxi,i) + dtradi*radiation(idflux,i)
-             ! read*
-          endif
-          radiation(idtrad,i) = dtradi
-          ! if (i==11109) then
-          !   print*, dtradi
-          !   print*, radiation(iradxi,i) + dtradi*radiation(idflux,i)
-          !   read*
-          ! endif
-         ! else
-         !    radiation(idflux,i) = 0
-         !    dtradi = bignumber
-         ! endif
-       else
-          radiation(idflux,i) = 0.
-          dtradi = bignumber
+       radiation(idflux,i) = fsum(idradi)
+       c_code        = c/unit_velocity
+       radkappai     = xpartveci(iradkappai)
+       radlambdai    = xpartveci(iradlambdai)
+       ! radri         = xpartveci(iradri)
+       ! eq30 Whitehouse & Bate 2004
+       dtradi = C_rad*hi*hi*rhoi*radkappai/c_code/radlambdai
+       ! horrible hack to ensure that the rad energy is positive after the integration
+       if ((radiation(iradxi,i) + dtradi*radiation(idflux,i)) < 0) then
+          dtradi = -radiation(iradxi,i)/radiation(idflux,i)/1e1
+          call warning('force','radiation may become negative, limiting timestep')
        endif
+       radiation(idtrad,i) = dtradi
     else
        dtradi = bignumber
     endif

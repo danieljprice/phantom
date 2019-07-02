@@ -1,10 +1,9 @@
 module radiation_utils
  implicit none
- public :: update_radenergy,set_radfluxesandregions
+ public :: update_radenergy!,set_radfluxesandregions
 
  private
 
- real, save :: sch = .25
 contains
 
 subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
@@ -23,7 +22,7 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
   real :: ui,pmassi,rhoi,xii
   real :: ack,a,cv1,kappa,dudt,etot,unew
   real :: c_code, steboltz_code
-  integer :: i, di
+  integer :: i
 
   pmassi        = massoftype(igas)
   steboltz_code = steboltz/(unit_energ/(udist**2*utime))
@@ -164,70 +163,70 @@ subroutine solve_internal_energy_explicit_substeps(unew,ui,rho,etot,dudt,ack,a,c
  end do
 end subroutine solve_internal_energy_explicit_substeps
 
-subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
-  use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa
-  use eos,     only: get_spsound
-  use options, only: ieos
-  use physcon, only:c
-  use units,   only:unit_velocity
-
-  real, intent(inout)    :: radiation(:,:),vxyzu(:,:)
-  real, intent(in)       :: xyzh(:,:)
-  integer, intent(in)    :: npart
-
-  integer :: i
-  real :: pmassi,H,cs,rhoi,r,c_code,lambdai,prevfrac
-
-  pmassi = massoftype(igas)
-
-  prevfrac = 100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
-  sch = sch * (1. + 0.005 * (80. - prevfrac))
-  print*, "-}+{- RADIATION Scale Height Multiplier: ", sch
-
-  radiation(ithick,:) = 1
-
-  c_code = c/unit_velocity
-
-  do i = 1,npart
-    rhoi = rhoh(xyzh(4,i),pmassi)
-    ! if (rhoi < 2e-4) then
-    !   if (xyzh(1,i) < 0.) then
-    !     radiation(ifluxy:ifluxz,i) = 0.
-    !     radiation(ifluxx,i)        = -rhoi*abs(radiation(iradxi,i))*0.5
-    !     radiation(ithick,i) = 0
-    !   else if (xyzh(1,i) > 0.) then
-    !     radiation(ifluxy:ifluxz,i) = 0.
-    !     radiation(ifluxx,i)        =  rhoi*abs(radiation(iradxi,i))*0.5
-    !     radiation(ithick,i) = 0
-    !   end if
-    ! end if
-    cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
-    r  = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    H  = cs*sqrt(r**3)
-    if (abs(xyzh(3,i)) > sch*H) then
-       radiation(ithick,i) = 0
-       ! if (xyzh(3,i) <= 0.) then
-       !   radiation(ifluxx:ifluxy,i) = 0.
-       !   radiation(ifluxz,i)        =  rhoi*abs(radiation(iradxi,i))
-       !   radiation(ithick,i) = 0
-       ! else if (xyzh(3,i) > 0.) then
-       !   radiation(ifluxx:ifluxy,i) = 0.
-       !   radiation(ifluxz,i)        =  -rhoi*abs(radiation(iradxi,i))
-       !   radiation(ithick,i) = 0
-       ! end if
-    end if
-    ! Ri = sqrt(&
-    !   dot_product(radiation(ifluxx:ifluxz,i),radiation(ifluxx:ifluxz,i)))&
-    !   /(radiation(ikappa,i)*rhoi*rhoi*radiation(iradxi,i))
-    ! lambda = (2. + Ri)/(6. + 3*Ri + Ri*Ri)
-    ! lambdai = 1./3
-    ! ! print*, xyzh(4,i), lambdai/radiation(ikappa,i)/rhoi*c_code/cs
-    ! ! read*
-    ! if (xyzh(4,i) > lambdai/radiation(ikappa,i)/rhoi*c_code/cs) then
-    !    radiation(ithick,i) = 0
-    ! endif
-  end do
-end subroutine set_radfluxesandregions
+! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
+!   use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa
+!   use eos,     only: get_spsound
+!   use options, only: ieos
+!   use physcon, only:c
+!   use units,   only:unit_velocity
+!
+!   real, intent(inout)    :: radiation(:,:),vxyzu(:,:)
+!   real, intent(in)       :: xyzh(:,:)
+!   integer, intent(in)    :: npart
+!
+!   integer :: i
+!   real :: pmassi,H,cs,rhoi,r,c_code,lambdai,prevfrac
+!
+!   pmassi = massoftype(igas)
+!
+!   prevfrac = 100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
+!   sch = sch * (1. + 0.005 * (80. - prevfrac))
+!   print*, "-}+{- RADIATION Scale Height Multiplier: ", sch
+!
+!   radiation(ithick,:) = 1
+!
+!   c_code = c/unit_velocity
+!
+!   do i = 1,npart
+!     rhoi = rhoh(xyzh(4,i),pmassi)
+!     ! if (rhoi < 2e-4) then
+!     !   if (xyzh(1,i) < 0.) then
+!     !     radiation(ifluxy:ifluxz,i) = 0.
+!     !     radiation(ifluxx,i)        = -rhoi*abs(radiation(iradxi,i))*0.5
+!     !     radiation(ithick,i) = 0
+!     !   else if (xyzh(1,i) > 0.) then
+!     !     radiation(ifluxy:ifluxz,i) = 0.
+!     !     radiation(ifluxx,i)        =  rhoi*abs(radiation(iradxi,i))*0.5
+!     !     radiation(ithick,i) = 0
+!     !   end if
+!     ! end if
+!     cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
+!     r  = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+!     H  = cs*sqrt(r**3)
+!     if (abs(xyzh(3,i)) > sch*H) then
+!        radiation(ithick,i) = 0
+!        ! if (xyzh(3,i) <= 0.) then
+!        !   radiation(ifluxx:ifluxy,i) = 0.
+!        !   radiation(ifluxz,i)        =  rhoi*abs(radiation(iradxi,i))
+!        !   radiation(ithick,i) = 0
+!        ! else if (xyzh(3,i) > 0.) then
+!        !   radiation(ifluxx:ifluxy,i) = 0.
+!        !   radiation(ifluxz,i)        =  -rhoi*abs(radiation(iradxi,i))
+!        !   radiation(ithick,i) = 0
+!        ! end if
+!     end if
+!     ! Ri = sqrt(&
+!     !   dot_product(radiation(ifluxx:ifluxz,i),radiation(ifluxx:ifluxz,i)))&
+!     !   /(radiation(ikappa,i)*rhoi*rhoi*radiation(iradxi,i))
+!     ! lambda = (2. + Ri)/(6. + 3*Ri + Ri*Ri)
+!     ! lambdai = 1./3
+!     ! ! print*, xyzh(4,i), lambdai/radiation(ikappa,i)/rhoi*c_code/cs
+!     ! ! read*
+!     ! if (xyzh(4,i) > lambdai/radiation(ikappa,i)/rhoi*c_code/cs) then
+!     !    radiation(ithick,i) = 0
+!     ! endif
+!   end do
+! end subroutine set_radfluxesandregions
 ! subroutine mcfost_do_analysis()
 !
 ! end subroutine mcfost_do_analysis

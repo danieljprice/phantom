@@ -36,7 +36,8 @@ module evolve
 contains
 
 subroutine evol(infile,logfile,evfile,dumpfile)
- use io,               only:iprint,iwritein,id,master,iverbose,flush_warnings,nprocs,fatal,warning
+ use io,               only:iprint,iwritein,id,master,iverbose,&
+                            flush_warnings,nprocs,fatal,warning
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
                             dtmax_ifactor,dtmax_dratio,check_dtmax_for_decrease
  use evwrite,          only:write_evfile,write_evlog
@@ -88,7 +89,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use dim,              only:do_radiation
  use options,          only:exchange_radiation_energy
  use part,             only:radiation,ithick
- use radiation_utils,  only:update_radenergy,set_radfluxesandregions
+ use radiation_utils,  only:update_radenergy
 #ifndef IND_TIMESTEPS
  use timestep,         only:dtrad
 #endif
@@ -576,18 +577,15 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        call increment_timer(timer_io,t2-t1,tcpu2-tcpu1)
        timer_io%cpu   = reduce_mpi('+',timer_io%cpu)
 
-! #ifdef LIVE_ANALYSIS
-!        if (id==master) then
-!           if (do_radiation) then
-!              call set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
-!              write(iprint,"(/,a,f6.2,'%')") &
-!                 ' -}+{- RADIATION particles done by SPH = ',&
-!                 100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
-!           endif
-!           call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
-!                            massoftype(igas),npart,time,ianalysis)
-!        endif
-! #endif
+#ifdef LIVE_ANALYSIS
+       if (id==master) then
+          call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
+                           massoftype(igas),npart,time,ianalysis)
+          write(iprint,"(/,a,f6.2,'%')") &
+               ' -}+{- RADIATION particles done by SPH = ',&
+               100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
+       endif
+#endif
 
        if (id==master) then
           call print_timinginfo(iprint,nsteps,nsteplast,timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&

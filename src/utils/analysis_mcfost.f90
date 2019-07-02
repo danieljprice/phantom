@@ -34,13 +34,14 @@ module analysis
 
 contains
 
-subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
+subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit,initial)
  use mcfost2phantom, only:init_mcfost_phantom,run_mcfost_phantom
  use part,           only:massoftype,iphase,dustfrac,hfact,npartoftype,&
                           get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
                           massoftype,xyzmh_ptmass,luminosity,igas,&
                           grainsize,graindens,ndusttypes,rhoh,&
-                          do_radiation,radiation,ithick,maxirad,ikappa,iradxi,idflux
+                          do_radiation,radiation,ithick,maxirad,ikappa,iradxi,idflux,&
+                          inumph
  use units,          only:umass,utime,udist,unit_velocity,unit_energ
  use io,             only:fatal,warning
  use dim,            only:use_dust,lightcurve,maxdusttypes
@@ -55,32 +56,34 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(in)    :: particlemass,time
  real,             intent(inout) :: vxyzu(:,:)
+ logical, optional,intent(in)    :: initial
 
  logical, save   :: init_mcfost = .false.
  real            :: mu_gas,factor,T_to_u
  real(kind=4)    :: Tdust(npart),n_packets(npart)
  integer         :: ierr,ntypes,dustfluidtype,ilen,nlum,i
  integer(kind=1) :: itype(maxp)
- logical         :: compute_Frad
+ logical         :: compute_Frad,isinitial
  real(kind=8), dimension(6), save            :: SPH_limits
  real,         dimension(:),     allocatable :: dudt
  real,    parameter :: Tdefault = 1.
  logical, parameter :: write_T_files = .false. ! ask mcfost to write fits files with temperature structure
  integer, parameter :: ISM = 2 ! ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
- real :: a_code,c_code,rhoi,steboltz_code,pmassi,Tmin
+ real :: a_code,c_code,rhoi,steboltz_code,pmassi,Tmin,Tmax
  integer :: omp_threads
 
  omp_threads = omp_get_max_threads()
  ! call omp_set_dynamic(.false.)
- call omp_set_num_threads(1)
+ ! call omp_set_num_threads(1)
 
  if (use_mcfost) then
     if (.not.init_mcfost) then
        ilen = index(dumpfile,'_',back=.true.) ! last position of the '_' character
        mcfost_para_filename = dumpfile(1:ilen-1)//'.para'
-       call init_mcfost_phantom(mcfost_para_filename,ndusttypes,use_Voronoi_limits_file,Voronoi_limits_file,SPH_limits,ierr, &
-            fix_star = use_mcfost_stellar_parameters)
+       call init_mcfost_phantom(mcfost_para_filename,ndusttypes,use_Voronoi_limits_file,&
+          Voronoi_limits_file,SPH_limits,ierr, &
+          fix_star = use_mcfost_stellar_parameters)
        if (ierr /= 0) call fatal('mcfost-phantom','error in init_mcfost_phantom')
        init_mcfost = .true.
     endif
@@ -119,10 +122,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
          n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
 
-    Tmin          = minval(Tdust, mask=(Tdust > 0.))
+    Tmin = minval(Tdust, mask=(Tdust > 0.))
+    Tmax = maxval(Tdust)
+    ! (176-17)*0.25
     write(*,*) ''
     write(*,*) 'Minimum temperature = ', Tmin
-    write(*,*) 'Maximum temperature = ', maxval(Tdust)
+    write(*,*) 'Maximum temperature = ', Tmax
     write(*,*) ''
 
     c_code        = c/unit_velocity
@@ -130,12 +135,25 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     a_code        = 4.*steboltz_code/c_code
     pmassi        = massoftype(igas)
     ! set thermal energy
+    if (.not.present(initial)) then
+       isinitial=.false.
+    else
+       isinitial=initial
+    endif
+
     if (do_radiation) then
       do i=1,npart
          if (maxphase==maxp) then
             if (iamtype(iphase(i)) /= igas) cycle
          endif
-         if (radiation(ithick,i) < 0.5) then
+         radiation(ikappa,i) = radiation(ikappa,i)*(cm**2/gram)/(udist**2/umass)
+         radiation(inumph,i) = n_packets(i)
+         if (radiation(inumph,i) > 1e2) then
+            radiation(ithick,i) = 0.
+         else
+            radiation(ithick,i) = 1.
+         endif
+         if (isinitial.or.(radiation(ithick,i) < 0.5)) then
             if (Tdust(i) > 1.) then
                vxyzu(4,i) = Tdust(i) * factor
                ! if the temperature is correct and set by mcfost
@@ -146,10 +164,21 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             else
                ! if I got no temperature from mcfost
                ! => lets try to handle the particle by SPH
-               radiation(ithick,i) = 1.
+               if (isinitial) then
+                  vxyzu(4,i) = ((Tmax-Tmin)*0.2)*factor
+                  rhoi = rhoh(xyzh(4,i),pmassi)
+                  radiation(iradxi,i) = a_code*((Tmax-Tmin)*0.2)**4.0/rhoi
+                  radiation(idflux,i) = 0
+               else
+                  radiation(ithick,i) = 1.
+               endif
             endif
          endif
-         radiation(ikappa,i) = radiation(ikappa,i)*(cm**2/gram)/(udist**2/umass)
+         ! if (i == 3722) then
+         !    print*, radiation(ikappa,i)/((cm**2/gram)/(udist**2/umass)), Tdust(i),&
+         !      vxyzu(4,i)/factor,n_packets(i)
+         !    read*
+         ! endif
       enddo
     else
       do i=1,npart
@@ -164,7 +193,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     if (allocated(dudt)) deallocate(dudt)
 
-    call omp_set_num_threads(omp_threads)
+    ! call omp_set_num_threads(omp_threads)
     ! call omp_set_dynamic(.true.)
     write(*,*) "End of analysis mcfost"
  endif ! use_mcfost

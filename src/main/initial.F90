@@ -124,7 +124,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             die,fatal,id,master,nprocs,real4,warning
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
                             externalforce_vdependent
- use options,          only:iexternalforce,damp,alpha,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
+ use options,          only:iexternalforce,damp,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
@@ -198,7 +198,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use part,             only:igas
  use fileutils,        only:numfromfile
  use io,               only:ianalysis
- use radiation_utils,  only:set_radfluxesandregions
 #endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:ieos,init_eos
@@ -530,17 +529,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     endif
 #ifdef LIVE_ANALYSIS
     if(do_radiation) then
-       if (time == 0) then
-          radiation(ithick,:) = 0.
+       if (time==0) then
+          call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
+                           massoftype(igas),npart,time,ianalysis,initial=.true.)
        else
-          call set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
+          call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
+                           massoftype(igas),npart,time,ianalysis)
        endif
-       write(iprint,"(/,a,f6.2,'%')") &
-          ' -}+{- RADIATION particles done by SPH = ',&
-          100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
-       call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
-                        massoftype(igas),npart,time,ianalysis)
-       call set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
        write(iprint,"(/,a,f6.2,'%')") &
           ' -}+{- RADIATION particles done by SPH = ',&
           100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))

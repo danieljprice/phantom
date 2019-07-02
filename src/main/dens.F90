@@ -1811,8 +1811,8 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
     if (do_radiation.and.iamgasi) then
        ! if (radiation(ithick,i) > 0.5) then
-        radiation(ifluxx:ifluxz,lli) = &
-        cell%rhosums(iradfxi:iradfzi,i)*term
+          radiation(ifluxx:ifluxz,lli) = &
+          cell%rhosums(iradfxi:iradfzi,i)*term
        ! else
        !    radiation(ifluxx:ifluxz,lli) = 0.
        ! endif
