@@ -43,7 +43,7 @@ use units, only:utime
                                iev_alpha,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
                                iev_etaa(2),iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n(4),iev_nR(5),iev_nT(2),&
                                iev_dtg,iev_ts,iev_dm(maxdusttypes),iev_momall,iev_angall,iev_maccsink(2),&
-                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_ionise
+                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_ionise,iev_gws(4)
  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
  integer,         parameter :: iev_sum = 1    ! array index of the sum of the quantity
  integer,         parameter :: iev_max = 2    ! array index of the maximum of the quantity
@@ -65,7 +65,7 @@ contains
 subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
                           lightcurve,use_dust,use_CMacIonize,store_temperature,&
-                          maxdusttypes
+                          maxdusttypes,gws
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           npartoftype,alphaind,Bxyz,Bevol,divcurlB,iamtype,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
@@ -76,7 +76,6 @@ subroutine compute_energies(t)
                           iamdust,ndusttypes
  use part,           only:pxyzu,metrics
  use part,           only:fxyzu,fext
- use dim,            only:gw
  use gravwaveutils,  only:calculate_strain
  use eos,            only:polyk,utherm,gamma,equationofstate,&
                           get_temperature_from_ponrho,gamma_pwp
@@ -730,11 +729,18 @@ subroutine compute_energies(t)
  endif
  if (track_lum) totlum = ev_data(iev_sum,iev_totlum)
 
- if (gw) then
+ if (gws) then
     axyz   = fxyzu(1:3,1:npart) + fext(1:3,1:npart)
     pmassi = massoftype(igas)
     call calculate_strain(hx,hp,hxx,hpp,xyzh,vxyzu(1:3,:),axyz,pmassi,npart)
- write(1,*) t*utime,hx,hp,hxx,hpp
+    hx  = reduce_fn('+',hx)
+    hp  = reduce_fn('+',hp)
+    hxx = reduce_fn('+',hxx)
+    hpp = reduce_fn('+',hpp)
+    ev_data(iev_sum,iev_gws(1)) = hx
+    ev_data(iev_sum,iev_gws(2)) = hp
+    ev_data(iev_sum,iev_gws(3)) = hxx
+    ev_data(iev_sum,iev_gws(4)) = hpp
  endif
 
  return

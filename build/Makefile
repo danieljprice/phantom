@@ -252,7 +252,7 @@ ifeq ($(SETUP), wd)
     KNOWN_SETUP   = yes
     STORE_TEMP    = yes
     MODFILE       = moddump_binarystar.f90
-    GW            = yes
+    GWS           = yes
     ANALYSIS      = analysis_gws.f90
 endif
 
@@ -1438,8 +1438,8 @@ endif
     CONST_AV=yes
 endif
 
-ifeq ($(GW), yes)
-    FPPFLAGS += -DGW
+ifeq ($(GWS), yes)
+    FPPFLAGS += -DGWS
 endif
 
 ifeq ($(DUST), yes)

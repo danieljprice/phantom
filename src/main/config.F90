@@ -250,12 +250,12 @@ logical, parameter :: gr = .false.
 #endif
 
 !--------------------
-! Gravitational waves
+! Gravitational wave strain
 !--------------------
-#ifdef GW
-logical, parameter :: gw = .true.
+#ifdef GWS
+logical, parameter :: gws = .true.
 #else
-logical, parameter :: gw = .false.
+logical, parameter :: gws = .false.
 #endif
 
 !--------------------
