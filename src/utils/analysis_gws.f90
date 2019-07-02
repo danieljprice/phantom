@@ -29,17 +29,15 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunitone)
  logical, save       :: first = .true.
  logical, save       :: firstcall = .true.
  logical, save       :: firstdump = .true.
- real                :: hp,hx,hpp,hxx,d
+ real                :: hp,hx,hpp,hxx,d,fac
  real, save          :: distan
- integer, save       :: a
 
 ! read the particle accelerations
  dtextforce=huge(dtextforce)
 
  if (firstdump) then
     firstdump=.false.
-    call prompt('Write the external force [1:16]:', a)
-    iexternalforce=a
+    call prompt('Write the external force [1:16]:', iexternalforce)
     print*, 'WARNING: you have to check that the external force used is reasonable for a physical point of view.'
  endif
 
@@ -70,12 +68,15 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunitone)
     distan=d*3.10e24!--convert Mpc in cm
  endif
 
+ fac = gg*c**(-4)*distan**(-1)*umass*udist**(2)*utime**(-2)
+
 ! gw strain in the direction perpendicular to the orbit
- hx = gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*hx
- hp = 2*gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*hp
+ hx = fac*hx
+ hp = 2*fac*hp
+
 ! gw strain in the plane of the orbit
- hpp = gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*hpp
- hxx = -2*gg*c**(-4.)*distan**(-1.)*umass*udist**(2.)*utime**(-2.)*hxx
+ hpp = fac*hpp
+ hxx = -2*fac*hxx
 
 ! Write a file where I append all the values of the strain wrt time
  if (first) then
