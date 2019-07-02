@@ -395,6 +395,7 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  array_options%use_dustfrac = use_dustfrac
  array_options%use_dustgrowth = use_dustgrowth
  array_options%h2chemistry = h2chemistry
+ array_options%lightcurve = lightcurve
  array_options%store_temperature = store_temperature
  array_options%maxBevol = maxBevol
  array_options%ndivcurlB = ndivcurlB
