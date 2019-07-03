@@ -56,12 +56,15 @@ subroutine setup_wind(Mstar_in, Lstar_in, Tstar_in, Rstar_in, Cprime_cgs, &
  use units,   only:udist,umass,utime
  use physcon, only:c, solarm, years
  use eos,     only:gamma
+#ifndef ISOTHERMAL
  use dust_formation, only: set_cooling
-
+#endif
  real, intent(in) :: Mstar_in, Lstar_in, Tstar_in, Rstar_in, Cprime_cgs, expT_in, Mdot_in, CO_ratio, &
           u_to_T,alpha_in, Twind
  integer, intent(in) :: wind_type_in
+#ifndef ISOTHERMAL
  logical :: cool_radiation_H0, cool_relaxation_Bowen, cool_collisions_dust, cool_relaxation_Stefan
+#endif
 
  Mstar_cgs = Mstar_in*solarm
  Lstar_cgs = Lstar_in
@@ -84,6 +87,7 @@ subroutine setup_wind(Mstar_in, Lstar_in, Tstar_in, Rstar_in, Cprime_cgs, &
  Rstar = Rstar_in/udist
  u_to_temperature_ratio = u_to_T
 
+#ifndef ISOTHERMAL
  cool_radiation_H0 = .false.
  if (wind_type == 2) then
     cool_relaxation_Bowen = .false.
@@ -93,7 +97,7 @@ subroutine setup_wind(Mstar_in, Lstar_in, Tstar_in, Rstar_in, Cprime_cgs, &
  cool_collisions_dust = .false.
  cool_relaxation_Stefan = .false.
  call set_cooling(cool_radiation_H0, cool_relaxation_Bowen, cool_collisions_dust, cool_relaxation_Stefan)
-
+#endif
 end subroutine setup_wind
 
 !-----------------------------------------------------------------------
@@ -105,7 +109,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
 ! all quantities in cgs
  use physcon, only:pi,kboltz,atomic_mass_unit
  use io,      only:fatal
- use eos,     only:gmw
+ !use eos,     only:gmw
  !use dust_formation, only: calc_cooling_rate
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(inout) :: state
@@ -137,8 +141,8 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  !    call calc_cooling_rate(state%rho, state%Tg, Teq, wind_gamma, state%mu, Cprime, &
  !            state%K(2)/(state%r**2*state%v), state%kappa_ross, state%Q)
  ! endif
- !state%p = state%rho*kboltz*state%Tg/(state%mu*atomic_mass_unit)
- !state%c = sqrt(wind_gamma*kboltz*state%Tg/(state%mu*atomic_mass_unit))
+ state%p = state%rho*kboltz*state%Tg/(state%mu*atomic_mass_unit)
+ state%c = sqrt(wind_gamma*kboltz*state%Tg/(state%mu*atomic_mass_unit))
  state%dt_force = .false.
  state%spcode = 0
  state%nsteps = 1
@@ -159,7 +163,7 @@ subroutine wind_step(state)
  use physcon,        only:pi
  type(wind_state), intent(inout) :: state
  real, parameter :: max_dt = 1.d9
- real :: rvT(3), alpha_old, dt_next, Q_old, v_old, dt_max, Teq
+ real :: rvT(3), dt_next, v_old, dt_max
 
  if (state%time_end > 0.) then
     dt_max = min(state%time_end - state%t, max_dt)
@@ -200,7 +204,6 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
 ! all quantities in cgs
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(inout) :: state
- logical :: tau_test
 
 !compute chemistry and initialize variables
  call init_wind(r0, v0, T0, time_end, state)
@@ -228,7 +231,7 @@ end subroutine calc_wind_profile
 !ubroutine dust_free_wind_profile(local_time, r, v, u, rho, e, GM, gamma, mu)
 subroutine stationary_wind_profile(local_time, r, v, u, rho, e, GM, gamma, mu)
  !in/out variables in code units (except Jstar,K,mu)
- use units,        only:udist, utime, unit_velocity, unit_density, unit_pressure
+ use units,        only:udist, utime, unit_velocity, unit_density!, unit_pressure
  real, intent(in)  :: local_time, GM, gamma, mu
  real, intent(inout) :: r, v
  real, intent(out) ::  u, rho, e
@@ -400,6 +403,8 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, verbose)
  use io,       only:fatal
  use timestep, only:tmax
  use units,    only:utime
+ use eos,      only:gmw
+ use physcon,  only:kboltz,atomic_mass_unit,Gg
  real, intent(in) :: r0, T0
  real, intent(out) :: v0, sonic(:)
  logical, intent(in) :: verbose
@@ -407,32 +412,48 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, verbose)
 
  type(wind_state) :: state
 
- real :: v0min, v0max, v0last
+ real :: v0min, v0max, v0last, vesc, cs
  integer, parameter :: ncount_max = 20
  integer :: icount
  character(len=*), parameter :: label = 'get_initial_wind_speed'
 
+ vesc = sqrt(2.*Gg*Mstar_cgs/r0)
+ cs = sqrt(wind_gamma*kboltz/atomic_mass_unit*T0/gmw)
+ v0 = cs*(vesc/2./cs)**2*exp(-(vesc/cs)**2/2.+1.5)
  if (verbose) then
     print *, "[get_initial_wind_speed] Looking for initial velocity."
+#ifndef ISOTHERMAL
     print *, ' * Tstar  = ', Tstar
     print *, ' * Mstar  = ', Mstar_cgs/1.9891d33
     print *, ' * Lstar  = ', Lstar_cgs/3.9d33
     print *, ' * Rstar  = ', Rstar_cgs/1.496d13
     print *, ' * Mdot   = ', Mdot_cgs/6.30303620274d25
+    print *, ' * mu     = ', gmw
     print *, ' * T0     = ', T0
     print *, ' * r0(au) = ', r0/1.496d13
     print *, ' * Cprime = ', Cprime
     print *, ' * gamma  = ', wind_gamma
     if (wind_type == 2) print *, ' * expT   = ', expT
+#else
+    print *, ' * Mstar (Mo) = ', Mstar_cgs/1.9891d33
+    print *, ' * Twind      = ', T0
+    print *, ' * Rstar (Ro) = ', r0/69600000000.,Rstar_cgs/69600000000.
+    print *, ' * mu         = ', gmw
+    print *, ' * cs  (km/s) = ', cs/1e5
+    print *, ' * vesc(km/s) = ', vesc/1e5
+    print *, ' * v0  (km/s) = ', v0/1e5
+#endif
  endif
 
 ! Find lower bound for initial velocity
- v0 = 1.d5
+ v0 = v0*100.
  v0max = v0
  icount = 0
+ state%mu = gmw
+ state%gamma = wind_gamma
  do while (icount < ncount_max)
     call calc_wind_profile(r0, v0, T0, 0., state)
-    if (verbose) print *,' v0 = ', v0, state%t,icount,state%spcode
+    if (verbose) print *,' v0 = ', v0,state%r,state%v,state%c,state%t,icount,state%spcode
     if (state%spcode == -1) then
        v0min = v0
        exit
@@ -488,10 +509,11 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, verbose)
  sonic(6) = state%p
  sonic(7) = state%S
  sonic(8) = state%alpha
- !if (verbose) then
- write (*,'("Initial conditions     v0 =",f9.1," r0/R* = ",f6.3)') v0,r0/Rstar_cgs
- write (*,'("Sonic point properties vs =",f9.1," Rs/R* = ",f6.3," Ts =",f7.1," Ps = ",es10.4," S =",f6.1," alpha =",f5.3,/)')&
-            sonic(2),sonic(1)/Rstar_cgs,sonic(5),sonic(6),sonic(7),sonic(8)
+!if (verbose) then
+ !mdot = 4.*pi*rho*v0*ro*ro
+ write (*,'("Initial conditions     v0 (km/s) =",f9.1," r0/R* = ",f7.3)') v0/1e5,r0/Rstar_cgs
+ write (*,'("Sonic point properties vs (km/s) =",f9.1," Rs/R* = ",f7.3," Ts =",f7.1," S =",f6.1," alpha =",f5.3,/)')&
+            sonic(2)/1e5,sonic(1)/Rstar_cgs,sonic(5),sonic(7),sonic(8)
  !endif
 !save 1D initial profile for comparison
  call save_windprofile(R0, T0, v0, tmax*utime, sonic(4)*utime/10., 'gailstatwind1D.dat')

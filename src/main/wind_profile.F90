@@ -150,7 +150,7 @@ subroutine calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT
     else
        dv_dr = numerator/denominator
     endif
-    dT_dr = -expT*T/r
+    dT_dr = -expT*T0/r
  endif
  !isothermal or adiabatic expansion (no cooling)
  if (wind_type == 1 .or. wind_type == 3) then

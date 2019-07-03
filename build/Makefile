@@ -713,10 +713,10 @@ endif
 
 ifeq ($(SETUP), isowind)
 #   wind setup (isothermal spherical wind from a sink particle)
-    FPPFLAGS=
+    FPPFLAGS= -DWIND
     ISOTHERMAL=yes
     SETUPFILE= setup_wind.F90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 wind_profile.F90 inject_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 wind_profile.F90 dust_free_wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no

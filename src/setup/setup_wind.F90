@@ -104,7 +104,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     dumpfile = trim(fileprefix)//'_00000.tmp'
     call write_infile(infile,logfile,evfile,dumpfile,iwritein,6)
     print'(/,"If needed edit ",A," and ",A," and rerun phantomsetup",/)',trim(filename),trim(infile)
-    stop
  endif
 
  gamma = wind_gamma

@@ -137,9 +137,12 @@ subroutine init_inject(ierr)
 #else
  use part,         only:xyzmh_ptmass
 #endif
- use physcon,      only:Rg, days, km, au, years, solarm, pi
+#ifdef ISOTHERMAL
+ use setup, only : T_wind
+#endif
+ use physcon,      only: mass_proton_cgs, kboltz, Rg, days, km, au, years, solarm, pi
  use icosahedron,  only:compute_matrices, compute_corners
- use eos,          only:gmw, gamma
+ use eos,          only:gmw, gamma,polyk
  use units,        only:unit_velocity, umass, utime, udist
  use part,         only:massoftype,igas,iboundary
  use io,           only:iverbose
@@ -175,6 +178,9 @@ subroutine init_inject(ierr)
  Cprime = bowen_Cprime / (umass*utime/udist**3)
  wind_injection_radius  = wind_injection_radius_au * au / udist
  Rstar = Rstar_cgs/udist
+#ifdef ISOTHERMAL
+ wind_temperature = polyk* mass_proton_cgs/kboltz * unit_velocity**2*gmw
+#endif
 
 !original: Rstar_cgs = wind_injection_radius_au*au
 call init_wind_equations (xyzmh_ptmass(4,wind_emitting_sink), star_Teff, Rstar, wind_expT, u_to_temperature_ratio, wind_type)
@@ -194,7 +200,11 @@ call init_wind_equations (xyzmh_ptmass(4,wind_emitting_sink), star_Teff, Rstar, 
     if (wind_type == 2 .and. wind_temperature /= star_Teff) then
        wind_injection_radius_au = Rstar_cgs/au*(star_Teff/wind_temperature)**(1./wind_expT)
     endif
+#ifdef ISOTHERMAL
+    wind_injection_radius  = wind_injection_radius_au * au / udist
+#else
     wind_injection_radius  = max(wind_injection_radius_au * au, Rstar_cgs) / udist
+#endif
     !Rstar = min(wind_injection_radius_au*au,Rstar_cgs)
     call get_initial_wind_speed(wind_injection_radius*udist,wind_temperature,wind_velocity_cgs,sonic,.true.)
     wind_velocity = wind_velocity_cgs/unit_velocity
@@ -301,7 +311,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 #else
  use dust_free_wind, only:stationary_wind_profile
 #endif
- use units,        only:udist,unit_velocity
+ use units,        only:udist
  use part,         only:igas,iboundary,nptmass
  use injectutils,  only:inject_geodesic_sphere
  real,    intent(in)    :: time, dtlast
@@ -309,10 +319,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
- integer :: outer_sphere, inner_sphere, inner_boundary_sphere, first_particle, i, ierr, ipart
+ integer :: outer_sphere, inner_sphere, inner_boundary_sphere, first_particle, i, ipart!, ierr
  real    :: local_time, GM, r, v, u, rho, e, mu, mass_lost, x0(3), v0(3) !, cs2max, dr, dp
- real :: Jstar, K(0:3), cs
 #ifdef NUCLEATION
+ real :: Jstar, K(0:3), cs
  integer :: j
 #elif BOWEN
  real :: surface_radius
@@ -466,7 +476,6 @@ subroutine write_options_inject(iunit)
  use dim,          only: maxvxyzu
  use infile_utils, only: write_inopt
  use units,        only: unit_velocity
- use physcon,      only: mass_proton_cgs, kboltz
  use eos,          only: gmw,polyk
  integer, intent(in) :: iunit
 
@@ -476,17 +485,17 @@ subroutine write_options_inject(iunit)
  call write_inopt(wind_osc_vamplitude_km_s,'wind_osc_vampl','velocity amplitude of the pulsations (km/s)',iunit)
 #endif
  call write_inopt(wind_injection_radius_au,'wind_inject_radius','radius of injection of the wind (au)',iunit)
+#ifndef ISOTHERMAL
  call write_inopt(wind_mass_rate_Msun_yr,'wind_mass_rate','wind mass loss rate (Msun/yr)',iunit)
+#endif
  if (maxvxyzu==4) then
     call write_inopt(wind_temperature,'wind_temperature','wind temperature at the injection point (K)',iunit)
- else
-    wind_temperature = polyk* mass_proton_cgs/kboltz * unit_velocity**2*gmw
  endif
  call write_inopt(iwind_resolution,'iwind_resolution','if<>0 set number of particles on the sphere, reset particle mass',iunit)
  call write_inopt(shift_spheres,'shift_spheres','delay before the ejection of shells',iunit)
  call write_inopt(wind_shell_spacing,'wind_shell_spacing','desired ratio of sphere spacing to particle spacing',iunit)
  call write_inopt(iboundary_spheres,'iboundary_spheres','number of boundary spheres (integer)',iunit)
-
+#ifndef ISOTHERMAL
  write(iunit,"(/,a)") '# options controlling dust and cooling'
  call write_inopt(star_Lum/solarl,'star_Lum','central star luminosity (Lsun)',iunit)
  call write_inopt(star_Teff,'star_Teff','central star effective temperature (K)',iunit)
@@ -502,6 +511,9 @@ subroutine write_options_inject(iunit)
  call write_inopt(bowen_Tcond,'bowen_Tcond','dust condensation temperature (K)',iunit)
  call write_inopt(bowen_delta,'bowen_delta','condensation temperature range (K)',iunit)
 #endif
+#else
+ call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
+#endif
 
 end subroutine write_options_inject
 
@@ -512,7 +524,6 @@ end subroutine write_options_inject
 !-----------------------------------------------------------------------
 subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  use io,      only:fatal, error, warning
- use units,   only:udist
  use physcon, only:pi,steboltz,au
  character(len=*), intent(in)  :: name,valstring
  logical, intent(out) :: imatch,igotall
@@ -530,10 +541,10 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) wind_velocity_km_s
     ngot = ngot + 1
     if (wind_velocity < 0.)    call fatal(label,'invalid setting for wind_velocity (<0)')
- case('wind_mass_rate')
-    read(valstring,*,iostat=ierr) wind_mass_rate_Msun_yr
+ case('wind_inject_radius')
+    read(valstring,*,iostat=ierr) wind_injection_radius_au
     ngot = ngot + 1
-    if (wind_mass_rate < 0.)    call fatal(label,'invalid setting for wind_mass_rate (<0)')
+    if (wind_injection_radius_au < 0.) call fatal(label,'invalid setting for wind_inject_radius (<0)')
  case('wind_temperature')
     read(valstring,*,iostat=ierr) wind_temperature
     ngot = ngot + 1
@@ -554,10 +565,15 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  case('shift_spheres')
     read(valstring,*,iostat=ierr) shift_spheres
     ngot = ngot + 1
- case('wind_inject_radius')
-    read(valstring,*,iostat=ierr) wind_injection_radius_au
+ case('sonic_type')
+    read(valstring,*,iostat=ierr) sonic_type
     ngot = ngot + 1
-    if (wind_injection_radius_au < 0.) call fatal(label,'invalid setting for wind_inject_radius (<0)')
+    if (sonic_type < 0 .or. sonic_type > 1 ) call fatal(label,'invalid setting for sonic_type ([0,1])')
+#ifndef ISOTHERMAL
+ case('wind_mass_rate')
+    read(valstring,*,iostat=ierr) wind_mass_rate_Msun_yr
+    ngot = ngot + 1
+    if (wind_mass_rate < 0.)    call fatal(label,'invalid setting for wind_mass_rate (<0)')
  case('star_Lum')
     read(valstring,*,iostat=ierr) star_Lum
     star_Lum = star_Lum * solarl
@@ -587,6 +603,18 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) bowen_Cprime
     ngot = ngot + 1
     if (bowen_Cprime < 0.) call fatal(label,'invalid setting for bowen_Cprime (<0)')
+ case('wind_type')
+    read(valstring,*,iostat=ierr) wind_type
+    ngot = ngot + 1
+    if (wind_type < 0 .or. wind_type > 4 ) call fatal(label,'invalid setting for wind_type ([0,3])')
+ case('wind_alpha')
+    read(valstring,*,iostat=ierr) wind_alpha
+    ngot = ngot + 1
+    if (wind_alpha < 0.) call fatal(label,'invalid setting for wind_alpha (must be > 0)')
+ case('wind_expT')
+    read(valstring,*,iostat=ierr) wind_expT
+    ngot = ngot + 1
+#endif
 #ifdef BOWEN
  case('wind_osc_period')
     read(valstring,*,iostat=ierr) wind_osc_period_days
@@ -598,36 +626,32 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
     if (wind_osc_vamplitude_km_s <= 0. .and. wind_velocity_km_s <= 0.) call fatal(label,'invalid setting for wind_osc_vamp (<0)')
 #endif
- case('sonic_type')
-    read(valstring,*,iostat=ierr) sonic_type
-    ngot = ngot + 1
-    if (sonic_type < 0 .or. sonic_type > 1 ) call fatal(label,'invalid setting for sonic_type ([0,1])')
- case('wind_type')
-    read(valstring,*,iostat=ierr) wind_type
-    ngot = ngot + 1
-    if (wind_type < 0 .or. wind_type > 4 ) call fatal(label,'invalid setting for wind_type ([0,3])')
- case('wind_alpha')
-    read(valstring,*,iostat=ierr) wind_alpha
-    ngot = ngot + 1
-    if (wind_alpha < 0.) call fatal(label,'invalid setting for wind_alpha (must be > 0)')
+#ifdef NUCLEATION
  case('wind_CO_ratio')
     read(valstring,*,iostat=ierr) wind_CO_ratio
     ngot = ngot + 1
     if (wind_CO_ratio < 0.) call fatal(label,'invalid setting for wind_CO_ratio (must be > 0)')
- case('wind_expT')
-    read(valstring,*,iostat=ierr) wind_expT
-    ngot = ngot + 1
+#endif
  case default
     imatch = .false.
  end select
 #ifdef BOWEN
  noptions = 18
 #else
+ noptions = 15
+#ifdef NUCLEATION
  noptions = 16
+#elif ISOTHERMAL
+ noptions = 7
 #endif
- if (isowind) noptions = noptions -1
+#endif
+ !!!!print *,isowind,ngot,noptions
+! if (isowind) noptions = noptions -1
  igotall = (ngot >= noptions)
  if (igotall .and. trim(name) /= '') then
+#ifdef ISOTHERMAL
+    Rstar_cgs = wind_injection_radius_au *au
+#else
     Rstar_cgs = sqrt(star_Lum/(4.*pi*steboltz*star_Teff**4))
     !if you launch the wind inside the photosphere, make sure the wind temperature >= star's effective temperature
     if (wind_injection_radius_au <= Rstar_cgs/au) then
@@ -638,6 +662,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     !    print *,'Twind < star_Teff',wind_temperature,star_Teff
     !    !call fatal(label,'invalid setting for wind_temperature (Twind < star_Teff)')
     ! endif
+#endif
     if (iboundary_spheres > int(shift_spheres)) then
        print *,'shift_spheres too small - imposing shift_spheres = iboundary_spheres = ',iboundary_spheres
        shift_spheres = sign(dble(iboundary_spheres),shift_spheres)
