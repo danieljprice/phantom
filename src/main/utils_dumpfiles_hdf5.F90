@@ -36,15 +36,20 @@ module utils_dumpfiles_hdf5
  public :: write_hdf5_header,write_hdf5_arrays,write_hdf5_arrays_small
  public :: read_hdf5_header,read_hdf5_arrays
  public :: create_hdf5file,open_hdf5file,close_hdf5file
- public :: header_hdf5,got_arrays_hdf5,arrays_options_hdf5
+ public :: header_hdf5,got_arrays_hdf5,arrays_options_hdf5,externalforce_hdf5
 
  integer(HID_T), public :: hdf5_file_id
 
+ ! Ideally this section should come from Phantom modules.
+ ! However, this module aims to be a library with no non-HDF5 dependencies.
  integer, parameter :: maxdustlarge_hdf5 = 50
  integer, parameter :: maxdustsmall_hdf5 = 50
  integer, parameter :: maxdusttypes_hdf5 = maxdustsmall_hdf5 + maxdustlarge_hdf5
  integer, parameter :: maxtypes_hdf5 = 7 + maxdustlarge_hdf5 - 1
  integer, parameter :: nsinkproperties_hdf5 = 11
+ integer, parameter :: iext_binary_hdf5 = 3
+ integer, parameter :: iext_gwinspiral_hdf5 = 14
+ integer, parameter :: iext_corot_binary_hdf5 = 16
 
  type header_hdf5
     character(len=100) :: fileident
@@ -98,6 +103,20 @@ module utils_dumpfiles_hdf5
                           unit_Bfield
  end type
 
+ type externalforce_hdf5
+    ! extern_binary
+    real    :: xyzmh1(5),     &
+               xyzmh2(5),     &
+               vxyz1(3),      &
+               vxyz2(3),      &
+               accretedmass1, &
+               accretedmass2, &
+               a0,            &
+               direction
+    ! extern_gwinspiral
+    integer :: Nstar(2)
+ end type
+
  type got_arrays_hdf5
     logical :: got_iphase,                          &
                got_xyzh,                            &
@@ -134,7 +153,9 @@ module utils_dumpfiles_hdf5
                store_temperature
     integer :: maxBevol,          &
                ndivcurlB,         &
-               ndivcurlv
+               ndivcurlv,         &
+               ndustsmall,        &
+               ndustlarge
  end type
 
  private
@@ -147,14 +168,15 @@ contains
 !  write header
 !+
 !-------------------------------------------------------------------
-subroutine write_hdf5_header(file_id,hdr,error)
+subroutine write_hdf5_header(file_id,hdr,extern,error)
 
- integer(HID_T),     intent(in)  :: file_id
- type (header_hdf5), intent(in)  :: hdr
- integer,            intent(out) :: error
+ integer(HID_T),            intent(in)  :: file_id
+ type (header_hdf5),        intent(in)  :: hdr
+ type (externalforce_hdf5), intent(in)  :: extern
+ integer,                   intent(out) :: error
 
  integer(HID_T) :: group_id
- integer :: errors(53)
+ integer :: errors(70)
 
  errors(:) = 0
 
@@ -195,8 +217,6 @@ subroutine write_hdf5_header(file_id,hdr,error)
  call write_to_hdf5(hdr%Bexty,'Bexty',group_id,errors(33))
  call write_to_hdf5(hdr%Bextz,'Bextz',group_id,errors(34))
  call write_to_hdf5(0.,'dum',group_id,errors(35))
- ! TODO: NEED TO FIND A WAY TO DO THIS
- ! if (iexternalforce /= 0) call write_headeropts_extern(iexternalforce,hdr,t,ierr)
  call write_to_hdf5(hdr%xmin,'xmin',group_id,errors(36))
  call write_to_hdf5(hdr%xmax,'xmax',group_id,errors(37))
  call write_to_hdf5(hdr%ymin,'ymin',group_id,errors(38))
@@ -217,6 +237,39 @@ subroutine write_hdf5_header(file_id,hdr,error)
 
  ! Close the header group
  call close_hdf5group(group_id, errors(53))
+
+ ! Write external force information
+ select case(hdr%iexternalforce)
+ case(iext_gwinspiral_hdf5)
+
+    ! Create externalforce group
+    call create_hdf5group(file_id,'header/externalforce',group_id,errors(54))
+
+    ! Write values
+    call write_to_hdf5(extern%Nstar,'Nstar',group_id,errors(55))
+
+    ! Close the externalforce group
+    call close_hdf5group(group_id,errors(56))
+
+ case(iext_binary_hdf5,iext_corot_binary_hdf5)
+
+    ! Create externalforce group
+    call create_hdf5group(file_id,'header/externalforce',group_id,errors(54))
+
+    ! Write values
+    call write_to_hdf5(extern%xyzmh1,'xyzmh1',group_id,errors(55))
+    call write_to_hdf5(extern%xyzmh2,'xyzmh2',group_id,errors(56))
+    call write_to_hdf5(extern%vxyz1,'vxyz1',group_id,errors(57))
+    call write_to_hdf5(extern%vxyz2,'vxyz2',group_id,errors(58))
+    call write_to_hdf5(extern%accretedmass1,'accretedmass1',group_id,errors(59))
+    call write_to_hdf5(extern%accretedmass2,'accretedmass2',group_id,errors(60))
+    call write_to_hdf5(extern%a0,'a0',group_id,errors(61))
+    call write_to_hdf5(extern%direction,'direction',group_id,errors(62))
+
+    ! Close the externalforce group
+    call close_hdf5group(group_id,errors(63))
+
+ end select
 
  error = maxval(abs(errors))
 
@@ -248,7 +301,7 @@ subroutine write_hdf5_arrays(file_id,error,npart,nptmass,xyzh,vxyzu,iphase, &
  type (arrays_options_hdf5), intent(in)  :: array_options
 
  integer(HID_T) :: group_id
- integer :: errors(44)
+ integer :: errors(44),ndusttypes
 
  errors(:) = 0
 
@@ -262,7 +315,7 @@ subroutine write_hdf5_arrays(file_id,error,npart,nptmass,xyzh,vxyzu,iphase, &
  call write_to_hdf5(vxyzu(1:3,1:npart),'vxyz',group_id,errors(4))
  if (.not.array_options%isothermal) call write_to_hdf5(vxyzu(4,1:npart),'u',group_id,errors(5))
  call write_to_hdf5(iphase(1:npart),'itype',group_id,errors(6))
- call write_to_hdf5(pressure(1:npart),'pressure',group_id,errors(7))
+ ! call write_to_hdf5(pressure(1:npart),'pressure',group_id,errors(7))
 
  if (.not.array_options%const_av)  call write_to_hdf5(alphaind(1,1:npart),'alpha',group_id,errors(8))   ! Viscosity (only ever write 'first' alpha)
  if (array_options%ind_timesteps)  call write_to_hdf5(real(dtind(1:npart),kind=4),'dt',group_id,errors(9)) ! Individual timesteps
@@ -289,11 +342,14 @@ subroutine write_hdf5_arrays(file_id,error,npart,nptmass,xyzh,vxyzu,iphase, &
  endif
 
  ! Dust arrays
- if (array_options%use_dust) then
-    call write_to_hdf5(dustfrac(:,1:npart),'dustfrac',group_id,errors(21))
-    call write_to_hdf5(tstop(:,1:npart),'tstop',group_id,errors(22))
+ ndusttypes = array_options%ndustsmall + array_options%ndustlarge
+ if (array_options%use_dust .and. ndusttypes > 0) then
+    call write_to_hdf5(dustfrac(1:ndusttypes,1:npart),'dustfrac',group_id,errors(21))
+    call write_to_hdf5(tstop(1:ndusttypes,1:npart),'tstop',group_id,errors(22))
+    if (array_options%use_dustfrac .and. array_options%ndustsmall > 0) then
+       call write_to_hdf5(deltav(:,1:array_options%ndustsmall,1:npart),'deltavxyz',group_id,errors(23))
+    endif
  endif
- if (array_options%use_dustfrac) call write_to_hdf5(deltav(:,:,1:npart),'deltavxyz',group_id,errors(23))
  if (array_options%use_dustgrowth) then
     call write_to_hdf5(dustprop(1,1:npart),'grainsize',group_id,errors(24))
     call write_to_hdf5(dustprop(2,1:npart),'graindens',group_id,errors(25))
@@ -353,7 +409,7 @@ subroutine write_hdf5_arrays_small(file_id,error,npart,nptmass,xyzh,iphase,   &
  type (arrays_options_hdf5), intent(in)  :: array_options
 
  integer(HID_T) :: group_id
- integer :: errors(22)
+ integer :: errors(22),ndusttypes
 
  errors(:) = 0
 
@@ -371,7 +427,8 @@ subroutine write_hdf5_arrays_small(file_id,error,npart,nptmass,xyzh,iphase,   &
  endif
 
  ! Dust arrays
- if (array_options%use_dust) then
+ ndusttypes = array_options%ndustsmall + array_options%ndustlarge
+ if (array_options%use_dust .and. ndusttypes > 0) then
     call write_to_hdf5(real(dustfrac(:,1:npart),kind=4),'dustfrac',group_id,errors(6))
  endif
  if (array_options%use_dustgrowth) then
@@ -412,20 +469,21 @@ end subroutine write_hdf5_arrays_small
 !  read header
 !+
 !-------------------------------------------------------------------
-subroutine read_hdf5_header(file_id,hdr,error)
+subroutine read_hdf5_header(file_id,hdr,extern,error)
 
- integer(HID_T),     intent(in)  :: file_id
- type (header_hdf5), intent(out) :: hdr
- integer,            intent(out) :: error
+ integer(HID_T),            intent(in)  :: file_id
+ type (header_hdf5),        intent(out) :: hdr
+ type (externalforce_hdf5), intent(out) :: extern
+ integer,                   intent(out) :: error
 
  integer(HID_T) :: group_id
- integer        :: errors(53),ntypes
+ integer        :: errors(70)
  real           :: rval
  logical        :: got_val
 
  errors(:) = 0
 
- ! Create header group
+ ! Open header group
  call open_hdf5group(file_id,'header',group_id,errors(1))
 
  ! Write things to header group
@@ -436,7 +494,7 @@ subroutine read_hdf5_header(file_id,hdr,error)
  call read_from_hdf5(hdr%ndustlarge,'ndustlarge',group_id,got_val,errors(7))
  call read_from_hdf5(hdr%ndustsmall,'ndustsmall',group_id,got_val,errors(8))
  call read_from_hdf5(hdr%nparttot,'nparttot',group_id,got_val,errors(13))
- call read_from_hdf5(hdr%npartoftypetot(1:ntypes),'npartoftype',group_id,got_val,errors(14))
+ call read_from_hdf5(hdr%npartoftypetot(1:hdr%ntypes),'npartoftype',group_id,got_val,errors(14))
  call read_from_hdf5(hdr%iexternalforce,'iexternalforce',group_id,got_val,errors(15))
  call read_from_hdf5(hdr%ieos,'ieos',group_id,got_val,errors(16))
  call read_from_hdf5(hdr%time,'time',group_id,got_val,errors(17))
@@ -458,9 +516,6 @@ subroutine read_hdf5_header(file_id,hdr,error)
  call read_from_hdf5(hdr%Bextx,'Bextx',group_id,got_val,errors(32))
  call read_from_hdf5(hdr%Bexty,'Bexty',group_id,got_val,errors(33))
  call read_from_hdf5(hdr%Bextz,'Bextz',group_id,got_val,errors(34))
- !call read_from_hdf5(0.,'dum',group_id,got_val,errors(35))
- ! TODO: NEED TO FIND A WAY TO DO THIS
- ! if (iexternalforce /= 0) call write_headeropts_extern(iexternalforce,hdr,t,ierr)
  call read_from_hdf5(hdr%xmin,'xmin',group_id,got_val,errors(36))
  call read_from_hdf5(hdr%xmax,'xmax',group_id,got_val,errors(37))
  call read_from_hdf5(hdr%ymin,'ymin',group_id,got_val,errors(38))
@@ -481,6 +536,39 @@ subroutine read_hdf5_header(file_id,hdr,error)
 
  ! Close the header group
  call close_hdf5group(group_id,errors(53))
+
+ ! Read external force information
+ select case(hdr%iexternalforce)
+ case(iext_gwinspiral_hdf5)
+
+    ! Open externalforce group
+    call open_hdf5group(file_id,'header/externalforce',group_id,errors(54))
+
+    ! Read values
+    call read_from_hdf5(extern%Nstar,'Nstar',group_id,got_val,errors(55))
+
+    ! Close the externalforce group
+    call close_hdf5group(group_id,errors(56))
+
+ case(iext_binary_hdf5,iext_corot_binary_hdf5)
+
+    ! Create externalforce group
+    call open_hdf5group(file_id,'header/externalforce',group_id,errors(54))
+
+    ! Write values
+    call read_from_hdf5(extern%xyzmh1,'xyzmh1',group_id,got_val,errors(55))
+    call read_from_hdf5(extern%xyzmh2,'xyzmh2',group_id,got_val,errors(56))
+    call read_from_hdf5(extern%vxyz1,'vxyz1',group_id,got_val,errors(57))
+    call read_from_hdf5(extern%vxyz2,'vxyz2',group_id,got_val,errors(58))
+    call read_from_hdf5(extern%accretedmass1,'accretedmass1',group_id,got_val,errors(59))
+    call read_from_hdf5(extern%accretedmass2,'accretedmass2',group_id,got_val,errors(60))
+    call read_from_hdf5(extern%a0,'a0',group_id,got_val,errors(61))
+    call read_from_hdf5(extern%direction,'direction',group_id,got_val,errors(62))
+
+    ! Close the externalforce group
+    call close_hdf5group(group_id,errors(63))
+
+ end select
 
  error = maxval(abs(errors))
 
