@@ -477,7 +477,7 @@ subroutine read_hdf5_header(file_id,hdr,extern,error)
  integer,                   intent(out) :: error
 
  integer(HID_T) :: group_id
- integer        :: errors(70),ntypes
+ integer        :: errors(70)
  real           :: rval
  logical        :: got_val
 
@@ -494,7 +494,7 @@ subroutine read_hdf5_header(file_id,hdr,extern,error)
  call read_from_hdf5(hdr%ndustlarge,'ndustlarge',group_id,got_val,errors(7))
  call read_from_hdf5(hdr%ndustsmall,'ndustsmall',group_id,got_val,errors(8))
  call read_from_hdf5(hdr%nparttot,'nparttot',group_id,got_val,errors(13))
- call read_from_hdf5(hdr%npartoftypetot(1:ntypes),'npartoftype',group_id,got_val,errors(14))
+ call read_from_hdf5(hdr%npartoftypetot(1:hdr%ntypes),'npartoftype',group_id,got_val,errors(14))
  call read_from_hdf5(hdr%iexternalforce,'iexternalforce',group_id,got_val,errors(15))
  call read_from_hdf5(hdr%ieos,'ieos',group_id,got_val,errors(16))
  call read_from_hdf5(hdr%time,'time',group_id,got_val,errors(17))
