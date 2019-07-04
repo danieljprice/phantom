@@ -1,7 +1,7 @@
 module utils_gr
  implicit none
 
- public :: dot_product_gr, get_u0, get_bigv, rho2dens, h2dens
+ public :: dot_product_gr, get_u0, get_bigv, rho2dens, h2dens, get_geodesic_accel
 
  private
 
@@ -107,6 +107,37 @@ subroutine rho2dens(dens,rho,position,metrici,v)
  if (ierror > 0) call error('get_u0 in rho2dens','1/sqrt(-v_mu v^mu) ---> non-negative: v_mu v^mu')
 
 end subroutine rho2dens
+
+subroutine get_geodesic_accel(axyz,npart,vxyz,metrics,metricderivs)
+ use metric_tools, only:unpack_metric
+ integer, intent(in) :: npart
+ real, intent(in)    :: vxyz(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:)
+ real, intent(out)   :: axyz(3,npart)
+ real :: gcon(0:3,0:3), v(4), gderiv(0:3,0:3,0:3), a(3)
+ integer :: i,lambda,mu,sigma
+
+ !$omp parallel do default(none) &
+ !$omp shared(npart,vxyz,axyz,metricderivs,metrics) &
+ !$omp private(i,a,v,gderiv,gcon,lambda,mu,sigma)
+ do i=1,npart
+    v = (/1.,vxyz(:,i)/)
+    gderiv = 0.
+    gderiv(1:3,1:3,1:3) = metricderivs(:,:,:,i)
+    call unpack_metric(metrics(:,:,:,i),gcon=gcon)
+    a = 0.
+    do lambda=0,3
+       do mu=0,3
+          do sigma=0,3
+             a(:) = a(:) + (gcon(1:3,lambda) - v(1:3)*gcon(0,lambda)) * &
+                        (gderiv(mu,lambda,sigma) - 0.5*gderiv(mu,sigma,lambda))*v(mu)*v(sigma)
+          enddo
+       enddo
+    enddo
+    axyz(1:3,i) = a
+ enddo
+ !omp end parallel do
+
+end subroutine get_geodesic_accel
 
 ! This is not being used at the moment.
 ! subroutine dens2rho(rho,dens,position,v)

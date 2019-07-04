@@ -74,7 +74,7 @@ subroutine compute_energies(t)
                           ispinz,mhd,gravity,poten,dustfrac,temperature,&
                           n_R,n_electronT,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
                           iamdust,ndusttypes
- use part,           only:pxyzu,metrics
+ use part,           only:pxyzu,metrics,metricderivs
  use part,           only:fxyzu,fext
  use gravwaveutils,  only:calculate_strain
  use eos,            only:polyk,utherm,gamma,equationofstate,&
@@ -89,7 +89,7 @@ subroutine compute_energies(t)
                      use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_data_out
 #ifdef GR
  use metric_tools,   only:unpack_metric
- use utils_gr,       only:dot_product_gr
+ use utils_gr,       only:dot_product_gr,get_geodesic_accel
  use vectorutils,    only:cross_product3D
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
@@ -730,7 +730,11 @@ subroutine compute_energies(t)
  if (track_lum) totlum = ev_data(iev_sum,iev_totlum)
 
  if (gws) then
+#ifdef GR
+    call get_geodesic_accel(axyz,npart,vxyzu(1:3,:),metrics,metricderivs)
+#else
     axyz   = fxyzu(1:3,1:npart) + fext(1:3,1:npart)
+#endif
     pmassi = massoftype(igas)
     call calculate_strain(hx,hp,hxx,hpp,xyzh,vxyzu(1:3,:),axyz,pmassi,npart)
     hx  = reduce_fn('+',hx)
