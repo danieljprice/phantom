@@ -539,21 +539,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call summary_printout(iprint,nptmass)
     call fatal('step','VELOCITY ITERATIONS NOT CONVERGED!!')
  endif
-
-! #ifdef LIVE_ANALYSIS
-!  if ((id==master).and.(do_radiation).and.(dtnew < 1e-10)) then
-!     call set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
-!     write(iprint,"(/,a,f6.2,'%')") &
-!        ' -}+{- RADIATION particles done by SPH = ',&
-!        100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
-!     call do_analysis('run_00000',numfromfile('run_00000'),xyzh,vxyzu, &
-!                      massoftype(igas),npart,timei,ianalysis)
-!     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
-!                   Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustevol,&
-!                   temperature,timei,dtsph,dtnew)
-!  endif
-! #endif
-
  return
 end subroutine step
 

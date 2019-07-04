@@ -142,6 +142,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit,ini
     endif
 
     if (do_radiation) then
+      radiation(inumph,:) = 0.
       do i=1,npart
          if (maxphase==maxp) then
             if (iamtype(iphase(i)) /= igas) cycle
