@@ -100,8 +100,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ibin_wake
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake
  use coolfunc,       only:energ_coolfunc
+#ifdef WIND
  use wind_profile,   only:energy_profile
  use inject,         only:wind_type
+#endif
 #ifdef IND_TIMESTEPS
  use timestep,       only:dtmax,dtmax_ifactor,dtdiff
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,ibinnow
@@ -365,7 +367,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustevol,ddustevol,use_dustfrac) &
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
-!$omp shared(dtsph,icooling,wind_type) &
+!$omp shared(dtsph,icooling) &
+#ifdef WIND
+!$omp shared(wind_type) &
+#endif
 #ifdef KROME
 !$omp shared(gamma_chem,mu_chem,krometemperature) &
 #endif
@@ -476,9 +481,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #ifdef KROME
        vxyzu(4,i) = get_local_u_internal(gamma_chem(i),mu_chem(i),krometemperature(i))
 #endif
+#ifdef WIND
        if (wind_type == 2) then
           vxyzu(4,i) = energy_profile(xyzh(:,i))
        endif
+#endif
     enddo corrector
 !$omp enddo
 !$omp end parallel

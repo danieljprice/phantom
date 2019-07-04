@@ -1592,10 +1592,6 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  use kernel,      only:radkern
  use part,        only:xyzh_soa,store_temperature,temperature
  use kdtree,      only:inodeparts
-#ifdef IND_TIMESTEPS
- use part, only: ibin
- use timestep, only: dtmax
-#endif
 
  integer,         intent(in)    :: icall
  type(celldens),  intent(in)    :: cell

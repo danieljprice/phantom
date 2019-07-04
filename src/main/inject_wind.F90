@@ -91,12 +91,10 @@ module inject
  real, public::    wind_temperature = 2500.
  real, public::    wind_injection_radius_au = 2.37686663
 #endif
-#ifdef WIND
  real, public::    wind_velocity_km_s = 35.
  real, public::    wind_mass_rate_Msun_yr = 1.00d-8
  real, public::    wind_temperature = 3000.
  real, public::    wind_injection_radius_au = 1.7
-#endif
 
 ! Calculated from the previous parameters
  real, public ::    wind_osc_vamplitude
