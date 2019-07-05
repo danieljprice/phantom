@@ -35,15 +35,18 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit,initial)
- use mcfost2phantom, only:init_mcfost_phantom,run_mcfost_phantom
+ use mcfost2phantom, only:init_mcfost_phantom,&
+                          run_mcfost_phantom,&
+                          diffusion_opacity,&
+                          deinit_mcfost_phantom
  use part,           only:massoftype,iphase,dustfrac,hfact,npartoftype,&
                           get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
                           massoftype,xyzmh_ptmass,luminosity,igas,&
                           grainsize,graindens,ndusttypes,rhoh,&
                           do_radiation,radiation,ithick,maxirad,ikappa,iradxi,idflux,&
-                          inumph
+                          inumph,ivorcl
  use units,          only:umass,utime,udist,unit_velocity,unit_energ
- use io,             only:fatal,warning
+ use io,             only:fatal,warning,iprint
  use dim,            only:use_dust,lightcurve,maxdusttypes
  use eos,            only:temperature_coef,gmw,gamma
  use timestep,       only:dtmax
@@ -70,7 +73,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit,ini
  logical, parameter :: write_T_files = .false. ! ask mcfost to write fits files with temperature structure
  integer, parameter :: ISM = 2 ! ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
- real :: a_code,c_code,rhoi,steboltz_code,pmassi,Tmin,Tmax
+ real :: a_code,c_code,rhoi,steboltz_code,pmassi,Tmin,Tmax,default_kappa,kappa_diffusion
  integer :: omp_threads
 
  omp_threads = omp_get_max_threads()
@@ -117,7 +120,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit,ini
 
     call run_mcfost_phantom(&
          npart,nptmass,ntypes,ndusttypes,dustfluidtype,npartoftype,maxirad,&
-         xyzh,vxyzu,radiation,ikappa,&
+         xyzh,vxyzu,radiation,ivorcl,&
          itype,grainsize,graindens,dustfrac,massoftype,&
          xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
          n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
@@ -143,20 +146,30 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit,ini
 
     if (do_radiation) then
       radiation(inumph,:) = 0.
+      if (isinitial) then
+         default_kappa = 0.5
+      else
+         default_kappa = 0.5*(maxval(radiation(ikappa,:))+minval(radiation(ikappa,:)))&
+            *(udist**2/umass)
+      endif
+      write(iprint,"(/,a,f4.2,' cm^2/g')") &
+          ' -}+{- RADIATION: cutoff particles kappa = ',&
+          default_kappa
       do i=1,npart
          if (maxphase==maxp) then
             if (iamtype(iphase(i)) /= igas) cycle
          endif
-         radiation(ikappa,i) = radiation(ikappa,i)*(cm**2/gram)/(udist**2/umass)
          radiation(inumph,i) = n_packets(i)
-         if (radiation(inumph,i) > 1e2) then
+         if (radiation(inumph,i) > 1e3) then
             radiation(ithick,i) = 0.
          else
             radiation(ithick,i) = 1.
          endif
          if (isinitial.or.(radiation(ithick,i) < 0.5)) then
+            ! initial run (t == 0) OR it has got enough info from mcfost
+            ! => set new temperature for gas and radiation
             if (Tdust(i) > 1.) then
-               vxyzu(4,i) = Tdust(i) * factor
+               vxyzu(4,i) = Tdust(i)*factor
                ! if the temperature is correct and set by mcfost
                ! => suppose we are at equilibrium
                rhoi = rhoh(xyzh(4,i),pmassi)
@@ -174,12 +187,18 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit,ini
                   radiation(ithick,i) = 1.
                endif
             endif
+         ! else
+            ! it is not initial run AND the particle has not got info from mcfost
+            ! => temperature is old because of diffusion
          endif
-         ! if (i == 3722) then
-         !    print*, radiation(ikappa,i)/((cm**2/gram)/(udist**2/umass)), Tdust(i),&
-         !      vxyzu(4,i)/factor,n_packets(i)
-         !    read*
-         ! endif
+         ! no matter what happend on previous stage, we need to set new
+         ! diffusion coefficien with regards to a new/old temperatures
+         if (radiation(ivorcl,i) > 0) then
+            call diffusion_opacity(vxyzu(4,i)/factor,int(radiation(ivorcl,i)),kappa_diffusion)
+            radiation(ikappa,i) = kappa_diffusion*(cm**2/gram)/(udist**2/umass)
+         else
+            radiation(ikappa,i) = default_kappa*(cm**2/gram)/(udist**2/umass)
+         endif
       enddo
     else
       do i=1,npart
@@ -196,6 +215,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit,ini
 
     ! call omp_set_num_threads(omp_threads)
     ! call omp_set_dynamic(.true.)
+    call deinit_mcfost_phantom()
     write(*,*) "End of analysis mcfost"
  endif ! use_mcfost
 
