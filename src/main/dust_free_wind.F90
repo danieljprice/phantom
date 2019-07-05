@@ -38,8 +38,8 @@ module dust_free_wind
 
 
 ! Wind properties
- real :: Mstar_cgs, Lstar_cgs, Tstar, Rstar_cgs, wind_gamma, wind_mass_rate, Mdot_cgs
- real :: Cprime, u_to_temperature_ratio, expT, wind_alpha, wind_temperature,Rstar
+ real :: Mstar_cgs, Rstar_cgs, wind_gamma, Mdot_cgs
+ real :: Cprime, u_to_temperature_ratio, wind_alpha, wind_temperature
  integer :: wind_type
 
 ! State of the wind
@@ -51,29 +51,24 @@ module dust_free_wind
  end type wind_state
 contains
 
-subroutine setup_wind(Mstar_in, Lstar_in, Tstar_in, Rstar_in, Cprime_cgs, &
-     expT_in, Mdot_in, CO_ratio, u_to_T, alpha_in, Twind, wind_type_in)
- use units,   only:udist,umass,utime
+subroutine setup_wind(Mstar_in, Rstar_cg, Cprime_cgs, Mdot_in, u_to_T, alpha_in, Twind, wind_type_in)
+ use units,   only:umass,utime
  use physcon, only:c, solarm, years
  use eos,     only:gamma
 #ifndef ISOTHERMAL
  use dust_formation, only: set_cooling
 #endif
- real, intent(in) :: Mstar_in, Lstar_in, Tstar_in, Rstar_in, Cprime_cgs, expT_in, Mdot_in, CO_ratio, &
-          u_to_T,alpha_in, Twind
+ real, intent(in) :: Mstar_in, Rstar_cg, Cprime_cgs, Mdot_in,u_to_T,alpha_in, Twind
  integer, intent(in) :: wind_type_in
 #ifndef ISOTHERMAL
  logical :: cool_radiation_H0, cool_relaxation_Bowen, cool_collisions_dust, cool_relaxation_Stefan
 #endif
 
  Mstar_cgs = Mstar_in*solarm
- Lstar_cgs = Lstar_in
- Tstar = Tstar_in
  wind_type = wind_type_in
  wind_alpha = alpha_in
  Cprime = Cprime_cgs ! keep it in cgs
  if (wind_type == 2) then
-    expT = expT_in
     wind_gamma = 1.
  else if (wind_type == 1) then
     wind_gamma = 1.
@@ -81,10 +76,8 @@ subroutine setup_wind(Mstar_in, Lstar_in, Tstar_in, Rstar_in, Cprime_cgs, &
     wind_gamma = gamma
  endif
  wind_temperature = Twind
- wind_mass_rate = Mdot_in !code units
  Mdot_cgs = Mdot_in * umass/utime
- Rstar_cgs = Rstar_in
- Rstar = Rstar_in/udist
+ Rstar_cgs = Rstar_cg
  u_to_temperature_ratio = u_to_T
 
 #ifndef ISOTHERMAL
@@ -141,7 +134,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  !    call calc_cooling_rate(state%rho, state%Tg, Teq, wind_gamma, state%mu, Cprime, &
  !            state%K(2)/(state%r**2*state%v), state%kappa_ross, state%Q)
  ! endif
- state%p = state%rho*kboltz*state%Tg/(state%mu*atomic_mass_unit)
+ !state%p = state%rho*kboltz*state%Tg/(state%mu*atomic_mass_unit)
  state%c = sqrt(wind_gamma*kboltz*state%Tg/(state%mu*atomic_mass_unit))
  state%dt_force = .false.
  state%spcode = 0
@@ -160,7 +153,7 @@ subroutine wind_step(state)
 ! all quantities in cgs
 
  use wind_profile,   only:evolve_hydro
- use physcon,        only:pi
+ use physcon,        only:pi,kboltz,atomic_mass_unit
  type(wind_state), intent(inout) :: state
  real, parameter :: max_dt = 1.d9
  real :: rvT(3), dt_next, v_old, dt_max
@@ -185,7 +178,7 @@ subroutine wind_step(state)
  state%dt = dt_next
  state%rho = Mdot_cgs/(4.*pi*state%r**2*state%v)
  !state%p = state%rho*kboltz*state%Tg/(state%mu*atomic_mass_unit)
- !state%c = sqrt(wind_gamma*kboltz*state%Tg/(state%mu*atomic_mass_unit))
+ state%c = sqrt(wind_gamma*kboltz*state%Tg/(state%mu*atomic_mass_unit))
  if (state%time_end > 0. .and. state%t + state%dt > state%time_end) then
     state%dt = state%time_end-state%t
     state%dt_force = .true.
@@ -235,7 +228,7 @@ subroutine stationary_wind_profile(local_time, r, v, u, rho, e, GM, gamma, mu)
  real, intent(in)  :: local_time, GM, gamma, mu
  real, intent(inout) :: r, v
  real, intent(out) ::  u, rho, e
- real :: dt, T, r0, v0
+ real :: T, r0, v0
 
  type(wind_state) :: state
 
@@ -261,6 +254,7 @@ subroutine stationary_wind_profile(local_time, r, v, u, rho, e, GM, gamma, mu)
     e = .5*v**2 - GM/r + u
  endif
  !cs = state%c/unit_velocity
+ !rho = Mdot_cgs *utime/(umass*4.*pi*r**2*v)
 end subroutine
 
 
@@ -270,8 +264,9 @@ end subroutine
 !+
 !-----------------------------------------------------------------------
 subroutine old_stationary_wind_profile(local_time, r, v, u, rho, e, GM, gamma, mu)
+ !in/out variables in code units (except Jstar,K,mu)
  use physcon,     only: pi
- use units,       only:udist,unit_velocity
+ use units,       only:udist,unit_velocity,utime,umass
  use wind_profile, only:RK4_step_dr
  real, intent(in)  :: local_time, GM, gamma, mu
  real, intent(inout) :: r, v
@@ -304,7 +299,7 @@ subroutine old_stationary_wind_profile(local_time, r, v, u, rho, e, GM, gamma, m
     e = .5*v**2 - GM/r + u
  endif
  !update radius, velocity and density
- rho = wind_mass_rate / (4.*pi*r**2*v)
+ rho =  Mdot_cgs *utime/(umass*4.*pi*r**2*v)
 
 end subroutine
 
@@ -423,9 +418,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, verbose)
  if (verbose) then
     print *, "[get_initial_wind_speed] Looking for initial velocity."
 #ifndef ISOTHERMAL
-    print *, ' * Tstar  = ', Tstar
     print *, ' * Mstar  = ', Mstar_cgs/1.9891d33
-    print *, ' * Lstar  = ', Lstar_cgs/3.9d33
     print *, ' * Rstar  = ', Rstar_cgs/1.496d13
     print *, ' * Mdot   = ', Mdot_cgs/6.30303620274d25
     print *, ' * mu     = ', gmw
@@ -433,7 +426,6 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, verbose)
     print *, ' * r0(au) = ', r0/1.496d13
     print *, ' * Cprime = ', Cprime
     print *, ' * gamma  = ', wind_gamma
-    if (wind_type == 2) print *, ' * expT   = ', expT
 #else
     print *, ' * Mstar (Mo) = ', Mstar_cgs/1.9891d33
     print *, ' * Twind      = ', T0
@@ -463,7 +455,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, verbose)
     endif
     icount = icount+1
  enddo
- if (icount == ncount_max) call fatal(label,'cannot find v0min, change wind_mass_rate, wind_temperature or v0 ?')
+ if (icount == ncount_max) call fatal(label,'cannot find v0min, change wind_temperature or wind_injection_radius ?')
  if (verbose) print *, 'Lower bound found for v0 :', v0min
 
 ! Find upper bound for initial velocity
@@ -481,7 +473,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, verbose)
     endif
     icount = icount+1
  enddo
- if (icount == ncount_max)  call fatal(label,'cannot find v0max, change wind_mass_rate or wind_temperature ?')
+ if (icount == ncount_max)  call fatal(label,'cannot find v0max, change wind_temperature or wind_injection_radius ?')
  if (verbose) print *, 'Upper bound found for v0 :', v0max
 
 ! Find sonic point by dichotomy between v0min and v0max
@@ -511,8 +503,8 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, verbose)
  sonic(8) = state%alpha
 !if (verbose) then
  !mdot = 4.*pi*rho*v0*ro*ro
- write (*,'("Initial conditions     v0 (km/s) =",f9.1," r0/R* = ",f7.3)') v0/1e5,r0/Rstar_cgs
- write (*,'("Sonic point properties vs (km/s) =",f9.1," Rs/R* = ",f7.3," Ts =",f7.1," S =",f6.1," alpha =",f5.3,/)')&
+ write (*,'("Initial conditions     v0 (km/s) =",f9.3," r0/R* = ",f7.3)') v0/1e5,r0/Rstar_cgs
+ write (*,'("Sonic point properties vs (km/s) =",f9.3," Rs/R* = ",f7.3," Ts =",f7.1," S =",f6.1," alpha =",f5.3,/)')&
             sonic(2)/1e5,sonic(1)/Rstar_cgs,sonic(5),sonic(7),sonic(8)
  !endif
 !save 1D initial profile for comparison

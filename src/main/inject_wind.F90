@@ -138,7 +138,7 @@ subroutine init_inject(ierr)
 #ifdef ISOTHERMAL
  use setup, only : T_wind
 #endif
- use physcon,      only: mass_proton_cgs, kboltz, Rg, days, km, au, years, solarm, pi
+ use physcon,      only:mass_proton_cgs, kboltz, Rg, days, km, au, years, solarm, pi
  use icosahedron,  only:compute_matrices, compute_corners
  use eos,          only:gmw, gamma,polyk
  use units,        only:unit_velocity, umass, utime, udist
@@ -181,15 +181,15 @@ subroutine init_inject(ierr)
 #endif
 
 !original: Rstar_cgs = wind_injection_radius_au*au
-call init_wind_equations (xyzmh_ptmass(4,wind_emitting_sink), star_Teff, Rstar, wind_expT, u_to_temperature_ratio, wind_type)
+ call init_wind_equations (xyzmh_ptmass(4,wind_emitting_sink), star_Teff, Rstar, &
+      wind_expT, u_to_temperature_ratio, wind_type)
 #ifdef NUCLEATION
     call setup_dustywind(xyzmh_ptmass(4,wind_emitting_sink), star_Lum, star_Teff, Rstar_cgs, &
          bowen_Cprime, wind_expT, wind_mass_rate, u_to_temperature_ratio, wind_alpha, wind_type)
 
 #else
-    call setup_wind(xyzmh_ptmass(4,wind_emitting_sink), star_Lum, star_Teff, Rstar_cgs,&
-      bowen_Cprime, wind_expT, wind_mass_rate, wind_CO_ratio, u_to_temperature_ratio, &
-      wind_alpha, wind_temperature, wind_type)
+    call setup_wind(xyzmh_ptmass(4,wind_emitting_sink), Rstar_cgs,bowen_Cprime, &
+         wind_mass_rate, u_to_temperature_ratio, wind_alpha, wind_temperature, wind_type)
 #endif
 
 ! integrate the wind equation to get the initial velocity required to set the resolution
@@ -473,8 +473,6 @@ end subroutine radiativeforce
 subroutine write_options_inject(iunit)
  use dim,          only: maxvxyzu
  use infile_utils, only: write_inopt
- use units,        only: unit_velocity
- use eos,          only: gmw,polyk
  integer, intent(in) :: iunit
 
  call write_inopt(wind_velocity_km_s,'wind_velocity','velocity at which wind is injected (km/s)',iunit)
