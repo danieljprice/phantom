@@ -218,10 +218,10 @@ subroutine init_evfile(iunit,evfile,open_file)
     call fill_ev_tag(ev_fmt,iev_ionise,'ion_frac','xan',i,j)
  endif
  if (gws) then
-    call fill_ev_tag(ev_fmt,iev_gws(1),'hp','0',i,j)
-    call fill_ev_tag(ev_fmt,iev_gws(2),'hx','0',i,j)
-    call fill_ev_tag(ev_fmt,iev_gws(3),'hpp','0',i,j)
-    call fill_ev_tag(ev_fmt,iev_gws(4),'hxx','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(1),'hx','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(2),'hp','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(3),'hxx','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(4),'hpp','0',i,j)
  endif
  iquantities = i - 1 ! The number of different quantities to analyse
  ielements   = j - 1 ! The number of values to be calculated (i.e. the number of columns in .ve)
