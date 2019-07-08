@@ -252,7 +252,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
 
     temp = (/L_tot(1),L_tot(2),0./)
     temp_mag = sqrt(dot_product(temp,temp))
-    rotate_about_z = acos(dot_product((/1.,0.,0./),temp/temp_mag))
+    rotate_about_z = acos(dot_product((/1.,0.,0./),temp/temp_mag))*temp(2)/abs(temp(2))
 
     ! Rotate second about y-axis
     L_tot_mag = sqrt(dot_product(L_tot,L_tot))
