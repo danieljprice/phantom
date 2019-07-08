@@ -217,7 +217,9 @@ character(len=lenid) function fileident(firstchar,codestring)
  if (lightcurve) string = trim(string)//'+lightcurve'
  if (use_dustgrowth) string = trim(string)//'+dustgrowth'
  if (use_krome) string = trim(string)//'+krome'
-
+#ifdef NUCLEATION
+ string = trim(string)//'+nucleation'
+#endif
  if (present(codestring)) then
     fileident = firstchar//':'//trim(codestring)//':'//trim(phantom_version_string)//':'//gitsha
  else
@@ -334,6 +336,9 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 #ifdef KROME
  use krome_user
  use part, only:species_abund,species_abund_label,gamma_chem,krometemperature
+#endif
+#ifdef NUCLEATION
+ use part, only:partJstarKmu,nucleation_label
 #endif
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
@@ -464,10 +469,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           enddo
        endif
        if (store_temperature) call write_array(1,temperature,'T',npart,k,ipass,idump,nums,ierrs(12))
-#ifdef KROME
-       call write_array(1,species_abund,species_abund_label,krome_nmols,npart,k,ipass,idump,nums,ierrs(13))
-       call write_array(1,krometemperature,'Tkrome',npart,k,ipass,idump,nums,ierrs(13))
-#endif
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
        ! write pressure to file
        if ((ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15) .and. k==i_real) then
@@ -529,6 +530,13 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (lightcurve) then
           call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierrs(20))
        endif
+#endif
+#ifdef KROME
+       call write_array(1,species_abund,species_abund_label,krome_nmols,npart,k,ipass,idump,nums,ierrs(11))
+       call write_array(1,krometemperature,'Tkrome',npart,k,ipass,idump,nums,ierrs(11))
+#endif
+#ifdef NUCLEATION
+       call write_array(1,1.d-30*partJstarKmu,nucleation_label,6,npart,k,ipass,idump,nums,ierrs(9))
 #endif
        if (any(ierrs(1:20) /= 0)) call error('write_dump','error writing hydro arrays')
     enddo
@@ -1231,6 +1239,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  use krome_user
  use part, only:species_abund,species_abund_label,krometemperature
 #endif
+#ifdef NUCLEATION
+ use part, only:partJstarKmu,nucleation_label
+#endif
  integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
  real,    intent(in)   :: massoftype(:)
  integer, intent(in)   :: nptmass,nsinkproperties
@@ -1245,6 +1256,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_psi,got_temp,got_dustprop(3),got_St,got_divcurlv(4)
 #ifdef KROME
  logical               :: got_krome(krome_nmols),got_krometemp
+#endif
+#ifdef NUCLEATION
+ logical               :: got_nucleation(6)
 #endif
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci,ntstopi,ndustveli
@@ -1272,6 +1286,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #ifdef KROME
  got_krome     = .false.
  got_krometemp = .false.
+#endif
+#ifdef NUCLEATION
+ got_nucleation = .false.
 #endif
 
  ndustfraci = 0
@@ -1327,6 +1344,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #ifdef KROME
              call read_array(species_abund,species_abund_label,got_krome,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(krometemperature,'Tkrome',got_krometemp,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+#endif
+#ifdef NUCLEATION
+             call read_array(partJstarKmu,nucleation_label,got_nucleation,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
              if (store_temperature) then
                 call read_array(temperature,'T',got_temp,ik,i1,i2,noffset,idisk1,tag,match,ierr)

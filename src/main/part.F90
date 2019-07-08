@@ -157,7 +157,9 @@ module part
 !--Dust formation - theory of moments
 !
 #ifdef NUCLEATION
+ integer, parameter :: n_nucleation = 6
  real, allocatable :: partJstarKmu(:,:)
+ character(len=*), parameter :: nucleation_label(6) = (/'Jstar','K0   ','K1   ','K2   ','K3   ','mu   '/)
 #endif
 !
 !--Chemistry with KROME

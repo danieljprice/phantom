@@ -125,7 +125,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             die,fatal,id,master,nprocs,real4,warning
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
                             externalforce_vdependent
- use options,          only:iexternalforce,damp,alpha,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
+ use options,          only:iexternalforce,idamp,alpha,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
@@ -356,7 +356,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (ierr /= 0) call fatal('initial','error initialising cooling')
  endif
 
- if (damp > 0. .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
+ if (idamp > 0 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
     call error('setup','damping on: setting non-zero velocities to zero')
     vxyzu(1:3,:) = 0.
  endif
@@ -533,7 +533,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  species_abund(krome_idx_N,:)  = N_init
  species_abund(krome_idx_O,:)  = O_init
  species_abund(krome_idx_H,:)  = H_init
- 
+
  mu_chem(:)            = krome_get_mu_x(species_abund(:,1))
  gamma_chem(:)         = krome_get_gamma_x(species_abund(:,1),wind_temperature)
  krometemperature(:)   = wind_temperature
@@ -547,8 +547,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                              Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtnew_first)
-
+         Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtnew_first)
     if (use_dustfrac) then
        ! set grainsize parameterisation from the initial dustfrac setting now we know rho
        do i=1,npart

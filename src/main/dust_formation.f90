@@ -101,8 +101,8 @@ subroutine evolve_chem(dt, r, v, T, rho, Jstar, K, mu, S)
 !all quantities in cgs
  use physcon, only:pi,kboltz,atomic_mass_unit
  real, intent(in) :: dt, r, v, T, rho
- real, intent(inout) :: Jstar, K(0:3), S
- real, intent(out) :: mu
+ real, intent(inout) :: Jstar, K(0:3)
+ real, intent(out) :: mu, S
 
  real :: pC, pC2, pC2H, pC2H2, nH_tot, epsC
  real :: JstarS, taustar, taugr

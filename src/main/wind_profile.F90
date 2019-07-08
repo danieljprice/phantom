@@ -57,7 +57,7 @@ subroutine evolve_hydro(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, spcode, 
  real, intent(out) :: dt_next
 
  real :: err, new_rvT(3), numerator, denominator
- real, parameter :: num_tol = 1.e-3
+ real, parameter :: num_tol = 1.e-4
  real, parameter :: denom_tol = 1.e-2
 
  do
