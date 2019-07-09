@@ -413,6 +413,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              vxyzu(1:3,i) = vxyzu(1:3,i) + dti*fxyzu(1:3,i)
 #else
              vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
+#endif
              if (use_dustgrowth .and. itype==idust) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
              if (itype==igas) then
                 if (mhd)          Bevol(:,i)    = Bevol(:,i)    + dti*dBevol(:,i)
@@ -514,6 +515,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           vxyzu(1:3,i) = vxyzu(1:3,i) - hdtsph*fxyzu(1:3,i)
 #else
           vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
+#endif
           if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  - hdtsph*dBevol(:,i)
