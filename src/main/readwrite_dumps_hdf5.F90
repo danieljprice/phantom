@@ -469,12 +469,12 @@ end subroutine write_dump
 subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
-                          h2chemistry,store_temperature,nsinkproperties
+                          h2chemistry,store_temperature,nsinkproperties,maxp_hard
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use io,             only:fatal,error
  use memory,         only:allocate_memory
- use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
+ use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac,use_moddump
  use part,           only:iphase,xyzh,vxyzu,npart,npartoftype,massoftype,     &
                           nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,        &
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz,   &
@@ -482,9 +482,6 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
                           tstop,St,temperature,abundance,ndusttypes
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
-#endif
-#ifdef INJECT_PARTICLES
- use dim,            only:maxp_hard
 #endif
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
@@ -592,7 +589,12 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- call allocate_memory(int(npart / nprocs))
+ if (.not. use_moddump) then
+    call allocate_memory(int(npart / nprocs))
+ else
+    ! This is required for the cases when particles will be added during moddump
+    call allocate_memory(maxp_hard)
+ endif
 #endif
 
 #ifdef ISOTHERMAL
