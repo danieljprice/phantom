@@ -23,8 +23,9 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, dump_utils, eos, externalforces, fileutils,
-!    gitinfo, initial_params, io, lumin_nsdisc, memory, mpi, mpiutils,
-!    options, part, setup_params, sphNGutils, timestep, units
+!    gitinfo, initial_params, io, krome_main, krome_user, lumin_nsdisc,
+!    memory, mpi, mpiutils, options, part, setup_params, sphNGutils,
+!    timestep, units
 !+
 !--------------------------------------------------------------------------
 module readwrite_dumps
@@ -195,7 +196,7 @@ end subroutine end_threadwrite
 character(len=lenid) function fileident(firstchar,codestring)
  use part,    only:h2chemistry,mhd,maxBevol,npartoftype,idust,gravity,lightcurve
  use options, only:use_dustfrac
- use dim,     only:use_dustgrowth,phantom_version_string
+ use dim,     only:use_dustgrowth,phantom_version_string,use_krome
  use gitinfo, only:gitsha
  character(len=2), intent(in) :: firstchar
  character(len=*), intent(in), optional :: codestring
@@ -215,7 +216,10 @@ character(len=lenid) function fileident(firstchar,codestring)
  if (h2chemistry) string = trim(string)//'+H2chem'
  if (lightcurve) string = trim(string)//'+lightcurve'
  if (use_dustgrowth) string = trim(string)//'+dustgrowth'
-
+ if (use_krome) string = trim(string)//'+krome'
+#ifdef NUCLEATION
+ string = trim(string)//'+nucleation'
+#endif
  if (present(codestring)) then
     fileident = firstchar//':'//trim(codestring)//':'//trim(phantom_version_string)//':'//gitsha
  else
@@ -328,6 +332,13 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 #ifdef NONIDEALMHD
  use dim,  only:mhd_nonideal
  use part, only:eta_nimhd,eta_nimhd_label
+#endif
+#ifdef KROME
+ use krome_user
+ use part, only:species_abund,species_abund_label,gamma_chem,krometemperature
+#endif
+#ifdef NUCLEATION
+ use part, only:partJstarKmu,nucleation_label
 #endif
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
@@ -448,7 +459,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,dustprop,dustprop_label,4,npart,k,ipass,idump,nums,ierrs(3))
           call write_array(1,St,'St',npart,k,ipass,idump,nums,ierrs(3))
        endif
-       call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
        if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(5))
        if (use_dust) &
           call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(7))
@@ -459,24 +469,32 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           enddo
        endif
        if (store_temperature) call write_array(1,temperature,'T',npart,k,ipass,idump,nums,ierrs(12))
-
+       call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
        ! write pressure to file
        if ((ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15) .and. k==i_real) then
           if (.not. allocated(temparr)) allocate(temparr(npart))
           if (.not.done_init_eos) call init_eos(ieos,ierr)
           !$omp parallel do default(none) &
           !$omp shared(xyzh,vxyzu,ieos,npart,temparr,temperature,use_gas) &
+#ifdef KROME
+          !$omp shared(gamma_chem) &
+#endif
           !$omp private(i,iu,ponrhoi,spsoundi,rhoi)
           do i=1,npart
              rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
              if (maxvxyzu >=4 ) then
                 iu = 4
+#ifdef KROME
+                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=vxyzu(iu,i), &
+                                        gamma_local=gamma_chem(i))
+#else
                 if (store_temperature) then
                    ! cases where the eos stores temperature (ie Helmholtz)
-                   call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(iu,i),temperature(i))
+                   call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(iu,i),tempi=temperature(i))
                 else
                    call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(iu,i))
                 endif
+#endif
              else
                 call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i))
              endif
@@ -512,6 +530,13 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (lightcurve) then
           call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierrs(20))
        endif
+#endif
+#ifdef KROME
+       call write_array(1,species_abund,species_abund_label,krome_nmols,npart,k,ipass,idump,nums,ierrs(11))
+       call write_array(1,krometemperature,'Tkrome',npart,k,ipass,idump,nums,ierrs(11))
+#endif
+#ifdef NUCLEATION
+       call write_array(1,1.d-30*partJstarKmu,nucleation_label,6,npart,k,ipass,idump,nums,ierrs(9))
 #endif
        if (any(ierrs(1:20) /= 0)) call error('write_dump','error writing hydro arrays')
     enddo
@@ -587,6 +612,11 @@ subroutine write_smalldump(t,dumpfile)
  use mpiutils,   only:reduceall_mpi
 #ifdef LIGHTCURVE
  use part,       only:luminosity
+#endif
+#ifdef KROME
+ use krome_main
+ use krome_user
+ use part, only:species_abund,species_abund_label,krometemperature
 #endif
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
@@ -664,6 +694,11 @@ subroutine write_smalldump(t,dumpfile)
        if (use_dust) &
           call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
+#ifdef KROME
+       call write_array( &
+                1,species_abund,species_abund_label,krome_nmols,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+       call write_array(1,krometemperature,'Tkrome',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+#endif
 #ifdef LIGHTCURVE
        if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
 #endif
@@ -1199,6 +1234,14 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
 #endif
+#ifdef KROME
+ use krome_main
+ use krome_user
+ use part, only:species_abund,species_abund_label,krometemperature
+#endif
+#ifdef NUCLEATION
+ use part, only:partJstarKmu,nucleation_label
+#endif
  integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
  real,    intent(in)   :: massoftype(:)
  integer, intent(in)   :: nptmass,nsinkproperties
@@ -1211,6 +1254,12 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3)
  logical               :: got_psi,got_temp,got_dustprop(3),got_St,got_divcurlv(4)
+#ifdef KROME
+ logical               :: got_krome(krome_nmols),got_krometemp
+#endif
+#ifdef NUCLEATION
+ logical               :: got_nucleation(6)
+#endif
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci,ntstopi,ndustveli
 
@@ -1234,6 +1283,13 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_dustprop  = .false.
  got_St        = .false.
  got_divcurlv  = .false.
+#ifdef KROME
+ got_krome     = .false.
+ got_krometemp = .false.
+#endif
+#ifdef NUCLEATION
+ got_nucleation = .false.
+#endif
 
  ndustfraci = 0
  ntstopi    = 0
@@ -1285,6 +1341,13 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              if (h2chemistry) then
                 call read_array(abundance,abundance_label,got_abund,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
+#ifdef KROME
+             call read_array(species_abund,species_abund_label,got_krome,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(krometemperature,'Tkrome',got_krometemp,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+#endif
+#ifdef NUCLEATION
+             call read_array(partJstarKmu,nucleation_label,got_nucleation,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+#endif
              if (store_temperature) then
                 call read_array(temperature,'T',got_temp,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
@@ -1321,10 +1384,17 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  !
  ! check for errors
  !
+#ifdef KROME
+ call check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
+                   alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha,got_krome, &
+                   got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_St, &
+                   got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+#else
  call check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                    alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                    got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_St, &
                    got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+#endif
 
  return
 100 continue
@@ -1393,10 +1463,17 @@ end subroutine check_block_header
 !  and perform basic sanity checks
 !+
 !---------------------------------------------------------------
+#ifdef KROME
+subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
+                        alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha,got_krome, &
+                        got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_St, &
+                        got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+#else
 subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                         got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_St, &
                         got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+#endif
  use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,store_temperature,use_dustgrowth
  use eos,  only:polyk,gamma
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,&
@@ -1408,6 +1485,9 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  real,            intent(in)    :: massoftype(:),alphafile,tfile
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha,got_dustprop(:),got_St
  logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_Bxyz(:)
+#ifdef KROME
+ logical,         intent(in)    :: got_krome(:)
+#endif
  logical,         intent(in)    :: got_psi, got_temp
  integer(kind=1), intent(inout) :: iphase(:)
  real,            intent(inout) :: vxyzu(:,:), Bevol(:,:)
@@ -1494,6 +1574,13 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     ierr = 9
     return
  endif
+#ifdef KROME
+ if (.not.all(got_krome)) then
+    if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but abundances not found in dump file'
+!     ierr = 9
+    return
+ endif
+#endif
  if (store_temperature .and. .not.got_temp) then
     if (id==master .and. i1==1) write(*,*) 'WARNING: missing temperature information from file'
  endif
@@ -1853,7 +1940,7 @@ end subroutine fill_header
 subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
                           tfile,hfactfile,alphafile,iprint,ierr)
  use io,             only:id,master
- use dim,            only:maxvxyzu,use_dust
+ use dim,            only:maxvxyzu,use_dust,use_krome
  use eos,            only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
  use options,        only:ieos,iexternalforce
  use part,           only:massoftype,Bextx,Bexty,Bextz,mhd,periodic,&
@@ -1884,7 +1971,11 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  call extract('RK2',rk2,hdr,ierr)
  polyk = 2./3.*rk2
  if (maxvxyzu >= 4) then
-    if (id==master) write(iprint,*) 'adiabatic eos: gamma = ',gamma
+    if (use_krome) then
+       if (id==master) write(iprint,*) 'KROME eos: initial gamma = 1.666667'
+    else
+       if (id==master) write(iprint,*) 'adiabatic eos: gamma = ',gamma
+    endif
  else
     write(iprint,*) 'setting isothermal sound speed^2 (polyk) = ',polyk,' gamma = ',gamma
     if (polyk <= tiny(polyk)) then

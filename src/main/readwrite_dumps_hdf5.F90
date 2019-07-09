@@ -131,7 +131,7 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  use dim,            only:maxp,maxvxyzu,gravity,maxalpha,mhd,mhd_nonideal,   &
                           use_dust,use_dustgrowth,phantom_version_major,     &
                           phantom_version_minor,phantom_version_micro,       &
-                          store_temperature,phantom_version_string
+                          store_temperature,phantom_version_string,use_krome
  use eos,            only:ieos,equationofstate,done_init_eos,init_eos,polyk, &
                           gamma,polyk2,qfacdisc,isink
  use gitinfo,        only:gitsha
@@ -151,6 +151,9 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
 #ifdef PHANTOM2HDF5
  use part,           only:dt_in
 #endif
+#endif
+#ifdef KROME
+ use part,           only:gamma_chem
 #endif
  use mpiutils,       only:reduce_mpi,reduceall_mpi
  use lumin_nsdisc,   only:beta
@@ -247,7 +250,10 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
     do i=1,int(npart)
        rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
        if (maxvxyzu >=4 ) then
-          if (store_temperature) then
+          if (use_krome) then
+             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=vxyzu(4,i), &
+                                  gamma_local=gamma_chem(i))
+          else if (store_temperature) then
              ! cases where the eos stores temperature (ie Helmholtz)
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),temperature(i))
           else

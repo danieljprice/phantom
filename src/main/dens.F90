@@ -13,7 +13,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Conrad Chan
 !
 !  $Id$
 !
@@ -131,6 +131,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                      ll,get_partinfo,iactive,&
                      hrho,iphase,igas,idust,iboundary,iamgas,periodic,&
                      all_active,dustfrac,Bxyz
+#ifdef KROME
+ use part,      only:gamma_chem
+#endif
 #ifdef FINVSQRT
  use fastmath,  only:finvsqrt
 #endif
@@ -243,6 +246,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(divcurlv) &
 !$omp shared(divcurlB) &
 !$omp shared(alphaind) &
+#ifdef KROME
+!$omp shared(gamma_chem) &
+#endif
 !$omp shared(dustfrac) &
 !$omp shared(Bxyz) &
 !$omp shared(dvdx) &
@@ -384,8 +390,12 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 #ifdef MPI
        if (.not. do_export) then
 #endif
-          call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                             dvdx,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+          call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv, &
+               divcurlB,alphaind,dvdx,vxyzu,Bxyz,&
+#ifdef KROME
+               gamma_chem,&
+#endif
+               dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
 #ifdef MPI
           nlocal = nlocal + 1
        endif
@@ -496,8 +506,12 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
              stack_redo%cells(cell%waiting_index) = cell
           else
-             call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                                dvdx,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+             call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv, &
+                  divcurlB,alphaind,dvdx,vxyzu,Bxyz, &
+#ifdef KROME
+                  gamma_chem,&
+#endif
+                  dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
           endif
 
        enddo over_waiting
@@ -1301,7 +1315,6 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
 #else
     ignoreself = .true.
 #endif
-
     call get_density_sums(lli,cell%xpartvec(:,i),hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
                           listneigh,nneigh,nneighi,dxcache,xyzcache,cell%rhosums(:,i),&
                           .true.,.false.,getdv,getdB,realviscosity,&
@@ -1559,6 +1572,9 @@ end subroutine finish_rhosum
 !--------------------------------------------------------------------------
 subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                          gradh,divcurlv,divcurlB,alphaind,dvdx,vxyzu,Bxyz,&
+#ifdef KROME
+                         gamma_chem,&
+#endif
                          dustfrac,rhomax,nneightry,nneighact,maxneightry,&
                          maxneighact,np,ncalc)
  use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,&
@@ -1587,6 +1603,9 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  real(kind=4),    intent(inout) :: divcurlv(:,:)
  real(kind=4),    intent(inout) :: divcurlB(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
+#ifdef KROME
+ real,            intent(in)    :: gamma_chem(:)
+#endif
  real(kind=4),    intent(inout) :: dvdx(:,:)
  real,            intent(in)    :: vxyzu(:,:)
  real,            intent(out)   :: dustfrac(:,:)
@@ -1699,11 +1718,15 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
           vxyzui(3) = cell%xpartvec(ivzi,i)
           vxyzui(4) = cell%xpartvec(ieni,i)
 
+#ifdef KROME
+          spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:),gammai=gamma_chem(lli))
+#else
           if (store_temperature) then
-             spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:),temperature(lli))
+             spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:),tempi=temperature(lli))
           else
              spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:))
           endif
+#endif
           alphaind(2,lli) = real4(get_alphaloc(divcurlvi(5),spsoundi,hi,xi_limiter,alpha,alphamax))
        endif
     else ! we always need div v for h prediction
@@ -1770,7 +1793,6 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        ! store strain tensor
        dvdx(:,lli) = real(dvdxi(:),kind=kind(dvdx))
     endif
-
     ! stats
     nneightry = nneightry + cell%nneightry
     nneighact = nneighact + cell%nneigh(i)

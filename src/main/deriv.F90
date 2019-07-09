@@ -19,8 +19,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: densityforce, dim, externalforces, forces, forcing,
-!    growth, io, linklist, mpiutils, part, photoevap, ptmass, timestep,
-!    timing
+!    growth, io, krome_interface, linklist, mpiutils, part, photoevap,
+!    ptmass, timestep, timing
 !+
 !--------------------------------------------------------------------------
 module deriv
@@ -50,6 +50,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  use timestep,       only:dtcourant,dtforce,dtmax
  use ptmass,         only:ipart_rhomax
  use externalforces, only:externalforce
+#ifdef KROME
+ use krome_interface, only:update_krome
+#endif
 #ifdef DRIVING
  use forcing,        only:forceit
 #endif
@@ -127,6 +130,14 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
     call do_timing('dens',tlast,tcpulast)
  endif
 !
+! update chemical composition and cooling rate
+!
+#ifdef KROME
+ if (dt  /=  0.0) then
+    call update_krome(dt,npart,xyzh,vxyzu)
+ endif
+#endif
+!
 ! compute forces
 !
 #ifdef DRIVING
@@ -134,7 +145,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  call forceit(time,npart,xyzh,vxyzu,fxyzu)
  call do_timing('driving',tlast,tcpulast)
 #endif
-
  stressmax = 0.
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
             dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature)

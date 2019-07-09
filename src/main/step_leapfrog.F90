@@ -26,9 +26,10 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: bowen_dust, chem, coolfunc, damping, deriv, dim, eos,
-!    externalforces, growth, io, io_summary, mpiutils, options, part,
-!    ptmass, timestep, timestep_ind, timestep_sts
+!  DEPENDENCIES: chem, coolfunc, damping, deriv, dim, dusty_wind, eos,
+!    externalforces, growth, inject, io, io_summary, krome_interface,
+!    mpiutils, options, part, ptmass, timestep, timestep_ind, timestep_sts,
+!    wind_profile
 !+
 !--------------------------------------------------------------------------
 module step_lf_global
@@ -82,7 +83,8 @@ end subroutine init_step
 !+
 !------------------------------------------------------------
 subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
- use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,use_dustgrowth
+ use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,&
+                          use_dustgrowth,use_krome
  use io,             only:iprint,fatal,iverbose,id,master,warning
  use options,        only:idamp,iexternalforce,icooling,use_dustfrac
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
@@ -99,6 +101,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ibin_wake
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake
  use coolfunc,       only:energ_coolfunc
+#ifdef WIND
+ use wind_profile,   only:energy_profile
+ use inject,         only:wind_type
+#endif
 #ifdef IND_TIMESTEPS
  use timestep,       only:dtmax,dtmax_ifactor,dtdiff
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,ibinnow
@@ -106,7 +112,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:ibin,ibin_old,twas,iactive
 #endif
 #ifdef DUSTGROWTH
- use growth,                only:check_dustprop
+ use growth,         only:check_dustprop
+#endif
+#ifdef KROME
+ use part,            only: gamma_chem,mu_chem
+ use krome_interface, only: krometemperature
+ use eos,             only: get_local_u_internal
 #endif
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -221,6 +232,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
 !$omp shared(alphaind,ieos,alphamax,ndustsmall,ialphaloc) &
 !$omp shared(temperature) &
+#ifdef KROME
+!$omp shared(gamma_chem) &
+#endif
 #ifdef IND_TIMESTEPS
 !$omp shared(twas,timei) &
 #endif
@@ -283,11 +297,15 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (maxalpha==maxp) then
           hi   = xyzh(4,i)
           rhoi = rhoh(hi,pmassi)
+#ifdef KROME
+          spsoundi = get_spsound(ieos,xyzh(:,i),rhoi,vpred(:,i),gammai=gamma_chem(i))
+#else
           if (store_temperature) then
-             spsoundi = get_spsound(ieos,xyzh(:,i),rhoi,vpred(:,i),temperature(i))
+             spsoundi = get_spsound(ieos,xyzh(:,i),rhoi,vpred(:,i),tempi=temperature(i))
           else
              spsoundi = get_spsound(ieos,xyzh(:,i),rhoi,vpred(:,i))
           endif
+#endif
           tdecay1  = avdecayconst*spsoundi/hi
           ddenom   = 1./(1. + dtsph*tdecay1) ! implicit integration for decay term
           if (nalpha >= 2) then
@@ -307,7 +325,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
     endif
  enddo predict_sph
- !$omp end parallel do
+
+!$omp end parallel do
 !
 ! recalculate all SPH forces, and new timestep
 !
@@ -350,6 +369,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
 !$omp shared(dtsph,icooling) &
+#ifdef WIND
+!$omp shared(wind_type) &
+#endif
+#ifdef KROME
+!$omp shared(gamma_chem,mu_chem,krometemperature) &
+#endif
 #ifdef IND_TIMESTEPS
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax,ibinnow) &
@@ -453,6 +478,14 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           endif
 #endif
        endif
+#ifdef KROME
+       vxyzu(4,i) = get_local_u_internal(gamma_chem(i),mu_chem(i),krometemperature(i))
+#endif
+#ifdef WIND
+       if (wind_type == 2) then
+          vxyzu(4,i) = energy_profile(xyzh(:,i))
+       endif
+#endif
     enddo corrector
 !$omp enddo
 !$omp end parallel
@@ -574,8 +607,10 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use timestep_sts,   only:sts_it_n
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use damping,        only:calc_damp,apply_damp
-#ifdef BOWEN
- use bowen_dust,     only:radiative_acceleration
+#ifdef NUCLEATION
+ use dusty_wind,     only:radiative_acceleration
+#elif INJECT_PARTICLES
+ use inject,         only:radiativeforce,wind_alpha
 #endif
  integer,         intent(in)    :: npart,ntypes,nptmass
  real,            intent(in)    :: dtsph,time
@@ -588,7 +623,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  integer(kind=1) :: ibin_wakei
  real            :: timei,hdt,fextx,fexty,fextz,fextxi,fextyi,fextzi,phii,pmassi
  real            :: dtphi2,dtphi2i,vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,deni
- real            :: dudtcool,fextv(3),fac,poti
+ real            :: dudtcool,fextv(3),fac,poti,fextrad(3)
  real            :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
  real            :: dtf,accretedmass,t_end_step,dtextforce_min
  real            :: dptmass(ndptmass,nptmass)
@@ -596,6 +631,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  real, save      :: dmdt = 0.
  logical         :: accreted,extf_is_velocity_dependent
  logical         :: last_step,done
+
 
 !
 ! determine whether or not to use substepping
@@ -674,6 +710,10 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,icooling) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
     !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv) &
+#if defined(WIND) && !defined(NUCLEATION)
+    !$omp shared(wind_alpha) &
+    !$omp private(fextrad) &
+#endif
     !$omp private(i,ichem,idudtcool,dudtcool,fxi,fyi,fzi,phii) &
     !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,deni,fextv,accreted) &
     !$omp private(fonrmaxi,dtphi2i,dtf) &
@@ -745,6 +785,14 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                 fextz = fextz + fextv(3)
              endif
           endif
+#if defined(WIND) && !defined(NUCLEATION)
+          if (wind_alpha > 0.) then
+             call radiativeforce(xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzmh_ptmass,fextrad)
+             fextx = fextx + fextrad(1)
+             fexty = fexty + fextrad(2)
+             fextz = fextz + fextrad(3)
+          endif
+#endif
           if (idamp > 0.) then
              call apply_damp(i, fextx, fexty, fextz, vxyzu, damp_fac)
           endif
@@ -771,7 +819,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp enddo
     !$omp end parallel
 
-#ifdef BOWEN
+#if defined (NUCLEATION)
     call radiative_acceleration(npart,xyzh,vxyzu,dt,fext,fxyzu,time)
 #endif
 

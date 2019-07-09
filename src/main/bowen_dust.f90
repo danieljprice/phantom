@@ -14,19 +14,19 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Lionel Siess
+!  OWNER: Lionel
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, io, kernel, part, physcon, units
+!  DEPENDENCIES: dim, eos, kernel, part, physcon, units
 !+
 !--------------------------------------------------------------------------
 module bowen_dust
  implicit none
 
- public :: radiative_acceleration, bowen_init
+ public :: radiative_acceleration, setup_bowen
  logical, parameter :: use_alpha_wind = .false.
 
  private
@@ -39,6 +39,7 @@ module bowen_dust
  integer :: nwall_particles
 
 contains
+
 
 !-----------------------------------------------------------------------
 !+
@@ -82,7 +83,7 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fext, fxyzu_shock, tim
 !$omp parallel do default(none) &
 !$omp shared(npart,xyzh,vxyzu,fext,divcurlv,x_star,Rforce,Mstar,R_star,gamma,dt,nwall_particles) &
 !$omp private(xr,alpha_surface,dist)
-   do i=nwall_particles+1,npart
+    do i=nwall_particles+1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           xr(1:3) = xyzh(1:3,i)-x_star(1:3)
           dist = sqrt(xr(1)**2 + xr(2)**2 + xr(3)**2)
@@ -107,7 +108,7 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fext, fxyzu_shock, tim
 !!$omp parallel do default(none) &
 !!$omp shared(npart,xyzh,vxyzu,fext,divcurlv,x_star,Rforce,fac,Teff,R_star,Mstar,gamma,kappa_gas,dt,nwall_particles) &
 !!$omp private(xr,alpha_surface,alpha_w,kap_dust,Trad,dist)
-   do i=nwall_particles+1,npart
+    do i=nwall_particles+1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           xr(1:3) = xyzh(1:3,i)-x_star(1:3)
           dist = sqrt(xr(1)**2 + xr(2)**2 + xr(3)**2)
@@ -150,24 +151,24 @@ end subroutine radiative_acceleration
 !  Convert parameters into code units.
 !+
 !-----------------------------------------------------------------------
-subroutine bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,wind_injection_radius,&
-       bowen_Cprime, bowen_Tcond, bowen_delta,bowen_Teff,wind_osc_vamplitude,wind_osc_period,nwall)
+subroutine setup_bowen(u_to_temperature_ratio,bowen_kappa,bowen_kmax,star_Lum,wind_injection_radius,&
+       bowen_Cprime, bowen_Tcond, bowen_delta,star_Teff,wind_osc_vamplitude,wind_osc_period,nwall)
  use physcon,     only: solarl,c,steboltz,pi,radconst
  use units,       only: udist, umass, utime
  integer, intent(in) :: nwall
- real, intent(in)  :: u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,wind_injection_radius,&
-         bowen_Cprime, bowen_Tcond, bowen_delta, bowen_Teff, wind_osc_vamplitude,wind_osc_period
+ real, intent(in)  :: u_to_temperature_ratio,bowen_kappa,bowen_kmax,star_Lum,wind_injection_radius,&
+         bowen_Cprime, bowen_Tcond, bowen_delta, star_Teff, wind_osc_vamplitude,wind_osc_period
 
  kappa_gas = bowen_kappa / (udist**2/umass)
  kmax = bowen_kmax / (udist**2/umass)
- L = bowen_L /(umass*udist**2/utime**3)
+ L = star_Lum /(umass*udist**2/utime**3)
  c_light = c / (udist/utime)
  specific_energy_to_T_ratio = u_to_temperature_ratio!/(udist/utime)**2
  Cprime = bowen_Cprime / (umass*utime/udist**3)
  Tcond = bowen_Tcond
  deltaT = bowen_delta
- Teff  = bowen_Teff
- Reff = sqrt(bowen_L/(4.*pi*steboltz*bowen_Teff**4))/udist
+ Teff  = star_Teff
+ Reff = sqrt(star_Lum/(4.*pi*steboltz*star_Teff**4))/udist
  omega_osc = 2.*pi/wind_osc_period
  deltaR_osc = wind_osc_vamplitude/omega_osc
  nwall_particles = nwall
@@ -175,7 +176,63 @@ subroutine bowen_init(u_to_temperature_ratio,bowen_kappa,bowen_kmax,bowen_L,wind
  usteboltz = L/(4.*pi*Reff**2*Teff**4)
  Rmin = Reff - deltaR_osc
 
-end subroutine bowen_init
+end subroutine setup_bowen
+
+
+!-----------------------------------------------------------------------
+!+
+!  Oscillating inner boundary : bowen wind
+!+
+!-----------------------------------------------------------------------
+subroutine pulsating_wind_profile(time,local_time,r,v,u,rho,e,GM,gamma,sphere_number, &
+                                     inner_sphere,inner_boundary_sphere)
+ use physcon,     only: pi
+ integer, intent(in)  :: sphere_number, inner_sphere, inner_boundary_sphere
+ real,    intent(in)  :: time,local_time,gamma,GM
+ real,    intent(out) :: r, v, u, rho, e
+
+ integer, parameter :: nrho_index = 10
+ integer :: k
+ real :: surface_radius,r3
+ logical :: verbose = .true.
+
+ v = wind_velocity + wind_osc_vamplitude* cos(2.*pi*time/wind_osc_period) !same velocity for all wall particles
+ surface_radius = wind_injection_radius + wind_osc_vamplitude*wind_osc_period/(2.*pi)*sin(2.*pi*time/wind_osc_period)
+ if (sphere_number <= inner_sphere) then
+    r = surface_radius
+    v = max(wind_osc_vamplitude,wind_velocity)
+ else
+    r3 = surface_radius**3-dr3
+    do k = 2,sphere_number-inner_sphere
+       r3 = r3-dr3*(r3/surface_radius**3)**(nrho_index/3.)
+    enddo
+    r = r3**(1./3)
+ endif
+ !r = (surface_radius**3-(sphere_number-inner_sphere)*dr3)**(1./3)
+ !rho = rho_ini
+ u = wind_temperature * u_to_temperature_ratio
+ if (gamma > 1.0001) then
+    e = .5*v**2 - GM/r + gamma*u
+ else
+    e = .5*v**2 - GM/r + u
+ endif
+ rho = rho_ini*(surface_radius/r)**nrho_index
+ if (verbose) then
+    if (sphere_number > inner_sphere) then
+       print '("boundary, i = ",i5," inner = ",i5," base_r = ",es11.4,'// &
+             '" r = ",es11.4," v = ",es11.4," phase = ",f7.4," feject = ",f4.3)', &
+             sphere_number,inner_sphere,surface_radius,r,v,&
+             time/wind_osc_period,time_between_spheres/wind_osc_period
+    else
+       print '("ejected, i = ",i5," inner = ",i5," base_r = ",es11.4,'// &
+             '" r = ",es11.4," v = ",es11.4," phase = ",f7.4," feject = ",f4.3)', &
+             sphere_number,inner_sphere,surface_radius,r,v,&
+             time/wind_osc_period,time_between_spheres/wind_osc_period
+    endif
+ endif
+
+end subroutine pulsating_wind_profile
+
 
 !-----------------------------------------------------------------------
 !+
@@ -488,6 +545,13 @@ subroutine implicit_wind_cooling(icooling,npart,xyzh,vxyzu,fxyzu,fext,R_star,x_s
 
 end subroutine implicit_wind_cooling
 
+
+!#####################################################################################
+!
+!  ALL COOLING ROUTINES HAVE BEEN MOVED TO DUST_FORMATION BUT ARGUMENTS ARE DIFFRENT!
+!
+!#####################################################################################
+
 !----------------------------------------------------------------
 !+
 !  Driver for the cooling function
@@ -495,22 +559,22 @@ end subroutine implicit_wind_cooling
 !----------------------------------------------------------------
 subroutine calc_cooling (icooling, mass_per_H, Tgas, Trad, rho, Qcool, dQcool_dlnT)
 
-  integer, intent(in) :: icooling
-  real, intent(in) :: mass_per_H
-  real, intent(in) :: Tgas, Trad, rho
-  real, intent(out) :: Qcool, dQcool_dlnT
+ integer, intent(in) :: icooling
+ real, intent(in) :: mass_per_H
+ real, intent(in) :: Tgas, Trad, rho
+ real, intent(out) :: Qcool, dQcool_dlnT
 
-  Qcool = 0.d0
-  dQcool_dlnT = 0.d0
-  if (icooling == 1 .or. mod(icooling,10) == 3 .or. icooling == 11) then
-     call cooling_neutral_hydrogen(mass_per_H, Tgas, rho, Qcool, dQcool_dlnT)
-  end if
-  if (icooling == 2 .or. mod(icooling,10) == 3 .or. icooling == 12) then
-     call cooling_Bowen_relaxation(Tgas, Trad, rho, Qcool, dQcool_dlnT)
-  end if
-  if (icooling >= 10) then
-     call cooling_radiative_relaxation(Tgas, Trad, Qcool, dQcool_dlnT)
-  end if
+ Qcool = 0.d0
+ dQcool_dlnT = 0.d0
+ if (icooling == 1 .or. mod(icooling,10) == 3 .or. icooling == 11) then
+    call cooling_neutral_hydrogen(mass_per_H, Tgas, rho, Qcool, dQcool_dlnT)
+ endif
+ if (icooling == 2 .or. mod(icooling,10) == 3 .or. icooling == 12) then
+    call cooling_Bowen_relaxation(Tgas, Trad, rho, Qcool, dQcool_dlnT)
+ endif
+ if (icooling >= 10) then
+    call cooling_radiative_relaxation(Tgas, Trad, Qcool, dQcool_dlnT)
+ endif
 end subroutine calc_cooling
 
 !-----------------------------------------------------------------------
@@ -519,13 +583,13 @@ end subroutine calc_cooling
 !+
 !-----------------------------------------------------------------------
 subroutine cooling_Bowen_relaxation(T, Trad, rho, Qcool, dQcool_dlnT)
-  real, intent(in) :: T, Trad, rho
-  real, intent(inout) :: Qcool, dQcool_dlnT
-  real :: fac
+ real, intent(in) :: T, Trad, rho
+ real, intent(inout) :: Qcool, dQcool_dlnT
+ real :: fac
 
-  fac = specific_energy_to_T_ratio*rho/ Cprime
-  Qcool = Qcool + fac*(Trad-T)
-  dQcool_dlnT = dQcool_dlnT - fac*T
+ fac = specific_energy_to_T_ratio*rho/ Cprime
+ Qcool = Qcool + fac*(Trad-T)
+ dQcool_dlnT = dQcool_dlnT - fac*T
 end subroutine cooling_Bowen_relaxation
 
 !-----------------------------------------------------------------------
@@ -534,13 +598,13 @@ end subroutine cooling_Bowen_relaxation
 !+
 !-----------------------------------------------------------------------
 subroutine cooling_radiative_relaxation(T, Trad, Qcool, dQcool_dlnT)
-  real, intent(in) :: T, Trad
-  real, intent(inout) :: Qcool, dQcool_dlnT
-  real :: fac
+ real, intent(in) :: T, Trad
+ real, intent(inout) :: Qcool, dQcool_dlnT
+ real :: fac
 
-  fac = 4.*kappa_gas*usteboltz
-  Qcool = Qcool + fac*(Trad**4-T**4)
-  dQcool_dlnT = dQcool_dlnT - 4.*fac*T**3
+ fac = 4.*kappa_gas*usteboltz
+ Qcool = Qcool + fac*(Trad**4-T**4)
+ dQcool_dlnT = dQcool_dlnT - 4.*fac*T**3
 end subroutine cooling_radiative_relaxation
 
 !-----------------------------------------------------------------------
@@ -549,21 +613,21 @@ end subroutine cooling_radiative_relaxation
 !+
 !-----------------------------------------------------------------------
 subroutine cooling_neutral_hydrogen( mass_per_H, T, rho, Qcool, dQcool_dlnT)
-  use units, only: umass, utime,udist
-  real, intent(in) :: mass_per_H
-  real, intent(in) :: T, rho
-  real, intent(inout) :: Qcool, dQcool_dlnT
+ use units, only: umass, utime,udist
+ real, intent(in) :: mass_per_H
+ real, intent(in) :: T, rho
+ real, intent(inout) :: Qcool, dQcool_dlnT
 
-  real, parameter :: f = 0.2d0
-  real :: eps_e, Q_H0, fQ
+ real, parameter :: f = 0.2d0
+ real :: eps_e, Q_H0, fQ
 
-  if (T > 3000.d0) then
-     fQ = utime**2*udist/umass
-     call calc_eps_e(T, eps_e)
-     Q_H0  = -f*fQ*7.3d-19 * eps_e * exp(-118400.d0/T) *rho / (mass_per_H)**2
-     Qcool = Qcool + Q_H0
-     dQcool_dlnT = dQcool_dlnT + 118400.d0/T * Q_H0
-  endif
+ if (T > 3000.d0) then
+    fQ = utime**2*udist/umass
+    call calc_eps_e(T, eps_e)
+    Q_H0  = -f*fQ*7.3d-19 * eps_e * exp(-118400.d0/T) *rho / (mass_per_H)**2
+    Qcool = Qcool + Q_H0
+    dQcool_dlnT = dQcool_dlnT + 118400.d0/T * Q_H0
+ endif
 end subroutine cooling_neutral_hydrogen
 
 !-----------------------------------------------------------------------
@@ -573,22 +637,22 @@ end subroutine cooling_neutral_hydrogen
 !-----------------------------------------------------------------------
 subroutine calc_eps_e(T, eps_e)
 ! used for cooling_neutral_hydrogen_radiation
-  real, intent(in) :: T
-  real, intent(out) :: eps_e
+ real, intent(in) :: T
+ real, intent(out) :: eps_e
 
-  real :: k1, k2, k3, k8, k9, p, q
+ real :: k1, k2, k3, k8, k9, p, q
 
 !  if (T > 3000.) then
-     k1 = 1.88d-10 / T**6.44d-1
-     k2 = 1.83d-18 * T
-     k3 = 1.35d-9
-     k8 = 5.80d-11 * sqrt(T) * exp(-1.58d5/T)
-     k9 = 1.7d-4 * k8
+ k1 = 1.88d-10 / T**6.44d-1
+ k2 = 1.83d-18 * T
+ k3 = 1.35d-9
+ k8 = 5.80d-11 * sqrt(T) * exp(-1.58d5/T)
+ k9 = 1.7d-4 * k8
 
-     p = .5d0*k8/k9
-     q = k1*(k2+k3)/(k3*k9)
+ p = .5d0*k8/k9
+ q = k1*(k2+k3)/(k3*k9)
 
-     eps_e = (p + sqrt(q+p**2))/q
+ eps_e = (p + sqrt(q+p**2))/q
 !  else
 !     eps_e = 0.d0
 !  endif

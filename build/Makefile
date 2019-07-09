@@ -41,6 +41,8 @@ ANALYSIS      = analysis_dtheader.f90
 MULTIRUNFILE  = multirun.f90
 LIVE_ANALYSIS = no
 LINKLIST      = dtype_kdtree.F90 kdtree.F90 linklist_kdtree.F90
+KROME         = disabled
+DEBUG         = no
 #
 # can comment out the following lines and instead set
 # the parameters as environment variables
@@ -711,10 +713,10 @@ endif
 
 ifeq ($(SETUP), isowind)
 #   wind setup (isothermal spherical wind from a sink particle)
-    FPPFLAGS=
+    FPPFLAGS= -DWIND
     ISOTHERMAL=yes
-    SETUPFILE= setup_wind.f90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 inject_wind.f90
+    SETUPFILE= setup_wind.F90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 wind_profile.F90 dust_free_wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -722,8 +724,19 @@ endif
 
 ifeq ($(SETUP), wind)
 #   wind setup (adiabatic supersonic spherical wind from a sink particle)
-    SETUPFILE= setup_wind.f90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 inject_wind.f90
+    FPPFLAGS= -DWIND
+    SETUPFILE= setup_wind.F90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 dust_formation.f90 wind_profile.F90 dust_free_wind.F90 inject_wind.f90
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=no
+    STS_TIMESTEPS=no
+endif
+
+ifeq ($(SETUP), dustywind)
+#   wind setup (adiabatic supersonic spherical wind from a sink particle)
+    FPPFLAGS= -DWIND -DNUCLEATION
+    SETUPFILE= setup_wind.F90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 dust_formation.f90 wind_profile.F90 dusty_wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -731,9 +744,9 @@ endif
 
 ifeq ($(SETUP), bowen)
 # bowen wind setup (pulsating dusty wind)
-    FPPFLAGS= -DBOWEN
-    SETUPFILE= setup_wind.f90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 bowen_dust.F90 inject_wind.f90
+    FPPFLAGS= -DWIND -DBOWEN
+    SETUPFILE= setup_wind.F90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 wind_profile.F90 bowen_dust.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -1370,6 +1383,15 @@ ifdef SRCTURB
     FPPFLAGS += -DDRIVING
 endif
 
+ifeq ($(KROME), krome)
+    FPPFLAGS += -DKROME
+ifeq ($(SYSTEM), ifort)
+    LDFLAGS  += -mkl
+else
+    LDFLAGS  += -L/usr/lib/x86_64-linux-gnu -lmkl_core -lmkl_gnu_thread -lmkl_gf_lp64 -fopenmp
+endif
+endif
+
 #
 # kernel choice
 #
@@ -1565,6 +1587,12 @@ else
 SRCREADWRITE_DUMPS= readwrite_dumps.F90
 endif
 
+ifeq ($(KROME), krome)
+  SRCKROME=krome.f90
+else
+  SRCKROME=
+endif
+
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
          utils_allocate.f90 \
@@ -1577,7 +1605,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          set_disc.F90 partinject.F90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM} \
          directsum.f90 prompting.f90 ${SRCDUST} set_dust.F90 set_dust_options.f90 \
          mpi_dens.F90 mpi_force.F90 stack.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
-         ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} memory.F90 ${SRCREADWRITE_DUMPS}  \
+         ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 \
          readwrite_infile.F90 dens.F90 force.F90 deriv.F90 energies.F90 sort_particles.F90 \
          evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90 \
@@ -1589,13 +1617,32 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
 OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
 
-.PHONY: phantom
+ifeq ($(KROME), krome)
+    .PHONY: all
+
+    all: checksystem krome_setup krome phantom
+    include MakeKrome
+else
+    .PHONY: phantom
+endif
+
 phantom: checksystem checkparams $(OBJECTS) phantom.o
 	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJECTS) phantom.o $(LDFLAGS)
 ifeq ($(UNAME), Darwin)
 	dsymutil $(BINDIR)/$@
 endif
 
+
+	@echo ""
+	@echo "=============== CHEMISTRY ==============="
+	@echo ""
+ifeq ($(KROME), krome)
+	@echo "krome coupling status = enabled"
+else
+	@echo "krome coupling status = disabled"
+endif
+	@echo ""
+	@echo "========================================="
 	@sh ../scripts/phantom_version_gen.sh "$(IDFLAGS)"
 	@echo ""
 	@echo "The Phantom is here (in $(BINDIR)/phantom)"
@@ -2763,6 +2810,9 @@ err:
 
 clean:
 	rm -f *.o *.mod phantom-version.h
+ifeq ($(KROME),krome)
+	rm -f ${KROMEPATH}/build/*.o ${KROMEPATH}/build/*.mod
+endif
 
 cleanall: clean cleanmathflags
 	cd $(BINDIR); rm -f phantom phantomsetup

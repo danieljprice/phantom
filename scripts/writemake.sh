@@ -16,7 +16,7 @@ if [ $# -ge 1 ]; then
    echo 'ifndef SETUP';
    echo 'SETUP='$1;
    echo 'endif';
-   makeflags='SETUP=${SETUP} RUNDIR=${PWD}';
+   makeflags='SETUP=${SETUP} RUNDIR=${PWD} KROME='$2;
 else
    makeflags='RUNDIR=${PWD}';
 fi
@@ -37,7 +37,11 @@ echo 'libphantom      : phantomlib'
 echo 'mflow           : mflow'
 echo
 echo 'clean:'
-echo '	cd ${PHANTOMDIR}; make clean'
+if [ $# -ge 1 ]; then
+    echo '	cd ${PHANTOMDIR}; make clean KROME=krome'
+else
+    echo '	cd ${PHANTOMDIR}; make clean'
+fi
 echo 'setup:'
 echo '	cd ${PHANTOMDIR}; make '$makeflags' setup; cd -; cp ${PHANTOMDIR}/bin/phantomsetup .'
 echo 'moddump:'
