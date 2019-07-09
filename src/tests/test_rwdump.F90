@@ -37,7 +37,7 @@ subroutine test_rwdump(ntests,npass)
                            maxp,poten,gravity,use_dust,dustfrac,xyzmh_ptmass,&
                            nptmass,nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
                            dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
-                           vxyzu_label,set_particle_type,iphase,ndusttypes
+                           vxyzu_label,set_particle_type,iphase,ndustsmall
  use dim,             only:maxp,maxdusttypes
  use memory,          only:allocate_memory,deallocate_memory
  use testutils,       only:checkval
@@ -114,7 +114,7 @@ subroutine test_rwdump(ntests,npass)
           poten(i) = 15._4
        endif
        if (use_dust) then
-          ndusttypes = maxdusttypes
+          ndustsmall = maxdusttypes
           dustfrac(:,i) = 16._4
        endif
     enddo
@@ -265,7 +265,7 @@ subroutine test_rwdump(ntests,npass)
           call checkval(npart,poten,15.,tol,nfailed(15),'poten')
        endif
        if (use_dust) then
-          do i = 1,ndusttypes
+          do i = 1,ndustsmall
              call checkval(npart,dustfrac(i,:),16.,tol,nfailed(16),'dustfrac')
           enddo
        endif

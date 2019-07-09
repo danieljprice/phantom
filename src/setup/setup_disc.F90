@@ -74,7 +74,8 @@ module setup
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall
  use externalforces,   only:iext_star,iext_binary,iext_lensethirring,&
-                            iext_einsteinprec,iext_corot_binary,iext_corotate
+                            iext_einsteinprec,iext_corot_binary,iext_corotate,&
+                            update_externalforce
  use extern_binary,    only:binarymassr,accradius1,accradius2,ramp,surface_force,eps_soft1
  use fileutils,        only:make_tags_unique
  use growth,           only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
@@ -182,6 +183,7 @@ module setup
  character(len=20) :: dist_unit,mass_unit
 
  !--time
+ real    :: tinitial
  real    :: deltat
  integer :: norbits
 
@@ -219,6 +221,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--set default options
  call set_default_options()
 
+ !--set time
+ time = tinitial
+
  !--get disc setup parameters from file or interactive setup
  call get_setup_parameters(id,fileprefix)
 
@@ -244,7 +249,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call calculate_disc_mass()
 
  !--setup disc(s)
- call setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,npartoftype,massoftype,xyzh,vxyzu)
+ call setup_discs(id,fileprefix,hfact,gamma,npart,polyk,npartoftype,massoftype,xyzh,vxyzu)
 
  !--planet atmospheres
  call planet_atmosphere(id,npart,xyzh,vxyzu,npartoftype,gamma,hfact)
@@ -291,6 +296,9 @@ end subroutine setpart
 subroutine set_default_options()
 
  integer :: i
+
+ !--time
+ tinitial = 0.
 
  !--units
  dist_unit = 'au'
@@ -725,6 +733,7 @@ subroutine setup_central_objects()
        blackhole_spin_angle = bhspinangle*(pi/180.0)
        mcentral             = m1
     end select
+    call update_externalforce(iexternalforce,tinitial,0.)
  case (1)
     select case (nsinks)
     case (1)
@@ -905,14 +914,13 @@ end subroutine calculate_disc_mass
 ! Set up the discs
 !
 !--------------------------------------------------------------------------
-subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
+subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                        npartoftype,massoftype,xyzh,vxyzu)
  use options,   only:alpha
  use setbinary, only:Rochelobe_estimate
  use setdisc,   only:set_disc
  integer,           intent(in)    :: id
  character(len=20), intent(in)    :: fileprefix
- real,              intent(out)   :: time
  real,              intent(out)   :: hfact
  real,              intent(in)    :: gamma
  integer,           intent(out)   :: npart
@@ -932,7 +940,6 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
  character(len=100) :: prefix
  character(len=100) :: dustprefix(maxdusttypes)
 
- time  = 0.
  hfact = hfact_default
  incl    = incl*(pi/180.0)
  posangl = posangl*(pi/180.0)
