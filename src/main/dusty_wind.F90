@@ -1,4 +1,3 @@
-
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
@@ -18,7 +17,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dust_formation, eos, io, physcon, timestep, units,
+!  DEPENDENCIES: dust_formation, eos, io, part, physcon, timestep, units,
 !    wind_profile
 !+
 !--------------------------------------------------------------------------
@@ -370,7 +369,7 @@ subroutine calc_dustywind_profile(r0, v0, T0, time_end, state)
 
 !compute chemistry and initialize variables
  call init_dustywind(r0, v0, T0, time_end, state)
- !print *,'calc_wind_profile',r0, v0, T0, time_end,state%v.gt.state%c,state%time
+ !print *,'calc_wind_profile',r0, v0, T0, time_end,state%v > state%c,state%time
 
  if (state%v > state%c) then
     state%spcode = 1

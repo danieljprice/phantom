@@ -5,7 +5,7 @@
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
-!  MODULE: krome_phantom_coupling
+!  MODULE: krome_interface
 !
 !  DESCRIPTION:
 !   This module contains all the necessary subroutines to establish
@@ -13,13 +13,13 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Lionel
+!  OWNER: Lionel Siess
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: krome_main, krome_user, part
+!  DEPENDENCIES: eos, krome_getphys, krome_main, krome_user, part, units
 !+
 !--------------------------------------------------------------------------
 module krome_interface
@@ -105,25 +105,25 @@ subroutine update_krome(dt,npart,xyzh,vxyzu)
 !$omp private(i,T_local, hi, rhoi, rho_cgs, particle_position_sq)
 
  do i = 1,npart
-   hi = xyzh(4,i)
-   if (.not.isdead_or_accreted(hi))  then
-     rhoi = rhoh(hi,massoftype(igas))
-     rho_cgs = rhoi*unit_density
-     call get_local_temperature(ieos,xyzh(1,i),xyzh(2,i),xyzh(3,i),rhoi,mu_chem(i),vxyzu(4,i),gamma_chem(i),T_local)
-     ! normalise abudances and balance charge conservation with e-
-     call krome_consistent_x(species_abund(:,i))
-     ! evolve the chemistry and update the abundances
-     call evolve_chemistry(species_abund(:,i),rho_cgs,T_local,dt_cgs)
-     ! update the gas temperature array for the dumpfiles
-     krometemperature(i) = T_local
-     ! update the particle's mean molecular weight
-     mu_chem(i) =  krome_get_mu_x(species_abund(:,i))
-     ! update the particle's adiabatic index
-     gamma_chem(i) = krome_get_gamma_x(species_abund(:,i),T_local)
-     ! when modelling stellar wind: remove partiles beyond r_max=100*AU => resolution too low
-     !particle_position_sq = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
-     !if (particle_position_sq > (1.496e15/udist)**2) xyzh(4,i) = -abs(xyzh(4,i))
-   endif
+    hi = xyzh(4,i)
+    if (.not.isdead_or_accreted(hi))  then
+       rhoi = rhoh(hi,massoftype(igas))
+       rho_cgs = rhoi*unit_density
+       call get_local_temperature(ieos,xyzh(1,i),xyzh(2,i),xyzh(3,i),rhoi,mu_chem(i),vxyzu(4,i),gamma_chem(i),T_local)
+       ! normalise abudances and balance charge conservation with e-
+       call krome_consistent_x(species_abund(:,i))
+       ! evolve the chemistry and update the abundances
+       call evolve_chemistry(species_abund(:,i),rho_cgs,T_local,dt_cgs)
+       ! update the gas temperature array for the dumpfiles
+       krometemperature(i) = T_local
+       ! update the particle's mean molecular weight
+       mu_chem(i) =  krome_get_mu_x(species_abund(:,i))
+       ! update the particle's adiabatic index
+       gamma_chem(i) = krome_get_gamma_x(species_abund(:,i),T_local)
+       ! when modelling stellar wind: remove partiles beyond r_max=100*AU => resolution too low
+       !particle_position_sq = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
+       !if (particle_position_sq > (1.496e15/udist)**2) xyzh(4,i) = -abs(xyzh(4,i))
+    endif
  enddo
 !$omp end parallel do
 

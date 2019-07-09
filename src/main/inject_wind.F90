@@ -39,9 +39,9 @@
 !    wind_type          -- stellar wind (1=isoT,2=T(r),3=adia,4=3+cooling,+10=with dust)
 !    wind_velocity      -- velocity at which wind is injected (km/s)
 !
-!  DEPENDENCIES: bowen_dust, dim, dusty_wind, eos, icosahedron,
-!    infile_utils, injectutils, io, part, physcon, timestep, units,
-!    wind_profile
+!  DEPENDENCIES: bowen_dust, dim, dust_free_wind, dusty_wind, eos,
+!    icosahedron, infile_utils, injectutils, io, part, physcon, timestep,
+!    units, wind_profile
 !+
 !--------------------------------------------------------------------------
 module inject
@@ -179,11 +179,11 @@ subroutine init_inject(ierr)
  call init_wind_equations (xyzmh_ptmass(4,wind_emitting_sink), star_Teff, Rstar, &
       wind_expT, u_to_temperature_ratio, wind_type)
 #ifdef NUCLEATION
-    call setup_dustywind(xyzmh_ptmass(4,wind_emitting_sink), star_Lum, star_Teff, Rstar_cgs, wind_CO_ratio,&
+ call setup_dustywind(xyzmh_ptmass(4,wind_emitting_sink), star_Lum, star_Teff, Rstar_cgs, wind_CO_ratio,&
          bowen_Cprime, wind_expT, wind_mass_rate, u_to_temperature_ratio, wind_alpha, wind_type)
 
 #else
-    call setup_wind(xyzmh_ptmass(4,wind_emitting_sink), Rstar_cgs,bowen_Cprime, &
+ call setup_wind(xyzmh_ptmass(4,wind_emitting_sink), Rstar_cgs,bowen_Cprime, &
          wind_mass_rate, u_to_temperature_ratio, wind_alpha, wind_temperature, wind_type)
 #endif
 

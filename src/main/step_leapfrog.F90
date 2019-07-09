@@ -26,9 +26,10 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: chem, coolfunc, damping, deriv, dim, eos, externalforces,
-!    growth, inject, io, io_summary, mpiutils, options, part, ptmass,
-!    timestep, timestep_ind, timestep_sts, wind_profile
+!  DEPENDENCIES: chem, coolfunc, damping, deriv, dim, dusty_wind, eos,
+!    externalforces, growth, inject, io, io_summary, krome_interface,
+!    mpiutils, options, part, ptmass, timestep, timestep_ind, timestep_sts,
+!    wind_profile
 !+
 !--------------------------------------------------------------------------
 module step_lf_global

@@ -5,7 +5,7 @@
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
-!  MODULE: dusty_wind
+!  MODULE: dust_free_wind
 !
 !  DESCRIPTION: None
 !
@@ -282,8 +282,8 @@ subroutine old_stationary_wind_profile(local_time, r, v, u, rho, e, GM, gamma, m
  rvT(2) = v*unit_velocity
  rvT(3) = wind_temperature
  do i=1,N
-  call RK4_step_dr(dt, rvT, mu, gamma, wind_alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
-  rvT = new_rvT
+    call RK4_step_dr(dt, rvT, mu, gamma, wind_alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
+    rvT = new_rvT
  enddo
  r = new_rvt(1)/udist
  v = new_rvt(2)/unit_velocity

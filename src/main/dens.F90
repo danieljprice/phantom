@@ -13,16 +13,15 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Conrad Chan
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, eos, fastmath, io, io_summary, kdtree,
-!    kernel, krome_main, krome_user, linklist, mpidens, mpiderivs,
-!    mpiutils, nicil, options, part, stack, timestep, timing, units,
-!    viscosity
+!    kernel, linklist, mpidens, mpiderivs, mpiutils, nicil, options, part,
+!    stack, timestep, timing, viscosity
 !+
 !--------------------------------------------------------------------------
 module densityforce

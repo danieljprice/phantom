@@ -17,7 +17,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dust_formation, eos, physcon, units
+!  DEPENDENCIES: physcon, units
 !+
 !--------------------------------------------------------------------------
 module wind_profile
@@ -34,18 +34,18 @@ module wind_profile
 
 contains
 
-  subroutine init_wind_equations (Mstar_in, Tstar_in, Rstar_in, expT_in, u_to_T, iwind)
-  use physcon, only:solarm
-  use units,   only:udist
-  real, intent(in) :: Mstar_in, Tstar_in, Rstar_in, expT_in, u_to_T
-  integer, intent(in) :: iwind
-  Mstar_cgs = Mstar_in*solarm
-  expT= expT_in
-  wind_type = iwind
-  Tstar = Tstar_in
-  Rstar = Rstar_in
-  Rstar_cgs = Rstar*udist
-  u_to_temperature_ratio = u_to_T
+subroutine init_wind_equations (Mstar_in, Tstar_in, Rstar_in, expT_in, u_to_T, iwind)
+ use physcon, only:solarm
+ use units,   only:udist
+ real, intent(in) :: Mstar_in, Tstar_in, Rstar_in, expT_in, u_to_T
+ integer, intent(in) :: iwind
+ Mstar_cgs = Mstar_in*solarm
+ expT= expT_in
+ wind_type = iwind
+ Tstar = Tstar_in
+ Rstar = Rstar_in
+ Rstar_cgs = Rstar*udist
+ u_to_temperature_ratio = u_to_T
 end subroutine init_wind_equations
 
 subroutine evolve_hydro(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, spcode, dt_force, dt_max, dt_next)
