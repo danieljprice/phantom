@@ -483,6 +483,9 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
 #endif
+#ifdef INJECT_PARTICLES
+ use dim,            only:maxp_hard
+#endif
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use units,          only:udist,umass,utime,unit_Bfield,set_units_extra
@@ -678,6 +681,9 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
                           dustprop,tstop,St,temperature,abundance,ndusttypes
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
+#endif
+#ifdef INJECT_PARTICLES
+ use dim,            only:maxp_hard
 #endif
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
