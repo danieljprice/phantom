@@ -81,7 +81,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: ierr
  logical :: iexist
 
- call set_units(dist=100.*au,mass=solarm,G=1.)
+ call set_units(dist=au,mass=solarm,G=1.)
 !
 !--general parameters
 !

@@ -1,4 +1,4 @@
-.PHONY: clean_krome krome_setup krome
+.PHONY: krome_setup krome
 
 KROME_BUILD_DIR = ${KROMEPATH}/build
 

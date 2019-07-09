@@ -35,6 +35,7 @@ module krome_interface
 
  real  :: cosmic_ray_rate
  real  :: H_init, He_init, C_init, N_init, O_init
+ real  :: S_init, Fe_init, Si_init
 
 contains
 !----------------------------------------------------------------
@@ -70,6 +71,10 @@ subroutine initialise_krome()
  N_init  = 1.52e-3 ! mass fraction
  O_init  = 9.60e-3 ! mass fraction
 
+ S_init  = 3.97e-4 ! mass fraction
+ Fe_init = 1.17e-3 ! mass fraction
+ Si_init = 6.54e-4 ! mass fraction
+
  H_init = 1.0 - He_init - C_init - N_init - O_init
 
 end subroutine initialise_krome
@@ -98,7 +103,7 @@ subroutine update_krome(dt,npart,xyzh,vxyzu)
 !$omp shared(gamma_chem) &
 !$omp shared(vxyzu,xyzh, massoftype) &
 !$omp private(i,T_local, hi, rhoi, rho_cgs, particle_position_sq)
- 
+
  do i = 1,npart
    hi = xyzh(4,i)
    if (.not.isdead_or_accreted(hi))  then
@@ -116,8 +121,8 @@ subroutine update_krome(dt,npart,xyzh,vxyzu)
      ! update the particle's adiabatic index
      gamma_chem(i) = krome_get_gamma_x(species_abund(:,i),T_local)
      ! when modelling stellar wind: remove partiles beyond r_max=100*AU => resolution too low
-     particle_position_sq = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
-     if (particle_position_sq > (1.496e15/udist)**2) xyzh(4,i) = -abs(xyzh(4,i))
+     !particle_position_sq = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
+     !if (particle_position_sq > (1.496e15/udist)**2) xyzh(4,i) = -abs(xyzh(4,i))
    endif
  enddo
 !$omp end parallel do
@@ -132,27 +137,27 @@ subroutine evolve_chemistry(species, dens, temp, time)
  real                :: dupl_temp1, dupl_temp2, dupl_dens, dupl_time
  real                :: dudt, dt_cool
  integer             :: i, N
- 
- ! Duplicate input arrays 
+
+ ! Duplicate input arrays
  dupl_species1 = species
  dupl_species2 = species
  dupl_dens     = dens
  dupl_temp1    = temp
  dupl_temp2    = temp
  dupl_time     = time
- 
+
  call krome(dupl_species2,dupl_dens,dupl_temp2,dupl_time)
- 
+
  ! Calculate cooling timescale
  dudt = abs(dupl_temp2 - dupl_temp1)/dupl_time
  dt_cool = abs(dupl_temp1/dudt)
- 
+
  ! Substepping if dt_cool < input timestep
  !!!! explicit addition of krome cooling in force.F90 to determine hydro timestep not needed anymore
  !!!! skipping the contribution to fxyz4 and updating the final particle energy still to be implemented
- if (dt_cool < dupl_time) then 
+ if (dt_cool < dupl_time) then
     N = ceiling(dupl_time/dt_cool)
-    do i = 1,N       
+    do i = 1,N
        call krome(dupl_species1,dupl_dens,dupl_temp1,dupl_time/N)
     enddo
     species = dupl_species1

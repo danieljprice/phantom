@@ -108,7 +108,7 @@ module inject
       Rstar_cgs,Rstar,Cprime,wind_injection_radius
  integer, private :: particles_per_sphere,nwall_particles,iresolution
 
- logical, parameter :: wind_verbose = .true.
+ logical, parameter :: wind_verbose = .false.
  integer, parameter :: wind_emitting_sink = 1
  real :: geodesic_R(0:19,3,3), geodesic_v(0:11,3), rho_ini
  character(len=*), parameter :: label = 'inject_wind'

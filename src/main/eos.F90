@@ -299,8 +299,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        ponrhoi  = (gamma_local-1.)*eni
        spsoundi = sqrt(gamma_local*ponrhoi)
     else
-       call fatal('eos','using KROME to calculate local gamma but variable '&
-                        'not passed in equationofstate() function')
+       call fatal('eos','invoking KROME to calculate local gamma but variable '&
+                        'not passed in equationofstate (bad value for eos?)')
     endif
 
 

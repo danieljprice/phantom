@@ -26,7 +26,7 @@ module dust_free_wind
  implicit none
  public :: setup_wind
  public :: get_initial_wind_speed!, profile_findr0
- public :: stationary_wind_profile,radiativeforce
+ public :: stationary_wind_profile
 
  private
 
