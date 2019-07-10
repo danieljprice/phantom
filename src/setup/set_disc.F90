@@ -669,12 +669,10 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
           if (do_sigmapringle) then
              term_pr = 0.
           else
-             if (smooth_sigma .and. R > R_in) then
-                !--R < R_in can happen because of disc shifting
-                term_pr = -cs**2*(1.5+p_index+q_index - 0.5/(sqrt(R/R_in) - 1.))
-             else
-                term_pr = -cs**2*(1.5+p_index+q_index)
-             endif
+             ! NB: We do NOT correct for the smoothing of the inner disc profile in
+             ! the orbital speed (as we did previously), this produces a strong response
+             ! which is not desired. Instead we allow a non-zero vr in the inner disc
+             term_pr = -cs**2*(1.5+p_index+q_index)
           endif
           if (term + term_pr < 0.) then
              call fatal('set_disc', 'set_disc_velocities: '// &
