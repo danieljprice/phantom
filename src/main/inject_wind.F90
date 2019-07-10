@@ -57,13 +57,10 @@ module inject
  integer, public:: iwind_resolution = 0
  integer, public:: iboundary_spheres = 3
  integer, public:: wind_type = 3
- integer, public:: sonic_type = 0
  real, public::    wind_expT = 0.5
  real, public::    wind_shell_spacing = 1.
  real, public::    wind_alpha = 0.
  real, public::    shift_spheres = 3.
- real, public::    u_to_temperature_ratio
- real, public::    mass_of_particles
  real, public::    star_Teff = 2500.
  real, public::    star_Lum = 10000. * solarl
  real, public::    wind_CO_ratio = 2
@@ -73,6 +70,7 @@ module inject
  real, public::    bowen_kappa = 2.d-4
  real, public::    bowen_Cprime = 3.000d-5
 #ifdef BOWEN
+ integer, public:: sonic_type = 0
  real, public::    star_Teff = 3000.
  real, public::    star_Lum = 5315. * solarl
  real, public::    bowen_Cprime = 1.000d-5
@@ -84,17 +82,25 @@ module inject
  real, public::    wind_injection_radius_au = 1.2568
 #endif
 #ifdef NUCLEATION
+ integer, public:: sonic_type = 1
  real, public::    wind_velocity_km_s = 0.
  real, public::    wind_mass_rate_Msun_yr = 1.d-5
  real, public::    wind_temperature = 2500.
  real, public::    wind_injection_radius_au = 2.37686663
+#elseif ISOTHERMAL
+ integer, public:: sonic_type = 1
+ real, public::    wind_velocity_km_s = 25.
+ real, public::    wind_injection_radius_au = 0.465247264
 #else
+ integer, public:: sonic_type = 0
  real, public::    wind_velocity_km_s = 35.
  real, public::    wind_mass_rate_Msun_yr = 1.00d-8
  real, public::    wind_temperature = 3000.
  real, public::    wind_injection_radius_au = 1.7
 #endif
 
+ real, public::    u_to_temperature_ratio
+ real, public::    mass_of_particles
 ! Calculated from the previous parameters
  real, public ::    wind_osc_vamplitude
 #ifdef BOWEN

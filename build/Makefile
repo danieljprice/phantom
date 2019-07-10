@@ -716,7 +716,7 @@ ifeq ($(SETUP), isowind)
     FPPFLAGS= -DWIND
     ISOTHERMAL=yes
     SETUPFILE= setup_wind.F90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 wind_profile.F90 dust_free_wind.F90 inject_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 wind_equations.F90 dust_free_wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -726,7 +726,7 @@ ifeq ($(SETUP), wind)
 #   wind setup (adiabatic supersonic spherical wind from a sink particle)
     FPPFLAGS= -DWIND
     SETUPFILE= setup_wind.F90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 dust_formation.f90 wind_profile.F90 dust_free_wind.F90 inject_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 dust_formation.f90 wind_equations.F90 dust_free_wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -736,7 +736,7 @@ ifeq ($(SETUP), dustywind)
 #   wind setup (adiabatic supersonic spherical wind from a sink particle)
     FPPFLAGS= -DWIND -DNUCLEATION
     SETUPFILE= setup_wind.F90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 dust_formation.f90 wind_profile.F90 dusty_wind.F90 inject_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 dust_formation.f90 wind_equations.F90 dusty_wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -746,7 +746,7 @@ ifeq ($(SETUP), bowen)
 # bowen wind setup (pulsating dusty wind)
     FPPFLAGS= -DWIND -DBOWEN
     SETUPFILE= setup_wind.F90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 wind_profile.F90 bowen_dust.F90 inject_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 wind_equations.F90 bowen_dust.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no

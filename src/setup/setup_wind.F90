@@ -40,7 +40,11 @@ module setup
 
  private
  real, public :: wind_gamma = 5./3.
+#ifdef ISOTHERMAL
+ real, public :: T_wind = 50000.
+#else
  real, public :: T_wind = 3000.
+#endif
  real, public :: central_star_mass = 1.2
  real, public :: accretion_radius = 1.
  integer, public :: icompanion_star = 0
@@ -103,7 +107,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     logfile = trim(fileprefix)//'01.log'
     dumpfile = trim(fileprefix)//'_00000.tmp'
     call write_infile(infile,logfile,evfile,dumpfile,iwritein,6)
-    print'(/,"If needed edit ",A," and ",A," and rerun phantomsetup",/)',trim(filename),trim(infile)
+    print'(/,"If needed edit ",A," and ",A," and rerun phantomsetup ",A,/)',trim(filename),trim(infile),trim(infile)
  endif
 
  gamma = wind_gamma
@@ -160,7 +164,11 @@ subroutine setup_interactive()
  central_star_mass = 1. * (solarm / umass)
  accretion_radius = 1. * (au / udist)
 #else
- call prompt('Which defaults to use? (0=isotherm, 1=adiabatic wind 2=Bowen)',iproblem,0,2)
+#ifndef ISOTHERMAL
+ call prompt('Which type of wind ? (0=isoT,1=adiabatic,2=Bowen)',iproblem,0,2)
+#else
+ iproblem = 0
+#endif
  call prompt('Add binary?',icompanion_star,0,1)
  select case(iproblem)
  case(2)
