@@ -54,9 +54,9 @@ module inject
 !--runtime settings for this module
 !
 ! Read from input file
- integer, public:: iwind_resolution = 0
  integer, public:: iboundary_spheres = 3
  integer, public:: wind_type = 3
+ integer, public:: wind_cooling = 0
  real, public::    wind_expT = 0.5
  real, public::    wind_shell_spacing = 1.
  real, public::    wind_alpha = 0.
@@ -76,6 +76,7 @@ module inject
  real, public::    bowen_Cprime = 1.000d-5
  real, public::    wind_osc_period_days = 350.
  real, public::    wind_osc_vamplitude_km_s = 3.
+ real, public::    wind_osc_period,dr3
  real, public::    wind_velocity_km_s = 0.
  real, public::    wind_mass_rate_Msun_yr = 1.04d-7
  real, public::    wind_temperature = 3000.
@@ -87,25 +88,28 @@ module inject
  real, public::    wind_mass_rate_Msun_yr = 1.d-5
  real, public::    wind_temperature = 2500.
  real, public::    wind_injection_radius_au = 2.37686663
-#elseif ISOTHERMAL
+#endif
+#ifdef ISOTHERMAL
+ integer, public:: iwind_resolution = 7
  integer, public:: sonic_type = 1
  real, public::    wind_velocity_km_s = 25.
- real, public::    wind_injection_radius_au = 0.465247264
+ real, public::    wind_mass_rate_Msun_yr = 1.d-8
+ real, public::    wind_injection_radius_au = 0.46524726
+ real, public::    wind_temperature
 #else
+ integer, public:: iwind_resolution = 0
+#endif
+#ifdef DUSTFREE
  integer, public:: sonic_type = 0
  real, public::    wind_velocity_km_s = 35.
- real, public::    wind_mass_rate_Msun_yr = 1.00d-8
+ real, public::    wind_mass_rate_Msun_yr = 1.d-8
  real, public::    wind_temperature = 3000.
  real, public::    wind_injection_radius_au = 1.7
 #endif
 
  real, public::    u_to_temperature_ratio
  real, public::    mass_of_particles
-! Calculated from the previous parameters
- real, public ::    wind_osc_vamplitude
-#ifdef BOWEN
- real, public ::    wind_osc_period,dr3
-#endif
+ real, public::    wind_osc_vamplitude
 
  private
 
@@ -155,6 +159,7 @@ subroutine init_inject(ierr)
  !
  ! return without error
  !
+
  ierr = 0
  if (iverbose>0) verbose = .true.
  !
@@ -182,15 +187,18 @@ subroutine init_inject(ierr)
  wind_temperature = polyk* mass_proton_cgs/kboltz * unit_velocity**2*gmw
 #endif
 
+!only activate cooling if wind_type = 4
+ if (wind_type<4) wind_cooling = 0
+
  call init_wind_equations (xyzmh_ptmass(4,wind_emitting_sink), star_Teff, Rstar, &
       wind_expT, u_to_temperature_ratio, wind_type)
 #ifdef NUCLEATION
  call setup_dustywind(xyzmh_ptmass(4,wind_emitting_sink), star_Lum, star_Teff, Rstar_cgs, wind_CO_ratio,&
-         bowen_Cprime, wind_expT, wind_mass_rate, u_to_temperature_ratio, wind_alpha, wind_type)
+         bowen_Cprime, wind_expT, wind_mass_rate, u_to_temperature_ratio, wind_alpha, wind_type, wind_cooling)
 
 #else
  call setup_wind(xyzmh_ptmass(4,wind_emitting_sink), Rstar_cgs,bowen_Cprime, &
-         wind_mass_rate, u_to_temperature_ratio, wind_alpha, wind_temperature, wind_type)
+         wind_mass_rate, u_to_temperature_ratio, wind_alpha, wind_temperature, wind_type, -wind_cooling)
 #endif
 
 ! integrate the wind equation to get the initial velocity required to set the resolution
@@ -205,7 +213,7 @@ subroutine init_inject(ierr)
     wind_injection_radius  = wind_injection_radius_au * au / udist !max(wind_injection_radius_au * au, Rstar_cgs) / udist
 #endif
     !Rstar = min(wind_injection_radius_au*au,Rstar_cgs)
-    call get_initial_wind_speed(wind_injection_radius*udist,wind_temperature,wind_velocity_cgs,sonic,.true.)
+    call get_initial_wind_speed(wind_injection_radius*udist,wind_temperature,wind_velocity_cgs,sonic)
     wind_velocity = wind_velocity_cgs/unit_velocity
  endif
 
@@ -308,7 +316,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use dusty_wind,   only:evolve_gail,dusty_wind_profile
  use part,         only:partJstarKmu
 #else
- use dust_free_wind, only:stationary_wind_profile
+ use dust_free_wind, only:dust_free_wind_profile
 #endif
  use units,        only:udist
  use part,         only:igas,iboundary,nptmass
@@ -371,7 +379,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     call dusty_wind_profile(time,local_time, r, v, u, rho, e, GM, gamma, wind_temperature, Jstar, K, mu, cs)
 #else
     r = wind_injection_radius
-    call stationary_wind_profile(local_time, r, v, u, rho, e, GM, gamma, mu)
+    call dust_free_wind_profile(local_time, r, v, u, rho, e, GM, gamma, mu)
 #endif
 
     if (wind_verbose) then
@@ -468,15 +476,13 @@ subroutine write_options_inject(iunit)
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(wind_velocity_km_s,'wind_velocity','velocity at which wind is injected (km/s)',iunit)
+ call write_inopt(wind_velocity_km_s,'wind_velocity','injection wind velocity (km/s)',iunit)
 #if defined (BOWEN)
  call write_inopt(wind_osc_period_days,'wind_osc_period','stellar pulsation period (days)',iunit)
  call write_inopt(wind_osc_vamplitude_km_s,'wind_osc_vampl','velocity amplitude of the pulsations (km/s)',iunit)
 #endif
- call write_inopt(wind_injection_radius_au,'wind_inject_radius','radius of injection of the wind (au)',iunit)
-#ifndef ISOTHERMAL
+ call write_inopt(wind_injection_radius_au,'wind_inject_radius','wind injection radius (au)',iunit)
  call write_inopt(wind_mass_rate_Msun_yr,'wind_mass_rate','wind mass loss rate (Msun/yr)',iunit)
-#endif
  if (maxvxyzu==4) then
     call write_inopt(wind_temperature,'wind_temperature','wind temperature at the injection point (K)',iunit)
  endif
@@ -489,7 +495,7 @@ subroutine write_options_inject(iunit)
  write(iunit,"(/,a)") '# options controlling dust and cooling'
  call write_inopt(star_Lum/solarl,'star_Lum','central star luminosity (Lsun)',iunit)
  call write_inopt(star_Teff,'star_Teff','central star effective temperature (K)',iunit)
- call write_inopt(wind_type,'wind_type','stellar wind (1=isoT,2=T(r),3=adia,4=3+cooling,+10=with dust)',iunit)
+ call write_inopt(wind_type,'wind_type','stellar wind (1=isoT,2=T(r),3=adia,4=3+cooling)',iunit)
  call write_inopt(wind_expT,'wind_expT','temperature law exponent (if wind_type=2)', iunit)
 #ifdef NUCLEATION
  call write_inopt(wind_CO_ratio ,'wind_CO_ratio','wind initial C/O ratio',iunit)
@@ -503,7 +509,9 @@ subroutine write_options_inject(iunit)
 #endif
 #endif
  call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
-
+#ifndef ISOTHERMAL
+ call write_inopt(wind_cooling,'wind_cooling','10:H0;2:T-relax;3:dust-coll;4:bowen;12=10+2;... (if wind_type=4)', iunit)
+#endif
 end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
@@ -562,11 +570,11 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) wind_alpha
     ngot = ngot + 1
     if (wind_alpha < 0.) call fatal(label,'invalid setting for wind_alpha (must be > 0)')
-#ifndef ISOTHERMAL
  case('wind_mass_rate')
     read(valstring,*,iostat=ierr) wind_mass_rate_Msun_yr
     ngot = ngot + 1
-    if (wind_mass_rate_Msun_yr < 0.)    call fatal(label,'invalid setting for wind_mass_rate (<0)')
+    if (wind_mass_rate_Msun_yr < 0.) call fatal(label,'invalid setting for wind_mass_rate (<0)')
+#ifndef ISOTHERMAL
  case('star_Lum')
     read(valstring,*,iostat=ierr) star_Lum
     star_Lum = star_Lum * solarl
@@ -603,6 +611,9 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  case('wind_expT')
     read(valstring,*,iostat=ierr) wind_expT
     ngot = ngot + 1
+ case('wind_cooling')
+    read(valstring,*,iostat=ierr) wind_cooling
+    ngot = ngot + 1
 #endif
 #ifdef BOWEN
  case('wind_osc_period')
@@ -625,16 +636,17 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     imatch = .false.
  end select
 #ifdef BOWEN
- noptions = 18
+ noptions = 19
 #else
- noptions = 15
-#ifdef NUCLEATION
  noptions = 16
+#ifdef NUCLEATION
+ noptions = 21
 #elif ISOTHERMAL
- noptions = 8
+ noptions = 9
 #endif
 #endif
-!print *,isowind,trim(name),ngot,noptions
+ !debug
+ !print '(a26,i3,i3)',trim(name),ngot,noptions
  igotall = (ngot >= noptions)
  if (igotall .and. trim(name) /= '') then
 #ifdef ISOTHERMAL

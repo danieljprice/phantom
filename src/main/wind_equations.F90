@@ -48,26 +48,26 @@ subroutine init_wind_equations (Mstar_in, Tstar_in, Rstar_in, expT_in, u_to_T, i
  u_to_temperature_ratio = u_to_T
 end subroutine init_wind_equations
 
-subroutine evolve_hydro(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, spcode, dt_force, dt_max, dt_next)
- use physcon, only:kboltz,atomic_mass_unit,Gg
+subroutine evolve_hydro(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, spcode, dt_force, dt_next)
+!all quantities in cgs
  logical, intent(in) :: dt_force
- real, intent(in) :: mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dt_max
+ real, intent(in) :: mu, gamma, alpha, dalpha_dr, Q, dQ_dr
  real, intent(inout) :: dt, rvT(3)
  integer, intent(out) :: spcode
  real, intent(out) :: dt_next
 
- real :: err, new_rvT(3), numerator, denominator
+ real :: err, new_rvT(3), numerator, denominator,rold
  real, parameter :: num_tol = 1.e-4
  real, parameter :: denom_tol = 1.e-2
 
+ rold = rvT(1)
  do
     call RK4_step_dr(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
     if (dt_force) exit
     if (err > .01) then
        dt = dt * .9
     else
-       if (dt*1.05 < dt_max) dt = dt * 1.05
-       dt = min(dt,0.03*rvT(1)/(1.d-3+rvT(2)))
+       dt = min(dt*1.05,abs(rold-new_rvT(1))/(1.d-3+rvT(2)))
        exit
     endif
  enddo

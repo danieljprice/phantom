@@ -338,7 +338,8 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use part, only:species_abund,species_abund_label,gamma_chem,krometemperature
 #endif
 #ifdef NUCLEATION
- use part, only:partJstarKmu,nucleation_label
+ use units, only:unit_velocity, udist
+ use part,  only:partJstarKmu,nucleation_label
 #endif
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
@@ -357,6 +358,9 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  character(len=lenid)  :: fileid
  type(dump_h)          :: hdr
  real, allocatable :: temparr(:)
+#ifdef NUCLEATION
+ real, allocatable :: f(:)
+#endif
  real :: ponrhoi,rhoi,spsoundi
 
 !
@@ -436,6 +440,16 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
     write (idump, iostat=ierr) nblockarrays
 
  endif masterthread
+
+#ifdef NUCLEATION
+ if (.not. allocated(f)) allocate(f(npart))
+  !$omp parallel do schedule(static) private(i) shared(f,xyzh,vxyzu,partJstarKmu)
+ do i = 1,npart
+    f(i) = (xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2)*sqrt(vxyzu(1,i)**2+vxyzu(2,i)**2+vxyzu(3,i)**2)*udist**2*unit_velocity
+    partJstarKmu(1:5,i) = partJstarKmu(1:5,i)/f(i)
+ enddo
+ !omp end parallel do
+#endif
 
  call start_threadwrite(id,idump,dumpfile)
 
@@ -536,7 +550,8 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        call write_array(1,krometemperature,'Tkrome',npart,k,ipass,idump,nums,ierrs(11))
 #endif
 #ifdef NUCLEATION
-       call write_array(1,1.d-30*partJstarKmu,nucleation_label,6,npart,k,ipass,idump,nums,ierrs(9))
+
+       call write_array(1,partJstarKmu,nucleation_label,6,npart,k,ipass,idump,nums,ierrs(9))
 #endif
        if (any(ierrs(1:20) /= 0)) call error('write_dump','error writing hydro arrays')
     enddo
@@ -586,6 +601,15 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 
  close(unit=idump)
  call end_threadwrite(id)
+
+#ifdef NUCLEATION
+!$omp parallel do schedule(static) private(i) shared(f,xyzh,vxyzu,partJstarKmu)
+ do i = 1,npart
+    partJstarKmu(1:5,i) = partJstarKmu(1:5,i)*f(i)
+ enddo
+!omp end parallel do
+ if (allocated(f)) deallocate(f)
+#endif
 
 end subroutine write_fulldump
 

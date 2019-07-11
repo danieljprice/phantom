@@ -7,11 +7,11 @@
 !+
 !  MODULE: dust_formation
 !
-!  DESCRIPTION: Dust formation routine using the method of moments
+!  DESCRIPTION: Dust formation and dust cooling terms
 !
 !  REFERENCES: Gail & Sedlmayr textbook Physics and chemistry of Circumstellar dust shells
 !
-!  OWNER: Lionel
+!  OWNER: Lionel Siess
 !
 !  $Id$
 !
@@ -21,7 +21,7 @@
 !+
 !--------------------------------------------------------------------------
 
-module dust_formation
+module dust_physics
  implicit none
  character(len=*), parameter :: label = 'dust_formation'
 
@@ -69,28 +69,6 @@ module dust_formation
  logical :: cool_radiation_H0, cool_relaxation_Bowen, cool_collisions_dust, cool_relaxation_Stefan
 
 contains
-
-!-----------------------------------------------------------------------
-!
-!  calculate cooling rates
-!
-!-----------------------------------------------------------------------
-subroutine calc_cooling_rate(rho, T, Teq, gamma, mu, Cprime, K2, kappa, Q)
-! all quantities in cgs
- real, intent(in) :: rho, T, Teq, gamma, mu, Cprime, K2, kappa
- real, intent(out) :: Q
- real :: Q_H0, Q_relax_Bowen, Q_col_dust, Q_relax_Stefan
-
- Q_H0 = 0.
- Q_relax_Bowen = 0.
- Q_col_dust = 0.
- Q_relax_Stefan = 0.
- if (cool_radiation_H0)      Q_H0 = cooling_neutral_hydrogen(T, rho)
- if (cool_relaxation_Bowen)  Q_relax_Bowen = cooling_Bowen_relaxation(T, Teq, rho, gamma, mu, Cprime)
- if (cool_collisions_dust)   Q_col_dust = cooling_collision_dust_grains(T, Teq, rho, K2, mu)
- if (cool_relaxation_Stefan) Q_relax_Stefan = cooling_radiative_relaxation(T, Teq, kappa)
- Q = Q_H0 + Q_relax_Bowen+ Q_col_dust+ Q_relax_Stefan
-end subroutine calc_cooling_rate
 
 !-----------------------------------------------------------------------
 !
@@ -425,13 +403,72 @@ pure real function calc_Kd_TiS(T)
  calc_Kd_TiS = 10.**(-logKd)*patm
 end function calc_Kd_TiS
 
-subroutine set_cooling(cool_radiation_H0_in, cool_relaxation_Bowen_in, cool_collisions_dust_in, cool_relaxation_Stefan_in)
- logical, intent(in) :: cool_radiation_H0_in, cool_relaxation_Bowen_in, cool_collisions_dust_in, cool_relaxation_Stefan_in
- cool_radiation_H0 = cool_radiation_H0_in
- cool_relaxation_Bowen = cool_relaxation_Bowen_in
- cool_collisions_dust = cool_collisions_dust_in
- cool_relaxation_Stefan = cool_relaxation_Stefan_in
- calc_Teq = cool_relaxation_Bowen .or. cool_relaxation_Stefan .or. cool_collisions_dust
+!-----------------------------------------------------------------------
+!
+!  calculate cooling rates
+!
+!-----------------------------------------------------------------------
+subroutine calc_cooling_rate(Q, rho, T, Teq, gamma, mu, Cprime, K2, kappa)
+! all quantities in cgs
+ real, intent(in) :: rho, T
+ real, intent(in), optional :: Teq, gamma, mu, Cprime, K2, kappa
+ real, intent(out) :: Q
+ real :: Q_H0, Q_relax_Bowen, Q_col_dust, Q_relax_Stefan
+
+ Q_H0 = 0.
+ Q_relax_Bowen = 0.
+ Q_col_dust = 0.
+ Q_relax_Stefan = 0.
+ if (cool_radiation_H0)      Q_H0 = cooling_neutral_hydrogen(T, rho)
+ if (cool_relaxation_Bowen)  Q_relax_Bowen = cooling_Bowen_relaxation(T, Teq, rho, gamma, mu, Cprime)
+ if (cool_collisions_dust)   Q_col_dust = cooling_collision_dust_grains(T, Teq, rho, K2, mu)
+ if (cool_relaxation_Stefan) Q_relax_Stefan = cooling_radiative_relaxation(T, Teq, kappa)
+ Q = Q_H0 + Q_relax_Bowen+ Q_col_dust+ Q_relax_Stefan
+end subroutine calc_cooling_rate
+
+subroutine set_cooling(wind_cooling)
+  integer, intent(in) :: wind_cooling
+  integer :: iwind
+
+  if (wind_cooling > 0) then
+     iwind = wind_cooling
+  else
+     !dust free wind, only H0 cooling allowed
+     if (abs(wind_cooling) > 0) iwind = 10
+  endif
+
+  cool_radiation_H0 = .false.
+  cool_relaxation_Bowen = .false.
+  cool_collisions_dust = .false.
+  cool_relaxation_Stefan = .false.
+  select case (iwind)
+  case (10)
+     cool_radiation_H0 = .true.
+  case (2,12)
+     cool_relaxation_Stefan = .true.
+     cool_radiation_H0 = .true.
+  case (3,13)
+     cool_collisions_dust = .true.
+     cool_radiation_H0 = .true.
+  case (4,14)
+     cool_relaxation_Bowen = .true.
+     cool_radiation_H0 = .true.
+  case (15)
+     cool_collisions_dust = .true.
+     cool_relaxation_Stefan = .true.
+     cool_radiation_H0 = .true.
+  case (17)
+     cool_collisions_dust = .true.
+     cool_relaxation_Bowen = .true.
+     cool_radiation_H0 = .true.
+  end select
+  !krome calculates its own cooling rate
+#ifdef KROME
+  cool_radiation_H0 = .false.
+  cool_collisions_dust = .false.
+#endif
+  calc_Teq = cool_relaxation_Bowen .or. cool_relaxation_Stefan .or. cool_collisions_dust
+
 end subroutine set_cooling
 
 
@@ -526,4 +563,4 @@ real function calc_eps_e(T)
  endif
 end function calc_eps_e
 
-end module dust_formation
+end module dust_physics
