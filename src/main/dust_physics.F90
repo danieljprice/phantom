@@ -25,7 +25,7 @@ module dust_physics
  implicit none
  character(len=*), parameter :: label = 'dust_formation'
 
- public :: set_abundances,set_cooling,evolve_chem,calc_kappa_dust,calc_cooling_rate
+ public :: set_abundances,init_cooling,evolve_chem,calc_kappa_dust,calc_cooling_rate,dust_energy_cooling
  logical, public :: calc_Teq
 
  private
@@ -66,7 +66,12 @@ module dust_physics
  real, parameter :: Scrit = 2. ! Critical saturation ratio
 
  real :: mass_per_H, eps(nElements)
+ real :: Cprime
  logical :: cool_radiation_H0, cool_relaxation_Bowen, cool_collisions_dust, cool_relaxation_Stefan
+
+ integer, parameter :: nT = 64
+ real :: Tgrid(nT)
+ real, parameter :: Tref = 2.d4, T_floor = 1.
 
 contains
 
@@ -408,28 +413,36 @@ end function calc_Kd_TiS
 !  calculate cooling rates
 !
 !-----------------------------------------------------------------------
-subroutine calc_cooling_rate(Q, rho, T, Teq, gamma, mu, Cprime, K2, kappa)
+subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, gamma, mu, K2, kappa)
 ! all quantities in cgs
  real, intent(in) :: rho, T
- real, intent(in), optional :: Teq, gamma, mu, Cprime, K2, kappa
- real, intent(out) :: Q
+ real, intent(in), optional :: Teq, gamma, mu, K2, kappa
+ real, intent(out) :: Q, dlnQ_dlnT
  real :: Q_H0, Q_relax_Bowen, Q_col_dust, Q_relax_Stefan
+ real :: dlnQ_H0, dlnQ_relax_Bowen, dlnQ_col_dust, dlnQ_relax_Stefan
 
  Q_H0 = 0.
  Q_relax_Bowen = 0.
  Q_col_dust = 0.
  Q_relax_Stefan = 0.
- if (cool_radiation_H0)      Q_H0 = cooling_neutral_hydrogen(T, rho)
- if (cool_relaxation_Bowen)  Q_relax_Bowen = cooling_Bowen_relaxation(T, Teq, rho, gamma, mu, Cprime)
- if (cool_collisions_dust)   Q_col_dust = cooling_collision_dust_grains(T, Teq, rho, K2, mu)
- if (cool_relaxation_Stefan) Q_relax_Stefan = cooling_radiative_relaxation(T, Teq, kappa)
+ dlnQ_H0 = 0.
+ dlnQ_relax_Bowen = 0.
+ dlnQ_col_dust = 0.
+ dlnQ_relax_Stefan = 0.
+ if (cool_radiation_H0) call cooling_neutral_hydrogen(T, rho, Q_H0, dlnQ_H0)
+ if (cool_relaxation_Bowen) call cooling_Bowen_relaxation(T, Teq, rho, gamma, mu, Q_relax_Bowen, dlnQ_relax_Bowen)
+ if (cool_collisions_dust)  call cooling_collision_dust_grains(T, Teq, rho, K2, mu, Q_col_dust, dlnQ_col_dust)
+ if (cool_relaxation_Stefan) call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan)
  Q = Q_H0 + Q_relax_Bowen+ Q_col_dust+ Q_relax_Stefan
+ dlnQ_dlnT = (Q_H0*dlnQ_H0 + Q_relax_Bowen*dlnQ_relax_Bowen+ Q_col_dust*dlnQ_col_dust+ Q_relax_Stefan*dlnQ_relax_Stefan)/Q
 end subroutine calc_cooling_rate
 
-subroutine set_cooling(wind_cooling)
+subroutine init_cooling(wind_cooling,Cprime_in)
   integer, intent(in) :: wind_cooling
+  real, intent(in) :: Cprime_in
   integer :: iwind
 
+  Cprime = Cprime_in
   if (wind_cooling > 0) then
      iwind = wind_cooling
   else
@@ -439,28 +452,23 @@ subroutine set_cooling(wind_cooling)
 
   cool_radiation_H0 = .false.
   cool_relaxation_Bowen = .false.
-  cool_collisions_dust = .false.
   cool_relaxation_Stefan = .false.
+  cool_collisions_dust = .false.
+  !you can't have cool_relaxation_Stefan and cool_relaxation_Bowen at the same time
+  if (iwind > 9) cool_radiation_H0 = .true.
   select case (iwind)
-  case (10)
-     cool_radiation_H0 = .true.
   case (2,12)
      cool_relaxation_Stefan = .true.
-     cool_radiation_H0 = .true.
   case (3,13)
-     cool_collisions_dust = .true.
-     cool_radiation_H0 = .true.
-  case (4,14)
      cool_relaxation_Bowen = .true.
-     cool_radiation_H0 = .true.
-  case (15)
+  case (4,14)
+     cool_collisions_dust = .true.
+  case (6,16)
      cool_collisions_dust = .true.
      cool_relaxation_Stefan = .true.
-     cool_radiation_H0 = .true.
-  case (17)
+  case (7,17)
      cool_collisions_dust = .true.
      cool_relaxation_Bowen = .true.
-     cool_radiation_H0 = .true.
   end select
   !krome calculates its own cooling rate
 #ifdef KROME
@@ -469,7 +477,9 @@ subroutine set_cooling(wind_cooling)
 #endif
   calc_Teq = cool_relaxation_Bowen .or. cool_relaxation_Stefan .or. cool_collisions_dust
 
-end subroutine set_cooling
+  !initialize grid temperature
+  call set_Tcool
+end subroutine init_cooling
 
 
 !-----------------------------------------------------------------------
@@ -477,68 +487,78 @@ end subroutine set_cooling
 !  Bowen 1988 cooling term
 !+
 !-----------------------------------------------------------------------
-real function cooling_Bowen_relaxation(T, Teq, rho, wind_gamma, mu, Cprime)
- use physcon, only: atomic_mass_unit, kboltz
- real, parameter :: Rgas = kboltz/atomic_mass_unit
- real, intent(in) :: T, Teq, rho, wind_gamma, mu, Cprime
+subroutine cooling_Bowen_relaxation(T, Teq, rho, wind_gamma, mu, Q, dlnQ_dlnT)
+ use physcon, only: Rg
+ real, intent(in) :: T, Teq, rho, wind_gamma, mu
+ real, intent(out) :: Q,dlnQ_dlnT
 
- cooling_Bowen_relaxation = Rgas/((wind_gamma-1.)*mu)*(Teq-T)*rho/Cprime
-end function cooling_Bowen_relaxation
+ Q = Rg/((wind_gamma-1.)*mu)*rho*(Teq-T)/Cprime
+ dlnQ_dlnT = -T/(Teq-T+1.d-10)
+
+end subroutine cooling_Bowen_relaxation
 
 !-----------------------------------------------------------------------
 !+
 !  collisionnal cooling
 !+
 !-----------------------------------------------------------------------
-real function cooling_collision_dust_grains(T, Teq, rho, K2, mu)
+subroutine cooling_collision_dust_grains(T, Teq, rho, K2, mu, Q, dlnQ_dlnT)
  use physcon, only: kboltz, mass_proton_cgs, pi
  real, intent(in) :: T, Teq, rho, K2, mu
+ real, intent(out) :: Q,dlnQ_dlnT
+
  real, parameter :: f = 0.15, a0 = 1.28e-8
  real :: A
 
  A = 2. * f * kboltz * a0**2/(mass_proton_cgs**2*mu) &
-         * (1.05/1.54) * sqrt(2.*pi*kboltz/mass_proton_cgs) &
-         * 2.*K2 * rho
- cooling_collision_dust_grains = A * sqrt(T) * (Teq-T)
- if (cooling_collision_dust_grains  >  1000000.) then
+         * (1.05/1.54) * sqrt(2.*pi*kboltz/mass_proton_cgs) * 2.*K2 * rho
+ Q = A * sqrt(T) * (Teq-T)
+ if (Q  >  1.d6) then
     print *, f, kboltz, a0, mass_proton_cgs, mu
     print *, mu, K2, rho, T, Teq
-    print *, A, cooling_collision_dust_grains
+    print *, A, Q
     stop 'cooling'
+ else
+    dlnQ_dlnT = 0.5+T/(Teq-T+1.d-10)
  endif
-end function cooling_collision_dust_grains
+end subroutine cooling_collision_dust_grains
 
 !-----------------------------------------------------------------------
 !+
 !  Woitke (2006 A&A) cooling term
 !+
 !-----------------------------------------------------------------------
-real function cooling_radiative_relaxation(T, Teq, kappa)
+subroutine cooling_radiative_relaxation(T, Teq, kappa, Q, dlnQ_dlnT)
  use physcon, only: steboltz
  real, intent(in) :: T, Teq, kappa
+ real, intent(out) :: Q,dlnQ_dlnT
 
- cooling_radiative_relaxation = 4.*steboltz*(Teq**4-T**4)*kappa
-end function cooling_radiative_relaxation
+ Q = 4.*steboltz*(Teq**4-T**4)*kappa
+ dlnQ_dlnT = -4.*T**4/(Teq**4-T**4+1.d-10)
+
+end subroutine cooling_radiative_relaxation
 
 !-----------------------------------------------------------------------
 !+
 !  Cooling due to neutral H (Spitzer)
 !+
 !-----------------------------------------------------------------------
-real function cooling_neutral_hydrogen(T, rho)
- use physcon, only: mass_proton_cgs
+subroutine cooling_neutral_hydrogen(T, rho, Q, dlnQ_dlnT)
  real, intent(in) :: T, rho
- real, parameter :: f = 0.2
+ real, intent(out) :: Q,dlnQ_dlnT
+
+ real, parameter :: f = 1.d0 !0.2
  real :: eps_e
 
  if (T > 3000.) then
     eps_e = calc_eps_e(T)
-    !cooling_neutral_hydrogen = -f*7.3d-19*eps_e*exp(-118400./T)*rho/(1.4*mass_proton_cgs)**2
-    cooling_neutral_hydrogen = -f*7.3d-19*eps_e*exp(-118400./T)*rho/(mass_per_H)**2
+    Q = -f*7.3d-19*eps_e*exp(-118400./T)*rho/(mass_per_H)**2
+    dlnQ_dlnT = 118400.d0/T
  else
-    cooling_neutral_hydrogen = 0.
+    Q = 0.
+    dlnQ_dlnT = 0.
  endif
-end function cooling_neutral_hydrogen
+end subroutine cooling_neutral_hydrogen
 
 !-----------------------------------------------------------------------
 !+
@@ -550,11 +570,11 @@ real function calc_eps_e(T)
  real :: k1, k2, k3, k8, k9, p, q
 
  if (T > 3000.) then
-    k1 = 1.88e-10 / T**6.44e-1
-    k2 = 1.83e-18 * T
-    k3 = 1.35e-9
-    k8 = 5.80e-11 * sqrt(T) * exp(-1.58e5/T)
-    k9 = 1.7e-4 * k8
+    k1 = 1.88d-10 / T**6.44e-1
+    k2 = 1.83d-18 * T
+    k3 = 1.35d-9
+    k8 = 5.80d-11 * sqrt(T) * exp(-1.58d5/T)
+    k9 = 1.7d-4 * k8
     p = .5*k8/k9
     q = k1*(k2+k3)/(k3*k9)
     calc_eps_e = (p + sqrt(q+p**2))/q
@@ -562,5 +582,80 @@ real function calc_eps_e(T)
     calc_eps_e = 0.
  endif
 end function calc_eps_e
+
+subroutine set_Tcool
+  integer :: i
+  real :: dlnT
+  dlnT = log(Tref)/(nT-1)
+
+  do i = 1,nT
+     Tgrid(i) = exp((i-1)*dlnT)
+  enddo
+end subroutine set_Tcool
+
+!-----------------------------------------------------------------------
+!
+!   dust cooling using Townsend method to avoid the timestep constraints
+!
+!-----------------------------------------------------------------------
+subroutine dust_energy_cooling (u, rho, dt, Teq, gamma, mu, K2, kappa)
+  use physcon, only:Rg
+  use units,   only:unit_density,unit_ergg,utime,Teq, gamma, mu, K2, kappa
+  real, intent(in) :: rho, dt
+  real, intent(in), optional :: Teq, gamma, mu, K2, kappa
+  real, intent(inout) :: u
+
+  real, parameter :: dlnT=1./nT
+  real :: Tref,Qref,dlnQref_dlnT,Q,dlnQ_dlnT,Y,Yk,Yinv,Temp,dTemp,T,dt_cgs,rho_cgs
+  integer :: k
+
+  T = (gamma-1.)*u/Rg*mu*unit_ergg
+
+  if (T < T_floor) then
+     Temp = T_floor
+  else
+     dt_cgs = dt*utime
+     rho_cgs = rho*unit_density
+     call calc_cooling_rate(Qref,dlnQref_dlnT, rho_cgs, Tref, Teq, gamma, mu, K2, kappa)
+     Y = 0.
+     k = nT
+     do while (Tgrid(k) > T)
+        k = k-1
+        call calc_cooling_rate(Q, dlnQ_dlnT, rho_cgs, Tgrid(k), Teq, gamma, mu, K2, kappa)
+        if (abs(dlnQ_dlnT-1.) < 1.d-13) then
+           y = y - dlnQref_dlnT*Tgrid(k)/(dlnQ_dlnT*Tref)*log(Tgrid(k)/Tgrid(k+1))
+        else
+           y = y - dlnQref_dlnT*Tgrid(k)/((dlnQ_dlnT*Tref)*(1.-dlnQ_dlnT))*(1.-(Tgrid(k)/Tgrid(k+1))**(dlnQ_dlnT-1))
+        endif
+     enddo
+
+     yk = y
+     print *,k,Tgrid(k),T,Tgrid(k+1)
+     print *,'if Tgrid(k) < T then use - sign else use + sign in the following lines'
+     call calc_cooling_rate(Q, dlnQ_dlnT, rho_cgs, T, Teq, gamma, mu, K2, kappa)
+     if (abs(dlnQ_dlnT-1.) < 1.d-13) then
+        y = yk + dlnQref_dlnT*Tgrid(k)/(dlnQ_dlnT*Tref)*log(Tgrid(k)/T)
+     else
+        y = yk + dlnQref_dlnT*Tgrid(k)/((dlnQ_dlnT*Tref)*(1.-dlnQ_dlnT))*(1.-(Tgrid(k)/T)**(dlnQ_dlnT-1))
+     endif
+
+     dTemp = mu*(gamma-1.)/Rg*Qref/Tref*dt_cgs
+     y = y + dtemp
+!compute Yinv
+     if (abs(dlnQ_dlnT-1.) < 1.d-13) then
+        Yinv = max(Tgrid(k)*exp(-dlnQ_dlnT*Tref*(y-yk)/(dlnQref_dlnT*Tgrid(k))),T_floor)
+     else
+        Yinv = 1.-(1.-dlnQ_dlnT)*dlnQ_dlnT*Tref/(dlnQref_dlnT*Tgrid(k))*(y-yk)
+        if (Yinv > 0.) then
+           Temp = Tgrid(k)*(Yinv**(1./(1.-dlnQ_dlnT)))
+        else
+           Temp = T_floor
+        endif
+     endif
+  endif
+
+  u = u + Rg/((gamma-1.)*mu*unit_ergg)*(Temp-T)
+
+end subroutine dust_energy_cooling
 
 end module dust_physics

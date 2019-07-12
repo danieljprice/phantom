@@ -3,7 +3,7 @@
 # @(#) writes a quick makefile for remaking the executable in the current
 # @(#) directory and recompiling the plotting program
 #
-phantomdir=~/phantom
+myphantomdir=${0/scripts\/writemake.sh/}
 splashdir=~/splash
 echo '#'
 echo '#--Makefile to remake the executable and copy to this directory'
@@ -73,3 +73,6 @@ echo 'plot:'
 echo '	cd ${SPLASH_DIR}; make sphNG'
 echo 'plotc:'
 echo '	cd ${SPLASH_DIR}; make clean'
+if [ $# -ge 1 ]; then
+    cp ${myphantomdir}/build/optionsKrome.opt krome.setup
+fi

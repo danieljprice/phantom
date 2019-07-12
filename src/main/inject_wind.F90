@@ -131,9 +131,9 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_inject(ierr)
- use io,           only:fatal
- use timestep,     only:tmax
- use wind_profile, only:init_wind_equations
+ use io,             only:fatal
+ use timestep,       only:tmax
+ use wind_equations, only:init_wind_equations
 #ifdef NUCLEATION
  use dusty_wind,     only:setup_dustywind,get_initial_wind_speed
 #else
@@ -311,7 +311,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use io,           only:fatal
  use eos,          only:gmw,gamma
 #ifdef BOWEN
- use wind_profile, only:pulsating_wind_profile
+ use bowen_dust,   only:pulsating_wind_profile
 #elif NUCLEATION
  use dusty_wind,   only:evolve_gail,dusty_wind_profile
  use part,         only:partJstarKmu
@@ -510,7 +510,7 @@ subroutine write_options_inject(iunit)
 #endif
  call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
 #ifndef ISOTHERMAL
- call write_inopt(wind_cooling,'wind_cooling','10:H0;2:T-relax;3:dust-coll;4:bowen;12=10+2;... (if wind_type=4)', iunit)
+ call write_inopt(wind_cooling,'wind_cooling','10:H0;2:T-relax;3:bowen;4:dust-coll;12=10+2;... (if wind_type=4)', iunit)
 #endif
 end subroutine write_options_inject
 

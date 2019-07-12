@@ -20,7 +20,7 @@
 !  DEPENDENCIES: physcon, units
 !+
 !--------------------------------------------------------------------------
-module wind_profile
+module wind_equations
 
  implicit none
 
@@ -82,12 +82,11 @@ subroutine evolve_hydro(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, spcode, 
 end subroutine evolve_hydro
 
 subroutine RK4_step_dr(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
- use physcon, only:Gg,kboltz,atomic_mass_unit,pi
+ use physcon, only:Gg,Rg,pi
  real, intent(in) ::  dt, rvT(3), mu, gamma, alpha, dalpha_dr, Q, dQ_dr
  real, intent(out) :: err, new_rvT(3), numerator, denominator
 
  real :: dv1_dr,dT1_dr,dv2_dr,dT2_dr,dv3_dr,dT3_dr,dv4_dr,dT4_dr,H,r0,v0,T0,r,v,T
- real, parameter :: Rgas = kboltz/atomic_mass_unit
 
  r0 = rvT(1)
  v0 = rvT(2)
@@ -124,19 +123,18 @@ end subroutine RK4_step_dr
 !--------------------------------------------------------------------------
 subroutine calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT_dr, numerator, denominator)
 !all quantities in cgs
- use physcon, only:Gg,kboltz,atomic_mass_unit,pi
+ use physcon, only:Gg,Rg,pi
  real, intent(in) :: r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
  real, intent(out) :: dv_dr, dT_dr
  real, intent(out) :: numerator, denominator
 
  real :: AA, BB, CC, c2, T0
- real, parameter :: Rgas = kboltz/atomic_mass_unit
  real, parameter :: denom_tol = 1.d-2
 
 !Temperature law
  if (wind_type == 2) then
     T0 = Tstar*(Rstar_cgs/r)**expT
-    c2 = gamma*Rgas*T0/mu
+    c2 = gamma*Rg*T0/mu
     denominator = 1.-c2/v**2
     numerator = ((2.+expT)*r*c2 - Gg*Mstar_cgs*(1.-alpha))/(r**2*v)
     if (abs(denominator) < denom_tol) then
@@ -154,7 +152,7 @@ subroutine calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT
  endif
  !isothermal or adiabatic expansion (no cooling)
  if (wind_type == 1 .or. wind_type == 3) then
-    c2 = gamma*Rgas*T/mu
+    c2 = gamma*Rg*T/mu
     denominator = 1.-c2/v**2
     numerator = (2.*r*c2 - Gg*Mstar_cgs*(1. - alpha))/(r**2*v)
     if (abs(denominator) < denom_tol) then
@@ -169,7 +167,7 @@ subroutine calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT
  endif
 !expansion and cooling
  if (wind_type == 4) then
-    c2 = gamma*Rgas*T/mu
+    c2 = gamma*Rg*T/mu
     denominator = 1.-c2/v**2
     numerator = (2.*r*c2 - Gg*Mstar_cgs*(1.-alpha))/(r**2*v) + Q*(1.-gamma)/v**2
     if (abs(denominator) < denom_tol) then
@@ -183,7 +181,7 @@ subroutine calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT
     else
        dv_dr = numerator/denominator
     endif
-    dT_dr = (1.-gamma)*T*(2.*v + r*dv_dr)/(r*v)+(gamma-1.)*Q*mu/(Rgas*v)
+    dT_dr = (1.-gamma)*T*(2.*v + r*dv_dr)/(r*v)+(gamma-1.)*Q*mu/(Rg*v)
  endif
  numerator = numerator * Rstar_cgs/sqrt(c2)
 end subroutine calc_dvT_dr
@@ -205,4 +203,4 @@ real function energy_profile(xyzh)
  r = sqrt(xyzh(1)**2+xyzh(2)**2+xyzh(3)**2)
  energy_profile = u_to_temperature_ratio*Tstar*(Rstar/r)**expT
 end function energy_profile
-end module wind_profile
+end module wind_equations

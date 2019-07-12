@@ -57,7 +57,7 @@ subroutine setup_dustywind(Mstar_in, Lstar_in, Tstar_in, Rstar_cg, CO_ratio_in, 
  use physcon,      only:c, solarm, years
  use eos,          only:gamma
  use units,        only:umass,utime
- use dust_physics, only:set_abundances,set_cooling
+ use dust_physics, only:set_abundances,init_cooling
 
  integer, intent(in) :: wind_type_in,wind_cooling
  real, intent(in) :: Mstar_in, Lstar_in, Tstar_in, Rstar_cg, Cprime_cgs, expT_in,&
@@ -83,7 +83,7 @@ subroutine setup_dustywind(Mstar_in, Lstar_in, Tstar_in, Rstar_cg, CO_ratio_in, 
 
  call set_abundances(CO_ratio_in)
 
- call set_cooling(wind_cooling)
+ call init_cooling(wind_cooling,Cprime_cgs)
 
 end subroutine setup_dustywind
 
@@ -94,7 +94,7 @@ end subroutine setup_dustywind
 !-----------------------------------------------------------------------
 subroutine evolve_gail(dtlast, xyzh, vxyzu, xyzmh_ptmass, vxyz_ptmass, partJstarKmu, npart)
  use units,          only:udist,utime,unit_velocity
- use physcon,        only:kboltz,atomic_mass_unit,pi
+ use physcon,        only:pi
 !use part,           only:massoftype,igas
  use eos,            only:gmw
  use dust_physics,   only:evolve_chem
@@ -216,13 +216,13 @@ end subroutine calc_alpha
 !-----------------------------------------------------------------------
 subroutine init_dustywind(r0, v0, T0, time_end, state)
 ! all quantities in cgs
- use physcon,      only:pi,kboltz,atomic_mass_unit
+ use physcon,      only:pi,Rg
  use io,           only:fatal
  use eos,          only:gmw
  use dust_physics, only:evolve_chem,calc_kappa_dust,calc_cooling_rate,calc_Teq
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(out) :: state
- real :: tau_lucy_bounded,Teq
+ real :: tau_lucy_bounded,Teq, dlnq_dlnT
 
  state%dt = 1000.
  if (time_end > 0.d0) then
@@ -264,12 +264,12 @@ subroutine init_dustywind(r0, v0, T0, time_end, state)
           tau_lucy_bounded = max(0., state%tau_lucy)
           Teq = Tstar * (.5*(1.-sqrt(1.-(Rstar_cgs/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
        endif
-       call calc_cooling_rate(state%Q, state%rho, state%Tg, Teq, wind_gamma, state%mu, Cprime, &
+       call calc_cooling_rate(state%Q, dlnq_dlnT, state%rho, state%Tg, Teq, wind_gamma, state%mu, &
             state%K(2)/(state%r**2*state%v), state%kappa_ross)
     endif
  endif
- state%p = state%rho*kboltz*state%Tg/(state%mu*atomic_mass_unit)
- state%c = sqrt(wind_gamma*kboltz*state%Tg/(state%mu*atomic_mass_unit))
+ state%p = state%rho*Rg*state%Tg/state%mu
+ state%c = sqrt(wind_gamma*Rg*state%Tg/state%mu)
  state%dt_force = .false.
  state%spcode = 0
  state%nsteps = 1
@@ -286,12 +286,12 @@ end subroutine init_dustywind
 subroutine dustywind_step(state)
 ! all quantities in cgs
 
- use wind_profile,   only:evolve_hydro
- use physcon,        only:pi,kboltz,atomic_mass_unit
+ use wind_equations, only:evolve_hydro
+ use physcon,        only:pi,Rg
  use dust_physics,   only:evolve_chem,calc_kappa_dust,calc_cooling_rate,calc_Teq
  type(wind_state), intent(inout) :: state
 
- real :: rvT(3), alpha_old, kappa_ross_old, rho_old, dt_next, Q_old, v_old, tau_lucy_bounded, Teq
+ real :: rvT(3), alpha_old, kappa_ross_old, rho_old, dt_next, Q_old, v_old, tau_lucy_bounded, Teq, dlnQ_dlnT
 
  call evolve_chem(state%dt,state%r,state%v,state%Tg,state%rho,state%Jstar,state%K,state%mu,state%S)
  alpha_old = state%alpha
@@ -313,8 +313,8 @@ subroutine dustywind_step(state)
  state%dt = dt_next
  rho_old = state%rho
  state%rho = Mdot_cgs/(4.*pi*state%r**2*state%v)
- state%p = state%rho*kboltz*state%Tg/(state%mu*atomic_mass_unit)
- state%c = sqrt(wind_gamma*kboltz*state%Tg/(state%mu*atomic_mass_unit))
+ state%p = state%rho*Rg*state%Tg/state%mu
+ state%c = sqrt(wind_gamma*Rg*state%Tg/state%mu)
  kappa_ross_old = state%kappa_ross
 
  call calc_kappa_dust(state%K(3), Mdot_cgs, state%kappa_planck, state%kappa_ross)
@@ -328,7 +328,7 @@ subroutine dustywind_step(state)
        tau_lucy_bounded = max(0., state%tau_lucy)
        Teq = Tstar * (.5*(1.-sqrt(1.-(Rstar_cgs/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
     endif
-    call calc_cooling_rate(state%Q, state%rho, state%Tg, Teq, wind_gamma, state%mu, Cprime, &
+    call calc_cooling_rate(state%Q, dlnQ_dlnT, state%rho, state%Tg, Teq, wind_gamma, state%mu, &
          state%K(2)/(state%r**2*state%v),state%kappa_ross)
     if (state%time > 0. .and. state%r /= state%r_old) state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
  endif
@@ -503,7 +503,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic)
  use io,       only:fatal,iverbose
  use units,    only:utime,udist
  use eos,      only:gmw
- use physcon,  only:kboltz,atomic_mass_unit,Gg,au,years
+ use physcon,  only:Rg,Gg,au,years
  real, intent(in) :: r0, T0
  real, intent(out) :: v0, sonic(8)
 
@@ -515,7 +515,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic)
  character(len=*), parameter :: label = 'get_initial_wind_speed'
 
  vesc = sqrt(2.*Gg*Mstar_cgs*(1.-wind_alpha)/r0)
- cs = sqrt(wind_gamma*kboltz/atomic_mass_unit*T0/gmw)
+ cs = sqrt(wind_gamma*Rg*T0/gmw)
  v0 = cs*(vesc/2./cs)**2*exp(-(vesc/cs)**2/2.+1.5)
  Rs = Gg*Mstar_cgs*(1.-wind_alpha)/(2.*cs*cs)
  alpha_max = 1.-(2.*cs/vesc)**2
@@ -529,7 +529,6 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic)
     print *, ' * Rstar(au)  = ',Rstar_cgs/1.496d13
     print *, ' * Mdot       = ',Mdot_cgs/6.30303620274d25
     print *, ' * r0(au)     = ',r0/1.496d13,r0/69600000000.
-    print *, ' * Cprime     = ',Cprime
     print *, ' * gamma      = ',wind_gamma
     print *, ' * mu         = ',gmw
     print *, ' * cs  (km/s) = ',cs/1e5

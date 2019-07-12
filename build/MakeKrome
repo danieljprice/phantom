@@ -1,4 +1,5 @@
-.PHONY: krome_setup krome
+
+.PHONY: clean_krome krome_setup krome
 
 KROME_BUILD_DIR = ${KROMEPATH}/build
 
@@ -6,16 +7,19 @@ KFLAGS="$(FFLAGS)"
 FFLAGS+= -I$(KROME_BUILD_DIR)
 PASSED=0
 
+NETFILE=${shell cat $(RUNDIR)/krome.setup | grep '^\-n=' | sed s/-n=networks\\///g }
+
 KOBJS := krome_commons.o krome_constants.o krome_coolingGH.o krome_cooling.o krome_dust.o krome_fit.o krome_gadiab.o krome_getphys.o krome_grfuncs.o krome_heating.o krome.o krome_ode.o krome_phfuncs.o krome_photo.o krome_reduction.o krome_stars.o krome_subs.o krome_tabs.o krome_user_commons.o krome_user.o opkda1.o opkda2.o opkdmain.o
 KROME_OBJS := $(addprefix $(KROME_BUILD_DIR)/, $(KOBJS))
 OBJECTS += $(KROME_OBJS)
 
 krome_setup:
-ifeq ("$(wildcard ${KROMEPATH}/networks/react_AGB_full_eHHeCNO)","")
-	cp react_AGB_full_eHHeCNO ${KROMEPATH}/networks
+	@echo "chemical network (extracted from krome.setup): $(NETFILE)"
+ifeq ("$(wildcard ${KROMEPATH}/networks/$(NETFILE))","")
+	cp ../data/Krome/${NETFILE} ${KROMEPATH}/networks
 endif
 ifeq ("$(wildcard ${KROMEPATH}/build/optionsKrome.opt)","")
-	cp optionsKrome.opt ${KROMEPATH}/build
+	cp $(RUNDIR)/krome.setup ${KROMEPATH}/build/optionsKrome.opt
 	cd ${KROMEPATH}; ./krome -options=build/optionsKrome.opt
 	cp -f ${KROMEPATH}/data/coolCO.dat ${KROMEPATH}/data/coolH2O.dat ${KROMEPATH}/data/coolOH.dat ${KROMEPATH}/data/coolHCN.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
 	make clean_krome

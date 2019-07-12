@@ -26,7 +26,7 @@
 module bowen_dust
  implicit none
 
- public :: radiative_acceleration, setup_bowen
+ public :: radiative_acceleration, setup_bowen, pulsating_wind_profile
  logical, parameter :: use_alpha_wind = .false.
 
  private
@@ -544,118 +544,5 @@ subroutine implicit_wind_cooling(icooling,npart,xyzh,vxyzu,fxyzu,fext,R_star,x_s
 ! !$omp end parallel do
 
 end subroutine implicit_wind_cooling
-
-
-!#####################################################################################
-!
-!  ALL COOLING ROUTINES HAVE BEEN MOVED TO DUST_FORMATION BUT ARGUMENTS ARE DIFFRENT!
-!
-!#####################################################################################
-
-!----------------------------------------------------------------
-!+
-!  Driver for the cooling function
-!+
-!----------------------------------------------------------------
-subroutine calc_cooling (icooling, mass_per_H, Tgas, Trad, rho, Qcool, dQcool_dlnT)
-
- integer, intent(in) :: icooling
- real, intent(in) :: mass_per_H
- real, intent(in) :: Tgas, Trad, rho
- real, intent(out) :: Qcool, dQcool_dlnT
-
- Qcool = 0.d0
- dQcool_dlnT = 0.d0
- if (icooling == 1 .or. mod(icooling,10) == 3 .or. icooling == 11) then
-    call cooling_neutral_hydrogen(mass_per_H, Tgas, rho, Qcool, dQcool_dlnT)
- endif
- if (icooling == 2 .or. mod(icooling,10) == 3 .or. icooling == 12) then
-    call cooling_Bowen_relaxation(Tgas, Trad, rho, Qcool, dQcool_dlnT)
- endif
- if (icooling >= 10) then
-    call cooling_radiative_relaxation(Tgas, Trad, Qcool, dQcool_dlnT)
- endif
-end subroutine calc_cooling
-
-!-----------------------------------------------------------------------
-!+
-!  Bowen 1988 cooling term
-!+
-!-----------------------------------------------------------------------
-subroutine cooling_Bowen_relaxation(T, Trad, rho, Qcool, dQcool_dlnT)
- real, intent(in) :: T, Trad, rho
- real, intent(inout) :: Qcool, dQcool_dlnT
- real :: fac
-
- fac = specific_energy_to_T_ratio*rho/ Cprime
- Qcool = Qcool + fac*(Trad-T)
- dQcool_dlnT = dQcool_dlnT - fac*T
-end subroutine cooling_Bowen_relaxation
-
-!-----------------------------------------------------------------------
-!+
-!  Woitke (2006 A&A) cooling term
-!+
-!-----------------------------------------------------------------------
-subroutine cooling_radiative_relaxation(T, Trad, Qcool, dQcool_dlnT)
- real, intent(in) :: T, Trad
- real, intent(inout) :: Qcool, dQcool_dlnT
- real :: fac
-
- fac = 4.*kappa_gas*usteboltz
- Qcool = Qcool + fac*(Trad**4-T**4)
- dQcool_dlnT = dQcool_dlnT - 4.*fac*T**3
-end subroutine cooling_radiative_relaxation
-
-!-----------------------------------------------------------------------
-!+
-!  Cooling due to neutral H (Spitzer)
-!+
-!-----------------------------------------------------------------------
-subroutine cooling_neutral_hydrogen( mass_per_H, T, rho, Qcool, dQcool_dlnT)
- use units, only: umass, utime,udist
- real, intent(in) :: mass_per_H
- real, intent(in) :: T, rho
- real, intent(inout) :: Qcool, dQcool_dlnT
-
- real, parameter :: f = 0.2d0
- real :: eps_e, Q_H0, fQ
-
- if (T > 3000.d0) then
-    fQ = utime**2*udist/umass
-    call calc_eps_e(T, eps_e)
-    Q_H0  = -f*fQ*7.3d-19 * eps_e * exp(-118400.d0/T) *rho / (mass_per_H)**2
-    Qcool = Qcool + Q_H0
-    dQcool_dlnT = dQcool_dlnT + 118400.d0/T * Q_H0
- endif
-end subroutine cooling_neutral_hydrogen
-
-!-----------------------------------------------------------------------
-!+
-!  compute electron equilibrium abundance (Palla et al 1983)
-!+
-!-----------------------------------------------------------------------
-subroutine calc_eps_e(T, eps_e)
-! used for cooling_neutral_hydrogen_radiation
- real, intent(in) :: T
- real, intent(out) :: eps_e
-
- real :: k1, k2, k3, k8, k9, p, q
-
-!  if (T > 3000.) then
- k1 = 1.88d-10 / T**6.44d-1
- k2 = 1.83d-18 * T
- k3 = 1.35d-9
- k8 = 5.80d-11 * sqrt(T) * exp(-1.58d5/T)
- k9 = 1.7d-4 * k8
-
- p = .5d0*k8/k9
- q = k1*(k2+k3)/(k3*k9)
-
- eps_e = (p + sqrt(q+p**2))/q
-!  else
-!     eps_e = 0.d0
-!  endif
-end subroutine calc_eps_e
 
 end module bowen_dust

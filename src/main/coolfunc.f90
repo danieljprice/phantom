@@ -128,8 +128,14 @@ subroutine energ_coolfunc(uu,rho,dt,dudt)
     density_cgs = rho*unit_density
     dt_cgs      = dt*utime
 
-    dtemp = gam1*density_cgs*(atomic_mass_unit*gmw/(amue*amuh*kboltz))* &
-            sloperef/tref*dt_cgs
+!original version
+!    dtemp = gam1*density_cgs*(atomic_mass_unit*gmw/(amue*amuh*kboltz))* &
+!         sloperef/tref*dt_cgs
+    print *,'check coolfunc'
+!Lionel Siess : I think there is an error. dtemp should write (sloperef <-> lambda(nt)
+     dtemp = gam1*density_cgs*(atomic_mass_unit*gmw/(amue*amuh*kboltz))* &
+         lambda(nt)/tref*dt_cgs
+
     k = find_in_table(nt,temper,temp)
 
     slopek = slope(k)

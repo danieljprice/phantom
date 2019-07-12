@@ -1599,7 +1599,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     return
  endif
 #ifdef KROME
- if (.not.all(got_krome)) then
+ if (.not.all(got_krome).and. npartread > 0) then
     if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but abundances not found in dump file'
 !     ierr = 9
     return

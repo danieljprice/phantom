@@ -93,6 +93,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustevol,temperature,alphaind,nptmass,store_temperature,&
                           dustprop,ddustprop,dustproppred,ndustsmall
+#ifdef NUCLEATION
+ use part,           only:partJstarKmu
+#endif
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
@@ -102,8 +105,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake
  use coolfunc,       only:energ_coolfunc
 #ifdef WIND
- use wind_profile,   only:energy_profile
- use inject,         only:wind_type
+ use wind_equations, only:energy_profile
+ use dust_physics,   only:dust_energy_cooling
+ use inject,         only:wind_type,wind_cooling
 #endif
 #ifdef IND_TIMESTEPS
  use timestep,       only:dtmax,dtmax_ifactor,dtdiff
@@ -370,7 +374,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
 !$omp shared(dtsph,icooling) &
 #ifdef WIND
-!$omp shared(wind_type) &
+!$omp shared(wind_type,wind_cooling) &
+#ifdef NUCLEATION
+!$omp shared(partJstarKmu) &
+#endif
 #endif
 #ifdef KROME
 !$omp shared(gamma_chem,mu_chem,krometemperature) &
@@ -467,6 +474,16 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (maxvxyzu >= 4) then
              vxyzu(4,i) = eni
              if (icooling==3) call energ_coolfunc(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph,v2i)
+#ifdef WIND
+             if (wind_cooling > 3) then
+#ifdef DUSTFREE
+                !only H0 cooling
+                call dust_energy_cooling(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph)
+#else
+!                call dust_energy_cooling(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph, Teq, gamma, partJstarKmu(6,i), partJstarKmu(4,i), kappa)
+#endif
+             endif
+#endif
           endif
 
           if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdtsph*ddustprop(:,i)

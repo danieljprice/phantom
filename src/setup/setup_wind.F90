@@ -99,6 +99,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call write_setupfile(filename)
     endif
  endif
+#ifdef KROME
+ inquire(file='krome.setup',exist=iexist)
+ if (.not. iexist) call write_KromeSetupFile
+#endif
  infile = trim(fileprefix)//'.in'
  inquire(file=infile,exist=iexist)
  if (iexist) then
@@ -222,6 +226,35 @@ subroutine write_setupfile(filename)
  close(iunit)
 
 end subroutine write_setupfile
+
+!----------------------------------------------------------------
+!+
+!  write Krome parameters to setup file
+!+
+!----------------------------------------------------------------
+#ifdef KROME
+subroutine write_KromeSetupFile
+
+ integer, parameter           :: iunit = 21
+
+ print "(a)",' writing krome setup options in krome.setup'
+ open(unit=iunit,file='krome.setup',status='replace',form='formatted')
+ write (iunit,'("-n=networks/react_AGB_full_minFPNaMg")')
+ write (iunit,'("#-compact")')
+ write (iunit,'("-cooling=ATOMIC,CHEM,H2,CIE,Z,CI,CII,OI,OII,CO,OH,H2O,HCN")')
+ write (iunit,'("-heating=CHEM,CR")')
+ write (iunit,'("-H2opacity=RIPAMONTI")')
+ write (iunit,'("-gamma=EXACT")')
+ write (iunit,'("-noSinkCheck")')
+ write (iunit,'("-noRecCheck")')
+ write (iunit,'("-noTlimits")')
+ write (iunit,'("-useX")')
+ write (iunit,'("-conserveLin")')
+ write (iunit,'("-useTabs")')
+ close(iunit)
+
+end subroutine write_Kromesetupfile
+#endif
 
 !----------------------------------------------------------------
 !+

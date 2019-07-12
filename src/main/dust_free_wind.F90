@@ -38,7 +38,7 @@ module dust_free_wind
 
 ! Wind properties
  real :: Mstar_cgs, Rstar_cgs, wind_gamma, Mdot_cgs, wind_temperature
- real :: Cprime, u_to_temperature_ratio, wind_alpha
+ real :: u_to_temperature_ratio, wind_alpha
  integer :: wind_type
 
 ! State of the wind
@@ -55,7 +55,7 @@ subroutine setup_wind(Mstar_in, Rstar_cg, Cprime_cgs, Mdot_in, u_to_T, alpha_in,
  use physcon,      only:c, solarm, years
  use eos,          only:gamma
 #ifndef ISOTHERMAL
- use dust_physics, only: set_cooling
+ use dust_physics, only: init_cooling
 #endif
 
  real, intent(in) :: Mstar_in, Rstar_cg, Cprime_cgs, Mdot_in,u_to_T,alpha_in, Twind
@@ -64,7 +64,6 @@ subroutine setup_wind(Mstar_in, Rstar_cg, Cprime_cgs, Mdot_in, u_to_T, alpha_in,
  Mstar_cgs = Mstar_in*solarm
  wind_type = wind_type_in
  wind_alpha = alpha_in
- Cprime = Cprime_cgs ! keep it in cgs
  if (wind_type == 2) then
     wind_gamma = 1.
  else if (wind_type == 1) then
@@ -78,7 +77,7 @@ subroutine setup_wind(Mstar_in, Rstar_cg, Cprime_cgs, Mdot_in, u_to_T, alpha_in,
  u_to_temperature_ratio = u_to_T
 
 #ifndef ISOTHERMAL
- call set_cooling(wind_cooling)
+ call init_cooling(wind_cooling,Cprime_cgs)
 #endif
 
 end subroutine setup_wind
@@ -90,7 +89,7 @@ end subroutine setup_wind
 !-----------------------------------------------------------------------
 subroutine init_wind(r0, v0, T0, time_end, state)
 ! all quantities in cgs
- use physcon,      only:pi,kboltz,atomic_mass_unit
+ use physcon,      only:pi,Rg
  use io,           only:fatal
  !use eos,         only:gmw
 #ifndef ISOTHERMAL
@@ -98,6 +97,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
 #endif
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(inout) :: state
+ real :: dlnq_dlnT
 
  state%dt = 1000.
  if (time_end > 0.d0) then
@@ -124,10 +124,10 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%rho = Mdot_cgs/(4.*pi * state%r**2 * state%v)
 
 #ifndef ISOTHERMAL
- if (wind_type == 4) call calc_cooling_rate(state%Q, state%rho, state%Tg)
+ if (wind_type == 4) call calc_cooling_rate(state%Q, dlnq_dlnT, state%rho, state%Tg)
 #endif
- !state%p = state%rho*kboltz*state%Tg/(state%mu*atomic_mass_unit)
- state%c = sqrt(wind_gamma*kboltz*state%Tg/(state%mu*atomic_mass_unit))
+ !state%p = state%rho*Rg*state%Tg/(state%mu)
+ state%c = sqrt(wind_gamma*Rg*state%Tg/state%mu)
  state%dt_force = .false.
  state%spcode = 0
  state%nsteps = 1
@@ -144,14 +144,14 @@ end subroutine init_wind
 subroutine wind_step(state)
 ! all quantities in cgs
 
- use wind_profile,   only:evolve_hydro
- use physcon,        only:pi,kboltz,atomic_mass_unit
+ use wind_equations, only:evolve_hydro
+ use physcon,        only:pi,Rg
 #ifndef ISOTHERMAL
  use dust_physics,   only:calc_cooling_rate
 #endif
 
  type(wind_state), intent(inout) :: state
- real :: rvT(3), dt_next, v_old
+ real :: rvT(3), dt_next, v_old, dlnq_dlnT
 
  rvT(1) = state%r
  rvT(2) = state%v
@@ -167,11 +167,11 @@ subroutine wind_step(state)
  state%time = state%time + state%dt
  state%dt = dt_next
  state%rho = Mdot_cgs/(4.*pi*state%r**2*state%v)
- !state%p = state%rho*kboltz*state%Tg/(state%mu*atomic_mass_unit)
- state%c = sqrt(wind_gamma*kboltz*state%Tg/(state%mu*atomic_mass_unit))
+ !state%p = state%rho*Rg*state%Tg/(state%mu)
+ state%c = sqrt(wind_gamma*state%Tg/state%mu)
 
 #ifndef ISOTHERMAL
- if (wind_type == 4) call calc_cooling_rate(state%Q, state%rho, state%Tg)
+ if (wind_type == 4) call calc_cooling_rate(state%Q, dlnq_dlnT, state%rho, state%Tg)
 #endif
  if (state%time_end > 0. .and. state%time + state%dt > state%time_end) then
     state%dt = state%time_end-state%time
@@ -341,7 +341,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic)
  use io,       only:fatal,iverbose
  use units,    only:utime,udist
  use eos,      only:gmw
- use physcon,  only:kboltz,atomic_mass_unit,Gg,au,years
+ use physcon,  only:Rg,Gg,au,years
  real, intent(in) :: r0, T0
  real, intent(out) :: v0, sonic(:)
 
@@ -353,7 +353,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic)
  character(len=*), parameter :: label = 'get_initial_wind_speed'
 
  vesc = sqrt(2.*Gg*Mstar_cgs*(1.-wind_alpha)/r0)
- cs = sqrt(wind_gamma*kboltz/atomic_mass_unit*T0/gmw)
+ cs = sqrt(wind_gamma*Rg*T0/gmw)
  v0 = cs*(vesc/2./cs)**2*exp(-(vesc/cs)**2/2.+1.5)
  Rs = Gg*Mstar_cgs*(1.-wind_alpha)/(2.*cs*cs)
  alpha_max = 1.-(2.*cs/vesc)**2
@@ -366,7 +366,6 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic)
     print *, ' * Rstar(au)  = ',Rstar_cgs/1.496d13
     print *, ' * Mdot       = ',Mdot_cgs/6.30303620274d25
     print *, ' * r0(au)     = ',r0/1.496d13,r0/69600000000.
-    print *, ' * Cprime     = ',Cprime
     print *, ' * gamma      = ',wind_gamma
 #else
     print *, ' * Rstar (Ro) = ',r0/69600000000.,Rstar_cgs/69600000000.
