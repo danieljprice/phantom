@@ -55,7 +55,7 @@ subroutine setup_wind(Mstar_in, Rstar_cg, Cprime_cgs, Mdot_in, u_to_T, alpha_in,
  use physcon,      only:c, solarm, years
  use eos,          only:gamma
 #ifndef ISOTHERMAL
- use dust_physics, only: init_cooling
+ use dust_physics, only: init_cooling,set_abundances
 #endif
 
  real, intent(in) :: Mstar_in, Rstar_cg, Cprime_cgs, Mdot_in,u_to_T,alpha_in, Twind
@@ -77,6 +77,7 @@ subroutine setup_wind(Mstar_in, Rstar_cg, Cprime_cgs, Mdot_in, u_to_T, alpha_in,
  u_to_temperature_ratio = u_to_T
 
 #ifndef ISOTHERMAL
+ call set_abundances(0.4d0) !needed to initialize mass_per_H
  call init_cooling(wind_cooling,Cprime_cgs)
 #endif
 
@@ -124,7 +125,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%rho = Mdot_cgs/(4.*pi * state%r**2 * state%v)
 
 #ifndef ISOTHERMAL
- if (wind_type == 4) call calc_cooling_rate(state%Q, dlnq_dlnT, state%rho, state%Tg)
+ if (wind_type == 4) call calc_cooling_rate(state%Q, dlnQ_dlnT, state%rho, state%Tg)
 #endif
  !state%p = state%rho*Rg*state%Tg/(state%mu)
  state%c = sqrt(wind_gamma*Rg*state%Tg/state%mu)
@@ -356,8 +357,12 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic)
  cs = sqrt(wind_gamma*Rg*T0/gmw)
  v0 = cs*(vesc/2./cs)**2*exp(-(vesc/cs)**2/2.+1.5)
  Rs = Gg*Mstar_cgs*(1.-wind_alpha)/(2.*cs*cs)
- alpha_max = 1.-(2.*cs/vesc)**2
  if (iverbose>0) then
+    if (vesc> 1.d-100) then
+       alpha_max = 1.-(2.*cs/vesc)**2
+    else
+       alpha_max = 0.
+    endif
     print *, "[get_initial_wind_speed] Looking for initial velocity."
     print *, ' * unit(au)   = ',udist/au
     print *, ' * Mstar      = ',Mstar_cgs/1.9891d33

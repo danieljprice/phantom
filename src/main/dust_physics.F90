@@ -71,7 +71,7 @@ module dust_physics
 
  integer, parameter :: nT = 64
  real :: Tgrid(nT)
- real, parameter :: Tref = 2.d4, T_floor = 1.
+ real, parameter :: Tref = 1.d5, T_floor = 1.
 
 contains
 
@@ -598,30 +598,38 @@ end subroutine set_Tcool
 !   dust cooling using Townsend method to avoid the timestep constraints
 !
 !-----------------------------------------------------------------------
-subroutine dust_energy_cooling (u, rho, dt, Teq, gamma, mu, K2, kappa)
+subroutine dust_energy_cooling (u, rho, dt, gam_in, mu_in, Teq, K2, kappa)
+  use eos,     only:gamma,gmw
   use physcon, only:Rg
-  use units,   only:unit_density,unit_ergg,utime,Teq, gamma, mu, K2, kappa
+  use units,   only:unit_density,unit_ergg,utime
   real, intent(in) :: rho, dt
-  real, intent(in), optional :: Teq, gamma, mu, K2, kappa
+  real, intent(in), optional :: Teq, K2, kappa, gam_in, mu_in
   real, intent(inout) :: u
 
-  real, parameter :: dlnT=1./nT
-  real :: Tref,Qref,dlnQref_dlnT,Q,dlnQ_dlnT,Y,Yk,Yinv,Temp,dTemp,T,dt_cgs,rho_cgs
+  real :: Tref,Qref,dlnQref_dlnT,Q,dlnQ_dlnT,Y,Yk,Yinv,Temp,dTemp,T,dt_cgs,rho_cgs,gam,mu,du
   integer :: k
 
-  T = (gamma-1.)*u/Rg*mu*unit_ergg
+  if (.not.present(gam_in)) then
+     gam = gamma
+     mu = gmw
+  else
+     gam = gam_in
+     mu = mu_in
+  endif
+
+  T = (gam-1.)*u/Rg*mu*unit_ergg
 
   if (T < T_floor) then
      Temp = T_floor
   else
      dt_cgs = dt*utime
      rho_cgs = rho*unit_density
-     call calc_cooling_rate(Qref,dlnQref_dlnT, rho_cgs, Tref, Teq, gamma, mu, K2, kappa)
+     call calc_cooling_rate(Qref,dlnQref_dlnT, rho_cgs, Tref, Teq, gam, mu, K2, kappa)
      Y = 0.
      k = nT
      do while (Tgrid(k) > T)
         k = k-1
-        call calc_cooling_rate(Q, dlnQ_dlnT, rho_cgs, Tgrid(k), Teq, gamma, mu, K2, kappa)
+        call calc_cooling_rate(Q, dlnQ_dlnT, rho_cgs, Tgrid(k), Teq, gam, mu, K2, kappa)
         if (abs(dlnQ_dlnT-1.) < 1.d-13) then
            y = y - dlnQref_dlnT*Tgrid(k)/(dlnQ_dlnT*Tref)*log(Tgrid(k)/Tgrid(k+1))
         else
@@ -630,16 +638,15 @@ subroutine dust_energy_cooling (u, rho, dt, Teq, gamma, mu, K2, kappa)
      enddo
 
      yk = y
-     print *,k,Tgrid(k),T,Tgrid(k+1)
-     print *,'if Tgrid(k) < T then use - sign else use + sign in the following lines'
-     call calc_cooling_rate(Q, dlnQ_dlnT, rho_cgs, T, Teq, gamma, mu, K2, kappa)
+     !print *,k,Tgrid(k),T,Tgrid(k+1)
+     call calc_cooling_rate(Q, dlnQ_dlnT, rho_cgs, T, Teq, gam, mu, K2, kappa)
      if (abs(dlnQ_dlnT-1.) < 1.d-13) then
         y = yk + dlnQref_dlnT*Tgrid(k)/(dlnQ_dlnT*Tref)*log(Tgrid(k)/T)
      else
         y = yk + dlnQref_dlnT*Tgrid(k)/((dlnQ_dlnT*Tref)*(1.-dlnQ_dlnT))*(1.-(Tgrid(k)/T)**(dlnQ_dlnT-1))
      endif
 
-     dTemp = mu*(gamma-1.)/Rg*Qref/Tref*dt_cgs
+     dTemp = mu*(gam-1.)/Rg*Qref/Tref*dt_cgs
      y = y + dtemp
 !compute Yinv
      if (abs(dlnQ_dlnT-1.) < 1.d-13) then
@@ -654,7 +661,10 @@ subroutine dust_energy_cooling (u, rho, dt, Teq, gamma, mu, K2, kappa)
      endif
   endif
 
-  u = u + Rg/((gamma-1.)*mu*unit_ergg)*(Temp-T)
+  du = Rg*(Temp-T)/((gam-1.)*mu*unit_ergg)
+  print *,u,du,Temp,T,Q*dt/unit_ergg
+  u = u+du
+
 
 end subroutine dust_energy_cooling
 
