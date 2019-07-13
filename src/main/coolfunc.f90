@@ -89,10 +89,14 @@ subroutine init_coolfunc(ierr)
  !
  yfunc(nt) = 0.
  do i=nt-1,1,-1
-    if (abs(slope(i)-1.) < tiny(0.)) then
-       yfunc(i) = yfunc(i+1) - slope(nt)*temper(i)/(lambda(i)*temper(nt))*log(temper(i)/temper(i+1))
+  !Lionel Siess : I think there is an error. in yfunc slope(nt) should be replaced by lambda(nt)
+  ! Eq A6
+   if (abs(slope(i)-1.) < tiny(0.)) then
+       !ori yfunc(i) = yfunc(i+1) - slope(nt)*temper(i)/(lambda(i)*temper(nt))*log(temper(i)/temper(i+1))
+       yfunc(i) = yfunc(i+1) - lambda(nt)*temper(i)/(lambda(i)*temper(nt))*log(temper(i)/temper(i+1))
     else
-       yfunc(i) = yfunc(i+1) - slope(nt)*temper(i)/((1. - slope(i))*lambda(i)*temper(nt))&
+       !ori yfunc(i) = yfunc(i+1) - slope(nt)*temper(i)/((1. - slope(i))*lambda(i)*temper(nt))&
+       yfunc(i) = yfunc(i+1) - lambda(nt)*temper(i)/((1. - slope(i))*lambda(i)*temper(nt))&
                  *(1.- (temper(i)/temper(i+1))**(slope(i) - 1.))
     endif
  enddo
@@ -128,17 +132,18 @@ subroutine energ_coolfunc(uu,rho,dt,dudt)
     density_cgs = rho*unit_density
     dt_cgs      = dt*utime
 
-!original version
-!    dtemp = gam1*density_cgs*(atomic_mass_unit*gmw/(amue*amuh*kboltz))* &
-!         sloperef/tref*dt_cgs
-    print *,'check coolfunc'
-!Lionel Siess : I think there is an error. dtemp should write (sloperef <-> lambda(nt)
-     dtemp = gam1*density_cgs*(atomic_mass_unit*gmw/(amue*amuh*kboltz))* &
+
+ !Lionel Siess : I think there is an error. in dtemp sloperef should be replaced by lambda(nt)
+    !original dtemp = gam1*density_cgs*(atomic_mass_unit*gmw/(amue*amuh*kboltz))* &
+    !     sloperef/tref*dt_cgs
+    ! Eq 26
+    dtemp = gam1*density_cgs*(atomic_mass_unit*gmw/(amue*amuh*kboltz))* &
          lambda(nt)/tref*dt_cgs
 
     k = find_in_table(nt,temper,temp)
 
     slopek = slope(k)
+    ! Eq A6
     if (abs(slopek - 1.) < tiny(0.)) then
        yfunx = yfunc(k) + lambda(nt)*temper(k)/(lambda(k)*temper(nt))*log(temper(k)/temp)
     else
@@ -147,6 +152,7 @@ subroutine energ_coolfunc(uu,rho,dt,dudt)
     endif
     yfunx = yfunx + dtemp
 
+    ! Eq A7
     if (abs(slopek - 1.) < tiny(0.)) then
        temp1 = max(temper(k)*exp(-lambda(k)*temper(nt)/(lambda(nt)*temper(k))*(yfunx-yfunc(k))),temp_floor)
     else

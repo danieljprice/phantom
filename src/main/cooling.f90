@@ -27,6 +27,7 @@
 !+
 !--------------------------------------------------------------------------
 module cooling
+ use dim,      only:windcooling
  use options,  only:icooling
  use timestep, only:C_cool
  use part,     only:h2chemistry,maxvxyzu
@@ -149,19 +150,24 @@ subroutine write_options_cooling(iunit)
  use infile_utils, only:write_inopt
  use h2cooling,    only:write_options_h2cooling
  use coolfunc,     only:write_options_coolfunc
+ use wind_cooling, only:write_options_windcooling
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling cooling'
  if (h2chemistry) then
     call write_inopt(icooling,'icooling','cooling function (0=off, 1=on)',iunit)
+ elseif (windcooling) then
+    call write_inopt(icooling,'icooling','10:H0;2:T-relax;3:bowen;4:dust-coll;12=10+2;... (if wind_type=4)', iunit)
  else
-    call write_inopt(icooling,'icooling','cooling function (0=off, 1=Gammie cooling 2=SD93 3=cooling function)',iunit)
+    call write_inopt(icooling,'icooling','cooling function (0=off, 1=Gammie, 2=SD93, 3=cooling function)',iunit)
  endif
  if (icooling > 0) then
     call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
  endif
  if (h2chemistry) then
     call write_options_h2cooling(iunit)
+ elseif (windcooling) then
+    call write_options_windcooling(iunit)
  elseif (icooling == 1) then
     call write_inopt(beta_cool,'beta_cool','beta factor in Gammie (2001) cooling',iunit)
  elseif (icooling == 3) then

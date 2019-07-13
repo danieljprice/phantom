@@ -726,7 +726,8 @@ ifeq ($(SETUP), wind)
 #   wind setup (spherical wind without dust formation)
     FPPFLAGS= -DWIND -DDUSTFREE
     SETUPFILE= setup_wind.F90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 dust_physics.F90 wind_equations.F90 dust_free_wind.F90 inject_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 wind_equations.F90 dust_free_wind.F90 inject_wind.f90
+    SRCCHEM = wind_cooling.F90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -736,7 +737,8 @@ ifeq ($(SETUP), dustywind)
 #   wind setup (spherical wind with dust nucleation)
     FPPFLAGS= -DWIND -DNUCLEATION
     SETUPFILE= setup_wind.F90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 dust_physics.F90 wind_equations.F90 dusty_wind.F90 inject_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.F90 dust_formation.F90 wind_equations.F90 dusty_wind.F90 inject_wind.f90
+    SRCCHEM = wind_cooling.F90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -746,7 +748,8 @@ ifeq ($(SETUP), bowen)
 # bowen wind setup (pulsating dusty wind)
     FPPFLAGS= -DWIND -DBOWEN
     SETUPFILE= setup_wind.F90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 dust_physics.F90 wind_equations.F90 bowen_dust.F90 inject_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.F90 wind_equations.F90 bowen_dust.F90 inject_wind.f90
+    SRCCHEM = wind_cooling.F90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -1576,7 +1579,7 @@ ifeq (X$(SRCTEST), X)
 SRCTEST=${SRCTESTS}
 endif
 
-SRCCHEM= coolfunc.f90 fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.f90
+SRCCHEM+= coolfunc.f90 fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.f90
 
 SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
 SRCEOS = ${SRCMESA} eos_helmholtz.f90 eos.F90

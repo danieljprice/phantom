@@ -105,9 +105,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake
  use coolfunc,       only:energ_coolfunc
 #ifdef WIND
+! use eos,            only:gamma
  use wind_equations, only:energy_profile
- use dust_physics,   only:dust_energy_cooling
- use inject,         only:wind_type,wind_cooling
+ use wind_cooling,   only:dust_energy_cooling
+ use inject,         only:wind_type
 #endif
 #ifdef IND_TIMESTEPS
  use timestep,       only:dtmax,dtmax_ifactor,dtdiff
@@ -374,7 +375,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
 !$omp shared(dtsph,icooling) &
 #ifdef WIND
-!$omp shared(wind_type,wind_cooling) &
+!$omp shared(wind_type) &
 #ifdef NUCLEATION
 !$omp shared(partJstarKmu) &
 #endif
@@ -473,16 +474,17 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           !--this is the energy equation if non-isothermal
           if (maxvxyzu >= 4) then
              vxyzu(4,i) = eni
-             if (icooling==3) call energ_coolfunc(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph,v2i)
 #ifdef WIND
-             if (wind_cooling > 3) then
+             if (icooling > 3) then
 #ifdef DUSTFREE
                 !only H0 cooling
                 call dust_energy_cooling(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph)
 #else
-!                call dust_energy_cooling(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph, Teq, gamma, partJstarKmu(6,i), partJstarKmu(4,i), kappa)
+!                call dust_energy_cooling(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph, gamma, Teq, partJstarKmu(6,i), partJstarKmu(4,i), kappa)
 #endif
              endif
+#else
+             if (icooling==3) call energ_coolfunc(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph,v2i)
 #endif
           endif
 

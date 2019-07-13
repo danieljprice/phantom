@@ -17,7 +17,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dust_physics, eos, io, physcon, timestep, units,
+!  DEPENDENCIES: wind_cooling, eos, io, physcon, timestep, units,
 !    wind_profile
 !+
 !--------------------------------------------------------------------------
@@ -50,16 +50,15 @@ module dust_free_wind
  end type wind_state
 contains
 
-subroutine setup_wind(Mstar_in, Rstar_cg, Cprime_cgs, Mdot_in, u_to_T, alpha_in, Twind, wind_type_in, wind_cooling)
+subroutine setup_wind(Mstar_in, Rstar_cg, Mdot_in, u_to_T, alpha_in, Twind, wind_type_in)
+ use options,      only:icooling
  use units,        only:umass,utime
- use physcon,      only:c, solarm, years
+ use physcon,      only:c,solarm,years
  use eos,          only:gamma
-#ifndef ISOTHERMAL
- use dust_physics, only: init_cooling,set_abundances
-#endif
+ use wind_cooling, only:init_windcooling
 
- real, intent(in) :: Mstar_in, Rstar_cg, Cprime_cgs, Mdot_in,u_to_T,alpha_in, Twind
- integer, intent(in) :: wind_type_in, wind_cooling
+ real, intent(in) :: Mstar_in, Rstar_cg, Mdot_in,u_to_T,alpha_in, Twind
+ integer, intent(in) :: wind_type_in
 
  Mstar_cgs = Mstar_in*solarm
  wind_type = wind_type_in
@@ -76,10 +75,7 @@ subroutine setup_wind(Mstar_in, Rstar_cg, Cprime_cgs, Mdot_in, u_to_T, alpha_in,
  Rstar_cgs = Rstar_cg
  u_to_temperature_ratio = u_to_T
 
-#ifndef ISOTHERMAL
- call set_abundances(0.4d0) !needed to initialize mass_per_H
- call init_cooling(wind_cooling,Cprime_cgs)
-#endif
+ call init_windcooling(-icooling)
 
 end subroutine setup_wind
 
@@ -90,11 +86,12 @@ end subroutine setup_wind
 !-----------------------------------------------------------------------
 subroutine init_wind(r0, v0, T0, time_end, state)
 ! all quantities in cgs
- use physcon,      only:pi,Rg
- use io,           only:fatal
- !use eos,         only:gmw
+ use options,  only:icooling
+ use physcon,  only:pi,Rg
+ use io,       only:fatal
+ !use eos,     only:gmw
 #ifndef ISOTHERMAL
- use dust_physics, only: calc_cooling_rate
+ use wind_cooling, only: calc_cooling_rate
 #endif
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(inout) :: state
@@ -125,7 +122,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%rho = Mdot_cgs/(4.*pi * state%r**2 * state%v)
 
 #ifndef ISOTHERMAL
- if (wind_type == 4) call calc_cooling_rate(state%Q, dlnQ_dlnT, state%rho, state%Tg)
+ if (icooling > 0) call calc_cooling_rate(state%Q, dlnQ_dlnT, state%rho, state%Tg)
 #endif
  !state%p = state%rho*Rg*state%Tg/(state%mu)
  state%c = sqrt(wind_gamma*Rg*state%Tg/state%mu)
@@ -145,10 +142,11 @@ end subroutine init_wind
 subroutine wind_step(state)
 ! all quantities in cgs
 
+ use options,        only:icooling
  use wind_equations, only:evolve_hydro
  use physcon,        only:pi,Rg
 #ifndef ISOTHERMAL
- use dust_physics,   only:calc_cooling_rate
+ use wind_cooling,   only:calc_cooling_rate
 #endif
 
  type(wind_state), intent(inout) :: state
@@ -168,11 +166,11 @@ subroutine wind_step(state)
  state%time = state%time + state%dt
  state%dt = dt_next
  state%rho = Mdot_cgs/(4.*pi*state%r**2*state%v)
- !state%p = state%rho*Rg*state%Tg/(state%mu)
- state%c = sqrt(wind_gamma*state%Tg/state%mu)
+ !state%p = state%rho*Rg*state%Tg/state%mu
+ state%c = sqrt(wind_gamma*Rg*state%Tg/state%mu)
 
 #ifndef ISOTHERMAL
- if (wind_type == 4) call calc_cooling_rate(state%Q, dlnq_dlnT, state%rho, state%Tg)
+ if (icooling > 0) call calc_cooling_rate(state%Q, dlnQ_dlnT, state%rho, state%Tg)
 #endif
  if (state%time_end > 0. .and. state%time + state%dt > state%time_end) then
     state%dt = state%time_end-state%time
@@ -262,7 +260,7 @@ subroutine save_windprofile(r0, T0, v0, tsonic, filename)
  real, intent(in) :: r0, v0, T0, tsonic
  character(*), intent(in) :: filename
 
- real :: dt_print,time_end
+ real :: dt_print,time_end,dt_stop
  type(wind_state) :: state
  logical :: written
  integer :: n
@@ -274,8 +272,9 @@ subroutine save_windprofile(r0, T0, v0, tsonic, filename)
  call filewrite_state(1337, state)
 
  n = 1
- dt_print = min(tsonic/10.,state%time_end/100.)
- do while(state%time < state%time_end .and. state%dt > dtmin .and. state%Tg > Tdust_stop)
+ dt_stop = max(dtmin,time_end*1.d-5)
+ dt_print = max(min(tsonic/10.,state%time_end/256.),state%time_end/5000.)
+ do while(state%time < state%time_end .and. state%dt > dt_stop. state%Tg > Tdust_stop)
     call wind_step(state)
     written = .false.
     if (state%time > n*dt_print) then
@@ -285,7 +284,9 @@ subroutine save_windprofile(r0, T0, v0, tsonic, filename)
     endif
  enddo
  if (.not. written) call filewrite_state(1337, state) ! write last state
- write(*,'("t/tend = ",f7.5," (last step) t =",f6.1)') state%time/state%time_end,state%time_end/utime
+ if (state%time/state%time_end < .1) then
+    write(*,'(/,"[WARNING] wind integration failed : t/tend = ",f7.5,/)') state%time/state%time_end
+ endif
  close(1337)
 end subroutine save_windprofile
 
@@ -454,6 +455,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic)
  write (*,'("Sonic point properties  vs (km/s) =",f9.3,"  Rs/R* = ",f7.3," theoric = ",f7.3," Ts =",f7.1," alpha =",f5.3,/)')&
             sonic(2)/1e5,sonic(1)/Rstar_cgs,Rs/Rstar_cgs,sonic(5),sonic(7)
  !save 1D initial profile for comparison
+ write (*,'("Saving 1D model : ")')
  call save_windprofile(R0, T0, v0, sonic(4), 'gailstatwind1D.dat')
 
 end subroutine get_initial_wind_speed
