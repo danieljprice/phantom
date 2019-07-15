@@ -72,7 +72,7 @@ subroutine init_windcooling(icool)
 
   integer, intent(in) :: icool
   integer :: iwind
-  print *,'init windcool'
+
   if (icool > 0) then
      iwind = icool
   else
@@ -308,7 +308,6 @@ subroutine dust_energy_cooling (u, rho, dt, gam_in, mu_in, Teq, K2, kappa)
      !stop
   endif
   u = u+du
-  !stop
 
 end subroutine
 

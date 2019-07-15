@@ -124,6 +124,7 @@ end subroutine RK4_step_dr
 subroutine calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT_dr, numerator, denominator)
 !all quantities in cgs
  use physcon, only:Gg,Rg,pi
+ use options, only:icooling
  real, intent(in) :: r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
  real, intent(out) :: dv_dr, dT_dr
  real, intent(out) :: numerator, denominator
@@ -150,8 +151,8 @@ subroutine calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT
     endif
     dT_dr = -expT*T0/r
  endif
+ if (icooling == 0) then
  !isothermal or adiabatic expansion (no cooling)
- if (wind_type == 1 .or. wind_type == 3) then
     c2 = gamma*Rg*T/mu
     denominator = 1.-c2/v**2
     numerator = (2.*r*c2 - Gg*Mstar_cgs*(1. - alpha))/(r**2*v)
@@ -164,9 +165,8 @@ subroutine calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT
        dv_dr = numerator/denominator
     endif
     dT_dr = (1. - gamma)*T*(2.*v + r*dv_dr)/(r*v)
- endif
+ else
 !expansion and cooling
- if (wind_type == 4) then
     c2 = gamma*Rg*T/mu
     denominator = 1.-c2/v**2
     numerator = (2.*r*c2 - Gg*Mstar_cgs*(1.-alpha))/(r**2*v) + Q*(1.-gamma)/v**2

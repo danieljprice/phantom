@@ -25,7 +25,7 @@
 module dust_free_wind
  implicit none
  public :: setup_wind
- public :: get_initial_wind_speed!, profile_findr0
+ public :: get_initial_wind_speed
  public :: dust_free_wind_profile
 
  private
@@ -86,16 +86,16 @@ end subroutine setup_wind
 !-----------------------------------------------------------------------
 subroutine init_wind(r0, v0, T0, time_end, state)
 ! all quantities in cgs
- use options,  only:icooling
- use physcon,  only:pi,Rg
- use io,       only:fatal
- !use eos,     only:gmw
+ use options,        only:icooling
+ use physcon,        only:pi,Rg
+ use io,             only:fatal
+ use eos,            only:gmw
 #ifndef ISOTHERMAL
- use wind_cooling, only: calc_cooling_rate
+ use wind_cooling,   only:calc_cooling_rate
 #endif
  real, intent(in) :: r0, v0, T0, time_end
- type(wind_state), intent(inout) :: state
- real :: dlnq_dlnT
+ type(wind_state), intent(out) :: state
+ real :: dlnQ_dlnT
 
  state%dt = 1000.
  if (time_end > 0.d0) then
@@ -115,8 +115,8 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%Tg = T0
  state%alpha = wind_alpha
  state%dalpha_dr = 0.
- !state%mu = gmw
- !state%gamma = wind_gamma
+ state%mu = gmw
+ state%gamma = wind_gamma
  state%Q = 0.
  state%dQ_dr = 0.
  state%rho = Mdot_cgs/(4.*pi * state%r**2 * state%v)
@@ -189,7 +189,7 @@ end subroutine wind_step
 subroutine calc_wind_profile(r0, v0, T0, time_end, state)
 ! all quantities in cgs
  real, intent(in) :: r0, v0, T0, time_end
- type(wind_state), intent(inout) :: state
+ type(wind_state), intent(out) :: state
 
 !compute chemistry and initialize variables
  call init_wind(r0, v0, T0, time_end, state)
@@ -214,10 +214,11 @@ end subroutine calc_wind_profile
 !  dusty wind model
 !+
 !-----------------------------------------------------------------------
-subroutine dust_free_wind_profile(local_time, r, v, u, rho, e, GM, gamma, mu)
+subroutine dust_free_wind_profile(local_time, r, v, u, rho, e, GM)
  !in/out variables in code units (except Jstar,K,mu)
  use units,        only:udist, utime, unit_velocity, unit_density!, unit_pressure
- real, intent(in)  :: local_time, GM, gamma, mu
+ use eos,          only:gamma
+ real, intent(in)  :: local_time, GM
  real, intent(inout) :: r, v
  real, intent(out) ::  u, rho, e
  real :: T, r0, v0
@@ -229,8 +230,6 @@ subroutine dust_free_wind_profile(local_time, r, v, u, rho, e, GM, gamma, mu)
  v0 = v
  r = r*udist
  v = v*unit_velocity
- state%mu = mu
- state%gamma = gamma
  call calc_wind_profile(r, v, T, local_time*utime, state)
  r = state%r/udist
  v = state%v/unit_velocity
@@ -254,7 +253,7 @@ end subroutine dust_free_wind_profile
 !  Integrate the steady wind equation and save variables to file
 !
 !-----------------------------------------------------------------------
-subroutine save_windprofile(r0, T0, v0, tsonic, filename)
+subroutine save_windprofile(r0, v0, T0, tsonic, filename)
  use units,    only:utime
  use timestep, only:tmax
  real, intent(in) :: r0, v0, T0, tsonic
@@ -272,9 +271,9 @@ subroutine save_windprofile(r0, T0, v0, tsonic, filename)
  call filewrite_state(1337, state)
 
  n = 1
- dt_stop = max(dtmin,time_end*1.d-5)
+ dt_stop = max(dtmin,time_end*1.d-6)
  dt_print = max(min(tsonic/10.,state%time_end/256.),state%time_end/5000.)
- do while(state%time < state%time_end .and. state%dt > dt_stop .and. state%Tg > Tdust_stop)
+ do while(state%time < time_end .and. state%dt > dt_stop .and. state%Tg > Tdust_stop)
     call wind_step(state)
     written = .false.
     if (state%time > n*dt_print) then
@@ -337,27 +336,29 @@ end subroutine filewrite_state
 !  Determine the initial wind speed for a trans-sonic solution
 !
 !-----------------------------------------------------------------------
-subroutine get_initial_wind_speed(r0, T0, v0, sonic)
+subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
 !all quantities in cgs
  use timestep, only:tmax
  use io,       only:fatal,iverbose
  use units,    only:utime,udist
  use eos,      only:gmw
  use physcon,  only:Rg,Gg,au,years
+ integer, intent(in) :: stype
  real, intent(in) :: r0, T0
- real, intent(out) :: v0, sonic(:)
+ real, intent(inout) :: v0
+ real, intent(out) :: sonic(8)
 
  type(wind_state) :: state
 
- real :: v0min, v0max, v0last, vesc, cs, Rs, alpha_max
+ real :: v0min, v0max, v0last, vesc, cs, Rs, alpha_max,vin
  integer, parameter :: ncount_max = 20
  integer :: icount
  character(len=*), parameter :: label = 'get_initial_wind_speed'
 
  vesc = sqrt(2.*Gg*Mstar_cgs*(1.-wind_alpha)/r0)
- cs = sqrt(wind_gamma*Rg*T0/gmw)
- v0 = cs*(vesc/2./cs)**2*exp(-(vesc/cs)**2/2.+1.5)
- Rs = Gg*Mstar_cgs*(1.-wind_alpha)/(2.*cs*cs)
+ cs   = sqrt(wind_gamma*Rg*T0/gmw)
+ vin  = cs*(vesc/2./cs)**2*exp(-(vesc/cs)**2/2.+1.5)
+ Rs   = Gg*Mstar_cgs*(1.-wind_alpha)/(2.*cs*cs)
  if (iverbose>0) then
     if (vesc> 1.d-100) then
        alpha_max = 1.-(2.*cs/vesc)**2
@@ -379,19 +380,19 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic)
     print *, ' * mu         = ',gmw
     print *, ' * cs  (km/s) = ',cs/1e5
     print *, ' * vesc(km/s) = ',vesc/1e5
-    print *, ' * v0  (km/s) = ',v0/1e5
+    print *, ' * v0  (km/s) = ',vin/1e5
     print *, ' * alpha      = ',wind_alpha
     print *, ' * alpha_max  = ',alpha_max
     print *, ' * tend (s)   = ',tmax*utime,tmax*utime/years
  endif
  write (*,'("Computing 1D model with v0 (km/s) =",f9.3,"  r0/R* = ",f7.3)') cs/1e5,r0/Rstar_cgs
 
+ if (stype == 1) then
+
 ! Find lower bound for initial velocity
  v0 = cs
  v0max = v0
  icount = 0
- state%mu = gmw
- state%gamma = wind_gamma
  do while (icount < ncount_max)
     call calc_wind_profile(r0, v0, T0, 0., state)
     if (iverbose>1) print *,' v0 = ', v0,state%r,state%v,state%c,state%time,icount,state%spcode
@@ -452,13 +453,14 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic)
  sonic(7) = state%alpha
  !mdot = 4.*pi*rho*v0*ro*ro
 
- write (*,'("Sonic point properties  vs (km/s) =",f9.3,"  Rs/R* = ",f7.3," theoric = ",f7.3," Ts =",f7.1," alpha =",f5.3,/)')&
-            sonic(2)/1e5,sonic(1)/Rstar_cgs,Rs/Rstar_cgs,sonic(5),sonic(7)
+ write (*,'("Sonic point properties  vs (km/s) =",f9.3,"  Rs/R* = ",f7.3," theoric = ",f7.3," Ts =",f7.1," alpha =",f5.3)') &
+      sonic(2)/1e5,sonic(1)/Rstar_cgs,Rs/Rstar_cgs,sonic(5),sonic(7)
+
+endif
  !save 1D initial profile for comparison
  write (*,'("Saving 1D model : ")')
- call save_windprofile(R0, T0, v0, sonic(4), 'gailstatwind1D.dat')
+ call save_windprofile(r0, v0, T0, sonic(4),'windprofile1D.dat')
 
 end subroutine get_initial_wind_speed
-
 
 end module dust_free_wind

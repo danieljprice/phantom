@@ -182,7 +182,6 @@ subroutine init_inject(ierr)
  wind_temperature = polyk* mass_proton_cgs/kboltz * unit_velocity**2*gmw
 #endif
 
-
  call init_wind_equations (xyzmh_ptmass(4,wind_emitting_sink), star_Teff, Rstar, &
       wind_expT, u_to_temperature_ratio, wind_type)
 #ifdef NUCLEATION
@@ -194,22 +193,17 @@ subroutine init_inject(ierr)
          wind_mass_rate, u_to_temperature_ratio, wind_alpha, wind_temperature, wind_type)
 #endif
 
-! integrate the wind equation to get the initial velocity required to set the resolution
- if (sonic_type ==  1) then
-    ! Temperature profile
-    !if (wind_type == 2 .and. wind_temperature /= star_Teff) then
-    !   wind_injection_radius_au = Rstar_cgs/au*(star_Teff/wind_temperature)**(1./wind_expT)
-    !endif
-#ifdef ISOTHERMAL
-    wind_injection_radius  = wind_injection_radius_au * au / udist
-#else
-    wind_injection_radius  = wind_injection_radius_au * au / udist !max(wind_injection_radius_au * au, Rstar_cgs) / udist
-#endif
-    !Rstar = min(wind_injection_radius_au*au,Rstar_cgs)
-    call get_initial_wind_speed(wind_injection_radius*udist,wind_temperature,wind_velocity_cgs,sonic)
-    wind_velocity = wind_velocity_cgs/unit_velocity
- endif
-
+! integrate wind equation to get initial velocity required to set the resolution and save 1D profile
+! Temperature profile
+!if (wind_type == 2 .and. wind_temperature /= star_Teff) then
+!    wind_injection_radius_au = Rstar_cgs/au*(star_Teff/wind_temperature)**(1./wind_expT)
+!    wind_injection_radius  = wind_injection_radius_au * au / udist
+!endif
+!wind_injection_radius = max(wind_injection_radius_au * au, Rstar_cgs) / udist
+!Rstar = min(wind_injection_radius_au*au,Rstar_cgs)
+ wind_velocity_cgs = wind_velocity*unit_velocity
+ call get_initial_wind_speed(wind_injection_radius*udist,wind_temperature,wind_velocity_cgs,sonic,sonic_type)
+ wind_velocity = wind_velocity_cgs/unit_velocity
 
  if (iwind_resolution == 0) then
     !
@@ -302,7 +296,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npartoftype,dtinject)
  use physcon,      only:pi
  use io,           only:fatal
- use eos,          only:gmw,gamma
+ use eos,          only:gmw
 #ifdef BOWEN
  use bowen_dust,   only:pulsating_wind_profile
 #elif NUCLEATION
@@ -363,16 +357,16 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
     !compute the radius, velocity, temperature, chemistry of a sphere at the current local time
 #ifdef BOWEN
-    call pulsating_wind_profile(time,local_time, r, v, u, rho, e, GM, gamma, sphere_number, &
+    call pulsating_wind_profile(time,local_time, r, v, u, rho, e, GM, sphere_number, &
          inner_sphere,inner_boundary_sphere)
 #endif
     v = wind_velocity
 #ifdef NUCLEATION
     r = Rstar
-    call dusty_wind_profile(time,local_time, r, v, u, rho, e, GM, gamma, wind_temperature, Jstar, K, mu, cs)
+    call dusty_wind_profile(time,local_time, r, v, u, rho, e, GM, wind_temperature, Jstar, K, mu, cs)
 #else
     r = wind_injection_radius
-    call dust_free_wind_profile(local_time, r, v, u, rho, e, GM, gamma, mu)
+    call dust_free_wind_profile(local_time, r, v, u, rho, e, GM)
 #endif
 
     if (wind_verbose) then
