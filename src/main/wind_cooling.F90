@@ -69,7 +69,6 @@ end subroutine calc_cooling_rate
 
 subroutine init_windcooling(icool)
   use units,        only:umass, utime, udist
-  use coolfunc
 
   integer, intent(in) :: icool
   integer :: iwind
@@ -111,7 +110,6 @@ subroutine init_windcooling(icool)
 
   !initialize grid temperature
   call set_Tcool
-  call init_coolfunc(iwind)
 end subroutine init_windcooling
 
 
@@ -226,15 +224,6 @@ subroutine set_Tcool
      Tgrid(i) = exp((i-1)*dlnT)
   enddo
 end subroutine set_Tcool
-
-subroutine dust_energy_cooling1 (u, rho, dt, gam_in, mu_in, Teq, K2, kappa)
-  use coolfunc
-  real, intent(in) :: rho, dt
-  real, intent(in), optional :: Teq, K2, kappa, gam_in, mu_in
-  real, intent(inout) :: u
-  real :: dudt
-  call  energ_coolfunc(u,rho,dt,dudt)
-end subroutine
 
 !-----------------------------------------------------------------------
 !

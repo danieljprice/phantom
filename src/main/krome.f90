@@ -27,7 +27,7 @@ module krome_interface
  use krome_user
  use krome_getphys
  use krome_main
- use part, only: species_abund_label,mu_chem,gamma_chem,krometemperature
+ use part, only: species_abund_label,mu_chem,gamma_chem
 
  implicit none
 
@@ -79,53 +79,28 @@ subroutine initialise_krome()
 
 end subroutine initialise_krome
 
-subroutine update_krome(dt,npart,xyzh,vxyzu)
+subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem)
 
- use part,      only:rhoh,massoftype,isdead_or_accreted,igas,&
-                     species_abund,mu_chem,gamma_chem,krometemperature
- use units,     only:unit_density,utime,udist
+ use units,     only:unit_density,utime
  use eos,       only:ieos,get_local_temperature,get_local_u_internal!equationofstate
 
- integer, intent(in) :: npart
- real, intent(in) :: dt
- real, intent(inout) :: vxyzu(:,:),xyzh(:,:)
- integer :: i
- real :: T_local, dt_cgs, hi, rhoi, rho_cgs
- real :: particle_position_sq
+ real, intent(in) :: dt,xyzh(4),rho
+ real, intent(inout) :: u,gamma_chem,mu_chem,xchem(:)
+ real :: T_local, dt_cgs, rho_cgs
 
  dt_cgs = dt*utime
-!$omp parallel do schedule(runtime) &
-!$omp default(none) &
-!$omp shared(ieos,dt,dt_cgs, npart, unit_density, udist) &
-!$omp shared(species_abund) &
-!$omp shared(krometemperature) &
-!$omp shared(mu_chem) &
-!$omp shared(gamma_chem) &
-!$omp shared(vxyzu,xyzh, massoftype) &
-!$omp private(i,T_local, hi, rhoi, rho_cgs, particle_position_sq)
-
- do i = 1,npart
-    hi = xyzh(4,i)
-    if (.not.isdead_or_accreted(hi))  then
-       rhoi = rhoh(hi,massoftype(igas))
-       rho_cgs = rhoi*unit_density
-       call get_local_temperature(ieos,xyzh(1,i),xyzh(2,i),xyzh(3,i),rhoi,mu_chem(i),vxyzu(4,i),gamma_chem(i),T_local)
-       ! normalise abudances and balance charge conservation with e-
-       call krome_consistent_x(species_abund(:,i))
-       ! evolve the chemistry and update the abundances
-       call evolve_chemistry(species_abund(:,i),rho_cgs,T_local,dt_cgs)
-       ! update the gas temperature array for the dumpfiles
-       krometemperature(i) = T_local
-       ! update the particle's mean molecular weight
-       mu_chem(i) =  krome_get_mu_x(species_abund(:,i))
-       ! update the particle's adiabatic index
-       gamma_chem(i) = krome_get_gamma_x(species_abund(:,i),T_local)
-       ! when modelling stellar wind: remove partiles beyond r_max=100*AU => resolution too low
-       !particle_position_sq = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
-       !if (particle_position_sq > (1.496e15/udist)**2) xyzh(4,i) = -abs(xyzh(4,i))
-    endif
- enddo
-!$omp end parallel do
+ rho_cgs = rho*unit_density
+ call get_local_temperature(ieos,xyzh(1),xyzh(2),xyzh(3),rho,mu_chem,u,gamma_chem,T_local)
+! normalise abudances and balance charge conservation with e-
+ call krome_consistent_x(xchem)
+! evolve the chemistry and update the abundances
+ call evolve_chemistry(xchem,rho_cgs,T_local,dt_cgs)
+! update the particle's mean molecular weight
+ mu_chem =  krome_get_mu_x(xchem)
+! update the particle's adiabatic index
+ gamma_chem = krome_get_gamma_x(xchem,T_local)
+! update the particle's adiabatic index
+ u = get_local_u_internal(gamma_chem,mu_chem,T_local)
 
 end subroutine update_krome
 

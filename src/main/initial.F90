@@ -194,7 +194,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use inject,           only:init_inject,inject_particles
 #endif
 #ifdef KROME
- use part,             only:species_abund,mu_chem,gamma_chem,krometemperature
+ use part,             only:species_abund,mu_chem,gamma_chem
  use krome_interface,  only:initialise_krome,H_init, He_init, C_init, N_init, O_init
  use krome_user
 #endif
@@ -511,7 +511,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 
  mu_chem(:)            = krome_get_mu_x(species_abund(:,1))
  gamma_chem(:)         = krome_get_gamma_x(species_abund(:,1),wind_temperature)
- krometemperature(:)   = wind_temperature
 #endif
 !
 !--calculate (all) derivatives the first time around

@@ -130,14 +130,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
     call do_timing('dens',tlast,tcpulast)
  endif
 !
-! update chemical composition and cooling rate
-!
-#ifdef KROME
- if (dt  /=  0.0) then
-    call update_krome(dt,npart,xyzh,vxyzu)
- endif
-#endif
-!
 ! compute forces
 !
 #ifdef DRIVING

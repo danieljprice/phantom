@@ -120,9 +120,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use growth,         only:check_dustprop
 #endif
 #ifdef KROME
- use part,            only: gamma_chem,mu_chem
- use krome_interface, only: krometemperature
- use eos,             only: get_local_u_internal
+ use krome_interface, only: update_krome
+ use part,            only: gamma_chem,mu_chem,species_abund
 #endif
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -381,7 +380,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #endif
 #endif
 #ifdef KROME
-!$omp shared(gamma_chem,mu_chem,krometemperature) &
+!$omp shared(gamma_chem,mu_chem,species_abund) &
 #endif
 #ifdef IND_TIMESTEPS
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
@@ -499,8 +498,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #endif
        endif
 #ifdef KROME
-       !WARNING !! DOES THE COOLING USED TO COMPUTE THE INTERNAL ENERGY TAKE INTO ACCOUNT THE CONTRIBUTION DUE TO GAS EXPANSION ????
-       vxyzu(4,i) = get_local_u_internal(gamma_chem(i),mu_chem(i),krometemperature(i))
+       call update_krome(dtsph,xyzh(:,i),vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),species_abund(:,i),gamma_chem(i),mu_chem(i))
 #endif
 #ifdef WIND
        !the temperature profile being imposed, the internal energy is also fixed

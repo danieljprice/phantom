@@ -274,7 +274,7 @@ subroutine save_windprofile(r0, T0, v0, tsonic, filename)
  n = 1
  dt_stop = max(dtmin,time_end*1.d-5)
  dt_print = max(min(tsonic/10.,state%time_end/256.),state%time_end/5000.)
- do while(state%time < state%time_end .and. state%dt > dt_stop. state%Tg > Tdust_stop)
+ do while(state%time < state%time_end .and. state%dt > dt_stop .and. state%Tg > Tdust_stop)
     call wind_step(state)
     written = .false.
     if (state%time > n*dt_print) then

@@ -335,7 +335,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 #endif
 #ifdef KROME
  use krome_user
- use part, only:species_abund,species_abund_label,gamma_chem,krometemperature
+ use part, only:species_abund,species_abund_label,gamma_chem
 #endif
 #ifdef NUCLEATION
  use units, only:unit_velocity, udist
@@ -547,7 +547,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 #endif
 #ifdef KROME
        call write_array(1,species_abund,species_abund_label,krome_nmols,npart,k,ipass,idump,nums,ierrs(11))
-       call write_array(1,krometemperature,'Tkrome',npart,k,ipass,idump,nums,ierrs(11))
 #endif
 #ifdef NUCLEATION
 
@@ -637,11 +636,6 @@ subroutine write_smalldump(t,dumpfile)
 #ifdef LIGHTCURVE
  use part,       only:luminosity
 #endif
-#ifdef KROME
- use krome_main
- use krome_user
- use part, only:species_abund,species_abund_label,krometemperature
-#endif
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  integer(kind=8) :: ilen(4)
@@ -718,11 +712,6 @@ subroutine write_smalldump(t,dumpfile)
        if (use_dust) &
           call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
-#ifdef KROME
-       call write_array( &
-                1,species_abund,species_abund_label,krome_nmols,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-       call write_array(1,krometemperature,'Tkrome',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-#endif
 #ifdef LIGHTCURVE
        if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
 #endif
@@ -1261,7 +1250,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #ifdef KROME
  use krome_main
  use krome_user
- use part, only:species_abund,species_abund_label,krometemperature
+ use part, only:species_abund,species_abund_label
 #endif
 #ifdef NUCLEATION
  use part, only:partJstarKmu,nucleation_label
@@ -1279,7 +1268,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3)
  logical               :: got_psi,got_temp,got_dustprop(3),got_St,got_divcurlv(4)
 #ifdef KROME
- logical               :: got_krome(krome_nmols),got_krometemp
+ logical               :: got_krome(krome_nmols)
 #endif
 #ifdef NUCLEATION
  logical               :: got_nucleation(6)
@@ -1309,7 +1298,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_divcurlv  = .false.
 #ifdef KROME
  got_krome     = .false.
- got_krometemp = .false.
 #endif
 #ifdef NUCLEATION
  got_nucleation = .false.
@@ -1367,7 +1355,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              endif
 #ifdef KROME
              call read_array(species_abund,species_abund_label,got_krome,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             call read_array(krometemperature,'Tkrome',got_krometemp,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
 #ifdef NUCLEATION
              call read_array(partJstarKmu,nucleation_label,got_nucleation,ik,i1,i2,noffset,idisk1,tag,match,ierr)
